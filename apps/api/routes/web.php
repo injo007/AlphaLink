@@ -27,7 +27,6 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/workspaces/{workspace}/infrastructure/servers/create', [InfrastructureConsoleController::class, 'createServer'])->name('console.infrastructure.servers.create');
     Route::post('/app/workspaces/{workspace}/infrastructure/servers/test-connection', [InfrastructureConsoleController::class, 'testServerConnection'])->middleware('throttle:10,1')->name('console.infrastructure.servers.test-connection');
     Route::post('/app/workspaces/{workspace}/infrastructure/servers', [InfrastructureConsoleController::class, 'storeServer'])->middleware('throttle:10,1')->name('console.infrastructure.servers.store');
-    Route::post('/app/workspaces/{workspace}/infrastructure/servers/{server}/host-key', [InfrastructureConsoleController::class, 'discoverHostKey'])->middleware('throttle:3,1')->name('console.infrastructure.servers.host-key');
     Route::post('/app/workspaces/{workspace}/infrastructure/servers/{server}/preflight', [InfrastructureConsoleController::class, 'preflightServer'])->middleware('throttle:3,1')->name('console.infrastructure.servers.preflight');
     Route::post('/app/workspaces/{workspace}/infrastructure/domains', [InfrastructureConsoleController::class, 'storeDomain'])->middleware('throttle:10,1')->name('console.infrastructure.domains.store');
     Route::post('/app/workspaces/{workspace}/infrastructure/domains/{domain}/verify', [InfrastructureConsoleController::class, 'verifyDomain'])->middleware('throttle:10,1')->name('console.infrastructure.domains.verify');

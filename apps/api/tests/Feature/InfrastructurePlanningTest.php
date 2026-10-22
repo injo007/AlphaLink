@@ -47,7 +47,7 @@ class InfrastructurePlanningTest extends TestCase
         $data = $this->registration(['159.223.97.39']);
         $created = $this->postJson($url, $data)
             ->assertOk()->assertJsonPath('data', 'Added 1, Restored 0')
-            ->assertJsonPath('servers.0.state', 'pending_host_verification');
+            ->assertJsonPath('servers.0.state', 'pending_preflight');
         $this->assertStringNotContainsString($data['password'], $created->getContent());
         $server = ManagedServer::query()->firstOrFail();
         $this->assertSame('PRIMARY RELAY', $server->name);
@@ -219,50 +219,32 @@ class InfrastructurePlanningTest extends TestCase
         $this->assertStringNotContainsString($privateKey, $created->getContent());
     }
 
-    public function test_local_test_connection_requires_a_matching_host_pin_before_credentials_and_never_persists(): void
+    public function test_local_test_connection_never_requests_a_host_fingerprint_or_persists_test_data(): void
     {
         $url = $this->url('/servers/test-connection');
         $data = [
             'ips' => ['159.223.97.39'], 'port' => 22, 'username' => 'root',
             'login_type' => 'password', 'password' => 'private-example-password',
         ];
-        $fingerprint = 'SHA256:'.str_repeat('A', 43);
-        $wrong = 'SHA256:'.str_repeat('B', 43);
         $probe = Mockery::mock(SshHostProbe::class);
         $probe->shouldReceive('testConnection')->once()
-            ->with('159.223.97.39', 22, 'root', 'password', 'private-example-password', null)
-            ->andReturn([
-                'ip' => '159.223.97.39', 'status' => 'pin_required',
-                'message' => 'HOST KEY VERIFY REQUIRED ON IP: 159.223.97.39 PORT : 22',
-                'observed_fingerprint' => $fingerprint,
-            ]);
-        $probe->shouldReceive('testConnection')->once()
-            ->with('159.223.97.39', 22, 'root', 'password', 'private-example-password', $wrong)
-            ->andReturn([
-                'ip' => '159.223.97.39', 'status' => 'host_key_mismatch',
-                'message' => 'HOST KEY MISMATCH ON IP: 159.223.97.39 PORT : 22',
-                'observed_fingerprint' => $fingerprint,
-            ]);
-        $probe->shouldReceive('testConnection')->once()
-            ->with('159.223.97.39', 22, 'root', 'password', 'private-example-password', $fingerprint)
+            ->with('159.223.97.39', 22, 'root', 'password', 'private-example-password')
             ->andReturn([
                 'ip' => '159.223.97.39', 'status' => 'connected',
                 'message' => 'CONNECTED ON IP: 159.223.97.39 PORT : 22',
-                'observed_fingerprint' => $fingerprint,
             ]);
         $this->app->instance(SshHostProbe::class, $probe);
 
-        $firstResult = $this->postJson($url, $data)->assertOk()
-            ->assertJsonPath('results.0.status', 'pin_required')->json();
-        $this->assertSame($fingerprint, $firstResult['host_fingerprints']['159.223.97.39']);
-        $this->postJson($url, [...$data, 'expected_host_fingerprints' => ['159.223.97.39' => $wrong]])
-            ->assertOk()->assertJsonPath('results.0.status', 'host_key_mismatch');
-        $this->postJson($url, [...$data, 'expected_host_fingerprints' => ['159.223.97.39' => $fingerprint]])
-            ->assertOk()->assertJsonPath('data.0', 'CONNECTED ON IP: 159.223.97.39 PORT : 22');
+        $result = $this->postJson($url, $data)->assertOk()
+            ->assertJsonPath('results.0.status', 'connected')
+            ->assertJsonPath('data.0', 'CONNECTED ON IP: 159.223.97.39 PORT : 22')
+            ->assertJsonMissingPath('host_fingerprints')
+            ->assertJsonMissingPath('results.0.observed_fingerprint');
 
         $this->assertSame(0, ManagedServer::query()->count());
         $this->assertSame(0, ServerCredential::query()->count());
         $this->assertSame(0, AuditEvent::query()->count());
+        $this->assertStringNotContainsString('fingerprint', strtolower($result->getContent()));
     }
 
     public function test_connection_probe_blocks_private_reserved_and_documentation_ranges_before_socket_creation(): void
@@ -279,7 +261,7 @@ class InfrastructurePlanningTest extends TestCase
             $result = $probe->testConnection($ip, 22, 'root', 'password', 'synthetic-only-secret');
 
             $this->assertSame('blocked', $result['status'], $ip);
-            $this->assertNull($result['observed_fingerprint'], $ip);
+            $this->assertArrayNotHasKey('observed_fingerprint', $result, $ip);
         }
     }
 
@@ -326,18 +308,16 @@ class InfrastructurePlanningTest extends TestCase
         $this->actingAs($other)->postJson($this->url('/domains'), ['name' => 'example.org'])->assertForbidden();
     }
 
-    public function test_host_key_must_match_before_root_authentication_and_preflight_records_only_facts(): void
+    public function test_preflight_automatically_pins_the_first_host_key_without_user_input(): void
     {
         $this->withoutMiddleware(ThrottleRequests::class);
         $server = $this->postJson($this->url('/servers'), $this->registration(['159.223.97.39']))
             ->assertOk()->json('servers.0');
         $fingerprint = 'SHA256:'.str_repeat('A', 43);
-        $wrong = 'SHA256:'.str_repeat('B', 43);
         $probe = Mockery::mock(SshHostProbe::class);
-        $probe->shouldReceive('fingerprint')->once()->andReturn($fingerprint);
         $probe->shouldReceive('inspect')->once()
-            ->withArgs(fn ($host, $password, $expected, $credentialType) => $host->id === $server['id']
-                && $password === 'private-example-password' && $expected === $fingerprint && $credentialType === 'password')
+            ->withArgs(fn ($host, $password, $credentialType) => $host->id === $server['id']
+                && $password === 'private-example-password' && $credentialType === 'password')
             ->andReturn(['fingerprint' => $fingerprint, 'facts' => [
                 'os_id' => 'almalinux', 'os_version' => '9.6', 'architecture' => 'x86_64',
                 'package_manager' => 'dnf', 'disk_available_kb' => 10485760,
@@ -345,20 +325,14 @@ class InfrastructurePlanningTest extends TestCase
             ]]);
         $this->app->instance(SshHostProbe::class, $probe);
 
-        $this->postJson($this->url('/servers/'.$server['id'].'/host-key'))->assertOk()
-            ->assertJsonPath('observed_fingerprint', $fingerprint);
-        $this->postJson($this->url('/servers/'.$server['id'].'/preflight'), [
-            'expected_host_fingerprint' => $wrong,
-        ])->assertUnprocessable();
-        $this->assertSame('pending_host_verification', ManagedServer::findOrFail($server['id'])->state);
-
-        $result = $this->postJson($this->url('/servers/'.$server['id'].'/preflight'), [
-            'expected_host_fingerprint' => $fingerprint,
-        ])->assertOk()->assertJsonPath('data.state', 'verified')
+        $result = $this->postJson($this->url('/servers/'.$server['id'].'/preflight'))
+            ->assertOk()->assertJsonPath('data.state', 'verified')
             ->assertJsonPath('data.host_facts.os_id', 'almalinux');
         $this->assertStringNotContainsString('private-example-password', $result->getContent());
-        $this->assertSame(1, AuditEvent::query()->where('action', 'server.host_key_observed')->count());
         $this->assertSame(1, AuditEvent::query()->where('action', 'server.preflight_verified')->count());
+        $this->assertStringNotContainsString('fingerprint', strtolower($result->getContent()));
+        $this->assertSame($fingerprint, ManagedServer::findOrFail($server['id'])->expected_host_fingerprint);
+        $this->assertSame($fingerprint, ManagedServer::findOrFail($server['id'])->observed_host_fingerprint);
     }
 
     public function test_browser_flow_renders_and_does_not_flash_root_password(): void
@@ -366,7 +340,9 @@ class InfrastructurePlanningTest extends TestCase
         $page = '/app/workspaces/'.$this->workspace->id.'/infrastructure';
         $this->get($page)->assertOk()->assertSee('Server installation')->assertSee('PowerMTA 4.0r8');
         $createPage = $page.'/servers/create';
-        $this->get($createPage)->assertOk()->assertSee('Select Server Provider')->assertSee('TEST CONNECTION');
+        $this->get($createPage)->assertOk()->assertSee('Select Server Provider')->assertSee('TEST CONNECTION')
+            ->assertDontSee('fingerprint');
+        $this->assertStringNotContainsString('fingerprint', strtolower($this->get($page)->getContent()));
         $invalid = $this->postJson($page.'/servers', [
             'servers_provider_id' => $this->provider->id,
             'name' => 'Relay', 'ips' => ['159.223.97.39'], 'port' => 22,

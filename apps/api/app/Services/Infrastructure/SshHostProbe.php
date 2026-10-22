@@ -10,26 +10,14 @@ use Throwable;
 
 class SshHostProbe
 {
-    public function fingerprint(ManagedServer $server): string
+    public function inspect(ManagedServer $server, string $credential, string $credentialType = 'password'): array
     {
         try {
             $ssh = $this->connect($server);
-
-            return $this->readFingerprint($ssh);
-        } catch (HostProbeException $exception) {
-            throw $exception;
-        } catch (Throwable) {
-            throw new HostProbeException('Could not read the SSH host key. Check the IP, port, and server reachability.');
-        }
-    }
-
-    public function inspect(ManagedServer $server, string $credential, string $expectedFingerprint, string $credentialType = 'password'): array
-    {
-        try {
-            $ssh = $this->connect($server);
-            $actual = $this->readFingerprint($ssh);
-            if (! hash_equals($expectedFingerprint, $actual)) {
-                throw new HostProbeException('SSH host fingerprint changed or does not match the provider fingerprint.');
+            $fingerprint = $this->readFingerprint($ssh);
+            if ($server->expected_host_fingerprint !== null
+                && ! hash_equals($server->expected_host_fingerprint, $fingerprint)) {
+                throw new HostProbeException('The SSH host key changed since the previous preflight.');
             }
             $loginCredential = in_array($credentialType, ['private_key', 'ssh_key'], true)
                 ? PublicKeyLoader::load($credential)
@@ -56,7 +44,7 @@ class SshHostProbe
                 throw new HostProbeException('The host did not return complete OS and architecture facts.');
             }
 
-            return ['fingerprint' => $actual, 'facts' => $facts];
+            return ['fingerprint' => $fingerprint, 'facts' => $facts];
         } catch (HostProbeException $exception) {
             throw $exception;
         } catch (Throwable) {
@@ -66,18 +54,16 @@ class SshHostProbe
 
     /**
      * Tests DMS's SSH/SFTP login outcome without running a command or persisting state.
-     * Credentials are withheld until the observed host key matches a separately confirmed pin.
      *
-     * @return array{ip:string,status:string,message:string,observed_fingerprint:?string}
+     * @return array{ip:string,status:string,message:string}
      */
-    public function testConnection(string $ip, int $port, string $username, string $loginType, string $credential, ?string $expectedFingerprint = null): array
+    public function testConnection(string $ip, int $port, string $username, string $loginType, string $credential): array
     {
         if (! $this->isPublicAddress($ip)) {
             return [
                 'ip' => $ip,
                 'status' => 'blocked',
                 'message' => sprintf('CONNECTION BLOCKED ON IP: %s PORT : %s', $ip, $port),
-                'observed_fingerprint' => null,
             ];
         }
 
@@ -90,24 +76,6 @@ class SshHostProbe
                     'ip' => $ip,
                     'status' => 'down',
                     'message' => sprintf('IP DOWN: %s PORT : %s', $ip, $port),
-                    'observed_fingerprint' => null,
-                ];
-            }
-            $fingerprint = $this->fingerprintFromPublicKey($publicKey);
-            if (! $expectedFingerprint) {
-                return [
-                    'ip' => $ip,
-                    'status' => 'pin_required',
-                    'message' => sprintf('HOST KEY VERIFY REQUIRED ON IP: %s PORT : %s', $ip, $port),
-                    'observed_fingerprint' => $fingerprint,
-                ];
-            }
-            if (! hash_equals($expectedFingerprint, $fingerprint)) {
-                return [
-                    'ip' => $ip,
-                    'status' => 'host_key_mismatch',
-                    'message' => sprintf('HOST KEY MISMATCH ON IP: %s PORT : %s', $ip, $port),
-                    'observed_fingerprint' => $fingerprint,
                 ];
             }
 
@@ -117,7 +85,6 @@ class SshHostProbe
                     'ip' => $ip,
                     'status' => 'connected',
                     'message' => sprintf('CONNECTED ON IP: %s PORT : %s', $ip, $port),
-                    'observed_fingerprint' => $fingerprint,
                 ];
             }
 
@@ -125,14 +92,12 @@ class SshHostProbe
                 'ip' => $ip,
                 'status' => 'authentication_failed',
                 'message' => sprintf('COULD NOT CONNECT ON IP: %s PORT : %s', $ip, $port),
-                'observed_fingerprint' => $fingerprint,
             ];
         } catch (Throwable) {
             return [
                 'ip' => $ip,
                 'status' => 'connection_failed',
                 'message' => sprintf('COULD NOT CONNECT ON IP: %s PORT : %s', $ip, $port),
-                'observed_fingerprint' => null,
             ];
         }
     }
@@ -204,27 +169,6 @@ class SshHostProbe
         return (ord($packedAddress[$fullBytes]) & $mask) === (ord($packedNetwork[$fullBytes]) & $mask);
     }
 
-    private function readFingerprint(SSH2 $ssh): string
-    {
-        $publicKey = $ssh->getServerPublicHostKey();
-        if (! is_string($publicKey)) {
-            throw new HostProbeException('The server host key signature could not be verified.');
-        }
-
-        return $this->fingerprintFromPublicKey($publicKey);
-    }
-
-    private function fingerprintFromPublicKey(string $publicKey): string
-    {
-        $parts = preg_split('/\s+/', trim($publicKey), 3);
-        $keyBlob = isset($parts[1]) ? base64_decode($parts[1], true) : false;
-        if (! is_string($keyBlob) || $keyBlob === '') {
-            throw new HostProbeException('The server host key fingerprint could not be calculated.');
-        }
-
-        return 'SHA256:'.rtrim(base64_encode(hash('sha256', $keyBlob, true)), '=');
-    }
-
     private function run(SSH2 $ssh, string $command): string
     {
         $output = $ssh->exec($command);
@@ -233,6 +177,22 @@ class SshHostProbe
         }
 
         return $output;
+    }
+
+    private function readFingerprint(SSH2 $ssh): string
+    {
+        $publicKey = $ssh->getServerPublicHostKey();
+        if (! is_string($publicKey)) {
+            throw new HostProbeException('The server host key signature could not be verified.');
+        }
+
+        $parts = preg_split('/\s+/', trim($publicKey), 3);
+        $keyBlob = isset($parts[1]) ? base64_decode($parts[1], true) : false;
+        if (! is_string($keyBlob) || $keyBlob === '') {
+            throw new HostProbeException('The server host key could not be validated.');
+        }
+
+        return 'SHA256:'.rtrim(base64_encode(hash('sha256', $keyBlob, true)), '=');
     }
 
     private function osValue(string $text, string $key): ?string

@@ -59,7 +59,6 @@ class InfrastructureManager
                 'ssh_username' => $data['username'],
                 'login_type' => $credentialType,
                 'expire_at' => $data['expire_at'],
-                'expected_host_fingerprint' => $data['expected_host_fingerprints'][$ip] ?? null,
             ];
 
             if ($deleted) {
@@ -93,7 +92,7 @@ class InfrastructureManager
                 'id' => (string) Str::uuid(),
                 'workspace_id' => $workspace->getKey(),
                 ...$attributes,
-                'state' => 'pending_host_verification',
+                'state' => 'pending_preflight',
                 'idempotency_key' => (string) Str::uuid(),
                 'request_fingerprint' => $this->digest([
                     ...$attributes,
@@ -128,14 +127,13 @@ class InfrastructureManager
         return $result;
     }
 
-    /** @param array<int, string> $ips @param array<string, string> $expectedFingerprints */
-    public function testServerConnections(array $ips, int $port, string $username, string $loginType, string $credential, array $expectedFingerprints = []): array
+    /** @param array<int, string> $ips */
+    public function testServerConnections(array $ips, int $port, string $username, string $loginType, string $credential): array
     {
-        return collect($ips)->map(function ($ip) use ($port, $username, $loginType, $credential, $expectedFingerprints): array {
+        return collect($ips)->map(function ($ip) use ($port, $username, $loginType, $credential): array {
             $ip = is_string($ip) ? $ip : '';
-            $expected = $expectedFingerprints[$ip] ?? null;
 
-            return $this->hostProbe->testConnection($ip, $port, $username, $loginType, $credential, $expected);
+            return $this->hostProbe->testConnection($ip, $port, $username, $loginType, $credential);
         })->all();
     }
 
@@ -164,48 +162,25 @@ class InfrastructureManager
         });
     }
 
-    public function discoverServerFingerprint(Workspace $workspace, User $actor, ManagedServer $server, ?string $requestId = null): string
+    public function verifyServerHost(Workspace $workspace, User $actor, ManagedServer $server, ?string $requestId = null): ManagedServer
     {
         abort_unless($server->workspace_id === $workspace->getKey(), 404);
-        $fingerprint = $this->hostProbe->fingerprint($server);
-        if ($server->state === 'verified' && ! hash_equals((string) $server->expected_host_fingerprint, $fingerprint)) {
-            throw new HostProbeException('SSH host fingerprint changed. Stop and confirm the host identity with your provider.');
-        }
-
-        DB::transaction(function () use ($workspace, $actor, $server, $fingerprint, $requestId): void {
-            $server->update(['observed_host_fingerprint' => $fingerprint, 'last_probe_at' => now()]);
-            $this->audit($workspace, $actor, 'server.host_key_observed', 'managed_server', $server->getKey(), $requestId, [
-                'fingerprint' => $fingerprint,
-            ]);
-        });
-
-        return $fingerprint;
-    }
-
-    public function verifyServerHost(Workspace $workspace, User $actor, ManagedServer $server, string $expectedFingerprint, ?string $requestId = null): ManagedServer
-    {
-        abort_unless($server->workspace_id === $workspace->getKey(), 404);
-        abort_unless($server->observed_host_fingerprint, 409, 'Read the SSH host key before preflight.');
-        if (! hash_equals($server->observed_host_fingerprint, $expectedFingerprint)) {
-            throw new HostProbeException('The provider fingerprint does not match the observed SSH host key.');
-        }
 
         $credential = ServerCredential::query()
             ->where('workspace_id', $workspace->getKey())
             ->where('managed_server_id', $server->getKey())
             ->firstOrFail();
-        $result = $this->hostProbe->inspect($server, Crypt::decryptString($credential->encrypted_secret), $expectedFingerprint, $credential->credential_type);
+        $result = $this->hostProbe->inspect($server, Crypt::decryptString($credential->encrypted_secret), $credential->credential_type);
 
-        DB::transaction(function () use ($workspace, $actor, $server, $result, $expectedFingerprint, $requestId): void {
+        DB::transaction(function () use ($workspace, $actor, $server, $result, $requestId): void {
             $server->update([
-                'expected_host_fingerprint' => $expectedFingerprint,
+                'expected_host_fingerprint' => $result['fingerprint'],
                 'observed_host_fingerprint' => $result['fingerprint'],
                 'host_facts' => $result['facts'],
                 'last_probe_at' => now(),
                 'state' => 'verified',
             ]);
             $this->audit($workspace, $actor, 'server.preflight_verified', 'managed_server', $server->getKey(), $requestId, [
-                'fingerprint' => $expectedFingerprint,
                 'os_id' => $result['facts']['os_id'],
                 'os_version' => $result['facts']['os_version'],
                 'architecture' => $result['facts']['architecture'],
@@ -245,7 +220,7 @@ class InfrastructureManager
         $package = $this->catalog->versions()[$version];
         $blockers = [];
         if ($server->state !== 'verified') {
-            $blockers[] = 'SSH host identity and read-only OS preflight have not been verified.';
+            $blockers[] = 'SSH access and read-only OS preflight have not been verified.';
         }
         if (! $package['installable']) {
             $blockers[] = $package['reason'];

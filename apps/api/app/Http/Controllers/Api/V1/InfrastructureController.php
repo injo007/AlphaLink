@@ -45,8 +45,6 @@ class InfrastructureController extends Controller
             'login_type' => ['required', 'string', 'in:password,ssh_key'],
             'password' => ['required', 'string', 'min:4'],
             'expire_at' => ['required', 'date', 'after_or_equal:today'],
-            'expected_host_fingerprints' => ['sometimes', 'array'],
-            'expected_host_fingerprints.*' => ['nullable', 'string', 'regex:/^SHA256:[A-Za-z0-9+\/]{43}$/'],
         ]);
         $result = $this->manager->registerServers($workspace, $request->user(), $data, $request->attributes->get('request_id'));
 
@@ -66,8 +64,6 @@ class InfrastructureController extends Controller
             'username' => ['required', 'string'],
             'login_type' => ['required', 'string', 'in:password,ssh_key'],
             'password' => ['required', 'string', 'min:4'],
-            'expected_host_fingerprints' => ['sometimes', 'array'],
-            'expected_host_fingerprints.*' => ['nullable', 'string', 'regex:/^SHA256:[A-Za-z0-9+\/]{43}$/'],
         ]);
         $results = $this->manager->testServerConnections(
             $data['ips'],
@@ -75,14 +71,10 @@ class InfrastructureController extends Controller
             $data['username'],
             $data['login_type'],
             $data['password'],
-            $data['expected_host_fingerprints'] ?? [],
         );
 
         return response()->json([
             'data' => array_column($results, 'message'),
-            'host_fingerprints' => collect($results)
-                ->filter(fn ($result) => $result['status'] === 'pin_required')
-                ->mapWithKeys(fn ($result) => [$result['ip'] => $result['observed_fingerprint']]),
             'results' => $results,
         ]);
     }
@@ -97,30 +89,13 @@ class InfrastructureController extends Controller
         return response()->json(['data' => $this->domain($domain)], 201);
     }
 
-    public function discoverHostKey(Request $request, string $workspaceId, string $serverId): JsonResponse
-    {
-        /** @var Workspace $workspace */
-        $workspace = $request->attributes->get('alphalink.workspace');
-        $server = $workspace->managedServers()->whereKey($serverId)->firstOrFail();
-        try {
-            $fingerprint = $this->manager->discoverServerFingerprint($workspace, $request->user(), $server, $request->attributes->get('request_id'));
-        } catch (HostProbeException $exception) {
-            return response()->json(['message' => $exception->getMessage()], 422);
-        }
-
-        return response()->json(['data' => $this->server($server->refresh()), 'observed_fingerprint' => $fingerprint]);
-    }
-
     public function preflightServer(Request $request, string $workspaceId, string $serverId): JsonResponse
     {
         /** @var Workspace $workspace */
         $workspace = $request->attributes->get('alphalink.workspace');
-        $data = $request->validate([
-            'expected_host_fingerprint' => ['required', 'string', 'regex:/^SHA256:[A-Za-z0-9+\/]{43}$/'],
-        ]);
         $server = $workspace->managedServers()->whereKey($serverId)->firstOrFail();
         try {
-            $this->manager->verifyServerHost($workspace, $request->user(), $server, $data['expected_host_fingerprint'], $request->attributes->get('request_id'));
+            $this->manager->verifyServerHost($workspace, $request->user(), $server, $request->attributes->get('request_id'));
         } catch (HostProbeException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }
@@ -163,7 +138,7 @@ class InfrastructureController extends Controller
 
     private function server($server): array
     {
-        return $server->only(['id', 'name', 'provider', 'servers_provider_id', 'ip_address', 'ssh_port', 'ssh_username', 'login_type', 'expire_at', 'expected_host_fingerprint', 'observed_host_fingerprint', 'last_probe_at', 'state', 'host_facts', 'created_at']);
+        return $server->only(['id', 'name', 'provider', 'servers_provider_id', 'ip_address', 'ssh_port', 'ssh_username', 'login_type', 'expire_at', 'last_probe_at', 'state', 'host_facts', 'created_at']);
     }
 
     private function domain($domain): array

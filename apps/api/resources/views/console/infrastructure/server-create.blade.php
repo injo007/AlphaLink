@@ -59,15 +59,6 @@
         </div>
     </div>
 
-    <dialog id="server-pin-confirmation" class="server-dialog" aria-labelledby="server-pin-title">
-        <h2 id="server-pin-title">Verify SSH host identity</h2>
-        <p>Compare each observed fingerprint with the value supplied by your server provider. AlphaLink will not send the SSH credential until they match.</p>
-        <div id="server-pin-list"></div>
-        <div class="server-dialog-actions">
-            <button class="btn btn-secondary" type="button" data-cancel-pins>Cancel</button>
-            <button id="confirm-host-fingerprints" class="btn btn-warning" type="button">Verify &amp; Test</button>
-        </div>
-    </dialog>
 @endsection
 
 @push('scripts')

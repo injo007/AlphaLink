@@ -10,16 +10,13 @@
     const saveButton = document.getElementById('save');
     const testButton = document.getElementById('test');
     const errors = document.getElementById('validation_errors');
-    const pinDialog = document.getElementById('server-pin-confirmation');
-    const pinList = document.getElementById('server-pin-list');
     const csrf = document.querySelector('meta[name="csrf-token"]').content;
     const appWindow = window.parent !== window && window.parent.App ? window.parent : window;
-    let pendingIps = [];
 
     // DMS uses this exact split/filter/exact-dedup behavior before either action.
     const ips = () => [...new Set(ipField.value.split('\n').filter((ip) => ip))];
 
-    const requestData = (includeProvider, expectedPins = {}) => {
+    const requestData = (includeProvider) => {
         const data = new URLSearchParams();
         ips().forEach((ip) => data.append('ips[]', ip));
         data.append('port', port.value);
@@ -31,9 +28,6 @@
             data.append('name', name.value);
             data.append('expire_at', expiry.value);
         }
-        Object.entries(expectedPins).forEach(([ip, fingerprint]) => {
-            if (ips().includes(ip)) data.append(`expected_host_fingerprints[${ip}]`, fingerprint);
-        });
         return data;
     };
 
@@ -97,31 +91,8 @@
         });
     };
 
-    const runConnectionTest = async (expectedPins = {}) => {
-        const payload = await post(testButton.dataset.url, requestData(false, expectedPins));
-        const fingerprints = payload.host_fingerprints || {};
-        if (Object.keys(fingerprints).length > 0) {
-            pendingIps = Object.keys(fingerprints);
-            pinList.replaceChildren();
-            pendingIps.forEach((ip) => {
-                const section = document.createElement('div');
-                section.className = 'server-dialog-pin';
-                const label = document.createElement('label');
-                label.textContent = `Expected fingerprint for ${ip}`;
-                const observed = document.createElement('code');
-                observed.textContent = `Observed: ${fingerprints[ip]}`;
-                const input = document.createElement('input');
-                input.className = 'form-control';
-                input.type = 'text';
-                input.autocomplete = 'off';
-                input.dataset.ip = ip;
-                input.setAttribute('aria-label', label.textContent);
-                section.append(label, observed, input);
-                pinList.append(section);
-            });
-            pinDialog.showModal();
-            return;
-        }
+    const runConnectionTest = async () => {
+        const payload = await post(testButton.dataset.url, requestData(false));
         await showTestResults(payload);
     };
 
@@ -169,52 +140,4 @@
         }
     });
 
-    document.getElementById('confirm-host-fingerprints').addEventListener('click', async () => {
-        const expectedPins = {};
-        let valid = true;
-        pinList.querySelectorAll('input[data-ip]').forEach((input) => {
-            const value = input.value.trim();
-            if (!/^SHA256:[A-Za-z0-9+/]{43}$/.test(value)) valid = false;
-            expectedPins[input.dataset.ip] = value;
-        });
-        if (!valid || Object.keys(expectedPins).length !== pendingIps.length) {
-            pinDialog.close();
-            await appWindow.App.swalPromise({
-                icon: 'warning',
-                title: 'Check fingerprints',
-                text: 'Enter the provider-confirmed SHA-256 fingerprint for every IP.',
-                confirmButtonText: 'close',
-            });
-            return;
-        }
-
-        pinDialog.close();
-        setBusy(testButton, true, 'TEST CONNECTION', 'TESTING');
-        try {
-            const payload = await post(testButton.dataset.url, requestData(false, expectedPins));
-            const results = payload.results || [];
-            const pinsMatch = Object.entries(expectedPins).every(([ip, fingerprint]) => {
-                const result = results.find((row) => row.ip === ip);
-                return result
-                    && result.observed_fingerprint === fingerprint
-                    && ['connected', 'authentication_failed'].includes(result.status);
-            });
-            if (!pinsMatch) {
-                await appWindow.App.swalPromise({
-                    icon: 'error',
-                    title: 'SSH host identity could not be verified',
-                    text: 'Check the observed fingerprint with your provider before continuing.',
-                    confirmButtonText: 'close',
-                });
-                return;
-            }
-            await showTestResults(payload);
-        } catch {
-            // DMS's observed Test Connection handler has no visible failure callback.
-        } finally {
-            setBusy(testButton, false, 'TEST CONNECTION', 'TESTING');
-        }
-    });
-
-    document.querySelector('[data-cancel-pins]').addEventListener('click', () => pinDialog.close());
 })();

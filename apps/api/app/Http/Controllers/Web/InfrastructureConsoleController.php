@@ -114,8 +114,6 @@ class InfrastructureConsoleController extends Controller
             'login_type' => ['required', 'string', 'in:password,ssh_key'],
             'password' => ['required', 'string', 'min:4'],
             'expire_at' => ['required', 'date', 'after_or_equal:today'],
-            'expected_host_fingerprints' => ['sometimes', 'array'],
-            'expected_host_fingerprints.*' => ['nullable', 'string', 'regex:/^SHA256:[A-Za-z0-9+\/]{43}$/'],
         ]);
         $result = $this->manager->registerServers($workspace, $request->user(), $data, $request->attributes->get('request_id'));
 
@@ -136,19 +134,14 @@ class InfrastructureConsoleController extends Controller
             'username' => ['required', 'string'],
             'login_type' => ['required', 'string', 'in:password,ssh_key'],
             'password' => ['required', 'string', 'min:4'],
-            'expected_host_fingerprints' => ['sometimes', 'array'],
-            'expected_host_fingerprints.*' => ['nullable', 'string', 'regex:/^SHA256:[A-Za-z0-9+\/]{43}$/'],
         ]);
         $results = $this->manager->testServerConnections(
             $data['ips'], (int) $data['port'], $data['username'], $data['login_type'],
-            $data['password'], $data['expected_host_fingerprints'] ?? [],
+            $data['password'],
         );
 
         return response()->json([
             'data' => array_column($results, 'message'),
-            'host_fingerprints' => collect($results)
-                ->filter(fn ($result) => $result['status'] === 'pin_required')
-                ->mapWithKeys(fn ($result) => [$result['ip'] => $result['observed_fingerprint']]),
             'results' => $results,
         ]);
     }
@@ -162,28 +155,12 @@ class InfrastructureConsoleController extends Controller
         return redirect()->route('console.infrastructure.index', $workspace->id)->with('status', 'Domain saved. Publish its TXT record to prove ownership.');
     }
 
-    public function discoverHostKey(Request $request, string $workspaceId, string $serverId): RedirectResponse
-    {
-        $workspace = $this->workspaceFor($request->user(), $workspaceId);
-        $server = $workspace->managedServers()->whereKey($serverId)->firstOrFail();
-        try {
-            $this->manager->discoverServerFingerprint($workspace, $request->user(), $server, $request->attributes->get('request_id'));
-        } catch (HostProbeException $exception) {
-            return redirect()->route('console.infrastructure.index', $workspace->id)->with('warning', $exception->getMessage());
-        }
-
-        return redirect()->route('console.infrastructure.index', $workspace->id)->with('status', 'Host key read. Compare the fingerprint below with your provider before preflight.');
-    }
-
     public function preflightServer(Request $request, string $workspaceId, string $serverId): RedirectResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
         $server = $workspace->managedServers()->whereKey($serverId)->firstOrFail();
-        $data = $request->validate([
-            'expected_host_fingerprint' => ['required', 'string', 'regex:/^SHA256:[A-Za-z0-9+\/]{43}$/'],
-        ]);
         try {
-            $this->manager->verifyServerHost($workspace, $request->user(), $server, $data['expected_host_fingerprint'], $request->attributes->get('request_id'));
+            $this->manager->verifyServerHost($workspace, $request->user(), $server, $request->attributes->get('request_id'));
         } catch (HostProbeException $exception) {
             return redirect()->route('console.infrastructure.index', $workspace->id)->with('warning', $exception->getMessage());
         }

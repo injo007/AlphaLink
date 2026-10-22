@@ -17,7 +17,7 @@ return new class extends Migration
             $table->unsignedSmallInteger('ssh_port')->default(22);
             $table->string('ssh_username', 32)->default('root');
             $table->string('expected_host_fingerprint', 128)->nullable();
-            $table->string('state', 40)->default('pending_host_verification');
+            $table->string('state', 40)->default('pending_preflight');
             $table->jsonb('host_facts')->nullable();
             $table->string('idempotency_key', 128);
             $table->char('request_fingerprint', 64);

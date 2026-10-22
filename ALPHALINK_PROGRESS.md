@@ -1,6 +1,6 @@
 # AlphaLink progress
 
-**Checkpoint:** 2026-10-22. The root Git repository starts at `5797a6f` (`Start evidence-backed AlphaLink reconstruction`). This is a fresh local checkpoint, not recovered upstream history. The latest validated server-slice checkpoint is `1c8cdc8` (`Keep server list unknowns explicit and block reference rows`).
+**Checkpoint:** 2026-10-22. The root Git repository starts at `5797a6f` (`Start evidence-backed AlphaLink reconstruction`). This is a fresh local checkpoint, not recovered upstream history. Current validated work includes the server registration/list slice and audience import slice; the in-progress SSH behavior correction removes operator fingerprint input while preserving automatic host-key pinning for read-only preflight.
 
 ## DMS access and safety
 
@@ -10,13 +10,15 @@ Read-only DMS browser access is restored through the existing project `.env` pro
 
 DMS-SRV-001 (server registration) and DMS-SRV-002 (server list/returned rows) are in `TESTING`, not accepted. AlphaLink now has a provider-backed DMS-shaped registration form, multi-IP API flow, encrypted credential storage, provider dropdown, expiry and separate Test Connection UI, a workspace-scoped list endpoint, DataTables toolbar/search, returned-row filter, and DMS-style Add modal. The local IP guard blocks private, reserved and documentation ranges before any socket creation. A local synthetic registration was submitted in the browser, displayed in the list, and fully removed after verification.
 
+The owner confirmed that DMS does not request an SSH fingerprint during Test Connection or installation. AlphaLink no longer displays or accepts fingerprint input: Test Connection logs in directly over SSH/SFTP, and preflight automatically pins the first host key internally so later key changes are rejected without an operator prompt. DMS live SSH/install actions remain untested and prohibited. The installation execution route remains disabled.
+
 The live DMS and AlphaLink form/modal and filtered list empty state were compared in-browser at an equal 863×892 CSS viewport. The Add fields/order/defaults and modal structure are closely matched, and the no-match table state uses the same label. Parity remains open: DMS credential-storage and partial-failure rules, exact Test Connection outcomes, row relations, and row/bulk actions are not fully reconstructed. Local row-level controls remain disabled where DMS behavior has not been implemented.
 
 DMS-AUD-002 is now `IMPLEMENTING`. The local import service applies lowercase normalization, email validation, conflict-do-nothing behavior and one-list assignment within a workspace. It writes encrypted contacts, append-only membership events, audit records and outbox events. The source Lists page was inspected through the existing `.env` proxy with synthetic ISP options and an empty table; its `/admin/lists/:id/load` GET remains uncalled because safety is unknown. The AlphaLink ISP entity and matching Lists UI are still missing, so no audience feature is accepted.
 
 ## Verification
 
-Docker PHP 8.3 full test suite: **21 passed, 236 assertions**. Five relay privacy tests pass; Pint passed on changed PHP files; Node syntax checks passed for the three DMS server scripts; `git diff --check` passed. Unsupported server relations stay unknown and render as N/A. The IANA-address regression cases block special-use addresses before socket creation. See `docs/implementation/TEST_REPORT.md` and `docs/implementation/PARITY_REPORT.md`.
+Docker PHP 8.3 full test suite: **21 passed, 232 assertions** after the fingerprint-flow correction. Five relay privacy tests passed in the previous audience-import checkpoint. Pint passed on changed PHP files; Node syntax checks passed for the server scripts; `git diff --check` passed. Unsupported server relations stay unknown and render as N/A. The IANA-address regression cases block special-use addresses before socket creation. The local Add Servers page was reloaded and confirmed to contain no fingerprint prompt; no connection test was submitted. See `docs/implementation/TEST_REPORT.md` and `docs/implementation/PARITY_REPORT.md`.
 
 ## 80% target
 

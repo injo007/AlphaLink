@@ -1,5 +1,18 @@
 # Verification record — 2026-10-22
 
+## SSH fingerprint prompt removal — current checkpoint
+
+| Check | Result | Meaning |
+|---|---|---|
+| Docker PHP 8.3 `php artisan test --compact` | **21 passed, 232 assertions.** | Full target suite passes with direct SSH/SFTP Test Connection and no-body preflight; tests verify no fingerprint input or fingerprint output in these flows, and preflight automatically stores the initial host-key pin. |
+| Focused `InfrastructurePlanningTest.php` | **14 passed, 198 assertions.** | Covers registration, Test Connection, automatic first-use pinning, preflight, installation-plan blocking, role checks, and special-use IP rejection. |
+| Docker PHP 8.3 Pint | Passed on changed PHP files. | Explicit file paths were used because the container has no Git metadata. |
+| JavaScript syntax and `git diff --check` | Passed. | Registration UI script parses, and changed files have no whitespace errors. |
+| Local Add Servers browser page | Reopened through the current local AlphaLink app; the rendered form contains provider, name, IPs, port, username, password type, credential, expiry, Test Connection and Save only. | No fingerprint field/dialog is present. No connection test was submitted and no credential was sent. |
+| DMS reference behavior | Read-only Lists GET through the configured `.env` proxy returned `Lists - DMS` with the ISP selector and `LOAD LISTS`; existing server-form evidence also shows no fingerprint input. | No DMS Test Connection, SSH connection, install, or state-changing form was invoked. |
+
+The AlphaLink Add/Test Connection and preflight paths do not ask the operator for a fingerprint. Preflight retains automatic first-use host-key pinning internally and blocks a later key change without asking for fingerprint text. Exact DMS connection success/failure strings remain unverified; the server feature remains `TESTING`.
+
 | Check | Result | Meaning |
 |---|---|---|
 | Docker PHP 8.3 `php artisan test --compact` | **16 passed, 205 assertions**. Tests use SQLite/synthetic fixtures; no DMS request is part of the suite. | Covers existing application tests plus server registration, multi-IP cardinality, duplicate/restore paths, encrypted password/key handling, preflight pin ordering, IANA special-address blocking, workspace scope, active/returned list JSON, and unknown list-relation fields. This is local behavior evidence, not DMS parity by itself. |

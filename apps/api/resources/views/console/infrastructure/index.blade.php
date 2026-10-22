@@ -38,7 +38,7 @@
                 @if ($servers->isNotEmpty())
                     <div class="infra-records" aria-label="Registered servers">
                         @foreach ($servers as $server)
-                            <div class="infra-record"><div><strong>{{ $server->name }}</strong><small>{{ $server->provider }} · {{ $server->ip_address }}:{{ $server->ssh_port }} · Expires {{ $server->expire_at?->format('Y-m-d') }}</small></div><span class="infra-state">{{ $server->state === 'verified' ? 'Host verified' : 'Host check pending' }}</span></div>
+                            <div class="infra-record"><div><strong>{{ $server->name }}</strong><small>{{ $server->provider }} · {{ $server->ip_address }}:{{ $server->ssh_port }} · Expires {{ $server->expire_at?->format('Y-m-d') }}</small></div><span class="infra-state">{{ $server->state === 'verified' ? 'SSH preflight complete' : 'SSH preflight pending' }}</span></div>
                         @endforeach
                     </div>
                 @endif

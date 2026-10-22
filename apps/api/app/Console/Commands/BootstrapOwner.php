@@ -1,0 +1,123 @@
+<?php
+
+namespace App\Console\Commands;
+
+use App\Models\AuditEvent;
+use App\Models\OutboxMessage;
+use App\Models\User;
+use App\Models\Workspace;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+
+class BootstrapOwner extends Command
+{
+    protected $signature = 'alphalink:bootstrap-owner
+        {--name= : First owner name}
+        {--email= : First owner email}
+        {--workspace= : Initial workspace name}
+        {--slug= : Optional workspace address}';
+
+    protected $description = 'Create the first AlphaLink owner, workspace, and short-lived API token';
+
+    public function handle(): int
+    {
+        if (User::query()->exists()) {
+            $this->error('Bootstrap is disabled because a user already exists.');
+
+            return self::FAILURE;
+        }
+
+        $name = trim((string) ($this->option('name') ?: $this->ask('Owner name')));
+        $email = mb_strtolower(trim((string) ($this->option('email') ?: $this->ask('Owner email'))));
+        $workspaceName = trim((string) ($this->option('workspace') ?: $this->ask('Initial workspace name')));
+
+        if ($name === '' || $workspaceName === '' || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+            $this->error('A name, workspace name, and valid email address are required.');
+
+            return self::INVALID;
+        }
+
+        $password = $this->secret('Owner password (at least 16 characters)');
+        $confirmation = $this->secret('Confirm owner password');
+        if (! is_string($password) || strlen($password) < 16 || ! hash_equals((string) $password, (string) $confirmation)) {
+            $this->error('Passwords must match and contain at least 16 characters.');
+
+            return self::INVALID;
+        }
+
+        $slugInput = $this->option('slug');
+        $slug = Str::slug(is_string($slugInput) && $slugInput !== '' ? $slugInput : $workspaceName);
+        $slug = $slug !== '' ? $slug : 'workspace';
+        if (Workspace::query()->where('slug', $slug)->exists()) {
+            $this->error('That workspace address is already in use.');
+
+            return self::INVALID;
+        }
+
+        $plainTextToken = null;
+
+        $created = DB::transaction(function () use ($name, $email, $password, $workspaceName, $slug, &$plainTextToken): bool {
+            // Two operators may run this command at once; serialize the final check.
+            DB::select('SELECT pg_advisory_xact_lock(278767147282)');
+            if (User::query()->exists()) {
+                return false;
+            }
+
+            $user = (new User)->forceFill([
+                'name' => $name,
+                'email' => $email,
+                'email_verified_at' => now(),
+                'password' => $password,
+            ]);
+            $user->save();
+
+            $workspace = Workspace::query()->create([
+                'name' => $workspaceName,
+                'slug' => $slug,
+                'status' => 'active',
+                'created_by' => $user->getKey(),
+            ]);
+
+            $workspace->users()->attach($user->getKey(), [
+                'role' => 'owner',
+                'joined_at' => now(),
+            ]);
+
+            AuditEvent::query()->create([
+                'workspace_id' => $workspace->getKey(),
+                'actor_user_id' => $user->getKey(),
+                'action' => 'workspace.bootstrap_owner_created',
+                'subject_type' => 'workspace',
+                'subject_id' => $workspace->getKey(),
+                'properties' => ['role_granted' => 'owner'],
+                'occurred_at' => now(),
+            ]);
+
+            OutboxMessage::query()->create([
+                'workspace_id' => $workspace->getKey(),
+                'event_type' => 'workspace.created',
+                'payload' => ['workspace_id' => $workspace->getKey()],
+                'idempotency_key' => (string) Str::uuid(),
+                'available_at' => now(),
+                'created_at' => now(),
+            ]);
+
+            $plainTextToken = $user->createToken('initial-owner', ['*'], now()->addHours(8))->plainTextToken;
+
+            return true;
+        });
+
+        if (! $created) {
+            $this->error('Bootstrap is disabled because a user already exists.');
+
+            return self::FAILURE;
+        }
+
+        $this->info('First owner and workspace created.');
+        $this->line('Store this API token securely. It is shown once and expires in 8 hours:');
+        $this->line((string) $plainTextToken);
+
+        return self::SUCCESS;
+    }
+}

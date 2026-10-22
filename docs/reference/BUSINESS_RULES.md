@@ -1,0 +1,7 @@
+# Source-backed business rules in active implementation
+
+## DMS-SRV-001 — server registration
+
+E-SRV-01 identifies `resources/views/admin/servers/create.blade.php`, `ServerController::store` and `ServerAction::add` in the read-only DMS snapshot. An administrator supplies a provider selection, name, one or more IPs, SSH port, username, password or SSH key, and expiry. The action creates one server per supplied IP. Test Connection is a separate action. The source report does not establish current provider rows, exact duplicate-IP response, or successful live SSH behavior; those remain unknown.
+
+AlphaLink now reproduces the per-IP creation cardinality locally for public addresses and accepts an SSH username and either a password or private-key value. Both secret types are encrypted at rest, and the preflight chooses password or phpseclib private-key authentication after comparing the SSH host fingerprint. Each batch is transactional: an invalid or already registered IP leaves no partial new batch. The one-batch transaction, idempotency key, secret encryption, host-key preflight, and public-IP restriction are AlphaLink safeguards. Their outcomes have been tested locally, but exact DMS equivalence is not established. Provider catalog selection and expiry are still absent; private-key format/passphrase rules and separate Test Connection semantics remain unknown. See `docs/implementation/PARITY_REPORT.md` before treating this as complete.

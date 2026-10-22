@@ -1,0 +1,18 @@
+# Secrets are kept outside source control, including supplied reference credentials.
+/.env
+/.env.*
+!/.env.example
+/apps/api/.env
+/apps/api/.env.*
+!/apps/api/.env.example
+
+# Generated application dependencies and build output.
+/apps/api/vendor/
+/apps/api/node_modules/
+/apps/api/public/build/
+/apps/api/storage/*.key
+/apps/api/storage/logs/*.log
+/apps/api/bootstrap/cache/*.php
+/pmta.zip
+*pmta*.rpm
+*pmta*/license

@@ -3,12 +3,14 @@
 namespace Tests\Feature;
 
 use App\Models\AuditEvent;
+use App\Models\DomainProvider;
 use App\Models\ManagedServer;
 use App\Models\SendingDomain;
 use App\Models\ServerCredential;
 use App\Models\ServerProvider;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\Infrastructure\DmsBulkInstallEligibility;
 use App\Services\Infrastructure\DomainTxtResolver;
 use App\Services\Infrastructure\SshHostProbe;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -188,10 +190,10 @@ class InfrastructurePlanningTest extends TestCase
             ->assertJsonPath('data.0.name', 'CURRENT WORKSPACE RELAY')
             ->assertJsonPath('data.0.ip', '159.223.97.39')
             ->assertJsonPath('data.0.provider.name', $this->provider->name)
-            ->assertJsonPath('data.0.is_installed', null)
+            ->assertJsonPath('data.0.is_installed', false)
             ->assertJsonPath('data.0.is_locked', null)
             ->assertJsonPath('data.0.allowed_users', null)
-            ->assertJsonPath('data.0.is_active', null)
+            ->assertJsonPath('data.0.is_active', true)
             ->assertJsonPath('data.0.ips_count', null);
         $this->assertStringNotContainsString('private-example-password', $active->getContent());
         $this->assertStringNotContainsString('OTHER WORKSPACE RELAY', $active->getContent());
@@ -203,6 +205,87 @@ class InfrastructurePlanningTest extends TestCase
             ->assertJsonPath('data.0.id', $currentServer['id']);
         $this->assertNotNull($returned->json('data.0.deleted_at'));
         $this->assertStringNotContainsString('private-example-password', $returned->getContent());
+    }
+
+    public function test_bulk_install_page_matches_dms_controls_and_keeps_remote_install_disabled(): void
+    {
+        $url = '/app/workspaces/'.$this->workspace->id.'/infrastructure/bulk-install';
+        $response = $this->get($url)->assertOk();
+
+        $response->assertSee('<title>Bulk Install - DMS</title>', false)
+            ->assertSee('Bulk Install Server')
+            ->assertSee('id="pmta_version"', false)
+            ->assertSee('<option value="40" selected>PMTA 4.0</option>', false)
+            ->assertSee('PMTA 4.5')->assertSee('PMTA 5.0')
+            ->assertSee('id="tracking"', false)->assertSee('id="proxy"', false)
+            ->assertSee('id="imap"', false)->assertSee('id="spf"', false)
+            ->assertSee('id="dkim"', false)->assertSee('id="dmarc"', false)
+            ->assertSee('id="https"', false)
+            ->assertSee('SERVER NAME')->assertSee('SERVER ID')->assertSee('SERVER IP')
+            ->assertSee('SELECTED DOMAIN')->assertSee('APPLY')
+            ->assertSee('This Grid Is Empty')
+            ->assertSee('id="install" disabled', false)
+            ->assertSee('/dms-reference/assets/css/theme.css')
+            ->assertDontSee('fingerprint');
+
+        $this->assertStringNotContainsString('bulk-install/install', $response->getContent());
+    }
+
+    public function test_bulk_install_eligibility_uses_dms_owner_active_install_and_external_domain_filters(): void
+    {
+        $this->owner->forceFill(['username' => 'mailer'])->save();
+        $this->postJson($this->url('/servers'), $this->registration(['159.223.97.39'], ['name' => 'A_MAILER_RELAY']))->assertOk();
+        $this->postJson($this->url('/servers'), $this->registration(['159.223.97.40'], ['name' => 'A_MAILER_INACTIVE']))->assertOk();
+        $this->postJson($this->url('/servers'), $this->registration(['159.223.97.41'], ['name' => 'OTHER_RELAY']))->assertOk();
+
+        $eligibleServer = ManagedServer::query()->where('name', 'A_MAILER_RELAY')->firstOrFail();
+        ManagedServer::query()->where('name', 'A_MAILER_INACTIVE')->update(['is_active' => false]);
+        ManagedServer::query()->where('name', 'OTHER_RELAY')->update(['is_installed' => true]);
+
+        $activeProvider = DomainProvider::query()->create(['name' => 'Example provider', 'is_active' => true]);
+        $inactiveProvider = DomainProvider::query()->create(['name' => 'Inactive provider', 'is_active' => false]);
+        $eligibleDomain = $this->postJson($this->url('/domains'), ['name' => 'bulk.example.org'])->assertCreated()->json('data');
+        $newDomain = $this->postJson($this->url('/domains'), ['name' => 'new.example.org'])->assertCreated()->json('data');
+        $ownedDomain = $this->postJson($this->url('/domains'), ['name' => 'owned.example.org'])->assertCreated()->json('data');
+        $inactiveDomain = $this->postJson($this->url('/domains'), ['name' => 'inactive.example.org'])->assertCreated()->json('data');
+        $usedDomain = $this->postJson($this->url('/domains'), ['name' => 'used.example.org'])->assertCreated()->json('data');
+
+        SendingDomain::query()->whereKey($eligibleDomain['id'])->update([
+            'domains_provider_id' => $activeProvider->id, 'status' => 'free', 'is_our' => false, 'is_active' => true,
+        ]);
+        SendingDomain::query()->whereKey($newDomain['id'])->update([
+            'domains_provider_id' => $activeProvider->id, 'status' => 'new', 'is_our' => false, 'is_active' => true,
+        ]);
+        SendingDomain::query()->whereKey($ownedDomain['id'])->update([
+            'domains_provider_id' => $activeProvider->id, 'status' => 'new', 'is_our' => true, 'is_active' => true,
+        ]);
+        SendingDomain::query()->whereKey($inactiveDomain['id'])->update([
+            'domains_provider_id' => $inactiveProvider->id, 'status' => 'new', 'is_our' => false, 'is_active' => true,
+        ]);
+        SendingDomain::query()->whereKey($usedDomain['id'])->update([
+            'domains_provider_id' => $activeProvider->id, 'status' => 'used', 'is_our' => false, 'is_active' => true,
+        ]);
+
+        $eligible = app(DmsBulkInstallEligibility::class)->for($this->owner, $this->workspace);
+        $this->assertSame([$eligibleServer->id], $eligible['servers']->pluck('id')->all());
+        $this->assertEqualsCanonicalizing([$eligibleDomain['id'], $newDomain['id']], $eligible['domains']->pluck('id')->all());
+        $this->assertEqualsCanonicalizing([
+            'bulk.example.org | STATUS: free | IS OUR: No',
+            'new.example.org | STATUS: new | IS OUR: No',
+        ], $eligible['domains']->pluck('label')->all());
+        $this->assertFalse($eligible['missing_username']);
+
+        $this->get('/app/workspaces/'.$this->workspace->id.'/infrastructure/bulk-install')
+            ->assertOk()
+            ->assertSee('A_MAILER_RELAY')
+            ->assertSee((string) $eligibleServer->id)
+            ->assertSee('bulk.example.org | STATUS: free | IS OUR: No')
+            ->assertSee('new.example.org | STATUS: new | IS OUR: No')
+            ->assertDontSee('A_MAILER_INACTIVE')
+            ->assertDontSee('OTHER_RELAY')
+            ->assertDontSee('owned.example.org')
+            ->assertDontSee('inactive.example.org')
+            ->assertDontSee('used.example.org');
     }
 
     public function test_server_registration_encrypts_an_ssh_private_key_as_a_credential(): void

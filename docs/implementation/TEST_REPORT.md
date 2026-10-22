@@ -1,5 +1,17 @@
 # Verification record — 2026-10-22
 
+## DMS-INST-001 bulk-install planning checkpoint
+
+| Check | Result | Meaning |
+|---|---|---|
+| Docker PHP 8.3 `php artisan test --compact` | **23 passed, 278 assertions.** | Includes DMS bulk-install page controls/empty state, exact server/domain eligibility filters, and rendered eligible candidate labels. The suite uses synthetic local fixtures; no DMS install or server connection is part of it. |
+| Docker PHP 8.3 Pint | Passed on 9 changed PHP files. | New model, eligibility query, migration, route/controller and tests match project formatting. |
+| DMS relay privacy tests | **8 passed.** | Synthetic row/domain substitution, empty DMS grid substitution, fail-closed behavior and row privacy are covered. |
+| DMS and AlphaLink browser pages | Empty grid and visible layout compared at the same viewport. Both show the PMTA/switch bar, matching column labels and “This Grid Is Empty.” A separate sanitized DMS row capture uses fake server/domain values. | AlphaLink INSTALL is disabled; DMS INSTALL is enabled. No DMS INSTALL, process log, SSH action, or mutation was invoked. A populated side-by-side AlphaLink comparison is still open. |
+| `git diff --check` | Passed. | No whitespace errors in the tracked change set. |
+
+This is a partial planner implementation. AlphaLink does not submit the option/row payload, start the worker, or show logs. Existing accounts and domains are not automatically mapped to DMS usernames and provider/status fields, so unmapped records remain ineligible. DMS-INST-001 stays `IMPLEMENTING`.
+
 ## SSH fingerprint prompt removal — current checkpoint
 
 | Check | Result | Meaning |

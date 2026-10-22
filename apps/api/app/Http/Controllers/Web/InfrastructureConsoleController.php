@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ServerProvider;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\Infrastructure\DmsBulkInstallEligibility;
 use App\Services\Infrastructure\HostProbeException;
 use App\Services\Infrastructure\InfrastructureManager;
 use App\Services\Infrastructure\PmtaCatalog;
@@ -35,6 +36,19 @@ class InfrastructureConsoleController extends Controller
             'plans' => $plans,
             'plan' => $plan,
             'versions' => $catalog->versions(),
+        ]);
+    }
+
+    public function bulkInstall(Request $request, string $workspaceId, DmsBulkInstallEligibility $eligibility): View
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspaceId);
+        $candidates = $eligibility->for($request->user(), $workspace);
+
+        return view('console.infrastructure.bulk-install', [
+            'workspace' => $workspace,
+            'servers' => $candidates['servers'],
+            'domains' => $candidates['domains'],
+            'missingUsername' => $candidates['missing_username'],
         ]);
     }
 
@@ -78,10 +92,10 @@ class InfrastructureConsoleController extends Controller
                     'hostname' => null,
                     'ip' => $server->ip_address,
                     'country' => null,
-                    'is_installed' => null,
+                    'is_installed' => $server->is_installed,
                     'is_locked' => null,
                     'allowed_users' => null,
-                    'is_active' => null,
+                    'is_active' => $server->is_active,
                     'expire_at' => $server->expire_at?->format('Y-m-d'),
                     'deleted_at' => $server->deleted_at?->toISOString(),
                     'servers_provider_id' => $server->servers_provider_id,

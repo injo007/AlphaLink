@@ -11,10 +11,20 @@ class SendingDomain extends Model
 
     protected $fillable = [
         'workspace_id', 'name', 'state', 'verification_token', 'verified_at', 'created_by',
+        'domains_provider_id', 'status', 'is_our', 'is_active',
     ];
 
     protected function casts(): array
     {
-        return ['verified_at' => 'immutable_datetime'];
+        return [
+            'verified_at' => 'immutable_datetime',
+            'is_our' => 'boolean',
+            'is_active' => 'boolean',
+        ];
+    }
+
+    public function domainProvider()
+    {
+        return $this->belongsTo(DomainProvider::class, 'domains_provider_id');
     }
 }

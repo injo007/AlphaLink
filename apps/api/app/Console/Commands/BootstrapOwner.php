@@ -15,6 +15,7 @@ class BootstrapOwner extends Command
     protected $signature = 'alphalink:bootstrap-owner
         {--name= : First owner name}
         {--email= : First owner email}
+        {--username= : Existing DMS username used for server-name eligibility}
         {--workspace= : Initial workspace name}
         {--slug= : Optional workspace address}';
 
@@ -30,10 +31,17 @@ class BootstrapOwner extends Command
 
         $name = trim((string) ($this->option('name') ?: $this->ask('Owner name')));
         $email = mb_strtolower(trim((string) ($this->option('email') ?: $this->ask('Owner email'))));
+        $username = trim((string) $this->option('username'));
         $workspaceName = trim((string) ($this->option('workspace') ?: $this->ask('Initial workspace name')));
 
         if ($name === '' || $workspaceName === '' || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
             $this->error('A name, workspace name, and valid email address are required.');
+
+            return self::INVALID;
+        }
+
+        if (mb_strlen($username) > 255) {
+            $this->error('The DMS username cannot exceed 255 characters.');
 
             return self::INVALID;
         }
@@ -57,7 +65,7 @@ class BootstrapOwner extends Command
 
         $plainTextToken = null;
 
-        $created = DB::transaction(function () use ($name, $email, $password, $workspaceName, $slug, &$plainTextToken): bool {
+        $created = DB::transaction(function () use ($name, $email, $username, $password, $workspaceName, $slug, &$plainTextToken): bool {
             // Two operators may run this command at once; serialize the final check.
             DB::select('SELECT pg_advisory_xact_lock(278767147282)');
             if (User::query()->exists()) {
@@ -67,6 +75,7 @@ class BootstrapOwner extends Command
             $user = (new User)->forceFill([
                 'name' => $name,
                 'email' => $email,
+                'username' => $username !== '' ? $username : null,
                 'email_verified_at' => now(),
                 'password' => $password,
             ]);

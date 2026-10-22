@@ -26,7 +26,8 @@ ENV_FILE = ROOT / ".env"
 LOCAL_HOST = "127.0.0.1"
 LOCAL_PORT = int(os.environ.get("DMS_RELAY_PORT", "8799"))
 PAGE_PATH = "/admin/lists"
-READ_ONLY_PAGE_PATHS = {"/admin/servers", "/admin/servers/create", PAGE_PATH}
+BULK_INSTALL_PAGE_PATH = "/mailer/clouds/bulk-install"
+READ_ONLY_PAGE_PATHS = {"/admin/servers", "/admin/servers/create", PAGE_PATH, BULK_INSTALL_PAGE_PATH}
 STATIC_PREFIXES = (
     "/assets/", "/plugins/", "/fonts/", "/images/", "/vendor/", "/build/",
     "/v/", "/plug-ins/", "/g/",
@@ -133,7 +134,9 @@ def local_path_for(url: str, page_url: str) -> str:
 
 def is_protected_table_data_query(path: str, query: str) -> bool:
     """Keep approved reference list UIs while preventing production rows crossing the relay."""
-    return path in {"/admin/servers", "/admin/lists"} and bool(query)
+    if path == BULK_INSTALL_PAGE_PATH and query == "synthetic_empty=1":
+        return False
+    return path in {"/admin/servers", "/admin/lists", BULK_INSTALL_PAGE_PATH} and bool(query)
 
 
 ATTR_URL = re.compile(
@@ -167,10 +170,35 @@ def sanitize_dms_lists_html(body: str) -> str:
     )
 
 
-def rewrite_document(body: str, mime: str, upstream_url: str) -> str:
+def sanitize_dms_bulk_install_html(body: str, empty_server_rows: bool = False) -> str:
+    """Replace the server/domain rows serialized into the bulk-install view."""
+    body, domains_replaced = re.subn(
+        r"(ctrlOptions:\s*)\{.*?\}(\s*,\s*ctrlClass:)",
+        r'\1{"990001":"example.net | STATUS: NEW | IS OUR: NO"}\2',
+        body,
+        count=1,
+        flags=re.DOTALL,
+    )
+    server_rows = "[]" if empty_server_rows else '[{"id":987654321,"name":"Example server (synthetic)","ip":"192.0.2.25"}]'
+    body, servers_replaced = re.subn(
+        r"(initData:\s*)\[.*?\](\s*\}\);)",
+        lambda match: f"{match.group(1)}{server_rows}{match.group(2)}",
+        body,
+        count=1,
+        flags=re.DOTALL,
+    )
+    if domains_replaced != 1 or servers_replaced != 1:
+        raise ValueError("DMS bulk-install response did not match the expected data slots")
+
+    return body
+
+
+def rewrite_document(body: str, mime: str, upstream_url: str, empty_bulk_rows: bool = False) -> str:
     if "text/html" in mime.lower():
         if urlparse(upstream_url).path == "/admin/lists":
             body = sanitize_dms_lists_html(body)
+        if urlparse(upstream_url).path == BULK_INSTALL_PAGE_PATH:
+            body = sanitize_dms_bulk_install_html(body, empty_server_rows=empty_bulk_rows)
         body = re.sub(
             r"<base\b[^>]*>|<meta\b(?=[^>]*http-equiv=['\"]?refresh)[^>]*>",
             "",
@@ -213,6 +241,7 @@ class ReadOnlyDmsHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler interface
         parsed = urlparse(self.path)
         path = parsed.path
+        empty_bulk_rows = path == BULK_INSTALL_PAGE_PATH and parsed.query == "synthetic_empty=1"
         if is_protected_table_data_query(path, parsed.query):
             # The server page may use its own path for a DataTables GET.
             # Intercept both protected tables before any query can reach DMS.
@@ -236,7 +265,7 @@ class ReadOnlyDmsHandler(BaseHTTPRequestHandler):
             upstream = urlunparse(("https", host, remote_path, "", parsed.query, ""))
         elif path in READ_ONLY_PAGE_PATHS or any(path.startswith(prefix) for prefix in STATIC_PREFIXES) or path == "/favicon.ico":
             upstream = urljoin(REFERENCE_URL, path.lstrip("/"))
-            if parsed.query:
+            if parsed.query and not empty_bulk_rows:
                 upstream += "?" + parsed.query
         else:
             self.send_error(403)
@@ -261,7 +290,7 @@ class ReadOnlyDmsHandler(BaseHTTPRequestHandler):
         if "text/html" in mime.lower() or "text/css" in mime.lower():
             encoding = response.encoding or "utf-8"
             text = body.decode(encoding, errors="replace")
-            body = rewrite_document(text, mime, response.url).encode(encoding, errors="replace")
+            body = rewrite_document(text, mime, response.url, empty_bulk_rows=empty_bulk_rows).encode(encoding, errors="replace")
 
         self.send_response(response.status_code)
         self.send_header("Content-Type", mime)

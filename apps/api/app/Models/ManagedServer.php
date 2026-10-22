@@ -13,7 +13,7 @@ class ManagedServer extends Model
 
     protected $fillable = [
         'workspace_id', 'name', 'provider', 'servers_provider_id', 'ip_address', 'ssh_port', 'ssh_username',
-        'expire_at', 'login_type',
+        'expire_at', 'login_type', 'is_active', 'is_installed',
         'expected_host_fingerprint', 'observed_host_fingerprint', 'last_probe_at',
         'state', 'host_facts', 'idempotency_key',
         'request_fingerprint', 'created_by',
@@ -25,6 +25,8 @@ class ManagedServer extends Model
     {
         return [
             'host_facts' => 'array',
+            'is_active' => 'boolean',
+            'is_installed' => 'boolean',
             'last_probe_at' => 'immutable_datetime',
             'expire_at' => 'immutable_date',
         ];

@@ -8,13 +8,17 @@
     <title>@yield('title', 'Servers - DMS')</title>
     <link rel="stylesheet" href="{{ asset('dms-reference/fonts/inter.css') }}">
     <link rel="stylesheet" href="{{ asset('dms-reference/plugins/bootstrap_select/bootstrap-select.css') }}">
-    <link rel="stylesheet" href="{{ asset('dms-reference/plugins/datatables/datatables.min.css') }}">
+    @if (request()->routeIs('console.infrastructure.servers.index'))
+        <link rel="stylesheet" href="{{ asset('dms-reference/plugins/datatables/datatables.min.css') }}">
+    @endif
     <link rel="stylesheet" href="{{ asset('dms-reference/assets/css/theme.css') }}">
     @stack('styles')
 </head>
 <body>
     @php
         $serversUrl = route('console.infrastructure.servers.index', $workspace->id);
+        $bulkInstallUrl = route('console.infrastructure.bulk-install', $workspace->id);
+        $isServersPage = request()->routeIs('console.infrastructure.servers.index');
         $navigation = [
             ['label' => 'DASHBOARDS', 'icon' => 'fas fa-tachometer-alt', 'items' => [
                 ['label' => 'MAIN', 'icon' => 'fas fa-tachometer-alt'],
@@ -123,7 +127,7 @@
                 ['label' => 'AZURE COMPUTE', 'icon' => 'fab fa-microsoft'],
                 ['label' => 'HETZNER', 'icon' => 'fas fa-circle'],
                 ['label' => 'INSTALL', 'icon' => 'fas fa-hammer'],
-                ['label' => 'BULK INSTALL', 'icon' => 'fas fa-tools'],
+                ['label' => 'BULK INSTALL', 'icon' => 'fas fa-tools', 'href' => $bulkInstallUrl, 'active' => request()->routeIs('console.infrastructure.bulk-install')],
             ]],
         ];
     @endphp
@@ -131,7 +135,8 @@
         <nav id="sidebar" aria-label="Main Navigation">
             <div class="content-header bg-white-5">
                 <a class="font-w600 text-dual" href="{{ route('console.index') }}" aria-label="PXLRBLDLNK - DMS">
-                    <i class="fa fa-envelope text-primary"></i><span class="ml-1">PXLRBLDLNK - DMS</span>
+                    <span class="smini-visible"><i class="fa fa-envelope text-primary"></i></span>
+                    <span class="smini-hide font-size-h5 tracking-wider font-w400 text-uppercase">PXLRBLDLNK - DMS</span>
                 </a>
                 <div><button type="button" class="d-lg-none btn btn-sm btn-dual ml-1" data-toggle="layout" data-action="sidebar_close" aria-label="Close navigation"><i class="fa fa-fw fa-times"></i></button></div>
             </div>
@@ -232,13 +237,15 @@
     </div>
     <script src="{{ asset('dms-reference/assets/js/script.js') }}"></script>
     <script src="{{ asset('dms-reference/assets/js/app.js') }}"></script>
-    <script src="{{ asset('dms-reference/plugins/datatables/datatables.min.js') }}"></script>
-    <script src="{{ asset('dms-reference/plugins/datatables/natural.js') }}"></script>
-    <script src="{{ asset('dms-reference/plugins/datatables/ip-address.js') }}"></script>
-    <script src="{{ asset('dms-reference/plugins/datatables/jquery.mark.min.js') }}"></script>
-    <script src="{{ asset('dms-reference/plugins/datatables/datatables.mark.js') }}"></script>
-    <script src="{{ asset('dms-reference/assets/js/tables_datatables.js') }}"></script>
-    <script src="{{ asset('dms-reference/server-index.js') }}" defer></script>
+    @if ($isServersPage)
+        <script src="{{ asset('dms-reference/plugins/datatables/datatables.min.js') }}"></script>
+        <script src="{{ asset('dms-reference/plugins/datatables/natural.js') }}"></script>
+        <script src="{{ asset('dms-reference/plugins/datatables/ip-address.js') }}"></script>
+        <script src="{{ asset('dms-reference/plugins/datatables/jquery.mark.min.js') }}"></script>
+        <script src="{{ asset('dms-reference/plugins/datatables/datatables.mark.js') }}"></script>
+        <script src="{{ asset('dms-reference/assets/js/tables_datatables.js') }}"></script>
+        <script src="{{ asset('dms-reference/server-index.js') }}" defer></script>
+    @endif
     @stack('scripts')
 </body>
 </html>

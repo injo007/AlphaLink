@@ -9,6 +9,7 @@ upstream POST. Every browser-originated non-GET request is rejected locally.
 
 from __future__ import annotations
 
+import argparse
 import html
 import os
 import re
@@ -124,6 +125,11 @@ def local_path_for(url: str, page_url: str) -> str:
     return "#external-reference-blocked"
 
 
+def is_server_list_data_query(path: str, query: str) -> bool:
+    """Keep the reference list UI while preventing production rows crossing the relay."""
+    return path == "/admin/servers" and bool(query)
+
+
 ATTR_URL = re.compile(
     r"(?P<prefix>\b(?:href|src|action|poster|data-src)\s*=\s*)"
     r"(?P<quote>['\"])(?P<url>.*?)(?P=quote)",
@@ -156,6 +162,11 @@ def rewrite_document(body: str, mime: str, upstream_url: str) -> str:
         # as JavaScript strings, so rewrite only the DMS origin to this GET-only
         # relay. The allowlist below still decides which paths can be fetched.
         body = body.replace(REFERENCE_ORIGIN, "")
+        # Do not expose the production account label in visual-reference captures.
+        body = body.replace(
+            "</head>",
+            '<style>#page-header-user-dropdown{display:none!important}</style></head>',
+        )
         return body
     if "text/css" in mime.lower():
         return CSS_URL.sub(
@@ -171,6 +182,20 @@ class ReadOnlyDmsHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler interface
         parsed = urlparse(self.path)
         path = parsed.path
+        if is_server_list_data_query(path, parsed.query):
+            # The DMS table uses a GET query on the same path as its HTML page.
+            # Return a synthetic empty DataTables payload instead of fetching
+            # production rows, so the live layout can be inspected safely.
+            body = b'{"data":[]}'
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            print("GET /admin/servers -> 200 (synthetic empty table; upstream rows blocked)", flush=True)
+            return
         if path.startswith("/__remote/"):
             remote = path[len("/__remote/"):].split("/", 1)
             host = remote[0].lower()
@@ -238,5 +263,6 @@ class ReadOnlyDmsHandler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    argparse.ArgumentParser(description=__doc__).parse_args()
     establish_read_only_session()
     ThreadingHTTPServer((LOCAL_HOST, LOCAL_PORT), ReadOnlyDmsHandler).serve_forever()

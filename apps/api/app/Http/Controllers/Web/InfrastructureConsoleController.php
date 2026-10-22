@@ -78,10 +78,10 @@ class InfrastructureConsoleController extends Controller
                     'hostname' => null,
                     'ip' => $server->ip_address,
                     'country' => null,
-                    'is_installed' => false,
-                    'is_locked' => false,
-                    'allowed_users' => [],
-                    'is_active' => true,
+                    'is_installed' => null,
+                    'is_locked' => null,
+                    'allowed_users' => null,
+                    'is_active' => null,
                     'expire_at' => $server->expire_at?->format('Y-m-d'),
                     'deleted_at' => $server->deleted_at?->toISOString(),
                     'servers_provider_id' => $server->servers_provider_id,
@@ -90,7 +90,7 @@ class InfrastructureConsoleController extends Controller
                         'name' => $server->serverProvider?->name,
                     ],
                     'history' => null,
-                    'ips_count' => 0,
+                    'ips_count' => null,
                 ])->values(),
             ]);
         }

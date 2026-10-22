@@ -1,10 +1,10 @@
 # AlphaLink progress
 
-**Checkpoint:** 2026-10-22. The root Git repository starts at `5797a6f` (`Start evidence-backed AlphaLink reconstruction`). This is a fresh local checkpoint, not recovered upstream history. The validated server-slice checkpoint is committed as `54df0b1` (`Implement evidence-backed DMS server slice`).
+**Checkpoint:** 2026-10-22. The root Git repository starts at `5797a6f` (`Start evidence-backed AlphaLink reconstruction`). This is a fresh local checkpoint, not recovered upstream history. The latest validated server-slice checkpoint is `defe8cd` (`Keep server list unknowns explicit and block reference rows`).
 
 ## DMS access and safety
 
-Read-only DMS browser access is restored through the existing project `.env` proxy and the local relay that allows browser GETs only. The relay made one normal login/session POST upstream. The sanitized redirect trace and inspected pages are recorded as E-SRV-LIVE-01. DMS production rows were filtered from view during list comparison; no row values were retained. No DMS product form was submitted, no SSH session to a DMS-managed host was opened, and no product or operational state was changed. The relay is stopped and does not expose `.env` values.
+Read-only DMS browser access is restored through the existing project `.env` proxy and the local relay that allows browser GETs only. The relay made one normal login/session POST upstream. The sanitized redirect trace and inspected pages are recorded as E-SRV-LIVE-01. For the latest list inspection, the relay returned synthetic empty DataTables JSON without making the production row-data request; it also hid the production account label. No DMS product form was submitted, no SSH session to a DMS-managed host was opened, and no product or operational state was changed. The relay is stopped and does not expose `.env` values.
 
 ## Current implementation slice
 
@@ -14,7 +14,7 @@ The live DMS and AlphaLink form/modal and filtered list empty state were compare
 
 ## Verification
 
-Docker PHP 8.3 full test suite: **16 passed, 202 assertions**. Pint passed on changed PHP files; Node syntax checks passed for the three DMS server scripts; `git diff --check` passed. The IANA-address regression cases now block special-use addresses before socket creation. See `docs/implementation/TEST_REPORT.md` and `docs/implementation/PARITY_REPORT.md`.
+Docker PHP 8.3 full test suite: **16 passed, 205 assertions**. Four relay privacy tests pass; Pint passed on changed PHP files; Node syntax checks passed for the three DMS server scripts; `git diff --check` passed. Unsupported server relations stay unknown and render as N/A. The IANA-address regression cases block special-use addresses before socket creation. See `docs/implementation/TEST_REPORT.md` and `docs/implementation/PARITY_REPORT.md`.
 
 ## 80% target
 

@@ -188,8 +188,11 @@ class InfrastructurePlanningTest extends TestCase
             ->assertJsonPath('data.0.name', 'CURRENT WORKSPACE RELAY')
             ->assertJsonPath('data.0.ip', '159.223.97.39')
             ->assertJsonPath('data.0.provider.name', $this->provider->name)
-            ->assertJsonPath('data.0.is_installed', false)
-            ->assertJsonPath('data.0.is_active', true);
+            ->assertJsonPath('data.0.is_installed', null)
+            ->assertJsonPath('data.0.is_locked', null)
+            ->assertJsonPath('data.0.allowed_users', null)
+            ->assertJsonPath('data.0.is_active', null)
+            ->assertJsonPath('data.0.ips_count', null);
         $this->assertStringNotContainsString('private-example-password', $active->getContent());
         $this->assertStringNotContainsString('OTHER WORKSPACE RELAY', $active->getContent());
 

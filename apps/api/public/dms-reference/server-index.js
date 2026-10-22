@@ -4,6 +4,7 @@ window.jQuery(function () {
 
     const $ = window.jQuery;
     const showBadge = (value) => {
+        if (value == null) return '<span class="badge badge-secondary p-1" title="UNKNOWN">N/A</span>';
         const text = value ? 'YES' : 'NO';
         const color = value ? 'success' : 'danger';
         return `<span class="badge badge-${color} p-1" title="${text}">${text}</span>`;
@@ -88,14 +89,18 @@ window.jQuery(function () {
                 title: 'TOTAL IPS',
                 data: 'ips_count',
                 searchable: false,
-                render: (value) => inactiveButton('fa-server', 'TOTAL IPS', 'btn-link')
-                    .replace('<i class="fas fa-server"></i>', `${value ?? 0}`),
+                render: (value) => value == null
+                    ? '<span class="text-muted">N/A</span>'
+                    : inactiveButton('fa-server', 'TOTAL IPS', 'btn-link')
+                        .replace('<i class="fas fa-server"></i>', `${value}`),
             },
             {
                 title: 'USERS',
                 data: 'allowed_users',
-                render: (users) => inactiveButton('fa-users', `ALLOWED USERS : ${(users || []).length}`, 'btn-link')
-                    .replace('<i class="fas fa-users"></i>', `<i class="fas fa-users"></i> : ${(users || []).length}`),
+                render: (users) => !Array.isArray(users)
+                    ? '<span class="text-muted">N/A</span>'
+                    : inactiveButton('fa-users', `ALLOWED USERS : ${users.length}`, 'btn-link')
+                        .replace('<i class="fas fa-users"></i>', `<i class="fas fa-users"></i> : ${users.length}`),
             },
             {
                 title: 'ACTIONS',

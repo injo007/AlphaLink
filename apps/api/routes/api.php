@@ -39,6 +39,7 @@ Route::prefix('v1')->group(function (): void {
                 Route::middleware('workspace.role:owner,admin,operator')->group(function (): void {
                     Route::post('/audience-lists', [AudienceListController::class, 'store'])->middleware('throttle:30,1');
                     Route::post('/audience-lists/{list}/members', [AudienceListController::class, 'addMember'])->middleware('throttle:30,1');
+                    Route::post('/audience-lists/{list}/members/import', [AudienceListController::class, 'importMembers'])->middleware('throttle:10,1');
                     Route::post('/audience-lists/{list}/members/{contact}/remove', [AudienceListController::class, 'removeMember'])->middleware('throttle:30,1');
                 });
 

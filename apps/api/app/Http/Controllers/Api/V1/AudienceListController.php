@@ -10,6 +10,7 @@ use App\Models\ContactListMembership;
 use App\Models\ContactListMembershipEvent;
 use App\Models\OutboxMessage;
 use App\Models\Workspace;
+use App\Services\Audiences\ImportAudienceListContacts;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,6 +20,8 @@ use Illuminate\Validation\ValidationException;
 
 class AudienceListController extends Controller
 {
+    public function __construct(private ImportAudienceListContacts $contactImporter) {}
+
     public function index(Request $request): JsonResponse
     {
         /** @var Workspace $workspace */
@@ -173,7 +176,48 @@ class AudienceListController extends Controller
         $data = $request->validate(['contact_id' => ['required', 'uuid']]);
         $contact = $workspace->contacts()->whereKey($data['contact_id'])->firstOrFail();
 
+        $existingAssignment = ContactListMembership::query()
+            ->where('workspace_id', $workspace->getKey())
+            ->where('contact_id', $contact->getKey())
+            ->where('audience_list_id', '!=', $audienceList->getKey())
+            ->exists();
+
+        if ($existingAssignment) {
+            return response()->json([
+                'message' => 'This contact is already assigned to another list in this workspace.',
+                'code' => 'contact_already_assigned',
+            ], 409);
+        }
+
         return $this->changeMembership($request, $workspace, $audienceList, $contact, 'added');
+    }
+
+    public function importMembers(Request $request, string $workspaceId, string $list): JsonResponse
+    {
+        /** @var Workspace $workspace */
+        $workspace = $request->attributes->get('alphalink.workspace');
+        $audienceList = $this->findList($request, $list);
+        $data = $request->validate([
+            'addresses' => ['required', 'string', 'max:1000000'],
+        ]);
+
+        $lookupKey = config('alphalink.contact_lookup_key');
+        if (! is_string($lookupKey) || strlen($lookupKey) < 32) {
+            return response()->json([
+                'message' => 'Contact storage is not configured. Set a dedicated lookup key before importing personal data.',
+                'code' => 'contact_storage_unavailable',
+            ], 503);
+        }
+
+        $result = $this->contactImporter->handle(
+            $request,
+            $workspace,
+            $audienceList,
+            $data['addresses'],
+            $lookupKey,
+        );
+
+        return response()->json(['data' => $result]);
     }
 
     public function removeMember(Request $request, string $workspaceId, string $list, string $contact): JsonResponse

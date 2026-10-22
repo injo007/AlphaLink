@@ -3,7 +3,8 @@
 
 The relay reads DMS settings from the repository .env, establishes an
 authenticated session through the configured HTTP proxy, and serves only the
-server-registration page plus static assets. Authentication is the only
+explicitly allowlisted reference pages plus static assets. ISP labels and list
+rows are replaced with synthetic or empty values. Authentication is the only
 upstream POST. Every browser-originated non-GET request is rejected locally.
 """
 
@@ -24,8 +25,8 @@ ROOT = Path(__file__).resolve().parents[2]
 ENV_FILE = ROOT / ".env"
 LOCAL_HOST = "127.0.0.1"
 LOCAL_PORT = int(os.environ.get("DMS_RELAY_PORT", "8799"))
-PAGE_PATH = "/admin/servers/create"
-READ_ONLY_PAGE_PATHS = {"/admin/servers", PAGE_PATH}
+PAGE_PATH = "/admin/lists"
+READ_ONLY_PAGE_PATHS = {"/admin/servers", "/admin/servers/create", PAGE_PATH}
 STATIC_PREFIXES = (
     "/assets/", "/plugins/", "/fonts/", "/images/", "/vendor/", "/build/",
     "/v/", "/plug-ins/", "/g/",
@@ -101,10 +102,15 @@ def establish_read_only_session() -> None:
 
     target = SESSION.get(urljoin(REFERENCE_URL, PAGE_PATH.lstrip("/")), timeout=45, allow_redirects=True)
     target_title = re.search(r"<title[^>]*>(.*?)</title", target.text, re.IGNORECASE | re.DOTALL)
-    if target.status_code != 200 or not target_title or target_title.group(1).strip() != "Add Servers - DMS":
-        raise SystemExit("REFUSED: expected DMS server-registration page was not returned")
+    if (
+        target.status_code != 200
+        or not target_title
+        or "DMS" not in target_title.group(1)
+        or "list" not in target_title.group(1).lower()
+    ):
+        raise SystemExit("REFUSED: expected DMS lists page was not returned")
 
-    print("DMS read-only session: login form accepted; dashboard GET 200; registration GET 200.", flush=True)
+    print("DMS read-only session: login form accepted; dashboard GET 200; lists GET 200.", flush=True)
     print(f"Relay ready: http://{LOCAL_HOST}:{LOCAL_PORT}{PAGE_PATH} (browser requests are GET-only).", flush=True)
 
 
@@ -125,9 +131,9 @@ def local_path_for(url: str, page_url: str) -> str:
     return "#external-reference-blocked"
 
 
-def is_server_list_data_query(path: str, query: str) -> bool:
-    """Keep the reference list UI while preventing production rows crossing the relay."""
-    return path == "/admin/servers" and bool(query)
+def is_protected_table_data_query(path: str, query: str) -> bool:
+    """Keep approved reference list UIs while preventing production rows crossing the relay."""
+    return path in {"/admin/servers", "/admin/lists"} and bool(query)
 
 
 ATTR_URL = re.compile(
@@ -136,10 +142,35 @@ ATTR_URL = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 CSS_URL = re.compile(r"url\(\s*(?P<quote>['\"]?)(?P<url>.*?)(?P=quote)\s*\)", re.IGNORECASE)
+ISP_SELECT = re.compile(
+    r"(?P<open><select\b(?=[^>]*\bid=['\"]isps['\"])[^>]*>).*?(?P<close></select\s*>)",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def sanitize_dms_lists_html(body: str) -> str:
+    """Keep the Lists page layout while replacing live ISP labels and table rows."""
+    body = ISP_SELECT.sub(
+        lambda match: (
+            f"{match.group('open')}<option value='' selected>Select Isp ...</option>"
+            "<option value='reference-synthetic-isp'>Example ISP</option>"
+            f"{match.group('close')}"
+        ),
+        body,
+        count=1,
+    )
+    return re.sub(
+        r"<tbody\b[^>]*>.*?</tbody\s*>",
+        "<tbody></tbody>",
+        body,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
 
 
 def rewrite_document(body: str, mime: str, upstream_url: str) -> str:
     if "text/html" in mime.lower():
+        if urlparse(upstream_url).path == "/admin/lists":
+            body = sanitize_dms_lists_html(body)
         body = re.sub(
             r"<base\b[^>]*>|<meta\b(?=[^>]*http-equiv=['\"]?refresh)[^>]*>",
             "",
@@ -182,10 +213,9 @@ class ReadOnlyDmsHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler interface
         parsed = urlparse(self.path)
         path = parsed.path
-        if is_server_list_data_query(path, parsed.query):
-            # The DMS table uses a GET query on the same path as its HTML page.
-            # Return a synthetic empty DataTables payload instead of fetching
-            # production rows, so the live layout can be inspected safely.
+        if is_protected_table_data_query(path, parsed.query):
+            # The server page may use its own path for a DataTables GET.
+            # Intercept both protected tables before any query can reach DMS.
             body = b'{"data":[]}'
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -194,7 +224,7 @@ class ReadOnlyDmsHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
-            print("GET /admin/servers -> 200 (synthetic empty table; upstream rows blocked)", flush=True)
+            print(f"GET {path} -> 200 (synthetic empty table; upstream rows blocked)", flush=True)
             return
         if path.startswith("/__remote/"):
             remote = path[len("/__remote/"):].split("/", 1)

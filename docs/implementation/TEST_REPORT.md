@@ -15,3 +15,13 @@
 | REA artifact/runtime checks | Not run in this slice. | No shipped artifact was needed to validate the server form/list contract. |
 
 The server form/list remain `TESTING`, not `PARITY_CONFIRMED`. Browser comparison and local tests do not resolve DMS credential storage, exact list-row relations/actions, or live Test Connection outcomes. The 80% coverage milestone is not calculated because the complete workflow denominator and weights are not established.
+
+## DMS-AUD-002 import checkpoint — 2026-10-22
+
+| Check | Result | Meaning |
+|---|---|---|
+| Docker PHP 8.3 `php artisan test --compact` | **21 passed, 236 assertions**. | Covers the existing application suite and new import tests for lowercase normalization, comma/line splitting, invalid-token skipping, duplicate no-move behavior, workspace role control, missing lookup-key failure, and the 5,000-candidate cap. All fixtures are synthetic. |
+| Docker PHP 8.3 Pint | Passed on the five changed PHP files. `--dirty` is unavailable because the app container has no Git metadata; explicit file paths were formatted. | Changed Laravel code matches the project formatter. |
+| DMS reference relay privacy tests | **5 passed.** | The `/admin/lists` HTML replaces live ISP options with `Example ISP` and clears table bodies; query-bearing list/server table requests return synthetic empty data without an upstream fetch. |
+| DMS Lists screen | Authenticated GET returned title `Lists - DMS`; the visible page contains an ISP selector and `LOAD LISTS`. Static JavaScript points the table at `/admin/lists/:id/load` and disables pagination. | No ISP records or recipient rows are retained. The GET route was not called because its safety is unknown. |
+| DMS import comparison | Not complete. | Source establishes lowercase/validation and conflict-do-nothing, but exact import columns, invalid-row feedback, failure responses, and the loaded table remain unverified. No parity acceptance is claimed. |

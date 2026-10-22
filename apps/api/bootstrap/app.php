@@ -1,5 +1,10 @@
 <?php
 
+use App\Http\Middleware\AssignRequestId;
+use App\Http\Middleware\EnsureWorkspaceMember;
+use App\Http\Middleware\EnsureWorkspaceRole;
+use App\Models\ManagedServerHistory;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -12,11 +17,20 @@ $application = Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    ->withSchedule(function (Schedule $schedule): void {
+        $schedule->command('servers:collect-health')
+            ->everyTenMinutes()
+            ->withoutOverlapping()
+            ->runInBackground();
+        $schedule->command('model:prune', ['--model' => ManagedServerHistory::class])
+            ->daily()
+            ->runInBackground();
+    })
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->append(\App\Http\Middleware\AssignRequestId::class);
+        $middleware->append(AssignRequestId::class);
         $middleware->alias([
-            'workspace.member' => \App\Http\Middleware\EnsureWorkspaceMember::class,
-            'workspace.role' => \App\Http\Middleware\EnsureWorkspaceRole::class,
+            'workspace.member' => EnsureWorkspaceMember::class,
+            'workspace.role' => EnsureWorkspaceRole::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

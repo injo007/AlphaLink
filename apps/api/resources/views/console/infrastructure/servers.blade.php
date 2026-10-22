@@ -16,8 +16,30 @@
         </div>
         <div class="block-content block-content-full">
             <div class="table-responsive">
-                <table id="servers" class="table table-sm table-hover table-striped" data-source-url="{{ $serversDataUrl }}" data-create-url="{{ $createUrl }}" data-returned="false"></table>
+                <table id="servers" class="table table-sm table-hover table-striped"
+                       data-source-url="{{ $serversDataUrl }}"
+                       data-create-url="{{ $createUrl }}"
+                       data-return-url="{{ route('console.infrastructure.servers.return', $workspace->id) }}"
+                       data-bulk-users-url="{{ route('console.infrastructure.servers.bulk-users', $workspace->id) }}"
+                       data-status-url-template="{{ route('console.infrastructure.servers.status', [$workspace->id, '__SERVER__']) }}"
+                       data-lock-url-template="{{ route('console.infrastructure.servers.lock', [$workspace->id, '__SERVER__']) }}"
+                       data-restore-url-template="{{ route('console.infrastructure.servers.restore', [$workspace->id, '__SERVER__']) }}"
+                       data-history-url-template="{{ route('console.infrastructure.servers.history', [$workspace->id, '__SERVER__']) }}"
+                       data-users-url-template="{{ route('console.infrastructure.servers.users', [$workspace->id, '__SERVER__']) }}"
+                       data-can-manage="{{ $canManageServers ? 'true' : 'false' }}"
+                       data-can-return="{{ $canReturnServers ? 'true' : 'false' }}"
+                       data-returned="false"></table>
             </div>
         </div>
     </div>
 @endsection
+
+@push('styles')
+    <style>
+        #servers { table-layout: fixed; width: 100% !important; }
+        #servers th, #servers td { box-sizing: border-box; }
+        #servers th { font-size: .72rem; padding-left: .2rem; padding-right: .2rem; white-space: nowrap; }
+        #servers td { overflow-wrap: anywhere; }
+        #servers td:nth-child(5) { font-size: .72rem; white-space: nowrap; }
+    </style>
+@endpush

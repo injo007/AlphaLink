@@ -25,7 +25,16 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/workspaces/{workspace}/infrastructure', [InfrastructureConsoleController::class, 'index'])->name('console.infrastructure.index');
     Route::get('/app/workspaces/{workspace}/infrastructure/bulk-install', [InfrastructureConsoleController::class, 'bulkInstall'])->name('console.infrastructure.bulk-install');
     Route::get('/app/workspaces/{workspace}/infrastructure/servers', [InfrastructureConsoleController::class, 'serversIndex'])->name('console.infrastructure.servers.index');
+    Route::get('/app/workspaces/{workspace}/infrastructure/servers/{server}/history', [InfrastructureConsoleController::class, 'serverHistory'])->name('console.infrastructure.servers.history');
     Route::get('/app/workspaces/{workspace}/infrastructure/servers/create', [InfrastructureConsoleController::class, 'createServer'])->name('console.infrastructure.servers.create');
+    Route::get('/app/workspaces/{workspace}/infrastructure/servers/bulk-users', [InfrastructureConsoleController::class, 'bulkServerUsers'])->name('console.infrastructure.servers.bulk-users');
+    Route::put('/app/workspaces/{workspace}/infrastructure/servers/bulk-users', [InfrastructureConsoleController::class, 'updateBulkServerUsers'])->name('console.infrastructure.servers.bulk-users.update');
+    Route::get('/app/workspaces/{workspace}/infrastructure/servers/{server}/users', [InfrastructureConsoleController::class, 'serverUsers'])->name('console.infrastructure.servers.users');
+    Route::put('/app/workspaces/{workspace}/infrastructure/servers/{server}/users', [InfrastructureConsoleController::class, 'updateServerUsers'])->name('console.infrastructure.servers.users.update');
+    Route::patch('/app/workspaces/{workspace}/infrastructure/servers/{server}/lock', [InfrastructureConsoleController::class, 'setServerLock'])->name('console.infrastructure.servers.lock');
+    Route::patch('/app/workspaces/{workspace}/infrastructure/servers/{server}', [InfrastructureConsoleController::class, 'setServerStatus'])->name('console.infrastructure.servers.status');
+    Route::delete('/app/workspaces/{workspace}/infrastructure/servers', [InfrastructureConsoleController::class, 'returnServers'])->name('console.infrastructure.servers.return');
+    Route::patch('/app/workspaces/{workspace}/infrastructure/servers/{server}/restore', [InfrastructureConsoleController::class, 'restoreServer'])->name('console.infrastructure.servers.restore');
     Route::post('/app/workspaces/{workspace}/infrastructure/servers/test-connection', [InfrastructureConsoleController::class, 'testServerConnection'])->middleware('throttle:10,1')->name('console.infrastructure.servers.test-connection');
     Route::post('/app/workspaces/{workspace}/infrastructure/servers', [InfrastructureConsoleController::class, 'storeServer'])->middleware('throttle:10,1')->name('console.infrastructure.servers.store');
     Route::post('/app/workspaces/{workspace}/infrastructure/servers/{server}/preflight', [InfrastructureConsoleController::class, 'preflightServer'])->middleware('throttle:3,1')->name('console.infrastructure.servers.preflight');

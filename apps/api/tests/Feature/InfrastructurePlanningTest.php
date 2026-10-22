@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\AuditEvent;
 use App\Models\DomainProvider;
 use App\Models\ManagedServer;
+use App\Models\ManagedServerHistory;
 use App\Models\SendingDomain;
 use App\Models\ServerCredential;
 use App\Models\ServerProvider;
@@ -16,6 +17,7 @@ use App\Services\Infrastructure\SshHostProbe;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
 use Mockery;
 use Tests\TestCase;
 
@@ -191,8 +193,8 @@ class InfrastructurePlanningTest extends TestCase
             ->assertJsonPath('data.0.ip', '159.223.97.39')
             ->assertJsonPath('data.0.provider.name', $this->provider->name)
             ->assertJsonPath('data.0.is_installed', false)
-            ->assertJsonPath('data.0.is_locked', null)
-            ->assertJsonPath('data.0.allowed_users', null)
+            ->assertJsonPath('data.0.is_locked', false)
+            ->assertJsonPath('data.0.allowed_users', [])
             ->assertJsonPath('data.0.is_active', true)
             ->assertJsonPath('data.0.ips_count', null);
         $this->assertStringNotContainsString('private-example-password', $active->getContent());
@@ -205,6 +207,204 @@ class InfrastructurePlanningTest extends TestCase
             ->assertJsonPath('data.0.id', $currentServer['id']);
         $this->assertNotNull($returned->json('data.0.deleted_at'));
         $this->assertStringNotContainsString('private-example-password', $returned->getContent());
+    }
+
+    public function test_server_return_is_soft_delete_locked_servers_cannot_be_returned_and_returned_servers_can_be_restored(): void
+    {
+        $base = '/app/workspaces/'.$this->workspace->id.'/infrastructure/servers';
+        $this->postJson($base, $this->registration(['159.223.97.39']))->assertOk();
+        $this->postJson($base, $this->registration(['159.223.97.40']))->assertOk();
+        $servers = ManagedServer::query()->orderBy('ip_address')->get();
+        $returnable = $servers[0];
+        $locked = $servers[1];
+
+        $this->deleteJson($base, ['ids' => [$returnable->id]])->assertOk()
+            ->assertJsonPath('data', 'Servers returned')->assertJsonPath('returned', 1);
+        $this->assertSoftDeleted('managed_servers', ['id' => $returnable->id]);
+
+        $this->patchJson($base.'/'.$locked->id.'/lock', ['status' => true])->assertOk()
+            ->assertJsonPath('data', 'Changed successfully');
+        $lockedRow = collect($this->getJson($base)->assertOk()->json('data'))->firstWhere('id', $locked->id);
+        $this->assertTrue($lockedRow['is_locked']);
+        $this->assertFalse($lockedRow['can_return']);
+        $this->deleteJson($base, ['ids' => [$locked->id]])->assertStatus(400)->assertJsonPath('data', 'Failed');
+        $this->assertDatabaseHas('managed_servers', ['id' => $locked->id, 'deleted_at' => null, 'is_locked' => true]);
+
+        $this->getJson($base.'?returned=true')->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $returnable->id);
+        $this->patchJson($base.'/'.$returnable->id.'/restore')->assertOk()->assertJsonPath('data', 'Server restored');
+        $this->assertDatabaseHas('managed_servers', ['id' => $returnable->id, 'deleted_at' => null]);
+        $this->assertDatabaseHas('audit_events', ['action' => 'server.returned', 'subject_id' => $returnable->id]);
+        $this->assertDatabaseHas('audit_events', ['action' => 'server.restored', 'subject_id' => $returnable->id]);
+    }
+
+    public function test_server_allowed_users_can_be_managed_individually_and_in_bulk_with_workspace_scope(): void
+    {
+        $base = '/app/workspaces/'.$this->workspace->id.'/infrastructure/servers';
+        $mailer = User::factory()->create();
+        $anotherMailer = User::factory()->create();
+        $this->workspace->users()->attach($mailer->id, ['role' => 'operator']);
+        $this->workspace->users()->attach($anotherMailer->id, ['role' => 'operator']);
+        $otherWorkspace = Workspace::query()->create([
+            'name' => 'Other', 'slug' => 'other', 'created_by' => $this->owner->id,
+        ]);
+        $otherWorkspace->users()->attach($this->owner->id, ['role' => 'owner']);
+        $outsideUser = User::factory()->create();
+        $otherWorkspace->users()->attach($outsideUser->id, ['role' => 'operator']);
+
+        $this->postJson($base, $this->registration(['159.223.97.39']))->assertOk();
+        $this->postJson($base, $this->registration(['159.223.97.40']))->assertOk();
+        $servers = ManagedServer::query()->orderBy('ip_address')->get();
+        $first = $servers[0];
+        $second = $servers[1];
+
+        $this->putJson($base.'/'.$first->id.'/users', ['users' => [$mailer->id]])->assertOk()
+            ->assertJsonPath('data', 'Updated successfully');
+        $this->putJson($base.'/'.$first->id.'/users', ['users' => [$this->owner->id]])->assertUnprocessable();
+        $this->assertDatabaseHas('managed_server_user', [
+            'workspace_id' => $this->workspace->id, 'managed_server_id' => $first->id, 'user_id' => $mailer->id,
+        ]);
+        $this->get($base.'/'.$first->id.'/users')->assertOk()
+            ->assertSee($mailer->email.' | '.$mailer->name)
+            ->assertSee('checked', false);
+
+        $this->putJson($base.'/'.$first->id.'/users', ['users' => [$outsideUser->id]])->assertUnprocessable();
+        $this->assertDatabaseHas('managed_server_user', [
+            'workspace_id' => $this->workspace->id, 'managed_server_id' => $first->id, 'user_id' => $mailer->id,
+        ]);
+
+        $this->get($base.'/bulk-users?ids[]='.$first->id.'&ids[]='.$second->id)->assertOk()
+            ->assertSee('Servers Allowed Users')
+            ->assertSee($first->name.' - '.$first->id)
+            ->assertSee($second->name.' - '.$second->id);
+        $this->putJson($base.'/bulk-users', [
+            'servers' => [$first->id, $second->id], 'users' => [$anotherMailer->id],
+        ])->assertOk()->assertJsonPath('data', 'Updated successfully');
+        $this->assertDatabaseHas('managed_server_user', [
+            'workspace_id' => $this->workspace->id, 'managed_server_id' => $first->id, 'user_id' => $anotherMailer->id,
+        ]);
+        $this->assertDatabaseHas('managed_server_user', [
+            'workspace_id' => $this->workspace->id, 'managed_server_id' => $second->id, 'user_id' => $anotherMailer->id,
+        ]);
+        $this->assertDatabaseMissing('managed_server_user', [
+            'workspace_id' => $this->workspace->id, 'managed_server_id' => $first->id, 'user_id' => $mailer->id,
+        ]);
+        $this->putJson($base.'/'.$first->id.'/users', ['users' => []])->assertOk();
+        $this->assertDatabaseMissing('managed_server_user', [
+            'workspace_id' => $this->workspace->id, 'managed_server_id' => $first->id,
+        ]);
+
+        $this->assertSame(4, AuditEvent::query()->where('action', 'server.allowed_users_updated')->count());
+    }
+
+    public function test_server_status_toggle_is_recorded_and_all_management_routes_require_workspace_admin(): void
+    {
+        $base = '/app/workspaces/'.$this->workspace->id.'/infrastructure/servers';
+        $this->postJson($base, $this->registration(['159.223.97.39']))->assertOk();
+        $server = ManagedServer::query()->firstOrFail();
+        $this->patchJson($base.'/'.$server->id, ['status' => false])->assertOk()
+            ->assertJsonPath('data', 'Changed successfully');
+        $this->assertDatabaseHas('managed_servers', ['id' => $server->id, 'is_active' => false]);
+
+        $operator = User::factory()->create();
+        $this->workspace->users()->attach($operator->id, ['role' => 'operator']);
+        $this->actingAs($operator)->putJson($base.'/'.$server->id.'/users', ['users' => []])->assertForbidden();
+        $this->actingAs($operator)->patchJson($base.'/'.$server->id.'/lock', ['status' => true])->assertForbidden();
+        $this->actingAs($operator)->deleteJson($base, ['ids' => [$server->id]])->assertStatus(400)->assertJsonPath('data', 'Failed');
+        $this->actingAs($this->owner)->assertDatabaseHas('audit_events', [
+            'action' => 'server.status_changed', 'subject_id' => $server->id,
+        ]);
+    }
+
+    public function test_assigned_workspace_operator_sees_only_assigned_servers_and_can_toggle_or_return_unlocked_servers(): void
+    {
+        $base = '/app/workspaces/'.$this->workspace->id.'/infrastructure/servers';
+        $this->postJson($base, $this->registration(['159.223.97.39']))->assertOk();
+        $this->postJson($base, $this->registration(['159.223.97.40']))->assertOk();
+        $this->postJson($base, $this->registration(['159.223.97.41']))->assertOk();
+        $servers = ManagedServer::query()->orderBy('ip_address')->get();
+        $assigned = $servers[0];
+        $unassigned = $servers[1];
+        $otherAssigned = $servers[2];
+        $operator = User::factory()->create();
+        $otherOperator = User::factory()->create();
+        $this->workspace->users()->attach($operator->id, ['role' => 'operator']);
+        $this->workspace->users()->attach($otherOperator->id, ['role' => 'operator']);
+        DB::table('managed_server_user')->insert([
+            'workspace_id' => $this->workspace->id,
+            'managed_server_id' => $assigned->id,
+            'user_id' => $operator->id,
+        ]);
+        DB::table('managed_server_user')->insert([
+            'workspace_id' => $this->workspace->id,
+            'managed_server_id' => $otherAssigned->id,
+            'user_id' => $otherOperator->id,
+        ]);
+        $otherAssigned->delete();
+
+        $this->actingAs($operator)->getJson($base)->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $assigned->id)
+            ->assertJsonPath('data.0.can_manage', false)
+            ->assertJsonPath('data.0.can_operate', true)
+            ->assertJsonPath('data.0.can_return', true);
+        $this->getJson($base.'?returned=true')->assertOk()->assertJsonCount(0, 'data');
+        $this->patchJson($base.'/'.$assigned->id, ['status' => false])->assertOk()
+            ->assertJsonPath('data', 'Changed successfully');
+        $this->patchJson($base.'/'.$unassigned->id, ['status' => false])->assertForbidden();
+        $this->patchJson($base.'/'.$assigned->id.'/lock', ['status' => true])->assertForbidden();
+        $this->putJson($base.'/'.$assigned->id.'/users', ['users' => []])->assertForbidden();
+        $this->deleteJson($base, ['ids' => [$assigned->id]])->assertOk()->assertJsonPath('data', 'Servers returned');
+        $this->assertSoftDeleted('managed_servers', ['id' => $assigned->id]);
+        $this->getJson($base.'?returned=true')->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $assigned->id);
+    }
+
+    public function test_server_history_page_and_datatable_are_scoped_and_show_status_snapshots(): void
+    {
+        $base = '/app/workspaces/'.$this->workspace->id.'/infrastructure/servers';
+        $server = $this->postJson($base, $this->registration(['159.223.97.39']))->assertOk()->json('servers.0');
+        $managedServer = ManagedServer::query()->findOrFail($server['id']);
+        ManagedServerHistory::query()->create([
+            'workspace_id' => $this->workspace->id,
+            'managed_server_id' => $managedServer->id,
+            'is_ssh_down' => false,
+            'is_apache_down' => true,
+            'is_pmta_down' => false,
+        ]);
+        ManagedServerHistory::query()->create([
+            'workspace_id' => $this->workspace->id,
+            'managed_server_id' => $managedServer->id,
+            'is_ssh_down' => true,
+            'is_apache_down' => false,
+            'is_pmta_down' => true,
+        ]);
+
+        $historyUrl = route('console.infrastructure.servers.history', [$this->workspace->id, $managedServer->id]);
+        $this->get($historyUrl)->assertOk()
+            ->assertSee('HISTORIES')
+            ->assertSee('data-source-url="'.$historyUrl.'"', false)
+            ->assertSee('/dms-reference/server-history.js');
+
+        $this->getJson($historyUrl.'?'.http_build_query([
+            'draw' => 7,
+            'start' => 0,
+            'length' => 10,
+            'order' => [['column' => 0, 'dir' => 'desc']],
+        ]))->assertOk()
+            ->assertJsonPath('draw', 7)
+            ->assertJsonPath('recordsTotal', 2)
+            ->assertJsonPath('recordsFiltered', 2)
+            ->assertJsonPath('data.0.is_ssh_down', true)
+            ->assertJsonPath('data.0.is_pmta_down', true);
+
+        $this->getJson($base)->assertOk()
+            ->assertJsonPath('data.0.history.is_ssh_down', true)
+            ->assertJsonPath('data.0.history.is_apache_down', false)
+            ->assertJsonPath('data.0.history.is_pmta_down', true);
+
+        $operator = User::factory()->create();
+        $this->workspace->users()->attach($operator->id, ['role' => 'operator']);
+        $this->actingAs($operator)->getJson($historyUrl.'?draw=1')->assertForbidden();
     }
 
     public function test_bulk_install_page_matches_dms_controls_and_keeps_remote_install_disabled(): void
@@ -225,6 +425,7 @@ class InfrastructurePlanningTest extends TestCase
             ->assertSee('SELECTED DOMAIN')->assertSee('APPLY')
             ->assertSee('This Grid Is Empty')
             ->assertSee('id="install" disabled', false)
+            ->assertSee('/dms-reference/bulk-install.js')
             ->assertSee('/dms-reference/assets/css/theme.css')
             ->assertDontSee('fingerprint');
 
@@ -382,6 +583,43 @@ class InfrastructurePlanningTest extends TestCase
         $this->postJson($this->url('/installation-plans/'.$plan['id'].'/execute'))->assertNotFound();
     }
 
+    public function test_installation_plan_blocks_platforms_dms_bulk_install_would_reject(): void
+    {
+        $domain = $this->postJson($this->url('/domains'), ['name' => 'platform.example.org'])
+            ->assertCreated()->json('data');
+        $server = $this->postJson($this->url('/servers'), $this->registration(['159.223.97.40']))
+            ->assertOk()->json('servers.0');
+        $resolver = Mockery::mock(DomainTxtResolver::class);
+        $resolver->shouldReceive('records')->once()
+            ->with('_alphalink-verify.platform.example.org')
+            ->andReturn([$domain['verification_value']]);
+        $this->app->instance(DomainTxtResolver::class, $resolver);
+        $this->postJson($this->url('/domains/'.$domain['id'].'/verify'))->assertOk();
+
+        ManagedServer::query()->whereKey($server['id'])->update([
+            'state' => 'verified',
+            'host_facts' => json_encode([
+                'os_id' => 'ubuntu',
+                'os_version' => '24.04',
+                'os_pretty_name' => 'Ubuntu 24.04.1 LTS',
+                'architecture' => 'aarch64',
+            ], JSON_THROW_ON_ERROR),
+        ]);
+
+        $plan = $this->postJson($this->url('/installation-plans'), [
+            'server_id' => $server['id'],
+            'domain_id' => $domain['id'],
+            'pmta_version' => '4.0',
+        ])->assertCreated()->json('data');
+
+        $this->assertContains('DMS bulk installation supports x86_64 architecture only.', $plan['preview']['blockers']);
+        $this->assertContains(
+            'DMS bulk installation supports CentOS Linux 7, CentOS Stream 9, Rocky Linux 9, and AlmaLinux 9 only.',
+            $plan['preview']['blockers'],
+        );
+        $this->assertFalse($plan['preview']['execution_enabled']);
+    }
+
     public function test_owner_scope_and_role_are_enforced(): void
     {
         $other = User::factory()->create();
@@ -402,7 +640,7 @@ class InfrastructurePlanningTest extends TestCase
             ->withArgs(fn ($host, $password, $credentialType) => $host->id === $server['id']
                 && $password === 'private-example-password' && $credentialType === 'password')
             ->andReturn(['fingerprint' => $fingerprint, 'facts' => [
-                'os_id' => 'almalinux', 'os_version' => '9.6', 'architecture' => 'x86_64',
+                'os_id' => 'almalinux', 'os_version' => '9.6', 'os_pretty_name' => 'AlmaLinux 9.6', 'architecture' => 'x86_64',
                 'package_manager' => 'dnf', 'disk_available_kb' => 10485760,
                 'pmta_binary_present' => false,
             ]]);
@@ -410,7 +648,8 @@ class InfrastructurePlanningTest extends TestCase
 
         $result = $this->postJson($this->url('/servers/'.$server['id'].'/preflight'))
             ->assertOk()->assertJsonPath('data.state', 'verified')
-            ->assertJsonPath('data.host_facts.os_id', 'almalinux');
+            ->assertJsonPath('data.host_facts.os_id', 'almalinux')
+            ->assertJsonPath('data.host_facts.os_pretty_name', 'AlmaLinux 9.6');
         $this->assertStringNotContainsString('private-example-password', $result->getContent());
         $this->assertSame(1, AuditEvent::query()->where('action', 'server.preflight_verified')->count());
         $this->assertStringNotContainsString('fingerprint', strtolower($result->getContent()));

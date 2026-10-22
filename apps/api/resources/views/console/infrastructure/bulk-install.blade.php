@@ -98,32 +98,5 @@
 @endsection
 
 @push('scripts')
-    <script>
-        (() => {
-            const rows = () => Array.from(document.querySelectorAll('[data-server-row]'));
-
-            document.addEventListener('click', (event) => {
-                const remove = event.target.closest('[data-remove-row]');
-                if (remove) {
-                    remove.closest('[data-server-row]')?.remove();
-                }
-            });
-
-            document.addEventListener('click', (event) => {
-                const apply = event.target.closest('[data-apply-domain]');
-                if (!apply) return;
-
-                event.preventDefault();
-                const row = apply.closest('[data-server-row]');
-                const source = row?.querySelector('[data-domain-select]');
-                if (!source || source.selectedIndex < 1) return;
-
-                const selected = source.value;
-                rows().forEach((candidate) => {
-                    const target = candidate.querySelector('[data-domain-select]');
-                    if (target) target.value = selected;
-                });
-            });
-        })();
-    </script>
+    <script type="module" src="/dms-reference/bulk-install.js"></script>
 @endpush

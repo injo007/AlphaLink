@@ -35,6 +35,7 @@ class SshHostProbe
             $facts = [
                 'os_id' => $this->osValue($os, 'ID'),
                 'os_version' => $this->osValue($os, 'VERSION_ID'),
+                'os_pretty_name' => $this->osValue($os, 'PRETTY_NAME'),
                 'architecture' => substr($architecture, 0, 48),
                 'package_manager' => $packageManager !== '' ? basename(explode("\n", $packageManager)[0]) : null,
                 'disk_available_kb' => $this->availableDisk($disk),

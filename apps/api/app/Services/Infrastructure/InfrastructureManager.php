@@ -22,6 +22,7 @@ class InfrastructureManager
         private readonly DomainTxtResolver $dns,
         private readonly PmtaCatalog $catalog,
         private readonly SshHostProbe $hostProbe,
+        private readonly DmsInstallPlatform $installPlatform,
     ) {}
 
     /** @return array{added:int, restored:int, servers:Collection<int, ManagedServer>} */
@@ -221,6 +222,8 @@ class InfrastructureManager
         $blockers = [];
         if ($server->state !== 'verified') {
             $blockers[] = 'SSH access and read-only OS preflight have not been verified.';
+        } else {
+            $blockers = array_merge($blockers, $this->installPlatform->blockers($server->host_facts ?? []));
         }
         if (! $package['installable']) {
             $blockers[] = $package['reason'];

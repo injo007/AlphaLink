@@ -1,6 +1,52 @@
 # Verification record — 2026-10-22
 
+## Current DMS-SRV-004 health collector checkpoint
+
+| Check | Result | Meaning |
+|---|---|---|
+| Focused `ManagedServerHealthTest` | **6 passed, 27 assertions.** | Covers active/installed filtering, down-flag persistence and country in the server-list response, fake IP-API success/cache/error/no-key behavior, loopback TCP reachability, and the three-month cutoff. No external address is contacted. |
+| Docker PHP 8.3 full suite | **41 passed, 422 assertions.** | All current AlphaLink feature tests pass with SQLite `:memory:` as configured in `phpunit.xml`. |
+| Docker PHP 8.3 Pint | Passed on 23 changed PHP files. | Explicit file paths were used because the app container has no Git metadata. |
+| `schedule:list` | Shows `servers:collect-health` every ten minutes without overlap and `model:prune` daily for `ManagedServerHistory`. | Confirms schedule registration; it does not execute either job. |
+| AlphaLink country migration | `2026_10_22_235100_add_country_to_managed_servers` applied to the local AlphaLink database. | Adds a nullable country code; no existing server rows were rewritten. |
+| `git diff --check` | Passed. | No whitespace errors in the current source and documentation changes. |
+| External network calls | Not run. | Country requests were faked; the TCP fixture used loopback only. The scheduled job was not invoked. |
+
+DMS-SRV-004 remains `IMPLEMENTING`: the MaxMind fallback dependency/database and safe populated-history visual comparison are open. No DMS mutation, connection, install, server probe, or live geo lookup was performed.
+
+## Previous DMS-SRV-003 management and DMS-SRV-004 history viewer checkpoint
+
+| Check | Result | Meaning |
+|---|---|---|
+| Focused `InfrastructurePlanningTest.php` | **21 passed, 336 assertions.** | Includes allowed-user replacement/clear, lock-protected soft return, restore, operator assignment scope, returned-row filtering, and scoped server-history UI/data tests. All server and history fixtures are synthetic. |
+| Docker PHP 8.3 full test suite | **28 passed, 370 assertions.** | The full local suite passes after the management and history changes. No DMS request or server network probe is part of the tests. |
+| Docker PHP 8.3 Pint | Passed on 7 changed PHP files. | Explicit file paths were used because the app container has no Git metadata. |
+| JavaScript syntax | Passed for `server-index.js`, `server-users.js`, and `server-history.js`. | Static parsing only. |
+| DMS relay privacy tests | **8 passed.** | Relay sanitization and fail-closed behavior pass. The relay is GET-only for browser use and is stopped after the reference capture. |
+| `git diff --check` | Passed. | No whitespace errors in the current source and documentation changes. |
+| AlphaLink database migration | `2026_10_22_235000_create_managed_server_histories` applied in the local app container. | Adds an empty, workspace-scoped history table. No existing server rows or state were edited. |
+| AlphaLink history page browser smoke check | The server row's **SERVER HISTORY** action opens the DMS-themed history page; its empty DataTable loads and reports no available history rows. | This used a read-only local page load. No history row or server state was inserted or changed in the local browser. The new populated history layout was tested with synthetic fixtures in PHP, but not visually compared to DMS because production history is blocked by the relay. |
+| DMS browser comparison | DMS `/admin/servers` was inspected read-only with an empty/sanitized table. New management and populated history states were not browser-compared against DMS rows. | The relay blocks production row values. Do not claim full visual parity or feature acceptance. No DMS mutation, test connection, installation, or server probe was performed. |
+| Fingerprint requirement | No fingerprint UI or input was added to server add/test/install paths. | This implementation only adds local history display; no connection or installation action was triggered. |
+
+This earlier checkpoint recorded DMS-SRV-004 before the collector and pruning job were added; see the current checkpoint above. DMS-SRV-003 and DMS-SRV-004 remain `IMPLEMENTING`, and no feature is `PARITY_CONFIRMED`.
+
 ## DMS-INST-001 bulk-install planning checkpoint
+
+### Request contract continuation — 2026-10-22
+
+| Check | Result | Meaning |
+|---|---|---|
+| Full Docker PHP 8.3 suite | **41 passed, 422 assertions.** | Includes request normalization, row exception isolation, platform blockers and existing server health/management tests. SQLite/synthetic fixtures only. |
+| Focused Docker PHP 8.3 bulk-install tests | **6 passed, 56 assertions.** | Validates DMS request normalization and uses an injected fake runner to show one row exception is logged while the next row executes and the parent result remains successful. No remote adapter is present. |
+| Node built-in tests | **3 passed.** | Verifies selected-domain row filtering, PMTA/options serialization, UUID domain IDs, blank APPLY and owned-domain guard behavior. |
+| Docker PHP 8.3 Pint | Passed on 23 changed PHP files. | Uses explicit paths because the app container has no Git metadata. |
+| DMS INSTALL, SSH, DNS or process | Not run. | UI remains disabled; the coordinator is sequential and test-only through fake runner injection. No DMS or AlphaLink host was contacted. |
+| `git diff --check` | Passed. | Confirmed after the source and evidence updates. |
+
+This advances the local request contract, not installation parity. DMS uses a synchronous child process with forked per-server installers and a polled log token; AlphaLink has no submit route, production runner, persisted run/log lifecycle, or remote installer. The UI remains disabled.
+
+### Eligibility/page checkpoint
 
 | Check | Result | Meaning |
 |---|---|---|

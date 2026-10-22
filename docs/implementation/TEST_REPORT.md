@@ -2,13 +2,15 @@
 
 | Check | Result | Meaning |
 |---|---|---|
-| `php -v` / `composer -V` | Available: PHP 8.3.6, Composer 2.7.1 | Local tooling exists. |
-| Host `php artisan test --testsuite=Feature` | **Did not run**: host PHP lacks `dom` and `xmlwriter`. | Host limitation only. |
-| Docker PHP 8.3 `php artisan test --testsuite=Feature --compact` with an ephemeral test `APP_KEY` | **10 passed, 98 assertions** after the credential migration and private-key path. The image supplies `dom`, `xmlwriter`, and SQLite; tests use synthetic in-memory data. | Confirms encrypted secret storage and local registration/preflight behavior under mocks. It does not establish a successful key login against a server or DMS parity. |
-| `npm run build` in `apps/api` | Passed, Vite 8.3.5, after the latest form update. | Current browser assets compile. |
-| Premium UI static audit, strict mode | Passed, 0 findings, after the latest form update. | Static check only; no form was submitted in a real browser. |
-| REA `binary_session` | Connected; no target open. | REA can support future artifact work; this check proves no feature behavior. |
-| REA `list_browser_targets` | Input validation error: missing CDP endpoint. | No current reference browser observation was made. |
-| Reference mutation-based tests | Not run, by read-only rule. | Existing audit reports are the current bounded reference evidence. |
+| Docker PHP 8.3 `php artisan test --compact` | **16 passed, 202 assertions**. Tests use SQLite/synthetic fixtures; no DMS request is part of the suite. | Covers existing application tests plus server registration, multi-IP cardinality, duplicate/restore paths, encrypted password/key handling, preflight pin ordering, IANA special-address blocking, workspace scope, and active/returned list JSON. This is local behavior evidence, not DMS parity by itself. |
+| Docker PHP 8.3 Pint on changed PHP files | Passed; 10 files checked. | Changed PHP matches project formatting. `--dirty` is unavailable because the app container does not mount Git metadata; explicit file paths were used. |
+| Node syntax checks | Passed for `server-index.js`, `server-registration.js`, and `tables_datatables.js`. | Static syntax only. |
+| `git diff --check` | Passed for source, tests, and documentation. | Mirrored DMS vendor assets were preserved byte-for-byte; the upstream asset bundle contains trailing whitespace, so it is excluded from the source/documentation whitespace check. |
+| DMS authenticated browser trace | Passed through the existing `.env` proxy using a local GET-only relay. Login/session redirects and the two target GET pages returned expected status/title. | No secret values or production row content were recorded. The relay rejected browser state-changing methods. No DMS registration, install, SSH test, or other mutation was issued. |
+| DMS ↔ AlphaLink server UI comparison | Performed at the same 863×892 CSS viewport. Add form and Add modal were inspected; list toolbar/header/returned toggle/search and filtered empty state were compared. | DMS row values were filtered out. DMS and AlphaLink showed the same no-match label. The filtered totals differed because DMS data remained private and a single synthetic local fixture was used, then removed. This is partial visual evidence; the row data and action states remain unverified. |
+| Local browser registration | Saved one reserved documentation-range IP into AlphaLink using synthetic data; list displayed that local row. The record, credential and related audit event were removed after verification. | No remote socket was opened by this save path. A separate local Test Connection attempt for the reserved address returned `blocked` before socket creation. No credentials were sent to a host. |
+| IANA address-range regression | Passed against synthetic IPv4/IPv6 private, reserved, documentation, NAT64, benchmarking, dummy and SRv6 addresses. | These are AlphaLink safety checks sourced from E-ADDR-01; they do not establish DMS product behavior. |
+| Reference mutation-based comparison | Not run. | Required by the absolute read-only DMS boundary. |
+| REA artifact/runtime checks | Not run in this slice. | No shipped artifact was needed to validate the server form/list contract. |
 
-The reference-shaped server form still needs a real-browser exercise and comparison with DMS evidence. The host PHP extension gap remains relevant for running tests outside Docker.
+The server form/list remain `TESTING`, not `PARITY_CONFIRMED`. Browser comparison and local tests do not resolve DMS credential storage, exact list-row relations/actions, or live Test Connection outcomes. The 80% coverage milestone is not calculated because the complete workflow denominator and weights are not established.

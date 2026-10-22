@@ -9,4 +9,4 @@
 | Server/domain/installation preview | CONFLICTING | `audit/DMS_TO_ALPHALINK_PARITY_2026-10-22.md` documents form, eligibility, option, topology and execution differences. Retain security safeguards, then rebuild the reference-shaped workflow. |
 | Phase 4A independent product requirements and advanced reference system | UNVERIFIED product proposals | Treat as proposals only where they change DMS behavior; require explicit product approval for deviations. |
 
-The repository has no `.git` metadata at its root or in `apps/api`. Historical decisions and commits cannot be audited here. No existing code was removed during recovery.
+The workspace had no `.git` metadata at its root or in `apps/api`, so historical decisions and commits could not be audited. A new root repository now records the recovered project at commit `5797a6f`; this is a new checkpoint, not recovered upstream history. No existing code was removed during recovery.

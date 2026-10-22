@@ -6,14 +6,14 @@ use App\Models\AuditEvent;
 use App\Models\ManagedServer;
 use App\Models\SendingDomain;
 use App\Models\ServerCredential;
+use App\Models\ServerProvider;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Services\Infrastructure\DomainTxtResolver;
 use App\Services\Infrastructure\SshHostProbe;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Crypt;
-use Illuminate\Support\Str;
 use Illuminate\Routing\Middleware\ThrottleRequests;
+use Illuminate\Support\Facades\Crypt;
 use Mockery;
 use Tests\TestCase;
 
@@ -25,6 +25,8 @@ class InfrastructurePlanningTest extends TestCase
 
     private Workspace $workspace;
 
+    private ServerProvider $provider;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -35,111 +37,247 @@ class InfrastructurePlanningTest extends TestCase
             'name' => 'Demo', 'slug' => 'demo', 'created_by' => $this->owner->id,
         ]);
         $this->workspace->users()->attach($this->owner->id, ['role' => 'owner']);
+        $this->provider = ServerProvider::query()->create(['name' => 'Example provider']);
         $this->actingAs($this->owner);
     }
 
     public function test_server_registration_encrypts_password_and_never_returns_it(): void
     {
         $url = $this->url('/servers');
-        $data = [
-            'name' => 'Primary relay', 'provider' => 'Example provider',
-            'ip_address' => '159.223.97.39', 'ssh_port' => 22,
-            'root_password' => 'private-example-password',
-        ];
-        $key = (string) Str::uuid();
-
-        $created = $this->withHeader('Idempotency-Key', $key)->postJson($url, $data)
-            ->assertCreated()->assertJsonPath('data.state', 'pending_host_verification');
-        $this->assertStringNotContainsString($data['root_password'], $created->getContent());
+        $data = $this->registration(['159.223.97.39']);
+        $created = $this->postJson($url, $data)
+            ->assertOk()->assertJsonPath('data', 'Added 1, Restored 0')
+            ->assertJsonPath('servers.0.state', 'pending_host_verification');
+        $this->assertStringNotContainsString($data['password'], $created->getContent());
+        $server = ManagedServer::query()->firstOrFail();
+        $this->assertSame('PRIMARY RELAY', $server->name);
+        $this->assertSame($this->provider->id, $server->servers_provider_id);
+        $this->assertSame($data['expire_at'], $server->expire_at->format('Y-m-d'));
+        $this->assertSame('password', $server->login_type);
         $credential = ServerCredential::query()->firstOrFail();
-        $this->assertNotSame($data['root_password'], $credential->encrypted_secret);
-        $this->assertSame($data['root_password'], Crypt::decryptString($credential->encrypted_secret));
+        $this->assertNotSame($data['password'], $credential->encrypted_secret);
+        $this->assertSame($data['password'], Crypt::decryptString($credential->encrypted_secret));
         $this->assertSame('password', $credential->credential_type);
 
-        $this->withHeader('Idempotency-Key', $key)->postJson($url, $data)->assertOk();
+        $this->postJson($url, $data)->assertOk()->assertJsonPath('data', 'Added 0, Restored 0');
         $this->assertSame(1, ManagedServer::query()->count());
         $this->assertSame(1, ServerCredential::query()->count());
         $this->assertSame(1, AuditEvent::query()->where('action', 'server.registered')->count());
 
-        $this->withHeader('Idempotency-Key', $key)
-            ->postJson($url, [...$data, 'root_password' => 'changed-password'])
-            ->assertStatus(409);
-        $this->withHeader('Idempotency-Key', (string) Str::uuid())
-            ->postJson($url, [...$data, 'ip_address' => '127.0.0.1'])
-            ->assertUnprocessable();
+        $this->postJson($url, [...$data, 'ips' => ['not-an-ip']])
+            ->assertOk()->assertJsonPath('data', 'Added 0, Restored 0');
+        $this->assertSame(1, ManagedServer::query()->count());
+
+        $this->postJson($url, [...$data, 'ips' => ['10.8.0.4']])
+            ->assertOk()->assertJsonPath('data', 'Added 1, Restored 0');
+        $this->assertDatabaseHas('managed_servers', ['ip_address' => '10.8.0.4']);
+        $this->postJson($url, [...$data, 'ips' => [' 159.223.97.41 ']])
+            ->assertOk()->assertJsonPath('data', 'Added 1, Restored 0');
+        $this->assertDatabaseHas('managed_servers', ['ip_address' => '159.223.97.41']);
+        $this->assertSame(3, ManagedServer::query()->count());
     }
 
-    public function test_multi_ip_registration_creates_one_server_per_ip_and_replays_as_a_batch(): void
+    public function test_multi_ip_registration_reports_added_duplicate_and_per_ip_cardinality(): void
     {
         $url = $this->url('/servers');
-        $key = (string) Str::uuid();
-        $data = [
-            'name' => 'Relay group', 'provider' => 'Example provider',
-            'ip_addresses' => ['159.223.97.39', '159.223.97.40'],
-            'ssh_username' => 'mailer',
-            'root_password' => 'private-example-password',
-        ];
+        $data = $this->registration(['159.223.97.39', '159.223.97.40'], ['username' => 'mailer']);
 
-        $this->withHeader('Idempotency-Key', $key)->postJson($url, $data)
-            ->assertCreated()->assertJsonCount(2, 'data')
-            ->assertJsonPath('data.0.ip_address', '159.223.97.39')
-            ->assertJsonPath('data.1.ip_address', '159.223.97.40');
+        $this->postJson($url, $data)->assertOk()->assertJsonPath('added', 2)
+            ->assertJsonPath('servers.0.ip_address', '159.223.97.39')
+            ->assertJsonPath('servers.1.ip_address', '159.223.97.40');
         $this->assertSame(2, ManagedServer::query()->count());
         $this->assertSame(2, ServerCredential::query()->count());
         $this->assertSame(2, ManagedServer::query()->where('ssh_username', 'mailer')->count());
 
-        $this->withHeader('Idempotency-Key', $key)->postJson($url, $data)
-            ->assertOk()->assertJsonCount(2, 'data');
+        $this->postJson($url, $data)->assertOk()->assertJsonPath('data', 'Added 0, Restored 0');
         $this->assertSame(2, ManagedServer::query()->count());
 
-        $this->withHeader('Idempotency-Key', $key)->postJson($url, [
-            ...$data, 'ip_addresses' => ['159.223.97.39', '159.223.97.41'],
-        ])->assertStatus(409);
-        $this->assertSame(2, ManagedServer::query()->count());
+        $this->postJson($url, [...$data, 'ips' => ['159.223.97.39', '159.223.97.41']])
+            ->assertOk()->assertJsonPath('data', 'Added 1, Restored 0');
+        $this->assertSame(3, ManagedServer::query()->count());
     }
 
-    public function test_multi_ip_registration_rolls_back_when_one_ip_is_already_registered(): void
+    public function test_registration_restores_a_soft_deleted_server_by_ip_and_refreshes_its_credentials(): void
     {
         $url = $this->url('/servers');
-        $base = ['name' => 'Relay', 'provider' => 'Example provider', 'root_password' => 'private-example-password'];
-        $this->withHeader('Idempotency-Key', (string) Str::uuid())
-            ->postJson($url, [...$base, 'ip_address' => '159.223.97.40'])->assertCreated();
+        $this->postJson($url, $this->registration(['159.223.97.40']))->assertOk();
+        $server = ManagedServer::query()->firstOrFail();
+        $server->delete();
 
-        $this->withHeader('Idempotency-Key', (string) Str::uuid())
-            ->postJson($url, [...$base, 'ip_addresses' => ['159.223.97.39', '159.223.97.40']])
-            ->assertUnprocessable();
+        $this->postJson($url, $this->registration(['159.223.97.40'], [
+            'name' => 'replacement relay', 'password' => 'replacement-secret',
+        ]))->assertOk()->assertJsonPath('data', 'Added 0, Restored 1');
+
+        $server->refresh();
+        $this->assertFalse($server->trashed());
+        $this->assertSame('REPLACEMENT RELAY', $server->name);
+        $this->assertSame('replacement-secret', Crypt::decryptString($server->credential->encrypted_secret));
         $this->assertSame(1, ManagedServer::query()->count());
         $this->assertSame(1, ServerCredential::query()->count());
     }
 
-    public function test_browser_form_saves_multiple_server_ips(): void
+    public function test_dms_registration_form_renders_field_contract_and_saves_multiple_server_ips(): void
     {
-        $page = '/app/workspaces/'.$this->workspace->id.'/infrastructure';
-        $this->post($page.'/servers', [
-            'request_key' => (string) Str::uuid(),
-            'name' => 'Relay group', 'provider' => 'Example provider',
-            'ip_addresses_text' => "159.223.97.39\n159.223.97.40",
-            'ssh_username' => 'mailer',
-            'root_password' => 'private-example-password',
-        ])->assertRedirect($page)->assertSessionHas('status', '2 servers saved. Host identity and OS still need verification.');
+        $page = '/app/workspaces/'.$this->workspace->id.'/infrastructure/servers/create';
+        $this->get($page)->assertOk()
+            ->assertSee('ADD SERVERS')
+            ->assertSee('TEST CONNECTION')
+            ->assertSee('Expire At:')
+            ->assertSee('Password Type:')
+            ->assertSee('placeholder="Ip Or Ips"', false)
+            ->assertSee('data-live-search="true"', false);
+        $this->postJson('/app/workspaces/'.$this->workspace->id.'/infrastructure/servers',
+            $this->registration(['159.223.97.39', '159.223.97.40'], ['username' => 'mailer']))
+            ->assertOk()->assertJsonPath('data', 'Added 2, Restored 0');
         $this->assertSame(2, ManagedServer::query()->count());
         $this->assertSame(2, ManagedServer::query()->where('ssh_username', 'mailer')->count());
-        $this->get($page)->assertOk()->assertSee('159.223.97.39')->assertSee('159.223.97.40');
+    }
+
+    public function test_provider_dropdown_preserves_the_observed_dms_option_order(): void
+    {
+        $expected = ['Digital', 'digital', 'Ovh', 'Linode', 'linode', 'ikoula', 'vultr', 'Azure', 'reg'];
+        foreach ($expected as $name) {
+            ServerProvider::query()->create(['name' => $name]);
+        }
+
+        $response = $this->get('/app/workspaces/'.$this->workspace->id.'/infrastructure/servers/create')->assertOk();
+        $html = $response->getContent();
+        $positions = array_map(fn (string $name) => strpos($html, '>'.$name.'</option>'), $expected);
+        $orderedPositions = $positions;
+        sort($orderedPositions);
+
+        $this->assertNotContains(false, $positions);
+        $this->assertSame($orderedPositions, $positions);
+    }
+
+    public function test_server_list_shell_matches_the_dms_page_contract(): void
+    {
+        $response = $this->get('/app/workspaces/'.$this->workspace->id.'/infrastructure/servers')->assertOk();
+
+        $response->assertSee('<title>Servers - DMS</title>', false)
+            ->assertSee('Servers')
+            ->assertSee('RETURNED')
+            ->assertSee('id="servers"', false)
+            ->assertSee('data-returned="false"', false)
+            ->assertSee('/dms-reference/plugins/datatables/datatables.min.css')
+            ->assertSee('/dms-reference/plugins/datatables/datatables.mark.js')
+            ->assertSee('/dms-reference/assets/js/tables_datatables.js')
+            ->assertSee('/dms-reference/server-index.js')
+            ->assertSee(route('console.infrastructure.servers.create', $this->workspace->id), false);
+    }
+
+    public function test_server_list_json_is_workspace_scoped_and_returned_filter_uses_soft_deletes(): void
+    {
+        $currentServer = $this->postJson(
+            '/app/workspaces/'.$this->workspace->id.'/infrastructure/servers',
+            $this->registration(['159.223.97.39'], ['name' => 'Current workspace relay']),
+        )->assertOk()->json('servers.0');
+
+        $otherWorkspace = Workspace::query()->create([
+            'name' => 'Other', 'slug' => 'other', 'created_by' => $this->owner->id,
+        ]);
+        $otherWorkspace->users()->attach($this->owner->id, ['role' => 'owner']);
+        $this->postJson(
+            '/app/workspaces/'.$otherWorkspace->id.'/infrastructure/servers',
+            $this->registration(['159.223.97.40'], ['name' => 'Other workspace relay']),
+        )->assertOk();
+
+        $listUrl = '/app/workspaces/'.$this->workspace->id.'/infrastructure/servers';
+        $active = $this->getJson($listUrl)->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $currentServer['id'])
+            ->assertJsonPath('data.0.name', 'CURRENT WORKSPACE RELAY')
+            ->assertJsonPath('data.0.ip', '159.223.97.39')
+            ->assertJsonPath('data.0.provider.name', $this->provider->name)
+            ->assertJsonPath('data.0.is_installed', false)
+            ->assertJsonPath('data.0.is_active', true);
+        $this->assertStringNotContainsString('private-example-password', $active->getContent());
+        $this->assertStringNotContainsString('OTHER WORKSPACE RELAY', $active->getContent());
+
+        ManagedServer::query()->whereKey($currentServer['id'])->firstOrFail()->delete();
+
+        $this->getJson($listUrl)->assertOk()->assertJsonCount(0, 'data');
+        $returned = $this->getJson($listUrl.'?returned=true')->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $currentServer['id']);
+        $this->assertNotNull($returned->json('data.0.deleted_at'));
+        $this->assertStringNotContainsString('private-example-password', $returned->getContent());
     }
 
     public function test_server_registration_encrypts_an_ssh_private_key_as_a_credential(): void
     {
         $privateKey = "-----BEGIN OPENSSH PRIVATE KEY-----\nsynthetic-test-key\n-----END OPENSSH PRIVATE KEY-----";
-        $created = $this->withHeader('Idempotency-Key', (string) Str::uuid())->postJson($this->url('/servers'), [
-            'name' => 'Key-auth relay', 'provider' => 'Example provider',
-            'ip_address' => '159.223.97.39', 'ssh_username' => 'mailer',
-            'ssh_private_key' => $privateKey,
-        ])->assertCreated();
+        $data = $this->registration(['159.223.97.39'], [
+            'name' => 'Key-auth relay', 'username' => 'mailer', 'login_type' => 'ssh_key', 'password' => $privateKey,
+        ]);
+        $created = $this->postJson($this->url('/servers'), $data)->assertOk();
 
         $credential = ServerCredential::query()->firstOrFail();
-        $this->assertSame('private_key', $credential->credential_type);
+        $this->assertSame('ssh_key', $credential->credential_type);
         $this->assertSame($privateKey, Crypt::decryptString($credential->encrypted_secret));
         $this->assertStringNotContainsString($privateKey, $created->getContent());
+    }
+
+    public function test_local_test_connection_requires_a_matching_host_pin_before_credentials_and_never_persists(): void
+    {
+        $url = $this->url('/servers/test-connection');
+        $data = [
+            'ips' => ['159.223.97.39'], 'port' => 22, 'username' => 'root',
+            'login_type' => 'password', 'password' => 'private-example-password',
+        ];
+        $fingerprint = 'SHA256:'.str_repeat('A', 43);
+        $wrong = 'SHA256:'.str_repeat('B', 43);
+        $probe = Mockery::mock(SshHostProbe::class);
+        $probe->shouldReceive('testConnection')->once()
+            ->with('159.223.97.39', 22, 'root', 'password', 'private-example-password', null)
+            ->andReturn([
+                'ip' => '159.223.97.39', 'status' => 'pin_required',
+                'message' => 'HOST KEY VERIFY REQUIRED ON IP: 159.223.97.39 PORT : 22',
+                'observed_fingerprint' => $fingerprint,
+            ]);
+        $probe->shouldReceive('testConnection')->once()
+            ->with('159.223.97.39', 22, 'root', 'password', 'private-example-password', $wrong)
+            ->andReturn([
+                'ip' => '159.223.97.39', 'status' => 'host_key_mismatch',
+                'message' => 'HOST KEY MISMATCH ON IP: 159.223.97.39 PORT : 22',
+                'observed_fingerprint' => $fingerprint,
+            ]);
+        $probe->shouldReceive('testConnection')->once()
+            ->with('159.223.97.39', 22, 'root', 'password', 'private-example-password', $fingerprint)
+            ->andReturn([
+                'ip' => '159.223.97.39', 'status' => 'connected',
+                'message' => 'CONNECTED ON IP: 159.223.97.39 PORT : 22',
+                'observed_fingerprint' => $fingerprint,
+            ]);
+        $this->app->instance(SshHostProbe::class, $probe);
+
+        $firstResult = $this->postJson($url, $data)->assertOk()
+            ->assertJsonPath('results.0.status', 'pin_required')->json();
+        $this->assertSame($fingerprint, $firstResult['host_fingerprints']['159.223.97.39']);
+        $this->postJson($url, [...$data, 'expected_host_fingerprints' => ['159.223.97.39' => $wrong]])
+            ->assertOk()->assertJsonPath('results.0.status', 'host_key_mismatch');
+        $this->postJson($url, [...$data, 'expected_host_fingerprints' => ['159.223.97.39' => $fingerprint]])
+            ->assertOk()->assertJsonPath('data.0', 'CONNECTED ON IP: 159.223.97.39 PORT : 22');
+
+        $this->assertSame(0, ManagedServer::query()->count());
+        $this->assertSame(0, ServerCredential::query()->count());
+        $this->assertSame(0, AuditEvent::query()->count());
+    }
+
+    public function test_connection_probe_blocks_private_reserved_and_documentation_ranges_before_socket_creation(): void
+    {
+        $probe = app(SshHostProbe::class);
+        $blockedAddresses = [
+            '10.0.0.7', '100.64.0.7', '127.0.0.1', '192.0.2.1', '198.51.100.1',
+            '203.0.113.87', '2001:db8::1', '2002::1', '3fff::1', '64:ff9b::a00:1',
+            '64:ff9b:1::1',
+            '100:0:0:1::1', '2001:2::1', '2001:10::1', '5f00::1', '::ffff:192.0.2.1',
+        ];
+
+        foreach ($blockedAddresses as $ip) {
+            $result = $probe->testConnection($ip, 22, 'root', 'password', 'synthetic-only-secret');
+
+            $this->assertSame('blocked', $result['status'], $ip);
+            $this->assertNull($result['observed_fingerprint'], $ip);
+        }
     }
 
     public function test_domain_must_be_verified_before_plan_and_plan_never_enables_install(): void
@@ -147,11 +285,8 @@ class InfrastructurePlanningTest extends TestCase
         $domain = $this->postJson($this->url('/domains'), ['name' => 'Mail.Example.Org'])
             ->assertCreated()->json('data');
         $this->assertSame('mail.example.org', $domain['name']);
-        $server = $this->withHeader('Idempotency-Key', (string) Str::uuid())
-            ->postJson($this->url('/servers'), [
-                'name' => 'Relay', 'provider' => 'Example provider',
-                'ip_address' => '159.223.97.39', 'root_password' => 'private-example-password',
-            ])->assertCreated()->json('data');
+        $server = $this->postJson($this->url('/servers'), $this->registration(['159.223.97.39']))
+            ->assertOk()->json('servers.0');
 
         $planData = [
             'server_id' => $server['id'], 'domain_id' => $domain['id'], 'pmta_version' => '4.0',
@@ -191,18 +326,15 @@ class InfrastructurePlanningTest extends TestCase
     public function test_host_key_must_match_before_root_authentication_and_preflight_records_only_facts(): void
     {
         $this->withoutMiddleware(ThrottleRequests::class);
-        $server = $this->withHeader('Idempotency-Key', (string) Str::uuid())
-            ->postJson($this->url('/servers'), [
-                'name' => 'Relay', 'provider' => 'Example provider',
-                'ip_address' => '159.223.97.39', 'root_password' => 'private-example-password',
-            ])->assertCreated()->json('data');
+        $server = $this->postJson($this->url('/servers'), $this->registration(['159.223.97.39']))
+            ->assertOk()->json('servers.0');
         $fingerprint = 'SHA256:'.str_repeat('A', 43);
         $wrong = 'SHA256:'.str_repeat('B', 43);
         $probe = Mockery::mock(SshHostProbe::class);
         $probe->shouldReceive('fingerprint')->once()->andReturn($fingerprint);
         $probe->shouldReceive('inspect')->once()
-            ->withArgs(fn ($host, $password, $expected) => $host->id === $server['id']
-                && $password === 'private-example-password' && $expected === $fingerprint)
+            ->withArgs(fn ($host, $password, $expected, $credentialType) => $host->id === $server['id']
+                && $password === 'private-example-password' && $expected === $fingerprint && $credentialType === 'password')
             ->andReturn(['fingerprint' => $fingerprint, 'facts' => [
                 'os_id' => 'almalinux', 'os_version' => '9.6', 'architecture' => 'x86_64',
                 'package_manager' => 'dnf', 'disk_available_kb' => 10485760,
@@ -230,21 +362,18 @@ class InfrastructurePlanningTest extends TestCase
     {
         $page = '/app/workspaces/'.$this->workspace->id.'/infrastructure';
         $this->get($page)->assertOk()->assertSee('Server installation')->assertSee('PowerMTA 4.0r8');
+        $createPage = $page.'/servers/create';
+        $this->get($createPage)->assertOk()->assertSee('Select Server Provider')->assertSee('TEST CONNECTION');
+        $invalid = $this->postJson($page.'/servers', [
+            'servers_provider_id' => $this->provider->id,
+            'name' => 'Relay', 'ips' => ['159.223.97.39'], 'port' => 22,
+            'username' => 'root', 'login_type' => 'password', 'password' => 'private-example-password',
+        ])->assertUnprocessable()->assertJsonValidationErrors(['expire_at']);
+        $this->assertStringNotContainsString('private-example-password', $invalid->getContent());
 
-        $this->post($page.'/servers', [
-            'request_key' => (string) Str::uuid(),
-            'name' => 'Relay', 'ip_address' => '159.223.97.39',
-            'root_password' => 'private-example-password', 'ssh_private_key' => 'synthetic-private-key',
-        ])->assertRedirect()->assertSessionHasErrors('provider');
-        $this->assertArrayNotHasKey('root_password', session()->get('_old_input', []));
-        $this->assertArrayNotHasKey('ssh_private_key', session()->get('_old_input', []));
-
-        $this->post($page.'/servers', [
-            'request_key' => (string) Str::uuid(),
-            'name' => 'Relay', 'provider' => 'Example provider',
-            'ip_address' => '159.223.97.39', 'ssh_port' => 22,
-            'root_password' => 'private-example-password',
-        ])->assertRedirect($page);
+        $created = $this->postJson($page.'/servers', $this->registration(['159.223.97.39']))
+            ->assertOk()->assertJsonPath('data', 'Added 1, Restored 0');
+        $this->assertStringNotContainsString('private-example-password', $created->getContent());
 
         $this->post($page.'/domains', ['name' => 'example.org'])->assertRedirect($page);
         $domain = SendingDomain::query()->firstOrFail();
@@ -274,5 +403,19 @@ class InfrastructurePlanningTest extends TestCase
     private function url(string $suffix): string
     {
         return '/api/v1/workspaces/'.$this->workspace->id.$suffix;
+    }
+
+    private function registration(array $ips, array $overrides = []): array
+    {
+        return array_replace([
+            'servers_provider_id' => $this->provider->id,
+            'name' => 'Primary relay',
+            'ips' => $ips,
+            'port' => 22,
+            'username' => 'root',
+            'login_type' => 'password',
+            'password' => 'private-example-password',
+            'expire_at' => now()->addDays(30)->format('Y-m-d'),
+        ], $overrides);
     }
 }

@@ -33,30 +33,12 @@
         <section class="data-panel infra-panel" id="servers" aria-labelledby="servers-title">
             <div class="panel-header"><div><p class="eyebrow panel-eyebrow">STEP 1 · HOST</p><h2 id="servers-title">Add server</h2></div><span class="panel-meta">{{ $servers->count() }} registered</span></div>
             <div class="infra-panel-body">
-                <p class="infra-intro">Enter the provider, server IPs, and SSH credentials. One server is saved for each IP. The password is encrypted and never shown here again.</p>
-                <form method="post" action="{{ route('console.infrastructure.servers.store', $workspace->id) }}" class="infra-form" novalidate>
-                    @csrf
-                    <input type="hidden" name="request_key" value="{{ old('request_key', $formKey) }}">
-                    <div class="infra-two-fields">
-                        <div class="infra-field"><label for="server-name">Server name</label><input id="server-name" name="name" value="{{ old('name') }}" required maxlength="120" autocomplete="off" placeholder="Primary relay" @error('name') aria-invalid="true" @enderror></div>
-                        <div class="infra-field"><label for="provider">Provider</label><input id="provider" name="provider" value="{{ old('provider') }}" required maxlength="120" autocomplete="off" placeholder="Your hosting provider" @error('provider') aria-invalid="true" @enderror></div>
-                    </div>
-                    <div class="infra-two-fields">
-                        <div class="infra-field"><label for="server-ips">Public IP addresses</label><textarea id="server-ips" name="ip_addresses_text" rows="3" required autocomplete="off" placeholder="One IPv4 or IPv6 address per line" aria-describedby="server-ips-help" @error('ip_addresses_text') aria-invalid="true" @enderror @error('ip_addresses') aria-invalid="true" @enderror>{{ old('ip_addresses_text') }}</textarea><small id="server-ips-help">Enter up to 100 addresses, one per line. All are saved together.</small></div>
-                        <div class="infra-field"><label for="ssh-port">SSH port</label><input id="ssh-port" name="ssh_port" type="number" value="{{ old('ssh_port', 22) }}" min="1" max="65535" required @error('ssh_port') aria-invalid="true" @enderror></div>
-                    </div>
-                    <div class="infra-two-fields">
-                        <div class="infra-field"><label for="ssh-username">SSH username</label><input id="ssh-username" name="ssh_username" value="{{ old('ssh_username', 'root') }}" required maxlength="32" autocomplete="username" @error('ssh_username') aria-invalid="true" @enderror></div>
-                        <div class="infra-field"><label for="root-password">SSH password <span class="optional-label">or use a private key below</span></label><input id="root-password" name="root_password" type="password" minlength="8" autocomplete="new-password" @error('root_password') aria-invalid="true" @enderror><small>The connection is not attempted until the host key is verified.</small></div>
-                    </div>
-                    <div class="infra-field"><label for="ssh-private-key">SSH private key <span class="optional-label">optional</span></label><textarea id="ssh-private-key" name="ssh_private_key" rows="5" autocomplete="off" aria-describedby="ssh-private-key-help" @error('ssh_private_key') aria-invalid="true" @enderror></textarea><small id="ssh-private-key-help">Leave this blank when using a password. Credentials are encrypted and never shown here again.</small></div>
-                    <div class="infra-field"><label for="host-fingerprint">Expected SSH fingerprint <span class="optional-label">optional</span></label><input id="host-fingerprint" name="expected_host_fingerprint" value="{{ old('expected_host_fingerprint') }}" placeholder="SHA256:…" autocomplete="off" @error('expected_host_fingerprint') aria-invalid="true" @enderror><small>Record it from your provider. AlphaLink will compare it during preflight.</small></div>
-                    <button class="infra-action" type="submit">Save servers <span aria-hidden="true">↗</span></button>
-                </form>
+                <p class="infra-intro">Register one or more server IPs with the selected provider. The DMS-matched Add Servers form includes a separate connection test.</p>
+                <a class="infra-action" href="{{ route('console.infrastructure.servers.index', $workspace->id) }}">Add Servers <span aria-hidden="true">↗</span></a>
                 @if ($servers->isNotEmpty())
                     <div class="infra-records" aria-label="Registered servers">
                         @foreach ($servers as $server)
-                            <div class="infra-record"><div><strong>{{ $server->name }}</strong><small>{{ $server->provider }} · {{ $server->ip_address }}:{{ $server->ssh_port }}</small></div><span class="infra-state">Host check pending</span></div>
+                            <div class="infra-record"><div><strong>{{ $server->name }}</strong><small>{{ $server->provider }} · {{ $server->ip_address }}:{{ $server->ssh_port }} · Expires {{ $server->expire_at?->format('Y-m-d') }}</small></div><span class="infra-state">{{ $server->state === 'verified' ? 'Host verified' : 'Host check pending' }}</span></div>
                         @endforeach
                     </div>
                 @endif

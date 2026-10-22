@@ -23,6 +23,9 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/workspaces/{workspace}/audience-lists', [WorkspaceConsoleController::class, 'audienceLists'])->name('console.audiences.index');
     Route::get('/app/workspaces/{workspace}/audience-lists/{audienceList}', [WorkspaceConsoleController::class, 'audienceList'])->name('console.audiences.show');
     Route::get('/app/workspaces/{workspace}/infrastructure', [InfrastructureConsoleController::class, 'index'])->name('console.infrastructure.index');
+    Route::get('/app/workspaces/{workspace}/infrastructure/servers', [InfrastructureConsoleController::class, 'serversIndex'])->name('console.infrastructure.servers.index');
+    Route::get('/app/workspaces/{workspace}/infrastructure/servers/create', [InfrastructureConsoleController::class, 'createServer'])->name('console.infrastructure.servers.create');
+    Route::post('/app/workspaces/{workspace}/infrastructure/servers/test-connection', [InfrastructureConsoleController::class, 'testServerConnection'])->middleware('throttle:10,1')->name('console.infrastructure.servers.test-connection');
     Route::post('/app/workspaces/{workspace}/infrastructure/servers', [InfrastructureConsoleController::class, 'storeServer'])->middleware('throttle:10,1')->name('console.infrastructure.servers.store');
     Route::post('/app/workspaces/{workspace}/infrastructure/servers/{server}/host-key', [InfrastructureConsoleController::class, 'discoverHostKey'])->middleware('throttle:3,1')->name('console.infrastructure.servers.host-key');
     Route::post('/app/workspaces/{workspace}/infrastructure/servers/{server}/preflight', [InfrastructureConsoleController::class, 'preflightServer'])->middleware('throttle:3,1')->name('console.infrastructure.servers.preflight');

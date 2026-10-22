@@ -3,13 +3,13 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\ServerProvider;
 use App\Models\Workspace;
-use App\Services\Infrastructure\InfrastructureManager;
 use App\Services\Infrastructure\HostProbeException;
+use App\Services\Infrastructure\InfrastructureManager;
 use App\Services\Infrastructure\PmtaCatalog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
 
 class InfrastructureController extends Controller
 {
@@ -23,6 +23,7 @@ class InfrastructureController extends Controller
         return response()->json(['data' => [
             'servers' => $workspace->managedServers()->latest()->get()
                 ->map(fn ($server) => $this->server($server)),
+            'providers' => ServerProvider::query()->get(['id', 'name']),
             'domains' => $workspace->sendingDomains()->latest()->get()
                 ->map(fn ($domain) => $this->domain($domain)),
             'plans' => $workspace->installationPlans()->latest('created_at')->limit(25)->get()
@@ -36,38 +37,54 @@ class InfrastructureController extends Controller
         /** @var Workspace $workspace */
         $workspace = $request->attributes->get('alphalink.workspace');
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:120'],
-            'provider' => ['required', 'string', 'max:120'],
-            'ip_address' => ['required_without:ip_addresses', 'ip'],
-            'ip_addresses' => ['required_without:ip_address', 'array', 'min:1', 'max:100'],
-            'ip_addresses.*' => ['required', 'ip', 'distinct'],
-            'ssh_port' => ['nullable', 'integer', 'between:1,65535'],
-            'ssh_username' => ['nullable', 'string', 'max:32', 'regex:/^[A-Za-z_][A-Za-z0-9_.-]*$/'],
-            'root_password' => ['required_without:ssh_private_key', 'string', 'min:8', 'max:4096'],
-            'ssh_private_key' => ['required_without:root_password', 'string', 'max:32768'],
-            'expected_host_fingerprint' => ['nullable', 'string', 'regex:/^SHA256:[A-Za-z0-9+\/]{43}$/'],
+            'servers_provider_id' => ['required', 'numeric'],
+            'name' => ['required', 'string', 'min:2', 'max:255'],
+            'ips' => ['required', 'array', 'min:1'],
+            'port' => ['required', 'numeric'],
+            'username' => ['required', 'string'],
+            'login_type' => ['required', 'string', 'in:password,ssh_key'],
+            'password' => ['required', 'string', 'min:4'],
+            'expire_at' => ['required', 'date', 'after_or_equal:today'],
+            'expected_host_fingerprints' => ['sometimes', 'array'],
+            'expected_host_fingerprints.*' => ['nullable', 'string', 'regex:/^SHA256:[A-Za-z0-9+\/]{43}$/'],
         ]);
-        if (isset($data['ip_address'], $data['ip_addresses'])) {
-            throw ValidationException::withMessages(['ip_addresses' => 'Provide either one IP or a list of IPs.']);
-        }
-        if (isset($data['root_password'], $data['ssh_private_key'])) {
-            throw ValidationException::withMessages(['ssh_private_key' => 'Provide either a password or a private key.']);
-        }
-        $key = $request->header('Idempotency-Key');
-        if (! is_string($key) || strlen($key) < 16 || strlen($key) > 128) {
-            throw ValidationException::withMessages(['Idempotency-Key' => 'Provide a unique key between 16 and 128 characters.']);
-        }
+        $result = $this->manager->registerServers($workspace, $request->user(), $data, $request->attributes->get('request_id'));
 
-        if (isset($data['ip_addresses'])) {
-            $servers = $this->manager->registerServers($workspace, $request->user(), $data, $key, $request->attributes->get('request_id'));
+        return response()->json([
+            'data' => "Added {$result['added']}, Restored {$result['restored']}",
+            'added' => $result['added'],
+            'restored' => $result['restored'],
+            'servers' => $result['servers']->map(fn ($server) => $this->server($server))->values(),
+        ]);
+    }
 
-            return response()->json(['data' => $servers->map(fn ($server) => $this->server($server))], $servers->every(fn ($server) => $server->wasRecentlyCreated === false) ? 200 : 201);
-        }
+    public function testServerConnection(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'ips' => ['required', 'array', 'min:1'],
+            'port' => ['required', 'numeric'],
+            'username' => ['required', 'string'],
+            'login_type' => ['required', 'string', 'in:password,ssh_key'],
+            'password' => ['required', 'string', 'min:4'],
+            'expected_host_fingerprints' => ['sometimes', 'array'],
+            'expected_host_fingerprints.*' => ['nullable', 'string', 'regex:/^SHA256:[A-Za-z0-9+\/]{43}$/'],
+        ]);
+        $results = $this->manager->testServerConnections(
+            $data['ips'],
+            (int) $data['port'],
+            $data['username'],
+            $data['login_type'],
+            $data['password'],
+            $data['expected_host_fingerprints'] ?? [],
+        );
 
-        $prior = $workspace->managedServers()->where('idempotency_key', $key)->exists();
-        $server = $this->manager->registerServer($workspace, $request->user(), $data, $key, $request->attributes->get('request_id'));
-
-        return response()->json(['data' => $this->server($server)], $prior ? 200 : 201);
+        return response()->json([
+            'data' => array_column($results, 'message'),
+            'host_fingerprints' => collect($results)
+                ->filter(fn ($result) => $result['status'] === 'pin_required')
+                ->mapWithKeys(fn ($result) => [$result['ip'] => $result['observed_fingerprint']]),
+            'results' => $results,
+        ]);
     }
 
     public function storeDomain(Request $request): JsonResponse
@@ -146,7 +163,7 @@ class InfrastructureController extends Controller
 
     private function server($server): array
     {
-        return $server->only(['id', 'name', 'provider', 'ip_address', 'ssh_port', 'ssh_username', 'expected_host_fingerprint', 'observed_host_fingerprint', 'last_probe_at', 'state', 'host_facts', 'created_at']);
+        return $server->only(['id', 'name', 'provider', 'servers_provider_id', 'ip_address', 'ssh_port', 'ssh_username', 'login_type', 'expire_at', 'expected_host_fingerprint', 'observed_host_fingerprint', 'last_probe_at', 'state', 'host_facts', 'created_at']);
     }
 
     private function domain($domain): array

@@ -54,6 +54,7 @@ Route::prefix('v1')->group(function (): void {
 
                 Route::middleware('workspace.role:owner,admin')->group(function (): void {
                     Route::get('/infrastructure', [InfrastructureController::class, 'index']);
+                    Route::post('/servers/test-connection', [InfrastructureController::class, 'testServerConnection'])->middleware('throttle:10,1');
                     Route::post('/servers', [InfrastructureController::class, 'storeServer'])->middleware('throttle:10,1');
                     Route::post('/servers/{server}/host-key', [InfrastructureController::class, 'discoverHostKey'])->middleware('throttle:3,1');
                     Route::post('/servers/{server}/preflight', [InfrastructureController::class, 'preflightServer'])->middleware('throttle:3,1');

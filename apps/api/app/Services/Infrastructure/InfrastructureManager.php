@@ -7,11 +7,13 @@ use App\Models\InstallationPlan;
 use App\Models\ManagedServer;
 use App\Models\SendingDomain;
 use App\Models\ServerCredential;
+use App\Models\ServerProvider;
 use App\Models\User;
 use App\Models\Workspace;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class InfrastructureManager
@@ -22,82 +24,119 @@ class InfrastructureManager
         private readonly SshHostProbe $hostProbe,
     ) {}
 
-    /** @return Collection<int, ManagedServer> */
-    public function registerServers(Workspace $workspace, User $actor, array $data, string $key, ?string $requestId = null): Collection
+    /** @return array{added:int, restored:int, servers:Collection<int, ManagedServer>} */
+    public function registerServers(Workspace $workspace, User $actor, array $data, ?string $requestId = null): array
     {
-        $ips = $data['ip_addresses'];
-        if (count($ips) !== count(array_unique($ips))) {
-            throw ValidationException::withMessages(['ip_addresses' => 'Each server IP must be unique.']);
+        $provider = ServerProvider::query()->findOrFail($data['servers_provider_id']);
+        $credentialType = $data['login_type'];
+        $credential = $data['password'];
+        $name = strtoupper($data['name']);
+        $result = ['added' => 0, 'restored' => 0, 'servers' => collect()];
+        $newRows = [];
+
+        // DMS restores deleted rows as it walks the IPs, then performs one bulk insert for new rows.
+        // Keep that ordering: a later new-row failure does not roll back an earlier restore.
+        foreach ($data['ips'] as $candidate) {
+            if (! is_string($candidate)) {
+                continue;
+            }
+            $ip = $candidate;
+            if (! filter_var($ip, FILTER_VALIDATE_IP)) {
+                continue;
+            }
+
+            $deleted = ManagedServer::onlyTrashed()
+                ->where('workspace_id', $workspace->getKey())
+                ->where('ip_address', $ip)
+                ->first();
+
+            $attributes = [
+                'name' => $name,
+                'provider' => $provider->name,
+                'servers_provider_id' => $provider->getKey(),
+                'ip_address' => $ip,
+                'ssh_port' => (int) $data['port'],
+                'ssh_username' => $data['username'],
+                'login_type' => $credentialType,
+                'expire_at' => $data['expire_at'],
+                'expected_host_fingerprint' => $data['expected_host_fingerprints'][$ip] ?? null,
+            ];
+
+            if ($deleted) {
+                $server = DB::transaction(function () use ($workspace, $actor, $deleted, $attributes, $credentialType, $credential, $requestId, $ip) {
+                    $server = ManagedServer::onlyTrashed()
+                        ->where('workspace_id', $workspace->getKey())
+                        ->whereKey($deleted->getKey())
+                        ->lockForUpdate()
+                        ->firstOrFail();
+                    $server->fill($attributes);
+                    $server->restore();
+                    $this->storeCredential($server, $workspace, $actor, $credentialType, $credential);
+                    $this->audit($workspace, $actor, 'server.restored', 'managed_server', $server->getKey(), $requestId, [
+                        'server_provider_id' => $attributes['servers_provider_id'],
+                        'ip_address' => $ip,
+                    ]);
+
+                    return $server;
+                });
+                $result['restored']++;
+                $result['servers']->push($server);
+
+                continue;
+            }
+
+            if ($workspace->managedServers()->where('ip_address', $ip)->exists()) {
+                continue;
+            }
+
+            $newRows[] = [
+                'id' => (string) Str::uuid(),
+                'workspace_id' => $workspace->getKey(),
+                ...$attributes,
+                'state' => 'pending_host_verification',
+                'idempotency_key' => (string) Str::uuid(),
+                'request_fingerprint' => $this->digest([
+                    ...$attributes,
+                    'credential_proof' => hash_hmac('sha256', $credential, config('app.key')),
+                ]),
+                'created_by' => $actor->getKey(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
         }
 
-        // A batch is all-or-nothing, including idempotent replay and duplicate-IP checks.
-        return DB::transaction(function () use ($workspace, $actor, $data, $key, $requestId, $ips): Collection {
-            return collect($ips)->map(function (string $ip, int $index) use ($workspace, $actor, $data, $key, $requestId): ManagedServer {
-                $item = $data;
-                unset($item['ip_addresses']);
-                $item['ip_address'] = $ip;
-                $itemKey = hash('sha256', $key.'|'.$index);
+        if ($newRows !== []) {
+            DB::transaction(function () use ($newRows, $workspace, $actor, $credentialType, $credential, $requestId, &$result): void {
+                DB::table('managed_servers')->insertOrIgnore($newRows);
+                foreach ($newRows as $row) {
+                    $server = ManagedServer::query()->find($row['id']);
+                    if (! $server) {
+                        continue;
+                    }
 
-                return $this->registerServer($workspace, $actor, $item, $itemKey, $requestId);
+                    $this->storeCredential($server, $workspace, $actor, $credentialType, $credential);
+                    $this->audit($workspace, $actor, 'server.registered', 'managed_server', $server->getKey(), $requestId, [
+                        'server_provider_id' => $row['servers_provider_id'],
+                        'state' => $server->state,
+                    ]);
+                    $result['added']++;
+                    $result['servers']->push($server);
+                }
             });
-        });
+        }
+
+        return $result;
     }
 
-    public function registerServer(Workspace $workspace, User $actor, array $data, string $key, ?string $requestId = null): ManagedServer
+    /** @param array<int, string> $ips @param array<string, string> $expectedFingerprints */
+    public function testServerConnections(array $ips, int $port, string $username, string $loginType, string $credential, array $expectedFingerprints = []): array
     {
-        $credentialType = isset($data['ssh_private_key']) ? 'private_key' : 'password';
-        $credential = $data['ssh_private_key'] ?? $data['root_password'];
-        $ip = trim($data['ip_address']);
-        if (! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
-            throw ValidationException::withMessages(['ip_address' => 'Enter a public server IP address.']);
-        }
+        return collect($ips)->map(function ($ip) use ($port, $username, $loginType, $credential, $expectedFingerprints): array {
+            $ip = is_string($ip) ? $ip : '';
+            $expected = $expectedFingerprints[$ip] ?? null;
 
-        $payload = [
-            'name' => trim($data['name']),
-            'provider' => trim($data['provider']),
-            'ip_address' => $ip,
-            'ssh_port' => (int) ($data['ssh_port'] ?? 22),
-            'ssh_username' => trim($data['ssh_username'] ?? 'root'),
-            'expected_host_fingerprint' => $data['expected_host_fingerprint'] ?? null,
-            'credential_proof' => hash_hmac('sha256', $credential, config('app.key')),
-            'credential_type' => $credentialType,
-        ];
-        $fingerprint = $this->digest($payload);
-        $prior = $workspace->managedServers()->where('idempotency_key', $key)->first();
-        if ($prior) {
-            abort_unless(hash_equals($prior->request_fingerprint, $fingerprint), 409, 'Idempotency key was already used for another server request.');
-
-            return $prior;
-        }
-
-        if ($workspace->managedServers()->where('ip_address', $ip)->exists()) {
-            throw ValidationException::withMessages(['ip_address' => 'This IP is already registered in this workspace.']);
-        }
-
-        return DB::transaction(function () use ($workspace, $actor, $data, $key, $requestId, $payload, $fingerprint, $credentialType, $credential): ManagedServer {
-            $server = $workspace->managedServers()->create([
-                ...array_diff_key($payload, ['credential_proof' => true, 'credential_type' => true]),
-                'state' => 'pending_host_verification',
-                'idempotency_key' => $key,
-                'request_fingerprint' => $fingerprint,
-                'created_by' => $actor->getKey(),
-            ]);
-
-            ServerCredential::query()->create([
-                'workspace_id' => $workspace->getKey(),
-                'managed_server_id' => $server->getKey(),
-                'credential_type' => $credentialType,
-                'encrypted_secret' => Crypt::encryptString($credential),
-                'created_by' => $actor->getKey(),
-                'rotated_at' => now(),
-            ]);
-
-            $this->audit($workspace, $actor, 'server.registered', 'managed_server', $server->getKey(), $requestId, [
-                'provider' => $server->provider, 'state' => $server->state,
-            ]);
-
-            return $server;
-        });
+            return $this->hostProbe->testConnection($ip, $port, $username, $loginType, $credential, $expected);
+        })->all();
     }
 
     public function registerDomain(Workspace $workspace, User $actor, string $name, ?string $requestId = null): SendingDomain
@@ -271,6 +310,18 @@ class InfrastructureManager
     private function digest(array $value): string
     {
         return hash('sha256', json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+    }
+
+    private function storeCredential(ManagedServer $server, Workspace $workspace, User $actor, string $credentialType, string $credential): void
+    {
+        $record = ServerCredential::query()->firstOrNew(['managed_server_id' => $server->getKey()]);
+        $record->fill([
+            'workspace_id' => $workspace->getKey(),
+            'credential_type' => $credentialType,
+            'encrypted_secret' => Crypt::encryptString($credential),
+            'created_by' => $actor->getKey(),
+            'rotated_at' => now(),
+        ])->save();
     }
 
     private function audit(Workspace $workspace, User $actor, string $action, string $type, string $id, ?string $requestId, array $properties = []): void

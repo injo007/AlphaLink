@@ -3,17 +3,16 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use App\Models\ServerProvider;
 use App\Models\User;
 use App\Models\Workspace;
-use App\Services\Infrastructure\InfrastructureManager;
 use App\Services\Infrastructure\HostProbeException;
+use App\Services\Infrastructure\InfrastructureManager;
 use App\Services\Infrastructure\PmtaCatalog;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\ValidationException;
 
 class InfrastructureConsoleController extends Controller
 {
@@ -36,48 +35,122 @@ class InfrastructureConsoleController extends Controller
             'plans' => $plans,
             'plan' => $plan,
             'versions' => $catalog->versions(),
-            'formKey' => (string) Str::uuid(),
         ]);
     }
 
-    public function storeServer(Request $request, string $workspaceId): RedirectResponse
+    public function createServer(Request $request, string $workspaceId): View
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspaceId);
+        $dmsProviderOrder = ['Digital', 'digital', 'Ovh', 'Linode', 'linode', 'ikoula', 'vultr', 'Azure', 'reg'];
+        $providerOrder = array_flip($dmsProviderOrder);
+        $providers = ServerProvider::query()->get(['id', 'name'])
+            ->sortBy(fn (ServerProvider $provider) => $providerOrder[$provider->name] ?? count($dmsProviderOrder))
+            ->values();
+
+        return view('console.infrastructure.server-create', [
+            'workspace' => $workspace,
+            'providers' => $providers,
+            'defaultExpireAt' => now()->addDays(30)->format('Y-m-d'),
+        ]);
+    }
+
+    public function serversIndex(Request $request, string $workspaceId): View|JsonResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspaceId);
+        $returned = $request->boolean('returned');
+        $serversQuery = $workspace->managedServers();
+
+        if ($returned) {
+            $serversQuery = $workspace->managedServers()->onlyTrashed();
+        }
+
+        $servers = $serversQuery
+            ->with('serverProvider:id,name')
+            ->orderBy('expire_at')
+            ->orderByDesc('id')
+            ->get();
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'data' => $servers->map(fn ($server) => [
+                    'id' => $server->getKey(),
+                    'name' => $server->name,
+                    'hostname' => null,
+                    'ip' => $server->ip_address,
+                    'country' => null,
+                    'is_installed' => false,
+                    'is_locked' => false,
+                    'allowed_users' => [],
+                    'is_active' => true,
+                    'expire_at' => $server->expire_at?->format('Y-m-d'),
+                    'deleted_at' => $server->deleted_at?->toISOString(),
+                    'servers_provider_id' => $server->servers_provider_id,
+                    'provider' => [
+                        'id' => $server->serverProvider?->getKey(),
+                        'name' => $server->serverProvider?->name,
+                    ],
+                    'history' => null,
+                    'ips_count' => 0,
+                ])->values(),
+            ]);
+        }
+
+        return view('console.infrastructure.servers', [
+            'workspace' => $workspace,
+            'serversDataUrl' => route('console.infrastructure.servers.index', $workspace->id),
+            'createUrl' => route('console.infrastructure.servers.create', $workspace->id),
+        ]);
+    }
+
+    public function storeServer(Request $request, string $workspaceId): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:120'],
-            'provider' => ['required', 'string', 'max:120'],
-            'ip_address' => ['required_without:ip_addresses_text', 'ip'],
-            'ip_addresses_text' => ['required_without:ip_address', 'string', 'max:5000'],
-            'ssh_port' => ['nullable', 'integer', 'between:1,65535'],
-            'ssh_username' => ['nullable', 'string', 'max:32', 'regex:/^[A-Za-z_][A-Za-z0-9_.-]*$/'],
-            'root_password' => ['required_without:ssh_private_key', 'string', 'min:8', 'max:4096'],
-            'ssh_private_key' => ['required_without:root_password', 'string', 'max:32768'],
-            'expected_host_fingerprint' => ['nullable', 'string', 'regex:/^SHA256:[A-Za-z0-9+\/]{43}$/'],
-            'request_key' => ['required', 'uuid'],
+            'servers_provider_id' => ['required', 'numeric'],
+            'name' => ['required', 'string', 'min:2', 'max:255'],
+            'ips' => ['required', 'array', 'min:1'],
+            'port' => ['required', 'numeric'],
+            'username' => ['required', 'string'],
+            'login_type' => ['required', 'string', 'in:password,ssh_key'],
+            'password' => ['required', 'string', 'min:4'],
+            'expire_at' => ['required', 'date', 'after_or_equal:today'],
+            'expected_host_fingerprints' => ['sometimes', 'array'],
+            'expected_host_fingerprints.*' => ['nullable', 'string', 'regex:/^SHA256:[A-Za-z0-9+\/]{43}$/'],
         ]);
-        if (isset($data['ip_address'], $data['ip_addresses_text'])) {
-            throw ValidationException::withMessages(['ip_addresses_text' => 'Provide either one IP or a list of IPs.']);
-        }
-        if (isset($data['root_password'], $data['ssh_private_key'])) {
-            throw ValidationException::withMessages(['ssh_private_key' => 'Provide either a password or a private key.']);
-        }
+        $result = $this->manager->registerServers($workspace, $request->user(), $data, $request->attributes->get('request_id'));
 
-        if (isset($data['ip_addresses_text'])) {
-            $ips = preg_split('/[\s,;]+/', trim($data['ip_addresses_text']), -1, PREG_SPLIT_NO_EMPTY);
-            Validator::make(['ip_addresses' => $ips], [
-                'ip_addresses' => ['required', 'array', 'min:1', 'max:100'],
-                'ip_addresses.*' => ['required', 'ip', 'distinct'],
-            ])->validate();
-            unset($data['ip_addresses_text']);
-            $data['ip_addresses'] = $ips;
-            $this->manager->registerServers($workspace, $request->user(), $data, $data['request_key'], $request->attributes->get('request_id'));
+        return response()->json([
+            'data' => "Added {$result['added']}, Restored {$result['restored']}",
+            'added' => $result['added'],
+            'restored' => $result['restored'],
+            'servers' => $result['servers']->map(fn ($server) => $server->only(['id', 'name', 'servers_provider_id', 'ip_address', 'ssh_port', 'ssh_username', 'login_type', 'expire_at', 'state']))->values(),
+        ]);
+    }
 
-            return redirect()->route('console.infrastructure.index', $workspace->id)->with('status', count($ips).' servers saved. Host identity and OS still need verification.');
-        }
+    public function testServerConnection(Request $request, string $workspaceId): JsonResponse
+    {
+        $this->workspaceFor($request->user(), $workspaceId);
+        $data = $request->validate([
+            'ips' => ['required', 'array', 'min:1'],
+            'port' => ['required', 'numeric'],
+            'username' => ['required', 'string'],
+            'login_type' => ['required', 'string', 'in:password,ssh_key'],
+            'password' => ['required', 'string', 'min:4'],
+            'expected_host_fingerprints' => ['sometimes', 'array'],
+            'expected_host_fingerprints.*' => ['nullable', 'string', 'regex:/^SHA256:[A-Za-z0-9+\/]{43}$/'],
+        ]);
+        $results = $this->manager->testServerConnections(
+            $data['ips'], (int) $data['port'], $data['username'], $data['login_type'],
+            $data['password'], $data['expected_host_fingerprints'] ?? [],
+        );
 
-        $this->manager->registerServer($workspace, $request->user(), $data, $data['request_key'], $request->attributes->get('request_id'));
-
-        return redirect()->route('console.infrastructure.index', $workspace->id)->with('status', 'Server saved. Host identity and OS still need verification.');
+        return response()->json([
+            'data' => array_column($results, 'message'),
+            'host_fingerprints' => collect($results)
+                ->filter(fn ($result) => $result['status'] === 'pin_required')
+                ->mapWithKeys(fn ($result) => [$result['ip'] => $result['observed_fingerprint']]),
+            'results' => $results,
+        ]);
     }
 
     public function storeDomain(Request $request, string $workspaceId): RedirectResponse

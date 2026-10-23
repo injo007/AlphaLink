@@ -1,4 +1,18 @@
-# Verification record — 2026-10-22
+# Verification record — current through 2026-10-23
+
+## DMS-INST-001 DNS and VMTA planner checkpoint — 2026-10-23
+
+| Check | Result | Meaning |
+|---|---|---|
+| Full Docker PHP 8.3 suite | **48 passed, 433 assertions.** | Includes four synthetic DNS-planner tests and three VMTA-planner tests for DMS record/configuration strings and branch differences. |
+| Focused DNS/VMTA planner tests | **7 passed, 11 assertions.** | Compares DNS record order/content, injected private-IP mapping/fallback, owned-domain no-op, exact CentOS 9 VMTA/inbound/FBL output and CentOS 7/external-domain behavior. |
+| Focused installation contract tests | **10 passed, 19 assertions.** | Covers DMS request normalization, per-row exception isolation, and the DMS OS/architecture gate. |
+| Node bulk-install tests | **3 passed.** | Confirms the existing DMS-shaped row filtering, option serialization, blank APPLY, and owned-domain guard. |
+| Docker PHP 8.3 Pint | Passed on the four changed PHP files. | Formatter check for both planners and their unit tests. |
+| `git diff --check` | Passed. | No whitespace errors after the evidence and progress updates. |
+| DMS/provider/host operations | Not run. | Planner consumes synthetic inputs only; no DMS mutation, DNS write, server probe or installation occurred. INSTALL remains disabled. |
+
+The DNS planner reconstructs the source-owned-domain branch, although the standard DMS Cloud Bulk Install page filters candidates to non-owned domains and therefore normally reaches the provider no-op branch. The VMTA planner reproduces source output strings but is not wired to a PMTA adapter. Neither planner is connected to an execution route, and DMS's final IP/random-subdomain data and ISP mapping are not yet available in AlphaLink. DMS-INST-001 remains `IMPLEMENTING`.
 
 ## Current DMS-SRV-004 health collector checkpoint
 

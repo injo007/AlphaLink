@@ -54,6 +54,38 @@ class SshHostProbe
     }
 
     /**
+     * Runs DMS's read-only global-IP discovery command after a successful local preflight.
+     * The stored first-use host key is checked internally; no fingerprint is requested from an operator.
+     */
+    public function discoverGlobalServerIps(ManagedServer $server, string $credential, string $credentialType = 'password'): string
+    {
+        if ($server->state !== 'verified' || ! is_string($server->expected_host_fingerprint) || $server->expected_host_fingerprint === '') {
+            throw new HostProbeException('Verify the server host before installation.');
+        }
+
+        try {
+            $ssh = $this->connect($server);
+            $fingerprint = $this->readFingerprint($ssh);
+            if (! hash_equals($server->expected_host_fingerprint, $fingerprint)) {
+                throw new HostProbeException('The SSH host key changed since the previous preflight.');
+            }
+
+            $loginCredential = in_array($credentialType, ['private_key', 'ssh_key'], true)
+                ? PublicKeyLoader::load($credential)
+                : $credential;
+            if (! $ssh->login($server->ssh_username, $loginCredential)) {
+                throw new HostProbeException('SSH authentication failed. Check the stored credential.');
+            }
+
+            return $this->run($ssh, 'ip -o addr show scope global | awk \'{split($4, a, "/"); print a[1]}\'', 262144);
+        } catch (HostProbeException $exception) {
+            throw $exception;
+        } catch (Throwable) {
+            throw new HostProbeException('Server IP discovery failed. Check the host and try again.');
+        }
+    }
+
+    /**
      * Tests DMS's SSH/SFTP login outcome without running a command or persisting state.
      *
      * @return array{ip:string,status:string,message:string}
@@ -170,10 +202,10 @@ class SshHostProbe
         return (ord($packedAddress[$fullBytes]) & $mask) === (ord($packedNetwork[$fullBytes]) & $mask);
     }
 
-    private function run(SSH2 $ssh, string $command): string
+    private function run(SSH2 $ssh, string $command, int $maxOutputBytes = 8192): string
     {
         $output = $ssh->exec($command);
-        if (! is_string($output) || strlen($output) > 8192 || $ssh->isTimeout() || $ssh->getExitStatus() !== 0) {
+        if (! is_string($output) || strlen($output) > $maxOutputBytes || $ssh->isTimeout() || $ssh->getExitStatus() !== 0) {
             throw new HostProbeException('A read-only host fact command failed or timed out.');
         }
 

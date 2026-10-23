@@ -1,5 +1,16 @@
 # Verification record — current through 2026-10-23
 
+## DMS-INST-001 remote IP discovery checkpoint — 2026-10-23
+
+| Check | Result | Meaning |
+|---|---|---|
+| Focused Docker PHP 8.3 remote-IP, inventory and OS/PMTA tests | **11 passed, 78 assertions.** | Compares synthetic output sorting/deduplication, no-address and malformed-address guards, private asset presence and DMS installer branches. |
+| Full Docker PHP 8.3 suite | **82 passed, 603 assertions.** | Includes the remote-IP adapter, asset inventory and installer matrix. |
+| Docker PHP 8.3 Pint | Passed on the SSH probe, discovery adapter and unit test. | Changed PHP files match project formatting. |
+| SSH/host/DMS operations | Not run. | Synthetic transport only; no host, SSH credential, DNS provider, firewall or PMTA operation was accessed. |
+
+E-INST-15 maps the exact DMS read-only global-IP command and its IPv4-before-IPv6, packed-address ordering. AlphaLink reuses its verified-server host-key pin internally and adds an adapter that rejects empty/invalid output before later install phases. It remains disconnected from a production run-start/runner path; no fingerprint prompt was introduced. INSTALL stays disabled.
+
 ## DMS-INST-001 asset inventory checkpoint — 2026-10-23
 
 | Check | Result | Meaning |

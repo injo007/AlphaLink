@@ -1,5 +1,18 @@
 # Verification record — current through 2026-10-23
 
+## DMS-INST-001 PMTA artifact integrity checkpoint — 2026-10-23
+
+| Check | Result | Meaning |
+|---|---|---|
+| Focused Docker PHP 8.3 `PmtaBundleIntegrityTest` | **7 passed, 13 assertions.** | Synthetic bundles cover valid manifest/hash verification, tampering, private permissions, symlinks, unexpected files, and catalog installability. |
+| Full Docker PHP 8.3 suite | **94 passed, 631 assertions.** | All local API feature/unit tests pass, including the PMTA artifact gate. |
+| Docker PHP 8.3 Pint | Passed on all five changed PHP files. | Explicit paths were supplied because the app container has no Git metadata; the host PHP lacks XML, which Pint requires. |
+| Read-only artifact check | Host-side private 4.0r8 bundle integrity verified. | Bundle bytes and license text were not displayed. The running app container has no private bundle mount and `PMTA_BUNDLE_DIR` is unset, so the API cannot consume the host-side files. |
+| Disposable AlmaLinux 9 RPM check | Dependency resolution inspected; installation aborted. | The local RPM identifies PowerMTA 4.0r8/x86_64, the dependency solver resolves its requirements, signature metadata is absent, and `dnf --assumeno` stopped before installation. No package scriptlet ran. |
+| DMS/target operations | None. | No DMS request, package execution, remote host change, provider write, or installation was run. |
+
+E-INST-17 records the DMS RPM/patch guard and license upload behavior alongside AlphaLink's infrastructure-only integrity safeguard. E-INST-18 records RPM metadata and dependency resolution without installation. No trusted signer, license entitlement, or clean-host runtime compatibility is established. DMS-INST-001 remains `IMPLEMENTING`; INSTALL remains disabled.
+
 ## DMS-INST-001 row-preparation checkpoint — 2026-10-23
 
 | Check | Result | Meaning |

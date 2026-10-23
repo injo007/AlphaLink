@@ -4,12 +4,12 @@ namespace App\Services\Infrastructure;
 
 class PmtaCatalog
 {
+    public function __construct(private readonly PmtaBundleIntegrityVerifier $bundleVerifier) {}
+
     public function versions(): array
     {
         $bundleRoot = config('pmta.bundle_directory');
-        $bundleHash = '2ea8e4776b705dec618178bddc1ead3cfcb9fcff5a36bc20309dac160eb46e16';
-        $bundleStaged = is_string($bundleRoot)
-            && is_file(rtrim($bundleRoot, '/').'/'.$bundleHash.'/manifest.json');
+        $bundleStaged = $this->bundleVerifier->isVerified(is_string($bundleRoot) ? $bundleRoot : null);
 
         return [
             '4.0' => [

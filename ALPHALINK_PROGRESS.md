@@ -1,5 +1,18 @@
 # AlphaLink progress
 
+## DMS-INST-001 PMTA artifact integrity checkpoint — 2026-10-23
+
+| Check | Result | Meaning |
+|---|---|---|
+| Focused Docker PHP 8.3 `PmtaBundleIntegrityTest` | **7 passed, 13 assertions.** | Synthetic bundles verify the exact manifest/file allowlist, hashes, modes, symlink rejection, tamper rejection, and catalog behavior. A verified artifact still does not make PMTA installable. |
+| Full Docker PHP 8.3 suite | **94 passed, 631 assertions.** | Includes the new artifact-integrity tests and all current AlphaLink tests. |
+| Docker PHP 8.3 Pint | Passed on all five changed PHP files. | Explicit paths were supplied because the app container has no Git metadata; the host PHP lacks the XML extension Pint requires. |
+| Host-side artifact check | Integrity verified without displaying bundle contents. | The private 4.0r8 package/license/reference-config files match the reviewed manifest and pinned hashes. The running app container has no private bundle mount and `PMTA_BUNDLE_DIR` is unset, so it correctly reports the bundle unavailable. |
+| Disposable AlmaLinux 9 RPM check | Metadata and dependency resolution inspected; installation aborted. | RPM metadata identifies PowerMTA 4.0r8/x86_64; dependency resolution found requirements, the RPM reports no PGP/RSA signature metadata, and `dnf --assumeno` aborted before package installation. No scriptlet or target host ran. |
+| DMS and target host operations | None. | Source inspection only; no license text was printed, and no PMTA package, remote service, DNS, firewall, or DMS operation ran. |
+
+E-INST-17 maps DMS's actual AlmaLinux 9 PMTA behavior: DMS skips PMTA only when both the versioned RPM and patch are absent; otherwise it installs the RPM and uploads the versioned license. E-INST-18 records RPM metadata and dependency resolution in a disposable AlmaLinux 9 container. AlphaLink's manifest/hash verifier is an infrastructure safeguard; it does not establish DMS parity, vendor provenance, target compatibility, or license entitlement. INSTALL remains disabled.
+
 ## DMS-INST-001 row-preparation checkpoint — 2026-10-23
 
 | Check | Result | Meaning |

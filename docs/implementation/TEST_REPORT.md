@@ -1,5 +1,17 @@
 # Verification record — current through 2026-10-23
 
+## DMS-INST-001 discovered-IP and alias checkpoint — 2026-10-23
+
+| Check | Result | Meaning |
+|---|---|---|
+| Focused Docker PHP 8.3 IP/alias planner tests | **7 passed, 51 assertions.** | Verifies the exact DMS 1,022-word pool hash, random sample count/bounds, address deduplication and IPv4/IPv6 packed ordering, primary/first alias rules, malformed-input rejection, and use of formatted rows by the DNS and VMTA planners. IPs, domains and deterministic random seeds are synthetic. |
+| Full Docker PHP 8.3 suite | **55 passed, 484 assertions.** | Existing suite plus the four IP and three alias-planner tests. |
+| Docker PHP 8.3 Pint | Passed on the new planners and their tests. | All four files match the project formatter. |
+| `git diff --check` | Passed after the source and evidence updates. | No whitespace errors. |
+| DMS/provider/host operations | Not run. | No DMS form, DNS provider, server discovery command, SSH connection, PMTA write or installation was invoked. INSTALL remains disabled. |
+
+The planners reproduce DMS's address sorting, exact alias pool and Laravel selection behavior, and `format_ips` mapping. They accept supplied synthetic discovered addresses; they do not connect to remote discovery. The checks demonstrate deterministic local output equivalence for the tested branches, not end-to-end installation parity. DMS-INST-001 remains `IMPLEMENTING`.
+
 ## DMS-INST-001 DNS and VMTA planner checkpoint — 2026-10-23
 
 | Check | Result | Meaning |

@@ -1,11 +1,22 @@
 # Verification record — current through 2026-10-23
 
+## DMS-INST-001 OS/PMTA installer matrix checkpoint — 2026-10-23
+
+| Check | Result | Meaning |
+|---|---|---|
+| Focused Docker PHP 8.3 DmsBulkInstallInstallerMatrixTest | **3 passed, 49 assertions.** | Compares supported OS families and all PMTA 4.0/4.5/5.0 asset and branch selections, selected optional feature assets, and DMS’s RPM/patch early-return truth table. |
+| Full Docker PHP 8.3 suite | **74 passed, 574 assertions.** | Includes the installer matrix and existing API tests. |
+| Docker PHP 8.3 Pint | Passed on the matrix, OS selector and test. | All three changed PHP files match project formatting. |
+| DMS/host operations | Not run. | No bundle, license, server, network, firewall, DNS provider or PMTA operation was accessed. |
+
+E-INST-13 maps DMS’s CentOS 7 yum and CentOS 9 dnf paths, version-specific PowerMTA files/patch destinations, admin HTTP port rules, Nginx inputs and option-selected assets. The PMTA branch only returns early when both the RPM and patch are absent; DMS ignores later upload result booleans. AlphaLink’s matrix captures this source behavior but is not connected to artifact verification or a runner. A matching package/license set and real host execution remain outstanding; INSTALL remains disabled.
+
 ## DMS-INST-001 persisted transcript checkpoint — 2026-10-23
 
 | Check | Result | Meaning |
 |---|---|---|
 | Focused Docker PHP 8.3 transcript tests | **7 passed, 18 assertions.** | A fake coordinator run writes timestamped lines to the private store; the owner’s GET returns the exact JSON string. Additional checks cover coordinator output, cross-workspace isolation, nonmember/operator/unauthenticated denial and missing/malformed IDs. |
-| Full Docker PHP 8.3 suite | **71 passed, 525 assertions.** | Includes transcript persistence/route tests and all local API feature/unit tests. |
+| Full Docker PHP 8.3 suite | **71 passed, 525 assertions.** | Includes transcript persistence/route tests and all local API feature/unit tests at that checkpoint. |
 | Docker PHP 8.3 Pint | Passed on all six changed PHP files. | Controller, route, store, coordinator and tests match project formatting. |
 | git diff --check | Passed after evidence updates. | No whitespace errors. |
 | DMS log route, install, server, DNS or PMTA operations | Not invoked. | Only a synthetic fake runner and local private transcript files were used. |

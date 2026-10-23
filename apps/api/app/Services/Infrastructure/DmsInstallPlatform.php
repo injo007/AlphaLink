@@ -4,13 +4,6 @@ namespace App\Services\Infrastructure;
 
 class DmsInstallPlatform
 {
-    private const SUPPORTED_RELEASE_MARKERS = [
-        'centos linux 7',
-        'centos stream 9',
-        'rocky linux 9',
-        'almalinux 9',
-    ];
-
     /**
      * DMS's ServersInstallFactory rejects non-x86_64 hosts and matches these
      * PRETTY_NAME values before selecting its CentOS 7/9 installer.
@@ -28,21 +21,27 @@ class DmsInstallPlatform
             $blockers[] = 'DMS bulk installation supports x86_64 architecture only.';
         }
 
-        if (! $this->supportsRelease($release)) {
+        if ($this->installerFamily($release) === null) {
             $blockers[] = 'DMS bulk installation supports CentOS Linux 7, CentOS Stream 9, Rocky Linux 9, and AlmaLinux 9 only.';
         }
 
         return $blockers;
     }
 
-    private function supportsRelease(string $release): bool
+    public function installerFamily(string $release): ?string
     {
-        foreach (self::SUPPORTED_RELEASE_MARKERS as $marker) {
+        $release = strtolower(trim($release));
+
+        if (str_contains($release, 'centos linux 7')) {
+            return 'centos7';
+        }
+
+        foreach (['centos stream 9', 'rocky linux 9', 'almalinux 9'] as $marker) {
             if (str_contains($release, $marker)) {
-                return true;
+                return 'centos9';
             }
         }
 
-        return false;
+        return null;
     }
 }

@@ -1,5 +1,17 @@
 # AlphaLink progress
 
+## DMS-INST-001 row-preparation checkpoint — 2026-10-23
+
+| Check | Result | Meaning |
+|---|---|---|
+| Actual AlphaLink target preflight | Verified read-only. | The saved host reports AlmaLinux 9.8, x86_64, and dnf; no PMTA binary is installed. The host key is pinned internally and never shown or requested. |
+| Actual global-IP discovery | Succeeded with a read-only DMS command. | Three global addresses were returned (two IPv4, one IPv6); values were not displayed or stored in project evidence. |
+| Local install eligibility | Not ready. | The owner username mapping is blank and there are zero eligible domains, so the DMS bulk selector has no server/domain pair. |
+| Full PHP suite and Pint | **87 tests / 618 assertions pass; Pint passes.** | DMS-mapped selected-row preparation loads the workspace/server credential and calls read-only IP discovery only after host preflight. |
+
+E-INST-16 adds a DMS-eligible row preparation service and tests. It does not run host changes and is not connected to a production runner. The remaining installation dependencies are the DMS-compatible provider/domain inputs, PMTA package and matching license validation, real host/DNS/persistence adapters, per-server process/run/log lifecycle, rollback and health checks, then visual comparison of the complete DMS log flow. INSTALL remains disabled until the end-to-end flow is demonstrated equivalent.
+
+
 ## DMS-INST-001 read-only IP discovery checkpoint — 2026-10-23
 
 | Check | Result | Meaning |

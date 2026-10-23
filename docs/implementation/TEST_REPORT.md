@@ -1,5 +1,17 @@
 # Verification record — current through 2026-10-23
 
+## DMS-INST-001 row-preparation checkpoint — 2026-10-23
+
+| Check | Result | Meaning |
+|---|---|---|
+| Focused PHP 8.3 preparation, eligibility, remote-IP and planner tests | **35 passed, 377 assertions** at the focused run. | Synthetic checks cover DMS server/domain filters, workspace-scoped credential retrieval, required preflight pin, and read-only IP ordering/error behavior. |
+| Full Docker PHP 8.3 suite | **87 passed, 618 assertions.** | Includes the new row-preparation tests and existing feature/unit coverage. |
+| Docker PHP 8.3 Pint | Passed on the three changed PHP files. | Eligibility, preparation service and feature tests match project formatting. |
+| Real AlphaLink host operations | Read-only preflight and global-IP discovery only. | Verified AlmaLinux 9.8/x86_64/dnf; three addresses discovered. Addresses and stored fingerprint were not displayed or recorded. No package, service, firewall, DNS, PMTA or finalization change ran. |
+
+E-INST-16 connects DMS's eligibility criteria and saved server credentials to the already-mapped read-only IP-discovery phase. The service is not yet connected to a production row runner. The local owner username is unset and there are no eligible domains, so the real host cannot enter the bulk selector. INSTALL remains disabled.
+
+
 ## DMS-INST-001 remote IP discovery checkpoint — 2026-10-23
 
 | Check | Result | Meaning |

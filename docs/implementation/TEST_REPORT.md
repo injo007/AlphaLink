@@ -1,5 +1,17 @@
 # Verification record — current through 2026-10-23
 
+## DMS-INST-001 ISP-to-VMTA mapping checkpoint — 2026-10-23
+
+| Check | Result | Meaning |
+|---|---|---|
+| Focused Docker PHP 8.3 `DmsBulkInstallIspPlannerTest` | **3 passed, 4 assertions.** | Verifies all-name lowercase and first-occurrence de-duplication, then compares exact per-ISP VMTA output for synthetic names. |
+| Full Docker PHP 8.3 suite | **58 passed, 488 assertions.** | Includes current installation planners, all existing tests and the new ISP mapping tests. |
+| Docker PHP 8.3 Pint | Passed on the ISP planner and test. | Both changed files match the project formatter. |
+| `git diff --check` | Passed after the source and evidence updates. | No whitespace errors. |
+| DMS ISP records / host operations | Not accessed or run. | ISP names are synthetic; no DMS row data, remote host, PMTA file or DNS provider was touched. INSTALL remains disabled. |
+
+`IspAction::build_vmtas()` does not filter inactive ISPs. AlphaLink reproduces the query's name transformation but still has no ISP catalogue or production data source. DMS-INST-001 remains `IMPLEMENTING`.
+
 ## DMS-INST-001 discovered-IP and alias checkpoint — 2026-10-23
 
 | Check | Result | Meaning |

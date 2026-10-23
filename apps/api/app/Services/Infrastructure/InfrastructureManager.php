@@ -3,6 +3,7 @@
 namespace App\Services\Infrastructure;
 
 use App\Models\AuditEvent;
+use App\Models\DomainProvider;
 use App\Models\InstallationPlan;
 use App\Models\ManagedServer;
 use App\Models\SendingDomain;
@@ -161,6 +162,41 @@ class InfrastructureManager
 
             return $domain;
         });
+    }
+
+    /**
+     * DMS manual import counts only newly created domains and leaves existing names unchanged.
+     * This path supplies the provider-backed free/new domains used by bulk installation.
+     *
+     * @param  array<int, string>  $domains
+     */
+    public function registerDmsInstallDomains(Workspace $workspace, User $actor, int|string $providerId, array $domains, ?string $requestId = null): int
+    {
+        $provider = DomainProvider::query()->findOrFail($providerId);
+        $added = 0;
+
+        foreach ($domains as $domainName) {
+            $name = trim($domainName);
+            $domain = $workspace->sendingDomains()->firstOrCreate(
+                ['name' => $name],
+                [
+                    'state' => 'pending',
+                    'verification_token' => 'alphalink-verification='.bin2hex(random_bytes(24)),
+                    'created_by' => $actor->getKey(),
+                    'domains_provider_id' => $provider->getKey(),
+                    'status' => 'new',
+                    'is_our' => false,
+                    'is_active' => true,
+                ],
+            );
+
+            if ($domain->wasRecentlyCreated) {
+                $added++;
+                $this->audit($workspace, $actor, 'domain.dms_manual_imported', 'sending_domain', (string) $domain->getKey(), $requestId);
+            }
+        }
+
+        return $added;
     }
 
     public function verifyServerHost(Workspace $workspace, User $actor, ManagedServer $server, ?string $requestId = null): ManagedServer

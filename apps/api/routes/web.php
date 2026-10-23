@@ -41,6 +41,7 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/app/workspaces/{workspace}/infrastructure/servers', [InfrastructureConsoleController::class, 'storeServer'])->middleware('throttle:10,1')->name('console.infrastructure.servers.store');
     Route::post('/app/workspaces/{workspace}/infrastructure/servers/{server}/preflight', [InfrastructureConsoleController::class, 'preflightServer'])->middleware('throttle:3,1')->name('console.infrastructure.servers.preflight');
     Route::post('/app/workspaces/{workspace}/infrastructure/domains', [InfrastructureConsoleController::class, 'storeDomain'])->middleware('throttle:10,1')->name('console.infrastructure.domains.store');
+    Route::post('/app/workspaces/{workspace}/infrastructure/domains/manual', [InfrastructureConsoleController::class, 'storeDmsInstallDomains'])->middleware('throttle:10,1')->name('console.infrastructure.domains.manual');
     Route::post('/app/workspaces/{workspace}/infrastructure/domains/{domain}/verify', [InfrastructureConsoleController::class, 'verifyDomain'])->middleware('throttle:10,1')->name('console.infrastructure.domains.verify');
     Route::post('/app/workspaces/{workspace}/infrastructure/plans', [InfrastructureConsoleController::class, 'storePlan'])->middleware('throttle:10,1')->name('console.infrastructure.plans.store');
 });

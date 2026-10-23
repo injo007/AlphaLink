@@ -1,5 +1,11 @@
 # AlphaLink progress
 
+## DMS-INST-001 runtime bundle and domain-input checkpoint — 2026-10-23
+
+The running local app now sees a private verified copy of the reviewed 4.0r8 bundle and reports it as staged while keeping `installable=false`. A disposable AlmaLinux 9 container installed that RPM and ran `pmtad --version` successfully; the real server and DMS were untouched. The private copy is under the app’s mounted local `/demo/private/pmta` directory; it survives container replacement only while that demo directory is retained. E-INST-20 records this limited compatibility result.
+
+DMS manual Add Domains creates provider-backed, active, non-owned `new` rows and counts only new names. AlphaLink now has a workspace-scoped manual-import POST with that response and selector behavior; three feature tests/20 assertions and the full suite (97/651) pass. E-INST-19 records the source and target. The actual workspace still has no configured provider/eligible domain and the owner has no DMS username mapping; this route was tested only with synthetic data and has no DMS-matched visual form yet. INSTALL remains disabled pending the production runner, complete assets/licensing, provider and host phases, and end-to-end verification.
+
 ## DMS-INST-001 PMTA artifact integrity checkpoint — 2026-10-23
 
 | Check | Result | Meaning |
@@ -7,7 +13,7 @@
 | Focused Docker PHP 8.3 `PmtaBundleIntegrityTest` | **7 passed, 13 assertions.** | Synthetic bundles verify the exact manifest/file allowlist, hashes, modes, symlink rejection, tamper rejection, and catalog behavior. A verified artifact still does not make PMTA installable. |
 | Full Docker PHP 8.3 suite | **94 passed, 631 assertions.** | Includes the new artifact-integrity tests and all current AlphaLink tests. |
 | Docker PHP 8.3 Pint | Passed on all five changed PHP files. | Explicit paths were supplied because the app container has no Git metadata; the host PHP lacks the XML extension Pint requires. |
-| Host-side artifact check | Integrity verified without displaying bundle contents. | The private 4.0r8 package/license/reference-config files match the reviewed manifest and pinned hashes. The running app container has no private bundle mount and `PMTA_BUNDLE_DIR` is unset, so it correctly reports the bundle unavailable. |
+| Host-side artifact check | Integrity verified without displaying bundle contents. | The private 4.0r8 package/license/reference-config files match the reviewed manifest and pinned hashes. At the E-INST-17 checkpoint, the app container had no private bundle path, so it reported the bundle unavailable; E-INST-20 records the later local runtime copy. |
 | Disposable AlmaLinux 9 RPM check | Metadata and dependency resolution inspected; installation aborted. | RPM metadata identifies PowerMTA 4.0r8/x86_64; dependency resolution found requirements, the RPM reports no PGP/RSA signature metadata, and `dnf --assumeno` aborted before package installation. No scriptlet or target host ran. |
 | DMS and target host operations | None. | Source inspection only; no license text was printed, and no PMTA package, remote service, DNS, firewall, or DMS operation ran. |
 

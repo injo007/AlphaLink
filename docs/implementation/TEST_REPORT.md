@@ -1,5 +1,16 @@
 # Verification record — current through 2026-10-23
 
+## DMS-INST-001 manual domain and runtime artifact checkpoint — 2026-10-23
+
+| Check | Result | Limit |
+|---|---|---|
+| `DmsManualDomainImportTest` | **3 passed / 20 assertions** | Synthetic provider/domain records only; checks DMS trim/first-create/count, eligibility and workspace role boundaries. |
+| Docker PHP 8.3 full suite | **97 passed / 651 assertions** | All current local tests. Pint passed on changed PHP paths and `git diff --check` passed. |
+| Local app PMTA catalog | Exact reviewed private 4.0r8 bundle verified and shown as staged; `installable=false`. | Copy resides in the mounted local demo directory, which must be retained for container replacement. |
+| Disposable AlmaLinux 9 RPM install | DNF install exited 0; `pmtad --version` exited 0. | No license validation, PMTA service/config test or real-host change. |
+
+E-INST-19/20 record the source-backed domain behavior and limited package compatibility. No real domain/provider or target-host installation was created; INSTALL remains disabled.
+
 ## DMS-INST-001 PMTA artifact integrity checkpoint — 2026-10-23
 
 | Check | Result | Meaning |

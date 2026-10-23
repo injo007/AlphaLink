@@ -387,6 +387,26 @@ class InfrastructureConsoleController extends Controller
         return redirect()->route('console.infrastructure.index', $workspace->id)->with('status', 'Domain saved. Publish its TXT record to prove ownership.');
     }
 
+    public function storeDmsInstallDomains(Request $request, string $workspaceId): JsonResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspaceId);
+        $data = $request->validate([
+            'provider' => ['required', 'numeric'],
+            'domains' => ['required', 'array'],
+            'domains.*' => ['string'],
+        ]);
+
+        $added = $this->manager->registerDmsInstallDomains(
+            $workspace,
+            $request->user(),
+            $data['provider'],
+            $data['domains'],
+            $request->attributes->get('request_id'),
+        );
+
+        return response()->json(['data' => $added.' Domain Created']);
+    }
+
     public function preflightServer(Request $request, string $workspaceId, string $serverId): RedirectResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspaceId);

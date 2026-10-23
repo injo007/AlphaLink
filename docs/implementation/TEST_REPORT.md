@@ -1,5 +1,16 @@
 # Verification record — current through 2026-10-23
 
+## DMS-INST-001 successful-install finalization checkpoint — 2026-10-23
+
+| Check | Result | Meaning |
+|---|---|---|
+| Focused Docker PHP 8.3 `DmsBulkInstallCompletionPlannerTest` | **3 passed, 10 assertions.** | Compares ordered synthetic completion operations for owned/non-owned domains, all seven stored switches, installed-last behavior, and rejection of malformed rows/options. |
+| Full Docker PHP 8.3 suite | **61 passed, 498 assertions.** | Includes the new finalization contract tests with the full local API suite. |
+| Docker PHP 8.3 Pint | Passed on the completion planner and test. | Both new PHP files match the project formatter. |
+| DMS/database/host operations | Not accessed or run. | The planner has no persistence adapter; all records are synthetic. No database mutation, server, DNS provider, PMTA file or INSTALL action was invoked. |
+
+Source shows `finish_install()` deletes the server's existing MTAs and IPs, inserts the discovered/formatted IP rows, marks an owned domain `used`, saves `data`, `pmta_version` and seven switches, and sets `is_installed=true` last. The inspected function is not wrapped in a transaction; actual database failure effects are unknown. AlphaLink only plans the order and data shape, so DMS-INST-001 remains `IMPLEMENTING` and INSTALL remains disabled.
+
 ## DMS-INST-001 ISP-to-VMTA mapping checkpoint — 2026-10-23
 
 | Check | Result | Meaning |

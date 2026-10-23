@@ -1,5 +1,15 @@
 # AlphaLink progress
 
+## DMS-INST-001 source-mapped artifact inventory checkpoint — 2026-10-23
+
+| Check | Result | Meaning |
+|---|---|---|
+| Focused Docker PHP 8.3 inventory + OS/PMTA matrix | **7 passed, 71 assertions.** | Compares synthetic local asset trees to DMS source paths and verifies private-root, no-symlink and DMS skip behavior. |
+| Full Docker PHP 8.3 suite | **78 passed, 596 assertions.** | Existing coverage plus the new inventory tests. |
+| DMS/host/provider operations | Not invoked. | This is a local file-presence diagnostic. It does not verify package, license, compatibility or execute any installation. |
+
+E-INST-14 traces the CentOS 7/9 asset checks in DMS. AlphaLink `DmsBulkInstallAssetInventory` reports present, missing or unsafe files under a private asset root, maps missing optional files to the actual DMS skip/partial behavior, and reproduces the PMTA RPM/patch guard. It is not connected to a production route or runner, does not prove artifact validity, and leaves INSTALL disabled. The next install dependency remains a real DMS-compatible runner with validated PMTA assets, remote IP discovery, host/database adapters, and DMS-equivalent progress display.
+
 ## DMS-INST-001 OS/PMTA installer matrix checkpoint — 2026-10-23
 
 | Check | Result | Meaning |
@@ -41,7 +51,7 @@ DMS-AUD-002 is now `IMPLEMENTING`. The local import service applies lowercase no
 
 ## Verification
 
-Latest verification: Docker PHP 8.3 full suite **74 tests / 574 assertions**; focused OS/PMTA matrix **3 / 49**, transcript endpoint/coordinator **7 / 18**; install-sequence planner **4 / 14**, finalization planner **3 / 10**, ISP mapping **3 / 4**, IP/alias **7 / 51**, and DNS/VMTA **7 / 11**; Node bulk-install tests **3 passed**. Pint passed on all nine changed PHP files across the transcript and installer-matrix slices; git diff --check passed after evidence updates. The local INSTALL control remains disabled: no production run route/runner or browser log polling/UI exists. No fingerprint prompt was added; no connection test, installation, DNS provider write, PMTA config write or server probe was submitted. See docs/implementation/TEST_REPORT.md and docs/implementation/PARITY_REPORT.md.
+Latest verification: Docker PHP 8.3 full suite **78 tests / 596 assertions**; focused asset inventory + OS/PMTA matrix **7 / 71**, transcript endpoint/coordinator **7 / 18**; install-sequence planner **4 / 14**, finalization planner **3 / 10**, ISP mapping **3 / 4**, IP/alias **7 / 51**, DNS/VMTA **7 / 11**; Node bulk-install tests **3 passed**. Pint passed on the current changed PHP files; git diff --check passed after evidence updates. The local INSTALL control remains disabled: no production run route/runner or browser log polling/UI exists. No fingerprint prompt was added; no connection test, installation, DNS provider write, PMTA config write or server probe was submitted. See docs/implementation/TEST_REPORT.md and docs/implementation/PARITY_REPORT.md.
 
 ## 80% target
 

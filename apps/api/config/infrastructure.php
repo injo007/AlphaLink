@@ -8,4 +8,5 @@ return [
     'probe_timeout_seconds' => (int) env('INFRASTRUCTURE_PROBE_TIMEOUT_SECONDS', 10),
     'ip_api_key' => env('INFRASTRUCTURE_IP_API_KEY'),
     'maxmind_city_database' => env('INFRASTRUCTURE_MAXMIND_CITY_DATABASE', storage_path('app/maxmind/city.mmdb')),
+    'bulk_install_assets_directory' => env('INFRASTRUCTURE_BULK_INSTALL_ASSETS_DIRECTORY'),
 ];

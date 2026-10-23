@@ -1,5 +1,16 @@
 # Verification record — current through 2026-10-23
 
+## DMS-INST-001 asset inventory checkpoint — 2026-10-23
+
+| Check | Result | Meaning |
+|---|---|---|
+| Focused Docker PHP 8.3 asset inventory and installer matrix | **7 passed, 71 assertions.** | Synthetic fixture checks source paths, DMS RPM/patch skip truth table, selected optional asset behavior, private root handling and symlink rejection. |
+| Full Docker PHP 8.3 suite | **78 passed, 596 assertions.** | Includes the asset inventory, OS/PMTA matrix and existing API tests. |
+| Docker PHP 8.3 Pint | Passed on the inventory, configuration and test files. | Changed PHP files match project formatting. |
+| DMS/host/provider operations | Not run. | No real bundle, license, server, network, firewall, DNS provider or PMTA operation was accessed. |
+
+E-INST-14 records an offline inventory for source-referenced DMS asset paths. It rejects a non-private root, symlink paths and invalid/empty files, while preserving DMS’s source skip behavior: PMTA setup skips only if both its RPM and patch are missing; selected proxy/IMAP assets may cause DMS to return early, and tracking may continue with Apache but omit the mini app. Inventory only proves non-empty regular files are present. It does not verify artifact identity, checksums, license entitlement, target compatibility or deployability, and it is not wired into a production run. INSTALL remains disabled.
+
 ## DMS-INST-001 OS/PMTA installer matrix checkpoint — 2026-10-23
 
 | Check | Result | Meaning |

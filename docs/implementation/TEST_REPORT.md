@@ -1,5 +1,17 @@
 # Verification record — current through 2026-10-23
 
+## DMS-INST-001 persisted transcript checkpoint — 2026-10-23
+
+| Check | Result | Meaning |
+|---|---|---|
+| Focused Docker PHP 8.3 transcript tests | **7 passed, 18 assertions.** | A fake coordinator run writes timestamped lines to the private store; the owner’s GET returns the exact JSON string. Additional checks cover coordinator output, cross-workspace isolation, nonmember/operator/unauthenticated denial and missing/malformed IDs. |
+| Full Docker PHP 8.3 suite | **71 passed, 525 assertions.** | Includes transcript persistence/route tests and all local API feature/unit tests. |
+| Docker PHP 8.3 Pint | Passed on all six changed PHP files. | Controller, route, store, coordinator and tests match project formatting. |
+| git diff --check | Passed after evidence updates. | No whitespace errors. |
+| DMS log route, install, server, DNS or PMTA operations | Not invoked. | Only a synthetic fake runner and local private transcript files were used. |
+
+E-INST-11 establishes DMS’s business behavior: it appends timestamped lines to a file, returns the complete transcript as a JSON string, and the browser polls while the synchronous install request runs and briefly after completion. AlphaLink now reproduces transcript formatting/storage/read output for a synthetic run and scopes reads to an authenticated workspace owner/admin. It does not yet create production runs, connect a real installer, poll from the browser or show logs. DMS-INST-001 remains IMPLEMENTING; INSTALL remains disabled.
+
 ## DMS-INST-001 progress transcript checkpoint — 2026-10-23
 
 | Check | Result | Meaning |
@@ -9,7 +21,7 @@
 | Docker PHP 8.3 Pint | Passed on the coordinator and test. | Both changed PHP files match the project formatter. |
 | DMS log files / polling / installation | Not accessed or run. | The local coordinator keeps transcript entries in memory; no file append, log route, DMS request or server operation was invoked. |
 
-DMS uses a timestamped append-only file transcript, returns it from a JSON log route, polls every two seconds while a synchronous install request runs, and polls for another twenty seconds after that request ends. AlphaLink now formats the initial and per-server lines equivalently in its fake-runner coordinator. Persistence, concurrent append behavior, the polling endpoint and UI remain unimplemented; DMS-INST-001 remains `IMPLEMENTING` and INSTALL remains disabled.
+At the earlier E-INST-11 checkpoint, AlphaLink formatted the initial and per-server transcript in memory only. E-INST-12 records the later file store and GET endpoint; browser polling and UI remain unimplemented. DMS-INST-001 remains `IMPLEMENTING` and INSTALL remains disabled.
 
 ## DMS-INST-001 install-sequence checkpoint — 2026-10-23
 

@@ -16,9 +16,10 @@ class DmsBulkInstallRunCoordinator
     /**
      * @param  array{data: list<array{id: string, domain: string}>, key: string, pmta_version: int, tracking: bool, proxy: bool, imap: bool, spf: bool, dkim: bool, dmarc: bool, https: bool}  $payload
      * @param  Closure(string): string  $serverNameForId
+     * @param  Closure(string): void|null  $transcriptWriter
      * @return array{exit_code: int, results: list<array{server_id: string, status: string}>, logs: list<string>}
      */
-    public function execute(array $payload, Closure $serverNameForId): array
+    public function execute(array $payload, Closure $serverNameForId, ?Closure $transcriptWriter = null): array
     {
         $options = [
             'pmta_version' => $payload['pmta_version'],
@@ -31,7 +32,9 @@ class DmsBulkInstallRunCoordinator
             'https' => $payload['https'],
         ];
         $results = [];
-        $logs = [$this->timestampedLog('Installation Started')];
+        $initialLog = $this->timestampedLog('Installation Started');
+        $logs = [$initialLog];
+        $transcriptWriter?->__invoke($initialLog);
 
         foreach ($payload['data'] as $row) {
             $serverId = $row['id'];
@@ -39,14 +42,18 @@ class DmsBulkInstallRunCoordinator
 
             try {
                 $serverName = $serverNameForId($serverId);
-                $appendLog = function (string $message) use (&$logs, $serverName, $serverId): void {
-                    $logs[] = $this->timestampedLog(sprintf('- [%s:%s] - %s', $serverName, $serverId, $message));
+                $appendLog = function (string $message) use (&$logs, $serverName, $serverId, $transcriptWriter): void {
+                    $line = $this->timestampedLog(sprintf('- [%s:%s] - %s', $serverName, $serverId, $message));
+                    $logs[] = $line;
+                    $transcriptWriter?->__invoke($line);
                 };
                 $this->runner->install($row, $options, $appendLog);
                 $results[] = ['server_id' => $serverId, 'status' => 'succeeded'];
             } catch (Exception $exception) {
                 // DMS catches per-server exceptions; they are logged without failing the parent command.
-                $logs[] = $this->timestampedLog(sprintf('- [%s:%s] - Error : %s', $serverName, $serverId, $exception->getMessage()));
+                $line = $this->timestampedLog(sprintf('- [%s:%s] - Error : %s', $serverName, $serverId, $exception->getMessage()));
+                $logs[] = $line;
+                $transcriptWriter?->__invoke($line);
                 $results[] = ['server_id' => $serverId, 'status' => 'failed'];
             }
         }

@@ -24,6 +24,8 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/app/workspaces/{workspace}/audience-lists/{audienceList}', [WorkspaceConsoleController::class, 'audienceList'])->name('console.audiences.show');
     Route::get('/app/workspaces/{workspace}/infrastructure', [InfrastructureConsoleController::class, 'index'])->name('console.infrastructure.index');
     Route::get('/app/workspaces/{workspace}/infrastructure/bulk-install', [InfrastructureConsoleController::class, 'bulkInstall'])->name('console.infrastructure.bulk-install');
+    Route::get('/app/workspaces/{workspace}/infrastructure/bulk-install/runs/{runId}/logs', [InfrastructureConsoleController::class, 'bulkInstallLogs'])
+        ->whereUuid('runId')->name('console.infrastructure.bulk-install.logs');
     Route::get('/app/workspaces/{workspace}/infrastructure/servers', [InfrastructureConsoleController::class, 'serversIndex'])->name('console.infrastructure.servers.index');
     Route::get('/app/workspaces/{workspace}/infrastructure/servers/{server}/history', [InfrastructureConsoleController::class, 'serverHistory'])->name('console.infrastructure.servers.history');
     Route::get('/app/workspaces/{workspace}/infrastructure/servers/create', [InfrastructureConsoleController::class, 'createServer'])->name('console.infrastructure.servers.create');

@@ -28,6 +28,7 @@ class DmsBulkInstallRunCoordinatorTest extends TestCase
         };
 
         Carbon::setTestNow(Carbon::parse('2026-10-23 15:04:05'));
+        $writtenLines = [];
         try {
             $result = (new DmsBulkInstallRunCoordinator($runner))->execute([
                 'data' => [
@@ -43,7 +44,9 @@ class DmsBulkInstallRunCoordinatorTest extends TestCase
                 'dkim' => false,
                 'dmarc' => false,
                 'https' => false,
-            ], fn (string $id): string => strtoupper($id));
+            ], fn (string $id): string => strtoupper($id), function (string $line) use (&$writtenLines): void {
+                $writtenLines[] = $line;
+            });
         } finally {
             Carbon::setTestNow();
         }
@@ -60,5 +63,6 @@ class DmsBulkInstallRunCoordinatorTest extends TestCase
             '[23/10/2026-15:04:05] - [SERVER-A:server-a] - Error : Found 0 Ips Please Check Server Configuration Aborting',
             '[23/10/2026-15:04:05] - [SERVER-B:server-b] - Prepare Installation',
         ], $result['logs']);
+        $this->assertSame($result['logs'], $writtenLines);
     }
 }

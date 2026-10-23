@@ -9,6 +9,7 @@ use App\Models\ServerProvider;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Services\Infrastructure\DmsBulkInstallEligibility;
+use App\Services\Infrastructure\DmsBulkInstallTranscriptStore;
 use App\Services\Infrastructure\HostProbeException;
 use App\Services\Infrastructure\InfrastructureManager;
 use App\Services\Infrastructure\PmtaCatalog;
@@ -54,6 +55,19 @@ class InfrastructureConsoleController extends Controller
             'domains' => $candidates['domains'],
             'missingUsername' => $candidates['missing_username'],
         ]);
+    }
+
+    public function bulkInstallLogs(
+        Request $request,
+        string $workspaceId,
+        string $runId,
+        DmsBulkInstallTranscriptStore $transcripts,
+    ): JsonResponse {
+        $workspace = $this->workspaceFor($request->user(), $workspaceId);
+        $transcript = $transcripts->read((string) $workspace->getKey(), $runId);
+        abort_if($transcript === null, 404);
+
+        return response()->json($transcript);
     }
 
     public function createServer(Request $request, string $workspaceId): View

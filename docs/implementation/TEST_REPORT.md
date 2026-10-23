@@ -1,5 +1,16 @@
 # Verification record — current through 2026-10-23
 
+## DMS-INST-001 install-sequence checkpoint — 2026-10-23
+
+| Check | Result | Meaning |
+|---|---|---|
+| Focused Docker PHP 8.3 `DmsBulkInstallSequencePlannerTest` | **4 passed, 14 assertions.** | Compares complete enabled/disabled phase order, the non-owned-domain DNS provider no-op, installed/used-domain guards, zero-IP abort, and malformed option rejection. |
+| Full Docker PHP 8.3 suite | **65 passed, 512 assertions.** | Includes the source-mapped installation-sequence contract tests and all existing API tests. |
+| Docker PHP 8.3 Pint | Passed on the sequence planner and test. | Both new PHP files match the project formatter. |
+| DMS/provider/host operations | Not accessed or run. | The planner only returns synthetic phase descriptions. No DMS install, remote host, DNS provider, PMTA write or AlphaLink runner was invoked. |
+
+DMS checks already-installed state before used-domain state, discovers/formats addresses, aborts on zero addresses before host configuration, and then runs host/services, optional tracking, DNS setup, PMTA/VMTAs, optional IMAP/proxy/HTTPS, firewall, finalization and terminal logs. This is an offline comparison of ordering and guards; it does not reproduce mid-phase host failure effects or execute the installer. DMS-INST-001 remains `IMPLEMENTING` and INSTALL remains disabled.
+
 ## DMS-INST-001 successful-install finalization checkpoint — 2026-10-23
 
 | Check | Result | Meaning |

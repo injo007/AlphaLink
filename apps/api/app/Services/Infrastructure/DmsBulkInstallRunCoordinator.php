@@ -31,7 +31,7 @@ class DmsBulkInstallRunCoordinator
             'https' => $payload['https'],
         ];
         $results = [];
-        $logs = [];
+        $logs = [$this->timestampedLog('Installation Started')];
 
         foreach ($payload['data'] as $row) {
             $serverId = $row['id'];
@@ -39,18 +39,23 @@ class DmsBulkInstallRunCoordinator
 
             try {
                 $serverName = $serverNameForId($serverId);
-                $appendLog = static function (string $message) use (&$logs, $serverName, $serverId): void {
-                    $logs[] = sprintf('- [%s:%s] - %s', $serverName, $serverId, $message);
+                $appendLog = function (string $message) use (&$logs, $serverName, $serverId): void {
+                    $logs[] = $this->timestampedLog(sprintf('- [%s:%s] - %s', $serverName, $serverId, $message));
                 };
                 $this->runner->install($row, $options, $appendLog);
                 $results[] = ['server_id' => $serverId, 'status' => 'succeeded'];
             } catch (Exception $exception) {
                 // DMS catches per-server exceptions; they are logged without failing the parent command.
-                $logs[] = sprintf('- [%s:%s] - Error : %s', $serverName, $serverId, $exception->getMessage());
+                $logs[] = $this->timestampedLog(sprintf('- [%s:%s] - Error : %s', $serverName, $serverId, $exception->getMessage()));
                 $results[] = ['server_id' => $serverId, 'status' => 'failed'];
             }
         }
 
         return ['exit_code' => 0, 'results' => $results, 'logs' => $logs];
+    }
+
+    private function timestampedLog(string $message): string
+    {
+        return now()->format('[d/m/Y-H:i:s]').' '.$message;
     }
 }

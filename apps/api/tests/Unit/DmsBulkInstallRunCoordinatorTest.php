@@ -5,6 +5,7 @@ namespace Tests\Unit;
 use App\Services\Infrastructure\DmsBulkInstallRowRunner;
 use App\Services\Infrastructure\DmsBulkInstallRunCoordinator;
 use Exception;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class DmsBulkInstallRunCoordinatorTest extends TestCase
@@ -26,21 +27,26 @@ class DmsBulkInstallRunCoordinatorTest extends TestCase
             }
         };
 
-        $result = (new DmsBulkInstallRunCoordinator($runner))->execute([
-            'data' => [
-                ['id' => 'server-a', 'domain' => 'domain-a'],
-                ['id' => 'server-b', 'domain' => 'domain-b'],
-            ],
-            'key' => '1782155053000',
-            'pmta_version' => 45,
-            'tracking' => false,
-            'proxy' => true,
-            'imap' => false,
-            'spf' => false,
-            'dkim' => false,
-            'dmarc' => false,
-            'https' => false,
-        ], fn (string $id): string => strtoupper($id));
+        Carbon::setTestNow(Carbon::parse('2026-10-23 15:04:05'));
+        try {
+            $result = (new DmsBulkInstallRunCoordinator($runner))->execute([
+                'data' => [
+                    ['id' => 'server-a', 'domain' => 'domain-a'],
+                    ['id' => 'server-b', 'domain' => 'domain-b'],
+                ],
+                'key' => '1782155053000',
+                'pmta_version' => 45,
+                'tracking' => false,
+                'proxy' => true,
+                'imap' => false,
+                'spf' => false,
+                'dkim' => false,
+                'dmarc' => false,
+                'https' => false,
+            ], fn (string $id): string => strtoupper($id));
+        } finally {
+            Carbon::setTestNow();
+        }
 
         $this->assertSame(0, $result['exit_code']);
         $this->assertSame([
@@ -48,7 +54,11 @@ class DmsBulkInstallRunCoordinatorTest extends TestCase
             ['server_id' => 'server-b', 'status' => 'succeeded'],
         ], $result['results']);
         $this->assertSame([['server-a', 45], ['server-b', 45]], $runner->called);
-        $this->assertContains('- [SERVER-A:server-a] - Error : Found 0 Ips Please Check Server Configuration Aborting', $result['logs']);
-        $this->assertContains('- [SERVER-B:server-b] - Prepare Installation', $result['logs']);
+        $this->assertSame([
+            '[23/10/2026-15:04:05] Installation Started',
+            '[23/10/2026-15:04:05] - [SERVER-A:server-a] - Prepare Installation',
+            '[23/10/2026-15:04:05] - [SERVER-A:server-a] - Error : Found 0 Ips Please Check Server Configuration Aborting',
+            '[23/10/2026-15:04:05] - [SERVER-B:server-b] - Prepare Installation',
+        ], $result['logs']);
     }
 }

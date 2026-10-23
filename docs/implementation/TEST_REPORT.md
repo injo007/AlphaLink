@@ -1,5 +1,16 @@
 # Verification record — current through 2026-10-23
 
+## DMS-INST-001 progress transcript checkpoint — 2026-10-23
+
+| Check | Result | Meaning |
+|---|---|---|
+| Focused Docker PHP 8.3 `DmsBulkInstallRunCoordinatorTest` | **1 passed, 4 assertions.** | With a frozen clock, compares the exact DMS timestamp prefix, initial start message, per-server progress line and caught-error line. |
+| Full Docker PHP 8.3 suite | **65 passed, 511 assertions.** | Includes the transcript-format update and all existing local API tests. |
+| Docker PHP 8.3 Pint | Passed on the coordinator and test. | Both changed PHP files match the project formatter. |
+| DMS log files / polling / installation | Not accessed or run. | The local coordinator keeps transcript entries in memory; no file append, log route, DMS request or server operation was invoked. |
+
+DMS uses a timestamped append-only file transcript, returns it from a JSON log route, polls every two seconds while a synchronous install request runs, and polls for another twenty seconds after that request ends. AlphaLink now formats the initial and per-server lines equivalently in its fake-runner coordinator. Persistence, concurrent append behavior, the polling endpoint and UI remain unimplemented; DMS-INST-001 remains `IMPLEMENTING` and INSTALL remains disabled.
+
 ## DMS-INST-001 install-sequence checkpoint — 2026-10-23
 
 | Check | Result | Meaning |

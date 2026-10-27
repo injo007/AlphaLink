@@ -2,10 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Models\ManagedServer;
 use App\Models\AudienceList;
 use App\Models\Contact;
 use App\Models\ContactListMembership;
+use App\Models\ManagedServer;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceDrop;
@@ -36,6 +36,34 @@ class DmsPmtaFeedbackImportTest extends TestCase
             'created_by' => $owner->getKey(),
         ]);
         $drop = WorkspaceDrop::factory()->forWorkspace($workspace, $owner)->create();
+
+        $otherOwner = User::factory()->create();
+        $otherWorkspace = Workspace::query()->create([
+            'name' => 'Other PMTA feedback fixture', 'slug' => 'other-pmta-feedback-fixture',
+            'created_by' => $otherOwner->getKey(),
+        ]);
+        $otherServer = ManagedServer::query()->create([
+            'workspace_id' => $otherWorkspace->getKey(), 'name' => 'Other synthetic PMTA',
+            'provider' => 'Synthetic provider', 'ip_address' => '198.51.100.34',
+            'ssh_port' => 22, 'ssh_username' => 'root', 'state' => 'verified',
+            'is_active' => true, 'is_installed' => true,
+            'idempotency_key' => (string) Str::uuid(), 'request_fingerprint' => str_repeat('c', 64),
+            'created_by' => $otherOwner->getKey(),
+        ]);
+        $otherDrop = WorkspaceDrop::factory()->forWorkspace($otherWorkspace, $otherOwner)->create();
+        DB::table('workspace_pmta_feedback_events')->insert([
+            'workspace_id' => $otherWorkspace->getKey(),
+            'managed_server_id' => $otherServer->getKey(),
+            'record_key' => hash('sha256', 'other-workspace-feedback'),
+            'at' => today()->toDateString(),
+            'source_type' => 'drop',
+            'source_id' => (string) $otherDrop->getKey(),
+            'workspace_drop_id' => $otherDrop->getKey(),
+            'metric' => 'deliveries',
+            'dimension_ids' => json_encode(['server_id' => (string) $otherServer->getKey()], JSON_THROW_ON_ERROR),
+            'created_at' => now(),
+        ]);
+
         $token = implode('-', [
             (string) $drop->getKey(), '0', '0', 'fresh', '0', '1',
             str_replace('-', '', (string) $server->getKey()), '1', '1', '1', '1', '1', 'app', 'd',
@@ -60,6 +88,11 @@ class DmsPmtaFeedbackImportTest extends TestCase
         $this->assertSame(1, (int) $daily->hard_bounces);
         $this->assertSame(1, (int) $daily->soft_bounces);
         $this->assertSame(0, (int) $daily->opens);
+        $this->assertDatabaseMissing('workspace_daily_analytics', [
+            'workspace_id' => $otherWorkspace->getKey(),
+            'source_type' => 'drop',
+            'source_id' => (string) $otherDrop->getKey(),
+        ]);
 
         $wrongServerToken = str_replace(str_replace('-', '', (string) $server->getKey()), str_repeat('0', 32), $token);
         $wrongServer = $this->csv([[$date, 'ok', 'recipient@example.test', $wrongServerToken]]);

@@ -67,7 +67,7 @@ class WorkspaceDailyAnalyticsRebuilder
         return $rows;
     }
 
-    public function rebuildRange(Carbon $from, Carbon $to): int
+    public function rebuildRange(Carbon $from, Carbon $to, ?string $workspaceId = null): int
     {
         if ($from->gt($to)) {
             throw new \InvalidArgumentException('The analytics end date must not be before its start date.');
@@ -77,11 +77,11 @@ class WorkspaceDailyAnalyticsRebuilder
         $to = $to->copy()->endOfDay();
         $buckets = [];
 
-        $this->mergeGroups($buckets, 'campaign', $this->campaignEngagementGroups($from, $to));
-        $this->mergeGroups($buckets, 'campaign', $this->campaignLeadGroups($from, $to));
-        $this->mergeGroups($buckets, 'drop', $this->dropVisitorGroups($from, $to));
-        $this->mergeGroups($buckets, 'campaign', $this->campaignFeedbackGroups($from, $to));
-        $this->mergeGroups($buckets, 'drop', $this->dropFeedbackGroups($from, $to));
+        $this->mergeGroups($buckets, 'campaign', $this->campaignEngagementGroups($from, $to, $workspaceId));
+        $this->mergeGroups($buckets, 'campaign', $this->campaignLeadGroups($from, $to, $workspaceId));
+        $this->mergeGroups($buckets, 'drop', $this->dropVisitorGroups($from, $to, $workspaceId));
+        $this->mergeGroups($buckets, 'campaign', $this->campaignFeedbackGroups($from, $to, $workspaceId));
+        $this->mergeGroups($buckets, 'drop', $this->dropFeedbackGroups($from, $to, $workspaceId));
 
         $updatedAt = now();
         $records = array_map(fn (array $row): array => [
@@ -105,7 +105,7 @@ class WorkspaceDailyAnalyticsRebuilder
     }
 
     /** @return Collection<int, object> */
-    private function campaignEngagementGroups(Carbon $from, Carbon $to): Collection
+    private function campaignEngagementGroups(Carbon $from, Carbon $to, ?string $workspaceId): Collection
     {
         $dimensions = [
             'user_id' => 'c.created_by',
@@ -138,6 +138,7 @@ class WorkspaceDailyAnalyticsRebuilder
                     ->on('o.workspace_id', '=', 'c.workspace_id');
             })
             ->whereBetween('ce.created_at', [$from, $to])
+            ->when($workspaceId !== null, fn (Builder $query) => $query->where('ce.workspace_id', $workspaceId))
             ->selectRaw('ce.workspace_id')
             ->selectRaw('DATE(ce.created_at) AS at');
 
@@ -156,7 +157,7 @@ class WorkspaceDailyAnalyticsRebuilder
     }
 
     /** @return Collection<int, object> */
-    private function campaignLeadGroups(Carbon $from, Carbon $to): Collection
+    private function campaignLeadGroups(Carbon $from, Carbon $to, ?string $workspaceId): Collection
     {
         $dimensions = [
             'user_id' => 'c.created_by',
@@ -185,6 +186,7 @@ class WorkspaceDailyAnalyticsRebuilder
                     ->on('ri.workspace_id', '=', 'clc.workspace_id');
             })
             ->whereBetween('clc.converted_at', [$from, $to])
+            ->when($workspaceId !== null, fn (Builder $query) => $query->where('clc.workspace_id', $workspaceId))
             ->selectRaw('clc.workspace_id')
             ->selectRaw('DATE(clc.converted_at) AS at');
 
@@ -200,7 +202,7 @@ class WorkspaceDailyAnalyticsRebuilder
     }
 
     /** @return Collection<int, object> */
-    private function dropVisitorGroups(Carbon $from, Carbon $to): Collection
+    private function dropVisitorGroups(Carbon $from, Carbon $to, ?string $workspaceId): Collection
     {
         $dimensions = [
             'user_id' => 'd.user_id',
@@ -225,6 +227,7 @@ class WorkspaceDailyAnalyticsRebuilder
                     ->on('d.workspace_id', '=', 'wv.workspace_id');
             })
             ->whereBetween('wv.created_at', [$from, $to])
+            ->when($workspaceId !== null, fn (Builder $query) => $query->where('wv.workspace_id', $workspaceId))
             ->selectRaw('wv.workspace_id')
             ->selectRaw('DATE(wv.created_at) AS at');
 
@@ -244,7 +247,7 @@ class WorkspaceDailyAnalyticsRebuilder
     }
 
     /** @return Collection<int, object> */
-    private function campaignFeedbackGroups(Carbon $from, Carbon $to): Collection
+    private function campaignFeedbackGroups(Carbon $from, Carbon $to, ?string $workspaceId): Collection
     {
         $dimensions = [
             'user_id' => 'c.created_by',
@@ -269,6 +272,7 @@ class WorkspaceDailyAnalyticsRebuilder
             ->join('workspace_offers as o', fn (JoinClause $join) => $join->on('o.id', '=', 'cs.offer_id')->on('o.workspace_id', '=', 'pf.workspace_id'))
             ->where('pf.source_type', 'campaign')
             ->whereBetween('pf.at', [$from->toDateString(), $to->toDateString()])
+            ->when($workspaceId !== null, fn (Builder $query) => $query->where('pf.workspace_id', $workspaceId))
             ->selectRaw('pf.workspace_id, pf.at');
         $this->selectDimensions($query, $dimensions);
 
@@ -277,7 +281,7 @@ class WorkspaceDailyAnalyticsRebuilder
     }
 
     /** @return Collection<int, object> */
-    private function dropFeedbackGroups(Carbon $from, Carbon $to): Collection
+    private function dropFeedbackGroups(Carbon $from, Carbon $to, ?string $workspaceId): Collection
     {
         $dimensions = [
             'user_id' => 'd.user_id',
@@ -300,6 +304,7 @@ class WorkspaceDailyAnalyticsRebuilder
             ->join('workspace_drops as d', fn (JoinClause $join) => $join->on('d.id', '=', 'pf.workspace_drop_id')->on('d.workspace_id', '=', 'pf.workspace_id'))
             ->where('pf.source_type', 'drop')
             ->whereBetween('pf.at', [$from->toDateString(), $to->toDateString()])
+            ->when($workspaceId !== null, fn (Builder $query) => $query->where('pf.workspace_id', $workspaceId))
             ->selectRaw('pf.workspace_id, pf.at');
         $this->selectDimensions($query, $dimensions);
 

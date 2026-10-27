@@ -2,6 +2,7 @@
 
 namespace App\Services\Analytics;
 
+use App\Models\AudienceList;
 use App\Models\Campaign;
 use App\Models\CampaignRecipientSnapshot;
 use App\Models\CampaignRecipientSnapshotItem;
@@ -46,40 +47,42 @@ class ImportDmsPmtaFeedback
         foreach ($this->parser->parseStream($stream, $kind, $sourceFileId) as $record) {
             if ($this->uuid($record['server_id']) !== $serverId) {
                 $counts['unmatched']++;
+
                 continue;
             }
 
             $source = $this->source($workspaceId, $record);
             if ($source === null) {
                 $counts['unmatched']++;
+
                 continue;
             }
 
             $written = DB::transaction(function () use ($workspaceId, $serverId, $date, $record, $source, &$changedListIds): int {
                 $written = DB::table('workspace_pmta_feedback_events')->insertOrIgnore([
-                'workspace_id' => $workspaceId,
-                'managed_server_id' => $serverId,
-                'record_key' => $record['record_key'],
-                'at' => $date,
-                'source_type' => $source['type'],
-                'source_id' => $source['id'],
-                'campaign_id' => $source['type'] === 'campaign' ? $source['id'] : null,
-                'workspace_drop_id' => $source['type'] === 'drop' ? (int) $source['id'] : null,
-                'metric' => $record['metric'],
-                'category' => $record['category'],
-                'snapshot_id' => $source['snapshot_id'],
-                'contact_id' => $source['contact_id'],
-                'source_list_id' => $source['list_id'],
-                'list_type' => $this->emailType($record['list_type']),
-                'dimension_ids' => json_encode([
-                    'isp_id' => $record['isp_id'],
-                    'server_id' => $serverId,
-                    'ip_id' => $record['ip_id'],
-                    'domain_id' => $record['domain_id'],
-                    'from_id' => $record['from_id'],
-                    'subject_id' => $record['subject_id'],
-                    'creative_id' => $record['creative_id'],
-                ], JSON_THROW_ON_ERROR),
+                    'workspace_id' => $workspaceId,
+                    'managed_server_id' => $serverId,
+                    'record_key' => $record['record_key'],
+                    'at' => $date,
+                    'source_type' => $source['type'],
+                    'source_id' => $source['id'],
+                    'campaign_id' => $source['type'] === 'campaign' ? $source['id'] : null,
+                    'workspace_drop_id' => $source['type'] === 'drop' ? (int) $source['id'] : null,
+                    'metric' => $record['metric'],
+                    'category' => $record['category'],
+                    'snapshot_id' => $source['snapshot_id'],
+                    'contact_id' => $source['contact_id'],
+                    'source_list_id' => $source['list_id'],
+                    'list_type' => $this->emailType($record['list_type']),
+                    'dimension_ids' => json_encode([
+                        'isp_id' => $record['isp_id'],
+                        'server_id' => $serverId,
+                        'ip_id' => $record['ip_id'],
+                        'domain_id' => $record['domain_id'],
+                        'from_id' => $record['from_id'],
+                        'subject_id' => $record['subject_id'],
+                        'creative_id' => $record['creative_id'],
+                    ], JSON_THROW_ON_ERROR),
                 ]);
                 if ($written === 1) {
                     $changedListId = $this->transitionRecipient($workspaceId, $source, $record);
@@ -95,9 +98,9 @@ class ImportDmsPmtaFeedback
 
         if ($counts['imported'] > 0) {
             $day = Carbon::parse($date);
-            $this->dailyAnalytics->rebuildRange($day, $day);
+            $this->dailyAnalytics->rebuildRange($day, $day, $workspaceId);
             foreach (array_keys($changedListIds) as $listId) {
-                $list = \App\Models\AudienceList::query()->where('workspace_id', $workspaceId)->whereKey($listId)->first();
+                $list = AudienceList::query()->where('workspace_id', $workspaceId)->whereKey($listId)->first();
                 if ($list !== null) {
                     $this->listHistory->calculate($list);
                 }
@@ -164,7 +167,7 @@ class ImportDmsPmtaFeedback
     }
 
     /** @param array{type: string, id: string, snapshot_id: ?string, contact_id: ?string, list_id: ?string} $source
-     * @param array<string, string|null> $record
+     * @param  array<string, string|null>  $record
      */
     private function transitionRecipient(string $workspaceId, array $source, array $record): ?string
     {

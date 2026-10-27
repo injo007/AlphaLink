@@ -23,8 +23,10 @@ Usage: sudo bash install-ubuntu-26.sh [--help|--plan]
 
 Install AlphaLink on a fresh Ubuntu 26.04 LTS server. The installer asks for
 the GitHub repository, application hostname, TLS contact email, and first
-workspace owner. A private GitHub token is read without echo and is used only
-for the initial clone. It is not written to the server.
+workspace owner. It also asks you to type and confirm the new PostgreSQL
+password; the entry is hidden while typing. A private GitHub token is read
+without echo and is used only for the initial clone. It is not written to the
+server.
 
 Optional non-secret environment inputs:
   GITHUB_REPO       owner/repo or https://github.com/owner/repo[.git]
@@ -46,7 +48,8 @@ Plan (no changes are made):
      Nginx, PostgreSQL 18, Valkey (Redis protocol), Certbot, and required PHP
      extensions.
   3. Clone the selected GitHub branch without saving its access token.
-  4. Create a least-privilege PostgreSQL role and a new UTF-8 database.
+  4. Prompt for and confirm a hidden PostgreSQL password; create a
+     least-privilege PostgreSQL role and a new UTF-8 database.
   5. Generate protected Laravel and contact-lookup keys in /etc/alphalink/.env.
   6. Install locked Composer/npm dependencies, build assets, and run migrations.
   7. Bootstrap the first owner, configure Nginx/TLS, Horizon, the PostgreSQL
@@ -74,6 +77,9 @@ case "$(dpkg --print-architecture)" in
     *) fail 'Ubuntu 26.04 amd64 or arm64 is required.' ;;
 esac
 [[ -t 0 ]] || fail 'Run from an interactive terminal so secrets can be entered safely.'
+# Never accept a database password from the environment or a command line.
+# The installer requires a fresh, interactive secret entry on every run.
+unset DB_PASSWORD
 
 for path in \
     "$APP_ROOT" "$ENV_ROOT" "$BACKUP_ROOT" \
@@ -155,6 +161,15 @@ if [[ -z "$GITHUB_TOKEN" ]]; then
 fi
 export -n GITHUB_TOKEN 2>/dev/null || true
 
+read -r -s -p 'New PostgreSQL password (hidden; 32+ letters, numbers, _ or -): ' DB_PASSWORD
+printf '\n'
+[[ "$DB_PASSWORD" =~ ^[A-Za-z0-9_-]{32,}$ ]] || fail 'Use a PostgreSQL password with at least 32 characters, limited to letters, numbers, underscore, and hyphen.'
+DB_PASSWORD_CONFIRM=''
+read -r -s -p 'Confirm PostgreSQL password: ' DB_PASSWORD_CONFIRM
+printf '\n'
+[[ "$DB_PASSWORD" == "$DB_PASSWORD_CONFIRM" ]] || fail 'The PostgreSQL passwords did not match.'
+unset DB_PASSWORD_CONFIRM
+
 printf '\nRepository: %s\nBranch: %s\nApplication: https://%s\n' \
     "${REPOSITORY#https://github.com/}" "$BRANCH" "$APP_DOMAIN"
 printf 'A new PostgreSQL database will be created; SSH port %s, HTTP, and HTTPS will be allowed by UFW.\n' "$SSH_PORT"
@@ -226,8 +241,6 @@ ROLE_EXISTS="$(runuser -u postgres -- "$PSQL" -tAc "SELECT 1 FROM pg_roles WHERE
 DATABASE_EXISTS="$(runuser -u postgres -- "$PSQL" -tAc "SELECT 1 FROM pg_database WHERE datname = '${DB_NAME}'" | tr -d '[:space:]')"
 [[ "$ROLE_EXISTS" != 1 && "$DATABASE_EXISTS" != 1 ]] || fail 'PostgreSQL role or database already exists; refusing to reuse or replace it.'
 
-DB_PASSWORD="$(openssl rand -hex 32)"
-export -n DB_PASSWORD 2>/dev/null || true
 DB_SETUP_FILE="$(mktemp /run/alphalink-pg-setup.XXXXXX)"
 chown postgres:postgres "$DB_SETUP_FILE"
 chmod 0600 "$DB_SETUP_FILE"

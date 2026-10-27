@@ -49,7 +49,8 @@ Plan (no changes are made):
   4. Create a least-privilege PostgreSQL role and a new UTF-8 database.
   5. Generate protected Laravel and contact-lookup keys in /etc/alphalink/.env.
   6. Install locked Composer/npm dependencies, build assets, and run migrations.
-  7. Bootstrap the first owner, configure Nginx/TLS, queue workers, and schedule.
+  7. Bootstrap the first owner, configure Nginx/TLS, Horizon, the PostgreSQL
+     suppression worker, and schedule.
   8. Enable UFW rules and a protected daily PostgreSQL dump (14-day retention).
 
 Existing application and database data are never deleted or overwritten.
@@ -80,6 +81,7 @@ for path in \
     /etc/php/8.5/fpm/pool.d/zz-alphalink-env.conf \
     /etc/php/8.5/fpm/conf.d/99-alphalink.ini \
     /etc/systemd/system/alphalink-queue.service \
+    /etc/systemd/system/alphalink-horizon.service \
     /etc/systemd/system/alphalink-drop-suppression.service \
     /etc/systemd/system/alphalink-schedule.service \
     /etc/systemd/system/alphalink-schedule.timer \
@@ -126,7 +128,7 @@ OWNER_EMAIL="${ALPHALINK_OWNER_EMAIL:-}"
 if [[ -z "$OWNER_EMAIL" ]]; then
     read -r -p 'Initial owner email: ' OWNER_EMAIL
 fi
-[[ "$OWNER_EMAIL" == *@*.* && "$OWNER_EMAIL" != *[[:space:]]* ]] || fail 'Enter a valid first owner email address.'
+[[ ${#OWNER_EMAIL} -le 254 && "$OWNER_EMAIL" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$ ]] || fail 'Enter a valid first owner email address.'
 
 WORKSPACE_NAME="${ALPHALINK_WORKSPACE_NAME:-}"
 if [[ -z "$WORKSPACE_NAME" ]]; then
@@ -175,7 +177,7 @@ apt-get install -y --no-install-recommends \
     "php${PHP_VERSION}-zip"
 
 php -r 'exit(PHP_MAJOR_VERSION === 8 && PHP_MINOR_VERSION === 5 ? 0 : 1);' || fail 'Ubuntu PHP 8.5 CLI was not installed.'
-php -r '$extensions = ["bcmath", "curl", "dom", "mbstring", "openssl", "pdo_pgsql", "redis", "xml", "xmlwriter", "zip"]; foreach ($extensions as $extension) { if (! extension_loaded($extension)) { fwrite(STDERR, "Missing PHP extension: {$extension}\n"); exit(1); } }' || fail 'One or more required PHP extensions are unavailable.'
+php -r '$extensions = ["bcmath", "curl", "dom", "mbstring", "openssl", "pcntl", "pdo_pgsql", "posix", "redis", "xml", "xmlwriter", "zip"]; foreach ($extensions as $extension) { if (! extension_loaded($extension)) { fwrite(STDERR, "Missing PHP extension: {$extension}\n"); exit(1); } }' || fail 'One or more required PHP extensions are unavailable.'
 node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 22 ? 0 : 1)' || fail 'Node.js 22 or newer is required to build the frontend.'
 composer --version --no-ansi | head -n 1
 
@@ -288,6 +290,8 @@ REDIS_PORT=6379
 MAIL_MAILER=log
 MAIL_FROM_ADDRESS=notifications@${APP_DOMAIN}
 MAIL_FROM_NAME=AlphaLink
+HORIZON_AUTHORIZED_EMAILS="${OWNER_EMAIL}"
+HORIZON_MAX_PROCESSES=2
 ENVFILE
 unset DB_PASSWORD APP_KEY CONTACT_LOOKUP_KEY
 chown root:www-data "$ENV_ROOT/.env"
@@ -321,7 +325,7 @@ info 'Creating the initial owner and workspace...'
 runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php artisan alphalink:bootstrap-owner \
     --name="$OWNER_NAME" --email="$OWNER_EMAIL" --workspace="$WORKSPACE_NAME"
 
-info 'Configuring PHP-FPM, Nginx, queue workers, and scheduler...'
+info 'Configuring PHP-FPM, Nginx, Horizon, and scheduler...'
 cat > "/etc/php/${PHP_VERSION}/fpm/pool.d/zz-alphalink-env.conf" <<POOL
 env[ALPHALINK_ENV_DIR] = ${ENV_ROOT}
 POOL
@@ -368,10 +372,11 @@ server {
 NGINX
 ln -s /etc/nginx/sites-available/alphalink /etc/nginx/sites-enabled/alphalink
 
-cat > /etc/systemd/system/alphalink-queue.service <<UNIT
+cat > /etc/systemd/system/alphalink-horizon.service <<UNIT
 [Unit]
-Description=AlphaLink default Redis queue worker
+Description=AlphaLink Horizon Redis queue supervisor
 After=network.target postgresql.service valkey-server.service
+Wants=postgresql.service valkey-server.service
 
 [Service]
 Type=simple
@@ -379,12 +384,13 @@ User=www-data
 Group=www-data
 WorkingDirectory=${API_ROOT}
 Environment=ALPHALINK_ENV_DIR=${ENV_ROOT}
-ExecStart=/usr/bin/php artisan queue:work redis --queue=default --sleep=1 --tries=3 --timeout=60 --max-time=3600
-ExecReload=/usr/bin/php artisan queue:restart
+ExecStart=/usr/bin/php artisan horizon
+ExecReload=/usr/bin/php artisan horizon:terminate
 Restart=always
 RestartSec=5
 KillSignal=SIGTERM
-TimeoutStopSec=75
+KillMode=mixed
+TimeoutStopSec=300
 
 [Install]
 WantedBy=multi-user.target
@@ -474,9 +480,16 @@ runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php artisan optimize
 nginx -t
 systemctl daemon-reload
 systemctl restart php8.5-fpm
-systemctl enable --now alphalink-queue.service alphalink-drop-suppression.service alphalink-schedule.timer alphalink-db-backup.timer
-for service in php8.5-fpm alphalink-queue.service alphalink-drop-suppression.service; do
+systemctl enable --now alphalink-horizon.service alphalink-drop-suppression.service alphalink-schedule.timer alphalink-db-backup.timer
+for service in php8.5-fpm alphalink-horizon.service alphalink-drop-suppression.service; do
     systemctl is-active --quiet "$service" || fail "Service did not become active: $service"
+done
+for attempt in {1..12}; do
+    if HORIZON_STATUS="$(runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php artisan horizon:status 2>&1)" && grep -qi 'running' <<< "$HORIZON_STATUS"; then
+        break
+    fi
+    [[ "$attempt" -lt 12 ]] || fail 'Horizon did not report a running supervisor; inspect alphalink-horizon.service and Valkey.'
+    sleep 2
 done
 
 ufw allow "${SSH_PORT}/tcp" comment 'Preserve AlphaLink server SSH access'
@@ -502,7 +515,8 @@ for attempt in {1..12}; do
 done
 
 info "AlphaLink installation completed at https://${APP_DOMAIN}."
-info 'Database: PostgreSQL; cache and default queue: local Valkey/Redis protocol.'
+info 'Database: PostgreSQL; cache and Horizon-managed default queue: local Valkey/Redis protocol.'
+info 'The PostgreSQL-backed drop-suppression queue runs under its own systemd worker.'
 info 'A protected local PostgreSQL backup is scheduled daily; local backups do not protect against server or disk loss.'
 info 'Keep an encrypted off-host copy of /etc/alphalink/.env; its keys are required to read encrypted application data.'
 info 'Campaign sending is not enabled by this installer; configure and verify separate mail transport before enabling it.'

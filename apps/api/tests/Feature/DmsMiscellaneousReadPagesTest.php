@@ -51,17 +51,17 @@ class DmsMiscellaneousReadPagesTest extends TestCase
             'email' => 'outside.synthetic@example.test',
         ]);
 
-        $this->get(route('console.miscellaneous.subscribers', $this->workspace->id))
+        $this->get(route('clean.console.miscellaneous.subscribers'))
             ->assertOk()
             ->assertSee('subscribers')
             ->assertSee('is mobile')
             ->assertSee('SETTINGS')
-            ->assertSee('href="'.route('console.miscellaneous.subscribers', $this->workspace->id).'"', false)
-            ->assertSee('href="'.route('console.miscellaneous.contacts', $this->workspace->id).'"', false)
-            ->assertSee('href="'.route('console.miscellaneous.horizon', $this->workspace->id).'"', false)
-            ->assertSee('href="'.route('console.miscellaneous.app-health', $this->workspace->id).'"', false)
-            ->assertSee('href="'.route('console.app-settings.index', $this->workspace->id).'"', false)
-            ->assertSee('href="'.route('console.miscellaneous.app-errors', $this->workspace->id).'"', false);
+            ->assertSee('href="'.route('clean.console.miscellaneous.subscribers').'"', false)
+            ->assertSee('href="'.route('clean.console.miscellaneous.contacts').'"', false)
+            ->assertSee('href="'.route('clean.console.miscellaneous.horizon').'"', false)
+            ->assertSee('href="'.route('clean.console.miscellaneous.app-health').'"', false)
+            ->assertSee('href="'.route('clean.console.app-settings.index').'"', false)
+            ->assertSee('href="'.route('clean.console.miscellaneous.app-errors').'"', false);
 
         $this->getJson(route('console.miscellaneous.subscribers', $this->workspace->id).'?draw=4&start=0&length=10&search%5Bvalue%5D=alice')
             ->assertOk()
@@ -91,7 +91,7 @@ class DmsMiscellaneousReadPagesTest extends TestCase
             'is_mobile' => false,
         ]);
 
-        $this->get(route('console.miscellaneous.contacts', $this->workspace->id))
+        $this->get(route('clean.console.miscellaneous.contacts'))
             ->assertOk()
             ->assertSee('contact us')
             ->assertSee('SEE MORE')
@@ -113,21 +113,22 @@ class DmsMiscellaneousReadPagesTest extends TestCase
 
         $this->actingAs($operator);
         foreach (['subscribers', 'contacts', 'horizon'] as $page) {
-            $this->get(route('console.miscellaneous.'.$page, $this->workspace->id))->assertForbidden();
+            $this->get(route('clean.console.miscellaneous.'.$page))->assertForbidden();
         }
     }
 
-    public function test_horizon_page_explains_the_missing_dashboard_without_a_restart_action(): void
+    public function test_horizon_page_embeds_the_dashboard_and_explains_queue_ownership(): void
     {
-        $this->get(route('console.miscellaneous.horizon', $this->workspace->id))
+        $this->get(route('clean.console.miscellaneous.horizon'))
             ->assertOk()
             ->assertSee('Horizon')
-            ->assertSee('Queue connection:')
-            ->assertSee('Worker activity is not verified here.')
-            ->assertSee('No restart action is available.');
+            ->assertSee('Laravel Horizon dashboard')
+            ->assertSee('Redis-backed default queue')
+            ->assertSee('PostgreSQL-backed suppression worker')
+            ->assertSee('Restart is not available from this page.');
 
         if (! class_exists(HorizonServiceProvider::class)) {
-            $this->get(route('console.miscellaneous.horizon', $this->workspace->id))
+            $this->get(route('clean.console.miscellaneous.horizon'))
                 ->assertSee('Horizon dashboard unavailable');
         }
     }

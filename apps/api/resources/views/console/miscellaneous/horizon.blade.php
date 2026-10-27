@@ -15,6 +15,7 @@
         <div class="block-content block-content-full">
             @if ($available)
                 <iframe src="{{ route('horizon.index') }}" title="Laravel Horizon dashboard" width="100%" height="720" frameborder="0"></iframe>
+                <p class="text-muted small">Horizon monitors the Redis-backed default queue. Suppression imports run on the separate PostgreSQL-backed suppression worker.</p>
                 <p id="horizon-restart-note" class="text-muted small">Restart is not available from this page.</p>
             @else
                 <div class="alert alert-warning" role="status">

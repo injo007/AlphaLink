@@ -31,6 +31,7 @@ $application = Application::configure(basePath: dirname(__DIR__))
     )
     ->withCommands()
     ->withSchedule(function (Schedule $schedule): void {
+        $schedule->command('horizon:snapshot')->everyFiveMinutes();
         $schedule->command(RunAppHealthChecks::class)
             ->everyMinute()
             ->withoutOverlapping();

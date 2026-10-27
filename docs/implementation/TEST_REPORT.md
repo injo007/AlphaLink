@@ -1260,3 +1260,67 @@ Focused provider regression: 44 tests / 454 assertions across Domain Provider re
 - Targeted Pint and `git diff --check`: passed.
 - Authenticated local browser shows the selected OVH server's two IP options; the initial placeholder table is empty. The listener fallback is port 1212 and the admin panel port remains 1213.
 - After user authorization, installed the reviewed single-source PMTA stanza, reloaded PMTA, and verified the service stayed active. A no-DATA SMTP envelope probe reached RCPT acceptance and issued RSET before DATA; no email was sent.
+
+
+## E-DB-08 — Uncapped, resumable audience and campaign input — 2026-10-27
+
+- Removed application-level audience import row/body/upload limits; imports now stage in private storage and continue through resumable 500-row Horizon jobs with status reporting. DMS CSV files are validated in a full streaming pass before any membership writes. The Ubuntu installer configures PHP/Nginx request-body and file-size limits as unlimited, with PHP input/execution timers disabled for upload staging.
+- Removed arbitrary campaign payload, placeholder, selected-source array, suppression-file, and visitor-offset ceilings. Existing protocol/schema field validation and ZIP expansion protections remain.
+- `AudienceListImportTest`, `DmsListUploadTest`, `DmsOfferManagementTest`, and `DmsAffiliateSuppressionRefreshTest`: **45 tests / 359 assertions passed**. A campaign-save regression containing >2 MB body content, >200 KB header content, >50 KB placeholder/email-test values, and a value above 2^31 passed: **1 test / 172 assertions** (PHP memory limit raised to 512 MB for this case).
+- A broader 84-test run had 15 failures, all in legacy route/session URL expectations in Global Tests, Campaign Clone, campaign test-email, and visitor-page tests; these are not input-limit assertions. The focused suites above passed. No contact records were imported into the saved workspace, no campaign was sent, and no DMS or production database was used. 10M throughput, PostgreSQL concurrency, and actual Ubuntu/Horizon runtime remain unverified.
+- Removed the production-only override that forced the audience-import supervisor to one process; production now honors `AUDIENCE_IMPORT_MAX_PROCESSES`. After this change, the focused import/list/suppression suites pass **34 tests / 281 assertions** in the local app container. PHP syntax and `git diff --check` pass.
+
+## E-DB-09 — Large-upload staging and dashboard recovery — 2026-10-27
+
+- Local PHP reports unlimited `upload_max_filesize` / `post_max_size`, upload staging and `sys_temp_dir` under `/app/storage/framework`, and a bounded 512 MB memory limit. Nginx production config now stages request bodies on application storage and allows up to one hour for slow uploads/processing. The installer creates separate upload, temp, and Nginx body directories.
+- `CleanWorkspaceEntryRoutesTest`: **4 passed / 20 assertions**, including `/null/dashboard` redirecting into the active workspace. Audience-import worker is running again after the PHP server process reload; local database/Redis containers remained healthy and were not restarted.
+- Shell syntax and whitespace checks passed. The local app filesystem is FUSE and ignores requested private directory modes (it reports 0777), unlike the Ubuntu installer’s intended `www-data` 0700 directories. No 100 MB list or 700 MB suppression upload was run end to end, and no Ubuntu host has been installed. Capacity for concurrent large-file temporary copies remains an operational requirement.
+
+
+## E-DB-10 — Production-scale campaign snapshot staging — 2026-10-27
+
+- Focused `DmsCampaignSendCatalogTest` SQLite-memory run: **2 passed / 178 assertions**, including a 1002-recipient test crossing multiple 500-row keyset pages, exact ascending ordering, 2,002 selected-source rows, and campaign revision-copy provenance. PHP syntax, scoped Pint, and `git diff --check` pass.
+- An earlier version of the two snapshot tests passed on disposable PostgreSQL 18 (**2 / 178**) after the core staging refactor. That run predates the current 1,000-row keyset-paged provenance/revision-copy writes and migration `2026_10_27_203416_add_campaign_snapshot_keyset_and_suppression_indexes`; current PostgreSQL behavior remains unverified. The current fresh SQLite path applies that migration. A later PostgreSQL rerun failed during disposable cluster initialization before application tests ran. That local container failure is not a production workload limit.
+- The builder streams memberships by stable keyset, resolves suppression flags in bounded SQL batches, maintains dedupe and source provenance in connection-scoped temporary tables, hashes sorted pages, and writes durable snapshot rows in batches. The 100 MB upload / 700 MB suppression cases and 10M throughput/peak-resource benchmarks remain unrun on a production Ubuntu/PostgreSQL target.
+
+
+## E-DB-11 — Target-derived production Horizon concurrency — 2026-10-27
+
+- Replaced the installer's fixed `HORIZON_MAX_PROCESSES=2` and `AUDIENCE_IMPORT_MAX_PROCESSES=2` with target-derived values. Sizing considers effective CPU (including cgroup quota), RAM (including cgroup memory limits), the actual PostgreSQL `max_connections`, and the Horizon worker memory budgets; ten DB connections remain available for web and operational work.
+- `bash -n install-ubuntu-26.sh`, installer `--plan`, and `git diff --check` pass. `--worker-sizing` cases pass for 2 CPU/4 GiB/100 connections (1 default + 1 import), 8 CPU/16 GiB/100 connections (5 + 3), and 64 CPU/128 GiB/100 connections (42 + 22). Counts stay tied to target resources and PostgreSQL capacity; the local machine does not set a product file/list limit.
+- No production Ubuntu installation, real PostgreSQL concurrency test, 100 MB list import, 700 MB suppression upload, or 10M benchmark was run. Target-server resource and throughput verification remains required.
+
+
+## E-DB-12 — Import failure finalization and status privacy — 2026-10-27
+
+- `ImportAudienceListContacts::failBatch` now locks and rechecks the batch row in a transaction, updates only nonterminal batches, and removes the staged source after commit. `ProcessAudienceListImportBatch::failed` stores generic user-facing failure text rather than raw exception messages.
+- Added regressions that a late failure leaves a completed import and its counters intact, and that an exception containing a synthetic email address is not returned in the batch status payload.
+- `AudienceListImportTest` plus `DmsListUploadTest`: **21 passed / 145 assertions** on isolated SQLite memory. Targeted Pint passes. PostgreSQL concurrency, actual Horizon retry timing, and 100 MB/700 MB imports remain unverified.
+
+
+## E-DB-13 — Fresh PostgreSQL 18 migration run — 2026-10-27
+
+- Ran all **82** current Laravel migrations against a new disposable PostgreSQL **18.6** database using the PHP 8.3 app container and a loopback-only ephemeral PostgreSQL container.
+- Verified that `clm_campaign_keyset_idx`, `aud_mix_campaign_keyset_idx`, and `suppression_events_campaign_scope_idx` exist after the PostgreSQL concurrent-index migration. The container was stopped and its temporary database discarded.
+- This proves clean PostgreSQL schema installation and the migration's online-index branch. It does not test upgrade on existing data, concurrency, query plans at scale, backup/restore, 100 MB/700 MB transfer, 10M throughput, or production server installation.
+
+## E-DB-14 — Remove tenant-wide lock from contact imports — 2026-10-27
+
+- Removed the workspace-row lock taken for every contact insert; tenant-scoped contact-hash and list-membership unique indexes remain the race guards. Existing unique-conflict recovery remains in place.
+- `AudienceListImportTest`, `DmsListUploadTest` + `AudienceMixWorkflowTest`: **27 passed / 197 assertions** on SQLite memory after the change. Pint passed on the touched PHP service.
+- Disposable PostgreSQL 18.6 accepted all 82 migrations. Catalog checks found the contact/membership unique indexes plus `aud_import_resume_idx` and `clm_workspace_list_type_idx`. The test suite intentionally refuses a non-SQLite connection, so no PostgreSQL concurrency claim is made.
+- No 10M workload or production Ubuntu install was run; DMS remains read-only and parity is unaccepted.
+
+
+## E-CAMP-105 — Clean-route campaign catalog regression — 2026-10-27
+
+- Updated `DmsCampaignSendCatalogTest` to exercise the canonical clean campaign and PMTA routes; legacy workspace URLs intentionally redirect. Updated the monitor fixture to enable its required public-monitor setting and replaced the obsolete header-length assertion after the user-authorized cap removal.
+- `DmsCampaignSendCatalogTest`: **24 passed / 814 assertions**. Combined campaign/import/list/Mix regression (`DmsCampaignSendCatalogTest`, `AudienceListImportTest`, `DmsListUploadTest`, `AudienceMixWorkflowTest`): **51 passed / 1,011 assertions**. Targeted Pint and `git diff --check` pass.
+- PHP 8.3 app container, SQLite memory, synthetic data and fake transports only. No email, PMTA host command, or DMS mutation ran. The native campaign sender remains unimplemented; this is not send acceptance or production-install evidence.
+
+
+## E-CAMP-106 — Suppression upload without local-size cap — 2026-10-27
+
+- `DmsOfferManagementTest --filter=suppression_upload`: **3 passed / 20 assertions** in the PHP 8.3 app container, including a synthetic file larger than the former 10 MiB ceiling.
+- Source inspection confirms direct uploads are streamed in 64 KiB chunks and normalized through batched temporary database inserts; no application-level byte validator remains. Installer configuration sets PHP upload/post and Nginx request-body limits to unlimited.
+- Provider downloads and ZIP extraction still enforce a 1 GiB ceiling, which is above the reported 700 MB files. No 700 MB transfer, free-space stress, production throughput, or Ubuntu target installation was tested.

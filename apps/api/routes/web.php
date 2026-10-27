@@ -50,6 +50,8 @@ Route::middleware(['auth', 'active'])->group(function (): void {
 
     Route::get('/dashboard/main', [WorkspaceEntryController::class, 'dashboard'])
         ->middleware('workspace.current')->name('console.dashboard.main');
+    Route::get('/null/dashboard', fn () => redirect()->route('console.dashboard.main'))
+        ->middleware('workspace.current')->name('console.dashboard.legacy-null');
     Route::get('/workspaces/{workspaceSlug}/dashboard/main', [WorkspaceEntryController::class, 'dashboard'])
         ->middleware('workspace.current')->name('console.workspace.dashboard.main');
     Route::get('/mailer/campaigns', [WorkspaceEntryController::class, 'campaigns'])
@@ -345,6 +347,7 @@ Route::middleware(['auth', 'active'])->group(function (): void {
     Route::get('/app/workspaces/{workspace}/infrastructure/lists/{listId}/edit', [AudienceListManagementController::class, 'edit'])->whereUuid('listId')->name('console.infrastructure.lists.edit');
     Route::get('/app/workspaces/{workspace}/infrastructure/lists/{listId}/upload', [AudienceListManagementController::class, 'uploadForm'])->whereUuid('listId')->name('console.infrastructure.lists.upload');
     Route::post('/app/workspaces/{workspace}/infrastructure/lists/{listId}/upload', [AudienceListManagementController::class, 'upload'])->whereUuid('listId')->middleware('throttle:3,1')->name('console.infrastructure.lists.upload.save');
+    Route::get('/app/workspaces/{workspace}/infrastructure/lists/{listId}/imports/{batchId}', [AudienceListManagementController::class, 'importStatus'])->whereUuid(['listId', 'batchId'])->name('console.infrastructure.lists.import-status');
     Route::get('/app/workspaces/{workspace}/infrastructure/lists/{listId}/assignment/{type}', [AudienceListManagementController::class, 'assignment'])->whereUuid('listId')->whereIn('type', ['users', 'sponsors'])->name('console.infrastructure.lists.assignment');
     Route::put('/app/workspaces/{workspace}/infrastructure/lists/{listId}/assignment/{type}', [AudienceListManagementController::class, 'updateAssignment'])->whereUuid('listId')->whereIn('type', ['users', 'sponsors'])->middleware('throttle:10,1')->name('console.infrastructure.lists.assignment.update');
     Route::put('/app/workspaces/{workspace}/infrastructure/lists/{listId}', [AudienceListManagementController::class, 'update'])->whereUuid('listId')->middleware('throttle:10,1')->name('console.infrastructure.lists.update');

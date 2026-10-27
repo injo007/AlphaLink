@@ -2,14 +2,19 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\ProcessAudienceListImportBatch;
 use App\Models\AudienceList;
+use App\Models\AudienceListImportBatch;
 use App\Models\Contact;
 use App\Models\ContactListMembership;
 use App\Models\ContactListMembershipEvent;
 use App\Models\OutboxMessage;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\Audiences\ImportAudienceListContacts;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -46,7 +51,8 @@ class AudienceListImportTest extends TestCase
 
         $response = $this->postJson($this->importUrl($list), [
             'addresses' => "ALICE@EXAMPLE.COM,invalid\nbob@example.com, alice@example.com, \"quoted@example.com\"",
-        ])->assertOk()
+        ])->assertAccepted()
+            ->assertJsonPath('data.status', 'completed')
             ->assertJsonPath('data.imported_count', 2)
             ->assertJsonPath('data.duplicate_count', 1)
             ->assertJsonPath('data.invalid_count', 2);
@@ -69,15 +75,15 @@ class AudienceListImportTest extends TestCase
         $secondList = $this->makeList('Second list');
         $url = $this->importUrl($firstList);
 
-        $this->postJson($url, ['addresses' => 'same@example.com'])->assertOk()
+        $this->postJson($url, ['addresses' => 'same@example.com'])->assertAccepted()
             ->assertJsonPath('data.imported_count', 1);
         $contact = Contact::query()->firstOrFail();
 
-        $this->postJson($this->importUrl($secondList), ['addresses' => 'SAME@example.com'])->assertOk()
+        $this->postJson($this->importUrl($secondList), ['addresses' => 'SAME@example.com'])->assertAccepted()
             ->assertJsonPath('data.imported_count', 1)
             ->assertJsonPath('data.duplicate_count', 0);
 
-        $this->postJson($this->importUrl($firstList), ['addresses' => 'SAME@example.com'])->assertOk()
+        $this->postJson($this->importUrl($firstList), ['addresses' => 'SAME@example.com'])->assertAccepted()
             ->assertJsonPath('data.imported_count', 0)
             ->assertJsonPath('data.duplicate_count', 1);
 
@@ -105,13 +111,13 @@ class AudienceListImportTest extends TestCase
     {
         $list = $this->makeList('Opt-out list');
         $this->postJson($this->importUrl($list), ['addresses' => 'opted-out@example.com'])
-            ->assertOk()
+            ->assertAccepted()
             ->assertJsonPath('data.imported_count', 1);
         $membership = ContactListMembership::query()->sole();
         $membership->forceFill(['email_type' => 'opt_out', 'status' => 'removed'])->save();
 
         $this->postJson($this->importUrl($list), ['addresses' => 'opted-out@example.com'])
-            ->assertOk()
+            ->assertAccepted()
             ->assertJsonPath('data.imported_count', 0)
             ->assertJsonPath('data.duplicate_count', 1);
 
@@ -181,17 +187,110 @@ class AudienceListImportTest extends TestCase
         $this->assertDatabaseCount('contacts', 0);
     }
 
-    public function test_import_rejects_more_than_five_thousand_candidates_before_writing(): void
+    public function test_import_has_no_five_thousand_candidate_ceiling_and_chunks_repeated_addresses(): void
     {
-        $list = $this->makeList('Bounded list');
+        $list = $this->makeList('Large list');
         $addresses = str_repeat('a@example.com,', 5000).'a@example.com';
 
         $this->postJson($this->importUrl($list), ['addresses' => $addresses])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['addresses']);
+            ->assertAccepted()
+            ->assertJsonPath('data.status', 'completed')
+            ->assertJsonPath('data.imported_count', 1)
+            ->assertJsonPath('data.duplicate_count', 5000);
 
-        $this->assertDatabaseCount('contacts', 0);
-        $this->assertDatabaseCount('contact_list_memberships', 0);
+        $this->assertDatabaseCount('contacts', 1);
+        $this->assertDatabaseCount('contact_list_memberships', 1);
+    }
+
+    public function test_import_accepts_large_raw_payloads_and_a_streamed_file_endpoint(): void
+    {
+        $list = $this->makeList('Unbounded input list');
+        $this->postJson($this->importUrl($list), ['addresses' => str_repeat('x', 1_000_001)])
+            ->assertAccepted()
+            ->assertJsonPath('data.status', 'completed')
+            ->assertJsonPath('data.invalid_count', 1);
+
+        $file = UploadedFile::fake()->createWithContent('addresses.csv', "from-file@example.test\n");
+        $response = $this->post($this->importUrl($list), ['file' => $file])->assertAccepted();
+        $batchId = $response->json('data.id');
+        $this->getJson($this->listApiUrl($list).'/members/imports/'.$batchId)
+            ->assertOk()
+            ->assertJsonPath('data.status', 'completed')
+            ->assertJsonPath('data.imported_count', 1)
+            ->assertJsonMissingPath('data.storage_path');
+    }
+
+    public function test_import_recovery_dispatches_every_pending_batch_in_bounded_pages(): void
+    {
+        Bus::fake();
+        $list = $this->makeList('Recovery sweep list');
+
+        foreach (range(1, 101) as $index) {
+            AudienceListImportBatch::query()->create([
+                'workspace_id' => $this->workspace->getKey(),
+                'audience_list_id' => $list->getKey(),
+                'created_by' => $this->owner->getKey(),
+                'status' => 'queued',
+                'phase' => 'import',
+                'source_format' => 'addresses',
+                'membership_type' => 'fresh',
+                'storage_path' => sprintf('audience-imports/recovery-%03d.txt', $index),
+                'file_size_bytes' => 1,
+                'next_dispatch_at' => now()->subMinute(),
+            ]);
+        }
+
+        $this->artisan('audience-lists:dispatch-pending-imports')->assertExitCode(0);
+
+        Bus::assertDispatched(ProcessAudienceListImportBatch::class, 101);
+        $this->assertSame(101, AudienceListImportBatch::query()->where('next_dispatch_at', '>', now())->count());
+    }
+
+    public function test_late_queue_failure_does_not_replace_a_completed_import(): void
+    {
+        $list = $this->makeList('Completed import list');
+        $this->postJson($this->importUrl($list), ['addresses' => 'finished@example.test'])
+            ->assertAccepted()
+            ->assertJsonPath('data.status', 'completed');
+
+        $batch = AudienceListImportBatch::query()->sole();
+        app(ImportAudienceListContacts::class)->failBatch(
+            (string) $batch->getKey(),
+            'Synthetic delayed queue failure.',
+        );
+
+        $this->assertSame('completed', $batch->fresh()->status);
+        $this->assertNull($batch->fresh()->failure_message);
+        $this->assertDatabaseCount('contacts', 1);
+        $this->assertDatabaseCount('contact_list_memberships', 1);
+    }
+
+    public function test_failed_import_status_does_not_expose_exception_data(): void
+    {
+        $list = $this->makeList('Failed import list');
+        $batch = AudienceListImportBatch::query()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'audience_list_id' => $list->getKey(),
+            'created_by' => $this->owner->getKey(),
+            'status' => 'importing',
+            'phase' => 'import',
+            'source_format' => 'addresses',
+            'membership_type' => 'fresh',
+            'storage_path' => 'audience-imports/synthetic-private-source.txt',
+            'file_size_bytes' => 1,
+            'next_dispatch_at' => now(),
+        ]);
+
+        (new ProcessAudienceListImportBatch((string) $batch->getKey()))
+            ->failed(new \RuntimeException('Synthetic database error for person@example.test'));
+
+        $status = $batch->fresh()->statusPayload();
+        $this->assertSame('failed', $status['status']);
+        $this->assertStringNotContainsString('person@example.test', (string) $status['failure_message']);
+        $this->assertSame(
+            'The import could not be completed. Upload the file again; if it continues, contact support with the import ID.',
+            $status['failure_message'],
+        );
     }
 
     public function test_new_list_can_be_linked_to_a_workspace_isp_and_inherits_its_access_rules(): void

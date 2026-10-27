@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Models\AudienceList;
+use App\Models\AudienceListImportBatch;
 use App\Models\AuditEvent;
 use App\Models\ContactListMembership;
 use App\Models\Isp;
@@ -96,8 +97,7 @@ class AudienceListManagementController extends Controller
         $this->authorizeManager($workspace);
         $list = $workspace->audienceLists()->whereKey($listId)->firstOrFail();
         $data = $request->validate([
-            // Match this AlphaLink runtime's PHP upload_max_filesize (2 MiB).
-            'file' => ['required', 'file', 'mimes:txt,csv', 'max:2048'],
+            'file' => ['required', 'file', 'mimes:txt,csv'],
             'type' => ['required', 'string', Rule::in(ContactListMembership::CAMPAIGN_TYPES)],
             'filter' => ['nullable', 'string', 'max:255'],
         ]);
@@ -109,8 +109,7 @@ class AudienceListManagementController extends Controller
             ])->withInput();
         }
 
-        set_time_limit(1800);
-        $result = $importer->handleDmsFile(
+        $batch = $importer->handleDmsFile(
             $request,
             $workspace,
             $list,
@@ -120,12 +119,23 @@ class AudienceListManagementController extends Controller
             $lookupKey,
         );
 
-        return back()->with('info', sprintf(
-            'processed: %s - valid : %s - filtered : %s',
-            number_format($result['processed']),
-            number_format($result['valid']),
-            number_format($result['filtered']),
-        ));
+        return back()
+            ->with('info', 'Import queued. It will continue in the background; you can leave this page open to follow its progress.')
+            ->with('import_batch_id', $batch->getKey());
+    }
+
+    public function importStatus(Request $request, string $workspaceId, string $listId, string $batchId): JsonResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspaceId);
+        $this->authorizeManager($workspace);
+        $list = $workspace->audienceLists()->whereKey($listId)->firstOrFail();
+        $batch = AudienceListImportBatch::query()
+            ->where('workspace_id', $workspace->getKey())
+            ->where('audience_list_id', $list->getKey())
+            ->whereKey($batchId)
+            ->firstOrFail();
+
+        return response()->json(['data' => $batch->statusPayload()]);
     }
 
     public function downloadImportExample(Request $request, string $workspaceId): StreamedResponse

@@ -42,7 +42,7 @@ class WorkspaceCampaignNegativeController extends Controller
         $workspace = $this->workspaceFor($request, $workspace);
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'file' => ['required', 'file', 'mimes:csv,txt,html', 'max:20480'],
+            'file' => ['required', 'file', 'mimes:csv,txt,html'],
         ]);
         $file = $data['file'];
         $path = $file->store('campaign-negatives/'.$workspace->getKey().'/'.$request->user()->getKey(), 'local');

@@ -55,7 +55,7 @@
                 @if ($canManageSuppressionFiles)
                     <div class="form-row align-items-end">
                         <div class="form-group col-12 col-md-8">
-                            <label for="offer-suppression-file-input">Suppression file (.txt or .csv, up to 10 MB)</label>
+                            <label for="offer-suppression-file-input">Suppression file (.txt or .csv; no application size or entry-count cap)</label>
                             <input id="offer-suppression-file-input" type="file" class="form-control-file" accept=".txt,.csv,text/plain,text/csv" disabled>
                         </div>
                         <div class="form-group col-12 col-md-4">

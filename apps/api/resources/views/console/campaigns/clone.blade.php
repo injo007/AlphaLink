@@ -93,7 +93,7 @@
                     </div>
                     <div class="form-group col-md-6">
                         <label for="clone-start-from">Start from</label>
-                        <input id="clone-start-from" name="send_setup[start_from]" type="number" min="0" max="2147483647" class="form-control" value="{{ $selectedStart }}" required>
+                        <input id="clone-start-from" name="send_setup[start_from]" type="number" min="0" class="form-control" value="{{ $selectedStart }}" required>
                     </div>
                 </div>
 

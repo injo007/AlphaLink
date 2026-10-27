@@ -11,6 +11,12 @@
             @if (session('info'))
                 <div class="alert alert-info" role="status" aria-live="polite">{{ session('info') }}</div>
             @endif
+            @if (session('import_batch_id'))
+                <div id="list-import-progress" class="alert alert-secondary" role="status" aria-live="polite"
+                    data-status-url="{{ route('console.infrastructure.lists.import-status', [$workspace->id, $list->id, session('import_batch_id')]) }}">
+                    <span id="list-import-progress-text">Checking import status…</span>
+                </div>
+            @endif
             @if ($errors->any())
                 <div class="alert alert-danger" role="alert" aria-live="assertive">
                     <ul class="mb-0">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
@@ -26,7 +32,7 @@
                                 <input type="file" class="custom-file-input" name="file" id="email-file" accept=".txt,.csv,text/plain,text/csv" required aria-describedby="email-file-help @if($errors->has('file')) email-file-error @endif" @if($errors->has('file')) aria-invalid="true" @endif>
                                 <label class="custom-file-label" for="email-file">Choose file</label>
                             </div>
-                            <small id="email-file-help" class="form-text text-muted">TXT or CSV, up to 2 MB. First column is the email address; optional columns are first name, last name, country, age, sex, and vertical.</small>
+                            <small id="email-file-help" class="form-text text-muted">TXT or CSV with no application file-size or row-count limit. Imports run in resumable background chunks. First column is the email address; optional columns are first name, last name, country, age, sex, and vertical.</small>
                             @error('file')<div id="email-file-error" class="text-danger" role="alert">{{ $message }}</div>@enderror
                         </div>
                         <div class="form-group">
@@ -70,6 +76,29 @@
                 button.disabled = true;
                 button.setAttribute('aria-busy', 'true');
             });
+
+            const progress = document.querySelector('#list-import-progress');
+            const progressText = document.querySelector('#list-import-progress-text');
+            const statusUrl = progress?.dataset.statusUrl;
+            if (progress && progressText && statusUrl) {
+                const poll = async () => {
+                    try {
+                        const response = await fetch(statusUrl, { headers: { Accept: 'application/json' } });
+                        if (!response.ok) throw new Error('status unavailable');
+                        const { data } = await response.json();
+                        progressText.textContent = data.status === 'completed'
+                            ? `Import complete: ${data.imported_count.toLocaleString()} imported, ${data.duplicate_count.toLocaleString()} duplicates, ${data.invalid_count.toLocaleString()} invalid.`
+                            : data.status === 'failed'
+                                ? `Import failed: ${data.failure_message || 'Upload the source file again.'}`
+                                : `${data.status === 'validating' ? 'Validating' : 'Importing'}… ${data.progress_percent}% — ${data.processed_count.toLocaleString()} processed, ${data.imported_count.toLocaleString()} imported.`;
+                        if (['completed', 'failed'].includes(data.status)) return;
+                    } catch (_) {
+                        progressText.textContent = 'Import status is temporarily unavailable; the background import will continue.';
+                    }
+                    window.setTimeout(poll, 3000);
+                };
+                poll();
+            }
         })();
     </script>
 @endpush

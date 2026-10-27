@@ -25,7 +25,6 @@
             values.className = 'form-control form-control-sm';
             values.name = `${prefix}[${index}][data_text]`;
             values.rows = 2;
-            values.maxLength = 50000;
             values.setAttribute('aria-label', `Placeholder ${index + 1} values`);
             values.placeholder = 'One value per line';
             valuesCell.append(values);
@@ -36,7 +35,6 @@
             interval.name = `${prefix}[${index}][rotate_every]`;
             interval.type = 'number';
             interval.min = '1';
-            interval.max = '2147483647';
             interval.value = '1';
             interval.required = true;
             interval.setAttribute('aria-label', `Placeholder ${index + 1} rotate every`);

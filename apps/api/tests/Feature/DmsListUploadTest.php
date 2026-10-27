@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AudienceList;
+use App\Models\AudienceListImportBatch;
 use App\Models\Contact;
 use App\Models\ContactListMembership;
 use App\Models\User;
@@ -71,7 +72,8 @@ class DmsListUploadTest extends TestCase
                 'filter' => '',
             ])
             ->assertRedirect($this->uploadUrl($firstList))
-            ->assertSessionHas('info', 'processed: 4 - valid : 3 - filtered : 0');
+            ->assertSessionHas('info')
+            ->assertSessionHas('import_batch_id');
 
         $this->assertDatabaseCount('contacts', 2);
         $this->assertDatabaseCount('contact_list_memberships', 2);
@@ -105,7 +107,8 @@ class DmsListUploadTest extends TestCase
                 'type' => 'fresh',
             ])
             ->assertRedirect($this->uploadUrl($secondList))
-            ->assertSessionHas('info', 'processed: 2 - valid : 2 - filtered : 0');
+            ->assertSessionHas('info')
+            ->assertSessionHas('import_batch_id');
 
         $this->assertDatabaseCount('contact_list_memberships', 4);
         $this->assertDatabaseHas('contact_list_memberships', [
@@ -132,7 +135,12 @@ class DmsListUploadTest extends TestCase
                 'type' => 'fresh',
             ])
             ->assertRedirect($this->uploadUrl($list))
-            ->assertSessionHasErrors('file');
+            ->assertSessionHas('import_batch_id');
+
+        $batch = AudienceListImportBatch::query()->sole();
+        $this->assertSame('failed', $batch->status);
+        $this->assertSame(0, $batch->imported_count);
+        $this->assertStringContainsString('No rows were imported', $batch->failure_message);
 
         $this->assertDatabaseCount('contacts', 0);
         $this->assertDatabaseCount('contact_list_memberships', 0);
@@ -149,7 +157,7 @@ class DmsListUploadTest extends TestCase
                 'filter' => '0',
             ])
             ->assertRedirect($this->uploadUrl($list))
-            ->assertSessionHas('info', 'processed: 2 - valid : 2 - filtered : 0');
+            ->assertSessionHas('import_batch_id');
 
         $this->assertDatabaseCount('contacts', 2);
     }
@@ -164,12 +172,34 @@ class DmsListUploadTest extends TestCase
                 'type' => 'fresh',
             ])
             ->assertRedirect($this->uploadUrl($list))
-            ->assertSessionHas('info', 'processed: 2 - valid : 1 - filtered : 0');
+            ->assertSessionHas('import_batch_id');
 
         $this->assertDatabaseCount('contacts', 1);
+        $batch = AudienceListImportBatch::query()->sole();
+        $this->assertSame(1, $batch->valid_count);
+        $this->assertSame(1, $batch->invalid_count);
         $this->assertDatabaseHas('contacts', [
             'email_lookup_hash' => hash_hmac('sha256', 'valid@example.test', str_repeat('k', 32)),
         ]);
+    }
+
+    public function test_upload_above_two_megabytes_has_no_application_size_ceiling(): void
+    {
+        $list = $this->makeList('Large file list');
+        $largeFile = UploadedFile::fake()->createWithContent('large.csv', str_repeat('x', 2_100_000));
+
+        $this->from($this->uploadUrl($list))
+            ->post($this->uploadUrl($list), [
+                'file' => $largeFile,
+                'type' => 'fresh',
+            ])
+            ->assertRedirect($this->uploadUrl($list))
+            ->assertSessionHas('import_batch_id');
+
+        $batch = AudienceListImportBatch::query()->sole();
+        $this->assertSame('completed', $batch->status);
+        $this->assertSame(1, $batch->invalid_count);
+        $this->assertSame(0, $batch->imported_count);
     }
 
     public function test_upload_is_scoped_to_workspace_managers_and_the_selected_list(): void

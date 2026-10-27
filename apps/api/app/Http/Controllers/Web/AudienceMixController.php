@@ -234,7 +234,7 @@ class AudienceMixController extends Controller
             'isp_id' => ['required', 'integer'],
             'sponsor_id' => ['nullable', 'integer'],
             'country' => ['nullable', 'string', 'size:2', 'regex:/^[A-Za-z]{2}$/'],
-            'audience_segments' => ['required', 'array', 'min:1', 'max:600'],
+            'audience_segments' => ['required', 'array', 'min:1'],
             'audience_segments.*' => ['required', 'string', 'distinct', 'regex:/^[0-9a-f-]{36}_(fresh|delivery|open|click|lead|unsubscribe)$/i'],
             'email_sex' => ['nullable', Rule::in(['men', 'women'])],
             'email_device' => ['nullable', 'string', 'max:100'],

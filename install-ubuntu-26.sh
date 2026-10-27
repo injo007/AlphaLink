@@ -17,9 +17,82 @@ readonly PHP_VERSION=8.5
 info() { printf '[alphalink-install] %s\n' "$*"; }
 fail() { printf '[alphalink-install] ERROR: %s\n' "$*" >&2; exit 1; }
 
+size_horizon_workers() {
+    local cpu_count="$1"
+    local memory_mib="$2"
+    local postgres_max_connections="$3"
+    local cpu_budget memory_budget memory_worker_budget database_worker_budget total_workers import_workers default_workers
+
+    [[ "$cpu_count" =~ ^[0-9]+$ && "$memory_mib" =~ ^[0-9]+$ && "$postgres_max_connections" =~ ^[0-9]+$ ]] || fail 'Worker sizing requires positive CPU, memory, and PostgreSQL connection counts.'
+    (( cpu_count > 0 && memory_mib > 0 && postgres_max_connections > 0 )) || fail 'Worker sizing requires positive CPU, memory, and PostgreSQL connection counts.'
+
+    # Keep half of target RAM available for PostgreSQL, PHP-FPM, Valkey, Nginx,
+    # the OS, and file/database temporary work. Budget 384 MiB per Horizon
+    # process (including overhead beyond each supervisor's configured limit).
+    cpu_budget="$cpu_count"
+    (( cpu_budget >= 2 )) || cpu_budget=2
+    memory_budget=$((memory_mib / 2))
+    memory_worker_budget=$((memory_budget / 384))
+
+    # Leave ten PostgreSQL slots for web requests, the dedicated suppression
+    # worker, scheduler, backups, migrations, and operational access.
+    database_worker_budget=$((postgres_max_connections - 10))
+    total_workers="$cpu_budget"
+    (( total_workers <= memory_worker_budget )) || total_workers="$memory_worker_budget"
+    (( total_workers <= database_worker_budget )) || total_workers="$database_worker_budget"
+    (( total_workers >= 2 )) || fail 'The target host cannot reserve one default and one audience-import Horizon worker; increase server memory and PostgreSQL max_connections.'
+
+    # Reserve roughly one third of the target-derived queue pool for large,
+    # resumable audience imports; the remainder serves default queue work.
+    import_workers=$(((total_workers + 2) / 3))
+    default_workers=$((total_workers - import_workers))
+    printf '%s %s %s\n' "$total_workers" "$default_workers" "$import_workers"
+}
+
+detect_cgroup_memory_mib() {
+    local host_memory_mib="$1"
+    local cgroup_limit_bytes=''
+    local cgroup_memory_mib
+
+    if [[ -r /sys/fs/cgroup/memory.max ]]; then
+        cgroup_limit_bytes="$(< /sys/fs/cgroup/memory.max)"
+    elif [[ -r /sys/fs/cgroup/memory/memory.limit_in_bytes ]]; then
+        cgroup_limit_bytes="$(< /sys/fs/cgroup/memory/memory.limit_in_bytes)"
+    fi
+
+    if [[ "$cgroup_limit_bytes" =~ ^[0-9]+$ ]] && (( cgroup_limit_bytes > 0 )); then
+        cgroup_memory_mib=$((cgroup_limit_bytes / 1024 / 1024))
+        (( cgroup_memory_mib < host_memory_mib )) && host_memory_mib="$cgroup_memory_mib"
+    fi
+
+    printf '%s\n' "$host_memory_mib"
+}
+
+detect_cgroup_cpu_count() {
+    local cpu_count="$1"
+    local quota period quota_cpus
+
+    if [[ -r /sys/fs/cgroup/cpu.max ]]; then
+        read -r quota period < /sys/fs/cgroup/cpu.max
+        if [[ "$quota" =~ ^[0-9]+$ && "$period" =~ ^[0-9]+$ ]] && (( period > 0 )); then
+            quota_cpus=$(((quota + period - 1) / period))
+            (( quota_cpus > 0 && quota_cpus < cpu_count )) && cpu_count="$quota_cpus"
+        fi
+    elif [[ -r /sys/fs/cgroup/cpu/cpu.cfs_quota_us && -r /sys/fs/cgroup/cpu/cpu.cfs_period_us ]]; then
+        read -r quota < /sys/fs/cgroup/cpu/cpu.cfs_quota_us
+        read -r period < /sys/fs/cgroup/cpu/cpu.cfs_period_us
+        if [[ "$quota" =~ ^[0-9]+$ && "$period" =~ ^[0-9]+$ ]] && (( quota > 0 && period > 0 )); then
+            quota_cpus=$(((quota + period - 1) / period))
+            (( quota_cpus > 0 && quota_cpus < cpu_count )) && cpu_count="$quota_cpus"
+        fi
+    fi
+
+    printf '%s\n' "$cpu_count"
+}
+
 usage() {
     cat <<'EOF'
-Usage: sudo bash install-ubuntu-26.sh [--help|--plan]
+Usage: sudo bash install-ubuntu-26.sh [--help|--plan|--worker-sizing CPU RAM_MiB PG_MAX_CONNECTIONS]
 
 Install AlphaLink on a fresh Ubuntu 26.04 LTS server. The installer asks for
 the GitHub repository, application hostname, TLS contact email, and first
@@ -52,8 +125,9 @@ Plan (no changes are made):
      least-privilege PostgreSQL role and a new UTF-8 database.
   5. Generate protected Laravel and contact-lookup keys in /etc/alphalink/.env.
   6. Install locked Composer/npm dependencies, build assets, and run migrations.
-  7. Bootstrap the first owner, configure Nginx/TLS, Horizon, the PostgreSQL
-     suppression worker, and schedule.
+  7. Size Horizon from the target host's available CPU, memory, and PostgreSQL
+     connection budget; bootstrap the first owner; configure Nginx/TLS, the
+     PostgreSQL suppression worker, and schedule.
   8. Enable UFW rules and a protected daily PostgreSQL dump (14-day retention).
 
 Existing application and database data are never deleted or overwritten.
@@ -61,6 +135,14 @@ EOF
 }
 
 case "${1:-}" in
+    --worker-sizing)
+        [[ "$#" -eq 4 ]] || fail 'Use --worker-sizing CPU RAM_MiB PG_MAX_CONNECTIONS to calculate production Horizon counts.'
+        read -r TOTAL_QUEUE_WORKERS HORIZON_MAX_PROCESSES AUDIENCE_IMPORT_MAX_PROCESSES \
+            < <(size_horizon_workers "$2" "$3" "$4")
+        printf 'Total Horizon workers: %s\nDefault queue workers: %s\nAudience import workers: %s\n' \
+            "$TOTAL_QUEUE_WORKERS" "$HORIZON_MAX_PROCESSES" "$AUDIENCE_IMPORT_MAX_PROCESSES"
+        exit 0
+        ;;
     --help|-h) usage; exit 0 ;;
     --plan) plan; exit 0 ;;
     "") ;;
@@ -76,6 +158,15 @@ case "$(dpkg --print-architecture)" in
     amd64|arm64) ;;
     *) fail 'Ubuntu 26.04 amd64 or arm64 is required.' ;;
 esac
+TARGET_CPU_COUNT="$(detect_cgroup_cpu_count "$(nproc)")"
+TARGET_MEMORY_MIB="$(awk '$1 == "MemTotal:" { print int($2 / 1024); exit }' /proc/meminfo)"
+[[ "$TARGET_MEMORY_MIB" =~ ^[0-9]+$ ]] || fail 'Cannot determine target host memory.'
+TARGET_MEMORY_MIB="$(detect_cgroup_memory_mib "$TARGET_MEMORY_MIB")"
+# A fresh Ubuntu PostgreSQL cluster starts with max_connections=100; the
+# installed server value is read and checked again before writing .env.
+read -r PREVIEW_QUEUE_WORKERS PREVIEW_HORIZON_WORKERS PREVIEW_IMPORT_WORKERS \
+    < <(size_horizon_workers "$TARGET_CPU_COUNT" "$TARGET_MEMORY_MIB" 100)
+info "Target sizing preview: ${TARGET_CPU_COUNT} effective CPU(s), ${TARGET_MEMORY_MIB} MiB RAM; Horizon will run about ${PREVIEW_QUEUE_WORKERS} total (${PREVIEW_HORIZON_WORKERS} default and ${PREVIEW_IMPORT_WORKERS} audience-import) worker(s)."
 [[ -t 0 ]] || fail 'Run from an interactive terminal so secrets can be entered safely.'
 # Never accept a database password from the environment or a command line.
 # The installer requires a fresh, interactive secret entry on every run.
@@ -200,6 +291,16 @@ systemctl enable --now postgresql valkey-server php8.5-fpm nginx
 pg_isready -q || fail 'PostgreSQL did not become ready.'
 [[ "$(valkey-cli ping 2>/dev/null)" == PONG ]] || fail 'Valkey did not answer its Redis-compatible health check.'
 
+PSQL=/usr/lib/postgresql/18/bin/psql
+TARGET_CPU_COUNT="$(detect_cgroup_cpu_count "$(nproc)")"
+TARGET_MEMORY_MIB="$(awk '$1 == "MemTotal:" { print int($2 / 1024); exit }' /proc/meminfo)"
+[[ "$TARGET_MEMORY_MIB" =~ ^[0-9]+$ ]] || fail 'Cannot determine target host memory.'
+TARGET_MEMORY_MIB="$(detect_cgroup_memory_mib "$TARGET_MEMORY_MIB")"
+POSTGRES_MAX_CONNECTIONS="$(runuser -u postgres -- "$PSQL" -tAc 'SHOW max_connections' | tr -d '[:space:]')"
+read -r TOTAL_QUEUE_WORKERS HORIZON_MAX_PROCESSES AUDIENCE_IMPORT_MAX_PROCESSES \
+    < <(size_horizon_workers "$TARGET_CPU_COUNT" "$TARGET_MEMORY_MIB" "$POSTGRES_MAX_CONNECTIONS")
+info "Target sizing: ${TARGET_CPU_COUNT} effective CPU(s), ${TARGET_MEMORY_MIB} MiB RAM; Horizon will run ${HORIZON_MAX_PROCESSES} default and ${AUDIENCE_IMPORT_MAX_PROCESSES} audience-import worker(s)."
+
 info "Cloning ${REPOSITORY#https://github.com/} (${BRANCH})..."
 GIT_ASKPASS_FILE=''
 GIT_TOKEN_FILE=''
@@ -236,7 +337,6 @@ trap - EXIT
 git -C "$APP_ROOT" check-ref-format --branch "$BRANCH" >/dev/null || fail 'The selected branch name is not valid.'
 
 info 'Creating a new, private PostgreSQL database and application environment...'
-PSQL=/usr/lib/postgresql/18/bin/psql
 ROLE_EXISTS="$(runuser -u postgres -- "$PSQL" -tAc "SELECT 1 FROM pg_roles WHERE rolname = '${DB_USER}'" | tr -d '[:space:]')"
 DATABASE_EXISTS="$(runuser -u postgres -- "$PSQL" -tAc "SELECT 1 FROM pg_database WHERE datname = '${DB_NAME}'" | tr -d '[:space:]')"
 [[ "$ROLE_EXISTS" != 1 && "$DATABASE_EXISTS" != 1 ]] || fail 'PostgreSQL role or database already exists; refusing to reuse or replace it.'
@@ -304,7 +404,8 @@ MAIL_MAILER=log
 MAIL_FROM_ADDRESS=notifications@${APP_DOMAIN}
 MAIL_FROM_NAME=AlphaLink
 HORIZON_AUTHORIZED_EMAILS="${OWNER_EMAIL}"
-HORIZON_MAX_PROCESSES=2
+HORIZON_MAX_PROCESSES=${HORIZON_MAX_PROCESSES}
+AUDIENCE_IMPORT_MAX_PROCESSES=${AUDIENCE_IMPORT_MAX_PROCESSES}
 ENVFILE
 unset DB_PASSWORD APP_KEY CONTACT_LOOKUP_KEY
 chown root:www-data "$ENV_ROOT/.env"
@@ -329,6 +430,10 @@ find "$APP_ROOT" -type f -exec chmod 0640 {} +
 chown -R www-data:www-data "$API_ROOT/storage" "$API_ROOT/bootstrap/cache"
 find "$API_ROOT/storage" "$API_ROOT/bootstrap/cache" -type d -exec chmod 2770 {} +
 find "$API_ROOT/storage" "$API_ROOT/bootstrap/cache" -type f -exec chmod 0660 {} +
+install -d -o www-data -g www-data -m 0700 \
+    "$API_ROOT/storage/framework/uploads" \
+    "$API_ROOT/storage/framework/tmp" \
+    "$API_ROOT/storage/framework/nginx-body"
 
 info 'Applying the fresh PostgreSQL migrations...'
 runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php artisan migrate --force --no-interaction
@@ -344,9 +449,15 @@ env[ALPHALINK_ENV_DIR] = ${ENV_ROOT}
 POOL
 cat > "/etc/php/${PHP_VERSION}/fpm/conf.d/99-alphalink.ini" <<PHPINI
 expose_php=Off
-upload_max_filesize=128M
-post_max_size=130M
-max_execution_time=120
+; Arbitrarily large authenticated imports are staged to private disk and parsed by Horizon in chunks.
+upload_max_filesize=0
+post_max_size=0
+upload_tmp_dir=${API_ROOT}/storage/framework/uploads
+sys_temp_dir=${API_ROOT}/storage/framework/tmp
+max_execution_time=0
+max_input_time=0
+# PHP interprets 0 as accepting zero variables; use its largest supported value instead.
+max_input_vars=2147483647
 memory_limit=512M
 PHPINI
 
@@ -358,7 +469,9 @@ server {
     root ${API_ROOT}/public;
     index index.php;
     server_tokens off;
-    client_max_body_size 128m;
+    client_max_body_size 0;
+    client_body_temp_path ${API_ROOT}/storage/framework/nginx-body 1 2;
+    client_body_timeout 3600s;
 
     charset utf-8;
     location / {
@@ -373,6 +486,8 @@ server {
         fastcgi_param SCRIPT_FILENAME \$realpath_root\$fastcgi_script_name;
         fastcgi_param DOCUMENT_ROOT \$realpath_root;
         fastcgi_param ALPHALINK_ENV_DIR ${ENV_ROOT};
+        fastcgi_send_timeout 3600s;
+        fastcgi_read_timeout 3600s;
         fastcgi_hide_header X-Powered-By;
     }
     location ~ /\.(?!well-known).* { deny all; }

@@ -18,27 +18,29 @@ class DmsOfferSuppressionFile
     /** @return array{path: string, sha256: string, format: 'email'|'md5', count: int} */
     public function store(Workspace $workspace, WorkspaceOffer $offer, UploadedFile $upload): array
     {
-        $content = file_get_contents($upload->getRealPath());
-        if (! is_string($content) || $content === '' || strlen($content) > 10_000_000) {
-            throw ValidationException::withMessages(['suppression_file' => 'The suppression file is empty or exceeds 10 MB.']);
-        }
-
-        return $this->storeContent($workspace, $offer, $content);
+        return $this->normalizeDownloadedFile($workspace, $offer, $upload->getRealPath());
     }
 
     /** @return array{path: string, sha256: string, format: 'email'|'md5', count: int} */
     public function storeContent(Workspace $workspace, WorkspaceOffer $offer, string $content): array
     {
-        if ($content === '' || strlen($content) > 10_000_000) {
-            throw ValidationException::withMessages(['suppression_file' => 'The suppression file is empty or exceeds 10 MB.']);
+        if ($content === '') {
+            throw ValidationException::withMessages(['suppression_file' => 'The suppression file is empty.']);
         }
 
-        $parsed = $this->normalize($content);
-        $sha256 = hash('sha256', $parsed['content']);
-        $path = sprintf('offers/%s/%d/suppression/%s.txt', $workspace->getKey(), $offer->getKey(), $sha256);
-        Storage::disk(self::DISK)->put($path, $parsed['content']);
+        $temporaryPath = tempnam(sys_get_temp_dir(), 'alphalink-suppression-upload-');
+        if (! is_string($temporaryPath) || file_put_contents($temporaryPath, $content) !== strlen($content)) {
+            if (is_string($temporaryPath)) {
+                @unlink($temporaryPath);
+            }
+            throw new \RuntimeException('Unable to stage the suppression file.');
+        }
 
-        return ['path' => $path, 'sha256' => $sha256, 'format' => $parsed['format'], 'count' => $parsed['count']];
+        try {
+            return $this->normalizeDownloadedFile($workspace, $offer, $temporaryPath);
+        } finally {
+            @unlink($temporaryPath);
+        }
     }
 
     /**
@@ -52,8 +54,8 @@ class DmsOfferSuppressionFile
         $extractedPath = null;
 
         try {
-            if (! is_file($source) || filesize($source) < 1 || filesize($source) > 1_073_741_824) {
-                throw ValidationException::withMessages(['suppression_file' => 'The downloaded suppression file is empty or exceeds 1 GB.']);
+            if (! is_file($source) || filesize($source) < 1) {
+                throw ValidationException::withMessages(['suppression_file' => 'The suppression file is empty or unavailable.']);
             }
 
             $signature = file_get_contents($source, false, null, 0, 4);
@@ -178,6 +180,7 @@ class DmsOfferSuppressionFile
         $batch = [];
         $format = null;
         $sawEntries = false;
+        $discardingLongEntry = false;
         $outputPath = tempnam(sys_get_temp_dir(), 'alphalink-suppression-normalized-');
 
         try {
@@ -190,35 +193,64 @@ class DmsOfferSuppressionFile
             }
 
             try {
-                while (($line = fgets($input)) !== false) {
-                    if (strlen($line) > 1_048_576) {
-                        throw ValidationException::withMessages(['suppression_file' => 'The suppression file contains an oversized row.']);
+                $processEntry = function (string $entry) use ($connection, $table, &$batch, &$format, &$sawEntries): void {
+                    $entry = mb_strtolower(trim($entry, " \t\n\r\0\x0B\"'"));
+                    if ($entry === '') {
+                        return;
                     }
-                    if (! $sawEntries) {
-                        $line = preg_replace('/^\xEF\xBB\xBF/', '', $line) ?? $line;
+                    $sawEntries = true;
+                    $entryFormat = preg_match('/^[a-f0-9]{32}$/', $entry) === 1
+                        ? 'md5'
+                        : (filter_var($entry, FILTER_VALIDATE_EMAIL) !== false ? 'email' : null);
+                    if ($entryFormat === null || ($format !== null && $format !== $entryFormat)) {
+                        throw ValidationException::withMessages(['suppression_file' => 'Use one format per file: plain email addresses or 32-character MD5 hashes.']);
                     }
-                    foreach (str_getcsv($line) as $cell) {
-                        foreach (preg_split('/[;,]+/', (string) $cell) ?: [] as $entry) {
-                            $entry = mb_strtolower(trim($entry, " \t\n\r\0\x0B\"'"));
-                            if ($entry === '') {
-                                continue;
-                            }
-                            $sawEntries = true;
-                            $entryFormat = preg_match('/^[a-f0-9]{32}$/', $entry) === 1
-                                ? 'md5'
-                                : (filter_var($entry, FILTER_VALIDATE_EMAIL) !== false ? 'email' : null);
-                            if ($entryFormat === null || ($format !== null && $format !== $entryFormat)) {
-                                throw ValidationException::withMessages(['suppression_file' => 'Use one format per file: plain email addresses or 32-character MD5 hashes.']);
-                            }
-                            $format = $entryFormat;
-                            $batch[] = ['entry_value' => $entry];
-                            if (count($batch) >= 500) {
-                                $connection->table($table)->insertOrIgnore($batch);
-                                $batch = [];
-                            }
+                    $format = $entryFormat;
+                    $batch[] = ['entry_value' => $entry];
+                    if (count($batch) >= 500) {
+                        $connection->table($table)->insertOrIgnore($batch);
+                        $batch = [];
+                    }
+                };
+
+                $carry = '';
+                $firstChunk = true;
+                while (! feof($input)) {
+                    $chunk = fread($input, 65_536);
+                    if (! is_string($chunk)) {
+                        throw new \RuntimeException('Unable to read the suppression file.');
+                    }
+                    if ($chunk === '') {
+                        break;
+                    }
+                    if ($firstChunk) {
+                        $chunk = preg_replace('/^\xEF\xBB\xBF/', '', $chunk) ?? $chunk;
+                        $firstChunk = false;
+                    }
+
+                    $parts = preg_split('/[\r\n,;]+/', $carry.$chunk) ?: [];
+                    $carry = array_pop($parts) ?? '';
+                    if ($discardingLongEntry) {
+                        if ($parts === []) {
+                            $carry = '';
+
+                            continue;
                         }
+                        array_shift($parts);
+                        $discardingLongEntry = false;
+                    }
+                    foreach ($parts as $entry) {
+                        $processEntry($entry);
+                    }
+                    if (strlen($carry) > 320) {
+                        $carry = '';
+                        $discardingLongEntry = true;
                     }
                 }
+                if ($discardingLongEntry) {
+                    throw ValidationException::withMessages(['suppression_file' => 'Entries must be valid email addresses or 32-character MD5 hashes.']);
+                }
+                $processEntry($carry);
             } finally {
                 fclose($input);
             }
@@ -227,7 +259,7 @@ class DmsOfferSuppressionFile
                 $connection->table($table)->insertOrIgnore($batch);
             }
             $count = (int) $connection->table($table)->count();
-            if (! $sawEntries || $count < 1 || $count > 100_000_000 || ! in_array($format, ['email', 'md5'], true)) {
+            if (! $sawEntries || $count < 1 || ! in_array($format, ['email', 'md5'], true)) {
                 throw ValidationException::withMessages(['suppression_file' => 'The suppression file must contain valid email addresses or 32-character MD5 hashes.']);
             }
 
@@ -378,8 +410,8 @@ class DmsOfferSuppressionFile
         }
 
         $values = array_values(array_unique($values));
-        if ($values === [] || count($values) > 1_000_000) {
-            throw ValidationException::withMessages(['suppression_file' => 'The suppression file must contain between 1 and 1,000,000 entries.']);
+        if ($values === []) {
+            throw ValidationException::withMessages(['suppression_file' => 'The suppression file must contain at least one entry.']);
         }
 
         $isHash = array_reduce($values, fn (bool $valid, string $value): bool => $valid && preg_match('/^[a-f0-9]{32}$/', $value) === 1, true);

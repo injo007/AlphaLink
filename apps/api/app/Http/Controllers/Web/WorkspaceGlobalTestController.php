@@ -97,7 +97,7 @@ class WorkspaceGlobalTestController extends Controller
         $filters = $request->validate([
             'option' => ['sometimes', 'string', Rule::in(['ip', 'vmta', 'smtp'])],
             'type' => ['sometimes', 'string', Rule::in(['all', 'ipv4', 'ipv6'])],
-            'servers' => ['sometimes', 'array', 'max:100'],
+            'servers' => ['sometimes', 'array'],
             'servers.*' => ['required', 'uuid', 'distinct'],
         ]);
         $options = $catalog->options(
@@ -134,17 +134,17 @@ class WorkspaceGlobalTestController extends Controller
             'body' => ['nullable', 'string'],
             'option' => ['required', 'string', Rule::in(['ip', 'vmta', 'smtp'])],
             'type' => ['required', 'string', Rule::in(['all', 'ipv4', 'ipv6'])],
-            'servers' => ['required', 'array', 'min:1', 'max:100'],
+            'servers' => ['required', 'array', 'min:1'],
             'servers.*' => ['required', 'uuid', 'distinct'],
-            'ips' => ['required', 'array', 'min:1', 'max:10000'],
+            'ips' => ['required', 'array', 'min:1'],
             'ips.*' => ['required', 'integer', 'min:1', 'distinct'],
             'placeholder_combination' => ['nullable', 'boolean'],
             'placeholder_all_combination' => ['nullable', 'boolean'],
             'placeholders' => ['nullable', 'array', 'min:1'],
             'placeholders.*.data' => ['required_with:placeholders', 'array'],
-            'placeholders.*.data.*' => ['required', 'string', 'max:50000'],
-            'placeholders.*.rotate_every' => ['required_with:placeholders', 'integer', 'min:1', 'max:2147483647'],
-            'repeat' => ['required', 'integer', 'min:1', 'max:2147483647'],
+            'placeholders.*.data.*' => ['required', 'string'],
+            'placeholders.*.rotate_every' => ['required_with:placeholders', 'integer', 'min:1'],
+            'repeat' => ['required', 'integer', 'min:1'],
         ]);
 
         $header = base64_decode($data['header'], true);

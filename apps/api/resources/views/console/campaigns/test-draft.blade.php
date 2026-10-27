@@ -123,13 +123,13 @@
 
                 <div class="form-group">
                     <label for="test-draft-text">Plain-text message <span class="text-muted">(optional when HTML is supplied)</span></label>
-                    <textarea id="test-draft-text" name="text_body" rows="7" maxlength="1000000" class="form-control @error('text_body') is-invalid @enderror" aria-invalid="@error('text_body') true @else false @enderror" @error('text_body') aria-describedby="test-draft-text-error" @enderror>{{ old('text_body') }}</textarea>
+                    <textarea id="test-draft-text" name="text_body" rows="7" class="form-control @error('text_body') is-invalid @enderror" aria-invalid="@error('text_body') true @else false @enderror" @error('text_body') aria-describedby="test-draft-text-error" @enderror>{{ old('text_body') }}</textarea>
                     @error('text_body')<div class="invalid-feedback" id="test-draft-text-error">{{ $message }}</div>@enderror
                 </div>
 
                 <div class="form-group">
                     <label for="test-draft-html">HTML message <span class="text-muted">(optional when plain text is supplied)</span></label>
-                    <textarea id="test-draft-html" name="html_body" rows="10" maxlength="2000000" class="form-control @error('html_body') is-invalid @enderror" spellcheck="false" aria-invalid="@error('html_body') true @else false @enderror" @error('html_body') aria-describedby="test-draft-html-error" @enderror>{{ old('html_body') }}</textarea>
+                    <textarea id="test-draft-html" name="html_body" rows="10" class="form-control @error('html_body') is-invalid @enderror" spellcheck="false" aria-invalid="@error('html_body') true @else false @enderror" @error('html_body') aria-describedby="test-draft-html-error" @enderror>{{ old('html_body') }}</textarea>
                     @error('html_body')<div class="invalid-feedback" id="test-draft-html-error">{{ $message }}</div>@enderror
                     <small class="form-text text-muted">Symfony Mailer sends these structured fields. The stored DMS header template is not interpreted by this one-recipient test path.</small>
                 </div>

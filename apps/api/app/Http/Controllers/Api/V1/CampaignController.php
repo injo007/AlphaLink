@@ -215,8 +215,8 @@ class CampaignController extends Controller
             'from_name' => ['required', 'string', 'max:160'],
             'from_email' => ['required', 'email:rfc', 'max:320'],
             'reply_to' => ['nullable', 'email:rfc', 'max:320'],
-            'text_body' => ['nullable', 'string', 'max:1000000', 'required_without:html_body'],
-            'html_body' => ['nullable', 'string', 'max:2000000', 'required_without:text_body'],
+            'text_body' => ['nullable', 'string', 'required_without:html_body'],
+            'html_body' => ['nullable', 'string', 'required_without:text_body'],
         ];
 
         if ($includeCampaignFields) {

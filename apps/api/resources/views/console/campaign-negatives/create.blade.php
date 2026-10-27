@@ -23,7 +23,7 @@
                         <div class="form-group">
                             <label for="negative-file">Negative File:</label>
                             <input id="negative-file" class="form-control-file" type="file" name="file" accept=".csv,.txt,.html,text/csv,text/plain,text/html" required>
-                            <small class="form-text text-muted">CSV, TXT, or HTML · maximum 20 MB. File contents are stored privately.</small>
+                            <small class="form-text text-muted">CSV, TXT, or HTML · no application file-size cap. File contents are stored privately.</small>
                         </div>
                         <div class="form-group mb-0">
                             <button class="btn btn-block btn-info" type="submit">UPLOAD</button>

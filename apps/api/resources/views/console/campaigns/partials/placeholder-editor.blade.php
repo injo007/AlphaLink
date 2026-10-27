@@ -24,8 +24,8 @@
                     <tbody data-placeholder-rows>
                         @foreach ($placeholderRows as $index => $row)
                             <tr data-placeholder-row>
-                                <td><textarea class="form-control form-control-sm" name="send_setup[placeholder_inputs][{{ $index }}][data_text]" rows="2" maxlength="50000" aria-label="Placeholder {{ $index + 1 }} values" placeholder="One value per line">{{ $row['data_text'] ?? implode("\n", $row['data'] ?? []) }}</textarea></td>
-                                <td><input class="form-control form-control-sm" name="send_setup[placeholder_inputs][{{ $index }}][rotate_every]" type="number" min="1" max="2147483647" value="{{ $row['rotate_every'] ?? 1 }}" aria-label="Placeholder {{ $index + 1 }} rotate every" required></td>
+                                <td><textarea class="form-control form-control-sm" name="send_setup[placeholder_inputs][{{ $index }}][data_text]" rows="2" aria-label="Placeholder {{ $index + 1 }} values" placeholder="One value per line">{{ $row['data_text'] ?? implode("\n", $row['data'] ?? []) }}</textarea></td>
+                                <td><input class="form-control form-control-sm" name="send_setup[placeholder_inputs][{{ $index }}][rotate_every]" type="number" min="1" value="{{ $row['rotate_every'] ?? 1 }}" aria-label="Placeholder {{ $index + 1 }} rotate every" required></td>
                                 <td class="text-right"><button class="btn btn-sm btn-alt-danger" type="button" data-placeholder-remove aria-label="Remove placeholder {{ $index + 1 }}"><i class="fa fa-times" aria-hidden="true"></i></button></td>
                             </tr>
                         @endforeach

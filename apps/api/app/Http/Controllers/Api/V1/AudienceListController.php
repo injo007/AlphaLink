@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\AudienceList;
+use App\Models\AudienceListImportBatch;
 use App\Models\AuditEvent;
 use App\Models\Contact;
 use App\Models\ContactListMembership;
@@ -215,7 +216,8 @@ class AudienceListController extends Controller
         $workspace = $request->attributes->get('alphalink.workspace');
         $audienceList = $this->findList($request, $list);
         $data = $request->validate([
-            'addresses' => ['required', 'string', 'max:1000000'],
+            'addresses' => ['required_without:file', 'prohibits:file', 'nullable', 'string'],
+            'file' => ['required_without:addresses', 'prohibits:addresses', 'file', 'mimes:txt,csv'],
         ]);
 
         $lookupKey = config('alphalink.contact_lookup_key');
@@ -226,15 +228,25 @@ class AudienceListController extends Controller
             ], 503);
         }
 
-        $result = $this->contactImporter->handle(
-            $request,
-            $workspace,
-            $audienceList,
-            $data['addresses'],
-            $lookupKey,
-        );
+        $batch = isset($data['file'])
+            ? $this->contactImporter->handleAddressFile($request, $workspace, $audienceList, $data['file'], $lookupKey)
+            : $this->contactImporter->handle($request, $workspace, $audienceList, $data['addresses'], $lookupKey);
 
-        return response()->json(['data' => $result]);
+        return response()->json(['data' => $batch->statusPayload()], 202);
+    }
+
+    public function importStatus(Request $request, string $workspaceId, string $list, string $batchId): JsonResponse
+    {
+        /** @var Workspace $workspace */
+        $workspace = $request->attributes->get('alphalink.workspace');
+        $audienceList = $this->findList($request, $list);
+        $batch = AudienceListImportBatch::query()
+            ->where('workspace_id', $workspace->getKey())
+            ->where('audience_list_id', $audienceList->getKey())
+            ->whereKey($batchId)
+            ->firstOrFail();
+
+        return response()->json(['data' => $batch->statusPayload()]);
     }
 
     public function removeMember(Request $request, string $workspaceId, string $list, string $contact): JsonResponse

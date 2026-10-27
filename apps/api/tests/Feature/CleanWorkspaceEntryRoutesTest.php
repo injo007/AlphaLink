@@ -54,6 +54,27 @@ class CleanWorkspaceEntryRoutesTest extends TestCase
         $this->assertSame($workspace->getKey(), session('active_workspace_id'));
     }
 
+    public function test_null_dashboard_legacy_url_recovers_to_the_active_workspace_dashboard(): void
+    {
+        $user = User::factory()->create();
+        $workspace = Workspace::query()->create([
+            'name' => 'Clean Routes Workspace',
+            'slug' => 'clean-routes-'.Str::lower(Str::random(6)),
+            'status' => 'active',
+            'created_by' => $user->getKey(),
+        ]);
+        $workspace->users()->attach($user->getKey(), ['role' => 'owner', 'joined_at' => now()]);
+
+        $this->actingAs($user)->get('/null/dashboard')
+            ->assertRedirect('/dashboard/main');
+
+        $this->get('/dashboard/main')
+            ->assertOk()
+            ->assertSee('Main Dashboard');
+
+        $this->assertSame($workspace->getKey(), session('active_workspace_id'));
+    }
+
     public function test_legacy_browser_page_urls_redirect_to_clean_paths_but_json_routes_remain_usable(): void
     {
         $user = User::factory()->create();

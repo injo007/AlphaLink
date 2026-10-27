@@ -33,7 +33,7 @@ class WorkspaceCampaignVisitorsConsoleController extends Controller
         if (! $request->wantsJson()) {
             $tableState = $request->validate([
                 'q' => ['sometimes', 'nullable', 'string', 'max:200'],
-                'start' => ['sometimes', 'integer', 'min:0', 'max:10000000'],
+                'start' => ['sometimes', 'integer', 'min:0'],
                 'length' => ['sometimes', 'integer', Rule::in([20, 50, 100])],
                 'order_index' => ['sometimes', 'integer', 'min:0', 'max:13'],
                 'order_dir' => ['sometimes', Rule::in(['asc', 'desc'])],
@@ -97,7 +97,7 @@ class WorkspaceCampaignVisitorsConsoleController extends Controller
 
         $filters = $request->validate([
             'draw' => ['sometimes', 'integer', 'min:0'],
-            'start' => ['sometimes', 'integer', 'min:0', 'max:10000000'],
+            'start' => ['sometimes', 'integer', 'min:0'],
             'length' => ['sometimes', 'integer', Rule::in([20, 50, 100])],
             'search.value' => ['sometimes', 'nullable', 'string', 'max:200'],
             'order.0.column' => ['sometimes', 'integer', 'min:0', 'max:13'],

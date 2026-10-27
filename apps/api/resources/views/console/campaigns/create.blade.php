@@ -212,7 +212,7 @@
                                 </div>
                                 <div class="form-group col-sm-6">
                                     <label for="send-start-from">Start From:</label>
-                                    <input id="send-start-from" name="send_setup[start_from]" type="number" min="0" max="2147483647" class="form-control" value="{{ $setup['start_from'] }}" required>
+                                    <input id="send-start-from" name="send_setup[start_from]" type="number" min="0" class="form-control" value="{{ $setup['start_from'] }}" required>
                                 </div>
                             </div>
                         </div>
@@ -255,7 +255,7 @@
                     </div>
                     <div class="form-group col-md-4">
                         <label for="campaign-email-tests">Email Test addresses:</label>
-                        <textarea id="campaign-email-tests" name="email_test_addresses" rows="2" maxlength="50000" class="form-control" autocomplete="off">{{ old('email_test_addresses', implode("\n", $savedContent['email_tests'] ?? [])) }}</textarea>
+                        <textarea id="campaign-email-tests" name="email_test_addresses" rows="2" class="form-control" autocomplete="off">{{ old('email_test_addresses', implode("\n", $savedContent['email_tests'] ?? [])) }}</textarea>
                     </div>
                 </div>
                 <div class="form-row">
@@ -336,7 +336,7 @@
                             <button type="button" class="btn btn-link btn-sm p-0" id="campaign-header-shuffle" title="Shuffle header lines" aria-label="Shuffle header lines"><i class="fas fa-random" aria-hidden="true"></i></button>
                             <button type="button" class="btn btn-link btn-sm p-0" id="campaign-header-encode" title="Encoding tools" aria-label="Encoding tools"><i class="fas fa-pencil-ruler" aria-hidden="true"></i></button>
                         </label>
-                        <textarea id="campaign-dms-header" name="header" rows="30" maxlength="200000" class="form-control campaign-header-editor" spellcheck="false" required>{{ old('header', $savedContent['header'] ?? $defaultDmsHeader) }}</textarea>
+                        <textarea id="campaign-dms-header" name="header" rows="30" class="form-control campaign-header-editor" spellcheck="false" required>{{ old('header', $savedContent['header'] ?? $defaultDmsHeader) }}</textarea>
                     </div>
                     <div class="form-group col-md-6">
                         <label for="campaign-dms-body">Body:
@@ -350,7 +350,7 @@
                             <input id="campaign-body-map" type="checkbox" class="custom-control-input">
                             <label for="campaign-body-map" class="custom-control-label">MAP BODY</label>
                         </div>
-                        <textarea id="campaign-dms-body" name="body" rows="28" maxlength="2000000" class="form-control" spellcheck="false">{{ old('body', $savedContent['body'] ?? '') }}</textarea>
+                        <textarea id="campaign-dms-body" name="body" rows="28" class="form-control" spellcheck="false">{{ old('body', $savedContent['body'] ?? '') }}</textarea>
                         <div id="campaign-body-preview" hidden class="mt-2"><iframe id="campaign-body-preview-frame" title="Campaign body preview" sandbox="" style="width:100%;min-height:360px;border:1px solid #d7dce3"></iframe></div>
                     </div>
                 </div>
@@ -474,7 +474,7 @@
                                 ] as $field => [$label, $minimum])
                                     <div class="form-group col-6">
                                         <label for="send-{{ $field }}">{{ $label }}:</label>
-                                        <input id="send-{{ $field }}" name="send_setup[{{ $field }}]" type="number" min="{{ $minimum }}" max="2147483647" class="form-control" value="{{ $setup[$field] }}" required>
+                                        <input id="send-{{ $field }}" name="send_setup[{{ $field }}]" type="number" min="{{ $minimum }}" class="form-control" value="{{ $setup[$field] }}" required>
                                     </div>
                                 @endforeach
                             </div>

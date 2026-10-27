@@ -111,7 +111,7 @@ class WorkspaceDropSuppressionController extends Controller
         $data = $request->validate([
             'sponsor_id' => ['required', 'integer', 'min:1'],
             'offer_id' => ['required', 'integer', 'min:1'],
-            'suppression_file' => ['required', 'file', 'mimes:txt,csv', 'max:10240'],
+            'suppression_file' => ['required', 'file', 'mimes:txt,csv'],
         ]);
         $sponsor = $workspace->sponsors()->where('is_active', true)->whereKey($data['sponsor_id'])->firstOrFail();
         $offer = $workspace->offers()->whereKey($data['offer_id'])->where('sponsor_id', $sponsor->getKey())->firstOrFail();
@@ -158,9 +158,9 @@ class WorkspaceDropSuppressionController extends Controller
         $data = $request->validate([
             'sponsor' => ['required', 'integer', 'min:1'],
             'offer' => ['required', 'integer', 'min:1'],
-            'isp' => ['required', 'array', 'min:1', 'max:100', 'distinct'],
+            'isp' => ['required', 'array', 'min:1', 'distinct'],
             'isp.*' => ['required', 'integer', 'min:1'],
-            'lists' => ['required', 'array', 'min:1', 'max:500', 'distinct'],
+            'lists' => ['required', 'array', 'min:1', 'distinct'],
             'lists.*' => ['required', 'uuid'],
         ]);
 

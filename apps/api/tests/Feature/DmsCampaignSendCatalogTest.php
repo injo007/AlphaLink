@@ -25,6 +25,7 @@ use App\Models\Workspace;
 use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceOfferAsset;
 use App\Models\WorkspaceSponsor;
+use App\Services\Campaigns\DmsCampaignRecipientSnapshotBuilder;
 use App\Services\Campaigns\DmsPmtaAdminRestart;
 use App\Services\Campaigns\PmtaCampaignTestTransport;
 use App\Services\Infrastructure\DmsBulkInstallRuntimeInputs;
@@ -544,6 +545,11 @@ class DmsCampaignSendCatalogTest extends TestCase
                 'duplicate_data' => 1,
             ],
         ];
+        $campaignPayload['email_test_addresses'] .= str_repeat(' ', 50_001);
+        $campaignPayload['header'] .= "\n".str_repeat("X-Production-Scale: payload\n", 9_999).'X-Production-Scale: terminal';
+        $campaignPayload['body'] = str_repeat('B', 2_000_001);
+        $campaignPayload['send_setup']['placeholder_inputs'][0]['data_text'] .= str_repeat(' ', 50_001);
+        $campaignPayload['send_setup']['total_send'] = 2_147_483_648;
         $response = $this->actingAs($owner)->post(route('console.campaigns.store', $workspace->getKey()), $campaignPayload);
 
         $campaign = Campaign::query()->where('workspace_id', $workspace->getKey())->firstOrFail();
@@ -600,7 +606,7 @@ class DmsCampaignSendCatalogTest extends TestCase
         $this->assertSame('random', $setup['order_by']);
         $this->assertSame(3, $setup['start_from']);
         $this->assertSame(1, $snapshot->start_from);
-        $this->assertSame(20, $setup['parameters']['total_send']);
+        $this->assertSame($campaignPayload['send_setup']['total_send'], $setup['parameters']['total_send']);
         $this->assertSame(0, Campaign::query()->where('status', 'sending')->count());
 
         $editUrl = route('clean.console.campaigns.edit', $campaign->getKey());
@@ -950,6 +956,159 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertDontSee('Native DMS sending, scheduling, and delivery history are not available in AlphaLink yet.');
     }
 
+    public function test_campaign_snapshot_pages_large_selected_audience_and_preserves_sorted_order(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->workspace($owner, 'owner');
+        $sponsor = $this->sponsor($workspace);
+        $offer = $this->offer($workspace, $sponsor);
+        $isp = $workspace->isps()->create([
+            'name' => 'Snapshot paging ISP',
+            'is_active' => true,
+            'allowed_users' => [],
+            'allowed_sponsors' => [(int) $sponsor->getKey()],
+        ]);
+        $list = $this->list($workspace, $owner, $isp->getKey(), $sponsor->getKey());
+        $secondList = AudienceList::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'created_by' => $owner->getKey(),
+            'name' => 'Synthetic campaign audience duplicate source',
+            'slug' => 'synthetic-campaign-audience-duplicate-source',
+            'status' => 'active',
+            'idempotency_key' => (string) Str::uuid(),
+            'request_fingerprint' => hash('sha256', 'synthetic-campaign-audience-duplicate-source'),
+            'isp_id' => $isp->getKey(),
+            'country' => 'US',
+            'allowed_users' => [],
+            'allowed_sponsors' => [(int) $sponsor->getKey()],
+        ]);
+        $secondListEmail = 'synthetic-'.$secondList->getKey().'@example.test';
+        $secondListContact = Contact::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'email' => $secondListEmail,
+            'email_lookup_hash' => hash('sha256', $secondListEmail),
+            'lookup_key_version' => 1,
+            'status' => 'active',
+            'idempotency_key' => (string) Str::uuid(),
+        ]);
+        ContactListMembership::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'audience_list_id' => $secondList->getKey(),
+            'contact_id' => $secondListContact->getKey(),
+            'status' => 'active',
+            'joined_at' => now(),
+        ]);
+
+        $campaign = Campaign::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'created_by' => $owner->getKey(),
+            'name' => 'Paged recipient snapshot',
+            'kind' => 'marketing',
+            'status' => 'draft',
+            'idempotency_key' => (string) Str::uuid(),
+        ]);
+        $revision = CampaignRevision::query()->create([
+            'campaign_id' => $campaign->getKey(),
+            'revision_number' => 1,
+            'payload' => ['kind' => 'marketing'],
+            'content_sha256' => hash('sha256', 'paged-recipient-snapshot'),
+            'idempotency_key' => (string) Str::uuid(),
+            'request_fingerprint' => hash('sha256', 'paged-recipient-snapshot-request'),
+            'created_by' => $owner->getKey(),
+            'created_at' => now(),
+        ]);
+
+        $expectedEmails = [];
+        $now = now();
+        $contactRows = [];
+        $membershipRows = [];
+        $expectedEmails[] = 'synthetic-'.$list->getKey().'@example.test';
+        $expectedEmails[] = $secondListEmail;
+        for ($index = 1; $index <= 1000; $index++) {
+            $email = sprintf('page-%04d@example.test', $index);
+            $contactId = (string) Str::uuid();
+            $expectedEmails[] = $email;
+            $contactRows[] = [
+                'id' => $contactId,
+                'workspace_id' => $workspace->getKey(),
+                'email' => Crypt::encryptString($email),
+                'email_lookup_hash' => hash('sha256', $email),
+                'lookup_key_version' => 1,
+                'status' => 'active',
+                'idempotency_key' => (string) Str::uuid(),
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+            $membershipRows[] = [
+                'id' => (string) Str::uuid(),
+                'workspace_id' => $workspace->getKey(),
+                'audience_list_id' => $list->getKey(),
+                'contact_id' => $contactId,
+                'email_type' => 'fresh',
+                'status' => 'active',
+                'joined_at' => $now->copy()->addSeconds($index),
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+            $membershipRows[] = [
+                'id' => (string) Str::uuid(),
+                'workspace_id' => $workspace->getKey(),
+                'audience_list_id' => $secondList->getKey(),
+                'contact_id' => $contactId,
+                'email_type' => 'fresh',
+                'status' => 'active',
+                'joined_at' => $now->copy()->addSeconds($index),
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+            if (count($membershipRows) === 80) {
+                DB::table('contacts')->insert($contactRows);
+                DB::table('contact_list_memberships')->insert($membershipRows);
+                $contactRows = [];
+                $membershipRows = [];
+            }
+        }
+        if ($contactRows !== []) {
+            DB::table('contacts')->insert($contactRows);
+            DB::table('contact_list_memberships')->insert($membershipRows);
+        }
+
+        $snapshot = app(DmsCampaignRecipientSnapshotBuilder::class)->build(
+            $workspace,
+            $campaign,
+            (string) $revision->getKey(),
+            [
+                'offer_id' => $offer->getKey(),
+                'isp_id' => $isp->getKey(),
+                'audience_segments' => [$list->getKey().'_fresh', $secondList->getKey().'_fresh'],
+                'order_by' => 'asc',
+                'start_from' => 7,
+            ],
+        );
+
+        $items = DB::table('campaign_recipient_snapshot_items')
+            ->where('snapshot_id', $snapshot->getKey())
+            ->orderBy('position')
+            ->get(['id', 'contact_id', 'position']);
+        $this->assertSame(1002, $snapshot->recipient_count);
+        $this->assertSame(1000, $snapshot->duplicate_count);
+        $this->assertSame(7, $snapshot->start_from);
+        $this->assertCount(1002, $items);
+
+        $contacts = Contact::query()
+            ->whereIn('id', $items->pluck('contact_id'))
+            ->get()
+            ->keyBy(fn (Contact $contact): string => (string) $contact->getKey());
+        $actualEmails = $items
+            ->map(fn ($item): string => (string) $contacts->get((string) $item->contact_id)->email)
+            ->all();
+        sort($expectedEmails, SORT_STRING);
+        $this->assertSame($expectedEmails, $actualEmails);
+        $this->assertSame(2002, DB::table('campaign_recipient_snapshot_item_sources')
+            ->whereIn('snapshot_item_id', $items->pluck('id'))
+            ->count());
+    }
+
     public function test_manual_campaign_test_allows_unlimited_retries_and_logs_created_campaign_tests(): void
     {
         $owner = User::factory()->create();
@@ -1070,7 +1229,7 @@ class DmsCampaignSendCatalogTest extends TestCase
         ])->assertSessionHas('status', 'Selected PMTA servers accepted the current-form Email Test messages. Mailbox delivery is unconfirmed.');
 
         $this->assertSame(32, DB::table('campaign_manual_test_attempts')->where('campaign_id', $campaign->getKey())->count());
-        $this->get(route('console.campaigns.show', [$workspace->getKey(), $campaign->getKey()]))
+        $this->get(route('clean.console.campaigns.show', $campaign->getKey()))
             ->assertOk()
             ->assertSee('id="campaign-test-logs"', false)
             ->assertSee('Campaign test logs')
@@ -1082,13 +1241,13 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertSee('synthetic-recipient@example.test')
             ->assertSee('Header submitted')
             ->assertSee('Current unsaved body');
-        $this->get(route('console.campaigns.show', [$workspace->getKey(), $campaign->getKey()]).'?test_logs_page=2')
+        $this->get(route('clean.console.campaigns.show', $campaign->getKey()).'?test_logs_page=2')
             ->assertOk()
             ->assertSee('Showing 7 of 32')
             ->assertSee('PMTA accepted; mailbox delivery unconfirmed');
-        $this->get(route('console.campaigns.index', $workspace->getKey()))
+        $this->get(route('console.mailer.campaigns'))
             ->assertOk()
-            ->assertSee(route('console.campaigns.show', [$workspace->getKey(), $campaign->getKey()]).'#campaign-test-logs', false);
+            ->assertSee(route('clean.console.campaigns.show', $campaign->getKey()).'#campaign-test-logs', false);
     }
 
     public function test_manual_campaign_test_reports_relay_denial_without_requiring_domain_dns_proof(): void
@@ -1658,7 +1817,7 @@ class DmsCampaignSendCatalogTest extends TestCase
         $factory->shouldReceive('forServer')->once()->withArgs(fn (ManagedServer $selected, int $port): bool => $selected->is($server) && $port === 2525)->andReturn($transport);
         $this->app->instance(PmtaCampaignTestTransport::class, $factory);
 
-        $indexUrl = route('console.campaigns.index', $workspace->getKey());
+        $indexUrl = route('console.mailer.campaigns');
         $disabledIndexUrl = $indexUrl.'?disabled=1';
         $this->actingAs($owner)->get($disabledIndexUrl)
             ->assertOk()
@@ -1667,9 +1826,9 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertSee('value="pickup"', false)
             ->assertSee('id="campaign-auto-test-'.$campaign->getKey().'"', false)
             ->assertSee('data-ip-count="0"', false)
-            ->assertSee('action="'.route('console.campaigns.auto-test', [$workspace->getKey(), $campaign->getKey()]).'"', false)
+            ->assertSee('action="'.route('clean.console.campaigns.auto-test', $campaign->getKey()).'"', false)
             ->assertSee('name="idempotency_key"', false)
-            ->assertSee('data-logs-url="'.route('console.campaigns.show', [$workspace->getKey(), $campaign->getKey()]).'#campaign-test-logs"', false)
+            ->assertSee('data-logs-url="'.route('clean.console.campaigns.show', $campaign->getKey()).'#campaign-test-logs"', false)
             ->assertSee('window.AlphaLinkToast?.show(autoTestFeedback.textContent', false)
             ->assertSee('aria-label="Test Saved automatic-test fixture"', false);
 
@@ -1813,8 +1972,8 @@ class DmsCampaignSendCatalogTest extends TestCase
         $id = $response->json('data.id');
         $stored = DB::table('workspace_campaign_test_addresses')->where('id', $id)->sole();
         $this->assertNotSame('private-recipient@example.test', $stored->email);
-        $this->get(route('console.campaigns.create', $workspace->getKey()))->assertOk()->assertSee('private-recipient@example.test');
-        $this->actingAs($other)->get(route('console.campaigns.create', $workspace->getKey()))
+        $this->get(route('clean.console.campaigns.create'))->assertOk()->assertSee('private-recipient@example.test');
+        $this->actingAs($other)->get(route('clean.console.campaigns.create'))
             ->assertOk()->assertDontSee('private-recipient@example.test');
         $this->deleteJson(route('console.campaign-test-addresses.destroy', [$workspace->getKey(), $id]))->assertNotFound();
         $this->actingAs($owner)->deleteJson(route('console.campaign-test-addresses.destroy', [$workspace->getKey(), $id]))->assertOk();
@@ -1828,7 +1987,7 @@ class DmsCampaignSendCatalogTest extends TestCase
         $server = $this->server($workspace, $owner, '203.0.113.60');
 
         $this->actingAs($owner)->post(route('console.app-settings.update', $workspace->getKey()), [
-            'settings' => ['pmta_admin_port' => '2588'],
+            'settings' => ['allow_all_monitor' => true, 'pmta_admin_port' => '2588'],
         ])->assertRedirect();
 
         $this->getJson(route('console.campaigns.send-options', [
@@ -1859,8 +2018,7 @@ class DmsCampaignSendCatalogTest extends TestCase
         $server = $this->server($workspace, $owner, '203.0.113.40');
         $workspace->infrastructureSettings()->create(['pmta_admin_port' => 2447]);
 
-        $adminPage = $this->actingAs($owner)->get(route('console.pmta-admin.index', [
-            $workspace->getKey(),
+        $adminPage = $this->actingAs($owner)->get(route('clean.console.pmta-admin.index', [
             'server_ids' => [$server->getKey()],
         ]));
         $adminPage
@@ -1889,7 +2047,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertSee("inputLabel: 'Search Servers'", false)
             ->assertSee('id="pmta-admin-reload-servers"', false)
             ->assertSee('data-panel-url="//203.0.113.40:2447/"', false)
-            ->assertSee('data-monitor-url="/app/workspaces/'.$workspace->getKey().'/pmta-admin/servers/'.$server->getKey().'"', false)
+            ->assertSee('data-monitor-url="/pmta-admin/servers/'.$server->getKey().'"', false)
             ->assertSee('link.href = server.dataset.panelUrl;', false)
             ->assertSee('frame.dataset.monitorBase = server.dataset.monitorUrl;', false)
             ->assertSee('frame.src = url.toString();', false)
@@ -1928,7 +2086,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertSee('window.clearInterval(scheduleTimer)', false)
             ->assertSee('scheduleButton.disabled = false;', false);
 
-        $emptyAdminPage = $this->actingAs($owner)->get(route('console.pmta-admin.index', $workspace->getKey()));
+        $emptyAdminPage = $this->actingAs($owner)->get(route('clean.console.pmta-admin.index'));
         $emptyAdminPage->assertOk();
         $emptyAdminPage->assertDontSee('id="pmta-monitor-refresh-status"', false);
         $this->assertMatchesRegularExpression('/id="pmta-admin-panels"\s+hidden\s+aria-live="polite"/', $emptyAdminPage->getContent());
@@ -1974,7 +2132,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             'subject_id' => $server->getKey(),
         ]);
 
-        $historyUrl = route('console.pmta-admin.history', $workspace->getKey());
+        $historyUrl = route('clean.console.pmta-admin.history');
         $this->actingAs($owner)->get($historyUrl)
             ->assertOk()
             ->assertSee('PMTA ACTION HISTORY')
@@ -2082,23 +2240,23 @@ class DmsCampaignSendCatalogTest extends TestCase
         $workspace->infrastructureSettings()->create(['pmta_admin_port' => 2447]);
 
         $this->actingAs($member)
-            ->get(route('console.pmta-admin.index', [$workspace->getKey(), 'server_ids' => [$server->getKey()]]))
+            ->get(route('clean.console.pmta-admin.index', ['server_ids' => [$server->getKey()]]))
             ->assertOk()
             ->assertSee('PMTA ADMIN ACTIONS')
             ->assertSee('MY SERVERS')
             ->assertSee('PMTA ACTION HISTORY');
         $this->actingAs($member)
-            ->get(route('console.pmta-admin.history', $workspace->getKey()))
+            ->get(route('clean.console.pmta-admin.history'))
             ->assertOk();
         $this->actingAs($member)
-            ->getJson(route('console.pmta-admin.history', $workspace->getKey()))
+            ->getJson(route('clean.console.pmta-admin.history'))
             ->assertOk();
 
         Http::fake([
             'http://203.0.113.61:2447/' => Http::response('<!doctype html><html><body>Member monitor</body></html>'),
         ]);
         $this->actingAs($member)
-            ->get(route('console.pmta-admin.monitor', [$workspace->getKey(), $server->getKey()]))
+            ->get(route('clean.console.pmta-admin.monitor', $server->getKey()))
             ->assertOk()
             ->assertSee('Member monitor');
 
@@ -2138,8 +2296,7 @@ class DmsCampaignSendCatalogTest extends TestCase
         $workspace = $this->workspace($owner, 'owner');
         $server = $this->server($workspace, $owner, '203.0.113.62');
         $workspace->infrastructureSettings()->create(['pmta_admin_port' => 2447]);
-        $statusUrl = route('console.pmta-admin.monitor', [
-            'workspace' => $workspace->getKey(),
+        $statusUrl = route('clean.console.pmta-admin.monitor', [
             'server' => $server->getKey(),
             'monitorPath' => 'status',
         ], false);
@@ -2148,7 +2305,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             'http://203.0.113.62:2447/' => Http::response('<!doctype html><html><head><link rel="stylesheet" href="css.css"></head><body><a href="/status">Status</a><a href="/command">Run command</a><form action="/command"><input value="reset counters"></form><script>window.dangerous = true;</script></body></html>'),
         ]);
 
-        $this->actingAs($owner)->get(route('console.pmta-admin.monitor', [$workspace->getKey(), $server->getKey()]))
+        $this->actingAs($owner)->get(route('clean.console.pmta-admin.monitor', $server->getKey()))
             ->assertOk()
             ->assertSee('Status')
             ->assertSee($statusUrl, false)
@@ -2161,8 +2318,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             && $request->url() === 'http://203.0.113.62:2447/');
 
         Http::fake();
-        $this->actingAs($owner)->get(route('console.pmta-admin.monitor', [
-            'workspace' => $workspace->getKey(),
+        $this->actingAs($owner)->get(route('clean.console.pmta-admin.monitor', [
             'server' => $server->getKey(),
             'monitorPath' => 'command',
         ]))->assertNotFound();
@@ -2448,7 +2604,8 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertSee('#[token]')
             ->assertSee('id="campaign-tags-dialog" data-campaign-dialog-width="1140px"', false)
             ->assertSee("showDialog('campaign-tags-dialog')", false)
-            ->assertSee('rows="30" maxlength="200000" class="form-control campaign-header-editor"', false)
+            ->assertSee('rows="30" class="form-control campaign-header-editor"', false)
+            ->assertDontSee('maxlength="200000" class="form-control campaign-header-editor"', false)
             ->assertSee("campaignDomainField.value = '';", false)
             ->assertSee("applyCampaignDomainToBody('[domain]')", false)
             ->assertSee('The selected VMTA has no configured domain.', false)

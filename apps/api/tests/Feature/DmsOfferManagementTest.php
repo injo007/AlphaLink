@@ -405,6 +405,24 @@ class DmsOfferManagementTest extends TestCase
         $this->assertSame('md5', $offer->fresh()->suppression_format);
     }
 
+    public function test_suppression_upload_accepts_files_larger_than_the_former_ten_megabyte_ceiling(): void
+    {
+        $sponsor = $this->createSponsor('Large Suppression Upload');
+        $offer = $this->createOffer($sponsor);
+        $content = "blocked@example.test\n".str_repeat("\n", 10 * 1024 * 1024);
+
+        $this->post(route('console.drops.suppression.offer-file', $this->workspace->getKey()), [
+            'sponsor_id' => $sponsor->getKey(),
+            'offer_id' => $offer->getKey(),
+            'suppression_file' => UploadedFile::fake()->createWithContent('large-suppression.txt', $content),
+        ], ['Accept' => 'application/json'])
+            ->assertOk()
+            ->assertJsonPath('data.entry_count', 1)
+            ->assertJsonPath('data.format', 'email');
+
+        $this->assertSame("blocked@example.test\n", Storage::disk('local')->get($offer->fresh()->suppression_path));
+    }
+
     public function test_suppression_upload_rejects_mixed_or_malformed_entries_without_replacing_current_file(): void
     {
         $sponsor = $this->createSponsor('Suppression Validation');

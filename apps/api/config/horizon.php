@@ -216,6 +216,19 @@ return [
             'timeout' => 60,
             'nice' => 0,
         ],
+        'audience-imports' => [
+            'connection' => 'redis',
+            'queue' => ['audience-imports'],
+            'balance' => 'simple',
+            'maxProcesses' => (int) env('AUDIENCE_IMPORT_MAX_PROCESSES', 2),
+            'minProcesses' => 1,
+            'maxTime' => 3600,
+            'maxJobs' => 100,
+            'memory' => 256,
+            'tries' => 5,
+            'timeout' => 300,
+            'nice' => 0,
+        ],
     ],
 
     'environments' => [

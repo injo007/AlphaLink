@@ -20,7 +20,7 @@ class CampaignComposerToolsController extends Controller
     {
         $this->workspaceFor($request, $workspaceId);
         $data = $request->validate([
-            'string' => ['required', 'string', 'max:10000'],
+            'string' => ['required', 'string'],
             'schema' => ['required', 'in:Q,HQ,B'],
             'charset' => ['required', 'in:UTF-8,UTF-7,ISO-8859-1,ISO-8859-15,windows-1252,US-ASCII,CP1256'],
         ]);
@@ -52,8 +52,8 @@ class CampaignComposerToolsController extends Controller
         $this->workspaceFor($request, $workspaceId);
         abort_unless(in_array($provider, ['tinyurl', 'isgd'], true), 404);
         $data = $request->validate([
-            'links' => ['required', 'array', 'min:1', 'max:50'],
-            'links.*' => ['required', 'url:http,https', 'max:2048', 'distinct'],
+            'links' => ['required', 'array', 'min:1'],
+            'links.*' => ['required', 'url:http,https', 'distinct'],
         ]);
         $endpoint = $provider === 'tinyurl'
             ? 'https://tinyurl.com/api-create.php'
@@ -93,7 +93,7 @@ class CampaignComposerToolsController extends Controller
             ->whereKey($campaignId)
             ->firstOrFail();
         abort_unless($campaign->kind === 'marketing' && $campaign->status === 'draft' && $campaign->is_active, 409);
-        $data = $request->validate(['body' => ['required', 'string', 'max:2000000']]);
+        $data = $request->validate(['body' => ['required', 'string']]);
         $ispId = $campaign->latestRevision?->payload['send_setup']['isp_id'] ?? null;
         abort_unless(is_numeric($ispId), 409, 'The campaign has no saved ISP for link generation.');
 

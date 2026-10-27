@@ -237,7 +237,7 @@
                             </div>
                             <div class="form-group">
                                 <label for="repeat">Repeat Test:</label>
-                                <input id="repeat" type="number" min="1" max="2147483647" class="form-control" value="1">
+                                <input id="repeat" type="number" min="1" class="form-control" value="1">
                             </div>
                             <button id="send-global-test" class="btn btn-primary" type="submit"><i class="fas fa-vial mr-1" aria-hidden="true"></i>SEND TEST</button>
                         </div>

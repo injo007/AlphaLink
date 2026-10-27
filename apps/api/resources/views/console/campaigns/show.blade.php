@@ -174,7 +174,7 @@
                             <div class="form-group col-md-6"><label for="pmta-test-recipient">Email Test recipient</label><select id="pmta-test-recipient" name="recipient" class="form-control" required><option value="">Select recipient</option>@foreach ($content['email_tests'] ?? [] as $address)<option value="{{ $address }}">{{ $address }}</option>@endforeach</select></div>
                             <div class="form-group col-md-6"><label for="pmta-test-from">From address</label><input id="pmta-test-from" name="from_email" type="email" maxlength="320" class="form-control" required></div>
                             <div class="form-group col-md-6"><label for="pmta-test-subject">Subject</label><input id="pmta-test-subject" name="subject" type="text" maxlength="998" class="form-control" required></div>
-                            <div class="form-group col-12"><label for="pmta-test-body">HTML body sent in this test</label><textarea id="pmta-test-body" name="body" rows="8" maxlength="2000000" class="form-control" required>{{ $content['body'] ?? '' }}</textarea></div>
+                            <div class="form-group col-12"><label for="pmta-test-body">HTML body sent in this test</label><textarea id="pmta-test-body" name="body" rows="8" class="form-control" required>{{ $content['body'] ?? '' }}</textarea></div>
                         </div>
                         <div class="form-check mb-3"><input class="form-check-input" id="pmta-test-authorized" name="confirm_authorized_recipient" type="checkbox" value="1" required><label class="form-check-label" for="pmta-test-authorized">I authorize one test message to this recipient through the selected PMTA server.</label></div>
                         <div class="form-check mb-3"><input class="form-check-input" id="pmta-test-retry" name="confirm_retry_unknown" type="checkbox" value="1"><label class="form-check-label" for="pmta-test-retry">I checked an uncertain earlier result and authorize a retry.</label></div>
@@ -300,7 +300,7 @@
                         </div>
                         <div class="form-group col-md-6">
                             <label for="revision-email-tests">Email Test addresses</label>
-                            <textarea id="revision-email-tests" name="email_test_addresses" rows="3" maxlength="50000" class="form-control" autocomplete="off" required>{{ implode("\n", $content['email_tests'] ?? []) }}</textarea>
+                            <textarea id="revision-email-tests" name="email_test_addresses" rows="3" class="form-control" autocomplete="off" required>{{ implode("\n", $content['email_tests'] ?? []) }}</textarea>
                             <small class="form-text text-muted">At least one address, one per line. Repeated entries are preserved. Saved with the new immutable revision; not sent by AlphaLink's one-recipient Symfony test.</small>
                         </div>
                         @if (is_array($sendSetup))
@@ -357,17 +357,17 @@
                             <div class="form-group col-md-6"><label for="revision-servers">Servers</label><select id="revision-servers" name="send_setup[server_ids][]" class="form-control selectpicker" multiple required data-live-search="true">@foreach ($sendOptions['servers'] ?? [] as $server)<option value="{{ $server['id'] }}" @selected(in_array($server['id'], $sendSetup['server_ids'] ?? []))>{{ $server['name'] }} · {{ $server['ip'] }}</option>@endforeach</select></div>
                             <div class="form-group col-md-6"><label for="revision-ips">IPs / MTAs</label><select id="revision-ips" name="send_setup[ip_ids][]" class="form-control selectpicker" multiple required data-live-search="true">@foreach ($sendOptions['ips'] ?? [] as $ip)<option value="{{ $ip['id'] }}" @selected(in_array($ip['id'], $sendSetup['ip_ids'] ?? []))>{{ $ip['ip'] }} · {{ strtoupper($ip['type']) }}</option>@endforeach</select></div>
                             @foreach (['total_send' => ['Total send', 1], 'fraction_ip' => ['Fraction IP', 1], 'sleep_email' => ['Sleep between emails', 0], 'sleep_ip' => ['Sleep between IPs', 0], 'seed_every' => ['Test after', 0], 'bounce_limit' => ['Bounce limit', 0], 'duplicate_data' => ['Duplicate data', 1]] as $field => [$label, $minimum])
-                                <div class="form-group col-md-3"><label for="revision-{{ $field }}">{{ $label }}</label><input id="revision-{{ $field }}" name="send_setup[{{ $field }}]" type="number" min="{{ $minimum }}" max="2147483647" class="form-control" value="{{ $sendSetup['parameters'][$field] ?? '' }}" required></div>
+                                <div class="form-group col-md-3"><label for="revision-{{ $field }}">{{ $label }}</label><input id="revision-{{ $field }}" name="send_setup[{{ $field }}]" type="number" min="{{ $minimum }}" class="form-control" value="{{ $sendSetup['parameters'][$field] ?? '' }}" required></div>
                             @endforeach
                         @endif
                         @include('console.campaigns.partials.header-library', ['workspace' => $workspace, 'textareaId' => 'revision-dms-header', 'idPrefix' => 'revision'])
                         <div class="form-group col-12">
                             <label for="revision-dms-header">Header</label>
-                            <textarea id="revision-dms-header" name="header" rows="8" maxlength="200000" class="form-control" spellcheck="false" required>{{ $content['header'] ?? "MIME-version: 1.0\nContent-type: text/html\nTo: [to]\nfrom: [from] <info@[domain]>\nSubject: [subject]\nDate: [date]" }}</textarea>
+                            <textarea id="revision-dms-header" name="header" rows="8" class="form-control" spellcheck="false" required>{{ $content['header'] ?? "MIME-version: 1.0\nContent-type: text/html\nTo: [to]\nfrom: [from] <info@[domain]>\nSubject: [subject]\nDate: [date]" }}</textarea>
                         </div>
                         <div class="form-group col-12">
                             <label for="revision-dms-body">DMS Body template</label>
-                            <textarea id="revision-dms-body" name="body" rows="8" maxlength="2000000" class="form-control" spellcheck="false">{{ $content['body'] ?? '' }}</textarea>
+                            <textarea id="revision-dms-body" name="body" rows="8" class="form-control" spellcheck="false">{{ $content['body'] ?? '' }}</textarea>
                         </div>
                         @if (is_array($sendSetup))
                             <div class="form-row">
@@ -389,11 +389,11 @@
                         </div>
                         <div class="form-group col-12">
                             <label for="revision-text-body">Plain-text message</label>
-                            <textarea id="revision-text-body" name="text_body" rows="7" maxlength="1000000" class="form-control">{{ $content['text_body'] ?? '' }}</textarea>
+                            <textarea id="revision-text-body" name="text_body" rows="7" class="form-control">{{ $content['text_body'] ?? '' }}</textarea>
                         </div>
                         <div class="form-group col-12">
                             <label for="revision-html-body">HTML message <span class="text-muted">(optional when plain text is present)</span></label>
-                            <textarea id="revision-html-body" name="html_body" rows="7" maxlength="2000000" class="form-control" spellcheck="false">{{ $content['html_body'] ?? '' }}</textarea>
+                            <textarea id="revision-html-body" name="html_body" rows="7" class="form-control" spellcheck="false">{{ $content['html_body'] ?? '' }}</textarea>
                         </div>
                         @endif
                     </div>

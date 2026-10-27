@@ -59,6 +59,10 @@ $application = Application::configure(basePath: dirname(__DIR__))
             ->hourly()
             ->withoutOverlapping()
             ->runInBackground();
+        $schedule->command('audience-lists:dispatch-pending-imports')
+            ->everyMinute()
+            ->withoutOverlapping()
+            ->runInBackground();
         $schedule->command('workspace:analytics-warm-dashboard')
             ->everyMinute()
             ->withoutOverlapping()

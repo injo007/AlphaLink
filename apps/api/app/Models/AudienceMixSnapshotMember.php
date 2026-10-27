@@ -13,7 +13,7 @@ class AudienceMixSnapshotMember extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'workspace_id', 'snapshot_id', 'contact_id', 'source_list_id', 'email_type',
+        'workspace_id', 'snapshot_id', 'contact_id', 'source_list_id', 'source_membership_id', 'email_type',
         'position', 'created_at',
     ];
 

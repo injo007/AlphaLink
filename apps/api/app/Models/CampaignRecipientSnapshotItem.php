@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use LogicException;
 
 class CampaignRecipientSnapshotItem extends Model
@@ -21,5 +22,10 @@ class CampaignRecipientSnapshotItem extends Model
     {
         static::updating(fn () => throw new LogicException('Campaign recipient snapshot items are append-only.'));
         static::deleting(fn () => throw new LogicException('Campaign recipient snapshot items are append-only.'));
+    }
+
+    public function sources(): HasMany
+    {
+        return $this->hasMany(CampaignRecipientSnapshotItemSource::class, 'snapshot_item_id');
     }
 }

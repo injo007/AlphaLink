@@ -12,6 +12,7 @@ use App\Services\Campaigns\TrackingIngestAuthenticator;
 use App\Services\Campaigns\TrackingUuidNormalizer;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -57,23 +58,40 @@ class CampaignTrackingController extends Controller
                 ]);
             }
 
-            if (! isset($data['snapshot_item_id'])) {
+            $sourceType = match (strtolower(substr($data['type'], 0, 1))) {
+                'f' => 'fresh', 'd' => 'delivery', 'o' => 'open', 'c' => 'click',
+                'l' => 'lead', 'u' => 'unsubscribe', default => 'NA',
+            };
+            if (isset($data['snapshot_item_id'])) {
+                $item = CampaignRecipientSnapshotItem::query()
+                    ->whereKey($data['snapshot_item_id'])
+                    ->where('workspace_id', $workspace->getKey())
+                    ->where('contact_id', $data['email_id'])
+                    ->first();
+                $snapshotMatchesCampaign = $item !== null && CampaignRecipientSnapshot::query()
+                    ->whereKey($item->snapshot_id)
+                    ->where('workspace_id', $workspace->getKey())
+                    ->where('campaign_id', $campaign->getKey())
+                    ->exists();
+                if (! $snapshotMatchesCampaign || ! $this->sourceMatches($item, (string) $data['list_id'], $sourceType)) {
+                    throw ValidationException::withMessages([
+                        'snapshot_item_id' => 'The tracking event does not match the campaign recipient snapshot.',
+                    ]);
+                }
+            } else {
                 $snapshot = CampaignRecipientSnapshot::query()
                     ->whereKey($data['send_id'])
                     ->where('workspace_id', $workspace->getKey())
                     ->where('campaign_id', $campaign->getKey())
                     ->first();
-                $sourceType = match (strtolower(substr($data['type'], 0, 1))) {
-                    'f' => 'fresh', 'd' => 'delivery', 'o' => 'open', 'c' => 'click',
-                    'l' => 'lead', 'u' => 'unsubscribe', default => 'NA',
-                };
                 $item = $snapshot === null ? null : CampaignRecipientSnapshotItem::query()
                     ->where('snapshot_id', $snapshot->getKey())
                     ->where('workspace_id', $workspace->getKey())
                     ->where('contact_id', $data['email_id'])
-                    ->where('source_list_id', $data['list_id'])
-                    ->where('source_email_type', $sourceType)
                     ->first();
+                if ($item !== null && ! $this->sourceMatches($item, (string) $data['list_id'], $sourceType)) {
+                    $item = null;
+                }
                 if ($item === null) {
                     throw ValidationException::withMessages([
                         'snapshot_item_id' => 'The tracking event does not match a campaign recipient snapshot.',
@@ -86,5 +104,21 @@ class CampaignTrackingController extends Controller
         }
 
         return response()->noContent();
+    }
+
+    private function sourceMatches(CampaignRecipientSnapshotItem $item, string $listId, string $emailType): bool
+    {
+        $sourceQuery = DB::table('campaign_recipient_snapshot_item_sources')
+            ->where('workspace_id', $item->workspace_id)
+            ->where('snapshot_item_id', $item->getKey());
+
+        if (! (clone $sourceQuery)->exists()) {
+            return (string) $item->source_list_id === $listId
+                && (string) $item->source_email_type === $emailType;
+        }
+
+        return $sourceQuery->where('source_list_id', $listId)
+            ->where('source_email_type', $emailType)
+            ->exists();
     }
 }

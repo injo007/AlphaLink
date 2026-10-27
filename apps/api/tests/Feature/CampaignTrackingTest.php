@@ -21,9 +21,10 @@ use App\Models\WorkspaceAppSettings;
 use App\Models\WorkspaceInfrastructureSettings;
 use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceSponsor;
+use App\Services\Analytics\ImportDmsPmtaFeedback;
 use App\Services\Audiences\AudienceListHistoryCalculator;
 use App\Services\Campaigns\CampaignIpGeoResolver;
-use App\Services\Analytics\ImportDmsPmtaFeedback;
+use App\Services\Campaigns\CampaignRecipientSourceIdentity;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Support\Facades\DB;
@@ -253,6 +254,165 @@ class CampaignTrackingTest extends TestCase
         $this->assertSame(4, CampaignEngagementEvent::query()->count());
         $this->assertSame(3, DB::table('contact_list_membership_events')->where('contact_id', $fixture['contact']->getKey())->count());
         $this->assertSame(1, SuppressionEvent::query()->count());
+    }
+
+    public function test_campaign_event_updates_every_selected_source_membership_and_preserves_unselected_memberships(): void
+    {
+        config(['tracking.ingest_key' => 'synthetic-tracking-key']);
+        $fixture = $this->recipientFixture();
+        $selectedList = $this->additionalList($fixture, 'Second selected campaign list');
+        $unselectedList = $this->additionalList($fixture, 'Unselected campaign list');
+        $selectedMembership = ContactListMembership::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(),
+            'audience_list_id' => $selectedList->getKey(),
+            'contact_id' => $fixture['contact']->getKey(),
+            'email_type' => 'delivery',
+            'status' => 'active',
+            'joined_at' => now(),
+        ]);
+        $unselectedMembership = ContactListMembership::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(),
+            'audience_list_id' => $unselectedList->getKey(),
+            'contact_id' => $fixture['contact']->getKey(),
+            'email_type' => 'fresh',
+            'status' => 'active',
+            'joined_at' => now(),
+        ]);
+        $snapshotSources = [
+            [
+                'source_membership_id' => $fixture['membership']->getKey(),
+                'source_list_id' => $fixture['list']->getKey(),
+                'source_email_type' => 'fresh',
+            ],
+            [
+                'source_membership_id' => $selectedMembership->getKey(),
+                'source_list_id' => $selectedList->getKey(),
+                'source_email_type' => 'delivery',
+            ],
+        ];
+        foreach ($snapshotSources as $source) {
+            DB::table('campaign_recipient_snapshot_item_sources')->insert([
+                'id' => (string) Str::uuid(),
+                'workspace_id' => $fixture['workspace']->getKey(),
+                'snapshot_item_id' => $fixture['item']->getKey(),
+                'source_membership_id' => $source['source_membership_id'],
+                'source_list_id' => $source['source_list_id'],
+                'source_email_type' => $source['source_email_type'],
+                'source_key' => CampaignRecipientSourceIdentity::key(
+                    (string) $source['source_membership_id'],
+                    (string) $source['source_list_id'],
+                    $source['source_email_type'],
+                ),
+                'created_at' => now(),
+            ]);
+        }
+
+        $payload = $this->trackingPayload($fixture, 'open');
+        $payload['list_id'] = (string) $selectedList->getKey();
+        $payload['type'] = 'd';
+        foreach (['open', 'click', 'unsubscribe'] as $action) {
+            $payload['action'] = $action;
+            $this->postJson('/api/v1/tracking/campaign-events', $payload)->assertNoContent();
+        }
+
+        $this->assertSame('unsubscribe', $fixture['membership']->fresh()->email_type);
+        $this->assertSame('unsubscribe', $selectedMembership->fresh()->email_type);
+        $this->assertSame('fresh', $unselectedMembership->fresh()->email_type);
+        $this->assertSame(3, CampaignEngagementEvent::query()->count());
+        $this->assertSame(6, DB::table('campaign_engagement_event_sources')->count());
+        $this->assertSame(6, DB::table('contact_list_membership_events')
+            ->where('contact_id', $fixture['contact']->getKey())->count());
+        $this->assertEqualsCanonicalizing(
+            array_merge(array_fill(0, 3, $fixture['list']->getKey()), array_fill(0, 3, $selectedList->getKey())),
+            DB::table('contact_list_membership_events')
+                ->where('contact_id', $fixture['contact']->getKey())
+                ->pluck('audience_list_id')
+                ->all(),
+        );
+        $this->assertDatabaseHas('campaign_engagement_events', [
+            'snapshot_item_id' => $fixture['item']->getKey(),
+            'audience_list_id' => $selectedList->getKey(),
+            'source_email_type' => 'delivery',
+            'action' => 'unsubscribe',
+        ]);
+        $this->assertSame(1, SuppressionEvent::query()
+            ->where('workspace_id', $fixture['workspace']->getKey())
+            ->where('contact_id', $fixture['contact']->getKey())
+            ->where('scope_type', 'offer')
+            ->where('scope_key', (string) $fixture['offer']->getKey())
+            ->count());
+
+        $forgedSource = $payload;
+        $forgedSource['list_id'] = (string) $unselectedList->getKey();
+        $forgedSource['type'] = 'f';
+        $this->postJson('/api/v1/tracking/campaign-events', $forgedSource)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('snapshot_item_id');
+        $this->assertSame(3, CampaignEngagementEvent::query()->count());
+    }
+
+    public function test_multi_list_country_move_keeps_both_memberships_when_the_destination_list_collides(): void
+    {
+        config(['tracking.ingest_key' => 'synthetic-tracking-key', 'infrastructure.ip_api_key' => null]);
+        $fixture = $this->recipientFixture();
+        $secondList = $this->additionalList($fixture, 'Country move second source');
+        $secondMembership = ContactListMembership::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(),
+            'audience_list_id' => $secondList->getKey(),
+            'contact_id' => $fixture['contact']->getKey(),
+            'email_type' => 'delivery',
+            'status' => 'active',
+            'joined_at' => now(),
+        ]);
+        $fixture['isp']->forceFill(['tracked_countries' => ['US']])->save();
+        $fixture['list']->forceFill(['is_tracked' => true])->save();
+        $secondList->forceFill(['is_tracked' => true])->save();
+        foreach ([
+            [$fixture['membership'], $fixture['list'], 'fresh'],
+            [$secondMembership, $secondList, 'delivery'],
+        ] as [$membership, $list, $type]) {
+            DB::table('campaign_recipient_snapshot_item_sources')->insert([
+                'id' => (string) Str::uuid(),
+                'workspace_id' => $fixture['workspace']->getKey(),
+                'snapshot_item_id' => $fixture['item']->getKey(),
+                'source_membership_id' => $membership->getKey(),
+                'source_list_id' => $list->getKey(),
+                'source_email_type' => $type,
+                'source_key' => CampaignRecipientSourceIdentity::key(
+                    (string) $membership->getKey(),
+                    (string) $list->getKey(),
+                    $type,
+                ),
+                'created_at' => now(),
+            ]);
+        }
+        WorkspaceAppSettings::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(),
+            'settings' => ['ip_api_key' => 'synthetic-country-api-key'],
+        ]);
+        Http::fake([
+            'https://pro.ip-api.com/json/*' => Http::response([
+                'status' => 'success', 'countryCode' => 'US', 'country' => 'United States',
+                'regionName' => 'Test Region', 'city' => 'Test City', 'proxy' => false,
+                'hosting' => false, 'org' => 'Synthetic Network',
+            ]),
+        ]);
+
+        $payload = $this->trackingPayload($fixture, 'open');
+        $this->postJson('/api/v1/tracking/campaign-events', $payload)->assertNoContent();
+
+        $this->assertSame('open', $fixture['membership']->fresh()->email_type);
+        $this->assertSame('open', $secondMembership->fresh()->email_type);
+        $this->assertSame(2, DB::table('contact_list_membership_events')
+            ->where('contact_id', $fixture['contact']->getKey())->count());
+        $this->assertSame(1, AudienceList::query()
+            ->where('workspace_id', $fixture['workspace']->getKey())
+            ->where('isp_id', $fixture['isp']->getKey())
+            ->where('name', 'US')->count());
+        $this->assertSame(2, ContactListMembership::query()
+            ->where('workspace_id', $fixture['workspace']->getKey())
+            ->where('contact_id', $fixture['contact']->getKey())
+            ->where('email_type', 'open')->count());
     }
 
     public function test_tracked_country_moves_campaign_membership_and_old_snapshot_events_follow_it(): void
@@ -672,6 +832,24 @@ class CampaignTrackingTest extends TestCase
             'user_agent' => 'AlphaLink synthetic tracking server',
             'type' => $type,
         ];
+    }
+
+    /** @param array<string, mixed> $fixture */
+    private function additionalList(array $fixture, string $name): AudienceList
+    {
+        return AudienceList::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(),
+            'created_by' => $fixture['owner']->getKey(),
+            'name' => $name,
+            'slug' => Str::slug($name).'-'.Str::lower(Str::random(6)),
+            'status' => 'active',
+            'idempotency_key' => (string) Str::uuid(),
+            'request_fingerprint' => hash('sha256', $name),
+            'isp_id' => $fixture['isp']->getKey(),
+            'country' => 'US',
+            'allowed_users' => [],
+            'allowed_sponsors' => [],
+        ]);
     }
 
     /** @return array<string, mixed> */

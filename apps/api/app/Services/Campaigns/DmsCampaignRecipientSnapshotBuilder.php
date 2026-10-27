@@ -164,15 +164,25 @@ class DmsCampaignRecipientSnapshotBuilder
                 $identity = (string) $contact->email_lookup_hash;
                 if (isset($seen[$identity])) {
                     $duplicateCount++;
+                    $this->addSource($recipients[$seen[$identity]], [
+                        'source_membership_id' => (string) $membership->getKey(),
+                        'source_list_id' => (string) $listId,
+                        'source_email_type' => $emailType,
+                    ]);
 
                     continue;
                 }
-                $seen[$identity] = true;
+                $seen[$identity] = count($recipients);
                 $recipients[] = [
                     'contact_id' => $contact->getKey(),
                     'email_lookup_hash' => $identity,
                     'source_list_id' => $listId,
                     'source_email_type' => $emailType,
+                    'sources' => [CampaignRecipientSourceIdentity::key((string) $membership->getKey(), (string) $listId, $emailType) => [
+                        'source_membership_id' => (string) $membership->getKey(),
+                        'source_list_id' => (string) $listId,
+                        'source_email_type' => $emailType,
+                    ]],
                     'email' => $email,
                 ];
             }
@@ -220,15 +230,31 @@ class DmsCampaignRecipientSnapshotBuilder
                 $identity = (string) $contact->email_lookup_hash;
                 if (isset($seen[$identity])) {
                     $duplicateCount++;
+                    $this->addSource($recipients[$seen[$identity]], [
+                        'source_membership_id' => $mixMember->source_membership_id === null
+                            ? null
+                            : (string) $mixMember->source_membership_id,
+                        'source_list_id' => $listId,
+                        'source_email_type' => (string) $mixMember->email_type,
+                    ]);
 
                     continue;
                 }
-                $seen[$identity] = true;
+                $seen[$identity] = count($recipients);
+                $sourceMembershipId = $mixMember->source_membership_id === null
+                    ? null
+                    : (string) $mixMember->source_membership_id;
+                $sourceEmailType = (string) $mixMember->email_type;
                 $recipients[] = [
                     'contact_id' => $contact->getKey(),
                     'email_lookup_hash' => $identity,
                     'source_list_id' => $listId,
-                    'source_email_type' => $mixMember->email_type,
+                    'source_email_type' => $sourceEmailType,
+                    'sources' => [CampaignRecipientSourceIdentity::key($sourceMembershipId, $listId, $sourceEmailType) => [
+                        'source_membership_id' => $sourceMembershipId,
+                        'source_list_id' => $listId,
+                        'source_email_type' => $sourceEmailType,
+                    ]],
                     'email' => $email,
                 ];
             }
@@ -275,9 +301,12 @@ class DmsCampaignRecipientSnapshotBuilder
 
             foreach (array_chunk($recipients, 1000) as $chunkIndex => $chunk) {
                 $createdAt = now();
-                DB::table('campaign_recipient_snapshot_items')->insert(array_map(
-                    fn (array $recipient, int $offset): array => [
-                        'id' => (string) Str::uuid(),
+                $itemRows = [];
+                $sourceRows = [];
+                foreach ($chunk as $offset => $recipient) {
+                    $itemId = (string) Str::uuid();
+                    $itemRows[] = [
+                        'id' => $itemId,
                         'workspace_id' => $workspace->getKey(),
                         'snapshot_id' => $snapshot->getKey(),
                         'contact_id' => $recipient['contact_id'],
@@ -286,8 +315,28 @@ class DmsCampaignRecipientSnapshotBuilder
                         'source_list_id' => $recipient['source_list_id'],
                         'source_email_type' => $recipient['source_email_type'],
                         'created_at' => $createdAt,
-                    ], $chunk, array_keys($chunk),
-                ));
+                    ];
+                    foreach ($recipient['sources'] as $source) {
+                        $sourceRows[] = [
+                            'id' => (string) Str::uuid(),
+                            'workspace_id' => $workspace->getKey(),
+                            'snapshot_item_id' => $itemId,
+                            'source_membership_id' => $source['source_membership_id'],
+                            'source_list_id' => $source['source_list_id'],
+                            'source_email_type' => $source['source_email_type'],
+                            'source_key' => CampaignRecipientSourceIdentity::key(
+                                $source['source_membership_id'],
+                                $source['source_list_id'],
+                                $source['source_email_type'],
+                            ),
+                            'created_at' => $createdAt,
+                        ];
+                    }
+                }
+                DB::table('campaign_recipient_snapshot_items')->insert($itemRows);
+                foreach (array_chunk($sourceRows, 1000) as $sourceChunk) {
+                    DB::table('campaign_recipient_snapshot_item_sources')->insertOrIgnore($sourceChunk);
+                }
             }
 
             return $snapshot;
@@ -323,20 +372,76 @@ class DmsCampaignRecipientSnapshotBuilder
                 ->orderBy('id')
                 ->chunkById(1000, function ($items) use ($copy): void {
                     $createdAt = now();
-                    DB::table('campaign_recipient_snapshot_items')->insert($items->map(fn ($item): array => [
+                    $itemIds = [];
+                    $itemRows = [];
+                    foreach ($items as $item) {
+                        $newItemId = (string) Str::uuid();
+                        $itemIds[(string) $item->id] = $newItemId;
+                        $itemRows[] = [
+                            'id' => $newItemId,
+                            'workspace_id' => $item->workspace_id,
+                            'snapshot_id' => $copy->getKey(),
+                            'contact_id' => $item->contact_id,
+                            'position' => $item->position,
+                            'email_lookup_hash' => $item->email_lookup_hash,
+                            'source_list_id' => $item->source_list_id,
+                            'source_email_type' => $item->source_email_type,
+                            'created_at' => $createdAt,
+                        ];
+                    }
+                    DB::table('campaign_recipient_snapshot_items')->insert($itemRows);
+
+                    $sourceRows = DB::table('campaign_recipient_snapshot_item_sources')
+                        ->whereIn('snapshot_item_id', array_keys($itemIds))
+                        ->get();
+                    foreach (array_chunk($sourceRows->map(fn ($source): array => [
                         'id' => (string) Str::uuid(),
-                        'workspace_id' => $item->workspace_id,
-                        'snapshot_id' => $copy->getKey(),
-                        'contact_id' => $item->contact_id,
-                        'position' => $item->position,
-                        'email_lookup_hash' => $item->email_lookup_hash,
-                        'source_list_id' => $item->source_list_id,
-                        'source_email_type' => $item->source_email_type,
+                        'workspace_id' => $source->workspace_id,
+                        'snapshot_item_id' => $itemIds[(string) $source->snapshot_item_id],
+                        'source_membership_id' => $source->source_membership_id,
+                        'source_list_id' => $source->source_list_id,
+                        'source_email_type' => $source->source_email_type,
+                        'source_key' => $source->source_key,
                         'created_at' => $createdAt,
-                    ])->all());
+                    ])->all(), 1000) as $sourceChunk) {
+                        DB::table('campaign_recipient_snapshot_item_sources')->insert($sourceChunk);
+                    }
                 }, 'id');
 
             return $copy;
         });
+    }
+
+    /** @param array<string, mixed> $recipient
+     * @param  array{source_membership_id: ?string, source_list_id: string, source_email_type: string}  $source
+     */
+    private function addSource(array &$recipient, array $source): void
+    {
+        $key = CampaignRecipientSourceIdentity::key(
+            $source['source_membership_id'],
+            $source['source_list_id'],
+            $source['source_email_type'],
+        );
+        if (isset($recipient['sources'][$key])) {
+            return;
+        }
+
+        foreach ($recipient['sources'] as $existingKey => $existing) {
+            if ($existing['source_list_id'] !== $source['source_list_id']
+                || $existing['source_email_type'] !== $source['source_email_type']) {
+                continue;
+            }
+
+            if ($existing['source_membership_id'] === null && $source['source_membership_id'] !== null) {
+                unset($recipient['sources'][$existingKey]);
+                break;
+            }
+
+            if ($existing['source_membership_id'] !== null || $source['source_membership_id'] === null) {
+                return;
+            }
+        }
+
+        $recipient['sources'][$key] = $source;
     }
 }

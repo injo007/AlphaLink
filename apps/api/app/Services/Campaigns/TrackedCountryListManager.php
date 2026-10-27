@@ -111,6 +111,16 @@ class TrackedCountryListManager
             return false;
         }
 
+        $destinationAlreadyContainsContact = ContactListMembership::query()
+            ->where('workspace_id', $membership->workspace_id)
+            ->where('audience_list_id', $destination->getKey())
+            ->where('contact_id', $membership->contact_id)
+            ->where('id', '!=', $membership->getKey())
+            ->exists();
+        if ($destinationAlreadyContainsContact) {
+            return false;
+        }
+
         $membership->forceFill(['audience_list_id' => $destination->getKey()])->save();
 
         return true;

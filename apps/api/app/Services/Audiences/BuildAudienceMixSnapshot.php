@@ -186,6 +186,7 @@ class BuildAudienceMixSnapshot
                                 'snapshot_id' => $snapshot->getKey(),
                                 'contact_id' => $contactId,
                                 'source_list_id' => $listId,
+                                'source_membership_id' => $membership->getKey(),
                                 'email_type' => $type,
                                 'position' => $position,
                                 'created_at' => $createdAt,

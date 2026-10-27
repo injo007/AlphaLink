@@ -82,9 +82,9 @@ class AudienceMixWorkflowTest extends TestCase
         $fixture = $this->fixture();
         $matching = $this->contact($fixture['workspace'], 'match@example.test', ['sex' => 'women']);
         $nonmatching = $this->contact($fixture['workspace'], 'other@example.test', ['sex' => 'women']);
-        $this->membership($fixture, $matching, 'fresh');
+        $firstMembership = $this->membership($fixture, $matching, 'fresh');
         $secondList = $this->additionalList($fixture, 'Second engagement list');
-        $this->membership($fixture, $matching, 'open', $secondList);
+        $secondMembership = $this->membership($fixture, $matching, 'open', $secondList);
         $this->membership($fixture, $nonmatching, 'fresh');
         $this->visitor($fixture, $matching, 'open', 'United States', 'mobile');
         $this->visitor($fixture, $matching, 'open', 'United States', 'mobile', $secondList);
@@ -127,6 +127,10 @@ class AudienceMixWorkflowTest extends TestCase
         $this->assertSame(
             [$matching->getKey(), $matching->getKey()],
             $snapshot->members()->orderBy('position')->pluck('contact_id')->all(),
+        );
+        $this->assertSame(
+            [$firstMembership->getKey(), $secondMembership->getKey()],
+            $snapshot->members()->orderBy('position')->pluck('source_membership_id')->all(),
         );
         $this->assertStringNotContainsString('match@example.test', $response->getContent());
 

@@ -145,7 +145,7 @@ This is the proposed dependency order for AlphaLink. DMS is a read-only behavior
 ## Exact work sequence from this blueprint
 
 1. Complete the DMS read-only source review for import/deduplication, consent/suppression, campaign snapshots, and delivery outcomes. Update evidence labels; never query DMS recipient rows or mutate the DMS SaaS.
-2. Keep the user-resolved AlphaLink multi-list and event-fan-out semantics fixed (E-DB-03). The first local contact/membership slice is implemented (E-DB-06); next resolve durable import/resume and indexed attribute semantics, then immutable snapshot contributors, suppression, send runs, event retry identity, retention, and PostgreSQL/queue topology.
+2. Keep the user-resolved AlphaLink multi-list and event-fan-out semantics fixed (E-DB-03). Contact/membership profiles and cross-List import are implemented locally (E-DB-06); immutable campaign snapshot contributors and selected-membership open/click/unsubscribe fan-out are now implemented locally (E-DB-07). Next resolve durable import/resume, indexed attributes and analytics attribution, then suppression, send runs, sender retry identity, retention, and PostgreSQL/queue topology.
 3. Write the versioned schema/migration plan and index plan. Do not run migrations against the live server.
 4. Implement in the local AlphaLink checkout with synthetic fixtures; execute database-engine-specific migration, concurrency, correctness, and volume tests. Do not apply these changes directly to the live app/server database.
 5. Validate in an isolated Ubuntu 26 staging environment after backup/restore procedures pass. Consider production only after app, data, browser parity, and rollback evidence is complete.
@@ -167,3 +167,9 @@ This is the proposed dependency order for AlphaLink. DMS is a read-only behavior
 - Exact native sender input format, per-recipient acceptance, retries, and completion reconciliation remain unknown.
 - The running AlphaLink DB/queue engine, current migrations, actual row counts, and production topology were not inspected; `.env` and secrets were not read.
 - No schema/migration/code change, production query, or DMS action was performed to produce this blueprint.
+
+## E-DB-07 — Selected-source provenance and event fan-out — 2026-10-27
+
+The local implementation now has immutable `campaign_recipient_snapshot_item_sources` rows for each selected contributor and `campaign_engagement_event_sources` rows for source attribution on a canonical event. Snapshot revision copies preserve contributor rows. Callback validation accepts a source only when it belongs to the immutable recipient snapshot. The queue processor writes a single engagement event and performs idempotent open/click/unsubscribe membership transitions for every selected contributor, leaving unselected memberships alone; offer-level suppression remains once per contact/offer. PostgreSQL 18 fresh migrations and focused synthetic tests pass (CampaignTrackingTest 26/174, AudienceMixWorkflowTest 6/52, selected catalog test 1/172).
+
+Remaining release gaps: daily per-list analytics still keys off canonical event source; sender-provided stable callback retry identity is UNKNOWN; tracking and queue behavior were not exercised against a running production-like app; source country-list destination collision behavior is a conservative AlphaLink choice and UNKNOWN versus DMS; snapshot construction is not yet bounded for 10M recipients; PostgreSQL concurrency, browser parity, restore drills, and historical rollback safety remain unverified. The full campaign catalog suite has 6 failures and 1 error in legacy route/settings/auth assertions. No DMS state or real AlphaLink database row was changed.

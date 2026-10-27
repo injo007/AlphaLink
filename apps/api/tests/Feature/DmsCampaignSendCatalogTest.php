@@ -408,6 +408,30 @@ class DmsCampaignSendCatalogTest extends TestCase
             'status' => 'active',
             'joined_at' => now()->addSecond(),
         ]);
+        $secondList = AudienceList::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'created_by' => $owner->getKey(),
+            'name' => 'Synthetic second campaign audience',
+            'slug' => 'synthetic-campaign-audience-second',
+            'status' => 'active',
+            'idempotency_key' => (string) Str::uuid(),
+            'request_fingerprint' => hash('sha256', 'synthetic-campaign-audience-second'),
+            'isp_id' => $isp->getKey(),
+            'country' => 'US',
+            'allowed_users' => [],
+            'allowed_sponsors' => [(int) $sponsor->getKey()],
+        ]);
+        $secondListMembership = ContactListMembership::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'audience_list_id' => $secondList->getKey(),
+            'contact_id' => $otherOfferContact->getKey(),
+            'status' => 'active',
+            'joined_at' => now()->addSeconds(2),
+        ]);
+        $firstListMembership = ContactListMembership::query()
+            ->where('audience_list_id', $list->getKey())
+            ->where('contact_id', $otherOfferContact->getKey())
+            ->firstOrFail();
         $mix = AudienceMixSnapshot::query()->create([
             'workspace_id' => $workspace->getKey(),
             'created_by' => $owner->getKey(),
@@ -422,6 +446,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             'snapshot_id' => $mix->getKey(),
             'contact_id' => $otherOfferContact->getKey(),
             'source_list_id' => $list->getKey(),
+            'source_membership_id' => $firstListMembership->getKey(),
             'email_type' => 'fresh',
             'position' => 1,
         ]);
@@ -502,7 +527,7 @@ class DmsCampaignSendCatalogTest extends TestCase
                 'offer_country' => 'US',
                 'isp_id' => $isp->getKey(),
                 'country' => 'US',
-                'audience_segments' => [$list->getKey().'_fresh', $mix->getKey().'_mix'],
+                'audience_segments' => [$list->getKey().'_fresh', $secondList->getKey().'_fresh', $mix->getKey().'_mix'],
                 'order_by' => 'random',
                 'start_from' => 3,
                 'route_option' => 'ip',
@@ -545,19 +570,31 @@ class DmsCampaignSendCatalogTest extends TestCase
             ['data' => ['First value', 'Second value'], 'rotate_every' => 3],
         ], $setup['placeholders']);
         $this->assertSame($isp->getKey(), $setup['isp_id']);
-        $this->assertSame([$list->getKey()], $setup['audience_list_ids']);
-        $this->assertSame([$list->getKey().'_fresh', $mix->getKey().'_mix'], $setup['audience_segments']);
+        $this->assertSame([$list->getKey(), $secondList->getKey()], $setup['audience_list_ids']);
+        $this->assertSame([$list->getKey().'_fresh', $secondList->getKey().'_fresh', $mix->getKey().'_mix'], $setup['audience_segments']);
         $this->assertSame('dms_email_type_segments', $setup['targeting_basis']);
         $snapshot = CampaignRecipientSnapshot::query()->where('campaign_id', $campaign->getKey())->sole();
         $this->assertSame(1, $snapshot->recipient_count);
         $this->assertSame(1, $snapshot->offer_suppressed_count);
-        $this->assertSame(1, $snapshot->duplicate_count);
+        $this->assertSame(2, $snapshot->duplicate_count);
         $snapshotContactIds = DB::table('campaign_recipient_snapshot_items')
             ->where('snapshot_id', $snapshot->getKey())
             ->pluck('contact_id')
             ->all();
         $this->assertSame([$otherOfferContact->getKey()], $snapshotContactIds);
         $this->assertDatabaseCount('campaign_recipient_snapshot_items', 1);
+        $snapshotItemId = (string) DB::table('campaign_recipient_snapshot_items')
+            ->where('snapshot_id', $snapshot->getKey())
+            ->value('id');
+        $this->assertEqualsCanonicalizing(
+            [$firstListMembership->getKey(), $secondListMembership->getKey()],
+            DB::table('campaign_recipient_snapshot_item_sources')
+                ->where('snapshot_item_id', $snapshotItemId)
+                ->pluck('source_membership_id')
+                ->all(),
+        );
+        $this->assertSame(2, DB::table('campaign_recipient_snapshot_item_sources')
+            ->where('snapshot_item_id', $snapshotItemId)->count());
         $this->assertSame([$server->getKey()], $setup['server_ids']);
         $this->assertSame([(string) $ip->getKey()], $setup['ip_ids']);
         $this->assertSame('random', $setup['order_by']);
@@ -633,6 +670,18 @@ class DmsCampaignSendCatalogTest extends TestCase
         $this->assertSame(
             DB::table('campaign_recipient_snapshot_items')->where('snapshot_id', $snapshot->getKey())->pluck('contact_id')->all(),
             DB::table('campaign_recipient_snapshot_items')->where('snapshot_id', $revisionSnapshot->getKey())->pluck('contact_id')->all(),
+        );
+        $this->assertEqualsCanonicalizing(
+            DB::table('campaign_recipient_snapshot_item_sources as sources')
+                ->join('campaign_recipient_snapshot_items as items', 'items.id', '=', 'sources.snapshot_item_id')
+                ->where('items.snapshot_id', $snapshot->getKey())
+                ->pluck('sources.source_membership_id')
+                ->all(),
+            DB::table('campaign_recipient_snapshot_item_sources as sources')
+                ->join('campaign_recipient_snapshot_items as items', 'items.id', '=', 'sources.snapshot_item_id')
+                ->where('items.snapshot_id', $revisionSnapshot->getKey())
+                ->pluck('sources.source_membership_id')
+                ->all(),
         );
         $stalePayload = $revisionPayload;
         $stalePayload['idempotency_key'] = (string) Str::uuid();

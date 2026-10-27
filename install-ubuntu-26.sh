@@ -42,8 +42,9 @@ plan() {
     cat <<'EOF'
 Plan (no changes are made):
   1. Require a fresh Ubuntu 26.04 LTS host and collect deployment settings.
-  2. Install Ubuntu PHP 8.5, Composer, Node.js, Nginx, PostgreSQL 18,
-     Valkey (Redis protocol), Certbot, and required PHP extensions.
+  2. Enable Ubuntu's universe packages; install PHP 8.5, Composer, Node.js,
+     Nginx, PostgreSQL 18, Valkey (Redis protocol), Certbot, and required PHP
+     extensions.
   3. Clone the selected GitHub branch without saving its access token.
   4. Create a least-privilege PostgreSQL role and a new UTF-8 database.
   5. Generate protected Laravel and contact-lookup keys in /etc/alphalink/.env.
@@ -158,11 +159,14 @@ printf 'A new PostgreSQL database will be created; SSH port %s, HTTP, and HTTPS 
 read -r -p 'Continue with the Ubuntu package and application installation? [y/N] ' CONFIRM_INSTALL
 [[ "$CONFIRM_INSTALL" =~ ^[Yy]([Ee][Ss])?$ ]] || fail 'Installation canceled before system changes.'
 
-info 'Installing Ubuntu packages...'
+info 'Enabling Ubuntu universe packages and installing deployment dependencies...'
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
+apt-get install -y --no-install-recommends software-properties-common
+add-apt-repository -y universe >/dev/null
+apt-get update
 apt-get install -y --no-install-recommends \
-    ca-certificates certbot composer curl git nginx openssl postgresql \
+    ca-certificates certbot composer curl git nginx openssl postgresql-18 postgresql-client-18 \
     python3-certbot-nginx ufw unzip valkey-server valkey-tools \
     nodejs npm \
     "php${PHP_VERSION}-bcmath" "php${PHP_VERSION}-cli" "php${PHP_VERSION}-curl" \
@@ -215,8 +219,9 @@ trap - EXIT
 git -C "$APP_ROOT" check-ref-format --branch "$BRANCH" >/dev/null || fail 'The selected branch name is not valid.'
 
 info 'Creating a new, private PostgreSQL database and application environment...'
-ROLE_EXISTS="$(runuser -u postgres -- psql -tAc "SELECT 1 FROM pg_roles WHERE rolname = '${DB_USER}'" | tr -d '[:space:]')"
-DATABASE_EXISTS="$(runuser -u postgres -- psql -tAc "SELECT 1 FROM pg_database WHERE datname = '${DB_NAME}'" | tr -d '[:space:]')"
+PSQL=/usr/lib/postgresql/18/bin/psql
+ROLE_EXISTS="$(runuser -u postgres -- "$PSQL" -tAc "SELECT 1 FROM pg_roles WHERE rolname = '${DB_USER}'" | tr -d '[:space:]')"
+DATABASE_EXISTS="$(runuser -u postgres -- "$PSQL" -tAc "SELECT 1 FROM pg_database WHERE datname = '${DB_NAME}'" | tr -d '[:space:]')"
 [[ "$ROLE_EXISTS" != 1 && "$DATABASE_EXISTS" != 1 ]] || fail 'PostgreSQL role or database already exists; refusing to reuse or replace it.'
 
 DB_PASSWORD="$(openssl rand -hex 32)"
@@ -231,7 +236,7 @@ cat > "$DB_SETUP_FILE" <<SQL
 CREATE ROLE :"db_user" LOGIN PASSWORD :'db_password' NOSUPERUSER NOCREATEDB NOCREATEROLE;
 CREATE DATABASE :"db_name" OWNER :"db_user" ENCODING 'UTF8' TEMPLATE template0;
 SQL
-if ! runuser -u postgres -- psql --set ON_ERROR_STOP=1 --file "$DB_SETUP_FILE" >/dev/null; then
+if ! runuser -u postgres -- "$PSQL" --set ON_ERROR_STOP=1 --file "$DB_SETUP_FILE" >/dev/null; then
     rm -f -- "$DB_SETUP_FILE"
     fail 'PostgreSQL role/database creation failed; nothing existing was changed.'
 fi
@@ -298,8 +303,18 @@ VITE_APP_NAME=AlphaLink npm run build
 [[ -s public/build/manifest.json ]] || fail 'Vite did not produce the asset manifest.'
 rm -rf -- node_modules
 
+# The installer's restrictive umask keeps transient secrets private. Normalize
+# cloned/built code permissions so PHP-FPM and Nginx can read it, while only
+# Laravel's runtime directories remain writable by www-data.
+chown -R root:www-data "$APP_ROOT"
+find "$APP_ROOT" -type d -exec chmod 0750 {} +
+find "$APP_ROOT" -type f -exec chmod 0640 {} +
+chown -R www-data:www-data "$API_ROOT/storage" "$API_ROOT/bootstrap/cache"
+find "$API_ROOT/storage" "$API_ROOT/bootstrap/cache" -type d -exec chmod 2770 {} +
+find "$API_ROOT/storage" "$API_ROOT/bootstrap/cache" -type f -exec chmod 0660 {} +
+
 info 'Applying the fresh PostgreSQL migrations...'
-ALPHALINK_ENV_DIR="$ENV_ROOT" php artisan migrate --force --no-interaction
+runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php artisan migrate --force --no-interaction
 ALPHALINK_ENV_DIR="$ENV_ROOT" php artisan storage:link
 
 info 'Creating the initial owner and workspace...'
@@ -432,7 +447,7 @@ Type=oneshot
 User=postgres
 Group=postgres
 UMask=0077
-ExecStart=/bin/bash -euc '/usr/bin/pg_dump --format=custom --dbname=alphalink --file="/var/backups/alphalink/alphalink-$(/usr/bin/date -u +%%Y%%m%%dT%%H%%M%%SZ).dump"'
+ExecStart=/bin/bash -euc '/usr/lib/postgresql/18/bin/pg_dump --format=custom --dbname=alphalink --file="/var/backups/alphalink/alphalink-$(/usr/bin/date -u +%%Y%%m%%dT%%H%%M%%SZ).dump"'
 ExecStartPost=/usr/bin/find /var/backups/alphalink -maxdepth 1 -type f -name alphalink-*.dump -mtime +14 -delete
 UNIT
 cat > /etc/systemd/system/alphalink-db-backup.timer <<'UNIT'
@@ -448,13 +463,14 @@ Unit=alphalink-db-backup.service
 WantedBy=timers.target
 UNIT
 
-chown -R root:www-data "$APP_ROOT"
 chown -R www-data:www-data "$API_ROOT/storage" "$API_ROOT/bootstrap/cache"
+find "$APP_ROOT" -type d -exec chmod 0750 {} +
+find "$APP_ROOT" -type f -exec chmod 0640 {} +
 find "$API_ROOT/storage" "$API_ROOT/bootstrap/cache" -type d -exec chmod 2770 {} +
 find "$API_ROOT/storage" "$API_ROOT/bootstrap/cache" -type f -exec chmod 0660 {} +
 chmod 0750 "$APP_ROOT" "$API_ROOT"
 
-ALPHALINK_ENV_DIR="$ENV_ROOT" php artisan optimize
+runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php artisan optimize
 nginx -t
 systemctl daemon-reload
 systemctl restart php8.5-fpm

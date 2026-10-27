@@ -8,6 +8,12 @@ The first application slice is in [apps/api](apps/api/README.md). It uses Larave
 
 Outbound sending, provider calls, server operations, and production DMS access are not implemented or enabled. Consent/legal policy, first transport, workload, hosting, and several other release decisions remain open.
 
+## Fresh Ubuntu 26.04 LTS installation
+
+Use the single-file installer in [`install-ubuntu-26.sh`](install-ubuntu-26.sh) on a clean Ubuntu 26.04 LTS host. Point the application hostname to that host before starting, ensure inbound SSH/HTTP/HTTPS are reachable, then copy the script to the server and run `sudo bash install-ubuntu-26.sh`. It installs PHP 8.5, PostgreSQL 18, local Valkey, Nginx and the locked application dependencies; creates a new PostgreSQL database and protected Laravel environment; runs migrations; bootstraps the first owner; and configures HTTPS, queue/scheduler services, and a local daily database dump.
+
+The installer is fresh-install only: it refuses to replace an existing AlphaLink checkout, environment, PostgreSQL role, or database. It prompts for a GitHub token only when the repository is private, uses it for cloning, then removes the temporary credential. Do not commit `.env` or pass tokens on a command line. Keep an encrypted off-server copy of `/etc/alphalink/.env`; its keys are needed to read encrypted application values. The scheduled database dump is local to that host and is not disaster recovery by itself. This installs the AlphaLink web application; it does not configure a production campaign sender or deploy PMTA.
+
 ## Reference material
 
 - [Advanced AlphaLink reference system](audit/ALPHALINK_ADVANCED_REFERENCE_SYSTEM_2026-10-22.md)

@@ -26,6 +26,11 @@
                 <a class="nav-link {{ request()->routeIs('console.workspace') ? 'is-active' : '' }}" href="{{ route('console.workspace', $workspace->id) }}" @if (request()->routeIs('console.workspace')) aria-current="page" @endif>
                     <span class="nav-icon" aria-hidden="true">◫</span><span>Overview</span>
                 </a>
+                @if (in_array($workspace->pivot->role, ['owner', 'admin', 'operator', 'privacy_officer'], true))
+                    <a class="nav-link {{ request()->routeIs('console.analytics.*') ? 'is-active' : '' }}" href="{{ route('console.analytics.index', $workspace->id) }}" @if (request()->routeIs('console.analytics.*')) aria-current="page" @endif>
+                        <span class="nav-icon" aria-hidden="true">▥</span><span>Dashboard</span>
+                    </a>
+                @endif
                 @if (in_array($workspace->pivot->role, ['owner', 'admin', 'operator'], true))
                     <a class="nav-link {{ request()->routeIs('console.campaigns.*') ? 'is-active' : '' }}" href="{{ route('console.campaigns.index', $workspace->id) }}" @if (request()->routeIs('console.campaigns.*')) aria-current="page" @endif>
                         <span class="nav-icon" aria-hidden="true">↗</span><span>Campaigns</span>
@@ -37,8 +42,8 @@
                     </a>
                 @endif
                 @if (in_array($workspace->pivot->role, ['owner', 'admin'], true))
-                    <a class="nav-link {{ request()->routeIs('console.infrastructure.*') ? 'is-active' : '' }}" href="{{ route('console.infrastructure.index', $workspace->id) }}" @if (request()->routeIs('console.infrastructure.*')) aria-current="page" @endif>
-                        <span class="nav-icon" aria-hidden="true">▦</span><span>Server installation</span>
+                    <a class="nav-link {{ request()->routeIs('console.infrastructure.*') ? 'is-active' : '' }}" href="{{ route('console.infrastructure.servers.index', $workspace->id) }}" @if (request()->routeIs('console.infrastructure.*')) aria-current="page" @endif>
+                        <span class="nav-icon" aria-hidden="true">▦</span><span>Servers</span>
                     </a>
                 @endif
             </nav>

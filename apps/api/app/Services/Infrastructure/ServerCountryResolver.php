@@ -11,10 +11,10 @@ class ServerCountryResolver
 {
     private const IP_API_URL = 'https://pro.ip-api.com/json/';
 
-    public function countryCode(string $ip): ?string
+    public function countryCode(string $ip, ?string $workspaceApiKey = null): ?string
     {
         try {
-            $apiKey = config('infrastructure.ip_api_key');
+            $apiKey = $workspaceApiKey ?? config('infrastructure.ip_api_key');
             if (is_string($apiKey) && $apiKey !== '') {
                 return Cache::remember($this->cacheKey($ip), now()->endOfDay(), function () use ($apiKey, $ip): string {
                     $response = Http::timeout(5)->get(self::IP_API_URL.$ip, [

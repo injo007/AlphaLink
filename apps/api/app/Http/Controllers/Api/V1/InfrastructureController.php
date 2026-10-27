@@ -10,6 +10,7 @@ use App\Services\Infrastructure\InfrastructureManager;
 use App\Services\Infrastructure\PmtaCatalog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class InfrastructureController extends Controller
 {
@@ -23,7 +24,10 @@ class InfrastructureController extends Controller
         return response()->json(['data' => [
             'servers' => $workspace->managedServers()->latest()->get()
                 ->map(fn ($server) => $this->server($server)),
-            'providers' => ServerProvider::query()->get(['id', 'name']),
+            'providers' => ServerProvider::query()
+                ->where(fn ($query) => $query->whereNull('workspace_id')->orWhere('workspace_id', $workspace->getKey()))
+                ->orderBy('id')
+                ->get(['id', 'name']),
             'domains' => $workspace->sendingDomains()->latest()->get()
                 ->map(fn ($domain) => $this->domain($domain)),
             'plans' => $workspace->installationPlans()->latest('created_at')->limit(25)->get()
@@ -37,7 +41,9 @@ class InfrastructureController extends Controller
         /** @var Workspace $workspace */
         $workspace = $request->attributes->get('alphalink.workspace');
         $data = $request->validate([
-            'servers_provider_id' => ['required', 'numeric'],
+            'servers_provider_id' => ['required', 'integer', Rule::exists('server_providers', 'id')->where(fn ($query) => $query
+                ->whereNull('deleted_at')
+                ->where(fn ($scope) => $scope->whereNull('workspace_id')->orWhere('workspace_id', $workspace->getKey())))],
             'name' => ['required', 'string', 'min:2', 'max:255'],
             'ips' => ['required', 'array', 'min:1'],
             'port' => ['required', 'numeric'],

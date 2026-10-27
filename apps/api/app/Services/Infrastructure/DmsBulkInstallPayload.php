@@ -14,7 +14,7 @@ class DmsBulkInstallPayload
 {
     /**
      * @return array{
-     *   data: list<array{id: string, domain: string}>,
+     *   data: list<array{id: string, domain: string, ip_assignments?: list<array{ip: string, type: string, main: bool, sub: string, domain_id: string}>>>,
      *   key: string,
      *   pmta_version: int,
      *   tracking: bool,
@@ -35,6 +35,12 @@ class DmsBulkInstallPayload
             'data.*' => ['required', 'array'],
             'data.*.id' => ['required', 'string'],
             'data.*.domain' => ['required', 'string'],
+            'data.*.ip_assignments' => ['sometimes', 'array', 'min:1', 'max:256'],
+            'data.*.ip_assignments.*.ip' => ['required', 'ip'],
+            'data.*.ip_assignments.*.type' => ['required', 'string', Rule::in(['ipv4', 'ipv6'])],
+            'data.*.ip_assignments.*.main' => ['required', 'boolean'],
+            'data.*.ip_assignments.*.sub' => ['present', 'nullable', 'string', 'max:63'],
+            'data.*.ip_assignments.*.domain_id' => ['required', 'uuid'],
             'key' => ['required', 'numeric'],
             'pmta_version' => ['required', 'numeric', Rule::in([40, 45, 50])],
             'tracking' => ['required', 'boolean'],
@@ -47,7 +53,23 @@ class DmsBulkInstallPayload
         ])->validate();
 
         $rows = array_map(
-            static fn (array $row): array => ['id' => $row['id'], 'domain' => $row['domain']],
+            static function (array $row): array {
+                $normalized = ['id' => $row['id'], 'domain' => $row['domain']];
+                if (isset($row['ip_assignments'])) {
+                    $normalized['ip_assignments'] = array_map(
+                        static fn (array $assignment): array => [
+                            'ip' => $assignment['ip'],
+                            'type' => $assignment['type'],
+                            'main' => (bool) $assignment['main'],
+                            'sub' => $assignment['sub'] ?? '',
+                            'domain_id' => $assignment['domain_id'],
+                        ],
+                        $row['ip_assignments'],
+                    );
+                }
+
+                return $normalized;
+            },
             $validated['data'],
         );
 

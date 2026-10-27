@@ -13,7 +13,7 @@ window.jQuery(function () {
     $('#histories').DataTable({
         ajax: table.dataset.sourceUrl,
         serverSide: true,
-        order: [[0, 'asc']],
+        order: [[0, 'desc']],
         buttons: [
             { extend: 'pageLength' },
             {

@@ -29,7 +29,7 @@ class InfrastructureManager
     /** @return array{added:int, restored:int, servers:Collection<int, ManagedServer>} */
     public function registerServers(Workspace $workspace, User $actor, array $data, ?string $requestId = null): array
     {
-        $provider = ServerProvider::query()->findOrFail($data['servers_provider_id']);
+        $provider = $this->serverProviderForWorkspace($workspace, $data['servers_provider_id']);
         $credentialType = $data['login_type'];
         $credential = $data['password'];
         $name = strtoupper($data['name']);
@@ -129,6 +129,88 @@ class InfrastructureManager
         return $result;
     }
 
+    /**
+     * @param  array{servers_provider_id:int|string,name:string,ip:string,port:int|string,username:string,login_type:'password'|'ssh_key',password?:?string,expire_at:string}  $data
+     */
+    public function updateManagedServer(
+        Workspace $workspace,
+        User $actor,
+        ManagedServer $server,
+        array $data,
+        ?string $requestId = null,
+    ): ManagedServer {
+        return DB::transaction(function () use ($workspace, $actor, $server, $data, $requestId): ManagedServer {
+            $server = $workspace->managedServers()->whereKey($server->getKey())->lockForUpdate()->firstOrFail();
+            $provider = $this->serverProviderForWorkspace($workspace, $data['servers_provider_id']);
+            $credential = $server->credential()->first();
+            $newSecret = is_string($data['password'] ?? null) && $data['password'] !== '';
+
+            if ($credential === null && ! $newSecret) {
+                throw ValidationException::withMessages(['password' => 'Enter the saved server credential before updating this server.']);
+            }
+
+            if (! $newSecret && $credential?->credential_type !== $data['login_type']) {
+                throw ValidationException::withMessages(['password' => 'Enter a credential that matches the selected password type.']);
+            }
+
+            $previousConnection = [
+                'ip_address' => $server->ip_address,
+                'ssh_port' => (int) $server->ssh_port,
+                'ssh_username' => $server->ssh_username,
+                'login_type' => $server->login_type,
+            ];
+            $nextConnection = [
+                'ip_address' => $data['ip'],
+                'ssh_port' => (int) $data['port'],
+                'ssh_username' => $data['username'],
+                'login_type' => $data['login_type'],
+            ];
+            $connectionChanged = $previousConnection !== $nextConnection || $newSecret;
+            $changedFields = collect([
+                'name' => $server->name !== $data['name'],
+                'provider' => (int) $server->servers_provider_id !== (int) $provider->getKey(),
+                'ip_address' => $server->ip_address !== $data['ip'],
+                'ssh_port' => (int) $server->ssh_port !== (int) $data['port'],
+                'ssh_username' => $server->ssh_username !== $data['username'],
+                'login_type' => $server->login_type !== $data['login_type'],
+                'expire_at' => $server->expire_at?->format('Y-m-d') !== $data['expire_at'],
+            ])->filter()->keys()->values()->all();
+
+            $server->fill([
+                'name' => $data['name'],
+                'provider' => $provider->name,
+                'servers_provider_id' => $provider->getKey(),
+                'ip_address' => $data['ip'],
+                'ssh_port' => (int) $data['port'],
+                'ssh_username' => $data['username'],
+                'login_type' => $data['login_type'],
+                'expire_at' => $data['expire_at'],
+            ]);
+
+            if ($connectionChanged) {
+                $server->expected_host_fingerprint = null;
+                $server->observed_host_fingerprint = null;
+                $server->last_probe_at = null;
+                $server->host_facts = null;
+                $server->state = 'pending_preflight';
+            }
+
+            $server->save();
+
+            if ($newSecret) {
+                $this->storeCredential($server, $workspace, $actor, $data['login_type'], $data['password']);
+            }
+
+            $this->audit($workspace, $actor, 'server.updated', 'managed_server', $server->getKey(), $requestId, [
+                'changed_fields' => $changedFields,
+                'credential_rotated' => $newSecret,
+                'preflight_invalidated' => $connectionChanged,
+            ]);
+
+            return $server;
+        });
+    }
+
     /** @param array<int, string> $ips */
     public function testServerConnections(array $ips, int $port, string $username, string $loginType, string $credential): array
     {
@@ -172,8 +254,18 @@ class InfrastructureManager
      */
     public function registerDmsInstallDomains(Workspace $workspace, User $actor, int|string $providerId, array $domains, ?string $requestId = null): int
     {
-        $provider = DomainProvider::query()->findOrFail($providerId);
+        $provider = DomainProvider::query()
+            ->whereKey($providerId)
+            ->where(fn ($query) => $query->whereNull('workspace_id')->orWhere('workspace_id', $workspace->getKey()))
+            ->firstOrFail();
         $added = 0;
+
+        foreach ($domains as $index => $domainName) {
+            $name = trim($domainName);
+            if (strlen($name) > 253 || ! preg_match('/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$/iD', $name)) {
+                throw ValidationException::withMessages(["domains.{$index}" => 'Enter a valid domain name.']);
+            }
+        }
 
         foreach ($domains as $domainName) {
             $name = trim($domainName);
@@ -187,6 +279,9 @@ class InfrastructureManager
                     'status' => 'new',
                     'is_our' => false,
                     'is_active' => true,
+                    'have_who_is' => false,
+                    'have_renew' => false,
+                    'expire_at' => now()->addYear(),
                 ],
             );
 
@@ -197,6 +292,32 @@ class InfrastructureManager
         }
 
         return $added;
+    }
+
+    /**
+     * Save a DMS-supported domain provider for one AlphaLink workspace.
+     * Provider secrets are encrypted by the model casts and never written to audit details.
+     *
+     * @param  array{name: string, type: string, username?: ?string, password?: ?string, api_key: string, api_secret?: ?string}  $data
+     */
+    public function registerDmsDomainProvider(Workspace $workspace, User $actor, array $data, ?string $requestId = null): DomainProvider
+    {
+        $provider = DomainProvider::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'name' => $data['name'],
+            'type' => $data['type'],
+            'username' => $data['username'] ?? null,
+            'password' => $data['password'] ?? null,
+            'api_key' => $data['api_key'],
+            'api_secret' => $data['api_secret'] ?? null,
+            'is_active' => true,
+        ]);
+
+        $this->audit($workspace, $actor, 'domain_provider.created', 'domain_provider', (string) $provider->getKey(), $requestId, [
+            'type' => $provider->type,
+        ]);
+
+        return $provider;
     }
 
     public function verifyServerHost(Workspace $workspace, User $actor, ManagedServer $server, ?string $requestId = null): ManagedServer
@@ -336,6 +457,16 @@ class InfrastructureManager
             'created_by' => $actor->getKey(),
             'rotated_at' => now(),
         ])->save();
+    }
+
+    private function serverProviderForWorkspace(Workspace $workspace, int|string $providerId): ServerProvider
+    {
+        return ServerProvider::query()
+            ->whereKey($providerId)
+            ->where(fn ($query) => $query
+                ->whereNull('workspace_id')
+                ->orWhere('workspace_id', $workspace->getKey()))
+            ->firstOrFail();
     }
 
     private function audit(Workspace $workspace, User $actor, string $action, string $type, string $id, ?string $requestId, array $properties = []): void

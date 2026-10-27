@@ -73,7 +73,7 @@ class DmsManualDomainImportTest extends TestCase
         ]);
         $this->get(route('console.infrastructure.bulk-install', $this->workspace->getKey()))
             ->assertOk()
-            ->assertSee('new.example | STATUS: new | IS OUR: No');
+            ->assertSee('new.example | STATUS: new | IS OUR: NO | LISTED: SPAMHAUS = NO - HOSTKARMA = NO');
     }
 
     public function test_inactive_provider_is_accepted_by_dms_store_but_its_domain_is_not_installable(): void
@@ -86,6 +86,16 @@ class DmsManualDomainImportTest extends TestCase
         ])->assertOk()->assertExactJson(['data' => '1 Domain Created']);
 
         $this->assertSame([], $this->eligibleDomainNames());
+    }
+
+    public function test_manual_import_rejects_an_invalid_install_domain_before_saving_any_rows(): void
+    {
+        $this->actingAs($this->owner)->postJson($this->route(), [
+            'provider' => $this->provider->getKey(),
+            'domains' => ['valid.example', '   '],
+        ])->assertUnprocessable()->assertJsonValidationErrors('domains.1');
+
+        $this->assertSame(0, SendingDomain::query()->count());
     }
 
     public function test_manual_import_requires_owner_or_admin_and_an_existing_provider(): void
@@ -109,7 +119,7 @@ class DmsManualDomainImportTest extends TestCase
     /** @return list<string> */
     private function eligibleDomainNames(): array
     {
-        $domains = app(DmsBulkInstallEligibility::class)->for($this->owner, $this->workspace)['domains'];
+        $domains = app(DmsBulkInstallEligibility::class)->for($this->workspace)['domains'];
 
         return $domains->pluck('label')->map(fn (string $label): string => explode(' | ', $label)[0])->sort()->values()->all();
     }

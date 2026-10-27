@@ -8,6 +8,7 @@ use App\Models\AuditEvent;
 use App\Models\Contact;
 use App\Models\ContactListMembership;
 use App\Models\ContactListMembershipEvent;
+use App\Models\Isp;
 use App\Models\OutboxMessage;
 use App\Models\Workspace;
 use App\Services\Audiences\ImportAudienceListContacts;
@@ -16,6 +17,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class AudienceListController extends Controller
@@ -109,13 +111,29 @@ class AudienceListController extends Controller
             'name' => ['required', 'string', 'max:160'],
             'slug' => ['nullable', 'string', 'alpha_dash', 'max:160'],
             'description' => ['nullable', 'string', 'max:4000'],
+            'isp_id' => ['nullable', 'integer', Rule::exists('isps', 'id')->where('workspace_id', $workspace->getKey())],
+            'country' => ['nullable', 'string', 'size:2'],
         ]);
         $idempotencyKey = $this->idempotencyKey($request);
         $name = trim($data['name']);
         $slug = Str::slug($data['slug'] ?? $name);
         $slug = $slug !== '' ? $slug : 'audience';
         $description = isset($data['description']) ? trim($data['description']) : null;
-        $fingerprint = $this->fingerprint(['name' => $name, 'slug' => $slug, 'description' => $description]);
+        $ispId = isset($data['isp_id']) ? (int) $data['isp_id'] : null;
+        $country = isset($data['country']) ? strtoupper(trim($data['country'])) : null;
+        if ($ispId !== null && ! in_array($request->attributes->get('alphalink.workspace_role'), ['owner', 'admin'], true)) {
+            abort(403);
+        }
+        $fingerprintPayload = [
+            'name' => $name,
+            'slug' => $slug,
+            'description' => $description,
+        ];
+        if (array_key_exists('isp_id', $data) || array_key_exists('country', $data)) {
+            $fingerprintPayload['isp_id'] = $ispId;
+            $fingerprintPayload['country'] = $country;
+        }
+        $fingerprint = $this->fingerprint($fingerprintPayload);
 
         $existing = $workspace->audienceLists()->where('idempotency_key', $idempotencyKey)->first();
         if ($existing) {
@@ -130,13 +148,25 @@ class AudienceListController extends Controller
         }
 
         try {
-            $audienceList = DB::transaction(function () use ($request, $workspace, $name, $slug, $description, $idempotencyKey, $fingerprint): AudienceList {
+            $audienceList = DB::transaction(function () use ($request, $workspace, $name, $slug, $description, $ispId, $country, $idempotencyKey, $fingerprint): AudienceList {
+                $isp = $ispId === null
+                    ? null
+                    : Isp::query()->where('workspace_id', $workspace->getKey())->whereKey($ispId)->lockForUpdate()->firstOrFail();
+                if ($country !== null && (! $isp || ! in_array($country, $isp->tracked_countries ?? [], true))) {
+                    throw ValidationException::withMessages([
+                        'country' => ['The country must be included in the selected ISP tracked countries.'],
+                    ]);
+                }
                 $audienceList = $workspace->audienceLists()->create([
                     'created_by' => $request->user()->getKey(),
                     'name' => $name,
                     'slug' => $slug,
                     'description' => $description,
                     'status' => 'active',
+                    'isp_id' => $isp?->getKey(),
+                    'country' => $country,
+                    'allowed_users' => $isp?->allowed_users ?? [],
+                    'allowed_sponsors' => $isp?->allowed_sponsors ?? [],
                     'idempotency_key' => $idempotencyKey,
                     'request_fingerprint' => $fingerprint,
                 ]);
@@ -175,19 +205,6 @@ class AudienceListController extends Controller
         $audienceList = $this->findList($request, $list);
         $data = $request->validate(['contact_id' => ['required', 'uuid']]);
         $contact = $workspace->contacts()->whereKey($data['contact_id'])->firstOrFail();
-
-        $existingAssignment = ContactListMembership::query()
-            ->where('workspace_id', $workspace->getKey())
-            ->where('contact_id', $contact->getKey())
-            ->where('audience_list_id', '!=', $audienceList->getKey())
-            ->exists();
-
-        if ($existingAssignment) {
-            return response()->json([
-                'message' => 'This contact is already assigned to another list in this workspace.',
-                'code' => 'contact_already_assigned',
-            ], 409);
-        }
 
         return $this->changeMembership($request, $workspace, $audienceList, $contact, 'added');
     }
@@ -368,6 +385,8 @@ class AudienceListController extends Controller
             'slug' => $list->slug,
             'description' => $list->description,
             'status' => $list->status,
+            'isp_id' => $list->isp_id,
+            'country' => $list->country,
             'active_member_count' => (int) ($list->active_member_count ?? 0),
             'created_at' => $list->created_at?->toISOString(),
         ];

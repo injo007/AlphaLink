@@ -1,4 +1,4 @@
-@extends('layouts.console')
+@extends('layouts.dms-admin')
 
 @section('title', 'Audience lists')
 
@@ -15,13 +15,17 @@
             <div class="empty-state empty-large"><span class="empty-state-mark" aria-hidden="true">—</span><strong>No audience lists yet</strong><p>Lists will appear here when they are created through the API.</p></div>
         @else
             <div class="table-scroll">
-                <table class="data-table data-table-roomy">
-                    <thead><tr><th scope="col">LIST</th><th scope="col">STATUS</th><th scope="col">ACTIVE MEMBERS</th><th scope="col">CREATED</th><th scope="col"><span class="visually-hidden">Open</span></th></tr></thead>
+                <table class="data-table data-table-roomy audience-register-table">
+                    <thead><tr><th scope="col">LIST</th><th scope="col">STATUS</th><th scope="col">ACTIVE MEMBERS</th><th scope="col">OPEN</th><th scope="col">CLICK</th><th scope="col">LEAD</th><th scope="col">UNSUB</th><th scope="col">CREATED</th><th scope="col"><span class="visually-hidden">Open</span></th></tr></thead>
                     <tbody>@foreach ($audienceLists as $audienceList)
                         <tr>
                             <td><a class="record-link" href="{{ route('console.audiences.show', [$workspace->id, $audienceList->id]) }}">{{ $audienceList->name }}</a><small>{{ $audienceList->slug }}</small></td>
                             <td><span class="status-pill status-{{ $audienceList->status === 'active' ? 'active' : 'neutral' }}">{{ str_replace('_', ' ', $audienceList->status) }}</span></td>
                             <td class="numeric-cell">{{ number_format($audienceList->active_members_count) }}</td>
+                            <td class="numeric-cell">{{ $audienceList->history->exists ? number_format((int) $audienceList->history->open) : '—' }}</td>
+                            <td class="numeric-cell">{{ $audienceList->history->exists ? number_format((int) $audienceList->history->click) : '—' }}</td>
+                            <td class="numeric-cell">{{ $audienceList->history->exists ? number_format((int) $audienceList->history->lead) : '—' }}</td>
+                            <td class="numeric-cell">{{ $audienceList->history->exists ? number_format((int) $audienceList->history->unsubscribe) : '—' }}</td>
                             <td class="date-cell">{{ $audienceList->created_at?->format('M j, Y · H:i') }}</td>
                             <td><a class="row-arrow" href="{{ route('console.audiences.show', [$workspace->id, $audienceList->id]) }}" aria-label="View {{ $audienceList->name }}">↗</a></td>
                         </tr>
@@ -32,5 +36,5 @@
         @endif
     </section>
 
-    <aside class="quiet-callout"><span class="callout-mark" aria-hidden="true">i</span><p><strong>Privacy note:</strong> this view does not display email addresses or provide an export action. Member counts reflect active membership rows only.</p></aside>
+    <aside class="quiet-callout"><span class="callout-mark" aria-hidden="true">i</span><p><strong>Privacy note:</strong> this view does not display email addresses or provide an export action. Segment columns show the latest saved membership-state snapshot; they are not event totals.</p></aside>
 @endsection

@@ -88,3 +88,7 @@ Dependency manifests may include SDKs that have no active source call site. Trea
 - **BLOCKED:** end-to-end validation without production requests or a sanitized provider sandbox.
 
 No provider API, webhook, callback, DNS operation, upload, campaign sync, or infrastructure change was performed. The reference system remains untouched by this integration investigation.
+
+## AlphaLink suppression refresh test coverage — E-CAMP-99
+
+The local synthetic HTTP suite now exercises the DMS source branches for all five suppression providers: HitPath, NewHitPath, Cake, Everflow, and HasOffers. It checks provider request shape, expected response field selection, file download, normalization and persisted freshness metadata; unsuccessful API responses from all five providers, failed downloads, HasOffers CRM fallback and private redirect rejection are included. The focused suppression suites pass 19 tests / 143 assertions. These are target-side synthetic tests, not observed provider responses; no DMS or affiliate API was called. Live provider outcomes and the running app positive-match path remain unverified.

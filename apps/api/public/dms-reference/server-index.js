@@ -3,6 +3,7 @@ window.jQuery(function () {
     if (!tableElement || !window.jQuery || !window.jQuery.fn.DataTable) return;
 
     const $ = window.jQuery;
+    const serverUrl = (template, id) => template.replace('__SERVER__', encodeURIComponent(id));
     const showBadge = (value) => {
         if (value == null) return '<span class="badge badge-secondary p-1" title="UNKNOWN">N/A</span>';
         const text = value ? 'YES' : 'NO';
@@ -13,6 +14,28 @@ window.jQuery(function () {
     const button = (icon, title, color, action, id, value) => (
         `<button type="button" data-id="${escapeHtml(id)}"${value == null ? '' : ` data-action="${value}"`} ` +
         `class="btn ${color} btn-sm ${action}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"><i class="fas ${icon}"></i></button>&nbsp;`
+    );
+    const consoleAction = (row) => (
+        `<a href="${escapeHtml(serverUrl(tableElement.dataset.consoleUrlTemplate, row.id))}" target="_self" role="button" ` +
+        `data-id="${escapeHtml(row.id)}" class="btn btn-alt-dark btn-sm console" title="CONSOLE" ` +
+        `aria-label="CONSOLE"><i class="fas fa-terminal"></i></a>&nbsp;`
+    );
+    const historyAction = (row) => (
+        `<a href="${escapeHtml(serverUrl(tableElement.dataset.historyUrlTemplate, row.id))}" target="_blank" rel="noopener" ` +
+        `class="btn btn-info btn-sm history" title="SERVER HISTORY" aria-label="SERVER HISTORY"><i class="fas fa-history"></i></a>&nbsp;`
+    );
+    const ipsAction = (row, count) => row.can_manage
+        ? `<a href="${escapeHtml(serverUrl(tableElement.dataset.ipsUrlTemplate, row.id))}" target="_self" role="button" data-id="${escapeHtml(row.id)}" class="btn btn-link btn-sm ips" title="TOTAL IPS" aria-label="TOTAL IPS ${escapeHtml(count)}">${escapeHtml(count)}</a>&nbsp;`
+        : `<span class="text-muted" title="TOTAL IPS">${escapeHtml(count)}</span>`;
+    const usersAction = (row, users) => (
+        `<a href="${escapeHtml(serverUrl(tableElement.dataset.usersUrlTemplate, row.id))}" target="_self" role="button" ` +
+        `data-id="${escapeHtml(row.id)}" class="btn btn-link btn-sm users" title="ALLOWED USERS : ${users.length}" ` +
+        `aria-label="ALLOWED USERS : ${users.length}"><i class="fas fa-users"></i> : ${users.length}</a>&nbsp;`
+    );
+    const editAction = (row) => (
+        `<a href="${escapeHtml(serverUrl(tableElement.dataset.editUrlTemplate, row.id))}" target="_self" role="button" ` +
+        `data-id="${escapeHtml(row.id)}" class="btn btn-info btn-sm edit" title="UPDATE SERVER" ` +
+        `aria-label="UPDATE SERVER"><i class="fas fa-pencil-alt"></i></a>&nbsp;`
     );
     const inactiveButton = (icon, title, color = 'btn-info') => (
         `<button type="button" class="btn ${color} btn-sm" title="${title}" aria-label="${title}" disabled><i class="fas ${icon}"></i></button>&nbsp;`
@@ -47,7 +70,12 @@ window.jQuery(function () {
             {
                 text: '<i class="fa fa-plus"></i>',
                 titleAttr: 'ADD NEW SERVERS',
-                action: () => window.openServerRegistration(),
+                action: () => openFrame(
+                    tableElement.dataset.createUrl,
+                    'lg',
+                    'Add Servers',
+                    () => dataTable.ajax.reload(null, false),
+                ),
                 enabled: canManage && Boolean(tableElement.dataset.createUrl),
             },
             {
@@ -62,9 +90,18 @@ window.jQuery(function () {
                 action: (event, dt) => openBulkUsers(dt.rows({ selected: true }).data().toArray().map((row) => row.id)),
                 enabled: false,
             },
-            { text: '<i class="fas fa-magic"></i>', titleAttr: 'INSTALL SERVER', enabled: false },
-            { text: '<i class="fas fa-tools"></i>', titleAttr: 'BULK INSTALL SERVERS', enabled: false },
-            { text: '<i class="fas fa-recycle"></i>', titleAttr: 'RECONFIG VMTA', enabled: false },
+            {
+                text: '<i class="fas fa-magic"></i>',
+                titleAttr: 'INSTALL SERVER',
+                action: () => window.open(tableElement.dataset.installUrl, '_blank', 'noopener'),
+                enabled: Boolean(tableElement.dataset.installUrl),
+            },
+            {
+                text: '<i class="fas fa-hat-wizard"></i>',
+                titleAttr: 'BULK INSTALL SERVERS',
+                action: () => window.open(tableElement.dataset.bulkInstallUrl, '_blank', 'noopener'),
+                enabled: Boolean(tableElement.dataset.bulkInstallUrl),
+            },
             {
                 text: '<i class="fa fa-sync"></i>',
                 titleAttr: 'REFRESH',
@@ -120,9 +157,9 @@ window.jQuery(function () {
                 data: 'ips_count',
                 searchable: false,
                 width: '8%',
-                render: (value) => value == null
+                render: (value, type, row) => value == null
                     ? '<span class="text-muted">N/A</span>'
-                    : inactiveButton('fa-server', 'TOTAL IPS', 'btn-link').replace('<i class="fas fa-server"></i>', `${value}`),
+                    : ipsAction(row, value),
             },
             {
                 title: 'USERS',
@@ -131,10 +168,9 @@ window.jQuery(function () {
                 render: (users, type, row) => {
                     if (!Array.isArray(users)) return '<span class="text-muted">N/A</span>';
                     if (row.deleted_at) return '';
-                    const label = `<i class="fas fa-users"></i> : ${users.length}`;
                     return row.can_manage
-                        ? button('fa-users', `ALLOWED USERS : ${users.length}`, 'btn-link', 'users', row.id).replace(/<i class="fas fa-users"><\/i>/, label)
-                        : `<span class="text-muted" title="ALLOWED USERS">${label}</span>`;
+                        ? usersAction(row, users)
+                        : `<span class="text-muted" title="ALLOWED USERS"><i class="fas fa-users"></i> : ${users.length}</span>`;
                 },
             },
             {
@@ -159,9 +195,11 @@ window.jQuery(function () {
                         ? button(locked ? 'fa-lock' : 'fa-lock-open', locked ? 'UNLOCK SERVER' : 'LOCK SERVER', locked ? 'btn-warning' : 'btn-success', 'lock', row.id, locked ? 0 : 1)
                         : '';
                     return [
-                        button('fa-history', 'SERVER HISTORY', 'btn-info', 'history', row.id),
-                        inactiveButton('fa-terminal', 'CONSOLE', 'btn-alt-dark'),
-                        inactiveButton('fa-pencil-alt', 'UPDATE SERVER', 'btn-info'),
+                        historyAction(row),
+                        row.can_console
+                            ? consoleAction(row)
+                            : inactiveButton('fa-terminal', 'CONSOLE', 'btn-alt-dark'),
+                        row.can_manage ? editAction(row) : inactiveButton('fa-pencil-alt', 'UPDATE SERVER', 'btn-info'),
                         lockButton,
                         status,
                         returnedServer,
@@ -186,7 +224,6 @@ window.jQuery(function () {
         dataTable.button(5).enable(canManage && activeRows && hasSelection);
         dataTable.button(3).enable(canManage && Boolean(tableElement.dataset.createUrl));
     };
-    const serverUrl = (template, id) => template.replace('__SERVER__', encodeURIComponent(id));
     const notify = (icon, title) => {
         const sweetAlert = window.Swal || window.swal;
         if (sweetAlert?.fire) return sweetAlert.fire({ icon, title });
@@ -229,8 +266,48 @@ window.jQuery(function () {
         });
     }
 
-    function openFrame(url, size, title) {
-        const iframe = `<iframe src="${escapeHtml(url)}" width="100%" scrolling="no" frameborder="0" title="${escapeHtml(title)}"></iframe>`;
+    function openFrame(url, size, title, afterClose = () => {}) {
+        const destination = new URL(url, window.location.href).href;
+        const existingFrame = [...document.querySelectorAll('.bootbox iframe.server-action-frame, .server-frame-dialog iframe.server-action-frame')]
+            .some((frame) => frame.src === destination && frame.getClientRects().length > 0);
+        if (existingFrame) return;
+
+        if (!window.bootbox?.dialog) {
+            const dialog = document.createElement('dialog');
+            if (typeof dialog.showModal !== 'function') {
+                window.location.assign(destination);
+                return;
+            }
+            const opener = document.activeElement;
+            const modalSizeClass = size === 'xl' ? 'modal-xl' : 'modal-lg';
+            dialog.className = 'server-frame-dialog';
+            dialog.setAttribute('aria-label', title);
+            dialog.innerHTML = `
+                <div class="modal-dialog ${modalSizeClass} modal-dialog-centered modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">${escapeHtml(title)}</h5>
+                            <button type="button" class="close" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                        </div>
+                        <div class="modal-body"><iframe class="server-action-frame" src="${escapeHtml(url)}" scrolling="auto" frameborder="0" title="${escapeHtml(title)}"></iframe></div>
+                    </div>
+                </div>`;
+            const close = () => dialog.close();
+            dialog.querySelector('.close').addEventListener('click', close);
+            dialog.addEventListener('click', (event) => {
+                if (event.target === dialog) close();
+            });
+            dialog.addEventListener('close', () => {
+                dialog.remove();
+                if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
+                afterClose();
+            }, { once: true });
+            document.body.append(dialog);
+            dialog.showModal();
+            return;
+        }
+
+        const iframe = `<iframe class="server-action-frame" src="${escapeHtml(url)}" width="100%" scrolling="auto" frameborder="0" title="${escapeHtml(title)}"></iframe>`;
         window.bootbox.dialog({
             scrollable: true,
             closeButton: true,
@@ -241,7 +318,8 @@ window.jQuery(function () {
         }).on('shown.bs.modal', function () {
             if (window.iFrameResize) window.iFrameResize({}, 'iframe');
         }).on('hidden.bs.modal', function () {
-            $('iframe').remove();
+            $(this).find('iframe.server-action-frame').remove();
+            afterClose();
         });
     }
 
@@ -253,14 +331,21 @@ window.jQuery(function () {
     }
 
     $('#servers').on('select.dt deselect.dt draw.dt', refreshSelectionButtons)
+        .on('click', '.edit', function (event) {
+            event.preventDefault();
+            openFrame(serverUrl(tableElement.dataset.editUrlTemplate, $(this).data('id')), 'lg', 'Edit Server');
+        })
         .on('click', '.users', function (event) {
             event.preventDefault();
             openFrame(serverUrl(tableElement.dataset.usersUrlTemplate, $(this).data('id')), 'lg', 'Allowed Users');
         })
-        .on('click', '.history', function (event) {
+        .on('click', '.ips', function (event) {
             event.preventDefault();
-            const url = serverUrl(tableElement.dataset.historyUrlTemplate, $(this).data('id'));
-            window.open(url, '_blank', 'noopener');
+            openFrame(serverUrl(tableElement.dataset.ipsUrlTemplate, $(this).data('id')), 'xl', 'Server IP & MTA');
+        })
+        .on('click', '.console', function (event) {
+            event.preventDefault();
+            openFrame(this.href, 'lg', 'Console');
         })
         .on('click', '.return', function (event) {
             event.preventDefault();
@@ -284,23 +369,28 @@ window.jQuery(function () {
             patchAction(serverUrl(tableElement.dataset.statusUrlTemplate, id), $(this).data('action'), 'Changed successfully');
         });
 
-    window.closeModal = () => window.bootbox?.hideAll();
-    window.openServerRegistration = () => {
-        const iframe = `<iframe src="${escapeHtml(tableElement.dataset.createUrl)}" width="100%" scrolling="no" frameborder="0" title="Add Servers"></iframe>`;
-        window.bootbox.dialog({
-            scrollable: true,
-            closeButton: true,
-            size: 'lg',
-            message: iframe,
-            onEscape: true,
-            centerVertical: true,
-        }).on('shown.bs.modal', () => {
-            if (window.iFrameResize) window.iFrameResize({}, 'iframe');
-        }).on('hidden.bs.modal', () => {
-            $('iframe').remove();
-            dataTable.ajax.reload(null, false);
-        });
+    window.closeModal = async () => {
+        const editor = document.querySelector('.bootbox iframe')?.contentWindow?.AlphaLinkServerEdit;
+        if (editor?.isDirty()) {
+            const result = await window.App.swalPromise({
+                icon: 'warning',
+                title: 'You have unsaved changes. Discard them?',
+                showCancelButton: true,
+                cancelButtonText: 'Keep editing',
+                confirmButtonText: 'Discard',
+                focusCancel: true,
+            });
+            if (!result.isConfirmed) return;
+            editor.allowClose();
+        }
+        window.bootbox?.hideAll();
     };
+    window.openServerRegistration = () => openFrame(
+        tableElement.dataset.createUrl,
+        'lg',
+        'Add Servers',
+        () => dataTable.ajax.reload(null, false),
+    );
     window.AlphaLinkServers = { reload: () => dataTable.ajax.reload(null, false) };
 
     returned.on('change', () => {

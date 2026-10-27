@@ -29,6 +29,7 @@
             .block-content { padding-left: .875rem; padding-right: .875rem; }
         }
     </style>
+    @stack('styles')
 </head>
 <body>
     <div id="page-container">

@@ -52,7 +52,7 @@
                     </div>
                     <div class="form-group server-form-actions">
                         <button id="test" class="btn btn-block btn-warning" type="button" data-url="{{ route('console.infrastructure.servers.test-connection', $workspace->id) }}">TEST CONNECTION</button>
-                        <button id="save" class="btn btn-block btn-info" type="button" data-url="{{ route('console.infrastructure.servers.store', $workspace->id) }}" data-return-url="{{ route('console.infrastructure.index', $workspace->id) }}">SAVE</button>
+                        <button id="save" class="btn btn-block btn-info" type="button" data-url="{{ route('console.infrastructure.servers.store', $workspace->id) }}" data-return-url="{{ route('console.infrastructure.servers.index', $workspace->id) }}">SAVE</button>
                     </div>
                 </div>
             </div>

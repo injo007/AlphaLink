@@ -1,5 +1,5 @@
 <?php
 
 return [
-    'bundle_directory' => env('PMTA_BUNDLE_DIR'),
+    'bundle_directory' => env('ALPHALINK_PMTA_BUNDLE_DIRECTORY'),
 ];

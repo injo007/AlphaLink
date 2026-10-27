@@ -6,12 +6,14 @@ use App\Models\AuditEvent;
 use App\Models\DomainProvider;
 use App\Models\ManagedServer;
 use App\Models\ManagedServerHistory;
+use App\Models\ManagedServerIp;
 use App\Models\SendingDomain;
 use App\Models\ServerCredential;
 use App\Models\ServerProvider;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Services\Infrastructure\DmsBulkInstallEligibility;
+use App\Services\Infrastructure\DmsServerConsole;
 use App\Services\Infrastructure\DomainTxtResolver;
 use App\Services\Infrastructure\SshHostProbe;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -167,7 +169,16 @@ class InfrastructurePlanningTest extends TestCase
             ->assertSee('/dms-reference/plugins/datatables/datatables.mark.js')
             ->assertSee('/dms-reference/assets/js/tables_datatables.js')
             ->assertSee('/dms-reference/server-index.js')
-            ->assertSee(route('console.infrastructure.servers.create', $this->workspace->id), false);
+            ->assertSee(route('console.infrastructure.servers.create', $this->workspace->id), false)
+            ->assertSee('data-install-url="'.route('console.infrastructure.install.index', $this->workspace->id).'"', false)
+            ->assertSee('data-bulk-install-url="'.route('console.infrastructure.bulk-install', $this->workspace->id).'"', false);
+
+        $serverTableScript = file_get_contents(public_path('dms-reference/server-index.js'));
+        self::assertIsString($serverTableScript);
+        self::assertStringContainsString('fa-magic', $serverTableScript);
+        self::assertStringContainsString("titleAttr: 'INSTALL SERVER'", $serverTableScript);
+        self::assertStringContainsString('fa-hat-wizard', $serverTableScript);
+        self::assertStringContainsString("titleAttr: 'BULK INSTALL SERVERS'", $serverTableScript);
     }
 
     public function test_server_list_json_is_workspace_scoped_and_returned_filter_uses_soft_deletes(): void
@@ -196,7 +207,7 @@ class InfrastructurePlanningTest extends TestCase
             ->assertJsonPath('data.0.is_locked', false)
             ->assertJsonPath('data.0.allowed_users', [])
             ->assertJsonPath('data.0.is_active', true)
-            ->assertJsonPath('data.0.ips_count', null);
+            ->assertJsonPath('data.0.ips_count', 0);
         $this->assertStringNotContainsString('private-example-password', $active->getContent());
         $this->assertStringNotContainsString('OTHER WORKSPACE RELAY', $active->getContent());
 
@@ -207,6 +218,41 @@ class InfrastructurePlanningTest extends TestCase
             ->assertJsonPath('data.0.id', $currentServer['id']);
         $this->assertNotNull($returned->json('data.0.deleted_at'));
         $this->assertStringNotContainsString('private-example-password', $returned->getContent());
+    }
+
+    public function test_server_list_returns_the_total_saved_ip_count_like_dms(): void
+    {
+        $serverResult = $this->postJson(
+            '/app/workspaces/'.$this->workspace->id.'/infrastructure/servers',
+            $this->registration(['159.223.97.39']),
+        )->assertOk()->json('servers.0');
+
+        $domain = SendingDomain::query()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'name' => 'install-count.example.test',
+            'state' => 'verified',
+            'verification_token' => 'synthetic-token',
+            'created_by' => $this->owner->getKey(),
+            'status' => 'new',
+            'is_our' => false,
+            'is_active' => true,
+        ]);
+
+        foreach ([['159.223.97.39', true], ['159.223.97.40', false]] as [$ip, $isActive]) {
+            ManagedServerIp::query()->create([
+                'workspace_id' => $this->workspace->getKey(),
+                'managed_server_id' => $serverResult['id'],
+                'sending_domain_id' => $domain->getKey(),
+                'ip' => $ip,
+                'type' => 'ipv4',
+                'dns' => 'install-count.example.test',
+                'is_active' => $isActive,
+            ]);
+        }
+
+        $this->getJson('/app/workspaces/'.$this->workspace->id.'/infrastructure/servers')
+            ->assertOk()
+            ->assertJsonPath('data.0.ips_count', 2);
     }
 
     public function test_server_return_is_soft_delete_locked_servers_cannot_be_returned_and_returned_servers_can_be_restored(): void
@@ -297,7 +343,7 @@ class InfrastructurePlanningTest extends TestCase
         $this->assertSame(4, AuditEvent::query()->where('action', 'server.allowed_users_updated')->count());
     }
 
-    public function test_server_status_toggle_is_recorded_and_all_management_routes_require_workspace_admin(): void
+    public function test_server_controls_are_available_to_every_workspace_member_and_are_audited(): void
     {
         $base = '/app/workspaces/'.$this->workspace->id.'/infrastructure/servers';
         $this->postJson($base, $this->registration(['159.223.97.39']))->assertOk();
@@ -306,17 +352,18 @@ class InfrastructurePlanningTest extends TestCase
             ->assertJsonPath('data', 'Changed successfully');
         $this->assertDatabaseHas('managed_servers', ['id' => $server->id, 'is_active' => false]);
 
-        $operator = User::factory()->create();
-        $this->workspace->users()->attach($operator->id, ['role' => 'operator']);
-        $this->actingAs($operator)->putJson($base.'/'.$server->id.'/users', ['users' => []])->assertForbidden();
-        $this->actingAs($operator)->patchJson($base.'/'.$server->id.'/lock', ['status' => true])->assertForbidden();
-        $this->actingAs($operator)->deleteJson($base, ['ids' => [$server->id]])->assertStatus(400)->assertJsonPath('data', 'Failed');
-        $this->actingAs($this->owner)->assertDatabaseHas('audit_events', [
+        $viewer = User::factory()->create();
+        $this->workspace->users()->attach($viewer->id, ['role' => 'viewer']);
+        $this->actingAs($viewer)->putJson($base.'/'.$server->id.'/users', ['users' => []])->assertOk();
+        $this->actingAs($viewer)->patchJson($base.'/'.$server->id.'/lock', ['status' => true])->assertOk();
+        $this->actingAs($viewer)->patchJson($base.'/'.$server->id.'/lock', ['status' => false])->assertOk();
+        $this->actingAs($viewer)->deleteJson($base, ['ids' => [$server->id]])->assertOk()->assertJsonPath('data', 'Servers returned');
+        $this->assertDatabaseHas('audit_events', [
             'action' => 'server.status_changed', 'subject_id' => $server->id,
         ]);
     }
 
-    public function test_assigned_workspace_operator_sees_only_assigned_servers_and_can_toggle_or_return_unlocked_servers(): void
+    public function test_workspace_operator_can_control_all_workspace_servers_regardless_of_server_assignment(): void
     {
         $base = '/app/workspaces/'.$this->workspace->id.'/infrastructure/servers';
         $this->postJson($base, $this->registration(['159.223.97.39']))->assertOk();
@@ -342,21 +389,20 @@ class InfrastructurePlanningTest extends TestCase
         ]);
         $otherAssigned->delete();
 
-        $this->actingAs($operator)->getJson($base)->assertOk()->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $assigned->id)
-            ->assertJsonPath('data.0.can_manage', false)
-            ->assertJsonPath('data.0.can_operate', true)
-            ->assertJsonPath('data.0.can_return', true);
-        $this->getJson($base.'?returned=true')->assertOk()->assertJsonCount(0, 'data');
+        $serverList = $this->actingAs($operator)->getJson($base)->assertOk()->assertJsonCount(2, 'data');
+        $serverList->assertJsonFragment(['id' => $assigned->id, 'can_manage' => true, 'can_operate' => true, 'can_return' => true]);
+        $serverList->assertJsonFragment(['id' => $unassigned->id, 'can_manage' => true, 'can_operate' => true, 'can_return' => true]);
+        $this->getJson($base.'?returned=true')->assertOk()->assertJsonCount(1, 'data');
         $this->patchJson($base.'/'.$assigned->id, ['status' => false])->assertOk()
             ->assertJsonPath('data', 'Changed successfully');
-        $this->patchJson($base.'/'.$unassigned->id, ['status' => false])->assertForbidden();
-        $this->patchJson($base.'/'.$assigned->id.'/lock', ['status' => true])->assertForbidden();
-        $this->putJson($base.'/'.$assigned->id.'/users', ['users' => []])->assertForbidden();
+        $this->patchJson($base.'/'.$unassigned->id, ['status' => false])->assertOk();
+        $this->patchJson($base.'/'.$assigned->id.'/lock', ['status' => true])->assertOk();
+        $this->patchJson($base.'/'.$assigned->id.'/lock', ['status' => false])->assertOk();
+        $this->putJson($base.'/'.$assigned->id.'/users', ['users' => []])->assertOk();
         $this->deleteJson($base, ['ids' => [$assigned->id]])->assertOk()->assertJsonPath('data', 'Servers returned');
         $this->assertSoftDeleted('managed_servers', ['id' => $assigned->id]);
-        $this->getJson($base.'?returned=true')->assertOk()->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $assigned->id);
+        $this->getJson($base.'?returned=true')->assertOk()->assertJsonCount(2, 'data')
+            ->assertJsonFragment(['id' => $assigned->id]);
     }
 
     public function test_server_history_page_and_datatable_are_scoped_and_show_status_snapshots(): void
@@ -397,25 +443,82 @@ class InfrastructurePlanningTest extends TestCase
             ->assertJsonPath('data.0.is_ssh_down', true)
             ->assertJsonPath('data.0.is_pmta_down', true);
 
+        $this->getJson($historyUrl.'?draw=8&start=0&length=10')->assertOk()
+            ->assertJsonPath('draw', 8)
+            ->assertJsonPath('recordsTotal', 2)
+            ->assertJsonPath('data.0.is_ssh_down', true)
+            ->assertJsonPath('data.1.is_ssh_down', false);
+
         $this->getJson($base)->assertOk()
             ->assertJsonPath('data.0.history.is_ssh_down', true)
             ->assertJsonPath('data.0.history.is_apache_down', false)
             ->assertJsonPath('data.0.history.is_pmta_down', true);
 
-        $operator = User::factory()->create();
-        $this->workspace->users()->attach($operator->id, ['role' => 'operator']);
-        $this->actingAs($operator)->getJson($historyUrl.'?draw=1')->assertForbidden();
+        $assignedOperator = User::factory()->create();
+        $this->workspace->users()->attach($assignedOperator->id, ['role' => 'operator']);
+        DB::table('managed_server_user')->insert([
+            'workspace_id' => $this->workspace->id,
+            'managed_server_id' => $managedServer->id,
+            'user_id' => $assignedOperator->id,
+        ]);
+        $this->actingAs($assignedOperator)->getJson($historyUrl.'?draw=9')
+            ->assertOk()->assertJsonPath('draw', 9)->assertJsonCount(2, 'data');
+
+        $unassignedOperator = User::factory()->create();
+        $this->workspace->users()->attach($unassignedOperator->id, ['role' => 'operator']);
+        $this->actingAs($unassignedOperator)->get($historyUrl)->assertOk()
+            ->assertSee('HISTORIES')
+            ->assertSee('data-source-url="'.$historyUrl.'"', false);
+        $this->getJson($historyUrl.'?draw=10')->assertOk()->assertJsonPath('draw', 10)
+            ->assertJsonCount(2, 'data');
     }
 
-    public function test_bulk_install_page_matches_dms_controls_and_keeps_remote_install_disabled(): void
+    public function test_server_console_matches_dms_panel_and_is_available_to_every_workspace_member(): void
     {
-        $url = '/app/workspaces/'.$this->workspace->id.'/infrastructure/bulk-install';
+        $base = '/app/workspaces/'.$this->workspace->id.'/infrastructure/servers';
+        $serverPayload = $this->postJson($base, $this->registration(['159.223.97.39']))
+            ->assertOk()->json('servers.0');
+        $server = ManagedServer::query()->findOrFail($serverPayload['id']);
+        $consoleUrl = route('console.infrastructure.servers.console', [$this->workspace->id, $server->id]);
+
+        $this->getJson($base)->assertOk()->assertJsonPath('data.0.can_console', true);
+        $this->get($consoleUrl)->assertOk()
+            ->assertSee('SERVER <span class="text-info">PRIMARY RELAY | '.$server->id.'</span> CONSOLE', false)
+            ->assertSee('Command :')
+            ->assertSee('btn-block btn-warning')
+            ->assertSee('dms-reference/server-console.js');
+
+        $console = Mockery::mock(DmsServerConsole::class);
+        $console->shouldReceive('execute')->once()->with(
+            Mockery::on(fn ($actual) => $actual instanceof ManagedServer && $actual->is($server)),
+            'printf safely',
+        )->andReturn('<em>output</em>');
+        $this->app->instance(DmsServerConsole::class, $console);
+        $response = $this->postJson($consoleUrl, ['cmd' => 'printf safely'])->assertOk();
+        $this->assertSame('<em>output</em>', $response->json());
+
+        $viewer = User::factory()->create();
+        $this->workspace->users()->attach($viewer->id, ['role' => 'viewer']);
+        $console->shouldReceive('execute')->once()->with(
+            Mockery::on(fn ($actual) => $actual instanceof ManagedServer && $actual->is($server)),
+            'printf for workspace viewer',
+        )->andReturn('member output');
+
+        $this->actingAs($viewer)->get($consoleUrl)->assertOk();
+        $memberConsole = $this->postJson($consoleUrl, ['cmd' => 'printf for workspace viewer'])->assertOk();
+        $this->assertSame('member output', $memberConsole->json());
+    }
+
+    public function test_bulk_install_page_explains_when_no_dms_eligible_server_exists_and_keeps_the_backend_gate(): void
+    {
+        $url = '/infrastructure/bulk-install';
+        config(['infrastructure.bulk_install_execution_enabled' => false]);
         $response = $this->get($url)->assertOk();
 
         $response->assertSee('<title>Bulk Install - DMS</title>', false)
             ->assertSee('Bulk Install Server')
             ->assertSee('id="pmta_version"', false)
-            ->assertSee('<option value="40" selected>PMTA 4.0</option>', false)
+            ->assertSee('<option value="45" selected>PMTA 4.5</option>', false)
             ->assertSee('PMTA 4.5')->assertSee('PMTA 5.0')
             ->assertSee('id="tracking"', false)->assertSee('id="proxy"', false)
             ->assertSee('id="imap"', false)->assertSee('id="spf"', false)
@@ -423,25 +526,39 @@ class InfrastructurePlanningTest extends TestCase
             ->assertSee('id="https"', false)
             ->assertSee('SERVER NAME')->assertSee('SERVER ID')->assertSee('SERVER IP')
             ->assertSee('SELECTED DOMAIN')->assertSee('APPLY')
-            ->assertSee('This Grid Is Empty')
-            ->assertSee('id="install" disabled', false)
-            ->assertSee('/dms-reference/bulk-install.js')
+            ->assertSee('No active, uninstalled servers are available for bulk installation.')
+            ->assertSee('DMS lists servers marked active and not installed.')
+            ->assertSee(url('/infrastructure/servers/create'), false)
+            ->assertSee(url('/infrastructure/servers'), false)
+            ->assertSee('id="install"', false)
+            ->assertSee('/alphalink/infrastructure/bulk-install.js')
             ->assertSee('/dms-reference/assets/css/theme.css')
+            ->assertDontSee('Set the DMS username used in the server name')
             ->assertDontSee('fingerprint');
 
+        $this->assertStringContainsString('id="install" disabled', $response->getContent());
         $this->assertStringNotContainsString('bulk-install/install', $response->getContent());
+
+        $this->postJson($this->url('/servers'), $this->registration(['159.223.97.39']))
+            ->assertOk()->assertJsonPath('added', 1);
+        $eligibleResponse = $this->get($url)->assertOk()->assertSee('159.223.97.39');
+        $this->assertStringNotContainsString('id="install" disabled', $eligibleResponse->getContent());
+        $this->assertStringNotContainsString('No active, uninstalled servers are available', $eligibleResponse->getContent());
+
+        config(['infrastructure.bulk_install_execution_enabled' => true]);
+        $enabledResponse = $this->get($url)->assertOk();
+        $this->assertStringNotContainsString('id="install" disabled', $enabledResponse->getContent());
     }
 
-    public function test_bulk_install_eligibility_uses_dms_owner_active_install_and_external_domain_filters(): void
+    public function test_admin_bulk_install_eligibility_uses_all_dms_active_uninstalled_servers_and_domains(): void
     {
-        $this->owner->forceFill(['username' => 'mailer'])->save();
         $this->postJson($this->url('/servers'), $this->registration(['159.223.97.39'], ['name' => 'A_MAILER_RELAY']))->assertOk();
         $this->postJson($this->url('/servers'), $this->registration(['159.223.97.40'], ['name' => 'A_MAILER_INACTIVE']))->assertOk();
         $this->postJson($this->url('/servers'), $this->registration(['159.223.97.41'], ['name' => 'OTHER_RELAY']))->assertOk();
 
         $eligibleServer = ManagedServer::query()->where('name', 'A_MAILER_RELAY')->firstOrFail();
+        $otherUninstalledServer = ManagedServer::query()->where('name', 'OTHER_RELAY')->firstOrFail();
         ManagedServer::query()->where('name', 'A_MAILER_INACTIVE')->update(['is_active' => false]);
-        ManagedServer::query()->where('name', 'OTHER_RELAY')->update(['is_installed' => true]);
 
         $activeProvider = DomainProvider::query()->create(['name' => 'Example provider', 'is_active' => true]);
         $inactiveProvider = DomainProvider::query()->create(['name' => 'Inactive provider', 'is_active' => false]);
@@ -467,24 +584,32 @@ class InfrastructurePlanningTest extends TestCase
             'domains_provider_id' => $activeProvider->id, 'status' => 'used', 'is_our' => false, 'is_active' => true,
         ]);
 
-        $eligible = app(DmsBulkInstallEligibility::class)->for($this->owner, $this->workspace);
-        $this->assertSame([$eligibleServer->id], $eligible['servers']->pluck('id')->all());
-        $this->assertEqualsCanonicalizing([$eligibleDomain['id'], $newDomain['id']], $eligible['domains']->pluck('id')->all());
+        $eligible = app(DmsBulkInstallEligibility::class)->for($this->workspace);
+        $this->assertEqualsCanonicalizing(
+            [$eligibleServer->id, $otherUninstalledServer->id],
+            $eligible['servers']->pluck('id')->all(),
+        );
+        $this->assertEqualsCanonicalizing(
+            [$eligibleDomain['id'], $newDomain['id'], $ownedDomain['id']],
+            $eligible['domains']->pluck('id')->all(),
+        );
         $this->assertEqualsCanonicalizing([
-            'bulk.example.org | STATUS: free | IS OUR: No',
-            'new.example.org | STATUS: new | IS OUR: No',
+            'bulk.example.org | STATUS: free | IS OUR: NO | LISTED: SPAMHAUS = NO - HOSTKARMA = NO',
+            'new.example.org | STATUS: new | IS OUR: NO | LISTED: SPAMHAUS = NO - HOSTKARMA = NO',
+            'owned.example.org | STATUS: new | IS OUR: YES | LISTED: SPAMHAUS = NO - HOSTKARMA = NO',
         ], $eligible['domains']->pluck('label')->all());
-        $this->assertFalse($eligible['missing_username']);
 
         $this->get('/app/workspaces/'.$this->workspace->id.'/infrastructure/bulk-install')
             ->assertOk()
             ->assertSee('A_MAILER_RELAY')
+            ->assertSee('OTHER_RELAY')
             ->assertSee((string) $eligibleServer->id)
-            ->assertSee('bulk.example.org | STATUS: free | IS OUR: No')
-            ->assertSee('new.example.org | STATUS: new | IS OUR: No')
+            ->assertSee((string) $otherUninstalledServer->id)
+            ->assertSee('bulk.example.org | STATUS: free | IS OUR: NO | LISTED: SPAMHAUS = NO - HOSTKARMA = NO')
+            ->assertSee('new.example.org | STATUS: new | IS OUR: NO | LISTED: SPAMHAUS = NO - HOSTKARMA = NO')
+            ->assertSee('owned.example.org | STATUS: new | IS OUR: YES | LISTED: SPAMHAUS = NO - HOSTKARMA = NO')
+            ->assertDontSee('This Grid Is Empty')
             ->assertDontSee('A_MAILER_INACTIVE')
-            ->assertDontSee('OTHER_RELAY')
-            ->assertDontSee('owned.example.org')
             ->assertDontSee('inactive.example.org')
             ->assertDontSee('used.example.org');
     }
@@ -660,11 +785,14 @@ class InfrastructurePlanningTest extends TestCase
     public function test_browser_flow_renders_and_does_not_flash_root_password(): void
     {
         $page = '/app/workspaces/'.$this->workspace->id.'/infrastructure';
-        $this->get($page)->assertOk()->assertSee('Server installation')->assertSee('PowerMTA 4.0r8');
-        $createPage = $page.'/servers/create';
+        $serversPage = $page.'/servers';
+        $domainsPage = $page.'/domains';
+        $this->get($page)->assertRedirect(route('console.infrastructure.servers.index', $this->workspace->id));
+        $this->get($serversPage)->assertOk()->assertSee('SERVERS')->assertDontSee('Server installation');
+        $createPage = $serversPage.'/create';
         $this->get($createPage)->assertOk()->assertSee('Select Server Provider')->assertSee('TEST CONNECTION')
             ->assertDontSee('fingerprint');
-        $this->assertStringNotContainsString('fingerprint', strtolower($this->get($page)->getContent()));
+        $this->assertStringNotContainsString('fingerprint', strtolower($this->get($serversPage)->getContent()));
         $invalid = $this->postJson($page.'/servers', [
             'servers_provider_id' => $this->provider->id,
             'name' => 'Relay', 'ips' => ['159.223.97.39'], 'port' => 22,
@@ -676,17 +804,16 @@ class InfrastructurePlanningTest extends TestCase
             ->assertOk()->assertJsonPath('data', 'Added 1, Restored 0');
         $this->assertStringNotContainsString('private-example-password', $created->getContent());
 
-        $this->post($page.'/domains', ['name' => 'example.org'])->assertRedirect($page);
+        $this->post($page.'/domains', ['name' => 'example.org'])
+            ->assertRedirect(route('console.infrastructure.domains.index', $this->workspace->id));
         $domain = SendingDomain::query()->firstOrFail();
-        $this->get($page)->assertOk()
-            ->assertSee('159.223.97.39')
-            ->assertSee($domain->verification_token)
-            ->assertSee('Check DNS record');
+        $this->getJson($domainsPage.'?only_our=0')->assertOk()->assertJsonPath('data.0.dns', 'example.org');
 
         $resolver = Mockery::mock(DomainTxtResolver::class);
         $resolver->shouldReceive('records')->once()->andReturn([$domain->verification_token]);
         $this->app->instance(DomainTxtResolver::class, $resolver);
-        $this->post($page.'/domains/'.$domain->id.'/verify')->assertRedirect($page);
+        $this->post($page.'/domains/'.$domain->id.'/verify')
+            ->assertRedirect(route('console.infrastructure.domains.index', $this->workspace->id));
 
         $response = $this->post($page.'/plans', [
             'server_id' => ManagedServer::query()->firstOrFail()->id,
@@ -694,11 +821,106 @@ class InfrastructurePlanningTest extends TestCase
             'pmta_version' => '5.0',
             'tracking' => '1', 'dkim' => '1',
         ]);
-        $response->assertRedirect();
+        $response->assertRedirect(route('console.infrastructure.servers.index', $this->workspace->id));
         $this->get($response->headers->get('Location'))->assertOk()
-            ->assertSee('Installation blocked')
-            ->assertSee('Tracking + HTTPS')
-            ->assertSee('Install server');
+            ->assertSee('SERVERS')
+            ->assertDontSee('Installation blocked');
+    }
+
+    public function test_server_navigation_matches_all_dms_destinations_as_nested_icon_links(): void
+    {
+        $serversPage = route('console.infrastructure.servers.index', $this->workspace->id);
+
+        $response = $this->get($serversPage)->assertOk()
+            ->assertSee(route('console.infrastructure.server-providers.index', $this->workspace->id), false)
+            ->assertSee(route('console.infrastructure.my-ips', $this->workspace->id), false)
+            ->assertSee(route('console.pmta-admin.history', $this->workspace->id), false)
+            ->assertSee(route('console.infrastructure.install.index', $this->workspace->id), false)
+            ->assertSee(route('console.infrastructure.bulk-install', $this->workspace->id), false)
+            ->assertSee(route('console.infrastructure.change-domain.index', $this->workspace->id), false)
+            ->assertSee(route('console.infrastructure.reinstall.index', $this->workspace->id), false)
+            ->assertSee(route('console.infrastructure.cloud-providers.index', $this->workspace->id), false)
+            ->assertSee('nav-server-item', false)
+            ->assertSee('id="nav-submenu-servers-4"', false)
+            ->assertSee('id="nav-submenu-servers-12"', false)
+            ->assertSee('nav-main-link-submenu active', false)
+            ->assertSee('aria-current="page"', false)
+            ->assertDontSee('id="server-bulk-install-link"', false)
+            ->assertSee('CHANGE DOMAIN')
+            ->assertSee('REINSTALL SERVER')
+            ->assertSee('CLOUD PROVIDERS')
+            ->assertSee('MY SERVERS')
+            ->assertSee('MY IPS')
+            ->assertSee('PMTA SCHEDULER')
+            ->assertDontSee('RECONFIG VMTA');
+
+        self::assertSame(7, substr_count($response->getContent(), 'nav-server-item'));
+        self::assertSame(2, preg_match_all('/<ul class="nav-main-submenu" id="nav-submenu-servers-(?:4|12)">(.*?)<\/ul>/s', $response->getContent(), $serverSubmenuMatches));
+        $serverNavigation = implode("\n", $serverSubmenuMatches[1]);
+        foreach ([
+            route('console.infrastructure.server-providers.index', $this->workspace->id),
+            $serversPage,
+            route('console.infrastructure.my-ips', $this->workspace->id),
+            route('console.pmta-admin.index', $this->workspace->id),
+            route('console.pmta-admin.history', $this->workspace->id),
+            route('console.infrastructure.install.index', $this->workspace->id),
+            route('console.infrastructure.bulk-install', $this->workspace->id),
+            route('console.infrastructure.change-domain.index', $this->workspace->id),
+            route('console.infrastructure.reinstall.index', $this->workspace->id),
+            route('console.infrastructure.cloud-providers.index', $this->workspace->id),
+        ] as $destination) {
+            self::assertStringContainsString($destination, $serverNavigation);
+        }
+
+        $response->assertSee('page-header-fixed sidebar-mini', false);
+        $response->assertSeeInOrder([
+            'SERVERS PROVIDERS',
+            'INSTALL',
+            'BULK INSTALL',
+            'CHANGE DOMAIN',
+            'REINSTALL SERVER',
+            'CLOUD PROVIDERS',
+            'MY SERVERS',
+            'MY IPS',
+            'PMTA',
+            'PMTA ACTION HISTORY',
+        ]);
+
+        foreach ([
+            'fas fa-tasks',
+            'fas fa-server',
+            'fas fa-hammer',
+            'fas fa-tools',
+            'fas fa-eye',
+            'fas fa-exchange-alt',
+            'fas fa-redo',
+            'fas fa-cloud-sun',
+        ] as $iconClass) {
+            $response->assertSee('class="nav-main-link-icon '.$iconClass.'"', false);
+        }
+
+        foreach ([
+            route('console.infrastructure.server-providers.index', $this->workspace->id),
+            $serversPage,
+            route('console.infrastructure.install.index', $this->workspace->id),
+            route('console.infrastructure.bulk-install', $this->workspace->id),
+            route('console.infrastructure.change-domain.index', $this->workspace->id),
+            route('console.infrastructure.reinstall.index', $this->workspace->id),
+            route('console.infrastructure.cloud-providers.index', $this->workspace->id),
+        ] as $destination) {
+            $this->get($destination)->assertOk()
+                ->assertSee('nav-main-item nav-server-item', false)
+                ->assertSee('id="nav-submenu-servers-4"', false)
+                ->assertSee('aria-current="page"', false);
+        }
+
+        $this->get(route('console.pmta-admin.history', $this->workspace->id))->assertOk()
+            ->assertSee('id="nav-submenu-servers-12"', false)
+            ->assertSee('PMTA ACTION HISTORY')
+            ->assertSee('aria-current="page"', false);
+
+        $this->get(route('console.infrastructure.install-settings.edit', $this->workspace->id))
+            ->assertRedirect(route('console.app-settings.index', $this->workspace->id).'#settings');
     }
 
     private function url(string $suffix): string

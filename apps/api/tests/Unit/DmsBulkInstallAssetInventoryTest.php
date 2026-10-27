@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Services\Infrastructure\AlphaLinkInstallerAssetCatalog;
 use App\Services\Infrastructure\DmsBulkInstallAssetInventory;
 use App\Services\Infrastructure\DmsBulkInstallInstallerMatrix;
 use App\Services\Infrastructure\DmsInstallPlatform;
@@ -79,7 +80,7 @@ class DmsBulkInstallAssetInventoryTest extends TestCase
     {
         $matrix = new DmsBulkInstallInstallerMatrix(new DmsInstallPlatform);
         $this->writeAsset('install/pmta_40/pmta.rpm');
-        symlink('/etc/passwd', $this->root.'/install/pmta_40/pmtahttp_patch');
+        symlink('/etc/passwd', $this->root.'/pmta/4.0/httpd-patch');
 
         $inventory = (new DmsBulkInstallAssetInventory($matrix))->inspect('CentOS Linux 7', 40, $this->options(), $this->root);
         $this->assertSame('unsafe_symlink', $inventory['pmta']['assets']['install/pmta_40/pmtahttp_patch']);
@@ -96,7 +97,8 @@ class DmsBulkInstallAssetInventoryTest extends TestCase
 
     private function writeAsset(string $relativePath): void
     {
-        $path = $this->root.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+        $physicalPath = (new AlphaLinkInstallerAssetCatalog)->pathFor($relativePath);
+        $path = $this->root.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $physicalPath);
         $directory = dirname($path);
         if (! is_dir($directory)) {
             mkdir($directory, 0700, true);

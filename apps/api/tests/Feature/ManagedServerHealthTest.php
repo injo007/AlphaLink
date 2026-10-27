@@ -34,7 +34,7 @@ class ManagedServerHealthTest extends TestCase
             ->with('203.0.113.10', [2222, 80, 1212], 7)
             ->andReturn([2222 => true, 80 => false, 1212 => true]);
         $countryResolver = Mockery::mock(ServerCountryResolver::class);
-        $countryResolver->shouldReceive('countryCode')->once()->with('203.0.113.10')->andReturn('BF');
+        $countryResolver->shouldReceive('countryCode')->once()->with('203.0.113.10', null)->andReturn('BF');
         $this->app->instance(TcpPortProbe::class, $probe);
         $this->app->instance(ServerCountryResolver::class, $countryResolver);
 
@@ -54,6 +54,30 @@ class ManagedServerHealthTest extends TestCase
             ->assertJsonPath('data.0.country', 'BF');
     }
 
+    public function test_health_collector_uses_the_workspace_pmta_port_saved_in_install_settings(): void
+    {
+        $server = $this->server('203.0.113.35');
+        $server->workspace->infrastructureSettings()->create([
+            'pmta_port' => 2526,
+            'pmta_admin_port' => 2527,
+        ]);
+        config([
+            'infrastructure.pmta_port' => 1212,
+            'infrastructure.probe_timeout_seconds' => 5,
+            'infrastructure.maxmind_city_database' => storage_path('app/maxmind/missing-fixture.mmdb'),
+        ]);
+
+        $probe = Mockery::mock(TcpPortProbe::class);
+        $probe->shouldReceive('checkMany')->once()
+            ->with('203.0.113.35', [22, 80, 2526], 5)
+            ->andReturn([22 => true, 80 => true, 2526 => false]);
+        $this->app->instance(TcpPortProbe::class, $probe);
+
+        $this->artisan('servers:collect-health')->assertSuccessful();
+
+        $this->assertTrue(ManagedServerHistory::query()->sole()->is_pmta_down);
+    }
+
     public function test_country_lookup_caches_successful_ip_api_results_until_the_end_of_the_day(): void
     {
         Cache::flush();
@@ -71,6 +95,57 @@ class ManagedServerHealthTest extends TestCase
         $this->assertSame('BF', $resolver->countryCode('203.0.113.30'));
         Http::assertSentCount(1);
         Http::assertSent(fn (Request $request): bool => $request->url() === 'https://pro.ip-api.com/json/203.0.113.30?key=fixture-ip-api-key&fields=197914623');
+    }
+
+    public function test_health_collector_prefers_the_workspace_ip_api_setting_over_the_environment_fallback(): void
+    {
+        Cache::flush();
+        $server = $this->server('203.0.113.33');
+        $server->workspace->appSettings()->create([
+            'settings' => ['ip_api_key' => 'workspace-ip-api-key'],
+        ]);
+        config([
+            'infrastructure.ip_api_key' => 'environment-ip-api-key',
+            'infrastructure.pmta_port' => 1212,
+            'infrastructure.maxmind_city_database' => storage_path('app/maxmind/missing-fixture.mmdb'),
+        ]);
+        Http::fake([
+            'https://pro.ip-api.com/json/203.0.113.33*' => Http::response([
+                'status' => 'success',
+                'countryCode' => 'BF',
+            ]),
+        ]);
+        $probe = Mockery::mock(TcpPortProbe::class);
+        $probe->shouldReceive('checkMany')->once()->andReturn([22 => true, 80 => true, 1212 => true]);
+        $this->app->instance(TcpPortProbe::class, $probe);
+
+        $this->artisan('servers:collect-health')->assertSuccessful();
+
+        Http::assertSent(fn (Request $request): bool => $request->url() === 'https://pro.ip-api.com/json/203.0.113.33?key=workspace-ip-api-key&fields=197914623');
+        Http::assertNotSent(fn (Request $request): bool => str_contains($request->url(), 'environment-ip-api-key'));
+        $this->assertSame('BF', $server->fresh()->country);
+    }
+
+    public function test_explicitly_cleared_workspace_ip_api_key_does_not_fall_back_to_environment_secret(): void
+    {
+        $server = $this->server('203.0.113.34');
+        $server->workspace->appSettings()->create([
+            'settings' => ['ip_api_key' => ''],
+        ]);
+        config([
+            'infrastructure.ip_api_key' => 'environment-ip-api-key',
+            'infrastructure.pmta_port' => 1212,
+            'infrastructure.maxmind_city_database' => storage_path('app/maxmind/missing-fixture.mmdb'),
+        ]);
+        Http::fake();
+        $probe = Mockery::mock(TcpPortProbe::class);
+        $probe->shouldReceive('checkMany')->once()->andReturn([22 => true, 80 => true, 1212 => true]);
+        $this->app->instance(TcpPortProbe::class, $probe);
+
+        $this->artisan('servers:collect-health')->assertSuccessful();
+
+        Http::assertNothingSent();
+        $this->assertNull($server->fresh()->country);
     }
 
     public function test_country_lookup_without_an_api_key_does_not_contact_the_provider(): void

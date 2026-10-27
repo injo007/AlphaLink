@@ -9,7 +9,12 @@ class Campaign extends Model
 {
     use HasUuids;
 
-    protected $fillable = ['workspace_id', 'created_by', 'name', 'kind', 'status', 'idempotency_key'];
+    protected $fillable = ['workspace_id', 'created_by', 'name', 'kind', 'status', 'is_active', 'idempotency_key', 'send_progress'];
+
+    protected function casts(): array
+    {
+        return ['is_active' => 'boolean', 'send_progress' => 'integer'];
+    }
 
     public function workspace()
     {

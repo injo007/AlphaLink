@@ -73,9 +73,43 @@ class DmsBulkInstallDnsRecordPlannerTest extends TestCase
         ], $records);
     }
 
-    public function test_it_falls_back_to_the_private_address_when_the_mapping_is_invalid(): void
+    public function test_it_always_creates_selected_ip_a_and_aaaa_records_when_tracking_is_disabled(): void
     {
-        $records = (new DmsBulkInstallDnsRecordPlanner)->records(true, [[
+        $records = (new DmsBulkInstallDnsRecordPlanner)->records(true, [
+            [
+                'main' => true,
+                'ip' => '8.8.8.8',
+                'type' => 'ipv4',
+                'sub' => '',
+                'domain' => 'example.test',
+            ],
+            [
+                'main' => false,
+                'ip' => '2001:4860:4860::8888',
+                'type' => 'ipv6',
+                'sub' => 'relay',
+                'domain' => 'example.test',
+            ],
+        ], [
+            'tracking' => false,
+            'imap' => false,
+            'spf' => false,
+            'dkim' => false,
+            'dmarc' => false,
+        ]);
+
+        $this->assertSame([
+            ['host' => '@', 'address' => '8.8.8.8', 'type' => 'A', 'ttl' => '60'],
+            ['host' => 'relay', 'address' => '2001:4860:4860::8888', 'type' => 'AAAA', 'ttl' => '60'],
+        ], $records);
+    }
+
+    public function test_it_rejects_a_private_address_when_the_mapping_is_invalid(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('A selected interface has no verified public IP for DNS records.');
+
+        (new DmsBulkInstallDnsRecordPlanner)->records(true, [[
             'main' => false,
             'ip' => '10.0.0.4',
             'type' => 'ipv4',
@@ -89,28 +123,30 @@ class DmsBulkInstallDnsRecordPlannerTest extends TestCase
             'dmarc' => false,
         ], publicIpMappings: ['10.0.0.4' => 'not-an-ip']);
 
-        $this->assertSame([
-            ['host' => '@', 'address' => 'v=spf1 ip4:10.0.0.4 -all', 'type' => 'TXT', 'ttl' => '60'],
-            ['host' => '*', 'address' => 'v=spf1 ip4:10.0.0.4 -all', 'type' => 'TXT', 'ttl' => '60'],
-        ], $records);
     }
 
-    public function test_it_never_plans_dns_changes_for_a_domain_not_owned_by_dms(): void
+    public function test_external_domain_records_target_the_selected_subdomain(): void
     {
         $records = (new DmsBulkInstallDnsRecordPlanner)->records(false, [[
             'main' => true,
             'ip' => '8.8.8.8',
             'type' => 'ipv4',
-            'sub' => '',
+            'sub' => 'relay',
             'domain' => 'example.test',
         ]], [
             'tracking' => true,
-            'imap' => true,
+            'imap' => false,
             'spf' => true,
             'dkim' => true,
-            'dmarc' => true,
+            'dmarc' => false,
         ], 's1', 'public-key');
 
-        $this->assertSame([], $records);
+        $this->assertSame([
+            ['host' => 'relay', 'address' => '8.8.8.8', 'type' => 'A', 'ttl' => '60'],
+            ['host' => 'www', 'address' => '8.8.8.8', 'type' => 'A', 'ttl' => '60'],
+            ['host' => '*', 'address' => '8.8.8.8', 'type' => 'A', 'ttl' => '60'],
+            ['host' => 's1._domainkey.relay', 'address' => 'public-key', 'type' => 'TXT', 'ttl' => '60'],
+            ['host' => 'relay', 'address' => 'v=spf1 ip4:8.8.8.8 -all', 'type' => 'TXT', 'ttl' => '60'],
+        ], $records);
     }
 }

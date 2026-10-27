@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use LogicException;
 
 class AuditEvent extends Model
@@ -20,6 +21,16 @@ class AuditEvent extends Model
     protected function casts(): array
     {
         return ['properties' => 'array', 'occurred_at' => 'immutable_datetime'];
+    }
+
+    public function managedServer(): BelongsTo
+    {
+        return $this->belongsTo(ManagedServer::class, 'subject_id');
+    }
+
+    public function actor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'actor_user_id');
     }
 
     protected static function booted(): void

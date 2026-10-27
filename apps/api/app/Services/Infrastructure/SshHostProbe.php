@@ -30,7 +30,11 @@ class SshHostProbe
             $architecture = trim($this->run($ssh, 'uname -m'));
             $disk = trim($this->run($ssh, 'df -Pk /'));
             $packageManager = trim($this->run($ssh, 'command -v dnf || command -v yum || command -v apt-get || true'));
-            $pmta = trim($this->run($ssh, 'command -v pmta || true'));
+            $pmta = trim($this->run($ssh, 'if command -v pmta >/dev/null 2>&1 || command -v pmtad >/dev/null 2>&1 || rpm -q PowerMTA >/dev/null 2>&1; then printf present; fi'));
+            $pmtaIdentity = $pmta === 'present' ? $this->reviewedPmtaIdentity($ssh) : null;
+            $pmtaQueue = $pmta === 'present'
+                ? trim($this->run($ssh, 'if test -d /var/spool/pmta && find /var/spool/pmta -type f -size +0c -print -quit | grep -q .; then printf nonempty; fi'))
+                : '';
 
             $facts = [
                 'os_id' => $this->osValue($os, 'ID'),
@@ -39,7 +43,9 @@ class SshHostProbe
                 'architecture' => substr($architecture, 0, 48),
                 'package_manager' => $packageManager !== '' ? basename(explode("\n", $packageManager)[0]) : null,
                 'disk_available_kb' => $this->availableDisk($disk),
-                'pmta_binary_present' => $pmta !== '',
+                'pmta_binary_present' => $pmta === 'present',
+                'pmta_reviewed_identity' => $pmtaIdentity,
+                'pmta_queue_nonempty' => $pmtaQueue === 'nonempty',
             ];
             if (! $facts['os_id'] || ! $facts['os_version'] || ! $facts['architecture']) {
                 throw new HostProbeException('The host did not return complete OS and architecture facts.');
@@ -146,7 +152,7 @@ class SshHostProbe
         return $ssh;
     }
 
-    private function isPublicAddress(string $ip): bool
+    public function isPublicAddress(string $ip): bool
     {
         if (! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
             return false;
@@ -212,20 +218,33 @@ class SshHostProbe
         return $output;
     }
 
+    private function reviewedPmtaIdentity(SSH2 $ssh): ?string
+    {
+        $rpm = trim($this->run($ssh, "rpm -q PowerMTA --qf '%{VERSION}-%{RELEASE} %{ARCH}' 2>/dev/null || true"));
+        $patchPath = str_starts_with($rpm, '4.0r') ? '/usr/sbin/pmtahttpd' : '/usr/sbin/pmtad';
+        $patch = trim($this->run($ssh, 'sha256sum '.escapeshellarg($patchPath)." 2>/dev/null | cut -d' ' -f1"));
+        $license = trim($this->run($ssh, "sha256sum /etc/pmta/license 2>/dev/null | cut -d' ' -f1"));
+        $reviewed = DmsReviewedAssetDigestVerifier::REVIEWED_DIGESTS;
+        $versions = [
+            '4.0' => ['rpm' => '4.0r6-201204021809 x86_64', 'patch' => 'httpd-patch'],
+            '4.5' => ['rpm' => '4.5r11-201709182152 x86_64', 'patch' => 'pmtad-patch'],
+            '5.0' => ['rpm' => '5.0r3-202002061943 x86_64', 'patch' => 'pmtad-patch'],
+        ];
+
+        foreach ($versions as $version => $expected) {
+            if ($rpm === $expected['rpm']
+                && hash_equals($reviewed["pmta/{$version}/{$expected['patch']}"]['sha256'], $patch)
+                && hash_equals($reviewed["pmta/{$version}/license.lic"]['sha256'], $license)) {
+                return $version;
+            }
+        }
+
+        return null;
+    }
+
     private function readFingerprint(SSH2 $ssh): string
     {
-        $publicKey = $ssh->getServerPublicHostKey();
-        if (! is_string($publicKey)) {
-            throw new HostProbeException('The server host key signature could not be verified.');
-        }
-
-        $parts = preg_split('/\s+/', trim($publicKey), 3);
-        $keyBlob = isset($parts[1]) ? base64_decode($parts[1], true) : false;
-        if (! is_string($keyBlob) || $keyBlob === '') {
-            throw new HostProbeException('The server host key could not be validated.');
-        }
-
-        return 'SHA256:'.rtrim(base64_encode(hash('sha256', $keyBlob, true)), '=');
+        return (new SshHostKeyFingerprint)->fromPublicKey($ssh->getServerPublicHostKey());
     }
 
     private function osValue(string $text, string $key): ?string

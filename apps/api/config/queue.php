@@ -73,6 +73,15 @@ return [
             'after_commit' => false,
         ],
 
+        'drop_suppression' => [
+            'driver' => 'database',
+            'connection' => env('DB_QUEUE_CONNECTION'),
+            'table' => env('DB_QUEUE_TABLE', 'jobs'),
+            'queue' => 'drop-suppression',
+            'retry_after' => 86400,
+            'after_commit' => true,
+        ],
+
         'deferred' => [
             'driver' => 'deferred',
         ],

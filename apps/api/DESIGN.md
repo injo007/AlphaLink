@@ -100,7 +100,7 @@ Use the system sans stack for controls, labels, and explanatory copy; the serif 
 
 ## Layout
 
-The desktop shell pairs a persistent 250px navigation rail with a flexible work area, a slim context bar, and a content width capped near 98.75rem. Use a 3-column summary row and two-column information panels when room permits. At tablet widths, the sidebar becomes a top navigation row; at phone widths, metrics stack and tables keep their relationships in a horizontal scroll region. Controls and text wrap before truncating. Keep sticky UI away from focused content and respect reduced-motion preferences.
+The desktop shell pairs a collapsible 250px navigation rail with a flexible work area, a slim context bar, and a content width capped near 98.75rem. The navigation width control switches between full and DMS mini states while preserving the active route group. Use a 3-column summary row and two-column information panels when room permits. At tablet widths, the sidebar becomes a top navigation row; at phone widths, metrics stack and tables keep their relationships in a horizontal scroll region. Controls and text wrap before truncating. Keep sticky UI away from focused content and respect reduced-motion preferences.
 
 Spacing is set by content role rather than a universal grid: 1.1875rem is the section gap, 1.125rem the common panel inset, and 2.8125rem the sign-in input height.
 
@@ -120,7 +120,7 @@ Links and buttons have visible focus, hover, and pressed states. Disabled and bu
 
 ### Buttons and actions
 
-Sign-in and infrastructure preparation forms use a filled primary button. Sign-out is a quiet text action. Record links are text-first with an adjacent arrow link where useful. Campaign and audience views have no launch, send, export, create, edit, or delete controls.
+Sign-in and infrastructure preparation forms use a filled primary button. Sign-out is a quiet text action. Record links are text-first with an adjacent arrow link where useful. Campaigns use the DMS-shaped register and draft/revision forms; draft save, saved-header management and private negative-file management are available. Launch, send, schedule, export and audience contact-address display remain unavailable until source-equivalent workflow and privacy behavior are proven.
 
 ### Navigation and data display
 
@@ -128,7 +128,7 @@ Persistent workspace navigation becomes a labeled horizontal row on narrow scree
 
 ### Forms and overlays
 
-The sign-in form uses native email/password/checkbox controls, visible labels, password-manager autocomplete, paste, server-owned validation, and an inline live error. Server installation preparation uses labeled native fields and selects, inline validation, and an immutable preview. Package and host checks appear as explicit blockers. No dialogs, toasts, or overlay flows exist in this slice.
+The sign-in page follows DMS's white, centered login layout with an envelope mark, Username and Password fields, Remember Me, and a full-width LOGIN action. Inputs keep screen-reader labels, password-manager autocomplete, paste, server-owned validation, and an inline live error. AlphaLink accepts an email identifier as a compatibility path for existing accounts. Server installation preparation uses labeled native fields and selects, inline validation, and an immutable preview. Package and host checks appear as explicit blockers. The DMS-shaped campaign composer has a floating action menu, a right-click context menu, a dismissible backdrop, and an inline live status for safe action blockers.
 
 ### Iconography
 
@@ -140,7 +140,7 @@ Transitions are brief and state-oriented. The interface honors `prefers-reduced-
 
 ### Content and data visualization
 
-Use direct operational language. Say “active members,” “campaign records,” and “content revisions.” Never label an attempt as delivery, a revision as approval, or a campaign count as a send count. No chart is implemented because the current foundation has no delivery or engagement events.
+Use direct operational language. Say “active members,” “campaign records,” and “content revisions.” Never label an attempt as delivery, a revision as approval, or a campaign count as a send count. The ISP List History page may chart saved membership-state snapshots; these are not delivery or engagement totals. Dashboard charts may combine persisted, scope-labeled campaign open/click/unsubscribe/bot events and Drop visitor events. All Stats, Mailer Revenue and Campaign Statistics provide DMS-style pivots for saved dimensions and supported engagement/lead inputs. Campaign Statistics uses actual lead rows; DMS instead labels each positive-earnings daily row as one conversion. Mailer Revenue and Campaign Statistics expose attributed-lead revenue as a partial earnings measure. CTOR uses clicks / opens; EPC uses attributed lead revenue / clicks and is only a partial proxy for DMS earnings. Campaign leads still depend on DMS SponsorLead attribution; delivery/bounce/seed data, remaining DMS earnings/rates, sender token wiring, and exact MTD/YTD behavior remain open.
 
 ## Do's and Don'ts
 

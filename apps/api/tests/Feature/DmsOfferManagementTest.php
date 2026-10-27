@@ -1,0 +1,447 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Jobs\DownloadWorkspaceOfferSuppressionFile;
+use App\Models\User;
+use App\Models\Workspace;
+use App\Models\WorkspaceOffer;
+use App\Models\WorkspaceOfferSuppressionDownload;
+use App\Models\WorkspaceSponsor;
+use App\Services\AffiliateNetworks\DmsAffiliateProviderHttp;
+use App\Services\AffiliateNetworks\DmsAffiliateSuppressionRefresher;
+use App\Services\Campaigns\DmsOfferSuppressionFile;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Routing\Middleware\ThrottleRequests;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Tests\TestCase;
+
+class DmsOfferManagementTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private User $owner;
+
+    private Workspace $workspace;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Storage::fake('local');
+
+        $this->owner = User::factory()->create();
+        $this->workspace = Workspace::query()->create([
+            'name' => 'DMS offer management',
+            'slug' => 'offer-test-'.Str::lower(Str::random(8)),
+            'created_by' => $this->owner->getKey(),
+        ]);
+        $this->workspace->users()->attach($this->owner->getKey(), ['role' => 'owner']);
+        $this->actingAs($this->owner);
+        $this->withoutMiddleware(ThrottleRequests::class);
+    }
+
+    public function test_manual_create_matches_dms_fields_inherits_sponsor_access_and_saves_from_and_subject_assets(): void
+    {
+        $operator = User::factory()->create();
+        $this->workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
+        $sponsor = $this->createSponsor('Example Network', ['allowed_users' => [(int) $operator->getKey()]]);
+
+        $this->postJson(route('console.offers.store', $this->workspace->getKey()), $this->offerPayload($sponsor))
+            ->assertOk()->assertExactJson(['data' => 'Saved successfully']);
+
+        $offer = $this->workspace->offers()->with('assets')->sole();
+        $this->assertSame('external-42', $offer->offer_id);
+        $this->assertSame('cpa', $offer->type);
+        $this->assertSame('insurance', $offer->vertical);
+        $this->assertSame(['US', 'CA'], $offer->geo_target);
+        $this->assertSame(WorkspaceOffer::ALLOWED_DAYS, $offer->allowed_days);
+        $this->assertSame([(int) $operator->getKey()], $offer->allowed_users);
+        $this->assertSame('live', $offer->status);
+        $this->assertFalse($offer->is_active);
+        $this->assertSame(['from', 'from', 'subject'], $offer->assets->pluck('type')->sort()->values()->all());
+        $this->assertSame(['hello@example.test', 'offers@example.test'], $offer->fromAssets()->pluck('value')->sort()->values()->all());
+        $this->assertSame(['A clear offer'], $offer->subjectAssets()->pluck('value')->all());
+        $this->assertDatabaseHas('audit_events', ['action' => 'offer.created', 'subject_id' => (string) $offer->getKey()]);
+    }
+
+    public function test_a_new_offer_can_receive_its_suppression_file_from_the_dedicated_drops_page(): void
+    {
+        $sponsor = $this->createSponsor('Suppression After Create');
+        $this->postJson(route('console.offers.store', $this->workspace->getKey()), $this->offerPayload($sponsor))
+            ->assertOk();
+        $offer = $this->workspace->offers()->sole();
+        $this->assertNull($offer->suppression_path);
+        $this->assertFalse($offer->is_active);
+
+        $response = $this->post(route('console.drops.suppression.offer-file', $this->workspace->getKey()), [
+            'sponsor_id' => $sponsor->getKey(),
+            'offer_id' => $offer->getKey(),
+            'suppression_file' => UploadedFile::fake()->createWithContent('offer-suppression.txt', "blocked@example.test\n"),
+        ], ['Accept' => 'application/json'])->assertOk()
+            ->assertJsonPath('data.message', 'Suppression file uploaded and verified.')
+            ->assertJsonPath('data.offer_id', $offer->getKey());
+
+        $offer->refresh();
+        $this->assertSame('email', $offer->suppression_format);
+        $this->assertTrue(app(DmsOfferSuppressionFile::class)->isEligible($offer));
+        Storage::disk('local')->assertExists($offer->suppression_path);
+        $this->assertStringNotContainsString($offer->suppression_path, $response->getContent());
+    }
+
+    public function test_offer_download_action_queues_one_private_sponsor_fetch_and_exposes_scoped_progress(): void
+    {
+        Queue::fake();
+        $sponsor = $this->createSponsor('Sponsor suppression download');
+        $offer = $this->createOffer($sponsor, ['offer_id' => '71234']);
+        $startUrl = route('console.offers.suppression-file.download', [$this->workspace->getKey(), $offer->getKey()]);
+
+        $started = $this->postJson($startUrl)->assertAccepted()
+            ->assertJsonPath('download.status', 'queued')
+            ->assertJsonMissing(['api_key' => $sponsor->api_key]);
+        $downloadId = $started->json('download.id');
+        Queue::assertPushedOn('drop-suppression', DownloadWorkspaceOfferSuppressionFile::class, fn ($job): bool => $job->downloadId === $downloadId);
+
+        $this->postJson($startUrl)->assertAccepted()->assertJsonPath('download.id', $downloadId);
+        $this->assertSame(1, WorkspaceOfferSuppressionDownload::query()->count());
+
+        $this->getJson(route('console.offers.suppression-file.download-status', [
+            $this->workspace->getKey(),
+            $offer->getKey(),
+            $downloadId,
+        ]))->assertOk()
+            ->assertJsonPath('download.status', 'queued')
+            ->assertJsonPath('download.percent', null)
+            ->assertJsonPath('download.manage_url', route('clean.console.drops.suppression', [
+                'sponsor_id' => $sponsor->getKey(),
+                'offer_id' => $offer->getKey(),
+            ]));
+
+        $operator = User::factory()->create();
+        $this->workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
+        $this->actingAs($operator)->getJson(route('console.offers.suppression-file.download-status', [
+            $this->workspace->getKey(),
+            $offer->getKey(),
+            $downloadId,
+        ]))->assertForbidden();
+    }
+
+    public function test_download_job_saves_a_valid_synthetic_provider_file_and_final_progress(): void
+    {
+        $this->app->instance(
+            DmsAffiliateProviderHttp::class,
+            new DmsAffiliateProviderHttp(static fn (string $host): array => ['1.1.1.1']),
+        );
+        $sponsor = $this->createSponsor('Synthetic Everflow suppression');
+        $offer = $this->createOffer($sponsor, ['offer_id' => '71234']);
+        $download = WorkspaceOfferSuppressionDownload::query()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'offer_id' => $offer->getKey(),
+            'requested_by' => $this->owner->getKey(),
+            'status' => 'queued',
+        ]);
+        Http::fake([
+            'https://api.eflow.team/v1/affiliates/offers/*' => Http::response([
+                'relationship' => ['email_optout' => ['suppression_file_link' => 'https://files.example.test/suppression.txt']],
+            ]),
+            'https://files.example.test/suppression.txt' => Http::response("blocked@example.test\n", 200),
+        ]);
+
+        (new DownloadWorkspaceOfferSuppressionFile($download->getKey()))->handle(app(DmsAffiliateSuppressionRefresher::class));
+
+        $download->refresh();
+        $offer->refresh();
+        $this->assertSame('completed', $download->status, (string) $download->failure_message);
+        $this->assertGreaterThan(0, $download->downloaded_bytes);
+        $this->assertSame($download->downloaded_bytes, $download->total_bytes);
+        $this->assertSame(1, $download->entry_count);
+        $this->assertSame('email', $download->format);
+        $this->assertSame(hash('sha256', "blocked@example.test\n"), $download->sha256);
+        $this->assertSame($download->sha256, $offer->suppression_sha256);
+        $this->assertTrue(app(DmsOfferSuppressionFile::class)->isEligible($offer));
+        $this->assertSame("blocked@example.test\n", Storage::disk('local')->get($offer->suppression_path));
+        Http::assertSentCount(2);
+    }
+
+    public function test_offer_id_is_unique_per_sponsor_even_when_previous_offer_is_soft_deleted(): void
+    {
+        $sponsor = $this->createSponsor('Unique ID Network');
+        $offer = $this->createOffer($sponsor, ['offer_id' => 'same-id']);
+        $offer->delete();
+
+        $payload = $this->offerPayload($sponsor);
+        $payload['offer_id'] = 'same-id';
+        $this->postJson(route('console.offers.store', $this->workspace->getKey()), $payload)
+            ->assertUnprocessable()->assertJsonValidationErrors('offer_id');
+    }
+
+    public function test_manual_offer_validation_rejects_missing_dms_required_fields(): void
+    {
+        $sponsor = $this->createSponsor('Validation Network');
+        $this->postJson(route('console.offers.store', $this->workspace->getKey()), [
+            'sponsor_id' => $sponsor->getKey(),
+            'name' => 'Incomplete offer',
+        ])->assertUnprocessable()->assertJsonValidationErrors(['offer_id', 'type', 'vertical', 'payout', 'geo_target', 'allowed_days', 'redirect', 'from', 'subjects']);
+    }
+
+    public function test_offer_edits_keep_asset_rows_and_do_not_silently_replace_access(): void
+    {
+        $operator = User::factory()->create();
+        $this->workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
+        $sponsor = $this->createSponsor('Edit Network', ['allowed_users' => [(int) $operator->getKey()]]);
+        $offer = $this->createOffer($sponsor, ['allowed_users' => []]);
+        $offer->assets()->create(['workspace_id' => $this->workspace->getKey(), 'type' => 'from', 'value' => 'keep@example.test']);
+
+        $payload = $this->offerPayload($sponsor);
+        $payload['name'] = 'Edited offer';
+        unset($payload['from'], $payload['subjects']);
+        $this->putJson(route('console.offers.update', [$this->workspace->getKey(), $offer->getKey()]), $payload)
+            ->assertOk()->assertExactJson(['data' => 'Offer Updated']);
+
+        $this->assertSame('Edited offer', $offer->fresh()->name);
+        $this->assertSame([], $offer->fresh()->allowed_users);
+        $this->assertDatabaseHas('workspace_offer_assets', ['offer_id' => $offer->getKey(), 'value' => 'keep@example.test']);
+    }
+
+    public function test_offer_activation_fails_until_suppression_is_fresh_and_other_dms_requirements_hold(): void
+    {
+        $offer = $this->createOffer($this->createSponsor('Activation Network'));
+        $url = route('console.offers.active', [$this->workspace->getKey(), $offer->getKey()]);
+
+        $this->patchJson($url, ['status' => true])->assertStatus(400)->assertJsonPath('data', 'Something is empty, all fields must be filled (redirect, status, sup file ...)');
+        $this->assertFalse($offer->fresh()->is_active);
+
+        $this->attachSuppressionFile($offer, "blocked@example.test\n");
+        $this->patchJson($url, ['status' => true])->assertOk()->assertExactJson(['data' => 'Changed successfully']);
+        $this->assertTrue($offer->fresh()->is_active);
+
+        $offer->forceFill(['suppression_updated_at' => now()->subDays(8)->toDateString()])->save();
+        $this->patchJson($url, ['status' => true])->assertStatus(400);
+    }
+
+    public function test_single_sponsor_user_assignment_cascades_to_offers_but_bulk_assignment_does_not(): void
+    {
+        $firstOperator = User::factory()->create();
+        $secondOperator = User::factory()->create();
+        $this->workspace->users()->attach($firstOperator->getKey(), ['role' => 'operator']);
+        $this->workspace->users()->attach($secondOperator->getKey(), ['role' => 'operator']);
+        $first = $this->createSponsor('Cascade Sponsor');
+        $second = $this->createSponsor('Bulk Sponsor');
+        $firstOffer = $this->createOffer($first);
+        $secondOffer = $this->createOffer($second);
+
+        $this->putJson(route('console.sponsors.users.update', [$this->workspace->getKey(), $first->getKey()]), [
+            'users' => [$firstOperator->getKey()],
+        ])->assertOk();
+        $this->assertSame([(int) $firstOperator->getKey()], $firstOffer->fresh()->allowed_users);
+
+        $this->putJson(route('console.sponsors.bulk-users.update', $this->workspace->getKey()), [
+            'sponsors' => [$second->getKey()],
+            'users' => [$secondOperator->getKey()],
+        ])->assertOk();
+        $this->assertSame([(int) $secondOperator->getKey()], $second->fresh()->allowed_users);
+        $this->assertSame([], $secondOffer->fresh()->allowed_users);
+    }
+
+    public function test_operator_offers_require_both_sponsor_and_offer_access_and_never_return_internal_assignment_ids(): void
+    {
+        $operator = User::factory()->create();
+        $this->workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
+        $sponsor = $this->createSponsor('Assigned Network', ['allowed_users' => [(int) $operator->getKey()]]);
+        $visible = $this->createOffer($sponsor, [
+            'allowed_users' => [(int) $operator->getKey()],
+            'is_active' => true,
+            'suppression_path' => 'test/suppression.csv',
+            'suppression_updated_at' => now()->toDateString(),
+        ]);
+        $this->attachSuppressionFile($visible, "blocked@example.test\n");
+        $this->createOffer($sponsor, ['offer_id' => 'offer-else', 'is_active' => true, 'allowed_users' => []]);
+        $inactiveSponsor = $this->createSponsor('Inactive Network', ['is_active' => false, 'allowed_users' => [(int) $operator->getKey()]]);
+        $this->createOffer($inactiveSponsor, ['offer_id' => 'inactive-sponsor-offer', 'is_active' => true, 'allowed_users' => [(int) $operator->getKey()]]);
+        $url = route('console.networks.offers.index', $this->workspace->getKey());
+
+        $response = $this->actingAs($operator)->getJson($url)->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $visible->getKey())
+            ->assertJsonMissingPath('data.0.allowed_users')
+            ->assertJsonMissing(['name' => 'Inactive Network']);
+        $this->assertSame([(int) $operator->getKey()], $visible->fresh()->allowed_users);
+        $response->assertJsonMissing(['name' => 'offer-else']);
+    }
+
+    public function test_delete_clears_suppression_and_restore_is_workspace_scoped(): void
+    {
+        $offer = $this->createOffer($this->createSponsor('Delete Network'), [
+            'suppression_path' => 'test/suppression.csv',
+            'suppression_updated_at' => now()->toDateString(),
+        ]);
+        $url = route('console.offers.destroy', [$this->workspace->getKey(), $offer->getKey()]);
+        $this->deleteJson($url)->assertOk()->assertExactJson(['data' => 'Offer deleted']);
+        $this->assertSoftDeleted('workspace_offers', ['id' => $offer->getKey()]);
+        $this->assertNull($offer->fresh()->suppression_path);
+        $this->assertNull($offer->fresh()->suppression_sha256);
+        $this->assertNull($offer->fresh()->suppression_format);
+        $this->assertNull($offer->fresh()->suppression_updated_at);
+        $this->patchJson(route('console.offers.restore', [$this->workspace->getKey(), $offer->getKey()]))
+            ->assertOk()->assertExactJson(['data' => 'Offer restored']);
+
+        $other = $this->otherWorkspace();
+        $this->deleteJson(route('console.offers.destroy', [$other->getKey(), $offer->getKey()]))->assertNotFound();
+    }
+
+    public function test_offer_and_asset_pages_are_available_and_provider_import_is_not_misrepresented_as_working(): void
+    {
+        $sponsor = $this->createSponsor('View Network');
+        $offer = $this->createOffer($sponsor);
+
+        $this->get(route('clean.console.offers.index'))
+            ->assertOk()->assertSee('Offers')
+            ->assertSee('download-suppression')
+            ->assertSee('offer-suppression-download-modal')
+            ->assertSee('OPEN SUPPRESSION');
+        $this->get(route('clean.console.offers.create'))
+            ->assertOk()
+            ->assertSee('ADD NEW OFFER')
+            ->assertSee('offer-import-mode')
+            ->assertSee('Offer Ids:')
+            ->assertSee('From:')
+            ->assertSee('Subjects:')
+            ->assertSee('Choose a HitPath, NewHitPath, Cake or EverFlow sponsor.')
+            ->assertSee('HitPath imports selected campaign IDs')
+            ->assertSee('NewHitPath imports selected campaign metadata and email assets')
+            ->assertSee('Cake imports selected campaign metadata')
+            ->assertSee('EverFlow imports selected offer IDs')
+            ->assertSee('After saving this offer, upload its suppression file from')
+            ->assertSee('/drops/suppression', false);
+        $this->get(route('clean.console.offers.edit', $offer->getKey()))
+            ->assertOk()->assertSee('Drops → Suppression')
+            ->assertSee('MANAGE SUPPRESSION FILE')
+            ->assertDontSee('UPLOAD SUPPRESSION FILE')
+            ->assertSee('/drops/suppression?sponsor_id=', false);
+        $this->get(route('clean.console.offers.assets', $offer->getKey()))
+            ->assertOk()->assertSee('Offer Assets')->assertSee('CREATIVES')->assertSee('UNSUBSCRIBE')->assertSee('HTML')
+            ->assertSee('provider import flow remains unavailable');
+        $this->get(route('clean.console.offers.users', $offer->getKey()))->assertOk()->assertSee('Allowed Mailers');
+    }
+
+    private function offerPayload(WorkspaceSponsor $sponsor): array
+    {
+        return [
+            'sponsor_id' => $sponsor->getKey(),
+            'offer_id' => 'external-42',
+            'name' => 'Insurance quote',
+            'type' => 'CPA',
+            'vertical' => ' Insurance ',
+            'payout' => 12.5,
+            'geo_target' => ['us', 'ca', 'US'],
+            'allowed_days' => WorkspaceOffer::ALLOWED_DAYS,
+            'note' => 'manual source-aligned offer',
+            'redirect' => 'https://offers.example.test/track?id=42',
+            'unsubscribe' => 'https://offers.example.test/unsubscribe',
+            'from' => [' hello@example.test ', 'offers@example.test', 'hello@example.test'],
+            'subjects' => ['A clear offer'],
+        ];
+    }
+
+    private function createSponsor(string $name, array $overrides = []): WorkspaceSponsor
+    {
+        return $this->workspace->sponsors()->create(array_merge([
+            'name' => $name,
+            'affiliate_id' => null,
+            'url' => 'https://'.Str::slug($name).'.example.test',
+            'username' => 'test-user-'.Str::lower(Str::random(6)),
+            'password' => 'test-password-'.Str::random(8),
+            'api_key' => 'test-api-key-'.Str::random(16),
+            'type' => 'everflow',
+            'allowed_users' => [],
+            'is_active' => true,
+        ], $overrides));
+    }
+
+    private function createOffer(WorkspaceSponsor $sponsor, array $overrides = []): WorkspaceOffer
+    {
+        return $this->workspace->offers()->create(array_merge([
+            'sponsor_id' => $sponsor->getKey(),
+            'offer_id' => 'test-'.Str::lower(Str::random(10)),
+            'name' => 'Test offer',
+            'type' => 'cpa',
+            'vertical' => 'insurance',
+            'geo_target' => ['US'],
+            'payout' => 10,
+            'redirect' => 'https://offers.example.test/redirect',
+            'unsubscribe' => null,
+            'note' => null,
+            'allowed_days' => WorkspaceOffer::ALLOWED_DAYS,
+            'status' => 'live',
+            'suppression_path' => null,
+            'suppression_updated_at' => null,
+            'allowed_users' => [],
+            'is_active' => false,
+        ], $overrides));
+    }
+
+    public function test_suppression_upload_normalizes_dms_plaintext_and_hash_files_and_requires_actual_bytes(): void
+    {
+        $sponsor = $this->createSponsor('Suppression Upload');
+        $offer = $this->createOffer($sponsor);
+        $url = route('console.drops.suppression.offer-file', $this->workspace->getKey());
+
+        $payload = ['sponsor_id' => $sponsor->getKey(), 'offer_id' => $offer->getKey()];
+        $this->post($url, $payload + ['suppression_file' => UploadedFile::fake()->createWithContent('suppression.csv', "B@example.test,a@example.test\na@example.test\n")], ['Accept' => 'application/json'])
+            ->assertOk()
+            ->assertJsonPath('data.format', 'email')
+            ->assertJsonPath('data.entry_count', 2)
+            ->assertJsonPath('data.can_run_suppression', false);
+
+        $offer->refresh();
+        $this->assertTrue(app(DmsOfferSuppressionFile::class)->isEligible($offer));
+        $this->assertSame("a@example.test\nb@example.test\n", Storage::disk('local')->get($offer->suppression_path));
+        $this->assertStringNotContainsString('suppression_path', json_encode($this->getJson(route('console.offers.index', $this->workspace->getKey()))->json()));
+
+        $this->post($url, $payload + ['suppression_file' => UploadedFile::fake()->createWithContent('hashes.txt', md5('a@example.test')."\n")], ['Accept' => 'application/json'])
+            ->assertOk()->assertJsonPath('data.format', 'md5')->assertJsonPath('data.entry_count', 1);
+        $this->assertSame('md5', $offer->fresh()->suppression_format);
+    }
+
+    public function test_suppression_upload_rejects_mixed_or_malformed_entries_without_replacing_current_file(): void
+    {
+        $sponsor = $this->createSponsor('Suppression Validation');
+        $offer = $this->createOffer($sponsor);
+        $this->attachSuppressionFile($offer, "kept@example.test\n");
+        $oldPath = $offer->fresh()->suppression_path;
+        $url = route('console.drops.suppression.offer-file', $this->workspace->getKey());
+
+        $this->post($url, [
+            'sponsor_id' => $sponsor->getKey(),
+            'offer_id' => $offer->getKey(),
+            'suppression_file' => UploadedFile::fake()->createWithContent('mixed.csv', "valid@example.test\nnot-an-email\n"),
+        ], ['Accept' => 'application/json'])
+            ->assertUnprocessable()->assertJsonValidationErrors('suppression_file');
+
+        $this->assertSame($oldPath, $offer->fresh()->suppression_path);
+        $this->assertSame("kept@example.test\n", Storage::disk('local')->get($oldPath));
+    }
+
+    private function otherWorkspace(): Workspace
+    {
+        return Workspace::query()->create([
+            'name' => 'Other workspace',
+            'slug' => 'other-offer-'.Str::lower(Str::random(8)),
+            'created_by' => $this->owner->getKey(),
+        ]);
+    }
+
+    private function attachSuppressionFile(WorkspaceOffer $offer, string $content): void
+    {
+        $path = 'offers/'.$this->workspace->getKey().'/'.$offer->getKey().'/suppression/'.hash('sha256', $content).'.txt';
+        Storage::disk('local')->put($path, $content);
+        $offer->forceFill([
+            'suppression_path' => $path,
+            'suppression_sha256' => hash('sha256', $content),
+            'suppression_format' => 'email',
+            'suppression_updated_at' => now()->toDateString(),
+        ])->save();
+    }
+}

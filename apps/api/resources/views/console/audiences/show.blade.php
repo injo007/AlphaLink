@@ -1,4 +1,4 @@
-@extends('layouts.console')
+@extends('layouts.dms-admin')
 
 @section('title', $audienceList->name)
 

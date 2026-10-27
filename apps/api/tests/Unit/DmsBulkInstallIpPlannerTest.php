@@ -13,6 +13,17 @@ use Random\Randomizer;
 
 class DmsBulkInstallIpPlannerTest extends TestCase
 {
+    public function test_it_preserves_the_target_domain_uuid_in_formatted_install_ips(): void
+    {
+        $domainId = '01a164e6-14b5-7275-8604-d9494d2fa4ed';
+
+        $ips = (new DmsBulkInstallIpPlanner)->format(
+            '8.8.8.8', $domainId, 'example.test', ['8.8.8.8'], ['unused'],
+        );
+
+        $this->assertSame($domainId, $ips[0]['domain_id']);
+    }
+
     public function test_it_orders_and_formats_dms_ips_with_primary_and_first_alias_rules(): void
     {
         $ips = (new DmsBulkInstallIpPlanner)->format(

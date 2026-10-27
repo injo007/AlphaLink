@@ -28,15 +28,15 @@ class DmsBulkInstallVmtaPlanner
         $feedbackAddresses = [];
 
         foreach ($ips as $entry) {
-            $domain = $isOwnedDomain && $entry['sub'] !== ''
+            $entryIsOwnedDomain = (bool) ($entry['is_our'] ?? $isOwnedDomain);
+            $domain = ($entryIsOwnedDomain || $platform === 'centos9') && $entry['sub'] !== ''
                 ? $entry['sub'].'.'.$entry['domain']
                 : $entry['domain'];
-            $vmtaIp = filter_var($entry['ip'], FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)
-                ? str_replace(':', '.', $entry['ip'])
-                : $entry['ip'];
+            $vmtaName = $this->ipVirtualMtaName($entry['ip']);
+            $vmtaIp = substr($vmtaName, strlen('mta-'));
 
             $dkimDomains .= "domain-key $dkimSelector,$domain,/etc/pmta/dkim\n";
-            $vmtas .= "<virtual-mta mta-$vmtaIp>\n";
+            $vmtas .= "<virtual-mta $vmtaName>\n";
             $vmtas .= "   smtp-source-ip {$entry['ip']}\n";
             $vmtas .= "   host-name $domain\n";
             $vmtas .= "</virtual-mta>\n";
@@ -48,7 +48,7 @@ class DmsBulkInstallVmtaPlanner
                 $vmtas .= "</virtual-mta>\n";
             }
 
-            if ($isOwnedDomain) {
+            if ($entryIsOwnedDomain) {
                 $inbound .= "relay-domain $domain\n";
                 $inbound .= "<domain $domain>\n";
                 $inbound .= "   type file\n";
@@ -76,5 +76,18 @@ class DmsBulkInstallVmtaPlanner
             'dkim_domains' => $useDkim && $dkimKeyUploadSucceeded ? $dkimDomains : null,
             'inbound' => $inbound !== '' ? $inbound : null,
         ];
+    }
+
+    public function ipVirtualMtaName(string $ip): string
+    {
+        if (filter_var($ip, FILTER_VALIDATE_IP) === false) {
+            throw new \InvalidArgumentException('The PMTA source IP must be a valid IPv4 or IPv6 address.');
+        }
+
+        $vmtaIp = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)
+            ? str_replace(':', '.', $ip)
+            : $ip;
+
+        return 'mta-'.$vmtaIp;
     }
 }

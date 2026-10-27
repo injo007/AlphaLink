@@ -18,6 +18,7 @@
         <div class="block-header">
             <h3 class="block-title">Bulk Install Server</h3>
             <div class="block-options">
+                <a class="btn btn-sm btn-alt-secondary" href="{{ route('console.infrastructure.install-settings.edit', $workspace->id) }}">Installation settings</a>
                 <button type="button" class="btn-block-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen"></button>
             </div>
         </div>
@@ -28,18 +29,19 @@
                         <div class="custom-control custom-control-inline" style="padding-left: 0">
                             <label class="sr-only" for="pmta_version">PowerMTA version</label>
                             <select id="pmta_version" class="form-control" style="height: 30px;">
-                                <option value="40" selected>PMTA 4.0</option>
-                                <option value="45">PMTA 4.5</option>
+                                <option value="40">PMTA 4.0</option>
+                                <option value="45" selected>PMTA 4.5</option>
                                 <option value="50">PMTA 5.0</option>
                             </select>
                         </div>
                         @foreach (['tracking' => 'TRACKING', 'proxy' => 'PROXY', 'imap' => 'IMAP', 'spf' => 'SPF', 'dkim' => 'DKIM', 'dmarc' => 'DMARC', 'https' => 'HTTPS'] as $option => $label)
                             <div class="custom-control custom-switch custom-control-inline">
-                                <input type="checkbox" class="custom-control-input" id="{{ $option }}" name="{{ $option }}">
+                                <input type="checkbox" class="custom-control-input" id="{{ $option }}" name="{{ $option }}" @checked(in_array($option, ['tracking', 'imap', 'spf', 'dkim', 'dmarc'], true))>
                                 <label class="custom-control-label" for="{{ $option }}">{{ $label }}</label>
                             </div>
                         @endforeach
                     </div>
+                    <p class="small text-muted">DNS records are generated for each selected domain: TRACKING adds A/AAAA, IMAP adds MX, and SPF, DKIM and DMARC add TXT records. Uncheck a service to skip its records.</p>
                     <div class="table-responsive">
                         <table id="servers" class="table table-sm table-hover">
                             <thead class="thead-light">
@@ -74,18 +76,22 @@
                                         </td>
                                     </tr>
                                 @empty
-                                    <tr><td colspan="6" class="text-center">This Grid Is Empty</td></tr>
+                                    <tr>
+                                        <td colspan="6" class="text-center">
+                                            <p class="mb-1">No active, uninstalled servers are available for bulk installation.</p>
+                                            <span class="text-muted">DMS lists servers marked active and not installed. Add a new server or restore the saved server from the Servers page.</span>
+                                            <div class="mt-2">
+                                                <a class="btn btn-sm btn-alt-primary" href="{{ route('console.infrastructure.servers.create', $workspace->id) }}">Add server</a>
+                                                <a class="btn btn-sm btn-alt-secondary" href="{{ route('console.infrastructure.servers.index', $workspace->id) }}">Open servers</a>
+                                            </div>
+                                        </td>
+                                    </tr>
                                 @endforelse
                             </tbody>
                         </table>
                     </div>
                     <div class="form-group text-right">
-                        <button type="button" class="btn btn-primary" id="install" disabled aria-describedby="install-disabled-reason" title="Remote installation is not enabled in AlphaLink.">INSTALL</button>
-                        <span id="install-disabled-reason" class="sr-only">
-                            Remote installation remains disabled until the DMS installer, packages, license, rollback, and health checks are implemented and validated.
-                            @if ($missingUsername) Link the DMS username before evaluating server-name eligibility. @endif
-                            @if ($domains->isEmpty()) No eligible non-owned domain from an active provider is available. @endif
-                        </span>
+                        <button type="button" class="btn btn-primary" id="install" @disabled($servers->isEmpty()) data-install-url="{{ route('console.infrastructure.bulk-install.runs.store', $workspace->id) }}" data-log-url="{{ route('console.infrastructure.bulk-install.logs', ['workspace' => $workspace->id, 'runId' => '__token__']) }}">INSTALL</button>
                     </div>
                     <div class="form-group d-none" id="container_log_result">
                         <h2 class="content-heading border-bottom mb-4 pb-2">Installation Logs</h2>
@@ -98,5 +104,5 @@
 @endsection
 
 @push('scripts')
-    <script type="module" src="/dms-reference/bulk-install.js"></script>
+    <script type="module" src="/alphalink/infrastructure/bulk-install.js"></script>
 @endpush

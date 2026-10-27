@@ -11,13 +11,13 @@ use InvalidArgumentException;
 class DmsBulkInstallCompletionPlanner
 {
     /**
-     * @param  list<array{main: bool, ip: string, type: string, domain_id: int, sub: string, domain: string}>  $dataIps
+     * @param  list<array{main: bool, ip: string, type: string, domain_id?: int|string, sub: string, domain: string, is_our?: bool}>  $dataIps
      * @param  array{tracking: bool, proxy: bool, imap: bool, spf: bool, dkim: bool, dmarc: bool, https: bool}  $options
      * @return list<array<string, mixed>>
      */
     public function plan(
-        int $serverId,
-        int $domainId,
+        int|string $serverId,
+        int|string $domainId,
         bool $isOwnedDomain,
         array $dataIps,
         int $pmtaVersion,
@@ -31,8 +31,11 @@ class DmsBulkInstallCompletionPlanner
             ['action' => 'delete_server_ips', 'server_id' => $serverId],
         ];
 
+        $ownedDomainIds = [];
         foreach ($dataIps as $ip) {
-            $dns = $isOwnedDomain
+            $rowDomainId = $ip['domain_id'] ?? $domainId;
+            $rowIsOwnedDomain = (bool) ($ip['is_our'] ?? $isOwnedDomain);
+            $dns = $rowIsOwnedDomain
                 ? ($ip['sub'] === '' ? $ip['domain'] : $ip['sub'].'.'.$ip['domain'])
                 : $ip['domain'];
 
@@ -41,16 +44,20 @@ class DmsBulkInstallCompletionPlanner
                 'ip' => $ip['ip'],
                 'type' => $ip['type'],
                 'dns' => $dns,
-                'domain_id' => $domainId,
+                'domain_id' => $rowDomainId,
                 'server_id' => $serverId,
                 'is_active' => true,
             ];
+
+            if ($rowIsOwnedDomain) {
+                $ownedDomainIds[(string) $rowDomainId] = $rowDomainId;
+            }
         }
 
-        if ($isOwnedDomain) {
+        foreach ($ownedDomainIds as $ownedDomainId) {
             $operations[] = [
                 'action' => 'mark_domain_used',
-                'domain_id' => $domainId,
+                'domain_id' => $ownedDomainId,
                 'status' => 'used',
             ];
         }
@@ -90,6 +97,8 @@ class DmsBulkInstallCompletionPlanner
                 || ! is_string($ip['domain'])
                 || ! array_key_exists('sub', $ip)
                 || ! is_string($ip['sub'])
+                || (isset($ip['domain_id']) && ! is_string($ip['domain_id']) && ! is_int($ip['domain_id']))
+                || (isset($ip['is_our']) && ! is_bool($ip['is_our']))
             ) {
                 throw new InvalidArgumentException('DMS install completion requires formatted IP rows.');
             }

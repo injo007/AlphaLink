@@ -75,6 +75,17 @@ class DmsBulkInstallVmtaPlannerTest extends TestCase
         $this->assertNull($files['inbound']);
     }
 
+    public function test_centos9_external_subdomain_matches_its_dkim_dns_record_name(): void
+    {
+        $files = (new DmsBulkInstallVmtaPlanner)->files('centos9', false, [[
+            'ip' => '8.8.8.8', 'sub' => 'relay-two', 'domain' => 'example.test',
+        ]], [], 'selector-one', true, true);
+
+        $this->assertStringContainsString('host-name relay-two.example.test', $files['vmtas']);
+        $this->assertSame("domain-key selector-one,relay-two.example.test,/etc/pmta/dkim\n", $files['dkim_domains']);
+        $this->assertNull($files['inbound']);
+    }
+
     public function test_it_rejects_a_platform_not_selected_by_the_dms_factory(): void
     {
         $this->expectException(InvalidArgumentException::class);

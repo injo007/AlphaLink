@@ -10,6 +10,8 @@
     "license": "MIT",
     "require": {
         "php": "^8.3",
+        "ext-bcmath": "*",
+        "hashids/hashids": "^5.0",
         "laravel/framework": "^13.17",
         "laravel/sanctum": "^4.3",
         "laravel/tinker": "^3.0",
@@ -42,6 +44,7 @@
             "Composer\\Config::disableProcessTimeout",
             "@php artisan dev"
         ],
+        "worker:drop-suppression": "@php artisan queue:work drop_suppression --queue=drop-suppression --sleep=1 --tries=1 --timeout=0",
         "test": [
             "@php artisan config:clear --ansi @no_additional_args",
             "@php artisan test"

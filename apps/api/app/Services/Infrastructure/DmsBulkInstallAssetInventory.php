@@ -3,12 +3,16 @@
 namespace App\Services\Infrastructure;
 
 /**
- * Checks local file presence against the paths DMS actually consults.
+ * Checks AlphaLink-owned files referenced by the source-mapped install plan.
+ * Source identifiers are translated by the AlphaLink catalog before local I/O.
  * Presence is not proof of artifact validity and this class never executes files.
  */
 class DmsBulkInstallAssetInventory
 {
-    public function __construct(private readonly DmsBulkInstallInstallerMatrix $matrix) {}
+    public function __construct(
+        private readonly DmsBulkInstallInstallerMatrix $matrix,
+        private readonly AlphaLinkInstallerAssetCatalog $catalog = new AlphaLinkInstallerAssetCatalog,
+    ) {}
 
     /**
      * @param  array{tracking: bool, proxy: bool, imap: bool, spf: bool, dkim: bool, dmarc: bool, https: bool}  $options
@@ -113,7 +117,7 @@ class DmsBulkInstallAssetInventory
     private function inspectFile(string $root, string $relativePath): string
     {
         $current = rtrim($root, DIRECTORY_SEPARATOR);
-        $segments = explode('/', $relativePath);
+        $segments = explode('/', $this->catalog->pathFor($relativePath));
 
         foreach ($segments as $index => $segment) {
             if ($segment === '' || $segment === '.' || $segment === '..') {

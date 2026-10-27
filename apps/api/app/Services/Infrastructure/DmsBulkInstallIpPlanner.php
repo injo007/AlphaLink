@@ -15,11 +15,11 @@ class DmsBulkInstallIpPlanner
      *
      * @param  list<string>  $discoveredIps
      * @param  list<string>  $generatedSubdomains
-     * @return list<array{main: bool, ip: string, type: string, domain_id: int, sub: string, domain: string}>
+     * @return list<array{main: bool, ip: string, type: string, domain_id: int|string, sub: string, domain: string}>
      */
     public function format(
         string $serverIp,
-        int $domainId,
+        int|string $domainId,
         string $domain,
         array $discoveredIps,
         ?array $generatedSubdomains = null,

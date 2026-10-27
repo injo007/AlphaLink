@@ -28,6 +28,9 @@ class EnsureWorkspaceMember
 
         $request->attributes->set('alphalink.workspace', $workspace);
         $request->attributes->set('alphalink.workspace_role', $member->pivot->role);
+        if ($request->hasSession()) {
+            $request->session()->put('active_workspace_id', $workspace->getKey());
+        }
 
         return $next($request);
     }

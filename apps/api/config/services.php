@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'optizmo' => [
+        'token' => env('OPTIZMO_TOKEN'),
+    ],
+
 ];

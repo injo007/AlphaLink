@@ -42,7 +42,7 @@ class StagePmtaBundle extends Command
 
         $directory = config('pmta.bundle_directory');
         if (! is_string($directory) || ! str_starts_with($directory, '/')) {
-            throw new RuntimeException('PMTA_BUNDLE_DIR must be an absolute private directory.');
+            throw new RuntimeException('ALPHALINK_PMTA_BUNDLE_DIRECTORY must be an absolute private directory.');
         }
 
         $workspace = realpath(dirname(base_path(), 2));

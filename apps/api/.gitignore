@@ -20,7 +20,9 @@
 /public/storage
 /storage/*.key
 /storage/pail
+/storage/framework/testing-tmp
 /vendor
+/premium-ui.json
 _ide_helper.php
 Homestead.json
 Homestead.yaml

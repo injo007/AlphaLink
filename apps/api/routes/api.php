@@ -2,15 +2,27 @@
 
 use App\Http\Controllers\Api\V1\AudienceListController;
 use App\Http\Controllers\Api\V1\CampaignController;
+use App\Http\Controllers\Api\V1\CampaignRedirectController;
+use App\Http\Controllers\Api\V1\CampaignTrackingController;
 use App\Http\Controllers\Api\V1\ConsentRecordController;
 use App\Http\Controllers\Api\V1\ContactController;
+use App\Http\Controllers\Api\V1\DropTrackingController;
 use App\Http\Controllers\Api\V1\InfrastructureController;
+use App\Http\Controllers\Api\V1\PublicLandingController;
 use App\Http\Controllers\Api\V1\SuppressionEventController;
 use App\Http\Controllers\Api\V1\WorkspaceController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function (): void {
     Route::get('/health', fn () => response()->json(['status' => 'up']));
+    Route::post('/subscribe', [PublicLandingController::class, 'subscribe'])->middleware('throttle:2,1');
+    Route::post('/contact', [PublicLandingController::class, 'contact'])->middleware('throttle:2,1');
+    Route::post('/opt-out', [PublicLandingController::class, 'optOut'])->middleware('throttle:2,1');
+    Route::post('/tracking/campaign-events', [CampaignTrackingController::class, 'store']);
+    Route::post('/stats', [CampaignTrackingController::class, 'store']);
+    Route::post('/campaign', [CampaignRedirectController::class, 'store']);
+    Route::post('/drop', [DropTrackingController::class, 'redirect']);
+    Route::post('/stats-drop', [DropTrackingController::class, 'store']);
 
     Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/me', fn () => response()->json([

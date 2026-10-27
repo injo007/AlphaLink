@@ -2,6 +2,8 @@
 
 namespace App\Services\Infrastructure;
 
+use RuntimeException;
+
 class DmsBulkInstallDnsRecordPlanner
 {
     /**
@@ -21,26 +23,26 @@ class DmsBulkInstallDnsRecordPlanner
         ?string $dkimPublicKey = null,
         array $publicIpMappings = [],
     ): array {
-        if (! $isOwnedDomain) {
-            return [];
-        }
-
         $records = [];
         $spfAddresses = [];
+        $externalSpfAddresses = [];
 
         foreach ($ips as $entry) {
             $ip = $this->publicAddress($entry['ip'], $publicIpMappings);
             $isIpv4 = $entry['type'] === 'ipv4';
+            if (! filter_var($ip, FILTER_VALIDATE_IP, ($isIpv4 ? FILTER_FLAG_IPV4 : FILTER_FLAG_IPV6) | FILTER_FLAG_NO_PRIV_RANGE)) {
+                throw new RuntimeException('A selected interface has no verified public IP for DNS records.');
+            }
             $hostname = $entry['sub'] === '' ? '@' : $entry['sub'];
             $mx = $entry['sub'] === '' ? $entry['domain'] : $entry['sub'].'.'.$entry['domain'];
 
-            if ($options['tracking']) {
-                $records[] = $this->record($hostname, $ip, $isIpv4 ? 'A' : 'AAAA');
+            // The selected domain must resolve to its selected public server IPs
+            // independently of whether the optional tracking application is installed.
+            $records[] = $this->record($hostname, $ip, $isIpv4 ? 'A' : 'AAAA');
 
-                if ($entry['main']) {
-                    $records[] = $this->record('www', $ip, $isIpv4 ? 'A' : 'AAAA');
-                    $records[] = $this->record('*', $ip, $isIpv4 ? 'A' : 'AAAA');
-                }
+            if ($options['tracking'] && $entry['main']) {
+                $records[] = $this->record('www', $ip, $isIpv4 ? 'A' : 'AAAA');
+                $records[] = $this->record('*', $ip, $isIpv4 ? 'A' : 'AAAA');
             }
 
             if ($options['imap']) {
@@ -48,7 +50,11 @@ class DmsBulkInstallDnsRecordPlanner
             }
 
             if ($options['spf']) {
-                $spfAddresses[] = ($isIpv4 ? 'ip4:' : 'ip6:').$ip;
+                if ($isOwnedDomain) {
+                    $spfAddresses[] = ($isIpv4 ? 'ip4:' : 'ip6:').$ip;
+                } else {
+                    $externalSpfAddresses[$hostname][] = ($isIpv4 ? 'ip4:' : 'ip6:').$ip;
+                }
             }
 
             if ($options['dkim'] && ! empty($dkimPublicKey)) {
@@ -70,6 +76,10 @@ class DmsBulkInstallDnsRecordPlanner
             $policy = 'v=spf1 '.implode(' ', $spfAddresses).' -all';
             $records[] = $this->record('@', $policy, 'TXT');
             $records[] = $this->record('*', $policy, 'TXT');
+        }
+
+        foreach ($externalSpfAddresses as $hostname => $addresses) {
+            $records[] = $this->record($hostname, 'v=spf1 '.implode(' ', $addresses).' -all', 'TXT');
         }
 
         return $records;

@@ -13,3 +13,7 @@ No AlphaLink feature is accepted until its feature row names the corresponding r
 The status vocabulary is `NOT_DISCOVERED`, `INVESTIGATING`, `VERIFIED`, `IMPLEMENTING`, `TESTING`, `PARITY_CONFIRMED`, `BLOCKED`. Code presence, passing local tests, visual similarity, or an existing audit summary alone does not establish parity. Update the feature matrix, parity report, and evidence register with each vertical slice.
 
 The application-level `apps/api/AGENTS.md` also applies to changes inside that tree. Its Laravel setup requirements do not authorize reference-system changes.
+
+## Real AlphaLink verification rule
+
+For installation and other user-facing connected workflows, execute the relevant action in the running AlphaLink app with its saved real resources whenever a real test is needed. Synthetic fixtures and fake transports may support development, but they cannot substitute for an AlphaLink app test or establish acceptance. Record the actual app response and resulting state. If a safety gate blocks before host changes, report that boundary and do not claim an installation succeeded.

@@ -19,33 +19,48 @@ class AuthController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $identifierField = $request->filled('username') ? 'username' : 'email';
         $credentials = $request->validate([
-            'email' => ['required', 'string', 'email', 'max:255'],
+            $identifierField => ['required', 'string', 'max:255'],
             'password' => ['required', 'string'],
         ]);
 
-        $key = 'login:'.hash('sha256', Str::lower($credentials['email']).'|'.$request->ip());
+        $identifier = Str::lower(trim($credentials[$identifierField]));
+        $credentialField = filter_var($identifier, FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
+        $attemptCredentials = [
+            $credentialField => $identifier,
+            'password' => $credentials['password'],
+        ];
+        $key = 'login:'.hash('sha256', $identifier.'|'.$request->ip());
 
         if (RateLimiter::tooManyAttempts($key, 5)) {
             $seconds = RateLimiter::availableIn($key);
 
             return back()
-                ->withErrors(['email' => "Too many sign-in attempts. Try again in {$seconds} seconds."])
-                ->onlyInput('email');
+                ->withErrors([$identifierField => "Too many sign-in attempts. Try again in {$seconds} seconds."])
+                ->onlyInput($identifierField);
         }
 
-        if (! Auth::attempt($credentials, $request->boolean('remember'))) {
+        if (! Auth::attempt($attemptCredentials, $request->boolean('remember'))) {
             RateLimiter::hit($key, 60);
 
             return back()
-                ->withErrors(['email' => 'The email address or password was not recognized.'])
-                ->onlyInput('email');
+                ->withErrors([$identifierField => 'The username or password was not recognized.'])
+                ->onlyInput($identifierField);
+        }
+
+        if (! Auth::user()?->is_active) {
+            Auth::logout();
+
+            return back()
+                ->withErrors([$identifierField => 'This account is disabled. Contact your administrator.'])
+                ->onlyInput($identifierField);
         }
 
         RateLimiter::clear($key);
         $request->session()->regenerate();
 
-        return redirect()->intended(route('console.index'));
+        return redirect()->route('console.dashboard.main');
     }
 
     public function destroy(Request $request): RedirectResponse

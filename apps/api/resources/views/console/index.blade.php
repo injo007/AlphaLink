@@ -25,7 +25,7 @@
                 <p class="picker-copy">Select the workspace whose operations you want to review.</p>
                 <div class="workspace-cards">
                     @foreach ($workspaces as $workspace)
-                        <a class="workspace-card" href="{{ route('console.workspace', $workspace->id) }}">
+                        <a class="workspace-card" href="{{ route('console.workspace.dashboard.main', $workspace->slug) }}">
                             <span class="workspace-glyph" aria-hidden="true">{{ mb_strtoupper(mb_substr($workspace->name, 0, 1)) }}</span>
                             <span class="workspace-card-copy"><strong>{{ $workspace->name }}</strong><small>{{ $workspace->slug }}</small></span>
                             <span class="workspace-card-role">{{ str_replace('_', ' ', $workspace->pivot->role) }}</span>

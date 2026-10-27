@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -16,7 +17,7 @@ class ManagedServer extends Model
     protected $fillable = [
         'workspace_id', 'name', 'provider', 'servers_provider_id', 'ip_address', 'country', 'ssh_port', 'ssh_username',
         'expire_at', 'login_type', 'is_active', 'is_installed', 'is_locked',
-        'expected_host_fingerprint', 'observed_host_fingerprint', 'last_probe_at',
+        'expected_host_fingerprint', 'observed_host_fingerprint', 'last_probe_at', 'install_parameters',
         'state', 'host_facts', 'idempotency_key',
         'request_fingerprint', 'created_by',
     ];
@@ -27,6 +28,7 @@ class ManagedServer extends Model
     {
         return [
             'host_facts' => 'array',
+            'install_parameters' => 'array',
             'is_active' => 'boolean',
             'is_installed' => 'boolean',
             'is_locked' => 'boolean',
@@ -38,6 +40,21 @@ class ManagedServer extends Model
     public function credential()
     {
         return $this->hasOne(ServerCredential::class);
+    }
+
+    public function workspace(): BelongsTo
+    {
+        return $this->belongsTo(Workspace::class);
+    }
+
+    public function ips(): HasMany
+    {
+        return $this->hasMany(ManagedServerIp::class);
+    }
+
+    public function mtas(): HasMany
+    {
+        return $this->hasMany(ManagedServerMta::class);
     }
 
     public function serverProvider()

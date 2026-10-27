@@ -10,15 +10,18 @@ class Contact extends Model
     use HasUuids;
 
     protected $fillable = [
-        'workspace_id', 'email', 'email_lookup_hash', 'lookup_key_version',
+        'workspace_id', 'email', 'email_lookup_hash', 'lookup_key_version', 'profile',
         'status', 'idempotency_key',
     ];
 
-    protected $hidden = ['email', 'email_lookup_hash', 'lookup_key_version', 'idempotency_key'];
+    protected $hidden = ['email', 'email_lookup_hash', 'lookup_key_version', 'profile', 'idempotency_key'];
 
     protected function casts(): array
     {
-        return ['email' => 'encrypted'];
+        return [
+            'email' => 'encrypted',
+            'profile' => 'encrypted:array',
+        ];
     }
 
     public function workspace()

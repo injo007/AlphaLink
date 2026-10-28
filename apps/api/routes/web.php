@@ -136,6 +136,8 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
         ->middleware('throttle:5,1')->name('console.drops.suppression.start');
     Route::post('/app/workspaces/{workspace}/drops/suppression/offer-file', [WorkspaceDropSuppressionController::class, 'uploadOfferFile'])
         ->middleware('throttle:5,1')->name('console.drops.suppression.offer-file');
+    Route::get('/app/workspaces/{workspace}/drops/suppression/offers/{offer}/file', [WorkspaceDropSuppressionController::class, 'downloadOfferFile'])
+        ->whereNumber('offer')->name('console.drops.suppression.offer-file.download');
     Route::post('/app/workspaces/{workspace}/drops/suppression/kill', [WorkspaceDropSuppressionController::class, 'kill'])
         ->middleware('throttle:10,1')->name('console.drops.suppression.kill');
     Route::get('/app/workspaces/{workspace}/drops/monitoring', [WorkspaceDropsConsoleController::class, 'monitoring'])->name('console.drops.monitoring');

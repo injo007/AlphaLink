@@ -8,6 +8,7 @@
     data-rows-url="{{ route('console.drops.suppression', $workspace->id) }}"
     data-start-url="{{ route('console.drops.suppression.start', $workspace->id) }}"
     data-offer-file-url="{{ route('clean.console.drops.suppression.offer-file') }}"
+    data-offer-file-download-url-template="{{ route('console.drops.suppression.offer-file.download', [$workspace->id, '__OFFER_ID__']) }}"
     data-kill-url="{{ route('console.drops.suppression.kill', $workspace->id) }}"
     data-monitor-url-template="{{ route('console.drops.suppression.monitor', [$workspace->id, '__SUPPRESSION_ID__']) }}"
     data-can-manage-files="{{ $canManageSuppressionFiles ? '1' : '0' }}"
@@ -51,7 +52,10 @@
             <section class="border-top pt-3 mt-3" aria-labelledby="offer-suppression-file-title">
                 <h4 id="offer-suppression-file-title" class="h5 mb-1">Offer suppression file</h4>
                 <p class="text-muted mb-2">Upload or replace the selected offer’s suppression file here. The verified file and freshness date are saved on the offer; suppression runs remain subject to offer eligibility.</p>
-                <p id="offer-suppression-file-status" class="mb-2" role="status" aria-live="polite">Select a sponsor and offer above to view its suppression file.</p>
+                <div class="alert alert-light border py-2 mb-2 d-flex flex-wrap align-items-center justify-content-between" role="status" aria-live="polite">
+                    <span id="offer-suppression-file-status">Select a sponsor and offer above to view its suppression file.</span>
+                    <a id="offer-suppression-file-download" class="btn btn-sm btn-outline-success ml-md-3 mt-2 mt-md-0" href="#" hidden>DOWNLOAD SAVED FILE</a>
+                </div>
                 @if ($canManageSuppressionFiles)
                     <div class="form-row align-items-end">
                         <div class="form-group col-12 col-md-8">

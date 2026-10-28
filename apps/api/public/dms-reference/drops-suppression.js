@@ -17,6 +17,7 @@
     const fileInput = document.getElementById('offer-suppression-file-input');
     const fileUploadButton = document.getElementById('offer-suppression-file-upload');
     const fileStatus = document.getElementById('offer-suppression-file-status');
+    const fileDownloadLink = document.getElementById('offer-suppression-file-download');
     const fileResult = document.getElementById('offer-suppression-file-result');
     const canManageFiles = root.dataset.canManageFiles === '1';
     const initialSponsorId = root.dataset.initialSponsorId;
@@ -110,6 +111,8 @@
         const selected = selectedOfferOption();
         if (!selected?.value) {
             fileStatus.textContent = 'Select a sponsor and offer above to view its suppression file.';
+            fileDownloadLink.hidden = true;
+            fileDownloadLink.removeAttribute('href');
             if (fileInput) fileInput.disabled = true;
             if (fileUploadButton) fileUploadButton.disabled = true;
             updateStartButton();
@@ -117,13 +120,22 @@
         }
 
         const hasFile = selected.dataset.hasFile === 'true';
+        fileStatus.parentElement.className = `alert ${hasFile ? 'alert-success' : 'alert-warning'} py-2 mb-2 d-flex flex-wrap align-items-center justify-content-between`;
         const fileSummary = hasFile
-            ? `${String(selected.dataset.format || 'unknown').toUpperCase()} file · last updated ${selected.dataset.updatedAt || 'date unavailable'}`
+            ? `Saved ${String(selected.dataset.format || 'unknown').toUpperCase()} suppression file is attached to this offer · last updated ${selected.dataset.updatedAt || 'date unavailable'}.`
             : 'No suppression file uploaded';
         const runSummary = selected.dataset.canRun === 'true'
             ? 'This offer is ready for a suppression run once ISPs and lists are selected.'
             : 'Not ready to run yet. Check file freshness, live/active status, redirect, vertical, geo target, and today’s allowed day in Offers.';
         fileStatus.textContent = `${fileSummary}. ${runSummary}`;
+        const downloadTemplate = root.dataset.offerFileDownloadUrlTemplate;
+        const canDownload = hasFile && canManageFiles && Boolean(downloadTemplate);
+        fileDownloadLink.hidden = !canDownload;
+        if (canDownload) {
+            fileDownloadLink.href = downloadTemplate.replace('__OFFER_ID__', encodeURIComponent(selected.value));
+        } else {
+            fileDownloadLink.removeAttribute('href');
+        }
         if (fileInput) fileInput.disabled = !canManageFiles;
         if (fileUploadButton) fileUploadButton.disabled = !canManageFiles || uploadingFile || !fileInput?.files.length;
         updateStartButton();

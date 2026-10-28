@@ -69,6 +69,8 @@ class WorkspaceDropSuppressionTest extends TestCase
             ->assertSee('START SUPPRESSION')
             ->assertSee('drops-suppression-sponsor')
             ->assertSee('drops/suppression/catalog', false)
+            ->assertSee('offer-suppression-file-download')
+            ->assertSee('DOWNLOAD SAVED FILE')
             ->assertSee('drops-suppression.js');
 
         $this->actingAs($owner)->getJson(route('console.drops.suppression', [
@@ -89,6 +91,32 @@ class WorkspaceDropSuppressionTest extends TestCase
             ->assertJsonPath('isps.0.id', $isp->getKey())
             ->assertJsonPath('lists.0.id', $list->getKey())
             ->assertJsonPath('lists.0.total', 19);
+    }
+
+    public function test_selected_offer_suppression_file_can_be_downloaded_only_by_workspace_managers(): void
+    {
+        $owner = User::factory()->create();
+        $operator = User::factory()->create();
+        $workspace = $this->workspace($owner, 'owner');
+        $workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
+        [, $offer] = $this->eligibleScope($workspace, $owner);
+        $offer->forceFill(['is_active' => false])->save();
+        $url = route('console.drops.suppression.offer-file.download', [$workspace->getKey(), $offer->getKey()]);
+
+        $this->actingAs($owner)->getJson(route('console.drops.suppression.catalog', [
+            $workspace->getKey(),
+            'sponsor_id' => $offer->sponsor_id,
+        ]))->assertOk()
+            ->assertJsonPath('offers.0.has_suppression_file', true)
+            ->assertJsonPath('offers.0.can_run_suppression', false);
+
+        $response = $this->actingAs($owner)->get($url)->assertOk()
+            ->assertHeader('cache-control', 'private, no-store')
+            ->assertHeader('x-content-type-options', 'nosniff')
+            ->assertHeader('content-disposition', 'attachment; filename=suppression-offer-'.$offer->getKey().'.txt');
+
+        $this->assertSame("blocked@example.test\n", file_get_contents($response->baseResponse->getFile()->getPathname()));
+        $this->actingAs($operator)->get($url)->assertForbidden();
     }
 
     public function test_catalog_includes_inactive_and_missing_file_offers_for_suppression_file_management(): void
@@ -612,10 +640,6 @@ class WorkspaceDropSuppressionTest extends TestCase
             'allowed_users' => [],
             'is_active' => true,
         ]);
-        $path = $suppressionContent === null ? null : 'offers/fixture-suppression.txt';
-        if ($path !== null) {
-            Storage::disk('local')->put($path, $suppressionContent);
-        }
         $offer = WorkspaceOffer::query()->create([
             'workspace_id' => $workspace->getKey(),
             'sponsor_id' => $sponsor->getKey(),
@@ -628,13 +652,19 @@ class WorkspaceDropSuppressionTest extends TestCase
             'redirect' => 'https://offer.example.test',
             'allowed_days' => WorkspaceOffer::ALLOWED_DAYS,
             'status' => 'live',
-            'suppression_path' => $path,
+            'suppression_path' => null,
             'suppression_sha256' => $suppressionContent === null ? null : hash('sha256', $suppressionContent),
             'suppression_format' => $suppressionContent === null ? null : 'email',
             'suppression_updated_at' => now()->toDateString(),
             'allowed_users' => [],
             'is_active' => true,
         ]);
+        if ($suppressionContent !== null) {
+            $sha256 = hash('sha256', $suppressionContent);
+            $path = sprintf('offers/%s/%d/suppression/%s.txt', $workspace->getKey(), $offer->getKey(), $sha256);
+            Storage::disk('local')->put($path, $suppressionContent);
+            $offer->forceFill(['suppression_path' => $path])->save();
+        }
         $isp = Isp::query()->create([
             'workspace_id' => $workspace->getKey(),
             'name' => 'Fixture ISP',

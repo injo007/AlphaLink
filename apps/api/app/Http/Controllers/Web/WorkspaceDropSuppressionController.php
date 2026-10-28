@@ -20,6 +20,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class WorkspaceDropSuppressionController extends Controller
 {
@@ -150,6 +151,35 @@ class WorkspaceDropSuppressionController extends Controller
             'updated_at' => $offer->fresh()->suppression_updated_at?->toDateString(),
             'can_run_suppression' => $canRunSuppression,
         ]]);
+    }
+
+    public function downloadOfferFile(Request $request, string $workspace, int $offer): BinaryFileResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        abort_unless(in_array($workspace->pivot->role, self::FILE_MANAGEMENT_ROLES, true), 403);
+
+        $selectedOffer = $workspace->offers()->whereKey($offer)->firstOrFail();
+        $path = (string) $selectedOffer->suppression_path;
+        $sha256 = (string) $selectedOffer->suppression_sha256;
+        $expectedPath = sprintf(
+            'offers/%s/%d/suppression/%s.txt',
+            $workspace->getKey(),
+            $selectedOffer->getKey(),
+            $sha256,
+        );
+        $disk = Storage::disk('local');
+
+        abort_unless(
+            preg_match('/^[a-f0-9]{64}$/', $sha256) === 1
+                && hash_equals($expectedPath, $path)
+                && $disk->exists($path),
+            404,
+        );
+
+        return response()->download($disk->path($path), 'suppression-offer-'.$selectedOffer->getKey().'.txt', [
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     public function start(Request $request, string $workspace): JsonResponse

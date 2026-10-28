@@ -83,7 +83,7 @@ class DmsChangeDomainRunner
             $this->sessions->create($server, $credential['secret'], $credential['type']),
         );
         $dnsGroups = $this->resolveDnsGroups(
-            $formatted, $tracking, $imap, $options, $dkimSelector, $dkimMaterial['key'], $session, $log,
+            $formatted, $tracking, $imap, $options, $dkimSelector, $dkimMaterial['key'], $session, $log, (string) $server->ip_address,
         );
 
         $log('Setup Host');
@@ -237,6 +237,7 @@ class DmsChangeDomainRunner
         string $dkimPublicKey,
         DmsInstallerRemoteCommandTransport $session,
         callable $log,
+        string $registeredPublicIp,
     ): array {
         $resolver = new DmsCentos9PublicIpResolver($session);
         foreach ($groups as &$group) {
@@ -244,6 +245,7 @@ class DmsChangeDomainRunner
                 $group['rows'],
                 $resolver,
                 $log,
+                $registeredPublicIp,
             );
             $this->dnsPlanner->records((bool) $group['domain']->is_our, $group['rows'], [
                 'tracking' => $tracking,

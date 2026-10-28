@@ -72,6 +72,74 @@ class DmsBulkInstallDomainRecordStageTest extends TestCase
         $this->assertSame([], $logs);
     }
 
+    public function test_unresolved_private_aliases_use_the_registered_public_ipv4_for_dns(): void
+    {
+        $domain = new SendingDomain(['name' => 'clarionmatrix.fun', 'is_our' => true]);
+        $resolver = new RecordingPublicIpResolver;
+        $writer = new RecordingDnsRecordWriter;
+        $logs = [];
+        $ips = [
+            ['main' => true, 'ip' => '164.92.159.209', 'type' => 'ipv4', 'sub' => '', 'domain' => 'clarionmatrix.fun'],
+            ['main' => false, 'ip' => '10.18.0.6', 'type' => 'ipv4', 'sub' => 'hilarious', 'domain' => 'clarionmatrix.fun'],
+            ['main' => false, 'ip' => '10.110.0.5', 'type' => 'ipv4', 'sub' => 'talk', 'domain' => 'clarionmatrix.fun'],
+        ];
+
+        $this->stage()->run(
+            $domain,
+            $ips,
+            ['tracking' => true, 'imap' => false, 'spf' => true, 'dkim' => false, 'dmarc' => false],
+            's1',
+            null,
+            $resolver,
+            $writer,
+            function (string $message) use (&$logs): void {
+                $logs[] = $message;
+            },
+            '164.92.159.209',
+        );
+
+        $this->assertSame(['10.18.0.6', '10.110.0.5'], $resolver->ips);
+        $this->assertSame([
+            ['host' => '@', 'address' => '164.92.159.209', 'type' => 'A', 'ttl' => '60'],
+            ['host' => 'www', 'address' => '164.92.159.209', 'type' => 'A', 'ttl' => '60'],
+            ['host' => '*', 'address' => '164.92.159.209', 'type' => 'A', 'ttl' => '60'],
+            ['host' => 'hilarious', 'address' => '164.92.159.209', 'type' => 'A', 'ttl' => '60'],
+            ['host' => 'talk', 'address' => '164.92.159.209', 'type' => 'A', 'ttl' => '60'],
+            ['host' => '@', 'address' => 'v=spf1 ip4:164.92.159.209 -all', 'type' => 'TXT', 'ttl' => '60'],
+            ['host' => '*', 'address' => 'v=spf1 ip4:164.92.159.209 -all', 'type' => 'TXT', 'ttl' => '60'],
+        ], $writer->calls[0]['records']);
+        $this->assertStringNotContainsString('10.18.0.6', json_encode($writer->calls[0]['records'], JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString('10.110.0.5', json_encode($writer->calls[0]['records'], JSON_THROW_ON_ERROR));
+        $this->assertContains(
+            'Using selected public ipv4 address 164.92.159.209 as the DNS target for private interface 10.18.0.6 at hilarious.clarionmatrix.fun because its interface egress lookup could not be verified.',
+            $logs,
+        );
+        $this->assertContains(
+            'Using selected public ipv4 address 164.92.159.209 as the DNS target for private interface 10.110.0.5 at talk.clarionmatrix.fun because its interface egress lookup could not be verified.',
+            $logs,
+        );
+    }
+
+    public function test_private_interface_uses_the_registered_server_ipv4_when_public_row_is_not_a_host_interface(): void
+    {
+        $resolved = $this->stage()->resolvePublicAddresses(
+            [[
+                'main' => true,
+                'ip' => '10.18.0.6',
+                'type' => 'ipv4',
+                'sub' => 'relay',
+                'domain' => 'example.test',
+            ]],
+            new RecordingPublicIpResolver,
+            null,
+            '164.92.159.209',
+        );
+
+        $this->assertSame('164.92.159.209', $resolved[0]['ip']);
+        $this->assertSame('relay', $resolved[0]['sub']);
+        $this->assertSame('ipv4', $resolved[0]['type']);
+    }
+
     public function test_owned_domain_records_use_resolved_interface_ip_and_dms_provider_outcome_logs(): void
     {
         $domain = new SendingDomain(['name' => 'owned.example.test', 'is_our' => true]);
@@ -209,9 +277,34 @@ class DmsBulkInstallDomainRecordStageTest extends TestCase
         $this->assertSame('198.51.100.8', $resolver->resolve('10.0.0.8'));
         $this->assertSame('10.0.0.8', $resolver->resolve('10.0.0.8'));
         $this->assertSame([
-            "curl -fsS --connect-timeout 5 --max-time 12 --interface '10.0.0.8' https://ifconfig.me/ip 2>/dev/null",
-            "curl -fsS --connect-timeout 5 --max-time 12 --interface '10.0.0.8' https://ifconfig.me/ip 2>/dev/null",
+            "curl -fsS --connect-timeout 3 --max-time 6 --interface '10.0.0.8' https://ifconfig.me/ip 2>/dev/null",
+            "curl -fsS --connect-timeout 3 --max-time 6 --interface '10.0.0.8' https://ifconfig.me/ip 2>/dev/null",
+            "curl -fsS --connect-timeout 3 --max-time 6 --interface '10.0.0.8' https://api.ipify.org 2>/dev/null",
+            "curl -fsS --connect-timeout 3 --max-time 6 --interface '10.0.0.8' https://icanhazip.com 2>/dev/null",
+            "curl -fsS --connect-timeout 3 --max-time 6 --interface '10.0.0.8' https://ident.me 2>/dev/null",
         ], $transport->commands);
+    }
+
+    public function test_centos9_public_ip_lookup_uses_an_independent_check_when_the_first_endpoint_fails(): void
+    {
+        $transport = new RecordingPublicIpCommandTransport(['', " 8.8.4.4\n"]);
+        $resolver = new DmsCentos9PublicIpResolver($transport);
+
+        $this->assertSame('8.8.4.4', $resolver->resolve('10.0.0.8'));
+        $this->assertSame([
+            "curl -fsS --connect-timeout 3 --max-time 6 --interface '10.0.0.8' https://ifconfig.me/ip 2>/dev/null",
+            "curl -fsS --connect-timeout 3 --max-time 6 --interface '10.0.0.8' https://api.ipify.org 2>/dev/null",
+        ], $transport->commands);
+    }
+
+    public function test_centos9_public_ip_lookup_does_not_mask_an_ssh_channel_failure(): void
+    {
+        $resolver = new DmsCentos9PublicIpResolver(new RecordingPublicIpCommandTransport([false]));
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('The remote server connection was lost while checking a selected interface public address.');
+
+        $resolver->resolve('10.0.0.8');
     }
 
     private function stage(): DmsBulkInstallDomainRecordStage

@@ -151,13 +151,18 @@ class DmsCentos9InstallWorkflowTest extends TestCase
         $logs = [];
 
         try {
-            $this->runWorkflow($workflow, $session, $logs, ['spf' => true], [], [], ['8.8.8.8', '10.0.0.8'], false);
+            $this->runWorkflow($workflow, $session, $logs, ['spf' => true], [], [], ['10.0.0.8'], false);
             $this->fail('An unresolved private interface must stop before host changes.');
         } catch (RuntimeException $exception) {
             $this->assertSame('A selected interface has no verified public IP for DNS records.', $exception->getMessage());
         }
 
-        $this->assertSame(["curl -fsS --connect-timeout 5 --max-time 12 --interface '10.0.0.8' https://ifconfig.me/ip 2>/dev/null"], $session->commands);
+        $this->assertSame([
+            "curl -fsS --connect-timeout 3 --max-time 6 --interface '10.0.0.8' https://ifconfig.me/ip 2>/dev/null",
+            "curl -fsS --connect-timeout 3 --max-time 6 --interface '10.0.0.8' https://api.ipify.org 2>/dev/null",
+            "curl -fsS --connect-timeout 3 --max-time 6 --interface '10.0.0.8' https://icanhazip.com 2>/dev/null",
+            "curl -fsS --connect-timeout 3 --max-time 6 --interface '10.0.0.8' https://ident.me 2>/dev/null",
+        ], $session->commands);
         $this->assertSame([], $session->uploads);
         $this->assertSame([], $logs);
     }
@@ -358,7 +363,7 @@ class DmsCentos9InstallWorkflowTest extends TestCase
         $server = (new ManagedServer)->forceFill([
             'id' => 'server-one',
             'workspace_id' => 'workspace-one',
-            'ip_address' => '8.8.8.8',
+            'ip_address' => $discoveredIps[0] ?? '8.8.8.8',
             'ssh_port' => 22,
             'host_facts' => array_replace(['os_pretty_name' => 'AlmaLinux 9'], $hostFactsOverrides),
             'is_installed' => false,

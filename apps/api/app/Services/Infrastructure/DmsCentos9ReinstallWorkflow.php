@@ -89,6 +89,7 @@ class DmsCentos9ReinstallWorkflow
             $rows,
             new DmsCentos9PublicIpResolver($session),
             $log,
+            (string) $server->ip_address,
         );
         $groups = $this->groupRows($dnsRows, $prepared['domains']);
 

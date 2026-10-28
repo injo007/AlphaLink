@@ -133,6 +133,7 @@ class DmsCentos9InstallWorkflow
             $ips,
             new DmsCentos9PublicIpResolver($session),
             $log,
+            (string) $server->ip_address,
         );
 
         if ($options['tracking'] && $assets['mini_app'] !== null) {

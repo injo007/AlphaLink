@@ -73,13 +73,13 @@ class DmsBulkInstallDnsRecordPlanner
         }
 
         if ($spfAddresses !== []) {
-            $policy = 'v=spf1 '.implode(' ', $spfAddresses).' -all';
+            $policy = 'v=spf1 '.implode(' ', array_values(array_unique($spfAddresses))).' -all';
             $records[] = $this->record('@', $policy, 'TXT');
             $records[] = $this->record('*', $policy, 'TXT');
         }
 
         foreach ($externalSpfAddresses as $hostname => $addresses) {
-            $records[] = $this->record($hostname, 'v=spf1 '.implode(' ', $addresses).' -all', 'TXT');
+            $records[] = $this->record($hostname, 'v=spf1 '.implode(' ', array_values(array_unique($addresses))).' -all', 'TXT');
         }
 
         return $records;

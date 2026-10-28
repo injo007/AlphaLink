@@ -337,7 +337,7 @@ class DmsChangeDomainTest extends TestCase
             ->with($this->server, 'synthetic-secret', 'password')
             ->andReturn($session);
 
-        $session->shouldReceive('exec')->once()->with("curl -fsS --connect-timeout 5 --max-time 12 --interface '10.0.0.25' https://ifconfig.me/ip 2>/dev/null")->ordered()->andReturn('203.0.113.25');
+        $session->shouldReceive('exec')->once()->with("curl -fsS --connect-timeout 3 --max-time 6 --interface '10.0.0.25' https://ifconfig.me/ip 2>/dev/null")->ordered()->andReturn('203.0.113.25');
         $session->shouldReceive('exec')->once()->with("hostnamectl set-hostname 'new.example.test'")->ordered()->andReturn('');
         $session->shouldReceive('exec')->once()->with("sed -i 's/HOSTNAME=.*/HOSTNAME=new.example.test/g' /etc/sysconfig/network")->ordered()->andReturn('');
         $session->shouldReceive('exec')->once()->with("grep -qxF '192.0.2.23 new.example.test' /etc/hosts || echo -e '192.0.2.23 new.example.test' >> /etc/hosts")->ordered()->andReturn('');
@@ -439,6 +439,7 @@ class DmsChangeDomainTest extends TestCase
         $parameters = $this->server->install_parameters;
         $parameters['data'][0]['ip'] = '10.0.0.25';
         $this->server->forceFill([
+            'ip_address' => '10.0.0.10',
             'host_facts' => ['os_pretty_name' => 'AlmaLinux 9.8 (Sapphire Caracal)'],
             'install_parameters' => $parameters,
         ])->save();
@@ -449,7 +450,7 @@ class DmsChangeDomainTest extends TestCase
         $credentials = Mockery::mock(DmsInstallerServerCredentialResolver::class);
         $credentials->shouldReceive('resolve')->once()->andReturn(['secret' => 'synthetic-secret', 'type' => 'password']);
         $session = Mockery::mock(DmsInstallerSshSession::class);
-        $session->shouldReceive('exec')->once()->with("curl -fsS --connect-timeout 5 --max-time 12 --interface '10.0.0.25' https://ifconfig.me/ip 2>/dev/null")->andReturn('');
+        $session->shouldReceive('exec')->times(4)->andReturn('');
         $sessions = Mockery::mock(DmsInstallerSshSessionFactory::class);
         $sessions->shouldReceive('create')->once()->andReturn($session);
         $host = Mockery::mock(DmsCentos9HostPreparation::class);

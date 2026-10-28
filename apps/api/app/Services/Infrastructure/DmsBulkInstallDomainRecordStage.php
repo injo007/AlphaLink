@@ -25,8 +25,9 @@ class DmsBulkInstallDomainRecordStage
         DmsBulkInstallPublicIpResolver $publicIpResolver,
         DmsBulkInstallDomainDnsRecordWriter $dnsWriter,
         Closure $log,
+        ?string $registeredPublicIp = null,
     ): void {
-        $resolvedIps = $this->resolvePublicAddresses($ips, $publicIpResolver, $log);
+        $resolvedIps = $this->resolvePublicAddresses($ips, $publicIpResolver, $log, $registeredPublicIp);
 
         $records = $this->planner->records(
             (bool) $domain->is_our,
@@ -80,6 +81,7 @@ class DmsBulkInstallDomainRecordStage
         array $ips,
         DmsBulkInstallPublicIpResolver $publicIpResolver,
         ?callable $log = null,
+        ?string $registeredPublicIp = null,
     ): array {
         $resolved = [];
         foreach ($ips as $entry) {
@@ -104,6 +106,25 @@ class DmsBulkInstallDomainRecordStage
                             $entry['sub'] === '' ? '@' : $entry['sub'],
                             $entry['domain'],
                             $entry['type'],
+                        ));
+                    }
+
+                    continue;
+                }
+
+                $fallbackIp = $this->selectedPublicFallback($entry, $ips, $registeredPublicIp);
+                if ($fallbackIp !== null) {
+                    $entry['ip'] = $fallbackIp;
+                    $resolved[] = $entry;
+
+                    if ($log !== null) {
+                        $log(sprintf(
+                            'Using selected public %s address %s as the DNS target for private interface %s at %s.%s because its interface egress lookup could not be verified.',
+                            $entry['type'],
+                            $fallbackIp,
+                            $originalIp,
+                            $entry['sub'] === '' ? '@' : $entry['sub'],
+                            $entry['domain'],
                         ));
                     }
 
@@ -140,5 +161,39 @@ class DmsBulkInstallDomainRecordStage
         }
 
         return false;
+    }
+
+    /**
+     * @param  array{main: bool, ip: string, type: string, sub: string, domain: string}  $entry
+     * @param  list<array{main: bool, ip: string, type: string, sub: string, domain: string}>  $ips
+     */
+    private function selectedPublicFallback(array $entry, array $ips, ?string $registeredPublicIp): ?string
+    {
+        $family = $entry['type'] === 'ipv4' ? FILTER_FLAG_IPV4 : FILTER_FLAG_IPV6;
+        $mainPublicIp = null;
+        $selectedPublicIps = [];
+
+        foreach ($ips as $candidate) {
+            if ($candidate['type'] !== $entry['type']
+                || filter_var($candidate['ip'], FILTER_VALIDATE_IP, $family | FILTER_FLAG_NO_PRIV_RANGE) === false) {
+                continue;
+            }
+
+            $selectedPublicIps[$candidate['ip']] = true;
+            if ($candidate['main']) {
+                $mainPublicIp = $candidate['ip'];
+            }
+        }
+
+        if ($mainPublicIp !== null) {
+            return $mainPublicIp;
+        }
+
+        if (is_string($registeredPublicIp)
+            && filter_var($registeredPublicIp, FILTER_VALIDATE_IP, $family | FILTER_FLAG_NO_PRIV_RANGE) !== false) {
+            return $registeredPublicIp;
+        }
+
+        return count($selectedPublicIps) === 1 ? array_key_first($selectedPublicIps) : null;
     }
 }

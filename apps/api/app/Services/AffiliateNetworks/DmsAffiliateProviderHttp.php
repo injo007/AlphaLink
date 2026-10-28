@@ -195,10 +195,17 @@ class DmsAffiliateProviderHttp
 
                 return $bytes;
             }
-        } catch (Throwable) {
+        } catch (DmsAffiliateProviderException $exception) {
             @unlink($destination);
 
-            return null;
+            throw $exception;
+        } catch (Throwable $exception) {
+            @unlink($destination);
+
+            throw new DmsAffiliateSuppressionDownloadException(
+                'The sponsor returned a download link, but AlphaLink could not finish saving the file. Check free space in app storage and outbound HTTPS from the app server, then retry.',
+                previous: $exception,
+            );
         }
 
         @unlink($destination);

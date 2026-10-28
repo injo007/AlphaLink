@@ -191,6 +191,38 @@ class DmsOfferManagementTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_suppression_worker_reports_a_failed_large_file_transfer_as_storage_or_network_issue(): void
+    {
+        $this->app->instance(
+            DmsAffiliateProviderHttp::class,
+            new DmsAffiliateProviderHttp(static fn (string $host): array => ['1.1.1.1']),
+        );
+        $sponsor = $this->createSponsor('Synthetic Everflow suppression');
+        $offer = $this->createOffer($sponsor, ['offer_id' => '71236']);
+        $download = WorkspaceOfferSuppressionDownload::query()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'offer_id' => $offer->getKey(),
+            'requested_by' => $this->owner->getKey(),
+            'status' => 'queued',
+        ]);
+        Http::fake([
+            'https://api.eflow.team/v1/affiliates/offers/*' => Http::response([
+                'relationship' => ['email_optout' => ['suppression_file_link' => 'https://files.example.test/suppression.txt']],
+            ]),
+            'https://files.example.test/suppression.txt' => Http::response('', 503),
+        ]);
+
+        (new DownloadWorkspaceOfferSuppressionFile($download->getKey()))->handle(app(DmsAffiliateSuppressionRefresher::class));
+
+        $this->assertSame('failed', $download->fresh()->status);
+        $this->assertSame(
+            'The sponsor returned a download link, but AlphaLink could not finish saving the file. Check free space in app storage and outbound HTTPS from the app server, then retry.',
+            $download->fresh()->failure_message,
+        );
+        $this->assertNull($offer->fresh()->suppression_path);
+        Http::assertSentCount(2);
+    }
+
     public function test_offer_id_is_unique_per_sponsor_even_when_previous_offer_is_soft_deleted(): void
     {
         $sponsor = $this->createSponsor('Unique ID Network');

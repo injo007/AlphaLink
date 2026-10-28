@@ -7,6 +7,8 @@ use App\Models\Workspace;
 use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceSponsor;
 use App\Services\AffiliateNetworks\DmsAffiliateProviderHttp;
+use App\Services\AffiliateNetworks\DmsAffiliateProviderException;
+use App\Services\AffiliateNetworks\DmsAffiliateSuppressionDownloadException;
 use App\Services\AffiliateNetworks\DmsAffiliateSuppressionRefresher;
 use App\Services\Campaigns\DmsOfferSuppressionFile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -84,6 +86,11 @@ class DmsAffiliateSuppressionRefreshTest extends TestCase
         $this->assertSame("blocked@example.test\n", Storage::disk('local')->get($offer->suppression_path));
         $this->assertSame(hash('sha256', "blocked@example.test\n"), $offer->suppression_sha256);
         $this->assertTrue(app(DmsOfferSuppressionFile::class)->isEligible($offer));
+        $this->assertSame([], Storage::disk('local')->allFiles(sprintf(
+            'offers/%s/%d/suppression/.downloads',
+            $workspace->getKey(),
+            $offer->getKey(),
+        )));
 
         Http::assertSentCount(2);
         Http::assertSent(fn (ClientRequest $request): bool => $request->url() === 'https://api.hitpath.example.test/pubapi.php'
@@ -375,7 +382,12 @@ class DmsAffiliateSuppressionRefreshTest extends TestCase
             'https://cdn.example.test/unavailable.txt' => Http::response('', 503),
         ]);
 
-        $this->assertFalse(app(DmsAffiliateSuppressionRefresher::class)->refresh($workspace, $offer));
+        try {
+            app(DmsAffiliateSuppressionRefresher::class)->refresh($workspace, $offer);
+            $this->fail('A rejected sponsor download URL must be reported as a transfer failure.');
+        } catch (DmsAffiliateSuppressionDownloadException $exception) {
+            $this->assertStringContainsString('Check free space in app storage', $exception->getMessage());
+        }
         $this->assertNull($offer->fresh()->suppression_path);
         $this->assertSame(2, Http::recorded()->count());
     }
@@ -421,7 +433,12 @@ class DmsAffiliateSuppressionRefreshTest extends TestCase
             ),
         ]);
 
-        $this->assertFalse(app(DmsAffiliateSuppressionRefresher::class)->refresh($workspace, $offer));
+        try {
+            app(DmsAffiliateSuppressionRefresher::class)->refresh($workspace, $offer);
+            $this->fail('A private download host must be rejected with a safe provider error.');
+        } catch (DmsAffiliateProviderException $exception) {
+            $this->assertSame('The configured affiliate provider endpoint is not a valid public HTTPS host.', $exception->getMessage());
+        }
         Http::assertSentCount(1);
         $this->assertNull($offer->fresh()->suppression_path);
     }

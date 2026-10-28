@@ -7,6 +7,7 @@ use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceSponsor;
 use App\Services\Campaigns\DmsOfferSuppressionFile;
 use Closure;
+use Illuminate\Support\Facades\Storage;
 
 class DmsAffiliateSuppressionRefresher
 {
@@ -57,9 +58,18 @@ class DmsAffiliateSuppressionRefresher
             $downloadUrl = trim($metadata['download_link']);
         }
 
-        $temporaryPath = tempnam(sys_get_temp_dir(), 'alphalink-suppression-source-');
+        $disk = Storage::disk('local');
+        $stagingDirectory = sprintf(
+            'offers/%s/%d/suppression/.downloads',
+            $workspace->getKey(),
+            $offer->getKey(),
+        );
+        $disk->makeDirectory($stagingDirectory);
+        $temporaryPath = tempnam($disk->path($stagingDirectory), 'sponsor-');
         if (! is_string($temporaryPath)) {
-            return null;
+            throw new DmsAffiliateSuppressionDownloadException(
+                'AlphaLink could not create a private staging file. Check free space and write permissions in app storage, then retry.',
+            );
         }
 
         try {
@@ -70,7 +80,9 @@ class DmsAffiliateSuppressionRefresher
                 $onProgress,
             );
             if (! is_int($bytes) || $bytes < 1) {
-                return null;
+                throw new DmsAffiliateSuppressionDownloadException(
+                    'The sponsor returned a download link, but AlphaLink could not finish saving the file. Check free space in app storage and outbound HTTPS from the app server, then retry.',
+                );
             }
 
             if ($onProgress !== null) {

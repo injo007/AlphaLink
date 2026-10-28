@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\WorkspaceOfferSuppressionDownload;
 use App\Services\AffiliateNetworks\DmsAffiliateProviderException;
+use App\Services\AffiliateNetworks\DmsAffiliateSuppressionDownloadException;
 use App\Services\AffiliateNetworks\DmsAffiliateSuppressionRefresher;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -89,6 +90,7 @@ class DownloadWorkspaceOfferSuppressionFile implements ShouldQueue
             ]);
 
             $failureMessage = match (true) {
+                $exception instanceof DmsAffiliateSuppressionDownloadException => $exception->getMessage(),
                 $exception instanceof DmsAffiliateProviderException => 'The sponsor endpoint could not be reached safely: '.$exception->getMessage(),
                 $exception instanceof ConnectionException => 'AlphaLink could not connect to the sponsor or download host over HTTPS. Check app-server DNS and outbound TCP 443, then retry.',
                 $download->status === 'validating' => 'The downloaded file failed suppression validation. Confirm the sponsor file contains valid email addresses, MD5 hashes, or SHA-512 hashes, then retry.',

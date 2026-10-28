@@ -178,7 +178,7 @@ class DmsSponsorLoginTest extends TestCase
         $this->postJson(route('console.sponsors.login', [$this->workspace->getKey(), $sponsor->getKey()]))
             ->assertOk()
             ->assertJsonPath('status', false)
-            ->assertJsonPath('message', 'The affiliate provider host resolved to a private or reserved address.');
+            ->assertJsonPath('message', 'The affiliate provider host did not resolve to a public address.');
 
         $this->assertCount(0, Http::recorded());
     }

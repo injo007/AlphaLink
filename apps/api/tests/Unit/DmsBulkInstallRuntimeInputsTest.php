@@ -148,7 +148,7 @@ class DmsBulkInstallRuntimeInputsTest extends TestCase
 
         try {
             $this->expectException(RuntimeException::class);
-            $this->expectExceptionMessage('AlphaLink could not verify its public IPv4 egress automatically. Allow outbound HTTPS to public-IP checks or set a stable address in App Settings → PMTA RELAY SOURCE IPS.');
+            $this->expectExceptionMessage('AlphaLink could not discover its public IPv4 egress from cloud metadata or independent HTTPS checks. Make the host metadata service or outbound HTTPS reachable, then retry PMTA installation.');
             app(DmsBulkInstallRuntimeInputs::class)->resolve($this->installOptions(), null, 45);
         } finally {
             rmdir($root);

@@ -3,9 +3,12 @@
 namespace App\Jobs;
 
 use App\Models\WorkspaceOfferSuppressionDownload;
+use App\Services\AffiliateNetworks\DmsAffiliateProviderException;
 use App\Services\AffiliateNetworks\DmsAffiliateSuppressionRefresher;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Log;
 
 class DownloadWorkspaceOfferSuppressionFile implements ShouldQueue
 {
@@ -73,11 +76,28 @@ class DownloadWorkspaceOfferSuppressionFile implements ShouldQueue
                 'failure_message' => null,
                 'finished_at' => now(),
             ])->save();
-        } catch (\Throwable) {
-            // Provider exceptions may contain credential-bearing URLs; keep the UI/log record sanitized.
+        } catch (\Throwable $exception) {
+            // Never log exception messages: some provider URLs carry credentials.
+            Log::warning('Offer suppression download failed.', [
+                'download_id' => $download->getKey(),
+                'workspace_id' => $download->workspace_id,
+                'offer_id' => $download->offer_id,
+                'stage' => $download->status,
+                'exception_class' => $exception::class,
+                'exception_file' => basename($exception->getFile()),
+                'exception_line' => $exception->getLine(),
+            ]);
+
+            $failureMessage = match (true) {
+                $exception instanceof DmsAffiliateProviderException => 'The sponsor endpoint could not be reached safely: '.$exception->getMessage(),
+                $exception instanceof ConnectionException => 'AlphaLink could not connect to the sponsor or download host over HTTPS. Check app-server DNS and outbound TCP 443, then retry.',
+                $download->status === 'validating' => 'The downloaded file failed suppression validation. Confirm the sponsor file contains valid email addresses or MD5 entries, then retry.',
+                default => 'The suppression download failed inside AlphaLink. Diagnostic ID '.$download->getKey().'; check the application log and retry.',
+            };
+
             $download->forceFill([
                 'status' => 'failed',
-                'failure_message' => 'The suppression file could not be downloaded or validated. Check the sponsor connection and try again.',
+                'failure_message' => $failureMessage,
                 'finished_at' => now(),
             ])->save();
         }

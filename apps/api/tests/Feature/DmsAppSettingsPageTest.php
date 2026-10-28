@@ -214,6 +214,70 @@ class DmsAppSettingsPageTest extends TestCase
         $this->assertSame(['optizmo_token'], $audit->properties['secrets_cleared']);
     }
 
+    public function test_saved_setting_secrets_can_be_revealed_only_on_demand_and_are_audited(): void
+    {
+        $secret = 'synthetic-tracking-key-'.Str::random(16);
+        $optizmoToken = 'synthetic-optizmo-key-'.Str::random(16);
+        $this->workspace->infrastructureSettings()->create(['mini_app_key' => $secret]);
+        $this->workspace->appSettings()->create(['settings' => ['optizmo_token' => $optizmoToken]]);
+
+        $page = $this->get($this->settingsPage())
+            ->assertOk()
+            ->assertDontSee($secret)
+            ->assertSee('REVEAL')
+            ->assertSee('Generated automatically the first time TRACKING is selected during server installation.');
+        $page->assertSee('data-secret-url="'.e(route('clean.console.app-settings.secret', [
+            'field' => 'mini_app_key',
+        ])).'"', false);
+
+        $this->get(route('clean.console.app-settings.secret', [
+            'field' => 'mini_app_key',
+        ]))->assertOk()
+            ->assertJsonPath('field', 'mini_app_key')
+            ->assertJsonPath('value', $secret)
+            ->assertHeader('Cache-Control', 'must-revalidate, no-cache, no-store, private');
+
+        $this->get(route('clean.console.app-settings.secret', [
+            'field' => 'optizmo_token',
+        ]))->assertOk()->assertJsonPath('value', $optizmoToken);
+
+        $audits = AuditEvent::query()->where('action', 'workspace.app_setting_secret_revealed')->get();
+        $this->assertCount(2, $audits);
+        $this->assertSame(['field' => 'mini_app_key'], $audits->firstWhere('properties.field', 'mini_app_key')->properties);
+        $auditJson = json_encode($audits->pluck('properties'), JSON_THROW_ON_ERROR);
+        $this->assertStringNotContainsString($secret, $auditJson);
+        $this->assertStringNotContainsString($optizmoToken, $auditJson);
+    }
+
+    public function test_non_admin_workspace_members_cannot_reveal_saved_setting_secrets(): void
+    {
+        $member = User::factory()->create();
+        $this->workspace->users()->attach($member->getKey(), ['role' => 'operator']);
+        $this->workspace->infrastructureSettings()->create(['mini_app_key' => 'synthetic-secret']);
+        $this->actingAs($member);
+
+        $this->get(route('clean.console.app-settings.secret', [
+            'field' => 'mini_app_key',
+        ]))->assertForbidden();
+
+        $this->assertSame(0, AuditEvent::query()->where('action', 'workspace.app_setting_secret_revealed')->count());
+    }
+
+    public function test_environment_optizmo_token_is_revealable_without_embedding_it_in_the_page(): void
+    {
+        $token = 'synthetic-environment-optizmo-token';
+        config(['services.optizmo.token' => $token]);
+
+        $this->get($this->settingsPage())
+            ->assertOk()
+            ->assertDontSee($token)
+            ->assertSee('data-secret-reveal="optizmo_token"', false);
+
+        $this->get(route('clean.console.app-settings.secret', [
+            'field' => 'optizmo_token',
+        ]))->assertOk()->assertJsonPath('value', $token);
+    }
+
     public function test_validation_failure_does_not_flash_nested_secret_values(): void
     {
         $this->from($this->settingsPage())->post($this->settingsPage(), [

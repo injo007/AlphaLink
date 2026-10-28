@@ -87,28 +87,68 @@ validate_pmta_relay_ipv4_list() {
 }
 
 detect_public_ipv4_egress() {
-    local endpoint address first
+    local endpoint address token body
     local -a endpoints=(
-        'https://api.ipify.org'
+        'https://api4.ipify.org'
         'https://checkip.amazonaws.com'
         'https://ipv4.icanhazip.com'
+        'https://v4.ident.me'
     )
-    local -a observed=()
+    local -a verified=()
+    declare -A observations=()
+
+    address="$(curl --noproxy '*' --fail --silent --connect-timeout 1 --max-time 2 \
+        'http://169.254.169.254/metadata/v1/interfaces/public/0/ipv4/address' 2>/dev/null | tr -d '[:space:]' || true)"
+    if valid_public_ipv4 "$address"; then
+        printf '%s\n' "$address"
+        return 0
+    fi
+
+    token="$(curl --noproxy '*' --fail --silent --connect-timeout 1 --max-time 2 -X PUT \
+        -H 'Metadata-Token-Expiry-Seconds: 60' 'http://169.254.169.254/v1/token' 2>/dev/null | tr -d '[:space:]' || true)"
+    if [[ -n "$token" ]]; then
+        body="$(curl --noproxy '*' --fail --silent --connect-timeout 1 --max-time 2 \
+            -H "Metadata-Token: ${token}" 'http://169.254.169.254/v1/network' 2>/dev/null || true)"
+        address="$(LINODE_NETWORK_JSON="$body" python3 -c 'import ipaddress, json, os
+try:
+    addresses = json.loads(os.environ["LINODE_NETWORK_JSON"]).get("ipv4", {}).get("public", [])
+except (json.JSONDecodeError, AttributeError):
+    addresses = []
+for value in addresses if isinstance(addresses, list) else []:
+    if not isinstance(value, str):
+        continue
+    try:
+        parsed = ipaddress.ip_interface(value)
+        if parsed.version == 4 and parsed.network.prefixlen == 32 and parsed.ip.is_global:
+            print(parsed.ip)
+    except ValueError:
+        try:
+            parsed = ipaddress.ip_address(value)
+            if parsed.version == 4 and parsed.is_global:
+                print(parsed)
+        except ValueError:
+            pass' 2>/dev/null | sort -u | paste -sd, -)"
+        if [[ -n "$address" ]] && validate_pmta_relay_ipv4_list "$address"; then
+            printf '%s\n' "$address"
+            return 0
+        fi
+    fi
 
     for endpoint in "${endpoints[@]}"; do
         address="$(curl -4 --fail --silent --connect-timeout 3 --max-time 5 "$endpoint" 2>/dev/null | tr -d '[:space:]' || true)"
         if valid_public_ipv4 "$address"; then
-            observed+=("$address")
+            observations["$address"]=$(( ${observations[$address]:-0} + 1 ))
         fi
     done
 
-    (( ${#observed[@]} >= 2 )) || return 1
-    first="${observed[0]}"
-    for address in "${observed[@]}"; do
-        [[ "$address" == "$first" ]] || return 1
+    for address in "${!observations[@]}"; do
+        if (( observations[$address] >= 2 )); then
+            verified+=("$address")
+        fi
     done
+    (( ${#verified[@]} > 0 )) || return 1
 
-    printf '%s\n' "$first"
+    printf '%s\n' "${verified[@]}" | sort -Vu | paste -sd, -
 }
 
 wait_for_horizon() {

@@ -166,6 +166,31 @@ class DmsOfferManagementTest extends TestCase
         Http::assertSentCount(2);
     }
 
+    public function test_suppression_worker_reports_a_safe_actionable_dns_failure(): void
+    {
+        $this->app->instance(
+            DmsAffiliateProviderHttp::class,
+            new DmsAffiliateProviderHttp(static fn (string $host): array => ['127.0.0.1']),
+        );
+        $sponsor = $this->createSponsor('Synthetic Everflow suppression');
+        $offer = $this->createOffer($sponsor, ['offer_id' => '71235']);
+        $download = WorkspaceOfferSuppressionDownload::query()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'offer_id' => $offer->getKey(),
+            'requested_by' => $this->owner->getKey(),
+            'status' => 'queued',
+        ]);
+        Http::fake();
+
+        (new DownloadWorkspaceOfferSuppressionFile($download->getKey()))->handle(app(DmsAffiliateSuppressionRefresher::class));
+
+        $this->assertSame(
+            'The sponsor endpoint could not be reached safely: The affiliate provider host did not resolve to a public address.',
+            $download->fresh()->failure_message,
+        );
+        Http::assertNothingSent();
+    }
+
     public function test_offer_id_is_unique_per_sponsor_even_when_previous_offer_is_soft_deleted(): void
     {
         $sponsor = $this->createSponsor('Unique ID Network');

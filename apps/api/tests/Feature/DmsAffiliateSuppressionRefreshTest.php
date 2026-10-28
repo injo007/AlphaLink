@@ -240,7 +240,14 @@ class DmsAffiliateSuppressionRefreshTest extends TestCase
                     ],
                 ],
             ]),
-            'https://mailer-api.optizmo.net/accesskey/download/offer-mailer-key*' => Http::response(
+            'https://mailer-api.optizmo.net/accesskey/download/offer-mailer-key*' => Http::response([
+                'result' => 'success',
+                'download_link' => 'https://mailer-api.optizmo.net/temp/offer-mailer-key',
+            ]),
+            'https://mailer-api.optizmo.net/temp/offer-mailer-key' => Http::response('', 302, [
+                'Location' => 'https://temp-storage.optizmo.com/suppression/offer-mailer-key?signature=synthetic',
+            ]),
+            'https://temp-storage.optizmo.com/suppression/offer-mailer-key?signature=synthetic' => Http::response(
                 "blocked-optizmo@example.test\n",
                 200,
             ),
@@ -249,13 +256,14 @@ class DmsAffiliateSuppressionRefreshTest extends TestCase
         $this->assertTrue(app(DmsAffiliateSuppressionRefresher::class)->refresh($workspace, $offer));
 
         $this->assertSuppressionFile($offer, "blocked-optizmo@example.test\n");
-        Http::assertSentCount(2);
+        Http::assertSentCount(4);
         Http::assertSent(fn (ClientRequest $request): bool => str_contains(
             $request->url(),
             'https://mailer-api.optizmo.net/accesskey/download/offer-mailer-key',
         )
             && $this->queryValue($request, 'token') === 'workspace-optizmo-token'
             && $this->queryValue($request, 'deltas') === '0');
+        Http::assertSent(fn (ClientRequest $request): bool => $request->url() === 'https://temp-storage.optizmo.com/suppression/offer-mailer-key?signature=synthetic');
         Http::assertNotSent(fn (ClientRequest $request): bool => $this->queryValue($request, 'token') === 'environment-fallback-token');
     }
 
@@ -272,7 +280,11 @@ class DmsAffiliateSuppressionRefreshTest extends TestCase
                     ],
                 ],
             ]),
-            'https://mailer-api.optizmo.net/accesskey/download/legacy-mailer-key*' => Http::response(
+            'https://mailer-api.optizmo.net/accesskey/download/legacy-mailer-key*' => Http::response([
+                'result' => 'success',
+                'download_link' => 'https://temp-storage.optizmo.com/suppression/legacy-mailer-key',
+            ]),
+            'https://temp-storage.optizmo.com/suppression/legacy-mailer-key' => Http::response(
                 "blocked-legacy@example.test\n",
                 200,
             ),
@@ -412,6 +424,25 @@ class DmsAffiliateSuppressionRefreshTest extends TestCase
         $this->assertFalse(app(DmsAffiliateSuppressionRefresher::class)->refresh($workspace, $offer));
         Http::assertSentCount(1);
         $this->assertNull($offer->fresh()->suppression_path);
+    }
+
+    public function test_refresh_uses_a_public_address_when_dns_also_returns_private_answers(): void
+    {
+        [$workspace, , $offer] = $this->suppressionOffer('hitpath', 'https://affiliate.hitpath.example.test', null, '9930');
+        $this->app->instance(
+            DmsAffiliateProviderHttp::class,
+            new DmsAffiliateProviderHttp(static fn (string $host): array => ['fd00::1', '127.0.0.1', '1.1.1.1']),
+        );
+        Http::fake([
+            'https://api.hitpath.example.test/pubapi.php' => Http::response(
+                '<response><data><suppurl>https://cdn.example.test/suppression.txt</suppurl></data></response>',
+                200,
+            ),
+            'https://cdn.example.test/suppression.txt' => Http::response("mixed-dns@example.test\n", 200),
+        ]);
+
+        $this->assertTrue(app(DmsAffiliateSuppressionRefresher::class)->refresh($workspace, $offer));
+        $this->assertSuppressionFile($offer, "mixed-dns@example.test\n");
     }
 
     /** @return array{Workspace, WorkspaceSponsor, WorkspaceOffer} */

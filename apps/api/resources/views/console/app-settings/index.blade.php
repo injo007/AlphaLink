@@ -93,7 +93,7 @@
                     </div>
                     <div class="row">
                         <div class="col-12">
-                            <small class="form-text text-muted">PMTA PORT is the mail listener. PMTA WEB MONITOR PUBLIC PORT is the AlphaLink monitor link port (1213 by default). PMTA 4.5/5.0 listen internally on twice that port (1213 maps to 2426) behind Nginx; PMTA 4.0 uses the configured port directly. SHOW PMTA MONITOR TO ALL enables public read-only access. PMTA RELAY SOURCE IPS is detected from this AlphaLink host's outbound public IPv4 during setup and checked again during deployments. Manually saving this field switches to your own address list. Installs and reinstalls use the detected/configured source for SMTP relay and restrict PMTA admin commands to the local proxy, while the 4.5/5.0 backend grants admin only to the local proxy. DEV IPS controls additional monitor access and PMTA 4.0 admin access. Saving settings affects future installs and generated links, but does not rewrite an installed server.</small>
+                            <small class="form-text text-muted">PMTA PORT is the mail listener. PMTA WEB MONITOR PUBLIC PORT is the AlphaLink monitor link port (1213 by default). PMTA 4.5/5.0 listen internally on twice that port (1213 maps to 2426) behind Nginx; PMTA 4.0 uses the configured port directly. SHOW PMTA MONITOR TO ALL enables public read-only access. PMTA RELAY SOURCE IPS is detected from this AlphaLink host's DigitalOcean/Linode metadata when available, otherwise from independent outbound IPv4 checks, during setup and deployment. Manually saving this field switches to your own address list. Installs and reinstalls use the detected/configured source for SMTP relay and restrict PMTA admin commands to the local proxy, while the 4.5/5.0 backend grants admin only to the local proxy. DEV IPS controls additional monitor access and PMTA 4.0 admin access. Saving settings affects future installs and generated links, but does not rewrite an installed server.</small>
                         </div>
                     </div>
                     <hr>
@@ -241,6 +241,72 @@
 
             if (window.location.hash === '#pmta_domains') {
                 $('#pmta_domains_tab').tab('show');
+            }
+        });
+
+        document.addEventListener('click', async function (event) {
+            const revealButton = event.target.closest('[data-secret-reveal]');
+            if (revealButton) {
+                const field = revealButton.dataset.secretReveal;
+                const input = document.querySelector(`[data-secret-input="${field}"]`);
+                const error = document.querySelector(`[data-secret-error="${field}"]`);
+                const copyButton = document.querySelector(`[data-secret-copy="${field}"]`);
+                if (!input) return;
+                error?.classList.add('d-none');
+
+                if (input.type === 'text') {
+                    input.type = 'password';
+                    revealButton.textContent = 'REVEAL';
+                    copyButton?.classList.add('d-none');
+                    return;
+                }
+
+                revealButton.disabled = true;
+                try {
+                    if (input.dataset.secretLoaded !== 'true') {
+                        const response = await fetch(input.dataset.secretUrl, {
+                            headers: { 'Accept': 'application/json' },
+                            credentials: 'same-origin',
+                            cache: 'no-store',
+                        });
+                        if (!response.ok) throw new Error('Saved value unavailable');
+                        const data = await response.json();
+                        if (data.field !== field || typeof data.value !== 'string' || data.value === '') {
+                            throw new Error('Saved value unavailable');
+                        }
+                        input.value = data.value;
+                        input.dataset.secretLoaded = 'true';
+                    }
+                    input.type = 'text';
+                    revealButton.textContent = 'HIDE';
+                    copyButton?.classList.remove('d-none');
+                } catch (errorCause) {
+                    if (error) {
+                        error.textContent = 'Saved value could not be retrieved. Sign in with an owner or admin account and check that the key is configured.';
+                        error.classList.remove('d-none');
+                    }
+                } finally {
+                    revealButton.disabled = false;
+                }
+                return;
+            }
+
+            const copyButton = event.target.closest('[data-secret-copy]');
+            if (copyButton) {
+                const field = copyButton.dataset.secretCopy;
+                const input = document.querySelector(`[data-secret-input="${field}"]`);
+                const error = document.querySelector(`[data-secret-error="${field}"]`);
+                if (!input || input.type !== 'text') return;
+                try {
+                    await navigator.clipboard.writeText(input.value);
+                    copyButton.textContent = 'COPIED';
+                    window.setTimeout(() => { copyButton.textContent = 'COPY'; }, 1500);
+                } catch (errorCause) {
+                    if (error) {
+                        error.textContent = 'Clipboard access was denied. Select the revealed value and copy it manually.';
+                        error.classList.remove('d-none');
+                    }
+                }
             }
         });
     </script>

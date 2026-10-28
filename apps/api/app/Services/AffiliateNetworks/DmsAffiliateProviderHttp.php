@@ -262,15 +262,25 @@ class DmsAffiliateProviderHttp
             : $this->resolveAddresses($host);
         $addresses = array_values(array_unique(array_filter($addresses, 'is_string')));
 
+        // A public host may return mixed A/AAAA answers. Pin to a public answer
+        // instead of rejecting the entire host because one unusable address was
+        // included; this still prevents private/link-local SSRF destinations.
+        $addresses = array_values(array_filter(
+            $addresses,
+            static fn (string $address): bool => filter_var(
+                $address,
+                FILTER_VALIDATE_IP,
+                FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE,
+            ) !== false,
+        ));
+
         if ($addresses === []) {
             throw new DmsAffiliateProviderException('The affiliate provider host did not resolve to a public address.');
         }
 
-        foreach ($addresses as $address) {
-            if (filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
-                throw new DmsAffiliateProviderException('The affiliate provider host resolved to a private or reserved address.');
-            }
-        }
+        usort($addresses, static fn (string $left, string $right): int => (int) (filter_var($right, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false)
+            <=> (int) (filter_var($left, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false)
+        );
 
         return Http::timeout($timeoutSeconds)
             ->connectTimeout(7)

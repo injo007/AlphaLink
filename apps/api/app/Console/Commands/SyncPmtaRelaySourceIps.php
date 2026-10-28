@@ -39,7 +39,7 @@ class SyncPmtaRelaySourceIps extends Command
 
         $sourceIps = $egress->resolve();
         if ($sourceIps === []) {
-            $this->error('Could not verify AlphaLink public IPv4 egress: at least two independent HTTPS checks must agree. Check outbound HTTPS and retry deployment.');
+            $this->error('Could not discover AlphaLink public IPv4 egress from cloud metadata or independent HTTPS checks. Check host metadata access and outbound HTTPS, then retry deployment.');
 
             return self::FAILURE;
         }

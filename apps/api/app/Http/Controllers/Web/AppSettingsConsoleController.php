@@ -7,6 +7,7 @@ use App\Models\AuditEvent;
 use App\Models\User;
 use App\Models\Workspace;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -180,7 +181,8 @@ class AppSettingsConsoleController extends Controller
         $secretStored = [];
         foreach (self::GENERIC_SECRET_FIELDS as $field) {
             $secretStored[$field] = filled($genericSettings[$field] ?? null);
-            $secretConfigured[$field] = $secretStored[$field];
+            $fallbackConfigured = $field === 'optizmo_token' && filled(config('services.optizmo.token'));
+            $secretConfigured[$field] = $secretStored[$field] || $fallbackConfigured;
         }
         foreach (self::INFRASTRUCTURE_SECRET_FIELDS as $field) {
             $secretStored[$field] = filled($infrastructureSettings?->getAttribute($field));
@@ -188,6 +190,40 @@ class AppSettingsConsoleController extends Controller
         }
 
         return view('console.app-settings.index', compact('workspace', 'settings', 'secretConfigured', 'secretStored', 'canManageGeneralSettings'));
+    }
+
+    public function revealSecret(Request $request, string $workspaceId, string $field): JsonResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspaceId);
+        abort_unless(in_array($field, [...self::GENERIC_SECRET_FIELDS, ...self::INFRASTRUCTURE_SECRET_FIELDS], true), 404);
+
+        if (in_array($field, self::GENERIC_SECRET_FIELDS, true)) {
+            $settings = $workspace->appSettings?->settings ?? [];
+            $value = is_array($settings) ? ($settings[$field] ?? null) : null;
+            if ($field === 'optizmo_token' && blank($value)) {
+                $value = config('services.optizmo.token');
+            }
+        } else {
+            $value = $workspace->infrastructureSettings?->getAttribute($field)
+                ?? config('infrastructure.bulk_install_settings.'.$field);
+        }
+
+        abort_unless(is_string($value) && $value !== '', 404, 'No saved value exists for this setting.');
+
+        AuditEvent::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'actor_user_id' => $request->user()->getKey(),
+            'action' => 'workspace.app_setting_secret_revealed',
+            'subject_type' => 'workspace_app_setting_secret',
+            'subject_id' => (string) $workspace->getKey(),
+            'request_id' => $request->attributes->get('request_id'),
+            'properties' => ['field' => $field],
+            'occurred_at' => now(),
+        ]);
+
+        return response()->json(['field' => $field, 'value' => $value])
+            ->header('Cache-Control', 'private, no-store, no-cache, must-revalidate')
+            ->header('Pragma', 'no-cache');
     }
 
     public function update(Request $request, string $workspaceId): RedirectResponse

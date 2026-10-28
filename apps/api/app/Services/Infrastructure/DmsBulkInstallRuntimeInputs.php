@@ -60,7 +60,7 @@ class DmsBulkInstallRuntimeInputs
         if ($pmtaVersion !== null && ($pmtaRelayIps === [] || $autoManagedRelayIps)) {
             $detectedRelayIps = $this->egress->resolve();
             if ($detectedRelayIps === []) {
-                throw new RuntimeException('AlphaLink could not verify its public IPv4 egress automatically. Allow outbound HTTPS to public-IP checks or set a stable address in App Settings → PMTA RELAY SOURCE IPS.');
+                throw new RuntimeException('AlphaLink could not discover its public IPv4 egress from cloud metadata or independent HTTPS checks. Make the host metadata service or outbound HTTPS reachable, then retry PMTA installation.');
             }
             $pmtaRelayIps = $detectedRelayIps;
 

@@ -219,9 +219,12 @@ class DmsBulkInstallSettingsTest extends TestCase
             'pmta_relay_ips' => [],
         ]);
         Http::fake([
-            'https://api.ipify.org' => Http::response('1.1.1.1'),
+            'http://169.254.169.254/metadata/v1/interfaces/public/0/ipv4/address' => Http::response('', 404),
+            'http://169.254.169.254/v1/token' => Http::response('', 404),
+            'https://api4.ipify.org' => Http::response('1.1.1.1'),
             'https://checkip.amazonaws.com' => Http::response("1.1.1.1\n"),
             'https://ipv4.icanhazip.com' => Http::response('1.1.1.1'),
+            'https://v4.ident.me' => Http::response('9.9.9.9'),
         ]);
 
         $resolved = app(DmsBulkInstallRuntimeInputs::class)->resolve(
@@ -234,7 +237,7 @@ class DmsBulkInstallSettingsTest extends TestCase
         $this->assertSame(['1.1.1.1'], $resolved['settings']['pmta_relay_ips']);
         $this->assertSame(['1.1.1.1'], $settings->pmta_relay_ips);
         $this->assertTrue($settings->pmta_relay_ips_auto_managed);
-        Http::assertSentCount(3);
+        Http::assertSentCount(6);
     }
 
     public function test_auto_managed_relay_source_refreshes_when_the_app_host_egress_changes(): void
@@ -253,9 +256,12 @@ class DmsBulkInstallSettingsTest extends TestCase
             'pmta_relay_ips_auto_managed' => true,
         ]);
         Http::fake([
-            'https://api.ipify.org' => Http::response('1.1.1.1'),
+            'http://169.254.169.254/metadata/v1/interfaces/public/0/ipv4/address' => Http::response('', 404),
+            'http://169.254.169.254/v1/token' => Http::response('', 404),
+            'https://api4.ipify.org' => Http::response('1.1.1.1'),
             'https://checkip.amazonaws.com' => Http::response('1.1.1.1'),
             'https://ipv4.icanhazip.com' => Http::response('1.1.1.1'),
+            'https://v4.ident.me' => Http::response('1.1.1.1'),
         ]);
 
         $resolved = app(DmsBulkInstallRuntimeInputs::class)->resolve(
@@ -283,9 +289,12 @@ class DmsBulkInstallSettingsTest extends TestCase
             'pmta_relay_ips_auto_managed' => false,
         ]);
         Http::fake([
-            'https://api.ipify.org' => Http::response('1.1.1.1'),
+            'http://169.254.169.254/metadata/v1/interfaces/public/0/ipv4/address' => Http::response('', 404),
+            'http://169.254.169.254/v1/token' => Http::response('', 404),
+            'https://api4.ipify.org' => Http::response('1.1.1.1'),
             'https://checkip.amazonaws.com' => Http::response('1.1.1.1'),
             'https://ipv4.icanhazip.com' => Http::response('1.1.1.1'),
+            'https://v4.ident.me' => Http::response('1.1.1.1'),
         ]);
 
         $this->artisan('alphalink:sync-pmta-relay-source-ips')

@@ -41,6 +41,22 @@ class DmsAffiliateSuppressionRefresher
             return null;
         }
 
+        if (strtolower((string) parse_url($downloadUrl, PHP_URL_HOST)) === 'mailer-api.optizmo.net') {
+            // Optizmo's access-key endpoint returns a small JSON envelope with a
+            // short-lived download_link. The link redirects to temporary storage;
+            // the JSON envelope is not the suppression file itself.
+            $envelope = $this->http->getBytesFollowingPublicRedirects($downloadUrl, [], 1_048_576);
+            $metadata = is_string($envelope) ? json_decode($envelope, true) : null;
+            if (! is_array($metadata)
+                || strtolower((string) ($metadata['result'] ?? '')) !== 'success'
+                || ! is_string($metadata['download_link'] ?? null)
+                || trim($metadata['download_link']) === '') {
+                return null;
+            }
+
+            $downloadUrl = trim($metadata['download_link']);
+        }
+
         $temporaryPath = tempnam(sys_get_temp_dir(), 'alphalink-suppression-source-');
         if (! is_string($temporaryPath)) {
             return null;

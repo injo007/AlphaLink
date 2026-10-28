@@ -89,6 +89,8 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::get('/app/workspaces/{workspace}/users/{user}/password', [WorkspaceUserManagementController::class, 'password'])->whereNumber('user')->name('console.users.password');
     Route::put('/app/workspaces/{workspace}/users/{user}/password', [WorkspaceUserManagementController::class, 'updatePassword'])->whereNumber('user')->middleware('throttle:10,1')->name('console.users.password.update');
     Route::get('/app/workspaces/{workspace}/settings', [AppSettingsConsoleController::class, 'index'])->name('console.app-settings.index');
+    Route::get('/app/workspaces/{workspace}/settings/secrets/{field}', [AppSettingsConsoleController::class, 'revealSecret'])
+        ->where('field', '[a-z_]+')->middleware('throttle:20,1')->name('console.app-settings.secret');
     Route::get('/app/workspaces/{workspace}/miscellaneous/app-health', [MiscellaneousConsoleController::class, 'appHealth'])->name('console.miscellaneous.app-health');
     Route::get('/app/workspaces/{workspace}/miscellaneous/app-errors', [MiscellaneousConsoleController::class, 'appErrors'])->name('console.miscellaneous.app-errors');
     Route::get('/app/workspaces/{workspace}/miscellaneous/subscribers', [MiscellaneousConsoleController::class, 'subscribers'])->name('console.miscellaneous.subscribers');

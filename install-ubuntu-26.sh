@@ -43,6 +43,48 @@ valid_app_domain() {
     [[ "$1" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]]
 }
 
+valid_public_ipv4() {
+    local address="$1" first second third fourth extra octet numeric
+    local -a octets=()
+
+    [[ "$address" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || return 1
+    IFS=. read -r first second third fourth extra <<< "$address"
+    [[ -z "${extra:-}" ]] || return 1
+    octets=("$first" "$second" "$third" "$fourth")
+    for octet in "${octets[@]}"; do
+        numeric=$((10#$octet))
+        (( numeric <= 255 )) || return 1
+        [[ "$octet" == "$numeric" ]] || return 1
+    done
+
+    first=$((10#$first))
+    second=$((10#$second))
+    third=$((10#$third))
+    (( first > 0 && first < 224 )) || return 1
+    (( first != 10 && first != 127 )) || return 1
+    (( first != 169 || second != 254 )) || return 1
+    (( first != 172 || second < 16 || second > 31 )) || return 1
+    (( first != 192 || second != 168 )) || return 1
+    (( first != 100 || second < 64 || second > 127 )) || return 1
+    (( first != 192 || second != 0 || third != 0 )) || return 1
+    (( first != 192 || second != 0 || third != 2 )) || return 1
+    (( first != 198 || second != 51 || third != 100 )) || return 1
+    (( first != 203 || second != 0 || third != 113 )) || return 1
+}
+
+validate_pmta_relay_ipv4_list() {
+    local value="${1//[[:space:]]/}" address
+    local -a addresses=()
+
+    [[ -n "$value" ]] || return 1
+    [[ "$value" != ,* && "$value" != *, && "$value" != *,,* ]] || return 1
+    IFS=, read -r -a addresses <<< "$value"
+    (( ${#addresses[@]} > 0 )) || return 1
+    for address in "${addresses[@]}"; do
+        valid_public_ipv4 "$address" || return 1
+    done
+}
+
 wait_for_horizon() {
     local attempt horizon_status=''
 
@@ -173,7 +215,17 @@ normalize_release_permissions() {
 
 validate_install_assets_source() {
     local source="$1"
-    local invalid_entry
+    local invalid_entry asset
+    local -a required_assets=(
+        pmta/4.0/package.rpm pmta/4.0/httpd-patch pmta/4.0/license.lic pmta/4.0/domains.conf
+        pmta/4.5/package.rpm pmta/4.5/pmtad-patch pmta/4.5/license.lic pmta/4.5/domains.conf
+        pmta/5.0/package.rpm pmta/5.0/pmtad-patch pmta/5.0/license.lic pmta/5.0/domains.conf
+        pmta/shared/source.conf pmta/shared/base.conf
+        optional/tracking/mini-app.zip optional/tracking/cloudflare-ips.conf
+        optional/imap/dovecot.conf optional/proxy/squid.conf optional/dkim/keys.json
+        optional/reverse-proxy/nginx-repo.conf optional/reverse-proxy/nginx.conf
+    )
+    local -a missing_assets=()
 
     [[ "$source" == /* && -d "$source" && ! -L "$source" ]] \
         || fail 'Installation assets must come from an existing absolute directory on this server.'
@@ -184,8 +236,11 @@ validate_install_assets_source() {
         || fail 'The asset source and private destination must be separate directories.'
     invalid_entry="$(find "$source" -mindepth 1 \( -type l -o \( ! -type d -a ! -type f \) \) -print -quit)"
     [[ -z "$invalid_entry" ]] || fail 'Installation assets cannot contain symlinks or special files.'
-    [[ -s "$source/pmta/shared/source.conf" && -s "$source/pmta/shared/base.conf" ]] \
-        || fail 'The source must use AlphaLink’s private asset layout and include both shared PMTA templates.'
+    for asset in "${required_assets[@]}"; do
+        [[ -s "$source/$asset" ]] || missing_assets+=("$asset")
+    done
+    (( ${#missing_assets[@]} == 0 )) \
+        || fail "The private PMTA bundle is incomplete; missing or empty asset(s): ${missing_assets[*]}"
 
     printf '%s\n' "$source"
 }
@@ -327,7 +382,8 @@ deploy_release() {
     local branch repository token='' temporary_release release_path release_sha
     local previous_release backup_file switched=0 migrations_started=0
     local rollback_ok=1 service horizon_status
-    local rollback_domain app_domain old_release
+    local rollback_domain app_domain old_release current_release quarantine_path
+    local reuse_built_release=0
     local -a old_releases=()
 
     [[ "${EUID}" -eq 0 ]] || fail 'Run deployment as root, for example: sudo bash /var/www/alphalink/current/install-ubuntu-26.sh --deploy.'
@@ -369,41 +425,87 @@ deploy_release() {
     unset token
     release_sha="$(git -C "$SOURCE_ROOT" rev-parse FETCH_HEAD)"
     release_path="${RELEASES_ROOT}/${release_sha}"
-    [[ ! -e "$release_path" ]] || fail "Release ${release_sha} already exists; deploy a newer commit or remove an unused release after review."
+    current_release="$(readlink -f "$CURRENT_ROOT")"
+    [[ "$current_release" == "$RELEASES_ROOT/"* ]] || fail 'The current release symlink points outside the managed release directory.'
 
-    mkdir -m 0750 "$temporary_release"
-    git -C "$SOURCE_ROOT" archive --format=tar "$release_sha" | tar -xf - -C "$temporary_release"
-    [[ -f "$temporary_release/apps/api/artisan" && -f "$temporary_release/apps/api/composer.lock" && -f "$temporary_release/apps/api/package-lock.json" ]] || fail 'The selected branch is missing Laravel or a committed frontend lockfile.'
+    if [[ "$current_release" == "$release_path" ]]; then
+        [[ -d "$release_path" && ! -L "$release_path" \
+            && -f "$release_path/apps/api/vendor/autoload.php" \
+            && -s "$release_path/apps/api/public/build/manifest.json" \
+            && -L "$release_path/apps/api/storage" \
+            && "$(readlink -f "$release_path/apps/api/storage")" == "$(readlink -f "$SHARED_ROOT/storage")" ]] \
+            || fail "The active release ${release_sha} is incomplete; preserving it and refusing to switch releases."
+        install -d -o www-data -g www-data -m 2770 "$release_path/apps/api/bootstrap/cache"
+        info "Release ${release_sha} is already active; validating its route cache and HTTPS health instead of rebuilding it..."
+        runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$release_path/apps/api/artisan" route:cache
+        normalize_release_permissions "$release_path"
+        app_domain="$(nginx_app_domain /etc/nginx/sites-available/alphalink)"
+        valid_app_domain "$app_domain" || fail 'Could not find a valid AlphaLink hostname in the Nginx site configuration.'
+        curl --fail --silent --show-error --output /dev/null \
+            --resolve "${app_domain}:443:127.0.0.1" "https://${app_domain}/up"
+        info "Release ${release_sha} is already deployed and passed its HTTPS health check; no database migration was needed."
+        return 0
+    fi
 
-    install -d -o www-data -g www-data -m 2770 \
-        "$SHARED_ROOT/storage/app/private" "$SHARED_ROOT/storage/app/public" \
-        "$SHARED_ROOT/storage/framework/cache/data" "$SHARED_ROOT/storage/framework/sessions" \
-        "$SHARED_ROOT/storage/framework/views" "$SHARED_ROOT/storage/logs" \
-        "$SHARED_ROOT/storage/framework/uploads" "$SHARED_ROOT/storage/framework/tmp" \
-        "$SHARED_ROOT/storage/framework/nginx-body"
-    rm -rf -- "$temporary_release/apps/api/storage"
-    ln -s "$SHARED_ROOT/storage" "$temporary_release/apps/api/storage"
-    chown -R root:www-data "$temporary_release"
-    find "$temporary_release" -type d -exec chmod 0750 {} +
-    find "$temporary_release" -type f -exec chmod 0640 {} +
-    normalize_shared_storage_permissions "$temporary_release/apps/api/bootstrap/cache"
-    chmod 0750 "$temporary_release" "$temporary_release/apps/api"
+    if [[ -e "$release_path" || -L "$release_path" ]]; then
+        if [[ -d "$release_path" && ! -L "$release_path" \
+            && -f "$release_path/apps/api/vendor/autoload.php" \
+            && -s "$release_path/apps/api/public/build/manifest.json" \
+            && -L "$release_path/apps/api/storage" \
+            && "$(readlink -f "$release_path/apps/api/storage")" == "$(readlink -f "$SHARED_ROOT/storage")" ]]; then
+            reuse_built_release=1
+            info "Reusing the complete inactive release ${release_sha} left by an earlier deployment attempt."
+        else
+            quarantine_path="${RELEASES_ROOT}/.incomplete-${release_sha}-$(date -u +%Y%m%dT%H%M%SZ)-$$"
+            mv -- "$release_path" "$quarantine_path"
+            info "Preserved the incomplete prior release at ${quarantine_path}; building a fresh copy of ${release_sha}."
+        fi
+    fi
 
-    info "Building release ${release_sha} before downtime..."
-    cd "$temporary_release/apps/api"
-    ALPHALINK_ENV_DIR="$ENV_ROOT" COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_MEMORY_LIMIT=-1 \
-        composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
-    composer check-platform-reqs --no-dev
-    npm ci --no-audit --no-fund
-    VITE_APP_NAME=AlphaLink npm run build
-    [[ -s public/build/manifest.json ]] || fail 'Vite did not produce the asset manifest.'
-    rm -rf -- node_modules
-    normalize_release_permissions "$temporary_release"
-    mv -- "$temporary_release" "$release_path"
-    DEPLOY_STAGING_DIR=''
+    if (( reuse_built_release == 0 )); then
+        mkdir -m 0750 "$temporary_release"
+        git -C "$SOURCE_ROOT" archive --format=tar "$release_sha" | tar -xf - -C "$temporary_release"
+        [[ -f "$temporary_release/apps/api/artisan" && -f "$temporary_release/apps/api/composer.lock" && -f "$temporary_release/apps/api/package-lock.json" ]] || fail 'The selected branch is missing Laravel or a committed frontend lockfile.'
 
-    previous_release="$(readlink -f "$CURRENT_ROOT")"
-    [[ "$previous_release" == "$RELEASES_ROOT/"* ]] || fail 'The current release symlink points outside the managed release directory.'
+        install -d -o www-data -g www-data -m 2770 \
+            "$SHARED_ROOT/storage/app/private" "$SHARED_ROOT/storage/app/public" \
+            "$SHARED_ROOT/storage/framework/cache/data" "$SHARED_ROOT/storage/framework/sessions" \
+            "$SHARED_ROOT/storage/framework/views" "$SHARED_ROOT/storage/logs" \
+            "$SHARED_ROOT/storage/framework/uploads" "$SHARED_ROOT/storage/framework/tmp" \
+            "$SHARED_ROOT/storage/framework/nginx-body"
+        rm -rf -- "$temporary_release/apps/api/storage"
+        ln -s "$SHARED_ROOT/storage" "$temporary_release/apps/api/storage"
+        chown -R root:www-data "$temporary_release"
+        find "$temporary_release" -type d -exec chmod 0750 {} +
+        find "$temporary_release" -type f -exec chmod 0640 {} +
+        normalize_shared_storage_permissions "$temporary_release/apps/api/bootstrap/cache"
+        chmod 0750 "$temporary_release" "$temporary_release/apps/api"
+
+        info "Building release ${release_sha} before downtime..."
+        cd "$temporary_release/apps/api"
+        ALPHALINK_ENV_DIR="$ENV_ROOT" COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_MEMORY_LIMIT=-1 \
+            composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
+        composer check-platform-reqs --no-dev
+        npm ci --no-audit --no-fund
+        VITE_APP_NAME=AlphaLink npm run build
+        [[ -s public/build/manifest.json ]] || fail 'Vite did not produce the asset manifest.'
+        rm -rf -- node_modules
+        install -d -o www-data -g www-data -m 2770 "$temporary_release/apps/api/bootstrap/cache"
+        info 'Preflighting Laravel route serialization before downtime...'
+        runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" \
+            php "$temporary_release/apps/api/artisan" route:cache
+        normalize_release_permissions "$temporary_release"
+        mv -- "$temporary_release" "$release_path"
+        DEPLOY_STAGING_DIR=''
+    else
+        install -d -o www-data -g www-data -m 2770 "$release_path/apps/api/bootstrap/cache"
+        info 'Preflighting reused Laravel release route serialization before downtime...'
+        runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" \
+            php "$release_path/apps/api/artisan" route:cache
+        normalize_release_permissions "$release_path"
+    fi
+
+    previous_release="$current_release"
     backup_file="${BACKUP_ROOT}/deploy-${release_sha}-$(date -u +%Y%m%dT%H%M%SZ).dump"
     rollback_deploy() {
         local exit_status=$?
@@ -619,6 +721,10 @@ resume_initial_install() {
             VITE_APP_NAME=AlphaLink npm run build
             [[ -s public/build/manifest.json ]] || fail 'Vite did not produce the asset manifest.'
             rm -rf -- node_modules
+            install -d -o www-data -g www-data -m 2770 "$staging_path/apps/api/bootstrap/cache"
+            info 'Preflighting Laravel route serialization before resuming...'
+            runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" \
+                php "$staging_path/apps/api/artisan" route:cache
             normalize_release_permissions "$staging_path"
             mv -- "$staging_path" "$release_path"
             DEPLOY_STAGING_DIR=''
@@ -626,6 +732,11 @@ resume_initial_install() {
     elif [[ ! -d "$release_path/apps/api" ]]; then
         fail 'The active release is incomplete.'
     fi
+
+    install -d -o www-data -g www-data -m 2770 "$release_path/apps/api/bootstrap/cache"
+    info 'Preflighting Laravel route serialization before resuming...'
+    runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$release_path/apps/api/artisan" route:cache
+    normalize_release_permissions "$release_path"
 
     resume_initial_install_rollback() {
         local exit_status=$?
@@ -794,22 +905,29 @@ asks you to type and confirm the new PostgreSQL password; the entry is hidden.
 Private GitHub tokens are read without echo, used only for the current clone
 or fetch, and never saved on the server.
 
+For PMTA-ready setup, upload the private licensed bundle to /root/install-assets
+before running this script; it is detected automatically. The installer asks
+for AlphaLink's stable public IPv4 egress address(es) and stores them encrypted
+as PMTA RELAY SOURCE IPS in the initial workspace. Enter SKIP for the asset
+prompt only when this is an app-only deployment without PMTA installation.
+
 Optional non-secret environment inputs:
   GITHUB_REPO       owner/repo or https://github.com/owner/repo[.git]
   GITHUB_BRANCH     branch to install (default: master)
   ALPHALINK_DOMAIN  DNS hostname for the application
   ACME_EMAIL        Let's Encrypt notification email
   ALPHALINK_SSH_PORT SSH port to keep open in UFW (default: detected/22)
+  ALPHALINK_PMTA_RELAY_SOURCE_IPS Stable public IPv4 egress address(es), comma-separated
 
 The installer creates a new PostgreSQL database, never SQLite. It refuses to
 replace any existing AlphaLink app path, environment, PostgreSQL role, or DB.
 Later --deploy runs create immutable releases, preserve shared uploads, back up
 and verify PostgreSQL before migrations, and retain a previous release for
-automatic rollback. Licensed PMTA files are not stored in GitHub: provide a
-canonical private asset directory during installation, or stage it later with
---configure-install-assets. That command copies it into shared private storage,
-sets the application environment path, and leaves digest and compatibility
-verification to the PMTA installation gate.
+automatic rollback. Licensed PMTA files are not stored in GitHub. Upload them
+to /root/install-assets or enter their absolute path when prompted. Existing
+installs can stage them with --configure-install-assets /root/install-assets.
+The PMTA installation gate still verifies selected digests and target
+compatibility before remote changes.
 
 If a fresh installation stops after creating its first owner and workspace,
 copy the current installer to the server and run --resume-initial-install. It
@@ -833,11 +951,11 @@ Plan (no changes are made):
   7. Activate the first release through an atomic current symlink; keep Laravel
      storage shared outside releases for future code updates.
   8. Size Horizon from the target host's available CPU, memory, and PostgreSQL
-     connection budget; bootstrap the first owner; configure Nginx/TLS, the
-     PostgreSQL suppression worker, and schedule.
-  9. Create the private installation asset root. Licensed PMTA files stay out
-     of Git; an optional canonical source directory is copied with private
-     permissions and a path is written to the application environment.
+     connection budget; bootstrap the first owner and encrypted PMTA relay
+     source IP settings; configure Nginx/TLS, the PostgreSQL suppression worker,
+     and schedule.
+  9. Detect and stage the licensed private PMTA bundle (outside GitHub), then
+     keep its files private across installs, resumes, and deployments.
  10. Enable UFW rules and a protected daily PostgreSQL dump (14-day retention).
 
 Existing application and database data are never deleted or overwritten.
@@ -961,13 +1079,29 @@ fi
 
 INSTALL_ASSETS_SOURCE="${ALPHALINK_INSTALL_ASSETS_SOURCE:-}"
 if [[ -z "$INSTALL_ASSETS_SOURCE" ]]; then
-    read -r -p 'Canonical private AlphaLink installation asset directory on this server (blank to stage later): ' INSTALL_ASSETS_SOURCE
+    if [[ -d /root/install-assets && ! -L /root/install-assets ]]; then
+        INSTALL_ASSETS_SOURCE=/root/install-assets
+        info 'Detected the uploaded private AlphaLink asset bundle at /root/install-assets.'
+    else
+        read -r -p 'Private AlphaLink installation asset directory (absolute path, or SKIP for app-only setup): ' INSTALL_ASSETS_SOURCE
+    fi
 fi
-if [[ -n "$INSTALL_ASSETS_SOURCE" ]]; then
+if [[ "${INSTALL_ASSETS_SOURCE,,}" == skip ]]; then
+    INSTALL_ASSETS_SOURCE=''
+    info 'Continuing without PMTA assets by explicit request; PMTA server installation remains unavailable until the reviewed private bundle is staged.'
+elif [[ -n "$INSTALL_ASSETS_SOURCE" ]]; then
     INSTALL_ASSETS_SOURCE="$(validate_install_assets_source "$INSTALL_ASSETS_SOURCE")"
 else
-    info 'No private PMTA bundle supplied; PMTA server installation will stay blocked until reviewed assets are staged.'
+    fail 'A private PMTA bundle is required for a PMTA-ready install. Upload it to /root/install-assets or enter SKIP to install AlphaLink without PMTA deployment.'
 fi
+
+PMTA_RELAY_SOURCE_IPS="${ALPHALINK_PMTA_RELAY_SOURCE_IPS:-}"
+if [[ -z "$PMTA_RELAY_SOURCE_IPS" ]]; then
+    read -r -p 'AlphaLink stable public IPv4 egress address(es) for PMTA relay, comma-separated: ' PMTA_RELAY_SOURCE_IPS
+fi
+PMTA_RELAY_SOURCE_IPS="${PMTA_RELAY_SOURCE_IPS//[[:space:]]/}"
+validate_pmta_relay_ipv4_list "$PMTA_RELAY_SOURCE_IPS" \
+    || fail 'Enter one or more stable, public IPv4 egress addresses; private, reserved, and IPv6 addresses are not accepted.'
 
 GITHUB_TOKEN="${GITHUB_TOKEN:-}"
 if [[ -z "$GITHUB_TOKEN" ]]; then
@@ -990,6 +1124,7 @@ printf '\nRepository: %s\nBranch: %s\nApplication: https://%s\n' \
 if [[ -n "$INSTALL_ASSETS_SOURCE" ]]; then
     printf 'Private installation assets will be copied to %s with owner-only permissions.\n' "$INSTALL_ASSETS_ROOT"
 fi
+printf 'PMTA relay source IPv4 address(es) will be encrypted in the initial workspace settings.\n'
 printf 'A new PostgreSQL database will be created; SSH port %s, HTTP, and HTTPS will be allowed by UFW.\n' "$SSH_PORT"
 read -r -p 'Continue with the Ubuntu package and application installation? [y/N] ' CONFIRM_INSTALL
 [[ "$CONFIRM_INSTALL" =~ ^[Yy]([Ee][Ss])?$ ]] || fail 'Installation canceled before system changes.'
@@ -1152,6 +1287,10 @@ install -d -o www-data -g www-data -m 0700 \
     "$SHARED_ROOT/storage/framework/tmp" \
     "$SHARED_ROOT/storage/framework/nginx-body"
 
+info 'Preflighting Laravel route serialization before applying migrations...'
+runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php \
+    "$RELEASE_API_ROOT/artisan" route:cache
+
 info 'Applying the fresh PostgreSQL migrations...'
 atomic_switch_release "$RELEASE_PATH"
 runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php artisan migrate --force --no-interaction
@@ -1159,7 +1298,8 @@ ALPHALINK_ENV_DIR="$ENV_ROOT" php artisan storage:link
 
 info 'Creating the initial owner and workspace...'
 runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php artisan alphalink:bootstrap-owner \
-    --name="$OWNER_NAME" --email="$OWNER_EMAIL" --workspace="$WORKSPACE_NAME"
+    --name="$OWNER_NAME" --email="$OWNER_EMAIL" --workspace="$WORKSPACE_NAME" \
+    --pmta-relay-ips="$PMTA_RELAY_SOURCE_IPS"
 
 info 'Configuring PHP-FPM, Nginx, Horizon, and scheduler...'
 cat > "/etc/php/${PHP_VERSION}/fpm/pool.d/zz-alphalink-env.conf" <<POOL

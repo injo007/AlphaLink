@@ -267,10 +267,10 @@ class WorkspaceSponsorManagementTest extends TestCase
 
     public function test_offer_count_and_sponsor_login_actions_are_exposed_with_the_reviewed_helper_notice(): void
     {
-        $this->get(route('clean.console.sponsors.index'))
+        $helperAvailable = app(DmsSponsorExtensionPackage::class)->downloadAvailable();
+        $sponsorsPage = $this->get(route('clean.console.sponsors.index'))
             ->assertOk()
             ->assertSee('TOTAL OFFERS')
-            ->assertSee('Download sponsor helper')
             ->assertSee('data-login-url=', false)
             ->assertSee('window.App.pingExtension', false)
             ->assertSee('window.App.commandExtension', false)
@@ -279,17 +279,25 @@ class WorkspaceSponsorManagementTest extends TestCase
             ->assertSee('cookie access across HTTP and HTTPS')
             ->assertDontSee('Affiliate login is not implemented yet');
 
-        $this->get(route('clean.console.networks.sponsors.index'))
+        $mySponsorsPage = $this->get(route('clean.console.networks.sponsors.index'))
             ->assertOk()
             ->assertSee('TOTAL OFFERS')
             ->assertSee('ACTIONS')
-            ->assertSee('Download sponsor helper')
             ->assertSee('window.App.pingExtension', false)
             ->assertSee('window.App.commandExtension', false)
             ->assertSee("type: 'connect'", false)
             ->assertSee('LOGIN SPONSOR')
             ->assertSee('cookie access across HTTP and HTTPS')
             ->assertDontSee('Affiliate login is not implemented yet');
+
+        foreach ([$sponsorsPage, $mySponsorsPage] as $page) {
+            if ($helperAvailable) {
+                $page->assertSee('Download sponsor helper');
+            } else {
+                $page->assertSee('The sponsor helper bundle is not installed on this app server')
+                    ->assertDontSee('Download sponsor helper');
+            }
+        }
 
         $sponsor = $this->createSponsor('Counted Sponsor');
         $this->workspace->offers()->create([

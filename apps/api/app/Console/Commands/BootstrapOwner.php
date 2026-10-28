@@ -6,6 +6,7 @@ use App\Models\AuditEvent;
 use App\Models\OutboxMessage;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Models\WorkspaceInfrastructureSettings;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -17,6 +18,7 @@ class BootstrapOwner extends Command
         {--email= : First owner email}
         {--username= : Existing DMS username used for server-name eligibility}
         {--workspace= : Initial workspace name}
+        {--pmta-relay-ips= : Comma-separated stable public IPv4 egress addresses for PMTA relay authorization}
         {--slug= : Optional workspace address}';
 
     protected $description = 'Create the first AlphaLink owner, workspace, and short-lived API token';
@@ -46,6 +48,13 @@ class BootstrapOwner extends Command
             return self::INVALID;
         }
 
+        $pmtaRelayIps = $this->validatedPmtaRelayIps((string) $this->option('pmta-relay-ips'));
+        if ($pmtaRelayIps === null) {
+            $this->error('PMTA relay source addresses must be comma-separated IPv4 addresses.');
+
+            return self::INVALID;
+        }
+
         $password = $this->secret('Owner password (at least 16 characters)');
         $confirmation = $this->secret('Confirm owner password');
         if (! is_string($password) || strlen($password) < 16 || ! hash_equals((string) $password, (string) $confirmation)) {
@@ -65,9 +74,11 @@ class BootstrapOwner extends Command
 
         $plainTextToken = null;
 
-        $created = DB::transaction(function () use ($name, $email, $username, $password, $workspaceName, $slug, &$plainTextToken): bool {
+        $created = DB::transaction(function () use ($name, $email, $username, $password, $workspaceName, $slug, $pmtaRelayIps, &$plainTextToken): bool {
             // Two operators may run this command at once; serialize the final check.
-            DB::select('SELECT pg_advisory_xact_lock(278767147282)');
+            if (DB::connection()->getDriverName() === 'pgsql') {
+                DB::select('SELECT pg_advisory_xact_lock(278767147282)');
+            }
             if (User::query()->exists()) {
                 return false;
             }
@@ -92,6 +103,13 @@ class BootstrapOwner extends Command
                 'role' => 'owner',
                 'joined_at' => now(),
             ]);
+
+            if ($pmtaRelayIps !== []) {
+                WorkspaceInfrastructureSettings::query()->create([
+                    'workspace_id' => $workspace->getKey(),
+                    'pmta_relay_ips' => $pmtaRelayIps,
+                ]);
+            }
 
             AuditEvent::query()->create([
                 'workspace_id' => $workspace->getKey(),
@@ -128,5 +146,19 @@ class BootstrapOwner extends Command
         $this->line((string) $plainTextToken);
 
         return self::SUCCESS;
+    }
+
+    /** @return list<string>|null */
+    private function validatedPmtaRelayIps(string $value): ?array
+    {
+        $addresses = array_values(array_unique(array_filter(array_map('trim', explode(',', $value)), static fn (string $ip): bool => $ip !== '')));
+
+        foreach ($addresses as $address) {
+            if (filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
+                return null;
+            }
+        }
+
+        return $addresses;
     }
 }

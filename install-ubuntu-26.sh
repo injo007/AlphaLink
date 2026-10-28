@@ -112,6 +112,22 @@ atomic_switch_release() {
     mv -Tf "$temporary_link" "$CURRENT_ROOT"
 }
 
+normalize_release_permissions() {
+    local release_path="$1"
+    local api_path="${release_path}/apps/api"
+
+    # Composer and npm run as root under the installer's private umask (077).
+    # Normalize generated files after building so PHP-FPM can read the
+    # autoloader and dependencies while Laravel's runtime cache stays writable.
+    chown -R root:www-data "$release_path"
+    find "$release_path" -type d -exec chmod 0750 {} +
+    find "$release_path" -type f -exec chmod 0640 {} +
+    chmod 0750 "$release_path" "$api_path"
+    chown -R www-data:www-data "$api_path/bootstrap/cache"
+    find "$api_path/bootstrap/cache" -type d -exec chmod 2770 {} +
+    find "$api_path/bootstrap/cache" -type f -exec chmod 0660 {} +
+}
+
 deployment_plan() {
     cat <<'EOF'
 Deployment plan (no changes are made):
@@ -207,9 +223,7 @@ deploy_release() {
     VITE_APP_NAME=AlphaLink npm run build
     [[ -s public/build/manifest.json ]] || fail 'Vite did not produce the asset manifest.'
     rm -rf -- node_modules
-    chown -R www-data:www-data "$temporary_release/apps/api/bootstrap/cache"
-    find "$temporary_release/apps/api/bootstrap/cache" -type d -exec chmod 2770 {} +
-    find "$temporary_release/apps/api/bootstrap/cache" -type f -exec chmod 0660 {} +
+    normalize_release_permissions "$temporary_release"
     mv -- "$temporary_release" "$release_path"
     DEPLOY_STAGING_DIR=''
 
@@ -382,43 +396,50 @@ resume_initial_install() {
     chmod 0600 "$backup_file"
 
     if [[ "$current_release" != "$release_path" ]]; then
-        [[ ! -e "$release_path" ]] || fail "Release ${release_sha} already exists but is not active; refusing to overwrite it."
-        staging_path="${RELEASES_ROOT}/.deploy-stage-resume-$$"
-        DEPLOY_STAGING_DIR="$staging_path"
-        mkdir -m 0750 "$staging_path"
-        git -C "$SOURCE_ROOT" archive --format=tar "$release_sha" | tar -xf - -C "$staging_path"
-        [[ -f "$staging_path/apps/api/artisan" && -f "$staging_path/apps/api/composer.lock" && -f "$staging_path/apps/api/package-lock.json" ]] || fail 'The selected branch is missing Laravel or a committed frontend lockfile.'
+        if [[ -e "$release_path" ]]; then
+            [[ -d "$release_path" && ! -L "$release_path" \
+                && -f "$release_path/apps/api/vendor/autoload.php" \
+                && -s "$release_path/apps/api/public/build/manifest.json" \
+                && -L "$release_path/apps/api/storage" ]] \
+                || fail "Inactive release ${release_sha} exists but is incomplete; preserving it for inspection."
+            info "Reusing the complete inactive release ${release_sha} left by an earlier recovery attempt..."
+            normalize_release_permissions "$release_path"
+        else
+            staging_path="${RELEASES_ROOT}/.deploy-stage-resume-$$"
+            DEPLOY_STAGING_DIR="$staging_path"
+            mkdir -m 0750 "$staging_path"
+            git -C "$SOURCE_ROOT" archive --format=tar "$release_sha" | tar -xf - -C "$staging_path"
+            [[ -f "$staging_path/apps/api/artisan" && -f "$staging_path/apps/api/composer.lock" && -f "$staging_path/apps/api/package-lock.json" ]] || fail 'The selected branch is missing Laravel or a committed frontend lockfile.'
 
-        install -d -o www-data -g www-data -m 2770 \
-            "$SHARED_ROOT/storage/app/private" "$SHARED_ROOT/storage/app/public" \
-            "$SHARED_ROOT/storage/framework/cache/data" "$SHARED_ROOT/storage/framework/sessions" \
-            "$SHARED_ROOT/storage/framework/views" "$SHARED_ROOT/storage/logs" \
-            "$SHARED_ROOT/storage/framework/uploads" "$SHARED_ROOT/storage/framework/tmp" \
-            "$SHARED_ROOT/storage/framework/nginx-body"
-        rm -rf -- "$staging_path/apps/api/storage"
-        ln -s "$SHARED_ROOT/storage" "$staging_path/apps/api/storage"
-        chown -R root:www-data "$staging_path"
-        find "$staging_path" -type d -exec chmod 0750 {} +
-        find "$staging_path" -type f -exec chmod 0640 {} +
-        chown -R www-data:www-data "$SHARED_ROOT/storage" "$staging_path/apps/api/bootstrap/cache"
-        find "$SHARED_ROOT/storage" "$staging_path/apps/api/bootstrap/cache" -type d -exec chmod 2770 {} +
-        find "$SHARED_ROOT/storage" "$staging_path/apps/api/bootstrap/cache" -type f -exec chmod 0660 {} +
-        chmod 0750 "$staging_path" "$staging_path/apps/api"
+            install -d -o www-data -g www-data -m 2770 \
+                "$SHARED_ROOT/storage/app/private" "$SHARED_ROOT/storage/app/public" \
+                "$SHARED_ROOT/storage/framework/cache/data" "$SHARED_ROOT/storage/framework/sessions" \
+                "$SHARED_ROOT/storage/framework/views" "$SHARED_ROOT/storage/logs" \
+                "$SHARED_ROOT/storage/framework/uploads" "$SHARED_ROOT/storage/framework/tmp" \
+                "$SHARED_ROOT/storage/framework/nginx-body"
+            rm -rf -- "$staging_path/apps/api/storage"
+            ln -s "$SHARED_ROOT/storage" "$staging_path/apps/api/storage"
+            chown -R root:www-data "$staging_path"
+            find "$staging_path" -type d -exec chmod 0750 {} +
+            find "$staging_path" -type f -exec chmod 0640 {} +
+            chown -R www-data:www-data "$SHARED_ROOT/storage" "$staging_path/apps/api/bootstrap/cache"
+            find "$SHARED_ROOT/storage" "$staging_path/apps/api/bootstrap/cache" -type d -exec chmod 2770 {} +
+            find "$SHARED_ROOT/storage" "$staging_path/apps/api/bootstrap/cache" -type f -exec chmod 0660 {} +
+            chmod 0750 "$staging_path" "$staging_path/apps/api"
 
-        info "Building corrected release ${release_sha}..."
-        cd "$staging_path/apps/api"
-        ALPHALINK_ENV_DIR="$ENV_ROOT" COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_MEMORY_LIMIT=-1 \
-            composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
-        composer check-platform-reqs --no-dev
-        npm ci --no-audit --no-fund
-        VITE_APP_NAME=AlphaLink npm run build
-        [[ -s public/build/manifest.json ]] || fail 'Vite did not produce the asset manifest.'
-        rm -rf -- node_modules
-        chown -R www-data:www-data bootstrap/cache
-        find bootstrap/cache -type d -exec chmod 2770 {} +
-        find bootstrap/cache -type f -exec chmod 0660 {} +
-        mv -- "$staging_path" "$release_path"
-        DEPLOY_STAGING_DIR=''
+            info "Building corrected release ${release_sha}..."
+            cd "$staging_path/apps/api"
+            ALPHALINK_ENV_DIR="$ENV_ROOT" COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_MEMORY_LIMIT=-1 \
+                composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
+            composer check-platform-reqs --no-dev
+            npm ci --no-audit --no-fund
+            VITE_APP_NAME=AlphaLink npm run build
+            [[ -s public/build/manifest.json ]] || fail 'Vite did not produce the asset manifest.'
+            rm -rf -- node_modules
+            normalize_release_permissions "$staging_path"
+            mv -- "$staging_path" "$release_path"
+            DEPLOY_STAGING_DIR=''
+        fi
     elif [[ ! -d "$release_path/apps/api" ]]; then
         fail 'The active release is incomplete.'
     fi
@@ -914,12 +935,10 @@ rm -rf -- node_modules
 # The installer's restrictive umask keeps transient secrets private. Normalize
 # cloned/built code permissions so PHP-FPM and Nginx can read it, while only
 # Laravel's runtime directories remain writable by www-data.
-chown -R root:www-data "$RELEASE_PATH"
-find "$RELEASE_PATH" -type d -exec chmod 0750 {} +
-find "$RELEASE_PATH" -type f -exec chmod 0640 {} +
-chown -R www-data:www-data "$SHARED_ROOT/storage" "$RELEASE_API_ROOT/bootstrap/cache"
-find "$SHARED_ROOT/storage" "$RELEASE_API_ROOT/bootstrap/cache" -type d -exec chmod 2770 {} +
-find "$SHARED_ROOT/storage" "$RELEASE_API_ROOT/bootstrap/cache" -type f -exec chmod 0660 {} +
+normalize_release_permissions "$RELEASE_PATH"
+chown -R www-data:www-data "$SHARED_ROOT/storage"
+find "$SHARED_ROOT/storage" -type d -exec chmod 2770 {} +
+find "$SHARED_ROOT/storage" -type f -exec chmod 0660 {} +
 install -d -o www-data -g www-data -m 0700 \
     "$SHARED_ROOT/storage/framework/uploads" \
     "$SHARED_ROOT/storage/framework/tmp" \

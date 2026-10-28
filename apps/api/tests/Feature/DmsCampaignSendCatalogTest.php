@@ -405,6 +405,21 @@ class DmsCampaignSendCatalogTest extends TestCase
             'allowed_sponsors' => [(int) $sponsor->getKey()],
         ]);
         $list = $this->list($workspace, $owner, $isp->getKey(), $sponsor->getKey());
+        $fileSuppressedContact = Contact::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'email' => 'blocked@example.test',
+            'email_lookup_hash' => hash_hmac('sha256', 'blocked@example.test', $lookupKey),
+            'lookup_key_version' => 1,
+            'status' => 'active',
+            'idempotency_key' => (string) Str::uuid(),
+        ]);
+        ContactListMembership::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'audience_list_id' => $list->getKey(),
+            'contact_id' => $fileSuppressedContact->getKey(),
+            'status' => 'active',
+            'joined_at' => now()->addMilliseconds(500),
+        ]);
         $primaryContact = ContactListMembership::query()
             ->where('audience_list_id', $list->getKey())
             ->firstOrFail()
@@ -596,13 +611,16 @@ class DmsCampaignSendCatalogTest extends TestCase
         $this->assertSame('dms_email_type_segments', $setup['targeting_basis']);
         $snapshot = CampaignRecipientSnapshot::query()->where('campaign_id', $campaign->getKey())->sole();
         $this->assertSame(1, $snapshot->recipient_count);
-        $this->assertSame(1, $snapshot->offer_suppressed_count);
+        $this->assertSame(2, $snapshot->offer_suppressed_count);
         $this->assertSame(2, $snapshot->duplicate_count);
+        $this->assertSame($offer->suppression_sha256, $snapshot->suppression_sha256);
         $snapshotContactIds = DB::table('campaign_recipient_snapshot_items')
             ->where('snapshot_id', $snapshot->getKey())
             ->pluck('contact_id')
             ->all();
         $this->assertSame([$otherOfferContact->getKey()], $snapshotContactIds);
+        $this->assertNotContains($fileSuppressedContact->getKey(), $snapshotContactIds);
+        $this->assertDatabaseCount('workspace_drop_suppressions', 0);
         $this->assertDatabaseCount('campaign_recipient_snapshot_items', 1);
         $snapshotItemId = (string) DB::table('campaign_recipient_snapshot_items')
             ->where('snapshot_id', $snapshot->getKey())
@@ -2652,7 +2670,9 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertDontSee('name="from_email"', false)
             ->assertDontSee('name="text_body"', false)
             ->assertDontSee('name="html_body"', false)
-            ->assertSee('offer and workspace suppressions')
+            ->assertSee('automatically matches the selected offer’s saved suppression file')
+            ->assertSee('/drops/suppression')
+            ->assertSee('for reusable Offer/List exclusions')
             ->assertSee('native campaign send')
             ->assertSee('send_setup[from_asset_ids][]', false)
             ->assertSee('send_setup[subject_asset_ids][]', false)

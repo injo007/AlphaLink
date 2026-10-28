@@ -199,7 +199,7 @@
                                         <option value="{{ $segment['id'] }}" @selected(in_array((string) $segment['id'], $setup['audience_segments'], true))>{{ $segment['name'] }} — {{ $segment['country'] }} — {{ strtoupper($segment['email_type']) }} — {{ number_format($segment['recipient_count']) }}</option>
                                     @endforeach
                                 </select>
-                                <small class="form-text text-muted">Select unlocked DMS email types. The snapshot excludes offer and workspace suppressions and removes duplicate addresses across selected segments.</small>
+                                <small class="form-text text-muted">Select unlocked DMS email types. Saving automatically matches the selected offer’s saved suppression file against every selected List/email type and leaves matches out of the campaign snapshot. Drops → <a href="{{ route('console.drops.suppression', $workspace->id) }}">Suppression</a> separately applies that file to the chosen ISP/List memberships for reusable Offer/List exclusions; you do not need to run it first for campaign creation. Workspace suppressions and duplicate addresses are also excluded.</small>
                             </div>
                             <div class="form-row mb-0">
                                 <div class="form-group col-sm-6">

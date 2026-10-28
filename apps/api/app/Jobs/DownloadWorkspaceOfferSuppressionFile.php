@@ -10,6 +10,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class DownloadWorkspaceOfferSuppressionFile implements ShouldQueue
 {
@@ -93,7 +94,7 @@ class DownloadWorkspaceOfferSuppressionFile implements ShouldQueue
                 $exception instanceof DmsAffiliateSuppressionDownloadException => $exception->getMessage(),
                 $exception instanceof DmsAffiliateProviderException => 'The sponsor endpoint could not be reached safely: '.$exception->getMessage(),
                 $exception instanceof ConnectionException => 'AlphaLink could not connect to the sponsor or download host over HTTPS. Check app-server DNS and outbound TCP 443, then retry.',
-                $download->status === 'validating' => 'The downloaded file failed suppression validation. Confirm the sponsor file contains valid email addresses, MD5 hashes, or SHA-512 hashes, then retry.',
+                $exception instanceof ValidationException => 'The downloaded file failed suppression validation. Confirm it contains valid email addresses, MD5 hashes, or SHA-512 hashes, then retry.',
                 default => 'The suppression download failed inside AlphaLink. Diagnostic ID '.$download->getKey().'; check the application log and retry.',
             };
 

@@ -6,8 +6,8 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceSponsor;
-use App\Services\AffiliateNetworks\DmsAffiliateProviderHttp;
 use App\Services\AffiliateNetworks\DmsAffiliateProviderException;
+use App\Services\AffiliateNetworks\DmsAffiliateProviderHttp;
 use App\Services\AffiliateNetworks\DmsAffiliateSuppressionDownloadException;
 use App\Services\AffiliateNetworks\DmsAffiliateSuppressionRefresher;
 use App\Services\Campaigns\DmsOfferSuppressionFile;
@@ -16,6 +16,7 @@ use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 class DmsAffiliateSuppressionRefreshTest extends TestCase
@@ -157,6 +158,26 @@ class DmsAffiliateSuppressionRefreshTest extends TestCase
             $this->assertSame('email', $stored['format']);
             $this->assertSame(2, $stored['count']);
             $this->assertSame("blocked-archive@example.test\nsecond@example.test\n", Storage::disk('local')->get($stored['path']));
+            $this->assertSame([], Storage::disk('local')->allFiles('offers/.downloads'));
+        } finally {
+            @unlink($path);
+        }
+    }
+
+    public function test_invalid_sponsor_archive_content_is_rejected_and_private_extraction_is_removed(): void
+    {
+        [$workspace, , $offer] = $this->suppressionOffer('everflow', 'https://partner.everflow.example.test', null, '9927');
+        $path = tempnam(sys_get_temp_dir(), 'alphalink-invalid-suppression-archive-');
+        $archive = new \ZipArchive;
+        $archive->open($path, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+        $archive->addFromString('suppression.txt', "not-an-email\n");
+        $archive->close();
+
+        try {
+            app(DmsOfferSuppressionFile::class)->storeDownloadedFile($workspace, $offer, $path);
+            $this->fail('Invalid sponsor data must be rejected.');
+        } catch (ValidationException) {
+            $this->assertSame([], Storage::disk('local')->allFiles('offers/.downloads'));
         } finally {
             @unlink($path);
         }

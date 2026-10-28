@@ -318,90 +318,100 @@ class DmsOfferSuppressionFile
     private function extractLargestZipEntry(string $archivePath): ?string
     {
         $archive = new ZipArchive;
-        if ($archive->open($archivePath) !== true || $archive->numFiles > 500) {
+        if ($archive->open($archivePath) !== true) {
             return null;
         }
 
-        $candidate = null;
-        $largestSize = -1;
-        for ($index = 0; $index < $archive->numFiles; $index++) {
-            $entry = $archive->statIndex($index);
-            $name = is_array($entry) ? (string) ($entry['name'] ?? '') : '';
-            $size = is_array($entry) ? (int) ($entry['size'] ?? -1) : -1;
-            if ($name === '' || str_contains($name, '..') || str_starts_with($name, '/') || str_ends_with($name, '/') || $size < 0) {
-                continue;
-            }
-            if ($size > $largestSize) {
-                $candidate = $index;
-                $largestSize = $size;
-            }
-        }
-
-        if ($candidate === null) {
-            $archive->close();
-
-            return null;
-        }
-
-        $input = $archive->getStream((string) $archive->getNameIndex($candidate));
-        $outputPath = tempnam(sys_get_temp_dir(), 'alphalink-suppression-zip-');
-        $output = is_string($outputPath) ? fopen($outputPath, 'wb') : false;
-        if (! is_resource($input) || ! is_resource($output)) {
-            if (is_resource($input)) {
-                fclose($input);
-            }
-            if (is_resource($output)) {
-                fclose($output);
-            }
-            if (is_string($outputPath)) {
-                @unlink($outputPath);
-            }
-            $archive->close();
-
-            return null;
-        }
-
-        $written = 0;
+        $input = null;
+        $output = null;
+        $outputPath = null;
+        $createdOutput = false;
+        $completed = false;
         try {
+            if ($archive->numFiles > 500) {
+                return null;
+            }
+
+            $candidate = null;
+            $largestSize = -1;
+            for ($index = 0; $index < $archive->numFiles; $index++) {
+                $entry = $archive->statIndex($index);
+                $name = is_array($entry) ? (string) ($entry['name'] ?? '') : '';
+                $size = is_array($entry) ? (int) ($entry['size'] ?? -1) : -1;
+                if ($name === '' || str_contains($name, '..') || str_starts_with($name, '/') || str_ends_with($name, '/') || $size < 0) {
+                    continue;
+                }
+                if ($size > $largestSize) {
+                    $candidate = $index;
+                    $largestSize = $size;
+                }
+            }
+
+            if ($candidate === null) {
+                return null;
+            }
+
+            $input = $archive->getStream((string) $archive->getNameIndex($candidate));
+            $disk = Storage::disk(self::DISK);
+            $relativeOutputPath = 'offers/.downloads/'.Str::uuid().'.extracted.tmp';
+            $disk->makeDirectory(dirname($relativeOutputPath));
+            $outputPath = $disk->path($relativeOutputPath);
+            $output = is_resource($input) ? fopen($outputPath, 'xb') : false;
+            $createdOutput = is_resource($output);
+            if (! is_resource($input) || ! is_resource($output)) {
+                return null;
+            }
+
+            $written = 0;
             while (! feof($input)) {
                 $chunk = fread($input, 1024 * 1024);
                 if ($chunk === false) {
-                    @unlink($outputPath);
-
-                    return null;
+                    throw new \RuntimeException('Unable to read the sponsor suppression archive.');
                 }
                 if ($chunk === '') {
                     if (! feof($input)) {
-                        @unlink($outputPath);
-
-                        return null;
+                        throw new \RuntimeException('Unable to finish reading the sponsor suppression archive.');
                     }
                     break;
                 }
                 $written += strlen($chunk);
                 if (fwrite($output, $chunk) !== strlen($chunk)) {
-                    @unlink($outputPath);
-
-                    return null;
+                    throw new \RuntimeException('Unable to finish writing the extracted suppression archive.');
                 }
             }
+            if ($written < 1) {
+                return null;
+            }
+
+            if (! @fclose($output)) {
+                $output = null;
+
+                throw new \RuntimeException('Unable to finish writing the extracted suppression archive.');
+            }
+            $output = null;
+
+            if (! @fclose($input)) {
+                $input = null;
+
+                throw new \RuntimeException('Unable to finish reading the sponsor suppression archive.');
+            }
+            $input = null;
+
+            $completed = true;
+
+            return $outputPath;
         } finally {
             if (is_resource($input)) {
-                fclose($input);
+                @fclose($input);
             }
             if (is_resource($output)) {
-                fclose($output);
+                @fclose($output);
             }
             $archive->close();
+            if (! $completed && $createdOutput && is_string($outputPath) && is_file($outputPath)) {
+                @unlink($outputPath);
+            }
         }
-
-        if ($written < 1) {
-            @unlink($outputPath);
-
-            return null;
-        }
-
-        return $outputPath;
     }
 
     /** @return array{content: string, format: 'email'|'md5'|'sha512', count: int} */

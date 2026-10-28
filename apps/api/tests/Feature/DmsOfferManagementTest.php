@@ -18,6 +18,8 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
+use Mockery;
 use Tests\TestCase;
 
 class DmsOfferManagementTest extends TestCase
@@ -221,6 +223,57 @@ class DmsOfferManagementTest extends TestCase
         );
         $this->assertNull($offer->fresh()->suppression_path);
         Http::assertSentCount(2);
+    }
+
+    public function test_suppression_worker_does_not_report_server_processing_errors_as_invalid_file_content(): void
+    {
+        $sponsor = $this->createSponsor('Suppression processing failure');
+        $offer = $this->createOffer($sponsor);
+        $download = WorkspaceOfferSuppressionDownload::query()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'offer_id' => $offer->getKey(),
+            'requested_by' => $this->owner->getKey(),
+            'status' => 'queued',
+        ]);
+        $refresher = Mockery::mock(DmsAffiliateSuppressionRefresher::class);
+        $refresher->shouldReceive('refreshWithProgress')->once()->andReturnUsing(function (Workspace $workspace, WorkspaceOffer $offer, ?\Closure $onProgress): never {
+            $onProgress(100, 100, 'validating');
+            throw new \ErrorException('Synthetic storage write failure.');
+        });
+        $this->app->instance(DmsAffiliateSuppressionRefresher::class, $refresher);
+
+        (new DownloadWorkspaceOfferSuppressionFile($download->getKey()))->handle($refresher);
+
+        $this->assertSame('failed', $download->fresh()->status);
+        $this->assertSame(
+            'The suppression download failed inside AlphaLink. Diagnostic ID '.$download->getKey().'; check the application log and retry.',
+            $download->fresh()->failure_message,
+        );
+        $this->assertStringNotContainsString('invalid', strtolower($download->fresh()->failure_message));
+    }
+
+    public function test_suppression_worker_keeps_file_validation_feedback_for_actual_validation_errors(): void
+    {
+        $sponsor = $this->createSponsor('Suppression validation failure');
+        $offer = $this->createOffer($sponsor);
+        $download = WorkspaceOfferSuppressionDownload::query()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'offer_id' => $offer->getKey(),
+            'requested_by' => $this->owner->getKey(),
+            'status' => 'queued',
+        ]);
+        $refresher = Mockery::mock(DmsAffiliateSuppressionRefresher::class);
+        $refresher->shouldReceive('refreshWithProgress')->once()->andReturnUsing(function (Workspace $workspace, WorkspaceOffer $offer, ?\Closure $onProgress): never {
+            $onProgress(100, 100, 'validating');
+            throw ValidationException::withMessages(['suppression_file' => 'Synthetic invalid content.']);
+        });
+
+        (new DownloadWorkspaceOfferSuppressionFile($download->getKey()))->handle($refresher);
+
+        $this->assertSame(
+            'The downloaded file failed suppression validation. Confirm it contains valid email addresses, MD5 hashes, or SHA-512 hashes, then retry.',
+            $download->fresh()->failure_message,
+        );
     }
 
     public function test_offer_id_is_unique_per_sponsor_even_when_previous_offer_is_soft_deleted(): void

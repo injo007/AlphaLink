@@ -21,8 +21,7 @@ class PmtaMonitorProxy
 
         $ip = (string) $server->ip_address;
         abort_unless(filter_var($ip, FILTER_VALIDATE_IP) !== false, 404);
-        $host = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) ? '['.$ip.']' : $ip;
-        $url = 'http://'.$host.':'.$port.'/'.($path === '' ? '' : $path);
+        $url = rtrim(PmtaPanelUrl::forServer($server, $port), '/').'/'.($path === '' ? '' : $path);
 
         try {
             $remote = Http::connectTimeout(3)

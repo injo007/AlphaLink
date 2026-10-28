@@ -9,6 +9,7 @@ class DmsCentos9FirewallPlanner
      * @param  list<string>  $developmentIps
      * @param  list<string>  $productionIps
      * @param  list<string>  $rdpIps
+     * @param  list<string>  $pmtaRelayIps
      * @return list<array{type: 'command', command: string}>
      */
     public function plan(
@@ -21,6 +22,7 @@ class DmsCentos9FirewallPlanner
         array $productionIps,
         array $rdpIps,
         bool $allowAllMonitor = false,
+        array $pmtaRelayIps = [],
     ): array {
         if (! $applyFirewall) {
             return array_map(
@@ -53,6 +55,16 @@ class DmsCentos9FirewallPlanner
 
         if ($allowAllMonitor) {
             $commands[] = "firewall-cmd --permanent --zone=public --add-port={$pmtaAdminPort}/tcp;";
+        }
+
+        $alreadyAllowedAdminSources = array_values(array_unique([...$developmentIps, ...$productionIps]));
+        $additionalAdminSources = array_values(array_diff(array_unique($pmtaRelayIps), $alreadyAllowedAdminSources));
+        if ($additionalAdminSources !== []) {
+            $commands[] = "firewall-cmd --permanent --get-zones | tr ' ' '\\n' | grep -qx pmta-admin || firewall-cmd --permanent --new-zone=pmta-admin;";
+            $commands[] = "firewall-cmd --permanent --zone=pmta-admin --add-port={$pmtaAdminPort}/tcp;";
+            foreach ($additionalAdminSources as $ip) {
+                $commands[] = "firewall-cmd --permanent --zone=pmta-admin --add-source={$ip};";
+            }
         }
 
         foreach ($developmentIps as $ip) {

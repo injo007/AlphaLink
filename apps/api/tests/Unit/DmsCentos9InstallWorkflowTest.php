@@ -79,7 +79,7 @@ class DmsCentos9InstallWorkflowTest extends TestCase
             'Setup PMTA 40', 'End Setting PMTA',
             'Setup VMTAS', 'End Setting VMTAS',
             'Config Firewall', 'End Setting Firewall',
-            'PMTA WEB MONITOR LINK (public PMTA HTTP port 8080): >>> <a target="_blank" href="http://8.8.8.8:8080">8.8.8.8:8080</a>',
+            'PMTA WEB MONITOR LINK (HTTP; public port 8080; backend-only PMTA HTTP listener 16160): >>> <a target="_blank" href="http://8.8.8.8:8080/">8.8.8.8:8080</a>',
             'Ended Disconnecting',
         ], $logs);
         $this->assertSame("hostnamectl set-hostname 'example.test'", $session->commands[0]);
@@ -88,9 +88,9 @@ class DmsCentos9InstallWorkflowTest extends TestCase
         $this->assertArrayHasKey('/etc/pmta/conf/vmta', $session->uploads);
         $healthCommand = end($session->commands);
         $this->assertIsString($healthCommand);
-        $this->assertStringContainsString("grep -Fqx 'http-access 0/0 monitor' /etc/pmta/settings/access", $healthCommand);
+        $this->assertStringContainsString("grep -Fqx 'http-access 127.0.0.1 admin' /etc/pmta/settings/access", $healthCommand);
         $this->assertStringContainsString("grep -Fq '<source 198.51.100.44>' /etc/pmta/settings/access", $healthCommand);
-        $this->assertStringContainsString("grep -Fqx 'http-access 198.51.100.44 admin' /etc/pmta/settings/access", $healthCommand);
+        $this->assertStringNotContainsString("grep -Fqx 'http-access 198.51.100.44 admin' /etc/pmta/settings/access", $healthCommand);
         $this->assertStringNotContainsString('http-access 0/0 admin', $healthCommand);
     }
 
@@ -136,8 +136,40 @@ class DmsCentos9InstallWorkflowTest extends TestCase
         $this->assertStringContainsString("! grep -Fqx 'http-access 0/0 monitor' /etc/pmta/settings/access", $healthCommand);
         $this->assertStringContainsString('proxy_pass http://127.0.0.1:2426;', $healthCommand);
         $this->assertSame(
-            'PMTA WEB MONITOR LINK (public monitor port 1213; backend-only PMTA listener 2426): >>> <a target="_blank" href="http://8.8.8.8:1213">8.8.8.8:1213</a>',
+            'PMTA WEB MONITOR LINK (HTTP; public port 1213; backend-only PMTA HTTP listener 2426): >>> <a target="_blank" href="http://8.8.8.8:1213/">8.8.8.8:1213</a>',
             $logs[count($logs) - 2],
+        );
+    }
+
+    public function test_https_install_configures_tls_on_the_pmta_panel_before_persisting_success(): void
+    {
+        [$workflow, $gate, $pmta, $completion] = $this->workflow();
+        $gate->method('evaluate')->willReturn(['installation_authorized' => true]);
+        $pmta->expects($this->once())->method('run');
+        $completion->expects($this->once())->method('finalize');
+        $session = new RecordingWorkflowSession;
+        $logs = [];
+
+        $this->runWorkflow(
+            $workflow,
+            $session,
+            $logs,
+            selectedOptions: ['https' => true],
+            settingsOverrides: ['dev_ips' => [], 'allow_all_monitor' => true, 'pmta_admin_port' => 1213],
+            pmtaVersion: 45,
+        );
+
+        $configuration = $session->uploads['/etc/nginx/conf.d/default.conf.alphalink-tls-stage'];
+        $this->assertStringContainsString('listen 1213 ssl;', $configuration);
+        $this->assertStringContainsString('server_name example.test;', $configuration);
+        $this->assertStringContainsString('fullchain.pem', $configuration);
+        $this->assertStringContainsString('systemctl reload nginx', implode("\n", $session->commands));
+        $healthCommand = end($session->commands);
+        $this->assertIsString($healthCommand);
+        $this->assertStringContainsString("grep -Fq 'listen 1213 ssl;' /etc/nginx/conf.d/default.conf", $healthCommand);
+        $this->assertContains(
+            'PMTA WEB MONITOR LINK (HTTPS; public port 1213; backend-only PMTA HTTP listener 2426): >>> <a target="_blank" href="https://example.test:1213/">example.test:1213</a>',
+            $logs,
         );
     }
 
@@ -424,6 +456,9 @@ class RecordingWorkflowSession implements DmsInstallerRemoteCommandTransport, Dm
 
         if (str_contains($command, 'printf ALPHALINK_PMTA_READY')) {
             return $this->pmtaReady ? 'ALPHALINK_PMTA_READY' : '';
+        }
+        if (str_contains($command, 'printf ALPHALINK_PMTA_PROXY_READY')) {
+            return 'ALPHALINK_PMTA_PROXY_READY';
         }
 
         return $command === 'free -m | grep Swap | awk \'{print $2}\'' ? '2048' : '';

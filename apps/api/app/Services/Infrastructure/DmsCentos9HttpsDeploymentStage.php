@@ -5,6 +5,10 @@ namespace App\Services\Infrastructure;
 /** Replays DMS CentOS 9's optional Certbot/Apache stage through a command transport. */
 class DmsCentos9HttpsDeploymentStage
 {
+    public function __construct(
+        private readonly DmsCentos9PmtaDeploymentPlanner $pmtaPlanner = new DmsCentos9PmtaDeploymentPlanner,
+    ) {}
+
     /**
      * DMS does nothing when no domain is supplied. With a domain, it installs
      * Certbot and its Apache plugin if missing, requests a no-redirect
@@ -31,5 +35,65 @@ class DmsCentos9HttpsDeploymentStage
             ' -m '.escapeshellarg($email).' -n --agree-tos',
         );
         $commands->exec("(crontab -l | grep 'certbot') || { crontab -l; echo '0 0 */15 * * certbot renew'; } | crontab -");
+    }
+
+    /**
+     * Configure PMTA's public reverse proxy for HTTP or HTTPS. The staged
+     * file is only activated after Nginx validates it; a failed check restores
+     * the prior working config.
+     *
+     * @param  list<string>  $developmentIps
+     * @param  list<string>  $productionIps
+     * @param  list<string>  $pmtaRelayIps
+     */
+    public function configurePmtaMonitor(
+        DmsInstallerRemoteCommandTransport $commands,
+        DmsInstallerRemoteFileTransport $files,
+        ?string $tlsDomain,
+        int $version,
+        int $publicPort,
+        array $developmentIps,
+        array $productionIps,
+        bool $allowAllMonitor,
+        array $pmtaRelayIps,
+    ): void {
+        $backendPort = $publicPort * 2;
+        $configuration = $this->pmtaPlanner->monitorNginxConfiguration(
+            $version,
+            $backendPort,
+            $publicPort,
+            $developmentIps,
+            $productionIps,
+            $allowAllMonitor,
+            $pmtaRelayIps,
+            $tlsDomain,
+        );
+        $stagedPath = '/etc/nginx/conf.d/default.conf.alphalink-tls-stage';
+        $activePath = '/etc/nginx/conf.d/default.conf';
+        $backupPath = '/etc/nginx/conf.d/default.conf.alphalink-http-backup';
+
+        if (! $files->upload($configuration, $stagedPath)) {
+            throw new \RuntimeException('The PMTA monitor proxy configuration could not be staged on the server.');
+        }
+        $certificateCheck = '';
+        if ($tlsDomain !== null) {
+            $certificate = '/etc/letsencrypt/live/'.$tlsDomain.'/fullchain.pem';
+            $privateKey = '/etc/letsencrypt/live/'.$tlsDomain.'/privkey.pem';
+            $certificateCheck = 'test -s '.escapeshellarg($certificate).' && test -s '.escapeshellarg($privateKey).' && ';
+            $commands->exec(
+                "install -d -m 0755 /etc/letsencrypt/renewal-hooks/deploy && printf '%s\\n' '#!/bin/sh' 'systemctl reload nginx' > /etc/letsencrypt/renewal-hooks/deploy/alphalink-reload-nginx && chmod 0755 /etc/letsencrypt/renewal-hooks/deploy/alphalink-reload-nginx",
+            );
+        }
+        $result = $commands->exec(
+            $certificateCheck.
+            'cp -p '.escapeshellarg($activePath).' '.escapeshellarg($backupPath).
+            ' && mv '.escapeshellarg($stagedPath).' '.escapeshellarg($activePath).
+            ' && if nginx -t >/dev/null 2>&1 && systemctl reload nginx; then rm -f '.escapeshellarg($backupPath).
+            '; else mv '.escapeshellarg($backupPath).' '.escapeshellarg($activePath).
+            '; nginx -t >/dev/null 2>&1 && systemctl reload nginx; exit 1; fi && printf ALPHALINK_PMTA_PROXY_READY',
+        );
+        if ($result !== 'ALPHALINK_PMTA_PROXY_READY') {
+            throw new \RuntimeException('The PMTA monitor proxy configuration could not be validated and activated.');
+        }
     }
 }

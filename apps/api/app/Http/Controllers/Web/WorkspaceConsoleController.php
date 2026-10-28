@@ -25,6 +25,7 @@ use App\Services\Campaigns\DmsCampaignTagRenderer;
 use App\Services\Campaigns\DmsPmtaAdminRestart;
 use App\Services\Campaigns\PmtaCampaignTestTransport;
 use App\Services\Campaigns\PmtaMonitorProxy;
+use App\Services\Campaigns\PmtaPanelUrl;
 use App\Services\Campaigns\PmtaQueueAdmin;
 use App\Services\Infrastructure\DmsBulkInstallVmtaPlanner;
 use App\Services\PmtaAuditLogger;
@@ -130,7 +131,7 @@ class WorkspaceConsoleController extends Controller
         $serverIds = $sendSetups->flatMap(fn (array $setup): array => $setup['server_ids'] ?? [])->filter()->unique()->values();
         $ispNames = Isp::query()->where('workspace_id', $workspace->getKey())->whereIn('id', $ispIds)->pluck('name', 'id');
         $offerNames = WorkspaceOffer::withTrashed()->where('workspace_id', $workspace->getKey())->whereIn('id', $offerIds)->get(['id', 'offer_id', 'name'])->keyBy('id');
-        $servers = ManagedServer::withTrashed()->where('workspace_id', $workspace->getKey())->whereIn('id', $serverIds)->get(['id', 'name', 'ip_address'])->keyBy('id');
+        $servers = ManagedServer::withTrashed()->where('workspace_id', $workspace->getKey())->whereIn('id', $serverIds)->get(['id', 'name', 'ip_address', 'install_parameters'])->keyBy('id');
         $serverNames = $servers->mapWithKeys(fn (ManagedServer $server): array => [$server->getKey() => $server->name]);
         $configuredPmtaAdminPort = $workspace->infrastructureSettings?->pmta_admin_port;
         $pmtaAdminPort = is_numeric($configuredPmtaAdminPort) && (int) $configuredPmtaAdminPort >= 1 && (int) $configuredPmtaAdminPort <= 65535
@@ -147,11 +148,7 @@ class WorkspaceConsoleController extends Controller
                     return null;
                 }
 
-                $host = filter_var($server->ip_address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)
-                    ? '['.$server->ip_address.']'
-                    : $server->ip_address;
-
-                return ['name' => $server->name, 'url' => '//'.$host.':'.$pmtaAdminPort.'/'];
+                return ['name' => $server->name, 'url' => PmtaPanelUrl::forServer($server, $pmtaAdminPort)];
             })->filter()->values()->all();
             $campaign->setAttribute('send_register', [
                 'isp' => $ispNames->get($setup['isp_id'] ?? null),

@@ -11,6 +11,7 @@ class DmsCentos9FirewallDeploymentStage
      * @param  list<string>  $developmentIps
      * @param  list<string>  $productionIps
      * @param  list<string>  $rdpIps
+     * @param  list<string>  $pmtaRelayIps
      */
     public function run(
         DmsInstallerRemoteCommandTransport $commands,
@@ -23,6 +24,7 @@ class DmsCentos9FirewallDeploymentStage
         array $productionIps,
         array $rdpIps,
         bool $allowAllMonitor = false,
+        array $pmtaRelayIps = [],
     ): void {
         foreach ($this->planner->plan(
             $applyFirewall,
@@ -34,6 +36,7 @@ class DmsCentos9FirewallDeploymentStage
             $productionIps,
             $rdpIps,
             $allowAllMonitor,
+            $pmtaRelayIps,
         ) as $operation) {
             // DMS submits each command and does not stop the phase on a false
             // result, so this stage intentionally attempts the full list.

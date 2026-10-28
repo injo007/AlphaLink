@@ -29,10 +29,13 @@ class DmsCentos9PmtaDeploymentPlannerTest extends TestCase
             'destination' => '/usr/sbin/pmtahttpd',
         ], $plan['operations']);
         $commands = $this->commands($plan['operations']);
-        $this->assertContains("echo -e 'http-access 192.0.2.10 admin\nhttp-access 198.51.100.20 monitor\n' > /etc/pmta/settings/access;", $commands);
+        $this->assertContains("echo -e 'http-access 127.0.0.1 admin\n' > /etc/pmta/settings/access;", $commands);
         $this->assertContains("echo -e 'source 192.0.2.10\n' >> /etc/pmta/settings/access;", $commands);
-        $this->assertContains("sed -i 's/__PMTA_ADMIN_PORT__/8080/g' /etc/pmta/settings/config;", $commands);
-        $this->assertNotContains('dnf install -y nginx', $commands);
+        $this->assertContains("sed -i 's/__PMTA_ADMIN_PORT__/16160/g' /etc/pmta/settings/config;", $commands);
+        $this->assertContains('dnf install -y nginx', $commands);
+        $nginx = $this->remoteContent($plan['operations'], '/etc/nginx/conf.d/default.conf');
+        $this->assertStringContainsString('listen 8080;', $nginx);
+        $this->assertStringContainsString('proxy_pass http://127.0.0.1:16160;', $nginx);
         $this->assertSame([
             'systemctl enable pmta;',
             'systemctl enable pmtahttp;',
@@ -65,7 +68,7 @@ class DmsCentos9PmtaDeploymentPlannerTest extends TestCase
         $this->assertNotContains("echo 'http-redirect-to-https false' >> /etc/pmta/settings/config", $commands);
     }
 
-    public function test_saved_dms_http_port_is_written_to_nginx_and_doubled_only_for_pmta_45_listener(): void
+    public function test_saved_dms_admin_port_is_the_public_listener_and_doubled_for_the_backend(): void
     {
         $plan = $this->planner()->plan(45, true, true, 2525, 2588, [], [], false, '');
         $commands = $this->commands($plan['operations']);
@@ -162,7 +165,7 @@ class DmsCentos9PmtaDeploymentPlannerTest extends TestCase
 
     public function test_it_rejects_unknown_versions_and_invalid_ports(): void
     {
-        foreach ([[39, 1212, 8080], [40, 0, 8080], [40, 1212, 65536]] as [$version, $pmtaPort, $adminPort]) {
+        foreach ([[39, 1212, 8080], [40, 0, 8080], [40, 1212, 32768]] as [$version, $pmtaPort, $adminPort]) {
             try {
                 $this->planner()->plan($version, true, true, $pmtaPort, $adminPort, [], [], false, '');
                 $this->fail('Unsupported PMTA planner inputs must be rejected.');

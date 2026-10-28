@@ -31,8 +31,8 @@ class DmsCentos9PmtaDeploymentPlanner
             throw new InvalidArgumentException('DMS CentOS 9 PMTA planner supports versions 40, 45, and 50.');
         }
 
-        if ($pmtaPort < 1 || $pmtaPort > 65535 || $adminPort < 1 || $adminPort > 65535) {
-            throw new InvalidArgumentException('PMTA planner ports must be valid TCP ports.');
+        if ($pmtaPort < 1 || $pmtaPort > 65535 || $adminPort < 1 || $adminPort > 32767) {
+            throw new InvalidArgumentException('PMTA planner ports must be valid TCP ports, and the admin port must leave room for its doubled backend port.');
         }
         foreach ($pmtaRelayIps as $ip) {
             if (! is_string($ip) || filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
@@ -89,7 +89,10 @@ class DmsCentos9PmtaDeploymentPlanner
         $versionDirectory = "install/pmta_{$version}";
         $patchName = $version === 40 ? 'pmtahttp_patch' : 'pmtad_patch';
         $patchTarget = $version === 40 ? '/usr/sbin/pmtahttpd' : '/usr/sbin/pmtad';
-        $httpPort = $version === 40 ? $adminPort : $adminPort * 2;
+        // Every PMTA version now listens on the backend port. Nginx owns the
+        // configured admin port so the same access policy and optional TLS
+        // termination apply to 4.0, 4.5, and 5.0.
+        $httpPort = $adminPort * 2;
         $operations = [];
 
         if ($version === 40) {
@@ -141,17 +144,15 @@ class DmsCentos9PmtaDeploymentPlanner
         $operations[] = $this->command('rm -rf /etc/pmta/license');
         $operations[] = $this->asset("{$versionDirectory}/pmta.lic", '/etc/pmta/license');
 
-        if ($version !== 40) {
-            array_push($operations, ...$this->reverseProxyOperations(
-                $version,
-                $httpPort,
-                $adminPort,
-                $developmentIps,
-                $productionIps,
-                $allowAllMonitor,
-                $pmtaRelayIps,
-            ));
-        }
+        array_push($operations, ...$this->reverseProxyOperations(
+            $version,
+            $httpPort,
+            $adminPort,
+            $developmentIps,
+            $productionIps,
+            $allowAllMonitor,
+            $pmtaRelayIps,
+        ));
 
         return $operations;
     }
@@ -172,34 +173,17 @@ class DmsCentos9PmtaDeploymentPlanner
         $allowed = '';
         $source = '';
 
-        if ($version === 40) {
-            foreach (array_values(array_unique([...$developmentIps, ...$pmtaRelayIps])) as $ip) {
-                $allowed .= "http-access {$ip} admin\n";
-            }
-        } else {
-            // PMTA is behind Nginx and sees its loopback connection. Nginx
-            // restricts /command to the configured AlphaLink egress IPs.
-            $allowed .= "http-access 127.0.0.1 admin\n";
-        }
+        // Every public monitor/admin request is proxied through Nginx. PMTA
+        // therefore trusts only its local proxy; Nginx applies the public and
+        // AlphaLink egress allowlists before forwarding requests.
+        $allowed .= "http-access 127.0.0.1 admin\n";
 
         foreach (array_values(array_unique([...$developmentIps, ...$pmtaRelayIps])) as $ip) {
             $source .= str_replace('__IP__', $ip, $pmtaSource);
         }
 
-        if ($version === 40) {
-            foreach ($productionIps as $ip) {
-                $allowed .= "http-access {$ip} monitor\n";
-            }
-
-            if ($allowAllMonitor) {
-                $allowed .= "http-access 0/0 monitor\n";
-            }
-        } else {
-            // PMTA 4.5/5.0 is an Nginx upstream. Only Nginx reaches its
-            // monitor endpoint on loopback; public access applies to the
-            // Nginx listener, never to this backend port. The admin role
-            // already includes monitor access for the local proxy.
-        }
+        // Public monitor access is controlled by Nginx. The backend listener
+        // is firewalled from the Internet and only trusts the local proxy.
 
         return ['allowed' => $allowed, 'source' => $source];
     }
@@ -220,27 +204,15 @@ class DmsCentos9PmtaDeploymentPlanner
         array $pmtaRelayIps,
     ): array {
         $operations = [$this->command('dnf install -y nginx')];
-        $allowed = $allowAllMonitor
-            ? "# ALPHALINK_PMTA_MONITOR_ACCESS_PUBLIC\n"
-            : "# ALPHALINK_PMTA_MONITOR_ACCESS_RESTRICTED\n";
-        if (! $allowAllMonitor) {
-            foreach ([...$developmentIps, ...$productionIps] as $ip) {
-                $allowed .= "allow {$ip};\n";
-            }
-            $allowed .= "deny all;\n";
-        }
-
-        $adminAllowed = '';
-        foreach (array_values(array_unique($pmtaRelayIps)) as $ip) {
-            $adminAllowed .= "    allow {$ip};\n";
-        }
-        $adminAllowed .= "    deny all;\n";
-
-        $location = $version === 45
-            ? "location / {\n    proxy_pass http://127.0.0.1:{$httpPort};\n    proxy_hide_header 'X-Frame-Options';\n    proxy_hide_header 'X-Content-Type-Options';\n}\nlocation = /command {\n{$adminAllowed}    proxy_pass http://127.0.0.1:{$httpPort};\n    proxy_hide_header 'X-Frame-Options';\n    proxy_hide_header 'X-Content-Type-Options';\n}\nlocation ~* ^/(logs|getFile|listqueue|command|editConfig|enterLak|serviceControl) {\n    return 302 /;\n}"
-            : "location / {\n    proxy_pass http://127.0.0.1:{$httpPort};\n    proxy_hide_header 'X-Frame-Options';\n    proxy_hide_header 'X-Content-Type-Options';\n    proxy_hide_header 'Content-Security-Policy';\n    proxy_hide_header 'X-Content-Security-Policy';\n    proxy_hide_header 'X-Content-Type-Option';\n    proxy_hide_header 'X-WebKit-CSP';\n    proxy_hide_header 'X-XSS-Protection';\n}\nlocation = /command {\n{$adminAllowed}    proxy_pass http://127.0.0.1:{$httpPort};\n    proxy_hide_header 'X-Frame-Options';\n    proxy_hide_header 'X-Content-Type-Options';\n    proxy_hide_header 'Content-Security-Policy';\n    proxy_hide_header 'X-Content-Security-Policy';\n    proxy_hide_header 'X-Content-Type-Option';\n    proxy_hide_header 'X-WebKit-CSP';\n    proxy_hide_header 'X-XSS-Protection';\n}\nlocation ~* ^/(logs|getFile|listqueue|command|configFile|editConfig|enterLak|serviceControl) {\n    return 200 \"{}\";\n}";
-
-        $settings = "server {\n    listen {$adminPort};\n    {$allowed}\n    {$location}\n    error_page 403 @error403;\n    location @error403 {\n        default_type text/html;\n        return 403 \"403\";\n    }\n    error_page 502 @error502;\n    location @error502 {\n        default_type text/html;\n        return 502 \"GONE :(\";\n    }\n}";
+        $settings = $this->monitorNginxConfiguration(
+            $version,
+            $httpPort,
+            $adminPort,
+            $developmentIps,
+            $productionIps,
+            $allowAllMonitor,
+            $pmtaRelayIps,
+        );
 
         array_push($operations,
             $this->command('rm -rf /etc/nginx/conf.d/*'),
@@ -253,6 +225,61 @@ class DmsCentos9PmtaDeploymentPlanner
         );
 
         return $operations;
+    }
+
+    /**
+     * Render the sole public PMTA monitor endpoint. Supplying a domain enables
+     * TLS after Certbot has provisioned that domain's certificate.
+     *
+     * @param  list<string>  $developmentIps
+     * @param  list<string>  $productionIps
+     * @param  list<string>  $pmtaRelayIps
+     */
+    public function monitorNginxConfiguration(
+        int $version,
+        int $httpPort,
+        int $adminPort,
+        array $developmentIps,
+        array $productionIps,
+        bool $allowAllMonitor,
+        array $pmtaRelayIps,
+        ?string $tlsDomain = null,
+    ): string {
+        if (! in_array($version, [40, 45, 50], true) || $httpPort < 1 || $httpPort > 65535 || $adminPort < 1 || $adminPort > 65535) {
+            throw new InvalidArgumentException('PMTA monitor proxy inputs are invalid.');
+        }
+        if ($tlsDomain !== null && (filter_var($tlsDomain, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) === false
+            || filter_var($tlsDomain, FILTER_VALIDATE_IP) !== false)) {
+            throw new InvalidArgumentException('The PMTA HTTPS domain must be a valid hostname.');
+        }
+
+        $allowed = $allowAllMonitor
+            ? "# ALPHALINK_PMTA_MONITOR_ACCESS_PUBLIC\n"
+            : "# ALPHALINK_PMTA_MONITOR_ACCESS_RESTRICTED\n";
+        if (! $allowAllMonitor) {
+            // AlphaLink's egress also needs the monitor endpoint for its
+            // authenticated, read-only PMTA panel proxy.
+            foreach (array_values(array_unique([...$developmentIps, ...$productionIps, ...$pmtaRelayIps])) as $ip) {
+                $allowed .= "allow {$ip};\n";
+            }
+            $allowed .= "deny all;\n";
+        }
+
+        $adminAllowed = '';
+        foreach (array_values(array_unique($pmtaRelayIps)) as $ip) {
+            $adminAllowed .= "    allow {$ip};\n";
+        }
+        $adminAllowed .= "    deny all;\n";
+
+        $location = $version !== 50
+            ? "location / {\n    proxy_pass http://127.0.0.1:{$httpPort};\n    proxy_hide_header 'X-Frame-Options';\n    proxy_hide_header 'X-Content-Type-Options';\n}\nlocation = /command {\n{$adminAllowed}    proxy_pass http://127.0.0.1:{$httpPort};\n    proxy_hide_header 'X-Frame-Options';\n    proxy_hide_header 'X-Content-Type-Options';\n}\nlocation ~* ^/(logs|getFile|listqueue|command|editConfig|enterLak|serviceControl) {\n    return 302 /;\n}"
+            : "location / {\n    proxy_pass http://127.0.0.1:{$httpPort};\n    proxy_hide_header 'X-Frame-Options';\n    proxy_hide_header 'X-Content-Type-Options';\n    proxy_hide_header 'Content-Security-Policy';\n    proxy_hide_header 'X-Content-Security-Policy';\n    proxy_hide_header 'X-Content-Type-Option';\n    proxy_hide_header 'X-WebKit-CSP';\n    proxy_hide_header 'X-XSS-Protection';\n}\nlocation = /command {\n{$adminAllowed}    proxy_pass http://127.0.0.1:{$httpPort};\n    proxy_hide_header 'X-Frame-Options';\n    proxy_hide_header 'X-Content-Type-Options';\n    proxy_hide_header 'Content-Security-Policy';\n    proxy_hide_header 'X-Content-Security-Policy';\n    proxy_hide_header 'X-Content-Type-Option';\n    proxy_hide_header 'X-WebKit-CSP';\n    proxy_hide_header 'X-XSS-Protection';\n}\nlocation ~* ^/(logs|getFile|listqueue|command|configFile|editConfig|enterLak|serviceControl) {\n    return 200 \"{}\";\n}";
+
+        $listen = $tlsDomain === null ? "listen {$adminPort};" : "listen {$adminPort} ssl;";
+        $serverName = $tlsDomain === null ? '_' : $tlsDomain;
+        $tls = $tlsDomain === null ? '' : "\n    ssl_certificate /etc/letsencrypt/live/{$tlsDomain}/fullchain.pem;\n    ssl_certificate_key /etc/letsencrypt/live/{$tlsDomain}/privkey.pem;\n    ssl_protocols TLSv1.2 TLSv1.3;";
+
+        return "server {\n    {$listen}\n    server_name {$serverName};{$tls}\n    {$allowed}\n    {$location}\n    error_page 403 @error403;\n    location @error403 {\n        default_type text/html;\n        return 403 \"403\";\n    }\n    error_page 502 @error502;\n    location @error502 {\n        default_type text/html;\n        return 502 \"GONE :(\";\n    }\n}";
     }
 
     /** @return array{type: string, command: string} */

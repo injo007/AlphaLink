@@ -23,14 +23,15 @@ class PmtaQueueAdmin
 
         $commands = $this->commands($action, $queue, $tags);
         $results = [];
-        $host = filter_var($server->ip_address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)
-            ? '['.$server->ip_address.']'
-            : $server->ip_address;
+        $endpoint = rtrim(PmtaPanelUrl::forServer($server, $port), '/');
+        if ($endpoint === '') {
+            throw new RuntimeException('The selected server has no valid PMTA endpoint.');
+        }
 
         foreach ($commands as $command) {
             $response = Http::connectTimeout(3)
                 ->timeout(5)
-                ->get('http://'.$host.':'.$port.'/command', [
+                ->get($endpoint.'/command', [
                     'format' => 'xml',
                     'command' => $command,
                 ]);
@@ -71,14 +72,12 @@ class PmtaQueueAdmin
                 $responses = Http::pool(function (Pool $pool) use ($serverBatch, $command, $portsByServer): void {
                     foreach ($serverBatch as $server) {
                         $serverId = (string) $server->getKey();
-                        $host = filter_var($server->ip_address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)
-                            ? '['.$server->ip_address.']'
-                            : $server->ip_address;
+                        $endpoint = rtrim(PmtaPanelUrl::forServer($server, $portsByServer[$serverId]), '/');
 
                         $pool->as($serverId)
                             ->connectTimeout(3)
                             ->timeout(5)
-                            ->get('http://'.$host.':'.$portsByServer[$serverId].'/command', [
+                            ->get($endpoint.'/command', [
                                 'format' => 'xml',
                                 'command' => $command,
                             ]);

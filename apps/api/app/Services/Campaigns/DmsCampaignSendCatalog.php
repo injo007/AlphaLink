@@ -145,7 +145,7 @@ class DmsCampaignSendCatalog
                 ])->values();
 
         $servers = $this->eligibleServers($workspace, $user, $operator)->get([
-            'id', 'name', 'ip_address', 'country',
+            'id', 'name', 'ip_address', 'country', 'install_parameters',
         ]);
 
         $redirectDomains = SendingDomain::query()
@@ -310,16 +310,12 @@ class DmsCampaignSendCatalog
                 }, ContactListMembership::CAMPAIGN_TYPES)));
             })->concat($mixSegments)->values(),
             'servers' => $servers->map(function (ManagedServer $server) use ($pmtaAdminPort): array {
-                $host = filter_var($server->ip_address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)
-                    ? '['.$server->ip_address.']'
-                    : $server->ip_address;
-
                 return [
                     'id' => $server->getKey(),
                     'name' => $server->name,
                     'ip' => $server->ip_address,
                     'country' => $server->country,
-                    'pmta_panel_url' => '//'.$host.':'.$pmtaAdminPort.'/',
+                    'pmta_panel_url' => PmtaPanelUrl::forServer($server, $pmtaAdminPort),
                 ];
             })->values(),
             'campaign_domains' => $redirectDomains->concat($serverDomains)->concat($vmtaDomains)->unique('value')->values(),

@@ -5,6 +5,7 @@ namespace App\Services\Infrastructure;
 use App\Models\ManagedServer;
 use App\Models\SendingDomain;
 use App\Models\Workspace;
+use App\Services\Campaigns\PmtaPanelUrl;
 use Closure;
 use InvalidArgumentException;
 use RuntimeException;
@@ -212,6 +213,17 @@ class DmsCentos9InstallWorkflow
         if ($options['https']) {
             $log('Setup Https');
             $this->https->run($session, (string) $primaryDomain->name, $subdomains);
+            $this->https->configurePmtaMonitor(
+                $session,
+                $session,
+                (string) $primaryDomain->name,
+                $pmtaVersion,
+                $settings['pmta_admin_port'],
+                $settings['dev_ips'],
+                $settings['production_ips'],
+                $settings['allow_all_monitor'],
+                $settings['pmta_relay_ips'],
+            );
             $log('End Setting Https');
         }
 
@@ -220,13 +232,19 @@ class DmsCentos9InstallWorkflow
             $session, $settings['apply_firewall'], (int) $server->ssh_port,
             $settings['pmta_port'], $settings['pmta_admin_port'], $settings['proxy_port'],
             $settings['dev_ips'], $settings['production_ips'], $settings['rdp_ips'], $settings['allow_all_monitor'],
+            $settings['pmta_relay_ips'],
         );
         $log('End Setting Firewall');
 
         // DMS starts both services but does not inspect their final state. Do not
         // persist an installed server when the selected PMTA package or either
         // service failed after the VMTA configuration restart.
-        $health = $session->exec($this->pmtaReadinessCommand($pmtaVersion, $settings));
+        $health = $session->exec($this->pmtaReadinessCommand(
+            $pmtaVersion,
+            $settings,
+            $options['https'],
+            (string) $primaryDomain->name,
+        ));
         if ($health !== 'ALPHALINK_PMTA_READY') {
             throw new RuntimeException('PMTA package, HTTP listener, access policy, or monitor proxy failed post-install verification.');
         }
@@ -237,11 +255,21 @@ class DmsCentos9InstallWorkflow
             $this->completion->finalize($workspace, $server, $primaryDomain, $ips, $pmtaVersion, $options, $selectedDomains);
         }
         $publicPort = $settings['pmta_admin_port'];
-        $pmtaHttpPort = $pmtaVersion === 40 ? $publicPort : $publicPort * 2;
-        $admin = (string) $server->ip_address.':'.$publicPort;
-        $log($pmtaVersion === 40
-            ? sprintf('PMTA WEB MONITOR LINK (public PMTA HTTP port %d): >>> <a target="_blank" href="http://%s">%s</a>', $publicPort, $admin, $admin)
-            : sprintf('PMTA WEB MONITOR LINK (public monitor port %d; backend-only PMTA listener %d): >>> <a target="_blank" href="http://%s">%s</a>', $publicPort, $pmtaHttpPort, $admin, $admin));
+        $pmtaHttpPort = $publicPort * 2;
+        $adminUrl = PmtaPanelUrl::forInstallation(
+            (string) $server->ip_address,
+            (string) $primaryDomain->name,
+            $publicPort,
+            $options['https'],
+        );
+        $log(sprintf(
+            'PMTA WEB MONITOR LINK (%s; public port %d; backend-only PMTA HTTP listener %d): >>> <a target="_blank" href="%s">%s</a>',
+            $options['https'] ? 'HTTPS' : 'HTTP',
+            $publicPort,
+            $pmtaHttpPort,
+            $adminUrl,
+            parse_url($adminUrl, PHP_URL_HOST).':'.$publicPort,
+        ));
         $log('Ended Disconnecting');
     }
 
@@ -330,10 +358,10 @@ class DmsCentos9InstallWorkflow
     }
 
     /** @param array<string, mixed> $settings */
-    private function pmtaReadinessCommand(int $version, array $settings): string
+    private function pmtaReadinessCommand(int $version, array $settings, bool $https = false, ?string $domain = null): string
     {
         $publicPort = $settings['pmta_admin_port'];
-        $pmtaHttpPort = $version === 40 ? $publicPort : $publicPort * 2;
+        $pmtaHttpPort = $publicPort * 2;
         $checks = [
             'rpm -q PowerMTA >/dev/null',
             'systemctl is-active --quiet pmta',
@@ -341,38 +369,38 @@ class DmsCentos9InstallWorkflow
             "ss -H -ltn | awk -v pattern=':{$pmtaHttpPort}$' '\$4 ~ pattern { found = 1 } END { exit !found }'",
         ];
 
-        $adminIps = $version === 40
-            ? array_values(array_unique([...$settings['dev_ips'], ...$settings['pmta_relay_ips']]))
-            : ['127.0.0.1'];
-        foreach ($adminIps as $ip) {
-            $checks[] = "grep -Fqx 'http-access {$ip} admin' /etc/pmta/settings/access";
-        }
+        $checks[] = "grep -Fqx 'http-access 127.0.0.1 admin' /etc/pmta/settings/access";
         foreach ($settings['pmta_relay_ips'] as $ip) {
             $checks[] = "grep -Fq '<source {$ip}>' /etc/pmta/settings/access";
             $checks[] = "grep -Fq 'always-allow-relaying yes' /etc/pmta/settings/access";
         }
-        if ($version !== 40) {
-            $checks[] = "grep -Fq 'location = /command {' /etc/nginx/conf.d/default.conf";
-            $checks[] = "! grep -Fqx 'http-access 0/0 monitor' /etc/pmta/settings/access";
-            $checks[] = 'systemctl is-active --quiet nginx';
-            $checks[] = 'nginx -t >/dev/null 2>&1';
-            $checks[] = "ss -H -ltn | awk -v pattern=':{$publicPort}$' '\$4 ~ pattern { found = 1 } END { exit !found }'";
-            $checks[] = "grep -Fq 'proxy_pass http://127.0.0.1:{$pmtaHttpPort};' /etc/nginx/conf.d/default.conf";
+        $checks[] = "grep -Fq 'location = /command {' /etc/nginx/conf.d/default.conf";
+        $checks[] = "! grep -Fqx 'http-access 0/0 monitor' /etc/pmta/settings/access";
+        $checks[] = 'systemctl is-active --quiet nginx';
+        $checks[] = 'nginx -t >/dev/null 2>&1';
+        $checks[] = "ss -H -ltn | awk -v pattern=':{$publicPort}$' '\$4 ~ pattern { found = 1 } END { exit !found }'";
+        $checks[] = "grep -Fq 'proxy_pass http://127.0.0.1:{$pmtaHttpPort};' /etc/nginx/conf.d/default.conf";
 
-            foreach ($settings['pmta_relay_ips'] as $ip) {
+        foreach ($settings['pmta_relay_ips'] as $ip) {
+            $checks[] = "grep -Fq 'allow {$ip};' /etc/nginx/conf.d/default.conf";
+        }
+
+        if (! $settings['allow_all_monitor']) {
+            foreach (array_values(array_unique([...$settings['dev_ips'], ...$settings['production_ips'], ...$settings['pmta_relay_ips']])) as $ip) {
                 $checks[] = "grep -Fq 'allow {$ip};' /etc/nginx/conf.d/default.conf";
             }
+            $checks[] = "grep -Fq '# ALPHALINK_PMTA_MONITOR_ACCESS_RESTRICTED' /etc/nginx/conf.d/default.conf";
+        } else {
+            $checks[] = "grep -Fq '# ALPHALINK_PMTA_MONITOR_ACCESS_PUBLIC' /etc/nginx/conf.d/default.conf";
+        }
 
-            if (! $settings['allow_all_monitor']) {
-                foreach (array_values(array_unique([...$settings['dev_ips'], ...$settings['production_ips']])) as $ip) {
-                    $checks[] = "grep -Fq 'allow {$ip};' /etc/nginx/conf.d/default.conf";
-                }
-                $checks[] = "grep -Fq '# ALPHALINK_PMTA_MONITOR_ACCESS_RESTRICTED' /etc/nginx/conf.d/default.conf";
-            } else {
-                $checks[] = "grep -Fq '# ALPHALINK_PMTA_MONITOR_ACCESS_PUBLIC' /etc/nginx/conf.d/default.conf";
-            }
-        } elseif ($settings['allow_all_monitor']) {
-            $checks[] = "grep -Fqx 'http-access 0/0 monitor' /etc/pmta/settings/access";
+        if ($https && is_string($domain) && $domain !== '') {
+            $checks[] = "grep -Fq 'listen {$publicPort} ssl;' /etc/nginx/conf.d/default.conf";
+            $domainArgument = escapeshellarg($domain);
+            $checks[] = 'grep -Fq '.escapeshellarg("server_name {$domain};").' /etc/nginx/conf.d/default.conf';
+            $checks[] = 'test -s '.escapeshellarg('/etc/letsencrypt/live/'.$domain.'/fullchain.pem');
+            $checks[] = 'test -s '.escapeshellarg('/etc/letsencrypt/live/'.$domain.'/privkey.pem');
+            $checks[] = "printf '' | timeout 8 openssl s_client -connect 127.0.0.1:{$publicPort} -servername {$domainArgument} -verify_hostname {$domainArgument} -verify_return_error 2>&1 | grep -Fq 'Verify return code: 0 (ok)'";
         }
 
         $checks[] = 'printf ALPHALINK_PMTA_READY';

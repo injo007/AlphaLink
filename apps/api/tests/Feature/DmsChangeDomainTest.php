@@ -318,11 +318,19 @@ class DmsChangeDomainTest extends TestCase
                     'sub' => 'relay',
                     'domain' => $this->domain->name,
                 ]],
+                'pmta_version' => 45,
                 'tracking' => true,
                 'proxy' => true,
                 'imap' => true,
             ],
         ])->save();
+        $this->workspace->infrastructureSettings()->create([
+            'pmta_admin_port' => 1213,
+            'dev_ips' => [],
+            'production_ips' => [],
+            'pmta_relay_ips' => ['203.0.113.70'],
+            'allow_all_monitor' => true,
+        ]);
         $this->ip->forceFill(['ip' => '10.0.0.25'])->save();
         $newDomain = $this->createDomain('new.example.test', 'free');
         $newDomain->forceFill(['is_our' => true])->save();
@@ -368,6 +376,18 @@ class DmsChangeDomainTest extends TestCase
         $session->shouldReceive('exec')->once()->with(
             "(crontab -l | grep 'certbot') || { crontab -l; echo '0 0 */15 * * certbot renew'; } | crontab -",
         )->ordered()->andReturn('');
+        $session->shouldReceive('upload')->once()->with(
+            Mockery::on(fn (string $content): bool => str_contains($content, 'listen 1213 ssl;')
+                && str_contains($content, 'server_name new.example.test;')
+                && str_contains($content, 'proxy_pass http://127.0.0.1:2426;')),
+            '/etc/nginx/conf.d/default.conf.alphalink-tls-stage',
+        )->ordered()->andReturn(true);
+        $session->shouldReceive('exec')->once()->with(
+            "install -d -m 0755 /etc/letsencrypt/renewal-hooks/deploy && printf '%s\\n' '#!/bin/sh' 'systemctl reload nginx' > /etc/letsencrypt/renewal-hooks/deploy/alphalink-reload-nginx && chmod 0755 /etc/letsencrypt/renewal-hooks/deploy/alphalink-reload-nginx",
+        )->ordered()->andReturn('');
+        $session->shouldReceive('exec')->once()->with(Mockery::on(fn (string $command): bool => str_contains($command, "test -s '/etc/letsencrypt/live/new.example.test/fullchain.pem'")
+            && str_contains($command, 'nginx -t')
+            && str_contains($command, 'systemctl reload nginx')))->ordered()->andReturn('ALPHALINK_PMTA_PROXY_READY');
 
         $dnsWriter = Mockery::mock(DmsChangeDomainDnsRecordWriter::class);
         $writtenRecords = [];

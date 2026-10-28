@@ -88,4 +88,25 @@ class DmsCentos9FirewallPlannerTest extends TestCase
         $this->assertContains('firewall-cmd --permanent --zone=public --add-port=1213/tcp;', $commandList);
         $this->assertNotContains('firewall-cmd --permanent --zone=public --add-port=2426/tcp;', $commandList);
     }
+
+    public function test_alpha_link_relay_ip_gets_only_the_pmta_admin_port_in_a_dedicated_zone(): void
+    {
+        $commands = array_column((new DmsCentos9FirewallPlanner)->plan(
+            true,
+            22,
+            2525,
+            1213,
+            3128,
+            ['192.0.2.10'],
+            [],
+            [],
+            false,
+            ['198.51.100.44'],
+        ), 'command');
+
+        $this->assertContains("firewall-cmd --permanent --get-zones | tr ' ' '\\n' | grep -qx pmta-admin || firewall-cmd --permanent --new-zone=pmta-admin;", $commands);
+        $this->assertContains('firewall-cmd --permanent --zone=pmta-admin --add-port=1213/tcp;', $commands);
+        $this->assertContains('firewall-cmd --permanent --zone=pmta-admin --add-source=198.51.100.44;', $commands);
+        $this->assertNotContains('firewall-cmd --permanent --zone=pmta-admin --add-port=2426/tcp;', $commands);
+    }
 }

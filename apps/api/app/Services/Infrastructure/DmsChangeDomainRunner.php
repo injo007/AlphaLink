@@ -81,6 +81,24 @@ class DmsChangeDomainRunner
         $mainDomain = $domains[(string) $mainRow['domain_id']];
         $subdomains = $this->subdomains($rows, $domains);
         $formatted = $this->domainGroups($rows, $domains);
+        $pmtaMonitor = null;
+        if ($options['https'] || array_key_exists('pmta_version', $parameters)) {
+            $infrastructureSettings = $workspace->infrastructureSettings;
+            $pmtaVersion = (int) ($parameters['pmta_version'] ?? 40);
+            $adminPort = $infrastructureSettings?->pmta_admin_port;
+            if (! in_array($pmtaVersion, [40, 45, 50], true)
+                || ! is_int($adminPort) || $adminPort < 1 || $adminPort > 32767) {
+                throw new RuntimeException('PMTA monitor settings are unavailable; configure a valid PMTA admin port before changing the domain.');
+            }
+            $pmtaMonitor = [
+                'version' => $pmtaVersion,
+                'admin_port' => $adminPort,
+                'development_ips' => is_array($infrastructureSettings->dev_ips) ? $infrastructureSettings->dev_ips : [],
+                'production_ips' => is_array($infrastructureSettings->production_ips) ? $infrastructureSettings->production_ips : [],
+                'allow_all_monitor' => (bool) $infrastructureSettings->allow_all_monitor,
+                'relay_ips' => is_array($infrastructureSettings->pmta_relay_ips) ? $infrastructureSettings->pmta_relay_ips : [],
+            ];
+        }
 
         $log('Prepare Changing Domain Server : '.$server->getKey());
         $credential = $this->credentials->resolve($server);
@@ -127,6 +145,21 @@ class DmsChangeDomainRunner
         if ($options['https']) {
             $log('Setup Https');
             $this->httpsStage->run($session, (string) $mainDomain->name, $subdomains);
+        }
+        if ($pmtaMonitor !== null) {
+            $this->httpsStage->configurePmtaMonitor(
+                $session,
+                $session,
+                $options['https'] ? (string) $mainDomain->name : null,
+                $pmtaMonitor['version'],
+                $pmtaMonitor['admin_port'],
+                $pmtaMonitor['development_ips'],
+                $pmtaMonitor['production_ips'],
+                $pmtaMonitor['allow_all_monitor'],
+                $pmtaMonitor['relay_ips'],
+            );
+        }
+        if ($options['https']) {
             $log('Setting Https');
         }
 

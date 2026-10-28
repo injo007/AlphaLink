@@ -9,7 +9,7 @@ class WorkspaceOfferSuppressionDownload extends Model
 {
     protected $fillable = [
         'workspace_id', 'offer_id', 'requested_by', 'status', 'downloaded_bytes',
-        'total_bytes', 'sha256', 'entry_count', 'format', 'failure_message',
+        'total_bytes', 'sha256', 'entry_count', 'processed_entries', 'format', 'failure_message',
         'started_at', 'finished_at',
     ];
 
@@ -19,6 +19,7 @@ class WorkspaceOfferSuppressionDownload extends Model
             'downloaded_bytes' => 'integer',
             'total_bytes' => 'integer',
             'entry_count' => 'integer',
+            'processed_entries' => 'integer',
             'started_at' => 'immutable_datetime',
             'finished_at' => 'immutable_datetime',
         ];

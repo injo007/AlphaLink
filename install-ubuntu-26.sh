@@ -168,6 +168,77 @@ wait_for_horizon() {
     return 1
 }
 
+FRONTEND_BUILD_SWAP_PATH=''
+cleanup_frontend_build_swap() {
+    [[ -n "$FRONTEND_BUILD_SWAP_PATH" ]] || return 0
+    if swapon --noheadings --show=NAME 2>/dev/null | grep -Fxq -- "$FRONTEND_BUILD_SWAP_PATH"; then
+        if ! swapoff -- "$FRONTEND_BUILD_SWAP_PATH"; then
+            info 'Temporary build swap is still active; leaving its protected file in place.'
+            FRONTEND_BUILD_SWAP_PATH=''
+            return 0
+        fi
+    fi
+    rm -f -- "$FRONTEND_BUILD_SWAP_PATH"
+    FRONTEND_BUILD_SWAP_PATH=''
+}
+
+prepare_frontend_build_swap() {
+    local free_kib swap_path
+    if swapon --noheadings --show=NAME 2>/dev/null | grep -q .; then
+        return 0
+    fi
+
+    free_kib="$(df -Pk /var/tmp | awk 'NR == 2 { print $4 }')"
+    [[ "$free_kib" =~ ^[0-9]+$ ]] || return 0
+    if (( free_kib < 2_621_440 )); then
+        info 'No swap is active and free disk is below 2.5 GiB; Vite will use a bounded Node heap.'
+        return 0
+    fi
+
+    swap_path="$(mktemp /var/tmp/alphalink-build-swap.XXXXXX)" || return 0
+    FRONTEND_BUILD_SWAP_PATH="$swap_path"
+    chmod 0600 "$swap_path"
+    if ! fallocate -l 2G "$swap_path" 2>/dev/null; then
+        if ! dd if=/dev/zero of="$swap_path" bs=1M count=2048 conv=fsync status=none; then
+            rm -f -- "$swap_path"
+            FRONTEND_BUILD_SWAP_PATH=''
+            info 'Could not allocate temporary build swap; continuing with the bounded Node heap.'
+            return 0
+        fi
+    fi
+    if ! mkswap "$swap_path" >/dev/null 2>&1 || ! swapon "$swap_path" 2>/dev/null; then
+        rm -f -- "$swap_path"
+        FRONTEND_BUILD_SWAP_PATH=''
+        info 'The host rejected temporary build swap; continuing with the bounded Node heap.'
+        return 0
+    fi
+
+    info 'Enabled a protected temporary 2 GiB swap file for the frontend build.'
+}
+
+build_frontend_assets() {
+    local host_memory_mib node_heap_mib node_options build_status=0
+    host_memory_mib="$(awk '/^MemTotal:/ { print int($2 / 1024) }' /proc/meminfo)"
+    [[ "$host_memory_mib" =~ ^[0-9]+$ ]] || host_memory_mib=2048
+    if declare -F detect_cgroup_memory_mib >/dev/null; then
+        host_memory_mib="$(detect_cgroup_memory_mib "$host_memory_mib")"
+    fi
+    node_heap_mib=$((host_memory_mib * 80 / 100))
+    (( node_heap_mib >= 768 )) || node_heap_mib=768
+    (( node_heap_mib <= 3072 )) || node_heap_mib=3072
+
+    prepare_frontend_build_swap
+    node_options="${NODE_OPTIONS:-} --max-old-space-size=${node_heap_mib}"
+    info "Building frontend assets with a ${node_heap_mib} MiB Node heap limit."
+    if env NODE_OPTIONS="$node_options" VITE_APP_NAME=AlphaLink npm run build; then
+        build_status=0
+    else
+        build_status=$?
+    fi
+    cleanup_frontend_build_swap
+    return "$build_status"
+}
+
 GIT_ASKPASS_FILE=''
 GIT_TOKEN_FILE=''
 DEPLOY_STAGING_DIR=''
@@ -182,6 +253,7 @@ cleanup_temporary_secrets() {
 }
 cleanup_deploy_staging() {
     cleanup_temporary_secrets
+    cleanup_frontend_build_swap
     if [[ "$DEPLOY_STAGING_DIR" == "$RELEASES_ROOT"/.deploy-stage-* && -d "$DEPLOY_STAGING_DIR" ]]; then
         rm -rf -- "$DEPLOY_STAGING_DIR"
     fi
@@ -658,7 +730,7 @@ deploy_release() {
             composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
         composer check-platform-reqs --no-dev
         npm ci --no-audit --no-fund
-        VITE_APP_NAME=AlphaLink npm run build
+        build_frontend_assets
         [[ -s public/build/manifest.json ]] || fail 'Vite did not produce the asset manifest.'
         rm -rf -- node_modules
         install -d -o www-data -g www-data -m 2770 "$temporary_release/apps/api/bootstrap/cache"
@@ -895,7 +967,7 @@ resume_initial_install() {
                 composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
             composer check-platform-reqs --no-dev
             npm ci --no-audit --no-fund
-            VITE_APP_NAME=AlphaLink npm run build
+            build_frontend_assets
             [[ -s public/build/manifest.json ]] || fail 'Vite did not produce the asset manifest.'
             rm -rf -- node_modules
             install -d -o www-data -g www-data -m 2770 "$staging_path/apps/api/bootstrap/cache"
@@ -1479,7 +1551,7 @@ ALPHALINK_ENV_DIR="$ENV_ROOT" COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_MEMORY_LIMIT=-
     composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
 composer check-platform-reqs --no-dev
 npm ci --no-audit --no-fund
-VITE_APP_NAME=AlphaLink npm run build
+build_frontend_assets
 [[ -s public/build/manifest.json ]] || fail 'Vite did not produce the asset manifest.'
 rm -rf -- node_modules
 

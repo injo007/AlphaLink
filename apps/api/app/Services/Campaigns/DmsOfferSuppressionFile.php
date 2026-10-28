@@ -4,6 +4,7 @@ namespace App\Services\Campaigns;
 
 use App\Models\Workspace;
 use App\Models\WorkspaceOffer;
+use Closure;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -48,8 +49,13 @@ class DmsOfferSuppressionFile
      *
      * @return array{path: string, sha256: string, format: 'email'|'md5'|'sha512', count: int}
      */
-    public function storeDownloadedFile(Workspace $workspace, WorkspaceOffer $offer, string $sourcePath): array
-    {
+    public function storeDownloadedFile(
+        Workspace $workspace,
+        WorkspaceOffer $offer,
+        string $sourcePath,
+        ?Closure $onProgress = null,
+        ?int $downloadedBytes = null,
+    ): array {
         $source = $sourcePath;
         $extractedPath = null;
 
@@ -60,14 +66,14 @@ class DmsOfferSuppressionFile
 
             $signature = file_get_contents($source, false, null, 0, 4);
             if ($signature === "PK\x03\x04") {
-                $extractedPath = $this->extractLargestZipEntry($source);
+                $extractedPath = $this->extractLargestZipEntry($source, $onProgress);
                 if ($extractedPath === null) {
                     throw ValidationException::withMessages(['suppression_file' => 'The sponsor archive does not contain a valid suppression list.']);
                 }
                 $source = $extractedPath;
             }
 
-            return $this->normalizeDownloadedFile($workspace, $offer, $source);
+            return $this->normalizeDownloadedFile($workspace, $offer, $source, $onProgress, $downloadedBytes);
         } finally {
             if (is_string($extractedPath) && is_file($extractedPath)) {
                 @unlink($extractedPath);
@@ -183,8 +189,13 @@ class DmsOfferSuppressionFile
     /**
      * @return array{path: string, sha256: string, format: 'email'|'md5'|'sha512', count: int}
      */
-    private function normalizeDownloadedFile(Workspace $workspace, WorkspaceOffer $offer, string $sourcePath): array
-    {
+    private function normalizeDownloadedFile(
+        Workspace $workspace,
+        WorkspaceOffer $offer,
+        string $sourcePath,
+        ?Closure $onProgress = null,
+        ?int $downloadedBytes = null,
+    ): array {
         $connection = DB::connection();
         $table = 'tmp_suppression_'.Str::lower(Str::random(18));
         $wrapped = $connection->getQueryGrammar()->wrapTable($table);
@@ -193,6 +204,7 @@ class DmsOfferSuppressionFile
         $format = null;
         $sawEntries = false;
         $discardingLongEntry = false;
+        $uniqueCount = 0;
         $disk = Storage::disk(self::DISK);
         $temporaryPath = sprintf(
             'offers/%s/%d/suppression/.%s.normalizing.tmp',
@@ -200,6 +212,10 @@ class DmsOfferSuppressionFile
             $offer->getKey(),
             Str::uuid(),
         );
+        $sourceBytes = (int) (filesize($sourcePath) ?: 0);
+        $lastReportedBytes = 0;
+        $lastReportedAt = microtime(true);
+        $batchSize = 5_000;
 
         try {
             $input = fopen($sourcePath, 'rb');
@@ -208,15 +224,25 @@ class DmsOfferSuppressionFile
             }
 
             try {
-                $processEntry = function (string $entry) use ($connection, $table, &$batch, &$format, &$sawEntries): void {
+                $flushBatch = function () use ($connection, $table, &$batch, &$uniqueCount): void {
+                    if ($batch === []) {
+                        return;
+                    }
+
+                    $uniqueCount += $connection->table($table)->insertOrIgnore($batch);
+                    $batch = [];
+                };
+                $processEntry = function (string $entry) use (&$batch, &$format, &$sawEntries, $batchSize, $flushBatch): void {
                     $entry = mb_strtolower(trim($entry, " \t\n\r\0\x0B\"'"));
                     if ($entry === '') {
                         return;
                     }
                     $sawEntries = true;
-                    $entryFormat = preg_match('/^[a-f0-9]{128}$/', $entry) === 1
+                    $length = strlen($entry);
+                    $hexCharacters = '0123456789abcdef';
+                    $entryFormat = $length === 128 && strspn($entry, $hexCharacters) === 128
                         ? 'sha512'
-                        : (preg_match('/^[a-f0-9]{32}$/', $entry) === 1
+                        : ($length === 32 && strspn($entry, $hexCharacters) === 32
                             ? 'md5'
                             : (filter_var($entry, FILTER_VALIDATE_EMAIL) !== false ? 'email' : null));
                     if ($entryFormat === null || ($format !== null && $format !== $entryFormat)) {
@@ -224,14 +250,14 @@ class DmsOfferSuppressionFile
                     }
                     $format = $entryFormat;
                     $batch[] = ['entry_value' => $entry];
-                    if (count($batch) >= 500) {
-                        $connection->table($table)->insertOrIgnore($batch);
-                        $batch = [];
+                    if (count($batch) >= $batchSize) {
+                        $flushBatch();
                     }
                 };
 
                 $carry = '';
                 $firstChunk = true;
+                $readBytes = 0;
                 while (! feof($input)) {
                     $chunk = fread($input, 65_536);
                     if (! is_string($chunk)) {
@@ -240,6 +266,7 @@ class DmsOfferSuppressionFile
                     if ($chunk === '') {
                         break;
                     }
+                    $readBytes += strlen($chunk);
                     if ($firstChunk) {
                         $chunk = preg_replace('/^\xEF\xBB\xBF/', '', $chunk) ?? $chunk;
                         $firstChunk = false;
@@ -263,19 +290,26 @@ class DmsOfferSuppressionFile
                         $carry = '';
                         $discardingLongEntry = true;
                     }
+                    $now = microtime(true);
+                    if ($onProgress !== null && ($readBytes - $lastReportedBytes >= 4_194_304 || $now - $lastReportedAt >= 2.0)) {
+                        $onProgress($readBytes, $sourceBytes, 'validating');
+                        $lastReportedBytes = $readBytes;
+                        $lastReportedAt = $now;
+                    }
                 }
                 if ($discardingLongEntry) {
                     throw ValidationException::withMessages(['suppression_file' => 'Entries must be valid email addresses, 32-character MD5 hashes, or 128-character SHA-512 hashes.']);
                 }
                 $processEntry($carry);
+                if ($onProgress !== null) {
+                    $onProgress($sourceBytes, $sourceBytes, 'validating');
+                }
             } finally {
                 fclose($input);
             }
 
-            if ($batch !== []) {
-                $connection->table($table)->insertOrIgnore($batch);
-            }
-            $count = (int) $connection->table($table)->count();
+            $flushBatch();
+            $count = $uniqueCount;
             if (! $sawEntries || $count < 1 || ! in_array($format, ['email', 'md5', 'sha512'], true)) {
                 throw ValidationException::withMessages(['suppression_file' => 'The suppression file must contain valid email addresses, 32-character MD5 hashes, or 128-character SHA-512 hashes.']);
             }
@@ -286,6 +320,11 @@ class DmsOfferSuppressionFile
                 throw new \RuntimeException('Unable to prepare the validated suppression file.');
             }
             $hash = hash_init('sha256');
+            $writtenEntries = 0;
+            $lastSavedProgressAt = microtime(true);
+            if ($onProgress !== null) {
+                $onProgress($downloadedBytes ?? $sourceBytes, $downloadedBytes ?? $sourceBytes, 'saving', 0, $count);
+            }
             try {
                 foreach ($connection->table($table)->orderBy('entry_value')->cursor() as $row) {
                     $normalizedLine = $row->entry_value."\n";
@@ -293,6 +332,15 @@ class DmsOfferSuppressionFile
                         throw new \RuntimeException('Unable to write the validated suppression file.');
                     }
                     hash_update($hash, $normalizedLine);
+                    $writtenEntries++;
+                    $now = microtime(true);
+                    if ($onProgress !== null && ($writtenEntries % 100_000 === 0 || $now - $lastSavedProgressAt >= 2.0)) {
+                        $onProgress($downloadedBytes ?? $sourceBytes, $downloadedBytes ?? $sourceBytes, 'saving', $writtenEntries, $count);
+                        $lastSavedProgressAt = $now;
+                    }
+                }
+                if ($onProgress !== null) {
+                    $onProgress($downloadedBytes ?? $sourceBytes, $downloadedBytes ?? $sourceBytes, 'saving', $writtenEntries, $count);
                 }
             } finally {
                 fclose($output);
@@ -315,7 +363,7 @@ class DmsOfferSuppressionFile
         }
     }
 
-    private function extractLargestZipEntry(string $archivePath): ?string
+    private function extractLargestZipEntry(string $archivePath, ?Closure $onProgress = null): ?string
     {
         $archive = new ZipArchive;
         if ($archive->open($archivePath) !== true) {
@@ -363,6 +411,8 @@ class DmsOfferSuppressionFile
             }
 
             $written = 0;
+            $lastReportedBytes = 0;
+            $lastReportedAt = microtime(true);
             while (! feof($input)) {
                 $chunk = fread($input, 1024 * 1024);
                 if ($chunk === false) {
@@ -377,6 +427,12 @@ class DmsOfferSuppressionFile
                 $written += strlen($chunk);
                 if (fwrite($output, $chunk) !== strlen($chunk)) {
                     throw new \RuntimeException('Unable to finish writing the extracted suppression archive.');
+                }
+                $now = microtime(true);
+                if ($onProgress !== null && ($written - $lastReportedBytes >= 4_194_304 || $now - $lastReportedAt >= 2.0)) {
+                    $onProgress($written, $largestSize, 'extracting');
+                    $lastReportedBytes = $written;
+                    $lastReportedAt = $now;
                 }
             }
             if ($written < 1) {
@@ -398,6 +454,9 @@ class DmsOfferSuppressionFile
             $input = null;
 
             $completed = true;
+            if ($onProgress !== null) {
+                $onProgress($largestSize, $largestSize, 'extracting');
+            }
 
             return $outputPath;
         } finally {

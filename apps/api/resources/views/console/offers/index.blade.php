@@ -231,6 +231,7 @@
                 while (size >= 1024 && unit < units.length - 1) { size /= 1024; unit++; }
                 return `${size.toFixed(2)} ${units[unit]}`;
             };
+            const formatCount = (value) => Number(value || 0).toLocaleString();
             const showDownloadProgress = (download) => {
                 const percent = download.percent;
                 const progress = $('#offer-suppression-download-progress');
@@ -243,14 +244,19 @@
                     queued: 'Waiting for the suppression worker…',
                     resolving: 'Requesting the suppression file from the sponsor…',
                     downloading: 'Downloading suppression file…',
-                    validating: 'Checking and saving the suppression file…',
+                    extracting: 'Unpacking the downloaded file…',
+                    validating: 'Checking suppression entries…',
+                    saving: 'Saving the verified suppression list…',
                     completed: 'Download complete.',
                     failed: 'Download failed.',
                 };
                 $('#offer-suppression-download-message').text(labels[download.status] || 'Processing suppression file…');
-                $('#offer-suppression-download-size').text(download.total_bytes
-                    ? `${formatBytes(download.downloaded_bytes)} of ${formatBytes(download.total_bytes)}`
-                    : (download.downloaded_bytes ? `${formatBytes(download.downloaded_bytes)} downloaded` : ''));
+                const progressLabel = download.status === 'saving'
+                    ? `${formatCount(download.processed_entries)} of ${formatCount(download.entry_count)} entries saved`
+                    : download.total_bytes
+                        ? `${formatBytes(download.downloaded_bytes)} of ${formatBytes(download.total_bytes)}${download.status === 'validating' ? ' checked' : ''}`
+                        : (download.downloaded_bytes ? `${formatBytes(download.downloaded_bytes)} downloaded` : '');
+                $('#offer-suppression-download-size').text(progressLabel);
                 if (download.status === 'completed') {
                     $('#offer-suppression-download-complete').removeClass('d-none');
                     $('#offer-suppression-manage-link').attr('href', download.manage_url).removeClass('d-none');

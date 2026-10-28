@@ -62,6 +62,17 @@ class WorkspaceOfferConsoleController extends Controller
 
         [$download, $created] = DB::transaction(function () use ($workspace, $offer, $request): array {
             WorkspaceOffer::query()->whereKey($offer->getKey())->lockForUpdate()->firstOrFail();
+            WorkspaceOfferSuppressionDownload::query()
+                ->where('workspace_id', $workspace->getKey())
+                ->where('offer_id', $offer->getKey())
+                ->whereIn('status', ['queued', 'resolving', 'downloading', 'extracting', 'validating', 'saving'])
+                ->where('updated_at', '<', now()->subMinutes(10))
+                ->update([
+                    'status' => 'failed',
+                    'failure_message' => 'Suppression processing stopped without updating for 10 minutes. Check the suppression worker and retry the download.',
+                    'finished_at' => now(),
+                    'updated_at' => now(),
+                ]);
             $existing = WorkspaceOfferSuppressionDownload::query()
                 ->where('workspace_id', $workspace->getKey())
                 ->where('offer_id', $offer->getKey())
@@ -97,16 +108,47 @@ class WorkspaceOfferConsoleController extends Controller
             ->where('offer_id', $offer->getKey())
             ->whereKey($downloadId)
             ->firstOrFail();
+        $this->failStaleSuppressionDownload($download);
 
         return response()->json(['download' => $this->presentSuppressionDownload($download, $offer)]);
+    }
+
+    private function failStaleSuppressionDownload(WorkspaceOfferSuppressionDownload $download): void
+    {
+        $cutoff = now()->subMinutes(10);
+        if (! in_array($download->status, ['queued', 'resolving', 'downloading', 'extracting', 'validating', 'saving'], true)
+            || $download->updated_at === null
+            || $download->updated_at->greaterThanOrEqualTo($cutoff)) {
+            return;
+        }
+
+        $updated = WorkspaceOfferSuppressionDownload::query()
+            ->whereKey($download->getKey())
+            ->whereIn('status', ['queued', 'resolving', 'downloading', 'extracting', 'validating', 'saving'])
+            ->where('updated_at', '<', $cutoff)
+            ->update([
+                'status' => 'failed',
+                'failure_message' => 'Suppression processing stopped without updating for 10 minutes. Check the suppression worker and retry the download.',
+                'finished_at' => now(),
+                'updated_at' => now(),
+            ]);
+        if ($updated > 0) {
+            $download->refresh();
+        }
     }
 
     /** @return array<string, mixed> */
     private function presentSuppressionDownload(WorkspaceOfferSuppressionDownload $download, WorkspaceOffer $offer): array
     {
-        $percent = $download->status === 'completed'
-            ? 100
-            : ($download->total_bytes > 0 ? min(99, (int) floor($download->downloaded_bytes * 100 / $download->total_bytes)) : null);
+        $percent = match ($download->status) {
+            'completed' => 100,
+            'saving' => $download->entry_count > 0
+                ? min(99, (int) floor($download->processed_entries * 100 / $download->entry_count))
+                : 0,
+            default => $download->total_bytes > 0
+                ? min(99, (int) floor($download->downloaded_bytes * 100 / $download->total_bytes))
+                : null,
+        };
 
         return [
             'id' => $download->getKey(),
@@ -115,6 +157,7 @@ class WorkspaceOfferConsoleController extends Controller
             'total_bytes' => $download->total_bytes,
             'percent' => $percent,
             'entry_count' => $download->entry_count,
+            'processed_entries' => $download->processed_entries,
             'failure_message' => $download->failure_message,
             'manage_url' => route('clean.console.drops.suppression', [
                 'sponsor_id' => $offer->sponsor_id,

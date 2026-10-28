@@ -42,15 +42,26 @@ class DownloadWorkspaceOfferSuppressionFile implements ShouldQueue
             $result = $refresher->refreshWithProgress(
                 $download->workspace,
                 $download->offer,
-                function (int $downloaded, ?int $total, string $stage = 'downloading') use ($download, &$lastBytes, &$lastUpdate, &$lastStage): void {
+                function (
+                    int $downloaded,
+                    ?int $total,
+                    string $stage = 'downloading',
+                    ?int $processedEntries = null,
+                    ?int $totalEntries = null,
+                ) use ($download, &$lastBytes, &$lastUpdate, &$lastStage): void {
                     $now = microtime(true);
-                    if ($stage === $lastStage && $downloaded - $lastBytes < 1_048_576 && $now - $lastUpdate < 1.5) {
+                    if ($stage === $lastStage
+                        && $downloaded - $lastBytes < 4_194_304
+                        && ($processedEntries === null || $processedEntries - $download->processed_entries < 100_000)
+                        && $now - $lastUpdate < 2.0) {
                         return;
                     }
                     $download->forceFill([
                         'status' => $stage,
                         'downloaded_bytes' => $downloaded,
                         'total_bytes' => $total,
+                        'entry_count' => $totalEntries ?? $download->entry_count,
+                        'processed_entries' => $processedEntries ?? 0,
                     ])->save();
                     $lastBytes = $downloaded;
                     $lastUpdate = $now;
@@ -74,6 +85,7 @@ class DownloadWorkspaceOfferSuppressionFile implements ShouldQueue
                 'total_bytes' => $result['bytes'],
                 'sha256' => $result['sha256'],
                 'entry_count' => $result['count'],
+                'processed_entries' => $result['count'],
                 'format' => $result['format'],
                 'failure_message' => null,
                 'finished_at' => now(),

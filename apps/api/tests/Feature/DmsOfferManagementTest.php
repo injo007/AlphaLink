@@ -14,6 +14,7 @@ use App\Services\Campaigns\DmsOfferSuppressionFile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Routing\Middleware\ThrottleRequests;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -122,6 +123,17 @@ class DmsOfferManagementTest extends TestCase
                 'offer_id' => $offer->getKey(),
             ]));
 
+        $download = WorkspaceOfferSuppressionDownload::query()->findOrFail($downloadId);
+        $download->forceFill(['status' => 'saving', 'entry_count' => 100, 'processed_entries' => 45])->save();
+        $this->getJson(route('console.offers.suppression-file.download-status', [
+            $this->workspace->getKey(),
+            $offer->getKey(),
+            $downloadId,
+        ]))->assertOk()
+            ->assertJsonPath('download.status', 'saving')
+            ->assertJsonPath('download.percent', 45)
+            ->assertJsonPath('download.processed_entries', 45);
+
         $operator = User::factory()->create();
         $this->workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
         $this->actingAs($operator)->getJson(route('console.offers.suppression-file.download-status', [
@@ -160,12 +172,80 @@ class DmsOfferManagementTest extends TestCase
         $this->assertGreaterThan(0, $download->downloaded_bytes);
         $this->assertSame($download->downloaded_bytes, $download->total_bytes);
         $this->assertSame(1, $download->entry_count);
+        $this->assertSame(1, $download->processed_entries);
         $this->assertSame('email', $download->format);
         $this->assertSame(hash('sha256', "blocked@example.test\n"), $download->sha256);
         $this->assertSame($download->sha256, $offer->suppression_sha256);
         $this->assertTrue(app(DmsOfferSuppressionFile::class)->isEligible($offer));
         $this->assertSame("blocked@example.test\n", Storage::disk('local')->get($offer->suppression_path));
         Http::assertSentCount(2);
+    }
+
+    public function test_stale_suppression_download_is_marked_failed_and_can_be_retried(): void
+    {
+        Queue::fake();
+        $sponsor = $this->createSponsor('Stalled suppression');
+        $offer = $this->createOffer($sponsor, ['offer_id' => '71236']);
+        $download = WorkspaceOfferSuppressionDownload::query()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'offer_id' => $offer->getKey(),
+            'requested_by' => $this->owner->getKey(),
+            'status' => 'validating',
+        ]);
+        DB::table('workspace_offer_suppression_downloads')->where('id', $download->getKey())
+            ->update(['updated_at' => now()->subMinutes(11)]);
+
+        $this->getJson(route('console.offers.suppression-file.download-status', [
+            $this->workspace->getKey(),
+            $offer->getKey(),
+            $download->getKey(),
+        ]))->assertOk()
+            ->assertJsonPath('download.status', 'failed')
+            ->assertJsonPath('download.failure_message', 'Suppression processing stopped without updating for 10 minutes. Check the suppression worker and retry the download.');
+
+        $this->postJson(route('console.offers.suppression-file.download', [
+            $this->workspace->getKey(),
+            $offer->getKey(),
+        ]))->assertAccepted()->assertJsonPath('download.status', 'queued')
+            ->assertJsonPath('download.failure_message', null);
+        $this->assertSame(2, WorkspaceOfferSuppressionDownload::query()->count());
+    }
+
+    public function test_large_suppression_normalization_reports_validation_and_save_progress(): void
+    {
+        $offer = $this->createOffer($this->createSponsor('Suppression progress'));
+        $sourcePath = tempnam(sys_get_temp_dir(), 'alphalink-suppression-progress-');
+        $this->assertIsString($sourcePath);
+        $hashes = [];
+        for ($index = 0; $index < 12_000; $index++) {
+            $hashes[] = md5('suppression-'.$index);
+        }
+        $hashes[] = $hashes[0];
+        $hashes[] = $hashes[1];
+        file_put_contents($sourcePath, implode("\n", $hashes)."\n");
+        $progress = [];
+
+        try {
+            $stored = app(DmsOfferSuppressionFile::class)->storeDownloadedFile(
+                $this->workspace,
+                $offer,
+                $sourcePath,
+                static function (int $bytes, ?int $total, string $stage, ?int $processed = null, ?int $entriesTotal = null) use (&$progress): void {
+                    $progress[] = [$stage, $bytes, $total, $processed, $entriesTotal];
+                },
+                filesize($sourcePath),
+            );
+        } finally {
+            @unlink($sourcePath);
+        }
+
+        $this->assertSame('md5', $stored['format']);
+        $this->assertSame(12_000, $stored['count']);
+        $this->assertContains('validating', array_column($progress, 0));
+        $this->assertContains('saving', array_column($progress, 0));
+        $savingProgress = array_values(array_filter($progress, static fn (array $item): bool => $item[0] === 'saving'));
+        $this->assertSame(12_000, end($savingProgress)[3]);
+        $this->assertSame(12_000, end($savingProgress)[4]);
     }
 
     public function test_suppression_worker_reports_a_safe_actionable_dns_failure(): void

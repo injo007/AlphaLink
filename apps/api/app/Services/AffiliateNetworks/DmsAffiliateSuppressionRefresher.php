@@ -22,7 +22,7 @@ class DmsAffiliateSuppressionRefresher
     }
 
     /**
-     * @param  Closure(int, ?int, string): void|null  $onProgress
+     * @param  Closure(int, ?int, string, ?int, ?int): void|null  $onProgress
      * @return array{bytes: int, sha256: string, format: 'email'|'md5'|'sha512', count: int}|null
      */
     public function refreshWithProgress(Workspace $workspace, WorkspaceOffer $offer, ?Closure $onProgress = null): ?array
@@ -85,10 +85,7 @@ class DmsAffiliateSuppressionRefresher
                 );
             }
 
-            if ($onProgress !== null) {
-                $onProgress($bytes, $bytes, 'validating');
-            }
-            $stored = $this->files->storeDownloadedFile($workspace, $offer, $temporaryPath);
+            $stored = $this->files->storeDownloadedFile($workspace, $offer, $temporaryPath, $onProgress, $bytes);
             $offer->forceFill([
                 'suppression_path' => $stored['path'],
                 'suppression_sha256' => $stored['sha256'],

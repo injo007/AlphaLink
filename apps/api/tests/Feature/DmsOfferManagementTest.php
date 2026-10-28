@@ -398,6 +398,7 @@ class DmsOfferManagementTest extends TestCase
         $offer->refresh();
         $this->assertTrue(app(DmsOfferSuppressionFile::class)->isEligible($offer));
         $this->assertSame("a@example.test\nb@example.test\n", Storage::disk('local')->get($offer->suppression_path));
+        $this->assertSame([$offer->suppression_path], Storage::disk('local')->allFiles(dirname($offer->suppression_path)));
         $this->assertStringNotContainsString('suppression_path', json_encode($this->getJson(route('console.offers.index', $this->workspace->getKey()))->json()));
 
         $this->post($url, $payload + ['suppression_file' => UploadedFile::fake()->createWithContent('hashes.txt', md5('a@example.test')."\n")], ['Accept' => 'application/json'])
@@ -421,6 +422,64 @@ class DmsOfferManagementTest extends TestCase
             ->assertJsonPath('data.format', 'email');
 
         $this->assertSame("blocked@example.test\n", Storage::disk('local')->get($offer->fresh()->suppression_path));
+    }
+
+    public function test_suppression_upload_deduplicates_across_database_batches_and_input_chunks(): void
+    {
+        $sponsor = $this->createSponsor('Chunked Suppression Upload');
+        $offer = $this->createOffer($sponsor);
+        $uniqueEntries = array_map(
+            static fn (int $index): string => sprintf('recipient%04d@example.test', $index),
+            range(0, 1000),
+        );
+        $content = str_repeat("repeat@example.test\n", 3276)
+            .implode("\n", $uniqueEntries)
+            ."\nrepeat@example.test\nrecipient0000@example.test\n";
+        $expectedEntries = array_merge(['repeat@example.test'], $uniqueEntries);
+        sort($expectedEntries, SORT_STRING);
+        $expectedContent = implode("\n", $expectedEntries)."\n";
+
+        $this->post(route('console.drops.suppression.offer-file', $this->workspace->getKey()), [
+            'sponsor_id' => $sponsor->getKey(),
+            'offer_id' => $offer->getKey(),
+            'suppression_file' => UploadedFile::fake()->createWithContent('chunked-suppression.txt', $content),
+        ], ['Accept' => 'application/json'])
+            ->assertOk()
+            ->assertJsonPath('data.entry_count', 1002)
+            ->assertJsonPath('data.format', 'email');
+
+        $offer->refresh();
+        $this->assertSame($expectedContent, Storage::disk('local')->get($offer->suppression_path));
+        $this->assertSame(hash('sha256', $expectedContent), $offer->suppression_sha256);
+        $this->assertSame([$offer->suppression_path], Storage::disk('local')->allFiles(dirname($offer->suppression_path)));
+    }
+
+    public function test_suppression_normalization_cleans_staging_file_when_digest_publish_fails(): void
+    {
+        $sponsor = $this->createSponsor('Failed Suppression Publish');
+        $offer = $this->createOffer($sponsor);
+        $content = "blocked@example.test\n";
+        $digestPath = sprintf(
+            'offers/%s/%d/suppression/%s.txt',
+            $this->workspace->getKey(),
+            $offer->getKey(),
+            hash('sha256', $content),
+        );
+        Storage::disk('local')->makeDirectory($digestPath);
+
+        try {
+            app(DmsOfferSuppressionFile::class)->store(
+                $this->workspace,
+                $offer,
+                UploadedFile::fake()->createWithContent('suppression.txt', $content),
+            );
+            $this->fail('A directory at the digest destination must prevent artifact publication.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('Unable to store the validated suppression file.', $exception->getMessage());
+        }
+
+        $this->assertSame([], Storage::disk('local')->allFiles(dirname($digestPath)));
+        $this->assertNull($offer->fresh()->suppression_path);
     }
 
     public function test_suppression_upload_rejects_mixed_or_malformed_entries_without_replacing_current_file(): void

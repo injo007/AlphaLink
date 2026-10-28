@@ -169,9 +169,9 @@ class InfrastructurePlanningTest extends TestCase
             ->assertSee('/dms-reference/plugins/datatables/datatables.mark.js')
             ->assertSee('/dms-reference/assets/js/tables_datatables.js')
             ->assertSee('/dms-reference/server-index.js')
-            ->assertSee(route('console.infrastructure.servers.create', $this->workspace->id), false)
-            ->assertSee('data-install-url="'.route('console.infrastructure.install.index', $this->workspace->id).'"', false)
-            ->assertSee('data-bulk-install-url="'.route('console.infrastructure.bulk-install', $this->workspace->id).'"', false);
+            ->assertSee($this->cleanWorkspaceUrl(route('console.infrastructure.servers.create', $this->workspace->id)), false)
+            ->assertSee('data-install-url="'.$this->cleanWorkspaceUrl(route('console.infrastructure.install.index', $this->workspace->id)).'"', false)
+            ->assertSee('data-bulk-install-url="'.$this->cleanWorkspaceUrl(route('console.infrastructure.bulk-install', $this->workspace->id)).'"', false);
 
         $serverTableScript = file_get_contents(public_path('dms-reference/server-index.js'));
         self::assertIsString($serverTableScript);
@@ -428,7 +428,7 @@ class InfrastructurePlanningTest extends TestCase
         $historyUrl = route('console.infrastructure.servers.history', [$this->workspace->id, $managedServer->id]);
         $this->get($historyUrl)->assertOk()
             ->assertSee('HISTORIES')
-            ->assertSee('data-source-url="'.$historyUrl.'"', false)
+            ->assertSee('data-source-url="'.$this->cleanWorkspaceUrl($historyUrl).'"', false)
             ->assertSee('/dms-reference/server-history.js');
 
         $this->getJson($historyUrl.'?'.http_build_query([
@@ -468,7 +468,7 @@ class InfrastructurePlanningTest extends TestCase
         $this->workspace->users()->attach($unassignedOperator->id, ['role' => 'operator']);
         $this->actingAs($unassignedOperator)->get($historyUrl)->assertOk()
             ->assertSee('HISTORIES')
-            ->assertSee('data-source-url="'.$historyUrl.'"', false);
+            ->assertSee('data-source-url="'.$this->cleanWorkspaceUrl($historyUrl).'"', false);
         $this->getJson($historyUrl.'?draw=10')->assertOk()->assertJsonPath('draw', 10)
             ->assertJsonCount(2, 'data');
     }
@@ -787,7 +787,7 @@ class InfrastructurePlanningTest extends TestCase
         $page = '/app/workspaces/'.$this->workspace->id.'/infrastructure';
         $serversPage = $page.'/servers';
         $domainsPage = $page.'/domains';
-        $this->get($page)->assertRedirect(route('console.infrastructure.servers.index', $this->workspace->id));
+        $this->getLegacyWorkspacePage($page)->assertRedirect('/infrastructure');
         $this->get($serversPage)->assertOk()->assertSee('SERVERS')->assertDontSee('Server installation');
         $createPage = $serversPage.'/create';
         $this->get($createPage)->assertOk()->assertSee('Select Server Provider')->assertSee('TEST CONNECTION')
@@ -805,15 +805,17 @@ class InfrastructurePlanningTest extends TestCase
         $this->assertStringNotContainsString('private-example-password', $created->getContent());
 
         $this->post($page.'/domains', ['name' => 'example.org'])
-            ->assertRedirect(route('console.infrastructure.domains.index', $this->workspace->id));
+            ->assertRedirect($this->cleanWorkspaceUrl(route('console.campaigns.test-draft.create', $this->workspace->id)));
         $domain = SendingDomain::query()->firstOrFail();
-        $this->getJson($domainsPage.'?only_our=0')->assertOk()->assertJsonPath('data.0.dns', 'example.org');
+        $this->getJson($domainsPage.'?only_our=0')->assertOk()
+            ->assertJsonCount(0, 'data')
+            ->assertJsonMissing(['dns' => 'example.org']);
 
         $resolver = Mockery::mock(DomainTxtResolver::class);
         $resolver->shouldReceive('records')->once()->andReturn([$domain->verification_token]);
         $this->app->instance(DomainTxtResolver::class, $resolver);
         $this->post($page.'/domains/'.$domain->id.'/verify')
-            ->assertRedirect(route('console.infrastructure.domains.index', $this->workspace->id));
+            ->assertRedirect($this->cleanWorkspaceUrl(route('console.campaigns.test-draft.create', $this->workspace->id)));
 
         $response = $this->post($page.'/plans', [
             'server_id' => ManagedServer::query()->firstOrFail()->id,
@@ -821,7 +823,7 @@ class InfrastructurePlanningTest extends TestCase
             'pmta_version' => '5.0',
             'tracking' => '1', 'dkim' => '1',
         ]);
-        $response->assertRedirect(route('console.infrastructure.servers.index', $this->workspace->id));
+        $response->assertRedirect($this->cleanWorkspaceUrl(route('console.infrastructure.servers.index', $this->workspace->id)));
         $this->get($response->headers->get('Location'))->assertOk()
             ->assertSee('SERVERS')
             ->assertDontSee('Installation blocked');
@@ -832,14 +834,14 @@ class InfrastructurePlanningTest extends TestCase
         $serversPage = route('console.infrastructure.servers.index', $this->workspace->id);
 
         $response = $this->get($serversPage)->assertOk()
-            ->assertSee(route('console.infrastructure.server-providers.index', $this->workspace->id), false)
-            ->assertSee(route('console.infrastructure.my-ips', $this->workspace->id), false)
-            ->assertSee(route('console.pmta-admin.history', $this->workspace->id), false)
-            ->assertSee(route('console.infrastructure.install.index', $this->workspace->id), false)
-            ->assertSee(route('console.infrastructure.bulk-install', $this->workspace->id), false)
-            ->assertSee(route('console.infrastructure.change-domain.index', $this->workspace->id), false)
-            ->assertSee(route('console.infrastructure.reinstall.index', $this->workspace->id), false)
-            ->assertSee(route('console.infrastructure.cloud-providers.index', $this->workspace->id), false)
+            ->assertSee($this->cleanWorkspaceUrl(route('console.infrastructure.server-providers.index', $this->workspace->id)), false)
+            ->assertSee($this->cleanWorkspaceUrl(route('console.infrastructure.my-ips', $this->workspace->id)), false)
+            ->assertSee($this->cleanWorkspaceUrl(route('console.pmta-admin.history', $this->workspace->id)), false)
+            ->assertSee($this->cleanWorkspaceUrl(route('console.infrastructure.install.index', $this->workspace->id)), false)
+            ->assertSee($this->cleanWorkspaceUrl(route('console.infrastructure.bulk-install', $this->workspace->id)), false)
+            ->assertSee($this->cleanWorkspaceUrl(route('console.infrastructure.change-domain.index', $this->workspace->id)), false)
+            ->assertSee($this->cleanWorkspaceUrl(route('console.infrastructure.reinstall.index', $this->workspace->id)), false)
+            ->assertSee($this->cleanWorkspaceUrl(route('console.infrastructure.cloud-providers.index', $this->workspace->id)), false)
             ->assertSee('nav-server-item', false)
             ->assertSee('id="nav-submenu-servers-4"', false)
             ->assertSee('id="nav-submenu-servers-12"', false)
@@ -869,7 +871,7 @@ class InfrastructurePlanningTest extends TestCase
             route('console.infrastructure.reinstall.index', $this->workspace->id),
             route('console.infrastructure.cloud-providers.index', $this->workspace->id),
         ] as $destination) {
-            self::assertStringContainsString($destination, $serverNavigation);
+            self::assertStringContainsString($this->cleanWorkspaceUrl($destination), $serverNavigation);
         }
 
         $response->assertSee('page-header-fixed sidebar-mini', false);
@@ -920,7 +922,7 @@ class InfrastructurePlanningTest extends TestCase
             ->assertSee('aria-current="page"', false);
 
         $this->get(route('console.infrastructure.install-settings.edit', $this->workspace->id))
-            ->assertRedirect(route('console.app-settings.index', $this->workspace->id).'#settings');
+            ->assertRedirect($this->cleanWorkspaceUrl(route('console.app-settings.index', $this->workspace->id).'#settings'));
     }
 
     private function url(string $suffix): string

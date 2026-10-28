@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="tests/bootstrap.php"
+         colors="true"
+>
+    <testsuites>
+        <testsuite name="PostgreSQL 18 integration">
+            <file>tests/Feature/AudienceListImportTest.php</file>
+            <file>tests/Feature/DmsListUploadTest.php</file>
+            <file>tests/Feature/WorkspaceBlacklistCheckerTest.php</file>
+            <file>tests/Feature/CampaignSendExecutionLedgerTest.php</file>
+            <file>tests/Feature/AudienceMixWorkflowTest.php</file>
+            <file>tests/Feature/DmsPmtaFeedbackImportTest.php</file>
+            <file>tests/Feature/DmsPmtaFeedbackSyncTest.php</file>
+            <file>tests/Feature/WorkspaceCampaignStatisticsTest.php</file>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>app</directory>
+        </include>
+    </source>
+    <php>
+        <ini name="memory_limit" value="512M"/>
+        <env name="APP_ENV" value="testing" force="true"/>
+        <env name="APP_KEY" value="base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" force="true"/>
+        <env name="APP_CONFIG_CACHE" value="/tmp/alphalink-phpunit-postgres-config-cache-disabled.php" force="true"/>
+        <env name="ALPHALINK_TEST_DB_MODE" value="disposable-postgres" force="true"/>
+        <env name="BCRYPT_ROUNDS" value="4"/>
+        <env name="BROADCAST_CONNECTION" value="null"/>
+        <env name="CACHE_STORE" value="array"/>
+        <env name="DB_CONNECTION" value="pgsql" force="true"/>
+        <env name="DB_DATABASE" value="alphalink_disposable_test" force="true"/>
+        <env name="DB_HOST" value="127.0.0.1" force="true"/>
+        <env name="DB_PASSWORD" value="alphalink_test_only" force="true"/>
+        <env name="DB_PORT" value="5432" force="true"/>
+        <env name="DB_URL" value="" force="true"/>
+        <env name="DB_USERNAME" value="alphalink_test" force="true"/>
+        <env name="MAIL_MAILER" value="array"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <env name="PULSE_ENABLED" value="false"/>
+        <env name="TELESCOPE_ENABLED" value="false"/>
+        <env name="NIGHTWATCH_ENABLED" value="false"/>
+    </php>
+</phpunit>

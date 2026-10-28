@@ -45,14 +45,14 @@ class DmsCloudServerPasswordSettingsTest extends TestCase
             ->assertDontSee('data-secret-toggle');
 
         $this->get($this->installSettingsPage())
-            ->assertRedirect($this->appSettingsPage().'#settings');
+            ->assertRedirect($this->cleanWorkspaceUrl($this->appSettingsPage().'#settings'));
     }
 
     public function test_owner_can_save_cloud_password_encrypted_with_redacted_audit(): void
     {
         $this->post($this->appSettingsPage(), [
             'cloud_servers_password' => 'synthetic-cloud-root-password',
-        ])->assertRedirect($this->appSettingsPage().'#settings')
+        ])->assertRedirect($this->cleanWorkspaceUrl($this->appSettingsPage().'#settings'))
             ->assertSessionHas('status', 'Settings saved.');
 
         $settings = $this->workspace->infrastructureSettings()->sole();
@@ -72,7 +72,7 @@ class DmsCloudServerPasswordSettingsTest extends TestCase
         ]);
 
         $this->post($this->appSettingsPage(), ['cloud_servers_password' => ''])
-            ->assertRedirect($this->appSettingsPage().'#settings');
+            ->assertRedirect($this->cleanWorkspaceUrl($this->appSettingsPage().'#settings'));
 
         $this->assertSame('saved-cloud-root-password', $settings->fresh()->cloud_servers_password);
     }
@@ -81,7 +81,7 @@ class DmsCloudServerPasswordSettingsTest extends TestCase
     {
         $this->from($this->appSettingsPage())->post($this->appSettingsPage(), [
             'cloud_servers_password' => str_repeat('x', 4097),
-        ])->assertRedirect($this->appSettingsPage())
+        ])->assertRedirect($this->cleanWorkspaceUrl($this->appSettingsPage()))
             ->assertSessionHasErrors('settings.cloud_servers_password')
             ->assertSessionMissing('_old_input.cloud_servers_password');
     }
@@ -103,7 +103,7 @@ class DmsCloudServerPasswordSettingsTest extends TestCase
             ->post(route('console.infrastructure.install-settings.update', $this->workspace->getKey()), [
                 'cloud_servers_password' => 'member-cloud-root-password',
             ])
-            ->assertRedirect($this->appSettingsPage().'#settings');
+            ->assertRedirect($this->cleanWorkspaceUrl($this->appSettingsPage().'#settings'));
 
         $this->assertSame('member-cloud-root-password', $this->workspace->infrastructureSettings()->sole()->cloud_servers_password);
         $this->actingAs($this->owner)

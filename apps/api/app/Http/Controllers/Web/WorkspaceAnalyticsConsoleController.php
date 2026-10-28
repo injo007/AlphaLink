@@ -14,6 +14,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class WorkspaceAnalyticsConsoleController extends Controller
 {
@@ -121,6 +122,8 @@ class WorkspaceAnalyticsConsoleController extends Controller
                 return [
                     'date' => $date,
                     'label' => Carbon::parse($date)->format('j'),
+                    'deliveries' => (int) ($row->deliveries ?? 0),
+                    'bounces' => (int) ($row->soft_bounces ?? 0) + (int) ($row->hard_bounces ?? 0),
                     'opens' => (int) ($row->opens ?? 0),
                     'clicks' => (int) ($row->clicks ?? 0),
                     'leads' => (int) ($row->leads ?? 0),
@@ -144,10 +147,12 @@ class WorkspaceAnalyticsConsoleController extends Controller
             'mtd_actions' => [
                 'labels' => $mtdChartRows->pluck('label')->all(),
                 'series' => [
-                    ['label' => 'Opens', 'color' => '#17685f', 'values' => $mtdChartRows->pluck('opens')->all()],
-                    ['label' => 'Clicks', 'color' => '#417da0', 'values' => $mtdChartRows->pluck('clicks')->all()],
-                    ['label' => 'Leads', 'color' => '#b08b31', 'values' => $mtdChartRows->pluck('leads')->all()],
-                    ['label' => 'Unsubscribes', 'color' => '#b84d35', 'values' => $mtdChartRows->pluck('unsubscribes')->all()],
+                    ['label' => 'Deliveries', 'color' => '#17685f', 'values' => $mtdChartRows->pluck('deliveries')->all()],
+                    ['label' => 'Bounces', 'color' => '#b84d35', 'values' => $mtdChartRows->pluck('bounces')->all()],
+                    ['label' => 'Opens', 'color' => '#417da0', 'values' => $mtdChartRows->pluck('opens')->all()],
+                    ['label' => 'Clicks', 'color' => '#b08b31', 'values' => $mtdChartRows->pluck('clicks')->all()],
+                    ['label' => 'Unsubscribes', 'color' => '#76558f', 'values' => $mtdChartRows->pluck('unsubscribes')->all()],
+                    ['label' => 'Leads (AlphaLink)', 'color' => '#687773', 'values' => $mtdChartRows->pluck('leads')->all()],
                 ],
             ],
             'mtd_revenue' => [
@@ -212,25 +217,39 @@ class WorkspaceAnalyticsConsoleController extends Controller
             ->leftJoin('campaigns as c', function ($join): void {
                 $join->on('c.id', '=', 'a.campaign_id')->on('c.workspace_id', '=', 'a.workspace_id');
             })
+            ->leftJoin('campaigns as warmup', function ($join): void {
+                $join->on(DB::raw('CAST(warmup.id AS TEXT)'), '=', 'a.source_id')
+                    ->on('warmup.workspace_id', '=', 'a.workspace_id')
+                    ->where('warmup.kind', '=', 'warmup')
+                    ->where('a.source_type', '=', 'warmup');
+            })
             ->leftJoin('users as u', 'u.id', '=', 'a.user_id')
             ->where('a.workspace_id', $workspace->getKey())
             ->whereBetween('a.at', [$from->toDateString(), $to->toDateString()])
-            ->whereIn('a.source_type', ['campaign', 'drop'])
+            ->where(function ($query): void {
+                $query->where(function ($query): void {
+                    $query->where('a.source_type', 'campaign')->where('a.attribution_scope', 'list');
+                })->orWhere(function ($query): void {
+                    $query->whereIn('a.source_type', ['drop', 'warmup'])->where('a.attribution_scope', 'workspace');
+                });
+            })
             ->when($workspace->pivot->role === 'operator', fn ($query) => $query->where('a.user_id', $request->user()->getKey()))
             ->select([
                 'a.at', 'a.source_type', 'a.source_id', 'a.user_id', 'a.isp_id', 'a.list_id', 'a.list_type',
                 'a.server_id', 'a.ip_id', 'a.domain_id', 'a.sponsor_id', 'a.offer_id', 'a.from_id', 'a.subject_id',
                 'a.creative_id', 'a.opens', 'a.clicks', 'a.leads', 'a.unsubscribes', 'a.bots',
                 'a.deliveries', 'a.soft_bounces', 'a.hard_bounces', 'a.lead_revenue',
-                'c.name as campaign_name',
+                DB::raw('COALESCE(c.name, warmup.name) AS campaign_name'),
             ])
             ->selectRaw("COALESCE(u.name, u.username, 'Unknown') AS mailer")
             ->get();
 
         $rawRows = $aggregateRows->flatMap(function (object $row): Collection {
-            $source = $row->source_type === 'drop'
-                ? 'Drop #'.$row->source_id
-                : 'Campaign '.($row->campaign_name ?: '#'.$row->source_id);
+            $source = match ($row->source_type) {
+                'drop' => 'Drop #'.$row->source_id,
+                'warmup' => 'Seed '.($row->campaign_name ?: '#'.$row->source_id),
+                default => 'Campaign '.($row->campaign_name ?: '#'.$row->source_id),
+            };
             $dimensions = [
                 'server_id' => $row->server_id,
                 'ip_id' => $row->ip_id,
@@ -302,7 +321,9 @@ class WorkspaceAnalyticsConsoleController extends Controller
             : DB::table('managed_servers')->where('workspace_id', $workspace->getKey())
                 ->whereIn('id', $idsFor('server_id'))->get(['id', 'name', 'provider', 'ip_address'])->keyBy('id');
         $ips = $workspaceLabels('managed_server_ips', $idsFor('ip_id'), 'ip');
-        $domains = $workspaceLabels('sending_domains', $idsFor('domain_id'));
+        $domains = $workspaceLabels('sending_domains', $idsFor('domain_id')->filter(
+            fn (string $id): bool => Str::isUuid($id),
+        )->values());
         $assets = $workspaceLabels('workspace_offer_assets', $idsFor('from_id')->merge($idsFor('subject_id'))->merge($idsFor('creative_id'))->unique(), 'value');
         $rows = $rawRows->map(function (object $row) use ($decodeDimensions, $isps, $lists, $sponsors, $offers, $servers, $ips, $domains, $assets): array {
             $dimensions = $decodeDimensions($row->dimension_ids);
@@ -378,7 +399,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
             'to' => $to->toDateString(),
             'rows' => $this->paginateRows($request, $rows),
             'headers' => ['DATE', 'CAMPAIGN / DROP', 'MAILER', 'ISP', 'LIST', 'LIST TYPE', 'PROVIDER', 'SERVER', 'IP', 'DOMAIN', 'SPONSOR', 'OFFER', 'VERTICAL', 'FROM', 'SUBJECT', 'CREATIVE', 'EVENT', 'COUNT', 'LEAD REVENUE'],
-            'coverage' => 'Rows include stored campaign/Drop engagement, attributed leads and locally imported PMTA delivery/bounce feedback. Automatic host-file ingestion, opt-out, seed, aggregate-rate and shared-statistics inputs remain unavailable.',
+            'coverage' => 'Campaign opens, clicks, and unsubscribes are attributed to every selected eligible source List, so totals across Lists can exceed unique events; workspace Dashboard, ISP, and Mailer totals count each event once. Rows also include Drop engagement, attributed leads, imported PMTA delivery/bounce feedback, and matching warmup/seed rows. Host ingestion is scheduled for verified servers but has only synthetic SFTP coverage; DMS seed aggregation, opt-out, aggregate-rate and shared-statistics parity remain unverified.',
         ]);
     }
 
@@ -400,13 +421,14 @@ class WorkspaceAnalyticsConsoleController extends Controller
 
         $daily = DB::table('workspace_daily_analytics')
             ->where('workspace_id', $workspace->getKey())
+            ->where('attribution_scope', 'workspace')
             ->whereBetween('at', [$from->toDateString(), $to->toDateString()])
             ->whereIn('source_type', ['campaign', 'drop'])
             ->whereNotNull('isp_id')
             ->whereIn('isp_id', $isps->pluck('id'))
             ->when(isset($filters['isp_id']), fn ($query) => $query->where('isp_id', (int) $filters['isp_id']))
             ->when($workspace->pivot->role === 'operator', fn ($query) => $query->where('user_id', $request->user()->getKey()))
-            ->selectRaw('isp_id, at AS event_date, SUM(opens) AS opens, SUM(clicks) AS clicks')
+            ->selectRaw('isp_id, at AS event_date, SUM(deliveries) AS deliveries, SUM(opens) AS opens, SUM(clicks) AS clicks')
             ->selectRaw('SUM(leads) AS leads, SUM(unsubscribes) AS unsubscribes, SUM(lead_revenue) AS lead_revenue')
             ->groupBy('isp_id', 'at')
             ->orderBy('event_date')
@@ -427,6 +449,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
             return [
                 'period' => $period,
                 'isp' => $ispNames[$ispId] ?? 'Unknown',
+                'deliveries' => $periodRows->sum(fn (object $row): int => (int) $row->deliveries),
                 'opens' => $periodRows->sum(fn (object $row): int => (int) $row->opens),
                 'clicks' => $periodRows->sum(fn (object $row): int => (int) $row->clicks),
                 'leads' => $periodRows->sum(fn (object $row): int => (int) $row->leads),
@@ -438,6 +461,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
         $mailerDaily = DB::table('workspace_daily_analytics as a')
             ->leftJoin('users as u', 'u.id', '=', 'a.user_id')
             ->where('a.workspace_id', $workspace->getKey())
+            ->where('a.attribution_scope', 'workspace')
             ->whereBetween('a.at', [$from->toDateString(), $to->toDateString()])
             ->whereIn('a.source_type', ['campaign', 'drop'])
             ->whereNotNull('a.isp_id')
@@ -446,7 +470,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
             ->when($workspace->pivot->role === 'operator', fn ($query) => $query->where('a.user_id', $request->user()->getKey()))
             ->select('a.user_id', 'a.at as event_date')
             ->selectRaw("COALESCE(NULLIF(u.name, ''), 'Unknown') AS mailer")
-            ->selectRaw('SUM(a.opens) AS opens, SUM(a.clicks) AS clicks, SUM(a.leads) AS leads')
+            ->selectRaw('SUM(a.deliveries) AS deliveries, SUM(a.opens) AS opens, SUM(a.clicks) AS clicks, SUM(a.leads) AS leads')
             ->selectRaw('SUM(a.unsubscribes) AS unsubscribes, SUM(a.lead_revenue) AS lead_revenue')
             ->groupBy('a.user_id', 'a.at', 'u.name')
             ->orderBy('event_date')
@@ -479,9 +503,10 @@ class WorkspaceAnalyticsConsoleController extends Controller
                 default => $chartDate->addDay(),
             };
         }
-        $chartMetrics = ['opens', 'clicks', 'leads', 'unsubscribes', 'lead_revenue'];
+        $chartMetrics = ['deliveries', 'opens', 'clicks', 'leads', 'unsubscribes', 'lead_revenue'];
         $chartTotals = $mailerDaily->groupBy(fn (object $row): string => $periodKey((string) $row->event_date))
             ->map(fn (Collection $periodRows): array => [
+                'deliveries' => $periodRows->sum(fn (object $row): int => (int) $row->deliveries),
                 'opens' => $periodRows->sum(fn (object $row): int => (int) $row->opens),
                 'clicks' => $periodRows->sum(fn (object $row): int => (int) $row->clicks),
                 'leads' => $periodRows->sum(fn (object $row): int => (int) $row->leads),
@@ -528,8 +553,8 @@ class WorkspaceAnalyticsConsoleController extends Controller
             'selectedIspId' => $filters['isp_id'] ?? '',
             'groupBy' => $groupBy,
             'chartData' => $chartData,
-            'headers' => ['PERIOD', 'ISP', 'OPENS', 'CLICKS', 'LEADS', 'UNSUBSCRIBES', 'LEAD REVENUE'],
-            'coverage' => 'Charts use saved campaign and Drop engagement rollups plus attributed affiliate campaign leads. DMS delivery/bounce totals and delivery-based rates are unavailable. Attributed lead revenue is not equivalent to DMS earnings.',
+            'headers' => ['PERIOD', 'ISP', 'DELIVERIES', 'OPENS', 'CLICKS', 'LEADS', 'UNSUBSCRIBES', 'LEAD REVENUE'],
+            'coverage' => 'Delivery counts use imported PMTA feedback for campaign and Drop rows. Open-rate and click-rate formulas, DMS bounce measures, and DMS earnings remain unavailable; attributed lead revenue is not equivalent to DMS earnings.',
         ];
 
         if ($request->boolean('fragment')) {
@@ -545,6 +570,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
         $rows = DB::table('workspace_daily_analytics as a')
             ->leftJoin('users as u', 'u.id', '=', 'a.user_id')
             ->where('a.workspace_id', $workspace->getKey())
+            ->where('a.attribution_scope', 'workspace')
             ->whereBetween('a.at', [$from->toDateString(), $to->toDateString()])
             ->whereIn('a.source_type', ['campaign', 'drop'])
             ->when($workspace->pivot->role === 'operator', fn ($query) => $query->where('a.user_id', $request->user()->getKey()))
@@ -552,6 +578,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
             ->selectRaw("COALESCE(u.name, u.username, 'Unknown') AS mailer")
             ->selectRaw('SUM(a.opens) AS opens, SUM(a.clicks) AS clicks, SUM(a.leads) AS leads')
             ->selectRaw('SUM(a.unsubscribes) AS unsubscribes, SUM(a.bots) AS bots, SUM(a.lead_revenue) AS lead_revenue')
+            ->selectRaw('SUM(a.deliveries) AS deliveries, SUM(a.soft_bounces) AS soft_bounces, SUM(a.hard_bounces) AS hard_bounces')
             ->groupBy('a.user_id', 'u.name', 'u.username')
             ->orderByDesc('lead_revenue')
             ->get()
@@ -562,6 +589,9 @@ class WorkspaceAnalyticsConsoleController extends Controller
                 'opens' => (int) $row->opens,
                 'clicks' => (int) $row->clicks,
                 'leads' => (int) $row->leads,
+                'deliveries' => (int) $row->deliveries,
+                'soft_bounces' => (int) $row->soft_bounces,
+                'hard_bounces' => (int) $row->hard_bounces,
                 'unsubscribes' => (int) $row->unsubscribes,
                 'bots' => (int) $row->bots,
                 'lead_revenue' => (float) $row->lead_revenue,
@@ -575,6 +605,9 @@ class WorkspaceAnalyticsConsoleController extends Controller
                 'opens' => $row['opens'],
                 'clicks' => $row['clicks'],
                 'leads' => $row['leads'],
+                'deliveries' => $row['deliveries'],
+                'soft_bounces' => $row['soft_bounces'],
+                'hard_bounces' => $row['hard_bounces'],
                 'unsubscribes' => $row['unsubscribes'],
                 'bots' => $row['bots'],
                 'lead_revenue' => $row['lead_revenue'],
@@ -588,8 +621,8 @@ class WorkspaceAnalyticsConsoleController extends Controller
             'from' => $from->toDateString(),
             'to' => $to->toDateString(),
             'rows' => $this->paginateRows($request, $rows),
-            'headers' => ['MAILER', 'OPENS', 'CLICKS', 'LEADS', 'UNSUBSCRIBES', 'LEAD REVENUE'],
-            'coverage' => 'Drop leads, attributed campaign conversions and engagement are grouped by owner. PMTA delivery/bounce totals and DMS conversion rates are not connected yet.',
+            'headers' => ['MAILER', 'DELIVERIES', 'SOFT BOUNCES', 'HARD BOUNCES', 'OPENS', 'CLICKS', 'LEADS', 'UNSUBSCRIBES', 'BOTS', 'LEAD REVENUE'],
+            'coverage' => 'Imported PMTA delivery and bounce counts are grouped by owner with campaign and Drop engagement. Attributed lead revenue is a local proxy for DMS earnings; DMS opt-outs and delivery-based rates are not available.',
         ];
 
         if ($request->boolean('fragment')) {
@@ -623,6 +656,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
     {
         return DB::table('workspace_daily_analytics')
             ->where('workspace_id', $workspace->getKey())
+            ->where('attribution_scope', 'workspace')
             ->whereBetween('at', [$from->toDateString(), $to->toDateString()])
             ->when($workspace->pivot->role === 'operator', fn ($query) => $query->where('user_id', $user->getKey()))
             ->select('at')
@@ -655,6 +689,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
     {
         $rows = DB::table('workspace_daily_analytics')
             ->where('workspace_id', $workspace->getKey())
+            ->where('attribution_scope', 'workspace')
             ->whereBetween('at', [$monthFrom->toDateString(), $to->toDateString()])
             ->where('leads', '>', 0)
             ->when($workspace->pivot->role === 'operator', fn ($query) => $query->where('user_id', $user->getKey()))

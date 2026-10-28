@@ -18,6 +18,12 @@
                 </div>
             @endif
 
+            @if (session('status'))
+                <div class="dms-login-alert dms-login-success" role="status" aria-live="polite">
+                    {{ session('status') }}
+                </div>
+            @endif
+
             <form class="dms-login-form" method="post" action="{{ route('login.store') }}">
                 @csrf
                 <div class="dms-login-field">

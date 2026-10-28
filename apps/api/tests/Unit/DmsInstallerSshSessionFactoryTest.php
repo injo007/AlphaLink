@@ -102,7 +102,40 @@ class DmsInstallerSshSessionFactoryTest extends TestCase
         $this->assertFalse($session->upload('synthetic file contents', '/tmp/synthetic.conf'));
         $this->assertFalse($session->uploadFile('/tmp/synthetic.rpm', '/tmp/synthetic.rpm'));
         $this->assertFalse($session->download('/tmp/synthetic.conf'));
+        $this->assertFalse($session->listDirectory('/etc/pmta/delivered/treated'));
+        $this->assertFalse($session->isDirectory('/etc/pmta/delivered/treated'));
+        $this->assertFalse($session->createDirectory('/etc/pmta/delivered/process/2026-10-27'));
+        $this->assertFalse($session->fileSize('/etc/pmta/delivered/file.csv'));
+        $this->assertFalse($session->fileModifiedAt('/etc/pmta/delivered/file.csv'));
+        $this->assertFalse($session->downloadFile('/etc/pmta/delivered/file.csv', '/tmp/file.csv'));
+        $this->assertFalse($session->moveFile('/etc/pmta/delivered/file.csv', '/etc/pmta/delivered/process/file.csv'));
         $this->assertSame([['login', 'root', 'synthetic-password']], $connection->calls);
+    }
+
+    public function test_authenticated_session_exposes_only_the_sftp_metadata_and_file_operations_needed_by_feedback_import(): void
+    {
+        $connection = $this->connection($this->hostKey('saved'));
+        $session = $this->factory($this->connectorReturning($connection))
+            ->create($this->server($this->fingerprint('saved')), 'synthetic-password');
+
+        $this->assertSame(['d-2026-10-27-1.csv'], $session->listDirectory('/etc/pmta/delivered/treated'));
+        $this->assertTrue($session->isDirectory('/etc/pmta/delivered/treated'));
+        $this->assertTrue($session->createDirectory('/etc/pmta/delivered/process/2026-10-27'));
+        $this->assertSame(42, $session->fileSize('/etc/pmta/delivered/file.csv'));
+        $this->assertSame(1_793_078_400, $session->fileModifiedAt('/etc/pmta/delivered/file.csv'));
+        $this->assertTrue($session->downloadFile('/etc/pmta/delivered/file.csv', '/tmp/file.csv'));
+        $this->assertTrue($session->moveFile('/etc/pmta/delivered/file.csv', '/etc/pmta/delivered/process/file.csv'));
+
+        $this->assertSame([
+            ['login', 'root', 'synthetic-password'],
+            ['list_directory', '/etc/pmta/delivered/treated'],
+            ['is_directory', '/etc/pmta/delivered/treated'],
+            ['create_directory', '/etc/pmta/delivered/process/2026-10-27'],
+            ['file_size', '/etc/pmta/delivered/file.csv'],
+            ['file_modified_at', '/etc/pmta/delivered/file.csv'],
+            ['download_file', '/etc/pmta/delivered/file.csv', '/tmp/file.csv'],
+            ['move_file', '/etc/pmta/delivered/file.csv', '/etc/pmta/delivered/process/file.csv'],
+        ], $connection->calls);
     }
 
     public function test_remote_exec_timeout_fails_closed_instead_of_looking_like_empty_success(): void
@@ -202,6 +235,55 @@ class DmsInstallerSshSessionFactoryTest extends TestCase
                 $this->calls[] = ['download', $path];
 
                 return 'synthetic downloaded contents';
+            }
+
+            public function listDirectory(string $path): array|false
+            {
+                $this->calls[] = ['list_directory', $path];
+
+                return ['d-2026-10-27-1.csv'];
+            }
+
+            public function isDirectory(string $path): bool
+            {
+                $this->calls[] = ['is_directory', $path];
+
+                return true;
+            }
+
+            public function createDirectory(string $path): bool
+            {
+                $this->calls[] = ['create_directory', $path];
+
+                return true;
+            }
+
+            public function fileSize(string $path): int|false
+            {
+                $this->calls[] = ['file_size', $path];
+
+                return 42;
+            }
+
+            public function fileModifiedAt(string $path): int|false
+            {
+                $this->calls[] = ['file_modified_at', $path];
+
+                return 1_793_078_400;
+            }
+
+            public function downloadFile(string $remotePath, string $localPath): bool
+            {
+                $this->calls[] = ['download_file', $remotePath, $localPath];
+
+                return true;
+            }
+
+            public function moveFile(string $remotePath, string $destination): bool
+            {
+                $this->calls[] = ['move_file', $remotePath, $destination];
+
+                return true;
             }
         };
     }

@@ -8,6 +8,7 @@ use App\Models\ContactListMembership;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceSponsor;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -16,6 +17,8 @@ use Illuminate\Validation\ValidationException;
 class BuildAudienceMixSnapshot
 {
     private const EMAIL_TYPES = ['fresh', 'delivery', 'open', 'click', 'lead', 'unsubscribe'];
+
+    public function __construct(private readonly AudienceMembershipFilterIndexer $filterIndexer) {}
 
     /** @param array<string, mixed> $input */
     public function create(Workspace $workspace, User $user, array $input): ?AudienceMixSnapshot
@@ -119,6 +122,28 @@ class BuildAudienceMixSnapshot
                         ]))
                         ->orderBy('id');
 
+                    if (filled($criteria['email_sex']) && $this->filterIndexer->isReady()) {
+                        $this->constrainToIndexedValues(
+                            $query,
+                            'profile_sex_index',
+                            [$this->filterIndexer->sexIndex($workspace->getKey(), $listId, ['sex' => $criteria['email_sex']])],
+                        );
+                    }
+                    if ($criteria['extensions'] !== [] && $this->filterIndexer->isReady()) {
+                        $this->constrainToIndexedValues(
+                            $query,
+                            'email_domain_index',
+                            array_map(
+                                fn (string $extension): string => $this->filterIndexer->domainIndex(
+                                    $workspace->getKey(),
+                                    $listId,
+                                    'address@'.$extension,
+                                ),
+                                $criteria['extensions'],
+                            ),
+                        );
+                    }
+
                     $query->chunkById(500, function ($memberships) use ($workspace, $listId, $type, $criteria, $snapshot, $createdAt, &$recipientCount, &$position): void {
                         $contactIds = $memberships->pluck('contact_id')->map(fn ($id): string => (string) $id)->all();
                         if ($contactIds === []) {
@@ -159,10 +184,14 @@ class BuildAudienceMixSnapshot
                             if (filled($criteria['email_device']) && ! isset($deviceMatches[$contactId])) {
                                 continue;
                             }
-                            if (! $this->matchesSex($membership->profile ?? $contact->profile ?? [], $criteria['email_sex'])) {
+                            $hasCurrentIndexes = $this->filterIndexer->isReady()
+                                && (int) $membership->attribute_index_version === $this->filterIndexer->version();
+                            if (filled($criteria['email_sex']) && ! $hasCurrentIndexes
+                                && ! $this->matchesSex($membership->profile ?? $contact->profile ?? [], $criteria['email_sex'])) {
                                 continue;
                             }
-                            if (! $this->matchesExtensions((string) $contact->email, $criteria['extensions'])) {
+                            if ($criteria['extensions'] !== [] && ! $hasCurrentIndexes
+                                && ! $this->matchesExtensions((string) $contact->email, $criteria['extensions'])) {
                                 continue;
                             }
 
@@ -368,6 +397,20 @@ class BuildAudienceMixSnapshot
         $domain = strtolower((string) str($email)->afterLast('@'));
 
         return in_array($domain, array_map('strtolower', $extensions), true);
+    }
+
+    /** @param list<string> $indexes */
+    private function constrainToIndexedValues(Builder $query, string $column, array $indexes): void
+    {
+        $version = $this->filterIndexer->version();
+        $query->where(function (Builder $matches) use ($column, $indexes, $version): void {
+            $matches->where(function (Builder $current) use ($column, $indexes, $version): void {
+                $current->where('attribute_index_version', $version)->whereIn($column, $indexes);
+            })->orWhere(function (Builder $legacy) use ($version): void {
+                $legacy->whereNull('attribute_index_version')
+                    ->orWhere('attribute_index_version', '<>', $version);
+            });
+        });
     }
 
     private function snapshotName(mixed $name, User $user, int $count): string

@@ -147,7 +147,7 @@ class DmsServerIpManagementTest extends TestCase
         $this->get($url)
             ->assertOk()
             ->assertSee('My IPs')
-            ->assertSee('data-source-url="'.$url.'"', false)
+            ->assertSee('data-source-url="'.$this->cleanWorkspaceUrl($url).'"', false)
             ->assertSee('Webmail access is not enabled', false);
 
         $response = $this->getJson($url)
@@ -302,7 +302,7 @@ class DmsServerIpManagementTest extends TestCase
 
         $this->get($historyUrl)->assertOk()
             ->assertSee('HISTORIES')
-            ->assertSee('data-source-url="'.route('console.infrastructure.servers.ips.history', [$this->workspace->id, $this->server->id, $ip->getKey()]).'"', false);
+            ->assertSee('data-source-url="'.$this->cleanWorkspaceUrl(route('console.infrastructure.servers.ips.history', [$this->workspace->id, $this->server->id, $ip->getKey()])).'"', false);
         $this->getJson($historyUrl.'?draw=9&start=0&length=10')
             ->assertOk()
             ->assertJsonPath('draw', 9)

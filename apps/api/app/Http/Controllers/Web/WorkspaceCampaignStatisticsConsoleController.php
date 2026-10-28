@@ -65,22 +65,30 @@ class WorkspaceCampaignStatisticsConsoleController extends Controller
             })
             ->leftJoin('users as u', 'u.id', '=', 'c.created_by')
             ->leftJoin('audience_lists as al', function (JoinClause $join): void {
-                $join->on('al.id', '=', 'a.list_id')->on('al.workspace_id', '=', 'a.workspace_id');
+                $join->on(DB::raw('CAST(al.id AS TEXT)'), '=', 'a.list_id')->on('al.workspace_id', '=', 'a.workspace_id');
             })
             ->leftJoin('isps as i', function (JoinClause $join): void {
-                $join->on('i.id', '=', 'a.isp_id')->on('i.workspace_id', '=', 'a.workspace_id');
+                $join->on(DB::raw('CAST(i.id AS TEXT)'), '=', 'a.isp_id')->on('i.workspace_id', '=', 'a.workspace_id');
             })
             ->where('a.workspace_id', $workspace->getKey())
             ->where('a.source_type', 'campaign')
+            ->where('a.attribution_scope', 'list')
             ->whereBetween('a.at', [$from->toDateString(), $to->toDateString()])
             ->when($operator, fn ($query) => $query->where('a.user_id', $request->user()->getKey()))
-            ->when($selectedCampaignId !== '', fn ($query) => $query->where('a.campaign_id', $selectedCampaignId))
-            ->when($selectedIspId !== '', fn ($query) => $query->where('a.isp_id', (int) $selectedIspId))
+            ->when($selectedCampaignId !== '', fn ($query) => $query->whereRaw(
+                DB::connection()->getDriverName() === 'pgsql'
+                    ? 'a.campaign_id = CAST(? AS UUID)'
+                    : 'a.campaign_id = ?',
+                [$selectedCampaignId],
+            ))
+            ->when($selectedIspId !== '', fn ($query) => $query->where('a.isp_id', (string) (int) $selectedIspId))
             ->when($selectedListId !== '', fn ($query) => $query->where('a.list_id', $selectedListId))
             ->selectRaw('a.at AS event_date, a.campaign_id, c.name AS campaign, COALESCE(u.name, u.username, \'Unknown\') AS mailer')
             ->selectRaw('a.user_id, a.list_id AS audience_list_id, al.name AS audience_list, a.isp_id, i.name AS isp, a.list_type')
             ->selectRaw('a.server_id, a.ip_id, a.domain_id, a.sponsor_id, a.offer_id, a.from_id, a.subject_id, a.creative_id')
+            ->selectRaw('SUM(a.deliveries) AS deliveries, SUM(a.soft_bounces) AS soft_bounces, SUM(a.hard_bounces) AS hard_bounces')
             ->selectRaw('SUM(a.opens) AS opens, SUM(a.clicks) AS clicks, SUM(a.leads) AS leads')
+            ->selectRaw('SUM(CASE WHEN a.lead_revenue > 0 THEN 1 ELSE 0 END) AS conversions')
             ->selectRaw('SUM(a.unsubscribes) AS unsubscribes, SUM(a.bots) AS bots, SUM(a.lead_revenue) AS lead_revenue')
             ->groupBy(
                 'a.at', 'a.user_id', 'a.campaign_id', 'c.name', 'c.created_by', 'u.name', 'u.username',
@@ -109,7 +117,12 @@ class WorkspaceCampaignStatisticsConsoleController extends Controller
                 : DB::table('managed_servers')->where('workspace_id', $workspace->getKey())
                     ->whereIn('id', $idsFor('server_id'))->get(['id', 'name', 'provider'])->keyBy('id');
             $ips = $workspaceLabels('managed_server_ips', $idsFor('ip_id'), 'ip');
-            $domains = $workspaceLabels('sending_domains', $idsFor('domain_id'));
+            $domainIds = $idsFor('domain_id')
+                ->map(fn (string $id): ?string => $this->canonicalUuid($id))
+                ->filter()
+                ->unique()
+                ->values();
+            $domains = $workspaceLabels('sending_domains', $domainIds);
             $assets = $workspaceLabels(
                 'workspace_offer_assets',
                 $idsFor('from_id')->merge($idsFor('subject_id'))->merge($idsFor('creative_id'))->unique(),
@@ -129,16 +142,20 @@ class WorkspaceCampaignStatisticsConsoleController extends Controller
                     'provider' => (string) ($server->provider ?? 'NA'),
                     'server' => (string) ($server->name ?? 'NA'),
                     'ip' => (string) ($ips[(string) ($row->ip_id ?? '')] ?? 'NA'),
-                    'domain' => (string) ($domains[(string) ($row->domain_id ?? '')] ?? 'NA'),
+                    'domain' => (string) ($domains[$this->canonicalUuid((string) ($row->domain_id ?? '')) ?? ''] ?? 'NA'),
                     'sponsor' => (string) ($sponsors[(string) ($row->sponsor_id ?? '')] ?? 'NA'),
                     'offer' => (string) ($offer->name ?? 'NA'),
                     'vertical' => (string) ($offer->vertical ?? 'NA'),
                     'from' => (string) ($assets[(string) ($row->from_id ?? '')] ?? 'NA'),
                     'subject' => (string) ($assets[(string) ($row->subject_id ?? '')] ?? 'NA'),
                     'creative' => (string) ($assets[(string) ($row->creative_id ?? '')] ?? 'NA'),
+                    'deliveries' => (int) $row->deliveries,
+                    'soft_bounces' => (int) $row->soft_bounces,
+                    'hard_bounces' => (int) $row->hard_bounces,
                     'opens' => (int) $row->opens,
                     'clicks' => (int) $row->clicks,
                     'leads' => (int) $row->leads,
+                    'conversions' => (int) $row->conversions,
                     'unsubscribes' => (int) $row->unsubscribes,
                     'bots' => (int) $row->bots,
                     'lead_revenue' => (float) $row->lead_revenue,
@@ -150,9 +167,13 @@ class WorkspaceCampaignStatisticsConsoleController extends Controller
 
         $rows = $this->mergeRows($dailyRows, collect());
         $summary = [
+            'deliveries' => $rows->sum('deliveries'),
+            'soft_bounces' => $rows->sum('soft_bounces'),
+            'hard_bounces' => $rows->sum('hard_bounces'),
             'opens' => $rows->sum('opens'),
             'clicks' => $rows->sum('clicks'),
             'leads' => $rows->sum('leads'),
+            'conversions' => $rows->sum('conversions'),
             'unsubscribes' => $rows->sum('unsubscribes'),
             'lead_revenue' => $rows->sum('lead_revenue'),
         ];
@@ -203,11 +224,15 @@ class WorkspaceCampaignStatisticsConsoleController extends Controller
                 'opens' => 0,
                 'clicks' => 0,
                 'leads' => 0,
+                'conversions' => 0,
+                'deliveries' => 0,
+                'soft_bounces' => 0,
+                'hard_bounces' => 0,
                 'unsubscribes' => 0,
                 'bots' => 0,
                 'lead_revenue' => 0.0,
             ];
-            foreach (['opens', 'clicks', 'leads', 'unsubscribes', 'bots'] as $metric) {
+            foreach (['deliveries', 'soft_bounces', 'hard_bounces', 'opens', 'clicks', 'leads', 'conversions', 'unsubscribes', 'bots'] as $metric) {
                 $merged[$key][$metric] += (int) $row->{$metric};
             }
             $merged[$key]['lead_revenue'] += (float) $row->lead_revenue;
@@ -244,5 +269,15 @@ class WorkspaceCampaignStatisticsConsoleController extends Controller
         abort_unless(in_array($workspace->pivot->role, self::ALLOWED_ROLES, true), 403);
 
         return $workspace;
+    }
+
+    private function canonicalUuid(string $value): ?string
+    {
+        $compact = strtolower(str_replace('-', '', $value));
+        if (! preg_match('/^[a-f0-9]{32}$/', $compact)) {
+            return null;
+        }
+
+        return substr($compact, 0, 8).'-'.substr($compact, 8, 4).'-'.substr($compact, 12, 4).'-'.substr($compact, 16, 4).'-'.substr($compact, 20);
     }
 }

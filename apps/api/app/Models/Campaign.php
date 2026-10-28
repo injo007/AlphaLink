@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Campaign extends Model
 {
@@ -30,5 +31,10 @@ class Campaign extends Model
     {
         return $this->hasOne(CampaignRevision::class)
             ->whereRaw('campaign_revisions.revision_number = (SELECT MAX(latest_revisions.revision_number) FROM campaign_revisions AS latest_revisions WHERE latest_revisions.campaign_id = campaign_revisions.campaign_id)');
+    }
+
+    public function sendRuns(): HasMany
+    {
+        return $this->hasMany(CampaignSendRun::class)->orderByDesc('created_at');
     }
 }

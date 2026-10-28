@@ -24,7 +24,10 @@ class ImportAudienceListContacts
 {
     private const CANDIDATES_PER_JOB = 500;
 
-    public function __construct(private readonly AudienceListHistoryCalculator $historyCalculator) {}
+    public function __construct(
+        private readonly AudienceListHistoryCalculator $historyCalculator,
+        private readonly AudienceMembershipFilterIndexer $filterIndexer,
+    ) {}
 
     public function handle(Request $request, Workspace $workspace, AudienceList $list, string $rawAddresses, string $lookupKey): AudienceListImportBatch
     {
@@ -597,6 +600,8 @@ class ImportAudienceListContacts
             'created_at' => $now,
         ]);
 
+        $membershipProfile = $profile ?? ($membership?->exists ? $membership->profile : []);
+        $indexProfile = $membershipProfile ?? $contact->profile ?? [];
         $membership ??= new ContactListMembership;
         $membership->fill([
             'workspace_id' => $workspace->getKey(),
@@ -607,7 +612,13 @@ class ImportAudienceListContacts
             'joined_at' => $now,
             'left_at' => null,
             'last_event_id' => $event->getKey(),
-            'profile' => $profile ?? ($membership->exists ? $membership->profile : []),
+            'profile' => $membershipProfile,
+            ...$this->filterIndexer->values(
+                $workspace->getKey(),
+                $list->getKey(),
+                $indexProfile,
+                (string) $contact->email,
+            ),
         ])->save();
 
         $this->recordMembershipAdded($request, $workspace, $list, $contact, $event);

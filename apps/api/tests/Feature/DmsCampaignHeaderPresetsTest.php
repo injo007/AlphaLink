@@ -103,6 +103,52 @@ class DmsCampaignHeaderPresetsTest extends TestCase
             ->assertOk();
     }
 
+    public function test_header_sharing_uses_the_dms_share_headers_permission_not_workspace_role(): void
+    {
+        $ownerHeader = $this->workspace->campaignHeaders()->create([
+            'created_by' => $this->owner->getKey(), 'name' => 'Owner preset', 'text' => 'owner header body',
+        ]);
+        $workspaceAdmin = User::factory()->create(['type' => User::MAILER, 'roles' => []]);
+        $this->workspace->users()->attach($workspaceAdmin->getKey(), ['role' => 'admin']);
+        $adminHeader = $this->workspace->campaignHeaders()->create([
+            'created_by' => $workspaceAdmin->getKey(), 'name' => 'Admin preset', 'text' => 'admin header body',
+        ]);
+
+        $this->actingAs($workspaceAdmin)
+            ->getJson(route('console.campaign-headers.index', $this->workspace->getKey()))
+            ->assertOk()
+            ->assertExactJson(['headers' => [['id' => $adminHeader->getKey(), 'name' => 'Admin preset']]]);
+        $this->getJson(route('console.campaign-headers.show', [$this->workspace->getKey(), $ownerHeader->getKey()]))
+            ->assertNotFound();
+        $this->deleteJson(route('console.campaign-headers.destroy', [$this->workspace->getKey(), $ownerHeader->getKey()]))
+            ->assertForbidden();
+
+        $sharingOperator = User::factory()->create(['type' => User::MAILER, 'roles' => ['share_headers']]);
+        $this->workspace->users()->attach($sharingOperator->getKey(), ['role' => 'operator']);
+        $this->actingAs($sharingOperator)
+            ->getJson(route('console.campaign-headers.index', $this->workspace->getKey()))
+            ->assertOk()
+            ->assertExactJson(['headers' => [
+                ['id' => $adminHeader->getKey(), 'name' => 'Admin preset'],
+                ['id' => $ownerHeader->getKey(), 'name' => 'Owner preset'],
+            ]]);
+        $this->getJson(route('console.campaign-headers.show', [$this->workspace->getKey(), $ownerHeader->getKey()]))
+            ->assertOk()
+            ->assertExactJson(['data' => 'owner header body']);
+        $this->deleteJson(route('console.campaign-headers.destroy', [$this->workspace->getKey(), $ownerHeader->getKey()]))
+            ->assertForbidden();
+
+        $globalAdmin = User::factory()->create(['type' => User::ADMIN, 'roles' => []]);
+        $this->workspace->users()->attach($globalAdmin->getKey(), ['role' => 'operator']);
+        $this->actingAs($globalAdmin)
+            ->getJson(route('console.campaign-headers.index', $this->workspace->getKey()))
+            ->assertOk()
+            ->assertJsonCount(2, 'headers');
+        $this->deleteJson(route('console.campaign-headers.destroy', [$this->workspace->getKey(), $ownerHeader->getKey()]))
+            ->assertOk();
+        $this->assertDatabaseMissing('workspace_campaign_headers', ['id' => $ownerHeader->getKey()]);
+    }
+
     public function test_headers_are_workspace_scoped_and_campaign_forms_wire_the_library_for_create_and_revision(): void
     {
         $otherOwner = User::factory()->create();

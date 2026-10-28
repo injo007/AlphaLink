@@ -16,6 +16,10 @@
         </div>
         <div class="block-content">
             <div id="workspace-project-status" class="alert d-none" role="status" aria-live="polite"></div>
+            <div class="mb-2" role="group" aria-label="Selected project actions">
+                <button class="btn btn-sm btn-outline-secondary" id="workspace-projects-status" type="button">ENABLE / DISABLE PROJECTS</button>
+                <button class="btn btn-sm btn-danger" id="workspace-projects-delete" type="button">DELETE SELECTED</button>
+            </div>
             <div class="collapse mb-4" id="workspace-project-create">
                 <form id="workspace-project-form" class="border rounded p-3">
                     <h4 class="font-size-base mb-3">ADD WORKSPACE PROJECT</h4>
@@ -33,18 +37,18 @@
             </div>
             <div class="table-responsive">
                 <table id="workspace-project-table" class="table table-sm table-hover table-striped">
-                    <thead><tr><th>#</th><th>Project / delegated admin</th><th>Active accounts</th><th>Status</th><th>Last sync</th><th>Created</th><th>Actions</th></tr></thead>
+                    <thead><tr><th><input type="checkbox" id="workspace-projects-all" aria-label="Select all projects on this page"></th><th>#</th><th>type</th><th>name</th><th>total accounts</th><th>created at</th><th>Actions</th></tr></thead>
                     <tbody>
                         @forelse ($projects as $project)
                             <tr>
+                                <td><input type="checkbox" value="{{ $project->id }}" class="workspace-project-select" aria-label="Select project {{ $project->name }}"></td>
                                 <td>{{ $project->id }}</td>
+                                <td>Workspace</td>
                                 <td>{{ $project->name }}@if ($project->sync_error)<div class="small text-danger">{{ $project->sync_error }}</div>@endif</td>
                                 <td><a href="{{ route('console.gcampaigns.accounts', [$workspace->id, 'project' => $project->id]) }}">{{ $project->accounts_count }}</a></td>
-                                <td>{{ $project->is_active ? 'ACTIVE' : 'INACTIVE' }}</td>
-                                <td>{{ $project->synced_at?->format('Y-m-d H:i:s') ?? '—' }}</td>
                                 <td>{{ $project->created_at?->format('Y-m-d H:i:s') ?? '—' }}</td>
                                 <td class="text-nowrap">
-                                    <button class="btn btn-sm btn-info" type="button" data-project-sync="{{ $project->id }}" title="SYNC PROJECT" aria-label="Sync {{ $project->name }}"><i class="fas fa-sync" aria-hidden="true"></i></button>
+                                    <button class="btn btn-sm btn-info" type="button" data-project-sync="{{ $project->id }}" title="SYNC PROJECT{{ $project->synced_at ? ' — Last synced '.$project->synced_at->format('Y-m-d H:i:s') : ' — Not synced yet' }}" aria-label="Sync {{ $project->name }}"><i class="fas fa-sync" aria-hidden="true"></i></button>
                                     <button class="btn btn-sm {{ $project->is_active ? 'btn-warning' : 'btn-success' }}" type="button" data-project-status="{{ $project->id }}" title="{{ $project->is_active ? 'DISABLE' : 'ENABLE' }} PROJECT" aria-label="{{ $project->is_active ? 'Disable' : 'Enable' }} {{ $project->name }}"><i class="fas {{ $project->is_active ? 'fa-minus' : 'fa-check' }}" aria-hidden="true"></i></button>
                                     <button class="btn btn-sm btn-danger" type="button" data-project-delete="{{ $project->id }}" title="DELETE PROJECT" aria-label="Delete {{ $project->name }}"><i class="fas fa-trash" aria-hidden="true"></i></button>
                                 </td>
@@ -78,6 +82,55 @@
             const dialog = async (options) => { const modal = window.Swal || window.swal; return modal?.fire ? modal.fire(options) : {isConfirmed: window.confirm(options.text || options.title || 'Continue?')}; };
 
             document.getElementById('workspace-project-refresh').addEventListener('click', () => window.location.reload());
+
+            document.getElementById('workspace-projects-all').addEventListener('change', (event) => {
+                document.querySelectorAll('#workspace-project-table tbody .workspace-project-select').forEach((checkbox) => { checkbox.checked = event.target.checked; });
+            });
+
+            const selectedProjectIds = () => [...document.querySelectorAll('#workspace-project-table tbody .workspace-project-select:checked')].map((checkbox) => Number(checkbox.value));
+            const updateSelectedProjects = async (statusValue, button) => {
+                const ids = selectedProjectIds();
+                if (!ids.length) return showStatus('Select at least one project.', false);
+                busy(button, true);
+                try {
+                    const result = await request(`${base}/projects/status`, 'PATCH', {ids, status: statusValue});
+                    showStatus(result.message || 'Selected project status updated.');
+                    window.location.reload();
+                } catch (error) {
+                    showStatus(error.message, false);
+                    busy(button, false);
+                }
+            };
+            document.getElementById('workspace-projects-status').addEventListener('click', async (event) => {
+                if (!selectedProjectIds().length) return showStatus('Select at least one project.', false);
+                const modal = window.Swal || window.swal;
+                let statusValue = null;
+                if (modal?.fire) {
+                    const choice = await modal.fire({icon:'question',title:'Enable or disable selected projects?',showDenyButton:true,showCancelButton:true,confirmButtonText:'ENABLE',denyButtonText:'DISABLE',cancelButtonText:'CANCEL'});
+                    if (choice.isConfirmed) statusValue = true;
+                    if (choice.isDenied) statusValue = false;
+                } else if (window.confirm('Enable the selected projects?')) {
+                    statusValue = true;
+                } else if (window.confirm('Disable the selected projects?')) {
+                    statusValue = false;
+                }
+                if (statusValue !== null) await updateSelectedProjects(statusValue, event.currentTarget);
+            });
+            document.getElementById('workspace-projects-delete').addEventListener('click', async (event) => {
+                const ids = selectedProjectIds();
+                if (!ids.length) return showStatus('Select at least one project.', false);
+                const decision = await dialog({icon:'question',title:'Are you sure?',text:'Delete the selected Workspace projects and their synced accounts?',showCancelButton:true,confirmButtonText:'DELETE PROJECTS'});
+                if (!decision.isConfirmed && !decision.value) return;
+                busy(event.currentTarget, true);
+                try {
+                    const result = await request(`${base}/projects`, 'DELETE', {ids});
+                    showStatus(result.message || 'Selected projects deleted.');
+                    window.location.reload();
+                } catch (error) {
+                    showStatus(error.message, false);
+                    busy(event.currentTarget, false);
+                }
+            });
 
             form.addEventListener('submit', async (event) => {
                 event.preventDefault();
@@ -120,7 +173,7 @@
                 }
             });
 
-            if (window.jQuery?.fn?.DataTable) window.jQuery('#workspace-project-table').DataTable({pageLength:50, order:[[0,'desc']]});
+            if (window.jQuery?.fn?.DataTable) window.jQuery('#workspace-project-table').DataTable({pageLength:50, order:[[1,'desc']]});
         })();
     </script>
 @endpush

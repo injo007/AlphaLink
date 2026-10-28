@@ -78,10 +78,18 @@ class WorkspaceDailyAnalyticsRebuilder
         $buckets = [];
 
         $this->mergeGroups($buckets, 'campaign', $this->campaignEngagementGroups($from, $to, $workspaceId));
-        $this->mergeGroups($buckets, 'campaign', $this->campaignLeadGroups($from, $to, $workspaceId));
+        $this->mergeGroups($buckets, 'campaign', $this->campaignEngagementGroups($from, $to, $workspaceId, true), 'list');
+        $campaignLeads = $this->campaignLeadGroups($from, $to, $workspaceId);
+        $this->mergeGroups($buckets, 'campaign', $campaignLeads);
+        $this->mergeGroups($buckets, 'campaign', $campaignLeads, 'list');
+        unset($campaignLeads);
         $this->mergeGroups($buckets, 'drop', $this->dropVisitorGroups($from, $to, $workspaceId));
-        $this->mergeGroups($buckets, 'campaign', $this->campaignFeedbackGroups($from, $to, $workspaceId));
+        $campaignFeedback = $this->campaignFeedbackGroups($from, $to, $workspaceId);
+        $this->mergeGroups($buckets, 'campaign', $campaignFeedback);
+        $this->mergeGroups($buckets, 'campaign', $campaignFeedback, 'list');
+        unset($campaignFeedback);
         $this->mergeGroups($buckets, 'drop', $this->dropFeedbackGroups($from, $to, $workspaceId));
+        $this->mergeGroups($buckets, 'warmup', $this->warmupFeedbackGroups($from, $to, $workspaceId));
 
         $updatedAt = now();
         $records = array_map(fn (array $row): array => [
@@ -96,7 +104,7 @@ class WorkspaceDailyAnalyticsRebuilder
                 ['workspace_id', 'source_type', 'source_id', 'at', 'dimensions_hash'],
                 [
                     ...self::DIMENSION_COLUMNS,
-                    'opens', 'clicks', 'leads', 'unsubscribes', 'bots', 'deliveries', 'soft_bounces', 'hard_bounces', 'lead_revenue', 'updated_at',
+                    'attribution_scope', 'opens', 'clicks', 'leads', 'unsubscribes', 'bots', 'deliveries', 'soft_bounces', 'hard_bounces', 'lead_revenue', 'updated_at',
                 ],
             );
         }
@@ -105,15 +113,19 @@ class WorkspaceDailyAnalyticsRebuilder
     }
 
     /** @return Collection<int, object> */
-    private function campaignEngagementGroups(Carbon $from, Carbon $to, ?string $workspaceId): Collection
+    private function campaignEngagementGroups(Carbon $from, Carbon $to, ?string $workspaceId, bool $attributeBySourceList = false): Collection
     {
         $dimensions = [
             'user_id' => 'c.created_by',
             'campaign_id' => 'ce.campaign_id',
             'workspace_drop_id' => 'NULL',
             'isp_id' => 'ce.isp_id',
-            'list_id' => 'ce.audience_list_id',
-            'list_type' => 'ce.source_email_type',
+            'list_id' => $attributeBySourceList
+                ? "CASE WHEN ce.action IN ('open', 'click', 'unsubscribe') THEN COALESCE(event_sources.source_list_id, ce.audience_list_id) ELSE ce.audience_list_id END"
+                : 'ce.audience_list_id',
+            'list_type' => $attributeBySourceList
+                ? "CASE WHEN ce.action IN ('open', 'click', 'unsubscribe') THEN COALESCE(event_sources.source_email_type, ce.source_email_type) ELSE ce.source_email_type END"
+                : 'ce.source_email_type',
             'server_id' => $this->jsonTextExpression('ce.dimension_ids', 'server_id'),
             'ip_id' => $this->jsonTextExpression('ce.dimension_ids', 'ip_id'),
             'domain_id' => $this->jsonTextExpression('ce.dimension_ids', 'domain_id'),
@@ -136,7 +148,29 @@ class WorkspaceDailyAnalyticsRebuilder
             ->join('workspace_offers as o', function (JoinClause $join): void {
                 $join->on('o.id', '=', 'cs.offer_id')
                     ->on('o.workspace_id', '=', 'c.workspace_id');
-            })
+            });
+
+        if ($attributeBySourceList) {
+            $eventSources = DB::table('campaign_engagement_event_sources as ces')
+                ->join('campaign_engagement_events as source_event', function (JoinClause $join): void {
+                    $join->on('source_event.id', '=', 'ces.engagement_event_id')
+                        ->on('source_event.workspace_id', '=', 'ces.workspace_id');
+                })
+                ->whereIn('source_event.action', ['open', 'click', 'unsubscribe'])
+                ->whereBetween('source_event.created_at', [$from, $to])
+                ->whereBetween('ces.created_at', [$from, $to])
+                ->when($workspaceId !== null, fn (Builder $query) => $query->where('source_event.workspace_id', $workspaceId))
+                ->select('ces.workspace_id', 'ces.engagement_event_id', 'ces.source_list_id')
+                ->selectRaw('MIN(ces.source_email_type) AS source_email_type')
+                ->groupBy('ces.workspace_id', 'ces.engagement_event_id', 'ces.source_list_id');
+
+            $query->leftJoinSub($eventSources, 'event_sources', function (JoinClause $join): void {
+                $join->on('event_sources.workspace_id', '=', 'ce.workspace_id')
+                    ->on('event_sources.engagement_event_id', '=', 'ce.id');
+            });
+        }
+
+        $query
             ->whereBetween('ce.created_at', [$from, $to])
             ->when($workspaceId !== null, fn (Builder $query) => $query->where('ce.workspace_id', $workspaceId))
             ->selectRaw('ce.workspace_id')
@@ -312,6 +346,42 @@ class WorkspaceDailyAnalyticsRebuilder
             ->groupBy('pf.workspace_id', 'pf.at')->get();
     }
 
+    /** @return Collection<int, object> */
+    private function warmupFeedbackGroups(Carbon $from, Carbon $to, ?string $workspaceId): Collection
+    {
+        $dimensions = [
+            'user_id' => 'c.created_by',
+            'campaign_id' => 'NULL',
+            'workspace_drop_id' => 'NULL',
+            'isp_id' => 'NULL',
+            'list_id' => 'NULL',
+            'list_type' => 'NULL',
+            'server_id' => $this->jsonTextExpression('pf.dimension_ids', 'server_id'),
+            'ip_id' => $this->jsonTextExpression('pf.dimension_ids', 'ip_id'),
+            'domain_id' => $this->jsonTextExpression('pf.dimension_ids', 'domain_id'),
+            'sponsor_id' => 'NULL',
+            'offer_id' => 'NULL',
+            'from_id' => 'NULL',
+            'subject_id' => 'NULL',
+            'creative_id' => 'NULL',
+        ];
+
+        $query = DB::table('workspace_pmta_feedback_events as pf')
+            ->join('campaigns as c', function (JoinClause $join): void {
+                $join->on(DB::raw('CAST(c.id AS TEXT)'), '=', 'pf.source_id')
+                    ->on('c.workspace_id', '=', 'pf.workspace_id')
+                    ->where('c.kind', '=', 'warmup');
+            })
+            ->where('pf.source_type', 'warmup')
+            ->whereBetween('pf.at', [$from->toDateString(), $to->toDateString()])
+            ->when($workspaceId !== null, fn (Builder $query) => $query->where('pf.workspace_id', $workspaceId))
+            ->selectRaw('pf.workspace_id, pf.source_id, pf.at');
+        $this->selectDimensions($query, $dimensions);
+
+        return $query->selectRaw($this->feedbackMetricSums())
+            ->groupBy('pf.workspace_id', 'pf.source_id', 'pf.at')->get();
+    }
+
     private function feedbackMetricSums(): string
     {
         return "0 AS opens, 0 AS clicks, 0 AS leads, 0 AS unsubscribes, 0 AS bots, 0 AS lead_revenue,
@@ -343,7 +413,7 @@ class WorkspaceDailyAnalyticsRebuilder
     /** @param array<string, array<string, mixed>> $buckets
      * @param  Collection<int, object>  $groups
      */
-    private function mergeGroups(array &$buckets, string $sourceType, Collection $groups): void
+    private function mergeGroups(array &$buckets, string $sourceType, Collection $groups, string $attributionScope = 'workspace'): void
     {
         foreach ($groups as $group) {
             $dimensions = [];
@@ -353,15 +423,23 @@ class WorkspaceDailyAnalyticsRebuilder
             }
 
             $workspaceId = (string) $group->workspace_id;
-            $sourceId = (string) ($sourceType === 'campaign' ? $dimensions['campaign_id'] : $dimensions['workspace_drop_id']);
+            $sourceId = (string) match ($sourceType) {
+                'campaign' => $dimensions['campaign_id'],
+                'drop' => $dimensions['workspace_drop_id'],
+                default => $group->source_id,
+            };
             $at = (string) $group->at;
-            $dimensionsHash = hash('sha256', json_encode($dimensions, JSON_THROW_ON_ERROR));
+            $hashDimensions = $attributionScope === 'workspace'
+                ? $dimensions
+                : [...$dimensions, 'attribution_scope' => $attributionScope];
+            $dimensionsHash = hash('sha256', json_encode($hashDimensions, JSON_THROW_ON_ERROR));
             $key = implode(':', [$workspaceId, $sourceType, $sourceId, $at, $dimensionsHash]);
             $buckets[$key] ??= [
                 'workspace_id' => $workspaceId,
                 'source_type' => $sourceType,
                 'source_id' => $sourceId,
                 'at' => $at,
+                'attribution_scope' => $attributionScope,
                 'dimensions_hash' => $dimensionsHash,
                 'user_id' => $dimensions['user_id'] === null ? null : (int) $dimensions['user_id'],
                 'campaign_id' => $sourceType === 'campaign' ? $dimensions['campaign_id'] : null,

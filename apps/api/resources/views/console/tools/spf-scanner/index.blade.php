@@ -33,7 +33,7 @@
                         <div class="form-group col-lg-4"><button type="button" class="btn btn-primary btn-block" id="spf-search"><i class="fa fa-search mr-1"></i> SEARCH</button></div>
                     </div>
                     <div id="spf-search-status" class="small text-muted mb-2" role="status" aria-live="polite"></div>
-                    <div class="table-responsive"><table id="spf-search-results" class="table table-sm table-striped table-hover w-100"><thead><tr><th>Matched IP</th><th>Root</th><th>Include</th><th>Network</th><th>SPF</th></tr></thead><tbody></tbody></table></div>
+                    <div class="table-responsive"><table id="spf-search-results" class="table table-sm table-striped table-hover w-100"><thead><tr><th>Matched IP</th><th>Root</th><th>Include</th><th>CIDR</th><th>SPF</th></tr></thead><tbody></tbody></table></div>
                 </section>
                 <section class="tab-pane d-none" id="spf-upload-panel" role="tabpanel" aria-labelledby="spf-upload-tab" data-spf-panel="upload">
                     <form method="POST" enctype="multipart/form-data" action="{{ route('console.tools.spf.upload', $workspace->id) }}" class="border rounded p-3 mb-4">

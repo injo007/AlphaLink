@@ -181,14 +181,17 @@ class DmsOfferSuppressionFile
         $format = null;
         $sawEntries = false;
         $discardingLongEntry = false;
-        $outputPath = tempnam(sys_get_temp_dir(), 'alphalink-suppression-normalized-');
+        $disk = Storage::disk(self::DISK);
+        $temporaryPath = sprintf(
+            'offers/%s/%d/suppression/.%s.normalizing.tmp',
+            $workspace->getKey(),
+            $offer->getKey(),
+            Str::uuid(),
+        );
 
         try {
             $input = fopen($sourcePath, 'rb');
-            if (! is_resource($input) || ! is_string($outputPath)) {
-                if (is_resource($input)) {
-                    fclose($input);
-                }
+            if (! is_resource($input)) {
                 throw new \RuntimeException('Unable to open the downloaded suppression file.');
             }
 
@@ -263,7 +266,8 @@ class DmsOfferSuppressionFile
                 throw ValidationException::withMessages(['suppression_file' => 'The suppression file must contain valid email addresses or 32-character MD5 hashes.']);
             }
 
-            $output = fopen($outputPath, 'wb');
+            $disk->makeDirectory(dirname($temporaryPath));
+            $output = fopen($disk->path($temporaryPath), 'wb');
             if (! is_resource($output)) {
                 throw new \RuntimeException('Unable to prepare the validated suppression file.');
             }
@@ -282,14 +286,9 @@ class DmsOfferSuppressionFile
 
             $sha256 = hash_final($hash);
             $path = sprintf('offers/%s/%d/suppression/%s.txt', $workspace->getKey(), $offer->getKey(), $sha256);
-            $stream = fopen($outputPath, 'rb');
-            if (! is_resource($stream) || ! Storage::disk(self::DISK)->writeStream($path, $stream)) {
-                if (is_resource($stream)) {
-                    fclose($stream);
-                }
+            if (! $disk->move($temporaryPath, $path)) {
                 throw new \RuntimeException('Unable to store the validated suppression file.');
             }
-            fclose($stream);
 
             return ['path' => $path, 'sha256' => $sha256, 'format' => $format, 'count' => $count];
         } finally {
@@ -298,9 +297,7 @@ class DmsOfferSuppressionFile
             } catch (\Throwable) {
                 // The temporary table is scoped to this database session and will be discarded at disconnect.
             }
-            if (is_string($outputPath) && is_file($outputPath)) {
-                @unlink($outputPath);
-            }
+            $disk->delete($temporaryPath);
         }
     }
 
@@ -317,7 +314,7 @@ class DmsOfferSuppressionFile
             $entry = $archive->statIndex($index);
             $name = is_array($entry) ? (string) ($entry['name'] ?? '') : '';
             $size = is_array($entry) ? (int) ($entry['size'] ?? -1) : -1;
-            if ($name === '' || str_contains($name, '..') || str_starts_with($name, '/') || str_ends_with($name, '/') || $size < 0 || $size > 1_073_741_824) {
+            if ($name === '' || str_contains($name, '..') || str_starts_with($name, '/') || str_ends_with($name, '/') || $size < 0) {
                 continue;
             }
             if ($size > $largestSize) {
@@ -368,7 +365,7 @@ class DmsOfferSuppressionFile
                     break;
                 }
                 $written += strlen($chunk);
-                if ($written > 1_073_741_824 || fwrite($output, $chunk) !== strlen($chunk)) {
+                if (fwrite($output, $chunk) !== strlen($chunk)) {
                     @unlink($outputPath);
 
                     return null;

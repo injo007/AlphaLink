@@ -23,7 +23,7 @@ class DmsCampaignSendNavigationTest extends TestCase
 
         $response->assertSee('id="nav-submenu-campaigns"', false)
             ->assertSee('aria-expanded="true"', false)
-            ->assertSee('class="nav-main-link active" href="'.$url.'"', false)
+            ->assertSee('class="nav-main-link active" href="'.$this->cleanWorkspaceUrl($url).'"', false)
             ->assertSee('aria-current="page"', false)
             ->assertSee('fas fa-envelope', false)
             ->assertSee('My campaigns')
@@ -263,7 +263,7 @@ class DmsCampaignSendNavigationTest extends TestCase
         $this->from(route('console.campaigns.index', $workspace->getKey()))
             ->actingAs($owner)
             ->patch($url, ['is_active' => false])
-            ->assertRedirect(route('console.campaigns.index', $workspace->getKey()))
+            ->assertRedirect('/mailer/campaigns')
             ->assertSessionHas('status', 'Campaign disabled.');
 
         $this->assertDatabaseHas('campaigns', ['id' => $campaign->getKey(), 'is_active' => false]);
@@ -275,7 +275,7 @@ class DmsCampaignSendNavigationTest extends TestCase
         ]);
 
         $this->patch($url, ['is_active' => true])
-            ->assertRedirect(route('console.campaigns.index', $workspace->getKey()))
+            ->assertRedirect('/mailer/campaigns')
             ->assertSessionHas('status', 'Campaign restored.');
 
         $this->assertDatabaseHas('campaigns', ['id' => $campaign->getKey(), 'is_active' => true]);
@@ -311,7 +311,7 @@ class DmsCampaignSendNavigationTest extends TestCase
         $this->assertDatabaseHas('campaigns', ['id' => $foreignCampaign->getKey(), 'is_active' => true]);
 
         $this->patch($url, ['campaign_ids' => $campaigns->pluck('id')->all()])
-            ->assertRedirect(route('console.campaigns.index', $workspace->getKey()))
+            ->assertRedirect('/mailer/campaigns')
             ->assertSessionHas('status', '2 campaigns were disabled.');
 
         foreach ($campaigns as $campaign) {

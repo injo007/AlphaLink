@@ -1,0 +1,66 @@
+.analytics-line-chart {
+    margin: 0;
+}
+
+.analytics-line-chart__caption {
+    color: var(--color-muted, #687773);
+    font-size: 12px;
+}
+
+.analytics-line-chart__svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+}
+
+.analytics-line-chart__grid {
+    stroke: var(--color-border, #dfe3d9);
+    stroke-width: 1;
+}
+
+.analytics-line-chart__axis {
+    stroke: var(--color-muted, #687773);
+    stroke-width: 1;
+}
+
+.analytics-line-chart__axis-label {
+    fill: var(--color-muted, #687773);
+    font-family: var(--font-sans, Inter, Arial, sans-serif);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.analytics-line-chart__line {
+    fill: none;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.analytics-line-chart__point {
+    stroke: var(--color-surface, #fffefa);
+    stroke-width: 1.5;
+}
+
+.analytics-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 13px;
+    padding: 13px 18px 4px;
+    color: var(--color-muted, #687773);
+    font-size: 10px;
+}
+
+.analytics-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.analytics-legend i {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+}

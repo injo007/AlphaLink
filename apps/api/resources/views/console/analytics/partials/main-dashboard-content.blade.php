@@ -96,7 +96,7 @@
             @include('console.analytics.partials.line-chart', [
                 'chartId' => 'dashboard-mtd-actions',
                 'title' => 'MTD ACTIONS STATS',
-                'description' => 'Daily campaign and Drop opens, clicks, leads, and unsubscribes for the current month.',
+                'description' => 'Daily PMTA deliveries and bounce totals, campaign and Drop opens, clicks, and unsubscribes. Leads are an AlphaLink measure.',
                 'chart' => $dashboardCharts['mtd_actions'],
                 'currency' => false,
             ])
@@ -121,7 +121,7 @@
         </div>
     </div>
 
-    <div class="alert alert-warning" role="note"><strong>Chart coverage:</strong> the DMS action chart includes PMTA deliveries and bounce totals. AlphaLink stores locally imported PMTA counts but does not plot those series yet; automatic host-file ingestion is still pending. Revenue charts use attributed lead revenue and do not represent PMTA earnings.</div>
+    <div class="alert alert-warning" role="note"><strong>Chart coverage:</strong> the MTD chart includes locally imported PMTA deliveries and combined bounce totals. Scheduled host-file sync has not been verified against a live server. Revenue charts use attributed lead revenue and do not represent PMTA earnings.</div>
 
     <div class="block block-rounded">
         <div class="block-header block-header-default">
@@ -174,5 +174,5 @@
         </div>
     </div>
 
-    <div class="alert alert-warning" role="note"><strong>Data coverage:</strong> stored campaign and Drop engagement, attributed campaign leads, and locally imported PMTA delivery/bounce records are included. Automatic PMTA host-file ingestion and seed inputs are not connected. DMS labels the previous day's count as YTD in its Main Dashboard source; AlphaLink mirrors that calculation. Earnings here reflect attributed campaign and Drop lead revenue only.</div>
+    <div class="alert alert-warning" role="note"><strong>Data coverage:</strong> stored campaign and Drop engagement, attributed campaign leads, and locally imported PMTA delivery/bounce records are included. PMTA feedback sync is implemented; live scheduled/Horizon execution and DMS seed identity mapping remain unverified. DMS labels the previous day's count as YTD in its Main Dashboard source; AlphaLink mirrors that calculation. Earnings here reflect attributed campaign and Drop lead revenue only.</div>
 </div>

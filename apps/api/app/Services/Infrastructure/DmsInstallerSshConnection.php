@@ -19,4 +19,19 @@ interface DmsInstallerSshConnection
     public function uploadFile(string $localPath, string $destination): bool;
 
     public function downloadString(string $path): string|false;
+
+    /** @return list<string>|false */
+    public function listDirectory(string $path): array|false;
+
+    public function isDirectory(string $path): bool;
+
+    public function createDirectory(string $path): bool;
+
+    public function fileSize(string $path): int|false;
+
+    public function fileModifiedAt(string $path): int|false;
+
+    public function downloadFile(string $remotePath, string $localPath): bool;
+
+    public function moveFile(string $remotePath, string $destination): bool;
 }

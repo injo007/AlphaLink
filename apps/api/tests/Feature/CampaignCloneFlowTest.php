@@ -23,10 +23,20 @@ class CampaignCloneFlowTest extends TestCase
 {
     use RefreshDatabase;
 
+    private mixed $originalContactLookupKey;
+
     protected function setUp(): void
     {
         parent::setUp();
+        $this->originalContactLookupKey = config('alphalink.contact_lookup_key');
+        config(['alphalink.contact_lookup_key' => str_repeat('synthetic-campaign-clone-key-', 2)]);
         Storage::fake('local');
+    }
+
+    protected function tearDown(): void
+    {
+        config(['alphalink.contact_lookup_key' => $this->originalContactLookupKey]);
+        parent::tearDown();
     }
 
     public function test_owner_can_clone_a_saved_campaign_as_a_fresh_draft_and_replay_the_request_safely(): void
@@ -46,7 +56,7 @@ class CampaignCloneFlowTest extends TestCase
         $payload = $this->clonePayload($fixture, $idempotencyKey);
         $response = $this->actingAs($fixture['owner'])->post($route, $payload);
         $clone = Campaign::query()->where('workspace_id', $fixture['workspace']->getKey())->where('idempotency_key', $idempotencyKey)->firstOrFail();
-        $cloneUrl = route('console.campaigns.show', [$fixture['workspace']->getKey(), $clone->getKey()]);
+        $cloneUrl = $this->cleanWorkspaceUrl(route('console.campaigns.show', [$fixture['workspace']->getKey(), $clone->getKey()]));
 
         $response->assertRedirect($cloneUrl)->assertSessionHas('status', 'Campaign cloned as a new draft with a fresh suppression snapshot. Native campaign sending remains unavailable.');
         $this->assertSame('draft', $clone->status);
@@ -85,7 +95,7 @@ class CampaignCloneFlowTest extends TestCase
         $this->actingAs($fixture['owner'])
             ->get(route('console.campaigns.index', $fixture['workspace']->getKey()))
             ->assertOk()
-            ->assertSee(route('console.campaigns.clone', [$fixture['workspace']->getKey(), $fixture['source']->getKey()]), false)
+            ->assertSee($this->cleanWorkspaceUrl(route('console.campaigns.clone', [$fixture['workspace']->getKey(), $fixture['source']->getKey()])), false)
             ->assertSee('Clone campaign into a new draft');
     }
 
@@ -213,7 +223,7 @@ class CampaignCloneFlowTest extends TestCase
         $contact = Contact::query()->create([
             'workspace_id' => $workspace->getKey(),
             'email' => $email,
-            'email_lookup_hash' => hash('sha256', $email),
+            'email_lookup_hash' => hash_hmac('sha256', $email, (string) config('alphalink.contact_lookup_key')),
             'lookup_key_version' => 1,
             'status' => 'active',
             'idempotency_key' => (string) Str::uuid(),

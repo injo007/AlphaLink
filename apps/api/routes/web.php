@@ -14,6 +14,7 @@ use App\Http\Controllers\Web\MiscellaneousConsoleController;
 use App\Http\Controllers\Web\PmtaConsoleController;
 use App\Http\Controllers\Web\ServerProviderConsoleController;
 use App\Http\Controllers\Web\WorkspaceAnalyticsConsoleController;
+use App\Http\Controllers\Web\WorkspaceBlacklistCheckerController;
 use App\Http\Controllers\Web\WorkspaceCampaignHeaderController;
 use App\Http\Controllers\Web\WorkspaceCampaignNegativeController;
 use App\Http\Controllers\Web\WorkspaceCampaignStatisticsConsoleController;
@@ -45,8 +46,11 @@ Route::middleware('guest')->group(function (): void {
     Route::post('/sign-in', [AuthController::class, 'store'])->middleware('throttle:10,1')->name('login.store');
 });
 
-Route::middleware(['auth', 'active'])->group(function (): void {
+Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::post('/sign-out', [AuthController::class, 'destroy'])->name('logout');
+    Route::get('/profile', [AuthController::class, 'profile'])->name('auth.profile');
+    Route::post('/profile', [AuthController::class, 'changePassword'])
+        ->middleware('throttle:10,1')->name('auth.change_password');
 
     Route::get('/dashboard/main', [WorkspaceEntryController::class, 'dashboard'])
         ->middleware('workspace.current')->name('console.dashboard.main');
@@ -113,7 +117,9 @@ Route::middleware(['auth', 'active'])->group(function (): void {
     Route::get('/app/workspaces/{workspace}/gcampaigns/accounts', [WorkspaceToolConsoleController::class, 'accounts'])->name('console.gcampaigns.accounts');
     Route::post('/app/workspaces/{workspace}/tools/workspace/projects', [WorkspaceToolConsoleController::class, 'storeProject'])->middleware('throttle:10,1')->name('console.tools.workspace.projects.store');
     Route::post('/app/workspaces/{workspace}/tools/workspace/projects/{project}/sync', [WorkspaceToolConsoleController::class, 'syncProject'])->whereNumber('project')->middleware('throttle:10,1')->name('console.tools.workspace.projects.sync');
+    Route::patch('/app/workspaces/{workspace}/tools/workspace/projects/status', [WorkspaceToolConsoleController::class, 'statusProjects'])->middleware('throttle:10,1')->name('console.tools.workspace.projects.bulk-status');
     Route::patch('/app/workspaces/{workspace}/tools/workspace/projects/{project}/status', [WorkspaceToolConsoleController::class, 'statusProject'])->whereNumber('project')->name('console.tools.workspace.projects.status');
+    Route::delete('/app/workspaces/{workspace}/tools/workspace/projects', [WorkspaceToolConsoleController::class, 'destroyProjects'])->middleware('throttle:10,1')->name('console.tools.workspace.projects.bulk-destroy');
     Route::delete('/app/workspaces/{workspace}/tools/workspace/projects/{project}', [WorkspaceToolConsoleController::class, 'destroyProject'])->whereNumber('project')->name('console.tools.workspace.projects.destroy');
     Route::post('/app/workspaces/{workspace}/tools/workspace/accounts', [WorkspaceToolConsoleController::class, 'storeAccounts'])->middleware('throttle:10,1')->name('console.tools.workspace.accounts.store');
     Route::patch('/app/workspaces/{workspace}/tools/workspace/accounts/status', [WorkspaceToolConsoleController::class, 'statusAccounts'])->name('console.tools.workspace.accounts.status');
@@ -329,6 +335,9 @@ Route::middleware(['auth', 'active'])->group(function (): void {
     Route::post('/app/workspaces/{workspace}/infrastructure/emails/search', [WorkspaceEmailManagementController::class, 'search'])->name('console.infrastructure.emails.search');
     Route::patch('/app/workspaces/{workspace}/infrastructure/emails/action', [WorkspaceEmailManagementController::class, 'action'])->middleware('throttle:20,1')->name('console.infrastructure.emails.action');
     Route::get('/app/workspaces/{workspace}/infrastructure/emails/{contact}/logs', [WorkspaceEmailManagementController::class, 'logs'])->whereUuid('contact')->name('console.infrastructure.emails.logs');
+    Route::get('/app/workspaces/{workspace}/infrastructure/blacklist-checker', [WorkspaceBlacklistCheckerController::class, 'index'])->name('console.infrastructure.blacklist-checker');
+    Route::post('/app/workspaces/{workspace}/infrastructure/blacklist-checker/upload', [WorkspaceBlacklistCheckerController::class, 'upload'])->middleware('throttle:10,1')->name('console.infrastructure.blacklist-checker.upload');
+    Route::patch('/app/workspaces/{workspace}/infrastructure/blacklist-checker/{process}/cancel', [WorkspaceBlacklistCheckerController::class, 'cancel'])->whereUuid(['workspace', 'process'])->middleware('throttle:20,1')->name('console.infrastructure.blacklist-checker.cancel');
     Route::get('/app/workspaces/{workspace}/infrastructure/lists', [AudienceListManagementController::class, 'index'])->name('console.infrastructure.lists.index');
     Route::get('/app/workspaces/{workspace}/audience-mixes', [AudienceMixController::class, 'index'])->name('console.audience-mixes.index');
     Route::get('/app/workspaces/{workspace}/audience-mixes/history', [AudienceMixController::class, 'history'])->name('console.audience-mixes.history');

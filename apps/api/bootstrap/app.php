@@ -1,5 +1,6 @@
 <?php
 
+use App\Console\Commands\DispatchManagedServerPmtaFeedback;
 use App\Console\Commands\RunAppHealthChecks;
 use App\Console\Commands\SyncWorkspaceSponsorLeads;
 use App\Http\Middleware\AssignRequestId;
@@ -35,6 +36,12 @@ $application = Application::configure(basePath: dirname(__DIR__))
         $schedule->command(RunAppHealthChecks::class)
             ->everyMinute()
             ->withoutOverlapping();
+        $schedule->command(DispatchManagedServerPmtaFeedback::class)
+            ->everyTwoMinutes()
+            ->name('dispatch-managed-server-pmta-feedback')
+            ->onOneServer()
+            ->withoutOverlapping(5)
+            ->runInBackground();
         $schedule->command('servers:collect-health')
             ->everyTenMinutes()
             ->withoutOverlapping()

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\RewriteLegacyWorkspaceUrls;
 use App\Models\AudienceListHistory;
 use App\Models\Isp;
 use App\Models\User;
@@ -12,12 +13,50 @@ use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceSponsor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class WorkspaceAnalyticsDashboardTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->withoutMiddleware(RewriteLegacyWorkspaceUrls::class);
+    }
+
+    public function test_daily_analytics_source_indexes_lead_with_the_event_time(): void
+    {
+        $expectedIndexes = [
+            'campaign_engagement_events' => [
+                'campaign_events_analytics_time_idx' => ['created_at', 'workspace_id'],
+            ],
+            'campaign_engagement_event_sources' => [
+                'campaign_event_sources_analytics_time_idx' => ['created_at', 'workspace_id'],
+            ],
+            'campaign_lead_conversions' => [
+                'campaign_leads_analytics_time_idx' => ['converted_at', 'workspace_id'],
+            ],
+            'workspace_drop_visitors' => [
+                'drop_visitors_analytics_time_idx' => ['created_at', 'workspace_id'],
+            ],
+            'workspace_pmta_feedback_events' => [
+                'pmta_feedback_analytics_time_idx' => ['at', 'workspace_id'],
+            ],
+        ];
+
+        foreach ($expectedIndexes as $table => $indexes) {
+            $actualIndexes = collect(Schema::getIndexes($table))->keyBy('name');
+
+            foreach ($indexes as $name => $columns) {
+                $this->assertSame($columns, $actualIndexes->get($name)['columns'] ?? null, "Missing or incorrectly ordered index: {$name}");
+            }
+        }
+    }
 
     public function test_dashboard_reports_recorded_drop_events_and_latest_list_states(): void
     {
@@ -94,15 +133,15 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
         $this->artisan('workspace:analytics-rebuild-daily', ['days' => 3])->assertExitCode(0);
 
         $this->actingAs($owner);
-        $this->get(route('console.analytics.index', $workspace->getKey()))
+        $this->get(route('console.dashboard.main'))
             ->assertOk()
             ->assertSee('Dashboard')
             ->assertSee('CAMPAIGN & DROP ENGAGEMENT')
             ->assertSee('LATEST AUDIENCE-LIST STATES')
-            ->assertSee(route('console.analytics.all-stats', $workspace->getKey()), false)
-            ->assertSee(route('console.analytics.isp-stats', $workspace->getKey()), false)
-            ->assertSee(route('console.analytics.mailer-revenue', $workspace->getKey()), false)
-            ->assertSee('attributed sponsor-report campaign leads')
+            ->assertSee(route('clean.console.analytics.all-stats'), false)
+            ->assertSee(route('clean.console.analytics.isp-stats'), false)
+            ->assertSee(route('clean.console.analytics.mailer-revenue'), false)
+            ->assertSee('Attributed lead revenue only')
             ->assertViewHas('eventTotals', fn (array $totals): bool => $totals['opens'] === 2
                 && $totals['clicks'] === 2
                 && $totals['leads'] === 2
@@ -128,12 +167,15 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
             ->assertViewHas('dashboardCharts', function (array $charts): bool {
                 $todayIndex = now()->day - 1;
                 $currentMonthIndex = now()->month - 1;
+                $actions = collect($charts['mtd_actions']['series'])->keyBy('label');
 
                 return count($charts['mtd_actions']['labels']) === now()->daysInMonth
-                    && $charts['mtd_actions']['series'][0]['values'][$todayIndex] === 1
-                    && $charts['mtd_actions']['series'][1]['values'][$todayIndex] === 1
-                    && $charts['mtd_actions']['series'][2]['values'][$todayIndex] === 1
-                    && $charts['mtd_actions']['series'][3]['values'][$todayIndex] === 1
+                    && $actions->get('Deliveries')['values'][$todayIndex] === 0
+                    && $actions->get('Bounces')['values'][$todayIndex] === 0
+                    && $actions->get('Opens')['values'][$todayIndex] === 1
+                    && $actions->get('Clicks')['values'][$todayIndex] === 1
+                    && $actions->get('Unsubscribes')['values'][$todayIndex] === 1
+                    && $actions->get('Leads (AlphaLink)')['values'][$todayIndex] === 1
                     && array_sum($charts['mtd_revenue']['series'][0]['values']) === 10.0
                     && count($charts['ytd_revenue']['labels']) === 12
                     && $charts['ytd_revenue']['series'][0]['values'][$currentMonthIndex] === 10.0;
@@ -165,7 +207,7 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
                 && $counts['unsubscribe'] === 1
             );
 
-        $this->get(route('console.audiences.index', $workspace->getKey()))
+        $this->get(route('clean.console.audiences.index'))
             ->assertOk()
             ->assertSee('OPEN')
             ->assertSee('CLICK')
@@ -193,10 +235,117 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
         $this->artisan('workspace:analytics-rebuild-daily')->assertExitCode(0);
 
         $this->actingAs($owner)
-            ->get(route('console.analytics.index', $workspace->getKey()))
+            ->get(route('console.dashboard.main'))
             ->assertOk()
             ->assertViewHas('eventTotals', fn (array $totals): bool => $totals['opens'] === 1 && $totals['clicks'] === 0
             );
+    }
+
+    public function test_dashboard_uses_workspace_totals_not_list_attribution_rollups(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->makeWorkspace($owner, 'owner');
+        $isp = Isp::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'name' => 'Attribution scope ISP',
+            'is_active' => true,
+            'allowed_users' => [],
+            'allowed_sponsors' => [],
+            'tracked_countries' => [],
+            'quality_emails' => [],
+        ]);
+        $base = [
+            'workspace_id' => $workspace->getKey(),
+            'source_type' => 'campaign',
+            'at' => today()->toDateString(),
+            'user_id' => $owner->getKey(),
+            'isp_id' => (string) $isp->getKey(),
+            'opens' => 0,
+            'clicks' => 0,
+            'leads' => 0,
+            'unsubscribes' => 0,
+            'bots' => 0,
+            'deliveries' => 0,
+            'soft_bounces' => 0,
+            'hard_bounces' => 0,
+            'lead_revenue' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ];
+        DB::table('workspace_daily_analytics')->insert([
+            ...$base,
+            'source_id' => 'synthetic-list-rollup',
+            'dimensions_hash' => hash('sha256', 'list-scope'),
+            'attribution_scope' => 'list',
+            'opens' => 9,
+            'clicks' => 9,
+            'leads' => 9,
+            'unsubscribes' => 9,
+            'lead_revenue' => 90,
+        ]);
+        DB::table('workspace_daily_analytics')->insert([
+            ...$base,
+            'source_id' => 'synthetic-workspace-rollup',
+            'dimensions_hash' => hash('sha256', 'workspace-scope'),
+            'attribution_scope' => 'workspace',
+            'opens' => 1,
+            'clicks' => 1,
+            'leads' => 1,
+            'unsubscribes' => 1,
+            'lead_revenue' => 2.5,
+        ]);
+
+        $this->actingAs($owner)
+            ->get(route('console.dashboard.main'))
+            ->assertOk()
+            ->assertViewHas('eventTotals', fn (array $totals): bool => $totals['opens'] === 1
+                && $totals['clicks'] === 1
+                && $totals['leads'] === 1
+                && $totals['unsubscribes'] === 1
+            )
+            ->assertViewHas('mtdLeadRevenue', function (array $revenue) use ($owner): bool {
+                $this->assertSame(['label' => 'Attribution scope ISP', 'today' => 2.5, 'mtd' => 2.5], $revenue['isps'][0]);
+                $this->assertSame(['label' => $owner->name, 'today' => 2.5, 'mtd' => 2.5], $revenue['mailers'][0]);
+
+                return true;
+            });
+
+        $this->getJson(route('clean.console.analytics.mailer-revenue', [
+            'from' => today()->toDateString(),
+            'to' => today()->toDateString(),
+        ]))
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.opens', 1)
+            ->assertJsonPath('0.clicks', 1)
+            ->assertJsonPath('0.leads', 1)
+            ->assertJsonPath('0.unsubscribes', 1)
+            ->assertJsonPath('0.lead_revenue', 2.5);
+
+        $this->get(route('clean.console.analytics.isp-stats', [
+            'from' => today()->toDateString(),
+            'to' => today()->toDateString(),
+            'isp_id' => $isp->getKey(),
+        ]))
+            ->assertOk()
+            ->assertViewHas('rows', fn ($rows): bool => $rows->count() === 1
+                && $rows->first()['opens'] === 1
+                && $rows->first()['clicks'] === 1
+                && $rows->first()['leads'] === 1
+                && $rows->first()['unsubscribes'] === 1
+                && $rows->first()['lead_revenue'] === 2.5
+            );
+
+        $this->getJson(route('clean.console.analytics.all-stats', [
+            'from' => today()->toDateString(),
+            'to' => today()->toDateString(),
+        ]))
+            ->assertOk()
+            ->assertJsonCount(4)
+            ->assertJsonFragment(['opens' => 9])
+            ->assertJsonFragment(['clicks' => 9])
+            ->assertJsonFragment(['unsubscribes' => 9])
+            ->assertJsonFragment(['lead_revenue' => 90]);
     }
 
     public function test_main_dashboard_refresh_fragment_uses_the_same_workspace_scope(): void
@@ -209,7 +358,7 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
         $this->artisan('workspace:analytics-rebuild-daily')->assertExitCode(0);
 
         $this->actingAs($owner)
-            ->get(route('console.analytics.index', $workspace->getKey()).'?fragment=1')
+            ->get(route('console.dashboard.main').'?fragment=1')
             ->assertOk()
             ->assertViewIs('console.analytics.partials.main-dashboard-content')
             ->assertSee('data-main-dashboard-refresh', false)
@@ -219,7 +368,7 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
 
         $stranger = User::factory()->create();
         $this->actingAs($stranger)
-            ->get(route('console.analytics.index', $workspace->getKey()).'?fragment=1')
+            ->get(route('console.dashboard.main').'?fragment=1')
             ->assertNotFound();
     }
 
@@ -267,25 +416,25 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
         $this->artisan('workspace:analytics-rebuild-daily')->assertExitCode(0);
 
         $this->actingAs($operator)
-            ->get(route('console.analytics.index', $workspace->getKey()))
+            ->get(route('console.dashboard.main'))
             ->assertOk()
             ->assertViewHas('eventTotals', fn (array $totals): bool => $totals['clicks'] === 1)
             ->assertViewHas('snapshotCounts', fn (array $counts): bool => $counts['open'] === 0);
 
-        $this->get(route('console.analytics.isp-stats', [
-            $workspace->getKey(),
+        $operatorIspReport = $this->get(route('clean.console.analytics.isp-stats', [
             'from' => today()->toDateString(),
             'to' => today()->toDateString(),
             'isp_id' => $isp->getKey(),
         ]))
-            ->assertOk()
-            ->assertViewHas('chartData', fn (array $data): bool => count($data['mailers']) === 1
-                && $data['mailers'][0]['label'] === $operator->name
-                && $data['mailers'][0]['values']['clicks'] === [1]
-                && $data['totals'][0]['clicks'] === 1
-            );
+            ->assertOk();
+        $operatorChart = $this->ispChartData((string) $operatorIspReport->getContent());
+        $this->assertCount(1, $operatorChart['mailers']);
+        $this->assertSame($operator->name, $operatorChart['mailers'][0]['label']);
+        $this->assertSame([1], $operatorChart['mailers'][0]['values']['clicks']);
+        $this->assertSame([0], $operatorChart['mailers'][0]['values']['deliveries']);
+        $this->assertSame(1, $operatorChart['totals'][0]['clicks']);
 
-        $this->get(route('console.audiences.index', $workspace->getKey()))
+        $this->get(route('clean.console.audiences.index'))
             ->assertOk()
             ->assertDontSee('Owner only list');
     }
@@ -300,18 +449,18 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
         $this->artisan('workspace:analytics-rebuild-daily')->assertExitCode(0);
 
         $this->actingAs($owner)
-            ->get(route('console.analytics.index', $workspace->getKey()))
+            ->get(route('console.dashboard.main'))
             ->assertOk()
             ->assertViewHas('eventTotals', fn (array $totals): bool => $totals['opens'] === 1 && $totals['clicks'] === 0);
 
         $this->addVisitor($workspace, $drop, 'click', now());
-        $this->get(route('console.analytics.index', $workspace->getKey()))
+        $this->get(route('console.dashboard.main'))
             ->assertOk()
             ->assertViewHas('eventTotals', fn (array $totals): bool => $totals['opens'] === 1 && $totals['clicks'] === 0);
 
         $this->travel(61)->seconds();
         $this->artisan('workspace:analytics-rebuild-daily')->assertExitCode(0);
-        $this->get(route('console.analytics.index', $workspace->getKey()))
+        $this->get(route('console.dashboard.main'))
             ->assertOk()
             ->assertViewHas('eventTotals', fn (array $totals): bool => $totals['opens'] === 1 && $totals['clicks'] === 1);
     }
@@ -338,13 +487,13 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
         $this->addVisitor($workspace, $ownerDrop, 'lead', now(), 2.0);
 
         $this->actingAs($owner)
-            ->get(route('console.analytics.index', $workspace->getKey()))
+            ->get(route('console.dashboard.main'))
             ->assertOk()
             ->assertViewHas('eventTotals', fn (array $totals): bool => $totals['opens'] === 1 && $totals['clicks'] === 1 && $totals['leads'] === 1)
             ->assertViewHas('mtdLeadRevenue', fn (array $revenue): bool => $revenue['mailers'][0]['mtd'] === 1.0);
 
         $this->actingAs($operator)
-            ->get(route('console.analytics.index', $workspace->getKey()))
+            ->get(route('console.dashboard.main'))
             ->assertOk()
             ->assertViewHas('eventTotals', fn (array $totals): bool => $totals['opens'] === 0 && $totals['clicks'] === 1);
 
@@ -354,13 +503,13 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
             ->assertExitCode(0);
 
         $this->actingAs($owner)
-            ->get(route('console.analytics.index', $workspace->getKey()))
+            ->get(route('console.dashboard.main'))
             ->assertOk()
             ->assertViewHas('eventTotals', fn (array $totals): bool => $totals['opens'] === 2 && $totals['clicks'] === 2 && $totals['leads'] === 2)
             ->assertViewHas('mtdLeadRevenue', fn (array $revenue): bool => $revenue['mailers'][0]['mtd'] === 3.0);
 
         $this->actingAs($operator)
-            ->get(route('console.analytics.index', $workspace->getKey()))
+            ->get(route('console.dashboard.main'))
             ->assertOk()
             ->assertViewHas('eventTotals', fn (array $totals): bool => $totals['opens'] === 0 && $totals['clicks'] === 2);
     }
@@ -379,12 +528,12 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
         $this->artisan('workspace:analytics-rebuild-daily')->assertExitCode(0);
 
         $this->actingAs($owner)
-            ->get(route('console.analytics.index', $workspace->getKey()))
+            ->get(route('console.dashboard.main'))
             ->assertOk()
             ->assertViewHas('eventTotals', fn (array $totals): bool => $totals['opens'] === 1 && $totals['clicks'] === 1);
 
         $this->actingAs($operator)
-            ->get(route('console.analytics.index', $workspace->getKey()))
+            ->get(route('console.dashboard.main'))
             ->assertOk()
             ->assertViewHas('eventTotals', fn (array $totals): bool => $totals['opens'] === 0 && $totals['clicks'] === 1);
     }
@@ -497,7 +646,7 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
         $stranger = User::factory()->create();
 
         $this->actingAs($stranger)
-            ->get(route('console.analytics.index', $workspace->getKey()))
+            ->get(route('console.dashboard.main'))
             ->assertNotFound();
     }
 
@@ -507,14 +656,18 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
         $workspace = $this->makeWorkspace($owner, 'owner');
 
         $this->actingAs($owner)
-            ->get(route('console.analytics.index', $workspace->getKey()))
+            ->get(route('console.dashboard.main'))
             ->assertOk()
             ->assertSee('MTD ACTIONS STATS')
             ->assertSee('MTD REVENUE STATS')
             ->assertSee('YTD REVENUE STATS')
+            ->assertSee('analytics-charts', false)
             ->assertSee('analytics-line-chart__svg', false)
+            ->assertSee('Leads (AlphaLink)')
             ->assertViewHas('dashboardCharts', fn (array $charts): bool => count($charts['mtd_actions']['labels']) === now()->daysInMonth
                 && count($charts['ytd_revenue']['labels']) === 12
+                && collect($charts['mtd_actions']['series'])->pluck('label')->all() === ['Deliveries', 'Bounces', 'Opens', 'Clicks', 'Unsubscribes', 'Leads (AlphaLink)']
+                && collect($charts['mtd_actions']['series'])->pluck('color')->unique()->count() === 6
                 && collect($charts['mtd_actions']['series'])->every(fn (array $series): bool => array_sum($series['values']) === 0)
                 && array_sum($charts['mtd_revenue']['series'][0]['values']) === 0.0
                 && array_sum($charts['ytd_revenue']['series'][0]['values']) === 0.0
@@ -525,12 +678,12 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
     {
         $owner = User::factory()->create();
         $workspace = $this->makeWorkspace($owner, 'owner');
-        $this->actingAs($owner);
+        $this->actingAs($owner)->get(route('console.dashboard.main'))->assertOk();
 
         foreach ([
-            route('console.analytics.all-stats', $workspace->getKey()),
-            route('console.analytics.isp-stats', $workspace->getKey()),
-            route('console.analytics.mailer-revenue', $workspace->getKey()),
+            route('clean.console.analytics.all-stats'),
+            route('clean.console.analytics.isp-stats'),
+            route('clean.console.analytics.mailer-revenue'),
         ] as $url) {
             $this->get($url)
                 ->assertOk()
@@ -540,7 +693,7 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
                 ->assertSee('name="to"', false);
         }
 
-        $this->get(route('console.analytics.all-stats', $workspace->getKey()))
+        $this->get(route('clean.console.analytics.all-stats'))
             ->assertOk()
             ->assertSee('analytics-dates')
             ->assertSee('/vendor/daterangepicker/daterangepicker.js')
@@ -548,9 +701,10 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
             ->assertSee('data-storage-key="all_stats"', false)
             ->assertSee('data-clear-analytics-date-range="all_stats"', false);
 
-        $this->get(route('console.analytics.isp-stats', $workspace->getKey()))
+        $this->get(route('clean.console.analytics.isp-stats'))
             ->assertOk()
             ->assertSee('ENGAGEMENT BY PERIOD')
+            ->assertSee('DELIVERIES BY MAILER')
             ->assertSee('OPENS BY MAILER')
             ->assertSee('CLICKS BY MAILER')
             ->assertSee('LEADS BY MAILER')
@@ -564,7 +718,7 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
             ->assertSee('data-analytics-report-refresh', false)
             ->assertSee('analytics-report-refresh.js');
 
-        $this->get(route('console.analytics.mailer-revenue', $workspace->getKey()))
+        $this->get(route('clean.console.analytics.mailer-revenue'))
             ->assertOk()
             ->assertSee('script-src \'self\' \'unsafe-inline\' \'unsafe-eval\' https://cdn3.devexpress.com; style-src \'self\' \'unsafe-inline\' https://cdn3.devexpress.com;', false)
             ->assertSee('data-storage-key="mailers_stats"', false)
@@ -595,8 +749,8 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
         $this->addVisitor($workspace, $drop, 'unsubscribe', now(), ispId: $isp->getKey());
         $this->artisan('workspace:analytics-rebuild-daily')->assertExitCode(0);
 
-        $this->actingAs($owner)
-            ->get(route('console.analytics.all-stats', [$workspace->getKey(), 'from' => today()->toDateString(), 'to' => today()->toDateString()]))
+        $this->actingAs($owner)->get(route('console.dashboard.main'))->assertOk();
+        $this->get(route('clean.console.analytics.all-stats', ['from' => today()->toDateString(), 'to' => today()->toDateString()]))
             ->assertOk()
             ->assertSee('ALL STATS REPORT')
             ->assertSee('ALL STATS')
@@ -604,95 +758,81 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
             ->assertSee('TO')
             ->assertSee('SHOW')
             ->assertSee('Showing 1–4 of 4 rows')
-            ->assertSee('DMS delivery, bounce, opt-out, seed, aggregate-rate and shared-statistics inputs')
-            ->assertViewHas('rows', fn ($rows): bool => $rows->count() === 4
-                && $rows->getCollection()->firstWhere('type', 'lead')['lead_revenue'] === 4.25
-            );
+            ->assertSee('matching warmup/seed rows')
+            ->assertSee('4.25');
 
-        $this->get(route('console.analytics.isp-stats', [
-            $workspace->getKey(),
+        $weekResponse = $this->get(route('clean.console.analytics.isp-stats', [
             'from' => today()->toDateString(),
             'to' => today()->toDateString(),
             'isp_id' => $isp->getKey(),
             'groupby' => 'week',
-        ]))
+        ]));
+        $weekResponse
             ->assertOk()
             ->assertSee('ISP STATS REPORT')
             ->assertSee('Example ISP')
-            ->assertViewHas('rows', fn ($rows): bool => $rows->count() === 1
-                && $rows->getCollection()->first()['opens'] === 1
-                && $rows->getCollection()->first()['clicks'] === 1
-                && $rows->getCollection()->first()['leads'] === 1
-                && $rows->getCollection()->first()['unsubscribes'] === 1
-                && $rows->getCollection()->first()['lead_revenue'] === 4.25
-            )
-            ->assertViewHas('chartData', function (array $data) use ($owner): bool {
-                $this->assertSame([
-                    Carbon::parse(today()->toDateString())->format('o-W'),
-                ], $data['labels']);
-                $this->assertSame([
-                    'label' => $owner->name,
-                    'values' => [
-                        'opens' => [1],
-                        'clicks' => [1],
-                        'leads' => [1],
-                        'unsubscribes' => [1],
-                        'lead_revenue' => [4.25],
-                    ],
-                ], $data['mailers'][0]);
-                $this->assertSame([
-                    'opens' => 1,
-                    'clicks' => 1,
-                    'leads' => 1,
-                    'unsubscribes' => 1,
-                    'lead_revenue' => 4.25,
-                ], $data['totals'][0]);
+            ->assertSee('Open-rate and click-rate formulas');
+        $this->assertSame([
+            Carbon::parse(today()->toDateString())->startOfWeek()->toDateString(),
+            'Example ISP', '0', '1', '1', '1', '1', '$4.25',
+        ], $this->reportTableRows((string) $weekResponse->getContent())[0]);
+        $weekChart = $this->ispChartData((string) $weekResponse->getContent());
+        $this->assertSame([Carbon::parse(today()->toDateString())->format('o-W')], $weekChart['labels']);
+        $this->assertSame([
+            'label' => $owner->name,
+            'values' => [
+                'deliveries' => [0],
+                'opens' => [1],
+                'clicks' => [1],
+                'leads' => [1],
+                'unsubscribes' => [1],
+                'lead_revenue' => [4.25],
+            ],
+        ], $weekChart['mailers'][0]);
+        $this->assertSame([
+            'deliveries' => 0,
+            'opens' => 1,
+            'clicks' => 1,
+            'leads' => 1,
+            'unsubscribes' => 1,
+            'lead_revenue' => 4.25,
+        ], $weekChart['totals'][0]);
 
-                return true;
-            });
-
-        $this->get(route('console.analytics.mailer-revenue', [$workspace->getKey(), 'from' => today()->toDateString(), 'to' => today()->toDateString()]))
+        $mailerResponse = $this->get(route('clean.console.analytics.mailer-revenue', ['from' => today()->toDateString(), 'to' => today()->toDateString()]))
             ->assertOk()
-            ->assertSee('MAILERS REV STATS REPORT')
-            ->assertViewHas('rows', fn ($rows): bool => $rows->count() === 1
-                && $rows->getCollection()->first()['leads'] === 1
-                && $rows->getCollection()->first()['lead_revenue'] === 4.25
-            );
+            ->assertSee('MAILERS REV STATS REPORT');
+        $this->assertSame([
+            $owner->name, '0', '0', '0', '1', '1', '1', '1', '0', '$4.25',
+        ], $this->reportTableRows((string) $mailerResponse->getContent())[0]);
 
-        $this->get(route('console.analytics.isp-stats', [
-            $workspace->getKey(),
+        $dayResponse = $this->get(route('clean.console.analytics.isp-stats', [
             'from' => Carbon::today()->subDay()->toDateString(),
             'to' => today()->toDateString(),
             'isp_id' => $isp->getKey(),
             'groupby' => 'day',
-        ]))
-            ->assertOk()
-            ->assertViewHas('chartData', fn (array $data): bool => $data['labels'] === [
-                Carbon::today()->subDay()->toDateString(),
-                today()->toDateString(),
-            ]
-                && $data['totals'][0]['opens'] === 0
-                && $data['totals'][1]['opens'] === 1
-            );
+        ]))->assertOk();
+        $dayChart = $this->ispChartData((string) $dayResponse->getContent());
+        $this->assertSame([
+            Carbon::today()->subDay()->toDateString(),
+            today()->toDateString(),
+        ], $dayChart['labels']);
+        $this->assertSame([0, 1], array_column($dayChart['totals'], 'opens'));
+        $this->assertSame([0, 0], array_column($dayChart['totals'], 'deliveries'));
 
-        $this->get(route('console.analytics.isp-stats', [
-            $workspace->getKey(),
+        $monthResponse = $this->get(route('clean.console.analytics.isp-stats', [
             'from' => Carbon::today()->subMonthNoOverflow()->startOfMonth()->toDateString(),
             'to' => today()->toDateString(),
             'isp_id' => $isp->getKey(),
             'groupby' => 'month',
-        ]))
-            ->assertOk()
-            ->assertViewHas('chartData', fn (array $data): bool => $data['labels'] === [
-                Carbon::today()->subMonthNoOverflow()->format('Y-m'),
-                today()->format('Y-m'),
-            ]
-                && $data['totals'][0]['opens'] === 0
-                && $data['totals'][1]['opens'] === 1
-            );
+        ]))->assertOk();
+        $monthChart = $this->ispChartData((string) $monthResponse->getContent());
+        $this->assertSame([
+            Carbon::today()->subMonthNoOverflow()->format('Y-m'),
+            today()->format('Y-m'),
+        ], $monthChart['labels']);
+        $this->assertSame([0, 1], array_column($monthChart['totals'], 'opens'));
 
-        $this->getJson(route('console.analytics.mailer-revenue', [
-            $workspace->getKey(),
+        $this->getJson(route('clean.console.analytics.mailer-revenue', [
             'from' => today()->toDateString(),
             'to' => today()->toDateString(),
         ]))
@@ -702,12 +842,14 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
             ->assertJsonPath('0.opens', 1)
             ->assertJsonPath('0.clicks', 1)
             ->assertJsonPath('0.leads', 1)
+            ->assertJsonPath('0.deliveries', 0)
+            ->assertJsonPath('0.soft_bounces', 0)
+            ->assertJsonPath('0.hard_bounces', 0)
             ->assertJsonPath('0.unsubscribes', 1)
             ->assertJsonPath('0.lead_revenue', 4.25)
             ->assertJsonMissingPath('0.email');
 
-        $this->get(route('console.analytics.isp-stats', [
-            $workspace->getKey(),
+        $this->get(route('clean.console.analytics.isp-stats', [
             'from' => today()->toDateString(),
             'to' => today()->toDateString(),
             'isp_id' => $isp->getKey(),
@@ -722,8 +864,7 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
             ->assertSee('Example ISP')
             ->assertDontSee('<!DOCTYPE html>');
 
-        $this->get(route('console.analytics.mailer-revenue', [
-            $workspace->getKey(),
+        $this->get(route('clean.console.analytics.mailer-revenue', [
             'from' => today()->toDateString(),
             'to' => today()->toDateString(),
             'fragment' => 1,
@@ -756,5 +897,38 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
             'revenue' => $revenue,
             'isp_id' => $ispId,
         ]);
+    }
+
+    /** @return array<int, array<int, string>> */
+    private function reportTableRows(string $html): array
+    {
+        $previousErrors = libxml_use_internal_errors(true);
+        $document = new \DOMDocument;
+        $document->loadHTML($html);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousErrors);
+
+        $xpath = new \DOMXPath($document);
+        $rows = $xpath->query('//*[@id="analytics-report-results"]//table[contains(concat(" ", normalize-space(@class), " "), " table-striped ")]/tbody/tr');
+
+        return array_map(function (\DOMElement $row): array {
+            $cells = [];
+            foreach ($row->childNodes as $cell) {
+                if ($cell instanceof \DOMElement && in_array(strtolower($cell->tagName), ['th', 'td'], true)) {
+                    $cells[] = trim(preg_replace('/\s+/', ' ', $cell->textContent) ?? '');
+                }
+            }
+
+            return $cells;
+        }, iterator_to_array($rows));
+    }
+
+    /** @return array{labels: array<int, string>, totals: array<int, array<string, int|float>>, mailers: array<int, array{label: string, values: array<string, array<int, int|float>>}>} */
+    private function ispChartData(string $html): array
+    {
+        $matched = preg_match('~<script type="application/json" data-isp-stats-chart-data>(.*?)</script>~s', $html, $matches);
+        $this->assertSame(1, $matched, 'The rendered ISP report must expose its chart data for the page behavior.');
+
+        return json_decode($matches[1], true, 512, JSON_THROW_ON_ERROR);
     }
 }

@@ -8,8 +8,20 @@ from audit.tools.dms_reference_readonly_relay import (
     CLOUD_PROVIDERS_INDEX_PAGE_PATH,
     DOMAINS_INDEX_PAGE_PATH,
     DOMAIN_PROVIDERS_INDEX_PAGE_PATH,
+    ENCODING_PAGE_PATH,
+    ENCODING_POPUP_PAGE_PATH,
+ENCODING_PAGE_PATHS,
+SPF_DOMAINS_PAGE_PATH,
+SPF_PAGE_PATHS,
+SPF_SCANNER_PAGE_PATH,
     GLOBAL_TESTS_PAGE_PATH,
     GLOBAL_TEST_HISTORIES_PAGE_PATH,
+    GMAIL_PROJECTS_PAGE_PATH,
+    GMAIL_PROJECTS_CREATE_PAGE_PATH,
+    GMAIL_ACCOUNTS_PAGE_PATH,
+    GMAIL_ACCOUNTS_CREATE_PAGE_PATH,
+    GMAIL_WORKSPACE_PAGE_PATHS,
+    TEXT_MECHANIC_PAGE_PATH,
     WARMUPS_INDEX_PAGE_PATH,
     WARMUPS_CREATE_PAGE_PATH,
     WARMUPS_PROCESSES_PAGE_PATH,
@@ -44,6 +56,11 @@ from audit.tools.dms_reference_readonly_relay import (
     is_protected_campaign_catalog_request,
     is_protected_global_test_data_request,
     sanitize_dms_global_tests_html,
+    sanitize_dms_gmail_workspace_html,
+    is_protected_spf_data_request,
+    sanitize_dms_spf_html,
+    synthetic_empty_spf_response,
+    sanitize_dms_text_mechanic_html,
     sanitize_dms_warmup_html,
     synthetic_empty_global_test_response,
     is_protected_warmup_data_request,
@@ -56,6 +73,267 @@ from audit.tools.dms_reference_readonly_relay import (
 
 
 class ReferenceListPrivacyTests(unittest.TestCase):
+    def test_gmail_workspace_pages_are_allowlisted_and_rows_are_blocked_or_sanitized(self):
+        self.assertEqual(GMAIL_WORKSPACE_PAGE_PATHS, {
+            GMAIL_PROJECTS_PAGE_PATH,
+            GMAIL_PROJECTS_CREATE_PAGE_PATH,
+            GMAIL_ACCOUNTS_PAGE_PATH,
+            GMAIL_ACCOUNTS_CREATE_PAGE_PATH,
+        })
+        self.assertTrue(GMAIL_WORKSPACE_PAGE_PATHS.issubset(READ_ONLY_PAGE_PATHS))
+        for path in {GMAIL_PROJECTS_PAGE_PATH, GMAIL_ACCOUNTS_PAGE_PATH}:
+            self.assertFalse(is_protected_table_data_query(path, ""))
+            self.assertTrue(is_protected_table_data_query(path, "draw=1&start=0"))
+            self.assertTrue(is_protected_table_data_query(path, "", "application/json"))
+            self.assertTrue(is_protected_table_data_query(path, "", requested_with="XMLHttpRequest"))
+        for path in {GMAIL_PROJECTS_CREATE_PAGE_PATH, GMAIL_ACCOUNTS_CREATE_PAGE_PATH}:
+            self.assertFalse(is_protected_table_data_query(path, ""))
+            self.assertFalse(is_protected_table_data_query(path, "?return=private"))
+
+        source = (
+            '<html><head><title>Gmail Projects</title>'
+            '<meta name="csrf-token" content="private-csrf"></head><body>'
+            '<nav id="page-header-user-dropdown">private operator@example.com</nav>'
+            '<h1>GMAIL PROJECTS</h1><button>ADD PROJECT</button>'
+            '<form action="/mailer/gcampaigns/projects" onsubmit="privateSubmit()">'
+            '<input type="hidden" name="_token" value="private-token">'
+            '<input id="admin" value="owner@example.com">'
+            '<select><option value="project-91">private-project@example.com</option></select>'
+            '<textarea>private service account JSON</textarea></form>'
+            '<table><thead><tr><th>Project</th><th>Status</th></tr></thead>'
+            '<tbody><tr><td>project-91</td><td>secret-tenant-name</td></tr></tbody></table>'
+            '<script>const secret="inline-private-script"; const config={project_id:91, email:"inside@example.com", service_account_json:"private-key-material"}; fetch("/mailer/gcampaigns/projects/91/sync");</script>'
+            '<script src="/assets/gcampaign-projects.js?v=private-query"></script>'
+            '</body></html>'
+        )
+
+        result = rewrite_document(source, "text/html", f"{REFERENCE_ORIGIN}{GMAIL_PROJECTS_PAGE_PATH}")
+
+        for private_value in (
+            "private-csrf", "private-token", "owner@example.com", "private-project@example.com",
+            "private service account JSON", "project-91", "secret-tenant-name", "inline-private-script",
+            "private-query", "privateSubmit", "private operator@example.com", "inside@example.com",
+            "private-key-material",
+        ):
+            self.assertNotIn(private_value, result)
+        self.assertIn("GMAIL PROJECTS", result)
+        self.assertIn("ADD PROJECT", result)
+        self.assertIn("Project</th>", result)
+        self.assertNotRegex(result, r"<script\b")
+        self.assertIn('<template data-reference-script-path="/assets/gcampaign-projects.js"></template>', result)
+        self.assertIn('data-reference-inline-script="1"', result)
+        self.assertIn("fetch(&quot;/mailer/gcampaigns/projects/[redacted]/sync&quot;)", result)
+        self.assertNotIn("projects/91/sync", result)
+
+    def test_gmail_create_pages_keep_only_sanitized_form_structure(self):
+        examples = {
+            GMAIL_PROJECTS_CREATE_PAGE_PATH: "Create Gmail Project",
+            GMAIL_ACCOUNTS_CREATE_PAGE_PATH: "Create Gmail Account",
+        }
+        for path, title in examples.items():
+            with self.subTest(path=path):
+                source = (
+                    f"<html><head><title>{title}</title><meta name='csrf-token' content='secret-token'></head><body>"
+                    '<form action="/mailer/gcampaigns/private-action" onsubmit="submitPrivate()">'
+                    '<input id="s3" type="checkbox"><label>S3</label>'
+                    '<label>Delegated email</label><input id="name" name="name" value="private-project-name">'
+                    '<label>Credentials</label><textarea>private credential material</textarea>'
+                    '<input id="client_id" name="client_id" value="private-client-id">'
+                    '<input id="client_secret" name="client_secret" value="private-client-secret">'
+                    '<textarea id="secret_admin" name="secret_admin">private admin credential</textarea>'
+                    '<label>Allowed Mailers : CHECK</label>'
+                    '<div class="custom-control custom-checkbox"><input type="checkbox" name="checked_users" value="user-91">'
+                    '<label>private-user-label</label></div>'
+                    '<select id="api_type" name="api_type"><option value="users">users</option>'
+                    '<option value="workspace">workspace</option>'
+                    '<option value="project-91">private-project-name</option></select>'
+                    '<select><option value="private-option">Private option</option></select>'
+                    '<button id="check">CHECK</button><button id="save">SAVE</button>'
+                    '<input id="link" name="link" value="private-link"><button id="sync">SYNC</button>'
+                    '<input type="hidden" name="_token" value="secret-token"></form>'
+                    '<script>const email="private@example.test"; const token="private-token"; '
+                    'const checked_users=[{id:91,username:"private-user-label"}];</script>'
+                    '</body></html>'
+                )
+                result = rewrite_document(source, "text/html", f"{REFERENCE_ORIGIN}{path}")
+
+                self.assertIn(title, result)
+                self.assertIn("Delegated email", result)
+                self.assertIn("Credentials", result)
+                self.assertIn("Allowed Mailers : CHECK", result)
+                if path == GMAIL_PROJECTS_CREATE_PAGE_PATH:
+                    self.assertIn("<option>Users</option>", result)
+                    self.assertIn("<option>Workspace</option>", result)
+                    for control_id in ("s3", "api_type", "name", "client_id", "client_secret", "secret_admin", "check", "save", "link", "sync"):
+                        self.assertIn(f'id="{control_id}"', result)
+                else:
+                    self.assertNotIn("<option>", result)
+                for private_value in (
+                    "private@example.test", "private credential material", "Private option", "project-91",
+                    "secret-token", "private-token", "private-action", "submitPrivate",
+                    "private-project-name", "checked_users", "user-91", "private-user-label",
+                ):
+                    self.assertNotIn(private_value, result)
+                self.assertIn('name="name"', result)
+                self.assertNotRegex(result, r"<script\b")
+                self.assertNotIn("data-reference-inline-script", result)
+
+    def test_gmail_create_sanitizer_fails_closed_for_uncontained_user_controls(self):
+        source = (
+            '<html><title>Create Gmail Project</title><form>'
+            '<input type="checkbox" name="checked_users" value="private-user">'
+            '</form></html>'
+        )
+        with self.assertRaisesRegex(ValueError, "private checked_users control"):
+            sanitize_dms_gmail_workspace_html(source, GMAIL_PROJECTS_CREATE_PAGE_PATH)
+
+    def test_gmail_workspace_sanitizer_fails_closed_for_an_unexpected_page(self):
+        with self.assertRaises(ValueError):
+            sanitize_dms_gmail_workspace_html("<main>Unexpected page</main>", GMAIL_PROJECTS_PAGE_PATH)
+
+    def test_encoding_get_pages_are_allowlisted_without_the_post_action(self):
+        self.assertEqual(ENCODING_PAGE_PATHS, {ENCODING_PAGE_PATH, ENCODING_POPUP_PAGE_PATH})
+        self.assertTrue(ENCODING_PAGE_PATHS.issubset(READ_ONLY_PAGE_PATHS))
+        self.assertNotIn('/mailer/tools/encoding/encode', READ_ONLY_PAGE_PATHS)
+
+    def test_text_mechanic_page_is_allowlisted_and_sanitized_as_static_evidence(self):
+        self.assertIn(TEXT_MECHANIC_PAGE_PATH, READ_ONLY_PAGE_PATHS)
+        source = (
+            '<html><head><title>Text Mechanic</title>'
+            '<meta name="csrf-token" content="private-csrf-meta">'
+            '<meta name="csrf-param" content="private-csrf-param"></head><body>'
+            '<nav id="page-header-user-dropdown"><span>private account</span></nav>'
+            '<h1>TEXT MECHANIC</h1><label for="text">Text</label>'
+            '<p>2001:db8::1</p>'
+            '<input id="token" type="hidden" value="private-token">'
+            '<input id="text" value="private@example.net">'
+            '<textarea id="source">private message body</textarea>'
+            '<select id="mode"><option value="private">private option</option></select>'
+            '<button onclick="privateAction()">SORT</button>'
+            '<button id="copy" data-clipboard-target="#text">COPY</button>'
+            '<table><tr><th>Output</th></tr><tr><td>private@example.net</td></tr></table>'
+            "<script>function sortLines(){return document.getElementById('text').value.split('\\n').sort().join('\\n');}"
+            "const csrfToken='private-csrf'; const url='/check?token=private-query'; const ip6='2001:db8::1';"
+            "// private@example.net privateInlineBehavior</script>"
+            '<script src="/assets/text-mechanic.js"></script>'
+            '<script src="https://untrusted.example/private.js"></script>'
+            '</body></html>'
+        )
+
+        result = rewrite_document(
+            source,
+            "text/html",
+            f"{REFERENCE_ORIGIN}{TEXT_MECHANIC_PAGE_PATH}",
+        )
+
+        for private_value in (
+            "private account",
+            "private-token",
+            "private@example.net",
+            "private message body",
+            "private option",
+            "privateAction",
+            "privateInlineBehavior",
+            "2001:db8::1",
+            "private-csrf",
+            "private-query",
+            "private-csrf-meta",
+            "private-csrf-param",
+            "untrusted.example",
+        ):
+            self.assertNotIn(private_value, result)
+        self.assertIn("Text Mechanic", result)
+        self.assertIn("SORT", result)
+        self.assertIn('data-clipboard-target="#text"', result)
+        self.assertIn("<textarea id=\"source\"></textarea>", result)
+        self.assertNotRegex(result, r"<script\b")
+        self.assertIn('<template data-reference-script-path="/assets/text-mechanic.js"></template>', result)
+        self.assertIn('data-reference-inline-script="1"', result)
+        self.assertIn("sortLines", result)
+
+    def test_text_mechanic_sanitizer_fails_closed_for_unexpected_page(self):
+        with self.assertRaises(ValueError):
+            sanitize_dms_text_mechanic_html(
+                "<html><body><h1>Unexpected page</h1></body></html>",
+                f"{REFERENCE_ORIGIN}{TEXT_MECHANIC_PAGE_PATH}",
+            )
+
+    def test_spf_pages_are_allowlisted_but_all_saved_search_data_is_blocked(self):
+        self.assertEqual(SPF_PAGE_PATHS, {SPF_SCANNER_PAGE_PATH, SPF_DOMAINS_PAGE_PATH})
+        self.assertTrue(SPF_PAGE_PATHS.issubset(READ_ONLY_PAGE_PATHS))
+        self.assertTrue(is_protected_spf_data_request(SPF_SCANNER_PAGE_PATH, "ips=198.51.100.7"))
+        self.assertTrue(is_protected_spf_data_request(SPF_DOMAINS_PAGE_PATH, "search=private"))
+        self.assertTrue(is_protected_spf_data_request(f"{SPF_SCANNER_PAGE_PATH}/records", "id=91"))
+        self.assertFalse(is_protected_spf_data_request(SPF_SCANNER_PAGE_PATH, ""))
+        self.assertFalse(is_protected_spf_data_request(SPF_DOMAINS_PAGE_PATH, ""))
+        self.assertNotIn(f"{SPF_SCANNER_PAGE_PATH}/search", READ_ONLY_PAGE_PATHS)
+        self.assertEqual(
+            synthetic_empty_spf_response("draw=3&start=0"),
+            b'{"draw": 3, "recordsTotal": 0, "recordsFiltered": 0, "data": []}',
+        )
+        self.assertEqual(synthetic_empty_spf_response("id=91"), b'{"data": []}')
+
+    def test_spf_page_capture_removes_saved_values_rows_tokens_and_scripts(self):
+        source = (
+            '<html><head><title>SPF Scanner - DMS</title>'
+            '<meta name="csrf-token" content="private-csrf"></head><body>'
+            '<nav id="page-header-user-dropdown">private-account</nav>'
+            '<h1>SPF Scanner</h1><span>ROOTS 3,400 HOSTS 6,700 CIDRS 8</span>'
+            '<p>Resolver example: 2001:db8::42</p>'
+            '<p>Loopback example: ::1</p>'
+            '<p>IPv4-mapped example: ::ffff:192.0.2.128</p>'
+            '<form action="/mailer/tools/spf-scanner/search">'
+            '<input id="ip" value="198.51.100.7"><input type="hidden" value="private-token">'
+            '<textarea id="domains">private.example.net</textarea>'
+            '<select id="server"><option value="server-secret">private.example.net</option></select>'
+            '<button onclick="submitPrivateSearch()" data-domain="private.example.net">SEARCH</button>'
+            '<table><tr><th>Domain</th><th>SPF</th></tr>'
+            '<tr><td>private.example.net</td><td>v=spf1 ip4:198.51.100.7 -all</td></tr></table>'
+            '<pre>v=spf1 ip4:198.51.100.7 -all</pre>'
+            '<script src="/assets/spf-scanner.js?cache-buster=private"></script>'
+            '<script src="//external.example/private.js"></script>'
+            '<script>const privateDomain = "private.example.net";</script></body></html>'
+        )
+
+        result = rewrite_document(source, "text/html", f"{REFERENCE_ORIGIN}{SPF_SCANNER_PAGE_PATH}")
+
+        for private_value in (
+            "private-csrf", "private-account", "private-token", "private.example.net",
+            "198.51.100.7", "server-secret", "submitPrivateSearch", "privateDomain",
+            "2001:db8::42", "::1", "::ffff:192.0.2.128", "192.0.2.128",
+            "v=spf1", "3,400", "6,700", "cache-buster=private", "external.example",
+        ):
+            self.assertNotIn(private_value, result)
+        self.assertIn("SPF Scanner", result)
+        self.assertIn("SEARCH", result)
+        self.assertIn("[redacted-ipv6]", result)
+        self.assertIn('<template data-reference-script-path="/assets/spf-scanner.js"></template>', result)
+        self.assertNotRegex(result, r"<script\b|action=|on[a-z]+=|data-domain=")
+        self.assertIn('<textarea id="domains"></textarea>', result)
+        self.assertIn('<table><tr><th>Domain</th><th>SPF</th></tr></table>', result)
+
+    def test_spf_sanitizer_fails_closed_for_unexpected_page_or_path(self):
+        with self.assertRaises(ValueError):
+            sanitize_dms_spf_html("<h1>Unexpected page</h1>", SPF_SCANNER_PAGE_PATH)
+        with self.assertRaises(ValueError):
+            sanitize_dms_spf_html("<h1>SPF Domains</h1>", "/mailer/tools/spf-scanner/export")
+
+    def test_spf_domains_capture_redacts_live_pagination_and_record_totals(self):
+        source = (
+            '<html><title>Spf Domains - DMS</title><h1>SCANNED SPF ROOTS</h1>'
+            '<div>Page <span>1</span> of <span>960000</span> (<b>24,000,000</b> records)</div>'
+            '<ul class="pagination"><li><a href="?page=959999">959999</a></li></ul>'
+            '<table><tr><th>DOMAIN</th><th>STATUS</th></tr>'
+            '<tr><td>private.example.net</td><td>OK</td></tr></table></html>'
+        )
+
+        result = rewrite_document(source, "text/html", f"{REFERENCE_ORIGIN}{SPF_DOMAINS_PAGE_PATH}")
+
+        for private_value in ("960000", "24,000,000", "959999", "private.example.net", "page=959999"):
+            self.assertNotIn(private_value, result)
+        self.assertIn("Page 1 of 1 (0 records)", result)
+        self.assertIn('<table><tr><th>DOMAIN</th><th>STATUS</th></tr></table>', result)
+
     def test_warmup_pages_are_allowlisted_and_dynamic_rows_are_intercepted(self):
         self.assertTrue(WARMUP_PAGE_PATHS.issubset(READ_ONLY_PAGE_PATHS))
         self.assertEqual(len(WARMUP_PAGE_PATHS), 7)

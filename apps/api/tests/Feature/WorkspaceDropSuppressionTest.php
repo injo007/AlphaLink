@@ -32,10 +32,19 @@ class WorkspaceDropSuppressionTest extends TestCase
 {
     use RefreshDatabase;
 
+    private mixed $originalContactLookupKey;
+
     protected function setUp(): void
     {
         parent::setUp();
+        $this->originalContactLookupKey = config('alphalink.contact_lookup_key');
         Storage::fake('local');
+    }
+
+    protected function tearDown(): void
+    {
+        config(['alphalink.contact_lookup_key' => $this->originalContactLookupKey]);
+        parent::tearDown();
     }
 
     public function test_page_and_catalog_reproduce_sponsor_offer_isp_list_filters_and_active_history_total(): void
@@ -184,13 +193,25 @@ class WorkspaceDropSuppressionTest extends TestCase
 
     public function test_start_persists_only_stale_lists_and_processor_writes_offer_list_exclusions_used_by_campaign_snapshots(): void
     {
+        config(['alphalink.contact_lookup_key' => str_repeat('synthetic-drop-suppression-key-', 2)]);
         Queue::fake();
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner, 'owner');
-        [$sponsor, $offer, $isp, $list] = $this->eligibleScope($workspace, $owner, "blocked@example.test\n");
+        [$sponsor, $offer, $isp, $list] = $this->eligibleScope($workspace, $owner, null);
         $this->history($workspace, $list, 2);
         $blocked = $this->contact($workspace, $list, 'blocked@example.test');
         $eligible = $this->contact($workspace, $list, 'eligible@example.test');
+
+        $this->actingAs($owner)->post(route('console.drops.suppression.offer-file', $workspace->getKey()), [
+            'sponsor_id' => $sponsor->getKey(),
+            'offer_id' => $offer->getKey(),
+            'suppression_file' => UploadedFile::fake()->createWithContent('suppression.txt', "blocked@example.test\n"),
+        ], ['Accept' => 'application/json'])
+            ->assertOk()
+            ->assertJsonPath('data.entry_count', 1)
+            ->assertJsonPath('data.can_run_suppression', true);
+        $offer->refresh();
+        $this->assertSame("blocked@example.test\n", Storage::disk('local')->get($offer->suppression_path));
 
         $this->actingAs($owner)->postJson(route('console.drops.suppression.start', $workspace->getKey()), [
             'sponsor' => $sponsor->getKey(),
@@ -540,7 +561,9 @@ class WorkspaceDropSuppressionTest extends TestCase
         $contact = Contact::query()->create([
             'workspace_id' => $workspace->getKey(),
             'email' => $email,
-            'email_lookup_hash' => hash('sha256', mb_strtolower($email)),
+            'email_lookup_hash' => is_string(config('alphalink.contact_lookup_key')) && strlen((string) config('alphalink.contact_lookup_key')) >= 32
+                ? hash_hmac('sha256', mb_strtolower($email), (string) config('alphalink.contact_lookup_key'))
+                : hash('sha256', mb_strtolower($email)),
             'lookup_key_version' => 1,
             'status' => 'active',
             'idempotency_key' => (string) Str::uuid(),

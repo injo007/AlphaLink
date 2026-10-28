@@ -1,5 +1,6 @@
 @php
     $ispChartMetrics = [
+        'deliveries' => ['title' => 'DELIVERIES BY MAILER', 'format' => 'count'],
         'opens' => ['title' => 'OPENS BY MAILER', 'format' => 'count'],
         'clicks' => ['title' => 'CLICKS BY MAILER', 'format' => 'count'],
         'leads' => ['title' => 'LEADS BY MAILER', 'format' => 'count'],
@@ -21,16 +22,16 @@
                 <table class="table table-sm table-hover table-bordered mb-0" data-isp-sortable>
                     <caption class="sr-only">Engagement totals by period</caption>
                     <thead><tr>
-                        @foreach (['PERIOD', 'OPENS', 'CLICKS', 'LEADS', 'UNSUBSCRIBES', 'ATTRIBUTED LEAD REVENUE'] as $column => $label)
+                        @foreach (['PERIOD', 'DELIVERIES', 'OPENS', 'CLICKS', 'LEADS', 'UNSUBSCRIBES', 'ATTRIBUTED LEAD REVENUE'] as $column => $label)
                             <th scope="col"><button type="button" class="isp-sort-trigger" data-isp-sort-column="{{ $column }}" data-sort-type="{{ $column === 0 ? 'text' : 'number' }}" aria-label="Sort by {{ $label }}">{{ $label }} <span class="isp-sort-indicator" aria-hidden="true">↕</span></button></th>
                         @endforeach
                     </tr></thead>
                     <tbody>
                         @forelse ($chartData['labels'] as $index => $label)
                             @php($totals = $chartData['totals'][$index])
-                            <tr><th scope="row">{{ $label }}</th><td class="text-right" data-sort-value="{{ $totals['opens'] }}">{{ number_format($totals['opens']) }}</td><td class="text-right" data-sort-value="{{ $totals['clicks'] }}">{{ number_format($totals['clicks']) }}</td><td class="text-right" data-sort-value="{{ $totals['leads'] }}">{{ number_format($totals['leads']) }}</td><td class="text-right" data-sort-value="{{ $totals['unsubscribes'] }}">{{ number_format($totals['unsubscribes']) }}</td><td class="text-right" data-sort-value="{{ $totals['lead_revenue'] }}">${{ number_format($totals['lead_revenue'], 2) }}</td></tr>
+                            <tr><th scope="row">{{ $label }}</th><td class="text-right" data-sort-value="{{ $totals['deliveries'] }}">{{ number_format($totals['deliveries']) }}</td><td class="text-right" data-sort-value="{{ $totals['opens'] }}">{{ number_format($totals['opens']) }}</td><td class="text-right" data-sort-value="{{ $totals['clicks'] }}">{{ number_format($totals['clicks']) }}</td><td class="text-right" data-sort-value="{{ $totals['leads'] }}">{{ number_format($totals['leads']) }}</td><td class="text-right" data-sort-value="{{ $totals['unsubscribes'] }}">{{ number_format($totals['unsubscribes']) }}</td><td class="text-right" data-sort-value="{{ $totals['lead_revenue'] }}">${{ number_format($totals['lead_revenue'], 2) }}</td></tr>
                         @empty
-                            <tr><td colspan="6" class="text-center text-muted">No engagement or attributed campaign leads are recorded for this ISP and date range.</td></tr>
+                            <tr><td colspan="7" class="text-center text-muted">No delivery, engagement, or attributed campaign lead rows are recorded for this ISP and date range.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

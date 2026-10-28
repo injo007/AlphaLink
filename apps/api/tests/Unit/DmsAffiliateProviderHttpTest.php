@@ -27,7 +27,6 @@ class DmsAffiliateProviderHttpTest extends TestCase
                     'https://cdn.example.test/large-suppression.txt',
                     $path,
                     [],
-                    100_000,
                     function (int $downloaded, ?int $total) use (&$progress): void {
                         $progress[] = [$downloaded, $total];
                     },

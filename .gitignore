@@ -12,6 +12,9 @@
 /apps/api/public/build/
 /apps/api/storage/*.key
 /apps/api/storage/logs/*.log
+/apps/api/storage/framework/tmp/
+/apps/api/storage/framework/uploads/
+/apps/api/storage/framework/nginx-body/
 /apps/api/bootstrap/cache/*.php
 /pmta.zip
 /pmta/

@@ -15,6 +15,7 @@ use App\Services\Audiences\ImportAudienceListContacts;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -105,6 +106,28 @@ class AudienceListImportTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.status', 'active');
         $this->assertDatabaseCount('contact_list_memberships', 3);
+    }
+
+    public function test_snapshot_migration_refuses_rollback_before_schema_changes_when_contact_has_multiple_list_memberships(): void
+    {
+        $firstList = $this->makeList('First rollback guard list');
+        $secondList = $this->makeList('Second rollback guard list');
+        $this->postJson($this->importUrl($firstList), ['addresses' => 'shared@example.test'])
+            ->assertAccepted();
+        $this->postJson($this->importUrl($secondList), ['addresses' => 'shared@example.test'])
+            ->assertAccepted();
+        $migration = require database_path('migrations/2026_10_24_031710_create_campaign_recipient_snapshots_tables.php');
+
+        try {
+            $migration->down();
+            $this->fail('Expected the snapshot migration rollback to refuse the single-List constraint.');
+        } catch (\RuntimeException $exception) {
+            $this->assertStringContainsString('Use a forward migration', $exception->getMessage());
+        }
+
+        $this->assertSame(2, ContactListMembership::query()->count());
+        $this->assertTrue(Schema::hasTable('campaign_recipient_snapshots'));
+        $this->assertTrue(Schema::hasTable('campaign_recipient_snapshot_items'));
     }
 
     public function test_import_does_not_reactivate_an_opt_out_membership(): void

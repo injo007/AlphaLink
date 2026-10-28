@@ -120,7 +120,7 @@ class DmsAffiliateProviderHttp
     }
 
     /**
-     * Stream a bounded response to a private temporary file while reporting progress.
+     * Stream a response to a private temporary file while reporting progress.
      * Each redirect is validated and DNS-pinned independently; credentials are removed
      * whenever the origin changes.
      *
@@ -131,7 +131,6 @@ class DmsAffiliateProviderHttp
         string $url,
         string $destination,
         array $headers = [],
-        int $maximumBytes = 1_073_741_824,
         ?Closure $onProgress = null,
     ): ?int {
         $initial = parse_url($url);
@@ -146,14 +145,11 @@ class DmsAffiliateProviderHttp
 
         try {
             for ($redirect = 0; $redirect <= 4; $redirect++) {
-                $request = $this->pendingRequest($currentUrl)
+                $request = $this->pendingRequest($currentUrl, timeoutSeconds: 0)
                     ->withHeaders($currentHeaders)
                     ->withOptions([
                         'sink' => $destination,
-                        'progress' => static function (float $downloadTotal, float $downloaded) use ($maximumBytes, $onProgress): void {
-                            if ($downloaded > $maximumBytes) {
-                                throw new \RuntimeException('The sponsor suppression file exceeds the configured size limit.');
-                            }
+                        'progress' => static function (float $downloadTotal, float $downloaded) use ($onProgress): void {
                             if ($onProgress !== null) {
                                 $onProgress((int) $downloaded, $downloadTotal > 0 ? (int) $downloadTotal : null);
                             }
@@ -189,11 +185,7 @@ class DmsAffiliateProviderHttp
                 clearstatcache(true, $destination);
                 $bytes = is_file($destination) ? filesize($destination) : false;
                 $contentLength = $response->header('Content-Length');
-                if (! $response->successful()
-                    || ! is_int($bytes)
-                    || $bytes < 1
-                    || $bytes > $maximumBytes
-                    || (is_numeric($contentLength) && (int) $contentLength > $maximumBytes)) {
+                if (! $response->successful() || ! is_int($bytes) || $bytes < 1) {
                     return null;
                 }
 
@@ -247,7 +239,7 @@ class DmsAffiliateProviderHttp
         return $origin.$directory.$location;
     }
 
-    private function pendingRequest(string $url): PendingRequest
+    private function pendingRequest(string $url, int $timeoutSeconds = 25): PendingRequest
     {
         $parts = parse_url($url);
         $host = is_array($parts) ? strtolower(rtrim((string) ($parts['host'] ?? ''), '.')) : '';
@@ -280,7 +272,7 @@ class DmsAffiliateProviderHttp
             }
         }
 
-        return Http::timeout(25)
+        return Http::timeout($timeoutSeconds)
             ->connectTimeout(7)
             ->withoutRedirecting()
             ->withOptions(['resolve' => [$host.':443' => $addresses[0]]]);

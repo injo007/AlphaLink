@@ -30,16 +30,17 @@ class DmsSpfScannerTest extends TestCase
     {
         [$owner, $workspace] = $this->workspace();
 
-        $this->actingAs($owner)->get(route('console.tools.spf.index', $workspace->id))
+        $this->actingAs($owner)->get(route('clean.console.tools.spf.index'))
             ->assertOk()->assertSee('SPF SCANNER')->assertSee('SCAN DOMAINS')->assertSee('MANUAL')
             ->assertSee('id="spf-search-results"', false)
             ->assertSee('serverSide: true', false)
             ->assertSee('pageLength: 200', false)
             ->assertSee('dms-reference/plugins/datatables/datatables.min.js', false)
-            ->assertSee(route('console.tools.spf.index', $workspace->id), false)
+            ->assertSee('<th>CIDR</th>', false)
+            ->assertSee(route('clean.console.tools.spf.index'), false)
             ->assertSee('aria-current="page"', false);
-        $this->actingAs($owner)->get(route('console.tools.spf.domains', $workspace->id))
-            ->assertOk()->assertSee('SPF DOMAINS')->assertSee('EXPORT CSV');
+        $this->actingAs($owner)->get(route('clean.console.tools.spf.domains'))
+            ->assertOk()->assertSee('SPF DOMAINS')->assertSee('EXPORT CSV')->assertSee('<th>SPF</th>', false);
     }
 
     public function test_manual_dns_scan_follows_includes_and_does_not_persist_manual_results(): void
@@ -213,6 +214,99 @@ class DmsSpfScannerTest extends TestCase
             ->assertJsonPath('data.0.root', 'alpha-two.example.test')
             ->assertJsonPath('data.0.include', 'shared.example.test')
             ->assertJsonPath('data.0.root_id', WorkspaceSpfRoot::query()->where('domain', 'alpha-two.example.test')->value('id'));
+    }
+
+    public function test_populated_domain_browser_filters_sorts_and_paginates_workspace_roots(): void
+    {
+        [$owner, $workspace] = $this->workspace();
+        foreach (['alpha-zeta.example.test', 'alpha-alpha.example.test', 'beta.example.test'] as $domain) {
+            WorkspaceSpfRoot::query()->create([
+                'workspace_id' => $workspace->id,
+                'domain' => $domain,
+                'status' => 'ok',
+                'record' => 'v=spf1 ip4:203.0.113.0/24 -all',
+                'cidrs' => ['203.0.113.0/24'],
+                'hosts' => [['domain' => $domain, 'record' => 'v=spf1 ip4:203.0.113.0/24 -all', 'cidrs' => ['203.0.113.0/24']]],
+            ]);
+        }
+        [, $otherWorkspace] = $this->workspace();
+        WorkspaceSpfRoot::query()->create([
+            'workspace_id' => $otherWorkspace->id,
+            'domain' => 'alpha-private.example.test',
+            'status' => 'ok',
+            'record' => 'v=spf1 -all',
+            'cidrs' => [],
+            'hosts' => [],
+        ]);
+
+        $this->actingAs($owner)->get(route('clean.console.tools.spf.domains', [
+            'search' => 'alpha',
+            'sort' => 'domain',
+            'dir' => 'asc',
+            'per_page' => 25,
+        ]))->assertOk()
+            ->assertSeeInOrder(['alpha-alpha.example.test', 'alpha-zeta.example.test'])
+            ->assertDontSee('beta.example.test')
+            ->assertDontSee('alpha-private.example.test')
+            ->assertSee('name="search" value="alpha"', false)
+            ->assertSee('name="per_page"', false)
+            ->assertSee('VIEW RECORD');
+    }
+
+    public function test_populated_root_record_view_and_csv_export_are_workspace_scoped(): void
+    {
+        [$owner, $workspace] = $this->workspace();
+        $root = WorkspaceSpfRoot::query()->create([
+            'workspace_id' => $workspace->id,
+            'domain' => 'alpha.example.test',
+            'status' => 'ok',
+            'record' => 'v=spf1 include:_spf.alpha.example.test -all',
+            'cidrs' => ['192.0.2.0/24'],
+            'hosts' => [[
+                'domain' => '_spf.alpha.example.test',
+                'record' => 'v=spf1 ip4:192.0.2.0/24 -all',
+                'status' => 'ok',
+                'cidrs' => ['192.0.2.0/24'],
+            ]],
+        ]);
+        WorkspaceSpfRoot::query()->create([
+            'workspace_id' => $workspace->id,
+            'domain' => 'beta.example.test',
+            'status' => 'no_spf',
+            'record' => null,
+            'cidrs' => [],
+            'hosts' => [],
+        ]);
+        [, $otherWorkspace] = $this->workspace();
+        $privateRoot = WorkspaceSpfRoot::query()->create([
+            'workspace_id' => $otherWorkspace->id,
+            'domain' => 'alpha-private.example.test',
+            'status' => 'ok',
+            'record' => 'v=spf1 -all',
+            'cidrs' => [],
+            'hosts' => [],
+        ]);
+
+        $this->actingAs($owner)->getJson(route('console.tools.spf.records', [
+            'workspace' => $workspace->id,
+            'id' => $root->id,
+        ]))->assertOk()
+            ->assertJsonPath('record', 'v=spf1 include:_spf.alpha.example.test -all')
+            ->assertJsonPath('hosts.0.domain', '_spf.alpha.example.test')
+            ->assertJsonPath('hosts.0.record', 'v=spf1 ip4:192.0.2.0/24 -all');
+
+        $this->actingAs($owner)->getJson(route('console.tools.spf.records', [
+            'workspace' => $workspace->id,
+            'id' => $privateRoot->id,
+        ]))->assertNotFound();
+
+        $csv = $this->actingAs($owner)->get(route('console.tools.spf.export', [
+            'workspace' => $workspace->id,
+            'search' => 'alpha',
+        ]))->assertOk()->streamedContent();
+        $this->assertStringContainsString('alpha.example.test', $csv);
+        $this->assertStringNotContainsString('beta.example.test', $csv);
+        $this->assertStringNotContainsString('alpha-private.example.test', $csv);
     }
 
     public function test_scanner_routes_are_workspace_scoped_and_validate_dms_limits(): void

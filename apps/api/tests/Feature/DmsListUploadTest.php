@@ -8,6 +8,7 @@ use App\Models\Contact;
 use App\Models\ContactListMembership;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\Audiences\AudienceMembershipFilterIndexer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
@@ -100,6 +101,17 @@ class DmsListUploadTest extends TestCase
             ->sole();
         $this->assertSame($alice->profile, $firstListProfile->profile);
         $this->assertStringNotContainsString('Alice', (string) $firstListProfile->getRawOriginal('profile'));
+        $expectedIndexes = app(AudienceMembershipFilterIndexer::class)->values(
+            $this->workspace->getKey(),
+            $firstList->getKey(),
+            $firstListProfile->profile,
+            $alice->email,
+        );
+        $this->assertSame($expectedIndexes['profile_sex_index'], $firstListProfile->profile_sex_index);
+        $this->assertSame($expectedIndexes['email_domain_index'], $firstListProfile->email_domain_index);
+        $this->assertSame(1, $firstListProfile->attribute_index_version);
+        $this->assertStringNotContainsString('alice@example.test', json_encode($firstListProfile->getAttributes(), JSON_THROW_ON_ERROR));
+        $this->assertStringNotContainsString('F', (string) $firstListProfile->profile_sex_index);
 
         $this->from($this->uploadUrl($secondList))
             ->post($this->uploadUrl($secondList), [
@@ -123,6 +135,51 @@ class DmsListUploadTest extends TestCase
         $this->assertSame(['first_name' => 'Alice'], $secondListProfile->profile);
         $this->assertSame('retail', $firstListProfile->profile['vertical']);
         $this->assertStringNotContainsString('retail', json_encode($secondListProfile->profile, JSON_THROW_ON_ERROR));
+    }
+
+    public function test_legacy_memberships_can_be_backfilled_without_exposing_contact_attributes(): void
+    {
+        $list = $this->makeList('Legacy index list');
+        $memberships = [];
+        foreach (['legacy@example.test', 'second@example.test'] as $email) {
+            $contact = Contact::query()->create([
+                'workspace_id' => $this->workspace->getKey(),
+                'email' => $email,
+                'email_lookup_hash' => hash_hmac('sha256', $email, str_repeat('k', 32)),
+                'lookup_key_version' => 1,
+                'profile' => ['gender' => 'F'],
+                'status' => 'active',
+                'idempotency_key' => (string) Str::uuid(),
+            ]);
+            $memberships[] = ContactListMembership::query()->create([
+                'workspace_id' => $this->workspace->getKey(),
+                'audience_list_id' => $list->getKey(),
+                'contact_id' => $contact->getKey(),
+                'email_type' => 'fresh',
+                'status' => 'active',
+                'joined_at' => now(),
+                'profile' => null,
+            ]);
+        }
+
+        $this->artisan('app:backfill-audience-mix-filter-indexes', ['--chunk' => '2'])
+            ->expectsOutput('Processed 2 membership(s); backfilled 2; skipped 0 because the row changed or its contact is missing.')
+            ->assertExitCode(0);
+
+        foreach ($memberships as $membership) {
+            $membership->refresh();
+            $contact = $membership->contact;
+            $this->assertSame(1, $membership->attribute_index_version);
+            $this->assertSame(
+                app(AudienceMembershipFilterIndexer::class)->sexIndex($this->workspace->getKey(), $list->getKey(), ['gender' => 'F']),
+                $membership->profile_sex_index,
+            );
+            $this->assertSame(
+                app(AudienceMembershipFilterIndexer::class)->domainIndex($this->workspace->getKey(), $list->getKey(), (string) $contact->email),
+                $membership->email_domain_index,
+            );
+            $this->assertStringNotContainsString((string) $contact->email, json_encode($membership->getAttributes(), JSON_THROW_ON_ERROR));
+        }
     }
 
     public function test_invalid_typed_profile_data_aborts_the_file_before_any_rows_are_written(): void

@@ -63,7 +63,7 @@ function createPage(navigatorRef = {}) {
     };
 }
 
-test('Text Mechanic sorting preserves the DMS ordering rules and handles blank input', () => {
+test('Text Mechanic sorting follows the local natural-sort behavior and handles blank input', () => {
     const { page } = createPage();
 
     assert.equal(page.operations.sortAscending('server10\nserver2\nServer1\n\n'), 'Server1\nserver2\nserver10');
@@ -74,7 +74,18 @@ test('Text Mechanic sorting preserves the DMS ordering rules and handles blank i
     assert.equal(page.operations.sortByLength(''), '');
 });
 
-test('Text Mechanic shuffle, duplicate removal, and IP extraction preserve their DMS output shape', () => {
+test('Text Mechanic outputs match the inspected DMS line transformation rules', () => {
+    const { page } = createPage();
+
+    assert.equal(page.operations.sortAscending('Item10\nitem2\nItem1\r\n\n'), 'Item1\nitem2\nItem10');
+    assert.equal(page.operations.sortDescending('first\nsecond\r\n\n'), 'second\nfirst');
+    assert.equal(page.operations.sortByLength('zz\na\nbb\n'), 'a\nzz\nbb');
+    assert.equal(page.operations.sortRandom('a\n\nb\nc', () => 0), 'b\nc\na');
+    assert.equal(page.operations.removeDuplicates('Alpha\nalpha\nAlpha\n\n'), 'Alpha\nalpha\n');
+    assert.equal(page.operations.extractIps('no IPv4 address here'), '');
+});
+
+test('Text Mechanic shuffle, duplicate removal, and IP extraction preserve the local result shape', () => {
     const { page } = createPage();
     const shuffled = page.operations.sortRandom('alpha\n\nbeta\ngamma', () => 0).split('\n').sort();
 
@@ -83,6 +94,18 @@ test('Text Mechanic shuffle, duplicate removal, and IP extraction preserve their
     assert.equal(page.operations.removeDuplicates('A\na\nA\n\n'), 'A\na\n');
     assert.equal(page.operations.extractIps('from 192.0.2.1 to 10.0.0.1 and 192.0.2.1'), '192.0.2.1\n10.0.0.1');
     assert.equal(page.operations.extractIps('no address here'), '');
+});
+
+test('IP extraction preserves the captured DMS regex edge semantics', () => {
+    const { page } = createPage();
+
+    // The read-only DMS source capture has no token boundaries, and its dot is
+    // attached to only the last octet alternative. Keep the copied behavior
+    // explicit so a future cleanup does not silently change DMS parity.
+    assert.equal(
+        page.operations.extractIps('192.168.0.1 and 255.255.255.255\n999.1.1.1\n10.0.0.1'),
+        '192.168.0.1\n99.1.1.1\n10.0.0.1',
+    );
 });
 
 test('all nine toolbar actions are bound and update the text area or clipboard', async () => {

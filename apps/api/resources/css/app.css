@@ -1,3 +1,4 @@
+@import './analytics-charts.css';
 @import 'tailwindcss';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
@@ -609,72 +610,6 @@ a {
 .analytics-chart-panel,
 .analytics-list-panel {
     margin-top: 14px;
-}
-
-.analytics-line-chart {
-    margin: 0;
-}
-
-.analytics-line-chart__caption {
-    color: var(--color-muted);
-    font-size: 12px;
-}
-
-.analytics-line-chart__svg {
-    display: block;
-    width: 100%;
-    height: auto;
-    overflow: visible;
-}
-
-.analytics-line-chart__grid {
-    stroke: var(--color-border);
-    stroke-width: 1;
-}
-
-.analytics-line-chart__axis {
-    stroke: var(--color-muted);
-    stroke-width: 1;
-}
-
-.analytics-line-chart__axis-label {
-    fill: var(--color-muted);
-    font-family: var(--font-sans);
-    font-size: 12px;
-    font-variant-numeric: tabular-nums;
-}
-
-.analytics-line-chart__line {
-    fill: none;
-    stroke-width: 2.4;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
-
-.analytics-line-chart__point {
-    stroke: var(--color-surface);
-    stroke-width: 1.5;
-}
-
-.analytics-legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 13px;
-    padding: 13px 18px 4px;
-    color: var(--color-muted);
-    font-size: 10px;
-}
-
-.analytics-legend span {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.analytics-legend i {
-    width: 8px;
-    height: 8px;
-    border-radius: 2px;
 }
 
 .legend-open { background: #17685f; }
@@ -1316,6 +1251,12 @@ a {
     background: #f8d7da;
     font-size: 14px;
     line-height: 1.45;
+}
+
+.dms-login-success {
+    border-color: #badbcc;
+    color: #0f5132;
+    background: #d1e7dd;
 }
 
 .dms-login-form { display: grid; gap: 15px; }

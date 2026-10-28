@@ -31,8 +31,8 @@ class WorkspaceDropMonitoringTest extends TestCase
             ->assertSee('Drop Type')
             ->assertSee('FILTER')
             ->assertSee('drops-monitoring-table')
-            ->assertSee(route('console.drops.monitoring', $workspace->getKey()), false)
-            ->assertSee(route('console.pmta-admin.index', $workspace->getKey()), false)
+            ->assertSee($this->cleanWorkspaceUrl(route('console.drops.monitoring', $workspace->getKey())), false)
+            ->assertSee($this->cleanWorkspaceUrl(route('console.pmta-admin.index', $workspace->getKey())), false)
             ->assertSee('vendor/daterangepicker/daterangepicker.js')
             ->assertSee('drops-monitor.js');
     }
@@ -273,7 +273,7 @@ class WorkspaceDropMonitoringTest extends TestCase
             ->assertSee('VISITORS')
             ->assertSee('MAP')
             ->assertSee('drop-visitors-table')
-            ->assertSee(route('console.drops.visitors', [$workspace->getKey(), $drop->getKey()]), false)
+            ->assertSee($this->cleanWorkspaceUrl(route('console.drops.visitors', [$workspace->getKey(), $drop->getKey()])), false)
             ->assertSee('dms-reference/drops-visitors.js')
             ->assertSee('gstatic.com/charts/loader.js')
             ->assertSee("style-src 'self' 'unsafe-inline' https://www.gstatic.com", false);

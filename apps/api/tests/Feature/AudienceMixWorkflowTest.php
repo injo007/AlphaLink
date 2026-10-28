@@ -14,6 +14,7 @@ use App\Models\WorkspaceDrop;
 use App\Models\WorkspaceDropVisitor;
 use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceSponsor;
+use App\Services\Audiences\AudienceMembershipFilterIndexer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -139,6 +140,44 @@ class AudienceMixWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('MIX HISTORY')
             ->assertSee('mix_women with opens_2');
+    }
+
+    public function test_mix_sex_and_domain_filters_use_current_membership_indexes(): void
+    {
+        config([
+            'alphalink.contact_lookup_key' => str_repeat('m', 32),
+            'alphalink.contact_lookup_key_version' => 1,
+        ]);
+        $fixture = $this->fixture();
+        $matching = $this->contact($fixture['workspace'], 'indexed@example.test', ['sex' => 'women']);
+        $nonmatching = $this->contact($fixture['workspace'], 'indexed@other.test', ['sex' => 'women']);
+        $indexer = app(AudienceMembershipFilterIndexer::class);
+
+        foreach ([[$matching, 'example.test'], [$nonmatching, 'other.test']] as [$contact, $domain]) {
+            $membership = $this->membership($fixture, $contact, 'fresh', null, $contact->profile);
+            $membership->forceFill($indexer->values(
+                $fixture['workspace']->getKey(),
+                $fixture['list']->getKey(),
+                $contact->profile,
+                (string) $contact->email,
+            ))->save();
+            $this->assertSame($domain, strtolower((string) str($contact->email)->afterLast('@')));
+        }
+
+        $response = $this->actingAs($fixture['owner'])->postJson(route('console.audience-mixes.store', $fixture['workspace']->getKey()), [
+            'isp_id' => $fixture['isp']->getKey(),
+            'sponsor_id' => $fixture['sponsor']->getKey(),
+            'audience_segments' => [$fixture['list']->getKey().'_fresh'],
+            'email_sex' => 'women',
+            'extensions' => ['EXAMPLE.TEST'],
+        ]);
+
+        $response->assertCreated()->assertJsonPath('recipient_count', 1);
+        $snapshot = AudienceMixSnapshot::query()->whereKey($response->json('id'))->firstOrFail();
+        $this->assertSame(
+            [(string) $matching->getKey()],
+            $snapshot->members()->pluck('contact_id')->map(fn ($id): string => (string) $id)->all(),
+        );
     }
 
     public function test_empty_mix_returns_the_dms_zero_result_and_does_not_persist_a_snapshot(): void

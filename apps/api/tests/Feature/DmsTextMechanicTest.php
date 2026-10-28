@@ -24,7 +24,7 @@ class DmsTextMechanicTest extends TestCase
             ->assertSee('TEXT MECHANIC')
             ->assertSee('aria-controls="nav-submenu-tools-', false)
             ->assertSee('aria-expanded="true"', false)
-            ->assertSee('href="'.$url.'"', false)
+            ->assertSee('href="'.$this->cleanWorkspaceUrl($url).'"', false)
             ->assertSee('aria-current="page"', false)
             ->assertSee('id="asc"', false)
             ->assertSee('id="desc"', false)

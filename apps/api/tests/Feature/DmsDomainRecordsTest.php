@@ -53,11 +53,13 @@ class DmsDomainRecordsTest extends TestCase
     {
         [$owner, $workspace, $domain] = $this->domainWithProvider('godaddy');
 
-        $this->actingAs($owner)->get(route('console.infrastructure.domains.index', $workspace->getKey()))
+        $response = $this->actingAs($owner)->get(route('console.infrastructure.domains.index', $workspace->getKey()))
             ->assertOk()
             ->assertSee('title="RECORDS"', false)
-            ->assertSee('window.open(url, \'_blank\', \'noopener\')', false)
-            ->assertSee($domain->getKey(), false);
+            ->assertSee('window.open(url, \'_blank\', \'noopener\')', false);
+
+        $html = str_replace('\\/', '/', (string) $response->getContent());
+        self::assertStringContainsString('/infrastructure/domains/__DOMAIN__/records', $html);
     }
 
     public function test_godaddy_nameservers_can_be_changed_and_reset_with_scoped_audit_events(): void

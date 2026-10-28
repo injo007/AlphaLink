@@ -46,8 +46,8 @@ class DmsWorkspaceToolTest extends TestCase
             ->assertOk()->assertSee('PUSH WORKSPACE ACCOUNTS')->assertSee('SPLIT ON IPS')
             ->assertDontSee('workspace-project-form')->assertDontSee('workspace-account-form')
             ->assertSee('workspace-search-ips')->assertSee('workspace-search-projects')
-            ->assertSee(route('console.gcampaigns.projects', $this->workspace->id))
-            ->assertSee(route('console.gcampaigns.accounts', $this->workspace->id))
+            ->assertSee($this->cleanWorkspaceUrl(route('console.gcampaigns.projects', $this->workspace->id)))
+            ->assertSee($this->cleanWorkspaceUrl(route('console.gcampaigns.accounts', $this->workspace->id)))
             ->assertSee('class="form-control selectpicker"', false)
             ->assertSee('bootstrap_select/bootstrap-select.js');
     }
@@ -60,12 +60,24 @@ class DmsWorkspaceToolTest extends TestCase
             'project_id' => $project->id,
             'email' => 'workspace-member@example.test',
         ]);
+        WorkspaceGoogleAccount::query()->create([
+            'workspace_id' => $this->workspace->id,
+            'project_id' => $project->id,
+            'email' => 'inactive-member@example.test',
+            'is_active' => false,
+        ]);
 
-        $this->get(route('console.gcampaigns.projects', $this->workspace->id))
+        $projectsPage = $this->get(route('console.gcampaigns.projects', $this->workspace->id));
+        $projectsPage
             ->assertOk()->assertSee('GMAIL PROJECTS')->assertSee($project->name)
             ->assertSee('SAVE & SYNC')->assertSee('workspace-project-table')
-            ->assertSee(route('console.gcampaigns.accounts', [$this->workspace->id, 'project' => $project->id]))
+            ->assertSee('ENABLE / DISABLE PROJECTS')->assertSee('DELETE SELECTED')
+            ->assertSee('<th>type</th><th>name</th><th>total accounts</th><th>created at</th>', false)
+            ->assertSee('<td>Workspace</td>', false)
+            ->assertSee('workspace-projects-all')
+            ->assertSee($this->cleanWorkspaceUrl(route('console.gcampaigns.accounts', [$this->workspace->id, 'project' => $project->id])))
             ->assertSee('datatables.min.js')->assertDontSee('BEGIN PRIVATE KEY');
+        $this->assertSame(2, $projectsPage->viewData('projects')->first()->accounts_count);
         $otherProject = WorkspaceGoogleProject::query()->create([
             'workspace_id' => $this->workspace->id,
             'name' => 'other-admin@example.test',
@@ -79,7 +91,9 @@ class DmsWorkspaceToolTest extends TestCase
         ]);
         $this->get(route('console.gcampaigns.accounts', $this->workspace->id))
             ->assertOk()->assertSee('GMAIL ACCOUNTS')->assertSee($account->email)
-            ->assertSee('ENABLE SELECTED')->assertSee('DISABLE SELECTED')->assertSee('DELETE SELECTED')
+            ->assertDontSee('ENABLE SELECTED')->assertSee('DISABLE SELECTED')->assertSee('DELETE SELECTED')->assertSee('SEARCH ACCOUNTS')
+            ->assertSee('<th>project</th><th>email</th><th>is auth</th><th>is active</th><th>created at</th>', false)
+            ->assertSee('Per-account OAuth authentication is not configured in AlphaLink')
             ->assertSee('workspace-account-table')->assertSee('datatables.min.js');
         $this->get(route('console.gcampaigns.accounts', [$this->workspace->id, 'project' => $project->id]))
             ->assertOk()->assertSee($account->email)->assertDontSee('other-member@example.test');
@@ -172,6 +186,68 @@ class DmsWorkspaceToolTest extends TestCase
         $this->assertStringContainsString('HTTP 403', $project->fresh()->sync_error);
     }
 
+    public function test_bulk_project_status_and_delete_are_workspace_scoped(): void
+    {
+        $first = $this->project(name: 'first-admin@example.test');
+        $second = $this->project(name: 'second-admin@example.test');
+        $retained = $this->project(name: 'retained-admin@example.test');
+        $foreignWorkspace = Workspace::query()->create([
+            'name' => 'Foreign Workspace', 'slug' => 'foreign-workspace-'.Str::lower(Str::random(8)), 'created_by' => $this->owner->id,
+        ]);
+        $foreignProject = $this->project($foreignWorkspace, 'foreign-admin@example.test');
+
+        $this->patchJson(route('console.tools.workspace.projects.bulk-status', $this->workspace->id), [
+            'ids' => [$first->id, $second->id], 'status' => false,
+        ])->assertOk()->assertJsonPath('changed', 2);
+        $this->assertFalse($first->fresh()->is_active);
+        $this->assertFalse($second->fresh()->is_active);
+        $this->assertTrue($retained->fresh()->is_active);
+        $this->assertTrue($foreignProject->fresh()->is_active);
+
+        $this->patchJson(route('console.tools.workspace.projects.bulk-status', $this->workspace->id), [
+            'ids' => [$first->id, $foreignProject->id], 'status' => true,
+        ])->assertNotFound();
+        $this->assertFalse($first->fresh()->is_active);
+        $this->assertTrue($foreignProject->fresh()->is_active);
+
+        $firstAccount = WorkspaceGoogleAccount::query()->create([
+            'workspace_id' => $this->workspace->id, 'project_id' => $first->id, 'email' => 'first@example.test',
+        ]);
+        $secondAccount = WorkspaceGoogleAccount::query()->create([
+            'workspace_id' => $this->workspace->id, 'project_id' => $second->id, 'email' => 'second@example.test',
+        ]);
+        $retainedAccount = WorkspaceGoogleAccount::query()->create([
+            'workspace_id' => $this->workspace->id, 'project_id' => $retained->id, 'email' => 'retained@example.test',
+        ]);
+
+        $this->deleteJson(route('console.tools.workspace.projects.bulk-destroy', $this->workspace->id), [
+            'ids' => [$first->id, $second->id],
+        ])->assertOk()->assertJsonPath('deleted', 2);
+        $this->assertDatabaseMissing('workspace_google_projects', ['id' => $first->id]);
+        $this->assertDatabaseMissing('workspace_google_projects', ['id' => $second->id]);
+        $this->assertDatabaseMissing('workspace_google_accounts', ['id' => $firstAccount->id]);
+        $this->assertDatabaseMissing('workspace_google_accounts', ['id' => $secondAccount->id]);
+        $this->assertDatabaseHas('workspace_google_projects', ['id' => $retained->id]);
+        $this->assertDatabaseHas('workspace_google_accounts', ['id' => $retainedAccount->id]);
+        $this->assertDatabaseHas('workspace_google_projects', ['id' => $foreignProject->id]);
+    }
+
+    public function test_bulk_project_actions_reject_empty_and_duplicate_ids(): void
+    {
+        $project = $this->project();
+
+        $this->patchJson(route('console.tools.workspace.projects.bulk-status', $this->workspace->id), [
+            'ids' => [], 'status' => true,
+        ])->assertUnprocessable();
+        $this->patchJson(route('console.tools.workspace.projects.bulk-status', $this->workspace->id), [
+            'ids' => [$project->id, $project->id], 'status' => true,
+        ])->assertUnprocessable();
+        $this->deleteJson(route('console.tools.workspace.projects.bulk-destroy', $this->workspace->id), [
+            'ids' => [],
+        ])->assertUnprocessable();
+        $this->assertDatabaseHas('workspace_google_projects', ['id' => $project->id]);
+    }
+
     public function test_account_management_routes_validate_and_scope_to_the_current_workspace(): void
     {
         $project = $this->project();
@@ -181,11 +257,70 @@ class DmsWorkspaceToolTest extends TestCase
         $account = WorkspaceGoogleAccount::query()->sole();
         $this->patchJson(route('console.tools.workspace.accounts.status', $this->workspace->id), [
             'accounts' => [$account->id], 'status' => false,
-        ])->assertOk()->assertJsonPath('changed', 1);
+        ])->assertOk()->assertJsonPath('changed', 1)->assertJsonPath('data', 'Account status changed.');
         $this->assertFalse($account->fresh()->is_active);
         $this->deleteJson(route('console.tools.workspace.accounts.destroy', $this->workspace->id), ['accounts' => [$account->id]])
-            ->assertOk()->assertJsonPath('deleted', 1);
+            ->assertUnprocessable();
+        $this->assertDatabaseHas('workspace_google_accounts', ['id' => $account->id]);
+        $this->deleteJson(route('console.tools.workspace.accounts.destroy', $this->workspace->id), ['ids' => [$account->id]])
+            ->assertOk()->assertJsonPath('deleted', 1)->assertJsonPath('data', 'Accounts deleted.');
         $this->assertDatabaseMissing('workspace_google_accounts', ['id' => $account->id]);
+    }
+
+    public function test_bulk_account_actions_are_atomic_and_workspace_scoped(): void
+    {
+        $project = $this->project();
+        $first = WorkspaceGoogleAccount::query()->create([
+            'workspace_id' => $this->workspace->id, 'project_id' => $project->id, 'email' => 'first@example.test',
+        ]);
+        $second = WorkspaceGoogleAccount::query()->create([
+            'workspace_id' => $this->workspace->id, 'project_id' => $project->id, 'email' => 'second@example.test',
+        ]);
+        $retained = WorkspaceGoogleAccount::query()->create([
+            'workspace_id' => $this->workspace->id, 'project_id' => $project->id, 'email' => 'retained@example.test',
+        ]);
+        $foreignWorkspace = Workspace::query()->create([
+            'name' => 'Foreign Workspace', 'slug' => 'foreign-workspace-'.Str::lower(Str::random(8)), 'created_by' => $this->owner->id,
+        ]);
+        $foreignProject = $this->project($foreignWorkspace, 'foreign-admin@example.test');
+        $foreignAccount = WorkspaceGoogleAccount::query()->create([
+            'workspace_id' => $foreignWorkspace->id, 'project_id' => $foreignProject->id, 'email' => 'foreign@example.test',
+        ]);
+
+        $this->patchJson(route('console.tools.workspace.accounts.status', $this->workspace->id), [
+            'accounts' => [$first->id, $second->id], 'status' => false,
+        ])->assertOk()->assertJsonPath('changed', 2);
+        $this->assertFalse($first->fresh()->is_active);
+        $this->assertFalse($second->fresh()->is_active);
+        $this->assertTrue($retained->fresh()->is_active);
+        $this->assertTrue($foreignAccount->fresh()->is_active);
+
+        $this->patchJson(route('console.tools.workspace.accounts.status', $this->workspace->id), [
+            'accounts' => [$first->id, $foreignAccount->id], 'status' => true,
+        ])->assertNotFound();
+        $this->assertFalse($first->fresh()->is_active);
+        $this->assertTrue($foreignAccount->fresh()->is_active);
+
+        $this->patchJson(route('console.tools.workspace.accounts.status', $this->workspace->id), [
+            'accounts' => [$retained->id, $retained->id], 'status' => false,
+        ])->assertUnprocessable();
+        $this->assertTrue($retained->fresh()->is_active);
+
+        $this->deleteJson(route('console.tools.workspace.accounts.destroy', $this->workspace->id), [
+            'ids' => [$first->id, $second->id],
+        ])->assertOk()->assertJsonPath('deleted', 2);
+        $this->assertDatabaseMissing('workspace_google_accounts', ['id' => $first->id]);
+        $this->assertDatabaseMissing('workspace_google_accounts', ['id' => $second->id]);
+        $this->assertDatabaseHas('workspace_google_accounts', ['id' => $retained->id]);
+        $this->assertDatabaseHas('workspace_google_accounts', ['id' => $foreignAccount->id]);
+
+        $this->deleteJson(route('console.tools.workspace.accounts.destroy', $this->workspace->id), [
+            'ids' => [$retained->id, $foreignAccount->id],
+        ])->assertNotFound();
+        $this->assertDatabaseHas('workspace_google_accounts', ['id' => $retained->id]);
+        $this->assertDatabaseHas('workspace_google_accounts', ['id' => $foreignAccount->id]);
+        $this->deleteJson(route('console.tools.workspace.accounts.destroy', $this->workspace->id), ['ids' => []])
+            ->assertUnprocessable();
     }
 
     public function test_push_returns_dms_bundle_missing_error_before_any_server_write(): void
@@ -221,7 +356,7 @@ class DmsWorkspaceToolTest extends TestCase
         $this->assertDatabaseMissing('managed_server_mtas', ['id' => $mta->id]);
     }
 
-    private function project(): WorkspaceGoogleProject
+    private function project(?Workspace $workspace = null, string $name = 'admin@example.test'): WorkspaceGoogleProject
     {
         $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
         $this->assertNotFalse($key);
@@ -229,8 +364,8 @@ class DmsWorkspaceToolTest extends TestCase
         $this->assertTrue(openssl_pkey_export($key, $privateKey));
 
         return WorkspaceGoogleProject::query()->create([
-            'workspace_id' => $this->workspace->id,
-            'name' => 'admin@example.test',
+            'workspace_id' => ($workspace ?? $this->workspace)->id,
+            'name' => $name,
             'service_account_json' => json_encode(['client_email' => 'svc@example.test', 'private_key' => $privateKey], JSON_THROW_ON_ERROR),
             'is_active' => true,
         ]);

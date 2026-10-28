@@ -12,6 +12,7 @@ use App\Services\Workspace\DmsWorkspaceDirectorySync;
 use App\Services\Workspace\DmsWorkspaceSmtpConfiguration;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
 use Throwable;
@@ -34,7 +35,7 @@ class WorkspaceToolConsoleController extends Controller
     public function projects(Request $request, string $workspace): View
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
-        $projects = WorkspaceGoogleProject::query()->withCount(['accounts' => fn ($query) => $query->where('is_active', true)])
+        $projects = WorkspaceGoogleProject::query()->withCount('accounts')
             ->where('workspace_id', $workspace->id)->orderByDesc('id')->get();
 
         return view('console.tools.workspace.projects', compact('workspace', 'projects'));
@@ -122,6 +123,28 @@ class WorkspaceToolConsoleController extends Controller
         return response()->json(['is_active' => $project->fresh()->is_active, 'message' => 'Project status changed.']);
     }
 
+    public function statusProjects(Request $request, string $workspace): JsonResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['required', 'integer', 'min:1', 'distinct'],
+            'status' => ['required', 'boolean'],
+        ]);
+        $projects = WorkspaceGoogleProject::query()
+            ->where('workspace_id', $workspace->id)
+            ->whereIn('id', $data['ids']);
+        abort_unless($projects->count() === count($data['ids']), 404);
+
+        $changed = $projects->update(['is_active' => (bool) $data['status']]);
+
+        return response()->json([
+            'data' => 'Projects status updated.',
+            'message' => 'Selected project status updated.',
+            'changed' => $changed,
+        ]);
+    }
+
     public function destroyProject(Request $request, string $workspace, WorkspaceGoogleProject $project): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
@@ -129,6 +152,27 @@ class WorkspaceToolConsoleController extends Controller
         $project->delete();
 
         return response()->json(['message' => 'Project deleted.']);
+    }
+
+    public function destroyProjects(Request $request, string $workspace): JsonResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['required', 'integer', 'min:1', 'distinct'],
+        ]);
+        $projects = WorkspaceGoogleProject::query()
+            ->where('workspace_id', $workspace->id)
+            ->whereIn('id', $data['ids']);
+        abort_unless($projects->count() === count($data['ids']), 404);
+
+        $deleted = $projects->delete();
+
+        return response()->json([
+            'data' => 'Projects deleted.',
+            'message' => 'Selected projects deleted.',
+            'deleted' => $deleted,
+        ]);
     }
 
     public function storeAccounts(Request $request, string $workspace): JsonResponse
@@ -160,19 +204,56 @@ class WorkspaceToolConsoleController extends Controller
     public function statusAccounts(Request $request, string $workspace): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
-        $data = $request->validate(['accounts' => ['required', 'array', 'min:1'], 'accounts.*' => ['required', 'integer', 'min:1'], 'status' => ['required', 'boolean']]);
-        $count = WorkspaceGoogleAccount::query()->where('workspace_id', $workspace->id)->whereIn('id', $data['accounts'])->update(['is_active' => $data['status']]);
+        $data = $request->validate([
+            'accounts' => ['required', 'array', 'min:1'],
+            'accounts.*' => ['required', 'integer', 'min:1', 'distinct'],
+            'status' => ['required', 'boolean'],
+        ]);
+        $count = DB::transaction(function () use ($workspace, $data): int {
+            $accountIds = $this->lockSelectedAccountIds($workspace, $data['accounts']);
 
-        return response()->json(['message' => 'Account status changed.', 'changed' => $count]);
+            return WorkspaceGoogleAccount::query()->where('workspace_id', $workspace->id)
+                ->whereIn('id', $accountIds)->update(['is_active' => (bool) $data['status']]);
+        });
+
+        return response()->json([
+            'data' => 'Account status changed.',
+            'message' => 'Account status changed.',
+            'changed' => $count,
+        ]);
     }
 
     public function destroyAccounts(Request $request, string $workspace): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
-        $data = $request->validate(['accounts' => ['required', 'array', 'min:1'], 'accounts.*' => ['required', 'integer', 'min:1']]);
-        $deleted = WorkspaceGoogleAccount::query()->where('workspace_id', $workspace->id)->whereIn('id', $data['accounts'])->delete();
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['required', 'integer', 'min:1', 'distinct'],
+        ]);
+        $deleted = DB::transaction(function () use ($workspace, $data): int {
+            $accountIds = $this->lockSelectedAccountIds($workspace, $data['ids']);
 
-        return response()->json(['message' => 'Accounts deleted.', 'deleted' => $deleted]);
+            return WorkspaceGoogleAccount::query()->where('workspace_id', $workspace->id)
+                ->whereIn('id', $accountIds)->delete();
+        });
+
+        return response()->json([
+            'data' => 'Accounts deleted.',
+            'message' => 'Accounts deleted.',
+            'deleted' => $deleted,
+        ]);
+    }
+
+    /** @param array<int, int|string> $ids
+     * @return array<int, int>
+     */
+    private function lockSelectedAccountIds(Workspace $workspace, array $ids): array
+    {
+        $selectedIds = WorkspaceGoogleAccount::query()->where('workspace_id', $workspace->id)
+            ->whereIn('id', $ids)->lockForUpdate()->pluck('id')->map(fn ($id): int => (int) $id)->all();
+        abort_unless(count($selectedIds) === count($ids), 404);
+
+        return $selectedIds;
     }
 
     public function push(Request $request, string $workspace, DmsWorkspaceSmtpConfiguration $smtp): JsonResponse

@@ -1,11 +1,28 @@
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const PALETTE = ['#3d76cf', '#b84d35', '#307760', '#8469b2', '#bf8c28', '#338c9b', '#a34d78', '#65727b'];
 const METRICS = [
+    { key: 'deliveries', label: 'Deliveries', color: PALETTE[4] },
     { key: 'opens', label: 'Opens', color: PALETTE[0] },
     { key: 'clicks', label: 'Clicks', color: PALETTE[1] },
     { key: 'leads', label: 'Leads', color: PALETTE[2] },
     { key: 'unsubscribes', label: 'Unsubscribes', color: PALETTE[3] },
 ];
+
+export function projectIspStatsChartSeries(data, metric) {
+    if (metric === 'overview') {
+        return METRICS.map((item) => ({
+            label: item.label,
+            color: item.color,
+            values: (Array.isArray(data?.totals) ? data.totals : []).map((row) => row?.[item.key] ?? 0),
+        }));
+    }
+
+    return (Array.isArray(data?.mailers) ? data.mailers : []).map((mailer, index) => ({
+        label: mailer.label,
+        color: PALETTE[index % PALETTE.length],
+        values: mailer.values?.[metric] ?? [],
+    }));
+}
 
 export function calculateLineCoordinates(values, width, height, padding, minimum, maximum) {
     const normalized = values.map((value) => Number.isFinite(Number(value)) ? Number(value) : 0);
@@ -201,17 +218,7 @@ function renderIspCharts() {
     const labels = Array.isArray(data.labels) ? data.labels : [];
     for (const panel of document.querySelectorAll('[data-isp-stats-chart]')) {
         const metric = panel.dataset.ispStatsChart;
-        const series = metric === 'overview'
-            ? METRICS.map((item) => ({
-                label: item.label,
-                color: item.color,
-                values: (Array.isArray(data.totals) ? data.totals : []).map((row) => row?.[item.key] ?? 0),
-            }))
-            : (Array.isArray(data.mailers) ? data.mailers : []).map((mailer, index) => ({
-                label: mailer.label,
-                color: PALETTE[index % PALETTE.length],
-                values: mailer.values?.[metric] ?? [],
-            }));
+        const series = projectIspStatsChartSeries(data, metric);
         renderLineChart(panel, labels, series, metric);
     }
 }

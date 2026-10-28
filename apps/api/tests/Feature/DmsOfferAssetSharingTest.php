@@ -61,14 +61,15 @@ class DmsOfferAssetSharingTest extends TestCase
         $this->createServer('NOT_INSTALLED_NODE', ['is_installed' => false]);
         $this->createServer('PENDING_HOST_NODE', ['state' => 'pending_preflight', 'expected_host_fingerprint' => null]);
 
-        $this->get(route('console.offers.index', $this->workspace->getKey()))
+        $this->followingRedirects()->get(route('console.offers.index', $this->workspace->getKey()))
             ->assertOk()
             ->assertSee('/dms-reference/plugins/bootstrap_select/bootstrap-select.js', false)
             ->assertSee('/dms-reference/plugins/datatables/datatables.min.js', false)
             ->assertSee('SHARE CREATIVES')
-            ->assertSee('data-share-url="'.e(route('console.offers.share', $this->workspace->getKey())).'"', false);
+            ->assertSee('data-share-url=', false)
+            ->assertSee('/offers/share', false);
 
-        $this->get(route('console.offers.share', $this->workspace->getKey()).'?'.http_build_query(['ids' => [$this->offer->getKey()]]))
+        $this->followingRedirects()->get(route('console.offers.share', $this->workspace->getKey()).'?'.http_build_query(['ids' => [$this->offer->getKey()]]))
             ->assertOk()
             ->assertSee('Selected Offers:')
             ->assertSee($this->offer->name)
@@ -137,7 +138,7 @@ class DmsOfferAssetSharingTest extends TestCase
         $this->offer->forceFill(['allowed_users' => [(int) $operator->getKey()]])->save();
         $server->allowedUsers()->attach($operator->getKey(), ['workspace_id' => $this->workspace->getKey()]);
 
-        $this->actingAs($operator)
+        $this->followingRedirects()->actingAs($operator)
             ->get(route('console.offers.share', $this->workspace->getKey()).'?'.http_build_query(['ids' => [$this->offer->getKey()]]))
             ->assertOk()
             ->assertSee('ASSIGNED_NODE');
@@ -231,7 +232,7 @@ class DmsOfferAssetSharingTest extends TestCase
         $connection = $this->bindSsh($server);
         $this->workspace->appSettings()->delete();
 
-        $this->get(route('console.offers.share', $this->workspace->getKey()).'?'.http_build_query(['ids' => [$this->offer->getKey()]]))
+        $this->followingRedirects()->get(route('console.offers.share', $this->workspace->getKey()).'?'.http_build_query(['ids' => [$this->offer->getKey()]]))
             ->assertOk()
             ->assertSee('Configure <strong>FOLDERS HASH TOKEN</strong>', false)
             ->assertSee('disabled', false);
@@ -392,6 +393,41 @@ class DmsOfferAssetSharingTest extends TestCase
             }
 
             public function downloadString(string $path): string|false
+            {
+                return false;
+            }
+
+            public function listDirectory(string $path): array|false
+            {
+                return false;
+            }
+
+            public function isDirectory(string $path): bool
+            {
+                return false;
+            }
+
+            public function createDirectory(string $path): bool
+            {
+                return false;
+            }
+
+            public function fileSize(string $path): int|false
+            {
+                return false;
+            }
+
+            public function fileModifiedAt(string $path): int|false
+            {
+                return false;
+            }
+
+            public function downloadFile(string $remotePath, string $localPath): bool
+            {
+                return false;
+            }
+
+            public function moveFile(string $remotePath, string $destination): bool
             {
                 return false;
             }

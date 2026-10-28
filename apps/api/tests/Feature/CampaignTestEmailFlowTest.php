@@ -47,7 +47,7 @@ class CampaignTestEmailFlowTest extends TestCase
             'expected_revision_id' => $campaign->latestRevision->getKey(),
             'idempotency_key' => (string) Str::uuid(),
             'subject' => 'Updated synthetic subject',
-        ])->assertRedirect(route('console.campaigns.show', [$workspace->getKey(), $campaign->getKey()]));
+        ])->assertRedirect($this->cleanWorkspaceUrl(route('console.campaigns.show', [$workspace->getKey(), $campaign->getKey()])));
 
         $campaign->refresh()->load('latestRevision');
         $revision = $campaign->latestRevision;
@@ -63,7 +63,7 @@ class CampaignTestEmailFlowTest extends TestCase
         $url = route('console.campaigns.test-email', [$workspace->getKey(), $campaign->getKey()]);
 
         $this->post($url, $payload)
-            ->assertRedirect(route('console.campaigns.show', [$workspace->getKey(), $campaign->getKey()]))
+            ->assertRedirect($this->cleanWorkspaceUrl(route('console.campaigns.show', [$workspace->getKey(), $campaign->getKey()])))
             ->assertSessionHas('status', 'The SMTP transport accepted this one test email. Mailbox delivery is not confirmed.');
 
         $attempt = CampaignTestMailAttempt::query()->firstOrFail();
@@ -87,7 +87,7 @@ class CampaignTestEmailFlowTest extends TestCase
         config(['mail.default' => 'log']);
         Mail::purge('smtp');
         $this->post($url, $payload)
-            ->assertRedirect(route('console.campaigns.show', [$workspace->getKey(), $campaign->getKey()]))
+            ->assertRedirect($this->cleanWorkspaceUrl(route('console.campaigns.show', [$workspace->getKey(), $campaign->getKey()])))
             ->assertSessionHas('status', 'SMTP already accepted this test submission; no duplicate was sent.');
         $this->assertCount(1, $transport->messages());
         $this->assertSame(1, CampaignTestMailAttempt::query()->count());
@@ -127,7 +127,7 @@ class CampaignTestEmailFlowTest extends TestCase
             'revision_id' => $campaign->latestRevision->getKey(),
             'idempotency_key' => $idempotencyKey,
             'confirm_authorized_recipient' => '1',
-        ])->assertRedirect(route('console.campaigns.show', [$workspace->getKey(), $campaign->getKey()]))
+        ])->assertRedirect($this->cleanWorkspaceUrl(route('console.campaigns.show', [$workspace->getKey(), $campaign->getKey()])))
             ->assertSessionHas('status', 'The SMTP transport accepted this one test email. Mailbox delivery is not confirmed.');
 
         $this->assertDatabaseHas('campaign_test_mail_attempts', [
@@ -154,7 +154,7 @@ class CampaignTestEmailFlowTest extends TestCase
             ->assertSee('name="from_email"', false)
             ->assertSee('name="text_body"', false)
             ->assertSee('name="html_body"', false)
-            ->assertSee(route('console.campaigns.store', $workspace->getKey()))
+            ->assertSee($this->cleanWorkspaceUrl(route('console.campaigns.store', $workspace->getKey())))
             ->assertDontSee('send_setup[sponsor_id]')
             ->assertDontSee('send_setup[offer_id]')
             ->assertDontSee('send_setup[isp_id]')
@@ -476,7 +476,7 @@ class CampaignTestEmailFlowTest extends TestCase
             'revision_id' => $campaign->latestRevision->getKey(),
             'idempotency_key' => (string) Str::uuid(),
             'confirm_authorized_recipient' => '1',
-        ])->assertRedirect(route('console.campaigns.show', [$workspace->getKey(), $campaign->getKey()]))
+        ])->assertRedirect($this->cleanWorkspaceUrl(route('console.campaigns.show', [$workspace->getKey(), $campaign->getKey()])))
             ->assertSessionHasErrors('test_email');
 
         $this->assertSame(0, CampaignTestMailAttempt::query()->count());

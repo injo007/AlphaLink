@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use Closure;
+use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -20,7 +21,11 @@ class RewriteLegacyWorkspaceUrls
         if (str_starts_with((string) $response->headers->get('Content-Type'), 'text/html')) {
             $content = $response->getContent();
             if (is_string($content) && str_contains($content, '/app/workspaces/')) {
+                $originalView = $response->original instanceof View ? $response->original : null;
                 $response->setContent($this->rewrite($content));
+                if ($originalView !== null) {
+                    $response->original = $originalView;
+                }
             }
         }
 
@@ -29,11 +34,14 @@ class RewriteLegacyWorkspaceUrls
 
     private function rewrite(string $value): string
     {
+        $separator = '(?:/|\\\\/)';
+
         return preg_replace_callback(
-            '~(?P<origin>https?://[^/"\'<>\s]+)?/app/workspaces/[0-9a-f-]{36}(?P<suffix>/[^?#"\'<>\s]*)?~i',
+            '~(?P<origin>https?:'.$separator.$separator.'[^"\'<>\s]+?)?'.$separator.'app'.$separator.'workspaces'.$separator.'[0-9a-f-]{36}(?P<suffix>(?:'.$separator.'[^?#"\'<>\s]*)?)~i',
             function (array $matches): string {
-                $origin = $matches['origin'] ?? '';
-                $suffix = $matches['suffix'] ?? '';
+                $escapedSlashes = str_contains($matches[0], '\\/');
+                $origin = str_replace('\\/', '/', $matches['origin'] ?? '');
+                $suffix = str_replace('\\/', '/', $matches['suffix'] ?? '');
                 $suffix = trim($suffix, '/');
 
                 $path = match ($suffix) {
@@ -44,7 +52,9 @@ class RewriteLegacyWorkspaceUrls
                         : '/'.$suffix,
                 };
 
-                return $origin.$path;
+                $rewritten = $origin.$path;
+
+                return $escapedSlashes ? str_replace('/', '\\/', $rewritten) : $rewritten;
             },
             $value,
         ) ?? $value;

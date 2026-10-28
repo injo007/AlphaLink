@@ -8,6 +8,7 @@
         };
         $isDropVisitorsPage = $routeIs('console.drops.visitors');
         $usesGoogleCharts = $isDropVisitorsPage || $routeIs('console.campaigns.visitors');
+        $usesAnalyticsCharts = $routeIs('console.analytics.*', 'console.dashboard.main', 'console.campaign-statistics.*');
         $usesAnalyticsPivot = $routeIs(
             'console.analytics.all-stats',
             'console.analytics.mailer-revenue',
@@ -26,10 +27,13 @@
     <title>@yield('title', 'Servers - DMS')</title>
     <link rel="stylesheet" href="{{ asset('dms-reference/fonts/inter.css') }}">
     <link rel="stylesheet" href="{{ asset('dms-reference/plugins/bootstrap_select/bootstrap-select.css') }}">
-    @if ($routeIs('console.infrastructure.servers.index', 'console.infrastructure.server-providers.index', 'console.infrastructure.my-ips', 'console.my-servers.index', 'console.infrastructure.isps.index', 'console.infrastructure.lists.*', 'console.infrastructure.emails.*', 'console.infrastructure.domains.index', 'console.infrastructure.domains.records', 'console.infrastructure.domain-providers.index', 'console.infrastructure.cloud-providers.index', 'console.pmta-admin.history', 'console.pmta-config-history.*', 'console.pmta-scheduler.*', 'console.pmta-vmta.*', 'console.pmta-smtp.*', 'console.miscellaneous.subscribers', 'console.miscellaneous.contacts', 'console.sponsors.index', 'console.networks.sponsors.index', 'console.offers.*', 'console.networks.offers.index', 'console.drops.monitoring', 'console.drops.visitors', 'console.drops.suppression*', 'console.warmups.seeds.*', 'console.warmups.seed-emails.*', 'console.global-users.index', 'console.tools.spf.*', 'console.gcampaigns.projects', 'console.gcampaigns.accounts', 'console.campaigns.visitors'))
+    @if ($routeIs('console.infrastructure.servers.index', 'console.infrastructure.server-providers.index', 'console.infrastructure.my-ips', 'console.my-servers.index', 'console.infrastructure.isps.index', 'console.infrastructure.lists.*', 'console.infrastructure.emails.*', 'console.infrastructure.blacklist-checker', 'console.infrastructure.domains.index', 'console.infrastructure.domains.records', 'console.infrastructure.domain-providers.index', 'console.infrastructure.cloud-providers.index', 'console.pmta-admin.history', 'console.pmta-config-history.*', 'console.pmta-scheduler.*', 'console.pmta-vmta.*', 'console.pmta-smtp.*', 'console.miscellaneous.subscribers', 'console.miscellaneous.contacts', 'console.sponsors.index', 'console.networks.sponsors.index', 'console.offers.*', 'console.networks.offers.index', 'console.drops.monitoring', 'console.drops.visitors', 'console.drops.suppression*', 'console.warmups.seeds.*', 'console.warmups.seed-emails.*', 'console.global-users.index', 'console.tools.spf.*', 'console.gcampaigns.projects', 'console.gcampaigns.accounts', 'console.campaigns.visitors'))
         <link rel="stylesheet" href="{{ asset('dms-reference/plugins/datatables/datatables.min.css') }}">
     @endif
     <link rel="stylesheet" href="{{ asset('dms-reference/assets/css/theme.css') }}">
+    @if ($usesAnalyticsCharts)
+        @vite('resources/css/analytics-charts.css')
+    @endif
     @stack('styles')
     <style>
         .alphalink-toast-stack { bottom: 1rem; display: flex; flex-direction: column; gap: .5rem; max-width: min(28rem, calc(100vw - 2rem)); position: fixed; right: 1rem; z-index: 1200; }
@@ -111,8 +115,9 @@
         $isIspPage = $routeIs('console.infrastructure.isps.index');
         $isListsPage = $routeIs('console.infrastructure.lists.*');
         $isEmailManagementPage = $routeIs('console.infrastructure.emails.*');
+        $isBlacklistCheckerPage = $routeIs('console.infrastructure.blacklist-checker');
         $isListHistoryPage = $routeIs('console.infrastructure.list-history.*');
-        $isIspManagementPage = $isIspPage || $isListsPage || $isListHistoryPage || $isEmailManagementPage;
+        $isIspManagementPage = $isIspPage || $isListsPage || $isListHistoryPage || $isEmailManagementPage || $isBlacklistCheckerPage;
         $isDomainsPage = $routeIs('console.infrastructure.domains.index', 'console.infrastructure.domains.records');
         $isDomainProvidersPage = $routeIs('console.infrastructure.domain-providers.index');
         $isBulkInstallPage = $routeIs('console.infrastructure.bulk-install*');
@@ -199,7 +204,7 @@
                 ['label' => 'LISTS', 'icon' => 'fas fa-file', 'href' => $listsUrl, 'active' => $isListsPage],
                 ['label' => 'LIST HISTORY', 'icon' => 'fas fa-chart-area', 'href' => route('clean.console.infrastructure.list-history.index'), 'active' => $isListHistoryPage],
                 ['label' => 'SEARCH EMAIL', 'icon' => 'fas fa-search', 'href' => route('clean.console.infrastructure.emails.index'), 'active' => $isEmailManagementPage],
-                ['label' => 'BLACKLIST CHECKER', 'icon' => 'fas fa-trash-alt'],
+                ['label' => 'BLACKLIST CHECKER', 'icon' => 'fas fa-trash-alt', 'href' => route('clean.console.infrastructure.blacklist-checker'), 'active' => $isBlacklistCheckerPage],
             ]],
             ['label' => 'DOMAINS', 'icon' => 'fas fa-cloud', 'items' => [
                 ['label' => 'DOMAINS PROVIDERS', 'icon' => 'fas fa-tasks', 'href' => $domainProvidersUrl, 'active' => $routeIs('console.infrastructure.domain-providers.*')],
@@ -358,6 +363,7 @@
                         <div class="dropdown-menu dropdown-menu-md dropdown-menu-right p-0 border-0" aria-labelledby="page-header-user-dropdown">
                             <div class="p-3 text-center bg-primary-dark rounded-top"><p class="text-white font-w600 mb-0">{{ auth()->user()->name ?: auth()->user()->email }}</p></div>
                             <div class="p-2">
+                                <a class="dropdown-item d-flex align-items-center justify-content-between" href="{{ route('auth.profile') }}">PROFILE</a>
                                 <form method="post" action="{{ route('logout') }}">@csrf<button class="dropdown-item d-flex align-items-center justify-content-between w-100" type="submit">LOGOUT</button></form>
                             </div>
                         </div>

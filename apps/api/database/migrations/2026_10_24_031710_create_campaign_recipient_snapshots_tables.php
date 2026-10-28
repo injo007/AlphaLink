@@ -72,6 +72,21 @@ return new class extends Migration
      */
     public function down(): void
     {
+        $hasSnapshotHistory = (Schema::hasTable('campaign_recipient_snapshots')
+            && DB::table('campaign_recipient_snapshots')->exists())
+            || (Schema::hasTable('campaign_recipient_snapshot_items')
+                && DB::table('campaign_recipient_snapshot_items')->exists());
+        $hasMultiListMemberships = Schema::hasTable('contact_list_memberships')
+            && DB::table('contact_list_memberships')
+                ->select('workspace_id', 'contact_id')
+                ->groupBy('workspace_id', 'contact_id')
+                ->havingRaw('COUNT(*) > 1')
+                ->exists();
+
+        if ($hasSnapshotHistory || $hasMultiListMemberships) {
+            throw new RuntimeException('Campaign snapshot rollback would delete send history or reinstate single-List uniqueness over multi-List memberships. Use a forward migration to preserve data.');
+        }
+
         if (DB::connection()->getDriverName() === 'pgsql') {
             DB::unprepared('DROP TRIGGER IF EXISTS alphalink_prevent_mutation ON campaign_recipient_snapshot_items');
             DB::unprepared('DROP TRIGGER IF EXISTS alphalink_prevent_mutation ON campaign_recipient_snapshots');

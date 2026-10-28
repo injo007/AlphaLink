@@ -30,7 +30,7 @@ class WorkspaceSeedListWorkflowTest extends TestCase
 
         $this->actingAs($owner)->get(route('console.warmups.seeds.index', $workspace->getKey()))
             ->assertOk()->assertSee('Seeds')->assertSee('SEEDS')->assertSee('warmup-seeds-table')
-            ->assertSee(route('console.warmups.seeds.index', $workspace->getKey()), false);
+            ->assertSee($this->cleanWorkspaceUrl(route('console.warmups.seeds.index', $workspace->getKey())), false);
 
         $this->actingAs($owner)->getJson(route('console.warmups.seeds.index', [
             $workspace->getKey(), 'draw' => 4, 'start' => 0, 'length' => 50,

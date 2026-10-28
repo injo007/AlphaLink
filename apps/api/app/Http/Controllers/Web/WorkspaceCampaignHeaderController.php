@@ -61,8 +61,8 @@ class WorkspaceCampaignHeaderController extends Controller
     {
         $workspace = $this->workspaceFor($request, $workspaceId);
         $header = $workspace->campaignHeaders()->whereKey($headerId)->firstOrFail();
-        $role = $workspace->getRelation('authorized_member')->pivot->role;
-        abort_unless(in_array($role, ['owner', 'admin'], true) || (int) $header->created_by === (int) $request->user()->getKey(), 403);
+        $user = $request->user();
+        abort_unless($user->type === User::ADMIN || (int) $header->created_by === (int) $user->getKey(), 403);
 
         DB::transaction(function () use ($request, $workspace, $header): void {
             $this->recordAudit($request, $workspace, 'campaign.header.deleted', $header);
@@ -90,10 +90,8 @@ class WorkspaceCampaignHeaderController extends Controller
 
     private function visibleHeaders(Workspace $workspace, User $user): HasMany
     {
-        $role = $workspace->getRelation('authorized_member')->pivot->role;
-
         return $workspace->campaignHeaders()
-            ->when($role === 'operator', fn ($query) => $query->where('created_by', $user->getKey()))
+            ->when(! $user->hasDmsRole('share_headers'), fn ($query) => $query->where('created_by', $user->getKey()))
             ->orderBy('name')
             ->orderBy('id');
     }

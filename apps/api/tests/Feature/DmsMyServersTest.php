@@ -23,9 +23,10 @@ class DmsMyServersTest extends TestCase
         $member = User::factory()->create();
         $workspace->users()->attach($member->getKey(), ['role' => 'viewer']);
 
-        $myServersUrl = route('console.my-servers.index', $workspace->getKey());
-        $infrastructureServersUrl = route('console.infrastructure.servers.index', $workspace->getKey());
-        $response = $this->actingAs($member)->get($myServersUrl)->assertOk();
+        $myServersRouteUrl = route('console.my-servers.index', $workspace->getKey());
+        $myServersUrl = $this->cleanWorkspaceUrl($myServersRouteUrl);
+        $infrastructureServersUrl = $this->cleanWorkspaceUrl(route('console.infrastructure.servers.index', $workspace->getKey()));
+        $response = $this->actingAs($member)->get($myServersRouteUrl)->assertOk();
         $html = (string) $response->getContent();
 
         self::assertNotSame($myServersUrl, $infrastructureServersUrl);
@@ -33,7 +34,7 @@ class DmsMyServersTest extends TestCase
         self::assertStringContainsString('id="nav-submenu-servers-12"', $html);
         self::assertStringContainsString('href="'.$myServersUrl.'"', $html);
         self::assertStringContainsString('data-source-url="'.$myServersUrl.'"', $html);
-        self::assertStringContainsString('data-pmta-url="'.route('console.pmta-admin.index', $workspace->getKey()).'"', $html);
+        self::assertStringContainsString('data-pmta-url="'.$this->cleanWorkspaceUrl(route('console.pmta-admin.index', $workspace->getKey())).'"', $html);
         self::assertStringContainsString('dms-reference/my-servers.js', $html);
     }
 

@@ -2,15 +2,33 @@
 
 declare(strict_types=1);
 
-$requiredTestEnvironment = [
+$commonTestEnvironment = [
     'APP_ENV' => 'testing',
-    'DB_CONNECTION' => 'sqlite',
-    'DB_DATABASE' => ':memory:',
+    'APP_KEY' => 'base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
     'DB_URL' => '',
-    'APP_CONFIG_CACHE' => '/tmp/alphalink-phpunit-config-cache-disabled.php',
 ];
 
-foreach ($requiredTestEnvironment as $name => $expected) {
+$databaseConnection = $_ENV['DB_CONNECTION'] ?? $_SERVER['DB_CONNECTION'] ?? getenv('DB_CONNECTION');
+$databaseEnvironment = match ($databaseConnection) {
+    'sqlite' => [
+        'DB_CONNECTION' => 'sqlite',
+        'DB_DATABASE' => ':memory:',
+        'APP_CONFIG_CACHE' => '/tmp/alphalink-phpunit-config-cache-disabled.php',
+    ],
+    'pgsql' => [
+        'ALPHALINK_TEST_DB_MODE' => 'disposable-postgres',
+        'DB_CONNECTION' => 'pgsql',
+        'DB_HOST' => '127.0.0.1',
+        'DB_PORT' => '5432',
+        'DB_DATABASE' => 'alphalink_disposable_test',
+        'DB_USERNAME' => 'alphalink_test',
+        'DB_PASSWORD' => 'alphalink_test_only',
+        'APP_CONFIG_CACHE' => '/tmp/alphalink-phpunit-postgres-config-cache-disabled.php',
+    ],
+    default => throw new RuntimeException('PHPUnit refused to start: only isolated SQLite or the explicitly configured disposable PostgreSQL test database is allowed.'),
+};
+
+foreach (array_merge($commonTestEnvironment, $databaseEnvironment) as $name => $expected) {
     $actual = $_ENV[$name] ?? $_SERVER[$name] ?? getenv($name);
 
     if ($actual !== $expected) {
@@ -18,7 +36,7 @@ foreach ($requiredTestEnvironment as $name => $expected) {
     }
 }
 
-if (is_file($requiredTestEnvironment['APP_CONFIG_CACHE'])) {
+if (is_file($databaseEnvironment['APP_CONFIG_CACHE'])) {
     throw new RuntimeException('PHPUnit refused to start because its isolated config-cache path already exists.');
 }
 

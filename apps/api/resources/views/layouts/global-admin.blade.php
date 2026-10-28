@@ -37,6 +37,7 @@
                         <form method="post" action="{{ route('console.global-users.impersonation.leave') }}" class="mr-2">@csrf<button class="btn btn-sm btn-warning" type="submit">STOP IMPERSONATION</button></form>
                     @endif
                     <span class="mr-3">{{ auth()->user()->name ?: auth()->user()->username }}</span>
+                    <a class="btn btn-sm btn-dual mr-2" href="{{ route('auth.profile') }}">PROFILE</a>
                     <form method="post" action="{{ route('logout') }}">@csrf<button class="btn btn-sm btn-dual" type="submit">LOGOUT</button></form>
                 </div>
             </div>

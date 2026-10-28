@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\User;
 use App\Models\Workspace;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -54,7 +55,7 @@ class DmsGlobalUserManagementTest extends TestCase
             'roles' => ['manage_users'],
         ])->assertOk()->assertJsonPath('data', 'User updated');
         $user->refresh();
-        $this->assertSame('updatedmailer', $user->username);
+        $this->assertSame('UpdatedMailer', $user->username);
         $this->assertSame('Updated Global Mailer', $user->name);
         $this->assertSame(['manage_users'], $user->roles);
 
@@ -117,6 +118,45 @@ class DmsGlobalUserManagementTest extends TestCase
 
         $this->actingAs($admin)->patchJson(route('console.global-users.status', $admin), ['status' => false])
             ->assertUnauthorized();
+    }
+
+    public function test_usernames_preserve_edited_spelling_and_remain_case_insensitively_unique(): void
+    {
+        $admin = User::factory()->create(['type' => User::ADMIN, 'roles' => []]);
+        $original = User::factory()->create(['username' => 'OriginalMailer']);
+        $other = User::factory()->create(['username' => 'OtherMailer']);
+
+        $this->actingAs($admin)->putJson(route('console.global-users.update', $original), [
+            'username' => 'ORIGINALMAILER',
+            'full_name' => 'Updated Original Mailer',
+            'type' => User::MAILER,
+        ])->assertOk();
+
+        $this->assertSame('ORIGINALMAILER', $original->fresh()->username);
+
+        $this->putJson(route('console.global-users.update', $other), [
+            'username' => 'originalmailer',
+            'full_name' => 'Updated Other Mailer',
+            'type' => User::MAILER,
+        ])->assertUnprocessable()->assertJsonValidationErrors(['username']);
+
+        $this->postJson(route('console.global-users.store'), [
+            'username' => 'ORIGINALMAILER',
+            'full_name' => 'Duplicate Global Mailer',
+            'type' => User::MAILER,
+        ])->assertUnprocessable()->assertJsonValidationErrors(['username']);
+    }
+
+    public function test_username_index_migration_refuses_to_apply_over_existing_case_collisions(): void
+    {
+        DB::statement('DROP INDEX users_username_case_insensitive_unique');
+        User::factory()->create(['username' => 'CaseCollision']);
+        User::factory()->create(['username' => 'casecollision']);
+
+        $migration = require database_path('migrations/2026_10_28_140000_add_case_insensitive_username_index.php');
+
+        $this->expectException(\RuntimeException::class);
+        $migration->up();
     }
 
     public function test_only_admin_type_can_impersonate_active_mailer_accounts(): void

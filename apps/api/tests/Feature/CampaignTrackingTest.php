@@ -26,6 +26,7 @@ use App\Services\Audiences\AudienceListHistoryCalculator;
 use App\Services\Campaigns\CampaignIpGeoResolver;
 use App\Services\Campaigns\CampaignRecipientSourceIdentity;
 use App\Services\Campaigns\ProcessCampaignTrackingEvent;
+use Illuminate\Database\Query\JoinClause;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Support\Facades\DB;
@@ -322,6 +323,13 @@ class CampaignTrackingTest extends TestCase
         $this->assertSame('fresh', $unselectedMembership->fresh()->email_type);
         $this->assertSame(3, CampaignEngagementEvent::query()->count());
         $this->assertSame(6, DB::table('campaign_engagement_event_sources')->count());
+        $this->assertSame(0, DB::table('campaign_engagement_event_sources as event_sources')
+            ->join('campaign_engagement_events as events', function (JoinClause $join): void {
+                $join->on('events.id', '=', 'event_sources.engagement_event_id')
+                    ->on('events.workspace_id', '=', 'event_sources.workspace_id');
+            })
+            ->whereColumn('event_sources.created_at', '<>', 'events.created_at')
+            ->count());
         $this->assertSame(6, DB::table('contact_list_membership_events')
             ->where('contact_id', $fixture['contact']->getKey())->count());
         $this->assertEqualsCanonicalizing(

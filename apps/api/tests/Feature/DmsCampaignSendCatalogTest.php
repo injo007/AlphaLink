@@ -8,6 +8,7 @@ use App\Models\AudienceMixSnapshotMember;
 use App\Models\AuditEvent;
 use App\Models\Campaign;
 use App\Models\CampaignRecipientSnapshot;
+use App\Models\CampaignRecipientSnapshotItemAddress;
 use App\Models\CampaignRevision;
 use App\Models\CampaignTestMailAttempt;
 use App\Models\Contact;
@@ -36,8 +37,10 @@ use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Mockery;
 use Symfony\Component\Mailer\Exception\UnexpectedResponseException;
 use Symfony\Component\Mailer\Transport\Smtp\SmtpTransport;
@@ -48,10 +51,19 @@ class DmsCampaignSendCatalogTest extends TestCase
 {
     use RefreshDatabase;
 
+    private mixed $originalContactLookupKey;
+
     protected function setUp(): void
     {
         parent::setUp();
+        $this->originalContactLookupKey = config('alphalink.contact_lookup_key');
         Storage::fake('local');
+    }
+
+    protected function tearDown(): void
+    {
+        config(['alphalink.contact_lookup_key' => $this->originalContactLookupKey]);
+        parent::tearDown();
     }
 
     public function test_owner_receives_dms_filtered_campaign_choices_and_workspace_pmta_panel_port(): void
@@ -339,6 +351,9 @@ class DmsCampaignSendCatalogTest extends TestCase
     public function test_marketing_draft_persists_the_validated_dms_targeting_and_send_setup(): void
     {
         $this->withoutMiddleware(ThrottleRequests::class);
+        $lookupKey = str_repeat('synthetic-campaign-contact-key-', 2);
+        config(['alphalink.contact_lookup_key' => $lookupKey]);
+
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner, 'owner');
         $negative = $workspace->campaignNegatives()->create([
@@ -397,7 +412,7 @@ class DmsCampaignSendCatalogTest extends TestCase
         $otherOfferContact = Contact::query()->create([
             'workspace_id' => $workspace->getKey(),
             'email' => 'other-offer@example.test',
-            'email_lookup_hash' => hash('sha256', 'other-offer@example.test'),
+            'email_lookup_hash' => hash_hmac('sha256', 'other-offer@example.test', $lookupKey),
             'lookup_key_version' => 1,
             'status' => 'active',
             'idempotency_key' => (string) Str::uuid(),
@@ -958,6 +973,9 @@ class DmsCampaignSendCatalogTest extends TestCase
 
     public function test_campaign_snapshot_pages_large_selected_audience_and_preserves_sorted_order(): void
     {
+        $lookupKey = str_repeat('synthetic-snapshot-contact-key-', 2);
+        config(['alphalink.contact_lookup_key' => $lookupKey]);
+
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner, 'owner');
         $sponsor = $this->sponsor($workspace);
@@ -986,7 +1004,7 @@ class DmsCampaignSendCatalogTest extends TestCase
         $secondListContact = Contact::query()->create([
             'workspace_id' => $workspace->getKey(),
             'email' => $secondListEmail,
-            'email_lookup_hash' => hash('sha256', $secondListEmail),
+            'email_lookup_hash' => hash_hmac('sha256', $secondListEmail, $lookupKey),
             'lookup_key_version' => 1,
             'status' => 'active',
             'idempotency_key' => (string) Str::uuid(),
@@ -1032,7 +1050,7 @@ class DmsCampaignSendCatalogTest extends TestCase
                 'id' => $contactId,
                 'workspace_id' => $workspace->getKey(),
                 'email' => Crypt::encryptString($email),
-                'email_lookup_hash' => hash('sha256', $email),
+                'email_lookup_hash' => hash_hmac('sha256', $email, $lookupKey),
                 'lookup_key_version' => 1,
                 'status' => 'active',
                 'idempotency_key' => (string) Str::uuid(),
@@ -1107,6 +1125,67 @@ class DmsCampaignSendCatalogTest extends TestCase
         $this->assertSame(2002, DB::table('campaign_recipient_snapshot_item_sources')
             ->whereIn('snapshot_item_id', $items->pluck('id'))
             ->count());
+
+        $this->assertSame(1002, DB::table('campaign_recipient_snapshot_item_addresses as address')
+            ->join('campaign_recipient_snapshot_items as item', 'item.id', '=', 'address.snapshot_item_id')
+            ->where('item.snapshot_id', $snapshot->getKey())
+            ->count());
+        $firstItem = $items->first();
+        $originalFirstEmail = (string) $contacts->get((string) $firstItem->contact_id)->email;
+        $encryptedFirstEmail = DB::table('campaign_recipient_snapshot_item_addresses')
+            ->where('snapshot_item_id', $firstItem->id)
+            ->value('email');
+        $this->assertNotSame($originalFirstEmail, $encryptedFirstEmail);
+        $storedAddress = CampaignRecipientSnapshotItemAddress::query()->findOrFail($firstItem->id);
+        $this->assertSame($originalFirstEmail, $storedAddress->email);
+        $this->assertArrayNotHasKey('email', $storedAddress->toArray());
+
+        $firstContact = $contacts->get((string) $firstItem->contact_id);
+        $firstContact->forceFill(['email' => 'changed-after-snapshot@example.test'])->save();
+        $this->assertSame($originalFirstEmail, $storedAddress->fresh()->email);
+
+        $copiedRevision = CampaignRevision::query()->create([
+            'campaign_id' => $campaign->getKey(),
+            'revision_number' => 2,
+            'payload' => ['kind' => 'marketing'],
+            'content_sha256' => hash('sha256', 'snapshot address copy'),
+            'idempotency_key' => (string) Str::uuid(),
+            'request_fingerprint' => hash('sha256', 'snapshot address copy request'),
+            'created_by' => $owner->getKey(),
+            'created_at' => now(),
+        ]);
+        $copiedSnapshot = app(DmsCampaignRecipientSnapshotBuilder::class)->copyToRevision(
+            $snapshot,
+            (string) $copiedRevision->getKey(),
+        );
+        $copiedItemId = DB::table('campaign_recipient_snapshot_items')
+            ->where('snapshot_id', $copiedSnapshot->getKey())
+            ->where('position', $firstItem->position)
+            ->value('id');
+        $this->assertSame(
+            $originalFirstEmail,
+            CampaignRecipientSnapshotItemAddress::query()->findOrFail($copiedItemId)->email,
+        );
+
+        $tamperedContact = Contact::query()->findOrFail($items->get(1)->contact_id);
+        $tamperedContact->forceFill(['email_lookup_hash' => str_repeat('0', 64)])->save();
+        try {
+            app(DmsCampaignRecipientSnapshotBuilder::class)->build(
+                $workspace,
+                $campaign,
+                (string) $copiedRevision->getKey(),
+                [
+                    'offer_id' => $offer->getKey(),
+                    'isp_id' => $isp->getKey(),
+                    'audience_segments' => [$list->getKey().'_fresh', $secondList->getKey().'_fresh'],
+                    'order_by' => 'asc',
+                    'start_from' => 7,
+                ],
+            );
+            $this->fail('A changed contact identity must not be captured as an immutable campaign recipient.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('send_setup.audience_segments', $exception->errors());
+        }
     }
 
     public function test_manual_campaign_test_allows_unlimited_retries_and_logs_created_campaign_tests(): void
@@ -2659,6 +2738,54 @@ class DmsCampaignSendCatalogTest extends TestCase
         $this->assertStringNotContainsString('campaign-manual-test-button', $html);
     }
 
+    public function test_snapshot_migration_refuses_to_drop_existing_send_history(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->workspace($owner, 'owner');
+        $sponsor = $this->sponsor($workspace);
+        $offer = $this->offer($workspace, $sponsor, ['suppression_path' => null]);
+        $campaign = Campaign::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'created_by' => $owner->getKey(),
+            'name' => 'Snapshot rollback guard',
+            'kind' => 'marketing',
+            'status' => 'draft',
+            'idempotency_key' => (string) Str::uuid(),
+        ]);
+        $revision = CampaignRevision::query()->create([
+            'campaign_id' => $campaign->getKey(),
+            'revision_number' => 1,
+            'payload' => ['kind' => 'marketing'],
+            'content_sha256' => hash('sha256', 'snapshot-rollback-guard'),
+            'idempotency_key' => (string) Str::uuid(),
+            'request_fingerprint' => hash('sha256', 'snapshot-rollback-guard-request'),
+            'created_by' => $owner->getKey(),
+            'created_at' => now(),
+        ]);
+        $snapshot = CampaignRecipientSnapshot::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'campaign_id' => $campaign->getKey(),
+            'revision_id' => $revision->getKey(),
+            'offer_id' => $offer->getKey(),
+            'suppression_sha256' => str_repeat('a', 64),
+            'selection' => [],
+            'recipient_count' => 0,
+            'recipients_sha256' => str_repeat('b', 64),
+            'created_at' => now(),
+        ]);
+        $migration = require database_path('migrations/2026_10_24_031710_create_campaign_recipient_snapshots_tables.php');
+
+        try {
+            $migration->down();
+            $this->fail('Expected the snapshot migration rollback to preserve campaign send history.');
+        } catch (\RuntimeException $exception) {
+            $this->assertStringContainsString('Use a forward migration', $exception->getMessage());
+        }
+
+        $this->assertDatabaseHas('campaign_recipient_snapshots', ['id' => $snapshot->getKey()]);
+        $this->assertTrue(Schema::hasTable('campaign_recipient_snapshot_items'));
+    }
+
     private function workspace(User $owner, string $role): Workspace
     {
         $workspace = Workspace::query()->create([
@@ -2734,10 +2861,13 @@ class DmsCampaignSendCatalogTest extends TestCase
             'allowed_sponsors' => [$sponsorId],
         ]);
         $email = 'synthetic-'.$list->getKey().'@example.test';
+        $lookupKey = config('alphalink.contact_lookup_key');
         $contact = Contact::query()->create([
             'workspace_id' => $workspace->getKey(),
             'email' => $email,
-            'email_lookup_hash' => hash('sha256', $email),
+            'email_lookup_hash' => is_string($lookupKey) && strlen($lookupKey) >= 32
+                ? hash_hmac('sha256', $email, $lookupKey)
+                : hash('sha256', $email),
             'lookup_key_version' => 1,
             'status' => 'active',
             'idempotency_key' => (string) Str::uuid(),

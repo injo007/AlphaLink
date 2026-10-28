@@ -50,4 +50,60 @@ class DmsInstallerSshSession implements DmsInstallerRemoteCommandTransport, DmsI
 
         return $this->connection->downloadString($path);
     }
+
+    /** @return list<string>|false */
+    public function listDirectory(string $path): array|false
+    {
+        if (! $this->connection->isConnected() || ! $this->connection->isAuthenticated()) {
+            return false;
+        }
+
+        return $this->connection->listDirectory($path);
+    }
+
+    public function isDirectory(string $path): bool
+    {
+        return $this->connection->isConnected()
+            && $this->connection->isAuthenticated()
+            && $this->connection->isDirectory($path);
+    }
+
+    public function createDirectory(string $path): bool
+    {
+        return $this->connection->isConnected()
+            && $this->connection->isAuthenticated()
+            && $this->connection->createDirectory($path);
+    }
+
+    public function fileSize(string $path): int|false
+    {
+        if (! $this->connection->isConnected() || ! $this->connection->isAuthenticated()) {
+            return false;
+        }
+
+        return $this->connection->fileSize($path);
+    }
+
+    public function fileModifiedAt(string $path): int|false
+    {
+        if (! $this->connection->isConnected() || ! $this->connection->isAuthenticated()) {
+            return false;
+        }
+
+        return $this->connection->fileModifiedAt($path);
+    }
+
+    public function downloadFile(string $remotePath, string $localPath): bool
+    {
+        return $this->connection->isConnected()
+            && $this->connection->isAuthenticated()
+            && $this->connection->downloadFile($remotePath, $localPath);
+    }
+
+    public function moveFile(string $remotePath, string $destination): bool
+    {
+        return $this->connection->isConnected()
+            && $this->connection->isAuthenticated()
+            && $this->connection->moveFile($remotePath, $destination);
+    }
 }

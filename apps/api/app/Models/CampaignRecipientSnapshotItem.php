@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use LogicException;
 
 class CampaignRecipientSnapshotItem extends Model
@@ -27,5 +28,10 @@ class CampaignRecipientSnapshotItem extends Model
     public function sources(): HasMany
     {
         return $this->hasMany(CampaignRecipientSnapshotItemSource::class, 'snapshot_item_id');
+    }
+
+    public function address(): HasOne
+    {
+        return $this->hasOne(CampaignRecipientSnapshotItemAddress::class, 'snapshot_item_id');
     }
 }

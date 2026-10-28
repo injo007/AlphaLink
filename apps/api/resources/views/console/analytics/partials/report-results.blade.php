@@ -18,6 +18,7 @@
                             @if ($kind === 'isp-stats')
                                 <td>{{ $row['period'] }}</td>
                                 <td>{{ $row['isp'] }}</td>
+                                <td class="text-right">{{ number_format($row['deliveries']) }}</td>
                                 <td class="text-right">{{ number_format($row['opens']) }}</td>
                                 <td class="text-right">{{ number_format($row['clicks']) }}</td>
                                 <td class="text-right">{{ number_format($row['leads']) }}</td>
@@ -25,10 +26,14 @@
                                 <td class="text-right">${{ number_format($row['lead_revenue'], 2) }}</td>
                             @else
                                 <td>{{ $row['mailer'] }}</td>
+                                <td class="text-right">{{ number_format((int) $row['deliveries']) }}</td>
+                                <td class="text-right">{{ number_format((int) $row['soft_bounces']) }}</td>
+                                <td class="text-right">{{ number_format((int) $row['hard_bounces']) }}</td>
                                 <td class="text-right">{{ number_format((int) $row['opens']) }}</td>
                                 <td class="text-right">{{ number_format((int) $row['clicks']) }}</td>
                                 <td class="text-right">{{ number_format((int) $row['leads']) }}</td>
                                 <td class="text-right">{{ number_format((int) $row['unsubscribes']) }}</td>
+                                <td class="text-right">{{ number_format((int) $row['bots']) }}</td>
                                 <td class="text-right">${{ number_format((float) $row['lead_revenue'], 2) }}</td>
                             @endif
                         </tr>

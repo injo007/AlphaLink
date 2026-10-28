@@ -11,10 +11,11 @@ class ContactListMembership extends Model
 
     protected $fillable = [
         'workspace_id', 'audience_list_id', 'contact_id', 'email_type', 'status',
-        'joined_at', 'left_at', 'last_event_id', 'profile',
+        'joined_at', 'left_at', 'last_event_id', 'profile', 'profile_sex_index',
+        'email_domain_index', 'attribute_index_version',
     ];
 
-    protected $hidden = ['profile'];
+    protected $hidden = ['profile', 'profile_sex_index', 'email_domain_index', 'attribute_index_version'];
 
     protected function casts(): array
     {
@@ -22,6 +23,7 @@ class ContactListMembership extends Model
             'joined_at' => 'immutable_datetime',
             'left_at' => 'immutable_datetime',
             'profile' => 'encrypted:array',
+            'attribute_index_version' => 'integer',
         ];
     }
 

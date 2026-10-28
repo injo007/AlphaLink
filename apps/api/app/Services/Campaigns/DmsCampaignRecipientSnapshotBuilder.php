@@ -10,6 +10,7 @@ use App\Models\ContactListMembership;
 use App\Models\Workspace;
 use App\Models\WorkspaceOffer;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -20,8 +21,8 @@ class DmsCampaignRecipientSnapshotBuilder
 
     /**
      * Reproduce DMS campaign creation's synchronous recipient suppression and point-in-time manifest.
-     * Persist only contact IDs and workspace HMACs in the immutable snapshot;
-     * normalized addresses exist only in connection-scoped staging tables.
+     * Persist keyed identities in the immutable manifest and addresses in an
+     * append-only encrypted table; normalized plaintext is limited to staging.
      *
      * @param  array<string, mixed>  $sendSetup
      */
@@ -294,6 +295,7 @@ class DmsCampaignRecipientSnapshotBuilder
                     $cursor = $chunk->last();
                     $createdAt = now();
                     $itemRows = [];
+                    $addressRows = [];
                     $hashes = $chunk->pluck('email_lookup_hash')->map(fn ($hash): string => (string) $hash)->all();
                     $itemIdsByHash = [];
 
@@ -312,8 +314,16 @@ class DmsCampaignRecipientSnapshotBuilder
                             'source_email_type' => $recipient->source_email_type,
                             'created_at' => $createdAt,
                         ];
+                        $addressRows[] = [
+                            'snapshot_item_id' => $itemId,
+                            'workspace_id' => $workspace->getKey(),
+                            'email_lookup_hash' => $recipient->email_lookup_hash,
+                            'email' => Crypt::encryptString((string) $recipient->email),
+                            'created_at' => $createdAt,
+                        ];
                     }
                     DB::table('campaign_recipient_snapshot_items')->insert($itemRows);
+                    DB::table('campaign_recipient_snapshot_item_addresses')->insert($addressRows);
 
                     $sourceCursor = null;
                     while (true) {
@@ -423,6 +433,23 @@ class DmsCampaignRecipientSnapshotBuilder
                         ];
                     }
                     DB::table('campaign_recipient_snapshot_items')->insert($itemRows);
+
+                    $addressRows = DB::table('campaign_recipient_snapshot_item_addresses')
+                        ->whereIn('snapshot_item_id', array_keys($itemIds))
+                        ->get(['snapshot_item_id', 'workspace_id', 'email_lookup_hash', 'email', 'created_at'])
+                        ->map(function ($address) use ($itemIds): array {
+                            return [
+                                'snapshot_item_id' => $itemIds[(string) $address->snapshot_item_id],
+                                'workspace_id' => $address->workspace_id,
+                                'email_lookup_hash' => $address->email_lookup_hash,
+                                'email' => $address->email,
+                                'created_at' => $address->created_at,
+                            ];
+                        })
+                        ->all();
+                    if ($addressRows !== []) {
+                        DB::table('campaign_recipient_snapshot_item_addresses')->insert($addressRows);
+                    }
 
                     $sourceCursor = null;
                     while (true) {
@@ -538,10 +565,26 @@ class DmsCampaignRecipientSnapshotBuilder
         int &$workspaceSuppressedCount,
         int &$duplicateCount,
     ): void {
+        $lookupKey = config('alphalink.contact_lookup_key');
+        if (! is_string($lookupKey) || strlen($lookupKey) < 32) {
+            throw ValidationException::withMessages([
+                'send_setup.audience_segments' => 'CONTACT_LOOKUP_KEY must be configured before campaign recipients can be snapshotted.',
+            ]);
+        }
+
         $candidateTable = $tables['candidates'];
         DB::table($candidateTable)->delete();
         $candidateRows = [];
         foreach ($candidates as $position => $candidate) {
+            $email = mb_strtolower(trim($candidate['email']));
+            $expectedHash = hash_hmac('sha256', $email, $lookupKey);
+            if (filter_var($email, FILTER_VALIDATE_EMAIL) === false
+                || ! hash_equals($expectedHash, $candidate['email_lookup_hash'])) {
+                throw ValidationException::withMessages([
+                    'send_setup.audience_segments' => 'A selected contact address does not match its keyed identity. Repair or re-import the contact before creating a campaign snapshot.',
+                ]);
+            }
+
             $candidateRows[] = [
                 'candidate_position' => $position + 1,
                 'contact_id' => $candidate['contact_id'],
@@ -549,7 +592,7 @@ class DmsCampaignRecipientSnapshotBuilder
                 'source_membership_id' => $candidate['source_membership_id'],
                 'source_list_id' => $candidate['source_list_id'],
                 'source_email_type' => $candidate['source_email_type'],
-                'email' => $candidate['email'],
+                'email' => $email,
                 'suppression_key' => $candidate['suppression_key'],
                 'count_list_suppression' => $candidate['count_list_suppression'] ? 1 : 0,
             ];

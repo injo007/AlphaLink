@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateLineCoordinates, compareSortValues } from '../../public/dms-reference/isp-stats-charts.js';
+import { calculateLineCoordinates, compareSortValues, projectIspStatsChartSeries } from '../../public/dms-reference/isp-stats-charts.js';
 
 const padding = { top: 10, right: 10, bottom: 10, left: 10 };
 
@@ -34,4 +34,27 @@ test('ISP report table sort compares numbers and calendar labels correctly', () 
     assert.ok(compareSortValues('2', '10', 'number') < 0);
     assert.ok(compareSortValues('2026-09-30', '2026-10-01') < 0);
     assert.equal(compareSortValues('Mailer A', 'mailer a'), 0);
+});
+
+test('ISP overview includes PMTA delivery totals alongside engagement series', () => {
+    const series = projectIspStatsChartSeries({
+        totals: [{ deliveries: 9, opens: 4, clicks: 2, leads: 1, unsubscribes: 1 }],
+    }, 'overview');
+
+    assert.deepEqual(series[0], {
+        label: 'Deliveries',
+        color: '#bf8c28',
+        values: [9],
+    });
+    assert.deepEqual(series.map(({ label }) => label), ['Deliveries', 'Opens', 'Clicks', 'Leads', 'Unsubscribes']);
+});
+
+test('ISP per-mailer delivery chart uses the same period values as its rendered data', () => {
+    assert.deepEqual(projectIspStatsChartSeries({
+        mailers: [{ label: 'Operator', values: { deliveries: [3, 8] } }],
+    }, 'deliveries'), [{
+        label: 'Operator',
+        color: '#3d76cf',
+        values: [3, 8],
+    }]);
 });

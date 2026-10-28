@@ -1277,10 +1277,10 @@ Focused provider regression: 44 tests / 454 assertions across Domain Provider re
 - Shell syntax and whitespace checks passed. The local app filesystem is FUSE and ignores requested private directory modes (it reports 0777), unlike the Ubuntu installer’s intended `www-data` 0700 directories. No 100 MB list or 700 MB suppression upload was run end to end, and no Ubuntu host has been installed. Capacity for concurrent large-file temporary copies remains an operational requirement.
 
 
-## E-DB-10 — Production-scale campaign snapshot staging — 2026-10-27
+## E-DB-10 — Production-scale campaign snapshot staging — 2026-10-27/28
 
 - Focused `DmsCampaignSendCatalogTest` SQLite-memory run: **2 passed / 178 assertions**, including a 1002-recipient test crossing multiple 500-row keyset pages, exact ascending ordering, 2,002 selected-source rows, and campaign revision-copy provenance. PHP syntax, scoped Pint, and `git diff --check` pass.
-- An earlier version of the two snapshot tests passed on disposable PostgreSQL 18 (**2 / 178**) after the core staging refactor. That run predates the current 1,000-row keyset-paged provenance/revision-copy writes and migration `2026_10_27_203416_add_campaign_snapshot_keyset_and_suppression_indexes`; current PostgreSQL behavior remains unverified. The current fresh SQLite path applies that migration. A later PostgreSQL rerun failed during disposable cluster initialization before application tests ran. That local container failure is not a production workload limit.
+- Two targeted regressions pass on disposable PostgreSQL 18.6 with current migrations (**2 tests / 178 combined assertions**): the 1,002-recipient/two-source paging test verifies multi-page scans, deduplication, ordering, `start_from`, and contributors; the campaign create/revision test verifies contributor-copy preservation. This is functional-path evidence, not a full suite or 10M/throughput benchmark.
 - The builder streams memberships by stable keyset, resolves suppression flags in bounded SQL batches, maintains dedupe and source provenance in connection-scoped temporary tables, hashes sorted pages, and writes durable snapshot rows in batches. The 100 MB upload / 700 MB suppression cases and 10M throughput/peak-resource benchmarks remain unrun on a production Ubuntu/PostgreSQL target.
 
 
@@ -1324,3 +1324,223 @@ Focused provider regression: 44 tests / 454 assertions across Domain Provider re
 - `DmsOfferManagementTest --filter=suppression_upload`: **3 passed / 20 assertions** in the PHP 8.3 app container, including a synthetic file larger than the former 10 MiB ceiling.
 - Source inspection confirms direct uploads are streamed in 64 KiB chunks and normalized through batched temporary database inserts; no application-level byte validator remains. Installer configuration sets PHP upload/post and Nginx request-body limits to unlimited.
 - Provider downloads and ZIP extraction still enforce a 1 GiB ceiling, which is above the reported 700 MB files. No 700 MB transfer, free-space stress, production throughput, or Ubuntu target installation was tested.
+
+
+## E-CAMP-107 — Remove suppression download byte ceilings — 2026-10-28
+
+- `DmsAffiliateProviderHttp::downloadToFileFollowingPublicRedirects` streams provider responses to a sink with no byte maximum; `DmsOfferSuppressionFile::extractLargestZipEntry` streams ZIP content without a byte ceiling. HTTPS/public-address validation, redirect handling, archive path/content checks, and the 500-entry archive structure guard remain.
+- Provider requests retain a 7-second connect timeout and have no total HTTP timeout. `DownloadWorkspaceOfferSuppressionFile` still has a 7200-second job deadline.
+- The focused provider, refresh, offer-suppression, offer-management, and workspace-suppression suites pass **42 tests / 330 assertions** in the PHP 8.3 app container. These synthetic tests do not prove a 700 MB transfer, target storage headroom, or throughput.
+- No live provider, saved offer, production server, or DMS state was used. Keep DMS-DROP-003 TESTING.
+
+
+## E-TRACK-22 — Scheduled PMTA feedback SFTP ingestion — 2026-10-27
+
+## E-TRACK-23 — Batched PMTA feedback event persistence — 2026-10-28
+
+- Replaced one transaction and event insert per parsed record with one atomic insert batch per 100 source-validated rows. A workspace/server-scoped `FOR UPDATE` lock serializes the existing-key check with insertion; newly inserted events and sequential delivery/hard-bounce membership transitions commit together. Duplicate rows are skipped, and affected-list tracking still includes duplicates for rollup repair.
+- `DmsPmtaFeedbackImportTest`: **5 passed / 43 assertions**. Its 125-row Drop and campaign cases verify two event insert statements, two source-ownership queries per table, and a 125-row replay reported as duplicates without additional event rows. Combined remote-processor, importer, SSH/SFTP, concurrency, and offer-asset suites: **27 passed / 237 assertions**. Pint passed on both changed PHP files.
+- Tests use enforced in-memory SQLite; no PostgreSQL row-lock/concurrent-import or 10M workload was run. DMS source remains read-only and no PMTA host, saved workspace data, or email was touched. This is a target-side throughput improvement, not parity acceptance; DMS-TRACK-002 remains IMPLEMENTING.
+
+
+- Focused `DmsPmtaFeedbackSyncTest`, `DmsPmtaFeedbackImportTest`, `DmsInstallerSshSessionFactoryTest`, `PhpseclibDmsInstallerSshConnectionTest`, and `LimitPmtaFeedbackConcurrencyTest`: **21 passed / 176 assertions** in `alphalink-local-web` with isolated SQLite memory. The expanded run including `DmsOfferAssetSharingTest` passes **27 / 233 assertions**. Targeted Pint passes on all 17 changed PHP files.
+- Synthetic coverage verifies scheduled dispatch scope/cadence, SSH host-key pinning before SFTP access, five-job semaphore and 600-second per-server lock, staging permissions, ten-minute stale-file deferral, delivery/bounce imports, one daily rollup per server/date job, idempotent rollup recovery after archive failure, unmatched-file recovery, workspace-scoped campaign/snapshot/item and Drop/contact lookup batches (125 rows in two chunks), warmup aggregation, and recipient-data privacy.
+- An `artisan schedule:list` run using an isolated in-memory SQLite override succeeded and listed PMTA feedback every two minutes. A read-only attempt against the app's saved PostgreSQL configuration could not initialize: its cached configuration used an unavailable port and the mapped endpoint rejected the saved role credentials. No credentials or database data were changed. Schedule registration does not prove an active scheduler/Horizon execution, PostgreSQL concurrency, or high-volume throughput. DMS numeric `SeedCampaign` IDs still lack a mapping to AlphaLink UUID warmup campaigns. No browser check, PMTA host, email, saved workspace data, or DMS command/write was used. DMS-TRACK-002 remains IMPLEMENTING.
+
+
+## E-TRACK-24 — Disposable PostgreSQL feedback integration — 2026-10-28
+
+- Added `phpunit.postgres.xml` as a separate, strict profile for the PMTA feedback importer and remote-sync feature tests. `tests/bootstrap.php` permits PostgreSQL only with the fixed disposable database tuple; normal tests still force SQLite `:memory:`. The profile ran on PostgreSQL 18.6 in a disposable container with no host port and no application database credentials.
+- PostgreSQL profile: **9 passed / 89 assertions**. SQLite importer/sync/parser set: **13 passed / 103 assertions**. Pint passed on the five changed PHP files.
+- At this evidence point the PG profile selected only the two PMTA feature suites; E-DB-15 later adds audience-import suites to the same profile. The PG run exposed a UUID campaign key joined to a varchar event source, `0` used as a list sentinel but queried as a UUID, and malformed domain labels passed to a UUID lookup. These cases are now handled while preserving workspace/source validation. A targeted PG run is not concurrency/load evidence; no 10M-record test, real SFTP/Horizon execution, PMTA host, browser session, or DMS operation occurred. DMS-TRACK-002 stays IMPLEMENTING.
+
+
+## E-DB-15 — PostgreSQL audience import and DMS file upload — 2026-10-28
+
+- Extended `phpunit.postgres.xml` with `AudienceListImportTest` and `DmsListUploadTest`; the test bootstrap still permits only SQLite memory or the fixed disposable PostgreSQL tuple. The full serial PostgreSQL 18.6 profile passes **30 tests / 234 assertions**; the audience-only pair passes **21 / 145** on PostgreSQL and also **21 / 145** on SQLite.
+- Coverage includes multi-list duplicate handling, membership and opt-out state, chunked/recovery import behavior, DMS seven-column profiles and filtering, plus a **2.1 MB** upload with no application size rejection. That file contains invalid rows and does not represent a 100 MB throughput test.
+- No competing workers, 100 MB import, 10M load, live Horizon, browser check, saved list data, or DMS operation ran. This is PostgreSQL execution evidence, not DMS parity acceptance; DMS-AUD-002 remains TESTING.
+
+
+## E-REG-01 — Current-checkout cross-workflow regression — 2026-10-28
+
+- Reran `AudienceListImportTest`, `DmsListUploadTest`, affiliate suppression refresh/provider/offer suites, PMTA feedback import/sync/parser, and installer SSH/SFTP/concurrency suites together in the PHP 8.3 app container. All **81 tests / 629 assertions** passed under the standard enforced SQLite `:memory:` test profile.
+- These are synthetic fixtures and fake transport boundaries. This rerun verifies the current local checkout only; it does not establish PostgreSQL contention, production throughput, live Horizon/SFTP/PMTA outcomes, browser parity, or delivery. No saved AlphaLink data, host mutation, email, or DMS mutation was used.
+
+## E-DB-16 — Indexed Audience Mix attributes — 2026-10-28
+
+- Added blind indexes for the existing sex and exact email-domain Mix filters, populated them during imports, retained encrypted source data and legacy fallback, and added a keyset-batched conditional backfill command. PostgreSQL creates the composite indexes concurrently.
+- `DmsListUploadTest` and `AudienceMixWorkflowTest` pass **15 tests / 131 assertions** on SQLite `:memory:`. The expanded disposable PostgreSQL 18.6 profile passes **38 tests / 306 assertions**; a catalog query confirmed both new indexes exist. Targeted Pint passes.
+- The backfill test verifies a two-row batch. A disposable PostgreSQL EXPLAIN ANALYZE on 500,000 synthetic memberships selected `clm_mix_domain_filter_idx` for combined email-domain/sex filtering and returned 5,000 matches in about 38.6 ms. Concurrent backfill/import races, a production-sized backfill, 100 MB valid-list upload, 10M workload, browser parity, production latency, and live Ubuntu installation remain unverified. Synthetic fixtures only; no saved data or DMS action was used.
+
+
+## E-TOOLS-09 — Encoding busy-state regression — 2026-10-28
+
+- `DmsEncodingToolTest`: **3 passed / 25 assertions**; `DmsCampaignComposerToolsTest` plus Encoding: **6 passed / 44 assertions** in the PHP 8.3 app container with isolated SQLite memory. Coverage confirms the rendered spinner/ARIA wiring, existing B/Q/HQ/unknown-schema behavior, long input, popup access and shared helper behavior.
+- Targeted Pint passed; strict Premium UI audit reported zero findings; `git diff --check` passed. Dynamic browser parity and same-viewport popup comparison remain unverified because the authenticated 8766 app currently cannot connect to PostgreSQL at 127.0.0.1:5432. The saved database and DMS were not touched. DMS-TOOLS-003 stays TESTING.
+
+## E-TOOLS-16 — Standalone Encoding popup layout — 2026-10-28
+
+- Same-viewport 1280×720 screenshots of the read-only DMS main/popup routes and a disposable AlphaLink preview show matching content bounds and control placement within a few pixels. AlphaLink now removes the extra ENCODING card header from the main route and uses a standalone layout for popup.
+- In the isolated SQLite preview, Base64 encoding synthetic `Café` returned `=?UTF-8?B?Q2Fmw6k=?=`, and the IP mode generated all seven output forms for `192.0.2.1`. `DmsEncodingToolTest`: **4 passed / 36 assertions**. `git diff --check` passes.
+- DMS was accessed only with GET; the encode POST was not invoked. Its main toolbar has additional shortcut icons compared with AlphaLink, a shared-shell difference still needing classification; keep DMS-TOOLS-003 TESTING. The preview used only synthetic data and an isolated `/tmp` SQLite file.
+
+## E-DASH-34 — Main Dashboard imported PMTA chart and visual check — 2026-10-28
+
+- `WorkspaceAnalyticsDashboardTest`: **16 passed / 203 assertions**; `DmsPmtaFeedbackSyncTest`: **4 / 69**; combined **20 / 272**. Assertions cover the ordered MTD series (Deliveries, Bounces, Opens, Clicks, Unsubscribes, Leads (AlphaLink)) and rendered imported delivery/bounce titles.
+- `analytics-pivot.test.js`: **7 passed**; `node --check` passes. Vite production build emits the new shared analytics chart CSS; targeted Pint and `git diff --check` pass.
+- Authenticated browser on disposable SQLite displays distinct colored line series and a wrapped legend, with 7 synthetic deliveries, 2 soft bounces and 1 hard bounce. This does not verify saved-workspace state, live SFTP/PMTA ingestion or production Horizon/scheduler execution. No DMS mutation or email was performed; DMS-DASH-001 remains TESTING.
+
+## E-DASH-35 — Campaign Statistics conversion proxy — 2026-10-28
+
+- `WorkspaceCampaignStatisticsTest`: **5 passed / 142 assertions** in the PHP 8.3 app container with SQLite-memory fixtures. Positive attributed-revenue rows count as conversion-proxy groups; multiple positive rows in one dimension group count once, a zero-only group counts zero, and actual leads remain independently counted. JSON scope/privacy and date validation remain covered.
+- `analytics-pivot.test.js`: **7 passed**; `node --check`, targeted Pint and `git diff --check` pass. Conversion proxy is exposed in Campaign Statistics only; All Stats still omits it.
+- Current saved-app browser verification is blocked by its local PostgreSQL connectivity. The local measure approximates DMS positive-earnings daily groups with positive attributed lead revenue, so it is not earnings parity. No DMS operation or saved-data mutation occurred; DMS-CAMP-007 stays TESTING.
+
+## E-DASH-36 — Campaign Statistics PMTA delivery and bounce measures — 2026-10-28
+
+- `WorkspaceCampaignStatisticsTest`: **5 passed / 152 assertions** in the PHP 8.3 app container with SQLite-memory fixtures. It verifies the daily delivery, soft-bounce and hard-bounce counters flow to the report JSON and rendered fallback table while preserving campaign filters and privacy behavior.
+- `analytics-pivot.test.js`: **7 passed**; `node --check`, targeted Pint and `git diff --check` pass.
+- An authenticated browser against an isolated SQLite database renders the same synthetic aggregate in PivotGrid and fallback table: 37 deliveries, 4 soft bounces and 2 hard bounces. This verifies UI/query wiring, not saved AlphaLink or live PMTA ingestion. DMS-CAMP-007 remains TESTING.
+
+## E-DASH-37 — Campaign PMTA feedback import-to-report regression — 2026-10-28
+
+- `WorkspaceCampaignStatisticsTest`: **6 passed / 171 assertions** on SQLite-memory and disposable PostgreSQL 18.6; `DmsPmtaFeedbackImportTest`: **5 passed / 50 assertions** on SQLite-memory, all in the PHP 8.3 app container.
+- The integration test imports synthetic delivery, soft-bounce and hard-bounce CSV rows through the actual parser/importer, rebuilds the daily aggregate, and reads Campaign Statistics JSON. Replaying delivery is deduplicated; counts remain one per metric. Recipient addresses are absent from the response and feedback rows.
+- The first PostgreSQL run exposed UUID/text join mismatches and compact UUID domain labels; the report now uses type-safe joins and canonicalizes compact UUIDs during label resolution. The disposable database was removed. Targeted Pint and `git diff --check` pass. This does not verify remote SFTP, Horizon, live PMTA, saved-workspace behavior or DMS parity; DMS-CAMP-007 remains TESTING.
+
+
+## E-AUD-20 — AlphaLink Blacklist Checker process — 2026-10-28
+
+- Added workspace-scoped TXT/CSV email-address file processing, private staged storage, byte-offset resumption in 500-value queue jobs, lead exclusion, multi-List type changes, append-only membership events, process status/cancel controls, and affected List History refresh. A normalized process-to-list relation records affected Lists without growing a JSON column.
+- `WorkspaceBlacklistCheckerTest`: **7 tests / 60 assertions** pass on SQLite-memory and disposable PostgreSQL 18.6. The combined blacklist, Search Emails, list upload, and audience import run passes **35 tests / 321 assertions** on SQLite-memory. Pint and `git diff --check` pass. The PG container on host :5432 was stopped and removed after testing; the existing app DB on :5433 remained running and untouched.
+- DMS hash input is rejected because its 32-character lookup algorithm is unavailable and AlphaLink uses a keyed SHA-256 index. Tests verify rejection before process creation, 500-line resume/idempotency, workspace/process authorization, lead exclusion, multi-List changes, history refresh, cancellation and private-disk location. The local test filesystem reports 0777 despite chmod, so POSIX mode enforcement is not verified by this environment.
+- No 100 MB file, production Horizon recovery, saved workspace rows, or DMS mutation was used. Browser parity remains unverified: opening the new route on the active 8766 app returned a PostgreSQL connection refusal on port 5432 before page rendering. DMS-AUD-005 remains TESTING.
+
+## E-DEPLOY-02 — Production Horizon audience-import supervisor — 2026-10-28
+
+- Added the `audience-imports` supervisor to Horizon's production environment. Before this, the Ubuntu installer supplied a target-derived import worker count, but production did not declare that supervisor and would not process those jobs.
+- `HorizonDeploymentTest`: **5 passed / 17 assertions** in the PHP 8.3 application container; targeted Pint, `bash -n install-ubuntu-26.sh`, and `git diff --check` pass.
+- Runtime remains unverified: the app container cannot connect to PostgreSQL at `127.0.0.1:5432`, and `php artisan horizon:status` reports inactive. No saved data, server, email, or DMS state was changed.
+
+## E-DEPLOY-03 — Release storage-link permissions — 2026-10-28
+
+- Changed the redeploy installer to run `php artisan storage:link` as root. The release and `public` directory are root-owned with mode `0750`, so `www-data` could not create the public-storage symlink; the fresh-install path already invoked it as root.
+- A disposable permission probe verified that `www-data` cannot write to a simulated release directory and root can create the shared-storage symlink. `bash -n`, installer help/plan/deploy-plan, worker sizing, `git diff --check`, and the focused Horizon suite with default and custom worker counts pass.
+- This does not verify a clean Ubuntu 26 install or a real redeploy/rollback. No server or saved app data was changed.
+
+## E-DEPLOY-04 — Local AlphaLink database outage diagnosis — 2026-10-28
+
+- The existing AlphaLink page at `127.0.0.1:8766` returns HTTP 500 because its session lookup cannot connect to PostgreSQL at `127.0.0.1:5432`. The configured PostgreSQL 16 cluster is stopped; its data directory remains present, but database integrity and contents were not inspected.
+- The only running PostgreSQL container maps host port 5433 and is labeled as a different Compose project. It was not connected to or repurposed. AlphaLink environment files, PostgreSQL data, and Docker volumes were not changed. No restore, migration, or saved-data query ran.
+- With the SQLite-memory test environment explicitly set before Laravel boot, `WorkspaceBlacklistCheckerTest`, `DmsWorkspaceEmailManagementTest`, and `DmsListUploadTest` pass **21 tests / 235 assertions**. Targeted Pint, installer `bash -n`, and `git diff --check` pass. These checks do not replace the blocked browser/runtime verification; DMS-AUD-005 remains TESTING.
+
+## E-DB-17 — Durable campaign send execution ledger — 2026-10-28
+
+- Added forward-only-protected execution records for planned send runs, bounded batches, recipient claims, and individual delivery attempts. A run is FK-bound to its workspace, campaign, immutable revision, and immutable recipient snapshot. The unique claim key prevents claiming the same snapshot recipient twice in a run. Idempotent plan creation writes one campaign.send.plan_created outbox event.
+- CampaignSendExecutionLedgerTest: **5 passed / 24 assertions** with SQLite-memory and **5 / 24** on a disposable PostgreSQL 18.6 instance. Coverage includes idempotent replays, mismatched input rejection, duplicate-claim protection, and rollback protection for persisted run evidence. Targeted Pint and git diff --check pass.
+- No sender/worker or launch route exists in this slice. Suppression/consent claim-time checks, retry and uncertain-outcome recovery, queue execution, browser parity, and native DMS sender outcomes remain open. No live email or DMS operation occurred; keep SEND UNAVAILABLE.
+
+## E-DB-18 — Bounded campaign recipient claims and suppression recheck — 2026-10-28
+
+- Added `ClaimCampaignSendBatch` on top of the immutable run/snapshot ledger. It takes a bounded page from the saved `start_from` cursor under a run lock, records an idempotent batch request, and writes address-free per-item claims in the same transaction. It validates the full saved suppression artifact on first claim and rejects a changed offer digest on later batches. Claim eligibility rechecks contact status, workspace and offer suppression events, and list-scoped offer exclusions against the immutable selected-source provenance; a deduplicated recipient remains eligible if at least one of its selected source Lists is not suppressed.
+- `CampaignSendExecutionLedgerTest` passes **10 tests / 62 assertions** on SQLite `:memory:` and **10 / 62** on a disposable PostgreSQL 18.6 database. Regressions cover same-key replay and conflicting reuse, suppression-file tampering, suppression changes between batches, workspace/offer/contact/list rechecks, multi-List suppression, cursor bounds, schema scoping, and rollback protection. Pint passes in the PHP 8.3 app container.
+- This is a pre-transport claim boundary, not an executing sender. Consent/channel policy, expired-lease recovery, pause/cancel transitions, attempt recording, uncertain SMTP acceptance, Horizon dispatch, launch/UI lifecycle, browser behavior, and native DMS sender outcomes remain open. The disposable PostgreSQL container was removed; no saved workspace, email, PMTA action, or DMS mutation was used. Keep SEND UNAVAILABLE and DMS-CAMP-001 IMPLEMENTING.
+
+## E-DB-19 — Durable delivery-attempt outcomes and run finalization — 2026-10-28
+
+- Added `CampaignDeliveryAttemptLifecycle` to create a worker-bound, idempotent attempt under an active batch lease and record one immutable terminal outcome: `accepted`, `rejected`, or `uncertain`. Attempt rows retain the worker ID, transport/error codes, and hashes of optional response/correlation data; they do not persist message text or recipient addresses. Exact outcome retries replay safely; conflicting outcomes and worker mismatches fail closed.
+- Terminal outcomes update recipient, batch, and run counters transactionally. A drained all-suppressed or fully resolved run is finalized; any uncertain recipient moves the run to `needs_review`. Uncertain claims are terminal here and cannot be resent automatically.
+- `CampaignSendExecutionLedgerTest`: **13 tests / 101 assertions** pass on SQLite `:memory:` and **13 / 101** on disposable PostgreSQL 18.6. Coverage includes accepted/rejected/uncertain transitions, outcome replay/conflict, worker binding, hashed diagnostics, all-suppressed completion, counters, and no automatic retry after uncertainty. Targeted Pint passes.
+- This is still a transport-independent ledger: no sender invokes it, no Horizon dispatch or lease recovery exists, and pause/cancel, consent/channel policy, public launch/history UI, real delivery, and DMS native outcome parity remain open. DMS static analysis confirms `send_delay` progress writes do not consume per-recipient SMTP replies before updating progress, while another branch parses replies; the exact DMS retry/terminal contract remains UNKNOWN. Disposable PostgreSQL was removed; no email, PMTA command, saved workspace or DMS mutation occurred. Keep SEND UNAVAILABLE and DMS-CAMP-001 IMPLEMENTING.
+
+## E-DB-20 — Expired campaign batch lease recovery — 2026-10-28
+
+- Added `ReclaimExpiredCampaignSendBatch`. It locks run → started attempts → batch → claims, validates the complete claim range and old lease ownership, and reassigns only still-unstarted recipients under a new worker/token. If a started attempt has no recorded outcome when the lease expires, recovery marks that attempt and claim `uncertain`, increments durable counters, and never retries that recipient. The remaining unstarted recipients can continue under the replacement lease; when the run drains, it finalizes to `needs_review` if any outcome is uncertain.
+- A repeated `start()` idempotency key for a still-`started` attempt now fails closed instead of looking like permission to submit the transport a second time. Terminal outcome replays remain readable and conflicting late results cannot overwrite a recovered uncertainty.
+- `CampaignSendExecutionLedgerTest`: **15 tests / 132 assertions** pass on SQLite `:memory:` and **15 / 132** on disposable PostgreSQL 18.6. Tests cover unexpired no-op, safe re-lease, rejection of stale tokens, started-attempt quarantine, continued handling of only untouched recipients, and no duplicate attempt on start replay. Pint passes.
+- Recovery is not scheduled or connected to Horizon, and there is still no sender, transport call, pause/cancel action, consent/channel policy, review UI, live send, or DMS runtime comparison. DMS's exact recovery/retry contract remains UNKNOWN; this is an AlphaLink safety proposal, not an approved parity claim. Disposable PostgreSQL was removed; the saved app database, other project's PostgreSQL, PMTA host and DMS were untouched. Keep SEND UNAVAILABLE and DMS-CAMP-001 IMPLEMENTING.
+
+## E-CAMP-108 — Campaign catalog test memory profile — 2026-10-28
+
+- Both `phpunit.xml` and `phpunit.postgres.xml` now set the test PHP `memory_limit` to 512 MiB. The standard Laravel test wrapper can now exercise the intentionally uncapped large campaign-draft regression without inheriting the app container's 128 MiB default.
+- `php artisan test --compact tests/Feature/DmsCampaignSendCatalogTest.php`: **24 passed / 814 assertions**.
+- The run uses SQLite `:memory:`, synthetic data, and fake transports. It does not establish production memory sizing, native campaign sending, live browser behavior, or PostgreSQL behavior for this suite. No email, PMTA action, saved database, or DMS mutation occurred; DMS-CAMP-001 remains IMPLEMENTING.
+
+## E-DB-21 — Refuse data-losing snapshot migration rollback — 2026-10-28
+
+- The snapshot migration now checks for saved snapshot/item history and duplicate workspace/contact memberships before making any schema change. It fails with a forward-migration instruction if rollback would drop send history or restore the single-List uniqueness rule over cross-List memberships.
+- `AudienceListImportTest` plus `DmsCampaignSendCatalogTest`: **40 passed / 909 assertions** on SQLite `:memory:`. The two new guard cases also pass on disposable PostgreSQL 18.6: **2 tests / 9 assertions**.
+- Pint passed on the three changed PHP files. Tests verify the guard without performing a rollback against saved data. Full production migration upgrade/rollback rehearsal, saved AlphaLink DB behavior, 10M workload and DMS parity remain unverified; DMS-AUD-002 stays TESTING and DMS-CAMP-001 stays IMPLEMENTING.
+
+## E-DB-22 — List-attributed campaign analytics projections — 2026-10-28
+
+Added an `attribution_scope` to daily analytics. The rebuilder retains the existing workspace-scope campaign event totals and separately groups open, click, and unsubscribe events by each unique selected source List in immutable event provenance; legacy events without provenance fall back to their canonical List. Campaign leads and imported PMTA feedback are included at their existing canonical source List, while Drop and warmup rows remain workspace-scoped. Campaign Statistics and All Stats read the campaign List scope; Main Dashboard, ISP Stats, Mailer Revenue, and MTD revenue breakdowns explicitly read workspace scope, so an event is counted once in workspace totals even when List totals fan out. The All Stats coverage note describes that List totals can exceed unique events.
+
+The schema migration adds an index for workspace/source/scope/date and preserves old workspace dimension hashes so rebuilds update existing aggregates in place. Focused analytics, tracking, and PMTA feedback tests pass **57 tests / 654 assertions** on SQLite `:memory:` and **57 / 654** on disposable PostgreSQL 18.6. Targeted Pint passes on the seven touched PHP files; PHP syntax and `git diff --check` pass. This is an approved AlphaLink multi-list extension; DMS's audited single-list model does not establish cross-list fan-out. The saved 8766 browser cannot currently render because its configured PostgreSQL endpoint refuses connections (E-TOOLS-10); no populated browser comparison or saved-workspace query was performed. No DMS mutation, saved database, email, or PMTA operation was used. List callbacks and live sender ingestion, PostgreSQL concurrency, 10M-scale query/rebuild throughput, historical backfill/restore rehearsal, and browser parity remain open. Keep DMS-AUD-002, DMS-TRACK-003, DMS-CAMP-007, and the affected Dashboard rows TESTING.
+
+## E-DB-23 — Time-leading analytics source indexes — 2026-10-28
+
+- Added concurrent time-leading indexes for campaign events, their provenance rows, lead conversions, Drop visitors, and PMTA feedback. The source-provenance time filter is backed by the tracked ingestion invariant that each row copies its parent event timestamp; a regression checks this on both database engines.
+
+- A disposable PostgreSQL 18.6 probe used 500K events and 880K provenance rows. With the event index present but no provenance time index, the one-day attribution query sequentially scanned all provenance rows (131 ms; 9,287 shared buffer hits). After adding the provenance index, both event and provenance inputs used date-bounded bitmap scans (52 ms; 552 buffer hits and 31 reads). This warm synthetic plan comparison is not a full rebuild or 10M-scale benchmark.
+
+- Analytics, tracking, and PMTA-feedback suites pass **58 / 660 assertions** on SQLite and disposable PostgreSQL 18.6. Index-column and timestamp-invariant checks pass on both; the migration rollback/reapply passes on PostgreSQL. Targeted Pint, PHP syntax, and whitespace checks pass. Production migration cost, full rebuild memory/throughput, 10M behavior, and browser parity remain unverified; related parity rows stay TESTING.
+
+
+## E-IAM-06 — Preserve edited username spelling
+
+- Global username edits now preserve the spelling submitted by the administrator. Authentication still matches usernames without regard to case, and case-insensitive validation plus a unique expression index prevents ambiguous accounts. The new migration refuses to apply when existing username spellings collide after case-folding.
+- `DmsGlobalUserManagementTest` and `WorkspaceUserManagementTest` pass **10 tests / 120 assertions** on SQLite `:memory:` and **10 / 120** on disposable PostgreSQL 18.6. The tests cover mixed-case edit and login, duplicate rejection, and the collision guard. Targeted Pint, PHP syntax and `git diff --check` pass.
+- The saved-app browser remains unavailable because local PostgreSQL 16/main is stopped; no authorized manager page was rendered. DMS collation behavior and remaining role/modal/impersonation parity remain open. No saved or DMS account data changed. Keep DMS-IAM-001 TESTING.
+
+
+## E-IAM-07 — Profile password change
+
+- `DmsProfilePasswordTest` passes **6 tests / 33 assertions** on SQLite `:memory:` and disposable PostgreSQL 18.6. It covers authenticated form rendering, guest redirection, wrong-current-password rejection, default password policy and confirmation, same-password rejection, persisted hashing, logout, re-login with the replacement, current-session continuity, and rejection of a stale password session.
+- The combined profile/global/workspace user suites pass **16 tests / 153 assertions**. Targeted Pint, PHP syntax, production Vite build and `git diff --check` pass. The running local route returns 302 to sign-in for a guest. Authenticated browser rendering and exact DMS form/response comparison remain unverified; no saved account or DMS state was changed. Keep DMS-IAM-002 TESTING.
+
+## E-DB-25 — Encrypted point-in-time campaign recipient addresses
+
+- `CampaignSendExecutionLedgerTest` plus `DmsCampaignSendCatalogTest` pass **45 tests / 971 assertions** on SQLite `:memory:`. Snapshot creation verifies the normalized address against the configured contact HMAC and fails closed on a changed identity. The ledger suite passes **20 tests / 147 assertions** on disposable PostgreSQL 18.6; the 1,002-recipient snapshot creation/address-copy case passes **1 / 12** on PostgreSQL 18.6.
+- Coverage verifies encrypted stored values and hidden serialization, retained snapshot address after live contact edits, revision-copy preservation, safe legacy backfill only for unchanged HMAC identities, planner rejection of incomplete/mismatched snapshots, and migration rollback refusal after address rows exist. Targeted Pint and `git diff --check` pass.
+- Synthetic addresses only. No real email, saved database, or DMS mutation was used. This does not verify 10M address-storage cost, key rotation, production migrations, sender worker, Horizon dispatch, browser, native launch/history, or PMTA delivery. Keep campaign SEND UNAVAILABLE and DMS-CAMP-001 IMPLEMENTING.
+
+## E-REG-02 — Full checkout and installer smoke verification
+
+- The complete PHP application suite passes **886 tests / 8,234 assertions** using enforced SQLite `:memory:`.
+- `node --test tests/js/*.test.js` passes **64/64**; `npm run build` completes the production Vite build.
+- `install-ubuntu-26.sh` passes `bash -n`, `--plan`, `--deploy-plan`, and target-derived Horizon sizing checks. Ubuntu 26.04's official package catalog lists PHP 8.5, PostgreSQL 18, Node.js 22, and Valkey packages required by the script.
+- These checks do not include a fresh Ubuntu server, HTTPS, GitHub deployment, app migration on production hardware, off-host backup/restore, large target-host upload/import, campaign sender, or delivery. Local PostgreSQL 16 remains down and root storage is 99% full; saved DB state was not read or changed. No DMS operation or email was performed. Production install remains pending a target rehearsal and off-host backup path.
+
+## E-TOOLS-17 — Populated SPF Scanner browser behavior — 2026-10-28
+
+The authenticated AlphaLink preview at `127.0.0.2:8767` used a disposable SQLite database containing two synthetic SPF roots. The Domains page rendered both rows; prefix search for `preview` reduced the result to one row; VIEW RECORD opened a dialog containing the root record and its recursive include. `DmsSpfScannerTest` passes **10 tests / 93 assertions** on SQLite `:memory:`, including workspace isolation, populated search/sort/pagination, record JSON and CSV export. Targeted Pint and `git diff --check` pass. The preview used only `/tmp` data and reserved `.test` domains/documentation IP ranges. This is AlphaLink synthetic UI evidence only: the saved workspace remains unavailable because its PostgreSQL endpoint is down, no populated DMS screenshot comparison was performed, and resolver behavior is not live-verified. Keep DMS-TOOLS-004 TESTING.
+
+## E-TOOLS-18 — Sanitized SPF page comparison and relay privacy — 2026-10-28
+
+The read-only DMS relay rendered SPF Scanner and SPF Domains via GET only, with scripts/data rows removed; the same 1280×720 viewport was used for the AlphaLink synthetic preview. DMS's Domains header includes VOLUME, which AlphaLink omits. The screenshot initially showed NETWORK where DMS says CIDR and SPF RECORD where DMS says SPF; AlphaLink's headers were corrected afterward and the focused feature suite verifies them. Relay regression coverage verifies compressed and IPv4-mapped IPv6 redaction in addition to existing row, token, script, count and IPv4 redaction. AlphaLink now uses DMS-observed CIDR and SPF header labels; `DmsSpfScannerTest` passes **10 tests / 95 assertions**. `python3 -m unittest audit.tools.test_dms_reference_readonly_relay` passes **43 tests**; Python compilation and `git diff --check` pass. DMS data endpoints, search, export, scans and volume lookup were not called. This is static visual evidence only; populated-result parity and volume behavior remain open.
+
+## E-TOOLS-19 — GSend project bulk controls and source capture — 2026-10-28
+
+`DmsWorkspaceToolTest` passes **10 tests / 121 assertions** on the enforced SQLite-memory profile. Coverage includes DMS-shaped project columns and total counts including inactive accounts, enable/disable for selected IDs, empty/duplicate ID rejection, mixed-workspace all-or-nothing denial, deletion of selected projects and cascading account cleanup, while retained and foreign-workspace projects remain unchanged. Targeted Pint and PHP syntax checks pass. The DMS relay regression suite passes **45 tests** and Python compilation succeeds.
+
+The read-only relay returned sanitized Gmail Projects/Accounts page chrome and inert inline source only; no table rows, credentials, OAuth routes or write actions were accessed. The saved AlphaLink app could not render a workspace page because PostgreSQL port 5432 is closed. Therefore these tests do not establish saved-app browser behavior, populated DMS visual parity, live Google responses, or connected PMTA push/reset. DMS-TOOLS-006 remains TESTING.
+
+## E-TOOLS-20 — GSend account bulk safety — 2026-10-28
+
+DMS route catalog entries `DMSR-0250/0251` confirm account bulk status and delete routes; sanitized read-only page source exposes selected-account actions. No DMS request was submitted, so the exact payload, mixed-ID behavior and partial-failure contract remain unknown. AlphaLink now locks and verifies selected account IDs from the active workspace inside a transaction, rejecting duplicates or mixed-workspace selections before any change. `DmsWorkspaceToolTest` passes **11 tests / 146 assertions** on SQLite memory and disposable PostgreSQL 18.6, including preservation of local and foreign rows after rejected requests. This verifies the AlphaLink workspace boundary, not DMS parity. The saved app's PostgreSQL connection is unavailable, so browser parity remains open. Keep DMS-TOOLS-006 TESTING.
+
+## E-TOOLS-21 — GSend account table actions and payloads — 2026-10-28
+
+DMS’s sanitized inert Accounts source confirms the table columns, selected bulk-disable payload (`accounts` plus status `0`), bulk-delete payload (`ids`), per-row status/delete payloads, email-column search, and OAuth route. No DMS request, OAuth route, rows or executable script were accessed. AlphaLink now follows the observed request shapes, implements row status/delete and search, and disables AUTH because its per-account OAuth token model is absent. Bulk account changes use row locks and transactions and reject duplicate or cross-workspace ID sets. `DmsWorkspaceToolTest` passes **11 tests / 153 assertions** on SQLite memory and disposable PostgreSQL 18.6; this verifies AlphaLink behavior, not live browser parity. The saved app’s PostgreSQL connection remains unavailable. Keep DMS-TOOLS-006 TESTING.
+
+
+## E-TOOLS-22 — GSend project-create form and relay privacy — 2026-10-28
+
+A read-only GET of the blank DMS project-create route established the visible S3/API type, credential, allowed-mailer and Link/Check/Save/Sync controls. The route includes live allowed-mailer labels, so the relay now removes each `checked_users` checkbox container and drops inline scripts on create pages; a fresh sanitized GET returned HTTP 200 without those labels or script templates. The relay regression suite passes **47 tests**; Python compilation and `git diff --check` pass. Only the static Users and Workspace type labels are retained; option values remain withheld, and no DMS form was submitted. AlphaLink's current Google service-account create flow remains behaviorally different; DMS project type choices and Check/Save/Sync outcomes remain unknown. Keep DMS-TOOLS-006 TESTING.
+
+
+## E-TOOLS-23 — GSend account-create form — 2026-10-28
+
+A read-only sanitized GET of the blank DMS account-create route returned a project select (`id=projects`), accounts textarea (`id=accounts`) and SAVE button. The relay removed select options, field values, CSRF data and scripts; no account rows or form submission occurred. AlphaLink already exposes the same project-plus-addresses form shape inline and sends the selected project/address list to its workspace-scoped store endpoint. `DmsWorkspaceToolTest` passes **11 tests / 153 assertions** on isolated SQLite. Exact DMS parsing, duplicate and OAuth effects remain unverified. The GET is source evidence only; DMS-TOOLS-006 stays TESTING.

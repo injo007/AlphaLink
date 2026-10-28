@@ -75,8 +75,8 @@ class DmsOfferAssetUploadTest extends TestCase
             ->assertSee('CREATIVES')
             ->assertSee('UNSUBSCRIBE')
             ->assertSee('HTML')
-            ->assertSee(route('console.offers.assets.upload-form', [$this->workspace->getKey(), $this->offer->getKey(), 'creative']))
-            ->assertSee(route('console.offers.assets.upload-form', [$this->workspace->getKey(), $this->offer->getKey(), 'unsubscribe']));
+            ->assertSee($this->cleanWorkspaceUrl(route('console.offers.assets.upload-form', [$this->workspace->getKey(), $this->offer->getKey(), 'creative'])))
+            ->assertSee($this->cleanWorkspaceUrl(route('console.offers.assets.upload-form', [$this->workspace->getKey(), $this->offer->getKey(), 'unsubscribe'])));
 
         $this->get(route('console.offers.assets.upload-form', [$this->workspace->getKey(), $this->offer->getKey(), 'creative']))
             ->assertOk()->assertSee('Maximum 20 images')->assertSee('image/jpeg,image/png,image/gif');
@@ -88,8 +88,8 @@ class DmsOfferAssetUploadTest extends TestCase
     {
         $response = $this->post(route('console.offers.assets.upload', [$this->workspace->getKey(), $this->offer->getKey(), 'creative']), [
             'files' => [
-                UploadedFile::fake()->image('creative-one.png', 1, 1),
-                UploadedFile::fake()->image('creative-two.jpg', 1, 1),
+                $this->fakeImage('creative-one.png'),
+                $this->fakeImage('creative-two.png'),
             ],
         ]);
 
@@ -112,11 +112,11 @@ class DmsOfferAssetUploadTest extends TestCase
     public function test_unsubscribe_upload_replaces_the_previous_image_and_file(): void
     {
         $url = route('console.offers.assets.upload', [$this->workspace->getKey(), $this->offer->getKey(), 'unsubscribe']);
-        $this->post($url, ['files' => [UploadedFile::fake()->image('old.png', 1, 1)]])->assertOk();
+        $this->post($url, ['files' => [$this->fakeImage('old.png')]])->assertOk();
         $oldAsset = $this->offer->assets()->where('type', 'unsubscribe')->sole();
         Storage::disk('local')->assertExists($oldAsset->value);
 
-        $this->post($url, ['files' => [UploadedFile::fake()->image('new.gif', 1, 1)]])
+        $this->post($url, ['files' => [$this->fakeImage('new.gif')]])
             ->assertOk()->assertJsonPath('count', 1);
 
         $newAsset = $this->offer->assets()->where('type', 'unsubscribe')->sole();
@@ -217,7 +217,7 @@ class DmsOfferAssetUploadTest extends TestCase
             ->assertSee('DISABLE SELECTED ASSETS')
             ->assertSee('ENABLE SELECTED ASSETS')
             ->assertSee('select-checkbox')
-            ->assertSee(route('console.offers.assets.bulk-status', [$this->workspace->getKey(), $this->offer->getKey()]));
+            ->assertSee($this->cleanWorkspaceUrl(route('console.offers.assets.bulk-status', [$this->workspace->getKey(), $this->offer->getKey()])));
     }
 
     public function test_invalid_uploads_and_multiple_unsubscribe_images_are_rejected_without_creating_assets(): void
@@ -228,8 +228,8 @@ class DmsOfferAssetUploadTest extends TestCase
 
         $unsubscribeUrl = route('console.offers.assets.upload', [$this->workspace->getKey(), $this->offer->getKey(), 'unsubscribe']);
         $this->postJson($unsubscribeUrl, ['files' => [
-            UploadedFile::fake()->image('one.png', 1, 1),
-            UploadedFile::fake()->image('two.png', 1, 1),
+            $this->fakeImage('one.png'),
+            $this->fakeImage('two.png'),
         ]])->assertUnprocessable()->assertJsonValidationErrors('files');
         $this->assertSame(0, $this->offer->assets()->count());
     }
@@ -241,7 +241,7 @@ class DmsOfferAssetUploadTest extends TestCase
         $this->sponsor->forceFill(['allowed_users' => [(int) $operator->getKey()]])->save();
         $this->offer->forceFill(['allowed_users' => [(int) $operator->getKey()]])->save();
         $path = 'offers/'.$this->workspace->getKey().'/'.$this->offer->getKey().'/assets/creative/creative-test.png';
-        Storage::disk('local')->put($path, UploadedFile::fake()->image('visible.png', 1, 1)->get());
+        Storage::disk('local')->put($path, $this->fakeImage('visible.png')->get());
         $asset = $this->offer->assets()->create([
             'workspace_id' => $this->workspace->getKey(),
             'type' => 'creative',
@@ -254,14 +254,14 @@ class DmsOfferAssetUploadTest extends TestCase
         $asset->forceFill(['is_active' => false])->save();
         $this->actingAs($operator)->get($route)->assertNotFound();
         $this->actingAs($operator)->post(route('console.offers.assets.upload', [$this->workspace->getKey(), $this->offer->getKey(), 'creative']), [
-            'files' => [UploadedFile::fake()->image('blocked.png', 1, 1)],
+            'files' => [$this->fakeImage('blocked.png')],
         ])->assertForbidden();
     }
 
     public function test_another_workspace_cannot_preview_the_file(): void
     {
         $path = 'offers/'.$this->workspace->getKey().'/'.$this->offer->getKey().'/assets/creative/creative-test.png';
-        Storage::disk('local')->put($path, UploadedFile::fake()->image('private.png', 1, 1)->get());
+        Storage::disk('local')->put($path, $this->fakeImage('private.png')->get());
         $asset = WorkspaceOfferAsset::query()->create([
             'workspace_id' => $this->workspace->getKey(),
             'offer_id' => $this->offer->getKey(),
@@ -280,5 +280,19 @@ class DmsOfferAssetUploadTest extends TestCase
         $this->actingAs($otherOwner)->get(route('console.offers.assets.file', [
             $otherWorkspace->getKey(), $this->offer->getKey(), $asset->getKey(),
         ]))->assertNotFound();
+    }
+
+    private function fakeImage(string $filename): UploadedFile
+    {
+        $content = match (strtolower(pathinfo($filename, PATHINFO_EXTENSION))) {
+            'gif' => base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', true),
+            default => base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/Z9sAAAAASUVORK5CYII=', true),
+        };
+
+        if (! is_string($content)) {
+            throw new \RuntimeException('The static image fixture is invalid.');
+        }
+
+        return UploadedFile::fake()->createWithContent($filename, $content);
     }
 }

@@ -43,7 +43,7 @@ class DmsWorkspaceEmailManagementTest extends TestCase
 
     public function test_email_management_page_is_available_from_the_dms_admin_route(): void
     {
-        $this->get(route('console.infrastructure.emails.index', $this->workspace->getKey()))
+        $this->followingRedirects()->get(route('console.infrastructure.emails.index', $this->workspace->getKey()))
             ->assertOk()
             ->assertSee('Search Emails')
             ->assertSee('Search Type')
@@ -110,7 +110,7 @@ class DmsWorkspaceEmailManagementTest extends TestCase
         $operator = User::factory()->create();
         $this->workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
         $this->actingAs($operator);
-        $this->get(route('console.infrastructure.emails.index', $this->workspace->getKey()))->assertForbidden();
+        $this->followingRedirects()->get(route('console.infrastructure.emails.index', $this->workspace->getKey()))->assertForbidden();
         $this->postJson(route('console.infrastructure.emails.search', $this->workspace->getKey()), [
             'type' => 'id', 'data' => [$fixture['contact']->getKey()],
         ])->assertForbidden();
@@ -192,7 +192,7 @@ class DmsWorkspaceEmailManagementTest extends TestCase
         ])->assertOk()->assertJsonPath('data.0.id', $fixture['contact']->getKey());
 
         $url = route('console.infrastructure.emails.logs', [$this->workspace->getKey(), $fixture['contact']->getKey()]);
-        $this->get($url)
+        $this->followingRedirects()->get($url)
             ->assertOk()
             ->assertSee($fixture['contact']->email)
             ->assertSee('Campaign and Drop activity')

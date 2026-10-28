@@ -41,7 +41,7 @@ class DmsCampaignNegativesTest extends TestCase
         $this->post(route('console.campaign-negatives.store', $this->workspace->getKey()), [
             'name' => 'Suppression list',
             'file' => UploadedFile::fake()->createWithContent('blocked.txt', $content),
-        ])->assertRedirect(route('console.campaign-negatives.index', $this->workspace->getKey()))
+        ])->assertRedirect($this->cleanWorkspaceUrl(route('console.campaign-negatives.index', $this->workspace->getKey())))
             ->assertSessionHas('status');
 
         $negative = WorkspaceCampaignNegative::query()->sole();
@@ -64,7 +64,7 @@ class DmsCampaignNegativesTest extends TestCase
             ->assertHeader('content-disposition');
 
         $this->delete(route('console.campaign-negatives.destroy', [$this->workspace->getKey(), $negative->getKey()]))
-            ->assertRedirect(route('console.campaign-negatives.index', $this->workspace->getKey()))
+            ->assertRedirect($this->cleanWorkspaceUrl(route('console.campaign-negatives.index', $this->workspace->getKey())))
             ->assertSessionHas('status');
         $this->assertDatabaseMissing('workspace_campaign_negatives', ['id' => $negative->getKey()]);
         Storage::disk('local')->assertMissing($negative->path);
@@ -82,7 +82,7 @@ class DmsCampaignNegativesTest extends TestCase
                 'name' => 'Unsupported fixture',
                 'file' => UploadedFile::fake()->createWithContent('payload.exe', "not a negative file\n"),
             ])
-            ->assertRedirect(route('console.campaign-negatives.create', $this->workspace->getKey()))
+            ->assertRedirect($this->cleanWorkspaceUrl(route('console.campaign-negatives.create', $this->workspace->getKey())))
             ->assertSessionHasErrors('file');
 
         $this->assertDatabaseCount('workspace_campaign_negatives', 0);

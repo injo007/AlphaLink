@@ -42,7 +42,7 @@ class GlobalTestsWorkflowTest extends TestCase
             ->assertSee('Select Header')
             ->assertSee('PLACEHOLDERS')
             ->assertSee('SEND TEST')
-            ->assertSee(route('console.global-tests.histories', $workspace->getKey()), false)
+            ->assertSee($this->cleanWorkspaceUrl(route('console.global-tests.histories', $workspace->getKey())), false)
             ->assertSee('global-tests.js');
     }
 

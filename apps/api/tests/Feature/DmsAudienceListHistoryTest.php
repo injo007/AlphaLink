@@ -51,7 +51,7 @@ class DmsAudienceListHistoryTest extends TestCase
             ->assertSee('LOAD HISTORY')
             ->assertSee('Older history rows can show NA')
             ->assertDontSee('Proxy, Blacklist, or Hard Bounce recipient state')
-            ->assertSee(route('console.infrastructure.list-history.index', $this->workspace->getKey()), false);
+            ->assertSee($this->cleanWorkspaceUrl(route('console.infrastructure.list-history.index', $this->workspace->getKey())), false);
     }
 
     public function test_list_selector_only_returns_lists_for_active_isp_in_the_workspace(): void

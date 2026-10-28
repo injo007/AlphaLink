@@ -3,7 +3,7 @@
 @section('title', 'Campaign Statistics')
 
 @section('content')
-    <h2 class="content-heading">CAMPAIGN STATISTICS <small class="text-muted">ENGAGEMENT &amp; LEADS</small></h2>
+    <h2 class="content-heading">CAMPAIGN STATISTICS <small class="text-muted">DELIVERY, ENGAGEMENT, LEADS &amp; CONVERSIONS</small></h2>
 
     <div class="block block-rounded">
         <div class="block-header block-header-default">
@@ -58,7 +58,7 @@
                 <div id="campaign-statistics-pivot-status" class="small text-muted mb-2" role="status" aria-live="polite"></div>
                 <div id="campaign-statistics-pivot" class="analytics-pivot-surface"></div>
             </section>
-            <div class="alert alert-warning mb-3" role="note"><strong>Data coverage:</strong> stored campaign opens, clicks, bot events, unsubscribes, actual lead-row counts and attributed lead revenue are available. Delivery, bounce, opt-out and seed measures are not available; no value is inferred for those measures. Server, IP, domain, sponsor, offer and creative dimensions appear only when they were captured with an event.</div>
+            <div class="alert alert-warning mb-3" role="note"><strong>Data coverage:</strong> stored campaign opens, clicks, bot events, unsubscribes, actual lead-row counts and attributed lead revenue are available. Open, click and unsubscribe events are attributed to each selected eligible source List; totals across Lists can exceed unique events. Imported PMTA delivery and soft/hard bounce totals appear when feedback resolves to a campaign and its dimensions. CONVERSIONS follows DMS's one-per-daily-stat-row positive-earnings rule; AlphaLink uses positive attributed lead-revenue rows because raw DMS earnings are unavailable. It is a revenue-group proxy, separate from the actual LEADS count. DMS opt-out, seed and earnings measures remain unavailable, so no value is inferred. Server, IP, domain, sponsor, offer and creative dimensions appear only when they were captured with an event or imported feedback.</div>
             <div id="campaign-statistics-fallback">
             <div class="small text-muted mb-2" data-analytics-report-status role="status" aria-live="polite"></div>
             @include('console.campaigns.partials.statistics-results')

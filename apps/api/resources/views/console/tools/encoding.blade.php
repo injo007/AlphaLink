@@ -1,13 +1,41 @@
-@extends('layouts.dms-admin')
+@php($isEncodingPopup = request()->routeIs('console.tools.encoding.popup', 'clean.console.tools.encoding.popup'))
+
+@extends($isEncodingPopup ? 'layouts.encoding-popup' : 'layouts.dms-admin')
 
 @section('title', 'Encoding - DMS')
 
+@push('styles')
+    <style>
+        .encoding-tool-block .block-content { padding: 0; }
+        .encoding-tool-block .nav-tabs-block { margin-bottom: 0; }
+        .encoding-tool-block .tab-content { padding: 21px 20px 7px !important; }
+        .encoding-tool-block .tab-content .form-group:last-child { margin-bottom: 0; }
+        .encoding-main-block { margin-left: -13px; margin-right: -13px; margin-top: -12px; }
+        .encoding-main-block .tab-content { padding-top: 17px !important; }
+        .encoding-tool-block #encoding-string-panel .form-row {
+            column-gap: 2.23%;
+            display: grid;
+            grid-template-columns: minmax(0, 49%) minmax(0, 14.8%) minmax(0, 14.8%) minmax(0, 7.2%);
+            margin-left: 0;
+            margin-right: 0;
+        }
+        .encoding-tool-block #encoding-string-panel .form-row > .form-group {
+            flex: initial;
+            max-width: none;
+            padding-left: 0;
+            padding-right: 0;
+        }
+        @media (max-width: 767.98px) {
+            .encoding-tool-block #encoding-string-panel .form-row {
+                column-gap: 16px;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+    </style>
+@endpush
+
 @section('content')
-    <div class="block block-rounded">
-        <div class="block-header">
-            <h3 class="block-title">ENCODING</h3>
-            <div class="block-options"><button class="btn-block-option" type="button" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen"></button></div>
-        </div>
+    <div class="block block-rounded mb-0 encoding-tool-block{{ $isEncodingPopup ? ' encoding-popup-block' : ' encoding-main-block' }}">
         <div class="block-content">
             <ul class="nav nav-tabs nav-tabs-block" role="tablist" aria-label="Encoding modes">
                 <li class="nav-item"><button class="nav-link active" type="button" id="encoding-string-tab" role="tab" aria-selected="true" aria-controls="encoding-string-panel" data-encoding-tab="string">STRING</button></li>
@@ -19,12 +47,12 @@
                         <div class="form-group col-md-6"><label for="encoding-text">Your String</label><input class="form-control" id="encoding-text" placeholder="Your String"></div>
                         <div class="form-group col-md-2"><label for="encoding-schema">Schema :</label><select id="encoding-schema" class="form-control"><option value="Q" selected>Quoted-Printable</option><option value="HQ">Hex-Quoted-Printable</option><option value="B">Base64</option></select></div>
                         <div class="form-group col-md-2"><label for="encoding-charset">Charset :</label><select id="encoding-charset" class="form-control"><option>UTF-8</option><option>UTF-7</option><option>ISO-8859-1</option><option>ISO-8859-15</option><option>windows-1252</option><option value="US-ASCII">ASCII</option><option>CP1256</option></select></div>
-                        <div class="form-group col-md-2"><button id="encoding-run" class="btn btn-primary btn-block" type="button">ENCODE</button></div>
+                        <div class="form-group col-md-1"><button id="encoding-run" class="btn btn-primary btn-block" type="button" aria-busy="false">ENCODE</button></div>
                     </div>
                     <div class="form-group"><label for="encoding-result">Result</label><textarea class="form-control" id="encoding-result" rows="5" placeholder="Encoded String" readonly></textarea><small id="encoding-message" class="form-text text-muted" role="status"></small></div>
                 </section>
                 <section class="tab-pane d-none" id="encoding-ip-panel" role="tabpanel" aria-labelledby="encoding-ip-tab" data-encoding-panel="ip">
-                    <div class="form-row align-items-end"><div class="form-group col-md-6"><label for="encoding-ip">Ip</label><input class="form-control" id="encoding-ip" placeholder="Your Ip" inputmode="decimal"></div><div class="form-group col-md-2"><button id="encoding-ip-run" class="btn btn-primary btn-block" type="button">ENCODE</button></div></div>
+                    <div class="form-row align-items-end"><div class="form-group col-md-6"><label for="encoding-ip">Ip</label><input class="form-control" id="encoding-ip" placeholder="Your Ip" inputmode="decimal"></div><div class="form-group col-md-1"><button id="encoding-ip-run" class="btn btn-primary btn-block" type="button">ENCODE</button></div></div>
                     <div class="form-group"><label for="encoding-ip-result">Result</label><textarea class="form-control" id="encoding-ip-result" rows="7" placeholder="Encoded Ip" readonly></textarea><small id="encoding-ip-message" class="form-text text-muted" role="status"></small></div>
                 </section>
             </div>
@@ -53,7 +81,16 @@
                 const result = document.getElementById('encoding-result');
                 const text = document.getElementById('encoding-text').value;
                 if (!text) { message.textContent = 'Enter a string to encode.'; return; }
-                button.disabled = true;
+
+                const setBusy = (busy) => {
+                    button.disabled = busy;
+                    button.setAttribute('aria-busy', String(busy));
+                    button.innerHTML = busy
+                        ? '<i class="fa fa-spinner fa-spin mr-1" aria-hidden="true"></i>ENCODE'
+                        : 'ENCODE';
+                };
+
+                setBusy(true);
                 result.value = '';
                 message.textContent = 'Encoding…';
                 try {
@@ -63,7 +100,7 @@
                     result.value = data;
                     message.textContent = 'Encoding complete.';
                 } catch (error) { message.textContent = error.message || 'Encoding failed.'; }
-                finally { button.disabled = false; }
+                finally { setBusy(false); }
             });
 
             function toInteger(ipAddress) {

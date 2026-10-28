@@ -17,7 +17,7 @@
             </form>
             <div class="table-responsive">
                 <table class="table table-sm table-striped table-hover">
-                    <thead><tr><th><a href="{{ request()->fullUrlWithQuery(['sort' => 'id', 'dir' => $sort === 'id' && $direction === 'asc' ? 'desc' : 'asc']) }}">#</a></th><th><a href="{{ request()->fullUrlWithQuery(['sort' => 'domain', 'dir' => $sort === 'domain' && $direction === 'asc' ? 'desc' : 'asc']) }}">DOMAIN</a></th><th>STATUS</th><th>SPF RECORD</th><th>SCANNED</th></tr></thead>
+                    <thead><tr><th><a href="{{ request()->fullUrlWithQuery(['sort' => 'id', 'dir' => $sort === 'id' && $direction === 'asc' ? 'desc' : 'asc']) }}">#</a></th><th><a href="{{ request()->fullUrlWithQuery(['sort' => 'domain', 'dir' => $sort === 'domain' && $direction === 'asc' ? 'desc' : 'asc']) }}">DOMAIN</a></th><th>STATUS</th><th>SPF</th><th>SCANNED</th></tr></thead>
                     <tbody>
                         @forelse ($domains as $domain)
                             <tr><td>{{ $domain->id }}</td><td>{{ $domain->domain }}</td><td><span class="badge badge-{{ $domain->status === 'ok' ? 'success' : ($domain->status === 'error' ? 'danger' : 'secondary') }}">{{ strtoupper($domain->status) }}</span></td><td><button class="btn btn-sm btn-outline-primary" type="button" data-spf-record="{{ $domain->id }}">VIEW RECORD</button></td><td>{{ $domain->scanned_at?->format('Y-m-d H:i:s') ?? '—' }}</td></tr>

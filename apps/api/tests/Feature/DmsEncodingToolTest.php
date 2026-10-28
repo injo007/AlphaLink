@@ -16,19 +16,25 @@ class DmsEncodingToolTest extends TestCase
     {
         $owner = User::factory()->create();
         $workspace = $this->workspaceFor($owner);
-        $url = route('console.tools.encoding.index', $workspace->getKey());
+        $url = route('clean.console.tools.encoding.index');
 
         $this->actingAs($owner)->get($url)
             ->assertOk()
-            ->assertSee('ENCODING')
+            ->assertSee('aria-label="Encoding modes"', false)
             ->assertSee('aria-controls="nav-submenu-tools-', false)
             ->assertSee('href="'.$url.'"', false)
             ->assertSee('aria-current="page"', false)
+            ->assertSee('encoding-main-block', false)
+            ->assertDontSee('block-title">ENCODING', false)
             ->assertSee('Quoted-Printable')
             ->assertSee('Hex-Quoted-Printable')
             ->assertSee('UTF-7')
             ->assertSee('encoding-ip-run')
-            ->assertSee('Hexadecimal IP');
+            ->assertSee('Hexadecimal IP')
+            ->assertSee('aria-busy="false"', false)
+            ->assertSee('fa-spinner fa-spin')
+            ->assertSee('setBusy(true)', false)
+            ->assertSee('finally { setBusy(false); }', false);
     }
 
     public function test_string_encoding_matches_dms_schemas_and_unknown_schema_fallback(): void
@@ -60,9 +66,26 @@ class DmsEncodingToolTest extends TestCase
         $member = User::factory()->create();
         $workspace->users()->attach($member->getKey(), ['role' => 'viewer']);
 
-        $this->actingAs($member)->get(route('console.tools.encoding.popup', $workspace->getKey()))->assertOk();
+        $this->actingAs($member)->get(route('clean.console.tools.encoding.popup'))->assertOk();
         $outsider = User::factory()->create();
-        $this->actingAs($outsider)->get(route('console.tools.encoding.index', $workspace->getKey()))->assertNotFound();
+        $this->actingAs($outsider)->get(route('clean.console.tools.encoding.index'))->assertNotFound();
+    }
+
+    public function test_encoding_popup_uses_a_standalone_layout_without_the_main_navigation(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->workspaceFor($owner);
+
+        $this->actingAs($owner)->get(route('clean.console.tools.encoding.popup'))
+            ->assertOk()
+            ->assertSee('encoding-popup-page', false)
+            ->assertDontSee('id="page-container"', false)
+            ->assertDontSee('id="sidebar"', false)
+            ->assertDontSee('block-title">ENCODING', false)
+            ->assertSee('id="encoding-string-tab"', false)
+            ->assertSee('id="encoding-ip-tab"', false)
+            ->assertSee('id="encoding-text"', false)
+            ->assertSee('id="encoding-result"', false);
     }
 
     private function workspaceFor(User $owner): Workspace

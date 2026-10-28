@@ -51,7 +51,6 @@ class DmsAffiliateSuppressionRefresher
                 $downloadUrl,
                 $temporaryPath,
                 [],
-                1_073_741_824,
                 $onProgress,
             );
             if (! is_int($bytes) || $bytes < 1) {

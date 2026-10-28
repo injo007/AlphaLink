@@ -41,7 +41,8 @@ class CleanWorkspaceEntryRoutesTest extends TestCase
         $dashboard = $this->actingAs($user)->get('/dashboard/main')
             ->assertOk()
             ->assertSee('Main Dashboard')
-            ->assertDontSee('WORKSPACE OVERVIEW');
+            ->assertDontSee('WORKSPACE OVERVIEW')
+            ->assertViewHas('eventTotals');
 
         $dashboard->assertDontSee('/app/workspaces/'.$workspace->getKey().'/');
         $dashboard->assertSee('/drops/monitoring');
@@ -87,7 +88,7 @@ class CleanWorkspaceEntryRoutesTest extends TestCase
         $workspace->users()->attach($user->getKey(), ['role' => 'owner', 'joined_at' => now()]);
         $legacyServersUrl = '/app/workspaces/'.$workspace->getKey().'/infrastructure/servers';
 
-        $this->actingAs($user)->get($legacyServersUrl)
+        $this->actingAs($user)->getLegacyWorkspacePage($legacyServersUrl)
             ->assertRedirect('/infrastructure/servers');
 
         $this->getJson($legacyServersUrl)->assertOk()->assertJsonStructure(['data']);

@@ -462,12 +462,6 @@ foreach (Route::getRoutes()->getRoutes() as $workspaceRoute) {
             ? 'mailer/campaigns/'.substr($suffix, strlen('campaigns/'))
             : $suffix,
     };
-    $cleanRouteName = match ($suffix) {
-        'analytics' => 'console.dashboard.main',
-        'campaigns' => 'console.mailer.campaigns',
-        default => $workspaceRoute->getName() ? 'clean.'.$workspaceRoute->getName() : null,
-    };
-
     $middleware = array_values(array_unique(array_merge(
         ['auth', 'active', 'workspace.current'],
         array_diff($workspaceRoute->gatherMiddleware(), ['auth', 'active', 'workspace.member', 'workspace.current', 'workspace.legacy-redirect']),
@@ -476,21 +470,40 @@ foreach (Route::getRoutes()->getRoutes() as $workspaceRoute) {
     unset($action['as']);
     $action['middleware'] = $middleware;
 
-    foreach ($workspaceRoute->methods() as $method) {
-        $routeKey = $method.' '.$cleanUri;
-        if (isset($existingRouteKeys[$routeKey])) {
-            continue;
-        }
+    $workspaceMethods = $workspaceRoute->methods();
+    if (in_array('GET', $workspaceMethods, true)) {
+        // Laravel's GET routes already answer HEAD requests. Cloning the
+        // implicit HEAD method separately creates a second route with the
+        // same name and makes `route:cache` fail during deployment.
+        $workspaceMethods = array_values(array_diff($workspaceMethods, ['HEAD']));
+    }
 
-        $cleanRoute = Route::match([$method], $cleanUri, $action)->middleware($middleware);
-        $constraints = $workspaceRoute->wheres;
-        unset($constraints['workspace']);
-        if ($constraints !== []) {
-            $cleanRoute->where($constraints);
-        }
-        if ($cleanRouteName !== null) {
-            $cleanRoute->name($cleanRouteName);
-        }
-        $existingRouteKeys[$routeKey] = true;
+    $missingMethods = array_values(array_filter(
+        $workspaceMethods,
+        fn (string $method): bool => ! isset($existingRouteKeys[$method.' '.$cleanUri]),
+    ));
+    if ($missingMethods === []) {
+        continue;
+    }
+
+    $cleanRouteName = match ($suffix) {
+        'analytics' => 'console.dashboard.main',
+        'campaigns' => in_array('GET', $missingMethods, true)
+            ? 'console.mailer.campaigns'
+            : ($workspaceRoute->getName() ? 'clean.'.$workspaceRoute->getName() : null),
+        default => $workspaceRoute->getName() ? 'clean.'.$workspaceRoute->getName() : null,
+    };
+
+    $cleanRoute = Route::match($missingMethods, $cleanUri, $action)->middleware($middleware);
+    $constraints = $workspaceRoute->wheres;
+    unset($constraints['workspace']);
+    if ($constraints !== []) {
+        $cleanRoute->where($constraints);
+    }
+    if ($cleanRouteName !== null) {
+        $cleanRoute->name($cleanRouteName);
+    }
+    foreach ($missingMethods as $method) {
+        $existingRouteKeys[$method.' '.$cleanUri] = true;
     }
 }

@@ -18,7 +18,9 @@ return [
     'ip_history_enabled' => filter_var(env('INFRASTRUCTURE_IP_HISTORY_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
     'domain_history_enabled' => filter_var(env('INFRASTRUCTURE_DOMAIN_HISTORY_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
     'maxmind_city_database' => env('INFRASTRUCTURE_MAXMIND_CITY_DATABASE', storage_path('app/maxmind/city.mmdb')),
-    'install_assets_directory' => env('ALPHALINK_INSTALL_ASSETS_DIRECTORY'),
+    // Ubuntu deployments use private shared storage by default. The installer
+    // writes the same path explicitly; this fallback also repairs older .env files.
+    'install_assets_directory' => env('ALPHALINK_INSTALL_ASSETS_DIRECTORY', storage_path('app/private/install-assets')),
     'pmta_feedback_staging_path' => env('ALPHALINK_PMTA_FEEDBACK_STAGING_PATH', storage_path('app/private/pmta-feedback-staging')),
     'tracking_callback_url' => env('ALPHALINK_TRACKING_CALLBACK_URL'),
     'bulk_install_settings' => [

@@ -14,6 +14,7 @@ readonly CURRENT_ROOT=/var/www/alphalink/current
 readonly API_ROOT=/var/www/alphalink/current/apps/api
 readonly ENV_ROOT=/etc/alphalink
 readonly BACKUP_ROOT=/var/backups/alphalink
+readonly INSTALL_ASSETS_ROOT=/var/www/alphalink/shared/storage/app/private/install-assets
 readonly DB_NAME=alphalink
 readonly DB_USER=alphalink
 readonly PHP_VERSION=8.5
@@ -26,6 +27,7 @@ GIT_TOKEN_FILE=''
 DEPLOY_STAGING_DIR=''
 INSTALL_STAGING_DIR=''
 SOURCE_STAGING_DIR=''
+ASSET_STAGING_DIR=''
 cleanup_temporary_secrets() {
     [[ -z "$GIT_ASKPASS_FILE" ]] || rm -f -- "$GIT_ASKPASS_FILE"
     [[ -z "$GIT_TOKEN_FILE" ]] || rm -f -- "$GIT_TOKEN_FILE"
@@ -42,6 +44,9 @@ cleanup_deploy_staging() {
     fi
     if [[ "$SOURCE_STAGING_DIR" == "$APP_ROOT"/.source-stage-* && -d "$SOURCE_STAGING_DIR" ]]; then
         rm -rf -- "$SOURCE_STAGING_DIR"
+    fi
+    if [[ "$ASSET_STAGING_DIR" == "$SHARED_ROOT"/.install-assets-stage-* && -d "$ASSET_STAGING_DIR" ]]; then
+        rm -rf -- "$ASSET_STAGING_DIR"
     fi
 }
 trap cleanup_deploy_staging EXIT
@@ -128,6 +133,124 @@ normalize_release_permissions() {
     find "$api_path/bootstrap/cache" -type f -exec chmod 0660 {} +
 }
 
+validate_install_assets_source() {
+    local source="$1"
+    local invalid_entry
+
+    [[ "$source" == /* && -d "$source" && ! -L "$source" ]] \
+        || fail 'Installation assets must come from an existing absolute directory on this server.'
+    source="$(realpath -e -- "$source")"
+    [[ "$source" != "$INSTALL_ASSETS_ROOT" \
+        && "$INSTALL_ASSETS_ROOT" != "$source/"* \
+        && "$source" != "$INSTALL_ASSETS_ROOT/"* ]] \
+        || fail 'The asset source and private destination must be separate directories.'
+    invalid_entry="$(find "$source" -mindepth 1 \( -type l -o \( ! -type d -a ! -type f \) \) -print -quit)"
+    [[ -z "$invalid_entry" ]] || fail 'Installation assets cannot contain symlinks or special files.'
+    [[ -s "$source/pmta/shared/source.conf" && -s "$source/pmta/shared/base.conf" ]] \
+        || fail 'The source must use AlphaLink’s private asset layout and include both shared PMTA templates.'
+
+    printf '%s\n' "$source"
+}
+
+normalize_private_install_assets() {
+    local root="$1"
+
+    chown -R www-data:www-data "$root"
+    find "$root" -type d -exec chmod 0700 {} +
+    find "$root" -type f -exec chmod 0600 {} +
+}
+
+stage_private_install_assets() {
+    local source="$1"
+    local existing_entry invalid_entry
+
+    source="$(validate_install_assets_source "$source")"
+    if [[ -e "$INSTALL_ASSETS_ROOT" || -L "$INSTALL_ASSETS_ROOT" ]]; then
+        [[ -d "$INSTALL_ASSETS_ROOT" && ! -L "$INSTALL_ASSETS_ROOT" ]] \
+            || fail 'The private asset destination exists but is unsafe; preserving it.'
+        existing_entry="$(find "$INSTALL_ASSETS_ROOT" -mindepth 1 -print -quit)"
+        [[ -z "$existing_entry" ]] || fail 'The private asset destination already contains files; refusing to replace them.'
+        rmdir -- "$INSTALL_ASSETS_ROOT"
+    fi
+
+    ASSET_STAGING_DIR="${SHARED_ROOT}/.install-assets-stage-$$"
+    [[ ! -e "$ASSET_STAGING_DIR" && ! -L "$ASSET_STAGING_DIR" ]] \
+        || fail 'A private asset staging directory already exists; preserving it.'
+    install -d -o www-data -g www-data -m 0700 "$ASSET_STAGING_DIR"
+    cp -a -- "$source/." "$ASSET_STAGING_DIR/"
+    invalid_entry="$(find "$ASSET_STAGING_DIR" -mindepth 1 \( -type l -o \( ! -type d -a ! -type f \) \) -print -quit)"
+    [[ -z "$invalid_entry" ]] || fail 'The staged asset source changed during copying; refusing symlinks or special files.'
+    normalize_private_install_assets "$ASSET_STAGING_DIR"
+    mv -- "$ASSET_STAGING_DIR" "$INSTALL_ASSETS_ROOT"
+    ASSET_STAGING_DIR=''
+}
+
+write_install_assets_environment() {
+    local env_file="$ENV_ROOT/.env"
+    local temporary_file="${ENV_ROOT}/.env.install-assets-$$"
+
+    [[ -f "$env_file" ]] || fail 'The protected AlphaLink environment file is missing.'
+    if ! awk -v root="$INSTALL_ASSETS_ROOT" '
+        BEGIN { written = 0 }
+        /^ALPHALINK_INSTALL_ASSETS_DIRECTORY=/ {
+            if (!written) print "ALPHALINK_INSTALL_ASSETS_DIRECTORY=" root
+            written = 1
+            next
+        }
+        { print }
+        END { if (!written) print "ALPHALINK_INSTALL_ASSETS_DIRECTORY=" root }
+    ' "$env_file" > "$temporary_file"; then
+        rm -f -- "$temporary_file"
+        fail 'Could not update the protected AlphaLink asset-directory setting.'
+    fi
+    chown root:www-data "$temporary_file"
+    chmod 0640 "$temporary_file"
+    mv -f -- "$temporary_file" "$env_file"
+}
+
+ensure_install_assets_environment() {
+    local configured
+
+    [[ -f "$ENV_ROOT/.env" ]] || fail 'The protected AlphaLink environment file is missing.'
+    configured="$(sed -n 's/^ALPHALINK_INSTALL_ASSETS_DIRECTORY=//p' "$ENV_ROOT/.env" | tail -n 1)"
+    configured="${configured#\"}"
+    configured="${configured%\"}"
+    if [[ -z "$configured" ]]; then
+        write_install_assets_environment
+        install -d -o www-data -g www-data -m 0700 "$INSTALL_ASSETS_ROOT"
+        info 'Configured the private AlphaLink installation asset directory; stage the reviewed asset bundle there before PMTA installation.'
+    fi
+}
+
+configure_install_assets() {
+    local source="${2:-}"
+    local existing_entry invalid_entry
+
+    [[ "${EUID}" -eq 0 ]] || fail 'Run asset setup as root with sudo.'
+    [[ -L "$CURRENT_ROOT" && -d "$API_ROOT" && -f "$ENV_ROOT/.env" ]] \
+        || fail 'A completed release-based AlphaLink installation was not found.'
+    install -d -o www-data -g www-data -m 2770 "$SHARED_ROOT/storage/app/private"
+
+    if [[ -n "$source" ]]; then
+        stage_private_install_assets "$source"
+    else
+        [[ -d "$INSTALL_ASSETS_ROOT" && ! -L "$INSTALL_ASSETS_ROOT" ]] \
+            || fail "Stage the canonical asset directory first, or pass its path: --configure-install-assets /absolute/path/to/install-assets."
+        existing_entry="$(find "$INSTALL_ASSETS_ROOT" -mindepth 1 -print -quit)"
+        [[ -n "$existing_entry" ]] || fail 'The private asset directory is empty; stage the reviewed AlphaLink installation bundle first.'
+        [[ -s "$INSTALL_ASSETS_ROOT/pmta/shared/source.conf" && -s "$INSTALL_ASSETS_ROOT/pmta/shared/base.conf" ]] \
+            || fail 'The private asset directory is missing the shared PMTA templates required by the application.'
+        invalid_entry="$(find "$INSTALL_ASSETS_ROOT" -mindepth 1 \( -type l -o \( ! -type d -a ! -type f \) \) -print -quit)"
+        [[ -z "$invalid_entry" ]] || fail 'Installation assets cannot contain symlinks or special files.'
+        normalize_private_install_assets "$INSTALL_ASSETS_ROOT"
+    fi
+
+    write_install_assets_environment
+    runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" config:cache --no-interaction
+    systemctl reload php8.5-fpm
+    info "Private AlphaLink installation assets are staged at ${INSTALL_ASSETS_ROOT}. The application will still verify every selected file, reviewed digest, template, and target compatibility before an install can run."
+}
+
 deployment_plan() {
     cat <<'EOF'
 Deployment plan (no changes are made):
@@ -179,6 +302,7 @@ deploy_release() {
     if [[ -n "$(git -C "$SOURCE_ROOT" status --porcelain --untracked-files=normal)" ]]; then
         fail 'The protected Git source checkout has unexpected changes; deployment stopped without touching the active release.'
     fi
+    ensure_install_assets_environment
     runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" migrate:status --no-interaction >/dev/null
 
     read -r -s -p 'GitHub read-only token (leave blank for a public repository): ' token
@@ -350,6 +474,7 @@ resume_initial_install() {
     [[ -f /etc/systemd/system/alphalink-db-backup.service && -f /etc/systemd/system/alphalink-db-backup.timer ]] || fail 'The interrupted install did not finish writing its database backup units.'
     [[ ! -f "$SHARED_ROOT/storage/framework/maintenance.php" ]] || fail 'The app is already in maintenance mode; resolve that state before resuming.'
     [[ -z "$(git -C "$SOURCE_ROOT" status --porcelain --untracked-files=normal)" ]] || fail 'The protected Git source checkout has unexpected changes; recovery stopped without changing the active release.'
+    ensure_install_assets_environment
 
     branch="$requested_branch"
     [[ "$branch" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ && "$branch" != *..* && "$branch" != */ ]] || fail 'The requested branch name is invalid.'
@@ -601,6 +726,7 @@ Usage:
   sudo bash install-ubuntu-26.sh [--help|--plan|--worker-sizing CPU RAM_MiB PG_MAX_CONNECTIONS]
   sudo bash /var/www/alphalink/current/install-ubuntu-26.sh --deploy [BRANCH]
   sudo bash /var/www/alphalink/current/install-ubuntu-26.sh --deploy-plan
+  sudo bash /var/www/alphalink/current/install-ubuntu-26.sh --configure-install-assets [SOURCE_DIR]
   sudo bash install-ubuntu-26.sh --resume-initial-install [BRANCH]
 
 Install AlphaLink on a fresh Ubuntu 26.04 LTS server, then use --deploy for
@@ -621,7 +747,11 @@ The installer creates a new PostgreSQL database, never SQLite. It refuses to
 replace any existing AlphaLink app path, environment, PostgreSQL role, or DB.
 Later --deploy runs create immutable releases, preserve shared uploads, back up
 and verify PostgreSQL before migrations, and retain a previous release for
-automatic rollback.
+automatic rollback. Licensed PMTA files are not stored in GitHub: provide a
+canonical private asset directory during installation, or stage it later with
+--configure-install-assets. That command copies it into shared private storage,
+sets the application environment path, and leaves digest and compatibility
+verification to the PMTA installation gate.
 
 If a fresh installation stops after creating its first owner and workspace,
 copy the current installer to the server and run --resume-initial-install. It
@@ -647,7 +777,10 @@ Plan (no changes are made):
   8. Size Horizon from the target host's available CPU, memory, and PostgreSQL
      connection budget; bootstrap the first owner; configure Nginx/TLS, the
      PostgreSQL suppression worker, and schedule.
-  9. Enable UFW rules and a protected daily PostgreSQL dump (14-day retention).
+  9. Create the private installation asset root. Licensed PMTA files stay out
+     of Git; an optional canonical source directory is copied with private
+     permissions and a path is written to the application environment.
+ 10. Enable UFW rules and a protected daily PostgreSQL dump (14-day retention).
 
 Existing application and database data are never deleted or overwritten.
 EOF
@@ -666,6 +799,7 @@ case "${1:-}" in
     --plan) [[ "$#" -eq 1 ]] || fail 'Use --plan without additional arguments.'; plan; exit 0 ;;
     --deploy-plan) [[ "$#" -eq 1 ]] || fail 'Use --deploy-plan without additional arguments.'; deployment_plan; exit 0 ;;
     --deploy) [[ "$#" -le 2 ]] || fail 'Use --deploy [BRANCH].'; deploy_release "$@"; exit 0 ;;
+    --configure-install-assets) [[ "$#" -le 2 ]] || fail 'Use --configure-install-assets [SOURCE_DIR].'; configure_install_assets "$@"; exit 0 ;;
     --resume-initial-install) [[ "$#" -le 2 ]] || fail 'Use --resume-initial-install [BRANCH].'; resume_initial_install "$@"; exit 0 ;;
     "") ;;
     *) usage >&2; exit 2 ;;
@@ -767,6 +901,16 @@ if [[ -z "$SSH_PORT" ]]; then
 fi
 [[ "$SSH_PORT" =~ ^[0-9]{1,5}$ ]] && (( SSH_PORT > 0 && SSH_PORT < 65536 )) || fail 'SSH port must be in the range 1-65535.'
 
+INSTALL_ASSETS_SOURCE="${ALPHALINK_INSTALL_ASSETS_SOURCE:-}"
+if [[ -z "$INSTALL_ASSETS_SOURCE" ]]; then
+    read -r -p 'Canonical private AlphaLink installation asset directory on this server (blank to stage later): ' INSTALL_ASSETS_SOURCE
+fi
+if [[ -n "$INSTALL_ASSETS_SOURCE" ]]; then
+    INSTALL_ASSETS_SOURCE="$(validate_install_assets_source "$INSTALL_ASSETS_SOURCE")"
+else
+    info 'No private PMTA bundle supplied; PMTA server installation will stay blocked until reviewed assets are staged.'
+fi
+
 GITHUB_TOKEN="${GITHUB_TOKEN:-}"
 if [[ -z "$GITHUB_TOKEN" ]]; then
     read -r -s -p 'GitHub token (leave blank for a public repository): ' GITHUB_TOKEN
@@ -785,6 +929,9 @@ unset DB_PASSWORD_CONFIRM
 
 printf '\nRepository: %s\nBranch: %s\nApplication: https://%s\n' \
     "${REPOSITORY#https://github.com/}" "$BRANCH" "$APP_DOMAIN"
+if [[ -n "$INSTALL_ASSETS_SOURCE" ]]; then
+    printf 'Private installation assets will be copied to %s with owner-only permissions.\n' "$INSTALL_ASSETS_ROOT"
+fi
 printf 'A new PostgreSQL database will be created; SSH port %s, HTTP, and HTTPS will be allowed by UFW.\n' "$SSH_PORT"
 read -r -p 'Continue with the Ubuntu package and application installation? [y/N] ' CONFIRM_INSTALL
 [[ "$CONFIRM_INSTALL" =~ ^[Yy]([Ee][Ss])?$ ]] || fail 'Installation canceled before system changes.'
@@ -871,6 +1018,10 @@ install -d -o www-data -g www-data -m 2770 \
     "$SHARED_ROOT/storage/framework/views" "$SHARED_ROOT/storage/logs" \
     "$SHARED_ROOT/storage/framework/uploads" "$SHARED_ROOT/storage/framework/tmp" \
     "$SHARED_ROOT/storage/framework/nginx-body" "$RELEASE_API_ROOT/bootstrap/cache"
+install -d -o www-data -g www-data -m 0700 "$INSTALL_ASSETS_ROOT"
+if [[ -n "$INSTALL_ASSETS_SOURCE" ]]; then
+    stage_private_install_assets "$INSTALL_ASSETS_SOURCE"
+fi
 rm -rf -- "$RELEASE_API_ROOT/storage"
 ln -s "$SHARED_ROOT/storage" "$RELEASE_API_ROOT/storage"
 APP_KEY="base64:$(openssl rand -base64 32 | tr -d '\n')"
@@ -907,6 +1058,7 @@ QUEUE_CONNECTION=redis
 CACHE_STORE=redis
 CONTACT_LOOKUP_KEY=${CONTACT_LOOKUP_KEY}
 CONTACT_LOOKUP_KEY_VERSION=1
+ALPHALINK_INSTALL_ASSETS_DIRECTORY=${INSTALL_ASSETS_ROOT}
 REDIS_CLIENT=phpredis
 REDIS_HOST=127.0.0.1
 REDIS_PASSWORD=null

@@ -9,6 +9,34 @@ class DmsSponsorExtensionPackage
 {
     private const DIRECTORY = 'dms-reference/sponsor-extension';
 
+    public function extensionIdIfAvailable(): ?string
+    {
+        try {
+            return $this->extensionId();
+        } catch (RuntimeException) {
+            return null;
+        }
+    }
+
+    public function downloadAvailable(): bool
+    {
+        $source = storage_path('app/'.self::DIRECTORY.'/extension_tools.zip');
+
+        if (! is_file($source) || ! class_exists(ZipArchive::class) || $this->extensionIdIfAvailable() === null) {
+            return false;
+        }
+
+        $archive = new ZipArchive;
+        if ($archive->open($source, ZipArchive::RDONLY) !== true) {
+            return false;
+        }
+
+        $hasManifest = $archive->locateName('extension/manifest.json') !== false;
+        $archive->close();
+
+        return $hasManifest;
+    }
+
     public function extensionId(): string
     {
         $manifest = $this->manifestTemplate();

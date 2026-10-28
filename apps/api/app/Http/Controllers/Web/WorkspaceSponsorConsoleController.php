@@ -46,8 +46,7 @@ class WorkspaceSponsorConsoleController extends Controller
 
         return view('console.sponsors.index', [
             'workspace' => $workspace,
-            'extensionId' => $this->extensionId($workspace, app(DmsSponsorExtensionPackage::class)),
-            'extensionUrl' => route('clean.console.sponsors.extension'),
+            ...$this->sponsorHelperSettings($workspace, app(DmsSponsorExtensionPackage::class)),
         ]);
     }
 
@@ -82,8 +81,7 @@ class WorkspaceSponsorConsoleController extends Controller
             'workspace' => $workspace,
             'sponsors' => $sponsors,
             'isOperator' => $workspace->pivot->role === 'operator',
-            'extensionId' => $this->extensionId($workspace, app(DmsSponsorExtensionPackage::class)),
-            'extensionUrl' => route('clean.console.sponsors.extension'),
+            ...$this->sponsorHelperSettings($workspace, app(DmsSponsorExtensionPackage::class)),
         ]);
     }
 
@@ -380,10 +378,14 @@ class WorkspaceSponsorConsoleController extends Controller
         return $workspace;
     }
 
-    private function extensionId(Workspace $workspace, DmsSponsorExtensionPackage $package): string
+    /** @return array{extensionId: string, extensionUrl: string|null} */
+    private function sponsorHelperSettings(Workspace $workspace, DmsSponsorExtensionPackage $package): array
     {
         $configuredId = trim((string) ($workspace->appSettings?->settings['extension_id'] ?? ''));
 
-        return $configuredId !== '' ? $configuredId : $package->extensionId();
+        return [
+            'extensionId' => $configuredId !== '' ? $configuredId : ($package->extensionIdIfAvailable() ?? ''),
+            'extensionUrl' => $package->downloadAvailable() ? route('clean.console.sponsors.extension') : null,
+        ];
     }
 }

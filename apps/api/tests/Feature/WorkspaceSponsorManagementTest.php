@@ -8,6 +8,7 @@ use App\Models\Workspace;
 use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceSponsor;
 use App\Services\AffiliateNetworks\DmsAffiliateProviderHttp;
+use App\Services\AffiliateNetworks\DmsSponsorExtensionPackage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Routing\Middleware\ThrottleRequests;
@@ -301,6 +302,23 @@ class WorkspaceSponsorManagementTest extends TestCase
             ->assertOk()->assertJsonPath('data.0.offers_count', 1)
             ->assertJsonPath('data.0.password', null)
             ->assertJsonMissingPath('data.0.api_key');
+    }
+
+    public function test_sponsor_pages_render_when_the_optional_helper_bundle_is_not_staged(): void
+    {
+        $package = $this->mock(DmsSponsorExtensionPackage::class);
+        $package->shouldReceive('extensionIdIfAvailable')->andReturn(null);
+        $package->shouldReceive('downloadAvailable')->andReturn(false);
+
+        $this->get(route('clean.console.sponsors.index'))
+            ->assertOk()
+            ->assertSee('The sponsor helper bundle is not installed on this app server')
+            ->assertDontSee('Download sponsor helper');
+
+        $this->get(route('clean.console.networks.sponsors.index'))
+            ->assertOk()
+            ->assertSee('The sponsor helper bundle is not installed on this app server')
+            ->assertDontSee('Download sponsor helper');
     }
 
     public function test_isp_user_and_sponsor_assignments_are_workspace_validated_and_saved(): void

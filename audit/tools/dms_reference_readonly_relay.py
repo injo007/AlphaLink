@@ -52,6 +52,7 @@ CLOUD_PROVIDERS_INDEX_PAGE_PATH = "/admin/cloud-providers"
 INSTALL_SETTINGS_PAGE_PATH = "/admin/miscellaneous/settings"
 CAMPAIGNS_INDEX_PAGE_PATH = "/mailer/campaigns"
 CAMPAIGNS_CREATE_PAGE_PATH = "/mailer/campaigns/create"
+CAMPAIGN_LOGS_PAGE_PATH = "/mailer/campaign-logs"
 MAILER_SERVERS_INDEX_PAGE_PATH = "/mailer/servers"
 GLOBAL_TESTS_PAGE_PATH = "/mailer/global-tests"
 GLOBAL_TEST_HISTORIES_PAGE_PATH = "/mailer/global-tests/histories"
@@ -117,6 +118,7 @@ READ_ONLY_PAGE_PATHS = {
     INSTALL_SETTINGS_PAGE_PATH,
     CAMPAIGNS_INDEX_PAGE_PATH,
     CAMPAIGNS_CREATE_PAGE_PATH,
+    CAMPAIGN_LOGS_PAGE_PATH,
     MAILER_SERVERS_INDEX_PAGE_PATH,
     GLOBAL_TESTS_PAGE_PATH,
     GLOBAL_TEST_HISTORIES_PAGE_PATH,
@@ -276,6 +278,7 @@ def is_protected_table_data_query(
         CLOUD_PROVIDERS_INDEX_PAGE_PATH,
         BULK_INSTALL_PAGE_PATH,
         CAMPAIGNS_INDEX_PAGE_PATH,
+        CAMPAIGN_LOGS_PAGE_PATH,
         MAILER_SERVERS_INDEX_PAGE_PATH,
         OFFERS_INDEX_PAGE_PATH,
         GMAIL_PROJECTS_PAGE_PATH,
@@ -291,6 +294,7 @@ def is_protected_table_data_query(
             SERVERS_PROVIDERS_INDEX_PAGE_PATH,
             CLOUD_PROVIDERS_INDEX_PAGE_PATH,
             CAMPAIGNS_INDEX_PAGE_PATH,
+            CAMPAIGN_LOGS_PAGE_PATH,
             MAILER_SERVERS_INDEX_PAGE_PATH,
             OFFERS_INDEX_PAGE_PATH,
             SPONSORS_INDEX_PAGE_PATH,
@@ -1101,6 +1105,65 @@ def sanitize_dms_campaign_create_html(body: str) -> str:
     return body
 
 
+def sanitize_dms_campaign_logs_html(body: str) -> str:
+    """Keep the Campaign Logs table shell while removing rows and executable actions."""
+    plain_text = html.unescape(re.sub(r"<[^>]+>", " ", body)).lower()
+    if "campaign" not in plain_text or "log" not in plain_text or "<table" not in body.lower():
+        raise ValueError("DMS Campaign Logs response did not match the expected table page")
+
+    script_paths: list[str] = []
+
+    def remove_script(match: re.Match[str]) -> str:
+        opening_tag = match.group(0).split(">", 1)[0]
+        src = re.search(r"\bsrc=['\"]([^'\"]+)['\"]", opening_tag, re.IGNORECASE)
+        if src:
+            parsed = urlparse(urljoin(f"{REFERENCE_ORIGIN}{CAMPAIGN_LOGS_PAGE_PATH}", html.unescape(src.group(1))))
+            if parsed.hostname == REFERENCE.hostname and parsed.path.startswith(STATIC_PREFIXES):
+                script_paths.append(parsed.path)
+        return ""
+
+    body = re.sub(r"<script\b[^>]*>.*?</script\s*>", remove_script, body, flags=re.IGNORECASE | re.DOTALL)
+    body = re.sub(r"<script\b[^>]*/\s*>", remove_script, body, flags=re.IGNORECASE | re.DOTALL)
+    body = re.sub(r"<meta\b(?=[^>]*\bname=['\"]csrf-[^'\"]+['\"])[^>]*>", "", body, flags=re.IGNORECASE | re.DOTALL)
+    body = re.sub(r"<tbody\b[^>]*>.*?</tbody\s*>", "<tbody></tbody>", body, flags=re.IGNORECASE | re.DOTALL)
+    body = re.sub(
+        r"<tr\b[^>]*>.*?</tr\s*>",
+        lambda match: match.group(0) if re.search(r"<th\b", match.group(0), re.IGNORECASE) else "",
+        body,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    body = re.sub(r"<textarea\b(?P<attrs>[^>]*)>.*?</textarea\s*>", r"<textarea\g<attrs>></textarea>", body, flags=re.IGNORECASE | re.DOTALL)
+    body = re.sub(r"<option\b[^>]*>.*?</option\s*>", "<option></option>", body, flags=re.IGNORECASE | re.DOTALL)
+    body = re.sub(
+        r"<input\b[^>]*>",
+        lambda match: "" if re.search(r"\btype=['\"]hidden['\"]", match.group(0), re.IGNORECASE)
+        else re.sub(r"\s+value\s*=\s*(['\"]).*?\1", ' value=""', match.group(0), flags=re.IGNORECASE | re.DOTALL),
+        body,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    body = re.sub(r"\s+href\s*=\s*(['\"])/mailer/campaign-logs/[^'\"]*\1", ' href="#"', body, flags=re.IGNORECASE | re.DOTALL)
+    body = re.sub(r"\s+action\s*=\s*(['\"]).*?\1", "", body, flags=re.IGNORECASE | re.DOTALL)
+    body = re.sub(r"\s+on[a-z]+\s*=\s*(['\"]).*?\1", "", body, flags=re.IGNORECASE | re.DOTALL)
+    body = re.sub(r"\s+data-[\w:-]+\s*=\s*(['\"]).*?\1", "", body, flags=re.IGNORECASE | re.DOTALL)
+    body = remove_element_by_id(body, "page-header-user-dropdown")
+    body = re.sub(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", "[redacted-email]", body, flags=re.IGNORECASE)
+    body = re.sub(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", "[redacted-ip]", body)
+    body = re.sub(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b", "[redacted-id]", body, flags=re.IGNORECASE)
+    body = redact_ipv6_literals(body)
+    body = re.sub(
+        r"\bShowing(?:\s|<[^>]+>)*[\d,]+(?:\s|<[^>]+>)*to(?:\s|<[^>]+>)*[\d,]+(?:\s|<[^>]+>)*of(?:\s|<[^>]+>)*[\d,]+(?:\s|<[^>]+>)*(?:records|entries)\b",
+        "Showing 0 to 0 of 0 records",
+        body,
+        flags=re.IGNORECASE,
+    )
+
+    inert_script_refs = "".join(
+        f'<template data-reference-script-path="{html.escape(script_path, quote=True)}"></template>'
+        for script_path in dict.fromkeys(script_paths)
+    )
+    return body.replace("</body>", inert_script_refs + "</body>") if "</body>" in body else body + inert_script_refs
+
+
 def sanitize_dms_install_settings_html(body: str) -> str:
     """Keep the settings form layout while removing values and sensitive lists."""
     if "settings[pmta_admin_port]" not in body or "settings[proxy_port]" not in body:
@@ -1198,6 +1261,8 @@ def rewrite_document(body: str, mime: str, upstream_url: str, empty_bulk_rows: b
             body = sanitize_dms_domain_create_html(body)
         if urlparse(upstream_url).path == CAMPAIGNS_CREATE_PAGE_PATH:
             body = sanitize_dms_campaign_create_html(body)
+        if urlparse(upstream_url).path == CAMPAIGN_LOGS_PAGE_PATH:
+            body = sanitize_dms_campaign_logs_html(body)
         if urlparse(upstream_url).path == OFFERS_INDEX_PAGE_PATH:
             body = sanitize_dms_offers_index_html(body)
         if urlparse(upstream_url).path == OFFERS_CREATE_PAGE_PATH:

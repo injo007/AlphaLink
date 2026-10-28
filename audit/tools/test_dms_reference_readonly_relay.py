@@ -4,6 +4,7 @@ from audit.tools.dms_reference_readonly_relay import (
     BULK_INSTALL_PAGE_PATH,
     CAMPAIGNS_CREATE_PAGE_PATH,
     CAMPAIGNS_INDEX_PAGE_PATH,
+    CAMPAIGN_LOGS_PAGE_PATH,
     MAILER_SERVERS_INDEX_PAGE_PATH,
     CLOUD_PROVIDERS_INDEX_PAGE_PATH,
     DOMAINS_INDEX_PAGE_PATH,
@@ -51,6 +52,7 @@ SPF_SCANNER_PAGE_PATH,
     rewrite_document,
     sanitize_dms_install_settings_html,
     sanitize_dms_campaign_create_html,
+    sanitize_dms_campaign_logs_html,
     sanitize_dms_profile_html,
     sanitize_dms_pmta_html,
     is_protected_campaign_catalog_request,
@@ -519,6 +521,61 @@ class ReferenceListPrivacyTests(unittest.TestCase):
         )
         self.assertEqual(synthetic_empty_campaign_catalog_response("offers=true"), b'{"data": []}')
         self.assertEqual(synthetic_empty_campaign_catalog_response("isps=true"), b'[]')
+
+    def test_campaign_logs_page_is_allowlisted_and_all_history_rows_are_blocked(self):
+        self.assertIn(CAMPAIGN_LOGS_PAGE_PATH, READ_ONLY_PAGE_PATHS)
+        self.assertFalse(is_protected_table_data_query(CAMPAIGN_LOGS_PAGE_PATH, ""))
+        self.assertTrue(is_protected_table_data_query(CAMPAIGN_LOGS_PAGE_PATH, "draw=1&start=0"))
+        self.assertTrue(is_protected_table_data_query(CAMPAIGN_LOGS_PAGE_PATH, "", "application/json"))
+        self.assertTrue(is_protected_table_data_query(CAMPAIGN_LOGS_PAGE_PATH, "", requested_with="XMLHttpRequest"))
+        self.assertNotIn(f"{CAMPAIGN_LOGS_PAGE_PATH}/private-campaign/tests", READ_ONLY_PAGE_PATHS)
+
+        source = (
+            '<html><head><title>Campaign Logs - DMS</title><meta name="csrf-token" content="private-csrf">'
+            '<script src="/assets/campaign-logs.js?secret=private-query"></script>'
+            '<script>const privateCampaign="campaign-name"; const email="owner@example.test";</script></head><body>'
+            '<nav id="page-header-user-dropdown">private operator@example.test</nav>'
+            '<h1>CAMPAIGN LOGS</h1><form action="/mailer/campaign-logs/private-action">'
+            '<input type="hidden" name="_token" value="private-token"><input name="search" value="private name">'
+            '<select><option value="private-campaign-id">private campaign label</option></select></form>'
+            '<table><thead><tr><th>Campaign</th><th>Type</th><th>Action</th></tr></thead>'
+            '<tbody><tr><td>private campaign title</td><td>Test</td><td><a href="/mailer/campaign-logs/private-id/tests">OPEN</a>'
+            '<span>owner@example.test 198.51.100.7 2001:db8::1 12345678-1234-4234-8234-123456789abc</span></td></tr></tbody></table>'
+            '<div>Showing 1 to 20 of 125 records</div></body></html>'
+        )
+
+        result = sanitize_dms_campaign_logs_html(source)
+
+        for private_value in (
+            "private-csrf", "private-token", "private name", "private campaign label", "private campaign title",
+            "privateCampaign", "owner@example.test", "198.51.100.7", "2001:db8::1", "12345678-1234-4234-8234-123456789abc",
+            "private-id", "private-query", "private operator@example.test",
+        ):
+            self.assertNotIn(private_value, result)
+        self.assertIn("CAMPAIGN LOGS", result)
+        self.assertIn("<th>Campaign</th>", result)
+        self.assertIn("Showing 0 to 0 of 0 records", result)
+        self.assertIn('<template data-reference-script-path="/assets/campaign-logs.js"></template>', result)
+        self.assertNotRegex(result, r"<script\\b|action=|on[a-z]+=|data-[\\w:-]+=|href=\"/mailer/campaign-logs/")
+
+    def test_campaign_logs_sanitizer_fails_closed_for_unexpected_page(self):
+        with self.assertRaisesRegex(ValueError, "expected table page"):
+            sanitize_dms_campaign_logs_html('<html><title>Campaign Settings</title><table></table></html>')
+
+    def test_campaign_logs_document_rewrite_uses_the_fail_closed_sanitizer(self):
+        source = (
+            '<html><head><title>Campaign Logs - DMS</title></head><body>'
+            '<h1>CAMPAIGN LOGS</h1><table id="logs"><thead><tr><th>Type</th></tr></thead>'
+            '<tbody><tr><td>private campaign row</td></tr></tbody></table>'
+            '<script>const privateValue="do-not-forward";</script></body></html>'
+        )
+
+        result = rewrite_document(source, "text/html", f"{REFERENCE_ORIGIN}{CAMPAIGN_LOGS_PAGE_PATH}")
+
+        self.assertIn("CAMPAIGN LOGS", result)
+        self.assertIn("<th>Type</th>", result)
+        self.assertNotIn("private campaign row", result)
+        self.assertNotIn("do-not-forward", result)
 
     def test_profile_page_exposes_only_the_authenticated_username(self):
         self.assertIn(PROFILE_PATH, READ_ONLY_PAGE_PATHS)

@@ -198,6 +198,21 @@ normalize_private_install_assets() {
     find "$root" -type f -exec chmod 0600 {} +
 }
 
+normalize_shared_storage_permissions() {
+    local extra_root="${1:-}"
+    local -a roots=("$SHARED_ROOT/storage")
+
+    if [[ -n "$extra_root" ]]; then
+        roots+=("$extra_root")
+    fi
+
+    chown -R www-data:www-data "${roots[@]}"
+    # The installation bundle is private runtime input. Keep it out of the
+    # group-writable Laravel storage sweep on every install and deployment.
+    find "${roots[@]}" -path "$INSTALL_ASSETS_ROOT" -prune -o -type d -exec chmod 2770 {} +
+    find "${roots[@]}" -path "$INSTALL_ASSETS_ROOT" -prune -o -type f -exec chmod 0660 {} +
+}
+
 stage_private_install_assets() {
     local source="$1"
     local existing_entry invalid_entry
@@ -371,9 +386,7 @@ deploy_release() {
     chown -R root:www-data "$temporary_release"
     find "$temporary_release" -type d -exec chmod 0750 {} +
     find "$temporary_release" -type f -exec chmod 0640 {} +
-    chown -R www-data:www-data "$SHARED_ROOT/storage" "$temporary_release/apps/api/bootstrap/cache"
-    find "$SHARED_ROOT/storage" "$temporary_release/apps/api/bootstrap/cache" -type d -exec chmod 2770 {} +
-    find "$SHARED_ROOT/storage" "$temporary_release/apps/api/bootstrap/cache" -type f -exec chmod 0660 {} +
+    normalize_shared_storage_permissions "$temporary_release/apps/api/bootstrap/cache"
     chmod 0750 "$temporary_release" "$temporary_release/apps/api"
 
     info "Building release ${release_sha} before downtime..."
@@ -594,9 +607,7 @@ resume_initial_install() {
             chown -R root:www-data "$staging_path"
             find "$staging_path" -type d -exec chmod 0750 {} +
             find "$staging_path" -type f -exec chmod 0640 {} +
-            chown -R www-data:www-data "$SHARED_ROOT/storage" "$staging_path/apps/api/bootstrap/cache"
-            find "$SHARED_ROOT/storage" "$staging_path/apps/api/bootstrap/cache" -type d -exec chmod 2770 {} +
-            find "$SHARED_ROOT/storage" "$staging_path/apps/api/bootstrap/cache" -type f -exec chmod 0660 {} +
+            normalize_shared_storage_permissions "$staging_path/apps/api/bootstrap/cache"
             chmod 0750 "$staging_path" "$staging_path/apps/api"
 
             info "Building corrected release ${release_sha}..."
@@ -1135,9 +1146,7 @@ rm -rf -- node_modules
 # cloned/built code permissions so PHP-FPM and Nginx can read it, while only
 # Laravel's runtime directories remain writable by www-data.
 normalize_release_permissions "$RELEASE_PATH"
-chown -R www-data:www-data "$SHARED_ROOT/storage"
-find "$SHARED_ROOT/storage" -type d -exec chmod 2770 {} +
-find "$SHARED_ROOT/storage" -type f -exec chmod 0660 {} +
+normalize_shared_storage_permissions
 install -d -o www-data -g www-data -m 0700 \
     "$SHARED_ROOT/storage/framework/uploads" \
     "$SHARED_ROOT/storage/framework/tmp" \
@@ -1306,11 +1315,9 @@ Unit=alphalink-db-backup.service
 WantedBy=timers.target
 UNIT
 
-chown -R www-data:www-data "$SHARED_ROOT/storage" "$API_ROOT/bootstrap/cache"
+normalize_shared_storage_permissions "$API_ROOT/bootstrap/cache"
 find "$RELEASE_PATH" -type d -exec chmod 0750 {} +
 find "$RELEASE_PATH" -type f -exec chmod 0640 {} +
-find "$SHARED_ROOT/storage" "$API_ROOT/bootstrap/cache" -type d -exec chmod 2770 {} +
-find "$SHARED_ROOT/storage" "$API_ROOT/bootstrap/cache" -type f -exec chmod 0660 {} +
 chmod 0750 "$APP_ROOT" "$RELEASES_ROOT" "$SHARED_ROOT" "$API_ROOT"
 
 runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php artisan optimize

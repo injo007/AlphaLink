@@ -224,6 +224,65 @@ class DmsAffiliateSuppressionRefreshTest extends TestCase
             && ($request->headers()['x-eflow-api-key'][0] ?? null) === $sponsor->api_key);
     }
 
+    public function test_everflow_optizmo_refresh_uses_the_encrypted_workspace_app_setting(): void
+    {
+        [$workspace, , $offer] = $this->suppressionOffer('everflow', 'https://partner.everflow.example.test', null, '9926');
+        $workspace->appSettings()->create([
+            'settings' => ['optizmo_token' => 'workspace-optizmo-token'],
+        ]);
+        config(['services.optizmo.token' => 'environment-fallback-token']);
+
+        Http::fake([
+            'https://api.eflow.team/v1/affiliates/offers/9926' => Http::response([
+                'relationship' => [
+                    'integrations' => [
+                        'optizmo' => ['mailer_access_key' => 'https://app.optizmo.net/accesskey?mak=offer-mailer-key'],
+                    ],
+                ],
+            ]),
+            'https://mailer-api.optizmo.net/accesskey/download/offer-mailer-key*' => Http::response(
+                "blocked-optizmo@example.test\n",
+                200,
+            ),
+        ]);
+
+        $this->assertTrue(app(DmsAffiliateSuppressionRefresher::class)->refresh($workspace, $offer));
+
+        $this->assertSuppressionFile($offer, "blocked-optizmo@example.test\n");
+        Http::assertSentCount(2);
+        Http::assertSent(fn (ClientRequest $request): bool => str_contains(
+            $request->url(),
+            'https://mailer-api.optizmo.net/accesskey/download/offer-mailer-key',
+        )
+            && $this->queryValue($request, 'token') === 'workspace-optizmo-token'
+            && $this->queryValue($request, 'deltas') === '0');
+        Http::assertNotSent(fn (ClientRequest $request): bool => $this->queryValue($request, 'token') === 'environment-fallback-token');
+    }
+
+    public function test_everflow_optizmo_refresh_keeps_environment_token_fallback_for_legacy_installs(): void
+    {
+        [$workspace, , $offer] = $this->suppressionOffer('everflow', 'https://partner.everflow.example.test', null, '9927');
+        config(['services.optizmo.token' => 'environment-fallback-token']);
+
+        Http::fake([
+            'https://api.eflow.team/v1/affiliates/offers/9927' => Http::response([
+                'relationship' => [
+                    'integrations' => [
+                        'optizmo' => ['mailer_access_key' => 'https://app.optizmo.net/accesskey?mak=legacy-mailer-key'],
+                    ],
+                ],
+            ]),
+            'https://mailer-api.optizmo.net/accesskey/download/legacy-mailer-key*' => Http::response(
+                "blocked-legacy@example.test\n",
+                200,
+            ),
+        ]);
+
+        $this->assertTrue(app(DmsAffiliateSuppressionRefresher::class)->refresh($workspace, $offer));
+
+        Http::assertSent(fn (ClientRequest $request): bool => $this->queryValue($request, 'token') === 'environment-fallback-token');
+    }
+
     public function test_hasoffers_refresh_uses_the_network_download_url_before_crm_fallback(): void
     {
         [$workspace, $sponsor, $offer] = $this->suppressionOffer('hasoffers', 'https://offers.partner.example.test', 'network731', '9918');

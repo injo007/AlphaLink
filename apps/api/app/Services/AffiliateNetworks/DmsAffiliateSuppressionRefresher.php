@@ -36,7 +36,7 @@ class DmsAffiliateSuppressionRefresher
             return null;
         }
 
-        $downloadUrl = $this->downloadUrl($link);
+        $downloadUrl = $this->downloadUrl($link, $workspace);
         if ($downloadUrl === null) {
             return null;
         }
@@ -220,7 +220,7 @@ class DmsAffiliateSuppressionRefresher
         return is_string($link) ? $link : null;
     }
 
-    private function downloadUrl(string $link): ?string
+    private function downloadUrl(string $link, Workspace $workspace): ?string
     {
         $parts = parse_url(trim($link));
         if (! is_array($parts) || ! is_string($parts['host'] ?? null)) {
@@ -249,7 +249,7 @@ class DmsAffiliateSuppressionRefresher
             } else {
                 $token = explode('&', ltrim((string) ($parts['path'] ?? ''), '/'))[0] ?? null;
             }
-            $apiToken = config('services.optizmo.token');
+            $apiToken = $this->optizmoToken($workspace);
             if (! is_string($token) || $token === '' || ! is_string($apiToken) || $apiToken === '') {
                 return null;
             }
@@ -261,6 +261,21 @@ class DmsAffiliateSuppressionRefresher
         }
 
         return $this->urlFromParts($parts);
+    }
+
+    private function optizmoToken(Workspace $workspace): ?string
+    {
+        $settings = $workspace->appSettings?->settings;
+        $workspaceToken = is_array($settings) ? ($settings['optizmo_token'] ?? null) : null;
+        if (is_string($workspaceToken) && trim($workspaceToken) !== '') {
+            return trim($workspaceToken);
+        }
+
+        $configuredToken = config('services.optizmo.token');
+
+        return is_string($configuredToken) && trim($configuredToken) !== ''
+            ? trim($configuredToken)
+            : null;
     }
 
     /** @param array<string, mixed> $parts */

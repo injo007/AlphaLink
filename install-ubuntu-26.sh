@@ -22,6 +22,27 @@ readonly PHP_VERSION=8.5
 info() { printf '[alphalink-install] %s\n' "$*"; }
 fail() { printf '[alphalink-install] ERROR: %s\n' "$*" >&2; exit 1; }
 
+nginx_app_domain() {
+    local nginx_config="$1"
+
+    awk '
+        /^[[:space:]]*#/ { next }
+        $1 == "server_name" {
+            for (i = 2; i <= NF; i++) {
+                sub(/;$/, "", $i)
+                if ($i != "" && $i != "_") {
+                    print $i
+                    exit
+                }
+            }
+        }
+    ' "$nginx_config"
+}
+
+valid_app_domain() {
+    [[ "$1" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]]
+}
+
 GIT_ASKPASS_FILE=''
 GIT_TOKEN_FILE=''
 DEPLOY_STAGING_DIR=''
@@ -402,12 +423,18 @@ deploy_release() {
                     systemctl is-active --quiet "$service" || rollback_ok=0
                 done
                 runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" horizon:status 2>&1 | grep -qi 'running' || rollback_ok=0
-                rollback_domain="$(awk '$1 == "server_name" { print $2; exit }' /etc/nginx/sites-available/alphalink)"
-                curl --fail --silent --show-error --output /dev/null \
-                    --resolve "${rollback_domain}:443:127.0.0.1" "https://${rollback_domain}/up" || rollback_ok=0
+                rollback_domain="$(nginx_app_domain /etc/nginx/sites-available/alphalink)"
+                if valid_app_domain "$rollback_domain"; then
+                    curl --fail --silent --show-error --output /dev/null \
+                        --resolve "${rollback_domain}:443:127.0.0.1" "https://${rollback_domain}/up" || rollback_ok=0
+                else
+                    rollback_ok=0
+                fi
             fi
         fi
         if (( rollback_ok == 0 )); then
+            systemctl start php8.5-fpm >/dev/null 2>&1 || true
+            runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" down --retry=60 >/dev/null 2>&1 || true
             info 'AUTOMATIC ROLLBACK IS INCOMPLETE. Leave the app in maintenance mode and inspect PostgreSQL, the current symlink, and systemd services before reopening traffic.'
         else
             info 'The previous release and pre-deploy PostgreSQL backup have been restored.'
@@ -436,8 +463,8 @@ deploy_release() {
     env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" storage:link
     systemctl restart php8.5-fpm
     runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" up
-    app_domain="$(awk '$1 == "server_name" { print $2; exit }' /etc/nginx/sites-available/alphalink)"
-    [[ -n "$app_domain" && "$app_domain" != '_' ]]
+    app_domain="$(nginx_app_domain /etc/nginx/sites-available/alphalink)"
+    valid_app_domain "$app_domain" || fail 'Could not find a valid AlphaLink hostname in the Nginx site configuration.'
     curl --fail --silent --show-error --output /dev/null \
         --resolve "${app_domain}:443:127.0.0.1" "https://${app_domain}/up"
     systemctl start alphalink-horizon.service alphalink-drop-suppression.service alphalink-schedule.timer

@@ -71,8 +71,9 @@ class DmsBulkInstallInstallerMatrixTest extends TestCase
         $this->assertSame('DMS returns without installing or enabling Squid.', $requirements['proxy']['when_asset_missing']);
         $this->assertSame('install/dovecot_centos.conf', $requirements['imap']['expected_assets'][0]);
         $this->assertSame('DMS returns without installing or enabling Dovecot.', $requirements['imap']['when_asset_missing']);
-        $this->assertSame('install/dkim.json', $requirements['dkim']['expected_assets'][0]);
-        $this->assertSame('DMS omits the DKIM DNS record when no key is configured.', $requirements['dkim']['when_key_missing']);
+        $this->assertSame([], $requirements['dkim']['expected_assets']);
+        $this->assertSame(['install/dkim.json'], $requirements['dkim']['optional_assets']);
+        $this->assertSame('AlphaLink generates and encrypts a workspace-specific DKIM key before host changes.', $requirements['dkim']['when_key_missing']);
         $this->assertSame([], $requirements['https']['local_assets']);
         $this->assertArrayNotHasKey('spf', $requirements);
         $this->assertArrayNotHasKey('dmarc', $requirements);

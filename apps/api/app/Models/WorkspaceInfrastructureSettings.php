@@ -20,6 +20,7 @@ class WorkspaceInfrastructureSettings extends Model
         'production_ips',
         'rdp_ips',
         'dkim_key',
+        'dkim_private_key',
         'webmail_username',
         'webmail_password',
         'proxy_username',
@@ -32,6 +33,7 @@ class WorkspaceInfrastructureSettings extends Model
 
     protected $hidden = [
         'dkim_key',
+        'dkim_private_key',
         'webmail_username',
         'webmail_password',
         'proxy_username',
@@ -62,6 +64,7 @@ class WorkspaceInfrastructureSettings extends Model
             'rdp_ips' => 'encrypted:array',
             'pmta_domain_configs' => 'encrypted:array',
             'dkim_key' => 'encrypted',
+            'dkim_private_key' => 'encrypted',
             'webmail_username' => 'encrypted',
             'webmail_password' => 'encrypted',
             'proxy_username' => 'encrypted',

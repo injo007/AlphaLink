@@ -28,6 +28,8 @@ class DmsChangeDomainRunner
         private readonly DmsChangeDomainDnsRecordWriter $dnsWriter,
         private readonly DmsBulkInstallIspCatalog $ispCatalog,
         private readonly DmsBulkInstallPrivateAssetReader $assets,
+        private readonly DkimKeyMaterialManager $dkimKeys,
+        private readonly DmsReviewedAssetDigestVerifier $assetDigests,
     ) {}
 
     /**
@@ -60,16 +62,19 @@ class DmsChangeDomainRunner
         $tracking = (bool) ($parameters['tracking'] ?? false);
         $imap = (bool) ($parameters['imap'] ?? false);
         $dkimSelector = (string) ($workspace->infrastructureSettings?->dkim_key ?? '');
-        $dkimMaterial = ['value' => '', 'key' => ''];
+        $dkimMaterial = ['private_key' => '', 'public_record' => ''];
         if ($options['dkim']) {
             $root = config('infrastructure.install_assets_directory');
-            if (! is_string($root) || $root === '') {
-                throw new RuntimeException('The AlphaLink DKIM asset directory is unavailable.');
+            $legacyPrivateKey = null;
+            if (is_string($root) && $root !== '' && $this->assetDigests->verifiesAsset($root, 'install/dkim.json')) {
+                $legacyContents = $this->assets->read($root, 'install/dkim.json', false);
+                $legacyMaterial = is_string($legacyContents) ? json_decode($legacyContents, true) : null;
+                $legacyPrivateKey = is_array($legacyMaterial) && is_string($legacyMaterial['value'] ?? null)
+                    ? $legacyMaterial['value']
+                    : null;
             }
-            $dkimMaterial = json_decode($this->assets->read($root, 'install/dkim.json'), true) ?? [];
-            if (! is_string($dkimMaterial['value'] ?? null) || ! is_string($dkimMaterial['key'] ?? null) || $dkimSelector === '') {
-                throw new RuntimeException('The selected DKIM settings are incomplete.');
-            }
+            $dkimMaterial = $this->dkimKeys->ensureForWorkspace($workspace, $dkimSelector, $legacyPrivateKey);
+            $dkimSelector = $dkimMaterial['selector'];
         }
 
         $mainRow = collect($rows)->firstWhere('main', true) ?? $rows[0];
@@ -83,7 +88,7 @@ class DmsChangeDomainRunner
             $this->sessions->create($server, $credential['secret'], $credential['type']),
         );
         $dnsGroups = $this->resolveDnsGroups(
-            $formatted, $tracking, $imap, $options, $dkimSelector, $dkimMaterial['key'], $session, $log, (string) $server->ip_address,
+            $formatted, $tracking, $imap, $options, $dkimSelector, $dkimMaterial['public_record'], $session, $log, (string) $server->ip_address,
         );
 
         $log('Setup Host');
@@ -94,7 +99,7 @@ class DmsChangeDomainRunner
         $this->writeVhost($session, (string) $mainDomain->name, $subdomains);
         $log('End Setting VHost');
 
-        $this->writeDomainRecords($dnsGroups, $tracking, $imap, $options, $dkimSelector, $dkimMaterial['key'], $log);
+        $this->writeDomainRecords($dnsGroups, $tracking, $imap, $options, $dkimSelector, $dkimMaterial['public_record'], $log);
 
         $log('Setup VMTAS');
         $vmtaRows = [];
@@ -115,7 +120,7 @@ class DmsChangeDomainRunner
             $this->ispCatalog->vmtaNames($workspace),
             $dkimSelector,
             $options['dkim'],
-            $dkimMaterial['value'],
+            $dkimMaterial['private_key'],
         );
         $log('End Setting VMTAS');
 

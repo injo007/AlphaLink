@@ -76,6 +76,22 @@ class DmsBulkInstallAssetInventoryTest extends TestCase
         $this->assertFalse($inventory['asset_presence_complete']);
     }
 
+    public function test_a_selected_dkim_install_does_not_require_a_shared_private_key_asset(): void
+    {
+        $matrix = new DmsBulkInstallInstallerMatrix(new DmsInstallPlatform);
+        $options = $this->options();
+        $options['dkim'] = true;
+        foreach ($matrix->plan('AlmaLinux 9', 45, $options)['pmta']['referenced_assets'] as $path) {
+            $this->writeAsset($path);
+        }
+
+        $inventory = (new DmsBulkInstallAssetInventory($matrix))->inspect('AlmaLinux 9', 45, $options, $this->root);
+
+        $this->assertSame([], $inventory['selected_options']['dkim']['assets']);
+        $this->assertSame('missing', $inventory['selected_options']['dkim']['optional_assets']['install/dkim.json']);
+        $this->assertTrue($inventory['asset_presence_complete']);
+    }
+
     public function test_it_does_not_follow_symlinks_and_requires_a_private_absolute_root(): void
     {
         $matrix = new DmsBulkInstallInstallerMatrix(new DmsInstallPlatform);

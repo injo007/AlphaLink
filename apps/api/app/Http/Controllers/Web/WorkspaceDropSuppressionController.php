@@ -176,10 +176,13 @@ class WorkspaceDropSuppressionController extends Controller
             404,
         );
 
-        return response()->download($disk->path($path), 'suppression-offer-'.$selectedOffer->getKey().'.txt', [
-            'Cache-Control' => 'private, no-store',
+        $response = response()->download($disk->path($path), 'suppression-offer-'.$selectedOffer->getKey().'.txt', [
             'X-Content-Type-Options' => 'nosniff',
         ]);
+        $response->setPrivate();
+        $response->headers->set('Cache-Control', 'private, no-store');
+
+        return $response;
     }
 
     public function start(Request $request, string $workspace): JsonResponse

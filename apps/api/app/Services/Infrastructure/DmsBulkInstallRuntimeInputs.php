@@ -12,11 +12,19 @@ class DmsBulkInstallRuntimeInputs
 {
     private readonly DmsPublicIpv4EgressResolver $egress;
 
+    private readonly DkimKeyMaterialManager $dkimKeys;
+
+    private readonly DmsReviewedAssetDigestVerifier $assetDigests;
+
     public function __construct(
         private readonly DmsBulkInstallPrivateAssetReader $assets,
         ?DmsPublicIpv4EgressResolver $egress = null,
+        ?DkimKeyMaterialManager $dkimKeys = null,
+        ?DmsReviewedAssetDigestVerifier $assetDigests = null,
     ) {
         $this->egress = $egress ?? new DmsPublicIpv4EgressResolver;
+        $this->dkimKeys = $dkimKeys ?? new DkimKeyMaterialManager;
+        $this->assetDigests = $assetDigests ?? new DmsReviewedAssetDigestVerifier;
     }
 
     /**
@@ -98,15 +106,24 @@ class DmsBulkInstallRuntimeInputs
         $cloudflareIps = $options['tracking'] ? $this->assets->read($assetRoot, 'install/cf_ips.conf', false) : null;
         $dovecot = $options['imap'] ? $this->assets->read($assetRoot, 'install/dovecot_centos.conf') : null;
         $squid = $options['proxy'] ? $this->assets->read($assetRoot, 'install/squid_centos.conf') : null;
-        $dkim = $options['dkim'] ? json_decode($this->assets->read($assetRoot, 'install/dkim.json'), true) : null;
-        if ($options['dkim'] && (! is_array($dkim) || ! is_string($dkim['value'] ?? null) || ! is_string($dkim['key'] ?? null))) {
-            throw new RuntimeException('The selected AlphaLink DKIM asset is invalid.');
-        }
-
         if ($workspace !== null && (($options['tracking'] && $this->string($value('mini_app_key')) === '')
             || ($options['imap'] && ($this->string($value('webmail_username')) === '' || $this->string($value('webmail_password')) === ''))
             || ($options['dkim'] && $this->string($value('dkim_key')) === ''))) {
             $saved = $this->provisionSelectedServiceValues($workspace, $options, $configured);
+        }
+
+        $dkimMaterial = null;
+        if ($options['dkim']) {
+            if ($workspace === null) {
+                throw new RuntimeException('DKIM key generation requires a workspace so its private key can be encrypted and persisted.');
+            }
+
+            $dkimMaterial = $this->dkimKeys->ensureForWorkspace(
+                $workspace,
+                $this->string($value('dkim_key')),
+                $this->legacyDkimPrivateKey($assetRoot),
+            );
+            $saved = $workspace->infrastructureSettings()->firstOrFail();
         }
 
         $miniAppKey = $this->string($value('mini_app_key'));
@@ -147,8 +164,8 @@ class DmsBulkInstallRuntimeInputs
                 'allow_all_monitor' => $allowAllMonitor,
                 'apply_firewall' => $applyFirewall,
                 'dkim_selector' => $dkimSelector,
-                'dkim_key' => is_array($dkim) ? $dkim['value'] : '',
-                'dkim_public_key' => is_array($dkim) ? $dkim['key'] : null,
+                'dkim_key' => $dkimMaterial['private_key'] ?? '',
+                'dkim_public_key' => $dkimMaterial['public_record'] ?? null,
                 'imap_username' => $webmailUsername,
                 'imap_password' => $webmailPassword,
                 'proxy_username' => $this->string($value('proxy_username')),
@@ -224,6 +241,20 @@ class DmsBulkInstallRuntimeInputs
     private function string(mixed $value): string
     {
         return is_string($value) ? $value : '';
+    }
+
+    private function legacyDkimPrivateKey(string $assetRoot): ?string
+    {
+        if (! $this->assetDigests->verifiesAsset($assetRoot, 'install/dkim.json')) {
+            return null;
+        }
+
+        $contents = $this->assets->read($assetRoot, 'install/dkim.json', false);
+        $material = is_string($contents) ? json_decode($contents, true) : null;
+
+        return is_array($material) && is_string($material['value'] ?? null)
+            ? $material['value']
+            : null;
     }
 
     /** @return list<string> */

@@ -111,10 +111,11 @@ class WorkspaceDropSuppressionTest extends TestCase
             ->assertJsonPath('offers.0.can_run_suppression', false);
 
         $response = $this->actingAs($owner)->get($url)->assertOk()
-            ->assertHeader('cache-control', 'private, no-store')
             ->assertHeader('x-content-type-options', 'nosniff')
             ->assertHeader('content-disposition', 'attachment; filename=suppression-offer-'.$offer->getKey().'.txt');
 
+        $this->assertStringContainsString('private', $response->headers->get('cache-control'));
+        $this->assertStringContainsString('no-store', $response->headers->get('cache-control'));
         $this->assertSame("blocked@example.test\n", file_get_contents($response->baseResponse->getFile()->getPathname()));
         $this->actingAs($operator)->get($url)->assertForbidden();
     }

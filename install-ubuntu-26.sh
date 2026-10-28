@@ -462,7 +462,7 @@ stage_repository_install_assets_if_empty() {
 
     stage_private_install_assets "$source"
     write_install_assets_environment
-    info "Staged the repository PMTA bundle at ${INSTALL_ASSETS_ROOT} with owner-only permissions."
+    info "Staged the reviewed AlphaLink installation bundle at ${INSTALL_ASSETS_ROOT} with owner-only permissions."
 }
 
 write_install_assets_environment() {
@@ -1215,7 +1215,7 @@ Plan (no changes are made):
      connection budget; bootstrap the first owner and encrypted PMTA relay
      source IP settings; configure Nginx/TLS, the PostgreSQL suppression worker,
      and schedule.
-  9. Stage the repository-bundled PMTA assets into the private shared directory,
+  9. Stage the reviewed repository PMTA and selected-service assets into private shared storage,
      then preserve owner-only permissions across installs and deployments.
  10. Enable UFW rules and a protected daily PostgreSQL dump (14-day retention).
 
@@ -1345,7 +1345,7 @@ if [[ -z "$INSTALL_ASSETS_SOURCE" ]]; then
         info 'Detected the uploaded private AlphaLink asset bundle at /root/install-assets.'
     elif [[ -d "${INSTALLER_DIRECTORY}/install-assets" && ! -L "${INSTALLER_DIRECTORY}/install-assets" ]]; then
         INSTALL_ASSETS_SOURCE="${INSTALLER_DIRECTORY}/install-assets"
-        info 'Detected the repository-bundled PMTA installation assets.'
+        info 'Detected the repository-bundled reviewed AlphaLink installation assets.'
     else
         read -r -p 'Private AlphaLink installation asset directory (absolute path, or SKIP for app-only setup): ' INSTALL_ASSETS_SOURCE
     fi

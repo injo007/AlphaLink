@@ -31,9 +31,14 @@ class DmsBulkInstallRuntimeInputsTest extends TestCase
         $root = sys_get_temp_dir().'/dms-install-fixture-'.bin2hex(random_bytes(6));
         mkdir($root, 0700);
         mkdir($root.'/optional/tracking', 0700, true);
-        mkdir($root.'/optional/dkim', 0700, true);
         file_put_contents($root.'/optional/tracking/mini-app.zip', 'synthetic archive');
-        file_put_contents($root.'/optional/dkim/keys.json', '{"key":"synthetic public","value":"synthetic private"}');
+        $owner = User::factory()->create();
+        $workspace = Workspace::query()->create([
+            'name' => 'Runtime input fixture',
+            'slug' => 'runtime-input-'.bin2hex(random_bytes(4)),
+            'created_by' => $owner->getKey(),
+        ]);
+        $workspace->users()->attach($owner->getKey(), ['role' => 'owner']);
 
         try {
             config()->set('infrastructure.install_assets_directory', $root);
@@ -45,21 +50,20 @@ class DmsBulkInstallRuntimeInputsTest extends TestCase
                 'dkim_key' => 'selector', 'mini_app_key' => 'synthetic key',
             ]);
             $resolved = (new DmsBulkInstallRuntimeInputs(new DmsBulkInstallPrivateAssetReader))
-                ->resolve($this->installOptions(['tracking' => true, 'dkim' => true]));
+                ->resolve($this->installOptions(['tracking' => true, 'dkim' => true]), $workspace);
 
             $this->assertSame('synthetic archive', $resolved['assets']['mini_app']);
             $this->assertNull($resolved['assets']['cloudflare_ips']);
-            $this->assertSame('synthetic private', $resolved['settings']['dkim_key']);
-            $this->assertSame('synthetic public', $resolved['settings']['dkim_public_key']);
+            $this->assertStringContainsString('BEGIN PRIVATE KEY', $resolved['settings']['dkim_key']);
+            $this->assertStringStartsWith('v=DKIM1;t=s;p=', $resolved['settings']['dkim_public_key']);
+            $this->assertSame($resolved['settings']['dkim_key'], $workspace->infrastructureSettings()->firstOrFail()->dkim_private_key);
             $this->assertSame(['192.0.2.1', '192.0.2.2'], $resolved['settings']['dev_ips']);
             $this->assertSame(['198.51.100.44'], $resolved['settings']['pmta_relay_ips']);
             $this->assertSame(8080, $resolved['settings']['pmta_admin_port']);
             $this->assertTrue($resolved['settings']['apply_firewall']);
         } finally {
             unlink($root.'/optional/tracking/mini-app.zip');
-            unlink($root.'/optional/dkim/keys.json');
             rmdir($root.'/optional/tracking');
-            rmdir($root.'/optional/dkim');
             rmdir($root.'/optional');
             rmdir($root);
         }

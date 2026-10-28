@@ -96,8 +96,9 @@ class DmsBulkInstallInstallerMatrix
 
         if ($options['dkim']) {
             $requirements['dkim'] = [
-                'expected_assets' => ['install/dkim.json'],
-                'when_key_missing' => 'DMS omits the DKIM DNS record when no key is configured.',
+                'expected_assets' => [],
+                'optional_assets' => ['install/dkim.json'],
+                'when_key_missing' => 'AlphaLink generates and encrypts a workspace-specific DKIM key before host changes.',
             ];
         }
 

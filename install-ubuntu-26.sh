@@ -15,6 +15,7 @@ readonly API_ROOT=/var/www/alphalink/current/apps/api
 readonly ENV_ROOT=/etc/alphalink
 readonly BACKUP_ROOT=/var/backups/alphalink
 readonly INSTALL_ASSETS_ROOT=/var/www/alphalink/shared/storage/app/private/install-assets
+readonly INSTALLER_DIRECTORY="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly DB_NAME=alphalink
 readonly DB_USER=alphalink
 readonly PHP_VERSION=8.5
@@ -221,9 +222,6 @@ validate_install_assets_source() {
         pmta/4.5/package.rpm pmta/4.5/pmtad-patch pmta/4.5/license.lic pmta/4.5/domains.conf
         pmta/5.0/package.rpm pmta/5.0/pmtad-patch pmta/5.0/license.lic pmta/5.0/domains.conf
         pmta/shared/source.conf pmta/shared/base.conf
-        optional/tracking/mini-app.zip optional/tracking/cloudflare-ips.conf
-        optional/imap/dovecot.conf optional/proxy/squid.conf optional/dkim/keys.json
-        optional/reverse-proxy/nginx-repo.conf optional/reverse-proxy/nginx.conf
     )
     local -a missing_assets=()
 
@@ -293,6 +291,33 @@ stage_private_install_assets() {
     ASSET_STAGING_DIR=''
 }
 
+stage_repository_install_assets_if_empty() {
+    local source="$1"
+    local existing_entry invalid_entry
+
+    if [[ ! -d "$source" || -L "$source" ]]; then
+        info 'This repository release does not contain a bundled install-assets directory.'
+        return 0
+    fi
+
+    if [[ -e "$INSTALL_ASSETS_ROOT" || -L "$INSTALL_ASSETS_ROOT" ]]; then
+        [[ -d "$INSTALL_ASSETS_ROOT" && ! -L "$INSTALL_ASSETS_ROOT" ]] \
+            || fail 'The private asset destination exists but is unsafe; preserving it.'
+        invalid_entry="$(find "$INSTALL_ASSETS_ROOT" -mindepth 1 \( -type l -o \( ! -type d -a ! -type f \) \) -print -quit)"
+        [[ -z "$invalid_entry" ]] || fail 'The private asset destination contains symlinks or special files; preserving it.'
+        existing_entry="$(find "$INSTALL_ASSETS_ROOT" -mindepth 1 -print -quit)"
+        if [[ -n "$existing_entry" ]]; then
+            normalize_private_install_assets "$INSTALL_ASSETS_ROOT"
+            info 'Preserving the existing private installation asset bundle.'
+            return 0
+        fi
+    fi
+
+    stage_private_install_assets "$source"
+    write_install_assets_environment
+    info "Staged the repository PMTA bundle at ${INSTALL_ASSETS_ROOT} with owner-only permissions."
+}
+
 write_install_assets_environment() {
     local env_file="$ENV_ROOT/.env"
     local temporary_file="${ENV_ROOT}/.env.install-assets-$$"
@@ -318,15 +343,30 @@ write_install_assets_environment() {
 
 ensure_install_assets_environment() {
     local configured
+    local invalid_entry existing_entry
 
     [[ -f "$ENV_ROOT/.env" ]] || fail 'The protected AlphaLink environment file is missing.'
     configured="$(sed -n 's/^ALPHALINK_INSTALL_ASSETS_DIRECTORY=//p' "$ENV_ROOT/.env" | tail -n 1)"
     configured="${configured#\"}"
     configured="${configured%\"}"
-    if [[ -z "$configured" ]]; then
+    if [[ "$configured" != "$INSTALL_ASSETS_ROOT" ]]; then
         write_install_assets_environment
+        info 'Configured the canonical private AlphaLink installation asset directory.'
+    fi
+    if [[ -e "$INSTALL_ASSETS_ROOT" || -L "$INSTALL_ASSETS_ROOT" ]]; then
+        [[ -d "$INSTALL_ASSETS_ROOT" && ! -L "$INSTALL_ASSETS_ROOT" ]] \
+            || fail 'The private asset destination exists but is unsafe; preserving it.'
+        invalid_entry="$(find "$INSTALL_ASSETS_ROOT" -mindepth 1 \( -type l -o \( ! -type d -a ! -type f \) \) -print -quit)"
+        [[ -z "$invalid_entry" ]] || fail 'The private asset destination contains symlinks or special files; preserving it.'
+        existing_entry="$(find "$INSTALL_ASSETS_ROOT" -mindepth 1 -print -quit)"
+        if [[ -n "$existing_entry" ]]; then
+            normalize_private_install_assets "$INSTALL_ASSETS_ROOT"
+        else
+            rmdir -- "$INSTALL_ASSETS_ROOT"
+            install -d -o www-data -g www-data -m 0700 "$INSTALL_ASSETS_ROOT"
+        fi
+    else
         install -d -o www-data -g www-data -m 0700 "$INSTALL_ASSETS_ROOT"
-        info 'Configured the private AlphaLink installation asset directory; stage the reviewed asset bundle there before PMTA installation.'
     fi
 }
 
@@ -424,6 +464,7 @@ deploy_release() {
     fetch_repository_branch "$SOURCE_ROOT" "$branch" "$token"
     unset token
     release_sha="$(git -C "$SOURCE_ROOT" rev-parse FETCH_HEAD)"
+    stage_repository_install_assets_if_empty "$SOURCE_ROOT/install-assets"
     release_path="${RELEASES_ROOT}/${release_sha}"
     current_release="$(readlink -f "$CURRENT_ROOT")"
     [[ "$current_release" == "$RELEASES_ROOT/"* ]] || fail 'The current release symlink points outside the managed release directory.'
@@ -436,7 +477,9 @@ deploy_release() {
             && "$(readlink -f "$release_path/apps/api/storage")" == "$(readlink -f "$SHARED_ROOT/storage")" ]] \
             || fail "The active release ${release_sha} is incomplete; preserving it and refusing to switch releases."
         install -d -o www-data -g www-data -m 2770 "$release_path/apps/api/bootstrap/cache"
+        normalize_release_permissions "$release_path"
         info "Release ${release_sha} is already active; validating its route cache and HTTPS health instead of rebuilding it..."
+        runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$release_path/apps/api/artisan" config:cache --no-interaction
         runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$release_path/apps/api/artisan" route:cache
         normalize_release_permissions "$release_path"
         app_domain="$(nginx_app_domain /etc/nginx/sites-available/alphalink)"
@@ -466,6 +509,7 @@ deploy_release() {
         mkdir -m 0750 "$temporary_release"
         git -C "$SOURCE_ROOT" archive --format=tar "$release_sha" | tar -xf - -C "$temporary_release"
         [[ -f "$temporary_release/apps/api/artisan" && -f "$temporary_release/apps/api/composer.lock" && -f "$temporary_release/apps/api/package-lock.json" ]] || fail 'The selected branch is missing Laravel or a committed frontend lockfile.'
+        rm -rf -- "$temporary_release/install-assets"
 
         install -d -o www-data -g www-data -m 2770 \
             "$SHARED_ROOT/storage/app/private" "$SHARED_ROOT/storage/app/public" \
@@ -491,6 +535,7 @@ deploy_release() {
         [[ -s public/build/manifest.json ]] || fail 'Vite did not produce the asset manifest.'
         rm -rf -- node_modules
         install -d -o www-data -g www-data -m 2770 "$temporary_release/apps/api/bootstrap/cache"
+        normalize_release_permissions "$temporary_release"
         info 'Preflighting Laravel route serialization before downtime...'
         runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" \
             php "$temporary_release/apps/api/artisan" route:cache
@@ -499,6 +544,7 @@ deploy_release() {
         DEPLOY_STAGING_DIR=''
     else
         install -d -o www-data -g www-data -m 2770 "$release_path/apps/api/bootstrap/cache"
+        normalize_release_permissions "$release_path"
         info 'Preflighting reused Laravel release route serialization before downtime...'
         runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" \
             php "$release_path/apps/api/artisan" route:cache
@@ -669,6 +715,7 @@ resume_initial_install() {
     info "Fetching ${branch} for the interrupted installation..."
     fetch_repository_branch "$SOURCE_ROOT" "$branch" "$token"
     unset token
+    stage_repository_install_assets_if_empty "$SOURCE_ROOT/install-assets"
     release_sha="$(git -C "$SOURCE_ROOT" rev-parse FETCH_HEAD)"
     release_path="${RELEASES_ROOT}/${release_sha}"
     current_release="$(readlink -f "$CURRENT_ROOT")"
@@ -722,6 +769,7 @@ resume_initial_install() {
             [[ -s public/build/manifest.json ]] || fail 'Vite did not produce the asset manifest.'
             rm -rf -- node_modules
             install -d -o www-data -g www-data -m 2770 "$staging_path/apps/api/bootstrap/cache"
+            normalize_release_permissions "$staging_path"
             info 'Preflighting Laravel route serialization before resuming...'
             runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" \
                 php "$staging_path/apps/api/artisan" route:cache
@@ -734,6 +782,7 @@ resume_initial_install() {
     fi
 
     install -d -o www-data -g www-data -m 2770 "$release_path/apps/api/bootstrap/cache"
+    normalize_release_permissions "$release_path"
     info 'Preflighting Laravel route serialization before resuming...'
     runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$release_path/apps/api/artisan" route:cache
     normalize_release_permissions "$release_path"
@@ -954,8 +1003,8 @@ Plan (no changes are made):
      connection budget; bootstrap the first owner and encrypted PMTA relay
      source IP settings; configure Nginx/TLS, the PostgreSQL suppression worker,
      and schedule.
-  9. Detect and stage the licensed private PMTA bundle (outside GitHub), then
-     keep its files private across installs, resumes, and deployments.
+  9. Stage the repository-bundled PMTA assets into the private shared directory,
+     then preserve owner-only permissions across installs and deployments.
  10. Enable UFW rules and a protected daily PostgreSQL dump (14-day retention).
 
 Existing application and database data are never deleted or overwritten.
@@ -1082,6 +1131,9 @@ if [[ -z "$INSTALL_ASSETS_SOURCE" ]]; then
     if [[ -d /root/install-assets && ! -L /root/install-assets ]]; then
         INSTALL_ASSETS_SOURCE=/root/install-assets
         info 'Detected the uploaded private AlphaLink asset bundle at /root/install-assets.'
+    elif [[ -d "${INSTALLER_DIRECTORY}/install-assets" && ! -L "${INSTALLER_DIRECTORY}/install-assets" ]]; then
+        INSTALL_ASSETS_SOURCE="${INSTALLER_DIRECTORY}/install-assets"
+        info 'Detected the repository-bundled PMTA installation assets.'
     else
         read -r -p 'Private AlphaLink installation asset directory (absolute path, or SKIP for app-only setup): ' INSTALL_ASSETS_SOURCE
     fi

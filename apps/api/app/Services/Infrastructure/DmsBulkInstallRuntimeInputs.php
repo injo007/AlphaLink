@@ -10,7 +10,14 @@ use RuntimeException;
 /** Resolves AlphaLink's installation settings and private assets before SSH mutation. */
 class DmsBulkInstallRuntimeInputs
 {
-    public function __construct(private readonly DmsBulkInstallPrivateAssetReader $assets) {}
+    private readonly DmsPublicIpv4EgressResolver $egress;
+
+    public function __construct(
+        private readonly DmsBulkInstallPrivateAssetReader $assets,
+        ?DmsPublicIpv4EgressResolver $egress = null,
+    ) {
+        $this->egress = $egress ?? new DmsPublicIpv4EgressResolver;
+    }
 
     /**
      * @param  array{tracking: bool, proxy: bool, imap: bool, spf: bool, dkim: bool, dmarc: bool, https: bool}  $options
@@ -49,8 +56,29 @@ class DmsBulkInstallRuntimeInputs
 
         $devIps = $this->ipList($value('dev_ips'));
         $pmtaRelayIps = $this->ipList($value('pmta_relay_ips'));
-        if ($pmtaVersion !== null && $pmtaRelayIps === []) {
-            throw new RuntimeException('Configure PMTA RELAY SOURCE IPS with AlphaLink\'s stable public IPv4 egress address before installing or reinstalling PMTA.');
+        $autoManagedRelayIps = (bool) ($saved?->pmta_relay_ips_auto_managed ?? false);
+        if ($pmtaVersion !== null && ($pmtaRelayIps === [] || $autoManagedRelayIps)) {
+            $detectedRelayIps = $this->egress->resolve();
+            if ($detectedRelayIps === []) {
+                throw new RuntimeException('AlphaLink could not verify its public IPv4 egress automatically. Allow outbound HTTPS to public-IP checks or set a stable address in App Settings → PMTA RELAY SOURCE IPS.');
+            }
+            $pmtaRelayIps = $detectedRelayIps;
+
+            if ($workspace !== null) {
+                $saved = $workspace->infrastructureSettings()->firstOrNew();
+                $saved->workspace_id = $workspace->getKey();
+                $currentRelayIps = $this->ipList($saved->pmta_relay_ips);
+                if ($currentRelayIps === [] || $saved->pmta_relay_ips_auto_managed) {
+                    if ($currentRelayIps !== $pmtaRelayIps || ! $saved->pmta_relay_ips_auto_managed) {
+                        $saved->pmta_relay_ips = $pmtaRelayIps;
+                        $saved->pmta_relay_ips_auto_managed = true;
+                        $saved->save();
+                    }
+                } else {
+                    // Respect a concurrently saved manual list.
+                    $pmtaRelayIps = $currentRelayIps;
+                }
+            }
         }
         if ($devIps === [] && ! $allowAllMonitor) {
             throw new RuntimeException('Add an operator IPv4 address to DEV IPS for PMTA administrator access, or enable public monitor access before installing.');

@@ -272,6 +272,7 @@ class AppSettingsConsoleController extends Controller
 
         $infrastructure = $workspace->infrastructureSettings()->firstOrNew();
         $infrastructure->workspace_id = $workspace->getKey();
+        $previousPmtaRelayIps = $infrastructure->pmta_relay_ips ?? [];
         $infrastructureFieldsChanged = [];
         foreach (['pmta_port', 'pmta_admin_port', 'proxy_port'] as $field) {
             if (array_key_exists($field, $values) && $values[$field] !== null && $values[$field] !== '') {
@@ -293,6 +294,11 @@ class AppSettingsConsoleController extends Controller
                 $infrastructure->{$field} = $this->ipv4Values($values[$field]);
                 $infrastructureFieldsChanged[] = $field;
             }
+        }
+        if (array_key_exists('pmta_relay_ips', $values)
+            && $previousPmtaRelayIps !== $this->ipv4Values($values['pmta_relay_ips'])) {
+            // Changing the field explicitly opts out of automatic host-egress refresh.
+            $infrastructure->pmta_relay_ips_auto_managed = false;
         }
 
         $secretFieldsUpdated = [];

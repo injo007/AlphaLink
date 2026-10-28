@@ -425,6 +425,10 @@ The local Create Campaign picker and placeholder initialization are repaired and
 
 The previously applied relay rule existed only on the installed host. Reinstall regenerates `/etc/pmta/settings/access`, removing any untracked rule; this explains why a server that was reinstalled with a new domain can again reject Campaign Test. AlphaLink now preserves the allowlist in encrypted workspace installation settings, writes the relay rule during bulk install, single install, and reinstall, and verifies the resulting PMTA services/listener/access before marking the install complete. A missing allowlist blocks before remote mutation. Campaign Test reads the current post-reinstall IP/domain assignment; a changed sender domain does not grant relay rights and is not subject to DNS verification for this test. Before a live retry, the workspace must contain AlphaLink’s stable public IPv4 egress and the currently reinstalled host must receive that rule. This code change was tested only with synthetic fixtures; no SSH operation or email was performed.
 
+#### 2026-10-28 automated egress initialization — E-INST-82
+
+The missing-setting failure is addressed in the app and Ubuntu installer: new installs verify the app host's public IPv4 using independent HTTPS checks; `--deploy` refreshes blank or auto-managed workspace values; and PMTA setup can initialize a missing workspace value before any target-host mutation. Manually changed address lists remain unchanged. If egress cannot be verified, deployment fails before reopening traffic and PMTA setup reports the fallback configuration path. Full PHP regressions and formatter checks pass locally; the production host has not yet pulled this commit, and no PMTA target was changed.
+
 
 ### DMS-CAMP-001 follow-up — E-DB-10
 

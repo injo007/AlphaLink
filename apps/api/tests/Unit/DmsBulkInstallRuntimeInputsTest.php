@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Services\Infrastructure\DmsBulkInstallPrivateAssetReader;
 use App\Services\Infrastructure\DmsBulkInstallRuntimeInputs;
+use Illuminate\Support\Facades\Http;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -96,7 +97,6 @@ class DmsBulkInstallRuntimeInputsTest extends TestCase
             'allow_all_monitor' => false,
             'dev_ips' => ['192.0.2.1'],
         ]);
-
         try {
             $resolved = (new DmsBulkInstallRuntimeInputs(new DmsBulkInstallPrivateAssetReader))
                 ->resolve($this->installOptions());
@@ -130,7 +130,7 @@ class DmsBulkInstallRuntimeInputsTest extends TestCase
         $this->assertSame([], $resolved['settings']['dev_ips']);
     }
 
-    public function test_pmta_install_requires_a_persisted_relay_source_before_any_host_work(): void
+    public function test_pmta_install_stops_if_public_egress_cannot_be_verified_automatically(): void
     {
         $root = sys_get_temp_dir().'/dms-install-no-relay-source-'.bin2hex(random_bytes(6));
         mkdir($root, 0700);
@@ -144,10 +144,11 @@ class DmsBulkInstallRuntimeInputsTest extends TestCase
             'dev_ips' => [],
             'pmta_relay_ips' => [],
         ]);
+        Http::fake();
 
         try {
             $this->expectException(RuntimeException::class);
-            $this->expectExceptionMessage('Configure PMTA RELAY SOURCE IPS with AlphaLink\'s stable public IPv4 egress address before installing or reinstalling PMTA.');
+            $this->expectExceptionMessage('AlphaLink could not verify its public IPv4 egress automatically. Allow outbound HTTPS to public-IP checks or set a stable address in App Settings → PMTA RELAY SOURCE IPS.');
             app(DmsBulkInstallRuntimeInputs::class)->resolve($this->installOptions(), null, 45);
         } finally {
             rmdir($root);

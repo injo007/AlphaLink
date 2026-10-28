@@ -19,6 +19,7 @@ class BootstrapOwner extends Command
         {--username= : Existing DMS username used for server-name eligibility}
         {--workspace= : Initial workspace name}
         {--pmta-relay-ips= : Comma-separated stable public IPv4 egress addresses for PMTA relay authorization}
+        {--pmta-relay-ips-auto-managed : The relay source addresses were detected from this AlphaLink host}
         {--slug= : Optional workspace address}';
 
     protected $description = 'Create the first AlphaLink owner, workspace, and short-lived API token';
@@ -108,6 +109,7 @@ class BootstrapOwner extends Command
                 WorkspaceInfrastructureSettings::query()->create([
                     'workspace_id' => $workspace->getKey(),
                     'pmta_relay_ips' => $pmtaRelayIps,
+                    'pmta_relay_ips_auto_managed' => (bool) $this->option('pmta-relay-ips-auto-managed'),
                 ]);
             }
 

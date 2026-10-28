@@ -86,6 +86,31 @@ validate_pmta_relay_ipv4_list() {
     done
 }
 
+detect_public_ipv4_egress() {
+    local endpoint address first
+    local -a endpoints=(
+        'https://api.ipify.org'
+        'https://checkip.amazonaws.com'
+        'https://ipv4.icanhazip.com'
+    )
+    local -a observed=()
+
+    for endpoint in "${endpoints[@]}"; do
+        address="$(curl -4 --fail --silent --connect-timeout 3 --max-time 5 "$endpoint" 2>/dev/null | tr -d '[:space:]' || true)"
+        if valid_public_ipv4 "$address"; then
+            observed+=("$address")
+        fi
+    done
+
+    (( ${#observed[@]} >= 2 )) || return 1
+    first="${observed[0]}"
+    for address in "${observed[@]}"; do
+        [[ "$address" == "$first" ]] || return 1
+    done
+
+    printf '%s\n' "$first"
+}
+
 wait_for_horizon() {
     local attempt horizon_status=''
 
@@ -201,6 +226,16 @@ atomic_switch_release() {
 normalize_release_permissions() {
     local release_path="$1"
     local api_path="${release_path}/apps/api"
+    local directory
+
+    # A release can have readable files yet still be unreachable when an older
+    # manual installation left its parent directory root-only. Normalize both
+    #managed ancestors before www-data loads Composer's autoloader.
+    for directory in "$APP_ROOT" "$RELEASES_ROOT"; do
+        [[ -d "$directory" && ! -L "$directory" ]] || fail "The managed release parent is missing or unsafe: ${directory}."
+        chown root:www-data "$directory"
+        chmod 0750 "$directory"
+    done
 
     # Composer and npm run as root under the installer's private umask (077).
     # Normalize generated files after building so PHP-FPM can read the
@@ -638,6 +673,7 @@ deploy_release() {
     switched=1
     migrations_started=1
     runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" migrate --force --no-interaction
+    runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" alphalink:sync-pmta-relay-source-ips --no-interaction
     runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" optimize
     env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" storage:link
     systemctl restart php8.5-fpm
@@ -819,6 +855,7 @@ resume_initial_install() {
     migrations_started=1
     trap resume_initial_install_rollback ERR
     runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" migrate --force --no-interaction
+    runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" alphalink:sync-pmta-relay-source-ips --no-interaction
     runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" optimize
     trap - ERR
     migrations_started=0
@@ -955,10 +992,12 @@ Private GitHub tokens are read without echo, used only for the current clone
 or fetch, and never saved on the server.
 
 For PMTA-ready setup, upload the private licensed bundle to /root/install-assets
-before running this script; it is detected automatically. The installer asks
-for AlphaLink's stable public IPv4 egress address(es) and stores them encrypted
-as PMTA RELAY SOURCE IPS in the initial workspace. Enter SKIP for the asset
-prompt only when this is an app-only deployment without PMTA installation.
+before running this script; it is detected automatically. The installer
+verifies the app host's outbound IPv4 address through independent HTTPS checks
+and stores it encrypted as PMTA RELAY SOURCE IPS. If checks are unavailable,
+it asks for the address. Deployments refresh automatically managed values, and
+the first PMTA setup in a workspace can initialize a missing value. Enter
+SKIP for the asset prompt only when this is an app-only deployment without PMTA installation.
 
 Optional non-secret environment inputs:
   GITHUB_REPO       owner/repo or https://github.com/owner/repo[.git]
@@ -1148,12 +1187,12 @@ else
 fi
 
 PMTA_RELAY_SOURCE_IPS="${ALPHALINK_PMTA_RELAY_SOURCE_IPS:-}"
-if [[ -z "$PMTA_RELAY_SOURCE_IPS" ]]; then
-    read -r -p 'AlphaLink stable public IPv4 egress address(es) for PMTA relay, comma-separated: ' PMTA_RELAY_SOURCE_IPS
+PMTA_RELAY_SOURCE_IPS_AUTO_MANAGED=0
+if [[ -n "$PMTA_RELAY_SOURCE_IPS" ]]; then
+    PMTA_RELAY_SOURCE_IPS="${PMTA_RELAY_SOURCE_IPS//[[:space:]]/}"
+    validate_pmta_relay_ipv4_list "$PMTA_RELAY_SOURCE_IPS" \
+        || fail 'Enter one or more stable, public IPv4 egress addresses; private, reserved, and IPv6 addresses are not accepted.'
 fi
-PMTA_RELAY_SOURCE_IPS="${PMTA_RELAY_SOURCE_IPS//[[:space:]]/}"
-validate_pmta_relay_ipv4_list "$PMTA_RELAY_SOURCE_IPS" \
-    || fail 'Enter one or more stable, public IPv4 egress addresses; private, reserved, and IPv6 addresses are not accepted.'
 
 GITHUB_TOKEN="${GITHUB_TOKEN:-}"
 if [[ -z "$GITHUB_TOKEN" ]]; then
@@ -1200,6 +1239,18 @@ php -r 'exit(PHP_MAJOR_VERSION === 8 && PHP_MINOR_VERSION === 5 ? 0 : 1);' || fa
 php -r '$extensions = ["bcmath", "curl", "dom", "mbstring", "openssl", "pcntl", "pdo_pgsql", "posix", "redis", "xml", "xmlwriter", "zip"]; foreach ($extensions as $extension) { if (! extension_loaded($extension)) { fwrite(STDERR, "Missing PHP extension: {$extension}\n"); exit(1); } }' || fail 'One or more required PHP extensions are unavailable.'
 node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 22 ? 0 : 1)' || fail 'Node.js 22 or newer is required to build the frontend.'
 composer --version --no-ansi | head -n 1
+
+if [[ -z "$PMTA_RELAY_SOURCE_IPS" ]]; then
+    if PMTA_RELAY_SOURCE_IPS="$(detect_public_ipv4_egress)"; then
+        PMTA_RELAY_SOURCE_IPS_AUTO_MANAGED=1
+        info "Verified AlphaLink public IPv4 egress automatically for PMTA relay setup."
+    else
+        read -r -p 'Could not verify outbound IPv4 automatically. Enter AlphaLink stable public IPv4 egress address(es): ' PMTA_RELAY_SOURCE_IPS
+    fi
+fi
+PMTA_RELAY_SOURCE_IPS="${PMTA_RELAY_SOURCE_IPS//[[:space:]]/}"
+validate_pmta_relay_ipv4_list "$PMTA_RELAY_SOURCE_IPS" \
+    || fail 'Enter one or more stable, public IPv4 egress addresses; private, reserved, and IPv6 addresses are not accepted.'
 
 systemctl enable --now postgresql valkey-server php8.5-fpm nginx
 pg_isready -q || fail 'PostgreSQL did not become ready.'
@@ -1349,9 +1400,16 @@ runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php artisan migrate --f
 ALPHALINK_ENV_DIR="$ENV_ROOT" php artisan storage:link
 
 info 'Creating the initial owner and workspace...'
-runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php artisan alphalink:bootstrap-owner \
-    --name="$OWNER_NAME" --email="$OWNER_EMAIL" --workspace="$WORKSPACE_NAME" \
-    --pmta-relay-ips="$PMTA_RELAY_SOURCE_IPS"
+BOOTSTRAP_OWNER_ARGS=(
+    "--name=$OWNER_NAME"
+    "--email=$OWNER_EMAIL"
+    "--workspace=$WORKSPACE_NAME"
+    "--pmta-relay-ips=$PMTA_RELAY_SOURCE_IPS"
+)
+if (( PMTA_RELAY_SOURCE_IPS_AUTO_MANAGED == 1 )); then
+    BOOTSTRAP_OWNER_ARGS+=(--pmta-relay-ips-auto-managed)
+fi
+runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php artisan alphalink:bootstrap-owner "${BOOTSTRAP_OWNER_ARGS[@]}"
 
 info 'Configuring PHP-FPM, Nginx, Horizon, and scheduler...'
 cat > "/etc/php/${PHP_VERSION}/fpm/pool.d/zz-alphalink-env.conf" <<POOL

@@ -19,6 +19,7 @@ class BootstrapOwnerTest extends TestCase
             '--email' => 'owner@example.test',
             '--workspace' => 'Install Workspace',
             '--pmta-relay-ips' => '198.51.100.44, 203.0.113.25,198.51.100.44',
+            '--pmta-relay-ips-auto-managed' => true,
         ])
             ->expectsQuestion('Owner password (at least 16 characters)', 'synthetic-owner-password')
             ->expectsQuestion('Confirm owner password', 'synthetic-owner-password')
@@ -27,11 +28,13 @@ class BootstrapOwnerTest extends TestCase
         $settings = $workspace->infrastructureSettings()->sole();
 
         $this->assertSame(['198.51.100.44', '203.0.113.25'], $settings->pmta_relay_ips);
+        $this->assertTrue($settings->pmta_relay_ips_auto_managed);
         $this->assertNotSame(
             json_encode(['198.51.100.44', '203.0.113.25']),
             DB::table('workspace_infrastructure_settings')->where('workspace_id', $workspace->getKey())->value('pmta_relay_ips'),
         );
         $this->assertArrayNotHasKey('pmta_relay_ips', $settings->toArray());
+        $this->assertArrayNotHasKey('pmta_relay_ips_auto_managed', $settings->toArray());
     }
 
     public function test_bootstrap_rejects_non_ipv4_relay_sources_before_creating_an_owner(): void

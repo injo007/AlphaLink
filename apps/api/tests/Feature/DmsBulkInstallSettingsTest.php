@@ -9,6 +9,7 @@ use App\Models\WorkspaceInfrastructureSettings;
 use App\Services\Infrastructure\DmsBulkInstallPrivateAssetReader;
 use App\Services\Infrastructure\DmsBulkInstallRuntimeInputs;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -132,6 +133,25 @@ class DmsBulkInstallSettingsTest extends TestCase
         $this->assertTrue($settings->allow_all_monitor);
         $this->assertSame([], $settings->dev_ips);
         $this->assertSame(['198.51.100.44'], $settings->pmta_relay_ips);
+        $this->assertFalse($settings->pmta_relay_ips_auto_managed);
+    }
+
+    public function test_saving_other_settings_does_not_disable_automatic_relay_egress_refresh(): void
+    {
+        $this->workspace->infrastructureSettings()->create([
+            'pmta_relay_ips' => ['1.1.1.1'],
+            'pmta_relay_ips_auto_managed' => true,
+        ]);
+
+        $this->post($this->settingsSave(), [
+            'pmta_port' => '1212',
+            'pmta_admin_port' => '1213',
+            'proxy_port' => '1214',
+            'allow_all_monitor' => '1',
+            'pmta_relay_ips' => ['1.1.1.1'],
+        ])->assertRedirect($this->settingsPage().'#settings');
+
+        $this->assertTrue($this->workspace->infrastructureSettings()->sole()->pmta_relay_ips_auto_managed);
     }
 
     public function test_owner_can_save_dms_install_settings_with_encrypted_secrets_and_filtered_ipv4_values(): void
@@ -163,6 +183,7 @@ class DmsBulkInstallSettingsTest extends TestCase
         $this->assertFalse($settings->allow_all_monitor);
         $this->assertSame(['192.0.2.10'], $settings->dev_ips);
         $this->assertSame(['198.51.100.44'], $settings->pmta_relay_ips);
+        $this->assertFalse($settings->pmta_relay_ips_auto_managed);
         $this->assertSame(['198.51.100.20'], $settings->production_ips);
         $this->assertSame([], $settings->rdp_ips);
         $this->assertSame('synthetic-dkim-selector', $settings->dkim_key);
@@ -184,6 +205,97 @@ class DmsBulkInstallSettingsTest extends TestCase
         $this->assertStringNotContainsString('synthetic-webmail-password', $auditProperties);
         $this->assertStringNotContainsString('192.0.2.10', $auditProperties);
         $this->assertStringNotContainsString('198.51.100.44', $auditProperties);
+    }
+
+    public function test_missing_workspace_relay_source_is_detected_and_saved_automatically(): void
+    {
+        config()->set('infrastructure.install_assets_directory', '/tmp/no-selected-assets');
+        config()->set('infrastructure.bulk_install_settings', [
+            'pmta_admin_port' => 1213,
+            'proxy_port' => 1214,
+            'apply_firewall' => false,
+            'allow_all_monitor' => true,
+            'dev_ips' => [],
+            'pmta_relay_ips' => [],
+        ]);
+        Http::fake([
+            'https://api.ipify.org' => Http::response('1.1.1.1'),
+            'https://checkip.amazonaws.com' => Http::response("1.1.1.1\n"),
+            'https://ipv4.icanhazip.com' => Http::response('1.1.1.1'),
+        ]);
+
+        $resolved = app(DmsBulkInstallRuntimeInputs::class)->resolve(
+            ['tracking' => false, 'proxy' => false, 'imap' => false, 'spf' => false, 'dkim' => false, 'dmarc' => false, 'https' => false],
+            $this->workspace,
+            45,
+        );
+
+        $settings = $this->workspace->infrastructureSettings()->sole();
+        $this->assertSame(['1.1.1.1'], $resolved['settings']['pmta_relay_ips']);
+        $this->assertSame(['1.1.1.1'], $settings->pmta_relay_ips);
+        $this->assertTrue($settings->pmta_relay_ips_auto_managed);
+        Http::assertSentCount(3);
+    }
+
+    public function test_auto_managed_relay_source_refreshes_when_the_app_host_egress_changes(): void
+    {
+        config()->set('infrastructure.install_assets_directory', '/tmp/no-selected-assets');
+        config()->set('infrastructure.bulk_install_settings', [
+            'pmta_admin_port' => 1213,
+            'proxy_port' => 1214,
+            'apply_firewall' => false,
+            'allow_all_monitor' => true,
+            'dev_ips' => [],
+            'pmta_relay_ips' => [],
+        ]);
+        $this->workspace->infrastructureSettings()->create([
+            'pmta_relay_ips' => ['9.9.9.9'],
+            'pmta_relay_ips_auto_managed' => true,
+        ]);
+        Http::fake([
+            'https://api.ipify.org' => Http::response('1.1.1.1'),
+            'https://checkip.amazonaws.com' => Http::response('1.1.1.1'),
+            'https://ipv4.icanhazip.com' => Http::response('1.1.1.1'),
+        ]);
+
+        $resolved = app(DmsBulkInstallRuntimeInputs::class)->resolve(
+            ['tracking' => false, 'proxy' => false, 'imap' => false, 'spf' => false, 'dkim' => false, 'dmarc' => false, 'https' => false],
+            $this->workspace,
+            45,
+        );
+
+        $settings = $this->workspace->infrastructureSettings()->sole();
+        $this->assertSame(['1.1.1.1'], $resolved['settings']['pmta_relay_ips']);
+        $this->assertSame(['1.1.1.1'], $settings->pmta_relay_ips);
+        $this->assertTrue($settings->pmta_relay_ips_auto_managed);
+    }
+
+    public function test_deployment_sync_refreshes_automatic_sources_and_preserves_explicit_workspace_lists(): void
+    {
+        $autoWorkspace = $this->workspace;
+        $autoWorkspace->infrastructureSettings()->create([
+            'pmta_relay_ips' => ['9.9.9.9'],
+            'pmta_relay_ips_auto_managed' => true,
+        ]);
+        $manualWorkspace = $this->workspaceFor($this->owner, 'install-settings-manual');
+        $manualWorkspace->infrastructureSettings()->create([
+            'pmta_relay_ips' => ['9.9.9.9'],
+            'pmta_relay_ips_auto_managed' => false,
+        ]);
+        Http::fake([
+            'https://api.ipify.org' => Http::response('1.1.1.1'),
+            'https://checkip.amazonaws.com' => Http::response('1.1.1.1'),
+            'https://ipv4.icanhazip.com' => Http::response('1.1.1.1'),
+        ]);
+
+        $this->artisan('alphalink:sync-pmta-relay-source-ips')
+            ->expectsOutput('Verified AlphaLink egress and synchronized 1 automatically managed workspace(s); preserved 1 explicitly configured workspace(s).')
+            ->assertExitCode(0);
+
+        $this->assertSame(['1.1.1.1'], $autoWorkspace->infrastructureSettings()->sole()->pmta_relay_ips);
+        $this->assertTrue($autoWorkspace->infrastructureSettings()->sole()->pmta_relay_ips_auto_managed);
+        $this->assertSame(['9.9.9.9'], $manualWorkspace->infrastructureSettings()->sole()->pmta_relay_ips);
+        $this->assertFalse($manualWorkspace->infrastructureSettings()->sole()->pmta_relay_ips_auto_managed);
     }
 
     public function test_blank_secret_fields_keep_existing_encrypted_values(): void

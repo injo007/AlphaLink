@@ -27,6 +27,10 @@ class DmsInfrastructureRunLauncherTest extends TestCase
         $this->assertSame(4242, $pid);
         $this->assertCount(1, $commands);
         $this->assertSame(['/bin/sh', '-c'], array_slice($commands[0], 0, 2));
+        $this->assertStringContainsString(
+            escapeshellarg(PHP_BINDIR.DIRECTORY_SEPARATOR.'php'),
+            $commands[0][2],
+        );
         $this->assertStringContainsString('nohup', $commands[0][2]);
         $this->assertStringContainsString('infrastructure:execute-run', $commands[0][2]);
         $this->assertStringContainsString($workspaceId, $commands[0][2]);

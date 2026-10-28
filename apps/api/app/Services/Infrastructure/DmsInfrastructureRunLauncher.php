@@ -21,8 +21,13 @@ class DmsInfrastructureRunLauncher
         }
 
         $artisan = base_path('artisan');
+        $phpCli = PHP_BINDIR.DIRECTORY_SEPARATOR.'php';
+        if (! is_file($phpCli) || ! is_executable($phpCli)) {
+            throw new RuntimeException('The PHP CLI executable is unavailable for the background installation worker.');
+        }
+
         $command = implode(' ', array_map('escapeshellarg', [
-            PHP_BINARY,
+            $phpCli,
             $artisan,
             'infrastructure:execute-run',
             $workspaceId,

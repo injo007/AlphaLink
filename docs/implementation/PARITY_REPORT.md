@@ -4,6 +4,8 @@
 
 E-INST-85 updates the supported Ubuntu installer so fresh installs and official `--deploy`/`--resume-initial-install` runs enable and verify the Single/Bulk Install execution switches. This removes the deployment-level default-off failure only; it does not waive host readiness or establish remote installation parity. The production release still must be deployed, and DMS-INST-003/004/005 remain TESTING pending independent asset/host prerequisites and controlled end-to-end evidence.
 
+E-INST-86 diagnoses a separate production runner failure: both Single and Bulk POSTs returned HTTP 202, then stayed queued with empty transcripts and no worker process. PHP-FPM exposed `/usr/sbin/php-fpm8.5` as `PHP_BINARY`; the detached launcher mistakenly tried to execute that FPM binary with the Artisan script, instead of `/usr/bin/php`. The launcher now selects `PHP_BINDIR/php` and validates it. PHP syntax and the CLI-path executable smoke check pass; PHPUnit could not run because local PHP lacks `ext-bcmath`, `ext-dom`, and `ext-xml` and this checkout has no `vendor/` tree. Production deploy is still pending; the observed runs made no target-server changes and must not be auto-retried. Keep installation TESTING.
+
 Cross-cutting route handling: E-ROUTE-14 fixes the workspace URL middleware so URLs emitted by Blade `@json` are rewritten even when JSON escapes their slashes. The complete PHP suite passes 864 tests / 8,044 assertions after the fix. This is AlphaLink routing evidence only; it does not establish DMS feature parity or current browser parity while the saved app's PostgreSQL endpoint is unavailable.
 
 | Feature | Difference classification | Evidence and consequence | Required resolution |

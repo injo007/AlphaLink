@@ -316,6 +316,191 @@ deploy_release() {
     info "Deployment ${release_sha} completed and passed the local HTTPS health check. PostgreSQL backup: ${backup_file}"
 }
 
+resume_initial_install() {
+    local requested_branch="${2:-master}"
+    local branch token='' release_sha release_path current_release staging_path backup_file
+    local app_url app_domain acme_email ssh_port detected_ssh_port backup_match
+    local switched=0 migrations_started=0 rollback_ok=1
+
+    [[ "${EUID}" -eq 0 ]] || fail 'Run the initial-install recovery as root with sudo.'
+    [[ -t 0 ]] || fail 'Run recovery from an interactive terminal so the GitHub token and certificate email can be entered safely.'
+    [[ -L "$CURRENT_ROOT" && -d "$API_ROOT" && -d "$SOURCE_ROOT/.git" ]] || fail 'No interrupted release-based AlphaLink installation was found.'
+    [[ -f "$ENV_ROOT/.env" && -r "$ENV_ROOT/.env" ]] || fail 'The protected AlphaLink environment file is missing.'
+    grep -Eq '^DB_CONNECTION="?pgsql"?$' "$ENV_ROOT/.env" || fail 'Refusing recovery: the installed application is not configured for PostgreSQL.'
+    grep -Eq '^DB_DATABASE="?alphalink"?$' "$ENV_ROOT/.env" || fail 'Refusing recovery: the database name does not match this installer.'
+    grep -Eq '^DB_USERNAME="?alphalink"?$' "$ENV_ROOT/.env" || fail 'Refusing recovery: the PostgreSQL role does not match this installer.'
+    [[ -d "$SHARED_ROOT/storage" && -d "$BACKUP_ROOT" ]] || fail 'The interrupted install is missing persistent storage or its protected backup directory.'
+    [[ -f /etc/nginx/sites-available/alphalink && -L /etc/nginx/sites-enabled/alphalink ]] || fail 'The interrupted install did not reach the Nginx configuration stage.'
+    [[ -f "/etc/php/${PHP_VERSION}/fpm/pool.d/zz-alphalink-env.conf" ]] || fail 'The interrupted install did not reach the PHP-FPM configuration stage.'
+    [[ -f /etc/systemd/system/alphalink-horizon.service && -f /etc/systemd/system/alphalink-drop-suppression.service ]] || fail 'The interrupted install did not finish writing its queue worker units.'
+    [[ -f /etc/systemd/system/alphalink-db-backup.service && -f /etc/systemd/system/alphalink-db-backup.timer ]] || fail 'The interrupted install did not finish writing its database backup units.'
+    [[ ! -f "$SHARED_ROOT/storage/framework/maintenance.php" ]] || fail 'The app is already in maintenance mode; resolve that state before resuming.'
+    [[ -z "$(git -C "$SOURCE_ROOT" status --porcelain --untracked-files=normal)" ]] || fail 'The protected Git source checkout has unexpected changes; recovery stopped without changing the active release.'
+
+    branch="$requested_branch"
+    [[ "$branch" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ && "$branch" != *..* && "$branch" != */ ]] || fail 'The requested branch name is invalid.'
+    git -C "$SOURCE_ROOT" check-ref-format --branch "$branch" >/dev/null || fail 'The requested branch name is invalid.'
+
+    app_url="$(sed -n 's/^APP_URL=//p' "$ENV_ROOT/.env" | head -n 1)"
+    app_url="${app_url#\"}"
+    app_url="${app_url%\"}"
+    app_domain="${app_url#https://}"
+    app_domain="${app_domain%%/*}"
+    [[ "$app_domain" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]] || fail 'The saved application URL is not a valid HTTPS hostname.'
+
+    acme_email="${ACME_EMAIL:-}"
+    if [[ -z "$acme_email" ]]; then
+        read -r -p "Let's Encrypt contact email: " acme_email
+    fi
+    [[ "$acme_email" == *@*.* && "$acme_email" != *[[:space:]]* ]] || fail 'Enter a valid certificate contact email.'
+
+    ssh_port="${ALPHALINK_SSH_PORT:-}"
+    if [[ -z "$ssh_port" ]]; then
+        detected_ssh_port="$(sshd -T 2>/dev/null | awk '$1 == "port" { print $2; exit }' || true)"
+        ssh_port="${detected_ssh_port:-22}"
+    fi
+    [[ "$ssh_port" =~ ^[0-9]+$ ]] && (( ssh_port > 0 && ssh_port <= 65535 )) || fail 'The detected SSH port is invalid.'
+
+    runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" migrate:status --no-interaction >/dev/null
+
+    read -r -s -p 'GitHub read-only token (leave blank for a public repository): ' token
+    printf '\n'
+    info "Fetching ${branch} for the interrupted installation..."
+    fetch_repository_branch "$SOURCE_ROOT" "$branch" "$token"
+    unset token
+    release_sha="$(git -C "$SOURCE_ROOT" rev-parse FETCH_HEAD)"
+    release_path="${RELEASES_ROOT}/${release_sha}"
+    current_release="$(readlink -f "$CURRENT_ROOT")"
+    [[ "$current_release" == "$RELEASES_ROOT/"* ]] || fail 'The current release symlink points outside the managed release directory.'
+
+    install -d -o postgres -g postgres -m 0700 "$BACKUP_ROOT"
+    backup_file="${BACKUP_ROOT}/pre-resume-${release_sha}-$(date -u +%Y%m%dT%H%M%SZ).dump"
+    info 'Creating and verifying a PostgreSQL backup before resuming...'
+    runuser -u postgres -- /usr/lib/postgresql/18/bin/pg_dump --format=custom --dbname=alphalink --file="$backup_file"
+    [[ -s "$backup_file" ]]
+    runuser -u postgres -- /usr/lib/postgresql/18/bin/pg_restore --list "$backup_file" >/dev/null
+    chmod 0600 "$backup_file"
+
+    if [[ "$current_release" != "$release_path" ]]; then
+        [[ ! -e "$release_path" ]] || fail "Release ${release_sha} already exists but is not active; refusing to overwrite it."
+        staging_path="${RELEASES_ROOT}/.deploy-stage-resume-$$"
+        DEPLOY_STAGING_DIR="$staging_path"
+        mkdir -m 0750 "$staging_path"
+        git -C "$SOURCE_ROOT" archive --format=tar "$release_sha" | tar -xf - -C "$staging_path"
+        [[ -f "$staging_path/apps/api/artisan" && -f "$staging_path/apps/api/composer.lock" && -f "$staging_path/apps/api/package-lock.json" ]] || fail 'The selected branch is missing Laravel or a committed frontend lockfile.'
+
+        install -d -o www-data -g www-data -m 2770 \
+            "$SHARED_ROOT/storage/app/private" "$SHARED_ROOT/storage/app/public" \
+            "$SHARED_ROOT/storage/framework/cache/data" "$SHARED_ROOT/storage/framework/sessions" \
+            "$SHARED_ROOT/storage/framework/views" "$SHARED_ROOT/storage/logs" \
+            "$SHARED_ROOT/storage/framework/uploads" "$SHARED_ROOT/storage/framework/tmp" \
+            "$SHARED_ROOT/storage/framework/nginx-body"
+        rm -rf -- "$staging_path/apps/api/storage"
+        ln -s "$SHARED_ROOT/storage" "$staging_path/apps/api/storage"
+        chown -R root:www-data "$staging_path"
+        find "$staging_path" -type d -exec chmod 0750 {} +
+        find "$staging_path" -type f -exec chmod 0640 {} +
+        chown -R www-data:www-data "$SHARED_ROOT/storage" "$staging_path/apps/api/bootstrap/cache"
+        find "$SHARED_ROOT/storage" "$staging_path/apps/api/bootstrap/cache" -type d -exec chmod 2770 {} +
+        find "$SHARED_ROOT/storage" "$staging_path/apps/api/bootstrap/cache" -type f -exec chmod 0660 {} +
+        chmod 0750 "$staging_path" "$staging_path/apps/api"
+
+        info "Building corrected release ${release_sha}..."
+        cd "$staging_path/apps/api"
+        ALPHALINK_ENV_DIR="$ENV_ROOT" COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_MEMORY_LIMIT=-1 \
+            composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
+        composer check-platform-reqs --no-dev
+        npm ci --no-audit --no-fund
+        VITE_APP_NAME=AlphaLink npm run build
+        [[ -s public/build/manifest.json ]] || fail 'Vite did not produce the asset manifest.'
+        rm -rf -- node_modules
+        chown -R www-data:www-data bootstrap/cache
+        find bootstrap/cache -type d -exec chmod 2770 {} +
+        find bootstrap/cache -type f -exec chmod 0660 {} +
+        mv -- "$staging_path" "$release_path"
+        DEPLOY_STAGING_DIR=''
+    elif [[ ! -d "$release_path/apps/api" ]]; then
+        fail 'The active release is incomplete.'
+    fi
+
+    resume_initial_install_rollback() {
+        local exit_status=$?
+        trap - ERR
+        set +e
+        info 'Resume failed; restoring the pre-resume database backup and prior release...'
+        if (( migrations_started == 1 )); then
+            runuser -u postgres -- /usr/lib/postgresql/18/bin/dropdb --if-exists --force alphalink >/dev/null 2>&1 || rollback_ok=0
+            if (( rollback_ok == 1 )); then
+                runuser -u postgres -- /usr/lib/postgresql/18/bin/createdb --owner=alphalink --encoding=UTF8 --template=template0 alphalink >/dev/null 2>&1 || rollback_ok=0
+            fi
+            if (( rollback_ok == 1 )); then
+                runuser -u postgres -- /usr/lib/postgresql/18/bin/pg_restore --no-owner --role=alphalink --dbname=alphalink "$backup_file" >/dev/null 2>&1 || rollback_ok=0
+            fi
+        fi
+        if (( switched == 1 )); then
+            atomic_switch_release "$current_release" || rollback_ok=0
+        fi
+        if (( rollback_ok == 1 )); then
+            info 'The pre-resume database backup and prior release were restored.'
+        else
+            info 'AUTOMATIC RECOVERY IS INCOMPLETE. Keep the app closed and inspect the PostgreSQL backup and current release symlink.'
+        fi
+        exit "$exit_status"
+    }
+
+    if [[ "$current_release" != "$release_path" ]]; then
+        atomic_switch_release "$release_path"
+        switched=1
+    fi
+    migrations_started=1
+    trap resume_initial_install_rollback ERR
+    runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" migrate --force --no-interaction
+    runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" optimize
+    trap - ERR
+    migrations_started=0
+
+    info 'Finishing PHP-FPM, Nginx, Horizon, scheduler, and backup setup...'
+    env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" storage:link
+    nginx -t
+    systemctl daemon-reload
+    systemctl restart "php${PHP_VERSION}-fpm"
+    systemctl enable --now alphalink-horizon.service alphalink-drop-suppression.service \
+        alphalink-schedule.timer alphalink-db-backup.timer
+    for service in "php${PHP_VERSION}-fpm" alphalink-horizon.service alphalink-drop-suppression.service; do
+        systemctl is-active --quiet "$service" || fail "Service did not become active: ${service}"
+    done
+    for attempt in {1..12}; do
+        if HORIZON_STATUS="$(runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" horizon:status 2>&1)" && grep -qi 'running' <<< "$HORIZON_STATUS"; then
+            break
+        fi
+        [[ "$attempt" -lt 12 ]] || fail 'Horizon did not report a running supervisor; inspect alphalink-horizon.service and Valkey.'
+        sleep 2
+    done
+
+    ufw allow "${ssh_port}/tcp" comment 'Preserve AlphaLink server SSH access'
+    ufw allow 80/tcp comment 'AlphaLink HTTP and ACME challenge'
+    ufw allow 443/tcp comment 'AlphaLink HTTPS'
+    ufw --force enable
+    systemctl reload nginx
+
+    systemctl start alphalink-db-backup.service
+    backup_match="$(find "$BACKUP_ROOT" -maxdepth 1 -type f -name 'alphalink-*.dump' -size +0c -print -quit)"
+    [[ -n "$backup_match" ]] || fail 'The PostgreSQL backup check did not produce a non-empty file.'
+
+    info "Requesting the HTTPS certificate for ${app_domain}..."
+    certbot --nginx --non-interactive --agree-tos --redirect --email "$acme_email" -d "$app_domain"
+    for attempt in {1..12}; do
+        if curl --fail --silent --show-error --output /dev/null "https://${app_domain}/up"; then
+            break
+        fi
+        [[ "$attempt" -lt 12 ]] || fail 'The HTTPS health check failed; inspect Nginx, TLS, PHP-FPM, and the application log.'
+        sleep 5
+    done
+
+    info "Interrupted installation resumed successfully at https://${app_domain}. PostgreSQL backup: ${backup_file}"
+    info 'The API token printed before the interrupted install was exposed in chat; revoke it before using the application.'
+}
+
 size_horizon_workers() {
     local cpu_count="$1"
     local memory_mib="$2"
@@ -395,6 +580,7 @@ Usage:
   sudo bash install-ubuntu-26.sh [--help|--plan|--worker-sizing CPU RAM_MiB PG_MAX_CONNECTIONS]
   sudo bash /var/www/alphalink/current/install-ubuntu-26.sh --deploy [BRANCH]
   sudo bash /var/www/alphalink/current/install-ubuntu-26.sh --deploy-plan
+  sudo bash install-ubuntu-26.sh --resume-initial-install [BRANCH]
 
 Install AlphaLink on a fresh Ubuntu 26.04 LTS server, then use --deploy for
 atomic GitHub releases. The initial installer asks for the GitHub repository,
@@ -415,6 +601,10 @@ replace any existing AlphaLink app path, environment, PostgreSQL role, or DB.
 Later --deploy runs create immutable releases, preserve shared uploads, back up
 and verify PostgreSQL before migrations, and retain a previous release for
 automatic rollback.
+
+If a fresh installation stops after creating its first owner and workspace,
+copy the current installer to the server and run --resume-initial-install. It
+preserves the existing PostgreSQL database and owner, then completes setup.
 EOF
 }
 
@@ -455,6 +645,7 @@ case "${1:-}" in
     --plan) [[ "$#" -eq 1 ]] || fail 'Use --plan without additional arguments.'; plan; exit 0 ;;
     --deploy-plan) [[ "$#" -eq 1 ]] || fail 'Use --deploy-plan without additional arguments.'; deployment_plan; exit 0 ;;
     --deploy) [[ "$#" -le 2 ]] || fail 'Use --deploy [BRANCH].'; deploy_release "$@"; exit 0 ;;
+    --resume-initial-install) [[ "$#" -le 2 ]] || fail 'Use --resume-initial-install [BRANCH].'; resume_initial_install "$@"; exit 0 ;;
     "") ;;
     *) usage >&2; exit 2 ;;
 esac

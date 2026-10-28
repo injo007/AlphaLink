@@ -2,6 +2,8 @@
 
 **Current result:** 0 features `PARITY_CONFIRMED`. The local Laravel tests exercise selected AlphaLink behavior, but none compares a complete feature contract to DMS. No reference mutation-based test has been run. E-ROUTE-13 maps all 110 matrix IDs to parity-report rows; the campaign workflow split improves inventory granularity but does not accept any feature.
 
+E-INST-85 updates the supported Ubuntu installer so fresh installs and official `--deploy`/`--resume-initial-install` runs enable and verify the Single/Bulk Install execution switches. This removes the deployment-level default-off failure only; it does not waive host readiness or establish remote installation parity. The production release still must be deployed, and DMS-INST-003/004/005 remain TESTING pending independent asset/host prerequisites and controlled end-to-end evidence.
+
 Cross-cutting route handling: E-ROUTE-14 fixes the workspace URL middleware so URLs emitted by Blade `@json` are rewritten even when JSON escapes their slashes. The complete PHP suite passes 864 tests / 8,044 assertions after the fix. This is AlphaLink routing evidence only; it does not establish DMS feature parity or current browser parity while the saved app's PostgreSQL endpoint is unavailable.
 
 | Feature | Difference classification | Evidence and consequence | Required resolution |

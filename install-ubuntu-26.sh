@@ -397,7 +397,7 @@ write_install_assets_environment() {
     local env_file="$ENV_ROOT/.env"
     local temporary_file="${ENV_ROOT}/.env.install-assets-$$"
 
-    [[ -f "$env_file" ]] || fail 'The protected AlphaLink environment file is missing.'
+    [[ -f "$env_file" && ! -L "$env_file" ]] || fail 'The protected AlphaLink environment file is missing or unsafe.'
     if ! awk -v root="$INSTALL_ASSETS_ROOT" '
         BEGIN { written = 0 }
         /^ALPHALINK_INSTALL_ASSETS_DIRECTORY=/ {
@@ -414,6 +414,53 @@ write_install_assets_environment() {
     chown root:www-data "$temporary_file"
     chmod 0640 "$temporary_file"
     mv -f -- "$temporary_file" "$env_file"
+}
+
+enable_install_execution_gates() {
+    local env_file="$ENV_ROOT/.env"
+    local temporary_file="${ENV_ROOT}/.env.install-execution-$$"
+
+    [[ -f "$env_file" && ! -L "$env_file" ]] || fail 'The protected AlphaLink environment file is missing or unsafe.'
+    [[ ! -e "$temporary_file" && ! -L "$temporary_file" ]] \
+        || fail 'A temporary install-execution environment file already exists.'
+    if ! awk '
+        BEGIN { single_written = 0; bulk_written = 0 }
+        /^ALPHALINK_SINGLE_INSTALL_EXECUTION_ENABLED=/ {
+            if (!single_written) print "ALPHALINK_SINGLE_INSTALL_EXECUTION_ENABLED=true"
+            single_written = 1
+            next
+        }
+        /^ALPHALINK_INSTALL_EXECUTION_ENABLED=/ {
+            if (!bulk_written) print "ALPHALINK_INSTALL_EXECUTION_ENABLED=true"
+            bulk_written = 1
+            next
+        }
+        { print }
+        END {
+            if (!single_written) print "ALPHALINK_SINGLE_INSTALL_EXECUTION_ENABLED=true"
+            if (!bulk_written) print "ALPHALINK_INSTALL_EXECUTION_ENABLED=true"
+        }
+    ' "$env_file" > "$temporary_file"; then
+        rm -f -- "$temporary_file"
+        fail 'Could not enable protected AlphaLink installation execution settings.'
+    fi
+    chown root:www-data "$temporary_file"
+    chmod 0640 "$temporary_file"
+    mv -f -- "$temporary_file" "$env_file"
+    info 'Enabled single-server and bulk installation execution in the protected environment.'
+}
+
+verify_install_execution_gates() {
+    local single_install_config bulk_install_config
+
+    single_install_config="$(runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" \
+        php "$API_ROOT/artisan" config:show infrastructure.single_install_execution_enabled)"
+    bulk_install_config="$(runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" \
+        php "$API_ROOT/artisan" config:show infrastructure.bulk_install_execution_enabled)"
+    [[ "$single_install_config" =~ (^|[^[:alpha:]])true([^[:alpha:]]|$) ]] \
+        || fail 'Laravel did not load single-server installation execution as enabled.'
+    [[ "$bulk_install_config" =~ (^|[^[:alpha:]])true([^[:alpha:]]|$) ]] \
+        || fail 'Laravel did not load bulk installation execution as enabled.'
 }
 
 ensure_install_assets_environment() {
@@ -489,6 +536,8 @@ Deployment plan (no changes are made):
 The GitHub token is entered interactively for each private-repository deploy and
 is kept only in root-readable temporary files while Git runs. Shared Laravel
 storage remains outside releases so uploads survive code updates.
+Successful deployments enable the single-server and bulk installation routes
+and verify Laravel loaded both switches from the refreshed config cache.
 EOF
 }
 
@@ -554,9 +603,12 @@ deploy_release() {
         install -d -o www-data -g www-data -m 2770 "$release_path/apps/api/bootstrap/cache"
         normalize_release_permissions "$release_path"
         info "Release ${release_sha} is already active; validating its route cache and HTTPS health instead of rebuilding it..."
+        enable_install_execution_gates
         runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$release_path/apps/api/artisan" config:cache --no-interaction
         runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$release_path/apps/api/artisan" route:cache
         normalize_release_permissions "$release_path"
+        verify_install_execution_gates
+        systemctl reload php8.5-fpm
         app_domain="$(nginx_app_domain /etc/nginx/sites-available/alphalink)"
         valid_app_domain "$app_domain" || fail 'Could not find a valid AlphaLink hostname in the Nginx site configuration.'
         curl --fail --silent --show-error --output /dev/null \
@@ -714,7 +766,9 @@ deploy_release() {
     migrations_started=1
     runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" migrate --force --no-interaction
     runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" alphalink:sync-pmta-relay-source-ips --no-interaction
+    enable_install_execution_gates
     runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" optimize
+    verify_install_execution_gates
     env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" storage:link
     systemctl restart php8.5-fpm
     runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" up
@@ -896,7 +950,9 @@ resume_initial_install() {
     trap resume_initial_install_rollback ERR
     runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" migrate --force --no-interaction
     runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" alphalink:sync-pmta-relay-source-ips --no-interaction
+    enable_install_execution_gates
     runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" optimize
+    verify_install_execution_gates
     trap - ERR
     migrations_started=0
 
@@ -1038,6 +1094,11 @@ and stores it encrypted as PMTA RELAY SOURCE IPS. If checks are unavailable,
 it asks for the address. Deployments refresh automatically managed values, and
 the first PMTA setup in a workspace can initialize a missing value. Enter
 SKIP for the asset prompt only when this is an app-only deployment without PMTA installation.
+
+Fresh installs enable single-server and bulk installation execution. The
+--deploy and --resume-initial-install modes enable both switches and refresh
+Laravel's config cache on existing installations. Per-server asset, host,
+credential, DNS, and selected-service checks still run before SSH.
 
 Optional non-secret environment inputs:
   GITHUB_REPO       owner/repo or https://github.com/owner/repo[.git]
@@ -1368,6 +1429,8 @@ APP_ENV=production
 APP_KEY="${APP_KEY}"
 APP_DEBUG=false
 APP_URL=https://${APP_DOMAIN}
+ALPHALINK_SINGLE_INSTALL_EXECUTION_ENABLED=true
+ALPHALINK_INSTALL_EXECUTION_ENABLED=true
 APP_LOCALE=en
 APP_FALLBACK_LOCALE=en
 APP_FAKER_LOCALE=en_US
@@ -1611,6 +1674,7 @@ find "$RELEASE_PATH" -type f -exec chmod 0640 {} +
 chmod 0750 "$APP_ROOT" "$RELEASES_ROOT" "$SHARED_ROOT" "$API_ROOT"
 
 runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php artisan optimize
+verify_install_execution_gates
 nginx -t
 systemctl daemon-reload
 systemctl restart php8.5-fpm

@@ -239,6 +239,10 @@ return [
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 3,
             ],
+            'audience-imports' => [
+                'minProcesses' => 1,
+                'maxProcesses' => (int) env('AUDIENCE_IMPORT_MAX_PROCESSES', 2),
+            ],
         ],
 
         'local' => [

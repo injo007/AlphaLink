@@ -10,13 +10,19 @@ use Tests\TestCase;
 
 class HorizonDeploymentTest extends TestCase
 {
-    public function test_horizon_supervises_only_the_redis_default_queue_and_limits_production_workers(): void
+    public function test_horizon_supervises_default_and_audience_import_queues_in_production(): void
     {
         $this->assertSame('redis', config('horizon.defaults.supervisor-1.connection'));
         $this->assertSame(['default'], config('horizon.defaults.supervisor-1.queue'));
+        $this->assertSame('redis', config('horizon.defaults.audience-imports.connection'));
+        $this->assertSame(['audience-imports'], config('horizon.defaults.audience-imports.queue'));
         $this->assertSame(2, config('horizon.environments.production.supervisor-1.maxProcesses'));
+        $this->assertSame(
+            config('horizon.defaults.audience-imports.maxProcesses'),
+            config('horizon.environments.production.audience-imports.maxProcesses'),
+        );
         $this->assertSame(60, config('horizon.defaults.supervisor-1.timeout'));
-        $this->assertSame(90, config('queue.connections.redis.retry_after'));
+        $this->assertSame(600, config('queue.connections.redis.retry_after'));
 
         $this->assertSame('database', config('queue.connections.drop_suppression.driver'));
         $this->assertSame(86400, config('queue.connections.drop_suppression.retry_after'));

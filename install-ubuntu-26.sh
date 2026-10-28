@@ -294,7 +294,7 @@ deploy_release() {
     local requested_branch="${2:-}"
     local branch repository token='' temporary_release release_path release_sha
     local previous_release backup_file switched=0 migrations_started=0
-    local rollback_ok=1 service
+    local rollback_ok=1 service horizon_status
     local rollback_domain app_domain old_release
     local -a old_releases=()
 
@@ -377,9 +377,10 @@ deploy_release() {
     backup_file="${BACKUP_ROOT}/deploy-${release_sha}-$(date -u +%Y%m%dT%H%M%SZ).dump"
     rollback_deploy() {
         local exit_status=$?
+        local failed_line="${1:-unknown}"
         trap - ERR
         set +e
-        info 'Deployment failed; restoring the previous application state...'
+        info "Deployment health step failed near installer line ${failed_line} (exit ${exit_status}); restoring the previous application state..."
         if [[ ! -f "$SHARED_ROOT/storage/framework/maintenance.php" ]]; then
             runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" down --retry=60 >/dev/null 2>&1 || true
         fi
@@ -441,7 +442,7 @@ deploy_release() {
         fi
         exit "$exit_status"
     }
-    trap rollback_deploy ERR
+    trap 'rollback_deploy "$LINENO"' ERR
 
     info 'Entering maintenance mode and pausing background work...'
     runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" down --retry=60
@@ -469,9 +470,15 @@ deploy_release() {
         --resolve "${app_domain}:443:127.0.0.1" "https://${app_domain}/up"
     systemctl start alphalink-horizon.service alphalink-drop-suppression.service alphalink-schedule.timer
     for service in php8.5-fpm alphalink-horizon.service alphalink-drop-suppression.service alphalink-schedule.timer; do
+        info "Verifying deployment service ${service}..."
         systemctl is-active --quiet "$service"
     done
-    runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" horizon:status | grep -qi 'running'
+    info 'Verifying Horizon supervisor status...'
+    horizon_status="$(runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" horizon:status 2>&1)"
+    if ! grep -qi 'running' <<< "$horizon_status"; then
+        info "Horizon reported: ${horizon_status:-no status output}"
+    fi
+    grep -qi 'running' <<< "$horizon_status"
     trap - ERR
     mapfile -t old_releases < <(find "$RELEASES_ROOT" -mindepth 1 -maxdepth 1 -type d \
         -regextype posix-extended -regex '.*/[a-f0-9]{40}' -printf '%T@ %p\n' | sort -rn | awk 'NR > 5 { $1 = ""; sub(/^ /, ""); print }')

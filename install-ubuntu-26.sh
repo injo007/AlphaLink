@@ -43,6 +43,23 @@ valid_app_domain() {
     [[ "$1" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]]
 }
 
+wait_for_horizon() {
+    local attempt horizon_status=''
+
+    for attempt in {1..12}; do
+        if horizon_status="$(runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" \
+            php "$API_ROOT/artisan" horizon:status 2>&1)" \
+            && grep -qi 'running' <<< "$horizon_status"; then
+            return 0
+        fi
+
+        [[ "$attempt" -eq 12 ]] || sleep 2
+    done
+
+    info 'Horizon did not report a running supervisor after 24 seconds; inspect alphalink-horizon.service and Valkey.'
+    return 1
+}
+
 GIT_ASKPASS_FILE=''
 GIT_TOKEN_FILE=''
 DEPLOY_STAGING_DIR=''
@@ -474,11 +491,7 @@ deploy_release() {
         systemctl is-active --quiet "$service"
     done
     info 'Verifying Horizon supervisor status...'
-    horizon_status="$(runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" horizon:status 2>&1)"
-    if ! grep -qi 'running' <<< "$horizon_status"; then
-        info "Horizon reported: ${horizon_status:-no status output}"
-    fi
-    grep -qi 'running' <<< "$horizon_status"
+    wait_for_horizon
     trap - ERR
     mapfile -t old_releases < <(find "$RELEASES_ROOT" -mindepth 1 -maxdepth 1 -type d \
         -regextype posix-extended -regex '.*/[a-f0-9]{40}' -printf '%T@ %p\n' | sort -rn | awk 'NR > 5 { $1 = ""; sub(/^ /, ""); print }')

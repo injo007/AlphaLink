@@ -20,6 +20,7 @@ class DmsCentos9FirewallPlanner
         array $developmentIps,
         array $productionIps,
         array $rdpIps,
+        bool $allowAllMonitor = false,
     ): array {
         if (! $applyFirewall) {
             return array_map(
@@ -49,6 +50,10 @@ class DmsCentos9FirewallPlanner
             'firewall-cmd --permanent --zone=dev --add-port='.($pmtaAdminPort * 2).'/tcp;',
             "firewall-cmd --permanent --zone=dev --add-port={$proxyPort}/tcp;",
         ];
+
+        if ($allowAllMonitor) {
+            $commands[] = "firewall-cmd --permanent --zone=public --add-port={$pmtaAdminPort}/tcp;";
+        }
 
         foreach ($developmentIps as $ip) {
             $commands[] = "firewall-cmd --permanent --zone=dev --add-source={$ip};";

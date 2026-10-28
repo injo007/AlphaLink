@@ -15,13 +15,13 @@ class DmsOfferSuppressionFile
 {
     private const DISK = 'local';
 
-    /** @return array{path: string, sha256: string, format: 'email'|'md5', count: int} */
+    /** @return array{path: string, sha256: string, format: 'email'|'md5'|'sha512', count: int} */
     public function store(Workspace $workspace, WorkspaceOffer $offer, UploadedFile $upload): array
     {
         return $this->normalizeDownloadedFile($workspace, $offer, $upload->getRealPath());
     }
 
-    /** @return array{path: string, sha256: string, format: 'email'|'md5', count: int} */
+    /** @return array{path: string, sha256: string, format: 'email'|'md5'|'sha512', count: int} */
     public function storeContent(Workspace $workspace, WorkspaceOffer $offer, string $content): array
     {
         if ($content === '') {
@@ -46,7 +46,7 @@ class DmsOfferSuppressionFile
     /**
      * Store a sponsor download without loading the file into PHP memory.
      *
-     * @return array{path: string, sha256: string, format: 'email'|'md5', count: int}
+     * @return array{path: string, sha256: string, format: 'email'|'md5'|'sha512', count: int}
      */
     public function storeDownloadedFile(Workspace $workspace, WorkspaceOffer $offer, string $sourcePath): array
     {
@@ -82,7 +82,7 @@ class DmsOfferSuppressionFile
     {
         if (! filled($offer->suppression_path)
             || ! filled($offer->suppression_sha256)
-            || ! in_array($offer->suppression_format, ['email', 'md5'], true)
+            || ! in_array($offer->suppression_format, ['email', 'md5', 'sha512'], true)
             || $offer->suppression_updated_at === null
             || $offer->suppression_updated_at->diffInDays(now()) > 7) {
             return false;
@@ -112,6 +112,18 @@ class DmsOfferSuppressionFile
         }
 
         return hash_equals($offer->suppression_sha256, hash_final($context));
+    }
+
+    /** Convert a normalized contact address to the key stored in the offer file. */
+    public function lookupKeyForEmail(string $email, string $format): string
+    {
+        $email = mb_strtolower(trim($email));
+
+        return match ($format) {
+            'md5' => md5($email),
+            'sha512' => hash('sha512', $email),
+            default => $email,
+        };
     }
 
     /** Build a session-scoped lookup table from the validated, canonical file. */
@@ -169,7 +181,7 @@ class DmsOfferSuppressionFile
     }
 
     /**
-     * @return array{path: string, sha256: string, format: 'email'|'md5', count: int}
+     * @return array{path: string, sha256: string, format: 'email'|'md5'|'sha512', count: int}
      */
     private function normalizeDownloadedFile(Workspace $workspace, WorkspaceOffer $offer, string $sourcePath): array
     {
@@ -202,11 +214,13 @@ class DmsOfferSuppressionFile
                         return;
                     }
                     $sawEntries = true;
-                    $entryFormat = preg_match('/^[a-f0-9]{32}$/', $entry) === 1
-                        ? 'md5'
-                        : (filter_var($entry, FILTER_VALIDATE_EMAIL) !== false ? 'email' : null);
+                    $entryFormat = preg_match('/^[a-f0-9]{128}$/', $entry) === 1
+                        ? 'sha512'
+                        : (preg_match('/^[a-f0-9]{32}$/', $entry) === 1
+                            ? 'md5'
+                            : (filter_var($entry, FILTER_VALIDATE_EMAIL) !== false ? 'email' : null));
                     if ($entryFormat === null || ($format !== null && $format !== $entryFormat)) {
-                        throw ValidationException::withMessages(['suppression_file' => 'Use one format per file: plain email addresses or 32-character MD5 hashes.']);
+                        throw ValidationException::withMessages(['suppression_file' => 'Use one format per file: plain email addresses, 32-character MD5 hashes, or 128-character SHA-512 hashes.']);
                     }
                     $format = $entryFormat;
                     $batch[] = ['entry_value' => $entry];
@@ -251,7 +265,7 @@ class DmsOfferSuppressionFile
                     }
                 }
                 if ($discardingLongEntry) {
-                    throw ValidationException::withMessages(['suppression_file' => 'Entries must be valid email addresses or 32-character MD5 hashes.']);
+                    throw ValidationException::withMessages(['suppression_file' => 'Entries must be valid email addresses, 32-character MD5 hashes, or 128-character SHA-512 hashes.']);
                 }
                 $processEntry($carry);
             } finally {
@@ -262,8 +276,8 @@ class DmsOfferSuppressionFile
                 $connection->table($table)->insertOrIgnore($batch);
             }
             $count = (int) $connection->table($table)->count();
-            if (! $sawEntries || $count < 1 || ! in_array($format, ['email', 'md5'], true)) {
-                throw ValidationException::withMessages(['suppression_file' => 'The suppression file must contain valid email addresses or 32-character MD5 hashes.']);
+            if (! $sawEntries || $count < 1 || ! in_array($format, ['email', 'md5', 'sha512'], true)) {
+                throw ValidationException::withMessages(['suppression_file' => 'The suppression file must contain valid email addresses, 32-character MD5 hashes, or 128-character SHA-512 hashes.']);
             }
 
             $disk->makeDirectory(dirname($temporaryPath));
@@ -390,7 +404,7 @@ class DmsOfferSuppressionFile
         return $outputPath;
     }
 
-    /** @return array{content: string, format: 'email'|'md5', count: int} */
+    /** @return array{content: string, format: 'email'|'md5'|'sha512', count: int} */
     public function normalize(string $content): array
     {
         $content = preg_replace('/^\xEF\xBB\xBF/', '', $content) ?? $content;
@@ -411,15 +425,16 @@ class DmsOfferSuppressionFile
             throw ValidationException::withMessages(['suppression_file' => 'The suppression file must contain at least one entry.']);
         }
 
+        $isSha512 = array_reduce($values, fn (bool $valid, string $value): bool => $valid && preg_match('/^[a-f0-9]{128}$/', $value) === 1, true);
         $isHash = array_reduce($values, fn (bool $valid, string $value): bool => $valid && preg_match('/^[a-f0-9]{32}$/', $value) === 1, true);
         $isEmail = array_reduce($values, fn (bool $valid, string $value): bool => $valid && filter_var($value, FILTER_VALIDATE_EMAIL) !== false, true);
-        if (! $isHash && ! $isEmail) {
-            throw ValidationException::withMessages(['suppression_file' => 'Use one format per file: plain email addresses or 32-character MD5 hashes.']);
+        if (! $isSha512 && ! $isHash && ! $isEmail) {
+            throw ValidationException::withMessages(['suppression_file' => 'Use one format per file: plain email addresses, 32-character MD5 hashes, or 128-character SHA-512 hashes.']);
         }
 
         sort($values, SORT_STRING);
         $canonical = implode("\n", $values)."\n";
 
-        return ['content' => $canonical, 'format' => $isHash ? 'md5' : 'email', 'count' => count($values)];
+        return ['content' => $canonical, 'format' => $isSha512 ? 'sha512' : ($isHash ? 'md5' : 'email'), 'count' => count($values)];
     }
 }

@@ -91,7 +91,7 @@ class DownloadWorkspaceOfferSuppressionFile implements ShouldQueue
             $failureMessage = match (true) {
                 $exception instanceof DmsAffiliateProviderException => 'The sponsor endpoint could not be reached safely: '.$exception->getMessage(),
                 $exception instanceof ConnectionException => 'AlphaLink could not connect to the sponsor or download host over HTTPS. Check app-server DNS and outbound TCP 443, then retry.',
-                $download->status === 'validating' => 'The downloaded file failed suppression validation. Confirm the sponsor file contains valid email addresses or MD5 entries, then retry.',
+                $download->status === 'validating' => 'The downloaded file failed suppression validation. Confirm the sponsor file contains valid email addresses, MD5 hashes, or SHA-512 hashes, then retry.',
                 default => 'The suppression download failed inside AlphaLink. Diagnostic ID '.$download->getKey().'; check the application log and retry.',
             };
 

@@ -139,7 +139,7 @@ class DmsCampaignRecipientSnapshotBuilder
                             'source_list_id' => (string) $listId,
                             'source_email_type' => $emailType,
                             'email' => $email,
-                            'suppression_key' => $offer->suppression_format === 'md5' ? md5($email) : $email,
+                            'suppression_key' => $this->suppressionFiles->lookupKeyForEmail($email, (string) $offer->suppression_format),
                             'count_list_suppression' => false,
                         ];
                     }
@@ -217,7 +217,7 @@ class DmsCampaignRecipientSnapshotBuilder
                             'source_list_id' => (string) $mixMember->source_list_id,
                             'source_email_type' => (string) $mixMember->email_type,
                             'email' => $email,
-                            'suppression_key' => $offer->suppression_format === 'md5' ? md5($email) : $email,
+                            'suppression_key' => $this->suppressionFiles->lookupKeyForEmail($email, (string) $offer->suppression_format),
                             'count_list_suppression' => true,
                         ];
                     }

@@ -22,6 +22,7 @@ class DmsCentos9FirewallDeploymentStage
         array $developmentIps,
         array $productionIps,
         array $rdpIps,
+        bool $allowAllMonitor = false,
     ): void {
         foreach ($this->planner->plan(
             $applyFirewall,
@@ -32,6 +33,7 @@ class DmsCentos9FirewallDeploymentStage
             $developmentIps,
             $productionIps,
             $rdpIps,
+            $allowAllMonitor,
         ) as $operation) {
             // DMS submits each command and does not stop the phase on a false
             // result, so this stage intentionally attempts the full list.

@@ -19,6 +19,7 @@ use App\Models\WorkspaceSponsor;
 use App\Services\AffiliateNetworks\DmsAffiliateSuppressionRefresher;
 use App\Services\Campaigns\DmsCampaignRecipientSnapshotBuilder;
 use App\Services\Campaigns\DmsDropSuppressionProcessor;
+use App\Services\Campaigns\DmsOfferSuppressionFile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -360,6 +361,108 @@ class WorkspaceDropSuppressionTest extends TestCase
             'offer_id' => $offer->getKey(),
             'audience_list_id' => $list->getKey(),
             'contact_id' => $contact->getKey(),
+        ]);
+    }
+
+    public function test_sha512_suppression_matches_normalized_contact_email(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->workspace($owner, 'owner');
+        [$sponsor, $offer, $isp, $list] = $this->eligibleScope($workspace, $owner, null);
+        $email = 'blocked-sha512@example.test';
+        $hash = strtoupper(hash('sha512', $email));
+        $sourcePath = tempnam(sys_get_temp_dir(), 'alphalink-sha512-suppression-');
+        $this->assertIsString($sourcePath);
+        file_put_contents($sourcePath, $hash."\n");
+        try {
+            $stored = app(DmsOfferSuppressionFile::class)->storeDownloadedFile($workspace, $offer, $sourcePath);
+        } finally {
+            @unlink($sourcePath);
+        }
+        $offer->forceFill([
+            'suppression_path' => $stored['path'],
+            'suppression_sha256' => $stored['sha256'],
+            'suppression_format' => $stored['format'],
+            'suppression_updated_at' => now()->toDateString(),
+        ])->save();
+        $contact = $this->contact($workspace, $list, strtoupper($email));
+        $run = WorkspaceDropSuppression::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'created_by' => $owner->getKey(),
+            'sponsor_id' => $sponsor->getKey(),
+            'offer_id' => $offer->getKey(),
+            'isps' => [$isp->getKey()],
+            'lists' => [(string) $list->getKey()],
+            'status' => 'start',
+            'found' => 0,
+            'elapsed' => 'NA',
+            'started_at' => now(),
+        ]);
+
+        app(DmsDropSuppressionProcessor::class)->process((int) $run->getKey());
+
+        $this->assertSame('sha512', $offer->fresh()->suppression_format);
+        $this->assertSame('complete', $run->fresh()->status);
+        $this->assertSame(1, $run->fresh()->found);
+        $this->assertDatabaseHas('workspace_offer_list_suppressions', [
+            'offer_id' => $offer->getKey(),
+            'audience_list_id' => $list->getKey(),
+            'contact_id' => $contact->getKey(),
+        ]);
+    }
+
+    public function test_campaign_snapshot_excludes_sha512_suppressed_email(): void
+    {
+        config(['alphalink.contact_lookup_key' => str_repeat('synthetic-campaign-contact-key-', 2)]);
+        $owner = User::factory()->create();
+        $workspace = $this->workspace($owner, 'owner');
+        [, $offer, , $list] = $this->eligibleScope($workspace, $owner, null);
+        $email = 'blocked-campaign-sha512@example.test';
+        $contact = $this->contact($workspace, $list, strtoupper($email));
+        $eligible = $this->contact($workspace, $list, 'eligible-campaign@example.test');
+        $stored = app(DmsOfferSuppressionFile::class)
+            ->storeContent($workspace, $offer, hash('sha512', $email)."\n");
+        $offer->forceFill([
+            'suppression_path' => $stored['path'],
+            'suppression_sha256' => $stored['sha256'],
+            'suppression_format' => $stored['format'],
+            'suppression_updated_at' => now()->toDateString(),
+        ])->save();
+        $campaign = Campaign::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'created_by' => $owner->getKey(),
+            'name' => 'SHA-512 suppression snapshot',
+            'kind' => 'campaign',
+            'status' => 'draft',
+            'idempotency_key' => (string) Str::uuid(),
+        ]);
+        $revision = CampaignRevision::query()->create([
+            'campaign_id' => $campaign->getKey(),
+            'revision_number' => 1,
+            'payload' => ['fixture' => true],
+            'content_sha256' => hash('sha256', 'sha512-campaign-suppression'),
+            'created_by' => $owner->getKey(),
+            'idempotency_key' => (string) Str::uuid(),
+            'request_fingerprint' => hash('sha256', 'sha512-suppression-revision'),
+            'created_at' => now(),
+        ]);
+
+        $snapshot = app(DmsCampaignRecipientSnapshotBuilder::class)->build($workspace, $campaign, (string) $revision->getKey(), [
+            'offer_id' => $offer->getKey(),
+            'audience_segments' => [$list->getKey().'_fresh'],
+            'order_by' => 'default',
+            'start_from' => 0,
+        ]);
+
+        $this->assertSame(1, $snapshot->recipient_count);
+        $this->assertSame(1, $snapshot->offer_suppressed_count);
+        $this->assertDatabaseMissing('campaign_recipient_snapshot_items', [
+            'snapshot_id' => $snapshot->getKey(),
+            'contact_id' => $contact->getKey(),
+        ]);
+        $this->assertDatabaseHas('campaign_recipient_snapshot_items', [
+            'snapshot_id' => $snapshot->getKey(),
+            'contact_id' => $eligible->getKey(),
         ]);
     }
 

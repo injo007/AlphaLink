@@ -22,7 +22,7 @@ class DmsAffiliateSuppressionRefresher
 
     /**
      * @param  Closure(int, ?int, string): void|null  $onProgress
-     * @return array{bytes: int, sha256: string, format: 'email'|'md5', count: int}|null
+     * @return array{bytes: int, sha256: string, format: 'email'|'md5'|'sha512', count: int}|null
      */
     public function refreshWithProgress(Workspace $workspace, WorkspaceOffer $offer, ?Closure $onProgress = null): ?array
     {

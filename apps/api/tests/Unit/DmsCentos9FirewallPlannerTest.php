@@ -69,4 +69,23 @@ class DmsCentos9FirewallPlannerTest extends TestCase
             'firewall-cmd --reload;',
         ], array_column($commands, 'command'));
     }
+
+    public function test_public_read_only_monitor_opens_only_the_configured_monitor_port(): void
+    {
+        $commands = (new DmsCentos9FirewallPlanner)->plan(
+            true,
+            22,
+            2525,
+            1213,
+            3128,
+            [],
+            [],
+            [],
+            true,
+        );
+
+        $commandList = array_column($commands, 'command');
+        $this->assertContains('firewall-cmd --permanent --zone=public --add-port=1213/tcp;', $commandList);
+        $this->assertNotContains('firewall-cmd --permanent --zone=public --add-port=2426/tcp;', $commandList);
+    }
 }

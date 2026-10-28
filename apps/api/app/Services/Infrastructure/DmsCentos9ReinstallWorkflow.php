@@ -236,6 +236,7 @@ class DmsCentos9ReinstallWorkflow
             $inputs['settings']['dev_ips'],
             $inputs['settings']['production_ips'],
             $inputs['settings']['rdp_ips'],
+            $inputs['settings']['allow_all_monitor'],
         );
         $log('End Setting Firewall');
 

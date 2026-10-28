@@ -218,7 +218,7 @@ class DmsCentos9InstallWorkflow
         $this->firewall->run(
             $session, $settings['apply_firewall'], (int) $server->ssh_port,
             $settings['pmta_port'], $settings['pmta_admin_port'], $settings['proxy_port'],
-            $settings['dev_ips'], $settings['production_ips'], $settings['rdp_ips'],
+            $settings['dev_ips'], $settings['production_ips'], $settings['rdp_ips'], $settings['allow_all_monitor'],
         );
         $log('End Setting Firewall');
 
@@ -296,8 +296,8 @@ class DmsCentos9InstallWorkflow
                 }
             }
         }
-        if ($settings['dev_ips'] === [] && ! $settings['allow_all_monitor']) {
-            throw new InvalidArgumentException('List an operator IPv4 in DEV IPS for PMTA administrator access or enable public monitor access.');
+        if ($settings['dev_ips'] === [] && $settings['production_ips'] === [] && ! $settings['allow_all_monitor']) {
+            throw new InvalidArgumentException('Configure an operator or production IPv4 address, or enable the public read-only PMTA monitor.');
         }
         if ($settings['pmta_relay_ips'] === []) {
             throw new InvalidArgumentException('Configure PMTA RELAY SOURCE IPS with AlphaLink\'s stable public IPv4 egress address before installing PMTA.');

@@ -55,6 +55,7 @@ class DmsBulkInstallRuntimeInputs
         }
 
         $devIps = $this->ipList($value('dev_ips'));
+        $productionIps = $this->ipList($value('production_ips'));
         $pmtaRelayIps = $this->ipList($value('pmta_relay_ips'));
         $autoManagedRelayIps = (bool) ($saved?->pmta_relay_ips_auto_managed ?? false);
         if ($pmtaVersion !== null && ($pmtaRelayIps === [] || $autoManagedRelayIps)) {
@@ -80,8 +81,17 @@ class DmsBulkInstallRuntimeInputs
                 }
             }
         }
-        if ($devIps === [] && ! $allowAllMonitor) {
-            throw new RuntimeException('Add an operator IPv4 address to DEV IPS for PMTA administrator access, or enable public monitor access before installing.');
+        // The requested public-monitor mode is read-only. PMTA administrator
+        // commands stay restricted to AlphaLink's relay source / local proxy.
+        // Keep older installations moving when no operator IP is configured.
+        if ($devIps === [] && $productionIps === []) {
+            $allowAllMonitor = true;
+            if ($workspace !== null && ! $saved?->allow_all_monitor) {
+                $saved = $workspace->infrastructureSettings()->firstOrNew();
+                $saved->workspace_id = $workspace->getKey();
+                $saved->allow_all_monitor = true;
+                $saved->save();
+            }
         }
 
         $miniApp = $options['tracking'] ? $this->assets->read($assetRoot, 'install/mini_app.zip') : null;
@@ -132,7 +142,7 @@ class DmsBulkInstallRuntimeInputs
                 'proxy_port' => $proxyPort,
                 'dev_ips' => $devIps,
                 'pmta_relay_ips' => $pmtaRelayIps,
-                'production_ips' => $this->ipList($value('production_ips')),
+                'production_ips' => $productionIps,
                 'rdp_ips' => $this->ipList($value('rdp_ips')),
                 'allow_all_monitor' => $allowAllMonitor,
                 'apply_firewall' => $applyFirewall,

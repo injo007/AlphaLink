@@ -107,7 +107,7 @@
                     </div>
                     <div class="row">
                         <div class="col-12">
-                            <small class="form-text text-muted">PMTA PORT is the mail listener. PMTA WEB MONITOR PUBLIC PORT is the only browser-facing monitor port. For PMTA 4.5/5.0, Nginx uses this port and proxies to the PMTA HTTP backend on twice this port (1213 → 2426); the backend is loopback-only apart from configured DEV IPS administrator access. PMTA 4.0 uses this port directly. SHOW PMTA MONITOR TO ALL opens the Nginx monitor only. Saving settings does not rewrite a server that is already installed.</small>
+                            <small class="form-text text-muted">PMTA PORT is the mail listener. PMTA WEB MONITOR PUBLIC PORT is the only browser-facing monitor port. For PMTA 4.5/5.0, Nginx uses this port and proxies to the PMTA HTTP backend on twice this port (1213 → 2426); the backend is loopback-only. PMTA 4.0 uses this port directly. SHOW PMTA MONITOR TO ALL opens the read-only monitor only. If DEV IPS and PRODUCTION IPS are both empty, installation enables this public monitor automatically; PMTA administrator commands remain restricted to AlphaLink's relay source/local proxy. Saving settings does not rewrite a server that is already installed.</small>
                         </div>
                     </div>
                     <hr>

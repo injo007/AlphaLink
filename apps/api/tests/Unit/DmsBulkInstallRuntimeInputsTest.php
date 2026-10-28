@@ -2,14 +2,19 @@
 
 namespace Tests\Unit;
 
+use App\Models\User;
+use App\Models\Workspace;
 use App\Services\Infrastructure\DmsBulkInstallPrivateAssetReader;
 use App\Services\Infrastructure\DmsBulkInstallRuntimeInputs;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 use Tests\TestCase;
 
 class DmsBulkInstallRuntimeInputsTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_it_rejects_missing_runtime_settings_before_loading_assets(): void
     {
         config()->set('infrastructure.install_assets_directory', '/tmp/no-alphalink-assets');
@@ -155,12 +160,24 @@ class DmsBulkInstallRuntimeInputsTest extends TestCase
         }
     }
 
-    public function test_it_requires_an_operator_ip_when_public_monitor_access_is_disabled(): void
+    public function test_it_enables_and_persists_public_read_only_monitor_when_no_access_ips_are_configured(): void
     {
         $root = sys_get_temp_dir().'/dms-install-no-monitor-access-'.bin2hex(random_bytes(6));
         mkdir($root, 0700);
         chmod($root, 0700);
         config()->set('infrastructure.install_assets_directory', $root);
+        $owner = User::factory()->create();
+        $workspace = Workspace::query()->create([
+            'name' => 'Public monitor fixture',
+            'slug' => 'public-monitor-'.bin2hex(random_bytes(4)),
+            'created_by' => $owner->getKey(),
+        ]);
+        $workspace->users()->attach($owner->getKey(), ['role' => 'owner']);
+        $workspace->infrastructureSettings()->create([
+            'allow_all_monitor' => false,
+            'dev_ips' => [],
+            'production_ips' => [],
+        ]);
         config()->set('infrastructure.bulk_install_settings', [
             'pmta_admin_port' => 1213,
             'proxy_port' => 1214,
@@ -170,12 +187,40 @@ class DmsBulkInstallRuntimeInputsTest extends TestCase
         ]);
 
         try {
-            $this->expectException(RuntimeException::class);
-            $this->expectExceptionMessage('Add an operator IPv4 address to DEV IPS for PMTA administrator access, or enable public monitor access before installing.');
-            (new DmsBulkInstallRuntimeInputs(new DmsBulkInstallPrivateAssetReader))->resolve($this->installOptions());
+            $resolved = (new DmsBulkInstallRuntimeInputs(new DmsBulkInstallPrivateAssetReader))
+                ->resolve($this->installOptions(), $workspace);
+
+            $this->assertTrue($resolved['settings']['allow_all_monitor']);
+            $this->assertTrue($workspace->infrastructureSettings()->firstOrFail()->allow_all_monitor);
         } finally {
             rmdir($root);
         }
+    }
+
+    public function test_production_monitor_allowlist_does_not_force_public_access(): void
+    {
+        $root = sys_get_temp_dir().'/dms-install-production-monitor-'.bin2hex(random_bytes(6));
+        mkdir($root, 0700);
+        chmod($root, 0700);
+        config()->set('infrastructure.install_assets_directory', $root);
+        config()->set('infrastructure.bulk_install_settings', [
+            'pmta_admin_port' => 1213,
+            'proxy_port' => 1214,
+            'apply_firewall' => false,
+            'allow_all_monitor' => false,
+            'dev_ips' => [],
+            'production_ips' => ['198.51.100.20'],
+        ]);
+
+        try {
+            $resolved = (new DmsBulkInstallRuntimeInputs(new DmsBulkInstallPrivateAssetReader))
+                ->resolve($this->installOptions());
+        } finally {
+            rmdir($root);
+        }
+
+        $this->assertFalse($resolved['settings']['allow_all_monitor']);
+        $this->assertSame(['198.51.100.20'], $resolved['settings']['production_ips']);
     }
 
     /** @param array<string, bool> $overrides */

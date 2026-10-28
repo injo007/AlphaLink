@@ -93,7 +93,7 @@ class DmsDropSuppressionProcessor
                             ->where('workspace_offer_list_suppressions.audience_list_id', (string) $listId);
                     });
 
-                $memberships->chunkById(500, function ($chunk) use ($run, $offer, $lookupTable, $stagingStream, &$dataCount, $listId): bool {
+                $memberships->chunkById(500, function ($chunk) use ($run, $offer, $files, $lookupTable, $stagingStream, &$dataCount, $listId): bool {
                     if ($this->wasKilled($run)) {
                         return false;
                     }
@@ -107,7 +107,7 @@ class DmsDropSuppressionProcessor
                             continue;
                         }
                         $email = mb_strtolower(trim((string) $contact->email));
-                        $key = $offer->suppression_format === 'md5' ? md5($email) : $email;
+                        $key = $files->lookupKeyForEmail($email, (string) $offer->suppression_format);
                         $candidateKeys[] = $key;
                         $keysByContact[(string) $contact->getKey()] = $key;
                     }

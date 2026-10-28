@@ -100,6 +100,7 @@ class CampaignTrackingController extends Controller
                 $data['snapshot_item_id'] = (string) $item->getKey();
             }
 
+            $data['tracking_event_id'] = (string) Str::uuid();
             ProcessCampaignTrackingEventJob::dispatch($campaign, $workspace, $data);
         }
 

@@ -25,12 +25,14 @@ use App\Services\Analytics\ImportDmsPmtaFeedback;
 use App\Services\Audiences\AudienceListHistoryCalculator;
 use App\Services\Campaigns\CampaignIpGeoResolver;
 use App\Services\Campaigns\CampaignRecipientSourceIdentity;
+use App\Services\Campaigns\ProcessCampaignTrackingEvent;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
+use LogicException;
 use Tests\TestCase;
 
 class CampaignTrackingTest extends TestCase
@@ -573,6 +575,56 @@ class CampaignTrackingTest extends TestCase
             && $job->campaign->is($fixture['campaign'])
             && $job->workspace->is($fixture['workspace']));
         $this->assertSame(0, CampaignEngagementEvent::query()->count());
+    }
+
+    public function test_tracking_queue_retry_is_idempotent_but_a_separate_open_request_is_counted(): void
+    {
+        config(['tracking.ingest_key' => 'synthetic-tracking-key']);
+        $fixture = $this->recipientFixture();
+        Queue::fake();
+
+        $this->postJson('/api/v1/tracking/campaign-events', $this->trackingPayload($fixture, 'open'))
+            ->assertNoContent();
+
+        $firstJob = Queue::pushed(ProcessCampaignTrackingEventJob::class)->first();
+        $this->assertNotNull($firstJob);
+        $this->assertTrue(Str::isUuid($firstJob->data['tracking_event_id']));
+        $firstJob->handle(app(ProcessCampaignTrackingEvent::class));
+        $firstJob->handle(app(ProcessCampaignTrackingEvent::class));
+
+        $this->assertSame(1, CampaignEngagementEvent::query()->count());
+        $this->assertSame(1, DB::table('contact_list_membership_events')
+            ->where('contact_id', $fixture['contact']->getKey())->count());
+
+        $this->postJson('/api/v1/tracking/campaign-events', $this->trackingPayload($fixture, 'open'))
+            ->assertNoContent();
+        $jobs = Queue::pushed(ProcessCampaignTrackingEventJob::class);
+        $secondJob = $jobs->last();
+        $this->assertNotNull($secondJob);
+        $this->assertNotSame($firstJob->data['tracking_event_id'], $secondJob->data['tracking_event_id']);
+        $secondJob->handle(app(ProcessCampaignTrackingEvent::class));
+
+        $this->assertSame(2, CampaignEngagementEvent::query()->count());
+        $this->assertSame(1, DB::table('contact_list_membership_events')
+            ->where('contact_id', $fixture['contact']->getKey())->count());
+    }
+
+    public function test_tracking_request_id_cannot_be_reused_for_a_different_event_payload(): void
+    {
+        config(['tracking.ingest_key' => 'synthetic-tracking-key']);
+        $fixture = $this->recipientFixture();
+        Queue::fake();
+
+        $this->postJson('/api/v1/tracking/campaign-events', $this->trackingPayload($fixture, 'open'))
+            ->assertNoContent();
+
+        $job = Queue::pushed(ProcessCampaignTrackingEventJob::class)->first();
+        $this->assertNotNull($job);
+        $job->handle(app(ProcessCampaignTrackingEvent::class));
+        $job->data['action'] = 'click';
+
+        $this->expectException(LogicException::class);
+        $job->handle(app(ProcessCampaignTrackingEvent::class));
     }
 
     public function test_dms_stats_callback_reaches_list_history_through_the_database_queue_worker(): void

@@ -14,6 +14,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use LogicException;
 
 class ProcessCampaignTrackingEvent
 {
@@ -24,6 +25,17 @@ class ProcessCampaignTrackingEvent
     {
         if ((string) $data['email_id'] === '0') {
             return null;
+        }
+
+        $trackingEventId = (string) ($data['tracking_event_id'] ?? Str::uuid());
+        if (! Str::isUuid($trackingEventId)) {
+            throw new LogicException('The tracking event request ID must be a UUID.');
+        }
+
+        $data['tracking_event_id'] = $trackingEventId;
+        $existingEvent = $this->findExistingRequestEvent($trackingEventId, $campaign, $data);
+        if ($existingEvent !== null) {
+            return $existingEvent;
         }
 
         $metadata = app(CampaignVisitorMetadataResolver::class)->resolve(
@@ -38,7 +50,12 @@ class ProcessCampaignTrackingEvent
         $countryCode = $metadata['country_code'];
         unset($metadata['blocked_open'], $metadata['country_code']);
 
-        return DB::transaction(function () use ($campaign, $data, $metadata, $countryCode): CampaignEngagementEvent {
+        return DB::transaction(function () use ($campaign, $data, $metadata, $countryCode, $trackingEventId): CampaignEngagementEvent {
+            $existingEvent = $this->findExistingRequestEvent($trackingEventId, $campaign, $data);
+            if ($existingEvent !== null) {
+                return $existingEvent;
+            }
+
             $item = CampaignRecipientSnapshotItem::query()
                 ->whereKey($data['snapshot_item_id'])
                 ->where('workspace_id', $campaign->workspace_id)
@@ -65,7 +82,7 @@ class ProcessCampaignTrackingEvent
                 ]);
             }
 
-            $event = CampaignEngagementEvent::query()->create([
+            $event = new CampaignEngagementEvent([
                 'workspace_id' => $campaign->workspace_id,
                 'campaign_id' => $campaign->getKey(),
                 'revision_id' => $snapshot->revision_id,
@@ -91,6 +108,8 @@ class ProcessCampaignTrackingEvent
                 'token_sha256' => hash('sha256', $data['token']),
                 'created_at' => now(),
             ]);
+            $event->setAttribute($event->getKeyName(), $trackingEventId);
+            $event->save();
 
             $eventSources = $sources->isEmpty()
                 ? [[
@@ -210,6 +229,38 @@ class ProcessCampaignTrackingEvent
 
             return $event;
         });
+    }
+
+    /** @param array<string, mixed> $data */
+    private function findExistingRequestEvent(
+        string $trackingEventId,
+        Campaign $campaign,
+        array $data,
+    ): ?CampaignEngagementEvent {
+        $event = CampaignEngagementEvent::query()->whereKey($trackingEventId)->first();
+        if ($event === null) {
+            return null;
+        }
+
+        $expected = [
+            'workspace_id' => (string) $campaign->workspace_id,
+            'campaign_id' => (string) $campaign->getKey(),
+            'snapshot_item_id' => (string) $data['snapshot_item_id'],
+            'contact_id' => (string) $data['email_id'],
+            'audience_list_id' => (string) $data['list_id'],
+            'source_email_type' => $this->sourceEmailType((string) $data['type']),
+            'action' => (string) $data['action'],
+            'send_id' => (string) $data['send_id'],
+            'token_sha256' => hash('sha256', (string) $data['token']),
+        ];
+
+        foreach ($expected as $field => $value) {
+            if ((string) $event->getAttribute($field) !== $value) {
+                throw new LogicException('A tracking event request ID was reused with a different payload.');
+            }
+        }
+
+        return $event;
     }
 
     /**

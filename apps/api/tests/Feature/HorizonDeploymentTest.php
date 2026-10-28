@@ -16,7 +16,10 @@ class HorizonDeploymentTest extends TestCase
         $this->assertSame(['default'], config('horizon.defaults.supervisor-1.queue'));
         $this->assertSame('redis', config('horizon.defaults.audience-imports.connection'));
         $this->assertSame(['audience-imports'], config('horizon.defaults.audience-imports.queue'));
-        $this->assertSame(2, config('horizon.environments.production.supervisor-1.maxProcesses'));
+        $this->assertSame(
+            (int) env('HORIZON_MAX_PROCESSES', 2),
+            config('horizon.environments.production.supervisor-1.maxProcesses'),
+        );
         $this->assertSame(
             config('horizon.defaults.audience-imports.maxProcesses'),
             config('horizon.environments.production.audience-imports.maxProcesses'),

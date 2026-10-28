@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
 
-# Fresh-install AlphaLink on Ubuntu 26.04 LTS. This script deliberately refuses
-# to overwrite an existing checkout, environment file, PostgreSQL role, or DB.
+# Install or deploy AlphaLink on Ubuntu 26.04 LTS. Fresh installation refuses
+# to overwrite an existing app, environment file, PostgreSQL role, or database.
 set -Eeuo pipefail
 umask 077
 set +x
 
 readonly APP_ROOT=/var/www/alphalink
-readonly API_ROOT=/var/www/alphalink/apps/api
+readonly SOURCE_ROOT=/var/www/alphalink/source
+readonly RELEASES_ROOT=/var/www/alphalink/releases
+readonly SHARED_ROOT=/var/www/alphalink/shared
+readonly CURRENT_ROOT=/var/www/alphalink/current
+readonly API_ROOT=/var/www/alphalink/current/apps/api
 readonly ENV_ROOT=/etc/alphalink
 readonly BACKUP_ROOT=/var/backups/alphalink
 readonly DB_NAME=alphalink
@@ -16,6 +20,301 @@ readonly PHP_VERSION=8.5
 
 info() { printf '[alphalink-install] %s\n' "$*"; }
 fail() { printf '[alphalink-install] ERROR: %s\n' "$*" >&2; exit 1; }
+
+GIT_ASKPASS_FILE=''
+GIT_TOKEN_FILE=''
+DEPLOY_STAGING_DIR=''
+INSTALL_STAGING_DIR=''
+SOURCE_STAGING_DIR=''
+cleanup_temporary_secrets() {
+    [[ -z "$GIT_ASKPASS_FILE" ]] || rm -f -- "$GIT_ASKPASS_FILE"
+    [[ -z "$GIT_TOKEN_FILE" ]] || rm -f -- "$GIT_TOKEN_FILE"
+    GIT_ASKPASS_FILE=''
+    GIT_TOKEN_FILE=''
+}
+cleanup_deploy_staging() {
+    cleanup_temporary_secrets
+    if [[ "$DEPLOY_STAGING_DIR" == "$RELEASES_ROOT"/.deploy-stage-* && -d "$DEPLOY_STAGING_DIR" ]]; then
+        rm -rf -- "$DEPLOY_STAGING_DIR"
+    fi
+    if [[ "$INSTALL_STAGING_DIR" == "$RELEASES_ROOT"/.install-stage-* && -d "$INSTALL_STAGING_DIR" ]]; then
+        rm -rf -- "$INSTALL_STAGING_DIR"
+    fi
+    if [[ "$SOURCE_STAGING_DIR" == "$APP_ROOT"/.source-stage-* && -d "$SOURCE_STAGING_DIR" ]]; then
+        rm -rf -- "$SOURCE_STAGING_DIR"
+    fi
+}
+trap cleanup_deploy_staging EXIT
+
+clone_repository() {
+    local repository="$1"
+    local branch="$2"
+    local destination="$3"
+    local token="$4"
+    if [[ -n "$token" ]]; then
+        GIT_TOKEN_FILE="$(mktemp /run/alphalink-git-token.XXXXXX)"
+        GIT_ASKPASS_FILE="$(mktemp /run/alphalink-git-askpass.XXXXXX)"
+        chmod 0600 "$GIT_TOKEN_FILE" "$GIT_ASKPASS_FILE"
+        printf '%s' "$token" > "$GIT_TOKEN_FILE"
+        cat > "$GIT_ASKPASS_FILE" <<'ASKPASS'
+#!/usr/bin/env bash
+case "${1:-}" in
+    *Username*) printf '%s\n' 'x-access-token' ;;
+    *) cat -- "${ALPHALINK_INSTALLER_GIT_TOKEN_FILE:?}" ;;
+esac
+ASKPASS
+        chmod 0700 "$GIT_ASKPASS_FILE"
+        if ! ALPHALINK_INSTALLER_GIT_TOKEN_FILE="$GIT_TOKEN_FILE" GIT_ASKPASS="$GIT_ASKPASS_FILE" GIT_TERMINAL_PROMPT=0 \
+            git -c credential.helper= clone --branch "$branch" --single-branch "$repository" "$destination"; then
+            cleanup_temporary_secrets
+            fail 'GitHub clone failed; verify the repository, branch, and read-only token.'
+        fi
+        cleanup_temporary_secrets
+    elif ! GIT_TERMINAL_PROMPT=0 git -c credential.helper= clone --branch "$branch" --single-branch "$repository" "$destination"; then
+        fail 'GitHub clone failed; verify the repository and branch, or provide a read-only token for a private repository.'
+    fi
+}
+
+fetch_repository_branch() {
+    local repository_root="$1"
+    local branch="$2"
+    local token="$3"
+
+    if [[ -n "$token" ]]; then
+        GIT_TOKEN_FILE="$(mktemp /run/alphalink-git-token.XXXXXX)"
+        GIT_ASKPASS_FILE="$(mktemp /run/alphalink-git-askpass.XXXXXX)"
+        chmod 0600 "$GIT_TOKEN_FILE" "$GIT_ASKPASS_FILE"
+        printf '%s' "$token" > "$GIT_TOKEN_FILE"
+        cat > "$GIT_ASKPASS_FILE" <<'ASKPASS'
+#!/usr/bin/env bash
+case "${1:-}" in
+    *Username*) printf '%s\n' 'x-access-token' ;;
+    *) cat -- "${ALPHALINK_INSTALLER_GIT_TOKEN_FILE:?}" ;;
+esac
+ASKPASS
+        chmod 0700 "$GIT_ASKPASS_FILE"
+        if ! ALPHALINK_INSTALLER_GIT_TOKEN_FILE="$GIT_TOKEN_FILE" GIT_ASKPASS="$GIT_ASKPASS_FILE" GIT_TERMINAL_PROMPT=0 \
+            git -C "$repository_root" -c credential.helper= fetch --depth=1 origin "$branch"; then
+            cleanup_temporary_secrets
+            fail 'GitHub fetch failed; verify the repository, branch, and read-only token.'
+        fi
+        cleanup_temporary_secrets
+    elif ! GIT_TERMINAL_PROMPT=0 git -C "$repository_root" -c credential.helper= fetch --depth=1 origin "$branch"; then
+        fail 'GitHub fetch failed; verify the repository and branch, or provide a read-only token for a private repository.'
+    fi
+}
+
+atomic_switch_release() {
+    local release_path="$1"
+    local temporary_link="${APP_ROOT}/.current-release-$$"
+
+    ln -s "$release_path" "$temporary_link"
+    mv -Tf "$temporary_link" "$CURRENT_ROOT"
+}
+
+deployment_plan() {
+    cat <<'EOF'
+Deployment plan (no changes are made):
+  1. Fetch the chosen GitHub branch into a new immutable release directory.
+  2. Build locked PHP and frontend dependencies before application downtime.
+  3. Put the app into maintenance mode and stop Horizon, suppression, and scheduler work.
+  4. Create and verify a PostgreSQL backup before changing the active release or schema.
+  5. Atomically switch the current-release symlink, run migrations, and warm Laravel caches.
+  6. Restart PHP-FPM, check the app's HTTPS health, resume queues and schedule,
+     then verify Horizon and queue/scheduler services.
+  7. On a failed migration or health check, restore the database backup and prior release.
+
+The GitHub token is entered interactively for each private-repository deploy and
+is kept only in root-readable temporary files while Git runs. Shared Laravel
+storage remains outside releases so uploads survive code updates.
+EOF
+}
+
+deploy_release() {
+    local requested_branch="${2:-}"
+    local branch repository token='' temporary_release release_path release_sha
+    local previous_release backup_file switched=0 migrations_started=0
+    local rollback_ok=1 service
+    local rollback_domain app_domain old_release
+    local -a old_releases=()
+
+    [[ "${EUID}" -eq 0 ]] || fail 'Run deployment as root, for example: sudo bash /var/www/alphalink/current/install-ubuntu-26.sh --deploy.'
+    [[ -L "$CURRENT_ROOT" && -d "$API_ROOT" && -d "$SOURCE_ROOT/.git" ]] || fail 'No release-based AlphaLink installation was found at /var/www/alphalink/current.'
+    [[ -f "$ENV_ROOT/.env" && -r "$ENV_ROOT/.env" ]] || fail 'The protected AlphaLink environment file is missing.'
+    grep -Eq '^DB_CONNECTION="?pgsql"?$' "$ENV_ROOT/.env" || fail 'Refusing deploy: the installed application is not configured for PostgreSQL.'
+    grep -Eq '^DB_DATABASE="?alphalink"?$' "$ENV_ROOT/.env" || fail 'Refusing deploy: the installed PostgreSQL database name does not match this installer.'
+    grep -Eq '^DB_USERNAME="?alphalink"?$' "$ENV_ROOT/.env" || fail 'Refusing deploy: the installed PostgreSQL role does not match this installer.'
+    [[ -f "$API_ROOT/artisan" && -f "$API_ROOT/composer.lock" && -f "$API_ROOT/package-lock.json" ]] || fail 'The active release is incomplete.'
+    [[ -d "$SHARED_ROOT/storage" ]] || fail 'The shared persistent storage directory is missing; refusing to risk uploaded files.'
+    [[ -d "$BACKUP_ROOT" ]] || fail 'The protected PostgreSQL backup directory is missing.'
+    [[ -x /usr/lib/postgresql/18/bin/pg_dump && -x /usr/lib/postgresql/18/bin/pg_restore ]] || fail 'PostgreSQL 18 backup utilities are unavailable.'
+    [[ ! -f "$SHARED_ROOT/storage/framework/maintenance.php" ]] || fail 'The app is already in maintenance mode; resolve that state before deploying.'
+    [[ -t 0 ]] || fail 'Run deployment from an interactive terminal to enter private repository credentials safely.'
+
+    branch="$requested_branch"
+    if [[ -z "$branch" ]]; then
+        branch="${GITHUB_BRANCH:-$(git -C "$SOURCE_ROOT" branch --show-current)}"
+    fi
+    [[ "$branch" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ && "$branch" != *..* && "$branch" != */ ]] || fail 'The requested branch name is invalid.'
+    git -C "$CURRENT_ROOT" check-ref-format --branch "$branch" >/dev/null || fail 'The requested branch name is invalid.'
+
+    repository="$(git -C "$SOURCE_ROOT" remote get-url origin)"
+    [[ "$repository" =~ ^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(\.git)?$ ]] || fail 'The origin must be a GitHub HTTPS URL without embedded credentials.'
+    if [[ -n "$(git -C "$SOURCE_ROOT" status --porcelain --untracked-files=normal)" ]]; then
+        fail 'The protected Git source checkout has unexpected changes; deployment stopped without touching the active release.'
+    fi
+    runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" migrate:status --no-interaction >/dev/null
+
+    read -r -s -p 'GitHub read-only token (leave blank for a public repository): ' token
+    printf '\n'
+    install -d -o root -g www-data -m 0750 "$RELEASES_ROOT"
+    temporary_release="${RELEASES_ROOT}/.deploy-stage-$$"
+    DEPLOY_STAGING_DIR="$temporary_release"
+    [[ ! -e "$temporary_release" ]] || fail 'A deployment staging directory already exists.'
+    info "Fetching ${repository#https://github.com/} (${branch}) into a separate release..."
+    fetch_repository_branch "$SOURCE_ROOT" "$branch" "$token"
+    unset token
+    release_sha="$(git -C "$SOURCE_ROOT" rev-parse FETCH_HEAD)"
+    release_path="${RELEASES_ROOT}/${release_sha}"
+    [[ ! -e "$release_path" ]] || fail "Release ${release_sha} already exists; deploy a newer commit or remove an unused release after review."
+
+    mkdir -m 0750 "$temporary_release"
+    git -C "$SOURCE_ROOT" archive --format=tar "$release_sha" | tar -xf - -C "$temporary_release"
+    [[ -f "$temporary_release/apps/api/artisan" && -f "$temporary_release/apps/api/composer.lock" && -f "$temporary_release/apps/api/package-lock.json" ]] || fail 'The selected branch is missing Laravel or a committed frontend lockfile.'
+
+    install -d -o www-data -g www-data -m 2770 \
+        "$SHARED_ROOT/storage/app/private" "$SHARED_ROOT/storage/app/public" \
+        "$SHARED_ROOT/storage/framework/cache/data" "$SHARED_ROOT/storage/framework/sessions" \
+        "$SHARED_ROOT/storage/framework/views" "$SHARED_ROOT/storage/logs" \
+        "$SHARED_ROOT/storage/framework/uploads" "$SHARED_ROOT/storage/framework/tmp" \
+        "$SHARED_ROOT/storage/framework/nginx-body"
+    rm -rf -- "$temporary_release/apps/api/storage"
+    ln -s "$SHARED_ROOT/storage" "$temporary_release/apps/api/storage"
+    chown -R root:www-data "$temporary_release"
+    find "$temporary_release" -type d -exec chmod 0750 {} +
+    find "$temporary_release" -type f -exec chmod 0640 {} +
+    chown -R www-data:www-data "$SHARED_ROOT/storage" "$temporary_release/apps/api/bootstrap/cache"
+    find "$SHARED_ROOT/storage" "$temporary_release/apps/api/bootstrap/cache" -type d -exec chmod 2770 {} +
+    find "$SHARED_ROOT/storage" "$temporary_release/apps/api/bootstrap/cache" -type f -exec chmod 0660 {} +
+    chmod 0750 "$temporary_release" "$temporary_release/apps/api"
+
+    info "Building release ${release_sha} before downtime..."
+    cd "$temporary_release/apps/api"
+    ALPHALINK_ENV_DIR="$ENV_ROOT" COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_MEMORY_LIMIT=-1 \
+        composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
+    composer check-platform-reqs --no-dev
+    npm ci --no-audit --no-fund
+    VITE_APP_NAME=AlphaLink npm run build
+    [[ -s public/build/manifest.json ]] || fail 'Vite did not produce the asset manifest.'
+    rm -rf -- node_modules
+    chown -R www-data:www-data "$temporary_release/apps/api/bootstrap/cache"
+    find "$temporary_release/apps/api/bootstrap/cache" -type d -exec chmod 2770 {} +
+    find "$temporary_release/apps/api/bootstrap/cache" -type f -exec chmod 0660 {} +
+    mv -- "$temporary_release" "$release_path"
+    DEPLOY_STAGING_DIR=''
+
+    previous_release="$(readlink -f "$CURRENT_ROOT")"
+    [[ "$previous_release" == "$RELEASES_ROOT/"* ]] || fail 'The current release symlink points outside the managed release directory.'
+    backup_file="${BACKUP_ROOT}/deploy-${release_sha}-$(date -u +%Y%m%dT%H%M%SZ).dump"
+    rollback_deploy() {
+        local exit_status=$?
+        trap - ERR
+        set +e
+        info 'Deployment failed; restoring the previous application state...'
+        if [[ ! -f "$SHARED_ROOT/storage/framework/maintenance.php" ]]; then
+            runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" down --retry=60 >/dev/null 2>&1 || true
+        fi
+        systemctl stop alphalink-schedule.timer alphalink-schedule.service alphalink-horizon.service \
+            alphalink-drop-suppression.service php8.5-fpm >/dev/null 2>&1 || true
+        for service in alphalink-schedule.service alphalink-horizon.service alphalink-drop-suppression.service php8.5-fpm; do
+            if systemctl is-active --quiet "$service"; then
+                rollback_ok=0
+            fi
+        done
+        if (( migrations_started == 1 )); then
+            if [[ -s "$backup_file" ]] && (( rollback_ok == 1 )); then
+                runuser -u postgres -- /usr/lib/postgresql/18/bin/dropdb --if-exists --force "$DB_NAME" >/dev/null 2>&1 || rollback_ok=0
+                runuser -u postgres -- /usr/lib/postgresql/18/bin/createdb --owner="$DB_USER" --encoding=UTF8 \
+                    --template=template0 "$DB_NAME" >/dev/null 2>&1 || rollback_ok=0
+                runuser -u postgres -- /usr/lib/postgresql/18/bin/pg_restore --no-owner \
+                    --role="$DB_USER" --dbname="$DB_NAME" "$backup_file" >/dev/null 2>&1 || rollback_ok=0
+            else
+                rollback_ok=0
+            fi
+        fi
+        if (( switched == 1 )); then
+            atomic_switch_release "$previous_release" || rollback_ok=0
+        fi
+        if (( rollback_ok == 1 )); then
+            runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" optimize:clear >/dev/null 2>&1 || true
+            if systemctl restart php8.5-fpm >/dev/null 2>&1 \
+                && systemctl start alphalink-horizon.service alphalink-drop-suppression.service >/dev/null 2>&1; then
+                :
+            else
+                rollback_ok=0
+            fi
+            if (( rollback_ok == 1 )) && [[ -f "$SHARED_ROOT/storage/framework/maintenance.php" ]]; then
+                runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" up >/dev/null 2>&1 || rollback_ok=0
+            fi
+            if (( rollback_ok == 1 )); then
+                systemctl start alphalink-schedule.timer >/dev/null 2>&1 || rollback_ok=0
+            fi
+            if (( rollback_ok == 1 )); then
+                for service in php8.5-fpm alphalink-horizon.service alphalink-drop-suppression.service; do
+                    systemctl is-active --quiet "$service" || rollback_ok=0
+                done
+                runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" horizon:status 2>&1 | grep -qi 'running' || rollback_ok=0
+                rollback_domain="$(awk '$1 == "server_name" { print $2; exit }' /etc/nginx/sites-available/alphalink)"
+                curl --fail --silent --show-error --output /dev/null \
+                    --resolve "${rollback_domain}:443:127.0.0.1" "https://${rollback_domain}/up" || rollback_ok=0
+            fi
+        fi
+        if (( rollback_ok == 0 )); then
+            info 'AUTOMATIC ROLLBACK IS INCOMPLETE. Leave the app in maintenance mode and inspect PostgreSQL, the current symlink, and systemd services before reopening traffic.'
+        else
+            info 'The previous release and pre-deploy PostgreSQL backup have been restored.'
+        fi
+        exit "$exit_status"
+    }
+    trap rollback_deploy ERR
+
+    info 'Entering maintenance mode and pausing background work...'
+    runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" down --retry=60
+    systemctl stop alphalink-schedule.timer alphalink-schedule.service alphalink-horizon.service alphalink-drop-suppression.service
+    runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" schedule:interrupt
+
+    info 'Creating and verifying the pre-deploy PostgreSQL backup...'
+    runuser -u postgres -- /usr/lib/postgresql/18/bin/pg_dump --format=custom --dbname=alphalink --file="$backup_file"
+    [[ -s "$backup_file" ]]
+    runuser -u postgres -- /usr/lib/postgresql/18/bin/pg_restore --list "$backup_file" >/dev/null
+    chmod 0600 "$backup_file"
+
+    info "Activating release ${release_sha} and applying PostgreSQL migrations..."
+    atomic_switch_release "$release_path"
+    switched=1
+    migrations_started=1
+    runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" migrate --force --no-interaction
+    runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" optimize
+    env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" storage:link
+    systemctl restart php8.5-fpm
+    runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" up
+    app_domain="$(awk '$1 == "server_name" { print $2; exit }' /etc/nginx/sites-available/alphalink)"
+    [[ -n "$app_domain" && "$app_domain" != '_' ]]
+    curl --fail --silent --show-error --output /dev/null \
+        --resolve "${app_domain}:443:127.0.0.1" "https://${app_domain}/up"
+    systemctl start alphalink-horizon.service alphalink-drop-suppression.service alphalink-schedule.timer
+    for service in php8.5-fpm alphalink-horizon.service alphalink-drop-suppression.service alphalink-schedule.timer; do
+        systemctl is-active --quiet "$service"
+    done
+    runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" horizon:status | grep -qi 'running'
+    trap - ERR
+    mapfile -t old_releases < <(find "$RELEASES_ROOT" -mindepth 1 -maxdepth 1 -type d \
+        -regextype posix-extended -regex '.*/[a-f0-9]{40}' -printf '%T@ %p\n' | sort -rn | awk 'NR > 5 { $1 = ""; sub(/^ /, ""); print }')
+    for old_release in "${old_releases[@]}"; do
+        [[ "$old_release" == "$release_path" || "$old_release" == "$previous_release" ]] || rm -rf -- "$old_release"
+    done
+    info "Deployment ${release_sha} completed and passed the local HTTPS health check. PostgreSQL backup: ${backup_file}"
+}
 
 size_horizon_workers() {
     local cpu_count="$1"
@@ -92,14 +391,17 @@ detect_cgroup_cpu_count() {
 
 usage() {
     cat <<'EOF'
-Usage: sudo bash install-ubuntu-26.sh [--help|--plan|--worker-sizing CPU RAM_MiB PG_MAX_CONNECTIONS]
+Usage:
+  sudo bash install-ubuntu-26.sh [--help|--plan|--worker-sizing CPU RAM_MiB PG_MAX_CONNECTIONS]
+  sudo bash /var/www/alphalink/current/install-ubuntu-26.sh --deploy [BRANCH]
+  sudo bash /var/www/alphalink/current/install-ubuntu-26.sh --deploy-plan
 
-Install AlphaLink on a fresh Ubuntu 26.04 LTS server. The installer asks for
-the GitHub repository, application hostname, TLS contact email, and first
-workspace owner. It also asks you to type and confirm the new PostgreSQL
-password; the entry is hidden while typing. A private GitHub token is read
-without echo and is used only for the initial clone. It is not written to the
-server.
+Install AlphaLink on a fresh Ubuntu 26.04 LTS server, then use --deploy for
+atomic GitHub releases. The initial installer asks for the GitHub repository,
+application hostname, TLS contact email, and first workspace owner. It also
+asks you to type and confirm the new PostgreSQL password; the entry is hidden.
+Private GitHub tokens are read without echo, used only for the current clone
+or fetch, and never saved on the server.
 
 Optional non-secret environment inputs:
   GITHUB_REPO       owner/repo or https://github.com/owner/repo[.git]
@@ -110,6 +412,9 @@ Optional non-secret environment inputs:
 
 The installer creates a new PostgreSQL database, never SQLite. It refuses to
 replace any existing AlphaLink app path, environment, PostgreSQL role, or DB.
+Later --deploy runs create immutable releases, preserve shared uploads, back up
+and verify PostgreSQL before migrations, and retain a previous release for
+automatic rollback.
 EOF
 }
 
@@ -120,15 +425,18 @@ Plan (no changes are made):
   2. Enable Ubuntu's universe packages; install PHP 8.5, Composer, Node.js,
      Nginx, PostgreSQL 18, Valkey (Redis protocol), Certbot, and required PHP
      extensions.
-  3. Clone the selected GitHub branch without saving its access token.
+  3. Clone a protected Git source checkout and export the selected branch into
+     an immutable release without saving its access token.
   4. Prompt for and confirm a hidden PostgreSQL password; create a
      least-privilege PostgreSQL role and a new UTF-8 database.
   5. Generate protected Laravel and contact-lookup keys in /etc/alphalink/.env.
   6. Install locked Composer/npm dependencies, build assets, and run migrations.
-  7. Size Horizon from the target host's available CPU, memory, and PostgreSQL
+  7. Activate the first release through an atomic current symlink; keep Laravel
+     storage shared outside releases for future code updates.
+  8. Size Horizon from the target host's available CPU, memory, and PostgreSQL
      connection budget; bootstrap the first owner; configure Nginx/TLS, the
      PostgreSQL suppression worker, and schedule.
-  8. Enable UFW rules and a protected daily PostgreSQL dump (14-day retention).
+  9. Enable UFW rules and a protected daily PostgreSQL dump (14-day retention).
 
 Existing application and database data are never deleted or overwritten.
 EOF
@@ -144,7 +452,9 @@ case "${1:-}" in
         exit 0
         ;;
     --help|-h) usage; exit 0 ;;
-    --plan) plan; exit 0 ;;
+    --plan) [[ "$#" -eq 1 ]] || fail 'Use --plan without additional arguments.'; plan; exit 0 ;;
+    --deploy-plan) [[ "$#" -eq 1 ]] || fail 'Use --deploy-plan without additional arguments.'; deployment_plan; exit 0 ;;
+    --deploy) [[ "$#" -le 2 ]] || fail 'Use --deploy [BRANCH].'; deploy_release "$@"; exit 0 ;;
     "") ;;
     *) usage >&2; exit 2 ;;
 esac
@@ -302,39 +612,24 @@ read -r TOTAL_QUEUE_WORKERS HORIZON_MAX_PROCESSES AUDIENCE_IMPORT_MAX_PROCESSES 
 info "Target sizing: ${TARGET_CPU_COUNT} effective CPU(s), ${TARGET_MEMORY_MIB} MiB RAM; Horizon will run ${HORIZON_MAX_PROCESSES} default and ${AUDIENCE_IMPORT_MAX_PROCESSES} audience-import worker(s)."
 
 info "Cloning ${REPOSITORY#https://github.com/} (${BRANCH})..."
-GIT_ASKPASS_FILE=''
-GIT_TOKEN_FILE=''
-cleanup() {
-    [[ -z "$GIT_ASKPASS_FILE" ]] || rm -f -- "$GIT_ASKPASS_FILE"
-    [[ -z "$GIT_TOKEN_FILE" ]] || rm -f -- "$GIT_TOKEN_FILE"
-}
-trap cleanup EXIT
-if [[ -n "$GITHUB_TOKEN" ]]; then
-    GIT_TOKEN_FILE="$(mktemp /run/alphalink-git-token.XXXXXX)"
-    GIT_ASKPASS_FILE="$(mktemp /run/alphalink-git-askpass.XXXXXX)"
-    chmod 0600 "$GIT_TOKEN_FILE" "$GIT_ASKPASS_FILE"
-    printf '%s' "$GITHUB_TOKEN" > "$GIT_TOKEN_FILE"
-    cat > "$GIT_ASKPASS_FILE" <<'ASKPASS'
-#!/usr/bin/env bash
-case "${1:-}" in
-    *Username*) printf '%s\n' 'x-access-token' ;;
-    *) cat -- "${ALPHALINK_INSTALLER_GIT_TOKEN_FILE:?}" ;;
-esac
-ASKPASS
-    chmod 0700 "$GIT_ASKPASS_FILE"
-    ALPHALINK_INSTALLER_GIT_TOKEN_FILE="$GIT_TOKEN_FILE" GIT_ASKPASS="$GIT_ASKPASS_FILE" GIT_TERMINAL_PROMPT=0 \
-        git -c credential.helper= clone --branch "$BRANCH" --single-branch "$REPOSITORY" "$APP_ROOT"
-else
-    GIT_TERMINAL_PROMPT=0 git -c credential.helper= clone --branch "$BRANCH" --single-branch "$REPOSITORY" "$APP_ROOT"
-fi
+install -d -o root -g www-data -m 0750 "$APP_ROOT" "$RELEASES_ROOT" "$SHARED_ROOT"
+SOURCE_STAGING_DIR="${APP_ROOT}/.source-stage-$$"
+clone_repository "$REPOSITORY" "$BRANCH" "$SOURCE_STAGING_DIR" "$GITHUB_TOKEN"
 unset GITHUB_TOKEN
-cleanup
-GIT_ASKPASS_FILE=''
-GIT_TOKEN_FILE=''
-trap - EXIT
+RELEASE_SHA="$(git -C "$SOURCE_STAGING_DIR" rev-parse HEAD)"
+RELEASE_PATH="${RELEASES_ROOT}/${RELEASE_SHA}"
+[[ ! -e "$RELEASE_PATH" ]] || fail "Initial release ${RELEASE_SHA} already exists."
+INSTALL_STAGING_DIR="${RELEASES_ROOT}/.install-stage-$$"
+mkdir -m 0750 "$INSTALL_STAGING_DIR"
+git -C "$SOURCE_STAGING_DIR" archive --format=tar "$RELEASE_SHA" | tar -xf - -C "$INSTALL_STAGING_DIR"
+mv -- "$SOURCE_STAGING_DIR" "$SOURCE_ROOT"
+SOURCE_STAGING_DIR=''
+mv -- "$INSTALL_STAGING_DIR" "$RELEASE_PATH"
+INSTALL_STAGING_DIR=''
+RELEASE_API_ROOT="${RELEASE_PATH}/apps/api"
 
-[[ -f "$API_ROOT/artisan" && -f "$API_ROOT/composer.lock" && -f "$API_ROOT/package-lock.json" ]] || fail 'The selected branch is missing Laravel or a committed frontend lockfile.'
-git -C "$APP_ROOT" check-ref-format --branch "$BRANCH" >/dev/null || fail 'The selected branch name is not valid.'
+[[ -f "$RELEASE_API_ROOT/artisan" && -f "$RELEASE_API_ROOT/composer.lock" && -f "$RELEASE_API_ROOT/package-lock.json" ]] || fail 'The selected branch is missing Laravel or a committed frontend lockfile.'
+git -C "$SOURCE_ROOT" check-ref-format --branch "$BRANCH" >/dev/null || fail 'The selected branch name is not valid.'
 
 info 'Creating a new, private PostgreSQL database and application environment...'
 ROLE_EXISTS="$(runuser -u postgres -- "$PSQL" -tAc "SELECT 1 FROM pg_roles WHERE rolname = '${DB_USER}'" | tr -d '[:space:]')"
@@ -359,9 +654,13 @@ rm -f -- "$DB_SETUP_FILE"
 
 install -d -o root -g www-data -m 0750 "$ENV_ROOT"
 install -d -o www-data -g www-data -m 2770 \
-    "$API_ROOT/storage/app/private" "$API_ROOT/storage/app/public" \
-    "$API_ROOT/storage/framework/cache/data" "$API_ROOT/storage/framework/sessions" \
-    "$API_ROOT/storage/framework/views" "$API_ROOT/storage/logs" "$API_ROOT/bootstrap/cache"
+    "$SHARED_ROOT/storage/app/private" "$SHARED_ROOT/storage/app/public" \
+    "$SHARED_ROOT/storage/framework/cache/data" "$SHARED_ROOT/storage/framework/sessions" \
+    "$SHARED_ROOT/storage/framework/views" "$SHARED_ROOT/storage/logs" \
+    "$SHARED_ROOT/storage/framework/uploads" "$SHARED_ROOT/storage/framework/tmp" \
+    "$SHARED_ROOT/storage/framework/nginx-body" "$RELEASE_API_ROOT/bootstrap/cache"
+rm -rf -- "$RELEASE_API_ROOT/storage"
+ln -s "$SHARED_ROOT/storage" "$RELEASE_API_ROOT/storage"
 APP_KEY="base64:$(openssl rand -base64 32 | tr -d '\n')"
 CONTACT_LOOKUP_KEY="$(openssl rand -hex 32)"
 cat > "$ENV_ROOT/.env" <<ENVFILE
@@ -412,7 +711,7 @@ chown root:www-data "$ENV_ROOT/.env"
 chmod 0640 "$ENV_ROOT/.env"
 
 info 'Installing locked PHP and frontend dependencies...'
-cd "$API_ROOT"
+cd "$RELEASE_API_ROOT"
 ALPHALINK_ENV_DIR="$ENV_ROOT" COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_MEMORY_LIMIT=-1 \
     composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
 composer check-platform-reqs --no-dev
@@ -424,18 +723,19 @@ rm -rf -- node_modules
 # The installer's restrictive umask keeps transient secrets private. Normalize
 # cloned/built code permissions so PHP-FPM and Nginx can read it, while only
 # Laravel's runtime directories remain writable by www-data.
-chown -R root:www-data "$APP_ROOT"
-find "$APP_ROOT" -type d -exec chmod 0750 {} +
-find "$APP_ROOT" -type f -exec chmod 0640 {} +
-chown -R www-data:www-data "$API_ROOT/storage" "$API_ROOT/bootstrap/cache"
-find "$API_ROOT/storage" "$API_ROOT/bootstrap/cache" -type d -exec chmod 2770 {} +
-find "$API_ROOT/storage" "$API_ROOT/bootstrap/cache" -type f -exec chmod 0660 {} +
+chown -R root:www-data "$RELEASE_PATH"
+find "$RELEASE_PATH" -type d -exec chmod 0750 {} +
+find "$RELEASE_PATH" -type f -exec chmod 0640 {} +
+chown -R www-data:www-data "$SHARED_ROOT/storage" "$RELEASE_API_ROOT/bootstrap/cache"
+find "$SHARED_ROOT/storage" "$RELEASE_API_ROOT/bootstrap/cache" -type d -exec chmod 2770 {} +
+find "$SHARED_ROOT/storage" "$RELEASE_API_ROOT/bootstrap/cache" -type f -exec chmod 0660 {} +
 install -d -o www-data -g www-data -m 0700 \
-    "$API_ROOT/storage/framework/uploads" \
-    "$API_ROOT/storage/framework/tmp" \
-    "$API_ROOT/storage/framework/nginx-body"
+    "$SHARED_ROOT/storage/framework/uploads" \
+    "$SHARED_ROOT/storage/framework/tmp" \
+    "$SHARED_ROOT/storage/framework/nginx-body"
 
 info 'Applying the fresh PostgreSQL migrations...'
+atomic_switch_release "$RELEASE_PATH"
 runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php artisan migrate --force --no-interaction
 ALPHALINK_ENV_DIR="$ENV_ROOT" php artisan storage:link
 
@@ -452,8 +752,8 @@ expose_php=Off
 ; Arbitrarily large authenticated imports are staged to private disk and parsed by Horizon in chunks.
 upload_max_filesize=0
 post_max_size=0
-upload_tmp_dir=${API_ROOT}/storage/framework/uploads
-sys_temp_dir=${API_ROOT}/storage/framework/tmp
+upload_tmp_dir=${SHARED_ROOT}/storage/framework/uploads
+sys_temp_dir=${SHARED_ROOT}/storage/framework/tmp
 max_execution_time=0
 max_input_time=0
 # PHP interprets 0 as accepting zero variables; use its largest supported value instead.
@@ -470,7 +770,7 @@ server {
     index index.php;
     server_tokens off;
     client_max_body_size 0;
-    client_body_temp_path ${API_ROOT}/storage/framework/nginx-body 1 2;
+    client_body_temp_path ${SHARED_ROOT}/storage/framework/nginx-body 1 2;
     client_body_timeout 3600s;
 
     charset utf-8;
@@ -597,12 +897,12 @@ Unit=alphalink-db-backup.service
 WantedBy=timers.target
 UNIT
 
-chown -R www-data:www-data "$API_ROOT/storage" "$API_ROOT/bootstrap/cache"
-find "$APP_ROOT" -type d -exec chmod 0750 {} +
-find "$APP_ROOT" -type f -exec chmod 0640 {} +
-find "$API_ROOT/storage" "$API_ROOT/bootstrap/cache" -type d -exec chmod 2770 {} +
-find "$API_ROOT/storage" "$API_ROOT/bootstrap/cache" -type f -exec chmod 0660 {} +
-chmod 0750 "$APP_ROOT" "$API_ROOT"
+chown -R www-data:www-data "$SHARED_ROOT/storage" "$API_ROOT/bootstrap/cache"
+find "$RELEASE_PATH" -type d -exec chmod 0750 {} +
+find "$RELEASE_PATH" -type f -exec chmod 0640 {} +
+find "$SHARED_ROOT/storage" "$API_ROOT/bootstrap/cache" -type d -exec chmod 2770 {} +
+find "$SHARED_ROOT/storage" "$API_ROOT/bootstrap/cache" -type f -exec chmod 0660 {} +
+chmod 0750 "$APP_ROOT" "$RELEASES_ROOT" "$SHARED_ROOT" "$API_ROOT"
 
 runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php artisan optimize
 nginx -t

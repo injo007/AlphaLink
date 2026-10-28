@@ -120,6 +120,29 @@ class DmsOfferSuppressionFile
         return hash_equals($offer->suppression_sha256, hash_final($context));
     }
 
+    /** Check that the offer points to its own digest-addressed private file. */
+    public function hasStoredFile(Workspace $workspace, WorkspaceOffer $offer): bool
+    {
+        return $this->hasStoredFileForWorkspaceId((string) $workspace->getKey(), $offer);
+    }
+
+    private function hasStoredFileForWorkspaceId(string $workspaceId, WorkspaceOffer $offer): bool
+    {
+        $sha256 = (string) $offer->suppression_sha256;
+        $path = (string) $offer->suppression_path;
+        $expectedPath = sprintf(
+            'offers/%s/%d/suppression/%s.txt',
+            $workspaceId,
+            $offer->getKey(),
+            $sha256,
+        );
+
+        return (string) $offer->workspace_id === $workspaceId
+            && preg_match('/^[a-f0-9]{64}$/', $sha256) === 1
+            && hash_equals($expectedPath, $path)
+            && Storage::disk(self::DISK)->exists($path);
+    }
+
     /** Convert a normalized contact address to the key stored in the offer file. */
     public function lookupKeyForEmail(string $email, string $format): string
     {

@@ -48,7 +48,7 @@ class WorkspaceDropSuppressionController extends Controller
         return $this->rows($request, $workspace);
     }
 
-    public function catalog(Request $request, string $workspace): JsonResponse
+    public function catalog(Request $request, string $workspace, DmsOfferSuppressionFile $suppressionFiles): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $sponsorId = $request->integer('sponsor_id');
@@ -90,8 +90,7 @@ class WorkspaceDropSuppressionController extends Controller
                 'payout' => (string) $offer->payout,
                 'is_active' => (bool) $offer->is_active,
                 'status' => $offer->status,
-                'has_suppression_file' => filled($offer->suppression_path)
-                    && Storage::disk('local')->exists($offer->suppression_path),
+                'has_suppression_file' => $suppressionFiles->hasStoredFile($workspace, $offer),
                 'suppression_format' => $offer->suppression_format,
                 'suppression_updated_at' => $offer->suppression_updated_at?->toDateString(),
                 'can_run_suppression' => in_array((int) $offer->getKey(), $eligibleOfferIds, true),
@@ -153,28 +152,16 @@ class WorkspaceDropSuppressionController extends Controller
         ]]);
     }
 
-    public function downloadOfferFile(Request $request, string $workspace, int $offer): BinaryFileResponse
+    public function downloadOfferFile(Request $request, string $workspace, int $offer, DmsOfferSuppressionFile $suppressionFiles): BinaryFileResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         abort_unless(in_array($workspace->pivot->role, self::FILE_MANAGEMENT_ROLES, true), 403);
 
         $selectedOffer = $workspace->offers()->whereKey($offer)->firstOrFail();
         $path = (string) $selectedOffer->suppression_path;
-        $sha256 = (string) $selectedOffer->suppression_sha256;
-        $expectedPath = sprintf(
-            'offers/%s/%d/suppression/%s.txt',
-            $workspace->getKey(),
-            $selectedOffer->getKey(),
-            $sha256,
-        );
         $disk = Storage::disk('local');
 
-        abort_unless(
-            preg_match('/^[a-f0-9]{64}$/', $sha256) === 1
-                && hash_equals($expectedPath, $path)
-                && $disk->exists($path),
-            404,
-        );
+        abort_unless($suppressionFiles->hasStoredFile($workspace, $selectedOffer), 404);
 
         $response = response()->download($disk->path($path), 'suppression-offer-'.$selectedOffer->getKey().'.txt', [
             'X-Content-Type-Options' => 'nosniff',

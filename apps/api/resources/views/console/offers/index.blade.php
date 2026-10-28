@@ -61,7 +61,7 @@
             @if ($isNetworkView)
                 <div class="alert alert-info" role="status">Only active offers from active sponsors are shown. Operators must be assigned to both the sponsor and the offer.</div>
             @else
-                <div class="alert alert-info" role="status">New manual offers inherit the sponsor’s assigned operators and start inactive. Manage each offer’s suppression file from Drops → Suppression; activation requires a fresh file, live status, redirect, vertical, and geo target.</div>
+                <div class="alert alert-info" role="status">New manual offers inherit the sponsor’s assigned operators and start inactive. Use each offer’s suppression-file action to view, refresh, download, or replace its saved file. Drops → Suppression remains the run and history screen.</div>
             @endif
             <div class="table-responsive">
                 <table id="offers" class="table table-sm table-hover table-striped"
@@ -69,7 +69,7 @@
                        data-create-url="{{ route('console.offers.create', $workspace->id) }}"
                        data-bulk-users-url="{{ route('console.offers.bulk-users', $workspace->id) }}"
                        data-share-url="{{ route('console.offers.share', $workspace->id) }}"
-                       data-suppression-url="{{ route('clean.console.drops.suppression') }}"
+                       data-suppression-url-template="{{ route('console.offers.suppression-file.show', [$workspace->id, '__OFFER_ID__']) }}"
                        data-download-url="{{ route('console.offers.index', $workspace->id) }}"
                        data-shareable="1"
                        data-manage="{{ $isNetworkView ? '0' : '1' }}"></table>
@@ -93,11 +93,11 @@
                         <small id="offer-suppression-download-size" class="form-text text-muted mt-2"></small>
                         <div id="offer-suppression-download-error" class="alert alert-danger mt-3 d-none" role="alert"></div>
                         <div id="offer-suppression-download-complete" class="alert alert-success mt-3 d-none" role="status">
-                            File saved to this offer. Open Drops → Suppression when you are ready to run it.
+                            The verified file is saved to this offer. Open its suppression-file page to view or download it.
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <a id="offer-suppression-manage-link" class="btn btn-primary d-none" href="#">OPEN SUPPRESSION</a>
+                        <a id="offer-suppression-manage-link" class="btn btn-primary d-none" href="#">VIEW SAVED FILE</a>
                         <button type="button" class="btn btn-secondary" data-dismiss="modal">CLOSE</button>
                     </div>
                 </div>
@@ -206,15 +206,13 @@
                     { title: 'FROM', data: 'from_count', render: (value) => Number(value || 0) },
                     { title: 'SUBJECTS', data: 'subjects_count', render: (value) => Number(value || 0) },
                     ...(canManage ? [{ title: 'USERS', data: 'allowed_users', searchable: false, render: (users, type, row) => !row.deleted_at ? `<button type="button" data-id="${escapeHtml(row.id)}" class="btn btn-link users" title="ALLOWED USERS"><i class="fas fa-users"></i> : ${Array.isArray(users) ? users.length : 0}</button>` : '' }] : []),
-                    { title: 'ACTIONS', data: null, orderable: false, searchable: false, render: (data, type, row) => {
+                        { title: 'ACTIONS', data: null, orderable: false, searchable: false, render: (data, type, row) => {
                         const assetsUrl = `${base}/${row.id}/assets`;
                         if (!canManage) return `<a class="btn btn-sm btn-outline-primary" href="${assetsUrl}" title="SHOW OFFER ASSETS"><i class="fas fa-box-open"></i></a>`;
                         if (row.deleted_at) return button('fa-trash-restore', 'restore', row.id, 'RESTORE OFFER', 'btn-secondary');
-                        const suppressionUrl = new URL(tableElement.dataset.suppressionUrl, window.location.origin);
-                        suppressionUrl.searchParams.set('sponsor_id', row.sponsor_id);
-                        suppressionUrl.searchParams.set('offer_id', row.id);
+                        const suppressionUrl = tableElement.dataset.suppressionUrlTemplate.replace('__OFFER_ID__', encodeURIComponent(row.id));
                         return `<a class="btn btn-sm btn-outline-primary" href="${assetsUrl}" title="SHOW OFFER ASSETS"><i class="fas fa-box-open"></i></a>&nbsp;` +
-                            `<a class="btn btn-sm btn-outline-warning" href="${escapeHtml(suppressionUrl.toString())}" title="MANAGE SUPPRESSION FILE" aria-label="Manage suppression file for ${escapeHtml(row.name)}"><i class="fas fa-file-upload" aria-hidden="true"></i></a>&nbsp;` +
+                            `<a class="btn btn-sm btn-outline-warning" href="${escapeHtml(suppressionUrl)}" title="MANAGE SUPPRESSION FILE" aria-label="Manage suppression file for ${escapeHtml(row.name)}"><i class="fas fa-file-upload" aria-hidden="true"></i></a>&nbsp;` +
                             button('fa-pencil-alt', 'edit-offer', row.id, 'UPDATE OFFER') +
                             `<button type="button" class="btn ${row.is_active ? 'btn-warning' : 'btn-success'} btn-sm active-offer" data-id="${escapeHtml(row.id)}" data-status="${row.is_active ? 0 : 1}" title="${row.is_active ? 'DISABLE OFFER' : 'ENABLE OFFER'}"><i class="fas ${row.is_active ? 'fa-times' : 'fa-check'}"></i></button>&nbsp;` +
                             button('fa-trash', 'delete-offer', row.id, 'DELETE OFFER', 'btn-danger');

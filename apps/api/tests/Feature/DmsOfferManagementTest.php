@@ -118,9 +118,9 @@ class DmsOfferManagementTest extends TestCase
         ]))->assertOk()
             ->assertJsonPath('download.status', 'queued')
             ->assertJsonPath('download.percent', null)
-            ->assertJsonPath('download.manage_url', route('clean.console.drops.suppression', [
-                'sponsor_id' => $sponsor->getKey(),
-                'offer_id' => $offer->getKey(),
+            ->assertJsonPath('download.manage_url', route('console.offers.suppression-file.show', [
+                $this->workspace->getKey(),
+                $offer->getKey(),
             ]));
 
         $download = WorkspaceOfferSuppressionDownload::query()->findOrFail($downloadId);
@@ -490,7 +490,7 @@ class DmsOfferManagementTest extends TestCase
             ->assertOk()->assertSee('Offers')
             ->assertSee('download-suppression')
             ->assertSee('offer-suppression-download-modal')
-            ->assertSee('OPEN SUPPRESSION');
+            ->assertSee('MANAGE SUPPRESSION FILE');
         $this->get(route('clean.console.offers.create'))
             ->assertOk()
             ->assertSee('ADD NEW OFFER')
@@ -503,17 +503,59 @@ class DmsOfferManagementTest extends TestCase
             ->assertSee('NewHitPath imports selected campaign metadata and email assets')
             ->assertSee('Cake imports selected campaign metadata')
             ->assertSee('EverFlow imports selected offer IDs')
-            ->assertSee('After saving this offer, upload its suppression file from')
-            ->assertSee('/drops/suppression', false);
+            ->assertSee('After saving, open the offer’s suppression-file page from its row in Offers')
+            ->assertSee('Drops → Suppression is for starting and reviewing runs');
         $this->get(route('clean.console.offers.edit', $offer->getKey()))
-            ->assertOk()->assertSee('Drops → Suppression')
+            ->assertOk()->assertSee('The saved offer file is managed on its own page')
             ->assertSee('MANAGE SUPPRESSION FILE')
             ->assertDontSee('UPLOAD SUPPRESSION FILE')
-            ->assertSee('/drops/suppression?sponsor_id=', false);
+            ->assertSee('/suppression', false);
         $this->get(route('clean.console.offers.assets', $offer->getKey()))
             ->assertOk()->assertSee('Offer Assets')->assertSee('CREATIVES')->assertSee('UNSUBSCRIBE')->assertSee('HTML')
             ->assertSee('provider import flow remains unavailable');
         $this->get(route('clean.console.offers.users', $offer->getKey()))->assertOk()->assertSee('Allowed Mailers');
+    }
+
+    public function test_dms_style_offer_page_shows_the_saved_file_and_download_for_inactive_offer(): void
+    {
+        $sponsor = $this->createSponsor('Saved suppression page');
+        $offer = $this->createOffer($sponsor, ['name' => 'Saved Offer', 'offer_id' => 'saved-123']);
+        $this->attachSuppressionFile($offer, "blocked@example.test\n");
+        WorkspaceOfferSuppressionDownload::query()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'offer_id' => $offer->getKey(),
+            'requested_by' => $this->owner->getKey(),
+            'status' => 'completed',
+            'entry_count' => 1,
+            'format' => 'email',
+            'sha256' => $offer->fresh()->suppression_sha256,
+            'finished_at' => now(),
+        ]);
+
+        $page = $this->get(route('console.offers.suppression-file.show', [
+            $this->workspace->getKey(),
+            $offer->getKey(),
+        ]))->assertOk()
+            ->assertSee('Suppression File')
+            ->assertSee('Saved Offer')
+            ->assertSee('Saved suppression page')
+            ->assertSee('SAVED')
+            ->assertSee('DOWNLOAD SAVED FILE')
+            ->assertSee('1')
+            ->assertSee('OPEN SUPPRESSION RUNS')
+            ->assertDontSee('blocked@example.test');
+
+        $this->get(route('console.drops.suppression.offer-file.download', [
+            $this->workspace->getKey(),
+            $offer->getKey(),
+        ]))->assertOk();
+
+        $operator = User::factory()->create();
+        $this->workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
+        $this->actingAs($operator)->get(route('console.offers.suppression-file.show', [
+            $this->workspace->getKey(),
+            $offer->getKey(),
+        ]))->assertForbidden();
     }
 
     private function offerPayload(WorkspaceSponsor $sponsor): array

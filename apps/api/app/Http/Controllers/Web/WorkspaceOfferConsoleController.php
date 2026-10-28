@@ -53,6 +53,31 @@ class WorkspaceOfferConsoleController extends Controller
         ]);
     }
 
+    public function suppressionFile(Request $request, string $workspaceId, int $offerId, DmsOfferSuppressionFile $suppressionFiles): View
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspaceId, self::MANAGE_ROLES);
+        $offer = $workspace->offers()->with('sponsor')->whereKey($offerId)->firstOrFail();
+        $hasStoredFile = $suppressionFiles->hasStoredFile($workspace, $offer);
+        $savedDownload = $hasStoredFile
+            ? WorkspaceOfferSuppressionDownload::query()
+                ->where('workspace_id', $workspace->getKey())
+                ->where('offer_id', $offer->getKey())
+                ->where('status', 'completed')
+                ->where('sha256', $offer->suppression_sha256)
+                ->latest('id')
+                ->first()
+            : null;
+
+        return view('console.offers.suppression', [
+            'workspace' => $workspace,
+            'offer' => $offer,
+            'hasStoredFile' => $hasStoredFile,
+            'savedFileBytes' => $hasStoredFile ? (int) (Storage::disk('local')->size($offer->suppression_path) ?: 0) : null,
+            'savedFileEntryCount' => $savedDownload?->entry_count,
+            'canManageSuppressionFiles' => in_array($workspace->pivot->role, self::MANAGE_ROLES, true),
+        ]);
+    }
+
     public function downloadSuppression(Request $request, string $workspaceId, int $offerId): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspaceId, self::MANAGE_ROLES);
@@ -159,9 +184,9 @@ class WorkspaceOfferConsoleController extends Controller
             'entry_count' => $download->entry_count,
             'processed_entries' => $download->processed_entries,
             'failure_message' => $download->failure_message,
-            'manage_url' => route('clean.console.drops.suppression', [
-                'sponsor_id' => $offer->sponsor_id,
-                'offer_id' => $offer->getKey(),
+            'manage_url' => route('console.offers.suppression-file.show', [
+                $download->workspace_id,
+                $offer->getKey(),
             ]),
         ];
     }

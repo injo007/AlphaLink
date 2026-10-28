@@ -56,12 +56,12 @@
                     <div class="form-group"><label for="unsubscribe">Unsubscribe Link:</label><input id="unsubscribe" type="url" class="form-control form-control-alt" maxlength="255" value="{{ old('unsubscribe', $offer?->unsubscribe) }}"></div>
                     @if ($offer)
                         <div class="alert alert-info mt-3" role="status">
-                            Suppression files are managed from Drops → Suppression. Uploading there attaches the verified file to this offer.
-                            <a class="btn btn-sm btn-outline-primary ml-2" href="{{ route('clean.console.drops.suppression', ['sponsor_id' => $offer->sponsor_id, 'offer_id' => $offer->id]) }}" target="_blank" rel="noopener">MANAGE SUPPRESSION FILE</a>
+                            The saved offer file is managed on its own page, separate from Drops suppression runs.
+                            <a class="btn btn-sm btn-outline-primary ml-2" href="{{ route('console.offers.suppression-file.show', [$workspace->id, $offer->id]) }}" target="_blank" rel="noopener">MANAGE SUPPRESSION FILE</a>
                         </div>
                     @endif
                     @unless ($offer)
-                        <div class="alert alert-info" role="status">After saving this offer, upload its suppression file from <a href="{{ route('clean.console.drops.suppression') }}" target="_blank" rel="noopener">Drops → Suppression</a>. The file is stored with the offer record; new offers remain inactive until they meet the activation requirements.</div>
+                        <div class="alert alert-info" role="status">After saving, open the offer’s suppression-file page from its row in Offers to refresh, download, or upload the saved file. Drops → Suppression is for starting and reviewing runs.</div>
                         <div class="form-group"><label for="from">From:</label><textarea id="from" rows="5" class="form-control form-control-alt" placeholder="One sender name or address per line" required></textarea></div>
                         <div class="form-group"><label for="subjects">Subjects:</label><textarea id="subjects" rows="5" class="form-control form-control-alt" placeholder="One subject line per line" required></textarea></div>
                     @endunless

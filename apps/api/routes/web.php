@@ -183,6 +183,8 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::get('/app/workspaces/{workspace}/offers/share', [WorkspaceOfferConsoleController::class, 'shareAssetsForm'])->name('console.offers.share');
     Route::post('/app/workspaces/{workspace}/offers/share', [WorkspaceOfferConsoleController::class, 'shareAssets'])->middleware('throttle:3,1')->name('console.offers.share.send');
     Route::put('/app/workspaces/{workspace}/offers/bulk-users', [WorkspaceOfferConsoleController::class, 'updateUsers'])->middleware('throttle:10,1')->name('console.offers.bulk-users.update');
+    Route::get('/app/workspaces/{workspace}/offers/{offerId}/suppression', [WorkspaceOfferConsoleController::class, 'suppressionFile'])
+        ->whereNumber('offerId')->name('console.offers.suppression-file.show');
     Route::get('/app/workspaces/{workspace}/offers/{offerId}/edit', [WorkspaceOfferConsoleController::class, 'edit'])->whereNumber('offerId')->name('console.offers.edit');
     Route::post('/app/workspaces/{workspace}/offers/{offerId}/suppression-file/download', [WorkspaceOfferConsoleController::class, 'downloadSuppression'])
         ->whereNumber('offerId')->middleware('throttle:5,1')->name('console.offers.suppression-file.download');

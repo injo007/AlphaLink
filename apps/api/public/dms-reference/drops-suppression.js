@@ -18,6 +18,7 @@
     const fileUploadButton = document.getElementById('offer-suppression-file-upload');
     const fileStatus = document.getElementById('offer-suppression-file-status');
     const fileDownloadLink = document.getElementById('offer-suppression-file-download');
+    const fileManagerLink = document.getElementById('offer-suppression-file-manage');
     const fileResult = document.getElementById('offer-suppression-file-result');
     const canManageFiles = root.dataset.canManageFiles === '1';
     const initialSponsorId = root.dataset.initialSponsorId;
@@ -113,6 +114,10 @@
             fileStatus.textContent = 'Select a sponsor and offer above to view its suppression file.';
             fileDownloadLink.hidden = true;
             fileDownloadLink.removeAttribute('href');
+            if (fileManagerLink) {
+                fileManagerLink.hidden = true;
+                fileManagerLink.removeAttribute('href');
+            }
             if (fileInput) fileInput.disabled = true;
             if (fileUploadButton) fileUploadButton.disabled = true;
             updateStartButton();
@@ -135,6 +140,16 @@
             fileDownloadLink.href = downloadTemplate.replace('__OFFER_ID__', encodeURIComponent(selected.value));
         } else {
             fileDownloadLink.removeAttribute('href');
+        }
+        const manageTemplate = root.dataset.offerFileManageUrlTemplate;
+        const canManage = canManageFiles && Boolean(manageTemplate);
+        if (fileManagerLink) {
+            fileManagerLink.hidden = !canManage;
+            if (canManage) {
+                fileManagerLink.href = manageTemplate.replace('__OFFER_ID__', encodeURIComponent(selected.value));
+            } else {
+                fileManagerLink.removeAttribute('href');
+            }
         }
         if (fileInput) fileInput.disabled = !canManageFiles;
         if (fileUploadButton) fileUploadButton.disabled = !canManageFiles || uploadingFile || !fileInput?.files.length;

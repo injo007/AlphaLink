@@ -71,6 +71,9 @@ class WorkspaceDropSuppressionTest extends TestCase
             ->assertSee('drops/suppression/catalog', false)
             ->assertSee('offer-suppression-file-download')
             ->assertSee('DOWNLOAD SAVED FILE')
+            ->assertSee('offer-suppression-file-manage')
+            ->assertSee('OPEN FILE MANAGER')
+            ->assertSee('data-offer-file-manage-url-template')
             ->assertSee('drops-suppression.js');
 
         $this->actingAs($owner)->getJson(route('console.drops.suppression', [

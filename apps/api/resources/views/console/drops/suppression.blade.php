@@ -9,6 +9,7 @@
     data-start-url="{{ route('console.drops.suppression.start', $workspace->id) }}"
     data-offer-file-url="{{ route('clean.console.drops.suppression.offer-file') }}"
     data-offer-file-download-url-template="{{ route('console.drops.suppression.offer-file.download', [$workspace->id, '__OFFER_ID__']) }}"
+    data-offer-file-manage-url-template="{{ route('console.offers.suppression-file.show', [$workspace->id, '__OFFER_ID__']) }}"
     data-kill-url="{{ route('console.drops.suppression.kill', $workspace->id) }}"
     data-monitor-url-template="{{ route('console.drops.suppression.monitor', [$workspace->id, '__SUPPRESSION_ID__']) }}"
     data-can-manage-files="{{ $canManageSuppressionFiles ? '1' : '0' }}"
@@ -55,6 +56,7 @@
                 <div class="alert alert-light border py-2 mb-2 d-flex flex-wrap align-items-center justify-content-between" role="status" aria-live="polite">
                     <span id="offer-suppression-file-status">Select a sponsor and offer above to view its suppression file.</span>
                     <a id="offer-suppression-file-download" class="btn btn-sm btn-outline-success ml-md-3 mt-2 mt-md-0" href="#" hidden>DOWNLOAD SAVED FILE</a>
+                    <a id="offer-suppression-file-manage" class="btn btn-sm btn-outline-primary ml-md-2 mt-2 mt-md-0" href="#" hidden>OPEN FILE MANAGER</a>
                 </div>
                 @if ($canManageSuppressionFiles)
                     <div class="form-row align-items-end">

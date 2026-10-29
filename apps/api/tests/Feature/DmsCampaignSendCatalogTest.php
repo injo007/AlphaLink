@@ -27,6 +27,7 @@ use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceOfferAsset;
 use App\Models\WorkspaceSponsor;
 use App\Services\Campaigns\DmsCampaignRecipientSnapshotBuilder;
+use App\Services\Campaigns\DmsCampaignSendCatalog;
 use App\Services\Campaigns\DmsPmtaAdminRestart;
 use App\Services\Campaigns\PmtaCampaignTestTransport;
 use App\Services\Infrastructure\DmsBulkInstallRuntimeInputs;
@@ -64,6 +65,28 @@ class DmsCampaignSendCatalogTest extends TestCase
     {
         config(['alphalink.contact_lookup_key' => $this->originalContactLookupKey]);
         parent::tearDown();
+    }
+
+    public function test_from_and_subject_rotation_assets_can_be_left_blank(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->workspace($owner, 'owner');
+        $sponsor = $this->sponsor($workspace);
+        $offer = $this->offer($workspace, $sponsor, ['is_active' => true]);
+
+        $selection = app(DmsCampaignSendCatalog::class)->validateRevisionOfferAssets(
+            $workspace,
+            (int) $offer->getKey(),
+            [],
+            [],
+            null,
+            null,
+        );
+
+        $this->assertSame([], $selection['from_asset_ids']);
+        $this->assertSame([], $selection['subject_asset_ids']);
+        $this->assertNull($selection['creative_asset_id']);
+        $this->assertNull($selection['html_asset_id']);
     }
 
     public function test_owner_receives_dms_filtered_campaign_choices_and_workspace_pmta_panel_port(): void
@@ -987,6 +1010,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertSee('SEND UNAVAILABLE')
             ->assertSee('The native DMS campaign sender is not implemented in AlphaLink.')
             ->assertDontSee('Native DMS sending, scheduling, and delivery history are not available in AlphaLink yet.');
+
     }
 
     public function test_campaign_snapshot_pages_large_selected_audience_and_preserves_sorted_order(): void
@@ -2676,6 +2700,9 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertSee('native campaign send')
             ->assertSee('send_setup[from_asset_ids][]', false)
             ->assertSee('send_setup[subject_asset_ids][]', false)
+            ->assertSeeText('From values (optional)')
+            ->assertSeeText('Subjects (optional)')
+            ->assertSeeText('Optional rotation values. Leave these blank to use the literal From and Subject values in the Header.')
             ->assertSee('send_setup[creative_asset_id]', false)
             ->assertSee('send_setup[html_asset_id]', false)
             ->assertSee('send_setup[negative_id]', false)
@@ -2684,6 +2711,10 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertSee('send_setup[server_ids][]', false)
             ->assertSee('send_setup[ip_ids][]', false)
             ->assertSee("option.dataset.route = select('route').value || 'ip';", false)
+            ->assertSee("element.required = ['lists', 'servers', 'ips'].includes(key)", false)
+            ->assertSee("availableIps.addEventListener('dblclick'", false)
+            ->assertSee("chosenIps.addEventListener('dblclick'", false)
+            ->assertSeeText('Double-click an IP to move it between lists.')
             ->assertSee('Campaign Save requires at least one IP in Selected IPs. Test Campaign does not require a separate IP selection;', false)
             ->assertSee('name="return_path"', false)
             ->assertSee('name="email_test_addresses"', false)

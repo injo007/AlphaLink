@@ -50,6 +50,12 @@
 | DMS bulk-install workflow | DMS-admin Blade page and source-backed eligibility query | `DmsBulkInstallEligibility`, `InfrastructureConsoleController::startBulkInstall`, `DmsBulkInstallRuntimeInputs`, DMS `BulkInstallController` / `ServerInstallBulk` | PMTA 4.0/4.5/5.0, seven switches, per-server domain choice, APPLY to all rows, synchronous request with per-server result logs | Source trace, sanitized DMS proxy comparison at 1280×720, local selector/run-guard tests; backend execution remains default-off and full install parity is not accepted |
 | Toast / dialogs / table selection / date picker | Shared accessible AlphaLink bottom-end toast; SweetAlert2 and DataTables Select/Buttons for the DMS-shaped Offer Assets table; no owned date picker | DMS `OfferController::assets_status_bulk`, `AssetAction::disable`, and Offer Assets DataTables toolbar; AlphaLink Offer Assets Blade and workspace/offer-scoped bulk-status route | Selection is limited to rows in the active Offer Assets tab; bulk status applies only to selected From/Subject/Creative assets and never Unsubscribe. Confirmation names the selected count and offer scope. | `DmsOfferAssetUploadTest` covers toolbar, selected status behavior, Unsubscribe exclusion, and cross-offer rejection. Live populated-page comparison remains open because the 8766 workspace has no Offer rows. Other toast/date-picker capabilities remain absent. |
 
+## Campaign composer field behavior
+
+- From and Subject offer assets are optional rotation lists. Saving or updating a campaign does not require choosing them; leave them empty when the Header contains literal values. The backend continues to validate any selected asset against the active offer.
+- Campaign targeting requires selected Lists, Servers, and at least one IP for Save/Edit. The visible Available IPs and Selected IPs lists are backed by the hidden `send-ips` form control; double-click moves a selected entry in either direction. Arrow controls remain available for keyboard users.
+- The authoritative implementation is `resources/views/console/campaigns/create.blade.php`; the actual selection and required-state behavior is exercised by `tests/js/campaign-create-controls.test.js` and the campaign catalog feature tests.
+
 ## Workflow and state
 
 - `/sign-in` authenticates an existing account. A generic error appears inline; repeated failures are rate-limited. Success regenerates the session and returns the user to the intended destination.

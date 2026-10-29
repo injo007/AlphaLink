@@ -306,10 +306,10 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group col-sm-12 col-md-6">
-                        <label for="send-from-assets">From:
+                        <label for="send-from-assets">From values (optional):
                             <button type="button" class="btn btn-link btn-sm p-0" data-copy-selected="send-from-assets" title="Copy selected From values" aria-label="Copy selected From values"><i class="fas fa-copy" aria-hidden="true"></i></button>
                         </label>
-                        <select id="send-from-assets" name="send_setup[from_asset_ids][]" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 2" title="Select From values" multiple>
+                        <select id="send-from-assets" name="send_setup[from_asset_ids][]" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 2" title="Select optional From values" multiple>
                             @foreach (($sendOptions['offers']->firstWhere('id', (int) $setup['offer_id'])['assets'] ?? []) as $asset)
                                 @if ($asset['type'] === 'from')
                                     <option value="{{ $asset['id'] }}" @selected(in_array((string) $asset['id'], $setup['from_asset_ids'], true))>{{ $asset['value'] }}</option>
@@ -318,10 +318,10 @@
                         </select>
                     </div>
                     <div class="form-group col-sm-12 col-md-6">
-                        <label for="send-subject-assets">Subjects:
+                        <label for="send-subject-assets">Subjects (optional):
                             <button type="button" class="btn btn-link btn-sm p-0" data-copy-selected="send-subject-assets" title="Copy selected subjects" aria-label="Copy selected subjects"><i class="fas fa-copy" aria-hidden="true"></i></button>
                         </label>
-                        <select id="send-subject-assets" name="send_setup[subject_asset_ids][]" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 2" title="Select subjects" multiple>
+                        <select id="send-subject-assets" name="send_setup[subject_asset_ids][]" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 2" title="Select optional subjects" multiple>
                             @foreach (($sendOptions['offers']->firstWhere('id', (int) $setup['offer_id'])['assets'] ?? []) as $asset)
                                 @if ($asset['type'] === 'subject')
                                     <option value="{{ $asset['id'] }}" @selected(in_array((string) $asset['id'], $setup['subject_asset_ids'], true))>{{ $asset['value'] }}</option>
@@ -329,6 +329,7 @@
                             @endforeach
                         </select>
                     </div>
+                    <small class="form-text text-muted col-12">Optional rotation values. Leave these blank to use the literal From and Subject values in the Header.</small>
                 </div>
                 <div class="form-row">
                     <div class="form-group col-md-6">
@@ -416,7 +417,7 @@
                                     <div class="col-md-5">
                                         <label class="small mb-1" for="send-ips-available">Available IPs</label>
                                         <input class="form-control form-control-sm mb-1" id="send-ips-available-filter" type="search" placeholder="Filter available IPs" aria-label="Filter available IPs">
-                                        <select id="send-ips-available" class="form-control" multiple size="10" aria-label="Available IPs"></select>
+                                        <select id="send-ips-available" class="form-control" multiple size="10" aria-label="Available IPs" aria-describedby="send-ips-transfer-help"></select>
                                     </div>
                                     <div class="col-md-2 d-flex flex-column justify-content-center align-items-center">
                                         <button type="button" class="btn btn-outline-secondary btn-sm mb-1" data-ip-move="all-right" aria-label="Move all IPs to selected">»</button>
@@ -427,9 +428,10 @@
                                     <div class="col-md-5">
                                         <label class="small mb-1" for="send-ips-selected">Selected IPs (<span id="send-ips-selected-count">0</span>)</label>
                                         <input class="form-control form-control-sm mb-1" id="send-ips-selected-filter" type="search" placeholder="Filter selected IPs" aria-label="Filter selected IPs">
-                                        <select id="send-ips-selected" class="form-control" multiple size="10" aria-label="Selected IPs"></select>
+                                        <select id="send-ips-selected" class="form-control" multiple size="10" aria-label="Selected IPs" aria-describedby="send-ips-transfer-help"></select>
                                     </div>
                                 </div>
+                                <small id="send-ips-transfer-help" class="form-text text-muted">Double-click an IP to move it between lists. You can also select IPs and use the arrow buttons.</small>
                                 <small class="form-text text-muted">Campaign Save requires at least one IP in Selected IPs. Test Campaign does not require a separate IP selection; it uses the current Header and Email Test addresses with the selected server inventory.</small>
                             </div>
                             <div id="campaign-pmta-panels" class="row" aria-live="polite">
@@ -1017,6 +1019,8 @@
                 ipSource.dispatchEvent(new Event('change', {bubbles: true}));
             };
             document.querySelectorAll('[data-ip-move]').forEach((button) => button.addEventListener('click', () => setIpSelection(button.dataset.ipMove)));
+            availableIps.addEventListener('dblclick', () => setIpSelection('right'));
+            chosenIps.addEventListener('dblclick', () => setIpSelection('left'));
             document.getElementById('send-ips-available-filter').addEventListener('input', renderIpLists);
             document.getElementById('send-ips-selected-filter').addEventListener('input', renderIpLists);
             document.querySelectorAll('[data-copy-ip-list]').forEach((button) => {
@@ -1389,7 +1393,8 @@
                     element.append(option);
                 });
                 if (element.multiple) {
-                    element.required = !document.getElementById('campaign-targeting').hidden;
+                    element.required = ['lists', 'servers', 'ips'].includes(key)
+                        && !document.getElementById('campaign-targeting').hidden;
                 } else if (retained === 0) {
                     element.value = '';
                 }
@@ -1413,8 +1418,8 @@
                 fill('offer', data.offers, (item) => item.id, (item) => `(${item.offer_id}) ${item.name} — ${item.vertical}`, current.offer_id, 'Select Offer');
                 const selectedOffer = data.offers.find((offer) => String(offer.id) === String(select('offer').value));
                 const selectedAssets = selectedOffer?.assets ?? [];
-                fill('fromAssets', selectedAssets.filter((asset) => asset.type === 'from'), (asset) => asset.id, (asset) => asset.value, current.from_asset_ids, 'Select From values');
-                fill('subjectAssets', selectedAssets.filter((asset) => asset.type === 'subject'), (asset) => asset.id, (asset) => asset.value, current.subject_asset_ids, 'Select subjects');
+                fill('fromAssets', selectedAssets.filter((asset) => asset.type === 'from'), (asset) => asset.id, (asset) => asset.value, current.from_asset_ids, 'Select optional From values');
+                fill('subjectAssets', selectedAssets.filter((asset) => asset.type === 'subject'), (asset) => asset.id, (asset) => asset.value, current.subject_asset_ids, 'Select optional subjects');
                 fill('creativeAsset', selectedAssets.filter((asset) => asset.type === 'creative'), (asset) => asset.id, (asset) => asset.value, current.creative_asset_id, 'Select Creative');
                 fill('htmlAsset', selectedAssets.filter((asset) => asset.type === 'html'), (asset) => asset.id, (asset) => String(asset.value).slice(0, 50) + '…', current.html_asset_id, 'Select HTML');
                 const selectedOfferId = select('offer').value;

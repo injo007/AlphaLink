@@ -112,6 +112,10 @@ class DmsPmtaPostInstallReadiness
             }
         }
 
+        if (in_array($version, [45, 50], true)) {
+            $checks[] = ['pmta-no-http-https-redirect', ['grep', '-Fqx', 'http-redirect-to-https false', '/etc/pmta/settings/config']];
+        }
+
         $script = "set +e\nfailures=''\ncheck() { label=\"$1\"; shift; if ! \"$@\" >/dev/null 2>&1; then failures=\"\${failures}\${failures:+,}\${label}\"; fi; }\n";
         foreach ($checks as [$label, $argv]) {
             $script .= 'check '.escapeshellarg($label);

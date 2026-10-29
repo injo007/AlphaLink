@@ -76,6 +76,7 @@ class FakeSelect {
         this.options = options;
         this.listeners = new Map();
         this.events = [];
+        this.attributes = new Map();
     }
 
     get selectedOptions() {
@@ -94,6 +95,10 @@ class FakeSelect {
         this.listeners.set(name, handler);
     }
 
+    setAttribute(name, value) {
+        this.attributes.set(name, value);
+    }
+
     dispatchEvent(event) {
         this.events.push(event);
     }
@@ -110,12 +115,18 @@ function runTransfer() {
     ]);
     const available = new FakeSelect();
     const chosen = new FakeSelect();
-    const availableFilter = { value: '', listeners: new Map(), addEventListener(name, handler) { this.listeners.set(name, handler); } };
-    const chosenFilter = { value: '', listeners: new Map(), addEventListener(name, handler) { this.listeners.set(name, handler); } };
+    const availableFilter = { value: '', placeholder: '', listeners: new Map(), addEventListener(name, handler) { this.listeners.set(name, handler); } };
+    const chosenFilter = { value: '', placeholder: '', listeners: new Map(), addEventListener(name, handler) { this.listeners.set(name, handler); } };
     const count = { textContent: '' };
+    const route = { value: 'ip', listeners: new Map(), addEventListener(name, handler) { this.listeners.set(name, handler); }, fire(name) { this.listeners.get(name)?.({ target: this }); } };
+    const heading = { textContent: '' };
+    const availableLabel = { textContent: '' };
+    const chosenLabel = { textContent: '' };
     const buttons = ['all-right', 'right', 'left', 'all-left'].map((ipMove) => ({
         dataset: { ipMove },
         listeners: new Map(),
+        attributes: new Map(),
+        setAttribute(name, value) { this.attributes.set(name, value); },
         addEventListener(name, handler) { this.listeners.set(name, handler); },
         fire(name) { this.listeners.get(name)?.({ target: this }); },
     }));
@@ -126,6 +137,10 @@ function runTransfer() {
         'send-ips-available-filter': availableFilter,
         'send-ips-selected-filter': chosenFilter,
         'send-ips-selected-count': count,
+        'send-route': route,
+        'send-route-choice-heading': heading,
+        'send-ips-available-label': availableLabel,
+        'send-ips-selected-label': chosenLabel,
     };
     const env = {
         document: {
@@ -146,7 +161,7 @@ function runTransfer() {
     vm.runInNewContext(`${transferSource}
         renderIpLists();`, env);
 
-    return { source, available, chosen, count, buttons };
+    return { source, available, chosen, count, buttons, route, heading, availableLabel, chosenLabel, availableFilter, chosenFilter };
 }
 
 test('double-click moves an available IP into Selected IPs and updates the hidden form selection', () => {
@@ -181,4 +196,19 @@ test('arrow controls continue to move IPs for keyboard-accessible operation', ()
 
     assert.equal(source.options[1].selected, true);
     assert.deepEqual(chosen.options.map((option) => option.value), ['ip-2']);
+});
+
+test('route picker labels and accessible controls switch to SMTP route terminology', () => {
+    const { route, heading, availableLabel, chosenLabel, available, chosen, availableFilter, chosenFilter, buttons } = runTransfer();
+    route.value = 'smtp';
+    route.fire('change');
+
+    assert.equal(heading.textContent, 'SMTP routes');
+    assert.equal(availableLabel.textContent, 'Available SMTP routes');
+    assert.equal(chosenLabel.textContent, 'Selected SMTP routes');
+    assert.equal(available.attributes.get('aria-label'), 'Available SMTP routes');
+    assert.equal(chosen.attributes.get('aria-label'), 'Selected SMTP routes');
+    assert.equal(availableFilter.placeholder, 'Filter available smtp routes');
+    assert.equal(chosenFilter.placeholder, 'Filter selected smtp routes');
+    assert.equal(buttons[0].attributes.get('aria-label'), 'Move all SMTP routes to selected');
 });

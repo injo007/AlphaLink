@@ -8,6 +8,7 @@ const view = readFileSync(new URL('../../resources/views/console/campaigns/pmta-
 test('PMTA Admin explains the public-IP HTTP fallback when an HTTPS frame is unavailable', () => {
     assert.match(view, /servers without a DNS-managed certificate use the public IP over HTTP/i);
     assert.match(view, /PMTA uses the public IP over HTTP · open the link in a new tab/);
+    assert.match(view, /link\.textContent = `\$\{panelUrl\.protocol\}\/\/\$\{panelUrl\.host\}`/);
 });
 
 const restartHelperStart = view.indexOf('            let restartRunNumber = 0;');

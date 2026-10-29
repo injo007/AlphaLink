@@ -57,9 +57,11 @@ class DmsBulkInstallInstallerMatrix
                 'patch_target' => $patchTarget,
                 'admin_http_port_multiplier' => $isLegacy ? 1 : 2,
                 'reverse_proxy' => $isLegacy ? null : 'nginx',
-                'extra_config_lines' => $pmtaVersion === 50
-                    ? ['http-redirect-to-https false', 'http-csrf-protection false']
-                    : [],
+                'extra_config_lines' => match ($pmtaVersion) {
+                    45 => ['http-redirect-to-https false'],
+                    50 => ['http-redirect-to-https false', 'http-csrf-protection false'],
+                    default => [],
+                },
                 // DMS uses AND here: the PMTA method returns early only when both files are absent.
                 'dms_skip_gate' => ['rpm_and_patch_both_absent' => true],
             ],

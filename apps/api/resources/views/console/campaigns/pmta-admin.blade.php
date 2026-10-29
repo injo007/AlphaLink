@@ -363,11 +363,13 @@
                     link.rel = 'noopener noreferrer';
                     link.className = 'ml-1';
                     try {
-                        link.textContent = new URL(server.dataset.panelUrl, window.location.href).host;
+                        const panelUrl = new URL(server.dataset.panelUrl, window.location.href);
+                        link.textContent = `${panelUrl.protocol}//${panelUrl.host}`;
+                        link.title = `Open the PMTA monitor at ${panelUrl.protocol}//${panelUrl.host} in a new tab.`;
                     } catch {
                         link.textContent = server.textContent.split('|').at(-1).trim();
+                        link.title = 'Open the PMTA monitor in a new tab.';
                     }
-                    link.title = 'Open the PMTA monitor using the verified domain or public IP endpoint.';
                     const reload = document.createElement('button');
                     reload.type = 'button';
                     reload.className = 'btn btn-link btn-sm p-0 ml-2';

@@ -136,8 +136,11 @@ class DmsCentos9PmtaDeploymentPlanner
         $operations[] = $this->command("sed -i 's/__PMTA_LISTENER_PORT__/{$pmtaPort}/g' /etc/pmta/settings/config;");
         $operations[] = $this->command("sed -i 's/__PMTA_ADMIN_PORT__/{$httpPort}/g' /etc/pmta/settings/config;");
 
-        if ($version === 50) {
+        if (in_array($version, [45, 50], true)) {
             $operations[] = $this->command("echo 'http-redirect-to-https false' >> /etc/pmta/settings/config");
+        }
+
+        if ($version === 50) {
             $operations[] = $this->command("echo 'http-csrf-protection false' >> /etc/pmta/settings/config");
         }
 

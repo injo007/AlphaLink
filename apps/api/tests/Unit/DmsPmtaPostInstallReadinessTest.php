@@ -87,6 +87,8 @@ class DmsPmtaPostInstallReadinessTest extends TestCase
         self::assertStringContainsString('nginx-service', $command);
         self::assertStringContainsString('monitor-upstream-configuration', $command);
         self::assertStringContainsString('pmta-backend-listener', $command);
+        self::assertStringContainsString('pmta-no-http-https-redirect', $command);
+        self::assertStringContainsString('http-redirect-to-https false', $command);
         self::assertStringNotContainsString('pmta-public-monitor-listener', $command);
         self::assertStringContainsString("'allow 198.51.100.44;'", $command);
         self::assertStringContainsString('listen 1213;', $command);

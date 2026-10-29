@@ -420,7 +420,7 @@
                                 </div>
                             </div>
                             <div class="form-group">
-                                <label for="send-ips-selected">IPs:
+                                <label for="send-ips-selected"><span id="send-route-choice-heading">{{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}</span>:
                                     <button type="button" class="btn btn-link btn-sm p-0" data-copy-ip-list="available" title="Copy available IPs" aria-label="Copy available IPs"><i class="fas fa-copy" aria-hidden="true"></i></button>
                                     <button type="button" class="btn btn-link btn-sm p-0" data-copy-ip-list="selected" title="Copy selected IPs" aria-label="Copy selected IPs"><i class="fas fa-copy" aria-hidden="true"></i></button>
                                 </label>
@@ -428,8 +428,8 @@
                                     @foreach ($sendOptions['ips'] as $ip)
                                         @php
                                             $routeChoiceLabel = match ($setup['route_option']) {
-                                                'vmta' => implode(',', array_filter([$ip['ip'], $ip['dns'] ?? '', $ip['name'] ?? ''], static fn ($value) => filled($value))),
-                                                'smtp' => implode(',', array_filter([$ip['ip'], $ip['username'] ?? ''], static fn ($value) => filled($value))),
+                                                'vmta' => implode(' | ', array_filter([$ip['ip'], $ip['dns'] ?? '', $ip['name'] ?? ''], static fn ($value) => filled($value))),
+                                                'smtp' => implode(' | ', array_filter([$ip['ip'], $ip['username'] ?? '', $ip['name'] ?? '', $ip['dns'] ?? ''], static fn ($value) => filled($value))),
                                                 default => implode(',', array_filter([$ip['ip'], $ip['dns'] ?? ''], static fn ($value) => filled($value))),
                                             };
                                         @endphp
@@ -438,9 +438,9 @@
                                 </select>
                                 <div class="row">
                                     <div class="col-md-5">
-                                        <label class="small mb-1" for="send-ips-available">Available IPs</label>
+                                        <label class="small mb-1" for="send-ips-available"><span id="send-ips-available-label">Available {{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}</span></label>
                                         <input class="form-control form-control-sm mb-1" id="send-ips-available-filter" type="search" placeholder="Filter available IPs" aria-label="Filter available IPs">
-                                        <select id="send-ips-available" class="form-control" multiple size="10" aria-label="Available IPs" aria-describedby="send-ips-transfer-help"></select>
+                                        <select id="send-ips-available" class="form-control" multiple size="10" aria-label="Available {{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}" aria-describedby="send-ips-transfer-help"></select>
                                     </div>
                                     <div class="col-md-2 d-flex flex-column justify-content-center align-items-center">
                                         <button type="button" class="btn btn-outline-secondary btn-sm mb-1" data-ip-move="all-right" aria-label="Move all IPs to selected">»</button>
@@ -449,13 +449,14 @@
                                         <button type="button" class="btn btn-outline-secondary btn-sm" data-ip-move="all-left" aria-label="Move all IPs back to available">«</button>
                                     </div>
                                     <div class="col-md-5">
-                                        <label class="small mb-1" for="send-ips-selected">Selected IPs (<span id="send-ips-selected-count">0</span>)</label>
+                                        <label class="small mb-1" for="send-ips-selected"><span id="send-ips-selected-label">Selected {{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}</span> (<span id="send-ips-selected-count">0</span>)</label>
                                         <input class="form-control form-control-sm mb-1" id="send-ips-selected-filter" type="search" placeholder="Filter selected IPs" aria-label="Filter selected IPs">
-                                        <select id="send-ips-selected" class="form-control" multiple size="10" aria-label="Selected IPs" aria-describedby="send-ips-transfer-help"></select>
+                                        <select id="send-ips-selected" class="form-control" multiple size="10" aria-label="Selected {{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}" aria-describedby="send-ips-transfer-help"></select>
                                     </div>
                                 </div>
-                                <small id="send-ips-transfer-help" class="form-text text-muted">Double-click an IP to move it between lists. You can also select IPs and use the arrow buttons.</small>
-                                <small class="form-text text-muted">Campaign Save requires at least one IP in Selected IPs. Test Campaign does not require a separate IP selection; it uses the current Header and Email Test addresses with the selected server inventory.</small>
+                                <small id="send-ips-transfer-help" class="form-text text-muted">Double-click an entry to move it between lists. You can also select entries and use the arrow buttons.</small>
+                                <small class="form-text text-muted">Campaign Save requires at least one selected IP, VMTA, or SMTP route. Test Campaign uses the saved route on this revision.</small>
+                                <small class="form-text text-info">To use <code>[smtp]</code> or <code>[smtp_name]</code>, set Option to SMTP and select an SMTP route. IP routing selects the PMTA source IP and leaves those SMTP account tags empty. AlphaLink still submits the message to the selected server’s PMTA listener.</small>
                             </div>
                             <div id="campaign-pmta-panels" class="row" aria-live="polite">
                                 @foreach ($sendOptions['servers'] as $server)
@@ -1020,6 +1021,27 @@
             const ipSource = document.getElementById('send-ips');
             const availableIps = document.getElementById('send-ips-available');
             const chosenIps = document.getElementById('send-ips-selected');
+            const routeChoiceNames = {ip: 'IPs', vmta: 'VMTAs', smtp: 'SMTP routes'};
+            const syncRouteChoiceLabels = () => {
+                const route = document.getElementById('send-route')?.value || 'ip';
+                const routeName = routeChoiceNames[route] || 'IPs';
+                document.getElementById('send-route-choice-heading').textContent = routeName;
+                document.getElementById('send-ips-available-label').textContent = `Available ${routeName}`;
+                document.getElementById('send-ips-selected-label').textContent = `Selected ${routeName}`;
+                availableIps.setAttribute('aria-label', `Available ${routeName}`);
+                chosenIps.setAttribute('aria-label', `Selected ${routeName}`);
+                document.getElementById('send-ips-available-filter').placeholder = `Filter available ${routeName.toLowerCase()}`;
+                document.getElementById('send-ips-selected-filter').placeholder = `Filter selected ${routeName.toLowerCase()}`;
+                const moveLabels = {
+                    'all-right': `Move all ${routeName} to selected`,
+                    right: `Move selected ${routeName} to selected`,
+                    left: `Move selected ${routeName} back to available`,
+                    'all-left': `Move all ${routeName} back to available`,
+                };
+                document.querySelectorAll('[data-ip-move]').forEach((button) => {
+                    button.setAttribute('aria-label', moveLabels[button.dataset.ipMove]);
+                });
+            };
             const renderIpLists = () => {
                 if (!ipSource || !availableIps || !chosenIps) return;
                 const selectedIds = new Set(Array.from(ipSource.options).filter((option) => option.selected).map((option) => option.value));
@@ -1052,6 +1074,8 @@
             chosenIps.addEventListener('dblclick', () => setIpSelection('left'));
             document.getElementById('send-ips-available-filter').addEventListener('input', renderIpLists);
             document.getElementById('send-ips-selected-filter').addEventListener('input', renderIpLists);
+            document.getElementById('send-route')?.addEventListener('change', syncRouteChoiceLabels);
+            syncRouteChoiceLabels();
             document.querySelectorAll('[data-copy-ip-list]').forEach((button) => {
                 button.addEventListener('click', async () => {
                     const selectedIds = new Set(Array.from(ipSource.options).filter((option) => option.selected).map((option) => option.value));
@@ -1254,8 +1278,8 @@
                     option.dataset.vmtaDomain || '',
                 ].join('|');
                 const routeChoiceLabel = (ip, routeOption) => {
-                    if (routeOption === 'vmta') return [ip.ip, ip.dns, ip.name].filter((value) => value !== null && value !== undefined && String(value) !== '').join(',');
-                    if (routeOption === 'smtp') return [ip.ip, ip.username].filter((value) => value !== null && value !== undefined && String(value) !== '').join(',');
+                    if (routeOption === 'vmta') return [ip.ip, ip.dns, ip.name].filter((value) => value !== null && value !== undefined && String(value) !== '').join(' | ');
+                    if (routeOption === 'smtp') return [ip.ip, ip.username, ip.name, ip.dns].filter((value) => value !== null && value !== undefined && String(value) !== '').join(' | ');
                     return [ip.ip, ip.dns].filter((value) => value !== null && value !== undefined && String(value) !== '').join(',');
                 };
                 let loadedRoute = route.value;
@@ -1486,7 +1510,13 @@
                 fill('lists', data.segments, (item) => item.id, (item) => `${item.name} — ${item.country} — ${String(item.email_type).toUpperCase()} — ${Number(item.recipient_count).toLocaleString()}`, current.audience_segments, 'Select Lists');
                 fill('servers', data.servers, (item) => item.id, (item) => `${item.name} | ${item.ip}`, current.server_ids, 'Select Servers');
                 refreshCampaignDomainOptions(data.campaign_domains);
-                fill('ips', data.ips, (item) => item.id, (item) => `${item.ip} | ${String(item.type).toUpperCase()} | ${item.dns || 'no DNS'}${selectedRoute === 'vmta' && item.name ? ` | ${item.name}` : ''} (server ${item.server_id})`, current.ip_ids, selectedRoute === 'vmta' ? 'Select VMTAs' : 'Select IPs');
+                syncRouteChoiceLabels();
+                const routeChoiceLabel = selectedRoute === 'smtp'
+                    ? (item) => [item.ip, item.username, item.name, item.dns || 'no DNS'].filter((value) => value !== null && value !== undefined && String(value) !== '').join(' | ')
+                    : selectedRoute === 'vmta'
+                        ? (item) => [item.ip, item.dns || 'no DNS', item.name].filter((value) => value !== null && value !== undefined && String(value) !== '').join(' | ')
+                        : (item) => `${item.ip} | ${String(item.type).toUpperCase()} | ${item.dns || 'no DNS'}`;
+                fill('ips', data.ips, (item) => item.id, (item) => `${routeChoiceLabel(item)} (server ${item.server_id})`, current.ip_ids, `Select ${routeChoiceNames[selectedRoute] || 'IPs'}`);
                 renderIpLists();
                 syncCampaignDomainToRoute();
 

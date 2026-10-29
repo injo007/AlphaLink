@@ -38,7 +38,7 @@ class DmsBulkInstallInstallerMatrixTest extends TestCase
             $this->assertSame('nginx', $centos7['pmta']['reverse_proxy']);
             $this->assertSame($version === 50
                 ? ['http-redirect-to-https false', 'http-csrf-protection false']
-                : [], $centos7['pmta']['extra_config_lines']);
+                : ['http-redirect-to-https false'], $centos7['pmta']['extra_config_lines']);
 
             $centos9 = $matrix->plan('Rocky Linux 9.4', $version, $this->options());
             $this->assertSame('centos9', $centos9['os_family']);

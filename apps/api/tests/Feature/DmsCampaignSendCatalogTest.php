@@ -766,7 +766,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->post(route('console.campaigns.revisions.store', [$workspace->getKey(), $campaign->getKey()]), $missingIpPayload)
             ->assertRedirect($editUrl)
             ->assertSessionHasErrors([
-                'send_setup.ip_ids' => 'Choose at least one IP in the Selected IPs list before saving. Test Campaign does not require a separate IP selection; it uses the current Header and Email Test addresses with the selected server inventory.',
+                'send_setup.ip_ids' => 'Choose at least one IP, VMTA, or SMTP route in the Selected routes list before saving. Test Campaign uses the route saved on this revision.',
             ]);
         $this->assertSame(1, $campaign->revisions()->count());
 
@@ -950,6 +950,8 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertSee('second@example.test')
             ->assertSee('has not implemented or verified DMS’s native sender')
             ->assertSee('id="pmta-test-server"', false)
+            ->assertSee('name="from_email" type="text"', false)
+            ->assertSee('controls the outbound source/account', false)
             ->assertSee(':1212')
             ->assertDontSee('Save the workspace PMTA listener port in installation settings before testing.');
 
@@ -1844,6 +1846,140 @@ class DmsCampaignSendCatalogTest extends TestCase
         $this->assertNotSame($firstSmtp->getKey(), $selectedSmtp->getKey());
     }
 
+    public function test_saved_campaign_pmta_test_pins_selected_smtp_route_and_expands_tags(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->workspace($owner, 'owner');
+        $server = $this->server($workspace, $owner, '203.0.113.130');
+        $sendingDomain = SendingDomain::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'name' => 'saved-smtp-test.example.test',
+            'state' => 'verified',
+            'verification_token' => 'synthetic-saved-smtp-test-token',
+            'created_by' => $owner->getKey(),
+            'status' => 'free',
+            'is_active' => true,
+        ]);
+        $firstIp = ManagedServerIp::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'managed_server_id' => $server->getKey(),
+            'sending_domain_id' => $sendingDomain->getKey(),
+            'ip' => '203.0.113.131',
+            'type' => 'ipv4',
+            'dns' => 'smtp-first.example.test',
+            'is_active' => true,
+        ]);
+        $selectedIp = ManagedServerIp::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'managed_server_id' => $server->getKey(),
+            'sending_domain_id' => $sendingDomain->getKey(),
+            'ip' => '203.0.113.132',
+            'type' => 'ipv4',
+            'dns' => 'smtp-selected.example.test',
+            'is_active' => true,
+        ]);
+        ManagedServerMta::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'managed_server_id' => $server->getKey(),
+            'managed_server_ip_id' => $firstIp->getKey(),
+            'ip' => $firstIp->ip,
+            'dns' => $firstIp->dns,
+            'ip_type' => 'ipv4',
+            'mta_type' => 'smtp',
+            'username' => 'first-smtp@example.test',
+            'name' => 'First SMTP account',
+            'is_active' => true,
+            'user_id' => $owner->getKey(),
+        ]);
+        $selectedSmtp = ManagedServerMta::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'managed_server_id' => $server->getKey(),
+            'managed_server_ip_id' => $selectedIp->getKey(),
+            'ip' => $selectedIp->ip,
+            'dns' => $selectedIp->dns,
+            'ip_type' => 'ipv4',
+            'mta_type' => 'smtp',
+            'username' => 'selected-smtp@example.test',
+            'name' => 'Selected SMTP account',
+            'is_active' => true,
+            'user_id' => $owner->getKey(),
+        ]);
+        $campaign = Campaign::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'created_by' => $owner->getKey(),
+            'name' => 'Saved SMTP campaign test fixture',
+            'kind' => 'marketing',
+            'status' => 'draft',
+            'is_active' => true,
+            'idempotency_key' => (string) Str::uuid(),
+        ]);
+        $revision = CampaignRevision::query()->create([
+            'campaign_id' => $campaign->getKey(),
+            'revision_number' => 1,
+            'payload' => [
+                'send_setup' => [
+                    'route_option' => 'smtp',
+                    'ip_type' => 'ipv4',
+                    'server_ids' => [(string) $server->getKey()],
+                    'ip_ids' => [(string) $selectedSmtp->getKey()],
+                    'placeholders' => [],
+                ],
+                'email_tests' => ['smtp-test-recipient@example.test'],
+            ],
+            'content_sha256' => hash('sha256', 'saved SMTP campaign test'),
+            'idempotency_key' => (string) Str::uuid(),
+            'request_fingerprint' => hash('sha256', 'saved SMTP campaign test request'),
+            'created_by' => $owner->getKey(),
+            'created_at' => now(),
+        ]);
+        $workspace->infrastructureSettings()->create(['pmta_port' => 2525]);
+
+        $sentMessages = [];
+        $transport = Mockery::mock(SmtpTransport::class);
+        $transport->shouldReceive('start')->once();
+        $transport->shouldReceive('send')->once()->withArgs(function ($message) use (&$sentMessages): bool {
+            $sentMessages[] = [
+                'message' => $message->toString(),
+                'body' => $message->getHtmlBody(),
+            ];
+
+            return true;
+        });
+        $transport->shouldReceive('stop')->once();
+        $factory = Mockery::mock(PmtaCampaignTestTransport::class);
+        $factory->shouldReceive('forServer')->once()
+            ->withArgs(fn (ManagedServer $selected, int $port): bool => $selected->is($server) && $port === 2525)
+            ->andReturn($transport);
+        $this->app->instance(PmtaCampaignTestTransport::class, $factory);
+
+        $this->actingAs($owner)->post(route('console.campaigns.pmta-test', [$workspace->getKey(), $campaign->getKey()]), [
+            'revision_id' => $revision->getKey(),
+            'server_id' => $server->getKey(),
+            'recipient' => 'smtp-test-recipient@example.test',
+            'from_email' => 'mailer@[domain]',
+            'subject' => 'Account [smtp] / [smtp_name]',
+            'body' => 'SMTP=[smtp]; name=[smtp_name]; source IP=[ip]',
+            'idempotency_key' => (string) Str::uuid(),
+            'confirm_authorized_recipient' => '1',
+        ])->assertSessionHas('status', 'The selected server’s PMTA SMTP listener accepted this test message. Mailbox delivery is unconfirmed.');
+
+        $message = $sentMessages[0]['message'] ?? '';
+        $body = $sentMessages[0]['body'] ?? '';
+        $expectedPmtaName = 'smtp-203.0.113.132-'.$selectedSmtp->getKey();
+        $this->assertCount(1, $sentMessages);
+        $this->assertStringContainsString('From: mailer@smtp-selected.example.test', $message);
+        $this->assertStringContainsString('Subject: Account selected-smtp@example.test / Selected SMTP account', $message);
+        $this->assertStringContainsString('SMTP=selected-smtp@example.test; name=Selected SMTP account; source IP=203.0.113.132', $body);
+        $this->assertStringContainsString('X-Virtual-MTA: '.$expectedPmtaName, $message);
+        $this->assertStringNotContainsString('first-smtp@example.test', $message);
+        $this->assertDatabaseHas('campaign_test_mail_attempts', [
+            'campaign_id' => $campaign->getKey(),
+            'revision_id' => $revision->getKey(),
+            'status' => 'accepted_by_transport',
+            'mailer' => 'pmta_smtp',
+        ]);
+    }
+
     public function test_manual_smtp_campaign_test_fails_closed_without_a_pushed_smtp_route(): void
     {
         $owner = User::factory()->create();
@@ -2418,7 +2554,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertSee('frame.src = url.toString();', false)
             ->assertSee('id="pmta-admin-stop-schedule"', false)
             ->assertSee('id="pmta-admin-stop-restart"', false)
-            ->assertSee('link.textContent = new URL(server.dataset.panelUrl, window.location.href).host;', false)
+            ->assertSee('link.textContent = `${panelUrl.protocol}//${panelUrl.host}`;', false)
             ->assertSee('servers without a DNS-managed certificate use the public IP over HTTP.', false)
             ->assertSee('PMTA uses the public IP over HTTP · open the link in a new tab', false)
             ->assertSee('id="pmta-admin-schedule-status"', false)
@@ -2987,8 +3123,9 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertSee("element.required = ['lists', 'servers', 'ips'].includes(key)", false)
             ->assertSee("availableIps.addEventListener('dblclick'", false)
             ->assertSee("chosenIps.addEventListener('dblclick'", false)
-            ->assertSeeText('Double-click an IP to move it between lists.')
-            ->assertSee('Campaign Save requires at least one IP in Selected IPs. Test Campaign does not require a separate IP selection;', false)
+            ->assertSeeText('Double-click an entry to move it between lists.')
+            ->assertSee('Campaign Save requires at least one selected IP, VMTA, or SMTP route. Test Campaign uses the saved route on this revision.', false)
+            ->assertSee('set Option to SMTP and select an SMTP route', false)
             ->assertSee('name="return_path"', false)
             ->assertSee('name="email_test_addresses"', false)
             ->assertSee('name="domain"', false)

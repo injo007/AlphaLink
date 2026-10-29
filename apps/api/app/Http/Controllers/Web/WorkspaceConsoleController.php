@@ -61,7 +61,7 @@ class WorkspaceConsoleController extends Controller
 {
     private const CAMPAIGN_ROLES = ['owner', 'admin', 'operator'];
 
-    private const CAMPAIGN_IP_SELECTION_REQUIRED = 'Choose at least one IP in the Selected IPs list before saving. Test Campaign does not require a separate IP selection; it uses the current Header and Email Test addresses with the selected server inventory.';
+    private const CAMPAIGN_IP_SELECTION_REQUIRED = 'Choose at least one IP, VMTA, or SMTP route in the Selected routes list before saving. Test Campaign uses the route saved on this revision.';
 
     private const AUDIENCE_ROLES = ['owner', 'admin', 'operator', 'privacy_officer'];
 
@@ -2006,16 +2006,23 @@ class WorkspaceConsoleController extends Controller
         return $response->withErrors(['manual_test' => $message]);
     }
 
-    public function sendCampaignPmtaTest(Request $request, string $workspace, string $campaign, DmsCampaignSendCatalog $catalog, PmtaCampaignTestTransport $transportFactory): RedirectResponse
-    {
+    public function sendCampaignPmtaTest(
+        Request $request,
+        string $workspace,
+        string $campaign,
+        DmsCampaignSendCatalog $catalog,
+        PmtaCampaignTestTransport $transportFactory,
+        DmsCampaignTagRenderer $tagRenderer,
+        DmsBulkInstallVmtaPlanner $vmtaPlanner,
+    ): RedirectResponse {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $this->authorizeRole($workspace, self::CAMPAIGN_ROLES);
         $data = $request->validate([
             'revision_id' => ['required', 'uuid'],
             'server_id' => ['required', 'uuid'],
             'recipient' => ['required', 'email:rfc', 'max:320'],
-            'from_email' => ['required', 'email:rfc', 'max:320'],
-            'subject' => ['required', 'string', 'max:998'],
+            'from_email' => ['required', 'string', 'max:320', 'regex:/\A[^\r\n\x00]+\z/'],
+            'subject' => ['required', 'string', 'max:998', 'regex:/\A[^\r\n\x00]+\z/'],
             'body' => ['required', 'string'],
             'idempotency_key' => ['required', 'uuid'],
             'confirm_authorized_recipient' => ['accepted'],
@@ -2032,19 +2039,60 @@ class WorkspaceConsoleController extends Controller
         abort_unless(is_array($setup) && in_array($data['server_id'], $setup['server_ids'] ?? [], true), 422, 'Choose a server saved on this campaign revision.');
         $recipient = mb_strtolower(trim($data['recipient']));
         abort_unless(in_array($recipient, array_map(fn (string $address): string => mb_strtolower(trim($address)), $revision->payload['email_tests'] ?? []), true), 422, 'Save this recipient in the campaign Email Test addresses before sending.');
+        $route = (string) ($setup['route_option'] ?? 'ip');
+        $ipType = (string) ($setup['ip_type'] ?? 'all');
         $options = $catalog->options($workspace, $request->user(), (string) $workspace->pivot->role, [
             'server_ids' => [$data['server_id']],
-            'route' => $setup['route_option'] ?? 'ip',
-            'ip_type' => $setup['ip_type'] ?? 'all',
+            'route' => $route,
+            'ip_type' => $ipType,
         ]);
         abort_unless(collect($options['servers'])->contains(fn (array $server): bool => $server['id'] === $data['server_id']), 422, 'The selected server is no longer installed, active, or available to this user.');
         $server = $workspace->managedServers()->whereKey($data['server_id'])->where('is_active', true)->where('is_installed', true)->firstOrFail();
         $port = $this->pmtaListenerPort($workspace);
         abort_unless($port !== null, 503, 'Configure a valid PMTA SMTP listener port before sending a campaign test.');
 
+        $savedRouteIds = array_map('strval', $setup['ip_ids'] ?? []);
+        $availableRoutes = collect($options['ips']);
+        $routeChoice = collect($savedRouteIds)
+            ->map(fn (string $routeId): ?array => $availableRoutes->first(fn (array $choice): bool => (string) ($choice['server_id'] ?? '') === (string) $server->getKey()
+                && (string) ($choice['id'] ?? '') === $routeId
+            ))
+            ->first(fn (?array $choice): bool => is_array($choice));
+        abort_unless(is_array($routeChoice), 422, 'The saved campaign has no active IP, VMTA, or SMTP route for this server. Edit the campaign and select an available route for this server.');
+
+        $virtualMtaName = $route === 'ip'
+            ? $vmtaPlanner->ipVirtualMtaName((string) ($routeChoice['ip'] ?? ''))
+            : trim((string) ($routeChoice['pmta_name'] ?? ''));
+        abort_unless(preg_match('/\A[A-Za-z0-9_.:-]{1,255}\z/', $virtualMtaName) === 1, 422, 'The selected PMTA route is not available on this server. Push the route in PMTA and reload the campaign.');
+
+        $tagValues = [
+            ...$this->campaignTestIpTags($workspace, $server, $route, $routeChoice),
+            'to' => $recipient,
+            'name' => explode('@', $recipient)[0],
+            'server' => (string) $server->name.(string) $server->getKey(),
+            'from' => (string) $data['from_email'],
+            'subject' => (string) $data['subject'],
+            'date' => now()->toRfc2822String(),
+            'token' => $tagRenderer->campaignTestToken($campaign->getKey(), (string) ($setup['isp_id'] ?? '0')),
+            'boundary' => Str::random(30),
+        ];
+        $tagCache = [];
+        $fromEmail = trim($tagRenderer->render((string) $data['from_email'], $tagValues, $setup['placeholders'] ?? [], 0, $tagCache));
+        $subject = $tagRenderer->render((string) $data['subject'], $tagValues, $setup['placeholders'] ?? [], 0, $tagCache);
+        $tagValues['from'] = $fromEmail;
+        $tagValues['subject'] = $subject;
+        $body = $tagRenderer->render((string) $data['body'], $tagValues, $setup['placeholders'] ?? [], 0, $tagCache);
+
+        if (filter_var($fromEmail, FILTER_VALIDATE_EMAIL) === false) {
+            throw ValidationException::withMessages(['from_email' => 'The From address must resolve to a valid email address after campaign tags are applied.']);
+        }
+        if (preg_match('/[\r\n\x00]/', $subject) === 1) {
+            throw ValidationException::withMessages(['subject' => 'The subject must resolve to a single header line after campaign tags are applied.']);
+        }
+
         $recipientHash = hash('sha256', $recipient);
         $idempotencyHash = hash('sha256', $data['idempotency_key']);
-        $fingerprint = hash('sha256', json_encode([$revision->getKey(), $server->getKey(), $recipient, $data['from_email'], $data['subject'], $data['body']], JSON_THROW_ON_ERROR));
+        $fingerprint = hash('sha256', json_encode([$revision->getKey(), $server->getKey(), $recipient, $fromEmail, $subject, $body, $virtualMtaName], JSON_THROW_ON_ERROR));
         $prior = CampaignTestMailAttempt::query()->where('idempotency_key_hash', $idempotencyHash)->first();
         if ($prior) {
             abort_unless($prior->campaign_id === $campaign->getKey() && $prior->revision_id === $revision->getKey() && $prior->recipient_sha256 === $recipientHash && $prior->mailer === 'pmta_smtp' && $prior->request_fingerprint === $fingerprint, 409, 'This test submission key was already used for another message.');
@@ -2090,10 +2138,11 @@ class WorkspaceConsoleController extends Controller
             $transport->start();
             $connected = true;
             $email = (new Email)
-                ->from(new Address(mb_strtolower(trim($data['from_email']))))
+                ->from(new Address(mb_strtolower($fromEmail)))
                 ->to(new Address($recipient))
-                ->subject($data['subject'])
-                ->html($data['body']);
+                ->subject($subject)
+                ->html($body);
+            $email->getHeaders()->addTextHeader('X-Virtual-MTA', $virtualMtaName);
             (new SymfonyMailer($transport))->send($email);
             $attempt->forceFill(['status' => 'accepted_by_transport', 'updated_at' => now()])->save();
             $this->recordCampaignEvent($request, $workspace, $campaign, 'campaign.pmta_test_accepted', [

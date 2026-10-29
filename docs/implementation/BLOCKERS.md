@@ -518,3 +518,10 @@ Install start no longer queries Cloudflare to require exactly one exact domain z
 ### External-domain PMTA monitor link — read-only check (2026-10-29)
 
 `PmtaPanelUrl` uses HTTPS only when the saved installation explicitly records a verified PMTA TLS listener and a valid DNS name; unmanaged/provider-missing installs use `http://<public-IP>:<configured-port>/`. A read-only GET to the reported IP listener returned HTTP 200 without a redirect; HTTPS to that same HTTP listener returned a TLS wrong-version error. The open browser monitor tab is on HTTP. This does not reproduce an application redirect to HTTPS; a browser HTTPS-first upgrade or stale/manual HTTPS URL is an inference, not a verified app behavior. Keep the IP-over-HTTP fallback for unmanaged domains. DMS-PMTA-002 remains TESTING; no PMTA command or server setting was changed.
+
+
+### SMTP route selection and PMTA monitor scheme — E-CAMP-125 / E-PMTA-102 / E-INST-96
+
+The saved campaign PMTA test now reads the exact selected route from the latest revision in saved order, inserts its PMTA alias into `X-Virtual-MTA`, and resolves `[smtp]`/`[smtp_name]` plus tagged From, subject and body. The shared selector visibly changes from IPs to SMTP routes or VMTAs, and the page distinguishes PMTA ingress (`server IP:workspace listener port`) from the outbound route. Synthetic tests pass; ordinary campaign SEND remains disabled and no connected test email was sent.
+
+External/unmanaged domains continue to use `http://<public-IP>:<configured-monitor-port>/`; verified domains use HTTPS on that same public port. PMTA 4.5/5.0 fresh-install config now explicitly disables HTTP-to-HTTPS redirect, and readiness checks it. The doubled backend port is loopback-only behind Nginx. Existing installed servers are not changed by this repository update alone; apply the updated PMTA config/reinstall to receive the redirect directive. No live endpoint/browser upgrade was reproduced, so browser HTTPS-first/HSTS remains a possible client-side factor.

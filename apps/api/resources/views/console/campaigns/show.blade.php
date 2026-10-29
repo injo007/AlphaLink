@@ -194,14 +194,20 @@
                             @endforeach
                         </ul>
                     </dd>
-                    <dt class="col-sm-3">Selected IP / MTA records</dt>
+                    <dt class="col-sm-3">Selected {{ match ($sendSetup['route_option'] ?? 'ip') { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}</dt>
                     <dd class="col-sm-9">
                         <ul class="mb-0">
                             @foreach ($sendSetup['ip_ids'] ?? [] as $ipId)
                                 @php
                                     $ipChoice = $availableIps->get($ipId);
+                                    $routeOption = $sendSetup['route_option'] ?? 'ip';
+                                    $routeDescription = match ($routeOption) {
+                                        'smtp' => implode(' · ', array_filter([$ipChoice['ip'] ?? null, $ipChoice['username'] ?? null, $ipChoice['name'] ?? null, $ipChoice['dns'] ?? null, isset($ipChoice['pmta_name']) ? 'PMTA route '.$ipChoice['pmta_name'] : null], static fn ($value) => filled($value))),
+                                        'vmta' => implode(' · ', array_filter([$ipChoice['ip'] ?? null, $ipChoice['name'] ?? null, $ipChoice['dns'] ?? null, isset($ipChoice['pmta_name']) ? 'PMTA route '.$ipChoice['pmta_name'] : null], static fn ($value) => filled($value))),
+                                        default => implode(' · ', array_filter([$ipChoice['ip'] ?? null, isset($ipChoice['type']) ? strtoupper($ipChoice['type']) : null, $ipChoice['dns'] ?? null], static fn ($value) => filled($value))),
+                                    };
                                 @endphp
-                                <li>{{ $ipChoice['ip'] ?? 'Unavailable record' }} {{ isset($ipChoice['type']) ? '· '.strtoupper($ipChoice['type']) : '' }} (ID {{ $ipId }})</li>
+                                <li>{{ $routeDescription !== '' ? $routeDescription : 'Unavailable record' }} (ID {{ $ipId }})</li>
                             @endforeach
                         </ul>
                     </dd>
@@ -230,7 +236,7 @@
         <div id="pmta-test" class="block block-rounded">
             <div class="block-header"><h3 class="block-title">Send a PMTA campaign test</h3></div>
             <div class="block-content block-content-full">
-                <p>Select a saved campaign server and Email Test recipient. AlphaLink connects to that server’s PMTA SMTP listener using the workspace port, falling back to the configured installation default when no workspace override is saved. Review the From, subject and body below before explicitly sending. Symfony Mailer builds this test MIME message; DMS’s native header, placeholder and VMTA behavior is not reproduced.</p>
+                <p>Select a saved campaign server and Email Test recipient. AlphaLink connects to that server’s PMTA listener at the server IP and workspace port; that is the PMTA ingress address. It then pins the campaign’s saved IP, VMTA, or SMTP route with <code>X-Virtual-MTA</code>, which controls the outbound source/account. The <code>[smtp]</code> and <code>[smtp_name]</code> tags resolve only when Option is SMTP. Review the From, subject and body before explicitly sending.</p>
                 @if (! $pmtaPort)
                     <div class="alert alert-warning">Configure a valid PMTA SMTP listener port in installation settings before testing.</div>
                 @else
@@ -241,7 +247,7 @@
                         <div class="form-row">
                             <div class="form-group col-md-6"><label for="pmta-test-server">Selected PMTA server</label><select id="pmta-test-server" name="server_id" class="form-control" required><option value="">Select server</option>@foreach ($sendSetup['server_ids'] ?? [] as $serverId)@if ($availableServers->has($serverId))<option value="{{ $serverId }}">{{ $availableServers->get($serverId)['name'] }} · {{ $availableServers->get($serverId)['ip'] }}:{{ $pmtaPort }}</option>@endif @endforeach</select></div>
                             <div class="form-group col-md-6"><label for="pmta-test-recipient">Email Test recipient</label><select id="pmta-test-recipient" name="recipient" class="form-control" required><option value="">Select recipient</option>@foreach ($content['email_tests'] ?? [] as $address)<option value="{{ $address }}">{{ $address }}</option>@endforeach</select></div>
-                            <div class="form-group col-md-6"><label for="pmta-test-from">From address</label><input id="pmta-test-from" name="from_email" type="email" maxlength="320" class="form-control" required></div>
+                            <div class="form-group col-md-6"><label for="pmta-test-from">From address</label><input id="pmta-test-from" name="from_email" type="text" inputmode="email" autocomplete="off" placeholder="sender@[domain]" maxlength="320" class="form-control" required><small class="form-text text-muted">Campaign tags such as <code>[domain]</code> and <code>[smtp]</code> are expanded before address validation.</small></div>
                             <div class="form-group col-md-6"><label for="pmta-test-subject">Subject</label><input id="pmta-test-subject" name="subject" type="text" maxlength="998" class="form-control" required></div>
                             <div class="form-group col-12"><label for="pmta-test-body">HTML body sent in this test</label><textarea id="pmta-test-body" name="body" rows="8" class="form-control" required>{{ $content['body'] ?? '' }}</textarea></div>
                         </div>

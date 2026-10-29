@@ -186,7 +186,9 @@ class PmtaPagesTest extends TestCase
             ->assertSee('data-panel-url="http://203.0.113.40:2447/"', false)
             ->assertSee('data-monitor-url="'.$monitorProxyUrl.'"', false)
             ->assertSee('data-monitor-proxied="true"', false)
-            ->assertSee('The embedded view uses AlphaLink’s authenticated HTTPS proxy', false)
+            ->assertSee('link.href = server.dataset.monitorUrl || server.dataset.panelUrl;', false)
+            ->assertSee('Open HTTPS read-only monitor: ${server.dataset.monitorEndpoint}', false)
+            ->assertSee('HTTP-only monitors open through AlphaLink’s authenticated HTTPS read-only proxy', false)
             ->assertDontSee('https://external.example.test:2447/', false);
 
         Http::fake([

@@ -462,7 +462,11 @@
                             <div id="campaign-pmta-panels" class="row" aria-live="polite">
                                 @foreach ($sendOptions['servers'] as $server)
                                     @if (in_array((string) $server['id'], $setup['server_ids'], true))
-                                        <div class="col-sm-6 col-lg-4"><a href="{{ $server['pmta_panel_url'] }}" target="_blank" rel="noopener noreferrer">Open PMTA panel ({{ str_starts_with($server['pmta_panel_url'], 'https://') ? 'HTTPS' : 'HTTP/IP' }}) — {{ $server['name'] }}:{{ $sendOptions['settings']['pmta_admin_port'] }}</a></div>
+                                        @php
+                                            $pmtaDisplayUrl = $server['pmta_panel_display_url'] ?? $server['pmta_panel_url'];
+                                            $pmtaUsesReadOnlyProxy = $pmtaDisplayUrl !== $server['pmta_panel_url'];
+                                        @endphp
+                                        <div class="col-sm-6 col-lg-4"><a href="{{ $pmtaDisplayUrl }}" target="_blank" rel="noopener noreferrer">Open PMTA monitor ({{ $pmtaUsesReadOnlyProxy ? 'HTTPS read-only proxy' : (str_starts_with($server['pmta_panel_url'], 'https://') ? 'HTTPS' : 'HTTP/IP') }}) — {{ $server['name'] }}:{{ $sendOptions['settings']['pmta_admin_port'] }}</a></div>
                                     @endif
                                 @endforeach
                             </div>
@@ -1337,10 +1341,12 @@
                     const selectedServers = new Set(Array.from(servers.selectedOptions).map(option => option.value));
                     result.servers.filter(server => selectedServers.has(String(server.id))).forEach(server => {
                         const link = document.createElement('a');
-                        link.href = server.pmta_panel_url || server.pmta_panel_display_url; link.target = '_blank'; link.rel = 'noopener noreferrer';
+                        const monitorUrl = server.pmta_panel_display_url || server.pmta_panel_url;
+                        link.href = monitorUrl; link.target = '_blank'; link.rel = 'noopener noreferrer';
                         link.className = 'mr-3';
-                        const panelScheme = new URL(link.href, window.location.href).protocol === 'https:' ? 'HTTPS' : 'HTTP/IP';
-                        link.textContent = `Open PMTA panel (${panelScheme}) — ${server.name}`;
+                        const usesReadOnlyProxy = monitorUrl !== server.pmta_panel_url;
+                        const panelScheme = new URL(monitorUrl, window.location.href).protocol === 'https:' ? 'HTTPS' : 'HTTP/IP';
+                        link.textContent = `Open PMTA monitor (${usesReadOnlyProxy ? 'HTTPS read-only proxy' : panelScheme}) — ${server.name}`;
                         panels.append(link);
                     });
                 };
@@ -1547,11 +1553,13 @@
                     const column = document.createElement('div');
                     column.className = 'col-sm-6 col-lg-4';
                     const link = document.createElement('a');
-                    link.href = server.pmta_panel_url || server.pmta_panel_display_url;
+                    const monitorUrl = server.pmta_panel_display_url || server.pmta_panel_url;
+                    link.href = monitorUrl;
                     link.target = '_blank';
                     link.rel = 'noopener noreferrer';
-                    const panelScheme = new URL(link.href, window.location.href).protocol === 'https:' ? 'HTTPS' : 'HTTP/IP';
-                    link.textContent = `Open PMTA panel (${panelScheme}) — ${server.name}:${data.settings.pmta_admin_port}`;
+                    const usesReadOnlyProxy = monitorUrl !== server.pmta_panel_url;
+                    const panelScheme = new URL(monitorUrl, window.location.href).protocol === 'https:' ? 'HTTPS' : 'HTTP/IP';
+                    link.textContent = `Open PMTA monitor (${usesReadOnlyProxy ? 'HTTPS read-only proxy' : panelScheme}) — ${server.name}:${data.settings.pmta_admin_port}`;
                     column.append(link);
                     panels.append(column);
                 });

@@ -235,8 +235,9 @@ test('campaign routing help explains SMTP tags and distinguishes PMTA ingress fr
     assert.match(view, /selected SMTP virtual-MTA route/);
     assert.match(view, /Campaign Test only, a rendered/);
     assert.match(view, /normal campaign sending is not enabled/);
-    assert.match(view, /server\.pmta_panel_url \|\| server\.pmta_panel_display_url/);
+    assert.match(view, /server\.pmta_panel_display_url \|\| server\.pmta_panel_url/);
     assert.match(view, /record\.pmta_panel_url \?\? record\.pmta_panel_display_url/);
     assert.match(view, /data-panel-url="\{\{ \$server\['pmta_panel_url'\] \}\}"/);
-    assert.match(view, /href="\{\{ \$server\['pmta_panel_url'\] \}\}"/);
+    assert.match(view, /href="\{\{ \$pmtaDisplayUrl \}\}"/);
+    assert.match(view, /HTTPS read-only proxy/);
 });

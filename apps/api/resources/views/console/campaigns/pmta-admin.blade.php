@@ -211,7 +211,7 @@
                 </div>
             </div>
         </div>
-        <p class="small text-muted mb-2">The embedded view uses AlphaLink’s authenticated HTTPS proxy for HTTP-only monitors. The link beside each server opens its actual PMTA endpoint: direct HTTP/IP without a verified certificate, or the verified domain over HTTPS.</p>
+        <p class="small text-muted mb-2">HTTP-only monitors open through AlphaLink’s authenticated HTTPS read-only proxy, which fetches the server’s public-IP HTTP endpoint on the configured PMTA port. Verified PMTA certificates open directly over HTTPS.</p>
         <div class="row no-gutters" id="pmta-admin-panels" @if ($selectedServerIds === []) hidden @endif aria-live="polite"></div>
     </section>
 @endsection
@@ -357,7 +357,7 @@
                     refreshLabel.className = 'small text-muted ml-2 pmta-monitor-refresh-label';
                     refreshLabel.textContent = 'Loading · auto refresh 5s';
                     const link = document.createElement('a');
-                    link.href = server.dataset.panelUrl;
+                    link.href = server.dataset.monitorUrl || server.dataset.panelUrl;
                     link.hidden = !server.dataset.panelUrl;
                     link.target = '_blank';
                     link.rel = 'noopener noreferrer';
@@ -365,10 +365,10 @@
                     try {
                         const panelUrl = new URL(server.dataset.panelUrl, window.location.href);
                         link.textContent = server.dataset.monitorProxied === 'true'
-                            ? `Open direct HTTP/IP: ${server.dataset.monitorEndpoint}`
+                            ? `Open HTTPS read-only monitor: ${server.dataset.monitorEndpoint}`
                             : `${panelUrl.protocol}//${panelUrl.host}`;
                         link.title = server.dataset.monitorProxied === 'true'
-                            ? `Open the PMTA listener directly over HTTP at ${panelUrl.host}. The embedded monitor remains behind AlphaLink HTTPS.`
+                            ? `Open the PMTA monitor through AlphaLink HTTPS. AlphaLink fetches it from ${panelUrl.protocol}//${panelUrl.host}; monitor controls are read-only.`
                             : `Open the PMTA monitor at ${panelUrl.protocol}//${panelUrl.host} in a new tab.`;
                     } catch {
                         link.textContent = server.textContent.split('|').at(-1).trim();

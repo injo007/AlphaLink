@@ -1979,13 +1979,16 @@ class DmsCampaignSendCatalogTest extends TestCase
             ])->assertOk()->assertJsonPath('outcome', 'accepted_by_transport');
         }
 
-        $expectedPmtaName = PmtaSmtpConfigBuilder::virtualMtaName($ip->ip, $smtp->getKey());
+        $expectedPmtaNames = [
+            'mta-'.$ip->ip,
+            PmtaSmtpConfigBuilder::virtualMtaName($ip->ip, $smtp->getKey()),
+        ];
         $this->assertCount(2, $sentMessages);
-        foreach ($sentMessages as $sentMessage) {
+        foreach ($sentMessages as $index => $sentMessage) {
             $this->assertSame('synthetic-pmta-smtp-recipient@example.test', $sentMessage['recipient']);
             $this->assertStringContainsString('Subject: relay-user@example.test', $sentMessage['message']);
             $this->assertStringContainsString('Account=relay-user@example.test; name=relay-user@example.test; IP=203.0.113.151', $sentMessage['message']);
-            $this->assertStringContainsString('X-virtual-MTA: '.$expectedPmtaName, $sentMessage['message']);
+            $this->assertStringContainsString('X-virtual-MTA: '.$expectedPmtaNames[$index], $sentMessage['message']);
             $this->assertStringNotContainsString('legacy-relay@example.test', $sentMessage['message']);
         }
 
@@ -2226,7 +2229,7 @@ class DmsCampaignSendCatalogTest extends TestCase
         $this->assertStringContainsString('Subject: Route through saved placeholders', $sentMessages[0]);
         $this->assertStringContainsString('Relay=ip-linked-smtp@example.test; label=IP linked relay', quoted_printable_decode($sentMessages[0]));
         $this->assertStringContainsString(
-            'X-Virtual-MTA: '.PmtaSmtpConfigBuilder::virtualMtaName((string) $ip->ip, (int) $smtp->getKey()),
+            'X-Virtual-MTA: mta-'.$ip->ip,
             $sentMessages[0],
         );
     }
@@ -2353,8 +2356,8 @@ class DmsCampaignSendCatalogTest extends TestCase
 
         $this->assertCount(2, $sentMessages);
         foreach ([
-            [PmtaSmtpConfigBuilder::virtualMtaName($ipv4->ip, $smtpAccountsByIp[(string) $ipv4->getKey()]->getKey()), '203.0.113.11', 'ipv4-user@example.test', 'IPv4 linked SMTP'],
-            [PmtaSmtpConfigBuilder::virtualMtaName($ipv6->ip, $smtpAccountsByIp[(string) $ipv6->getKey()]->getKey()), '2001:db8::65', 'ipv6-user@example.test', 'IPv6 linked SMTP'],
+            ['mta-203.0.113.11', '203.0.113.11', 'ipv4-user@example.test', 'IPv4 linked SMTP'],
+            ['mta-2001.db8..65', '2001:db8::65', 'ipv6-user@example.test', 'IPv6 linked SMTP'],
         ] as $index => [$pmtaName, $sourceIp, $smtpUsername, $smtpName]) {
             $message = $sentMessages[$index]['message'];
             $this->assertSame(1, preg_match_all('/^X-virtual-MTA:/mi', $message));
@@ -2366,11 +2369,11 @@ class DmsCampaignSendCatalogTest extends TestCase
             $snapshot = (string) DB::table('campaign_manual_test_attempts')->where('id', $attemptIds[$index])->value('test_snapshot');
             $decodedSnapshot = json_decode(Crypt::decryptString($snapshot), true, flags: JSON_THROW_ON_ERROR);
             $this->assertSame($pmtaName, $decodedSnapshot['virtual_mtas'][0]['pmta_name']);
-            $this->assertSame('smtp', $decodedSnapshot['outbound_route']);
+            $this->assertSame('ip', $decodedSnapshot['outbound_route']);
         }
     }
 
-    public function test_manual_ip_campaign_test_routes_smtp_tags_from_assets_and_placeholders(): void
+    public function test_manual_ip_campaign_test_expands_smtp_tags_without_changing_the_ip_route(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner, 'owner');
@@ -2440,7 +2443,7 @@ class DmsCampaignSendCatalogTest extends TestCase
         foreach ([
             [
                 'header' => "To: [to]\nFrom: [from]\nSubject: [subject]",
-                'body' => 'Selected From/Subject assets choose the SMTP route.',
+                'body' => 'Selected From/Subject assets do not change the IP route.',
                 'send_setup' => [
                     'from_asset_ids' => [(int) $from->getKey()],
                     'subject_asset_ids' => [(int) $subject->getKey()],
@@ -2481,7 +2484,7 @@ class DmsCampaignSendCatalogTest extends TestCase
 
         $this->assertCount(3, $sentMessages);
         foreach (array_slice($sentMessages, 0, 2) as $message) {
-            $this->assertStringContainsString('X-virtual-MTA: '.PmtaSmtpConfigBuilder::virtualMtaName($ip->ip, $smtp->getKey()), $message);
+            $this->assertStringContainsString('X-virtual-MTA: mta-'.$ip->ip, $message);
         }
         $this->assertStringContainsString('X-virtual-MTA: mta-'.$ip->ip, $sentMessages[2]);
         $this->assertStringContainsString('From: linked-smtp@example.test', $sentMessages[0]);
@@ -2492,8 +2495,8 @@ class DmsCampaignSendCatalogTest extends TestCase
         $snapshots = DB::table('campaign_manual_test_attempts')->orderBy('created_at')->pluck('test_snapshot');
         foreach (array_slice($snapshots->all(), 0, 2) as $snapshot) {
             $decodedSnapshot = json_decode(Crypt::decryptString((string) $snapshot), true, flags: JSON_THROW_ON_ERROR);
-            $this->assertSame('smtp', $decodedSnapshot['outbound_route']);
-            $this->assertSame(PmtaSmtpConfigBuilder::virtualMtaName($ip->ip, $smtp->getKey()), $decodedSnapshot['virtual_mtas'][0]['pmta_name']);
+            $this->assertSame('ip', $decodedSnapshot['outbound_route']);
+            $this->assertSame('mta-'.$ip->ip, $decodedSnapshot['virtual_mtas'][0]['pmta_name']);
         }
         $untaggedSnapshot = json_decode(Crypt::decryptString((string) $snapshots[2]), true, flags: JSON_THROW_ON_ERROR);
         $this->assertSame('ip', $untaggedSnapshot['outbound_route']);
@@ -2551,7 +2554,7 @@ class DmsCampaignSendCatalogTest extends TestCase
                 'send_type' => 'delay',
             ],
         ])->assertUnprocessable()->assertJsonValidationErrors('header')
-            ->assertJsonPath('errors.header.0', 'The selected IP has multiple linked SMTP accounts, so [smtp] is ambiguous. Choose Option SMTP and select the exact account.');
+            ->assertJsonPath('errors.header.0', 'The selected IP has multiple linked SMTP accounts, so [smtp] has no unambiguous value. Link one account to this IP or choose the exact account with Option SMTP.');
 
         $this->assertDatabaseCount('campaign_manual_test_attempts', 0);
     }
@@ -3577,7 +3580,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertSee('alphalink-toast-stack', false)
             ->assertSee('id="campaign-data" tabindex="-1"', false)
             ->assertSee('[smtp] [smtp_name]')
-            ->assertSeeText('[smtp] and [smtp_name] are content tags. In Campaign Test, Option IP uses the linked SMTP relay when a tag is present; otherwise choose Option SMTP to select the relay directly. Normal campaign sending is not enabled.')
+            ->assertSeeText('[smtp] and [smtp_name] fill message text; they do not choose the sending route. Option IP sends through the selected IP. To use an SMTP relay, choose Option SMTP and select its account. Normal campaign sending is not enabled.')
             ->assertSee('data-campaign-menu-action="create"', false)
             ->assertSee('data-campaign-menu-action="create-send"', false)
             ->assertSee('data-campaign-menu-action="test"', false)

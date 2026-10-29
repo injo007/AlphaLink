@@ -301,3 +301,11 @@ A read-only GET of the blank DMS Add Project form shows an S3 toggle, `api_type`
 
 
 The blank DMS Add Gmail Accounts surface contains a project selector, accounts textarea and SAVE control. The capture suppresses project options and all dynamic account data, and no submission was made. AlphaLink's inline form uses the same basic inputs, but the DMS validation, address parsing, duplicate semantics and authentication effects remain UNKNOWN. Evidence: E-TOOLS-23.
+
+## DMS-CAMPAIGN-ROUTE-TAGS — Route choice and SMTP content tags
+
+**Evidence:** Read-only DMS Create Campaign composer route selector and tag help; AlphaLink E-CAMP-133.
+
+DMS displays the IP, VMTA, and SMTP route choice separately from message content tags. The DMS help/example confirms `[smtp]` can appear in a message header, but current evidence does not prove that the native sender changes routes because the tag is present. In AlphaLink, Option IP pins the selected IP virtual MTA. `[smtp]` and `[smtp_name]` fill message content from a single linked active SMTP account; they do not select that account as the outbound route. Choose Option SMTP and the specific SMTP account to route through the relay. The campaign test still connects to the selected server PMTA listener; that server IP is ingress, while the `X-virtual-MTA` identifies the configured outbound route. Normal campaign SEND is not implemented.
+
+For servers without a DNS-managed monitor certificate, the browser-facing PMTA link uses AlphaLink’s HTTPS read-only proxy and the proxy fetches the monitor using HTTP to the server’s public IP and configured port. Keeping the application link HTTPS is expected and avoids browser HTTPS upgrades against PMTA’s HTTP listener. The route is covered by local tests; production deployment and server behavior are not confirmed.

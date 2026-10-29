@@ -233,7 +233,7 @@ test('campaign routing help explains SMTP tags and distinguishes PMTA ingress fr
     assert.match(view, /Option SMTP selects the outbound relay/);
     assert.match(view, /\[smtp\]<\/code> is its username and <code>\[smtp_name\]/);
     assert.match(view, /selected SMTP virtual-MTA route/);
-    assert.match(view, /Campaign Test only, a rendered/);
+    assert.match(view, /they do not change the route/);
     assert.match(view, /normal campaign sending is not enabled/);
     assert.match(view, /server\.pmta_panel_display_url \|\| server\.pmta_panel_url/);
     assert.match(view, /record\.pmta_panel_url \?\? record\.pmta_panel_display_url/);

@@ -1493,13 +1493,8 @@ class WorkspaceConsoleController extends Controller
                 if ($smtpAccountCount !== 1) {
                     throw ValidationException::withMessages([
                         'header' => $smtpAccountCount === 0
-                            ? 'The selected IP has no linked SMTP account for [smtp]. Link one active account to that IP, or choose Option SMTP and select an account.'
-                            : 'The selected IP has multiple linked SMTP accounts, so [smtp] is ambiguous. Choose Option SMTP and select the exact account.',
-                    ]);
-                }
-                if (preg_match('/\A[A-Za-z0-9_.:-]{1,255}\z/', (string) ($ipChoice['smtp_pmta_name'] ?? '')) !== 1) {
-                    throw ValidationException::withMessages([
-                        'header' => 'The SMTP account linked to the selected IP has no valid PMTA route. Push its SMTP configuration, then reload the campaign.',
+                            ? 'The selected IP has no linked SMTP account to expand [smtp]. Link one active account to this IP or remove the tag. To route through an SMTP account, choose Option SMTP and select it.'
+                            : 'The selected IP has multiple linked SMTP accounts, so [smtp] has no unambiguous value. Link one account to this IP or choose the exact account with Option SMTP.',
                     ]);
                 }
             }
@@ -1530,7 +1525,6 @@ class WorkspaceConsoleController extends Controller
             $negativePath,
             $placeholderRows,
             $vmtaPlanner,
-            $usesSmtpTag,
         ): array {
             $from = $fromAssets === [] ? ['id' => 0, 'value' => ''] : $fromAssets[$index % count($fromAssets)];
             $subject = $subjectAssets === [] ? ['id' => 0, 'value' => ''] : $subjectAssets[$index % count($subjectAssets)];
@@ -1565,12 +1559,9 @@ class WorkspaceConsoleController extends Controller
                 );
             } elseif ($data['send_setup']['route_option'] === 'ip') {
                 $ipChoice = $routeChoices->get((string) $selectedServer->getKey());
-                $virtualMtaName = $usesSmtpTag
-                    ? (string) $ipChoice['smtp_pmta_name']
-                    : $vmtaPlanner->ipVirtualMtaName((string) $ipChoice['ip']);
                 $renderedHeader = $this->campaignTestHeaderWithVirtualMta(
                     $renderedHeader,
-                    $virtualMtaName,
+                    $vmtaPlanner->ipVirtualMtaName((string) $ipChoice['ip']),
                 );
             } elseif ($data['send_setup']['route_option'] === 'smtp') {
                 $smtpChoice = $routeChoices->get((string) $selectedServer->getKey());
@@ -1621,9 +1612,9 @@ class WorkspaceConsoleController extends Controller
         $fingerprint = hash('sha256', json_encode([
             $campaign?->getKey(), $serverIds, $selectedIps, $recipients, $submittedHeader,
             $data['return_path'] ?? '', $data['body'] ?? '', $data['domain'] ?? '', $data['send_setup'],
-            $servers->map(fn (ManagedServer $selectedServer): string => (string) ($routeChoices->get((string) $selectedServer->getKey())[
-                $data['send_setup']['route_option'] === 'ip' && $usesSmtpTag ? 'smtp_pmta_name' : 'pmta_name'
-            ] ?? '')),
+            $servers->map(fn (ManagedServer $selectedServer): string => $data['send_setup']['route_option'] === 'ip'
+                ? $vmtaPlanner->ipVirtualMtaName((string) ($routeChoices->get((string) $selectedServer->getKey())['ip'] ?? ''))
+                : (string) ($routeChoices->get((string) $selectedServer->getKey())['pmta_name'] ?? '')),
         ], JSON_THROW_ON_ERROR));
         $nextFormInput = [...$request->except('_token'), 'idempotency_key' => (string) Str::uuid()];
         $testSnapshot = [
@@ -1640,7 +1631,7 @@ class WorkspaceConsoleController extends Controller
             'body' => $data['body'] ?? '',
             'resolved_body' => $firstTestMessage['body'],
             'mta' => $data['send_setup']['route_option'],
-            'outbound_route' => $data['send_setup']['route_option'] === 'ip' && $usesSmtpTag ? 'smtp' : $data['send_setup']['route_option'],
+            'outbound_route' => $data['send_setup']['route_option'],
             'type' => $data['send_setup']['ip_type'],
             'virtual_mtas' => in_array($data['send_setup']['route_option'], ['ip', 'vmta', 'smtp'], true)
                 ? $servers->map(fn (ManagedServer $selectedServer): array => [
@@ -1652,9 +1643,7 @@ class WorkspaceConsoleController extends Controller
                             ? ($routeChoices->get((string) $selectedServer->getKey())['username'] ?? '')
                             : ($routeChoices->get((string) $selectedServer->getKey())['name'] ?? '')),
                     'pmta_name' => $data['send_setup']['route_option'] === 'ip'
-                        ? ($usesSmtpTag
-                            ? (string) ($routeChoices->get((string) $selectedServer->getKey())['smtp_pmta_name'] ?? '')
-                            : $vmtaPlanner->ipVirtualMtaName((string) $routeChoices->get((string) $selectedServer->getKey())['ip']))
+                        ? $vmtaPlanner->ipVirtualMtaName((string) $routeChoices->get((string) $selectedServer->getKey())['ip'])
                         : (string) ($routeChoices->get((string) $selectedServer->getKey())['pmta_name'] ?? ''),
                     'domain' => (string) ($data['send_setup']['route_option'] === 'ip'
                         ? ($routeChoices->get((string) $selectedServer->getKey())['dns'] ?? '')
@@ -2142,14 +2131,12 @@ class WorkspaceConsoleController extends Controller
         if ($route === 'ip' && $usesSmtpTag && (int) ($routeChoice['smtp_account_count'] ?? 0) !== 1) {
             throw ValidationException::withMessages([
                 'from_email' => (int) ($routeChoice['smtp_account_count'] ?? 0) === 0
-                    ? 'The saved IP has no linked SMTP account for [smtp]. Edit the campaign and link one active SMTP account to that IP, or select an SMTP route.'
-                    : 'The saved IP has multiple linked SMTP accounts, so [smtp] is ambiguous. Edit the campaign and select the exact SMTP route.',
+                    ? 'The saved IP has no linked SMTP account to expand [smtp]. Edit the campaign and link one active account to that IP or remove the tag. To route through SMTP, select Option SMTP.'
+                    : 'The saved IP has multiple linked SMTP accounts, so [smtp] has no unambiguous value. Link one account to the IP or select the exact account with Option SMTP.',
             ]);
         }
         $virtualMtaName = $route === 'ip'
-            ? ($usesSmtpTag
-                ? trim((string) ($routeChoice['smtp_pmta_name'] ?? ''))
-                : $vmtaPlanner->ipVirtualMtaName((string) ($routeChoice['ip'] ?? '')))
+            ? $vmtaPlanner->ipVirtualMtaName((string) ($routeChoice['ip'] ?? ''))
             : trim((string) ($routeChoice['pmta_name'] ?? ''));
         abort_unless(preg_match('/\A[A-Za-z0-9_.:-]{1,255}\z/', $virtualMtaName) === 1, 422, 'The selected PMTA route is not available on this server. Push the route in PMTA and reload the campaign.');
 

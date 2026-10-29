@@ -2036,7 +2036,10 @@ class DmsCampaignSendCatalogTest extends TestCase
                     'ip_type' => 'ipv4',
                     'server_ids' => [(string) $server->getKey()],
                     'ip_ids' => [(string) $ip->getKey()],
-                    'placeholders' => [],
+                    'placeholders' => [
+                        ['data' => ['[smtp]'], 'rotate_every' => 1],
+                        ['data' => ['[smtp_name]'], 'rotate_every' => 1],
+                    ],
                 ],
                 'email_tests' => ['ip-smtp-test-recipient@example.test'],
             ],
@@ -2068,15 +2071,15 @@ class DmsCampaignSendCatalogTest extends TestCase
             'server_id' => $server->getKey(),
             'recipient' => 'ip-smtp-test-recipient@example.test',
             'from_email' => 'mailer@[domain]',
-            'subject' => 'Route through [smtp]',
-            'body' => 'Relay=[smtp]; label=[smtp_name]',
+            'subject' => 'Route through saved placeholders',
+            'body' => 'Relay=[placeholder1]; label=[placeholder2]',
             'idempotency_key' => (string) Str::uuid(),
             'confirm_authorized_recipient' => '1',
         ])->assertSessionHas('status', 'The selected server’s PMTA SMTP listener accepted this test message. Mailbox delivery is unconfirmed.');
 
         $this->assertCount(1, $sentMessages);
         $this->assertStringContainsString('From: mailer@relay.saved-ip-smtp.example.test', $sentMessages[0]);
-        $this->assertStringContainsString('Subject: Route through ip-linked-smtp@example.test', $sentMessages[0]);
+        $this->assertStringContainsString('Subject: Route through saved placeholders', $sentMessages[0]);
         $this->assertStringContainsString('Relay=ip-linked-smtp@example.test; label=IP linked relay', quoted_printable_decode($sentMessages[0]));
         $this->assertStringContainsString(
             'X-Virtual-MTA: '.PmtaSmtpConfigBuilder::virtualMtaName((string) $ip->ip, (int) $smtp->getKey()),
@@ -2220,6 +2223,122 @@ class DmsCampaignSendCatalogTest extends TestCase
             $decodedSnapshot = json_decode(Crypt::decryptString($snapshot), true, flags: JSON_THROW_ON_ERROR);
             $this->assertSame($pmtaName, $decodedSnapshot['virtual_mtas'][0]['pmta_name']);
             $this->assertSame('smtp', $decodedSnapshot['outbound_route']);
+        }
+    }
+
+    public function test_manual_ip_campaign_test_routes_smtp_tags_from_assets_and_placeholders(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->workspace($owner, 'owner');
+        $server = $this->server($workspace, $owner, '203.0.113.30');
+        $domain = SendingDomain::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'name' => 'asset-smtp-route.example.test',
+            'state' => 'verified',
+            'verification_token' => 'synthetic-asset-smtp-route-token',
+            'created_by' => $owner->getKey(),
+            'status' => 'free',
+            'is_active' => true,
+        ]);
+        $ip = ManagedServerIp::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'managed_server_id' => $server->getKey(),
+            'sending_domain_id' => $domain->getKey(),
+            'ip' => '203.0.113.31',
+            'type' => 'ipv4',
+            'dns' => 'relay.asset-smtp-route.example.test',
+            'is_active' => true,
+        ]);
+        $smtp = ManagedServerMta::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'managed_server_id' => $server->getKey(),
+            'managed_server_ip_id' => $ip->getKey(),
+            'ip' => $ip->ip,
+            'dns' => $ip->dns,
+            'ip_type' => 'ipv4',
+            'mta_type' => 'smtp',
+            'username' => 'linked-smtp@example.test',
+            'name' => 'Linked SMTP account',
+            'is_active' => true,
+            'user_id' => $owner->getKey(),
+        ]);
+        $sponsor = $this->sponsor($workspace);
+        $offer = $this->offer($workspace, $sponsor);
+        $from = WorkspaceOfferAsset::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'offer_id' => $offer->getKey(),
+            'type' => 'from',
+            'value' => '[smtp]',
+        ]);
+        $subject = WorkspaceOfferAsset::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'offer_id' => $offer->getKey(),
+            'type' => 'subject',
+            'value' => '[smtp_name]',
+        ]);
+        $workspace->infrastructureSettings()->create(['pmta_port' => 2525]);
+
+        $sentMessages = [];
+        $transport = Mockery::mock(SmtpTransport::class);
+        $transport->shouldReceive('start')->twice();
+        $transport->shouldReceive('send')->twice()->withArgs(function ($message) use (&$sentMessages): bool {
+            $sentMessages[] = $message->toString();
+
+            return true;
+        });
+        $transport->shouldReceive('stop')->twice();
+        $factory = Mockery::mock(PmtaCampaignTestTransport::class);
+        $factory->shouldReceive('forServer')->twice()
+            ->withArgs(fn (ManagedServer $selected, int $port): bool => $selected->is($server) && $port === 2525)
+            ->andReturn($transport);
+        $this->app->instance(PmtaCampaignTestTransport::class, $factory);
+
+        foreach ([
+            [
+                'header' => "To: [to]\nFrom: [from]\nSubject: [subject]",
+                'body' => 'Selected From/Subject assets choose the SMTP route.',
+                'send_setup' => [
+                    'from_asset_ids' => [(int) $from->getKey()],
+                    'subject_asset_ids' => [(int) $subject->getKey()],
+                ],
+            ],
+            [
+                'header' => "To: [to]\nFrom: sender@[domain]\nSubject: Placeholder route",
+                'body' => 'Selected placeholder: [placeholder1]',
+                'send_setup' => [
+                    'placeholder_inputs' => [['data_text' => '[smtp_name]', 'rotate_every' => 1]],
+                ],
+            ],
+        ] as $index => $case) {
+            $this->actingAs($owner)->postJson(route('console.campaigns.manual-test', $workspace->getKey()), [
+                'idempotency_key' => (string) Str::uuid(),
+                'email_test_addresses' => 'synthetic-asset-smtp-'.$index.'@example.test',
+                'header' => $case['header'],
+                'body' => $case['body'],
+                'send_setup' => [
+                    ...$case['send_setup'],
+                    'server_ids' => [(string) $server->getKey()],
+                    'ip_ids' => [(int) $ip->getKey()],
+                    'route_option' => 'ip',
+                    'ip_type' => 'ipv4',
+                    'send_type' => 'delay',
+                ],
+            ])->assertOk()->assertJsonPath('outcome', 'accepted_by_transport');
+        }
+
+        $this->assertCount(2, $sentMessages);
+        foreach ($sentMessages as $message) {
+            $this->assertStringContainsString('X-virtual-MTA: '.PmtaSmtpConfigBuilder::virtualMtaName($ip->ip, $smtp->getKey()), $message);
+        }
+        $this->assertStringContainsString('From: linked-smtp@example.test', $sentMessages[0]);
+        $this->assertStringContainsString('Subject: Linked SMTP account', $sentMessages[0]);
+        $this->assertStringContainsString('Selected placeholder: Linked SMTP account', quoted_printable_decode($sentMessages[1]));
+
+        $snapshots = DB::table('campaign_manual_test_attempts')->orderBy('created_at')->pluck('test_snapshot');
+        foreach ($snapshots as $snapshot) {
+            $decodedSnapshot = json_decode(Crypt::decryptString((string) $snapshot), true, flags: JSON_THROW_ON_ERROR);
+            $this->assertSame('smtp', $decodedSnapshot['outbound_route']);
+            $this->assertSame(PmtaSmtpConfigBuilder::virtualMtaName($ip->ip, $smtp->getKey()), $decodedSnapshot['virtual_mtas'][0]['pmta_name']);
         }
     }
 

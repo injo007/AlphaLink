@@ -1481,11 +1481,13 @@ class WorkspaceConsoleController extends Controller
                 }
             }
         }
-        $usesSmtpTag = preg_match('/\[(?:smtp|smtp_name)\]/i', implode("\n", [
+        $usesSmtpTag = $this->campaignTestUsesSmtpTag([
             (string) ($data['header'] ?? ''),
             (string) ($data['body'] ?? ''),
             (string) ($data['return_path'] ?? ''),
-        ])) === 1;
+            ...array_map(static fn (array $asset): string => (string) ($asset['value'] ?? ''), $fromAssets),
+            ...array_map(static fn (array $asset): string => (string) ($asset['value'] ?? ''), $subjectAssets),
+        ], $placeholderRows);
         if ($data['send_setup']['route_option'] === 'ip' && $usesSmtpTag) {
             foreach ($servers as $selectedServer) {
                 $ipChoice = $routeChoices->get((string) $selectedServer->getKey());
@@ -1852,6 +1854,28 @@ class WorkspaceConsoleController extends Controller
     }
 
     /**
+     * Detect SMTP tags in message text and values expanded before tag rendering.
+     *
+     * @param  list<string>  $messageSources
+     * @param  list<array<string, mixed>>  $placeholderRows
+     */
+    private function campaignTestUsesSmtpTag(array $messageSources, array $placeholderRows): bool
+    {
+        foreach ($placeholderRows as $placeholderRow) {
+            $placeholderValues = $placeholderRow['data'] ?? null;
+            if (is_array($placeholderValues)) {
+                foreach ($placeholderValues as $placeholderValue) {
+                    $messageSources[] = (string) $placeholderValue;
+                }
+            } else {
+                $messageSources[] = (string) ($placeholderRow['data_text'] ?? '');
+            }
+        }
+
+        return preg_match('/\[(?:smtp|smtp_name)\]/i', implode("\n", $messageSources)) === 1;
+    }
+
+    /**
      * Resolve the DMS send-text values for one selected AlphaLink server.
      * Campaign Test may omit explicit IP IDs, so its approved server-only path
      * falls back to that server's primary active IP, then its first active IP.
@@ -2093,11 +2117,11 @@ class WorkspaceConsoleController extends Controller
             ->first(fn (?array $choice): bool => is_array($choice));
         abort_unless(is_array($routeChoice), 422, 'The saved campaign has no active IP, VMTA, or SMTP route for this server. Edit the campaign and select an available route for this server.');
 
-        $usesSmtpTag = preg_match('/\[(?:smtp|smtp_name)\]/i', implode("\n", [
+        $usesSmtpTag = $this->campaignTestUsesSmtpTag([
             (string) $data['from_email'],
             (string) $data['subject'],
             (string) $data['body'],
-        ])) === 1;
+        ], is_array($setup['placeholders'] ?? null) ? $setup['placeholders'] : []);
         if ($route === 'ip' && $usesSmtpTag && (int) ($routeChoice['smtp_account_count'] ?? 0) !== 1) {
             throw ValidationException::withMessages([
                 'from_email' => (int) ($routeChoice['smtp_account_count'] ?? 0) === 0

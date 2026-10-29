@@ -200,9 +200,6 @@ class DmsWorkspaceSmtpConfiguration
                 throw new RuntimeException('Workspace relay deployment assets are missing or invalid.');
             }
         }
-        if (! is_executable($assets['binary'])) {
-            throw new RuntimeException('The Workspace relay executable is not executable.');
-        }
         $configuration = json_decode((string) file_get_contents($assets['config']), true);
         if (! is_array($configuration)
             || ($configuration['listen_addr'] ?? null) !== '127.0.0.1:1028'

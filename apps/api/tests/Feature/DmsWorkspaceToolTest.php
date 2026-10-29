@@ -367,17 +367,21 @@ class DmsWorkspaceToolTest extends TestCase
             'listen_addr' => '127.0.0.1:1028',
             'service_accounts_dir' => '/etc/workspace_relay/accounts',
         ], JSON_THROW_ON_ERROR));
-        chmod($assetDirectory.'/workspace_relay', 0755);
+        // The relay runs on the target server, where installRelay applies +x.
+        // The application host only needs to read and upload this asset.
+        chmod($assetDirectory.'/workspace_relay', 0644);
         config(['infrastructure.workspace_relay_assets_directory' => $assetDirectory]);
 
         $uploadedConfiguration = null;
+        $executedCommands = [];
         $expectedAssets = [
             '/usr/sbin/workspace_relay' => $assetDirectory.'/workspace_relay',
             '/etc/workspace_relay/config.json' => $assetDirectory.'/config.json',
             '/etc/systemd/system/workspace_relay.service' => $assetDirectory.'/workspace_relay.service',
         ];
         $session = Mockery::mock(DmsInstallerSshSession::class);
-        $session->shouldReceive('exec')->andReturnUsing(function (string $command): string {
+        $session->shouldReceive('exec')->andReturnUsing(function (string $command) use (&$executedCommands): string {
+            $executedCommands[] = $command;
             if (str_starts_with($command, 'systemctl list-unit-files')) {
                 return 'n';
             }
@@ -408,6 +412,7 @@ class DmsWorkspaceToolTest extends TestCase
             'ips' => [$ip->id], 'projects' => [$project->id], 'split_on_ips' => false,
         ])->assertOk()->assertJsonPath('data.0.data', 'Workspace Pushed Successfully');
 
+        $this->assertContains('chmod +x /usr/sbin/workspace_relay && chown root:root /usr/sbin/workspace_relay', $executedCommands);
         $this->assertNotNull($uploadedConfiguration);
         $this->assertStringContainsString('auth-username active@example.test', $uploadedConfiguration);
         $this->assertStringNotContainsString('inactive@example.test', $uploadedConfiguration);

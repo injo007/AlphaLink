@@ -14,6 +14,7 @@ class PmtaPanelUrlTest extends TestCase
             'ip_address' => '203.0.113.40',
             'install_parameters' => [
                 'https' => true,
+                'pmta_monitor_https' => true,
                 'data' => [
                     ['main' => false, 'domain' => 'alias.example.test'],
                     ['main' => true, 'domain' => 'sender.example.test'],
@@ -32,6 +33,19 @@ class PmtaPanelUrlTest extends TestCase
         ]);
 
         $this->assertSame('http://[2001:db8::40]:2447/', PmtaPanelUrl::forServer($server, 2447));
+    }
+
+    public function test_legacy_general_https_flag_does_not_claim_pmta_tls_without_verification(): void
+    {
+        $server = (new ManagedServer)->forceFill([
+            'ip_address' => '203.0.113.40',
+            'install_parameters' => [
+                'https' => true,
+                'data' => [['main' => true, 'domain' => 'sender.example.test']],
+            ],
+        ]);
+
+        $this->assertSame('http://203.0.113.40:2447/', PmtaPanelUrl::forServer($server, 2447));
     }
 
     public function test_https_is_not_claimed_without_a_valid_certificate_hostname(): void

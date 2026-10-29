@@ -30,7 +30,11 @@ final class PmtaPanelUrl
             (string) $server->ip_address,
             is_string($main['domain'] ?? null) ? $main['domain'] : null,
             $port,
-            ($parameters['https'] ?? false) === true,
+            // `https` covers the server's general HTTPS install option (for
+            // example its tracking vhost). Older installs can have that flag
+            // without a TLS-enabled PMTA listener. Only use HTTPS when the
+            // install workflow explicitly persisted its verified PMTA state.
+            ($parameters['pmta_monitor_https'] ?? false) === true,
         );
     }
 

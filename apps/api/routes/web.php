@@ -261,6 +261,8 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::post('/app/workspaces/{workspace}/campaigns/check-smtp', [WorkspaceConsoleController::class, 'checkCampaignSmtp'])->middleware('throttle:3,1')->name('console.campaigns.smtp-check');
     Route::get('/app/workspaces/{workspace}/composer/options', [WorkspaceConsoleController::class, 'campaignSendOptions'])->name('console.campaigns.send-options');
     Route::post('/app/workspaces/{workspace}/campaigns', [WorkspaceConsoleController::class, 'createCampaignDraft'])->middleware('throttle:10,1')->name('console.campaigns.store');
+    Route::get('/app/workspaces/{workspace}/campaigns/{campaign}/snapshot-progress', [WorkspaceConsoleController::class, 'campaignSnapshotProgress'])->name('console.campaigns.snapshot-progress');
+    Route::post('/app/workspaces/{workspace}/campaigns/{campaign}/snapshot-retry', [WorkspaceConsoleController::class, 'retryCampaignSnapshot'])->middleware('throttle:3,1')->name('console.campaigns.snapshot-retry');
     Route::post('/app/workspaces/{workspace}/campaigns/{campaign}/revisions', [WorkspaceConsoleController::class, 'reviseCampaignDraft'])->middleware('throttle:10,1')->name('console.campaigns.revisions.store');
     Route::post('/app/workspaces/{workspace}/campaigns/{campaign}/generate-body', [CampaignComposerToolsController::class, 'generateBody'])->middleware('throttle:10,1')->name('console.campaigns.generate-body');
     Route::post('/app/workspaces/{workspace}/campaigns/{campaign}/test-email', [WorkspaceConsoleController::class, 'sendCampaignTestEmail'])->name('console.campaigns.test-email');

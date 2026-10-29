@@ -373,6 +373,11 @@ class DmsChangeDomainRunner
             $parameters['dkim'] = $options['dkim'];
             $parameters['dmarc'] = $options['dmarc'];
             $parameters['https'] = $options['https'];
+            // configurePmtaMonitor has completed (and validates nginx before
+            // returning) whenever this workflow reaches persist().
+            if (array_key_exists('pmta_version', $parameters)) {
+                $parameters['pmta_monitor_https'] = $options['https'];
+            }
             $server->forceFill(['install_parameters' => $parameters])->saveOrFail();
 
             AuditEvent::query()->create([

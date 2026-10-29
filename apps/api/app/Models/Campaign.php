@@ -10,11 +10,22 @@ class Campaign extends Model
 {
     use HasUuids;
 
-    protected $fillable = ['workspace_id', 'created_by', 'name', 'kind', 'status', 'is_active', 'idempotency_key', 'send_progress'];
+    protected $fillable = [
+        'workspace_id', 'created_by', 'name', 'kind', 'status', 'is_active', 'idempotency_key', 'send_progress',
+        'snapshot_build_stage', 'snapshot_build_percent', 'snapshot_build_processed', 'snapshot_build_total',
+        'snapshot_build_error', 'snapshot_build_updated_at',
+    ];
 
     protected function casts(): array
     {
-        return ['is_active' => 'boolean', 'send_progress' => 'integer'];
+        return [
+            'is_active' => 'boolean',
+            'send_progress' => 'integer',
+            'snapshot_build_percent' => 'integer',
+            'snapshot_build_processed' => 'integer',
+            'snapshot_build_total' => 'integer',
+            'snapshot_build_updated_at' => 'immutable_datetime',
+        ];
     }
 
     public function workspace()

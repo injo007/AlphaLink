@@ -81,24 +81,29 @@ class DmsOfferSuppressionFile
         }
     }
 
-    /**
-     * Check that the stored artifact is present, fresh, and still matches its persisted digest.
-     */
-    public function isEligible(WorkspaceOffer $offer): bool
+    /** Check inexpensive metadata, freshness, and storage presence for campaign choices. */
+    public function hasFreshStoredReference(WorkspaceOffer $offer): bool
     {
         if (! filled($offer->suppression_path)
             || ! filled($offer->suppression_sha256)
+            || preg_match('/^[a-f0-9]{64}$/', (string) $offer->suppression_sha256) !== 1
             || ! in_array($offer->suppression_format, ['email', 'md5', 'sha512'], true)
             || $offer->suppression_updated_at === null
             || $offer->suppression_updated_at->diffInDays(now()) > 7) {
             return false;
         }
 
-        $disk = Storage::disk(self::DISK);
-        if (! $disk->exists($offer->suppression_path)) {
+        return Storage::disk(self::DISK)->exists($offer->suppression_path);
+    }
+
+    /** Check that the stored artifact is present, fresh, and still matches its persisted digest. */
+    public function isEligible(WorkspaceOffer $offer): bool
+    {
+        if (! $this->hasFreshStoredReference($offer)) {
             return false;
         }
 
+        $disk = Storage::disk(self::DISK);
         $stream = $disk->readStream($offer->suppression_path);
         if (! is_resource($stream)) {
             return false;
@@ -155,34 +160,57 @@ class DmsOfferSuppressionFile
         };
     }
 
-    /** Build a session-scoped lookup table from the validated, canonical file. */
-    public function createLookupTable(WorkspaceOffer $offer): string
+    /** Build a session-scoped lookup table while verifying the canonical file digest. */
+    public function createLookupTable(WorkspaceOffer $offer, ?Closure $onProgress = null): string
     {
+        if (! $this->hasFreshStoredReference($offer)) {
+            throw ValidationException::withMessages(['suppression' => 'The saved offer suppression file is missing, stale, or has invalid metadata. Upload a current DMS-format suppression file.']);
+        }
+
         $connection = DB::connection();
         $table = 'tmp_suppression_match_'.Str::lower(Str::random(18));
         $wrapped = $connection->getQueryGrammar()->wrapTable($table);
         $connection->statement("CREATE TEMPORARY TABLE {$wrapped} (entry_value VARCHAR(320) NOT NULL PRIMARY KEY)");
-        $stream = Storage::disk(self::DISK)->readStream((string) $offer->suppression_path);
+        $disk = Storage::disk(self::DISK);
+        $stream = $disk->readStream((string) $offer->suppression_path);
         if (! is_resource($stream)) {
             $connection->statement("DROP TABLE IF EXISTS {$wrapped}");
             throw new \RuntimeException('Unable to read the saved suppression file.');
         }
 
         $batch = [];
+        $digest = hash_init('sha256');
+        $reportedBytes = 0;
+        $totalBytes = (int) ($disk->size((string) $offer->suppression_path) ?: 0);
         try {
             while (($line = fgets($stream)) !== false) {
+                hash_update($digest, $line);
                 $entry = trim($line);
-                if ($entry === '') {
-                    continue;
+                if ($entry !== '') {
+                    $batch[] = ['entry_value' => $entry];
+                    if (count($batch) >= 500) {
+                        $connection->table($table)->insertOrIgnore($batch);
+                        $batch = [];
+                    }
                 }
-                $batch[] = ['entry_value' => $entry];
-                if (count($batch) >= 500) {
-                    $connection->table($table)->insertOrIgnore($batch);
-                    $batch = [];
+
+                $readBytes = ftell($stream);
+                if ($onProgress !== null && is_int($readBytes) && $readBytes - $reportedBytes >= 8 * 1024 * 1024) {
+                    $reportedBytes = $readBytes;
+                    $onProgress($readBytes, $totalBytes);
                 }
+            }
+            if (! feof($stream)) {
+                throw new \RuntimeException('Unable to finish reading the saved suppression file.');
             }
             if ($batch !== []) {
                 $connection->table($table)->insertOrIgnore($batch);
+            }
+            if (! hash_equals((string) $offer->suppression_sha256, hash_final($digest))) {
+                throw ValidationException::withMessages(['suppression' => 'The saved offer suppression file changed after validation. Upload a current DMS-format suppression file.']);
+            }
+            if ($onProgress !== null) {
+                $onProgress($totalBytes > 0 ? $totalBytes : $reportedBytes, $totalBytes);
             }
         } catch (\Throwable $exception) {
             $connection->statement("DROP TABLE IF EXISTS {$wrapped}");

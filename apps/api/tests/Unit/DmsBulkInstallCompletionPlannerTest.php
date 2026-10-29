@@ -38,6 +38,7 @@ class DmsBulkInstallCompletionPlannerTest extends TestCase
                     'data' => $rows,
                     'pmta_version' => 50,
                     ...$options,
+                    'pmta_monitor_https' => true,
                 ],
             ],
             ['action' => 'mark_server_installed', 'server_id' => 7, 'is_installed' => true],
@@ -74,7 +75,7 @@ class DmsBulkInstallCompletionPlannerTest extends TestCase
         $this->assertSame('save_installation_config', $operations[5]['action']);
         $this->assertSame('mark_server_installed', $operations[6]['action']);
         $this->assertSame([
-            'data', 'pmta_version', 'tracking', 'proxy', 'imap', 'spf', 'dkim', 'dmarc', 'https',
+            'data', 'pmta_version', 'tracking', 'proxy', 'imap', 'spf', 'dkim', 'dmarc', 'https', 'pmta_monitor_https',
         ], array_keys($operations[5]['install_parameters']));
     }
 

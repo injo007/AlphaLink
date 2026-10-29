@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\BuildCampaignRecipientSnapshot;
 use App\Models\AudienceList;
 use App\Models\AudienceMixSnapshot;
 use App\Models\AudienceMixSnapshotMember;
@@ -38,6 +39,7 @@ use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -373,6 +375,7 @@ class DmsCampaignSendCatalogTest extends TestCase
 
     public function test_marketing_draft_persists_the_validated_dms_targeting_and_send_setup(): void
     {
+        Queue::fake();
         $this->withoutMiddleware(ThrottleRequests::class);
         $lookupKey = str_repeat('synthetic-campaign-contact-key-', 2);
         config(['alphalink.contact_lookup_key' => $lookupKey]);
@@ -606,7 +609,34 @@ class DmsCampaignSendCatalogTest extends TestCase
         $response = $this->actingAs($owner)->post(route('console.campaigns.store', $workspace->getKey()), $campaignPayload);
 
         $campaign = Campaign::query()->where('workspace_id', $workspace->getKey())->firstOrFail();
-        $response->assertRedirect(route('console.mailer.campaigns'));
+        $response->assertRedirect(url('/mailer/campaigns/'.$campaign->getKey()));
+        $this->assertSame('preparing_snapshot', $campaign->status);
+        $this->assertDatabaseCount('campaign_recipient_snapshots', 0);
+        Queue::assertPushedOn('drop-suppression', BuildCampaignRecipientSnapshot::class);
+        $this->actingAs($owner)
+            ->getJson(route('console.campaigns.snapshot-progress', [$workspace->getKey(), $campaign->getKey()]))
+            ->assertOk()
+            ->assertJsonPath('status', 'preparing_snapshot')
+            ->assertJsonPath('stage', 'queued')
+            ->assertJsonPath('ready', false);
+
+        (new BuildCampaignRecipientSnapshot(
+            (string) $workspace->getKey(),
+            (string) $campaign->getKey(),
+            (string) $campaign->latestRevision->getKey(),
+            (int) $owner->getKey(),
+        ))->handle(app(DmsCampaignRecipientSnapshotBuilder::class));
+        $campaign->refresh();
+        $this->assertSame('draft', $campaign->status);
+        $this->assertSame('complete', $campaign->snapshot_build_stage);
+        $this->assertSame(100, $campaign->snapshot_build_percent);
+        $this->actingAs($owner)
+            ->getJson(route('console.campaigns.snapshot-progress', [$workspace->getKey(), $campaign->getKey()]))
+            ->assertOk()
+            ->assertJsonPath('status', 'draft')
+            ->assertJsonPath('stage', 'complete')
+            ->assertJsonPath('percent', 100)
+            ->assertJsonPath('ready', true);
         $setup = $campaign->latestRevision->payload['send_setup'];
         $this->assertArrayNotHasKey('from_email', $campaign->latestRevision->payload);
         $this->assertArrayNotHasKey('text_body', $campaign->latestRevision->payload);
@@ -893,9 +923,16 @@ class DmsCampaignSendCatalogTest extends TestCase
         $vmtaCampaignPayload['send_setup']['route_option'] = 'vmta';
         $vmtaCampaignPayload['send_setup']['ip_ids'] = [$vmtaChoice->getKey()];
 
-        $this->actingAs($owner)->post(route('console.campaigns.store', $workspace->getKey()), $vmtaCampaignPayload)
-            ->assertRedirect(route('console.mailer.campaigns'));
+        $vmtaResponse = $this->actingAs($owner)->post(route('console.campaigns.store', $workspace->getKey()), $vmtaCampaignPayload);
         $vmtaCampaign = Campaign::query()->where('name', 'VMTA domain normalization fixture')->firstOrFail();
+        $vmtaResponse->assertRedirect(url('/mailer/campaigns/'.$vmtaCampaign->getKey()));
+        (new BuildCampaignRecipientSnapshot(
+            (string) $workspace->getKey(),
+            (string) $vmtaCampaign->getKey(),
+            (string) $vmtaCampaign->latestRevision->getKey(),
+            (int) $owner->getKey(),
+        ))->handle(app(DmsCampaignRecipientSnapshotBuilder::class));
+        $vmtaCampaign->refresh();
         $this->assertSame('pushed-vmta.send.example.test', $vmtaCampaign->latestRevision->payload['send_setup']['domain']);
 
         $vmtaRevisionPayload = $vmtaCampaignPayload;
@@ -2108,6 +2145,7 @@ class DmsCampaignSendCatalogTest extends TestCase
         $server = $this->server($workspace, $owner, '203.0.113.60');
         $server->forceFill(['install_parameters' => [
             'https' => true,
+            'pmta_monitor_https' => true,
             'data' => [['main' => true, 'domain' => 'pmta.example.test']],
         ]])->save();
 
@@ -2364,6 +2402,7 @@ class DmsCampaignSendCatalogTest extends TestCase
         $server = $this->server($workspace, $owner, '203.0.113.61');
         $server->forceFill(['install_parameters' => [
             'https' => true,
+            'pmta_monitor_https' => true,
             'data' => [['main' => true, 'domain' => 'pmta.example.test']],
         ]])->save();
         $workspace->infrastructureSettings()->create(['pmta_admin_port' => 2447]);
@@ -2429,6 +2468,7 @@ class DmsCampaignSendCatalogTest extends TestCase
         $server = $this->server($workspace, $owner, '203.0.113.62');
         $server->forceFill(['install_parameters' => [
             'https' => true,
+            'pmta_monitor_https' => true,
             'data' => [['main' => true, 'domain' => 'secure-pmta.example.test']],
         ]])->save();
         $workspace->infrastructureSettings()->create(['pmta_admin_port' => 2447]);

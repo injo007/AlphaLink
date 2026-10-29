@@ -74,12 +74,12 @@ return [
         ],
 
         'drop_suppression' => [
-            'driver' => 'database',
+            'driver' => env('DROP_SUPPRESSION_QUEUE_DRIVER', 'database'),
             'connection' => env('DB_QUEUE_CONNECTION'),
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => 'drop-suppression',
             'retry_after' => 86400,
-            'after_commit' => true,
+            'after_commit' => (bool) env('DROP_SUPPRESSION_QUEUE_AFTER_COMMIT', true),
         ],
 
         'deferred' => [

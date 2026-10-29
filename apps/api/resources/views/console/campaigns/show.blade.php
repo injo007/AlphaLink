@@ -91,7 +91,74 @@
                 <div class="block-options"><span class="badge badge-warning">DRAFT · NOT SEND-READY</span></div>
             </div>
             <div class="block-content block-content-full">
-                <div class="alert alert-warning" role="status">DMS-mapped list locks, workspace suppression, selected-offer unsubscribe exclusions, offer-file suppression, and the point-in-time recipient manifest are applied when this draft is created. The selected negative file ID is saved with the draft, but its native sender behavior is not verified. AlphaLink has not implemented or verified DMS’s native sender, so this campaign cannot be launched.</div>
+                @if ($campaign->status === 'preparing_snapshot')
+                    @php
+                        $snapshotStage = $campaign->snapshot_build_stage ?? 'queued';
+                        $snapshotStep = match ($snapshotStage) {
+                            'suppression_file' => 1,
+                            'counting_audience', 'audience' => 2,
+                            'writing_snapshot' => 3,
+                            default => 0,
+                        };
+                        $snapshotIsIndeterminate = in_array($snapshotStage, ['queued', 'counting_audience', 'writing_snapshot'], true);
+                        $snapshotStageLabel = match ($snapshotStage) {
+                            'suppression_file' => 'Reading and verifying the offer suppression file',
+                            'counting_audience' => 'Counting selected list addresses',
+                            'audience' => 'Checking selected list addresses against suppression rules',
+                            'writing_snapshot' => 'Saving the immutable recipient snapshot',
+                            default => 'Waiting for the background preparation worker',
+                        };
+                    @endphp
+                    <section class="alert alert-info mb-3" id="campaign-snapshot-progress"
+                        data-progress-url="{{ route('console.campaigns.snapshot-progress', [$workspace->id, $campaign->id]) }}"
+                        aria-labelledby="campaign-snapshot-progress-title">
+                        <h4 class="h6 mb-2" id="campaign-snapshot-progress-title">Preparing the campaign audience</h4>
+                        <p class="mb-3" id="campaign-snapshot-stage" aria-live="polite">{{ $snapshotStageLabel }}</p>
+                        <div class="progress mb-2" style="height: 0.8rem">
+                            <div id="campaign-snapshot-bar" class="progress-bar {{ $snapshotIsIndeterminate ? 'progress-bar-striped progress-bar-animated w-100' : '' }}"
+                                role="progressbar" aria-label="Campaign audience preparation progress"
+                                @unless ($snapshotIsIndeterminate) aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ (int) $campaign->snapshot_build_percent }}" style="width: {{ (int) $campaign->snapshot_build_percent }}%" @endunless></div>
+                        </div>
+                        <div class="d-flex justify-content-between flex-wrap small mb-3">
+                            <span id="campaign-snapshot-count">
+                                @if ($snapshotStage === 'suppression_file' && $campaign->snapshot_build_total)
+                                    {{ number_format($campaign->snapshot_build_processed / 1048576, 1) }} MB of {{ number_format($campaign->snapshot_build_total / 1048576, 1) }} MB read
+                                @elseif ($snapshotStage === 'audience' && $campaign->snapshot_build_total !== null)
+                                    {{ number_format($campaign->snapshot_build_processed) }} of {{ number_format($campaign->snapshot_build_total) }} addresses checked
+                                @elseif ($snapshotStage === 'queued')
+                                    Your campaign is saved. Preparation will begin when a worker is available.
+                                @elseif ($snapshotStage === 'counting_audience')
+                                    Counting the selected addresses before checking their suppression status.
+                                @else
+                                    Saving the final campaign snapshot…
+                                @endif
+                            </span>
+                            <span id="campaign-snapshot-percent" @if ($snapshotIsIndeterminate) hidden @endif>{{ (int) $campaign->snapshot_build_percent }}%</span>
+                        </div>
+                        <ol class="d-flex flex-wrap list-unstyled mb-0" aria-label="Campaign preparation steps">
+                            @foreach (['Read suppression file', 'Check selected addresses', 'Save recipient snapshot'] as $index => $stepLabel)
+                                @php $stepNumber = $index + 1; @endphp
+                                <li class="mr-3 mb-1" id="campaign-snapshot-step-{{ $stepNumber }}" @if ($snapshotStep === $stepNumber) aria-current="step" @endif>
+                                    <span class="badge {{ $snapshotStep === $stepNumber ? 'badge-primary' : ($snapshotStep > $stepNumber ? 'badge-success' : 'badge-secondary') }}">{{ $stepNumber }}</span>
+                                    {{ $stepLabel }}
+                                </li>
+                            @endforeach
+                        </ol>
+                        <div class="alert alert-danger mt-3 mb-0" id="campaign-snapshot-poll-error" role="alert" hidden>
+                            Progress is temporarily unavailable. The preparation job may still be running; retrying status checks.
+                        </div>
+                    </section>
+                @elseif ($campaign->status === 'snapshot_failed')
+                    <div class="alert alert-danger" role="alert">
+                        <p class="mb-2"><strong>Campaign audience preparation failed.</strong> {{ $campaign->snapshot_build_error ?? 'Review the suppression file and selected lists, then retry.' }}</p>
+                        <form method="POST" action="{{ route('console.campaigns.snapshot-retry', [$workspace->id, $campaign->id]) }}">
+                            @csrf
+                            <button type="submit" class="btn btn-sm btn-danger">Retry audience preparation</button>
+                        </form>
+                    </div>
+                @else
+                    <div class="alert alert-warning" role="status">DMS-mapped list locks, workspace suppression, selected-offer unsubscribe exclusions, offer-file suppression, and the point-in-time recipient manifest are applied when this draft is created. The selected negative file ID is saved with the draft, but its native sender behavior is not verified. AlphaLink has not implemented or verified DMS’s native sender, so this campaign cannot be launched.</div>
+                @endif
                 <dl class="row mb-3">
                     <dt class="col-sm-3">Sponsor</dt><dd class="col-sm-9">{{ $sponsorChoice['name'] ?? 'No longer available' }} (ID {{ $sendSetup['sponsor_id'] ?? '—' }})</dd>
                     <dt class="col-sm-3">Offer</dt><dd class="col-sm-9">{{ $offerChoice['name'] ?? 'No longer eligible' }} (ID {{ $sendSetup['offer_id'] ?? '—' }})</dd>
@@ -151,7 +218,9 @@
                         <dt class="col-sm-3">Manifest SHA-256</dt><dd class="col-sm-9"><code>{{ $recipientSnapshot->recipients_sha256 }}</code></dd>
                     </dl>
                 @else
-                    <p class="mb-0 text-danger">No recipient snapshot is attached to this revision. It cannot be launched.</p>
+                    @if (! in_array($campaign->status, ['preparing_snapshot', 'snapshot_failed'], true))
+                        <p class="mb-0 text-danger">No recipient snapshot is attached to this revision. It cannot be launched.</p>
+                    @endif
                 @endif
             </div>
         </div>
@@ -611,6 +680,108 @@
     <script src="{{ asset('alphalink/campaign-header-library.js') }}" defer></script>
     <script>
         (() => {
+            const snapshotProgress = document.getElementById('campaign-snapshot-progress');
+            if (snapshotProgress) {
+                const progressUrl = snapshotProgress.dataset.progressUrl;
+                const bar = document.getElementById('campaign-snapshot-bar');
+                const stageText = document.getElementById('campaign-snapshot-stage');
+                const countText = document.getElementById('campaign-snapshot-count');
+                const percentText = document.getElementById('campaign-snapshot-percent');
+                const pollError = document.getElementById('campaign-snapshot-poll-error');
+                const retryDelay = [2000, 4000, 8000, 15000];
+                let failures = 0;
+                let stopped = false;
+                const stageLabels = {
+                    queued: 'Waiting for the background preparation worker',
+                    suppression_file: 'Reading and verifying the offer suppression file',
+                    counting_audience: 'Counting selected list addresses',
+                    audience: 'Checking selected list addresses against suppression rules',
+                    writing_snapshot: 'Saving the immutable recipient snapshot',
+                };
+                const stepForStage = {suppression_file: 1, counting_audience: 2, audience: 2, writing_snapshot: 3};
+                const formatMegabytes = bytes => `${(Number(bytes || 0) / 1048576).toLocaleString(undefined, {maximumFractionDigits: 1})} MB`;
+                const schedule = delay => { if (!stopped) window.setTimeout(poll, delay); };
+                const poll = async () => {
+                    try {
+                        const response = await fetch(progressUrl, {
+                            credentials: 'same-origin',
+                            cache: 'no-store',
+                            headers: {'Accept': 'application/json'},
+                        });
+                        if (!response.ok) throw new Error('Campaign progress request failed.');
+                        const progress = await response.json();
+                        failures = 0;
+                        pollError.hidden = true;
+                        const stage = progress.stage || 'queued';
+                        const indeterminate = stage === 'queued' || stage === 'counting_audience' || stage === 'writing_snapshot';
+                        stageText.textContent = stageLabels[stage] || 'Preparing the campaign audience';
+                        if (indeterminate) {
+                            bar.classList.add('progress-bar-striped', 'progress-bar-animated', 'w-100');
+                            bar.removeAttribute('aria-valuemin');
+                            bar.removeAttribute('aria-valuemax');
+                            bar.removeAttribute('aria-valuenow');
+                            bar.style.removeProperty('width');
+                            percentText.hidden = true;
+                            countText.textContent = stage === 'queued'
+                                ? 'Your campaign is saved. Preparation will begin when a worker is available.'
+                                : (stage === 'counting_audience'
+                                    ? 'Counting the selected addresses before checking their suppression status.'
+                                    : 'Saving the final campaign snapshot…');
+                        } else {
+                            const percent = Math.max(0, Math.min(100, Number(progress.percent || 0)));
+                            bar.classList.remove('progress-bar-striped', 'progress-bar-animated', 'w-100');
+                            bar.setAttribute('aria-valuemin', '0');
+                            bar.setAttribute('aria-valuemax', '100');
+                            bar.setAttribute('aria-valuenow', String(percent));
+                            bar.style.width = `${percent}%`;
+                            percentText.hidden = false;
+                            percentText.textContent = `${percent}%`;
+                            countText.textContent = stage === 'suppression_file'
+                                ? `${formatMegabytes(progress.processed)} of ${formatMegabytes(progress.total)} read`
+                                : `${Number(progress.processed || 0).toLocaleString()} of ${Number(progress.total || 0).toLocaleString()} addresses checked`;
+                        }
+                        const currentStep = stepForStage[stage] || 0;
+                        [1, 2, 3].forEach(step => {
+                            const item = document.getElementById(`campaign-snapshot-step-${step}`);
+                            const badge = item?.querySelector('.badge');
+                            if (!item || !badge) return;
+                            item.removeAttribute('aria-current');
+                            badge.classList.remove('badge-primary', 'badge-success', 'badge-secondary');
+                            if (step === currentStep) {
+                                item.setAttribute('aria-current', 'step');
+                                badge.classList.add('badge-primary');
+                            } else {
+                                badge.classList.add(step < currentStep ? 'badge-success' : 'badge-secondary');
+                            }
+                        });
+                        if (progress.status === 'snapshot_failed') {
+                            stopped = true;
+                            window.location.reload();
+                            return;
+                        }
+                        if (progress.ready || progress.status === 'draft') {
+                            stopped = true;
+                            stageText.textContent = 'Campaign audience preparation completed.';
+                            bar.classList.remove('progress-bar-striped', 'progress-bar-animated', 'w-100');
+                            bar.setAttribute('aria-valuemin', '0');
+                            bar.setAttribute('aria-valuemax', '100');
+                            bar.setAttribute('aria-valuenow', '100');
+                            bar.style.width = '100%';
+                            percentText.hidden = false;
+                            percentText.textContent = '100%';
+                            window.setTimeout(() => window.location.reload(), 800);
+                            return;
+                        }
+                        schedule(2000);
+                    } catch (error) {
+                        failures = Math.min(failures + 1, retryDelay.length - 1);
+                        pollError.hidden = false;
+                        schedule(retryDelay[failures]);
+                    }
+                };
+                schedule(1000);
+            }
+
             const editor = document.getElementById('edit-campaign');
             const revealEditor = () => {
                 if (window.location.hash === '#edit-campaign' && editor) editor.open = true;

@@ -12,6 +12,7 @@ use App\Models\WorkspaceOffer;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -20,20 +21,25 @@ class DmsCampaignRecipientSnapshotBuilder
     public function __construct(private readonly DmsOfferSuppressionFile $suppressionFiles) {}
 
     /**
-     * Reproduce DMS campaign creation's synchronous recipient suppression and point-in-time manifest.
+     * Reproduce DMS campaign creation's recipient suppression and point-in-time manifest.
      * Persist keyed identities in the immutable manifest and addresses in an
      * append-only encrypted table; normalized plaintext is limited to staging.
      *
      * @param  array<string, mixed>  $sendSetup
      */
-    public function build(Workspace $workspace, Campaign $campaign, string $revisionId, array $sendSetup): CampaignRecipientSnapshot
-    {
+    public function build(
+        Workspace $workspace,
+        Campaign $campaign,
+        string $revisionId,
+        array $sendSetup,
+        ?callable $onProgress = null,
+    ): CampaignRecipientSnapshot {
         $offer = WorkspaceOffer::query()
             ->where('workspace_id', $workspace->getKey())
             ->whereKey($sendSetup['offer_id'])
             ->firstOrFail();
 
-        if (! $this->suppressionFiles->isEligible($offer)) {
+        if (! $this->suppressionFiles->hasFreshStoredReference($offer)) {
             throw ValidationException::withMessages(['send_setup.offer_id' => 'The offer suppression file is missing, changed, or older than seven days. Upload a current DMS-format suppression file.']);
         }
 
@@ -46,7 +52,16 @@ class DmsCampaignRecipientSnapshotBuilder
         $suppressionLookup = null;
 
         try {
-            $suppressionLookup = $this->suppressionFiles->createLookupTable($offer);
+            $suppressionBytes = (int) (Storage::disk('local')->size((string) $offer->suppression_path) ?: 0);
+            $this->reportProgress($onProgress, 'suppression_file', 0, $suppressionBytes, 0);
+            $suppressionLookup = $this->suppressionFiles->createLookupTable(
+                $offer,
+                function (int $readBytes, int $totalBytes) use ($onProgress): void {
+                    $ratio = $totalBytes > 0 ? min(1, $readBytes / $totalBytes) : 1;
+                    $percent = (int) floor($ratio * 100);
+                    $this->reportProgress($onProgress, 'suppression_file', $readBytes, $totalBytes, $percent);
+                },
+            );
             $mixIds = collect($selected)
                 ->filter(fn (string $segment): bool => str_ends_with($segment, '_mix'))
                 ->map(fn (string $segment): string => substr($segment, 0, -4))
@@ -56,6 +71,7 @@ class DmsCampaignRecipientSnapshotBuilder
                 $selected,
                 static fn (string $segment): bool => ! str_ends_with($segment, '_mix'),
             ));
+            $this->reportProgress($onProgress, 'counting_audience', 0, 0, 0);
             $mixSnapshots = $mixIds->isEmpty()
                 ? collect()
                 : AudienceMixSnapshot::query()
@@ -70,6 +86,21 @@ class DmsCampaignRecipientSnapshotBuilder
             if ($mixSnapshots->count() !== $mixIds->count()) {
                 throw ValidationException::withMessages(['send_setup.audience_segments' => 'One or more selected mixes expired or are unavailable to this user. Reload the send choices.']);
             }
+
+            $totalCandidates = 0;
+            foreach ($regularSegments as $segment) {
+                [$listId, $emailType] = explode('_', $segment, 2);
+                $totalCandidates += ContactListMembership::query()
+                    ->where('workspace_id', $workspace->getKey())
+                    ->where('audience_list_id', $listId)
+                    ->where('email_type', $emailType)
+                    ->where('status', 'active')
+                    ->whereHas('contact', fn ($query) => $query->where('status', 'active'))
+                    ->count();
+            }
+            $totalCandidates += (int) $mixSnapshots->sum('recipient_count');
+            $processedCandidates = 0;
+            $this->reportProgress($onProgress, 'audience', 0, $totalCandidates, 0);
 
             $offerSuppressedCount = 0;
             $workspaceSuppressedCount = 0;
@@ -158,6 +189,12 @@ class DmsCampaignRecipientSnapshotBuilder
                         );
                     }
 
+                    $processedCandidates += $memberships->count();
+                    $audiencePercent = $totalCandidates > 0
+                        ? (int) floor(min(1, $processedCandidates / $totalCandidates) * 100)
+                        : 100;
+                    $this->reportProgress($onProgress, 'audience', $processedCandidates, $totalCandidates, $audiencePercent);
+
                     $lastMembership = $memberships->last();
                     $cursorJoinedAt = $lastMembership->getRawOriginal('joined_at');
                     $cursorMembershipId = (string) $lastMembership->getKey();
@@ -236,6 +273,12 @@ class DmsCampaignRecipientSnapshotBuilder
                         );
                     }
 
+                    $processedCandidates += $mixMembers->count();
+                    $audiencePercent = $totalCandidates > 0
+                        ? (int) floor(min(1, $processedCandidates / $totalCandidates) * 100)
+                        : 100;
+                    $this->reportProgress($onProgress, 'audience', $processedCandidates, $totalCandidates, $audiencePercent);
+
                     $lastMixMember = $mixMembers->last();
                     $cursorSnapshotId = (string) $lastMixMember->snapshot_id;
                     $cursorPosition = (int) $lastMixMember->position;
@@ -262,6 +305,7 @@ class DmsCampaignRecipientSnapshotBuilder
                 $cursor = $page->last();
             }
             $recipientsSha256 = hash_final($manifest);
+            $this->reportProgress($onProgress, 'writing_snapshot', 0, 0, 0);
 
             return DB::transaction(function () use ($workspace, $campaign, $revisionId, $offer, $sendSetup, $tables, $recipientCount, $offerSuppressedCount, $workspaceSuppressedCount, $duplicateCount, $recipientsSha256): CampaignRecipientSnapshot {
                 $snapshot = CampaignRecipientSnapshot::query()->create([
@@ -384,6 +428,20 @@ class DmsCampaignRecipientSnapshotBuilder
             }
             $this->dropStagingTables($tables);
         }
+    }
+
+    private function reportProgress(?callable $callback, string $stage, int $processed, int $total, int $percent): void
+    {
+        if ($callback === null) {
+            return;
+        }
+
+        $callback([
+            'stage' => $stage,
+            'processed' => max(0, $processed),
+            'total' => max(0, $total),
+            'percent' => max(0, min(100, $percent)),
+        ]);
     }
 
     /**

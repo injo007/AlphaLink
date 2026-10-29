@@ -83,6 +83,11 @@ class DmsReinstallCompletionWriter
                 'dkim' => $options['dkim'],
                 'dmarc' => $options['dmarc'],
                 'https' => $options['https'],
+                // PMTA is verified during reinstall only when selected. Keep
+                // the prior verified state when another component is changed.
+                'pmta_monitor_https' => $options['pmta']
+                    ? $options['https']
+                    : (bool) (($server->install_parameters['pmta_monitor_https'] ?? false)),
             ];
             $server->forceFill(['install_parameters' => $installParameters])->saveOrFail();
 

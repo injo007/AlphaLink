@@ -82,7 +82,7 @@ class DmsCampaignSendCatalog
             ->with(['assets' => fn (HasMany $query) => $query->where('is_active', true)->orderBy('type')->orderBy('id')])
             ->orderBy('name')
             ->get(['id', 'sponsor_id', 'offer_id', 'name', 'type', 'vertical', 'geo_target', 'allowed_days', 'suppression_path', 'suppression_sha256', 'suppression_format', 'suppression_updated_at'])
-            ->filter(fn (WorkspaceOffer $offer): bool => $this->suppressionFiles->isEligible($offer))
+            ->filter(fn (WorkspaceOffer $offer): bool => $this->suppressionFiles->hasFreshStoredReference($offer))
             ->values();
 
         $isps = $workspace->isps()

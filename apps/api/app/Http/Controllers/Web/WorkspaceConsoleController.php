@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\BuildCampaignRecipientSnapshot;
 use App\Models\AuditEvent;
 use App\Models\Campaign;
 use App\Models\CampaignRecipientSnapshot;
+use App\Models\CampaignRevision;
 use App\Models\CampaignTestMailAttempt;
 use App\Models\ContactListMembershipEvent;
 use App\Models\Isp;
@@ -833,7 +835,7 @@ class WorkspaceConsoleController extends Controller
             ->with('status', 'Campaign cloned as a new draft with a fresh suppression snapshot. Native campaign sending remains unavailable.');
     }
 
-    public function createCampaignDraft(Request $request, string $workspace, DmsCampaignSendCatalog $catalog, DmsCampaignRecipientSnapshotBuilder $snapshotBuilder): RedirectResponse
+    public function createCampaignDraft(Request $request, string $workspace, DmsCampaignSendCatalog $catalog): RedirectResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $this->authorizeRole($workspace, self::CAMPAIGN_ROLES);
@@ -859,16 +861,25 @@ class WorkspaceConsoleController extends Controller
             );
 
             return redirect()->route('console.campaigns.show', [$workspace->getKey(), $prior->getKey()])
-                ->with('status', 'Draft already saved; no duplicate was created.');
+                ->with('status', $prior->status === 'preparing_snapshot'
+                    ? 'Campaign is saved. Suppression and recipient preparation are still running.'
+                    : 'Draft already saved; no duplicate was created.');
         }
 
-        $campaign = DB::transaction(function () use ($request, $workspace, $data, $content, $contentHash, $idempotencyKey, $snapshotBuilder): Campaign {
+        [$campaign, $revision] = DB::transaction(function () use ($request, $workspace, $data, $content, $contentHash, $idempotencyKey): array {
+            $isMarketing = $data['kind'] === 'marketing';
             $campaign = $workspace->campaigns()->create([
                 'created_by' => $request->user()->getKey(),
                 'name' => trim($data['name']),
                 'kind' => $data['kind'],
-                'status' => 'draft',
+                'status' => $isMarketing ? 'preparing_snapshot' : 'draft',
                 'idempotency_key' => $idempotencyKey,
+                ...($isMarketing ? [
+                    'snapshot_build_stage' => 'queued',
+                    'snapshot_build_percent' => 0,
+                    'snapshot_build_processed' => 0,
+                    'snapshot_build_updated_at' => now(),
+                ] : []),
             ]);
             $revision = $campaign->revisions()->create([
                 'revision_number' => 1,
@@ -880,25 +891,121 @@ class WorkspaceConsoleController extends Controller
                 'created_at' => now(),
             ]);
 
-            $snapshot = $data['kind'] === 'marketing'
-                ? $snapshotBuilder->build($workspace, $campaign, (string) $revision->getKey(), $content['send_setup'])
-                : null;
-
             $this->recordCampaignEvent($request, $workspace, $campaign, 'campaign.draft_created', [
                 'revision_id' => $revision->getKey(),
                 'content_sha256' => $contentHash,
-                ...($snapshot ? [
-                    'recipient_snapshot_id' => $snapshot->getKey(),
-                    'recipient_count' => $snapshot->recipient_count,
-                    'recipient_manifest_sha256' => $snapshot->recipients_sha256,
+                ...($isMarketing ? [
+                    'recipient_snapshot_status' => 'queued',
                 ] : []),
             ]);
 
-            return $campaign;
+            return [$campaign, $revision];
         });
 
-        return redirect()->route($campaign->kind === 'marketing' ? 'console.campaigns.index' : 'console.campaigns.show', $campaign->kind === 'marketing' ? [$workspace->getKey()] : [$workspace->getKey(), $campaign->getKey()])
-            ->with('status', $campaign->kind === 'marketing' ? 'Campaign created.' : 'Draft saved as revision 1.');
+        if ($campaign->kind === 'marketing') {
+            $this->enqueueCampaignSnapshotBuild($workspace, $campaign, $revision, $request->user()->getKey());
+            $campaign->refresh();
+        }
+
+        return redirect()->route('console.campaigns.show', [$workspace->getKey(), $campaign->getKey()])
+            ->with('status', $campaign->kind === 'marketing'
+                ? ($campaign->status === 'draft'
+                    ? 'Campaign saved. Suppression and recipient preparation completed.'
+                    : ($campaign->status === 'snapshot_failed'
+                        ? 'Campaign saved, but suppression and recipient preparation failed. Review the status and retry.'
+                        : 'Campaign saved. Suppression and recipient preparation are running.'))
+                : 'Draft saved as revision 1.');
+    }
+
+    public function campaignSnapshotProgress(Request $request, string $workspace, string $campaign): JsonResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        $this->authorizeRole($workspace, self::CAMPAIGN_ROLES);
+        $campaign = $workspace->campaigns()
+            ->where('created_by', $request->user()->getKey())
+            ->whereKey($campaign)
+            ->firstOrFail();
+        $revision = $campaign->latestRevision;
+        $snapshot = $revision
+            ? CampaignRecipientSnapshot::query()->where('revision_id', $revision->getKey())->first()
+            : null;
+
+        return response()->json([
+            'status' => $snapshot ? 'draft' : $campaign->status,
+            'ready' => $snapshot !== null,
+            'stage' => $campaign->snapshot_build_stage,
+            'percent' => (int) $campaign->snapshot_build_percent,
+            'processed' => (int) $campaign->snapshot_build_processed,
+            'total' => $campaign->snapshot_build_total === null ? null : (int) $campaign->snapshot_build_total,
+            'updated_at' => $campaign->snapshot_build_updated_at?->toIso8601String(),
+            'error' => $campaign->snapshot_build_error,
+        ])->header('Cache-Control', 'no-store, private');
+    }
+
+    public function retryCampaignSnapshot(Request $request, string $workspace, string $campaign): RedirectResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        $this->authorizeRole($workspace, self::CAMPAIGN_ROLES);
+        $campaign = $workspace->campaigns()
+            ->where('created_by', $request->user()->getKey())
+            ->whereKey($campaign)
+            ->firstOrFail();
+
+        $revision = $campaign->latestRevision;
+        abort_unless($campaign->kind === 'marketing' && $revision && is_array($revision->payload['send_setup'] ?? null), 409, 'This campaign has no marketing audience to prepare.');
+
+        DB::transaction(function () use ($workspace, $campaign): void {
+            $locked = Campaign::query()
+                ->where('workspace_id', $workspace->getKey())
+                ->whereKey($campaign->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+            abort_unless($locked->status === 'snapshot_failed', 409, 'Recipient preparation can only be retried after a failed attempt.');
+            $hasSnapshot = $locked->latestRevision
+                ? CampaignRecipientSnapshot::query()->where('revision_id', $locked->latestRevision->getKey())->exists()
+                : false;
+            abort_unless(! $hasSnapshot, 409, 'This campaign already has a recipient snapshot.');
+
+            $locked->forceFill([
+                'status' => 'preparing_snapshot',
+                'snapshot_build_stage' => 'queued',
+                'snapshot_build_percent' => 0,
+                'snapshot_build_processed' => 0,
+                'snapshot_build_total' => null,
+                'snapshot_build_error' => null,
+                'snapshot_build_updated_at' => now(),
+            ])->save();
+        });
+
+        $this->enqueueCampaignSnapshotBuild($workspace, $campaign, $revision, $request->user()->getKey());
+
+        return redirect()->route('console.campaigns.show', [$workspace->getKey(), $campaign->getKey()])
+            ->with('status', 'Recipient preparation retry started.');
+    }
+
+    private function enqueueCampaignSnapshotBuild(Workspace $workspace, Campaign $campaign, CampaignRevision $revision, ?int $actorUserId): void
+    {
+        try {
+            BuildCampaignRecipientSnapshot::dispatch(
+                (string) $workspace->getKey(),
+                (string) $campaign->getKey(),
+                (string) $revision->getKey(),
+                $actorUserId,
+            );
+        } catch (Throwable $exception) {
+            report($exception);
+            Campaign::query()
+                ->where('workspace_id', $workspace->getKey())
+                ->whereKey($campaign->getKey())
+                ->where('status', 'preparing_snapshot')
+                ->update([
+                    'status' => 'snapshot_failed',
+                    'snapshot_build_stage' => 'failed',
+                    'snapshot_build_error' => 'The background preparation queue is unavailable. Contact an administrator before retrying.',
+                    'snapshot_build_updated_at' => now(),
+                    'updated_at' => now(),
+                ]);
+        }
     }
 
     public function reviseCampaignDraft(

@@ -230,12 +230,13 @@ test('IP route choices disclose linked SMTP account and ambiguity', () => {
 test('campaign routing help explains SMTP tags and distinguishes PMTA ingress from outbound route', () => {
     const view = readFileSync(new URL('../../resources/views/console/campaigns/create.blade.php', import.meta.url), 'utf8');
     assert.match(view, /id="send-route-behavior"/);
-    assert.match(view, /SMTP mode uses the selected SMTP account for outbound routing/);
+    assert.match(view, /Option SMTP selects the outbound relay/);
     assert.match(view, /\[smtp\]<\/code> is its username and <code>\[smtp_name\]/);
-    assert.match(view, /PMTA applies the selected outbound route/);
-    assert.match(view, /In IP mode, if the content uses/);
-    assert.match(view, /Campaign Test connects to the server’s PMTA listener/);
-    assert.match(view, /exactly one active SMTP account must be linked to that IP and its route is used for outbound delivery/);
-    assert.match(view, /Without those tags, Campaign Test uses the selected IP route/);
-    assert.match(view, /server\.pmta_panel_display_url \|\| server\.pmta_panel_url/);
+    assert.match(view, /selected SMTP virtual-MTA route/);
+    assert.match(view, /Campaign Test only, a rendered/);
+    assert.match(view, /normal campaign sending is not enabled/);
+    assert.match(view, /server\.pmta_panel_url \|\| server\.pmta_panel_display_url/);
+    assert.match(view, /record\.pmta_panel_url \?\? record\.pmta_panel_display_url/);
+    assert.match(view, /data-panel-url="\{\{ \$server\['pmta_panel_url'\] \}\}"/);
+    assert.match(view, /href="\{\{ \$server\['pmta_panel_url'\] \}\}"/);
 });

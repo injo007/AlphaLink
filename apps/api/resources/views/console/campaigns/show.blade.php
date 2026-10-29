@@ -554,6 +554,11 @@
                                                     $testServers = collect($testSnapshot['servers'] ?? [])
                                                         ->map(fn (array $server): string => trim(($server['name'] ?? 'Server unavailable').' · '.($server['id'] ?? '')))
                                                         ->implode("\n");
+                                                    $outboundMtaNames = collect($testSnapshot['virtual_mtas'] ?? [])
+                                                        ->pluck('pmta_name')
+                                                        ->filter(fn (mixed $name): bool => is_string($name) && $name !== '')
+                                                        ->unique()
+                                                        ->implode("\n");
                                                 @endphp
                                                 <div class="row mt-3">
                                                     <div class="col-md-6">
@@ -582,6 +587,11 @@
                                                         <div class="form-group">
                                                             <label>Route · IP type · Send type</label>
                                                             <input class="form-control" type="text" value="{{ strtoupper(($testSnapshot['mta'] ?? '—').' · '.($testSnapshot['type'] ?? '—').' · '.($testSnapshot['send_type'] ?? '—')) }}" readonly>
+                                                        </div>
+                                                        <div class="form-group">
+                                                            <label>Outbound PMTA route</label>
+                                                            <textarea class="form-control" rows="2" readonly>{{ strtoupper($testSnapshot['outbound_route'] ?? $testSnapshot['mta'] ?? 'Unknown') }}{{ $outboundMtaNames !== '' ? "\n".$outboundMtaNames : '' }}</textarea>
+                                                            <small class="form-text text-muted">AlphaLink connects to the server’s PMTA listener using its IP. This route alias tells PMTA which source IP or SMTP relay virtual MTA to use. PMTA acceptance does not confirm mailbox delivery.</small>
                                                         </div>
                                                         <div class="form-group">
                                                             <label>Domain · Negative · Creative</label>

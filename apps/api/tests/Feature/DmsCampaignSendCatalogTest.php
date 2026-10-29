@@ -1430,6 +1430,11 @@ class DmsCampaignSendCatalogTest extends TestCase
         $storedSnapshot = (string) DB::table('campaign_manual_test_attempts')->where('campaign_id', $campaign->getKey())->value('test_snapshot');
         $this->assertNotSame('', $storedSnapshot);
         $this->assertStringNotContainsString('synthetic-recipient@example.test', $storedSnapshot);
+        $this->actingAs($owner)->get(route('clean.console.campaigns.show', $campaign->getKey()))
+            ->assertOk()
+            ->assertSeeText('Outbound PMTA route')
+            ->assertSeeText('IP')
+            ->assertSeeText('mta-203.0.113.81');
         $nextKey = $response->json('next_idempotency_key');
         $this->assertNotSame($payload['idempotency_key'], $nextKey);
         $this->postJson(route('console.campaigns.manual-test', $workspace->getKey()), $payload)
@@ -3018,19 +3023,18 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertSee('dms-reference/plugins/bootstrap_select/bootstrap-select.js')
             ->assertSee("inputLabel: 'Search Servers'", false)
             ->assertSee('id="pmta-admin-reload-servers"', false)
-            ->assertSee('data-panel-url="'.$monitorProxyUrl.'"', false)
+            ->assertSee('data-panel-url="http://203.0.113.40:2447/"', false)
             ->assertSee('data-monitor-url="'.$monitorProxyUrl.'"', false)
             ->assertSee('data-monitor-endpoint="203.0.113.40:2447"', false)
             ->assertSee('data-monitor-proxied="true"', false)
-            ->assertDontSee('data-panel-url="http://203.0.113.40:2447/"', false)
             ->assertSee('link.href = server.dataset.panelUrl;', false)
             ->assertSee('frame.dataset.monitorBase = server.dataset.monitorUrl;', false)
             ->assertSee('frame.src = url.toString();', false)
             ->assertSee('id="pmta-admin-stop-schedule"', false)
             ->assertSee('id="pmta-admin-stop-restart"', false)
             ->assertSee("server.dataset.monitorProxied === 'true'", false)
-            ->assertSee('${server.dataset.monitorEndpoint} · secure AlphaLink view', false)
-            ->assertSee('HTTP-only monitors, including servers using external domains, open through AlphaLink’s authenticated HTTPS read-only view.', false)
+            ->assertSee('Open direct HTTP/IP: ${server.dataset.monitorEndpoint}', false)
+            ->assertSee('The embedded view uses AlphaLink’s authenticated HTTPS proxy for HTTP-only monitors.', false)
             ->assertSee('Read-only monitor via AlphaLink HTTPS', false)
             ->assertSee("frame.setAttribute('sandbox', '')", false)
             ->assertSee('id="pmta-admin-schedule-status"', false)
@@ -3077,7 +3081,8 @@ class DmsCampaignSendCatalogTest extends TestCase
         $this->assertNotFalse($initialScheduleRequestPosition);
         $this->assertLessThan($initialScheduleRequestPosition, $intervalAssignmentPosition);
 
-        $this->assertStringContainsString('data-panel-url="'.$monitorProxyUrl.'"', $adminPage->getContent());
+        $this->assertStringContainsString('data-panel-url="http://203.0.113.40:2447/"', $adminPage->getContent());
+        $this->assertStringContainsString('data-monitor-url="'.$monitorProxyUrl.'"', $adminPage->getContent());
 
         Http::fake([
             'http://203.0.113.40:2447/' => Http::response('<!doctype html><html><body>External-domain PMTA monitor</body></html>'),
@@ -3572,7 +3577,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertSee('alphalink-toast-stack', false)
             ->assertSee('id="campaign-data" tabindex="-1"', false)
             ->assertSee('[smtp] [smtp_name]')
-            ->assertSeeText('In Campaign Test, IP mode uses the single linked SMTP account; choose SMTP mode to select an account explicitly.')
+            ->assertSeeText('[smtp] and [smtp_name] are content tags. In Campaign Test, Option IP uses the linked SMTP relay when a tag is present; otherwise choose Option SMTP to select the relay directly. Normal campaign sending is not enabled.')
             ->assertSee('data-campaign-menu-action="create"', false)
             ->assertSee('data-campaign-menu-action="create-send"', false)
             ->assertSee('data-campaign-menu-action="test"', false)

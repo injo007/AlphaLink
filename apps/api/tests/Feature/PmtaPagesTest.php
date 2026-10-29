@@ -183,9 +183,10 @@ class PmtaPagesTest extends TestCase
         $this->actingAs($owner)
             ->get(route('clean.console.pmta-admin.index', ['server_ids' => [$server->getKey()]]))
             ->assertOk()
-            ->assertSee('data-panel-url="'.$monitorProxyUrl.'"', false)
+            ->assertSee('data-panel-url="http://203.0.113.40:2447/"', false)
             ->assertSee('data-monitor-url="'.$monitorProxyUrl.'"', false)
             ->assertSee('data-monitor-proxied="true"', false)
+            ->assertSee('The embedded view uses AlphaLink’s authenticated HTTPS proxy', false)
             ->assertDontSee('https://external.example.test:2447/', false);
 
         Http::fake([

@@ -250,7 +250,7 @@
             <strong>USABLE TAGS:</strong>
             [server] [main_domain] [ip] [domain] [rdns] [to] [date] [name] [rnd]
             [smtp] [smtp_name] [rnd(N|A|L|U|S|LU|LN|NU)_NUMBER] [text:a|b|c]
-            <small class="d-block">SMTP tags expand to linked SMTP account details. In Campaign Test, IP mode uses the single linked SMTP account; choose SMTP mode to select an account explicitly.</small>
+            <small class="d-block">[smtp] and [smtp_name] are content tags. In Campaign Test, Option IP uses the linked SMTP relay when a tag is present; otherwise choose Option SMTP to select the relay directly. Normal campaign sending is not enabled.</small>
             <button type="button" class="btn btn-link btn-sm p-0 ml-1" id="campaign-tags-help" title="SHOW EXAMPLE" aria-label="Show tag examples"><i class="fas fa-question-circle" aria-hidden="true"></i></button>
             <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button>
         </div>
@@ -415,7 +415,7 @@
                                     </label>
                                     <select id="send-servers" name="send_setup[server_ids][]" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 3" title="Select Servers" multiple required>
                                         @foreach ($sendOptions['servers'] as $server)
-                                            <option value="{{ $server['id'] }}" data-panel-url="{{ $server['pmta_panel_display_url'] }}" @selected(in_array((string) $server['id'], $setup['server_ids'], true))>{{ $server['name'] }} | {{ $server['ip'] }}</option>
+                                            <option value="{{ $server['id'] }}" data-panel-url="{{ $server['pmta_panel_url'] }}" data-monitor-url="{{ $server['pmta_panel_display_url'] }}" @selected(in_array((string) $server['id'], $setup['server_ids'], true))>{{ $server['name'] }} | {{ $server['ip'] }}</option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -462,7 +462,7 @@
                             <div id="campaign-pmta-panels" class="row" aria-live="polite">
                                 @foreach ($sendOptions['servers'] as $server)
                                     @if (in_array((string) $server['id'], $setup['server_ids'], true))
-                                        <div class="col-sm-6 col-lg-4"><a href="{{ $server['pmta_panel_display_url'] }}" target="_blank" rel="noopener noreferrer">Open PMTA panel — {{ $server['name'] }}:{{ $sendOptions['settings']['pmta_admin_port'] }}</a></div>
+                                        <div class="col-sm-6 col-lg-4"><a href="{{ $server['pmta_panel_url'] }}" target="_blank" rel="noopener noreferrer">Open PMTA panel ({{ str_starts_with($server['pmta_panel_url'], 'https://') ? 'HTTPS' : 'HTTP/IP' }}) — {{ $server['name'] }}:{{ $sendOptions['settings']['pmta_admin_port'] }}</a></div>
                                     @endif
                                 @endforeach
                             </div>
@@ -1036,10 +1036,10 @@
                 const behavior = document.getElementById('send-route-behavior');
                 if (behavior) {
                     behavior.innerHTML = route === 'smtp'
-                        ? 'SMTP mode uses the selected SMTP account for outbound routing. <code>[smtp]</code> is its username and <code>[smtp_name]</code> is its label. AlphaLink submits to the selected server’s PMTA listener; PMTA applies the selected outbound route.'
+                        ? 'Option SMTP selects the outbound relay. <code>[smtp]</code> is its username and <code>[smtp_name]</code> is its label. AlphaLink reaches PMTA through the selected server’s IP and listener; PMTA applies the selected SMTP virtual-MTA route. PMTA acceptance does not confirm mailbox delivery.'
                         : route === 'vmta'
                             ? 'VMTA mode uses the selected virtual MTA for outbound routing. <code>[smtp]</code> and <code>[smtp_name]</code> are empty. AlphaLink submits through the selected server’s PMTA listener.'
-                        : 'Campaign Test connects to the server’s PMTA listener. In IP mode, if the message uses <code>[smtp]</code> or <code>[smtp_name]</code>, exactly one active SMTP account must be linked to that IP and its route is used for outbound delivery. Without those tags, Campaign Test uses the selected IP route. Choose SMTP to select an exact account directly.';
+                        : 'Option IP selects a source-IP route. In Campaign Test only, a rendered <code>[smtp]</code> or <code>[smtp_name]</code> uses the linked SMTP virtual MTA when exactly one active account is linked to each selected IP. Choose Option SMTP to select an account directly. AlphaLink still connects to the selected server’s PMTA listener; normal campaign sending is not enabled.';
                 }
                 const moveLabels = {
                     'all-right': `Move all ${routeName} to selected`,
@@ -1337,8 +1337,10 @@
                     const selectedServers = new Set(Array.from(servers.selectedOptions).map(option => option.value));
                     result.servers.filter(server => selectedServers.has(String(server.id))).forEach(server => {
                         const link = document.createElement('a');
-                        link.href = server.pmta_panel_display_url || server.pmta_panel_url; link.target = '_blank'; link.rel = 'noopener noreferrer';
-                        link.className = 'mr-3'; link.textContent = `Open PMTA panel — ${server.name}`;
+                        link.href = server.pmta_panel_url || server.pmta_panel_display_url; link.target = '_blank'; link.rel = 'noopener noreferrer';
+                        link.className = 'mr-3';
+                        const panelScheme = new URL(link.href, window.location.href).protocol === 'https:' ? 'HTTPS' : 'HTTP/IP';
+                        link.textContent = `Open PMTA panel (${panelScheme}) — ${server.name}`;
                         panels.append(link);
                     });
                 };
@@ -1467,7 +1469,10 @@
                     const option = document.createElement('option');
                     option.value = String(getValue(record));
                     option.textContent = String(getLabel(record));
-                    if (key === 'servers') option.dataset.panelUrl = String(record.pmta_panel_display_url ?? record.pmta_panel_url ?? '');
+                    if (key === 'servers') {
+                        option.dataset.panelUrl = String(record.pmta_panel_url ?? record.pmta_panel_display_url ?? '');
+                        option.dataset.monitorUrl = String(record.pmta_panel_display_url ?? record.pmta_panel_url ?? '');
+                    }
                     if (key === 'ips') {
                         option.dataset.route = select('route').value || 'ip';
                         option.dataset.serverId = String(record.server_id ?? '');
@@ -1542,10 +1547,11 @@
                     const column = document.createElement('div');
                     column.className = 'col-sm-6 col-lg-4';
                     const link = document.createElement('a');
-                    link.href = server.pmta_panel_display_url || server.pmta_panel_url;
+                    link.href = server.pmta_panel_url || server.pmta_panel_display_url;
                     link.target = '_blank';
                     link.rel = 'noopener noreferrer';
-                    link.textContent = `Open PMTA panel — ${server.name}:${data.settings.pmta_admin_port}`;
+                    const panelScheme = new URL(link.href, window.location.href).protocol === 'https:' ? 'HTTPS' : 'HTTP/IP';
+                    link.textContent = `Open PMTA panel (${panelScheme}) — ${server.name}:${data.settings.pmta_admin_port}`;
                     column.append(link);
                     panels.append(column);
                 });

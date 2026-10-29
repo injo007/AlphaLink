@@ -107,6 +107,8 @@ multiple accounts fail before transport. This is an AlphaLink compatibility
 behavior, not a claim of DMS tag-to-route parity. Normal native campaign SEND
 is unavailable, and all tests in this slice use fake transport.
 
+AlphaLink now records the resolved `outbound_route` and `X-Virtual-MTA` alias in the encrypted manual Campaign Test snapshot and displays them in the campaign test log. This makes IP ingress versus the PMTA outbound relay auditable after the test; it does not establish DMS tag-to-route parity or enable normal campaign sending.
+
 ## Phase 3H managed call-graph refinement
 
 This section records retained REA metadata/CIL facts. Call-edge reachability does not establish execution order or message semantics.

@@ -142,7 +142,7 @@
                         </label>
                         <select class="form-control selectpicker" id="pmta-admin-servers" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 5" multiple title="Select Servers">
                             @foreach ($servers as $server)
-                                <option value="{{ $server['id'] }}" data-panel-url="{{ $server['pmta_panel_display_url'] }}" data-monitor-url="{{ $server['pmta_panel_display_url'] }}" data-monitor-endpoint="{{ $server['ip'] }}:{{ $pmtaAdminPort }}" data-monitor-proxied="{{ $server['pmta_panel_display_url'] !== $server['pmta_panel_url'] ? 'true' : 'false' }}" @selected(in_array((string) $server['id'], $selectedServerIds, true))>{{ $server['name'] }} | {{ $server['ip'] }}</option>
+                                <option value="{{ $server['id'] }}" data-panel-url="{{ $server['pmta_panel_url'] }}" data-monitor-url="{{ $server['pmta_panel_display_url'] }}" data-monitor-endpoint="{{ $server['ip'] }}:{{ $pmtaAdminPort }}" data-monitor-proxied="{{ $server['pmta_panel_display_url'] !== $server['pmta_panel_url'] ? 'true' : 'false' }}" @selected(in_array((string) $server['id'], $selectedServerIds, true))>{{ $server['name'] }} | {{ $server['ip'] }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -211,7 +211,7 @@
                 </div>
             </div>
         </div>
-        <p class="small text-muted mb-2">Verified PMTA certificates open directly over HTTPS. HTTP-only monitors, including servers using external domains, open through AlphaLink’s authenticated HTTPS read-only view.</p>
+        <p class="small text-muted mb-2">The embedded view uses AlphaLink’s authenticated HTTPS proxy for HTTP-only monitors. The link beside each server opens its actual PMTA endpoint: direct HTTP/IP without a verified certificate, or the verified domain over HTTPS.</p>
         <div class="row no-gutters" id="pmta-admin-panels" @if ($selectedServerIds === []) hidden @endif aria-live="polite"></div>
     </section>
 @endsection
@@ -365,10 +365,10 @@
                     try {
                         const panelUrl = new URL(server.dataset.panelUrl, window.location.href);
                         link.textContent = server.dataset.monitorProxied === 'true'
-                            ? `${server.dataset.monitorEndpoint} · secure AlphaLink view`
+                            ? `Open direct HTTP/IP: ${server.dataset.monitorEndpoint}`
                             : `${panelUrl.protocol}//${panelUrl.host}`;
                         link.title = server.dataset.monitorProxied === 'true'
-                            ? 'Open the PMTA monitor through AlphaLink’s authenticated HTTPS read-only view.'
+                            ? `Open the PMTA listener directly over HTTP at ${panelUrl.host}. The embedded monitor remains behind AlphaLink HTTPS.`
                             : `Open the PMTA monitor at ${panelUrl.protocol}//${panelUrl.host} in a new tab.`;
                     } catch {
                         link.textContent = server.textContent.split('|').at(-1).trim();

@@ -49,13 +49,13 @@ class DmsCentos9FirewallPlannerTest extends TestCase
             'systemctl enable firewalld;',
             'firewall-cmd --permanent --zone=public --add-service={http,https,dns,smtp,ntp,dns};',
             'firewall-cmd --permanent --new-zone=dev;',
+            'firewall-cmd --permanent --zone=dev --remove-port=16160/tcp >/dev/null 2>&1 || true;',
             'firewall-cmd --permanent --zone=dev --add-port=2222/tcp;',
             'firewall-cmd --permanent --zone=dev --add-port=143/tcp;',
             'firewall-cmd --permanent --zone=dev --add-port=993/tcp;',
             'firewall-cmd --permanent --zone=dev --add-port=2525/tcp;',
             'firewall-cmd --permanent --zone=dev --add-port=8080/tcp;',
             'firewall-cmd --permanent --zone=dev --add-port=3128/tcp;',
-            'firewall-cmd --permanent --zone=dev --add-port=16160/tcp;',
             'firewall-cmd --permanent --zone=dev --add-source=192.0.2.10;',
             'firewall-cmd --permanent --zone=dev --add-source=2001:db8::10;',
             'firewall-cmd --permanent --new-zone=production;',
@@ -89,7 +89,7 @@ class DmsCentos9FirewallPlannerTest extends TestCase
         $this->assertNotContains('firewall-cmd --permanent --zone=public --add-port=2426/tcp;', $commandList);
     }
 
-    public function test_direct_ip_monitor_opens_only_the_shared_pmta_port(): void
+    public function test_pmta_backend_port_is_removed_from_firewall_and_never_opened(): void
     {
         $commands = array_column((new DmsCentos9FirewallPlanner)->plan(
             true,
@@ -102,10 +102,10 @@ class DmsCentos9FirewallPlannerTest extends TestCase
             [],
             false,
             ['198.51.100.44'],
-            true,
         ), 'command');
 
         $this->assertContains('firewall-cmd --permanent --zone=dev --add-port=1213/tcp;', $commands);
+        $this->assertContains('firewall-cmd --permanent --zone=dev --remove-port=2426/tcp >/dev/null 2>&1 || true;', $commands);
         $this->assertContains('firewall-cmd --permanent --zone=pmta-admin --add-port=1213/tcp;', $commands);
         $this->assertNotContains('firewall-cmd --permanent --zone=dev --add-port=2426/tcp;', $commands);
         $this->assertNotContains('firewall-cmd --permanent --zone=pmta-admin --add-port=2426/tcp;', $commands);

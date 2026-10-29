@@ -205,7 +205,10 @@ class DmsCentos9InstallWorkflow
                 $server->ip_address,
             ));
         }
-        $directPmtaMonitor = ! $primaryDomainReady;
+        // PMTA 4.5/5.0 use the normal loopback backend behind Nginx even when
+        // no provider-owned domain exists. Only PMTA 4.0 uses its direct HTTP
+        // listener as the public-IP fallback.
+        $directPmtaMonitor = DmsPmtaMonitorMode::usesDirectListener($pmtaVersion, $primaryDomainReady);
 
         $log('Setup PMTA '.$pmtaVersion);
         $this->pmta->run(
@@ -272,7 +275,6 @@ class DmsCentos9InstallWorkflow
             $settings['pmta_port'], $settings['pmta_admin_port'], $settings['proxy_port'],
             $settings['dev_ips'], $settings['production_ips'], $settings['rdp_ips'], $settings['allow_all_monitor'],
             $settings['pmta_relay_ips'],
-            $directPmtaMonitor,
         );
         $log('End Setting Firewall');
 
@@ -301,7 +303,6 @@ class DmsCentos9InstallWorkflow
             $this->completion->finalize($workspace, $server, $primaryDomain, $ips, $pmtaVersion, $completedOptions, $selectedDomains, $pmtaMonitorHttps);
         }
         $publicPort = $settings['pmta_admin_port'];
-        $pmtaHttpPort = $directPmtaMonitor ? $publicPort : $publicPort * 2;
         $adminUrl = PmtaPanelUrl::forInstallation(
             (string) $server->ip_address,
             $monitorDomain,
@@ -309,10 +310,9 @@ class DmsCentos9InstallWorkflow
             $pmtaMonitorHttps,
         );
         $log(sprintf(
-            'PMTA WEB MONITOR LINK (%s; public port %d; PMTA HTTP listener %d): >>> <a target="_blank" href="%s">%s</a>',
-            $pmtaMonitorHttps ? 'HTTPS' : ($directPmtaMonitor ? 'HTTP direct via public IP' : 'HTTP via public IP'),
+            'PMTA WEB MONITOR LINK (%s; public port %d): >>> <a target="_blank" href="%s">%s</a>',
+            $pmtaMonitorHttps ? 'HTTPS' : 'HTTP',
             $publicPort,
-            $pmtaHttpPort,
             $adminUrl,
             parse_url($adminUrl, PHP_URL_HOST).':'.$publicPort,
         ));

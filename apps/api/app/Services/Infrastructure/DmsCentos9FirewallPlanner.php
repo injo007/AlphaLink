@@ -23,7 +23,6 @@ class DmsCentos9FirewallPlanner
         array $rdpIps,
         bool $allowAllMonitor = false,
         array $pmtaRelayIps = [],
-        bool $directMonitor = false,
     ): array {
         if (! $applyFirewall) {
             return array_map(
@@ -45,6 +44,9 @@ class DmsCentos9FirewallPlanner
             'systemctl enable firewalld;',
             'firewall-cmd --permanent --zone=public --add-service={http,https,dns,smtp,ntp,dns};',
             'firewall-cmd --permanent --new-zone=dev;',
+            // Older releases exposed PMTA's internal backend port in the dev
+            // zone. Remove that stale rule during both install and reinstall.
+            'firewall-cmd --permanent --zone=dev --remove-port='.($pmtaAdminPort * 2).'/tcp >/dev/null 2>&1 || true;',
             "firewall-cmd --permanent --zone=dev --add-port={$serverSshPort}/tcp;",
             'firewall-cmd --permanent --zone=dev --add-port=143/tcp;',
             'firewall-cmd --permanent --zone=dev --add-port=993/tcp;',
@@ -52,9 +54,6 @@ class DmsCentos9FirewallPlanner
             "firewall-cmd --permanent --zone=dev --add-port={$pmtaAdminPort}/tcp;",
             "firewall-cmd --permanent --zone=dev --add-port={$proxyPort}/tcp;",
         ];
-        if (! $directMonitor) {
-            $commands[] = 'firewall-cmd --permanent --zone=dev --add-port='.($pmtaAdminPort * 2).'/tcp;';
-        }
 
         if ($allowAllMonitor) {
             $commands[] = "firewall-cmd --permanent --zone=public --add-port={$pmtaAdminPort}/tcp;";

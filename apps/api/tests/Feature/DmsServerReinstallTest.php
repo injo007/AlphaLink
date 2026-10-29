@@ -197,6 +197,9 @@ class DmsServerReinstallTest extends TestCase
         $this->assertStringContainsString('allow 198.51.100.44;', $command);
         $this->assertStringContainsString("'http://127.0.0.1:2426/'", $command);
         $this->assertStringContainsString("'http://127.0.0.1:1213/'", $command);
+        $this->assertStringContainsString('nginx-service', $command);
+        $this->assertStringContainsString("'listen 1213;'", $command);
+        $this->assertStringContainsString("'server_name _;'", $command);
         $this->assertStringNotContainsString('http-access 198.51.100.44 admin', $command);
     }
 

@@ -101,38 +101,48 @@ class DmsCentos9PmtaDeploymentPlannerTest extends TestCase
     public function test_ip_fallback_binds_pmta_directly_to_the_public_port_without_nginx(): void
     {
         $source = "<source __IP__>\n    always-allow-relaying yes\n</source>\n";
-        foreach ([40, 45, 50] as $version) {
-            $plan = $this->planner()->plan(
-                $version,
-                true,
-                true,
-                2525,
-                1213,
-                ['192.0.2.10'],
-                ['198.51.100.20'],
-                true,
-                $source,
-                ['198.51.100.44'],
-                true,
-            );
-            $commands = $this->commands($plan['operations']);
+        $plan = $this->planner()->plan(
+            40,
+            true,
+            true,
+            2525,
+            1213,
+            ['192.0.2.10'],
+            ['198.51.100.20'],
+            true,
+            $source,
+            ['198.51.100.44'],
+            true,
+        );
+        $commands = $this->commands($plan['operations']);
 
-            $this->assertContains("sed -i 's/__PMTA_ADMIN_PORT__/1213/g' /etc/pmta/settings/config;", $commands);
-            $this->assertContains(
-                "echo -e 'http-access 127.0.0.1 admin\nhttp-access 192.0.2.10 admin\nhttp-access 198.51.100.44 admin\nhttp-access 198.51.100.20 monitor\nhttp-access 0/0 monitor\n' > /etc/pmta/settings/access;",
-                $commands,
-            );
-            $this->assertContains('systemctl disable --now nginx 2>/dev/null || true;', $commands);
-            $this->assertNotContains('dnf install -y nginx', $commands);
-            $this->assertNotContains('install/nginx_config', array_column($plan['operations'], 'source'));
-            $this->assertStringNotContainsString('2426', implode("\n", $commands));
+        $this->assertContains("sed -i 's/__PMTA_ADMIN_PORT__/1213/g' /etc/pmta/settings/config;", $commands);
+        $this->assertContains(
+            "echo -e 'http-access 127.0.0.1 admin\nhttp-access 192.0.2.10 admin\nhttp-access 198.51.100.44 admin\nhttp-access 198.51.100.20 monitor\nhttp-access 0/0 monitor\n' > /etc/pmta/settings/access;",
+            $commands,
+        );
+        $this->assertContains('systemctl disable --now nginx 2>/dev/null || true;', $commands);
+        $this->assertNotContains('dnf install -y nginx', $commands);
+        $this->assertNotContains('install/nginx_config', array_column($plan['operations'], 'source'));
+        $this->assertStringNotContainsString('2426', implode("\n", $commands));
+    }
+
+    public function test_newer_pmta_versions_reject_direct_ip_listener_mode(): void
+    {
+        foreach ([45, 50] as $version) {
+            try {
+                $this->planner()->plan($version, true, true, 2525, 1213, [], [], true, '', [], true);
+                $this->fail('Only PMTA 4.0 may use the direct IP listener mode.');
+            } catch (InvalidArgumentException $exception) {
+                $this->assertSame('Direct PMTA monitor mode is supported only for PMTA 4.0.', $exception->getMessage());
+            }
         }
     }
 
     public function test_restricted_ip_fallback_does_not_grant_a_public_monitor_rule(): void
     {
         $plan = $this->planner()->plan(
-            45,
+            40,
             true,
             true,
             2525,

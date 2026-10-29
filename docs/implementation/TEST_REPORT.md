@@ -1562,3 +1562,11 @@ The offer suppression refresh now reads the encrypted `optizmo_token` saved in t
 - Added only `install-assets/pmta` to the repository after authenticated GitHub metadata confirmed it is private. All 14 PMTA 4.0/4.5/5.0 and shared-template files match their existing reviewed size/SHA-256 pins; optional/DKIM assets were excluded. The installer auto-detects the bundle beside itself for fresh setup and stages the repository copy into private shared storage on deploy/resume without overwriting an existing asset tree.
 - Fixed the reported Composer permission failure by normalizing the built release before `www-data` route-cache preflight. A disposable PHP-container regression reproduced root-created `0600` autoload files, confirmed denial before normalization and readability afterward. `bash -n`, `--plan`, `--deploy-plan`, installer-order assertions, the container probe, and `git diff --check` pass.
 - No production server deploy or PMTA installation was executed. Pull and deploy the commit, then recheck the server asset root and PMTA gate; runtime compatibility and license entitlement remain unverified.
+
+
+## E-INST-93 — No-provider PMTA and doubled backend firewall regression
+
+- Focused PHP 8.3 container command: `php artisan test --compact tests/Unit/DmsCentos9InstallWorkflowTest.php tests/Unit/DmsCentos9FirewallPlannerTest.php tests/Unit/DmsPmtaPostInstallReadinessTest.php tests/Unit/DmsCentos9PmtaDeploymentPlannerTest.php tests/Unit/DmsPmtaMonitorModeTest.php tests/Feature/DmsServerReinstallTest.php` — **54 passed / 385 assertions**.
+- Targeted Pint passed for 13 changed PHP files. `git diff --check` passed.
+- Synthetic coverage verifies PMTA 4.5 missing-provider install uses the IP-only HTTP Nginx proxy and normal backend, PMTA 4.0 retains direct fallback, reinstall readiness checks the same public port, and firewall migration removes the old doubled backend opening without re-adding it.
+- No production deploy, server reinstall, DNS write or PMTA command ran.

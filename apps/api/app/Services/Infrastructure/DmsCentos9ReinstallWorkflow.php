@@ -165,7 +165,13 @@ class DmsCentos9ReinstallWorkflow
         }
 
         $monitorDomain = $mainDomainProviderReady ? (string) $mainDomain->name : null;
-        $directPmtaMonitor = $options['pmta'] && ! $mainDomainProviderReady;
+        // Keep the stable PMTA 4.5/5.0 loopback backend behind Nginx for
+        // IP-only monitor fallback; PMTA 4.0 retains its direct listener mode.
+        $directPmtaMonitor = DmsPmtaMonitorMode::usesDirectListener(
+            $pmtaVersion,
+            $mainDomainProviderReady,
+            $options['pmta'],
+        );
         if (! $mainDomainProviderReady && $deploymentDomain !== null) {
             $log(sprintf(
                 'DNS provider setup did not complete for %s; switching PMTA monitor access to public IP %s.',
@@ -297,7 +303,6 @@ class DmsCentos9ReinstallWorkflow
             $inputs['settings']['rdp_ips'],
             $inputs['settings']['allow_all_monitor'],
             $inputs['settings']['pmta_relay_ips'] ?? [],
-            $directPmtaMonitor,
         );
         $log('End Setting Firewall');
 

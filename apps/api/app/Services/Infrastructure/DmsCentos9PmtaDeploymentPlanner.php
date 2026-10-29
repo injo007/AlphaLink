@@ -31,6 +31,9 @@ class DmsCentos9PmtaDeploymentPlanner
         if (! in_array($version, [40, 45, 50], true)) {
             throw new InvalidArgumentException('DMS CentOS 9 PMTA planner supports versions 40, 45, and 50.');
         }
+        if ($directMonitor && $version !== 40) {
+            throw new InvalidArgumentException('Direct PMTA monitor mode is supported only for PMTA 4.0.');
+        }
 
         if ($pmtaPort < 1 || $pmtaPort > 65535 || $adminPort < 1 || $adminPort > 32767) {
             throw new InvalidArgumentException('PMTA planner ports must be valid TCP ports, and the admin port must leave room for its doubled backend port.');
@@ -92,8 +95,8 @@ class DmsCentos9PmtaDeploymentPlanner
         $versionDirectory = "install/pmta_{$version}";
         $patchName = $version === 40 ? 'pmtahttp_patch' : 'pmtad_patch';
         $patchTarget = $version === 40 ? '/usr/sbin/pmtahttpd' : '/usr/sbin/pmtad';
-        // A verified provider domain uses an Nginx TLS proxy on the configured
-        // port. Without one, PMTA listens directly on that port over HTTP.
+        // PMTA 4.5/5.0 use an internal backend behind Nginx. PMTA 4.0 can
+        // listen directly on the configured public-IP monitor port.
         $httpPort = $directMonitor ? $adminPort : $adminPort * 2;
         $operations = [];
 

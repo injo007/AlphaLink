@@ -46,7 +46,7 @@ class DmsPmtaPostInstallReadinessTest extends TestCase
         self::assertStringContainsString('for attempt in $(seq 1 20)', $command);
     }
 
-    public function test_ip_fallback_probes_pmta_directly_on_the_shared_public_port(): void
+    public function test_ip_fallback_probes_the_nginx_public_port_and_normal_loopback_backend(): void
     {
         $command = (new DmsPmtaPostInstallReadiness)->command(45, [
             'pmta_admin_port' => 1213,
@@ -54,18 +54,17 @@ class DmsPmtaPostInstallReadinessTest extends TestCase
             'dev_ips' => ['192.0.2.10'],
             'production_ips' => ['198.51.100.20'],
             'allow_all_monitor' => true,
-        ], directMonitor: true);
+        ], domain: null);
 
         self::assertStringContainsString("'http://127.0.0.1:1213/'", $command);
-        self::assertStringNotContainsString('2426', $command);
-        self::assertStringNotContainsString('nginx-service', $command);
-        self::assertStringNotContainsString('monitor-upstream-configuration', $command);
-        self::assertStringContainsString('pmta-public-monitor-listener', $command);
-        self::assertStringContainsString('pmta-direct-http-', $command);
-        self::assertStringNotContainsString('pmta-backend-http-', $command);
-        self::assertStringContainsString('http-access 198.51.100.44 admin', $command);
-        self::assertStringContainsString('http-access 198.51.100.20 monitor', $command);
-        self::assertStringContainsString('http-access 0/0 monitor', $command);
+        self::assertStringContainsString("'http://127.0.0.1:2426/'", $command);
+        self::assertStringContainsString('nginx-service', $command);
+        self::assertStringContainsString('monitor-upstream-configuration', $command);
+        self::assertStringContainsString('pmta-backend-listener', $command);
+        self::assertStringNotContainsString('pmta-public-monitor-listener', $command);
+        self::assertStringContainsString("'allow 198.51.100.44;'", $command);
+        self::assertStringContainsString('listen 1213;', $command);
+        self::assertStringContainsString('server_name _;', $command);
     }
 
     public function test_ip_fallback_cannot_be_mistaken_for_https(): void
@@ -73,7 +72,7 @@ class DmsPmtaPostInstallReadinessTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('The direct public-IP monitor cannot use HTTPS without a domain proxy.');
 
-        (new DmsPmtaPostInstallReadiness)->command(45, [
+        (new DmsPmtaPostInstallReadiness)->command(40, [
             'pmta_admin_port' => 1213,
             'pmta_relay_ips' => ['198.51.100.44'],
             'dev_ips' => [],

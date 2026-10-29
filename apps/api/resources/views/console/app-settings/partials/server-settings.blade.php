@@ -28,7 +28,7 @@
         </div>
     </div>
     <small class="form-text text-muted d-block mb-3">DEV IPS grants PMTA administrator access to listed IPv4 addresses. Enable SHOW PMTA MONITOR TO ALL for public read-only monitor access; administrator actions still require a DEV IP.</small>
-    <small class="form-text text-muted d-block mb-3">PMTA WEB MONITOR PUBLIC PORT is the link port (1213 by default). PMTA 4.5/5.0 listen internally on twice that port (2426 by default) behind Nginx. PMTA 4.0 uses the configured port directly.</small>
+    <small class="form-text text-muted d-block mb-3">PMTA WEB MONITOR PUBLIC PORT is the only browser-facing link port (1213 by default). PMTA 4.5/5.0 use a private backend managed by AlphaLink behind Nginx; do not open a second public port. PMTA 4.0 uses the configured port directly.</small>
     <hr>
     <p>INSTALLATION CREDENTIALS</p>
     <div class="row">

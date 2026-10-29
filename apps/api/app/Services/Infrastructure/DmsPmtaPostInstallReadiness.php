@@ -29,6 +29,9 @@ class DmsPmtaPostInstallReadiness
         if ($https && $directMonitor) {
             throw new InvalidArgumentException('The direct public-IP monitor cannot use HTTPS without a domain proxy.');
         }
+        if ($directMonitor && $version !== 40) {
+            throw new InvalidArgumentException('Direct PMTA monitor mode is supported only for PMTA 4.0.');
+        }
 
         $backendPort = $directMonitor ? $publicPort : $publicPort * 2;
         $relayIps = $settings['pmta_relay_ips'] ?? [];

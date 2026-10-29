@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Models\SendingDomain;
+use App\Services\Infrastructure\CloudflareDnsApiException;
 use App\Services\Infrastructure\DmsBulkInstallDnsRecordPlanner;
 use App\Services\Infrastructure\DmsBulkInstallDomainDnsRecordWriter;
 use App\Services\Infrastructure\DmsBulkInstallDomainRecordStage;
@@ -41,6 +42,64 @@ class DmsBulkInstallDomainRecordStageTest extends TestCase
         $this->assertSame([
             'Config Hosts A-AAAA-MX... For external.example.test (A=3)',
             'Done Setting Records For external.example.test (A=3)',
+        ], $logs);
+    }
+
+    public function test_install_continues_and_logs_when_cloudflare_zone_lookup_fails(): void
+    {
+        $domain = new SendingDomain(['name' => 'external.example.test', 'is_our' => false]);
+        $logs = [];
+        $writer = new class implements DmsBulkInstallDomainDnsRecordWriter
+        {
+            public function setHosts(SendingDomain $domain, array $records): bool
+            {
+                throw new CloudflareDnsApiException('The selected domain does not have exactly one matching Cloudflare zone.');
+            }
+        };
+
+        $this->stage()->run(
+            $domain,
+            [$this->ip('8.8.8.8')],
+            $this->options(),
+            's1',
+            null,
+            new RecordingPublicIpResolver,
+            $writer,
+            function (string $message) use (&$logs): void {
+                $logs[] = $message;
+            },
+            continueOnDnsFailure: true,
+        );
+
+        $this->assertSame([
+            'Config Hosts A-AAAA-MX... For external.example.test (A=3)',
+            'Skipping DNS records for external.example.test (provider lookup or update failed: The selected domain does not have exactly one matching Cloudflare zone.). Server installation continues.',
+        ], $logs);
+    }
+
+    public function test_install_continues_and_logs_when_domain_provider_is_unavailable(): void
+    {
+        $domain = new SendingDomain(['name' => 'external.example.test', 'is_our' => false]);
+        $writer = new RecordingDnsRecordWriter(false);
+        $logs = [];
+
+        $this->stage()->run(
+            $domain,
+            [$this->ip('8.8.8.8')],
+            $this->options(),
+            's1',
+            null,
+            new RecordingPublicIpResolver,
+            $writer,
+            function (string $message) use (&$logs): void {
+                $logs[] = $message;
+            },
+            continueOnDnsFailure: true,
+        );
+
+        $this->assertSame([
+            'Config Hosts A-AAAA-MX... For external.example.test (A=3)',
+            'Skipping DNS records for external.example.test (domain provider unavailable or rejected the update). Server installation continues.',
         ], $logs);
     }
 

@@ -173,6 +173,7 @@ class DmsCentos9InstallWorkflow
                 $domainGroup['domain'], $domainGroup['ips'], $options,
                 $settings['dkim_selector'], $settings['dkim_public_key'],
                 new DmsCentos9PublicIpResolver($session), $dnsWriter, $log,
+                continueOnDnsFailure: true,
             );
         }
 

@@ -7,6 +7,7 @@ use App\Models\ManagedServer;
 use App\Models\SendingDomain;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\Infrastructure\CloudflareDnsApi;
 use App\Services\Infrastructure\DmsBulkInstallRowProcessPayload;
 use App\Services\Infrastructure\DmsBulkInstallRowRunner;
 use App\Services\Infrastructure\DmsBulkInstallRunCoordinator;
@@ -383,6 +384,13 @@ class InfrastructureBulkInstallLogsTest extends TestCase
     {
         [$server, $domain] = $this->eligibleInstallSelection();
         $domain->update(['is_our' => true]);
+        $domain->forceFill(['provider_domain_id' => null])->save();
+        DomainProvider::query()->whereKey($domain->domains_provider_id)->update([
+            'type' => 'cloudflare',
+        ]);
+        $cloudflare = Mockery::mock(CloudflareDnsApi::class);
+        $cloudflare->shouldNotReceive('zoneIdForExactDomain');
+        $this->app->instance(CloudflareDnsApi::class, $cloudflare);
         config(['infrastructure.bulk_install_execution_enabled' => true]);
         $runner = new class implements DmsBulkInstallRowRunner
         {

@@ -508,3 +508,7 @@ Campaign snapshot preparation, manual ISP/List suppression, and send eligibility
 ### E-PMTA-100 — embedded PMTA monitor
 
 The selected monitor iframe now uses the verified canonical HTTPS panel directly in a cross-origin frame. AlphaLink's page CSP allows only selected verified HTTPS monitor origins, and the app’s queue controls remain separate. The previous iframe used a sanitizer that stripped PMTA's scripts and forms, causing the blank/incomplete rendering. Source-level tests pass; production browser rendering and the installed host's TLS/certificate/DNS state remain unverified.
+
+### E-INST-89 — optional DNS during server installation
+
+Install start no longer queries Cloudflare to require exactly one exact domain zone. Fresh Install and Reinstall record a clear skip when DNS provider lookup/update fails and continue server configuration. Change Domain keeps a strict error boundary. The synthetic Single/Bulk/reinstall and DNS-stage regression suites pass **75 / 502 assertions**. Live server/provider behavior and production deployment remain unverified.

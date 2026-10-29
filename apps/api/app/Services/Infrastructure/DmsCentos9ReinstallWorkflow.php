@@ -147,6 +147,7 @@ class DmsCentos9ReinstallWorkflow
                 $resolver,
                 $this->dnsWriter,
                 $log,
+                continueOnDnsFailure: true,
             );
         }
 

@@ -1234,7 +1234,6 @@ class InfrastructureConsoleController extends Controller
         DmsBulkInstallRuntimeInputs $runtimeInputs,
         DmsBulkInstallTranscriptStore $transcripts,
         DmsInfrastructureRunLauncher $runLauncher,
-        CloudflareDnsApi $cloudflareDnsApi,
     ): JsonResponse {
         $workspace = $this->workspaceForServerControl($request->user(), $workspaceId);
         $payload = $payloadNormalizer->validateAndNormalize($request->all());
@@ -1300,23 +1299,6 @@ class InfrastructureConsoleController extends Controller
 
             $selectedServers[(string) $server->getKey()] = $server;
             $selectedDomains[(string) $domain->getKey()] = $domain;
-        }
-
-        foreach ($selectedDomains as $domain) {
-            $provider = $domain->domainProvider;
-            if ($provider?->type !== 'cloudflare') {
-                continue;
-            }
-
-            try {
-                $cloudflareDnsApi->zoneIdForExactDomain($provider, (string) $domain->name, $domain->provider_domain_id);
-            } catch (CloudflareDnsApiException $exception) {
-                return response()->json([
-                    'message' => 'The selected domain DNS provider is not ready for installation.',
-                    'code' => 'install_domain_dns_not_ready',
-                    'blockers' => [$exception->getMessage()],
-                ], 503);
-            }
         }
 
         // Bulk Install has no separate LOAD IPS step. Match the DMS install
@@ -1461,7 +1443,6 @@ class InfrastructureConsoleController extends Controller
         DmsBulkInstallRuntimeInputs $runtimeInputs,
         DmsBulkInstallTranscriptStore $transcripts,
         DmsInfrastructureRunLauncher $runLauncher,
-        CloudflareDnsApi $cloudflareDnsApi,
     ): JsonResponse {
         if (! is_array($request->input('data')) || count($request->input('data')) !== 1) {
             throw ValidationException::withMessages([
@@ -1484,7 +1465,6 @@ class InfrastructureConsoleController extends Controller
             $runtimeInputs,
             $transcripts,
             $runLauncher,
-            $cloudflareDnsApi,
         );
     }
 

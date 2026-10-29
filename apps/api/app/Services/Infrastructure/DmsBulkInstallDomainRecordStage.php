@@ -5,6 +5,7 @@ namespace App\Services\Infrastructure;
 use App\Models\SendingDomain;
 use Closure;
 use RuntimeException;
+use Throwable;
 
 /** Reconstructs ServerInstallBulk::setup_records() behind fakeable host/provider boundaries. */
 class DmsBulkInstallDomainRecordStage
@@ -26,6 +27,7 @@ class DmsBulkInstallDomainRecordStage
         DmsBulkInstallDomainDnsRecordWriter $dnsWriter,
         Closure $log,
         ?string $registeredPublicIp = null,
+        bool $continueOnDnsFailure = false,
     ): void {
         $resolvedIps = $this->resolvePublicAddresses($ips, $publicIpResolver, $log, $registeredPublicIp);
 
@@ -44,9 +46,25 @@ class DmsBulkInstallDomainRecordStage
 
         $recordSummary = $this->recordSummary($records);
         $log('Config Hosts A-AAAA-MX... For '.$domain->name.' ('.$recordSummary.')');
-        $result = $dnsWriter->setHosts($domain, $records);
+        try {
+            $result = $dnsWriter->setHosts($domain, $records);
+        } catch (Throwable $exception) {
+            if (! $continueOnDnsFailure) {
+                throw $exception;
+            }
+
+            $log('Skipping DNS records for '.$domain->name.' (provider lookup or update failed: '.$exception->getMessage().'). Server installation continues.');
+
+            return;
+        }
 
         if (! $result) {
+            if ($continueOnDnsFailure) {
+                $log('Skipping DNS records for '.$domain->name.' (domain provider unavailable or rejected the update). Server installation continues.');
+
+                return;
+            }
+
             throw new RuntimeException('The selected domain DNS records could not be applied through its provider.');
         }
 

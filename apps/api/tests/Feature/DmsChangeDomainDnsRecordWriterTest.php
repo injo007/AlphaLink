@@ -50,33 +50,44 @@ class DmsChangeDomainDnsRecordWriterTest extends TestCase
             && $request['HostName1'] === '@');
     }
 
-    public function test_godaddy_preserves_nameservers_and_applies_dms_minimum_ttl_and_mx_priority(): void
+    public function test_godaddy_replaces_only_requested_rrsets_and_preserves_unrelated_txt(): void
     {
         $requests = [];
         Http::fake(function ($request) use (&$requests) {
             $requests[] = [$request->method(), $request->url(), $request->data()];
 
-            return $request->method() === 'GET'
-                ? Http::response(['nameServers' => ['ns1.example.net', 'ns2.example.net']], 200)
-                : Http::response([], 200);
+            if ($request->method() === 'GET') {
+                return Http::response([
+                    ['data' => 'v=spf1 include:old.example -all', 'ttl' => 600],
+                    ['data' => 'google-site-verification=keep-me', 'ttl' => 3600],
+                ], 200);
+            }
+
+            return Http::response(null, 204);
         });
         [$domain] = $this->ownedDomain('godaddy', ['api_key' => 'synthetic-key', 'api_secret' => 'synthetic-secret']);
 
         $result = app(DmsRegistrarChangeDomainDnsRecordWriter::class)->setHosts($domain, [[
+            'host' => '@', 'address' => 'v=spf1 ip4:203.0.113.12 -all', 'type' => 'TXT', 'ttl' => '300',
+        ], [
             'host' => '@', 'address' => 'mx.example.com', 'type' => 'MX', 'ttl' => '60',
         ]]);
 
         self::assertTrue($result);
-        self::assertCount(2, $requests);
+        self::assertCount(3, $requests);
         self::assertSame('GET', $requests[0][0]);
-        self::assertSame('https://api.godaddy.com/v1/domains/example.co.uk', $requests[0][1]);
+        self::assertSame('https://api.godaddy.com/v1/domains/example.co.uk/records/TXT/%40', $requests[0][1]);
         self::assertSame('PUT', $requests[1][0]);
-        self::assertSame('https://api.godaddy.com/v1/domains/example.co.uk/records', $requests[1][1]);
+        self::assertSame('https://api.godaddy.com/v1/domains/example.co.uk/records/TXT/%40', $requests[1][1]);
         self::assertSame([
-            ['name' => '@', 'data' => 'mx.example.com', 'type' => 'MX', 'ttl' => 600, 'priority' => 10],
-            ['name' => '@', 'data' => 'ns1.example.net', 'type' => 'NS'],
-            ['name' => '@', 'data' => 'ns2.example.net', 'type' => 'NS'],
+            ['data' => 'v=spf1 ip4:203.0.113.12 -all', 'ttl' => 600],
+            ['data' => 'google-site-verification=keep-me', 'ttl' => 3600],
         ], $requests[1][2]);
+        self::assertSame('PUT', $requests[2][0]);
+        self::assertSame('https://api.godaddy.com/v1/domains/example.co.uk/records/MX/%40', $requests[2][1]);
+        self::assertSame([
+            ['data' => 'mx.example.com', 'ttl' => 600, 'priority' => 10],
+        ], $requests[2][2]);
     }
 
     public function test_cloudflare_install_dns_uses_zone_batch_and_keeps_unrelated_records(): void
@@ -85,6 +96,12 @@ class DmsChangeDomainDnsRecordWriterTest extends TestCase
         $dnsRecords = [[
             'id' => str_repeat('d', 32), 'type' => 'A', 'name' => 'unrelated.example.co.uk',
             'content' => '198.51.100.4', 'ttl' => 300, 'proxied' => false,
+        ], [
+            'id' => str_repeat('e', 32), 'type' => 'TXT', 'name' => 'spf.example.co.uk',
+            'content' => '"v=spf1 include:old.example -all"', 'ttl' => 300,
+        ], [
+            'id' => str_repeat('f', 32), 'type' => 'TXT', 'name' => 'spf.example.co.uk',
+            'content' => '"google-site-verification=keep-me"', 'ttl' => 3600,
         ]];
         Http::fake(function ($request) use ($zoneId, &$dnsRecords) {
             if (str_contains($request->url(), '/zones?')) {
@@ -95,6 +112,16 @@ class DmsChangeDomainDnsRecordWriterTest extends TestCase
                 ]);
             }
             if (str_ends_with($request->url(), '/dns_records/batch')) {
+                foreach ($request->data()['patches'] ?? [] as $record) {
+                    foreach ($dnsRecords as $index => $current) {
+                        if (($current['id'] ?? null) === ($record['id'] ?? null)) {
+                            $dnsRecords[$index] = [...$current, ...$record];
+                        }
+                    }
+                }
+                foreach ($request->data()['deletes'] ?? [] as $record) {
+                    $dnsRecords = array_values(array_filter($dnsRecords, static fn (array $current): bool => ($current['id'] ?? null) !== ($record['id'] ?? null)));
+                }
                 foreach ($request->data()['posts'] ?? [] as $index => $record) {
                     $dnsRecords[] = [
                         ...$record,
@@ -132,15 +159,90 @@ class DmsChangeDomainDnsRecordWriterTest extends TestCase
         Http::assertSent(fn ($request) => $request->method() === 'POST'
             && $request->url() === 'https://api.cloudflare.com/client/v4/zones/'.$zoneId.'/dns_records/batch'
             && $request->data() === [
+                'patches' => [[
+                    'id' => str_repeat('e', 32), 'type' => 'TXT', 'name' => 'spf.example.co.uk',
+                    'content' => '"v=spf1 ip4:203.0.113.12 -all"', 'ttl' => 300,
+                ]],
                 'posts' => [
                     ['type' => 'A', 'name' => 'example.co.uk', 'content' => '203.0.113.12', 'ttl' => 300],
                     ['type' => 'AAAA', 'name' => 'example.co.uk', 'content' => '2001:41d0:601:2000::e65', 'ttl' => 300],
-                    ['type' => 'TXT', 'name' => 'spf.example.co.uk', 'content' => 'v=spf1 ip4:203.0.113.12 -all', 'ttl' => 300],
                 ],
             ]);
         self::assertCount(2, Http::recorded(fn ($request) => $request->method() === 'GET'
             && str_contains($request->url(), '/dns_records')));
         self::assertSame($provider->getKey(), $domain->fresh()->domains_provider_id);
+    }
+
+    public function test_cloudflare_quotes_and_chunks_long_txt_values_at_rfc1035_boundaries(): void
+    {
+        $zoneId = str_repeat('a', 32);
+        $dnsRecords = [];
+        Http::fake(function ($request) use ($zoneId, &$dnsRecords) {
+            if (str_contains($request->url(), '/zones?')) {
+                return Http::response([
+                    'success' => true,
+                    'result' => [['id' => $zoneId, 'name' => 'example.co.uk']],
+                    'result_info' => ['total_pages' => 1],
+                ]);
+            }
+            if (str_ends_with($request->url(), '/dns_records/batch')) {
+                foreach ($request->data()['posts'] ?? [] as $index => $record) {
+                    $dnsRecords[] = [...$record, 'id' => str_pad(dechex($index + 1), 32, '0', STR_PAD_LEFT)];
+                }
+
+                return Http::response(['success' => true, 'result' => ['posts' => $request->data()['posts'] ?? []]]);
+            }
+
+            return Http::response(['success' => true, 'result' => $dnsRecords, 'result_info' => ['total_pages' => 1]]);
+        });
+        [$domain] = $this->ownedDomain('cloudflare', ['api_key' => 'synthetic-cloudflare-token']);
+        $domain->forceFill(['provider_domain_id' => $zoneId])->save();
+        $longDkim = 'v=DKIM1; p='.str_repeat('A', 270);
+
+        self::assertTrue(app(DmsBulkInstallDomainDnsRecordWriter::class)->setHosts($domain, [[
+            'host' => 'selector._domainkey', 'address' => $longDkim, 'type' => 'TXT', 'ttl' => '300',
+        ]]));
+
+        $expectedContent = '"'.substr($longDkim, 0, 255).'" "'.substr($longDkim, 255).'"';
+        Http::assertSent(fn ($request) => $request->method() === 'POST'
+            && str_ends_with($request->url(), '/dns_records/batch')
+            && $request->data()['posts'][0]['content'] === $expectedContent);
+    }
+
+    public function test_cloudflare_splits_a_prequoted_long_txt_value_into_valid_character_strings(): void
+    {
+        $zoneId = str_repeat('a', 32);
+        $dnsRecords = [];
+        Http::fake(function ($request) use ($zoneId, &$dnsRecords) {
+            if (str_contains($request->url(), '/zones?')) {
+                return Http::response([
+                    'success' => true,
+                    'result' => [['id' => $zoneId, 'name' => 'example.co.uk']],
+                    'result_info' => ['total_pages' => 1],
+                ]);
+            }
+            if (str_ends_with($request->url(), '/dns_records/batch')) {
+                foreach ($request->data()['posts'] ?? [] as $index => $record) {
+                    $dnsRecords[] = [...$record, 'id' => str_pad(dechex($index + 1), 32, '0', STR_PAD_LEFT)];
+                }
+
+                return Http::response(['success' => true, 'result' => ['posts' => $request->data()['posts'] ?? []]]);
+            }
+
+            return Http::response(['success' => true, 'result' => $dnsRecords, 'result_info' => ['total_pages' => 1]]);
+        });
+        [$domain] = $this->ownedDomain('cloudflare', ['api_key' => 'synthetic-cloudflare-token']);
+        $domain->forceFill(['provider_domain_id' => $zoneId])->save();
+        $longDkim = 'v=DKIM1; p='.str_repeat('A', 270);
+
+        self::assertTrue(app(DmsBulkInstallDomainDnsRecordWriter::class)->setHosts($domain, [[
+            'host' => 'selector._domainkey', 'address' => '"'.$longDkim.'"', 'type' => 'TXT', 'ttl' => '300',
+        ]]));
+
+        $expectedContent = '"'.substr($longDkim, 0, 255).'" "'.substr($longDkim, 255).'"';
+        Http::assertSent(fn ($request) => $request->method() === 'POST'
+            && str_ends_with($request->url(), '/dns_records/batch')
+            && ($request->data()['posts'][0]['content'] ?? null) === $expectedContent);
     }
 
     public function test_domain_availability_rejects_a_cloudflare_provider_without_an_exact_zone(): void

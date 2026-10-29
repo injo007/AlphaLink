@@ -89,11 +89,11 @@ class DmsCentos9InstallWorkflowTest extends TestCase
         $this->assertArrayHasKey('/etc/pmta/conf/vmta', $session->uploads);
         $healthCommand = end($session->commands);
         $this->assertIsString($healthCommand);
-        $this->assertStringContainsString("grep -Fqx 'http-access 127.0.0.1 admin' /etc/pmta/settings/access", $healthCommand);
-        $this->assertStringContainsString("grep -Fq '<source 198.51.100.44>' /etc/pmta/settings/access", $healthCommand);
-        $this->assertStringNotContainsString("grep -Fqx 'http-access 198.51.100.44 admin' /etc/pmta/settings/access", $healthCommand);
+        $this->assertStringContainsString('http-access 127.0.0.1 admin', $healthCommand);
+        $this->assertStringContainsString('<source 198.51.100.44>', $healthCommand);
+        $this->assertStringNotContainsString('http-access 198.51.100.44 admin', $healthCommand);
         $this->assertStringNotContainsString('http-access 0/0 admin', $healthCommand);
-        $this->assertStringContainsString("grep -Fq 'listen 8080 ssl;' /etc/nginx/conf.d/default.conf", $healthCommand);
+        $this->assertStringContainsString('listen 8080 ssl;', $healthCommand);
     }
 
     public function test_it_does_not_mark_the_server_installed_when_pmta_health_fails(): void
@@ -107,7 +107,7 @@ class DmsCentos9InstallWorkflowTest extends TestCase
         $logs = [];
 
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('PMTA package, HTTP listener, access policy, or monitor proxy failed post-install verification.');
+        $this->expectExceptionMessage('PMTA post-install verification failed: pmta-backend-http-502,public-monitor-http-502.');
 
         $this->runWorkflow($workflow, $session, $logs);
     }
@@ -131,13 +131,15 @@ class DmsCentos9InstallWorkflowTest extends TestCase
 
         $healthCommand = end($session->commands);
         $this->assertIsString($healthCommand);
-        $this->assertStringContainsString("grep -Fqx 'http-access 127.0.0.1 admin' /etc/pmta/settings/access", $healthCommand);
-        $this->assertStringContainsString("grep -Fq 'location = /command {' /etc/nginx/conf.d/default.conf", $healthCommand);
-        $this->assertStringContainsString("grep -Fq 'allow 198.51.100.44;' /etc/nginx/conf.d/default.conf", $healthCommand);
-        $this->assertStringContainsString("grep -Fq '# ALPHALINK_PMTA_MONITOR_ACCESS_PUBLIC' /etc/nginx/conf.d/default.conf", $healthCommand);
-        $this->assertStringContainsString("! grep -Fqx 'http-access 0/0 monitor' /etc/pmta/settings/access", $healthCommand);
+        $this->assertStringContainsString('http-access 127.0.0.1 admin', $healthCommand);
+        $this->assertStringContainsString('location = /command {', $healthCommand);
+        $this->assertStringContainsString('allow 198.51.100.44;', $healthCommand);
+        $this->assertStringContainsString('# ALPHALINK_PMTA_MONITOR_ACCESS_PUBLIC', $healthCommand);
+        $this->assertStringContainsString('http-access 0/0 monitor', $healthCommand);
         $this->assertStringContainsString('proxy_pass http://127.0.0.1:2426;', $healthCommand);
-        $this->assertStringContainsString("grep -Fq 'listen 1213 ssl;' /etc/nginx/conf.d/default.conf", $healthCommand);
+        $this->assertStringContainsString("'http://127.0.0.1:2426/'", $healthCommand);
+        $this->assertStringContainsString("'https://example.test:1213/'", $healthCommand);
+        $this->assertStringContainsString('listen 1213 ssl;', $healthCommand);
         $this->assertSame(
             'PMTA WEB MONITOR LINK (HTTPS; public port 1213; backend-only PMTA HTTP listener 2426): >>> <a target="_blank" href="https://example.test:1213/">example.test:1213</a>',
             $logs[count($logs) - 2],
@@ -169,7 +171,7 @@ class DmsCentos9InstallWorkflowTest extends TestCase
         $this->assertStringContainsString('systemctl reload nginx', implode("\n", $session->commands));
         $healthCommand = end($session->commands);
         $this->assertIsString($healthCommand);
-        $this->assertStringContainsString("grep -Fq 'listen 1213 ssl;' /etc/nginx/conf.d/default.conf", $healthCommand);
+        $this->assertStringContainsString('listen 1213 ssl;', $healthCommand);
         $this->assertContains(
             'PMTA WEB MONITOR LINK (HTTPS; public port 1213; backend-only PMTA HTTP listener 2426): >>> <a target="_blank" href="https://example.test:1213/">example.test:1213</a>',
             $logs,
@@ -202,6 +204,9 @@ class DmsCentos9InstallWorkflowTest extends TestCase
             'PMTA WEB MONITOR LINK (HTTP via public IP; public port 8080; backend-only PMTA HTTP listener 16160): >>> <a target="_blank" href="http://8.8.8.8:8080/">8.8.8.8:8080</a>',
             $logs,
         );
+        $healthCommand = end($session->commands);
+        $this->assertStringContainsString("'http://127.0.0.1:16160/'", $healthCommand);
+        $this->assertStringContainsString("'http://127.0.0.1:8080/'", $healthCommand);
         $this->assertStringNotContainsString('certbot --apache', implode("\n", $session->commands));
         $this->assertStringNotContainsString("grep -Fq 'listen 8080 ssl;' /etc/nginx/conf.d/default.conf", end($session->commands));
     }
@@ -490,7 +495,9 @@ class RecordingWorkflowSession implements DmsInstallerRemoteCommandTransport, Dm
         $this->commands[] = $command;
 
         if (str_contains($command, 'printf ALPHALINK_PMTA_READY')) {
-            return $this->pmtaReady ? 'ALPHALINK_PMTA_READY' : '';
+            return $this->pmtaReady
+                ? 'ALPHALINK_PMTA_READY'
+                : 'ALPHALINK_PMTA_NOT_READY:pmta-backend-http-502,public-monitor-http-502';
         }
         if (str_contains($command, 'printf ALPHALINK_PMTA_PROXY_READY')) {
             return 'ALPHALINK_PMTA_PROXY_READY';

@@ -173,7 +173,9 @@ class CloudflareDnsApi
             $body = [
                 'type' => $type,
                 'name' => $recordName,
-                'content' => $record['address'],
+                'content' => $type === 'TXT'
+                    ? $this->cloudflareTxtContent((string) $record['address'])
+                    : $record['address'],
                 'ttl' => max(1, (int) $record['ttl']),
             ];
             if ($type === 'MX') {
@@ -192,6 +194,31 @@ class CloudflareDnsApi
         $patches = [];
         $posts = [];
         $deletes = [];
+
+        // Replace old installer-managed SPF, DKIM, and DMARC strings at the
+        // exact owner name, while retaining unrelated TXT values such as
+        // domain verification and service ownership records.
+        foreach ($desiredGroups as $key => &$desiredBodies) {
+            if (! str_ends_with($key, '|TXT')) {
+                continue;
+            }
+            foreach ($current as $item) {
+                $type = strtoupper((string) ($item['type'] ?? ''));
+                $name = strtolower(rtrim((string) ($item['name'] ?? ''), '.'));
+                if ($name.'|'.$type !== $key || $this->isManagedEmailAuthTxt((string) ($item['content'] ?? ''))) {
+                    continue;
+                }
+
+                $body = [
+                    'type' => 'TXT',
+                    'name' => $name,
+                    'content' => (string) ($item['content'] ?? ''),
+                    'ttl' => max(1, (int) ($item['ttl'] ?? 1)),
+                ];
+                $desiredBodies[json_encode($body, JSON_THROW_ON_ERROR)] = $body;
+            }
+        }
+        unset($desiredBodies);
 
         foreach ($desiredGroups as $key => $desiredBodies) {
             $matching = array_values(array_filter($current, static function (array $item) use ($key): bool {
@@ -290,6 +317,41 @@ class CloudflareDnsApi
                 throw new CloudflareDnsApiException('Cloudflare accepted the DNS update but the selected zone does not contain the requested installer records.');
             }
         }
+    }
+
+    private function cloudflareTxtContent(string $content): string
+    {
+        $content = trim($content);
+        if ($content === '') {
+            throw new CloudflareDnsApiException('Cloudflare TXT records cannot be empty.');
+        }
+        if (str_starts_with($content, '"') && str_ends_with($content, '"')) {
+            $content = preg_replace('/"\s*"/', '', substr($content, 1, -1)) ?? $content;
+            $content = trim($content);
+        }
+
+        $chunks = [];
+        $offset = 0;
+        $length = strlen($content);
+        while ($offset < $length) {
+            $chunk = function_exists('mb_strcut')
+                ? mb_strcut($content, $offset, 255, 'UTF-8')
+                : substr($content, $offset, 255);
+            if ($chunk === '') {
+                throw new CloudflareDnsApiException('The Cloudflare TXT record could not be split into valid character strings.');
+            }
+            $chunks[] = '"'.str_replace(['\\', '"'], ['\\\\', '\\"'], $chunk).'"';
+            $offset += strlen($chunk);
+        }
+
+        return implode(' ', $chunks);
+    }
+
+    private function isManagedEmailAuthTxt(string $content): bool
+    {
+        $content = trim(str_replace('"', '', $content));
+
+        return preg_match('/\Av=(?:spf1|dkim1|dmarc1)(?:\s|;)/i', $content) === 1;
     }
 
     private function request(DomainProvider $provider): PendingRequest

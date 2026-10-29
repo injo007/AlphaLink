@@ -59,6 +59,7 @@ class DmsCentos9PmtaDeploymentPlannerTest extends TestCase
         $this->assertStringContainsString('listen 8080;', $nginx);
         $this->assertStringContainsString('allow 192.0.2.10;', $nginx);
         $this->assertStringContainsString('allow 198.51.100.20;', $nginx);
+        $this->assertStringContainsString('allow 127.0.0.1;', $nginx);
         $this->assertStringContainsString('deny all;', $nginx);
         $this->assertStringContainsString('return 302 /;', $nginx);
         $this->assertContains("echo -e 'http-access 127.0.0.1 admin\n' > /etc/pmta/settings/access;", $commands);

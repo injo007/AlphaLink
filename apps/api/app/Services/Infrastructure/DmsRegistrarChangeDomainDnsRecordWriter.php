@@ -216,34 +216,59 @@ class DmsRegistrarChangeDomainDnsRecordWriter implements DmsBulkInstallDomainDns
             ->retry(2)
             ->withHeaders(['Authorization' => "sso-key {$provider->api_key}:{$provider->api_secret}"]);
 
-        $formatted = array_map(static function (array $record): array {
-            $result = [
-                'name' => $record['host'],
+        $groups = [];
+        foreach ($this->filterRecords($records) as $record) {
+            $type = strtoupper($record['type']);
+            $name = trim($record['host']) !== '' ? trim($record['host']) : '@';
+            $groups[$type.'|'.$name][] = [
                 'data' => $record['address'],
-                'type' => $record['type'],
                 'ttl' => max((int) $record['ttl'], 600),
+                ...($type === 'MX' ? ['priority' => 10] : []),
             ];
-            if ($record['type'] === 'MX') {
-                $result['priority'] = 10;
+        }
+
+        foreach ($groups as $key => $desired) {
+            [$type, $name] = explode('|', $key, 2);
+            $endpoint = 'v1/domains/'.rawurlencode($domain).'/records/'.rawurlencode($type).'/'.rawurlencode($name);
+            $replacement = $desired;
+
+            if ($type === 'TXT') {
+                $currentResponse = $request->get($endpoint);
+                if ($currentResponse->successful()) {
+                    $current = $currentResponse->json();
+                    if (! is_array($current)) {
+                        return false;
+                    }
+                    foreach ($current as $record) {
+                        if (! is_array($record) || $this->isManagedEmailAuthTxt((string) ($record['data'] ?? ''))) {
+                            continue;
+                        }
+                        $preserved = ['data' => (string) ($record['data'] ?? '')];
+                        if (isset($record['ttl']) && is_numeric($record['ttl'])) {
+                            $preserved['ttl'] = (int) $record['ttl'];
+                        }
+                        $replacement[] = $preserved;
+                    }
+                } elseif ($currentResponse->status() !== 404) {
+                    return false;
+                }
             }
 
-            return $result;
-        }, $this->filterRecords($records));
-
-        // DMS performs this GET before replacement and retains any current NS rows.
-        $nameserverResponse = $request->get('v1/domains/'.$domain);
-        if ($nameserverResponse->successful()) {
-            $nameservers = $nameserverResponse->json('nameServers');
-            if (is_array($nameservers)) {
-                foreach ($nameservers as $nameserver) {
-                    if (is_string($nameserver) && $nameserver !== '') {
-                        $formatted[] = ['name' => '@', 'data' => $nameserver, 'type' => 'NS'];
-                    }
-                }
+            // GoDaddy's scoped PUT replaces only the selected type/name RRset;
+            // the former whole-zone PUT deleted unrelated website and mail DNS.
+            if (! $request->put($endpoint, $replacement)->successful()) {
+                return false;
             }
         }
 
-        return $request->put('v1/domains/'.$domain.'/records', $formatted)->successful();
+        return true;
+    }
+
+    private function isManagedEmailAuthTxt(string $content): bool
+    {
+        $content = trim(str_replace('"', '', $content));
+
+        return preg_match('/\Av=(?:spf1|dkim1|dmarc1)(?:\s|;)/i', $content) === 1;
     }
 
     /** @param list<array{host: string, address: string, type: string, ttl: string}> $records

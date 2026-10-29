@@ -259,6 +259,9 @@ class DmsCentos9PmtaDeploymentPlanner
         if (! $allowAllMonitor) {
             // AlphaLink's egress also needs the monitor endpoint for its
             // authenticated, read-only PMTA panel proxy.
+            // The installer also verifies the local HTTP proxy before it
+            // persists the server, so loopback must pass this outer ACL.
+            $allowed .= "allow 127.0.0.1;\n";
             foreach (array_values(array_unique([...$developmentIps, ...$productionIps, ...$pmtaRelayIps])) as $ip) {
                 $allowed .= "allow {$ip};\n";
             }

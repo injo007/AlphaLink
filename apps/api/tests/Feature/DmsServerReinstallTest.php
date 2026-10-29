@@ -192,9 +192,11 @@ class DmsServerReinstallTest extends TestCase
             'allow_all_monitor' => true,
         ]);
 
-        $this->assertStringContainsString("grep -Fqx 'http-access 127.0.0.1 admin' /etc/pmta/settings/access", $command);
-        $this->assertStringContainsString("grep -Fq 'location = /command {' /etc/nginx/conf.d/default.conf", $command);
-        $this->assertStringContainsString("grep -Fq 'allow 198.51.100.44;' /etc/nginx/conf.d/default.conf", $command);
+        $this->assertStringContainsString('http-access 127.0.0.1 admin', $command);
+        $this->assertStringContainsString('location = /command {', $command);
+        $this->assertStringContainsString('allow 198.51.100.44;', $command);
+        $this->assertStringContainsString("'http://127.0.0.1:2426/'", $command);
+        $this->assertStringContainsString("'http://127.0.0.1:1213/'", $command);
         $this->assertStringNotContainsString('http-access 198.51.100.44 admin', $command);
     }
 

@@ -281,7 +281,10 @@ class DmsCentos9InstallWorkflow
             $monitorDomain,
         ));
         if ($health !== 'ALPHALINK_PMTA_READY') {
-            throw new RuntimeException('PMTA package, HTTP listener, access policy, or monitor proxy failed post-install verification.');
+            $diagnostics = is_string($health) && str_starts_with($health, 'ALPHALINK_PMTA_NOT_READY:')
+                ? substr($health, strlen('ALPHALINK_PMTA_NOT_READY:'))
+                : 'probe-command-failed';
+            throw new RuntimeException('PMTA post-install verification failed: '.$diagnostics.'.');
         }
 
         if ($ipAssignments === null) {
@@ -397,51 +400,6 @@ class DmsCentos9InstallWorkflow
     /** @param array<string, mixed> $settings */
     private function pmtaReadinessCommand(int $version, array $settings, bool $https = false, ?string $domain = null): string
     {
-        $publicPort = $settings['pmta_admin_port'];
-        $pmtaHttpPort = $publicPort * 2;
-        $checks = [
-            'rpm -q PowerMTA >/dev/null',
-            'systemctl is-active --quiet pmta',
-            'systemctl is-active --quiet pmtahttp',
-            "ss -H -ltn | awk -v pattern=':{$pmtaHttpPort}$' '\$4 ~ pattern { found = 1 } END { exit !found }'",
-        ];
-
-        $checks[] = "grep -Fqx 'http-access 127.0.0.1 admin' /etc/pmta/settings/access";
-        foreach ($settings['pmta_relay_ips'] as $ip) {
-            $checks[] = "grep -Fq '<source {$ip}>' /etc/pmta/settings/access";
-            $checks[] = "grep -Fq 'always-allow-relaying yes' /etc/pmta/settings/access";
-        }
-        $checks[] = "grep -Fq 'location = /command {' /etc/nginx/conf.d/default.conf";
-        $checks[] = "! grep -Fqx 'http-access 0/0 monitor' /etc/pmta/settings/access";
-        $checks[] = 'systemctl is-active --quiet nginx';
-        $checks[] = 'nginx -t >/dev/null 2>&1';
-        $checks[] = "ss -H -ltn | awk -v pattern=':{$publicPort}$' '\$4 ~ pattern { found = 1 } END { exit !found }'";
-        $checks[] = "grep -Fq 'proxy_pass http://127.0.0.1:{$pmtaHttpPort};' /etc/nginx/conf.d/default.conf";
-
-        foreach ($settings['pmta_relay_ips'] as $ip) {
-            $checks[] = "grep -Fq 'allow {$ip};' /etc/nginx/conf.d/default.conf";
-        }
-
-        if (! $settings['allow_all_monitor']) {
-            foreach (array_values(array_unique([...$settings['dev_ips'], ...$settings['production_ips'], ...$settings['pmta_relay_ips']])) as $ip) {
-                $checks[] = "grep -Fq 'allow {$ip};' /etc/nginx/conf.d/default.conf";
-            }
-            $checks[] = "grep -Fq '# ALPHALINK_PMTA_MONITOR_ACCESS_RESTRICTED' /etc/nginx/conf.d/default.conf";
-        } else {
-            $checks[] = "grep -Fq '# ALPHALINK_PMTA_MONITOR_ACCESS_PUBLIC' /etc/nginx/conf.d/default.conf";
-        }
-
-        if ($https && is_string($domain) && $domain !== '') {
-            $checks[] = "grep -Fq 'listen {$publicPort} ssl;' /etc/nginx/conf.d/default.conf";
-            $domainArgument = escapeshellarg($domain);
-            $checks[] = 'grep -Fq '.escapeshellarg("server_name {$domain};").' /etc/nginx/conf.d/default.conf';
-            $checks[] = 'test -s '.escapeshellarg('/etc/letsencrypt/live/'.$domain.'/fullchain.pem');
-            $checks[] = 'test -s '.escapeshellarg('/etc/letsencrypt/live/'.$domain.'/privkey.pem');
-            $checks[] = "printf '' | timeout 8 openssl s_client -connect 127.0.0.1:{$publicPort} -servername {$domainArgument} -verify_hostname {$domainArgument} -verify_return_error 2>&1 | grep -Fq 'Verify return code: 0 (ok)'";
-        }
-
-        $checks[] = 'printf ALPHALINK_PMTA_READY';
-
-        return implode(' && ', $checks);
+        return (new DmsPmtaPostInstallReadiness)->command($version, $settings, $https, $domain);
     }
 }

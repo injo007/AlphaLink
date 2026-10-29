@@ -1469,12 +1469,14 @@ class WorkspaceConsoleController extends Controller
                 }
             }
         }
-        if ($data['send_setup']['route_option'] === 'vmta') {
+        if (in_array($data['send_setup']['route_option'], ['vmta', 'smtp'], true)) {
             foreach ($servers as $selectedServer) {
                 $virtualMtaName = trim((string) ($routeChoices->get((string) $selectedServer->getKey())['pmta_name'] ?? ''));
                 if (preg_match('/\A[A-Za-z0-9_.:-]{1,255}\z/', $virtualMtaName) !== 1) {
                     throw ValidationException::withMessages([
-                        'send_setup.route_option' => 'No pushed VMTA is available for the selected server. Push a VMTA in PMTA VMTA, then reload this campaign before testing.',
+                        'send_setup.route_option' => $data['send_setup']['route_option'] === 'smtp'
+                            ? 'No pushed SMTP route is available for the selected server. Configure and push an SMTP route, then reload this campaign before testing.'
+                            : 'No pushed VMTA is available for the selected server. Push a VMTA in PMTA VMTA, then reload this campaign before testing.',
                     ]);
                 }
             }
@@ -1543,6 +1545,12 @@ class WorkspaceConsoleController extends Controller
                     $renderedHeader,
                     $vmtaPlanner->ipVirtualMtaName((string) $ipChoice['ip']),
                 );
+            } elseif ($data['send_setup']['route_option'] === 'smtp') {
+                $smtpChoice = $routeChoices->get((string) $selectedServer->getKey());
+                $renderedHeader = $this->campaignTestHeaderWithVirtualMta(
+                    $renderedHeader,
+                    (string) $smtpChoice['pmta_name'],
+                );
             }
             $fromAddress = $this->campaignHeaderEmailAddress($renderedHeader, 'from');
             $returnPathAddress = trim($renderedReturnPath) === ''
@@ -1603,19 +1611,23 @@ class WorkspaceConsoleController extends Controller
             'resolved_body' => $firstTestMessage['body'],
             'mta' => $data['send_setup']['route_option'],
             'type' => $data['send_setup']['ip_type'],
-            'virtual_mtas' => in_array($data['send_setup']['route_option'], ['ip', 'vmta'], true)
+            'virtual_mtas' => in_array($data['send_setup']['route_option'], ['ip', 'vmta', 'smtp'], true)
                 ? $servers->map(fn (ManagedServer $selectedServer): array => [
                     'server_id' => (string) $selectedServer->getKey(),
                     'catalog_id' => (string) ($routeChoices->get((string) $selectedServer->getKey())['id'] ?? ''),
                     'name' => $data['send_setup']['route_option'] === 'ip'
                         ? (string) ($routeChoices->get((string) $selectedServer->getKey())['ip'] ?? '')
-                        : (string) ($routeChoices->get((string) $selectedServer->getKey())['name'] ?? ''),
+                        : (string) ($data['send_setup']['route_option'] === 'smtp'
+                            ? ($routeChoices->get((string) $selectedServer->getKey())['username'] ?? '')
+                            : ($routeChoices->get((string) $selectedServer->getKey())['name'] ?? '')),
                     'pmta_name' => $data['send_setup']['route_option'] === 'ip'
                         ? $vmtaPlanner->ipVirtualMtaName((string) $routeChoices->get((string) $selectedServer->getKey())['ip'])
                         : (string) ($routeChoices->get((string) $selectedServer->getKey())['pmta_name'] ?? ''),
                     'domain' => (string) ($data['send_setup']['route_option'] === 'ip'
                         ? ($routeChoices->get((string) $selectedServer->getKey())['dns'] ?? '')
-                        : ($routeChoices->get((string) $selectedServer->getKey())['vmta_domain'] ?? '')),
+                        : ($data['send_setup']['route_option'] === 'smtp'
+                            ? ($routeChoices->get((string) $selectedServer->getKey())['dns'] ?? '')
+                            : ($routeChoices->get((string) $selectedServer->getKey())['vmta_domain'] ?? ''))),
                 ])->values()->all()
                 : [],
             'servers' => collect($serverIds)->map(fn (string $serverId): array => [

@@ -6,10 +6,16 @@ use App\Models\PmtaSmtpConfig;
 
 class PmtaSmtpConfigBuilder
 {
+    public static function virtualMtaName(string $ip, int|string $id): string
+    {
+        $ipName = str_replace(':', '.', $ip);
+
+        return "smtp-{$ipName}-{$id}";
+    }
+
     public function build(PmtaSmtpConfig $config, int $pmtaVersion): string
     {
-        $ipName = str_replace(':', '.', $config->ip);
-        $data = "<virtual-mta smtp-{$ipName}-{$config->getKey()}>\n";
+        $data = '<virtual-mta '.self::virtualMtaName((string) $config->ip, (int) $config->getKey()).">\n";
         $data .= "    smtp-source-ip {$config->ip}\n";
         $data .= '    host-name '.($config->dns ?: $config->ip)."\n";
         $data .= "    <domain *>\n        queue-to smtp.queue\n    </domain>\n";

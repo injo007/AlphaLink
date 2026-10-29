@@ -14,6 +14,7 @@ use App\Models\WorkspaceCampaignNegative;
 use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceOfferAsset;
 use App\Models\WorkspaceSponsor;
+use App\Services\PmtaSmtpConfigBuilder;
 use App\Services\PmtaVirtualMtaConfigBuilder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -336,7 +337,9 @@ class DmsCampaignSendCatalog
                         (string) $ip->virtualMta->ip,
                         (int) $ip->virtualMta->duplicate_index,
                     )
-                    : null,
+                    : ($route === 'smtp'
+                        ? PmtaSmtpConfigBuilder::virtualMtaName((string) $ip->ip, (int) $ip->getKey())
+                        : null),
             ])->values(),
             'settings' => ['pmta_admin_port' => $pmtaAdminPort],
         ];

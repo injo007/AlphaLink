@@ -10,6 +10,7 @@ use App\Models\Workspace;
 use App\Models\WorkspaceGoogleProject;
 use App\Services\Infrastructure\DmsInstallerSshSession;
 use App\Services\PmtaRemoteConfiguration;
+use App\Services\PmtaSmtpConfigBuilder;
 use Illuminate\Database\Eloquent\Collection;
 use RuntimeException;
 use Throwable;
@@ -162,10 +163,9 @@ class DmsWorkspaceSmtpConfiguration
     {
         $email = $mta->username;
         $password = rtrim(strtr(base64_encode($projectName), '+/', '-_'), '=');
-        $ipName = str_replace(':', '.', $mta->ip);
         $route = $version !== 40 ? 'smtp-hosts' : 'route';
 
-        return "<virtual-mta smtp-{$ipName}-{$mta->id}>\n"
+        return '<virtual-mta '.PmtaSmtpConfigBuilder::virtualMtaName((string) $mta->ip, (int) $mta->getKey()).">\n"
             ."    smtp-source-ip {$mta->ip}\n"
             ."    host-name {$mta->dns}\n"
             ."<domain *>\n"

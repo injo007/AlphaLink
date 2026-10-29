@@ -111,7 +111,14 @@ class DmsCentos9ReinstallWorkflow
         $log('Prepare Reinstalling Server : '.$server->getKey());
 
         $log('Re Setup Host');
-        $this->hostPreparation->configureHost($session, (string) $server->ip_address, $deploymentDomain);
+        $configuredHostname = $this->hostPreparation->configureHost($session, (string) $server->ip_address, $deploymentDomain);
+        if (! $mainDomainProviderReady) {
+            $log(sprintf(
+                'No DNS-managed domain is available; configured PMTA host identity %s while keeping tracking and monitor endpoints on public IP %s.',
+                $configuredHostname,
+                $server->ip_address,
+            ));
+        }
         $log('End Setting Host');
 
         $log('Re Setup Services');

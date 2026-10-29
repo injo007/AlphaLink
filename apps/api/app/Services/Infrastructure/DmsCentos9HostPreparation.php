@@ -21,16 +21,23 @@ class DmsCentos9HostPreparation
         DmsInstallerRemoteCommandTransport $transport,
         string $serverIp,
         ?string $domain,
-    ): void {
-        if (! empty($domain)) {
-            $domainArgument = escapeshellarg($domain);
-            $hostEntryArgument = escapeshellarg($serverIp.' '.$domain);
-            $sedExpression = escapeshellarg('s/HOSTNAME=.*/HOSTNAME='.$domain.'/g');
-
-            $transport->exec("hostnamectl set-hostname {$domainArgument}");
-            $transport->exec("sed -i {$sedExpression} /etc/sysconfig/network");
-            $transport->exec("grep -qxF {$hostEntryArgument} /etc/hosts || echo -e {$hostEntryArgument} >> /etc/hosts");
+    ): string {
+        $hostname = trim((string) $domain);
+        if ($hostname === '') {
+            $packedIp = @inet_pton($serverIp);
+            $identifier = $packedIp === false ? substr(hash('sha256', $serverIp), 0, 16) : bin2hex($packedIp);
+            $hostname = 'pmta-'.$identifier.'.invalid';
         }
+
+        $hostnameArgument = escapeshellarg($hostname);
+        $hostEntryArgument = escapeshellarg($serverIp.' '.$hostname);
+        $sedExpression = escapeshellarg('s/HOSTNAME=.*/HOSTNAME='.$hostname.'/g');
+
+        $transport->exec("hostnamectl set-hostname {$hostnameArgument}");
+        $transport->exec("sed -i {$sedExpression} /etc/sysconfig/network");
+        $transport->exec("grep -qxF {$hostEntryArgument} /etc/hosts || echo -e {$hostEntryArgument} >> /etc/hosts");
+
+        return $hostname;
     }
 
     public function removeOldPackages(DmsInstallerRemoteCommandTransport $transport): void

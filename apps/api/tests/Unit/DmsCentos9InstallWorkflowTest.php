@@ -199,6 +199,11 @@ class DmsCentos9InstallWorkflowTest extends TestCase
         $this->runWorkflow($workflow, $session, $logs, providerAvailable: false);
 
         $this->assertArrayNotHasKey('/etc/nginx/conf.d/default.conf.alphalink-tls-stage', $session->uploads);
+        $this->assertSame("hostnamectl set-hostname 'pmta-08080808.invalid'", $session->commands[0]);
+        $this->assertContains(
+            'No DNS-managed domain is available; configured PMTA host identity pmta-08080808.invalid while keeping tracking and monitor endpoints on public IP 8.8.8.8.',
+            $logs,
+        );
         $this->assertContains(
             'PMTA WEB MONITOR LINK (HTTP; public port 8080): >>> <a target="_blank" href="http://8.8.8.8:8080/">8.8.8.8:8080</a>',
             $logs,

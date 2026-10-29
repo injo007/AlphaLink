@@ -158,7 +158,14 @@ class DmsCentos9InstallWorkflow
         }
 
         $log('Setup Host');
-        $this->hostPreparation->configureHost($session, (string) $server->ip_address, $deploymentDomain);
+        $configuredHostname = $this->hostPreparation->configureHost($session, (string) $server->ip_address, $deploymentDomain);
+        if (! $primaryDomainReady) {
+            $log(sprintf(
+                'No DNS-managed domain is available; configured PMTA host identity %s while keeping tracking and monitor endpoints on public IP %s.',
+                $configuredHostname,
+                $server->ip_address,
+            ));
+        }
         $log('End Setting Host');
 
         $log('Removing Old Packages');

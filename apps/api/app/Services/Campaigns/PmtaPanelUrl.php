@@ -10,25 +10,10 @@ final class PmtaPanelUrl
     public static function forServer(ManagedServer $server, int $port): string
     {
         $parameters = is_array($server->install_parameters) ? $server->install_parameters : [];
-        $rows = is_array($parameters['data'] ?? null) ? $parameters['data'] : [];
-        $main = null;
-
-        foreach ($rows as $row) {
-            if (! is_array($row)) {
-                continue;
-            }
-            if ($main === null) {
-                $main = $row;
-            }
-            if (($row['main'] ?? false) === true) {
-                $main = $row;
-                break;
-            }
-        }
 
         return self::forInstallation(
             (string) $server->ip_address,
-            is_string($main['domain'] ?? null) ? $main['domain'] : null,
+            self::mainDomain($parameters),
             $port,
             // `https` covers the server's general HTTPS install option (for
             // example its tracking vhost). Older installs can have that flag
@@ -47,13 +32,56 @@ final class PmtaPanelUrl
      */
     public static function displayUrl(ManagedServer $server, int $port): string
     {
-        $directUrl = self::forServer($server, $port);
+        $parameters = is_array($server->install_parameters) ? $server->install_parameters : [];
+
+        return self::displayUrlForInstallation(
+            (string) $server->ip_address,
+            self::mainDomain($parameters),
+            $port,
+            ($parameters['pmta_monitor_https'] ?? false) === true,
+            (string) $server->getKey(),
+        );
+    }
+
+    /**
+     * Browser-safe PMTA URL for install logs and existing server records.
+     * HTTP-only PMTA endpoints stay server-side behind AlphaLink's authenticated
+     * HTTPS proxy, avoiding browser HTTPS upgrades to an HTTP listener.
+     */
+    public static function displayUrlForInstallation(
+        string $ip,
+        ?string $domain,
+        int $port,
+        bool $https,
+        string $serverId,
+    ): string {
+        $directUrl = self::forInstallation($ip, $domain, $port, $https);
 
         if ($directUrl === '' || str_starts_with($directUrl, 'https://')) {
             return $directUrl;
         }
 
-        return route('clean.console.pmta-admin.monitor', (string) $server->getKey(), false);
+        return route('clean.console.pmta-admin.monitor', $serverId, false);
+    }
+
+    /** @param array<string, mixed> $parameters */
+    private static function mainDomain(array $parameters): ?string
+    {
+        $rows = is_array($parameters['data'] ?? null) ? $parameters['data'] : [];
+        $main = null;
+
+        foreach ($rows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $main ??= $row;
+            if (($row['main'] ?? false) === true) {
+                $main = $row;
+                break;
+            }
+        }
+
+        return is_string($main['domain'] ?? null) ? $main['domain'] : null;
     }
 
     public static function forInstallation(string $ip, ?string $domain, int $port, bool $https): string

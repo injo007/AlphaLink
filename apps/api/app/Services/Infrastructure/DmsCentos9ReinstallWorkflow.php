@@ -286,15 +286,22 @@ class DmsCentos9ReinstallWorkflow
             $log('End Setting HTTPS');
         }
         if ($options['pmta']) {
-            $adminUrl = PmtaPanelUrl::forInstallation(
+            $adminUrl = PmtaPanelUrl::displayUrlForInstallation(
                 (string) $server->ip_address,
                 $monitorDomain,
                 $inputs['settings']['pmta_admin_port'],
                 $pmtaMonitorHttps,
+                (string) $server->getKey(),
             );
         }
         if ($adminUrl !== null) {
-            $log('PMTA MONITOR LINK : '.$adminUrl);
+            $log(str_starts_with($adminUrl, 'https://')
+                ? 'PMTA MONITOR LINK (verified HTTPS): '.$adminUrl
+                : sprintf(
+                    'PMTA MONITOR LINK (HTTP server monitor through AlphaLink HTTPS proxy; PMTA listener port %d): %s',
+                    $inputs['settings']['pmta_admin_port'],
+                    $adminUrl,
+                ));
         }
 
         $log('Re Config Firewall');

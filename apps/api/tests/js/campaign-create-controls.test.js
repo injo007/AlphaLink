@@ -218,7 +218,9 @@ test('campaign routing help explains SMTP tags and distinguishes PMTA ingress fr
     assert.match(view, /id="send-route-behavior"/);
     assert.match(view, /SMTP mode uses the selected SMTP account for outbound routing/);
     assert.match(view, /\[smtp\]<\/code> is its username and <code>\[smtp_name\]/);
-    assert.match(view, /AlphaLink still submits through the selected server’s PMTA listener/);
+    assert.match(view, /PMTA applies the selected outbound route/);
     assert.match(view, /IP mode uses the selected source IP/);
+    assert.match(view, /resolve from its one active linked SMTP account/);
+    assert.match(view, /To use that account for outbound routing, choose SMTP/);
     assert.match(view, /server\.pmta_panel_display_url \|\| server\.pmta_panel_url/);
 });

@@ -1481,6 +1481,24 @@ class WorkspaceConsoleController extends Controller
                 }
             }
         }
+        $usesSmtpTag = preg_match('/\[(?:smtp|smtp_name)\]/i', implode("\n", [
+            (string) ($data['header'] ?? ''),
+            (string) ($data['body'] ?? ''),
+            (string) ($data['return_path'] ?? ''),
+        ])) === 1;
+        if ($data['send_setup']['route_option'] === 'ip' && $usesSmtpTag) {
+            foreach ($servers as $selectedServer) {
+                $ipChoice = $routeChoices->get((string) $selectedServer->getKey());
+                $smtpAccountCount = (int) ($ipChoice['smtp_account_count'] ?? 0);
+                if ($smtpAccountCount !== 1) {
+                    throw ValidationException::withMessages([
+                        'header' => $smtpAccountCount === 0
+                            ? 'The selected IP has no linked SMTP username for [smtp]. Link one active SMTP account to that IP, or select Option SMTP and choose the account to use it for outbound delivery.'
+                            : 'The selected IP has multiple linked SMTP accounts, so [smtp] is ambiguous. Select Option SMTP and choose the exact account to use it for outbound delivery.',
+                    ]);
+                }
+            }
+        }
         $ipTagData = $servers->mapWithKeys(fn (ManagedServer $selectedServer): array => [
             (string) $selectedServer->getKey() => $this->campaignTestIpTags(
                 $workspace,
@@ -1879,8 +1897,8 @@ class WorkspaceConsoleController extends Controller
             'ide' => '0',
             'reply' => '',
             'textarea' => '',
-            'smtp' => $route === 'smtp' ? (string) ($choice['username'] ?? '') : '',
-            'smtp_name' => $route === 'smtp' ? (string) ($choice['name'] ?? '') : '',
+            'smtp' => in_array($route, ['ip', 'smtp'], true) ? (string) ($choice['username'] ?? '') : '',
+            'smtp_name' => in_array($route, ['ip', 'smtp'], true) ? (string) ($choice['name'] ?? '') : '',
             'tag' => '',
         ];
     }

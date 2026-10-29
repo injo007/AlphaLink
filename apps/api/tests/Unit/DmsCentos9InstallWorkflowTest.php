@@ -80,7 +80,7 @@ class DmsCentos9InstallWorkflowTest extends TestCase
             'Setup VMTAS', 'End Setting VMTAS',
             'Setup HTTPS for PMTA Web Monitor', 'End Setting HTTPS for PMTA Web Monitor',
             'Config Firewall', 'End Setting Firewall',
-            'PMTA WEB MONITOR LINK (HTTPS; public port 8080): >>> <a target="_blank" href="https://example.test:8080/">example.test:8080</a>',
+            'PMTA WEB MONITOR LINK (HTTPS; public port 8080): >>> <a target="_blank" rel="noopener noreferrer" href="https://example.test:8080/">example.test:8080</a>',
             'Ended Disconnecting',
         ], $logs);
         $this->assertSame("hostnamectl set-hostname 'example.test'", $session->commands[0]);
@@ -141,7 +141,7 @@ class DmsCentos9InstallWorkflowTest extends TestCase
         $this->assertStringContainsString("'https://example.test:1213/'", $healthCommand);
         $this->assertStringContainsString('listen 1213 ssl;', $healthCommand);
         $this->assertSame(
-            'PMTA WEB MONITOR LINK (HTTPS; public port 1213): >>> <a target="_blank" href="https://example.test:1213/">example.test:1213</a>',
+            'PMTA WEB MONITOR LINK (HTTPS; public port 1213): >>> <a target="_blank" rel="noopener noreferrer" href="https://example.test:1213/">example.test:1213</a>',
             $logs[count($logs) - 2],
         );
     }
@@ -173,7 +173,7 @@ class DmsCentos9InstallWorkflowTest extends TestCase
         $this->assertIsString($healthCommand);
         $this->assertStringContainsString('listen 1213 ssl;', $healthCommand);
         $this->assertContains(
-            'PMTA WEB MONITOR LINK (HTTPS; public port 1213): >>> <a target="_blank" href="https://example.test:1213/">example.test:1213</a>',
+            'PMTA WEB MONITOR LINK (HTTPS; public port 1213): >>> <a target="_blank" rel="noopener noreferrer" href="https://example.test:1213/">example.test:1213</a>',
             $logs,
         );
     }
@@ -205,7 +205,7 @@ class DmsCentos9InstallWorkflowTest extends TestCase
             $logs,
         );
         $this->assertContains(
-            'PMTA WEB MONITOR LINK (HTTP; public port 8080): >>> <a target="_blank" href="http://8.8.8.8:8080/">8.8.8.8:8080</a>',
+            'PMTA WEB MONITOR LINK (HTTP monitor through AlphaLink HTTPS proxy; PMTA listener port 8080): >>> <a target="_blank" rel="noopener noreferrer" href="/pmta-admin/servers/server-one">Open PMTA monitor via AlphaLink HTTPS</a>',
             $logs,
         );
         $healthCommand = end($session->commands);
@@ -249,7 +249,7 @@ class DmsCentos9InstallWorkflowTest extends TestCase
         $this->assertStringContainsString('proxy_pass http://127.0.0.1:2426;', $nginxConfig);
         $this->assertStringNotContainsString('server_name example.test;', $nginxConfig);
         $this->assertContains(
-            'PMTA WEB MONITOR LINK (HTTP; public port 1213): >>> <a target="_blank" href="http://8.8.8.8:1213/">8.8.8.8:1213</a>',
+            'PMTA WEB MONITOR LINK (HTTP monitor through AlphaLink HTTPS proxy; PMTA listener port 1213): >>> <a target="_blank" rel="noopener noreferrer" href="/pmta-admin/servers/server-one">Open PMTA monitor via AlphaLink HTTPS</a>',
             $logs,
         );
         $healthCommand = end($session->commands);

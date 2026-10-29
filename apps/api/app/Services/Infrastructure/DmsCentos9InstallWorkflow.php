@@ -308,18 +308,25 @@ class DmsCentos9InstallWorkflow
             $this->completion->finalize($workspace, $server, $primaryDomain, $ips, $pmtaVersion, $completedOptions, $selectedDomains, $pmtaMonitorHttps);
         }
         $publicPort = $settings['pmta_admin_port'];
-        $adminUrl = PmtaPanelUrl::forInstallation(
+        $adminUrl = PmtaPanelUrl::displayUrlForInstallation(
             (string) $server->ip_address,
             $monitorDomain,
             $publicPort,
             $pmtaMonitorHttps,
+            (string) $server->getKey(),
         );
+        $monitorIsHttps = str_starts_with($adminUrl, 'https://');
+        $monitorLabel = $monitorIsHttps
+            ? (string) parse_url($adminUrl, PHP_URL_HOST).':'.$publicPort
+            : 'Open PMTA monitor via AlphaLink HTTPS';
+        $monitorDescription = $monitorIsHttps
+            ? sprintf('HTTPS; public port %d', $publicPort)
+            : sprintf('HTTP monitor through AlphaLink HTTPS proxy; PMTA listener port %d', $publicPort);
         $log(sprintf(
-            'PMTA WEB MONITOR LINK (%s; public port %d): >>> <a target="_blank" href="%s">%s</a>',
-            $pmtaMonitorHttps ? 'HTTPS' : 'HTTP',
-            $publicPort,
+            'PMTA WEB MONITOR LINK (%s): >>> <a target="_blank" rel="noopener noreferrer" href="%s">%s</a>',
+            $monitorDescription,
             $adminUrl,
-            parse_url($adminUrl, PHP_URL_HOST).':'.$publicPort,
+            $monitorLabel,
         ));
         $log('Ended Disconnecting');
     }

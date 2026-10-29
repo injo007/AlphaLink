@@ -236,7 +236,7 @@
         <div id="pmta-test" class="block block-rounded">
             <div class="block-header"><h3 class="block-title">Send a PMTA campaign test</h3></div>
             <div class="block-content block-content-full">
-                <p>Select a saved campaign server and Email Test recipient. AlphaLink connects to that server’s PMTA listener at the server IP and workspace port; that is the PMTA ingress address. It then pins the campaign’s saved IP, VMTA, or SMTP route with <code>X-Virtual-MTA</code>, which controls the outbound source/account. With Option IP, <code>[smtp]</code> and <code>[smtp_name]</code> resolve from the one active SMTP account linked to the selected IP, when exactly one exists; this fills tags but does not change the outbound route. Choose Option SMTP and its route to send through that account. Review the From, subject and body before explicitly sending.</p>
+                <p>Select a saved campaign server and Email Test recipient. AlphaLink connects to that server’s PMTA listener at the server IP and workspace port; that is the PMTA ingress address. It then pins the campaign’s saved IP, VMTA, or SMTP route with <code>X-Virtual-MTA</code>, which controls the outbound source/account. With Option IP, using <code>[smtp]</code> or <code>[smtp_name]</code> selects the one active SMTP account linked to that IP for outbound delivery; without those tags it uses the selected IP route. Multiple linked SMTP accounts require choosing the exact account through Option SMTP. Review the From, subject and body before explicitly sending.</p>
                 @if (! $pmtaPort)
                     <div class="alert alert-warning">Configure a valid PMTA SMTP listener port in installation settings before testing.</div>
                 @else

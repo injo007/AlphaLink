@@ -117,7 +117,16 @@ class DmsChangeDomainRunner
         $this->writeVhost($session, (string) $mainDomain->name, $subdomains);
         $log('End Setting VHost');
 
-        $this->writeDomainRecords($dnsGroups, $tracking, $imap, $options, $dkimSelector, $dkimMaterial['public_record'], $log);
+        $dnsRecordResults = $this->writeDomainRecords($dnsGroups, $tracking, $imap, $options, $dkimSelector, $dkimMaterial['public_record'], $log);
+        $mainDomainDnsReady = $dnsRecordResults[(string) $mainDomain->getKey()] ?? false;
+        $monitorDomain = $mainDomainDnsReady ? (string) $mainDomain->name : null;
+        if (! $mainDomainDnsReady) {
+            $log(sprintf(
+                'The selected domain %s is unavailable from its DNS provider; using public IP %s for the PMTA monitor and skipping domain HTTPS.',
+                $mainDomain->name,
+                $server->ip_address,
+            ));
+        }
 
         $log('Setup VMTAS');
         $vmtaRows = [];
@@ -142,15 +151,20 @@ class DmsChangeDomainRunner
         );
         $log('End Setting VMTAS');
 
+        $pmtaMonitorHttps = false;
         if ($options['https'] || $pmtaMonitor !== null) {
-            $log($options['https'] ? 'Setup Https' : 'Setup HTTPS for PMTA Web Monitor');
-            $this->httpsStage->run($session, (string) $mainDomain->name, $subdomains);
+            if ($monitorDomain !== null) {
+                $log($options['https'] ? 'Setup Https' : 'Setup HTTPS for PMTA Web Monitor');
+            } else {
+                $log('Skip domain HTTPS; no verified DNS-provider record is available.');
+            }
+            $this->httpsStage->run($session, $monitorDomain, $monitorDomain === null ? [] : $subdomains);
         }
         if ($pmtaMonitor !== null) {
-            $this->httpsStage->configurePmtaMonitor(
+            $pmtaMonitorHttps = $this->httpsStage->configurePmtaMonitor(
                 $session,
                 $session,
-                (string) $mainDomain->name,
+                $monitorDomain,
                 $pmtaMonitor['version'],
                 $pmtaMonitor['admin_port'],
                 $pmtaMonitor['development_ips'],
@@ -164,7 +178,7 @@ class DmsChangeDomainRunner
         }
 
         $log('Cleaning');
-        $this->persist($workspace, $actor, $server, $rows, $domains, $parameters, $tracking, $imap, $options, $requestId);
+        $this->persist($workspace, $actor, $server, $rows, $domains, $parameters, $tracking, $imap, $options, $mainDomainDnsReady, $pmtaMonitorHttps, $requestId);
         $log('Done Changing Domain');
     }
 
@@ -298,6 +312,7 @@ class DmsChangeDomainRunner
         return $groups;
     }
 
+    /** @return array<string, bool> */
     private function writeDomainRecords(
         array $groups,
         bool $tracking,
@@ -306,7 +321,8 @@ class DmsChangeDomainRunner
         string $dkimSelector,
         string $dkimPublicKey,
         callable $log,
-    ): void {
+    ): array {
+        $results = [];
         foreach ($groups as $group) {
             $domain = $group['domain'];
             $log('Config Hosts A-AAAA-MX... For '.$domain->name);
@@ -319,8 +335,11 @@ class DmsChangeDomainRunner
                 'dmarc' => $options['dmarc'],
             ], $dkimSelector, $dkimPublicKey);
             $success = $this->dnsWriter->setHosts($domain, $records);
+            $results[(string) $domain->getKey()] = $success;
             $log($success ? 'Done Setting Records' : 'Failed Setting Records');
         }
+
+        return $results;
     }
 
     /** @param list<array<string, mixed>> $rows @param array<string, SendingDomain> $domains
@@ -336,9 +355,11 @@ class DmsChangeDomainRunner
         bool $tracking,
         bool $imap,
         array $options,
+        bool $mainDomainDnsReady,
+        bool $pmtaMonitorHttps,
         ?string $requestId,
     ): void {
-        DB::transaction(function () use ($workspace, $actor, $server, $rows, $domains, $parameters, $tracking, $imap, $options, $requestId): void {
+        DB::transaction(function () use ($workspace, $actor, $server, $rows, $domains, $parameters, $tracking, $imap, $options, $mainDomainDnsReady, $pmtaMonitorHttps, $requestId): void {
             $oldIds = [];
             foreach ($rows as $row) {
                 $domain = $domains[$row['domain_id']];
@@ -372,11 +393,9 @@ class DmsChangeDomainRunner
             $parameters['spf'] = $options['spf'];
             $parameters['dkim'] = $options['dkim'];
             $parameters['dmarc'] = $options['dmarc'];
-            $parameters['https'] = $options['https'];
-            // configurePmtaMonitor has completed (and validates nginx before
-            // returning) whenever this workflow reaches persist().
+            $parameters['https'] = $options['https'] && $mainDomainDnsReady;
             if (array_key_exists('pmta_version', $parameters)) {
-                $parameters['pmta_monitor_https'] = true;
+                $parameters['pmta_monitor_https'] = $pmtaMonitorHttps;
             }
             $server->forceFill(['install_parameters' => $parameters])->saveOrFail();
 

@@ -202,12 +202,10 @@ class DmsCampaignSendCatalog
                 ->orderBy('id')
                 ->get(['id', 'managed_server_id', 'sending_domain_id', 'ip', 'type', 'dns']);
 
-            // DMS stores the SMTP username on each selected IP record, so its
-            // [smtp] content tag remains available while Option=IP. AlphaLink
-            // stores SMTP accounts separately and links them to an IP. Mirror
-            // that tag only when the selected IP has one unambiguous active
-            // SMTP account; selecting the SMTP route is still required to use
-            // that account for outbound delivery.
+            // DMS stores SMTP identity on each IP. AlphaLink stores SMTP
+            // accounts separately and links them to an IP. Expose the linked
+            // account's PMTA alias so a campaign using [smtp]/[smtp_name] on
+            // an IP route can pin that account for outbound delivery.
             $smtpAccountsByIp = ManagedServerMta::query()
                 ->where('workspace_id', $workspace->getKey())
                 ->where('is_active', true)
@@ -216,7 +214,7 @@ class DmsCampaignSendCatalog
                 ->whereIn('managed_server_ip_id', $ips->pluck('id'))
                 ->when($operator, fn (Builder $query) => $query->where('user_id', $user->getKey()))
                 ->orderBy('id')
-                ->get(['managed_server_ip_id', 'username', 'name'])
+                ->get(['id', 'managed_server_ip_id', 'ip', 'username', 'name'])
                 ->groupBy(fn (ManagedServerMta $mta): string => (string) $mta->managed_server_ip_id);
 
             $ips->each(function (ManagedServerIp $ip) use ($smtpAccountsByIp): void {
@@ -227,6 +225,10 @@ class DmsCampaignSendCatalog
                     $account = $smtpAccounts->first();
                     $ip->setAttribute('username', (string) ($account->username ?? ''));
                     $ip->setAttribute('name', (string) ($account->name ?: $account->username));
+                    $ip->setAttribute(
+                        'smtp_pmta_name',
+                        PmtaSmtpConfigBuilder::virtualMtaName((string) $account->ip, (int) $account->getKey()),
+                    );
                 }
             });
         } elseif (in_array($route, ['vmta', 'smtp'], true)) {
@@ -361,6 +363,7 @@ class DmsCampaignSendCatalog
                 'username' => $ip->username ?? null,
                 'name' => $ip->name ?? ($route === 'vmta' ? ($ip->username ?? null) : null),
                 'smtp_account_count' => $route === 'ip' ? (int) ($ip->smtp_account_count ?? 0) : null,
+                'smtp_pmta_name' => $route === 'ip' ? ($ip->smtp_pmta_name ?? null) : null,
                 'pmta_name' => $route === 'vmta' && $ip->virtualMta
                     ? $this->virtualMtaConfigBuilder->virtualMtaName(
                         (int) $ip->virtualMta->getKey(),

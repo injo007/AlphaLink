@@ -9,6 +9,7 @@ use App\Models\SendingDomain;
 use App\Models\SendingDomainHistory;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\Campaigns\PmtaPanelUrl;
 use App\Services\Infrastructure\DmsCentos9HostPreparation;
 use App\Services\Infrastructure\DmsChangeDomainDnsRecordWriter;
 use App\Services\Infrastructure\DmsChangeDomainRunner;
@@ -368,26 +369,15 @@ class DmsChangeDomainTest extends TestCase
         $session->shouldReceive('exec')->once()->with('chown -R pmta:pmta /etc/pmta')->ordered()->andReturn('');
         $session->shouldReceive('exec')->once()->with('systemctl restart pmta;')->ordered()->andReturn('');
         $session->shouldReceive('exec')->once()->with('systemctl restart pmtahttp;')->ordered()->andReturn('');
-        $session->shouldReceive('exec')->once()->with('rpm -qa | grep -qw httpd || dnf -y install httpd;')->ordered()->andReturn('');
-        $session->shouldReceive('exec')->once()->with('systemctl enable --now httpd')->ordered()->andReturn('');
-        $session->shouldReceive('exec')->once()->with('rpm -qa | grep -qw certbot || dnf -y install certbot;')->ordered()->andReturn('');
-        $session->shouldReceive('exec')->once()->with('rpm -qa | grep -qw python3-certbot-apache || dnf -y install python3-certbot-apache;')->ordered()->andReturn('');
-        $session->shouldReceive('exec')->once()->with(
-            "certbot --apache --no-redirect -d 'new.example.test,www.new.example.test,relay.new.example.test' -m 'cert@new.example.test' -n --agree-tos",
-        )->ordered()->andReturn('');
-        $session->shouldReceive('exec')->once()->with(
-            "(crontab -l | grep 'certbot') || { crontab -l; echo '0 0 */15 * * certbot renew'; } | crontab -",
-        )->ordered()->andReturn('');
         $session->shouldReceive('upload')->once()->with(
-            Mockery::on(fn (string $content): bool => str_contains($content, 'listen 1213 ssl;')
-                && str_contains($content, 'server_name new.example.test;')
-                && str_contains($content, 'proxy_pass http://127.0.0.1:2426;')),
+            Mockery::on(fn (string $content): bool => str_contains($content, 'listen 1213;')
+                && str_contains($content, 'server_name _;')
+                && str_contains($content, 'proxy_pass http://127.0.0.1:2426;')
+                && ! str_contains($content, 'ssl_certificate')),
             '/etc/nginx/conf.d/default.conf.alphalink-tls-stage',
         )->ordered()->andReturn(true);
-        $session->shouldReceive('exec')->once()->with(
-            "install -d -m 0755 /etc/letsencrypt/renewal-hooks/deploy && printf '%s\\n' '#!/bin/sh' 'systemctl reload nginx' > /etc/letsencrypt/renewal-hooks/deploy/alphalink-reload-nginx && chmod 0755 /etc/letsencrypt/renewal-hooks/deploy/alphalink-reload-nginx",
-        )->ordered()->andReturn('');
-        $session->shouldReceive('exec')->once()->with(Mockery::on(fn (string $command): bool => str_contains($command, "test -s '/etc/letsencrypt/live/new.example.test/fullchain.pem'")
+        $session->shouldReceive('exec')->once()->with(Mockery::on(fn (string $command): bool => ! str_contains($command, 'letsencrypt/live')
+            && str_contains($command, "mv '/etc/nginx/conf.d/default.conf.alphalink-tls-stage' '/etc/nginx/conf.d/default.conf'")
             && str_contains($command, 'nginx -t')
             && str_contains($command, 'systemctl reload nginx')))->ordered()->andReturn('ALPHALINK_PMTA_PROXY_READY');
 
@@ -432,7 +422,8 @@ class DmsChangeDomainTest extends TestCase
             'Prepare Changing Domain Server : '.$this->server->getKey(),
             'Setup Host', 'End Setting Host', 'Setup VHost', 'End Setting VHost',
             'Config Hosts A-AAAA-MX... For new.example.test', 'Failed Setting Records',
-            'Setup VMTAS', 'End Setting VMTAS', 'Setup Https', 'Setting Https',
+            'The selected domain new.example.test is unavailable from its DNS provider; using public IP 192.0.2.23 for the PMTA monitor and skipping domain HTTPS.',
+            'Setup VMTAS', 'End Setting VMTAS', 'Skip domain HTTPS; no verified DNS-provider record is available.', 'Setting Https',
             'Cleaning', 'Done Changing Domain',
         ], $logs);
         self::assertSame([
@@ -449,10 +440,17 @@ class DmsChangeDomainTest extends TestCase
         $this->assertSame('used', $newDomain->fresh()->status);
         $this->assertSame('free', $this->domain->fresh()->status);
         $this->assertTrue($this->server->fresh()->install_parameters['proxy']);
-        $this->assertSame(['spf' => true, 'dkim' => false, 'dmarc' => true, 'https' => true], array_intersect_key(
+        $this->assertSame(['spf' => true, 'dkim' => false, 'dmarc' => true, 'https' => false], array_intersect_key(
             $this->server->fresh()->install_parameters,
             array_flip(['https', 'spf', 'dkim', 'dmarc']),
         ));
+        $changedServer = $this->server->fresh();
+        $this->assertFalse($changedServer->install_parameters['pmta_monitor_https']);
+        $this->assertSame('http://192.0.2.23:1213/', PmtaPanelUrl::forServer($changedServer, 1213));
+        $this->assertSame(
+            route('clean.console.pmta-admin.monitor', $changedServer->getKey(), false),
+            PmtaPanelUrl::displayUrl($changedServer, 1213),
+        );
         $this->assertSame(1, AuditEvent::query()->where('action', 'server.domain_changed')->count());
     }
 

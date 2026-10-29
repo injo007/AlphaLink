@@ -430,7 +430,7 @@
                                             $routeChoiceLabel = match ($setup['route_option']) {
                                                 'vmta' => implode(' | ', array_filter([$ip['ip'], $ip['dns'] ?? '', $ip['name'] ?? ''], static fn ($value) => filled($value))),
                                                 'smtp' => implode(' | ', array_filter([$ip['ip'], $ip['username'] ?? '', $ip['name'] ?? '', $ip['dns'] ?? ''], static fn ($value) => filled($value))),
-                                                default => implode(',', array_filter([$ip['ip'], $ip['dns'] ?? ''], static fn ($value) => filled($value))),
+                                                default => implode(' | ', array_filter([$ip['ip'], $ip['dns'] ?? '', $ip['username'] ?? null], static fn ($value) => filled($value))),
                                             };
                                         @endphp
                                         <option value="{{ $ip['id'] }}" data-route="{{ $setup['route_option'] }}" data-route-choice-id="{{ $ip['id'] }}" data-server-id="{{ $ip['server_id'] }}" data-managed-server-ip-id="{{ $ip['managed_server_ip_id'] ?? '' }}" data-pmta-name="{{ $ip['pmta_name'] ?? '' }}" data-username="{{ $ip['username'] ?? '' }}" data-name="{{ $ip['name'] ?? '' }}" data-ip="{{ $ip['ip'] }}" data-dns="{{ $ip['dns'] ?? '' }}" data-vmta-domain="{{ $ip['vmta_domain'] ?? '' }}" @selected(in_array((string) $ip['id'], $setup['ip_ids'], true))>{{ $routeChoiceLabel }}</option>
@@ -456,7 +456,7 @@
                                 </div>
                                 <small id="send-ips-transfer-help" class="form-text text-muted">Double-click an entry to move it between lists. You can also select entries and use the arrow buttons.</small>
                                 <small class="form-text text-muted">Campaign Save requires at least one selected IP, VMTA, or SMTP route. Test Campaign uses the saved route on this revision.</small>
-                                <small class="form-text text-info" id="send-route-behavior">IP mode uses the selected source IP. <code>[smtp]</code> and <code>[smtp_name]</code> resolve from the one active SMTP account linked to that IP, when exactly one exists; this only fills the tags. To route outbound mail through that account, choose SMTP and select its route. AlphaLink still submits to the server’s PMTA listener.</small>
+                                <small class="form-text text-info" id="send-route-behavior">Campaign Test connects to the server’s PMTA listener. In IP mode, if the content uses <code>[smtp]</code> or <code>[smtp_name]</code>, exactly one active SMTP account must be linked to each selected IP and its route is used for outbound delivery. Without those tags, Campaign Test uses the selected IP route. Choose SMTP to select an exact account directly.</small>
                             </div>
                             <div id="campaign-pmta-panels" class="row" aria-live="polite">
                                 @foreach ($sendOptions['servers'] as $server)
@@ -577,7 +577,7 @@
                     <p><code>[placeholder1]</code><br><code>[placeholder2]</code><br>Continue with the row number. Values follow the corresponding Placeholders row and its rotation interval.</p>
                     <h4 class="h6">Campaign Test behavior</h4>
                     <p>The DMS help describes <code>[boundary]</code> and <code>[bnd]</code> as 30 static characters. The inspected DMS PHP helper receives <code>[boundary]</code> from its caller and defaults <code>[bnd]</code> to an 18-character cached value; AlphaLink preserves the inspected helper behavior.</p>
-                    <p>Campaign Test resolves <code>[smtp]</code> and <code>[smtp_name]</code> from the selected SMTP route, or from the one active SMTP account linked to a selected IP. They are empty for VMTA routes and IPs without exactly one linked SMTP account. These tags fill message content; they do not change the outbound route. <code>[tag]</code> is replaced with an empty value because the DMS native sender's reply-tag source is not available in this test path.</p>
+                    <p>Campaign Test resolves <code>[smtp]</code> and <code>[smtp_name]</code> from the selected SMTP route, or from the one active SMTP account linked to a selected IP. In IP mode, using either SMTP tag pins that linked account's PMTA virtual MTA for outbound delivery; without those tags, the selected IP route is used. Multiple linked accounts are ambiguous and require explicit SMTP mode. The tags are empty for VMTA routes and IPs without a linked account. <code>[tag]</code> is replaced with an empty value because the DMS native sender's reply-tag source is not available in this test path.</p>
                     <p>Campaign Test replaces <code>[token]</code> with a test token; the complete DMS native sender's redirect/unsubscribe URL expansion is not available in AlphaLink's current test path. Campaign Test does not require sender-domain DNS verification.</p>
                     <p class="mb-0">For a selected VMTA, AlphaLink resolves <code>[domain]</code> to its pushed domain and applies that domain to the Domain field and body URL hosts. With multiple selected VMTAs, Campaign Test uses the selected server's own VMTA domain.</p>
                 </div></div>
@@ -1038,7 +1038,7 @@
                         ? 'SMTP mode uses the selected SMTP account for outbound routing. <code>[smtp]</code> is its username and <code>[smtp_name]</code> is its label. AlphaLink submits to the selected server’s PMTA listener; PMTA applies the selected outbound route.'
                         : route === 'vmta'
                             ? 'VMTA mode uses the selected virtual MTA for outbound routing. <code>[smtp]</code> and <code>[smtp_name]</code> are empty. AlphaLink submits through the selected server’s PMTA listener.'
-                            : 'IP mode uses the selected source IP. <code>[smtp]</code> and <code>[smtp_name]</code> resolve from its one active linked SMTP account, when exactly one exists; they only fill tags. To use that account for outbound routing, choose SMTP and select the route. AlphaLink submits to the selected server’s PMTA listener.';
+                        : 'Campaign Test connects to the server’s PMTA listener. In IP mode, if the message uses <code>[smtp]</code> or <code>[smtp_name]</code>, exactly one active SMTP account must be linked to that IP and its route is used for outbound delivery. Without those tags, Campaign Test uses the selected IP route. Choose SMTP to select an exact account directly.';
                 }
                 const moveLabels = {
                     'all-right': `Move all ${routeName} to selected`,

@@ -33,6 +33,7 @@ use App\Services\Campaigns\DmsCampaignTagRenderer;
 use App\Services\Campaigns\DmsPmtaAdminRestart;
 use App\Services\Campaigns\PmtaCampaignTestTransport;
 use App\Services\Infrastructure\DmsBulkInstallRuntimeInputs;
+use App\Services\PmtaSmtpConfigBuilder;
 use App\Services\PmtaVirtualMtaConfigBuilder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as ClientRequest;
@@ -1981,6 +1982,108 @@ class DmsCampaignSendCatalogTest extends TestCase
         ]);
     }
 
+    public function test_saved_campaign_ip_pmta_test_uses_linked_smtp_route_when_smtp_tags_are_present(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->workspace($owner, 'owner');
+        $server = $this->server($workspace, $owner, '203.0.113.140');
+        $domain = SendingDomain::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'name' => 'saved-ip-smtp.example.test',
+            'state' => 'verified',
+            'verification_token' => 'synthetic-saved-ip-smtp-token',
+            'created_by' => $owner->getKey(),
+            'status' => 'free',
+            'is_active' => true,
+        ]);
+        $ip = ManagedServerIp::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'managed_server_id' => $server->getKey(),
+            'sending_domain_id' => $domain->getKey(),
+            'ip' => '203.0.113.141',
+            'type' => 'ipv4',
+            'dns' => 'relay.saved-ip-smtp.example.test',
+            'is_active' => true,
+        ]);
+        $smtp = ManagedServerMta::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'managed_server_id' => $server->getKey(),
+            'managed_server_ip_id' => $ip->getKey(),
+            'ip' => $ip->ip,
+            'dns' => $ip->dns,
+            'ip_type' => 'ipv4',
+            'mta_type' => 'smtp',
+            'username' => 'ip-linked-smtp@example.test',
+            'name' => 'IP linked relay',
+            'is_active' => true,
+            'user_id' => $owner->getKey(),
+        ]);
+        $campaign = Campaign::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'created_by' => $owner->getKey(),
+            'name' => 'Saved IP SMTP campaign test fixture',
+            'kind' => 'marketing',
+            'status' => 'draft',
+            'is_active' => true,
+            'idempotency_key' => (string) Str::uuid(),
+        ]);
+        $revision = CampaignRevision::query()->create([
+            'campaign_id' => $campaign->getKey(),
+            'revision_number' => 1,
+            'payload' => [
+                'send_setup' => [
+                    'route_option' => 'ip',
+                    'ip_type' => 'ipv4',
+                    'server_ids' => [(string) $server->getKey()],
+                    'ip_ids' => [(string) $ip->getKey()],
+                    'placeholders' => [],
+                ],
+                'email_tests' => ['ip-smtp-test-recipient@example.test'],
+            ],
+            'content_sha256' => hash('sha256', 'saved IP SMTP campaign test'),
+            'idempotency_key' => (string) Str::uuid(),
+            'request_fingerprint' => hash('sha256', 'saved IP SMTP campaign test request'),
+            'created_by' => $owner->getKey(),
+            'created_at' => now(),
+        ]);
+        $workspace->infrastructureSettings()->create(['pmta_port' => 2525]);
+
+        $sentMessages = [];
+        $transport = Mockery::mock(SmtpTransport::class);
+        $transport->shouldReceive('start')->once();
+        $transport->shouldReceive('send')->once()->withArgs(function ($message) use (&$sentMessages): bool {
+            $sentMessages[] = $message->toString();
+
+            return true;
+        });
+        $transport->shouldReceive('stop')->once();
+        $factory = Mockery::mock(PmtaCampaignTestTransport::class);
+        $factory->shouldReceive('forServer')->once()
+            ->withArgs(fn (ManagedServer $selected, int $port): bool => $selected->is($server) && $port === 2525)
+            ->andReturn($transport);
+        $this->app->instance(PmtaCampaignTestTransport::class, $factory);
+
+        $this->actingAs($owner)->post(route('console.campaigns.pmta-test', [$workspace->getKey(), $campaign->getKey()]), [
+            'revision_id' => $revision->getKey(),
+            'server_id' => $server->getKey(),
+            'recipient' => 'ip-smtp-test-recipient@example.test',
+            'from_email' => 'mailer@[domain]',
+            'subject' => 'Route through [smtp]',
+            'body' => 'Relay=[smtp]; label=[smtp_name]',
+            'idempotency_key' => (string) Str::uuid(),
+            'confirm_authorized_recipient' => '1',
+        ])->assertSessionHas('status', 'The selected server’s PMTA SMTP listener accepted this test message. Mailbox delivery is unconfirmed.');
+
+        $this->assertCount(1, $sentMessages);
+        $this->assertStringContainsString('From: mailer@relay.saved-ip-smtp.example.test', $sentMessages[0]);
+        $this->assertStringContainsString('Subject: Route through ip-linked-smtp@example.test', $sentMessages[0]);
+        $this->assertStringContainsString('Relay=ip-linked-smtp@example.test; label=IP linked relay', quoted_printable_decode($sentMessages[0]));
+        $this->assertStringContainsString(
+            'X-Virtual-MTA: '.PmtaSmtpConfigBuilder::virtualMtaName((string) $ip->ip, (int) $smtp->getKey()),
+            $sentMessages[0],
+        );
+    }
+
     public function test_manual_smtp_campaign_test_fails_closed_without_a_pushed_smtp_route(): void
     {
         $owner = User::factory()->create();
@@ -2034,11 +2137,12 @@ class DmsCampaignSendCatalogTest extends TestCase
             'dns' => 'ipv6.source-route.example.test',
             'is_active' => true,
         ]);
+        $smtpAccountsByIp = [];
         foreach ([
             [$ipv4, 'ipv4-user@example.test', 'IPv4 linked SMTP'],
             [$ipv6, 'ipv6-user@example.test', 'IPv6 linked SMTP'],
         ] as [$ip, $username, $name]) {
-            ManagedServerMta::query()->create([
+            $smtpAccountsByIp[(string) $ip->getKey()] = ManagedServerMta::query()->create([
                 'workspace_id' => $workspace->getKey(),
                 'managed_server_id' => $server->getKey(),
                 'managed_server_ip_id' => $ip->getKey(),
@@ -2072,8 +2176,17 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->andReturn($transport);
         $this->app->instance(PmtaCampaignTestTransport::class, $factory);
 
+        $this->actingAs($owner)->getJson(route('console.campaigns.send-options', [
+            $workspace->getKey(),
+            'server_ids' => [$server->getKey()],
+            'route' => 'ip',
+            'ip_type' => 'all',
+        ]))->assertOk()
+            ->assertJsonPath('data.ips.0.smtp_pmta_name', PmtaSmtpConfigBuilder::virtualMtaName($ipv4->ip, $smtpAccountsByIp[(string) $ipv4->getKey()]->getKey()))
+            ->assertJsonPath('data.ips.1.smtp_pmta_name', PmtaSmtpConfigBuilder::virtualMtaName($ipv6->ip, $smtpAccountsByIp[(string) $ipv6->getKey()]->getKey()));
+
         $attemptIds = [];
-        foreach ([['ipv4', $ipv4, 'mta-203.0.113.11'], ['ipv6', $ipv6, 'mta-2001.db8..65']] as [$ipType, $ip, $pmtaName]) {
+        foreach ([['ipv4', $ipv4], ['ipv6', $ipv6]] as [$ipType, $ip]) {
             $response = $this->actingAs($owner)->postJson(route('console.campaigns.manual-test', $workspace->getKey()), [
                 'idempotency_key' => (string) Str::uuid(),
                 'email_test_addresses' => 'synthetic-source-recipient@example.test',
@@ -2093,8 +2206,8 @@ class DmsCampaignSendCatalogTest extends TestCase
 
         $this->assertCount(2, $sentMessages);
         foreach ([
-            ['mta-203.0.113.11', '203.0.113.11', 'ipv4-user@example.test', 'IPv4 linked SMTP'],
-            ['mta-2001.db8..65', '2001:db8::65', 'ipv6-user@example.test', 'IPv6 linked SMTP'],
+            [PmtaSmtpConfigBuilder::virtualMtaName($ipv4->ip, $smtpAccountsByIp[(string) $ipv4->getKey()]->getKey()), '203.0.113.11', 'ipv4-user@example.test', 'IPv4 linked SMTP'],
+            [PmtaSmtpConfigBuilder::virtualMtaName($ipv6->ip, $smtpAccountsByIp[(string) $ipv6->getKey()]->getKey()), '2001:db8::65', 'ipv6-user@example.test', 'IPv6 linked SMTP'],
         ] as $index => [$pmtaName, $sourceIp, $smtpUsername, $smtpName]) {
             $message = $sentMessages[$index]['message'];
             $this->assertSame(1, preg_match_all('/^X-virtual-MTA:/mi', $message));
@@ -2104,7 +2217,9 @@ class DmsCampaignSendCatalogTest extends TestCase
             $this->assertStringContainsString('Source IP: '.$sourceIp.'; SMTP account: '.$smtpUsername.'; name: '.$smtpName, $message);
 
             $snapshot = (string) DB::table('campaign_manual_test_attempts')->where('id', $attemptIds[$index])->value('test_snapshot');
-            $this->assertSame($pmtaName, json_decode(Crypt::decryptString($snapshot), true, flags: JSON_THROW_ON_ERROR)['virtual_mtas'][0]['pmta_name']);
+            $decodedSnapshot = json_decode(Crypt::decryptString($snapshot), true, flags: JSON_THROW_ON_ERROR);
+            $this->assertSame($pmtaName, $decodedSnapshot['virtual_mtas'][0]['pmta_name']);
+            $this->assertSame('smtp', $decodedSnapshot['outbound_route']);
         }
     }
 
@@ -2159,7 +2274,7 @@ class DmsCampaignSendCatalogTest extends TestCase
                 'send_type' => 'delay',
             ],
         ])->assertUnprocessable()->assertJsonValidationErrors('header')
-            ->assertJsonPath('errors.header.0', 'The selected IP has multiple linked SMTP accounts, so [smtp] is ambiguous. Select Option SMTP and choose the exact account to use it for outbound delivery.');
+            ->assertJsonPath('errors.header.0', 'The selected IP has multiple linked SMTP accounts, so [smtp] is ambiguous. Choose Option SMTP and select the exact account.');
 
         $this->assertDatabaseCount('campaign_manual_test_attempts', 0);
     }
@@ -2529,7 +2644,7 @@ class DmsCampaignSendCatalogTest extends TestCase
         $this->get($editUrl)
             ->assertOk()
             ->assertSee('SYNTHETIC SEND SERVER | 203.0.113.50')
-            ->assertSee('203.0.113.51,mta.campaign.fixture.test', false)
+            ->assertSee('203.0.113.51 | mta.campaign.fixture.test', false)
             ->assertSee('data-route="ip"', false)
             ->assertSee('data-server-id="'.$server->getKey().'"', false);
     }
@@ -3222,7 +3337,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertSee("chosenIps.addEventListener('dblclick'", false)
             ->assertSeeText('Double-click an entry to move it between lists.')
             ->assertSee('Campaign Save requires at least one selected IP, VMTA, or SMTP route. Test Campaign uses the saved route on this revision.', false)
-            ->assertSee('To route outbound mail through that account, choose SMTP and select its route.', false)
+            ->assertSeeText('exactly one active SMTP account must be linked to each selected IP')
             ->assertSee('name="return_path"', false)
             ->assertSee('name="email_test_addresses"', false)
             ->assertSee('name="domain"', false)

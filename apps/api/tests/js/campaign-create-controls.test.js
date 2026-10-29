@@ -212,3 +212,13 @@ test('route picker labels and accessible controls switch to SMTP route terminolo
     assert.equal(chosenFilter.placeholder, 'Filter selected smtp routes');
     assert.equal(buttons[0].attributes.get('aria-label'), 'Move all SMTP routes to selected');
 });
+
+test('campaign routing help explains SMTP tags and distinguishes PMTA ingress from outbound route', () => {
+    const view = readFileSync(new URL('../../resources/views/console/campaigns/create.blade.php', import.meta.url), 'utf8');
+    assert.match(view, /id="send-route-behavior"/);
+    assert.match(view, /SMTP mode uses the selected SMTP account for outbound routing/);
+    assert.match(view, /\[smtp\]<\/code> is its username and <code>\[smtp_name\]/);
+    assert.match(view, /AlphaLink still submits through the selected server’s PMTA listener/);
+    assert.match(view, /IP mode uses the selected source IP/);
+    assert.match(view, /server\.pmta_panel_display_url \|\| server\.pmta_panel_url/);
+});

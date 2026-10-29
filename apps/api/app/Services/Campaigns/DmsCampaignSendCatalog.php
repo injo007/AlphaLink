@@ -317,6 +317,7 @@ class DmsCampaignSendCatalog
                     'ip' => $server->ip_address,
                     'country' => $server->country,
                     'pmta_panel_url' => PmtaPanelUrl::forServer($server, $pmtaAdminPort),
+                    'pmta_panel_display_url' => PmtaPanelUrl::displayUrl($server, $pmtaAdminPort),
                 ];
             })->values(),
             'campaign_domains' => $redirectDomains->concat($serverDomains)->concat($vmtaDomains)->unique('value')->values(),

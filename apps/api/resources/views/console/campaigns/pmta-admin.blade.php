@@ -142,7 +142,7 @@
                         </label>
                         <select class="form-control selectpicker" id="pmta-admin-servers" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 5" multiple title="Select Servers">
                             @foreach ($servers as $server)
-                                <option value="{{ $server['id'] }}" data-panel-url="{{ $server['pmta_panel_url'] }}" data-monitor-url="{{ $server['pmta_panel_url'] }}" @selected(in_array((string) $server['id'], $selectedServerIds, true))>{{ $server['name'] }} | {{ $server['ip'] }}</option>
+                                <option value="{{ $server['id'] }}" data-panel-url="{{ $server['pmta_panel_display_url'] }}" data-monitor-url="{{ $server['pmta_panel_display_url'] }}" data-monitor-endpoint="{{ $server['ip'] }}:{{ $pmtaAdminPort }}" data-monitor-proxied="{{ $server['pmta_panel_display_url'] !== $server['pmta_panel_url'] ? 'true' : 'false' }}" @selected(in_array((string) $server['id'], $selectedServerIds, true))>{{ $server['name'] }} | {{ $server['ip'] }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -211,7 +211,7 @@
                 </div>
             </div>
         </div>
-        <p class="small text-muted mb-2">Open the link beside each server. Verified domains use HTTPS; servers without a DNS-managed certificate use the public IP over HTTP.</p>
+        <p class="small text-muted mb-2">Verified PMTA certificates open directly over HTTPS. HTTP-only monitors, including servers using external domains, open through AlphaLink’s authenticated HTTPS read-only view.</p>
         <div class="row no-gutters" id="pmta-admin-panels" @if ($selectedServerIds === []) hidden @endif aria-live="polite"></div>
     </section>
 @endsection
@@ -364,8 +364,12 @@
                     link.className = 'ml-1';
                     try {
                         const panelUrl = new URL(server.dataset.panelUrl, window.location.href);
-                        link.textContent = `${panelUrl.protocol}//${panelUrl.host}`;
-                        link.title = `Open the PMTA monitor at ${panelUrl.protocol}//${panelUrl.host} in a new tab.`;
+                        link.textContent = server.dataset.monitorProxied === 'true'
+                            ? `${server.dataset.monitorEndpoint} · secure AlphaLink view`
+                            : `${panelUrl.protocol}//${panelUrl.host}`;
+                        link.title = server.dataset.monitorProxied === 'true'
+                            ? 'Open the PMTA monitor through AlphaLink’s authenticated HTTPS read-only view.'
+                            : `Open the PMTA monitor at ${panelUrl.protocol}//${panelUrl.host} in a new tab.`;
                     } catch {
                         link.textContent = server.textContent.split('|').at(-1).trim();
                         link.title = 'Open the PMTA monitor in a new tab.';
@@ -401,14 +405,20 @@
                     } catch {
                         monitorUrl = null;
                     }
-                    const insecureForPage = window.location.protocol === 'https:' && monitorUrl?.protocol !== 'https:';
+                    const insecureForPage = window.location.protocol === 'https:'
+                        && monitorUrl?.protocol !== 'https:'
+                        && server.dataset.monitorProxied !== 'true';
                     if (monitorUrl === null || insecureForPage) {
                         refreshLabel.textContent = monitorUrl === null
                             ? 'PMTA monitor URL is unavailable · check the saved server address and installation state'
-                            : 'PMTA uses the public IP over HTTP · open the link in a new tab; HTTPS embedding requires a verified domain certificate';
+                            : 'PMTA monitor is HTTP-only · open the link in a new tab';
                         column.append(heading);
                         panels.append(column);
                         return;
+                    }
+                    if (server.dataset.monitorProxied === 'true') {
+                        frame.setAttribute('sandbox', '');
+                        refreshLabel.textContent = 'Read-only monitor via AlphaLink HTTPS · auto refresh 5s';
                     }
                     column.append(heading, frame);
                     panels.append(column);

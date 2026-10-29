@@ -5,10 +5,14 @@ import vm from 'node:vm';
 
 const view = readFileSync(new URL('../../resources/views/console/campaigns/pmta-admin.blade.php', import.meta.url), 'utf8');
 
-test('PMTA Admin explains the public-IP HTTP fallback when an HTTPS frame is unavailable', () => {
-    assert.match(view, /servers without a DNS-managed certificate use the public IP over HTTP/i);
-    assert.match(view, /PMTA uses the public IP over HTTP · open the link in a new tab/);
-    assert.match(view, /link\.textContent = `\$\{panelUrl\.protocol\}\/\/\$\{panelUrl\.host\}`/);
+test('PMTA Admin sends HTTP-only monitors through its authenticated HTTPS read-only proxy', () => {
+    assert.match(view, /HTTP-only monitors, including servers using external domains, open through AlphaLink’s authenticated HTTPS read-only view/i);
+    assert.match(view, /data-monitor-proxied=/);
+    assert.match(view, /data-monitor-endpoint=/);
+    assert.match(view, /server\.dataset\.monitorProxied === 'true'/);
+    assert.match(view, /\$\{server\.dataset\.monitorEndpoint\} · secure AlphaLink view/);
+    assert.match(view, /frame\.setAttribute\('sandbox', ''\)/);
+    assert.match(view, /Read-only monitor via AlphaLink HTTPS/);
 });
 
 const restartHelperStart = view.indexOf('            let restartRunNumber = 0;');

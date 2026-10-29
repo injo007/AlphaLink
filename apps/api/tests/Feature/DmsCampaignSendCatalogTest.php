@@ -278,6 +278,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertJsonPath('data.lists.0.id', $list->getKey())
             ->assertJsonPath('data.servers.0.id', $server->getKey())
             ->assertJsonPath('data.servers.0.pmta_panel_url', 'http://203.0.113.40:2447/')
+            ->assertJsonPath('data.servers.0.pmta_panel_display_url', route('clean.console.pmta-admin.monitor', $server->getKey(), false))
             ->assertJsonPath('data.ips.0.id', $ip->getKey())
             ->assertJsonPath('data.campaign_domains.0.value', 'redirect.send.example.test')
             ->assertJsonPath('data.campaign_domains.0.name', 'REDIRECT')
@@ -1102,7 +1103,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertSee($isp->name)
             ->assertSee($offer->name)
             ->assertSee($server->name)
-            ->assertSee('href="http://203.0.113.50:2588/"', false)
+            ->assertSee('href="'.route('clean.console.pmta-admin.monitor', $server->getKey(), false).'"', false)
             ->assertSee('Open PMTA Web Monitor on SYNTHETIC SEND SERVER')
             ->assertSee('TOTAL SEND')
             ->assertSee('20')
@@ -2498,7 +2499,8 @@ class DmsCampaignSendCatalogTest extends TestCase
             'ip_type' => 'ipv4',
         ]))->assertOk()
             ->assertJsonPath('data.settings.pmta_admin_port', 2588)
-            ->assertJsonPath('data.servers.0.pmta_panel_url', 'https://pmta.example.test:2588/');
+            ->assertJsonPath('data.servers.0.pmta_panel_url', 'https://pmta.example.test:2588/')
+            ->assertJsonPath('data.servers.0.pmta_panel_display_url', 'https://pmta.example.test:2588/');
 
         $inputs = app(DmsBulkInstallRuntimeInputs::class)->resolve([
             'tracking' => false,
@@ -2517,7 +2519,12 @@ class DmsCampaignSendCatalogTest extends TestCase
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner, 'owner');
         $server = $this->server($workspace, $owner, '203.0.113.40');
+        $server->forceFill(['install_parameters' => [
+            'pmta_monitor_https' => false,
+            'data' => [['main' => true, 'domain' => 'external-domain.example.test']],
+        ]])->save();
         $workspace->infrastructureSettings()->create(['pmta_admin_port' => 2447]);
+        $monitorProxyUrl = route('clean.console.pmta-admin.monitor', $server->getKey(), false);
 
         $adminPage = $this->actingAs($owner)->get(route('clean.console.pmta-admin.index', [
             'server_ids' => [$server->getKey()],
@@ -2547,16 +2554,21 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertSee('dms-reference/plugins/bootstrap_select/bootstrap-select.js')
             ->assertSee("inputLabel: 'Search Servers'", false)
             ->assertSee('id="pmta-admin-reload-servers"', false)
-            ->assertSee('data-panel-url="http://203.0.113.40:2447/"', false)
-            ->assertSee('data-monitor-url="http://203.0.113.40:2447/"', false)
+            ->assertSee('data-panel-url="'.$monitorProxyUrl.'"', false)
+            ->assertSee('data-monitor-url="'.$monitorProxyUrl.'"', false)
+            ->assertSee('data-monitor-endpoint="203.0.113.40:2447"', false)
+            ->assertSee('data-monitor-proxied="true"', false)
+            ->assertDontSee('data-panel-url="http://203.0.113.40:2447/"', false)
             ->assertSee('link.href = server.dataset.panelUrl;', false)
             ->assertSee('frame.dataset.monitorBase = server.dataset.monitorUrl;', false)
             ->assertSee('frame.src = url.toString();', false)
             ->assertSee('id="pmta-admin-stop-schedule"', false)
             ->assertSee('id="pmta-admin-stop-restart"', false)
-            ->assertSee('link.textContent = `${panelUrl.protocol}//${panelUrl.host}`;', false)
-            ->assertSee('servers without a DNS-managed certificate use the public IP over HTTP.', false)
-            ->assertSee('PMTA uses the public IP over HTTP · open the link in a new tab', false)
+            ->assertSee("server.dataset.monitorProxied === 'true'", false)
+            ->assertSee('${server.dataset.monitorEndpoint} · secure AlphaLink view', false)
+            ->assertSee('HTTP-only monitors, including servers using external domains, open through AlphaLink’s authenticated HTTPS read-only view.', false)
+            ->assertSee('Read-only monitor via AlphaLink HTTPS', false)
+            ->assertSee("frame.setAttribute('sandbox', '')", false)
             ->assertSee('id="pmta-admin-schedule-status"', false)
             ->assertDontSee('Leave blank or enter 0 for one run. Enter N seconds to run once now and repeat every N seconds until STOP. PMTA can only schedule matching queued jobs; this does not launch a campaign at a future time.')
             ->assertDontSee('id="pmta-monitor-refresh-status"', false)
@@ -2601,11 +2613,18 @@ class DmsCampaignSendCatalogTest extends TestCase
         $this->assertNotFalse($initialScheduleRequestPosition);
         $this->assertLessThan($initialScheduleRequestPosition, $intervalAssignmentPosition);
 
-        preg_match('/data-panel-url="(https?:\/\/[^\"]+)"/', $adminPage->getContent(), $panelMatch);
-        $panel = parse_url($panelMatch[1] ?? '');
-        $this->assertIsArray($panel);
-        $this->assertSame('203.0.113.40', $panel['host']);
-        $this->assertSame(2447, $panel['port']);
+        $this->assertStringContainsString('data-panel-url="'.$monitorProxyUrl.'"', $adminPage->getContent());
+
+        Http::fake([
+            'http://203.0.113.40:2447/' => Http::response('<!doctype html><html><body>External-domain PMTA monitor</body></html>'),
+        ]);
+        $this->actingAs($owner)->get(route('clean.console.pmta-admin.monitor', $server->getKey()))
+            ->assertOk()
+            ->assertSee('External-domain PMTA monitor')
+            ->assertHeader('Content-Security-Policy', "default-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'")
+            ->assertHeader('X-Frame-Options', 'SAMEORIGIN');
+        Http::assertSent(fn (ClientRequest $request): bool => $request->method() === 'GET'
+            && $request->url() === 'http://203.0.113.40:2447/');
 
         Http::fake(fn () => Http::response('<result><succ>paused</succ></result>'));
 
@@ -2753,6 +2772,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertOk()
             ->assertSee('data-panel-url="https://pmta.example.test:2447/"', false)
             ->assertSee('data-monitor-url="https://pmta.example.test:2447/"', false)
+            ->assertSee('data-monitor-proxied="false"', false)
             ->assertSee('frame-src \'self\' https://pmta.example.test:2447;', false)
             ->assertSee('PMTA ADMIN ACTIONS')
             ->assertSee('MY SERVERS')
@@ -3125,7 +3145,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertSee("chosenIps.addEventListener('dblclick'", false)
             ->assertSeeText('Double-click an entry to move it between lists.')
             ->assertSee('Campaign Save requires at least one selected IP, VMTA, or SMTP route. Test Campaign uses the saved route on this revision.', false)
-            ->assertSee('set Option to SMTP and select an SMTP route', false)
+            ->assertSee('To send through an SMTP account, choose SMTP and move that SMTP route into Selected.', false)
             ->assertSee('name="return_path"', false)
             ->assertSee('name="email_test_addresses"', false)
             ->assertSee('name="domain"', false)

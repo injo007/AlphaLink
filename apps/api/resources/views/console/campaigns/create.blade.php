@@ -414,7 +414,7 @@
                                     </label>
                                     <select id="send-servers" name="send_setup[server_ids][]" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 3" title="Select Servers" multiple required>
                                         @foreach ($sendOptions['servers'] as $server)
-                                            <option value="{{ $server['id'] }}" data-panel-url="{{ $server['pmta_panel_url'] }}" @selected(in_array((string) $server['id'], $setup['server_ids'], true))>{{ $server['name'] }} | {{ $server['ip'] }}</option>
+                                            <option value="{{ $server['id'] }}" data-panel-url="{{ $server['pmta_panel_display_url'] }}" @selected(in_array((string) $server['id'], $setup['server_ids'], true))>{{ $server['name'] }} | {{ $server['ip'] }}</option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -456,12 +456,12 @@
                                 </div>
                                 <small id="send-ips-transfer-help" class="form-text text-muted">Double-click an entry to move it between lists. You can also select entries and use the arrow buttons.</small>
                                 <small class="form-text text-muted">Campaign Save requires at least one selected IP, VMTA, or SMTP route. Test Campaign uses the saved route on this revision.</small>
-                                <small class="form-text text-info">To use <code>[smtp]</code> or <code>[smtp_name]</code>, set Option to SMTP and select an SMTP route. IP routing selects the PMTA source IP and leaves those SMTP account tags empty. AlphaLink still submits the message to the selected server’s PMTA listener.</small>
+                                <small class="form-text text-info" id="send-route-behavior">IP mode uses the selected source IP; <code>[smtp]</code> and <code>[smtp_name]</code> are empty. To send through an SMTP account, choose SMTP and move that SMTP route into Selected. AlphaLink submits through the selected server’s PMTA listener.</small>
                             </div>
                             <div id="campaign-pmta-panels" class="row" aria-live="polite">
                                 @foreach ($sendOptions['servers'] as $server)
                                     @if (in_array((string) $server['id'], $setup['server_ids'], true))
-                                        <div class="col-sm-6 col-lg-4"><a href="{{ $server['pmta_panel_url'] }}" target="_blank" rel="noopener noreferrer">Open PMTA panel — {{ $server['name'] }}:{{ $sendOptions['settings']['pmta_admin_port'] }}</a></div>
+                                        <div class="col-sm-6 col-lg-4"><a href="{{ $server['pmta_panel_display_url'] }}" target="_blank" rel="noopener noreferrer">Open PMTA panel — {{ $server['name'] }}:{{ $sendOptions['settings']['pmta_admin_port'] }}</a></div>
                                     @endif
                                 @endforeach
                             </div>
@@ -1032,6 +1032,14 @@
                 chosenIps.setAttribute('aria-label', `Selected ${routeName}`);
                 document.getElementById('send-ips-available-filter').placeholder = `Filter available ${routeName.toLowerCase()}`;
                 document.getElementById('send-ips-selected-filter').placeholder = `Filter selected ${routeName.toLowerCase()}`;
+                const behavior = document.getElementById('send-route-behavior');
+                if (behavior) {
+                    behavior.innerHTML = route === 'smtp'
+                        ? 'SMTP mode uses the selected SMTP account for outbound routing. <code>[smtp]</code> is its username and <code>[smtp_name]</code> is its label. AlphaLink still submits through the selected server’s PMTA listener.'
+                        : route === 'vmta'
+                            ? 'VMTA mode uses the selected virtual MTA for outbound routing. <code>[smtp]</code> and <code>[smtp_name]</code> are empty. AlphaLink submits through the selected server’s PMTA listener.'
+                            : 'IP mode uses the selected source IP; <code>[smtp]</code> and <code>[smtp_name]</code> are empty. To send through an SMTP account, choose SMTP and move that SMTP route into Selected. AlphaLink submits through the selected server’s PMTA listener.';
+                }
                 const moveLabels = {
                     'all-right': `Move all ${routeName} to selected`,
                     right: `Move selected ${routeName} to selected`,
@@ -1321,7 +1329,7 @@
                     const selectedServers = new Set(Array.from(servers.selectedOptions).map(option => option.value));
                     result.servers.filter(server => selectedServers.has(String(server.id))).forEach(server => {
                         const link = document.createElement('a');
-                        link.href = server.pmta_panel_url; link.target = '_blank'; link.rel = 'noopener noreferrer';
+                        link.href = server.pmta_panel_display_url || server.pmta_panel_url; link.target = '_blank'; link.rel = 'noopener noreferrer';
                         link.className = 'mr-3'; link.textContent = `Open PMTA panel — ${server.name}`;
                         panels.append(link);
                     });
@@ -1451,7 +1459,7 @@
                     const option = document.createElement('option');
                     option.value = String(getValue(record));
                     option.textContent = String(getLabel(record));
-                    if (key === 'servers') option.dataset.panelUrl = String(record.pmta_panel_url ?? '');
+                    if (key === 'servers') option.dataset.panelUrl = String(record.pmta_panel_display_url ?? record.pmta_panel_url ?? '');
                     if (key === 'ips') {
                         option.dataset.route = select('route').value || 'ip';
                         option.dataset.serverId = String(record.server_id ?? '');
@@ -1526,7 +1534,7 @@
                     const column = document.createElement('div');
                     column.className = 'col-sm-6 col-lg-4';
                     const link = document.createElement('a');
-                    link.href = server.pmta_panel_url;
+                    link.href = server.pmta_panel_display_url || server.pmta_panel_url;
                     link.target = '_blank';
                     link.rel = 'noopener noreferrer';
                     link.textContent = `Open PMTA panel — ${server.name}:${data.settings.pmta_admin_port}`;

@@ -60,8 +60,11 @@ class PmtaMonitorProxy
 
         return response($this->makeReadOnly($remote->body(), $workspaceId, (string) $server->getKey(), $remoteHost, $ip), 200, [
             'Cache-Control' => 'no-store',
+            'Content-Security-Policy' => "default-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'",
             'Content-Type' => 'text/html; charset=UTF-8',
+            'Referrer-Policy' => 'no-referrer',
             'X-Content-Type-Options' => 'nosniff',
+            'X-Frame-Options' => 'SAMEORIGIN',
         ]);
     }
 

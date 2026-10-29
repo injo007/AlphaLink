@@ -150,7 +150,7 @@ class WorkspaceConsoleController extends Controller
                     return null;
                 }
 
-                return ['name' => $server->name, 'url' => PmtaPanelUrl::forServer($server, $pmtaAdminPort)];
+                return ['name' => $server->name, 'url' => PmtaPanelUrl::displayUrl($server, $pmtaAdminPort)];
             })->filter()->values()->all();
             $campaign->setAttribute('send_register', [
                 'isp' => $ispNames->get($setup['isp_id'] ?? null),

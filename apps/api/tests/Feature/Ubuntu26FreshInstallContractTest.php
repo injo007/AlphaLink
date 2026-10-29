@@ -11,6 +11,7 @@ class Ubuntu26FreshInstallContractTest extends TestCase
     {
         $repositoryRoot = dirname(base_path(), 2);
         $installer = file_get_contents($repositoryRoot.'/install-ubuntu-26.sh');
+        $queueConfig = file_get_contents(base_path('config/queue.php'));
 
         $this->assertIsString($installer);
         $this->assertStringContainsString('DB_CONNECTION=pgsql', $installer);
@@ -21,8 +22,23 @@ class Ubuntu26FreshInstallContractTest extends TestCase
         $this->assertStringContainsString('queue:work drop_suppression --queue=drop-suppression', $installer);
         $this->assertStringContainsString('systemctl enable --now alphalink-horizon.service alphalink-drop-suppression.service', $installer);
         $this->assertSame(storage_path('app/private'), config('filesystems.disks.local.root'));
-        $this->assertSame('database', config('queue.connections.drop_suppression.driver'));
+        $this->assertIsString($queueConfig);
+        $this->assertStringContainsString("env('DROP_SUPPRESSION_QUEUE_DRIVER', 'database')", $queueConfig);
+        $this->assertSame('sync', config('queue.connections.drop_suppression.driver'));
         $this->assertSame('drop-suppression', config('queue.connections.drop_suppression.queue'));
+    }
+
+    public function test_fresh_install_and_deploy_enable_and_verify_server_reinstall_execution(): void
+    {
+        $repositoryRoot = dirname(base_path(), 2);
+        $installer = file_get_contents($repositoryRoot.'/install-ubuntu-26.sh');
+
+        $this->assertIsString($installer);
+        $this->assertStringContainsString('ALPHALINK_REINSTALL_EXECUTION_ENABLED=true', $installer);
+        $this->assertStringContainsString('reinstall_written = 0', $installer);
+        $this->assertStringContainsString('^ALPHALINK_REINSTALL_EXECUTION_ENABLED=', $installer);
+        $this->assertStringContainsString('config:show infrastructure.reinstall_execution_enabled', $installer);
+        $this->assertStringContainsString('Laravel did not load server reinstall execution as enabled.', $installer);
     }
 
     public function test_repository_install_bundle_contains_every_reviewed_nonsecret_asset(): void

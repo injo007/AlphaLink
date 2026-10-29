@@ -23,6 +23,7 @@
                     </div>
                     <div class="form-group">
                         <button type="button" class="btn btn-primary btn-block" id="load-reinstall-config" @disabled($servers->isEmpty())>LOAD CONFIG</button>
+                        <p class="small text-muted mt-2 mb-0" id="reinstall-action-status" role="status" aria-live="polite">Select a server, then load its saved configuration before reinstalling.</p>
                     </div>
                     @if ($servers->isEmpty())
                         <div class="alert alert-info" role="status">No active installed servers are available to reinstall.</div>
@@ -72,9 +73,6 @@
                         <button type="button" class="btn btn-info" id="reload-reinstall-ips" disabled>RELOAD IPS</button>
                         <button type="button" class="btn btn-warning" id="configure-reinstall-ips" disabled aria-haspopup="dialog" aria-controls="reinstall-ip-config-dialog">CONFIG IPS</button>
                         <button type="button" class="btn btn-primary float-md-right" id="reinstall-submit" disabled aria-haspopup="dialog" aria-controls="reinstall-confirmation">REINSTALL</button>
-                        @unless (config('infrastructure.reinstall_execution_enabled', false))
-                            <p class="small text-warning mt-2" role="status">Remote reinstall is disabled by ALPHALINK_REINSTALL_EXECUTION_ENABLED.</p>
-                        @endunless
                         @unless (config('infrastructure.reinstall_ip_config_execution_enabled', false))
                             <p class="small text-warning mt-2" role="status">CONFIG IPS is disabled by ALPHALINK_REINSTALL_IP_CONFIG_EXECUTION_ENABLED.</p>
                         @endunless
@@ -122,6 +120,7 @@
         (() => {
             const serverSelect = document.getElementById('reinstall-server');
             const loadButton = document.getElementById('load-reinstall-config');
+            const actionStatus = document.getElementById('reinstall-action-status');
             const holder = document.getElementById('reinstall-holder');
             const error = document.getElementById('reinstall-error');
             const rows = document.getElementById('reinstall-ips-body');
@@ -261,8 +260,22 @@
             }
 
             function updateRunAvailability() {
-                reinstallButton.disabled = !reinstallExecutionEnabled || loadedServerId !== serverSelect.value || rows.querySelectorAll('tr[data-ip]').length === 0;
-                configureButton.disabled = !reinstallIpConfigExecutionEnabled || loadedServerId !== serverSelect.value;
+                const hasLoadedConfiguration = loadedServerId === serverSelect.value && Boolean(serverSelect.value);
+                const hasAssignments = rows.querySelectorAll('tr[data-ip]').length > 0;
+                reinstallButton.disabled = !reinstallExecutionEnabled || !hasLoadedConfiguration || !hasAssignments;
+                configureButton.disabled = !reinstallIpConfigExecutionEnabled || !hasLoadedConfiguration;
+
+                if (!reinstallExecutionEnabled) {
+                    actionStatus.textContent = 'Server reinstall is disabled by ALPHALINK_REINSTALL_EXECUTION_ENABLED.';
+                } else if (!serverSelect.value) {
+                    actionStatus.textContent = 'Select a server, then load its saved configuration before reinstalling.';
+                } else if (!hasLoadedConfiguration) {
+                    actionStatus.textContent = 'Click LOAD CONFIG to review saved IP assignments before reinstalling.';
+                } else if (!hasAssignments) {
+                    actionStatus.textContent = 'No saved IP assignments are available for this server.';
+                } else {
+                    actionStatus.textContent = 'Configuration loaded. Click REINSTALL and confirm to begin.';
+                }
             }
 
             serverSelect.addEventListener('change', updateRunAvailability);

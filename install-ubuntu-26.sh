@@ -496,7 +496,7 @@ enable_install_execution_gates() {
     [[ ! -e "$temporary_file" && ! -L "$temporary_file" ]] \
         || fail 'A temporary install-execution environment file already exists.'
     if ! awk '
-        BEGIN { single_written = 0; bulk_written = 0 }
+        BEGIN { single_written = 0; bulk_written = 0; reinstall_written = 0 }
         /^ALPHALINK_SINGLE_INSTALL_EXECUTION_ENABLED=/ {
             if (!single_written) print "ALPHALINK_SINGLE_INSTALL_EXECUTION_ENABLED=true"
             single_written = 1
@@ -507,10 +507,16 @@ enable_install_execution_gates() {
             bulk_written = 1
             next
         }
+        /^ALPHALINK_REINSTALL_EXECUTION_ENABLED=/ {
+            if (!reinstall_written) print "ALPHALINK_REINSTALL_EXECUTION_ENABLED=true"
+            reinstall_written = 1
+            next
+        }
         { print }
         END {
             if (!single_written) print "ALPHALINK_SINGLE_INSTALL_EXECUTION_ENABLED=true"
             if (!bulk_written) print "ALPHALINK_INSTALL_EXECUTION_ENABLED=true"
+            if (!reinstall_written) print "ALPHALINK_REINSTALL_EXECUTION_ENABLED=true"
         }
     ' "$env_file" > "$temporary_file"; then
         rm -f -- "$temporary_file"
@@ -519,20 +525,24 @@ enable_install_execution_gates() {
     chown root:www-data "$temporary_file"
     chmod 0640 "$temporary_file"
     mv -f -- "$temporary_file" "$env_file"
-    info 'Enabled single-server and bulk installation execution in the protected environment.'
+    info 'Enabled single-server, bulk installation, and server reinstall execution in the protected environment.'
 }
 
 verify_install_execution_gates() {
-    local single_install_config bulk_install_config
+    local single_install_config bulk_install_config reinstall_config
 
     single_install_config="$(runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" \
         php "$API_ROOT/artisan" config:show infrastructure.single_install_execution_enabled)"
     bulk_install_config="$(runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" \
         php "$API_ROOT/artisan" config:show infrastructure.bulk_install_execution_enabled)"
+    reinstall_config="$(runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" \
+        php "$API_ROOT/artisan" config:show infrastructure.reinstall_execution_enabled)"
     [[ "$single_install_config" =~ (^|[^[:alpha:]])true([^[:alpha:]]|$) ]] \
         || fail 'Laravel did not load single-server installation execution as enabled.'
     [[ "$bulk_install_config" =~ (^|[^[:alpha:]])true([^[:alpha:]]|$) ]] \
         || fail 'Laravel did not load bulk installation execution as enabled.'
+    [[ "$reinstall_config" =~ (^|[^[:alpha:]])true([^[:alpha:]]|$) ]] \
+        || fail 'Laravel did not load server reinstall execution as enabled.'
 }
 
 ensure_install_assets_environment() {
@@ -608,8 +618,10 @@ Deployment plan (no changes are made):
 The GitHub token is entered interactively for each private-repository deploy and
 is kept only in root-readable temporary files while Git runs. Shared Laravel
 storage remains outside releases so uploads survive code updates.
-Successful deployments enable the single-server and bulk installation routes
-and verify Laravel loaded both switches from the refreshed config cache.
+Fresh installs and successful deployments enable the single-server, bulk
+installation, and server reinstall routes, then verify all three switches
+from Laravel's refreshed config cache. CONFIG IPS remains separately disabled
+unless its network-change setting is explicitly enabled.
 EOF
 }
 
@@ -1503,6 +1515,7 @@ APP_DEBUG=false
 APP_URL=https://${APP_DOMAIN}
 ALPHALINK_SINGLE_INSTALL_EXECUTION_ENABLED=true
 ALPHALINK_INSTALL_EXECUTION_ENABLED=true
+ALPHALINK_REINSTALL_EXECUTION_ENABLED=true
 APP_LOCALE=en
 APP_FALLBACK_LOCALE=en
 APP_FAKER_LOCALE=en_US

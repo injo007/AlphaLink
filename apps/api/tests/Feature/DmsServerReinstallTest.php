@@ -110,7 +110,7 @@ class DmsServerReinstallTest extends TestCase
             ->assertSee('id="reinstall-ip-config-dialog"', false)
             ->assertSee('id="reinstall-ip-config-permanent"', false)
             ->assertSee('REINSTALL')
-            ->assertSee('Remote reinstall is disabled by ALPHALINK_REINSTALL_EXECUTION_ENABLED.')
+            ->assertSee('Server reinstall is disabled by ALPHALINK_REINSTALL_EXECUTION_ENABLED.')
             ->assertSee('CONFIG IPS is disabled by ALPHALINK_REINSTALL_IP_CONFIG_EXECUTION_ENABLED.')
             ->assertSee('const reinstallExecutionEnabled = false;', false)
             ->assertSee('const reinstallIpConfigExecutionEnabled = false;', false)
@@ -131,9 +131,10 @@ class DmsServerReinstallTest extends TestCase
 
         $this->get($this->url())
             ->assertOk()
-            ->assertDontSee('Remote reinstall is disabled by ALPHALINK_REINSTALL_EXECUTION_ENABLED.')
             ->assertSee('CONFIG IPS is disabled by ALPHALINK_REINSTALL_IP_CONFIG_EXECUTION_ENABLED.')
             ->assertSee('const reinstallExecutionEnabled = true;', false)
+            ->assertSee('Click LOAD CONFIG to review saved IP assignments before reinstalling.', false)
+            ->assertSee('Configuration loaded. Click REINSTALL and confirm to begin.', false)
             ->assertSee('const reinstallIpConfigExecutionEnabled = false;', false)
             ->assertSee('id="reinstall-submit" disabled', false);
     }

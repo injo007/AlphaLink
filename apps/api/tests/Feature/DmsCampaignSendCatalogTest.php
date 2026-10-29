@@ -606,13 +606,27 @@ class DmsCampaignSendCatalogTest extends TestCase
         $campaignPayload['body'] = str_repeat('B', 2_000_001);
         $campaignPayload['send_setup']['placeholder_inputs'][0]['data_text'] .= str_repeat(' ', 50_001);
         $campaignPayload['send_setup']['total_send'] = 2_147_483_648;
-        $response = $this->actingAs($owner)->post(route('console.campaigns.store', $workspace->getKey()), $campaignPayload);
+        $response = $this->actingAs($owner)->postJson(route('console.campaigns.store', $workspace->getKey()), $campaignPayload);
 
         $campaign = Campaign::query()->where('workspace_id', $workspace->getKey())->firstOrFail();
-        $response->assertRedirect(url('/mailer/campaigns/'.$campaign->getKey()));
+        $response->assertAccepted()
+            ->assertJsonPath('campaign_id', (string) $campaign->getKey())
+            ->assertJsonPath('status', 'preparing_snapshot')
+            ->assertJsonPath('snapshot_progress_url', route('console.campaigns.snapshot-progress', [$workspace->getKey(), $campaign->getKey()]));
         $this->assertSame('preparing_snapshot', $campaign->status);
         $this->assertDatabaseCount('campaign_recipient_snapshots', 0);
         Queue::assertPushedOn('drop-suppression', BuildCampaignRecipientSnapshot::class);
+        $this->actingAs($owner)
+            ->get(route('console.campaigns.create', [
+                'workspace' => $workspace->getKey(),
+                'preparing_campaign' => $campaign->getKey(),
+            ]))
+            ->assertOk()
+            ->assertSee('CREATE CAMPAIGN')
+            ->assertSee('SUPPRESSION AND RECIPIENT PREPARATION')
+            ->assertSee('data-progress-url="', false)
+            ->assertSee('snapshot-progress', false)
+            ->assertDontSee('CAMPAIGN DRAFT: '.$campaign->getKey());
         $this->actingAs($owner)
             ->getJson(route('console.campaigns.snapshot-progress', [$workspace->getKey(), $campaign->getKey()]))
             ->assertOk()
@@ -925,7 +939,7 @@ class DmsCampaignSendCatalogTest extends TestCase
 
         $vmtaResponse = $this->actingAs($owner)->post(route('console.campaigns.store', $workspace->getKey()), $vmtaCampaignPayload);
         $vmtaCampaign = Campaign::query()->where('name', 'VMTA domain normalization fixture')->firstOrFail();
-        $vmtaResponse->assertRedirect(url('/mailer/campaigns/'.$vmtaCampaign->getKey()));
+        $vmtaResponse->assertRedirect(url('/mailer/campaigns/create?preparing_campaign='.$vmtaCampaign->getKey()));
         (new BuildCampaignRecipientSnapshot(
             (string) $workspace->getKey(),
             (string) $vmtaCampaign->getKey(),
@@ -2216,6 +2230,8 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertSee('frame.src = url.toString();', false)
             ->assertSee('id="pmta-admin-stop-schedule"', false)
             ->assertSee('id="pmta-admin-stop-restart"', false)
+            ->assertSee('link.textContent = new URL(server.dataset.panelUrl, window.location.href).host;', false)
+            ->assertSee('certificate issued to a domain cannot validate when the PMTA page is opened by its IP address.', false)
             ->assertSee('id="pmta-admin-schedule-status"', false)
             ->assertDontSee('Leave blank or enter 0 for one run. Enter N seconds to run once now and repeat every N seconds until STOP. PMTA can only schedule matching queued jobs; this does not launch a campaign at a future time.')
             ->assertDontSee('id="pmta-monitor-refresh-status"', false)
@@ -2478,13 +2494,20 @@ class DmsCampaignSendCatalogTest extends TestCase
         ], false);
 
         Http::fake([
-            'https://secure-pmta.example.test:2447/' => Http::response('<!doctype html><html><head><link rel="stylesheet" href="css.css"></head><body><a href="/status">Status</a><a href="/command">Run command</a><form action="/command"><input value="reset counters"></form><script>window.dangerous = true;</script></body></html>'),
+            'https://secure-pmta.example.test:2447/' => Http::response('<!doctype html><html><head><link rel="stylesheet" href="css.css"><style>body { color: #111; background-image: url("/images/port25.gif"); }</style></head><body style="background:#fff"><img src="https://secure-pmta.example.test:2447/images/port25.gif" style="width:120px"><a href="/status">Status</a><a href="/command">Run command</a><form action="/command"><input value="reset counters"></form><script>window.dangerous = true;</script></body></html>'),
+            'https://secure-pmta.example.test:2447/css.css' => Http::response('body{color:#111;background:url("images/port25.gif")} @import url("https://external.invalid/evil.css");'),
+            'https://secure-pmta.example.test:2447/images/port25.gif' => Http::response('synthetic-image'),
         ]);
 
         $this->actingAs($owner)->get(route('clean.console.pmta-admin.monitor', $server->getKey()))
             ->assertOk()
             ->assertSee('Status')
             ->assertSee($statusUrl, false)
+            ->assertSee('style="background:#fff"', false)
+            ->assertSee('style="width:120px"', false)
+            ->assertSee('/pmta-admin/servers/'.$server->getKey().'/css.css', false)
+            ->assertSee('/pmta-admin/servers/'.$server->getKey().'/images/port25.gif', false)
+            ->assertSee('background-image: url("/pmta-admin/servers/'.$server->getKey().'/images/port25.gif")', false)
             ->assertSee('aria-disabled="true"', false)
             ->assertDontSee('href="/command"', false)
             ->assertDontSee('reset counters')
@@ -2492,6 +2515,19 @@ class DmsCampaignSendCatalogTest extends TestCase
 
         Http::assertSent(fn (ClientRequest $request): bool => $request->method() === 'GET'
             && $request->url() === 'https://secure-pmta.example.test:2447/');
+
+        $this->actingAs($owner)->get(route('clean.console.pmta-admin.monitor', [
+            'server' => $server->getKey(),
+            'monitorPath' => 'images/port25.gif',
+        ]))->assertOk()->assertHeader('Content-Type', 'image/gif')->assertSee('synthetic-image');
+
+        $this->actingAs($owner)->get(route('clean.console.pmta-admin.monitor', [
+            'server' => $server->getKey(),
+            'monitorPath' => 'css.css',
+        ]))->assertOk()
+            ->assertHeader('Content-Type', 'text/css; charset=UTF-8')
+            ->assertSee('/pmta-admin/servers/'.$server->getKey().'/images/port25.gif', false)
+            ->assertDontSee('external.invalid');
 
         Http::fake();
         $this->actingAs($owner)->get(route('clean.console.pmta-admin.monitor', [
@@ -2710,6 +2746,12 @@ class DmsCampaignSendCatalogTest extends TestCase
 
         $response->assertOk()
             ->assertSee('CREATE CAMPAIGN')
+            ->assertSee('id="campaign-snapshot-progress"', false)
+            ->assertSee('SUPPRESSION AND RECIPIENT PREPARATION')
+            ->assertSee('The campaign composer stays open while the selected lists are processed.')
+            ->assertSee('snapshotProgress.dataset.progressUrl = payload.snapshot_progress_url;', false)
+            ->assertSee('snapshotBar.style.width = `${percent}%`;', false)
+            ->assertSee('window.history.replaceState(window.history.state', false)
             ->assertSee('id="campaign-actions-trigger"', false)
             ->assertSee('<i class="fas fa-bars" aria-hidden="true"></i>', false)
             ->assertSee("classList.replace('fa-bars', 'fa-times')", false)

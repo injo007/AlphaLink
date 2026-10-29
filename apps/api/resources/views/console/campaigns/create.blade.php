@@ -5,6 +5,7 @@
 @section('content')
     @php
         $editingCampaign = $editingCampaign ?? null;
+        $preparingCampaign = $preparingCampaign ?? null;
         $savedContent = $editingCampaign?->latestRevision?->payload ?? [];
         $savedSetup = $savedContent['send_setup'] ?? null;
         $selectedOfferAssets = $editingCampaign
@@ -53,6 +54,26 @@
         </div>
     @endif
 
+    <div id="campaign-snapshot-progress" class="block block-rounded border mb-4" role="status" aria-live="polite" @if (!$preparingCampaign) hidden @endif
+         @if ($preparingCampaign) data-progress-url="{{ route('console.campaigns.snapshot-progress', [$workspace->id, $preparingCampaign->id]) }}" data-campaign-url="{{ route('console.campaigns.show', [$workspace->id, $preparingCampaign->id]) }}" data-edit-url="{{ route('console.campaigns.edit', [$workspace->id, $preparingCampaign->id]) }}" @endif>
+        <div class="block-header block-header-default">
+            <h3 class="block-title">SUPPRESSION AND RECIPIENT PREPARATION</h3>
+            <span id="campaign-snapshot-percent" class="badge badge-primary">0%</span>
+        </div>
+        <div class="block-content">
+            <p id="campaign-snapshot-stage" class="mb-2">Waiting for preparation status…</p>
+            <div class="progress" style="height: 1.25rem" role="progressbar" aria-label="Campaign suppression and recipient preparation" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div id="campaign-snapshot-bar" class="progress-bar progress-bar-striped progress-bar-animated" style="width:0%">0%</div>
+            </div>
+            <div class="d-flex justify-content-between mt-2">
+                <small id="campaign-snapshot-detail" class="text-muted">The campaign composer stays open while the selected lists are processed.</small>
+                <a id="campaign-snapshot-open" class="small" href="#" hidden>Open saved campaign</a>
+            </div>
+            <div id="campaign-snapshot-error" class="alert alert-danger mt-3 mb-0" role="alert" hidden></div>
+            <a id="campaign-snapshot-retry" class="btn btn-sm btn-outline-primary mt-3" href="#" hidden>Review saved campaign and retry preparation</a>
+        </div>
+    </div>
+
     @php
         $campaignMenuItems = $editingCampaign
             ? [
@@ -72,6 +93,7 @@
 
         <style>
             #campaign-action-backdrop { position: fixed; inset: 0; z-index: 1090; background: rgba(0, 0, 0, .82); }
+            #campaign-snapshot-progress[hidden], #campaign-snapshot-open[hidden], #campaign-snapshot-retry[hidden], #campaign-new-campaign[hidden] { display: none !important; }
             #campaign-floating-actions { position: fixed; top: 45%; right: 0; z-index: 1100; }
             #campaign-actions-trigger { width: 36px; height: 36px; border: 0; color: #fff; background: #527bd8; font-size: 18px; box-shadow: 0 2px 6px rgba(0, 0, 0, .25); }
             #campaign-actions-panel { position: fixed; top: calc(45% + 42px); right: 0; width: min(218px, calc(100vw - 4px)); padding: 0; background: transparent; box-shadow: none; }
@@ -111,6 +133,7 @@
             @endforeach
         </div>
         <div id="campaign-action-status" class="alert alert-info mb-0" role="status" aria-live="polite" hidden></div>
+        <div id="campaign-submit-error" class="alert alert-danger mb-3" role="alert" hidden></div>
         @if ($editingCampaign)
             <a id="campaign-test-log-link" class="d-inline-block mt-2" href="{{ route('console.campaigns.show', [$workspace->id, $editingCampaign->id]) }}#campaign-test-logs" hidden>Open campaign test logs</a>
         @endif
@@ -490,6 +513,7 @@
             <span class="align-self-center text-muted small mr-3">{{ $editingCampaign ? 'Editing preserves the existing audience snapshot and returns to Campaigns.' : 'Saving filters and snapshots recipients. It does not send.' }}</span>
             <a class="btn btn-alt-secondary mr-2" href="{{ route('console.campaigns.index', $workspace->id) }}">Cancel</a>
             <button class="btn btn-primary" id="campaign-save-button" type="submit">{{ $editingCampaign ? 'Edit Campaign' : 'Create Campaign' }}</button>
+            <a class="btn btn-primary ml-2" id="campaign-new-campaign" href="{{ route('console.campaigns.create', $workspace->id) }}" hidden>Start a new campaign</a>
         </div>
         <dialog id="campaign-encoding-dialog" data-encode-url="{{ route('console.campaign-tools.encode', $workspace->id) }}" aria-labelledby="campaign-encoding-title">
             <div class="p-3" style="min-width:min(720px,90vw)">
@@ -1286,6 +1310,28 @@
             const status = document.getElementById('campaign-options-status');
             const retry = document.getElementById('campaign-options-retry');
             const panels = document.getElementById('campaign-pmta-panels');
+            const snapshotProgress = document.getElementById('campaign-snapshot-progress');
+            const snapshotStage = document.getElementById('campaign-snapshot-stage');
+            const snapshotPercent = document.getElementById('campaign-snapshot-percent');
+            const snapshotBar = document.getElementById('campaign-snapshot-bar');
+            const snapshotDetail = document.getElementById('campaign-snapshot-detail');
+            const snapshotOpen = document.getElementById('campaign-snapshot-open');
+            const snapshotError = document.getElementById('campaign-snapshot-error');
+            const snapshotRetry = document.getElementById('campaign-snapshot-retry');
+            const submitError = document.getElementById('campaign-submit-error');
+            const newCampaignLink = document.getElementById('campaign-new-campaign');
+            const stageLabels = {
+                queued: 'Waiting for a background worker',
+                suppression_file: 'Applying offer suppression file',
+                counting_audience: 'Counting selected list recipients',
+                audience: 'Filtering selected recipients and removing duplicates',
+                writing_snapshot: 'Saving the campaign recipient snapshot',
+                complete: 'Suppression and recipient preparation complete',
+                failed: 'Campaign preparation failed',
+            };
+            let snapshotPollTimer = null;
+            let snapshotPollInFlight = false;
+            let campaignSaved = Boolean(snapshotProgress.dataset.progressUrl);
             const ids = {
                 sponsor: 'send-sponsor',
                 offerCountry: 'send-offer-country',
@@ -1513,9 +1559,115 @@
                     retry.classList.remove('d-none');
                 } finally {
                     if (ticket === sequence) {
-                        saveButton.disabled = !optionsReady;
+                        saveButton.disabled = !optionsReady || campaignSaved;
                         saveButton.removeAttribute('aria-busy');
                     }
+                }
+            };
+            const applySnapshotProgress = (payload) => {
+                const stage = String(payload.stage || (payload.ready ? 'complete' : 'queued'));
+                const percent = Math.max(0, Math.min(100, Number.parseInt(payload.percent ?? 0, 10) || 0));
+                const processed = Math.max(0, Number.parseInt(payload.processed ?? 0, 10) || 0);
+                const total = payload.total === null || payload.total === undefined ? null : Math.max(0, Number.parseInt(payload.total, 10) || 0);
+                snapshotProgress.hidden = false;
+                snapshotStage.textContent = stageLabels[stage] || 'Preparing the campaign audience';
+                snapshotPercent.textContent = `${percent}%`;
+                snapshotBar.style.width = `${percent}%`;
+                snapshotBar.textContent = `${percent}%`;
+                snapshotBar.parentElement.setAttribute('aria-valuenow', String(percent));
+                snapshotDetail.textContent = total > 0
+                    ? `${processed.toLocaleString()} of ${total.toLocaleString()} ${stage === 'suppression_file' ? 'bytes checked' : 'records processed'}.`
+                    : 'The campaign composer stays open while the selected lists are processed.';
+
+                const complete = payload.ready === true || stage === 'complete' || payload.status === 'draft';
+                const failed = payload.status === 'snapshot_failed' || stage === 'failed';
+                if (complete) {
+                    snapshotStage.textContent = 'Suppression and recipient preparation complete. The campaign is saved as a draft.';
+                    snapshotBar.classList.remove('progress-bar-animated');
+                    snapshotOpen.hidden = false;
+                    snapshotOpen.textContent = 'Open saved campaign';
+                    snapshotOpen.href = snapshotProgress.dataset.editUrl || snapshotProgress.dataset.campaignUrl;
+                    saveButton.hidden = true;
+                    newCampaignLink.hidden = false;
+                    clearInterval(snapshotPollTimer);
+                    snapshotPollTimer = null;
+                } else if (failed) {
+                    snapshotStage.textContent = 'Campaign preparation failed. Your composer is still open.';
+                    snapshotBar.classList.remove('progress-bar-animated');
+                    snapshotError.textContent = payload.error || 'The selected suppression file or audience could not be processed. Review the saved campaign and retry preparation.';
+                    snapshotError.hidden = false;
+                    snapshotRetry.hidden = false;
+                    snapshotRetry.href = snapshotProgress.dataset.campaignUrl;
+                    saveButton.hidden = true;
+                    newCampaignLink.hidden = false;
+                    clearInterval(snapshotPollTimer);
+                    snapshotPollTimer = null;
+                }
+            };
+            const pollSnapshotProgress = async () => {
+                if (snapshotPollInFlight || !snapshotProgress.dataset.progressUrl) return;
+                snapshotPollInFlight = true;
+                try {
+                    const response = await fetch(snapshotProgress.dataset.progressUrl, {
+                        credentials: 'same-origin',
+                        cache: 'no-store',
+                        headers: {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+                    });
+                    if (!response.ok) throw new Error(`Progress request failed (${response.status}).`);
+                    applySnapshotProgress(await response.json());
+                } catch (error) {
+                    snapshotStage.textContent = 'Preparation is still running; reconnecting to progress…';
+                    snapshotDetail.textContent = error.message || 'The latest progress update could not be loaded.';
+                } finally {
+                    snapshotPollInFlight = false;
+                }
+            };
+            const startSnapshotProgress = () => {
+                snapshotProgress.hidden = false;
+                if (snapshotPollTimer === null) snapshotPollTimer = window.setInterval(pollSnapshotProgress, 1500);
+                void pollSnapshotProgress();
+            };
+            const submitMarketingCampaign = async () => {
+                submitError.hidden = true;
+                snapshotError.hidden = true;
+                snapshotOpen.hidden = true;
+                snapshotRetry.hidden = true;
+                snapshotProgress.hidden = false;
+                snapshotStage.textContent = 'Saving the campaign and starting suppression…';
+                snapshotDetail.textContent = 'This page will stay open while suppression and recipient preparation run.';
+                snapshotPercent.textContent = '0%';
+                snapshotBar.style.width = '0%';
+                snapshotBar.textContent = '0%';
+                snapshotBar.classList.add('progress-bar-animated');
+                saveButton.disabled = true;
+                saveButton.setAttribute('aria-busy', 'true');
+                try {
+                    const response = await fetch(form.action, {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+                        body: new FormData(form),
+                    });
+                    const payload = await response.json().catch(() => ({}));
+                    if (!response.ok) {
+                        const details = Object.values(payload.errors || {}).flat();
+                        throw new Error(details.join('\n') || payload.message || `Campaign save failed (${response.status}).`);
+                    }
+                    snapshotProgress.dataset.progressUrl = payload.snapshot_progress_url;
+                    snapshotProgress.dataset.campaignUrl = payload.campaign_url;
+                    snapshotProgress.dataset.editUrl = payload.edit_url;
+                    campaignSaved = true;
+                    const pageUrl = new URL(window.location.href);
+                    pageUrl.searchParams.set('preparing_campaign', payload.campaign_id);
+                    window.history.replaceState(window.history.state, '', pageUrl.toString());
+                    startSnapshotProgress();
+                } catch (error) {
+                    submitError.textContent = error.message || 'The campaign could not be saved. Review the form and try again.';
+                    submitError.hidden = false;
+                    snapshotProgress.hidden = true;
+                    saveButton.disabled = false;
+                } finally {
+                    saveButton.removeAttribute('aria-busy');
                 }
             };
             ['sponsor', 'offerCountry', 'offer', 'isp', 'country', 'route', 'ipType', 'servers'].forEach((key) => {
@@ -1536,11 +1688,23 @@
                     retry.focus();
                     return;
                 }
+                if (floatingActions.dataset.editing === 'false'
+                    && form.querySelector('input[name="kind"]')?.value === 'marketing') {
+                    event.preventDefault();
+                    void submitMarketingCampaign();
+                    return;
+                }
                 saveButton.disabled = true;
                 saveButton.setAttribute('aria-busy', 'true');
             });
 
             if (window.jQuery && window.jQuery.fn.selectpicker) window.jQuery('.selectpicker').selectpicker();
+            if (snapshotProgress.dataset.progressUrl) {
+                campaignSaved = true;
+                saveButton.disabled = true;
+                saveButton.textContent = 'Draft saved';
+                startSnapshotProgress();
+            }
             loadOptions();
         })();
     </script>

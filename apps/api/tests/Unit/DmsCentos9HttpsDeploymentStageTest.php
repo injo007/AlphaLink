@@ -25,6 +25,8 @@ class DmsCentos9HttpsDeploymentStageTest extends TestCase
         (new DmsCentos9HttpsDeploymentStage)->run($commands, 'sender.example.test', ['relay.example.test', 'mail.example.test']);
 
         $this->assertSame([
+            'rpm -qa | grep -qw httpd || dnf -y install httpd;',
+            'systemctl enable --now httpd',
             'rpm -qa | grep -qw certbot || dnf -y install certbot;',
             'rpm -qa | grep -qw python3-certbot-apache || dnf -y install python3-certbot-apache;',
             "certbot --apache --no-redirect -d 'sender.example.test,relay.example.test,mail.example.test' -m 'cert@sender.example.test' -n --agree-tos",
@@ -41,7 +43,7 @@ class DmsCentos9HttpsDeploymentStageTest extends TestCase
 
         $this->assertSame(
             'certbot --apache --no-redirect -d '.escapeshellarg($domain).' -m '.escapeshellarg('cert@'.$domain).' -n --agree-tos',
-            $commands->commands[2],
+            $commands->commands[4],
         );
     }
 

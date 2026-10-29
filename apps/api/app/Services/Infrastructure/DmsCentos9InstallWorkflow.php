@@ -210,22 +210,20 @@ class DmsCentos9InstallWorkflow
             $log('End Setting Proxy');
         }
 
-        if ($options['https']) {
-            $log('Setup Https');
-            $this->https->run($session, (string) $primaryDomain->name, $subdomains);
-            $this->https->configurePmtaMonitor(
-                $session,
-                $session,
-                (string) $primaryDomain->name,
-                $pmtaVersion,
-                $settings['pmta_admin_port'],
-                $settings['dev_ips'],
-                $settings['production_ips'],
-                $settings['allow_all_monitor'],
-                $settings['pmta_relay_ips'],
-            );
-            $log('End Setting Https');
-        }
+        $log($options['https'] ? 'Setup Https' : 'Setup HTTPS for PMTA Web Monitor');
+        $this->https->run($session, (string) $primaryDomain->name, $subdomains);
+        $this->https->configurePmtaMonitor(
+            $session,
+            $session,
+            (string) $primaryDomain->name,
+            $pmtaVersion,
+            $settings['pmta_admin_port'],
+            $settings['dev_ips'],
+            $settings['production_ips'],
+            $settings['allow_all_monitor'],
+            $settings['pmta_relay_ips'],
+        );
+        $log('End Setting HTTPS for PMTA Web Monitor');
 
         $log('Config Firewall');
         $this->firewall->run(
@@ -242,7 +240,7 @@ class DmsCentos9InstallWorkflow
         $health = $session->exec($this->pmtaReadinessCommand(
             $pmtaVersion,
             $settings,
-            $options['https'],
+            true,
             (string) $primaryDomain->name,
         ));
         if ($health !== 'ALPHALINK_PMTA_READY') {
@@ -260,11 +258,11 @@ class DmsCentos9InstallWorkflow
             (string) $server->ip_address,
             (string) $primaryDomain->name,
             $publicPort,
-            $options['https'],
+            true,
         );
         $log(sprintf(
             'PMTA WEB MONITOR LINK (%s; public port %d; backend-only PMTA HTTP listener %d): >>> <a target="_blank" href="%s">%s</a>',
-            $options['https'] ? 'HTTPS' : 'HTTP',
+            'HTTPS',
             $publicPort,
             $pmtaHttpPort,
             $adminUrl,

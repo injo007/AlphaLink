@@ -78,8 +78,9 @@ class DmsCentos9InstallWorkflowTest extends TestCase
             'Done Setting Records For example.test (A=1)',
             'Setup PMTA 40', 'End Setting PMTA',
             'Setup VMTAS', 'End Setting VMTAS',
+            'Setup HTTPS for PMTA Web Monitor', 'End Setting HTTPS for PMTA Web Monitor',
             'Config Firewall', 'End Setting Firewall',
-            'PMTA WEB MONITOR LINK (HTTP; public port 8080; backend-only PMTA HTTP listener 16160): >>> <a target="_blank" href="http://8.8.8.8:8080/">8.8.8.8:8080</a>',
+            'PMTA WEB MONITOR LINK (HTTPS; public port 8080; backend-only PMTA HTTP listener 16160): >>> <a target="_blank" href="https://example.test:8080/">example.test:8080</a>',
             'Ended Disconnecting',
         ], $logs);
         $this->assertSame("hostnamectl set-hostname 'example.test'", $session->commands[0]);
@@ -92,6 +93,7 @@ class DmsCentos9InstallWorkflowTest extends TestCase
         $this->assertStringContainsString("grep -Fq '<source 198.51.100.44>' /etc/pmta/settings/access", $healthCommand);
         $this->assertStringNotContainsString("grep -Fqx 'http-access 198.51.100.44 admin' /etc/pmta/settings/access", $healthCommand);
         $this->assertStringNotContainsString('http-access 0/0 admin', $healthCommand);
+        $this->assertStringContainsString("grep -Fq 'listen 8080 ssl;' /etc/nginx/conf.d/default.conf", $healthCommand);
     }
 
     public function test_it_does_not_mark_the_server_installed_when_pmta_health_fails(): void
@@ -110,7 +112,7 @@ class DmsCentos9InstallWorkflowTest extends TestCase
         $this->runWorkflow($workflow, $session, $logs);
     }
 
-    public function test_pmta_45_verifies_the_backend_is_loopback_only_and_logs_one_browser_port(): void
+    public function test_pmta_45_verifies_tls_and_the_backend_is_loopback_only_with_one_browser_port(): void
     {
         [$workflow, $gate, $pmta, $completion] = $this->workflow();
         $gate->method('evaluate')->willReturn(['installation_authorized' => true]);
@@ -135,8 +137,9 @@ class DmsCentos9InstallWorkflowTest extends TestCase
         $this->assertStringContainsString("grep -Fq '# ALPHALINK_PMTA_MONITOR_ACCESS_PUBLIC' /etc/nginx/conf.d/default.conf", $healthCommand);
         $this->assertStringContainsString("! grep -Fqx 'http-access 0/0 monitor' /etc/pmta/settings/access", $healthCommand);
         $this->assertStringContainsString('proxy_pass http://127.0.0.1:2426;', $healthCommand);
+        $this->assertStringContainsString("grep -Fq 'listen 1213 ssl;' /etc/nginx/conf.d/default.conf", $healthCommand);
         $this->assertSame(
-            'PMTA WEB MONITOR LINK (HTTP; public port 1213; backend-only PMTA HTTP listener 2426): >>> <a target="_blank" href="http://8.8.8.8:1213/">8.8.8.8:1213</a>',
+            'PMTA WEB MONITOR LINK (HTTPS; public port 1213; backend-only PMTA HTTP listener 2426): >>> <a target="_blank" href="https://example.test:1213/">example.test:1213</a>',
             $logs[count($logs) - 2],
         );
     }

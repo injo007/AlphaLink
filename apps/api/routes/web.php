@@ -214,7 +214,7 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::get('/app/workspaces/{workspace}/my-servers', [WorkspaceConsoleController::class, 'myServers'])->name('console.my-servers.index');
     Route::get('/app/workspaces/{workspace}/pmta-admin', [WorkspaceConsoleController::class, 'pmtaAdmin'])->name('console.pmta-admin.index');
     Route::get('/app/workspaces/{workspace}/pmta-admin/servers/{server}/{monitorPath?}', [WorkspaceConsoleController::class, 'pmtaAdminMonitor'])
-        ->whereUuid('server')->where('monitorPath', '[A-Za-z0-9._-]*')->name('console.pmta-admin.monitor');
+        ->whereUuid('server')->where('monitorPath', '[A-Za-z0-9._/-]*')->name('console.pmta-admin.monitor');
     Route::get('/app/workspaces/{workspace}/pmta-admin/action-history', [WorkspaceConsoleController::class, 'pmtaAdminHistory'])->name('console.pmta-admin.history');
     Route::post('/app/workspaces/{workspace}/pmta-admin/action', [WorkspaceConsoleController::class, 'pmtaAdminAction'])->name('console.pmta-admin.action');
     Route::post('/app/workspaces/{workspace}/pmta-admin/restart', [WorkspaceConsoleController::class, 'pmtaAdminRestart'])->name('console.pmta-admin.restart');

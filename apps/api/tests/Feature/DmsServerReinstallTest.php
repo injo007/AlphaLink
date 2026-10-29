@@ -316,6 +316,7 @@ class DmsServerReinstallTest extends TestCase
             ->where('is_active', true)
             ->count());
         $this->assertSame('used', $this->secondDomain->fresh()->status);
+        $this->assertTrue($this->server->fresh()->install_parameters['pmta_monitor_https']);
         $this->assertSame(2, AuditEvent::query()->where('action', 'server.reinstalled')->count());
     }
 

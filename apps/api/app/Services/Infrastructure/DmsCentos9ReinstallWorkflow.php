@@ -192,7 +192,7 @@ class DmsCentos9ReinstallWorkflow
                 (string) $server->ip_address,
                 (string) $mainDomain->name,
                 $inputs['settings']['pmta_admin_port'],
-                $options['https'],
+                true,
             );
         }
 
@@ -225,8 +225,8 @@ class DmsCentos9ReinstallWorkflow
             $log('End Setting IMAP');
         }
 
-        if ($options['https']) {
-            $log('Re Setup Https');
+        if ($options['https'] || $options['pmta']) {
+            $log($options['https'] ? 'Re Setup Https' : 'Re Setup HTTPS for PMTA Web Monitor');
             $this->https->run($session, (string) $mainDomain->name, $subdomains);
             if ($options['pmta']) {
                 $this->https->configurePmtaMonitor(
@@ -241,7 +241,7 @@ class DmsCentos9ReinstallWorkflow
                     $inputs['settings']['pmta_relay_ips'],
                 );
             }
-            $log('End Setting Https');
+            $log('End Setting HTTPS');
         }
         if ($adminUrl !== null) {
             $log('PMTA MONITOR LINK : '.$adminUrl);
@@ -268,7 +268,7 @@ class DmsCentos9ReinstallWorkflow
             $readiness = $session->exec($this->pmtaReadinessCommand(
                 $pmtaVersion,
                 $inputs['settings'],
-                $options['https'],
+                true,
                 (string) $mainDomain->name,
             ));
             if ($readiness !== 'ALPHALINK_PMTA_READY') {

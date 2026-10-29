@@ -368,6 +368,8 @@ class DmsChangeDomainTest extends TestCase
         $session->shouldReceive('exec')->once()->with('chown -R pmta:pmta /etc/pmta')->ordered()->andReturn('');
         $session->shouldReceive('exec')->once()->with('systemctl restart pmta;')->ordered()->andReturn('');
         $session->shouldReceive('exec')->once()->with('systemctl restart pmtahttp;')->ordered()->andReturn('');
+        $session->shouldReceive('exec')->once()->with('rpm -qa | grep -qw httpd || dnf -y install httpd;')->ordered()->andReturn('');
+        $session->shouldReceive('exec')->once()->with('systemctl enable --now httpd')->ordered()->andReturn('');
         $session->shouldReceive('exec')->once()->with('rpm -qa | grep -qw certbot || dnf -y install certbot;')->ordered()->andReturn('');
         $session->shouldReceive('exec')->once()->with('rpm -qa | grep -qw python3-certbot-apache || dnf -y install python3-certbot-apache;')->ordered()->andReturn('');
         $session->shouldReceive('exec')->once()->with(

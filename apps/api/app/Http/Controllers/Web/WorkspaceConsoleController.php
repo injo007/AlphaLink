@@ -176,6 +176,16 @@ class WorkspaceConsoleController extends Controller
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $this->authorizeRole($workspace, self::CAMPAIGN_ROLES);
+        $preparingCampaign = null;
+        $preparingCampaignId = $request->query('preparing_campaign');
+        if (is_string($preparingCampaignId) && $preparingCampaignId !== '') {
+            $preparingCampaign = $workspace->campaigns()
+                ->with('latestRevision')
+                ->where('created_by', $request->user()->getKey())
+                ->where('kind', 'marketing')
+                ->whereKey($preparingCampaignId)
+                ->first();
+        }
         $sendOptions = $catalog->options($workspace, $request->user(), (string) $workspace->pivot->role, [
             'sponsor_id' => $request->old('send_setup.sponsor_id') ? (int) $request->old('send_setup.sponsor_id') : null,
             'offer_country' => $request->old('send_setup.offer_country'),
@@ -188,6 +198,7 @@ class WorkspaceConsoleController extends Controller
 
         return view('console.campaigns.create', [
             'workspace' => $workspace,
+            'preparingCampaign' => $preparingCampaign,
             'idempotencyKey' => (string) Str::uuid(),
             'sendOptions' => $sendOptions,
             'sendOptionsUrl' => route('console.campaigns.send-options', $workspace->getKey()),
@@ -835,7 +846,7 @@ class WorkspaceConsoleController extends Controller
             ->with('status', 'Campaign cloned as a new draft with a fresh suppression snapshot. Native campaign sending remains unavailable.');
     }
 
-    public function createCampaignDraft(Request $request, string $workspace, DmsCampaignSendCatalog $catalog): RedirectResponse
+    public function createCampaignDraft(Request $request, string $workspace, DmsCampaignSendCatalog $catalog): RedirectResponse|JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $this->authorizeRole($workspace, self::CAMPAIGN_ROLES);
@@ -860,10 +871,16 @@ class WorkspaceConsoleController extends Controller
                 'This draft submission key was already used for different content.'
             );
 
-            return redirect()->route('console.campaigns.show', [$workspace->getKey(), $prior->getKey()])
-                ->with('status', $prior->status === 'preparing_snapshot'
-                    ? 'Campaign is saved. Suppression and recipient preparation are still running.'
-                    : 'Draft already saved; no duplicate was created.');
+            if ($request->expectsJson() && $prior->kind === 'marketing') {
+                return $this->campaignSnapshotResponse($workspace, $prior, 'Draft already saved; no duplicate was created.');
+            }
+
+            return redirect()->route('console.campaigns.create', [
+                'workspace' => $workspace->getKey(),
+                ...($prior->kind === 'marketing' ? ['preparing_campaign' => $prior->getKey()] : []),
+            ])->with('status', $prior->status === 'preparing_snapshot'
+                ? 'Campaign is saved. Suppression and recipient preparation are still running.'
+                : 'Draft already saved; no duplicate was created.');
         }
 
         [$campaign, $revision] = DB::transaction(function () use ($request, $workspace, $data, $content, $contentHash, $idempotencyKey): array {
@@ -905,9 +922,16 @@ class WorkspaceConsoleController extends Controller
         if ($campaign->kind === 'marketing') {
             $this->enqueueCampaignSnapshotBuild($workspace, $campaign, $revision, $request->user()->getKey());
             $campaign->refresh();
+
+            if ($request->expectsJson()) {
+                return $this->campaignSnapshotResponse($workspace, $campaign, 'Campaign saved. Suppression and recipient preparation are running.');
+            }
         }
 
-        return redirect()->route('console.campaigns.show', [$workspace->getKey(), $campaign->getKey()])
+        return redirect()->route('console.campaigns.create', [
+            'workspace' => $workspace->getKey(),
+            ...($campaign->kind === 'marketing' ? ['preparing_campaign' => $campaign->getKey()] : []),
+        ])
             ->with('status', $campaign->kind === 'marketing'
                 ? ($campaign->status === 'draft'
                     ? 'Campaign saved. Suppression and recipient preparation completed.'
@@ -915,6 +939,18 @@ class WorkspaceConsoleController extends Controller
                         ? 'Campaign saved, but suppression and recipient preparation failed. Review the status and retry.'
                         : 'Campaign saved. Suppression and recipient preparation are running.'))
                 : 'Draft saved as revision 1.');
+    }
+
+    private function campaignSnapshotResponse(Workspace $workspace, Campaign $campaign, string $message): JsonResponse
+    {
+        return response()->json([
+            'message' => $message,
+            'campaign_id' => (string) $campaign->getKey(),
+            'status' => $campaign->status,
+            'snapshot_progress_url' => route('console.campaigns.snapshot-progress', [$workspace->getKey(), $campaign->getKey()]),
+            'campaign_url' => route('console.campaigns.show', [$workspace->getKey(), $campaign->getKey()]),
+            'edit_url' => route('console.campaigns.edit', [$workspace->getKey(), $campaign->getKey()]),
+        ], $campaign->status === 'preparing_snapshot' ? 202 : 200)->header('Cache-Control', 'no-store, private');
     }
 
     public function campaignSnapshotProgress(Request $request, string $workspace, string $campaign): JsonResponse

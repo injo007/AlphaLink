@@ -211,6 +211,7 @@
                 </div>
             </div>
         </div>
+        <p class="small text-muted mb-2">Open the hostname shown beside each server for HTTPS. A certificate issued to a domain cannot validate when the PMTA page is opened by its IP address.</p>
         <div class="row no-gutters" id="pmta-admin-panels" @if ($selectedServerIds === []) hidden @endif aria-live="polite"></div>
     </section>
 @endsection
@@ -360,7 +361,12 @@
                     link.target = '_blank';
                     link.rel = 'noopener noreferrer';
                     link.className = 'ml-1';
-                    link.textContent = server.textContent.split('|').at(-1).trim();
+                    try {
+                        link.textContent = new URL(server.dataset.panelUrl, window.location.href).host;
+                    } catch {
+                        link.textContent = server.textContent.split('|').at(-1).trim();
+                    }
+                    link.title = 'Open the canonical PMTA monitor hostname. HTTPS certificates are issued to the hostname, not the server IP.';
                     const reload = document.createElement('button');
                     reload.type = 'button';
                     reload.className = 'btn btn-link btn-sm p-0 ml-2';

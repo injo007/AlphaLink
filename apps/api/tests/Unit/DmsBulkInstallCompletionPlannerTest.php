@@ -77,6 +77,8 @@ class DmsBulkInstallCompletionPlannerTest extends TestCase
         $this->assertSame([
             'data', 'pmta_version', 'tracking', 'proxy', 'imap', 'spf', 'dkim', 'dmarc', 'https', 'pmta_monitor_https',
         ], array_keys($operations[5]['install_parameters']));
+        $this->assertFalse($operations[5]['install_parameters']['https']);
+        $this->assertTrue($operations[5]['install_parameters']['pmta_monitor_https']);
     }
 
     public function test_it_rejects_unformatted_rows_and_incomplete_or_non_boolean_options(): void

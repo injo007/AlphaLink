@@ -70,9 +70,9 @@ class DmsBulkInstallCompletionPlanner
         foreach (['tracking', 'proxy', 'imap', 'spf', 'dkim', 'dmarc', 'https'] as $option) {
             $installParameters[$option] = $options[$option];
         }
-        // Completion is only persisted after the remote PMTA TLS readiness
-        // probe succeeds, so this is a verified endpoint capability.
-        $installParameters['pmta_monitor_https'] = $options['https'];
+        // PMTA's monitor endpoint is TLS-enabled and verified independently
+        // from the optional tracking HTTPS component.
+        $installParameters['pmta_monitor_https'] = true;
 
         $operations[] = [
             'action' => 'save_installation_config',

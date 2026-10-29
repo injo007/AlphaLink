@@ -2,7 +2,7 @@
 
 namespace App\Services\Infrastructure;
 
-/** Replays DMS CentOS 9's optional Certbot/Apache stage through a command transport. */
+/** Provisions the domain certificate and PMTA HTTPS monitor through a command transport. */
 class DmsCentos9HttpsDeploymentStage
 {
     public function __construct(
@@ -10,9 +10,10 @@ class DmsCentos9HttpsDeploymentStage
     ) {}
 
     /**
-     * DMS does nothing when no domain is supplied. With a domain, it installs
-     * Certbot and its Apache plugin if missing, requests a no-redirect
-     * certificate for the domain and aliases, then ensures its renewal cron.
+     * A domain is required to issue the certificate used by the PMTA monitor.
+     * With a domain, ensure Apache can answer the HTTP-01 challenge, install
+     * Certbot and its plugin if missing, request a no-redirect certificate for
+     * the domain and aliases, then ensure its renewal cron.
      *
      * @param  list<string>  $subdomains
      */
@@ -25,6 +26,10 @@ class DmsCentos9HttpsDeploymentStage
             return;
         }
 
+        // PMTA TLS is required independently of the optional tracking app.
+        // Ensure the Apache challenge handler exists even when tracking is off.
+        $commands->exec('rpm -qa | grep -qw httpd || dnf -y install httpd;');
+        $commands->exec('systemctl enable --now httpd');
         $commands->exec('rpm -qa | grep -qw certbot || dnf -y install certbot;');
         $commands->exec('rpm -qa | grep -qw python3-certbot-apache || dnf -y install python3-certbot-apache;');
 

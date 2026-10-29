@@ -142,15 +142,15 @@ class DmsChangeDomainRunner
         );
         $log('End Setting VMTAS');
 
-        if ($options['https']) {
-            $log('Setup Https');
+        if ($options['https'] || $pmtaMonitor !== null) {
+            $log($options['https'] ? 'Setup Https' : 'Setup HTTPS for PMTA Web Monitor');
             $this->httpsStage->run($session, (string) $mainDomain->name, $subdomains);
         }
         if ($pmtaMonitor !== null) {
             $this->httpsStage->configurePmtaMonitor(
                 $session,
                 $session,
-                $options['https'] ? (string) $mainDomain->name : null,
+                (string) $mainDomain->name,
                 $pmtaMonitor['version'],
                 $pmtaMonitor['admin_port'],
                 $pmtaMonitor['development_ips'],
@@ -159,7 +159,7 @@ class DmsChangeDomainRunner
                 $pmtaMonitor['relay_ips'],
             );
         }
-        if ($options['https']) {
+        if ($options['https'] || $pmtaMonitor !== null) {
             $log('Setting Https');
         }
 
@@ -376,7 +376,7 @@ class DmsChangeDomainRunner
             // configurePmtaMonitor has completed (and validates nginx before
             // returning) whenever this workflow reaches persist().
             if (array_key_exists('pmta_version', $parameters)) {
-                $parameters['pmta_monitor_https'] = $options['https'];
+                $parameters['pmta_monitor_https'] = true;
             }
             $server->forceFill(['install_parameters' => $parameters])->saveOrFail();
 

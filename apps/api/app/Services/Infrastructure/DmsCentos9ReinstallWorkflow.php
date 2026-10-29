@@ -316,9 +316,7 @@ class DmsCentos9ReinstallWorkflow
                 $directPmtaMonitor,
             ));
             if ($readiness !== 'ALPHALINK_PMTA_READY') {
-                $diagnostics = is_string($readiness) && str_starts_with($readiness, 'ALPHALINK_PMTA_NOT_READY:')
-                    ? substr($readiness, strlen('ALPHALINK_PMTA_NOT_READY:'))
-                    : 'probe-command-failed';
+                $diagnostics = DmsPmtaPostInstallReadiness::failureDetails($readiness);
                 throw new RuntimeException('PMTA post-reinstall verification failed: '.$diagnostics.'.');
             }
             $log('PMTA relay and listener ready');

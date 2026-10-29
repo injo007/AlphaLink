@@ -26,7 +26,33 @@ class DmsPmtaPostInstallReadinessTest extends TestCase
         self::assertStringContainsString('pmta-backend-http-', $command);
         self::assertStringContainsString('public-monitor-http-', $command);
         self::assertStringContainsString('for attempt in $(seq 1 20)', $command);
+        self::assertStringContainsString('if systemctl is-active --quiet pmta;', $command);
+        self::assertStringContainsString('if systemctl is-active --quiet pmtahttp;', $command);
+        self::assertStringContainsString('if ss -H -ltn | grep -Eq', $command);
         self::assertStringContainsString('sleep 1', $command);
+        self::assertStringContainsString('systemctl show pmta -p ActiveState -p SubState -p Result -p ExecMainStatus', $command);
+        self::assertStringContainsString('journalctl -u pmta --no-pager', $command);
+        self::assertStringContainsString('systemctl status pmta --no-pager -l -n 12', $command);
+        self::assertStringContainsString('ALPHALINK_PMTA_DIAGNOSTIC:%s', $command);
+        self::assertStringContainsString('<email>', $command);
+        self::assertStringContainsString('<redacted>', $command);
+    }
+
+    public function test_failure_details_include_the_redacted_daemon_startup_diagnostic(): void
+    {
+        $result = "ALPHALINK_PMTA_NOT_READY:pmta-service,pmta-backend-listener\n".
+            'ALPHALINK_PMTA_DIAGNOSTIC:systemd: ActiveState=failed; invalid directive in /etc/pmta/settings/config';
+
+        self::assertSame(
+            'pmta-service,pmta-backend-listener; PMTA startup detail: systemd: ActiveState=failed; invalid directive in /etc/pmta/settings/config',
+            DmsPmtaPostInstallReadiness::failureDetails($result),
+        );
+    }
+
+    public function test_failure_details_still_handle_a_failed_or_unrecognized_probe(): void
+    {
+        self::assertSame('probe-command-failed', DmsPmtaPostInstallReadiness::failureDetails(false));
+        self::assertSame('probe-command-failed', DmsPmtaPostInstallReadiness::failureDetails('unexpected output'));
     }
 
     public function test_https_uses_the_same_public_port_and_validates_the_certificate_hostname(): void

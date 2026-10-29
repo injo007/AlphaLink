@@ -289,9 +289,7 @@ class DmsCentos9InstallWorkflow
             $directPmtaMonitor,
         ));
         if ($health !== 'ALPHALINK_PMTA_READY') {
-            $diagnostics = is_string($health) && str_starts_with($health, 'ALPHALINK_PMTA_NOT_READY:')
-                ? substr($health, strlen('ALPHALINK_PMTA_NOT_READY:'))
-                : 'probe-command-failed';
+            $diagnostics = DmsPmtaPostInstallReadiness::failureDetails($health);
             throw new RuntimeException('PMTA post-install verification failed: '.$diagnostics.'.');
         }
 

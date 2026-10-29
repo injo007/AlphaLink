@@ -551,3 +551,12 @@ page staying HTTPS is expected and does not change the PMTA listener protocol.
 synthetic data and fake transport. No real message, PMTA command, or host change
 ran. Deploy and verify from the app before claiming production behavior. Keep
 DMS-CAMP-001 and DMS-PMTA-002 TESTING.
+
+
+### E-CAMP-131 — visible SMTP route feedback
+
+The Create Campaign banner now lists `[smtp]` and `[smtp_name]`; IP choices show their unique linked SMTP username or flag multiple linked accounts. Campaign Test with SMTP tags in IP mode uses the one linked SMTP account's PMTA virtual-MTA alias; explicit SMTP mode selects that account directly. AlphaLink connects to the server's PMTA listener as ingress, while PMTA uses the alias and saved `smtp-hosts`/auth stanza for the configured outbound relay. The current local regression proves the request header/config selection with synthetic data and fake transport only. The ordinary native campaign SEND worker is not implemented, so this does not claim that full campaigns are using SMTP or that mailbox delivery is verified. Keep DMS-CAMP-009 TESTING and DMS-CAMP-012 IMPLEMENTING.
+
+### E-PMTA-104 — reject external-domain HTTPS from stale install state
+
+The PMTA URL resolver now ignores a main domain explicitly marked `is_our=false`, even if the server record still says PMTA HTTPS was enabled. This sends browser display through AlphaLink's authenticated HTTPS proxy and makes the proxy fetch the public IP listener over HTTP on the configured PMTA port. Owned verified-domain HTTPS selection is unchanged. Unit and focused page regressions pass; the local browser remains unavailable because its PostgreSQL connection is not configured, and production behavior still needs deployment verification. Keep DMS-PMTA-002 TESTING.

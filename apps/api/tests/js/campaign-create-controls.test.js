@@ -213,6 +213,20 @@ test('route picker labels and accessible controls switch to SMTP route terminolo
     assert.equal(buttons[0].attributes.get('aria-label'), 'Move all SMTP routes to selected');
 });
 
+test('IP route choices disclose linked SMTP account and ambiguity', () => {
+    const start = view.indexOf('                const routeChoiceLabel = (ip, routeOption) => {');
+    const end = view.indexOf('\n                };', start) + '\n                };'.length;
+    assert.notEqual(start, -1, 'route choice label helper exists');
+    assert.ok(end > start, 'route choice label helper closes');
+    const source = view.slice(start, end);
+    const env = {};
+    vm.runInNewContext(`${source}\nglobalThis.routeChoiceLabel = routeChoiceLabel;`, env);
+
+    assert.equal(env.routeChoiceLabel({ ip: '203.0.113.15', dns: 'mail.example.test', smtp_account_count: 1, username: 'relay@example.test' }, 'ip'), '203.0.113.15 | mail.example.test | SMTP: relay@example.test');
+    assert.equal(env.routeChoiceLabel({ ip: '203.0.113.16', dns: 'mail.example.test', smtp_account_count: 0 }, 'ip'), '203.0.113.16 | mail.example.test');
+    assert.match(env.routeChoiceLabel({ ip: '203.0.113.17', dns: 'mail.example.test', smtp_account_count: 2 }, 'ip'), /Multiple SMTP accounts/);
+});
+
 test('campaign routing help explains SMTP tags and distinguishes PMTA ingress from outbound route', () => {
     const view = readFileSync(new URL('../../resources/views/console/campaigns/create.blade.php', import.meta.url), 'utf8');
     assert.match(view, /id="send-route-behavior"/);

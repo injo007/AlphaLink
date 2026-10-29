@@ -21,6 +21,7 @@ use App\Services\PmtaRemoteConfiguration;
 use App\Services\PmtaScheduleFrequency;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -160,6 +161,44 @@ class PmtaPagesTest extends TestCase
             self::assertSame('pmta-admin-controls', $parent->attributes?->getNamedItem('id')?->nodeValue);
         }
         self::assertSame('pmta-admin-fields-row', $controls->parentNode?->attributes?->getNamedItem('id')?->nodeValue);
+    }
+
+    public function test_unowned_domain_with_stale_https_state_uses_the_ip_http_monitor_proxy(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->workspace($owner);
+        $server = $this->server($workspace, $owner, '203.0.113.40');
+        $server->forceFill(['install_parameters' => [
+            'https' => true,
+            'pmta_monitor_https' => true,
+            'data' => [[
+                'main' => true,
+                'domain' => 'external.example.test',
+                'is_our' => false,
+            ]],
+        ]])->save();
+        $workspace->infrastructureSettings()->create(['pmta_admin_port' => 2447]);
+        $monitorProxyUrl = route('clean.console.pmta-admin.monitor', $server->getKey(), false);
+
+        $this->actingAs($owner)
+            ->get(route('clean.console.pmta-admin.index', ['server_ids' => [$server->getKey()]]))
+            ->assertOk()
+            ->assertSee('data-panel-url="'.$monitorProxyUrl.'"', false)
+            ->assertSee('data-monitor-url="'.$monitorProxyUrl.'"', false)
+            ->assertSee('data-monitor-proxied="true"', false)
+            ->assertDontSee('https://external.example.test:2447/', false);
+
+        Http::fake([
+            'http://203.0.113.40:2447/' => Http::response('<!doctype html><html><body>External-domain monitor</body></html>'),
+        ]);
+
+        $this->actingAs($owner)
+            ->get(route('clean.console.pmta-admin.monitor', $server->getKey()))
+            ->assertOk()
+            ->assertSee('External-domain monitor');
+
+        Http::assertSent(fn (Request $request): bool => $request->method() === 'GET'
+            && $request->url() === 'http://203.0.113.40:2447/');
     }
 
     public function test_pmta_page_card_headers_and_scheduler_spacing_match_dms(): void

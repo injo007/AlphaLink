@@ -249,7 +249,8 @@
         <div class="alert alert-primary alert-dismissible text-center py-2" id="campaign-usable-tags">
             <strong>USABLE TAGS:</strong>
             [server] [main_domain] [ip] [domain] [rdns] [to] [date] [name] [rnd]
-            [rnd(N|A|L|U|S|LU|LN|NU)_NUMBER] [text:a|b|c]
+            [smtp] [smtp_name] [rnd(N|A|L|U|S|LU|LN|NU)_NUMBER] [text:a|b|c]
+            <small class="d-block">SMTP tags expand to linked SMTP account details. In Campaign Test, IP mode uses the single linked SMTP account; choose SMTP mode to select an account explicitly.</small>
             <button type="button" class="btn btn-link btn-sm p-0 ml-1" id="campaign-tags-help" title="SHOW EXAMPLE" aria-label="Show tag examples"><i class="fas fa-question-circle" aria-hidden="true"></i></button>
             <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button>
         </div>
@@ -1288,7 +1289,14 @@
                 const routeChoiceLabel = (ip, routeOption) => {
                     if (routeOption === 'vmta') return [ip.ip, ip.dns, ip.name].filter((value) => value !== null && value !== undefined && String(value) !== '').join(' | ');
                     if (routeOption === 'smtp') return [ip.ip, ip.username, ip.name, ip.dns].filter((value) => value !== null && value !== undefined && String(value) !== '').join(' | ');
-                    return [ip.ip, ip.dns].filter((value) => value !== null && value !== undefined && String(value) !== '').join(',');
+                    const label = [ip.ip, ip.dns].filter((value) => value !== null && value !== undefined && String(value) !== '');
+                    if (ip.smtp_account_count === 1) {
+                        label.push(`SMTP: ${ip.username || 'linked account'}`);
+                    } else if (ip.smtp_account_count > 1) {
+                        label.push('Multiple SMTP accounts — choose SMTP mode');
+                    }
+
+                    return label.join(' | ');
                 };
                 let loadedRoute = route.value;
                 const reloadIps = async () => {

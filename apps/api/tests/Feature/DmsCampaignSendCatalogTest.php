@@ -3571,6 +3571,8 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertSee('window.AlphaLinkToast =', false)
             ->assertSee('alphalink-toast-stack', false)
             ->assertSee('id="campaign-data" tabindex="-1"', false)
+            ->assertSee('[smtp] [smtp_name]')
+            ->assertSeeText('In Campaign Test, IP mode uses the single linked SMTP account; choose SMTP mode to select an account explicitly.')
             ->assertSee('data-campaign-menu-action="create"', false)
             ->assertSee('data-campaign-menu-action="create-send"', false)
             ->assertSee('data-campaign-menu-action="test"', false)

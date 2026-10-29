@@ -2392,3 +2392,10 @@ pass. Tests use synthetic records and fake transports. No live email, DMS
 mutation, PMTA command, production server, or DNS provider was touched. Keep
 DMS-CAMP-001 and DMS-PMTA-002 TESTING pending deployed browser and controlled
 PMTA verification.
+
+
+## E-CAMP-131 / E-PMTA-104 — SMTP route visibility and external PMTA URLs — 2026-10-29
+
+The composer now lists `[smtp]` and `[smtp_name]` in its visible tag strip and labels IP choices with the unique linked SMTP username or an ambiguity hint. Campaign Test in IP mode still requires exactly one active, pushed SMTP account when those tags are used; explicit SMTP mode selects a particular route. PMTA ingress remains the selected server's listener, and the `X-Virtual-MTA` alias selects the configured relay inside PMTA. Ordinary campaign SEND remains unavailable, so full campaign SMTP delivery cannot be claimed.
+
+PMTA monitor URL selection now ignores an external main domain (`is_our=false`) even if an old record has a stale HTTPS flag. The browser uses AlphaLink's HTTPS read-only proxy; the proxy fetches public-IP HTTP on the saved port. Owned verified-domain TLS remains unchanged. Focused PHP tests pass **9 tests / 190 assertions**; campaign JS tests pass **7/7**; `git diff --check` passes. Host Pint could not run because host PHP lacks XML; it will be rerun in the PHP container. Synthetic records and fake transport only. No email, PMTA action, DNS write, production change, or DMS mutation occurred. Keep DMS-CAMP-009 and DMS-PMTA-002 TESTING; DMS-CAMP-012 remains IMPLEMENTING.

@@ -81,6 +81,10 @@ final class PmtaPanelUrl
             }
         }
 
+        if (is_array($main) && ($main['is_our'] ?? null) === false) {
+            return null;
+        }
+
         return is_string($main['domain'] ?? null) ? $main['domain'] : null;
     }
 

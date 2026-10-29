@@ -62,6 +62,24 @@ class PmtaPanelUrlTest extends TestCase
         $this->assertSame('http://203.0.113.40:2447/', PmtaPanelUrl::forServer($server, 2447));
     }
 
+    public function test_unowned_main_domain_cannot_enable_a_stale_pmta_https_setting(): void
+    {
+        $server = (new ManagedServer)->forceFill([
+            'ip_address' => '203.0.113.40',
+            'install_parameters' => [
+                'https' => true,
+                'pmta_monitor_https' => true,
+                'data' => [[
+                    'main' => true,
+                    'domain' => 'external.example.test',
+                    'is_our' => false,
+                ]],
+            ],
+        ]);
+
+        $this->assertSame('http://203.0.113.40:2447/', PmtaPanelUrl::forServer($server, 2447));
+    }
+
     public function test_https_is_not_claimed_without_a_valid_certificate_hostname(): void
     {
         $this->assertSame(

@@ -19,6 +19,7 @@ use App\Models\ManagedServerIp;
 use App\Models\ManagedServerIpHistory;
 use App\Models\ManagedServerMta;
 use App\Models\PmtaActionHistory;
+use App\Models\PmtaSmtpConfig;
 use App\Models\PmtaVirtualMta;
 use App\Models\SendingDomain;
 use App\Models\SuppressionEvent;
@@ -593,6 +594,20 @@ class DmsCampaignSendCatalogTest extends TestCase
             'dns' => 'mta.send.example.test',
             'is_active' => true,
         ]);
+        $pmtaSmtp = PmtaSmtpConfig::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'managed_server_id' => $server->getKey(),
+            'managed_server_ip_id' => $ip->getKey(),
+            'created_by' => $owner->getKey(),
+            'ip' => $ip->ip,
+            'dns' => $ip->dns,
+            'username' => 'campaign-route-smtp@example.test',
+            'password' => 'synthetic-campaign-route-password',
+            'host' => 'smtp.provider.example.test',
+            'port' => 587,
+            'google_script' => false,
+            'is_active' => true,
+        ]);
         SendingDomain::query()->create([
             'workspace_id' => $workspace->getKey(),
             'name' => 'redirect.send.example.test',
@@ -637,10 +652,10 @@ class DmsCampaignSendCatalogTest extends TestCase
                 'audience_segments' => [$list->getKey().'_fresh', $secondList->getKey().'_fresh', $mix->getKey().'_mix'],
                 'order_by' => 'random',
                 'start_from' => 3,
-                'route_option' => 'ip',
+                'route_option' => 'smtp',
                 'ip_type' => 'ipv4',
                 'server_ids' => [$server->getKey()],
-                'ip_ids' => [$ip->getKey()],
+                'ip_ids' => ['pmta-smtp:'.$pmtaSmtp->getKey()],
                 'send_type' => 'delay',
                 'total_send' => 20,
                 'fraction_ip' => 1,
@@ -710,6 +725,7 @@ class DmsCampaignSendCatalogTest extends TestCase
         $this->assertSame('mta.send.example.test', $setup['domain']);
         $this->assertSame($campaignPayload['header'], $campaign->latestRevision->payload['header']);
         $this->assertSame($campaignPayload['body'], $campaign->latestRevision->payload['body']);
+        $this->assertSame('smtp', $setup['route_option']);
         $this->assertSame($sponsor->getKey(), $setup['sponsor_id']);
         $this->assertSame($offer->getKey(), $setup['offer_id']);
         $this->assertSame($negative->getKey(), $setup['negative_id']);
@@ -752,7 +768,7 @@ class DmsCampaignSendCatalogTest extends TestCase
         $this->assertSame(2, DB::table('campaign_recipient_snapshot_item_sources')
             ->where('snapshot_item_id', $snapshotItemId)->count());
         $this->assertSame([$server->getKey()], $setup['server_ids']);
-        $this->assertSame([(string) $ip->getKey()], $setup['ip_ids']);
+        $this->assertSame(['pmta-smtp:'.$pmtaSmtp->getKey()], $setup['ip_ids']);
         $this->assertSame('random', $setup['order_by']);
         $this->assertSame(3, $setup['start_from']);
         $this->assertSame(1, $snapshot->start_from);
@@ -1846,6 +1862,129 @@ class DmsCampaignSendCatalogTest extends TestCase
         $this->assertSame($expectedPmtaName, $virtualMta['pmta_name']);
         $this->assertSame('smtp-selected.example.test', $virtualMta['domain']);
         $this->assertNotSame($firstSmtp->getKey(), $selectedSmtp->getKey());
+    }
+
+    public function test_pmta_settings_smtp_routes_are_available_to_selected_ips_and_smtp_campaign_tests(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->workspace($owner, 'owner');
+        $server = $this->server($workspace, $owner, '203.0.113.150');
+        $domain = SendingDomain::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'name' => 'pmta-settings-smtp.example.test',
+            'state' => 'verified',
+            'verification_token' => 'synthetic-pmta-settings-smtp-token',
+            'created_by' => $owner->getKey(),
+            'status' => 'free',
+            'is_active' => true,
+        ]);
+        $ip = ManagedServerIp::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'managed_server_id' => $server->getKey(),
+            'sending_domain_id' => $domain->getKey(),
+            'ip' => '203.0.113.151',
+            'type' => 'ipv4',
+            'dns' => 'relay.pmta-settings-smtp.example.test',
+            'is_active' => true,
+        ]);
+        $smtp = PmtaSmtpConfig::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'managed_server_id' => $server->getKey(),
+            'managed_server_ip_id' => $ip->getKey(),
+            'created_by' => $owner->getKey(),
+            'ip' => $ip->ip,
+            'dns' => $ip->dns,
+            'username' => 'relay-user@example.test',
+            'password' => 'synthetic-relay-password',
+            'host' => 'smtp.provider.example.test',
+            'port' => 587,
+            'google_script' => false,
+            'is_active' => true,
+        ]);
+        $legacySmtp = ManagedServerMta::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'managed_server_id' => $server->getKey(),
+            'managed_server_ip_id' => $ip->getKey(),
+            'ip' => $ip->ip,
+            'dns' => $ip->dns,
+            'ip_type' => 'ipv4',
+            'mta_type' => 'smtp',
+            'username' => 'legacy-relay@example.test',
+            'name' => 'Legacy relay',
+            'is_active' => true,
+            'user_id' => $owner->getKey(),
+        ]);
+        $workspace->infrastructureSettings()->create(['pmta_port' => 2525]);
+
+        $this->actingAs($owner)->getJson(route('console.campaigns.send-options', [
+            $workspace->getKey(),
+            'server_ids' => [$server->getKey()],
+            'route' => 'ip',
+            'ip_type' => 'ipv4',
+        ]))->assertOk()
+            ->assertJsonPath('data.ips.0.smtp_account_count', 1)
+            ->assertJsonPath('data.ips.0.username', 'relay-user@example.test')
+            ->assertJsonPath('data.ips.0.smtp_pmta_name', PmtaSmtpConfigBuilder::virtualMtaName($ip->ip, $smtp->getKey()));
+
+        $smtpChoiceId = 'pmta-smtp:'.$smtp->getKey();
+        $this->actingAs($owner)->getJson(route('console.campaigns.send-options', [
+            $workspace->getKey(),
+            'server_ids' => [$server->getKey()],
+            'route' => 'smtp',
+            'ip_type' => 'ipv4',
+        ]))->assertOk()
+            ->assertJsonPath('data.ips.0.id', $smtpChoiceId)
+            ->assertJsonPath('data.ips.0.username', 'relay-user@example.test')
+            ->assertJsonPath('data.ips.0.pmta_name', PmtaSmtpConfigBuilder::virtualMtaName($ip->ip, $smtp->getKey()));
+
+        $sentMessages = [];
+        $transport = Mockery::mock(SmtpTransport::class);
+        $transport->shouldReceive('start')->twice();
+        $transport->shouldReceive('send')->twice()->withArgs(function ($message, $envelope) use (&$sentMessages): bool {
+            $sentMessages[] = [
+                'message' => $message->toString(),
+                'recipient' => $envelope->getRecipients()[0]->getAddress(),
+            ];
+
+            return true;
+        });
+        $transport->shouldReceive('stop')->twice();
+        $factory = Mockery::mock(PmtaCampaignTestTransport::class);
+        $factory->shouldReceive('forServer')->twice()
+            ->withArgs(fn (ManagedServer $selected, int $port): bool => $selected->is($server) && $port === 2525)
+            ->andReturn($transport);
+        $this->app->instance(PmtaCampaignTestTransport::class, $factory);
+
+        foreach ([
+            ['ip', (string) $ip->getKey()],
+            ['smtp', $smtpChoiceId],
+        ] as [$route, $selectedRouteId]) {
+            $this->actingAs($owner)->postJson(route('console.campaigns.manual-test', $workspace->getKey()), [
+                'idempotency_key' => (string) Str::uuid(),
+                'email_test_addresses' => 'synthetic-pmta-smtp-recipient@example.test',
+                'header' => "MIME-Version: 1.0\nTo: [to]\nFrom: sender@[domain]\nSubject: [smtp]\nDate: [date]",
+                'body' => 'Account=[smtp]; name=[smtp_name]; IP=[ip]',
+                'send_setup' => [
+                    'server_ids' => [(string) $server->getKey()],
+                    'ip_ids' => [$selectedRouteId],
+                    'route_option' => $route,
+                    'ip_type' => 'ipv4',
+                    'send_type' => 'delay',
+                ],
+            ])->assertOk()->assertJsonPath('outcome', 'accepted_by_transport');
+        }
+
+        $expectedPmtaName = PmtaSmtpConfigBuilder::virtualMtaName($ip->ip, $smtp->getKey());
+        $this->assertCount(2, $sentMessages);
+        foreach ($sentMessages as $sentMessage) {
+            $this->assertSame('synthetic-pmta-smtp-recipient@example.test', $sentMessage['recipient']);
+            $this->assertStringContainsString('Subject: relay-user@example.test', $sentMessage['message']);
+            $this->assertStringContainsString('Account=relay-user@example.test; name=relay-user@example.test; IP=203.0.113.151', $sentMessage['message']);
+            $this->assertStringContainsString('X-virtual-MTA: '.$expectedPmtaName, $sentMessage['message']);
+            $this->assertStringNotContainsString('legacy-relay@example.test', $sentMessage['message']);
+        }
+
+        $this->assertSame($smtp->getKey(), $legacySmtp->getKey());
     }
 
     public function test_saved_campaign_pmta_test_pins_selected_smtp_route_and_expands_tags(): void

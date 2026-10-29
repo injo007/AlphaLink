@@ -2359,3 +2359,36 @@ When Change Domain’s selected main domain has no successful DNS-provider updat
 The IP-mode SMTP route detector previously scanned only the submitted raw header, body and return path. The renderer also expands SMTP tags from selected From/Subject assets and placeholder values, so those messages could display the SMTP username/name while PMTA still received the plain IP VMTA. The shared detector now scans referenced placeholder values and selected From/Subject assets before choosing the route in Create Campaign manual/automatic tests and saved PMTA tests; unused values do not change the selected-IP route. A unique linked SMTP account pins its exact `X-virtual-MTA`; zero or multiple linked accounts still fail closed; messages without SMTP tags retain the selected-IP route.
 
 The regression failed before the fix and now verifies both selected-asset and placeholder cases, rendered values, outbound alias and encrypted route snapshot. `DmsCampaignSendCatalogTest` passes **33 tests / 1,026 assertions**; `PmtaPagesTest` passes **40 / 510**; `PmtaPanelUrlTest` passes **5 / 5**. These use fake SMTP transport and synthetic PMTA responses only; no live email or PMTA action ran. Normal campaign SEND remains unavailable, and DMS native tag-to-route behavior remains unverified. The current external-domain PMTA path remains AlphaLink HTTPS proxy → public-IP PMTA over HTTP on the configured monitor port; the supplied screenshot’s direct HTTP-link guidance reflects an older app view. Keep DMS-CAMP-001 and DMS-PMTA-002 TESTING until controlled post-deploy verification.
+
+## E-CAMP-130 — Expose PMTA SMTP Settings routes to Campaign Test — 2026-10-29
+
+The reported account was saved and pushed from PMTA → SMTP Settings, but the
+Campaign catalog only queried legacy `ManagedServerMta` rows. These are separate
+tables, so the active SMTP Settings record was missing from both the selected-IP
+metadata and explicit SMTP route list; the route form also rejected the new
+record's namespaced identifier. The catalog now reads the active, user-owned
+`PmtaSmtpConfig` attached to each selected installed IP and returns the exact
+`smtp-<IP>-<config id>` alias written by `PmtaSmtpConfigBuilder`. Explicit SMTP
+routes use `pmta-smtp:<id>` to avoid collisions with numeric IDs in other
+route tables. Legacy Workspace SMTP routes remain available when there is no
+PMTA SMTP Settings row for that IP. Create, edit/revision, and manual-test
+validation accept the namespaced route ID.
+
+The regression verifies that `[smtp]`/`[smtp_name]` in AlphaLink Campaign Test
+resolve the linked account and inject its exact `X-virtual-MTA`; explicit SMTP
+selection does the same, and a colliding legacy record cannot replace the
+pushed account. The server IP is still the PMTA ingress endpoint; PMTA uses the
+virtual-MTA alias to select the outbound relay. DMS exposes route selection
+separately from template tags; exact DMS tag-driven routing remains UNKNOWN.
+Normal native campaign SEND remains unavailable.
+
+The external-domain PMTA display path remains AlphaLink's authenticated
+same-origin HTTPS monitor route; its server-side fetch uses the public IP and
+configured port over HTTP. This keeps browser HTTPS upgrades away from the
+HTTP-only PMTA listener. `DmsCampaignSendCatalogTest`, `PmtaPagesTest`, and
+`PmtaPanelUrlTest` pass **79 tests / 1,570 assertions**; relevant campaign and
+PMTA Admin JavaScript tests pass **16/16**; targeted Pint and `git diff --check`
+pass. Tests use synthetic records and fake transports. No live email, DMS
+mutation, PMTA command, production server, or DNS provider was touched. Keep
+DMS-CAMP-001 and DMS-PMTA-002 TESTING pending deployed browser and controlled
+PMTA verification.

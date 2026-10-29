@@ -530,3 +530,24 @@ For external/unmanaged domains, PMTA stays HTTP-only at `http://<public-IP>:<con
 ### E-CAMP-128 — IP-selected SMTP-tag routing
 
 When manual/automatic or saved Campaign Test uses `[smtp]` or `[smtp_name]` while route mode is IP, AlphaLink now requires exactly one active SMTP account linked to each selected IP and injects that account’s Workspace-generated PMTA virtual-MTA alias into `X-Virtual-MTA`. The selected server IP remains the PMTA listener ingress; PMTA then applies the linked SMTP account’s outbound route. Without SMTP tags the ordinary IP virtual MTA is retained. This applies to Campaign Test only; the native bulk campaign SEND path remains unavailable. Synthetic tests pass; no live email was sent.
+
+### DMS-CAMP-001 follow-up — E-CAMP-130
+
+The latest report exposed a catalog-source mismatch: PMTA → SMTP Settings writes
+`PmtaSmtpConfig`, whereas Campaign Test was looking only at legacy
+`ManagedServerMta` rows. AlphaLink now exposes the current user's active settings
+record on its linked selected IP and in explicit SMTP mode, uses the exact pushed
+PMTA alias, and accepts namespaced route IDs in draft create/edit and test
+validation. Campaign Test expands `[smtp]`/`[smtp_name]` and sends
+`X-virtual-MTA`; PMTA ingress still connects to the server IP, then uses that
+alias for the outbound relay. DMS's UI separates route selection from tags, but
+exact native tag-driven route behavior remains UNKNOWN. Native campaign SEND is
+still unavailable, so this does not establish a complete campaign send fix.
+
+The external-domain monitor uses the app's authenticated HTTPS same-origin
+route, which fetches the PMTA public IP and configured port over HTTP; the app
+page staying HTTPS is expected and does not change the PMTA listener protocol.
+79 focused PHP tests / 1,570 assertions and 16/16 JavaScript tests pass with
+synthetic data and fake transport. No real message, PMTA command, or host change
+ran. Deploy and verify from the app before claiming production behavior. Keep
+DMS-CAMP-001 and DMS-PMTA-002 TESTING.

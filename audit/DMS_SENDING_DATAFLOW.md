@@ -88,6 +88,25 @@ ScheduleJob performs pre-launch revalidation. The inspected kill path uses kill 
 
 No SMTP transaction, preview/body-generation call, endpoint request, schedule, job, sender, or campaign was run.
 
+## AlphaLink comparison: selected SMTP route and message tags — 2026-10-29
+
+The read-only DMS Create Campaign UI presents IP/VMTA/SMTP route selection
+separately from message-template tags. DMS source evidence confirms that the
+chosen PMTA route alias is sent in `X-virtual-MTA` (E-CAMP-78), but the
+available static and browser evidence does not establish that `[smtp]` or
+`[smtp_name]` alone changes the DMS route. Treat that specific DMS behavior as
+**UNKNOWN**.
+
+AlphaLink's verified local behavior is separate: SMTP Settings persists
+`PmtaSmtpConfig` records and pushes a PMTA vMTA named
+`smtp-<IP>-<config id>`. The campaign catalog now exposes that same active,
+user-owned record for the linked selected IP and as an explicit SMTP route.
+For AlphaLink Campaign Test only, a rendered `[smtp]` or `[smtp_name]` on IP
+mode chooses that route when exactly one active account is linked; zero or
+multiple accounts fail before transport. This is an AlphaLink compatibility
+behavior, not a claim of DMS tag-to-route parity. Normal native campaign SEND
+is unavailable, and all tests in this slice use fake transport.
+
 ## Phase 3H managed call-graph refinement
 
 This section records retained REA metadata/CIL facts. Call-edge reachability does not establish execution order or message semantics.

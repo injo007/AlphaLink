@@ -1084,7 +1084,7 @@ class WorkspaceConsoleController extends Controller
                 'send_setup.server_ids' => ['required', 'array', 'min:1'],
                 'send_setup.server_ids.*' => ['required', 'uuid', 'distinct'],
                 'send_setup.ip_ids' => ['required', 'array', 'min:1'],
-                'send_setup.ip_ids.*' => ['required', 'integer', 'min:1', 'distinct'],
+                'send_setup.ip_ids.*' => ['required', 'distinct', $this->campaignRouteChoiceIdRule()],
             ], [
                 'send_setup.ip_ids.required' => self::CAMPAIGN_IP_SELECTION_REQUIRED,
                 'send_setup.ip_ids.min' => self::CAMPAIGN_IP_SELECTION_REQUIRED,
@@ -1364,7 +1364,7 @@ class WorkspaceConsoleController extends Controller
             'send_setup.server_ids' => ['required', 'array', 'min:1'],
             'send_setup.server_ids.*' => ['required', 'uuid', 'distinct'],
             'send_setup.ip_ids' => ['sometimes', 'array'],
-            'send_setup.ip_ids.*' => ['required', 'integer', 'min:1', 'distinct'],
+            'send_setup.ip_ids.*' => ['required', 'distinct', $this->campaignRouteChoiceIdRule()],
             'send_setup.route_option' => ['required', 'in:ip,vmta,smtp'],
             'send_setup.ip_type' => ['required', 'in:all,ipv4,ipv6'],
             'send_setup.send_type' => ['required', 'in:delay,delayp,delayps,hs,hsp,hsps,pickup,pickups'],
@@ -2537,7 +2537,7 @@ class WorkspaceConsoleController extends Controller
             'send_setup.server_ids' => ['required', 'array', 'min:1'],
             'send_setup.server_ids.*' => ['required', 'uuid', 'distinct'],
             'send_setup.ip_ids' => ['required', 'array', 'min:1'],
-            'send_setup.ip_ids.*' => ['required', 'integer', 'min:1', 'distinct'],
+            'send_setup.ip_ids.*' => ['required', 'distinct', $this->campaignRouteChoiceIdRule()],
             'send_setup.send_type' => ['required', 'in:delay,delayp,delayps,hs,hsp,hsps,pickup,pickups'],
             'send_setup.total_send' => ['required', 'integer', 'min:1'],
             'send_setup.fraction_ip' => ['required', 'integer', 'min:1'],
@@ -2560,6 +2560,23 @@ class WorkspaceConsoleController extends Controller
         );
 
         return [...$selection, ...$this->validatedCampaignPlaceholders($request)];
+    }
+
+    /**
+     * SMTP Settings records use an explicit catalog prefix because their IDs
+     * live in a separate table from Workspace SMTP IDs. Numeric route IDs stay
+     * compatible with saved IP, VMTA, and legacy SMTP selections.
+     */
+    private function campaignRouteChoiceIdRule(): \Closure
+    {
+        return static function (string $attribute, mixed $value, \Closure $fail): void {
+            $numericId = (is_int($value) || (is_string($value) && ctype_digit($value))) && (int) $value > 0;
+            $pmtaSmtpId = is_string($value) && preg_match('/\Apmta-smtp:[1-9][0-9]*\z/', $value) === 1;
+
+            if (! $numericId && ! $pmtaSmtpId) {
+                $fail('Choose a valid route from the available IPs, VMTAs, or SMTP accounts.');
+            }
+        };
     }
 
     private function campaignSetupForValidation(array $setup): array

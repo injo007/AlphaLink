@@ -10,7 +10,7 @@ use App\Models\Workspace;
 use App\Models\WorkspaceGoogleProject;
 use App\Services\Infrastructure\DmsInstallerSshSession;
 use App\Services\PmtaRemoteConfiguration;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Database\Eloquent\Collection;
 use RuntimeException;
 use Throwable;
 
@@ -23,7 +23,9 @@ class DmsWorkspaceSmtpConfiguration
     public function push(Workspace $workspace, User $user, array $ipIds, array $projectIds, bool $splitOnIps): array
     {
         $ips = $this->selectedIps($workspace, $ipIds);
-        $projects = WorkspaceGoogleProject::query()->with('accounts')
+        $projects = WorkspaceGoogleProject::query()->with([
+            'accounts' => fn ($query) => $query->where('is_active', true),
+        ])
             ->where('workspace_id', $workspace->id)->where('is_active', true)->whereIn('id', $projectIds)->get();
         if ($projects->count() !== count(array_unique($projectIds))) {
             throw new RuntimeException('Project not found or inactive.');
@@ -39,7 +41,7 @@ class DmsWorkspaceSmtpConfiguration
             throw new RuntimeException('No active Workspace accounts were found in the selected projects.');
         }
 
-        $this->requireRelayAssets();
+        $relayAssets = $this->requireRelayAssets();
         $chunks = collect($smtpAccounts)->split(count($ips));
         foreach ($ips as $index => $ip) {
             $ips[$index]['smtp_accounts'] = $splitOnIps ? ($chunks->has($index) ? $chunks[$index]->all() : []) : $smtpAccounts;
@@ -79,7 +81,7 @@ class DmsWorkspaceSmtpConfiguration
                 }
 
                 $session = $this->remote->open($server);
-                $this->installRelay($session, $projects);
+                $this->installRelay($session, $projects, $relayAssets);
                 $temporary = '/etc/pmta/conf/tmp_workspace_'.$user->id;
                 $configuration = '/etc/pmta/conf/workspace_'.$user->id;
                 $data = str_replace(['$', '"', '!', '___'], ['\$', '\"', '\!', '"'], $data);
@@ -181,27 +183,51 @@ class DmsWorkspaceSmtpConfiguration
             ."</virtual-mta>\n";
     }
 
-    private function requireRelayAssets(): void
+    /** @return array{binary: string, service: string, config: string} */
+    private function requireRelayAssets(): array
     {
-        foreach (['install/workspace_relay/workspace_relay', 'install/workspace_relay/workspace_relay.service', 'install/workspace_relay/config.json'] as $asset) {
-            if (! Storage::disk('local')->exists($asset)) {
-                throw new RuntimeException('WORKSPACES Files Not Found');
+        $directory = rtrim((string) config('infrastructure.workspace_relay_assets_directory'), DIRECTORY_SEPARATOR);
+        if ($directory === '') {
+            throw new RuntimeException('Workspace relay deployment assets are missing or invalid.');
+        }
+        $assets = [
+            'binary' => $directory.DIRECTORY_SEPARATOR.'workspace_relay',
+            'service' => $directory.DIRECTORY_SEPARATOR.'workspace_relay.service',
+            'config' => $directory.DIRECTORY_SEPARATOR.'config.json',
+        ];
+        foreach ($assets as $name => $path) {
+            if (! is_file($path) || is_link($path) || ! is_readable($path) || filesize($path) === 0) {
+                throw new RuntimeException('Workspace relay deployment assets are missing or invalid.');
             }
         }
+        if (! is_executable($assets['binary'])) {
+            throw new RuntimeException('The Workspace relay executable is not executable.');
+        }
+        $configuration = json_decode((string) file_get_contents($assets['config']), true);
+        if (! is_array($configuration)
+            || ($configuration['listen_addr'] ?? null) !== '127.0.0.1:1028'
+            || ($configuration['service_accounts_dir'] ?? null) !== '/etc/workspace_relay/accounts') {
+            throw new RuntimeException('The Workspace relay configuration is invalid.');
+        }
+
+        return $assets;
     }
 
-    private function installRelay(DmsInstallerSshSession $session, $projects): void
+    /**
+     * @param  Collection<int, WorkspaceGoogleProject>  $projects
+     * @param  array{binary: string, service: string, config: string}  $assets
+     */
+    private function installRelay(DmsInstallerSshSession $session, Collection $projects, array $assets): void
     {
-        $disk = Storage::disk('local');
         $session->exec('lsof -t -i:1028 2>/dev/null | xargs -r kill -9');
         $session->exec('mkdir -p /etc/workspace_relay/accounts /var/lib/workspace_relay /var/log/workspace_relay');
         $session->exec('rm -f /usr/sbin/workspace_relay');
-        if (! $session->uploadFile($disk->path('install/workspace_relay/workspace_relay'), '/usr/sbin/workspace_relay')) {
+        if (! $session->uploadFile($assets['binary'], '/usr/sbin/workspace_relay')) {
             throw new RuntimeException('Workspace relay binary upload failed.');
         }
         $session->exec('chmod +x /usr/sbin/workspace_relay && chown root:root /usr/sbin/workspace_relay');
         $session->exec('rm -f /etc/workspace_relay/config.json');
-        if (! $session->uploadFile($disk->path('install/workspace_relay/config.json'), '/etc/workspace_relay/config.json')) {
+        if (! $session->uploadFile($assets['config'], '/etc/workspace_relay/config.json')) {
             throw new RuntimeException('Workspace relay configuration upload failed.');
         }
         foreach ($projects as $project) {
@@ -212,7 +238,7 @@ class DmsWorkspaceSmtpConfiguration
         $session->exec('chmod 600 /etc/workspace_relay/accounts/*.json');
         $serviceExists = trim((string) $session->exec('systemctl list-unit-files | grep -q "^workspace_relay.service" && echo y || echo n'));
         if ($serviceExists === 'n') {
-            if (! $session->uploadFile($disk->path('install/workspace_relay/workspace_relay.service'), '/etc/systemd/system/workspace_relay.service')) {
+            if (! $session->uploadFile($assets['service'], '/etc/systemd/system/workspace_relay.service')) {
                 throw new RuntimeException('Workspace relay service upload failed.');
             }
             $session->exec('systemctl daemon-reload && systemctl enable workspace_relay.service');

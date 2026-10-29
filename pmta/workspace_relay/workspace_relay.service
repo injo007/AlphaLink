@@ -1,0 +1,49 @@
+[Unit]
+Description=Workspace Relay SMTP Listener / Gmail API Forwarder
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/var/lib/workspace_relay
+
+# Environment
+Environment="GOMAXPROCS=4"
+Environment="GOGC=200"
+Environment="CONFIG_PATH=/etc/workspace_relay/config.json"
+
+# Binary execution
+ExecStart=/usr/sbin/workspace_relay
+
+# Restart policy
+Restart=always
+RestartSec=10
+StartLimitInterval=60
+StartLimitBurst=3
+
+# Resource limits
+LimitNOFILE=100000
+LimitNPROC=100000
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/workspace_relay
+ReadOnlyPaths=/etc/workspace_relay
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=workspace_relay
+
+# Process management
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

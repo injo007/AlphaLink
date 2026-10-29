@@ -1570,3 +1570,7 @@ The offer suppression refresh now reads the encrypted `optizmo_token` saved in t
 - Targeted Pint passed for 13 changed PHP files. `git diff --check` passed.
 - Synthetic coverage verifies PMTA 4.5 missing-provider install uses the IP-only HTTP Nginx proxy and normal backend, PMTA 4.0 retains direct fallback, reinstall readiness checks the same public port, and firewall migration removes the old doubled backend opening without re-adding it.
 - No production deploy, server reinstall, DNS write or PMTA command ran.
+
+## E-TOOLS-24 — Workspace relay release assets and active account filtering — 2026-10-29
+
+Read-only DMS GET of `/mailer/tools/workspace` returned HTTP 200 through the GET-only relay and confirmed the selectors/toggle/PUSH/RESET controls. No DMS product mutation ran. AlphaLink now reads the bundled relay executable, systemd unit and JSON config from the deployment release, checks their presence/readability/executable bit and expected listener paths before opening SSH, and limits generated VMTA records to active Workspace accounts. Focused `DmsWorkspaceToolTest`: **13 passed / 173 assertions** on isolated SQLite, including early failure before SSH when assets are missing and a fake-SSH successful push asserting asset source/destinations, generated config and DB rows. Pint and PHP syntax checks pass. No live server, PMTA, Google Directory or external account was used; actual push/reset must be verified after deploy. Keep DMS-TOOLS-006 TESTING.

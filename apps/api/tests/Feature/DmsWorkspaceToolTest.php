@@ -15,6 +15,7 @@ use App\Services\PmtaRemoteConfiguration;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Mockery;
@@ -50,6 +51,11 @@ class DmsWorkspaceToolTest extends TestCase
             ->assertSee($this->cleanWorkspaceUrl(route('console.gcampaigns.accounts', $this->workspace->id)))
             ->assertSee('class="form-control selectpicker"', false)
             ->assertSee('bootstrap_select/bootstrap-select.js');
+    }
+
+    public function test_workspace_relay_assets_default_to_the_repository_release_bundle(): void
+    {
+        $this->assertSame(base_path('../../pmta/workspace_relay'), config('infrastructure.workspace_relay_assets_directory'));
     }
 
     public function test_workspace_projects_and_accounts_are_separate_dms_nav_pages_and_workspace_scoped(): void
@@ -323,16 +329,90 @@ class DmsWorkspaceToolTest extends TestCase
             ->assertUnprocessable();
     }
 
-    public function test_push_returns_dms_bundle_missing_error_before_any_server_write(): void
+    public function test_push_fails_before_server_access_when_the_deployment_bundle_is_missing(): void
     {
         $project = $this->project();
         WorkspaceGoogleAccount::query()->create(['workspace_id' => $this->workspace->id, 'project_id' => $project->id, 'email' => 'user@example.test']);
         $ip = $this->ip();
+        $remote = Mockery::mock(PmtaRemoteConfiguration::class);
+        $remote->shouldNotReceive('open');
+        $this->app->instance(PmtaRemoteConfiguration::class, $remote);
+        config(['infrastructure.workspace_relay_assets_directory' => storage_path('framework/testing/missing-workspace-relay')]);
 
         $this->postJson(route('console.tools.workspace.push', $this->workspace->id), [
             'ips' => [$ip->id], 'projects' => [$project->id], 'split_on_ips' => false,
-        ])->assertBadRequest()->assertJsonPath('data', 'WORKSPACES Files Not Found');
+        ])->assertBadRequest()->assertJsonPath('data', 'Workspace relay deployment assets are missing or invalid.');
         $this->assertDatabaseCount('managed_server_mtas', 0);
+    }
+
+    public function test_push_uses_bundled_relay_assets_and_excludes_inactive_accounts(): void
+    {
+        $project = $this->project();
+        WorkspaceGoogleAccount::query()->create([
+            'workspace_id' => $this->workspace->id, 'project_id' => $project->id,
+            'email' => 'active@example.test', 'is_active' => true,
+        ]);
+        WorkspaceGoogleAccount::query()->create([
+            'workspace_id' => $this->workspace->id, 'project_id' => $project->id,
+            'email' => 'inactive@example.test', 'is_active' => false,
+        ]);
+        $ip = $this->ip();
+        $server = $ip->server;
+        $assetDirectory = storage_path('framework/testing/workspace-relay-'.Str::uuid());
+        File::ensureDirectoryExists($assetDirectory);
+        $this->beforeApplicationDestroyed(fn () => File::deleteDirectory($assetDirectory));
+        file_put_contents($assetDirectory.'/workspace_relay', 'synthetic executable');
+        file_put_contents($assetDirectory.'/workspace_relay.service', '[Service]');
+        file_put_contents($assetDirectory.'/config.json', json_encode([
+            'listen_addr' => '127.0.0.1:1028',
+            'service_accounts_dir' => '/etc/workspace_relay/accounts',
+        ], JSON_THROW_ON_ERROR));
+        chmod($assetDirectory.'/workspace_relay', 0755);
+        config(['infrastructure.workspace_relay_assets_directory' => $assetDirectory]);
+
+        $uploadedConfiguration = null;
+        $expectedAssets = [
+            '/usr/sbin/workspace_relay' => $assetDirectory.'/workspace_relay',
+            '/etc/workspace_relay/config.json' => $assetDirectory.'/config.json',
+            '/etc/systemd/system/workspace_relay.service' => $assetDirectory.'/workspace_relay.service',
+        ];
+        $session = Mockery::mock(DmsInstallerSshSession::class);
+        $session->shouldReceive('exec')->andReturnUsing(function (string $command): string {
+            if (str_starts_with($command, 'systemctl list-unit-files')) {
+                return 'n';
+            }
+            if ($command === 'pmta reload') {
+                return 'reloaded';
+            }
+
+            return '';
+        });
+        $session->shouldReceive('uploadFile')->times(3)->andReturnUsing(function (string $source, string $destination) use ($expectedAssets): bool {
+            $this->assertFileExists($source);
+            $this->assertSame($expectedAssets[$destination] ?? null, $source);
+
+            return true;
+        });
+        $session->shouldReceive('upload')->twice()->andReturnUsing(function (string $contents, string $destination) use (&$uploadedConfiguration): bool {
+            if (str_starts_with($destination, '/etc/pmta/conf/tmp_workspace_')) {
+                $uploadedConfiguration = $contents;
+            }
+
+            return true;
+        });
+        $remote = Mockery::mock(PmtaRemoteConfiguration::class);
+        $remote->shouldReceive('open')->once()->with(Mockery::on(fn ($candidate) => $candidate->is($server)))->andReturn($session);
+        $this->app->instance(PmtaRemoteConfiguration::class, $remote);
+
+        $this->postJson(route('console.tools.workspace.push', $this->workspace->id), [
+            'ips' => [$ip->id], 'projects' => [$project->id], 'split_on_ips' => false,
+        ])->assertOk()->assertJsonPath('data.0.data', 'Workspace Pushed Successfully');
+
+        $this->assertNotNull($uploadedConfiguration);
+        $this->assertStringContainsString('auth-username active@example.test', $uploadedConfiguration);
+        $this->assertStringNotContainsString('inactive@example.test', $uploadedConfiguration);
+        $this->assertDatabaseHas('managed_server_mtas', ['username' => 'active@example.test', 'user_id' => $this->owner->id]);
+        $this->assertDatabaseMissing('managed_server_mtas', ['username' => 'inactive@example.test', 'user_id' => $this->owner->id]);
     }
 
     public function test_reset_deletes_only_selected_users_workspace_smtp_rows_then_reloads_pmta(): void

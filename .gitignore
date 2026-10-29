@@ -17,7 +17,9 @@
 /apps/api/storage/framework/nginx-body/
 /apps/api/bootstrap/cache/*.php
 /pmta.zip
-/pmta/
+/pmta/*
+!/pmta/workspace_relay/
+!/pmta/workspace_relay/**
 /install-assets/optional/dkim/keys.json
 /log_DMS/
 /__pycache__/

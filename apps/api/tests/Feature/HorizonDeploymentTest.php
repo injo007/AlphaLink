@@ -27,7 +27,7 @@ class HorizonDeploymentTest extends TestCase
         $this->assertSame(60, config('horizon.defaults.supervisor-1.timeout'));
         $this->assertSame(600, config('queue.connections.redis.retry_after'));
 
-        $this->assertSame('database', config('queue.connections.drop_suppression.driver'));
+        $this->assertSame('sync', config('queue.connections.drop_suppression.driver'));
         $this->assertSame(86400, config('queue.connections.drop_suppression.retry_after'));
         $this->assertTrue(class_exists(HorizonServiceProvider::class));
         $this->assertTrue(Route::has('horizon.index'));

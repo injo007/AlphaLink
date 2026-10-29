@@ -414,6 +414,7 @@ class DmsWorkspaceToolTest extends TestCase
 
         $this->assertContains('chmod +x /usr/sbin/workspace_relay && chown root:root /usr/sbin/workspace_relay', $executedCommands);
         $this->assertNotNull($uploadedConfiguration);
+        $this->assertStringContainsString('smtp-source-ip '.$ip->ip, $uploadedConfiguration);
         $this->assertStringContainsString('auth-username active@example.test', $uploadedConfiguration);
         $this->assertStringNotContainsString('inactive@example.test', $uploadedConfiguration);
         $this->assertDatabaseHas('managed_server_mtas', ['username' => 'active@example.test', 'user_id' => $this->owner->id]);

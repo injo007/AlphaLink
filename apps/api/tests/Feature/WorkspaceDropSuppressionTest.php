@@ -263,7 +263,7 @@ class WorkspaceDropSuppressionTest extends TestCase
         $this->assertSame('drop-suppression', $queuedJob->queue);
         $this->assertSame(1, $queuedJob->tries);
         $this->assertSame(0, $queuedJob->timeout);
-        $this->assertSame('database', config('queue.connections.drop_suppression.driver'));
+        $this->assertSame('sync', config('queue.connections.drop_suppression.driver'));
         $this->assertSame(86400, config('queue.connections.drop_suppression.retry_after'));
         (new ProcessWorkspaceDropSuppression((int) $run->getKey()))->handle(app(DmsDropSuppressionProcessor::class));
 

@@ -2338,3 +2338,9 @@ The saved PMTA Test now uses the campaign revision’s selected IP/VMTA/SMTP rou
 ### E-PMTA-102 / E-INST-96 — PMTA link scheme and redirect policy (2026-10-29)
 
 The PMTA Admin link now shows its scheme. Fresh 4.5/5.0 installs explicitly disable HTTP-to-HTTPS redirects; unmanaged domains continue to use public-IP HTTP on the configured public port, with the multiplied backend port kept loopback-only. Focused installer and URL tests pass **26 / 158 assertions**. No existing server was reconfigured or live endpoint verified; older servers need the PMTA configuration change applied/reinstalled.
+
+## E-TOOLS-26 / E-CAMP-127 — Workspace selected-IP check and DMS suppression page recheck — 2026-10-29
+
+The Workspace SMTP push regression now asserts that the generated PMTA VMTA's `smtp-source-ip` is the selected managed IP. DMS relay sanitization covers the Workspace page without executable inline scripts or live selector values, and allows only exact GETs for the historical and currently observed per-offer suppression page paths. The DMS sample offer observed earlier returned 404 at both path forms in the current authenticated read-only session, so current suppression-page behavior could not be reconfirmed. No DMS refresh/download, Workspace PUSH/RESET, provider request or production mutation ran.
+
+Verification: `DmsWorkspaceToolTest` passes **13 / 175 assertions**; `WorkspaceDropSuppressionTest` passes **14 / 117 assertions**; the read-only relay suite passes **52 tests**; Python syntax and `git diff --check` pass. This is synthetic app coverage plus a read-only route probe, not connected push or DMS suppression acceptance. Keep DMS-TOOLS-006 and DMS-DROP-003 TESTING.

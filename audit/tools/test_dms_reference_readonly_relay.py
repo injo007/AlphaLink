@@ -22,6 +22,7 @@ SPF_SCANNER_PAGE_PATH,
     GMAIL_ACCOUNTS_PAGE_PATH,
     GMAIL_ACCOUNTS_CREATE_PAGE_PATH,
     GMAIL_WORKSPACE_PAGE_PATHS,
+    WORKSPACE_SMTP_PAGE_PATH,
     TEXT_MECHANIC_PAGE_PATH,
     WARMUPS_INDEX_PAGE_PATH,
     WARMUPS_CREATE_PAGE_PATH,
@@ -44,6 +45,7 @@ SPF_SCANNER_PAGE_PATH,
     SERVERS_PROVIDERS_CREATE_PAGE_PATH,
     SERVERS_PROVIDERS_INDEX_PAGE_PATH,
     READ_ONLY_PAGE_PATHS,
+    is_read_only_page_path,
     REFERENCE_ORIGIN,
     is_protected_table_data_query,
     local_path_for,
@@ -59,6 +61,8 @@ SPF_SCANNER_PAGE_PATH,
     is_protected_global_test_data_request,
     sanitize_dms_global_tests_html,
     sanitize_dms_gmail_workspace_html,
+    sanitize_dms_offer_suppression_html,
+    is_read_only_offer_suppression_page,
     is_protected_spf_data_request,
     sanitize_dms_spf_html,
     synthetic_empty_spf_response,
@@ -75,6 +79,84 @@ SPF_SCANNER_PAGE_PATH,
 
 
 class ReferenceListPrivacyTests(unittest.TestCase):
+    def test_workspace_smtp_page_is_allowlisted_and_sanitized_without_live_values_or_scripts(self):
+        self.assertIn(WORKSPACE_SMTP_PAGE_PATH, READ_ONLY_PAGE_PATHS)
+        source = (
+            '<html><head><title>Workspace SMTP - DMS</title>'
+            '<meta name="csrf-token" content="private-csrf"></head><body>'
+            '<nav id="page-header-user-dropdown">private operator@example.test</nav>'
+            '<h1>PUSH WORKSPACE ACCOUNTS</h1><label>IPs:</label>'
+            '<form action="/mailer/tools/workspace/push" onsubmit="privatePush()">'
+            '<select id="ips"><option value="server-private-id">203.0.113.24</option></select>'
+            '<select id="project"><option value="project-private-id">private-project@example.test</option></select>'
+            '<input id="split_on_ips" type="checkbox" checked>'
+            '<button id="push">PUSH</button><button id="reset">RESET</button></form>'
+            '<table><thead><tr><th>SERVER</th><th>RESULT</th></tr></thead>'
+            '<tbody><tr><td>server-private-id</td><td>Workspace Pushed Successfully</td></tr></tbody></table>'
+            '<script>const server_id="server-private-id"; const email="private-account@example.test"; privatePush();</script>'
+            '<script src="/assets/workspace.js?v=private-query"></script></body></html>'
+        )
+
+        result = rewrite_document(source, "text/html", f"{REFERENCE_ORIGIN}{WORKSPACE_SMTP_PAGE_PATH}")
+
+        for private_value in (
+            "private-csrf", "private operator@example.test", "server-private-id", "203.0.113.24",
+            "private-project@example.test", "Workspace Pushed Successfully", "private-account@example.test",
+            "privatePush", "private-query",
+        ):
+            self.assertNotIn(private_value, result)
+        self.assertIn("PUSH WORKSPACE ACCOUNTS", result)
+        self.assertIn('id="ips"', result)
+        self.assertIn('id="project"', result)
+        self.assertEqual(result.count("Values withheld"), 2)
+        self.assertIn('id="push"', result)
+        self.assertIn('id="reset"', result)
+        self.assertNotRegex(result, r"<script\b")
+        self.assertIn('<template data-reference-script-path="/assets/workspace.js"></template>', result)
+
+    def test_offer_suppression_page_read_only_path_and_sanitizer_reject_action_routes(self):
+        path = "/admin/offers/123456/suppression"
+        current_path = "/offers/123456/suppression"
+        self.assertTrue(is_read_only_offer_suppression_page(path))
+        self.assertTrue(is_read_only_page_path(path))
+        self.assertTrue(is_read_only_offer_suppression_page(current_path))
+        self.assertTrue(is_read_only_page_path(current_path))
+        self.assertFalse(is_read_only_page_path(path + "/download"))
+        self.assertFalse(is_read_only_page_path(path + "/refresh"))
+        self.assertFalse(is_read_only_page_path(current_path + "/download"))
+        self.assertFalse(is_read_only_page_path(current_path + "/progress"))
+
+        source = (
+            '<html><head><title>Offer Suppression File</title>'
+            '<meta name="csrf-token" content="private-csrf"></head><body>'
+            '<nav id="page-header-user-dropdown">private operator@example.test</nav>'
+            '<h1>SUPPRESSION FILE</h1><div>Private sponsor endpoint https://sponsor.invalid/file?token=private-token</div>'
+            '<a href="/offers/123456/suppression">Open suppression manager</a>'
+            '<form action="/admin/offers/123456/suppression/download" onsubmit="privateDownload()">'
+            '<input type="hidden" name="_token" value="private-csrf">'
+            '<select><option value="private-offer">private-offer@example.test</option></select>'
+            '<textarea>/var/lib/private/suppression.csv</textarea><button>DOWNLOAD</button></form>'
+            '<table><thead><tr><th>Offer</th><th>Entries</th></tr></thead>'
+            '<tbody><tr><td>private-offer@example.test</td><td>282339</td></tr></tbody></table>'
+            '<script>const file="/var/lib/private/suppression.csv"; const email="private@example.test";</script>'
+            '<script src="/assets/offer-suppression.js?v=private-query"></script></body></html>'
+        )
+
+        result = rewrite_document(source, "text/html", f"{REFERENCE_ORIGIN}{path}")
+
+        for private_value in (
+            "123456", "private-csrf", "private operator@example.test", "sponsor.invalid",
+            "private-token", "private-offer@example.test", "/var/lib/private/suppression.csv",
+            "282339", "privateDownload", "private@example.test", "private-query",
+        ):
+            self.assertNotIn(private_value, result)
+        self.assertIn("SUPPRESSION FILE", result)
+        self.assertIn("DOWNLOAD", result)
+        self.assertNotRegex(result, r"<script\b")
+        self.assertIn('<template data-reference-script-path="/assets/offer-suppression.js"></template>', result)
+        with self.assertRaises(ValueError):
+            sanitize_dms_offer_suppression_html("<main>Unexpected response</main>", path)
+
     def test_gmail_workspace_pages_are_allowlisted_and_rows_are_blocked_or_sanitized(self):
         self.assertEqual(GMAIL_WORKSPACE_PAGE_PATHS, {
             GMAIL_PROJECTS_PAGE_PATH,

@@ -67,6 +67,8 @@ GMAIL_PROJECTS_PAGE_PATH = "/mailer/gcampaigns/projects"
 GMAIL_PROJECTS_CREATE_PAGE_PATH = "/mailer/gcampaigns/projects/create"
 GMAIL_ACCOUNTS_PAGE_PATH = "/mailer/gcampaigns/accounts"
 GMAIL_ACCOUNTS_CREATE_PAGE_PATH = "/mailer/gcampaigns/accounts/create"
+WORKSPACE_SMTP_PAGE_PATH = "/mailer/tools/workspace"
+OFFER_SUPPRESSION_PAGE_PATTERN = re.compile(r"/(?:admin/)?offers/\d+/suppression\Z")
 WARMUP_PAGE_PATHS = {
     WARMUPS_INDEX_PAGE_PATH,
     WARMUPS_CREATE_PAGE_PATH,
@@ -127,6 +129,7 @@ READ_ONLY_PAGE_PATHS = {
     *SPF_PAGE_PATHS,
     *WARMUP_PAGE_PATHS,
     *GMAIL_WORKSPACE_PAGE_PATHS,
+    WORKSPACE_SMTP_PAGE_PATH,
     OFFERS_INDEX_PAGE_PATH,
     OFFERS_CREATE_PAGE_PATH,
     PAGE_PATH,
@@ -159,6 +162,15 @@ def redact_ipv6_literals(value: str) -> str:
             return match.group(0)
 
     return IPV6_CANDIDATE.sub(redact, value)
+
+
+def is_read_only_offer_suppression_page(path: str) -> bool:
+    """Allow only the DMS offer suppression page, never its download/action routes."""
+    return OFFER_SUPPRESSION_PAGE_PATTERN.fullmatch(path) is not None
+
+
+def is_read_only_page_path(path: str) -> bool:
+    return path in READ_ONLY_PAGE_PATHS or is_read_only_offer_suppression_page(path)
 
 
 def read_env(path: Path) -> dict[str, str]:
@@ -587,6 +599,7 @@ def sanitize_dms_gmail_workspace_html(body: str, path: str) -> str:
         GMAIL_PROJECTS_CREATE_PAGE_PATH: r"project",
         GMAIL_ACCOUNTS_PAGE_PATH: r"gmail\s+accounts",
         GMAIL_ACCOUNTS_CREATE_PAGE_PATH: r"account",
+        WORKSPACE_SMTP_PAGE_PATH: r"(?:workspace\s+smtp|push\s+workspace\s+accounts)",
     }.get(path)
     if expected_title is None or not re.search(expected_title, html.unescape(body), re.IGNORECASE):
         raise ValueError("DMS GSend response did not match the expected page")
@@ -594,6 +607,11 @@ def sanitize_dms_gmail_workspace_html(body: str, path: str) -> str:
         r"<(?:form|input|select|textarea)\b", body, re.IGNORECASE
     ):
         raise ValueError("DMS GSend create page did not contain its expected form controls")
+    if path == WORKSPACE_SMTP_PAGE_PATH and not all(
+        re.search(rf"\bid=['\"]{control_id}['\"]", body, re.IGNORECASE)
+        for control_id in ("ips", "project", "split_on_ips", "push", "reset")
+    ):
+        raise ValueError("DMS Workspace page did not contain its expected controls")
 
     script_paths: list[str] = []
     inline_scripts: list[str] = []
@@ -605,7 +623,11 @@ def sanitize_dms_gmail_workspace_html(body: str, path: str) -> str:
             parsed = urlparse(urljoin(f"{REFERENCE_ORIGIN}{path}", html.unescape(src.group(1))))
             if parsed.hostname == REFERENCE.hostname and parsed.path.startswith(STATIC_PREFIXES):
                 script_paths.append(parsed.path)
-        elif path not in {GMAIL_PROJECTS_CREATE_PAGE_PATH, GMAIL_ACCOUNTS_CREATE_PAGE_PATH}:
+        elif path not in {
+            WORKSPACE_SMTP_PAGE_PATH,
+            GMAIL_PROJECTS_CREATE_PAGE_PATH,
+            GMAIL_ACCOUNTS_CREATE_PAGE_PATH,
+        }:
             script_type = re.search(r"\btype=['\"]([^'\"]+)['\"]", opening_tag, re.IGNORECASE)
             if script_type is None or re.search(r"(?:java|ecma)script", script_type.group(1), re.IGNORECASE):
                 closing_start = match.group(0).lower().rfind("</script")
@@ -618,12 +640,12 @@ def sanitize_dms_gmail_workspace_html(body: str, path: str) -> str:
                     content,
                 )
                 content = re.sub(
-                    r"(?i)(['\"]?(?:id|project[_-]?id|account[_-]?id|user[_-]?id|email|username|admin[_-]?email|project[_-]?name|account[_-]?name|display[_-]?name)['\"]?\s*[:=]\s*)(['\"]).*?\2",
+                    r"(?i)(['\"]?(?:id|project[_-]?id|account[_-]?id|user[_-]?id|server[_-]?id|ip[_-]?id|mta[_-]?id|email|username|admin[_-]?email|project[_-]?name|account[_-]?name|display[_-]?name)['\"]?\s*[:=]\s*)(['\"]).*?\2",
                     r"\1'[redacted]'",
                     content,
                 )
                 content = re.sub(
-                    r"(?i)(['\"]?(?:id|project[_-]?id|account[_-]?id|user[_-]?id)['\"]?\s*[:=]\s*)\d+\b",
+                    r"(?i)(['\"]?(?:id|project[_-]?id|account[_-]?id|user[_-]?id|server[_-]?id|ip[_-]?id|mta[_-]?id)['\"]?\s*[:=]\s*)\d+\b",
                     r"\1[redacted]",
                     content,
                 )
@@ -639,6 +661,7 @@ def sanitize_dms_gmail_workspace_html(body: str, path: str) -> str:
                     flags=re.IGNORECASE,
                 )
                 content = redact_ipv6_literals(content)
+                content = re.sub(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b", "[redacted-id]", content, flags=re.IGNORECASE)
                 content = re.sub(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", "[redacted-email]", content, flags=re.IGNORECASE)
                 content = re.sub(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", "[redacted-ip]", content)
                 if content.strip():
@@ -676,6 +699,7 @@ def sanitize_dms_gmail_workspace_html(body: str, path: str) -> str:
         flags=re.IGNORECASE,
     )
     body = redact_ipv6_literals(body)
+    body = re.sub(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b", "[redacted-id]", body, flags=re.IGNORECASE)
     body = re.sub(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", "[redacted-email]", body, flags=re.IGNORECASE)
     body = re.sub(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", "[redacted-ip]", body)
 
@@ -690,11 +714,66 @@ def sanitize_dms_gmail_workspace_html(body: str, path: str) -> str:
     return body.replace("</body>", inert_script_refs + "</body>") if "</body>" in body else body + inert_script_refs
 
 
+def sanitize_dms_offer_suppression_html(body: str, path: str) -> str:
+    """Expose the per-offer suppression page structure without production file data."""
+    if not is_read_only_offer_suppression_page(path):
+        raise ValueError("DMS offer suppression response did not match the read-only route")
+    title = re.search(r"<title\b[^>]*>(?P<title>.*?)</title\s*>", body, re.IGNORECASE | re.DOTALL)
+    if title is None or not re.search(r"suppression", html.unescape(title.group("title")), re.IGNORECASE):
+        raise ValueError("DMS offer suppression response did not contain the expected page")
+
+    script_paths: list[str] = []
+
+    def remove_script(match: re.Match[str]) -> str:
+        opening_tag = match.group(0).split(">", 1)[0]
+        src = re.search(r"\bsrc=['\"]([^'\"]+)['\"]", opening_tag, re.IGNORECASE)
+        if src:
+            parsed = urlparse(urljoin(f"{REFERENCE_ORIGIN}{path}", html.unescape(src.group(1))))
+            if parsed.hostname == REFERENCE.hostname and parsed.path.startswith(STATIC_PREFIXES):
+                script_paths.append(parsed.path)
+        return ""
+
+    body = re.sub(r"<script\b[^>]*>.*?</script\s*>", remove_script, body, flags=re.IGNORECASE | re.DOTALL)
+    body = re.sub(r"<script\b[^>]*/\s*>", remove_script, body, flags=re.IGNORECASE | re.DOTALL)
+    body = re.sub(r"<meta\b(?=[^>]*\bname=['\"]csrf-[^'\"]+['\"])[^>]*>", "", body, flags=re.IGNORECASE | re.DOTALL)
+    body = re.sub(r"<textarea\b(?P<attrs>[^>]*)>.*?</textarea\s*>", r"<textarea\g<attrs>></textarea>", body, flags=re.IGNORECASE | re.DOTALL)
+    body = re.sub(r"<select\b(?P<attrs>[^>]*)>.*?</select\s*>", r"<select\g<attrs>></select>", body, flags=re.IGNORECASE | re.DOTALL)
+    body = re.sub(r"<tbody\b(?P<attrs>[^>]*)>.*?</tbody\s*>", r"<tbody\g<attrs>></tbody>", body, flags=re.IGNORECASE | re.DOTALL)
+    body = re.sub(
+        r"<input\b[^>]*>",
+        lambda match: "" if re.search(r"\btype=['\"]hidden['\"]", match.group(0), re.IGNORECASE)
+        else re.sub(r"\s+value\s*=\s*(['\"]).*?\1", "", match.group(0), flags=re.IGNORECASE | re.DOTALL),
+        body,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    body = re.sub(r"\s+(?:action|on[a-z]+|data-[\w:-]+)\s*=\s*(['\"]).*?\1", "", body, flags=re.IGNORECASE | re.DOTALL)
+    body = re.sub(r"(href\s*=\s*(['\"]).*?)\?.*?\2", r"\1\2", body, flags=re.IGNORECASE | re.DOTALL)
+    body = remove_element_by_id(body, "page-header-user-dropdown")
+    body = re.sub(r"/(?:admin/)?offers/\d+/suppression", "/offers/[redacted]/suppression", body, flags=re.IGNORECASE)
+    body = re.sub(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b", "[redacted-id]", body, flags=re.IGNORECASE)
+    body = redact_ipv6_literals(body)
+    body = re.sub(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", "[redacted-email]", body, flags=re.IGNORECASE)
+    body = re.sub(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", "[redacted-ip]", body)
+    body = re.sub(r"(?:[A-Za-z]:\\|/)(?:[^\s<>\"']+[\\/])+[^\s<>\"']+\.(?:txt|csv|zip)\b", "[redacted-file]", body, flags=re.IGNORECASE)
+    body = re.sub(r"(?<=>)([^<]*?)https?://[^\s<>\"']+", r"\1[redacted-url]", body, flags=re.IGNORECASE)
+
+    inert_script_refs = "".join(
+        f'<template data-reference-script-path="{html.escape(script_path, quote=True)}"></template>'
+        for script_path in dict.fromkeys(script_paths)
+    )
+    return body.replace("</body>", inert_script_refs + "</body>") if "</body>" in body else body + inert_script_refs
+
+
 def sanitize_dms_gsend_select(match: re.Match[str], path: str) -> str:
     """Retain only known static GSend project-type labels; discard all live choices."""
     opening = f"<select{match.group('attrs')}>"
     closing = "</select>"
     attrs = match.group("attrs")
+    if path == WORKSPACE_SMTP_PAGE_PATH:
+        identifier = re.search(r"\bid=['\"]([^'\"]+)", attrs, re.IGNORECASE)
+        if identifier is not None and identifier.group(1) in {"ips", "project"}:
+            return opening + '<option disabled selected>Values withheld</option>' + closing
+        return opening + closing
     if path != GMAIL_PROJECTS_CREATE_PAGE_PATH or not re.search(
         r"\b(?:name|id)\s*=\s*['\"]api_type['\"]", attrs, re.IGNORECASE
     ):
@@ -1283,6 +1362,10 @@ def rewrite_document(body: str, mime: str, upstream_url: str, empty_bulk_rows: b
             body = sanitize_dms_warmup_html(body, urlparse(upstream_url).path)
         if urlparse(upstream_url).path in GMAIL_WORKSPACE_PAGE_PATHS:
             body = sanitize_dms_gmail_workspace_html(body, urlparse(upstream_url).path)
+        if urlparse(upstream_url).path == WORKSPACE_SMTP_PAGE_PATH:
+            body = sanitize_dms_gmail_workspace_html(body, WORKSPACE_SMTP_PAGE_PATH)
+        if is_read_only_offer_suppression_page(urlparse(upstream_url).path):
+            body = sanitize_dms_offer_suppression_html(body, urlparse(upstream_url).path)
         body = re.sub(
             r"<base\b[^>]*>|<meta\b(?=[^>]*http-equiv=['\"]?refresh)[^>]*>",
             "",
@@ -1429,7 +1512,7 @@ class ReadOnlyDmsHandler(BaseHTTPRequestHandler):
                 return
             remote_path = "/" + remote[1] if len(remote) > 1 else "/"
             upstream = urlunparse(("https", host, remote_path, "", parsed.query, ""))
-        elif path in READ_ONLY_PAGE_PATHS or any(path.startswith(prefix) for prefix in STATIC_PREFIXES) or path == "/favicon.ico":
+        elif is_read_only_page_path(path) or any(path.startswith(prefix) for prefix in STATIC_PREFIXES) or path == "/favicon.ico":
             upstream = urljoin(REFERENCE_URL, path.lstrip("/"))
             if (
                 parsed.query
@@ -1440,6 +1523,7 @@ class ReadOnlyDmsHandler(BaseHTTPRequestHandler):
                 and path not in ENCODING_PAGE_PATHS
                 and path not in SPF_PAGE_PATHS
                 and path not in {GMAIL_PROJECTS_CREATE_PAGE_PATH, GMAIL_ACCOUNTS_CREATE_PAGE_PATH}
+                and not is_read_only_offer_suppression_page(path)
             ):
                 upstream += "?" + parsed.query
         else:

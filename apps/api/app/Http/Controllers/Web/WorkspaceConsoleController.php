@@ -1485,9 +1485,7 @@ class WorkspaceConsoleController extends Controller
             (string) ($data['header'] ?? ''),
             (string) ($data['body'] ?? ''),
             (string) ($data['return_path'] ?? ''),
-            ...array_map(static fn (array $asset): string => (string) ($asset['value'] ?? ''), $fromAssets),
-            ...array_map(static fn (array $asset): string => (string) ($asset['value'] ?? ''), $subjectAssets),
-        ], $placeholderRows);
+        ], $placeholderRows, $fromAssets, $subjectAssets);
         if ($data['send_setup']['route_option'] === 'ip' && $usesSmtpTag) {
             foreach ($servers as $selectedServer) {
                 $ipChoice = $routeChoices->get((string) $selectedServer->getKey());
@@ -1858,21 +1856,40 @@ class WorkspaceConsoleController extends Controller
      *
      * @param  list<string>  $messageSources
      * @param  list<array<string, mixed>>  $placeholderRows
+     * @param  list<array{id: int, value: string}>  $fromAssets
+     * @param  list<array{id: int, value: string}>  $subjectAssets
      */
-    private function campaignTestUsesSmtpTag(array $messageSources, array $placeholderRows): bool
-    {
-        foreach ($placeholderRows as $placeholderRow) {
+    private function campaignTestUsesSmtpTag(
+        array $messageSources,
+        array $placeholderRows,
+        array $fromAssets = [],
+        array $subjectAssets = [],
+    ): bool {
+        $expandedMessage = implode("\n", $messageSources);
+        foreach ($placeholderRows as $index => $placeholderRow) {
+            $placeholderToken = '[placeholder'.((int) $index + 1).']';
+            if (stripos($expandedMessage, $placeholderToken) === false) {
+                continue;
+            }
+
             $placeholderValues = $placeholderRow['data'] ?? null;
             if (is_array($placeholderValues)) {
                 foreach ($placeholderValues as $placeholderValue) {
-                    $messageSources[] = (string) $placeholderValue;
+                    $expandedMessage .= "\n".(string) $placeholderValue;
                 }
             } else {
-                $messageSources[] = (string) ($placeholderRow['data_text'] ?? '');
+                $expandedMessage .= "\n".(string) ($placeholderRow['data_text'] ?? '');
             }
         }
 
-        return preg_match('/\[(?:smtp|smtp_name)\]/i', implode("\n", $messageSources)) === 1;
+        if (preg_match('/\[from\]/i', $expandedMessage) === 1) {
+            $expandedMessage .= "\n".implode("\n", array_column($fromAssets, 'value'));
+        }
+        if (preg_match('/\[subject\]/i', $expandedMessage) === 1) {
+            $expandedMessage .= "\n".implode("\n", array_column($subjectAssets, 'value'));
+        }
+
+        return preg_match('/\[(?:smtp|smtp_name)\]/i', $expandedMessage) === 1;
     }
 
     /**

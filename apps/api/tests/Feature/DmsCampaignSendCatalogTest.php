@@ -2280,15 +2280,15 @@ class DmsCampaignSendCatalogTest extends TestCase
 
         $sentMessages = [];
         $transport = Mockery::mock(SmtpTransport::class);
-        $transport->shouldReceive('start')->twice();
-        $transport->shouldReceive('send')->twice()->withArgs(function ($message) use (&$sentMessages): bool {
+        $transport->shouldReceive('start')->times(3);
+        $transport->shouldReceive('send')->times(3)->withArgs(function ($message) use (&$sentMessages): bool {
             $sentMessages[] = $message->toString();
 
             return true;
         });
-        $transport->shouldReceive('stop')->twice();
+        $transport->shouldReceive('stop')->times(3);
         $factory = Mockery::mock(PmtaCampaignTestTransport::class);
-        $factory->shouldReceive('forServer')->twice()
+        $factory->shouldReceive('forServer')->times(3)
             ->withArgs(fn (ManagedServer $selected, int $port): bool => $selected->is($server) && $port === 2525)
             ->andReturn($transport);
         $this->app->instance(PmtaCampaignTestTransport::class, $factory);
@@ -2309,6 +2309,15 @@ class DmsCampaignSendCatalogTest extends TestCase
                     'placeholder_inputs' => [['data_text' => '[smtp_name]', 'rotate_every' => 1]],
                 ],
             ],
+            [
+                'header' => "To: [to]\nFrom: sender@example.test\nSubject: Plain route",
+                'body' => 'No selected SMTP tag is rendered.',
+                'send_setup' => [
+                    'from_asset_ids' => [(int) $from->getKey()],
+                    'subject_asset_ids' => [(int) $subject->getKey()],
+                    'placeholder_inputs' => [['data_text' => '[smtp_name]', 'rotate_every' => 1]],
+                ],
+            ],
         ] as $index => $case) {
             $this->actingAs($owner)->postJson(route('console.campaigns.manual-test', $workspace->getKey()), [
                 'idempotency_key' => (string) Str::uuid(),
@@ -2326,20 +2335,25 @@ class DmsCampaignSendCatalogTest extends TestCase
             ])->assertOk()->assertJsonPath('outcome', 'accepted_by_transport');
         }
 
-        $this->assertCount(2, $sentMessages);
-        foreach ($sentMessages as $message) {
+        $this->assertCount(3, $sentMessages);
+        foreach (array_slice($sentMessages, 0, 2) as $message) {
             $this->assertStringContainsString('X-virtual-MTA: '.PmtaSmtpConfigBuilder::virtualMtaName($ip->ip, $smtp->getKey()), $message);
         }
+        $this->assertStringContainsString('X-virtual-MTA: mta-'.$ip->ip, $sentMessages[2]);
         $this->assertStringContainsString('From: linked-smtp@example.test', $sentMessages[0]);
         $this->assertStringContainsString('Subject: Linked SMTP account', $sentMessages[0]);
         $this->assertStringContainsString('Selected placeholder: Linked SMTP account', quoted_printable_decode($sentMessages[1]));
+        $this->assertStringContainsString('From: sender@example.test', $sentMessages[2]);
 
         $snapshots = DB::table('campaign_manual_test_attempts')->orderBy('created_at')->pluck('test_snapshot');
-        foreach ($snapshots as $snapshot) {
+        foreach (array_slice($snapshots->all(), 0, 2) as $snapshot) {
             $decodedSnapshot = json_decode(Crypt::decryptString((string) $snapshot), true, flags: JSON_THROW_ON_ERROR);
             $this->assertSame('smtp', $decodedSnapshot['outbound_route']);
             $this->assertSame(PmtaSmtpConfigBuilder::virtualMtaName($ip->ip, $smtp->getKey()), $decodedSnapshot['virtual_mtas'][0]['pmta_name']);
         }
+        $untaggedSnapshot = json_decode(Crypt::decryptString((string) $snapshots[2]), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('ip', $untaggedSnapshot['outbound_route']);
+        $this->assertSame('mta-'.$ip->ip, $untaggedSnapshot['virtual_mtas'][0]['pmta_name']);
     }
 
     public function test_ip_campaign_test_requires_a_unique_linked_smtp_account_when_smtp_tags_are_used(): void

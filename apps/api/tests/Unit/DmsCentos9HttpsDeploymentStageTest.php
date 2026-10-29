@@ -67,7 +67,7 @@ class DmsCentos9HttpsDeploymentStageTest extends TestCase
             }
         };
 
-        (new DmsCentos9HttpsDeploymentStage)->configurePmtaMonitor(
+        $httpsEnabled = (new DmsCentos9HttpsDeploymentStage)->configurePmtaMonitor(
             $commands,
             $files,
             'sender.example.test',
@@ -79,6 +79,7 @@ class DmsCentos9HttpsDeploymentStageTest extends TestCase
             ['198.51.100.44'],
         );
 
+        $this->assertTrue($httpsEnabled);
         $configuration = $files->uploads['/etc/nginx/conf.d/default.conf.alphalink-tls-stage'];
         $this->assertStringContainsString('listen 1213 ssl;', $configuration);
         $this->assertStringContainsString('server_name sender.example.test;', $configuration);
@@ -109,7 +110,7 @@ class DmsCentos9HttpsDeploymentStageTest extends TestCase
             }
         };
 
-        (new DmsCentos9HttpsDeploymentStage)->configurePmtaMonitor(
+        $httpsEnabled = (new DmsCentos9HttpsDeploymentStage)->configurePmtaMonitor(
             $commands,
             $files,
             null,
@@ -121,12 +122,68 @@ class DmsCentos9HttpsDeploymentStageTest extends TestCase
             ['198.51.100.44'],
         );
 
+        $this->assertFalse($httpsEnabled);
         $configuration = $files->uploads['/etc/nginx/conf.d/default.conf.alphalink-tls-stage'];
         $this->assertStringContainsString('listen 1213;', $configuration);
         $this->assertStringNotContainsString('listen 1213 ssl;', $configuration);
         $this->assertStringContainsString('server_name _;', $configuration);
         $this->assertStringStartsWith("cp -p '/etc/nginx/conf.d/default.conf'", $commands->commands[0]);
         $this->assertCount(1, $commands->commands);
+    }
+
+    public function test_tls_proxy_failure_falls_back_to_validated_ip_http_proxy(): void
+    {
+        $commands = new class implements DmsInstallerRemoteCommandTransport
+        {
+            /** @var list<string> */
+            public array $commands = [];
+
+            public function exec(string $command): bool|string
+            {
+                $this->commands[] = $command;
+                if (str_contains($command, 'ALPHALINK_PMTA_PROXY_READY')) {
+                    return str_contains($command, 'fullchain.pem') ? '' : 'ALPHALINK_PMTA_PROXY_READY';
+                }
+
+                return '';
+            }
+        };
+        $files = new class implements DmsInstallerRemoteFileTransport
+        {
+            /** @var list<string> */
+            public array $uploads = [];
+
+            public function upload(string $contents, string $destination): bool
+            {
+                $this->uploads[] = $contents;
+
+                return true;
+            }
+
+            public function uploadFile(string $localPath, string $destination): bool
+            {
+                return false;
+            }
+        };
+
+        $httpsEnabled = (new DmsCentos9HttpsDeploymentStage)->configurePmtaMonitor(
+            $commands,
+            $files,
+            'sender.example.test',
+            45,
+            1213,
+            [],
+            [],
+            true,
+            ['198.51.100.44'],
+        );
+
+        $this->assertFalse($httpsEnabled);
+        $this->assertCount(2, $files->uploads);
+        $this->assertStringContainsString('listen 1213 ssl;', $files->uploads[0]);
+        $this->assertStringContainsString('listen 1213;', $files->uploads[1]);
+        $this->assertStringNotContainsString('listen 1213 ssl;', $files->uploads[1]);
+        $this->assertCount(3, $commands->commands);
     }
 
     private function commands(): object

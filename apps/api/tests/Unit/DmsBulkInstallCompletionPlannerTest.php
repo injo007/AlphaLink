@@ -81,6 +81,28 @@ class DmsBulkInstallCompletionPlannerTest extends TestCase
         $this->assertTrue($operations[5]['install_parameters']['pmta_monitor_https']);
     }
 
+    public function test_it_records_ip_http_monitor_mode_when_the_domain_certificate_is_unavailable(): void
+    {
+        $rows = [['main' => true, 'ip' => '203.0.113.45', 'type' => 'ipv4', 'domain_id' => 7, 'sub' => '', 'domain' => 'missing.example.test']];
+        $options = [
+            'tracking' => false,
+            'proxy' => false,
+            'imap' => false,
+            'spf' => false,
+            'dkim' => false,
+            'dmarc' => false,
+            'https' => false,
+        ];
+
+        $operations = (new DmsBulkInstallCompletionPlanner)->plan(1, 7, false, $rows, 45, $options, false);
+
+        $installation = collect($operations)->firstWhere('action', 'save_installation_config');
+        $serverStatus = collect($operations)->firstWhere('action', 'mark_server_installed');
+
+        $this->assertFalse($installation['install_parameters']['pmta_monitor_https']);
+        $this->assertTrue($serverStatus['is_installed']);
+    }
+
     public function test_it_rejects_unformatted_rows_and_incomplete_or_non_boolean_options(): void
     {
         $planner = new DmsBulkInstallCompletionPlanner;

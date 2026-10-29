@@ -28,6 +28,7 @@ class DmsBulkInstallCompletionWriter
         int $pmtaVersion,
         array $options,
         array $selectedDomains = [],
+        bool $pmtaMonitorHttps = true,
     ): array {
         if ((string) $server->workspace_id !== (string) $workspace->getKey()
             || (string) $domain->workspace_id !== (string) $workspace->getKey()) {
@@ -46,6 +47,7 @@ class DmsBulkInstallCompletionWriter
             $dataIps,
             $pmtaVersion,
             $options,
+            $pmtaMonitorHttps,
         );
 
         foreach ($operations as $operation) {

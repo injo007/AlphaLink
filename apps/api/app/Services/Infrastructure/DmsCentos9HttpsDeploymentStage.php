@@ -61,6 +61,68 @@ class DmsCentos9HttpsDeploymentStage
         array $productionIps,
         bool $allowAllMonitor,
         array $pmtaRelayIps,
+    ): bool {
+        if ($tlsDomain === null) {
+            $this->activatePmtaMonitorConfiguration(
+                $commands,
+                $files,
+                null,
+                $version,
+                $publicPort,
+                $developmentIps,
+                $productionIps,
+                $allowAllMonitor,
+                $pmtaRelayIps,
+            );
+
+            return false;
+        }
+
+        try {
+            $this->activatePmtaMonitorConfiguration(
+                $commands,
+                $files,
+                $tlsDomain,
+                $version,
+                $publicPort,
+                $developmentIps,
+                $productionIps,
+                $allowAllMonitor,
+                $pmtaRelayIps,
+            );
+
+            return true;
+        } catch (\RuntimeException $exception) {
+            // Keep the public monitor usable by IP when TLS cannot be validated.
+            // If the HTTP replacement also fails, propagate that failure so the
+            // PMTA readiness check remains fail-closed.
+            $this->activatePmtaMonitorConfiguration(
+                $commands,
+                $files,
+                null,
+                $version,
+                $publicPort,
+                $developmentIps,
+                $productionIps,
+                $allowAllMonitor,
+                $pmtaRelayIps,
+            );
+
+            return false;
+        }
+    }
+
+    /** @param list<string> $developmentIps @param list<string> $productionIps @param list<string> $pmtaRelayIps */
+    private function activatePmtaMonitorConfiguration(
+        DmsInstallerRemoteCommandTransport $commands,
+        DmsInstallerRemoteFileTransport $files,
+        ?string $tlsDomain,
+        int $version,
+        int $publicPort,
+        array $developmentIps,
+        array $productionIps,
+        bool $allowAllMonitor,
+        array $pmtaRelayIps,
     ): void {
         $backendPort = $publicPort * 2;
         $configuration = $this->pmtaPlanner->monitorNginxConfiguration(

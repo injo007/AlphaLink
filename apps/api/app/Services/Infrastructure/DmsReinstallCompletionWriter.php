@@ -27,6 +27,7 @@ class DmsReinstallCompletionWriter
         int $pmtaVersion,
         array $options,
         ?string $requestId = null,
+        bool $pmtaMonitorHttps = true,
     ): void {
         if ((string) $server->workspace_id !== (string) $workspace->getKey()
             || $rows === []
@@ -34,7 +35,7 @@ class DmsReinstallCompletionWriter
             throw new InvalidArgumentException('The reinstall completion data is invalid.');
         }
 
-        DB::transaction(function () use ($workspace, $actor, $server, $rows, $pmtaVersion, $options, $requestId): void {
+        DB::transaction(function () use ($workspace, $actor, $server, $rows, $pmtaVersion, $options, $requestId, $pmtaMonitorHttps): void {
             if ($options['pmta']) {
                 ManagedServerMta::query()
                     ->where('workspace_id', $workspace->getKey())
@@ -83,10 +84,8 @@ class DmsReinstallCompletionWriter
                 'dkim' => $options['dkim'],
                 'dmarc' => $options['dmarc'],
                 'https' => $options['https'],
-                // PMTA reinstalls always configure and verify its TLS monitor
-                // independently of the optional tracking HTTPS component.
                 'pmta_monitor_https' => $options['pmta']
-                    ? true
+                    ? $pmtaMonitorHttps
                     : (bool) (($server->install_parameters['pmta_monitor_https'] ?? false)),
             ];
             $server->forceFill(['install_parameters' => $installParameters])->saveOrFail();

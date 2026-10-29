@@ -211,7 +211,7 @@
                 </div>
             </div>
         </div>
-        <p class="small text-muted mb-2">Open the hostname shown beside each server for HTTPS. A certificate issued to a domain cannot validate when the PMTA page is opened by its IP address.</p>
+        <p class="small text-muted mb-2">Open the link beside each server. Verified domains use HTTPS; servers without a DNS-managed certificate use the public IP over HTTP.</p>
         <div class="row no-gutters" id="pmta-admin-panels" @if ($selectedServerIds === []) hidden @endif aria-live="polite"></div>
     </section>
 @endsection
@@ -367,7 +367,7 @@
                     } catch {
                         link.textContent = server.textContent.split('|').at(-1).trim();
                     }
-                    link.title = 'Open the canonical PMTA monitor hostname. HTTPS certificates are issued to the hostname, not the server IP.';
+                    link.title = 'Open the PMTA monitor using the verified domain or public IP endpoint.';
                     const reload = document.createElement('button');
                     reload.type = 'button';
                     reload.className = 'btn btn-link btn-sm p-0 ml-2';
@@ -401,7 +401,9 @@
                     }
                     const insecureForPage = window.location.protocol === 'https:' && monitorUrl?.protocol !== 'https:';
                     if (monitorUrl === null || insecureForPage) {
-                        refreshLabel.textContent = 'PMTA HTTPS monitor is not verified · reinstall PMTA with HTTPS enabled';
+                        refreshLabel.textContent = monitorUrl === null
+                            ? 'PMTA monitor URL is unavailable · check the saved server address and installation state'
+                            : 'PMTA uses the public IP over HTTP · open the link in a new tab; HTTPS embedding requires a verified domain certificate';
                         column.append(heading);
                         panels.append(column);
                         return;

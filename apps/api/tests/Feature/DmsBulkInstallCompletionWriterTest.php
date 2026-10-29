@@ -105,6 +105,7 @@ class DmsBulkInstallCompletionWriterTest extends TestCase
             'data' => $dataIps,
             'pmta_version' => 45,
             ...$options,
+            'pmta_monitor_https' => true,
         ], $this->server->fresh()->install_parameters);
         $this->assertTrue($this->server->fresh()->is_installed);
     }

@@ -369,6 +369,9 @@ class DmsServerReinstallTest extends TestCase
         $serviceSetup = Mockery::mock(DmsCentos9ServiceSetup::class);
         $serviceSetup->shouldReceive('run')->once()->with(Mockery::type(DmsFailClosedInstallerTransport::class));
         $domainWriter = Mockery::mock(DmsBulkInstallDomainDnsRecordWriter::class);
+        $domainWriter->shouldReceive('isDomainAvailable')->once()->withArgs(
+            fn (SendingDomain $domain): bool => $domain->is($this->firstDomain),
+        )->andReturn(true);
         $domainWriter->shouldReceive('setHosts')->twice()->withArgs(function (SendingDomain $domain, array $records): bool {
             return ($domain->is($this->firstDomain) || $domain->is($this->secondDomain))
                 && $records !== [];

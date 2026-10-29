@@ -176,6 +176,36 @@ class DmsCentos9InstallWorkflowTest extends TestCase
         );
     }
 
+    public function test_missing_domain_provider_uses_public_ip_http_monitor_and_still_completes_install(): void
+    {
+        [$workflow, $gate, $pmta, $completion] = $this->workflow();
+        $gate->method('evaluate')->willReturn(['installation_authorized' => true]);
+        $pmta->expects($this->once())->method('run');
+        $completion->expects($this->once())
+            ->method('finalize')
+            ->willReturnCallback(function (...$arguments): array {
+                $this->assertFalse($arguments[5]['https']);
+                $this->assertFalse($arguments[7]);
+
+                return [];
+            });
+        $session = new RecordingWorkflowSession;
+        $logs = [];
+
+        $this->runWorkflow($workflow, $session, $logs, providerAvailable: false);
+
+        $configuration = $session->uploads['/etc/nginx/conf.d/default.conf.alphalink-tls-stage'];
+        $this->assertStringContainsString('listen 8080;', $configuration);
+        $this->assertStringContainsString('server_name _;', $configuration);
+        $this->assertStringNotContainsString('listen 8080 ssl;', $configuration);
+        $this->assertContains(
+            'PMTA WEB MONITOR LINK (HTTP via public IP; public port 8080; backend-only PMTA HTTP listener 16160): >>> <a target="_blank" href="http://8.8.8.8:8080/">8.8.8.8:8080</a>',
+            $logs,
+        );
+        $this->assertStringNotContainsString('certbot --apache', implode("\n", $session->commands));
+        $this->assertStringNotContainsString("grep -Fq 'listen 8080 ssl;' /etc/nginx/conf.d/default.conf", end($session->commands));
+    }
+
     public function test_private_interface_without_public_dns_mapping_stops_before_host_changes(): void
     {
         [$workflow, $gate, $pmta, $completion] = $this->workflow();
@@ -301,10 +331,11 @@ class DmsCentos9InstallWorkflowTest extends TestCase
         ];
         $completion->expects($this->once())
             ->method('finalize')
-            ->with($workspace, $server, $externalDomain, $assignments, 40, $options, [$externalDomain, $ownedDomain])
+            ->with($workspace, $server, $externalDomain, $assignments, 40, $options, [$externalDomain, $ownedDomain], true)
             ->willReturn([]);
 
         $dnsWriter = $this->createMock(DmsBulkInstallDomainDnsRecordWriter::class);
+        $dnsWriter->method('isDomainAvailable')->willReturn(true);
         $dnsWrites = [];
         $dnsWriter->expects($this->exactly(2))
             ->method('setHosts')
@@ -392,7 +423,7 @@ class DmsCentos9InstallWorkflowTest extends TestCase
      * @param  array<string, mixed>  $settingsOverrides
      * @param  array<string, mixed>  $hostFactsOverrides
      */
-    private function runWorkflow(DmsCentos9InstallWorkflow $workflow, RecordingWorkflowSession $session, array &$logs, array $selectedOptions = [], array $settingsOverrides = [], array $hostFactsOverrides = [], array $discoveredIps = ['8.8.8.8'], bool $expectDnsWrite = true, int $pmtaVersion = 40): void
+    private function runWorkflow(DmsCentos9InstallWorkflow $workflow, RecordingWorkflowSession $session, array &$logs, array $selectedOptions = [], array $settingsOverrides = [], array $hostFactsOverrides = [], array $discoveredIps = ['8.8.8.8'], bool $expectDnsWrite = true, int $pmtaVersion = 40, bool $providerAvailable = true): void
     {
         $workspace = (new Workspace)->forceFill(['id' => 'workspace-one']);
         $server = (new ManagedServer)->forceFill([
@@ -427,6 +458,7 @@ class DmsCentos9InstallWorkflowTest extends TestCase
         $settings = array_replace($settings, $settingsOverrides);
         $assets = ['mini_app' => null, 'cloudflare_ips' => null, 'dovecot_config' => null, 'squid_config' => null];
         $dnsWriter = $this->createMock(DmsBulkInstallDomainDnsRecordWriter::class);
+        $dnsWriter->method('isDomainAvailable')->willReturn($providerAvailable);
         if ($expectDnsWrite) {
             $dnsWriter->expects($this->once())->method('setHosts')->willReturn(true);
         } else {

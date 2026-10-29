@@ -28,7 +28,7 @@ class DmsBulkInstallDomainRecordStage
         Closure $log,
         ?string $registeredPublicIp = null,
         bool $continueOnDnsFailure = false,
-    ): void {
+    ): ?bool {
         $resolvedIps = $this->resolvePublicAddresses($ips, $publicIpResolver, $log, $registeredPublicIp);
 
         $records = $this->planner->records(
@@ -41,7 +41,7 @@ class DmsBulkInstallDomainRecordStage
         if ($records === []) {
             $log('Skipping DNS records for '.$domain->name.' (no DNS options selected)');
 
-            return;
+            return null;
         }
 
         $recordSummary = $this->recordSummary($records);
@@ -55,20 +55,22 @@ class DmsBulkInstallDomainRecordStage
 
             $log('Skipping DNS records for '.$domain->name.' (provider lookup or update failed: '.$exception->getMessage().'). Server installation continues.');
 
-            return;
+            return false;
         }
 
         if (! $result) {
             if ($continueOnDnsFailure) {
                 $log('Skipping DNS records for '.$domain->name.' (domain provider unavailable or rejected the update). Server installation continues.');
 
-                return;
+                return false;
             }
 
             throw new RuntimeException('The selected domain DNS records could not be applied through its provider.');
         }
 
         $log('Done Setting Records For '.$domain->name.' ('.$recordSummary.')');
+
+        return true;
     }
 
     /** @param list<array{host: string, address: string, type: string, ttl: string}> $records */

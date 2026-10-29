@@ -22,6 +22,7 @@ class DmsBulkInstallCompletionPlanner
         array $dataIps,
         int $pmtaVersion,
         array $options,
+        bool $pmtaMonitorHttps = true,
     ): array {
         $this->validateRows($dataIps);
         $this->validateOptions($options);
@@ -70,9 +71,10 @@ class DmsBulkInstallCompletionPlanner
         foreach (['tracking', 'proxy', 'imap', 'spf', 'dkim', 'dmarc', 'https'] as $option) {
             $installParameters[$option] = $options[$option];
         }
-        // PMTA's monitor endpoint is TLS-enabled and verified independently
-        // from the optional tracking HTTPS component.
-        $installParameters['pmta_monitor_https'] = true;
+        // PMTA monitor TLS is verified independently from the optional
+        // tracking HTTPS component. It can be disabled when no DNS-backed
+        // hostname/certificate is available and the monitor uses the server IP.
+        $installParameters['pmta_monitor_https'] = $pmtaMonitorHttps;
 
         $operations[] = [
             'action' => 'save_installation_config',

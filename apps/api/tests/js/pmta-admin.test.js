@@ -5,6 +5,11 @@ import vm from 'node:vm';
 
 const view = readFileSync(new URL('../../resources/views/console/campaigns/pmta-admin.blade.php', import.meta.url), 'utf8');
 
+test('PMTA Admin explains the public-IP HTTP fallback when an HTTPS frame is unavailable', () => {
+    assert.match(view, /servers without a DNS-managed certificate use the public IP over HTTP/i);
+    assert.match(view, /PMTA uses the public IP over HTTP · open the link in a new tab/);
+});
+
 const restartHelperStart = view.indexOf('            let restartRunNumber = 0;');
 const restartHelperEnd = view.indexOf('\n\n            servers.addEventListener', restartHelperStart);
 assert.notEqual(restartHelperStart, -1, 'PMTA restart helper exists');

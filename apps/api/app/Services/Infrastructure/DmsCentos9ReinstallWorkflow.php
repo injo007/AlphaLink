@@ -93,6 +93,16 @@ class DmsCentos9ReinstallWorkflow
             (string) $server->ip_address,
         );
         $groups = $this->groupRows($dnsRows, $prepared['domains']);
+        $mainDomainProviderReady = $this->dnsWriter->isDomainAvailable($mainDomain);
+        $deploymentDomain = $mainDomainProviderReady ? (string) $mainDomain->name : null;
+        $deploymentSubdomains = $mainDomainProviderReady ? $subdomains : [];
+        if (! $mainDomainProviderReady) {
+            $log(sprintf(
+                'The selected domain %s is not available from its configured DNS provider; skipping domain-based host naming and using public IP %s for tracking and PMTA monitor endpoints.',
+                $mainDomain->name,
+                $server->ip_address,
+            ));
+        }
 
         if ($options['tracking'] && $inputs['assets']['mini_app'] !== null) {
             $this->tracking->verifyCallback($session, $inputs['settings']['mini_app_url']);
@@ -101,7 +111,7 @@ class DmsCentos9ReinstallWorkflow
         $log('Prepare Reinstalling Server : '.$server->getKey());
 
         $log('Re Setup Host');
-        $this->hostPreparation->configureHost($session, (string) $server->ip_address, (string) $mainDomain->name);
+        $this->hostPreparation->configureHost($session, (string) $server->ip_address, $deploymentDomain);
         $log('End Setting Host');
 
         $log('Re Setup Services');
@@ -119,20 +129,20 @@ class DmsCentos9ReinstallWorkflow
                 $session,
                 (string) $server->ip_address,
                 (string) $server->getKey(),
-                (string) $mainDomain->name,
-                $subdomains,
+                $deploymentDomain,
+                $deploymentSubdomains,
                 $inputs['assets']['mini_app'],
                 $inputs['assets']['cloudflare_ips'],
                 $inputs['settings']['mini_app_url'],
                 $inputs['settings']['mini_app_key'],
-                $options['https'],
+                $options['https'] && $mainDomainProviderReady,
             );
             $log('End Setting Tracking App');
         }
 
         $resolver = new DmsCentos9PublicIpResolver($session);
         foreach ($groups as $group) {
-            $this->domainRecords->run(
+            $dnsReady = $this->domainRecords->run(
                 $group['domain'],
                 $group['rows'],
                 [
@@ -149,9 +159,22 @@ class DmsCentos9ReinstallWorkflow
                 $log,
                 continueOnDnsFailure: true,
             );
+            if ($dnsReady === false && (string) $group['domain']->getKey() === (string) $mainDomain->getKey()) {
+                $mainDomainProviderReady = false;
+            }
+        }
+
+        $monitorDomain = $mainDomainProviderReady ? (string) $mainDomain->name : null;
+        if (! $mainDomainProviderReady && $deploymentDomain !== null) {
+            $log(sprintf(
+                'DNS provider setup did not complete for %s; switching PMTA monitor access to public IP %s.',
+                $mainDomain->name,
+                $server->ip_address,
+            ));
         }
 
         $adminUrl = null;
+        $pmtaMonitorHttps = (bool) (($server->install_parameters['pmta_monitor_https'] ?? false));
         if ($options['pmta']) {
             $log('Re Setup PMTA '.$pmtaVersion);
             $this->pmta->run(
@@ -189,12 +212,6 @@ class DmsCentos9ReinstallWorkflow
             );
             $log('End Setting VMTAS');
 
-            $adminUrl = PmtaPanelUrl::forInstallation(
-                (string) $server->ip_address,
-                (string) $mainDomain->name,
-                $inputs['settings']['pmta_admin_port'],
-                true,
-            );
         }
 
         $ips = array_column($rows, 'ip');
@@ -227,13 +244,13 @@ class DmsCentos9ReinstallWorkflow
         }
 
         if ($options['https'] || $options['pmta']) {
-            $log($options['https'] ? 'Re Setup Https' : 'Re Setup HTTPS for PMTA Web Monitor');
-            $this->https->run($session, (string) $mainDomain->name, $subdomains);
+            $log($options['https'] && $mainDomainProviderReady ? 'Re Setup Https' : 'Re Setup HTTPS for PMTA Web Monitor');
+            $this->https->run($session, $monitorDomain, $mainDomainProviderReady ? $subdomains : []);
             if ($options['pmta']) {
-                $this->https->configurePmtaMonitor(
+                $pmtaMonitorHttps = $this->https->configurePmtaMonitor(
                     $session,
                     $session,
-                    (string) $mainDomain->name,
+                    $monitorDomain,
                     $pmtaVersion,
                     $inputs['settings']['pmta_admin_port'],
                     $inputs['settings']['dev_ips'],
@@ -241,8 +258,23 @@ class DmsCentos9ReinstallWorkflow
                     $inputs['settings']['allow_all_monitor'],
                     $inputs['settings']['pmta_relay_ips'],
                 );
+                if (! $pmtaMonitorHttps) {
+                    $log(sprintf(
+                        'PMTA monitor HTTPS is unavailable; using the public IP HTTP endpoint http://%s:%d/.',
+                        $server->ip_address,
+                        $inputs['settings']['pmta_admin_port'],
+                    ));
+                }
             }
             $log('End Setting HTTPS');
+        }
+        if ($options['pmta']) {
+            $adminUrl = PmtaPanelUrl::forInstallation(
+                (string) $server->ip_address,
+                $monitorDomain,
+                $inputs['settings']['pmta_admin_port'],
+                $pmtaMonitorHttps,
+            );
         }
         if ($adminUrl !== null) {
             $log('PMTA MONITOR LINK : '.$adminUrl);
@@ -269,8 +301,8 @@ class DmsCentos9ReinstallWorkflow
             $readiness = $session->exec($this->pmtaReadinessCommand(
                 $pmtaVersion,
                 $inputs['settings'],
-                true,
-                (string) $mainDomain->name,
+                $pmtaMonitorHttps,
+                $monitorDomain,
             ));
             if ($readiness !== 'ALPHALINK_PMTA_READY') {
                 throw new RuntimeException('PMTA package, HTTP listener, access policy, or relay authorization failed post-reinstall verification.');
@@ -284,8 +316,9 @@ class DmsCentos9ReinstallWorkflow
             $server,
             $rows,
             $pmtaVersion,
-            $options,
+            [...$options, 'https' => $options['https'] && $mainDomainProviderReady],
             $requestId,
+            $pmtaMonitorHttps,
         );
 
         $log('Ended Disconnecting From Server : '.$server->getKey());

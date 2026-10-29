@@ -51,6 +51,11 @@ class DmsBulkInstallDomainRecordStageTest extends TestCase
         $logs = [];
         $writer = new class implements DmsBulkInstallDomainDnsRecordWriter
         {
+            public function isDomainAvailable(SendingDomain $domain): bool
+            {
+                return false;
+            }
+
             public function setHosts(SendingDomain $domain, array $records): bool
             {
                 throw new CloudflareDnsApiException('The selected domain does not have exactly one matching Cloudflare zone.');
@@ -406,6 +411,11 @@ class RecordingDnsRecordWriter implements DmsBulkInstallDomainDnsRecordWriter
     public array $calls = [];
 
     public function __construct(private readonly bool $result = true) {}
+
+    public function isDomainAvailable(SendingDomain $domain): bool
+    {
+        return true;
+    }
 
     public function setHosts(SendingDomain $domain, array $records): bool
     {

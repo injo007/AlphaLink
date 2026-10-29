@@ -130,6 +130,22 @@ class DmsCentos9InstallWorkflow
         }
         $subdomains = array_values(array_unique($subdomains));
 
+        $domainProviderReady = [];
+        foreach ($domainsById as $domainId => $selectedDomain) {
+            $domainProviderReady[$domainId] = $dnsWriter->isDomainAvailable($selectedDomain);
+        }
+        $primaryDomainId = (string) $primaryDomain->getKey();
+        $primaryDomainReady = $domainProviderReady[$primaryDomainId] ?? false;
+        $deploymentDomain = $primaryDomainReady ? (string) $primaryDomain->name : null;
+        $deploymentSubdomains = $primaryDomainReady ? $subdomains : [];
+        if (! $primaryDomainReady) {
+            $log(sprintf(
+                'The selected domain %s is not available from its configured DNS provider; skipping domain-based host naming and using public IP %s for tracking and PMTA monitor endpoints. DNS record updates will be skipped if the provider remains unavailable.',
+                $primaryDomain->name,
+                $server->ip_address,
+            ));
+        }
+
         $dnsIps = $this->domainRecords->resolvePublicAddresses(
             $ips,
             new DmsCentos9PublicIpResolver($session),
@@ -142,7 +158,7 @@ class DmsCentos9InstallWorkflow
         }
 
         $log('Setup Host');
-        $this->hostPreparation->configureHost($session, (string) $server->ip_address, (string) $primaryDomain->name);
+        $this->hostPreparation->configureHost($session, (string) $server->ip_address, $deploymentDomain);
         $log('End Setting Host');
 
         $log('Removing Old Packages');
@@ -161,20 +177,33 @@ class DmsCentos9InstallWorkflow
             $log('Setup Tracking App');
             $this->tracking->run(
                 $session, $session, (string) $server->ip_address, (string) $server->getKey(),
-                (string) $primaryDomain->name, $subdomains, $assets['mini_app'], $assets['cloudflare_ips'],
+                $deploymentDomain, $deploymentSubdomains, $assets['mini_app'], $assets['cloudflare_ips'],
                 $settings['mini_app_url'], $settings['mini_app_key'],
-                $options['https'],
+                $options['https'] && $primaryDomainReady,
             );
             $log('End Setting Tracking App');
         }
 
         foreach ($this->groupIpsByDomain($dnsIps, $domainsById) as $domainGroup) {
-            $this->domainRecords->run(
+            $dnsReady = $this->domainRecords->run(
                 $domainGroup['domain'], $domainGroup['ips'], $options,
                 $settings['dkim_selector'], $settings['dkim_public_key'],
                 new DmsCentos9PublicIpResolver($session), $dnsWriter, $log,
                 continueOnDnsFailure: true,
             );
+            if ($dnsReady === false) {
+                $domainProviderReady[(string) $domainGroup['domain']->getKey()] = false;
+            }
+        }
+
+        $primaryDomainReady = $domainProviderReady[$primaryDomainId] ?? false;
+        $monitorDomain = $primaryDomainReady ? (string) $primaryDomain->name : null;
+        if (! $primaryDomainReady && $deploymentDomain !== null) {
+            $log(sprintf(
+                'DNS provider setup did not complete for %s; switching PMTA monitor access to public IP %s.',
+                $primaryDomain->name,
+                $server->ip_address,
+            ));
         }
 
         $log('Setup PMTA '.$pmtaVersion);
@@ -211,12 +240,12 @@ class DmsCentos9InstallWorkflow
             $log('End Setting Proxy');
         }
 
-        $log($options['https'] ? 'Setup Https' : 'Setup HTTPS for PMTA Web Monitor');
-        $this->https->run($session, (string) $primaryDomain->name, $subdomains);
-        $this->https->configurePmtaMonitor(
+        $log($options['https'] && $primaryDomainReady ? 'Setup Https' : 'Setup HTTPS for PMTA Web Monitor');
+        $this->https->run($session, $monitorDomain, $primaryDomainReady ? $subdomains : []);
+        $pmtaMonitorHttps = $this->https->configurePmtaMonitor(
             $session,
             $session,
-            (string) $primaryDomain->name,
+            $monitorDomain,
             $pmtaVersion,
             $settings['pmta_admin_port'],
             $settings['dev_ips'],
@@ -224,6 +253,13 @@ class DmsCentos9InstallWorkflow
             $settings['allow_all_monitor'],
             $settings['pmta_relay_ips'],
         );
+        if (! $pmtaMonitorHttps) {
+            $log(sprintf(
+                'PMTA monitor HTTPS is unavailable; using the public IP HTTP endpoint http://%s:%d/.',
+                $server->ip_address,
+                $settings['pmta_admin_port'],
+            ));
+        }
         $log('End Setting HTTPS for PMTA Web Monitor');
 
         $log('Config Firewall');
@@ -241,29 +277,31 @@ class DmsCentos9InstallWorkflow
         $health = $session->exec($this->pmtaReadinessCommand(
             $pmtaVersion,
             $settings,
-            true,
-            (string) $primaryDomain->name,
+            $pmtaMonitorHttps,
+            $monitorDomain,
         ));
         if ($health !== 'ALPHALINK_PMTA_READY') {
             throw new RuntimeException('PMTA package, HTTP listener, access policy, or monitor proxy failed post-install verification.');
         }
 
         if ($ipAssignments === null) {
-            $this->completion->finalize($workspace, $server, $primaryDomain, $ips, $pmtaVersion, $options);
+            $completedOptions = [...$options, 'https' => $options['https'] && $primaryDomainReady];
+            $this->completion->finalize($workspace, $server, $primaryDomain, $ips, $pmtaVersion, $completedOptions, [], $pmtaMonitorHttps);
         } else {
-            $this->completion->finalize($workspace, $server, $primaryDomain, $ips, $pmtaVersion, $options, $selectedDomains);
+            $completedOptions = [...$options, 'https' => $options['https'] && $primaryDomainReady];
+            $this->completion->finalize($workspace, $server, $primaryDomain, $ips, $pmtaVersion, $completedOptions, $selectedDomains, $pmtaMonitorHttps);
         }
         $publicPort = $settings['pmta_admin_port'];
         $pmtaHttpPort = $publicPort * 2;
         $adminUrl = PmtaPanelUrl::forInstallation(
             (string) $server->ip_address,
-            (string) $primaryDomain->name,
+            $monitorDomain,
             $publicPort,
-            true,
+            $pmtaMonitorHttps,
         );
         $log(sprintf(
             'PMTA WEB MONITOR LINK (%s; public port %d; backend-only PMTA HTTP listener %d): >>> <a target="_blank" href="%s">%s</a>',
-            'HTTPS',
+            $pmtaMonitorHttps ? 'HTTPS' : 'HTTP via public IP',
             $publicPort,
             $pmtaHttpPort,
             $adminUrl,

@@ -143,6 +143,48 @@ class DmsChangeDomainDnsRecordWriterTest extends TestCase
         self::assertSame($provider->getKey(), $domain->fresh()->domains_provider_id);
     }
 
+    public function test_domain_availability_rejects_a_cloudflare_provider_without_an_exact_zone(): void
+    {
+        Http::fake(['https://api.cloudflare.com/client/v4/zones*' => Http::response([
+            'success' => true,
+            'result' => [['id' => str_repeat('b', 32), 'name' => 'different.example.co.uk']],
+            'result_info' => ['total_pages' => 1],
+        ])]);
+        [$domain] = $this->ownedDomain('cloudflare', ['api_key' => 'synthetic-cloudflare-token']);
+
+        self::assertFalse(app(DmsBulkInstallDomainDnsRecordWriter::class)->isDomainAvailable($domain));
+        Http::assertSent(fn ($request) => $request->method() === 'GET'
+            && str_starts_with($request->url(), 'https://api.cloudflare.com/client/v4/zones?')
+            && $request->hasHeader('Authorization', 'Bearer synthetic-cloudflare-token'));
+    }
+
+    public function test_domain_availability_checks_namecheap_domain_ownership(): void
+    {
+        Http::fake(['https://api.namecheap.com/xml.response' => Http::response(
+            '<ApiResponse Status="OK"><CommandResponse><DomainGetInfoResult ID="123"><DomainName>example.co.uk</DomainName></DomainGetInfoResult></CommandResponse></ApiResponse>',
+            200,
+        )]);
+        [$domain] = $this->ownedDomain('namecheap', ['username' => 'dms-user', 'api_key' => 'synthetic-key']);
+
+        self::assertTrue(app(DmsBulkInstallDomainDnsRecordWriter::class)->isDomainAvailable($domain));
+        Http::assertSent(fn ($request) => $request->method() === 'POST'
+            && $request->url() === 'https://api.namecheap.com/xml.response'
+            && $request['Command'] === 'namecheap.domains.getInfo'
+            && $request['SLD'] === 'example'
+            && $request['TLD'] === 'co.uk');
+    }
+
+    public function test_domain_availability_checks_godaddy_registered_domain(): void
+    {
+        Http::fake(['https://api.godaddy.com/v1/domains/example.co.uk' => Http::response([], 200)]);
+        [$domain] = $this->ownedDomain('godaddy', ['api_key' => 'synthetic-key', 'api_secret' => 'synthetic-secret']);
+
+        self::assertTrue(app(DmsBulkInstallDomainDnsRecordWriter::class)->isDomainAvailable($domain));
+        Http::assertSent(fn ($request) => $request->method() === 'GET'
+            && $request->url() === 'https://api.godaddy.com/v1/domains/example.co.uk'
+            && $request->hasHeader('Authorization', 'sso-key synthetic-key:synthetic-secret'));
+    }
+
     public function test_cloudflare_successful_batch_must_be_visible_in_the_selected_zone(): void
     {
         $zoneId = str_repeat('a', 32);

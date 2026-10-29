@@ -637,3 +637,10 @@ A regression now submits the actual marketing-campaign create route with a match
 ## Installation DNS provider failure handling — E-INST-89
 
 The earlier exact Cloudflare zone preflight stopped Single/Bulk Install before queuing any server work. AlphaLink now queues the install without requiring a provider-zone match. During fresh install and reinstall, DNS record generation/update failures are logged as skipped and do not abort the host and service workflow; Change Domain keeps its stricter DNS contract. Synthetic regression suites pass 75 tests / 502 assertions. No production server or provider write was exercised, so deployment acceptance remains open.
+
+
+## Campaign tag catalog and language tags — E-CAMP-123
+
+The supplied DMS Tags dialog is the catalog reference. AlphaLink's Create Campaign help now lists its core tags, random and language-random families, boundary variants, and numbered placeholders. Campaign Test now resolves `[domain_sld]`, all listed language-random forms (including the screenshot's `Ingcyrrilic` spelling and both emoticon aliases), and the route-provided SMTP name. `[tag]` is replaced with an empty value because the native sender's reply-tag input is not available. The test token substitutes in text, but native redirect/unsubscribe short-link expansion remains unverified. The inspected DMS helper's 18-character cached `[bnd]` behavior conflicts with its help's 30-character description; AlphaLink retains the source-backed helper behavior and surfaces that discrepancy.
+
+`DmsCampaignSendCatalogTest`: **27 passed / 927 assertions** in the isolated PHP 8.3/SQLite container; targeted Pint and `git diff --check` pass. The local browser check could not render Create Campaign because PostgreSQL was stopped (`127.0.0.1:5432` refused the connection). This does not verify a live browser render or native DMS sender parity. Keep DMS-CAMP-001 IMPLEMENTING.

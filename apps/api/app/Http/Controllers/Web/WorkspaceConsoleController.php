@@ -1868,6 +1868,8 @@ class WorkspaceConsoleController extends Controller
             'reply' => '',
             'textarea' => '',
             'smtp' => $route === 'smtp' ? (string) ($choice['username'] ?? '') : '',
+            'smtp_name' => $route === 'smtp' ? (string) ($choice['name'] ?? '') : '',
+            'tag' => '',
         ];
     }
 

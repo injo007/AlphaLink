@@ -540,40 +540,45 @@
             <div class="p-3" style="box-sizing:border-box;width:100%">
                 <div class="d-flex justify-content-between align-items-center mb-3"><h3 class="h5 mb-0" id="campaign-tags-title">TAGS</h3><button type="button" class="btn btn-sm btn-outline-secondary" data-dialog-close="campaign-tags-dialog" aria-label="Close tag examples">×</button></div>
                 <div class="row"><div class="col-md-6">
-                    <h4 class="h6">DMS tags</h4>
-                    <p><code>[ip]</code> IP · <code>[server]</code> Server name · <code>[main_domain]</code> Server domain · <code>[domain]</code> IP domain · <code>[rdns]</code> IP reverse DNS · <code>[to]</code> Destination email · <code>[name]</code> Email username · <code>[date]</code> Current date</p>
-                    <p><code>[from]</code> Random From · <code>[subject]</code> Random Subject · <code>[ids]</code> Server ID · <code>[idd]</code> Domain ID · <code>[idi]</code> IP ID · <code>[ide]</code> Email ID · <code>[negative]</code> Negative file</p>
-                    <p><code>[text:a|b|c]</code> Choose one value · <code>[base64:text]</code> Base64 encode · <code>[printable:text]</code> Quoted-printable encode · <code>[smtp]</code> smtp username · <code>[smtp_name]</code> smtp name · <code>[tag]</code> tag reply extractor · <code>#[token]</code> Track Redirect,Unsubscribe Short links</p>
+                    <h4 class="h6">Message and server tags</h4>
+                    <p><code>[ip]</code> IP · <code>[server]</code> Server name · <code>[main_domain]</code> Server domain · <code>[domain]</code> IP domain with TLD · <code>[domain_sld]</code> IP domain without the final TLD · <code>[rdns]</code> IP reverse DNS</p>
+                    <p><code>[from]</code> Random From · <code>[subject]</code> Random Subject · <code>[ids]</code> Server ID · <code>[idd]</code> Domain ID · <code>[idi]</code> IP ID · <code>[ide]</code> Email ID · <code>[to]</code> Destination email · <code>[negative]</code> Negative file · <code>[name]</code> Email username · <code>[date]</code> Current date</p>
+                    <p><code>[rnd]</code> 18 random characters · <code>[text:a|b|c]</code> Choose one value · <code>[base64:text]</code> Base64 encode · <code>[printable:text]</code> Quoted-printable encode</p>
+                    <p><code>[boundary]</code> 30 static characters · <code>[bnd]</code> 30 static characters · <code>[smtp]</code> SMTP username · <code>[smtp_name]</code> SMTP name · <code>[tag]</code> Tag reply extractor · <code>#[token]</code> Track redirect/unsubscribe short links</p>
                     <h4 class="h6">Random tags</h4>
-                    <p><code>[rnd]</code> generates 18 random characters. For length-based tags, replace <code>N</code> with the requested length:</p>
+                    <p><code>[rnd]</code> generates 18 random characters. Replace <code>N</code> in the other tags with the desired length:</p>
                     <ul class="mb-3">
                         <li><code>[rndn_N]</code> digits (0–9)</li>
                         <li><code>[rnda_N]</code> letters and digits</li>
-                        <li><code>[rndl_N]</code> lowercase letters</li>
-                        <li><code>[rndu_N]</code> uppercase letters</li>
-                        <li><code>[rnds_N]</code> symbols</li>
-                        <li><code>[rndlu_N]</code> lowercase and uppercase letters</li>
-                        <li><code>[rndln_N]</code> lowercase letters and digits</li>
-                        <li><code>[rndun_N]</code> uppercase letters and digits</li>
+                        <li><code>[rndl_N]</code> lowercase letters · <code>[rndu_N]</code> uppercase letters</li>
+                        <li><code>[rnds_N]</code> symbols · <code>[rndlu_N]</code> lowercase and uppercase letters</li>
+                        <li><code>[rndln_N]</code> lowercase letters and digits · <code>[rndun_N]</code> uppercase letters and digits</li>
+                    </ul>
+                    <h4 class="h6">Language random tags</h4>
+                    <ul class="mb-0">
+                        <li><code>[Ingreek_N]</code> Greek · <code>[Ingemojicons_N]</code> / <code>[Ingemoticons_N]</code> emoticons</li>
+                        <li><code>[Ingdevanagari_N]</code> Devanagari · <code>[Ingthai_N]</code> Thai · <code>[Ingarabic_N]</code> Arabic</li>
+                        <li><code>[Inglatin_N]</code> Latin A–Z/a–z · <code>[Ingchinese_N]</code> CJK ideographs</li>
+                        <li><code>[Inghiragana_N]</code> Hiragana · <code>[Ingcyrrilic_N]</code> Cyrillic</li>
+                        <li><code>[Ingarmenian_N]</code> Armenian · <code>[Inggeorgian_N]</code> Georgian</li>
                     </ul>
                 </div><div class="col-md-6">
                     <h4 class="h6">Boundary tags</h4>
-                    <p>The DMS help describes <code>[boundary]</code> and <code>[bnd]</code> as 30 static characters. The captured PHP Text helper receives <code>[boundary]</code> from its caller and defaults <code>[bnd]</code> to an 18-character cached value; the native sender behavior remains unknown.</p>
+                    <p>Replace <code>N</code> with the desired fixed length:</p>
                     <ul class="mb-3">
                         <li><code>[bndn_N]</code> digits (0–9)</li>
                         <li><code>[bnda_N]</code> letters and digits</li>
-                        <li><code>[bndl_N]</code> lowercase letters</li>
-                        <li><code>[bndu_N]</code> uppercase letters</li>
-                        <li><code>[bnds_N]</code> symbols</li>
-                        <li><code>[bndlu_N]</code> lowercase and uppercase letters</li>
-                        <li><code>[bndln_N]</code> lowercase letters and digits</li>
-                        <li><code>[bndun_N]</code> uppercase letters and digits</li>
+                        <li><code>[bndl_N]</code> lowercase letters · <code>[bndu_N]</code> uppercase letters</li>
+                        <li><code>[bnds_N]</code> symbols · <code>[bndlu_N]</code> lowercase and uppercase letters</li>
+                        <li><code>[bndln_N]</code> lowercase letters and digits · <code>[bndun_N]</code> uppercase letters and digits</li>
                     </ul>
                     <h4 class="h6">Placeholders</h4>
                     <p><code>[placeholder1]</code><br><code>[placeholder2]</code><br>Continue with the row number. Values follow the corresponding Placeholders row and its rotation interval.</p>
-                    <h4 class="h6">AlphaLink local helper</h4>
-                    <p><code>[token]</code> is a local Campaign Test / Generate Links token. The captured DMS help documents tracking as <code>#[token]</code>; link expansion by DMS's native sender remains unknown. DMS documents <code>[smtp_name]</code> and <code>[tag]</code>, but the captured PHP Text helper does not define their expansion, so AlphaLink Campaign Test leaves them unresolved.</p>
-                    <p class="mb-0">Approved VMTA behavior: AlphaLink maps <code>[domain]</code>, the Domain field and body URL hosts to the selected pushed VMTA's configured domain. With several selected VMTAs, the field shows the first domain and Campaign Test resolves each server's own VMTA domain. Campaign Test does not require sender-domain DNS verification.</p>
+                    <h4 class="h6">Campaign Test behavior</h4>
+                    <p>The DMS help describes <code>[boundary]</code> and <code>[bnd]</code> as 30 static characters. The inspected DMS PHP helper receives <code>[boundary]</code> from its caller and defaults <code>[bnd]</code> to an 18-character cached value; AlphaLink preserves the inspected helper behavior.</p>
+                    <p>Campaign Test resolves <code>[smtp]</code> and <code>[smtp_name]</code> from a selected SMTP route; they are empty for IP/VMTA routes. <code>[tag]</code> is replaced with an empty value because the DMS native sender's reply-tag source is not available in this test path.</p>
+                    <p>Campaign Test replaces <code>[token]</code> with a test token; the complete DMS native sender's redirect/unsubscribe URL expansion is not available in AlphaLink's current test path. Campaign Test does not require sender-domain DNS verification.</p>
+                    <p class="mb-0">For a selected VMTA, AlphaLink resolves <code>[domain]</code> to its pushed domain and applies that domain to the Domain field and body URL hosts. With multiple selected VMTAs, Campaign Test uses the selected server's own VMTA domain.</p>
                 </div></div>
             </div>
         </dialog>

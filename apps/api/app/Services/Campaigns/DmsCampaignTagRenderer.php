@@ -31,16 +31,18 @@ class DmsCampaignTagRenderer
 
         $boundaryCache ??= [];
         $text = $this->replacePlaceholders($text, $placeholderRows, $rotationIndex);
+        $values['domain_sld'] ??= $this->domainWithoutTld((string) ($values['domain'] ?? ''));
 
         foreach ([
-            'ip', 'rdns', 'domain', 'to', 'name', 'from', 'subject', 'date', 'server',
+            'ip', 'rdns', 'domain', 'domain_sld', 'to', 'name', 'from', 'subject', 'date', 'server',
             'main_domain', 'idi', 'idd', 'ids', 'ide', 'boundary', 'reply', 'negative',
-            'token', 'textarea', 'smtp',
+            'token', 'textarea', 'smtp', 'smtp_name', 'tag',
         ] as $tag) {
             $text = str_ireplace('['.$tag.']', (string) ($values[$tag] ?? ''), $text);
         }
 
         $text = $this->replaceTextChoices($text);
+        $text = $this->replaceLanguageTags($text);
         $text = $this->replaceBoundaryTags($text, $boundaryCache);
         $text = $this->replaceRandomTags($text);
         $text = preg_replace_callback('/\[printable:([^]]*)\]/i', fn (array $match): string => quoted_printable_encode($match[1]), $text) ?? $text;
@@ -51,6 +53,14 @@ class DmsCampaignTagRenderer
         }, $text) ?? $text;
 
         return $text;
+    }
+
+    private function domainWithoutTld(string $domain): string
+    {
+        $domain = trim($domain, ". \t\n\r\0\x0B");
+        $lastDot = strrpos($domain, '.');
+
+        return $lastDot === false ? $domain : substr($domain, 0, $lastDot);
     }
 
     public function campaignTestToken(
@@ -168,6 +178,78 @@ class DmsCampaignTagRenderer
                 default => $match[0],
             };
         }, $text) ?? $text;
+    }
+
+    private function replaceLanguageTags(string $text): string
+    {
+        return preg_replace_callback('/\[(ingreek|ingemojicons|ingemoticons|ingdevanagari|ingthai|ingarabic|inglatin|ingchinese|inghiragana|ingcyrrilic|ingcyrillic|ingarmenian|inggeorgian)_(\d+)\]/i', function (array $match): string {
+            $length = min((int) $match[2], 10000);
+            $alphabet = match (strtolower($match[1])) {
+                'ingreek' => 'ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩαβγδεζηθικλμνξοπρστυφχψω',
+                'ingdevanagari' => 'अआइईउऊऋएऐओऔकखगघचछजझटठडढतथदधनपफबभमयरलवशषसह',
+                'ingthai' => 'กขคฆงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรลวศษสหฬอฮ',
+                'ingarabic' => 'ءابتثجحخدذرزسشصضطظعغفقكلمنهوي',
+                'inglatin' => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
+                'ingchinese' => 'CJK',
+                'inghiragana' => 'HIRAGANA',
+                'ingcyrrilic', 'ingcyrillic' => 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя',
+                'ingarmenian' => 'ԱԲԳԴԵԶԷԸԹԺԻԼԽԾԿՀՁՂՃՄՅՆՇՈՉՊՋՌՍՎՏՐՑՒՓՔՕՖաբգդեզէըթժիլխծկհձղճմյնշոչպջռցւփքօֆ',
+                'inggeorgian' => 'აბგდევზთიკლმნოპჟრსტუფქღყშჩცძწჭხჯჰ',
+                'ingemojicons', 'ingemoticons' => ['😀', '😁', '😂', '😃', '😄', '😅', '😆', '😉', '😊', '😋', '😍', '😘', '😎', '😃', '😜', '😢', '😭', '😡', '😇', '🤔'],
+                default => null,
+            };
+
+            if ($alphabet === null) {
+                return $match[0];
+            }
+
+            if ($alphabet === 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz') {
+                return $this->randomFrom($alphabet, $length);
+            }
+
+            if (strtolower($match[1]) === 'ingchinese') {
+                return $this->randomUnicodeRange(0x4E00, 0x9FFF, $length);
+            }
+
+            if (strtolower($match[1]) === 'inghiragana') {
+                return $this->randomUnicodeRange(0x3041, 0x3096, $length);
+            }
+
+            $characters = is_array($alphabet)
+                ? $alphabet
+                : (preg_split('//u', $alphabet, -1, PREG_SPLIT_NO_EMPTY) ?: []);
+            $result = '';
+            for ($index = 0; $index < $length; $index++) {
+                $result .= $characters[array_rand($characters)];
+            }
+
+            return $result;
+        }, $text) ?? $text;
+    }
+
+    private function randomUnicodeRange(int $minimum, int $maximum, int $length): string
+    {
+        $result = '';
+        for ($index = 0; $index < $length; $index++) {
+            $result .= $this->unicodeCharacter(random_int($minimum, $maximum));
+        }
+
+        return $result;
+    }
+
+    private function unicodeCharacter(int $codepoint): string
+    {
+        if ($codepoint <= 0x7F) {
+            return chr($codepoint);
+        }
+        if ($codepoint <= 0x7FF) {
+            return chr(0xC0 | ($codepoint >> 6)).chr(0x80 | ($codepoint & 0x3F));
+        }
+        if ($codepoint <= 0xFFFF) {
+            return chr(0xE0 | ($codepoint >> 12)).chr(0x80 | (($codepoint >> 6) & 0x3F)).chr(0x80 | ($codepoint & 0x3F));
+        }
+
+        return chr(0xF0 | ($codepoint >> 18)).chr(0x80 | (($codepoint >> 12) & 0x3F)).chr(0x80 | (($codepoint >> 6) & 0x3F)).chr(0x80 | ($codepoint & 0x3F));
     }
 
     private function randomFrom(string $alphabet, int $length): string

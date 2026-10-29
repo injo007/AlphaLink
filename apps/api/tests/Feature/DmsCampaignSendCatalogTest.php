@@ -29,6 +29,7 @@ use App\Models\WorkspaceOfferAsset;
 use App\Models\WorkspaceSponsor;
 use App\Services\Campaigns\DmsCampaignRecipientSnapshotBuilder;
 use App\Services\Campaigns\DmsCampaignSendCatalog;
+use App\Services\Campaigns\DmsCampaignTagRenderer;
 use App\Services\Campaigns\DmsPmtaAdminRestart;
 use App\Services\Campaigns\PmtaCampaignTestTransport;
 use App\Services\Infrastructure\DmsBulkInstallRuntimeInputs;
@@ -67,6 +68,53 @@ class DmsCampaignSendCatalogTest extends TestCase
     {
         config(['alphalink.contact_lookup_key' => $this->originalContactLookupKey]);
         parent::tearDown();
+    }
+
+    public function test_campaign_tag_renderer_resolves_reference_server_tags_and_all_language_families(): void
+    {
+        $renderer = app(DmsCampaignTagRenderer::class);
+        $values = [
+            'domain' => 'mta.example.co.uk',
+            'smtp' => 'smtp-user',
+            'smtp_name' => 'SMTP route',
+            'tag' => 'reply-tag',
+        ];
+        $cache = [];
+
+        $resolved = $renderer->render('[domain]|[domain_sld]|[smtp]|[smtp_name]|[tag]|[base64:hello]|[printable:hello=world]', $values, [], 0, $cache);
+        $parts = explode('|', $resolved);
+        $this->assertSame('mta.example.co.uk', $parts[0]);
+        $this->assertSame('mta.example.co', $parts[1]);
+        $this->assertSame('smtp-user', $parts[2]);
+        $this->assertSame('SMTP route', $parts[3]);
+        $this->assertSame('reply-tag', $parts[4]);
+        $this->assertSame('aGVsbG8', trim($parts[5]));
+        $this->assertSame('hello=3Dworld', $parts[6]);
+        $this->assertContains($renderer->render('[text:first|second]', [], [], 0, $cache), ['first', 'second']);
+
+        $languageTags = [
+            '[Ingreek_4]' => '/\A[\x{0370}-\x{03FF}]{4}\z/u',
+            '[Ingdevanagari_4]' => '/\A[\x{0900}-\x{097F}]{4}\z/u',
+            '[Ingthai_4]' => '/\A[\x{0E00}-\x{0E7F}]{4}\z/u',
+            '[Ingarabic_4]' => '/\A[\x{0600}-\x{06FF}]{4}\z/u',
+            '[Inglatin_4]' => '/\A[A-Za-z]{4}\z/',
+            '[Ingchinese_4]' => '/\A[\x{4E00}-\x{9FFF}]{4}\z/u',
+            '[Inghiragana_4]' => '/\A[\x{3041}-\x{3096}]{4}\z/u',
+            '[Ingcyrrilic_4]' => '/\A[\x{0400}-\x{04FF}]{4}\z/u',
+            '[Ingarmenian_4]' => '/\A[\x{0530}-\x{058F}]{4}\z/u',
+            '[Inggeorgian_4]' => '/\A[\x{10A0}-\x{10FF}]{4}\z/u',
+        ];
+
+        foreach ($languageTags as $tag => $pattern) {
+            $generated = $renderer->render($tag, [], [], 0, $cache);
+            $this->assertSame(1, preg_match($pattern, $generated), $tag.' should produce four valid characters.');
+        }
+
+        $emoticons = $renderer->render('[Ingemojicons_4]|[Ingemoticons_4]', [], [], 0, $cache);
+        foreach (explode('|', $emoticons) as $generated) {
+            $this->assertSame(4, preg_match_all('/./us', $generated));
+            $this->assertSame(1, preg_match('//u', $generated));
+        }
     }
 
     public function test_from_and_subject_rotation_assets_can_be_left_blank(): void
@@ -1856,7 +1904,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->andReturn($transport);
         $this->app->instance(PmtaCampaignTestTransport::class, $factory);
 
-        $body = 'Server=[server]; IP=[ip]; Domain=[domain]; Main=[main_domain]; PTR=[rdns]; To=[to]; Name=[name]; From=[from]; Subject=[subject]; IDs=[ids]/[idi]/[idd]/[ide]; Placeholder=[placeholder1]; Random=[rndn_8]; Boundary=[bnd_30]; Token=[token]';
+        $body = 'Server=[server]; IP=[ip]; Domain=[domain]; SLD=[domain_sld]; Main=[main_domain]; PTR=[rdns]; To=[to]; Name=[name]; From=[from]; Subject=[subject]; IDs=[ids]/[idi]/[idd]/[ide]; Placeholder=[placeholder1]; Random=[rndn_8]; Boundary=[bnd_30]; Token=[token]';
         $response = $this->actingAs($owner)->postJson(route('console.campaigns.manual-test', $workspace->getKey()), [
             'idempotency_key' => (string) Str::uuid(),
             'test_campaign_id' => $campaign->getKey(),
@@ -1890,6 +1938,7 @@ class DmsCampaignSendCatalogTest extends TestCase
         foreach ($sentMessages as $index => $sent) {
             $expectedPlaceholder = $index < 2 ? 'first-value' : 'second-value';
             $this->assertStringContainsString('mta.pending-tags.example.test', $sent['message']);
+            $this->assertStringContainsString('SLD=mta.pending-tags.example', $sent['message']);
             $this->assertStringContainsString('ptr.pending-tags.example.test', $sent['message']);
             $this->assertStringContainsString('203.0.113.90', $sent['message']);
             $this->assertStringContainsString('X-virtual-MTA: mta-203.0.113.90', $sent['message']);
@@ -2816,6 +2865,19 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertSee('[rndln_N]')
             ->assertSee('[rndun_N]')
             ->assertSeeText('[rnd] generates 18 random characters')
+            ->assertSee('[domain_sld]')
+            ->assertSee('[Ingreek_N]')
+            ->assertSee('[Ingemojicons_N]')
+            ->assertSee('[Ingemoticons_N]')
+            ->assertSee('[Ingdevanagari_N]')
+            ->assertSee('[Ingthai_N]')
+            ->assertSee('[Ingarabic_N]')
+            ->assertSee('[Inglatin_N]')
+            ->assertSee('[Ingchinese_N]')
+            ->assertSee('[Inghiragana_N]')
+            ->assertSee('[Ingcyrrilic_N]')
+            ->assertSee('[Ingarmenian_N]')
+            ->assertSee('[Inggeorgian_N]')
             ->assertSee('[bndn_N]')
             ->assertSee('[bnda_N]')
             ->assertSee('[bndl_N]')
@@ -2825,11 +2887,11 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertSee('[bndln_N]')
             ->assertSee('[bndun_N]')
             ->assertSee('[smtp_name]')
-            ->assertSee('smtp name')
-            ->assertSee('tag reply extractor')
+            ->assertSee('SMTP name')
+            ->assertSee('[tag]')
             ->assertSee('30 static characters')
             ->assertSee('18-character cached value')
-            ->assertSee('native sender behavior remains unknown')
+            ->assertSeeText('DMS native sender\'s redirect/unsubscribe URL expansion is not available')
             ->assertSee('#[token]')
             ->assertSee('id="campaign-tags-dialog" data-campaign-dialog-width="1140px"', false)
             ->assertSee("showDialog('campaign-tags-dialog')", false)

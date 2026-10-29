@@ -81,11 +81,25 @@ final class PmtaPanelUrl
             }
         }
 
-        if (is_array($main) && ($main['is_our'] ?? null) === false) {
+        if (is_array($main) && self::isExplicitlyUnowned($main['is_our'] ?? null)) {
             return null;
         }
 
         return is_string($main['domain'] ?? null) ? $main['domain'] : null;
+    }
+
+    private static function isExplicitlyUnowned(mixed $value): bool
+    {
+        if (is_bool($value)) {
+            return ! $value;
+        }
+
+        if (is_int($value) || is_float($value)) {
+            return $value === 0 || $value === 0.0;
+        }
+
+        return is_string($value)
+            && in_array(strtolower(trim($value)), ['0', 'false', 'no', 'n', 'off'], true);
     }
 
     public static function forInstallation(string $ip, ?string $domain, int $port, bool $https): string

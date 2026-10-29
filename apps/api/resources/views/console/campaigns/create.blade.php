@@ -457,7 +457,7 @@
                                 </div>
                                 <small id="send-ips-transfer-help" class="form-text text-muted">Double-click an entry to move it between lists. You can also select entries and use the arrow buttons.</small>
                                 <small class="form-text text-muted">Campaign Save requires at least one selected IP, VMTA, or SMTP route. Test Campaign uses the saved route on this revision.</small>
-                                <small class="form-text text-info" id="send-route-behavior">Campaign Test connects to the server’s PMTA listener. In IP mode, if the content uses <code>[smtp]</code> or <code>[smtp_name]</code>, exactly one active SMTP account must be linked to each selected IP and its route is used for outbound delivery. Without those tags, Campaign Test uses the selected IP route. Choose SMTP to select an exact account directly.</small>
+                                <small class="form-text text-info" id="send-route-behavior">Option IP sends through the selected IP route. <code>[smtp]</code> and <code>[smtp_name]</code> fill message text from one linked account; they do not choose the outbound route. To send through an SMTP relay, choose Option SMTP and select that account. AlphaLink connects to the selected server’s PMTA listener; that server IP is the PMTA ingress, while the selected route controls outbound delivery. Normal campaign sending is not enabled.</small>
                             </div>
                             <div id="campaign-pmta-panels" class="row" aria-live="polite">
                                 @foreach ($sendOptions['servers'] as $server)
@@ -1043,7 +1043,7 @@
                         ? 'Option SMTP selects the outbound relay. <code>[smtp]</code> is its username and <code>[smtp_name]</code> is its label. AlphaLink reaches PMTA through the selected server’s IP and listener; PMTA applies the selected SMTP virtual-MTA route. PMTA acceptance does not confirm mailbox delivery.'
                         : route === 'vmta'
                             ? 'VMTA mode uses the selected virtual MTA for outbound routing. <code>[smtp]</code> and <code>[smtp_name]</code> are empty. AlphaLink submits through the selected server’s PMTA listener.'
-                        : 'Option IP selects a source-IP route. <code>[smtp]</code> and <code>[smtp_name]</code> only fill message text from one linked account; they do not change the route. Choose Option SMTP and select an account to send through its relay. AlphaLink still connects to the selected server’s PMTA listener; normal campaign sending is not enabled.';
+                        : 'Option IP sends through the selected source-IP route. <code>[smtp]</code> and <code>[smtp_name]</code> fill message text from one linked account; they do not change the route. To send through an SMTP relay, choose Option SMTP and select that account. The server IP is the PMTA ingress; the selected route controls outbound delivery. Normal campaign sending is not enabled.';
                 }
                 const moveLabels = {
                     'all-right': `Move all ${routeName} to selected`,

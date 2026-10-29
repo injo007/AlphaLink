@@ -6,10 +6,7 @@
     <div id="offer-suppression-file-manager"
          data-refresh-url="{{ route('console.offers.suppression-file.download', [$workspace->id, $offer->id]) }}"
          data-refresh-status-url-template="{{ route('console.offers.suppression-file.download-status', [$workspace->id, $offer->id, '__DOWNLOAD_ID__']) }}"
-         data-upload-url="{{ route('console.drops.suppression.offer-file', $workspace->id) }}"
-         data-saved-file-url="{{ route('console.drops.suppression.offer-file.download', [$workspace->id, $offer->id]) }}"
-         data-sponsor-id="{{ $offer->sponsor_id }}"
-         data-offer-id="{{ $offer->id }}">
+         data-upload-url="{{ route('console.offers.suppression-file.upload', [$workspace->id, $offer->id]) }}">
         <section class="block block-rounded">
             <div class="block-header">
                 <h3 class="block-title">Suppression File</h3>
@@ -46,7 +43,7 @@
 
                 <div class="d-flex flex-wrap align-items-center mb-3">
                     @if ($hasStoredFile)
-                        <a class="btn btn-sm btn-outline-success mr-2 mb-2" href="{{ route('console.drops.suppression.offer-file.download', [$workspace->id, $offer->id]) }}">DOWNLOAD SAVED FILE</a>
+                        <a class="btn btn-sm btn-outline-success mr-2 mb-2" href="{{ route('console.offers.suppression-file.saved', [$workspace->id, $offer->id]) }}">DOWNLOAD SAVED FILE</a>
                     @endif
                     <button id="offer-suppression-refresh" class="btn btn-sm btn-primary mr-2 mb-2" type="button">REFRESH FROM SPONSOR</button>
                 </div>

@@ -141,8 +141,6 @@
         }
 
         const body = new FormData();
-        body.append('sponsor_id', root.dataset.sponsorId);
-        body.append('offer_id', root.dataset.offerId);
         body.append('suppression_file', file);
         busy = true;
         uploadButton.disabled = true;

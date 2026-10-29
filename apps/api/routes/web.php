@@ -134,10 +134,6 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
         ->whereNumber('suppression')->name('console.drops.suppression.monitor');
     Route::post('/app/workspaces/{workspace}/drops/suppression/start', [WorkspaceDropSuppressionController::class, 'start'])
         ->middleware('throttle:5,1')->name('console.drops.suppression.start');
-    Route::post('/app/workspaces/{workspace}/drops/suppression/offer-file', [WorkspaceDropSuppressionController::class, 'uploadOfferFile'])
-        ->middleware('throttle:5,1')->name('console.drops.suppression.offer-file');
-    Route::get('/app/workspaces/{workspace}/drops/suppression/offers/{offer}/file', [WorkspaceDropSuppressionController::class, 'downloadOfferFile'])
-        ->whereNumber('offer')->name('console.drops.suppression.offer-file.download');
     Route::post('/app/workspaces/{workspace}/drops/suppression/kill', [WorkspaceDropSuppressionController::class, 'kill'])
         ->middleware('throttle:10,1')->name('console.drops.suppression.kill');
     Route::get('/app/workspaces/{workspace}/drops/monitoring', [WorkspaceDropsConsoleController::class, 'monitoring'])->name('console.drops.monitoring');
@@ -188,6 +184,10 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::get('/app/workspaces/{workspace}/offers/{offerId}/edit', [WorkspaceOfferConsoleController::class, 'edit'])->whereNumber('offerId')->name('console.offers.edit');
     Route::post('/app/workspaces/{workspace}/offers/{offerId}/suppression-file/download', [WorkspaceOfferConsoleController::class, 'downloadSuppression'])
         ->whereNumber('offerId')->middleware('throttle:5,1')->name('console.offers.suppression-file.download');
+    Route::post('/app/workspaces/{workspace}/offers/{offerId}/suppression-file/upload', [WorkspaceOfferConsoleController::class, 'uploadSuppressionFile'])
+        ->whereNumber('offerId')->middleware('throttle:5,1')->name('console.offers.suppression-file.upload');
+    Route::get('/app/workspaces/{workspace}/offers/{offerId}/suppression-file/saved', [WorkspaceOfferConsoleController::class, 'downloadSavedSuppressionFile'])
+        ->whereNumber('offerId')->name('console.offers.suppression-file.saved');
     Route::get('/app/workspaces/{workspace}/offers/{offerId}/suppression-file/downloads/{downloadId}', [WorkspaceOfferConsoleController::class, 'suppressionDownloadStatus'])
         ->whereNumber(['offerId', 'downloadId'])->name('console.offers.suppression-file.download-status');
     Route::get('/app/workspaces/{workspace}/offers/{offerId}/users', [WorkspaceOfferConsoleController::class, 'users'])->whereNumber('offerId')->name('console.offers.users');

@@ -7,8 +7,6 @@
     data-catalog-url="{{ route('console.drops.suppression.catalog', $workspace->id) }}"
     data-rows-url="{{ route('console.drops.suppression', $workspace->id) }}"
     data-start-url="{{ route('console.drops.suppression.start', $workspace->id) }}"
-    data-offer-file-url="{{ route('clean.console.drops.suppression.offer-file') }}"
-    data-offer-file-download-url-template="{{ route('console.drops.suppression.offer-file.download', [$workspace->id, '__OFFER_ID__']) }}"
     data-offer-file-manage-url-template="{{ route('console.offers.suppression-file.show', [$workspace->id, '__OFFER_ID__']) }}"
     data-kill-url="{{ route('console.drops.suppression.kill', $workspace->id) }}"
     data-monitor-url-template="{{ route('console.drops.suppression.monitor', [$workspace->id, '__SUPPRESSION_ID__']) }}"
@@ -50,29 +48,12 @@
                     <button id="drops-suppression-start" type="submit" class="btn btn-sm btn-primary">START SUPPRESSION</button>
                 </div>
             </form>
-            <section class="border-top pt-3 mt-3" aria-labelledby="offer-suppression-file-title">
-                <h4 id="offer-suppression-file-title" class="h5 mb-1">Offer suppression file</h4>
-                <p class="text-muted mb-2">Upload or replace the selected offer’s suppression file here. The verified file and freshness date are saved on the offer; suppression runs remain subject to offer eligibility.</p>
-                <div class="alert alert-light border py-2 mb-2 d-flex flex-wrap align-items-center justify-content-between" role="status" aria-live="polite">
-                    <span id="offer-suppression-file-status">Select a sponsor and offer above to view its suppression file.</span>
-                    <a id="offer-suppression-file-download" class="btn btn-sm btn-outline-success ml-md-3 mt-2 mt-md-0" href="#" hidden>DOWNLOAD SAVED FILE</a>
-                    <a id="offer-suppression-file-manage" class="btn btn-sm btn-outline-primary ml-md-2 mt-2 mt-md-0" href="#" hidden>OPEN FILE MANAGER</a>
-                </div>
+            <div class="alert alert-light border py-2 mb-3 d-flex flex-wrap align-items-center justify-content-between" role="status" aria-live="polite">
+                <span id="offer-suppression-file-status">Select an offer to check its saved suppression file.</span>
                 @if ($canManageSuppressionFiles)
-                    <div class="form-row align-items-end">
-                        <div class="form-group col-12 col-md-8">
-                            <label for="offer-suppression-file-input">Suppression file (.txt or .csv; no application size or entry-count cap)</label>
-                            <input id="offer-suppression-file-input" type="file" class="form-control-file" accept=".txt,.csv,text/plain,text/csv" disabled>
-                        </div>
-                        <div class="form-group col-12 col-md-4">
-                            <button id="offer-suppression-file-upload" class="btn btn-sm btn-warning" type="button" disabled>UPLOAD / REPLACE FILE</button>
-                        </div>
-                    </div>
-                    <div id="offer-suppression-file-result" class="alert alert-warning py-2 mb-3" role="status" aria-live="polite" hidden></div>
-                @else
-                    <p class="text-muted mb-3">Only workspace owners and administrators can upload or replace offer suppression files.</p>
+                    <a id="offer-suppression-file-manage" class="btn btn-sm btn-outline-primary ml-md-3 mt-2 mt-md-0" href="#" hidden>OPEN OFFER FILE</a>
                 @endif
-            </section>
+            </div>
             <div id="drops-suppression-message" class="alert alert-warning py-2 mb-3" role="status" aria-live="polite" hidden></div>
             <hr>
             <div class="d-flex flex-wrap align-items-end justify-content-between mb-2">

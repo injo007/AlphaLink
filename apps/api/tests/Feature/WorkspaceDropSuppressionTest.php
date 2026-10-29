@@ -70,11 +70,12 @@ class WorkspaceDropSuppressionTest extends TestCase
             ->assertSee('START SUPPRESSION')
             ->assertSee('drops-suppression-sponsor')
             ->assertSee('drops/suppression/catalog', false)
-            ->assertSee('offer-suppression-file-download')
-            ->assertSee('DOWNLOAD SAVED FILE')
+            ->assertSee('offer-suppression-file-status')
             ->assertSee('offer-suppression-file-manage')
-            ->assertSee('OPEN FILE MANAGER')
+            ->assertSee('OPEN OFFER FILE')
             ->assertSee('data-offer-file-manage-url-template')
+            ->assertDontSee('offer-suppression-file-upload')
+            ->assertDontSee('UPLOAD / REPLACE FILE')
             ->assertSee('drops-suppression.js');
 
         $this->actingAs($owner)->getJson(route('console.drops.suppression', [
@@ -105,7 +106,7 @@ class WorkspaceDropSuppressionTest extends TestCase
         $workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
         [, $offer] = $this->eligibleScope($workspace, $owner);
         $offer->forceFill(['is_active' => false])->save();
-        $url = route('console.drops.suppression.offer-file.download', [$workspace->getKey(), $offer->getKey()]);
+        $url = route('console.offers.suppression-file.saved', [$workspace->getKey(), $offer->getKey()]);
 
         $this->actingAs($owner)->getJson(route('console.drops.suppression.catalog', [
             $workspace->getKey(),
@@ -128,7 +129,7 @@ class WorkspaceDropSuppressionTest extends TestCase
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner, 'owner');
-        [$sponsor, $eligibleOffer] = $this->eligibleScope($workspace, $owner);
+        [$sponsor, $eligibleOffer, $isp] = $this->eligibleScope($workspace, $owner);
         $offerNeedingFile = $eligibleOffer->replicate();
         $offerNeedingFile->forceFill([
             'offer_id' => 'offer-needs-file',
@@ -155,24 +156,28 @@ class WorkspaceDropSuppressionTest extends TestCase
             'has_suppression_file' => true,
             'can_run_suppression' => true,
         ]);
+
+        $this->actingAs($owner)->getJson(route('console.drops.suppression.catalog', [
+            $workspace->getKey(),
+            'sponsor_id' => $sponsor->getKey(),
+            'offer_id' => $offerNeedingFile->getKey(),
+            'isp_ids' => [$isp->getKey()],
+        ]))->assertOk()->assertJsonCount(0, 'lists');
     }
 
-    public function test_offer_file_upload_from_suppression_page_saves_private_file_and_refreshes_offer_metadata(): void
+    public function test_offer_file_upload_from_offer_file_page_saves_private_file_and_refreshes_offer_metadata(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner, 'owner');
         [$sponsor, $offer] = $this->eligibleScope($workspace, $owner, null);
-        $url = route('console.drops.suppression.offer-file', $workspace->getKey());
+        $url = route('console.offers.suppression-file.upload', [$workspace->getKey(), $offer->getKey()]);
 
         $response = $this->actingAs($owner)->post($url, [
-            'sponsor_id' => $sponsor->getKey(),
-            'offer_id' => $offer->getKey(),
             'suppression_file' => UploadedFile::fake()->createWithContent('suppression.csv', "Blocked@example.test\n"),
         ], ['Accept' => 'application/json'])->assertOk()
             ->assertJsonPath('data.message', 'Suppression file uploaded and verified.')
             ->assertJsonPath('data.format', 'email')
             ->assertJsonPath('data.entry_count', 1)
-            ->assertJsonPath('data.can_run_suppression', true)
             ->assertJsonMissingPath('data.path');
 
         $offer->refresh();
@@ -195,12 +200,10 @@ class WorkspaceDropSuppressionTest extends TestCase
         $workspace = $this->workspace($owner, 'owner');
         $workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
         [$sponsor, $offer] = $this->eligibleScope($workspace, $owner, null);
-        $url = route('console.drops.suppression.offer-file', $workspace->getKey());
+        $url = route('console.offers.suppression-file.upload', [$workspace->getKey(), $offer->getKey()]);
         $file = UploadedFile::fake()->createWithContent('suppression.txt', "blocked@example.test\n");
 
         $this->actingAs($operator)->post($url, [
-            'sponsor_id' => $sponsor->getKey(),
-            'offer_id' => $offer->getKey(),
             'suppression_file' => $file,
         ], ['Accept' => 'application/json'])->assertForbidden();
 
@@ -214,15 +217,27 @@ class WorkspaceDropSuppressionTest extends TestCase
             'api_key' => 'other-api-key',
             'type' => 'everflow',
             'allowed_users' => [],
-            'is_active' => true,
+            'is_active' => false,
         ]);
-        $this->actingAs($owner)->post($url, [
+        $otherOffer = $workspace->offers()->create([
             'sponsor_id' => $otherSponsor->getKey(),
-            'offer_id' => $offer->getKey(),
+            'offer_id' => 'inactive-sponsor-offer',
+            'name' => 'Inactive sponsor offer',
+            'type' => 'cpa',
+            'vertical' => 'insurance',
+            'geo_target' => ['US'],
+            'payout' => 1,
+            'redirect' => 'https://offers.example.test/redirect',
+            'allowed_days' => WorkspaceOffer::ALLOWED_DAYS,
+            'status' => 'live',
+            'is_active' => false,
+        ]);
+        $this->actingAs($owner)->post(route('console.offers.suppression-file.upload', [$workspace->getKey(), $otherOffer->getKey()]), [
             'suppression_file' => UploadedFile::fake()->createWithContent('suppression.txt', "blocked@example.test\n"),
         ], ['Accept' => 'application/json'])->assertNotFound();
 
         $this->assertNull($offer->fresh()->suppression_path);
+        $this->assertNull($otherOffer->fresh()->suppression_path);
     }
 
     public function test_start_persists_only_stale_lists_and_processor_writes_offer_list_exclusions_used_by_campaign_snapshots(): void
@@ -236,14 +251,11 @@ class WorkspaceDropSuppressionTest extends TestCase
         $blocked = $this->contact($workspace, $list, 'blocked@example.test');
         $eligible = $this->contact($workspace, $list, 'eligible@example.test');
 
-        $this->actingAs($owner)->post(route('console.drops.suppression.offer-file', $workspace->getKey()), [
-            'sponsor_id' => $sponsor->getKey(),
-            'offer_id' => $offer->getKey(),
+        $this->actingAs($owner)->post(route('console.offers.suppression-file.upload', [$workspace->getKey(), $offer->getKey()]), [
             'suppression_file' => UploadedFile::fake()->createWithContent('suppression.txt', "blocked@example.test\n"),
         ], ['Accept' => 'application/json'])
             ->assertOk()
-            ->assertJsonPath('data.entry_count', 1)
-            ->assertJsonPath('data.can_run_suppression', true);
+            ->assertJsonPath('data.entry_count', 1);
         $offer->refresh();
         $this->assertSame("blocked@example.test\n", Storage::disk('local')->get($offer->suppression_path));
 
@@ -319,7 +331,7 @@ class WorkspaceDropSuppressionTest extends TestCase
             'offer' => $offer->getKey(),
             'isp' => [$isp->getKey()],
             'lists' => [$list->getKey()],
-        ])->assertStatus(400)->assertJsonPath('data', 'Suppression up to date');
+        ])->assertOk()->assertJsonPath('data', 'Suppression up to date')->assertJsonPath('started', false);
         $this->assertSame(1, WorkspaceDropSuppression::query()->count());
     }
 

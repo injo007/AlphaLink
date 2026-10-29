@@ -71,7 +71,7 @@ class DmsOfferManagementTest extends TestCase
         $this->assertDatabaseHas('audit_events', ['action' => 'offer.created', 'subject_id' => (string) $offer->getKey()]);
     }
 
-    public function test_a_new_offer_can_receive_its_suppression_file_from_the_dedicated_drops_page(): void
+    public function test_a_new_offer_can_receive_its_suppression_file_from_its_dedicated_file_page(): void
     {
         $sponsor = $this->createSponsor('Suppression After Create');
         $this->postJson(route('console.offers.store', $this->workspace->getKey()), $this->offerPayload($sponsor))
@@ -80,9 +80,7 @@ class DmsOfferManagementTest extends TestCase
         $this->assertNull($offer->suppression_path);
         $this->assertFalse($offer->is_active);
 
-        $response = $this->post(route('console.drops.suppression.offer-file', $this->workspace->getKey()), [
-            'sponsor_id' => $sponsor->getKey(),
-            'offer_id' => $offer->getKey(),
+        $response = $this->post(route('console.offers.suppression-file.upload', [$this->workspace->getKey(), $offer->getKey()]), [
             'suppression_file' => UploadedFile::fake()->createWithContent('offer-suppression.txt', "blocked@example.test\n"),
         ], ['Accept' => 'application/json'])->assertOk()
             ->assertJsonPath('data.message', 'Suppression file uploaded and verified.')
@@ -581,7 +579,7 @@ class DmsOfferManagementTest extends TestCase
             ->assertSee('OPEN SUPPRESSION RUNS')
             ->assertDontSee('blocked@example.test');
 
-        $this->get(route('console.drops.suppression.offer-file.download', [
+        $this->get(route('console.offers.suppression-file.saved', [
             $this->workspace->getKey(),
             $offer->getKey(),
         ]))->assertOk();
@@ -654,14 +652,13 @@ class DmsOfferManagementTest extends TestCase
     {
         $sponsor = $this->createSponsor('Suppression Upload');
         $offer = $this->createOffer($sponsor);
-        $url = route('console.drops.suppression.offer-file', $this->workspace->getKey());
+        $url = route('console.offers.suppression-file.upload', [$this->workspace->getKey(), $offer->getKey()]);
 
-        $payload = ['sponsor_id' => $sponsor->getKey(), 'offer_id' => $offer->getKey()];
+        $payload = [];
         $this->post($url, $payload + ['suppression_file' => UploadedFile::fake()->createWithContent('suppression.csv', "B@example.test,a@example.test\na@example.test\n")], ['Accept' => 'application/json'])
             ->assertOk()
             ->assertJsonPath('data.format', 'email')
-            ->assertJsonPath('data.entry_count', 2)
-            ->assertJsonPath('data.can_run_suppression', false);
+            ->assertJsonPath('data.entry_count', 2);
 
         $offer->refresh();
         $this->assertTrue(app(DmsOfferSuppressionFile::class)->isEligible($offer));
@@ -680,9 +677,7 @@ class DmsOfferManagementTest extends TestCase
         $offer = $this->createOffer($sponsor);
         $content = "blocked@example.test\n".str_repeat("\n", 10 * 1024 * 1024);
 
-        $this->post(route('console.drops.suppression.offer-file', $this->workspace->getKey()), [
-            'sponsor_id' => $sponsor->getKey(),
-            'offer_id' => $offer->getKey(),
+        $this->post(route('console.offers.suppression-file.upload', [$this->workspace->getKey(), $offer->getKey()]), [
             'suppression_file' => UploadedFile::fake()->createWithContent('large-suppression.txt', $content),
         ], ['Accept' => 'application/json'])
             ->assertOk()
@@ -707,9 +702,7 @@ class DmsOfferManagementTest extends TestCase
         sort($expectedEntries, SORT_STRING);
         $expectedContent = implode("\n", $expectedEntries)."\n";
 
-        $this->post(route('console.drops.suppression.offer-file', $this->workspace->getKey()), [
-            'sponsor_id' => $sponsor->getKey(),
-            'offer_id' => $offer->getKey(),
+        $this->post(route('console.offers.suppression-file.upload', [$this->workspace->getKey(), $offer->getKey()]), [
             'suppression_file' => UploadedFile::fake()->createWithContent('chunked-suppression.txt', $content),
         ], ['Accept' => 'application/json'])
             ->assertOk()
@@ -756,11 +749,9 @@ class DmsOfferManagementTest extends TestCase
         $offer = $this->createOffer($sponsor);
         $this->attachSuppressionFile($offer, "kept@example.test\n");
         $oldPath = $offer->fresh()->suppression_path;
-        $url = route('console.drops.suppression.offer-file', $this->workspace->getKey());
+        $url = route('console.offers.suppression-file.upload', [$this->workspace->getKey(), $offer->getKey()]);
 
         $this->post($url, [
-            'sponsor_id' => $sponsor->getKey(),
-            'offer_id' => $offer->getKey(),
             'suppression_file' => UploadedFile::fake()->createWithContent('mixed.csv', "valid@example.test\nnot-an-email\n"),
         ], ['Accept' => 'application/json'])
             ->assertUnprocessable()->assertJsonValidationErrors('suppression_file');

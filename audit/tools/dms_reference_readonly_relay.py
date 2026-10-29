@@ -68,6 +68,7 @@ GMAIL_PROJECTS_CREATE_PAGE_PATH = "/mailer/gcampaigns/projects/create"
 GMAIL_ACCOUNTS_PAGE_PATH = "/mailer/gcampaigns/accounts"
 GMAIL_ACCOUNTS_CREATE_PAGE_PATH = "/mailer/gcampaigns/accounts/create"
 WORKSPACE_SMTP_PAGE_PATH = "/mailer/tools/workspace"
+DROP_SUPPRESSION_PAGE_PATH = "/mailer/drops/suppression"
 OFFER_SUPPRESSION_PAGE_PATTERN = re.compile(r"/(?:admin/)?offers/\d+/suppression\Z")
 WARMUP_PAGE_PATHS = {
     WARMUPS_INDEX_PAGE_PATH,
@@ -130,6 +131,7 @@ READ_ONLY_PAGE_PATHS = {
     *WARMUP_PAGE_PATHS,
     *GMAIL_WORKSPACE_PAGE_PATHS,
     WORKSPACE_SMTP_PAGE_PATH,
+    DROP_SUPPRESSION_PAGE_PATH,
     OFFERS_INDEX_PAGE_PATH,
     OFFERS_CREATE_PAGE_PATH,
     PAGE_PATH,
@@ -169,8 +171,17 @@ def is_read_only_offer_suppression_page(path: str) -> bool:
     return OFFER_SUPPRESSION_PAGE_PATTERN.fullmatch(path) is not None
 
 
+def is_read_only_drop_suppression_page(path: str) -> bool:
+    """Allow the Drops suppression view while keeping its POST actions blocked."""
+    return path == DROP_SUPPRESSION_PAGE_PATH
+
+
 def is_read_only_page_path(path: str) -> bool:
-    return path in READ_ONLY_PAGE_PATHS or is_read_only_offer_suppression_page(path)
+    return (
+        path in READ_ONLY_PAGE_PATHS
+        or is_read_only_offer_suppression_page(path)
+        or is_read_only_drop_suppression_page(path)
+    )
 
 
 def read_env(path: Path) -> dict[str, str]:
@@ -624,7 +635,6 @@ def sanitize_dms_gmail_workspace_html(body: str, path: str) -> str:
             if parsed.hostname == REFERENCE.hostname and parsed.path.startswith(STATIC_PREFIXES):
                 script_paths.append(parsed.path)
         elif path not in {
-            WORKSPACE_SMTP_PAGE_PATH,
             GMAIL_PROJECTS_CREATE_PAGE_PATH,
             GMAIL_ACCOUNTS_CREATE_PAGE_PATH,
         }:
@@ -646,6 +656,11 @@ def sanitize_dms_gmail_workspace_html(body: str, path: str) -> str:
                 )
                 content = re.sub(
                     r"(?i)(['\"]?(?:id|project[_-]?id|account[_-]?id|user[_-]?id|server[_-]?id|ip[_-]?id|mta[_-]?id)['\"]?\s*[:=]\s*)\d+\b",
+                    r"\1[redacted]",
+                    content,
+                )
+                content = re.sub(
+                    r"(?i)(['\"]?(?:csrf|token|auth|password|secret|credential|api[_-]?key|private[_-]?key|client[_-]?secret|access[_-]?token)['\"]?\s*[:=]\s*)[^,;\n}]+",
                     r"\1[redacted]",
                     content,
                 )
@@ -760,6 +775,115 @@ def sanitize_dms_offer_suppression_html(body: str, path: str) -> str:
     inert_script_refs = "".join(
         f'<template data-reference-script-path="{html.escape(script_path, quote=True)}"></template>'
         for script_path in dict.fromkeys(script_paths)
+    )
+    return body.replace("</body>", inert_script_refs + "</body>") if "</body>" in body else body + inert_script_refs
+
+
+def sanitize_dms_drop_suppression_html(body: str, path: str) -> str:
+    """Keep the Drops suppression view inert while redacting all live records."""
+    if not is_read_only_drop_suppression_page(path):
+        raise ValueError("DMS Drops suppression response did not match the read-only route")
+    title = re.search(r"<title\b[^>]*>(?P<title>.*?)</title\s*>", body, re.IGNORECASE | re.DOTALL)
+    if title is None or not re.search(r"suppression", html.unescape(title.group("title")), re.IGNORECASE):
+        raise ValueError("DMS Drops suppression response did not contain the expected page")
+
+    script_paths: list[str] = []
+    inline_scripts: list[str] = []
+
+    def remove_script(match: re.Match[str]) -> str:
+        opening_tag = match.group(0).split(">", 1)[0]
+        src = re.search(r"\bsrc=['\"]([^'\"]+)['\"]", opening_tag, re.IGNORECASE)
+        if src:
+            parsed = urlparse(urljoin(f"{REFERENCE_ORIGIN}{path}", html.unescape(src.group(1))))
+            if parsed.hostname == REFERENCE.hostname and parsed.path.startswith(STATIC_PREFIXES):
+                script_paths.append(parsed.path)
+        else:
+            script_type = re.search(r"\btype=['\"]([^'\"]+)['\"]", opening_tag, re.IGNORECASE)
+            if script_type is None or re.search(r"(?:java|ecma)script", script_type.group(1), re.IGNORECASE):
+                closing_start = match.group(0).lower().rfind("</script")
+                content = match.group(0)[match.group(0).find(">") + 1:closing_start] if closing_start >= 0 else ""
+                content = re.sub(r"/\*.*?\*/|<!--.*?-->", "", content, flags=re.DOTALL)
+                content = re.sub(r"(?m)(?<!:)//[^\r\n]*$", "", content)
+                content = re.sub(
+                    r"(?i)(['\"]?(?:csrf|token|auth|password|secret|credential|api[_-]?key|private[_-]?key|client[_-]?secret|access[_-]?token)['\"]?\s*[:=]\s*)(['\"]).*?\2",
+                    r"\1'[redacted]'",
+                    content,
+                )
+                content = re.sub(
+                    r"(?i)(['\"]?(?:id|offer[_-]?id|sponsor[_-]?id|isp[_-]?id|list[_-]?id|suppression[_-]?id|user[_-]?id|email|username)['\"]?\s*[:=]\s*)(['\"]).*?\2",
+                    r"\1'[redacted]'",
+                    content,
+                )
+                content = re.sub(
+                    r"(?i)(['\"]?(?:id|offer[_-]?id|sponsor[_-]?id|isp[_-]?id|list[_-]?id|suppression[_-]?id|user[_-]?id)['\"]?\s*[:=]\s*)\d+\b",
+                    r"\1[redacted]",
+                    content,
+                )
+                content = re.sub(
+                    r"(?i)(['\"]?(?:csrf|token|auth|password|secret|credential|api[_-]?key|private[_-]?key|client[_-]?secret|access[_-]?token)['\"]?\s*[:=]\s*)[^,;\n}]+",
+                    r"\1[redacted]",
+                    content,
+                )
+                content = re.sub(
+                    r"(?i)([?&](?:access[_-]?token|token|secret|signature|api[_-]?key|auth)=)[^&'\"\s]+",
+                    r"\1[redacted]",
+                    content,
+                )
+                content = re.sub(r"/mailer/drops/suppression/\d+", "/mailer/drops/suppression/[redacted]", content)
+                content = redact_ipv6_literals(content)
+                content = re.sub(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", "[redacted-email]", content, flags=re.IGNORECASE)
+                content = re.sub(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", "[redacted-ip]", content)
+                if content.strip():
+                    inline_scripts.append(content)
+        return ""
+
+    body = re.sub(r"<script\b[^>]*>.*?</script\s*>", remove_script, body, flags=re.IGNORECASE | re.DOTALL)
+    body = re.sub(r"<script\b[^>]*/\s*>", remove_script, body, flags=re.IGNORECASE | re.DOTALL)
+    body = re.sub(r"<meta\b(?=[^>]*\bname=['\"]csrf-[^'\"]+['\"])[^>]*>", "", body, flags=re.IGNORECASE | re.DOTALL)
+    body = re.sub(r"<textarea\b(?P<attrs>[^>]*)>.*?</textarea\s*>", r"<textarea\g<attrs>></textarea>", body, flags=re.IGNORECASE | re.DOTALL)
+    body = re.sub(
+        r"<select\b(?P<attrs>[^>]*)>.*?</select\s*>",
+        r"<select\g<attrs>><option disabled selected>Values withheld</option></select>",
+        body,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    body = re.sub(r"<tbody\b(?P<attrs>[^>]*)>.*?</tbody\s*>", r"<tbody\g<attrs>></tbody>", body, flags=re.IGNORECASE | re.DOTALL)
+    body = re.sub(
+        r"<input\b[^>]*>",
+        lambda match: "" if re.search(r"\btype=['\"]hidden['\"]", match.group(0), re.IGNORECASE)
+        else re.sub(r"\s+value\s*=\s*(['\"]).*?\1", "", match.group(0), flags=re.IGNORECASE | re.DOTALL),
+        body,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+
+    def inert_form(match: re.Match[str]) -> str:
+        safe_attributes = []
+        for name in ("id", "class"):
+            attribute = re.search(rf"\b{name}=['\"]([^'\"]*)['\"]", match.group("attrs"), re.IGNORECASE)
+            if attribute:
+                safe_attributes.append(f' {name}="{html.escape(attribute.group(1), quote=True)}"')
+        return "<div" + "".join(safe_attributes) + ">"
+
+    body = re.sub(r"<form\b(?P<attrs>[^>]*)>", inert_form, body, flags=re.IGNORECASE | re.DOTALL)
+    body = re.sub(r"</form\s*>", "</div>", body, flags=re.IGNORECASE)
+    body = re.sub(r"\s+(?:action|on[a-z]+|data-[\w:-]+)\s*=\s*(['\"]).*?\1", "", body, flags=re.IGNORECASE | re.DOTALL)
+    body = re.sub(r"(href\s*=\s*(['\"]).*?)\?.*?\2", r"\1\2", body, flags=re.IGNORECASE | re.DOTALL)
+    body = remove_element_by_id(body, "page-header-user-dropdown")
+    body = re.sub(r"/mailer/drops/suppression/[^\s\"'<>]+", "/mailer/drops/suppression/[redacted]", body, flags=re.IGNORECASE)
+    body = re.sub(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b", "[redacted-id]", body, flags=re.IGNORECASE)
+    body = redact_ipv6_literals(body)
+    body = re.sub(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", "[redacted-email]", body, flags=re.IGNORECASE)
+    body = re.sub(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", "[redacted-ip]", body)
+    body = re.sub(r"(?:[A-Za-z]:\\|/)(?:[^\s<>\"']+[\\/])+[^\s<>\"']+\.(?:txt|csv|zip)\b", "[redacted-file]", body, flags=re.IGNORECASE)
+    body = re.sub(r"(?<=>)([^<]*?)https?://[^\s<>\"']+", r"\1[redacted-url]", body, flags=re.IGNORECASE)
+
+    inert_script_refs = "".join(
+        f'<template data-reference-script-path="{html.escape(script_path, quote=True)}"></template>'
+        for script_path in dict.fromkeys(script_paths)
+    )
+    inert_script_refs += "".join(
+        f'<template data-reference-inline-script="{index}">{html.escape(script)}</template>'
+        for index, script in enumerate(inline_scripts, start=1)
     )
     return body.replace("</body>", inert_script_refs + "</body>") if "</body>" in body else body + inert_script_refs
 
@@ -1366,6 +1490,8 @@ def rewrite_document(body: str, mime: str, upstream_url: str, empty_bulk_rows: b
             body = sanitize_dms_gmail_workspace_html(body, WORKSPACE_SMTP_PAGE_PATH)
         if is_read_only_offer_suppression_page(urlparse(upstream_url).path):
             body = sanitize_dms_offer_suppression_html(body, urlparse(upstream_url).path)
+        if is_read_only_drop_suppression_page(urlparse(upstream_url).path):
+            body = sanitize_dms_drop_suppression_html(body, urlparse(upstream_url).path)
         body = re.sub(
             r"<base\b[^>]*>|<meta\b(?=[^>]*http-equiv=['\"]?refresh)[^>]*>",
             "",
@@ -1524,6 +1650,7 @@ class ReadOnlyDmsHandler(BaseHTTPRequestHandler):
                 and path not in SPF_PAGE_PATHS
                 and path not in {GMAIL_PROJECTS_CREATE_PAGE_PATH, GMAIL_ACCOUNTS_CREATE_PAGE_PATH}
                 and not is_read_only_offer_suppression_page(path)
+                and path != DROP_SUPPRESSION_PAGE_PATH
             ):
                 upstream += "?" + parsed.query
         else:

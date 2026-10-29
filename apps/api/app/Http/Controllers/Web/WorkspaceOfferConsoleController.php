@@ -28,6 +28,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class WorkspaceOfferConsoleController extends Controller
 {
@@ -76,6 +77,67 @@ class WorkspaceOfferConsoleController extends Controller
             'savedFileEntryCount' => $savedDownload?->entry_count,
             'canManageSuppressionFiles' => in_array($workspace->pivot->role, self::MANAGE_ROLES, true),
         ]);
+    }
+
+    public function uploadSuppressionFile(Request $request, string $workspaceId, int $offerId, DmsOfferSuppressionFile $suppressionFiles): JsonResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspaceId, self::MANAGE_ROLES);
+        $offer = $workspace->offers()
+            ->whereKey($offerId)
+            ->whereHas('sponsor', fn (Builder $query) => $query->where('is_active', true)->whereNull('deleted_at'))
+            ->firstOrFail();
+        $data = $request->validate([
+            'suppression_file' => ['required', 'file', 'mimes:txt,csv'],
+        ]);
+
+        $stored = $suppressionFiles->store($workspace, $offer, $data['suppression_file']);
+        $offer->forceFill([
+            'suppression_path' => $stored['path'],
+            'suppression_sha256' => $stored['sha256'],
+            'suppression_format' => $stored['format'],
+            'suppression_updated_at' => now()->toDateString(),
+        ])->save();
+
+        AuditEvent::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'actor_user_id' => $request->user()->getKey(),
+            'action' => 'offer.suppression_uploaded',
+            'subject_type' => WorkspaceOffer::class,
+            'subject_id' => (string) $offer->getKey(),
+            'request_id' => $request->attributes->get('request_id'),
+            'properties' => [
+                'sha256' => $stored['sha256'],
+                'format' => $stored['format'],
+                'entry_count' => $stored['count'],
+                'source' => 'offer_suppression_file_page',
+            ],
+            'occurred_at' => now(),
+        ]);
+
+        return response()->json(['data' => [
+            'message' => 'Suppression file uploaded and verified.',
+            'offer_id' => (int) $offer->getKey(),
+            'format' => $stored['format'],
+            'entry_count' => $stored['count'],
+            'updated_at' => $offer->fresh()->suppression_updated_at?->toDateString(),
+        ]]);
+    }
+
+    public function downloadSavedSuppressionFile(Request $request, string $workspaceId, int $offerId, DmsOfferSuppressionFile $suppressionFiles): BinaryFileResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspaceId, self::MANAGE_ROLES);
+        $offer = $workspace->offers()->whereKey($offerId)->firstOrFail();
+        abort_unless($suppressionFiles->hasStoredFile($workspace, $offer), 404);
+
+        $response = response()->download(
+            Storage::disk('local')->path((string) $offer->suppression_path),
+            'suppression-offer-'.$offer->getKey().'.txt',
+            ['X-Content-Type-Options' => 'nosniff'],
+        );
+        $response->setPrivate();
+        $response->headers->set('Cache-Control', 'private, no-store');
+
+        return $response;
     }
 
     public function downloadSuppression(Request $request, string $workspaceId, int $offerId): JsonResponse

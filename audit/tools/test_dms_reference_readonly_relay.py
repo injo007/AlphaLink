@@ -23,6 +23,7 @@ SPF_SCANNER_PAGE_PATH,
     GMAIL_ACCOUNTS_CREATE_PAGE_PATH,
     GMAIL_WORKSPACE_PAGE_PATHS,
     WORKSPACE_SMTP_PAGE_PATH,
+    DROP_SUPPRESSION_PAGE_PATH,
     TEXT_MECHANIC_PAGE_PATH,
     WARMUPS_INDEX_PAGE_PATH,
     WARMUPS_CREATE_PAGE_PATH,
@@ -63,6 +64,7 @@ SPF_SCANNER_PAGE_PATH,
     sanitize_dms_gmail_workspace_html,
     sanitize_dms_offer_suppression_html,
     is_read_only_offer_suppression_page,
+    sanitize_dms_drop_suppression_html,
     is_protected_spf_data_request,
     sanitize_dms_spf_html,
     synthetic_empty_spf_response,
@@ -79,6 +81,46 @@ SPF_SCANNER_PAGE_PATH,
 
 
 class ReferenceListPrivacyTests(unittest.TestCase):
+    def test_drops_suppression_page_is_read_only_and_sanitized(self):
+        self.assertIn(DROP_SUPPRESSION_PAGE_PATH, READ_ONLY_PAGE_PATHS)
+        self.assertTrue(is_read_only_page_path(DROP_SUPPRESSION_PAGE_PATH))
+        self.assertFalse(is_read_only_page_path(DROP_SUPPRESSION_PAGE_PATH + "/monitor/123"))
+        self.assertFalse(is_read_only_page_path(DROP_SUPPRESSION_PAGE_PATH + "/run"))
+
+        source = (
+            '<html><head><title>Drops Suppression</title>'
+            '<meta name="csrf-token" content="private-csrf"></head><body>'
+            '<nav id="page-header-user-dropdown">private operator@example.test</nav>'
+            '<h1>SUPPRESSION</h1><label>Sponsor</label>'
+            '<form id="suppression-form" class="row" method="post" action="/mailer/drops/suppression/run" onsubmit="privateRun()">'
+            '<input type="hidden" name="_token" value="private-csrf">'
+            '<select id="offer"><option value="private-offer-id">private-offer@example.test</option></select>'
+            '<textarea>/var/lib/private/suppression.csv</textarea>'
+            '<button type="submit">RUN SUPPRESSION</button></form>'
+            '<table><thead><tr><th>Offer</th><th>Found</th></tr></thead>'
+            '<tbody><tr><td>private-offer@example.test</td><td>282339</td></tr></tbody></table>'
+            '<script>const token="private-csrf"; const offer_id=12345; startSuppression("/mailer/drops/start-suppression"); const email="private@example.test";</script>'
+            '<script src="/assets/drops-suppression.js?v=private-query"></script></body></html>'
+        )
+
+        result = rewrite_document(source, "text/html", f"{REFERENCE_ORIGIN}{DROP_SUPPRESSION_PAGE_PATH}")
+
+        for private_value in (
+            "private-csrf", "private operator@example.test", "private-offer-id",
+            "private-offer@example.test", "/var/lib/private/suppression.csv", "282339",
+            "private-csrf", "private-query", "/run", "12345", "private@example.test",
+        ):
+            self.assertNotIn(private_value, result)
+        self.assertIn("SUPPRESSION", result)
+        self.assertIn("RUN SUPPRESSION", result)
+        self.assertIn('id="offer"', result)
+        self.assertNotRegex(result, r"<script\b|<form\b")
+        self.assertIn('<template data-reference-script-path="/assets/drops-suppression.js"></template>', result)
+        self.assertIn('data-reference-inline-script="1"', result)
+        self.assertIn("startSuppression", result)
+        with self.assertRaises(ValueError):
+            sanitize_dms_drop_suppression_html("<main>Unexpected response</main>", DROP_SUPPRESSION_PAGE_PATH)
+
     def test_workspace_smtp_page_is_allowlisted_and_sanitized_without_live_values_or_scripts(self):
         self.assertIn(WORKSPACE_SMTP_PAGE_PATH, READ_ONLY_PAGE_PATHS)
         source = (
@@ -93,7 +135,7 @@ class ReferenceListPrivacyTests(unittest.TestCase):
             '<button id="push">PUSH</button><button id="reset">RESET</button></form>'
             '<table><thead><tr><th>SERVER</th><th>RESULT</th></tr></thead>'
             '<tbody><tr><td>server-private-id</td><td>Workspace Pushed Successfully</td></tr></tbody></table>'
-            '<script>const server_id="server-private-id"; const email="private-account@example.test"; privatePush();</script>'
+            '<script>const server_id="server-private-id"; const api_key="private-workspace-secret"; const email="private-account@example.test"; function privatePush(){ fetch("/mailer/tools/workspace/push", {method:"POST"}); }</script>'
             '<script src="/assets/workspace.js?v=private-query"></script></body></html>'
         )
 
@@ -102,7 +144,7 @@ class ReferenceListPrivacyTests(unittest.TestCase):
         for private_value in (
             "private-csrf", "private operator@example.test", "server-private-id", "203.0.113.24",
             "private-project@example.test", "Workspace Pushed Successfully", "private-account@example.test",
-            "privatePush", "private-query",
+            "private-workspace-secret", "private-query",
         ):
             self.assertNotIn(private_value, result)
         self.assertIn("PUSH WORKSPACE ACCOUNTS", result)
@@ -113,6 +155,9 @@ class ReferenceListPrivacyTests(unittest.TestCase):
         self.assertIn('id="reset"', result)
         self.assertNotRegex(result, r"<script\b")
         self.assertIn('<template data-reference-script-path="/assets/workspace.js"></template>', result)
+        self.assertIn('data-reference-inline-script="1"', result)
+        self.assertIn("/mailer/tools/workspace/push", result)
+        self.assertIn("privatePush", result)
 
     def test_offer_suppression_page_read_only_path_and_sanitizer_reject_action_routes(self):
         path = "/admin/offers/123456/suppression"

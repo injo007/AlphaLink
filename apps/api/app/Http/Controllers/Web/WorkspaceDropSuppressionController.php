@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Jobs\ProcessWorkspaceDropSuppression;
 use App\Models\AudienceList;
-use App\Models\AuditEvent;
 use App\Models\Isp;
 use App\Models\User;
 use App\Models\Workspace;
@@ -17,10 +16,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class WorkspaceDropSuppressionController extends Controller
 {
@@ -61,7 +58,9 @@ class WorkspaceDropSuppressionController extends Controller
         if ($sponsorId > 0) {
             $offers = $this->catalogOffers($workspace, $request->user(), $sponsorId)->get();
             $isps = $this->isps($workspace, $request->user(), $sponsorId)->get();
-            if ($ispIds !== []) {
+            $selectedOfferIsEligible = $offerId > 0
+                && $this->eligibleOffers($workspace, $request->user(), $sponsorId)->whereKey($offerId)->exists();
+            if ($selectedOfferIsEligible && $ispIds !== []) {
                 $lists = $this->lists($workspace, $request->user(), $sponsorId, $ispIds)->get()
                     ->map(function (AudienceList $list): array {
                         return [
@@ -101,75 +100,6 @@ class WorkspaceDropSuppressionController extends Controller
             ])->values(),
             'lists' => $lists,
         ]);
-    }
-
-    public function uploadOfferFile(Request $request, string $workspace, DmsOfferSuppressionFile $suppressionFiles): JsonResponse
-    {
-        $workspace = $this->workspaceFor($request->user(), $workspace);
-        abort_unless(in_array($workspace->pivot->role, self::FILE_MANAGEMENT_ROLES, true), 403);
-
-        $data = $request->validate([
-            'sponsor_id' => ['required', 'integer', 'min:1'],
-            'offer_id' => ['required', 'integer', 'min:1'],
-            'suppression_file' => ['required', 'file', 'mimes:txt,csv'],
-        ]);
-        $sponsor = $workspace->sponsors()->where('is_active', true)->whereKey($data['sponsor_id'])->firstOrFail();
-        $offer = $workspace->offers()->whereKey($data['offer_id'])->where('sponsor_id', $sponsor->getKey())->firstOrFail();
-        $stored = $suppressionFiles->store($workspace, $offer, $data['suppression_file']);
-        $offer->forceFill([
-            'suppression_path' => $stored['path'],
-            'suppression_sha256' => $stored['sha256'],
-            'suppression_format' => $stored['format'],
-            'suppression_updated_at' => now()->toDateString(),
-        ])->save();
-
-        AuditEvent::query()->create([
-            'workspace_id' => $workspace->getKey(),
-            'actor_user_id' => $request->user()->getKey(),
-            'action' => 'offer.suppression_uploaded',
-            'subject_type' => WorkspaceOffer::class,
-            'subject_id' => (string) $offer->getKey(),
-            'request_id' => $request->attributes->get('request_id'),
-            'properties' => [
-                'sha256' => $stored['sha256'],
-                'format' => $stored['format'],
-                'entry_count' => $stored['count'],
-                'source' => 'drops_suppression',
-            ],
-            'occurred_at' => now(),
-        ]);
-
-        $canRunSuppression = $this->eligibleOffers($workspace, $request->user(), (int) $sponsor->getKey())
-            ->whereKey($offer->getKey())->exists();
-
-        return response()->json(['data' => [
-            'message' => 'Suppression file uploaded and verified.',
-            'offer_id' => (int) $offer->getKey(),
-            'format' => $stored['format'],
-            'entry_count' => $stored['count'],
-            'updated_at' => $offer->fresh()->suppression_updated_at?->toDateString(),
-            'can_run_suppression' => $canRunSuppression,
-        ]]);
-    }
-
-    public function downloadOfferFile(Request $request, string $workspace, int $offer, DmsOfferSuppressionFile $suppressionFiles): BinaryFileResponse
-    {
-        $workspace = $this->workspaceFor($request->user(), $workspace);
-        abort_unless(in_array($workspace->pivot->role, self::FILE_MANAGEMENT_ROLES, true), 403);
-
-        $selectedOffer = $workspace->offers()->whereKey($offer)->firstOrFail();
-        $path = (string) $selectedOffer->suppression_path;
-        $disk = Storage::disk('local');
-
-        abort_unless($suppressionFiles->hasStoredFile($workspace, $selectedOffer), 404);
-
-        $response = response()->download($disk->path($path), 'suppression-offer-'.$selectedOffer->getKey().'.txt', [
-            'X-Content-Type-Options' => 'nosniff',
-        ]);
-        $response->setPrivate();
-        $response->headers->set('Cache-Control', 'private, no-store');
-
-        return $response;
     }
 
     public function start(Request $request, string $workspace): JsonResponse
@@ -213,7 +143,7 @@ class WorkspaceDropSuppressionController extends Controller
         })->map(fn (AudienceList $list): string => (string) $list->getKey())->values()->all();
 
         if ($missingListIds === []) {
-            return response()->json(['data' => 'Suppression up to date'], 400);
+            return response()->json(['data' => 'Suppression up to date', 'started' => false]);
         }
 
         $run = WorkspaceDropSuppression::query()->create([

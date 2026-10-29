@@ -14,19 +14,16 @@
     const dateFrom = document.getElementById('drops-suppression-from');
     const dateTo = document.getElementById('drops-suppression-to');
     const startButton = document.getElementById('drops-suppression-start');
-    const fileInput = document.getElementById('offer-suppression-file-input');
-    const fileUploadButton = document.getElementById('offer-suppression-file-upload');
     const fileStatus = document.getElementById('offer-suppression-file-status');
-    const fileDownloadLink = document.getElementById('offer-suppression-file-download');
     const fileManagerLink = document.getElementById('offer-suppression-file-manage');
-    const fileResult = document.getElementById('offer-suppression-file-result');
     const canManageFiles = root.dataset.canManageFiles === '1';
     const initialSponsorId = root.dataset.initialSponsorId;
     const initialOfferId = root.dataset.initialOfferId;
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
     let table;
     let initialOfferPending = Boolean(initialSponsorId && initialOfferId);
-    let uploadingFile = false;
+    let sponsorRequest = 0;
+    let listsRequest = 0;
     const monitored = new Set();
 
     const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -111,36 +108,19 @@
     const updateFileState = () => {
         const selected = selectedOfferOption();
         if (!selected?.value) {
-            fileStatus.textContent = 'Select a sponsor and offer above to view its suppression file.';
-            fileDownloadLink.hidden = true;
-            fileDownloadLink.removeAttribute('href');
+            fileStatus.textContent = 'Select an offer to check its saved suppression file.';
             if (fileManagerLink) {
                 fileManagerLink.hidden = true;
                 fileManagerLink.removeAttribute('href');
             }
-            if (fileInput) fileInput.disabled = true;
-            if (fileUploadButton) fileUploadButton.disabled = true;
             updateStartButton();
             return;
         }
 
         const hasFile = selected.dataset.hasFile === 'true';
-        fileStatus.parentElement.className = `alert ${hasFile ? 'alert-success' : 'alert-warning'} py-2 mb-2 d-flex flex-wrap align-items-center justify-content-between`;
-        const fileSummary = hasFile
-            ? `Saved ${String(selected.dataset.format || 'unknown').toUpperCase()} suppression file is attached to this offer · last updated ${selected.dataset.updatedAt || 'date unavailable'}.`
-            : 'No suppression file uploaded';
-        const runSummary = selected.dataset.canRun === 'true'
-            ? 'This offer is ready for a suppression run once ISPs and lists are selected.'
-            : 'Not ready to run yet. Check file freshness, live/active status, redirect, vertical, geo target, and today’s allowed day in Offers.';
-        fileStatus.textContent = `${fileSummary}. ${runSummary}`;
-        const downloadTemplate = root.dataset.offerFileDownloadUrlTemplate;
-        const canDownload = hasFile && canManageFiles && Boolean(downloadTemplate);
-        fileDownloadLink.hidden = !canDownload;
-        if (canDownload) {
-            fileDownloadLink.href = downloadTemplate.replace('__OFFER_ID__', encodeURIComponent(selected.value));
-        } else {
-            fileDownloadLink.removeAttribute('href');
-        }
+        fileStatus.textContent = hasFile
+            ? `Offer suppression file: ${String(selected.dataset.format || 'verified').toUpperCase()} · updated ${selected.dataset.updatedAt || 'date unavailable'}.`
+            : 'This offer has no saved suppression file.';
         const manageTemplate = root.dataset.offerFileManageUrlTemplate;
         const canManage = canManageFiles && Boolean(manageTemplate);
         if (fileManagerLink) {
@@ -151,14 +131,7 @@
                 fileManagerLink.removeAttribute('href');
             }
         }
-        if (fileInput) fileInput.disabled = !canManageFiles;
-        if (fileUploadButton) fileUploadButton.disabled = !canManageFiles || uploadingFile || !fileInput?.files.length;
         updateStartButton();
-    };
-
-    const clearFileSelection = () => {
-        if (fileInput) fileInput.value = '';
-        if (fileResult) fileResult.hidden = true;
     };
 
     const offerLabel = (item) => {
@@ -168,33 +141,42 @@
     };
 
     const loadLists = async () => {
+        const requestId = ++listsRequest;
+        const sponsorId = sponsor.value;
+        const offerId = offer.value;
         const selectedIsps = selectedValues(isps);
         setOptions(lists, [], 'Select Lists', true);
-        if (!sponsor.value || selectedIsps.length === 0) {
+        if (!sponsorId || !offerId || selectedOfferOption()?.dataset.canRun !== 'true' || selectedIsps.length === 0) {
             updateStartButton();
             return;
         }
         try {
-            const data = await requestJson(catalogUrl({ sponsor_id: sponsor.value, offer_id: offer.value, isp_ids: selectedIsps }));
+            const data = await requestJson(catalogUrl({ sponsor_id: sponsorId, offer_id: offerId, isp_ids: selectedIsps }));
+            if (requestId !== listsRequest || sponsor.value !== sponsorId || offer.value !== offerId
+                || JSON.stringify(selectedValues(isps)) !== JSON.stringify(selectedIsps)) return;
             const options = (data.lists || []).map((item) => ({ id: item.id, label: `(${item.id}) - ${item.name} - (count: ${item.total})` }));
             setOptions(lists, options, 'Select Lists', true);
         } catch (error) {
-            showError(error);
+            if (requestId === listsRequest) showError(error);
         } finally {
-            updateStartButton();
+            if (requestId === listsRequest) updateStartButton();
         }
     };
 
     const loadSponsorOptions = async () => {
+        const requestId = ++sponsorRequest;
+        const sponsorId = sponsor.value;
+        listsRequest += 1;
         setOptions(offer, [], 'Select Offer');
         setOptions(isps, [], 'Select ISPs', true);
         setOptions(lists, [], 'Select Lists', true);
-        if (!sponsor.value) {
-            updateFileState();
+        updateFileState();
+        if (!sponsorId) {
             return;
         }
         try {
-            const data = await requestJson(catalogUrl({ sponsor_id: sponsor.value }));
+            const data = await requestJson(catalogUrl({ sponsor_id: sponsorId }));
+            if (requestId !== sponsorRequest || sponsor.value !== sponsorId) return;
             const offerOptions = (data.offers || []).map((item) => ({
                 id: item.id,
                 label: offerLabel(item),
@@ -219,9 +201,9 @@
             }
             updateFileState();
         } catch (error) {
-            showError(error);
+            if (requestId === sponsorRequest) showError(error);
         } finally {
-            updateStartButton();
+            if (requestId === sponsorRequest) updateStartButton();
         }
     };
 
@@ -286,73 +268,15 @@
     };
 
     sponsor.addEventListener('change', () => {
-        clearFileSelection();
         void loadSponsorOptions();
     });
-    isps.addEventListener('change', loadLists);
+    isps.addEventListener('change', () => void loadLists());
     lists.addEventListener('change', updateStartButton);
     offer.addEventListener('change', () => {
-        clearFileSelection();
+        listsRequest += 1;
+        setOptions(lists, [], 'Select Lists', true);
         updateFileState();
         void loadLists();
-    });
-    fileInput?.addEventListener('change', updateFileState);
-    fileUploadButton?.addEventListener('click', async () => {
-        const selected = selectedOfferOption();
-        const file = fileInput.files[0];
-        if (!sponsor.value || !selected?.value || !file) {
-            fileResult.textContent = 'Select a sponsor, offer, and suppression file first.';
-            fileResult.className = 'alert alert-warning py-2 mb-3';
-            fileResult.hidden = false;
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('sponsor_id', sponsor.value);
-        formData.append('offer_id', selected.value);
-        formData.append('suppression_file', file);
-        uploadingFile = true;
-        updateFileState();
-        fileResult.hidden = true;
-        try {
-            const response = await fetch(root.dataset.offerFileUrl, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: { Accept: 'application/json', 'X-CSRF-TOKEN': csrf },
-                body: formData,
-            });
-            const payload = await response.json().catch(() => ({}));
-            if (!response.ok) throw payload;
-
-            const result = payload.data;
-            selected.dataset.hasFile = 'true';
-            selected.dataset.format = result.format;
-            selected.dataset.updatedAt = result.updated_at;
-            selected.dataset.canRun = String(result.can_run_suppression);
-            selected.textContent = offerLabel({
-                offer_id: selected.dataset.offerId,
-                name: selected.dataset.name,
-                vertical: selected.dataset.vertical,
-                payout: selected.dataset.payout,
-                is_active: selected.dataset.active === 'true',
-                has_suppression_file: true,
-                can_run_suppression: result.can_run_suppression,
-            });
-            fileInput.value = '';
-            refreshPicker(offer);
-            fileResult.textContent = `${result.message} ${Number(result.entry_count).toLocaleString()} ${String(result.format).toUpperCase()} entries · updated ${result.updated_at}.`;
-            fileResult.className = 'alert alert-success py-2 mb-3';
-            fileResult.hidden = false;
-            updateFileState();
-        } catch (error) {
-            const firstValidation = error?.errors ? Object.values(error.errors).flat()[0] : null;
-            fileResult.textContent = firstValidation || error?.message || 'The suppression file could not be uploaded.';
-            fileResult.className = 'alert alert-danger py-2 mb-3';
-            fileResult.hidden = false;
-        } finally {
-            uploadingFile = false;
-            updateFileState();
-        }
     });
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -373,9 +297,13 @@
                     lists: selectedValues(lists),
                 }),
             });
-            toast(result.data || 'Process Started', 'success');
-            table?.ajax.reload(null, false);
-            if (result.id) monitor(result.id);
+            if (result.started === false) {
+                toast('Suppression is up to date for all selected lists.', 'info');
+            } else {
+                toast(result.data || 'Process Started', 'success');
+                table?.ajax.reload(null, false);
+                if (result.id) monitor(result.id);
+            }
         } catch (error) {
             showError(error);
         } finally {

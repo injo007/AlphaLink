@@ -61,7 +61,12 @@ class DmsCentos9HttpsDeploymentStage
         array $productionIps,
         bool $allowAllMonitor,
         array $pmtaRelayIps,
+        bool $directMonitor = false,
     ): bool {
+        if ($directMonitor) {
+            return false;
+        }
+
         if ($tlsDomain === null) {
             $this->activatePmtaMonitorConfiguration(
                 $commands,

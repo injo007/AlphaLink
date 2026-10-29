@@ -131,6 +131,45 @@ class DmsCentos9HttpsDeploymentStageTest extends TestCase
         $this->assertCount(1, $commands->commands);
     }
 
+    public function test_ip_fallback_leaves_the_public_port_to_pmta_instead_of_adding_an_nginx_proxy(): void
+    {
+        $commands = $this->commands();
+        $files = new class implements DmsInstallerRemoteFileTransport
+        {
+            /** @var list<string> */
+            public array $uploads = [];
+
+            public function upload(string $contents, string $destination): bool
+            {
+                $this->uploads[] = $contents;
+
+                return true;
+            }
+
+            public function uploadFile(string $localPath, string $destination): bool
+            {
+                return false;
+            }
+        };
+
+        $httpsEnabled = (new DmsCentos9HttpsDeploymentStage)->configurePmtaMonitor(
+            $commands,
+            $files,
+            null,
+            45,
+            1213,
+            ['192.0.2.10'],
+            [],
+            false,
+            ['198.51.100.44'],
+            true,
+        );
+
+        $this->assertFalse($httpsEnabled);
+        $this->assertSame([], $commands->commands);
+        $this->assertSame([], $files->uploads);
+    }
+
     public function test_tls_proxy_failure_falls_back_to_validated_ip_http_proxy(): void
     {
         $commands = new class implements DmsInstallerRemoteCommandTransport

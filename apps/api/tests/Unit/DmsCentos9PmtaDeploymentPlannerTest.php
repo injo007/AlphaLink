@@ -98,6 +98,61 @@ class DmsCentos9PmtaDeploymentPlannerTest extends TestCase
         $this->assertStringContainsString('listen 8080;', $nginx);
     }
 
+    public function test_ip_fallback_binds_pmta_directly_to_the_public_port_without_nginx(): void
+    {
+        $source = "<source __IP__>\n    always-allow-relaying yes\n</source>\n";
+        foreach ([40, 45, 50] as $version) {
+            $plan = $this->planner()->plan(
+                $version,
+                true,
+                true,
+                2525,
+                1213,
+                ['192.0.2.10'],
+                ['198.51.100.20'],
+                true,
+                $source,
+                ['198.51.100.44'],
+                true,
+            );
+            $commands = $this->commands($plan['operations']);
+
+            $this->assertContains("sed -i 's/__PMTA_ADMIN_PORT__/1213/g' /etc/pmta/settings/config;", $commands);
+            $this->assertContains(
+                "echo -e 'http-access 127.0.0.1 admin\nhttp-access 192.0.2.10 admin\nhttp-access 198.51.100.44 admin\nhttp-access 198.51.100.20 monitor\nhttp-access 0/0 monitor\n' > /etc/pmta/settings/access;",
+                $commands,
+            );
+            $this->assertContains('systemctl disable --now nginx 2>/dev/null || true;', $commands);
+            $this->assertNotContains('dnf install -y nginx', $commands);
+            $this->assertNotContains('install/nginx_config', array_column($plan['operations'], 'source'));
+            $this->assertStringNotContainsString('2426', implode("\n", $commands));
+        }
+    }
+
+    public function test_restricted_ip_fallback_does_not_grant_a_public_monitor_rule(): void
+    {
+        $plan = $this->planner()->plan(
+            45,
+            true,
+            true,
+            2525,
+            1213,
+            ['192.0.2.10'],
+            ['198.51.100.20'],
+            false,
+            "source __IP__\n",
+            ['198.51.100.44'],
+            true,
+        );
+        $commands = $this->commands($plan['operations']);
+
+        $this->assertContains(
+            "echo -e 'http-access 127.0.0.1 admin\nhttp-access 192.0.2.10 admin\nhttp-access 198.51.100.44 admin\nhttp-access 198.51.100.20 monitor\n' > /etc/pmta/settings/access;",
+            $commands,
+        );
+        $this->assertStringNotContainsString('http-access 0/0 monitor', implode("\n", $commands));
+    }
+
     public function test_pmta_relay_source_ips_authorize_alpha_link_for_smtp_and_admin_without_public_monitor_access(): void
     {
         $source = "<source __IP__>\n    always-allow-relaying yes\n</source>\n";

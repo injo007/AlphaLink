@@ -23,6 +23,7 @@ class DmsCentos9FirewallPlanner
         array $rdpIps,
         bool $allowAllMonitor = false,
         array $pmtaRelayIps = [],
+        bool $directMonitor = false,
     ): array {
         if (! $applyFirewall) {
             return array_map(
@@ -49,9 +50,11 @@ class DmsCentos9FirewallPlanner
             'firewall-cmd --permanent --zone=dev --add-port=993/tcp;',
             "firewall-cmd --permanent --zone=dev --add-port={$pmtaPort}/tcp;",
             "firewall-cmd --permanent --zone=dev --add-port={$pmtaAdminPort}/tcp;",
-            'firewall-cmd --permanent --zone=dev --add-port='.($pmtaAdminPort * 2).'/tcp;',
             "firewall-cmd --permanent --zone=dev --add-port={$proxyPort}/tcp;",
         ];
+        if (! $directMonitor) {
+            $commands[] = 'firewall-cmd --permanent --zone=dev --add-port='.($pmtaAdminPort * 2).'/tcp;';
+        }
 
         if ($allowAllMonitor) {
             $commands[] = "firewall-cmd --permanent --zone=public --add-port={$pmtaAdminPort}/tcp;";

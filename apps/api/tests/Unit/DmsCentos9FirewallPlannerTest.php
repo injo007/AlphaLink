@@ -54,8 +54,8 @@ class DmsCentos9FirewallPlannerTest extends TestCase
             'firewall-cmd --permanent --zone=dev --add-port=993/tcp;',
             'firewall-cmd --permanent --zone=dev --add-port=2525/tcp;',
             'firewall-cmd --permanent --zone=dev --add-port=8080/tcp;',
-            'firewall-cmd --permanent --zone=dev --add-port=16160/tcp;',
             'firewall-cmd --permanent --zone=dev --add-port=3128/tcp;',
+            'firewall-cmd --permanent --zone=dev --add-port=16160/tcp;',
             'firewall-cmd --permanent --zone=dev --add-source=192.0.2.10;',
             'firewall-cmd --permanent --zone=dev --add-source=2001:db8::10;',
             'firewall-cmd --permanent --new-zone=production;',
@@ -87,6 +87,28 @@ class DmsCentos9FirewallPlannerTest extends TestCase
         $commandList = array_column($commands, 'command');
         $this->assertContains('firewall-cmd --permanent --zone=public --add-port=1213/tcp;', $commandList);
         $this->assertNotContains('firewall-cmd --permanent --zone=public --add-port=2426/tcp;', $commandList);
+    }
+
+    public function test_direct_ip_monitor_opens_only_the_shared_pmta_port(): void
+    {
+        $commands = array_column((new DmsCentos9FirewallPlanner)->plan(
+            true,
+            22,
+            2525,
+            1213,
+            3128,
+            ['192.0.2.10'],
+            [],
+            [],
+            false,
+            ['198.51.100.44'],
+            true,
+        ), 'command');
+
+        $this->assertContains('firewall-cmd --permanent --zone=dev --add-port=1213/tcp;', $commands);
+        $this->assertContains('firewall-cmd --permanent --zone=pmta-admin --add-port=1213/tcp;', $commands);
+        $this->assertNotContains('firewall-cmd --permanent --zone=dev --add-port=2426/tcp;', $commands);
+        $this->assertNotContains('firewall-cmd --permanent --zone=pmta-admin --add-port=2426/tcp;', $commands);
     }
 
     public function test_alpha_link_relay_ip_gets_only_the_pmta_admin_port_in_a_dedicated_zone(): void

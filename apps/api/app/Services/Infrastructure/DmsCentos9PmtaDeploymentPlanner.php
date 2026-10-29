@@ -26,6 +26,7 @@ class DmsCentos9PmtaDeploymentPlanner
         bool $allowAllMonitor,
         string $pmtaSource,
         array $pmtaRelayIps = [],
+        bool $directMonitor = false,
     ): array {
         if (! in_array($version, [40, 45, 50], true)) {
             throw new InvalidArgumentException('DMS CentOS 9 PMTA planner supports versions 40, 45, and 50.');
@@ -58,6 +59,7 @@ class DmsCentos9PmtaDeploymentPlanner
                 $allowAllMonitor,
                 $pmtaSource,
                 $pmtaRelayIps,
+                $directMonitor,
             ));
         }
 
@@ -85,14 +87,14 @@ class DmsCentos9PmtaDeploymentPlanner
         bool $allowAllMonitor,
         string $pmtaSource,
         array $pmtaRelayIps,
+        bool $directMonitor,
     ): array {
         $versionDirectory = "install/pmta_{$version}";
         $patchName = $version === 40 ? 'pmtahttp_patch' : 'pmtad_patch';
         $patchTarget = $version === 40 ? '/usr/sbin/pmtahttpd' : '/usr/sbin/pmtad';
-        // Every PMTA version now listens on the backend port. Nginx owns the
-        // configured admin port so the same access policy and optional TLS
-        // termination apply to 4.0, 4.5, and 5.0.
-        $httpPort = $adminPort * 2;
+        // A verified provider domain uses an Nginx TLS proxy on the configured
+        // port. Without one, PMTA listens directly on that port over HTTP.
+        $httpPort = $directMonitor ? $adminPort : $adminPort * 2;
         $operations = [];
 
         if ($version === 40) {
@@ -115,7 +117,15 @@ class DmsCentos9PmtaDeploymentPlanner
             $operations[] = $this->command($command);
         }
 
-        $access = $this->accessContent($version, $developmentIps, $productionIps, $allowAllMonitor, $pmtaSource, $pmtaRelayIps);
+        $access = $this->accessContent(
+            $version,
+            $developmentIps,
+            $productionIps,
+            $allowAllMonitor,
+            $pmtaSource,
+            $pmtaRelayIps,
+            $directMonitor,
+        );
         $operations[] = $this->command("echo -e '{$access['allowed']}' > /etc/pmta/settings/access;");
         $operations[] = $this->command("echo -e '{$access['source']}' >> /etc/pmta/settings/access;");
         $operations[] = $this->asset("{$versionDirectory}/pmta_domains", '/etc/pmta/conf/domains');
@@ -144,15 +154,20 @@ class DmsCentos9PmtaDeploymentPlanner
         $operations[] = $this->command('rm -rf /etc/pmta/license');
         $operations[] = $this->asset("{$versionDirectory}/pmta.lic", '/etc/pmta/license');
 
-        array_push($operations, ...$this->reverseProxyOperations(
-            $version,
-            $httpPort,
-            $adminPort,
-            $developmentIps,
-            $productionIps,
-            $allowAllMonitor,
-            $pmtaRelayIps,
-        ));
+        if ($directMonitor) {
+            $operations[] = $this->command('systemctl disable --now nginx 2>/dev/null || true;');
+            $operations[] = $this->command('rm -rf /etc/nginx/conf.d/*; rm -rf /etc/nginx/default.d/*;');
+        } else {
+            array_push($operations, ...$this->reverseProxyOperations(
+                $version,
+                $httpPort,
+                $adminPort,
+                $developmentIps,
+                $productionIps,
+                $allowAllMonitor,
+                $pmtaRelayIps,
+            ));
+        }
 
         return $operations;
     }
@@ -169,13 +184,13 @@ class DmsCentos9PmtaDeploymentPlanner
         bool $allowAllMonitor,
         string $pmtaSource,
         array $pmtaRelayIps,
+        bool $directMonitor,
     ): array {
         $allowed = '';
         $source = '';
 
-        // Every public monitor/admin request is proxied through Nginx. PMTA
-        // therefore trusts only its local proxy; Nginx applies the public and
-        // AlphaLink egress allowlists before forwarding requests.
+        // With an Nginx proxy, PMTA trusts only its local proxy. IP fallback
+        // applies the same allowlists directly in PMTA's access policy.
         $allowed .= "http-access 127.0.0.1 admin\n";
 
         foreach (array_values(array_unique([...$developmentIps, ...$pmtaRelayIps])) as $ip) {
@@ -184,6 +199,20 @@ class DmsCentos9PmtaDeploymentPlanner
 
         // Public monitor access is controlled by Nginx. The backend listener
         // is firewalled from the Internet and only trusts the local proxy.
+        if ($directMonitor) {
+            foreach (array_values(array_unique($developmentIps)) as $ip) {
+                $allowed .= "http-access {$ip} admin\n";
+            }
+            foreach (array_values(array_unique($pmtaRelayIps)) as $ip) {
+                $allowed .= "http-access {$ip} admin\n";
+            }
+            foreach (array_values(array_unique($productionIps)) as $ip) {
+                $allowed .= "http-access {$ip} monitor\n";
+            }
+            if ($allowAllMonitor) {
+                $allowed .= "http-access 0/0 monitor\n";
+            }
+        }
 
         return ['allowed' => $allowed, 'source' => $source];
     }

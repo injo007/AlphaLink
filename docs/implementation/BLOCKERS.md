@@ -512,3 +512,5 @@ The selected monitor iframe now uses the verified canonical HTTPS panel directly
 ### E-INST-89 — optional DNS during server installation
 
 Install start no longer queries Cloudflare to require exactly one exact domain zone. Fresh Install and Reinstall record a clear skip when DNS provider lookup/update fails and continue server configuration. Change Domain keeps a strict error boundary. The synthetic Single/Bulk/reinstall and DNS-stage regression suites pass **75 / 502 assertions**. Live server/provider behavior and production deployment remain unverified.
+
+17. **Provider-backed and IP-fallback PMTA modes:** E-INST-92 replaces the failing no-provider Nginx upstream with direct PMTA HTTP on the configured public port, while provider-backed domains retain Nginx TLS on that same port. Both routes have synthetic tests, but no live server install/reinstall has verified the real PMTA listener, firewall path, or campaign-server persistence. Keep TESTING until the deployed release passes a controlled run.

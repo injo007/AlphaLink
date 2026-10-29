@@ -34,6 +34,7 @@ class DmsCentos9PmtaDeploymentStage
         array $options,
         ?string $pmtaDomainsOverride = null,
         array $pmtaRelayIps = [],
+        bool $directMonitor = false,
     ): void {
         $readiness = $this->deploymentGate->evaluate($hostFacts, $version, $options);
         if (($readiness['installation_authorized'] ?? false) !== true) {
@@ -69,6 +70,7 @@ class DmsCentos9PmtaDeploymentStage
             $allowAllMonitor,
             $pmtaSource,
             $pmtaRelayIps,
+            $directMonitor,
         );
 
         // Snapshot and validate every upload before the first remote command.

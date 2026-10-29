@@ -165,6 +165,7 @@ class DmsCentos9ReinstallWorkflow
         }
 
         $monitorDomain = $mainDomainProviderReady ? (string) $mainDomain->name : null;
+        $directPmtaMonitor = $options['pmta'] && ! $mainDomainProviderReady;
         if (! $mainDomainProviderReady && $deploymentDomain !== null) {
             $log(sprintf(
                 'DNS provider setup did not complete for %s; switching PMTA monitor access to public IP %s.',
@@ -190,6 +191,7 @@ class DmsCentos9ReinstallWorkflow
                 $this->componentOptions($options),
                 $inputs['assets']['pmta_domains_override'] ?? null,
                 $inputs['settings']['pmta_relay_ips'],
+                $directPmtaMonitor,
             );
             $log('End Setting PMTA');
 
@@ -257,12 +259,14 @@ class DmsCentos9ReinstallWorkflow
                     $inputs['settings']['production_ips'],
                     $inputs['settings']['allow_all_monitor'],
                     $inputs['settings']['pmta_relay_ips'],
+                    $directPmtaMonitor,
                 );
                 if (! $pmtaMonitorHttps) {
                     $log(sprintf(
-                        'PMTA monitor HTTPS is unavailable; using the public IP HTTP endpoint http://%s:%d/.',
+                        'PMTA monitor HTTPS is unavailable; using the public IP HTTP endpoint http://%s:%d%s.',
                         $server->ip_address,
                         $inputs['settings']['pmta_admin_port'],
+                        $directPmtaMonitor ? ' directly from PMTA' : ' through Nginx',
                     ));
                 }
             }
@@ -293,6 +297,7 @@ class DmsCentos9ReinstallWorkflow
             $inputs['settings']['rdp_ips'],
             $inputs['settings']['allow_all_monitor'],
             $inputs['settings']['pmta_relay_ips'] ?? [],
+            $directPmtaMonitor,
         );
         $log('End Setting Firewall');
 
@@ -303,6 +308,7 @@ class DmsCentos9ReinstallWorkflow
                 $inputs['settings'],
                 $pmtaMonitorHttps,
                 $monitorDomain,
+                $directPmtaMonitor,
             ));
             if ($readiness !== 'ALPHALINK_PMTA_READY') {
                 $diagnostics = is_string($readiness) && str_starts_with($readiness, 'ALPHALINK_PMTA_NOT_READY:')
@@ -348,9 +354,14 @@ class DmsCentos9ReinstallWorkflow
     }
 
     /** @param array<string, mixed> $settings */
-    private function pmtaReadinessCommand(int $version, array $settings, bool $https = false, ?string $domain = null): string
-    {
-        return (new DmsPmtaPostInstallReadiness)->command($version, $settings, $https, $domain);
+    private function pmtaReadinessCommand(
+        int $version,
+        array $settings,
+        bool $https = false,
+        ?string $domain = null,
+        bool $directMonitor = false,
+    ): string {
+        return (new DmsPmtaPostInstallReadiness)->command($version, $settings, $https, $domain, $directMonitor);
     }
 
     /** @param list<array<string, mixed>> $rows @return list<string> */

@@ -80,7 +80,7 @@ class DmsCentos9InstallWorkflowTest extends TestCase
             'Setup VMTAS', 'End Setting VMTAS',
             'Setup HTTPS for PMTA Web Monitor', 'End Setting HTTPS for PMTA Web Monitor',
             'Config Firewall', 'End Setting Firewall',
-            'PMTA WEB MONITOR LINK (HTTPS; public port 8080; backend-only PMTA HTTP listener 16160): >>> <a target="_blank" href="https://example.test:8080/">example.test:8080</a>',
+            'PMTA WEB MONITOR LINK (HTTPS; public port 8080; PMTA HTTP listener 16160): >>> <a target="_blank" href="https://example.test:8080/">example.test:8080</a>',
             'Ended Disconnecting',
         ], $logs);
         $this->assertSame("hostnamectl set-hostname 'example.test'", $session->commands[0]);
@@ -92,7 +92,7 @@ class DmsCentos9InstallWorkflowTest extends TestCase
         $this->assertStringContainsString('http-access 127.0.0.1 admin', $healthCommand);
         $this->assertStringContainsString('<source 198.51.100.44>', $healthCommand);
         $this->assertStringNotContainsString('http-access 198.51.100.44 admin', $healthCommand);
-        $this->assertStringNotContainsString('http-access 0/0 admin', $healthCommand);
+        $this->assertStringContainsString('! grep -Fqx "http-access 0/0 admin"', $healthCommand);
         $this->assertStringContainsString('listen 8080 ssl;', $healthCommand);
     }
 
@@ -135,13 +135,13 @@ class DmsCentos9InstallWorkflowTest extends TestCase
         $this->assertStringContainsString('location = /command {', $healthCommand);
         $this->assertStringContainsString('allow 198.51.100.44;', $healthCommand);
         $this->assertStringContainsString('# ALPHALINK_PMTA_MONITOR_ACCESS_PUBLIC', $healthCommand);
-        $this->assertStringContainsString('http-access 0/0 monitor', $healthCommand);
+        $this->assertStringContainsString('! grep -Fqx "http-access 0/0 admin"', $healthCommand);
         $this->assertStringContainsString('proxy_pass http://127.0.0.1:2426;', $healthCommand);
         $this->assertStringContainsString("'http://127.0.0.1:2426/'", $healthCommand);
         $this->assertStringContainsString("'https://example.test:1213/'", $healthCommand);
         $this->assertStringContainsString('listen 1213 ssl;', $healthCommand);
         $this->assertSame(
-            'PMTA WEB MONITOR LINK (HTTPS; public port 1213; backend-only PMTA HTTP listener 2426): >>> <a target="_blank" href="https://example.test:1213/">example.test:1213</a>',
+            'PMTA WEB MONITOR LINK (HTTPS; public port 1213; PMTA HTTP listener 2426): >>> <a target="_blank" href="https://example.test:1213/">example.test:1213</a>',
             $logs[count($logs) - 2],
         );
     }
@@ -173,7 +173,7 @@ class DmsCentos9InstallWorkflowTest extends TestCase
         $this->assertIsString($healthCommand);
         $this->assertStringContainsString('listen 1213 ssl;', $healthCommand);
         $this->assertContains(
-            'PMTA WEB MONITOR LINK (HTTPS; public port 1213; backend-only PMTA HTTP listener 2426): >>> <a target="_blank" href="https://example.test:1213/">example.test:1213</a>',
+            'PMTA WEB MONITOR LINK (HTTPS; public port 1213; PMTA HTTP listener 2426): >>> <a target="_blank" href="https://example.test:1213/">example.test:1213</a>',
             $logs,
         );
     }
@@ -182,7 +182,9 @@ class DmsCentos9InstallWorkflowTest extends TestCase
     {
         [$workflow, $gate, $pmta, $completion] = $this->workflow();
         $gate->method('evaluate')->willReturn(['installation_authorized' => true]);
-        $pmta->expects($this->once())->method('run');
+        $pmta->expects($this->once())->method('run')->willReturnCallback(function (...$arguments): void {
+            $this->assertTrue($arguments[12]);
+        });
         $completion->expects($this->once())
             ->method('finalize')
             ->willReturnCallback(function (...$arguments): array {
@@ -196,17 +198,15 @@ class DmsCentos9InstallWorkflowTest extends TestCase
 
         $this->runWorkflow($workflow, $session, $logs, providerAvailable: false);
 
-        $configuration = $session->uploads['/etc/nginx/conf.d/default.conf.alphalink-tls-stage'];
-        $this->assertStringContainsString('listen 8080;', $configuration);
-        $this->assertStringContainsString('server_name _;', $configuration);
-        $this->assertStringNotContainsString('listen 8080 ssl;', $configuration);
+        $this->assertArrayNotHasKey('/etc/nginx/conf.d/default.conf.alphalink-tls-stage', $session->uploads);
         $this->assertContains(
-            'PMTA WEB MONITOR LINK (HTTP via public IP; public port 8080; backend-only PMTA HTTP listener 16160): >>> <a target="_blank" href="http://8.8.8.8:8080/">8.8.8.8:8080</a>',
+            'PMTA WEB MONITOR LINK (HTTP direct via public IP; public port 8080; PMTA HTTP listener 8080): >>> <a target="_blank" href="http://8.8.8.8:8080/">8.8.8.8:8080</a>',
             $logs,
         );
         $healthCommand = end($session->commands);
-        $this->assertStringContainsString("'http://127.0.0.1:16160/'", $healthCommand);
         $this->assertStringContainsString("'http://127.0.0.1:8080/'", $healthCommand);
+        $this->assertStringNotContainsString('16160', $healthCommand);
+        $this->assertStringNotContainsString('nginx-service', $healthCommand);
         $this->assertStringNotContainsString('certbot --apache', implode("\n", $session->commands));
         $this->assertStringNotContainsString("grep -Fq 'listen 8080 ssl;' /etc/nginx/conf.d/default.conf", end($session->commands));
     }

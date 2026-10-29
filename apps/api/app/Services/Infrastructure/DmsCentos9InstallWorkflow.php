@@ -205,6 +205,7 @@ class DmsCentos9InstallWorkflow
                 $server->ip_address,
             ));
         }
+        $directPmtaMonitor = ! $primaryDomainReady;
 
         $log('Setup PMTA '.$pmtaVersion);
         $this->pmta->run(
@@ -214,6 +215,7 @@ class DmsCentos9InstallWorkflow
             $settings['allow_all_monitor'], $options,
             $assets['pmta_domains_override'] ?? null,
             $settings['pmta_relay_ips'],
+            $directPmtaMonitor,
         );
         $log('End Setting PMTA');
 
@@ -252,12 +254,14 @@ class DmsCentos9InstallWorkflow
             $settings['production_ips'],
             $settings['allow_all_monitor'],
             $settings['pmta_relay_ips'],
+            $directPmtaMonitor,
         );
         if (! $pmtaMonitorHttps) {
             $log(sprintf(
-                'PMTA monitor HTTPS is unavailable; using the public IP HTTP endpoint http://%s:%d/.',
+                'PMTA monitor HTTPS is unavailable; using the public IP HTTP endpoint http://%s:%d%s.',
                 $server->ip_address,
                 $settings['pmta_admin_port'],
+                $directPmtaMonitor ? ' directly from PMTA' : ' through Nginx',
             ));
         }
         $log('End Setting HTTPS for PMTA Web Monitor');
@@ -268,6 +272,7 @@ class DmsCentos9InstallWorkflow
             $settings['pmta_port'], $settings['pmta_admin_port'], $settings['proxy_port'],
             $settings['dev_ips'], $settings['production_ips'], $settings['rdp_ips'], $settings['allow_all_monitor'],
             $settings['pmta_relay_ips'],
+            $directPmtaMonitor,
         );
         $log('End Setting Firewall');
 
@@ -279,6 +284,7 @@ class DmsCentos9InstallWorkflow
             $settings,
             $pmtaMonitorHttps,
             $monitorDomain,
+            $directPmtaMonitor,
         ));
         if ($health !== 'ALPHALINK_PMTA_READY') {
             $diagnostics = is_string($health) && str_starts_with($health, 'ALPHALINK_PMTA_NOT_READY:')
@@ -295,7 +301,7 @@ class DmsCentos9InstallWorkflow
             $this->completion->finalize($workspace, $server, $primaryDomain, $ips, $pmtaVersion, $completedOptions, $selectedDomains, $pmtaMonitorHttps);
         }
         $publicPort = $settings['pmta_admin_port'];
-        $pmtaHttpPort = $publicPort * 2;
+        $pmtaHttpPort = $directPmtaMonitor ? $publicPort : $publicPort * 2;
         $adminUrl = PmtaPanelUrl::forInstallation(
             (string) $server->ip_address,
             $monitorDomain,
@@ -303,8 +309,8 @@ class DmsCentos9InstallWorkflow
             $pmtaMonitorHttps,
         );
         $log(sprintf(
-            'PMTA WEB MONITOR LINK (%s; public port %d; backend-only PMTA HTTP listener %d): >>> <a target="_blank" href="%s">%s</a>',
-            $pmtaMonitorHttps ? 'HTTPS' : 'HTTP via public IP',
+            'PMTA WEB MONITOR LINK (%s; public port %d; PMTA HTTP listener %d): >>> <a target="_blank" href="%s">%s</a>',
+            $pmtaMonitorHttps ? 'HTTPS' : ($directPmtaMonitor ? 'HTTP direct via public IP' : 'HTTP via public IP'),
             $publicPort,
             $pmtaHttpPort,
             $adminUrl,
@@ -398,8 +404,13 @@ class DmsCentos9InstallWorkflow
     }
 
     /** @param array<string, mixed> $settings */
-    private function pmtaReadinessCommand(int $version, array $settings, bool $https = false, ?string $domain = null): string
-    {
-        return (new DmsPmtaPostInstallReadiness)->command($version, $settings, $https, $domain);
+    private function pmtaReadinessCommand(
+        int $version,
+        array $settings,
+        bool $https = false,
+        ?string $domain = null,
+        bool $directMonitor = false,
+    ): string {
+        return (new DmsPmtaPostInstallReadiness)->command($version, $settings, $https, $domain, $directMonitor);
     }
 }

@@ -375,25 +375,37 @@ class DmsWorkspaceToolTest extends TestCase
         $uploadedConfiguration = null;
         $executedCommands = [];
         $expectedAssets = [
-            '/usr/sbin/workspace_relay' => $assetDirectory.'/workspace_relay',
-            '/etc/workspace_relay/config.json' => $assetDirectory.'/config.json',
-            '/etc/systemd/system/workspace_relay.service' => $assetDirectory.'/workspace_relay.service',
+            $assetDirectory.'/workspace_relay',
+            $assetDirectory.'/config.json',
+            $assetDirectory.'/workspace_relay.service',
         ];
         $session = Mockery::mock(DmsInstallerSshSession::class);
         $session->shouldReceive('exec')->andReturnUsing(function (string $command) use (&$executedCommands): string {
             $executedCommands[] = $command;
-            if (str_starts_with($command, 'systemctl list-unit-files')) {
-                return 'n';
+            foreach ([
+                '__WORKSPACE_DIRS_READY__',
+                '__WORKSPACE_ACCOUNT_READY__',
+                '__WORKSPACE_RELAY_READY__',
+                '__WORKSPACE_CONFIG_APPENDED__',
+            ] as $marker) {
+                if (str_contains($command, $marker)) {
+                    return $marker;
+                }
             }
             if ($command === 'pmta reload') {
                 return 'reloaded';
+            }
+
+            if (str_contains($command, 'test -f')) {
+                return 'no';
             }
 
             return '';
         });
         $session->shouldReceive('uploadFile')->times(3)->andReturnUsing(function (string $source, string $destination) use ($expectedAssets): bool {
             $this->assertFileExists($source);
-            $this->assertSame($expectedAssets[$destination] ?? null, $source);
+            $this->assertContains($source, $expectedAssets);
+            $this->assertMatchesRegularExpression('/^\/(?:usr\/sbin|etc\/workspace_relay|etc\/systemd\/system)\/\.?(?:workspace_relay|config|account)-[0-9a-f-]+\.new$/', $destination);
 
             return true;
         });
@@ -412,13 +424,84 @@ class DmsWorkspaceToolTest extends TestCase
             'ips' => [$ip->id], 'projects' => [$project->id], 'split_on_ips' => false,
         ])->assertOk()->assertJsonPath('data.0.data', 'Workspace Pushed Successfully');
 
-        $this->assertContains('chmod +x /usr/sbin/workspace_relay && chown root:root /usr/sbin/workspace_relay', $executedCommands);
+        $relayActivation = collect($executedCommands)->first(fn (string $command): bool => str_contains($command, 'systemctl restart workspace_relay.service'));
+        $this->assertNotNull($relayActivation);
+        $this->assertStringContainsString('systemctl is-active --quiet workspace_relay.service', $relayActivation);
+        $this->assertStringContainsString('ss -H -ltn sport = :1028', $relayActivation);
+        $this->assertStringNotContainsString('kill -9', implode("\n", $executedCommands));
         $this->assertNotNull($uploadedConfiguration);
         $this->assertStringContainsString('smtp-source-ip '.$ip->ip, $uploadedConfiguration);
         $this->assertStringContainsString('auth-username active@example.test', $uploadedConfiguration);
         $this->assertStringNotContainsString('inactive@example.test', $uploadedConfiguration);
         $this->assertDatabaseHas('managed_server_mtas', ['username' => 'active@example.test', 'user_id' => $this->owner->id]);
         $this->assertDatabaseMissing('managed_server_mtas', ['username' => 'inactive@example.test', 'user_id' => $this->owner->id]);
+    }
+
+    public function test_push_rolls_back_local_smtp_rows_when_final_pmta_reload_rejects_the_configuration(): void
+    {
+        $project = $this->project();
+        WorkspaceGoogleAccount::query()->create([
+            'workspace_id' => $this->workspace->id,
+            'project_id' => $project->id,
+            'email' => 'active@example.test',
+            'is_active' => true,
+        ]);
+        $ip = $this->ip();
+        $server = $ip->server;
+        $assetDirectory = storage_path('framework/testing/workspace-relay-'.Str::uuid());
+        File::ensureDirectoryExists($assetDirectory);
+        $this->beforeApplicationDestroyed(fn () => File::deleteDirectory($assetDirectory));
+        file_put_contents($assetDirectory.'/workspace_relay', 'synthetic executable');
+        file_put_contents($assetDirectory.'/workspace_relay.service', '[Service]');
+        file_put_contents($assetDirectory.'/config.json', json_encode([
+            'listen_addr' => '127.0.0.1:1028',
+            'service_accounts_dir' => '/etc/workspace_relay/accounts',
+        ], JSON_THROW_ON_ERROR));
+        config(['infrastructure.workspace_relay_assets_directory' => $assetDirectory]);
+
+        $executedCommands = [];
+        $reloadCount = 0;
+        $session = Mockery::mock(DmsInstallerSshSession::class);
+        $session->shouldReceive('exec')->andReturnUsing(function (string $command) use (&$executedCommands, &$reloadCount): string {
+            $executedCommands[] = $command;
+            foreach ([
+                '__WORKSPACE_DIRS_READY__',
+                '__WORKSPACE_ACCOUNT_READY__',
+                '__WORKSPACE_RELAY_READY__',
+                '__WORKSPACE_CONFIG_APPENDED__',
+            ] as $marker) {
+                if (str_contains($command, $marker)) {
+                    return $marker;
+                }
+            }
+            if ($command === 'pmta reload') {
+                $reloadCount++;
+
+                return $reloadCount === 2 ? 'Invalid PMTA configuration' : 'reloaded';
+            }
+            if (str_contains($command, 'test -f')) {
+                return 'no';
+            }
+
+            return '';
+        });
+        $session->shouldReceive('uploadFile')->times(3)->andReturnTrue();
+        $session->shouldReceive('upload')->twice()->andReturnTrue();
+        $remote = Mockery::mock(PmtaRemoteConfiguration::class);
+        $remote->shouldReceive('open')->once()->with(Mockery::on(fn ($candidate) => $candidate->is($server)))->andReturn($session);
+        $this->app->instance(PmtaRemoteConfiguration::class, $remote);
+
+        $this->postJson(route('console.tools.workspace.push', $this->workspace->id), [
+            'ips' => [$ip->id],
+            'projects' => [$project->id],
+            'split_on_ips' => false,
+        ])->assertOk()->assertJsonPath('data.0.data', 'Invalid PMTA configuration');
+
+        $this->assertSame(3, $reloadCount);
+        $this->assertDatabaseCount('managed_server_mtas', 0);
+        $this->assertTrue(collect($executedCommands)->contains(
+            fn (string $command): bool => str_contains($command, 'rm -f '.escapeshellarg('/etc/pmta/conf/workspace_'.$this->owner->id)),
+        ));
     }
 
     public function test_reset_deletes_only_selected_users_workspace_smtp_rows_then_reloads_pmta(): void

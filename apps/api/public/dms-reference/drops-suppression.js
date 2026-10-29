@@ -290,6 +290,7 @@
         void loadSponsorOptions();
     });
     isps.addEventListener('change', loadLists);
+    lists.addEventListener('change', updateStartButton);
     offer.addEventListener('change', () => {
         clearFileSelection();
         updateFileState();
@@ -385,6 +386,7 @@
 
     if (sponsor.value) void loadSponsorOptions();
     else updateFileState();
+    window.addEventListener('pageshow', updateStartButton);
 
     document.getElementById('drops-suppression-refresh').addEventListener('click', () => table?.ajax.reload(null, false));
     dateFrom.addEventListener('change', () => table?.ajax.reload());

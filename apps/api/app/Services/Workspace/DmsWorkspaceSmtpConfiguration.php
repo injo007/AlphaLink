@@ -12,6 +12,7 @@ use App\Services\Infrastructure\DmsInstallerSshSession;
 use App\Services\PmtaRemoteConfiguration;
 use App\Services\PmtaSmtpConfigBuilder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
 
@@ -95,9 +96,41 @@ class DmsWorkspaceSmtpConfiguration
                     $session->exec('pmta reload');
                     throw new RuntimeException($reload !== '' ? $reload : 'PMTA did not confirm the configuration reload.');
                 }
-                $session->exec('cat '.escapeshellarg($temporary).' >> '.escapeshellarg($configuration));
-                $session->exec('pmta reload');
-                $session->exec('rm -f '.escapeshellarg($temporary));
+                $backup = '/etc/pmta/.workspace_'.$user->id.'-'.Str::uuid().'.bak';
+                $hadConfiguration = trim((string) $session->exec('test -f '.escapeshellarg($configuration).' && echo yes || echo no')) === 'yes';
+                if ($hadConfiguration) {
+                    $backupResult = (string) $session->exec('cp -p '.escapeshellarg($configuration).' '.escapeshellarg($backup).' && echo __WORKSPACE_CONFIG_BACKUP_READY__');
+                    if (! str_contains($backupResult, '__WORKSPACE_CONFIG_BACKUP_READY__')) {
+                        throw new RuntimeException('The existing Workspace SMTP configuration could not be backed up.');
+                    }
+                }
+
+                try {
+                    $appendResult = (string) $session->exec('cat '.escapeshellarg($temporary).' >> '.escapeshellarg($configuration).' && echo __WORKSPACE_CONFIG_APPENDED__');
+                    if (! str_contains($appendResult, '__WORKSPACE_CONFIG_APPENDED__')) {
+                        throw new RuntimeException('The Workspace SMTP configuration could not be installed.');
+                    }
+
+                    $finalReload = (string) $session->exec('pmta reload');
+                    if (! str_contains($finalReload, 'reloaded') && ! str_contains($finalReload, 'running')) {
+                        throw new RuntimeException($finalReload !== '' ? $finalReload : 'PMTA did not confirm the Workspace SMTP configuration reload.');
+                    }
+                } catch (Throwable $exception) {
+                    if ($hadConfiguration) {
+                        $session->exec('mv -f '.escapeshellarg($backup).' '.escapeshellarg($configuration));
+                    } else {
+                        $session->exec('rm -f '.escapeshellarg($configuration));
+                    }
+                    $session->exec('pmta reload');
+
+                    throw $exception;
+                } finally {
+                    $session->exec('rm -f '.escapeshellarg($temporary));
+                }
+
+                if ($hadConfiguration) {
+                    $session->exec('rm -f '.escapeshellarg($backup));
+                }
                 $results[] = ['id' => (string) $server->id, 'data' => 'Workspace Pushed Successfully'];
             } catch (Throwable $exception) {
                 if ($createdIds !== []) {
@@ -216,30 +249,82 @@ class DmsWorkspaceSmtpConfiguration
      */
     private function installRelay(DmsInstallerSshSession $session, Collection $projects, array $assets): void
     {
-        $session->exec('lsof -t -i:1028 2>/dev/null | xargs -r kill -9');
-        $session->exec('mkdir -p /etc/workspace_relay/accounts /var/lib/workspace_relay /var/log/workspace_relay');
-        $session->exec('rm -f /usr/sbin/workspace_relay');
-        if (! $session->uploadFile($assets['binary'], '/usr/sbin/workspace_relay')) {
+        $this->requireRemoteMarker(
+            $session,
+            'mkdir -p /etc/workspace_relay/accounts /var/lib/workspace_relay /var/log/workspace_relay && chmod 700 /etc/workspace_relay /etc/workspace_relay/accounts && echo __WORKSPACE_DIRS_READY__',
+            '__WORKSPACE_DIRS_READY__',
+            'Workspace relay directories could not be prepared.',
+        );
+
+        $binaryTemporary = '/usr/sbin/.workspace_relay-'.Str::uuid().'.new';
+        if (! $session->uploadFile($assets['binary'], $binaryTemporary)) {
             throw new RuntimeException('Workspace relay binary upload failed.');
         }
-        $session->exec('chmod +x /usr/sbin/workspace_relay && chown root:root /usr/sbin/workspace_relay');
-        $session->exec('rm -f /etc/workspace_relay/config.json');
-        if (! $session->uploadFile($assets['config'], '/etc/workspace_relay/config.json')) {
+
+        $configurationTemporary = '/etc/workspace_relay/.config-'.Str::uuid().'.new';
+        if (! $session->uploadFile($assets['config'], $configurationTemporary)) {
             throw new RuntimeException('Workspace relay configuration upload failed.');
         }
+
         foreach ($projects as $project) {
-            if (! $session->upload($project->service_account_json, '/etc/workspace_relay/accounts/'.$project->name.'.json')) {
+            $accountPath = '/etc/workspace_relay/accounts/'.$project->name.'.json';
+            $accountTemporary = '/etc/workspace_relay/accounts/.account-'.Str::uuid().'.new';
+            if (! $session->upload($project->service_account_json, $accountTemporary)) {
                 throw new RuntimeException('Workspace service-account upload failed.');
             }
+
+            $this->requireRemoteMarker(
+                $session,
+                'test -s '.escapeshellarg($accountTemporary).' && chmod 600 '.escapeshellarg($accountTemporary)
+                    .' && mv -f '.escapeshellarg($accountTemporary).' '.escapeshellarg($accountPath)
+                    .' && test -s '.escapeshellarg($accountPath).' && echo __WORKSPACE_ACCOUNT_READY__',
+                '__WORKSPACE_ACCOUNT_READY__',
+                'Workspace service-account file was not installed correctly.',
+            );
         }
-        $session->exec('chmod 600 /etc/workspace_relay/accounts/*.json');
-        $serviceExists = trim((string) $session->exec('systemctl list-unit-files | grep -q "^workspace_relay.service" && echo y || echo n'));
-        if ($serviceExists === 'n') {
-            if (! $session->uploadFile($assets['service'], '/etc/systemd/system/workspace_relay.service')) {
-                throw new RuntimeException('Workspace relay service upload failed.');
-            }
-            $session->exec('systemctl daemon-reload && systemctl enable workspace_relay.service');
+
+        $binaryDestination = '/usr/sbin/workspace_relay';
+        $configurationDestination = '/etc/workspace_relay/config.json';
+        $serviceDestination = '/etc/systemd/system/workspace_relay.service';
+        $serviceTemporary = '/etc/systemd/system/.workspace_relay-'.Str::uuid().'.new';
+        if (! $session->uploadFile($assets['service'], $serviceTemporary)) {
+            throw new RuntimeException('Workspace relay service upload failed.');
         }
-        $session->exec('systemctl restart workspace_relay.service');
+
+        $this->requireRemoteMarker(
+            $session,
+            'if ! test -s '.escapeshellarg($binaryTemporary)
+                .' || ! test -s '.escapeshellarg($configurationTemporary)
+                .' || ! test -s '.escapeshellarg($serviceTemporary)
+                .'; then echo "Workspace relay staging files are incomplete." >&2; exit 1; fi; '
+                .'systemctl stop workspace_relay.service >/dev/null 2>&1 || true; '
+                .'chmod 700 '.escapeshellarg($binaryTemporary).' && chown root:root '.escapeshellarg($binaryTemporary)
+                .' && mv -f '.escapeshellarg($binaryTemporary).' '.escapeshellarg($binaryDestination)
+                .' && chmod 600 '.escapeshellarg($configurationTemporary)
+                .' && chown root:root '.escapeshellarg($configurationTemporary)
+                .' && mv -f '.escapeshellarg($configurationTemporary).' '.escapeshellarg($configurationDestination)
+                .' && chmod 600 /etc/workspace_relay/accounts/*.json'
+                .' && chown root:root '.escapeshellarg($serviceTemporary)
+                .' && mv -f '.escapeshellarg($serviceTemporary).' '.escapeshellarg($serviceDestination)
+                .' && systemctl daemon-reload && systemctl enable workspace_relay.service'
+                .' && systemctl restart workspace_relay.service'
+                .' && systemctl is-active --quiet workspace_relay.service'
+                .' && ss -H -ltn sport = :1028 | awk \'{print $4}\' | grep -Fxq 127.0.0.1:1028'
+                .' && echo __WORKSPACE_RELAY_READY__',
+            '__WORKSPACE_RELAY_READY__',
+            'Workspace relay failed its post-install service or listener health check.',
+        );
+    }
+
+    private function requireRemoteMarker(
+        DmsInstallerSshSession $session,
+        string $command,
+        string $marker,
+        string $message,
+    ): void {
+        $output = $session->exec('set -e; '.$command);
+        if (! is_string($output) || ! str_contains($output, $marker)) {
+            throw new RuntimeException($message);
+        }
     }
 }

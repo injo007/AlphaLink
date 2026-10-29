@@ -2224,7 +2224,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertSee("inputLabel: 'Search Servers'", false)
             ->assertSee('id="pmta-admin-reload-servers"', false)
             ->assertSee('data-panel-url="http://203.0.113.40:2447/"', false)
-            ->assertSee('data-monitor-url="/pmta-admin/servers/'.$server->getKey().'"', false)
+            ->assertSee('data-monitor-url="http://203.0.113.40:2447/"', false)
             ->assertSee('link.href = server.dataset.panelUrl;', false)
             ->assertSee('frame.dataset.monitorBase = server.dataset.monitorUrl;', false)
             ->assertSee('frame.src = url.toString();', false)
@@ -2427,6 +2427,8 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->get(route('clean.console.pmta-admin.index', ['server_ids' => [$server->getKey()]]))
             ->assertOk()
             ->assertSee('data-panel-url="https://pmta.example.test:2447/"', false)
+            ->assertSee('data-monitor-url="https://pmta.example.test:2447/"', false)
+            ->assertSee('frame-src \'self\' https://pmta.example.test:2447;', false)
             ->assertSee('PMTA ADMIN ACTIONS')
             ->assertSee('MY SERVERS')
             ->assertSee('PMTA ACTION HISTORY');

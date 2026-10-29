@@ -6,6 +6,7 @@ use App\Models\Workspace;
 use App\Models\WorkspaceOffer;
 use Closure;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -15,6 +16,8 @@ use ZipArchive;
 class DmsOfferSuppressionFile
 {
     private const DISK = 'local';
+
+    private ?string $cachedLookupSecret = null;
 
     /** @return array{path: string, sha256: string, format: 'email'|'md5'|'sha512', count: int} */
     public function store(Workspace $workspace, WorkspaceOffer $offer, UploadedFile $upload): array
@@ -96,11 +99,15 @@ class DmsOfferSuppressionFile
         return Storage::disk(self::DISK)->exists($offer->suppression_path);
     }
 
-    /** Check that the stored artifact is present, fresh, and still matches its persisted digest. */
+    /** Check a saved artifact without rehashing it after its exact lookup index is ready. */
     public function isEligible(WorkspaceOffer $offer): bool
     {
         if (! $this->hasFreshStoredReference($offer)) {
             return false;
+        }
+
+        if ($this->readyLookupIndexId($offer) !== null) {
+            return true;
         }
 
         $disk = Storage::disk(self::DISK);
@@ -160,21 +167,115 @@ class DmsOfferSuppressionFile
         };
     }
 
-    /** Build a session-scoped lookup table while verifying the canonical file digest. */
-    public function createLookupTable(WorkspaceOffer $offer, ?Closure $onProgress = null): string
+    /** Return a keyed hash of the same normalized value stored in the offer file. */
+    public function lookupHashForEmail(string $email, string $format): string
+    {
+        return hash_hmac('sha256', $this->lookupKeyForEmail($email, $format), $this->lookupSecret());
+    }
+
+    /**
+     * Return the reusable exact-match index for an offer's current file.
+     * The first use streams and verifies the canonical file; later runs query
+     * the indexed hashes directly without rebuilding a session-sized table.
+     */
+    public function prepareLookupIndex(WorkspaceOffer $offer, ?Closure $onProgress = null): int
     {
         if (! $this->hasFreshStoredReference($offer)) {
             throw ValidationException::withMessages(['suppression' => 'The saved offer suppression file is missing, stale, or has invalid metadata. Upload a current DMS-format suppression file.']);
         }
 
-        $connection = DB::connection();
-        $table = 'tmp_suppression_match_'.Str::lower(Str::random(18));
-        $wrapped = $connection->getQueryGrammar()->wrapTable($table);
-        $connection->statement("CREATE TEMPORARY TABLE {$wrapped} (entry_value VARCHAR(320) NOT NULL PRIMARY KEY)");
+        $secret = $this->lookupSecret();
+        $fingerprint = hash('sha256', $secret);
+        $readyId = $this->readyLookupIndexId($offer, $fingerprint);
+        if ($readyId !== null) {
+            $totalBytes = (int) (Storage::disk(self::DISK)->size((string) $offer->suppression_path) ?: 0);
+            $onProgress?->__invoke($totalBytes, $totalBytes);
+
+            return $readyId;
+        }
+
+        $lockKey = sprintf('offer-suppression-index:%s:%s:%s', (string) $offer->getKey(), (string) $offer->suppression_sha256, $fingerprint);
+
+        return (int) Cache::lock($lockKey, 21_600)->block(21_600, function () use ($offer, $onProgress, $secret, $fingerprint): int {
+            $readyId = $this->readyLookupIndexId($offer, $fingerprint);
+            if ($readyId !== null) {
+                $totalBytes = (int) (Storage::disk(self::DISK)->size((string) $offer->suppression_path) ?: 0);
+                $onProgress?->__invoke($totalBytes, $totalBytes);
+
+                return $readyId;
+            }
+
+            return $this->buildLookupIndex($offer, $secret, $fingerprint, $onProgress);
+        });
+    }
+
+    private function readyLookupIndexId(WorkspaceOffer $offer, ?string $fingerprint = null): ?int
+    {
+        try {
+            $fingerprint ??= hash('sha256', $this->lookupSecret());
+        } catch (ValidationException) {
+            return null;
+        }
+
+        $bytes = (int) (Storage::disk(self::DISK)->size((string) $offer->suppression_path) ?: 0);
+        $indexId = DB::table('workspace_offer_suppression_indexes')
+            ->where('workspace_id', $offer->workspace_id)
+            ->where('offer_id', $offer->getKey())
+            ->where('suppression_sha256', $offer->suppression_sha256)
+            ->where('suppression_format', $offer->suppression_format)
+            ->where('key_fingerprint', $fingerprint)
+            ->where('file_bytes', $bytes)
+            ->where('status', 'ready')
+            ->whereNotNull('ready_at')
+            ->value('id');
+
+        return $indexId === null ? null : (int) $indexId;
+    }
+
+    private function buildLookupIndex(WorkspaceOffer $offer, string $secret, string $fingerprint, ?Closure $onProgress): int
+    {
+        if (! $this->hasFreshStoredReference($offer)) {
+            throw ValidationException::withMessages(['suppression' => 'The saved offer suppression file is missing, stale, or has invalid metadata. Upload a current DMS-format suppression file.']);
+        }
+
+        $index = DB::table('workspace_offer_suppression_indexes')
+            ->where('offer_id', $offer->getKey())
+            ->where('suppression_sha256', $offer->suppression_sha256)
+            ->where('key_fingerprint', $fingerprint)
+            ->first();
+        $now = now();
+        $indexId = $index === null
+            ? (int) DB::table('workspace_offer_suppression_indexes')->insertGetId([
+                'workspace_id' => $offer->workspace_id,
+                'offer_id' => $offer->getKey(),
+                'suppression_sha256' => $offer->suppression_sha256,
+                'suppression_format' => $offer->suppression_format,
+                'key_fingerprint' => $fingerprint,
+                'file_bytes' => 0,
+                'entry_count' => 0,
+                'status' => 'building',
+                'ready_at' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ])
+            : (int) $index->id;
+
+        DB::table('workspace_offer_suppression_index_entries')->where('suppression_index_id', $indexId)->delete();
+        DB::table('workspace_offer_suppression_indexes')->where('id', $indexId)->update([
+            'workspace_id' => $offer->workspace_id,
+            'suppression_format' => $offer->suppression_format,
+            'file_bytes' => 0,
+            'entry_count' => 0,
+            'status' => 'building',
+            'ready_at' => null,
+            'updated_at' => $now,
+        ]);
+
         $disk = Storage::disk(self::DISK);
         $stream = $disk->readStream((string) $offer->suppression_path);
         if (! is_resource($stream)) {
-            $connection->statement("DROP TABLE IF EXISTS {$wrapped}");
+            DB::table('workspace_offer_suppression_index_entries')->where('suppression_index_id', $indexId)->delete();
+            DB::table('workspace_offer_suppression_indexes')->where('id', $indexId)->update(['status' => 'failed', 'updated_at' => now()]);
             throw new \RuntimeException('Unable to read the saved suppression file.');
         }
 
@@ -182,14 +283,19 @@ class DmsOfferSuppressionFile
         $digest = hash_init('sha256');
         $reportedBytes = 0;
         $totalBytes = (int) ($disk->size((string) $offer->suppression_path) ?: 0);
+        $entryCount = 0;
         try {
             while (($line = fgets($stream)) !== false) {
                 hash_update($digest, $line);
                 $entry = trim($line);
                 if ($entry !== '') {
-                    $batch[] = ['entry_value' => $entry];
-                    if (count($batch) >= 500) {
-                        $connection->table($table)->insertOrIgnore($batch);
+                    $batch[] = [
+                        'suppression_index_id' => $indexId,
+                        'entry_hash' => hash_hmac('sha256', $entry, $secret),
+                    ];
+                    $entryCount++;
+                    if (count($batch) >= 2_000) {
+                        DB::table('workspace_offer_suppression_index_entries')->insertOrIgnore($batch);
                         $batch = [];
                     }
                 }
@@ -204,7 +310,7 @@ class DmsOfferSuppressionFile
                 throw new \RuntimeException('Unable to finish reading the saved suppression file.');
             }
             if ($batch !== []) {
-                $connection->table($table)->insertOrIgnore($batch);
+                DB::table('workspace_offer_suppression_index_entries')->insertOrIgnore($batch);
             }
             if (! hash_equals((string) $offer->suppression_sha256, hash_final($digest))) {
                 throw ValidationException::withMessages(['suppression' => 'The saved offer suppression file changed after validation. Upload a current DMS-format suppression file.']);
@@ -212,29 +318,43 @@ class DmsOfferSuppressionFile
             if ($onProgress !== null) {
                 $onProgress($totalBytes > 0 ? $totalBytes : $reportedBytes, $totalBytes);
             }
+            DB::table('workspace_offer_suppression_indexes')->where('id', $indexId)->update([
+                'file_bytes' => $totalBytes,
+                'entry_count' => $entryCount,
+                'status' => 'ready',
+                'ready_at' => now(),
+                'updated_at' => now(),
+            ]);
         } catch (\Throwable $exception) {
-            $connection->statement("DROP TABLE IF EXISTS {$wrapped}");
+            DB::table('workspace_offer_suppression_index_entries')->where('suppression_index_id', $indexId)->delete();
+            DB::table('workspace_offer_suppression_indexes')->where('id', $indexId)->update([
+                'entry_count' => 0,
+                'status' => 'failed',
+                'ready_at' => null,
+                'updated_at' => now(),
+            ]);
             throw $exception;
         } finally {
             fclose($stream);
         }
 
-        return $table;
+        return $indexId;
     }
 
-    public function dropLookupTable(string $table): void
+    private function lookupSecret(): string
     {
-        if (preg_match('/^tmp_suppression_(?:match_)?[a-z0-9]{18}$/', $table) !== 1) {
-            return;
+        if ($this->cachedLookupSecret !== null) {
+            return $this->cachedLookupSecret;
         }
 
-        try {
-            $connection = DB::connection();
-            $wrapped = $connection->getQueryGrammar()->wrapTable($table);
-            $connection->statement("DROP TABLE IF EXISTS {$wrapped}");
-        } catch (\Throwable) {
-            // Session-scoped temporary tables are discarded when the connection closes.
+        $secret = config('alphalink.contact_lookup_key');
+        if (! is_string($secret) || strlen($secret) < 32) {
+            throw ValidationException::withMessages([
+                'suppression' => 'CONTACT_LOOKUP_KEY must be configured before suppression matching can run.',
+            ]);
         }
+
+        return $this->cachedLookupSecret = $secret;
     }
 
     /**

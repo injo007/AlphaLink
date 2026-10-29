@@ -253,19 +253,28 @@ class WorkspaceConsoleController extends Controller
 
         abort_if(array_diff($selectedServerIds, $availableServerIds) !== [], 404);
 
-        $servers = collect($options['servers'])->map(function (array $server) use ($workspace): array {
-            $server['pmta_monitor_url'] = '/'.ltrim(route('console.pmta-admin.monitor', [
-                'workspace' => $workspace->getKey(),
-                'server' => $server['id'],
-            ], false), '/');
+        $servers = collect($options['servers']);
+        $pmtaFrameSources = $servers
+            ->pluck('pmta_panel_url')
+            ->filter(fn (mixed $url): bool => is_string($url) && str_starts_with($url, 'https://'))
+            ->map(function (string $url): ?string {
+                $parts = parse_url($url);
+                if (! is_array($parts) || ! isset($parts['scheme'], $parts['host']) || $parts['scheme'] !== 'https') {
+                    return null;
+                }
 
-            return $server;
-        });
+                return 'https://'.$parts['host'].(isset($parts['port']) ? ':'.$parts['port'] : '');
+            })
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
 
         return view('console.campaigns.pmta-admin', [
             'workspace' => $workspace,
             'servers' => $servers,
             'selectedServerIds' => $selectedServerIds,
+            'pmtaFrameSources' => $pmtaFrameSources,
             'pmtaAdminPort' => $options['settings']['pmta_admin_port'],
             'actionUrl' => route('console.pmta-admin.action', $workspace->getKey()),
             'restartUrl' => route('console.pmta-admin.restart', $workspace->getKey()),

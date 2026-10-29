@@ -27,7 +27,7 @@ class DmsDropSuppressionProcessor
         $dataCount = 0;
         $stagingPath = null;
         $stagingStream = null;
-        $lookupTable = null;
+        $suppressionIndexId = null;
 
         try {
             $offer = WorkspaceOffer::query()
@@ -35,7 +35,7 @@ class DmsDropSuppressionProcessor
                 ->whereKey($run->offer_id)
                 ->firstOrFail();
             $files = app(DmsOfferSuppressionFile::class);
-            if (! $files->isEligible($offer)) {
+            if (! $files->hasFreshStoredReference($offer)) {
                 if (! $this->setStatusUnlessKilled($run, 'downloading')) {
                     return;
                 }
@@ -51,14 +51,14 @@ class DmsDropSuppressionProcessor
                     return;
                 }
                 $offer->refresh();
-                if (! $files->isEligible($offer)) {
+                if (! $files->hasFreshStoredReference($offer)) {
                     $this->finish($run, 'error NFS', 0, $started, 'The refreshed suppression file is missing, changed, stale, or invalid.');
 
                     return;
                 }
             }
 
-            $lookupTable = $files->createLookupTable($offer);
+            $suppressionIndexId = $files->prepareLookupIndex($offer);
             if (! $this->setStatusUnlessKilled($run, 'progress')) {
                 return;
             }
@@ -93,7 +93,7 @@ class DmsDropSuppressionProcessor
                             ->where('workspace_offer_list_suppressions.audience_list_id', (string) $listId);
                     });
 
-                $memberships->chunkById(500, function ($chunk) use ($run, $offer, $files, $lookupTable, $stagingStream, &$dataCount, $listId): bool {
+                $memberships->chunkById(500, function ($chunk) use ($run, $offer, $files, $suppressionIndexId, $stagingStream, &$dataCount, $listId): bool {
                     if ($this->wasKilled($run)) {
                         return false;
                     }
@@ -107,14 +107,16 @@ class DmsDropSuppressionProcessor
                             continue;
                         }
                         $email = mb_strtolower(trim((string) $contact->email));
-                        $key = $files->lookupKeyForEmail($email, (string) $offer->suppression_format);
+                        $key = $files->lookupHashForEmail($email, (string) $offer->suppression_format);
                         $candidateKeys[] = $key;
                         $keysByContact[(string) $contact->getKey()] = $key;
                     }
                     $matchedKeys = $candidateKeys === []
                         ? []
-                        : DB::table($lookupTable)->whereIn('entry_value', array_values(array_unique($candidateKeys)))
-                            ->pluck('entry_value')->flip()->all();
+                        : DB::table('workspace_offer_suppression_index_entries')
+                            ->where('suppression_index_id', $suppressionIndexId)
+                            ->whereIn('entry_hash', array_values(array_unique($candidateKeys)))
+                            ->pluck('entry_hash')->flip()->all();
                     $matches = [];
                     foreach ($chunk as $membership) {
                         $contact = $membership->contact;
@@ -153,15 +155,14 @@ class DmsDropSuppressionProcessor
             fclose($stagingStream);
             $stagingStream = null;
 
-            $status = $dataCount === 0 ? 'complete NE' : (DB::table($lookupTable)->exists() ? 'complete' : 'complete NS');
+            $status = $dataCount === 0 ? 'complete NE' : (DB::table('workspace_offer_suppression_index_entries')
+                ->where('suppression_index_id', $suppressionIndexId)
+                ->exists() ? 'complete' : 'complete NS');
             $found = $this->importMatchesAndFinish($run, $stagingPath, $status, $started);
         } catch (Throwable $exception) {
             report($exception);
             $this->finish($run, 'error EX', $found, $started, 'Suppression processing failed. Check the application error log.');
         } finally {
-            if (is_string($lookupTable)) {
-                app(DmsOfferSuppressionFile::class)->dropLookupTable($lookupTable);
-            }
             if (is_resource($stagingStream)) {
                 fclose($stagingStream);
             }

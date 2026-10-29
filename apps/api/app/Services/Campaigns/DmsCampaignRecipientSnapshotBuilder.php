@@ -49,12 +49,12 @@ class DmsCampaignRecipientSnapshotBuilder
         }
 
         $tables = $this->createStagingTables();
-        $suppressionLookup = null;
+        $suppressionIndexId = 0;
 
         try {
             $suppressionBytes = (int) (Storage::disk('local')->size((string) $offer->suppression_path) ?: 0);
             $this->reportProgress($onProgress, 'suppression_file', 0, $suppressionBytes, 0);
-            $suppressionLookup = $this->suppressionFiles->createLookupTable(
+            $suppressionIndexId = $this->suppressionFiles->prepareLookupIndex(
                 $offer,
                 function (int $readBytes, int $totalBytes) use ($onProgress): void {
                     $ratio = $totalBytes > 0 ? min(1, $readBytes / $totalBytes) : 1;
@@ -170,7 +170,7 @@ class DmsCampaignRecipientSnapshotBuilder
                             'source_list_id' => (string) $listId,
                             'source_email_type' => $emailType,
                             'email' => $email,
-                            'suppression_key' => $this->suppressionFiles->lookupKeyForEmail($email, (string) $offer->suppression_format),
+                            'suppression_key' => $this->suppressionFiles->lookupHashForEmail($email, (string) $offer->suppression_format),
                             'count_list_suppression' => false,
                         ];
                     }
@@ -178,7 +178,7 @@ class DmsCampaignRecipientSnapshotBuilder
                     if ($candidates !== []) {
                         $this->processCandidates(
                             $candidates,
-                            $suppressionLookup,
+                            $suppressionIndexId,
                             $tables,
                             $workspace,
                             $offer,
@@ -254,7 +254,7 @@ class DmsCampaignRecipientSnapshotBuilder
                             'source_list_id' => (string) $mixMember->source_list_id,
                             'source_email_type' => (string) $mixMember->email_type,
                             'email' => $email,
-                            'suppression_key' => $this->suppressionFiles->lookupKeyForEmail($email, (string) $offer->suppression_format),
+                            'suppression_key' => $this->suppressionFiles->lookupHashForEmail($email, (string) $offer->suppression_format),
                             'count_list_suppression' => true,
                         ];
                     }
@@ -262,7 +262,7 @@ class DmsCampaignRecipientSnapshotBuilder
                     if ($candidates !== []) {
                         $this->processCandidates(
                             $candidates,
-                            $suppressionLookup,
+                            $suppressionIndexId,
                             $tables,
                             $workspace,
                             $offer,
@@ -423,9 +423,6 @@ class DmsCampaignRecipientSnapshotBuilder
                 return $snapshot;
             });
         } finally {
-            if (is_string($suppressionLookup)) {
-                $this->suppressionFiles->dropLookupTable($suppressionLookup);
-            }
             $this->dropStagingTables($tables);
         }
     }
@@ -569,7 +566,7 @@ class DmsCampaignRecipientSnapshotBuilder
                 source_list_id UUID NOT NULL,
                 source_email_type VARCHAR(24) NOT NULL,
                 email VARCHAR(320) NOT NULL,
-                suppression_key VARCHAR(320) NOT NULL,
+                suppression_key CHAR(64) NOT NULL,
                 count_list_suppression SMALLINT NOT NULL
             )");
             $connection->statement("CREATE TEMPORARY TABLE {$wrappedRecipients} (
@@ -614,7 +611,7 @@ class DmsCampaignRecipientSnapshotBuilder
      */
     private function processCandidates(
         array $candidates,
-        string $suppressionLookup,
+        int $suppressionIndexId,
         array $tables,
         Workspace $workspace,
         WorkspaceOffer $offer,
@@ -688,8 +685,10 @@ class DmsCampaignRecipientSnapshotBuilder
                 [$workspace->getKey(), (string) $offer->getKey(), $effectiveAt],
             )
             ->selectRaw(
-                "CASE WHEN EXISTS (SELECT 1 FROM {$suppressionLookup} AS file_suppression
-                    WHERE file_suppression.entry_value = candidates.suppression_key) THEN 1 ELSE 0 END AS file_suppressed",
+                'CASE WHEN EXISTS (SELECT 1 FROM workspace_offer_suppression_index_entries AS file_suppression
+                    WHERE file_suppression.suppression_index_id = ?
+                        AND file_suppression.entry_hash = candidates.suppression_key) THEN 1 ELSE 0 END AS file_suppressed',
+                [$suppressionIndexId],
             )
             ->orderBy('candidates.candidate_position')
             ->get();

@@ -142,7 +142,7 @@
                         </label>
                         <select class="form-control selectpicker" id="pmta-admin-servers" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 5" multiple title="Select Servers">
                             @foreach ($servers as $server)
-                                <option value="{{ $server['id'] }}" data-panel-url="{{ $server['pmta_panel_url'] }}" data-monitor-url="{{ $server['pmta_monitor_url'] }}" @selected(in_array((string) $server['id'], $selectedServerIds, true))>{{ $server['name'] }} | {{ $server['ip'] }}</option>
+                                <option value="{{ $server['id'] }}" data-panel-url="{{ $server['pmta_panel_url'] }}" data-monitor-url="{{ $server['pmta_panel_url'] }}" @selected(in_array((string) $server['id'], $selectedServerIds, true))>{{ $server['name'] }} | {{ $server['ip'] }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -358,6 +358,7 @@
                     refreshLabel.textContent = 'Loading · auto refresh 5s';
                     const link = document.createElement('a');
                     link.href = server.dataset.panelUrl;
+                    link.hidden = !server.dataset.panelUrl;
                     link.target = '_blank';
                     link.rel = 'noopener noreferrer';
                     link.className = 'ml-1';
@@ -376,6 +377,7 @@
                     const frame = document.createElement('iframe');
                     frame.title = `PMTA Web Monitor — ${server.textContent.trim()}`;
                     frame.dataset.monitorBase = server.dataset.monitorUrl;
+                    frame.referrerPolicy = 'no-referrer';
                     frame.scrolling = 'yes';
                     frame.style.width = '100%';
                     frame.style.height = '500px';
@@ -390,6 +392,20 @@
                     });
                     reload.addEventListener('click', () => refreshMonitor(frame));
                     heading.append(label, link, reload, refreshLabel);
+                    let monitorUrl = null;
+                    try {
+                        if (!server.dataset.monitorUrl) throw new Error('PMTA monitor URL is unavailable');
+                        monitorUrl = new URL(server.dataset.monitorUrl, window.location.href);
+                    } catch {
+                        monitorUrl = null;
+                    }
+                    const insecureForPage = window.location.protocol === 'https:' && monitorUrl?.protocol !== 'https:';
+                    if (monitorUrl === null || insecureForPage) {
+                        refreshLabel.textContent = 'PMTA HTTPS monitor is not verified · reinstall PMTA with HTTPS enabled';
+                        column.append(heading);
+                        panels.append(column);
+                        return;
+                    }
                     column.append(heading, frame);
                     panels.append(column);
                     refreshMonitor(frame);

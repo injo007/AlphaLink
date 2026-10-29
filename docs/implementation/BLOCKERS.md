@@ -500,3 +500,11 @@ DMS uses the saved Offer suppression file in two places: the Suppression page pe
 ## E-CAMP-119 — Campaign composer selection controls — 2026-10-29
 
 The browser required-field prompt came from the asynchronous option refresh, which set `required=true` on every multiple select after filling it. From/Subject asset arrays were already optional to the server; the client-side rule was the mismatch. The form now requires only Lists, Servers and IPs while targeting is visible and labels From/Subject as optional rotation values. IPs can be transferred by double-click in either direction, with arrow buttons retained for keyboard use. The hidden selected-IP control remains the submitted source of truth. Focused feature tests pass 3 / 309 assertions, including an empty-asset validation case, and Node tests execute the actual Blade helper/transfer handlers (4/4). The full strict premium audit still reports pre-existing errors in bundled DMS-reference/vendor assets; the changed composer file is checked separately. No live browser save, send, or DMS mutation was used. This does not close the campaign parity gate or enable SEND.
+
+### E-CAMP-122 — reusable suppression lookup
+
+Campaign snapshot preparation, manual ISP/List suppression, and send eligibility now reuse a persistent exact-match index keyed by offer, file digest, and contact-lookup-key fingerprint. The first use streams and verifies the file; later uses query keyed hashes through the database index. This removes repeated full-file table rebuilds while preserving the separate DMS workflows and normalized email/MD5/SHA-512 semantics. SQLite feature coverage passes; PostgreSQL production-sized index build time, storage growth, worker runtime, and 700 MB throughput are still unknown.
+
+### E-PMTA-100 — embedded PMTA monitor
+
+The selected monitor iframe now uses the verified canonical HTTPS panel directly in a cross-origin frame. AlphaLink's page CSP allows only selected verified HTTPS monitor origins, and the app’s queue controls remain separate. The previous iframe used a sanitizer that stripped PMTA's scripts and forms, causing the blank/incomplete rendering. Source-level tests pass; production browser rendering and the installed host's TLS/certificate/DNS state remain unverified.

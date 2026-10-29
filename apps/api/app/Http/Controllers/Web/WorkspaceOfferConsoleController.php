@@ -940,7 +940,10 @@ class WorkspaceOfferConsoleController extends Controller
     {
         return $offer->redirect !== ''
             && $offer->status === 'live'
-            && $suppressionFiles->isEligible($offer)
+            // The upload/refresh path already validated the content digest.
+            // Rehashing a large suppression file on activation adds no safety:
+            // the first matching run verifies it while preparing the reusable index.
+            && $suppressionFiles->hasFreshStoredReference($offer)
             && filled($offer->vertical)
             && ! empty($offer->geo_target);
     }

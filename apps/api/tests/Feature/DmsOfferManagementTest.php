@@ -95,6 +95,42 @@ class DmsOfferManagementTest extends TestCase
         $this->assertStringNotContainsString($offer->suppression_path, $response->getContent());
     }
 
+    public function test_offer_suppression_lookup_is_digest_bound_reusable_and_stores_only_keyed_hashes(): void
+    {
+        config(['alphalink.contact_lookup_key' => str_repeat('synthetic-suppression-key-', 2)]);
+        $sponsor = $this->createSponsor('Reusable suppression index');
+        $offer = $this->createOffer($sponsor);
+        $files = app(DmsOfferSuppressionFile::class);
+        $stored = $files->storeContent($this->workspace, $offer, "Blocked@Example.test\nother@example.test\n");
+        $offer->forceFill([
+            'suppression_path' => $stored['path'],
+            'suppression_sha256' => $stored['sha256'],
+            'suppression_format' => $stored['format'],
+            'suppression_updated_at' => now()->toDateString(),
+        ])->save();
+
+        $indexId = $files->prepareLookupIndex($offer->fresh());
+        $sameIndexId = $files->prepareLookupIndex($offer->fresh());
+        $blockedHash = $files->lookupHashForEmail('blocked@example.test', 'email');
+
+        $this->assertSame($indexId, $sameIndexId);
+        $this->assertSame(1, DB::table('workspace_offer_suppression_indexes')->where('offer_id', $offer->getKey())->where('status', 'ready')->count());
+        $this->assertSame(2, DB::table('workspace_offer_suppression_index_entries')->where('suppression_index_id', $indexId)->count());
+        $this->assertDatabaseHas('workspace_offer_suppression_index_entries', [
+            'suppression_index_id' => $indexId,
+            'entry_hash' => $blockedHash,
+        ]);
+        $this->assertSame(
+            hash_hmac('sha256', md5('blocked@example.test'), (string) config('alphalink.contact_lookup_key')),
+            $files->lookupHashForEmail('blocked@example.test', 'md5'),
+        );
+        $this->assertSame(
+            hash_hmac('sha256', hash('sha512', 'blocked@example.test'), (string) config('alphalink.contact_lookup_key')),
+            $files->lookupHashForEmail('blocked@example.test', 'sha512'),
+        );
+        $this->assertTrue($files->isEligible($offer->fresh()));
+    }
+
     public function test_offer_download_action_queues_one_private_sponsor_fetch_and_exposes_scoped_progress(): void
     {
         Queue::fake();

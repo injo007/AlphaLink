@@ -39,6 +39,7 @@ class WorkspaceDropSuppressionTest extends TestCase
     {
         parent::setUp();
         $this->originalContactLookupKey = config('alphalink.contact_lookup_key');
+        config(['alphalink.contact_lookup_key' => str_repeat('synthetic-drop-suppression-key-', 2)]);
         Storage::fake('local');
     }
 

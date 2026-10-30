@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\BuildCampaignRecipientSnapshot;
 use App\Models\AudienceList;
 use App\Models\Campaign;
 use App\Models\CampaignRecipientSnapshot;
@@ -14,7 +15,9 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceSponsor;
+use App\Services\Campaigns\DmsCampaignRecipientSnapshotBuilder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -50,16 +53,18 @@ class CampaignCloneFlowTest extends TestCase
             ->assertSee('send_setup[audience_segments][]', false)
             ->assertSee('send_setup[order_by]', false)
             ->assertSee('send_setup[start_from]', false)
-            ->assertSee('The result is a draft');
+            ->assertSee('cloned campaign appears in My Campaigns');
 
         $idempotencyKey = (string) Str::uuid();
         $payload = $this->clonePayload($fixture, $idempotencyKey);
+        Queue::fake();
         $response = $this->actingAs($fixture['owner'])->post($route, $payload);
         $clone = Campaign::query()->where('workspace_id', $fixture['workspace']->getKey())->where('idempotency_key', $idempotencyKey)->firstOrFail();
-        $cloneUrl = $this->cleanWorkspaceUrl(route('console.campaigns.show', [$fixture['workspace']->getKey(), $clone->getKey()]));
+        $campaignsUrl = $this->cleanWorkspaceUrl(route('console.campaigns.index', $fixture['workspace']->getKey()));
 
-        $response->assertRedirect($cloneUrl)->assertSessionHas('status', 'Campaign cloned as a new draft with a fresh suppression snapshot. Send it from My Campaigns after preparation completes.');
-        $this->assertSame('draft', $clone->status);
+        $response->assertRedirect($campaignsUrl)->assertSessionHas('status', 'Campaign clone created. Suppression and recipient preparation are running in the campaigns list.');
+        $this->assertSame('preparing_snapshot', $clone->status);
+        $this->assertSame('queued', $clone->snapshot_build_stage);
         $this->assertTrue($clone->is_active);
         $this->assertSame('marketing', $clone->kind);
         $this->assertSame('Welcome test', $clone->latestRevision->payload['subject']);
@@ -68,6 +73,23 @@ class CampaignCloneFlowTest extends TestCase
         $this->assertSame('default', $fixture['source']->fresh()->latestRevision->payload['send_setup']['order_by']);
         $this->assertSame('asc', $clone->latestRevision->payload['send_setup']['order_by']);
         $this->assertSame(25, $clone->latestRevision->payload['send_setup']['start_from']);
+        $this->assertDatabaseCount('campaign_recipient_snapshots', 0);
+        Queue::assertPushedOn('drop-suppression', BuildCampaignRecipientSnapshot::class, fn (BuildCampaignRecipientSnapshot $job): bool => $job->campaignId === (string) $clone->getKey());
+        $this->actingAs($fixture['owner'])
+            ->get(route('console.campaigns.index', $fixture['workspace']->getKey()))
+            ->assertOk()
+            ->assertSee('PREPARING SUPPRESSION')
+            ->assertSee('/snapshot-progress', false);
+
+        (new BuildCampaignRecipientSnapshot(
+            (string) $fixture['workspace']->getKey(),
+            (string) $clone->getKey(),
+            (string) $clone->latestRevision->getKey(),
+            (int) $fixture['owner']->getKey(),
+        ))->handle(app(DmsCampaignRecipientSnapshotBuilder::class));
+        $clone->refresh();
+        $this->assertSame('draft', $clone->status);
+        $this->assertSame('complete', $clone->snapshot_build_stage);
         $snapshot = CampaignRecipientSnapshot::query()->where('revision_id', $clone->latestRevision->getKey())->firstOrFail();
         $this->assertSame(1, $snapshot->recipient_count);
         $this->assertSame(1, $snapshot->start_from);
@@ -83,7 +105,7 @@ class CampaignCloneFlowTest extends TestCase
 
         $this->actingAs($fixture['owner'])
             ->post($route, $payload)
-            ->assertRedirect($cloneUrl)
+            ->assertRedirect($campaignsUrl)
             ->assertSessionHas('status', 'Clone already saved; no duplicate draft was created.');
         $this->assertDatabaseCount('campaigns', 2);
         $this->assertDatabaseCount('campaign_recipient_snapshots', 1);
@@ -96,7 +118,9 @@ class CampaignCloneFlowTest extends TestCase
             ->get(route('console.campaigns.index', $fixture['workspace']->getKey()))
             ->assertOk()
             ->assertSee($this->cleanWorkspaceUrl(route('console.campaigns.clone', [$fixture['workspace']->getKey(), $fixture['source']->getKey()])), false)
-            ->assertSee('Clone campaign into a new draft');
+            ->assertSee('Clone campaign into a new draft')
+            ->assertSee('data-campaign-statistics-toggle', false)
+            ->assertSee('data-campaign-statistics-panel', false);
     }
 
     public function test_clone_requires_the_source_campaign_owner_and_a_live_active_offer(): void
@@ -138,20 +162,36 @@ class CampaignCloneFlowTest extends TestCase
         $this->assertDatabaseCount('campaign_recipient_snapshots', 0);
     }
 
-    public function test_clone_fails_closed_when_the_saved_suppression_file_changes(): void
+    public function test_clone_reports_changed_suppression_file_from_the_background_preparation_job(): void
     {
         $fixture = $this->campaignFixture();
         Storage::disk('local')->put($fixture['offer']->suppression_path, "changed@example.test\n");
+        Queue::fake();
+        $campaignsUrl = $this->cleanWorkspaceUrl(route('console.campaigns.index', $fixture['workspace']->getKey()));
 
         $this->actingAs($fixture['owner'])
             ->post(
                 route('console.campaigns.clone', [$fixture['workspace']->getKey(), $fixture['source']->getKey()]),
                 $this->clonePayload($fixture, (string) Str::uuid()),
             )
-            ->assertSessionHasErrors('suppression');
+            ->assertRedirect($campaignsUrl)
+            ->assertSessionHas('status', 'Campaign clone created. Suppression and recipient preparation are running in the campaigns list.');
 
-        $this->assertDatabaseCount('campaigns', 1);
-        $this->assertDatabaseCount('campaign_revisions', 1);
+        $clone = Campaign::query()->where('workspace_id', $fixture['workspace']->getKey())->where('id', '!=', $fixture['source']->getKey())->firstOrFail();
+        $this->assertSame('preparing_snapshot', $clone->status);
+        $this->assertDatabaseCount('campaigns', 2);
+        $this->assertDatabaseCount('campaign_revisions', 2);
+        $this->assertDatabaseCount('campaign_recipient_snapshots', 0);
+
+        (new BuildCampaignRecipientSnapshot(
+            (string) $fixture['workspace']->getKey(),
+            (string) $clone->getKey(),
+            (string) $clone->latestRevision->getKey(),
+            (int) $fixture['owner']->getKey(),
+        ))->handle(app(DmsCampaignRecipientSnapshotBuilder::class));
+        $clone->refresh();
+        $this->assertSame('snapshot_failed', $clone->status);
+        $this->assertSame('failed', $clone->snapshot_build_stage);
         $this->assertDatabaseCount('campaign_recipient_snapshots', 0);
     }
 

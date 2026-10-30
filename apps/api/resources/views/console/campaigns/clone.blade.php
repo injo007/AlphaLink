@@ -24,7 +24,7 @@
     @endif
 
     <div class="alert alert-info" role="status">
-        DMS Clone requires a live, active offer, then builds a fresh suppression result from the chosen ISP, lists, order, and start position. AlphaLink maps DMS lists to its active audience segments and stores a fresh point-in-time recipient snapshot. The result is a draft; the native DMS sender is not available in AlphaLink.
+        DMS Clone requires a live, active offer, then rebuilds recipients from the chosen ISP, lists, order, and start position. AlphaLink maps DMS Lists to active audience segments, copies the campaign content and routing settings, and creates a fresh suppression snapshot in the background. The cloned campaign appears in My Campaigns with live preparation progress; cloning does not start a send.
     </div>
 
     <form method="POST" action="{{ route('console.campaigns.clone.store', [$workspace->id, $source->id]) }}" id="campaign-clone-form" data-options-url="{{ $sendOptionsUrl }}">

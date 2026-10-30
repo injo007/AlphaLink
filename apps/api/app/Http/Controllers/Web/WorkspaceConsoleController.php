@@ -777,7 +777,6 @@ class WorkspaceConsoleController extends Controller
         string $workspace,
         string $campaign,
         DmsCampaignSendCatalog $catalog,
-        DmsCampaignRecipientSnapshotBuilder $snapshotBuilder,
     ): RedirectResponse {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $this->authorizeRole($workspace, self::CAMPAIGN_ROLES);
@@ -834,12 +833,14 @@ class WorkspaceConsoleController extends Controller
         if ($prior) {
             $this->assertCampaignCloneReplay($prior, $request->user()->getKey(), $name, $requestFingerprint);
 
-            return redirect()->route('console.campaigns.show', [$workspace->getKey(), $prior->getKey()])
-                ->with('status', 'Clone already saved; no duplicate draft was created.');
+            return redirect()->route('console.campaigns.index', $workspace->getKey())
+                ->with('status', $prior->status === 'preparing_snapshot'
+                    ? 'Clone already queued; suppression and recipient preparation are running in the campaigns list.'
+                    : 'Clone already saved; no duplicate draft was created.');
         }
 
         try {
-            $clone = DB::transaction(function () use ($request, $workspace, $source, $sourceRevision, $name, $idempotencyKey, $requestFingerprint, $content, $contentHash, $sendSetup, $snapshotBuilder): Campaign {
+            [$clone, $revision] = DB::transaction(function () use ($request, $workspace, $source, $sourceRevision, $name, $idempotencyKey, $requestFingerprint, $content, $contentHash, $sendSetup): array {
                 $lockedSource = Campaign::query()
                     ->where('workspace_id', $workspace->getKey())
                     ->where('created_by', $request->user()->getKey())
@@ -858,9 +859,13 @@ class WorkspaceConsoleController extends Controller
                     'created_by' => $request->user()->getKey(),
                     'name' => $name,
                     'kind' => 'marketing',
-                    'status' => 'draft',
+                    'status' => 'preparing_snapshot',
                     'is_active' => true,
                     'idempotency_key' => $idempotencyKey,
+                    'snapshot_build_stage' => 'queued',
+                    'snapshot_build_percent' => 0,
+                    'snapshot_build_processed' => 0,
+                    'snapshot_build_updated_at' => now(),
                 ]);
                 $revision = $clone->revisions()->create([
                     'revision_number' => 1,
@@ -871,19 +876,15 @@ class WorkspaceConsoleController extends Controller
                     'created_by' => $request->user()->getKey(),
                     'created_at' => now(),
                 ]);
-                $snapshot = $snapshotBuilder->build($workspace, $clone, (string) $revision->getKey(), $sendSetup);
-
                 $this->recordCampaignEvent($request, $workspace, $clone, 'campaign.cloned', [
                     'source_campaign_id' => $lockedSource->getKey(),
                     'source_revision_id' => $sourceRevision->getKey(),
                     'revision_id' => $revision->getKey(),
                     'content_sha256' => $contentHash,
-                    'recipient_snapshot_id' => $snapshot->getKey(),
-                    'recipient_count' => $snapshot->recipient_count,
-                    'recipient_manifest_sha256' => $snapshot->recipients_sha256,
+                    'recipient_snapshot_status' => 'queued',
                 ]);
 
-                return $clone;
+                return [$clone, $revision];
             });
         } catch (QueryException $exception) {
             $prior = $workspace->campaigns()->where('idempotency_key', $idempotencyKey)->first();
@@ -892,12 +893,14 @@ class WorkspaceConsoleController extends Controller
             }
             $this->assertCampaignCloneReplay($prior, $request->user()->getKey(), $name, $requestFingerprint);
 
-            return redirect()->route('console.campaigns.show', [$workspace->getKey(), $prior->getKey()])
+            return redirect()->route('console.campaigns.index', $workspace->getKey())
                 ->with('status', 'Clone already saved; no duplicate draft was created.');
         }
 
-        return redirect()->route('console.campaigns.show', [$workspace->getKey(), $clone->getKey()])
-            ->with('status', 'Campaign cloned as a new draft with a fresh suppression snapshot. Send it from My Campaigns after preparation completes.');
+        $this->enqueueCampaignSnapshotBuild($workspace, $clone, $revision, $request->user()->getKey());
+
+        return redirect()->route('console.campaigns.index', $workspace->getKey())
+            ->with('status', 'Campaign clone created. Suppression and recipient preparation are running in the campaigns list.');
     }
 
     public function createCampaignDraft(Request $request, string $workspace, DmsCampaignSendCatalog $catalog): RedirectResponse|JsonResponse

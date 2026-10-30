@@ -740,7 +740,8 @@ deploy_release() {
         cd "$temporary_release/apps/api"
         ALPHALINK_ENV_DIR="$ENV_ROOT" COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_MEMORY_LIMIT=-1 \
             composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
-        composer check-platform-reqs --no-dev
+        ALPHALINK_ENV_DIR="$ENV_ROOT" COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_MEMORY_LIMIT=-1 \
+            composer check-platform-reqs --no-dev --no-interaction
         npm ci --no-audit --no-fund
         build_frontend_assets
         [[ -s public/build/manifest.json ]] || fail 'Vite did not produce the asset manifest.'
@@ -977,7 +978,8 @@ resume_initial_install() {
             cd "$staging_path/apps/api"
             ALPHALINK_ENV_DIR="$ENV_ROOT" COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_MEMORY_LIMIT=-1 \
                 composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
-            composer check-platform-reqs --no-dev
+            ALPHALINK_ENV_DIR="$ENV_ROOT" COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_MEMORY_LIMIT=-1 \
+                composer check-platform-reqs --no-dev --no-interaction
             npm ci --no-audit --no-fund
             build_frontend_assets
             [[ -s public/build/manifest.json ]] || fail 'Vite did not produce the asset manifest.'
@@ -1562,7 +1564,8 @@ info 'Installing locked PHP and frontend dependencies...'
 cd "$RELEASE_API_ROOT"
 ALPHALINK_ENV_DIR="$ENV_ROOT" COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_MEMORY_LIMIT=-1 \
     composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
-composer check-platform-reqs --no-dev
+ALPHALINK_ENV_DIR="$ENV_ROOT" COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_MEMORY_LIMIT=-1 \
+    composer check-platform-reqs --no-dev --no-interaction
 npm ci --no-audit --no-fund
 build_frontend_assets
 [[ -s public/build/manifest.json ]] || fail 'Vite did not produce the asset manifest.'

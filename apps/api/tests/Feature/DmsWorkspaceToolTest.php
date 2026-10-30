@@ -112,7 +112,7 @@ class DmsWorkspaceToolTest extends TestCase
         $this->get(route('console.gcampaigns.accounts', $otherWorkspace->id))->assertNotFound();
     }
 
-    public function test_project_creation_uses_dms_google_admin_scope_paginates_and_encrypts_credentials(): void
+    public function test_project_creation_uses_dms_google_admin_scope_paginates_encrypts_credentials_and_allows_duplicate_names(): void
     {
         $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
         $this->assertNotFalse($key);
@@ -145,10 +145,15 @@ class DmsWorkspaceToolTest extends TestCase
         $created = $this->postJson(route('console.tools.workspace.projects.store', $this->workspace->id), [
             'name' => 'admin@example.test', 'service_account_json' => $secret,
         ])->assertOk()->assertJsonPath('accounts', 2)->assertJsonPath('message', 'Project created and synced.');
-        $project = WorkspaceGoogleProject::query()->sole();
+        $createdAgain = $this->postJson(route('console.tools.workspace.projects.store', $this->workspace->id), [
+            'name' => 'admin@example.test', 'service_account_json' => $secret,
+        ])->assertOk()->assertJsonPath('accounts', 2)->assertJsonPath('message', 'Project created and synced.');
+        $project = WorkspaceGoogleProject::query()->findOrFail($created->json('project_id'));
         $this->assertSame('admin@example.test', $project->name);
         $this->assertSame(2, $project->accounts()->count());
-        $this->assertSame(2, $adminRequests);
+        $this->assertNotSame($created->json('project_id'), $createdAgain->json('project_id'));
+        $this->assertSame(2, WorkspaceGoogleProject::query()->where('name', 'admin@example.test')->count());
+        $this->assertSame(3, $adminRequests);
         $encrypted = DB::table('workspace_google_projects')->where('id', $project->id)->value('service_account_json');
         $this->assertStringNotContainsString('BEGIN PRIVATE KEY', $encrypted);
         $this->assertSame($secret, $project->service_account_json);

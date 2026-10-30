@@ -63,7 +63,7 @@ class WorkspaceToolConsoleController extends Controller
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $data = $request->validate([
-            'name' => ['required', 'string', 'email', 'max:255', 'unique:workspace_google_projects,name,NULL,id,workspace_id,'.$workspace->id],
+            'name' => ['required', 'string', 'email', 'max:255'],
             'service_account_json' => ['required', 'string', 'max:50000'],
         ]);
         $credentials = json_decode($data['service_account_json'], true);

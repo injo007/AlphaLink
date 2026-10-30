@@ -3,6 +3,7 @@
 namespace App\Services\Workspace;
 
 use App\Jobs\SyncWorkspaceGoogleProjectAccounts;
+use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceGoogleProject;
 use Illuminate\Http\Client\Response;
@@ -16,7 +17,7 @@ use SimpleXMLElement;
 class DmsWorkspaceS3ProjectSync
 {
     /** @return array{message: string, added: int, updated: int, unchanged: int} */
-    public function sync(Workspace $workspace, string $link): array
+    public function sync(Workspace $workspace, string $link, ?User $actor = null): array
     {
         [$baseUrl, $prefix] = $this->parseS3Link($link);
         $keys = $this->listObjectKeys($baseUrl, $prefix);
@@ -45,11 +46,14 @@ class DmsWorkspaceS3ProjectSync
                 continue;
             }
 
-            $project = WorkspaceGoogleProject::query()
+            $projectQuery = WorkspaceGoogleProject::query()
                 ->where('workspace_id', $workspace->id)
                 ->where('name', $name)
-                ->orderBy('id')
-                ->first();
+                ->orderBy('id');
+            if ($actor !== null) {
+                $projectQuery->availableTo($workspace, $actor);
+            }
+            $project = $projectQuery->first();
 
             if ($project?->service_account_json === $contents) {
                 $unchanged++;
@@ -62,11 +66,20 @@ class DmsWorkspaceS3ProjectSync
                     'workspace_id' => $workspace->id,
                     'name' => $name,
                     'service_account_json' => $contents,
+                    'allowed_users' => $this->actorProjectAccess($workspace, $actor),
                     'is_active' => true,
                 ]));
                 $added++;
             } else {
-                $project->forceFill(['service_account_json' => $contents])->save();
+                $attributes = ['service_account_json' => $contents];
+                $allowedUsers = $this->actorProjectAccess($workspace, $actor);
+                if ($allowedUsers !== [] && $project->allowed_users !== null) {
+                    $attributes['allowed_users'] = array_values(array_unique([
+                        ...array_map('intval', $project->allowed_users),
+                        ...$allowedUsers,
+                    ]));
+                }
+                $project->forceFill($attributes)->save();
                 $updated++;
             }
 
@@ -79,6 +92,14 @@ class DmsWorkspaceS3ProjectSync
             'updated' => $updated,
             'unchanged' => $unchanged,
         ];
+    }
+
+    /** @return list<int> */
+    private function actorProjectAccess(Workspace $workspace, ?User $actor): array
+    {
+        return $actor !== null && $workspace->pivot?->role === 'operator'
+            ? [(int) $actor->getKey()]
+            : [];
     }
 
     /** @return array{string, string} */

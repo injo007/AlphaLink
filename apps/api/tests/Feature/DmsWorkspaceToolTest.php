@@ -172,6 +172,112 @@ class DmsWorkspaceToolTest extends TestCase
         $this->assertSame($created->json('project_id'), $project->id);
     }
 
+    public function test_workspace_project_assignments_limit_operator_projects_accounts_and_smtp_push(): void
+    {
+        $operator = User::factory()->create();
+        $this->workspace->users()->attach($operator->id, ['role' => 'operator']);
+        $sharedProject = $this->project(name: 'shared-project');
+        $sharedProject->update(['allowed_users' => [(int) $operator->id]]);
+        $privateProject = $this->project(name: 'private-project');
+        $privateProject->update(['allowed_users' => []]);
+        $sharedAccount = WorkspaceGoogleAccount::query()->create([
+            'workspace_id' => $this->workspace->id, 'project_id' => $sharedProject->id, 'email' => 'shared@example.test',
+        ]);
+        $privateAccount = WorkspaceGoogleAccount::query()->create([
+            'workspace_id' => $this->workspace->id, 'project_id' => $privateProject->id, 'email' => 'private@example.test',
+        ]);
+        $ip = $this->ip();
+        $remote = Mockery::mock(PmtaRemoteConfiguration::class);
+        $remote->shouldNotReceive('open');
+        $this->app->instance(PmtaRemoteConfiguration::class, $remote);
+        $this->actingAs($operator);
+
+        $this->get(route('console.gcampaigns.projects', $this->workspace->id))
+            ->assertOk()->assertSee('shared-project')->assertDontSee('private-project');
+        $this->get(route('console.tools.workspace.projects.edit', [$this->workspace->id, $sharedProject->id]))
+            ->assertOk()->assertSee('EDIT PROJECT');
+        $this->get(route('console.tools.workspace.projects.edit', [$this->workspace->id, $privateProject->id]))->assertNotFound();
+        $this->get(route('console.gcampaigns.accounts', $this->workspace->id))
+            ->assertOk()->assertSee($sharedAccount->email)->assertDontSee($privateAccount->email);
+        $this->get(route('console.gcampaigns.accounts', [$this->workspace->id, 'project' => $privateProject->id]))->assertNotFound();
+        $this->postJson(route('console.tools.workspace.accounts.store', $this->workspace->id), [
+            'project_id' => $privateProject->id, 'accounts' => ['new@example.test'],
+        ])->assertNotFound();
+        $this->patchJson(route('console.tools.workspace.accounts.status', $this->workspace->id), [
+            'accounts' => [$privateAccount->id], 'status' => false,
+        ])->assertNotFound();
+        $this->deleteJson(route('console.tools.workspace.accounts.destroy', $this->workspace->id), [
+            'ids' => [$privateAccount->id],
+        ])->assertNotFound();
+        $this->postJson(route('console.tools.workspace.push', $this->workspace->id), [
+            'ips' => [$ip->id], 'projects' => [$privateProject->id], 'split_on_ips' => false,
+        ])->assertBadRequest()->assertJsonPath('data', 'Project not found or inactive.');
+        $this->assertTrue($privateAccount->fresh()->is_active);
+    }
+
+    public function test_workspace_project_edit_and_bulk_allowed_mailers_update_access_only_for_managers(): void
+    {
+        Queue::fake();
+        $firstOperator = User::factory()->create();
+        $secondOperator = User::factory()->create();
+        $this->workspace->users()->attach([$firstOperator->id => ['role' => 'operator'], $secondOperator->id => ['role' => 'operator']]);
+        $project = $this->project(name: 'editable-project');
+        $project->update(['allowed_users' => []]);
+
+        $this->get(route('console.tools.workspace.projects.edit', [$this->workspace->id, $project->id]))
+            ->assertOk()->assertSee('EDIT PROJECT')->assertSee('Service account JSON')->assertSee($firstOperator->email);
+        $this->putJson(route('console.tools.workspace.projects.update', [$this->workspace->id, $project->id]), [
+            'name' => 'renamed-project',
+            'service_account_json' => json_encode(['client_email' => 'updated@example.test', 'private_key' => 'updated-key'], JSON_THROW_ON_ERROR),
+            'users' => [$firstOperator->id],
+        ])->assertOk()->assertJsonPath('message', 'Project updated. Account synchronization queued.');
+        $this->assertSame('renamed-project', $project->fresh()->name);
+        $this->assertSame([(int) $firstOperator->id], array_map('intval', $project->fresh()->allowed_users));
+        Queue::assertPushed(SyncWorkspaceGoogleProjectAccounts::class, fn (SyncWorkspaceGoogleProjectAccounts $job): bool => $job->projectId === $project->id);
+
+        $otherProject = $this->project(name: 'bulk-project');
+        $otherProject->update(['allowed_users' => null]);
+        $this->get(route('console.tools.workspace.projects.access', [$this->workspace->id, 'ids' => [$project->id, $otherProject->id]]))
+            ->assertOk()->assertSee('ALLOWED MAILERS FOR 2 PROJECTS')->assertSee('bulk-project');
+        $this->putJson(route('console.tools.workspace.projects.access.update', $this->workspace->id), [
+            'projects' => [$project->id, $otherProject->id], 'users' => [$secondOperator->id],
+        ])->assertOk()->assertJsonPath('message', 'Allowed Mailers updated.')->assertJsonPath('updated', 2);
+        $this->assertSame([(int) $secondOperator->id], array_map('intval', $project->fresh()->allowed_users));
+        $this->assertSame([(int) $secondOperator->id], array_map('intval', $otherProject->fresh()->allowed_users));
+
+        $this->actingAs($firstOperator);
+        $this->get(route('console.tools.workspace.projects.access', [$this->workspace->id, 'ids' => [$project->id]]))->assertForbidden();
+        $this->putJson(route('console.tools.workspace.projects.access.update', $this->workspace->id), [
+            'projects' => [$project->id], 'users' => [$firstOperator->id],
+        ])->assertForbidden();
+        $this->deleteJson(route('console.tools.workspace.projects.destroy', [$this->workspace->id, $project->id]))->assertForbidden();
+    }
+
+    public function test_operator_created_project_is_named_freely_and_auto_assigned_to_creator(): void
+    {
+        $operator = User::factory()->create();
+        $this->workspace->users()->attach($operator->id, ['role' => 'operator']);
+        $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+        $this->assertNotFalse($key);
+        $privateKey = '';
+        $this->assertTrue(openssl_pkey_export($key, $privateKey));
+        Http::fake([
+            'https://oauth2.googleapis.com/token' => Http::response(['access_token' => 'synthetic-token']),
+            'https://admin.googleapis.com/admin/directory/v1/users*' => Http::response(['users' => []]),
+        ]);
+        $this->actingAs($operator);
+
+        $response = $this->postJson(route('console.tools.workspace.projects.store', $this->workspace->id), [
+            'name' => 'Workspace Project From S3',
+            'service_account_json' => json_encode(['client_email' => 'svc@example.test', 'private_key' => $privateKey], JSON_THROW_ON_ERROR),
+        ])->assertOk();
+        $project = WorkspaceGoogleProject::query()->findOrFail($response->json('project_id'));
+
+        $this->assertSame('Workspace Project From S3', $project->name);
+        $this->assertSame([(int) $operator->id], array_map('intval', $project->allowed_users));
+        $this->get(route('console.gcampaigns.projects', $this->workspace->id))->assertSee($project->name);
+    }
+
     public function test_sync_removes_stale_accounts_and_preserves_status_for_accounts_still_in_directory(): void
     {
         $project = $this->project();
@@ -269,6 +375,36 @@ class DmsWorkspaceToolTest extends TestCase
 
         $this->assertSame($newCredentials, $project->fresh()->service_account_json);
         $this->assertNotSame($newCredentials, $foreignProject->fresh()->service_account_json);
+        Queue::assertPushed(SyncWorkspaceGoogleProjectAccounts::class, 1);
+    }
+
+    public function test_operator_s3_sync_does_not_overwrite_a_project_they_cannot_access(): void
+    {
+        Queue::fake();
+        $operator = User::factory()->create();
+        $this->workspace->users()->attach($operator->id, ['role' => 'operator']);
+        $privateProject = $this->project(name: 'private-project');
+        $privateProject->update(['allowed_users' => []]);
+        $originalCredentials = $privateProject->service_account_json;
+        $newCredentials = json_encode(['client_email' => 'new-svc@example.test', 'private_key' => 'new-key'], JSON_THROW_ON_ERROR);
+        Http::fake(function (ClientRequest $request) use ($newCredentials) {
+            if (parse_url($request->url(), PHP_URL_PATH) === '/') {
+                return Http::response('<ListBucketResult><Contents><Key>private-project.json</Key></Contents><IsTruncated>false</IsTruncated></ListBucketResult>');
+            }
+
+            return Http::response($newCredentials);
+        });
+        $this->actingAs($operator);
+
+        $this->postJson(route('console.tools.workspace.projects.sync-s3', $this->workspace->id), [
+            'link' => 'https://workspace-fixture.s3.us-east-1.amazonaws.com',
+        ])->assertOk()->assertJsonPath('added', 1)->assertJsonPath('updated', 0);
+
+        $this->assertSame($originalCredentials, $privateProject->fresh()->service_account_json);
+        $importedProject = WorkspaceGoogleProject::query()->where('workspace_id', $this->workspace->id)
+            ->where('name', 'private-project')->where('id', '!=', $privateProject->id)->sole();
+        $this->assertSame($newCredentials, $importedProject->service_account_json);
+        $this->assertSame([(int) $operator->id], array_map('intval', $importedProject->allowed_users));
         Queue::assertPushed(SyncWorkspaceGoogleProjectAccounts::class, 1);
     }
 

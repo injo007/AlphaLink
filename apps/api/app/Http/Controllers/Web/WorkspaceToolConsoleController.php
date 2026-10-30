@@ -69,7 +69,7 @@ class WorkspaceToolConsoleController extends Controller
         return view('console.tools.workspace.accounts', compact('workspace', 'projects', 'accounts', 'selectedProjectId'));
     }
 
-    public function storeProject(Request $request, string $workspace, DmsWorkspaceDirectorySync $directory): JsonResponse
+    public function storeProject(Request $request, string $workspace): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $data = $request->validate([
@@ -97,19 +97,12 @@ class WorkspaceToolConsoleController extends Controller
             return response()->json(['message' => 'Project could not be saved.'], 500);
         }
 
-        try {
-            $count = $directory->sync($project);
-        } catch (Throwable $exception) {
-            $project->forceFill(['is_active' => false, 'sync_error' => substr($exception->getMessage(), 0, 1000)])->save();
+        SyncWorkspaceGoogleProjectAccounts::dispatch((int) $project->getKey());
 
-            return response()->json([
-                'message' => 'Project saved, but Google account synchronization failed. Correct the service account and retry sync.',
-                'project_id' => $project->id,
-                'error' => $project->sync_error,
-            ], 422);
-        }
-
-        return response()->json(['message' => 'Project created and synced.', 'project_id' => $project->id, 'accounts' => $count]);
+        return response()->json([
+            'message' => 'Project saved. Account synchronization queued.',
+            'project_id' => $project->id,
+        ]);
     }
 
     public function syncS3Projects(Request $request, string $workspace, DmsWorkspaceS3ProjectSync $s3Sync): JsonResponse

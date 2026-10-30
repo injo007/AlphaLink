@@ -81,7 +81,7 @@ class DmsWorkspaceToolTest extends TestCase
         $projectsPage = $this->get(route('console.gcampaigns.projects', $this->workspace->id));
         $projectsPage
             ->assertOk()->assertSee('GMAIL PROJECTS')->assertSee($project->name)
-            ->assertSee('SAVE & SYNC')->assertSee('workspace-project-table')
+            ->assertSee('id="workspace-project-save">SAVE</button>', false)->assertSee('workspace-project-table')
             ->assertSee('workspace-project-s3-toggle')->assertSee('workspace-project-s3-link')
             ->assertSee('workspace-project-s3-sync')->assertSee('Each non-empty file becomes a Workspace project')
             ->assertSee('ENABLE / DISABLE PROJECTS')->assertSee('DELETE SELECTED')
@@ -118,8 +118,10 @@ class DmsWorkspaceToolTest extends TestCase
         $this->get(route('console.gcampaigns.accounts', $otherWorkspace->id))->assertNotFound();
     }
 
-    public function test_project_creation_uses_dms_google_admin_scope_paginates_encrypts_credentials_and_allows_duplicate_names(): void
+    public function test_project_creation_queues_dms_google_admin_sync_encrypts_credentials_and_allows_duplicate_names(): void
     {
+        Queue::fake();
+        Http::fake();
         $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
         $this->assertNotFalse($key);
         $privateKey = '';
@@ -128,47 +130,24 @@ class DmsWorkspaceToolTest extends TestCase
             'type' => 'service_account', 'client_email' => 'svc@example.test', 'private_key' => $privateKey,
             'token_uri' => 'https://oauth2.googleapis.com/token',
         ], JSON_THROW_ON_ERROR);
-        $adminRequests = 0;
-        Http::fake(function (ClientRequest $request) use (&$adminRequests) {
-            if ($request->url() === 'https://oauth2.googleapis.com/token') {
-                return Http::response(['access_token' => 'synthetic-access-token', 'token_type' => 'Bearer', 'expires_in' => 3600]);
-            }
-            if (parse_url($request->url(), PHP_URL_PATH) === '/admin/directory/v1/users') {
-                $adminRequests++;
-                if ($adminRequests === 1) {
-                    return Http::response(['users' => [['primaryEmail' => 'first@example.test']], 'nextPageToken' => 'page-2']);
-                }
-                if ($adminRequests === 2) {
-                    return Http::response(['users' => [['primaryEmail' => 'second@example.test']]]);
-                }
-
-                return Http::response(['users' => [['primaryEmail' => 'second@example.test'], ['primaryEmail' => 'third@example.test']]]);
-            }
-
-            return Http::response([], 404);
-        });
-
         $created = $this->postJson(route('console.tools.workspace.projects.store', $this->workspace->id), [
             'name' => 'admin@example.test', 'service_account_json' => $secret,
-        ])->assertOk()->assertJsonPath('accounts', 2)->assertJsonPath('message', 'Project created and synced.');
+        ])->assertOk()->assertJsonPath('message', 'Project saved. Account synchronization queued.');
         $createdAgain = $this->postJson(route('console.tools.workspace.projects.store', $this->workspace->id), [
             'name' => 'admin@example.test', 'service_account_json' => $secret,
-        ])->assertOk()->assertJsonPath('accounts', 2)->assertJsonPath('message', 'Project created and synced.');
+        ])->assertOk()->assertJsonPath('message', 'Project saved. Account synchronization queued.');
         $project = WorkspaceGoogleProject::query()->findOrFail($created->json('project_id'));
         $this->assertSame('admin@example.test', $project->name);
-        $this->assertSame(2, $project->accounts()->count());
+        $this->assertSame(0, $project->accounts()->count());
         $this->assertNotSame($created->json('project_id'), $createdAgain->json('project_id'));
         $this->assertSame(2, WorkspaceGoogleProject::query()->where('name', 'admin@example.test')->count());
-        $this->assertSame(3, $adminRequests);
+        Queue::assertPushed(SyncWorkspaceGoogleProjectAccounts::class, 2);
+        Queue::assertPushed(SyncWorkspaceGoogleProjectAccounts::class, fn (SyncWorkspaceGoogleProjectAccounts $job): bool => $job->projectId === $created->json('project_id'));
+        Queue::assertPushed(SyncWorkspaceGoogleProjectAccounts::class, fn (SyncWorkspaceGoogleProjectAccounts $job): bool => $job->projectId === $createdAgain->json('project_id'));
+        Http::assertNothingSent();
         $encrypted = DB::table('workspace_google_projects')->where('id', $project->id)->value('service_account_json');
         $this->assertStringNotContainsString('BEGIN PRIVATE KEY', $encrypted);
         $this->assertSame($secret, $project->service_account_json);
-        Http::assertSent(fn (ClientRequest $request): bool => $request->url() === 'https://oauth2.googleapis.com/token'
-            && $request['grant_type'] === 'urn:ietf:params:oauth:grant-type:jwt-bearer'
-            && $this->jwtClaim((string) $request['assertion'], 'sub') === 'admin@example.test'
-            && $this->jwtClaim((string) $request['assertion'], 'scope') === 'https://www.googleapis.com/auth/admin.directory.user');
-        Http::assertSent(fn (ClientRequest $request): bool => $request->url() === 'https://admin.googleapis.com/admin/directory/v1/users?customer=my_customer&maxResults=500'
-            && $request->hasHeader('Authorization', 'Bearer synthetic-access-token'));
         $this->assertSame($created->json('project_id'), $project->id);
     }
 

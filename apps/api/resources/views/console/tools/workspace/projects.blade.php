@@ -59,7 +59,7 @@
                             <small class="form-text text-muted">There are no active operators in this workspace to assign.</small>
                         @endforelse
                     </div>
-                    <button class="btn btn-primary" type="submit" id="workspace-project-save">SAVE &amp; SYNC</button>
+                    <button class="btn btn-primary" type="submit" id="workspace-project-save">SAVE</button>
                 </form>
             </div>
             <div class="table-responsive">
@@ -196,8 +196,8 @@
                         service_account_json: document.getElementById('workspace-service-account').value,
                         users: [...document.querySelectorAll('.workspace-project-user:checked')].map((checkbox) => Number(checkbox.value)),
                     });
-                    showStatus(`${result.message} ${result.accounts ?? 0} account(s) synced.`);
-                    window.location.reload();
+                    showStatus(result.message);
+                    window.setTimeout(() => window.location.reload(), 900);
                 } catch (error) {
                     showStatus(error.message, false);
                     busy(save, false);

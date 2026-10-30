@@ -360,8 +360,10 @@
                         <label for="campaign-dms-header">Header:
                             <button type="button" class="btn btn-link btn-sm p-0" id="campaign-header-shuffle" title="Shuffle header lines" aria-label="Shuffle header lines"><i class="fas fa-random" aria-hidden="true"></i></button>
                             <button type="button" class="btn btn-link btn-sm p-0" id="campaign-header-encode" title="Encoding tools" aria-label="Encoding tools"><i class="fas fa-pencil-ruler" aria-hidden="true"></i></button>
+                            <button type="button" class="btn btn-link btn-sm p-0" id="campaign-header-use-smtp" title="Put the selected Workspace SMTP account in the From address">Use SMTP account as From</button>
                         </label>
                         <textarea id="campaign-dms-header" name="header" rows="30" class="form-control campaign-header-editor" spellcheck="false" required>{{ old('header', $savedContent['header'] ?? $defaultDmsHeader) }}</textarea>
+                        <small class="form-text text-muted">This inserts <code>From: [smtp]@[domain]</code> and switches routing to SMTP. Select the Workspace account under Available SMTP routes; full email usernames and the DMS form <code>info@[smtp]</code> are supported.</small>
                     </div>
                     <div class="form-group col-md-6">
                         <label for="campaign-dms-body">Body:
@@ -1258,6 +1260,26 @@
                 body.value = bodyStart + (event.target.checked ? '<h2 style="font-size:35px; color:#324ab2">TITLE</h2>\n</a>\n<br/>\n' : '<font size="4">TTILE</font><br>\n') + imageTag + trackingEnd;
             });
             const headerField = document.getElementById('campaign-dms-header');
+            document.getElementById('campaign-header-use-smtp')?.addEventListener('click', () => {
+                const lines = headerField.value.split(/\r\n|\r|\n/);
+                let replaced = false;
+                const updated = lines.map((line) => {
+                    if (!replaced && /^\s*from\s*:/i.test(line)) {
+                        replaced = true;
+                        return 'From: [smtp]@[domain]';
+                    }
+                    return line;
+                });
+                if (!replaced) updated.push('From: [smtp]@[domain]');
+                headerField.value = updated.join('\n');
+                const route = document.getElementById('send-route');
+                if (route && route.value !== 'smtp') {
+                    route.value = 'smtp';
+                    route.dispatchEvent(new Event('change', {bubbles: true}));
+                }
+                headerField.focus();
+                setToolStatus('Header From now uses the SMTP username. Select the intended Workspace account under Available SMTP routes before saving or testing.');
+            });
             const fromAssets = document.getElementById('send-from-assets');
             const subjectAssets = document.getElementById('send-subject-assets');
             fromAssets?.addEventListener('change', () => {

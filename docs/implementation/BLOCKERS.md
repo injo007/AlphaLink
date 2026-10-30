@@ -569,3 +569,12 @@ Campaign route catalogs previously suppressed Workspace project SMTP rows whenev
 ### DMS-CAMP-009 follow-up — E-CAMP-138
 
 Campaign Test now accepts both `From: [smtp]` and `From: [smtp]@[domain]`: full email usernames remain intact, and local-part usernames receive the domain suffix. The selected campaign Domain fills `[domain]` only when the current server/IP route has no DNS name; valid route DNS still takes precedence. The composer documents the syntax and SMTP route requirement. `DmsCampaignSendCatalogTest` passes **36 tests / 1,092 assertions** with fake transport; offer and suppression regressions pass **41 tests / 334 assertions**. No live email, PMTA push/reset, or production action ran. These checks do not enable normal campaign SEND or establish mailbox delivery.
+
+
+### DMS-CAMP-009 follow-up — E-CAMP-139 / E-CAMP-140
+
+The Create Campaign Header now has a one-click action that switches routing to SMTP and inserts `From: [smtp]@[domain]`. The live page showed the existing Header form `From: [from] <info@[smtp]>`; this was invalid when `[smtp]` expanded to a full email username. The renderer now uses that selected account’s domain only when `[smtp]` occupies the domain position, while standalone `[smtp]` and `[smtp]@[domain]` retain their existing behavior. `DmsCampaignSendCatalogTest` passes 37 tests / 1,115 assertions with fake SMTP transport and synthetic routes. This verifies Campaign Test only; normal campaign SEND and inbox delivery remain unavailable.
+
+### DMS-DROP-003 follow-up — E-CAMP-141
+
+The production Drops page still displayed the older embedded file-upload panel during a read-only browser check, while the current repository places offer-file management on the Offer page. The run catalog could also report `can_run_suppression=true` from fresh metadata when the canonical saved file was missing. It now requires the stored private file for run readiness and start, and gives an actionable error instead of queuing an impossible run. A complete recent scope remains a no-op. `WorkspaceDropSuppressionTest` passes 14 tests / 124 assertions. Production still needs the pushed release deployed; no suppression run or production write was triggered.

@@ -60,6 +60,11 @@ class WorkspaceDropSuppressionController extends Controller
             $isps = $this->isps($workspace, $request->user(), $sponsorId)->get();
             $selectedOfferIsEligible = $offerId > 0
                 && $this->eligibleOffers($workspace, $request->user(), $sponsorId)->whereKey($offerId)->exists();
+            if ($selectedOfferIsEligible) {
+                $selectedOffer = $offers->first(fn (WorkspaceOffer $candidate): bool => (int) $candidate->getKey() === $offerId);
+                $selectedOfferIsEligible = $selectedOffer !== null
+                    && $suppressionFiles->hasStoredFile($workspace, $selectedOffer);
+            }
             if ($selectedOfferIsEligible && $ispIds !== []) {
                 $lists = $this->lists($workspace, $request->user(), $sponsorId, $ispIds)->get()
                     ->map(function (AudienceList $list): array {
@@ -92,7 +97,8 @@ class WorkspaceDropSuppressionController extends Controller
                 'has_suppression_file' => $suppressionFiles->hasStoredFile($workspace, $offer),
                 'suppression_format' => $offer->suppression_format,
                 'suppression_updated_at' => $offer->suppression_updated_at?->toDateString(),
-                'can_run_suppression' => in_array((int) $offer->getKey(), $eligibleOfferIds, true),
+                'can_run_suppression' => in_array((int) $offer->getKey(), $eligibleOfferIds, true)
+                    && $suppressionFiles->hasStoredFile($workspace, $offer),
             ])->values(),
             'isps' => $isps->map(fn (Isp $isp): array => [
                 'id' => (int) $isp->getKey(),
@@ -102,7 +108,7 @@ class WorkspaceDropSuppressionController extends Controller
         ]);
     }
 
-    public function start(Request $request, string $workspace): JsonResponse
+    public function start(Request $request, string $workspace, DmsOfferSuppressionFile $suppressionFiles): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $data = $request->validate([
@@ -119,7 +125,6 @@ class WorkspaceDropSuppressionController extends Controller
         $offer = $this->eligibleOffers($workspace, $request->user(), (int) $data['sponsor'])
             ->whereKey((int) $data['offer'])->first();
         abort_unless($offer !== null, 404);
-
         $ispIds = array_map('intval', $data['isp']);
         $allowedIspIds = $this->isps($workspace, $request->user(), (int) $data['sponsor'])
             ->whereKey($ispIds)->pluck('id')->map(fn ($id): int => (int) $id)->all();
@@ -144,6 +149,12 @@ class WorkspaceDropSuppressionController extends Controller
 
         if ($missingListIds === []) {
             return response()->json(['data' => 'Suppression up to date', 'started' => false]);
+        }
+
+        if (! $suppressionFiles->hasStoredFile($workspace, $offer)) {
+            throw ValidationException::withMessages([
+                'offer' => 'The selected Offer has no saved suppression file. Download or upload its file from the Offer page first.',
+            ]);
         }
 
         $run = WorkspaceDropSuppression::query()->create([

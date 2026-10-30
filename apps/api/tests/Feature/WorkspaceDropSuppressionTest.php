@@ -335,7 +335,7 @@ class WorkspaceDropSuppressionTest extends TestCase
         $this->assertSame(1, WorkspaceDropSuppression::query()->count());
     }
 
-    public function test_missing_suppression_file_is_recorded_as_terminal_error_and_operator_cannot_run_unassigned_scope(): void
+    public function test_missing_suppression_file_is_not_marked_ready_or_queued_and_operator_cannot_run_unassigned_scope(): void
     {
         Queue::fake();
         $owner = User::factory()->create();
@@ -351,16 +351,26 @@ class WorkspaceDropSuppressionTest extends TestCase
             'suppression_updated_at' => now()->toDateString(),
         ])->save();
 
+        $this->actingAs($owner)->getJson(route('console.drops.suppression.catalog', [
+            $workspace->getKey(),
+            'sponsor_id' => $sponsor->getKey(),
+            'offer_id' => $offer->getKey(),
+            'isp_ids' => [$isp->getKey()],
+        ]))->assertOk()
+            ->assertJsonPath('offers.0.has_suppression_file', false)
+            ->assertJsonPath('offers.0.can_run_suppression', false)
+            ->assertJsonCount(0, 'lists');
+
         $this->actingAs($owner)->postJson(route('console.drops.suppression.start', $workspace->getKey()), [
             'sponsor' => $sponsor->getKey(),
             'offer' => $offer->getKey(),
             'isp' => [$isp->getKey()],
             'lists' => [$list->getKey()],
-        ])->assertOk();
-        $run = WorkspaceDropSuppression::query()->sole();
-        (new ProcessWorkspaceDropSuppression((int) $run->getKey()))->handle(app(DmsDropSuppressionProcessor::class));
-        $this->assertSame('error NFS', $run->fresh()->status);
-        $this->assertSame('The current suppression file could not be refreshed from its affiliate source.', $run->fresh()->failure_message);
+        ])->assertUnprocessable()->assertJsonPath(
+            'errors.offer.0',
+            'The selected Offer has no saved suppression file. Download or upload its file from the Offer page first.',
+        );
+        $this->assertDatabaseCount('workspace_drop_suppressions', 0);
 
         $this->actingAs($operator)->postJson(route('console.drops.suppression.start', $workspace->getKey()), [
             'sponsor' => $sponsor->getKey(),

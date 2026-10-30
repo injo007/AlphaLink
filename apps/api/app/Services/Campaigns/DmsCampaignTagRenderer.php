@@ -45,6 +45,21 @@ class DmsCampaignTagRenderer
             ) ?? $text;
         }
 
+        // Older DMS headers commonly use a fixed From local part with the
+        // SMTP tag in the domain position, e.g. `info@[smtp]`. SMTP route
+        // usernames can be complete email addresses, so use their domain in
+        // this specific position instead of producing `info@user@domain`.
+        // A local-part username falls back to the selected route's domain.
+        $smtpDomain = '';
+        if (filter_var($smtp, FILTER_VALIDATE_EMAIL) !== false) {
+            $smtpDomain = (string) substr($smtp, strrpos($smtp, '@') + 1);
+        } else {
+            $smtpDomain = trim((string) ($values['domain'] ?? ''));
+        }
+        if ($smtpDomain !== '') {
+            $text = preg_replace('/@\s*\[smtp\]/i', '@'.$smtpDomain, $text) ?? $text;
+        }
+
         foreach ([
             'ip', 'rdns', 'domain', 'domain_sld', 'to', 'name', 'from', 'subject', 'date', 'server',
             'main_domain', 'idi', 'idd', 'ids', 'ide', 'boundary', 'reply', 'negative',

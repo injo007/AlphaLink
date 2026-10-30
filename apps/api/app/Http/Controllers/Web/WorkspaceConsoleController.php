@@ -1610,6 +1610,10 @@ class WorkspaceConsoleController extends Controller
                         && trim((string) ($selectedTagValues['domain'] ?? '')) === ''
                         && trim((string) ($data['domain'] ?? '')) === '') {
                         $message = 'The Header uses [domain], but the selected IP/server has no DNS name and no campaign Domain is selected. Choose a Domain or select an IP with a DNS name.';
+                    } elseif ($addressField === 'from_address'
+                        && $data['send_setup']['route_option'] === 'smtp'
+                        && filter_var((string) ($selectedTagValues['smtp'] ?? ''), FILTER_VALIDATE_EMAIL) !== false) {
+                        $message = 'The selected Workspace SMTP account is available, but the Header From address does not use it. Set the address line to From: [smtp] or From: [smtp]@[domain].';
                     }
 
                     throw ValidationException::withMessages([$errorKey => $message]);

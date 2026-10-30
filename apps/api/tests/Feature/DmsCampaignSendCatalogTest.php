@@ -1870,6 +1870,9 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->withArgs(fn (ManagedServer $selected, int $port): bool => $selected->is($server))
             ->andReturn($transport);
         $this->app->instance(PmtaCampaignTestTransport::class, $factory);
+        $pmtaRemote = Mockery::mock(PmtaRemoteConfiguration::class);
+        $pmtaRemote->shouldReceive('workspaceSmtpRouteExists')->once()->andReturnTrue();
+        $this->app->instance(PmtaRemoteConfiguration::class, $pmtaRemote);
 
         $this->actingAs($owner)->getJson(route('console.campaigns.send-options', [
             $workspace->getKey(),
@@ -2111,6 +2114,9 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->withArgs(fn (ManagedServer $selected, int $port): bool => $selected->is($server) && $port === 2525)
             ->andReturn($transport);
         $this->app->instance(PmtaCampaignTestTransport::class, $factory);
+        $pmtaRemote = Mockery::mock(PmtaRemoteConfiguration::class);
+        $pmtaRemote->shouldReceive('workspaceSmtpRouteExists')->twice()->andReturnTrue();
+        $this->app->instance(PmtaRemoteConfiguration::class, $pmtaRemote);
 
         $this->actingAs($owner)->postJson(route('console.campaigns.manual-test', $workspace->getKey()), [
             'idempotency_key' => (string) Str::uuid(),
@@ -2208,8 +2214,14 @@ class DmsCampaignSendCatalogTest extends TestCase
         ], JSON_THROW_ON_ERROR));
         config(['infrastructure.workspace_relay_assets_directory' => $assetDirectory]);
 
+        $workspaceRouteInstalled = true;
         $session = Mockery::mock(DmsInstallerSshSession::class);
-        $session->shouldReceive('exec')->andReturnUsing(function (string $command): string {
+        $session->shouldReceive('exec')->andReturnUsing(function (string $command) use (&$workspaceRouteInstalled): string {
+            if (str_contains($command, '__ALPHALINK_WORKSPACE_ROUTE_PRESENT__')) {
+                return $workspaceRouteInstalled
+                    ? '__ALPHALINK_WORKSPACE_ROUTE_PRESENT__'
+                    : '__ALPHALINK_WORKSPACE_ROUTE_MISSING__';
+            }
             foreach ([
                 '__WORKSPACE_DIRS_READY__',
                 '__WORKSPACE_ACCOUNT_READY__',
@@ -2234,6 +2246,11 @@ class DmsCampaignSendCatalogTest extends TestCase
         $session->shouldReceive('upload')->twice()->andReturn(true);
         $remote = Mockery::mock(PmtaRemoteConfiguration::class);
         $remote->shouldReceive('open')->once()->with(Mockery::on(fn ($candidate) => $candidate->is($server)))->andReturn($session);
+        $remote->shouldReceive('workspaceSmtpRouteExists')->twice()->andReturnUsing(
+            function () use (&$workspaceRouteInstalled): bool {
+                return $workspaceRouteInstalled;
+            },
+        );
         $this->app->instance(PmtaRemoteConfiguration::class, $remote);
 
         $pushResults = app(DmsWorkspaceSmtpConfiguration::class)->push(
@@ -2273,7 +2290,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->andReturn($transport);
         $this->app->instance(PmtaCampaignTestTransport::class, $factory);
 
-        $this->actingAs($owner)->postJson(route('console.campaigns.manual-test', $workspace->getKey()), [
+        $manualTestPayload = [
             'idempotency_key' => (string) Str::uuid(),
             'email_test_addresses' => 'workspace-route-recipient@example.test',
             'header' => "To: [to]\nFrom: [from] <info@[smtp]>\nSubject: [smtp_name]",
@@ -2284,7 +2301,9 @@ class DmsCampaignSendCatalogTest extends TestCase
                 'ip_type' => 'ipv4',
                 'send_type' => 'delay',
             ],
-        ])->assertOk()->assertJsonPath('outcome', 'accepted_by_transport');
+        ];
+        $this->actingAs($owner)->postJson(route('console.campaigns.manual-test', $workspace->getKey()), $manualTestPayload)
+            ->assertOk()->assertJsonPath('outcome', 'accepted_by_transport');
 
         $this->assertCount(1, $sentMessages);
         $this->assertStringContainsString('From:  <info@example.test>', $sentMessages[0]);
@@ -2293,6 +2312,17 @@ class DmsCampaignSendCatalogTest extends TestCase
             'X-virtual-MTA: '.PmtaSmtpConfigBuilder::workspaceVirtualMtaName($ip->ip, $pushedAccount->getKey()),
             $sentMessages[0],
         );
+
+        $workspaceRouteInstalled = false;
+        $missingRoute = $this->postJson(route('console.campaigns.manual-test', $workspace->getKey()), [
+            ...$manualTestPayload,
+            'idempotency_key' => (string) Str::uuid(),
+        ]);
+        $missingRoute->assertUnprocessable()
+            ->assertJsonValidationErrors('send_setup.ip_ids')
+            ->assertJsonFragment([
+                'PMTA does not have the selected Workspace SMTP route '.PmtaSmtpConfigBuilder::workspaceVirtualMtaName($ip->ip, $pushedAccount->getKey()).' loaded for this user. No test message was sent. Repair the Workspace relay health check, push the Workspace accounts again, and reload the campaign.',
+            ]);
     }
 
     public function test_campaign_test_uses_selected_domain_when_server_has_no_route_dns(): void
@@ -2441,6 +2471,9 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->withArgs(fn (ManagedServer $selected, int $port): bool => $selected->is($server) && $port === 2525)
             ->andReturn($transport);
         $this->app->instance(PmtaCampaignTestTransport::class, $factory);
+        $pmtaRemote = Mockery::mock(PmtaRemoteConfiguration::class);
+        $pmtaRemote->shouldReceive('workspaceSmtpRouteExists')->once()->andReturnTrue();
+        $this->app->instance(PmtaRemoteConfiguration::class, $pmtaRemote);
 
         $this->actingAs($owner)->post(route('console.campaigns.pmta-test', [$workspace->getKey(), $campaign->getKey()]), [
             'revision_id' => $revision->getKey(),

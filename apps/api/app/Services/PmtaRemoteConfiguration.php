@@ -34,6 +34,22 @@ class PmtaRemoteConfiguration
         return $this->files->visibleFiles((string) $result);
     }
 
+    public function workspaceSmtpRouteExists(ManagedServer $server, int $userId, string $virtualMtaName): bool
+    {
+        if ($userId < 1 || preg_match('/\\A[A-Za-z0-9_.:-]{1,255}\\z/', $virtualMtaName) !== 1) {
+            return false;
+        }
+
+        $configuration = escapeshellarg('/etc/pmta/conf/workspace_'.$userId);
+        $directive = escapeshellarg('<virtual-mta '.$virtualMtaName.'>');
+        $result = $this->open($server)->exec(
+            'if test -f '.$configuration.' && grep -Fq -- '.$directive.' '.$configuration
+                .'; then echo __ALPHALINK_WORKSPACE_ROUTE_PRESENT__; else echo __ALPHALINK_WORKSPACE_ROUTE_MISSING__; fi',
+        );
+
+        return is_string($result) && str_contains($result, '__ALPHALINK_WORKSPACE_ROUTE_PRESENT__');
+    }
+
     public function readFile(ManagedServer $server, string $filename): string
     {
         $path = escapeshellarg($this->files->path($filename));

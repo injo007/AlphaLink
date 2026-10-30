@@ -31,6 +31,7 @@ use App\Services\Campaigns\PmtaPanelUrl;
 use App\Services\Campaigns\PmtaQueueAdmin;
 use App\Services\Infrastructure\DmsBulkInstallVmtaPlanner;
 use App\Services\PmtaAuditLogger;
+use App\Services\PmtaRemoteConfiguration;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\QueryException;
@@ -1298,6 +1299,7 @@ class WorkspaceConsoleController extends Controller
         PmtaCampaignTestTransport $transportFactory,
         DmsCampaignTagRenderer $tagRenderer,
         DmsBulkInstallVmtaPlanner $vmtaPlanner,
+        PmtaRemoteConfiguration $pmtaRemote,
     ): RedirectResponse|JsonResponse {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $this->authorizeRole($workspace, self::CAMPAIGN_ROLES);
@@ -1339,7 +1341,7 @@ class WorkspaceConsoleController extends Controller
             'send_setup' => [...$sendSetup, 'send_type' => $data['send_type']],
         ]);
 
-        return $this->sendCampaignManualTest($request, (string) $workspace->getKey(), $catalog, $transportFactory, $tagRenderer, $vmtaPlanner);
+        return $this->sendCampaignManualTest($request, (string) $workspace->getKey(), $catalog, $transportFactory, $tagRenderer, $vmtaPlanner, $pmtaRemote);
     }
 
     public function sendCampaignManualTest(
@@ -1349,6 +1351,7 @@ class WorkspaceConsoleController extends Controller
         PmtaCampaignTestTransport $transportFactory,
         DmsCampaignTagRenderer $tagRenderer,
         DmsBulkInstallVmtaPlanner $vmtaPlanner,
+        PmtaRemoteConfiguration $pmtaRemote,
     ): RedirectResponse|JsonResponse {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $this->authorizeRole($workspace, self::CAMPAIGN_ROLES);
@@ -1478,6 +1481,26 @@ class WorkspaceConsoleController extends Controller
                             ? 'No pushed SMTP route is available for the selected server. Configure and push an SMTP route, then reload this campaign before testing.'
                             : 'No pushed VMTA is available for the selected server. Push a VMTA in PMTA VMTA, then reload this campaign before testing.',
                     ]);
+                }
+                $choice = $routeChoices->get((string) $selectedServer->getKey());
+                if ($data['send_setup']['route_option'] === 'smtp' && ctype_digit((string) ($choice['id'] ?? ''))) {
+                    try {
+                        $workspaceRouteExists = $pmtaRemote->workspaceSmtpRouteExists(
+                            $selectedServer,
+                            (int) $request->user()->getKey(),
+                            $virtualMtaName,
+                        );
+                    } catch (Throwable) {
+                        throw ValidationException::withMessages([
+                            'send_setup.ip_ids' => 'AlphaLink could not verify the selected Workspace SMTP route on PMTA. No test message was sent; verify server SSH access and the Workspace relay before retrying.',
+                        ]);
+                    }
+
+                    if (! $workspaceRouteExists) {
+                        throw ValidationException::withMessages([
+                            'send_setup.ip_ids' => "PMTA does not have the selected Workspace SMTP route {$virtualMtaName} loaded for this user. No test message was sent. Repair the Workspace relay health check, push the Workspace accounts again, and reload the campaign.",
+                        ]);
+                    }
                 }
             }
         }
@@ -2134,6 +2157,7 @@ class WorkspaceConsoleController extends Controller
         PmtaCampaignTestTransport $transportFactory,
         DmsCampaignTagRenderer $tagRenderer,
         DmsBulkInstallVmtaPlanner $vmtaPlanner,
+        PmtaRemoteConfiguration $pmtaRemote,
     ): RedirectResponse {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $this->authorizeRole($workspace, self::CAMPAIGN_ROLES);
@@ -2196,6 +2220,25 @@ class WorkspaceConsoleController extends Controller
             ? $vmtaPlanner->ipVirtualMtaName((string) ($routeChoice['ip'] ?? ''))
             : trim((string) ($routeChoice['pmta_name'] ?? ''));
         abort_unless(preg_match('/\A[A-Za-z0-9_.:-]{1,255}\z/', $virtualMtaName) === 1, 422, 'The selected PMTA route is not available on this server. Push the route in PMTA and reload the campaign.');
+        if ($route === 'smtp' && ctype_digit((string) ($routeChoice['id'] ?? ''))) {
+            try {
+                $workspaceRouteExists = $pmtaRemote->workspaceSmtpRouteExists(
+                    $server,
+                    (int) $request->user()->getKey(),
+                    $virtualMtaName,
+                );
+            } catch (Throwable) {
+                throw ValidationException::withMessages([
+                    'send_setup.ip_ids' => 'AlphaLink could not verify the selected Workspace SMTP route on PMTA. No test message was sent; verify server SSH access and the Workspace relay before retrying.',
+                ]);
+            }
+
+            if (! $workspaceRouteExists) {
+                throw ValidationException::withMessages([
+                    'send_setup.ip_ids' => "PMTA does not have the selected Workspace SMTP route {$virtualMtaName} loaded for this user. No test message was sent. Repair the Workspace relay health check, push the Workspace accounts again, and reload the campaign.",
+                ]);
+            }
+        }
 
         $tagValues = [
             ...$this->campaignTestIpTags($workspace, $server, $route, $routeChoice, (string) ($data['domain'] ?? '')),

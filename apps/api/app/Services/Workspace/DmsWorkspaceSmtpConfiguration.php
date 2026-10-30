@@ -58,6 +58,7 @@ class DmsWorkspaceSmtpConfiguration
                 continue;
             }
             $createdIds = [];
+            $relayDeploymentMayBeBroken = false;
             try {
                 $data = '';
                 foreach ($serverIps as $ip) {
@@ -72,7 +73,9 @@ class DmsWorkspaceSmtpConfiguration
                             'mta_type' => 'smtp',
                             'username' => $account['email'],
                             'name' => $account['project_name'],
-                            'is_active' => true,
+                            // Keep routes out of the campaign catalog until the
+                            // remote relay, PMTA config, and final reload pass.
+                            'is_active' => false,
                             'user_id' => $user->id,
                         ]);
                         $createdIds[] = $mta->id;
@@ -84,7 +87,8 @@ class DmsWorkspaceSmtpConfiguration
                 }
 
                 $session = $this->remote->open($server);
-                $this->installRelay($session, $projects, $relayAssets);
+                $this->installRelay($session, $projects, $relayAssets, $relayDeploymentMayBeBroken);
+                $relayDeploymentMayBeBroken = false;
                 $temporary = '/etc/pmta/conf/tmp_workspace_'.$user->id;
                 $configuration = '/etc/pmta/conf/workspace_'.$user->id;
                 $data = str_replace(['$', '"', '!', '___'], ['\$', '\"', '\!', '"'], $data);
@@ -132,8 +136,20 @@ class DmsWorkspaceSmtpConfiguration
                 if ($hadConfiguration) {
                     $session->exec('rm -f '.escapeshellarg($backup));
                 }
+                ManagedServerMta::query()->where('workspace_id', $workspace->id)
+                    ->where('managed_server_id', $server->id)->where('user_id', $user->id)
+                    ->whereIn('id', $createdIds)->update(['is_active' => true]);
                 $results[] = ['id' => (string) $server->id, 'data' => 'Workspace Pushed Successfully'];
             } catch (Throwable $exception) {
+                if ($relayDeploymentMayBeBroken) {
+                    // installRelay stops/replaces the service before its final
+                    // listener check. Existing rows are no longer trustworthy
+                    // if the new relay fails that check, so hide them from
+                    // Campaign Test until a healthy push succeeds.
+                    ManagedServerMta::query()->where('workspace_id', $workspace->id)
+                        ->where('managed_server_id', $server->id)->where('user_id', $user->id)
+                        ->where('mta_type', 'smtp')->update(['is_active' => false]);
+                }
                 if ($createdIds !== []) {
                     ManagedServerMta::query()->where('workspace_id', $workspace->id)->where('user_id', $user->id)->whereIn('id', $createdIds)->delete();
                 }
@@ -248,8 +264,12 @@ class DmsWorkspaceSmtpConfiguration
      * @param  Collection<int, WorkspaceGoogleProject>  $projects
      * @param  array{binary: string, service: string, config: string}  $assets
      */
-    private function installRelay(DmsInstallerSshSession $session, Collection $projects, array $assets): void
-    {
+    private function installRelay(
+        DmsInstallerSshSession $session,
+        Collection $projects,
+        array $assets,
+        bool &$relayDeploymentMayBeBroken,
+    ): void {
         $this->requireRemoteMarker(
             $session,
             'mkdir -p /etc/workspace_relay/accounts /var/lib/workspace_relay /var/log/workspace_relay && chmod 700 /etc/workspace_relay /etc/workspace_relay/accounts && echo __WORKSPACE_DIRS_READY__',
@@ -297,8 +317,14 @@ class DmsWorkspaceSmtpConfiguration
             'if ! test -s '.escapeshellarg($binaryTemporary)
                 .' || ! test -s '.escapeshellarg($configurationTemporary)
                 .' || ! test -s '.escapeshellarg($serviceTemporary)
-                .'; then echo "Workspace relay staging files are incomplete." >&2; exit 1; fi; '
-                .'systemctl stop workspace_relay.service >/dev/null 2>&1 || true; '
+                .'; then echo "Workspace relay staging files are incomplete." >&2; exit 1; fi; echo __WORKSPACE_RELAY_STAGED__',
+            '__WORKSPACE_RELAY_STAGED__',
+            'Workspace relay staging files are incomplete.',
+        );
+
+        $relayDeploymentMayBeBroken = true;
+        $activation = $session->exec(
+            'set -e; systemctl stop workspace_relay.service >/dev/null 2>&1 || true; '
                 .'chmod 700 '.escapeshellarg($binaryTemporary).' && chown root:root '.escapeshellarg($binaryTemporary)
                 .' && mv -f '.escapeshellarg($binaryTemporary).' '.escapeshellarg($binaryDestination)
                 .' && chmod 600 '.escapeshellarg($configurationTemporary)
@@ -312,9 +338,11 @@ class DmsWorkspaceSmtpConfiguration
                 .' && systemctl is-active --quiet workspace_relay.service'
                 .' && ss -H -ltn sport = :1028 | awk \'{print $4}\' | grep -Fxq 127.0.0.1:1028'
                 .' && echo __WORKSPACE_RELAY_READY__',
-            '__WORKSPACE_RELAY_READY__',
-            'Workspace relay failed its post-install service or listener health check.',
         );
+        if (! is_string($activation) || ! str_contains($activation, '__WORKSPACE_RELAY_READY__')) {
+            $session->exec('rm -f '.escapeshellarg($binaryTemporary).' '.escapeshellarg($configurationTemporary).' '.escapeshellarg($serviceTemporary));
+            throw new RuntimeException('Workspace relay failed its post-install service or listener health check. Existing Workspace SMTP routes were disabled until a healthy push succeeds.');
+        }
     }
 
     private function requireRemoteMarker(

@@ -386,6 +386,7 @@ class DmsWorkspaceToolTest extends TestCase
             foreach ([
                 '__WORKSPACE_DIRS_READY__',
                 '__WORKSPACE_ACCOUNT_READY__',
+                '__WORKSPACE_RELAY_STAGED__',
                 '__WORKSPACE_RELAY_READY__',
                 '__WORKSPACE_CONFIG_APPENDED__',
             ] as $marker) {
@@ -448,6 +449,77 @@ class DmsWorkspaceToolTest extends TestCase
         $this->assertDatabaseMissing('managed_server_mtas', ['username' => 'inactive@example.test', 'user_id' => $this->owner->id]);
     }
 
+    public function test_failed_workspace_relay_health_check_disables_old_routes_until_a_healthy_push(): void
+    {
+        $project = $this->project();
+        WorkspaceGoogleAccount::query()->create([
+            'workspace_id' => $this->workspace->id,
+            'project_id' => $project->id,
+            'email' => 'new-account@example.test',
+            'is_active' => true,
+        ]);
+        $ip = $this->ip();
+        $oldRoute = ManagedServerMta::query()->create([
+            'workspace_id' => $this->workspace->id,
+            'managed_server_id' => $ip->managed_server_id,
+            'managed_server_ip_id' => $ip->id,
+            'ip' => $ip->ip,
+            'dns' => $ip->dns,
+            'ip_type' => $ip->type,
+            'mta_type' => 'smtp',
+            'username' => 'old-account@example.test',
+            'user_id' => $this->owner->id,
+            'is_active' => true,
+        ]);
+        $assetDirectory = storage_path('framework/testing/workspace-relay-'.Str::uuid());
+        File::ensureDirectoryExists($assetDirectory);
+        $this->beforeApplicationDestroyed(fn () => File::deleteDirectory($assetDirectory));
+        file_put_contents($assetDirectory.'/workspace_relay', 'synthetic executable');
+        file_put_contents($assetDirectory.'/workspace_relay.service', '[Service]');
+        file_put_contents($assetDirectory.'/config.json', json_encode([
+            'listen_addr' => '127.0.0.1:1028',
+            'service_accounts_dir' => '/etc/workspace_relay/accounts',
+        ], JSON_THROW_ON_ERROR));
+        chmod($assetDirectory.'/workspace_relay', 0644);
+        config(['infrastructure.workspace_relay_assets_directory' => $assetDirectory]);
+
+        $session = Mockery::mock(DmsInstallerSshSession::class);
+        $session->shouldReceive('exec')->andReturnUsing(function (string $command): string {
+            if (str_contains($command, '__WORKSPACE_RELAY_READY__')) {
+                return '';
+            }
+            foreach ([
+                '__WORKSPACE_DIRS_READY__',
+                '__WORKSPACE_ACCOUNT_READY__',
+                '__WORKSPACE_RELAY_STAGED__',
+            ] as $marker) {
+                if (str_contains($command, $marker)) {
+                    return $marker;
+                }
+            }
+
+            return '';
+        });
+        $session->shouldReceive('uploadFile')->times(3)->andReturnTrue();
+        $session->shouldReceive('upload')->once()->andReturnTrue();
+        $remote = Mockery::mock(PmtaRemoteConfiguration::class);
+        $remote->shouldReceive('open')->once()->andReturn($session);
+        $this->app->instance(PmtaRemoteConfiguration::class, $remote);
+
+        $this->postJson(route('console.tools.workspace.push', $this->workspace->id), [
+            'ips' => [$ip->id],
+            'projects' => [$project->id],
+            'split_on_ips' => false,
+        ])->assertOk()->assertJsonPath(
+            'data.0.data',
+            'Workspace relay failed its post-install service or listener health check. Existing Workspace SMTP routes were disabled until a healthy push succeeds.',
+        );
+
+        $this->assertDatabaseHas('managed_server_mtas', ['id' => $oldRoute->id, 'is_active' => false]);
+        $this->assertSame(1, ManagedServerMta::query()->count(), 'The newly generated route must be rolled back.');
+        $this->assertSame(0, ManagedServerMta::query()->where('is_active', true)->count());
+    }
+
     public function test_push_rolls_back_local_smtp_rows_when_final_pmta_reload_rejects_the_configuration(): void
     {
         $project = $this->project();
@@ -478,6 +550,7 @@ class DmsWorkspaceToolTest extends TestCase
             foreach ([
                 '__WORKSPACE_DIRS_READY__',
                 '__WORKSPACE_ACCOUNT_READY__',
+                '__WORKSPACE_RELAY_STAGED__',
                 '__WORKSPACE_RELAY_READY__',
                 '__WORKSPACE_CONFIG_APPENDED__',
             ] as $marker) {

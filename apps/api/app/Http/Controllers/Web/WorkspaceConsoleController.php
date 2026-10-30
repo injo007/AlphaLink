@@ -1770,6 +1770,9 @@ class WorkspaceConsoleController extends Controller
             $smtpResponseCode = $smtpRejected && $exception->getCode() >= 400 && $exception->getCode() <= 599
                 ? $exception->getCode()
                 : null;
+            $smtpResponseDetail = $smtpRejected
+                ? $this->campaignTestSmtpResponseDetail($exception, $smtpResponseCode)
+                : null;
             $status = $acceptedCount > 0
                 ? 'partially_accepted'
                 : ($smtpRejected ? 'rejected_by_transport' : ($connected ? 'outcome_unknown' : 'transport_unavailable'));
@@ -1788,6 +1791,7 @@ class WorkspaceConsoleController extends Controller
                     'accepted_count' => $acceptedCount,
                     'exception_type' => class_basename($exception),
                     'smtp_response_code' => $smtpResponseCode,
+                    'smtp_response_detail' => $smtpResponseDetail,
                     'failure_reason' => $failureReason,
                     'outcome_unknown' => ! $smtpRejected && ($connected || $acceptedCount > 0),
                 ],
@@ -1800,6 +1804,9 @@ class WorkspaceConsoleController extends Controller
                     : "PMTA denied relay access for AlphaLink's sending host; no test message was accepted. Save AlphaLink's stable public IPv4 egress in App Settings → PMTA RELAY SOURCE IPS and ensure that source is authorized on this server. Campaign Test does not require sender-domain DNS verification.";
             } elseif ($smtpRejected) {
                 $response = $smtpResponseCode === null ? 'an unexpected SMTP response' : "SMTP response {$smtpResponseCode}";
+                if ($smtpResponseDetail !== null) {
+                    $response .= ': '.$smtpResponseDetail;
+                }
                 $message = $acceptedCount > 0
                     ? "PMTA accepted {$acceptedCount} earlier test message(s), then rejected the next with {$response}. Check the selected server's PMTA logs before retrying."
                     : "PMTA rejected the test with {$response}; no test message was accepted. Check the selected server's PMTA logs before retrying.";
@@ -1827,6 +1834,32 @@ class WorkspaceConsoleController extends Controller
                 }
             }
         }
+    }
+
+    /**
+     * Return only the SMTP server's short reply text, not Symfony's wrapper or
+     * the message headers. Replies are untrusted and may contain addresses,
+     * control characters, or long tokens, so sanitize before showing or logging.
+     */
+    private function campaignTestSmtpResponseDetail(Throwable $exception, ?int $responseCode): ?string
+    {
+        $message = $exception->getMessage();
+        if (preg_match('/with message\s+"((?:\\\\.|[^"\\\\])*)"/s', $message, $matches) === 1) {
+            $detail = stripcslashes($matches[1]);
+        } else {
+            $detail = $message;
+        }
+
+        $detail = preg_replace('/[\x00-\x1F\x7F]+/u', ' ', $detail) ?? '';
+        $detail = preg_replace('/\s+/u', ' ', trim($detail, " \t\n\r\0\x0B\"'")) ?? '';
+        if ($responseCode !== null) {
+            $detail = preg_replace('/^'.preg_quote((string) $responseCode, '/').'\s*/', '', $detail) ?? $detail;
+        }
+        $detail = preg_replace('/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i', '[address]', $detail) ?? $detail;
+        $detail = preg_replace('/\b[A-Za-z0-9+\/_=-]{40,}\b/', '[redacted]', $detail) ?? $detail;
+        $detail = trim($detail);
+
+        return $detail === '' ? null : mb_substr($detail, 0, 240);
     }
 
     /**

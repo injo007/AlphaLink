@@ -1554,10 +1554,20 @@ class DmsCampaignSendCatalogTest extends TestCase
         $acceptedTransport->shouldReceive('send')->once();
         $acceptedTransport->shouldReceive('stop')->once();
 
+        $rejectedUnknownVmtaTransport = Mockery::mock(SmtpTransport::class);
+        $rejectedUnknownVmtaTransport->shouldReceive('start')->once();
+        $rejectedUnknownVmtaTransport->shouldReceive('send')->once()->andThrow(
+            new UnexpectedResponseException(
+                'Expected response code "250" but got "554", with message "554 Unknown virtual MTA workspace-smtp-203.0.113.82-14".',
+                554,
+            )
+        );
+        $rejectedUnknownVmtaTransport->shouldReceive('stop')->once();
+
         $factory = Mockery::mock(PmtaCampaignTestTransport::class);
-        $factory->shouldReceive('forServer')->twice()
+        $factory->shouldReceive('forServer')->times(3)
             ->withArgs(fn (ManagedServer $selected, int $port): bool => $selected->is($server) && $port === 2525)
-            ->andReturn($rejectedTransport, $acceptedTransport);
+            ->andReturn($rejectedTransport, $acceptedTransport, $rejectedUnknownVmtaTransport);
         $this->app->instance(PmtaCampaignTestTransport::class, $factory);
 
         $payload = [
@@ -1591,8 +1601,24 @@ class DmsCampaignSendCatalogTest extends TestCase
         ])->assertOk()
             ->assertJsonPath('outcome', 'accepted_by_transport');
 
-        $this->assertSame(1, DB::table('campaign_manual_test_attempts')->where('status', 'rejected_by_transport')->count());
+        $unknownVmta = $this->postJson(route('console.campaigns.manual-test', $workspace->getKey()), [
+            ...$payload,
+            'idempotency_key' => (string) Str::uuid(),
+        ]);
+        $unknownVmta->assertUnprocessable()
+            ->assertJsonPath('outcome', 'rejected_by_transport')
+            ->assertJsonPath('data', "PMTA rejected the test with SMTP response 554: Unknown virtual MTA workspace-smtp-203.0.113.82-14; no test message was accepted. Check the selected server's PMTA logs before retrying.");
+
+        $this->assertSame(2, DB::table('campaign_manual_test_attempts')->where('status', 'rejected_by_transport')->count());
         $this->assertSame(1, DB::table('campaign_manual_test_attempts')->where('status', 'accepted_by_transport')->count());
+        $failure = DB::table('audit_events')
+            ->where('action', 'campaign.manual_test_failed')
+            ->where('subject_id', $unknownVmta->json('attempt_id'))
+            ->first();
+        $this->assertSame(
+            'Unknown virtual MTA workspace-smtp-203.0.113.82-14',
+            json_decode($failure->properties, true, flags: JSON_THROW_ON_ERROR)['smtp_response_detail'],
+        );
     }
 
     public function test_manual_campaign_test_routes_through_the_selected_or_default_pushed_vmta(): void
@@ -2187,6 +2213,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             foreach ([
                 '__WORKSPACE_DIRS_READY__',
                 '__WORKSPACE_ACCOUNT_READY__',
+                '__WORKSPACE_RELAY_STAGED__',
                 '__WORKSPACE_RELAY_READY__',
                 '__WORKSPACE_CONFIG_APPENDED__',
             ] as $marker) {

@@ -157,7 +157,7 @@
                         </form>
                     </div>
                 @else
-                    <div class="alert alert-warning" role="status">DMS-mapped list locks, workspace suppression, selected-offer unsubscribe exclusions, offer-file suppression, and the point-in-time recipient manifest are applied when this draft is created. The selected negative file ID is saved with the draft, but its native sender behavior is not verified. AlphaLink has not implemented or verified DMS’s native sender, so this campaign cannot be launched.</div>
+                    <div class="alert alert-info" role="status">The selected suppression file was applied when this recipient snapshot was prepared. Before delivery, AlphaLink verifies the reviewed offer suppression file and checks current consent, workspace suppression, and offer suppression again. After preparation completes, open My Campaigns and choose SEND to start the background PMTA delivery.</div>
                 @endif
                 <dl class="row mb-3">
                     <dt class="col-sm-3">Sponsor</dt><dd class="col-sm-9">{{ $sponsorChoice['name'] ?? 'No longer available' }} (ID {{ $sendSetup['sponsor_id'] ?? '—' }})</dd>
@@ -225,7 +225,7 @@
                     </dl>
                 @else
                     @if (! in_array($campaign->status, ['preparing_snapshot', 'snapshot_failed'], true))
-                        <p class="mb-0 text-danger">No recipient snapshot is attached to this revision. It cannot be launched.</p>
+                        <p class="mb-0 text-danger">No recipient snapshot is attached to this revision. SEND becomes available in My Campaigns after recipient preparation finishes.</p>
                     @endif
                 @endif
             </div>

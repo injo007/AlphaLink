@@ -58,7 +58,7 @@ class CampaignCloneFlowTest extends TestCase
         $clone = Campaign::query()->where('workspace_id', $fixture['workspace']->getKey())->where('idempotency_key', $idempotencyKey)->firstOrFail();
         $cloneUrl = $this->cleanWorkspaceUrl(route('console.campaigns.show', [$fixture['workspace']->getKey(), $clone->getKey()]));
 
-        $response->assertRedirect($cloneUrl)->assertSessionHas('status', 'Campaign cloned as a new draft with a fresh suppression snapshot. Native campaign sending remains unavailable.');
+        $response->assertRedirect($cloneUrl)->assertSessionHas('status', 'Campaign cloned as a new draft with a fresh suppression snapshot. Send it from My Campaigns after preparation completes.');
         $this->assertSame('draft', $clone->status);
         $this->assertTrue($clone->is_active);
         $this->assertSame('marketing', $clone->kind);
@@ -148,7 +148,7 @@ class CampaignCloneFlowTest extends TestCase
                 route('console.campaigns.clone', [$fixture['workspace']->getKey(), $fixture['source']->getKey()]),
                 $this->clonePayload($fixture, (string) Str::uuid()),
             )
-            ->assertSessionHasErrors('send_setup.offer_id');
+            ->assertSessionHasErrors('suppression');
 
         $this->assertDatabaseCount('campaigns', 1);
         $this->assertDatabaseCount('campaign_revisions', 1);

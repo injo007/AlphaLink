@@ -229,6 +229,19 @@ return [
             'timeout' => 300,
             'nice' => 0,
         ],
+        'campaign-sends' => [
+            'connection' => 'redis',
+            'queue' => ['campaign-sends'],
+            'balance' => 'simple',
+            'maxProcesses' => (int) env('CAMPAIGN_SEND_MAX_PROCESSES', 1),
+            'minProcesses' => 1,
+            'maxTime' => 3600,
+            'maxJobs' => 100,
+            'memory' => 256,
+            'tries' => 1,
+            'timeout' => 600,
+            'nice' => 0,
+        ],
     ],
 
     'environments' => [
@@ -243,11 +256,18 @@ return [
                 'minProcesses' => 1,
                 'maxProcesses' => (int) env('AUDIENCE_IMPORT_MAX_PROCESSES', 2),
             ],
+            'campaign-sends' => [
+                'minProcesses' => 1,
+                'maxProcesses' => (int) env('CAMPAIGN_SEND_MAX_PROCESSES', 1),
+            ],
         ],
 
         'local' => [
             'supervisor-1' => [
                 'maxProcesses' => 1,
+            ],
+            'campaign-sends' => [
+                'maxProcesses' => (int) env('CAMPAIGN_SEND_MAX_PROCESSES', 1),
             ],
         ],
     ],

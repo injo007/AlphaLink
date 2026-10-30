@@ -6,6 +6,7 @@ use App\Http\Controllers\Web\AudienceListManagementController;
 use App\Http\Controllers\Web\AudienceMixController;
 use App\Http\Controllers\Web\AuthController;
 use App\Http\Controllers\Web\CampaignComposerToolsController;
+use App\Http\Controllers\Web\CampaignSendController;
 use App\Http\Controllers\Web\CloudProviderConsoleController;
 use App\Http\Controllers\Web\CloudWorkflowConsoleController;
 use App\Http\Controllers\Web\GlobalUserManagementController;
@@ -261,6 +262,8 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::post('/app/workspaces/{workspace}/campaigns/check-smtp', [WorkspaceConsoleController::class, 'checkCampaignSmtp'])->middleware('throttle:3,1')->name('console.campaigns.smtp-check');
     Route::get('/app/workspaces/{workspace}/composer/options', [WorkspaceConsoleController::class, 'campaignSendOptions'])->name('console.campaigns.send-options');
     Route::post('/app/workspaces/{workspace}/campaigns', [WorkspaceConsoleController::class, 'createCampaignDraft'])->middleware('throttle:10,1')->name('console.campaigns.store');
+    Route::post('/app/workspaces/{workspace}/campaigns/{campaign}/send', [CampaignSendController::class, 'start'])->middleware('throttle:3,1')->name('console.campaigns.send');
+    Route::get('/app/workspaces/{workspace}/campaigns/{campaign}/send-runs/{run}/progress', [CampaignSendController::class, 'progress'])->middleware('throttle:60,1')->name('console.campaigns.send-progress');
     Route::get('/app/workspaces/{workspace}/campaigns/{campaign}/snapshot-progress', [WorkspaceConsoleController::class, 'campaignSnapshotProgress'])->name('console.campaigns.snapshot-progress');
     Route::post('/app/workspaces/{workspace}/campaigns/{campaign}/snapshot-retry', [WorkspaceConsoleController::class, 'retryCampaignSnapshot'])->middleware('throttle:3,1')->name('console.campaigns.snapshot-retry');
     Route::post('/app/workspaces/{workspace}/campaigns/{campaign}/revisions', [WorkspaceConsoleController::class, 'reviseCampaignDraft'])->middleware('throttle:10,1')->name('console.campaigns.revisions.store');

@@ -38,7 +38,7 @@ class DmsCampaignSendNavigationTest extends TestCase
             ->assertSee('SLEEP IP')
             ->assertSee('SEND TYPE')
             ->assertSee('PROGRESS')
-            ->assertSee('Running processes unavailable')
+            ->assertSee('BACKGROUND SENDS')
             ->assertSee('This Grid Is Empty')
             ->assertDontSee('DMS-mapped recipient suppression snapshot is built when a campaign draft is saved')
             ->assertDontSee('no campaign can be launched');
@@ -185,7 +185,7 @@ class DmsCampaignSendNavigationTest extends TestCase
             ->assertSee('id="campaign-disabled" name="disabled" value="1" type="checkbox" class="custom-control-input" checked', false);
     }
 
-    public function test_campaign_send_action_is_disabled_until_native_sender_exists(): void
+    public function test_campaign_send_action_waits_for_a_saved_recipient_snapshot_and_route(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspaceFor($owner, 'owner');
@@ -200,9 +200,10 @@ class DmsCampaignSendNavigationTest extends TestCase
         $this->actingAs($owner)
             ->get(route('console.campaigns.index', $workspace->getKey()))
             ->assertOk()
-            ->assertSee('aria-label="Send unavailable for '.$campaign->name.'"', false)
+            ->assertSee('aria-label="Send not ready"', false)
+            ->assertSee('SEND NOT READY')
+            ->assertSee('The campaign must have a completed recipient snapshot and valid saved server routes before sending.')
             ->assertSee('aria-label="Schedule unavailable for '.$campaign->name.'"', false)
-            ->assertSee('title="The native DMS campaign sender is not implemented in AlphaLink."', false)
             ->assertDontSee('no campaign can be launched');
     }
 

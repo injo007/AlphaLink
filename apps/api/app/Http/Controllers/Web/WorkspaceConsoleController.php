@@ -8,6 +8,7 @@ use App\Models\AuditEvent;
 use App\Models\Campaign;
 use App\Models\CampaignRecipientSnapshot;
 use App\Models\CampaignRevision;
+use App\Models\CampaignSendRun;
 use App\Models\CampaignTestMailAttempt;
 use App\Models\ContactListMembershipEvent;
 use App\Models\Isp;
@@ -126,6 +127,29 @@ class WorkspaceConsoleController extends Controller
 
         $campaigns = $campaignQuery->paginate($perPage)->withQueryString();
 
+        $campaignRevisionIds = $campaigns->getCollection()->pluck('latestRevision.id')->filter()->values();
+        $recipientSnapshotRevisionIds = DB::table('campaign_recipient_snapshots')
+            ->whereIn('revision_id', $campaignRevisionIds)
+            ->pluck('revision_id')
+            ->map('strval')
+            ->all();
+        $latestSendRuns = CampaignSendRun::query()
+            ->whereIn('campaign_id', $campaigns->getCollection()->modelKeys())
+            ->whereIn('revision_id', $campaignRevisionIds)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get()
+            ->groupBy('campaign_id')
+            ->map(fn ($runs) => $runs->first());
+        $latestSmtpErrors = DB::table('campaign_delivery_attempts')
+            ->whereIn('send_run_id', $latestSendRuns->pluck('id'))
+            ->where('state', 'rejected')
+            ->where('error_code', 'like', 'SMTP_%')
+            ->orderByDesc('finished_at')
+            ->get(['send_run_id', 'error_code', 'transport_code'])
+            ->unique('send_run_id')
+            ->keyBy('send_run_id');
+
         $sendSetups = $campaigns->getCollection()->mapWithKeys(fn (Campaign $campaign): array => [
             $campaign->getKey() => $campaign->latestRevision?->payload['send_setup'] ?? [],
         ]);
@@ -141,7 +165,7 @@ class WorkspaceConsoleController extends Controller
             ? (int) $configuredPmtaAdminPort
             : (int) config('infrastructure.pmta_admin_port', 1213);
 
-        $campaigns->getCollection()->transform(function (Campaign $campaign) use ($sendSetups, $ispNames, $offerNames, $serverNames, $servers, $pmtaAdminPort): Campaign {
+        $campaigns->getCollection()->transform(function (Campaign $campaign) use ($sendSetups, $ispNames, $offerNames, $serverNames, $servers, $pmtaAdminPort, $latestSendRuns, $latestSmtpErrors, $recipientSnapshotRevisionIds): Campaign {
             $setup = $sendSetups->get($campaign->getKey(), []);
             $offer = $offerNames->get($setup['offer_id'] ?? null);
             $parameters = $setup['parameters'] ?? [];
@@ -166,6 +190,26 @@ class WorkspaceConsoleController extends Controller
                 'send_type' => $setup['send_type'] ?? null,
                 'configured' => $setup !== [],
             ]);
+            $sendRun = $latestSendRuns->get((string) $campaign->getKey());
+            $hasSnapshot = in_array((string) $campaign->latestRevision?->getKey(), $recipientSnapshotRevisionIds, true);
+            $sendRun?->setAttribute('last_smtp_error', $latestSmtpErrors->get((string) $sendRun->getKey())?->error_code);
+            $hasTerminalSend = $sendRun && (
+                in_array($sendRun->state, ['completed', 'needs_review'], true)
+                || ($sendRun->state === 'failed' && (
+                    (int) $sendRun->accepted_count > 0
+                    || (int) $sendRun->rejected_count > 0
+                    || (int) $sendRun->suppressed_count > 0
+                    || (int) $sendRun->uncertain_count > 0
+                ))
+            );
+            $campaign->setAttribute('send_run', $sendRun);
+            $campaign->setAttribute('send_ready', $campaign->kind === 'marketing'
+                && $campaign->is_active
+                && $campaign->status === 'draft'
+                && $setup !== []
+                && $hasSnapshot
+                && ! ($sendRun && in_array($sendRun->state, ['planned', 'running'], true))
+                && ! $hasTerminalSend);
 
             return $campaign;
         });
@@ -853,7 +897,7 @@ class WorkspaceConsoleController extends Controller
         }
 
         return redirect()->route('console.campaigns.show', [$workspace->getKey(), $clone->getKey()])
-            ->with('status', 'Campaign cloned as a new draft with a fresh suppression snapshot. Native campaign sending remains unavailable.');
+            ->with('status', 'Campaign cloned as a new draft with a fresh suppression snapshot. Send it from My Campaigns after preparation completes.');
     }
 
     public function createCampaignDraft(Request $request, string $workspace, DmsCampaignSendCatalog $catalog): RedirectResponse|JsonResponse

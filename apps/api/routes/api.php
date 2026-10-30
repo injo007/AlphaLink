@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\AudienceListController;
 use App\Http\Controllers\Api\V1\CampaignController;
 use App\Http\Controllers\Api\V1\CampaignRedirectController;
 use App\Http\Controllers\Api\V1\CampaignTrackingController;
+use App\Http\Controllers\Api\V1\CampaignUnsubscribeController;
 use App\Http\Controllers\Api\V1\ConsentRecordController;
 use App\Http\Controllers\Api\V1\ContactController;
 use App\Http\Controllers\Api\V1\DropTrackingController;
@@ -21,6 +22,11 @@ Route::prefix('v1')->group(function (): void {
     Route::post('/tracking/campaign-events', [CampaignTrackingController::class, 'store']);
     Route::post('/stats', [CampaignTrackingController::class, 'store']);
     Route::post('/campaign', [CampaignRedirectController::class, 'store']);
+    Route::match(['get', 'post'], '/campaigns/{campaign}/{item}/unsubscribe', [CampaignUnsubscribeController::class, 'unsubscribe'])
+        ->whereUuid('campaign')
+        ->whereUuid('item')
+        ->middleware('signed')
+        ->name('public.campaign-unsubscribe');
     Route::post('/drop', [DropTrackingController::class, 'redirect']);
     Route::post('/stats-drop', [DropTrackingController::class, 'store']);
 

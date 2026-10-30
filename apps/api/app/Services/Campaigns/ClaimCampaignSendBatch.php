@@ -104,7 +104,10 @@ class ClaimCampaignSendBatch
             }
 
             $firstPosition = (int) $run->next_position;
-            $lastSnapshotPosition = (int) $snapshot->recipient_count;
+            $lastSnapshotPosition = min(
+                (int) $snapshot->recipient_count,
+                (int) ($executionOptions['end_position'] ?? $snapshot->recipient_count),
+            );
             if ($firstPosition > $lastSnapshotPosition) {
                 return null;
             }
@@ -199,6 +202,37 @@ class ClaimCampaignSendBatch
             ->whereBetween('item.position', [$firstPosition, $lastPosition])
             ->where(function ($blocked) use ($offerId, $now): void {
                 $blocked->where('contact.status', '!=', 'active')
+                    ->orWhereNotExists(function ($grant) use ($now): void {
+                        $grant->selectRaw('1')
+                            ->from('consent_records as latest_email_consent')
+                            ->whereColumn('latest_email_consent.workspace_id', 'item.workspace_id')
+                            ->whereColumn('latest_email_consent.contact_id', 'item.contact_id')
+                            ->where('latest_email_consent.channel', 'email')
+                            ->where('latest_email_consent.purpose', 'marketing')
+                            ->where('latest_email_consent.action', 'granted')
+                            ->whereNotNull('latest_email_consent.evidence_reference')
+                            ->where('latest_email_consent.evidence_reference', '<>', '')
+                            ->where(function ($unexpired) use ($now): void {
+                                $unexpired->whereNull('latest_email_consent.expires_at')
+                                    ->orWhere('latest_email_consent.expires_at', '>', $now);
+                            })
+                            ->whereNotExists(function ($newer) use ($now): void {
+                                $newer->selectRaw('1')
+                                    ->from('consent_records as newer_email_consent')
+                                    ->whereColumn('newer_email_consent.workspace_id', 'latest_email_consent.workspace_id')
+                                    ->whereColumn('newer_email_consent.contact_id', 'latest_email_consent.contact_id')
+                                    ->where('newer_email_consent.channel', 'email')
+                                    ->where('newer_email_consent.purpose', 'marketing')
+                                    ->where(function ($ordered): void {
+                                        $ordered->whereColumn('newer_email_consent.occurred_at', '>', 'latest_email_consent.occurred_at')
+                                            ->orWhere(function ($sameTime): void {
+                                                $sameTime->whereColumn('newer_email_consent.occurred_at', '=', 'latest_email_consent.occurred_at')
+                                                    ->whereColumn('newer_email_consent.id', '>', 'latest_email_consent.id');
+                                            });
+                                    })
+                                    ->where('newer_email_consent.occurred_at', '<=', $now);
+                            });
+                    })
                     ->orWhereExists(function ($query) use ($now): void {
                         $query->selectRaw('1')
                             ->from('suppression_events as workspace_suppression')

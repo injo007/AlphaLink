@@ -984,7 +984,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertSee('[rnd]@bounce.example.test')
             ->assertSee('seed@example.test')
             ->assertSee('second@example.test')
-            ->assertSee('has not implemented or verified DMS’s native sender')
+            ->assertSee('After preparation completes, open My Campaigns and choose SEND')
             ->assertSee('id="pmta-test-server"', false)
             ->assertSee('name="from_email" type="text"', false)
             ->assertSee('controls the outbound source/account', false)
@@ -1144,9 +1144,10 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertSee('20')
             ->assertSee('DELAY')
             ->assertSee('DRAFT')
-            ->assertSee('SEND UNAVAILABLE')
-            ->assertSee('The native DMS campaign sender is not implemented in AlphaLink.')
-            ->assertDontSee('Native DMS sending, scheduling, and delivery history are not available in AlphaLink yet.');
+            ->assertSee('READY TO SEND')
+            ->assertSee('SEND')
+            ->assertDontSee('SEND UNAVAILABLE')
+            ->assertDontSee('The native DMS campaign sender is not implemented in AlphaLink.');
 
     }
 
@@ -3954,7 +3955,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertSee('alphalink-toast-stack', false)
             ->assertSee('id="campaign-data" tabindex="-1"', false)
             ->assertSee('[smtp] [smtp_name]')
-            ->assertSeeText('[smtp] and [smtp_name] fill message text; they do not choose the sending route. Option IP sends through the selected IP. To use an SMTP relay, choose Option SMTP and select its account. Normal campaign sending is not enabled.')
+            ->assertSeeText('[smtp] and [smtp_name] fill message text; Option SMTP selects the outbound relay. Start a saved campaign from My Campaigns after suppression and recipient preparation finish.')
             ->assertSee('Option IP sends through the selected IP route.', false)
             ->assertSee('that server IP is the PMTA ingress, while the selected route controls outbound delivery.', false)
             ->assertSee('data-campaign-menu-action="create"', false)
@@ -3976,7 +3977,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertSee('automatically matches the selected offer’s saved suppression file')
             ->assertSee('/drops/suppression')
             ->assertSee('for reusable Offer/List exclusions')
-            ->assertSee('native campaign send')
+            ->assertSee('Start a saved campaign from My Campaigns after recipient preparation finishes.')
             ->assertSee('send_setup[from_asset_ids][]', false)
             ->assertSee('send_setup[subject_asset_ids][]', false)
             ->assertSeeText('From values (optional)')

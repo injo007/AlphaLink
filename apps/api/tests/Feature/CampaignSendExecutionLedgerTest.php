@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\ProcessCampaignSendRun;
 use App\Models\AudienceList;
 use App\Models\Campaign;
 use App\Models\CampaignDeliveryAttempt;
@@ -12,8 +13,10 @@ use App\Models\CampaignRevision;
 use App\Models\CampaignSendBatch;
 use App\Models\CampaignSendRecipientClaim;
 use App\Models\CampaignSendRun;
+use App\Models\ConsentRecord;
 use App\Models\Contact;
 use App\Models\ContactListMembership;
+use App\Models\ManagedServer;
 use App\Models\OutboxMessage;
 use App\Models\SuppressionEvent;
 use App\Models\User;
@@ -22,16 +25,23 @@ use App\Models\WorkspaceDropSuppression;
 use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceSponsor;
 use App\Services\Campaigns\CampaignDeliveryAttemptLifecycle;
+use App\Services\Campaigns\CampaignSendMessageBuilder;
 use App\Services\Campaigns\ClaimCampaignSendBatch;
+use App\Services\Campaigns\DmsCampaignSendCatalog;
+use App\Services\Campaigns\FinalizeCampaignSendRun;
+use App\Services\Campaigns\PmtaCampaignTestTransport;
 use App\Services\Campaigns\PrepareCampaignSendRun;
 use App\Services\Campaigns\ReclaimExpiredCampaignSendBatch;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Mockery;
+use Symfony\Component\Mailer\Transport\Smtp\SmtpTransport;
 use Tests\TestCase;
 
 class CampaignSendExecutionLedgerTest extends TestCase
@@ -194,6 +204,89 @@ class CampaignSendExecutionLedgerTest extends TestCase
         $planner->create(
             $fixture['campaign'], $otherRevision, $otherSnapshot, $fixture['owner'], $idempotencyKey,
         );
+    }
+
+    public function test_campaign_send_action_creates_a_run_and_dispatches_the_background_sender_using_nested_dms_limits(): void
+    {
+        $serverId = (string) Str::uuid();
+        $routeId = '81';
+        $fixture = $this->sendFixture(recipientCount: 4, sendSetup: [
+            'route_option' => 'ip',
+            'ip_type' => 'ipv4',
+            'server_ids' => [$serverId],
+            'ip_ids' => [$routeId],
+            'send_type' => 'delay',
+            'parameters' => ['total_send' => 2, 'fraction_ip' => 1, 'sleep_email' => 0, 'sleep_ip' => 0],
+        ]);
+        $fixture['workspace']->users()->attach($fixture['owner']->getKey(), ['role' => 'owner']);
+
+        $catalog = Mockery::mock(DmsCampaignSendCatalog::class);
+        $catalog->shouldReceive('validateRevisionRouting')->once()->andReturn([
+            'server_ids' => [$serverId], 'ip_ids' => [$routeId],
+        ]);
+        $this->app->instance(DmsCampaignSendCatalog::class, $catalog);
+        $builder = Mockery::mock(CampaignSendMessageBuilder::class);
+        $builder->shouldReceive('assertReady')->once()->andReturn([]);
+        $this->app->instance(CampaignSendMessageBuilder::class, $builder);
+        Queue::fake();
+
+        $this->actingAs($fixture['owner'])
+            ->post(route('console.campaigns.send', [$fixture['workspace']->getKey(), $fixture['campaign']->getKey()]), [
+                'idempotency_key' => (string) Str::uuid(),
+            ])
+            ->assertRedirect(route('console.mailer.campaigns'))
+            ->assertSessionHas('status', 'Campaign send queued. Progress and SMTP outcomes will update in the campaign register.');
+
+        $run = CampaignSendRun::query()->sole();
+        $this->assertSame(2, $run->recipient_count);
+        $this->assertSame(1, $run->start_position);
+        $this->assertSame(1, $run->next_position);
+        $this->assertSame(2, $run->execution_options['end_position']);
+        Queue::assertPushedOn('campaign-sends', ProcessCampaignSendRun::class, fn (ProcessCampaignSendRun $job): bool => $job->sendRunId === $run->getKey());
+    }
+
+    public function test_background_sender_submits_snapshot_recipients_to_pmta_and_records_acceptance(): void
+    {
+        config(['cache.default' => 'array']);
+        $fixture = $this->sendFixture();
+        $run = app(PrepareCampaignSendRun::class)->create(
+            $fixture['campaign'], $fixture['revision'], $fixture['snapshot'], $fixture['owner'], (string) Str::uuid(),
+        );
+        $server = new ManagedServer(['ip_address' => '203.0.113.240']);
+        $context = ['port' => 2525, 'setup' => ['parameters' => ['sleep_email' => 0, 'sleep_ip' => 0, 'fraction_ip' => 1]]];
+        $builder = Mockery::mock(CampaignSendMessageBuilder::class);
+        $builder->shouldReceive('assertReady')->once()->withArgs(fn (CampaignSendRun $sendRun): bool => $sendRun->is($run))->andReturn($context);
+        $builder->shouldReceive('build')->once()->withArgs(fn (array $messageContext, CampaignRecipientSnapshotItem $item, string $recipient): bool => $messageContext === $context && $item->is($fixture['item']) && $recipient === $fixture['contact']->email
+        )->andReturn([
+            'server' => $server,
+            'header' => "From: sender@example.test\r\nTo: {$fixture['contact']->email}\r\nSubject: Synthetic send",
+            'body' => '<p>Synthetic authorized content</p>',
+            'envelope_from' => 'sender@example.test',
+        ]);
+        $this->app->instance(CampaignSendMessageBuilder::class, $builder);
+
+        $transport = Mockery::mock(SmtpTransport::class);
+        $transport->shouldReceive('start')->once();
+        $transport->shouldReceive('send')->once()->withArgs(fn ($message, $envelope): bool => str_contains($message->toString(), 'Subject: Synthetic send')
+            && $envelope->getRecipients()[0]->getAddress() === $fixture['contact']->email
+            && $envelope->getSender()->getAddress() === 'sender@example.test'
+        );
+        $transport->shouldReceive('stop')->once();
+        $transportFactory = Mockery::mock(PmtaCampaignTestTransport::class);
+        $transportFactory->shouldReceive('forServer')->once()->with($server, 2525)->andReturn($transport);
+
+        app()->call([new ProcessCampaignSendRun((string) $run->getKey()), 'handle'], [
+            'messageBuilder' => $builder,
+            'transportFactory' => $transportFactory,
+            'claimer' => app(ClaimCampaignSendBatch::class),
+            'attemptLifecycle' => app(CampaignDeliveryAttemptLifecycle::class),
+            'reclaimer' => app(ReclaimExpiredCampaignSendBatch::class),
+            'finalizer' => app(FinalizeCampaignSendRun::class),
+        ]);
+
+        $this->assertSame('completed', $run->fresh()->state);
+        $this->assertSame(1, $run->fresh()->accepted_count);
+        $this->assertSame('accepted', $run->deliveryAttempts()->sole()->state);
     }
 
     public function test_planner_rejects_a_snapshot_from_another_campaign_or_workspace(): void
@@ -809,12 +902,40 @@ class CampaignSendExecutionLedgerTest extends TestCase
         $this->assertSame(0, CampaignSendRecipientClaim::query()->count());
     }
 
+    public function test_claim_suppresses_recipients_without_current_evidenced_email_marketing_consent(): void
+    {
+        $fixture = $this->sendFixture(grantMarketingConsent: false);
+        $run = app(PrepareCampaignSendRun::class)->create(
+            $fixture['campaign'],
+            $fixture['revision'],
+            $fixture['snapshot'],
+            $fixture['owner'],
+            (string) Str::uuid(),
+        );
+
+        $batch = app(ClaimCampaignSendBatch::class)->claim(
+            $run->getKey(),
+            'synthetic-consent-worker',
+            (string) Str::uuid(),
+            batchSize: 10,
+        );
+
+        $this->assertNotNull($batch);
+        $this->assertSame('completed', $batch->state);
+        $this->assertSame('suppressed', $batch->recipientClaims->sole()->state);
+        $this->assertSame(1, $run->fresh()->suppressed_count);
+        $this->assertSame('completed', $run->fresh()->state);
+        $this->assertSame(0, $run->deliveryAttempts()->count());
+    }
+
     /** @return array{owner: User, workspace: Workspace, campaign: Campaign, revision: CampaignRevision, offer: WorkspaceOffer, snapshot: CampaignRecipientSnapshot, item: CampaignRecipientSnapshotItem, items: list<CampaignRecipientSnapshotItem>, contact: Contact, contacts: list<Contact>} */
     private function sendFixture(
         int $recipientCount = 1,
         int $startFrom = 0,
         bool $captureAddresses = true,
         bool $addressHashMatches = true,
+        bool $grantMarketingConsent = true,
+        ?array $sendSetup = null,
     ): array {
         if ($recipientCount < 1 || $recipientCount > 10 || $startFrom < 0 || $startFrom >= $recipientCount) {
             throw new \InvalidArgumentException('Synthetic send fixtures require 1 to 10 recipients and a valid start position.');
@@ -837,7 +958,7 @@ class CampaignSendExecutionLedgerTest extends TestCase
         $revision = CampaignRevision::query()->create([
             'campaign_id' => $campaign->getKey(),
             'revision_number' => 1,
-            'payload' => ['subject' => 'Synthetic only', 'send_setup' => ['send_type' => 'delay']],
+            'payload' => ['subject' => 'Synthetic only', 'send_setup' => $sendSetup ?? ['send_type' => 'delay']],
             'content_sha256' => hash('sha256', 'synthetic only'),
             'idempotency_key' => (string) Str::uuid(),
             'request_fingerprint' => hash('sha256', 'revision'),
@@ -903,6 +1024,21 @@ class CampaignSendExecutionLedgerTest extends TestCase
                 'idempotency_key' => (string) Str::uuid(),
             ]);
             $contacts[] = $contact;
+            if ($grantMarketingConsent) {
+                ConsentRecord::query()->create([
+                    'workspace_id' => $workspace->getKey(),
+                    'contact_id' => $contact->getKey(),
+                    'action' => 'granted',
+                    'purpose' => 'marketing',
+                    'channel' => 'email',
+                    'source' => 'synthetic_fixture',
+                    'evidence_reference' => 'fixture:explicit-opt-in',
+                    'idempotency_key' => (string) Str::uuid(),
+                    'request_fingerprint' => hash('sha256', 'synthetic explicit consent '.$email),
+                    'occurred_at' => now(),
+                    'created_at' => now(),
+                ]);
+            }
             $items[] = CampaignRecipientSnapshotItem::query()->create([
                 'workspace_id' => $workspace->getKey(),
                 'snapshot_id' => $snapshot->getKey(),

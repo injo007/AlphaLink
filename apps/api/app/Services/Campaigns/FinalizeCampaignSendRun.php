@@ -13,8 +13,11 @@ class FinalizeCampaignSendRun
 
     public function reconcile(CampaignSendRun $run, CampaignRecipientSnapshot $snapshot, Carbon $at): bool
     {
+        $executionOptions = $run->execution_options ?? [];
+        $endPosition = min((int) $snapshot->recipient_count, (int) ($executionOptions['end_position'] ?? $snapshot->recipient_count));
+
         if (! in_array($run->state, ['planned', 'running'], true)
-            || (int) $run->next_position <= (int) $snapshot->recipient_count) {
+            || (int) $run->next_position <= $endPosition) {
             return false;
         }
 

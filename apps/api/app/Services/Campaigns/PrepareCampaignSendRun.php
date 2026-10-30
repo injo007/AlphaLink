@@ -14,11 +14,7 @@ use Illuminate\Validation\ValidationException;
 use JsonException;
 
 /**
- * Persist an idempotent, non-dispatching campaign send plan.
- *
- * This intentionally does not start a worker or contact a mail transport. The
- * native sender contract, consent policy, and transport readiness still gate
- * execution; this record gives that later path a durable, immutable input.
+ * Persist an idempotent, immutable campaign send run before queue dispatch.
  */
 class PrepareCampaignSendRun
 {
@@ -68,6 +64,15 @@ class PrepareCampaignSendRun
             throw ValidationException::withMessages(['recipients' => 'The immutable recipient snapshot has no recipients remaining to plan.']);
         }
 
+        $availableCount = $recipientCount - $startFrom;
+        $configuredLimit = filter_var(
+            data_get($revision->payload, 'send_setup.parameters.total_send', data_get($revision->payload, 'send_setup.total_send')),
+            FILTER_VALIDATE_INT,
+        );
+        $plannedCount = $configuredLimit !== false && $configuredLimit > 0
+            ? min($availableCount, $configuredLimit)
+            : $availableCount;
+
         if ($idempotencyKey === '' || strlen($idempotencyKey) > 128) {
             throw ValidationException::withMessages(['idempotency_key' => 'A valid send-plan idempotency key is required.']);
         }
@@ -77,12 +82,13 @@ class PrepareCampaignSendRun
             'revision_id' => (string) $revision->getKey(),
             'snapshot_id' => (string) $snapshot->getKey(),
             'send_type' => $sendType,
-            'recipient_count' => $recipientCount,
+            'recipient_count' => $plannedCount,
             'start_from' => $startFrom,
+            'end_position' => $startFrom + $plannedCount,
             'recipients_sha256' => (string) $snapshot->recipients_sha256,
         ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
 
-        return DB::transaction(function () use ($campaign, $revision, $snapshot, $actor, $idempotencyKey, $fingerprint, $sendType, $recipientCount, $startFrom): CampaignSendRun {
+        return DB::transaction(function () use ($campaign, $revision, $snapshot, $actor, $idempotencyKey, $fingerprint, $sendType, $plannedCount, $startFrom): CampaignSendRun {
             $runId = (string) Str::uuid();
             $now = now();
             $inserted = DB::table('campaign_send_runs')->insertOrIgnore([
@@ -96,8 +102,11 @@ class PrepareCampaignSendRun
                 'state' => 'planned',
                 'idempotency_key' => $idempotencyKey,
                 'request_fingerprint' => $fingerprint,
-                'execution_options' => json_encode(['start_from' => $startFrom], JSON_THROW_ON_ERROR),
-                'recipient_count' => $recipientCount - $startFrom,
+                'execution_options' => json_encode([
+                    'start_from' => $startFrom,
+                    'end_position' => $startFrom + $plannedCount,
+                ], JSON_THROW_ON_ERROR),
+                'recipient_count' => $plannedCount,
                 'start_position' => $startFrom + 1,
                 'next_position' => $startFrom + 1,
                 'created_at' => $now,
@@ -122,7 +131,7 @@ class PrepareCampaignSendRun
                         'campaign_id' => $campaign->getKey(),
                         'revision_id' => $revision->getKey(),
                         'recipient_snapshot_id' => $snapshot->getKey(),
-                        'recipient_count' => $recipientCount - $startFrom,
+                        'recipient_count' => $plannedCount,
                     ],
                     'idempotency_key' => 'campaign-send-plan-created:'.$run->getKey(),
                     'created_at' => $now,

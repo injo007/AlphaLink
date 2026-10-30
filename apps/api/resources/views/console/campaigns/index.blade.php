@@ -28,6 +28,16 @@
             @if (session('status'))
                 <div class="alert alert-success" role="status">{{ session('status') }}</div>
             @endif
+            @if ($errors->any())
+                <div class="alert alert-danger" role="alert">
+                    <strong>Campaign send was not started.</strong>
+                    <ul class="mb-0 mt-1">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
             <div id="campaign-auto-test-feedback" class="alert d-none" role="status" aria-live="polite"></div>
 
             <div class="d-flex flex-wrap align-items-center justify-content-between mb-2 campaign-register-toolbar">
@@ -50,7 +60,7 @@
                     </form>
                     <a class="btn btn-sm btn-alt-primary mr-2" href="{{ route('console.campaigns.create', $workspace->id) }}" title="Create campaign" aria-label="Create campaign"><i class="fas fa-plus" aria-hidden="true"></i></a>
                     <a class="btn btn-sm btn-alt-primary mr-2" href="{{ route('console.campaigns.test-draft.create', $workspace->id) }}" title="Create a one-recipient Symfony Mailer test message" aria-label="New test message"><i class="far fa-paper-plane" aria-hidden="true"></i></a>
-                    <button class="btn btn-sm btn-alt-secondary mr-2" type="button" disabled title="AlphaLink has no native campaign sender or running send process yet."><i class="fas fa-cog" aria-hidden="true"></i><span class="sr-only">Running processes unavailable</span></button>
+                    <span class="badge badge-info mr-2" title="Campaign sends run in the background and report SMTP outcomes here.">BACKGROUND SENDS</span>
                     <button class="btn btn-sm btn-alt-danger mr-2" type="submit" form="campaign-bulk-form" id="campaign-bulk-disable-open" disabled title="Select campaigns to disable"><i class="fas fa-trash" aria-hidden="true"></i><span class="sr-only">Disable selected campaigns</span></button>
                     <a class="btn btn-sm btn-alt-secondary" href="{{ request()->fullUrl() }}" title="Reload campaign register" aria-label="Reload campaign register"><i class="fas fa-sync-alt" aria-hidden="true"></i></a>
                 </div>
@@ -158,16 +168,58 @@
                                     @endif
                                     <button type="button" class="btn btn-link btn-sm campaign-status-open" data-campaign-name="{{ $campaign->name }}" data-next-active="{{ $campaign->is_active ? '0' : '1' }}" data-status-url="{{ route('console.campaigns.status', [$workspace->id, $campaign->id]) }}" title="{{ $campaign->is_active ? 'Disable' : 'Restore' }} campaign" aria-label="{{ $campaign->is_active ? 'Disable' : 'Restore' }} {{ $campaign->name }}"><i class="{{ $campaign->is_active ? 'fas fa-trash text-danger' : 'fas fa-trash-restore text-success' }}" aria-hidden="true"></i></button>
                                 </td>
-                                <td><span class="badge badge-secondary">DRAFT</span><div class="small text-muted">No send recorded</div></td>
+                                <td>
+                                    @php
+                                        $sendRun = $campaign->send_run;
+                                        $sendProcessed = $sendRun
+                                            ? (int) $sendRun->accepted_count + (int) $sendRun->rejected_count + (int) $sendRun->suppressed_count + (int) $sendRun->uncertain_count
+                                            : 0;
+                                        $sendPercent = $sendRun && $sendRun->recipient_count > 0
+                                            ? min(100, (int) floor($sendProcessed * 100 / $sendRun->recipient_count))
+                                            : 0;
+                                    @endphp
+                                    @if ($sendRun)
+                                        <span class="badge {{ in_array($sendRun->state, ['completed', 'running'], true) ? 'badge-primary' : ($sendRun->state === 'needs_review' ? 'badge-warning' : ($sendRun->state === 'failed' ? 'badge-danger' : 'badge-secondary')) }}" data-send-state>{{ strtoupper(str_replace('_', ' ', $sendRun->state)) }}</span>
+                                        <div class="progress mt-1" style="height: .7rem" role="progressbar" aria-label="Campaign send progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $sendPercent }}" @if (in_array($sendRun->state, ['planned', 'running'], true)) data-campaign-send-progress data-progress-url="{{ route('console.campaigns.send-progress', [$workspace->id, $campaign->id, $sendRun->id]) }}" @endif>
+                                            <div class="progress-bar {{ $sendRun->state === 'needs_review' ? 'bg-warning' : ($sendRun->state === 'failed' ? 'bg-danger' : '') }}" style="width: {{ $sendPercent }}%"></div>
+                                        </div>
+                                        <div class="small text-muted" data-send-summary>{{ $sendProcessed }} / {{ $sendRun->recipient_count }} · {{ $sendRun->accepted_count }} accepted · {{ $sendRun->rejected_count }} rejected · {{ $sendRun->suppressed_count }} suppressed · {{ $sendRun->uncertain_count }} uncertain</div>
+                                        @if ($sendRun->last_smtp_error)
+                                            <div class="small text-danger">Latest SMTP rejection: {{ $sendRun->last_smtp_error }}</div>
+                                        @endif
+                                        @if ($sendRun->state === 'failed')
+                                            <div class="small text-danger">The sender stopped before completion. Review the latest error and retry only if no recipients were accepted.</div>
+                                        @elseif ($sendRun->state === 'needs_review')
+                                            <div class="small text-warning">Some SMTP outcomes are uncertain. This revision is locked to prevent duplicate delivery.</div>
+                                        @endif
+                                    @else
+                                        <span class="badge badge-secondary">DRAFT</span><div class="small text-muted">No send recorded</div>
+                                    @endif
+                                </td>
                                 <td class="text-nowrap">
                                     @foreach (($register['pmta_panels'] ?? []) as $panel)
                                         <a class="btn btn-link btn-sm" href="{{ $panel['url'] }}" target="_blank" rel="noopener noreferrer" title="Open PMTA Web Monitor on {{ $panel['name'] }}" aria-label="Open PMTA Web Monitor on {{ $panel['name'] }}"><i class="fas fa-server" aria-hidden="true"></i></a>
                                     @endforeach
-                                    <button type="button" class="btn btn-link btn-sm" disabled title="The native DMS campaign sender is not implemented in AlphaLink." aria-label="Send unavailable for {{ $campaign->name }}"><i class="fas fa-paper-plane text-success" aria-hidden="true"></i></button>
+                                    @if ($campaign->send_ready)
+                                        <form method="POST" action="{{ route('console.campaigns.send', [$workspace->id, $campaign->id]) }}" class="d-inline" data-campaign-send-form>
+                                            @csrf
+                                            <input type="hidden" name="idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
+                                            <button type="submit" class="btn btn-success btn-sm" title="Send the saved campaign through its selected PMTA routes" aria-label="Send {{ $campaign->name }}"><i class="fas fa-paper-plane mr-1" aria-hidden="true"></i>SEND</button>
+                                        </form>
+                                        <div><span class="badge badge-success">READY TO SEND</span></div>
+                                    @elseif ($sendRun && in_array($sendRun->state, ['planned', 'running'], true))
+                                        <button type="button" class="btn btn-link btn-sm" disabled title="Campaign send is running." aria-label="Campaign send running"><i class="fas fa-paper-plane text-success" aria-hidden="true"></i></button>
+                                        <div><span class="badge badge-primary">SENDING</span></div>
+                                    @elseif ($sendRun && in_array($sendRun->state, ['completed', 'needs_review'], true))
+                                        <button type="button" class="btn btn-link btn-sm" disabled title="This revision already has a send record. Revise or clone the campaign before sending again." aria-label="Campaign revision already sent"><i class="fas fa-paper-plane text-muted" aria-hidden="true"></i></button>
+                                        <div><span class="badge badge-secondary">REVISION SENT</span></div>
+                                    @else
+                                        <button type="button" class="btn btn-link btn-sm" disabled title="The campaign must have a completed recipient snapshot and valid saved server routes before sending." aria-label="Send not ready"><i class="fas fa-paper-plane text-muted" aria-hidden="true"></i></button>
+                                        <div><span class="badge badge-warning">SEND NOT READY</span></div>
+                                    @endif
                                     <button type="button" class="btn btn-link btn-sm" disabled title="Campaign scheduling is not implemented in AlphaLink." aria-label="Schedule unavailable for {{ $campaign->name }}"><i class="fas fa-calendar-alt" aria-hidden="true"></i></button>
                                     <a class="btn btn-link btn-sm" href="{{ route('console.campaigns.visitors', [$workspace->id, $campaign->id]) }}" title="Open campaign visitor logs" aria-label="Open visitor logs for {{ $campaign->name }}"><i class="fas fa-eye" aria-hidden="true"></i></a>
-                                    <div><span class="badge badge-warning">SEND UNAVAILABLE</span></div>
-                                    <div class="small text-muted" title="The recipient snapshot is saved. The native DMS sender is not implemented.">Recipient snapshot saved</div>
+                                    <div class="small text-muted" title="Live suppression and current email consent are checked immediately before delivery.">PMTA route · consent and suppression checked</div>
                                 </td>
                             </tr>
                         @empty
@@ -236,6 +288,42 @@
             const rowSelections = Array.from(document.querySelectorAll('.campaign-row-select'));
             const autoTestForms = Array.from(document.querySelectorAll('[data-campaign-auto-test-form]'));
             const autoTestFeedback = document.getElementById('campaign-auto-test-feedback');
+            const liveSendProgress = Array.from(document.querySelectorAll('[data-campaign-send-progress]'));
+
+            liveSendProgress.forEach(progress => {
+                const refreshProgress = async () => {
+                    try {
+                        const response = await fetch(progress.dataset.progressUrl, {
+                            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                            credentials: 'same-origin',
+                        });
+                        if (!response.ok) return;
+                        const result = await response.json();
+                        const bar = progress.querySelector('.progress-bar');
+                        const cell = progress.closest('td');
+                        const state = cell.querySelector('[data-send-state]');
+                        const summary = cell.querySelector('[data-send-summary]');
+                        progress.setAttribute('aria-valuenow', String(result.percent));
+                        bar.style.width = `${result.percent}%`;
+                        state.textContent = result.state.replaceAll('_', ' ').toUpperCase();
+                        summary.textContent = `${result.processed} / ${result.total} · ${result.accepted} accepted · ${result.rejected} rejected · ${result.suppressed} suppressed · ${result.uncertain} uncertain`;
+                        if (!['planned', 'running'].includes(result.state)) {
+                            progress.removeAttribute('data-campaign-send-progress');
+                            window.setTimeout(() => window.location.reload(), 1200);
+                        }
+                    } catch (_) {
+                        // A missed refresh does not affect the queued send.
+                    }
+                };
+                refreshProgress();
+                const timer = window.setInterval(() => {
+                    if (!progress.isConnected || !progress.hasAttribute('data-campaign-send-progress')) {
+                        window.clearInterval(timer);
+                        return;
+                    }
+                    refreshProgress();
+                }, 4000);
+            });
 
             const updateSelection = () => {
                 const count = rowSelections.filter(input => input.checked).length;
@@ -246,6 +334,18 @@
             };
 
             rowSelections.forEach(input => input.addEventListener('change', updateSelection));
+            document.querySelectorAll('[data-campaign-send-form]').forEach(form => form.addEventListener('submit', event => {
+                if (!window.confirm('Send this campaign to the selected audience? Only contacts with current recorded email marketing consent will be sent.')) {
+                    event.preventDefault();
+                    return;
+                }
+                const button = form.querySelector('button[type="submit"]');
+                if (button) {
+                    button.disabled = true;
+                    button.setAttribute('aria-busy', 'true');
+                    button.innerHTML = '<i class="fas fa-spinner fa-spin mr-1" aria-hidden="true"></i>QUEUING';
+                }
+            }));
             autoTestForms.forEach(form => form.addEventListener('submit', async event => {
                 const ipCount = Number(form.dataset.ipCount || 0);
                 if (ipCount > 100 && !window.confirm(`You are testing more than ${ipCount} IPs. Are you sure?`)) {

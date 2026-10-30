@@ -120,7 +120,7 @@
             <button type="button" id="campaign-actions-trigger" aria-label="Open campaign actions" aria-haspopup="menu" aria-expanded="false"><i class="fas fa-bars" aria-hidden="true"></i></button>
             <div id="campaign-actions-panel" role="menu" aria-label="Campaign actions" hidden>
                 @foreach ($campaignMenuItems as $item)
-                    <button type="button" role="menuitem" data-campaign-menu-action="{{ $item['action'] }}" @if ($item['action'] === 'test') data-test-url="{{ route('console.campaigns.manual-test', $workspace->id) }}" @endif @if ($item['unavailable'] ?? false) aria-disabled="true" title="Unavailable until the DMS native campaign sender and lifecycle are implemented and tested." @endif>
+                    <button type="button" role="menuitem" data-campaign-menu-action="{{ $item['action'] }}" @if ($item['action'] === 'test') data-test-url="{{ route('console.campaigns.manual-test', $workspace->id) }}" @endif @if ($item['unavailable'] ?? false) aria-disabled="true" title="Save the draft, wait for recipient preparation, then use SEND from My Campaigns." @endif>
                         {{ $item['label'] }} <i class="{{ $item['icon'] }}" aria-hidden="true"></i>
                     </button>
                 @endforeach
@@ -128,7 +128,7 @@
         </div>
         <div id="campaign-context-menu" role="menu" aria-label="Campaign actions" hidden>
             @foreach ($campaignMenuItems as $item)
-                <button type="button" role="menuitem" data-campaign-menu-action="{{ $item['action'] }}" @if ($item['action'] === 'test') data-test-url="{{ route('console.campaigns.manual-test', $workspace->id) }}" @endif @if ($item['unavailable'] ?? false) aria-disabled="true" title="Unavailable until the DMS native campaign sender and lifecycle are implemented and tested." @endif>
+                <button type="button" role="menuitem" data-campaign-menu-action="{{ $item['action'] }}" @if ($item['action'] === 'test') data-test-url="{{ route('console.campaigns.manual-test', $workspace->id) }}" @endif @if ($item['unavailable'] ?? false) aria-disabled="true" title="Save the draft, wait for recipient preparation, then use SEND from My Campaigns." @endif>
                     {{ $item['label'] }} <i class="{{ $item['icon'] }}" aria-hidden="true"></i>
                 </button>
             @endforeach
@@ -251,7 +251,7 @@
             <strong>USABLE TAGS:</strong>
             [server] [main_domain] [ip] [domain] [rdns] [to] [date] [name] [rnd]
             [smtp] [smtp_name] [rnd(N|A|L|U|S|LU|LN|NU)_NUMBER] [text:a|b|c]
-            <small class="d-block">[smtp] and [smtp_name] fill message text; they do not choose the sending route. Option IP sends through the selected IP. To use an SMTP relay, choose Option SMTP and select its account. Normal campaign sending is not enabled.</small>
+            <small class="d-block">[smtp] and [smtp_name] fill message text; Option SMTP selects the outbound relay. Start a saved campaign from My Campaigns after suppression and recipient preparation finish.</small>
             <button type="button" class="btn btn-link btn-sm p-0 ml-1" id="campaign-tags-help" title="SHOW EXAMPLE" aria-label="Show tag examples"><i class="fas fa-question-circle" aria-hidden="true"></i></button>
             <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button>
         </div>
@@ -460,7 +460,7 @@
                                 </div>
                                 <small id="send-ips-transfer-help" class="form-text text-muted">Double-click an entry to move it between lists. You can also select entries and use the arrow buttons.</small>
                                 <small class="form-text text-muted">Campaign Save requires at least one selected IP, VMTA, or SMTP route. Test Campaign uses the saved route on this revision.</small>
-                                <small class="form-text text-info" id="send-route-behavior">Option IP sends through the selected IP route. <code>[smtp]</code> and <code>[smtp_name]</code> fill message text from one linked account; they do not choose the outbound route. To send through an SMTP relay, choose Option SMTP and select that account. AlphaLink connects to the selected server’s PMTA listener; that server IP is the PMTA ingress, while the selected route controls outbound delivery. Normal campaign sending is not enabled.</small>
+                                <small class="form-text text-info" id="send-route-behavior">Option IP sends through the selected IP route. <code>[smtp]</code> and <code>[smtp_name]</code> fill message text from one linked account; they do not choose the outbound route. To send through an SMTP relay, choose Option SMTP and select that account. AlphaLink connects to the selected server’s PMTA listener; that server IP is the PMTA ingress, while the selected route controls outbound delivery. Start a saved campaign from My Campaigns after recipient preparation finishes.</small>
                             </div>
                             <div id="campaign-pmta-panels" class="row" aria-live="polite">
                                 @foreach ($sendOptions['servers'] as $server)
@@ -761,7 +761,7 @@
                     return;
                 }
                 if (action === 'create-send') {
-                    announce('Create & Send is unavailable until the DMS native campaign sender, validation and send lifecycle are implemented and tested.', 'warning');
+                    announce('Save the campaign and let suppression and recipient preparation finish. Then use SEND from My Campaigns.', 'warning');
                     return;
                 }
                 const selected = selectedServerOptions();
@@ -1046,7 +1046,7 @@
                         ? 'Option SMTP selects the outbound relay. <code>[smtp]</code> is its username and <code>[smtp_name]</code> is its label. Use <code>[smtp]</code> or <code>[smtp]@[domain]</code> for a local-part username. AlphaLink reaches PMTA through the selected server’s IP and listener; PMTA applies the selected SMTP virtual-MTA route. PMTA acceptance does not confirm mailbox delivery.'
                         : route === 'vmta'
                             ? 'VMTA mode uses the selected virtual MTA for outbound routing. <code>[smtp]</code> and <code>[smtp_name]</code> are empty. AlphaLink submits through the selected server’s PMTA listener.'
-                        : 'Option IP sends through the selected source-IP route. <code>[smtp]</code> and <code>[smtp_name]</code> fill message text from one linked account; they do not change the route. To send through an SMTP relay, choose Option SMTP and select that account. The server IP is the PMTA ingress; the selected route controls outbound delivery. Normal campaign sending is not enabled.';
+                        : 'Option IP sends through the selected source-IP route. <code>[smtp]</code> and <code>[smtp_name]</code> fill message text from one linked account; they do not change the route. To send through an SMTP relay, choose Option SMTP and select that account. The server IP is the PMTA ingress; the selected route controls outbound delivery. Start a saved campaign from My Campaigns after recipient preparation finishes.';
                 }
                 const moveLabels = {
                     'all-right': `Move all ${routeName} to selected`,
@@ -1605,7 +1605,7 @@
                 } else if (!current.isp_id) {
                     setStatus('Choose an ISP for the selected sponsor to load its active lists.', 'info');
                 } else {
-                    setStatus('DMS-mapped choices loaded. Saving creates the suppression-filtered recipient snapshot; native campaign send and scheduling are not available.', 'info');
+                    setStatus('DMS-mapped choices loaded. Saving creates the suppression-filtered recipient snapshot. Start the campaign from My Campaigns after preparation finishes; scheduling is not available.', 'info');
                 }
             };
             const loadOptions = async () => {

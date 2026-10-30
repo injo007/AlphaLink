@@ -346,6 +346,39 @@ class DmsWorkspaceToolTest extends TestCase
         $this->assertDatabaseCount('managed_server_mtas', 0);
     }
 
+    public function test_push_rejects_the_known_crashing_relay_binary_before_server_access(): void
+    {
+        $project = $this->project();
+        WorkspaceGoogleAccount::query()->create([
+            'workspace_id' => $this->workspace->id,
+            'project_id' => $project->id,
+            'email' => 'user@example.test',
+        ]);
+        $ip = $this->ip();
+        $assetDirectory = storage_path('framework/testing/workspace-relay-'.Str::uuid());
+        File::ensureDirectoryExists($assetDirectory);
+        $this->beforeApplicationDestroyed(fn () => File::deleteDirectory($assetDirectory));
+        copy(base_path('../../pmta/workspace_relay/workspace_relay'), $assetDirectory.'/workspace_relay');
+        file_put_contents($assetDirectory.'/workspace_relay.service', '[Service]');
+        file_put_contents($assetDirectory.'/config.json', json_encode([
+            'listen_addr' => '127.0.0.1:1028',
+            'service_accounts_dir' => '/etc/workspace_relay/accounts',
+        ], JSON_THROW_ON_ERROR));
+        config(['infrastructure.workspace_relay_assets_directory' => $assetDirectory]);
+
+        $remote = Mockery::mock(PmtaRemoteConfiguration::class);
+        $remote->shouldNotReceive('open');
+        $this->app->instance(PmtaRemoteConfiguration::class, $remote);
+
+        $this->postJson(route('console.tools.workspace.push', $this->workspace->id), [
+            'ips' => [$ip->id], 'projects' => [$project->id], 'split_on_ips' => false,
+        ])->assertBadRequest()->assertJsonPath(
+            'data',
+            'The bundled Workspace relay executable is known to fail startup. Push was cancelled before contacting servers; replace pmta/workspace_relay with a verified Linux x86-64 build.',
+        );
+        $this->assertDatabaseCount('managed_server_mtas', 0);
+    }
+
     public function test_push_uses_bundled_relay_assets_and_excludes_inactive_accounts(): void
     {
         $project = $this->project();
@@ -531,7 +564,7 @@ class DmsWorkspaceToolTest extends TestCase
         ])->assertOk()->assertJsonPath(
             'data.0.data',
             'Workspace relay failed its post-install service or listener health check. Existing Workspace SMTP routes were disabled until a healthy push succeeds.',
-        );
+        )->assertJsonPath('data.0.success', false);
 
         $this->assertDatabaseHas('managed_server_mtas', ['id' => $oldRoute->id, 'is_active' => false]);
         $this->assertSame(1, ManagedServerMta::query()->count(), 'The newly generated route must be rolled back.');
@@ -606,7 +639,7 @@ class DmsWorkspaceToolTest extends TestCase
         ));
     }
 
-    public function test_reset_deletes_only_selected_users_workspace_smtp_rows_then_reloads_pmta(): void
+    public function test_reset_deletes_only_selected_users_workspace_smtp_rows_after_pmta_reload_succeeds(): void
     {
         $ip = $this->ip();
         $mta = ManagedServerMta::query()->create([
@@ -616,15 +649,71 @@ class DmsWorkspaceToolTest extends TestCase
         ]);
         $server = $ip->server;
         $session = Mockery::mock(DmsInstallerSshSession::class);
-        $session->shouldReceive('exec')->once()->with('rm -rf '.escapeshellarg('/etc/pmta/conf/workspace_'.$this->owner->id))->andReturn('');
-        $session->shouldReceive('exec')->once()->with('pmta reload')->andReturn('reloaded');
+        $session->shouldReceive('exec')->andReturnUsing(function (string $command): string {
+            if (str_contains($command, '__WORKSPACE_RESET_BACKUP_READY__')) {
+                return '__WORKSPACE_RESET_BACKUP_READY__';
+            }
+            if (str_contains($command, '__WORKSPACE_RESET_CONFIG_REMOVED__')) {
+                return '__WORKSPACE_RESET_CONFIG_REMOVED__';
+            }
+            if ($command === 'pmta reload') {
+                return 'reloaded';
+            }
+
+            return '';
+        });
         $remote = Mockery::mock(PmtaRemoteConfiguration::class);
         $remote->shouldReceive('open')->once()->with(Mockery::on(fn ($candidate) => $candidate->is($server)))->andReturn($session);
         $this->app->instance(PmtaRemoteConfiguration::class, $remote);
 
         $this->deleteJson(route('console.tools.workspace.reset', $this->workspace->id), ['ips' => [$ip->id]])
-            ->assertOk()->assertJsonPath('data.0.data', 'Restored Successfully');
+            ->assertOk()->assertJsonPath('data.0.data', 'Workspace SMTP reset successfully.')
+            ->assertJsonPath('data.0.success', true);
         $this->assertDatabaseMissing('managed_server_mtas', ['id' => $mta->id]);
+    }
+
+    public function test_reset_keeps_local_routes_and_restores_remote_config_when_pmta_reload_fails(): void
+    {
+        $ip = $this->ip();
+        $mta = ManagedServerMta::query()->create([
+            'workspace_id' => $this->workspace->id, 'managed_server_id' => $ip->managed_server_id,
+            'managed_server_ip_id' => $ip->id, 'ip' => $ip->ip, 'dns' => $ip->dns, 'ip_type' => $ip->type,
+            'mta_type' => 'smtp', 'username' => 'user@example.test', 'user_id' => $this->owner->id, 'is_active' => true,
+        ]);
+        $server = $ip->server;
+        $reloadCount = 0;
+        $commands = [];
+        $session = Mockery::mock(DmsInstallerSshSession::class);
+        $session->shouldReceive('exec')->andReturnUsing(function (string $command) use (&$reloadCount, &$commands): string {
+            $commands[] = $command;
+            if (str_contains($command, '__WORKSPACE_RESET_BACKUP_READY__')) {
+                return '__WORKSPACE_RESET_BACKUP_READY__';
+            }
+            if (str_contains($command, '__WORKSPACE_RESET_CONFIG_REMOVED__')) {
+                return '__WORKSPACE_RESET_CONFIG_REMOVED__';
+            }
+            if (str_contains($command, '__WORKSPACE_RESET_RESTORED__')) {
+                return '__WORKSPACE_RESET_RESTORED__';
+            }
+            if ($command === 'pmta reload') {
+                $reloadCount++;
+
+                return $reloadCount === 1 ? 'Invalid PMTA configuration' : 'reloaded';
+            }
+
+            return '';
+        });
+        $remote = Mockery::mock(PmtaRemoteConfiguration::class);
+        $remote->shouldReceive('open')->once()->with(Mockery::on(fn ($candidate) => $candidate->is($server)))->andReturn($session);
+        $this->app->instance(PmtaRemoteConfiguration::class, $remote);
+
+        $this->deleteJson(route('console.tools.workspace.reset', $this->workspace->id), ['ips' => [$ip->id]])
+            ->assertOk()->assertJsonPath('data.0.data', 'Invalid PMTA configuration')
+            ->assertJsonPath('data.0.success', false);
+
+        $this->assertSame(2, $reloadCount);
+        $this->assertDatabaseHas('managed_server_mtas', ['id' => $mta->id, 'is_active' => true]);
+        $this->assertTrue(collect($commands)->contains(fn (string $command): bool => str_contains($command, '__WORKSPACE_RESET_RESTORED__')));
     }
 
     private function project(?Workspace $workspace = null, string $name = 'admin@example.test'): WorkspaceGoogleProject

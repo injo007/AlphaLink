@@ -19,9 +19,11 @@ use Throwable;
 /** DMS-mapped Workspace SMTP push/reset for the selected AlphaLink user. */
 class DmsWorkspaceSmtpConfiguration
 {
+    private const INVALID_RELAY_BINARY_SHA256 = '2ec93c845ce385477da1e639d03dc4b0f22f0aa89ed21637abe58792f6ca1f98';
+
     public function __construct(private readonly PmtaRemoteConfiguration $remote) {}
 
-    /** @return list<array{id: string, data: string}> */
+    /** @return list<array{id: string, data: string, success: bool}> */
     public function push(Workspace $workspace, User $user, array $ipIds, array $projectIds, bool $splitOnIps): array
     {
         $ips = $this->selectedIps($workspace, $ipIds);
@@ -53,7 +55,7 @@ class DmsWorkspaceSmtpConfiguration
         foreach ($grouped as $serverId => $serverIps) {
             $server = ManagedServer::query()->where('workspace_id', $workspace->id)->whereKey($serverId)->first();
             if (! $server) {
-                $results[] = ['id' => (string) $serverId, 'data' => 'Server Not Found'];
+                $results[] = ['id' => (string) $serverId, 'data' => 'Server Not Found', 'success' => false];
 
                 continue;
             }
@@ -174,7 +176,7 @@ class DmsWorkspaceSmtpConfiguration
                 ManagedServerMta::query()->where('workspace_id', $workspace->id)
                     ->where('managed_server_id', $server->id)->where('user_id', $user->id)
                     ->whereIn('id', $routeIdsToActivate)->update(['is_active' => true]);
-                $results[] = ['id' => (string) $server->id, 'data' => 'Workspace Pushed Successfully'];
+                $results[] = ['id' => (string) $server->id, 'data' => 'Workspace Pushed Successfully', 'success' => true];
             } catch (Throwable $exception) {
                 if ($relayDeploymentMayBeBroken) {
                     // installRelay stops/replaces the service before its final
@@ -188,14 +190,14 @@ class DmsWorkspaceSmtpConfiguration
                 if ($createdIds !== []) {
                     ManagedServerMta::query()->where('workspace_id', $workspace->id)->where('user_id', $user->id)->whereIn('id', $createdIds)->delete();
                 }
-                $results[] = ['id' => (string) $server->id, 'data' => $exception->getMessage()];
+                $results[] = ['id' => (string) $server->id, 'data' => $exception->getMessage(), 'success' => false];
             }
         }
 
         return $results;
     }
 
-    /** @return list<array{id: string, data: string}> */
+    /** @return list<array{id: string, data: string, success: bool}> */
     public function reset(Workspace $workspace, User $user, array $ipIds): array
     {
         $ips = $this->selectedIps($workspace, $ipIds);
@@ -204,21 +206,61 @@ class DmsWorkspaceSmtpConfiguration
         foreach ($grouped as $serverId => $serverIps) {
             $server = ManagedServer::query()->where('workspace_id', $workspace->id)->whereKey($serverId)->first();
             if (! $server) {
-                $results[] = ['id' => (string) $serverId, 'data' => 'Server Not Found'];
+                $results[] = ['id' => (string) $serverId, 'data' => 'Server Not Found', 'success' => false];
 
                 continue;
             }
 
-            // DMS deletes the user's selected-server SMTP rows before remote cleanup.
-            ManagedServerMta::query()->where('workspace_id', $workspace->id)->where('managed_server_id', $server->id)
-                ->where('user_id', $user->id)->where('mta_type', 'smtp')->delete();
             try {
                 $session = $this->remote->open($server);
-                $session->exec('rm -rf '.escapeshellarg('/etc/pmta/conf/workspace_'.$user->id));
-                $session->exec('pmta reload');
-                $results[] = ['id' => (string) $server->id, 'data' => 'Restored Successfully'];
+                $configuration = '/etc/pmta/conf/workspace_'.$user->id;
+                $backup = '/etc/pmta/.workspace_'.$user->id.'-'.Str::uuid().'.bak';
+                $backupResult = (string) $session->exec(
+                    'if test -f '.escapeshellarg($configuration)
+                        .'; then cp -p '.escapeshellarg($configuration).' '.escapeshellarg($backup)
+                        .' && echo __WORKSPACE_RESET_BACKUP_READY__; else echo __WORKSPACE_RESET_CONFIG_ABSENT__; fi',
+                );
+                $hadConfiguration = str_contains($backupResult, '__WORKSPACE_RESET_BACKUP_READY__');
+                if (! $hadConfiguration && ! str_contains($backupResult, '__WORKSPACE_RESET_CONFIG_ABSENT__')) {
+                    throw new RuntimeException('The existing Workspace SMTP configuration could not be backed up.');
+                }
+
+                try {
+                    $removeResult = (string) $session->exec(
+                        'rm -f '.escapeshellarg($configuration).' && echo __WORKSPACE_RESET_CONFIG_REMOVED__',
+                    );
+                    if (! str_contains($removeResult, '__WORKSPACE_RESET_CONFIG_REMOVED__')) {
+                        throw new RuntimeException('The Workspace SMTP configuration could not be removed.');
+                    }
+
+                    $reloadResult = (string) $session->exec('pmta reload');
+                    if (! str_contains($reloadResult, 'reloaded') && ! str_contains($reloadResult, 'running')) {
+                        throw new RuntimeException($reloadResult !== '' ? $reloadResult : 'PMTA did not confirm the Workspace SMTP reset.');
+                    }
+                } catch (Throwable $exception) {
+                    if ($hadConfiguration) {
+                        $restoreResult = (string) $session->exec(
+                            'mv -f '.escapeshellarg($backup).' '.escapeshellarg($configuration).' && echo __WORKSPACE_RESET_RESTORED__',
+                        );
+                        if (! str_contains($restoreResult, '__WORKSPACE_RESET_RESTORED__')) {
+                            throw new RuntimeException($exception->getMessage().' The previous Workspace configuration could not be restored.');
+                        }
+                    } else {
+                        $session->exec('rm -f '.escapeshellarg($configuration));
+                    }
+                    $session->exec('pmta reload');
+
+                    throw $exception;
+                }
+
+                if ($hadConfiguration) {
+                    $session->exec('rm -f '.escapeshellarg($backup));
+                }
+                ManagedServerMta::query()->where('workspace_id', $workspace->id)->where('managed_server_id', $server->id)
+                    ->where('user_id', $user->id)->where('mta_type', 'smtp')->delete();
+                $results[] = ['id' => (string) $server->id, 'data' => 'Workspace SMTP reset successfully.', 'success' => true];
             } catch (Throwable $exception) {
-                $results[] = ['id' => (string) $server->id, 'data' => $exception->getMessage()];
+                $results[] = ['id' => (string) $server->id, 'data' => $exception->getMessage(), 'success' => false];
             }
         }
 
@@ -284,6 +326,11 @@ class DmsWorkspaceSmtpConfiguration
             if (! is_file($path) || is_link($path) || ! is_readable($path) || filesize($path) === 0) {
                 throw new RuntimeException('Workspace relay deployment assets are missing or invalid.');
             }
+        }
+        if (hash_file('sha256', $assets['binary']) === self::INVALID_RELAY_BINARY_SHA256) {
+            throw new RuntimeException(
+                'The bundled Workspace relay executable is known to fail startup. Push was cancelled before contacting servers; replace pmta/workspace_relay with a verified Linux x86-64 build.',
+            );
         }
         $configuration = json_decode((string) file_get_contents($assets['config']), true);
         if (! is_array($configuration)

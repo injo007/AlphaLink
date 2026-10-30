@@ -21,6 +21,19 @@
                 <button class="btn btn-sm btn-danger" id="workspace-projects-delete" type="button">DELETE SELECTED</button>
             </div>
             <div class="collapse mb-4" id="workspace-project-create">
+                <div class="custom-control custom-switch mb-3">
+                    <input class="custom-control-input" id="workspace-project-s3-toggle" type="checkbox" aria-controls="workspace-project-s3-panel">
+                    <label class="custom-control-label" for="workspace-project-s3-toggle">S3</label>
+                </div>
+                <div class="border rounded p-3 mb-3 d-none" id="workspace-project-s3-panel">
+                    <h4 class="font-size-base mb-3">SYNC PROJECTS FROM S3</h4>
+                    <div class="form-group">
+                        <label for="workspace-project-s3-link">Public S3 folder URL</label>
+                        <input class="form-control" id="workspace-project-s3-link" type="url" maxlength="2048" autocomplete="url" value="{{ $s3Link }}" placeholder="https://bucket.s3.region.amazonaws.com/project-folder" required>
+                        <small class="form-text text-muted">Each non-empty file becomes a Workspace project named from its filename. New or changed projects queue an account sync.</small>
+                    </div>
+                    <button class="btn btn-primary" type="button" id="workspace-project-s3-sync">SYNC</button>
+                </div>
                 <form id="workspace-project-form" class="border rounded p-3">
                     <h4 class="font-size-base mb-3">ADD WORKSPACE PROJECT</h4>
                     <div class="form-group">
@@ -71,6 +84,9 @@
             const status = document.getElementById('workspace-project-status');
             const form = document.getElementById('workspace-project-form');
             const save = document.getElementById('workspace-project-save');
+            const s3Toggle = document.getElementById('workspace-project-s3-toggle');
+            const s3Panel = document.getElementById('workspace-project-s3-panel');
+            const s3Sync = document.getElementById('workspace-project-s3-sync');
             const request = async (url, method = 'POST', body = {}) => {
                 const response = await fetch(url, {method, headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':csrf}, body: method === 'GET' ? undefined : JSON.stringify(body)});
                 const payload = await response.json().catch(() => ({}));
@@ -80,6 +96,11 @@
             const showStatus = (message, ok = true) => { status.textContent = message; status.className = `alert ${ok ? 'alert-success' : 'alert-danger'}`; };
             const busy = (button, value) => { button.disabled = value; button.setAttribute('aria-busy', String(value)); };
             const dialog = async (options) => { const modal = window.Swal || window.swal; return modal?.fire ? modal.fire(options) : {isConfirmed: window.confirm(options.text || options.title || 'Continue?')}; };
+
+            s3Toggle.addEventListener('change', () => {
+                s3Panel.classList.toggle('d-none', !s3Toggle.checked);
+                form.classList.toggle('d-none', s3Toggle.checked);
+            });
 
             document.getElementById('workspace-project-refresh').addEventListener('click', () => window.location.reload());
 
@@ -145,6 +166,20 @@
                 } catch (error) {
                     showStatus(error.message, false);
                     busy(save, false);
+                }
+            });
+
+            s3Sync.addEventListener('click', async () => {
+                const input = document.getElementById('workspace-project-s3-link');
+                if (!input.reportValidity()) return;
+                busy(s3Sync, true);
+                try {
+                    const result = await request(`${base}/projects/sync-s3`, 'POST', {link: input.value.trim()});
+                    showStatus(`${result.message}. ${result.unchanged ?? 0} unchanged.`);
+                    window.setTimeout(() => window.location.reload(), 1400);
+                } catch (error) {
+                    showStatus(error.message, false);
+                    busy(s3Sync, false);
                 }
             });
 

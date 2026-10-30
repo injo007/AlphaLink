@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\SyncWorkspaceGoogleProjectAccounts;
 use App\Models\ManagedServer;
 use App\Models\ManagedServerIp;
 use App\Models\ManagedServerMta;
@@ -13,11 +14,13 @@ use App\Models\WorkspaceGoogleProject;
 use App\Services\Infrastructure\DmsInstallerSshSession;
 use App\Services\PmtaRemoteConfiguration;
 use App\Services\PmtaSmtpConfigBuilder;
+use App\Services\Workspace\DmsWorkspaceDirectorySync;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Mockery;
 use Tests\TestCase;
@@ -78,6 +81,8 @@ class DmsWorkspaceToolTest extends TestCase
         $projectsPage
             ->assertOk()->assertSee('GMAIL PROJECTS')->assertSee($project->name)
             ->assertSee('SAVE & SYNC')->assertSee('workspace-project-table')
+            ->assertSee('workspace-project-s3-toggle')->assertSee('workspace-project-s3-link')
+            ->assertSee('workspace-project-s3-sync')->assertSee('Each non-empty file becomes a Workspace project')
             ->assertSee('ENABLE / DISABLE PROJECTS')->assertSee('DELETE SELECTED')
             ->assertSee('<th>type</th><th>name</th><th>total accounts</th><th>created at</th>', false)
             ->assertSee('<td>Workspace</td>', false)
@@ -196,6 +201,145 @@ class DmsWorkspaceToolTest extends TestCase
             ->assertJsonMissingPath('service_account_json')->assertJsonMissingPath('private_key');
         $this->assertFalse($project->fresh()->is_active);
         $this->assertStringContainsString('HTTP 403', $project->fresh()->sync_error);
+    }
+
+    public function test_s3_project_sync_imports_multiple_paginated_files_and_skips_unchanged_files(): void
+    {
+        Queue::fake();
+        $firstCredentials = json_encode(['client_email' => 'svc-one@example.test', 'private_key' => 'private-one'], JSON_THROW_ON_ERROR);
+        $secondCredentials = json_encode(['client_email' => 'svc-two@example.test', 'private_key' => 'private-two'], JSON_THROW_ON_ERROR);
+        Http::fake(function (ClientRequest $request) use ($firstCredentials, $secondCredentials) {
+            $url = parse_url($request->url());
+            parse_str((string) ($url['query'] ?? ''), $query);
+            if (($url['path'] ?? '') === '/') {
+                if (($query['continuation-token'] ?? null) === 'next-page') {
+                    return Http::response('<ListBucketResult><Contents><Key>projects/admin.two@example.test.json</Key></Contents><IsTruncated>false</IsTruncated></ListBucketResult>');
+                }
+
+                return Http::response('<ListBucketResult><Contents><Key>projects/</Key></Contents><Contents><Key>projects/admin.one@example.test.json</Key></Contents><IsTruncated>true</IsTruncated><NextContinuationToken>next-page</NextContinuationToken></ListBucketResult>');
+            }
+
+            return match (rawurldecode(ltrim((string) ($url['path'] ?? ''), '/'))) {
+                'projects/admin.one@example.test.json' => Http::response($firstCredentials),
+                'projects/admin.two@example.test.json' => Http::response($secondCredentials),
+                default => Http::response('Not found', 404),
+            };
+        });
+
+        $payload = ['link' => 'https://workspace-fixture.s3.us-east-1.amazonaws.com/projects'];
+        $this->postJson(route('console.tools.workspace.projects.sync-s3', $this->workspace->id), $payload)
+            ->assertOk()->assertJsonPath('added', 2)->assertJsonPath('updated', 0)->assertJsonPath('unchanged', 0)
+            ->assertJsonPath('message', 'Synced: 2 added, 0 updated');
+
+        $projects = WorkspaceGoogleProject::query()->where('workspace_id', $this->workspace->id)->orderBy('name')->get();
+        $this->assertSame(['admin.one@example.test', 'admin.two@example.test'], $projects->pluck('name')->all());
+        $this->assertSame($firstCredentials, $projects[0]->service_account_json);
+        $this->assertSame($secondCredentials, $projects[1]->service_account_json);
+        $this->assertStringNotContainsString('private-one', (string) DB::table('workspace_google_projects')->where('id', $projects[0]->id)->value('service_account_json'));
+        Queue::assertPushed(SyncWorkspaceGoogleProjectAccounts::class, 2);
+        Queue::assertPushed(SyncWorkspaceGoogleProjectAccounts::class, fn (SyncWorkspaceGoogleProjectAccounts $job): bool => $job->projectId === $projects[0]->id);
+        Http::assertSent(fn (ClientRequest $request): bool => str_contains($request->url(), 'continuation-token=next-page'));
+
+        $this->postJson(route('console.tools.workspace.projects.sync-s3', $this->workspace->id), $payload)
+            ->assertOk()->assertJsonPath('added', 0)->assertJsonPath('updated', 0)->assertJsonPath('unchanged', 2);
+        Queue::assertPushed(SyncWorkspaceGoogleProjectAccounts::class, 2);
+    }
+
+    public function test_s3_project_sync_updates_only_the_matching_workspace_project_and_queues_a_resync(): void
+    {
+        Queue::fake();
+        $project = $this->project(name: 'admin@example.test');
+        $foreignWorkspace = Workspace::query()->create([
+            'name' => 'Foreign Workspace', 'slug' => 'foreign-workspace-'.Str::lower(Str::random(8)), 'created_by' => $this->owner->id,
+        ]);
+        $foreignProject = $this->project($foreignWorkspace, 'admin@example.test');
+        $newCredentials = json_encode(['client_email' => 'updated@example.test', 'private_key' => 'updated-private'], JSON_THROW_ON_ERROR);
+        Http::fake(function (ClientRequest $request) use ($newCredentials) {
+            if (parse_url($request->url(), PHP_URL_PATH) === '/') {
+                return Http::response('<ListBucketResult><Contents><Key>admin@example.test.json</Key></Contents><IsTruncated>false</IsTruncated></ListBucketResult>');
+            }
+
+            return Http::response($newCredentials);
+        });
+
+        $this->postJson(route('console.tools.workspace.projects.sync-s3', $this->workspace->id), [
+            'link' => 'https://workspace-fixture.s3.us-east-1.amazonaws.com',
+        ])->assertOk()->assertJsonPath('added', 0)->assertJsonPath('updated', 1);
+
+        $this->assertSame($newCredentials, $project->fresh()->service_account_json);
+        $this->assertNotSame($newCredentials, $foreignProject->fresh()->service_account_json);
+        Queue::assertPushed(SyncWorkspaceGoogleProjectAccounts::class, 1);
+    }
+
+    public function test_queued_workspace_account_sync_disables_a_project_when_directory_sync_fails(): void
+    {
+        $project = $this->project();
+        Http::fake([
+            'https://oauth2.googleapis.com/token' => Http::response(['access_token' => 'synthetic-token']),
+            'https://admin.googleapis.com/admin/directory/v1/users*' => Http::response(['error' => 'denied'], 403),
+        ]);
+
+        try {
+            (new SyncWorkspaceGoogleProjectAccounts((int) $project->getKey()))->handle(app(DmsWorkspaceDirectorySync::class));
+            $this->fail('The failed Directory request should be reported by the queued job.');
+        } catch (\RuntimeException $exception) {
+            $this->assertStringContainsString('HTTP 403', $exception->getMessage());
+        }
+
+        $this->assertFalse($project->fresh()->is_active);
+        $this->assertStringContainsString('HTTP 403', $project->fresh()->sync_error);
+    }
+
+    public function test_s3_project_sync_rejects_non_aws_urls_without_making_http_requests(): void
+    {
+        Queue::fake();
+        Http::fake();
+
+        $this->postJson(route('console.tools.workspace.projects.sync-s3', $this->workspace->id), [
+            'link' => 'https://example.test/anything',
+        ])->assertUnprocessable()->assertJsonPath('message', 'Enter an HTTPS S3 folder URL in the format https://bucket.s3.region.amazonaws.com/prefix.');
+        Http::assertNothingSent();
+        Queue::assertNothingPushed();
+    }
+
+    public function test_s3_project_sync_reports_a_failed_s3_listing_without_creating_projects(): void
+    {
+        Queue::fake();
+        Http::fake(fn (ClientRequest $request) => Http::response('Access denied', 403));
+        $this->postJson(route('console.tools.workspace.projects.sync-s3', $this->workspace->id), [
+            'link' => 'https://workspace-fixture.s3.us-east-1.amazonaws.com/projects',
+        ])->assertUnprocessable()->assertJsonPath('message', 'Failed to list S3 directory (HTTP 403).');
+        $this->assertSame(0, WorkspaceGoogleProject::query()->count());
+        Queue::assertNothingPushed();
+    }
+
+    public function test_s3_project_sync_reports_a_failed_object_download_without_creating_that_project(): void
+    {
+        Queue::fake();
+        Http::fake(function (ClientRequest $request) {
+            if (parse_url($request->url(), PHP_URL_PATH) === '/') {
+                return Http::response('<ListBucketResult><Contents><Key>admin@example.test.json</Key></Contents><IsTruncated>false</IsTruncated></ListBucketResult>');
+            }
+
+            return Http::response('Access denied', 403);
+        });
+
+        $this->postJson(route('console.tools.workspace.projects.sync-s3', $this->workspace->id), [
+            'link' => 'https://workspace-fixture.s3.us-east-1.amazonaws.com',
+        ])->assertUnprocessable()->assertJsonPath('message', 'Failed to download S3 project file "admin@example.test" (HTTP 403).');
+        $this->assertSame(0, WorkspaceGoogleProject::query()->count());
+        Queue::assertNothingPushed();
+    }
+
+    public function test_s3_project_sync_reports_an_empty_s3_listing_without_creating_projects(): void
+    {
+        Queue::fake();
+        Http::fake(fn (ClientRequest $request) => Http::response('<ListBucketResult><IsTruncated>false</IsTruncated></ListBucketResult>'));
+        $this->postJson(route('console.tools.workspace.projects.sync-s3', $this->workspace->id), [
+            'link' => 'https://workspace-fixture.s3.us-east-1.amazonaws.com/projects',
+        ])->assertUnprocessable()->assertJsonPath('message', 'No files found in the given S3 directory.');
+        $this->assertSame(0, WorkspaceGoogleProject::query()->count());
+        Queue::assertNothingPushed();
     }
 
     public function test_bulk_project_status_and_delete_are_workspace_scoped(): void

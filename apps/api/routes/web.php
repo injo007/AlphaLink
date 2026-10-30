@@ -119,6 +119,7 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::get('/app/workspaces/{workspace}/gcampaigns/projects', [WorkspaceToolConsoleController::class, 'projects'])->name('console.gcampaigns.projects');
     Route::get('/app/workspaces/{workspace}/gcampaigns/accounts', [WorkspaceToolConsoleController::class, 'accounts'])->name('console.gcampaigns.accounts');
     Route::post('/app/workspaces/{workspace}/tools/workspace/projects', [WorkspaceToolConsoleController::class, 'storeProject'])->middleware('throttle:10,1')->name('console.tools.workspace.projects.store');
+    Route::post('/app/workspaces/{workspace}/tools/workspace/projects/sync-s3', [WorkspaceToolConsoleController::class, 'syncS3Projects'])->middleware('throttle:5,1')->name('console.tools.workspace.projects.sync-s3');
     Route::post('/app/workspaces/{workspace}/tools/workspace/projects/{project}/sync', [WorkspaceToolConsoleController::class, 'syncProject'])->whereNumber('project')->middleware('throttle:10,1')->name('console.tools.workspace.projects.sync');
     Route::patch('/app/workspaces/{workspace}/tools/workspace/projects/status', [WorkspaceToolConsoleController::class, 'statusProjects'])->middleware('throttle:10,1')->name('console.tools.workspace.projects.bulk-status');
     Route::patch('/app/workspaces/{workspace}/tools/workspace/projects/{project}/status', [WorkspaceToolConsoleController::class, 'statusProject'])->whereNumber('project')->name('console.tools.workspace.projects.status');

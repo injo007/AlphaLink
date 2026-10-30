@@ -9,9 +9,11 @@ use App\Models\Workspace;
 use App\Models\WorkspaceGoogleAccount;
 use App\Models\WorkspaceGoogleProject;
 use App\Services\Workspace\DmsWorkspaceDirectorySync;
+use App\Services\Workspace\DmsWorkspaceS3ProjectSync;
 use App\Services\Workspace\DmsWorkspaceSmtpConfiguration;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
@@ -37,8 +39,9 @@ class WorkspaceToolConsoleController extends Controller
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $projects = WorkspaceGoogleProject::query()->withCount('accounts')
             ->where('workspace_id', $workspace->id)->orderByDesc('id')->get();
+        $s3Link = Cache::get('workspace-project-s3-link:'.$workspace->id, '');
 
-        return view('console.tools.workspace.projects', compact('workspace', 'projects'));
+        return view('console.tools.workspace.projects', compact('workspace', 'projects', 's3Link'));
     }
 
     public function accounts(Request $request, string $workspace): View
@@ -97,6 +100,24 @@ class WorkspaceToolConsoleController extends Controller
         }
 
         return response()->json(['message' => 'Project created and synced.', 'project_id' => $project->id, 'accounts' => $count]);
+    }
+
+    public function syncS3Projects(Request $request, string $workspace, DmsWorkspaceS3ProjectSync $s3Sync): JsonResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        $data = $request->validate([
+            'link' => ['required', 'string', 'url', 'max:2048'],
+        ]);
+
+        Cache::forever('workspace-project-s3-link:'.$workspace->id, $data['link']);
+
+        try {
+            $result = $s3Sync->sync($workspace, $data['link']);
+        } catch (Throwable $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        return response()->json($result);
     }
 
     public function syncProject(Request $request, string $workspace, WorkspaceGoogleProject $project, DmsWorkspaceDirectorySync $directory): JsonResponse

@@ -129,6 +129,7 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::patch('/app/workspaces/{workspace}/tools/workspace/projects/{project}/status', [WorkspaceToolConsoleController::class, 'statusProject'])->whereNumber('project')->name('console.tools.workspace.projects.status');
     Route::delete('/app/workspaces/{workspace}/tools/workspace/projects', [WorkspaceToolConsoleController::class, 'destroyProjects'])->middleware('throttle:10,1')->name('console.tools.workspace.projects.bulk-destroy');
     Route::delete('/app/workspaces/{workspace}/tools/workspace/projects/{project}', [WorkspaceToolConsoleController::class, 'destroyProject'])->whereNumber('project')->name('console.tools.workspace.projects.destroy');
+    Route::get('/app/workspaces/{workspace}/tools/workspace/accounts/create', [WorkspaceToolConsoleController::class, 'createAccounts'])->name('console.tools.workspace.accounts.create');
     Route::post('/app/workspaces/{workspace}/tools/workspace/accounts', [WorkspaceToolConsoleController::class, 'storeAccounts'])->middleware('throttle:10,1')->name('console.tools.workspace.accounts.store');
     Route::patch('/app/workspaces/{workspace}/tools/workspace/accounts/status', [WorkspaceToolConsoleController::class, 'statusAccounts'])->name('console.tools.workspace.accounts.status');
     Route::delete('/app/workspaces/{workspace}/tools/workspace/accounts', [WorkspaceToolConsoleController::class, 'destroyAccounts'])->name('console.tools.workspace.accounts.destroy');

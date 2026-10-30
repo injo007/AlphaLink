@@ -104,10 +104,14 @@ class DmsWorkspaceToolTest extends TestCase
         ]);
         $this->get(route('console.gcampaigns.accounts', $this->workspace->id))
             ->assertOk()->assertSee('GMAIL ACCOUNTS')->assertSee($account->email)
+            ->assertSee('ADD NEW ACCOUNTS')->assertDontSee('workspace-account-form')
             ->assertDontSee('ENABLE SELECTED')->assertSee('DISABLE SELECTED')->assertSee('DELETE SELECTED')->assertSee('SEARCH ACCOUNTS')
             ->assertSee('<th>project</th><th>email</th><th>is auth</th><th>is active</th><th>created at</th>', false)
             ->assertSee('Per-account OAuth authentication is not configured in AlphaLink')
             ->assertSee('workspace-account-table')->assertSee('datatables.min.js');
+        $this->get(route('console.tools.workspace.accounts.create', [$this->workspace->id, 'project' => $project->id]))
+            ->assertOk()->assertSee('ADD GMAIL ACCOUNTS')->assertSee('workspace-account-create-emails')
+            ->assertSee('workspace-account-create-project')->assertSee('selected', false);
         $this->get(route('console.gcampaigns.accounts', [$this->workspace->id, 'project' => $project->id]))
             ->assertOk()->assertSee($account->email)->assertDontSee('other-member@example.test');
 
@@ -179,6 +183,7 @@ class DmsWorkspaceToolTest extends TestCase
         $this->get(route('console.gcampaigns.accounts', $this->workspace->id))
             ->assertOk()->assertSee($sharedAccount->email)->assertDontSee($privateAccount->email);
         $this->get(route('console.gcampaigns.accounts', [$this->workspace->id, 'project' => $privateProject->id]))->assertNotFound();
+        $this->get(route('console.tools.workspace.accounts.create', [$this->workspace->id, 'project' => $privateProject->id]))->assertNotFound();
         $this->postJson(route('console.tools.workspace.accounts.store', $this->workspace->id), [
             'project_id' => $privateProject->id, 'accounts' => ['new@example.test'],
         ])->assertNotFound();

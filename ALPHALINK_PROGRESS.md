@@ -2483,3 +2483,10 @@ The captured DMS `ProjectController`/`ProjectAction` source confirms that an ope
 DMS `ProjectAction::create_project` dispatches its account-sync job after saving a Workspace project. AlphaLink project creation previously called Google Admin Directory synchronously, keeping the browser request open. It now dispatches the existing unique `SyncWorkspaceGoogleProjectAccounts` job, returns a queued message, and refreshes the Projects page after showing that result. The create regression asserts the job is queued for each created project and no Google HTTP request is made during the POST.
 
 `DmsWorkspaceToolTest` passes 28 tests / 344 assertions in the PHP 8.3 app container; targeted Pint, PHP lint and `git diff --check` pass. Fake queue/HTTP used; no Google request, DMS mutation, or PMTA action ran. The live authenticated Workspace browser still displays the old relay-startup rejection while this source bundle contains the verified DMS relay asset, so production runtime parity remains unresolved.
+
+
+## E-TOOLS-36 — Match the DMS account-add iframe flow — 2026-10-30
+
+DMS `AccountController::create` supplies only active, permitted Gmail projects, and its Accounts page opens that create view in a resizable Bootbox iframe. AlphaLink now exposes a workspace/assignment-scoped GET create route, optionally preselects the account-count link's project, and uses the same iframe action on Accounts. Successful save reports the backend result and refreshes the parent list; direct access remains usable without the modal. The inline form was removed. A regression covers the modal entry, project preselection and 404 for an operator's inaccessible project.
+
+`DmsWorkspaceToolTest` passes 28 tests / 352 assertions; targeted Pint, PHP lint and `git diff --check` pass. No DMS write or account mutation occurred. Users OAuth projects and per-account OAuth remain gaps. The production Workspace page still shows the stale relay-startup rejection; no live push/reset was executed.

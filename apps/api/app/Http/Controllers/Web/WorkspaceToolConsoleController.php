@@ -52,7 +52,7 @@ class WorkspaceToolConsoleController extends Controller
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $projects = WorkspaceGoogleProject::query()->availableTo($workspace, $request->user())
-            ->orderBy('name')->get(['id', 'name']);
+            ->orderBy('name')->get(['id', 'name', 'is_active']);
         $selectedProjectId = $request->query('project');
         if ($selectedProjectId !== null) {
             $selectedProject = WorkspaceGoogleProject::query()->availableTo($workspace, $request->user())->findOrFail($selectedProjectId);
@@ -67,6 +67,22 @@ class WorkspaceToolConsoleController extends Controller
         $accounts = $accountsQuery->orderBy('id', 'desc')->get();
 
         return view('console.tools.workspace.accounts', compact('workspace', 'projects', 'accounts', 'selectedProjectId'));
+    }
+
+    public function createAccounts(Request $request, string $workspace): View
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        $data = $request->validate(['project' => ['nullable', 'integer', 'min:1']]);
+        $projects = WorkspaceGoogleProject::query()->availableTo($workspace, $request->user())
+            ->where('is_active', true)->orderBy('name')->get(['id', 'name']);
+        $selectedProjectId = $data['project'] ?? null;
+        if ($selectedProjectId !== null) {
+            $selectedProject = $projects->firstWhere('id', (int) $selectedProjectId);
+            abort_if($selectedProject === null, 404);
+            $selectedProjectId = $selectedProject->id;
+        }
+
+        return view('console.tools.workspace.account-create', compact('workspace', 'projects', 'selectedProjectId'));
     }
 
     public function storeProject(Request $request, string $workspace): JsonResponse

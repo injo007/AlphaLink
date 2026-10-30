@@ -7,25 +7,13 @@
         <div class="block-header">
             <h3 class="block-title">GMAIL ACCOUNTS</h3>
             <div class="block-options">
+                <button class="btn btn-sm btn-primary" type="button" id="workspace-account-add" @disabled($projects->where('is_active', true)->isEmpty())><i class="fas fa-plus mr-1" aria-hidden="true"></i>ADD NEW ACCOUNTS</button>
                 <button class="btn btn-sm btn-secondary" type="button" id="workspace-account-refresh" title="REFRESH ACCOUNTS" aria-label="Refresh accounts"><i class="fas fa-sync" aria-hidden="true"></i></button>
                 <button class="btn-block-option" type="button" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen"></button>
             </div>
         </div>
         <div class="block-content">
             <div id="workspace-account-status" class="alert d-none" role="status" aria-live="polite"></div>
-            <form id="workspace-account-form" class="form-row align-items-end border rounded p-3 mb-3">
-                <div class="form-group col-md-4">
-                    <label for="workspace-account-project">Project</label>
-                    <select class="form-control" id="workspace-account-project" required>
-                        <option value="">Select Project</option>
-                        @foreach ($projects as $project)
-                        <option value="{{ $project->id }}" @selected((string) $selectedProjectId === (string) $project->id)>{{ $project->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="form-group col-md-6"><label for="workspace-account-emails">Accounts</label><textarea class="form-control" id="workspace-account-emails" rows="2" placeholder="One email address per line" required></textarea></div>
-                <div class="form-group col-md-2"><button class="btn btn-primary btn-block" type="submit" id="workspace-account-add">ADD ACCOUNTS</button></div>
-            </form>
             <div class="mb-2">
                 <button class="btn btn-sm btn-outline-secondary" id="workspace-accounts-disable" type="button"><i class="fas fa-minus mr-1" aria-hidden="true"></i>DISABLE SELECTED</button>
                 <button class="btn btn-sm btn-danger" id="workspace-accounts-delete" type="button"><i class="fas fa-trash mr-1" aria-hidden="true"></i>DELETE SELECTED</button>
@@ -66,7 +54,6 @@
             const base = @json(url('/app/workspaces/'.$workspace->id.'/tools/workspace'));
             const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
             const status = document.getElementById('workspace-account-status');
-            const form = document.getElementById('workspace-account-form');
             const add = document.getElementById('workspace-account-add');
             const request = async (url, method = 'POST', body = {}) => {
                 const response = await fetch(url, {method, headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':csrf}, body: method === 'GET' ? undefined : JSON.stringify(body)});
@@ -86,20 +73,22 @@
                 return {isConfirmed:window.confirm(options.text || options.title || 'Continue?')};
             };
 
-            document.getElementById('workspace-account-refresh').addEventListener('click', () => window.location.reload());
+            let frameModal = null;
+            const openFrame = (url) => {
+                if (!window.bootbox?.dialog) return window.location.assign(url);
+                frameModal = window.bootbox.dialog({scrollable:true,closeButton:true,size:'lg',message:`<iframe src="${url}" width="100%" scrolling="no" frameborder="0"></iframe>`,onEscape:true,centerVertical:true})
+                    .on('shown.bs.modal', function () { if (window.iFrameResize) window.iFrameResize({}, 'iframe'); })
+                    .on('hidden.bs.modal', function () { window.jQuery?.(this).find('iframe').remove(); });
+            };
+            window.closeModal = function () { frameModal?.modal('hide'); window.location.reload(); };
 
-            form.addEventListener('submit', async (event) => {
-                event.preventDefault();
-                busy(add, true);
-                try {
-                    const emails = document.getElementById('workspace-account-emails').value.split(/[\s,;]+/).filter(Boolean);
-                    const result = await request(`${base}/accounts`, 'POST', {project_id:document.getElementById('workspace-account-project').value, accounts:emails});
-                    showStatus(result.message || 'Accounts added.');
-                    window.location.reload();
-                } catch (error) {
-                    showStatus(error.message, false);
-                    busy(add, false);
-                }
+            document.getElementById('workspace-account-refresh').addEventListener('click', () => window.location.reload());
+            add.addEventListener('click', () => {
+                const url = new URL(`${base}/accounts/create`, window.location.origin);
+                @if ($selectedProjectId !== null)
+                    url.searchParams.set('project', @json((string) $selectedProjectId));
+                @endif
+                openFrame(url.toString());
             });
 
             document.getElementById('workspace-accounts-all').addEventListener('change', (event) => {

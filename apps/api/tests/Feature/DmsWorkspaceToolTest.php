@@ -679,7 +679,7 @@ class DmsWorkspaceToolTest extends TestCase
         }
     }
 
-    public function test_push_uses_bundled_relay_assets_and_excludes_inactive_accounts(): void
+    public function test_push_uses_bundled_relay_assets_and_includes_inactive_accounts_like_dms(): void
     {
         $project = $this->project();
         WorkspaceGoogleAccount::query()->create([
@@ -784,20 +784,26 @@ class DmsWorkspaceToolTest extends TestCase
         $this->assertNotNull($uploadedConfiguration);
         $this->assertStringContainsString('smtp-source-ip '.$ip->ip, $uploadedConfiguration);
         $this->assertStringContainsString('auth-username active@example.test', $uploadedConfiguration);
+        $this->assertStringContainsString('auth-username inactive@example.test', $uploadedConfiguration);
         $workspaceSmtp = ManagedServerMta::query()->where('username', 'active@example.test')->sole();
         $this->assertSame($firstRoute->getKey(), $workspaceSmtp->getKey());
         $this->assertStringContainsString(
             '<virtual-mta '.PmtaSmtpConfigBuilder::workspaceVirtualMtaName($ip->ip, $workspaceSmtp->getKey()),
             $uploadedConfiguration,
         );
-        $this->assertStringNotContainsString('inactive@example.test', $uploadedConfiguration);
+        $inactiveRoute = ManagedServerMta::query()->where('username', 'inactive@example.test')->sole();
+        $this->assertTrue($inactiveRoute->is_active);
         $this->assertDatabaseHas('managed_server_mtas', [
             'id' => $workspaceSmtp->getKey(),
             'username' => 'active@example.test',
             'name' => $project->name,
             'user_id' => $this->owner->id,
         ]);
-        $this->assertDatabaseMissing('managed_server_mtas', ['username' => 'inactive@example.test', 'user_id' => $this->owner->id]);
+        $this->assertDatabaseHas('managed_server_mtas', [
+            'id' => $inactiveRoute->getKey(),
+            'username' => 'inactive@example.test',
+            'user_id' => $this->owner->id,
+        ]);
     }
 
     public function test_failed_workspace_relay_health_check_disables_old_routes_until_a_healthy_push(): void

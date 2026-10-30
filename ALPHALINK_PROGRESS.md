@@ -2495,3 +2495,14 @@ DMS `AccountController::create` supplies only active, permitted Gmail projects, 
 ## E-TOOLS-37 — Confirm the live Workspace relay error is a stale deployment — 2026-10-30
 
 The authenticated production Tools → Workspace page still reports the known-crashing relay. A read-only SSH query confirms the active source checkout is `5f1867b6337d` and `/var/www/alphalink/current/pmta/workspace_relay/workspace_relay` hashes to the known-bad `2ec93c845ce385477da1e639d03dc4b0f22f0aa89ed21637abe58792f6ca1f98`. Current pushed AlphaLink `master` is `b9f6ed2` and carries the DMS release relay (`8cd307e33cfba2411f8fed6e5781ff48180589666e5e0321f23a907c6ad878c4`) that passed local Linux x86-64 loopback startup verification. This proves the production checkout/artifact has not been updated; it does not prove a fresh deploy or PMTA push works. The repository `.env` explicitly sets `ALLOW_PRODUCTION_WRITES`, `ALLOW_REMOTE_INSTALLS`, and `ALLOW_SERVICE_RESTARTS` to false, so no deploy, restart, push or reset was run.
+
+## E-TOOLS-38 / E-TOOLS-39 — Workspace account parity and deployment follow-up — 2026-10-30
+
+DMS `WorkspaceController` selects active projects, but `Project::accounts()` has no active-account scope and `workspace:push_accounts` generates a VMTA for every returned account. AlphaLink had filtered disabled account records from push; it now uses all accounts for selected active projects, matching the source. `DmsWorkspaceToolTest` passes **28 tests / 353 assertions** in the PHP 8.3 container; targeted Pint, PHP lint and `git diff --check` pass. Push verification used fake SSH and synthetic rows only.
+
+The authenticated production Workspace page still shows the stale relay-startup warning. The supplied deploy transcript used release `118ecd8`, which had the 2 GiB Node heap cap but no retry; Vite exhausted that heap before downtime. Installer commit `32474a5` added a retry with minification disabled and one worker, which is present in current pushed `master` `96e219e` and passes locally. No production deploy or PMTA push/reset was performed, and the configured remote-write gates remain false. Keep DMS-TOOLS-006 `TESTING`; connected push/reset and production browser parity remain unverified.
+
+
+## E-TOOLS-40 — Local Workspace browser blocked by PostgreSQL — 2026-10-30
+
+The local saved AlphaLink `/tools/workspace` GET returned HTTP 500 because the authenticated-user lookup could not connect to PostgreSQL at `127.0.0.1:5432`. The failure occurred before the Workspace page rendered and no database query or state change completed. Restore the existing local database service before browser verification; no key or encrypted record was changed.

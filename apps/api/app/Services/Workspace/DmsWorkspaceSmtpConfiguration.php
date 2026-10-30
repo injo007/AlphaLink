@@ -27,9 +27,8 @@ class DmsWorkspaceSmtpConfiguration
     public function push(Workspace $workspace, User $user, array $ipIds, array $projectIds, bool $splitOnIps): array
     {
         $ips = $this->selectedIps($workspace, $ipIds);
-        $projects = WorkspaceGoogleProject::query()->availableTo($workspace, $user)->with([
-            'accounts' => fn ($query) => $query->where('is_active', true),
-        ])
+        $projects = WorkspaceGoogleProject::query()->availableTo($workspace, $user)
+            ->with('accounts')
             ->where('is_active', true)->whereIn('id', $projectIds)->get();
         if ($projects->count() !== count(array_unique($projectIds))) {
             throw new RuntimeException('Project not found or inactive.');
@@ -42,7 +41,7 @@ class DmsWorkspaceSmtpConfiguration
             }
         }
         if ($smtpAccounts === []) {
-            throw new RuntimeException('No active Workspace accounts were found in the selected projects.');
+            throw new RuntimeException('No Workspace accounts were found in the selected projects.');
         }
 
         $relayAssets = $this->requireRelayAssets();

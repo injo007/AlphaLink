@@ -41,17 +41,22 @@ class Ubuntu26FreshInstallContractTest extends TestCase
         $this->assertStringContainsString('Laravel did not load server reinstall execution as enabled.', $installer);
     }
 
-    public function test_frontend_build_uses_valid_bash_arithmetic_and_a_bounded_node_heap(): void
+    public function test_frontend_build_uses_valid_arithmetic_and_retries_with_low_memory_settings(): void
     {
         $repositoryRoot = dirname(base_path(), 2);
         $installer = file_get_contents($repositoryRoot.'/install-ubuntu-26.sh');
+        $viteConfig = file_get_contents(base_path('vite.config.js'));
 
         $this->assertIsString($installer);
+        $this->assertIsString($viteConfig);
         $this->assertStringContainsString('free_kib < 2621440', $installer);
         $this->assertStringNotContainsString('free_kib < 2_621_440', $installer);
         $this->assertStringContainsString('host_memory_mib * 60 / 100', $installer);
         $this->assertStringContainsString('node_heap_mib >= 512', $installer);
         $this->assertStringContainsString('node_heap_mib <= 2048', $installer);
+        $this->assertStringContainsString('ALPHALINK_LOW_MEMORY_BUILD=1', $installer);
+        $this->assertStringContainsString('ROLLDOWN_WORKER_THREADS=1 RAYON_NUM_THREADS=1', $installer);
+        $this->assertStringContainsString("process.env.ALPHALINK_LOW_MEMORY_BUILD === '1' ? false : 'oxc'", $viteConfig);
     }
 
     public function test_repository_install_bundle_contains_every_reviewed_nonsecret_asset(): void

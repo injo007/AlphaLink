@@ -217,7 +217,7 @@ prepare_frontend_build_swap() {
 }
 
 build_frontend_assets() {
-    local host_memory_mib node_heap_mib node_options build_status=0
+    local host_memory_mib node_heap_mib node_options build_status=0 fallback_status=0
     host_memory_mib="$(awk '/^MemTotal:/ { print int($2 / 1024) }' /proc/meminfo)"
     [[ "$host_memory_mib" =~ ^[0-9]+$ ]] || host_memory_mib=2048
     if declare -F detect_cgroup_memory_mib >/dev/null; then
@@ -237,6 +237,15 @@ build_frontend_assets() {
         build_status=0
     else
         build_status=$?
+        info "The standard frontend build failed (exit ${build_status}); retrying with minification disabled and one build worker to reduce peak memory."
+        if env NODE_OPTIONS="$node_options" VITE_APP_NAME=AlphaLink ALPHALINK_LOW_MEMORY_BUILD=1 \
+            ROLLDOWN_WORKER_THREADS=1 RAYON_NUM_THREADS=1 npm run build; then
+            build_status=0
+        else
+            fallback_status=$?
+            info "The low-memory frontend build also failed (exit ${fallback_status}); deployment is stopping before downtime."
+            build_status=$fallback_status
+        fi
     fi
     cleanup_frontend_build_swap
     return "$build_status"

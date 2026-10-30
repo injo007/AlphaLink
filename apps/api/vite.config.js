@@ -10,6 +10,11 @@ export default defineConfig({
         }),
         tailwindcss(),
     ],
+    build: {
+        // On small installation hosts, skipping minification avoids V8/Rust
+        // peak-memory spikes. This changes output size, not application behavior.
+        minify: process.env.ALPHALINK_LOW_MEMORY_BUILD === '1' ? false : 'oxc',
+    },
     server: {
         watch: {
             ignored: ['**/storage/framework/views/**'],

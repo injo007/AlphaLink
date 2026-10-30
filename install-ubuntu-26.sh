@@ -190,7 +190,7 @@ prepare_frontend_build_swap() {
 
     free_kib="$(df -Pk /var/tmp | awk 'NR == 2 { print $4 }')"
     [[ "$free_kib" =~ ^[0-9]+$ ]] || return 0
-    if (( free_kib < 2_621_440 )); then
+    if (( free_kib < 2621440 )); then
         info 'No swap is active and free disk is below 2.5 GiB; Vite will use a bounded Node heap.'
         return 0
     fi
@@ -223,9 +223,12 @@ build_frontend_assets() {
     if declare -F detect_cgroup_memory_mib >/dev/null; then
         host_memory_mib="$(detect_cgroup_memory_mib "$host_memory_mib")"
     fi
-    node_heap_mib=$((host_memory_mib * 80 / 100))
-    (( node_heap_mib >= 768 )) || node_heap_mib=768
-    (( node_heap_mib <= 3072 )) || node_heap_mib=3072
+    # Leave memory for Vite/Rollup workers, native allocations, and the
+    # installer services sharing the host. Node's old-space limit is only one
+    # part of the build's total resident memory.
+    node_heap_mib=$((host_memory_mib * 60 / 100))
+    (( node_heap_mib >= 512 )) || node_heap_mib=512
+    (( node_heap_mib <= 2048 )) || node_heap_mib=2048
 
     prepare_frontend_build_swap
     node_options="${NODE_OPTIONS:-} --max-old-space-size=${node_heap_mib}"

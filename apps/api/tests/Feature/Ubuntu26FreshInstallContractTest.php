@@ -41,6 +41,19 @@ class Ubuntu26FreshInstallContractTest extends TestCase
         $this->assertStringContainsString('Laravel did not load server reinstall execution as enabled.', $installer);
     }
 
+    public function test_frontend_build_uses_valid_bash_arithmetic_and_a_bounded_node_heap(): void
+    {
+        $repositoryRoot = dirname(base_path(), 2);
+        $installer = file_get_contents($repositoryRoot.'/install-ubuntu-26.sh');
+
+        $this->assertIsString($installer);
+        $this->assertStringContainsString('free_kib < 2621440', $installer);
+        $this->assertStringNotContainsString('free_kib < 2_621_440', $installer);
+        $this->assertStringContainsString('host_memory_mib * 60 / 100', $installer);
+        $this->assertStringContainsString('node_heap_mib >= 512', $installer);
+        $this->assertStringContainsString('node_heap_mib <= 2048', $installer);
+    }
+
     public function test_repository_install_bundle_contains_every_reviewed_nonsecret_asset(): void
     {
         $assetRoot = dirname(base_path(), 2).'/install-assets';

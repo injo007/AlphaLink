@@ -243,3 +243,59 @@ test('campaign routing help explains SMTP tags and distinguishes PMTA ingress fr
     assert.match(view, /href="\{\{ \$pmtaDisplayUrl \}\}"/);
     assert.match(view, /HTTPS read-only proxy/);
 });
+
+const snapshotProgressStart = view.indexOf('            const applySnapshotProgress = (payload) => {');
+const snapshotProgressEnd = view.indexOf('\n            const pollSnapshotProgress', snapshotProgressStart);
+assert.notEqual(snapshotProgressStart, -1, 'campaign snapshot progress handler exists');
+assert.notEqual(snapshotProgressEnd, -1, 'campaign snapshot progress handler closes');
+const snapshotProgressSource = view.slice(snapshotProgressStart, snapshotProgressEnd);
+
+test('successful campaign suppression redirects to the campaign register', () => {
+    const scheduled = [];
+    const assignedUrls = [];
+    let clearedTimer = null;
+    const snapshotProgress = {
+        hidden: true,
+        dataset: { campaignsUrl: '/app/workspaces/workspace-1/campaigns' },
+    };
+    const snapshotBar = {
+        style: { width: '' },
+        textContent: '',
+        classList: { removed: [], remove(className) { this.removed.push(className); } },
+        parentElement: { values: [], setAttribute(name, value) { this.values.push([name, value]); } },
+    };
+    const env = {
+        stageLabels: { complete: 'Suppression and recipient preparation complete' },
+        snapshotProgress,
+        snapshotStage: { textContent: '' },
+        snapshotPercent: { textContent: '' },
+        snapshotBar,
+        snapshotDetail: { textContent: '' },
+        snapshotOpen: { hidden: true, textContent: '', href: '' },
+        saveButton: { hidden: false },
+        newCampaignLink: { hidden: true },
+        snapshotError: { hidden: true, textContent: '' },
+        snapshotRetry: { hidden: true, href: '' },
+        clearInterval(timer) { clearedTimer = timer; },
+        snapshotPollTimer: 17,
+        window: {
+            setTimeout(callback, delay) { scheduled.push({ callback, delay }); },
+            location: { assign(url) { assignedUrls.push(url); } },
+        },
+    };
+
+    vm.runInNewContext(`${snapshotProgressSource}\nglobalThis.applySnapshotProgress = applySnapshotProgress;`, env);
+    env.applySnapshotProgress({ ready: true, stage: 'complete', percent: 100, status: 'draft' });
+
+    assert.equal(env.snapshotStage.textContent, 'Suppression and recipient preparation complete. Returning to campaigns…');
+    assert.equal(env.snapshotPercent.textContent, '100%');
+    assert.equal(snapshotBar.style.width, '100%');
+    assert.equal(env.saveButton.hidden, true);
+    assert.equal(clearedTimer, 17);
+    assert.equal(scheduled.length, 1);
+    assert.equal(scheduled[0].delay, 700);
+
+    scheduled[0].callback();
+    assert.deepEqual(assignedUrls, ['/app/workspaces/workspace-1/campaigns']);
+    assert.match(view, /data-campaigns-url="\{\{ route\('console\.campaigns\.index', \$workspace->id\) \}\}"/);
+});

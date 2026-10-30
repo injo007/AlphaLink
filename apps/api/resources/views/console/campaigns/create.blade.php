@@ -55,6 +55,7 @@
     @endif
 
     <div id="campaign-snapshot-progress" class="block block-rounded border mb-4" role="status" aria-live="polite" @if (!$preparingCampaign) hidden @endif
+         data-campaigns-url="{{ route('console.campaigns.index', $workspace->id) }}"
          @if ($preparingCampaign) data-progress-url="{{ route('console.campaigns.snapshot-progress', [$workspace->id, $preparingCampaign->id]) }}" data-campaign-url="{{ route('console.campaigns.show', [$workspace->id, $preparingCampaign->id]) }}" data-edit-url="{{ route('console.campaigns.edit', [$workspace->id, $preparingCampaign->id]) }}" @endif>
         <div class="block-header block-header-default">
             <h3 class="block-title">SUPPRESSION AND RECIPIENT PREPARATION</h3>
@@ -1669,15 +1670,17 @@
                 const complete = payload.ready === true || stage === 'complete' || payload.status === 'draft';
                 const failed = payload.status === 'snapshot_failed' || stage === 'failed';
                 if (complete) {
-                    snapshotStage.textContent = 'Suppression and recipient preparation complete. The campaign is saved as a draft.';
+                    snapshotStage.textContent = 'Suppression and recipient preparation complete. Returning to campaigns…';
                     snapshotBar.classList.remove('progress-bar-animated');
-                    snapshotOpen.hidden = false;
-                    snapshotOpen.textContent = 'Open saved campaign';
-                    snapshotOpen.href = snapshotProgress.dataset.editUrl || snapshotProgress.dataset.campaignUrl;
+                    snapshotPercent.textContent = '100%';
+                    snapshotBar.style.width = '100%';
+                    snapshotBar.textContent = '100%';
+                    snapshotBar.parentElement.setAttribute('aria-valuenow', '100');
                     saveButton.hidden = true;
                     newCampaignLink.hidden = false;
                     clearInterval(snapshotPollTimer);
                     snapshotPollTimer = null;
+                    window.setTimeout(() => window.location.assign(snapshotProgress.dataset.campaignsUrl), 700);
                 } else if (failed) {
                     snapshotStage.textContent = 'Campaign preparation failed. Your composer is still open.';
                     snapshotBar.classList.remove('progress-bar-animated');

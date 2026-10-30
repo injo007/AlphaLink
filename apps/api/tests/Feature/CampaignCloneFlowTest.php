@@ -94,6 +94,10 @@ class CampaignCloneFlowTest extends TestCase
         $this->assertSame(1, $snapshot->recipient_count);
         $this->assertSame(1, $snapshot->start_from);
         $this->assertSame(1, $snapshot->items()->count());
+        $this->actingAs($fixture['owner'])
+            ->get(route('console.campaigns.index', $fixture['workspace']->getKey()))
+            ->assertOk()
+            ->assertSee('READY TO SEND');
         $this->assertSame($fixture['source']->latestRevision->getKey(), $fixture['source']->fresh()->latestRevision->getKey());
         $this->assertDatabaseHas('audit_events', [
             'workspace_id' => $fixture['workspace']->getKey(),

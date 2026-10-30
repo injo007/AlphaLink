@@ -1505,6 +1505,7 @@ class WorkspaceConsoleController extends Controller
                 $selectedServer,
                 $data['send_setup']['route_option'],
                 $routeChoices->get((string) $selectedServer->getKey()),
+                (string) ($data['domain'] ?? ''),
             ),
         ]);
         $domain = (string) ($ipTagData->first()['domain'] ?? '');
@@ -1593,16 +1594,22 @@ class WorkspaceConsoleController extends Controller
             }
 
             $preview = $testMessage($index, $recipient, $selectedServer);
+            $selectedTagValues = $ipTagData->get((string) $selectedServer->getKey(), []);
             foreach (['from_address' => 'Header', 'envelope_from' => 'Return-Path'] as $addressField => $fieldName) {
                 if (filter_var($preview[$addressField], FILTER_VALIDATE_EMAIL) === false) {
                     $errorKey = $addressField === 'from_address' ? 'header' : 'return_path';
                     $message = "The current {$fieldName} must resolve to a valid email address. Check its tags and the selected server/IP data.";
                     if ($addressField === 'from_address'
                         && preg_match('/^\s*from\s*:[^\r\n]*\[smtp\]/im', $submittedHeader) === 1) {
-                        $message = 'The Header From value with [smtp] is not a valid email address. [smtp] already expands to the selected SMTP account email; use From: [smtp] (or a display name followed by <[smtp]>) without appending @[domain]. For Workspace project users, select the exact account under Option SMTP.';
+                        $message = 'The Header From value with [smtp] is not a valid email address. Use From: [smtp] for an account that already has an email address, or From: [smtp]@[domain] when the selected account provides only a username. Select the exact Workspace account under Option SMTP and choose a domain if the server/IP has no DNS name.';
                     } elseif ($addressField === 'from_address'
                         && preg_match('/^\s*from\s*:[^\r\n]*\[smtp_name\]/im', $submittedHeader) === 1) {
                         $message = '[smtp_name] is a label, not an email address. Use [smtp] in the Header From field to resolve the selected SMTP account email.';
+                    } elseif ($addressField === 'from_address'
+                        && preg_match('/\[domain\]/i', $submittedHeader) === 1
+                        && trim((string) ($selectedTagValues['domain'] ?? '')) === ''
+                        && trim((string) ($data['domain'] ?? '')) === '') {
+                        $message = 'The Header uses [domain], but the selected IP/server has no DNS name and no campaign Domain is selected. Choose a Domain or select an IP with a DNS name.';
                     }
 
                     throw ValidationException::withMessages([$errorKey => $message]);
@@ -1902,6 +1909,7 @@ class WorkspaceConsoleController extends Controller
         ManagedServer $server,
         string $route,
         ?array $routeChoice,
+        string $domainFallback = '',
     ): array {
         $serverId = (string) $server->getKey();
         $choice = $routeChoice;
@@ -1933,6 +1941,9 @@ class WorkspaceConsoleController extends Controller
         $domain = $route === 'vmta'
             ? $vmtaDomain
             : trim((string) ($ip?->dns ?: $ip?->domain?->name ?: $choice['dns'] ?? ''));
+        if ($route !== 'vmta' && $domain === '') {
+            $domain = trim($domainFallback);
+        }
         $mainDomain = trim((string) ($primaryIp?->dns ?: $primaryIp?->domain?->name ?: 'NA'));
         $rdns = strtolower(rtrim(trim((string) $ip?->history?->ptr), '.'));
         if ($rdns === '' || $rdns === 'na') {
@@ -2150,7 +2161,7 @@ class WorkspaceConsoleController extends Controller
         abort_unless(preg_match('/\A[A-Za-z0-9_.:-]{1,255}\z/', $virtualMtaName) === 1, 422, 'The selected PMTA route is not available on this server. Push the route in PMTA and reload the campaign.');
 
         $tagValues = [
-            ...$this->campaignTestIpTags($workspace, $server, $route, $routeChoice),
+            ...$this->campaignTestIpTags($workspace, $server, $route, $routeChoice, (string) ($data['domain'] ?? '')),
             'to' => $recipient,
             'name' => explode('@', $recipient)[0],
             'server' => (string) $server->name.(string) $server->getKey(),

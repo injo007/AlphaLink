@@ -90,6 +90,14 @@ class DmsCampaignSendCatalogTest extends TestCase
         $this->assertSame('smtp-user', $parts[2]);
         $this->assertSame('SMTP route', $parts[3]);
         $this->assertSame('reply-tag', $parts[4]);
+        $this->assertSame(
+            'workspace-user@example.test',
+            $renderer->render('[smtp]@[domain]', ['smtp' => 'workspace-user@example.test', 'domain' => 'relay.example.test']),
+        );
+        $this->assertSame(
+            'smtp-user@relay.example.test',
+            $renderer->render('[smtp]@[domain]', ['smtp' => 'smtp-user', 'domain' => 'relay.example.test']),
+        );
         $this->assertSame('aGVsbG8', trim($parts[5]));
         $this->assertSame('hello=3Dworld', $parts[6]);
         $this->assertContains($renderer->render('[text:first|second]', [], [], 0, $cache), ['first', 'second']);
@@ -2068,28 +2076,10 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->andReturn($transport);
         $this->app->instance(PmtaCampaignTestTransport::class, $factory);
 
-        $invalidFrom = $this->actingAs($owner)->postJson(route('console.campaigns.manual-test', $workspace->getKey()), [
-            'idempotency_key' => (string) Str::uuid(),
-            'email_test_addresses' => 'synthetic-workspace-route-recipient@example.test',
-            'header' => "To: [to]\nFrom: [smtp]@[domain]\nSubject: [smtp_name]",
-            'send_setup' => [
-                'server_ids' => [(string) $server->getKey()],
-                'ip_ids' => [(int) $workspaceSmtp->getKey()],
-                'route_option' => 'smtp',
-                'ip_type' => 'ipv4',
-                'send_type' => 'delay',
-            ],
-        ]);
-        $invalidFrom->assertUnprocessable()->assertJsonPath(
-            'errors.header.0',
-            'The Header From value with [smtp] is not a valid email address. [smtp] already expands to the selected SMTP account email; use From: [smtp] (or a display name followed by <[smtp]>) without appending @[domain]. For Workspace project users, select the exact account under Option SMTP.',
-        );
-        $this->assertDatabaseCount('campaign_manual_test_attempts', 0);
-
         $this->actingAs($owner)->postJson(route('console.campaigns.manual-test', $workspace->getKey()), [
             'idempotency_key' => (string) Str::uuid(),
             'email_test_addresses' => 'synthetic-workspace-route-recipient@example.test',
-            'header' => "To: [to]\nFrom: [smtp]\nSubject: [smtp_name]",
+            'header' => "To: [to]\nFrom: [smtp]@[domain]\nSubject: [smtp_name]",
             'send_setup' => [
                 'server_ids' => [(string) $server->getKey()],
                 'ip_ids' => [(int) $workspaceSmtp->getKey()],
@@ -2113,6 +2103,47 @@ class DmsCampaignSendCatalogTest extends TestCase
             PmtaSmtpConfigBuilder::workspaceVirtualMtaName($ip->ip, $workspaceSmtp->getKey()),
             $decodedSnapshot['virtual_mtas'][0]['pmta_name'],
         );
+    }
+
+    public function test_campaign_test_uses_selected_domain_when_server_has_no_route_dns(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->workspace($owner, 'owner');
+        $server = $this->server($workspace, $owner, '203.0.113.157');
+        $workspace->infrastructureSettings()->create(['pmta_port' => 2525]);
+
+        $messages = [];
+        $transport = Mockery::mock(SmtpTransport::class);
+        $transport->shouldReceive('start')->once();
+        $transport->shouldReceive('send')->once()->withArgs(function ($message) use (&$messages): bool {
+            $messages[] = $message->toString();
+
+            return true;
+        });
+        $transport->shouldReceive('stop')->once();
+        $factory = Mockery::mock(PmtaCampaignTestTransport::class);
+        $factory->shouldReceive('forServer')->once()
+            ->withArgs(fn (ManagedServer $selected, int $port): bool => $selected->is($server) && $port === 2525)
+            ->andReturn($transport);
+        $this->app->instance(PmtaCampaignTestTransport::class, $factory);
+
+        $this->actingAs($owner)->postJson(route('console.campaigns.manual-test', $workspace->getKey()), [
+            'idempotency_key' => (string) Str::uuid(),
+            'email_test_addresses' => 'synthetic-domain-fallback@example.test',
+            'header' => "To: [to]\nFrom: info@[domain]\nSubject: Selected domain",
+            'body' => 'Domain: [domain]',
+            'domain' => 'selected-campaign-domain.example.test',
+            'send_setup' => [
+                'server_ids' => [(string) $server->getKey()],
+                'route_option' => 'ip',
+                'ip_type' => 'ipv4',
+                'send_type' => 'delay',
+            ],
+        ])->assertOk()->assertJsonPath('outcome', 'accepted_by_transport');
+
+        $this->assertCount(1, $messages);
+        $this->assertStringContainsString('From: info@selected-campaign-domain.example.test', $messages[0]);
+        $this->assertStringContainsString('Domain: selected-campaign-domain.example.test', $messages[0]);
     }
 
     public function test_saved_campaign_pmta_test_pins_selected_smtp_route_and_expands_tags(): void

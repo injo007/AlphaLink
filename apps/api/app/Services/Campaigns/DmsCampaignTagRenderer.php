@@ -33,6 +33,18 @@ class DmsCampaignTagRenderer
         $text = $this->replacePlaceholders($text, $placeholderRows, $rotationIndex);
         $values['domain_sld'] ??= $this->domainWithoutTld((string) ($values['domain'] ?? ''));
 
+        // SMTP route usernames are often complete mailbox addresses. DMS
+        // templates also commonly append @[domain] to [smtp], so avoid
+        // producing invalid values such as user@example.test@example.test.
+        $smtp = trim((string) ($values['smtp'] ?? ''));
+        if (filter_var($smtp, FILTER_VALIDATE_EMAIL) !== false) {
+            $text = preg_replace_callback(
+                '/\[smtp\]\s*@\s*\[domain\]/i',
+                static fn (): string => $smtp,
+                $text,
+            ) ?? $text;
+        }
+
         foreach ([
             'ip', 'rdns', 'domain', 'domain_sld', 'to', 'name', 'from', 'subject', 'date', 'server',
             'main_domain', 'idi', 'idd', 'ids', 'ide', 'boundary', 'reply', 'negative',

@@ -559,3 +559,8 @@ The Create Campaign banner now lists `[smtp]` and `[smtp_name]`; IP choices show
 ### E-PMTA-104 — reject external-domain HTTPS from stale install state
 
 The PMTA URL resolver now ignores a main domain explicitly marked `is_our=false`, even if the server record still says PMTA HTTPS was enabled. This sends browser display through AlphaLink's authenticated HTTPS proxy and makes the proxy fetch the public IP listener over HTTP on the configured PMTA port. Owned verified-domain HTTPS selection is unchanged. Unit and focused page regressions pass; the local browser remains unavailable because its PostgreSQL connection is not configured, and production behavior still needs deployment verification. Keep DMS-PMTA-002 TESTING.
+
+
+### DMS-CAMP-009 follow-up — E-CAMP-137
+
+Campaign route catalogs previously suppressed Workspace project SMTP rows whenever a PMTA SMTP Settings row shared the same IP, because both generated the same PMTA alias. Workspace pushes now use a separate `workspace-smtp-<IP>-<account id>` alias and save the project name on the pushed route. Campaign catalogs expose both route sources, and the selected Workspace account supplies its email for `[smtp]`; `From: [smtp]` is valid while `[smtp]@[domain]` gets a corrective validation message. IP mode remains the selected IP route; choose Option SMTP to use a specific Workspace relay. The campaign and Workspace focused suites pass 49 tests / 1,278 assertions using fake transport. Existing Workspace routes on already-installed servers still carry the old alias and need a one-time Reset then Push after deploying this change. No live reset, push, send, or DMS mutation ran. Normal campaign SEND and mailbox delivery remain unverified; keep DMS-CAMP-009 TESTING and DMS-CAMP-012 IMPLEMENTING.

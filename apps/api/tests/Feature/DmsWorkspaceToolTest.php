@@ -12,6 +12,7 @@ use App\Models\WorkspaceGoogleAccount;
 use App\Models\WorkspaceGoogleProject;
 use App\Services\Infrastructure\DmsInstallerSshSession;
 use App\Services\PmtaRemoteConfiguration;
+use App\Services\PmtaSmtpConfigBuilder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Support\Facades\DB;
@@ -432,8 +433,18 @@ class DmsWorkspaceToolTest extends TestCase
         $this->assertNotNull($uploadedConfiguration);
         $this->assertStringContainsString('smtp-source-ip '.$ip->ip, $uploadedConfiguration);
         $this->assertStringContainsString('auth-username active@example.test', $uploadedConfiguration);
+        $workspaceSmtp = ManagedServerMta::query()->where('username', 'active@example.test')->sole();
+        $this->assertStringContainsString(
+            '<virtual-mta '.PmtaSmtpConfigBuilder::workspaceVirtualMtaName($ip->ip, $workspaceSmtp->getKey()),
+            $uploadedConfiguration,
+        );
         $this->assertStringNotContainsString('inactive@example.test', $uploadedConfiguration);
-        $this->assertDatabaseHas('managed_server_mtas', ['username' => 'active@example.test', 'user_id' => $this->owner->id]);
+        $this->assertDatabaseHas('managed_server_mtas', [
+            'id' => $workspaceSmtp->getKey(),
+            'username' => 'active@example.test',
+            'name' => $project->name,
+            'user_id' => $this->owner->id,
+        ]);
         $this->assertDatabaseMissing('managed_server_mtas', ['username' => 'inactive@example.test', 'user_id' => $this->owner->id]);
     }
 

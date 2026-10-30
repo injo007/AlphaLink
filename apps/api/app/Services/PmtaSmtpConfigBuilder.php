@@ -13,6 +13,13 @@ class PmtaSmtpConfigBuilder
         return "smtp-{$ipName}-{$id}";
     }
 
+    public static function workspaceVirtualMtaName(string $ip, int|string $id): string
+    {
+        $ipName = str_replace(':', '.', $ip);
+
+        return "workspace-smtp-{$ipName}-{$id}";
+    }
+
     public function build(PmtaSmtpConfig $config, int $pmtaVersion): string
     {
         $data = '<virtual-mta '.self::virtualMtaName((string) $config->ip, (int) $config->getKey()).">\n";

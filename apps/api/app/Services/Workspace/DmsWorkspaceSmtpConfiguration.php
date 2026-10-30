@@ -71,6 +71,7 @@ class DmsWorkspaceSmtpConfiguration
                             'ip_type' => $ip['type'],
                             'mta_type' => 'smtp',
                             'username' => $account['email'],
+                            'name' => $account['project_name'],
                             'is_active' => true,
                             'user_id' => $user->id,
                         ]);
@@ -198,7 +199,7 @@ class DmsWorkspaceSmtpConfiguration
         $password = rtrim(strtr(base64_encode($projectName), '+/', '-_'), '=');
         $route = $version !== 40 ? 'smtp-hosts' : 'route';
 
-        return '<virtual-mta '.PmtaSmtpConfigBuilder::virtualMtaName((string) $mta->ip, (int) $mta->getKey()).">\n"
+        return '<virtual-mta '.PmtaSmtpConfigBuilder::workspaceVirtualMtaName((string) $mta->ip, (int) $mta->getKey()).">\n"
             ."    smtp-source-ip {$mta->ip}\n"
             ."    host-name {$mta->dns}\n"
             ."<domain *>\n"

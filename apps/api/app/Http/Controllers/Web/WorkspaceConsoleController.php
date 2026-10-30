@@ -1596,7 +1596,16 @@ class WorkspaceConsoleController extends Controller
             foreach (['from_address' => 'Header', 'envelope_from' => 'Return-Path'] as $addressField => $fieldName) {
                 if (filter_var($preview[$addressField], FILTER_VALIDATE_EMAIL) === false) {
                     $errorKey = $addressField === 'from_address' ? 'header' : 'return_path';
-                    throw ValidationException::withMessages([$errorKey => "The current {$fieldName} must resolve to a valid email address. Check its tags and the selected server/IP data."]);
+                    $message = "The current {$fieldName} must resolve to a valid email address. Check its tags and the selected server/IP data.";
+                    if ($addressField === 'from_address'
+                        && preg_match('/^\s*from\s*:[^\r\n]*\[smtp\]/im', $submittedHeader) === 1) {
+                        $message = 'The Header From value with [smtp] is not a valid email address. [smtp] already expands to the selected SMTP account email; use From: [smtp] (or a display name followed by <[smtp]>) without appending @[domain]. For Workspace project users, select the exact account under Option SMTP.';
+                    } elseif ($addressField === 'from_address'
+                        && preg_match('/^\s*from\s*:[^\r\n]*\[smtp_name\]/im', $submittedHeader) === 1) {
+                        $message = '[smtp_name] is a label, not an email address. Use [smtp] in the Header From field to resolve the selected SMTP account email.';
+                    }
+
+                    throw ValidationException::withMessages([$errorKey => $message]);
                 }
             }
             $checkedServers[$serverId] = true;

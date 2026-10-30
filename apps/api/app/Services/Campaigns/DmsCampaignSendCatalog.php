@@ -203,18 +203,14 @@ class DmsCampaignSendCatalog
                 ->orderBy('id')
                 ->get(['id', 'managed_server_id', 'sending_domain_id', 'ip', 'type', 'dns']);
 
-            // SMTP Settings writes the PMTA config records, while Workspace
-            // tools can also create legacy ManagedServerMta rows. Prefer the
-            // actual pushed PMTA config for a linked IP. Exclude legacy rows
-            // on any IP with a PMTA config because both builders use the same
-            // smtp-<IP>-<row id> alias and independent table IDs can collide.
+            // SMTP Settings and Workspace SMTP use separate records and now
+            // have distinct aliases. Keep both choices available on an IP.
             $pmtaSmtpConfigs = PmtaSmtpConfig::query()
                 ->where('workspace_id', $workspace->getKey())
                 ->whereIn('managed_server_id', $serverIds)
                 ->whereIn('managed_server_ip_id', $ips->pluck('id'))
                 ->orderBy('id')
                 ->get(['id', 'managed_server_id', 'managed_server_ip_id', 'created_by', 'ip', 'username', 'is_active']);
-            $pmtaSmtpConfiguredIpIds = $pmtaSmtpConfigs->pluck('managed_server_ip_id')->map('strval')->unique()->values();
             $ipRowsById = $ips->keyBy(fn (ManagedServerIp $ip): string => (string) $ip->getKey());
             $pmtaSmtpAccounts = $pmtaSmtpConfigs
                 ->filter(function (PmtaSmtpConfig $config) use ($user, $ipRowsById): bool {
@@ -240,9 +236,6 @@ class DmsCampaignSendCatalog
                 ->whereIn('managed_server_id', $serverIds)
                 ->whereIn('managed_server_ip_id', $ips->pluck('id'))
                 ->when($operator, fn (Builder $query) => $query->where('user_id', $user->getKey()));
-            if ($pmtaSmtpConfiguredIpIds->isNotEmpty()) {
-                $workspaceSmtpQuery->whereNotIn('managed_server_ip_id', $pmtaSmtpConfiguredIpIds);
-            }
             $workspaceSmtpAccounts = $workspaceSmtpQuery
                 ->orderBy('id')
                 ->get(['id', 'managed_server_ip_id', 'ip', 'username', 'name'])
@@ -251,7 +244,7 @@ class DmsCampaignSendCatalog
                     'ip' => (string) $mta->ip,
                     'username' => (string) ($mta->username ?? ''),
                     'name' => (string) ($mta->name ?: $mta->username),
-                    'pmta_name' => PmtaSmtpConfigBuilder::virtualMtaName((string) $mta->ip, (int) $mta->getKey()),
+                    'pmta_name' => PmtaSmtpConfigBuilder::workspaceVirtualMtaName((string) $mta->ip, (int) $mta->getKey()),
                 ]);
             $smtpAccountsByIp = $pmtaSmtpAccounts
                 ->concat($workspaceSmtpAccounts)
@@ -300,7 +293,6 @@ class DmsCampaignSendCatalog
                     ->whereIn('managed_server_ip_id', $routeIps->pluck('id'))
                     ->orderBy('id')
                     ->get(['id', 'managed_server_id', 'managed_server_ip_id', 'created_by', 'ip', 'dns', 'username', 'is_active']);
-                $pmtaSmtpConfiguredIpIds = $pmtaSmtpConfigs->pluck('managed_server_ip_id')->map('strval')->unique()->values();
                 $routeIpsById = $routeIps->keyBy(fn (ManagedServerIp $ip): string => (string) $ip->getKey());
                 $pmtaSmtpRows = $pmtaSmtpConfigs
                     ->filter(function (PmtaSmtpConfig $config) use ($user, $routeIpsById): bool {
@@ -332,9 +324,6 @@ class DmsCampaignSendCatalog
                     ->whereIn('managed_server_ip_id', $routeIps->pluck('id'))
                     ->when($ipType !== 'all', fn (Builder $query) => $query->whereRaw('LOWER(ip_type) = ?', [$ipType]))
                     ->when($operator, fn (Builder $query) => $query->where('user_id', $user->getKey()));
-                if ($pmtaSmtpConfiguredIpIds->isNotEmpty()) {
-                    $workspaceSmtpQuery->whereNotIn('managed_server_ip_id', $pmtaSmtpConfiguredIpIds);
-                }
                 $workspaceSmtpRows = $workspaceSmtpQuery
                     ->orderBy('managed_server_id')
                     ->orderBy('id')
@@ -348,7 +337,7 @@ class DmsCampaignSendCatalog
                         'managed_server_ip_id' => (string) $mta->managed_server_ip_id,
                         'username' => (string) ($mta->username ?? ''),
                         'name' => (string) ($mta->name ?: $mta->username),
-                        'pmta_name' => PmtaSmtpConfigBuilder::virtualMtaName((string) $mta->ip, (int) $mta->getKey()),
+                        'pmta_name' => PmtaSmtpConfigBuilder::workspaceVirtualMtaName((string) $mta->ip, (int) $mta->getKey()),
                     ]);
 
                 $ips = $pmtaSmtpRows->concat($workspaceSmtpRows)

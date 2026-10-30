@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Mockery;
+use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
 class DmsWorkspaceToolTest extends TestCase
@@ -495,37 +496,67 @@ class DmsWorkspaceToolTest extends TestCase
         $this->assertDatabaseCount('managed_server_mtas', 0);
     }
 
-    public function test_push_rejects_the_known_crashing_relay_binary_before_server_access(): void
+    public function test_bundled_workspace_relay_is_the_dms_build_and_serves_a_local_smtp_greeting(): void
     {
-        $project = $this->project();
-        WorkspaceGoogleAccount::query()->create([
-            'workspace_id' => $this->workspace->id,
-            'project_id' => $project->id,
-            'email' => 'user@example.test',
-        ]);
-        $ip = $this->ip();
-        $assetDirectory = storage_path('framework/testing/workspace-relay-'.Str::uuid());
-        File::ensureDirectoryExists($assetDirectory);
-        $this->beforeApplicationDestroyed(fn () => File::deleteDirectory($assetDirectory));
-        copy(base_path('../../pmta/workspace_relay/workspace_relay'), $assetDirectory.'/workspace_relay');
-        file_put_contents($assetDirectory.'/workspace_relay.service', '[Service]');
-        file_put_contents($assetDirectory.'/config.json', json_encode([
-            'listen_addr' => '127.0.0.1:1028',
-            'service_accounts_dir' => '/etc/workspace_relay/accounts',
-        ], JSON_THROW_ON_ERROR));
-        config(['infrastructure.workspace_relay_assets_directory' => $assetDirectory]);
-
-        $remote = Mockery::mock(PmtaRemoteConfiguration::class);
-        $remote->shouldNotReceive('open');
-        $this->app->instance(PmtaRemoteConfiguration::class, $remote);
-
-        $this->postJson(route('console.tools.workspace.push', $this->workspace->id), [
-            'ips' => [$ip->id], 'projects' => [$project->id], 'split_on_ips' => false,
-        ])->assertBadRequest()->assertJsonPath(
-            'data',
-            'The bundled Workspace relay executable is known to fail startup. Push was cancelled before contacting servers; replace pmta/workspace_relay with a verified Linux x86-64 build.',
+        $assetDirectory = rtrim((string) config('infrastructure.workspace_relay_assets_directory'), DIRECTORY_SEPARATOR);
+        $binary = $assetDirectory.DIRECTORY_SEPARATOR.'workspace_relay';
+        $this->assertSame(
+            '8cd307e33cfba2411f8fed6e5781ff48180589666e5e0321f23a907c6ad878c4',
+            hash_file('sha256', $binary),
+            'The bundled executable must remain the release asset copied from DMS.',
         );
-        $this->assertDatabaseCount('managed_server_mtas', 0);
+
+        $header = file_get_contents($binary, false, null, 0, 20);
+        $this->assertSame("\x7fELF\x02\x01", substr((string) $header, 0, 6));
+        $this->assertSame(62, unpack('v', substr((string) $header, 18, 2))[1]);
+
+        if (PHP_OS_FAMILY !== 'Linux' || php_uname('m') !== 'x86_64' || ! function_exists('proc_open')) {
+            $this->markTestSkipped('The bundled Workspace relay smoke test requires Linux x86-64 and proc_open.');
+        }
+
+        $listener = stream_socket_server('tcp://127.0.0.1:0', $errorCode, $errorMessage);
+        $this->assertIsResource($listener, "Could not reserve a local test port: {$errorMessage} ({$errorCode}).");
+        $address = stream_socket_get_name($listener, false);
+        fclose($listener);
+        $port = (int) substr((string) $address, strrpos((string) $address, ':') + 1);
+
+        $directory = storage_path('framework/testing/workspace-relay-smoke-'.Str::uuid());
+        $accountDirectory = $directory.'/accounts';
+        File::ensureDirectoryExists($accountDirectory);
+        $configuration = json_decode((string) file_get_contents($assetDirectory.DIRECTORY_SEPARATOR.'config.json'), true);
+        $configuration['listen_addr'] = '127.0.0.1:'.$port;
+        $configuration['service_accounts_dir'] = $accountDirectory;
+        $configuration['max_workers'] = 2;
+        $configuration['queue_size'] = 8;
+        $configuration['max_recipients'] = 2;
+        $configuration['max_message_bytes'] = 65536;
+        $configuration['debug_log'] = true;
+        file_put_contents($directory.'/config.json', json_encode($configuration, JSON_THROW_ON_ERROR));
+
+        $process = new Process([$binary], $directory, ['CONFIG_PATH' => $directory.'/config.json', 'GOMAXPROCS' => '1']);
+        $process->setTimeout(8);
+        try {
+            $process->start();
+            $greeting = false;
+            $deadline = microtime(true) + 5;
+            while (microtime(true) < $deadline && $process->isRunning()) {
+                $connection = @stream_socket_client('tcp://127.0.0.1:'.$port, $errorCode, $errorMessage, 0.2);
+                if (is_resource($connection)) {
+                    stream_set_timeout($connection, 1);
+                    $greeting = fgets($connection, 512);
+                    fclose($connection);
+                    break;
+                }
+                usleep(100_000);
+            }
+
+            $this->assertIsString($greeting, 'The relay exited before opening its local SMTP listener. '.$process->getErrorOutput().$process->getOutput());
+            $this->assertStringStartsWith('220 ', $greeting);
+            $this->assertStringContainsString('ESMTP Service Ready', $greeting);
+        } finally {
+            $process->stop(1);
+            File::deleteDirectory($directory);
+        }
     }
 
     public function test_push_uses_bundled_relay_assets_and_excludes_inactive_accounts(): void

@@ -19,7 +19,7 @@ use Throwable;
 /** DMS-mapped Workspace SMTP push/reset for the selected AlphaLink user. */
 class DmsWorkspaceSmtpConfiguration
 {
-    private const INVALID_RELAY_BINARY_SHA256 = '2ec93c845ce385477da1e639d03dc4b0f22f0aa89ed21637abe58792f6ca1f98';
+    private const KNOWN_CRASHING_RELAY_BINARY_SHA256 = '2ec93c845ce385477da1e639d03dc4b0f22f0aa89ed21637abe58792f6ca1f98';
 
     public function __construct(private readonly PmtaRemoteConfiguration $remote) {}
 
@@ -327,7 +327,7 @@ class DmsWorkspaceSmtpConfiguration
                 throw new RuntimeException('Workspace relay deployment assets are missing or invalid.');
             }
         }
-        if (hash_file('sha256', $assets['binary']) === self::INVALID_RELAY_BINARY_SHA256) {
+        if (hash_file('sha256', $assets['binary']) === self::KNOWN_CRASHING_RELAY_BINARY_SHA256) {
             throw new RuntimeException(
                 'The bundled Workspace relay executable is known to fail startup. Push was cancelled before contacting servers; replace pmta/workspace_relay with a verified Linux x86-64 build.',
             );

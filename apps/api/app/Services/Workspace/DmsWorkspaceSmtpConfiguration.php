@@ -58,33 +58,64 @@ class DmsWorkspaceSmtpConfiguration
                 continue;
             }
             $createdIds = [];
+            $routeIdsToActivate = [];
             $relayDeploymentMayBeBroken = false;
             try {
-                $data = '';
+                $existingRoutes = ManagedServerMta::query()
+                    ->where('workspace_id', $workspace->id)
+                    ->where('managed_server_id', $server->id)
+                    ->where('user_id', $user->id)
+                    ->where('mta_type', 'smtp')
+                    ->orderBy('id')
+                    ->get()
+                    ->groupBy(fn (ManagedServerMta $mta): string => $mta->managed_server_ip_id.'|'.mb_strtolower(trim((string) $mta->username)).'|'.(string) $mta->name);
                 foreach ($serverIps as $ip) {
                     foreach ($ip['smtp_accounts'] as $account) {
-                        $mta = ManagedServerMta::query()->create([
-                            'workspace_id' => $workspace->id,
-                            'managed_server_id' => $server->id,
-                            'managed_server_ip_id' => $ip['id'],
-                            'ip' => $ip['ip'],
-                            'dns' => $ip['dns'],
-                            'ip_type' => $ip['type'],
-                            'mta_type' => 'smtp',
-                            'username' => $account['email'],
-                            'name' => $account['project_name'],
-                            // Keep routes out of the campaign catalog until the
-                            // remote relay, PMTA config, and final reload pass.
-                            'is_active' => false,
-                            'user_id' => $user->id,
-                        ]);
-                        $createdIds[] = $mta->id;
-                        $data .= $this->renderVmta($mta, $account['project_name'], (int) ($server->install_parameters['pmta_version'] ?? 40));
+                        $routeKey = $ip['id'].'|'.mb_strtolower(trim($account['email'])).'|'.$account['project_name'];
+                        $matchingRoutes = $existingRoutes->get($routeKey, collect());
+                        $mta = $matchingRoutes->first(fn (ManagedServerMta $route): bool => $route->is_active)
+                            ?? $matchingRoutes->first();
+                        if (! $mta) {
+                            $mta = ManagedServerMta::query()->create([
+                                'workspace_id' => $workspace->id,
+                                'managed_server_id' => $server->id,
+                                'managed_server_ip_id' => $ip['id'],
+                                'ip' => $ip['ip'],
+                                'dns' => $ip['dns'],
+                                'ip_type' => $ip['type'],
+                                'mta_type' => 'smtp',
+                                'username' => $account['email'],
+                                'name' => $account['project_name'],
+                                // Keep routes out of the campaign catalog until the
+                                // remote relay, PMTA config, and final reload pass.
+                                'is_active' => false,
+                                'user_id' => $user->id,
+                            ]);
+                            $createdIds[] = $mta->id;
+                            $existingRoutes->put($routeKey, $matchingRoutes->push($mta));
+                        }
+                        $routeIdsToActivate[] = (int) $mta->getKey();
                     }
                 }
-                if ($data === '') {
+                if ($routeIdsToActivate === []) {
                     throw new RuntimeException('Nothing Generated');
                 }
+
+                $configurationRoutes = ManagedServerMta::query()
+                    ->where('workspace_id', $workspace->id)
+                    ->where('managed_server_id', $server->id)
+                    ->where('user_id', $user->id)
+                    ->where('mta_type', 'smtp')
+                    ->where(fn ($query) => $query->where('is_active', true)->orWhereIn('id', $routeIdsToActivate))
+                    ->orderBy('id')
+                    ->get();
+                $data = $configurationRoutes
+                    ->map(fn (ManagedServerMta $mta): string => $this->renderVmta(
+                        $mta,
+                        (string) ($mta->name ?: $mta->username),
+                        (int) ($server->install_parameters['pmta_version'] ?? 40),
+                    ))
+                    ->implode('');
 
                 $session = $this->remote->open($server);
                 $this->installRelay($session, $projects, $relayAssets, $relayDeploymentMayBeBroken);
@@ -94,12 +125,6 @@ class DmsWorkspaceSmtpConfiguration
                 $data = str_replace(['$', '"', '!', '___'], ['\$', '\"', '\!', '"'], $data);
                 if (! $session->upload($data, $temporary)) {
                     throw new RuntimeException('Workspace SMTP configuration upload failed.');
-                }
-                $reload = (string) $session->exec('pmta reload');
-                if (! str_contains($reload, 'reloaded') && ! str_contains($reload, 'running')) {
-                    $session->exec('rm -f '.escapeshellarg($temporary));
-                    $session->exec('pmta reload');
-                    throw new RuntimeException($reload !== '' ? $reload : 'PMTA did not confirm the configuration reload.');
                 }
                 $backup = '/etc/pmta/.workspace_'.$user->id.'-'.Str::uuid().'.bak';
                 $hadConfiguration = trim((string) $session->exec('test -f '.escapeshellarg($configuration).' && echo yes || echo no')) === 'yes';
@@ -111,14 +136,24 @@ class DmsWorkspaceSmtpConfiguration
                 }
 
                 try {
-                    $appendResult = (string) $session->exec('cat '.escapeshellarg($temporary).' >> '.escapeshellarg($configuration).' && echo __WORKSPACE_CONFIG_APPENDED__');
-                    if (! str_contains($appendResult, '__WORKSPACE_CONFIG_APPENDED__')) {
+                    $installResult = (string) $session->exec('mv -f '.escapeshellarg($temporary).' '.escapeshellarg($configuration).' && echo __WORKSPACE_CONFIG_INSTALLED__');
+                    if (! str_contains($installResult, '__WORKSPACE_CONFIG_INSTALLED__')) {
                         throw new RuntimeException('The Workspace SMTP configuration could not be installed.');
                     }
 
                     $finalReload = (string) $session->exec('pmta reload');
                     if (! str_contains($finalReload, 'reloaded') && ! str_contains($finalReload, 'running')) {
                         throw new RuntimeException($finalReload !== '' ? $finalReload : 'PMTA did not confirm the Workspace SMTP configuration reload.');
+                    }
+
+                    $routeChecks = $configurationRoutes
+                        ->map(fn (ManagedServerMta $mta): string => 'grep -Fq -- '.escapeshellarg(
+                            '<virtual-mta '.PmtaSmtpConfigBuilder::workspaceVirtualMtaName((string) $mta->ip, (int) $mta->getKey()).'>',
+                        ).' '.escapeshellarg($configuration))
+                        ->implode(' && ');
+                    $routeHealth = (string) $session->exec('set -e; '.$routeChecks.' && echo __WORKSPACE_PMTA_ROUTES_READY__');
+                    if (! str_contains($routeHealth, '__WORKSPACE_PMTA_ROUTES_READY__')) {
+                        throw new RuntimeException('The Workspace SMTP routes were not present in the reloaded PMTA configuration.');
                     }
                 } catch (Throwable $exception) {
                     if ($hadConfiguration) {
@@ -138,7 +173,7 @@ class DmsWorkspaceSmtpConfiguration
                 }
                 ManagedServerMta::query()->where('workspace_id', $workspace->id)
                     ->where('managed_server_id', $server->id)->where('user_id', $user->id)
-                    ->whereIn('id', $createdIds)->update(['is_active' => true]);
+                    ->whereIn('id', $routeIdsToActivate)->update(['is_active' => true]);
                 $results[] = ['id' => (string) $server->id, 'data' => 'Workspace Pushed Successfully'];
             } catch (Throwable $exception) {
                 if ($relayDeploymentMayBeBroken) {

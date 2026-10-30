@@ -14,6 +14,7 @@ use App\Models\ContactListMembershipEvent;
 use App\Models\Isp;
 use App\Models\ManagedServer;
 use App\Models\ManagedServerIp;
+use App\Models\ManagedServerMta;
 use App\Models\OutboxMessage;
 use App\Models\PmtaActionHistory;
 use App\Models\User;
@@ -33,6 +34,7 @@ use App\Services\Campaigns\PmtaQueueAdmin;
 use App\Services\Infrastructure\DmsBulkInstallVmtaPlanner;
 use App\Services\PmtaAuditLogger;
 use App\Services\PmtaRemoteConfiguration;
+use App\Services\PmtaSmtpConfigBuilder;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\QueryException;
@@ -1531,10 +1533,21 @@ class WorkspaceConsoleController extends Controller
                 }
                 $choice = $routeChoices->get((string) $selectedServer->getKey());
                 if ($data['send_setup']['route_option'] === 'smtp' && ctype_digit((string) ($choice['id'] ?? ''))) {
+                    $routeOwnerId = $this->workspaceSmtpRouteOwnerId(
+                        $workspace,
+                        $selectedServer,
+                        $choice,
+                        $virtualMtaName,
+                    );
+                    if ($routeOwnerId === null) {
+                        throw ValidationException::withMessages([
+                            'send_setup.ip_ids' => 'The selected Workspace SMTP route is no longer available. Reload the campaign and select an active route.',
+                        ]);
+                    }
                     try {
                         $workspaceRouteExists = $pmtaRemote->workspaceSmtpRouteExists(
                             $selectedServer,
-                            (int) $request->user()->getKey(),
+                            $routeOwnerId,
                             $virtualMtaName,
                         );
                     } catch (Throwable) {
@@ -1545,7 +1558,7 @@ class WorkspaceConsoleController extends Controller
 
                     if (! $workspaceRouteExists) {
                         throw ValidationException::withMessages([
-                            'send_setup.ip_ids' => "PMTA does not have the selected Workspace SMTP route {$virtualMtaName} loaded for this user. No test message was sent. Repair the Workspace relay health check, push the Workspace accounts again, and reload the campaign.",
+                            'send_setup.ip_ids' => "PMTA does not have the selected Workspace SMTP route {$virtualMtaName} loaded. No test message was sent. Push that Workspace account to the selected server, then reload the campaign.",
                         ]);
                     }
                 }
@@ -2130,6 +2143,40 @@ class WorkspaceConsoleController extends Controller
     }
 
     /**
+     * Workspace SMTP configuration files are namespaced by the user who pushed
+     * the account, which can differ from the administrator testing a visible
+     * workspace route. Resolve the selected route owner before checking PMTA.
+     *
+     * @param  array<string, mixed>  $choice
+     */
+    private function workspaceSmtpRouteOwnerId(
+        Workspace $workspace,
+        ManagedServer $server,
+        array $choice,
+        string $virtualMtaName,
+    ): ?int {
+        $routeId = (string) ($choice['id'] ?? '');
+        if (! ctype_digit($routeId)) {
+            return null;
+        }
+
+        $route = ManagedServerMta::query()
+            ->where('workspace_id', $workspace->getKey())
+            ->where('managed_server_id', $server->getKey())
+            ->where('mta_type', 'smtp')
+            ->where('is_active', true)
+            ->whereKey((int) $routeId)
+            ->first(['id', 'ip', 'user_id']);
+
+        if (! $route instanceof ManagedServerMta
+            || PmtaSmtpConfigBuilder::workspaceVirtualMtaName((string) $route->ip, (int) $route->getKey()) !== $virtualMtaName) {
+            return null;
+        }
+
+        return (int) $route->user_id;
+    }
+
+    /**
      * Force the selected PMTA VMTA onto the message so an editable header
      * cannot silently route the test through PMTA's default virtual MTA.
      */
@@ -2268,10 +2315,21 @@ class WorkspaceConsoleController extends Controller
             : trim((string) ($routeChoice['pmta_name'] ?? ''));
         abort_unless(preg_match('/\A[A-Za-z0-9_.:-]{1,255}\z/', $virtualMtaName) === 1, 422, 'The selected PMTA route is not available on this server. Push the route in PMTA and reload the campaign.');
         if ($route === 'smtp' && ctype_digit((string) ($routeChoice['id'] ?? ''))) {
+            $routeOwnerId = $this->workspaceSmtpRouteOwnerId(
+                $workspace,
+                $server,
+                $routeChoice,
+                $virtualMtaName,
+            );
+            if ($routeOwnerId === null) {
+                throw ValidationException::withMessages([
+                    'send_setup.ip_ids' => 'The selected Workspace SMTP route is no longer available. Edit the campaign and select an active route.',
+                ]);
+            }
             try {
                 $workspaceRouteExists = $pmtaRemote->workspaceSmtpRouteExists(
                     $server,
-                    (int) $request->user()->getKey(),
+                    $routeOwnerId,
                     $virtualMtaName,
                 );
             } catch (Throwable) {
@@ -2282,7 +2340,7 @@ class WorkspaceConsoleController extends Controller
 
             if (! $workspaceRouteExists) {
                 throw ValidationException::withMessages([
-                    'send_setup.ip_ids' => "PMTA does not have the selected Workspace SMTP route {$virtualMtaName} loaded for this user. No test message was sent. Repair the Workspace relay health check, push the Workspace accounts again, and reload the campaign.",
+                    'send_setup.ip_ids' => "PMTA does not have the selected Workspace SMTP route {$virtualMtaName} loaded. No test message was sent. Push that Workspace account to the selected server, then reload the campaign.",
                 ]);
             }
         }

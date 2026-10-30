@@ -375,43 +375,52 @@ class DmsWorkspaceToolTest extends TestCase
 
         $uploadedConfiguration = null;
         $executedCommands = [];
+        $configurationExists = false;
         $expectedAssets = [
             $assetDirectory.'/workspace_relay',
             $assetDirectory.'/config.json',
             $assetDirectory.'/workspace_relay.service',
         ];
         $session = Mockery::mock(DmsInstallerSshSession::class);
-        $session->shouldReceive('exec')->andReturnUsing(function (string $command) use (&$executedCommands): string {
+        $session->shouldReceive('exec')->andReturnUsing(function (string $command) use (&$executedCommands, &$configurationExists): string {
             $executedCommands[] = $command;
             foreach ([
                 '__WORKSPACE_DIRS_READY__',
                 '__WORKSPACE_ACCOUNT_READY__',
                 '__WORKSPACE_RELAY_STAGED__',
                 '__WORKSPACE_RELAY_READY__',
-                '__WORKSPACE_CONFIG_APPENDED__',
+                '__WORKSPACE_CONFIG_INSTALLED__',
+                '__WORKSPACE_PMTA_ROUTES_READY__',
             ] as $marker) {
                 if (str_contains($command, $marker)) {
+                    if ($marker === '__WORKSPACE_CONFIG_INSTALLED__') {
+                        $configurationExists = true;
+                    }
+
                     return $marker;
                 }
+            }
+            if (str_contains($command, '__WORKSPACE_CONFIG_BACKUP_READY__')) {
+                return '__WORKSPACE_CONFIG_BACKUP_READY__';
             }
             if ($command === 'pmta reload') {
                 return 'reloaded';
             }
 
             if (str_contains($command, 'test -f')) {
-                return 'no';
+                return $configurationExists ? 'yes' : 'no';
             }
 
             return '';
         });
-        $session->shouldReceive('uploadFile')->times(3)->andReturnUsing(function (string $source, string $destination) use ($expectedAssets): bool {
+        $session->shouldReceive('uploadFile')->times(6)->andReturnUsing(function (string $source, string $destination) use ($expectedAssets): bool {
             $this->assertFileExists($source);
             $this->assertContains($source, $expectedAssets);
             $this->assertMatchesRegularExpression('/^\/(?:usr\/sbin|etc\/workspace_relay|etc\/systemd\/system)\/\.?(?:workspace_relay|config|account)-[0-9a-f-]+\.new$/', $destination);
 
             return true;
         });
-        $session->shouldReceive('upload')->twice()->andReturnUsing(function (string $contents, string $destination) use (&$uploadedConfiguration): bool {
+        $session->shouldReceive('upload')->times(4)->andReturnUsing(function (string $contents, string $destination) use (&$uploadedConfiguration): bool {
             if (str_starts_with($destination, '/etc/pmta/conf/tmp_workspace_')) {
                 $uploadedConfiguration = $contents;
             }
@@ -419,9 +428,17 @@ class DmsWorkspaceToolTest extends TestCase
             return true;
         });
         $remote = Mockery::mock(PmtaRemoteConfiguration::class);
-        $remote->shouldReceive('open')->once()->with(Mockery::on(fn ($candidate) => $candidate->is($server)))->andReturn($session);
+        $remote->shouldReceive('open')->twice()->with(Mockery::on(fn ($candidate) => $candidate->is($server)))->andReturn($session);
         $this->app->instance(PmtaRemoteConfiguration::class, $remote);
 
+        $this->postJson(route('console.tools.workspace.push', $this->workspace->id), [
+            'ips' => [$ip->id], 'projects' => [$project->id], 'split_on_ips' => false,
+        ])->assertOk()->assertJsonPath('data.0.data', 'Workspace Pushed Successfully');
+
+        $firstRoute = ManagedServerMta::query()->where('username', 'active@example.test')->sole();
+
+        // Re-pushing the same project must keep the same PMTA route ID and
+        // replace the user's config atomically instead of creating aliases.
         $this->postJson(route('console.tools.workspace.push', $this->workspace->id), [
             'ips' => [$ip->id], 'projects' => [$project->id], 'split_on_ips' => false,
         ])->assertOk()->assertJsonPath('data.0.data', 'Workspace Pushed Successfully');
@@ -435,6 +452,7 @@ class DmsWorkspaceToolTest extends TestCase
         $this->assertStringContainsString('smtp-source-ip '.$ip->ip, $uploadedConfiguration);
         $this->assertStringContainsString('auth-username active@example.test', $uploadedConfiguration);
         $workspaceSmtp = ManagedServerMta::query()->where('username', 'active@example.test')->sole();
+        $this->assertSame($firstRoute->getKey(), $workspaceSmtp->getKey());
         $this->assertStringContainsString(
             '<virtual-mta '.PmtaSmtpConfigBuilder::workspaceVirtualMtaName($ip->ip, $workspaceSmtp->getKey()),
             $uploadedConfiguration,
@@ -552,7 +570,7 @@ class DmsWorkspaceToolTest extends TestCase
                 '__WORKSPACE_ACCOUNT_READY__',
                 '__WORKSPACE_RELAY_STAGED__',
                 '__WORKSPACE_RELAY_READY__',
-                '__WORKSPACE_CONFIG_APPENDED__',
+                '__WORKSPACE_CONFIG_INSTALLED__',
             ] as $marker) {
                 if (str_contains($command, $marker)) {
                     return $marker;
@@ -561,7 +579,7 @@ class DmsWorkspaceToolTest extends TestCase
             if ($command === 'pmta reload') {
                 $reloadCount++;
 
-                return $reloadCount === 2 ? 'Invalid PMTA configuration' : 'reloaded';
+                return $reloadCount === 1 ? 'Invalid PMTA configuration' : 'reloaded';
             }
             if (str_contains($command, 'test -f')) {
                 return 'no';
@@ -581,7 +599,7 @@ class DmsWorkspaceToolTest extends TestCase
             'split_on_ips' => false,
         ])->assertOk()->assertJsonPath('data.0.data', 'Invalid PMTA configuration');
 
-        $this->assertSame(3, $reloadCount);
+        $this->assertSame(2, $reloadCount);
         $this->assertDatabaseCount('managed_server_mtas', 0);
         $this->assertTrue(collect($executedCommands)->contains(
             fn (string $command): bool => str_contains($command, 'rm -f '.escapeshellarg('/etc/pmta/conf/workspace_'.$this->owner->id)),

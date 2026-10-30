@@ -1799,7 +1799,9 @@ class DmsCampaignSendCatalogTest extends TestCase
     public function test_manual_smtp_campaign_tests_pin_the_selected_smtp_route_and_expand_the_smtp_tag(): void
     {
         $owner = User::factory()->create();
+        $routeOwner = User::factory()->create();
         $workspace = $this->workspace($owner, 'owner');
+        $workspace->users()->attach($routeOwner->getKey(), ['role' => 'operator']);
         $server = $this->server($workspace, $owner, '203.0.113.110');
         $domain = SendingDomain::query()->create([
             'workspace_id' => $workspace->getKey(),
@@ -1851,7 +1853,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             'username' => 'selected-smtp@example.test',
             'name' => 'Selected SMTP account',
             'is_active' => true,
-            'user_id' => $owner->getKey(),
+            'user_id' => $routeOwner->getKey(),
         ]);
 
         $sentMessages = [];
@@ -1872,7 +1874,13 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->andReturn($transport);
         $this->app->instance(PmtaCampaignTestTransport::class, $factory);
         $pmtaRemote = Mockery::mock(PmtaRemoteConfiguration::class);
-        $pmtaRemote->shouldReceive('workspaceSmtpRouteExists')->once()->andReturnTrue();
+        $pmtaRemote->shouldReceive('workspaceSmtpRouteExists')->once()
+            ->with(
+                Mockery::on(fn (ManagedServer $selected): bool => $selected->is($server)),
+                $routeOwner->getKey(),
+                PmtaSmtpConfigBuilder::workspaceVirtualMtaName($selectedIp->ip, $selectedSmtp->getKey()),
+            )
+            ->andReturnTrue();
         $this->app->instance(PmtaRemoteConfiguration::class, $pmtaRemote);
 
         $this->actingAs($owner)->getJson(route('console.campaigns.send-options', [
@@ -2228,7 +2236,8 @@ class DmsCampaignSendCatalogTest extends TestCase
                 '__WORKSPACE_ACCOUNT_READY__',
                 '__WORKSPACE_RELAY_STAGED__',
                 '__WORKSPACE_RELAY_READY__',
-                '__WORKSPACE_CONFIG_APPENDED__',
+                '__WORKSPACE_CONFIG_INSTALLED__',
+                '__WORKSPACE_PMTA_ROUTES_READY__',
             ] as $marker) {
                 if (str_contains($command, $marker)) {
                     return $marker;
@@ -2322,7 +2331,7 @@ class DmsCampaignSendCatalogTest extends TestCase
         $missingRoute->assertUnprocessable()
             ->assertJsonValidationErrors('send_setup.ip_ids')
             ->assertJsonFragment([
-                'PMTA does not have the selected Workspace SMTP route '.PmtaSmtpConfigBuilder::workspaceVirtualMtaName($ip->ip, $pushedAccount->getKey()).' loaded for this user. No test message was sent. Repair the Workspace relay health check, push the Workspace accounts again, and reload the campaign.',
+                'PMTA does not have the selected Workspace SMTP route '.PmtaSmtpConfigBuilder::workspaceVirtualMtaName($ip->ip, $pushedAccount->getKey()).' loaded. No test message was sent. Push that Workspace account to the selected server, then reload the campaign.',
             ]);
     }
 
@@ -2370,7 +2379,9 @@ class DmsCampaignSendCatalogTest extends TestCase
     public function test_saved_campaign_pmta_test_pins_selected_smtp_route_and_expands_tags(): void
     {
         $owner = User::factory()->create();
+        $routeOwner = User::factory()->create();
         $workspace = $this->workspace($owner, 'owner');
+        $workspace->users()->attach($routeOwner->getKey(), ['role' => 'operator']);
         $server = $this->server($workspace, $owner, '203.0.113.130');
         $sendingDomain = SendingDomain::query()->create([
             'workspace_id' => $workspace->getKey(),
@@ -2423,7 +2434,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             'username' => 'selected-smtp@example.test',
             'name' => 'Selected SMTP account',
             'is_active' => true,
-            'user_id' => $owner->getKey(),
+            'user_id' => $routeOwner->getKey(),
         ]);
         $campaign = Campaign::query()->create([
             'workspace_id' => $workspace->getKey(),
@@ -2473,7 +2484,13 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->andReturn($transport);
         $this->app->instance(PmtaCampaignTestTransport::class, $factory);
         $pmtaRemote = Mockery::mock(PmtaRemoteConfiguration::class);
-        $pmtaRemote->shouldReceive('workspaceSmtpRouteExists')->once()->andReturnTrue();
+        $pmtaRemote->shouldReceive('workspaceSmtpRouteExists')->once()
+            ->with(
+                Mockery::on(fn (ManagedServer $selected): bool => $selected->is($server)),
+                $routeOwner->getKey(),
+                PmtaSmtpConfigBuilder::workspaceVirtualMtaName($selectedIp->ip, $selectedSmtp->getKey()),
+            )
+            ->andReturnTrue();
         $this->app->instance(PmtaRemoteConfiguration::class, $pmtaRemote);
 
         $this->actingAs($owner)->post(route('console.campaigns.pmta-test', [$workspace->getKey(), $campaign->getKey()]), [

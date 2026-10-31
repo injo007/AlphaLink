@@ -15,7 +15,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 
 class CampaignSendController extends Controller
 {
@@ -58,12 +57,6 @@ class CampaignSendController extends Controller
             array_map('strval', (array) ($setup['server_ids'] ?? [])),
             array_map('strval', (array) ($setup['ip_ids'] ?? [])),
         );
-
-        if (! $this->hasEligibleConsentedRecipient($snapshot, $setup)) {
-            throw ValidationException::withMessages([
-                'send' => 'No selected recipient has a current, evidenced marketing email consent record. Add valid opt-in evidence, then build a fresh campaign snapshot.',
-            ]);
-        }
 
         [$run, $alreadyRunning] = DB::transaction(function () use ($campaign, $revision, $snapshot, $request, $data, $messageBuilder, $workspace, $planner): array {
             Campaign::query()->where('workspace_id', $workspace->getKey())->whereKey($campaign->getKey())->lockForUpdate()->firstOrFail();
@@ -154,55 +147,5 @@ class CampaignSendController extends Controller
             'suppressed' => (int) $sendRun->suppressed_count,
             'uncertain' => (int) $sendRun->uncertain_count,
         ]);
-    }
-
-    private function hasEligibleConsentedRecipient(CampaignRecipientSnapshot $snapshot, array $setup): bool
-    {
-        $configuredTotal = data_get($setup, 'parameters.total_send', $setup['total_send'] ?? $snapshot->recipient_count);
-        $endPosition = min(
-            (int) $snapshot->recipient_count,
-            (int) $snapshot->start_from + max(1, (int) $configuredTotal),
-        );
-
-        return DB::table('campaign_recipient_snapshot_items as item')
-            ->join('contacts as contact', function ($join): void {
-                $join->on('contact.id', '=', 'item.contact_id')->on('contact.workspace_id', '=', 'item.workspace_id');
-            })
-            ->where('item.workspace_id', $snapshot->workspace_id)
-            ->where('item.snapshot_id', $snapshot->getKey())
-            ->whereBetween('item.position', [(int) $snapshot->start_from + 1, $endPosition])
-            ->where('contact.status', 'active')
-            ->whereExists(function ($grant): void {
-                $grant->selectRaw('1')
-                    ->from('consent_records as consent')
-                    ->whereColumn('consent.workspace_id', 'item.workspace_id')
-                    ->whereColumn('consent.contact_id', 'item.contact_id')
-                    ->where('consent.channel', 'email')
-                    ->where('consent.purpose', 'marketing')
-                    ->where('consent.action', 'granted')
-                    ->where('consent.occurred_at', '<=', now())
-                    ->whereNotNull('consent.evidence_reference')
-                    ->where('consent.evidence_reference', '<>', '')
-                    ->where(function ($unexpired): void {
-                        $unexpired->whereNull('consent.expires_at')->orWhere('consent.expires_at', '>', now());
-                    })
-                    ->whereNotExists(function ($newer): void {
-                        $newer->selectRaw('1')
-                            ->from('consent_records as newer_consent')
-                            ->whereColumn('newer_consent.workspace_id', 'consent.workspace_id')
-                            ->whereColumn('newer_consent.contact_id', 'consent.contact_id')
-                            ->where('newer_consent.channel', 'email')
-                            ->where('newer_consent.purpose', 'marketing')
-                            ->where(function ($ordered): void {
-                                $ordered->whereColumn('newer_consent.occurred_at', '>', 'consent.occurred_at')
-                                    ->orWhere(function ($sameTime): void {
-                                        $sameTime->whereColumn('newer_consent.occurred_at', '=', 'consent.occurred_at')
-                                            ->whereColumn('newer_consent.id', '>', 'consent.id');
-                                    });
-                            })
-                            ->where('newer_consent.occurred_at', '<=', now());
-                    });
-            })
-            ->exists();
     }
 }

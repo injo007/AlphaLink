@@ -13,7 +13,6 @@ use App\Models\CampaignRevision;
 use App\Models\CampaignSendBatch;
 use App\Models\CampaignSendRecipientClaim;
 use App\Models\CampaignSendRun;
-use App\Models\ConsentRecord;
 use App\Models\Contact;
 use App\Models\ContactListMembership;
 use App\Models\ManagedServer;
@@ -206,7 +205,7 @@ class CampaignSendExecutionLedgerTest extends TestCase
         );
     }
 
-    public function test_campaign_send_action_creates_a_run_and_dispatches_the_background_sender_using_nested_dms_limits(): void
+    public function test_campaign_send_action_accepts_a_snapshot_without_consent_records_and_dispatches_using_nested_dms_limits(): void
     {
         $serverId = (string) Str::uuid();
         $routeId = '81';
@@ -219,6 +218,7 @@ class CampaignSendExecutionLedgerTest extends TestCase
             'parameters' => ['total_send' => 2, 'fraction_ip' => 1, 'sleep_email' => 0, 'sleep_ip' => 0],
         ]);
         $fixture['workspace']->users()->attach($fixture['owner']->getKey(), ['role' => 'owner']);
+        $this->assertSame(0, DB::table('consent_records')->count());
 
         $catalog = Mockery::mock(DmsCampaignSendCatalog::class);
         $catalog->shouldReceive('validateRevisionRouting')->once()->andReturn([
@@ -902,9 +902,10 @@ class CampaignSendExecutionLedgerTest extends TestCase
         $this->assertSame(0, CampaignSendRecipientClaim::query()->count());
     }
 
-    public function test_claim_suppresses_recipients_without_current_evidenced_email_marketing_consent(): void
+    public function test_campaign_send_claim_does_not_require_consent_records(): void
     {
-        $fixture = $this->sendFixture(grantMarketingConsent: false);
+        $fixture = $this->sendFixture();
+        $this->assertSame(0, DB::table('consent_records')->count());
         $run = app(PrepareCampaignSendRun::class)->create(
             $fixture['campaign'],
             $fixture['revision'],
@@ -921,10 +922,10 @@ class CampaignSendExecutionLedgerTest extends TestCase
         );
 
         $this->assertNotNull($batch);
-        $this->assertSame('completed', $batch->state);
-        $this->assertSame('suppressed', $batch->recipientClaims->sole()->state);
-        $this->assertSame(1, $run->fresh()->suppressed_count);
-        $this->assertSame('completed', $run->fresh()->state);
+        $this->assertSame('leased', $batch->state);
+        $this->assertSame('claimed', $batch->recipientClaims->sole()->state);
+        $this->assertSame(0, $run->fresh()->suppressed_count);
+        $this->assertSame('running', $run->fresh()->state);
         $this->assertSame(0, $run->deliveryAttempts()->count());
     }
 
@@ -934,7 +935,6 @@ class CampaignSendExecutionLedgerTest extends TestCase
         int $startFrom = 0,
         bool $captureAddresses = true,
         bool $addressHashMatches = true,
-        bool $grantMarketingConsent = true,
         ?array $sendSetup = null,
     ): array {
         if ($recipientCount < 1 || $recipientCount > 10 || $startFrom < 0 || $startFrom >= $recipientCount) {
@@ -1024,21 +1024,6 @@ class CampaignSendExecutionLedgerTest extends TestCase
                 'idempotency_key' => (string) Str::uuid(),
             ]);
             $contacts[] = $contact;
-            if ($grantMarketingConsent) {
-                ConsentRecord::query()->create([
-                    'workspace_id' => $workspace->getKey(),
-                    'contact_id' => $contact->getKey(),
-                    'action' => 'granted',
-                    'purpose' => 'marketing',
-                    'channel' => 'email',
-                    'source' => 'synthetic_fixture',
-                    'evidence_reference' => 'fixture:explicit-opt-in',
-                    'idempotency_key' => (string) Str::uuid(),
-                    'request_fingerprint' => hash('sha256', 'synthetic explicit consent '.$email),
-                    'occurred_at' => now(),
-                    'created_at' => now(),
-                ]);
-            }
             $items[] = CampaignRecipientSnapshotItem::query()->create([
                 'workspace_id' => $workspace->getKey(),
                 'snapshot_id' => $snapshot->getKey(),

@@ -49,11 +49,12 @@ class CampaignCloneFlowTest extends TestCase
         $this->actingAs($fixture['owner'])
             ->get($route)
             ->assertOk()
-            ->assertSee('DMS Clone requires a live, active offer')
+            ->assertSee('The new campaign copies this campaign')
+            ->assertSee('offer suppression file is applied')
             ->assertSee('send_setup[audience_segments][]', false)
             ->assertSee('send_setup[order_by]', false)
             ->assertSee('send_setup[start_from]', false)
-            ->assertSee('cloned campaign appears in My Campaigns');
+            ->assertSee('CLONE CAMPAIGN');
 
         $idempotencyKey = (string) Str::uuid();
         $payload = $this->clonePayload($fixture, $idempotencyKey);
@@ -69,7 +70,16 @@ class CampaignCloneFlowTest extends TestCase
         $this->assertSame('marketing', $clone->kind);
         $this->assertSame('Welcome test', $clone->latestRevision->payload['subject']);
         $this->assertSame('sender@example.test', $clone->latestRevision->payload['from_email']);
+        $this->assertSame('Fixture sender', $clone->latestRevision->payload['from_name']);
+        $this->assertSame('[rnd]@[domain]', $clone->latestRevision->payload['return_path']);
+        $this->assertSame('MIME-version: 1.0', $clone->latestRevision->payload['header']);
+        $this->assertSame('DMS body', $clone->latestRevision->payload['body']);
+        $this->assertSame('<p>HTML body</p>', $clone->latestRevision->payload['html_body']);
+        $this->assertSame('Plain body', $clone->latestRevision->payload['text_body']);
         $this->assertSame($fixture['sourceSetup']['isp_id'], $clone->latestRevision->payload['send_setup']['isp_id']);
+        $this->assertSame($fixture['sourceSetup']['server_ids'], $clone->latestRevision->payload['send_setup']['server_ids']);
+        $this->assertSame($fixture['sourceSetup']['ip_ids'], $clone->latestRevision->payload['send_setup']['ip_ids']);
+        $this->assertSame($fixture['sourceSetup']['parameters'], $clone->latestRevision->payload['send_setup']['parameters']);
         $this->assertSame('default', $fixture['source']->fresh()->latestRevision->payload['send_setup']['order_by']);
         $this->assertSame('asc', $clone->latestRevision->payload['send_setup']['order_by']);
         $this->assertSame(25, $clone->latestRevision->payload['send_setup']['start_from']);
@@ -90,6 +100,9 @@ class CampaignCloneFlowTest extends TestCase
         $clone->refresh();
         $this->assertSame('draft', $clone->status);
         $this->assertSame('complete', $clone->snapshot_build_stage);
+        $expectedPayload = $fixture['source']->latestRevision->payload;
+        $expectedPayload['send_setup'] = $clone->latestRevision->payload['send_setup'];
+        $this->assertSame($expectedPayload, $clone->latestRevision->payload);
         $snapshot = CampaignRecipientSnapshot::query()->where('revision_id', $clone->latestRevision->getKey())->firstOrFail();
         $this->assertSame(1, $snapshot->recipient_count);
         $this->assertSame(1, $snapshot->start_from);
@@ -123,6 +136,12 @@ class CampaignCloneFlowTest extends TestCase
             ->assertOk()
             ->assertSee($this->cleanWorkspaceUrl(route('console.campaigns.clone', [$fixture['workspace']->getKey(), $fixture['source']->getKey()])), false)
             ->assertSee('Clone campaign into a new draft')
+            ->assertSee('data-analytics-date-range-form', false)
+            ->assertSee('id="analytics-dates"', false)
+            ->assertSee('Running processes')
+            ->assertSee('aria-label="Running processes unavailable"', false)
+            ->assertSee('aria-label="New test message"', false)
+            ->assertDontSee('id="campaign-from"', false)
             ->assertSee('data-campaign-statistics-toggle', false)
             ->assertSee('data-campaign-statistics-panel', false);
     }

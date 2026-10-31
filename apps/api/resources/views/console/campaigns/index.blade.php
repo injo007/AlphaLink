@@ -5,7 +5,7 @@
 @section('content')
     <div class="block block-rounded">
         <div class="block-header">
-            <h3 class="block-title">My campaigns</h3>
+            <h3 class="block-title">MY CAMPAIGNS</h3>
             <div class="block-options d-flex align-items-center">
                 <form method="GET" action="{{ route('console.campaigns.index', $workspace->id) }}" aria-label="Campaign availability filter">
                     <input type="hidden" name="from" value="{{ $from->toDateString() }}">
@@ -59,26 +59,29 @@
                         </select>
                     </form>
                     <a class="btn btn-sm btn-alt-primary mr-2" href="{{ route('console.campaigns.create', $workspace->id) }}" title="Create campaign" aria-label="Create campaign"><i class="fas fa-plus" aria-hidden="true"></i></a>
-                    <a class="btn btn-sm btn-alt-primary mr-2" href="{{ route('console.campaigns.test-draft.create', $workspace->id) }}" title="Create a one-recipient Symfony Mailer test message" aria-label="New test message"><i class="far fa-paper-plane" aria-hidden="true"></i></a>
-                    <span class="badge badge-info mr-2" title="Campaign sends run in the background and report SMTP outcomes here.">BACKGROUND SENDS</span>
+                    <button class="btn btn-sm btn-alt-secondary mr-2" type="button" disabled title="Running processes" aria-label="Running processes unavailable"><i class="fas fa-cog" aria-hidden="true"></i></button>
                     <button class="btn btn-sm btn-alt-danger mr-2" type="submit" form="campaign-bulk-form" id="campaign-bulk-disable-open" disabled title="Select campaigns to disable"><i class="fas fa-trash" aria-hidden="true"></i><span class="sr-only">Disable selected campaigns</span></button>
                     <a class="btn btn-sm btn-alt-secondary" href="{{ request()->fullUrl() }}" title="Reload campaign register" aria-label="Reload campaign register"><i class="fas fa-sync-alt" aria-hidden="true"></i></a>
                 </div>
-                <form method="GET" action="{{ route('console.campaigns.index', $workspace->id) }}" class="form-inline mb-2 campaign-register-filters" aria-label="Filter campaigns">
+                <form id="campaign-filter-form" method="GET" action="{{ route('console.campaigns.index', $workspace->id) }}" class="form-inline mb-2 campaign-register-filters" aria-label="Filter campaigns" data-analytics-date-range-form data-storage-key="campaigns" data-min-date="none" novalidate>
                     <input type="hidden" name="per_page" value="{{ $perPage }}">
                     @if ($showDisabled)
                         <input type="hidden" name="disabled" value="1">
                     @endif
-                    <label class="sr-only" for="campaign-from">Date from</label>
-                    <input id="campaign-from" name="from" type="date" class="form-control form-control-sm mr-1" value="{{ $from->toDateString() }}" required aria-label="Date from">
-                    <label class="sr-only" for="campaign-to">Date to</label>
-                    <input id="campaign-to" name="to" type="date" class="form-control form-control-sm mr-2" value="{{ $to->toDateString() }}" required aria-label="Date to">
+                    <label for="analytics-dates" class="mr-1">Date:</label>
+                    <input id="analytics-dates" type="text" class="form-control form-control-sm mr-2 campaign-date-range" value="{{ $from->toDateString() }} - {{ $to->toDateString() }}" readonly aria-label="Choose campaign date range">
+                    <input type="hidden" name="from" value="{{ $from->toDateString() }}">
+                    <input type="hidden" name="to" value="{{ $to->toDateString() }}">
                     <label class="sr-only" for="campaign-search">Search campaigns</label>
-                    <input id="campaign-search" name="q" type="search" class="form-control form-control-sm mr-1" value="{{ $search }}" maxlength="120" placeholder="Search" aria-label="Search campaigns">
-                    <button class="btn btn-sm btn-alt-secondary" type="submit" title="Apply campaign filters" aria-label="Apply campaign filters"><i class="fas fa-search" aria-hidden="true"></i></button>
+                    <div class="campaign-search-control">
+                        <input id="campaign-search" name="q" type="search" class="form-control form-control-sm" value="{{ $search }}" maxlength="120" placeholder="Search.." aria-label="Search campaigns">
+                        <button id="campaign-search-clear" class="campaign-search-clear" type="button" aria-label="Clear campaign search" title="Clear search" hidden><i class="fas fa-times" aria-hidden="true"></i></button>
+                    </div>
+                    <button class="btn btn-sm btn-alt-secondary ml-1" type="submit" title="Apply campaign filters" aria-label="Apply campaign filters"><i class="fas fa-search" aria-hidden="true"></i></button>
+                    <a class="small ml-2" href="{{ route('console.campaigns.test-draft.create', $workspace->id) }}" aria-label="New test message">New test message</a>
                 </form>
             </div>
-            <div id="campaign-selection-count" class="text-muted small mb-2" aria-live="polite">No campaigns selected</div>
+            <div id="campaign-selection-count" class="text-muted small mb-2" aria-live="polite" hidden></div>
 
             <form id="campaign-bulk-form" method="POST" action="{{ route('console.campaigns.bulk-disable', $workspace->id) }}">
                 @csrf
@@ -86,23 +89,23 @@
             </form>
 
             <div class="table-responsive campaign-register-table-wrap">
-                <table class="table table-sm table-hover campaign-register-table">
+                <table class="table table-sm table-hover campaign-register-table" aria-label="My campaigns">
                     <thead>
                         <tr>
-                            <th scope="col"><input id="campaign-select-all" type="checkbox" aria-label="Select all campaigns on this page" form="campaign-bulk-form"></th>
-                            <th scope="col">#</th>
-                            <th scope="col">ISP</th>
-                            <th scope="col">OFFER</th>
-                            <th scope="col">SERVER</th>
-                            <th scope="col">TOTAL SEND</th>
-                            <th scope="col">FRACTION IP</th>
-                            <th scope="col">SLEEP EMAIL</th>
-                            <th scope="col">SLEEP IP</th>
-                            <th scope="col">SEED</th>
-                            <th scope="col">SEND TYPE</th>
-                            <th scope="col">ACTIONS</th>
-                            <th scope="col">PROGRESS</th>
-                            <th scope="col">SEND</th>
+                            <th scope="col" data-campaign-column="select"><input id="campaign-select-all" type="checkbox" aria-label="Select all campaigns on this page" form="campaign-bulk-form"></th>
+                            <th scope="col" data-campaign-column="campaign">#</th>
+                            <th scope="col" data-campaign-column="isp">ISP</th>
+                            <th scope="col" data-campaign-column="offer">OFFER</th>
+                            <th scope="col" data-campaign-column="server">SERVER</th>
+                            <th scope="col" data-campaign-column="total-send">TOTAL SEND</th>
+                            <th scope="col" data-campaign-column="fraction-ip">FRACTION IP</th>
+                            <th scope="col" data-campaign-column="sleep-email">SLEEP EMAIL</th>
+                            <th scope="col" data-campaign-column="sleep-ip">SLEEP IP</th>
+                            <th scope="col" data-campaign-column="seed">SEED</th>
+                            <th scope="col" data-campaign-column="send-type">SEND TYPE</th>
+                            <th scope="col" data-campaign-column="actions">ACTIONS</th>
+                            <th scope="col" data-campaign-column="progress">PROGRESS</th>
+                            <th scope="col" data-campaign-column="send">SEND</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -111,26 +114,26 @@
                                 $register = $campaign->send_register ?? [];
                             @endphp
                             <tr>
-                                <td><input class="campaign-row-select" type="checkbox" name="campaign_ids[]" value="{{ $campaign->id }}" form="campaign-bulk-form" aria-label="Select campaign {{ $campaign->name }}"></td>
-                                <td>
+                                <td data-campaign-column="select"><input class="campaign-row-select" type="checkbox" name="campaign_ids[]" value="{{ $campaign->id }}" form="campaign-bulk-form" aria-label="Select campaign {{ $campaign->name }}"></td>
+                                <td data-campaign-column="campaign">
                                     <a href="{{ route('console.campaigns.show', [$workspace->id, $campaign->id]) }}" title="{{ $campaign->name }} · created {{ $campaign->created_at?->format('Y-m-d H:i') }}">{{ substr($campaign->id, 0, 8) }}</a>
                                     <div class="small text-muted">{{ $campaign->name }}</div>
                                 </td>
-                                <td>{{ $register['isp'] ?? '—' }}</td>
-                                <td>{{ $register['offer'] ?? '—' }}</td>
-                                <td>
+                                <td data-campaign-column="isp">{{ $register['isp'] ?? '—' }}</td>
+                                <td data-campaign-column="offer">{{ $register['offer'] ?? '—' }}</td>
+                                <td data-campaign-column="server">
                                     @forelse (($register['servers'] ?? []) as $serverName)
                                         <span class="badge badge-primary">{{ $serverName }}</span>
                                     @empty
                                         —
                                     @endforelse
                                 </td>
-                                <td>{{ $register['total_send'] ?? '—' }}</td>
-                                <td>{{ $register['fraction_ip'] ?? '—' }}</td>
-                                <td>{{ $register['sleep_email'] ?? '—' }}</td>
-                                <td>{{ $register['sleep_ip'] ?? '—' }}</td>
-                                <td>{{ $register['seed_every'] ?? '—' }}</td>
-                                <td>
+                                <td data-campaign-column="total-send">{{ $register['total_send'] ?? '—' }}</td>
+                                <td data-campaign-column="fraction-ip">{{ $register['fraction_ip'] ?? '—' }}</td>
+                                <td data-campaign-column="sleep-email">{{ $register['sleep_email'] ?? '—' }}</td>
+                                <td data-campaign-column="sleep-ip">{{ $register['sleep_ip'] ?? '—' }}</td>
+                                <td data-campaign-column="seed">{{ $register['seed_every'] ?? '—' }}</td>
+                                <td data-campaign-column="send-type">
                                     @if ($campaign->kind === 'marketing' && ($register['configured'] ?? false))
                                         <label class="sr-only" for="campaign-send-type-{{ $campaign->id }}">Send type for {{ $campaign->name }}</label>
                                         <select id="campaign-send-type-{{ $campaign->id }}" class="form-control form-control-sm" name="send_type" form="campaign-auto-test-{{ $campaign->id }}" aria-label="Send type for {{ $campaign->name }}">
@@ -142,7 +145,7 @@
                                         {{ isset($register['send_type']) ? strtoupper($register['send_type']) : '—' }}
                                     @endif
                                 </td>
-                                <td class="text-nowrap">
+                                <td class="text-nowrap" data-campaign-column="actions">
                                     <a class="btn btn-link btn-sm" href="{{ route('console.campaigns.show', [$workspace->id, $campaign->id]) }}" title="Open saved draft" aria-label="Open {{ $campaign->name }}"><i class="fas fa-eye" aria-hidden="true"></i></a>
                                     <a class="btn btn-link btn-sm" href="{{ route('console.campaigns.show', [$workspace->id, $campaign->id]) }}#campaign-test-logs" title="Open campaign test logs" aria-label="Open test logs for {{ $campaign->name }}"><i class="fas fa-history" aria-hidden="true"></i></a>
                                     @if ($campaign->kind === 'transactional')
@@ -168,7 +171,7 @@
                                     @endif
                                     <button type="button" class="btn btn-link btn-sm campaign-status-open" data-campaign-name="{{ $campaign->name }}" data-next-active="{{ $campaign->is_active ? '0' : '1' }}" data-status-url="{{ route('console.campaigns.status', [$workspace->id, $campaign->id]) }}" title="{{ $campaign->is_active ? 'Disable' : 'Restore' }} campaign" aria-label="{{ $campaign->is_active ? 'Disable' : 'Restore' }} {{ $campaign->name }}"><i class="{{ $campaign->is_active ? 'fas fa-trash text-danger' : 'fas fa-trash-restore text-success' }}" aria-hidden="true"></i></button>
                                 </td>
-                                <td>
+                                <td data-campaign-column="progress">
                                     @php
                                         $sendRun = $campaign->send_run;
                                         $sendProcessed = $sendRun
@@ -207,7 +210,7 @@
                                         <span class="badge badge-secondary">DRAFT</span><div class="small text-muted">No send recorded</div>
                                     @endif
                                 </td>
-                                <td class="text-nowrap">
+                                <td class="text-nowrap" data-campaign-column="send">
                                     @foreach (($register['pmta_panels'] ?? []) as $panel)
                                         <a class="btn btn-link btn-sm" href="{{ $panel['url'] }}" target="_blank" rel="noopener noreferrer" title="Open PMTA Web Monitor on {{ $panel['name'] }}" aria-label="Open PMTA Web Monitor on {{ $panel['name'] }}"><i class="fas fa-server" aria-hidden="true"></i></a>
                                     @endforeach
@@ -233,11 +236,10 @@
                                     @endif
                                     <button type="button" class="btn btn-link btn-sm" disabled title="Campaign scheduling is not implemented in AlphaLink." aria-label="Schedule unavailable for {{ $campaign->name }}"><i class="fas fa-calendar-alt" aria-hidden="true"></i></button>
                                     <a class="btn btn-link btn-sm" href="{{ route('console.campaigns.visitors', [$workspace->id, $campaign->id]) }}" title="Open campaign visitor logs" aria-label="Open visitor logs for {{ $campaign->name }}"><i class="fas fa-eye" aria-hidden="true"></i></a>
-                                    <div class="small text-muted" title="Live suppression and current email consent are checked immediately before delivery.">PMTA route · consent and suppression checked</div>
                                 </td>
                             </tr>
                             <tr id="campaign-statistics-{{ $campaign->id }}" data-campaign-statistics-panel hidden>
-                                <td colspan="14">
+                                <td colspan="14" data-campaign-colspan>
                                     <section class="campaign-statistics-dropdown" aria-label="Statistics for {{ $campaign->name }}">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <h4 class="h6 mb-0">Campaign activity · {{ $from->toDateString() }} to {{ $to->toDateString() }}</h4>
@@ -248,7 +250,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="14" class="text-center">This Grid Is Empty</td></tr>
+                            <tr data-campaign-empty-row><td colspan="14" class="text-center text-muted" data-campaign-colspan>No data available in table</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -284,8 +286,9 @@
 @endsection
 
 @push('styles')
+    <link rel="stylesheet" href="{{ asset('dms-reference/vendor/daterangepicker/daterangepicker.css') }}">
     <style>
-        .campaign-register-table { min-width: 1500px; }
+        .campaign-register-table { font-size: .8rem; min-width: 1360px; }
         .campaign-register-table th { white-space: nowrap; }
         .campaign-register-table td { vertical-align: middle; }
         .campaign-statistics-dropdown { background: #f7f9fa; border: 1px solid #d9e0e5; border-radius: .25rem; padding: .9rem; }
@@ -294,15 +297,29 @@
         .campaign-statistics-metric strong { display: block; font-size: 1.15rem; }
         .campaign-statistics-metric span { color: #6b747c; font-size: .72rem; }
         .campaign-register-toolbar .btn[disabled] { cursor: not-allowed; opacity: .55; }
-        .campaign-register-filters input[type="date"] { max-width: 9.5rem; }
-        .campaign-register-filters input[type="search"] { max-width: 12rem; }
+        .campaign-register-filters .campaign-date-range { width: 12.6rem; }
+        .campaign-register-filters .campaign-search-control { position: relative; }
+        .campaign-register-filters input[type="search"] { max-width: 12rem; padding-right: 2rem; }
+        .campaign-search-clear { align-items: center; background: transparent; border: 0; color: #77818a; display: inline-flex; height: 100%; justify-content: center; padding: 0 .45rem; position: absolute; right: 0; top: 0; }
+        .campaign-search-clear[hidden] { display: none; }
+        .campaign-search-clear:focus-visible { outline: 2px solid #376fc4; outline-offset: 2px; }
         .campaign-status-dialog { border: 1px solid #d5dce1; border-radius: .35rem; color: #343a40; max-width: 32rem; padding: 1.25rem; width: min(92vw, 32rem); }
         .campaign-status-dialog::backdrop { background: rgba(27, 33, 40, .55); }
         .campaign-status-dialog h2 { font-size: 1.15rem; margin: 0 0 .75rem; }
+        @media (max-width: 767.98px) {
+            .campaign-register-filters { align-items: stretch; width: 100%; }
+            .campaign-register-filters label[for="analytics-dates"] { width: 100%; }
+            .campaign-register-filters .campaign-date-range { flex: 1 1 12rem; width: auto; }
+            .campaign-register-filters .campaign-search-control { flex: 1 1 10rem; }
+            .campaign-register-filters input[type="search"] { max-width: none; width: 100%; }
+        }
     </style>
 @endpush
 
 @push('scripts')
+    <script src="{{ asset('dms-reference/vendor/daterangepicker/daterangepicker.js') }}?v=3.1.0"></script>
+    <script src="{{ asset('dms-reference/analytics-date-range.js') }}?v={{ substr(sha1_file(public_path('dms-reference/analytics-date-range.js')), 0, 12) }}" defer></script>
+    <script src="{{ asset('dms-reference/campaign-register-controls.js') }}?v={{ substr(sha1_file(public_path('dms-reference/campaign-register-controls.js')), 0, 12) }}" defer></script>
     <script>
         (() => {
             const statusDialog = document.getElementById('campaign-status-dialog');
@@ -509,7 +526,8 @@
             const updateSelection = () => {
                 const count = rowSelections.filter(input => input.checked).length;
                 bulkButton.disabled = count === 0;
-                selectedCount.textContent = count === 0 ? 'No campaigns selected' : `${count} campaign${count === 1 ? '' : 's'} selected`;
+                selectedCount.textContent = `${count} campaign${count === 1 ? '' : 's'} selected`;
+                selectedCount.hidden = count === 0;
                 selectAll.checked = count > 0 && count === rowSelections.length;
                 selectAll.indeterminate = count > 0 && count < rowSelections.length;
             };

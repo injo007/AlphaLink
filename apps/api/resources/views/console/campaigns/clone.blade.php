@@ -18,13 +18,13 @@
 
     @if ($errors->any())
         <div class="alert alert-danger" role="alert" tabindex="-1">
-            <p class="mb-1">Review the clone choices below:</p>
+            <p class="mb-1">Review the campaign details below:</p>
             <ul class="mb-0">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
         </div>
     @endif
 
     <div class="alert alert-info" role="status">
-        DMS Clone requires a live, active offer, then rebuilds recipients from the chosen ISP, lists, order, and start position. AlphaLink maps DMS Lists to active audience segments, copies the campaign content and routing settings, and creates a fresh suppression snapshot in the background. The cloned campaign appears in My Campaigns with live preparation progress; cloning does not start a send.
+        The new campaign copies this campaign’s content and sending setup. Choose the ISP, country, lists, order, and starting position for the copy. The offer suppression file is applied while its recipient list is prepared. Cloning does not start a send.
     </div>
 
     <form method="POST" action="{{ route('console.campaigns.clone.store', [$workspace->id, $source->id]) }}" id="campaign-clone-form" data-options-url="{{ $sendOptionsUrl }}">
@@ -34,12 +34,12 @@
 
         <div class="block block-rounded">
             <div class="block-header">
-                <h3 class="block-title">Source campaign</h3>
+                <h3 class="block-title">CAMPAIGN TO COPY</h3>
                 <div class="block-options"><a href="{{ route('console.campaigns.show', [$workspace->id, $source->id]) }}">{{ $source->name }}</a></div>
             </div>
             <div class="block-content block-content-full">
                 <div class="form-group">
-                    <label for="clone-name">New campaign name</label>
+                    <label for="clone-name">Campaign name</label>
                     <input id="clone-name" name="name" type="text" maxlength="160" class="form-control" value="{{ old('name', 'Copy of '.$source->name) }}" required>
                 </div>
 
@@ -68,14 +68,14 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="clone-segments">Lists / audience segments</label>
+                    <label for="clone-segments">Lists</label>
                     <select id="clone-segments" name="send_setup[audience_segments][]" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="8" data-selected-text-format="count > 3" title="Select audience segments" multiple required>
                         @foreach ($segments as $segment)
                             @php($segmentId = (string) $segment['id'])
                             <option value="{{ $segmentId }}" data-recipient-count="{{ $segment['recipient_count'] }}" @selected(in_array($segmentId, $selectedSegments, true))>{{ $segment['name'] }} · {{ strtoupper($segment['email_type']) }} · {{ number_format($segment['recipient_count']) }}</option>
                         @endforeach
                     </select>
-                    <small class="form-text text-muted">Selected membership count before suppression and duplicate removal: <strong id="clone-recipient-estimate">0</strong></small>
+                    <small class="form-text text-muted">Selected list members before suppression and duplicate removal: <strong id="clone-recipient-estimate">0</strong></small>
                     @if ($segments->isEmpty())
                         <small class="form-text text-warning">No eligible segments are available for this ISP and country. Check active, unlocked lists with current members.</small>
                     @endif
@@ -97,8 +97,8 @@
                     </div>
                 </div>
 
-                <p id="clone-status" class="small text-muted" role="status">Choose the ISP, country, and audience segments for the new draft.</p>
-                <button id="clone-submit" class="btn btn-info btn-block" type="submit" @disabled($segments->isEmpty())>CLONE AS DRAFT</button>
+                <p id="clone-status" class="small text-muted" role="status">Choose the ISP, country, and lists for the new campaign.</p>
+                <button id="clone-submit" class="btn btn-primary btn-block" type="submit" @disabled($segments->isEmpty())>CLONE CAMPAIGN</button>
             </div>
         </div>
     </form>
@@ -174,7 +174,7 @@
                     }
                     refreshPicker(segments);
                     status.textContent = segments.options.length
-                        ? 'Select one or more eligible segments. The server rechecks every selection and rebuilds the suppression snapshot when you clone.'
+                        ? 'Select one or more eligible lists. The selection is checked again before the campaign is cloned.'
                         : 'No eligible segments are available for this ISP and country.';
                 } catch (error) {
                     status.textContent = 'List segments could not be refreshed. Reload the page and try again.';

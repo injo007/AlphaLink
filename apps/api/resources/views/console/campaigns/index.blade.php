@@ -241,9 +241,12 @@
                             <tr id="campaign-statistics-{{ $campaign->id }}" data-campaign-statistics-panel hidden>
                                 <td colspan="14" data-campaign-colspan>
                                     <section class="campaign-statistics-dropdown" aria-label="Statistics for {{ $campaign->name }}">
-                                        <div class="d-flex justify-content-between align-items-center mb-2">
-                                            <h4 class="h6 mb-0">Campaign activity · {{ $from->toDateString() }} to {{ $to->toDateString() }}</h4>
-                                            <a class="small" href="{{ route('console.campaign-statistics.index', [$workspace->id, 'campaign_id' => $campaign->id, 'from' => $from->toDateString(), 'to' => $to->toDateString()]) }}">Open full statistics</a>
+                                        <div class="campaign-statistics-heading">
+                                            <div>
+                                                <h4 class="h6 mb-1">CAMPAIGN STATISTICS</h4>
+                                                <span>{{ $from->toDateString() }} — {{ $to->toDateString() }}</span>
+                                            </div>
+                                            <a class="btn btn-sm btn-alt-secondary" href="{{ route('console.campaign-statistics.index', [$workspace->id, 'campaign_id' => $campaign->id, 'from' => $from->toDateString(), 'to' => $to->toDateString()]) }}">Full statistics</a>
                                         </div>
                                         <div data-statistics-content role="status" aria-live="polite">Loading campaign statistics…</div>
                                     </section>
@@ -301,11 +304,20 @@
         .campaign-register-table { font-size: .8rem; min-width: 1360px; }
         .campaign-register-table th { white-space: nowrap; }
         .campaign-register-table td { vertical-align: middle; }
-        .campaign-statistics-dropdown { background: #f7f9fa; border: 1px solid #d9e0e5; border-radius: .25rem; padding: .9rem; }
-        .campaign-statistics-metrics { display: grid; gap: .5rem; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); }
-        .campaign-statistics-metric { background: #fff; border: 1px solid #e1e6ea; border-radius: .25rem; padding: .55rem .7rem; }
-        .campaign-statistics-metric strong { display: block; font-size: 1.15rem; }
-        .campaign-statistics-metric span { color: #6b747c; font-size: .72rem; }
+        .campaign-statistics-dropdown { background: #f1f3f5; border: 1px solid #d2d7dc; border-top: 3px solid #3f6fc4; border-radius: .2rem; padding: .85rem; }
+        .campaign-statistics-heading { align-items: center; border-bottom: 1px solid #d8dde2; display: flex; justify-content: space-between; margin-bottom: .75rem; padding-bottom: .6rem; }
+        .campaign-statistics-heading h4 { color: #34404a; font-size: .76rem; font-weight: 700; letter-spacing: .035em; }
+        .campaign-statistics-heading span { color: #74808a; font-size: .72rem; }
+        .campaign-statistics-metrics { display: grid; gap: .45rem; grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr)); margin-bottom: .75rem; }
+        .campaign-statistics-metric { background: #fff; border: 1px solid #d9dee3; border-radius: .15rem; min-height: 3.5rem; padding: .45rem .6rem; }
+        .campaign-statistics-metric strong { color: #303941; display: block; font-size: 1.08rem; font-variant-numeric: tabular-nums; }
+        .campaign-statistics-metric span { color: #6b747c; font-size: .66rem; font-weight: 600; }
+        .campaign-statistics-activity { background: #fff; border: 1px solid #d9dee3; }
+        .campaign-statistics-activity h5 { border-bottom: 1px solid #d9dee3; color: #515b64; font-size: .7rem; font-weight: 700; letter-spacing: .035em; margin: 0; padding: .5rem .6rem; }
+        .campaign-statistics-table { font-size: .72rem; margin-bottom: 0; min-width: 940px; }
+        .campaign-statistics-table thead th { background: #e9edf0; border-top: 0; color: #46515b; font-size: .65rem; white-space: nowrap; }
+        .campaign-statistics-table td { font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .campaign-statistics-empty { background: #fff; border: 1px solid #d9dee3; color: #737e87; padding: .8rem; }
         .campaign-register-toolbar .btn[disabled] { cursor: not-allowed; opacity: .55; }
         .campaign-register-filters .campaign-date-range { width: 12.6rem; }
         .campaign-register-filters .campaign-search-control { position: relative; }
@@ -421,7 +433,10 @@
             const renderCampaignStatistics = (target, rows) => {
                 target.replaceChildren();
                 if (!Array.isArray(rows) || rows.length === 0) {
-                    target.textContent = 'No campaign activity or attributed leads match this date range.';
+                    const empty = document.createElement('div');
+                    empty.className = 'campaign-statistics-empty';
+                    empty.textContent = 'No campaign statistics are recorded for this date range.';
+                    target.append(empty);
                     return;
                 }
                 const totals = Object.fromEntries(metricDefinitions.map(([key]) => [key, 0]));
@@ -446,15 +461,19 @@
                     metrics.append(card);
                 }
                 target.append(metrics);
-                const recentDays = Array.from(byDate.entries()).sort(([first], [second]) => second.localeCompare(first)).slice(0, 7);
-                if (recentDays.length === 0) return;
+                const days = Array.from(byDate.entries()).sort(([first], [second]) => second.localeCompare(first));
+                if (days.length === 0) return;
                 const tableWrap = document.createElement('div');
                 tableWrap.className = 'table-responsive';
+                const activity = document.createElement('section');
+                activity.className = 'campaign-statistics-activity';
+                const activityHeading = document.createElement('h5');
+                activityHeading.textContent = 'DAILY ACTIVITY';
                 const table = document.createElement('table');
-                table.className = 'table table-sm table-bordered mb-0';
+                table.className = 'table table-sm table-striped table-hover campaign-statistics-table';
                 const head = document.createElement('thead');
                 const headRow = document.createElement('tr');
-                for (const label of ['DATE', 'DELIVERIES', 'OPENS', 'CLICKS', 'LEADS', 'UNSUBSCRIBES']) {
+                for (const label of ['DATE', 'DELIVERIES', 'SOFT BOUNCES', 'HARD BOUNCES', 'OPENS', 'CLICKS', 'LEADS', 'CONVERSIONS', 'UNSUBS', 'BOTS', 'EARNINGS']) {
                     const cell = document.createElement('th');
                     cell.scope = 'col';
                     cell.textContent = label;
@@ -462,9 +481,9 @@
                 }
                 head.append(headRow);
                 const body = document.createElement('tbody');
-                for (const [date, daily] of recentDays) {
+                for (const [date, daily] of days) {
                     const row = document.createElement('tr');
-                    for (const value of [date, daily.deliveries, daily.opens, daily.clicks, daily.leads, daily.unsubscribes]) {
+                    for (const value of [date, daily.deliveries, daily.soft_bounces, daily.hard_bounces, daily.opens, daily.clicks, daily.leads, daily.conversions, daily.unsubscribes, daily.bots, currencyFormat.format(daily.lead_revenue)]) {
                         const cell = document.createElement('td');
                         cell.textContent = typeof value === 'number' ? numberFormat.format(value) : value;
                         row.append(cell);
@@ -473,7 +492,8 @@
                 }
                 table.append(head, body);
                 tableWrap.append(table);
-                target.append(tableWrap);
+                activity.append(activityHeading, tableWrap);
+                target.append(activity);
             };
             document.querySelectorAll('[data-campaign-statistics-toggle]').forEach(button => {
                 button.addEventListener('click', async () => {

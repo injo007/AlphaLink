@@ -143,6 +143,7 @@ class DmsCentos9ReinstallWorkflow
                 $inputs['settings']['mini_app_url'],
                 $inputs['settings']['mini_app_key'],
                 $options['https'] && $mainDomainProviderReady,
+                (string) config('app.name', 'NA'),
             );
             $log('End Setting Tracking App');
         }

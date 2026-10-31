@@ -48,7 +48,7 @@ function render(rows) {
     return target;
 }
 
-test('inline campaign statistics total dimensions and show recent daily activity', () => {
+test('inline campaign statistics total dimensions and show daily activity across the selected range', () => {
     const target = render([
         { at: '2026-10-30', deliveries: 10, opens: 7, clicks: 3, leads: 1, unsubscribes: 0, lead_revenue: 4.5 },
         { at: '2026-10-30', deliveries: 20, opens: 8, clicks: 2, leads: 2, unsubscribes: 1, lead_revenue: 8 },
@@ -61,15 +61,30 @@ test('inline campaign statistics total dimensions and show recent daily activity
     assert.equal(metrics.children[3].children[0].textContent, '17');
     assert.equal(metrics.children[9].children[0].textContent, '$12.50');
 
-    const table = target.children[1].children[0];
+    const activity = target.children[1];
+    assert.equal(activity.className, 'campaign-statistics-activity');
+    const table = activity.children[1].children[0];
     assert.equal(table.children[1].children.length, 2);
-    assert.deepEqual(table.children[1].children[0].children.map(cell => cell.textContent), ['2026-10-30', '30', '15', '5', '3', '1']);
-    assert.deepEqual(table.children[1].children[1].children.map(cell => cell.textContent), ['2026-10-29', '5', '2', '1', '0', '0']);
+    assert.deepEqual(table.children[1].children[0].children.map(cell => cell.textContent), ['2026-10-30', '30', '0', '0', '15', '5', '3', '0', '1', '0', '$12.50']);
+    assert.deepEqual(table.children[1].children[1].children.map(cell => cell.textContent), ['2026-10-29', '5', '0', '0', '2', '1', '0', '0', '0', '0', '$0.00']);
 });
 
-test('inline campaign statistics show an empty state when the selected range has no activity', () => {
+test('inline campaign statistics include every matching date rather than truncating the range', () => {
+    const target = render(Array.from({length: 9}, (_, index) => ({
+        at: `2026-10-${String(30 - index).padStart(2, '0')}`,
+        deliveries: index + 1,
+    })));
+
+    const body = target.children[1].children[1].children[0].children[1];
+    assert.equal(body.children.length, 9);
+    assert.equal(body.children[0].children[0].textContent, '2026-10-30');
+    assert.equal(body.children[8].children[0].textContent, '2026-10-22');
+});
+
+test('inline campaign statistics show a styled empty state when the selected range has no activity', () => {
     const target = render([]);
 
-    assert.equal(target.textContent, 'No campaign activity or attributed leads match this date range.');
-    assert.equal(target.children.length, 0);
+    assert.equal(target.children[0].className, 'campaign-statistics-empty');
+    assert.equal(target.textContent, 'No campaign statistics are recorded for this date range.');
+    assert.equal(target.children.length, 1);
 });

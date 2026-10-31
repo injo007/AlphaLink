@@ -2,6 +2,7 @@
 
 namespace App\Services\Infrastructure;
 
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -21,6 +22,7 @@ class DmsCentos9TrackingDeploymentStage
         string $appUrl,
         string $miniAppKey,
         bool $https = false,
+        string $applicationName = 'AlphaLink',
     ): void {
         if ($miniAppArchive !== null) {
             $this->verifyCallback($commands, $appUrl);
@@ -42,7 +44,16 @@ class DmsCentos9TrackingDeploymentStage
             $commands->exec('rm -rf /var/mini/.idea /var/mini/storage/framework/sessions/* /var/mini/storage/framework/cache/data/*');
             $appKey = 'base64:'.base64_encode(random_bytes(32));
             $scheme = $https ? 'https' : 'http';
-            $this->uploadOrFail($files, "APP_ENV=production\nAPP_DEBUG=false\nAPP_KEY={$appKey}\nAPP_URL={$scheme}://{$serverName}\n", '/var/mini/.env');
+            if (preg_match('/[\r\n]/', $applicationName) === 1 || trim($applicationName) === '') {
+                throw new InvalidArgumentException('The tracking application name must be a non-empty single-line value.');
+            }
+            $encodedApplicationName = json_encode($applicationName, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+            $sessionCookie = Str::slug($applicationName).'-session';
+            $this->uploadOrFail(
+                $files,
+                "APP_NAME={$encodedApplicationName}\nAPP_ENV=production\nAPP_DEBUG=false\nAPP_KEY={$appKey}\nAPP_URL={$scheme}://{$serverName}\nSESSION_COOKIE={$sessionCookie}\n",
+                '/var/mini/.env',
+            );
             $commands->exec('chmod 600 /var/mini/.env');
             $commands->exec('find /var/mini -type d -exec chmod 755 {} \;');
             $commands->exec('find /var/mini -type f -exec chmod 644 {} \;');
@@ -116,10 +127,14 @@ CONFIG;
             }
 
             $routeHealth = $commands->exec(
-                'status=$(curl -sS --max-time 10 -o /dev/null -w \'%{http_code}\' -H '.escapeshellarg('Host: '.$serverName).' '.escapeshellarg('http://127.0.0.1/ALPHALINKTRACK10rprobe').'); test "$status" = 403 && printf ALPHALINK_TRACKING_ROUTE_READY',
+                'test -s /var/mini/public/.htaccess && grep -Eq \'RewriteRule.*index\\.php\' /var/mini/public/.htaccess && '
+                    .'response=$(curl -sS --max-time 10 -D - -o /dev/null -w \'\\nALPHALINK_STATUS:%{http_code}\\n\' -H '.escapeshellarg('Host: '.$serverName).' '.escapeshellarg('http://127.0.0.1/ALPHALINKTRACK10rprobe').') && '
+                    .'status=$(printf \'%s\\n\' "$response" | sed -n \'s/^ALPHALINK_STATUS://p\') && '
+                    .'case "$status" in 2??|3??|4??) ;; *) exit 1 ;; esac && '
+                    .'printf \'%s\\n\' "$response" | grep -Fqi '.escapeshellarg('Set-Cookie: '.$sessionCookie.'=').' && printf ALPHALINK_TRACKING_ROUTE_READY',
             );
             if (trim((string) $routeHealth) !== 'ALPHALINK_TRACKING_ROUTE_READY') {
-                throw new RuntimeException('The installed DMS campaign tracking route is not reachable through Apache.');
+                throw new RuntimeException('Apache did not route the tracking probe through the Laravel app.');
             }
         }
     }

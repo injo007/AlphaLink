@@ -187,6 +187,7 @@ class DmsCentos9InstallWorkflow
                 $deploymentDomain, $deploymentSubdomains, $assets['mini_app'], $assets['cloudflare_ips'],
                 $settings['mini_app_url'], $settings['mini_app_key'],
                 $options['https'] && $primaryDomainReady,
+                (string) config('app.name', 'NA'),
             );
             $log('End Setting Tracking App');
         }

@@ -37,6 +37,8 @@ class DmsCentos9TrackingDeploymentStageTest extends TestCase
         $this->assertStringContainsString('ALPHALINK_TRACKING_ROUTE_READY', $commands->commands[array_key_last($commands->commands)]);
         $this->assertContains('cd /var/mini && php artisan optimize', $commands->commands);
         $this->assertContains('chmod 600 /var/mini/.env', $commands->commands);
+        $this->assertStringContainsString('APP_NAME="AlphaLink"', $files->uploads['/var/mini/.env']);
+        $this->assertStringContainsString('SESSION_COOKIE=alphalink-session', $files->uploads['/var/mini/.env']);
         $this->assertMatchesRegularExpression('/APP_ENV=production\\nAPP_DEBUG=false\\nAPP_KEY=base64:[A-Za-z0-9+\\/=]+\\nAPP_URL=https:\/\/mail.example.test\\n/', $files->uploads['/var/mini/.env']);
         $this->assertSame('synthetic zip bytes', $files->uploads['/var/mini/mini_app.zip']);
         $this->assertStringContainsString('ServerName mail.example.test', $files->uploads['/etc/httpd/conf.d/mail_example_test.conf']);
@@ -48,7 +50,8 @@ class DmsCentos9TrackingDeploymentStageTest extends TestCase
         );
         $this->assertStringContainsString('httpd -M', implode("\n", $commands->commands));
         $this->assertStringContainsString('/ALPHALINKTRACK10rprobe', $commands->commands[array_key_last($commands->commands)]);
-        $this->assertStringContainsString('test "$status" = 403', $commands->commands[array_key_last($commands->commands)]);
+        $this->assertStringContainsString('test -s /var/mini/public/.htaccess', $commands->commands[array_key_last($commands->commands)]);
+        $this->assertStringContainsString('Set-Cookie: alphalink-session=', $commands->commands[array_key_last($commands->commands)]);
         $this->assertSame(['/var/mini/app/Helper.php'], $files->downloads);
         $this->assertStringNotContainsString('synthetic-private-key', implode("\n", $commands->commands));
     }

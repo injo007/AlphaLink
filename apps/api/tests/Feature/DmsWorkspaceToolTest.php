@@ -65,6 +65,8 @@ class DmsWorkspaceToolTest extends TestCase
 
     public function test_workspace_projects_and_accounts_are_separate_dms_nav_pages_and_workspace_scoped(): void
     {
+        $operator = User::factory()->create();
+        $this->workspace->users()->attach($operator->id, ['role' => 'operator']);
         $project = $this->project();
         $account = WorkspaceGoogleAccount::query()->create([
             'workspace_id' => $this->workspace->id,
@@ -81,15 +83,22 @@ class DmsWorkspaceToolTest extends TestCase
         $projectsPage = $this->get(route('console.gcampaigns.projects', $this->workspace->id));
         $projectsPage
             ->assertOk()->assertSee('GMAIL PROJECTS')->assertSee($project->name)
-            ->assertSee('id="workspace-project-save">SAVE</button>', false)->assertSee('workspace-project-table')
-            ->assertSee('workspace-project-s3-toggle')->assertSee('workspace-project-s3-link')
-            ->assertSee('workspace-project-s3-sync')->assertSee('Each non-empty file becomes a Workspace project')
+            ->assertSee('workspace-project-add')->assertDontSee('workspace-project-form')->assertSee('workspace-project-table')
+            ->assertSee('ALLOWED USERS')->assertDontSee('<th>Allowed Mailers</th>', false)
             ->assertSee('ENABLE / DISABLE PROJECTS')->assertSee('DELETE SELECTED')
-            ->assertSee('<th>type</th><th>name</th><th>total accounts</th><th>created at</th>', false)
+            ->assertSee('<th>TYPE</th><th>NAME</th><th>TOTAL ACCOUNTS</th><th>CREATED AT</th>', false)
+            ->assertSee('SELECT NONE')->assertSee('SELECT ALL')->assertSee('ADD NEW PROJECT')
             ->assertSee('<td>Workspace</td>', false)
             ->assertSee('workspace-projects-all')
             ->assertSee($this->cleanWorkspaceUrl(route('console.gcampaigns.accounts', [$this->workspace->id, 'project' => $project->id])))
             ->assertSee('datatables.min.js')->assertDontSee('BEGIN PRIVATE KEY');
+        $this->get(route('console.tools.workspace.projects.create', $this->workspace->id))
+            ->assertOk()->assertSee('ADD PROJECT')->assertSee('workspace-project-create-s3')
+            ->assertSee('workspace-project-create-s3-link')->assertSee('workspace-project-create-s3-sync')
+            ->assertSee('SYNC imports every project file in the S3 folder')
+            ->assertSee('workspace-project-create-save')->assertSee('workspace-project-create-service-account')
+            ->assertSee('https://www.googleapis.com/auth/admin.directory.user.alias')
+            ->assertSee($operator->email)->assertDontSee('BEGIN PRIVATE KEY');
         $this->assertSame(2, $projectsPage->viewData('projects')->first()->accounts_count);
         $otherProject = WorkspaceGoogleProject::query()->create([
             'workspace_id' => $this->workspace->id,
@@ -120,6 +129,7 @@ class DmsWorkspaceToolTest extends TestCase
         ]);
         $this->get(route('console.gcampaigns.projects', $otherWorkspace->id))->assertNotFound();
         $this->get(route('console.gcampaigns.accounts', $otherWorkspace->id))->assertNotFound();
+        $this->get(route('console.tools.workspace.projects.create', $otherWorkspace->id))->assertNotFound();
     }
 
     public function test_project_creation_queues_dms_google_admin_sync_encrypts_credentials_and_allows_duplicate_names(): void
@@ -780,6 +790,10 @@ class DmsWorkspaceToolTest extends TestCase
         $this->assertNotNull($relayActivation);
         $this->assertStringContainsString('systemctl is-active --quiet workspace_relay.service', $relayActivation);
         $this->assertStringContainsString('ss -H -ltn sport = :1028', $relayActivation);
+        $this->assertStringContainsString('tr -d "\\r"', $relayActivation, 'Normalize the relay greeting CRLF before matching the SMTP banner.');
+        $this->assertStringContainsString('for attempt in $(seq 1 30)', $relayActivation);
+        $this->assertStringContainsString('ESMTP Service Ready', $relayActivation);
+        $this->assertStringContainsString('journalctl -u workspace_relay.service', $relayActivation);
         $this->assertStringNotContainsString('kill -9', implode("\n", $executedCommands));
         $this->assertNotNull($uploadedConfiguration);
         $this->assertStringContainsString('smtp-source-ip '.$ip->ip, $uploadedConfiguration);
@@ -842,6 +856,9 @@ class DmsWorkspaceToolTest extends TestCase
 
         $session = Mockery::mock(DmsInstallerSshSession::class);
         $session->shouldReceive('exec')->andReturnUsing(function (string $command): string {
+            if (str_contains($command, '__WORKSPACE_RELAY_NOT_READY__')) {
+                return '__WORKSPACE_RELAY_NOT_READY__ service=failed sub=failed result=exit-code exec_status=2 listener= reason=synthetic startup failure';
+            }
             if (str_contains($command, '__WORKSPACE_RELAY_READY__')) {
                 return '';
             }
@@ -869,7 +886,7 @@ class DmsWorkspaceToolTest extends TestCase
             'split_on_ips' => false,
         ])->assertOk()->assertJsonPath(
             'data.0.data',
-            'Workspace relay failed its post-install service or listener health check. Existing Workspace SMTP routes were disabled until a healthy push succeeds.',
+            'Workspace relay readiness failed after restart: service=failed sub=failed result=exit-code exec_status=2 listener= reason=synthetic startup failure. Existing Workspace SMTP routes remain disabled until a healthy push succeeds.',
         )->assertJsonPath('data.0.success', false);
 
         $this->assertDatabaseHas('managed_server_mtas', ['id' => $oldRoute->id, 'is_active' => false]);

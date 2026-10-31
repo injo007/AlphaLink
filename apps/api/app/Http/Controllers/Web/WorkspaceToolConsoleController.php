@@ -42,10 +42,17 @@ class WorkspaceToolConsoleController extends Controller
         $projects = WorkspaceGoogleProject::query()->availableTo($workspace, $request->user())
             ->withCount('accounts')->orderByDesc('id')->get();
         $canManageProjects = $this->canManageProjects($workspace);
+
+        return view('console.tools.workspace.projects', compact('workspace', 'projects', 'canManageProjects'));
+    }
+
+    public function createProject(Request $request, string $workspace): View
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
         $operators = $this->workspaceOperators($workspace);
         $s3Link = Cache::get('workspace-project-s3-link:'.$workspace->id, '');
 
-        return view('console.tools.workspace.projects', compact('workspace', 'projects', 's3Link', 'canManageProjects', 'operators'));
+        return view('console.tools.workspace.project-create', compact('workspace', 'operators', 's3Link'));
     }
 
     public function accounts(Request $request, string $workspace): View

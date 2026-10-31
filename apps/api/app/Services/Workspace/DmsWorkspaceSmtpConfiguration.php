@@ -404,25 +404,50 @@ class DmsWorkspaceSmtpConfiguration
         );
 
         $relayDeploymentMayBeBroken = true;
-        $activation = $session->exec(
-            'set -e; systemctl stop workspace_relay.service >/dev/null 2>&1 || true; '
-                .'chmod 700 '.escapeshellarg($binaryTemporary).' && chown root:root '.escapeshellarg($binaryTemporary)
-                .' && mv -f '.escapeshellarg($binaryTemporary).' '.escapeshellarg($binaryDestination)
-                .' && chmod 600 '.escapeshellarg($configurationTemporary)
-                .' && chown root:root '.escapeshellarg($configurationTemporary)
-                .' && mv -f '.escapeshellarg($configurationTemporary).' '.escapeshellarg($configurationDestination)
-                .' && chmod 600 /etc/workspace_relay/accounts/*.json'
-                .' && chown root:root '.escapeshellarg($serviceTemporary)
-                .' && mv -f '.escapeshellarg($serviceTemporary).' '.escapeshellarg($serviceDestination)
-                .' && systemctl daemon-reload && systemctl enable workspace_relay.service'
-                .' && systemctl restart workspace_relay.service'
-                .' && systemctl is-active --quiet workspace_relay.service'
-                .' && ss -H -ltn sport = :1028 | awk \'{print $4}\' | grep -Fxq 127.0.0.1:1028'
-                .' && echo __WORKSPACE_RELAY_READY__',
-        );
+        $bannerProbe = 'timeout 2 bash -c '.escapeshellarg(
+            'exec 3<>/dev/tcp/127.0.0.1/1028; IFS= read -r -t 2 greeting <&3; printf "%s" "$greeting" | tr -d "\\r"',
+        ).' 2>/dev/null || true';
+        $lastRelayLog = 'journalctl -u workspace_relay.service -n 4 --no-pager -o cat 2>/dev/null | tail -n 1 | tr "\\n" " " | cut -c1-300';
+        $activationScript = 'set -e; systemctl stop workspace_relay.service >/dev/null 2>&1 || true; '
+            .'chmod 700 '.escapeshellarg($binaryTemporary).' && chown root:root '.escapeshellarg($binaryTemporary)
+            .' && mv -f '.escapeshellarg($binaryTemporary).' '.escapeshellarg($binaryDestination)
+            .' && chmod 600 '.escapeshellarg($configurationTemporary)
+            .' && chown root:root '.escapeshellarg($configurationTemporary)
+            .' && mv -f '.escapeshellarg($configurationTemporary).' '.escapeshellarg($configurationDestination)
+            .' && chmod 600 /etc/workspace_relay/accounts/*.json'
+            .' && chown root:root '.escapeshellarg($serviceTemporary)
+            .' && mv -f '.escapeshellarg($serviceTemporary).' '.escapeshellarg($serviceDestination)
+            .' && systemctl daemon-reload && systemctl enable workspace_relay.service; '
+            .'if ! systemctl restart workspace_relay.service >/dev/null 2>&1; then '
+            .'printf "__WORKSPACE_RELAY_RESTART_FAILED__ service=%s sub=%s result=%s exec_status=%s listener=%s reason=%s\\n" '
+            .'"$(systemctl show -p ActiveState --value workspace_relay.service 2>/dev/null || echo unknown)" '
+            .'"$(systemctl show -p SubState --value workspace_relay.service 2>/dev/null || echo unknown)" '
+            .'"$(systemctl show -p Result --value workspace_relay.service 2>/dev/null || echo unknown)" '
+            .'"$(systemctl show -p ExecMainStatus --value workspace_relay.service 2>/dev/null || echo unknown)" '
+            .'"$(ss -H -ltn sport = :1028 2>/dev/null | awk \'{print $4}\' | paste -sd, -)" '
+            .'"$(' .$lastRelayLog .')"; exit 0; fi; '
+            .'for attempt in $(seq 1 30); do '
+            .'if systemctl is-active --quiet workspace_relay.service; then '
+            .'banner=$('.$bannerProbe.'); '
+            .'if printf "%s\\n" "$banner" | grep -Eq "^220 .*ESMTP Service Ready$"; then '
+            .'echo __WORKSPACE_RELAY_READY__; exit 0; fi; fi; sleep 1; done; '
+            .'printf "__WORKSPACE_RELAY_NOT_READY__ service=%s sub=%s result=%s exec_status=%s listener=%s reason=%s\\n" '
+            .'"$(systemctl show -p ActiveState --value workspace_relay.service 2>/dev/null || echo unknown)" '
+            .'"$(systemctl show -p SubState --value workspace_relay.service 2>/dev/null || echo unknown)" '
+            .'"$(systemctl show -p Result --value workspace_relay.service 2>/dev/null || echo unknown)" '
+            .'"$(systemctl show -p ExecMainStatus --value workspace_relay.service 2>/dev/null || echo unknown)" '
+            .'"$(ss -H -ltn sport = :1028 2>/dev/null | awk \'{print $4}\' | paste -sd, -)" '
+            .'"$(' .$lastRelayLog .')"; exit 0';
+        $activation = $session->exec('bash -c '.escapeshellarg($activationScript).' 2>&1');
         if (! is_string($activation) || ! str_contains($activation, '__WORKSPACE_RELAY_READY__')) {
             $session->exec('rm -f '.escapeshellarg($binaryTemporary).' '.escapeshellarg($configurationTemporary).' '.escapeshellarg($serviceTemporary));
-            throw new RuntimeException('Workspace relay failed its post-install service or listener health check. Existing Workspace SMTP routes were disabled until a healthy push succeeds.');
+            $diagnostic = preg_match('/__WORKSPACE_RELAY_(?:RESTART_FAILED|NOT_READY)__ ([^\r\n]+)/', (string) $activation, $matches)
+                ? trim($matches[1])
+                : 'activation command failed before the service became ready';
+            $diagnostic = preg_replace('/\b(password|token|secret|private[_ -]?key)\b\s*[=:]\s*\S+/i', '${1}=[redacted]', $diagnostic) ?? $diagnostic;
+            $diagnostic = preg_replace('/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i', '[email]', $diagnostic) ?? $diagnostic;
+            $diagnostic = mb_substr($diagnostic, 0, 700);
+            throw new RuntimeException('Workspace relay readiness failed after restart: '.$diagnostic.'. Existing Workspace SMTP routes remain disabled until a healthy push succeeds.');
         }
     }
 

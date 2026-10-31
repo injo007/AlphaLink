@@ -118,6 +118,7 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::get('/app/workspaces/{workspace}/tools/workspace', [WorkspaceToolConsoleController::class, 'index'])->name('console.tools.workspace.index');
     Route::get('/app/workspaces/{workspace}/gcampaigns/projects', [WorkspaceToolConsoleController::class, 'projects'])->name('console.gcampaigns.projects');
     Route::get('/app/workspaces/{workspace}/gcampaigns/accounts', [WorkspaceToolConsoleController::class, 'accounts'])->name('console.gcampaigns.accounts');
+    Route::get('/app/workspaces/{workspace}/tools/workspace/projects/create', [WorkspaceToolConsoleController::class, 'createProject'])->name('console.tools.workspace.projects.create');
     Route::post('/app/workspaces/{workspace}/tools/workspace/projects', [WorkspaceToolConsoleController::class, 'storeProject'])->middleware('throttle:10,1')->name('console.tools.workspace.projects.store');
     Route::post('/app/workspaces/{workspace}/tools/workspace/projects/sync-s3', [WorkspaceToolConsoleController::class, 'syncS3Projects'])->middleware('throttle:5,1')->name('console.tools.workspace.projects.sync-s3');
     Route::get('/app/workspaces/{workspace}/tools/workspace/projects/access', [WorkspaceToolConsoleController::class, 'bulkProjectUsers'])->name('console.tools.workspace.projects.access');

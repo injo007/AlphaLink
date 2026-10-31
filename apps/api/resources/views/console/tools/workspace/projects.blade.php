@@ -7,64 +7,23 @@
         <div class="block-header">
             <h3 class="block-title">GMAIL PROJECTS</h3>
             <div class="block-options">
-                <button class="btn btn-sm btn-secondary" type="button" id="workspace-project-refresh" title="REFRESH PROJECTS" aria-label="Refresh projects"><i class="fas fa-sync" aria-hidden="true"></i></button>
-                <button class="btn btn-sm btn-primary" type="button" data-toggle="collapse" data-target="#workspace-project-create" aria-expanded="false" aria-controls="workspace-project-create">
-                    <i class="fa fa-plus mr-1" aria-hidden="true"></i> ADD PROJECT
-                </button>
                 <button class="btn-block-option" type="button" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen"></button>
             </div>
         </div>
         <div class="block-content">
             <div id="workspace-project-status" class="alert d-none" role="status" aria-live="polite"></div>
-            <div class="mb-2" role="group" aria-label="Selected project actions">
-                <button class="btn btn-sm btn-outline-secondary" id="workspace-projects-status" type="button">ENABLE / DISABLE PROJECTS</button>
+            <div class="d-none" aria-hidden="true">
+                <button id="workspace-projects-status" type="button">ENABLE / DISABLE PROJECTS</button>
                 @if ($canManageProjects)
-                    <button class="btn btn-sm btn-info" id="workspace-projects-users" type="button">ALLOWED MAILERS</button>
-                    <button class="btn btn-sm btn-danger" id="workspace-projects-delete" type="button">DELETE SELECTED</button>
+                    <button id="workspace-projects-users" type="button">ALLOWED USERS</button>
+                    <button id="workspace-projects-delete" type="button">DELETE SELECTED</button>
                 @endif
-            </div>
-            <div class="collapse mb-4" id="workspace-project-create">
-                <div class="custom-control custom-switch mb-3">
-                    <input class="custom-control-input" id="workspace-project-s3-toggle" type="checkbox" aria-controls="workspace-project-s3-panel">
-                    <label class="custom-control-label" for="workspace-project-s3-toggle">S3</label>
-                </div>
-                <div class="border rounded p-3 mb-3 d-none" id="workspace-project-s3-panel">
-                    <h4 class="font-size-base mb-3">SYNC PROJECTS FROM S3</h4>
-                    <div class="form-group">
-                        <label for="workspace-project-s3-link">Public S3 folder URL</label>
-                        <input class="form-control" id="workspace-project-s3-link" type="url" maxlength="2048" autocomplete="url" value="{{ $s3Link }}" placeholder="https://bucket.s3.region.amazonaws.com/project-folder" required>
-                        <small class="form-text text-muted">Each non-empty file becomes a Workspace project named from its filename. New or changed projects queue an account sync.</small>
-                    </div>
-                    <button class="btn btn-primary" type="button" id="workspace-project-s3-sync">SYNC</button>
-                </div>
-                <form id="workspace-project-form" class="border rounded p-3">
-                    <h4 class="font-size-base mb-3">ADD WORKSPACE PROJECT</h4>
-                    <div class="form-group">
-                        <label for="workspace-project-name">Project name</label>
-                        <input class="form-control" id="workspace-project-name" type="text" maxlength="255" required autocomplete="off">
-                    </div>
-                    <div class="form-group">
-                        <label for="workspace-service-account">Service account JSON</label>
-                        <textarea class="form-control" id="workspace-service-account" rows="8" spellcheck="false" autocomplete="off" required placeholder="Paste the Google service-account JSON with Workspace domain-wide delegation enabled"></textarea>
-                        <small class="form-text text-muted">Stored encrypted. Saving reads accounts from Google Admin Directory.</small>
-                    </div>
-                    <div class="form-group">
-                        <label>Allowed Mailers</label>
-                        @forelse ($operators as $operator)
-                            <div class="custom-control custom-checkbox mb-1">
-                                <input class="custom-control-input workspace-project-user" type="checkbox" id="workspace-project-user-{{ $operator->id }}" value="{{ $operator->id }}">
-                                <label class="custom-control-label" for="workspace-project-user-{{ $operator->id }}">{{ $operator->name }} | {{ $operator->email }}</label>
-                            </div>
-                        @empty
-                            <small class="form-text text-muted">There are no active operators in this workspace to assign.</small>
-                        @endforelse
-                    </div>
-                    <button class="btn btn-primary" type="submit" id="workspace-project-save">SAVE</button>
-                </form>
+                <button id="workspace-project-refresh" type="button">REFRESH PROJECTS</button>
+                <button id="workspace-project-add" type="button">ADD PROJECT</button>
             </div>
             <div class="table-responsive">
                 <table id="workspace-project-table" class="table table-sm table-hover table-striped">
-                    <thead><tr><th><input type="checkbox" id="workspace-projects-all" aria-label="Select all projects on this page"></th><th>#</th><th>type</th><th>name</th><th>total accounts</th><th>created at</th><th>Allowed Mailers</th><th>Actions</th></tr></thead>
+                    <thead><tr><th><input type="checkbox" id="workspace-projects-all" aria-label="Select all projects on this page"></th><th>#</th><th>TYPE</th><th>NAME</th><th>TOTAL ACCOUNTS</th><th>CREATED AT</th><th>ACTIONS</th></tr></thead>
                     <tbody>
                         @forelse ($projects as $project)
                             <tr>
@@ -74,7 +33,6 @@
                                 <td>{{ $project->name }}@if ($project->sync_error)<div class="small text-danger">{{ $project->sync_error }}</div>@endif</td>
                                 <td><a href="{{ route('console.gcampaigns.accounts', [$workspace->id, 'project' => $project->id]) }}">{{ $project->accounts_count }}</a></td>
                                 <td>{{ $project->created_at?->format('Y-m-d H:i:s') ?? '—' }}</td>
-                                <td>{{ $project->allowed_users === null ? 'Legacy access' : count($project->allowed_users) }}</td>
                                 <td class="text-nowrap">
                                     <button class="btn btn-sm btn-info" type="button" data-project-sync="{{ $project->id }}" title="SYNC PROJECT{{ $project->synced_at ? ' — Last synced '.$project->synced_at->format('Y-m-d H:i:s') : ' — Not synced yet' }}" aria-label="Sync {{ $project->name }}"><i class="fas fa-sync" aria-hidden="true"></i></button>
                                     <button class="btn btn-sm {{ $project->is_active ? 'btn-warning' : 'btn-success' }}" type="button" data-project-status="{{ $project->id }}" title="{{ $project->is_active ? 'DISABLE' : 'ENABLE' }} PROJECT" aria-label="{{ $project->is_active ? 'Disable' : 'Enable' }} {{ $project->name }}"><i class="fas {{ $project->is_active ? 'fa-minus' : 'fa-check' }}" aria-hidden="true"></i></button>
@@ -85,7 +43,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="8" class="text-muted">No Workspace projects have been added.</td></tr>
+                            <tr><td colspan="7" class="text-muted">No Workspace projects have been added.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -100,11 +58,6 @@
             const base = @json(url('/app/workspaces/'.$workspace->id.'/tools/workspace'));
             const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
             const status = document.getElementById('workspace-project-status');
-            const form = document.getElementById('workspace-project-form');
-            const save = document.getElementById('workspace-project-save');
-            const s3Toggle = document.getElementById('workspace-project-s3-toggle');
-            const s3Panel = document.getElementById('workspace-project-s3-panel');
-            const s3Sync = document.getElementById('workspace-project-s3-sync');
             let frameModal = null;
             const request = async (url, method = 'POST', body = {}) => {
                 const response = await fetch(url, {method, headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':csrf}, body: method === 'GET' ? undefined : JSON.stringify(body)});
@@ -124,10 +77,7 @@
             };
             window.closeModal = function () { frameModal?.modal('hide'); window.location.reload(); };
 
-            s3Toggle.addEventListener('change', () => {
-                s3Panel.classList.toggle('d-none', !s3Toggle.checked);
-                form.classList.toggle('d-none', s3Toggle.checked);
-            });
+            document.getElementById('workspace-project-add').addEventListener('click', () => openFrame(`${base}/projects/create`));
 
             document.getElementById('workspace-project-refresh').addEventListener('click', () => window.location.reload());
 
@@ -187,37 +137,6 @@
                 }
             });
 
-            form.addEventListener('submit', async (event) => {
-                event.preventDefault();
-                busy(save, true);
-                try {
-                    const result = await request(`${base}/projects`, 'POST', {
-                        name: document.getElementById('workspace-project-name').value.trim(),
-                        service_account_json: document.getElementById('workspace-service-account').value,
-                        users: [...document.querySelectorAll('.workspace-project-user:checked')].map((checkbox) => Number(checkbox.value)),
-                    });
-                    showStatus(result.message);
-                    window.setTimeout(() => window.location.reload(), 900);
-                } catch (error) {
-                    showStatus(error.message, false);
-                    busy(save, false);
-                }
-            });
-
-            s3Sync.addEventListener('click', async () => {
-                const input = document.getElementById('workspace-project-s3-link');
-                if (!input.reportValidity()) return;
-                busy(s3Sync, true);
-                try {
-                    const result = await request(`${base}/projects/sync-s3`, 'POST', {link: input.value.trim()});
-                    showStatus(`${result.message}. ${result.unchanged ?? 0} unchanged.`);
-                    window.setTimeout(() => window.location.reload(), 1400);
-                } catch (error) {
-                    showStatus(error.message, false);
-                    busy(s3Sync, false);
-                }
-            });
-
             document.addEventListener('click', async (event) => {
                 const button = event.target.closest('[data-project-sync], [data-project-status], [data-project-delete], [data-project-edit]');
                 if (!button) return;
@@ -244,7 +163,25 @@
                 }
             });
 
-            if (window.jQuery?.fn?.DataTable) window.jQuery('#workspace-project-table').DataTable({pageLength:50, order:[[1,'desc']]});
+            if (window.jQuery?.fn?.DataTable) {
+                const grid = window.jQuery('#workspace-project-table').DataTable({
+                    dom:'<"dms-table-tools"B>frtip',
+                    pageLength:50,
+                    order:[[1,'desc']],
+                    buttons:[
+                        {extend:'pageLength'},
+                        {text:'<i class="far fa-square"></i>',titleAttr:'SELECT NONE',action:(event,table)=>{table.rows({page:'current'}).nodes().to$().find('.workspace-project-select').prop('checked',false);document.getElementById('workspace-projects-all').checked=false;}},
+                        {text:'<i class="far fa-check-square"></i>',titleAttr:'SELECT ALL',action:(event,table)=>{table.rows({page:'current'}).nodes().to$().find('.workspace-project-select').prop('checked',true);document.getElementById('workspace-projects-all').checked=true;}},
+                        {text:'<i class="fa fa-plus"></i>',titleAttr:'ADD NEW PROJECT',action:()=>document.getElementById('workspace-project-add').click()},
+                        {text:'<i class="fas fa-check"></i><i class="fas fa-times"></i>',titleAttr:'ENABLE / DISABLE PROJECTS',action:()=>document.getElementById('workspace-projects-status').click()},
+                        @if ($canManageProjects)
+                            {text:'<i class="fas fa-users"></i>',titleAttr:'ALLOWED USERS',action:()=>document.getElementById('workspace-projects-users').click()},
+                            {text:'<i class="fas fa-trash"></i>',titleAttr:'DELETE PROJECTS',action:()=>document.getElementById('workspace-projects-delete').click()},
+                        @endif
+                        {text:'<i class="fas fa-sync"></i>',titleAttr:'REFRESH PROJECTS',action:()=>document.getElementById('workspace-project-refresh').click()},
+                    ],
+                });
+            }
         })();
     </script>
 @endpush

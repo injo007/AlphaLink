@@ -57,7 +57,19 @@
             const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
             const selected = (element) => [...element.selectedOptions].map((option) => option.value);
             const draw = (rows) => { table.innerHTML = `<thead><tr><th class="col-md-4">Server</th><th class="col-md-8">Result</th></tr></thead><tbody class="collapse show">${rows.map((row) => `<tr><td>${escape(row.id)}</td><td><strong>${escape(row.data)}</strong></td></tr>`).join('')}</tbody>`; };
-            const showDialog = async (options) => { const dialog = window.Swal || window.swal; return dialog?.fire ? dialog.fire(options) : {isConfirmed: window.confirm(options.text || options.title || 'Continue?')}; };
+            const showDialog = async (options) => {
+                const dialog = window.swal?.fire ? window.swal : window.Swal?.fire ? window.Swal : null;
+                if (dialog) return dialog.fire(options);
+                if (options.input) {
+                    const value = window.prompt(options.inputPlaceholder || options.inputLabel || 'Enter a value');
+                    return {isConfirmed: value !== null, value: value ?? ''};
+                }
+                if (options.showCancelButton || options.showDenyButton || options.input) {
+                    return {isConfirmed: window.confirm([options.title, options.text].filter(Boolean).join('\n\n') || 'Continue?')};
+                }
+                window.alert([options.title, options.text].filter(Boolean).join('\n\n'));
+                return {isConfirmed: true};
+            };
             const runAction = async (button, action, successText) => {
                 busy(button, true);
                 showStatus(`${action} in progress…`, 'info');
@@ -90,13 +102,26 @@
                         } else {
                             showStatus(`${action} failed on ${failed} server${failed === 1 ? '' : 's'}. See the server results below.`, 'danger');
                         }
+                        if (action === 'RESET') {
+                            const summary = rows.map((row) => `${row.id}: ${row.data}`).join('\n');
+                            await showDialog({
+                                icon: failed === 0 ? 'success' : succeeded > 0 ? 'warning' : 'error',
+                                title: failed === 0 ? 'Workspace reset complete' : succeeded > 0 ? 'Workspace reset partially completed' : 'Workspace reset failed',
+                                text: summary,
+                                confirmButtonText: 'CLOSE',
+                            });
+                        }
                     } else {
                         table.innerHTML = `<tbody><tr><td colspan="2">${escape(payload.data || successText)}</td></tr></tbody>`;
                         showStatus(`${successText} No per-server results were returned.`, 'warning');
+                        if (action === 'RESET') {
+                            await showDialog({icon:'warning',title:'Workspace reset returned no server results',text:payload.data || 'The server did not return a reset result.',confirmButtonText:'CLOSE'});
+                        }
                     }
                 } catch (error) {
                     if (!table.innerHTML) table.innerHTML = `<tbody><tr><td colspan="2" class="text-danger">${escape(error.message)}</td></tr></tbody>`;
                     showStatus(error.message, 'danger');
+                    if (action === 'RESET') await showDialog({icon:'error',title:'Workspace reset failed',text:error.message,confirmButtonText:'CLOSE'});
                 } finally {
                     busy(button, false);
                 }
@@ -108,8 +133,12 @@
                     showStatus('Please select at least one IP.', 'danger');
                     return;
                 }
-                const decision = await showDialog({icon:'question',title:'Are you sure?',text:'Your SMTP configurations on these servers will be reset.',showCancelButton:true,confirmButtonText:'YES',allowOutsideClick:false,showCloseButton:true});
-                if (decision.isConfirmed || decision.value) await runAction(event.currentTarget, 'RESET', 'Workspace SMTP reset:');
+                const decision = await showDialog({icon:'question',title:'Are you sure ?',text:'Your Smtp\'s in those servers will be reset',showCancelButton:true,confirmButtonText:'YES',allowOutsideClick:false,showCloseButton:true});
+                if (decision.isConfirmed || decision.value) {
+                    await runAction(event.currentTarget, 'RESET', 'Workspace SMTP reset:');
+                } else {
+                    showStatus('RESET cancelled. No servers were changed.', 'info');
+                }
             });
             const applySelection = (select, values) => { if (window.jQuery?.fn?.selectpicker) window.jQuery(select).selectpicker('val', values).selectpicker('refresh'); else for (const option of select.options) option.selected = values.includes(option.value); };
             document.getElementById('workspace-search-ips').addEventListener('click', async () => { const result = await showDialog({input:'textarea',inputLabel:'Search Ips',inputPlaceholder:'Type your Ips here...',inputAttributes:{'aria-label':'Type your servers here'},showCancelButton:true}); const text = result.value; if (!text) return; const queries = [...new Set(text.split('\n').map((value) => value.trim().toLowerCase()).filter(Boolean))]; const ids = [...document.querySelectorAll('#workspace-ips option')].filter((option) => queries.some((query) => option.textContent.toLowerCase().trim().includes(query))).map((option) => option.value); applySelection(document.getElementById('workspace-ips'), ids); });

@@ -78,7 +78,11 @@ test('Workspace RESET uses the DMS confirmation and announces per-server success
     const page = createWorkspacePage([{ id: 'synthetic-server', data: 'Workspace SMTP reset successfully.', success: true }]);
     const button = page.elements.get('workspace-reset');
 
-    await button.listeners.get('click')({ currentTarget: button });
+    const event = { currentTarget: button };
+    const pending = button.listeners.get('click')(event);
+    // Browsers clear Event.currentTarget once the async listener yields.
+    event.currentTarget = null;
+    await pending;
 
     const status = page.elements.get('workspace-status');
     assert.match(status.textContent, /Workspace SMTP reset: 1 server completed successfully/);
@@ -101,7 +105,10 @@ test('Workspace RESET cancellation leaves the server untouched', async () => {
     const page = createWorkspacePage([], [{ isConfirmed: false, isDismissed: true }]);
     const button = page.elements.get('workspace-reset');
 
-    await button.listeners.get('click')({ currentTarget: button });
+    const event = { currentTarget: button };
+    const pending = button.listeners.get('click')(event);
+    event.currentTarget = null;
+    await pending;
 
     assert.equal(page.requests.length, 0);
     assert.match(page.elements.get('workspace-status').textContent, /RESET cancelled/);

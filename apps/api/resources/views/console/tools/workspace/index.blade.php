@@ -128,6 +128,10 @@
             };
             document.getElementById('workspace-push').addEventListener('click', (event) => runAction(event.currentTarget, 'PUSH', 'Workspace push:'));
             document.getElementById('workspace-reset').addEventListener('click', async (event) => {
+                // currentTarget is cleared as soon as this async listener yields
+                // at the confirmation dialog. Keep the button reference before
+                // awaiting so RESET can proceed after the user confirms.
+                const button = event.currentTarget;
                 if (!selected(document.getElementById('workspace-ips')).length) {
                     await showDialog({icon:'error',title:'Oops',text:'Please select at least one IP.'});
                     showStatus('Please select at least one IP.', 'danger');
@@ -135,7 +139,7 @@
                 }
                 const decision = await showDialog({icon:'question',title:'Are you sure ?',text:'Your Smtp\'s in those servers will be reset',showCancelButton:true,confirmButtonText:'YES',allowOutsideClick:false,showCloseButton:true});
                 if (decision.isConfirmed || decision.value) {
-                    await runAction(event.currentTarget, 'RESET', 'Workspace SMTP reset:');
+                    await runAction(button, 'RESET', 'Workspace SMTP reset:');
                 } else {
                     showStatus('RESET cancelled. No servers were changed.', 'info');
                 }

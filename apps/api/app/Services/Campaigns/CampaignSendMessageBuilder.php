@@ -23,6 +23,7 @@ class CampaignSendMessageBuilder
         private readonly DmsCampaignSendCatalog $catalog,
         private readonly DmsCampaignTagRenderer $tagRenderer,
         private readonly DmsBulkInstallVmtaPlanner $vmtaPlanner,
+        private readonly DmsCampaignTrackingTokenBuilder $trackingTokenBuilder,
     ) {}
 
     /** @return array<string, mixed> */
@@ -150,7 +151,7 @@ class CampaignSendMessageBuilder
             ->where('workspace_id', $context['workspace']->getKey())
             ->where('managed_server_id', $server->getKey())
             ->where('is_active', true)
-            ->with(['domain:id,name', 'history'])
+            ->with(['domain:id,name,is_our', 'history'])
             ->orderBy('id')
             ->get();
         $primaryIp = $ipRows->first(fn (ManagedServerIp $candidate): bool => (string) $candidate->ip === (string) $server->ip_address)
@@ -210,6 +211,10 @@ class CampaignSendMessageBuilder
         $header = $this->tagRenderer->render($context['header_template'], $tags, $context['placeholder_rows'], $position - 1, $cache);
         $body = $this->tagRenderer->render($context['body_template'], $tags, $context['placeholder_rows'], $position - 1, $cache);
         $returnPath = $this->tagRenderer->render($context['return_path'], $tags, $context['placeholder_rows'], $position - 1, $cache);
+        $trackingIpFallback = $this->trackingIpFallback($server, $routeIp);
+        if ($trackingIpFallback !== null) {
+            $body = $this->rewriteDmsTrackingHost($body, $domain, $trackingIpFallback, $token);
+        }
 
         if ($context['route'] === 'vmta') {
             $header = $this->replaceDomain($header, $context['domain_fallback'], $domain);
@@ -265,11 +270,11 @@ class CampaignSendMessageBuilder
 
     private function campaignToken(array $context, CampaignRecipientSnapshotItem $item, array $choice, array $from, array $subject): string
     {
-        $parts = [
+        return $this->trackingTokenBuilder->build([
             str_replace('-', '', (string) $context['campaign']->getKey()),
             str_replace('-', '', (string) $context['snapshot']->getKey()),
             str_replace('-', '', (string) $item->contact_id),
-            (string) $item->source_email_type,
+            $this->trackingType((string) $item->source_email_type),
             str_replace('-', '', (string) $item->source_list_id),
             (string) ($context['setup']['isp_id'] ?? '0'),
             str_replace('-', '', (string) ($choice['server_id'] ?? '0')),
@@ -278,11 +283,58 @@ class CampaignSendMessageBuilder
             (string) ($from['id'] ?? '0'),
             (string) ($subject['id'] ?? '0'),
             (string) ($context['setup']['creative_asset_id'] ?? '0'),
-            Str::random(18).'_'.hash('adler32', (string) config('app.name', 'NA'), false),
-        ];
-        $parts[] = hash('adler32', implode('_', array_slice($parts, 0, 3)), false);
+        ], (string) config('app.name', 'NA'));
+    }
 
-        return rtrim(strtr(base64_encode(implode('-', $parts)), '+/', '-_'), '=');
+    private function trackingType(string $sourceEmailType): string
+    {
+        return match ($sourceEmailType) {
+            'fresh' => 'f',
+            'delivery' => 'd',
+            'open' => 'o',
+            'click' => 'c',
+            'lead' => 'l',
+            'unsubscribe' => 'u',
+            default => substr($sourceEmailType, 0, 1),
+        };
+    }
+
+    private function trackingIpFallback(ManagedServer $server, ?ManagedServerIp $routeIp): ?string
+    {
+        $parameters = is_array($server->install_parameters) ? $server->install_parameters : [];
+        if (! ($parameters['tracking'] ?? false)) {
+            return null;
+        }
+
+        $configuredHost = trim((string) ($parameters['tracking_host'] ?? ''));
+        if (filter_var($configuredHost, FILTER_VALIDATE_IP) !== false) {
+            return $configuredHost;
+        }
+
+        $primaryAssignment = collect((array) ($parameters['data'] ?? []))->firstWhere('main', true);
+        $isOwnedDomain = $primaryAssignment['is_our'] ?? $routeIp?->domain?->is_our;
+        if ($isOwnedDomain === false) {
+            return (string) $server->ip_address;
+        }
+
+        return null;
+    }
+
+    private function rewriteDmsTrackingHost(string $body, string $domain, string $trackingHost, string $token): string
+    {
+        if ($body === '' || $domain === '' || $trackingHost === '' || $token === '') {
+            return $body;
+        }
+
+        $pattern = '#https?://'.preg_quote($domain, '#').'(?<path>/[^"\'\\s<>]*)#i';
+
+        return preg_replace_callback($pattern, static function (array $match) use ($trackingHost, $token): string {
+            if (! str_contains($match[0], $token)) {
+                return $match[0];
+            }
+
+            return 'http://'.$trackingHost.$match['path'];
+        }, $body) ?? $body;
     }
 
     /** @return list<array{id: int, value: string}> */

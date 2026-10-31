@@ -103,6 +103,25 @@ class DmsBulkInstallCompletionPlannerTest extends TestCase
         $this->assertTrue($serverStatus['is_installed']);
     }
 
+    public function test_it_persists_the_selected_public_ip_as_tracking_host_when_provider_domain_is_unavailable(): void
+    {
+        $rows = [['main' => true, 'ip' => '203.0.113.45', 'type' => 'ipv4', 'domain_id' => 7, 'sub' => '', 'domain' => 'missing.example.test']];
+        $options = [
+            'tracking' => true,
+            'proxy' => false,
+            'imap' => false,
+            'spf' => false,
+            'dkim' => false,
+            'dmarc' => false,
+            'https' => false,
+        ];
+
+        $operations = (new DmsBulkInstallCompletionPlanner)->plan(1, 7, false, $rows, 45, $options, false, '203.0.113.45');
+        $installation = collect($operations)->firstWhere('action', 'save_installation_config');
+
+        $this->assertSame('203.0.113.45', $installation['install_parameters']['tracking_host']);
+    }
+
     public function test_it_rejects_unformatted_rows_and_incomplete_or_non_boolean_options(): void
     {
         $planner = new DmsBulkInstallCompletionPlanner;

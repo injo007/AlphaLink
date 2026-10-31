@@ -25,6 +25,7 @@ use App\Services\Analytics\ImportDmsPmtaFeedback;
 use App\Services\Audiences\AudienceListHistoryCalculator;
 use App\Services\Campaigns\CampaignIpGeoResolver;
 use App\Services\Campaigns\CampaignRecipientSourceIdentity;
+use App\Services\Campaigns\DmsCampaignTrackingTokenBuilder;
 use App\Services\Campaigns\ProcessCampaignTrackingEvent;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -644,8 +645,25 @@ class CampaignTrackingTest extends TestCase
             'queue.connections.database.connection' => null,
         ]);
         $fixture = $this->recipientFixture();
+        $compact = fn (mixed $value): string => str_replace('-', '', (string) $value);
+        $token = app(DmsCampaignTrackingTokenBuilder::class)->build([
+            $compact($fixture['campaign']->getKey()),
+            $compact($fixture['snapshot']->getKey()),
+            $compact($fixture['contact']->getKey()),
+            'f',
+            $compact($fixture['list']->getKey()),
+            (string) $fixture['isp']->getKey(),
+            '0', '0', '0', '0', '0', '0',
+        ], (string) config('app.name', 'NA'));
+        $payload = $this->trackingPayload($fixture, 'open');
+        $payload['send_id'] = (string) $fixture['snapshot']->getKey();
+        $payload['token'] = $token;
 
-        $this->postJson('/api/v1/stats', $this->trackingPayload($fixture, 'open'))->assertNoContent();
+        // DMS Helper::validateToken strictly decodes this same standard Base64 shape.
+        $decoded = base64_decode($token, true);
+        $this->assertIsString($decoded);
+        $this->assertCount(14, explode('-', $decoded));
+        $this->postJson('/api/v1/stats', $payload)->assertNoContent();
 
         $this->assertSame(1, DB::table('jobs')->count());
         $this->assertSame(0, CampaignEngagementEvent::query()->count());

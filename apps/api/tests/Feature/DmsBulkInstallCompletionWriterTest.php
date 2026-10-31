@@ -143,6 +143,33 @@ class DmsBulkInstallCompletionWriterTest extends TestCase
         $this->assertSame('mark_server_installed', $lastOperation['action']);
     }
 
+    public function test_domain_without_provider_access_persists_public_ip_as_tracking_host(): void
+    {
+        $domain = $this->domain('unavailable-provider.example.org', true, 'free');
+        $dataIps = [[
+            'main' => true,
+            'ip' => $this->server->ip_address,
+            'type' => 'ipv4',
+            'domain_id' => $domain->getKey(),
+            'sub' => '',
+            'domain' => $domain->name,
+        ]];
+
+        app(DmsBulkInstallCompletionWriter::class)->finalize(
+            $this->workspace,
+            $this->server,
+            $domain,
+            $dataIps,
+            45,
+            $this->installOptions(),
+            [],
+            false,
+            $this->server->ip_address,
+        );
+
+        $this->assertSame($this->server->ip_address, $this->server->fresh()->install_parameters['tracking_host']);
+    }
+
     public function test_single_server_assignments_finalize_each_ip_against_its_selected_domain(): void
     {
         $external = $this->domain('external.example.org', false, 'free');

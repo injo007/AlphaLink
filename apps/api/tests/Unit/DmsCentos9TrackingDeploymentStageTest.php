@@ -14,7 +14,7 @@ class DmsCentos9TrackingDeploymentStageTest extends TestCase
     public function test_it_replays_dms_mini_app_and_apache_behavior_without_putting_the_key_in_commands(): void
     {
         $commands = new RecordingTrackingCommands;
-        $files = new RecordingTrackingFiles('url=[IP];key=[KEY];server=[ID]');
+        $files = new RecordingTrackingFiles('url=[IP];key=[KEY];server=[ID];decode=base64_decode($token, true)');
 
         (new DmsCentos9TrackingDeploymentStage)->run(
             $commands,
@@ -34,7 +34,7 @@ class DmsCentos9TrackingDeploymentStageTest extends TestCase
         $this->assertSame('dnf install -y httpd', $commands->commands[1]);
         $this->assertSame('mkdir -p /var/mini/', $commands->commands[2]);
         $this->assertSame('unzip -o /var/mini/mini_app.zip -d /var/mini', $commands->commands[3]);
-        $this->assertStringContainsString('ALPHALINK_TRACKING_READY', $commands->commands[array_key_last($commands->commands)]);
+        $this->assertStringContainsString('ALPHALINK_TRACKING_ROUTE_READY', $commands->commands[array_key_last($commands->commands)]);
         $this->assertContains('cd /var/mini && php artisan optimize', $commands->commands);
         $this->assertContains('chmod 600 /var/mini/.env', $commands->commands);
         $this->assertMatchesRegularExpression('/APP_ENV=production\\nAPP_DEBUG=false\\nAPP_KEY=base64:[A-Za-z0-9+\\/=]+\\nAPP_URL=https:\/\/mail.example.test\\n/', $files->uploads['/var/mini/.env']);
@@ -42,7 +42,13 @@ class DmsCentos9TrackingDeploymentStageTest extends TestCase
         $this->assertStringContainsString('ServerName mail.example.test', $files->uploads['/etc/httpd/conf.d/mail_example_test.conf']);
         $this->assertStringContainsString('ServerAlias a.mail.example.test b.mail.example.test', $files->uploads['/etc/httpd/conf.d/mail_example_test.conf']);
         $this->assertSame('synthetic trusted IPs', $files->uploads['/etc/httpd/conf.d/remoteip.conf']);
-        $this->assertSame('url=https://alpha.example.test;key=synthetic-private-key;server=42', $files->uploads['/var/mini/app/Helper.php']);
+        $this->assertSame(
+            "url=https://alpha.example.test;key=synthetic-private-key;server=42;decode=base64_decode(strtr(\$token, '-_', '+/'), true)",
+            $files->uploads['/var/mini/app/Helper.php'],
+        );
+        $this->assertStringContainsString('httpd -M', implode("\n", $commands->commands));
+        $this->assertStringContainsString('/ALPHALINKTRACK10rprobe', $commands->commands[array_key_last($commands->commands)]);
+        $this->assertStringContainsString('test "$status" = 403', $commands->commands[array_key_last($commands->commands)]);
         $this->assertSame(['/var/mini/app/Helper.php'], $files->downloads);
         $this->assertStringNotContainsString('synthetic-private-key', implode("\n", $commands->commands));
     }
@@ -73,6 +79,32 @@ class DmsCentos9TrackingDeploymentStageTest extends TestCase
 
         (new DmsCentos9TrackingDeploymentStage)->run(
             $commands, $files, '203.0.113.18', 42, 'mail.example.test', [], 'zip', null, 'https://alpha.example.test', 'private',
+        );
+    }
+
+    public function test_tracking_install_fails_when_apache_rewrite_is_unavailable(): void
+    {
+        $commands = new class extends RecordingTrackingCommands
+        {
+            public function exec(string $command): bool|string
+            {
+                $this->commands[] = $command;
+
+                if (str_contains($command, 'ALPHALINK_CALLBACK_READY')) {
+                    return 'ALPHALINK_CALLBACK_READY';
+                }
+
+                return '';
+            }
+        };
+        $files = new RecordingTrackingFiles('url=[IP];key=[KEY];server=[ID];base64_decode($token, true)');
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Apache mod_rewrite could not be enabled and validated for tracking links.');
+
+        (new DmsCentos9TrackingDeploymentStage)->run(
+            $commands, $files, '203.0.113.18', 42, 'mail.example.test', [], 'zip', null,
+            'https://alpha.example.test', 'private',
         );
     }
 
@@ -118,6 +150,12 @@ class RecordingTrackingCommands implements DmsInstallerRemoteCommandTransport
         }
         if (str_contains($command, 'ALPHALINK_TRACKING_READY')) {
             return 'ALPHALINK_TRACKING_READY';
+        }
+        if (str_contains($command, 'ALPHALINK_REWRITE_READY')) {
+            return 'ALPHALINK_REWRITE_READY';
+        }
+        if (str_contains($command, 'ALPHALINK_TRACKING_ROUTE_READY')) {
+            return 'ALPHALINK_TRACKING_ROUTE_READY';
         }
 
         return '';

@@ -16,7 +16,9 @@ use App\Models\CampaignSendRun;
 use App\Models\Contact;
 use App\Models\ContactListMembership;
 use App\Models\ManagedServer;
+use App\Models\ManagedServerIp;
 use App\Models\OutboxMessage;
+use App\Models\SendingDomain;
 use App\Models\SuppressionEvent;
 use App\Models\User;
 use App\Models\Workspace;
@@ -287,6 +289,99 @@ class CampaignSendExecutionLedgerTest extends TestCase
         $this->assertSame('completed', $run->fresh()->state);
         $this->assertSame(1, $run->fresh()->accepted_count);
         $this->assertSame('accepted', $run->deliveryAttempts()->sole()->state);
+    }
+
+    public function test_production_send_message_uses_dms_decodable_tokens_for_click_and_open_urls(): void
+    {
+        $fixture = $this->sendFixture();
+        $run = app(PrepareCampaignSendRun::class)->create(
+            $fixture['campaign'], $fixture['revision'], $fixture['snapshot'], $fixture['owner'], (string) Str::uuid(),
+        );
+        $server = ManagedServer::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(),
+            'name' => 'Synthetic tracking server',
+            'provider' => 'Fixture provider',
+            'ip_address' => '203.0.113.241',
+            'ssh_port' => 22,
+            'ssh_username' => 'root',
+            'state' => 'verified',
+            'is_active' => true,
+            'is_installed' => true,
+            'install_parameters' => [
+                'tracking' => true,
+                'data' => [['main' => true, 'ip' => '203.0.113.241', 'is_our' => false]],
+            ],
+            'idempotency_key' => (string) Str::uuid(),
+            'request_fingerprint' => hash('sha256', 'tracking-server'),
+            'created_by' => $fixture['owner']->getKey(),
+        ]);
+        $domain = SendingDomain::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(),
+            'name' => 'tracking.example.test',
+            'state' => 'verified',
+            'verification_token' => 'synthetic-tracking-domain',
+            'created_by' => $fixture['owner']->getKey(),
+            'status' => 'used',
+            'is_our' => false,
+            'is_active' => true,
+        ]);
+        $ip = ManagedServerIp::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(),
+            'managed_server_id' => $server->getKey(),
+            'sending_domain_id' => $domain->getKey(),
+            'ip' => $server->ip_address,
+            'type' => 'ipv4',
+            'dns' => $domain->name,
+            'is_active' => true,
+        ]);
+        $route = [
+            'id' => (string) $ip->getKey(),
+            'server_id' => (string) $server->getKey(),
+            'ip' => (string) $ip->ip,
+            'managed_server_ip_id' => (string) $ip->getKey(),
+            'sending_domain_id' => (string) $domain->getKey(),
+            'dns' => (string) $ip->dns,
+        ];
+        $context = [
+            'run' => $run,
+            'campaign' => $fixture['campaign'],
+            'revision' => $fixture['revision'],
+            'snapshot' => $fixture['snapshot'],
+            'offer' => $fixture['offer'],
+            'workspace' => $fixture['workspace'],
+            'setup' => ['isp_id' => 1, 'creative_asset_id' => 0, 'domain' => $domain->name],
+            'route' => 'ip',
+            'port' => 2525,
+            'servers' => collect([$server]),
+            'choices_by_server' => collect([(string) $server->getKey() => collect([$route])]),
+            'from_assets' => [],
+            'subject_assets' => [],
+            'negative_path' => '',
+            'placeholder_rows' => [],
+            'header_template' => "MIME-Version: 1.0\nContent-Type: text/html; charset=UTF-8\nTo: [to]\nFrom: sender@example.test\nSubject: Tracked message",
+            'body_template' => '<a href="http://[domain]/[rndUN_10]r[token]">Click</a><img src="http://[domain]/[rndUN_10]o[token]" alt=""><p>Message domain: http://[domain]/landing</p>',
+            'return_path' => '',
+            'domain_fallback' => $domain->name,
+        ];
+
+        $message = app(CampaignSendMessageBuilder::class)->build($context, $fixture['item'], $fixture['contact']->email);
+        preg_match_all('#http://203\.0\.113\.241/[A-Z0-9]{10}[ro]([^" ]+)#i', $message['body'], $matches);
+        preg_match_all('#http://tracking\.example\.test/[A-Z0-9]{10}[ro][^" ]+#i', $message['body'], $unrewrittenTrackingLinks);
+
+        $this->assertCount(2, $matches[1]);
+        $this->assertCount(0, $unrewrittenTrackingLinks[0]);
+        $this->assertStringContainsString('Message domain: http://tracking.example.test/landing', $message['body']);
+        foreach ($matches[1] as $token) {
+            $decoded = base64_decode($token, true);
+            $this->assertIsString($decoded);
+            $parts = explode('-', $decoded);
+            $this->assertCount(14, $parts);
+            $this->assertSame(str_replace('-', '', (string) $fixture['campaign']->getKey()), $parts[0]);
+            $this->assertSame(str_replace('-', '', (string) $fixture['snapshot']->getKey()), $parts[1]);
+            $this->assertSame(str_replace('-', '', (string) $fixture['contact']->getKey()), $parts[2]);
+            $this->assertSame('f', $parts[3]);
+            $this->assertSame(hash('adler32', implode('_', array_slice($parts, 0, 3))), $parts[13]);
+        }
     }
 
     public function test_planner_rejects_a_snapshot_from_another_campaign_or_workspace(): void

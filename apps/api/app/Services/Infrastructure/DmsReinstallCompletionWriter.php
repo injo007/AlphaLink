@@ -28,6 +28,7 @@ class DmsReinstallCompletionWriter
         array $options,
         ?string $requestId = null,
         bool $pmtaMonitorHttps = true,
+        ?string $trackingHost = null,
     ): void {
         if ((string) $server->workspace_id !== (string) $workspace->getKey()
             || $rows === []
@@ -35,7 +36,7 @@ class DmsReinstallCompletionWriter
             throw new InvalidArgumentException('The reinstall completion data is invalid.');
         }
 
-        DB::transaction(function () use ($workspace, $actor, $server, $rows, $pmtaVersion, $options, $requestId, $pmtaMonitorHttps): void {
+        DB::transaction(function () use ($workspace, $actor, $server, $rows, $pmtaVersion, $options, $requestId, $pmtaMonitorHttps, $trackingHost): void {
             if ($options['pmta']) {
                 ManagedServerMta::query()
                     ->where('workspace_id', $workspace->getKey())
@@ -88,6 +89,11 @@ class DmsReinstallCompletionWriter
                     ? $pmtaMonitorHttps
                     : (bool) (($server->install_parameters['pmta_monitor_https'] ?? false)),
             ];
+            if ($options['tracking'] && ($trackingHost !== null || ! isset($server->install_parameters['tracking_host']))) {
+                $installParameters['tracking_host'] = $trackingHost ?: (string) $server->ip_address;
+            } elseif (isset($server->install_parameters['tracking_host'])) {
+                $installParameters['tracking_host'] = $server->install_parameters['tracking_host'];
+            }
             $server->forceFill(['install_parameters' => $installParameters])->saveOrFail();
 
             AuditEvent::query()->create([

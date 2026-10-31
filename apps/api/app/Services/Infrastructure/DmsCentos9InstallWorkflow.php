@@ -302,10 +302,10 @@ class DmsCentos9InstallWorkflow
 
         if ($ipAssignments === null) {
             $completedOptions = [...$options, 'https' => $options['https'] && $primaryDomainReady];
-            $this->completion->finalize($workspace, $server, $primaryDomain, $ips, $pmtaVersion, $completedOptions, [], $pmtaMonitorHttps);
+            $this->completion->finalize($workspace, $server, $primaryDomain, $ips, $pmtaVersion, $completedOptions, [], $pmtaMonitorHttps, $monitorDomain ?? (string) $server->ip_address);
         } else {
             $completedOptions = [...$options, 'https' => $options['https'] && $primaryDomainReady];
-            $this->completion->finalize($workspace, $server, $primaryDomain, $ips, $pmtaVersion, $completedOptions, $selectedDomains, $pmtaMonitorHttps);
+            $this->completion->finalize($workspace, $server, $primaryDomain, $ips, $pmtaVersion, $completedOptions, $selectedDomains, $pmtaMonitorHttps, $monitorDomain ?? (string) $server->ip_address);
         }
         $publicPort = $settings['pmta_admin_port'];
         $adminUrl = PmtaPanelUrl::displayUrlForInstallation(

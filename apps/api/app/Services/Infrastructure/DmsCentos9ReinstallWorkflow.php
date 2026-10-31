@@ -345,6 +345,7 @@ class DmsCentos9ReinstallWorkflow
             [...$options, 'https' => $options['https'] && $mainDomainProviderReady],
             $requestId,
             $pmtaMonitorHttps,
+            $monitorDomain ?? (string) $server->ip_address,
         );
 
         $log('Ended Disconnecting From Server : '.$server->getKey());

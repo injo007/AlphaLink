@@ -325,6 +325,26 @@ class DmsServerReinstallTest extends TestCase
         $this->assertSame(2, AuditEvent::query()->where('action', 'server.reinstalled')->count());
     }
 
+    public function test_tracking_reinstall_persists_the_public_ip_when_provider_domain_is_unavailable(): void
+    {
+        app(DmsReinstallCompletionWriter::class)->finalize(
+            $this->workspace,
+            $this->owner,
+            $this->server,
+            $this->preparedSavedRows(),
+            45,
+            [...$this->completionOptions(false), 'tracking' => true],
+            (string) Str::uuid(),
+            false,
+            (string) $this->server->ip_address,
+        );
+
+        $this->assertSame(
+            $this->server->ip_address,
+            $this->server->fresh()->install_parameters['tracking_host'],
+        );
+    }
+
     public function test_reinstall_workflow_keeps_dms_stage_order_and_skips_pmta_when_unselected(): void
     {
         $this->firstDomain->forceFill(['is_our' => true, 'status' => 'free'])->save();

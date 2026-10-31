@@ -72,9 +72,20 @@ CONFIG;
             }
 
             $helper = $files->download('/var/mini/app/Helper.php');
-            if ($helper === false || ! str_contains($helper, '[IP]') || ! str_contains($helper, '[KEY]') || ! str_contains($helper, '[ID]')) {
+            if (
+                $helper === false
+                || ! str_contains($helper, '[IP]')
+                || ! str_contains($helper, '[KEY]')
+                || ! str_contains($helper, '[ID]')
+                || ! str_contains($helper, 'base64_decode($token, true)')
+            ) {
                 throw new RuntimeException('The tracking app helper is unavailable or does not contain the DMS placeholders.');
             }
+            $helper = str_replace(
+                'base64_decode($token, true)',
+                "base64_decode(strtr(\$token, '-_', '+/'), true)",
+                $helper,
+            );
             $configuredHelper = str_replace(
                 ['[IP]', '[KEY]', '[ID]'],
                 [$appUrl, $miniAppKey, (string) $serverId],
@@ -83,6 +94,13 @@ CONFIG;
             $this->uploadOrFail($files, $configuredHelper, '/var/mini/app/Helper.php');
             $commands->exec('cd /var/mini && php artisan optimize');
             $commands->exec('(crontab -l | grep \'mini\') || { crontab -l; echo "* * * * * cd /var/mini && php artisan schedule:run >> /dev/null 2>&1"; } | crontab -');
+
+            $rewriteModule = $commands->exec(
+                'httpd -M 2>/dev/null | grep -q rewrite_module || { test -f /etc/httpd/modules/mod_rewrite.so && printf \'%s\\n\' \'LoadModule rewrite_module modules/mod_rewrite.so\' > /etc/httpd/conf.modules.d/00-alphalink-rewrite.conf; } && httpd -t >/dev/null 2>&1 && printf ALPHALINK_REWRITE_READY',
+            );
+            if (trim((string) $rewriteModule) !== 'ALPHALINK_REWRITE_READY') {
+                throw new RuntimeException('Apache mod_rewrite could not be enabled and validated for tracking links.');
+            }
         }
 
         $commands->exec("grep -qxF 'ServerTokens Prod' /etc/httpd/conf/httpd.conf || echo ServerTokens Prod >> /etc/httpd/conf/httpd.conf;");
@@ -95,6 +113,13 @@ CONFIG;
             $localHealth = $commands->exec('curl -fsS --max-time 10 -H '.escapeshellarg('Host: '.$serverName).' http://127.0.0.1/ >/dev/null && printf ALPHALINK_TRACKING_READY');
             if (trim((string) $localHealth) !== 'ALPHALINK_TRACKING_READY') {
                 throw new RuntimeException('The installed tracking site did not answer its local HTTP health check.');
+            }
+
+            $routeHealth = $commands->exec(
+                'status=$(curl -sS --max-time 10 -o /dev/null -w \'%{http_code}\' -H '.escapeshellarg('Host: '.$serverName).' '.escapeshellarg('http://127.0.0.1/ALPHALINKTRACK10rprobe').'); test "$status" = 403 && printf ALPHALINK_TRACKING_ROUTE_READY',
+            );
+            if (trim((string) $routeHealth) !== 'ALPHALINK_TRACKING_ROUTE_READY') {
+                throw new RuntimeException('The installed DMS campaign tracking route is not reachable through Apache.');
             }
         }
     }

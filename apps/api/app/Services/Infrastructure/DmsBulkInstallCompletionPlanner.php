@@ -23,6 +23,7 @@ class DmsBulkInstallCompletionPlanner
         int $pmtaVersion,
         array $options,
         bool $pmtaMonitorHttps = true,
+        ?string $trackingHost = null,
     ): array {
         $this->validateRows($dataIps);
         $this->validateOptions($options);
@@ -75,6 +76,9 @@ class DmsBulkInstallCompletionPlanner
         // tracking HTTPS component. It can be disabled when no DNS-backed
         // hostname/certificate is available and the monitor uses the server IP.
         $installParameters['pmta_monitor_https'] = $pmtaMonitorHttps;
+        if ($trackingHost !== null && $trackingHost !== '') {
+            $installParameters['tracking_host'] = $trackingHost;
+        }
 
         $operations[] = [
             'action' => 'save_installation_config',

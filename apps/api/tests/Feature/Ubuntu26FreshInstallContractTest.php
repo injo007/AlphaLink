@@ -64,6 +64,28 @@ class Ubuntu26FreshInstallContractTest extends TestCase
         $this->assertStringNotContainsString("@source '../../storage/framework/views/", $tailwindCss);
     }
 
+    public function test_deploy_prunes_expired_artifacts_and_preflights_database_backup_before_downtime(): void
+    {
+        $repositoryRoot = dirname(base_path(), 2);
+        $installer = file_get_contents($repositoryRoot.'/install-ubuntu-26.sh');
+
+        $this->assertIsString($installer);
+        $cleanupPosition = strpos($installer, "info 'Pruning expired daily backups and releases outside the rollback window...'");
+        $capacityPosition = strpos($installer, 'SELECT pg_database_size(\'${DB_NAME}\')');
+        $maintenancePosition = strpos($installer, "info 'Entering maintenance mode and pausing background work...'");
+
+        $this->assertIsInt($cleanupPosition);
+        $this->assertIsInt($capacityPosition);
+        $this->assertIsInt($maintenancePosition);
+        $this->assertLessThan($maintenancePosition, $cleanupPosition);
+        $this->assertLessThan($maintenancePosition, $capacityPosition);
+        $this->assertStringContainsString("-name 'alphalink-*.dump' -mtime +14 -delete", $installer);
+        $this->assertStringContainsString('ExecStartPre=/usr/bin/find /var/backups/alphalink', $installer);
+        $this->assertStringContainsString('database needs at least ${required_backup_mib} MiB', $installer);
+        $this->assertStringContainsString('backup_staging_file="${backup_file}.partial-$$"', $installer);
+        $this->assertStringContainsString('if (( backup_verified == 0 ))', $installer);
+    }
+
     public function test_repository_install_bundle_contains_every_reviewed_nonsecret_asset(): void
     {
         $assetRoot = dirname(base_path(), 2).'/install-assets';

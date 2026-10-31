@@ -640,9 +640,10 @@ EOF
 deploy_release() {
     local requested_branch="${2:-}"
     local branch repository token='' temporary_release release_path release_sha
-    local previous_release backup_file switched=0 migrations_started=0
+    local previous_release backup_file backup_staging_file backup_free_kib database_bytes required_backup_kib
+    local backup_free_mib database_mib required_backup_mib switched=0 migrations_started=0 backup_verified=0
     local rollback_ok=1 service horizon_status
-    local rollback_domain app_domain old_release current_release quarantine_path
+    local rollback_domain app_domain old_release previous_backup current_release quarantine_path
     local reuse_built_release=0
     local -a old_releases=()
 
@@ -775,14 +776,53 @@ deploy_release() {
         normalize_release_permissions "$release_path"
     fi
 
-    previous_release="$current_release"
+    # Apply the same retention the daily backup unit and post-deploy release
+    # cleanup already promise before the database snapshot needs free space.
+    info 'Pruning expired daily backups and releases outside the rollback window...'
+    find "$BACKUP_ROOT" -maxdepth 1 -type f -name 'alphalink-*.dump' -mtime +14 -delete
+    while IFS= read -r previous_backup; do
+        if ! runuser -u postgres -- /usr/lib/postgresql/18/bin/pg_restore --list "$previous_backup" >/dev/null 2>&1; then
+            info "Removing an incomplete, unusable prior deployment backup: ${previous_backup##*/}"
+            rm -f -- "$previous_backup"
+        fi
+    done < <(find "$BACKUP_ROOT" -maxdepth 1 -type f -name 'deploy-*.dump' -print)
+    mapfile -t old_releases < <(find "$RELEASES_ROOT" -mindepth 1 -maxdepth 1 -type d \
+        -regextype posix-extended -regex '.*/[a-f0-9]{40}' -printf '%T@ %p\n' | sort -rn | awk 'NR > 5 { $1 = ""; sub(/^ /, ""); print }')
+    for old_release in "${old_releases[@]}"; do
+        [[ "$old_release" == "$current_release" || "$old_release" == "$release_path" ]] || rm -rf -- "$old_release"
+    done
+
     backup_file="${BACKUP_ROOT}/deploy-${release_sha}-$(date -u +%Y%m%dT%H%M%SZ).dump"
+    backup_staging_file="${backup_file}.partial-$$"
+    backup_free_kib="$(df -Pk "$BACKUP_ROOT" | awk 'NR == 2 { print $4 }')"
+    database_bytes="$(runuser -u postgres -- /usr/lib/postgresql/18/bin/psql -X -qAt --dbname=postgres \
+        --command="SELECT pg_database_size('${DB_NAME}')")"
+    backup_free_kib="${backup_free_kib//[[:space:]]/}"
+    database_bytes="${database_bytes//[[:space:]]/}"
+    [[ "$backup_free_kib" =~ ^[0-9]+$ ]] || fail 'Could not determine free space on the protected PostgreSQL backup filesystem; deployment stopped before maintenance mode.'
+    [[ "$database_bytes" =~ ^[0-9]+$ ]] || fail 'Could not estimate the AlphaLink database size; deployment stopped before maintenance mode.'
+    required_backup_kib=$(( (database_bytes + 1023) / 1024 + 262144 ))
+    backup_free_mib=$(( backup_free_kib / 1024 ))
+    database_mib=$(( (database_bytes + 1048575) / 1048576 ))
+    required_backup_mib=$(( required_backup_kib / 1024 ))
+    if (( backup_free_kib < required_backup_kib )); then
+        fail "Deployment stopped before maintenance mode: ${BACKUP_ROOT} has ${backup_free_mib} MiB free, while the ${database_mib} MiB database needs at least ${required_backup_mib} MiB for a verified rollback backup. Free disk space or move the protected backup directory to a larger filesystem, then retry."
+    fi
+    info "Verified backup capacity before downtime (${backup_free_mib} MiB free; database ${database_mib} MiB)."
+
+    previous_release="$current_release"
     rollback_deploy() {
         local exit_status=$?
         local failed_line="${1:-unknown}"
         trap - ERR
         set +e
         info "Deployment health step failed near installer line ${failed_line} (exit ${exit_status}); restoring the previous application state..."
+        if [[ -n "$backup_staging_file" && -e "$backup_staging_file" ]]; then
+            rm -f -- "$backup_staging_file"
+        fi
+        if (( backup_verified == 0 )) && [[ -n "$backup_file" && -e "$backup_file" ]]; then
+            rm -f -- "$backup_file"
+        fi
         if [[ ! -f "$SHARED_ROOT/storage/framework/maintenance.php" ]]; then
             runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" down --retry=60 >/dev/null 2>&1 || true
         fi
@@ -852,10 +892,12 @@ deploy_release() {
     runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" schedule:interrupt
 
     info 'Creating and verifying the pre-deploy PostgreSQL backup...'
-    runuser -u postgres -- /usr/lib/postgresql/18/bin/pg_dump --format=custom --dbname=alphalink --file="$backup_file"
-    [[ -s "$backup_file" ]]
-    runuser -u postgres -- /usr/lib/postgresql/18/bin/pg_restore --list "$backup_file" >/dev/null
-    chmod 0600 "$backup_file"
+    runuser -u postgres -- /usr/lib/postgresql/18/bin/pg_dump --format=custom --dbname=alphalink --file="$backup_staging_file"
+    [[ -s "$backup_staging_file" ]]
+    runuser -u postgres -- /usr/lib/postgresql/18/bin/pg_restore --list "$backup_staging_file" >/dev/null
+    chmod 0600 "$backup_staging_file"
+    mv -- "$backup_staging_file" "$backup_file"
+    backup_verified=1
 
     info "Activating release ${release_sha} and applying PostgreSQL migrations..."
     atomic_switch_release "$release_path"
@@ -1752,6 +1794,7 @@ Type=oneshot
 User=postgres
 Group=postgres
 UMask=0077
+ExecStartPre=/usr/bin/find /var/backups/alphalink -maxdepth 1 -type f -name alphalink-*.dump -mtime +14 -delete
 ExecStart=/bin/bash -euc '/usr/lib/postgresql/18/bin/pg_dump --format=custom --dbname=alphalink --file="/var/backups/alphalink/alphalink-$(/usr/bin/date -u +%%Y%%m%%dT%%H%%M%%SZ).dump"'
 ExecStartPost=/usr/bin/find /var/backups/alphalink -maxdepth 1 -type f -name alphalink-*.dump -mtime +14 -delete
 UNIT

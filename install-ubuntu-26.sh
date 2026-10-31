@@ -641,11 +641,13 @@ deploy_release() {
     local requested_branch="${2:-}"
     local branch repository token='' temporary_release release_path release_sha
     local previous_release backup_file backup_staging_file backup_free_kib database_bytes required_backup_kib
+    local release_archive_bytes release_archive_entries release_free_kib release_free_inodes
+    local required_release_kib required_release_mib required_release_inodes release_free_mib
     local backup_free_mib database_mib required_backup_mib switched=0 migrations_started=0 backup_verified=0
     local rollback_ok=1 service horizon_status
     local rollback_domain app_domain old_release previous_backup current_release quarantine_path
     local reuse_built_release=0
-    local -a old_releases=()
+    local -a old_releases=() old_deploy_backups=()
 
     [[ "${EUID}" -eq 0 ]] || fail 'Run deployment as root, for example: sudo bash /var/www/alphalink/current/install-ubuntu-26.sh --deploy.'
     [[ -L "$CURRENT_ROOT" && -d "$API_ROOT" && -d "$SOURCE_ROOT/.git" ]] || fail 'No release-based AlphaLink installation was found at /var/www/alphalink/current.'
@@ -729,9 +731,59 @@ deploy_release() {
         fi
     fi
 
+    # Free space before creating the new release. Previously these retention
+    # cleanups ran after extraction/build, so a full release filesystem filled
+    # during tar extraction before any cleanup could help.
+    info 'Pruning expired daily backups and releases outside the rollback window before staging...'
+    find "$BACKUP_ROOT" -maxdepth 1 -type f -name 'alphalink-*.dump' -mtime +14 -delete
+    while IFS= read -r previous_backup; do
+        if ! runuser -u postgres -- /usr/lib/postgresql/18/bin/pg_restore --list "$previous_backup" >/dev/null 2>&1; then
+            info "Removing an incomplete, unusable prior deployment backup: ${previous_backup##*/}"
+            rm -f -- "$previous_backup"
+        fi
+    done < <(find "$BACKUP_ROOT" -maxdepth 1 -type f -name 'deploy-*.dump' -print)
+    mapfile -t old_deploy_backups < <(find "$BACKUP_ROOT" -maxdepth 1 -type f -name 'deploy-*.dump' \
+        -printf '%T@ %p\n' | sort -rn | awk 'NR > 5 { $1 = ""; sub(/^ /, ""); print }')
+    for previous_backup in "${old_deploy_backups[@]}"; do
+        info "Removing deployment backup outside the five-backup rollback window: ${previous_backup##*/}"
+        rm -f -- "$previous_backup"
+    done
+    mapfile -t old_releases < <(find "$RELEASES_ROOT" -mindepth 1 -maxdepth 1 -type d \
+        -regextype posix-extended -regex '.*/[a-f0-9]{40}' -printf '%T@ %p\n' | sort -rn | awk 'NR > 5 { $1 = ""; sub(/^ /, ""); print }')
+    for old_release in "${old_releases[@]}"; do
+        [[ "$old_release" == "$current_release" || "$old_release" == "$release_path" ]] || rm -rf -- "$old_release"
+    done
+    find "$RELEASES_ROOT" -mindepth 1 -maxdepth 1 -type d -name '.incomplete-*' -mtime +14 -exec rm -rf -- {} +
+
     if (( reuse_built_release == 0 )); then
+        # The large, private PMTA bundle is staged in shared storage above and
+        # is not part of an app release. Exclude it instead of expanding and
+        # immediately deleting a duplicate copy in every deployment.
+        release_archive_bytes="$(git -C "$SOURCE_ROOT" archive --format=tar "$release_sha" -- . ':(exclude)install-assets/**' | wc -c)"
+        release_free_kib="$(df -Pk "$RELEASES_ROOT" | awk 'NR == 2 { print $4 }')"
+        release_archive_entries="$(git -C "$SOURCE_ROOT" ls-tree -r --name-only "$release_sha" -- . \
+            | awk '$0 !~ /^install-assets\// { count++ } END { print count + 0 }')"
+        release_free_inodes="$(df -Pi "$RELEASES_ROOT" | awk 'NR == 2 { print $4 }')"
+        release_archive_bytes="${release_archive_bytes//[[:space:]]/}"
+        release_free_kib="${release_free_kib//[[:space:]]/}"
+        release_archive_entries="${release_archive_entries//[[:space:]]/}"
+        release_free_inodes="${release_free_inodes//[[:space:]]/}"
+        [[ "$release_archive_bytes" =~ ^[0-9]+$ && "$release_free_kib" =~ ^[0-9]+$ \
+            && "$release_archive_entries" =~ ^[0-9]+$ && "$release_free_inodes" =~ ^[0-9]+$ ]] \
+            || fail 'Could not determine release staging size, free disk space, and free inodes; deployment stopped before extraction.'
+        required_release_kib=$(( (release_archive_bytes + 1023) / 1024 + 2097152 ))
+        required_release_inodes=$(( release_archive_entries * 2 + 1024 ))
+        release_free_mib=$(( release_free_kib / 1024 ))
+        required_release_mib=$(( required_release_kib / 1024 ))
+        if (( release_free_kib < required_release_kib )); then
+            fail "Deployment stopped before release extraction: ${RELEASES_ROOT} has ${release_free_mib} MiB free; this release needs at least ${required_release_mib} MiB for source, dependencies, and frontend build. Free disk space and retry."
+        fi
+        if (( release_free_inodes < required_release_inodes )); then
+            fail "Deployment stopped before release extraction: ${RELEASES_ROOT} has ${release_free_inodes} free inodes; this release needs at least ${required_release_inodes}. Free disk space or inodes and retry."
+        fi
+        info "Verified release staging capacity before extraction (${release_free_mib} MiB free; ${required_release_mib} MiB required)."
         mkdir -m 0750 "$temporary_release"
-        git -C "$SOURCE_ROOT" archive --format=tar "$release_sha" | tar -xf - -C "$temporary_release"
+        git -C "$SOURCE_ROOT" archive --format=tar "$release_sha" -- . ':(exclude)install-assets/**' | tar -xf - -C "$temporary_release"
         [[ -f "$temporary_release/apps/api/artisan" && -f "$temporary_release/apps/api/composer.lock" && -f "$temporary_release/apps/api/package-lock.json" ]] || fail 'The selected branch is missing Laravel or a committed frontend lockfile.'
         rm -rf -- "$temporary_release/install-assets"
 
@@ -775,22 +827,6 @@ deploy_release() {
             php "$release_path/apps/api/artisan" route:cache
         normalize_release_permissions "$release_path"
     fi
-
-    # Apply the same retention the daily backup unit and post-deploy release
-    # cleanup already promise before the database snapshot needs free space.
-    info 'Pruning expired daily backups and releases outside the rollback window...'
-    find "$BACKUP_ROOT" -maxdepth 1 -type f -name 'alphalink-*.dump' -mtime +14 -delete
-    while IFS= read -r previous_backup; do
-        if ! runuser -u postgres -- /usr/lib/postgresql/18/bin/pg_restore --list "$previous_backup" >/dev/null 2>&1; then
-            info "Removing an incomplete, unusable prior deployment backup: ${previous_backup##*/}"
-            rm -f -- "$previous_backup"
-        fi
-    done < <(find "$BACKUP_ROOT" -maxdepth 1 -type f -name 'deploy-*.dump' -print)
-    mapfile -t old_releases < <(find "$RELEASES_ROOT" -mindepth 1 -maxdepth 1 -type d \
-        -regextype posix-extended -regex '.*/[a-f0-9]{40}' -printf '%T@ %p\n' | sort -rn | awk 'NR > 5 { $1 = ""; sub(/^ /, ""); print }')
-    for old_release in "${old_releases[@]}"; do
-        [[ "$old_release" == "$current_release" || "$old_release" == "$release_path" ]] || rm -rf -- "$old_release"
-    done
 
     backup_file="${BACKUP_ROOT}/deploy-${release_sha}-$(date -u +%Y%m%dT%H%M%SZ).dump"
     backup_staging_file="${backup_file}.partial-$$"

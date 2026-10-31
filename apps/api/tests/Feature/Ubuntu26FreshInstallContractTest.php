@@ -70,16 +70,22 @@ class Ubuntu26FreshInstallContractTest extends TestCase
         $installer = file_get_contents($repositoryRoot.'/install-ubuntu-26.sh');
 
         $this->assertIsString($installer);
-        $cleanupPosition = strpos($installer, "info 'Pruning expired daily backups and releases outside the rollback window...'");
+        $cleanupPosition = strpos($installer, "info 'Pruning expired daily backups and releases outside the rollback window before staging...'");
+        $extractPosition = strpos($installer, 'git -C "$SOURCE_ROOT" archive --format=tar "$release_sha" -- . ');
         $capacityPosition = strpos($installer, 'SELECT pg_database_size(\'${DB_NAME}\')');
         $maintenancePosition = strpos($installer, "info 'Entering maintenance mode and pausing background work...'");
 
         $this->assertIsInt($cleanupPosition);
+        $this->assertIsInt($extractPosition);
         $this->assertIsInt($capacityPosition);
         $this->assertIsInt($maintenancePosition);
+        $this->assertLessThan($extractPosition, $cleanupPosition);
         $this->assertLessThan($maintenancePosition, $cleanupPosition);
         $this->assertLessThan($maintenancePosition, $capacityPosition);
         $this->assertStringContainsString("-name 'alphalink-*.dump' -mtime +14 -delete", $installer);
+        $this->assertStringContainsString("':(exclude)install-assets/**'", $installer);
+        $this->assertStringContainsString('df -Pi "$RELEASES_ROOT"', $installer);
+        $this->assertStringContainsString('Deployment stopped before release extraction:', $installer);
         $this->assertStringContainsString('ExecStartPre=/usr/bin/find /var/backups/alphalink', $installer);
         $this->assertStringContainsString('database needs at least ${required_backup_mib} MiB', $installer);
         $this->assertStringContainsString('backup_staging_file="${backup_file}.partial-$$"', $installer);

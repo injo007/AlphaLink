@@ -1502,15 +1502,29 @@ class WorkspaceConsoleController extends Controller
             : null;
         $negativePath = $negative ? Storage::disk('local')->path($negative->path) : '';
         $placeholderRows = $data['send_setup']['placeholder_inputs'] ?? $data['send_setup']['placeholders'] ?? [];
-        $routeChoices = $servers->mapWithKeys(fn (ManagedServer $selectedServer): array => [
-            (string) $selectedServer->getKey() => $this->campaignTestRouteChoice(
-                $options['ips'],
-                $selectedIps,
-                $selectedServer,
-                $data['send_setup']['route_option'],
-                $data['send_setup']['ip_type'],
-            ),
-        ]);
+        $selectedRouteChoicesByServer = $servers->mapWithKeys(function (ManagedServer $selectedServer) use ($options, $selectedIps, $data): array {
+            $serverChoices = collect($options['ips'])
+                ->filter(fn (array $choice): bool => (string) ($choice['server_id'] ?? '') === (string) $selectedServer->getKey())
+                ->values();
+            $selectedChoices = collect($selectedIps)
+                ->map(fn (string $selectedId): ?array => $serverChoices->first(fn (array $choice): bool => (string) ($choice['id'] ?? '') === $selectedId))
+                ->filter(fn (?array $choice): bool => is_array($choice))
+                ->values();
+
+            if ($selectedChoices->isEmpty()) {
+                $fallback = $this->campaignTestRouteChoice(
+                    $options['ips'],
+                    $selectedIps,
+                    $selectedServer,
+                    $data['send_setup']['route_option'],
+                    $data['send_setup']['ip_type'],
+                );
+                $selectedChoices = collect($fallback === null ? [] : [$fallback]);
+            }
+
+            return [(string) $selectedServer->getKey() => $selectedChoices];
+        });
+        $routeChoices = $selectedRouteChoicesByServer->map(fn ($choices): ?array => $choices->first());
         if ($data['send_setup']['route_option'] === 'ip') {
             foreach ($servers as $selectedServer) {
                 $ipChoice = $routeChoices->get((string) $selectedServer->getKey());
@@ -1522,8 +1536,17 @@ class WorkspaceConsoleController extends Controller
             }
         }
         if (in_array($data['send_setup']['route_option'], ['vmta', 'smtp'], true)) {
-            foreach ($servers as $selectedServer) {
-                $virtualMtaName = trim((string) ($routeChoices->get((string) $selectedServer->getKey())['pmta_name'] ?? ''));
+            $routesToVerify = $data['send_setup']['route_option'] === 'smtp'
+                ? $selectedRouteChoicesByServer->flatten(1)
+                : $routeChoices->values();
+            foreach ($routesToVerify as $choice) {
+                $selectedServer = $serversById->get((string) ($choice['server_id'] ?? ''));
+                if (! $selectedServer instanceof ManagedServer) {
+                    throw ValidationException::withMessages([
+                        'send_setup.ip_ids' => 'A selected route is no longer attached to an active server. Reload the campaign and choose the current SMTP routes.',
+                    ]);
+                }
+                $virtualMtaName = trim((string) ($choice['pmta_name'] ?? ''));
                 if (preg_match('/\A[A-Za-z0-9_.:-]{1,255}\z/', $virtualMtaName) !== 1) {
                     throw ValidationException::withMessages([
                         'send_setup.route_option' => $data['send_setup']['route_option'] === 'smtp'
@@ -1531,7 +1554,6 @@ class WorkspaceConsoleController extends Controller
                             : 'No pushed VMTA is available for the selected server. Push a VMTA in PMTA VMTA, then reload this campaign before testing.',
                     ]);
                 }
-                $choice = $routeChoices->get((string) $selectedServer->getKey());
                 if ($data['send_setup']['route_option'] === 'smtp' && ctype_digit((string) ($choice['id'] ?? ''))) {
                     $routeOwnerId = $this->workspaceSmtpRouteOwnerId(
                         $workspace,
@@ -1582,21 +1604,59 @@ class WorkspaceConsoleController extends Controller
                 }
             }
         }
-        $ipTagData = $servers->mapWithKeys(fn (ManagedServer $selectedServer): array => [
-            (string) $selectedServer->getKey() => $this->campaignTestIpTags(
-                $workspace,
-                $selectedServer,
-                $data['send_setup']['route_option'],
-                $routeChoices->get((string) $selectedServer->getKey()),
-                (string) ($data['domain'] ?? ''),
-            ),
+        $routeTagData = $selectedRouteChoicesByServer->flatMap(function ($choices, string $serverId) use ($workspace, $serversById, $data): array {
+            $selectedServer = $serversById->get($serverId);
+            if (! $selectedServer instanceof ManagedServer) {
+                return [];
+            }
+
+            return $choices->mapWithKeys(fn (array $choice): array => [
+                $serverId.'|'.(string) ($choice['id'] ?? '') => $this->campaignTestIpTags(
+                    $workspace,
+                    $selectedServer,
+                    $data['send_setup']['route_option'],
+                    $choice,
+                    (string) ($data['domain'] ?? ''),
+                ),
+            ])->all();
+        });
+        $ipTagData = $routeChoices->mapWithKeys(fn (?array $choice, string $serverId): array => [
+            $serverId => $routeTagData->get($serverId.'|'.(string) ($choice['id'] ?? ''), []),
         ]);
         $domain = (string) ($ipTagData->first()['domain'] ?? '');
         $ispId = $data['send_setup']['isp_id']
             ?? $campaign?->latestRevision?->payload['send_setup']['isp_id']
             ?? '0';
         $creativeId = $data['send_setup']['creative_asset_id'] ?? '0';
-        $testMessage = function (int $index, string $recipient, ManagedServer $selectedServer) use (
+        $testCases = [];
+        if ($data['send_setup']['route_option'] === 'smtp') {
+            $smtpChoices = $selectedRouteChoicesByServer->flatten(1)->values();
+            foreach ($smtpChoices as $routeIndex => $choice) {
+                $selectedServer = $serversById->get((string) ($choice['server_id'] ?? ''));
+                if ($selectedServer instanceof ManagedServer) {
+                    $testCases[] = [
+                        'index' => $routeIndex,
+                        'recipient' => $recipients[$routeIndex % count($recipients)],
+                        'server' => $selectedServer,
+                        'choice' => $choice,
+                    ];
+                }
+            }
+        } else {
+            foreach ($recipients as $index => $recipient) {
+                $selectedServer = $servers[$index % $servers->count()];
+                $choice = $routeChoices->get((string) $selectedServer->getKey());
+                if (is_array($choice)) {
+                    $testCases[] = ['index' => $index, 'recipient' => $recipient, 'server' => $selectedServer, 'choice' => $choice];
+                }
+            }
+        }
+        if ($testCases === []) {
+            throw ValidationException::withMessages([
+                'send_setup.ip_ids' => 'No selected route is available for Campaign Test. Reload the campaign and select active routes.',
+            ]);
+        }
+        $testMessage = function (int $index, string $recipient, ManagedServer $selectedServer, array $routeChoice) use (
             $tagRenderer,
             $headerTemplate,
             $data,
@@ -1604,15 +1664,15 @@ class WorkspaceConsoleController extends Controller
             $ispId,
             $fromAssets,
             $subjectAssets,
-            $ipTagData,
-            $routeChoices,
+            $routeTagData,
             $negativePath,
             $placeholderRows,
             $vmtaPlanner,
         ): array {
             $from = $fromAssets === [] ? ['id' => 0, 'value' => ''] : $fromAssets[$index % count($fromAssets)];
             $subject = $subjectAssets === [] ? ['id' => 0, 'value' => ''] : $subjectAssets[$index % count($subjectAssets)];
-            $ipTags = $ipTagData->get((string) $selectedServer->getKey(), []);
+            $routeTagKey = (string) $selectedServer->getKey().'|'.(string) ($routeChoice['id'] ?? '');
+            $ipTags = $routeTagData->get($routeTagKey, []);
             $tags = [
                 ...$ipTags,
                 'to' => $recipient,
@@ -1639,19 +1699,17 @@ class WorkspaceConsoleController extends Controller
                 $renderedReturnPath = $this->replaceCampaignTestDomain($renderedReturnPath, $campaignDomain, $vmtaDomain);
                 $renderedHeader = $this->campaignTestHeaderWithVirtualMta(
                     $renderedHeader,
-                    (string) $routeChoices->get((string) $selectedServer->getKey())['pmta_name'],
+                    (string) $routeChoice['pmta_name'],
                 );
             } elseif ($data['send_setup']['route_option'] === 'ip') {
-                $ipChoice = $routeChoices->get((string) $selectedServer->getKey());
                 $renderedHeader = $this->campaignTestHeaderWithVirtualMta(
                     $renderedHeader,
-                    $vmtaPlanner->ipVirtualMtaName((string) $ipChoice['ip']),
+                    $vmtaPlanner->ipVirtualMtaName((string) $routeChoice['ip']),
                 );
             } elseif ($data['send_setup']['route_option'] === 'smtp') {
-                $smtpChoice = $routeChoices->get((string) $selectedServer->getKey());
                 $renderedHeader = $this->campaignTestHeaderWithVirtualMta(
                     $renderedHeader,
-                    (string) $smtpChoice['pmta_name'],
+                    (string) $routeChoice['pmta_name'],
                 );
             }
             $fromAddress = $this->campaignHeaderEmailAddress($renderedHeader, 'from');
@@ -1668,16 +1726,14 @@ class WorkspaceConsoleController extends Controller
             ];
         };
         $firstTestMessage = null;
-        $checkedServers = [];
-        foreach ($recipients as $index => $recipient) {
-            $selectedServer = $servers[$index % $servers->count()];
-            $serverId = (string) $selectedServer->getKey();
-            if (isset($checkedServers[$serverId])) {
-                continue;
-            }
-
-            $preview = $testMessage($index, $recipient, $selectedServer);
-            $selectedTagValues = $ipTagData->get((string) $selectedServer->getKey(), []);
+        foreach ($testCases as $testCase) {
+            $index = (int) $testCase['index'];
+            $recipient = (string) $testCase['recipient'];
+            /** @var ManagedServer $selectedServer */
+            $selectedServer = $testCase['server'];
+            $routeChoice = $testCase['choice'];
+            $preview = $testMessage($index, $recipient, $selectedServer, $routeChoice);
+            $selectedTagValues = $routeTagData->get((string) $selectedServer->getKey().'|'.(string) ($routeChoice['id'] ?? ''), []);
             foreach (['from_address' => 'Header', 'envelope_from' => 'Return-Path'] as $addressField => $fieldName) {
                 if (filter_var($preview[$addressField], FILTER_VALIDATE_EMAIL) === false) {
                     $errorKey = $addressField === 'from_address' ? 'header' : 'return_path';
@@ -1702,22 +1758,30 @@ class WorkspaceConsoleController extends Controller
                     throw ValidationException::withMessages([$errorKey => $message]);
                 }
             }
-            $checkedServers[$serverId] = true;
-            if ($index === 0) {
+            if ($firstTestMessage === null) {
                 $firstTestMessage = $preview;
             }
-            if (count($checkedServers) === $servers->count()) {
-                break;
-            }
         }
-        $firstTestMessage ??= $testMessage(0, $recipients[0], $server);
+        $firstTestMessage ??= $testMessage(
+            (int) $testCases[0]['index'],
+            (string) $testCases[0]['recipient'],
+            $testCases[0]['server'],
+            $testCases[0]['choice'],
+        );
+        $testRouteSnapshot = collect($testCases)->map(fn (array $testCase): array => [
+            'server_id' => (string) $testCase['server']->getKey(),
+            'catalog_id' => (string) ($testCase['choice']['id'] ?? ''),
+            'name' => (string) ($testCase['choice']['username'] ?? $testCase['choice']['name'] ?? $testCase['choice']['ip'] ?? ''),
+            'pmta_name' => (string) ($testCase['choice']['pmta_name'] ?? ($data['send_setup']['route_option'] === 'ip'
+                ? $vmtaPlanner->ipVirtualMtaName((string) ($testCase['choice']['ip'] ?? ''))
+                : '')),
+            'domain' => (string) ($routeTagData->get((string) $testCase['server']->getKey().'|'.(string) ($testCase['choice']['id'] ?? ''), [])['domain'] ?? ''),
+        ])->values()->all();
         $keyHash = hash('sha256', $data['idempotency_key']);
         $fingerprint = hash('sha256', json_encode([
             $campaign?->getKey(), $serverIds, $selectedIps, $recipients, $submittedHeader,
             $data['return_path'] ?? '', $data['body'] ?? '', $data['domain'] ?? '', $data['send_setup'],
-            $servers->map(fn (ManagedServer $selectedServer): string => $data['send_setup']['route_option'] === 'ip'
-                ? $vmtaPlanner->ipVirtualMtaName((string) ($routeChoices->get((string) $selectedServer->getKey())['ip'] ?? ''))
-                : (string) ($routeChoices->get((string) $selectedServer->getKey())['pmta_name'] ?? '')),
+            $testRouteSnapshot,
         ], JSON_THROW_ON_ERROR));
         $nextFormInput = [...$request->except('_token'), 'idempotency_key' => (string) Str::uuid()];
         $testSnapshot = [
@@ -1737,7 +1801,9 @@ class WorkspaceConsoleController extends Controller
             'outbound_route' => $data['send_setup']['route_option'],
             'type' => $data['send_setup']['ip_type'],
             'virtual_mtas' => in_array($data['send_setup']['route_option'], ['ip', 'vmta', 'smtp'], true)
-                ? $servers->map(fn (ManagedServer $selectedServer): array => [
+                ? ($data['send_setup']['route_option'] === 'smtp'
+                    ? $testRouteSnapshot
+                    : $servers->map(fn (ManagedServer $selectedServer): array => [
                     'server_id' => (string) $selectedServer->getKey(),
                     'catalog_id' => (string) ($routeChoices->get((string) $selectedServer->getKey())['id'] ?? ''),
                     'name' => $data['send_setup']['route_option'] === 'ip'
@@ -1753,8 +1819,9 @@ class WorkspaceConsoleController extends Controller
                         : ($data['send_setup']['route_option'] === 'smtp'
                             ? ($routeChoices->get((string) $selectedServer->getKey())['dns'] ?? '')
                             : ($routeChoices->get((string) $selectedServer->getKey())['vmta_domain'] ?? ''))),
-                ])->values()->all()
+                ])->values()->all())
                 : [],
+            'test_message_count' => count($testCases),
             'servers' => collect($serverIds)->map(fn (string $serverId): array => [
                 'id' => $serverId,
                 'name' => $serversById->get($serverId)?->name,
@@ -1787,7 +1854,7 @@ class WorkspaceConsoleController extends Controller
         }
         $attemptId = (string) Str::uuid();
         try {
-            DB::transaction(function () use ($request, $workspace, $campaign, $server, $serverIds, $recipients, $recipientHash, $keyHash, $fingerprint, $attemptId, $testSnapshot): void {
+            DB::transaction(function () use ($request, $workspace, $campaign, $server, $serverIds, $recipients, $testCases, $recipientHash, $keyHash, $fingerprint, $attemptId, $testSnapshot): void {
                 DB::table('campaign_manual_test_attempts')->insert([
                     'id' => $attemptId, 'workspace_id' => $workspace->getKey(), 'campaign_id' => $campaign?->getKey(),
                     'actor_user_id' => $request->user()->getKey(), 'managed_server_id' => $server->getKey(),
@@ -1800,7 +1867,7 @@ class WorkspaceConsoleController extends Controller
                     'workspace_id' => $workspace->getKey(), 'actor_user_id' => $request->user()->getKey(),
                     'action' => 'campaign.manual_test_started', 'subject_type' => 'campaign_manual_test_attempt',
                     'subject_id' => $attemptId, 'request_id' => $request->attributes->get('request_id'),
-                    'properties' => ['campaign_id' => $campaign?->getKey(), 'server_ids' => $serverIds, 'recipient_count' => count($recipients), 'recipient_sha256' => $recipientHash, 'message_sha256' => $fingerprint],
+                    'properties' => ['campaign_id' => $campaign?->getKey(), 'server_ids' => $serverIds, 'recipient_count' => count($recipients), 'test_message_count' => count($testCases), 'recipient_sha256' => $recipientHash, 'message_sha256' => $fingerprint],
                     'occurred_at' => now(),
                 ]);
             });
@@ -1817,19 +1884,84 @@ class WorkspaceConsoleController extends Controller
         $transport = null;
         $connected = false;
         $acceptedCount = 0;
+        $smtpRouteFailures = [];
         try {
-            foreach ($recipients as $index => $recipient) {
-                $server = $servers[$index % $servers->count()];
-                $rendered = $index === 0 ? $firstTestMessage : $testMessage($index, $recipient, $server);
-                $transport = $transportFactory->forServer($server, $port);
-                $transport->start();
-                $connected = true;
-                $raw = new RawMessage($rendered['header']."\r\n\r\n".$rendered['body']);
-                $envelope = new Envelope(new Address($rendered['envelope_from']), [new Address($recipient)]);
-                (new SymfonyMailer($transport))->send($raw, $envelope);
-                $acceptedCount++;
-                $transport->stop();
-                $transport = null;
+            foreach ($testCases as $caseIndex => $testCase) {
+                $index = (int) $testCase['index'];
+                $recipient = (string) $testCase['recipient'];
+                $server = $testCase['server'];
+                $rendered = $caseIndex === 0
+                    ? $firstTestMessage
+                    : $testMessage($index, $recipient, $server, $testCase['choice']);
+                try {
+                    $transport = $transportFactory->forServer($server, $port);
+                    $transport->start();
+                    $connected = true;
+                    $raw = new RawMessage($rendered['header']."\r\n\r\n".$rendered['body']);
+                    $envelope = new Envelope(new Address($rendered['envelope_from']), [new Address($recipient)]);
+                    (new SymfonyMailer($transport))->send($raw, $envelope);
+                    $acceptedCount++;
+                } catch (UnexpectedResponseException $exception) {
+                    if ($data['send_setup']['route_option'] !== 'smtp'
+                        || str_contains(mb_strtolower($exception->getMessage()), 'relaying denied')) {
+                        throw $exception;
+                    }
+                    $responseCode = $exception->getCode() >= 400 && $exception->getCode() <= 599
+                        ? $exception->getCode()
+                        : null;
+                    $smtpRouteFailures[] = [
+                        'pmta_name' => (string) ($testCase['choice']['pmta_name'] ?? ''),
+                        'response_code' => $responseCode,
+                        'detail' => $this->campaignTestSmtpResponseDetail($exception, $responseCode),
+                    ];
+                } finally {
+                    if ($transport instanceof SmtpTransport) {
+                        try {
+                            $transport->stop();
+                        } catch (Throwable) {
+                        }
+                    }
+                    $transport = null;
+                }
+            }
+            if ($smtpRouteFailures !== []) {
+                $status = $acceptedCount > 0 ? 'partially_accepted' : 'rejected_by_transport';
+                DB::table('campaign_manual_test_attempts')->where('id', $attemptId)->update([
+                    'status' => $status,
+                    'exception_type' => class_basename(UnexpectedResponseException::class),
+                    'updated_at' => now(),
+                ]);
+                AuditEvent::query()->create([
+                    'workspace_id' => $workspace->getKey(), 'actor_user_id' => $request->user()->getKey(),
+                    'action' => 'campaign.manual_test_failed', 'subject_type' => 'campaign_manual_test_attempt',
+                    'subject_id' => $attemptId, 'request_id' => $request->attributes->get('request_id'),
+                    'properties' => [
+                        'server_ids' => $serverIds,
+                        'accepted_count' => $acceptedCount,
+                        'failed_route_count' => count($smtpRouteFailures),
+                        'failed_routes' => $smtpRouteFailures,
+                        'exception_type' => class_basename(UnexpectedResponseException::class),
+                        'outcome_unknown' => false,
+                    ],
+                    'occurred_at' => now(),
+                ]);
+                $failedDetails = collect($smtpRouteFailures)->map(function (array $failure): string {
+                    $label = $failure['pmta_name'] !== '' ? $failure['pmta_name'] : 'SMTP route';
+                    $response = $failure['response_code'] === null ? 'rejected' : 'SMTP '.$failure['response_code'];
+
+                    return $label.' ('.$response.($failure['detail'] ? ': '.$failure['detail'] : '').')';
+                })->implode('; ');
+                $message = 'PMTA accepted '.$acceptedCount.' of '.count($testCases).' selected SMTP route test message(s) and rejected '.count($smtpRouteFailures).': '.$failedDetails.'. Check PMTA and Workspace relay logs for the listed routes.';
+
+                return $this->campaignTestResponse(
+                    $request,
+                    $nextFormInput,
+                    $message,
+                    $status,
+                    (string) $nextFormInput['idempotency_key'],
+                    $attemptId,
+                    422,
+                );
             }
             DB::table('campaign_manual_test_attempts')->where('id', $attemptId)->update(['status' => 'accepted_by_transport', 'updated_at' => now()]);
             AuditEvent::query()->create([
@@ -1842,7 +1974,9 @@ class WorkspaceConsoleController extends Controller
             return $this->campaignTestResponse(
                 $request,
                 $nextFormInput,
-                'Selected PMTA servers accepted the current-form Email Test messages. Mailbox delivery is unconfirmed.',
+                $data['send_setup']['route_option'] === 'smtp'
+                    ? 'PMTA accepted one current-form test message through each of the '.count($testCases).' selected SMTP route(s). Mailbox delivery is unconfirmed.'
+                    : 'Selected PMTA servers accepted the current-form Email Test messages. Mailbox delivery is unconfirmed.',
                 'accepted_by_transport',
                 (string) $nextFormInput['idempotency_key'],
                 $attemptId,

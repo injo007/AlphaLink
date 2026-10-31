@@ -49,11 +49,16 @@ class CampaignCloneFlowTest extends TestCase
         $this->actingAs($fixture['owner'])
             ->get($route)
             ->assertOk()
-            ->assertSee('The new campaign copies this campaign')
-            ->assertSee('offer suppression file is applied')
+            ->assertSee('Choose the ISP, country and lists for the cloned campaign.')
+            ->assertSee('offer suppression file is checked')
             ->assertSee('send_setup[audience_segments][]', false)
             ->assertSee('send_setup[order_by]', false)
             ->assertSee('send_setup[start_from]', false)
+            ->assertSee('id="clone-isp"', false)
+            ->assertSee('id="clone-country"', false)
+            ->assertSee('id="clone-segments"', false)
+            ->assertSee('plugins/bootstrap_select/bootstrap-select.js', false)
+            ->assertSee('campaign-clone-modal.js', false)
             ->assertSee('CLONE CAMPAIGN');
 
         $idempotencyKey = (string) Str::uuid();
@@ -128,6 +133,35 @@ class CampaignCloneFlowTest extends TestCase
         $this->assertDatabaseCount('campaign_recipient_snapshots', 1);
     }
 
+    public function test_campaign_clone_icon_loads_a_selection_fragment_and_ajax_clone_returns_progress_urls(): void
+    {
+        $fixture = $this->campaignFixture();
+        $route = route('console.campaigns.clone', [$fixture['workspace']->getKey(), $fixture['source']->getKey()]);
+
+        $this->actingAs($fixture['owner'])
+            ->get($route.'?modal=1', ['X-Requested-With' => 'XMLHttpRequest'])
+            ->assertOk()
+            ->assertSee('id="campaign-clone-form"', false)
+            ->assertSee('id="clone-isp"', false)
+            ->assertSee('id="clone-segments"', false)
+            ->assertDontSee('<html', false);
+
+        Queue::fake();
+        $this->actingAs($fixture['owner'])
+            ->withHeaders([
+                'Accept' => 'application/json',
+                'X-Requested-With' => 'XMLHttpRequest',
+            ])
+            ->post($route, $this->clonePayload($fixture, (string) Str::uuid()))
+            ->assertCreated()
+            ->assertJsonStructure(['campaign_id', 'message', 'progress_url', 'redirect_url', 'status'])
+            ->assertJsonPath('status', 'preparing_snapshot');
+
+        Queue::assertPushed(BuildCampaignRecipientSnapshot::class, fn (BuildCampaignRecipientSnapshot $job): bool => $job->campaignId !== '');
+        $this->assertDatabaseCount('campaigns', 2);
+        $this->assertDatabaseCount('campaign_recipient_snapshots', 0);
+    }
+
     public function test_send_register_exposes_clone_for_a_saved_marketing_campaign(): void
     {
         $fixture = $this->campaignFixture();
@@ -135,7 +169,9 @@ class CampaignCloneFlowTest extends TestCase
             ->get(route('console.campaigns.index', $fixture['workspace']->getKey()))
             ->assertOk()
             ->assertSee($this->cleanWorkspaceUrl(route('console.campaigns.clone', [$fixture['workspace']->getKey(), $fixture['source']->getKey()])), false)
-            ->assertSee('Clone campaign into a new draft')
+            ->assertSee('Clone campaign')
+            ->assertSee('data-campaign-clone-open', false)
+            ->assertSee('id="campaign-clone-dialog"', false)
             ->assertSee('data-analytics-date-range-form', false)
             ->assertSee('id="analytics-dates"', false)
             ->assertSee('Running processes')

@@ -741,7 +741,7 @@ class WorkspaceConsoleController extends Controller
         return view('console.campaigns.show', compact('workspace', 'campaign', 'revisions', 'testMailAttempts', 'manualTestAttempts', 'smtpReady', 'smtpDestination', 'latestSmtpCheck', 'senderDomainIsReserved', 'senderDomainIsVerified', 'sendSetup', 'sendOptions', 'recipientSnapshot', 'pmtaPort'));
     }
 
-    public function cloneCampaign(Request $request, string $workspace, string $campaign, DmsCampaignSendCatalog $catalog): View
+    public function cloneCampaign(Request $request, string $workspace, string $campaign, DmsCampaignSendCatalog $catalog): View|Response
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $this->authorizeRole($workspace, self::CAMPAIGN_ROLES);
@@ -762,7 +762,7 @@ class WorkspaceConsoleController extends Controller
         $requestedSegments = (array) $request->session()->getOldInput('send_setup.audience_segments', $sendSetup['audience_segments']);
         $availableSegmentIds = collect($sendOptions['segments'])->pluck('id')->map(fn ($id): string => (string) $id)->all();
 
-        return view('console.campaigns.clone', [
+        $viewData = [
             'workspace' => $workspace,
             'source' => $source,
             'sourceRevision' => $sourceRevision,
@@ -771,7 +771,13 @@ class WorkspaceConsoleController extends Controller
             'sendOptionsUrl' => route('console.campaigns.send-options', $workspace->getKey()),
             'idempotencyKey' => (string) Str::uuid(),
             'selectedSegments' => array_values(array_intersect(array_map('strval', $requestedSegments), $availableSegmentIds)),
-        ]);
+        ];
+
+        if ($request->boolean('modal')) {
+            return response()->view('console.campaigns.partials.clone-form', $viewData);
+        }
+
+        return view('console.campaigns.clone', $viewData);
     }
 
     public function storeCampaignClone(
@@ -779,7 +785,7 @@ class WorkspaceConsoleController extends Controller
         string $workspace,
         string $campaign,
         DmsCampaignSendCatalog $catalog,
-    ): RedirectResponse {
+    ): RedirectResponse|JsonResponse {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $this->authorizeRole($workspace, self::CAMPAIGN_ROLES);
         $source = $this->campaignCloneSource($request, $workspace, $campaign);
@@ -835,10 +841,15 @@ class WorkspaceConsoleController extends Controller
         if ($prior) {
             $this->assertCampaignCloneReplay($prior, $request->user()->getKey(), $name, $requestFingerprint);
 
-            return redirect()->route('console.campaigns.index', $workspace->getKey())
-                ->with('status', $prior->status === 'preparing_snapshot'
-                    ? 'Clone already queued; suppression and recipient preparation are running in the campaigns list.'
-                    : 'Clone already saved; no duplicate draft was created.');
+            return $this->campaignCloneResponse(
+                $request,
+                $workspace,
+                $prior,
+                $prior->status === 'preparing_snapshot'
+                    ? 'Clone already queued. Suppression and recipient preparation are running.'
+                    : 'Clone already saved; no duplicate draft was created.',
+                200,
+            );
         }
 
         try {
@@ -895,14 +906,17 @@ class WorkspaceConsoleController extends Controller
             }
             $this->assertCampaignCloneReplay($prior, $request->user()->getKey(), $name, $requestFingerprint);
 
-            return redirect()->route('console.campaigns.index', $workspace->getKey())
-                ->with('status', 'Clone already saved; no duplicate draft was created.');
+            return $this->campaignCloneResponse($request, $workspace, $prior, 'Clone already saved; no duplicate draft was created.', 200);
         }
 
         $this->enqueueCampaignSnapshotBuild($workspace, $clone, $revision, $request->user()->getKey());
 
-        return redirect()->route('console.campaigns.index', $workspace->getKey())
-            ->with('status', 'Campaign clone created. Suppression and recipient preparation are running in the campaigns list.');
+        return $this->campaignCloneResponse(
+            $request,
+            $workspace,
+            $clone,
+            'Campaign clone created. Suppression and recipient preparation are running in the campaigns list.',
+        );
     }
 
     public function createCampaignDraft(Request $request, string $workspace, DmsCampaignSendCatalog $catalog): RedirectResponse|JsonResponse
@@ -1101,6 +1115,27 @@ class WorkspaceConsoleController extends Controller
                     'updated_at' => now(),
                 ]);
         }
+    }
+
+    private function campaignCloneResponse(
+        Request $request,
+        Workspace $workspace,
+        Campaign $campaign,
+        string $message,
+        int $statusCode = 201,
+    ): RedirectResponse|JsonResponse {
+        if ($request->expectsJson()) {
+            return response()->json([
+                'campaign_id' => (string) $campaign->getKey(),
+                'message' => $message,
+                'progress_url' => route('console.campaigns.snapshot-progress', [$workspace->getKey(), $campaign->getKey()]),
+                'redirect_url' => route('console.campaigns.index', $workspace->getKey()),
+                'status' => $campaign->status,
+            ], $statusCode);
+        }
+
+        return redirect()->route('console.campaigns.index', $workspace->getKey())
+            ->with('status', $message);
     }
 
     public function reviseCampaignDraft(
@@ -1804,22 +1839,22 @@ class WorkspaceConsoleController extends Controller
                 ? ($data['send_setup']['route_option'] === 'smtp'
                     ? $testRouteSnapshot
                     : $servers->map(fn (ManagedServer $selectedServer): array => [
-                    'server_id' => (string) $selectedServer->getKey(),
-                    'catalog_id' => (string) ($routeChoices->get((string) $selectedServer->getKey())['id'] ?? ''),
-                    'name' => $data['send_setup']['route_option'] === 'ip'
-                        ? (string) ($routeChoices->get((string) $selectedServer->getKey())['ip'] ?? '')
-                        : (string) ($data['send_setup']['route_option'] === 'smtp'
-                            ? ($routeChoices->get((string) $selectedServer->getKey())['username'] ?? '')
-                            : ($routeChoices->get((string) $selectedServer->getKey())['name'] ?? '')),
-                    'pmta_name' => $data['send_setup']['route_option'] === 'ip'
-                        ? $vmtaPlanner->ipVirtualMtaName((string) $routeChoices->get((string) $selectedServer->getKey())['ip'])
-                        : (string) ($routeChoices->get((string) $selectedServer->getKey())['pmta_name'] ?? ''),
-                    'domain' => (string) ($data['send_setup']['route_option'] === 'ip'
-                        ? ($routeChoices->get((string) $selectedServer->getKey())['dns'] ?? '')
-                        : ($data['send_setup']['route_option'] === 'smtp'
+                        'server_id' => (string) $selectedServer->getKey(),
+                        'catalog_id' => (string) ($routeChoices->get((string) $selectedServer->getKey())['id'] ?? ''),
+                        'name' => $data['send_setup']['route_option'] === 'ip'
+                            ? (string) ($routeChoices->get((string) $selectedServer->getKey())['ip'] ?? '')
+                            : (string) ($data['send_setup']['route_option'] === 'smtp'
+                                ? ($routeChoices->get((string) $selectedServer->getKey())['username'] ?? '')
+                                : ($routeChoices->get((string) $selectedServer->getKey())['name'] ?? '')),
+                        'pmta_name' => $data['send_setup']['route_option'] === 'ip'
+                            ? $vmtaPlanner->ipVirtualMtaName((string) $routeChoices->get((string) $selectedServer->getKey())['ip'])
+                            : (string) ($routeChoices->get((string) $selectedServer->getKey())['pmta_name'] ?? ''),
+                        'domain' => (string) ($data['send_setup']['route_option'] === 'ip'
                             ? ($routeChoices->get((string) $selectedServer->getKey())['dns'] ?? '')
-                            : ($routeChoices->get((string) $selectedServer->getKey())['vmta_domain'] ?? ''))),
-                ])->values()->all())
+                            : ($data['send_setup']['route_option'] === 'smtp'
+                                ? ($routeChoices->get((string) $selectedServer->getKey())['dns'] ?? '')
+                                : ($routeChoices->get((string) $selectedServer->getKey())['vmta_domain'] ?? ''))),
+                    ])->values()->all())
                 : [],
             'test_message_count' => count($testCases),
             'servers' => collect($serverIds)->map(fn (string $serverId): array => [

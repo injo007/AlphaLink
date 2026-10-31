@@ -165,7 +165,7 @@
                                     <button type="button" class="btn btn-link btn-sm" disabled title="Editing selected IPs is not implemented in AlphaLink." aria-label="Edit IPs unavailable for {{ $campaign->name }}"><i class="fas fa-list" aria-hidden="true"></i></button>
                                     <button type="button" class="btn btn-link btn-sm" data-campaign-statistics-toggle aria-expanded="false" aria-controls="campaign-statistics-{{ $campaign->id }}" data-statistics-url="{{ route('console.campaign-statistics.index', [$workspace->id, 'campaign_id' => $campaign->id, 'from' => $from->toDateString(), 'to' => $to->toDateString()]) }}" title="Show campaign statistics" aria-label="Show statistics for {{ $campaign->name }}"><i class="fas fa-chart-bar" aria-hidden="true"></i></button>
                                     @if ($campaign->kind === 'marketing' && ($register['configured'] ?? false))
-                                        <a class="btn btn-link btn-sm" href="{{ route('console.campaigns.clone', [$workspace->id, $campaign->id]) }}" title="Clone campaign into a new draft" aria-label="Clone {{ $campaign->name }}"><i class="fas fa-clone" aria-hidden="true"></i></a>
+                                        <a class="btn btn-link btn-sm" href="{{ route('console.campaigns.clone', [$workspace->id, $campaign->id]) }}" data-campaign-clone-open title="Clone campaign" aria-label="Clone {{ $campaign->name }}" aria-haspopup="dialog"><i class="fas fa-clone" aria-hidden="true"></i></a>
                                     @else
                                         <button type="button" class="btn btn-link btn-sm" disabled title="Only DMS Send campaigns with a saved audience setup can be cloned." aria-label="Clone unavailable for {{ $campaign->name }}"><i class="fas fa-clone" aria-hidden="true"></i></button>
                                     @endif
@@ -283,6 +283,16 @@
             <button type="button" class="btn btn-danger" id="campaign-bulk-confirm">Disable campaigns</button>
         </div>
     </dialog>
+
+    <dialog id="campaign-clone-dialog" class="campaign-clone-dialog" aria-labelledby="campaign-clone-dialog-title" aria-modal="true">
+        <div class="campaign-clone-dialog-header">
+            <h2 id="campaign-clone-dialog-title">CLONE CAMPAIGN</h2>
+            <button type="button" class="btn btn-sm btn-alt-secondary" data-campaign-clone-dialog-close aria-label="Close clone campaign dialog"><i class="fas fa-times" aria-hidden="true"></i></button>
+        </div>
+        <div id="campaign-clone-dialog-content" aria-live="polite">
+            <p class="text-muted mb-0">Loading campaign settings…</p>
+        </div>
+    </dialog>
 @endsection
 
 @push('styles')
@@ -306,6 +316,11 @@
         .campaign-status-dialog { border: 1px solid #d5dce1; border-radius: .35rem; color: #343a40; max-width: 32rem; padding: 1.25rem; width: min(92vw, 32rem); }
         .campaign-status-dialog::backdrop { background: rgba(27, 33, 40, .55); }
         .campaign-status-dialog h2 { font-size: 1.15rem; margin: 0 0 .75rem; }
+        .campaign-clone-dialog { border: 1px solid #d5dce1; border-radius: .35rem; color: #343a40; max-height: min(90vh, 56rem); max-width: 56rem; overflow: auto; padding: 1.25rem; width: min(94vw, 56rem); }
+        .campaign-clone-dialog::backdrop { background: rgba(27, 33, 40, .58); }
+        .campaign-clone-dialog-header { align-items: center; border-bottom: 1px solid #e1e6ea; display: flex; justify-content: space-between; margin: -0.25rem 0 1rem; padding-bottom: .7rem; }
+        .campaign-clone-dialog-header h2 { font-size: 1.05rem; font-weight: 600; margin: 0; }
+        .campaign-clone-form-content .form-group { margin-bottom: 1rem; }
         @media (max-width: 767.98px) {
             .campaign-register-filters { align-items: stretch; width: 100%; }
             .campaign-register-filters label[for="analytics-dates"] { width: 100%; }
@@ -320,6 +335,7 @@
     <script src="{{ asset('dms-reference/vendor/daterangepicker/daterangepicker.js') }}?v=3.1.0"></script>
     <script src="{{ asset('dms-reference/analytics-date-range.js') }}?v={{ substr(sha1_file(public_path('dms-reference/analytics-date-range.js')), 0, 12) }}" defer></script>
     <script src="{{ asset('dms-reference/campaign-register-controls.js') }}?v={{ substr(sha1_file(public_path('dms-reference/campaign-register-controls.js')), 0, 12) }}" defer></script>
+    <script src="{{ asset('dms-reference/campaign-clone-modal.js') }}?v={{ substr(sha1_file(public_path('dms-reference/campaign-clone-modal.js')), 0, 12) }}" defer></script>
     <script>
         (() => {
             const statusDialog = document.getElementById('campaign-status-dialog');

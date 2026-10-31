@@ -46,9 +46,11 @@ class Ubuntu26FreshInstallContractTest extends TestCase
         $repositoryRoot = dirname(base_path(), 2);
         $installer = file_get_contents($repositoryRoot.'/install-ubuntu-26.sh');
         $viteConfig = file_get_contents(base_path('vite.config.js'));
+        $tailwindCss = file_get_contents(base_path('resources/css/app.css'));
 
         $this->assertIsString($installer);
         $this->assertIsString($viteConfig);
+        $this->assertIsString($tailwindCss);
         $this->assertStringContainsString('free_kib < 2621440', $installer);
         $this->assertStringNotContainsString('free_kib < 2_621_440', $installer);
         $this->assertStringContainsString('host_memory_mib * 60 / 100', $installer);
@@ -57,6 +59,9 @@ class Ubuntu26FreshInstallContractTest extends TestCase
         $this->assertStringContainsString('ALPHALINK_LOW_MEMORY_BUILD=1', $installer);
         $this->assertStringContainsString('ROLLDOWN_WORKER_THREADS=1 RAYON_NUM_THREADS=1', $installer);
         $this->assertStringContainsString("process.env.ALPHALINK_LOW_MEMORY_BUILD === '1' ? false : 'oxc'", $viteConfig);
+        $this->assertStringContainsString("@import 'tailwindcss' source(none);", $tailwindCss);
+        $this->assertStringContainsString("@source '../';", $tailwindCss);
+        $this->assertStringNotContainsString("@source '../../storage/framework/views/", $tailwindCss);
     }
 
     public function test_repository_install_bundle_contains_every_reviewed_nonsecret_asset(): void

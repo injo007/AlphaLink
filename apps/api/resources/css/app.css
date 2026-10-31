@@ -1,8 +1,8 @@
 @import './analytics-charts.css';
-@import 'tailwindcss';
+@import 'tailwindcss' source(none);
 
+@source '../';
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-@source '../../storage/framework/views/*.php';
 
 @theme {
     --font-sans: 'Avenir Next', Avenir, 'Segoe UI', sans-serif;

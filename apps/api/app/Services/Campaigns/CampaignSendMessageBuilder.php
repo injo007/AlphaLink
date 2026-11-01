@@ -306,8 +306,14 @@ class CampaignSendMessageBuilder
             return null;
         }
 
-        $primaryAssignment = collect((array) ($parameters['data'] ?? []))->firstWhere('main', true);
-        $isOwnedDomain = $primaryAssignment['is_our'] ?? $routeIp?->domain?->is_our;
+        // Tracking host selection follows the selected send route. A server can
+        // have an external primary domain and a managed domain on another IP;
+        // the former must not force campaign links for the latter onto the IP.
+        $isOwnedDomain = $routeIp?->domain?->is_our;
+        if ($isOwnedDomain === null) {
+            $primaryAssignment = collect((array) ($parameters['data'] ?? []))->firstWhere('main', true);
+            $isOwnedDomain = $primaryAssignment['is_our'] ?? null;
+        }
         if ($isOwnedDomain === true) {
             return null;
         }

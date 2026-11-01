@@ -34,7 +34,6 @@ class DmsCentos9TrackingDeploymentStageTest extends TestCase
         $this->assertSame('dnf install -y httpd', $commands->commands[1]);
         $this->assertSame('mkdir -p /var/mini/', $commands->commands[2]);
         $this->assertSame('unzip -o /var/mini/mini_app.zip -d /var/mini', $commands->commands[3]);
-        $this->assertStringContainsString('ALPHALINK_TRACKING_ROUTE_READY', $commands->commands[array_key_last($commands->commands)]);
         $this->assertContains('cd /var/mini && php artisan optimize', $commands->commands);
         $this->assertContains('chmod 600 /var/mini/.env', $commands->commands);
         $this->assertStringContainsString('APP_NAME="AlphaLink"', $files->uploads['/var/mini/.env']);
@@ -42,16 +41,20 @@ class DmsCentos9TrackingDeploymentStageTest extends TestCase
         $this->assertMatchesRegularExpression('/APP_ENV=production\\nAPP_DEBUG=false\\nAPP_KEY=base64:[A-Za-z0-9+\\/=]+\\nAPP_URL=https:\/\/mail.example.test\\n/', $files->uploads['/var/mini/.env']);
         $this->assertSame('synthetic zip bytes', $files->uploads['/var/mini/mini_app.zip']);
         $this->assertStringContainsString('ServerName mail.example.test', $files->uploads['/etc/httpd/conf.d/mail_example_test.conf']);
-        $this->assertStringContainsString('ServerAlias a.mail.example.test b.mail.example.test', $files->uploads['/etc/httpd/conf.d/mail_example_test.conf']);
+        $this->assertStringContainsString('ServerAlias 203.0.113.18 a.mail.example.test b.mail.example.test', $files->uploads['/etc/httpd/conf.d/mail_example_test.conf']);
         $this->assertSame('synthetic trusted IPs', $files->uploads['/etc/httpd/conf.d/remoteip.conf']);
         $this->assertSame(
             "url=https://alpha.example.test;key=synthetic-private-key;server=42;decode=base64_decode(strtr(\$token, '-_', '+/'), true)",
             $files->uploads['/var/mini/app/Helper.php'],
         );
         $this->assertStringContainsString('httpd -M', implode("\n", $commands->commands));
-        $this->assertStringContainsString('/ALPHALINKTRACK10rprobe', $commands->commands[array_key_last($commands->commands)]);
-        $this->assertStringContainsString('test -s /var/mini/public/.htaccess', $commands->commands[array_key_last($commands->commands)]);
-        $this->assertStringContainsString('Set-Cookie: alphalink-session=', $commands->commands[array_key_last($commands->commands)]);
+        $allCommands = implode("\n", $commands->commands);
+        $this->assertStringContainsString('/ALPHALINKTRACK10rprobe', $allCommands);
+        $this->assertStringContainsString('test -s /var/mini/public/.htaccess', $allCommands);
+        $this->assertStringContainsString('Host: 203.0.113.18', $allCommands);
+        $this->assertStringContainsString('ALPHALINK_TRACKING_ROUTE_READY', $allCommands);
+        $this->assertStringContainsString('ALPHALINK_TRACKING_IP_ROUTE_READY', $allCommands);
+        $this->assertStringContainsString('Set-Cookie: alphalink-session=', $allCommands);
         $this->assertSame(['/var/mini/app/Helper.php'], $files->downloads);
         $this->assertStringNotContainsString('synthetic-private-key', implode("\n", $commands->commands));
     }
@@ -159,6 +162,9 @@ class RecordingTrackingCommands implements DmsInstallerRemoteCommandTransport
         }
         if (str_contains($command, 'ALPHALINK_TRACKING_ROUTE_READY')) {
             return 'ALPHALINK_TRACKING_ROUTE_READY';
+        }
+        if (str_contains($command, 'ALPHALINK_TRACKING_IP_ROUTE_READY')) {
+            return 'ALPHALINK_TRACKING_IP_ROUTE_READY';
         }
 
         return '';

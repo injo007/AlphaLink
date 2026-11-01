@@ -61,7 +61,8 @@ class DmsCentos9TrackingDeploymentStage
             $commands->exec('chown -R apache:apache /var/mini');
 
             $fileName = strtolower(preg_replace('/[^A-Za-z0-9_]+/', '_', str_replace('.', '_', $serverName)) ?? '');
-            $serverAlias = $subDomains === [] ? '' : 'ServerAlias '.implode(' ', $subDomains);
+            $serverAliases = array_values(array_unique([$serverIp, ...$subDomains]));
+            $serverAlias = 'ServerAlias '.implode(' ', $serverAliases);
             $virtualHost = <<<CONFIG
 <VirtualHost *:80>
     ServerName {$serverName}
@@ -135,6 +136,16 @@ CONFIG;
             );
             if (trim((string) $routeHealth) !== 'ALPHALINK_TRACKING_ROUTE_READY') {
                 throw new RuntimeException('Apache did not route the tracking probe through the Laravel app.');
+            }
+
+            $ipRouteHealth = $commands->exec(
+                'response=$(curl -sS --max-time 10 -D - -o /dev/null -w \'\\nALPHALINK_STATUS:%{http_code}\\n\' -H '.escapeshellarg('Host: '.$serverIp).' '.escapeshellarg('http://127.0.0.1/ALPHALINKTRACK10rprobe').') && '
+                    .'status=$(printf \'%s\\n\' "$response" | sed -n \'s/^ALPHALINK_STATUS://p\') && '
+                    .'case "$status" in 2??|3??|4??) ;; *) exit 1 ;; esac && '
+                    .'printf \'%s\\n\' "$response" | grep -Fqi '.escapeshellarg('Set-Cookie: '.$sessionCookie.'=').' && printf ALPHALINK_TRACKING_IP_ROUTE_READY',
+            );
+            if (trim((string) $ipRouteHealth) !== 'ALPHALINK_TRACKING_IP_ROUTE_READY') {
+                throw new RuntimeException('Apache did not route the public-IP tracking fallback through the Laravel app.');
             }
         }
     }

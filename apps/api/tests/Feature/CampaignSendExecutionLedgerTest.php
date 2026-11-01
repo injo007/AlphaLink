@@ -384,10 +384,12 @@ class CampaignSendExecutionLedgerTest extends TestCase
             $this->assertSame(hash('adler32', implode('_', array_slice($parts, 0, 3))), $parts[13]);
         }
 
+        // A different, external primary domain must not override the selected
+        // route's managed domain or rewrite its tracking links back to the IP.
         $server->forceFill(['install_parameters' => [
             'tracking' => true,
             'tracking_host' => '203.0.113.241',
-            'data' => [['main' => true, 'ip' => '203.0.113.241', 'is_our' => true]],
+            'data' => [['main' => true, 'ip' => '203.0.113.241', 'is_our' => false]],
         ]])->save();
         $domain->forceFill(['is_our' => true])->save();
         $ownedDomainMessage = app(CampaignSendMessageBuilder::class)->build($context, $fixture['item'], $fixture['contact']->email);

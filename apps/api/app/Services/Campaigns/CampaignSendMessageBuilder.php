@@ -109,10 +109,10 @@ class CampaignSendMessageBuilder
         }
 
         $domainFallback = trim((string) ($setup['domain'] ?? ''));
-        $domainIsOwned = $domainFallback === '' ? null : SendingDomain::query()
+        $selectedDomain = $domainFallback === '' ? null : SendingDomain::query()
             ->where('workspace_id', $workspace->getKey())
             ->where('name', $domainFallback)
-            ->value('is_our');
+            ->first(['is_our', 'status']);
 
         $context = [
             'run' => $run,
@@ -134,7 +134,8 @@ class CampaignSendMessageBuilder
             'body_template' => (string) ($revision->payload['body'] ?? ''),
             'return_path' => (string) ($revision->payload['return_path'] ?? ''),
             'domain_fallback' => $domainFallback,
-            'domain_is_our' => $domainIsOwned === null ? null : (bool) $domainIsOwned,
+            'domain_is_our' => $selectedDomain?->is_our === null ? null : (bool) $selectedDomain->is_our,
+            'domain_status' => $selectedDomain?->status,
         ];
 
         if (trim($context['body_template']) === '') {
@@ -221,7 +222,12 @@ class CampaignSendMessageBuilder
         $header = $this->tagRenderer->render($context['header_template'], $tags, $context['placeholder_rows'], $position - 1, $cache);
         $body = $this->tagRenderer->render($context['body_template'], $tags, $context['placeholder_rows'], $position - 1, $cache);
         $returnPath = $this->tagRenderer->render($context['return_path'], $tags, $context['placeholder_rows'], $position - 1, $cache);
-        $trackingIpFallback = $this->trackingIpFallback($server, $routeIp, $context['domain_is_our'] ?? null);
+        $trackingIpFallback = $this->trackingIpFallback(
+            $server,
+            $routeIp,
+            $context['domain_is_our'] ?? null,
+            $context['domain_status'] ?? null,
+        );
         if ($trackingIpFallback !== null) {
             $body = $this->rewriteDmsTrackingHost($body, $domain, $trackingIpFallback, $token);
         }
@@ -309,10 +315,14 @@ class CampaignSendMessageBuilder
         };
     }
 
-    private function trackingIpFallback(ManagedServer $server, ?ManagedServerIp $routeIp, ?bool $selectedDomainIsOwned = null): ?string
-    {
+    private function trackingIpFallback(
+        ManagedServer $server,
+        ?ManagedServerIp $routeIp,
+        ?bool $selectedDomainIsOwned = null,
+        ?string $selectedDomainStatus = null,
+    ): ?string {
         $parameters = is_array($server->install_parameters) ? $server->install_parameters : [];
-        if (! ($parameters['tracking'] ?? false)) {
+        if (! ($parameters['tracking'] ?? false) || $selectedDomainStatus === 'redirect') {
             return null;
         }
 

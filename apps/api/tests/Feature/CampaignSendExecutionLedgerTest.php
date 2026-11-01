@@ -409,12 +409,23 @@ class CampaignSendExecutionLedgerTest extends TestCase
         $context['setup']['domain'] = $selectedDomain->name;
         $context['domain_fallback'] = $selectedDomain->name;
         $context['domain_is_our'] = true;
+        $context['domain_status'] = 'redirect';
         $selectedDomainMessage = app(CampaignSendMessageBuilder::class)->build($context, $fixture['item'], $fixture['contact']->email);
 
         $this->assertStringContainsString('Message domain: http://selected-campaign.example.test/landing', $selectedDomainMessage['body']);
         $this->assertStringContainsString('http://selected-campaign.example.test/', $selectedDomainMessage['body']);
         $this->assertStringNotContainsString('http://203.0.113.241/', $selectedDomainMessage['body']);
         $this->assertStringNotContainsString('http://tracking.example.test/', $selectedDomainMessage['body']);
+
+        // Redirect domains are explicit campaign tracking hosts even when
+        // their ownership flag is false and the server has a saved IP fallback.
+        $selectedDomain->forceFill(['is_our' => false])->save();
+        $context['domain_is_our'] = false;
+        $externalRedirectMessage = app(CampaignSendMessageBuilder::class)->build($context, $fixture['item'], $fixture['contact']->email);
+
+        $this->assertStringContainsString('Message domain: http://selected-campaign.example.test/landing', $externalRedirectMessage['body']);
+        $this->assertStringContainsString('http://selected-campaign.example.test/', $externalRedirectMessage['body']);
+        $this->assertStringNotContainsString('http://203.0.113.241/', $externalRedirectMessage['body']);
     }
 
     public function test_campaign_send_route_allows_normal_retry_room_without_changing_send_idempotency(): void

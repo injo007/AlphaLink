@@ -20,8 +20,8 @@ class DmsCampaignTrackingTokenBuilder
         $fields[] = Str::random(9).'_'.hash('adler32', $applicationName);
         $fields[] = hash('adler32', implode('_', array_slice($fields, 0, 3)));
 
-        // DMS Helper::validateToken uses strict base64_decode(), so this must
-        // stay standard Base64 (with padding removed), not Base64Url.
-        return rtrim(base64_encode(implode('-', $fields)), '=');
+        // The tracking token is embedded in one URL path segment. The installed
+        // mini-app maps Base64Url characters back before strict decoding.
+        return rtrim(strtr(base64_encode(implode('-', $fields)), '+/', '-_'), '=');
     }
 }

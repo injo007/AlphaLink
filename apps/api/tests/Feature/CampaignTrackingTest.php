@@ -660,7 +660,7 @@ class CampaignTrackingTest extends TestCase
         $payload['token'] = $token;
 
         // DMS Helper::validateToken strictly decodes this same standard Base64 shape.
-        $decoded = base64_decode($token, true);
+        $decoded = base64_decode(strtr($token, '-_', '+/'), true);
         $this->assertIsString($decoded);
         $this->assertCount(14, explode('-', $decoded));
         $this->postJson('/api/v1/stats', $payload)->assertNoContent();

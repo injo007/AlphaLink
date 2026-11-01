@@ -372,7 +372,8 @@ class CampaignSendExecutionLedgerTest extends TestCase
         $this->assertCount(0, $unrewrittenTrackingLinks[0]);
         $this->assertStringContainsString('Message domain: http://tracking.example.test/landing', $message['body']);
         foreach ($matches[1] as $token) {
-            $decoded = base64_decode($token, true);
+            $this->assertMatchesRegularExpression('/\A[A-Za-z0-9_-]+\z/', $token);
+            $decoded = base64_decode(strtr($token, '-_', '+/'), true);
             $this->assertIsString($decoded);
             $parts = explode('-', $decoded);
             $this->assertCount(14, $parts);
@@ -382,6 +383,16 @@ class CampaignSendExecutionLedgerTest extends TestCase
             $this->assertSame('f', $parts[3]);
             $this->assertSame(hash('adler32', implode('_', array_slice($parts, 0, 3))), $parts[13]);
         }
+
+        $server->forceFill(['install_parameters' => [
+            'tracking' => true,
+            'tracking_host' => '203.0.113.241',
+            'data' => [['main' => true, 'ip' => '203.0.113.241', 'is_our' => true]],
+        ]])->save();
+        $domain->forceFill(['is_our' => true])->save();
+        $ownedDomainMessage = app(CampaignSendMessageBuilder::class)->build($context, $fixture['item'], $fixture['contact']->email);
+        $this->assertStringContainsString('http://tracking.example.test/', $ownedDomainMessage['body']);
+        $this->assertStringNotContainsString('http://203.0.113.241/', $ownedDomainMessage['body']);
     }
 
     public function test_planner_rejects_a_snapshot_from_another_campaign_or_workspace(): void

@@ -81,7 +81,7 @@ class DmsCampaignComposerToolsTest extends TestCase
         $this->assertStringNotContainsString('[token]', $generated);
         $this->assertMatchesRegularExpression('/<a href="\[domain\]\/[^\]]+">\d{8}<\/a>/', $generated);
         preg_match('/<a href="\[domain\]\/([^"\s]+)"/', $generated, $tokenMatch);
-        $tokenParts = explode('-', (string) base64_decode($tokenMatch[1], true));
+        $tokenParts = explode('-', (string) base64_decode(strtr($tokenMatch[1], '-_', '+/'), true));
         $this->assertCount(14, $tokenParts);
         $this->assertSame(str_replace('-', '', (string) $campaign->getKey()), $tokenParts[0]);
 

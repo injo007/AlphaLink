@@ -7,13 +7,15 @@ use PHPUnit\Framework\TestCase;
 
 class DmsCampaignTrackingTokenBuilderTest extends TestCase
 {
-    public function test_it_emits_the_strict_standard_base64_token_consumed_by_the_dms_tracker(): void
+    public function test_it_emits_a_url_safe_base64_token_consumed_by_the_installed_dms_tracker(): void
     {
         $fields = ['campaign', 'send', 'recipient', 'f', 'list', 'isp', 'server', 'ip', 'domain', 'from', 'subject', 'creative'];
         $applicationName = 'AlphaLink';
 
         $token = (new DmsCampaignTrackingTokenBuilder)->build($fields, $applicationName);
-        $decoded = base64_decode($token, true);
+        $this->assertMatchesRegularExpression('/\A[A-Za-z0-9_-]+\z/', $token);
+        $this->assertStringNotContainsString('/', $token);
+        $decoded = base64_decode(strtr($token, '-_', '+/'), true);
 
         $this->assertIsString($decoded);
         $parts = explode('-', $decoded);
@@ -22,6 +24,6 @@ class DmsCampaignTrackingTokenBuilderTest extends TestCase
         $this->assertMatchesRegularExpression('/\A[A-Za-z0-9]{9}_[a-f0-9]{8}\z/', $parts[12]);
         $this->assertSame(hash('adler32', $applicationName), substr($parts[12], 10));
         $this->assertSame(hash('adler32', 'campaign_send_recipient'), $parts[13]);
-        $this->assertSame(rtrim(base64_encode(implode('-', $parts)), '='), $token);
+        $this->assertSame(rtrim(strtr(base64_encode(implode('-', $parts)), '+/', '-_'), '='), $token);
     }
 }

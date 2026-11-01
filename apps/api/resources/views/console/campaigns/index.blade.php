@@ -241,13 +241,6 @@
                             <tr id="campaign-statistics-{{ $campaign->id }}" data-campaign-statistics-panel hidden>
                                 <td colspan="14" data-campaign-colspan>
                                     <section class="campaign-statistics-dropdown" aria-label="Statistics for {{ $campaign->name }}">
-                                        <div class="campaign-statistics-heading">
-                                            <div>
-                                                <h4 class="h6 mb-1">CAMPAIGN STATISTICS</h4>
-                                                <span>{{ $from->toDateString() }} — {{ $to->toDateString() }}</span>
-                                            </div>
-                                            <a class="btn btn-sm btn-alt-secondary" href="{{ route('console.campaign-statistics.index', [$workspace->id, 'campaign_id' => $campaign->id, 'from' => $from->toDateString(), 'to' => $to->toDateString()]) }}">Full statistics</a>
-                                        </div>
                                         <div data-statistics-content role="status" aria-live="polite">Loading campaign statistics…</div>
                                     </section>
                                 </td>
@@ -304,20 +297,11 @@
         .campaign-register-table { font-size: .8rem; min-width: 1360px; }
         .campaign-register-table th { white-space: nowrap; }
         .campaign-register-table td { vertical-align: middle; }
-        .campaign-statistics-dropdown { background: #f1f3f5; border: 1px solid #d2d7dc; border-top: 3px solid #3f6fc4; border-radius: .2rem; padding: .85rem; }
-        .campaign-statistics-heading { align-items: center; border-bottom: 1px solid #d8dde2; display: flex; justify-content: space-between; margin-bottom: .75rem; padding-bottom: .6rem; }
-        .campaign-statistics-heading h4 { color: #34404a; font-size: .76rem; font-weight: 700; letter-spacing: .035em; }
-        .campaign-statistics-heading span { color: #74808a; font-size: .72rem; }
-        .campaign-statistics-metrics { display: grid; gap: .45rem; grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr)); margin-bottom: .75rem; }
-        .campaign-statistics-metric { background: #fff; border: 1px solid #d9dee3; border-radius: .15rem; min-height: 3.5rem; padding: .45rem .6rem; }
-        .campaign-statistics-metric strong { color: #303941; display: block; font-size: 1.08rem; font-variant-numeric: tabular-nums; }
-        .campaign-statistics-metric span { color: #6b747c; font-size: .66rem; font-weight: 600; }
-        .campaign-statistics-activity { background: #fff; border: 1px solid #d9dee3; }
-        .campaign-statistics-activity h5 { border-bottom: 1px solid #d9dee3; color: #515b64; font-size: .7rem; font-weight: 700; letter-spacing: .035em; margin: 0; padding: .5rem .6rem; }
-        .campaign-statistics-table { font-size: .72rem; margin-bottom: 0; min-width: 940px; }
-        .campaign-statistics-table thead th { background: #e9edf0; border-top: 0; color: #46515b; font-size: .65rem; white-space: nowrap; }
-        .campaign-statistics-table td { font-variant-numeric: tabular-nums; white-space: nowrap; }
-        .campaign-statistics-empty { background: #fff; border: 1px solid #d9dee3; color: #737e87; padding: .8rem; }
+        .campaign-statistics-dropdown { background: #fff; border-top: 1px solid #dce1e5; padding: 0; }
+        .campaign-statistics-table { font-size: .78rem; margin-bottom: 0; table-layout: fixed; width: 100%; }
+        .campaign-statistics-table thead th { border-top: 0; color: #303941; font-size: .68rem; font-weight: 700; padding: .45rem .6rem .2rem; white-space: nowrap; }
+        .campaign-statistics-table td { color: #252b30; font-variant-numeric: tabular-nums; padding: .2rem .6rem .45rem; }
+        .campaign-statistics-empty { color: #737e87; padding: .65rem .6rem; }
         .campaign-register-toolbar .btn[disabled] { cursor: not-allowed; opacity: .55; }
         .campaign-register-filters .campaign-date-range { width: 12.6rem; }
         .campaign-register-filters .campaign-search-control { position: relative; }
@@ -424,9 +408,8 @@
             });
 
             const metricDefinitions = [
-                ['deliveries', 'DELIVERIES'], ['soft_bounces', 'SOFT BOUNCES'], ['hard_bounces', 'HARD BOUNCES'],
-                ['opens', 'OPENS'], ['clicks', 'CLICKS'], ['leads', 'LEADS'], ['conversions', 'CONVERSIONS'],
-                ['unsubscribes', 'UNSUBSCRIBES'], ['bots', 'BOTS'], ['lead_revenue', 'LEAD REVENUE'],
+                ['opens', 'OPEN'], ['clicks', 'CLICK'], ['leads', 'COUNT LEAD'], ['lead_revenue', 'LEAD'],
+                ['unsubscribes', 'UNSUBSCRIBE'], ['bots', 'BOT'],
             ];
             const numberFormat = new Intl.NumberFormat();
             const currencyFormat = new Intl.NumberFormat(undefined, {style: 'currency', currency: 'USD'});
@@ -435,45 +418,19 @@
                 if (!Array.isArray(rows) || rows.length === 0) {
                     const empty = document.createElement('div');
                     empty.className = 'campaign-statistics-empty';
-                    empty.textContent = 'No campaign statistics are recorded for this date range.';
+                    empty.textContent = 'No campaign statistics are recorded.';
                     target.append(empty);
                     return;
                 }
                 const totals = Object.fromEntries(metricDefinitions.map(([key]) => [key, 0]));
-                const byDate = new Map();
                 for (const row of rows) {
                     for (const [key] of metricDefinitions) totals[key] += Number(row[key] || 0);
-                    const date = String(row.at || '');
-                    if (!byDate.has(date)) byDate.set(date, Object.fromEntries(metricDefinitions.map(([key]) => [key, 0])));
-                    const daily = byDate.get(date);
-                    for (const [key] of metricDefinitions) daily[key] += Number(row[key] || 0);
                 }
-                const metrics = document.createElement('div');
-                metrics.className = 'campaign-statistics-metrics mb-3';
-                for (const [key, label] of metricDefinitions) {
-                    const card = document.createElement('div');
-                    card.className = 'campaign-statistics-metric';
-                    const value = document.createElement('strong');
-                    value.textContent = key === 'lead_revenue' ? currencyFormat.format(totals[key]) : numberFormat.format(totals[key]);
-                    const caption = document.createElement('span');
-                    caption.textContent = label;
-                    card.append(value, caption);
-                    metrics.append(card);
-                }
-                target.append(metrics);
-                const days = Array.from(byDate.entries()).sort(([first], [second]) => second.localeCompare(first));
-                if (days.length === 0) return;
-                const tableWrap = document.createElement('div');
-                tableWrap.className = 'table-responsive';
-                const activity = document.createElement('section');
-                activity.className = 'campaign-statistics-activity';
-                const activityHeading = document.createElement('h5');
-                activityHeading.textContent = 'DAILY ACTIVITY';
                 const table = document.createElement('table');
-                table.className = 'table table-sm table-striped table-hover campaign-statistics-table';
+                table.className = 'table table-sm campaign-statistics-table';
                 const head = document.createElement('thead');
                 const headRow = document.createElement('tr');
-                for (const label of ['DATE', 'DELIVERIES', 'SOFT BOUNCES', 'HARD BOUNCES', 'OPENS', 'CLICKS', 'LEADS', 'CONVERSIONS', 'UNSUBS', 'BOTS', 'EARNINGS']) {
+                for (const [, label] of [...metricDefinitions, ['epc', 'EPC']]) {
                     const cell = document.createElement('th');
                     cell.scope = 'col';
                     cell.textContent = label;
@@ -481,19 +438,18 @@
                 }
                 head.append(headRow);
                 const body = document.createElement('tbody');
-                for (const [date, daily] of days) {
-                    const row = document.createElement('tr');
-                    for (const value of [date, daily.deliveries, daily.soft_bounces, daily.hard_bounces, daily.opens, daily.clicks, daily.leads, daily.conversions, daily.unsubscribes, daily.bots, currencyFormat.format(daily.lead_revenue)]) {
-                        const cell = document.createElement('td');
-                        cell.textContent = typeof value === 'number' ? numberFormat.format(value) : value;
-                        row.append(cell);
-                    }
-                    body.append(row);
+                const row = document.createElement('tr');
+                for (const [key] of metricDefinitions) {
+                    const cell = document.createElement('td');
+                    cell.textContent = key === 'lead_revenue' ? currencyFormat.format(totals[key]) : numberFormat.format(totals[key]);
+                    row.append(cell);
                 }
+                const epc = document.createElement('td');
+                epc.textContent = currencyFormat.format(totals.clicks > 0 ? totals.lead_revenue / totals.clicks : 0);
+                row.append(epc);
+                body.append(row);
                 table.append(head, body);
-                tableWrap.append(table);
-                activity.append(activityHeading, tableWrap);
-                target.append(activity);
+                target.append(table);
             };
             document.querySelectorAll('[data-campaign-statistics-toggle]').forEach(button => {
                 button.addEventListener('click', async () => {

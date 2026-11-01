@@ -306,13 +306,17 @@ class CampaignSendMessageBuilder
             return null;
         }
 
+        $primaryAssignment = collect((array) ($parameters['data'] ?? []))->firstWhere('main', true);
+        $isOwnedDomain = $primaryAssignment['is_our'] ?? $routeIp?->domain?->is_our;
+        if ($isOwnedDomain === true) {
+            return null;
+        }
+
         $configuredHost = trim((string) ($parameters['tracking_host'] ?? ''));
         if (filter_var($configuredHost, FILTER_VALIDATE_IP) !== false) {
             return $configuredHost;
         }
 
-        $primaryAssignment = collect((array) ($parameters['data'] ?? []))->firstWhere('main', true);
-        $isOwnedDomain = $primaryAssignment['is_our'] ?? $routeIp?->domain?->is_our;
         if ($isOwnedDomain === false) {
             return (string) $server->ip_address;
         }

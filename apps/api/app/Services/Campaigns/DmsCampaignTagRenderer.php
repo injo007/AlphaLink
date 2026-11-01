@@ -104,7 +104,7 @@ class DmsCampaignTagRenderer
         $unique = uniqid();
         $token = base64_encode("{$campaignId}-{$sendId}-{$emailId}-{$type}-{$listId}-{$ispId}-0-0-0-0-0-0-{$unique}_{$app}-{$protection}");
 
-        return str_replace('=', '', $token);
+        return rtrim(strtr($token, '+/', '-_'), '=');
     }
 
     /**

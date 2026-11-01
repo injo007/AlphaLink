@@ -6,6 +6,7 @@ use App\Models\CampaignRecipientSnapshotItem;
 use App\Models\CampaignSendRun;
 use App\Models\ManagedServer;
 use App\Models\ManagedServerIp;
+use App\Models\SendingDomain;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceCampaignNegative;
@@ -107,6 +108,12 @@ class CampaignSendMessageBuilder
             throw ValidationException::withMessages(['pmta_port' => 'Configure a valid PMTA SMTP listener port before sending.']);
         }
 
+        $domainFallback = trim((string) ($setup['domain'] ?? ''));
+        $domainIsOwned = $domainFallback === '' ? null : SendingDomain::query()
+            ->where('workspace_id', $workspace->getKey())
+            ->where('name', $domainFallback)
+            ->value('is_our');
+
         $context = [
             'run' => $run,
             'campaign' => $run->campaign,
@@ -126,7 +133,8 @@ class CampaignSendMessageBuilder
             'header_template' => $this->headerTemplate((string) ($revision->payload['header'] ?? '')),
             'body_template' => (string) ($revision->payload['body'] ?? ''),
             'return_path' => (string) ($revision->payload['return_path'] ?? ''),
-            'domain_fallback' => trim((string) ($setup['domain'] ?? '')),
+            'domain_fallback' => $domainFallback,
+            'domain_is_our' => $domainIsOwned === null ? null : (bool) $domainIsOwned,
         ];
 
         if (trim($context['body_template']) === '') {
@@ -170,7 +178,9 @@ class CampaignSendMessageBuilder
 
         $domain = $context['route'] === 'vmta'
             ? trim((string) ($choice['vmta_domain'] ?? ''))
-            : trim((string) ($choice['dns'] ?? $routeIp?->dns ?? $context['domain_fallback']));
+            : trim((string) ($context['domain_fallback'] !== ''
+                ? $context['domain_fallback']
+                : ($choice['dns'] ?? $routeIp?->dns ?? '')));
         if ($context['route'] === 'vmta' && $domain === '') {
             throw ValidationException::withMessages(['send_setup.ip_ids' => 'The selected VMTA has no configured sending domain.']);
         }
@@ -211,7 +221,7 @@ class CampaignSendMessageBuilder
         $header = $this->tagRenderer->render($context['header_template'], $tags, $context['placeholder_rows'], $position - 1, $cache);
         $body = $this->tagRenderer->render($context['body_template'], $tags, $context['placeholder_rows'], $position - 1, $cache);
         $returnPath = $this->tagRenderer->render($context['return_path'], $tags, $context['placeholder_rows'], $position - 1, $cache);
-        $trackingIpFallback = $this->trackingIpFallback($server, $routeIp);
+        $trackingIpFallback = $this->trackingIpFallback($server, $routeIp, $context['domain_is_our'] ?? null);
         if ($trackingIpFallback !== null) {
             $body = $this->rewriteDmsTrackingHost($body, $domain, $trackingIpFallback, $token);
         }
@@ -299,7 +309,7 @@ class CampaignSendMessageBuilder
         };
     }
 
-    private function trackingIpFallback(ManagedServer $server, ?ManagedServerIp $routeIp): ?string
+    private function trackingIpFallback(ManagedServer $server, ?ManagedServerIp $routeIp, ?bool $selectedDomainIsOwned = null): ?string
     {
         $parameters = is_array($server->install_parameters) ? $server->install_parameters : [];
         if (! ($parameters['tracking'] ?? false)) {
@@ -309,7 +319,7 @@ class CampaignSendMessageBuilder
         // Tracking host selection follows the selected send route. A server can
         // have an external primary domain and a managed domain on another IP;
         // the former must not force campaign links for the latter onto the IP.
-        $isOwnedDomain = $routeIp?->domain?->is_our;
+        $isOwnedDomain = $selectedDomainIsOwned ?? $routeIp?->domain?->is_our;
         if ($isOwnedDomain === null) {
             $primaryAssignment = collect((array) ($parameters['data'] ?? []))->firstWhere('main', true);
             $isOwnedDomain = $primaryAssignment['is_our'] ?? null;

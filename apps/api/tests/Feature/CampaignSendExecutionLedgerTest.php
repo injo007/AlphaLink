@@ -395,6 +395,33 @@ class CampaignSendExecutionLedgerTest extends TestCase
         $ownedDomainMessage = app(CampaignSendMessageBuilder::class)->build($context, $fixture['item'], $fixture['contact']->email);
         $this->assertStringContainsString('http://tracking.example.test/', $ownedDomainMessage['body']);
         $this->assertStringNotContainsString('http://203.0.113.241/', $ownedDomainMessage['body']);
+
+        $selectedDomain = SendingDomain::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(),
+            'name' => 'selected-campaign.example.test',
+            'state' => 'verified',
+            'verification_token' => 'synthetic-selected-campaign-domain',
+            'created_by' => $fixture['owner']->getKey(),
+            'status' => 'redirect',
+            'is_our' => true,
+            'is_active' => true,
+        ]);
+        $context['setup']['domain'] = $selectedDomain->name;
+        $context['domain_fallback'] = $selectedDomain->name;
+        $context['domain_is_our'] = true;
+        $selectedDomainMessage = app(CampaignSendMessageBuilder::class)->build($context, $fixture['item'], $fixture['contact']->email);
+
+        $this->assertStringContainsString('Message domain: http://selected-campaign.example.test/landing', $selectedDomainMessage['body']);
+        $this->assertStringContainsString('http://selected-campaign.example.test/', $selectedDomainMessage['body']);
+        $this->assertStringNotContainsString('http://203.0.113.241/', $selectedDomainMessage['body']);
+        $this->assertStringNotContainsString('http://tracking.example.test/', $selectedDomainMessage['body']);
+    }
+
+    public function test_campaign_send_route_allows_normal_retry_room_without_changing_send_idempotency(): void
+    {
+        $middleware = app('router')->getRoutes()->getByName('console.campaigns.send')->gatherMiddleware();
+
+        $this->assertContains('throttle:campaign-send', $middleware);
     }
 
     public function test_planner_rejects_a_snapshot_from_another_campaign_or_workspace(): void

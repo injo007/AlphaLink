@@ -807,7 +807,7 @@ deploy_release() {
             composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
         ALPHALINK_ENV_DIR="$ENV_ROOT" COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_MEMORY_LIMIT=-1 \
             composer check-platform-reqs --no-dev --no-interaction
-        npm ci --no-audit --no-fund
+        npm ci --include=optional --no-audit --no-fund
         build_frontend_assets
         [[ -s public/build/manifest.json ]] || fail 'Vite did not produce the asset manifest.'
         rm -rf -- node_modules
@@ -1070,7 +1070,7 @@ resume_initial_install() {
                 composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
             ALPHALINK_ENV_DIR="$ENV_ROOT" COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_MEMORY_LIMIT=-1 \
                 composer check-platform-reqs --no-dev --no-interaction
-            npm ci --no-audit --no-fund
+            npm ci --include=optional --no-audit --no-fund
             build_frontend_assets
             [[ -s public/build/manifest.json ]] || fail 'Vite did not produce the asset manifest.'
             rm -rf -- node_modules
@@ -1656,7 +1656,7 @@ ALPHALINK_ENV_DIR="$ENV_ROOT" COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_MEMORY_LIMIT=-
     composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
 ALPHALINK_ENV_DIR="$ENV_ROOT" COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_MEMORY_LIMIT=-1 \
     composer check-platform-reqs --no-dev --no-interaction
-npm ci --no-audit --no-fund
+npm ci --include=optional --no-audit --no-fund
 build_frontend_assets
 [[ -s public/build/manifest.json ]] || fail 'Vite did not produce the asset manifest.'
 rm -rf -- node_modules

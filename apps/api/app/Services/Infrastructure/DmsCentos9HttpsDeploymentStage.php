@@ -44,8 +44,8 @@ class DmsCentos9HttpsDeploymentStage
         $trackingVhostName = strtolower(preg_replace('/[^A-Za-z0-9_]+/', '_', str_replace('.', '_', $domain)) ?? '');
         $trackingVhost = '/etc/httpd/conf.d/'.$trackingVhostName.'-le-ssl.conf';
         $trackingRewriteScript = '/<VirtualHost '.chr(92).'*:443>/a'.chr(92)."\n"
-            .'    # ALPHALINK_LONG_TRACKING_URI'."\n"
-            .'    RewriteEngine On'."\n"
+            .'    # ALPHALINK_LONG_TRACKING_URI'.chr(92)."\n"
+            .'    RewriteEngine On'.chr(92)."\n"
             .'    RewriteRule ^/(.{255,})$ /index.php?__alphalink_long_uri=$1 [END,QSA,B]';
         $trackingRewrite = 'if test -f '.escapeshellarg($trackingVhost).'; then '
             ."if ! grep -Fq 'ALPHALINK_LONG_TRACKING_URI' ".escapeshellarg($trackingVhost).'; then '

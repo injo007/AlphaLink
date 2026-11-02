@@ -67,6 +67,8 @@ class DmsCentos9TrackingDeploymentStage
 <VirtualHost *:80>
     ServerName {$serverName}
     {$serverAlias}
+    RewriteEngine On
+    RewriteRule ^/(.{255,})$ /index.php?__alphalink_long_uri=$1 [END,QSA,B]
     DocumentRoot "/var/mini/public"
     <Directory /var/mini/public>
         AllowOverride all
@@ -104,6 +106,22 @@ CONFIG;
                 $helper,
             );
             $this->uploadOrFail($files, $configuredHelper, '/var/mini/app/Helper.php');
+            foreach (['RedirectController.php', 'RedirectDropController.php'] as $controllerFile) {
+                $controllerPath = '/var/mini/app/Http/Controllers/'.$controllerFile;
+                $controller = $files->download($controllerPath);
+                if ($controller === false) {
+                    throw new RuntimeException('The tracking redirect controller is unavailable.');
+                }
+
+                $controller = $this->appendOptionalTokenSegments($controller);
+                $this->uploadOrFail($files, $controller, $controllerPath);
+            }
+            $frontController = $files->download('/var/mini/public/index.php');
+            if ($frontController === false) {
+                throw new RuntimeException('The tracking front controller is unavailable.');
+            }
+            $frontController = $this->preserveLongTrackingRequestUri($frontController);
+            $this->uploadOrFail($files, $frontController, '/var/mini/public/index.php');
             $commands->exec('cd /var/mini && php artisan optimize');
             $commands->exec('(crontab -l | grep \'mini\') || { crontab -l; echo "* * * * * cd /var/mini && php artisan schedule:run >> /dev/null 2>&1"; } | crontab -');
 
@@ -147,6 +165,17 @@ CONFIG;
             if (trim((string) $ipRouteHealth) !== 'ALPHALINK_TRACKING_IP_ROUTE_READY') {
                 throw new RuntimeException('Apache did not route the public-IP tracking fallback through the Laravel app.');
             }
+
+            $longRouteUrl = 'http://127.0.0.1/ALPHALINKTRACK10r'.str_repeat('A', 300).'?t=1';
+            $longRouteHealth = $commands->exec(
+                'response=$(curl -sS --max-time 10 -D - -o /dev/null -w \'\\nALPHALINK_STATUS:%{http_code}\\n\' -H '.escapeshellarg('Host: '.$serverName).' '.escapeshellarg($longRouteUrl).') && '
+                    .'status=$(printf \'%s\\n\' "$response" | sed -n \'s/^ALPHALINK_STATUS://p\') && '
+                    .'test "$status" = 302 && '
+                    .'printf \'%s\\n\' "$response" | grep -Fqi '.escapeshellarg('Location: https://google.com/?q=PE').' && printf ALPHALINK_TRACKING_LONG_ROUTE_READY',
+            );
+            if (trim((string) $longRouteHealth) !== 'ALPHALINK_TRACKING_LONG_ROUTE_READY') {
+                throw new RuntimeException('Apache did not route a long tracking URL to the Laravel app.');
+            }
         }
     }
 
@@ -171,5 +200,54 @@ CONFIG;
         if (! $files->upload($contents, $destination)) {
             throw new RuntimeException('The tracking app asset could not be uploaded.');
         }
+    }
+
+    private function appendOptionalTokenSegments(string $controller): string
+    {
+        $marker = "\$token .= str_replace('/', '', (string) \$option);";
+        $existingCount = substr_count($controller, $marker);
+        if ($existingCount === 4) {
+            return $controller;
+        }
+        if ($existingCount !== 0) {
+            throw new RuntimeException('The tracking redirect controller has a partial token-route patch.');
+        }
+
+        $pattern = '/public function (?:redirect|unsubscribe|open|bot)\s*\([^)]*\)\s*(?::\s*[^\{]+)?\{/s';
+        $updated = preg_replace_callback(
+            $pattern,
+            static fn (array $match): string => $match[0]."\n        \$token .= str_replace('/', '', (string) \$option);",
+            $controller,
+            -1,
+            $count,
+        );
+        if (! is_string($updated) || $count !== 4) {
+            throw new RuntimeException('The tracking redirect controller does not expose all token routes.');
+        }
+
+        return $updated;
+    }
+
+    private function preserveLongTrackingRequestUri(string $frontController): string
+    {
+        $patch = "if (isset(\$_GET['__alphalink_long_uri']) && is_string(\$_GET['__alphalink_long_uri'])) {\n"
+            ."    \$_SERVER['REQUEST_URI'] = '/'.ltrim(\$_GET['__alphalink_long_uri'], '/');\n"
+            ."    unset(\$_GET['__alphalink_long_uri']);\n"
+            ."}\n";
+        $marker = "\$_SERVER['REQUEST_URI'] = '/'.ltrim(\$_GET['__alphalink_long_uri'], '/');";
+        $existingCount = substr_count($frontController, $marker);
+        if ($existingCount === 1) {
+            return $frontController;
+        }
+        if ($existingCount !== 0) {
+            throw new RuntimeException('The tracking front controller has a partial long-token patch.');
+        }
+
+        $needle = "define('LARAVEL_START', microtime(true));";
+        if (! str_contains($frontController, $needle)) {
+            throw new RuntimeException('The tracking front controller does not match the supported Laravel entry point.');
+        }
+
+        return str_replace($needle, $needle."\n\n".$patch, $frontController);
     }
 }

@@ -42,6 +42,8 @@ class DmsCentos9TrackingDeploymentStageTest extends TestCase
         $this->assertSame('synthetic zip bytes', $files->uploads['/var/mini/mini_app.zip']);
         $this->assertStringContainsString('ServerName mail.example.test', $files->uploads['/etc/httpd/conf.d/mail_example_test.conf']);
         $this->assertStringContainsString('ServerAlias 203.0.113.18 a.mail.example.test b.mail.example.test', $files->uploads['/etc/httpd/conf.d/mail_example_test.conf']);
+        $this->assertStringContainsString('RewriteRule ^/(.{255,})$ /index.php?__alphalink_long_uri=$1 [END,QSA,B]', $files->uploads['/etc/httpd/conf.d/mail_example_test.conf']);
+        $this->assertStringContainsString("\$_SERVER['REQUEST_URI'] = '/'.ltrim(\$_GET['__alphalink_long_uri'], '/');", $files->uploads['/var/mini/public/index.php']);
         $this->assertSame('synthetic trusted IPs', $files->uploads['/etc/httpd/conf.d/remoteip.conf']);
         $this->assertSame(
             "url=https://alpha.example.test;key=synthetic-private-key;server=42;decode=base64_decode(strtr(\$token, '-_', '+/'), true)",
@@ -54,8 +56,18 @@ class DmsCentos9TrackingDeploymentStageTest extends TestCase
         $this->assertStringContainsString('Host: 203.0.113.18', $allCommands);
         $this->assertStringContainsString('ALPHALINK_TRACKING_ROUTE_READY', $allCommands);
         $this->assertStringContainsString('ALPHALINK_TRACKING_IP_ROUTE_READY', $allCommands);
+        $this->assertStringContainsString('ALPHALINK_TRACKING_LONG_ROUTE_READY', $allCommands);
         $this->assertStringContainsString('Set-Cookie: alphalink-session=', $allCommands);
-        $this->assertSame(['/var/mini/app/Helper.php'], $files->downloads);
+        $this->assertSame([
+            '/var/mini/app/Helper.php',
+            '/var/mini/app/Http/Controllers/RedirectController.php',
+            '/var/mini/app/Http/Controllers/RedirectDropController.php',
+            '/var/mini/public/index.php',
+        ], $files->downloads);
+        foreach (['RedirectController.php', 'RedirectDropController.php'] as $controllerFile) {
+            $controller = $files->uploads['/var/mini/app/Http/Controllers/'.$controllerFile];
+            $this->assertSame(4, substr_count($controller, '$token .= str_replace(\'/\', \'\', (string) $option);'));
+        }
         $this->assertStringNotContainsString('synthetic-private-key', implode("\n", $commands->commands));
     }
 
@@ -166,6 +178,9 @@ class RecordingTrackingCommands implements DmsInstallerRemoteCommandTransport
         if (str_contains($command, 'ALPHALINK_TRACKING_IP_ROUTE_READY')) {
             return 'ALPHALINK_TRACKING_IP_ROUTE_READY';
         }
+        if (str_contains($command, 'ALPHALINK_TRACKING_LONG_ROUTE_READY')) {
+            return 'ALPHALINK_TRACKING_LONG_ROUTE_READY';
+        }
 
         return '';
     }
@@ -204,6 +219,34 @@ class RecordingTrackingFiles implements DmsInstallerRemoteFileTransport, DmsInst
     {
         $this->downloads[] = $path;
 
-        return $this->helper;
+        if (str_ends_with($path, '/Helper.php')) {
+            return $this->helper;
+        }
+        if (str_ends_with($path, '/public/index.php')) {
+            return "<?php\ndefine('LARAVEL_START', microtime(true));\n";
+        }
+
+        return <<<'PHP'
+<?php
+class TrackingController
+{
+    public function redirect(Request $request, string $token, ?string $option = null): Response {
+        $token = $request->filled('d') ? $request->get('d') : $token;
+        $info = Helper::validateToken($token);
+    }
+    public function unsubscribe(Request $request, string $token, ?string $option = null): Response {
+        $token = $request->filled('d') ? $request->get('d') : $token;
+        $info = Helper::validateToken($token);
+    }
+    public function open(Request $request, string $token, ?string $option = null)
+    {
+        $info = Helper::validateToken($token);
+    }
+    public function bot(Request $request, string $token, ?string $option = null)
+    {
+        $info = Helper::validateToken($token);
+            }
+}
+PHP;
     }
 }

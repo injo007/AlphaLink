@@ -20,8 +20,11 @@ class DmsCampaignTrackingTokenBuilder
         $fields[] = Str::random(9).'_'.hash('adler32', $applicationName);
         $fields[] = hash('adler32', implode('_', array_slice($fields, 0, 3)));
 
-        // The tracking token is embedded in one URL path segment. The installed
-        // mini-app maps Base64Url characters back before strict decoding.
-        return rtrim(strtr(base64_encode(implode('-', $fields)), '+/', '-_'), '=');
+        // Apache resolves each URL segment against the filesystem before
+        // mod_rewrite runs, so long Base64Url values must span route segments.
+        // The installed mini-app joins the optional path tail before decoding.
+        $encoded = rtrim(strtr(base64_encode(implode('-', $fields)), '+/', '-_'), '=');
+
+        return implode('/', str_split($encoded, 160));
     }
 }

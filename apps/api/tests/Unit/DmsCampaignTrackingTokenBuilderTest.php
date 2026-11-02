@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Services\Campaigns\DmsCampaignTrackingTokenBuilder;
+use Illuminate\Support\Str;
 use PHPUnit\Framework\TestCase;
 
 class DmsCampaignTrackingTokenBuilderTest extends TestCase
@@ -25,5 +26,20 @@ class DmsCampaignTrackingTokenBuilderTest extends TestCase
         $this->assertSame(hash('adler32', $applicationName), substr($parts[12], 10));
         $this->assertSame(hash('adler32', 'campaign_send_recipient'), $parts[13]);
         $this->assertSame(rtrim(strtr(base64_encode(implode('-', $parts)), '+/', '-_'), '='), $token);
+    }
+
+    public function test_it_splits_long_uuid_tokens_into_apache_safe_path_segments(): void
+    {
+        $fields = array_fill(0, 12, str_replace('-', '', (string) Str::uuid()));
+        $fields[3] = 'f';
+        $token = (new DmsCampaignTrackingTokenBuilder)->build($fields, 'AlphaLink');
+        $segments = explode('/', $token);
+        $joined = implode('', $segments);
+
+        $this->assertGreaterThan(1, count($segments));
+        $this->assertLessThanOrEqual(160, max(array_map('strlen', $segments)));
+        $decoded = base64_decode(strtr($joined, '-_', '+/'), true);
+        $this->assertIsString($decoded);
+        $this->assertCount(14, explode('-', $decoded));
     }
 }

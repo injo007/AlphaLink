@@ -31,7 +31,11 @@ class DmsCentos9HttpsDeploymentStageTest extends TestCase
             'rpm -qa | grep -qw python3-certbot-apache || dnf -y install python3-certbot-apache;',
             "certbot --apache --no-redirect -d 'sender.example.test,relay.example.test,mail.example.test' -m 'cert@sender.example.test' -n --agree-tos",
             "(crontab -l | grep 'certbot') || { crontab -l; echo '0 0 */15 * * certbot renew'; } | crontab -",
-        ], $commands->commands);
+        ], array_slice($commands->commands, 0, 6));
+        $this->assertCount(7, $commands->commands);
+        $this->assertStringContainsString('ALPHALINK_LONG_TRACKING_URI', $commands->commands[6]);
+        $this->assertStringContainsString('RewriteRule ^/(.{255,})$ /index.php?__alphalink_long_uri=$1 [END,QSA,B]', $commands->commands[6]);
+        $this->assertStringContainsString('sender_example_test-le-ssl.conf', $commands->commands[6]);
     }
 
     public function test_domain_values_are_shell_quoted_in_the_certbot_request(): void

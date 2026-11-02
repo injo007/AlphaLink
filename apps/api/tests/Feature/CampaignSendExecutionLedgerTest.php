@@ -478,8 +478,9 @@ class CampaignSendExecutionLedgerTest extends TestCase
         $this->assertStringNotContainsString('http://203.0.113.241/', $message['body']);
         $this->assertStringContainsString('Message domain: http://tracking.example.test/landing', $message['body']);
         foreach ($matches[1] as $token) {
-            $this->assertMatchesRegularExpression('/\A[A-Za-z0-9_-]+\z/', $token);
-            $decoded = base64_decode(strtr($token, '-_', '+/'), true);
+            $segments = explode('/', $token);
+            $this->assertLessThanOrEqual(160, max(array_map('strlen', $segments)));
+            $decoded = base64_decode(strtr(implode('', $segments), '-_', '+/'), true);
             $this->assertIsString($decoded);
             $parts = explode('-', $decoded);
             $this->assertCount(14, $parts);

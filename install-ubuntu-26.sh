@@ -216,6 +216,18 @@ prepare_frontend_build_swap() {
     info 'Enabled a protected temporary 2 GiB swap file for the frontend build.'
 }
 
+verify_frontend_native_binding() {
+    local node_arch binding_path
+    node_arch="$(node -p 'process.arch')"
+    case "$node_arch" in
+        x64) binding_path='node_modules/@rolldown/binding-linux-x64-gnu' ;;
+        arm64) binding_path='node_modules/@rolldown/binding-linux-arm64-gnu' ;;
+        *) fail "Frontend builds support Linux x64 and arm64; Node reports ${node_arch}." ;;
+    esac
+    [[ -d "$binding_path" ]] || fail "The Vite native binding for Node ${node_arch} is missing after npm ci. Install optional dependencies and retry."
+    info "Verified Vite native binding for Node ${node_arch}."
+}
+
 build_frontend_assets() {
     local host_memory_mib node_heap_mib node_options build_status=0 fallback_status=0
     host_memory_mib="$(awk '/^MemTotal:/ { print int($2 / 1024) }' /proc/meminfo)"
@@ -808,6 +820,7 @@ deploy_release() {
         ALPHALINK_ENV_DIR="$ENV_ROOT" COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_MEMORY_LIMIT=-1 \
             composer check-platform-reqs --no-dev --no-interaction
         npm ci --include=optional --no-audit --no-fund
+        verify_frontend_native_binding
         build_frontend_assets
         [[ -s public/build/manifest.json ]] || fail 'Vite did not produce the asset manifest.'
         rm -rf -- node_modules
@@ -1071,6 +1084,7 @@ resume_initial_install() {
             ALPHALINK_ENV_DIR="$ENV_ROOT" COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_MEMORY_LIMIT=-1 \
                 composer check-platform-reqs --no-dev --no-interaction
             npm ci --include=optional --no-audit --no-fund
+            verify_frontend_native_binding
             build_frontend_assets
             [[ -s public/build/manifest.json ]] || fail 'Vite did not produce the asset manifest.'
             rm -rf -- node_modules
@@ -1657,6 +1671,7 @@ ALPHALINK_ENV_DIR="$ENV_ROOT" COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_MEMORY_LIMIT=-
 ALPHALINK_ENV_DIR="$ENV_ROOT" COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_MEMORY_LIMIT=-1 \
     composer check-platform-reqs --no-dev --no-interaction
 npm ci --include=optional --no-audit --no-fund
+verify_frontend_native_binding
 build_frontend_assets
 [[ -s public/build/manifest.json ]] || fail 'Vite did not produce the asset manifest.'
 rm -rf -- node_modules

@@ -223,7 +223,7 @@ class CampaignSendExecutionLedgerTest extends TestCase
         $this->assertSame(0, DB::table('consent_records')->count());
 
         $catalog = Mockery::mock(DmsCampaignSendCatalog::class);
-        $catalog->shouldReceive('validateRevisionRouting')->once()->andReturn([
+        $catalog->shouldReceive('validateRevisionRouting')->twice()->andReturn([
             'server_ids' => [$serverId], 'ip_ids' => [$routeId],
         ]);
         $this->app->instance(DmsCampaignSendCatalog::class, $catalog);
@@ -245,6 +245,113 @@ class CampaignSendExecutionLedgerTest extends TestCase
         $this->assertSame(1, $run->next_position);
         $this->assertSame(2, $run->execution_options['end_position']);
         Queue::assertPushedOn('campaign-sends', ProcessCampaignSendRun::class, fn (ProcessCampaignSendRun $job): bool => $job->sendRunId === $run->getKey());
+        $this->actingAs($fixture['owner'])
+            ->post(route('console.campaigns.send', [$fixture['workspace']->getKey(), $fixture['campaign']->getKey()]), [
+                'idempotency_key' => (string) Str::uuid(),
+            ])
+            ->assertSessionHas('status', 'This campaign send is already queued or running. Its latest progress is shown below.');
+        Queue::assertPushed(ProcessCampaignSendRun::class, 1);
+    }
+
+    public function test_campaign_send_can_be_stopped_before_the_worker_starts(): void
+    {
+        $fixture = $this->sendFixture(recipientCount: 2);
+        $fixture['workspace']->users()->attach($fixture['owner']->getKey(), ['role' => 'owner']);
+        $run = app(PrepareCampaignSendRun::class)->create(
+            $fixture['campaign'], $fixture['revision'], $fixture['snapshot'], $fixture['owner'], (string) Str::uuid(),
+        );
+
+        $stopUrl = route('console.campaigns.send-stop', [$fixture['workspace']->getKey(), $fixture['campaign']->getKey(), $run->getKey()]);
+        $this->actingAs($fixture['owner'])->patch(route('console.campaigns.status', [
+            $fixture['workspace']->getKey(), $fixture['campaign']->getKey(),
+        ]), ['is_active' => false])->assertStatus(409);
+        $this->actingAs($fixture['owner'])->patch(route('console.campaigns.bulk-disable', $fixture['workspace']->getKey()), [
+            'campaign_ids' => [$fixture['campaign']->getKey()],
+        ])->assertStatus(409);
+        $this->actingAs($fixture['owner'])->post($stopUrl)
+            ->assertRedirect(route('console.mailer.campaigns'))
+            ->assertSessionHas('status', 'Campaign send stopped. A message already in progress may finish; no new recipients will be started.');
+        $this->assertSame('stopped', $run->fresh()->state);
+        $this->assertNotNull($run->fresh()->completed_at);
+        $this->assertSame(0, $run->deliveryAttempts()->count());
+        $this->assertSame(1, DB::table('audit_events')->where('action', 'campaign.send_stopped')->count());
+
+        $this->actingAs($fixture['owner'])->post($stopUrl)->assertSessionHas('status', 'Campaign send was already stopped.');
+        $this->assertSame(1, DB::table('audit_events')->where('action', 'campaign.send_stopped')->count());
+        $this->actingAs($fixture['owner'])->get(route('console.campaigns.send-progress', [
+            $fixture['workspace']->getKey(), $fixture['campaign']->getKey(), $run->getKey(),
+        ]))->assertOk()->assertJsonPath('state', 'stopped');
+    }
+
+    public function test_stopped_send_records_in_flight_outcome_and_blocks_another_recipient(): void
+    {
+        $fixture = $this->sendFixture(recipientCount: 2);
+        $fixture['workspace']->users()->attach($fixture['owner']->getKey(), ['role' => 'owner']);
+        $run = app(PrepareCampaignSendRun::class)->create(
+            $fixture['campaign'], $fixture['revision'], $fixture['snapshot'], $fixture['owner'], (string) Str::uuid(),
+        );
+        $batch = app(ClaimCampaignSendBatch::class)->claim($run->getKey(), 'synthetic-worker', (string) Str::uuid(), batchSize: 2);
+        $this->assertNotNull($batch);
+        $leaseToken = (string) $batch->lease_token;
+        $lifecycle = app(CampaignDeliveryAttemptLifecycle::class);
+        $attempt = $lifecycle->start(
+            $run->getKey(), $batch->getKey(), $fixture['items'][0]->getKey(), 'synthetic-worker', $leaseToken, (string) Str::uuid(),
+        );
+
+        $this->actingAs($fixture['owner'])->post(route('console.campaigns.send-stop', [
+            $fixture['workspace']->getKey(), $fixture['campaign']->getKey(), $run->getKey(),
+        ]))->assertRedirect();
+        $lifecycle->recordOutcome($run->getKey(), $attempt->getKey(), 'synthetic-worker', $leaseToken, 'accepted');
+
+        $this->assertSame('stopped', $run->fresh()->state);
+        $this->assertSame(1, $run->fresh()->accepted_count);
+        $this->assertSame('accepted', $attempt->fresh()->state);
+        $this->expectException(ValidationException::class);
+        $lifecycle->start(
+            $run->getKey(), $batch->getKey(), $fixture['items'][1]->getKey(), 'synthetic-worker', $leaseToken, (string) Str::uuid(),
+        );
+    }
+
+    public function test_recovery_requeues_stale_plan_once_and_respects_saved_recipient_delay(): void
+    {
+        Queue::fake();
+        $fixture = $this->sendFixture(recipientCount: 2, sendSetup: [
+            'send_type' => 'delay',
+            'parameters' => ['total_send' => 2, 'fraction_ip' => 1, 'sleep_email' => 1000, 'sleep_ip' => 0],
+        ]);
+        $run = app(PrepareCampaignSendRun::class)->create(
+            $fixture['campaign'], $fixture['revision'], $fixture['snapshot'], $fixture['owner'], (string) Str::uuid(),
+        );
+        $run->created_at = now()->subMinutes(3);
+        $run->save();
+
+        $this->artisan('campaigns:recover-sends')->assertSuccessful();
+        Queue::assertPushed(ProcessCampaignSendRun::class, 1);
+        $this->artisan('campaigns:recover-sends')->assertSuccessful();
+        Queue::assertPushed(ProcessCampaignSendRun::class, 1);
+
+        $run->refresh();
+        $run->state = 'running';
+        $run->execution_options = [];
+        $run->save();
+        $batch = CampaignSendBatch::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(),
+            'send_run_id' => $run->getKey(),
+            'batch_number' => 1,
+            'claim_request_key' => (string) Str::uuid(),
+            'claim_request_fingerprint' => hash('sha256', 'recovery batch'),
+            'first_position' => 1,
+            'last_position' => 1,
+            'state' => 'completed',
+            'completed_at' => now(),
+        ]);
+        $this->artisan('campaigns:recover-sends')->assertSuccessful();
+        Queue::assertPushed(ProcessCampaignSendRun::class, 1);
+
+        $batch->completed_at = now()->subMinutes(20);
+        $batch->save();
+        $this->artisan('campaigns:recover-sends')->assertSuccessful();
+        Queue::assertPushed(ProcessCampaignSendRun::class, 2);
     }
 
     public function test_background_sender_submits_snapshot_recipients_to_pmta_and_records_acceptance(): void

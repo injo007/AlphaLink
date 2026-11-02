@@ -38,8 +38,8 @@ class DmsCampaignSendNavigationTest extends TestCase
             ->assertSee('SLEEP IP')
             ->assertSee('SEND TYPE')
             ->assertSee('PROGRESS')
-            ->assertSee('BACKGROUND SENDS')
-            ->assertSee('This Grid Is Empty')
+            ->assertSee('Active sends')
+            ->assertSee('No data available in table')
             ->assertDontSee('DMS-mapped recipient suppression snapshot is built when a campaign draft is saved')
             ->assertDontSee('no campaign can be launched');
     }
@@ -55,7 +55,7 @@ class DmsCampaignSendNavigationTest extends TestCase
             ->get(route('console.campaigns.index', $workspace->getKey()))
             ->assertOk()
             ->assertSee('SEND')
-            ->assertSee('This Grid Is Empty');
+            ->assertSee('No data available in table');
 
         $privacyOfficer = User::factory()->create();
         $workspace->users()->attach($privacyOfficer->getKey(), ['role' => 'privacy_officer']);
@@ -136,7 +136,7 @@ class DmsCampaignSendNavigationTest extends TestCase
             ->assertOk()
             ->assertSee($recent->name)
             ->assertDontSee($historical->name)
-            ->assertSee('Date from')
+            ->assertSee('Date:')
             ->assertSee('Showing 1 to 1 of 1 campaigns in the selected date range.');
 
         $this->get($url.'?'.http_build_query([
@@ -147,7 +147,7 @@ class DmsCampaignSendNavigationTest extends TestCase
             ->assertOk()
             ->assertSee($historical->name)
             ->assertDontSee($recent->name)
-            ->assertSee('name="q" type="search" class="form-control form-control-sm mr-1" value="Historical"', false);
+            ->assertSee('id="campaign-search" name="q" type="search" class="form-control form-control-sm" value="Historical"', false);
     }
 
     public function test_campaign_register_uses_the_dms_active_vs_disabled_filter(): void

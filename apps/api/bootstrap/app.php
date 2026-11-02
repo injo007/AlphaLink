@@ -1,6 +1,7 @@
 <?php
 
 use App\Console\Commands\DispatchManagedServerPmtaFeedback;
+use App\Console\Commands\RecoverCampaignSends;
 use App\Console\Commands\RunAppHealthChecks;
 use App\Console\Commands\SyncWorkspaceSponsorLeads;
 use App\Http\Middleware\AssignRequestId;
@@ -35,6 +36,10 @@ $application = Application::configure(basePath: dirname(__DIR__))
         $schedule->command('horizon:snapshot')->everyFiveMinutes();
         $schedule->command(RunAppHealthChecks::class)
             ->everyMinute()
+            ->withoutOverlapping();
+        $schedule->command(RecoverCampaignSends::class)
+            ->everyMinute()
+            ->onOneServer()
             ->withoutOverlapping();
         $schedule->command(DispatchManagedServerPmtaFeedback::class)
             ->everyTwoMinutes()

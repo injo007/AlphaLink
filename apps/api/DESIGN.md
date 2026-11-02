@@ -120,7 +120,7 @@ Links and buttons have visible focus, hover, and pressed states. Disabled and bu
 
 ### Buttons and actions
 
-Sign-in and infrastructure preparation forms use a filled primary button. Sign-out is a quiet text action. Record links are text-first with an adjacent arrow link where useful. Campaigns use the DMS-shaped register and draft/revision forms; draft save, saved-header management and private negative-file management are available. Launch, send, schedule, export and audience contact-address display remain unavailable until source-equivalent workflow and privacy behavior are proven.
+Sign-in and infrastructure preparation forms use a filled primary button. Sign-out is a quiet text action. Record links are text-first with an adjacent arrow link where useful. Campaigns use the DMS-shaped register and draft/revision forms; draft save, saved-header management and private negative-file management are available. Campaign Send now queues a snapshot-bound PMTA run; the register shows its progress, pacing and Stop action. Scheduling, export and audience contact-address display remain unavailable. Exact DMS sender parity remains unverified.
 
 ### Navigation and data display
 
@@ -146,5 +146,5 @@ Use direct operational language. Say “active members,” “campaign records,�
 
 - **Do:** Keep every record within an explicitly selected workspace.
 - **Do:** Pair status with text and show what an empty register means.
-- **Don't:** imply that campaigns can be scheduled, sent, or delivered from this interface.
+- **Don't:** imply that a queued or SMTP-accepted campaign is delivered, or that scheduling exists.
 - **Don't:** expose contact addresses in the read-only audience register.

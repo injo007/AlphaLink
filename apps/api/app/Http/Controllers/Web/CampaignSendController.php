@@ -63,7 +63,6 @@ class CampaignSendController extends Controller
             $activeRun = CampaignSendRun::query()
                 ->where('workspace_id', $workspace->getKey())
                 ->where('campaign_id', $campaign->getKey())
-                ->where('revision_id', $revision->getKey())
                 ->whereIn('state', ['planned', 'running'])
                 ->latest('created_at')
                 ->lockForUpdate()
@@ -77,7 +76,7 @@ class CampaignSendController extends Controller
                 ->where('campaign_id', $campaign->getKey())
                 ->where('revision_id', $revision->getKey())
                 ->where(function ($query): void {
-                    $query->whereIn('state', ['completed', 'needs_review'])
+                    $query->whereIn('state', ['completed', 'needs_review', 'stopped'])
                         ->orWhere(function ($failed) {
                             $failed->where('state', 'failed')
                                 ->where(function ($progress): void {
@@ -111,14 +110,64 @@ class CampaignSendController extends Controller
             return [$run, false];
         }, attempts: 3);
 
-        ProcessCampaignSendRun::dispatch((string) $run->getKey())
-            ->onQueue('campaign-sends')
-            ->afterCommit();
+        if (! $alreadyRunning) {
+            ProcessCampaignSendRun::dispatch((string) $run->getKey())
+                ->onQueue('campaign-sends')
+                ->afterCommit();
+        }
 
         return redirect()->route('console.campaigns.index', $workspace->getKey())
             ->with('status', $alreadyRunning
-                ? 'This campaign send is already running. Its latest progress is shown below.'
+                ? 'This campaign send is already queued or running. Its latest progress is shown below.'
                 : 'Campaign send queued. Progress and SMTP outcomes will update in the campaign register.');
+    }
+
+    public function stop(Request $request, string $workspace, string $campaign, string $run): RedirectResponse
+    {
+        $workspace = $request->user()->workspaces()
+            ->where('workspaces.status', 'active')
+            ->whereKey($workspace)
+            ->firstOrFail();
+        abort_unless(in_array($workspace->pivot->role, ['owner', 'admin', 'operator'], true), 403);
+
+        $stopped = DB::transaction(function () use ($request, $workspace, $campaign, $run): bool {
+            $sendRun = CampaignSendRun::query()
+                ->where('workspace_id', $workspace->getKey())
+                ->where('campaign_id', $campaign)
+                ->whereHas('campaign', fn ($query) => $query->where('created_by', $request->user()->getKey()))
+                ->whereKey($run)
+                ->lockForUpdate()
+                ->firstOrFail();
+            if ($sendRun->state === 'stopped') {
+                return false;
+            }
+            abort_unless(in_array($sendRun->state, ['planned', 'running'], true), 409, 'This campaign send has already finished.');
+
+            $sendRun->state = 'stopped';
+            $sendRun->completed_at = now();
+            $sendRun->save();
+            AuditEvent::query()->create([
+                'workspace_id' => $workspace->getKey(),
+                'actor_user_id' => $request->user()->getKey(),
+                'action' => 'campaign.send_stopped',
+                'subject_type' => CampaignSendRun::class,
+                'subject_id' => $sendRun->getKey(),
+                'properties' => [
+                    'campaign_id' => (string) $sendRun->campaign_id,
+                    'accepted_count' => (int) $sendRun->accepted_count,
+                    'rejected_count' => (int) $sendRun->rejected_count,
+                    'uncertain_count' => (int) $sendRun->uncertain_count,
+                ],
+                'occurred_at' => now(),
+            ]);
+
+            return true;
+        }, attempts: 3);
+
+        return redirect()->route('console.campaigns.index', $workspace->getKey())
+            ->with('status', $stopped
+                ? 'Campaign send stopped. A message already in progress may finish; no new recipients will be started.'
+                : 'Campaign send was already stopped.');
     }
 
     public function progress(Request $request, string $workspace, string $campaign, string $run): JsonResponse
@@ -146,6 +195,7 @@ class CampaignSendController extends Controller
             'rejected' => (int) $sendRun->rejected_count,
             'suppressed' => (int) $sendRun->suppressed_count,
             'uncertain' => (int) $sendRun->uncertain_count,
+            'next_batch_at' => $sendRun->execution_options['next_batch_at'] ?? null,
         ]);
     }
 }

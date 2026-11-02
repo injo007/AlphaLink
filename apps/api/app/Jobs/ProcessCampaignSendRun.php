@@ -17,6 +17,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -62,6 +63,17 @@ class ProcessCampaignSendRun implements ShouldQueue
             $run = CampaignSendRun::query()->find($this->sendRunId);
             if (! $run || ! in_array($run->state, ['planned', 'running'], true)) {
                 return;
+            }
+
+            $options = $run->execution_options ?? [];
+            $nextBatchAt = $options['next_batch_at'] ?? null;
+            if (is_string($nextBatchAt) && $nextBatchAt !== '') {
+                if (Carbon::parse($nextBatchAt)->isFuture()) {
+                    return;
+                }
+                unset($options['next_batch_at']);
+                $run->execution_options = $options;
+                $run->save();
             }
 
             try {
@@ -113,14 +125,22 @@ class ProcessCampaignSendRun implements ShouldQueue
                     ->with('address')
                     ->firstOrFail();
                 $recipient = (string) ($item->address?->email ?? '');
-                $attempt = $attemptLifecycle->start(
-                    (string) $run->getKey(),
-                    (string) $batch->getKey(),
-                    (string) $item->getKey(),
-                    $workerId,
-                    $leaseToken,
-                    (string) Str::uuid(),
-                );
+                try {
+                    $attempt = $attemptLifecycle->start(
+                        (string) $run->getKey(),
+                        (string) $batch->getKey(),
+                        (string) $item->getKey(),
+                        $workerId,
+                        $leaseToken,
+                        (string) Str::uuid(),
+                    );
+                } catch (ValidationException $exception) {
+                    if ($run->fresh()->state === 'stopped') {
+                        break;
+                    }
+
+                    throw $exception;
+                }
                 $outcome = 'uncertain';
                 $transportCode = null;
                 $errorCode = null;
@@ -264,6 +284,11 @@ class ProcessCampaignSendRun implements ShouldQueue
         if ((int) ($parameters['sleep_ip'] ?? 0) > 0 && ((int) $batch->last_position - (int) $run->start_position + 1) % $fraction === 0) {
             $delay += (int) $parameters['sleep_ip'];
         }
+
+        $options = $run->execution_options ?? [];
+        $options['next_batch_at'] = now()->addSeconds($delay)->toIso8601String();
+        $run->execution_options = $options;
+        $run->save();
 
         $job = self::dispatch((string) $run->getKey())->onQueue('campaign-sends');
         if ($delay > 0) {

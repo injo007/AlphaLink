@@ -102,18 +102,26 @@ class WorkspaceConsoleController extends Controller
             'q' => ['sometimes', 'nullable', 'string', 'max:120'],
             'disabled' => ['sometimes', 'boolean'],
             'per_page' => ['sometimes', 'integer', 'in:20,50,100'],
+            'send_state' => ['sometimes', 'in:active'],
         ]);
         $from = Carbon::parse($filters['from'] ?? now()->subDays(30)->toDateString())->startOfDay();
         $to = Carbon::parse($filters['to'] ?? now()->toDateString())->endOfDay();
         $search = trim((string) ($filters['q'] ?? ''));
         $showDisabled = (bool) ($filters['disabled'] ?? false);
         $perPage = (int) ($filters['per_page'] ?? 50);
+        $activeOnly = ($filters['send_state'] ?? null) === 'active';
+        $activeSendCount = CampaignSendRun::query()
+            ->where('workspace_id', $workspace->getKey())
+            ->whereIn('state', ['planned', 'running'])
+            ->whereHas('campaign', fn ($query) => $query->where('created_by', $request->user()->getKey()))
+            ->count();
 
         $campaignQuery = $workspace->campaigns()
             ->with('latestRevision')
             ->where('created_by', $request->user()->getKey())
             ->where('is_active', ! $showDisabled)
-            ->whereBetween('created_at', [$from, $to])
+            ->when(! $activeOnly, fn ($query) => $query->whereBetween('created_at', [$from, $to]))
+            ->when($activeOnly, fn ($query) => $query->whereHas('sendRuns', fn ($runs) => $runs->whereIn('state', ['planned', 'running'])))
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($query) use ($search): void {
                     $query->where('name', 'like', '%'.$search.'%')
@@ -137,7 +145,6 @@ class WorkspaceConsoleController extends Controller
             ->all();
         $latestSendRuns = CampaignSendRun::query()
             ->whereIn('campaign_id', $campaigns->getCollection()->modelKeys())
-            ->whereIn('revision_id', $campaignRevisionIds)
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->get()
@@ -195,8 +202,8 @@ class WorkspaceConsoleController extends Controller
             $sendRun = $latestSendRuns->get((string) $campaign->getKey());
             $hasSnapshot = in_array((string) $campaign->latestRevision?->getKey(), $recipientSnapshotRevisionIds, true);
             $sendRun?->setAttribute('last_smtp_error', $latestSmtpErrors->get((string) $sendRun->getKey())?->error_code);
-            $hasTerminalSend = $sendRun && (
-                in_array($sendRun->state, ['completed', 'needs_review'], true)
+            $hasTerminalSend = $sendRun && (string) $sendRun->revision_id === (string) $campaign->latestRevision?->getKey() && (
+                in_array($sendRun->state, ['completed', 'needs_review', 'stopped'], true)
                 || ($sendRun->state === 'failed' && (
                     (int) $sendRun->accepted_count > 0
                     || (int) $sendRun->rejected_count > 0
@@ -216,7 +223,7 @@ class WorkspaceConsoleController extends Controller
             return $campaign;
         });
 
-        return view('console.campaigns.index', compact('workspace', 'campaigns', 'from', 'to', 'search', 'showDisabled', 'perPage'));
+        return view('console.campaigns.index', compact('workspace', 'campaigns', 'from', 'to', 'search', 'showDisabled', 'perPage', 'activeOnly', 'activeSendCount'));
     }
 
     public function createCampaign(Request $request, string $workspace, DmsCampaignSendCatalog $catalog): View
@@ -3243,6 +3250,7 @@ class WorkspaceConsoleController extends Controller
             if ($wasActive === $isActive) {
                 return;
             }
+            abort_if(! $isActive && $record->sendRuns()->whereIn('state', ['planned', 'running'])->exists(), 409, 'Stop the active send before disabling this campaign.');
 
             $record->forceFill(['is_active' => $isActive])->save();
             AuditEvent::query()->create([
@@ -3278,6 +3286,7 @@ class WorkspaceConsoleController extends Controller
                 ->lockForUpdate()
                 ->get();
             abort_unless($campaigns->count() === count($ids), 404);
+            abort_if(CampaignSendRun::query()->where('workspace_id', $workspace->getKey())->whereIn('campaign_id', $ids)->whereIn('state', ['planned', 'running'])->exists(), 409, 'Stop active sends before disabling these campaigns.');
 
             foreach ($campaigns as $campaign) {
                 if (! $campaign->is_active) {

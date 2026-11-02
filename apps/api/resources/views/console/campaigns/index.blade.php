@@ -59,7 +59,7 @@
                         </select>
                     </form>
                     <a class="btn btn-sm btn-alt-primary mr-2" href="{{ route('console.campaigns.create', $workspace->id) }}" title="Create campaign" aria-label="Create campaign"><i class="fas fa-plus" aria-hidden="true"></i></a>
-                    <button class="btn btn-sm btn-alt-secondary mr-2" type="button" disabled title="Running processes" aria-label="Running processes unavailable"><i class="fas fa-cog" aria-hidden="true"></i></button>
+                    <a class="btn btn-sm {{ $activeOnly ? 'btn-primary' : 'btn-alt-secondary' }} mr-2" href="{{ $activeOnly ? route('console.campaigns.index', $workspace->id) : route('console.campaigns.index', [$workspace->id, 'send_state' => 'active']) }}" title="{{ $activeOnly ? 'Show all campaigns' : 'Show active campaign sends' }}" aria-label="{{ $activeOnly ? 'Show all campaigns' : 'Show active campaign sends' }}"><i class="fas fa-cog mr-1" aria-hidden="true"></i>{{ $activeOnly ? 'All campaigns' : 'Active sends' }} <span class="badge badge-light ml-1">{{ $activeSendCount }}</span></a>
                     <button class="btn btn-sm btn-alt-danger mr-2" type="submit" form="campaign-bulk-form" id="campaign-bulk-disable-open" disabled title="Select campaigns to disable"><i class="fas fa-trash" aria-hidden="true"></i><span class="sr-only">Disable selected campaigns</span></button>
                     <a class="btn btn-sm btn-alt-secondary" href="{{ request()->fullUrl() }}" title="Reload campaign register" aria-label="Reload campaign register"><i class="fas fa-sync-alt" aria-hidden="true"></i></a>
                 </div>
@@ -81,6 +81,9 @@
                     <a class="small ml-2" href="{{ route('console.campaigns.test-draft.create', $workspace->id) }}" aria-label="New test message">New test message</a>
                 </form>
             </div>
+            @if ($activeOnly)
+                <p class="small text-muted mb-2" role="status">Showing campaigns with an active send, including campaigns created outside the selected date range. Stop prevents new recipients from starting; an in-progress SMTP message may finish.</p>
+            @endif
             <div id="campaign-selection-count" class="text-muted small mb-2" aria-live="polite" hidden></div>
 
             <form id="campaign-bulk-form" method="POST" action="{{ route('console.campaigns.bulk-disable', $workspace->id) }}">
@@ -99,8 +102,8 @@
                             <th scope="col" data-campaign-column="server">SERVER</th>
                             <th scope="col" data-campaign-column="total-send">TOTAL SEND</th>
                             <th scope="col" data-campaign-column="fraction-ip">FRACTION IP</th>
-                            <th scope="col" data-campaign-column="sleep-email">SLEEP EMAIL</th>
-                            <th scope="col" data-campaign-column="sleep-ip">SLEEP IP</th>
+                            <th scope="col" data-campaign-column="sleep-email" title="Seconds between recipients">SLEEP EMAIL (S)</th>
+                            <th scope="col" data-campaign-column="sleep-ip" title="Seconds between IP groups">SLEEP IP (S)</th>
                             <th scope="col" data-campaign-column="seed">SEED</th>
                             <th scope="col" data-campaign-column="send-type">SEND TYPE</th>
                             <th scope="col" data-campaign-column="actions">ACTIONS</th>
@@ -112,9 +115,11 @@
                         @forelse ($campaigns as $campaign)
                             @php
                                 $register = $campaign->send_register ?? [];
+                                $sendRun = $campaign->send_run;
+                                $sendActive = $sendRun && in_array($sendRun->state, ['planned', 'running'], true);
                             @endphp
                             <tr>
-                                <td data-campaign-column="select"><input class="campaign-row-select" type="checkbox" name="campaign_ids[]" value="{{ $campaign->id }}" form="campaign-bulk-form" aria-label="Select campaign {{ $campaign->name }}"></td>
+                                <td data-campaign-column="select"><input class="campaign-row-select" type="checkbox" name="campaign_ids[]" value="{{ $campaign->id }}" form="campaign-bulk-form" aria-label="Select campaign {{ $campaign->name }}" @disabled($sendActive) title="{{ $sendActive ? 'Stop the active send before disabling this campaign.' : 'Select campaign to disable' }}"></td>
                                 <td data-campaign-column="campaign">
                                     <a href="{{ route('console.campaigns.show', [$workspace->id, $campaign->id]) }}" title="{{ $campaign->name }} · created {{ $campaign->created_at?->format('Y-m-d H:i') }}">{{ substr($campaign->id, 0, 8) }}</a>
                                     <div class="small text-muted">{{ $campaign->name }}</div>
@@ -169,11 +174,10 @@
                                     @else
                                         <button type="button" class="btn btn-link btn-sm" disabled title="Only DMS Send campaigns with a saved audience setup can be cloned." aria-label="Clone unavailable for {{ $campaign->name }}"><i class="fas fa-clone" aria-hidden="true"></i></button>
                                     @endif
-                                    <button type="button" class="btn btn-link btn-sm campaign-status-open" data-campaign-name="{{ $campaign->name }}" data-next-active="{{ $campaign->is_active ? '0' : '1' }}" data-status-url="{{ route('console.campaigns.status', [$workspace->id, $campaign->id]) }}" title="{{ $campaign->is_active ? 'Disable' : 'Restore' }} campaign" aria-label="{{ $campaign->is_active ? 'Disable' : 'Restore' }} {{ $campaign->name }}"><i class="{{ $campaign->is_active ? 'fas fa-trash text-danger' : 'fas fa-trash-restore text-success' }}" aria-hidden="true"></i></button>
+                                    <button type="button" class="btn btn-link btn-sm campaign-status-open" data-campaign-name="{{ $campaign->name }}" data-next-active="{{ $campaign->is_active ? '0' : '1' }}" data-status-url="{{ route('console.campaigns.status', [$workspace->id, $campaign->id]) }}" title="{{ $sendActive ? 'Stop the active send before disabling this campaign.' : ($campaign->is_active ? 'Disable campaign' : 'Restore campaign') }}" aria-label="{{ $sendActive ? 'Stop active send before disabling '.$campaign->name : ($campaign->is_active ? 'Disable ' : 'Restore ').$campaign->name }}" @disabled($sendActive)><i class="{{ $campaign->is_active ? 'fas fa-trash text-danger' : 'fas fa-trash-restore text-success' }}" aria-hidden="true"></i></button>
                                 </td>
                                 <td data-campaign-column="progress">
                                     @php
-                                        $sendRun = $campaign->send_run;
                                         $sendProcessed = $sendRun
                                             ? (int) $sendRun->accepted_count + (int) $sendRun->rejected_count + (int) $sendRun->suppressed_count + (int) $sendRun->uncertain_count
                                             : 0;
@@ -198,6 +202,9 @@
                                             <div class="progress-bar {{ $sendRun->state === 'needs_review' ? 'bg-warning' : ($sendRun->state === 'failed' ? 'bg-danger' : '') }}" style="width: {{ $sendPercent }}%"></div>
                                         </div>
                                         <div class="small text-muted" data-send-summary>{{ $sendProcessed }} / {{ $sendRun->recipient_count }} · {{ $sendRun->accepted_count }} accepted · {{ $sendRun->rejected_count }} rejected · {{ $sendRun->suppressed_count }} suppressed · {{ $sendRun->uncertain_count }} uncertain</div>
+                                        @if (in_array($sendRun->state, ['planned', 'running'], true))
+                                            <div class="small text-muted" data-send-next data-sleep-email="{{ (int) ($register['sleep_email'] ?? 0) }}" data-next-batch-at="{{ $sendRun->execution_options['next_batch_at'] ?? '' }}">{{ $sendRun->state === 'planned' ? 'Waiting for send worker…' : ((int) ($register['sleep_email'] ?? 0) > 0 ? 'Pacing: '.(int) $register['sleep_email'].' seconds between recipients.' : 'Processing next batch…') }}</div>
+                                        @endif
                                         @if ($sendRun->last_smtp_error)
                                             <div class="small text-danger">Latest SMTP rejection: {{ $sendRun->last_smtp_error }}</div>
                                         @endif
@@ -205,6 +212,8 @@
                                             <div class="small text-danger">The sender stopped before completion. Review the latest error and retry only if no recipients were accepted.</div>
                                         @elseif ($sendRun->state === 'needs_review')
                                             <div class="small text-warning">Some SMTP outcomes are uncertain. This revision is locked to prevent duplicate delivery.</div>
+                                        @elseif ($sendRun->state === 'stopped')
+                                            <div class="small text-muted">Stopped by an operator. Accepted messages remain sent; clone or revise before sending again.</div>
                                         @endif
                                     @else
                                         <span class="badge badge-secondary">DRAFT</span><div class="small text-muted">No send recorded</div>
@@ -222,9 +231,9 @@
                                         </form>
                                         <div><span class="badge badge-success">READY TO SEND</span></div>
                                     @elseif ($sendRun && in_array($sendRun->state, ['planned', 'running'], true))
-                                        <button type="button" class="btn btn-link btn-sm" disabled title="Campaign send is running." aria-label="Campaign send running"><i class="fas fa-paper-plane text-success" aria-hidden="true"></i></button>
-                                        <div><span class="badge badge-primary">SENDING</span></div>
-                                    @elseif ($sendRun && in_array($sendRun->state, ['completed', 'needs_review'], true))
+                                        <button type="button" class="btn btn-danger btn-sm" data-campaign-stop-open data-campaign-name="{{ $campaign->name }}" data-stop-url="{{ route('console.campaigns.send-stop', [$workspace->id, $campaign->id, $sendRun->id]) }}" aria-label="Stop sending {{ $campaign->name }}"><i class="fas fa-stop mr-1" aria-hidden="true"></i>STOP</button>
+                                        <div><span class="badge badge-primary">{{ $sendRun->state === 'planned' ? 'QUEUED' : 'SENDING' }}</span></div>
+                                    @elseif ($sendRun && in_array($sendRun->state, ['completed', 'needs_review', 'stopped'], true))
                                         <button type="button" class="btn btn-link btn-sm" disabled title="This revision already has a send record. Revise or clone the campaign before sending again." aria-label="Campaign revision already sent"><i class="fas fa-paper-plane text-muted" aria-hidden="true"></i></button>
                                         <div><span class="badge badge-secondary">REVISION SENT</span></div>
                                     @elseif ($campaign->status === 'preparing_snapshot')
@@ -271,9 +280,30 @@
         </form>
     </dialog>
 
+    <dialog id="campaign-stop-dialog" aria-labelledby="campaign-stop-title" aria-describedby="campaign-stop-description" class="campaign-status-dialog">
+        <h2 id="campaign-stop-title">Stop campaign send</h2>
+        <p id="campaign-stop-description"></p>
+        <form id="campaign-stop-form" method="POST" action="">
+            @csrf
+            <div class="d-flex justify-content-end">
+                <button type="button" class="btn btn-alt-secondary mr-2" id="campaign-stop-cancel">Keep sending</button>
+                <button type="submit" class="btn btn-danger" id="campaign-stop-confirm">Stop sending</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog id="campaign-action-dialog" aria-labelledby="campaign-action-title" aria-describedby="campaign-action-description" class="campaign-status-dialog">
+        <h2 id="campaign-action-title"></h2>
+        <p id="campaign-action-description"></p>
+        <div class="d-flex justify-content-end">
+            <button type="button" class="btn btn-alt-secondary mr-2" id="campaign-action-cancel">Cancel</button>
+            <button type="button" class="btn btn-primary" id="campaign-action-confirm">Continue</button>
+        </div>
+    </dialog>
+
     <dialog id="campaign-bulk-dialog" aria-labelledby="campaign-bulk-title" aria-describedby="campaign-bulk-description" class="campaign-status-dialog">
         <h2 id="campaign-bulk-title">Disable selected campaigns</h2>
-        <p id="campaign-bulk-description">The selected drafts will be removed from the active campaign register. They can be restored individually later. No email will be sent.</p>
+        <p id="campaign-bulk-description">The selected drafts will be removed from the active campaign register. Stop any active send before disabling its campaign.</p>
         <div class="d-flex justify-content-end">
             <button type="button" class="btn btn-alt-secondary mr-2" id="campaign-bulk-cancel">Cancel</button>
             <button type="button" class="btn btn-danger" id="campaign-bulk-confirm">Disable campaigns</button>
@@ -345,10 +375,48 @@
             const selectedCount = document.getElementById('campaign-selection-count');
             const selectAll = document.getElementById('campaign-select-all');
             const rowSelections = Array.from(document.querySelectorAll('.campaign-row-select'));
+            const selectableRows = rowSelections.filter(input => !input.disabled);
             const autoTestForms = Array.from(document.querySelectorAll('[data-campaign-auto-test-form]'));
             const autoTestFeedback = document.getElementById('campaign-auto-test-feedback');
             const liveSendProgress = Array.from(document.querySelectorAll('[data-campaign-send-progress]'));
             const snapshotProgressRows = Array.from(document.querySelectorAll('[data-campaign-snapshot-progress]'));
+            const stopDialog = document.getElementById('campaign-stop-dialog');
+            const stopForm = document.getElementById('campaign-stop-form');
+            const stopCancel = document.getElementById('campaign-stop-cancel');
+            const stopConfirm = document.getElementById('campaign-stop-confirm');
+            const actionDialog = document.getElementById('campaign-action-dialog');
+            const actionCancel = document.getElementById('campaign-action-cancel');
+            const actionConfirm = document.getElementById('campaign-action-confirm');
+            const confirmCampaignAction = (title, description, label) => new Promise(resolve => {
+                if (actionDialog.open) {
+                    resolve(false);
+                    return;
+                }
+                document.getElementById('campaign-action-title').textContent = title;
+                document.getElementById('campaign-action-description').textContent = description;
+                actionConfirm.textContent = label;
+                let confirmed = false;
+                actionConfirm.onclick = () => { confirmed = true; actionDialog.close(); };
+                actionCancel.onclick = () => actionDialog.close();
+                actionDialog.addEventListener('close', () => resolve(confirmed), {once: true});
+                actionDialog.showModal();
+                actionCancel.focus();
+            });
+
+            document.querySelectorAll('[data-campaign-stop-open]').forEach(button => {
+                button.addEventListener('click', () => {
+                    stopForm.action = button.dataset.stopUrl;
+                    document.getElementById('campaign-stop-description').textContent = `Stop sending “${button.dataset.campaignName}”? No new recipients will start. A message already being submitted to SMTP may finish.`;
+                    stopDialog.showModal();
+                    stopCancel.focus();
+                });
+            });
+            stopCancel.addEventListener('click', () => stopDialog.close());
+            stopForm.addEventListener('submit', () => {
+                stopConfirm.disabled = true;
+                stopConfirm.setAttribute('aria-busy', 'true');
+                stopConfirm.textContent = 'Stopping…';
+            });
 
             snapshotProgressRows.forEach(progress => {
                 const refreshProgress = async () => {
@@ -493,10 +561,24 @@
                         const cell = progress.closest('td');
                         const state = cell.querySelector('[data-send-state]');
                         const summary = cell.querySelector('[data-send-summary]');
+                        const next = cell.querySelector('[data-send-next]');
                         progress.setAttribute('aria-valuenow', String(result.percent));
                         bar.style.width = `${result.percent}%`;
                         state.textContent = result.state.replaceAll('_', ' ').toUpperCase();
                         summary.textContent = `${result.processed} / ${result.total} · ${result.accepted} accepted · ${result.rejected} rejected · ${result.suppressed} suppressed · ${result.uncertain} uncertain`;
+                        if (next) {
+                            const dueAt = result.next_batch_at ? new Date(result.next_batch_at) : null;
+                            if (result.state === 'planned') {
+                                next.textContent = 'Waiting for send worker…';
+                            } else if (result.state === 'running' && dueAt && !Number.isNaN(dueAt.getTime()) && dueAt.getTime() > Date.now()) {
+                                const remaining = Math.ceil((dueAt.getTime() - Date.now()) / 1000);
+                                next.textContent = `Next recipient in about ${remaining} seconds (${dueAt.toLocaleTimeString()}).`;
+                            } else if (result.state === 'running' && Number(next.dataset.sleepEmail) > 0) {
+                                next.textContent = `Pacing: ${next.dataset.sleepEmail} seconds between recipients.`;
+                            } else {
+                                next.textContent = result.state === 'running' ? 'Processing next batch…' : '';
+                            }
+                        }
                         if (!['planned', 'running'].includes(result.state)) {
                             progress.removeAttribute('data-campaign-send-progress');
                             window.setTimeout(() => window.location.reload(), 1200);
@@ -516,18 +598,20 @@
             });
 
             const updateSelection = () => {
-                const count = rowSelections.filter(input => input.checked).length;
+                const count = selectableRows.filter(input => input.checked).length;
                 bulkButton.disabled = count === 0;
                 selectedCount.textContent = `${count} campaign${count === 1 ? '' : 's'} selected`;
                 selectedCount.hidden = count === 0;
-                selectAll.checked = count > 0 && count === rowSelections.length;
-                selectAll.indeterminate = count > 0 && count < rowSelections.length;
+                selectAll.checked = count > 0 && count === selectableRows.length;
+                selectAll.indeterminate = count > 0 && count < selectableRows.length;
+                selectAll.disabled = selectableRows.length === 0;
             };
 
             rowSelections.forEach(input => input.addEventListener('change', updateSelection));
-            document.querySelectorAll('[data-campaign-send-form]').forEach(form => form.addEventListener('submit', event => {
-                if (!window.confirm('Send this campaign to the selected audience? Only contacts with current recorded email marketing consent will be sent.')) {
-                    event.preventDefault();
+            document.querySelectorAll('[data-campaign-send-form]').forEach(form => form.addEventListener('submit', async event => {
+                event.preventDefault();
+                const confirmed = await confirmCampaignAction('Start campaign send', 'Send this saved campaign to its selected, eligible recipients now? The saved sleep values are seconds between recipients and IP groups.', 'Start sending');
+                if (!confirmed) {
                     return;
                 }
                 const button = form.querySelector('button[type="submit"]');
@@ -536,16 +620,15 @@
                     button.setAttribute('aria-busy', 'true');
                     button.innerHTML = '<i class="fas fa-spinner fa-spin mr-1" aria-hidden="true"></i>QUEUING';
                 }
+                form.submit();
             }));
             autoTestForms.forEach(form => form.addEventListener('submit', async event => {
+                event.preventDefault();
                 const ipCount = Number(form.dataset.ipCount || 0);
-                if (ipCount > 100 && !window.confirm(`You are testing more than ${ipCount} IPs. Are you sure?`)) {
-                    event.preventDefault();
-
+                if (ipCount > 100 && !await confirmCampaignAction('Test campaign on many IPs', `This test will use ${ipCount} selected IPs. Continue?`, 'Run test')) {
                     return;
                 }
 
-                event.preventDefault();
                 const submitButton = document.getElementById(form.dataset.submitButton);
                 const sendType = document.getElementById(form.dataset.sendTypeSelector);
                 const originalMarkup = submitButton.innerHTML;
@@ -597,7 +680,7 @@
                 }
             }));
             selectAll.addEventListener('change', () => {
-                rowSelections.forEach(input => { input.checked = selectAll.checked; });
+                selectableRows.forEach(input => { input.checked = selectAll.checked; });
                 updateSelection();
             });
 
@@ -608,7 +691,7 @@
                     statusValue.value = nextActive ? '1' : '0';
                     statusDescription.textContent = nextActive
                         ? `Restore “${button.dataset.campaignName}” to the active campaign list?`
-                        : `Disable “${button.dataset.campaignName}”? It will be excluded from the active campaign list.`;
+                        : `Disable “${button.dataset.campaignName}”? It will be excluded from the active campaign list. Stop any active send first.`;
                     statusConfirm.textContent = nextActive ? 'Restore campaign' : 'Disable campaign';
                     statusDialog.showModal();
                 });
@@ -622,7 +705,7 @@
             });
 
             bulkForm.addEventListener('submit', event => {
-                if (rowSelections.every(input => !input.checked)) {
+                if (selectableRows.every(input => !input.checked)) {
                     event.preventDefault();
                     return;
                 }

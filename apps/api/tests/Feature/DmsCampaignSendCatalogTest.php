@@ -1368,6 +1368,28 @@ class DmsCampaignSendCatalogTest extends TestCase
         }
     }
 
+    public function test_unsaved_campaign_test_rejects_tracking_links_before_sending(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->workspace($owner, 'owner');
+        $server = $this->server($workspace, $owner, '203.0.113.80');
+
+        $this->actingAs($owner)->postJson(route('console.campaigns.manual-test', $workspace->getKey()), [
+            'idempotency_key' => (string) Str::uuid(),
+            'email_test_addresses' => 'synthetic-recipient@example.test',
+            'header' => "From: sender@example.test\nSubject: Test",
+            'body' => '<a href="http://tracking.example.test/ABCDEr[token]">Click</a>',
+            'send_setup' => [
+                'server_ids' => [$server->getKey()],
+                'route_option' => 'ip',
+                'ip_type' => 'ipv4',
+                'send_type' => 'delay',
+            ],
+        ])->assertUnprocessable()->assertJsonValidationErrors('body');
+
+        $this->assertDatabaseCount('campaign_manual_test_attempts', 0);
+    }
+
     public function test_manual_campaign_test_allows_unlimited_retries_and_logs_created_campaign_tests(): void
     {
         $owner = User::factory()->create();

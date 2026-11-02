@@ -365,11 +365,10 @@ class CampaignSendExecutionLedgerTest extends TestCase
         ];
 
         $message = app(CampaignSendMessageBuilder::class)->build($context, $fixture['item'], $fixture['contact']->email);
-        preg_match_all('#http://203\.0\.113\.241/[A-Z0-9]{10}[ro]([^" ]+)#i', $message['body'], $matches);
-        preg_match_all('#http://tracking\.example\.test/[A-Z0-9]{10}[ro][^" ]+#i', $message['body'], $unrewrittenTrackingLinks);
+        preg_match_all('#http://tracking\.example\.test/[A-Z0-9]{10}[ro]([^" ]+)#i', $message['body'], $matches);
 
         $this->assertCount(2, $matches[1]);
-        $this->assertCount(0, $unrewrittenTrackingLinks[0]);
+        $this->assertStringNotContainsString('http://203.0.113.241/', $message['body']);
         $this->assertStringContainsString('Message domain: http://tracking.example.test/landing', $message['body']);
         foreach ($matches[1] as $token) {
             $this->assertMatchesRegularExpression('/\A[A-Za-z0-9_-]+\z/', $token);
@@ -408,8 +407,6 @@ class CampaignSendExecutionLedgerTest extends TestCase
         ]);
         $context['setup']['domain'] = $selectedDomain->name;
         $context['domain_fallback'] = $selectedDomain->name;
-        $context['domain_is_our'] = true;
-        $context['domain_status'] = 'redirect';
         $selectedDomainMessage = app(CampaignSendMessageBuilder::class)->build($context, $fixture['item'], $fixture['contact']->email);
 
         $this->assertStringContainsString('Message domain: http://selected-campaign.example.test/landing', $selectedDomainMessage['body']);
@@ -420,7 +417,6 @@ class CampaignSendExecutionLedgerTest extends TestCase
         // Redirect domains are explicit campaign tracking hosts even when
         // their ownership flag is false and the server has a saved IP fallback.
         $selectedDomain->forceFill(['is_our' => false])->save();
-        $context['domain_is_our'] = false;
         $externalRedirectMessage = app(CampaignSendMessageBuilder::class)->build($context, $fixture['item'], $fixture['contact']->email);
 
         $this->assertStringContainsString('Message domain: http://selected-campaign.example.test/landing', $externalRedirectMessage['body']);

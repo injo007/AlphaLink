@@ -1486,6 +1486,11 @@ class WorkspaceConsoleController extends Controller
             );
             abort_unless((string) $campaign->latestRevision?->getKey() === (string) $request->input('expected_revision_id'), 409, 'The campaign changed. Reload the edit form before testing.');
         }
+        if ($campaign === null && str_contains(strtolower((string) ($data['body'] ?? '')), '[token]')) {
+            throw ValidationException::withMessages([
+                'body' => 'Save this campaign before testing tracking links. An unsaved campaign has no ID for its click, open, or unsubscribe URLs.',
+            ]);
+        }
         $recipients = $this->campaignEmailTests($data['email_test_addresses']);
         if ($recipients === []) {
             throw ValidationException::withMessages(['email_test_addresses' => 'Enter at least one Email Test address.']);

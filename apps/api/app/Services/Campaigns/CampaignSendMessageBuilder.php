@@ -6,7 +6,6 @@ use App\Models\CampaignRecipientSnapshotItem;
 use App\Models\CampaignSendRun;
 use App\Models\ManagedServer;
 use App\Models\ManagedServerIp;
-use App\Models\SendingDomain;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceCampaignNegative;
@@ -109,11 +108,6 @@ class CampaignSendMessageBuilder
         }
 
         $domainFallback = trim((string) ($setup['domain'] ?? ''));
-        $selectedDomain = $domainFallback === '' ? null : SendingDomain::query()
-            ->where('workspace_id', $workspace->getKey())
-            ->where('name', $domainFallback)
-            ->first(['is_our', 'status']);
-
         $context = [
             'run' => $run,
             'campaign' => $run->campaign,
@@ -134,8 +128,6 @@ class CampaignSendMessageBuilder
             'body_template' => (string) ($revision->payload['body'] ?? ''),
             'return_path' => (string) ($revision->payload['return_path'] ?? ''),
             'domain_fallback' => $domainFallback,
-            'domain_is_our' => $selectedDomain?->is_our === null ? null : (bool) $selectedDomain->is_our,
-            'domain_status' => $selectedDomain?->status,
         ];
 
         if (trim($context['body_template']) === '') {
@@ -222,16 +214,6 @@ class CampaignSendMessageBuilder
         $header = $this->tagRenderer->render($context['header_template'], $tags, $context['placeholder_rows'], $position - 1, $cache);
         $body = $this->tagRenderer->render($context['body_template'], $tags, $context['placeholder_rows'], $position - 1, $cache);
         $returnPath = $this->tagRenderer->render($context['return_path'], $tags, $context['placeholder_rows'], $position - 1, $cache);
-        $trackingIpFallback = $this->trackingIpFallback(
-            $server,
-            $routeIp,
-            $context['domain_is_our'] ?? null,
-            $context['domain_status'] ?? null,
-        );
-        if ($trackingIpFallback !== null) {
-            $body = $this->rewriteDmsTrackingHost($body, $domain, $trackingIpFallback, $token);
-        }
-
         if ($context['route'] === 'vmta') {
             $header = $this->replaceDomain($header, $context['domain_fallback'], $domain);
             $body = $this->replaceDomain($body, $context['domain_fallback'], $domain);
@@ -313,58 +295,6 @@ class CampaignSendMessageBuilder
             'unsubscribe' => 'u',
             default => substr($sourceEmailType, 0, 1),
         };
-    }
-
-    private function trackingIpFallback(
-        ManagedServer $server,
-        ?ManagedServerIp $routeIp,
-        ?bool $selectedDomainIsOwned = null,
-        ?string $selectedDomainStatus = null,
-    ): ?string {
-        $parameters = is_array($server->install_parameters) ? $server->install_parameters : [];
-        if (! ($parameters['tracking'] ?? false) || $selectedDomainStatus === 'redirect') {
-            return null;
-        }
-
-        // Tracking host selection follows the selected send route. A server can
-        // have an external primary domain and a managed domain on another IP;
-        // the former must not force campaign links for the latter onto the IP.
-        $isOwnedDomain = $selectedDomainIsOwned ?? $routeIp?->domain?->is_our;
-        if ($isOwnedDomain === null) {
-            $primaryAssignment = collect((array) ($parameters['data'] ?? []))->firstWhere('main', true);
-            $isOwnedDomain = $primaryAssignment['is_our'] ?? null;
-        }
-        if ($isOwnedDomain === true) {
-            return null;
-        }
-
-        $configuredHost = trim((string) ($parameters['tracking_host'] ?? ''));
-        if (filter_var($configuredHost, FILTER_VALIDATE_IP) !== false) {
-            return $configuredHost;
-        }
-
-        if ($isOwnedDomain === false) {
-            return (string) $server->ip_address;
-        }
-
-        return null;
-    }
-
-    private function rewriteDmsTrackingHost(string $body, string $domain, string $trackingHost, string $token): string
-    {
-        if ($body === '' || $domain === '' || $trackingHost === '' || $token === '') {
-            return $body;
-        }
-
-        $pattern = '#https?://'.preg_quote($domain, '#').'(?<path>/[^"\'\\s<>]*)#i';
-
-        return preg_replace_callback($pattern, static function (array $match) use ($trackingHost, $token): string {
-            if (! str_contains($match[0], $token)) {
-                return $match[0];
-            }
-
-            return 'http://'.$trackingHost.$match['path'];
-        }, $body) ?? $body;
     }
 
     /** @return list<array{id: int, value: string}> */

@@ -87,6 +87,20 @@ class CampaignTrackingTest extends TestCase
             ]);
     }
 
+    public function test_campaign_redirect_accepts_compact_ids_from_the_installed_tracker(): void
+    {
+        config(['tracking.ingest_key' => 'synthetic-tracking-key', 'infrastructure.ip_api_key' => null]);
+        $fixture = $this->recipientFixture();
+        $fixture['offer']->forceFill(['geo_target' => []])->save();
+        $payload = $this->redirectPayload($fixture);
+        $payload['campaign_id'] = str_replace('-', '', $payload['campaign_id']);
+        $payload['email_id'] = str_replace('-', '', $payload['email_id']);
+
+        $this->postJson('/api/v1/campaign', $payload)
+            ->assertOk()
+            ->assertJsonPath('link', 'https://offer.example.test');
+    }
+
     public function test_campaign_unsubscribe_redirect_uses_the_offer_default_when_no_url_is_saved(): void
     {
         config(['tracking.ingest_key' => 'synthetic-tracking-key', 'infrastructure.ip_api_key' => null]);
@@ -584,6 +598,25 @@ class CampaignTrackingTest extends TestCase
             && $job->campaign->is($fixture['campaign'])
             && $job->workspace->is($fixture['workspace']));
         $this->assertSame(0, CampaignEngagementEvent::query()->count());
+    }
+
+    public function test_campaign_stats_accepts_a_callback_without_user_agent(): void
+    {
+        config(['tracking.ingest_key' => 'synthetic-tracking-key']);
+        $fixture = $this->recipientFixture();
+        Queue::fake();
+        $payload = $this->trackingPayload($fixture, 'open');
+        $payload['user_agent'] = null;
+
+        $this->postJson('/api/v1/stats', $payload)->assertNoContent();
+
+        Queue::assertPushed(ProcessCampaignTrackingEventJob::class, fn (ProcessCampaignTrackingEventJob $job): bool => $job->data['user_agent'] === '');
+        Queue::pushed(ProcessCampaignTrackingEventJob::class)->first()->handle(app(ProcessCampaignTrackingEvent::class));
+        $this->assertDatabaseHas('campaign_engagement_events', [
+            'snapshot_item_id' => $fixture['item']->getKey(),
+            'action' => 'open',
+            'user_agent' => '',
+        ]);
     }
 
     public function test_tracking_queue_retry_is_idempotent_but_a_separate_open_request_is_counted(): void

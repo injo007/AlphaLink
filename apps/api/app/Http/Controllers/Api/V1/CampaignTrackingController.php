@@ -30,7 +30,7 @@ class CampaignTrackingController extends Controller
             'key' => ['required', 'string', 'max:255'],
             'action' => ['required', 'string', 'in:click,unsubscribe,open,bot'],
             'ip_address' => ['required', 'ip'],
-            'user_agent' => ['required', 'string', 'max:4096'],
+            'user_agent' => ['nullable', 'string', 'max:4096'],
             'campaign_id' => ['required', 'uuid', 'exists:campaigns,id'],
             'send_id' => ['required', 'string', 'max:128'],
             'email_id' => ['required', 'string', 'max:64'],
@@ -46,6 +46,7 @@ class CampaignTrackingController extends Controller
             'creative_id' => ['required', 'string', 'max:128'],
             'token' => ['required', 'string', 'max:4096'],
         ]);
+        $data['user_agent'] = $data['user_agent'] ?? '';
 
         $campaign = Campaign::query()->whereKey($data['campaign_id'])->firstOrFail();
         $workspace = Workspace::query()->findOrFail($campaign->workspace_id);

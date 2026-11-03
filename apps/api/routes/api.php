@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AudienceListController;
+use App\Http\Controllers\Api\V1\CampaignClickController;
 use App\Http\Controllers\Api\V1\CampaignController;
 use App\Http\Controllers\Api\V1\CampaignRedirectController;
 use App\Http\Controllers\Api\V1\CampaignTrackingController;
@@ -22,6 +23,10 @@ Route::prefix('v1')->group(function (): void {
     Route::post('/tracking/campaign-events', [CampaignTrackingController::class, 'store']);
     Route::post('/stats', [CampaignTrackingController::class, 'store']);
     Route::post('/campaign', [CampaignRedirectController::class, 'store']);
+    Route::get('/campaigns/{campaign}/{item}/click', [CampaignClickController::class, 'redirect'])
+        ->whereUuid(['campaign', 'item'])
+        ->middleware('signed')
+        ->name('public.campaign-click');
     Route::match(['get', 'post'], '/campaigns/{campaign}/{item}/unsubscribe', [CampaignUnsubscribeController::class, 'unsubscribe'])
         ->whereUuid('campaign')
         ->whereUuid('item')

@@ -187,6 +187,22 @@ class CampaignSendMessageBuilder
             ['campaign' => $context['campaign']->getKey(), 'item' => $item->getKey()],
         );
         $token = $this->campaignToken($context, $item, $choice, $from, $subject);
+        $clickUrl = URL::temporarySignedRoute(
+            'public.campaign-click',
+            now()->addYears(10),
+            [
+                'campaign' => $context['campaign']->getKey(),
+                'item' => $item->getKey(),
+                'token' => $token,
+                'isp_id' => (int) ($context['setup']['isp_id'] ?? 0),
+                'server_id' => (string) ($choice['server_id'] ?? '0'),
+                'ip_id' => (string) ($choice['managed_server_ip_id'] ?? $choice['id'] ?? '0'),
+                'domain_id' => (string) ($choice['sending_domain_id'] ?? '0'),
+                'from_id' => (string) ($from['id'] ?? '0'),
+                'subject_id' => (string) ($subject['id'] ?? '0'),
+                'creative_id' => (string) ($context['setup']['creative_asset_id'] ?? '0'),
+            ],
+        );
         $tags = [
             'server' => (string) $server->name.(string) $server->getKey(),
             'main_domain' => (string) ($primaryIp?->dns ?: $primaryIp?->domain?->name ?: 'NA'),
@@ -206,6 +222,7 @@ class CampaignSendMessageBuilder
             'token' => $token,
             'boundary' => Str::random(30),
             'reply' => $unsubscribeUrl,
+            'click_url' => $clickUrl,
             'textarea' => '',
             'smtp' => in_array($context['route'], ['ip', 'smtp'], true) ? (string) ($choice['username'] ?? '') : '',
             'smtp_name' => in_array($context['route'], ['ip', 'smtp'], true) ? (string) ($choice['name'] ?? '') : '',

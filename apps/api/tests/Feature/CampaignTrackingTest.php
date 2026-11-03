@@ -33,6 +33,7 @@ use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use LogicException;
 use Tests\TestCase;
@@ -722,6 +723,81 @@ class CampaignTrackingTest extends TestCase
             'action' => 'click',
             'source' => 'campaign_tracking',
         ]);
+    }
+
+    public function test_signed_campaign_click_logs_asynchronously_and_redirects_to_the_offer_in_one_response(): void
+    {
+        config(['tracking.ingest_key' => 'synthetic-tracking-key', 'infrastructure.ip_api_key' => null]);
+        $fixture = $this->recipientFixture();
+        Queue::fake();
+        $token = 'synthetic-signed-click-token';
+        $url = URL::temporarySignedRoute(
+            'public.campaign-click',
+            now()->addHour(),
+            [
+                'campaign' => $fixture['campaign']->getKey(),
+                'item' => $fixture['item']->getKey(),
+                'token' => $token,
+                'isp_id' => $fixture['isp']->getKey(),
+                'server_id' => 'server-7',
+                'ip_id' => 'ip-8',
+                'domain_id' => 'domain-9',
+                'from_id' => '10',
+                'subject_id' => '11',
+                'creative_id' => '12',
+            ],
+        );
+
+        $response = $this->get($url)->assertRedirect('https://offer.example.test');
+        $this->assertStringContainsString('no-store', (string) $response->headers->get('Cache-Control'));
+
+        Queue::assertPushed(ProcessCampaignTrackingEventJob::class, function (ProcessCampaignTrackingEventJob $job) use ($fixture, $token): bool {
+            return (string) $job->campaign->getKey() === (string) $fixture['campaign']->getKey()
+                && $job->data['action'] === 'click'
+                && $job->data['email_id'] === (string) $fixture['contact']->getKey()
+                && $job->data['snapshot_item_id'] === (string) $fixture['item']->getKey()
+                && $job->data['send_id'] === (string) $fixture['snapshot']->getKey()
+                && $job->data['list_id'] === (string) $fixture['list']->getKey()
+                && $job->data['token'] === $token
+                && $job->data['server_id'] === 'server-7'
+                && $job->data['ip_id'] === 'ip-8'
+                && $job->data['domain_id'] === 'domain-9'
+                && $job->data['from_id'] === '10'
+                && $job->data['subject_id'] === '11'
+                && $job->data['creative_id'] === '12';
+        });
+    }
+
+    public function test_unsigned_campaign_click_cannot_redirect(): void
+    {
+        $fixture = $this->recipientFixture();
+
+        $this->get('/api/v1/campaigns/'.$fixture['campaign']->getKey().'/'.$fixture['item']->getKey().'/click?token=forged')
+            ->assertForbidden();
+
+        $this->assertSame(0, CampaignEngagementEvent::query()->count());
+    }
+
+    public function test_head_campaign_click_probe_redirects_without_counting_a_click(): void
+    {
+        config(['tracking.ingest_key' => 'synthetic-tracking-key', 'infrastructure.ip_api_key' => null]);
+        $fixture = $this->recipientFixture();
+        Queue::fake();
+        $url = URL::temporarySignedRoute(
+            'public.campaign-click',
+            now()->addHour(),
+            [
+                'campaign' => $fixture['campaign']->getKey(),
+                'item' => $fixture['item']->getKey(),
+                'token' => 'synthetic-head-probe-token',
+                'isp_id' => $fixture['isp']->getKey(),
+            ],
+        );
+
+        $this->head($url)->assertRedirect('https://offer.example.test');
+
+        Queue::assertNotPushed(ProcessCampaignTrackingEventJob::class);
+        $this->assertSame(0, CampaignEngagementEvent::query()->count());
     }
 
     public function test_test_recipient_events_are_no_ops_and_do_not_change_list_state(): void

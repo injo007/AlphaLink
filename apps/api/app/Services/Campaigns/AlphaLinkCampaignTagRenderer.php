@@ -33,6 +33,12 @@ class AlphaLinkCampaignTagRenderer
         $text = $this->replacePlaceholders($text, $placeholderRows, $rotationIndex);
         $values['domain_sld'] ??= $this->domainWithoutTld((string) ($values['domain'] ?? ''));
 
+        $text = preg_replace(
+            '~(?:https?://)?\[domain\]/(?:\[rnd(?:un)?_\d+\])?r\[token\]~i',
+            '[click_url]',
+            $text,
+        ) ?? $text;
+
         // Campaign creatives may put the selected-domain tag after an HTTP
         // scheme or use it as a bare URL host. Normalize both forms before
         // resolving the tag so email clients do not default the link to HTTP.
@@ -69,7 +75,7 @@ class AlphaLinkCampaignTagRenderer
         foreach ([
             'ip', 'rdns', 'domain', 'domain_sld', 'to', 'name', 'from', 'subject', 'date', 'server',
             'main_domain', 'idi', 'idd', 'ids', 'ide', 'boundary', 'reply', 'negative',
-            'token', 'textarea', 'smtp', 'smtp_name', 'tag',
+            'token', 'click_url', 'textarea', 'smtp', 'smtp_name', 'tag',
         ] as $tag) {
             $text = str_ireplace('['.$tag.']', (string) ($values[$tag] ?? ''), $text);
         }

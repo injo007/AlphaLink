@@ -6,6 +6,22 @@ use App\Models\Workspace;
 
 class TrackingIngestAuthenticator
 {
+    public function expectedKey(Workspace $workspace): ?string
+    {
+        $workspaceKey = $workspace->infrastructureSettings?->mini_app_key;
+        if (is_string($workspaceKey) && $workspaceKey !== '') {
+            return $workspaceKey;
+        }
+
+        foreach ([config('tracking.ingest_key'), config('infrastructure.bulk_install_settings.mini_app_key')] as $key) {
+            if (is_string($key) && $key !== '') {
+                return $key;
+            }
+        }
+
+        return null;
+    }
+
     public function assertValid(Workspace $workspace, string $candidate): void
     {
         $savedSettings = $workspace->infrastructureSettings;

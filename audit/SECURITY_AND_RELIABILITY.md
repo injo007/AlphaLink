@@ -16,7 +16,7 @@
 - The web middleware group includes sessions, CSRF, bindings, HTTP logger, inactive-user handling, and `AppAllowedIps`. Its behavior depends on runtime settings that were not read.
 - API middleware contains only model binding; the framework API throttle is commented out. Three landing routes declare `throttle:2,1`, while the other API route families do not show route-specific throttling in `/var/app/routes/api.php`. External proxy/WAF controls are unknown.
 - `PmtaController::action` is authenticated by the enclosing `/mailer` group and validates action/queue/tags; it checks a role only for wildcard tags. In the inspected method there is no visible server-specific `isAllowed` check, unlike `schedule` and `restart`, which call `isAllowed` or check admin. This is a **potential authorization inconsistency** from static code, not a tested access-control bypass.
-- **Unsafe GET handlers:** `/mailer/drops` calls `DropAction::init_drop` and can create an unprocessed drop row; GET clone creates a row and GET clear modifies a draft. A Phase 1 visit to `/mailer/drops` is therefore a possible unverified incidental write. This is disclosed in [DMS_REFERENCE_ROUTE_EVIDENCE.md](DMS_REFERENCE_ROUTE_EVIDENCE.md); no confirmation query or reversal was attempted.
+- **Unsafe GET handlers:** `/mailer/drops` calls `DropAction::init_drop` and can create an unprocessed drop row; GET clone creates a row and GET clear modifies a draft. A Phase 1 visit to `/mailer/drops` is therefore a possible unverified incidental write. This is disclosed in [LEGACY_REFERENCE_ROUTE_EVIDENCE.md](LEGACY_REFERENCE_ROUTE_EVIDENCE.md); no confirmation query or reversal was attempted.
 - **Google OAuth scope:** `GmailLib` configures broad Gmail mailbox and settings scopes, while the Google campaign sender can send or draft messages and a separate operation sends all existing drafts. Scope necessity, token storage/encryption, and revocation are unverified. No account/token was inspected.
 
 ## High-priority source-level risks
@@ -38,7 +38,7 @@
 
 ## Frontend response observations retained from Phase 1
 
-One observed login response had a session cookie with HttpOnly and SameSite=Lax but without Secure; the XSRF token was Secure and SameSite=Lax but not HttpOnly. HSTS and CSP were absent on that response. This single observation is historical, may reflect edge termination, and was not retested. The original details and scope are in [DMS_REFERENCE_AUDIT_PHASE_1.md](DMS_REFERENCE_AUDIT_PHASE_1.md).
+One observed login response had a session cookie with HttpOnly and SameSite=Lax but without Secure; the XSRF token was Secure and SameSite=Lax but not HttpOnly. HSTS and CSP were absent on that response. This single observation is historical, may reflect edge termination, and was not retested. The original details and scope are in [LEGACY_REFERENCE_AUDIT_PHASE_1.md](LEGACY_REFERENCE_AUDIT_PHASE_1.md).
 
 ## Confidence and limitations
 

@@ -4,7 +4,7 @@
 
 ## 1. Evidence and design rule
 
-The DMS [complete conclusion](DMS_COMPLETE_CONCLUSION_2026-10-22.md) establishes its modules and data flows. The [REA sender resolution](DMS_REA_SENDER_RESOLUTION_2026-10-22.md) establishes the configured worker's modes, campaign detail fetch, intended PMTA listener, SMTP command construction, and durable progress/status SQL. Those are static observations. Actual final MIME bytes, per-recipient acceptance and delivery, reliable retry/checkpoint behavior, production configuration, and complaint suppression were not verified. AlphaLink must specify those behaviors explicitly instead of copying assumptions.
+The DMS [complete conclusion](LEGACY_COMPLETE_CONCLUSION_2026-10-22.md) establishes its modules and data flows. The [REA sender resolution](LEGACY_REA_SENDER_RESOLUTION_2026-10-22.md) establishes the configured worker's modes, campaign detail fetch, intended PMTA listener, SMTP command construction, and durable progress/status SQL. Those are static observations. Actual final MIME bytes, per-recipient acceptance and delivery, reliable retry/checkpoint behavior, production configuration, and complaint suppression were not verified. AlphaLink must specify those behaviors explicitly instead of copying assumptions.
 
 **Product aim:** one tenant-aware SaaS for permissioned audience management, campaign composition, controlled email submission, reliable delivery feedback, engagement, affiliate attribution, infrastructure management, and auditable reporting. Its defining distinction is a traceable recipient lifecycle from permission to submission to feedback, with transport flexibility and safe recovery.
 

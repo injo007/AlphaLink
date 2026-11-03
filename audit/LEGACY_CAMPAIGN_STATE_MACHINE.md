@@ -41,7 +41,7 @@ The labels DraftOrForm, SnapshotReady, RejectedOrStale, and ResetAfterKill are e
 
 ## Native process boundary evidence
 
-REA disassembly of both approved ELF artifacts shows the startup routine passing `argc`/`argv` to internal code at `0x180b0`; the main-function pointer is the relative relocation target `0x18910`. The native code also has a `dlopen`/`dlsym` loader path. Managed CIL now establishes that Main receives the PHP-supplied `send_<mode>` as its first argument and the generated config-file path as its second argument. Obfuscated mode-to-branch meaning remains unknown. No native state transition for recipient acceptance, retry, progress, completion, or failure could be recovered. See [DMS_NATIVE_SENDER_ANALYSIS.md](DMS_NATIVE_SENDER_ANALYSIS.md).
+REA disassembly of both approved ELF artifacts shows the startup routine passing `argc`/`argv` to internal code at `0x180b0`; the main-function pointer is the relative relocation target `0x18910`. The native code also has a `dlopen`/`dlsym` loader path. Managed CIL now establishes that Main receives the PHP-supplied `send_<mode>` as its first argument and the generated config-file path as its second argument. Obfuscated mode-to-branch meaning remains unknown. No native state transition for recipient acceptance, retry, progress, completion, or failure could be recovered. See [LEGACY_NATIVE_SENDER_ANALYSIS.md](LEGACY_NATIVE_SENDER_ANALYSIS.md).
 
 ## State integrity questions
 

@@ -47,7 +47,7 @@ flowchart LR
 
 **Confidence:** the Nginx/PHP-FPM/Laravel source boundary, configured PostgreSQL/Redis paths, scheduler, file-backed campaign handoff, separate Gmail path, event jobs, PMTA file processor, and provider adapters are **OBSERVED / DERIVED** in source/config. The active queue backend and worker settings are **INFERRED / UNKNOWN**. Managed metadata verifies the .NET 7 apphost and static references to Npgsql/Dapper, SFTP, parallel helpers, and direct TCP text I/O. The transport protocol, message construction, item meaning, send outcome, and recovery logic remain **UNKNOWN**. The architecture audit did not establish microservice or tenant-isolation boundaries.
 
-Sources: [evidence-bounded architecture](../audit/REFERENCE_SYSTEM_ARCHITECTURE.md), [component map](../audit/DMS_COMPLETE_COMPONENT_MAP.md), [backend architecture](../audit/BACKEND_ARCHITECTURE.md), [campaign orchestration](../audit/CAMPAIGN_ORCHESTRATION.md), [tracking and analytics](../audit/TRACKING_AND_ANALYTICS.md), and [Phase 3H sender analysis](../audit/DMS_NATIVE_SENDER_ANALYSIS.md).
+Sources: [evidence-bounded architecture](../audit/REFERENCE_SYSTEM_ARCHITECTURE.md), [component map](../audit/LEGACY_COMPLETE_COMPONENT_MAP.md), [backend architecture](../audit/BACKEND_ARCHITECTURE.md), [campaign orchestration](../audit/CAMPAIGN_ORCHESTRATION.md), [tracking and analytics](../audit/TRACKING_AND_ANALYTICS.md), and [Phase 3H sender analysis](../audit/LEGACY_NATIVE_SENDER_ANALYSIS.md).
 
 ## 3. Proposed AlphaLink logical architecture
 

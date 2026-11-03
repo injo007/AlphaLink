@@ -642,3 +642,16 @@ Active PHP source, routes, config, views, public assets, and package manifests n
 ### E-AUD-32 follow-up — production still on old branding
 
 The fresh production Gmail Projects accessibility snapshot still shows DMS branding in the title, sidebar, and footer; Add Project controls and the side navigation are visible. The page was read only. Commit `34f84f4` is on GitHub but not installed. A verified `baseheavy.shop` deployment route remains required before the live rebrand and post-deploy navigation check can pass.
+
+
+### E-AUD-34 follow-up — legacy access tooling removed
+
+The authenticated reference relay and its tests were present again in the current tracked tree despite E-AUD-23; they have now been removed, and project instructions prohibit all further access. Reference/proxy credentials were removed from the protected local profile, with AlphaLink access settings preserved. No live deployment was performed. The ten DMS-named migration filenames are retained as historical identifiers already recorded in Laravel's `migrations` table; they are not runtime connections or configuration dependencies. Existing `dms_csv` values are handled only by the reversible data-normalization migration and synthetic fixtures.
+
+### E-AUD-35 follow-up — historical path cleanup
+
+The 21 historical audit paths with the old product prefix were renamed to `LEGACY_` and their local links updated; evidence contents remain preserved. The route catalog tool/test now use neutral names and `SRC-` output IDs, with 4 fixture tests passing. The ten old migration basenames and persisted `dms_csv` import marker are intentionally retained to preserve existing database history/data; active AlphaLink runtime/configuration has no DMS-specific references.
+
+### E-AUD-36 follow-up — production host identified, install path unverified
+
+The open AlphaLink production browser tabs are on `baseheavy.shop`; the Gmail Projects page title still shows the old DMS branding, confirming the previously recorded rebrand commit has not reached production. The configured SSH target has a known-host entry but does not match or resolve to the AlphaLink app hostname, and the repository has no push-triggered deployment workflow. No deployment was attempted. Apply the pushed release only after the user/admin maps the saved SSH target to `baseheavy.shop` or provides the server's supported deployment route and trusted host identity.

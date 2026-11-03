@@ -1,6 +1,8 @@
-# AlphaLink reference access precheck
+# Archived historical reference access precheck — superseded
 
-> Historical pre-frontend snapshot. Superseded by `DMS_REFERENCE_AUDIT_PHASE_1.md` and the current SSH result in `PROGRESS.md`; do not use its access status as current.
+This report records a pre-independence access review. Its historical findings below are retained for traceability only. The current project policy in `AGENTS.md` prohibits all access to the original service; the former “Next evidence needed” section is not actionable and grants no access authorization.
+
+> Historical pre-frontend snapshot. Superseded by `LEGACY_REFERENCE_AUDIT_PHASE_1.md` and the current SSH result in `PROGRESS.md`; do not use its access status as current.
 
 Date: 2026-10-20
 Scope: local configuration inspection and connectivity gates only. No reference application or server was contacted.

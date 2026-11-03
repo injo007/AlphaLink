@@ -6,7 +6,7 @@
 
 DMS is a Laravel 10.38.2 application on PHP 8.1.27, served by Nginx/PHP-FPM. It configures PostgreSQL and Redis/Horizon. Campaign creation builds a suppression-filtered, file-backed audience snapshot; sending then launches a separate x86-64 ELF process. Campaign scheduling uses queued Laravel jobs. Tracking, PMTA log ingestion, sponsor conversion imports, daily analytics and many infrastructure operations are code-backed.
 
-**Historical Phase 2 report.** The requested PHPMailer relationship is not resolved: the user confirms PHPMailer, but the deployed Composer metadata and searched PHP call sites did not reveal the package or a call. A separate raw SMTP helper and an opaque sender ELF are present. Later Phase 4B static CIL analysis established a reachable managed TCP text path with SMTP-shaped reply parsing, making SMTP compatibility the leading inference; MIME construction, literal commands, peer identity, and PHPMailer linkage remain unresolved. The current reassessment is [DMS_PHASE_4B_REASSESSMENT.md](DMS_PHASE_4B_REASSESSMENT.md).
+**Historical Phase 2 report.** The requested PHPMailer relationship is not resolved: the user confirms PHPMailer, but the deployed Composer metadata and searched PHP call sites did not reveal the package or a call. A separate raw SMTP helper and an opaque sender ELF are present. Later Phase 4B static CIL analysis established a reachable managed TCP text path with SMTP-shaped reply parsing, making SMTP compatibility the leading inference; MIME construction, literal commands, peer identity, and PHPMailer linkage remain unresolved. The current reassessment is [LEGACY_PHASE_4B_REASSESSMENT.md](LEGACY_PHASE_4B_REASSESSMENT.md).
 
 This is not a full production architecture verification. We did not inspect live database catalogs or rows, effective runtime secrets/configuration, queue contents, PMTA files, provider records, or production logs. A dedicated least-privilege DB account was not established. These are explicit evidence blockers, not assumed facts.
 
@@ -15,7 +15,7 @@ This is not a full production architecture verification. We did not inspect live
 - The SSH endpoint’s presented ED25519 host fingerprint was independently compared to the trusted server-console fingerprint and matched before authentication. Every authenticated session used strict host-key checking and direct routing, with SSH proxy/jump disabled.
 - The authorized SSH identity ran as UID 0. Remote reads were limited to source, non-secret configuration fields, executable metadata, and sanitized OS/service/scheduler metadata.
 - No database connection/query, application script, Artisan command, queue worker, scheduler, sender, SMTP/PMTA action, provider API, DNS action, service control, or production endpoint was invoked during Phase 2. No remote source/configuration/data write was issued intentionally.
-- Backend source review found that the Phase 1 visit to `GET /mailer/drops` calls `DropAction::init_drop` and may create a draft if none existed. Whether this happened is **UNKNOWN**. No row was queried or reversal attempted; this is a possible incidental Phase 1 state change and is documented in [DMS_REFERENCE_ROUTE_EVIDENCE.md](DMS_REFERENCE_ROUTE_EVIDENCE.md).
+- Backend source review found that the Phase 1 visit to `GET /mailer/drops` calls `DropAction::init_drop` and may create a draft if none existed. Whether this happened is **UNKNOWN**. No row was queried or reversal attempted; this is a possible incidental Phase 1 state change and is documented in [LEGACY_REFERENCE_ROUTE_EVIDENCE.md](LEGACY_REFERENCE_ROUTE_EVIDENCE.md).
 - A first SSH authentication attempt failed due to a local askpass quoting error; the fingerprint gate had passed and no credential value was emitted. The helper was corrected and a later session authenticated. Authentication log entries are an incidental OS effect.
 - Earlier frontend visits may have caused `seen_at` or HTTP-log middleware side effects; the health page may also have side effects. This cannot be ruled out or reversed, and no attempt was made to do so. See [PROGRESS.md](PROGRESS.md).
 
@@ -48,7 +48,7 @@ Full context and confidence classifications are in [SECURITY_AND_RELIABILITY.md]
 ## Evidence report index
 
 - [PROGRESS.md](PROGRESS.md) — coverage ledger, decisions, chronology and blockers.
-- [DMS_REFERENCE_AUDIT_PHASE_1.md](DMS_REFERENCE_AUDIT_PHASE_1.md) and [DMS_REFERENCE_ROUTE_EVIDENCE.md](DMS_REFERENCE_ROUTE_EVIDENCE.md) — frontend evidence and routes intentionally not called.
+- [LEGACY_REFERENCE_AUDIT_PHASE_1.md](LEGACY_REFERENCE_AUDIT_PHASE_1.md) and [LEGACY_REFERENCE_ROUTE_EVIDENCE.md](LEGACY_REFERENCE_ROUTE_EVIDENCE.md) — frontend evidence and routes intentionally not called.
 - [BACKEND_ARCHITECTURE.md](BACKEND_ARCHITECTURE.md) and [REFERENCE_SYSTEM_ARCHITECTURE.md](REFERENCE_SYSTEM_ARCHITECTURE.md) — backend module map and evidence-bounded data flow.
 - [PHPMAILER_SENDING_ENGINE.md](PHPMAILER_SENDING_ENGINE.md), [CAMPAIGN_ORCHESTRATION.md](CAMPAIGN_ORCHESTRATION.md), [DATABASE_ARCHITECTURE.md](DATABASE_ARCHITECTURE.md), and [TRACKING_AND_ANALYTICS.md](TRACKING_AND_ANALYTICS.md) — core application paths.
 - [MAIL_INFRASTRUCTURE.md](MAIL_INFRASTRUCTURE.md), [EXTERNAL_INTEGRATIONS.md](EXTERNAL_INTEGRATIONS.md), and [SECURITY_AND_RELIABILITY.md](SECURITY_AND_RELIABILITY.md) — operations and risks.

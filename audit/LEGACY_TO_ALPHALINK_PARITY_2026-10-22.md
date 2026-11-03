@@ -30,12 +30,12 @@ The installed AlphaLink code currently exposes workspace, contact, consent, supp
 
 | DMS module and relationship | AlphaLink status | Reference evidence |
 |---|---|---|
-| ISP → list → one recipient row/list membership, recipient state and access filters | Generic contacts and many-to-many audience memberships; no ISP object | `DATABASE_ARCHITECTURE.md`, `DMS_COMPLETE_CONCLUSION_2026-10-22.md` §1 |
+| ISP → list → one recipient row/list membership, recipient state and access filters | Generic contacts and many-to-many audience memberships; no ISP object | `DATABASE_ARCHITECTURE.md`, `LEGACY_COMPLETE_CONCLUSION_2026-10-22.md` §1 |
 | Server provider → server → discovered IPs → domain/subdomain → VMTA and PMTA controls | Free-text provider and one server IP; no IP/VMTA/ISP mapping or PMTA operations | DMS install sources above; `MAIL_INFRASTRUCTURE.md` |
-| Sponsor → offer/creative/suppression → campaign/drop/warmup → send snapshot | Campaign revision shell only; no offers, drops, warmups, or sender configuration path | `CAMPAIGN_ORCHESTRATION.md`, `DMS_COMPLETE_CONCLUSION_2026-10-22.md` §§2–3 |
-| Native sender → PMTA listener → PMTA delivery/bounce import | No sender worker, PMTA listener integration, or feedback importer | `DMS_REA_SENDER_RESOLUTION_2026-10-22.md`, `MAIL_INFRASTRUCTURE.md` |
-| Tracking mini-app → redirect/open/unsubscribe events → daily statistics; affiliate importer → revenue | No tracking app, event pipeline, aggregation, or sponsor lead importer | `TRACKING_AND_ANALYTICS.md`, `DMS_TRACKING_ATTRIBUTION_FLOW.md`, `EXTERNAL_INTEGRATIONS.md` |
-| DNS and cloud provider adapters, server/domain administration, PMTA scheduler/settings/history | Only basic server/domain forms and a blocked preview | `EXTERNAL_INTEGRATIONS.md`, `DMS_REFERENCE_ROUTE_EVIDENCE.md` |
+| Sponsor → offer/creative/suppression → campaign/drop/warmup → send snapshot | Campaign revision shell only; no offers, drops, warmups, or sender configuration path | `CAMPAIGN_ORCHESTRATION.md`, `LEGACY_COMPLETE_CONCLUSION_2026-10-22.md` §§2–3 |
+| Native sender → PMTA listener → PMTA delivery/bounce import | No sender worker, PMTA listener integration, or feedback importer | `LEGACY_REA_SENDER_RESOLUTION_2026-10-22.md`, `MAIL_INFRASTRUCTURE.md` |
+| Tracking mini-app → redirect/open/unsubscribe events → daily statistics; affiliate importer → revenue | No tracking app, event pipeline, aggregation, or sponsor lead importer | `TRACKING_AND_ANALYTICS.md`, `LEGACY_TRACKING_ATTRIBUTION_FLOW.md`, `EXTERNAL_INTEGRATIONS.md` |
+| DNS and cloud provider adapters, server/domain administration, PMTA scheduler/settings/history | Only basic server/domain forms and a blocked preview | `EXTERNAL_INTEGRATIONS.md`, `LEGACY_REFERENCE_ROUTE_EVIDENCE.md` |
 
 The consent/suppression objects and workspace boundary may be useful AlphaLink improvements, but they must be mapped to DMS's list/recipient/campaign behavior explicitly. They cannot serve as proof that those DMS modules have been reverse engineered into the product.
 

@@ -41,7 +41,7 @@ Edges describe code/configuration boundaries. Credential values, network ACLs, l
 
 ### Recipient lifecycle and campaign snapshots
 
-- The manual reply extractor's mix builder accepts existing `unsubscribe` rows. Campaign creation passes selected lists through `Suppression`; its virtual-list branch loads stored mix rows without rechecking current recipient type or `excluded_offers`. An unsubscribe row in a selected reply audience can therefore enter the PHP send snapshot unless the separate offer suppression file removes it. This is a source-derived risk, not evidence of a completed send; later native-sender filtering is unknown. See `CAMPAIGN_ORCHESTRATION.md` and `DMS_TRACKING_ATTRIBUTION_FLOW.md` for source anchors.
+- The manual reply extractor's mix builder accepts existing `unsubscribe` rows. Campaign creation passes selected lists through `Suppression`; its virtual-list branch loads stored mix rows without rechecking current recipient type or `excluded_offers`. An unsubscribe row in a selected reply audience can therefore enter the PHP send snapshot unless the separate offer suppression file removes it. This is a source-derived risk, not evidence of a completed send; later native-sender filtering is unknown. See `CAMPAIGN_ORCHESTRATION.md` and `LEGACY_TRACKING_ATTRIBUTION_FLOW.md` for source anchors.
 
 ### Process and infrastructure controls
 

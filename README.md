@@ -1,12 +1,12 @@
 # AlphaLink
 
-AlphaLink is a new, independent implementation of the existing DMS reference SaaS. Reference behavior is the product source of truth. The current Laravel foundation contains provisional design choices; none is accepted as feature parity until its original business rules and equivalent target behavior are evidenced and tested. See [the master specification](ALPHALINK_MASTER_SPEC.md), [feature matrix](docs/reference/FEATURE_MATRIX.md), and [parity report](docs/implementation/PARITY_REPORT.md).
+AlphaLink is an independently operated application; `baseheavy.shop` is its production site. Historical audit material is retained for traceability only. AlphaLink development and operations do not access the original service or depend on its credentials, data, servers, or APIs. See [the master specification](ALPHALINK_MASTER_SPEC.md), [historical workflow matrix](docs/reference/FEATURE_MATRIX.md), and [implementation report](docs/implementation/PARITY_REPORT.md).
 
 ## Current code
 
-The first application slice is in [apps/api](apps/api/README.md). It uses Laravel 13/PHP 8.3, Sanctum, PostgreSQL, and Redis as the provisional baseline. It includes authenticated workspaces, masked contacts, audience lists and membership history, append-only consent and suppression evidence, encrypted campaign drafts, audit events, outbox storage, and a session-authenticated read-only browser console for workspace, campaign, and audience review. These local behaviors have not yet passed reference parity. No outbox dispatcher or sending path is implemented yet.
+The Laravel application in [apps/api](apps/api/README.md) uses Laravel 13/PHP 8.3, Sanctum, PostgreSQL, and Redis. It includes workspace management, audience lists, campaigns and sending workflows, tracking, suppression, provider integrations, infrastructure and PMTA tools. Each workflow's implementation and verification status is recorded in the historical workflow matrix and implementation report.
 
-Outbound sending, provider calls, server operations, and production DMS access are not implemented or enabled. Consent/legal policy, first transport, workload, hosting, and several other release decisions remain open.
+Outbound sending, provider calls, and server operations have independent AlphaLink implementations with separate safety gates and verification status. Consent/legal policy, workload, hosting, and several other release decisions remain open. AlphaLink has no integration with the original service.
 
 ## Fresh Ubuntu 26.04 LTS installation
 
@@ -24,11 +24,11 @@ sudo bash /var/www/alphalink/current/install-ubuntu-26.sh --deploy master
 
 For a private repository, the deploy command prompts for a read-only GitHub token without echoing it. It builds an immutable release before downtime, verifies a PostgreSQL backup, applies migrations, checks the HTTPS health endpoint and Horizon, and switches back to the previous release and database backup if deployment fails. Uploaded files remain in shared storage across releases. Use the branch that was actually pushed if it is not `master`. Do not edit application files directly on the server; the local checkout and GitHub branch are the deployment source of truth.
 
-## Reference material
+## Archived historical material
 
 - [Advanced AlphaLink reference system](audit/ALPHALINK_ADVANCED_REFERENCE_SYSTEM_2026-10-22.md)
-- [DMS conclusion](audit/DMS_COMPLETE_CONCLUSION_2026-10-22.md)
-- [DMS sender resolution](audit/DMS_REA_SENDER_RESOLUTION_2026-10-22.md)
+- [Legacy service conclusion](audit/LEGACY_COMPLETE_CONCLUSION_2026-10-22.md)
+- [Legacy sender resolution](audit/LEGACY_REA_SENDER_RESOLUTION_2026-10-22.md)
 - [Phase 4A decisions register](design/PHASE_4A_DECISIONS.md)
 
 The top-level `.env` is excluded from source control and was not copied into the application.

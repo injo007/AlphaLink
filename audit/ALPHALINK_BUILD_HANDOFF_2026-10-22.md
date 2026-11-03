@@ -29,6 +29,6 @@
 
 ## Evidence to use
 
-Start with [the complete DMS conclusion](DMS_COMPLETE_CONCLUSION_2026-10-22.md), then [the sender resolution](DMS_REA_SENDER_RESOLUTION_2026-10-22.md). The former links the detailed feature reports; the latter corrects the older sender unknowns. [REA evidence](DMS_REA_REFRESH_EVIDENCE_2026-10-22.json) pins managed metadata and CIL to the exact deployed artifact. No secret values or production data were transferred into these handoff files.
+Start with [the complete DMS conclusion](LEGACY_COMPLETE_CONCLUSION_2026-10-22.md), then [the sender resolution](LEGACY_REA_SENDER_RESOLUTION_2026-10-22.md). The former links the detailed feature reports; the latter corrects the older sender unknowns. [REA evidence](LEGACY_REA_REFRESH_EVIDENCE_2026-10-22.json) pins managed metadata and CIL to the exact deployed artifact. No secret values or production data were transferred into these handoff files.
 
 **Ready next step:** turn the table above into an AlphaLink product specification and delivery plan, choosing feature scope and operational requirements explicitly. This handoff is evidence for that work; it is not a mandate to reproduce DMS behavior where the audit found gaps.

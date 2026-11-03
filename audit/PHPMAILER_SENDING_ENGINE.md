@@ -43,7 +43,7 @@ These are source observations; they are not evidence of active production transp
 
 ## REA and safety boundary
 
-REA 6.7.0 inspected both approved, hash-verified local copies using static ELF metadata and complete objdump disassembly. Ghidra was not configured, Java was absent, and Hopper, IDA, and Kuna providers were unavailable; no provider was installed. The copies were removed at the end of that earlier analysis; a later Phase 3H resume found private copies and extracted assemblies again under `/tmp`, as recorded in [DMS_NATIVE_SENDER_ANALYSIS.md](DMS_NATIVE_SENDER_ANALYSIS.md). No PHPMailer object, message, SMTP connection, PMTA endpoint, test send, or campaign operation was used.
+REA 6.7.0 inspected both approved, hash-verified local copies using static ELF metadata and complete objdump disassembly. Ghidra was not configured, Java was absent, and Hopper, IDA, and Kuna providers were unavailable; no provider was installed. The copies were removed at the end of that earlier analysis; a later Phase 3H resume found private copies and extracted assemblies again under `/tmp`, as recorded in [LEGACY_NATIVE_SENDER_ANALYSIS.md](LEGACY_NATIVE_SENDER_ANALYSIS.md). No PHPMailer object, message, SMTP connection, PMTA endpoint, test send, or campaign operation was used.
 
 The PHPMailer discrepancy remains open. Resolution requires the authoritative package/call site within the inspected application component, or separate owner-authorized evidence from another component/server. No other server was accessed.
 

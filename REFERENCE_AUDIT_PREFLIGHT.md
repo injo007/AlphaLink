@@ -1,6 +1,6 @@
 # AlphaLink Reference Application Audit — Preflight
 
-> Historical pre-frontend snapshot. Superseded by `audit/DMS_REFERENCE_AUDIT_PHASE_1.md` and the current SSH result in `audit/PROGRESS.md`; the findings below describe the earlier access state.
+> Historical pre-frontend snapshot. Superseded by `audit/LEGACY_REFERENCE_AUDIT_PHASE_1.md` and the current SSH result in `audit/PROGRESS.md`; the findings below describe the earlier access state.
 
 **Date:** 2026-10-20  
 **Status:** Blocked before application access  

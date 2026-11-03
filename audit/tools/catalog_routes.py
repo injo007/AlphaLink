@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Build a metadata-only catalog of captured DMS Laravel route declarations.
+"""Build a metadata-only catalog of captured Laravel route declarations.
 
-This parser reads source files only. It does not bootstrap Laravel, query DMS,
+This parser reads local source files only. It does not bootstrap an application,
 read credentials, invoke routes, or infer that an HTTP method is safe.
 """
 
@@ -341,7 +341,7 @@ def build_catalog(source_root: Path) -> dict[str, object]:
             helper_counts[helper] = helper_counts.get(helper, 0) + count
     all_records.sort(key=lambda record: (str(record["source_file"]), int(record["source_line"])))
     for index, record in enumerate(all_records, 1):
-        record["id"] = f"DMSR-{index:04d}"
+        record["id"] = f"SRC-{index:04d}"
     return {
         "schema_version": 1,
         "capture_date": "2026-10-22",
@@ -356,7 +356,7 @@ def build_catalog(source_root: Path) -> dict[str, object]:
 
 def main(argv: Iterable[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source-root", type=Path, required=True, help="Root of the captured DMS source tree")
+    parser.add_argument("--source-root", type=Path, required=True, help="Root of the captured source tree")
     parser.add_argument("--output", type=Path, required=True, help="JSON output path")
     args = parser.parse_args(argv)
     catalog = build_catalog(args.source_root)

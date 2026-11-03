@@ -2,7 +2,7 @@
 
 **Status: Application-side inputs are mapped, and Phase 4B refreshed the managed sender's static metadata/CIL. Main reads the second PHP-supplied argument as the Base64-JSON config file and parses it; the PHP-to-file handoff is established. One obfuscated mode branch fans out over a JSON array, and a reachable direct TCP/text-stream path with SMTP-shaped reply parsing is verified. SMTP compatibility is the leading static inference; array-item meaning, command text, peer identity, message construction and MIME format remain unknown. No sender or assembly was executed.**
 
-Phase 3F Ghidra analysis recovered the native apphost boundary. Phase 3G then extracted only the managed assemblies and dependency manifests embedded in the two approved sender files and inspected them statically. See [DMS_NATIVE_SENDER_ANALYSIS.md](DMS_NATIVE_SENDER_ANALYSIS.md) for bundle boundaries, hashes, managed call graph, and evidence limits.
+Phase 3F Ghidra analysis recovered the native apphost boundary. Phase 3G then extracted only the managed assemblies and dependency manifests embedded in the two approved sender files and inspected them statically. See [LEGACY_NATIVE_SENDER_ANALYSIS.md](LEGACY_NATIVE_SENDER_ANALYSIS.md) for bundle boundaries, hashes, managed call graph, and evidence limits.
 
 ## Phase 3F apphost finding
 
@@ -64,9 +64,9 @@ Retained REA call-edge records confirm reachable TcpClient(string,int), stream r
 
 The managed entry parses a JSON object and branches through five switch instructions. Retained CIL summaries do not recover the message object, personalization fields, tracking-token interpolation, header formatting, MIME boundaries, address encoding, attachment handling, or final serialization. PHP config fields and token construction remain input-side evidence, not proof of final bytes.
 
-The fresh Phase 4B cross-check confirms that managed `Main` requires two arguments, uses `args[0]` for mode dispatch, reads `args[1]` as the config-file path, Base64-decodes its text to UTF-8, and calls `JObject.Parse`. PHP launches the configured sender as `send_<mode> <config-path>`, directly linking its generated file to that read. In one branch, Main passes the parsed `JObject` to a constructor that selects the `JArray` used by the task fan-out. The obfuscated property key and array-item meaning remain unknown. This narrows the sender input boundary but does not establish message construction; see [DMS_NATIVE_SENDER_ANALYSIS.md](DMS_NATIVE_SENDER_ANALYSIS.md#php-configuration-handoff-cross-check--2026-10-21).
+The fresh Phase 4B cross-check confirms that managed `Main` requires two arguments, uses `args[0]` for mode dispatch, reads `args[1]` as the config-file path, Base64-decodes its text to UTF-8, and calls `JObject.Parse`. PHP launches the configured sender as `send_<mode> <config-path>`, directly linking its generated file to that read. In one branch, Main passes the parsed `JObject` to a constructor that selects the `JArray` used by the task fan-out. The obfuscated property key and array-item meaning remain unknown. This narrows the sender input boundary but does not establish message construction; see [LEGACY_NATIVE_SENDER_ANALYSIS.md](LEGACY_NATIVE_SENDER_ANALYSIS.md#php-configuration-handoff-cross-check--2026-10-21).
 
-PHPMailer remains UNKNOWN. No PHPMailer package/call site was established in the inspected Composer/PHP evidence or managed references. The separate raw SMTP helper, Gmail API composition path, or custom TCP transport does not identify where the owner's PHPMailer usage occurs. See the managed evidence IDs and protocol boundary in [DMS_NATIVE_SENDER_ANALYSIS.md](DMS_NATIVE_SENDER_ANALYSIS.md).
+PHPMailer remains UNKNOWN. No PHPMailer package/call site was established in the inspected Composer/PHP evidence or managed references. The separate raw SMTP helper, Gmail API composition path, or custom TCP transport does not identify where the owner's PHPMailer usage occurs. See the managed evidence IDs and protocol boundary in [LEGACY_NATIVE_SENDER_ANALYSIS.md](LEGACY_NATIVE_SENDER_ANALYSIS.md).
 
 ## Phase 3H authorized unblock checkpoint — 2026-10-21
 

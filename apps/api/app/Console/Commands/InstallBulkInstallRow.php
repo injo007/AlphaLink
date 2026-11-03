@@ -5,11 +5,11 @@ namespace App\Console\Commands;
 use App\Models\ManagedServer;
 use App\Models\User;
 use App\Models\Workspace;
-use App\Services\Infrastructure\DmsBulkInstallPreparedRowRunner;
-use App\Services\Infrastructure\DmsBulkInstallRowPreparation;
-use App\Services\Infrastructure\DmsBulkInstallRowProcessPayload;
-use App\Services\Infrastructure\DmsBulkInstallRowRunner;
-use App\Services\Infrastructure\DmsBulkInstallTranscriptStore;
+use App\Services\Infrastructure\AlphaLinkBulkInstallPreparedRowRunner;
+use App\Services\Infrastructure\AlphaLinkBulkInstallRowPreparation;
+use App\Services\Infrastructure\AlphaLinkBulkInstallRowProcessPayload;
+use App\Services\Infrastructure\AlphaLinkBulkInstallRowRunner;
+use App\Services\Infrastructure\AlphaLinkBulkInstallTranscriptStore;
 use Exception;
 use Illuminate\Console\Command;
 
@@ -17,18 +17,18 @@ class InstallBulkInstallRow extends Command
 {
     protected $signature = 'infrastructure:install-bulk-row {payload}';
 
-    protected $description = 'Run one isolated DMS-compatible bulk-install row.';
+    protected $description = 'Run one isolated server installation row.';
 
     public function handle(
-        DmsBulkInstallRowProcessPayload $rowPayload,
-        DmsBulkInstallTranscriptStore $transcripts,
-        DmsBulkInstallRowPreparation $preparation,
+        AlphaLinkBulkInstallRowProcessPayload $rowPayload,
+        AlphaLinkBulkInstallTranscriptStore $transcripts,
+        AlphaLinkBulkInstallRowPreparation $preparation,
     ): int {
         $payload = $rowPayload->decode((string) $this->argument('payload'));
         $workspaceId = $payload['workspace_id'];
         $runId = $payload['run_id'];
         if ($transcripts->read($workspaceId, $runId) === null) {
-            $this->line(DmsBulkInstallRowProcessPayload::RESULT_FAILED);
+            $this->line(AlphaLinkBulkInstallRowProcessPayload::RESULT_FAILED);
 
             return self::FAILURE;
         }
@@ -39,7 +39,7 @@ class InstallBulkInstallRow extends Command
                 $runId,
                 now()->format('[d/m/Y-H:i:s]').' - [unknown:unknown] - Error : Bulk-install execution is disabled.',
             );
-            $this->line(DmsBulkInstallRowProcessPayload::RESULT_FAILED);
+            $this->line(AlphaLinkBulkInstallRowProcessPayload::RESULT_FAILED);
 
             return self::SUCCESS;
         }
@@ -53,15 +53,15 @@ class InstallBulkInstallRow extends Command
             $transcripts->append($workspaceId, $runId, now()->format('[d/m/Y-H:i:s]').' '.$line);
         };
 
-        if (! app()->bound(DmsBulkInstallRowRunner::class)) {
+        if (! app()->bound(AlphaLinkBulkInstallRowRunner::class)) {
             $append('Error : Bulk-install runner is unavailable.');
-            $this->line(DmsBulkInstallRowProcessPayload::RESULT_FAILED);
+            $this->line(AlphaLinkBulkInstallRowProcessPayload::RESULT_FAILED);
 
             return self::SUCCESS;
         }
 
-        $runner = new DmsBulkInstallPreparedRowRunner(
-            app(DmsBulkInstallRowRunner::class),
+        $runner = new AlphaLinkBulkInstallPreparedRowRunner(
+            app(AlphaLinkBulkInstallRowRunner::class),
             $preparation,
             $user,
             $workspace,
@@ -89,12 +89,12 @@ class InstallBulkInstallRow extends Command
             );
         } catch (Exception $exception) {
             $append('Error : '.$exception->getMessage());
-            $this->line(DmsBulkInstallRowProcessPayload::RESULT_FAILED);
+            $this->line(AlphaLinkBulkInstallRowProcessPayload::RESULT_FAILED);
 
             return self::SUCCESS;
         }
 
-        $this->line(DmsBulkInstallRowProcessPayload::RESULT_SUCCEEDED);
+        $this->line(AlphaLinkBulkInstallRowProcessPayload::RESULT_SUCCEEDED);
 
         return self::SUCCESS;
     }

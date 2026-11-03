@@ -3,7 +3,7 @@ import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { runInNewContext } from 'node:vm';
 
-const script = await readFile(new URL('../../public/dms-reference/main-dashboard-refresh.js', import.meta.url), 'utf8');
+const script = await readFile(new URL('../../public/console-assets/main-dashboard-refresh.js', import.meta.url), 'utf8');
 
 function createBrowser(fetchImplementation) {
     let scheduledRefresh;

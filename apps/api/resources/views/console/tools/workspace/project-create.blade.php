@@ -1,6 +1,6 @@
-@extends('layouts.dms-reference')
+@extends('layouts.standalone')
 
-@section('title', 'Add Project - DMS')
+@section('title', 'Add Project')
 
 @section('content')
     <div class="block block-rounded">

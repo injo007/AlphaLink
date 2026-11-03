@@ -1,6 +1,6 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
-@section('title', 'Domains - DMS')
+@section('title', 'Domains')
 
 @push('styles')
     <style>
@@ -180,7 +180,7 @@
                 ]
             });
 
-            // The DMS reference reloads on the checkbox click. Keep the same
+            // The Reload after checkbox changes to refresh dependent values. Keep the same
             // interaction so the visible filter and the table stay in sync.
             $('#only_our').on('click', function () { datatable.ajax.reload(); });
 

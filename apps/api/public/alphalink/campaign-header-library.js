@@ -71,7 +71,7 @@
                 return;
             }
             if (!window.swal?.fire) {
-                setStatus('The DMS header-name dialog is unavailable.', true);
+                setStatus('The header-name dialog is unavailable.', true);
                 return;
             }
             const { value, isConfirmed } = await window.swal.fire({ title: 'Enter Header Name', input: 'text' });

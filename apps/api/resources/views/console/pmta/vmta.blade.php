@@ -1,4 +1,4 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
 @section('title', 'Pmta VMTA')
 
@@ -33,7 +33,7 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('dms-reference/pmta-vmta-response.js') }}"></script>
+<script src="{{ asset('console-assets/pmta-vmta-response.js') }}"></script>
 <script>
 (() => {
     const root=document.getElementById('pmta-vmta');if(!root)return;const status=document.getElementById('pmta-vmta-status');const csrf=document.querySelector('meta[name="csrf-token"]')?.content||'';
@@ -53,7 +53,7 @@
     const promptForLines=(label)=>window.PmtaControls.prompt(label,'Enter one value per line');
     let grid=null;
     if(window.jQuery?.fn?.DataTable){const $=window.jQuery;grid=$('#pmta-vmta-table').DataTable({
-        ajax:{url:root.dataset.rowsUrl,dataSrc:'data'},dom:'<"dms-table-tools"B>frtip',
+        ajax:{url:root.dataset.rowsUrl,dataSrc:'data'},dom:'<"table-tools"B>frtip',
         buttons:[{extend:'pageLength'},{text:'<i class="fas fa-sync"></i>',titleAttr:'REFRESH',action:(event,table)=>table.ajax.reload(null,false)},
             {text:'<i class="far fa-square"></i>',titleAttr:'SELECT NONE',action:(event,table)=>table.rows({page:'current'}).deselect()},
             {text:'<i class="far fa-check-square"></i>',titleAttr:'SELECT ALL',action:(event,table)=>table.rows({page:'current'}).select()},

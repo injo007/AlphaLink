@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AudienceListImportBatch extends Model
 {
+    public const FORMAT_PROFILE_CSV = 'profile_csv';
+
     use HasUuids;
 
     protected $fillable = [
@@ -65,9 +67,9 @@ class AudienceListImportBatch extends Model
 
         $offset = $this->phase === 'validation' ? $this->validation_offset : $this->import_offset;
         $progress = $this->file_size_bytes > 0 ? ($offset / $this->file_size_bytes) : 0;
-        if ($this->source_format === 'dms_csv' && $this->phase === 'validation') {
+        if ($this->source_format === self::FORMAT_PROFILE_CSV && $this->phase === 'validation') {
             $progress *= 0.5;
-        } elseif ($this->source_format === 'dms_csv') {
+        } elseif ($this->source_format === self::FORMAT_PROFILE_CSV) {
             $progress = 0.5 + ($progress * 0.5);
         }
 

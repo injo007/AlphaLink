@@ -8,7 +8,7 @@ import {
     projectAllStatsRows,
     projectCampaignStatisticsRows,
     projectMailerRevenueRows,
-} from '../../public/dms-reference/analytics-pivot.js';
+} from '../../public/console-assets/analytics-pivot.js';
 
 test('All Stats pivot projects event rows into count measures without recipient fields', () => {
     const rows = projectAllStatsRows([

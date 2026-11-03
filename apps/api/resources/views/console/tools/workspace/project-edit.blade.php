@@ -1,6 +1,6 @@
-@extends('layouts.dms-reference')
+@extends('layouts.standalone')
 
-@section('title', 'Edit Workspace Project - DMS')
+@section('title', 'Edit Workspace Project')
 
 @section('content')
     <div class="block block-rounded">
@@ -15,7 +15,7 @@
                 <div class="form-group">
                     <label for="workspace-project-edit-json">Service account JSON:</label>
                     <textarea id="workspace-project-edit-json" class="form-control" rows="10" spellcheck="false" required>{{ $project->service_account_json }}</textarea>
-                    <small class="form-text text-muted">The credential is stored encrypted. DMS permits operators assigned to this project to edit its settings.</small>
+                    <small class="form-text text-muted">The credential is stored encrypted. Operators assigned to this project can edit its settings.</small>
                 </div>
                 <div class="form-group">
                     <label>Allowed Mailers: <button id="workspace-project-edit-toggle" class="btn btn-link btn-sm" type="button" aria-pressed="false">CHECK ALL</button></label>

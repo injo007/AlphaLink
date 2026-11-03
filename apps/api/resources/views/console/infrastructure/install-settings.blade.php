@@ -1,6 +1,6 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
-@section('title', 'App Settings - DMS')
+@section('title', 'App Settings')
 
 @section('content')
     @php

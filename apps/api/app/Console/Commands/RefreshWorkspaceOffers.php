@@ -3,16 +3,16 @@
 namespace App\Console\Commands;
 
 use App\Models\WorkspaceOffer;
-use App\Services\AffiliateNetworks\DmsSponsorOfferRefresher;
+use App\Services\AffiliateNetworks\AlphaLinkSponsorOfferRefresher;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
 #[Signature('workspace:offers-refresh {--sleep=1 : Wait between provider requests} {--offer= : Refresh one AlphaLink offer ID only}')]
-#[Description('Refresh active live workspace offers from their active DMS-compatible sponsor providers')]
+#[Description('Refresh active live workspace offers from their active sponsor providers')]
 class RefreshWorkspaceOffers extends Command
 {
-    public function handle(DmsSponsorOfferRefresher $refresher): int
+    public function handle(AlphaLinkSponsorOfferRefresher $refresher): int
     {
         $sleepBetween = (string) $this->option('sleep') === '1';
         $offerId = $this->option('offer');

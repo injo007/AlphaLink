@@ -93,7 +93,7 @@ class ImportAudienceListContacts
      *
      * @return array{processed: int, valid: int, filtered: int, imported_count: int, duplicate_count: int, invalid_count: int}
      */
-    public function handleDmsFile(
+    public function handleAlphaLinkFile(
         Request $request,
         Workspace $workspace,
         AudienceList $list,
@@ -104,7 +104,7 @@ class ImportAudienceListContacts
     ): AudienceListImportBatch {
         $this->assertLookupKey($lookupKey);
         if (! in_array($type, ContactListMembership::CAMPAIGN_TYPES, true)) {
-            throw new RuntimeException('Unsupported DMS list type.');
+            throw new RuntimeException('Unsupported list type.');
         }
 
         $path = $file->storeAs(
@@ -116,7 +116,7 @@ class ImportAudienceListContacts
             throw new RuntimeException('Unable to stage the audience import.');
         }
 
-        return $this->createBatch($request, $workspace, $list, $path, 'dms_csv', $type, $filter);
+        return $this->createBatch($request, $workspace, $list, $path, AudienceListImportBatch::FORMAT_PROFILE_CSV, $type, $filter);
     }
 
     public function processNextBatchChunk(string $batchId): void
@@ -186,7 +186,7 @@ class ImportAudienceListContacts
                     $rows++;
                     $offset = ftell($stream);
                     $parsed = $this->parseCandidate($batch, $line);
-                    if (($batch->source_format === 'dms_csv' && $batch->phase === 'validation')
+                    if (($batch->source_format === AudienceListImportBatch::FORMAT_PROFILE_CSV && $batch->phase === 'validation')
                         || ($batch->source_format === 'addresses' && $batch->phase === 'import')) {
                         $batch->processed_count++;
                     }
@@ -330,7 +330,7 @@ class ImportAudienceListContacts
                 'audience_list_id' => $list->getKey(),
                 'created_by' => $request->user()?->getKey(),
                 'status' => 'queued',
-                'phase' => $sourceFormat === 'dms_csv' ? 'validation' : 'import',
+                'phase' => $sourceFormat === AudienceListImportBatch::FORMAT_PROFILE_CSV ? 'validation' : 'import',
                 'source_format' => $sourceFormat,
                 'membership_type' => $type,
                 'filter' => $filter,

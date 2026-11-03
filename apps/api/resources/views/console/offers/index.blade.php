@@ -1,6 +1,6 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
-@section('title', $isNetworkView ? 'My Offers - DMS' : 'Offers - DMS')
+@section('title', $isNetworkView ? 'My Offers' : 'Offers')
 
 @section('content')
     <div class="block block-rounded">
@@ -314,7 +314,7 @@
                 const url = `${base}/${control.dataset.id}`;
                 if (action === 'delete') {
                     if (window.swal?.fire) {
-                        const confirmation = await window.swal.fire({ icon: 'warning', title: 'Delete this offer?', text: 'DMS clears suppression metadata when an offer is deleted.', showCancelButton: true, confirmButtonText: 'Delete' });
+                        const confirmation = await window.swal.fire({ icon: 'warning', title: 'Delete this offer?', text: 'Deleting this offer also clears its suppression metadata.', showCancelButton: true, confirmButtonText: 'Delete' });
                         if (!confirmation.isConfirmed) return;
                     } else if (!window.confirm('Delete this offer?')) return;
                 }

@@ -19,7 +19,7 @@ use App\Models\Workspace;
 use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceOfferAsset;
 use App\Models\WorkspaceSponsor;
-use App\Services\Analytics\ImportDmsPmtaFeedback;
+use App\Services\Analytics\ImportAlphaLinkPmtaFeedback;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -415,7 +415,7 @@ class WorkspaceCampaignStatisticsTest extends TestCase
             [$date, 'mailbox-full', 'ignored', 'ignored', $token],
             [$date, 'bad-mailbox', 'ignored', 'ignored', $token],
         ]);
-        $importer = app(ImportDmsPmtaFeedback::class);
+        $importer = app(ImportAlphaLinkPmtaFeedback::class);
 
         $this->assertSame(
             ['imported' => 1, 'duplicate' => 0, 'unmatched' => 0],

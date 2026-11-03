@@ -7,8 +7,8 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceSponsor;
-use App\Services\AffiliateNetworks\DmsAffiliateProviderHttp;
-use App\Services\AffiliateNetworks\DmsSponsorExtensionPackage;
+use App\Services\AffiliateNetworks\AlphaLinkAffiliateProviderHttp;
+use App\Services\AffiliateNetworks\AlphaLinkSponsorExtensionPackage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Routing\Middleware\ThrottleRequests;
@@ -38,7 +38,7 @@ class WorkspaceSponsorManagementTest extends TestCase
         $this->workspace->users()->attach($this->owner->getKey(), ['role' => 'owner']);
         $this->actingAs($this->owner);
         $this->withoutMiddleware(ThrottleRequests::class);
-        $this->app->bind(DmsAffiliateProviderHttp::class, fn (): DmsAffiliateProviderHttp => new DmsAffiliateProviderHttp(
+        $this->app->bind(AlphaLinkAffiliateProviderHttp::class, fn (): AlphaLinkAffiliateProviderHttp => new AlphaLinkAffiliateProviderHttp(
             fn (string $host): array => ['93.184.216.34'],
         ));
     }
@@ -267,7 +267,7 @@ class WorkspaceSponsorManagementTest extends TestCase
 
     public function test_offer_count_and_sponsor_login_actions_are_exposed_with_the_reviewed_helper_notice(): void
     {
-        $helperAvailable = app(DmsSponsorExtensionPackage::class)->downloadAvailable();
+        $helperAvailable = app(AlphaLinkSponsorExtensionPackage::class)->downloadAvailable();
         $sponsorsPage = $this->get(route('clean.console.sponsors.index'))
             ->assertOk()
             ->assertSee('TOTAL OFFERS')
@@ -314,7 +314,7 @@ class WorkspaceSponsorManagementTest extends TestCase
 
     public function test_sponsor_pages_render_when_the_optional_helper_bundle_is_not_staged(): void
     {
-        $package = $this->mock(DmsSponsorExtensionPackage::class);
+        $package = $this->mock(AlphaLinkSponsorExtensionPackage::class);
         $package->shouldReceive('extensionIdIfAvailable')->andReturn(null);
         $package->shouldReceive('downloadAvailable')->andReturn(false);
 

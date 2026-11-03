@@ -1,4 +1,4 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
 @section('title', isset($editingCampaign) ? 'Edit Campaign' : 'Create Campaign')
 
@@ -11,7 +11,7 @@
         $selectedOfferAssets = $editingCampaign
             ? ($savedOfferAssets ?? [])
             : ($sendOptions['offers']->firstWhere('id', (int) old('send_setup.offer_id', 0))['assets'] ?? []);
-        $defaultDmsHeader = "MIME-version: 1.0\nContent-type: text/html\nTo: [to]\nfrom: [from] <info@[domain]>\nSubject: [subject]\nDate: [date]";
+        $defaultCampaignHeader = "MIME-version: 1.0\nContent-type: text/html\nTo: [to]\nfrom: [from] <info@[domain]>\nSubject: [subject]\nDate: [date]";
         $setup = [
             'sponsor_id' => (string) old('send_setup.sponsor_id', $savedSetup['sponsor_id'] ?? ''),
             'offer_id' => (string) old('send_setup.offer_id', $savedSetup['offer_id'] ?? ''),
@@ -223,7 +223,7 @@
                                         <option value="{{ $segment['id'] }}" @selected(in_array((string) $segment['id'], $setup['audience_segments'], true))>{{ $segment['name'] }} — {{ $segment['country'] }} — {{ strtoupper($segment['email_type']) }} — {{ number_format($segment['recipient_count']) }}</option>
                                     @endforeach
                                 </select>
-                                <small class="form-text text-muted">Select unlocked DMS email types. Saving automatically matches the selected offer’s saved suppression file against every selected List/email type and leaves matches out of the campaign snapshot. Drops → <a href="{{ route('console.drops.suppression', $workspace->id) }}">Suppression</a> separately applies that file to the chosen ISP/List memberships for reusable Offer/List exclusions; you do not need to run it first for campaign creation. Workspace suppressions and duplicate addresses are also excluded.</small>
+                                <small class="form-text text-muted">Select unlocked email types. Saving automatically matches the selected offer’s saved suppression file against every selected List/email type and leaves matches out of the campaign snapshot. Drops → <a href="{{ route('console.drops.suppression', $workspace->id) }}">Suppression</a> separately applies that file to the chosen ISP/List memberships for reusable Offer/List exclusions; you do not need to run it first for campaign creation. Workspace suppressions and duplicate addresses are also excluded.</small>
                             </div>
                             <div class="form-row mb-0">
                                 <div class="form-group col-sm-6">
@@ -284,7 +284,7 @@
                     </div>
                 </div>
                 <div class="form-row">
-                    @include('console.campaigns.partials.header-library', ['workspace' => $workspace, 'textareaId' => 'campaign-dms-header', 'idPrefix' => 'campaign'])
+                    @include('console.campaigns.partials.header-library', ['workspace' => $workspace, 'textareaId' => 'campaign-header', 'idPrefix' => 'campaign'])
                 </div>
                 <div class="form-row">
                     <div class="form-group col-sm-12 col-md-3">
@@ -358,16 +358,16 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group col-md-6">
-                        <label for="campaign-dms-header">Header:
+                        <label for="campaign-header">Header:
                             <button type="button" class="btn btn-link btn-sm p-0" id="campaign-header-shuffle" title="Shuffle header lines" aria-label="Shuffle header lines"><i class="fas fa-random" aria-hidden="true"></i></button>
                             <button type="button" class="btn btn-link btn-sm p-0" id="campaign-header-encode" title="Encoding tools" aria-label="Encoding tools"><i class="fas fa-pencil-ruler" aria-hidden="true"></i></button>
                             <button type="button" class="btn btn-link btn-sm p-0" id="campaign-header-use-smtp" title="Put the selected Workspace SMTP account in the From address">Use SMTP account as From</button>
                         </label>
-                        <textarea id="campaign-dms-header" name="header" rows="30" class="form-control campaign-header-editor" spellcheck="false" required>{{ old('header', $savedContent['header'] ?? $defaultDmsHeader) }}</textarea>
-                        <small class="form-text text-muted">This inserts <code>From: [smtp]@[domain]</code> and switches routing to SMTP. Select the Workspace account under Available SMTP routes; full email usernames and the DMS form <code>info@[smtp]</code> are supported.</small>
+                        <textarea id="campaign-header" name="header" rows="30" class="form-control campaign-header-editor" spellcheck="false" required>{{ old('header', $savedContent['header'] ?? $defaultCampaignHeader) }}</textarea>
+                        <small class="form-text text-muted">This inserts <code>From: [smtp]@[domain]</code> and switches routing to SMTP. Select the Workspace account under Available SMTP routes; full email usernames and the supported form <code>info@[smtp]</code> are supported.</small>
                     </div>
                     <div class="form-group col-md-6">
-                        <label for="campaign-dms-body">Body:
+                        <label for="campaign-body">Body:
                             <button type="button" id="campaign-body-preview-button" class="btn btn-link btn-sm p-0" title="Preview body" aria-controls="campaign-body-preview" aria-expanded="false"><i class="fas fa-eye" aria-hidden="true"></i></button>
                             @if ($editingCampaign)
                                 <button type="button" id="campaign-body-generate-links" class="btn btn-link btn-sm p-0" data-generate-url="{{ route('console.campaigns.generate-body', [$workspace->id, $editingCampaign->id]) }}" title="Generate tracking links" aria-label="Generate tracking links"><i class="fas fa-link" aria-hidden="true"></i></button>
@@ -378,7 +378,7 @@
                             <input id="campaign-body-map" type="checkbox" class="custom-control-input">
                             <label for="campaign-body-map" class="custom-control-label">MAP BODY</label>
                         </div>
-                        <textarea id="campaign-dms-body" name="body" rows="28" class="form-control" spellcheck="false">{{ old('body', $savedContent['body'] ?? '') }}</textarea>
+                        <textarea id="campaign-body" name="body" rows="28" class="form-control" spellcheck="false">{{ old('body', $savedContent['body'] ?? '') }}</textarea>
                         <div id="campaign-body-preview" hidden class="mt-2"><iframe id="campaign-body-preview-frame" title="Campaign body preview" sandbox="" style="width:100%;min-height:360px;border:1px solid #d7dce3"></iframe></div>
                     </div>
                 </div>
@@ -584,8 +584,8 @@
                     <h4 class="h6">Placeholders</h4>
                     <p><code>[placeholder1]</code><br><code>[placeholder2]</code><br>Continue with the row number. Values follow the corresponding Placeholders row and its rotation interval.</p>
                     <h4 class="h6">Campaign Test behavior</h4>
-                    <p>The DMS help describes <code>[boundary]</code> and <code>[bnd]</code> as 30 static characters. The inspected DMS PHP helper receives <code>[boundary]</code> from its caller and defaults <code>[bnd]</code> to an 18-character cached value; AlphaLink preserves the inspected helper behavior.</p>
-                    <p>Campaign Test resolves <code>[smtp]</code> and <code>[smtp_name]</code> from the selected SMTP route, or from the single active SMTP account linked to a selected IP. In SMTP mode, it sends one test message through every selected SMTP route and reuses the saved Email Test addresses as needed; this lets you verify each selected account. Use <code>[smtp]</code> by itself when the account username is already an email address; <code>[smtp]@[domain]</code> also works and adds the selected domain only when the account username is a local part. These tags only fill message text: Option IP still routes through the selected IP, and Option SMTP routes through the selected SMTP account. If an IP has multiple linked accounts, select one with Option SMTP before using its tags. The tags are empty for VMTA routes and IPs without a linked account. <code>[tag]</code> is replaced with an empty value because the DMS native sender's reply-tag source is not available in this test path.</p>
+                    <p>Campaign templates accept <code>[boundary]</code> and <code>[bnd]</code>. <code>[boundary]</code> comes from message context; <code>[bnd]</code> defaults to a cached 18-character value.</p>
+                    <p>Campaign Test resolves <code>[smtp]</code> and <code>[smtp_name]</code> from the selected SMTP route, or from the single active SMTP account linked to a selected IP. In SMTP mode, it sends one test message through every selected SMTP route and reuses the saved Email Test addresses as needed; this lets you verify each selected account. Use <code>[smtp]</code> by itself when the account username is already an email address; <code>[smtp]@[domain]</code> also works and adds the selected domain only when the account username is a local part. These tags only fill message text: Option IP still routes through the selected IP, and Option SMTP routes through the selected SMTP account. If an IP has multiple linked accounts, select one with Option SMTP before using its tags. The tags are empty for VMTA routes and IPs without a linked account. <code>[tag]</code> is empty in Campaign Test because the reply-tag value is unavailable in that flow.</p>
                     <p>Campaign Test replaces <code>[token]</code> with a test token. Save the campaign before testing click, open, or unsubscribe links: an unsaved campaign has no ID for those URLs. Test opens and clicks do not create recipient analytics. Campaign Test does not require sender-domain DNS verification.</p>
                     <p class="mb-0">For a selected VMTA, AlphaLink resolves <code>[domain]</code> to its pushed domain and applies that domain to the Domain field and body URL hosts. With multiple selected VMTAs, Campaign Test uses the selected server's own VMTA domain. For IP/server tests without a configured DNS name, the selected Domain supplies <code>[domain]</code>.</p>
                 </div></div>
@@ -831,8 +831,8 @@
             });
             const previewButton = document.getElementById('campaign-body-preview-button');
             const preview = document.getElementById('campaign-body-preview');
-            const header = document.getElementById('campaign-dms-header');
-            const body = document.getElementById('campaign-dms-body');
+            const header = document.getElementById('campaign-header');
+            const body = document.getElementById('campaign-body');
             const globalStatus = document.getElementById('campaign-options-status');
             const csrf = form.querySelector('input[name="_token"]')?.value ?? '';
             const setToolStatus = (message, tone = 'info') => {
@@ -1260,7 +1260,7 @@
                     : `<img src="${source}" />\n</a><br>\n<a href="http://${domain}/[rndUN_10]u[token]">\n<img src="${unsubscribe}" />\n</a><br>\n`;
                 body.value = bodyStart + (event.target.checked ? '<h2 style="font-size:35px; color:#324ab2">TITLE</h2>\n</a>\n<br/>\n' : '<font size="4">TTILE</font><br>\n') + imageTag + trackingEnd;
             });
-            const headerField = document.getElementById('campaign-dms-header');
+            const headerField = document.getElementById('campaign-header');
             document.getElementById('campaign-header-use-smtp')?.addEventListener('click', () => {
                 const lines = headerField.value.split(/\r\n|\r|\n/);
                 let replaced = false;
@@ -1430,7 +1430,7 @@
 
             const select = (key) => document.getElementById(ids[key]);
             const selectedValues = (element) => Array.from(element.selectedOptions).map((option) => option.value).filter(Boolean);
-            const dmsBody = document.getElementById('campaign-dms-body');
+            const campaignBody = document.getElementById('campaign-body');
             const campaignDomain = document.getElementById('campaign-domain');
             let lastOfferId = select('offer').value;
             const pickerRefresh = (element) => {
@@ -1440,7 +1440,7 @@
             const applyHtmlAsset = () => {
                 const option = select('htmlAsset').selectedOptions[0];
                 if (!option?.value) return false;
-                dmsBody.value = (option.dataset.assetValue || '').replaceAll('[domain]', selectedDomain());
+                campaignBody.value = (option.dataset.assetValue || '').replaceAll('[domain]', selectedDomain());
                 return true;
             };
             const applyCreativeAsset = () => {
@@ -1448,10 +1448,10 @@
                 if (!option?.value) return;
                 const creativePath = option.dataset.assetValue || 'NA';
                 const creativeUrl = /^https?:\/\//i.test(creativePath) ? creativePath : 'http://' + selectedDomain() + '/' + creativePath;
-                dmsBody.value = dmsBody.value.replace(/src="[^"]*"/i, 'src="' + creativeUrl + '"');
+                campaignBody.value = campaignBody.value.replace(/src="[^"]*"/i, 'src="' + creativeUrl + '"');
             };
             const assetImageUrl = (asset) => /^https?:\/\//i.test(String(asset || '')) ? String(asset) : 'http://[domain]/' + (asset || 'NA');
-            const defaultDmsBody = (creative, unsubscribe) => [
+            const defaultCampaignBody = (creative, unsubscribe) => [
                 '<html>',
                 '<body>',
                 '<center>',
@@ -1548,11 +1548,11 @@
                 fill('creativeAsset', selectedAssets.filter((asset) => asset.type === 'creative'), (asset) => asset.id, (asset) => asset.value, current.creative_asset_id, 'Select Creative');
                 fill('htmlAsset', selectedAssets.filter((asset) => asset.type === 'html'), (asset) => asset.id, (asset) => String(asset.value).slice(0, 50) + '…', current.html_asset_id, 'Select HTML');
                 const selectedOfferId = select('offer').value;
-                if (selectedOffer && (selectedOfferId !== lastOfferId || !dmsBody.value.trim())) {
+                if (selectedOffer && (selectedOfferId !== lastOfferId || !campaignBody.value.trim())) {
                     const creative = selectedAssets.find((asset) => String(asset.id) === String(select('creativeAsset').value))
                         ?? selectedAssets.find((asset) => asset.type === 'creative');
                     const unsubscribe = selectedAssets.find((asset) => asset.type === 'unsubscribe');
-                    dmsBody.value = defaultDmsBody(creative?.public_url ?? creative?.value, unsubscribe?.public_url ?? unsubscribe?.value);
+                    campaignBody.value = defaultCampaignBody(creative?.public_url ?? creative?.value, unsubscribe?.public_url ?? unsubscribe?.value);
                     applyHtmlAsset();
                 }
                 lastOfferId = selectedOfferId;
@@ -1601,11 +1601,11 @@
                     if (serversMissing) missing.push('active installed server assigned to your user');
                     setStatus(`No ${missing.join(', ')} is available in this workspace. Check its active state, access assignment, and source data.`, 'warning');
                 } else if (!current.sponsor_id) {
-                    setStatus('Choose a sponsor to load its DMS-eligible offers and the ISPs assigned to that sponsor.', 'info');
+                    setStatus('Choose a sponsor to load its eligible offers and the ISPs assigned to that sponsor.', 'info');
                 } else if (!current.isp_id) {
                     setStatus('Choose an ISP for the selected sponsor to load its active lists.', 'info');
                 } else {
-                    setStatus('DMS-mapped choices loaded. Saving creates the suppression-filtered recipient snapshot. Start the campaign from My Campaigns after preparation finishes; scheduling is not available.', 'info');
+                    setStatus('Choices loaded. Saving creates the suppression-filtered recipient snapshot. Start the campaign from My Campaigns after preparation finishes; scheduling is not available.', 'info');
                 }
             };
             const loadOptions = async () => {

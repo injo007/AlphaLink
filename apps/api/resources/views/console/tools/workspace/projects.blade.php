@@ -1,6 +1,6 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
-@section('title', 'Gmail Projects - DMS')
+@section('title', 'Gmail Projects')
 
 @section('content')
     <div class="block block-rounded">
@@ -174,7 +174,7 @@
 
             if (window.jQuery?.fn?.DataTable) {
                 const grid = window.jQuery('#workspace-project-table').DataTable({
-                    dom:'<"dms-table-tools"B>frtip',
+                    dom:'<"table-tools"B>frtip',
                     pageLength:50,
                     order:[[1,'desc']],
                     buttons:[

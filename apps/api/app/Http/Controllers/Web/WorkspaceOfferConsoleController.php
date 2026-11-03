@@ -12,11 +12,11 @@ use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceOfferAsset;
 use App\Models\WorkspaceOfferSuppressionDownload;
 use App\Models\WorkspaceSponsor;
-use App\Services\AffiliateNetworks\DmsAffiliateProviderException;
-use App\Services\AffiliateNetworks\DmsSponsorOfferImporter;
-use App\Services\AffiliateNetworks\DmsSponsorOfferRefresher;
-use App\Services\Campaigns\DmsOfferSuppressionFile;
-use App\Services\DmsOfferAssetSharer;
+use App\Services\AffiliateNetworks\AlphaLinkAffiliateProviderException;
+use App\Services\AffiliateNetworks\AlphaLinkSponsorOfferImporter;
+use App\Services\AffiliateNetworks\AlphaLinkSponsorOfferRefresher;
+use App\Services\AlphaLinkOfferAssetSharer;
+use App\Services\Campaigns\AlphaLinkOfferSuppressionFile;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Client\ConnectionException;
@@ -48,13 +48,13 @@ class WorkspaceOfferConsoleController extends Controller
         return view('console.offers.index', [
             'workspace' => $workspace,
             'sponsors' => $workspace->sponsors()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
-            'countries' => config('dms_install_countries'),
+            'countries' => config('alphalink_install_countries'),
             'verticals' => $workspace->offers()->whereNotNull('vertical')->distinct()->orderBy('vertical')->pluck('vertical'),
             'isNetworkView' => false,
         ]);
     }
 
-    public function suppressionFile(Request $request, string $workspaceId, int $offerId, DmsOfferSuppressionFile $suppressionFiles): View
+    public function suppressionFile(Request $request, string $workspaceId, int $offerId, AlphaLinkOfferSuppressionFile $suppressionFiles): View
     {
         $workspace = $this->workspaceFor($request->user(), $workspaceId, self::MANAGE_ROLES);
         $offer = $workspace->offers()->with('sponsor')->whereKey($offerId)->firstOrFail();
@@ -79,7 +79,7 @@ class WorkspaceOfferConsoleController extends Controller
         ]);
     }
 
-    public function uploadSuppressionFile(Request $request, string $workspaceId, int $offerId, DmsOfferSuppressionFile $suppressionFiles): JsonResponse
+    public function uploadSuppressionFile(Request $request, string $workspaceId, int $offerId, AlphaLinkOfferSuppressionFile $suppressionFiles): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspaceId, self::MANAGE_ROLES);
         $offer = $workspace->offers()
@@ -123,7 +123,7 @@ class WorkspaceOfferConsoleController extends Controller
         ]]);
     }
 
-    public function downloadSavedSuppressionFile(Request $request, string $workspaceId, int $offerId, DmsOfferSuppressionFile $suppressionFiles): BinaryFileResponse
+    public function downloadSavedSuppressionFile(Request $request, string $workspaceId, int $offerId, AlphaLinkOfferSuppressionFile $suppressionFiles): BinaryFileResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspaceId, self::MANAGE_ROLES);
         $offer = $workspace->offers()->whereKey($offerId)->firstOrFail();
@@ -283,7 +283,7 @@ class WorkspaceOfferConsoleController extends Controller
         return view('console.offers.index', [
             'workspace' => $workspace,
             'sponsors' => $sponsors,
-            'countries' => config('dms_install_countries'),
+            'countries' => config('alphalink_install_countries'),
             'verticals' => $workspace->offers()->whereNotNull('vertical')->distinct()->orderBy('vertical')->pluck('vertical'),
             'isNetworkView' => true,
         ]);
@@ -589,12 +589,12 @@ class WorkspaceOfferConsoleController extends Controller
             'workspace' => $workspace,
             'offer' => null,
             'sponsors' => $workspace->sponsors()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'type']),
-            'countries' => config('dms_install_countries'),
+            'countries' => config('alphalink_install_countries'),
             'canImport' => true,
         ]);
     }
 
-    public function import(Request $request, string $workspaceId, DmsSponsorOfferImporter $importer): JsonResponse
+    public function import(Request $request, string $workspaceId, AlphaLinkSponsorOfferImporter $importer): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspaceId, self::MANAGE_ROLES);
         $data = $request->validate([
@@ -606,7 +606,7 @@ class WorkspaceOfferConsoleController extends Controller
 
         try {
             $imported = $importer->import($workspace, $sponsor, $request->user(), array_values($data['ids']));
-        } catch (ConnectionException|DmsAffiliateProviderException) {
+        } catch (ConnectionException|AlphaLinkAffiliateProviderException) {
             return response()->json([
                 'message' => 'The affiliate provider request failed before offer records were saved. Check the sponsor API settings and retry.',
             ], 502);
@@ -628,7 +628,7 @@ class WorkspaceOfferConsoleController extends Controller
             'workspace' => $workspace,
             'offer' => $offer,
             'sponsors' => $sponsors,
-            'countries' => config('dms_install_countries'),
+            'countries' => config('alphalink_install_countries'),
             'canImport' => false,
         ]);
     }
@@ -692,7 +692,7 @@ class WorkspaceOfferConsoleController extends Controller
         ]);
     }
 
-    public function shareAssets(Request $request, string $workspaceId, DmsOfferAssetSharer $sharer): JsonResponse
+    public function shareAssets(Request $request, string $workspaceId, AlphaLinkOfferAssetSharer $sharer): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspaceId, self::NETWORK_ROLES);
         $data = $request->validate([
@@ -774,7 +774,7 @@ class WorkspaceOfferConsoleController extends Controller
         return response()->json(['data' => 'Offer Updated']);
     }
 
-    public function setActive(Request $request, string $workspaceId, int $offerId, DmsOfferSuppressionFile $suppressionFiles): JsonResponse
+    public function setActive(Request $request, string $workspaceId, int $offerId, AlphaLinkOfferSuppressionFile $suppressionFiles): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspaceId, self::MANAGE_ROLES);
         $offer = $workspace->offers()->whereKey($offerId)->firstOrFail();
@@ -793,7 +793,7 @@ class WorkspaceOfferConsoleController extends Controller
         return response()->json(['data' => 'Changed successfully']);
     }
 
-    public function setBusinessStatus(Request $request, string $workspaceId, int $offerId, DmsSponsorOfferRefresher $refresher): JsonResponse
+    public function setBusinessStatus(Request $request, string $workspaceId, int $offerId, AlphaLinkSponsorOfferRefresher $refresher): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspaceId, self::MANAGE_ROLES);
         $offer = $workspace->offers()->whereKey($offerId)->firstOrFail();
@@ -998,7 +998,7 @@ class WorkspaceOfferConsoleController extends Controller
         }
     }
 
-    private function isOfferReady(WorkspaceOffer $offer, DmsOfferSuppressionFile $suppressionFiles): bool
+    private function isOfferReady(WorkspaceOffer $offer, AlphaLinkOfferSuppressionFile $suppressionFiles): bool
     {
         return $offer->redirect !== ''
             && $offer->status === 'live'

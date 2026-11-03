@@ -236,7 +236,8 @@ test('campaign routing help explains SMTP tags and distinguishes PMTA ingress fr
     assert.match(view, /Option IP sends through the selected IP route/);
     assert.match(view, /they do not change the route/);
     assert.match(view, /server IP is the PMTA ingress/i);
-    assert.match(view, /normal campaign sending is not enabled/i);
+    assert.ok(view.includes("['action' => 'create-send', 'label' => 'CREATE & SEND CAMPAIGN', 'icon' => 'fas fa-paper-plane', 'unavailable' => true]"));
+    assert.match(view, /Save the draft, wait for recipient preparation, then use SEND from My Campaigns/);
     assert.match(view, /server\.pmta_panel_display_url \|\| server\.pmta_panel_url/);
     assert.match(view, /record\.pmta_panel_url \?\? record\.pmta_panel_display_url/);
     assert.match(view, /data-panel-url="\{\{ \$server\['pmta_panel_url'\] \}\}"/);

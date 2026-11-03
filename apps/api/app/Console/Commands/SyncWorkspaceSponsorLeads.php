@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\WorkspaceSponsor;
-use App\Services\AffiliateNetworks\DmsSponsorLeadImporter;
+use App\Services\AffiliateNetworks\AlphaLinkSponsorLeadImporter;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -13,7 +13,7 @@ use Throwable;
 #[Description('Reconcile campaign and Drop lead conversions from active workspace sponsor reports')]
 class SyncWorkspaceSponsorLeads extends Command
 {
-    public function handle(DmsSponsorLeadImporter $importer): int
+    public function handle(AlphaLinkSponsorLeadImporter $importer): int
     {
         $days = filter_var($this->option('days'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 90]]);
         if ($days === false) {

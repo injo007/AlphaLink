@@ -1,6 +1,6 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
-@section('title', 'My IPs - DMS')
+@section('title', 'My IPs')
 
 @section('content')
     <div class="block block-rounded">
@@ -13,7 +13,7 @@
         <div class="block-content block-content-full">
             <p class="text-muted mb-3">Active IPs on active, installed servers in this workspace. PTR, sender score and blacklist badges use the latest saved local history snapshot.</p>
             <div class="alert alert-info py-2" role="note">
-                Webmail access is not enabled here. The DMS shortcut creates an external SSO session and changes remote mail-service and PMTA queue state.
+                Webmail access is not enabled here. Opening Webmail uses an external SSO session and changes remote mail-service and PMTA queue state.
             </div>
             <div class="table-responsive">
                 <table id="my-ips" class="table table-sm table-hover table-striped"

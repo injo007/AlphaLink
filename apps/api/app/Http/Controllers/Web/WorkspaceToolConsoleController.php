@@ -9,9 +9,9 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceGoogleAccount;
 use App\Models\WorkspaceGoogleProject;
-use App\Services\Workspace\DmsWorkspaceDirectorySync;
-use App\Services\Workspace\DmsWorkspaceS3ProjectSync;
-use App\Services\Workspace\DmsWorkspaceSmtpConfiguration;
+use App\Services\Workspace\AlphaLinkWorkspaceDirectorySync;
+use App\Services\Workspace\AlphaLinkWorkspaceS3ProjectSync;
+use App\Services\Workspace\AlphaLinkWorkspaceSmtpConfiguration;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -128,7 +128,7 @@ class WorkspaceToolConsoleController extends Controller
         ]);
     }
 
-    public function syncS3Projects(Request $request, string $workspace, DmsWorkspaceS3ProjectSync $s3Sync): JsonResponse
+    public function syncS3Projects(Request $request, string $workspace, AlphaLinkWorkspaceS3ProjectSync $s3Sync): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $data = $request->validate([
@@ -217,7 +217,7 @@ class WorkspaceToolConsoleController extends Controller
         return response()->json(['message' => 'Allowed Mailers updated.', 'updated' => $updated]);
     }
 
-    public function syncProject(Request $request, string $workspace, WorkspaceGoogleProject $project, DmsWorkspaceDirectorySync $directory): JsonResponse
+    public function syncProject(Request $request, string $workspace, WorkspaceGoogleProject $project, AlphaLinkWorkspaceDirectorySync $directory): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $project = WorkspaceGoogleProject::query()->availableTo($workspace, $request->user())->findOrFail($project->getKey());
@@ -375,7 +375,7 @@ class WorkspaceToolConsoleController extends Controller
         return $selectedIds;
     }
 
-    public function push(Request $request, string $workspace, DmsWorkspaceSmtpConfiguration $smtp): JsonResponse
+    public function push(Request $request, string $workspace, AlphaLinkWorkspaceSmtpConfiguration $smtp): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $data = $request->validate([
@@ -392,7 +392,7 @@ class WorkspaceToolConsoleController extends Controller
         return response()->json(['data' => $result, 'error' => null, 'exit' => 0], 200);
     }
 
-    public function reset(Request $request, string $workspace, DmsWorkspaceSmtpConfiguration $smtp): JsonResponse
+    public function reset(Request $request, string $workspace, AlphaLinkWorkspaceSmtpConfiguration $smtp): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $data = $request->validate(['ips' => ['required', 'array', 'min:1'], 'ips.*' => ['required', 'integer', 'min:1']]);

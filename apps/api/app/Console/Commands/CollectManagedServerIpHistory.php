@@ -2,16 +2,16 @@
 
 namespace App\Console\Commands;
 
-use App\Services\Infrastructure\DmsServerIpHistoryCollector;
+use App\Services\Infrastructure\AlphaLinkServerIpHistoryCollector;
 use Illuminate\Console\Command;
 
 class CollectManagedServerIpHistory extends Command
 {
     protected $signature = 'servers:collect-ip-history';
 
-    protected $description = 'Collect DMS-compatible DNS and IP reputation history';
+    protected $description = 'Collect DNS and IP reputation history';
 
-    public function handle(DmsServerIpHistoryCollector $collector): int
+    public function handle(AlphaLinkServerIpHistoryCollector $collector): int
     {
         if (! config('infrastructure.ip_history_enabled')) {
             $this->error('IP history checks are disabled. Enable INFRASTRUCTURE_IP_HISTORY_ENABLED to send DNS lookups.');

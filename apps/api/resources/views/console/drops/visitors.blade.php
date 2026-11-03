@@ -1,4 +1,4 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
 @section('title', 'Drop Visitors Logs')
 
@@ -36,5 +36,5 @@
 
 @push('scripts')
 <script src="https://www.gstatic.com/charts/loader.js"></script>
-<script src="{{ asset('dms-reference/drops-visitors.js') }}?v={{ substr(sha1_file(public_path('dms-reference/drops-visitors.js')), 0, 12) }}"></script>
+<script src="{{ asset('console-assets/drops-visitors.js') }}?v={{ substr(sha1_file(public_path('console-assets/drops-visitors.js')), 0, 12) }}"></script>
 @endpush

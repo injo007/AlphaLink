@@ -2,7 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Services\Campaigns\DmsDropSuppressionProcessor;
+use App\Services\Campaigns\AlphaLinkDropSuppressionProcessor;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
@@ -23,7 +23,7 @@ class ProcessWorkspaceDropSuppression implements ShouldQueue
     /**
      * Execute the job.
      */
-    public function handle(DmsDropSuppressionProcessor $processor): void
+    public function handle(AlphaLinkDropSuppressionProcessor $processor): void
     {
         $processor->process($this->suppressionId);
     }

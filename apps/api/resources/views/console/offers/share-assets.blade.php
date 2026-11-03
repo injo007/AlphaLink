@@ -1,6 +1,6 @@
-@extends('layouts.dms-reference')
+@extends('layouts.standalone')
 
-@section('title', 'Share Creatives - DMS')
+@section('title', 'Share Creatives')
 
 @section('content')
     <div class="block block-rounded">
@@ -18,7 +18,7 @@
                     </div>
 
                     <div class="alert alert-info" role="status">
-                        AlphaLink copies each selected offer’s creative and unsubscribe image files into <code>/var/mini/public/{offer-hash}</code>. DMS derives the folder from the offer ID with the workspace FOLDERS HASH TOKEN; files already on the server are left unchanged.
+                        AlphaLink copies each selected offer’s creative and unsubscribe image files into <code>/var/mini/public/{offer-hash}</code>. Folder names are derived from the offer ID and the saved folder hash token; files already on the server are left unchanged.
                     </div>
 
                     @unless ($hashTokenConfigured)

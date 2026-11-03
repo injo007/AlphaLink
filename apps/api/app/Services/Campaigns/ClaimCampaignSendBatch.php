@@ -22,7 +22,7 @@ use JsonException;
 class ClaimCampaignSendBatch
 {
     public function __construct(
-        private readonly DmsOfferSuppressionFile $suppressionFiles,
+        private readonly AlphaLinkOfferSuppressionFile $suppressionFiles,
         private readonly FinalizeCampaignSendRun $finalizer,
     ) {}
 

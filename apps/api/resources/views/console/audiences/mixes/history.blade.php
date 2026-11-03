@@ -1,6 +1,6 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
-@section('title', 'Mix History - DMS')
+@section('title', 'Mix History')
 
 @section('content')
     <div class="block block-rounded">
@@ -62,7 +62,7 @@
                                             <i class="fas fa-sync mr-1" aria-hidden="true"></i>REMIX
                                         </button>
                                     @else
-                                        <span class="text-muted" title="This snapshot can be used until DMS Mix cleanup expires it.">READY</span>
+                                        <span class="text-muted" title="This snapshot can be used until scheduled cleanup expires it.">READY</span>
                                     @endif
                                 </td>
                             </tr>

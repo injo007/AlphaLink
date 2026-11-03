@@ -1,4 +1,4 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
 @section('title', 'Seed List Emails')
 
@@ -35,6 +35,6 @@
 @endpush
 
 @push('scripts')
-<script src="{{ asset('dms-reference/pmta-controls.js') }}"></script>
-<script src="{{ asset('dms-reference/warmup-seeds.js') }}?v={{ substr(sha1_file(public_path('dms-reference/warmup-seeds.js')), 0, 12) }}"></script>
+<script src="{{ asset('console-assets/pmta-controls.js') }}"></script>
+<script src="{{ asset('console-assets/warmup-seeds.js') }}?v={{ substr(sha1_file(public_path('console-assets/warmup-seeds.js')), 0, 12) }}"></script>
 @endpush

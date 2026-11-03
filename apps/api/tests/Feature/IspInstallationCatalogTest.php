@@ -5,8 +5,8 @@ namespace Tests\Feature;
 use App\Models\AuditEvent;
 use App\Models\User;
 use App\Models\Workspace;
-use App\Services\Infrastructure\DmsBulkInstallIspCatalog;
-use App\Services\Infrastructure\DmsBulkInstallVmtaPlanner;
+use App\Services\Infrastructure\AlphaLinkBulkInstallIspCatalog;
+use App\Services\Infrastructure\AlphaLinkBulkInstallVmtaPlanner;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Str;
@@ -93,10 +93,10 @@ class IspInstallationCatalogTest extends TestCase
         ]);
         $otherWorkspace->isps()->create(['name' => 'Outlook', 'is_active' => true]);
 
-        $names = app(DmsBulkInstallIspCatalog::class)->vmtaNames($this->workspace);
+        $names = app(AlphaLinkBulkInstallIspCatalog::class)->vmtaNames($this->workspace);
         $this->assertSame(['gmail', 'yahoo'], $names);
 
-        $files = app(DmsBulkInstallVmtaPlanner::class)->files('centos9', false, [[
+        $files = app(AlphaLinkBulkInstallVmtaPlanner::class)->files('centos9', false, [[
             'ip' => '192.0.2.44',
             'sub' => '',
             'domain' => 'example.test',
@@ -126,7 +126,7 @@ class IspInstallationCatalogTest extends TestCase
         ])->assertOk()->assertExactJson(['data' => 'Isp updated']);
         $this->assertFalse($isp->fresh()->is_active);
         $this->assertSame([], $isp->fresh()->tracked_countries);
-        $this->assertSame(['renamedisp'], app(DmsBulkInstallIspCatalog::class)->vmtaNames($this->workspace));
+        $this->assertSame(['renamedisp'], app(AlphaLinkBulkInstallIspCatalog::class)->vmtaNames($this->workspace));
 
         $this->patchJson(route('console.infrastructure.isps.status', [$this->workspace->getKey(), $isp->getKey()]), ['status' => true])
             ->assertOk()->assertExactJson(['data' => 'Changed successfully']);
@@ -177,8 +177,8 @@ class IspInstallationCatalogTest extends TestCase
             ->assertSee('UPDATE ALLOWED MAILERS')
             ->assertSee('<div class="row">', false)
             ->assertSee('type="module"', false)
-            ->assertSee('import { applyDmsCheckAll } from ', false)
-            ->assertSee('applyDmsCheckAll', false)
+            ->assertSee('import { applySelectAll } from ', false)
+            ->assertSee('applySelectAll', false)
             ->assertSee('isp-assignment.js', false)
             ->assertDontSee('There are no operator members');
 

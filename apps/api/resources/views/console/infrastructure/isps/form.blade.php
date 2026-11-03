@@ -1,6 +1,6 @@
-@extends('layouts.dms-reference')
+@extends('layouts.standalone')
 
-@section('title', $isp ? 'Edit Isp - DMS' : 'Add Isp - DMS')
+@section('title', $isp ? 'Edit Isp' : 'Add Isp')
 
 @php
     $saveUrl = $isp

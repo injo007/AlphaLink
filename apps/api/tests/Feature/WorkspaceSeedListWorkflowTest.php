@@ -7,7 +7,7 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceSeedEmail;
 use App\Models\WorkspaceSeedList;
-use App\Services\Infrastructure\DmsInstallerSshSession;
+use App\Services\Infrastructure\AlphaLinkInstallerSshSession;
 use App\Services\PmtaRemoteConfiguration;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -159,7 +159,7 @@ class WorkspaceSeedListWorkflowTest extends TestCase
         $ownEmail = WorkspaceSeedEmail::factory()->forSeedList($ownList)->create(['email' => 'operator-hit@example.test']);
         $otherEmail = WorkspaceSeedEmail::factory()->forSeedList($otherList)->create(['email' => 'owner-hit@example.test']);
 
-        $session = Mockery::mock(DmsInstallerSshSession::class);
+        $session = Mockery::mock(AlphaLinkInstallerSshSession::class);
         $session->shouldReceive('exec')->once()->with("cat /etc/pmta/bounced/archive/2026-10-25/* | awk -F, -v FPAT='[^,]*|\"[^\"]*\"' '$5 ~ /-w/ {print $12}' | sort | uniq")
             ->andReturn("operator-hit@example.test\nowner-hit@example.test");
         $remote = Mockery::mock(PmtaRemoteConfiguration::class);
@@ -182,7 +182,7 @@ class WorkspaceSeedListWorkflowTest extends TestCase
         $seedList = $this->seedList($workspace, $owner, 'No change list');
         $email = WorkspaceSeedEmail::factory()->forSeedList($seedList)->create(['email' => 'keep@example.test']);
 
-        $session = Mockery::mock(DmsInstallerSshSession::class);
+        $session = Mockery::mock(AlphaLinkInstallerSshSession::class);
         $session->shouldReceive('exec')->once()->andReturn('cat: /etc/pmta/bounced/archive/2026-10-25/*: No such file or directory');
         $remote = Mockery::mock(PmtaRemoteConfiguration::class);
         $remote->shouldReceive('open')->once()->andReturn($session);

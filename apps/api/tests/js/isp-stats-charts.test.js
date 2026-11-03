@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateLineCoordinates, compareSortValues, projectIspStatsChartSeries } from '../../public/dms-reference/isp-stats-charts.js';
+import { calculateLineCoordinates, compareSortValues, projectIspStatsChartSeries } from '../../public/console-assets/isp-stats-charts.js';
 
 const padding = { top: 10, right: 10, bottom: 10, left: 10 };
 

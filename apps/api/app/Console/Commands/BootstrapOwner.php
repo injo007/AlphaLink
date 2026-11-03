@@ -16,7 +16,7 @@ class BootstrapOwner extends Command
     protected $signature = 'alphalink:bootstrap-owner
         {--name= : First owner name}
         {--email= : First owner email}
-        {--username= : Existing DMS username used for server-name eligibility}
+        {--username= : Username used for server-name eligibility}
         {--workspace= : Initial workspace name}
         {--pmta-relay-ips= : Comma-separated stable public IPv4 egress addresses for PMTA relay authorization}
         {--pmta-relay-ips-auto-managed : The relay source addresses were detected from this AlphaLink host}
@@ -44,7 +44,7 @@ class BootstrapOwner extends Command
         }
 
         if (mb_strlen($username) > 255) {
-            $this->error('The DMS username cannot exceed 255 characters.');
+            $this->error('The username cannot exceed 255 characters.');
 
             return self::INVALID;
         }

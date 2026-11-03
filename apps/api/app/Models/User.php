@@ -63,7 +63,7 @@ class User extends Authenticatable
         return self::ROLES;
     }
 
-    public function hasDmsRole(string $role): bool
+    public function hasRole(string $role): bool
     {
         return $this->type === self::ADMIN || in_array($role, $this->roles ?? [], true);
     }

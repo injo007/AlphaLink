@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { runInNewContext } from 'node:vm';
 
-const script = await readFile(new URL('../../public/dms-reference/drops-monitor.js', import.meta.url), 'utf8');
+const script = await readFile(new URL('../../public/console-assets/drops-monitor.js', import.meta.url), 'utf8');
 
 function createPage() {
     const root = {

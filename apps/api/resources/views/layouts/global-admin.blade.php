@@ -4,11 +4,11 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Users - DMS')</title>
-    <link rel="stylesheet" href="{{ asset('dms-reference/fonts/inter.css') }}">
-    <link rel="stylesheet" href="{{ asset('dms-reference/assets/css/theme.css') }}">
+    <title>@yield('title', 'Users')</title>
+    <link rel="stylesheet" href="{{ asset('console-assets/fonts/inter.css') }}">
+    <link rel="stylesheet" href="{{ asset('console-assets/assets/css/theme.css') }}">
     @if (request()->routeIs('console.global-users.index'))
-        <link rel="stylesheet" href="{{ asset('dms-reference/plugins/datatables/datatables.min.css') }}">
+        <link rel="stylesheet" href="{{ asset('console-assets/plugins/datatables/datatables.min.css') }}">
     @endif
     @stack('styles')
 </head>
@@ -47,13 +47,13 @@
         </main>
         <footer id="page-footer" class="bg-body-light"><div class="content py-1"><span>ALPHALINK · ACCOUNT DIRECTORY</span></div></footer>
     </div>
-    <script src="{{ asset('dms-reference/assets/js/script.js') }}"></script>
-    <script src="{{ asset('dms-reference/assets/js/app.js') }}"></script>
+    <script src="{{ asset('console-assets/assets/js/script.js') }}"></script>
+    <script src="{{ asset('console-assets/assets/js/app.js') }}"></script>
     @if (request()->routeIs('console.global-users.index'))
-        <script src="{{ asset('dms-reference/plugins/datatables/datatables.min.js') }}"></script>
-        <script src="{{ asset('dms-reference/plugins/datatables/jquery.mark.min.js') }}"></script>
-        <script src="{{ asset('dms-reference/plugins/datatables/datatables.mark.js') }}"></script>
-        <script src="{{ asset('dms-reference/assets/js/tables_datatables.js') }}"></script>
+        <script src="{{ asset('console-assets/plugins/datatables/datatables.min.js') }}"></script>
+        <script src="{{ asset('console-assets/plugins/datatables/jquery.mark.min.js') }}"></script>
+        <script src="{{ asset('console-assets/plugins/datatables/datatables.mark.js') }}"></script>
+        <script src="{{ asset('console-assets/assets/js/tables_datatables.js') }}"></script>
     @endif
     @stack('scripts')
 </body>

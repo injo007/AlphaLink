@@ -7,13 +7,13 @@ use App\Models\ManagedServer;
 use App\Models\SendingDomain;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\Infrastructure\AlphaLinkBulkInstallRowProcessPayload;
+use App\Services\Infrastructure\AlphaLinkBulkInstallRowRunner;
+use App\Services\Infrastructure\AlphaLinkBulkInstallRunCoordinator;
+use App\Services\Infrastructure\AlphaLinkBulkInstallRuntimeInputs;
+use App\Services\Infrastructure\AlphaLinkBulkInstallTranscriptStore;
+use App\Services\Infrastructure\AlphaLinkPmtaDeploymentGate;
 use App\Services\Infrastructure\CloudflareDnsApi;
-use App\Services\Infrastructure\DmsBulkInstallRowProcessPayload;
-use App\Services\Infrastructure\DmsBulkInstallRowRunner;
-use App\Services\Infrastructure\DmsBulkInstallRunCoordinator;
-use App\Services\Infrastructure\DmsBulkInstallRuntimeInputs;
-use App\Services\Infrastructure\DmsBulkInstallTranscriptStore;
-use App\Services\Infrastructure\DmsPmtaDeploymentGate;
 use App\Services\Infrastructure\HostProbeException;
 use App\Services\Infrastructure\InfrastructureManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -36,7 +36,7 @@ class InfrastructureBulkInstallLogsTest extends TestCase
 
     private string $transcriptRoot;
 
-    private DmsBulkInstallTranscriptStore $transcripts;
+    private AlphaLinkBulkInstallTranscriptStore $transcripts;
 
     protected function setUp(): void
     {
@@ -52,8 +52,8 @@ class InfrastructureBulkInstallLogsTest extends TestCase
         $this->actingAs($this->owner);
 
         $this->transcriptRoot = storage_path('framework/testing/bulk-install-transcripts-'.Str::uuid());
-        $this->transcripts = new DmsBulkInstallTranscriptStore($this->transcriptRoot);
-        $this->app->instance(DmsBulkInstallTranscriptStore::class, $this->transcripts);
+        $this->transcripts = new AlphaLinkBulkInstallTranscriptStore($this->transcriptRoot);
+        $this->app->instance(AlphaLinkBulkInstallTranscriptStore::class, $this->transcripts);
     }
 
     protected function tearDown(): void
@@ -66,7 +66,7 @@ class InfrastructureBulkInstallLogsTest extends TestCase
     public function test_fake_install_run_persists_and_returns_the_exact_timestamped_dms_transcript(): void
     {
         $runId = $this->transcripts->createRun((string) $this->workspace->getKey());
-        $runner = new class implements DmsBulkInstallRowRunner
+        $runner = new class implements AlphaLinkBulkInstallRowRunner
         {
             public function install(array $row, array $options, callable $log): void
             {
@@ -76,7 +76,7 @@ class InfrastructureBulkInstallLogsTest extends TestCase
 
         Carbon::setTestNow(Carbon::parse('2026-10-23 15:04:05'));
         try {
-            $result = (new DmsBulkInstallRunCoordinator($runner))->execute([
+            $result = (new AlphaLinkBulkInstallRunCoordinator($runner))->execute([
                 'data' => [['id' => 'server-1', 'domain' => 'domain-1']],
                 'key' => '1782155053000',
                 'pmta_version' => 45,
@@ -222,7 +222,7 @@ class InfrastructureBulkInstallLogsTest extends TestCase
             'infrastructure.install_assets_directory' => null,
             'pmta.bundle_directory' => null,
         ]);
-        $runner = new class implements DmsBulkInstallRowRunner
+        $runner = new class implements AlphaLinkBulkInstallRowRunner
         {
             public bool $called = false;
 
@@ -231,7 +231,7 @@ class InfrastructureBulkInstallLogsTest extends TestCase
                 $this->called = true;
             }
         };
-        $this->app->instance(DmsBulkInstallRowRunner::class, $runner);
+        $this->app->instance(AlphaLinkBulkInstallRowRunner::class, $runner);
         $key = '1782155053005';
 
         $this->postJson($this->runsUrl(), $this->payload(
@@ -280,7 +280,7 @@ class InfrastructureBulkInstallLogsTest extends TestCase
         $this->app->instance(InfrastructureManager::class, $manager);
 
         $seenFacts = null;
-        $gate = Mockery::mock(DmsPmtaDeploymentGate::class);
+        $gate = Mockery::mock(AlphaLinkPmtaDeploymentGate::class);
         $gate->shouldReceive('evaluate')->once()->andReturnUsing(function (array $facts) use (&$seenFacts): array {
             $seenFacts = $facts;
 
@@ -291,10 +291,10 @@ class InfrastructureBulkInstallLogsTest extends TestCase
                 'asset_inventory' => null,
             ];
         });
-        $this->app->instance(DmsPmtaDeploymentGate::class, $gate);
-        $runtimeInputs = Mockery::mock(DmsBulkInstallRuntimeInputs::class);
+        $this->app->instance(AlphaLinkPmtaDeploymentGate::class, $gate);
+        $runtimeInputs = Mockery::mock(AlphaLinkBulkInstallRuntimeInputs::class);
         $runtimeInputs->shouldReceive('resolve')->once()->andReturn(['settings' => [], 'assets' => []]);
-        $this->app->instance(DmsBulkInstallRuntimeInputs::class, $runtimeInputs);
+        $this->app->instance(AlphaLinkBulkInstallRuntimeInputs::class, $runtimeInputs);
 
         $key = '1782155053017';
         $this->postJson($this->runsUrl(), $this->payload((string) $server->getKey(), (string) $domain->getKey(), $key))
@@ -321,9 +321,9 @@ class InfrastructureBulkInstallLogsTest extends TestCase
         $manager = Mockery::mock(InfrastructureManager::class);
         $manager->shouldReceive('verifyServerHost')->once()->andThrow(new HostProbeException('SSH authentication failed. Check the stored credential.'));
         $this->app->instance(InfrastructureManager::class, $manager);
-        $gate = Mockery::mock(DmsPmtaDeploymentGate::class);
+        $gate = Mockery::mock(AlphaLinkPmtaDeploymentGate::class);
         $gate->shouldNotReceive('evaluate');
-        $this->app->instance(DmsPmtaDeploymentGate::class, $gate);
+        $this->app->instance(AlphaLinkPmtaDeploymentGate::class, $gate);
 
         $key = '1782155053018';
         $this->postJson($this->runsUrl(), $this->payload((string) $server->getKey(), (string) $domain->getKey(), $key))
@@ -342,13 +342,13 @@ class InfrastructureBulkInstallLogsTest extends TestCase
         config(['infrastructure.bulk_install_execution_enabled' => true]);
         $this->allowSyntheticPmtaReadiness();
 
-        $runtimeInputs = Mockery::mock(DmsBulkInstallRuntimeInputs::class);
+        $runtimeInputs = Mockery::mock(AlphaLinkBulkInstallRuntimeInputs::class);
         $runtimeInputs->shouldReceive('resolve')
             ->once()
             ->andThrow(new \RuntimeException('Required AlphaLink installer port and firewall settings are not configured.'));
-        $this->app->instance(DmsBulkInstallRuntimeInputs::class, $runtimeInputs);
+        $this->app->instance(AlphaLinkBulkInstallRuntimeInputs::class, $runtimeInputs);
 
-        $runner = new class implements DmsBulkInstallRowRunner
+        $runner = new class implements AlphaLinkBulkInstallRowRunner
         {
             public bool $called = false;
 
@@ -357,7 +357,7 @@ class InfrastructureBulkInstallLogsTest extends TestCase
                 $this->called = true;
             }
         };
-        $this->app->instance(DmsBulkInstallRowRunner::class, $runner);
+        $this->app->instance(AlphaLinkBulkInstallRowRunner::class, $runner);
 
         $processStarted = false;
         Process::fake(function () use (&$processStarted) {
@@ -392,7 +392,7 @@ class InfrastructureBulkInstallLogsTest extends TestCase
         $cloudflare->shouldNotReceive('zoneIdForExactDomain');
         $this->app->instance(CloudflareDnsApi::class, $cloudflare);
         config(['infrastructure.bulk_install_execution_enabled' => true]);
-        $runner = new class implements DmsBulkInstallRowRunner
+        $runner = new class implements AlphaLinkBulkInstallRowRunner
         {
             public array $receivedRows = [];
 
@@ -402,9 +402,9 @@ class InfrastructureBulkInstallLogsTest extends TestCase
                 $log('Prepare Installation');
             }
         };
-        $this->app->instance(DmsBulkInstallRowRunner::class, $runner);
+        $this->app->instance(AlphaLinkBulkInstallRowRunner::class, $runner);
         $this->allowSyntheticPmtaReadiness();
-        $rowPayload = new DmsBulkInstallRowProcessPayload;
+        $rowPayload = new AlphaLinkBulkInstallRowProcessPayload;
         $workerPayloads = [];
         Process::fake(function (PendingProcess $process) use ($rowPayload, &$workerPayloads, $server) {
             $command = $process->command;
@@ -420,7 +420,7 @@ class InfrastructureBulkInstallLogsTest extends TestCase
                 now()->format('[d/m/Y-H:i:s]').sprintf(' - [%s:%s] - Prepare Installation', $server->name, $server->getKey()),
             );
 
-            return Process::result(DmsBulkInstallRowProcessPayload::RESULT_SUCCEEDED);
+            return Process::result(AlphaLinkBulkInstallRowProcessPayload::RESULT_SUCCEEDED);
         });
         Carbon::setTestNow(Carbon::parse('2026-10-23 15:04:05'));
 
@@ -461,11 +461,11 @@ class InfrastructureBulkInstallLogsTest extends TestCase
             Process::assertRanTimes(fn (PendingProcess $process): bool => is_array($process->command)
                 && in_array('infrastructure:install-bulk-row', $process->command, true), 1);
 
-            $byDmsKey = $this->getJson($this->logsUrl('1782155053000'))->assertOk();
+            $byAlphaLinkKey = $this->getJson($this->logsUrl('1782155053000'))->assertOk();
             $byRunId = $this->getJson($this->logsUrl($runId))->assertOk();
-            $this->assertSame('succeeded', $byDmsKey->json('status'));
+            $this->assertSame('succeeded', $byAlphaLinkKey->json('status'));
             $this->assertSame('succeeded', $byRunId->json('status'));
-            $this->assertSame($byRunId->json('data'), $byDmsKey->json('data'));
+            $this->assertSame($byRunId->json('data'), $byAlphaLinkKey->json('data'));
         } finally {
             Carbon::setTestNow();
         }
@@ -486,14 +486,14 @@ class InfrastructureBulkInstallLogsTest extends TestCase
             'is_active' => true,
         ]);
         config(['infrastructure.bulk_install_execution_enabled' => true]);
-        $runner = new class implements DmsBulkInstallRowRunner
+        $runner = new class implements AlphaLinkBulkInstallRowRunner
         {
             public function install(array $row, array $options, callable $log): void
             {
                 throw new \LogicException('The runner must not receive an ineligible domain.');
             }
         };
-        $this->app->instance(DmsBulkInstallRowRunner::class, $runner);
+        $this->app->instance(AlphaLinkBulkInstallRowRunner::class, $runner);
 
         $this->postJson($this->runsUrl(), $this->payload(
             (string) $server->getKey(),
@@ -507,7 +507,7 @@ class InfrastructureBulkInstallLogsTest extends TestCase
     {
         [$server, $domain] = $this->eligibleInstallSelection();
         config(['infrastructure.bulk_install_execution_enabled' => true]);
-        $runner = new class implements DmsBulkInstallRowRunner
+        $runner = new class implements AlphaLinkBulkInstallRowRunner
         {
             public bool $called = false;
 
@@ -516,7 +516,7 @@ class InfrastructureBulkInstallLogsTest extends TestCase
                 $this->called = true;
             }
         };
-        $this->app->instance(DmsBulkInstallRowRunner::class, $runner);
+        $this->app->instance(AlphaLinkBulkInstallRowRunner::class, $runner);
         $this->allowSyntheticPmtaReadiness();
         Process::fake(function (PendingProcess $process) use ($server) {
             $command = $process->command;
@@ -524,7 +524,7 @@ class InfrastructureBulkInstallLogsTest extends TestCase
                 return Process::result("4242\n");
             }
 
-            $workerPayload = app(DmsBulkInstallRowProcessPayload::class)->decode((string) end($command));
+            $workerPayload = app(AlphaLinkBulkInstallRowProcessPayload::class)->decode((string) end($command));
             foreach (['Prepare Installation', 'Error : Verify the server host before installation.'] as $message) {
                 $this->transcripts->append(
                     $workerPayload['workspace_id'],
@@ -533,7 +533,7 @@ class InfrastructureBulkInstallLogsTest extends TestCase
                 );
             }
 
-            return Process::result(DmsBulkInstallRowProcessPayload::RESULT_FAILED);
+            return Process::result(AlphaLinkBulkInstallRowProcessPayload::RESULT_FAILED);
         });
 
         $response = $this->postJson($this->runsUrl(), $this->payload(
@@ -666,17 +666,17 @@ class InfrastructureBulkInstallLogsTest extends TestCase
 
     private function allowSyntheticPmtaReadiness(): void
     {
-        $gate = Mockery::mock(DmsPmtaDeploymentGate::class);
+        $gate = Mockery::mock(AlphaLinkPmtaDeploymentGate::class);
         $gate->shouldReceive('evaluate')->andReturn([
             'installation_authorized' => true,
             'checks' => [],
             'blockers' => [],
             'asset_inventory' => null,
         ]);
-        $this->app->instance(DmsPmtaDeploymentGate::class, $gate);
+        $this->app->instance(AlphaLinkPmtaDeploymentGate::class, $gate);
 
-        $runtimeInputs = Mockery::mock(DmsBulkInstallRuntimeInputs::class);
+        $runtimeInputs = Mockery::mock(AlphaLinkBulkInstallRuntimeInputs::class);
         $runtimeInputs->shouldReceive('resolve')->andReturn(['settings' => [], 'assets' => []]);
-        $this->app->instance(DmsBulkInstallRuntimeInputs::class, $runtimeInputs);
+        $this->app->instance(AlphaLinkBulkInstallRuntimeInputs::class, $runtimeInputs);
     }
 }

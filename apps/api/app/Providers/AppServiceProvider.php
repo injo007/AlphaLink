@@ -2,14 +2,14 @@
 
 namespace App\Providers;
 
-use App\Services\Infrastructure\DmsBulkInstallDomainDnsRecordWriter;
-use App\Services\Infrastructure\DmsBulkInstallRowRunner;
-use App\Services\Infrastructure\DmsCentos9BulkInstallRowRunner;
-use App\Services\Infrastructure\DmsChangeDomainDnsRecordWriter;
-use App\Services\Infrastructure\DmsDomainRecordsHostWriter;
-use App\Services\Infrastructure\DmsInstallerSshConnector;
-use App\Services\Infrastructure\DmsRegistrarChangeDomainDnsRecordWriter;
-use App\Services\Infrastructure\PhpseclibDmsInstallerSshConnector;
+use App\Services\Infrastructure\AlphaLinkBulkInstallDomainDnsRecordWriter;
+use App\Services\Infrastructure\AlphaLinkBulkInstallRowRunner;
+use App\Services\Infrastructure\AlphaLinkCentos9BulkInstallRowRunner;
+use App\Services\Infrastructure\AlphaLinkChangeDomainDnsRecordWriter;
+use App\Services\Infrastructure\AlphaLinkDomainRecordsHostWriter;
+use App\Services\Infrastructure\AlphaLinkInstallerSshConnector;
+use App\Services\Infrastructure\AlphaLinkRegistrarChangeDomainDnsRecordWriter;
+use App\Services\Infrastructure\PhpseclibAlphaLinkInstallerSshConnector;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Console\ServeCommand;
 use Illuminate\Http\Request;
@@ -23,11 +23,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->bind(DmsInstallerSshConnector::class, PhpseclibDmsInstallerSshConnector::class);
-        $this->app->bind(DmsBulkInstallDomainDnsRecordWriter::class, DmsRegistrarChangeDomainDnsRecordWriter::class);
-        $this->app->bind(DmsChangeDomainDnsRecordWriter::class, DmsRegistrarChangeDomainDnsRecordWriter::class);
-        $this->app->bind(DmsDomainRecordsHostWriter::class, DmsRegistrarChangeDomainDnsRecordWriter::class);
-        $this->app->bind(DmsBulkInstallRowRunner::class, DmsCentos9BulkInstallRowRunner::class);
+        $this->app->bind(AlphaLinkInstallerSshConnector::class, PhpseclibAlphaLinkInstallerSshConnector::class);
+        $this->app->bind(AlphaLinkBulkInstallDomainDnsRecordWriter::class, AlphaLinkRegistrarChangeDomainDnsRecordWriter::class);
+        $this->app->bind(AlphaLinkChangeDomainDnsRecordWriter::class, AlphaLinkRegistrarChangeDomainDnsRecordWriter::class);
+        $this->app->bind(AlphaLinkDomainRecordsHostWriter::class, AlphaLinkRegistrarChangeDomainDnsRecordWriter::class);
+        $this->app->bind(AlphaLinkBulkInstallRowRunner::class, AlphaLinkCentos9BulkInstallRowRunner::class);
     }
 
     /**

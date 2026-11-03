@@ -1,4 +1,4 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
 @section('title', 'Campaign Visitors Logs')
 
@@ -75,5 +75,5 @@
 
 @push('scripts')
 <script src="https://www.gstatic.com/charts/loader.js"></script>
-<script src="{{ asset('dms-reference/campaign-visitors.js') }}?v={{ substr(sha1_file(public_path('dms-reference/campaign-visitors.js')), 0, 12) }}"></script>
+<script src="{{ asset('console-assets/campaign-visitors.js') }}?v={{ substr(sha1_file(public_path('console-assets/campaign-visitors.js')), 0, 12) }}"></script>
 @endpush

@@ -23,16 +23,16 @@ use App\Models\WorkspaceCampaignNegative;
 use App\Models\WorkspaceCampaignTestAddress;
 use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceOfferAsset;
+use App\Services\Campaigns\AlphaLinkCampaignRecipientSnapshotBuilder;
+use App\Services\Campaigns\AlphaLinkCampaignSendCatalog;
+use App\Services\Campaigns\AlphaLinkCampaignTagRenderer;
+use App\Services\Campaigns\AlphaLinkPmtaAdminRestart;
 use App\Services\Campaigns\CampaignRedirectUrlPolicy;
-use App\Services\Campaigns\DmsCampaignRecipientSnapshotBuilder;
-use App\Services\Campaigns\DmsCampaignSendCatalog;
-use App\Services\Campaigns\DmsCampaignTagRenderer;
-use App\Services\Campaigns\DmsPmtaAdminRestart;
 use App\Services\Campaigns\PmtaCampaignTestTransport;
 use App\Services\Campaigns\PmtaMonitorProxy;
 use App\Services\Campaigns\PmtaPanelUrl;
 use App\Services\Campaigns\PmtaQueueAdmin;
-use App\Services\Infrastructure\DmsBulkInstallVmtaPlanner;
+use App\Services\Infrastructure\AlphaLinkBulkInstallVmtaPlanner;
 use App\Services\PmtaAuditLogger;
 use App\Services\PmtaRemoteConfiguration;
 use App\Services\PmtaSmtpConfigBuilder;
@@ -227,7 +227,7 @@ class WorkspaceConsoleController extends Controller
         return view('console.campaigns.index', compact('workspace', 'campaigns', 'from', 'to', 'search', 'showDisabled', 'perPage', 'activeOnly', 'activeSendCount'));
     }
 
-    public function createCampaign(Request $request, string $workspace, DmsCampaignSendCatalog $catalog): View
+    public function createCampaign(Request $request, string $workspace, AlphaLinkCampaignSendCatalog $catalog): View
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $this->authorizeRole($workspace, self::CAMPAIGN_ROLES);
@@ -257,12 +257,12 @@ class WorkspaceConsoleController extends Controller
             'idempotencyKey' => (string) Str::uuid(),
             'sendOptions' => $sendOptions,
             'sendOptionsUrl' => route('console.campaigns.send-options', $workspace->getKey()),
-            'countries' => config('dms_install_countries', []),
+            'countries' => config('alphalink_install_countries', []),
             'savedEmailAddresses' => WorkspaceCampaignTestAddress::query()->where('workspace_id', $workspace->getKey())->where('user_id', $request->user()->getKey())->orderBy('id')->get(),
         ]);
     }
 
-    public function editCampaign(Request $request, string $workspace, string $campaign, DmsCampaignSendCatalog $catalog): View
+    public function editCampaign(Request $request, string $workspace, string $campaign, AlphaLinkCampaignSendCatalog $catalog): View
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $this->authorizeRole($workspace, self::CAMPAIGN_ROLES);
@@ -291,12 +291,12 @@ class WorkspaceConsoleController extends Controller
             'sendOptions' => $sendOptions,
             'savedOfferAssets' => $catalog->savedOfferAssets($workspace, $savedOfferId === false ? null : (int) $savedOfferId),
             'sendOptionsUrl' => route('console.campaigns.send-options', $workspace->getKey()),
-            'countries' => config('dms_install_countries', []),
+            'countries' => config('alphalink_install_countries', []),
             'savedEmailAddresses' => WorkspaceCampaignTestAddress::query()->where('workspace_id', $workspace->getKey())->where('user_id', $request->user()->getKey())->orderBy('id')->get(),
         ]);
     }
 
-    public function pmtaAdmin(Request $request, string $workspace, DmsCampaignSendCatalog $catalog): View
+    public function pmtaAdmin(Request $request, string $workspace, AlphaLinkCampaignSendCatalog $catalog): View
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $options = $catalog->options($workspace, $request->user(), 'admin', [
@@ -378,7 +378,7 @@ class WorkspaceConsoleController extends Controller
         string $workspace,
         string $server,
         PmtaMonitorProxy $monitor,
-        DmsCampaignSendCatalog $catalog,
+        AlphaLinkCampaignSendCatalog $catalog,
         string $monitorPath = '',
     ): Response {
         $workspace = $this->workspaceFor($request->user(), $workspace);
@@ -472,7 +472,7 @@ class WorkspaceConsoleController extends Controller
         ]);
     }
 
-    public function pmtaAdminAction(Request $request, string $workspace, DmsCampaignSendCatalog $catalog, PmtaQueueAdmin $pmta, PmtaAuditLogger $audit): JsonResponse
+    public function pmtaAdminAction(Request $request, string $workspace, AlphaLinkCampaignSendCatalog $catalog, PmtaQueueAdmin $pmta, PmtaAuditLogger $audit): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $data = $request->validate([
@@ -540,7 +540,7 @@ class WorkspaceConsoleController extends Controller
         return response()->json(['data' => $results]);
     }
 
-    public function pmtaAdminRestart(Request $request, string $workspace, DmsCampaignSendCatalog $catalog, DmsPmtaAdminRestart $restart, PmtaAuditLogger $audit): JsonResponse
+    public function pmtaAdminRestart(Request $request, string $workspace, AlphaLinkCampaignSendCatalog $catalog, AlphaLinkPmtaAdminRestart $restart, PmtaAuditLogger $audit): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $data = $request->validate([
@@ -636,12 +636,12 @@ class WorkspaceConsoleController extends Controller
         return view('console.campaigns.test-draft', [
             'workspace' => $workspace,
             'idempotencyKey' => (string) Str::uuid(),
-            'dmsHeader' => "MIME-version: 1.0\nContent-type: text/html\nTo: [to]\nfrom: [from]\nSubject: [subject]\nDate: [date]",
+            'campaignHeader' => "MIME-version: 1.0\nContent-type: text/html\nTo: [to]\nfrom: [from]\nSubject: [subject]\nDate: [date]",
             'senderDomains' => $senderDomains,
         ]);
     }
 
-    public function campaignSendOptions(Request $request, string $workspace, DmsCampaignSendCatalog $catalog): JsonResponse
+    public function campaignSendOptions(Request $request, string $workspace, AlphaLinkCampaignSendCatalog $catalog): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $this->authorizeRole($workspace, self::CAMPAIGN_ROLES);
@@ -661,7 +661,7 @@ class WorkspaceConsoleController extends Controller
         ]);
     }
 
-    public function campaign(Request $request, string $workspace, string $campaign, DmsCampaignSendCatalog $catalog): View
+    public function campaign(Request $request, string $workspace, string $campaign, AlphaLinkCampaignSendCatalog $catalog): View
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $this->authorizeRole($workspace, self::CAMPAIGN_ROLES);
@@ -749,7 +749,7 @@ class WorkspaceConsoleController extends Controller
         return view('console.campaigns.show', compact('workspace', 'campaign', 'revisions', 'testMailAttempts', 'manualTestAttempts', 'smtpReady', 'smtpDestination', 'latestSmtpCheck', 'senderDomainIsReserved', 'senderDomainIsVerified', 'sendSetup', 'sendOptions', 'recipientSnapshot', 'pmtaPort'));
     }
 
-    public function cloneCampaign(Request $request, string $workspace, string $campaign, DmsCampaignSendCatalog $catalog): View|Response
+    public function cloneCampaign(Request $request, string $workspace, string $campaign, AlphaLinkCampaignSendCatalog $catalog): View|Response
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $this->authorizeRole($workspace, self::CAMPAIGN_ROLES);
@@ -792,7 +792,7 @@ class WorkspaceConsoleController extends Controller
         Request $request,
         string $workspace,
         string $campaign,
-        DmsCampaignSendCatalog $catalog,
+        AlphaLinkCampaignSendCatalog $catalog,
     ): RedirectResponse|JsonResponse {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $this->authorizeRole($workspace, self::CAMPAIGN_ROLES);
@@ -927,7 +927,7 @@ class WorkspaceConsoleController extends Controller
         );
     }
 
-    public function createCampaignDraft(Request $request, string $workspace, DmsCampaignSendCatalog $catalog): RedirectResponse|JsonResponse
+    public function createCampaignDraft(Request $request, string $workspace, AlphaLinkCampaignSendCatalog $catalog): RedirectResponse|JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $this->authorizeRole($workspace, self::CAMPAIGN_ROLES);
@@ -1150,8 +1150,8 @@ class WorkspaceConsoleController extends Controller
         Request $request,
         string $workspace,
         string $campaign,
-        DmsCampaignSendCatalog $catalog,
-        DmsCampaignRecipientSnapshotBuilder $snapshotBuilder,
+        AlphaLinkCampaignSendCatalog $catalog,
+        AlphaLinkCampaignRecipientSnapshotBuilder $snapshotBuilder,
     ): RedirectResponse {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $this->authorizeRole($workspace, self::CAMPAIGN_ROLES);
@@ -1387,11 +1387,11 @@ class WorkspaceConsoleController extends Controller
         Request $request,
         string $workspace,
         string $campaign,
-        DmsCampaignSendCatalog $catalog,
+        AlphaLinkCampaignSendCatalog $catalog,
         PmtaCampaignTestTransport $transportFactory,
-        DmsCampaignTagRenderer $tagRenderer,
+        AlphaLinkCampaignTagRenderer $tagRenderer,
         CampaignRedirectUrlPolicy $redirectUrlPolicy,
-        DmsBulkInstallVmtaPlanner $vmtaPlanner,
+        AlphaLinkBulkInstallVmtaPlanner $vmtaPlanner,
         PmtaRemoteConfiguration $pmtaRemote,
     ): RedirectResponse|JsonResponse {
         $workspace = $this->workspaceFor($request->user(), $workspace);
@@ -1440,11 +1440,11 @@ class WorkspaceConsoleController extends Controller
     public function sendCampaignManualTest(
         Request $request,
         string $workspace,
-        DmsCampaignSendCatalog $catalog,
+        AlphaLinkCampaignSendCatalog $catalog,
         PmtaCampaignTestTransport $transportFactory,
-        DmsCampaignTagRenderer $tagRenderer,
+        AlphaLinkCampaignTagRenderer $tagRenderer,
         CampaignRedirectUrlPolicy $redirectUrlPolicy,
-        DmsBulkInstallVmtaPlanner $vmtaPlanner,
+        AlphaLinkBulkInstallVmtaPlanner $vmtaPlanner,
         PmtaRemoteConfiguration $pmtaRemote,
     ): RedirectResponse|JsonResponse {
         $workspace = $this->workspaceFor($request->user(), $workspace);
@@ -2436,11 +2436,11 @@ class WorkspaceConsoleController extends Controller
         Request $request,
         string $workspace,
         string $campaign,
-        DmsCampaignSendCatalog $catalog,
+        AlphaLinkCampaignSendCatalog $catalog,
         PmtaCampaignTestTransport $transportFactory,
-        DmsCampaignTagRenderer $tagRenderer,
+        AlphaLinkCampaignTagRenderer $tagRenderer,
         CampaignRedirectUrlPolicy $redirectUrlPolicy,
-        DmsBulkInstallVmtaPlanner $vmtaPlanner,
+        AlphaLinkBulkInstallVmtaPlanner $vmtaPlanner,
         PmtaRemoteConfiguration $pmtaRemote,
     ): RedirectResponse {
         $workspace = $this->workspaceFor($request->user(), $workspace);
@@ -2667,7 +2667,7 @@ class WorkspaceConsoleController extends Controller
             ->where('created_by', $request->user()->getKey())
             ->whereKey($campaign)
             ->firstOrFail();
-        abort_unless($campaign->kind === 'transactional', 409, 'Symfony one-recipient tests are available only for transactional test messages. DMS campaign tests use the native server/IP sender.');
+        abort_unless($campaign->kind === 'transactional', 409, 'Symfony one-recipient tests are available only for transactional test messages. campaign tests use the selected server and IP.');
         abort_unless($campaign->status === 'draft' && $campaign->is_active, 409, 'Only active draft campaigns can send a test email.');
         $revision = $campaign->revisions()->whereKey($data['revision_id'])->firstOrFail();
         abort_unless($campaign->latestRevision?->is($revision), 409, 'The saved content changed. Reload the page and review the latest revision before testing it.');
@@ -2859,7 +2859,7 @@ class WorkspaceConsoleController extends Controller
         }
     }
 
-    private function validatedCampaignContent(Request $request, bool $includeCampaignFields, bool $requireDmsEmailTest = false, ?string $campaignKind = null): array
+    private function validatedCampaignContent(Request $request, bool $includeCampaignFields, bool $requireAlphaLinkEmailTest = false, ?string $campaignKind = null): array
     {
         $rules = [
             'idempotency_key' => ['required', 'uuid'],
@@ -2894,17 +2894,17 @@ class WorkspaceConsoleController extends Controller
             throw ValidationException::withMessages(['text_body' => 'Enter a plain-text message or an HTML message.']);
         }
 
-        $requiresEmailTests = $requireDmsEmailTest || ($includeCampaignFields && ($data['kind'] ?? null) === 'marketing');
+        $requiresEmailTests = $requireAlphaLinkEmailTest || ($includeCampaignFields && ($data['kind'] ?? null) === 'marketing');
         if ($requiresEmailTests
             && array_key_exists('email_test_addresses', $request->all())
             && $this->campaignEmailTests($data['email_test_addresses'] ?? null) === []) {
-            throw ValidationException::withMessages(['email_test_addresses' => 'DMS requires at least one Email Test address when the field is submitted.']);
+            throw ValidationException::withMessages(['email_test_addresses' => 'At least one Email Test address is required when the field is submitted.']);
         }
 
         return $data;
     }
 
-    private function validatedCampaignSendSetup(Request $request, Workspace $workspace, DmsCampaignSendCatalog $catalog): array
+    private function validatedCampaignSendSetup(Request $request, Workspace $workspace, AlphaLinkCampaignSendCatalog $catalog): array
     {
         $data = $request->validate([
             'send_setup' => ['required', 'array'],
@@ -3000,7 +3000,7 @@ class WorkspaceConsoleController extends Controller
         $allCombination = (bool) ($input['placeholder_all_combination'] ?? false);
         if ($combination && $allCombination) {
             throw ValidationException::withMessages([
-                'send_setup.placeholder_all_combination' => 'DMS allows only one placeholder combination mode at a time.',
+                'send_setup.placeholder_all_combination' => 'Only one placeholder combination mode can be enabled at a time.',
             ]);
         }
 
@@ -3196,7 +3196,7 @@ class WorkspaceConsoleController extends Controller
             ->firstOrFail();
         $sendSetup = $source->latestRevision?->payload['send_setup'] ?? null;
 
-        abort_unless($source->kind === 'marketing' && is_array($sendSetup), 409, 'Only saved DMS Send campaigns can be cloned.');
+        abort_unless($source->kind === 'marketing' && is_array($sendSetup), 409, 'Only saved marketing campaigns can be cloned.');
         $this->assertCampaignCloneOffer($workspace, $sendSetup);
 
         return $source;

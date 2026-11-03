@@ -61,7 +61,7 @@ class SuppressionEventController extends Controller
         ]);
         if (filled($data['offer_id'] ?? null) && $data['reason'] !== 'unsubscribe') {
             throw ValidationException::withMessages([
-                'reason' => ['Offer-scoped exclusions are recorded for unsubscribes, matching the DMS behavior.'],
+                'reason' => ['Offer-scoped exclusions are recorded for unsubscribes.'],
             ]);
         }
 

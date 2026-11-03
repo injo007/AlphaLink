@@ -1,4 +1,4 @@
-@extends('layouts.dms-reference')
+@extends('layouts.standalone')
 
 @php
     $saveUrl = $bulk
@@ -6,7 +6,7 @@
         : route('console.sponsors.users.update', [$workspace->id, $sponsor->id]);
 @endphp
 
-@section('title', $bulk ? 'Manage Sponsor Users - DMS' : 'Manage Users Sponsor - DMS')
+@section('title', $bulk ? 'Manage Sponsor Users' : 'Manage Users Sponsor')
 
 @section('content')
     <div class="block block-rounded">
@@ -52,7 +52,7 @@
 
 @push('scripts')
     <script type="module">
-        import { applyDmsCheckAll } from @json(asset('alphalink/infrastructure/isp-assignment.js'));
+        import { applySelectAll } from @json(asset('alphalink/infrastructure/isp-assignment.js'));
 
         (() => {
             const checkboxes = [...document.querySelectorAll('input[name="checked_users"]')];
@@ -64,7 +64,7 @@
             const saveUrl = @json($saveUrl);
 
             toggle.addEventListener('click', () => {
-                applyDmsCheckAll(checkboxes);
+                applySelectAll(checkboxes);
             });
 
             button.addEventListener('click', async () => {

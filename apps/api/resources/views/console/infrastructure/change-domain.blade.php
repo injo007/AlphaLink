@@ -1,4 +1,4 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
 @section('title', 'Servers Change Domain')
 
@@ -80,7 +80,7 @@
 @endsection
 
 @push('scripts')
-    <script src="{{ asset('dms-reference/plugins/bootstrap_select/bootstrap-select.js') }}"></script>
+    <script src="{{ asset('console-assets/plugins/bootstrap_select/bootstrap-select.js') }}"></script>
     <script>
         (() => {
             const serverSelect = document.getElementById('change-domain-server');

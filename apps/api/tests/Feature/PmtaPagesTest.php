@@ -12,9 +12,9 @@ use App\Models\PmtaVirtualMta;
 use App\Models\SendingDomain;
 use App\Models\User;
 use App\Models\Workspace;
-use App\Services\Infrastructure\DmsInstallerServerCredentialResolver;
-use App\Services\Infrastructure\DmsInstallerSshSession;
-use App\Services\Infrastructure\DmsInstallerSshSessionFactory;
+use App\Services\Infrastructure\AlphaLinkInstallerServerCredentialResolver;
+use App\Services\Infrastructure\AlphaLinkInstallerSshSession;
+use App\Services\Infrastructure\AlphaLinkInstallerSshSessionFactory;
 use App\Services\PmtaBounceLogReader;
 use App\Services\PmtaConfigFileCatalog;
 use App\Services\PmtaRemoteConfiguration;
@@ -223,7 +223,7 @@ class PmtaPagesTest extends TestCase
             ->assertDontSee('block-content-full', false)
             ->assertSee('<hr>', false)
             ->assertDontSee('Select the */* tag for commands that target all queues.')
-            ->assertDontSee('<"dms-table-tools"B>frtip', false)
+            ->assertDontSee('<"table-tools"B>frtip', false)
             ->assertSee('class="sr-only" id="pmta-schedule-status"', false);
 
         $this->actingAs($owner)->get(route('console.pmta-settings.index', $workspace->getKey()))
@@ -388,7 +388,7 @@ class PmtaPagesTest extends TestCase
             ->assertOk()->assertSee('block-mode-hidden', false)->assertSee('id="pmta-vmta-search-ips"', false)
             ->assertSee('id="pmta-vmta-result"', false)->assertSee('id="pmta-vmta-table"', false)
             ->assertSee('ip_ids:ipIds', false)->assertSee('server_id:serverId', false)
-            ->assertSee('dms-reference/pmta-vmta-response.js', false)
+            ->assertSee('console-assets/pmta-vmta-response.js', false)
             ->assertSee('window.AlphaLinkPmtaVmtaResponse', false)
             ->assertDontSee('type="module"', false);
     }
@@ -457,7 +457,7 @@ class PmtaPagesTest extends TestCase
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner);
         $server = $this->server($workspace, $owner);
-        $session = Mockery::mock(DmsInstallerSshSession::class);
+        $session = Mockery::mock(AlphaLinkInstallerSshSession::class);
         $session->shouldReceive('exec')->once()->ordered()
             ->with("[ -f '/etc/pmta/conf/domains' ] && echo yes || echo no")
             ->andReturn('yes');
@@ -480,7 +480,7 @@ class PmtaPagesTest extends TestCase
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner);
         $server = $this->server($workspace, $owner);
-        $session = Mockery::mock(DmsInstallerSshSession::class);
+        $session = Mockery::mock(AlphaLinkInstallerSshSession::class);
         $session->shouldReceive('exec')->once()->ordered()
             ->with("[ -f '/etc/pmta/conf/domains' ] && echo yes || echo no")
             ->andReturn('yes');
@@ -504,7 +504,7 @@ class PmtaPagesTest extends TestCase
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner);
         $server = $this->server($workspace, $owner);
-        $session = Mockery::mock(DmsInstallerSshSession::class);
+        $session = Mockery::mock(AlphaLinkInstallerSshSession::class);
         $session->shouldReceive('exec')->once()->with("[ -f '/etc/pmta/conf/domains' ] && echo yes || echo no")->andReturn('no');
         $session->shouldNotReceive('upload');
         $session->shouldNotReceive('exec')->with('pmta reload');
@@ -790,7 +790,7 @@ class PmtaPagesTest extends TestCase
 
         $temporaryPath = '/etc/pmta/conf/tmp_vmta_'.$member->getKey();
         $configurationPath = '/etc/pmta/conf/vmta_'.$member->getKey();
-        $session = Mockery::mock(DmsInstallerSshSession::class);
+        $session = Mockery::mock(AlphaLinkInstallerSshSession::class);
         $session->shouldReceive('upload')->once()->withArgs(fn (string $contents, string $path): bool => $path === $temporaryPath
             && str_contains($contents, 'smtp-hosts lookup-mx:route.example.test')
             && str_contains($contents, 'vmta-203.0.113.79-101-v_101'))->andReturn(true);
@@ -842,7 +842,7 @@ class PmtaPagesTest extends TestCase
         $workspace = $this->workspace($owner);
         [$server, $ip] = $this->serverAndIp($workspace, $owner);
         $temporaryPath = '/etc/pmta/conf/tmp_vmta_'.$owner->getKey();
-        $session = Mockery::mock(DmsInstallerSshSession::class);
+        $session = Mockery::mock(AlphaLinkInstallerSshSession::class);
         $session->shouldReceive('upload')->once()->withArgs(fn (string $contents, string $path): bool => $path === $temporaryPath
             && str_contains($contents, 'host-name vmta.example.test'))->andReturn(true);
         $session->shouldReceive('exec')->once()->ordered()->with('pmta reload')->andReturn('PMTA rejected the temporary configuration.');
@@ -876,7 +876,7 @@ class PmtaPagesTest extends TestCase
 
         $temporaryPath = "/etc/pmta/conf/tmp_vmta_{$member->getKey()}";
         $configurationPath = "/etc/pmta/conf/vmta_{$member->getKey()}";
-        $session = Mockery::mock(DmsInstallerSshSession::class);
+        $session = Mockery::mock(AlphaLinkInstallerSshSession::class);
         $session->shouldReceive('upload')->once()->withArgs(fn (string $contents, string $path): bool => $path === $temporaryPath
             && str_contains($contents, 'vmta-203.0.113.79-1-v_1')
             && str_contains($contents, 'host-name vmta.example.test')
@@ -934,7 +934,7 @@ class PmtaPagesTest extends TestCase
 
         $temporaryPath = "/etc/pmta/conf/tmp_vmta_{$owner->getKey()}";
         $configurationPath = "/etc/pmta/conf/vmta_{$owner->getKey()}";
-        $session = Mockery::mock(DmsInstallerSshSession::class);
+        $session = Mockery::mock(AlphaLinkInstallerSshSession::class);
         $session->shouldReceive('upload')->once()->withArgs(fn (string $contents, string $path): bool => $path === $temporaryPath
             && str_contains($contents, 'smtp-source-ip 203.0.113.80')
             && str_contains($contents, 'host-name vmta.example.test')
@@ -966,7 +966,7 @@ class PmtaPagesTest extends TestCase
         $workspace = $this->workspace($owner);
         [$server, $ip] = $this->serverAndIp($workspace, $owner);
         $temporaryPath = "/etc/pmta/conf/tmp_vmta_{$owner->getKey()}";
-        $session = Mockery::mock(DmsInstallerSshSession::class);
+        $session = Mockery::mock(AlphaLinkInstallerSshSession::class);
         $session->shouldReceive('upload')->once()->withArgs(fn (string $contents, string $path): bool => $path === $temporaryPath
             && str_contains($contents, 'host-name vmta.example.test')
         )->andReturn(true);
@@ -1045,7 +1045,7 @@ class PmtaPagesTest extends TestCase
             'duplicate_index' => 1, 'route' => false, 'is_active' => true,
         ]);
 
-        $session = Mockery::mock(DmsInstallerSshSession::class);
+        $session = Mockery::mock(AlphaLinkInstallerSshSession::class);
         $path = escapeshellarg('/etc/pmta/conf/vmta_'.$member->getKey());
         $session->shouldReceive('exec')->once()->with('rm -rf '.$path)->andReturn(false);
         $session->shouldReceive('exec')->once()->with('pmta reload')->andReturn(false);
@@ -1079,7 +1079,7 @@ class PmtaPagesTest extends TestCase
             'duplicate_index' => 1, 'route' => false, 'is_active' => true,
         ]);
 
-        $session = Mockery::mock(DmsInstallerSshSession::class);
+        $session = Mockery::mock(AlphaLinkInstallerSshSession::class);
         $path = escapeshellarg('/etc/pmta/conf/vmta_'.$member->getKey());
         $session->shouldReceive('exec')->once()->with('rm -rf '.$path)->andReturn('permission denied');
         $session->shouldReceive('exec')->once()->with('pmta reload')->andReturn(false);
@@ -1167,7 +1167,7 @@ class PmtaPagesTest extends TestCase
             'created_by' => $member->getKey(), 'ip' => $ip->ip, 'dns' => $ip->dns, 'username' => 'fixture-user',
             'password' => 'synthetic-password', 'host' => 'smtp.example.test', 'port' => 587, 'google_script' => false, 'is_active' => true,
         ]);
-        $session = Mockery::mock(DmsInstallerSshSession::class);
+        $session = Mockery::mock(AlphaLinkInstallerSshSession::class);
         $session->shouldReceive('exec')->once()->with('rm -rf /etc/pmta/conf/smtp_'.$member->getKey())->andReturn('');
         $session->shouldReceive('exec')->once()->with('pmta reload')->andReturn('No reload confirmation returned.');
         $remote = Mockery::mock(PmtaRemoteConfiguration::class);
@@ -1265,7 +1265,7 @@ class PmtaPagesTest extends TestCase
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner);
         $server = $this->server($workspace, $owner);
-        $session = Mockery::mock(DmsInstallerSshSession::class);
+        $session = Mockery::mock(AlphaLinkInstallerSshSession::class);
         $session->shouldReceive('exec')->once()->andReturn('hard,2026-10-25 10:00:00,vmta-a,550,recipient bad@example.test,person@example.test');
         $rows = app(PmtaBounceLogReader::class)->read($session, $server, []);
 
@@ -1284,7 +1284,7 @@ class PmtaPagesTest extends TestCase
         $workspace = $this->workspace($owner);
         $server = $this->server($workspace, $owner);
         $line = 'hard,2026-10-25 10:00:00,vmta-a,550,recipient rejected,person@example.test';
-        $session = Mockery::mock(DmsInstallerSshSession::class);
+        $session = Mockery::mock(AlphaLinkInstallerSshSession::class);
         $session->shouldReceive('exec')
             ->once()
             ->withArgs(static fn (string $command): bool => str_contains($command, "email_pattern='person'"))
@@ -1364,13 +1364,13 @@ class PmtaPagesTest extends TestCase
         return [$server, $ip];
     }
 
-    private function pmtaRemoteForSession(ManagedServer $server, DmsInstallerSshSession $session): PmtaRemoteConfiguration
+    private function pmtaRemoteForSession(ManagedServer $server, AlphaLinkInstallerSshSession $session): PmtaRemoteConfiguration
     {
-        $credentials = Mockery::mock(DmsInstallerServerCredentialResolver::class);
+        $credentials = Mockery::mock(AlphaLinkInstallerServerCredentialResolver::class);
         $credentials->shouldReceive('resolve')->once()
             ->with(Mockery::on(fn ($subject): bool => $subject->is($server)))
             ->andReturn(['secret' => 'synthetic-secret', 'type' => 'password']);
-        $sessions = Mockery::mock(DmsInstallerSshSessionFactory::class);
+        $sessions = Mockery::mock(AlphaLinkInstallerSshSessionFactory::class);
         $sessions->shouldReceive('create')->once()
             ->with(Mockery::on(fn ($subject): bool => $subject->is($server)), 'synthetic-secret', 'password')
             ->andReturn($session);

@@ -7,9 +7,9 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceSpfRoot;
 use App\Models\WorkspaceSpfScan;
-use App\Services\Spf\DmsSpfDnsCheckMatcher;
-use App\Services\Spf\DmsSpfScanLauncher;
-use App\Services\Spf\DmsSpfScanner;
+use App\Services\Spf\AlphaLinkSpfDnsCheckMatcher;
+use App\Services\Spf\AlphaLinkSpfScanLauncher;
+use App\Services\Spf\AlphaLinkSpfScanner;
 use App\Services\Spf\SpfParser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -122,7 +122,7 @@ class WorkspaceSpfScannerController extends Controller
         }, 'spf_search_'.now()->format('Ymd_His').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
-    public function upload(Request $request, string $workspace, DmsSpfScanLauncher $launcher): RedirectResponse
+    public function upload(Request $request, string $workspace, AlphaLinkSpfScanLauncher $launcher): RedirectResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $data = $request->validate([
@@ -149,7 +149,7 @@ class WorkspaceSpfScannerController extends Controller
         return back()->with('status', 'SPF scan started. Progress updates appear in the Scans table.');
     }
 
-    public function manual(Request $request, string $workspace, DmsSpfScanner $scanner): JsonResponse
+    public function manual(Request $request, string $workspace, AlphaLinkSpfScanner $scanner): JsonResponse
     {
         $this->workspaceFor($request->user(), $workspace);
         $data = $request->validate(['domains' => ['required', 'array', 'min:1', 'max:50'], 'domains.*' => ['nullable', 'string', 'max:253']]);
@@ -227,7 +227,7 @@ class WorkspaceSpfScannerController extends Controller
             }
         }
 
-        $rows = array_merge($rows, app(DmsSpfDnsCheckMatcher::class)->findMatches($roots, $ips));
+        $rows = array_merge($rows, app(AlphaLinkSpfDnsCheckMatcher::class)->findMatches($roots, $ips));
         $uniqueRows = [];
         foreach ($rows as $row) {
             $key = $row['matched_ip'].'|'.$row['root'].'|'.$row['include'];

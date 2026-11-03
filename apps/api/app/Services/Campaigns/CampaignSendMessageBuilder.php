@@ -10,7 +10,7 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceCampaignNegative;
 use App\Models\WorkspaceOfferAsset;
-use App\Services\Infrastructure\DmsBulkInstallVmtaPlanner;
+use App\Services\Infrastructure\AlphaLinkBulkInstallVmtaPlanner;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
@@ -20,10 +20,10 @@ use Illuminate\Validation\ValidationException;
 class CampaignSendMessageBuilder
 {
     public function __construct(
-        private readonly DmsCampaignSendCatalog $catalog,
-        private readonly DmsCampaignTagRenderer $tagRenderer,
-        private readonly DmsBulkInstallVmtaPlanner $vmtaPlanner,
-        private readonly DmsCampaignTrackingTokenBuilder $trackingTokenBuilder,
+        private readonly AlphaLinkCampaignSendCatalog $catalog,
+        private readonly AlphaLinkCampaignTagRenderer $tagRenderer,
+        private readonly AlphaLinkBulkInstallVmtaPlanner $vmtaPlanner,
+        private readonly AlphaLinkCampaignTrackingTokenBuilder $trackingTokenBuilder,
         private readonly CampaignRedirectUrlPolicy $redirectUrlPolicy,
     ) {}
 

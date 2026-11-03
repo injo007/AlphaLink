@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\WorkspaceSpfScan;
-use App\Services\Spf\DmsSpfScanProcessor;
+use App\Services\Spf\AlphaLinkSpfScanProcessor;
 use Illuminate\Console\Command;
 use Symfony\Component\Process\Process;
 
@@ -13,7 +13,7 @@ class ScanWorkspaceSpfScan extends Command
 
     protected $description = 'Scan domains from a workspace SPF upload.';
 
-    public function handle(DmsSpfScanProcessor $processor): int
+    public function handle(AlphaLinkSpfScanProcessor $processor): int
     {
         $scanId = (int) $this->argument('scan');
         $workers = max(1, min(8, (int) $this->option('workers')));

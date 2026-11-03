@@ -1,4 +1,4 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
 @section('title', 'Pmta SMTP')
 
@@ -67,7 +67,7 @@
         const $ = window.jQuery;
         grid = $('#pmta-smtp-table').DataTable({
             ajax: { url: root.dataset.rowsUrl, dataSrc: 'data' },
-            dom: '<"dms-table-tools"B>frtip',
+            dom: '<"table-tools"B>frtip',
             buttons: [
                 { extend: 'pageLength' },
                 { text: '<i class="fas fa-sync"></i>', titleAttr: 'REFRESH', action: (event, table) => table.ajax.reload(null, false) },

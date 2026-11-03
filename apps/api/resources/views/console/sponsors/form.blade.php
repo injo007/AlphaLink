@@ -1,6 +1,6 @@
-@extends('layouts.dms-reference')
+@extends('layouts.standalone')
 
-@section('title', $sponsor ? 'Edit Sponsor - DMS' : 'Add Sponsor - DMS')
+@section('title', $sponsor ? 'Edit Sponsor' : 'Add Sponsor')
 
 @php
     $saveUrl = $sponsor

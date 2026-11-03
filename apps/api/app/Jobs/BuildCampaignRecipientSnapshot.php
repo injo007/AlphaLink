@@ -7,7 +7,7 @@ use App\Models\Campaign;
 use App\Models\CampaignRecipientSnapshot;
 use App\Models\CampaignRevision;
 use App\Models\Workspace;
-use App\Services\Campaigns\DmsCampaignRecipientSnapshotBuilder;
+use App\Services\Campaigns\AlphaLinkCampaignRecipientSnapshotBuilder;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -41,7 +41,7 @@ class BuildCampaignRecipientSnapshot implements ShouldQueue
         $this->onQueue('drop-suppression');
     }
 
-    public function handle(DmsCampaignRecipientSnapshotBuilder $builder): void
+    public function handle(AlphaLinkCampaignRecipientSnapshotBuilder $builder): void
     {
         $campaign = Campaign::query()
             ->where('workspace_id', $this->workspaceId)

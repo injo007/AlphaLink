@@ -12,7 +12,7 @@ use App\Models\PmtaSmtpConfig;
 use App\Models\PmtaVirtualMta;
 use App\Models\User;
 use App\Models\Workspace;
-use App\Services\Infrastructure\DmsBulkInstallPrivateAssetReader;
+use App\Services\Infrastructure\AlphaLinkBulkInstallPrivateAssetReader;
 use App\Services\PmtaAuditLogger;
 use App\Services\PmtaBounceLogReader;
 use App\Services\PmtaRemoteConfiguration;
@@ -167,7 +167,7 @@ class PmtaConsoleController extends Controller
         return response()->json(['success' => collect($results)->every(fn (array $row): bool => $row['success']), 'results' => $results]);
     }
 
-    public function defaultDomains(Request $request, string $workspace, DmsBulkInstallPrivateAssetReader $assets): JsonResponse
+    public function defaultDomains(Request $request, string $workspace, AlphaLinkBulkInstallPrivateAssetReader $assets): JsonResponse
     {
         $workspaceModel = $this->workspaceFor($request, $workspace);
         $data = $request->validate(['server_id' => ['required', 'uuid']]);
@@ -399,7 +399,7 @@ class PmtaConsoleController extends Controller
         return response()->json(['data' => $rows]);
     }
 
-    public function pushSmtp(Request $request, string $workspace, PmtaRemoteConfiguration $remote, PmtaSmtpConfigBuilder $builder, PmtaAuditLogger $audit, DmsBulkInstallPrivateAssetReader $assets): JsonResponse
+    public function pushSmtp(Request $request, string $workspace, PmtaRemoteConfiguration $remote, PmtaSmtpConfigBuilder $builder, PmtaAuditLogger $audit, AlphaLinkBulkInstallPrivateAssetReader $assets): JsonResponse
     {
         $workspaceModel = $this->workspaceFor($request, $workspace);
         $data = $request->validate([

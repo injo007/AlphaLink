@@ -8,8 +8,8 @@ use App\Models\AuditEvent;
 use App\Models\Campaign;
 use App\Models\CampaignRecipientSnapshot;
 use App\Models\CampaignSendRun;
+use App\Services\Campaigns\AlphaLinkCampaignSendCatalog;
 use App\Services\Campaigns\CampaignSendMessageBuilder;
-use App\Services\Campaigns\DmsCampaignSendCatalog;
 use App\Services\Campaigns\PrepareCampaignSendRun;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -22,7 +22,7 @@ class CampaignSendController extends Controller
         Request $request,
         string $workspace,
         string $campaign,
-        DmsCampaignSendCatalog $catalog,
+        AlphaLinkCampaignSendCatalog $catalog,
         PrepareCampaignSendRun $planner,
         CampaignSendMessageBuilder $messageBuilder,
     ): RedirectResponse {

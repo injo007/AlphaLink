@@ -3,20 +3,20 @@
 namespace App\Services;
 
 use App\Models\ManagedServer;
-use App\Services\Infrastructure\DmsInstallerServerCredentialResolver;
-use App\Services\Infrastructure\DmsInstallerSshSession;
-use App\Services\Infrastructure\DmsInstallerSshSessionFactory;
+use App\Services\Infrastructure\AlphaLinkInstallerServerCredentialResolver;
+use App\Services\Infrastructure\AlphaLinkInstallerSshSession;
+use App\Services\Infrastructure\AlphaLinkInstallerSshSessionFactory;
 use RuntimeException;
 
 class PmtaRemoteConfiguration
 {
     public function __construct(
-        private readonly DmsInstallerServerCredentialResolver $credentials,
-        private readonly DmsInstallerSshSessionFactory $sessions,
+        private readonly AlphaLinkInstallerServerCredentialResolver $credentials,
+        private readonly AlphaLinkInstallerSshSessionFactory $sessions,
         private readonly PmtaConfigFileCatalog $files,
     ) {}
 
-    public function open(ManagedServer $server): DmsInstallerSshSession
+    public function open(ManagedServer $server): AlphaLinkInstallerSshSession
     {
         if (! $server->is_active || ! $server->is_installed) {
             throw new RuntimeException('Choose an active, installed server.');

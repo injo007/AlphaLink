@@ -3,17 +3,17 @@
 namespace App\Services\Analytics;
 
 use App\Models\ManagedServer;
-use App\Services\Infrastructure\DmsInstallerServerCredentialResolver;
-use App\Services\Infrastructure\DmsInstallerSshSession;
-use App\Services\Infrastructure\DmsInstallerSshSessionFactory;
+use App\Services\Infrastructure\AlphaLinkInstallerServerCredentialResolver;
+use App\Services\Infrastructure\AlphaLinkInstallerSshSession;
+use App\Services\Infrastructure\AlphaLinkInstallerSshSessionFactory;
 use RuntimeException;
 
 class PmtaFeedbackRemoteProcessor
 {
     public function __construct(
-        private readonly DmsInstallerServerCredentialResolver $credentials,
-        private readonly DmsInstallerSshSessionFactory $sessions,
-        private readonly ImportDmsPmtaFeedback $importer,
+        private readonly AlphaLinkInstallerServerCredentialResolver $credentials,
+        private readonly AlphaLinkInstallerSshSessionFactory $sessions,
+        private readonly ImportAlphaLinkPmtaFeedback $importer,
     ) {}
 
     /**
@@ -182,7 +182,7 @@ class PmtaFeedbackRemoteProcessor
         return array_values(array_unique($files));
     }
 
-    private function stageRemoteFile(DmsInstallerSshSession $session, string $remotePath, int $sizeBefore, int $modifiedBefore): string
+    private function stageRemoteFile(AlphaLinkInstallerSshSession $session, string $remotePath, int $sizeBefore, int $modifiedBefore): string
     {
         $directory = (string) config('infrastructure.pmta_feedback_staging_path', storage_path('app/private/pmta-feedback-staging'));
         if (! is_dir($directory) && ! mkdir($directory, 0700, true) && ! is_dir($directory)) {

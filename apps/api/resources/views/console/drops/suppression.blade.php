@@ -1,4 +1,4 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
 @section('title', 'Drop Suppression')
 
@@ -81,5 +81,5 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('dms-reference/drops-suppression.js') }}?v={{ substr(sha1_file(public_path('dms-reference/drops-suppression.js')), 0, 12) }}" defer></script>
+<script src="{{ asset('console-assets/drops-suppression.js') }}?v={{ substr(sha1_file(public_path('console-assets/drops-suppression.js')), 0, 12) }}" defer></script>
 @endpush

@@ -399,7 +399,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
             'to' => $to->toDateString(),
             'rows' => $this->paginateRows($request, $rows),
             'headers' => ['DATE', 'CAMPAIGN / DROP', 'MAILER', 'ISP', 'LIST', 'LIST TYPE', 'PROVIDER', 'SERVER', 'IP', 'DOMAIN', 'SPONSOR', 'OFFER', 'VERTICAL', 'FROM', 'SUBJECT', 'CREATIVE', 'EVENT', 'COUNT', 'LEAD REVENUE'],
-            'coverage' => 'Campaign opens, clicks, and unsubscribes are attributed to every selected eligible source List, so totals across Lists can exceed unique events; workspace Dashboard, ISP, and Mailer totals count each event once. Rows also include Drop engagement, attributed leads, imported PMTA delivery/bounce feedback, and matching warmup/seed rows. Host ingestion is scheduled for verified servers but has only synthetic SFTP coverage; DMS seed aggregation, opt-out, aggregate-rate and shared-statistics parity remain unverified.',
+            'coverage' => 'Campaign opens, clicks, and unsubscribes are attributed to every selected eligible source List, so totals across Lists can exceed unique events; workspace Dashboard, ISP, and Mailer totals count each event once. Rows also include Drop engagement, attributed leads, imported PMTA delivery/bounce feedback, and matching warmup/seed rows. Host ingestion is scheduled for verified servers but has only synthetic SFTP coverage; legacy seed aggregation, opt-out, aggregate-rate and shared-statistics compatibility remain unverified.',
         ]);
     }
 
@@ -554,7 +554,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
             'groupBy' => $groupBy,
             'chartData' => $chartData,
             'headers' => ['PERIOD', 'ISP', 'DELIVERIES', 'OPENS', 'CLICKS', 'LEADS', 'UNSUBSCRIBES', 'LEAD REVENUE'],
-            'coverage' => 'Delivery counts use imported PMTA feedback for campaign and Drop rows. Open-rate and click-rate formulas, DMS bounce measures, and DMS earnings remain unavailable; attributed lead revenue is not equivalent to DMS earnings.',
+            'coverage' => 'Delivery counts use imported PMTA feedback for campaign and Drop rows. Open-rate and click-rate formulas, legacy bounce measures, and earnings remain unavailable; attributed lead revenue is not equivalent to the legacy earnings measure.',
         ];
 
         if ($request->boolean('fragment')) {
@@ -622,7 +622,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
             'to' => $to->toDateString(),
             'rows' => $this->paginateRows($request, $rows),
             'headers' => ['MAILER', 'DELIVERIES', 'SOFT BOUNCES', 'HARD BOUNCES', 'OPENS', 'CLICKS', 'LEADS', 'UNSUBSCRIBES', 'BOTS', 'LEAD REVENUE'],
-            'coverage' => 'Imported PMTA delivery and bounce counts are grouped by owner with campaign and Drop engagement. Attributed lead revenue is a local proxy for DMS earnings; DMS opt-outs and delivery-based rates are not available.',
+            'coverage' => 'Imported PMTA delivery and bounce counts are grouped by owner with campaign and Drop engagement. Attributed lead revenue is a local proxy for earnings; opt-outs and delivery-based rates are not available.',
         ];
 
         if ($request->boolean('fragment')) {

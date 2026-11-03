@@ -1,4 +1,4 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
 @section('title', $title.' Cloud')
 
@@ -87,7 +87,7 @@
                 <button id="cloud-add-selected" class="btn btn-sm btn-primary mr-2" type="button" disabled>ADD IPS TO DB</button>
                 <a class="btn btn-sm btn-outline-primary" href="{{ route('console.infrastructure.bulk-install', $workspace->id) }}" target="_blank" rel="noopener">BULK INSTALL SERVERS</a>
             </div>
-            <p class="small text-muted">IP blacklist and Sender Score checks start automatically when GET INSTANCES loads rows, matching DMS.</p>
+            <p class="small text-muted">IP blacklist and Sender Score checks start automatically when GET INSTANCES loads rows.</p>
             <div class="table-responsive">
                 <table class="table table-sm table-hover table-striped" aria-label="Cloud instances">
                     <thead>

@@ -1,6 +1,6 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
-@section('title', 'Add User - DMS')
+@section('title', 'Add User')
 
 @section('content')
     <div class="block block-rounded">
@@ -12,7 +12,7 @@
                     <div class="form-group"><label for="email">Login Email</label><input class="form-control" id="email" name="email" type="email" maxlength="255" required autocomplete="email"></div>
                     <div class="form-group"><label for="username">Username</label><input class="form-control" id="username" name="username" minlength="4" maxlength="255" pattern="[A-Za-z]+" required autocomplete="username"></div>
                     <div class="form-group"><label for="type">User Type</label><select id="type" name="type" class="form-control" required>@foreach ($types as $type)<option value="{{ $type }}">{{ $type }}</option>@endforeach</select></div>
-                    <fieldset class="form-group" id="role-container"><legend class="col-form-label">User Roles</legend><div class="row">@foreach ($roles as $key => $label)<div class="col-sm-6"><div class="custom-control custom-checkbox"><input class="custom-control-input" id="role-{{ $key }}" name="roles[]" type="checkbox" value="{{ $key }}"><label class="custom-control-label" for="role-{{ $key }}">{{ $label }}</label></div></div>@endforeach</div><small class="form-text text-muted">DMS reference roles are stored with the account; AlphaLink access remains governed by the workspace role.</small></fieldset>
+                    <fieldset class="form-group" id="role-container"><legend class="col-form-label">User Roles</legend><div class="row">@foreach ($roles as $key => $label)<div class="col-sm-6"><div class="custom-control custom-checkbox"><input class="custom-control-input" id="role-{{ $key }}" name="roles[]" type="checkbox" value="{{ $key }}"><label class="custom-control-label" for="role-{{ $key }}">{{ $label }}</label></div></div>@endforeach</div><small class="form-text text-muted">Global user roles are stored with the account; workspace access remains governed by the workspace role.</small></fieldset>
                     <div class="form-group"><label for="workspace_role">Workspace Role</label><select class="form-control" id="workspace_role" name="workspace_role" required>@foreach ($workspaceRoles as $role)<option value="{{ $role }}" @selected($role === 'operator')>{{ str_replace('_', ' ', $role) }}</option>@endforeach</select></div>
                     <div class="form-group"><button class="btn btn-primary" id="save-user" type="submit">SAVE</button> <a class="btn btn-light" href="{{ route('console.users.index', $workspace->id) }}">CANCEL</a></div>
                     <div class="alert alert-danger d-none" id="user-error" role="alert"></div>

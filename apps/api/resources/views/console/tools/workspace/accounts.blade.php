@@ -1,6 +1,6 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
-@section('title', 'Gmail Accounts - DMS')
+@section('title', 'Gmail Accounts')
 
 @section('content')
     <div class="block block-rounded">

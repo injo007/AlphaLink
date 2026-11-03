@@ -3,9 +3,9 @@
 namespace App\Jobs;
 
 use App\Models\WorkspaceOfferSuppressionDownload;
-use App\Services\AffiliateNetworks\DmsAffiliateProviderException;
-use App\Services\AffiliateNetworks\DmsAffiliateSuppressionDownloadException;
-use App\Services\AffiliateNetworks\DmsAffiliateSuppressionRefresher;
+use App\Services\AffiliateNetworks\AlphaLinkAffiliateProviderException;
+use App\Services\AffiliateNetworks\AlphaLinkAffiliateSuppressionDownloadException;
+use App\Services\AffiliateNetworks\AlphaLinkAffiliateSuppressionRefresher;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Http\Client\ConnectionException;
@@ -26,7 +26,7 @@ class DownloadWorkspaceOfferSuppressionFile implements ShouldQueue
         $this->onQueue('drop-suppression');
     }
 
-    public function handle(DmsAffiliateSuppressionRefresher $refresher): void
+    public function handle(AlphaLinkAffiliateSuppressionRefresher $refresher): void
     {
         $download = WorkspaceOfferSuppressionDownload::query()->find($this->downloadId);
         if ($download === null || in_array($download->status, ['completed', 'failed'], true)) {
@@ -103,8 +103,8 @@ class DownloadWorkspaceOfferSuppressionFile implements ShouldQueue
             ]);
 
             $failureMessage = match (true) {
-                $exception instanceof DmsAffiliateSuppressionDownloadException => $exception->getMessage(),
-                $exception instanceof DmsAffiliateProviderException => 'The sponsor endpoint could not be reached safely: '.$exception->getMessage(),
+                $exception instanceof AlphaLinkAffiliateSuppressionDownloadException => $exception->getMessage(),
+                $exception instanceof AlphaLinkAffiliateProviderException => 'The sponsor endpoint could not be reached safely: '.$exception->getMessage(),
                 $exception instanceof ConnectionException => 'AlphaLink could not connect to the sponsor or download host over HTTPS. Check app-server DNS and outbound TCP 443, then retry.',
                 $exception instanceof ValidationException => 'The downloaded file failed suppression validation. Confirm it contains valid email addresses, MD5 hashes, or SHA-512 hashes, then retry.',
                 default => 'The suppression download failed inside AlphaLink. Diagnostic ID '.$download->getKey().'; check the application log and retry.',

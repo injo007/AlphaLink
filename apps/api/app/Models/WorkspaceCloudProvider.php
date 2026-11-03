@@ -21,7 +21,7 @@ class WorkspaceCloudProvider extends Model
         'hetzner',
     ];
 
-    /** Consumer workflows currently implemented from the DMS reference. */
+    /** Consumer workflows available for this provider. */
     public const WORKFLOW_TYPES = ['linode', 'digitalocean'];
 
     protected $fillable = ['workspace_id', 'type', 'name', 'tokens', 'allowed_users'];

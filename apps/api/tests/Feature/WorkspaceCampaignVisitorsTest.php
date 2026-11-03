@@ -55,8 +55,8 @@ class WorkspaceCampaignVisitorsTest extends TestCase
             ->assertSee('VISITORS')
             ->assertSee('$3.50')
             ->assertSee('Native per-send configuration records are not available')
-            ->assertSee('dms-reference/plugins/datatables/datatables.min.css')
-            ->assertSee('dms-reference/plugins/datatables/datatables.min.js');
+            ->assertSee('console-assets/plugins/datatables/datatables.min.css')
+            ->assertSee('console-assets/plugins/datatables/datatables.min.js');
 
         $response = $this->actingAs($fixture['owner'])->getJson($url.'?draw=3&start=0&length=20');
         $response->assertOk()->assertJsonPath('draw', 3)->assertJsonPath('recordsTotal', 5)->assertJsonPath('recordsFiltered', 5);

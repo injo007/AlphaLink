@@ -1,4 +1,4 @@
-@extends('layouts.dms-reference')
+@extends('layouts.standalone')
 
 @php
     $isUsers = $type === 'users';
@@ -11,7 +11,7 @@
     $selectedListIds = $bulk ? $lists->modelKeys() : [];
 @endphp
 
-@section('title', $title.' - DMS')
+@section('title', $title.'')
 
 @section('content')
     <div class="block block-rounded mb-0">

@@ -1,8 +1,8 @@
 @php($isEncodingPopup = request()->routeIs('console.tools.encoding.popup', 'clean.console.tools.encoding.popup'))
 
-@extends($isEncodingPopup ? 'layouts.encoding-popup' : 'layouts.dms-admin')
+@extends($isEncodingPopup ? 'layouts.encoding-popup' : 'layouts.admin-shell')
 
-@section('title', 'Encoding - DMS')
+@section('title', 'Encoding')
 
 @push('styles')
     <style>

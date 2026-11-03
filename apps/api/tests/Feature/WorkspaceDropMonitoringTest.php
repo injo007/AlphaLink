@@ -274,7 +274,7 @@ class WorkspaceDropMonitoringTest extends TestCase
             ->assertSee('MAP')
             ->assertSee('drop-visitors-table')
             ->assertSee($this->cleanWorkspaceUrl(route('console.drops.visitors', [$workspace->getKey(), $drop->getKey()])), false)
-            ->assertSee('dms-reference/drops-visitors.js')
+            ->assertSee('console-assets/drops-visitors.js')
             ->assertSee('gstatic.com/charts/loader.js')
             ->assertSee("style-src 'self' 'unsafe-inline' https://www.gstatic.com", false);
     }

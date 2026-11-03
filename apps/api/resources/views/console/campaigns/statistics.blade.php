@@ -1,4 +1,4 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
 @section('title', 'Campaign Statistics')
 
@@ -58,7 +58,7 @@
                 <div id="campaign-statistics-pivot-status" class="small text-muted mb-2" role="status" aria-live="polite"></div>
                 <div id="campaign-statistics-pivot" class="analytics-pivot-surface"></div>
             </section>
-            <div class="alert alert-warning mb-3" role="note"><strong>Data coverage:</strong> stored campaign opens, clicks, bot events, unsubscribes, actual lead-row counts and attributed lead revenue are available. Open, click and unsubscribe events are attributed to each selected eligible source List; totals across Lists can exceed unique events. Imported PMTA delivery and soft/hard bounce totals appear when feedback resolves to a campaign and its dimensions. CONVERSIONS follows DMS's one-per-daily-stat-row positive-earnings rule; AlphaLink uses positive attributed lead-revenue rows because raw DMS earnings are unavailable. It is a revenue-group proxy, separate from the actual LEADS count. DMS opt-out, seed and earnings measures remain unavailable, so no value is inferred. Server, IP, domain, sponsor, offer and creative dimensions appear only when they were captured with an event or imported feedback.</div>
+            <div class="alert alert-warning mb-3" role="note"><strong>Data coverage:</strong> stored campaign opens, clicks, bot events, unsubscribes, actual lead-row counts and attributed lead revenue are available. Open, click and unsubscribe events are attributed to each selected eligible source List; totals across Lists can exceed unique events. Imported PMTA delivery and soft/hard bounce totals appear when feedback resolves to a campaign and its dimensions. CONVERSIONS follows the one-per-daily-stat-row positive-earnings rule; AlphaLink uses positive attributed lead-revenue rows because raw earnings are unavailable. It is a revenue-group proxy, separate from the actual LEADS count. Opt-out, seed and raw earnings measures remain unavailable, so no value is inferred. Server, IP, domain, sponsor, offer and creative dimensions appear only when they were captured with an event or imported feedback.</div>
             <div id="campaign-statistics-fallback">
             <div class="small text-muted mb-2" data-analytics-report-status role="status" aria-live="polite"></div>
             @include('console.campaigns.partials.statistics-results')
@@ -68,15 +68,15 @@
 @endsection
 
 @push('scripts')
-    <script src="{{ asset('dms-reference/vendor/daterangepicker/daterangepicker.js') }}?v=3.1.0"></script>
-    <script src="{{ asset('dms-reference/analytics-date-range.js') }}?v={{ substr(sha1_file(public_path('dms-reference/analytics-date-range.js')), 0, 12) }}" defer></script>
-    <script src="{{ asset('dms-reference/analytics-report-refresh.js') }}?v={{ substr(sha1_file(public_path('dms-reference/analytics-report-refresh.js')), 0, 12) }}" defer></script>
+    <script src="{{ asset('console-assets/vendor/daterangepicker/daterangepicker.js') }}?v=3.1.0"></script>
+    <script src="{{ asset('console-assets/analytics-date-range.js') }}?v={{ substr(sha1_file(public_path('console-assets/analytics-date-range.js')), 0, 12) }}" defer></script>
+    <script src="{{ asset('console-assets/analytics-report-refresh.js') }}?v={{ substr(sha1_file(public_path('console-assets/analytics-report-refresh.js')), 0, 12) }}" defer></script>
     <script src="https://cdn3.devexpress.com/jslib/21.2.5/js/dx.all.js"></script>
-    <script type="module" src="{{ asset('dms-reference/analytics-pivot.js') }}?v={{ substr(sha1_file(public_path('dms-reference/analytics-pivot.js')), 0, 12) }}"></script>
+    <script type="module" src="{{ asset('console-assets/analytics-pivot.js') }}?v={{ substr(sha1_file(public_path('console-assets/analytics-pivot.js')), 0, 12) }}"></script>
 @endpush
 
 @push('styles')
-    <link rel="stylesheet" href="{{ asset('dms-reference/vendor/daterangepicker/daterangepicker.css') }}">
+    <link rel="stylesheet" href="{{ asset('console-assets/vendor/daterangepicker/daterangepicker.css') }}">
     <link rel="stylesheet" href="https://cdn3.devexpress.com/jslib/21.2.5/css/dx.common.css">
     <link rel="stylesheet" href="https://cdn3.devexpress.com/jslib/21.2.5/css/dx.material.blue.light.css">
     <style>

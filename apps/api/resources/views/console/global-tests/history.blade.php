@@ -1,6 +1,6 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
-@section('title', 'GLOBAL TEST HISTORY - DMS')
+@section('title', 'GLOBAL TEST HISTORY')
 
 @section('content')
     @php

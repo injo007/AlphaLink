@@ -23,7 +23,7 @@ class InfrastructureManager
         private readonly DomainTxtResolver $dns,
         private readonly PmtaCatalog $catalog,
         private readonly SshHostProbe $hostProbe,
-        private readonly DmsInstallPlatform $installPlatform,
+        private readonly AlphaLinkInstallPlatform $installPlatform,
     ) {}
 
     /** @return array{added:int, restored:int, servers:Collection<int, ManagedServer>} */
@@ -252,7 +252,7 @@ class InfrastructureManager
      *
      * @param  array<int, string>  $domains
      */
-    public function registerDmsInstallDomains(Workspace $workspace, User $actor, int|string $providerId, array $domains, ?string $requestId = null): int
+    public function registerAlphaLinkInstallDomains(Workspace $workspace, User $actor, int|string $providerId, array $domains, ?string $requestId = null): int
     {
         $provider = DomainProvider::query()
             ->whereKey($providerId)
@@ -287,7 +287,7 @@ class InfrastructureManager
 
             if ($domain->wasRecentlyCreated) {
                 $added++;
-                $this->audit($workspace, $actor, 'domain.dms_manual_imported', 'sending_domain', (string) $domain->getKey(), $requestId);
+                $this->audit($workspace, $actor, 'domain.alphalink_manual_imported', 'sending_domain', (string) $domain->getKey(), $requestId);
             }
         }
 
@@ -300,7 +300,7 @@ class InfrastructureManager
      *
      * @param  array{name: string, type: string, username?: ?string, password?: ?string, api_key: string, api_secret?: ?string}  $data
      */
-    public function registerDmsDomainProvider(Workspace $workspace, User $actor, array $data, ?string $requestId = null): DomainProvider
+    public function registerAlphaLinkDomainProvider(Workspace $workspace, User $actor, array $data, ?string $requestId = null): DomainProvider
     {
         $provider = DomainProvider::query()->create([
             'workspace_id' => $workspace->getKey(),

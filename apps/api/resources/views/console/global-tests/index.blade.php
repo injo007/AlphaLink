@@ -1,6 +1,6 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
-@section('title', 'GLOBAL TESTS - DMS')
+@section('title', 'GLOBAL TESTS')
 
 @section('content')
     <div class="global-quick-nav" id="global-quick-nav">
@@ -297,7 +297,7 @@
         <div class="global-tag-reference">
             <p><code>[ip]</code> IP · <code>[server]</code> server name · <code>[main_domain]</code> server domain · <code>[domain]</code> selected IP domain · <code>[rdns]</code> reverse DNS · <code>[to]</code> recipient · <code>[date]</code> current date · <code>[name]</code> recipient name · <code>[rnd]</code> random text.</p>
             <p><code>[from]</code> random From · <code>[subject]</code> random Subject · <code>[ids]</code> server ID · <code>[idd]</code> domain ID · <code>[idi]</code> IP ID · <code>[ide]</code> email ID · <code>[negative]</code> negative file · <code>[smtp]</code> SMTP username · <code>[smtp_name]</code> SMTP name.</p>
-            <p><code>[rnda_10]</code> random alphanumeric string of length 10. Other DMS forms include <code>[rndn_N]</code>, <code>[rndl_N]</code>, <code>[rndu_N]</code>, <code>[rnds_N]</code>, <code>[rndlu_N]</code>, <code>[rndln_N]</code> and <code>[rndun_N]</code>. <code>[text:a|b|c]</code> chooses one listed value.</p>
+            <p><code>[rnda_10]</code> random alphanumeric string of length 10. Other random string tags include <code>[rndn_N]</code>, <code>[rndl_N]</code>, <code>[rndu_N]</code>, <code>[rnds_N]</code>, <code>[rndlu_N]</code>, <code>[rndln_N]</code> and <code>[rndun_N]</code>. <code>[text:a|b|c]</code> chooses one listed value.</p>
             <p>Boundary forms include <code>[bndn_N]</code>, <code>[bnda_N]</code>, <code>[bndl_N]</code>, <code>[bndu_N]</code>, <code>[bnds_N]</code>, <code>[bndlu_N]</code>, <code>[bndln_N]</code> and <code>[bndun_N]</code>. Placeholder rows below map to <code>[placeholder1]</code>, <code>[placeholder2]</code>, and subsequent numbered tags.</p>
             <p><code>[base64:text]</code> Base64 · <code>[printable:text]</code> quoted printable · <code>[boundary]</code> and <code>[bnd]</code> static boundary text · <code>[placeholder1]</code>, <code>[placeholder2]</code> and so on use the values configured below.</p>
         </div>
@@ -374,7 +374,7 @@
 @endpush
 
 @push('scripts')
-    <script src="{{ asset('dms-reference/vendor/ace/ace.js') }}" charset="utf-8"></script>
-    <script src="{{ asset('dms-reference/vendor/ace/ext-language_tools.js') }}"></script>
-    <script src="{{ asset('dms-reference/global-tests.js') }}?v={{ substr(sha1_file(public_path('dms-reference/global-tests.js')), 0, 12) }}" defer></script>
+    <script src="{{ asset('console-assets/vendor/ace/ace.js') }}" charset="utf-8"></script>
+    <script src="{{ asset('console-assets/vendor/ace/ext-language_tools.js') }}"></script>
+    <script src="{{ asset('console-assets/global-tests.js') }}?v={{ substr(sha1_file(public_path('console-assets/global-tests.js')), 0, 12) }}" defer></script>
 @endpush

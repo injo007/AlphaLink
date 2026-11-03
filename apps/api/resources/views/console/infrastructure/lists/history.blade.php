@@ -1,4 +1,4 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
 @section('title', 'List History')
 
@@ -245,7 +245,7 @@
                 title.textContent = `${payload.list.name} list history`;
                 const description = document.createElementNS(namespace, 'desc');
                 description.id = 'history-chart-description';
-                description.textContent = `Daily recipient counts from ${payload.histories[0].at} to ${payload.histories[payload.histories.length - 1].at}. Unsupported DMS recipient types have no plotted values.`;
+                description.textContent = `Daily recipient counts from ${payload.histories[0].at} to ${payload.histories[payload.histories.length - 1].at}. Unsupported recipient types have no plotted values.`;
                 svg.append(title, description);
 
                 [0, .25, .5, .75, 1].forEach((fraction) => {

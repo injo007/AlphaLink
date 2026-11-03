@@ -1,4 +1,4 @@
-@extends('layouts.dms-reference')
+@extends('layouts.standalone')
 
 @section('title', 'Console')
 
@@ -32,5 +32,5 @@
 @endsection
 
 @push('scripts')
-    <script defer src="{{ asset('dms-reference/server-console.js') }}"></script>
+    <script defer src="{{ asset('console-assets/server-console.js') }}"></script>
 @endpush

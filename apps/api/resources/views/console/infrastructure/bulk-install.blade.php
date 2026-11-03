@@ -1,6 +1,6 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
-@section('title', 'Bulk Install - DMS')
+@section('title', 'Bulk Install')
 
 @push('styles')
     <style>
@@ -79,7 +79,7 @@
                                     <tr>
                                         <td colspan="6" class="text-center">
                                             <p class="mb-1">No active, uninstalled servers are available for bulk installation.</p>
-                                            <span class="text-muted">DMS lists servers marked active and not installed. Add a new server or restore the saved server from the Servers page.</span>
+                                            <span class="text-muted">Only active, uninstalled servers appear as candidates. Add a new server or restore the saved server from the Servers page.</span>
                                             <div class="mt-2">
                                                 <a class="btn btn-sm btn-alt-primary" href="{{ route('console.infrastructure.servers.create', $workspace->id) }}">Add server</a>
                                                 <a class="btn btn-sm btn-alt-secondary" href="{{ route('console.infrastructure.servers.index', $workspace->id) }}">Open servers</a>

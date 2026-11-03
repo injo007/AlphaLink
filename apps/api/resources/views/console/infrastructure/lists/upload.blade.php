@@ -1,6 +1,6 @@
-@extends('layouts.dms-reference')
+@extends('layouts.standalone')
 
-@section('title', 'Upload Emails - DMS')
+@section('title', 'Upload Emails')
 
 @section('content')
     <div class="block block-rounded mb-0">

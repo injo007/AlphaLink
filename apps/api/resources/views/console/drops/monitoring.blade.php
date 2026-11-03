@@ -1,4 +1,4 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
 @section('title', 'Drops Monitoring')
 
@@ -40,10 +40,10 @@
 @endsection
 
 @push('styles')
-<link rel="stylesheet" href="{{ asset('dms-reference/vendor/daterangepicker/daterangepicker.css') }}">
+<link rel="stylesheet" href="{{ asset('console-assets/vendor/daterangepicker/daterangepicker.css') }}">
 @endpush
 
 @push('scripts')
-<script src="{{ asset('dms-reference/vendor/daterangepicker/daterangepicker.js') }}?v=3.1.0"></script>
-<script src="{{ asset('dms-reference/drops-monitor.js') }}?v={{ substr(sha1_file(public_path('dms-reference/drops-monitor.js')), 0, 12) }}"></script>
+<script src="{{ asset('console-assets/vendor/daterangepicker/daterangepicker.js') }}?v=3.1.0"></script>
+<script src="{{ asset('console-assets/drops-monitor.js') }}?v={{ substr(sha1_file(public_path('console-assets/drops-monitor.js')), 0, 12) }}"></script>
 @endpush

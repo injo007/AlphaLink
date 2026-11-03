@@ -1,4 +1,4 @@
-@extends('layouts.dms-reference')
+@extends('layouts.standalone')
 
 @php
     $editing = $list !== null;
@@ -7,7 +7,7 @@
         : route('console.infrastructure.lists.store', [$workspace->id, $isp->id]);
 @endphp
 
-@section('title', ($editing ? 'Update' : 'Add').' List - DMS')
+@section('title', ($editing ? 'Update' : 'Add').' List')
 
 @section('content')
     <div class="block block-rounded mb-0">

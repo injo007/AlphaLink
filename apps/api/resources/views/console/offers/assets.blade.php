@@ -1,6 +1,6 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
-@section('title', 'Offer Assets - DMS')
+@section('title', 'Offer Assets')
 
 @section('content')
     <div class="content-heading">Offer <span class="text-info">{{ $offer->id }} | {{ $offer->offer_id }} | {{ $offer->name }}</span> Assets</div>
@@ -35,7 +35,7 @@
         </ul>
         <div class="block-content tab-content">
             @if (! $isNetworkView)
-                <div class="alert alert-info" role="status">Creative images and the single replaceable unsubscribe image are stored privately in this workspace. HTML assets are supplied by affiliate offer import; that provider import flow remains unavailable until its DMS adapters are implemented.</div>
+                <div class="alert alert-info" role="status">Creative images and the single replaceable unsubscribe image are stored privately in this workspace. HTML assets are supplied by affiliate offer import; that provider import flow remains unavailable until its provider adapters are available.</div>
                 <div id="asset-result" class="alert alert-danger d-none" role="alert" aria-live="assertive"></div>
             @endif
             <div class="table-responsive">

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { runInNewContext } from 'node:vm';
 
-const script = await readFile(new URL('../../public/dms-reference/pmta-vmta-response.js', import.meta.url), 'utf8');
+const script = await readFile(new URL('../../public/console-assets/pmta-vmta-response.js', import.meta.url), 'utf8');
 const browser = {};
 runInNewContext(script, { window: browser });
 const { shouldRejectPmtaResponse } = browser.AlphaLinkPmtaVmtaResponse;

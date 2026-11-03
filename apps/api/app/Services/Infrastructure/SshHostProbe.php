@@ -224,7 +224,7 @@ class SshHostProbe
         $patchPath = str_starts_with($rpm, '4.0r') ? '/usr/sbin/pmtahttpd' : '/usr/sbin/pmtad';
         $patch = trim($this->run($ssh, 'sha256sum '.escapeshellarg($patchPath)." 2>/dev/null | cut -d' ' -f1"));
         $license = trim($this->run($ssh, "sha256sum /etc/pmta/license 2>/dev/null | cut -d' ' -f1"));
-        $reviewed = DmsReviewedAssetDigestVerifier::REVIEWED_DIGESTS;
+        $reviewed = AlphaLinkReviewedAssetDigestVerifier::REVIEWED_DIGESTS;
         $versions = [
             '4.0' => ['rpm' => '4.0r6-201204021809 x86_64', 'patch' => 'httpd-patch'],
             '4.5' => ['rpm' => '4.5r11-201709182152 x86_64', 'patch' => 'pmtad-patch'],

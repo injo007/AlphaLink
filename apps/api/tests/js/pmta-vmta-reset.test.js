@@ -6,7 +6,7 @@ import { runInNewContext } from 'node:vm';
 const view = await readFile(new URL('../../resources/views/console/pmta/vmta.blade.php', import.meta.url), 'utf8');
 const inlineScript = [...view.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].at(-1)?.[1];
 assert.ok(inlineScript, 'VMTA page inline script exists');
-const controlsScript = await readFile(new URL('../../public/dms-reference/pmta-controls.js', import.meta.url), 'utf8');
+const controlsScript = await readFile(new URL('../../public/console-assets/pmta-controls.js', import.meta.url), 'utf8');
 
 function createElement(id = '') {
     const listeners = new Map();

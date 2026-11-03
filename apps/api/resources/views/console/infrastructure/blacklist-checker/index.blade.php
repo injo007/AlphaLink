@@ -1,6 +1,6 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
-@section('title', 'Blacklist Checker - DMS')
+@section('title', 'Blacklist Checker')
 
 @section('content')
     <div class="block block-rounded">
@@ -35,7 +35,7 @@
                     </div>
                 </div>
             </form>
-            <div class="alert alert-info" role="note">This AlphaLink workflow currently accepts email-address files. DMS files whose first value is a 32-character hash are rejected without changing records.</div>
+            <div class="alert alert-info" role="note">This AlphaLink workflow currently accepts email-address files. Files whose first value is a 32-character hash are rejected without changing records.</div>
             <div id="blacklist-status" class="alert alert-info" role="status" aria-live="polite" hidden></div>
             <div class="d-flex align-items-center justify-content-between mb-2">
                 <h4 class="h5 mb-0">Processes</h4>

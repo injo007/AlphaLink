@@ -8,9 +8,9 @@ use App\Models\ManagedServerIp;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceCampaignTestAddress;
-use App\Services\Campaigns\DmsCampaignSendCatalog;
-use App\Services\Campaigns\DmsGlobalTestReverseDnsResolver;
-use App\Services\Campaigns\DmsGlobalTestRunner;
+use App\Services\Campaigns\AlphaLinkCampaignSendCatalog;
+use App\Services\Campaigns\AlphaLinkGlobalTestReverseDnsResolver;
+use App\Services\Campaigns\AlphaLinkGlobalTestRunner;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,7 +26,7 @@ class WorkspaceGlobalTestController extends Controller
 
     private const DEFAULT_HEADER = "MIME-version: 1.0\nContent-type: text/html\nTo: [to]\nfrom: [rnd] <info@[domain]>\nSubject: [ip]_[rnda_5]_[domain]\nDate: [date]";
 
-    public function index(Request $request, string $workspace, DmsCampaignSendCatalog $catalog): View
+    public function index(Request $request, string $workspace, AlphaLinkCampaignSendCatalog $catalog): View
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $options = $catalog->options($workspace, $request->user(), (string) $workspace->pivot->role);
@@ -91,7 +91,7 @@ class WorkspaceGlobalTestController extends Controller
         return response()->json(trim(str_replace(':', '', $encoded)));
     }
 
-    public function catalog(Request $request, string $workspace, DmsCampaignSendCatalog $catalog): JsonResponse
+    public function catalog(Request $request, string $workspace, AlphaLinkCampaignSendCatalog $catalog): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $filters = $request->validate([
@@ -120,9 +120,9 @@ class WorkspaceGlobalTestController extends Controller
     public function test(
         Request $request,
         string $workspace,
-        DmsCampaignSendCatalog $catalog,
-        DmsGlobalTestReverseDnsResolver $rdnsResolver,
-        DmsGlobalTestRunner $runner,
+        AlphaLinkCampaignSendCatalog $catalog,
+        AlphaLinkGlobalTestReverseDnsResolver $rdnsResolver,
+        AlphaLinkGlobalTestRunner $runner,
     ): JsonResponse {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $data = $request->validate([
@@ -269,7 +269,7 @@ class WorkspaceGlobalTestController extends Controller
      * @param  Collection<int, array<string, mixed>>  $selectedIps
      * @return array<string, mixed>
      */
-    private function senderConfiguration(Workspace $workspace, User $user, array $data, Collection $selectedIps, DmsGlobalTestReverseDnsResolver $rdnsResolver): array
+    private function senderConfiguration(Workspace $workspace, User $user, array $data, Collection $selectedIps, AlphaLinkGlobalTestReverseDnsResolver $rdnsResolver): array
     {
         $servers = $workspace->managedServers()
             ->whereIn('id', $data['servers'])
@@ -311,7 +311,7 @@ class WorkspaceGlobalTestController extends Controller
                 'ip' => $ip,
                 'domain' => $domain,
                 'rdns' => $rdnsResolver->resolve($ip, $domain !== '' ? $domain : 'NA'),
-                'idi' => $selectedIp['managed_server_ip_id'] ?? $selectedIp['id'],
+                'idi' => (int) ($selectedIp['managed_server_ip_id'] ?? $selectedIp['id']),
                 'idd' => $data['option'] === 'ip' ? $domainId : 0,
                 'ids' => $server->getKey(),
                 'vmta' => $vmta,

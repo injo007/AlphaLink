@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditEvent;
 use App\Models\CampaignRecipientSnapshot;
 use App\Models\Workspace;
-use App\Services\Campaigns\DmsCampaignBodyGenerator;
+use App\Services\Campaigns\AlphaLinkCampaignBodyGenerator;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -84,7 +84,7 @@ class CampaignComposerToolsController extends Controller
         Request $request,
         string $workspaceId,
         string $campaignId,
-        DmsCampaignBodyGenerator $generator,
+        AlphaLinkCampaignBodyGenerator $generator,
     ): JsonResponse {
         $workspace = $this->workspaceFor($request, $workspaceId);
         $campaign = $workspace->campaigns()

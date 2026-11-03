@@ -1,4 +1,4 @@
-@extends('layouts.dms-reference')
+@extends('layouts.standalone')
 
 @section('title', 'Manage Users Servers')
 
@@ -21,5 +21,5 @@
 @endsection
 
 @push('scripts')
-    <script src="{{ asset('dms-reference/server-users.js') }}" defer></script>
+    <script src="{{ asset('console-assets/server-users.js') }}" defer></script>
 @endpush

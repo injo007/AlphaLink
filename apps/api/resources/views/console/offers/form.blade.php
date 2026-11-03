@@ -1,6 +1,6 @@
-@extends('layouts.dms-reference')
+@extends('layouts.standalone')
 
-@section('title', $offer ? 'Edit Offer - DMS' : 'Add Offer - DMS')
+@section('title', $offer ? 'Edit Offer' : 'Add Offer')
 
 @php
     $saveUrl = $offer ? route('console.offers.update', [$workspace->id, $offer->id]) : route('console.offers.store', $workspace->id);
@@ -26,7 +26,7 @@
             <div class="row justify-content-center py-1">
                 <div class="col-sm-10">
                     @unless ($canImport)
-                        <div class="alert alert-info" role="status">DMS manual offer fields and validation. New offers inherit the selected sponsor’s operator access and begin inactive.</div>
+                        <div class="alert alert-info" role="status">Manual offer entry and validation. New offers inherit the selected sponsor’s operator access and begin inactive.</div>
                     @endunless
                     <div id="offer-result" class="alert alert-danger d-none" role="alert" aria-live="assertive"></div>
                     <div class="form-group"><label for="sponsor_id">Select Sponsor:</label><select id="sponsor_id" class="form-control selectpicker" data-live-search="true" required><option value="">Select Sponsor</option>@foreach ($sponsors as $sponsor)<option value="{{ $sponsor->id }}" data-type="{{ $sponsor->type }}" @selected((string) old('sponsor_id', $offer?->sponsor_id ?? request('sponsor')) === (string) $sponsor->id)>{{ $sponsor->name }}</option>@endforeach</select></div>
@@ -101,13 +101,13 @@
                 providerStatus.textContent = !selectedOption?.value
                     ? 'Choose a HitPath, NewHitPath, Cake, HasOffers or EverFlow sponsor. Enter the provider offer IDs you want to import.'
                     : (!providerSupported
-                        ? 'Automatic import is not yet implemented for this DMS network. Use MANUEL mode to add an offer.'
+                        ? 'Automatic import is not yet implemented for this network. Use MANUEL mode to add an offer.'
                         : ({
-                            hitpath: 'HitPath imports selected campaign IDs and reads DMS-mapped offer fields, From/Subject lines, and the first redirect and last unsubscribe links from email assets.',
+                            hitpath: 'HitPath imports selected campaign IDs and reads offer fields, From/Subject lines, and the first redirect and last unsubscribe links from email assets.',
                             newhitpath: 'NewHitPath imports selected campaign metadata and email assets, normalizes HTML, rewrites links, and safely fetches public HTTPS images.',
                             cake: 'Cake imports selected campaign metadata and sender lines, uses the first creative link, and safely imports an available creative bundle.',
-                            hasoffers: 'HasOffers imports selected offer metadata, category and geo targeting, sender lines, tracking links, and the DMS opt-out link.',
-                            everflow: 'EverFlow imports selected offer IDs, DMS-mapped fields, From/Subject assets, and available HTML/image creatives.',
+                            hasoffers: 'HasOffers imports selected offer metadata, category and geo targeting, sender lines, tracking links, and the provider opt-out link.',
+                            everflow: 'EverFlow imports selected offer IDs, offer fields, From/Subject assets, and available HTML/image creatives.',
                         })[providerType]);
             };
             importMode?.addEventListener('change', () => {

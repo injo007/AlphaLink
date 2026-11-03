@@ -1,6 +1,6 @@
-@extends('layouts.dms-reference')
+@extends('layouts.standalone')
 
-@section('title', 'Cloudflare DNS Records - DMS')
+@section('title', 'Cloudflare DNS Records')
 
 @push('styles')
     <style>

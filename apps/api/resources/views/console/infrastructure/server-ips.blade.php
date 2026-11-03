@@ -1,4 +1,4 @@
-@extends('layouts.dms-reference')
+@extends('layouts.standalone')
 
 @section('title', 'Server Ip & Mta')
 
@@ -42,7 +42,7 @@
 @endsection
 
 @push('styles')
-    <link rel="stylesheet" href="{{ asset('dms-reference/plugins/datatables/datatables.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('console-assets/plugins/datatables/datatables.min.css') }}">
     <style>
         #server-ip-mta table { min-width: 680px; }
         #server-ip-mta .history-summary { margin: .25rem 0; min-width: 640px; }
@@ -52,10 +52,10 @@
 @endpush
 
 @push('scripts')
-    <script src="{{ asset('dms-reference/plugins/datatables/datatables.min.js') }}"></script>
-    <script src="{{ asset('dms-reference/plugins/datatables/jquery.mark.min.js') }}"></script>
-    <script src="{{ asset('dms-reference/plugins/datatables/datatables.mark.js') }}"></script>
-    <script src="{{ asset('dms-reference/assets/js/tables_datatables.js') }}"></script>
-    <script src="{{ asset('dms-reference/plugins/datatables/ip-address.js') }}"></script>
-    <script defer src="{{ asset('dms-reference/server-ip-details.js') }}?v={{ substr(sha1_file(public_path('dms-reference/server-ip-details.js')), 0, 12) }}"></script>
+    <script src="{{ asset('console-assets/plugins/datatables/datatables.min.js') }}"></script>
+    <script src="{{ asset('console-assets/plugins/datatables/jquery.mark.min.js') }}"></script>
+    <script src="{{ asset('console-assets/plugins/datatables/datatables.mark.js') }}"></script>
+    <script src="{{ asset('console-assets/assets/js/tables_datatables.js') }}"></script>
+    <script src="{{ asset('console-assets/plugins/datatables/ip-address.js') }}"></script>
+    <script defer src="{{ asset('console-assets/server-ip-details.js') }}?v={{ substr(sha1_file(public_path('console-assets/server-ip-details.js')), 0, 12) }}"></script>
 @endpush

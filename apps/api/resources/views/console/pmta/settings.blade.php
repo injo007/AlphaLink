@@ -1,9 +1,9 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
 @section('title', 'Pmta Settings')
 
 @push('styles')
-    <link rel="stylesheet" href="{{ asset('dms-reference/vendor/jstree/style.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('console-assets/vendor/jstree/style.min.css') }}">
     <style>
         #pmta-settings-files { min-height: 35rem; overflow: auto; }
         #pmta-settings-contents { min-height: 35rem; }
@@ -103,9 +103,9 @@
 @endsection
 
 @push('scripts')
-    <script src="{{ asset('dms-reference/vendor/jstree/jstree.min.js') }}"></script>
-    <script src="{{ asset('dms-reference/vendor/ace/ace.js') }}" charset="utf-8"></script>
-    <script src="{{ asset('dms-reference/vendor/ace/ext-language_tools.js') }}"></script>
+    <script src="{{ asset('console-assets/vendor/jstree/jstree.min.js') }}"></script>
+    <script src="{{ asset('console-assets/vendor/ace/ace.js') }}" charset="utf-8"></script>
+    <script src="{{ asset('console-assets/vendor/ace/ext-language_tools.js') }}"></script>
     <script>
         (() => {
             const root = document.getElementById('pmta-settings');
@@ -120,7 +120,7 @@
             const pushPanel = document.getElementById('pmta-settings-push-panel');
             const fileName = document.getElementById('pmta-settings-file-name');
             const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
-            const aceBase = @json(asset('dms-reference/vendor/ace'));
+            const aceBase = @json(asset('console-assets/vendor/ace'));
             let selectedFile = '';
             let editor = null;
 

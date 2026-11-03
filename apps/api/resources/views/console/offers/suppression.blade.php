@@ -1,6 +1,6 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
-@section('title', 'Offer Suppression File - DMS')
+@section('title', 'Offer Suppression File')
 
 @section('content')
     <div id="offer-suppression-file-manager"
@@ -81,5 +81,5 @@
 @endsection
 
 @push('scripts')
-    <script src="{{ asset('dms-reference/offer-suppression-file.js') }}?v={{ substr(sha1_file(public_path('dms-reference/offer-suppression-file.js')), 0, 12) }}" defer></script>
+    <script src="{{ asset('console-assets/offer-suppression-file.js') }}?v={{ substr(sha1_file(public_path('console-assets/offer-suppression-file.js')), 0, 12) }}" defer></script>
 @endpush

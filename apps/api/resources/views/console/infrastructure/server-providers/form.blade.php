@@ -1,4 +1,4 @@
-@extends('layouts.dms-reference')
+@extends('layouts.standalone')
 
 @section('title', $provider ? 'Edit Server Provider' : 'Add Server Provider')
 

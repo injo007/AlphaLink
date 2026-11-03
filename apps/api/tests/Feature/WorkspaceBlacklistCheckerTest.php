@@ -235,7 +235,7 @@ class WorkspaceBlacklistCheckerTest extends TestCase
             ->assertSee('Blacklist Checker')
             ->assertSee('UPLOAD AND CHECK')
             ->assertSee('BLACKLIST CHECKER')
-            ->assertSee('DMS files whose first value is a 32-character hash are rejected');
+            ->assertSee('Files whose first value is a 32-character hash are rejected');
     }
 
     /** @return array{0: AudienceList, 1: AudienceList, 2: AudienceList} */

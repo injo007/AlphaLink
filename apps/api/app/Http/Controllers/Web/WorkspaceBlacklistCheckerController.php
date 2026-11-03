@@ -142,7 +142,7 @@ class WorkspaceBlacklistCheckerController extends Controller
                 }
                 if (preg_match('/^[a-f0-9]{32}$/iD', $value) === 1) {
                     throw ValidationException::withMessages([
-                        'file' => 'This DMS file uses 32-character hashes. AlphaLink can currently check email-address files only; no records were changed.',
+                        'file' => 'This file uses 32-character hashes. The checker currently accepts email-address files only; no records were changed.',
                     ]);
                 }
 

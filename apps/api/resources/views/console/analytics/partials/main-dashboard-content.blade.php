@@ -1,7 +1,7 @@
 <div id="main-dashboard-refresh-region" data-main-dashboard-refresh data-refresh-url="{{ route('console.analytics.index', ['workspace' => $workspace->id, 'fragment' => 1]) }}" data-refresh-interval="300000">
     <h2 class="content-heading">MAIN DASHBOARD <small class="text-muted">LAST 30 DAYS</small></h2>
 
-    <div class="row row-deck analytics-dms-summary" aria-label="Today, DMS YTD, and month-to-date dashboard metrics">
+    <div class="row row-deck dashboard-summary" aria-label="Today, year-to-date, and month-to-date dashboard metrics">
         <div class="col-sm-6 col-xl-3">
             <div class="block block-rounded d-flex flex-column">
                 <div class="block-content block-content-full flex-grow-1 d-flex justify-content-between align-items-center">
@@ -42,7 +42,7 @@
         </div>
     </div>
 
-    <div class="row row-deck analytics-dms-metrics" aria-label="Campaign and Drop engagement totals for the last 30 days">
+    <div class="row row-deck dashboard-metrics" aria-label="Campaign and Drop engagement totals for the last 30 days">
         @foreach ([['OPENS', 'opens', 'fa-envelope-open-text'], ['CLICKS', 'clicks', 'fa-mouse-pointer'], ['LEADS', 'leads', 'fa-bullseye'], ['UNSUBSCRIBES', 'unsubscribes', 'fa-user-minus']] as [$label, $key, $icon])
             <div class="col-sm-6 col-xl-3">
                 <div class="block block-rounded d-flex flex-column">
@@ -174,5 +174,5 @@
         </div>
     </div>
 
-    <div class="alert alert-warning" role="note"><strong>Data coverage:</strong> stored campaign and Drop engagement, attributed campaign leads, and locally imported PMTA delivery/bounce records are included. PMTA feedback sync is implemented; live scheduled/Horizon execution and DMS seed identity mapping remain unverified. DMS labels the previous day's count as YTD in its Main Dashboard source; AlphaLink mirrors that calculation. Earnings here reflect attributed campaign and Drop lead revenue only.</div>
+    <div class="alert alert-warning" role="note"><strong>Data coverage:</strong> stored campaign and Drop engagement, attributed campaign leads, and locally imported PMTA delivery/bounce records are included. PMTA feedback sync is implemented; live scheduled/Horizon execution and Seed identity mapping remains unverified. The YTD tile uses the previous day's saved count. Earnings here reflect attributed campaign and Drop lead revenue only.</div>
 </div>

@@ -1,9 +1,9 @@
-@extends('layouts.dms-reference')
+@extends('layouts.standalone')
 
-@section('title', 'Domain History - DMS')
+@section('title', 'Domain History')
 
 @push('styles')
-    <link rel="stylesheet" href="{{ asset('dms-reference/plugins/datatables/datatables.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('console-assets/plugins/datatables/datatables.min.css') }}">
 @endpush
 
 @section('content')
@@ -20,10 +20,10 @@
 @endsection
 
 @push('scripts')
-    <script src="{{ asset('dms-reference/plugins/datatables/datatables.min.js') }}"></script>
-    <script src="{{ asset('dms-reference/plugins/datatables/jquery.mark.min.js') }}"></script>
-    <script src="{{ asset('dms-reference/plugins/datatables/datatables.mark.js') }}"></script>
-    <script src="{{ asset('dms-reference/assets/js/tables_datatables.js') }}"></script>
+    <script src="{{ asset('console-assets/plugins/datatables/datatables.min.js') }}"></script>
+    <script src="{{ asset('console-assets/plugins/datatables/jquery.mark.min.js') }}"></script>
+    <script src="{{ asset('console-assets/plugins/datatables/datatables.mark.js') }}"></script>
+    <script src="{{ asset('console-assets/assets/js/tables_datatables.js') }}"></script>
     <script>
         $(function () {
             const formatBadge = (value) => {

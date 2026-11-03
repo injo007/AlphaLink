@@ -1,6 +1,6 @@
-@extends('layouts.dms-reference')
+@extends('layouts.standalone')
 
-@section('title', 'Edit User - DMS')
+@section('title', 'Edit User')
 
 @section('content')
     <div class="block block-rounded">
@@ -17,7 +17,7 @@
                             <label for="username">Username</label>
                             <input type="text" class="form-control form-control-alt" id="username" name="username"
                                 placeholder="Enter Username ..." value="{{ $user->username }}" minlength="4" maxlength="255" required>
-                            <small class="form-text text-muted">Use the DMS username that appears in this server's name.</small>
+                            <small class="form-text text-muted">Use the username that appears in this server's name.</small>
                         </div>
                         <div class="form-group">
                             <div id="username-result" class="alert alert-danger d-none" role="alert" aria-live="polite"></div>

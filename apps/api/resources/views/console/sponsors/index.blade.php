@@ -1,6 +1,6 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
-@section('title', 'Sponsors - DMS')
+@section('title', 'Sponsors')
 
 @section('content')
     <div class="block block-rounded">
@@ -12,13 +12,13 @@
         </div>
         <div class="block-content">
             <div class="alert alert-info" role="note">
-                DMS-style sponsor login opens a provider session in the browser helper. Download and load the helper before using Login.
+                Sponsor login opens a provider session in the browser helper. Download and load the helper before using Login.
                 @if ($extensionUrl)
                 <a href="{{ $extensionUrl }}" class="btn btn-sm btn-alt-primary ml-2">Download sponsor helper</a>
                 @else
                 <div class="small mt-2 text-warning">The sponsor helper bundle is not installed on this app server, so download and browser handoff are unavailable.</div>
                 @endif
-                <div class="small mt-2">The reviewed DMS helper requests cookie access across HTTP and HTTPS websites. Review that browser permission scope before installing it.</div>
+                <div class="small mt-2">The browser helper requests cookie access across HTTP and HTTPS websites. Review that browser permission scope before installing it.</div>
             </div>
             <div class="table-responsive">
                 <table id="sponsors" class="table table-sm table-hover table-striped"

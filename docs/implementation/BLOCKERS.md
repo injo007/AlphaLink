@@ -603,3 +603,25 @@ The campaign-row statistics disclosure now reads authorized click/open/unsubscri
 ### DMS-TRACK-003 follow-up — E-TRACK-38
 
 E-TRACK-38 fixes the scheme-less `[domain]` URL-host case and commit `7675e97` passed deployment health checks. Focused tests cover the exact template shape. A fresh user campaign test email and recipient click have not been generated; verify those before accepting DMS-TRACK-003. Previously delivered URLs cannot be rewritten.
+
+### AlphaLink independence acceptance — E-AUD-27 — 2026-11-03
+
+- The full PHP acceptance gate is still open. The network-disabled run excluded all `AlphaLinkEverFlow*` test classes and still reports 5 failures / 1 skipped. Failures: three campaign-send/test expectations, one domain-record fake-request assertion and one Global Tests runner mock expectation. The complete unfiltered suite has not passed.
+- Browser verification is unavailable while the saved local PostgreSQL endpoint refuses connections. The checked-in instructions classify the host as a read-only reference, while the user has identified `baseheavy.shop` as production AlphaLink. No deployment was attempted; reconcile this boundary before any host-side action.
+- The worktree has 717 changed paths and remains uncommitted. Application source contains no non-comment DMS identifiers, but historical audit documents, test prose, compatibility migration text, and ten migration filenames remain. Existing database `domain.dms_*` audit values were not inspected or rewritten. The reversible import-format migration was tested only on isolated SQLite data.
+- No end-to-end browser run or production/reference access occurred in this checkpoint. Do not mark the independence acceptance gate complete.
+
+### AlphaLink independence acceptance — E-AUD-28 — 2026-11-03
+
+- The PostgreSQL integration profile now references existing AlphaLink test paths; all eight configured paths validate and PHPUnit lists them in the PHP 8.3 test image. Three renamed suites pass on isolated SQLite, 18 tests / 196 assertions; the PostgreSQL 18.6 profile passes 83 tests / 846 assertions against a temporary isolated database.
+- The local CLI still lacks DOM/XMLWriter, the complete PHP suite still has known failures, and current saved-workspace browser verification remains unavailable.
+- This checkpoint involved no production/reference host access, saved database changes, live email, callback, or deployment. Independence acceptance remains open.
+
+### AlphaLink independence acceptance — E-AUD-29 — 2026-11-03
+
+- The complete PHP suite is green in an isolated, network-disabled PHP 8.3 container: 1,025 passed, 1 skipped, 9,582 assertions. This supersedes the failure counts in E-AUD-27. The PostgreSQL 18.6 integration profile also passes 83 tests / 846 assertions against a temporary database.
+- The SMTP/VMTA sender payload now serializes `idi` consistently as an integer; the Global Tests route-format regression passes for both route types. Test expectations match the GoDaddy single-record endpoint, HTTPS domain tag, current validation field, and Symfony transport contract.
+- Remaining acceptance blockers: the local source app cannot be browser-verified while local PostgreSQL refuses connections; baseheavy.shop is AlphaLink production per the user's explicit clarification and still shows DMS branding in its Gmail Projects shell; immutable DMS-named migrations and historical audit values remain; DMS comparison evidence and test prose remain. The linked create URL returned a compact form without the shell when opened directly in a hidden browser tab; live link interception was not tested. The generic `AGENTS.md` read-only rule applies to the separate DMS reference. The browser review was read-only; no host, saved database, email, callback, or deployment was mutated.
+- Node passes 86/86 and Vite 8.3.5 builds. Static scans find no DMS identifiers, URLs/hosts, table/config keys, or dependency references in active code, routes, config, views, public assets, or manifests.
+- The repository's GET-only DMS reference relay and tests were restored after the broad rename removed them; the relay tests pass 53/53 with a temporary synthetic config. Do not delete this audit tool as part of AlphaLink runtime rebranding.
+- The worktree remains local and uncommitted. Independence acceptance remains open.

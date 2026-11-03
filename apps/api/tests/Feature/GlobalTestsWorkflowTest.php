@@ -10,8 +10,8 @@ use App\Models\SendingDomain;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceGlobalTestLog;
-use App\Services\Campaigns\DmsGlobalTestReverseDnsResolver;
-use App\Services\Campaigns\DmsGlobalTestRunner;
+use App\Services\Campaigns\AlphaLinkGlobalTestReverseDnsResolver;
+use App\Services\Campaigns\AlphaLinkGlobalTestRunner;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Mockery;
@@ -25,9 +25,9 @@ class GlobalTestsWorkflowTest extends TestCase
     {
         parent::setUp();
 
-        $resolver = Mockery::mock(DmsGlobalTestReverseDnsResolver::class);
+        $resolver = Mockery::mock(AlphaLinkGlobalTestReverseDnsResolver::class);
         $resolver->shouldReceive('resolve')->andReturnUsing(fn (string $ip, string $fallback): string => $fallback);
-        $this->app->instance(DmsGlobalTestReverseDnsResolver::class, $resolver);
+        $this->app->instance(AlphaLinkGlobalTestReverseDnsResolver::class, $resolver);
     }
 
     public function test_global_test_page_uses_dms_navigation_and_exposes_the_test_controls(): void
@@ -81,7 +81,7 @@ class GlobalTestsWorkflowTest extends TestCase
         $ip = $this->ip($workspace, $server, $domain, '203.0.113.41', 'mta.example.test');
         $encodedHeader = base64_encode("MIME-version: 1.0\nTo: [to]");
 
-        $runner = Mockery::mock(DmsGlobalTestRunner::class);
+        $runner = Mockery::mock(AlphaLinkGlobalTestRunner::class);
         $runner->shouldReceive('isConfigured')->once()->andReturn(true);
         $runner->shouldReceive('run')
             ->once()
@@ -92,7 +92,7 @@ class GlobalTestsWorkflowTest extends TestCase
                 && $configuration['servers'][0]['ips'][0]['vmta'] === 'mta-203.0.113.41'
             ))
             ->andReturn(['configured' => true, 'output' => 'Accepted by local sender.', 'error' => '', 'exit_code' => 0]);
-        $this->app->instance(DmsGlobalTestRunner::class, $runner);
+        $this->app->instance(AlphaLinkGlobalTestRunner::class, $runner);
 
         $this->actingAs($owner)
             ->postJson(route('console.global-tests.test', $workspace->getKey()), [
@@ -128,7 +128,7 @@ class GlobalTestsWorkflowTest extends TestCase
         $domain = $this->domain($workspace, $owner, 'mta.example.test');
         $ip = $this->ip($workspace, $server, $domain, '203.0.113.41', 'mta.example.test');
 
-        $runner = Mockery::mock(DmsGlobalTestRunner::class);
+        $runner = Mockery::mock(AlphaLinkGlobalTestRunner::class);
         $runner->shouldReceive('isConfigured')->once()->andReturn(true);
         $runner->shouldReceive('run')->once()->andReturn([
             'configured' => true,
@@ -136,7 +136,7 @@ class GlobalTestsWorkflowTest extends TestCase
             'error' => 'PMTA did not return output.',
             'exit_code' => 1,
         ]);
-        $this->app->instance(DmsGlobalTestRunner::class, $runner);
+        $this->app->instance(AlphaLinkGlobalTestRunner::class, $runner);
 
         $this->actingAs($owner)
             ->postJson(route('console.global-tests.test', $workspace->getKey()), $this->validRequest($server, $ip))
@@ -146,7 +146,7 @@ class GlobalTestsWorkflowTest extends TestCase
         $this->assertDatabaseCount('workspace_global_test_logs', 0);
     }
 
-    public function test_vmta_and_smtp_payloads_match_the_dms_identifier_and_name_format(): void
+    public function test_vmta_and_smtp_payloads_match_the_alpha_link_identifier_and_name_format(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner, 'owner');
@@ -156,7 +156,7 @@ class GlobalTestsWorkflowTest extends TestCase
         $vmta = $this->mta($workspace, $server, $ip, $owner, 'vmta', 'vmta-user');
         $smtp = $this->mta($workspace, $server, $ip, $owner, 'smtp', 'smtp-user');
 
-        $runner = Mockery::mock(DmsGlobalTestRunner::class);
+        $runner = Mockery::mock(AlphaLinkGlobalTestRunner::class);
         $runner->shouldReceive('isConfigured')->twice()->andReturn(true);
         $runner->shouldReceive('run')->once()->with(Mockery::on(fn (array $configuration): bool => $configuration['servers'][0]['ips'][0]['idi'] === $ip->getKey()
             && $configuration['servers'][0]['ips'][0]['idd'] === 0
@@ -166,7 +166,7 @@ class GlobalTestsWorkflowTest extends TestCase
             && $configuration['servers'][0]['ips'][0]['idd'] === 0
             && $configuration['servers'][0]['ips'][0]['vmta'] === 'smtp-203.0.113.41-'.$smtp->getKey()
         ))->andReturn(['configured' => true, 'output' => 'SMTP output.', 'error' => '', 'exit_code' => 0]);
-        $this->app->instance(DmsGlobalTestRunner::class, $runner);
+        $this->app->instance(AlphaLinkGlobalTestRunner::class, $runner);
 
         foreach ([['vmta', $vmta], ['smtp', $smtp]] as [$route, $mta]) {
             $this->actingAs($owner)
@@ -185,8 +185,8 @@ class GlobalTestsWorkflowTest extends TestCase
         $server = $this->server($workspace, $owner, '203.0.113.40');
         $domain = $this->domain($workspace, $owner, 'mta.example.test');
         $ip = $this->ip($workspace, $server, $domain, '203.0.113.41', 'mta.example.test');
-        $runner = Mockery::mock(DmsGlobalTestRunner::class);
-        $this->app->instance(DmsGlobalTestRunner::class, $runner);
+        $runner = Mockery::mock(AlphaLinkGlobalTestRunner::class);
+        $this->app->instance(AlphaLinkGlobalTestRunner::class, $runner);
 
         $this->actingAs($owner)
             ->postJson(route('console.global-tests.test', $workspace->getKey()), array_replace(
@@ -207,9 +207,9 @@ class GlobalTestsWorkflowTest extends TestCase
         $server = $this->server($workspace, $owner, '203.0.113.40');
         $domain = $this->domain($workspace, $owner, 'mta.example.test');
         $ip = $this->ip($workspace, $server, $domain, '203.0.113.41', 'mta.example.test');
-        $resolver = Mockery::mock(DmsGlobalTestReverseDnsResolver::class);
+        $resolver = Mockery::mock(AlphaLinkGlobalTestReverseDnsResolver::class);
         $resolver->shouldNotReceive('resolve');
-        $this->app->instance(DmsGlobalTestReverseDnsResolver::class, $resolver);
+        $this->app->instance(AlphaLinkGlobalTestReverseDnsResolver::class, $resolver);
 
         $this->actingAs($owner)
             ->postJson(route('console.global-tests.test', $workspace->getKey()), $this->validRequest($server, $ip))

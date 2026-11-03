@@ -20,13 +20,13 @@ use App\Models\WorkspaceDrop;
 use App\Models\WorkspaceDropVisitor;
 use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceSponsor;
-use App\Services\AffiliateNetworks\DmsAffiliateProviderHttp;
-use App\Services\AffiliateNetworks\DmsAffiliateProviderSalesReader;
-use App\Services\AffiliateNetworks\DmsSponsorLeadImporter;
+use App\Services\AffiliateNetworks\AlphaLinkAffiliateProviderHttp;
+use App\Services\AffiliateNetworks\AlphaLinkAffiliateProviderSalesReader;
+use App\Services\AffiliateNetworks\AlphaLinkSponsorLeadImporter;
 use App\Services\Audiences\AudienceListHistoryCalculator;
+use App\Services\Campaigns\AlphaLinkCampaignAffiliateAttribution;
+use App\Services\Campaigns\AlphaLinkDropAffiliateAttribution;
 use App\Services\Campaigns\CampaignIpGeoResolver;
-use App\Services\Campaigns\DmsCampaignAffiliateAttribution;
-use App\Services\Campaigns\DmsDropAffiliateAttribution;
 use App\Services\Campaigns\TrackedCountryListManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
@@ -111,10 +111,10 @@ class CampaignLeadReconciliationTest extends TestCase
 
             return Http::response($report);
         });
-        $importer = new DmsSponsorLeadImporter(
-            new DmsAffiliateProviderSalesReader(new DmsAffiliateProviderHttp(static fn (string $host): array => ['93.184.216.34'])),
-            new DmsCampaignAffiliateAttribution,
-            new DmsDropAffiliateAttribution,
+        $importer = new AlphaLinkSponsorLeadImporter(
+            new AlphaLinkAffiliateProviderSalesReader(new AlphaLinkAffiliateProviderHttp(static fn (string $host): array => ['93.184.216.34'])),
+            new AlphaLinkCampaignAffiliateAttribution,
+            new AlphaLinkDropAffiliateAttribution,
             new CampaignIpGeoResolver,
             new TrackedCountryListManager,
         );
@@ -213,10 +213,10 @@ class CampaignLeadReconciliationTest extends TestCase
                 default => $thirdReport,
             });
         });
-        $importer = new DmsSponsorLeadImporter(
-            new DmsAffiliateProviderSalesReader(new DmsAffiliateProviderHttp(static fn (string $host): array => ['93.184.216.34'])),
-            new DmsCampaignAffiliateAttribution,
-            new DmsDropAffiliateAttribution,
+        $importer = new AlphaLinkSponsorLeadImporter(
+            new AlphaLinkAffiliateProviderSalesReader(new AlphaLinkAffiliateProviderHttp(static fn (string $host): array => ['93.184.216.34'])),
+            new AlphaLinkCampaignAffiliateAttribution,
+            new AlphaLinkDropAffiliateAttribution,
             new CampaignIpGeoResolver,
             new TrackedCountryListManager,
         );
@@ -282,10 +282,10 @@ class CampaignLeadReconciliationTest extends TestCase
             .'x,2026-10-26 12:34:56,'.$this->s1('C_'.Str::uuid()).',malformed,third,192.0.2.9,3.00'."\n";
         Http::preventStrayRequests();
         Http::fake(['https://reporting.example.test/api.php' => Http::response($report)]);
-        $importer = new DmsSponsorLeadImporter(
-            new DmsAffiliateProviderSalesReader(new DmsAffiliateProviderHttp(static fn (string $host): array => ['93.184.216.34'])),
-            new DmsCampaignAffiliateAttribution,
-            new DmsDropAffiliateAttribution,
+        $importer = new AlphaLinkSponsorLeadImporter(
+            new AlphaLinkAffiliateProviderSalesReader(new AlphaLinkAffiliateProviderHttp(static fn (string $host): array => ['93.184.216.34'])),
+            new AlphaLinkCampaignAffiliateAttribution,
+            new AlphaLinkDropAffiliateAttribution,
             new CampaignIpGeoResolver,
             new TrackedCountryListManager,
         );
@@ -325,10 +325,10 @@ class CampaignLeadReconciliationTest extends TestCase
 
             return Http::response($report);
         });
-        $importer = new DmsSponsorLeadImporter(
-            new DmsAffiliateProviderSalesReader(new DmsAffiliateProviderHttp(static fn (string $host): array => ['93.184.216.34'])),
-            new DmsCampaignAffiliateAttribution,
-            new DmsDropAffiliateAttribution,
+        $importer = new AlphaLinkSponsorLeadImporter(
+            new AlphaLinkAffiliateProviderSalesReader(new AlphaLinkAffiliateProviderHttp(static fn (string $host): array => ['93.184.216.34'])),
+            new AlphaLinkCampaignAffiliateAttribution,
+            new AlphaLinkDropAffiliateAttribution,
             new CampaignIpGeoResolver,
             new TrackedCountryListManager,
         );
@@ -388,10 +388,10 @@ class CampaignLeadReconciliationTest extends TestCase
 
             return Http::response($report);
         });
-        $importer = new DmsSponsorLeadImporter(
-            new DmsAffiliateProviderSalesReader(new DmsAffiliateProviderHttp(static fn (string $host): array => ['93.184.216.34'])),
-            new DmsCampaignAffiliateAttribution,
-            new DmsDropAffiliateAttribution,
+        $importer = new AlphaLinkSponsorLeadImporter(
+            new AlphaLinkAffiliateProviderSalesReader(new AlphaLinkAffiliateProviderHttp(static fn (string $host): array => ['93.184.216.34'])),
+            new AlphaLinkCampaignAffiliateAttribution,
+            new AlphaLinkDropAffiliateAttribution,
             new CampaignIpGeoResolver,
             new TrackedCountryListManager,
         );
@@ -432,10 +432,10 @@ class CampaignLeadReconciliationTest extends TestCase
 
             return Http::response($requests === 1 ? $firstReport : $secondReport);
         });
-        $importer = new DmsSponsorLeadImporter(
-            new DmsAffiliateProviderSalesReader(new DmsAffiliateProviderHttp(static fn (string $host): array => ['93.184.216.34'])),
-            new DmsCampaignAffiliateAttribution,
-            new DmsDropAffiliateAttribution,
+        $importer = new AlphaLinkSponsorLeadImporter(
+            new AlphaLinkAffiliateProviderSalesReader(new AlphaLinkAffiliateProviderHttp(static fn (string $host): array => ['93.184.216.34'])),
+            new AlphaLinkCampaignAffiliateAttribution,
+            new AlphaLinkDropAffiliateAttribution,
             new CampaignIpGeoResolver,
             new TrackedCountryListManager,
         );

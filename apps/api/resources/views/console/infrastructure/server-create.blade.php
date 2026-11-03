@@ -1,6 +1,6 @@
-@extends('layouts.dms-reference')
+@extends('layouts.standalone')
 
-@section('title', 'Add Servers - DMS')
+@section('title', 'Add Servers')
 
 @section('content')
     <div class="block block-rounded">
@@ -62,5 +62,5 @@
 @endsection
 
 @push('scripts')
-    <script src="{{ asset('dms-reference/server-registration.js') }}" defer></script>
+    <script src="{{ asset('console-assets/server-registration.js') }}" defer></script>
 @endpush

@@ -1,6 +1,6 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
-@section('title', 'Horizon - DMS')
+@section('title', 'Horizon')
 
 @section('content')
     <div class="block block-rounded">

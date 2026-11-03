@@ -109,7 +109,7 @@ class AudienceListManagementController extends Controller
             ])->withInput();
         }
 
-        $batch = $importer->handleDmsFile(
+        $batch = $importer->handleAlphaLinkFile(
             $request,
             $workspace,
             $list,

@@ -7,10 +7,10 @@ use App\Models\AuditEvent;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceSponsor;
-use App\Services\AffiliateNetworks\DmsAffiliateProviderException;
-use App\Services\AffiliateNetworks\DmsSponsorConnectionTester;
-use App\Services\AffiliateNetworks\DmsSponsorExtensionPackage;
-use App\Services\AffiliateNetworks\DmsSponsorLoginSession;
+use App\Services\AffiliateNetworks\AlphaLinkAffiliateProviderException;
+use App\Services\AffiliateNetworks\AlphaLinkSponsorConnectionTester;
+use App\Services\AffiliateNetworks\AlphaLinkSponsorExtensionPackage;
+use App\Services\AffiliateNetworks\AlphaLinkSponsorLoginSession;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -46,7 +46,7 @@ class WorkspaceSponsorConsoleController extends Controller
 
         return view('console.sponsors.index', [
             'workspace' => $workspace,
-            ...$this->sponsorHelperSettings($workspace, app(DmsSponsorExtensionPackage::class)),
+            ...$this->sponsorHelperSettings($workspace, app(AlphaLinkSponsorExtensionPackage::class)),
         ]);
     }
 
@@ -81,7 +81,7 @@ class WorkspaceSponsorConsoleController extends Controller
             'workspace' => $workspace,
             'sponsors' => $sponsors,
             'isOperator' => $workspace->pivot->role === 'operator',
-            ...$this->sponsorHelperSettings($workspace, app(DmsSponsorExtensionPackage::class)),
+            ...$this->sponsorHelperSettings($workspace, app(AlphaLinkSponsorExtensionPackage::class)),
         ]);
     }
 
@@ -89,7 +89,7 @@ class WorkspaceSponsorConsoleController extends Controller
         Request $request,
         string $workspaceId,
         int $sponsorId,
-        DmsSponsorLoginSession $loginSession,
+        AlphaLinkSponsorLoginSession $loginSession,
     ): JsonResponse {
         $workspace = $this->workspaceFor($request->user(), $workspaceId, self::NETWORK_ROLES);
         $sponsor = $workspace->sponsors()->whereKey($sponsorId)->firstOrFail();
@@ -115,7 +115,7 @@ class WorkspaceSponsorConsoleController extends Controller
     public function downloadExtension(
         Request $request,
         string $workspaceId,
-        DmsSponsorExtensionPackage $package,
+        AlphaLinkSponsorExtensionPackage $package,
     ): BinaryFileResponse {
         $this->workspaceFor($request->user(), $workspaceId, self::NETWORK_ROLES);
         $path = $package->createForCurrentOrigin();
@@ -206,7 +206,7 @@ class WorkspaceSponsorConsoleController extends Controller
     public function testNewConnection(
         Request $request,
         string $workspaceId,
-        DmsSponsorConnectionTester $tester,
+        AlphaLinkSponsorConnectionTester $tester,
     ): JsonResponse {
         $workspace = $this->workspaceFor($request->user(), $workspaceId, self::MANAGE_ROLES);
 
@@ -217,7 +217,7 @@ class WorkspaceSponsorConsoleController extends Controller
         Request $request,
         string $workspaceId,
         int $sponsorId,
-        DmsSponsorConnectionTester $tester,
+        AlphaLinkSponsorConnectionTester $tester,
     ): JsonResponse {
         $workspace = $this->workspaceFor($request->user(), $workspaceId, self::MANAGE_ROLES);
         $sponsor = $workspace->sponsors()->whereKey($sponsorId)->firstOrFail();
@@ -229,7 +229,7 @@ class WorkspaceSponsorConsoleController extends Controller
         Request $request,
         Workspace $workspace,
         ?WorkspaceSponsor $savedSponsor,
-        DmsSponsorConnectionTester $tester,
+        AlphaLinkSponsorConnectionTester $tester,
     ): JsonResponse {
         $data = $request->validate([
             'affiliate_id' => ['nullable', 'string', 'max:255'],
@@ -254,7 +254,7 @@ class WorkspaceSponsorConsoleController extends Controller
             $message = $tester->test($sponsor);
 
             return response()->json(['success' => true, 'message' => $message]);
-        } catch (DmsAffiliateProviderException $exception) {
+        } catch (AlphaLinkAffiliateProviderException $exception) {
             return response()->json(['success' => false, 'message' => $exception->getMessage()]);
         }
     }
@@ -379,7 +379,7 @@ class WorkspaceSponsorConsoleController extends Controller
     }
 
     /** @return array{extensionId: string, extensionUrl: string|null} */
-    private function sponsorHelperSettings(Workspace $workspace, DmsSponsorExtensionPackage $package): array
+    private function sponsorHelperSettings(Workspace $workspace, AlphaLinkSponsorExtensionPackage $package): array
     {
         $configuredId = trim((string) ($workspace->appSettings?->settings['extension_id'] ?? ''));
 

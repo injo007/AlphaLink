@@ -1,6 +1,6 @@
-@extends('layouts.dms-reference')
+@extends('layouts.standalone')
 
-@section('title', 'Domain Records - DMS')
+@section('title', 'Domain Records')
 
 @push('styles')
     <style>

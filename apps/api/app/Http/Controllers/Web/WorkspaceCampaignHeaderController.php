@@ -91,7 +91,7 @@ class WorkspaceCampaignHeaderController extends Controller
     private function visibleHeaders(Workspace $workspace, User $user): HasMany
     {
         return $workspace->campaignHeaders()
-            ->when(! $user->hasDmsRole('share_headers'), fn ($query) => $query->where('created_by', $user->getKey()))
+            ->when(! $user->hasRole('share_headers'), fn ($query) => $query->where('created_by', $user->getKey()))
             ->orderBy('name')
             ->orderBy('id');
     }

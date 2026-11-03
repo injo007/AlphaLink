@@ -1,6 +1,6 @@
-@extends($workspace ? 'layouts.dms-admin' : 'layouts.global-admin')
+@extends($workspace ? 'layouts.admin-shell' : 'layouts.global-admin')
 
-@section('title', 'Add User - DMS')
+@section('title', 'Add User')
 
 @section('content')
     <div class="block block-rounded">

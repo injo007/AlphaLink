@@ -12,8 +12,8 @@ use App\Models\ServerCredential;
 use App\Models\ServerProvider;
 use App\Models\User;
 use App\Models\Workspace;
-use App\Services\Infrastructure\DmsBulkInstallEligibility;
-use App\Services\Infrastructure\DmsServerConsole;
+use App\Services\Infrastructure\AlphaLinkBulkInstallEligibility;
+use App\Services\Infrastructure\AlphaLinkServerConsole;
 use App\Services\Infrastructure\DomainTxtResolver;
 use App\Services\Infrastructure\SshHostProbe;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -160,20 +160,20 @@ class InfrastructurePlanningTest extends TestCase
     {
         $response = $this->get('/app/workspaces/'.$this->workspace->id.'/infrastructure/servers')->assertOk();
 
-        $response->assertSee('<title>Servers - DMS</title>', false)
+        $response->assertSee('<title>Servers</title>', false)
             ->assertSee('Servers')
             ->assertSee('RETURNED')
             ->assertSee('id="servers"', false)
             ->assertSee('data-returned="false"', false)
-            ->assertSee('/dms-reference/plugins/datatables/datatables.min.css')
-            ->assertSee('/dms-reference/plugins/datatables/datatables.mark.js')
-            ->assertSee('/dms-reference/assets/js/tables_datatables.js')
-            ->assertSee('/dms-reference/server-index.js')
+            ->assertSee('/console-assets/plugins/datatables/datatables.min.css')
+            ->assertSee('/console-assets/plugins/datatables/datatables.mark.js')
+            ->assertSee('/console-assets/assets/js/tables_datatables.js')
+            ->assertSee('/console-assets/server-index.js')
             ->assertSee($this->cleanWorkspaceUrl(route('console.infrastructure.servers.create', $this->workspace->id)), false)
             ->assertSee('data-install-url="'.$this->cleanWorkspaceUrl(route('console.infrastructure.install.index', $this->workspace->id)).'"', false)
             ->assertSee('data-bulk-install-url="'.$this->cleanWorkspaceUrl(route('console.infrastructure.bulk-install', $this->workspace->id)).'"', false);
 
-        $serverTableScript = file_get_contents(public_path('dms-reference/server-index.js'));
+        $serverTableScript = file_get_contents(public_path('console-assets/server-index.js'));
         self::assertIsString($serverTableScript);
         self::assertStringContainsString('fa-magic', $serverTableScript);
         self::assertStringContainsString("titleAttr: 'INSTALL SERVER'", $serverTableScript);
@@ -429,7 +429,7 @@ class InfrastructurePlanningTest extends TestCase
         $this->get($historyUrl)->assertOk()
             ->assertSee('HISTORIES')
             ->assertSee('data-source-url="'.$this->cleanWorkspaceUrl($historyUrl).'"', false)
-            ->assertSee('/dms-reference/server-history.js');
+            ->assertSee('/console-assets/server-history.js');
 
         $this->getJson($historyUrl.'?'.http_build_query([
             'draw' => 7,
@@ -486,14 +486,14 @@ class InfrastructurePlanningTest extends TestCase
             ->assertSee('SERVER <span class="text-info">PRIMARY RELAY | '.$server->id.'</span> CONSOLE', false)
             ->assertSee('Command :')
             ->assertSee('btn-block btn-warning')
-            ->assertSee('dms-reference/server-console.js');
+            ->assertSee('console-assets/server-console.js');
 
-        $console = Mockery::mock(DmsServerConsole::class);
+        $console = Mockery::mock(AlphaLinkServerConsole::class);
         $console->shouldReceive('execute')->once()->with(
             Mockery::on(fn ($actual) => $actual instanceof ManagedServer && $actual->is($server)),
             'printf safely',
         )->andReturn('<em>output</em>');
-        $this->app->instance(DmsServerConsole::class, $console);
+        $this->app->instance(AlphaLinkServerConsole::class, $console);
         $response = $this->postJson($consoleUrl, ['cmd' => 'printf safely'])->assertOk();
         $this->assertSame('<em>output</em>', $response->json());
 
@@ -515,7 +515,7 @@ class InfrastructurePlanningTest extends TestCase
         config(['infrastructure.bulk_install_execution_enabled' => false]);
         $response = $this->get($url)->assertOk();
 
-        $response->assertSee('<title>Bulk Install - DMS</title>', false)
+        $response->assertSee('<title>Bulk Install</title>', false)
             ->assertSee('Bulk Install Server')
             ->assertSee('id="pmta_version"', false)
             ->assertSee('<option value="45" selected>PMTA 4.5</option>', false)
@@ -527,13 +527,13 @@ class InfrastructurePlanningTest extends TestCase
             ->assertSee('SERVER NAME')->assertSee('SERVER ID')->assertSee('SERVER IP')
             ->assertSee('SELECTED DOMAIN')->assertSee('APPLY')
             ->assertSee('No active, uninstalled servers are available for bulk installation.')
-            ->assertSee('DMS lists servers marked active and not installed.')
+            ->assertSee('Only active, uninstalled servers appear as candidates.')
             ->assertSee(url('/infrastructure/servers/create'), false)
             ->assertSee(url('/infrastructure/servers'), false)
             ->assertSee('id="install"', false)
             ->assertSee('/alphalink/infrastructure/bulk-install.js')
-            ->assertSee('/dms-reference/assets/css/theme.css')
-            ->assertDontSee('Set the DMS username used in the server name')
+            ->assertSee('/console-assets/assets/css/theme.css')
+            ->assertDontSee('Set the username used in the server name')
             ->assertDontSee('fingerprint');
 
         $this->assertStringContainsString('id="install" disabled', $response->getContent());
@@ -584,7 +584,7 @@ class InfrastructurePlanningTest extends TestCase
             'domains_provider_id' => $activeProvider->id, 'status' => 'used', 'is_our' => false, 'is_active' => true,
         ]);
 
-        $eligible = app(DmsBulkInstallEligibility::class)->for($this->workspace);
+        $eligible = app(AlphaLinkBulkInstallEligibility::class)->for($this->workspace);
         $this->assertEqualsCanonicalizing(
             [$eligibleServer->id, $otherUninstalledServer->id],
             $eligible['servers']->pluck('id')->all(),
@@ -737,9 +737,9 @@ class InfrastructurePlanningTest extends TestCase
             'pmta_version' => '4.0',
         ])->assertCreated()->json('data');
 
-        $this->assertContains('DMS bulk installation supports x86_64 architecture only.', $plan['preview']['blockers']);
+        $this->assertContains('Bulk installation supports x86_64 architecture only.', $plan['preview']['blockers']);
         $this->assertContains(
-            'DMS bulk installation supports CentOS Linux 7, CentOS Stream 9, Rocky Linux 9, and AlmaLinux 9 only.',
+            'Bulk installation supports CentOS Linux 7, CentOS Stream 9, Rocky Linux 9, and AlmaLinux 9 only.',
             $plan['preview']['blockers'],
         );
         $this->assertFalse($plan['preview']['execution_enabled']);

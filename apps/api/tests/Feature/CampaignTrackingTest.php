@@ -21,11 +21,11 @@ use App\Models\WorkspaceAppSettings;
 use App\Models\WorkspaceInfrastructureSettings;
 use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceSponsor;
-use App\Services\Analytics\ImportDmsPmtaFeedback;
+use App\Services\Analytics\ImportAlphaLinkPmtaFeedback;
 use App\Services\Audiences\AudienceListHistoryCalculator;
+use App\Services\Campaigns\AlphaLinkCampaignTrackingTokenBuilder;
 use App\Services\Campaigns\CampaignIpGeoResolver;
 use App\Services\Campaigns\CampaignRecipientSourceIdentity;
-use App\Services\Campaigns\DmsCampaignTrackingTokenBuilder;
 use App\Services\Campaigns\ProcessCampaignTrackingEvent;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -62,7 +62,7 @@ class CampaignTrackingTest extends TestCase
         fputcsv($stream, [today()->toDateString(), 'ok', 'recipient@example.test', $token], escape: '');
         rewind($stream);
 
-        $counts = app(ImportDmsPmtaFeedback::class)->import($server, $stream, 'delivery', 'campaign-delivery.csv', today()->toDateString());
+        $counts = app(ImportAlphaLinkPmtaFeedback::class)->import($server, $stream, 'delivery', 'campaign-delivery.csv', today()->toDateString());
 
         $this->assertSame(['imported' => 1, 'duplicate' => 0, 'unmatched' => 0], $counts);
         $this->assertSame('delivery', $fixture['membership']->fresh()->email_type);
@@ -876,7 +876,7 @@ class CampaignTrackingTest extends TestCase
         ]);
         $fixture = $this->recipientFixture();
         $compact = fn (mixed $value): string => str_replace('-', '', (string) $value);
-        $token = app(DmsCampaignTrackingTokenBuilder::class)->build([
+        $token = app(AlphaLinkCampaignTrackingTokenBuilder::class)->build([
             $compact($fixture['campaign']->getKey()),
             $compact($fixture['snapshot']->getKey()),
             $compact($fixture['contact']->getKey()),

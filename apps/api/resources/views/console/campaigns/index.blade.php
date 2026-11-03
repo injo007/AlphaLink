@@ -1,4 +1,4 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
 @section('title', 'Campaigns')
 
@@ -172,7 +172,7 @@
                                     @if ($campaign->kind === 'marketing' && ($register['configured'] ?? false))
                                         <a class="btn btn-link btn-sm" href="{{ route('console.campaigns.clone', [$workspace->id, $campaign->id]) }}" data-campaign-clone-open title="Clone campaign" aria-label="Clone {{ $campaign->name }}" aria-haspopup="dialog"><i class="fas fa-clone" aria-hidden="true"></i></a>
                                     @else
-                                        <button type="button" class="btn btn-link btn-sm" disabled title="Only DMS Send campaigns with a saved audience setup can be cloned." aria-label="Clone unavailable for {{ $campaign->name }}"><i class="fas fa-clone" aria-hidden="true"></i></button>
+                                        <button type="button" class="btn btn-link btn-sm" disabled title="Only campaigns with a saved audience setup can be cloned." aria-label="Clone unavailable for {{ $campaign->name }}"><i class="fas fa-clone" aria-hidden="true"></i></button>
                                     @endif
                                     <button type="button" class="btn btn-link btn-sm campaign-status-open" data-campaign-name="{{ $campaign->name }}" data-next-active="{{ $campaign->is_active ? '0' : '1' }}" data-status-url="{{ route('console.campaigns.status', [$workspace->id, $campaign->id]) }}" title="{{ $sendActive ? 'Stop the active send before disabling this campaign.' : ($campaign->is_active ? 'Disable campaign' : 'Restore campaign') }}" aria-label="{{ $sendActive ? 'Stop active send before disabling '.$campaign->name : ($campaign->is_active ? 'Disable ' : 'Restore ').$campaign->name }}" @disabled($sendActive)><i class="{{ $campaign->is_active ? 'fas fa-trash text-danger' : 'fas fa-trash-restore text-success' }}" aria-hidden="true"></i></button>
                                 </td>
@@ -322,7 +322,7 @@
 @endsection
 
 @push('styles')
-    <link rel="stylesheet" href="{{ asset('dms-reference/vendor/daterangepicker/daterangepicker.css') }}">
+    <link rel="stylesheet" href="{{ asset('console-assets/vendor/daterangepicker/daterangepicker.css') }}">
     <style>
         .campaign-register-table { font-size: .8rem; min-width: 1360px; }
         .campaign-register-table th { white-space: nowrap; }
@@ -358,10 +358,10 @@
 @endpush
 
 @push('scripts')
-    <script src="{{ asset('dms-reference/vendor/daterangepicker/daterangepicker.js') }}?v=3.1.0"></script>
-    <script src="{{ asset('dms-reference/analytics-date-range.js') }}?v={{ substr(sha1_file(public_path('dms-reference/analytics-date-range.js')), 0, 12) }}" defer></script>
-    <script src="{{ asset('dms-reference/campaign-register-controls.js') }}?v={{ substr(sha1_file(public_path('dms-reference/campaign-register-controls.js')), 0, 12) }}" defer></script>
-    <script src="{{ asset('dms-reference/campaign-clone-modal.js') }}?v={{ substr(sha1_file(public_path('dms-reference/campaign-clone-modal.js')), 0, 12) }}" defer></script>
+    <script src="{{ asset('console-assets/vendor/daterangepicker/daterangepicker.js') }}?v=3.1.0"></script>
+    <script src="{{ asset('console-assets/analytics-date-range.js') }}?v={{ substr(sha1_file(public_path('console-assets/analytics-date-range.js')), 0, 12) }}" defer></script>
+    <script src="{{ asset('console-assets/campaign-register-controls.js') }}?v={{ substr(sha1_file(public_path('console-assets/campaign-register-controls.js')), 0, 12) }}" defer></script>
+    <script src="{{ asset('console-assets/campaign-clone-modal.js') }}?v={{ substr(sha1_file(public_path('console-assets/campaign-clone-modal.js')), 0, 12) }}" defer></script>
     <script>
         (() => {
             const statusDialog = document.getElementById('campaign-status-dialog');

@@ -2,19 +2,19 @@
 
 namespace App\Console\Commands;
 
-use App\Services\Infrastructure\DmsDomainHistoryCollector;
+use App\Services\Infrastructure\AlphaLinkDomainHistoryCollector;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
 #[Signature('domain:check_history')]
-#[Description('Collect DMS-compatible DNS and reputation history for active domains')]
+#[Description('Collect DNS and reputation history for active domains')]
 class CollectSendingDomainHistory extends Command
 {
     /**
      * Execute the console command.
      */
-    public function handle(DmsDomainHistoryCollector $collector): int
+    public function handle(AlphaLinkDomainHistoryCollector $collector): int
     {
         if (! config('infrastructure.domain_history_enabled')) {
             $this->error('Domain history checks are disabled. Enable INFRASTRUCTURE_DOMAIN_HISTORY_ENABLED to send domain names to DNS and reputation resolvers.');

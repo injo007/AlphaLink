@@ -7,8 +7,8 @@ use App\Models\AuditEvent;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceCloudProvider;
-use App\Services\Infrastructure\DmsCloudIpReputationProbe;
-use App\Services\Infrastructure\DmsCloudProviderApi;
+use App\Services\Infrastructure\AlphaLinkCloudIpReputationProbe;
+use App\Services\Infrastructure\AlphaLinkCloudProviderApi;
 use App\Services\Infrastructure\InfrastructureManager;
 use App\Services\Infrastructure\WorkspaceCloudSshKeyPair;
 use Illuminate\Contracts\View\View;
@@ -58,7 +58,7 @@ class CloudWorkflowConsoleController extends Controller
         $provider = $this->providerFor($request, $workspaceId, $type, $providerId);
 
         try {
-            return response()->json((new DmsCloudProviderApi($provider))->catalog());
+            return response()->json((new AlphaLinkCloudProviderApi($provider))->catalog());
         } catch (RuntimeException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }
@@ -69,7 +69,7 @@ class CloudWorkflowConsoleController extends Controller
         $provider = $this->providerFor($request, $workspaceId, $type, $providerId);
 
         try {
-            return response()->json(['data' => (new DmsCloudProviderApi($provider))->instances()]);
+            return response()->json(['data' => (new AlphaLinkCloudProviderApi($provider))->instances()]);
         } catch (RuntimeException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }
@@ -92,7 +92,7 @@ class CloudWorkflowConsoleController extends Controller
             'count' => ['required', 'numeric'],
         ]);
         $password = $provider->workspace->infrastructureSettings?->cloud_servers_password;
-        $api = new DmsCloudProviderApi($provider);
+        $api = new AlphaLinkCloudProviderApi($provider);
         if ($type === 'linode' && (! is_string($password) || $password === '')) {
             return response()->json(['message' => 'Set the Cloud Server Password in Settings before creating instances.'], 422);
         }
@@ -119,7 +119,7 @@ class CloudWorkflowConsoleController extends Controller
         ]);
 
         try {
-            $api = new DmsCloudProviderApi($provider);
+            $api = new AlphaLinkCloudProviderApi($provider);
             $current = collect($api->instances())->keyBy('id');
             foreach ($data['instances'] as $target) {
                 abort_unless(($current->get((string) $target['id'])['ip'] ?? null) === $target['ip'], 422, 'The selected instance no longer matches this provider account. Reload the instance list.');
@@ -153,7 +153,7 @@ class CloudWorkflowConsoleController extends Controller
         $settings = $workspace->infrastructureSettings;
         $ips = [];
         try {
-            $current = collect((new DmsCloudProviderApi($provider))->instances())->keyBy('id');
+            $current = collect((new AlphaLinkCloudProviderApi($provider))->instances())->keyBy('id');
             foreach ($data['instances'] as $instance) {
                 abort_unless(($current->get((string) $instance['id'])['ip'] ?? null) === $instance['ip'], 422, 'The selected instance no longer matches this provider account. Reload the instance list.');
                 $ips[] = $instance['ip'];
@@ -209,7 +209,7 @@ class CloudWorkflowConsoleController extends Controller
         ]);
 
         try {
-            $api = new DmsCloudProviderApi($provider);
+            $api = new AlphaLinkCloudProviderApi($provider);
             $current = collect($api->instances())->keyBy('id');
             abort_unless(($current->get((string) $data['id'])['ip'] ?? null) === $data['ip'], 422, 'The selected instance no longer matches this provider account. Reload the instance list.');
             $result = $api->setRdns($data['id'], $data['ip'], $data['rdns']);
@@ -227,7 +227,7 @@ class CloudWorkflowConsoleController extends Controller
         string $workspaceId,
         string $type,
         int $providerId,
-        DmsCloudIpReputationProbe $probe,
+        AlphaLinkCloudIpReputationProbe $probe,
     ): JsonResponse {
         $provider = $this->providerFor($request, $workspaceId, $type, $providerId);
         $data = $request->validate([
@@ -236,7 +236,7 @@ class CloudWorkflowConsoleController extends Controller
         ]);
 
         try {
-            $current = collect((new DmsCloudProviderApi($provider))->instances())->keyBy('id');
+            $current = collect((new AlphaLinkCloudProviderApi($provider))->instances())->keyBy('id');
             abort_unless(($current->get((string) $data['id'])['ip'] ?? null) === $data['ip'], 422, 'The selected instance no longer matches this provider account. Reload the instance list.');
 
             return response()->json($probe->check($data['ip']));

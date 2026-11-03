@@ -55,7 +55,7 @@ class PrepareCampaignSendRun
 
         $sendType = data_get($revision->payload, 'send_setup.send_type');
         if (! is_string($sendType) || ! in_array($sendType, self::SEND_TYPES, true)) {
-            throw ValidationException::withMessages(['send_type' => 'The saved campaign revision does not contain a supported DMS send type.']);
+            throw ValidationException::withMessages(['send_type' => 'The saved campaign revision uses an unsupported send type.']);
         }
 
         $recipientCount = (int) $snapshot->recipient_count;

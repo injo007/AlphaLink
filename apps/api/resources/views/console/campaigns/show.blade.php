@@ -1,4 +1,4 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
 @section('title', $campaign->name)
 
@@ -42,14 +42,14 @@
                         @if (! empty($content['email_tests']))
                             {{ implode(', ', $content['email_tests']) }}
                         @else
-                            <span class="text-muted">No DMS test addresses saved.</span>
+                            <span class="text-muted">No test addresses saved.</span>
                         @endif
                     </dd>
-                    <dt class="col-sm-2">DMS Header</dt><dd class="col-sm-10"><pre class="campaign-message-preview">{{ $content['header'] ?? '' }}</pre></dd>
+                    <dt class="col-sm-2">Campaign header</dt><dd class="col-sm-10"><pre class="campaign-message-preview">{{ $content['header'] ?? '' }}</pre></dd>
                     <dt class="col-sm-2">Content fingerprint</dt><dd class="col-sm-10"><code>{{ $campaign->latestRevision->content_sha256 }}</code></dd>
                 </dl>
                 @if (filled($content['body'] ?? null))
-                    <h4 class="h6">DMS Body template</h4>
+                    <h4 class="h6">Campaign body template</h4>
                     <pre class="campaign-message-preview">{{ $content['body'] }}</pre>
                 @endif
                 @if ($campaign->kind === 'transactional' && filled($content['text_body'] ?? null))
@@ -87,7 +87,7 @@
         @endphp
         <div class="block block-rounded">
             <div class="block-header">
-                <h3 class="block-title">Saved DMS campaign selections</h3>
+                <h3 class="block-title">Saved campaign selections</h3>
                 <div class="block-options"><span class="badge badge-warning">DRAFT · NOT SEND-READY</span></div>
             </div>
             <div class="block-content block-content-full">
@@ -164,8 +164,8 @@
                     <dt class="col-sm-3">Offer</dt><dd class="col-sm-9">{{ $offerChoice['name'] ?? 'No longer eligible' }} (ID {{ $sendSetup['offer_id'] ?? '—' }})</dd>
                     <dt class="col-sm-3">ISP</dt><dd class="col-sm-9">{{ $ispChoice['name'] ?? 'No longer available' }} (ID {{ $sendSetup['isp_id'] ?? '—' }})</dd>
                     <dt class="col-sm-3">Country</dt><dd class="col-sm-9">Offer {{ $sendSetup['offer_country'] ?? '—' }} · List {{ $sendSetup['country'] ?? '—' }}</dd>
-                    <dt class="col-sm-3">DMS domain</dt><dd class="col-sm-9">{{ $sendSetup['domain'] ?? 'Not selected' }}</dd>
-                    <dt class="col-sm-3">DMS negative file</dt><dd class="col-sm-9">{{ ($sendSetup['negative_id'] ?? null) ? ($negativeChoice['name'] ?? 'No longer available').' (ID '.$sendSetup['negative_id'].')' : 'Not selected' }}</dd>
+                    <dt class="col-sm-3">Campaign domain</dt><dd class="col-sm-9">{{ $sendSetup['domain'] ?? 'Not selected' }}</dd>
+                    <dt class="col-sm-3">Negative file</dt><dd class="col-sm-9">{{ ($sendSetup['negative_id'] ?? null) ? ($negativeChoice['name'] ?? 'No longer available').' (ID '.$sendSetup['negative_id'].')' : 'Not selected' }}</dd>
                     <dt class="col-sm-3">Creative image</dt><dd class="col-sm-9">{{ $creativeChoice['value'] ?? 'Not selected or no longer available' }}</dd>
                     <dt class="col-sm-3">HTML template</dt><dd class="col-sm-9">{{ $htmlChoice ? 'Selected (ID '.$htmlChoice['id'].')' : 'Not selected or no longer available' }}</dd>
                     <dt class="col-sm-3">Order / start</dt><dd class="col-sm-9">{{ strtoupper($sendSetup['order_by'] ?? 'default') }} / {{ $sendSetup['start_from'] ?? 0 }}</dd>
@@ -181,7 +181,7 @@
                                 <li>{{ $listChoice['name'] ?? 'Unavailable list' }} — {{ $listChoice['country'] ?? 'saved record' }} (ID {{ $listId }})</li>
                             @endforeach
                         </ul>
-                        <small class="text-muted">Selected DMS email types: {{ collect($sendSetup['audience_segments'] ?? [])->map(fn ($segment) => strtoupper(substr(strrchr($segment, '_') ?: '', 1)))->unique()->implode(', ') }}.</small>
+                        <small class="text-muted">Selected email types: {{ collect($sendSetup['audience_segments'] ?? [])->map(fn ($segment) => strtoupper(substr(strrchr($segment, '_') ?: '', 1)))->unique()->implode(', ') }}.</small>
                     </dd>
                     <dt class="col-sm-3">Selected servers</dt>
                     <dd class="col-sm-9">
@@ -380,7 +380,7 @@
                         </div>
                         @if (is_array($sendSetup))
                             <div class="form-group col-md-6">
-                                <label for="revision-domain">DMS campaign domain</label>
+                                <label for="revision-domain">Campaign domain</label>
                                 <select id="revision-domain" name="domain" class="form-control selectpicker" data-live-search="true" data-allow-clear="true" title="Select Domain">
                                     <option value="">Select Domain</option>
                                     @foreach (($sendOptions['campaign_domains'] ?? []) as $domainOption)
@@ -397,7 +397,7 @@
                                         <option value="{{ $negativeOption['id'] }}" @selected((string) old('send_setup.negative_id', $sendSetup['negative_id'] ?? '') === (string) $negativeOption['id'])>{{ $negativeOption['name'] }}</option>
                                     @endforeach
                                 </select>
-                                <small class="form-text text-muted">DMS saves the selected file ID. This field does not alter the saved recipient snapshot.</small>
+                                <small class="form-text text-muted">The selected file ID is saved. This field does not alter the saved recipient snapshot.</small>
                             </div>
                             <div class="form-group col-md-6">
                                 <label for="revision-creative-asset">Creative image</label>
@@ -420,7 +420,7 @@
                                         @endif
                                     @endforeach
                                 </select>
-                                <small class="form-text text-muted">Selecting an HTML asset replaces the Body with its DMS template and substitutes the selected domain.</small>
+                                <small class="form-text text-muted">Selecting an HTML asset replaces the Body with its campaign template and substitutes the selected domain.</small>
                             </div>
                         @endif
                         @if (is_array($sendSetup))
@@ -435,14 +435,14 @@
                                 <div class="form-group col-md-3"><label for="revision-{{ $field }}">{{ $label }}</label><input id="revision-{{ $field }}" name="send_setup[{{ $field }}]" type="number" min="{{ $minimum }}" class="form-control" value="{{ $sendSetup['parameters'][$field] ?? '' }}" required></div>
                             @endforeach
                         @endif
-                        @include('console.campaigns.partials.header-library', ['workspace' => $workspace, 'textareaId' => 'revision-dms-header', 'idPrefix' => 'revision'])
+                        @include('console.campaigns.partials.header-library', ['workspace' => $workspace, 'textareaId' => 'revision-header', 'idPrefix' => 'revision'])
                         <div class="form-group col-12">
-                            <label for="revision-dms-header">Header</label>
-                            <textarea id="revision-dms-header" name="header" rows="8" class="form-control" spellcheck="false" required>{{ $content['header'] ?? "MIME-version: 1.0\nContent-type: text/html\nTo: [to]\nfrom: [from] <info@[domain]>\nSubject: [subject]\nDate: [date]" }}</textarea>
+                            <label for="revision-header">Header</label>
+                            <textarea id="revision-header" name="header" rows="8" class="form-control" spellcheck="false" required>{{ $content['header'] ?? "MIME-version: 1.0\nContent-type: text/html\nTo: [to]\nfrom: [from] <info@[domain]>\nSubject: [subject]\nDate: [date]" }}</textarea>
                         </div>
                         <div class="form-group col-12">
-                            <label for="revision-dms-body">DMS Body template</label>
-                            <textarea id="revision-dms-body" name="body" rows="8" class="form-control" spellcheck="false">{{ $content['body'] ?? '' }}</textarea>
+                            <label for="revision-body">Campaign body template</label>
+                            <textarea id="revision-body" name="body" rows="8" class="form-control" spellcheck="false">{{ $content['body'] ?? '' }}</textarea>
                         </div>
                         @if (is_array($sendSetup))
                             <div class="form-row">
@@ -675,7 +675,7 @@
     </div>
 
     <div class="alert alert-info" role="status">
-        DMS manual campaign tests generate a test-send configuration and run its native sender. AlphaLink’s PMTA test uses Symfony Mailer with a selected server and one explicit recipient. It does not reproduce the native sender’s header, placeholder, VMTA or delivery behavior.
+        The campaign test path uses the selected PMTA server and recipient. Transactional drafts use Symfony Mailer, with separate header, placeholder, route and delivery behavior.
     </div>
     <a class="btn btn-alt-secondary" href="{{ route('console.campaigns.index', $workspace->id) }}"><i class="fa fa-arrow-left mr-1"></i> Back to campaigns</a>
 @endsection
@@ -834,7 +834,7 @@
             };
             [route, ipType, servers].forEach(element => element?.addEventListener('change', () => { refreshIps().catch(() => {}); }));
 
-            const body = document.getElementById('revision-dms-body');
+            const body = document.getElementById('revision-body');
             const domain = document.getElementById('revision-domain');
             const creative = document.getElementById('revision-creative-asset');
             const html = document.getElementById('revision-html-asset');

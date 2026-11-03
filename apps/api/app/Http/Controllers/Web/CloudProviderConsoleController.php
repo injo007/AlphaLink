@@ -7,7 +7,7 @@ use App\Models\AuditEvent;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceCloudProvider;
-use App\Services\Infrastructure\DmsCloudProviderApi;
+use App\Services\Infrastructure\AlphaLinkCloudProviderApi;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -208,7 +208,7 @@ class CloudProviderConsoleController extends Controller
         ]);
 
         try {
-            $message = (new DmsCloudProviderApi($provider))->testConnection();
+            $message = (new AlphaLinkCloudProviderApi($provider))->testConnection();
 
             return response()->json(['success' => true, 'message' => $message]);
         } catch (RuntimeException $exception) {

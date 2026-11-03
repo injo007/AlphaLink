@@ -1,4 +1,4 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
 @section('title', 'Reinstall Servers')
 
@@ -114,7 +114,7 @@
 @endsection
 
 @push('scripts')
-    <script src="{{ asset('dms-reference/plugins/bootstrap_select/bootstrap-select.js') }}"></script>
+    <script src="{{ asset('console-assets/plugins/bootstrap_select/bootstrap-select.js') }}"></script>
     <script type="module" src="/alphalink/infrastructure/server-ip-config-dialog.js"></script>
     <script>
         (() => {

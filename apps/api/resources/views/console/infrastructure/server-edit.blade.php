@@ -1,6 +1,6 @@
-@extends('layouts.dms-reference')
+@extends('layouts.standalone')
 
-@section('title', 'Edit Server - DMS')
+@section('title', 'Edit Server')
 
 @section('content')
     <div class="block block-rounded">
@@ -19,7 +19,7 @@
                     <div id="server-edit-result" class="alert alert-danger d-none" role="alert" aria-live="polite" tabindex="-1"></div>
                     @if ($username !== '' && ! $isBulkInstallEligible)
                         <div class="alert alert-warning" role="note">
-                            DMS Bulk Install includes active, uninstalled servers whose names match this account's username.
+                            Bulk Install includes active, uninstalled servers whose names match this account's username.
                             Suggested name: <code>{{ $suggestedName }}</code>
                             <button id="use-suggested-name" class="btn btn-sm btn-outline-warning ml-2" type="button">USE SUGGESTED NAME</button>
                         </div>

@@ -1,4 +1,4 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
 @section('title', 'Pmta Config History')
 
@@ -67,7 +67,7 @@
         },
         serverSide: true,
         processing: true,
-        dom: '<"dms-table-tools"B>frtip',
+        dom: '<"table-tools"B>frtip',
         buttons: [
             { extend: 'pageLength' },
             { text: '<i class="fas fa-sync"></i>', titleAttr: 'REFRESH', action: (event, dataTable) => dataTable.ajax.reload(null, false) },

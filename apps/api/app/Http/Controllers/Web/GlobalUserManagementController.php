@@ -173,7 +173,7 @@ class GlobalUserManagementController extends Controller
     private function authorizeUserManagement(Request $request): User
     {
         $actor = $request->user();
-        abort_unless($actor instanceof User && $actor->hasDmsRole('manage_users'), 403);
+        abort_unless($actor instanceof User && $actor->hasRole('manage_users'), 403);
 
         return $actor;
     }

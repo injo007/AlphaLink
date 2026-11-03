@@ -213,7 +213,7 @@ class CampaignTestEmailFlowTest extends TestCase
             ->assertSee('pending.testdomain')
             ->assertSee('_alphalink-verify.pending.testdomain')
             ->assertSee('alphalink-verification=synthetic-pending-proof')
-            ->assertSee('DMS Campaign Test uses the selected PMTA server');
+            ->assertSee('Campaign Test uses the selected PMTA server');
 
         $this->assertSame(0, Campaign::query()->count());
         $this->assertSame(0, CampaignTestMailAttempt::query()->count());

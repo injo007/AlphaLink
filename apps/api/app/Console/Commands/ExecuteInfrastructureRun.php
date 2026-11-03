@@ -4,9 +4,9 @@ namespace App\Console\Commands;
 
 use App\Models\User;
 use App\Models\Workspace;
-use App\Services\Infrastructure\DmsBulkInstallRunProcessPoolCoordinator;
-use App\Services\Infrastructure\DmsBulkInstallTranscriptStore;
-use App\Services\Infrastructure\DmsCentos9ReinstallWorkflow;
+use App\Services\Infrastructure\AlphaLinkBulkInstallRunProcessPoolCoordinator;
+use App\Services\Infrastructure\AlphaLinkBulkInstallTranscriptStore;
+use App\Services\Infrastructure\AlphaLinkCentos9ReinstallWorkflow;
 use Illuminate\Console\Command;
 use Throwable;
 
@@ -17,9 +17,9 @@ class ExecuteInfrastructureRun extends Command
     protected $description = 'Execute a previously validated background infrastructure run.';
 
     public function handle(
-        DmsBulkInstallTranscriptStore $transcripts,
-        DmsBulkInstallRunProcessPoolCoordinator $installCoordinator,
-        DmsCentos9ReinstallWorkflow $reinstallWorkflow,
+        AlphaLinkBulkInstallTranscriptStore $transcripts,
+        AlphaLinkBulkInstallRunProcessPoolCoordinator $installCoordinator,
+        AlphaLinkCentos9ReinstallWorkflow $reinstallWorkflow,
     ): int {
         $workspaceId = (string) $this->argument('workspace');
         $runId = (string) $this->argument('run');
@@ -87,8 +87,8 @@ class ExecuteInfrastructureRun extends Command
         Workspace $workspace,
         User $actor,
         string $runId,
-        DmsBulkInstallTranscriptStore $transcripts,
-        DmsBulkInstallRunProcessPoolCoordinator $coordinator,
+        AlphaLinkBulkInstallTranscriptStore $transcripts,
+        AlphaLinkBulkInstallRunProcessPoolCoordinator $coordinator,
     ): array {
         $enabled = $run['kind'] === 'single_install'
             ? config('infrastructure.single_install_execution_enabled', false)
@@ -113,8 +113,8 @@ class ExecuteInfrastructureRun extends Command
         Workspace $workspace,
         User $actor,
         string $runId,
-        DmsBulkInstallTranscriptStore $transcripts,
-        DmsCentos9ReinstallWorkflow $workflow,
+        AlphaLinkBulkInstallTranscriptStore $transcripts,
+        AlphaLinkCentos9ReinstallWorkflow $workflow,
     ): array {
         if (! config('infrastructure.reinstall_execution_enabled', false)) {
             throw new \RuntimeException('Server reinstall execution was disabled before the worker started.');

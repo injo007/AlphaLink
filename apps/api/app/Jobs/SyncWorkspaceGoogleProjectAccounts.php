@@ -3,7 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\WorkspaceGoogleProject;
-use App\Services\Workspace\DmsWorkspaceDirectorySync;
+use App\Services\Workspace\AlphaLinkWorkspaceDirectorySync;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -29,7 +29,7 @@ class SyncWorkspaceGoogleProjectAccounts implements ShouldBeUnique, ShouldQueue
         return (string) $this->projectId;
     }
 
-    public function handle(DmsWorkspaceDirectorySync $directory): void
+    public function handle(AlphaLinkWorkspaceDirectorySync $directory): void
     {
         $project = WorkspaceGoogleProject::query()->find($this->projectId);
         if (! $project) {

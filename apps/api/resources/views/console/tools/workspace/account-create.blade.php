@@ -1,6 +1,6 @@
-@extends('layouts.dms-reference')
+@extends('layouts.standalone')
 
-@section('title', 'Add Gmail Accounts - DMS')
+@section('title', 'Add Gmail Accounts')
 
 @section('content')
     <div class="block block-rounded">

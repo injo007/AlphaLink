@@ -1,6 +1,6 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
-@section('title', 'GLOBAL TEST HISTORIES - DMS')
+@section('title', 'GLOBAL TEST HISTORIES')
 
 @section('content')
     <div class="block block-rounded">
@@ -31,7 +31,7 @@
                                 <td><a class="btn btn-sm btn-alt-primary" href="{{ route('console.global-tests.history', [$workspace->id, $log->id]) }}"><i class="fas fa-eye mr-1" aria-hidden="true"></i>View</a></td>
                             </tr>
                         @empty
-                            <tr><td colspan="7" class="text-center text-muted py-4">No Global Test results have been saved for this period. DMS saves a history row only when sender output is returned.</td></tr>
+                            <tr><td colspan="7" class="text-center text-muted py-4">No Global Test results have been saved for this period. A history row is saved only when sender output is returned.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

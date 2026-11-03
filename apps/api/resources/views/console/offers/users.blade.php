@@ -1,17 +1,17 @@
-@extends('layouts.dms-reference')
+@extends('layouts.standalone')
 
 @php
     $saveUrl = $bulk ? route('console.offers.bulk-users.update', $workspace->id) : route('console.offers.users.update', [$workspace->id, $offer->id]);
 @endphp
 
-@section('title', 'Manage Offer Users - DMS')
+@section('title', 'Manage Offer Users')
 
 @section('content')
     <div class="block block-rounded">
         <div class="block-header block-header-default"><h3 class="block-title">@if ($bulk) Allowed Mailers for {{ $offers->count() }} Offers @else Offer: <span class="text-info">{{ $offer->name }}</span>@endif</h3></div>
         <div class="block-content">
             <div class="row justify-content-center py-2"><div class="col-sm-10">
-                <div class="alert alert-info" role="status">Offer access controls which operators can use this offer. DMS sponsor-level assignments are propagated to offers by the single-sponsor assignment action.</div>
+                <div class="alert alert-info" role="status">Offer access controls which operators can use this offer. Sponsor-level assignments are propagated to offers by the single-sponsor assignment action.</div>
                 <div id="users-result" class="alert alert-danger d-none" role="alert" aria-live="assertive"></div>
                 <div class="form-group"><label>Allowed Mailers: <button id="toggle-all" class="btn btn-link btn-sm" type="button" aria-pressed="false">CHECK <span class="fas fa-check"></span></button></label>
                     @if ($users->isEmpty())<p class="text-muted">There are no operator members in this workspace to assign.</p>@else

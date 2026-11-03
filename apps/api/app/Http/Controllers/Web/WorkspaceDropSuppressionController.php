@@ -11,7 +11,7 @@ use App\Models\Workspace;
 use App\Models\WorkspaceDropSuppression;
 use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceSponsor;
-use App\Services\Campaigns\DmsOfferSuppressionFile;
+use App\Services\Campaigns\AlphaLinkOfferSuppressionFile;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -45,7 +45,7 @@ class WorkspaceDropSuppressionController extends Controller
         return $this->rows($request, $workspace);
     }
 
-    public function catalog(Request $request, string $workspace, DmsOfferSuppressionFile $suppressionFiles): JsonResponse
+    public function catalog(Request $request, string $workspace, AlphaLinkOfferSuppressionFile $suppressionFiles): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $sponsorId = $request->integer('sponsor_id');
@@ -108,7 +108,7 @@ class WorkspaceDropSuppressionController extends Controller
         ]);
     }
 
-    public function start(Request $request, string $workspace, DmsOfferSuppressionFile $suppressionFiles): JsonResponse
+    public function start(Request $request, string $workspace, AlphaLinkOfferSuppressionFile $suppressionFiles): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $data = $request->validate([

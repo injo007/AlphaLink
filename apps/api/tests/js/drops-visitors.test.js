@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { runInNewContext } from 'node:vm';
 
-const script = await readFile(new URL('../../public/dms-reference/drops-visitors.js', import.meta.url), 'utf8');
+const script = await readFile(new URL('../../public/console-assets/drops-visitors.js', import.meta.url), 'utf8');
 
 function createPage({ drawChart = () => {}, rows = [{ country: 'United States', open: 2, click: 1, lead: 1, unsubscribe: 0 }] } = {}) {
     const root = { dataset: { chartUrl: '/drops/1/visitors?chart=1', tableUrl: '/drops/1/visitors' } };

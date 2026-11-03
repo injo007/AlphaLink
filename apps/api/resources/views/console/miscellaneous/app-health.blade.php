@@ -1,6 +1,6 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
-@section('title', 'App Health - DMS')
+@section('title', 'App Health')
 
 @section('content')
     <div class="row">

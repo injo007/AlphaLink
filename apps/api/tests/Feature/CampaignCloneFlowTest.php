@@ -15,7 +15,7 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceSponsor;
-use App\Services\Campaigns\DmsCampaignRecipientSnapshotBuilder;
+use App\Services\Campaigns\AlphaLinkCampaignRecipientSnapshotBuilder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -101,7 +101,7 @@ class CampaignCloneFlowTest extends TestCase
             (string) $clone->getKey(),
             (string) $clone->latestRevision->getKey(),
             (int) $fixture['owner']->getKey(),
-        ))->handle(app(DmsCampaignRecipientSnapshotBuilder::class));
+        ))->handle(app(AlphaLinkCampaignRecipientSnapshotBuilder::class));
         $clone->refresh();
         $this->assertSame('draft', $clone->status);
         $this->assertSame('complete', $clone->snapshot_build_stage);
@@ -247,7 +247,7 @@ class CampaignCloneFlowTest extends TestCase
             (string) $clone->getKey(),
             (string) $clone->latestRevision->getKey(),
             (int) $fixture['owner']->getKey(),
-        ))->handle(app(DmsCampaignRecipientSnapshotBuilder::class));
+        ))->handle(app(AlphaLinkCampaignRecipientSnapshotBuilder::class));
         $clone->refresh();
         $this->assertSame('snapshot_failed', $clone->status);
         $this->assertSame('failed', $clone->snapshot_build_stage);
@@ -381,7 +381,7 @@ class CampaignCloneFlowTest extends TestCase
             'country' => 'US',
             'audience_list_ids' => [(string) $list->getKey()],
             'audience_segments' => [$list->getKey().'_fresh'],
-            'targeting_basis' => 'dms_email_type_segments',
+            'targeting_basis' => 'email_type_segments',
             'order_by' => 'default',
             'start_from' => 0,
             'route_option' => 'ip',

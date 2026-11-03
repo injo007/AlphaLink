@@ -1,6 +1,6 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
-@section('title', 'Install Server — DMS')
+@section('title', 'Install Server')
 
 @push('styles')
     <style>

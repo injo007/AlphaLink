@@ -43,9 +43,9 @@ class CloudProviderConsoleTest extends TestCase
         $this->get($index)
             ->assertOk()
             ->assertSee('Cloud Providers')
-            ->assertSee(asset('dms-reference/plugins/datatables/datatables.min.css'), false)
-            ->assertSee(asset('dms-reference/plugins/datatables/datatables.min.js'), false)
-            ->assertSee(asset('dms-reference/assets/js/tables_datatables.js'), false);
+            ->assertSee(asset('console-assets/plugins/datatables/datatables.min.css'), false)
+            ->assertSee(asset('console-assets/plugins/datatables/datatables.min.js'), false)
+            ->assertSee(asset('console-assets/assets/js/tables_datatables.js'), false);
         $this->getJson($index)
             ->assertOk()
             ->assertJsonPath('recordsTotal', 1)

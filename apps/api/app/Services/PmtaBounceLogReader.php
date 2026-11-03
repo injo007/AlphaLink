@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Models\ManagedServer;
-use App\Services\Infrastructure\DmsInstallerSshSession;
+use App\Services\Infrastructure\AlphaLinkInstallerSshSession;
 
 class PmtaBounceLogReader
 {
@@ -22,7 +22,7 @@ class PmtaBounceLogReader
     }
 
     /** @return list<array<string, string>> */
-    public function read(DmsInstallerSshSession $session, ManagedServer $server, array $emails): array
+    public function read(AlphaLinkInstallerSshSession $session, ManagedServer $server, array $emails): array
     {
         $output = trim((string) $session->exec($this->command($emails)));
         if ($output === '') {

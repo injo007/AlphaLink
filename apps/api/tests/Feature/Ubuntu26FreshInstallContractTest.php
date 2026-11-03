@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Services\Infrastructure\DmsReviewedAssetDigestVerifier;
+use App\Services\Infrastructure\AlphaLinkReviewedAssetDigestVerifier;
 use Tests\TestCase;
 
 class Ubuntu26FreshInstallContractTest extends TestCase
@@ -95,7 +95,7 @@ class Ubuntu26FreshInstallContractTest extends TestCase
     public function test_repository_install_bundle_contains_every_reviewed_nonsecret_asset(): void
     {
         $assetRoot = dirname(base_path(), 2).'/install-assets';
-        $digests = DmsReviewedAssetDigestVerifier::REVIEWED_DIGESTS;
+        $digests = AlphaLinkReviewedAssetDigestVerifier::REVIEWED_DIGESTS;
 
         foreach ($digests as $relativePath => $expected) {
             if ($relativePath === 'optional/dkim/keys.json') {

@@ -10,7 +10,7 @@ class CalculateAudienceListHistory extends Command
 {
     protected $signature = 'audience-lists:calculate-history {listId? : Audience List ID}';
 
-    protected $description = 'Update the daily DMS-shaped Audience List segment count snapshot';
+    protected $description = 'Update the daily Audience List segment count snapshot';
 
     public function handle(AudienceListHistoryCalculator $calculator): int
     {

@@ -3,7 +3,7 @@
 @endphp
 
 <div class="col-12">
-    <div class="block block-rounded" data-dms-placeholder-editor data-name-prefix="send_setup[placeholder_inputs]">
+    <div class="block block-rounded" data-campaign-placeholder-editor data-name-prefix="send_setup[placeholder_inputs]">
         <div class="block-header">
             <h3 class="block-title">PLACEHOLDERS</h3>
             <div class="block-options d-flex align-items-center">
@@ -40,6 +40,6 @@
 
 @once
     @push('scripts')
-        <script src="{{ asset('alphalink/dms-placeholder-editor.js') }}" defer></script>
+        <script src="{{ asset('alphalink/campaign-placeholder-editor.js') }}" defer></script>
     @endpush
 @endonce

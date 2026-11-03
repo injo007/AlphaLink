@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Workspace;
 use App\Models\WorkspaceInfrastructureSettings;
-use App\Services\Infrastructure\DmsPublicIpv4EgressResolver;
+use App\Services\Infrastructure\AlphaLinkPublicIpv4EgressResolver;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -14,7 +14,7 @@ class SyncPmtaRelaySourceIps extends Command
 
     protected $description = 'Detect AlphaLink public IPv4 egress and initialize or refresh auto-managed PMTA relay sources';
 
-    public function handle(DmsPublicIpv4EgressResolver $egress): int
+    public function handle(AlphaLinkPublicIpv4EgressResolver $egress): int
     {
         $workspaces = Workspace::query()->with('infrastructureSettings')->orderBy('id')->get(['id']);
         if ($workspaces->isEmpty()) {

@@ -1,6 +1,6 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
-@section('title', 'Edit User Password - DMS')
+@section('title', 'Edit User Password')
 
 @section('content')
     <div class="block block-rounded">

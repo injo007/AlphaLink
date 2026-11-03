@@ -25,10 +25,10 @@ use App\Models\Workspace;
 use App\Models\WorkspaceDropSuppression;
 use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceSponsor;
+use App\Services\Campaigns\AlphaLinkCampaignSendCatalog;
 use App\Services\Campaigns\CampaignDeliveryAttemptLifecycle;
 use App\Services\Campaigns\CampaignSendMessageBuilder;
 use App\Services\Campaigns\ClaimCampaignSendBatch;
-use App\Services\Campaigns\DmsCampaignSendCatalog;
 use App\Services\Campaigns\FinalizeCampaignSendRun;
 use App\Services\Campaigns\PmtaCampaignTestTransport;
 use App\Services\Campaigns\PrepareCampaignSendRun;
@@ -222,11 +222,11 @@ class CampaignSendExecutionLedgerTest extends TestCase
         $fixture['workspace']->users()->attach($fixture['owner']->getKey(), ['role' => 'owner']);
         $this->assertSame(0, DB::table('consent_records')->count());
 
-        $catalog = Mockery::mock(DmsCampaignSendCatalog::class);
+        $catalog = Mockery::mock(AlphaLinkCampaignSendCatalog::class);
         $catalog->shouldReceive('validateRevisionRouting')->twice()->andReturn([
             'server_ids' => [$serverId], 'ip_ids' => [$routeId],
         ]);
-        $this->app->instance(DmsCampaignSendCatalog::class, $catalog);
+        $this->app->instance(AlphaLinkCampaignSendCatalog::class, $catalog);
         $builder = Mockery::mock(CampaignSendMessageBuilder::class);
         $builder->shouldReceive('assertReady')->once()->andReturn([]);
         $this->app->instance(CampaignSendMessageBuilder::class, $builder);

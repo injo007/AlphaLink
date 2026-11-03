@@ -14,7 +14,7 @@ return [
     // short probe timeout would abort DNF and leave phpseclib's exec channel open.
     'install_ssh_timeout_seconds' => (int) env('ALPHALINK_INSTALL_SSH_TIMEOUT_SECONDS', 300),
     'ip_api_key' => env('INFRASTRUCTURE_IP_API_KEY'),
-    // DMS-compatible history checks publish each enabled IP/domain in DNS queries.
+    // History checks publish each enabled IP/domain in DNS queries.
     'ip_history_enabled' => filter_var(env('INFRASTRUCTURE_IP_HISTORY_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
     'domain_history_enabled' => filter_var(env('INFRASTRUCTURE_DOMAIN_HISTORY_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
     'maxmind_city_database' => env('INFRASTRUCTURE_MAXMIND_CITY_DATABASE', storage_path('app/maxmind/city.mmdb')),

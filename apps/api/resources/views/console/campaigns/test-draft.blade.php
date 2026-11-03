@@ -1,4 +1,4 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
 @section('title', 'New test message')
 
@@ -13,13 +13,13 @@
     @endif
 
     <div class="alert alert-info" role="status">
-        Save a single transactional message, then send it to one address you authorize from its draft page. This uses AlphaLink’s Symfony Mailer path. It does not select an audience, create a campaign send, or use DMS’s native server/IP test sender.
+        Save a single transactional message, then send it to one address you authorize from its draft page. This uses AlphaLink’s Symfony Mailer path. It does not select an audience or start a campaign send.
     </div>
 
     <div class="block block-rounded" id="transactional-sender-domains">
         <div class="block-header"><h3 class="block-title">Transactional sender-domain readiness</h3></div>
         <div class="block-content block-content-full">
-            <p class="text-muted">This AlphaLink-only verification is for the separate Symfony transactional test flow. DMS Campaign Test uses the selected PMTA server and does not require sender-domain DNS verification.</p>
+            <p class="text-muted">This verifies a separate Symfony transactional test flow. Campaign Test uses the selected PMTA server and does not require sender-domain DNS verification.</p>
             <form method="POST" action="{{ route('console.infrastructure.domains.store', $workspace->id) }}" class="form-inline mb-3" novalidate>
                 @csrf
                 <div class="form-group mr-2 mb-2">
@@ -89,7 +89,7 @@
                 @csrf
                 <input type="hidden" name="idempotency_key" value="{{ old('idempotency_key', $idempotencyKey) }}">
                 <input type="hidden" name="kind" value="transactional">
-                <input type="hidden" name="header" value="{{ old('header', $dmsHeader) }}">
+                <input type="hidden" name="header" value="{{ old('header', $campaignHeader) }}">
 
                 <div class="form-group">
                     <label for="test-draft-name">Draft name</label>
@@ -131,7 +131,7 @@
                     <label for="test-draft-html">HTML message <span class="text-muted">(optional when plain text is supplied)</span></label>
                     <textarea id="test-draft-html" name="html_body" rows="10" class="form-control @error('html_body') is-invalid @enderror" spellcheck="false" aria-invalid="@error('html_body') true @else false @enderror" @error('html_body') aria-describedby="test-draft-html-error" @enderror>{{ old('html_body') }}</textarea>
                     @error('html_body')<div class="invalid-feedback" id="test-draft-html-error">{{ $message }}</div>@enderror
-                    <small class="form-text text-muted">Symfony Mailer sends these structured fields. The stored DMS header template is not interpreted by this one-recipient test path.</small>
+                    <small class="form-text text-muted">Symfony Mailer sends these structured fields. The saved campaign header template is not interpreted by this one-recipient test path.</small>
                 </div>
 
                 <div class="d-flex flex-wrap align-items-center">

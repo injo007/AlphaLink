@@ -1,4 +1,4 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
 @section('title', 'Clone Campaign')
 
@@ -17,5 +17,5 @@
 @endsection
 
 @push('scripts')
-    <script src="{{ asset('dms-reference/campaign-clone-modal.js') }}?v={{ substr(sha1_file(public_path('dms-reference/campaign-clone-modal.js')), 0, 12) }}" defer></script>
+    <script src="{{ asset('console-assets/campaign-clone-modal.js') }}?v={{ substr(sha1_file(public_path('console-assets/campaign-clone-modal.js')), 0, 12) }}" defer></script>
 @endpush

@@ -1,4 +1,4 @@
-@extends('layouts.dms-admin')
+@extends('layouts.admin-shell')
 
 @section('title', 'Negatives')
 
@@ -20,7 +20,7 @@
             </div>
         </div>
         <div class="block-content block-content-full">
-            <p class="text-muted">DMS stores each negative file under its owner and makes it selectable on campaign setup. AlphaLink follows that ownership within this workspace. The native sender has not been proven to consume this file yet.</p>
+            <p class="text-muted">Negative files are private to their workspace and can be selected during campaign setup. The campaign send path has not been verified to consume the selected file.</p>
             @if ($negatives->isEmpty())
                 <p class="text-center mb-0">No negatives uploaded.</p>
             @else

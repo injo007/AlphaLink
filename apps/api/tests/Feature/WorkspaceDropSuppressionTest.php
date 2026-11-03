@@ -16,10 +16,10 @@ use App\Models\Workspace;
 use App\Models\WorkspaceDropSuppression;
 use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceSponsor;
-use App\Services\AffiliateNetworks\DmsAffiliateSuppressionRefresher;
-use App\Services\Campaigns\DmsCampaignRecipientSnapshotBuilder;
-use App\Services\Campaigns\DmsDropSuppressionProcessor;
-use App\Services\Campaigns\DmsOfferSuppressionFile;
+use App\Services\AffiliateNetworks\AlphaLinkAffiliateSuppressionRefresher;
+use App\Services\Campaigns\AlphaLinkCampaignRecipientSnapshotBuilder;
+use App\Services\Campaigns\AlphaLinkDropSuppressionProcessor;
+use App\Services\Campaigns\AlphaLinkOfferSuppressionFile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -277,7 +277,7 @@ class WorkspaceDropSuppressionTest extends TestCase
         $this->assertSame(0, $queuedJob->timeout);
         $this->assertSame('sync', config('queue.connections.drop_suppression.driver'));
         $this->assertSame(86400, config('queue.connections.drop_suppression.retry_after'));
-        (new ProcessWorkspaceDropSuppression((int) $run->getKey()))->handle(app(DmsDropSuppressionProcessor::class));
+        (new ProcessWorkspaceDropSuppression((int) $run->getKey()))->handle(app(AlphaLinkDropSuppressionProcessor::class));
 
         $run->refresh();
         $this->assertSame('complete', $run->status);
@@ -313,7 +313,7 @@ class WorkspaceDropSuppressionTest extends TestCase
             'created_at' => now(),
         ]);
 
-        $snapshot = app(DmsCampaignRecipientSnapshotBuilder::class)->build($workspace, $campaign, (string) $revision->getKey(), [
+        $snapshot = app(AlphaLinkCampaignRecipientSnapshotBuilder::class)->build($workspace, $campaign, (string) $revision->getKey(), [
             'offer_id' => $offer->getKey(),
             'audience_segments' => [$list->getKey().'_fresh'],
             'order_by' => 'default',
@@ -408,7 +408,7 @@ class WorkspaceDropSuppressionTest extends TestCase
             'started_at' => now(),
         ]);
 
-        app(DmsDropSuppressionProcessor::class)->process((int) $run->getKey());
+        app(AlphaLinkDropSuppressionProcessor::class)->process((int) $run->getKey());
 
         $this->assertSame('complete', $run->fresh()->status);
         $this->assertSame(1, $run->fresh()->found);
@@ -430,7 +430,7 @@ class WorkspaceDropSuppressionTest extends TestCase
         $this->assertIsString($sourcePath);
         file_put_contents($sourcePath, $hash."\n");
         try {
-            $stored = app(DmsOfferSuppressionFile::class)->storeDownloadedFile($workspace, $offer, $sourcePath);
+            $stored = app(AlphaLinkOfferSuppressionFile::class)->storeDownloadedFile($workspace, $offer, $sourcePath);
         } finally {
             @unlink($sourcePath);
         }
@@ -454,7 +454,7 @@ class WorkspaceDropSuppressionTest extends TestCase
             'started_at' => now(),
         ]);
 
-        app(DmsDropSuppressionProcessor::class)->process((int) $run->getKey());
+        app(AlphaLinkDropSuppressionProcessor::class)->process((int) $run->getKey());
 
         $this->assertSame('sha512', $offer->fresh()->suppression_format);
         $this->assertSame('complete', $run->fresh()->status);
@@ -475,7 +475,7 @@ class WorkspaceDropSuppressionTest extends TestCase
         $email = 'blocked-campaign-sha512@example.test';
         $contact = $this->contact($workspace, $list, strtoupper($email));
         $eligible = $this->contact($workspace, $list, 'eligible-campaign@example.test');
-        $stored = app(DmsOfferSuppressionFile::class)
+        $stored = app(AlphaLinkOfferSuppressionFile::class)
             ->storeContent($workspace, $offer, hash('sha512', $email)."\n");
         $offer->forceFill([
             'suppression_path' => $stored['path'],
@@ -502,7 +502,7 @@ class WorkspaceDropSuppressionTest extends TestCase
             'created_at' => now(),
         ]);
 
-        $snapshot = app(DmsCampaignRecipientSnapshotBuilder::class)->build($workspace, $campaign, (string) $revision->getKey(), [
+        $snapshot = app(AlphaLinkCampaignRecipientSnapshotBuilder::class)->build($workspace, $campaign, (string) $revision->getKey(), [
             'offer_id' => $offer->getKey(),
             'audience_segments' => [$list->getKey().'_fresh'],
             'order_by' => 'default',
@@ -543,7 +543,7 @@ class WorkspaceDropSuppressionTest extends TestCase
         $failedContactId = $contacts->last()->getKey();
         DB::unprepared("CREATE TRIGGER fail_suppression_import BEFORE INSERT ON workspace_offer_list_suppressions WHEN NEW.contact_id = '{$failedContactId}' BEGIN SELECT RAISE(ABORT, 'synthetic import failure'); END");
 
-        app(DmsDropSuppressionProcessor::class)->process((int) $run->getKey());
+        app(AlphaLinkDropSuppressionProcessor::class)->process((int) $run->getKey());
 
         $this->assertSame('error EX', $run->fresh()->status);
         $this->assertSame(0, $run->fresh()->found);
@@ -569,7 +569,7 @@ class WorkspaceDropSuppressionTest extends TestCase
             'started_at' => now(),
         ]);
 
-        app(DmsDropSuppressionProcessor::class)->process((int) $run->getKey());
+        app(AlphaLinkDropSuppressionProcessor::class)->process((int) $run->getKey());
 
         $this->assertSame('complete NS', $run->fresh()->status);
         $this->assertSame(0, $run->fresh()->found);
@@ -600,7 +600,7 @@ class WorkspaceDropSuppressionTest extends TestCase
             'suppression_id' => $run->getKey(),
         ])->assertOk()->assertJsonPath('data', 'Killed Successfully');
 
-        app(DmsDropSuppressionProcessor::class)->process((int) $run->getKey());
+        app(AlphaLinkDropSuppressionProcessor::class)->process((int) $run->getKey());
         $this->assertSame('killed', $run->fresh()->status);
         $this->assertDatabaseMissing('workspace_offer_list_suppressions', ['contact_id' => $contact->getKey()]);
         $this->actingAs($owner)->getJson(route('console.drops.suppression.monitor', [$workspace->getKey(), $run->getKey()]))
@@ -625,15 +625,15 @@ class WorkspaceDropSuppressionTest extends TestCase
             'started_at' => now(),
         ]);
 
-        $refresher = Mockery::mock(DmsAffiliateSuppressionRefresher::class);
+        $refresher = Mockery::mock(AlphaLinkAffiliateSuppressionRefresher::class);
         $refresher->shouldReceive('refresh')->once()->andReturnUsing(function () use ($run): bool {
             $run->forceFill(['status' => 'killed', 'finished_at' => now()])->save();
 
             return false;
         });
-        $this->app->instance(DmsAffiliateSuppressionRefresher::class, $refresher);
+        $this->app->instance(AlphaLinkAffiliateSuppressionRefresher::class, $refresher);
 
-        app(DmsDropSuppressionProcessor::class)->process((int) $run->getKey());
+        app(AlphaLinkDropSuppressionProcessor::class)->process((int) $run->getKey());
 
         $this->assertSame('killed', $run->fresh()->status);
         $this->assertNull($run->fresh()->failure_message);

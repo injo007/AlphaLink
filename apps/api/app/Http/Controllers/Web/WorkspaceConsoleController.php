@@ -48,7 +48,6 @@ use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -1738,7 +1737,10 @@ class WorkspaceConsoleController extends Controller
                 'date' => now()->toRfc2822String(),
                 'negative' => $negativePath,
                 'token' => $testToken,
-                'click_url' => $campaign === null ? '' : $this->campaignTestClickUrl($campaign, $testToken, (int) $ispId),
+                'click_url' => $campaign === null ? '' : $redirectUrlPolicy->campaignTrackingClickUrl(
+                    trim((string) ($data['domain'] ?? '')) ?: (string) ($ipTags['domain'] ?? ''),
+                    $testToken,
+                ),
                 'boundary' => Str::random(30),
             ];
             $cache = [];
@@ -2419,19 +2421,6 @@ class WorkspaceConsoleController extends Controller
         return $response->withErrors(['manual_test' => $message]);
     }
 
-    private function campaignTestClickUrl(Campaign $campaign, string $token, int $ispId): string
-    {
-        return URL::temporarySignedRoute(
-            'public.campaign-test-click',
-            now()->addYears(10),
-            [
-                'campaign' => $campaign->getKey(),
-                'token' => $token,
-                'isp_id' => $ispId,
-            ],
-        );
-    }
-
     public function sendCampaignPmtaTest(
         Request $request,
         string $workspace,
@@ -2537,7 +2526,7 @@ class WorkspaceConsoleController extends Controller
 
         $testToken = $tagRenderer->campaignTestToken($campaign->getKey(), (string) ($setup['isp_id'] ?? '0'));
         $tagValues = [
-            ...$this->campaignTestIpTags($workspace, $server, $route, $routeChoice, (string) ($data['domain'] ?? '')),
+            ...$this->campaignTestIpTags($workspace, $server, $route, $routeChoice, (string) ($setup['domain'] ?? '')),
             'to' => $recipient,
             'name' => explode('@', $recipient)[0],
             'server' => (string) $server->name.(string) $server->getKey(),
@@ -2545,9 +2534,10 @@ class WorkspaceConsoleController extends Controller
             'subject' => (string) $data['subject'],
             'date' => now()->toRfc2822String(),
             'token' => $testToken,
-            'click_url' => $this->campaignTestClickUrl($campaign, $testToken, (int) ($setup['isp_id'] ?? 0)),
             'boundary' => Str::random(30),
         ];
+        $trackingHost = trim((string) ($setup['domain'] ?? '')) ?: (string) ($tagValues['domain'] ?? '');
+        $tagValues['click_url'] = $redirectUrlPolicy->campaignTrackingClickUrl($trackingHost, $testToken);
         $tagCache = [];
         $fromEmail = trim($tagRenderer->render((string) $data['from_email'], $tagValues, $setup['placeholders'] ?? [], 0, $tagCache));
         $subject = $tagRenderer->render((string) $data['subject'], $tagValues, $setup['placeholders'] ?? [], 0, $tagCache);

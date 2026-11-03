@@ -1152,8 +1152,8 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
         ];
         $this->post(route('console.campaigns.pmta-test', [$workspace->getKey(), $campaign->getKey()]), $pmtaPayload)
             ->assertSessionHas('status', 'The selected server’s PMTA SMTP listener accepted this test message. Mailbox delivery is unconfirmed.');
-        $this->assertStringContainsString('/api/v1/campaigns/'.$campaign->getKey().'/test-click?', $capturedBody);
-        $this->assertStringContainsString('signature=', $capturedBody);
+        $this->assertMatchesRegularExpression('#https://[A-Za-z0-9.-]+/[A-Z0-9]{10}r[^" ]+\?t=1#', $capturedBody);
+        $this->assertStringNotContainsString('baseheavy.example.test', $capturedBody);
         $this->assertStringNotContainsString('http://[domain]', $capturedBody);
         $this->assertDatabaseHas('campaign_test_mail_attempts', ['mailer' => 'pmta_smtp', 'status' => 'accepted_by_transport']);
         $this->post(route('console.campaigns.pmta-test', [$workspace->getKey(), $campaign->getKey()]), $pmtaPayload)
@@ -1471,8 +1471,8 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
         $transport->shouldReceive('start')->times(31);
         $transport->shouldReceive('send')->times(31)->withArgs(fn ($message, $envelope): bool => str_contains($message->toString(), '<info@mail.example.test>')
             && str_contains($message->toString(), 'To: synthetic-recipient@example.test')
-            && str_contains($message->toString(), '/api/v1/campaigns/'.$campaign->getKey().'/test-click?')
-            && str_contains($message->toString(), 'signature=')
+            && preg_match('#https://mail\.example\.test/[A-Z0-9]{10}r[^" ]+\?t=1#', $message->toString()) === 1
+            && ! str_contains($message->toString(), 'baseheavy.example.test')
             && ! str_contains($message->toString(), 'cipherglobal.fun')
             && $envelope->getSender()->getAddress() === 'info@mail.example.test'
             && $envelope->getRecipients()[0]->getAddress() === 'synthetic-recipient@example.test');
@@ -1560,8 +1560,8 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
             ->assertSee('View test configuration')
             ->assertSee('synthetic-recipient@example.test')
             ->assertSee('Header submitted')
-            ->assertSee('/api/v1/campaigns/'.$campaign->getKey().'/test-click?', false)
-            ->assertSee('signature=', false);
+            ->assertSee('t=1', false)
+            ->assertDontSee('baseheavy.example.test');
         $this->get(route('clean.console.campaigns.show', $campaign->getKey()).'?test_logs_page=2')
             ->assertOk()
             ->assertSee('Showing 7 of 32')
@@ -2685,8 +2685,8 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
         $this->assertStringContainsString('From: mailer@smtp-selected.example.test', $message);
         $this->assertStringContainsString('Subject: Account selected-smtp@example.test / Selected SMTP account', $message);
         $this->assertStringContainsString('SMTP=selected-smtp@example.test; name=Selected SMTP account; source IP=203.0.113.132', $body);
-        $this->assertStringContainsString('/api/v1/campaigns/'.$campaign->getKey().'/test-click?', $body);
-        $this->assertStringContainsString('signature=', $body);
+        $this->assertMatchesRegularExpression('#https://smtp-selected\.example\.test/[A-Z0-9]{10}r[^" ]+\?t=1#', $body);
+        $this->assertStringNotContainsString('baseheavy.example.test', $body);
         $this->assertStringNotContainsString('tracking=http://smtp-selected.example.test/', $body);
         $this->assertStringContainsString('external=http://outside.example.test/path', $body);
         $this->assertStringContainsString('X-Virtual-MTA: '.$expectedPmtaName, $message);

@@ -473,23 +473,26 @@ class CampaignSendExecutionLedgerTest extends TestCase
 
         $message = app(CampaignSendMessageBuilder::class)->build($context, $fixture['item'], $fixture['contact']->email);
         preg_match_all('#https://tracking\.example\.test/[A-Z0-9]{10}o([^" ]+)#i', $message['body'], $openMatches);
-        preg_match('#href="([^"]+/api/v1/campaigns/[^/]+/[^/]+/click\?[^\"]+)"#i', $message['body'], $clickMatch);
+        preg_match('#href="(https://tracking\.example\.test/[A-Z0-9]{10}r[^\"]+\?t=1)"#i', $message['body'], $clickMatch);
 
         $this->assertCount(1, $openMatches[1]);
         $this->assertArrayHasKey(1, $clickMatch);
         $clickUrl = html_entity_decode($clickMatch[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
         parse_str((string) parse_url($clickUrl, PHP_URL_QUERY), $clickQuery);
         $clickPath = explode('/', trim((string) parse_url($clickUrl, PHP_URL_PATH), '/'));
-        $this->assertSame((string) $fixture['campaign']->getKey(), $clickPath[3]);
-        $this->assertSame((string) $fixture['item']->getKey(), $clickPath[4]);
-        $this->assertSame('click', $clickPath[5]);
-        $this->assertArrayHasKey('signature', $clickQuery);
+        $clickToken = substr($clickPath[0], 11);
+        if (count($clickPath) > 1) {
+            $clickToken .= '/'.implode('/', array_slice($clickPath, 1));
+        }
+        $this->assertSame(['t' => '1'], $clickQuery);
+        $this->assertSame(10, strlen(substr($clickPath[0], 0, 10)));
+        $this->assertStringNotContainsString('baseheavy.example.test', $clickUrl);
         $this->assertStringNotContainsString('http://203.0.113.241/', $message['body']);
         $this->assertStringContainsString('Message domain: https://tracking.example.test/landing', $message['body']);
         $this->assertStringContainsString('External link: http://outside.example.test/landing', $message['body']);
         $this->assertStringContainsString('https://i.pinimg.com/736x/62/92/63/629263433ead2c24378e115fdb0e46e7.jpg', $message['body']);
         $this->assertStringNotContainsString('http://tracking.example.test/', $message['body']);
-        foreach (array_merge([$clickQuery['token']], $openMatches[1]) as $token) {
+        foreach (array_merge([$clickToken], $openMatches[1]) as $token) {
             $segments = explode('/', $token);
             $this->assertLessThanOrEqual(160, max(array_map('strlen', $segments)));
             $decoded = base64_decode(strtr(implode('', $segments), '-_', '+/'), true);

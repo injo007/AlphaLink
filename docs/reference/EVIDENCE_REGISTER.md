@@ -924,3 +924,8 @@ Case-insensitive scans report zero DMS text in `apps/api/app`, routes, config, r
 ### E-AUD-32 — Live AlphaLink production branding snapshot — 2026-11-03
 
 Read-only accessibility state for `https://baseheavy.shop/gcampaigns/projects` reports DMS in the document title, sidebar brand, and footer. Add Project actions and the side navigation are present. No control was activated or submitted. The source cleanup is pushed as `34f84f4`, but the production server has not been deployed; no production state or database was changed.
+
+
+### E-AUD-33 — Workspace relay artifact independence classification — 2026-11-03
+
+Static inspection of the tracked `pmta/workspace_relay/workspace_relay` shows a stripped, statically linked x86-64 ELF with no dynamic section. Retained Go symbols include SMTP session/backend, queue/forwarder and Gmail sender functions; printable strings identify `emersion/go-smtp`, Google Gmail API and OAuth libraries. A filtered printable-string scan found no DMS identifier or `/var/app` path. Existing E-TOOLS-33 records that this exact SHA-256 (`8cd307e33cfba2411f8fed6e5781ff48180589666e5e0321f23a907c6ad878c4`) was copied from the DMS release. Current static evidence shows no DMS runtime endpoint, but cannot prove all dynamic network behavior or code ownership. The repository has no relay Go source, `go.mod`, or reproducible build recipe; the REA analysis provider was unavailable and this audit did not execute the binary or capture network traffic. Classify this as unresolved artifact provenance/reproducibility, not as a proven live DMS service dependency. Keep DMS-TOOLS-006 TESTING; do not replace the relay until the SMTP/auth/delivery contract has a source-owned implementation and compatibility verification.

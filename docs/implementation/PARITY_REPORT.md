@@ -710,3 +710,8 @@ Removed DMS terminology from active PHP source comments and test names/fixtures,
 ## Production branding verification — E-AUD-32 — 2026-11-03
 
 A fresh read-only accessibility snapshot of production `baseheavy.shop/gcampaigns/projects` still exposes DMS in the page title, sidebar brand, and footer. Add Project controls and the sidebar are present. No click, form submission, or app-state change occurred. Because the local changes are only pushed to GitHub and not installed on the app server, production branding acceptance is not met.
+
+
+## Workspace relay provenance — E-AUD-33 — 2026-11-03
+
+The tracked relay is a statically linked, stripped x86-64 Go executable. Its retained `main.*` symbols describe an SMTP server with session/authentication, forwarding/queue workers and Gmail sending; library strings include `emersion/go-smtp`, Google Gmail API and OAuth. A filtered printable-string scan found no DMS identifier or `/var/app` path, so there is no observed DMS runtime endpoint in this artifact. E-TOOLS-33 establishes that the exact binary was copied from the DMS release, while the AlphaLink repository contains no relay source, `go.mod` or reproducible build recipe. The REA provider was unavailable; this audit did not execute the binary or capture its network behavior. Treat source ownership and reproducibility as UNKNOWN; do not report a proven live DMS dependency. Workspace remains TESTING until that provenance gap is resolved without regressing SMTP authentication and Gmail delivery behavior.

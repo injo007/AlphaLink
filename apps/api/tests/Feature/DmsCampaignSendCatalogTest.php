@@ -115,6 +115,13 @@ class DmsCampaignSendCatalogTest extends TestCase
                 ['domain' => 'cipherglobal.fun', 'token' => 'TRACKINGTOKEN'],
             ),
         );
+        $this->assertSame(
+            '<a href="https://cipherglobal.fun/rTRACKINGTOKEN">Tracked</a>',
+            $renderer->render(
+                '<a href="[domain]/r[token]">Tracked</a>',
+                ['domain' => 'cipherglobal.fun', 'token' => 'TRACKINGTOKEN'],
+            ),
+        );
         $this->assertSame('aGVsbG8', trim($parts[5]));
         $this->assertSame('hello=3Dworld', $parts[6]);
         $this->assertContains($renderer->render('[text:first|second]', [], [], 0, $cache), ['first', 'second']);
@@ -1418,7 +1425,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             'payload' => [
                 'email_tests' => ['synthetic-recipient@example.test'],
                 'header' => "MIME-version: 1.0\nContent-type: text/html\nTo: [to]\nfrom: [from] <info@[domain]>\nSubject: [subject]\nDate: [date]",
-                'body' => '<a href="http://[domain]/[rndUN_10]r[token]">Click</a>',
+                'body' => '<a href="[domain]/[rndUN_10]r[token]">Click</a>',
                 'send_setup' => [
                     'server_ids' => [$server->getKey()],
                     'route_option' => 'ip',
@@ -1464,7 +1471,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             'expected_revision_id' => $revision->getKey(),
             'email_test_addresses' => 'synthetic-recipient@example.test',
             'header' => "MIME-version: 1.0\nContent-type: text/html\nTo: [to]\nfrom: [from] <info@[domain]>\nSubject: [subject]\nDate: [date]",
-            'body' => '<a href="http://[domain]/[rndUN_10]r[token]">Click</a>',
+            'body' => '<a href="[domain]/[rndUN_10]r[token]">Click</a>',
             'send_setup' => ['server_ids' => [$server->getKey()], 'route_option' => 'ip', 'ip_type' => 'ipv4', 'send_type' => 'delay'],
         ];
         $response = $this->actingAs($owner)->postJson(route('console.campaigns.manual-test', $workspace->getKey()), $payload);

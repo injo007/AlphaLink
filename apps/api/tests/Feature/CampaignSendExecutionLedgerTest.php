@@ -466,7 +466,7 @@ class CampaignSendExecutionLedgerTest extends TestCase
             'negative_path' => '',
             'placeholder_rows' => [],
             'header_template' => "MIME-Version: 1.0\nContent-Type: text/html; charset=UTF-8\nTo: [to]\nFrom: sender@example.test\nSubject: Tracked message",
-            'body_template' => '<a href="http://[domain]/[rndUN_10]r[token]">Click</a><img src="http://[domain]/[rndUN_10]o[token]" alt=""><p>Message domain: http://[domain]/landing</p><p>External link: http://outside.example.test/landing</p>',
+            'body_template' => '<a href="[domain]/[rndUN_10]r[token]">Click</a><img src="[domain]/[rndUN_10]o[token]" alt=""><p>Message domain: http://[domain]/landing</p><p>External link: http://outside.example.test/landing</p>',
             'return_path' => '',
             'domain_fallback' => $domain->name,
         ];

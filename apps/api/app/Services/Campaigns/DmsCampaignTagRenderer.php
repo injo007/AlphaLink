@@ -33,10 +33,11 @@ class DmsCampaignTagRenderer
         $text = $this->replacePlaceholders($text, $placeholderRows, $rotationIndex);
         $values['domain_sld'] ??= $this->domainWithoutTld((string) ($values['domain'] ?? ''));
 
-        // Campaign creatives commonly put the selected-domain tag directly
-        // after an HTTP scheme. Normalize that template before resolving the
-        // tag so the scheme does not depend on a later host comparison.
-        $text = preg_replace('/\bhttp:\/\/(?=\s*\[domain\])/i', 'https://', $text) ?? $text;
+        // Campaign creatives may put the selected-domain tag after an HTTP
+        // scheme or use it as a bare URL host. Normalize both forms before
+        // resolving the tag so email clients do not default the link to HTTP.
+        $text = preg_replace('/\bhttp:\/\/\s*(?=\[domain\](?:[\/?#"\'<>\s]|$))/i', 'https://', $text) ?? $text;
+        $text = preg_replace('/(?<![A-Z0-9@.+-])(?<!:\/\/)(?=\[domain\](?:[\/?#"\'<>\s]|$))/i', 'https://', $text) ?? $text;
 
         // SMTP route usernames are often complete mailbox addresses. DMS
         // templates also commonly append @[domain] to [smtp], so avoid

@@ -77,8 +77,7 @@ $application = Application::configure(basePath: dirname(__DIR__))
             ->runInBackground();
         $schedule->command('workspace:analytics-warm-dashboard')
             ->everyMinute()
-            ->withoutOverlapping()
-            ->runInBackground();
+            ->withoutOverlapping();
         if (Schema::hasTable('campaign_lead_conversions') && Schema::hasTable('workspace_sponsors')) {
             $schedule->command(SyncWorkspaceSponsorLeads::class)
                 ->everyFiveMinutes()

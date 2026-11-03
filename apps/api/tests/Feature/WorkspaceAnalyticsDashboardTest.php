@@ -11,8 +11,10 @@ use App\Models\WorkspaceDrop;
 use App\Models\WorkspaceDropVisitor;
 use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceSponsor;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -27,6 +29,17 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
         parent::setUp();
 
         $this->withoutMiddleware(RewriteLegacyWorkspaceUrls::class);
+    }
+
+    public function test_daily_analytics_warmer_runs_in_the_scheduler_service_foreground(): void
+    {
+        Artisan::call('schedule:list');
+        $event = collect(app(Schedule::class)->events())
+            ->first(fn ($event): bool => str_contains((string) $event->command, 'workspace:analytics-warm-dashboard'));
+
+        $this->assertNotNull($event);
+        $this->assertFalse($event->runInBackground);
+        $this->assertTrue($event->withoutOverlapping);
     }
 
     public function test_daily_analytics_source_indexes_lead_with_the_event_time(): void

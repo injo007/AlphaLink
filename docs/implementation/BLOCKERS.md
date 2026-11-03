@@ -625,3 +625,8 @@ E-TRACK-38 fixes the scheme-less `[domain]` URL-host case and commit `7675e97` p
 - Node passes 86/86 and Vite 8.3.5 builds. Static scans find no DMS identifiers, URLs/hosts, table/config keys, or dependency references in active code, routes, config, views, public assets, or manifests.
 - The repository's GET-only DMS reference relay and tests were restored after the broad rename removed them; the relay tests pass 53/53 with a temporary synthetic config. Do not delete this audit tool as part of AlphaLink runtime rebranding.
 - The worktree remains local and uncommitted. Independence acceptance remains open.
+
+
+### E-AUD-30 follow-up — production deployment
+
+The local work is committed and pushed to `origin/master` as `9baab5a`. The user has identified `baseheavy.shop` as AlphaLink production. Deployment is still blocked because no verified SSH target/fingerprint for that host is available; the checkout `.env` is empty, and the protected SSH profile available locally targets a different host under read-only gates. Do not use those credentials against either system. Post-deploy live branding and Gmail Projects navigation checks remain outstanding.

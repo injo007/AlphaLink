@@ -24,6 +24,7 @@ class CampaignSendMessageBuilder
         private readonly DmsCampaignTagRenderer $tagRenderer,
         private readonly DmsBulkInstallVmtaPlanner $vmtaPlanner,
         private readonly DmsCampaignTrackingTokenBuilder $trackingTokenBuilder,
+        private readonly CampaignRedirectUrlPolicy $redirectUrlPolicy,
     ) {}
 
     /** @return array<string, mixed> */
@@ -219,6 +220,9 @@ class CampaignSendMessageBuilder
             $body = $this->replaceDomain($body, $context['domain_fallback'], $domain);
             $returnPath = $this->replaceDomain($returnPath, $context['domain_fallback'], $domain);
         }
+        $header = $this->redirectUrlPolicy->forceHttpsForHost($header, $domain);
+        $body = $this->redirectUrlPolicy->forceHttpsForHost($body, $domain);
+        $returnPath = $this->redirectUrlPolicy->forceHttpsForHost($returnPath, $domain);
         $header = $this->setHeader($header, 'X-virtual-MTA', $vmtaName);
         $header = $this->setHeader($header, 'X-ENVID', $context['run']->getKey().'-'.$position);
         $header = $this->setHeader($header, 'X-JOB', (string) $context['run']->getKey());

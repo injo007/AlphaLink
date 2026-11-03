@@ -1,6 +1,6 @@
 @php
     $errorKey = 'settings.' . $field;
-    $inputValue = $secret ? '' : old($errorKey, $settings[$field] ?? '');
+    $inputValue = $secret ? '' : (!empty($readonly) ? ($settings[$field] ?? '') : old($errorKey, $settings[$field] ?? ''));
 @endphp
 <div class="form-group">
     <label for="{{ $field }}">{{ $label }}:</label>
@@ -10,6 +10,7 @@
         type="{{ $secret ? 'password' : ($type ?? 'text') }}"
         class="form-control"
         value="{{ $inputValue }}"
+        @if (!empty($readonly)) readonly aria-readonly="true" @endif
         @if ($secret) autocomplete="new-password" @endif
         @if ($secret && ($secretConfigured[$field] ?? false) && ($canManageGeneralSettings ?? false)) data-secret-input="{{ $field }}" data-secret-url="{{ route('clean.console.app-settings.secret', ['field' => $field]) }}" @endif
         @if (!empty($placeholder) || ($secret && ($secretConfigured[$field] ?? false))) placeholder="{{ $secret && ($secretConfigured[$field] ?? false) ? 'Saved; leave blank to keep' : ($placeholder ?? '') }}" @endif
@@ -36,6 +37,9 @@
     @endif
     @if ($field === 'mini_app_key')
         <small class="form-text text-muted">{{ ($secretConfigured[$field] ?? false) ? 'Generated automatically the first time TRACKING is selected during server installation. Use Reveal to view this workspace’s saved key.' : 'Not generated yet. AlphaLink creates and stores this key the first time TRACKING is selected during server installation.' }}</small>
+    @endif
+    @if ($field === 'app_redirect')
+        <small class="form-text text-muted" id="app_redirect-policy-note">Unknown campaign redirect targets always use HTTPS and go to Google. This destination is fixed.</small>
     @endif
     @if ($errors->has($errorKey))
         <small class="text-danger" id="{{ $field }}-error">{{ $errors->first($errorKey) }}</small>

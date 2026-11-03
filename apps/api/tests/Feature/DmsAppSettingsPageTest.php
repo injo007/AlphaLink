@@ -50,6 +50,9 @@ class DmsAppSettingsPageTest extends TestCase
         $settingsUrl = e($this->settingsPage());
 
         $response->assertSee('SETTINGS')
+            ->assertSee('value="https://www.google.com"', false)
+            ->assertSee('readonly aria-readonly="true"', false)
+            ->assertSee('This destination is fixed.')
             ->assertDontSee('APP SETTINGS')
             ->assertSee('id="nav-submenu-miscellaneous"', false)
             ->assertSee('href="'.$settingsUrl.'"', false)
@@ -139,6 +142,7 @@ class DmsAppSettingsPageTest extends TestCase
         $this->assertTrue($values['move_emails_to_dormant']);
         $this->assertTrue($values['allow_backup']);
         $this->assertSame(['198.51.100.30', 'bounce.example.test'], $values['app_ips']);
+        $this->assertSame('https://www.google.com', $values['app_redirect']);
         $this->assertSame(['Comcast'], $values['allowed_proxies']);
         $this->assertSame(['Example ISP'], $values['blocked_open_traffic']);
         $this->assertSame(22, $values['backup_port']);

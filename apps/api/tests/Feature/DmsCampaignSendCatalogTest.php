@@ -1104,7 +1104,8 @@ class DmsCampaignSendCatalogTest extends TestCase
 
         $transport = Mockery::mock(SmtpTransport::class);
         $transport->shouldReceive('start')->once();
-        $transport->shouldReceive('send')->once();
+        $transport->shouldReceive('send')->once()->withArgs(fn ($message, $envelope): bool => str_contains($message->toString(), 'https://')
+            && ! str_contains($message->toString(), 'http://[domain]'));
         $transport->shouldReceive('stop')->once();
         $factory = Mockery::mock(PmtaCampaignTestTransport::class);
         $factory->shouldReceive('forServer')->once()->withArgs(fn (ManagedServer $selected, int $port): bool => $selected->is($server) && $port === 2525)->andReturn($transport);
@@ -1115,7 +1116,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             'recipient' => 'seed@example.test',
             'from_email' => 'sender@example.test',
             'subject' => 'Synthetic PMTA test',
-            'body' => '<p>Synthetic test body</p>',
+            'body' => '<a href="http://[domain]/r[token]">Synthetic test link</a>',
             'idempotency_key' => (string) Str::uuid(),
             'confirm_authorized_recipient' => '1',
         ];
@@ -1410,7 +1411,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             'payload' => [
                 'email_tests' => ['synthetic-recipient@example.test'],
                 'header' => "MIME-version: 1.0\nContent-type: text/html\nTo: [to]\nfrom: [from] <info@[domain]>\nSubject: [subject]\nDate: [date]",
-                'body' => '<p>Current unsaved body</p>',
+                'body' => '<a href="http://[domain]/[rndUN_10]r[token]">Click</a>',
                 'send_setup' => [
                     'server_ids' => [$server->getKey()],
                     'route_option' => 'ip',
@@ -1439,7 +1440,8 @@ class DmsCampaignSendCatalogTest extends TestCase
         $transport->shouldReceive('start')->times(31);
         $transport->shouldReceive('send')->times(31)->withArgs(fn ($message, $envelope): bool => str_contains($message->toString(), '<info@mail.example.test>')
             && str_contains($message->toString(), 'To: synthetic-recipient@example.test')
-            && str_contains($message->toString(), '<p>Current unsaved body</p>')
+            && str_contains($message->toString(), 'https://mail.example.test/')
+            && ! str_contains($message->toString(), 'http://mail.example.test/')
             && $envelope->getSender()->getAddress() === 'info@mail.example.test'
             && $envelope->getRecipients()[0]->getAddress() === 'synthetic-recipient@example.test');
         $transport->shouldReceive('stop')->times(31);
@@ -1455,7 +1457,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             'expected_revision_id' => $revision->getKey(),
             'email_test_addresses' => 'synthetic-recipient@example.test',
             'header' => "MIME-version: 1.0\nContent-type: text/html\nTo: [to]\nfrom: [from] <info@[domain]>\nSubject: [subject]\nDate: [date]",
-            'body' => '<p>Current unsaved body</p>',
+            'body' => '<a href="http://[domain]/[rndUN_10]r[token]">Click</a>',
             'send_setup' => ['server_ids' => [$server->getKey()], 'route_option' => 'ip', 'ip_type' => 'ipv4', 'send_type' => 'delay'],
         ];
         $response = $this->actingAs($owner)->postJson(route('console.campaigns.manual-test', $workspace->getKey()), $payload);
@@ -1526,7 +1528,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             ->assertSee('View test configuration')
             ->assertSee('synthetic-recipient@example.test')
             ->assertSee('Header submitted')
-            ->assertSee('Current unsaved body');
+            ->assertSee('https://mail.example.test/');
         $this->get(route('clean.console.campaigns.show', $campaign->getKey()).'?test_logs_page=2')
             ->assertOk()
             ->assertSee('Showing 7 of 32')

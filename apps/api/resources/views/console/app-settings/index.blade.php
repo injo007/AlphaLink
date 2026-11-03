@@ -63,7 +63,7 @@
                         <div class="col-sm-12 col-md-3"><p>APP FIREWALL SETTINGS:</p></div>
                         <div class="col-sm-12 col-md-9">
                             @include('console.app-settings.partials.multi-value', ['field' => 'app_ips', 'label' => 'ALLOWED APP (IPS, DDNS)'])
-                            @include('console.app-settings.partials.field', ['field' => 'app_redirect', 'label' => 'REDIRECT UNKNOWNS TO', 'type' => 'text', 'secret' => false])
+                            @include('console.app-settings.partials.field', ['field' => 'app_redirect', 'label' => 'REDIRECT UNKNOWNS TO', 'type' => 'url', 'secret' => false, 'readonly' => true])
                         </div>
                     </div>
                     <hr>

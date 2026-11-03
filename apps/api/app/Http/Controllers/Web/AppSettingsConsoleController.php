@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditEvent;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\Campaigns\CampaignRedirectUrlPolicy;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -141,7 +142,7 @@ class AppSettingsConsoleController extends Controller
             'production_ips' => $this->arrayValue($setting('production_ips', [])),
             'rdp_ips' => $this->arrayValue($setting('rdp_ips', [])),
             'app_ips' => $this->arrayValue($genericSettings['app_ips'] ?? []),
-            'app_redirect' => $genericSettings['app_redirect'] ?? 'https://www.google.com',
+            'app_redirect' => CampaignRedirectUrlPolicy::UNKNOWN_REDIRECT_URL,
             'block_proxies' => $genericSettings['block_proxies'] ?? false,
             'filter_geo' => $genericSettings['filter_geo'] ?? true,
             'allowed_proxies' => $this->arrayValue($genericSettings['allowed_proxies'] ?? []),
@@ -257,6 +258,9 @@ class AppSettingsConsoleController extends Controller
         $providedSettings = $request->input('settings');
         if (! is_array($providedSettings)) {
             $providedSettings = Arr::only($request->all(), $allowedFields);
+        }
+        if (! $installationOnly) {
+            $providedSettings['app_redirect'] = CampaignRedirectUrlPolicy::UNKNOWN_REDIRECT_URL;
         }
 
         $request->merge(['settings' => $providedSettings]);

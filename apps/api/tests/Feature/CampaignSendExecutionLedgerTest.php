@@ -466,17 +466,19 @@ class CampaignSendExecutionLedgerTest extends TestCase
             'negative_path' => '',
             'placeholder_rows' => [],
             'header_template' => "MIME-Version: 1.0\nContent-Type: text/html; charset=UTF-8\nTo: [to]\nFrom: sender@example.test\nSubject: Tracked message",
-            'body_template' => '<a href="http://[domain]/[rndUN_10]r[token]">Click</a><img src="http://[domain]/[rndUN_10]o[token]" alt=""><p>Message domain: http://[domain]/landing</p>',
+            'body_template' => '<a href="http://[domain]/[rndUN_10]r[token]">Click</a><img src="http://[domain]/[rndUN_10]o[token]" alt=""><p>Message domain: http://[domain]/landing</p><p>External link: http://outside.example.test/landing</p>',
             'return_path' => '',
             'domain_fallback' => $domain->name,
         ];
 
         $message = app(CampaignSendMessageBuilder::class)->build($context, $fixture['item'], $fixture['contact']->email);
-        preg_match_all('#http://tracking\.example\.test/[A-Z0-9]{10}[ro]([^" ]+)#i', $message['body'], $matches);
+        preg_match_all('#https://tracking\.example\.test/[A-Z0-9]{10}[ro]([^" ]+)#i', $message['body'], $matches);
 
         $this->assertCount(2, $matches[1]);
         $this->assertStringNotContainsString('http://203.0.113.241/', $message['body']);
-        $this->assertStringContainsString('Message domain: http://tracking.example.test/landing', $message['body']);
+        $this->assertStringContainsString('Message domain: https://tracking.example.test/landing', $message['body']);
+        $this->assertStringContainsString('External link: http://outside.example.test/landing', $message['body']);
+        $this->assertStringNotContainsString('http://tracking.example.test/', $message['body']);
         foreach ($matches[1] as $token) {
             $segments = explode('/', $token);
             $this->assertLessThanOrEqual(160, max(array_map('strlen', $segments)));
@@ -500,7 +502,8 @@ class CampaignSendExecutionLedgerTest extends TestCase
         ]])->save();
         $domain->forceFill(['is_our' => true])->save();
         $ownedDomainMessage = app(CampaignSendMessageBuilder::class)->build($context, $fixture['item'], $fixture['contact']->email);
-        $this->assertStringContainsString('http://tracking.example.test/', $ownedDomainMessage['body']);
+        $this->assertStringContainsString('https://tracking.example.test/', $ownedDomainMessage['body']);
+        $this->assertStringNotContainsString('http://tracking.example.test/', $ownedDomainMessage['body']);
         $this->assertStringNotContainsString('http://203.0.113.241/', $ownedDomainMessage['body']);
 
         $selectedDomain = SendingDomain::query()->create([
@@ -517,8 +520,9 @@ class CampaignSendExecutionLedgerTest extends TestCase
         $context['domain_fallback'] = $selectedDomain->name;
         $selectedDomainMessage = app(CampaignSendMessageBuilder::class)->build($context, $fixture['item'], $fixture['contact']->email);
 
-        $this->assertStringContainsString('Message domain: http://selected-campaign.example.test/landing', $selectedDomainMessage['body']);
-        $this->assertStringContainsString('http://selected-campaign.example.test/', $selectedDomainMessage['body']);
+        $this->assertStringContainsString('Message domain: https://selected-campaign.example.test/landing', $selectedDomainMessage['body']);
+        $this->assertStringContainsString('https://selected-campaign.example.test/', $selectedDomainMessage['body']);
+        $this->assertStringNotContainsString('http://selected-campaign.example.test/', $selectedDomainMessage['body']);
         $this->assertStringNotContainsString('http://203.0.113.241/', $selectedDomainMessage['body']);
         $this->assertStringNotContainsString('http://tracking.example.test/', $selectedDomainMessage['body']);
 
@@ -527,8 +531,9 @@ class CampaignSendExecutionLedgerTest extends TestCase
         $selectedDomain->forceFill(['is_our' => false])->save();
         $externalRedirectMessage = app(CampaignSendMessageBuilder::class)->build($context, $fixture['item'], $fixture['contact']->email);
 
-        $this->assertStringContainsString('Message domain: http://selected-campaign.example.test/landing', $externalRedirectMessage['body']);
-        $this->assertStringContainsString('http://selected-campaign.example.test/', $externalRedirectMessage['body']);
+        $this->assertStringContainsString('Message domain: https://selected-campaign.example.test/landing', $externalRedirectMessage['body']);
+        $this->assertStringContainsString('https://selected-campaign.example.test/', $externalRedirectMessage['body']);
+        $this->assertStringNotContainsString('http://selected-campaign.example.test/', $externalRedirectMessage['body']);
         $this->assertStringNotContainsString('http://203.0.113.241/', $externalRedirectMessage['body']);
     }
 

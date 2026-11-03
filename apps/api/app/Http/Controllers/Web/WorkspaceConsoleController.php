@@ -23,6 +23,7 @@ use App\Models\WorkspaceCampaignNegative;
 use App\Models\WorkspaceCampaignTestAddress;
 use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceOfferAsset;
+use App\Services\Campaigns\CampaignRedirectUrlPolicy;
 use App\Services\Campaigns\DmsCampaignRecipientSnapshotBuilder;
 use App\Services\Campaigns\DmsCampaignSendCatalog;
 use App\Services\Campaigns\DmsCampaignTagRenderer;
@@ -1389,6 +1390,7 @@ class WorkspaceConsoleController extends Controller
         DmsCampaignSendCatalog $catalog,
         PmtaCampaignTestTransport $transportFactory,
         DmsCampaignTagRenderer $tagRenderer,
+        CampaignRedirectUrlPolicy $redirectUrlPolicy,
         DmsBulkInstallVmtaPlanner $vmtaPlanner,
         PmtaRemoteConfiguration $pmtaRemote,
     ): RedirectResponse|JsonResponse {
@@ -1432,7 +1434,7 @@ class WorkspaceConsoleController extends Controller
             'send_setup' => [...$sendSetup, 'send_type' => $data['send_type']],
         ]);
 
-        return $this->sendCampaignManualTest($request, (string) $workspace->getKey(), $catalog, $transportFactory, $tagRenderer, $vmtaPlanner, $pmtaRemote);
+        return $this->sendCampaignManualTest($request, (string) $workspace->getKey(), $catalog, $transportFactory, $tagRenderer, $redirectUrlPolicy, $vmtaPlanner, $pmtaRemote);
     }
 
     public function sendCampaignManualTest(
@@ -1441,6 +1443,7 @@ class WorkspaceConsoleController extends Controller
         DmsCampaignSendCatalog $catalog,
         PmtaCampaignTestTransport $transportFactory,
         DmsCampaignTagRenderer $tagRenderer,
+        CampaignRedirectUrlPolicy $redirectUrlPolicy,
         DmsBulkInstallVmtaPlanner $vmtaPlanner,
         PmtaRemoteConfiguration $pmtaRemote,
     ): RedirectResponse|JsonResponse {
@@ -1715,6 +1718,7 @@ class WorkspaceConsoleController extends Controller
             $negativePath,
             $placeholderRows,
             $vmtaPlanner,
+            $redirectUrlPolicy,
         ): array {
             $from = $fromAssets === [] ? ['id' => 0, 'value' => ''] : $fromAssets[$index % count($fromAssets)];
             $subject = $subjectAssets === [] ? ['id' => 0, 'value' => ''] : $subjectAssets[$index % count($subjectAssets)];
@@ -1759,6 +1763,10 @@ class WorkspaceConsoleController extends Controller
                     (string) $routeChoice['pmta_name'],
                 );
             }
+            $trackingDomain = (string) ($ipTags['domain'] ?? '');
+            $renderedHeader = $redirectUrlPolicy->forceHttpsForHost($renderedHeader, $trackingDomain);
+            $renderedBody = $redirectUrlPolicy->forceHttpsForHost($renderedBody, $trackingDomain);
+            $renderedReturnPath = $redirectUrlPolicy->forceHttpsForHost($renderedReturnPath, $trackingDomain);
             $fromAddress = $this->campaignHeaderEmailAddress($renderedHeader, 'from');
             $returnPathAddress = trim($renderedReturnPath) === ''
                 ? $fromAddress
@@ -2431,6 +2439,7 @@ class WorkspaceConsoleController extends Controller
         DmsCampaignSendCatalog $catalog,
         PmtaCampaignTestTransport $transportFactory,
         DmsCampaignTagRenderer $tagRenderer,
+        CampaignRedirectUrlPolicy $redirectUrlPolicy,
         DmsBulkInstallVmtaPlanner $vmtaPlanner,
         PmtaRemoteConfiguration $pmtaRemote,
     ): RedirectResponse {
@@ -2543,6 +2552,7 @@ class WorkspaceConsoleController extends Controller
         $tagValues['from'] = $fromEmail;
         $tagValues['subject'] = $subject;
         $body = $tagRenderer->render((string) $data['body'], $tagValues, $setup['placeholders'] ?? [], 0, $tagCache);
+        $body = $redirectUrlPolicy->forceHttpsForHost($body, (string) ($tagValues['domain'] ?? ''));
 
         if (filter_var($fromEmail, FILTER_VALIDATE_EMAIL) === false) {
             throw ValidationException::withMessages(['from_email' => 'The From address must resolve to a valid email address after campaign tags are applied.']);
@@ -2553,7 +2563,15 @@ class WorkspaceConsoleController extends Controller
 
         $recipientHash = hash('sha256', $recipient);
         $idempotencyHash = hash('sha256', $data['idempotency_key']);
-        $fingerprint = hash('sha256', json_encode([$revision->getKey(), $server->getKey(), $recipient, $fromEmail, $subject, $body, $virtualMtaName], JSON_THROW_ON_ERROR));
+        $fingerprint = hash('sha256', json_encode([
+            $revision->getKey(),
+            $server->getKey(),
+            $recipient,
+            (string) $data['from_email'],
+            (string) $data['subject'],
+            (string) $data['body'],
+            $virtualMtaName,
+        ], JSON_THROW_ON_ERROR));
         $prior = CampaignTestMailAttempt::query()->where('idempotency_key_hash', $idempotencyHash)->first();
         if ($prior) {
             abort_unless($prior->campaign_id === $campaign->getKey() && $prior->revision_id === $revision->getKey() && $prior->recipient_sha256 === $recipientHash && $prior->mailer === 'pmta_smtp' && $prior->request_fingerprint === $fingerprint, 409, 'This test submission key was already used for another message.');

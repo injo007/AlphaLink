@@ -13,6 +13,7 @@ use App\Models\ContactListMembershipEvent;
 use App\Models\Workspace;
 use App\Models\WorkspaceOffer;
 use App\Services\Campaigns\CampaignIpGeoResolver;
+use App\Services\Campaigns\CampaignRedirectUrlPolicy;
 use App\Services\Campaigns\TrackingIngestAuthenticator;
 use App\Services\Campaigns\TrackingUuidNormalizer;
 use Illuminate\Http\JsonResponse;
@@ -43,7 +44,7 @@ class CampaignRedirectController extends Controller
 
         $campaign = Campaign::query()->whereKey($data['campaign_id'])->first();
         if (! $campaign) {
-            return response()->json('NFE', 404);
+            return $this->unknownRedirect();
         }
 
         $workspace = Workspace::query()->findOrFail($campaign->workspace_id);
@@ -70,7 +71,11 @@ class CampaignRedirectController extends Controller
             ->first();
         $sponsor = $offer?->sponsor;
         if (! $offer || ! $sponsor) {
-            return response()->json('NFE', 404);
+            return $this->unknownRedirect();
+        }
+
+        if ($data['type'] === 'red' && ! $this->isSafeRedirectUrl((string) $offer->redirect)) {
+            return $this->unknownRedirect();
         }
 
         $genericSettings = $workspace->appSettings?->settings ?? [];
@@ -104,6 +109,18 @@ class CampaignRedirectController extends Controller
         return response()->json($data['type'] === 'red'
             ? ['type' => $sponsor->type, 'link' => $offer->redirect, 'user' => $campaign->created_by]
             : ['link' => $offer->unsubscribe ?: 'unsubscribe?u=1']);
+    }
+
+    private function unknownRedirect(): JsonResponse
+    {
+        return response()->json(['link' => CampaignRedirectUrlPolicy::UNKNOWN_REDIRECT_URL]);
+    }
+
+    private function isSafeRedirectUrl(string $url): bool
+    {
+        $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+
+        return filter_var($url, FILTER_VALIDATE_URL) !== false && in_array($scheme, ['http', 'https'], true);
     }
 
     /** @param array<string, mixed> $location

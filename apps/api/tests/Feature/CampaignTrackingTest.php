@@ -158,7 +158,7 @@ class CampaignTrackingTest extends TestCase
         $this->assertSame(1, CampaignEngagementEvent::query()->where('action', 'ban')->count());
     }
 
-    public function test_campaign_redirect_returns_the_dms_not_found_code_for_an_unknown_campaign(): void
+    public function test_campaign_redirect_sends_an_unknown_campaign_to_the_fixed_https_fallback(): void
     {
         config(['tracking.ingest_key' => 'synthetic-tracking-key', 'infrastructure.ip_api_key' => null]);
         $fixture = $this->recipientFixture();
@@ -166,8 +166,19 @@ class CampaignTrackingTest extends TestCase
         $payload['campaign_id'] = (string) Str::uuid();
 
         $this->postJson('/api/v1/campaign', $payload)
-            ->assertNotFound()
-            ->assertContent('"NFE"');
+            ->assertOk()
+            ->assertExactJson(['link' => 'https://www.google.com']);
+    }
+
+    public function test_campaign_redirect_sends_a_missing_offer_destination_to_the_fixed_https_fallback(): void
+    {
+        config(['tracking.ingest_key' => 'synthetic-tracking-key', 'infrastructure.ip_api_key' => null]);
+        $fixture = $this->recipientFixture();
+        $fixture['offer']->forceFill(['geo_target' => [], 'redirect' => ''])->save();
+
+        $this->postJson('/api/v1/campaign', $this->redirectPayload($fixture))
+            ->assertOk()
+            ->assertExactJson(['link' => 'https://www.google.com']);
     }
 
     public function test_campaign_redirect_rejects_an_ip_outside_the_offer_geo_target(): void

@@ -213,20 +213,21 @@ test('route picker labels and accessible controls switch to SMTP route terminolo
     assert.equal(buttons[0].attributes.get('aria-label'), 'Move all SMTP routes to selected');
 });
 
-test('open tracking pixel control inserts the exact tag at the body selection and restores focus', () => {
+test('open tracking pixel control preserves a chosen caret and otherwise inserts inside the body', () => {
     const snippet = '<img src="[domain]/[rndUN_20]o[token]" width="1" height="1" style="display:block;">';
     assert.match(view, /id="campaign-body-insert-open-pixel"[^>]*title="Insert open tracking pixel"[^>]*aria-label="Insert open tracking pixel"/);
-    assert.ok(view.includes(`insertTextAtSelection(body, '${snippet}')`));
+    assert.ok(view.includes(`insertTextAtSelection(body, '${snippet}', campaignBodyHasFocus)`));
+    assert.ok(view.includes("openPixelButton?.addEventListener('mousedown', event => event.preventDefault());"));
 
-    const helperStart = view.indexOf('            const insertTextAtSelection = (textarea, text) => {');
+    const helperStart = view.indexOf('            const insertTextAtSelection = (textarea, text, useSelection = true) => {');
     const helperEnd = view.indexOf('\n            };', helperStart) + '\n            };'.length;
     assert.notEqual(helperStart, -1, 'body text insertion helper exists');
     assert.ok(helperEnd > helperStart, 'body text insertion helper closes');
 
-    const textarea = {
-        value: '<p>before selected text after</p>',
-        selectionStart: 10,
-        selectionEnd: 23,
+    const makeTextarea = (value, selectionStart, selectionEnd) => ({
+        value,
+        selectionStart,
+        selectionEnd,
         setRangeText(text, start, end, selectionMode) {
             this.value = this.value.slice(0, start) + text + this.value.slice(end);
             this.selectionStart = start + text.length;
@@ -235,19 +236,26 @@ test('open tracking pixel control inserts the exact tag at the body selection an
         },
         dispatchEvent(event) { this.dispatchedEvent = event; },
         focus(options) { this.focusOptions = options; },
-    };
+    });
     class FakeEvent {
         constructor(type, options) { this.type = type; this.bubbles = options.bubbles; }
     }
-    const env = {textarea, Event: FakeEvent};
-
-    vm.runInNewContext(`${view.slice(helperStart, helperEnd)}\ninsertTextAtSelection(textarea, '${snippet}');`, env);
+    const helper = view.slice(helperStart, helperEnd);
+    const textarea = makeTextarea('<p>before selected text after</p>', 10, 23);
+    const selectionEnv = {textarea, Event: FakeEvent};
+    vm.runInNewContext(`${helper}\ninsertTextAtSelection(textarea, '${snippet}', true);`, selectionEnv);
 
     assert.equal(textarea.value, `<p>before ${snippet} after</p>`);
     assert.equal(textarea.selectionMode, 'end');
     assert.equal(textarea.dispatchedEvent.type, 'input');
     assert.equal(textarea.dispatchedEvent.bubbles, true);
     assert.equal(textarea.focusOptions?.preventScroll, true);
+
+    const fallbackTextarea = makeTextarea('<html><body>content</body></html>', 0, 0);
+    const fallbackEnv = {textarea: fallbackTextarea, Event: FakeEvent};
+    vm.runInNewContext(`${helper}\ninsertTextAtSelection(textarea, '${snippet}', false);`, fallbackEnv);
+    assert.equal(fallbackTextarea.value, `<html><body>content${snippet}</body></html>`);
+    assert.equal(fallbackTextarea.selectionMode, 'end');
 });
 
 test('IP route choices disclose linked SMTP account and ambiguity', () => {

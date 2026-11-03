@@ -841,18 +841,25 @@
                 globalStatus.className = message ? `alert alert-${tone}` : 'alert d-none';
                 globalStatus.textContent = message;
             };
-            const insertTextAtSelection = (textarea, text) => {
-                const start = textarea.selectionStart ?? textarea.value.length;
-                const end = textarea.selectionEnd ?? start;
+            const insertTextAtSelection = (textarea, text, useSelection = true) => {
+                const closingBody = textarea.value.toLowerCase().lastIndexOf('</body>');
+                const start = useSelection
+                    ? (textarea.selectionStart ?? textarea.value.length)
+                    : (closingBody >= 0 ? closingBody : textarea.value.length);
+                const end = useSelection ? (textarea.selectionEnd ?? start) : start;
                 textarea.setRangeText(text, start, end, 'end');
                 textarea.dispatchEvent(new Event('input', {bubbles: true}));
                 textarea.focus({preventScroll: true});
             };
+            let campaignBodyHasFocus = false;
+            body.addEventListener('focus', () => { campaignBodyHasFocus = true; });
+            const openPixelButton = document.getElementById('campaign-body-insert-open-pixel');
+            openPixelButton?.addEventListener('mousedown', event => event.preventDefault());
             const insertOpenTrackingPixel = () => {
-                insertTextAtSelection(body, '<img src="[domain]/[rndUN_20]o[token]" width="1" height="1" style="display:block;">');
+                insertTextAtSelection(body, '<img src="[domain]/[rndUN_20]o[token]" width="1" height="1" style="display:block;">', campaignBodyHasFocus);
                 setToolStatus('Open tracking pixel inserted.', 'success');
             };
-            document.getElementById('campaign-body-insert-open-pixel')?.addEventListener('click', insertOpenTrackingPixel);
+            openPixelButton?.addEventListener('click', insertOpenTrackingPixel);
             const closeDialog = (dialog) => {
                 if (!dialog) return;
                 const fallback = dialog.dataset.campaignDialogFallback === 'true';

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\Middleware\LimitPmtaFeedbackConcurrency;
 use App\Jobs\SyncManagedServerPmtaFeedback;
 use App\Models\Isp;
 use App\Models\ManagedServer;
@@ -56,6 +57,18 @@ class AlphaLinkPmtaFeedbackSyncTest extends TestCase
             rmdir($this->stagingDirectory);
         }
         parent::tearDown();
+    }
+
+    public function test_feedback_job_resolves_its_concurrency_middleware(): void
+    {
+        $middleware = (new SyncManagedServerPmtaFeedback('server-id', '2026-10-27'))->middleware();
+        $concurrencyLimits = array_values(array_filter(
+            $middleware,
+            static fn (object $item): bool => $item instanceof LimitPmtaFeedbackConcurrency,
+        ));
+
+        $this->assertCount(1, $concurrencyLimits);
+        $this->assertContainsOnlyInstancesOf(LimitPmtaFeedbackConcurrency::class, $concurrencyLimits);
     }
 
     public function test_verified_server_feedback_is_imported_without_persisting_recipient_data_and_archived(): void

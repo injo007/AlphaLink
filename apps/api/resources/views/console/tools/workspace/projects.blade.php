@@ -7,7 +7,7 @@
         <div class="block-header">
             <h3 class="block-title">GMAIL PROJECTS</h3>
             <div class="block-options d-flex align-items-center">
-                <a class="btn btn-sm btn-alt-primary mr-2" href="{{ route('clean.console.tools.workspace.projects.create', $workspace->id) }}" aria-label="Add Gmail project">
+                <a class="btn btn-sm btn-alt-primary mr-2" href="{{ route('clean.console.tools.workspace.projects.create', $workspace->id) }}" data-workspace-project-create aria-label="Add Gmail project">
                     <i class="fas fa-plus mr-1" aria-hidden="true"></i>ADD PROJECT
                 </a>
                 <button class="btn-block-option" type="button" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen"></button>
@@ -46,7 +46,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="7" class="text-muted">No Workspace projects have been added. <a href="{{ route('clean.console.tools.workspace.projects.create', $workspace->id) }}">Add the first project</a>.</td></tr>
+                            <tr><td colspan="7" class="text-muted">No Workspace projects have been added. <a href="{{ route('clean.console.tools.workspace.projects.create', $workspace->id) }}" data-workspace-project-create>Add the first project</a>.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -81,6 +81,12 @@
             window.closeModal = function () { frameModal?.modal('hide'); window.location.reload(); };
 
             document.getElementById('workspace-project-add').addEventListener('click', () => openFrame(`${base}/projects/create`));
+            document.querySelectorAll('[data-workspace-project-create]').forEach((link) => {
+                link.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    openFrame(link.href);
+                });
+            });
 
             document.getElementById('workspace-project-refresh').addEventListener('click', () => window.location.reload());
 

@@ -64,6 +64,7 @@ class DmsWorkspaceToolTest extends TestCase
             ->assertOk()
             ->assertSee('GMAIL PROJECTS')
             ->assertSee('aria-label="Add Gmail project"', false)
+            ->assertSee('data-workspace-project-create', false)->assertSee('openFrame(link.href)')
             ->assertSee(route('clean.console.tools.workspace.projects.create', $this->workspace->id), false)
             ->assertSee('Add the first project');
     }
@@ -95,6 +96,7 @@ class DmsWorkspaceToolTest extends TestCase
             ->assertOk()->assertSee('GMAIL PROJECTS')->assertSee($project->name)
             ->assertSee('workspace-project-add')->assertDontSee('workspace-project-form')->assertSee('workspace-project-table')
             ->assertSee('aria-label="Add Gmail project"', false)
+            ->assertSee('data-workspace-project-create', false)->assertSee('openFrame(link.href)')
             ->assertSee(route('clean.console.tools.workspace.projects.create', $this->workspace->id), false)
             ->assertSee('ALLOWED USERS')->assertDontSee('<th>Allowed Mailers</th>', false)
             ->assertSee('ENABLE / DISABLE PROJECTS')->assertSee('DELETE SELECTED')
@@ -104,6 +106,7 @@ class DmsWorkspaceToolTest extends TestCase
             ->assertSee('workspace-projects-all')
             ->assertSee($this->cleanWorkspaceUrl(route('console.gcampaigns.accounts', [$this->workspace->id, 'project' => $project->id])))
             ->assertSee('datatables.min.js')->assertDontSee('BEGIN PRIVATE KEY');
+        $this->assertSame(2, substr_count($projectsPage->getContent(), 'data-workspace-project-create'));
         $this->get(route('console.tools.workspace.projects.create', $this->workspace->id))
             ->assertOk()->assertSee('ADD PROJECT')->assertSee('workspace-project-create-s3')
             ->assertSee('workspace-project-create-s3-link')->assertSee('workspace-project-create-s3-sync')

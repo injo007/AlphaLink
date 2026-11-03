@@ -919,3 +919,8 @@ The complete audit checkpoint was pushed to `injo007/AlphaLink` `master` as `9ba
 ### E-AUD-31 — Active-code naming audit — 2026-11-03
 
 Case-insensitive scans report zero DMS text in `apps/api/app`, routes, config, resources, public assets, or Composer/npm manifests. DMS-specific wording in PHP comments and test names/fixtures was removed, and the unused `/log_DMS/` ignore path was deleted. The only `dms_csv` content left in active test/migration source is the explicit up/down compatibility mapping from legacy stored import markers to `profile_csv`. Ten DMS-named migration filenames remain to preserve Laravel migration history; 25 DMS-named audit/reference paths retain provenance and guarded read-only tooling. Network-disabled PHPUnit: **1,025 passed, 1 skipped, 9,579 assertions, 15 notices**; Node: **86/86**; focused PHP suites: **38 / 329 assertions**; Pint: **190 files passed**; `git diff --check` passes. The changes are not yet deployed to `baseheavy.shop`; no live state was modified.
+
+
+### E-AUD-32 — Live AlphaLink production branding snapshot — 2026-11-03
+
+Read-only accessibility state for `https://baseheavy.shop/gcampaigns/projects` reports DMS in the document title, sidebar brand, and footer. Add Project actions and the side navigation are present. No control was activated or submitted. The source cleanup is pushed as `34f84f4`, but the production server has not been deployed; no production state or database was changed.

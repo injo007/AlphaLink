@@ -635,3 +635,8 @@ The local work is committed and pushed to `origin/master` as `9baab5a`. The user
 ### E-AUD-31 follow-up — active naming cleanup
 
 Active PHP source, routes, config, views, public assets, and package manifests now have no DMS strings. Test names and synthetic values were neutralized; the only `dms_csv` source/test value is required by the reversible migration that maps old import rows to `profile_csv`. Ten DMS-named migration paths remain as immutable Laravel migration history, and 25 audit/reference paths remain historical evidence or protected read-only tooling. Do not rename migration files without a tested migration-ledger transition. Production deployment/live browser verification is still blocked on a verified `baseheavy.shop` deployment route.
+
+
+### E-AUD-32 follow-up — production still on old branding
+
+The fresh production Gmail Projects accessibility snapshot still shows DMS branding in the title, sidebar, and footer; Add Project controls and the side navigation are visible. The page was read only. Commit `34f84f4` is on GitHub but not installed. A verified `baseheavy.shop` deployment route remains required before the live rebrand and post-deploy navigation check can pass.

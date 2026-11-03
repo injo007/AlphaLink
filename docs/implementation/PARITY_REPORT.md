@@ -705,3 +705,8 @@ The audited changes are pushed as `9baab5a` to `origin/master`. `baseheavy.shop`
 ## Active naming audit — E-AUD-31 — 2026-11-03
 
 Removed DMS terminology from active PHP source comments and test names/fixtures, and removed the unused DMS log ignore path. Case-insensitive scans find no such text in the application source, routes, config, views, public assets, or manifests. The remaining `dms_csv` reference is an explicit reversible migration compatibility value, not an active format; it converts old rows to `profile_csv`. Ten historical migration filenames and 25 historical audit/reference paths remain deliberately classified as migration lineage and audit evidence. The full network-disabled PHP suite exits successfully (1,025 passing, 1 skipped; 9,579 assertions; 15 notices), Node is 86/86, focused PHP regressions pass 38 / 329 assertions, and Pint passes for 190 files. This local change has not yet been deployed to `baseheavy.shop`; live branding verification remains open.
+
+
+## Production branding verification — E-AUD-32 — 2026-11-03
+
+A fresh read-only accessibility snapshot of production `baseheavy.shop/gcampaigns/projects` still exposes DMS in the page title, sidebar brand, and footer. Add Project controls and the sidebar are present. No click, form submission, or app-state change occurred. Because the local changes are only pushed to GitHub and not installed on the app server, production branding acceptance is not met.

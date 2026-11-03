@@ -1,5 +1,7 @@
 # AlphaLink parity report
 
+> Historical comparisons in this report use archived local evidence. They do not authorize connection to the former service; follow `AGENTS.md` for current policy.
+
 **Current result:** 0 features `PARITY_CONFIRMED`. The local Laravel tests exercise selected AlphaLink behavior, but none compares a complete feature contract to DMS. No reference mutation-based test has been run. E-ROUTE-13 maps all 110 matrix IDs to parity-report rows; the campaign workflow split improves inventory granularity but does not accept any feature.
 
 E-INST-85 updates the supported Ubuntu installer so fresh installs and official `--deploy`/`--resume-initial-install` runs enable and verify the Single/Bulk Install execution switches. This removes the deployment-level default-off failure only; it does not waive host readiness or establish remote installation parity. The production release still must be deployed, and DMS-INST-003/004/005 remain TESTING pending independent asset/host prerequisites and controlled end-to-end evidence.

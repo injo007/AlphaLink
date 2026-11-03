@@ -1,6 +1,6 @@
 # AlphaLink
 
-This Laravel application includes an API and a server-rendered workspace console. It provides tenant-scoped contacts, audience lists, campaign drafts, consent/audit evidence, plus infrastructure management for servers, domains, providers and DMS-mapped bulk installation. Bulk installation uses AlphaLink-owned private assets and saved, host-key-verified SSH credentials. PMTA 4.5r11 has been installed and checked on the saved AlmaLinux 9.8 test server through the real AlphaLink controller and worker. That proves one version/host path; it does not establish full DMS parity, other-version compatibility or contractual license scope. Message sending and campaign dispatch remain outside the current implementation.
+This Laravel application includes an API and a server-rendered workspace console. It provides tenant-scoped contacts, audience lists, campaigns, tracking, suppression, provider operations, infrastructure management, and PMTA installation workflows. Bulk installation uses AlphaLink-owned private assets and saved, host-key-verified SSH credentials. PMTA 4.5r11 has been installed and checked on the saved AlmaLinux 9.8 test server through the real AlphaLink controller and worker. That proves one version/host path; other-version compatibility, failure recovery, and contractual license scope remain unverified. AlphaLink is independently operated; historical references below describe local evidence only and do not authorize access to the original service.
 
 ## Runtime requirements
 
@@ -33,13 +33,13 @@ When tracking is selected, set `ALPHALINK_TRACKING_CALLBACK_URL` to the deployme
 
 The root `.env` is excluded by the root `.gitignore`; it is not an AlphaLink configuration source. The app's own `.env` is also ignored.
 
-## Earlier PMTA staging sample (not the current DMS install bundle)
+## Earlier PMTA staging sample (not the current AlphaLink install bundle)
 
-An earlier owner-supplied ZIP was reviewed with REA (archive SHA-256 `2ea8e4776b705dec618178bddc1ead3cfcb9fcff5a36bc20309dac160eb46e16`). It contains a PowerMTA `4.0r8` `x86_64` RPM (release `201209102127`), a license, and a configuration file. It is a separate staging sample and was not used for the live install. The current installer uses the user-copied DMS `storage/app/install` bundle under AlphaLink's private volume; the supplied old configuration is retained as reference and is **not** an install template.
+An earlier owner-supplied ZIP was reviewed with REA (archive SHA-256 `2ea8e4776b705dec618178bddc1ead3cfcb9fcff5a36bc20309dac160eb46e16`). It contains a PowerMTA `4.0r8` `x86_64` RPM (release `201209102127`), a license, and a configuration file. It is a separate staging sample and was not used for the live install. The current installer uses a PMTA bundle previously copied into AlphaLink's private volume; the supplied old configuration is retained as reference and is **not** an install template.
 
 `alphalink:pmta:stage /absolute/path/to/source.zip` validates this exact reviewed ZIP and its extracted file hashes before publishing a private bundle. Set `ALPHALINK_PMTA_BUNDLE_DIRECTORY` to an absolute directory outside the workspace whose parent has mode `0700`. The command is intentionally local and cannot install to a server or expose the license through an API. It refuses a different ZIP and refuses to overwrite staged files. The manifest records the package identity and explicitly marks host compatibility and license validity as unverified.
 
-The current DMS-derived payload contains versioned RPMs, daemon patches, license files and PMTA configuration inputs. The AlphaLink 4.5 run on AlmaLinux 9.8 installed PMTA and verified the package, running services, CLI status, management listener and DMS-pinned patch/license bytes. `rpm -K` reported digest integrity; vendor-signature trust and the contract's server/volume entitlement were not verified. The installer includes a post-install health gate and stores the target's installation state only after its checks pass. PMTA 4.0/5.0 have not been verified on this target.
+The privately staged PMTA payload contains versioned RPMs, daemon patches, license files and configuration inputs. The AlphaLink 4.5 run on AlmaLinux 9.8 installed PMTA and verified the package, running services, CLI status, management listener and reviewed patch/license bytes. `rpm -K` reported digest integrity; vendor-signature trust and the contract's server/volume entitlement were not verified. The installer includes a post-install health gate and stores the target's installation state only after its checks pass. PMTA 4.0/5.0 have not been verified on this target.
 
 ## API surface
 
@@ -57,17 +57,17 @@ All endpoints are under `/api/v1`. Private routes use Sanctum bearer tokens and 
 - `GET|POST /workspaces/{workspace}/campaigns` and `GET /workspaces/{workspace}/campaigns/{campaign}` — list, read, and create drafts.
 - `POST /workspaces/{workspace}/campaigns/{campaign}/revisions` — create an idempotent immutable content revision on a draft.
 
-There are deliberately no schedule, approve, test-send, campaign-run, transport, or infrastructure endpoints in this first slice. Legal jurisdiction, consent rules, suppression scope, approval policy, provider choice, and operating volume must be decided before those capabilities are added.
+This list covers the initial versioned API slice only. The application also provides campaign sending, schedule, transport, and infrastructure workflows through its web routes; refer to the current Laravel routes and workflow matrix for their scope and verification status.
 
 ## Browser console
 
 - `/sign-in` uses Laravel's session guard, rotates the session on success, and limits repeated failures.
 - `/app` lists active workspace memberships. Every workspace URL rechecks membership server-side; campaign and audience routes also enforce the API role groups.
-- The console is read-only. It shows campaign revision fingerprints and audience membership totals/history; it does not show contact email addresses or provide export controls.
+- The initial workspace review area is read-only. Other campaign, tracking, suppression, and infrastructure pages provide separate actions with their own authorization and safety checks.
 - `DESIGN.md` and `UX-CONTRACT.md` record the current interface style and behavior. CSS runtime tokens live in `resources/css/app.css`.
 
 ## Current implementation boundary
 
-The migrations are PostgreSQL-oriented. Disposable PostgreSQL and SQLite runs cover API and tenant behavior. The infrastructure console includes saved server/domain workflows, provider records, install settings, eligibility, PMTA deployment gates, and a working base PMTA 4.5 path on the recorded AlmaLinux target. The application has not passed whole-product DMS parity review; optional install stages and broader infrastructure workflows still need source-by-source comparison and live verification. Host PHP lacks XML and PostgreSQL PDO extensions; use a PHP runtime with the documented extensions to operate the app. Boost guidelines were generated from the container in `CLAUDE.md`.
+The migrations are PostgreSQL-oriented. Disposable PostgreSQL and SQLite runs cover API and tenant behavior. The infrastructure console includes saved server/domain workflows, provider records, install settings, eligibility, PMTA deployment gates, and a working base PMTA 4.5 path on the recorded AlmaLinux target. Feature status and remaining local verification gaps are tracked in the workflow matrix; this README is not a whole-product acceptance claim. Host PHP lacks XML and PostgreSQL PDO extensions; use a PHP runtime with the documented extensions to operate the app. Boost guidelines were generated from the container in `CLAUDE.md`.
 
-The supplied workspace mount ignores permission changes; its top-level `.env` reports permissive mode. Its values were not copied into this app or printed. Keep DMS and AlphaLink secrets in a private environment directory outside the mount, as described above.
+The supplied workspace mount ignores permission changes; its top-level `.env` reports permissive mode. Its values were not copied into this app or printed. Keep AlphaLink secrets in a private environment directory outside the mount, as described above. Do not retain or reuse credentials from the original service.

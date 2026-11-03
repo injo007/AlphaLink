@@ -1,6 +1,6 @@
 # Reference evidence register
 
-These IDs distinguish historical source snapshots from fresh, bounded browser observations. A fresh browser observation does not imply database/source access beyond its stated boundary. Never store DMS production row values, credentials, or session material in this register.
+These IDs distinguish historical source snapshots from bounded AlphaLink browser observations. A browser observation does not imply database/source access beyond its stated boundary. The former service is out of scope for new access. Never store its production row values, credentials, or session material in this register.
 
 | ID | Evidence source | Observation and boundary |
 |---|---|---|

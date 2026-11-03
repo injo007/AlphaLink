@@ -1,12 +1,14 @@
 # AlphaLink UI Behavior Contract
 
+> This contract records AlphaLink UI decisions alongside historical comparisons to a former service. Any legacy product names or route IDs below refer only to archived local evidence; they are not a live dependency or authorization to access that service. Follow the repository-level `AGENTS.md` for current product and access policy.
+
 ## Product context
 
 - **Audience:** Workspace owners, administrators, campaign operators, and privacy officers.
 - **Primary jobs:** Sign in, choose an authorized workspace, review campaign revisions or audience-list state, and use server and PMTA controls within an active workspace.
 - **Target market(s):** Not selected. English is the initial interface language; no legal or jurisdictional policy is implied.
 - **Accessibility target:** WCAG 2.2 AA baseline for semantics, keyboard access, visible focus, status names, and contrast.
-- **Business evidence:** `../../audit/ALPHALINK_ADVANCED_REFERENCE_SYSTEM_2026-10-22.md` defines the intended architecture and the current no-sending boundary. The live API route groups and `EnsureWorkspaceMember` / `EnsureWorkspaceRole` middleware define implemented access behavior.
+- **Business evidence:** Current AlphaLink requirements are defined by `../../ALPHALINK_MASTER_SPEC.md`; the local route groups and `EnsureWorkspaceMember` / `EnsureWorkspaceRole` middleware define implemented access behavior. The advanced design note is historical and does not define a no-sending boundary.
 
 ## Visual contract
 

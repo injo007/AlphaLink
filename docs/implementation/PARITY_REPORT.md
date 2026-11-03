@@ -726,3 +726,7 @@ The tracked authenticated browser relay and its tests had been restored after an
 ## Historical evidence filenames — E-AUD-35 — 2026-11-03
 
 All 21 DMS-prefixed audit paths now use `LEGACY_` filenames, with local links updated and historical evidence content retained. The static route parser is `audit/tools/catalog_routes.py`; its tests use the neutral module name and generated catalog IDs use `SRC-`. Four fixture tests pass. The remaining 10 DMS-named paths are historical migration filenames recorded in the database migration ledger. They need a tested ledger compatibility transition before rename. Active app code/config/views/assets/manifests/tools have no DMS identifier; `dms_csv` remains only in migration compatibility and rollback fixtures.
+
+### Campaign offer click route — E-TRACK-39
+
+Newly built campaign messages route offer links through AlphaLink's signed HTTPS app endpoint. It verifies the clicked snapshot item belongs to the campaign and workspace, invokes the current offer resolver (including geo/proxy rules and the Google HTTPS fallback), sends a direct 302 and queues a click event with the message's attribution dimensions. HEAD requests redirect but do not count. Synthetic tests cover the offer destination, queue payload, signature rejection and HEAD behavior. Release `5df2032` is deployed and `/up` returns HTTP 200; an unsigned synthetic route probe reaches Laravel signature validation. A fresh real message and recipient click remain unverified; leave the feature TESTING.

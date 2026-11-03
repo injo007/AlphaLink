@@ -657,3 +657,12 @@ The 21 historical audit paths with the old product prefix were renamed to `LEGAC
 ### E-AUD-36 follow-up — production host identified, install path unverified
 
 The open AlphaLink production browser tabs are on `baseheavy.shop`; the Gmail Projects page title still shows the old DMS branding, confirming the previously recorded rebrand commit has not reached production. The configured SSH target has a known-host entry but does not match or resolve to the AlphaLink app hostname, and the repository has no push-triggered deployment workflow. No deployment was attempted. Apply the pushed release only after the user/admin maps the saved SSH target to `baseheavy.shop` or provides the server's supported deployment route and trusted host identity.
+
+
+### E-AUD-37 follow-up — production install and live branding verified
+
+The E-AUD-36 deployment blocker is resolved. Commit `a5ce95a5e8a03d127ad350213dfd6a016e8f6c1c` is pushed and deployed to `baseheavy.shop`; the installer verified a 204 MiB PostgreSQL backup, applied migrations, restored services and passed its HTTPS health check. `/up` returned HTTP 200. The ten historical migration ledger rows now use AlphaLink-native basenames in their original batch, and the one-time bridge row is recorded in batch 3. Focused ledger coverage passes 13 tests / 124 assertions and isolated SQLite `migrate:fresh` passes.
+
+The live Gmail Projects accessibility tree now shows AlphaLink branding in the title, sidebar and footer; Add Project and the side navigation are present. Browser verification was read only. The release installer also enabled its single-server, bulk and server-reinstall execution gates and synchronized egress for one auto-managed workspace.
+
+The bundled Workspace SMTP relay remains a provenance/reproducibility follow-up: static Go metadata shows SMTP and Google OAuth/Gmail dependencies and no DMS-named module, but source and a build recipe are absent, and the tracked binary was copied from a prior release. Do not classify it as a proven active legacy-system dependency from this evidence alone; obtain source/build provenance before claiming reproducibility. Historical migration and `dms_csv` compatibility code is intentional transition support. No list, project, campaign, recipient, send or tracker callback was changed for this deployment.

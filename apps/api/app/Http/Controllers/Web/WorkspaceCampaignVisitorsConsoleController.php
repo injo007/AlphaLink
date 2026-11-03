@@ -19,7 +19,7 @@ class WorkspaceCampaignVisitorsConsoleController extends Controller
 
     private const TABLE_COLUMNS = [
         'id', 'action', 'send_id', 'contact_id', 'revision_id', 'ip',
-        'country', 'state', 'city', 'device', 'platform', 'browser', 'is_mobile', 'created_at',
+        'country', 'state', 'city', 'device', 'platform', 'browser', 'is_mobile', 'is_proxy', 'is_hosting', 'created_at',
     ];
 
     public function index(Request $request, string $workspaceId, string $campaignId): View|JsonResponse
@@ -35,7 +35,7 @@ class WorkspaceCampaignVisitorsConsoleController extends Controller
                 'q' => ['sometimes', 'nullable', 'string', 'max:200'],
                 'start' => ['sometimes', 'integer', 'min:0'],
                 'length' => ['sometimes', 'integer', Rule::in([20, 50, 100])],
-                'order_index' => ['sometimes', 'integer', 'min:0', 'max:13'],
+                'order_index' => ['sometimes', 'integer', 'min:0', 'max:15'],
                 'order_dir' => ['sometimes', Rule::in(['asc', 'desc'])],
             ]);
             $events = DB::table('campaign_engagement_events')
@@ -45,7 +45,9 @@ class WorkspaceCampaignVisitorsConsoleController extends Controller
                 COUNT(CASE WHEN action = 'open' THEN 1 END) AS opens,
                 COUNT(CASE WHEN action = 'click' THEN 1 END) AS clicks,
                 COUNT(CASE WHEN action = 'unsubscribe' THEN 1 END) AS unsubscribes,
-                COUNT(CASE WHEN action = 'bot' THEN 1 END) AS bots
+                COUNT(CASE WHEN action = 'bot' THEN 1 END) AS bots,
+                COUNT(CASE WHEN is_proxy = TRUE THEN 1 END) AS proxies,
+                COUNT(CASE WHEN is_hosting = TRUE THEN 1 END) AS hosting
             SQL)->first();
             $leadTotals = DB::table('campaign_lead_conversions')
                 ->where('workspace_id', $workspace->getKey())
@@ -63,6 +65,8 @@ class WorkspaceCampaignVisitorsConsoleController extends Controller
                     'revenue' => (float) ($leadTotals?->revenue ?? 0),
                     'unsubscribes' => (int) ($eventTotals?->unsubscribes ?? 0),
                     'bots' => (int) ($eventTotals?->bots ?? 0),
+                    'proxies' => (int) ($eventTotals?->proxies ?? 0),
+                    'hosting' => (int) ($eventTotals?->hosting ?? 0),
                 ],
                 'search' => trim((string) ($tableState['q'] ?? '')),
                 'tableState' => [
@@ -100,7 +104,7 @@ class WorkspaceCampaignVisitorsConsoleController extends Controller
             'start' => ['sometimes', 'integer', 'min:0'],
             'length' => ['sometimes', 'integer', Rule::in([20, 50, 100])],
             'search.value' => ['sometimes', 'nullable', 'string', 'max:200'],
-            'order.0.column' => ['sometimes', 'integer', 'min:0', 'max:13'],
+            'order.0.column' => ['sometimes', 'integer', 'min:0', 'max:15'],
             'order.0.dir' => ['sometimes', Rule::in(['asc', 'desc'])],
         ]);
 
@@ -139,6 +143,8 @@ class WorkspaceCampaignVisitorsConsoleController extends Controller
                 'platform' => $row->platform,
                 'browser' => $row->browser,
                 'is_mobile' => $row->is_mobile === null ? null : (bool) $row->is_mobile,
+                'is_proxy' => $row->is_proxy === null ? null : (bool) $row->is_proxy,
+                'is_hosting' => $row->is_hosting === null ? null : (bool) $row->is_hosting,
                 'created_at' => $row->created_at,
             ])->all();
 
@@ -157,7 +163,7 @@ class WorkspaceCampaignVisitorsConsoleController extends Controller
             ->where('campaign_id', $campaign->getKey())
             ->select([
                 'id', 'action', 'send_id', 'contact_id', 'revision_id', 'client_ip as ip',
-                'country', 'state', 'city', 'device', 'platform', 'browser', 'is_mobile',
+                'country', 'state', 'city', 'device', 'platform', 'browser', 'is_mobile', 'is_proxy', 'is_hosting',
                 DB::raw('CAST(NULL AS DECIMAL(16, 4)) AS revenue'),
                 'created_at',
             ]);
@@ -173,6 +179,8 @@ class WorkspaceCampaignVisitorsConsoleController extends Controller
                 DB::raw('CAST(NULL AS VARCHAR(128)) AS platform'),
                 DB::raw('CAST(NULL AS VARCHAR(128)) AS browser'),
                 DB::raw('CAST(NULL AS BOOLEAN) AS is_mobile'),
+                DB::raw('CAST(NULL AS BOOLEAN) AS is_proxy'),
+                DB::raw('CAST(NULL AS BOOLEAN) AS is_hosting'),
                 'revenue',
                 'converted_at as created_at',
             ]);

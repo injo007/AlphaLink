@@ -12,7 +12,7 @@ class CampaignIpGeoResolver
 {
     private const IP_API_URL = 'https://pro.ip-api.com/json/';
 
-    /** @return array{code: string, country: ?string, state: ?string, city: ?string, proxy: bool, hosting: bool, org: string}|null */
+    /** @return array{code: string, country: ?string, state: ?string, city: ?string, proxy: bool, hosting: bool, proxy_detection_available: bool, org: string}|null */
     public function resolve(Workspace $workspace, string $ip): ?array
     {
         $settings = $workspace->appSettings?->settings ?? [];
@@ -41,6 +41,7 @@ class CampaignIpGeoResolver
                     'city' => is_string($data['city'] ?? null) ? $data['city'] : null,
                     'proxy' => (bool) ($data['proxy'] ?? false),
                     'hosting' => (bool) ($data['hosting'] ?? false),
+                    'proxy_detection_available' => true,
                     'org' => strtolower((string) ($data['org'] ?? '')),
                 ];
             });
@@ -57,7 +58,7 @@ class CampaignIpGeoResolver
         return $code === null ? null : $this->countryOnly($code);
     }
 
-    /** @return array{code: string, country: ?string, state: ?string, city: ?string, proxy: bool, hosting: bool, org: string} */
+    /** @return array{code: string, country: ?string, state: ?string, city: ?string, proxy: bool, hosting: bool, proxy_detection_available: bool, org: string} */
     private function countryOnly(string $code): array
     {
         return [
@@ -67,12 +68,13 @@ class CampaignIpGeoResolver
             'city' => null,
             'proxy' => false,
             'hosting' => false,
+            'proxy_detection_available' => false,
             'org' => '',
         ];
     }
 
     private function cacheKey(string $workspaceId, string $ip): string
     {
-        return 'campaign_ip_geo:'.$workspaceId.':'.str_replace([':', '.'], '_', $ip);
+        return 'campaign_ip_geo:v2:'.$workspaceId.':'.str_replace([':', '.'], '_', $ip);
     }
 }

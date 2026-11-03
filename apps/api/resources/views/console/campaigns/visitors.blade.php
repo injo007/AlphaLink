@@ -13,8 +13,8 @@
     <h2 class="content-heading">CAMPAIGN <span class="text-info" title="{{ $campaign->id }}">{{ substr($campaign->id, 0, 8) }}</span> VISITORS</h2>
 
     <div class="row row-deck mb-3" aria-label="Campaign visitor totals">
-        @foreach ([['OPENS', 'opens'], ['CLICKS', 'clicks'], ['LEADS', 'leads'], ['LEAD REVENUE', 'revenue'], ['UNSUBSCRIBES', 'unsubscribes'], ['BOTS', 'bots']] as [$label, $key])
-            <div class="col-6 col-md-4 col-xl-2">
+        @foreach ([['OPENS', 'opens'], ['CLICKS', 'clicks'], ['LEADS', 'leads'], ['LEAD REVENUE', 'revenue'], ['UNSUBSCRIBES', 'unsubscribes'], ['BOTS', 'bots'], ['PROXY VISITS', 'proxies'], ['HOSTING VISITS', 'hosting']] as [$label, $key])
+            <div class="col-6 col-md-4 col-xl-3">
                 <section class="block block-rounded mb-3">
                     <div class="block-content block-content-full">
                         <div class="font-size-h4 font-w600">{{ $key === 'revenue' ? '$'.number_format($totals[$key], 2) : number_format($totals[$key]) }}</div>
@@ -40,7 +40,7 @@
         </div>
     </section>
 
-    <div class="alert alert-warning" role="note"><strong>Data coverage:</strong> this log combines stored campaign open, click, unsubscribe, and bot events with imported campaign leads. Native per-send configuration records are not available in AlphaLink yet.</div>
+    <div class="alert alert-warning" role="note"><strong>Data coverage:</strong> this log combines stored campaign open, click, unsubscribe, and bot events with imported campaign leads. Proxy and hosting flags come from the configured IP-API Pro lookup; older events and country-only fallback lookups show unknown. Native per-send configuration records are not available in AlphaLink yet.</div>
 
     <section class="block block-rounded" aria-labelledby="campaign-visitors-table-title">
         <div class="block-header block-header-default">
@@ -65,7 +65,7 @@
             <div id="campaign-visitors-error" class="alert alert-danger" role="alert" hidden></div>
             <div class="table-responsive">
                 <table id="campaign-visitors-table" class="table table-sm table-hover table-striped w-100">
-                    <caption class="sr-only">Campaign open, click, lead, unsubscribe, and bot records</caption>
+                    <caption class="sr-only">Campaign open, click, lead, unsubscribe, bot, proxy, and hosting records</caption>
                 </table>
             </div>
         </div>

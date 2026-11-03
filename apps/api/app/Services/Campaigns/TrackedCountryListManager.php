@@ -88,7 +88,7 @@ class TrackedCountryListManager
         if (! $destination) {
             $slugBase = Str::limit(Str::slug($countryCode.'-isp-'.$isp->getKey()) ?: 'tracked-country', 145, '');
             $slug = $slugBase;
-            while (AudienceList::query()->where('workspace_id', $membership->workspace_id)->where('slug', $slug)->exists()) {
+            while (AudienceList::withTrashed()->where('workspace_id', $membership->workspace_id)->where('slug', $slug)->exists()) {
                 $slug = $slugBase.'-'.Str::lower(Str::random(8));
             }
 
@@ -197,6 +197,10 @@ class TrackedCountryListManager
             }
 
             $actionList = $this->firstOrCreateActionList($source, $isp, $countryCode, $action);
+            if ($actionList === null) {
+                return false;
+            }
+
             $actionListEventKey = 'tracking-action-event:'.hash('sha256', implode('|', [
                 $eventIdentity,
                 $sourceListId,
@@ -296,7 +300,7 @@ class TrackedCountryListManager
         });
     }
 
-    private function firstOrCreateActionList(AudienceList $source, Isp $isp, string $countryCode, string $action): AudienceList
+    private function firstOrCreateActionList(AudienceList $source, Isp $isp, string $countryCode, string $action): ?AudienceList
     {
         $slug = $this->actionListSlug($source->workspace_id, (string) $source->getKey(), $countryCode, $action);
         $actionLabel = self::ACTION_LABELS[$action];
@@ -309,6 +313,14 @@ class TrackedCountryListManager
             $countryCode,
             $action,
         ]));
+        $existing = AudienceList::withTrashed()
+            ->where('workspace_id', $source->workspace_id)
+            ->where('idempotency_key', $idempotencyKey)
+            ->first();
+        if ($existing !== null) {
+            return $existing->trashed() ? null : $existing;
+        }
+
         $now = now();
 
         DB::table('audience_lists')->insertOrIgnore([
@@ -338,7 +350,7 @@ class TrackedCountryListManager
 
         return AudienceList::query()
             ->where('workspace_id', $source->workspace_id)
-            ->where('slug', $slug)
+            ->where('idempotency_key', $idempotencyKey)
             ->firstOrFail();
     }
 

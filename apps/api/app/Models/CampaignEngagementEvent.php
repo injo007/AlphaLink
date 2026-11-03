@@ -19,7 +19,7 @@ class CampaignEngagementEvent extends Model
         'workspace_id', 'campaign_id', 'revision_id', 'recipient_snapshot_id',
         'snapshot_item_id', 'contact_id', 'audience_list_id', 'source_email_type',
         'action', 'send_id', 'isp_id', 'client_ip', 'user_agent', 'country', 'state', 'city',
-        'device', 'platform', 'browser', 'is_mobile', 'dimension_ids',
+        'device', 'platform', 'browser', 'is_mobile', 'is_proxy', 'is_hosting', 'dimension_ids',
         'token_sha256', 'created_at',
     ];
 
@@ -30,6 +30,8 @@ class CampaignEngagementEvent extends Model
         return [
             'dimension_ids' => 'array',
             'is_mobile' => 'boolean',
+            'is_proxy' => 'boolean',
+            'is_hosting' => 'boolean',
             'created_at' => 'immutable_datetime',
         ];
     }

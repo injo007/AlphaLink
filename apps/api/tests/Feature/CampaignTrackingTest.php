@@ -570,7 +570,7 @@ class CampaignTrackingTest extends TestCase
             ->where('slug', 'like', 'tracking-action-%')->pluck('id');
         DB::table('contact_list_membership_events')->whereIn('audience_list_id', $generatedLists)->delete();
         ContactListMembership::query()->whereIn('audience_list_id', $generatedLists)->delete();
-        AudienceList::query()->whereIn('id', $generatedLists)->delete();
+        AudienceList::query()->whereIn('id', $generatedLists)->forceDelete();
 
         $this->artisan('workspace:campaign-action-segments', [
             'campaign' => (string) $fixture['campaign']->getKey(),
@@ -629,6 +629,99 @@ class CampaignTrackingTest extends TestCase
             ->assertNoContent();
         $this->assertSame(1, CampaignEngagementEvent::query()->where('action', 'click')->count());
         $this->assertSame('click', $fixture['membership']->fresh()->email_type);
+    }
+
+    public function test_campaign_tracking_proxy_flags_remain_unknown_when_only_country_fallback_is_available(): void
+    {
+        config(['tracking.ingest_key' => 'synthetic-tracking-key', 'infrastructure.ip_api_key' => null]);
+        $fixture = $this->recipientFixture();
+        Http::fake();
+
+        $this->postJson('/api/v1/tracking/campaign-events', $this->trackingPayload($fixture, 'open'))
+            ->assertNoContent();
+
+        $event = CampaignEngagementEvent::query()->firstOrFail();
+        $this->assertNull($event->is_proxy);
+        $this->assertNull($event->is_hosting);
+        Http::assertNothingSent();
+    }
+
+    public function test_campaign_tracking_persists_proxy_flags_and_marks_blocked_proxy_recipients(): void
+    {
+        config(['tracking.ingest_key' => 'synthetic-tracking-key', 'infrastructure.ip_api_key' => null]);
+        $fixture = $this->recipientFixture();
+        WorkspaceAppSettings::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(),
+            'settings' => [
+                'ip_api_key' => 'synthetic-ip-api-key',
+                'block_proxies' => true,
+                'allowed_proxies' => [],
+            ],
+        ]);
+        Http::fake([
+            'https://pro.ip-api.com/json/*' => Http::response([
+                'status' => 'success', 'countryCode' => 'US', 'country' => 'United States',
+                'regionName' => 'Test Region', 'city' => 'Test City', 'proxy' => true,
+                'hosting' => false, 'org' => 'Synthetic Proxy Network',
+            ]),
+        ]);
+
+        $this->postJson('/api/v1/tracking/campaign-events', $this->trackingPayload($fixture, 'click'))
+            ->assertNoContent();
+
+        $event = CampaignEngagementEvent::query()->firstOrFail();
+        $this->assertSame('click', $event->action);
+        $this->assertTrue($event->is_proxy);
+        $this->assertFalse($event->is_hosting);
+        $this->assertSame('proxy', $fixture['membership']->fresh()->email_type);
+        $this->assertDatabaseHas('contact_list_membership_events', [
+            'contact_id' => $fixture['contact']->getKey(),
+            'action' => 'proxy',
+            'source' => 'campaign_tracking',
+        ]);
+
+        $visitorsUrl = route('console.campaigns.visitors', [
+            $fixture['workspace']->getKey(), $fixture['campaign']->getKey(),
+        ]);
+        $this->actingAs($fixture['owner'])->getJson($visitorsUrl.'?draw=1&length=20')
+            ->assertOk()
+            ->assertJsonPath('data.0.type', 'click')
+            ->assertJsonPath('data.0.is_proxy', true)
+            ->assertJsonPath('data.0.is_hosting', false);
+        $this->get($visitorsUrl)->assertOk()->assertSee('PROXY VISITS')->assertSee('HOSTING VISITS');
+    }
+
+    public function test_configured_allowed_proxy_organization_is_not_marked_as_blocked(): void
+    {
+        config(['tracking.ingest_key' => 'synthetic-tracking-key', 'infrastructure.ip_api_key' => null]);
+        $fixture = $this->recipientFixture();
+        WorkspaceAppSettings::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(),
+            'settings' => [
+                'ip_api_key' => 'synthetic-ip-api-key',
+                'block_proxies' => true,
+                'allowed_proxies' => ['synthetic proxy'],
+            ],
+        ]);
+        Http::fake([
+            'https://pro.ip-api.com/json/*' => Http::response([
+                'status' => 'success', 'countryCode' => 'US', 'country' => 'United States',
+                'regionName' => null, 'city' => null, 'proxy' => true,
+                'hosting' => false, 'org' => 'Synthetic Proxy Network',
+            ]),
+        ]);
+
+        $this->postJson('/api/v1/tracking/campaign-events', $this->trackingPayload($fixture, 'click'))
+            ->assertNoContent();
+
+        $event = CampaignEngagementEvent::query()->firstOrFail();
+        $this->assertTrue($event->is_proxy);
+        $this->assertSame('click', $fixture['membership']->fresh()->email_type);
+        $this->assertDatabaseHas('contact_list_membership_events', [
+            'contact_id' => $fixture['contact']->getKey(),
+            'action' => 'click',
+            'source' => 'campaign_tracking',
+        ]);
     }
 
     public function test_test_recipient_events_are_no_ops_and_do_not_change_list_state(): void

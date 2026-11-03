@@ -26,7 +26,7 @@ class WorkspaceCampaignVisitorsTest extends TestCase
     {
         $fixture = $this->fixture();
         foreach (['open', 'click', 'unsubscribe', 'bot'] as $action) {
-            $this->event($fixture, $action);
+            $this->event($fixture, $action, $action === 'open', false);
         }
         CampaignLeadConversion::query()->create([
             'workspace_id' => $fixture['workspace']->getKey(),
@@ -50,6 +50,8 @@ class WorkspaceCampaignVisitorsTest extends TestCase
         $this->actingAs($fixture['owner'])->get($url)
             ->assertOk()
             ->assertSee('CAMPAIGN')
+            ->assertSee('PROXY VISITS')
+            ->assertSee('HOSTING VISITS')
             ->assertSee('VISITORS')
             ->assertSee('$3.50')
             ->assertSee('Native per-send configuration records are not available')
@@ -60,12 +62,17 @@ class WorkspaceCampaignVisitorsTest extends TestCase
         $response->assertOk()->assertJsonPath('draw', 3)->assertJsonPath('recordsTotal', 5)->assertJsonPath('recordsFiltered', 5);
         $this->assertCount(5, $response->json('data'));
         $this->assertEqualsCanonicalizing(['open', 'click', 'unsubscribe', 'bot', 'lead'], array_column($response->json('data'), 'type'));
+        $open = collect($response->json('data'))->firstWhere('type', 'open');
+        $this->assertTrue($open['is_proxy']);
+        $this->assertFalse($open['is_hosting']);
         $this->assertStringNotContainsString('private-campaign-contact@example.test', $response->getContent());
 
         $lead = collect($response->json('data'))->firstWhere('type', 'lead');
         $this->assertSame('3.5', (string) $lead['revenue']);
         $this->assertNull($lead['country']);
         $this->assertNull($lead['device']);
+        $this->assertNull($lead['is_proxy']);
+        $this->assertNull($lead['is_hosting']);
     }
 
     public function test_campaign_visitors_search_is_server_filtered_and_keeps_the_dms_table_protocol(): void
@@ -158,7 +165,7 @@ class WorkspaceCampaignVisitorsTest extends TestCase
     }
 
     /** @param array<string, mixed> $fixture */
-    private function event(array $fixture, string $action): void
+    private function event(array $fixture, string $action, ?bool $isProxy = null, ?bool $isHosting = null): void
     {
         CampaignEngagementEvent::query()->create([
             'workspace_id' => $fixture['workspace']->getKey(),
@@ -171,6 +178,7 @@ class WorkspaceCampaignVisitorsTest extends TestCase
             'source_email_type' => 'fresh', 'action' => $action,
             'send_id' => 'send-'.Str::random(8), 'client_ip' => '192.0.2.55',
             'user_agent' => 'Synthetic visitor test agent', 'token_sha256' => hash('sha256', Str::random(20)),
+            'is_proxy' => $isProxy, 'is_hosting' => $isHosting,
             'created_at' => now(),
         ]);
     }

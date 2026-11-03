@@ -156,7 +156,8 @@
                                 const upload = `<button type="button" data-id="${escapeHtml(row.id)}" class="btn btn-secondary btn-sm upload" title="UPLOAD EMAILS" aria-label="Upload emails to ${escapeHtml(row.name)}"><i class="fas fa-upload"></i></button>&nbsp;`;
                                 const track = `<button type="button" data-id="${escapeHtml(row.id)}" data-status="${row.is_tracked ? 0 : 1}" class="btn ${row.is_tracked ? 'btn-success' : 'btn-warning'} btn-sm track" title="${row.is_tracked ? 'DISABLE' : 'ENABLE'} TRACKING" aria-label="Toggle tracking for ${escapeHtml(row.name)}"><i class="fas ${row.is_tracked ? 'fa-thumbs-up' : 'fa-thumbs-down'}"></i></button>&nbsp;`;
                                 const status = `<button type="button" data-id="${escapeHtml(row.id)}" data-status="${row.is_active ? 0 : 1}" class="btn ${row.is_active ? 'btn-warning' : 'btn-success'} btn-sm status" title="${row.is_active ? 'DISABLE' : 'ENABLE'} LIST" aria-label="${row.is_active ? 'Disable' : 'Enable'} ${escapeHtml(row.name)}"><i class="fas ${row.is_active ? 'fa-times' : 'fa-check'}"></i></button>&nbsp;`;
-                                return users + sponsors + upload + edit + track + status;
+                                const remove = `<button type="button" data-id="${escapeHtml(row.id)}" class="btn btn-danger btn-sm delete" title="DELETE LIST" aria-label="Delete ${escapeHtml(row.name)}"><i class="fas fa-trash"></i></button>`;
+                                return users + sponsors + upload + edit + track + status + remove;
                             },
                         },
                     ],
@@ -197,6 +198,21 @@
                     button.disabled = true;
                     try {
                         await send(`${baseUrl}/lists/${encodeURIComponent(button.dataset.id)}/status`, 'PATCH', { status: Number(button.dataset.status) });
+                        reload();
+                    } catch (error) {
+                        button.disabled = false;
+                        if (window.swal?.fire) await window.swal.fire({ icon: 'error', title: error.message });
+                    }
+                }).on('click', '.delete', async function (event) {
+                    event.preventDefault();
+                    const button = this;
+                    const decision = window.Swal?.fire
+                        ? await window.Swal.fire({ icon: 'warning', title: 'Delete this list?', text: 'The list will leave active workflows. Campaign snapshots and history will be retained.', showCancelButton: true, confirmButtonText: 'DELETE LIST' })
+                        : { isConfirmed: window.confirm('Delete this list? Campaign snapshots and history will be retained.') };
+                    if (!decision.isConfirmed && !decision.value) return;
+                    button.disabled = true;
+                    try {
+                        await send(`${baseUrl}/lists/${encodeURIComponent(button.dataset.id)}`, 'DELETE', {});
                         reload();
                     } catch (error) {
                         button.disabled = false;

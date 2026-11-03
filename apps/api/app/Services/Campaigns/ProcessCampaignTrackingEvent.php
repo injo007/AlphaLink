@@ -48,9 +48,10 @@ class ProcessCampaignTrackingEvent
             return null;
         }
         $countryCode = $metadata['country_code'];
-        unset($metadata['blocked_open'], $metadata['country_code']);
+        $proxyBlocked = $metadata['blocked_proxy'];
+        unset($metadata['blocked_open'], $metadata['blocked_proxy'], $metadata['country_code']);
 
-        return DB::transaction(function () use ($campaign, $data, $metadata, $countryCode, $trackingEventId): CampaignEngagementEvent {
+        return DB::transaction(function () use ($campaign, $data, $metadata, $countryCode, $proxyBlocked, $trackingEventId): CampaignEngagementEvent {
             $existingEvent = $this->findExistingRequestEvent($trackingEventId, $campaign, $data);
             if ($existingEvent !== null) {
                 return $existingEvent;
@@ -152,7 +153,9 @@ class ProcessCampaignTrackingEvent
             foreach ($membershipTargets as $target) {
                 /** @var ContactListMembership $membership */
                 $membership = $target['membership'];
-                $nextType = $this->nextType($membership->email_type, $data['action']);
+                $nextType = $proxyBlocked && ! in_array($membership->email_type, ['lead', 'proxy'], true)
+                    ? 'proxy'
+                    : $this->nextType($membership->email_type, $data['action']);
                 $moved = $membershipManager->moveIfTracked($membership, (string) $data['action'], $countryCode);
                 if ($nextType !== null || $moved) {
                     $idempotencyKey = 'campaign-tracking:'.hash('sha256', $event->getKey().'|'.$membership->getKey());
@@ -167,7 +170,7 @@ class ProcessCampaignTrackingEvent
                         'workspace_id' => $campaign->workspace_id,
                         'audience_list_id' => $membership->audience_list_id,
                         'contact_id' => $item->contact_id,
-                        'action' => $data['action'],
+                        'action' => $nextType === 'proxy' && $proxyBlocked ? 'proxy' : $data['action'],
                         'source' => 'campaign_tracking',
                         'idempotency_key' => $idempotencyKey,
                         'request_fingerprint' => hash('sha256', implode('|', [
@@ -183,6 +186,8 @@ class ProcessCampaignTrackingEvent
                             'to_type' => $nextType ?? $membership->email_type,
                             'source_audience_list_id' => $target['source_list_id'],
                             'country_list_move' => $moved,
+                            'proxy_detected' => $metadata['is_proxy'],
+                            'hosting_detected' => $metadata['is_hosting'],
                         ],
                         'created_at' => $event->created_at,
                     ]);

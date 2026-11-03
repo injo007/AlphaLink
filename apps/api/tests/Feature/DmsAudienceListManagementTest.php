@@ -185,6 +185,32 @@ class DmsAudienceListManagementTest extends TestCase
         $this->putJson($base.'/assignment/users', ['users' => [$this->owner->id]])->assertUnprocessable();
     }
 
+    public function test_list_delete_hides_it_but_retains_memberships_and_audit_history(): void
+    {
+        $list = $this->makeList('Retained history list');
+        $this->addMembership($list, 'fresh', 'retained');
+        $membershipId = ContactListMembership::query()->where('audience_list_id', $list->getKey())->value('id');
+
+        $this->get(route('console.infrastructure.lists.index', $this->workspace->id))
+            ->assertOk()
+            ->assertSee('DELETE LIST');
+        $this->deleteJson(route('console.infrastructure.lists.destroy', [$this->workspace->id, $list->getKey()]))
+            ->assertOk()
+            ->assertJsonPath('data', 'List deleted. Campaign snapshots and history are retained.');
+
+        $this->assertSoftDeleted('audience_lists', ['id' => $list->getKey()]);
+        $this->assertDatabaseHas('contact_list_memberships', ['id' => $membershipId, 'audience_list_id' => $list->getKey()]);
+        $this->assertDatabaseHas('audit_events', [
+            'workspace_id' => $this->workspace->getKey(),
+            'subject_type' => 'audience_list',
+            'subject_id' => $list->getKey(),
+            'action' => 'audience_list.deleted',
+        ]);
+        $this->getJson(route('console.infrastructure.isps.lists', [$this->workspace->id, $this->isp->id]))
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    }
+
     public function test_bulk_access_assignment_replaces_policy_for_only_selected_workspace_lists(): void
     {
         $first = $this->makeList('First list');
@@ -216,6 +242,7 @@ class DmsAudienceListManagementTest extends TestCase
 
         $this->get(route('console.infrastructure.lists.index', $this->workspace->id))->assertForbidden();
         $this->patchJson('/app/workspaces/'.$this->workspace->id.'/infrastructure/lists/'.$list->id.'/status', ['status' => false])->assertForbidden();
+        $this->deleteJson(route('console.infrastructure.lists.destroy', [$this->workspace->id, $list->id]))->assertForbidden();
     }
 
     private function makeList(string $name): AudienceList

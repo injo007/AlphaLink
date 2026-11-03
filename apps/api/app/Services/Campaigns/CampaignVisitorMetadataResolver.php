@@ -9,7 +9,7 @@ class CampaignVisitorMetadataResolver
 {
     public function __construct(private readonly CampaignIpGeoResolver $geoResolver) {}
 
-    /** @return array{country: ?string, country_code: ?string, state: ?string, city: ?string, device: ?string, platform: ?string, browser: ?string, is_mobile: ?bool, blocked_open: bool} */
+    /** @return array{country: ?string, country_code: ?string, state: ?string, city: ?string, device: ?string, platform: ?string, browser: ?string, is_mobile: ?bool, is_proxy: ?bool, is_hosting: ?bool, blocked_open: bool, blocked_proxy: bool} */
     public function resolve(Workspace $workspace, string $ip, ?string $userAgent, string $action): array
     {
         $location = $this->geoResolver->resolve($workspace, $ip);
@@ -24,13 +24,28 @@ class CampaignVisitorMetadataResolver
                 static fn (string $value): bool => $value !== '',
             )), true);
 
+        $isProxy = ($location['proxy_detection_available'] ?? false) ? (bool) ($location['proxy'] ?? false) : null;
+        $isHosting = ($location['proxy_detection_available'] ?? false) ? (bool) ($location['hosting'] ?? false) : null;
+        $proxySettings = $workspace->appSettings?->settings ?? [];
+        $allowedOrganizations = $proxySettings['allowed_proxies'] ?? [];
+        $allowedProxy = is_array($allowedOrganizations) && Str::contains($organization, array_values(array_filter(
+            array_map(static fn (mixed $value): string => is_string($value) ? mb_strtolower(trim($value)) : '', $allowedOrganizations),
+            static fn (string $value): bool => $value !== '',
+        )), true);
+        $blockedProxy = filter_var($proxySettings['block_proxies'] ?? false, FILTER_VALIDATE_BOOLEAN)
+            && ($location['proxy_detection_available'] ?? false)
+            && (((bool) ($location['proxy'] ?? false) && ! $allowedProxy) || (bool) ($location['hosting'] ?? false));
+
         return [
             'country' => $location['country'] ?? null,
             'country_code' => $location['code'] ?? null,
             'state' => $location['state'] ?? null,
             'city' => $location['city'] ?? null,
             ...$agent,
+            'is_proxy' => $isProxy,
+            'is_hosting' => $isHosting,
             'blocked_open' => $blockedOpen,
+            'blocked_proxy' => $blockedProxy,
         ];
     }
 

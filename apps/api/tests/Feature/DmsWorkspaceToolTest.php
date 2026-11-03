@@ -58,6 +58,16 @@ class DmsWorkspaceToolTest extends TestCase
             ->assertSee('bootstrap_select/bootstrap-select.js');
     }
 
+    public function test_empty_projects_page_keeps_a_visible_add_action_without_datatables(): void
+    {
+        $this->get(route('console.gcampaigns.projects', $this->workspace->id))
+            ->assertOk()
+            ->assertSee('GMAIL PROJECTS')
+            ->assertSee('aria-label="Add Gmail project"', false)
+            ->assertSee(route('clean.console.tools.workspace.projects.create', $this->workspace->id), false)
+            ->assertSee('Add the first project');
+    }
+
     public function test_workspace_relay_assets_default_to_the_repository_release_bundle(): void
     {
         $this->assertSame(base_path('../../pmta/workspace_relay'), config('infrastructure.workspace_relay_assets_directory'));
@@ -84,6 +94,8 @@ class DmsWorkspaceToolTest extends TestCase
         $projectsPage
             ->assertOk()->assertSee('GMAIL PROJECTS')->assertSee($project->name)
             ->assertSee('workspace-project-add')->assertDontSee('workspace-project-form')->assertSee('workspace-project-table')
+            ->assertSee('aria-label="Add Gmail project"', false)
+            ->assertSee(route('clean.console.tools.workspace.projects.create', $this->workspace->id), false)
             ->assertSee('ALLOWED USERS')->assertDontSee('<th>Allowed Mailers</th>', false)
             ->assertSee('ENABLE / DISABLE PROJECTS')->assertSee('DELETE SELECTED')
             ->assertSee('<th>TYPE</th><th>NAME</th><th>TOTAL ACCOUNTS</th><th>CREATED AT</th>', false)

@@ -184,7 +184,10 @@ class AudienceListManagementController extends Controller
             $data = $this->validatedList($request, $isp);
             $name = $data['name'];
             $slug = Str::slug($name) ?: 'list';
-            while ($workspace->audienceLists()->where('slug', $slug)->exists()) {
+            while (AudienceList::withTrashed()
+                ->where('workspace_id', $workspace->getKey())
+                ->where('slug', $slug)
+                ->exists()) {
                 $slug = Str::limit(Str::slug($name), 145, '').'-'.Str::lower(Str::random(8));
             }
 
@@ -220,6 +223,24 @@ class AudienceListManagementController extends Controller
         $this->audit($workspace, $request, 'audience_list.updated', $list);
 
         return response()->json(['data' => 'List updated']);
+    }
+
+    public function destroy(Request $request, string $workspaceId, string $listId): JsonResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspaceId);
+        $this->authorizeManager($workspace);
+        $list = $workspace->audienceLists()->whereKey($listId)->firstOrFail();
+        $membershipCount = $list->memberships()->count();
+
+        DB::transaction(function () use ($workspace, $request, $list, $membershipCount): void {
+            $list->delete();
+            $this->audit($workspace, $request, 'audience_list.deleted', $list, [
+                'membership_count_retained' => $membershipCount,
+                'campaign_history_retained' => true,
+            ]);
+        });
+
+        return response()->json(['data' => 'List deleted. Campaign snapshots and history are retained.']);
     }
 
     public function setStatus(Request $request, string $workspaceId, string $listId): JsonResponse

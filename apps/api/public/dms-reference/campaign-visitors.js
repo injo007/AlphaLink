@@ -120,7 +120,7 @@
         displayStart: Number.isInteger(initialStart) && initialStart >= 0 ? initialStart : 0,
         pageLength: lengthValues.includes(initialLength) ? initialLength : 20,
         lengthMenu: [[20, 50, 100], [20, 50, 100]],
-        order: [[Number.isInteger(initialOrderIndex) && initialOrderIndex >= 0 && initialOrderIndex <= 13 ? initialOrderIndex : 0, initialDirection]],
+        order: [[Number.isInteger(initialOrderIndex) && initialOrderIndex >= 0 && initialOrderIndex <= 15 ? initialOrderIndex : 0, initialDirection]],
         dom: '<"dms-table-tools"B>rt<"dms-table-footer"ip>',
         buttons: [
             { extend: 'pageLength' },
@@ -176,6 +176,8 @@
             { title: 'device', data: 'device', defaultContent: '', render: (data) => escapeHtml(data || '') },
             { title: 'platform', data: 'platform', defaultContent: '', render: (data) => escapeHtml(data || '') },
             { title: 'browser', data: 'browser', defaultContent: '', render: (data) => escapeHtml(data || '') },
+            { title: 'proxy', data: 'is_proxy', render: (data) => data === null ? 'unknown' : (data ? 'yes' : 'no') },
+            { title: 'hosting', data: 'is_hosting', render: (data) => data === null ? 'unknown' : (data ? 'yes' : 'no') },
             { title: 'is mobile', data: 'is_mobile', render: (data) => data === null ? '—' : (data ? 'true' : 'false') },
             { title: 'at', data: 'created_at', render: (data) => escapeHtml(data || '—') },
         ],

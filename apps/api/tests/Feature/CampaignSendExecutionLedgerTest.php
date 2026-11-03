@@ -466,7 +466,7 @@ class CampaignSendExecutionLedgerTest extends TestCase
             'negative_path' => '',
             'placeholder_rows' => [],
             'header_template' => "MIME-Version: 1.0\nContent-Type: text/html; charset=UTF-8\nTo: [to]\nFrom: sender@example.test\nSubject: Tracked message",
-            'body_template' => '<a href="[domain]/[rndUN_10]r[token]">Click</a><img src="[domain]/[rndUN_10]o[token]" alt=""><p>Message domain: http://[domain]/landing</p><p>External link: http://outside.example.test/landing</p>',
+            'body_template' => '<a href="[domain]/[rndUN_10]r[token]">Click</a><img src="[domain]/[rndUN_10]o[token]" alt=""><p>Message domain: http://[domain]/landing</p><p>External link: http://outside.example.test/landing</p><img src="https://i.pinimg.com/736x/62/92/63/629263433ead2c24378e115fdb0e46e7.jpg">',
             'return_path' => '',
             'domain_fallback' => $domain->name,
         ];
@@ -487,6 +487,7 @@ class CampaignSendExecutionLedgerTest extends TestCase
         $this->assertStringNotContainsString('http://203.0.113.241/', $message['body']);
         $this->assertStringContainsString('Message domain: https://tracking.example.test/landing', $message['body']);
         $this->assertStringContainsString('External link: http://outside.example.test/landing', $message['body']);
+        $this->assertStringContainsString('https://i.pinimg.com/736x/62/92/63/629263433ead2c24378e115fdb0e46e7.jpg', $message['body']);
         $this->assertStringNotContainsString('http://tracking.example.test/', $message['body']);
         foreach (array_merge([$clickQuery['token']], $openMatches[1]) as $token) {
             $segments = explode('/', $token);
@@ -530,6 +531,7 @@ class CampaignSendExecutionLedgerTest extends TestCase
         $selectedDomainMessage = app(CampaignSendMessageBuilder::class)->build($context, $fixture['item'], $fixture['contact']->email);
 
         $this->assertStringContainsString('Message domain: https://selected-campaign.example.test/landing', $selectedDomainMessage['body']);
+        $this->assertStringContainsString('https://i.pinimg.com/736x/62/92/63/629263433ead2c24378e115fdb0e46e7.jpg', $selectedDomainMessage['body']);
         $this->assertStringContainsString('https://selected-campaign.example.test/', $selectedDomainMessage['body']);
         $this->assertStringNotContainsString('http://selected-campaign.example.test/', $selectedDomainMessage['body']);
         $this->assertStringNotContainsString('http://203.0.113.241/', $selectedDomainMessage['body']);

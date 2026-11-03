@@ -108,18 +108,26 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
             'info@example.test',
             $renderer->render('info@[smtp]', ['smtp' => 'workspace-user@example.test', 'domain' => 'relay.example.test']),
         );
+        $clickUrl = 'https://baseheavy.example.test/api/v1/campaigns/'.Str::uuid().'/test-click?token=synthetic&signature=synthetic';
         $this->assertSame(
-            '<a href="https://cipherglobal.fun/rTRACKINGTOKEN">Tracked</a><a href="http://outside.example.test/path">External</a>',
+            '<a href="'.$clickUrl.'">Tracked</a><a href="http://outside.example.test/path">External</a>',
             $renderer->render(
                 '<a href="http://[domain]/r[token]">Tracked</a><a href="http://outside.example.test/path">External</a>',
-                ['domain' => 'cipherglobal.fun', 'token' => 'TRACKINGTOKEN'],
+                ['domain' => 'cipherglobal.fun', 'token' => 'TRACKINGTOKEN', 'click_url' => $clickUrl],
             ),
         );
         $this->assertSame(
-            '<a href="https://cipherglobal.fun/rTRACKINGTOKEN">Tracked</a>',
+            '<a href="'.$clickUrl.'">Tracked</a>',
             $renderer->render(
                 '<a href="[domain]/r[token]">Tracked</a>',
-                ['domain' => 'cipherglobal.fun', 'token' => 'TRACKINGTOKEN'],
+                ['domain' => 'cipherglobal.fun', 'token' => 'TRACKINGTOKEN', 'click_url' => $clickUrl],
+            ),
+        );
+        $this->assertSame(
+            '<a href="'.$clickUrl.'">Tracked</a><a href="http://outside.example.test/path">External</a>',
+            $renderer->render(
+                '<a href="https://cipherglobal.fun/[rndUN_10]r[token]">Tracked</a><a href="http://outside.example.test/path">External</a>',
+                ['token' => 'TRACKINGTOKEN', 'click_url' => $clickUrl],
             ),
         );
         $this->assertSame('aGVsbG8', trim($parts[5]));
@@ -835,6 +843,7 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
         $revisionPayload['expected_revision_id'] = $campaign->latestRevision->getKey();
         $revisionPayload['domain'] = 'redirect.send.example.test';
         $revisionPayload['header'] .= "\nX-Revision: 2";
+        $revisionPayload['body'] = '<a href="https://[domain]/offer">Offer</a><img src="https://i.pinimg.com/736x/62/92/63/629263433ead2c24378e115fdb0e46e7.jpg">';
         $revisionPayload['send_setup']['placeholder_inputs'][0]['data_text'] = "Revised one\nRevised two";
         $revisionPayload['send_setup']['placeholder_inputs'][0]['rotate_every'] = '5';
         $revisedCreativeAsset = WorkspaceOfferAsset::query()->create([
@@ -1094,6 +1103,9 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
             ->assertDontSee('name="test_recipient"', false)
             ->assertSee('name="expected_revision_id"', false);
         $editHtml = $editResponse->getContent();
+        $this->assertStringContainsString('https://[domain]/offer', $editHtml);
+        $this->assertStringContainsString('https://i.pinimg.com/736x/62/92/63/629263433ead2c24378e115fdb0e46e7.jpg', $editHtml);
+        $this->assertStringNotContainsString('https://redirect.send.example.test/736x/62/92/63/629263433ead2c24378e115fdb0e46e7.jpg', $editHtml);
         $this->assertSame(2, preg_match_all('/<button\\b(?=[^>]*type="button")(?=[^>]*role="menuitem")(?=[^>]*data-campaign-menu-action="test")(?=[^>]*data-test-url="[^"]*\\/campaigns\\/manual-test")[^>]*>/', $editHtml));
         $this->assertSame(0, preg_match_all('/<button\\b(?=[^>]*type="submit")(?=[^>]*data-campaign-menu-action="test")[^>]*>/', $editHtml));
 
@@ -1116,10 +1128,14 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
         $this->assertSame($server->ip_address, $resolvedStream->getHost());
         $this->assertSame(2525, $resolvedStream->getPort());
 
+        $capturedBody = '';
         $transport = Mockery::mock(SmtpTransport::class);
         $transport->shouldReceive('start')->once();
-        $transport->shouldReceive('send')->once()->withArgs(fn ($message, $envelope): bool => str_contains($message->toString(), 'https://')
-            && ! str_contains($message->toString(), 'http://[domain]'));
+        $transport->shouldReceive('send')->once()->withArgs(function ($message) use (&$capturedBody): bool {
+            $capturedBody = (string) $message->getHtmlBody();
+
+            return true;
+        });
         $transport->shouldReceive('stop')->once();
         $factory = Mockery::mock(PmtaCampaignTestTransport::class);
         $factory->shouldReceive('forServer')->once()->withArgs(fn (ManagedServer $selected, int $port): bool => $selected->is($server) && $port === 2525)->andReturn($transport);
@@ -1136,6 +1152,9 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
         ];
         $this->post(route('console.campaigns.pmta-test', [$workspace->getKey(), $campaign->getKey()]), $pmtaPayload)
             ->assertSessionHas('status', 'The selected server’s PMTA SMTP listener accepted this test message. Mailbox delivery is unconfirmed.');
+        $this->assertStringContainsString('/api/v1/campaigns/'.$campaign->getKey().'/test-click?', $capturedBody);
+        $this->assertStringContainsString('signature=', $capturedBody);
+        $this->assertStringNotContainsString('http://[domain]', $capturedBody);
         $this->assertDatabaseHas('campaign_test_mail_attempts', ['mailer' => 'pmta_smtp', 'status' => 'accepted_by_transport']);
         $this->post(route('console.campaigns.pmta-test', [$workspace->getKey(), $campaign->getKey()]), $pmtaPayload)
             ->assertSessionHas('status', 'This PMTA test submission was already recorded; no duplicate was sent.');
@@ -1423,7 +1442,7 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
             'payload' => [
                 'email_tests' => ['synthetic-recipient@example.test'],
                 'header' => "MIME-version: 1.0\nContent-type: text/html\nTo: [to]\nfrom: [from] <info@[domain]>\nSubject: [subject]\nDate: [date]",
-                'body' => '<a href="[domain]/[rndUN_10]r[token]">Click</a>',
+                'body' => '<a href="https://cipherglobal.fun/[rndUN_10]r[token]">Click</a>',
                 'send_setup' => [
                     'server_ids' => [$server->getKey()],
                     'route_option' => 'ip',
@@ -1452,8 +1471,9 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
         $transport->shouldReceive('start')->times(31);
         $transport->shouldReceive('send')->times(31)->withArgs(fn ($message, $envelope): bool => str_contains($message->toString(), '<info@mail.example.test>')
             && str_contains($message->toString(), 'To: synthetic-recipient@example.test')
-            && str_contains($message->toString(), 'https://mail.example.test/')
-            && ! str_contains($message->toString(), 'http://mail.example.test/')
+            && str_contains($message->toString(), '/api/v1/campaigns/'.$campaign->getKey().'/test-click?')
+            && str_contains($message->toString(), 'signature=')
+            && ! str_contains($message->toString(), 'cipherglobal.fun')
             && $envelope->getSender()->getAddress() === 'info@mail.example.test'
             && $envelope->getRecipients()[0]->getAddress() === 'synthetic-recipient@example.test');
         $transport->shouldReceive('stop')->times(31);
@@ -1469,7 +1489,7 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
             'expected_revision_id' => $revision->getKey(),
             'email_test_addresses' => 'synthetic-recipient@example.test',
             'header' => "MIME-version: 1.0\nContent-type: text/html\nTo: [to]\nfrom: [from] <info@[domain]>\nSubject: [subject]\nDate: [date]",
-            'body' => '<a href="[domain]/[rndUN_10]r[token]">Click</a>',
+            'body' => '<a href="https://cipherglobal.fun/[rndUN_10]r[token]">Click</a>',
             'send_setup' => ['server_ids' => [$server->getKey()], 'route_option' => 'ip', 'ip_type' => 'ipv4', 'send_type' => 'delay'],
         ];
         $response = $this->actingAs($owner)->postJson(route('console.campaigns.manual-test', $workspace->getKey()), $payload);
@@ -1540,7 +1560,8 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
             ->assertSee('View test configuration')
             ->assertSee('synthetic-recipient@example.test')
             ->assertSee('Header submitted')
-            ->assertSee('https://mail.example.test/');
+            ->assertSee('/api/v1/campaigns/'.$campaign->getKey().'/test-click?', false)
+            ->assertSee('signature=', false);
         $this->get(route('clean.console.campaigns.show', $campaign->getKey()).'?test_logs_page=2')
             ->assertOk()
             ->assertSee('Showing 7 of 32')
@@ -1804,8 +1825,10 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
         $this->assertStringContainsString('sender@vmta-first.example.test', $sentMessages[1]['message']);
         $this->assertStringContainsString('route domain=vmta-selected.example.test', $sentMessages[0]['message']);
         $this->assertStringContainsString('route domain=vmta-first.example.test', $sentMessages[1]['message']);
-        $this->assertStringContainsString('https://vmta-selected.example.test/path', $sentMessages[0]['message']);
-        $this->assertStringContainsString('https://vmta-first.example.test/path', $sentMessages[1]['message']);
+        $this->assertStringContainsString('literal URL=https://campaign-domain.example.test/path', $sentMessages[0]['message']);
+        $this->assertStringContainsString('literal URL=https://campaign-domain.example.test/path', $sentMessages[1]['message']);
+        $this->assertStringNotContainsString('https://vmta-selected.example.test/path', $sentMessages[0]['message']);
+        $this->assertStringNotContainsString('https://vmta-first.example.test/path', $sentMessages[1]['message']);
         $expectedSelectedPmtaName = 'vmta-'.$selectedIp->ip.'-'.$selectedPushedVmta->getKey().'-v_2';
         $expectedFirstPmtaName = 'vmta-'.$firstIp->ip.'-'.$firstPushedVmta->getKey().'-v_1';
         $this->assertStringContainsString('X-virtual-MTA: '.$expectedSelectedPmtaName, $sentMessages[0]['message']);
@@ -2662,7 +2685,8 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
         $this->assertStringContainsString('From: mailer@smtp-selected.example.test', $message);
         $this->assertStringContainsString('Subject: Account selected-smtp@example.test / Selected SMTP account', $message);
         $this->assertStringContainsString('SMTP=selected-smtp@example.test; name=Selected SMTP account; source IP=203.0.113.132', $body);
-        $this->assertMatchesRegularExpression('#tracking=https://smtp-selected\.example\.test/[A-Z0-9]{10}r[A-Za-z0-9_-]+#', $body);
+        $this->assertStringContainsString('/api/v1/campaigns/'.$campaign->getKey().'/test-click?', $body);
+        $this->assertStringContainsString('signature=', $body);
         $this->assertStringNotContainsString('tracking=http://smtp-selected.example.test/', $body);
         $this->assertStringContainsString('external=http://outside.example.test/path', $body);
         $this->assertStringContainsString('X-Virtual-MTA: '.$expectedPmtaName, $message);
@@ -4217,7 +4241,7 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
             ->assertSee('rows="30" class="form-control campaign-header-editor"', false)
             ->assertDontSee('maxlength="200000" class="form-control campaign-header-editor"', false)
             ->assertSee("campaignDomainField.value = '';", false)
-            ->assertSee("applyCampaignDomainToBody('[domain]')", false)
+            ->assertDontSee('applyCampaignDomainToBody', false)
             ->assertSee('The selected VMTA has no configured domain.', false)
             ->assertDontSee('Uses the current Header and Body with the Email Test addresses.')
             ->assertSee('PLACEHOLDERS')

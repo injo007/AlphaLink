@@ -34,7 +34,7 @@ class AlphaLinkCampaignTagRenderer
         $values['domain_sld'] ??= $this->domainWithoutTld((string) ($values['domain'] ?? ''));
 
         $text = preg_replace(
-            '~(?:https?://)?\[domain\]/(?:\[rnd(?:un)?_\d+\])?r\[token\]~i',
+            '~(?<![A-Z0-9@._-])(?:https?://)?(?:\[domain\]|[A-Z0-9](?:[A-Z0-9.-]*[A-Z0-9])?)(?::\d+)?/(?:\[rnd(?:un)?_\d+\])?r\[token\]~i',
             '[click_url]',
             $text,
         ) ?? $text;

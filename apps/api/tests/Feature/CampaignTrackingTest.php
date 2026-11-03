@@ -768,6 +768,41 @@ class CampaignTrackingTest extends TestCase
         });
     }
 
+    public function test_signed_campaign_test_click_redirects_to_the_saved_offer_without_recording_a_recipient_click(): void
+    {
+        config(['tracking.ingest_key' => 'synthetic-tracking-key', 'infrastructure.ip_api_key' => null]);
+        $fixture = $this->recipientFixture();
+        $fixture['offer']->forceFill(['geo_target' => []])->save();
+        Queue::fake();
+        $token = 'synthetic-campaign-test-token';
+        $url = URL::temporarySignedRoute(
+            'public.campaign-test-click',
+            now()->addHour(),
+            [
+                'campaign' => $fixture['campaign']->getKey(),
+                'token' => $token,
+                'isp_id' => $fixture['isp']->getKey(),
+            ],
+        );
+
+        $response = $this->get($url)->assertRedirect('https://offer.example.test');
+        $this->assertStringContainsString('no-store', (string) $response->headers->get('Cache-Control'));
+        $this->assertStringContainsString('no-cache', (string) $response->headers->get('Cache-Control'));
+
+        Queue::assertNotPushed(ProcessCampaignTrackingEventJob::class);
+        $this->assertSame(0, CampaignEngagementEvent::query()->count());
+    }
+
+    public function test_unsigned_campaign_test_click_cannot_resolve_an_offer(): void
+    {
+        $fixture = $this->recipientFixture();
+
+        $this->get('/api/v1/campaigns/'.$fixture['campaign']->getKey().'/test-click?token=forged')
+            ->assertForbidden();
+
+        $this->assertSame(0, CampaignEngagementEvent::query()->count());
+    }
+
     public function test_unsigned_campaign_click_cannot_redirect(): void
     {
         $fixture = $this->recipientFixture();

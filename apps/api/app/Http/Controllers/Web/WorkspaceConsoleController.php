@@ -48,6 +48,7 @@ use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -1724,6 +1725,10 @@ class WorkspaceConsoleController extends Controller
             $subject = $subjectAssets === [] ? ['id' => 0, 'value' => ''] : $subjectAssets[$index % count($subjectAssets)];
             $routeTagKey = (string) $selectedServer->getKey().'|'.(string) ($routeChoice['id'] ?? '');
             $ipTags = $routeTagData->get($routeTagKey, []);
+            $testToken = $tagRenderer->campaignTestToken(
+                $campaign?->getKey() ?? '0',
+                $ispId,
+            );
             $tags = [
                 ...$ipTags,
                 'to' => $recipient,
@@ -1732,10 +1737,8 @@ class WorkspaceConsoleController extends Controller
                 'subject' => (string) ($subject['value'] ?? ''),
                 'date' => now()->toRfc2822String(),
                 'negative' => $negativePath,
-                'token' => $tagRenderer->campaignTestToken(
-                    $campaign?->getKey() ?? '0',
-                    $ispId,
-                ),
+                'token' => $testToken,
+                'click_url' => $campaign === null ? '' : $this->campaignTestClickUrl($campaign, $testToken, (int) $ispId),
                 'boundary' => Str::random(30),
             ];
             $cache = [];
@@ -1743,11 +1746,6 @@ class WorkspaceConsoleController extends Controller
             $renderedBody = $tagRenderer->render((string) ($data['body'] ?? ''), $tags, $placeholderRows, $index, $cache);
             $renderedReturnPath = $tagRenderer->render((string) ($data['return_path'] ?? ''), $tags, $placeholderRows, $index, $cache);
             if ($data['send_setup']['route_option'] === 'vmta') {
-                $campaignDomain = trim((string) ($data['domain'] ?? ''));
-                $vmtaDomain = trim((string) ($ipTags['domain'] ?? ''));
-                $renderedHeader = $this->replaceCampaignTestDomain($renderedHeader, $campaignDomain, $vmtaDomain);
-                $renderedBody = $this->replaceCampaignTestDomain($renderedBody, $campaignDomain, $vmtaDomain);
-                $renderedReturnPath = $this->replaceCampaignTestDomain($renderedReturnPath, $campaignDomain, $vmtaDomain);
                 $renderedHeader = $this->campaignTestHeaderWithVirtualMta(
                     $renderedHeader,
                     (string) $routeChoice['pmta_name'],
@@ -2377,17 +2375,6 @@ class WorkspaceConsoleController extends Controller
         return rtrim($header, "\n")."\nX-virtual-MTA: ".$virtualMtaName;
     }
 
-    private function replaceCampaignTestDomain(string $text, string $campaignDomain, string $vmtaDomain): string
-    {
-        if ($text === '' || $campaignDomain === '' || $vmtaDomain === '' || strcasecmp($campaignDomain, $vmtaDomain) === 0) {
-            return $text;
-        }
-
-        $pattern = '/(?<![A-Za-z0-9.-])'.preg_quote($campaignDomain, '/').'(?![A-Za-z0-9.-])/i';
-
-        return preg_replace($pattern, $vmtaDomain, $text) ?? $text;
-    }
-
     private function campaignHeaderEmailAddress(string $header, string $field): string
     {
         $line = collect(preg_split('/\r\n|\r|\n/', $header) ?: [])
@@ -2430,6 +2417,19 @@ class WorkspaceConsoleController extends Controller
         }
 
         return $response->withErrors(['manual_test' => $message]);
+    }
+
+    private function campaignTestClickUrl(Campaign $campaign, string $token, int $ispId): string
+    {
+        return URL::temporarySignedRoute(
+            'public.campaign-test-click',
+            now()->addYears(10),
+            [
+                'campaign' => $campaign->getKey(),
+                'token' => $token,
+                'isp_id' => $ispId,
+            ],
+        );
     }
 
     public function sendCampaignPmtaTest(
@@ -2535,6 +2535,7 @@ class WorkspaceConsoleController extends Controller
             }
         }
 
+        $testToken = $tagRenderer->campaignTestToken($campaign->getKey(), (string) ($setup['isp_id'] ?? '0'));
         $tagValues = [
             ...$this->campaignTestIpTags($workspace, $server, $route, $routeChoice, (string) ($data['domain'] ?? '')),
             'to' => $recipient,
@@ -2543,7 +2544,8 @@ class WorkspaceConsoleController extends Controller
             'from' => (string) $data['from_email'],
             'subject' => (string) $data['subject'],
             'date' => now()->toRfc2822String(),
-            'token' => $tagRenderer->campaignTestToken($campaign->getKey(), (string) ($setup['isp_id'] ?? '0')),
+            'token' => $testToken,
+            'click_url' => $this->campaignTestClickUrl($campaign, $testToken, (int) ($setup['isp_id'] ?? 0)),
             'boundary' => Str::random(30),
         ];
         $tagCache = [];

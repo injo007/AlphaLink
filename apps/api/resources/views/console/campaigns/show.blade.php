@@ -420,7 +420,7 @@
                                         @endif
                                     @endforeach
                                 </select>
-                                <small class="form-text text-muted">Selecting an HTML asset replaces the Body with its campaign template and substitutes the selected domain.</small>
+                                <small class="form-text text-muted">Selecting an HTML asset replaces the Body with its campaign template. The <code>[domain]</code> tag resolves when the message is sent; other URL hosts stay unchanged.</small>
                             </div>
                         @endif
                         @if (is_array($sendSetup))
@@ -835,20 +835,15 @@
             [route, ipType, servers].forEach(element => element?.addEventListener('change', () => { refreshIps().catch(() => {}); }));
 
             const body = document.getElementById('revision-body');
-            const domain = document.getElementById('revision-domain');
             const creative = document.getElementById('revision-creative-asset');
             const html = document.getElementById('revision-html-asset');
-            const selectedDomain = () => domain?.value || '[domain]';
             html?.addEventListener('change', () => {
                 const option = html.selectedOptions[0];
-                if (option?.value) body.value = (option.dataset.assetValue || '').replaceAll('[domain]', selectedDomain());
+                if (option?.value) body.value = option.dataset.assetValue || '';
             });
             creative?.addEventListener('change', () => {
                 const option = creative.selectedOptions[0];
-                if (option?.value) body.value = body.value.replace(/src="[^"]*"/i, 'src="http://' + selectedDomain() + '/' + (option.dataset.assetValue || 'NA') + '"');
-            });
-            domain?.addEventListener('change', () => {
-                body.value = body.value.replace(/(https?:\/\/)(.*?)\//g, 'http://' + selectedDomain() + '/');
+                if (option?.value) body.value = body.value.replace(/src="[^"]*"/i, 'src="https://[domain]/' + (option.dataset.assetValue || 'NA') + '"');
             });
         })();
     </script>

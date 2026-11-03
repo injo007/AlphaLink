@@ -14,7 +14,7 @@ function createOption(dataset, value = 'vmta-choice-1') {
     return { dataset, value };
 }
 
-function runSync({ route = 'vmta', selectedChoices = [], availableChoices = [], selectedServers = ['server-1'], domain = 'stale-ip.example.test', body = 'https://stale-ip.example.test/path' } = {}) {
+function runSync({ route = 'vmta', selectedChoices = [], availableChoices = [], selectedServers = ['server-1'], domain = 'stale-ip.example.test', body = 'https://i.pinimg.com/736x/62/92/63/image.jpg <a href="https://[domain]/path">offer</a>' } = {}) {
     const campaignDomainField = {
         value: domain,
         options: [],
@@ -36,9 +36,6 @@ function runSync({ route = 'vmta', selectedChoices = [], availableChoices = [], 
         },
         window: {},
         Option: function Option(text, value) { this.text = text; this.value = value; },
-        applyCampaignDomainToBody(value) {
-            bodyField.value = bodyField.value.replace(/(https?:\/\/)[^/\s"'<>]+/gi, `$1${value}`);
-        },
     };
 
     vm.runInNewContext(`${syncSource}\nsyncCampaignDomainToRoute();`, env);
@@ -46,12 +43,12 @@ function runSync({ route = 'vmta', selectedChoices = [], availableChoices = [], 
     return { body: bodyField.value, domain: campaignDomainField.value, hint: campaignDomainHint };
 }
 
-test('a selected VMTA without a domain clears the old Domain and replaces body URL hosts', () => {
+test('a selected VMTA without a domain clears the old Domain and preserves the message HTML', () => {
     const vmta = createOption({ serverId: 'server-1', route: 'vmta', vmtaDomain: '' });
     const result = runSync({ selectedChoices: [vmta] });
 
     assert.equal(result.domain, '');
-    assert.equal(result.body, 'https://[domain]/path');
+    assert.equal(result.body, 'https://i.pinimg.com/736x/62/92/63/image.jpg <a href="https://[domain]/path">offer</a>');
     assert.equal(result.hint.hidden, false);
     assert.match(result.hint.textContent, /no configured domain/i);
 });
@@ -62,16 +59,23 @@ test('an unselected VMTA with no domain is found from the selected server invent
     const result = runSync({ availableChoices: [vmta, otherServerVmta] });
 
     assert.equal(result.domain, '');
-    assert.equal(result.body, 'https://[domain]/path');
+    assert.equal(result.body, 'https://i.pinimg.com/736x/62/92/63/image.jpg <a href="https://[domain]/path">offer</a>');
     assert.match(result.hint.textContent, /no configured domain/i);
 });
 
-test('a selected VMTA domain replaces the Domain value and all body URL hosts', () => {
+test('a selected VMTA domain updates the Domain field without rewriting body URL hosts', () => {
     const vmta = createOption({ serverId: 'server-1', route: 'vmta', vmtaDomain: 'vmta.example.test' });
     const result = runSync({ selectedChoices: [vmta] });
 
     assert.equal(result.domain, 'vmta.example.test');
-    assert.equal(result.body, 'https://vmta.example.test/path');
+    assert.equal(result.body, 'https://i.pinimg.com/736x/62/92/63/image.jpg <a href="https://[domain]/path">offer</a>');
     assert.equal(result.hint.hidden, false);
     assert.match(result.hint.textContent, /using the selected VMTA domain/i);
+});
+
+test('the saved-revision editor does not rewrite message hosts when its domain changes', () => {
+    const revisionView = readFileSync(new URL('../../resources/views/console/campaigns/show.blade.php', import.meta.url), 'utf8');
+
+    assert.doesNotMatch(revisionView, /body\.value\s*=\s*body\.value\.replace\(\/\(https\?:/);
+    assert.doesNotMatch(revisionView, /replaceAll\('\[domain\]'/);
 });

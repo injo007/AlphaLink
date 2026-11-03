@@ -27,6 +27,10 @@ Route::prefix('v1')->group(function (): void {
         ->whereUuid(['campaign', 'item'])
         ->middleware('signed')
         ->name('public.campaign-click');
+    Route::get('/campaigns/{campaign}/test-click', [CampaignClickController::class, 'redirectTest'])
+        ->whereUuid('campaign')
+        ->middleware('signed')
+        ->name('public.campaign-test-click');
     Route::match(['get', 'post'], '/campaigns/{campaign}/{item}/unsubscribe', [CampaignUnsubscribeController::class, 'unsubscribe'])
         ->whereUuid('campaign')
         ->whereUuid('item')

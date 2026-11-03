@@ -587,7 +587,7 @@
                     <p>Campaign templates accept <code>[boundary]</code> and <code>[bnd]</code>. <code>[boundary]</code> comes from message context; <code>[bnd]</code> defaults to a cached 18-character value.</p>
                     <p>Campaign Test resolves <code>[smtp]</code> and <code>[smtp_name]</code> from the selected SMTP route, or from the single active SMTP account linked to a selected IP. In SMTP mode, it sends one test message through every selected SMTP route and reuses the saved Email Test addresses as needed; this lets you verify each selected account. Use <code>[smtp]</code> by itself when the account username is already an email address; <code>[smtp]@[domain]</code> also works and adds the selected domain only when the account username is a local part. These tags only fill message text: Option IP still routes through the selected IP, and Option SMTP routes through the selected SMTP account. If an IP has multiple linked accounts, select one with Option SMTP before using its tags. The tags are empty for VMTA routes and IPs without a linked account. <code>[tag]</code> is empty in Campaign Test because the reply-tag value is unavailable in that flow.</p>
                     <p>Campaign Test replaces <code>[token]</code> with a test token. Save the campaign before testing click, open, or unsubscribe links: an unsaved campaign has no ID for those URLs. Test opens and clicks do not create recipient analytics. Campaign Test does not require sender-domain DNS verification.</p>
-                    <p class="mb-0">For a selected VMTA, AlphaLink resolves <code>[domain]</code> to its pushed domain and applies that domain to the Domain field and body URL hosts. With multiple selected VMTAs, Campaign Test uses the selected server's own VMTA domain. For IP/server tests without a configured DNS name, the selected Domain supplies <code>[domain]</code>.</p>
+                    <p class="mb-0">The editor keeps message HTML as written. Campaign Test and Send resolve <code>[domain]</code> at send time; selected VMTAs supply their own pushed domain, while IP/server tests without a configured DNS name use the selected Domain. Other URL hosts in the HTML stay unchanged.</p>
                 </div></div>
             </div>
         </dialog>
@@ -1161,7 +1161,6 @@
             const campaignRouteField = document.getElementById('send-route');
             const campaignIpsField = document.getElementById('send-ips');
             const campaignDomainHint = document.getElementById('campaign-domain-route-hint');
-            const selectedCampaignDomain = () => campaignDomainField.value || '[domain]';
             const refreshCampaignDomainOptions = (records) => {
                 const selected = campaignDomainField.value;
                 const domains = new Map((records || []).map((record) => [String(record.value), record]));
@@ -1169,9 +1168,6 @@
                 domains.forEach((record, value) => campaignDomainField.add(new Option(`${record.name} — ${record.dns}`, value)));
                 campaignDomainField.value = domains.has(selected) ? selected : '';
                 if (window.jQuery?.fn.selectpicker) window.jQuery(campaignDomainField).selectpicker('refresh');
-            };
-            const applyCampaignDomainToBody = (domain) => {
-                body.value = body.value.replace(/(https?:\/\/)[^/\s"'<>]+/gi, `$1${domain}`);
             };
             const syncCampaignDomainToRoute = () => {
                 const route = campaignRouteField?.value;
@@ -1189,7 +1185,6 @@
                         campaignDomainHint.textContent = vmtaChoices.length
                             ? 'The selected VMTA has no configured domain. Choose or push a VMTA with a domain before saving.'
                             : 'Select a VMTA for the chosen server to use its configured domain.';
-                        applyCampaignDomainToBody('[domain]');
                         return;
                     }
                     campaignDomainHint.hidden = false;
@@ -1201,7 +1196,6 @@
                     }
                     campaignDomainField.value = domain;
                     if (window.jQuery?.fn.selectpicker) window.jQuery(campaignDomainField).selectpicker('refresh');
-                    applyCampaignDomainToBody(domain);
                     return;
                 }
                 campaignDomainHint.hidden = true;
@@ -1210,18 +1204,17 @@
                     if (domain && Array.from(campaignDomainField.options).some((option) => option.value === domain)) {
                         campaignDomainField.value = domain;
                         if (window.jQuery?.fn.selectpicker) window.jQuery(campaignDomainField).selectpicker('refresh');
-                        applyCampaignDomainToBody(domain);
                     }
                 }
             };
             const selectedCreative = () => document.getElementById('send-creative-asset').selectedOptions[0];
             const publicAssetUrl = (option) => {
                 const value = option?.dataset.publicUrl || option?.dataset.assetValue || 'NA';
-                return /^https?:\/\//i.test(value) ? value : `http://${selectedCampaignDomain()}/${value}`;
+                return /^https?:\/\//i.test(value) ? value : `https://[domain]/${value}`;
             };
             const applySelectedHtml = () => {
                 const option = document.getElementById('send-html-asset').selectedOptions[0];
-                if (option?.value && option.dataset.assetValue) body.value = option.dataset.assetValue.replaceAll('[domain]', selectedCampaignDomain());
+                if (option?.value && option.dataset.assetValue) body.value = option.dataset.assetValue;
             };
             const applySelectedCreative = () => {
                 const option = selectedCreative();
@@ -1236,15 +1229,13 @@
                     syncCampaignDomainToRoute();
                     return;
                 }
-                applyCampaignDomainToBody(selectedCampaignDomain());
             });
             document.getElementById('campaign-body-map').addEventListener('change', async (event) => {
                 const creative = document.getElementById('send-creative-asset').selectedOptions[0];
                 if (!creative?.value) { event.target.checked = false; setToolStatus('Please select a creative first.', 'warning'); return; }
-                const domain = selectedCampaignDomain();
                 const source = publicAssetUrl(creative);
                 const unsubscribeValue = creative.dataset.unsubscribeValue || 'NA';
-                const unsubscribe = /^https?:\/\//i.test(unsubscribeValue) ? unsubscribeValue : `http://${domain}/${unsubscribeValue}`;
+                const unsubscribe = /^https?:\/\//i.test(unsubscribeValue) ? unsubscribeValue : `https://[domain]/${unsubscribeValue}`;
                 const dimensions = (url) => new Promise((resolve) => {
                     const image = new Image();
                     image.onload = () => resolve([image.naturalWidth || image.width, image.naturalHeight || image.height]);
@@ -1253,11 +1244,11 @@
                 });
                 const [creativeWidth, creativeHeight] = event.target.checked ? await dimensions(source) : [0, 0];
                 const [unsubscribeWidth, unsubscribeHeight] = event.target.checked ? await dimensions(unsubscribe) : [0, 0];
-                const bodyStart = '<html>\n<body>\n<center>\n<a href="http://' + domain + '/[rndUN_10]r[token]">\n';
-                const trackingEnd = '<img src="http://' + domain + '/[rndUN_10]o[token]">\n</center>\n</body>\n</html>\n';
+                const bodyStart = '<html>\n<body>\n<center>\n<a href="https://[domain]/[rndUN_10]r[token]">\n';
+                const trackingEnd = '<img src="https://[domain]/[rndUN_10]o[token]">\n</center>\n</body>\n</html>\n';
                 const imageTag = event.target.checked
-                    ? `<img src="${source}" usemap="#r[ide]" style="width: ${creativeWidth}px; height: ${creativeHeight}px" />\n<br/>\n<map name="r[ide]">\n<area shape="rect" coords="0,0,2000,2000" target="_blank" href="http://${domain}/[rndUN_10]r[token]"/>\n</map>\n<img src="${unsubscribe}" usemap="#u[ide]" style="width: ${unsubscribeWidth}px; height: ${unsubscribeHeight}px"/>\n<br/>\n<map name="u[ide]">\n<area shape="rect" coords="0,0,2000,2000" target="_blank" href="http://${domain}/[rndUN_10]u[token]"/>\n</map>\n`
-                    : `<img src="${source}" />\n</a><br>\n<a href="http://${domain}/[rndUN_10]u[token]">\n<img src="${unsubscribe}" />\n</a><br>\n`;
+                    ? `<img src="${source}" usemap="#r[ide]" style="width: ${creativeWidth}px; height: ${creativeHeight}px" />\n<br/>\n<map name="r[ide]">\n<area shape="rect" coords="0,0,2000,2000" target="_blank" href="https://[domain]/[rndUN_10]r[token]"/>\n</map>\n<img src="${unsubscribe}" usemap="#u[ide]" style="width: ${unsubscribeWidth}px; height: ${unsubscribeHeight}px"/>\n<br/>\n<map name="u[ide]">\n<area shape="rect" coords="0,0,2000,2000" target="_blank" href="https://[domain]/[rndUN_10]u[token]"/>\n</map>\n`
+                    : `<img src="${source}" />\n</a><br>\n<a href="https://[domain]/[rndUN_10]u[token]">\n<img src="${unsubscribe}" />\n</a><br>\n`;
                 body.value = bodyStart + (event.target.checked ? '<h2 style="font-size:35px; color:#324ab2">TITLE</h2>\n</a>\n<br/>\n' : '<font size="4">TTILE</font><br>\n') + imageTag + trackingEnd;
             });
             const headerField = document.getElementById('campaign-header');
@@ -1436,33 +1427,32 @@
             const pickerRefresh = (element) => {
                 if (window.jQuery && window.jQuery.fn.selectpicker) window.jQuery(element).selectpicker('refresh');
             };
-            const selectedDomain = () => campaignDomain.value || '[domain]';
             const applyHtmlAsset = () => {
                 const option = select('htmlAsset').selectedOptions[0];
                 if (!option?.value) return false;
-                campaignBody.value = (option.dataset.assetValue || '').replaceAll('[domain]', selectedDomain());
+                campaignBody.value = option.dataset.assetValue || '';
                 return true;
             };
             const applyCreativeAsset = () => {
                 const option = select('creativeAsset').selectedOptions[0];
                 if (!option?.value) return;
                 const creativePath = option.dataset.assetValue || 'NA';
-                const creativeUrl = /^https?:\/\//i.test(creativePath) ? creativePath : 'http://' + selectedDomain() + '/' + creativePath;
+                const creativeUrl = /^https?:\/\//i.test(creativePath) ? creativePath : 'https://[domain]/' + creativePath;
                 campaignBody.value = campaignBody.value.replace(/src="[^"]*"/i, 'src="' + creativeUrl + '"');
             };
-            const assetImageUrl = (asset) => /^https?:\/\//i.test(String(asset || '')) ? String(asset) : 'http://[domain]/' + (asset || 'NA');
+            const assetImageUrl = (asset) => /^https?:\/\//i.test(String(asset || '')) ? String(asset) : 'https://[domain]/' + (asset || 'NA');
             const defaultCampaignBody = (creative, unsubscribe) => [
                 '<html>',
                 '<body>',
                 '<center>',
-                '<a href="http://[domain]/[rndUN_10]r[token]">',
+                '<a href="https://[domain]/[rndUN_10]r[token]">',
                 '<font size="4">TTILE</font><br>',
                 '<img src="' + assetImageUrl(creative) + '" />',
                 '</a><br>',
-                '<a href="http://[domain]/[rndUN_10]u[token]">',
+                '<a href="https://[domain]/[rndUN_10]u[token]">',
                 '<img src="' + assetImageUrl(unsubscribe) + '" />',
                 '</a><br>',
-                '<img src="http://[domain]/[rndUN_10]o[token]" />',
+                '<img src="https://[domain]/[rndUN_10]o[token]" />',
                 '</center>',
                 '</body>',
                 '</html>',

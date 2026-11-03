@@ -16,6 +16,49 @@ use Symfony\Component\HttpFoundation\Response;
 
 class CampaignClickController extends Controller
 {
+    public function redirectTest(
+        Request $request,
+        string $campaign,
+        TrackingIngestAuthenticator $authenticator,
+        CampaignIpGeoResolver $geoResolver,
+    ): Response {
+        $data = $request->validate([
+            'token' => ['required', 'string', 'max:4096'],
+            'isp_id' => ['nullable', 'integer', 'min:0'],
+        ]);
+
+        $campaignModel = Campaign::query()->whereKey($campaign)->firstOrFail();
+        $workspace = Workspace::query()->whereKey($campaignModel->workspace_id)->firstOrFail();
+        $callbackKey = $authenticator->expectedKey($workspace);
+        abort_if($callbackKey === null, 503, 'Campaign tracking is not configured.');
+
+        $callbackRequest = Request::create('/api/v1/campaign', 'POST', [
+            'key' => $callbackKey,
+            'campaign_id' => (string) $campaignModel->getKey(),
+            'email_id' => '0',
+            'isp_id' => (int) ($data['isp_id'] ?? 0),
+            'token' => $data['token'],
+            'ip_address' => (string) ($request->ip() ?: '127.0.0.1'),
+            'user_agent' => (string) $request->userAgent(),
+            'type' => 'red',
+        ]);
+        $redirectData = app(CampaignRedirectController::class)
+            ->store($callbackRequest, $authenticator, $geoResolver);
+
+        if (! $redirectData->isSuccessful()) {
+            return response($redirectData->getContent(), $redirectData->getStatusCode(), [
+                'Content-Type' => (string) $redirectData->headers->get('Content-Type', 'application/json'),
+                'Cache-Control' => 'no-store, no-cache, max-age=0',
+            ]);
+        }
+
+        $destination = (string) ($redirectData->getData(true)['link'] ?? 'https://www.google.com');
+
+        return redirect()->away($destination)
+            ->header('Cache-Control', 'no-store, no-cache, max-age=0')
+            ->header('X-Robots-Tag', 'noindex, nofollow');
+    }
+
     public function redirect(
         Request $request,
         string $campaign,

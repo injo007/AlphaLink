@@ -232,11 +232,6 @@ class CampaignSendMessageBuilder
         $header = $this->tagRenderer->render($context['header_template'], $tags, $context['placeholder_rows'], $position - 1, $cache);
         $body = $this->tagRenderer->render($context['body_template'], $tags, $context['placeholder_rows'], $position - 1, $cache);
         $returnPath = $this->tagRenderer->render($context['return_path'], $tags, $context['placeholder_rows'], $position - 1, $cache);
-        if ($context['route'] === 'vmta') {
-            $header = $this->replaceDomain($header, $context['domain_fallback'], $domain);
-            $body = $this->replaceDomain($body, $context['domain_fallback'], $domain);
-            $returnPath = $this->replaceDomain($returnPath, $context['domain_fallback'], $domain);
-        }
         $header = $this->redirectUrlPolicy->forceHttpsForHost($header, $domain);
         $body = $this->redirectUrlPolicy->forceHttpsForHost($body, $domain);
         $returnPath = $this->redirectUrlPolicy->forceHttpsForHost($returnPath, $domain);
@@ -353,15 +348,6 @@ class CampaignSendMessageBuilder
         $header = preg_replace('/^'.preg_quote($name, '/').'\s*:[^\n]*(?:\n[ \t][^\n]*)*/im', '', $header) ?? $header;
 
         return rtrim($header, "\n")."\n{$name}: {$value}";
-    }
-
-    private function replaceDomain(string $text, string $old, string $new): string
-    {
-        if ($old === '' || $new === '' || strcasecmp($old, $new) === 0) {
-            return $text;
-        }
-
-        return preg_replace('/(?<![A-Za-z0-9.-])'.preg_quote($old, '/').'(?![A-Za-z0-9.-])/i', $new, $text) ?? $text;
     }
 
     private function headerEmail(string $header, string $field): string

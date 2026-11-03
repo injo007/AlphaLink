@@ -730,3 +730,11 @@ All 21 DMS-prefixed audit paths now use `LEGACY_` filenames, with local links up
 ### Campaign offer click route — E-TRACK-39
 
 Newly built campaign messages route offer links through AlphaLink's signed HTTPS app endpoint. It verifies the clicked snapshot item belongs to the campaign and workspace, invokes the current offer resolver (including geo/proxy rules and the Google HTTPS fallback), sends a direct 302 and queues a click event with the message's attribution dimensions. HEAD requests redirect but do not count. Synthetic tests cover the offer destination, queue payload, signature rejection and HEAD behavior. Release `5df2032` is deployed and `/up` returns HTTP 200; an unsigned synthetic route probe reaches Laravel signature validation. A fresh real message and recipient click remain unverified; leave the feature TESTING.
+
+### Campaign editor HTML preservation — E-CAMP-151
+
+Create and saved-campaign editors now leave message HTML and URL hosts intact when opening a campaign, changing its route, or selecting an HTML asset. The send builder resolves `[domain]` at send time and preserves external hosts such as the reported `i.pinimg.com` image. A feature test checks the saved edit-page content; Node route-sync coverage passes 4/4. No production email was sent. Keep authoring/send behavior TESTING pending a live browser edit/save review and a fresh message check.
+
+### Campaign test offer redirect — E-TRACK-40
+
+Literal-host and `[domain]` offer links ending in `/[rndUN_10]r[token]` now resolve to a signed AlphaLink click URL during test-message rendering. The signed test route uses the campaign's saved offer resolver and returns a direct destination redirect without queuing or persisting a recipient click. Focused PHP tests cover the redirect, absent analytics write, and unsigned-link rejection. The full user email/click path remains unverified; no production recipient click occurred. Keep DMS-TRACK-003 TESTING.

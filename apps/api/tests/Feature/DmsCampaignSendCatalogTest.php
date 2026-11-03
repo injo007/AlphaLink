@@ -108,6 +108,13 @@ class DmsCampaignSendCatalogTest extends TestCase
             'info@example.test',
             $renderer->render('info@[smtp]', ['smtp' => 'workspace-user@example.test', 'domain' => 'relay.example.test']),
         );
+        $this->assertSame(
+            '<a href="https://cipherglobal.fun/rTRACKINGTOKEN">Tracked</a><a href="http://outside.example.test/path">External</a>',
+            $renderer->render(
+                '<a href="http://[domain]/r[token]">Tracked</a><a href="http://outside.example.test/path">External</a>',
+                ['domain' => 'cipherglobal.fun', 'token' => 'TRACKINGTOKEN'],
+            ),
+        );
         $this->assertSame('aGVsbG8', trim($parts[5]));
         $this->assertSame('hello=3Dworld', $parts[6]);
         $this->assertContains($renderer->render('[text:first|second]', [], [], 0, $cache), ['first', 'second']);
@@ -2637,7 +2644,7 @@ class DmsCampaignSendCatalogTest extends TestCase
             'recipient' => 'smtp-test-recipient@example.test',
             'from_email' => 'mailer@[domain]',
             'subject' => 'Account [smtp] / [smtp_name]',
-            'body' => 'SMTP=[smtp]; name=[smtp_name]; source IP=[ip]',
+            'body' => 'SMTP=[smtp]; name=[smtp_name]; source IP=[ip]; tracking=http://[domain]/[rndUN_10]r[token]; external=http://outside.example.test/path',
             'idempotency_key' => (string) Str::uuid(),
             'confirm_authorized_recipient' => '1',
         ])->assertSessionHas('status', 'The selected server’s PMTA SMTP listener accepted this test message. Mailbox delivery is unconfirmed.');
@@ -2649,6 +2656,9 @@ class DmsCampaignSendCatalogTest extends TestCase
         $this->assertStringContainsString('From: mailer@smtp-selected.example.test', $message);
         $this->assertStringContainsString('Subject: Account selected-smtp@example.test / Selected SMTP account', $message);
         $this->assertStringContainsString('SMTP=selected-smtp@example.test; name=Selected SMTP account; source IP=203.0.113.132', $body);
+        $this->assertMatchesRegularExpression('#tracking=https://smtp-selected\.example\.test/[A-Z0-9]{10}r[A-Za-z0-9_-]+#', $body);
+        $this->assertStringNotContainsString('tracking=http://smtp-selected.example.test/', $body);
+        $this->assertStringContainsString('external=http://outside.example.test/path', $body);
         $this->assertStringContainsString('X-Virtual-MTA: '.$expectedPmtaName, $message);
         $this->assertStringNotContainsString('first-smtp@example.test', $message);
         $this->assertDatabaseHas('campaign_test_mail_attempts', [

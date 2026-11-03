@@ -213,6 +213,43 @@ test('route picker labels and accessible controls switch to SMTP route terminolo
     assert.equal(buttons[0].attributes.get('aria-label'), 'Move all SMTP routes to selected');
 });
 
+test('open tracking pixel control inserts the exact tag at the body selection and restores focus', () => {
+    const snippet = '<img src="[domain]/[rndUN_20]o[token]" width="1" height="1" style="display:block;">';
+    assert.match(view, /id="campaign-body-insert-open-pixel"[^>]*title="Insert open tracking pixel"[^>]*aria-label="Insert open tracking pixel"/);
+    assert.ok(view.includes(`insertTextAtSelection(body, '${snippet}')`));
+
+    const helperStart = view.indexOf('            const insertTextAtSelection = (textarea, text) => {');
+    const helperEnd = view.indexOf('\n            };', helperStart) + '\n            };'.length;
+    assert.notEqual(helperStart, -1, 'body text insertion helper exists');
+    assert.ok(helperEnd > helperStart, 'body text insertion helper closes');
+
+    const textarea = {
+        value: '<p>before selected text after</p>',
+        selectionStart: 10,
+        selectionEnd: 23,
+        setRangeText(text, start, end, selectionMode) {
+            this.value = this.value.slice(0, start) + text + this.value.slice(end);
+            this.selectionStart = start + text.length;
+            this.selectionEnd = this.selectionStart;
+            this.selectionMode = selectionMode;
+        },
+        dispatchEvent(event) { this.dispatchedEvent = event; },
+        focus(options) { this.focusOptions = options; },
+    };
+    class FakeEvent {
+        constructor(type, options) { this.type = type; this.bubbles = options.bubbles; }
+    }
+    const env = {textarea, Event: FakeEvent};
+
+    vm.runInNewContext(`${view.slice(helperStart, helperEnd)}\ninsertTextAtSelection(textarea, '${snippet}');`, env);
+
+    assert.equal(textarea.value, `<p>before ${snippet} after</p>`);
+    assert.equal(textarea.selectionMode, 'end');
+    assert.equal(textarea.dispatchedEvent.type, 'input');
+    assert.equal(textarea.dispatchedEvent.bubbles, true);
+    assert.equal(textarea.focusOptions?.preventScroll, true);
+});
+
 test('IP route choices disclose linked SMTP account and ambiguity', () => {
     const start = view.indexOf('                const routeChoiceLabel = (ip, routeOption) => {');
     const end = view.indexOf('\n                };', start) + '\n                };'.length;

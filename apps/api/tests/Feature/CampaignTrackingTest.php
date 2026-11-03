@@ -428,13 +428,13 @@ class CampaignTrackingTest extends TestCase
 
         $this->assertSame('open', $fixture['membership']->fresh()->email_type);
         $this->assertSame('open', $secondMembership->fresh()->email_type);
-        $this->assertSame(2, DB::table('contact_list_membership_events')
+        $this->assertSame(4, DB::table('contact_list_membership_events')
             ->where('contact_id', $fixture['contact']->getKey())->count());
         $this->assertSame(1, AudienceList::query()
             ->where('workspace_id', $fixture['workspace']->getKey())
             ->where('isp_id', $fixture['isp']->getKey())
             ->where('name', 'US')->count());
-        $this->assertSame(2, ContactListMembership::query()
+        $this->assertSame(4, ContactListMembership::query()
             ->where('workspace_id', $fixture['workspace']->getKey())
             ->where('contact_id', $fixture['contact']->getKey())
             ->where('email_type', 'open')->count());
@@ -487,6 +487,15 @@ class CampaignTrackingTest extends TestCase
             'contact_id' => $fixture['contact']->getKey(),
             'action' => 'open',
         ]);
+        $openActionList = AudienceList::query()
+            ->where('workspace_id', $fixture['workspace']->getKey())
+            ->where('name', 'Tracking fixture audience_US_Open')
+            ->firstOrFail();
+        $this->assertDatabaseHas('contact_list_memberships', [
+            'audience_list_id' => $openActionList->getKey(),
+            'contact_id' => $fixture['contact']->getKey(),
+            'email_type' => 'open',
+        ]);
 
         $this->postJson($url, $this->trackingPayload($fixture, 'click'))->assertNoContent();
         $membership->refresh();
@@ -494,6 +503,90 @@ class CampaignTrackingTest extends TestCase
         $this->assertSame('click', $membership->email_type);
         $this->assertSame(1, AudienceList::query()->where('workspace_id', $fixture['workspace']->getKey())
             ->where('name', 'US')->count());
+        $clickActionList = AudienceList::query()
+            ->where('workspace_id', $fixture['workspace']->getKey())
+            ->where('name', 'Tracking fixture audience_US_Click')
+            ->firstOrFail();
+        $this->assertDatabaseHas('contact_list_memberships', [
+            'audience_list_id' => $clickActionList->getKey(),
+            'contact_id' => $fixture['contact']->getKey(),
+            'email_type' => 'click',
+        ]);
+
+        $this->postJson($url, $this->trackingPayload($fixture, 'unsubscribe'))->assertNoContent();
+        $unsubscribeActionList = AudienceList::query()
+            ->where('workspace_id', $fixture['workspace']->getKey())
+            ->where('name', 'Tracking fixture audience_US_Unsub')
+            ->firstOrFail();
+        $this->assertDatabaseHas('contact_list_memberships', [
+            'audience_list_id' => $unsubscribeActionList->getKey(),
+            'contact_id' => $fixture['contact']->getKey(),
+            'email_type' => 'unsubscribe',
+        ]);
+        $this->assertSame('unsubscribe', (string) $fixture['membership']->fresh()->email_type);
+        $this->assertSame(1, ContactListMembership::query()
+            ->where('workspace_id', $fixture['workspace']->getKey())
+            ->where('audience_list_id', $openActionList->getKey())
+            ->where('contact_id', $fixture['contact']->getKey())
+            ->where('email_type', 'unsubscribe')
+            ->count());
+    }
+
+    public function test_campaign_action_segment_backfill_materializes_existing_clicks_without_reactivating_unsubscribed_members(): void
+    {
+        config(['tracking.ingest_key' => 'synthetic-tracking-key', 'infrastructure.ip_api_key' => null]);
+        $fixture = $this->recipientFixture();
+        $fixture['isp']->forceFill(['tracked_countries' => ['US']])->save();
+        $fixture['list']->forceFill(['is_tracked' => true])->save();
+        WorkspaceAppSettings::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(),
+            'settings' => ['ip_api_key' => 'synthetic-country-api-key'],
+        ]);
+        Http::fake([
+            'https://pro.ip-api.com/json/*' => Http::response([
+                'status' => 'success', 'countryCode' => 'US', 'country' => 'United States',
+                'regionName' => 'Test Region', 'city' => 'Test City', 'proxy' => false,
+                'hosting' => false, 'org' => 'Synthetic Network',
+            ]),
+        ]);
+
+        foreach (['open', 'click', 'unsubscribe'] as $action) {
+            $this->postJson('/api/v1/tracking/campaign-events', $this->trackingPayload($fixture, $action))
+                ->assertNoContent();
+        }
+
+        $generatedLists = AudienceList::query()->where('workspace_id', $fixture['workspace']->getKey())
+            ->where('slug', 'like', 'tracking-action-%')->pluck('id');
+        DB::table('contact_list_membership_events')->whereIn('audience_list_id', $generatedLists)->delete();
+        ContactListMembership::query()->whereIn('audience_list_id', $generatedLists)->delete();
+        AudienceList::query()->whereIn('id', $generatedLists)->delete();
+
+        $this->artisan('workspace:campaign-action-segments', [
+            'campaign' => (string) $fixture['campaign']->getKey(),
+        ])->assertExitCode(0);
+        $this->artisan('workspace:campaign-action-segments', [
+            'campaign' => (string) $fixture['campaign']->getKey(),
+        ])->assertExitCode(0);
+
+        foreach (['Open', 'Click', 'Unsub'] as $action) {
+            $actionList = AudienceList::query()
+                ->where('workspace_id', $fixture['workspace']->getKey())
+                ->where('name', 'Tracking fixture audience_US_'.$action)
+                ->firstOrFail();
+            $this->assertDatabaseHas('contact_list_memberships', [
+                'audience_list_id' => $actionList->getKey(),
+                'contact_id' => $fixture['contact']->getKey(),
+                'email_type' => 'unsubscribe',
+                'status' => 'active',
+            ]);
+        }
+
+        $this->assertSame(3, AudienceList::query()->where('workspace_id', $fixture['workspace']->getKey())
+            ->where('slug', 'like', 'tracking-action-%')->count());
+        $this->assertSame(3, DB::table('contact_list_membership_events')
+            ->where('workspace_id', $fixture['workspace']->getKey())
+            ->where('idempotency_key', 'like', 'tracking-action-event:%')
+            ->count());
     }
 
     public function test_configured_blocked_organization_discards_opens_but_keeps_clicks(): void

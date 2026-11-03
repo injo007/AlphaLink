@@ -192,6 +192,22 @@ class ProcessCampaignTrackingEvent
                         'last_event_id' => $membershipEvent->getKey(),
                     ])->save();
                 }
+
+                $membershipManager->recordActionSegment(
+                    $target['source_list_id'],
+                    $membership,
+                    (string) $data['action'],
+                    $countryCode,
+                    $membership->email_type,
+                    'campaign_tracking',
+                    (string) $event->getKey(),
+                    $event->created_at,
+                    [
+                        'campaign_id' => (string) $campaign->getKey(),
+                        'revision_id' => (string) $snapshot->revision_id,
+                        'engagement_event_id' => (string) $event->getKey(),
+                    ],
+                );
             }
 
             if ($data['action'] === 'unsubscribe') {

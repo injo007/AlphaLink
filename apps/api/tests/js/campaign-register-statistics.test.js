@@ -57,7 +57,12 @@ test('inline campaign statistics render the DMS summary columns and campaign tot
 
     const table = target.children[0];
     assert.deepEqual(table.children[0].children[0].children.map(cell => cell.textContent), ['OPEN', 'CLICK', 'COUNT LEAD', 'LEAD', 'UNSUBSCRIBE', 'BOT', 'EPC']);
-    assert.deepEqual(table.children[1].children[0].children.map(cell => cell.textContent), ['17', '6', '3', '$12.50', '1', '0', '$2.08']);
+    assert.deepEqual(table.children[1].children[0].children.map(cell => cell.textContent), ['17', '6', '3', '$12.5', '1', '0', '$2.08']);
+});
+
+test('campaign register uses live event counts for its inline statistics request', () => {
+    assert.match(view, /'inline'\s*=>\s*1/);
+    assert.match(view, /minimumFractionDigits:\s*0/);
 });
 
 test('inline campaign statistics show a styled empty state when the selected range has no activity', () => {

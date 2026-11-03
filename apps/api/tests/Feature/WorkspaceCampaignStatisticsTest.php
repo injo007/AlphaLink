@@ -104,6 +104,45 @@ class WorkspaceCampaignStatisticsTest extends TestCase
             ->assertDontSee('<!DOCTYPE html>');
     }
 
+    public function test_inline_campaign_summary_reads_clicks_and_other_events_without_waiting_for_daily_rollups(): void
+    {
+        $fixture = $this->campaignFixture();
+        foreach (['open', 'open', 'click', 'click', 'click', 'unsubscribe', 'bot'] as $action) {
+            $this->event($fixture, $action);
+        }
+        $this->leadConversion($fixture, 'inline-summary-conversion-1', 10.75);
+        $this->leadConversion($fixture, 'inline-summary-conversion-2', 1.25);
+
+        $this->assertSame(0, DB::table('workspace_daily_analytics')
+            ->where('workspace_id', $fixture['workspace']->getKey())
+            ->where('campaign_id', $fixture['campaign']->getKey())
+            ->count());
+
+        $response = $this->actingAs($fixture['owner'])->getJson(route('console.campaign-statistics.index', [
+            $fixture['workspace']->getKey(),
+            'campaign_id' => $fixture['campaign']->getKey(),
+            'from' => today()->toDateString(),
+            'to' => today()->toDateString(),
+            'inline' => 1,
+        ]));
+
+        $response->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonFragment([
+                'opens' => 2,
+                'clicks' => 3,
+                'leads' => 2,
+                'lead_revenue' => 12,
+                'unsubscribes' => 1,
+                'bots' => 1,
+            ]);
+        $this->assertStringNotContainsString('synthetic-statistics@example.test', $response->getContent());
+        $this->assertSame(0, DB::table('workspace_daily_analytics')
+            ->where('workspace_id', $fixture['workspace']->getKey())
+            ->where('campaign_id', $fixture['campaign']->getKey())
+            ->count());
+    }
+
     public function test_campaign_engagement_rollups_attribute_each_source_list_without_inflating_workspace_totals(): void
     {
         $fixture = $this->campaignFixture();

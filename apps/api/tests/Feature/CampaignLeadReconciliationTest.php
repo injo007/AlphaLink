@@ -342,6 +342,16 @@ class CampaignLeadReconciliationTest extends TestCase
         $this->assertSame('United States', CampaignLeadConversion::query()->firstOrFail()->country);
         $this->assertSame(['lead-operator'], $countryList->allowed_users);
         $this->assertTrue($countryList->is_unsubscribe_locked);
+        $actionList = AudienceList::query()
+            ->where('workspace_id', $fixture['workspace']->getKey())
+            ->where('name', 'Lead fixture audience_US_Lead')
+            ->firstOrFail();
+        $this->assertSame(1, ContactListMembership::query()
+            ->where('workspace_id', $fixture['workspace']->getKey())
+            ->where('audience_list_id', $actionList->getKey())
+            ->where('contact_id', $fixture['contact']->getKey())
+            ->where('email_type', 'lead')
+            ->count());
     }
 
     public function test_drop_lead_uses_conversion_country_for_tracked_lists(): void

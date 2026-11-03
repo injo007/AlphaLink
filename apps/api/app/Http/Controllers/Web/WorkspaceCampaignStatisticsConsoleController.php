@@ -30,6 +30,7 @@ class WorkspaceCampaignStatisticsConsoleController extends Controller
             'campaign_id' => ['nullable', 'uuid'],
             'isp_id' => ['nullable', 'integer', 'min:1'],
             'list_id' => ['nullable', 'uuid'],
+            'inline' => ['sometimes', 'boolean'],
         ]);
         $from = Carbon::parse($dates['from'] ?? today()->toDateString())->startOfDay();
         $to = Carbon::parse($dates['to'] ?? today()->toDateString())->endOfDay();
@@ -58,6 +59,17 @@ class WorkspaceCampaignStatisticsConsoleController extends Controller
         abort_if($selectedCampaignId !== '' && ! $campaigns->contains('id', $selectedCampaignId), 404);
         abort_if($selectedIspId !== '' && ! $isps->contains('id', (int) $selectedIspId), 404);
         abort_if($selectedListId !== '' && ! $lists->contains('id', $selectedListId), 404);
+
+        if ($request->boolean('inline')) {
+            abort_if(! $request->expectsJson() || $selectedCampaignId === '', 400);
+
+            return response()->json($this->inlineCampaignSummary(
+                $workspace,
+                $selectedCampaignId,
+                $from,
+                $to,
+            ));
+        }
 
         $dailyRows = DB::table('workspace_daily_analytics as a')
             ->join('campaigns as c', function (JoinClause $join): void {
@@ -197,6 +209,41 @@ class WorkspaceCampaignStatisticsConsoleController extends Controller
         }
 
         return view('console.campaigns.statistics', $viewData);
+    }
+
+    /** @return list<array{opens:int, clicks:int, leads:int, lead_revenue:float, unsubscribes:int, bots:int}> */
+    private function inlineCampaignSummary(Workspace $workspace, string $campaignId, Carbon $from, Carbon $to): array
+    {
+        $engagement = DB::table('campaign_engagement_events')
+            ->where('workspace_id', $workspace->getKey())
+            ->where('campaign_id', $campaignId)
+            ->whereBetween('created_at', [$from, $to])
+            ->selectRaw("SUM(CASE WHEN action = 'open' THEN 1 ELSE 0 END) AS opens")
+            ->selectRaw("SUM(CASE WHEN action = 'click' THEN 1 ELSE 0 END) AS clicks")
+            ->selectRaw("SUM(CASE WHEN action = 'unsubscribe' THEN 1 ELSE 0 END) AS unsubscribes")
+            ->selectRaw("SUM(CASE WHEN action = 'bot' THEN 1 ELSE 0 END) AS bots")
+            ->first();
+        $leads = DB::table('campaign_lead_conversions')
+            ->where('workspace_id', $workspace->getKey())
+            ->where('campaign_id', $campaignId)
+            ->whereBetween('converted_at', [$from, $to])
+            ->selectRaw('COUNT(*) AS leads')
+            ->selectRaw('COALESCE(SUM(revenue), 0) AS lead_revenue')
+            ->first();
+
+        $summary = [
+            'opens' => (int) ($engagement->opens ?? 0),
+            'clicks' => (int) ($engagement->clicks ?? 0),
+            'leads' => (int) ($leads->leads ?? 0),
+            'lead_revenue' => (float) ($leads->lead_revenue ?? 0),
+            'unsubscribes' => (int) ($engagement->unsubscribes ?? 0),
+            'bots' => (int) ($engagement->bots ?? 0),
+        ];
+
+        return array_sum(array_map(
+            static fn (string $key): int|float => $summary[$key],
+            ['opens', 'clicks', 'leads', 'lead_revenue', 'unsubscribes', 'bots'],
+        )) === 0 ? [] : [$summary];
     }
 
     /** @param Collection<int, object> $engagementRows

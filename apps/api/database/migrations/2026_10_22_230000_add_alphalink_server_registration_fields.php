@@ -7,6 +7,16 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    public function shouldRun(): bool
+    {
+        $connection = $this->getConnection();
+
+        return ! Schema::connection($connection)->hasTable('migrations')
+            || ! DB::connection($connection)->table('migrations')
+                ->where('migration', basename(__FILE__, '.php'))
+                ->exists();
+    }
+
     public function up(): void
     {
         Schema::create('server_providers', function (Blueprint $table) {

@@ -9,7 +9,7 @@ use App\Models\Workspace;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 /**
- * Resolves a DMS-eligible row and performs only the installer's read-only IP-discovery phase.
+ * Resolves a reference implementation-eligible row and performs only the installer's read-only IP-discovery phase.
  */
 class AlphaLinkBulkInstallRowPreparation
 {

@@ -7,7 +7,7 @@ use RuntimeException;
 class AlphaLinkBulkInstallDnsRecordPlanner
 {
     /**
-     * Reconstructs the record set passed to DMS's domain provider without
+     * Reconstructs the record set passed to reference implementation's domain provider without
      * contacting a provider or resolving private addresses over the network.
      *
      * @param  list<array{main: bool, ip: string, type: string, sub: string, domain: string}>  $ips

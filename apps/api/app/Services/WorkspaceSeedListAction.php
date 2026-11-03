@@ -27,7 +27,7 @@ class WorkspaceSeedListAction
             'updated_at' => $now,
         ], $validEmails);
 
-        // DMS's insert() boolean is coerced by SeedListAction's int return type.
+        // reference implementation's insert() boolean is coerced by SeedListAction's int return type.
         return (int) WorkspaceSeedEmail::query()->insert($rows);
     }
 

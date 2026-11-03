@@ -6,7 +6,7 @@ use Closure;
 use Exception;
 
 /**
- * Models DMS's per-server try/catch and log semantics independently of remote effects.
+ * Models reference implementation's per-server try/catch and log semantics independently of remote effects.
  * A runner must be explicitly supplied; the app has no production remote runner.
  */
 class AlphaLinkBulkInstallRunCoordinator
@@ -50,7 +50,7 @@ class AlphaLinkBulkInstallRunCoordinator
                 $this->runner->install($row, $options, $appendLog);
                 $results[] = ['server_id' => $serverId, 'status' => 'succeeded'];
             } catch (Exception $exception) {
-                // DMS catches per-server exceptions; they are logged without failing the parent command.
+                // reference implementation catches per-server exceptions; they are logged without failing the parent command.
                 $line = $this->timestampedLog(sprintf('- [%s:%s] - Error : %s', $serverName, $serverId, $exception->getMessage()));
                 $logs[] = $line;
                 $transcriptWriter?->__invoke($line);

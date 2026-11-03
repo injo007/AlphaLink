@@ -700,3 +700,8 @@ Node tests pass **86/86**, Vite 8.3.5 builds successfully, and the restored GET-
 ## Deployment checkpoint — E-AUD-30 — 2026-11-03
 
 The audited changes are pushed as `9baab5a` to `origin/master`. `baseheavy.shop` is the production AlphaLink target according to the user. Deployment did not run: no verified SSH configuration for that host is available in this checkout; the only configured SSH route points elsewhere and is read-only, so it was not used. The live page has not received the branding changes and still requires post-deploy browser verification.
+
+
+## Active naming audit — E-AUD-31 — 2026-11-03
+
+Removed DMS terminology from active PHP source comments and test names/fixtures, and removed the unused DMS log ignore path. Case-insensitive scans find no such text in the application source, routes, config, views, public assets, or manifests. The remaining `dms_csv` reference is an explicit reversible migration compatibility value, not an active format; it converts old rows to `profile_csv`. Ten historical migration filenames and 25 historical audit/reference paths remain deliberately classified as migration lineage and audit evidence. The full network-disabled PHP suite exits successfully (1,025 passing, 1 skipped; 9,579 assertions; 15 notices), Node is 86/86, focused PHP regressions pass 38 / 329 assertions, and Pint passes for 190 files. This local change has not yet been deployed to `baseheavy.shop`; live branding verification remains open.

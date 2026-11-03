@@ -8,7 +8,7 @@ use PHPUnit\Framework\TestCase;
 
 class AlphaLinkBulkInstallCompletionPlannerTest extends TestCase
 {
-    public function test_it_plans_non_owned_domain_finalization_in_dms_write_order(): void
+    public function test_it_plans_non_owned_domain_finalization_in_reference_write_order(): void
     {
         $rows = [
             ['main' => true, 'ip' => '8.8.8.8', 'type' => 'ipv4', 'domain_id' => 21, 'sub' => '', 'domain' => 'relay.test'],

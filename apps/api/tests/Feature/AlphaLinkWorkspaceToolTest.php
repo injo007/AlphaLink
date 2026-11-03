@@ -46,7 +46,7 @@ class AlphaLinkWorkspaceToolTest extends TestCase
         $this->actingAs($this->owner);
     }
 
-    public function test_workspace_tool_matches_dms_push_controls_and_links_to_gsend_management(): void
+    public function test_workspace_tool_matches_reference_push_controls_and_links_to_gsend_management(): void
     {
         $this->get(route('console.tools.workspace.index', $this->workspace->id))
             ->assertOk()->assertSee('PUSH WORKSPACE ACCOUNTS')->assertSee('SPLIT ON IPS')
@@ -74,7 +74,7 @@ class AlphaLinkWorkspaceToolTest extends TestCase
         $this->assertSame(base_path('../../pmta/workspace_relay'), config('infrastructure.workspace_relay_assets_directory'));
     }
 
-    public function test_workspace_projects_and_accounts_are_separate_dms_nav_pages_and_workspace_scoped(): void
+    public function test_workspace_projects_and_accounts_are_separate_reference_nav_pages_and_workspace_scoped(): void
     {
         $operator = User::factory()->create();
         $this->workspace->users()->attach($operator->id, ['role' => 'operator']);
@@ -147,7 +147,7 @@ class AlphaLinkWorkspaceToolTest extends TestCase
         $this->get(route('console.tools.workspace.projects.create', $otherWorkspace->id))->assertNotFound();
     }
 
-    public function test_project_creation_queues_dms_google_admin_sync_encrypts_credentials_and_allows_duplicate_names(): void
+    public function test_project_creation_queues_reference_google_admin_sync_encrypts_credentials_and_allows_duplicate_names(): void
     {
         Queue::fake();
         Http::fake();
@@ -641,14 +641,14 @@ class AlphaLinkWorkspaceToolTest extends TestCase
         $this->assertDatabaseCount('managed_server_mtas', 0);
     }
 
-    public function test_bundled_workspace_relay_is_the_dms_build_and_serves_a_local_smtp_greeting(): void
+    public function test_bundled_workspace_relay_is_the_reference_build_and_serves_a_local_smtp_greeting(): void
     {
         $assetDirectory = rtrim((string) config('infrastructure.workspace_relay_assets_directory'), DIRECTORY_SEPARATOR);
         $binary = $assetDirectory.DIRECTORY_SEPARATOR.'workspace_relay';
         $this->assertSame(
             '8cd307e33cfba2411f8fed6e5781ff48180589666e5e0321f23a907c6ad878c4',
             hash_file('sha256', $binary),
-            'The bundled executable must remain the release asset copied from DMS.',
+            'The bundled executable must match the pinned release asset.',
         );
 
         $header = file_get_contents($binary, false, null, 0, 20);
@@ -704,7 +704,7 @@ class AlphaLinkWorkspaceToolTest extends TestCase
         }
     }
 
-    public function test_push_uses_bundled_relay_assets_and_includes_inactive_accounts_like_dms(): void
+    public function test_push_uses_bundled_relay_assets_and_includes_inactive_accounts_like_reference(): void
     {
         $project = $this->project();
         WorkspaceGoogleAccount::query()->create([

@@ -5,7 +5,7 @@ namespace App\Services\Infrastructure;
 use App\Models\ManagedServer;
 use InvalidArgumentException;
 
-/** Reproduces the read-only address discovery phase shared by DMS CentOS 7 and 9 installers. */
+/** Reproduces the read-only address discovery phase shared by reference CentOS 7 and 9 installers. */
 class AlphaLinkBulkInstallRemoteIpDiscovery
 {
     public function __construct(

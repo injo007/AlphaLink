@@ -12,7 +12,7 @@ use App\Models\Workspace;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
-/** Applies DMS Reinstall persistence rules after every selected remote stage completes. */
+/** Applies reference implementation Reinstall persistence rules after every selected remote stage completes. */
 class AlphaLinkReinstallCompletionWriter
 {
     /**

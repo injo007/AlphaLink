@@ -5,7 +5,7 @@ namespace App\Services\Infrastructure;
 class AlphaLinkInstallPlatform
 {
     /**
-     * DMS's ServersInstallFactory rejects non-x86_64 hosts and matches these
+     * reference implementation's ServersInstallFactory rejects non-x86_64 hosts and matches these
      * PRETTY_NAME values before selecting its CentOS 7/9 installer.
      *
      * @param  array<string, mixed>  $facts

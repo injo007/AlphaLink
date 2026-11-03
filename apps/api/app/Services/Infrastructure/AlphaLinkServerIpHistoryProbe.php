@@ -7,7 +7,7 @@ use Illuminate\Process\Pool;
 use Illuminate\Support\Facades\Process;
 use Throwable;
 
-/** Runs DMS's reverse-DNS, DNSBL and Sender Score queries behind an opt-in gate. */
+/** Runs reference implementation's reverse-DNS, DNSBL and Sender Score queries behind an opt-in gate. */
 class AlphaLinkServerIpHistoryProbe
 {
     /**
@@ -96,7 +96,7 @@ class AlphaLinkServerIpHistoryProbe
                 }
             })->start()->wait()->collect();
         } catch (Throwable) {
-            // DMS records the helper defaults when a lookup command cannot run.
+            // reference implementation records the helper defaults when a lookup command cannot run.
             return $results;
         }
 

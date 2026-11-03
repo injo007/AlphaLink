@@ -56,7 +56,7 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
         $this->assertSame([], $logs);
     }
 
-    public function test_it_dispatches_the_non_owned_almalinux_9_row_in_dms_order(): void
+    public function test_it_dispatches_the_non_owned_almalinux_9_row_in_reference_order(): void
     {
         [$workflow, $gate, $pmta, $completion] = $this->workflow();
         $gate->method('evaluate')->willReturn(['installation_authorized' => true]);

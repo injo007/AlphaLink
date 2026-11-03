@@ -54,7 +54,7 @@ class AlphaLinkSingleInstallTest extends TestCase
             'created_by' => $this->owner->getKey(),
         ]);
         $this->workspace->users()->attach($this->owner->getKey(), ['role' => 'owner']);
-        $this->provider = DomainProvider::query()->create(['name' => 'DMS provider', 'is_active' => true]);
+        $this->provider = DomainProvider::query()->create(['name' => 'Synthetic provider', 'is_active' => true]);
         $this->server = ManagedServer::query()->create([
             'workspace_id' => $this->workspace->getKey(),
             'name' => 'ALPHA_INSTALL_NODE',
@@ -89,13 +89,12 @@ class AlphaLinkSingleInstallTest extends TestCase
         $this->actingAs($this->owner);
     }
 
-    public function test_install_page_uses_dms_domain_eligibility_and_topology_controls(): void
+    public function test_install_page_uses_workspace_domain_eligibility_and_topology_controls(): void
     {
         $this->get($this->url())
             ->assertOk()
             ->assertSee('ALPHA_INSTALL_NODE')
             ->assertDontSee('No active, uninstalled servers are available for installation.')
-            ->assertDontSee('Set your DMS installation username')
             ->assertSee('id="single-domains" multiple', false)
             ->assertSee('WITH IPV6')
             ->assertSee('LOAD IPS')
@@ -226,7 +225,7 @@ class AlphaLinkSingleInstallTest extends TestCase
             ])->assertNotFound();
     }
 
-    public function test_configure_ips_uses_shared_dms_configurator_only_for_active_uninstalled_servers(): void
+    public function test_configure_ips_uses_shared_reference_configurator_only_for_active_uninstalled_servers(): void
     {
         $configurator = Mockery::mock(AlphaLinkReinstallIpConfigurator::class);
         $configurator->shouldReceive('configure')

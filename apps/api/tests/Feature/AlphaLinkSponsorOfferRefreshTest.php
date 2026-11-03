@@ -41,7 +41,7 @@ class AlphaLinkSponsorOfferRefreshTest extends TestCase
         );
     }
 
-    public function test_setting_offer_live_refreshes_dms_fields_and_adds_only_new_html_creatives(): void
+    public function test_setting_offer_live_refreshes_reference_fields_and_adds_only_new_html_creatives(): void
     {
         $sponsor = $this->createSponsor();
         $offer = $this->createOffer($sponsor, [
@@ -84,7 +84,7 @@ class AlphaLinkSponsorOfferRefreshTest extends TestCase
         Http::assertSent(fn (ClientRequest $request): bool => str_ends_with($request->url(), '/api/campaigns/9001'));
     }
 
-    public function test_provider_missing_offer_is_paused_like_dms(): void
+    public function test_provider_missing_offer_is_paused_like_reference(): void
     {
         $sponsor = $this->createSponsor();
         $offer = $this->createOffer($sponsor, ['status' => 'issue']);
@@ -116,7 +116,7 @@ class AlphaLinkSponsorOfferRefreshTest extends TestCase
             ->assertOk();
 
         $offer->refresh();
-        $this->assertSame('live', $offer->status, 'DMS saves the requested status before attempting its provider refresh.');
+        $this->assertSame('live', $offer->status, 'the provider refresh saves the requested status before attempting its provider refresh.');
         $this->assertSame('Saved offer name', $offer->name);
         $this->assertSame(7.25, (float) $offer->payout);
         $this->assertSame('https://tracking.example.test/saved', $offer->redirect);

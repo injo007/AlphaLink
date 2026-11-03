@@ -28,7 +28,7 @@ class AlphaLinkDomainProviderRegistrationTest extends TestCase
         $this->workspace = $this->workspaceFor($this->owner, 'provider-one');
     }
 
-    public function test_owner_can_create_dms_domain_provider_with_encrypted_credentials(): void
+    public function test_owner_can_create_reference_domain_provider_with_encrypted_credentials(): void
     {
         $payload = [
             'name' => 'Example Registrar',
@@ -228,7 +228,7 @@ class AlphaLinkDomainProviderRegistrationTest extends TestCase
         $this->assertSame('namecheap', $provider->fresh()->type);
     }
 
-    public function test_provider_list_links_the_dms_add_form_and_returns_only_safe_workspace_rows(): void
+    public function test_provider_list_links_the_reference_add_form_and_returns_only_safe_workspace_rows(): void
     {
         $local = DomainProvider::query()->create([
             'workspace_id' => $this->workspace->getKey(),
@@ -323,7 +323,7 @@ class AlphaLinkDomainProviderRegistrationTest extends TestCase
         $this->assertSame(0, SendingDomain::query()->count());
     }
 
-    public function test_provider_creation_matches_dms_field_rules_and_workspace_roles(): void
+    public function test_provider_creation_matches_reference_field_rules_and_workspace_roles(): void
     {
         $operator = User::factory()->create();
         $this->workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
@@ -341,7 +341,7 @@ class AlphaLinkDomainProviderRegistrationTest extends TestCase
         $this->assertSame(0, DomainProvider::query()->count());
     }
 
-    public function test_setup_pages_render_dms_fields_and_only_list_active_providers_from_this_workspace(): void
+    public function test_setup_pages_render_reference_fields_and_only_list_active_providers_from_this_workspace(): void
     {
         $localProvider = DomainProvider::query()->create([
             'workspace_id' => $this->workspace->getKey(),
@@ -391,7 +391,7 @@ class AlphaLinkDomainProviderRegistrationTest extends TestCase
             ->assertDontSee('value="'.$foreignProvider->getKey().'"', false);
     }
 
-    public function test_owner_can_set_the_dms_username_used_for_server_selection(): void
+    public function test_owner_can_set_the_reference_username_used_for_server_selection(): void
     {
         $this->actingAs($this->owner)
             ->get('/infrastructure/install-username')
@@ -409,7 +409,7 @@ class AlphaLinkDomainProviderRegistrationTest extends TestCase
         $this->assertSame('relayuser', $this->owner->fresh()->username);
     }
 
-    public function test_username_update_matches_dms_length_uniqueness_and_member_access_rules(): void
+    public function test_username_update_matches_reference_length_uniqueness_and_member_access_rules(): void
     {
         User::factory()->create(['username' => 'takenname']);
         $route = route('console.infrastructure.install-username.update', $this->workspace->getKey());

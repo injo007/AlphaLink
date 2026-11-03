@@ -47,7 +47,7 @@ class AlphaLinkInstallerSshSessionFactoryTest extends TestCase
         $this->assertSame([], $connection->calls);
     }
 
-    public function test_matching_saved_host_key_authenticates_and_matches_dms_command_and_string_upload_contract(): void
+    public function test_matching_saved_host_key_authenticates_and_matches_reference_command_and_string_upload_contract(): void
     {
         $connection = $this->connection($this->hostKey('saved'), "  command output\n ");
         $connector = $this->connectorReturning($connection);

@@ -74,7 +74,7 @@ test('Text Mechanic sorting follows the local natural-sort behavior and handles 
     assert.equal(page.operations.sortByLength(''), '');
 });
 
-test('Text Mechanic outputs match the inspected DMS line transformation rules', () => {
+test('Text Mechanic outputs match the captured line transformation rules', () => {
     const { page } = createPage();
 
     assert.equal(page.operations.sortAscending('Item10\nitem2\nItem1\r\n\n'), 'Item1\nitem2\nItem10');
@@ -96,12 +96,12 @@ test('Text Mechanic shuffle, duplicate removal, and IP extraction preserve the l
     assert.equal(page.operations.extractIps('no address here'), '');
 });
 
-test('IP extraction preserves the captured DMS regex edge semantics', () => {
+test('IP extraction preserves the captured regex edge behavior', () => {
     const { page } = createPage();
 
-    // The read-only DMS source capture has no token boundaries, and its dot is
+    // The read-only source capture has no token boundaries, and its dot is
     // attached to only the last octet alternative. Keep the copied behavior
-    // explicit so a future cleanup does not silently change DMS parity.
+    // explicit so a later cleanup does not silently change the captured contract.
     assert.equal(
         page.operations.extractIps('192.168.0.1 and 255.255.255.255\n999.1.1.1\n10.0.0.1'),
         '192.168.0.1\n99.1.1.1\n10.0.0.1',

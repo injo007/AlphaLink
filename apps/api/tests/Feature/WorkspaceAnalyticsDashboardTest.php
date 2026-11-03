@@ -742,7 +742,7 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
             ->assertSee('analytics-pivot.js');
     }
 
-    public function test_dms_dashboard_report_pages_filter_and_group_recorded_drop_events(): void
+    public function test_reference_dashboard_report_pages_filter_and_group_recorded_drop_events(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->makeWorkspace($owner, 'owner');

@@ -80,7 +80,7 @@ class PmtaFeedbackRemoteProcessor
                     continue;
                 }
 
-                // PMTA can still be appending to a just-rotated CSV. Match DMS's
+                // PMTA can still be appending to a just-rotated CSV. Match reference implementation's
                 // ten-minute accounting delay and require the remote file to be
                 // old before copying it into the importer.
                 if ($modifiedBefore > now()->subMinutes(10)->getTimestamp()) {

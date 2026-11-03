@@ -122,7 +122,7 @@ class InfrastructurePlanningTest extends TestCase
         $this->assertSame(1, ServerCredential::query()->count());
     }
 
-    public function test_dms_registration_form_renders_field_contract_and_saves_multiple_server_ips(): void
+    public function test_reference_registration_form_renders_field_contract_and_saves_multiple_server_ips(): void
     {
         $page = '/app/workspaces/'.$this->workspace->id.'/infrastructure/servers/create';
         $this->get($page)->assertOk()
@@ -139,7 +139,7 @@ class InfrastructurePlanningTest extends TestCase
         $this->assertSame(2, ManagedServer::query()->where('ssh_username', 'mailer')->count());
     }
 
-    public function test_provider_dropdown_preserves_the_observed_dms_option_order(): void
+    public function test_provider_dropdown_preserves_the_observed_reference_option_order(): void
     {
         $expected = ['Digital', 'digital', 'Ovh', 'Linode', 'linode', 'ikoula', 'vultr', 'Azure', 'reg'];
         foreach ($expected as $name) {
@@ -156,7 +156,7 @@ class InfrastructurePlanningTest extends TestCase
         $this->assertSame($orderedPositions, $positions);
     }
 
-    public function test_server_list_shell_matches_the_dms_page_contract(): void
+    public function test_server_list_shell_matches_the_reference_page_contract(): void
     {
         $response = $this->get('/app/workspaces/'.$this->workspace->id.'/infrastructure/servers')->assertOk();
 
@@ -220,7 +220,7 @@ class InfrastructurePlanningTest extends TestCase
         $this->assertStringNotContainsString('private-example-password', $returned->getContent());
     }
 
-    public function test_server_list_returns_the_total_saved_ip_count_like_dms(): void
+    public function test_server_list_returns_the_total_saved_ip_count_like_reference(): void
     {
         $serverResult = $this->postJson(
             '/app/workspaces/'.$this->workspace->id.'/infrastructure/servers',
@@ -473,7 +473,7 @@ class InfrastructurePlanningTest extends TestCase
             ->assertJsonCount(2, 'data');
     }
 
-    public function test_server_console_matches_dms_panel_and_is_available_to_every_workspace_member(): void
+    public function test_server_console_matches_reference_panel_and_is_available_to_every_workspace_member(): void
     {
         $base = '/app/workspaces/'.$this->workspace->id.'/infrastructure/servers';
         $serverPayload = $this->postJson($base, $this->registration(['159.223.97.39']))
@@ -509,7 +509,7 @@ class InfrastructurePlanningTest extends TestCase
         $this->assertSame('member output', $memberConsole->json());
     }
 
-    public function test_bulk_install_page_explains_when_no_dms_eligible_server_exists_and_keeps_the_backend_gate(): void
+    public function test_bulk_install_page_explains_when_no_reference_eligible_server_exists_and_keeps_the_backend_gate(): void
     {
         $url = '/infrastructure/bulk-install';
         config(['infrastructure.bulk_install_execution_enabled' => false]);
@@ -550,7 +550,7 @@ class InfrastructurePlanningTest extends TestCase
         $this->assertStringNotContainsString('id="install" disabled', $enabledResponse->getContent());
     }
 
-    public function test_admin_bulk_install_eligibility_uses_all_dms_active_uninstalled_servers_and_domains(): void
+    public function test_admin_bulk_install_eligibility_uses_all_reference_active_uninstalled_servers_and_domains(): void
     {
         $this->postJson($this->url('/servers'), $this->registration(['159.223.97.39'], ['name' => 'A_MAILER_RELAY']))->assertOk();
         $this->postJson($this->url('/servers'), $this->registration(['159.223.97.40'], ['name' => 'A_MAILER_INACTIVE']))->assertOk();
@@ -708,7 +708,7 @@ class InfrastructurePlanningTest extends TestCase
         $this->postJson($this->url('/installation-plans/'.$plan['id'].'/execute'))->assertNotFound();
     }
 
-    public function test_installation_plan_blocks_platforms_dms_bulk_install_would_reject(): void
+    public function test_installation_plan_blocks_platforms_reference_bulk_install_would_reject(): void
     {
         $domain = $this->postJson($this->url('/domains'), ['name' => 'platform.example.org'])
             ->assertCreated()->json('data');
@@ -829,7 +829,7 @@ class InfrastructurePlanningTest extends TestCase
             ->assertDontSee('Installation blocked');
     }
 
-    public function test_server_navigation_matches_all_dms_destinations_as_nested_icon_links(): void
+    public function test_server_navigation_matches_all_reference_destinations_as_nested_icon_links(): void
     {
         $serversPage = route('console.infrastructure.servers.index', $this->workspace->id);
 

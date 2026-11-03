@@ -8,7 +8,7 @@ use PHPUnit\Framework\TestCase;
 
 class AlphaLinkCampaignTrackingTokenBuilderTest extends TestCase
 {
-    public function test_it_emits_a_url_safe_base64_token_consumed_by_the_installed_dms_tracker(): void
+    public function test_it_emits_a_url_safe_base64_token_consumed_by_the_installed_reference_tracker(): void
     {
         $fields = ['campaign', 'send', 'recipient', 'f', 'list', 'isp', 'server', 'ip', 'domain', 'from', 'subject', 'creative'];
         $applicationName = 'AlphaLink';

@@ -30,9 +30,9 @@ class AlphaLinkCampaignSendCatalog
     ) {}
 
     /**
-     * Load the source-mapped choices for DMS Campaigns → Send.
+     * Load the source-mapped choices for reference implementation Campaigns → Send.
      *
-     * DMS exposes sponsor, offer, ISP, list, installed server, and IP/MTA
+     * reference implementation exposes sponsor, offer, ISP, list, installed server, and IP/MTA
      * selectors before campaign creation. This catalog returns only AlphaLink
      * records in the active workspace and applies the same access and readiness
      * filters where AlphaLink has an equivalent field.
@@ -50,7 +50,7 @@ class AlphaLinkCampaignSendCatalog
         $selectedServerIds = array_values(array_unique($filters['server_ids'] ?? []));
         $route = $filters['route'] ?? 'ip';
         $ipType = strtolower((string) ($filters['ip_type'] ?? 'all'));
-        // DMS loads only the current user's negative files on Campaign → Send.
+        // reference implementation loads only the current user's negative files on Campaign → Send.
         $negatives = WorkspaceCampaignNegative::query()
             ->where('workspace_id', $workspace->getKey())
             ->where('created_by', $user->getKey())
@@ -476,7 +476,7 @@ class AlphaLinkCampaignSendCatalog
 
     /**
      * Load the active assets for the offer already saved on a campaign.
-     * DMS edit loads assets by the campaign's offer ID without applying the
+     * reference implementation edit loads assets by the campaign's offer ID without applying the
      * current live-offer filters used by Create Campaign.
      *
      * @return list<array{id: int, type: string, value: string, public_url: string|null}>
@@ -514,7 +514,7 @@ class AlphaLinkCampaignSendCatalog
     /**
      * Validate the editable asset controls against the campaign's saved offer.
      * Existing revisions keep their original targeting eligibility; Edit does
-     * not expose Sponsor, Offer, ISP, or List selectors in DMS.
+     * not expose Sponsor, Offer, ISP, or List selectors in reference implementation.
      *
      * @param  list<int|string>  $fromAssetIds
      * @param  list<int|string>  $subjectAssetIds
@@ -768,7 +768,7 @@ class AlphaLinkCampaignSendCatalog
 
     /**
      * Validate the single creative and HTML asset selectors against the same
-     * active, offer-scoped assets DMS loads for its campaign editor.
+     * active, offer-scoped assets reference implementation loads for its campaign editor.
      *
      * @return array{creative_asset_id: int|null, html_asset_id: int|null}
      */

@@ -317,7 +317,7 @@ class WorkspaceSponsorConsoleController extends Controller
         DB::transaction(function () use ($sponsors, $userIds, $workspace, $request, $bulk): void {
             foreach ($sponsors as $sponsor) {
                 $sponsor->forceFill(['allowed_users' => $userIds])->save();
-                // DMS cascades a single sponsor assignment to its offers. Its bulk
+                // reference implementation cascades a single sponsor assignment to its offers. Its bulk
                 // sponsor assignment changes sponsors only, so retain that distinction.
                 if (! $bulk) {
                     $sponsor->offers()->update(['allowed_users' => json_encode($userIds)]);

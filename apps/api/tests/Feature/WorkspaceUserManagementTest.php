@@ -94,7 +94,7 @@ class WorkspaceUserManagementTest extends TestCase
         $this->actingAs($outsider)->get(route('console.users.index', $workspace->getKey()))->assertNotFound();
     }
 
-    public function test_dms_user_creation_validation_and_active_account_login_guard(): void
+    public function test_reference_user_creation_validation_and_active_account_login_guard(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspaceFor($owner);

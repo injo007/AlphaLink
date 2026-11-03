@@ -13,7 +13,7 @@ class AlphaLinkCampaignComposerToolsTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_encoding_tool_supports_dms_quoted_printable_hex_and_base64_schemes(): void
+    public function test_encoding_tool_supports_reference_quoted_printable_hex_and_base64_schemes(): void
     {
         [$owner, $workspace] = $this->workspace();
 
@@ -32,7 +32,7 @@ class AlphaLinkCampaignComposerToolsTest extends TestCase
         ])->assertUnprocessable()->assertJsonValidationErrors(['schema']);
     }
 
-    public function test_shortlink_tools_match_the_dms_provider_requests_and_validate_web_urls(): void
+    public function test_shortlink_tools_match_the_reference_provider_requests_and_validate_web_urls(): void
     {
         [$owner, $workspace] = $this->workspace();
         Http::fake(['tinyurl.com/*' => Http::response('https://tiny.test/abc', 200)]);
@@ -52,7 +52,7 @@ class AlphaLinkCampaignComposerToolsTest extends TestCase
         ])->assertUnprocessable()->assertJsonValidationErrors(['links.0']);
     }
 
-    public function test_tag_helper_token_and_random_tag_generation_follow_dms_format(): void
+    public function test_tag_helper_token_and_random_tag_generation_follow_reference_format(): void
     {
         [$owner, $workspace] = $this->workspace();
         $campaign = $workspace->campaigns()->create([

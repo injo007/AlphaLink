@@ -75,7 +75,7 @@ class WorkspaceCampaignVisitorsTest extends TestCase
         $this->assertNull($lead['is_hosting']);
     }
 
-    public function test_campaign_visitors_search_is_server_filtered_and_keeps_the_dms_table_protocol(): void
+    public function test_campaign_visitors_search_is_server_filtered_and_keeps_the_reference_table_protocol(): void
     {
         $fixture = $this->fixture();
         $this->event($fixture, 'open');

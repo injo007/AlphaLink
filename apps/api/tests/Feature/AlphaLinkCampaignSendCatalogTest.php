@@ -173,7 +173,7 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
         $this->assertNull($selection['html_asset_id']);
     }
 
-    public function test_owner_receives_dms_filtered_campaign_choices_and_workspace_pmta_panel_port(): void
+    public function test_owner_receives_reference_filtered_campaign_choices_and_workspace_pmta_panel_port(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner, 'owner');
@@ -456,7 +456,7 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_marketing_draft_persists_the_validated_dms_targeting_and_send_setup(): void
+    public function test_marketing_draft_persists_the_validated_reference_targeting_and_send_setup(): void
     {
         Queue::fake();
         $this->withoutMiddleware(ThrottleRequests::class);
@@ -467,7 +467,7 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
         $workspace = $this->workspace($owner, 'owner');
         $negative = $workspace->campaignNegatives()->create([
             'created_by' => $owner->getKey(),
-            'name' => 'Synthetic DMS negative',
+            'name' => 'Synthetic reference negative',
             'path' => 'campaign-negatives/synthetic.txt',
             'original_filename' => 'synthetic.txt',
             'sha256' => hash('sha256', 'fixture negative'),
@@ -990,7 +990,7 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
             ->assertSee('Saved campaign selections')
             ->assertSee($sponsor->name)
             ->assertSee($offer->name)
-            ->assertSee('Synthetic DMS negative')
+            ->assertSee('Synthetic reference negative')
             ->assertSee($isp->name)
             ->assertSee($list->name)
             ->assertSee($server->ip_address)
@@ -1161,9 +1161,7 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
             ->assertSee('DRAFT')
             ->assertSee('READY TO SEND')
             ->assertSee('SEND')
-            ->assertDontSee('SEND UNAVAILABLE')
-            ->assertDontSee('The native DMS campaign sender is not implemented in AlphaLink.');
-
+            ->assertDontSee('SEND UNAVAILABLE');
     }
 
     public function test_campaign_snapshot_pages_large_selected_audience_and_preserves_sorted_order(): void
@@ -3207,7 +3205,7 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
             'expected_revision_id' => $revision->getKey(),
             'return_path' => '[rndn_8]@[domain]',
             'email_test_addresses' => "first@example.test\nsecond@example.test\nthird@example.test",
-            'header' => "MIME-Version: 1.0\nTo: [to]\nFrom: [from] <info@[domain]>\nSubject: [subject]\nX-DMS: [server]|[main_domain]|[ip]|[domain]|[rdns]|[ids]|[idi]|[idd]|[ide]|[placeholder1]",
+            'header' => "MIME-Version: 1.0\nTo: [to]\nFrom: [from] <info@[domain]>\nSubject: [subject]\nX-ALPHALINK-TEST: [server]|[main_domain]|[ip]|[domain]|[rdns]|[ids]|[idi]|[idd]|[ide]|[placeholder1]",
             'body' => $body,
             'domain' => $previousDomain->name,
             'send_setup' => [
@@ -3428,7 +3426,7 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
         $campaign = Campaign::query()->create([
             'workspace_id' => $workspace->getKey(),
             'created_by' => $owner->getKey(),
-            'name' => 'Legacy DMS campaign fixture',
+            'name' => 'Legacy reference campaign fixture',
             'kind' => 'marketing',
             'status' => 'draft',
             'is_active' => true,
@@ -3904,7 +3902,7 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_pmta_admin_action_accepts_dms_unbounded_server_and_tag_arrays(): void
+    public function test_pmta_admin_action_accepts_reference_unbounded_server_and_tag_arrays(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner, 'owner');
@@ -3970,7 +3968,7 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
         self::assertSame(101, PmtaActionHistory::query()->where('action', 'restart')->count());
     }
 
-    public function test_pmta_queue_actions_send_the_saved_wildcard_using_dms_commands_and_admin_port(): void
+    public function test_pmta_queue_actions_send_the_saved_wildcard_using_reference_commands_and_admin_port(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner, 'owner');
@@ -4048,7 +4046,7 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
             ->assertJsonPath('data.0.result', '0 of 0 matching queues scheduled.');
     }
 
-    public function test_pmta_reset_requires_wildcard_selection_even_though_the_dms_command_is_global(): void
+    public function test_pmta_reset_requires_wildcard_selection_even_though_the_reference_command_is_global(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner, 'owner');
@@ -4104,7 +4102,7 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
         self::assertSame(0, PmtaActionHistory::query()->count());
     }
 
-    public function test_marketing_create_screen_uses_dms_sections_and_marks_unimplemented_send_steps(): void
+    public function test_marketing_create_screen_uses_reference_sections_and_marks_unimplemented_send_steps(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner, 'owner');

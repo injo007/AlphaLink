@@ -12,7 +12,7 @@ class AlphaLinkEncodingToolTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_encoding_tool_renders_from_dms_tools_navigation_and_shows_both_modes(): void
+    public function test_encoding_tool_renders_from_reference_tools_navigation_and_shows_both_modes(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspaceFor($owner);
@@ -37,7 +37,7 @@ class AlphaLinkEncodingToolTest extends TestCase
             ->assertSee('finally { setBusy(false); }', false);
     }
 
-    public function test_string_encoding_matches_dms_schemas_and_unknown_schema_fallback(): void
+    public function test_string_encoding_matches_reference_schemas_and_unknown_schema_fallback(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspaceFor($owner);

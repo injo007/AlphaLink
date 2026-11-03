@@ -9,7 +9,7 @@ class AlphaLinkBulkInstallIspCatalog
     public function __construct(private readonly AlphaLinkBulkInstallIspPlanner $planner) {}
 
     /**
-     * DMS IspAction::build_vmtas() plucks all ISP names, including inactive
+     * reference IspAction::build_vmtas() plucks all ISP names, including inactive
      * records, and then lowercases and deduplicates them for PMTA VMTA names.
      *
      * @return list<string>

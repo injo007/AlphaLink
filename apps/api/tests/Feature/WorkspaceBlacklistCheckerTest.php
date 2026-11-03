@@ -192,7 +192,7 @@ class WorkspaceBlacklistCheckerTest extends TestCase
         $this->assertFalse(Storage::disk('local')->exists($process->storage_path));
     }
 
-    public function test_legacy_dms_hash_file_is_rejected_without_creating_a_process(): void
+    public function test_legacy_reference_hash_file_is_rejected_without_creating_a_process(): void
     {
         $this->makeLists();
 

@@ -11,7 +11,7 @@ use PHPUnit\Framework\TestCase;
 
 class AlphaLinkBulkInstallRemoteIpDiscoveryTest extends TestCase
 {
-    public function test_it_orders_and_deduplicates_the_global_ip_output_from_dms_command(): void
+    public function test_it_orders_and_deduplicates_the_global_ip_output_from_reference_command(): void
     {
         $probe = new class("2001:db8::2\n198.51.100.8\n198.51.100.3\n198.51.100.8\n") extends SshHostProbe
         {
@@ -30,7 +30,7 @@ class AlphaLinkBulkInstallRemoteIpDiscoveryTest extends TestCase
         $this->assertSame(['198.51.100.3', '198.51.100.8', '2001:db8::2'], $ips);
     }
 
-    public function test_it_aborts_before_host_changes_when_dms_discovers_no_ips(): void
+    public function test_it_aborts_before_host_changes_when_reference_discovers_no_ips(): void
     {
         $probe = new class('') extends SshHostProbe
         {

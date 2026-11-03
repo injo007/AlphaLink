@@ -89,7 +89,7 @@ class AlphaLinkPmtaDeploymentGateTest extends TestCase
         $this->assertContains('The existing PMTA queue contains mail; drain it before replacing the installation.', $result['blockers']);
     }
 
-    public function test_gate_requires_both_versioned_files_even_when_the_dms_and_condition_would_attempt_setup(): void
+    public function test_gate_requires_both_versioned_files_even_when_the_reference_and_condition_would_attempt_setup(): void
     {
         $this->writeAlphaLinkAssets(45, $this->installOptions(), ['install/pmta_45/pmta.rpm']);
         config([
@@ -108,7 +108,7 @@ class AlphaLinkPmtaDeploymentGateTest extends TestCase
         );
     }
 
-    public function test_complete_dms_assets_pass_identity_and_config_checks_but_fail_unverified_target_gates(): void
+    public function test_complete_reference_assets_pass_identity_and_config_checks_but_fail_unverified_target_gates(): void
     {
         $this->writeAlphaLinkAssets(40, $this->installOptions());
         config(['infrastructure.install_assets_directory' => $this->assetRoot]);
@@ -147,7 +147,7 @@ class AlphaLinkPmtaDeploymentGateTest extends TestCase
         $this->assertFalse($result['installation_authorized']);
     }
 
-    public function test_dms_matched_license_is_deployed_without_an_unmapped_entitlement_preflight(): void
+    public function test_reference_matched_license_is_deployed_without_an_unmapped_entitlement_preflight(): void
     {
         $this->writeAlphaLinkAssets(40, $this->installOptions());
         config(['infrastructure.install_assets_directory' => $this->assetRoot]);
@@ -358,7 +358,7 @@ class AlphaLinkPmtaDeploymentGateTest extends TestCase
             $contents = match ($relativePath) {
                 'install/pmta_config' => 'listener-port __PMTA_LISTENER_PORT__ admin-port __PMTA_ADMIN_PORT__',
                 'install/pmta_source' => "<source __IP__>\n    always-allow-relaying yes # allow AlphaLink relay\n</source>\n",
-                default => 'synthetic DMS asset',
+                default => 'synthetic release asset',
             };
             file_put_contents($path, $contents);
             chmod($path, 0600);

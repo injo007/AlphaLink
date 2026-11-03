@@ -73,7 +73,7 @@ class AlphaLinkCloudWorkflowTest extends TestCase
             ->assertSee('disabled', false);
     }
 
-    public function test_linode_catalog_and_instance_reads_use_the_saved_token_and_dms_field_mapping(): void
+    public function test_linode_catalog_and_instance_reads_use_the_saved_token_and_reference_field_mapping(): void
     {
         $provider = $this->provider('linode', 'Synthetic Linode', 'synthetic-linode-token');
         Http::fake(function (ClientRequest $request) {
@@ -157,7 +157,7 @@ class AlphaLinkCloudWorkflowTest extends TestCase
         Http::assertSent(fn (ClientRequest $request): bool => $request->hasHeader('Authorization', 'Bearer allowed-token'));
     }
 
-    public function test_digitalocean_catalog_and_instance_projection_match_dms_visible_fields(): void
+    public function test_digitalocean_catalog_and_instance_projection_match_reference_visible_fields(): void
     {
         $provider = $this->provider('digitalocean', 'Synthetic DigitalOcean', 'synthetic-do-token');
         Http::fake(function (ClientRequest $request) {
@@ -211,7 +211,7 @@ class AlphaLinkCloudWorkflowTest extends TestCase
         }, $requests));
     }
 
-    public function test_digitalocean_create_registers_the_encrypted_workspace_key_then_posts_dms_creation_fields(): void
+    public function test_digitalocean_create_registers_the_encrypted_workspace_key_then_posts_reference_creation_fields(): void
     {
         $provider = $this->provider('digitalocean', 'Synthetic DigitalOcean', 'synthetic-do-token');
         Http::fake(function (ClientRequest $request) {
@@ -371,7 +371,7 @@ class AlphaLinkCloudWorkflowTest extends TestCase
             && $request->hasHeader('Authorization', 'Bearer synthetic-do-token'));
     }
 
-    public function test_cloud_reputation_uses_dms_dnsbl_and_sender_score_queries_only_after_explicit_request(): void
+    public function test_cloud_reputation_uses_reference_dnsbl_and_sender_score_queries_only_after_explicit_request(): void
     {
         $provider = $this->provider('digitalocean', 'Synthetic DigitalOcean', 'synthetic-do-token');
         Http::fake(['https://api.digitalocean.com/*' => Http::response(['droplets' => [[
@@ -426,7 +426,7 @@ class AlphaLinkCloudWorkflowTest extends TestCase
             ->assertDontSee('Vultr');
     }
 
-    public function test_linode_creation_uses_the_dms_password_payload_and_stops_after_provider_failure(): void
+    public function test_linode_creation_uses_the_reference_password_payload_and_stops_after_provider_failure(): void
     {
         $provider = $this->provider('linode', 'Synthetic Linode', 'synthetic-linode-token');
         $this->workspace->infrastructureSettings()->create(['cloud_servers_password' => 'synthetic-root-password']);
@@ -450,7 +450,7 @@ class AlphaLinkCloudWorkflowTest extends TestCase
         Http::assertSentCount(2);
     }
 
-    public function test_linode_delete_uses_the_dms_instance_endpoint_before_soft_deleting_its_unlocked_server_row(): void
+    public function test_linode_delete_uses_the_reference_instance_endpoint_before_soft_deleting_its_unlocked_server_row(): void
     {
         $provider = $this->provider('linode', 'Synthetic Linode', 'synthetic-linode-token');
         $server = ManagedServer::query()->create([
@@ -523,7 +523,7 @@ class AlphaLinkCloudWorkflowTest extends TestCase
         $this->assertStringNotContainsString('disabled', $serverSelect[0]);
     }
 
-    public function test_digitalocean_requires_dms_hostname_validation_before_contacting_provider(): void
+    public function test_digitalocean_requires_reference_hostname_validation_before_contacting_provider(): void
     {
         $provider = $this->provider('digitalocean', 'Synthetic DigitalOcean', 'synthetic-do-token');
         Http::fake();

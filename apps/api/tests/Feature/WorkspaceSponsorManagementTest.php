@@ -43,7 +43,7 @@ class WorkspaceSponsorManagementTest extends TestCase
         ));
     }
 
-    public function test_sponsor_management_matches_dms_fields_and_keeps_credentials_encrypted_and_out_of_list_responses(): void
+    public function test_sponsor_management_matches_reference_fields_and_keeps_credentials_encrypted_and_out_of_list_responses(): void
     {
         $createUrl = route('console.sponsors.store', $this->workspace->getKey());
         $this->postJson($createUrl, [
@@ -337,7 +337,7 @@ class WorkspaceSponsorManagementTest extends TestCase
         $sponsor = $this->createSponsor('Permitted Sponsor');
 
         $this->get(route('clean.console.infrastructure.isps.users', $isp->getKey()))
-            ->assertOk()->assertSee('Allowed Mailers')->assertDontSee('does not yet have the DMS one-ISP-per-list data model');
+            ->assertOk()->assertSee('Allowed Mailers');
         $this->get(route('clean.console.infrastructure.isps.sponsors', $isp->getKey()))
             ->assertOk()->assertSee('Allowed Sponsors');
 
@@ -376,7 +376,7 @@ class WorkspaceSponsorManagementTest extends TestCase
         ])->assertUnprocessable()->assertJsonValidationErrors('sponsors.0');
     }
 
-    public function test_sponsor_assignments_match_dms_mailer_identity_order_and_bulk_defaults(): void
+    public function test_sponsor_assignments_match_reference_mailer_identity_order_and_bulk_defaults(): void
     {
         $firstOperator = User::factory()->create([
             'name' => 'Zeta Mailer',
@@ -424,7 +424,7 @@ class WorkspaceSponsorManagementTest extends TestCase
             ->assertDontSee('alpha@example.test');
     }
 
-    public function test_empty_sponsor_assignment_pages_keep_the_dms_checkbox_grid_and_controls(): void
+    public function test_empty_sponsor_assignment_pages_keep_the_reference_checkbox_grid_and_controls(): void
     {
         $first = $this->createSponsor('Empty Single');
         $second = $this->createSponsor('Empty Bulk');

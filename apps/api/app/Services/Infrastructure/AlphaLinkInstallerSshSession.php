@@ -4,7 +4,7 @@ namespace App\Services\Infrastructure;
 
 use RuntimeException;
 
-/** An authenticated DMS-style session exposing command, file, and string transports. */
+/** An authenticated reference-style session exposing command, file, and string transports. */
 class AlphaLinkInstallerSshSession implements AlphaLinkInstallerRemoteCommandTransport, AlphaLinkInstallerRemoteFileTransport, AlphaLinkInstallerRemoteReadableFileTransport
 {
     public function __construct(private readonly AlphaLinkInstallerSshConnection $connection) {}
@@ -20,7 +20,7 @@ class AlphaLinkInstallerSshSession implements AlphaLinkInstallerRemoteCommandTra
             throw new RuntimeException('The remote installer command timed out or the SSH channel failed.');
         }
 
-        // DMS trims the command response; keep its successful-output behavior.
+        // reference implementation trims the command response; keep its successful-output behavior.
         return trim($result);
     }
 

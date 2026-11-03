@@ -89,7 +89,7 @@ class AlphaLinkSpfScanProcessor
                             }
                         }
 
-                        // DMS advances progress only for lines accepted as domains.
+                        // reference implementation advances progress only for lines accepted as domains.
                         WorkspaceSpfScan::query()->whereKey($scanId)->increment('progress');
                     }
                 }

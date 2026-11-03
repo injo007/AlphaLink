@@ -21,7 +21,7 @@ class TrackedCountryListManager
     ];
 
     /**
-     * DMS keeps one current list on each email. AlphaLink's importer enforces
+     * reference implementation keeps one current list on each email. AlphaLink's importer enforces
      * one membership per contact in a workspace, so this returns that current
      * membership even when an immutable campaign snapshot still names its old
      * source list. Ambiguous legacy memberships are left untouched.
@@ -46,7 +46,7 @@ class TrackedCountryListManager
     }
 
     /**
-     * Move the current membership into the DMS-style country list when the
+     * Move the current membership into the reference-style country list when the
      * source list is tracked and its ISP has enabled the resolved country.
      */
     public function moveIfTracked(

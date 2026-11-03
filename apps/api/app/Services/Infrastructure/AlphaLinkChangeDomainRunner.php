@@ -13,7 +13,7 @@ use Illuminate\Support\Str;
 use InvalidArgumentException;
 use RuntimeException;
 
-/** Executes the DMS ServerChangeDomain order against an already installed AlmaLinux 9 host. */
+/** Executes the reference ServerChangeDomain order against an already installed AlmaLinux 9 host. */
 class AlphaLinkChangeDomainRunner
 {
     public function __construct(

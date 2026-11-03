@@ -74,7 +74,7 @@ test('Workspace PUSH announces a failed server result instead of a generic succe
     assert.equal(button.disabled, false);
 });
 
-test('Workspace RESET uses the DMS confirmation and announces per-server success', async () => {
+test('Workspace RESET uses the confirmation contract and announces per-server success', async () => {
     const page = createWorkspacePage([{ id: 'synthetic-server', data: 'Workspace SMTP reset successfully.', success: true }]);
     const button = page.elements.get('workspace-reset');
 

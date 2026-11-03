@@ -78,7 +78,7 @@ class CampaignCloneFlowTest extends TestCase
         $this->assertSame('Fixture sender', $clone->latestRevision->payload['from_name']);
         $this->assertSame('[rnd]@[domain]', $clone->latestRevision->payload['return_path']);
         $this->assertSame('MIME-version: 1.0', $clone->latestRevision->payload['header']);
-        $this->assertSame('DMS body', $clone->latestRevision->payload['body']);
+        $this->assertSame('source body', $clone->latestRevision->payload['body']);
         $this->assertSame('<p>HTML body</p>', $clone->latestRevision->payload['html_body']);
         $this->assertSame('Plain body', $clone->latestRevision->payload['text_body']);
         $this->assertSame($fixture['sourceSetup']['isp_id'], $clone->latestRevision->payload['send_setup']['isp_id']);
@@ -419,7 +419,7 @@ class CampaignCloneFlowTest extends TestCase
             'return_path' => '[rnd]@[domain]',
             'email_tests' => [],
             'header' => 'MIME-version: 1.0',
-            'body' => 'DMS body',
+            'body' => 'source body',
             'text_body' => 'Plain body',
             'html_body' => '<p>HTML body</p>',
             'send_setup' => $sourceSetup,

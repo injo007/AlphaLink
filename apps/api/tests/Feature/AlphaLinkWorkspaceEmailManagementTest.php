@@ -41,7 +41,7 @@ class AlphaLinkWorkspaceEmailManagementTest extends TestCase
         $this->actingAs($this->owner);
     }
 
-    public function test_email_management_page_is_available_from_the_dms_admin_route(): void
+    public function test_email_management_page_is_available_from_the_reference_admin_route(): void
     {
         $this->followingRedirects()->get(route('console.infrastructure.emails.index', $this->workspace->getKey()))
             ->assertOk()

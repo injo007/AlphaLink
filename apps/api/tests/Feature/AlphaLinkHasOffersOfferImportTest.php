@@ -40,7 +40,7 @@ class AlphaLinkHasOffersOfferImportTest extends TestCase
         );
     }
 
-    public function test_selected_offer_import_maps_dms_hasoffers_metadata_and_skips_nonnumeric_ids(): void
+    public function test_selected_offer_import_maps_reference_hasoffers_metadata_and_skips_nonnumeric_ids(): void
     {
         $sponsor = $this->createSponsor();
         $seen = [];

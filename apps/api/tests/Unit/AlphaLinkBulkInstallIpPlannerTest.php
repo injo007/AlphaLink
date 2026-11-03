@@ -24,7 +24,7 @@ class AlphaLinkBulkInstallIpPlannerTest extends TestCase
         $this->assertSame($domainId, $ips[0]['domain_id']);
     }
 
-    public function test_it_orders_and_formats_dms_ips_with_primary_and_first_alias_rules(): void
+    public function test_it_orders_and_formats_reference_ips_with_primary_and_first_alias_rules(): void
     {
         $ips = (new AlphaLinkBulkInstallIpPlanner)->format(
             '8.8.8.8',

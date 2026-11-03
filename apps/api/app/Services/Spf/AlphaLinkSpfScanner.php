@@ -5,10 +5,10 @@ namespace App\Services\Spf;
 use Closure;
 
 /**
- * SPF record resolver for the local DMS-compatible scanner.
+ * SPF record resolver for the local reference-compatible scanner.
  *
- * The DMS parser is copied source-side; native DNS is used here because the
- * DMS Amp resolver dependency is not part of this application.
+ * The reference implementation parser is copied source-side; native DNS is used here because the
+ * alternate resolver package is not part of this application.
  */
 class AlphaLinkSpfScanner
 {

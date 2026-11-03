@@ -183,7 +183,7 @@ class AlphaLinkAffiliateSuppressionRefreshTest extends TestCase
         }
     }
 
-    public function test_new_hitpath_refresh_uses_the_dms_campaign_suppression_endpoint_and_bearer_token(): void
+    public function test_new_hitpath_refresh_uses_the_reference_campaign_suppression_endpoint_and_bearer_token(): void
     {
         [$workspace, , $offer] = $this->suppressionOffer('newhitpath', 'https://affiliate.newhitpath.example.test', null, '9915');
         Http::fake([
@@ -348,7 +348,7 @@ class AlphaLinkAffiliateSuppressionRefreshTest extends TestCase
             && $this->queryValue($request, 'api_key') === $sponsor->api_key);
     }
 
-    public function test_hasoffers_refresh_uses_the_dms_crm_fallback_when_the_offer_has_no_download_url(): void
+    public function test_hasoffers_refresh_uses_the_reference_crm_fallback_when_the_offer_has_no_download_url(): void
     {
         [$workspace, $sponsor, $offer] = $this->suppressionOffer('hasoffers', 'https://offers.partner.example.test', 'network731', '9919');
         Http::fake([

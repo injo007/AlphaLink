@@ -11,7 +11,7 @@ use RuntimeException;
 
 class AlphaLinkCentos9TrackingDeploymentStageTest extends TestCase
 {
-    public function test_it_replays_dms_mini_app_and_apache_behavior_without_putting_the_key_in_commands(): void
+    public function test_it_replays_reference_mini_app_and_apache_behavior_without_putting_the_key_in_commands(): void
     {
         $commands = new RecordingTrackingCommands;
         $files = new RecordingTrackingFiles('url=[IP];key=[KEY];server=[ID];decode=base64_decode($token, true)');
@@ -71,7 +71,7 @@ class AlphaLinkCentos9TrackingDeploymentStageTest extends TestCase
         $this->assertStringNotContainsString('synthetic-private-key', implode("\n", $commands->commands));
     }
 
-    public function test_it_still_configures_and_enables_apache_when_dms_mini_app_asset_is_absent(): void
+    public function test_it_still_configures_and_enables_apache_when_reference_mini_app_asset_is_absent(): void
     {
         $commands = new RecordingTrackingCommands;
         $files = new RecordingTrackingFiles(false);

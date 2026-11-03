@@ -19,7 +19,7 @@ class WorkspaceDropMonitoringTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_monitoring_page_uses_the_drops_sidebar_and_renders_dms_filter_and_table_controls(): void
+    public function test_monitoring_page_uses_the_drops_sidebar_and_renders_reference_filter_and_table_controls(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner, 'owner');
@@ -37,7 +37,7 @@ class WorkspaceDropMonitoringTest extends TestCase
             ->assertSee('drops-monitor.js');
     }
 
-    public function test_monitor_json_filters_processed_rows_and_formats_related_data_like_dms(): void
+    public function test_monitor_json_filters_processed_rows_and_formats_related_data_like_reference(): void
     {
         $owner = User::factory()->create(['username' => 'Fixture operator']);
         $workspace = $this->workspace($owner, 'owner');
@@ -192,7 +192,7 @@ class WorkspaceDropMonitoringTest extends TestCase
             ->assertUnprocessable()->assertJsonValidationErrors('to');
     }
 
-    public function test_drop_stats_match_dms_aggregates_and_return_zeroes_for_empty_drops(): void
+    public function test_drop_stats_match_reference_aggregates_and_return_zeroes_for_empty_drops(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner, 'owner');
@@ -259,7 +259,7 @@ class WorkspaceDropMonitoringTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_visitors_page_renders_dms_map_table_and_local_controls(): void
+    public function test_visitors_page_renders_reference_map_table_and_local_controls(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner, 'owner');
@@ -279,7 +279,7 @@ class WorkspaceDropMonitoringTest extends TestCase
             ->assertSee("style-src 'self' 'unsafe-inline' https://www.gstatic.com", false);
     }
 
-    public function test_visitors_endpoint_returns_dms_datatables_shape_search_order_and_paging(): void
+    public function test_visitors_endpoint_returns_reference_datatables_shape_search_order_and_paging(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner, 'owner');

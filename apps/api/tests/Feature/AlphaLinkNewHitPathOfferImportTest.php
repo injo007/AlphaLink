@@ -42,7 +42,7 @@ class AlphaLinkNewHitPathOfferImportTest extends TestCase
         );
     }
 
-    public function test_selected_newhitpath_offer_maps_dms_fields_and_email_assets(): void
+    public function test_selected_newhitpath_offer_maps_reference_fields_and_email_assets(): void
     {
         $operator = User::factory()->create();
         $this->workspace->users()->attach($operator->getKey(), ['role' => 'operator']);

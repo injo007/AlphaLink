@@ -2,7 +2,7 @@
 
 namespace App\Services\Infrastructure;
 
-/** Replays DMS CentOS 9 VMTA uploads and post-upload commands through isolated transports. */
+/** Replays reference CentOS 9 VMTA uploads and post-upload commands through isolated transports. */
 class AlphaLinkCentos9VmtaDeploymentStage
 {
     public function __construct(private readonly AlphaLinkBulkInstallVmtaPlanner $planner) {}

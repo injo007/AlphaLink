@@ -17,7 +17,7 @@ class AlphaLinkBulkInstallIspPlannerTest extends TestCase
         );
     }
 
-    public function test_it_passes_the_dms_isp_names_to_each_per_ip_vmta_branch(): void
+    public function test_it_passes_the_reference_isp_names_to_each_per_ip_vmta_branch(): void
     {
         $isps = (new AlphaLinkBulkInstallIspPlanner)->buildVmtaNames(['Gmail', 'Yahoo', 'gmail']);
         $files = (new AlphaLinkBulkInstallVmtaPlanner)->files('centos7', false, [[

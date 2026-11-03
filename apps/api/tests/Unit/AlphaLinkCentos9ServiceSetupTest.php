@@ -8,7 +8,7 @@ use PHPUnit\Framework\TestCase;
 
 class AlphaLinkCentos9ServiceSetupTest extends TestCase
 {
-    public function test_it_creates_swap_below_one_gib_then_runs_dms_service_commands_in_order(): void
+    public function test_it_creates_swap_below_one_gib_then_runs_reference_service_commands_in_order(): void
     {
         $transport = new RecordingServiceSetupTransport(['0', '512', ...array_fill(0, 24, false)]);
 

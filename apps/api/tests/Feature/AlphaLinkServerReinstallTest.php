@@ -345,7 +345,7 @@ class AlphaLinkServerReinstallTest extends TestCase
         );
     }
 
-    public function test_reinstall_workflow_keeps_dms_stage_order_and_skips_pmta_when_unselected(): void
+    public function test_reinstall_workflow_keeps_reference_stage_order_and_skips_pmta_when_unselected(): void
     {
         $this->firstDomain->forceFill(['is_our' => true, 'status' => 'free'])->save();
         $gate = Mockery::mock(AlphaLinkPmtaDeploymentGate::class);
@@ -481,7 +481,7 @@ class AlphaLinkServerReinstallTest extends TestCase
         $this->assertArrayNotHasKey('pmta', $this->server->fresh()->install_parameters);
     }
 
-    public function test_load_config_returns_dms_options_and_saved_ip_rows_without_a_mutation(): void
+    public function test_load_config_returns_reference_options_and_saved_ip_rows_without_a_mutation(): void
     {
         $response = $this->getJson($this->configUrl())
             ->assertOk()
@@ -587,7 +587,7 @@ class AlphaLinkServerReinstallTest extends TestCase
         ])->assertOk()->assertJsonPath('data', 'Finish Settings Ips');
     }
 
-    public function test_configure_ips_permanent_matches_dms_alias_file_and_restart_sequence(): void
+    public function test_configure_ips_permanent_matches_reference_alias_file_and_restart_sequence(): void
     {
         config(['infrastructure.reinstall_ip_config_execution_enabled' => true]);
         $session = Mockery::mock(AlphaLinkInstallerSshSession::class);

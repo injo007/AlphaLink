@@ -219,7 +219,7 @@ class CampaignTestEmailFlowTest extends TestCase
         $this->assertSame(0, CampaignTestMailAttempt::query()->count());
     }
 
-    public function test_campaign_composer_keeps_the_dms_pmta_form_separate_from_the_symfony_test_message(): void
+    public function test_campaign_composer_keeps_the_reference_pmta_form_separate_from_the_symfony_test_message(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspaceFor($owner, 'owner');
@@ -249,7 +249,7 @@ class CampaignTestEmailFlowTest extends TestCase
         $workspace = $this->workspaceFor($owner, 'owner');
         $campaign = $workspace->campaigns()->create([
             'created_by' => $owner->getKey(),
-            'name' => 'Synthetic DMS campaign',
+            'name' => 'Synthetic reference campaign',
             'kind' => 'marketing',
             'status' => 'draft',
             'idempotency_key' => (string) Str::uuid(),
@@ -416,7 +416,7 @@ class CampaignTestEmailFlowTest extends TestCase
         $this->assertCount(0, Mail::mailer('smtp')->getSymfonyTransport()->messages());
     }
 
-    public function test_verified_dms_imported_sender_domain_is_matched_case_insensitively(): void
+    public function test_verified_reference_imported_sender_domain_is_matched_case_insensitively(): void
     {
         $this->withoutMiddleware(ThrottleRequests::class);
         $owner = User::factory()->create();

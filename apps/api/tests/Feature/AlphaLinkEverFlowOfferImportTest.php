@@ -28,7 +28,7 @@ class AlphaLinkEverFlowOfferImportTest extends TestCase
 
         $this->owner = User::factory()->create();
         $this->workspace = Workspace::query()->create([
-            'name' => 'DMS EverFlow import',
+            'name' => 'Synthetic EverFlow import',
             'slug' => 'everflow-import-'.Str::lower(Str::random(8)),
             'created_by' => $this->owner->getKey(),
         ]);
@@ -41,7 +41,7 @@ class AlphaLinkEverFlowOfferImportTest extends TestCase
         );
     }
 
-    public function test_everflow_import_maps_dms_offer_fields_and_sender_assets(): void
+    public function test_everflow_import_maps_reference_offer_fields_and_sender_assets(): void
     {
         $operator = User::factory()->create();
         $this->workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
@@ -109,7 +109,7 @@ class AlphaLinkEverFlowOfferImportTest extends TestCase
         Http::assertSentCount(1);
     }
 
-    public function test_provider_failure_skips_offer_and_returns_dms_import_count(): void
+    public function test_provider_failure_skips_offer_and_returns_reference_import_count(): void
     {
         $sponsor = $this->createSponsor();
         Http::fake([
@@ -124,7 +124,7 @@ class AlphaLinkEverFlowOfferImportTest extends TestCase
         $this->assertDatabaseCount('workspace_offers', 0);
     }
 
-    public function test_other_dms_networks_are_not_misrepresented_as_importable(): void
+    public function test_other_reference_networks_are_not_misrepresented_as_importable(): void
     {
         $sponsor = $this->createSponsor(['type' => 'hasoffers']);
         Http::fake();

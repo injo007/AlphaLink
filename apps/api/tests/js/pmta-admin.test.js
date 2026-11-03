@@ -384,7 +384,7 @@ test('STOP cancels the Restart interval and restores the button', async () => {
     assert.equal(page.buttonAttributes.has('aria-busy'), false);
 });
 
-test('Restart explains the DMS server-selection requirement when no server is selected', async () => {
+test('Restart explains the server-selection requirement when no server is selected', async () => {
     const page = createRestartHarness();
 
     await page.buttonListeners.get('click')();

@@ -13,7 +13,7 @@ class AlphaLinkCampaignSendNavigationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_campaign_send_is_a_route_backed_active_dms_navigation_item(): void
+    public function test_campaign_send_is_a_route_backed_active_reference_navigation_item(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspaceFor($owner, 'owner');
@@ -40,7 +40,7 @@ class AlphaLinkCampaignSendNavigationTest extends TestCase
             ->assertSee('PROGRESS')
             ->assertSee('Active sends')
             ->assertSee('No data available in table')
-            ->assertDontSee('DMS-mapped recipient suppression snapshot is built when a campaign draft is saved')
+            ->assertDontSee('recipient suppression snapshot is built when a campaign draft is saved')
             ->assertDontSee('no campaign can be launched');
     }
 
@@ -109,7 +109,7 @@ class AlphaLinkCampaignSendNavigationTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_campaign_register_uses_the_dms_date_window_and_searches_workspace_campaign_fields(): void
+    public function test_campaign_register_uses_the_reference_date_window_and_searches_workspace_campaign_fields(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspaceFor($owner, 'owner');
@@ -150,7 +150,7 @@ class AlphaLinkCampaignSendNavigationTest extends TestCase
             ->assertSee('id="campaign-search" name="q" type="search" class="form-control form-control-sm" value="Historical"', false);
     }
 
-    public function test_campaign_register_uses_the_dms_active_vs_disabled_filter(): void
+    public function test_campaign_register_uses_the_reference_active_vs_disabled_filter(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspaceFor($owner, 'owner');

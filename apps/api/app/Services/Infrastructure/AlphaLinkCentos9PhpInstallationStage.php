@@ -2,7 +2,7 @@
 
 namespace App\Services\Infrastructure;
 
-/** DMS CentOS 9 install_php() phase, invoked only when tracking is selected. */
+/** reference CentOS 9 install_php() phase, invoked only when tracking is selected. */
 class AlphaLinkCentos9PhpInstallationStage
 {
     public function run(AlphaLinkInstallerRemoteCommandTransport $transport): void

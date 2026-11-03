@@ -4,7 +4,7 @@ namespace App\Services\Infrastructure;
 
 use InvalidArgumentException;
 
-/** Maps DMS source asset identifiers to AlphaLink's independent private layout. */
+/** Maps reference implementation source asset identifiers to AlphaLink's independent private layout. */
 class AlphaLinkInstallerAssetCatalog
 {
     /**

@@ -4,7 +4,7 @@ namespace App\Services\Infrastructure;
 
 use App\Models\ManagedServerIp;
 
-/** Mirrors DMS's hourly active IPv4 collection and persists workspace-scoped snapshots. */
+/** Mirrors reference implementation's hourly active IPv4 collection and persists workspace-scoped snapshots. */
 class AlphaLinkServerIpHistoryCollector
 {
     public function __construct(private readonly AlphaLinkServerIpHistoryProbe $probe) {}

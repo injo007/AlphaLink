@@ -28,7 +28,7 @@ class AlphaLinkCentos9FirewallPlannerTest extends TestCase
         ], $commands);
     }
 
-    public function test_enabled_firewall_reproduces_dms_zone_order_ports_and_source_lists(): void
+    public function test_enabled_firewall_reproduces_reference_zone_order_ports_and_source_lists(): void
     {
         $commands = (new AlphaLinkCentos9FirewallPlanner)->plan(
             true,

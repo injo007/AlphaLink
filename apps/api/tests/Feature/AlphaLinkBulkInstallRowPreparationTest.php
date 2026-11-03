@@ -44,7 +44,7 @@ class AlphaLinkBulkInstallRowPreparationTest extends TestCase
         ]);
         $this->workspace->users()->attach($this->user->getKey(), ['role' => 'owner']);
 
-        $provider = DomainProvider::query()->create(['name' => 'DMS provider', 'is_active' => true]);
+        $provider = DomainProvider::query()->create(['name' => 'Synthetic provider', 'is_active' => true]);
         $this->server = ManagedServer::query()->create([
             'workspace_id' => $this->workspace->getKey(),
             'name' => 'ALPHA_MAILER_RELAY',
@@ -74,7 +74,7 @@ class AlphaLinkBulkInstallRowPreparationTest extends TestCase
         ]);
     }
 
-    public function test_it_resolves_dms_eligible_rows_and_uses_the_saved_credential_for_read_only_ip_discovery(): void
+    public function test_it_resolves_reference_eligible_rows_and_uses_the_saved_credential_for_read_only_ip_discovery(): void
     {
         Isp::query()->create(['workspace_id' => $this->workspace->getKey(), 'name' => 'Gmail', 'is_active' => false]);
         Isp::query()->create(['workspace_id' => $this->workspace->getKey(), 'name' => 'YAHOO', 'is_active' => true]);

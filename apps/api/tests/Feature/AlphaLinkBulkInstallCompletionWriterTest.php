@@ -249,7 +249,7 @@ class AlphaLinkBulkInstallCompletionWriterTest extends TestCase
         $this->assertFalse($this->server->fresh()->is_installed);
     }
 
-    public function test_finalization_failure_preserves_dms_ordered_partial_writes_and_does_not_mark_server_installed(): void
+    public function test_finalization_failure_preserves_reference_ordered_partial_writes_and_does_not_mark_server_installed(): void
     {
         $domain = $this->domain('external.example.org', false, 'free');
         $dataIps = [[

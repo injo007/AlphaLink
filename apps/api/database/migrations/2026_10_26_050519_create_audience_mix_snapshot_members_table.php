@@ -20,7 +20,7 @@ return new class extends Migration
             $table->string('email_type', 24);
             $table->unsignedBigInteger('position');
             $table->timestampTz('created_at')->useCurrent();
-            // DMS Mix writes each selected list/type row to the snapshot. A
+            // Each selected list/type row is written to the snapshot. A
             // contact may therefore appear more than once across source lists
             // or email types; campaign send applies its own recipient dedupe.
             $table->unique(['snapshot_id', 'contact_id', 'source_list_id', 'email_type'], 'aud_mix_member_snapshot_source_uq');

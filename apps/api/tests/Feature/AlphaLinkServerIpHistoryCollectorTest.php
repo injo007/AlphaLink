@@ -77,7 +77,7 @@ class AlphaLinkServerIpHistoryCollectorTest extends TestCase
         $this->assertSame(0, $ip->histories()->count());
     }
 
-    public function test_enabled_collector_records_dms_queries_and_values_for_eligible_ipv4_ips(): void
+    public function test_enabled_collector_records_reference_queries_and_values_for_eligible_ipv4_ips(): void
     {
         config(['infrastructure.ip_history_enabled' => true]);
         $ip = $this->createIp();
@@ -124,7 +124,7 @@ class AlphaLinkServerIpHistoryCollectorTest extends TestCase
         $this->assertDatabaseCount('managed_server_ip_histories', 1);
     }
 
-    public function test_history_pruning_matches_dms_one_month_retention(): void
+    public function test_history_pruning_matches_reference_one_month_retention(): void
     {
         $ip = $this->createIp();
         $expired = ManagedServerIpHistory::factory()->forManagedIp($ip)->create([

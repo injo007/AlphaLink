@@ -2,7 +2,7 @@
 
 namespace App\Services\Infrastructure;
 
-/** Emits DMS CentOS 9 firewall commands as data; it never connects to a host. */
+/** Emits reference CentOS 9 firewall commands as data; it never connects to a host. */
 class AlphaLinkCentos9FirewallPlanner
 {
     /**

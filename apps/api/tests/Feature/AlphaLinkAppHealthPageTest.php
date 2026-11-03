@@ -34,7 +34,7 @@ class AlphaLinkAppHealthPageTest extends TestCase
         $this->actingAs($this->owner);
     }
 
-    public function test_owner_sees_dms_shaped_health_report_under_miscellaneous(): void
+    public function test_owner_sees_reference_shaped_health_report_under_miscellaneous(): void
     {
         $url = route('console.miscellaneous.app-health', $this->workspace->getKey());
 
@@ -58,7 +58,7 @@ class AlphaLinkAppHealthPageTest extends TestCase
         $this->assertCount(5, $report['stored_check_results']);
     }
 
-    public function test_cached_dms_health_result_is_displayed_without_running_checks_again(): void
+    public function test_cached_reference_health_result_is_displayed_without_running_checks_again(): void
     {
         Cache::store('file')->put('alphalink.app_health.latest', [
             'finished_at' => now()->toIso8601String(),
@@ -99,7 +99,7 @@ class AlphaLinkAppHealthPageTest extends TestCase
             ->assertJsonPath('status', 'ok');
     }
 
-    public function test_health_page_matches_the_dms_admin_role_boundary(): void
+    public function test_health_page_matches_the_reference_admin_role_boundary(): void
     {
         $operator = User::factory()->create();
         $this->workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
@@ -109,7 +109,7 @@ class AlphaLinkAppHealthPageTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_ram_check_fails_only_above_the_dms_ninety_percent_threshold(): void
+    public function test_ram_check_fails_only_above_the_reference_ninety_percent_threshold(): void
     {
         $health = app(AppHealthReport::class);
 

@@ -2,11 +2,11 @@
 
 namespace App\Services\Infrastructure;
 
-/** Replays DMS CentOS 9's optional Squid proxy setup through isolated transports. */
+/** Replays reference CentOS 9's optional Squid proxy setup through isolated transports. */
 class AlphaLinkCentos9ProxyDeploymentStage
 {
     /**
-     * DMS skips this feature when the Squid config asset is absent. Otherwise it
+     * reference implementation skips this feature when the Squid config asset is absent. Otherwise it
      * installs Squid, uploads its template and generated source/access lists,
      * optionally enables basic auth, then restarts and enables Squid.
      *
@@ -42,7 +42,7 @@ class AlphaLinkCentos9ProxyDeploymentStage
 
         $allowedIps = [...$developmentIps, ...$productionIps];
         if (count($allowedIps) <= 1) {
-            // Preserve DMS's PHP array-union behavior: with a single list entry
+            // Preserve reference implementation's PHP array-union behavior: with a single list entry
             // at key 0, the wildcard occupies key 0 and that entry is dropped.
             $allowedIps = ['0.0.0.0/0'] + $allowedIps;
         }

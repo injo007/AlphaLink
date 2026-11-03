@@ -86,10 +86,10 @@ class ImportAudienceListContacts
     }
 
     /**
-     * Import DMS-format TXT/CSV rows: comma-separated columns with the address
+     * Import reference implementation-format TXT/CSV rows: comma-separated columns with the address
      * first, followed by first name, last name, country, age, sex, and vertical.
      * Invalid rows are ignored and addresses are normalized before lookup, as
-     * in DMS ListsAction::process_list().
+     * in reference ListsAction::process_list().
      *
      * @return array{processed: int, valid: int, filtered: int, imported_count: int, duplicate_count: int, invalid_count: int}
      */
@@ -464,7 +464,7 @@ class ImportAudienceListContacts
             return ['status' => 'invalid'];
         }
 
-        // Preserve the observed DMS argument order for this substring filter.
+        // Preserve the observed reference implementation argument order for this substring filter.
         if ($batch->filter && ! Str::contains($batch->filter, $email)) {
             return ['status' => 'filtered'];
         }

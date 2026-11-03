@@ -106,7 +106,7 @@ class AlphaLinkMiscellaneousReadPagesTest extends TestCase
             ->assertJsonPath('data.0.ip', '203.0.113.22');
     }
 
-    public function test_miscellaneous_read_pages_keep_the_dms_admin_role_boundary(): void
+    public function test_miscellaneous_read_pages_keep_the_reference_admin_role_boundary(): void
     {
         $operator = User::factory()->create();
         $this->workspace->users()->attach($operator->getKey(), ['role' => 'operator']);

@@ -12,7 +12,7 @@ class AlphaLinkTextMechanicTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_text_mechanic_page_and_navigation_match_the_dms_surface(): void
+    public function test_text_mechanic_page_and_navigation_match_the_reference_surface(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspaceFor($owner, 'owner');

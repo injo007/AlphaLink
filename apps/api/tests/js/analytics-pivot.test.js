@@ -45,7 +45,7 @@ test('All Stats pivot projects event rows into count measures without recipient 
     assert.equal('email' in rows[0], false);
 });
 
-test('All Stats pivot exposes DMS dimensions and stored AlphaLink measures', () => {
+test('All Stats pivot exposes the captured dimensions and stored AlphaLink measures', () => {
     const fields = allStatsPivotFields();
     const byCaption = Object.fromEntries(fields.map((field) => [field.caption, field]));
 
@@ -61,7 +61,7 @@ test('All Stats pivot exposes DMS dimensions and stored AlphaLink measures', () 
     assert.equal(typeof byCaption.EPC.calculateSummaryValue, 'function');
 });
 
-test('All Stats calculates DMS CTOR and EPC summaries with zero-denominator handling', () => {
+test('All Stats calculates CTOR and EPC summaries with zero-denominator handling', () => {
     const byCaption = Object.fromEntries(allStatsPivotFields().map((field) => [field.caption, field]));
     const summary = (values) => ({ value: (field) => values[field] ?? 0 });
 
@@ -146,7 +146,7 @@ test('Campaign Statistics pivot projects only supported fields and omits contact
     assert.equal('email' in rows[0], false);
 });
 
-test('Campaign Statistics pivot exposes DMS dimensions, conversion proxy and local lead measures', () => {
+test('Campaign Statistics pivot exposes the captured dimensions, conversion proxy and local lead measures', () => {
     const fields = campaignStatisticsPivotFields();
     const byCaption = Object.fromEntries(fields.map((field) => [field.caption, field]));
     const summary = (values) => ({ value: (field) => values[field] ?? 0 });

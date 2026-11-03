@@ -27,7 +27,7 @@ class AlphaLinkCloudServerPasswordSettingsTest extends TestCase
         $this->actingAs($this->owner);
     }
 
-    public function test_cloud_server_password_is_in_dms_general_settings_and_install_link_uses_the_same_page(): void
+    public function test_cloud_server_password_is_in_reference_general_settings_and_install_link_uses_the_same_page(): void
     {
         $this->workspace->infrastructureSettings()->create([
             'cloud_servers_password' => 'synthetic-cloud-root-password',

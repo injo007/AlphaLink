@@ -46,7 +46,7 @@ class AudienceMixWorkflowTest extends TestCase
             ->assertSee('const sponsorId = '.$fixture['sponsor']->getKey().';', false);
     }
 
-    public function test_mix_options_are_workspace_scoped_and_follow_dms_isp_country_and_event_choices(): void
+    public function test_mix_options_are_workspace_scoped_and_follow_reference_isp_country_and_event_choices(): void
     {
         $fixture = $this->fixture();
         $contact = $this->contact($fixture['workspace'], 'options@example.test');
@@ -180,7 +180,7 @@ class AudienceMixWorkflowTest extends TestCase
         );
     }
 
-    public function test_empty_mix_returns_the_dms_zero_result_and_does_not_persist_a_snapshot(): void
+    public function test_empty_mix_returns_the_reference_zero_result_and_does_not_persist_a_snapshot(): void
     {
         $fixture = $this->fixture();
         $contact = $this->contact($fixture['workspace'], 'zero@example.test', ['sex' => 'women']);

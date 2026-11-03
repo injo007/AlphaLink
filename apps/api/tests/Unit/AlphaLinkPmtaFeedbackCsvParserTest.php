@@ -28,7 +28,7 @@ class AlphaLinkPmtaFeedbackCsvParserTest extends TestCase
         $this->assertArrayNotHasKey('email', $rows[0]);
     }
 
-    public function test_bounce_categories_follow_dms_hard_and_soft_rules(): void
+    public function test_bounce_categories_follow_reference_hard_and_soft_rules(): void
     {
         $rows = [];
         foreach (['bad-mailbox', 'bad-domain', 'quota-issues', 'inactive-mailbox', 'policy-rejection'] as $category) {

@@ -9,7 +9,7 @@ use App\Models\Workspace;
 interface AlphaLinkBulkInstallRowRunner
 {
     /**
-     * Execute one row using the given DMS options and report progress messages.
+     * Execute one row using the given reference implementation options and report progress messages.
      * The coordinator wrapper adds a prepared context with internally pinned server identity,
      * selected models, ordered discovered IPs, and workspace ISP names before delegation.
      * The production implementation is registered but remains protected by the default-off

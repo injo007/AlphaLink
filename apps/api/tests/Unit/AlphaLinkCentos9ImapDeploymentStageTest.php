@@ -18,7 +18,7 @@ class AlphaLinkCentos9ImapDeploymentStageTest extends TestCase
         $this->assertSame([], $transport->events);
     }
 
-    public function test_configures_dovecot_in_dms_order_and_keeps_password_out_of_commands(): void
+    public function test_configures_dovecot_in_reference_order_and_keeps_password_out_of_commands(): void
     {
         $transport = $this->transport();
         $transport->commandResults['id -u \'mail-user\';'] = '1001';

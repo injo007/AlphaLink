@@ -103,7 +103,7 @@ class AlphaLinkCampaignHeaderPresetsTest extends TestCase
             ->assertOk();
     }
 
-    public function test_header_sharing_uses_the_dms_share_headers_permission_not_workspace_role(): void
+    public function test_header_sharing_uses_the_reference_share_headers_permission_not_workspace_role(): void
     {
         $ownerHeader = $this->workspace->campaignHeaders()->create([
             'created_by' => $this->owner->getKey(), 'name' => 'Owner preset', 'text' => 'owner header body',

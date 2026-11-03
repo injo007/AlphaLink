@@ -25,13 +25,13 @@ class AlphaLinkChangeDomainDnsRecordWriterTest extends TestCase
         );
     }
 
-    public function test_namecheap_replaces_hosts_using_dms_sld_tld_record_parameters(): void
+    public function test_namecheap_replaces_hosts_using_reference_sld_tld_record_parameters(): void
     {
         Http::fake(['https://api.namecheap.com/xml.response' => Http::response(
             '<ApiResponse Status="OK"><CommandResponse><DomainDNSSetHostsResult IsSuccess="true" /></CommandResponse></ApiResponse>',
             200,
         )]);
-        [$domain] = $this->ownedDomain('namecheap', ['username' => 'dms-user', 'api_key' => 'synthetic-key']);
+        [$domain] = $this->ownedDomain('namecheap', ['username' => 'fixture-user', 'api_key' => 'synthetic-key']);
 
         $result = app(AlphaLinkBulkInstallDomainDnsRecordWriter::class)->setHosts($domain, [[
             'host' => 'relay', 'address' => '203.0.113.12', 'type' => 'A', 'ttl' => '60',
@@ -266,7 +266,7 @@ class AlphaLinkChangeDomainDnsRecordWriterTest extends TestCase
             '<ApiResponse Status="OK"><CommandResponse><DomainGetInfoResult ID="123"><DomainName>example.co.uk</DomainName></DomainGetInfoResult></CommandResponse></ApiResponse>',
             200,
         )]);
-        [$domain] = $this->ownedDomain('namecheap', ['username' => 'dms-user', 'api_key' => 'synthetic-key']);
+        [$domain] = $this->ownedDomain('namecheap', ['username' => 'fixture-user', 'api_key' => 'synthetic-key']);
 
         self::assertTrue(app(AlphaLinkBulkInstallDomainDnsRecordWriter::class)->isDomainAvailable($domain));
         Http::assertSent(fn ($request) => $request->method() === 'POST'
@@ -341,7 +341,7 @@ class AlphaLinkChangeDomainDnsRecordWriterTest extends TestCase
             '<ApiResponse Status="OK"><CommandResponse><DomainDNSSetHostsResult IsSuccess="true" /></CommandResponse></ApiResponse>',
             200,
         )]);
-        [$domain] = $this->ownedDomain('namecheap', ['username' => 'dms-user', 'api_key' => 'synthetic-key']);
+        [$domain] = $this->ownedDomain('namecheap', ['username' => 'fixture-user', 'api_key' => 'synthetic-key']);
         $domain->forceFill(['is_our' => false])->save();
         $writer = app(AlphaLinkRegistrarChangeDomainDnsRecordWriter::class);
 

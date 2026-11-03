@@ -18,7 +18,7 @@ class AlphaLinkCentos9ProxyDeploymentStageTest extends TestCase
         $this->assertSame([], $transport->events);
     }
 
-    public function test_configures_proxy_lists_auth_and_service_in_dms_order(): void
+    public function test_configures_proxy_lists_auth_and_service_in_reference_order(): void
     {
         $transport = $this->transport();
 
@@ -53,7 +53,7 @@ class AlphaLinkCentos9ProxyDeploymentStageTest extends TestCase
         $this->assertStringNotContainsString(crypt('synthetic-password', base64_encode('synthetic-password')), implode("\n", $commands));
     }
 
-    public function test_auth_is_skipped_without_both_credentials_and_dms_wildcard_union_is_preserved(): void
+    public function test_auth_is_skipped_without_both_credentials_and_reference_wildcard_union_is_preserved(): void
     {
         $transport = $this->transport();
 

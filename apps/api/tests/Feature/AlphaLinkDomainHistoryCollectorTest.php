@@ -30,7 +30,7 @@ class AlphaLinkDomainHistoryCollectorTest extends TestCase
         $this->assertDatabaseCount('sending_domain_histories', 0);
     }
 
-    public function test_enabled_collector_matches_dms_records_for_all_active_domains(): void
+    public function test_enabled_collector_matches_reference_records_for_all_active_domains(): void
     {
         config(['infrastructure.domain_history_enabled' => true]);
         $workspaceA = $this->workspace('domain-history-a');
@@ -98,7 +98,7 @@ class AlphaLinkDomainHistoryCollectorTest extends TestCase
         $this->assertNotContains('deleted.example.test', array_map(static fn (array $command): string => end($command), $commands));
     }
 
-    public function test_empty_and_timed_out_dns_answers_still_create_a_dms_shaped_snapshot(): void
+    public function test_empty_and_timed_out_dns_answers_still_create_a_reference_shaped_snapshot(): void
     {
         config(['infrastructure.domain_history_enabled' => true]);
         Process::fake(fn () => Process::result('timed out'));
@@ -115,7 +115,7 @@ class AlphaLinkDomainHistoryCollectorTest extends TestCase
         $this->assertFalse($history->is_listed_hostkarma);
     }
 
-    public function test_history_retention_uses_the_dms_one_month_casablanca_cutoff(): void
+    public function test_history_retention_uses_the_reference_one_month_casablanca_cutoff(): void
     {
         $this->travelTo(Carbon::parse('2026-10-24 12:00:00', 'Africa/Casablanca'));
         $domain = $this->domain($this->workspace('domain-history-prune'), 'prune.example.test');
@@ -132,7 +132,7 @@ class AlphaLinkDomainHistoryCollectorTest extends TestCase
         $this->assertDatabaseHas('sending_domain_histories', ['id' => $retained->getKey()]);
     }
 
-    public function test_history_job_is_scheduled_daily_at_the_dms_local_time_when_enabled(): void
+    public function test_history_job_is_scheduled_daily_at_the_reference_local_time_when_enabled(): void
     {
         config(['infrastructure.domain_history_enabled' => true]);
         $this->artisan('schedule:list')

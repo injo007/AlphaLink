@@ -2,7 +2,7 @@
 
 namespace App\Services\Infrastructure;
 
-/** Executes DMS's CentOS 9 firewall command plan through an isolated transport. */
+/** Executes reference implementation's CentOS 9 firewall command plan through an isolated transport. */
 class AlphaLinkCentos9FirewallDeploymentStage
 {
     public function __construct(private readonly AlphaLinkCentos9FirewallPlanner $planner) {}
@@ -38,7 +38,7 @@ class AlphaLinkCentos9FirewallDeploymentStage
             $allowAllMonitor,
             $pmtaRelayIps,
         ) as $operation) {
-            // DMS submits each command and does not stop the phase on a false
+            // reference implementation submits each command and does not stop the phase on a false
             // result, so this stage intentionally attempts the full list.
             $commands->exec($operation['command']);
         }

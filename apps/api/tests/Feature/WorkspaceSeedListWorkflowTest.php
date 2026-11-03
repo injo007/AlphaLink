@@ -60,7 +60,7 @@ class WorkspaceSeedListWorkflowTest extends TestCase
         ]);
     }
 
-    public function test_upload_filters_invalid_addresses_preserves_duplicates_and_reports_dms_insert_result(): void
+    public function test_upload_filters_invalid_addresses_preserves_duplicates_and_reports_reference_insert_result(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner, 'owner');

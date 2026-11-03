@@ -8,7 +8,7 @@ use Tests\TestCase;
 
 class AlphaLinkBulkInstallPayloadTest extends TestCase
 {
-    public function test_it_reduces_dms_rows_to_only_server_and_domain_ids_and_normalizes_options(): void
+    public function test_it_reduces_reference_rows_to_only_server_and_domain_ids_and_normalizes_options(): void
     {
         $result = app(AlphaLinkBulkInstallPayload::class)->validateAndNormalize([
             'data' => [[
@@ -60,7 +60,7 @@ class AlphaLinkBulkInstallPayloadTest extends TestCase
 
         try {
             app(AlphaLinkBulkInstallPayload::class)->validateAndNormalize([...$base, 'data' => []]);
-            $this->fail('Expected empty rows to fail DMS payload validation.');
+            $this->fail('Expected empty rows to fail bulk-install payload validation.');
         } catch (ValidationException $exception) {
             $this->assertArrayHasKey('data', $exception->errors());
         }

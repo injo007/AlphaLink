@@ -161,7 +161,7 @@ class AppSettingsConsoleController extends Controller
             'webmail_username' => '',
             'webmail_password' => '',
             'allow_backup' => $genericSettings['allow_backup'] ?? false,
-            // DMS's settings view currently hard-codes this visible value to /home.
+            // reference implementation's settings view currently hard-codes this visible value to /home.
             'backup_path' => '/home',
             'backup_server' => $genericSettings['backup_server'] ?? '',
             'backup_username' => $genericSettings['backup_username'] ?? '',

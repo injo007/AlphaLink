@@ -7,7 +7,7 @@ use Tests\TestCase;
 
 class AlphaLinkInstallPlatformTest extends TestCase
 {
-    public function test_it_accepts_the_four_release_families_selected_by_dms(): void
+    public function test_it_accepts_the_four_release_families_selected_by_reference(): void
     {
         $platform = new AlphaLinkInstallPlatform;
 
@@ -24,7 +24,7 @@ class AlphaLinkInstallPlatformTest extends TestCase
         }
     }
 
-    public function test_it_blocks_missing_architecture_or_a_release_dms_factory_does_not_match(): void
+    public function test_it_blocks_missing_architecture_or_a_release_reference_factory_does_not_match(): void
     {
         $this->assertSame([
             'Bulk installation supports x86_64 architecture only.',

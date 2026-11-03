@@ -63,7 +63,7 @@ class InfrastructureBulkInstallLogsTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_fake_install_run_persists_and_returns_the_exact_timestamped_dms_transcript(): void
+    public function test_fake_install_run_persists_and_returns_the_exact_timestamped_reference_transcript(): void
     {
         $runId = $this->transcripts->createRun((string) $this->workspace->getKey());
         $runner = new class implements AlphaLinkBulkInstallRowRunner

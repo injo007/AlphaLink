@@ -16,7 +16,7 @@ use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
 
-/** DMS-mapped Workspace SMTP push/reset for the selected AlphaLink user. */
+/** reference-mapped Workspace SMTP push/reset for the selected AlphaLink user. */
 class AlphaLinkWorkspaceSmtpConfiguration
 {
     private const KNOWN_CRASHING_RELAY_BINARY_SHA256 = '2ec93c845ce385477da1e639d03dc4b0f22f0aa89ed21637abe58792f6ca1f98';

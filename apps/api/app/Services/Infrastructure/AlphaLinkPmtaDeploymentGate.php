@@ -7,7 +7,7 @@ namespace App\Services\Infrastructure;
  *
  * The inspected source flow checks only whether both the RPM and patch are absent. AlphaLink additionally
  * requires the complete source-mapped asset set and evidence that identifies and supports
- * the exact deployment artifacts. Reviewed DMS asset pins identify the files AlphaLink
+ * the exact deployment artifacts. Reviewed reference implementation asset pins identify the files AlphaLink
  * will deploy; they do not establish license entitlement or target-host compatibility.
  */
 class AlphaLinkPmtaDeploymentGate
@@ -103,8 +103,8 @@ class AlphaLinkPmtaDeploymentGate
             'full_alphalink_asset_set_has_reviewed_digests' => $completeAssetSetHasReviewedDigests,
             'configuration_template_is_deployable' => $configurationTemplateIsDeployable,
             'pmta_rpm_validation_verified' => $rpmMetadataVerified,
-            // DMS copies the selected version's license file to the host without a
-            // separate entitlement preflight. The versioned file's DMS hash is checked
+            // reference implementation copies the selected version's license file to the host without a
+            // separate entitlement preflight. The versioned file's reference implementation hash is checked
             // above; do not invent an entitlement workflow AlphaLink cannot verify.
             'target_host_compatibility_verified' => $rpmMetadataVerified,
         ];

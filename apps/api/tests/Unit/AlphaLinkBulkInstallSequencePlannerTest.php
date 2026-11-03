@@ -8,7 +8,7 @@ use PHPUnit\Framework\TestCase;
 
 class AlphaLinkBulkInstallSequencePlannerTest extends TestCase
 {
-    public function test_it_preserves_dms_order_when_every_optional_phase_is_enabled(): void
+    public function test_it_preserves_reference_order_when_every_optional_phase_is_enabled(): void
     {
         $result = (new AlphaLinkBulkInstallSequencePlanner)->plan(
             false,
@@ -66,7 +66,7 @@ class AlphaLinkBulkInstallSequencePlannerTest extends TestCase
         ], array_column($result['steps'], 'name'));
     }
 
-    public function test_it_returns_dms_guards_and_aborts_before_host_changes_when_no_ip_is_found(): void
+    public function test_it_returns_reference_guards_and_aborts_before_host_changes_when_no_ip_is_found(): void
     {
         $planner = new AlphaLinkBulkInstallSequencePlanner;
         $options = $this->options(false);

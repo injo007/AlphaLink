@@ -12,7 +12,7 @@ use Illuminate\Support\Str;
 class AlphaLinkDropAffiliateAttribution
 {
     /**
-     * Resolve DMS's D_<drop id> and s2 conversion contract to a workspace Drop visitor.
+     * Resolve reference implementation's D_<drop id> and s2 conversion contract to a workspace Drop visitor.
      *
      * @param  array<string, mixed>  $sale
      * @return array{visitor: array<string, mixed>, membership: array{list_id: string, contact_id: string}|null}|null

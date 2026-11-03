@@ -43,7 +43,7 @@ class AlphaLinkSponsorLoginTest extends TestCase
         $this->actingAs($this->owner);
     }
 
-    public function test_cake_login_matches_dms_form_cookie_handoff_and_three_hour_session_cache(): void
+    public function test_cake_login_matches_reference_form_cookie_handoff_and_three_hour_session_cache(): void
     {
         $sponsor = $this->createSponsor('cake');
         $cacheKey = 'sponsor_session:'.$this->workspace->getKey().':'.$sponsor->getKey();
@@ -56,7 +56,7 @@ class AlphaLinkSponsorLoginTest extends TestCase
             ->assertJsonPath('message', 'Session Created')
             ->assertJsonPath('url', 'https://network.example.test/affiliates/')
             ->assertJsonPath('redirect_to', '')
-            ->assertJsonPath('session.0.name', 'dms_prelogin')
+            ->assertJsonPath('session.0.name', 'provider_prelogin')
             ->assertJsonPath('session.1.name', 'cake_session');
 
         $this->assertSame('synthetic-cake-cookie', $first->json('session.1.value'));
@@ -71,7 +71,7 @@ class AlphaLinkSponsorLoginTest extends TestCase
         $this->assertSame('synthetic-password', $formData['p']);
         $this->assertSame('synthetic-csrf', $formData['_token']);
         $this->assertArrayNotHasKey('api_key', $formData);
-        $this->assertStringContainsString('dms_prelogin=seed', implode('; ', (array) $requests[1]->header('Cookie')));
+        $this->assertStringContainsString('provider_prelogin=seed', implode('; ', (array) $requests[1]->header('Cookie')));
         $this->assertSame('GET', $requests[2]->method());
         $this->assertSame('https://network.example.test/affiliates/', $requests[2]->url());
         $this->assertStringContainsString('cake_session=synthetic-cake-cookie', implode('; ', (array) $requests[2]->header('Cookie')));
@@ -90,7 +90,7 @@ class AlphaLinkSponsorLoginTest extends TestCase
         }
     }
 
-    public function test_hasoffers_login_uses_its_dms_field_names_and_publisher_success_rule(): void
+    public function test_hasoffers_login_uses_its_reference_field_names_and_publisher_success_rule(): void
     {
         $sponsor = $this->createSponsor('hasoffers');
         $this->fakeSuccessfulLogin('Login', '/publisher/home', '/authenticate', 'hasoffers_session=synthetic-hasoffers-cookie; Path=/; HttpOnly');
@@ -134,7 +134,7 @@ class AlphaLinkSponsorLoginTest extends TestCase
         $sponsor = $this->createSponsor('cake');
         Http::fakeSequence()
             ->push($this->loginForm('Log In', '/session'), 200)
-            ->push('', 302, ['Location' => '/login', 'Set-Cookie' => ['dms_session=must-not-escape; Path=/; HttpOnly']])
+            ->push('', 302, ['Location' => '/login', 'Set-Cookie' => ['provider_session=must-not-escape; Path=/; HttpOnly']])
             ->push($this->loginForm('Log In', '/session'), 200);
 
         $response = $this->postJson(route('console.sponsors.login', [$this->workspace->getKey(), $sponsor->getKey()]))
@@ -208,7 +208,7 @@ class AlphaLinkSponsorLoginTest extends TestCase
         $this->assertCount(3, Http::recorded());
     }
 
-    public function test_dms_deprecated_and_browser_automated_providers_fail_explicitly_without_network_access(): void
+    public function test_unsupported_provider_login_modes_fail_without_network_access(): void
     {
         $hitpath = $this->createSponsor('hitpath');
         $everflow = $this->createSponsor('everflow');
@@ -263,7 +263,7 @@ class AlphaLinkSponsorLoginTest extends TestCase
     private function fakeSuccessfulLogin(string $button, string $redirect, string $action, string $sessionCookie): void
     {
         Http::fakeSequence()
-            ->push($this->loginForm($button, $action), 200, ['Set-Cookie' => ['dms_prelogin=seed; Path=/; HttpOnly; Secure']])
+            ->push($this->loginForm($button, $action), 200, ['Set-Cookie' => ['provider_prelogin=seed; Path=/; HttpOnly; Secure']])
             ->push('', 302, ['Location' => $redirect, 'Set-Cookie' => [$sessionCookie]])
             ->push('<html><body>Authenticated provider area</body></html>', 200);
     }

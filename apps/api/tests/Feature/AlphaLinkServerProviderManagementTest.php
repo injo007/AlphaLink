@@ -28,7 +28,7 @@ class AlphaLinkServerProviderManagementTest extends TestCase
         $this->actingAs($this->owner);
     }
 
-    public function test_index_matches_dms_columns_and_scopes_workspace_rows_and_server_counts(): void
+    public function test_index_matches_reference_columns_and_scopes_workspace_rows_and_server_counts(): void
     {
         $default = $this->provider(null, 'Digital');
         $local = $this->provider($this->workspace, 'Synthetic host', 'https://provider.example', 'demo-user', 'synthetic-password');
@@ -84,7 +84,7 @@ class AlphaLinkServerProviderManagementTest extends TestCase
             ->assertJsonPath('data.0.password', '••••••••');
     }
 
-    public function test_create_validation_matches_dms_minimums_and_rejects_invalid_provider_links(): void
+    public function test_create_validation_matches_reference_minimums_and_rejects_invalid_provider_links(): void
     {
         $this->postJson(route('console.infrastructure.server-providers.store', $this->workspace->getKey()), [
             'name' => 'A',
@@ -124,7 +124,7 @@ class AlphaLinkServerProviderManagementTest extends TestCase
         $this->assertStringNotContainsString($rotated, AuditEvent::query()->get()->toJson());
     }
 
-    public function test_update_keeps_dms_four_character_name_minimum(): void
+    public function test_update_keeps_reference_four_character_name_minimum(): void
     {
         $provider = $this->provider($this->workspace, 'Example Host', 'https://host.example', 'synthetic-user', 'synthetic-password');
         $this->putJson(route('console.infrastructure.server-providers.update', [$this->workspace->getKey(), $provider->getKey()]), [

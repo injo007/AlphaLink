@@ -25,7 +25,7 @@ class AlphaLinkBulkInstallAssetInventoryTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_it_reports_dms_asset_presence_and_keeps_artifact_validity_unverified(): void
+    public function test_it_reports_reference_asset_presence_and_keeps_artifact_validity_unverified(): void
     {
         $options = $this->options();
         $options['tracking'] = true;
@@ -46,7 +46,7 @@ class AlphaLinkBulkInstallAssetInventoryTest extends TestCase
         $this->assertStringContainsString('not artifact validation', $inventory['note']);
     }
 
-    public function test_it_reproduces_dms_rpm_and_patch_skip_truth_table_when_only_rpm_is_missing(): void
+    public function test_it_reproduces_reference_rpm_and_patch_skip_truth_table_when_only_rpm_is_missing(): void
     {
         $matrix = new AlphaLinkBulkInstallInstallerMatrix(new AlphaLinkInstallPlatform);
         $plan = $matrix->plan('Rocky Linux 9', 50, $this->options());

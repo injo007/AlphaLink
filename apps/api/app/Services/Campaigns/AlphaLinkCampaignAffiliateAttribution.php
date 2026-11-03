@@ -15,8 +15,8 @@ use Illuminate\Support\Str;
 class AlphaLinkCampaignAffiliateAttribution
 {
     /**
-     * Resolve the DMS s1/s2 campaign sale contract to AlphaLink's immutable recipient snapshot.
-     * AlphaLink UUIDs are transported as 32-character hex components so the DMS hyphen format remains parseable.
+     * Resolve the reference implementation s1/s2 campaign sale contract to AlphaLink's immutable recipient snapshot.
+     * AlphaLink UUIDs are transported as 32-character hex components so the reference implementation hyphen format remains parseable.
      *
      * @param  array<string, mixed>  $sale
      * @return array<string, mixed>|null

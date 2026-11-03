@@ -5,7 +5,7 @@ namespace App\Services\Campaigns;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
-/** Builds the campaign token shape consumed by DMS's installed tracking mini-app. */
+/** Builds the campaign token shape consumed by reference implementation's installed tracking mini-app. */
 class AlphaLinkCampaignTrackingTokenBuilder
 {
     /**

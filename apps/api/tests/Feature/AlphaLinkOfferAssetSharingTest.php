@@ -55,7 +55,7 @@ class AlphaLinkOfferAssetSharingTest extends TestCase
         $this->hostKey = 'ssh-ed25519 '.base64_encode('synthetic-share-host-key');
     }
 
-    public function test_share_action_matches_dms_selection_and_shows_only_active_installed_verified_workspace_servers(): void
+    public function test_share_action_matches_reference_selection_and_shows_only_active_installed_verified_workspace_servers(): void
     {
         $available = $this->createServer('SHARE_READY_NODE');
         $this->createServer('NOT_INSTALLED_NODE', ['is_installed' => false]);
@@ -122,7 +122,7 @@ class AlphaLinkOfferAssetSharingTest extends TestCase
         $this->assertCount(2, $connection->uploads);
     }
 
-    public function test_hashids_uses_dms_default_alphabet_and_minimum_length(): void
+    public function test_hashids_uses_reference_default_alphabet_and_minimum_length(): void
     {
         $this->assertSame('r0', (new Hashids('synthetic-folders-hash-salt'))->encode(1));
     }
@@ -226,7 +226,7 @@ class AlphaLinkOfferAssetSharingTest extends TestCase
         ]);
     }
 
-    public function test_missing_dms_hash_token_blocks_sharing_before_opening_ssh(): void
+    public function test_missing_reference_hash_token_blocks_sharing_before_opening_ssh(): void
     {
         $server = $this->createServer('MISSING_HASH_TOKEN_NODE');
         $connection = $this->bindSsh($server);

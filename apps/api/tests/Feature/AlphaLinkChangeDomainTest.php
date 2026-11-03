@@ -66,7 +66,7 @@ class AlphaLinkChangeDomainTest extends TestCase
         $this->actingAs($this->owner);
     }
 
-    public function test_change_domain_page_matches_dms_controls_and_lists_only_installable_server_and_domains(): void
+    public function test_change_domain_page_matches_reference_controls_and_lists_only_installable_server_and_domains(): void
     {
         $uninstalled = $this->createServer(['name' => 'NOT_INSTALLED', 'is_installed' => false, 'ip_address' => '192.0.2.24']);
         $inactive = $this->createServer(['name' => 'INACTIVE', 'is_active' => false, 'ip_address' => '192.0.2.25']);
@@ -104,7 +104,7 @@ class AlphaLinkChangeDomainTest extends TestCase
             ->assertDontSee('spam-listed.example.test');
     }
 
-    public function test_load_endpoint_returns_dms_shaped_saved_ip_map_and_options_without_mutating_state(): void
+    public function test_load_endpoint_returns_reference_shaped_saved_ip_map_and_options_without_mutating_state(): void
     {
         $response = $this->postJson($this->loadUrl(), ['server_id' => $this->server->getKey()])
             ->assertOk()
@@ -234,7 +234,7 @@ class AlphaLinkChangeDomainTest extends TestCase
         ])->assertOk()->assertJsonPath('data', 'Changed Successfully');
     }
 
-    public function test_runner_replays_host_vhost_vmta_and_persistence_in_dms_order_for_non_owned_domains(): void
+    public function test_runner_replays_host_vhost_vmta_and_persistence_in_reference_order_for_non_owned_domains(): void
     {
         $this->server->forceFill(['host_facts' => ['os_pretty_name' => 'AlmaLinux 9.8 (Sapphire Caracal)']])->save();
         $credentialResolver = Mockery::mock(AlphaLinkInstallerServerCredentialResolver::class);
@@ -306,7 +306,7 @@ class AlphaLinkChangeDomainTest extends TestCase
         $this->assertSame(1, AuditEvent::query()->where('action', 'server.domain_changed')->count());
     }
 
-    public function test_runner_replays_owned_domain_dns_vmta_https_and_dms_false_dns_result_continuation(): void
+    public function test_runner_replays_owned_domain_dns_vmta_https_and_reference_false_dns_result_continuation(): void
     {
         $this->server->forceFill([
             'host_facts' => ['os_pretty_name' => 'AlmaLinux 9.8 (Sapphire Caracal)'],

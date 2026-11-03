@@ -69,7 +69,7 @@ class AlphaLinkCentos9PmtaDeploymentPlannerTest extends TestCase
         $this->assertContains("echo 'http-redirect-to-https false' >> /etc/pmta/settings/config", $commands);
     }
 
-    public function test_saved_dms_admin_port_is_the_public_listener_and_doubled_for_the_backend(): void
+    public function test_saved_reference_admin_port_is_the_public_listener_and_doubled_for_the_backend(): void
     {
         $plan = $this->planner()->plan(45, true, true, 2525, 2588, [], [], false, '');
         $commands = $this->commands($plan['operations']);
@@ -205,7 +205,7 @@ class AlphaLinkCentos9PmtaDeploymentPlannerTest extends TestCase
         ], $plan['operations']);
     }
 
-    public function test_dms_skips_only_when_both_version_assets_are_absent_but_keeps_outer_commands(): void
+    public function test_reference_skips_only_when_both_version_assets_are_absent_but_keeps_outer_commands(): void
     {
         $skipped = $this->planner()->plan(40, false, false, 1212, 8080, [], [], false, '');
         $partial = $this->planner()->plan(40, true, false, 1212, 8080, [], [], false, '');

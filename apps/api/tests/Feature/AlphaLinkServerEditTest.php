@@ -72,7 +72,7 @@ class AlphaLinkServerEditTest extends TestCase
         $this->actingAs($this->owner);
     }
 
-    public function test_edit_form_suggests_the_dms_username_match_without_rendering_the_saved_secret_or_fingerprint(): void
+    public function test_edit_form_suggests_the_reference_username_match_without_rendering_the_saved_secret_or_fingerprint(): void
     {
         $this->get($this->editUrl())
             ->assertOk()
@@ -85,7 +85,7 @@ class AlphaLinkServerEditTest extends TestCase
             ->assertDontSee('fingerprint');
     }
 
-    public function test_update_matches_dms_server_name_eligibility_and_preserves_the_encrypted_credential(): void
+    public function test_update_matches_reference_server_name_eligibility_and_preserves_the_encrypted_credential(): void
     {
         $secretBefore = $this->server->credential()->firstOrFail()->encrypted_secret;
         $payload = $this->updatePayload(['name' => 'ALMA9-PRIMARY_MAILER01']);

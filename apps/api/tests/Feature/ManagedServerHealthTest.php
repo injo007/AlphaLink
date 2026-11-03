@@ -19,7 +19,7 @@ class ManagedServerHealthTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_collector_records_dms_service_down_flags_for_active_installed_servers_only(): void
+    public function test_collector_records_reference_service_down_flags_for_active_installed_servers_only(): void
     {
         $server = $this->server('203.0.113.10', sshPort: 2222);
         $this->server('203.0.113.11', active: false);
@@ -191,7 +191,7 @@ class ManagedServerHealthTest extends TestCase
         $this->assertFalse($probe->checkMany('not-an-ip', [$port], 1)[$port]);
     }
 
-    public function test_history_pruning_uses_the_dms_three_month_cutoff(): void
+    public function test_history_pruning_uses_the_reference_three_month_cutoff(): void
     {
         $server = $this->server('203.0.113.20');
         $old = $server->histories()->create([

@@ -74,7 +74,7 @@ function createPage() {
 
 function pmtaHref(markup) {
     const href = markup.match(/href="([^"]+)"[^>]*title="PMTA"/)?.[1];
-    assert.ok(href, 'the DMS-style PMTA action has a link');
+    assert.ok(href, 'the reference-style PMTA action has a link');
 
     return new URL(href.replaceAll('&amp;', '&'));
 }
@@ -96,7 +96,7 @@ test('Drop PMTA action opens PMTA Admin with only the Drop servers selected', ()
     assert.match(markup, /title="VISITORS"/);
 });
 
-test('test Drops retain the DMS PMTA action without showing send-only statistics', () => {
+test('test Drops retain the reference PMTA action without showing send-only statistics', () => {
     const renderActions = createPage();
     const markup = renderActions(null, 'display', {
         id: 49,

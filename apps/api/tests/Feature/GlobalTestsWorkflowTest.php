@@ -30,7 +30,7 @@ class GlobalTestsWorkflowTest extends TestCase
         $this->app->instance(AlphaLinkGlobalTestReverseDnsResolver::class, $resolver);
     }
 
-    public function test_global_test_page_uses_dms_navigation_and_exposes_the_test_controls(): void
+    public function test_global_test_page_uses_reference_navigation_and_exposes_the_test_controls(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner, 'owner');
@@ -72,7 +72,7 @@ class GlobalTestsWorkflowTest extends TestCase
             ->assertJsonPath('ips.0.dns', 'mta.example.test');
     }
 
-    public function test_sender_output_is_saved_with_the_dms_payload_and_returned_without_page_reload(): void
+    public function test_sender_output_is_saved_with_the_reference_payload_and_returned_without_page_reload(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner, 'owner');
@@ -178,7 +178,7 @@ class GlobalTestsWorkflowTest extends TestCase
         }
     }
 
-    public function test_empty_placeholder_array_matches_dms_minimum_validation(): void
+    public function test_empty_placeholder_array_matches_reference_minimum_validation(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner, 'owner');

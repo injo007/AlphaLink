@@ -5,7 +5,7 @@ namespace App\Services\Analytics;
 use Generator;
 use InvalidArgumentException;
 
-/** Parse the DMS PMTA accounting columns without shell splitting or exposing recipient addresses. */
+/** Parse the reference PMTA accounting columns without shell splitting or exposing recipient addresses. */
 class AlphaLinkPmtaFeedbackCsvParser
 {
     private const HARD_BOUNCE_CATEGORIES = [

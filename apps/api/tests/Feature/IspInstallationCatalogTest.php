@@ -35,7 +35,7 @@ class IspInstallationCatalogTest extends TestCase
         $this->withoutMiddleware(ThrottleRequests::class);
     }
 
-    public function test_add_isp_form_reproduces_the_dms_fields_and_reference_country_catalog(): void
+    public function test_add_isp_form_reproduces_the_reference_fields_and_reference_country_catalog(): void
     {
         $this->get(route('console.infrastructure.isps.create', $this->workspace->getKey()))
             ->assertOk()
@@ -53,7 +53,7 @@ class IspInstallationCatalogTest extends TestCase
             ->assertSee('SAVE');
     }
 
-    public function test_isp_creation_matches_dms_validation_and_persists_the_install_inputs(): void
+    public function test_isp_creation_matches_reference_validation_and_persists_the_install_inputs(): void
     {
         $url = route('console.infrastructure.isps.store', $this->workspace->getKey());
         $this->postJson($url, [
@@ -106,7 +106,7 @@ class IspInstallationCatalogTest extends TestCase
         $this->assertStringNotContainsString('outlook', $files['vmtas']);
     }
 
-    public function test_isp_updates_and_status_changes_are_workspace_scoped_and_preserve_dms_vmta_behavior(): void
+    public function test_isp_updates_and_status_changes_are_workspace_scoped_and_preserve_reference_vmta_behavior(): void
     {
         $isp = $this->workspace->isps()->create([
             'name' => 'OldISP',
@@ -164,7 +164,7 @@ class IspInstallationCatalogTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_empty_isp_assignment_pages_keep_the_dms_empty_checkbox_grid(): void
+    public function test_empty_isp_assignment_pages_keep_the_reference_empty_checkbox_grid(): void
     {
         $isp = $this->workspace->isps()->create(['name' => 'EmptyISP']);
 
@@ -193,7 +193,7 @@ class IspInstallationCatalogTest extends TestCase
             ->assertDontSee('There are no active AlphaLink sponsors');
     }
 
-    public function test_isp_allowed_mailers_show_dms_identity_fields_without_exposing_contact_email(): void
+    public function test_isp_allowed_mailers_show_reference_identity_fields_without_exposing_contact_email(): void
     {
         $isp = $this->workspace->isps()->create(['name' => 'MailerISP']);
         $firstOperator = User::factory()->create([

@@ -42,7 +42,7 @@ class AlphaLinkAudienceListHistoryTest extends TestCase
         $this->actingAs($this->owner);
     }
 
-    public function test_history_page_is_linked_and_uses_dms_history_controls(): void
+    public function test_history_page_is_linked_and_uses_reference_history_controls(): void
     {
         $this->get(route('console.infrastructure.list-history.index', $this->workspace->getKey()))
             ->assertOk()
@@ -78,7 +78,7 @@ class AlphaLinkAudienceListHistoryTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_single_list_history_is_date_filtered_and_reports_backed_dms_types(): void
+    public function test_single_list_history_is_date_filtered_and_reports_backed_reference_types(): void
     {
         $list = $this->makeList('Alpha');
         $this->history($list, '2026-10-20', ['fresh' => 12, 'open' => 3]);

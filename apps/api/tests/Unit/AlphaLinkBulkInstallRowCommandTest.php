@@ -104,7 +104,7 @@ class AlphaLinkBulkInstallRowCommandTest extends TestCase
         $this->assertStringContainsString('- ['.$rowId.':'.$rowId.'] - Setup Host', (string) $transcript);
     }
 
-    public function test_it_catches_a_row_failure_and_returns_the_dms_parent_success_marker(): void
+    public function test_it_catches_a_row_failure_and_returns_the_reference_parent_success_marker(): void
     {
         config(['infrastructure.bulk_install_execution_enabled' => true]);
 

@@ -264,7 +264,7 @@ class AlphaLinkServerIpManagementTest extends TestCase
         $this->assertFalse($ip->fresh()->is_active);
     }
 
-    public function test_rejected_status_saves_return_the_dms_failure_response_without_audit(): void
+    public function test_rejected_status_saves_return_the_reference_failure_response_without_audit(): void
     {
         $ip = $this->createIp();
         $mta = $this->createMta($ip, 'vmta');
@@ -291,7 +291,7 @@ class AlphaLinkServerIpManagementTest extends TestCase
         $this->assertDatabaseMissing('audit_events', ['action' => 'server.mta_status_changed']);
     }
 
-    public function test_ip_history_route_returns_the_dms_history_table_contract(): void
+    public function test_ip_history_route_returns_the_reference_history_table_contract(): void
     {
         $ip = $this->createIp();
         ManagedServerIpHistory::factory()->forManagedIp($ip)->create([

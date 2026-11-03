@@ -9,7 +9,7 @@ use PHPUnit\Framework\TestCase;
 
 class AlphaLinkBulkInstallInstallerMatrixTest extends TestCase
 {
-    public function test_it_maps_supported_os_and_pmta_variants_to_dms_assets_and_branch_differences(): void
+    public function test_it_maps_supported_os_and_pmta_variants_to_reference_assets_and_branch_differences(): void
     {
         $matrix = new AlphaLinkBulkInstallInstallerMatrix(new AlphaLinkInstallPlatform);
 
@@ -85,7 +85,7 @@ class AlphaLinkBulkInstallInstallerMatrixTest extends TestCase
 
         try {
             $matrix->plan('Ubuntu 24.04', 40, $this->options());
-            $this->fail('Unsupported releases must not select a DMS installer.');
+            $this->fail('Unsupported releases must not select a supported installer.');
         } catch (InvalidArgumentException $exception) {
             $this->assertSame('The installer requires a supported CentOS 7 or 9 release.', $exception->getMessage());
         }

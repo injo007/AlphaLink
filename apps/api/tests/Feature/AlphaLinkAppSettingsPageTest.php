@@ -28,7 +28,7 @@ class AlphaLinkAppSettingsPageTest extends TestCase
         $this->actingAs($this->owner);
     }
 
-    public function test_general_settings_contains_dms_fields_and_pmta_domains_tab(): void
+    public function test_general_settings_contains_reference_fields_and_pmta_domains_tab(): void
     {
         $response = $this->get($this->settingsPage())->assertOk();
 
@@ -66,7 +66,7 @@ class AlphaLinkAppSettingsPageTest extends TestCase
             ->assertSee('id="pmta_domain_data"', false);
     }
 
-    public function test_dms_general_settings_normalize_values_and_encrypt_all_secret_fields(): void
+    public function test_reference_general_settings_normalize_values_and_encrypt_all_secret_fields(): void
     {
         $this->post($this->settingsPage(), [
             'settings' => [

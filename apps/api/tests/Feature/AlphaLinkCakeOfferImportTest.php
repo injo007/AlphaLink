@@ -43,7 +43,7 @@ class AlphaLinkCakeOfferImportTest extends TestCase
         );
     }
 
-    public function test_selected_cake_campaign_maps_dms_fields_and_imports_sender_assets(): void
+    public function test_selected_cake_campaign_maps_reference_fields_and_imports_sender_assets(): void
     {
         $operator = User::factory()->create();
         $this->workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
@@ -90,7 +90,7 @@ class AlphaLinkCakeOfferImportTest extends TestCase
         });
     }
 
-    public function test_cake_uses_dms_us_default_and_skips_invalid_or_failed_selected_campaigns(): void
+    public function test_cake_uses_reference_us_default_and_skips_invalid_or_failed_selected_campaigns(): void
     {
         $sponsor = $this->createSponsor();
         Http::fake([
@@ -123,7 +123,7 @@ class AlphaLinkCakeOfferImportTest extends TestCase
         $this->assertDatabaseCount('workspace_offers', 0);
     }
 
-    public function test_cake_import_uses_dms_creative_bundle_links_and_safe_workspace_image_assets(): void
+    public function test_cake_import_uses_reference_creative_bundle_links_and_safe_workspace_image_assets(): void
     {
         $sponsor = $this->createSponsor();
         $image = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/8WQAAAAASUVORK5CYII=');

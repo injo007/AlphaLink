@@ -13,7 +13,7 @@ test('single-install loader always gives a visible message for empty and validat
     );
 });
 
-test('submits DMS per-IP assignments and uses the main IP domain as the command domain', () => {
+test('submits the supported per-IP assignments and uses the main IP domain as the command domain', () => {
     const payload = buildSingleInstallPayload({
         serverId: 'server-1',
         rows: [

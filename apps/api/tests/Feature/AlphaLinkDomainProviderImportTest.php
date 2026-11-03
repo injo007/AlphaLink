@@ -256,7 +256,7 @@ class AlphaLinkDomainProviderImportTest extends TestCase
         $this->assertSame(0, SendingDomain::query()->count());
     }
 
-    public function test_domain_import_page_enables_the_dms_auto_action(): void
+    public function test_domain_import_page_enables_the_reference_auto_action(): void
     {
         $olderProvider = $this->provider('namecheap');
         $olderProvider->created_at = now()->subMinute();

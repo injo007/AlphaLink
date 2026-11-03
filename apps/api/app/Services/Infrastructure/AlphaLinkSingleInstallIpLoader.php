@@ -9,7 +9,7 @@ use App\Models\Workspace;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Collection;
 
-/** Loads the source-shaped editable IP/domain rows for DMS's single-server Install page. */
+/** Loads the source-shaped editable IP/domain rows for reference implementation's single-server Install page. */
 class AlphaLinkSingleInstallIpLoader
 {
     public function __construct(
@@ -97,7 +97,7 @@ class AlphaLinkSingleInstallIpLoader
     }
 
     /**
-     * Keep the user's selected order because DMS assigns IP chunks to domains in that order.
+     * Keep the user's selected order because reference implementation assigns IP chunks to domains in that order.
      *
      * @param  list<string>  $domainIds
      * @return Collection<int, SendingDomain>

@@ -58,7 +58,7 @@ class AlphaLinkPublicLandingApiTest extends TestCase
         ]);
     }
 
-    public function test_subscribe_persists_dms_request_and_visitor_metadata(): void
+    public function test_subscribe_persists_reference_request_and_visitor_metadata(): void
     {
         $this->postJson('/api/v1/subscribe', [
             ...$this->authPayload(),
@@ -90,7 +90,7 @@ class AlphaLinkPublicLandingApiTest extends TestCase
             ->assertJsonPath('data.0.email', 'reader@example.test');
     }
 
-    public function test_contact_persists_the_dms_required_fields_and_visitor_metadata(): void
+    public function test_contact_persists_the_reference_required_fields_and_visitor_metadata(): void
     {
         $this->postJson('/api/v1/contact', [
             ...$this->authPayload(),
@@ -125,7 +125,7 @@ class AlphaLinkPublicLandingApiTest extends TestCase
             ->assertJsonPath('data.0.message', 'Please send product details.');
     }
 
-    public function test_public_intake_rejects_an_invalid_workspace_key_and_contact_validation_matches_dms(): void
+    public function test_public_intake_rejects_an_invalid_workspace_key_and_contact_validation_matches_reference(): void
     {
         $this->postJson('/api/v1/subscribe', [
             ...$this->authPayload('wrong-key'),
@@ -219,7 +219,7 @@ class AlphaLinkPublicLandingApiTest extends TestCase
         ]);
     }
 
-    public function test_intake_endpoints_apply_the_dms_two_requests_per_minute_limit(): void
+    public function test_intake_endpoints_apply_the_reference_two_requests_per_minute_limit(): void
     {
         $payload = [
             ...$this->authPayload(),

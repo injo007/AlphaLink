@@ -4,7 +4,7 @@ namespace App\Services\Infrastructure;
 
 use InvalidArgumentException;
 
-/** Describes the source-backed DMS OS/PMTA branches and their local asset needs. */
+/** Describes the source-backed reference implementation OS/PMTA branches and their local asset needs. */
 class AlphaLinkBulkInstallInstallerMatrix
 {
     public function __construct(private readonly AlphaLinkInstallPlatform $platform) {}
@@ -62,7 +62,7 @@ class AlphaLinkBulkInstallInstallerMatrix
                     50 => ['http-redirect-to-https false', 'http-csrf-protection false'],
                     default => [],
                 },
-                // DMS uses AND here: the PMTA method returns early only when both files are absent.
+                // reference implementation uses AND here: the PMTA method returns early only when both files are absent.
                 'skip_gate' => ['rpm_and_patch_both_absent' => true],
             ],
             'selected_option_requirements' => $this->selectedOptionRequirements($options),
@@ -114,7 +114,7 @@ class AlphaLinkBulkInstallInstallerMatrix
         return $requirements;
     }
 
-    /** Mirrors the DMS version-specific method's RPM/patch early-return guard. */
+    /** Mirrors the reference implementation version-specific method's RPM/patch early-return guard. */
     public function pmtaVersionSetupWouldBeSkipped(bool $rpmExists, bool $patchExists): bool
     {
         return ! $rpmExists && ! $patchExists;

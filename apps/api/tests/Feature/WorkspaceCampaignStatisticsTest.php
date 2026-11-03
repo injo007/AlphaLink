@@ -227,7 +227,7 @@ class WorkspaceCampaignStatisticsTest extends TestCase
 
     }
 
-    public function test_all_stats_lists_campaign_engagement_and_leads_with_resolved_dms_dimensions(): void
+    public function test_all_stats_lists_campaign_engagement_and_leads_with_resolved_reference_dimensions(): void
     {
         $fixture = $this->campaignFixture();
         $server = ManagedServer::query()->create([

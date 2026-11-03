@@ -7,7 +7,7 @@ use App\Models\SendingDomain;
 use App\Models\Workspace;
 use InvalidArgumentException;
 
-/** Validates the editable DMS reinstall rows against the server's saved map. */
+/** Validates the editable reference implementation reinstall rows against the server's saved map. */
 class AlphaLinkReinstallSelectionValidator
 {
     /**

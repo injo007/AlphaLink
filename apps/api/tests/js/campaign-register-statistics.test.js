@@ -48,7 +48,7 @@ function render(rows) {
     return target;
 }
 
-test('inline campaign statistics render the DMS summary columns and campaign totals', () => {
+test('inline campaign statistics render the captured summary columns and campaign totals', () => {
     const target = render([
         { at: '2026-10-30', deliveries: 10, opens: 7, clicks: 3, leads: 1, unsubscribes: 0, lead_revenue: 4.5 },
         { at: '2026-10-30', deliveries: 20, opens: 8, clicks: 2, leads: 2, unsubscribes: 1, lead_revenue: 8 },

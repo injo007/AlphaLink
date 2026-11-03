@@ -21,7 +21,6 @@
 !/pmta/workspace_relay/
 !/pmta/workspace_relay/**
 /install-assets/optional/dkim/keys.json
-/log_DMS/
 /__pycache__/
 *.py[cod]
 /premium-audit.json

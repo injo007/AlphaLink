@@ -207,7 +207,7 @@ class CampaignSendExecutionLedgerTest extends TestCase
         );
     }
 
-    public function test_campaign_send_action_accepts_a_snapshot_without_consent_records_and_dispatches_using_nested_dms_limits(): void
+    public function test_campaign_send_action_accepts_a_snapshot_without_consent_records_and_dispatches_using_nested_reference_limits(): void
     {
         $serverId = (string) Str::uuid();
         $routeId = '81';
@@ -398,7 +398,7 @@ class CampaignSendExecutionLedgerTest extends TestCase
         $this->assertSame('accepted', $run->deliveryAttempts()->sole()->state);
     }
 
-    public function test_production_send_message_uses_dms_decodable_tokens_for_click_and_open_urls(): void
+    public function test_production_send_message_uses_reference_decodable_tokens_for_click_and_open_urls(): void
     {
         $fixture = $this->sendFixture();
         $run = app(PrepareCampaignSendRun::class)->create(

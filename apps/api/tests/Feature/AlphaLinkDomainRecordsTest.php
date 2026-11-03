@@ -49,7 +49,7 @@ class AlphaLinkDomainRecordsTest extends TestCase
             && $request->hasHeader('Authorization', 'sso-key synthetic-key:synthetic-secret'));
     }
 
-    public function test_domain_records_row_action_opens_the_dms_records_route_in_a_new_tab(): void
+    public function test_domain_records_row_action_opens_the_reference_records_route_in_a_new_tab(): void
     {
         [$owner, $workspace, $domain] = $this->domainWithProvider('godaddy');
 
@@ -166,7 +166,7 @@ class AlphaLinkDomainRecordsTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_record_updates_keep_dms_request_validation_and_provider_failures_visible(): void
+    public function test_record_updates_keep_reference_request_validation_and_provider_failures_visible(): void
     {
         [$owner, $workspace, $domain] = $this->domainWithProvider('godaddy');
         Http::fake(['api.godaddy.com/*' => Http::response([], 403)]);
@@ -178,7 +178,7 @@ class AlphaLinkDomainRecordsTest extends TestCase
             ->assertStatus(400)->assertExactJson(['data' => 'Failed']);
     }
 
-    public function test_inactive_provider_state_does_not_block_records_actions_like_dms(): void
+    public function test_inactive_provider_state_does_not_block_records_actions_like_reference(): void
     {
         [$owner, $workspace, $domain] = $this->domainWithProvider('godaddy');
         $domain->domainProvider()->update(['is_active' => false]);

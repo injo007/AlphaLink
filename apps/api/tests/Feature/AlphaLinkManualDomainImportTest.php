@@ -36,7 +36,7 @@ class AlphaLinkManualDomainImportTest extends TestCase
         $this->provider = DomainProvider::query()->create(['name' => 'Synthetic provider', 'is_active' => true]);
     }
 
-    public function test_manual_import_creates_only_new_provider_backed_dms_install_domains(): void
+    public function test_manual_import_creates_only_new_provider_backed_reference_install_domains(): void
     {
         $existing = $this->workspace->sendingDomains()->create([
             'name' => 'existing.example',
@@ -76,7 +76,7 @@ class AlphaLinkManualDomainImportTest extends TestCase
             ->assertSee('new.example | STATUS: new | IS OUR: NO | LISTED: SPAMHAUS = NO - HOSTKARMA = NO');
     }
 
-    public function test_inactive_provider_is_accepted_by_dms_store_but_its_domain_is_not_installable(): void
+    public function test_inactive_provider_is_accepted_by_reference_store_but_its_domain_is_not_installable(): void
     {
         $this->provider->update(['is_active' => false]);
 

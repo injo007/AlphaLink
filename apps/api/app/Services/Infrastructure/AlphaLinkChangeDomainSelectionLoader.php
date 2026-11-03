@@ -6,7 +6,7 @@ use App\Models\ManagedServer;
 use App\Models\Workspace;
 use RuntimeException;
 
-/** Loads the saved per-IP domain map used by DMS ServerChangeDomain. */
+/** Loads the saved per-IP domain map used by reference ServerChangeDomain. */
 class AlphaLinkChangeDomainSelectionLoader
 {
     /**

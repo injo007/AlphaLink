@@ -86,7 +86,7 @@ class AlphaLinkGlobalUserManagementTest extends TestCase
         $this->assertAuthenticatedAs($user);
     }
 
-    public function test_global_user_routes_allow_dms_role_and_deny_other_mailers(): void
+    public function test_global_user_routes_allow_reference_role_and_deny_other_mailers(): void
     {
         $manager = User::factory()->create(['type' => User::MAILER, 'roles' => ['manage_users']]);
         $ordinary = User::factory()->create(['type' => User::MAILER, 'roles' => []]);

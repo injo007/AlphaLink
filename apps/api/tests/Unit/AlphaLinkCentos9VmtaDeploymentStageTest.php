@@ -56,7 +56,7 @@ class AlphaLinkCentos9VmtaDeploymentStageTest extends TestCase
         $this->assertSame('systemctl restart pmtahttp;', $transport->events[array_key_last($transport->events)]['command']);
     }
 
-    public function test_failed_upload_results_do_not_suppress_dms_post_upload_commands(): void
+    public function test_failed_upload_results_do_not_suppress_reference_post_upload_commands(): void
     {
         $transport = $this->transport();
         $transport->uploadResults['/etc/pmta/conf/vmta'] = false;

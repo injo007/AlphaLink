@@ -4,7 +4,7 @@ namespace App\Services\Infrastructure;
 
 use App\Models\SendingDomain;
 
-/** Stores daily DMS-compatible DNS history for every active workspace domain. */
+/** Stores daily reference-compatible DNS history for every active workspace domain. */
 class AlphaLinkDomainHistoryCollector
 {
     public function __construct(private readonly AlphaLinkDomainHistoryProbe $probe) {}

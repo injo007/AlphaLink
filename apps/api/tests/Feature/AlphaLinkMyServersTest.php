@@ -16,7 +16,7 @@ class AlphaLinkMyServersTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_my_servers_is_a_separate_dms_page_in_the_pmta_navigation_group(): void
+    public function test_my_servers_is_a_separate_reference_page_in_the_pmta_navigation_group(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner);
@@ -38,7 +38,7 @@ class AlphaLinkMyServersTest extends TestCase
         self::assertStringContainsString('console-assets/my-servers.js', $html);
     }
 
-    public function test_my_servers_returns_only_active_installed_workspace_servers_and_dms_health_fields(): void
+    public function test_my_servers_returns_only_active_installed_workspace_servers_and_reference_health_fields(): void
     {
         $owner = User::factory()->create();
         $member = User::factory()->create();

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { applySelectAll } from '../../public/alphalink/infrastructure/isp-assignment.js';
 
-test('DMS CHECK inverts the first checked row across the complete assignment list', () => {
+test('reference CHECK inverts the first checked row across the complete assignment list', () => {
     const allChecked = [{ checked: true }, { checked: true }, { checked: true }];
     applySelectAll(allChecked);
     assert.deepEqual(allChecked.map((checkbox) => checkbox.checked), [false, false, false]);
@@ -12,6 +12,6 @@ test('DMS CHECK inverts the first checked row across the complete assignment lis
     assert.deepEqual(mixedWithFirstUnchecked.map((checkbox) => checkbox.checked), [true, true, true]);
 });
 
-test('DMS CHECK leaves an empty assignment list unchanged', () => {
+test('reference CHECK leaves an empty assignment list unchanged', () => {
     assert.doesNotThrow(() => applySelectAll([]));
 });

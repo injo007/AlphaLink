@@ -288,7 +288,7 @@ class AlphaLinkPmtaFeedbackImportTest extends TestCase
         fclose($wrongServer);
     }
 
-    public function test_delivery_and_hard_bounce_follow_dms_recipient_type_precedence(): void
+    public function test_delivery_and_hard_bounce_follow_reference_recipient_type_precedence(): void
     {
         $owner = User::factory()->create();
         $workspace = Workspace::query()->create([

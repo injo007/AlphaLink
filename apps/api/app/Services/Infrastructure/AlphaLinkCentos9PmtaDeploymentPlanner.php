@@ -5,7 +5,7 @@ namespace App\Services\Infrastructure;
 use InvalidArgumentException;
 
 /**
- * Reconstructs the DMS CentOS 9 PMTA deployment operations as data.
+ * Reconstructs the reference CentOS 9 PMTA deployment operations as data.
  * Nothing in this planner connects to a host or uploads/executes an asset.
  */
 class AlphaLinkCentos9PmtaDeploymentPlanner

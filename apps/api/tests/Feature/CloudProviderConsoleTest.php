@@ -29,7 +29,7 @@ class CloudProviderConsoleTest extends TestCase
         $this->actingAs($this->owner);
     }
 
-    public function test_index_and_edit_form_match_dms_cloud_provider_fields(): void
+    public function test_index_and_edit_form_match_reference_cloud_provider_fields(): void
     {
         $firstOperator = User::factory()->create(['name' => 'Zeta Mailer']);
         $secondOperator = User::factory()->create(['name' => 'Alpha Mailer']);
@@ -262,7 +262,7 @@ class CloudProviderConsoleTest extends TestCase
         $this->assertNotNull($provider->fresh());
     }
 
-    public function test_available_provider_selector_matches_dms_type_and_allowed_mailer_filter_without_tokens(): void
+    public function test_available_provider_selector_matches_reference_type_and_allowed_mailer_filter_without_tokens(): void
     {
         $operator = User::factory()->create();
         $otherOperator = User::factory()->create();

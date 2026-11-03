@@ -12,7 +12,7 @@ use Tests\TestCase;
 
 class AlphaLinkAffiliateProviderSalesReaderTest extends TestCase
 {
-    public function test_hitpath_reads_the_dms_sales_csv_contract(): void
+    public function test_hitpath_reads_the_reference_sales_csv_contract(): void
     {
         $campaignToken = $this->s1('C_123');
         Http::preventStrayRequests();
@@ -58,7 +58,7 @@ class AlphaLinkAffiliateProviderSalesReaderTest extends TestCase
             && str_contains($request->url(), 'page=1'));
     }
 
-    public function test_cake_reads_conversions_and_uses_the_dms_end_date_adjustment(): void
+    public function test_cake_reads_conversions_and_uses_the_reference_end_date_adjustment(): void
     {
         $campaignToken = $this->s1('C_22');
         Http::preventStrayRequests();

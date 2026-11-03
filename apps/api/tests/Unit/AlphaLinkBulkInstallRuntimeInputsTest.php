@@ -28,7 +28,7 @@ class AlphaLinkBulkInstallRuntimeInputsTest extends TestCase
 
     public function test_it_loads_only_selected_private_assets_and_source_settings(): void
     {
-        $root = sys_get_temp_dir().'/dms-install-fixture-'.bin2hex(random_bytes(6));
+        $root = sys_get_temp_dir().'/alphalink-install-fixture-'.bin2hex(random_bytes(6));
         mkdir($root, 0700);
         mkdir($root.'/optional/tracking', 0700, true);
         file_put_contents($root.'/optional/tracking/mini-app.zip', 'synthetic archive');
@@ -94,7 +94,7 @@ class AlphaLinkBulkInstallRuntimeInputsTest extends TestCase
 
     public function test_it_uses_the_configured_pmta_listener_port_when_workspace_settings_are_absent(): void
     {
-        $root = sys_get_temp_dir().'/dms-install-port-fixture-'.bin2hex(random_bytes(6));
+        $root = sys_get_temp_dir().'/alphalink-install-port-fixture-'.bin2hex(random_bytes(6));
         mkdir($root, 0700);
         chmod($root, 0700);
         config()->set('infrastructure.install_assets_directory', $root);
@@ -116,9 +116,9 @@ class AlphaLinkBulkInstallRuntimeInputsTest extends TestCase
         $this->assertSame(2527, $resolved['settings']['pmta_port']);
     }
 
-    public function test_it_uses_dms_normalized_defaults_when_install_settings_are_unset(): void
+    public function test_it_uses_reference_normalized_defaults_when_install_settings_are_unset(): void
     {
-        $root = sys_get_temp_dir().'/dms-install-defaults-'.bin2hex(random_bytes(6));
+        $root = sys_get_temp_dir().'/alphalink-install-defaults-'.bin2hex(random_bytes(6));
         mkdir($root, 0700);
         chmod($root, 0700);
         config()->set('infrastructure.install_assets_directory', $root);
@@ -141,7 +141,7 @@ class AlphaLinkBulkInstallRuntimeInputsTest extends TestCase
 
     public function test_pmta_install_stops_if_public_egress_cannot_be_verified_automatically(): void
     {
-        $root = sys_get_temp_dir().'/dms-install-no-relay-source-'.bin2hex(random_bytes(6));
+        $root = sys_get_temp_dir().'/alphalink-install-no-relay-source-'.bin2hex(random_bytes(6));
         mkdir($root, 0700);
         chmod($root, 0700);
         config()->set('infrastructure.install_assets_directory', $root);
@@ -166,7 +166,7 @@ class AlphaLinkBulkInstallRuntimeInputsTest extends TestCase
 
     public function test_it_enables_and_persists_public_read_only_monitor_when_no_access_ips_are_configured(): void
     {
-        $root = sys_get_temp_dir().'/dms-install-no-monitor-access-'.bin2hex(random_bytes(6));
+        $root = sys_get_temp_dir().'/alphalink-install-no-monitor-access-'.bin2hex(random_bytes(6));
         mkdir($root, 0700);
         chmod($root, 0700);
         config()->set('infrastructure.install_assets_directory', $root);
@@ -203,7 +203,7 @@ class AlphaLinkBulkInstallRuntimeInputsTest extends TestCase
 
     public function test_production_monitor_allowlist_does_not_force_public_access(): void
     {
-        $root = sys_get_temp_dir().'/dms-install-production-monitor-'.bin2hex(random_bytes(6));
+        $root = sys_get_temp_dir().'/alphalink-install-production-monitor-'.bin2hex(random_bytes(6));
         mkdir($root, 0700);
         chmod($root, 0700);
         config()->set('infrastructure.install_assets_directory', $root);

@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('workspace_google_projects', function (Blueprint $table): void {
             $table->id();
             $table->foreignUuid('workspace_id')->constrained()->cascadeOnDelete();
-            $table->string('name', 255); // DMS uses the delegated Workspace admin email as project name/subject.
+            $table->string('name', 255); // Use the delegated Workspace admin email as project name/subject.
             $table->text('service_account_json');
             $table->boolean('is_active')->default(true);
             $table->timestamp('synced_at')->nullable();

@@ -66,7 +66,7 @@ class AlphaLinkOfferAssetUploadTest extends TestCase
         ]);
     }
 
-    public function test_assets_page_matches_dms_tabs_and_exposes_creative_and_unsubscribe_upload_forms(): void
+    public function test_assets_page_matches_reference_tabs_and_exposes_creative_and_unsubscribe_upload_forms(): void
     {
         $this->get(route('console.offers.assets', [$this->workspace->getKey(), $this->offer->getKey()]))
             ->assertOk()
@@ -147,7 +147,7 @@ class AlphaLinkOfferAssetUploadTest extends TestCase
         $this->assertFalse($asset->fresh()->is_active);
     }
 
-    public function test_bulk_asset_status_matches_dms_and_never_changes_unsubscribe_assets(): void
+    public function test_bulk_asset_status_matches_reference_and_never_changes_unsubscribe_assets(): void
     {
         $from = $this->offer->assets()->create([
             'workspace_id' => $this->workspace->getKey(),
@@ -210,7 +210,7 @@ class AlphaLinkOfferAssetUploadTest extends TestCase
         $this->assertTrue($foreignOfferAsset->fresh()->is_active);
     }
 
-    public function test_offer_asset_table_has_dms_bulk_action_toolbar_and_only_shows_selection_on_supported_tabs(): void
+    public function test_offer_asset_table_has_reference_bulk_action_toolbar_and_only_shows_selection_on_supported_tabs(): void
     {
         $this->get(route('console.offers.assets', [$this->workspace->getKey(), $this->offer->getKey()]))
             ->assertOk()

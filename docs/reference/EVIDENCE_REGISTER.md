@@ -914,3 +914,8 @@ The network-disabled PHP 8.3 run with the full repository mounted at `/workspace
 ### E-AUD-30 — Push and production release status — 2026-11-03
 
 The complete audit checkpoint was pushed to `injo007/AlphaLink` `master` as `9baab5a` and the remote ref was verified. The user-designated production target is `baseheavy.shop`. No production deployment was performed: the local checkout's ignored `apps/api/.env` is empty, and the only protected SSH profile available here names a different host and is gated read-only. That profile was not used. Production still needs a verified host-matched deployment credential through the guarded installer; then verify the live AlphaLink branding and Gmail Projects shell. No app state, list, campaign, email, tracker callback, or database was changed.
+
+
+### E-AUD-31 — Active-code naming audit — 2026-11-03
+
+Case-insensitive scans report zero DMS text in `apps/api/app`, routes, config, resources, public assets, or Composer/npm manifests. DMS-specific wording in PHP comments and test names/fixtures was removed, and the unused `/log_DMS/` ignore path was deleted. The only `dms_csv` content left in active test/migration source is the explicit up/down compatibility mapping from legacy stored import markers to `profile_csv`. Ten DMS-named migration filenames remain to preserve Laravel migration history; 25 DMS-named audit/reference paths retain provenance and guarded read-only tooling. Network-disabled PHPUnit: **1,025 passed, 1 skipped, 9,579 assertions, 15 notices**; Node: **86/86**; focused PHP suites: **38 / 329 assertions**; Pint: **190 files passed**; `git diff --check` passes. The changes are not yet deployed to `baseheavy.shop`; no live state was modified.

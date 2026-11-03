@@ -38,7 +38,7 @@ class AlphaLinkOfferManagementTest extends TestCase
 
         $this->owner = User::factory()->create();
         $this->workspace = Workspace::query()->create([
-            'name' => 'DMS offer management',
+            'name' => 'Synthetic offer management',
             'slug' => 'offer-test-'.Str::lower(Str::random(8)),
             'created_by' => $this->owner->getKey(),
         ]);
@@ -47,7 +47,7 @@ class AlphaLinkOfferManagementTest extends TestCase
         $this->withoutMiddleware(ThrottleRequests::class);
     }
 
-    public function test_manual_create_matches_dms_fields_inherits_sponsor_access_and_saves_from_and_subject_assets(): void
+    public function test_manual_create_matches_reference_fields_inherits_sponsor_access_and_saves_from_and_subject_assets(): void
     {
         $operator = User::factory()->create();
         $this->workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
@@ -402,7 +402,7 @@ class AlphaLinkOfferManagementTest extends TestCase
             ->assertUnprocessable()->assertJsonValidationErrors('offer_id');
     }
 
-    public function test_manual_offer_validation_rejects_missing_dms_required_fields(): void
+    public function test_manual_offer_validation_rejects_missing_reference_required_fields(): void
     {
         $sponsor = $this->createSponsor('Validation Network');
         $this->postJson(route('console.offers.store', $this->workspace->getKey()), [
@@ -430,7 +430,7 @@ class AlphaLinkOfferManagementTest extends TestCase
         $this->assertDatabaseHas('workspace_offer_assets', ['offer_id' => $offer->getKey(), 'value' => 'keep@example.test']);
     }
 
-    public function test_offer_activation_fails_until_suppression_is_fresh_and_other_dms_requirements_hold(): void
+    public function test_offer_activation_fails_until_suppression_is_fresh_and_other_reference_requirements_hold(): void
     {
         $offer = $this->createOffer($this->createSponsor('Activation Network'));
         $url = route('console.offers.active', [$this->workspace->getKey(), $offer->getKey()]);
@@ -550,7 +550,7 @@ class AlphaLinkOfferManagementTest extends TestCase
         $this->get(route('clean.console.offers.users', $offer->getKey()))->assertOk()->assertSee('Allowed Mailers');
     }
 
-    public function test_dms_style_offer_page_shows_the_saved_file_and_download_for_inactive_offer(): void
+    public function test_reference_style_offer_page_shows_the_saved_file_and_download_for_inactive_offer(): void
     {
         $sponsor = $this->createSponsor('Saved suppression page');
         $offer = $this->createOffer($sponsor, ['name' => 'Saved Offer', 'offer_id' => 'saved-123']);
@@ -648,7 +648,7 @@ class AlphaLinkOfferManagementTest extends TestCase
         ], $overrides));
     }
 
-    public function test_suppression_upload_normalizes_dms_plaintext_and_hash_files_and_requires_actual_bytes(): void
+    public function test_suppression_upload_normalizes_reference_plaintext_and_hash_files_and_requires_actual_bytes(): void
     {
         $sponsor = $this->createSponsor('Suppression Upload');
         $offer = $this->createOffer($sponsor);

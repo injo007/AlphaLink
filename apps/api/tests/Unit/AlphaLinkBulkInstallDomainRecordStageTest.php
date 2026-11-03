@@ -204,7 +204,7 @@ class AlphaLinkBulkInstallDomainRecordStageTest extends TestCase
         $this->assertSame('ipv4', $resolved[0]['type']);
     }
 
-    public function test_owned_domain_records_use_resolved_interface_ip_and_dms_provider_outcome_logs(): void
+    public function test_owned_domain_records_use_resolved_interface_ip_and_reference_provider_outcome_logs(): void
     {
         $domain = new SendingDomain(['name' => 'owned.example.test', 'is_our' => true]);
         $resolver = new RecordingPublicIpResolver(['10.0.0.8' => '198.51.100.8']);
@@ -333,7 +333,7 @@ class AlphaLinkBulkInstallDomainRecordStageTest extends TestCase
         $this->assertSame(['Config Hosts A-AAAA-MX... For external.example.test (A=3)'], $logs);
     }
 
-    public function test_centos9_public_ip_lookup_matches_dms_command_and_falls_back_for_invalid_output(): void
+    public function test_centos9_public_ip_lookup_matches_reference_command_and_falls_back_for_invalid_output(): void
     {
         $transport = new RecordingPublicIpCommandTransport([" 198.51.100.8\n", 'not-an-ip']);
         $resolver = new AlphaLinkCentos9PublicIpResolver($transport);

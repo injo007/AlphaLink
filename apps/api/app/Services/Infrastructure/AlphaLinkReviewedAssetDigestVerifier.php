@@ -5,7 +5,7 @@ namespace App\Services\Infrastructure;
 use InvalidArgumentException;
 
 /**
- * Pins the exact DMS install bytes copied over the host-key-verified reference SSH session.
+ * Pins the exact reference implementation install bytes copied over the host-key-verified reference SSH session.
  * These hashes prevent local drift; they do not prove vendor authenticity, RPM validity,
  * license entitlement, or host compatibility.
  */
@@ -82,7 +82,7 @@ class AlphaLinkReviewedAssetDigestVerifier
         return true;
     }
 
-    /** Verify one source-named asset against the DMS asset pin set. */
+    /** Verify one source-named asset against the reference implementation asset pin set. */
     public function verifiesAsset(string $root, string $sourceIdentifier, ?array $reviewedDigests = null): bool
     {
         if (! str_starts_with($root, DIRECTORY_SEPARATOR) || is_link($root) || ! is_dir($root)) {

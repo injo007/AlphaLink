@@ -286,7 +286,7 @@ class AlphaLinkCentos9InstallWorkflow
         );
         $log('End Setting Firewall');
 
-        // DMS starts both services but does not inspect their final state. Do not
+        // reference implementation starts both services but does not inspect their final state. Do not
         // persist an installed server when the selected PMTA package or either
         // service failed after the VMTA configuration restart.
         $health = $session->exec($this->pmtaReadinessCommand(

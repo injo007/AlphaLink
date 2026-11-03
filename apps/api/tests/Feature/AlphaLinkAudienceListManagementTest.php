@@ -75,7 +75,7 @@ class AlphaLinkAudienceListManagementTest extends TestCase
             ->assertUnprocessable()->assertJsonValidationErrors('country');
     }
 
-    public function test_management_grid_exposes_dms_list_controls_without_member_addresses(): void
+    public function test_management_grid_exposes_reference_list_controls_without_member_addresses(): void
     {
         $list = $this->makeList('Safe list');
 
@@ -90,7 +90,7 @@ class AlphaLinkAudienceListManagementTest extends TestCase
             ->assertJsonMissingPath('data.0.members');
     }
 
-    public function test_management_grid_uses_the_latest_dms_shaped_daily_membership_counts(): void
+    public function test_management_grid_uses_the_latest_reference_shaped_daily_membership_counts(): void
     {
         $list = $this->makeList('History count list');
         $this->addMembership($list, 'fresh', 'first');

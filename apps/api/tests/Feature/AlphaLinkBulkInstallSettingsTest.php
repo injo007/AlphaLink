@@ -84,7 +84,7 @@ class AlphaLinkBulkInstallSettingsTest extends TestCase
         }
     }
 
-    public function test_settings_page_matches_dms_install_fields_without_rendering_saved_secrets(): void
+    public function test_settings_page_matches_reference_install_fields_without_rendering_saved_secrets(): void
     {
         $this->workspace->infrastructureSettings()->create([
             'pmta_port' => 2525,
@@ -154,7 +154,7 @@ class AlphaLinkBulkInstallSettingsTest extends TestCase
         $this->assertTrue($this->workspace->infrastructureSettings()->sole()->pmta_relay_ips_auto_managed);
     }
 
-    public function test_owner_can_save_dms_install_settings_with_encrypted_secrets_and_filtered_ipv4_values(): void
+    public function test_owner_can_save_reference_install_settings_with_encrypted_secrets_and_filtered_ipv4_values(): void
     {
         $this->post($this->settingsSave(), [
             'pmta_port' => '2525',
@@ -367,9 +367,9 @@ class AlphaLinkBulkInstallSettingsTest extends TestCase
         $this->assertSame($this->workspace->getKey(), WorkspaceInfrastructureSettings::query()->sole()->workspace_id);
     }
 
-    public function test_runtime_inputs_use_workspace_settings_and_map_dms_fields_to_install_inputs(): void
+    public function test_runtime_inputs_use_workspace_settings_and_map_reference_fields_to_install_inputs(): void
     {
-        $assetRoot = sys_get_temp_dir().'/dms-workspace-settings-'.bin2hex(random_bytes(6));
+        $assetRoot = sys_get_temp_dir().'/alphalink-workspace-settings-'.bin2hex(random_bytes(6));
         mkdir($assetRoot, 0700);
         chmod($assetRoot, 0700);
         config([
@@ -384,7 +384,7 @@ class AlphaLinkBulkInstallSettingsTest extends TestCase
             'apply_firewall' => true,
             'allow_all_monitor' => false,
             'dev_ips' => ['192.0.2.11'],
-            'dkim_key' => 'selector-from-dms-app-dkim-key',
+            'dkim_key' => 'selector-from-alphalink-app-dkim-key',
             'webmail_username' => 'synthetic-webmail-user',
             'webmail_password' => 'synthetic-webmail-password',
         ]);
@@ -400,7 +400,7 @@ class AlphaLinkBulkInstallSettingsTest extends TestCase
         $this->assertTrue($inputs['settings']['apply_firewall']);
         $this->assertSame(['192.0.2.11'], $inputs['settings']['dev_ips']);
         $this->assertSame(['198.51.100.44'], $inputs['settings']['pmta_relay_ips']);
-        $this->assertSame('selector-from-dms-app-dkim-key', $inputs['settings']['dkim_selector']);
+        $this->assertSame('selector-from-alphalink-app-dkim-key', $inputs['settings']['dkim_selector']);
         $this->assertSame('synthetic-webmail-user', $inputs['settings']['imap_username']);
         $this->assertSame('synthetic-webmail-password', $inputs['settings']['imap_password']);
     }
@@ -420,17 +420,17 @@ class AlphaLinkBulkInstallSettingsTest extends TestCase
 
     public function test_pmta_domain_configuration_is_loaded_saved_encrypted_and_used_for_selected_version(): void
     {
-        $assetRoot = sys_get_temp_dir().'/dms-pmta-domains-'.bin2hex(random_bytes(6));
+        $assetRoot = sys_get_temp_dir().'/alphalink-pmta-domains-'.bin2hex(random_bytes(6));
         mkdir($assetRoot, 0700);
         mkdir($assetRoot.'/pmta/4.0', 0700, true);
         chmod($assetRoot, 0700);
-        file_put_contents($assetRoot.'/pmta/4.0/domains.conf', 'synthetic dms baseline config');
+        file_put_contents($assetRoot.'/pmta/4.0/domains.conf', 'synthetic installer baseline config');
         config(['infrastructure.install_assets_directory' => $assetRoot]);
 
         try {
             $this->get(route('clean.console.infrastructure.install-settings.domains.load', ['pmta_version' => 40]))
                 ->assertOk()
-                ->assertExactJson(['data' => 'synthetic dms baseline config']);
+                ->assertExactJson(['data' => 'synthetic installer baseline config']);
 
             $localConfig = "domain example.test\n  dkim-signature true";
             $this->postJson(route('console.infrastructure.install-settings.domains.update', $this->workspace->getKey()), [

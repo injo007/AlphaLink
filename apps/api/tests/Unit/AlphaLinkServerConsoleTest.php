@@ -16,7 +16,7 @@ use Tests\TestCase;
 
 class AlphaLinkServerConsoleTest extends TestCase
 {
-    public function test_console_checks_dms_architecture_and_os_before_returning_trimmed_command_output(): void
+    public function test_console_checks_reference_architecture_and_os_before_returning_trimmed_command_output(): void
     {
         $server = new ManagedServer;
         $credentials = Mockery::mock(AlphaLinkInstallerServerCredentialResolver::class);
@@ -64,7 +64,7 @@ class AlphaLinkServerConsoleTest extends TestCase
 
         try {
             (new AlphaLinkServerConsole($credentials, $sessions))->execute($server, 'printf must-not-run');
-            $this->fail('DMS architecture gate must prevent the requested command.');
+            $this->fail('architecture gate must prevent the requested command.');
         } catch (HostProbeException $exception) {
             $this->assertSame('Unsupported Architecture : aarch64', $exception->getMessage());
         }
@@ -104,7 +104,7 @@ class AlphaLinkServerConsoleTest extends TestCase
         $this->assertSame(['first output', '', 'third output'], $outputs);
     }
 
-    public function test_pmta_restart_matches_dms_command_boundaries_and_returns_only_service_restart_output(): void
+    public function test_pmta_restart_matches_reference_command_boundaries_and_returns_only_service_restart_output(): void
     {
         $server = Mockery::mock(ManagedServer::class)->makePartial();
         $server->setAttribute('ip_address', '203.0.113.11');

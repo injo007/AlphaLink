@@ -30,7 +30,7 @@ class AlphaLinkEverFlowCreativeImportTest extends TestCase
 
         $this->owner = User::factory()->create();
         $this->workspace = Workspace::query()->create([
-            'name' => 'DMS EverFlow creative import',
+            'name' => 'Synthetic EverFlow creative import',
             'slug' => 'everflow-creative-'.Str::lower(Str::random(8)),
             'created_by' => $this->owner->getKey(),
         ]);
@@ -48,7 +48,7 @@ class AlphaLinkEverFlowCreativeImportTest extends TestCase
         );
     }
 
-    public function test_selected_everflow_offer_imports_dms_html_links_and_hosted_archive_images(): void
+    public function test_selected_everflow_offer_imports_reference_html_links_and_hosted_archive_images(): void
     {
         $sponsor = $this->createSponsor();
         $html = '<!DOCTYPE html><html><body><img src="images/logo.png"><a href="https://merchant.example/click?id=42">Shop</a><a href="https://merchant.example/unsubscribe">Unsubscribe</a></body></html>';
@@ -56,7 +56,7 @@ class AlphaLinkEverFlowCreativeImportTest extends TestCase
             'mail/index.html' => $html,
             'mail/copy.html' => $html,
             'mail/images/logo.png' => base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/8WQAAAAASUVORK5CYII='),
-            'mail/readme.md' => 'ignored by DMS and AlphaLink',
+            'mail/readme.md' => 'ignored by the importer',
         ]);
 
         Http::fake([

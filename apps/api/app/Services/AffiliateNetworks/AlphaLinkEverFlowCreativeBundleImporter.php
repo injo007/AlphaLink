@@ -36,8 +36,8 @@ class AlphaLinkEverFlowCreativeBundleImporter
     public function __construct(private readonly ?Closure $addressResolver = null) {}
 
     /**
-     * Fetch and parse the DMS EverFlow creative bundle without extracting archive paths.
-     * Unsafe URLs, invalid archives, and provider download failures follow DMS behavior by
+     * Fetch and parse the reference implementation EverFlow creative bundle without extracting archive paths.
+     * Unsafe URLs, invalid archives, and provider download failures follow reference implementation behavior by
      * leaving the offer import intact and returning no creatives.
      *
      * @return list<array{name: string, content: string, images: list<array{references: list<string>, bytes: string, extension: string}>}>

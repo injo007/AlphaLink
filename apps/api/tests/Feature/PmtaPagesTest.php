@@ -32,7 +32,7 @@ class PmtaPagesTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_every_active_workspace_member_can_reach_the_dms_pmta_navigation_pages(): void
+    public function test_every_active_workspace_member_can_reach_the_reference_pmta_navigation_pages(): void
     {
         $owner = User::factory()->create();
         $member = User::factory()->create();
@@ -55,7 +55,7 @@ class PmtaPagesTest extends TestCase
         }
     }
 
-    public function test_pmta_navigation_matches_dms_section_order_and_starts_with_the_sidebar_minimized(): void
+    public function test_pmta_navigation_matches_reference_section_order_and_starts_with_the_sidebar_minimized(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner);
@@ -80,7 +80,7 @@ class PmtaPagesTest extends TestCase
         self::assertSame($sortedPositions, $positions);
     }
 
-    public function test_pmta_admin_uses_the_dms_responsive_control_layout(): void
+    public function test_pmta_admin_uses_the_reference_responsive_control_layout(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner);
@@ -157,7 +157,7 @@ class PmtaPagesTest extends TestCase
         self::assertNotFalse($controls);
         foreach (['pmta-admin-tag-column', 'pmta-admin-action-row', 'pmta-admin-schedule-row', 'pmta-admin-results-column'] as $columnId) {
             $parent = $xpath->query('//*[@id="'.$columnId.'"]/parent::*')->item(0);
-            self::assertNotFalse($parent, "Expected {$columnId} to be rendered inside the centered DMS PMTA control column.");
+            self::assertNotFalse($parent, "Expected {$columnId} to be rendered inside the centered reference PMTA control column.");
             self::assertSame('pmta-admin-controls', $parent->attributes?->getNamedItem('id')?->nodeValue);
         }
         self::assertSame('pmta-admin-fields-row', $controls->parentNode?->attributes?->getNamedItem('id')?->nodeValue);
@@ -204,7 +204,7 @@ class PmtaPagesTest extends TestCase
             && $request->url() === 'http://203.0.113.40:2447/');
     }
 
-    public function test_pmta_page_card_headers_and_scheduler_spacing_match_dms(): void
+    public function test_pmta_page_card_headers_and_scheduler_spacing_match_reference(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner);
@@ -278,7 +278,7 @@ class PmtaPagesTest extends TestCase
             ->assertDontSee('table-striped');
     }
 
-    public function test_config_history_uses_dms_filter_table_and_workspace_scoped_config_reveal(): void
+    public function test_config_history_uses_reference_filter_table_and_workspace_scoped_config_reveal(): void
     {
         $owner = User::factory()->create();
         $member = User::factory()->create();
@@ -341,7 +341,7 @@ class PmtaPagesTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_admin_monitor_grid_sits_flush_below_the_dms_action_block(): void
+    public function test_admin_monitor_grid_sits_flush_below_the_reference_action_block(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner);
@@ -370,7 +370,7 @@ class PmtaPagesTest extends TestCase
         }
     }
 
-    public function test_smtp_and_vmta_pages_use_the_dms_form_placement_and_table_controls(): void
+    public function test_smtp_and_vmta_pages_use_the_reference_form_placement_and_table_controls(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner);
@@ -393,7 +393,7 @@ class PmtaPagesTest extends TestCase
             ->assertDontSee('type="module"', false);
     }
 
-    public function test_settings_page_uses_the_dms_file_tree_editor_and_separate_edit_and_push_controls(): void
+    public function test_settings_page_uses_the_reference_file_tree_editor_and_separate_edit_and_push_controls(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner);
@@ -452,7 +452,7 @@ class PmtaPagesTest extends TestCase
         self::assertSame('push', $history[1]->action);
     }
 
-    public function test_settings_edit_uses_dms_reload_confirmation_and_returns_pmta_debug_output(): void
+    public function test_settings_edit_uses_reference_reload_confirmation_and_returns_pmta_debug_output(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner);
@@ -475,7 +475,7 @@ class PmtaPagesTest extends TestCase
         $this->assertDatabaseCount('pmta_config_histories', 0);
     }
 
-    public function test_settings_push_uses_dms_reload_confirmation_and_returns_pmta_debug_output(): void
+    public function test_settings_push_uses_reference_reload_confirmation_and_returns_pmta_debug_output(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner);
@@ -499,7 +499,7 @@ class PmtaPagesTest extends TestCase
         $this->assertDatabaseCount('pmta_config_histories', 0);
     }
 
-    public function test_settings_push_refuses_to_create_a_missing_dms_configuration_file(): void
+    public function test_settings_push_refuses_to_create_a_missing_reference_configuration_file(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner);
@@ -566,7 +566,7 @@ class PmtaPagesTest extends TestCase
         self::assertDatabaseMissing('pmta_scheduled_actions', ['id' => $task->getKey()]);
     }
 
-    public function test_pmta_scheduler_and_settings_push_accept_dms_unbounded_server_and_tag_arrays(): void
+    public function test_pmta_scheduler_and_settings_push_accept_reference_unbounded_server_and_tag_arrays(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner);
@@ -607,7 +607,7 @@ class PmtaPagesTest extends TestCase
             ->assertJsonPath('errors.server_ids.0', 'Select active installed servers from this workspace.');
     }
 
-    public function test_scheduler_data_returns_all_workspace_tasks_without_the_dms_row_cap(): void
+    public function test_scheduler_data_returns_all_workspace_tasks_without_the_reference_row_cap(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner);
@@ -708,7 +708,7 @@ class PmtaPagesTest extends TestCase
         self::assertSame([2447, 2447, 2447], $requests->map(static fn (array $pair): int|false|null => parse_url($pair[0]->url(), PHP_URL_PORT))->all());
     }
 
-    public function test_pmta_action_history_prunable_query_uses_the_dms_one_month_cutoff(): void
+    public function test_pmta_action_history_prunable_query_uses_the_reference_one_month_cutoff(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner);
@@ -733,7 +733,7 @@ class PmtaPagesTest extends TestCase
         self::assertSame([$expired->getKey()], app(PmtaActionHistory::class)->prunable()->pluck('id')->all());
     }
 
-    public function test_pmta_schedule_options_cover_the_dms_scheduler_cadences(): void
+    public function test_pmta_schedule_options_cover_the_reference_scheduler_cadences(): void
     {
         $frequencies = app(PmtaScheduleFrequency::class);
         self::assertSame('*/5 * * * *', $frequencies->expression('everyFiveMinutes'));
@@ -745,7 +745,7 @@ class PmtaPagesTest extends TestCase
         $frequencies->expression('unsupported-frequency');
     }
 
-    public function test_persistent_pmta_tasks_do_not_add_an_overlap_lock_to_the_dms_schedule(): void
+    public function test_persistent_pmta_tasks_do_not_add_an_overlap_lock_to_the_reference_schedule(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner);
@@ -770,7 +770,7 @@ class PmtaPagesTest extends TestCase
         self::assertFalse($event->withoutOverlapping);
     }
 
-    public function test_pmta_file_catalog_accepts_dms_relative_paths_and_rejects_path_traversal(): void
+    public function test_pmta_file_catalog_accepts_reference_relative_paths_and_rejects_path_traversal(): void
     {
         $catalog = app(PmtaConfigFileCatalog::class);
         self::assertSame(['domains', 'vmta_15'], $catalog->visibleFiles("domains\n../outside\n/etc/passwd\nnested/domains\nvmta_15\n"));
@@ -960,7 +960,7 @@ class PmtaPagesTest extends TestCase
         ]);
     }
 
-    public function test_vmta_v2_reload_failure_runs_dms_debug_cleanup_and_rolls_back_rows(): void
+    public function test_vmta_v2_reload_failure_runs_reference_debug_cleanup_and_rolls_back_rows(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner);
@@ -989,7 +989,7 @@ class PmtaPagesTest extends TestCase
         ]);
     }
 
-    public function test_vmta_and_smtp_inputs_accept_dms_unbounded_cardinality(): void
+    public function test_vmta_and_smtp_inputs_accept_reference_unbounded_cardinality(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner);
@@ -1032,7 +1032,7 @@ class PmtaPagesTest extends TestCase
             ->assertJsonPath('errors.ip_ids.0', $expectedSelectionError);
     }
 
-    public function test_vmta_reset_deletes_local_rows_and_ignores_remote_command_results_like_dms(): void
+    public function test_vmta_reset_deletes_local_rows_and_ignores_remote_command_results_like_reference(): void
     {
         $owner = User::factory()->create();
         $member = User::factory()->create();
@@ -1066,7 +1066,7 @@ class PmtaPagesTest extends TestCase
         self::assertDatabaseCount('pmta_config_histories', 0);
     }
 
-    public function test_vmta_v2_reset_uses_the_selected_server_and_dms_remote_cleanup(): void
+    public function test_vmta_v2_reset_uses_the_selected_server_and_reference_remote_cleanup(): void
     {
         $owner = User::factory()->create();
         $member = User::factory()->create();
@@ -1100,7 +1100,7 @@ class PmtaPagesTest extends TestCase
         self::assertDatabaseCount('pmta_config_histories', 0);
     }
 
-    public function test_vmta_reset_keeps_dms_row_deletion_when_remote_connection_fails(): void
+    public function test_vmta_reset_keeps_reference_row_deletion_when_remote_connection_fails(): void
     {
         $owner = User::factory()->create();
         $member = User::factory()->create();
@@ -1188,7 +1188,7 @@ class PmtaPagesTest extends TestCase
         self::assertDatabaseCount('pmta_config_histories', 0);
     }
 
-    public function test_smtp_reset_keeps_dms_row_deletion_when_remote_connection_fails(): void
+    public function test_smtp_reset_keeps_reference_row_deletion_when_remote_connection_fails(): void
     {
         $owner = User::factory()->create();
         $member = User::factory()->create();

@@ -42,7 +42,7 @@ class AlphaLinkListUploadTest extends TestCase
         $this->actingAs($this->owner);
     }
 
-    public function test_upload_page_matches_the_dms_fields_and_uses_a_synthetic_example_file(): void
+    public function test_upload_page_matches_the_reference_fields_and_uses_a_synthetic_example_file(): void
     {
         $list = $this->makeList('Upload list');
 
@@ -209,7 +209,7 @@ class AlphaLinkListUploadTest extends TestCase
         $this->assertDatabaseCount('contact_list_memberships', 0);
     }
 
-    public function test_filter_value_zero_keeps_dms_php_truthiness_and_disables_filtering(): void
+    public function test_filter_value_zero_keeps_reference_php_truthiness_and_disables_filtering(): void
     {
         $list = $this->makeList('Zero filter list');
 
@@ -225,7 +225,7 @@ class AlphaLinkListUploadTest extends TestCase
         $this->assertDatabaseCount('contacts', 2);
     }
 
-    public function test_csv_email_field_is_not_trimmed_before_validation_like_dms(): void
+    public function test_csv_email_field_is_not_trimmed_before_validation_like_reference(): void
     {
         $list = $this->makeList('Whitespace list');
 

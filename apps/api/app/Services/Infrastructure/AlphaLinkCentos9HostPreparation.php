@@ -3,7 +3,7 @@
 namespace App\Services\Infrastructure;
 
 /**
- * Reconstructs the DMS CentOS 9/AlmaLinux 9 host setup and old-package cleanup.
+ * Reconstructs the reference CentOS 9/AlmaLinux 9 host setup and old-package cleanup.
  * This stage is deliberately not bound to a production installer runner.
  */
 class AlphaLinkCentos9HostPreparation

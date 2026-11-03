@@ -551,7 +551,7 @@ class WorkspaceOfferConsoleController extends Controller
         $selected = $offer->assets()->whereIn('id', $ids)->get(['id', 'type']);
         abort_unless($selected->count() === count($ids), 404);
 
-        // DMS bulk status changes deliberately exclude unsubscribe assets.
+        // reference implementation bulk status changes deliberately exclude unsubscribe assets.
         $eligibleIds = $selected
             ->whereIn('type', ['from', 'subject', 'creative', 'html'])
             ->pluck('id')

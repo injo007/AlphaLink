@@ -11,7 +11,7 @@ use Closure;
 use InvalidArgumentException;
 use RuntimeException;
 
-/** Replays the DMS Reinstall host, DNS, component, firewall, and persistence order. */
+/** Replays the reference implementation Reinstall host, DNS, component, firewall, and persistence order. */
 class AlphaLinkCentos9ReinstallWorkflow
 {
     public function __construct(

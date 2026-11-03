@@ -7,7 +7,7 @@ use App\Models\Workspace;
 use InvalidArgumentException;
 use RuntimeException;
 
-/** Applies the DMS Install and Reinstall CONFIG IPS behavior through AlphaLink's saved SSH identity. */
+/** Applies the reference implementation Install and Reinstall CONFIG IPS behavior through AlphaLink's saved SSH identity. */
 class AlphaLinkReinstallIpConfigurator
 {
     private const MAX_EXPANDED_IPS = 4096;

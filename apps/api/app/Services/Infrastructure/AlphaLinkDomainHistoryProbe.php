@@ -6,7 +6,7 @@ use App\Models\SendingDomain;
 use Illuminate\Support\Facades\Process;
 use Throwable;
 
-/** Runs the DMS DNS, SPF and domain reputation checks for one domain. */
+/** Runs the reference implementation DNS, SPF and domain reputation checks for one domain. */
 class AlphaLinkDomainHistoryProbe
 {
     /**

@@ -57,7 +57,7 @@ class AlphaLinkBulkInstallTranscriptStore
         return $runId;
     }
 
-    /** Append one already-formatted, timestamped DMS transcript line. */
+    /** Append one already-formatted, timestamped reference implementation transcript line. */
     public function append(string $workspaceId, string $runId, string $line): void
     {
         $this->validateUuid($workspaceId);
@@ -101,7 +101,7 @@ class AlphaLinkBulkInstallTranscriptStore
         }
     }
 
-    /** Read a DMS-style numeric browser polling key without exposing its file path. */
+    /** Read a reference-style numeric browser polling key without exposing its file path. */
     public function readByLogKey(string $workspaceId, string $logKey): ?string
     {
         $runId = $this->runIdForLogKey($workspaceId, $logKey);

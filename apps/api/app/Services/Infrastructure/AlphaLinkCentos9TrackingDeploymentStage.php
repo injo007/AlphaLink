@@ -6,7 +6,7 @@ use Illuminate\Support\Str;
 use InvalidArgumentException;
 use RuntimeException;
 
-/** Reconstructs DMS Centos9::setup_tracking() behind isolated transports. */
+/** Reconstructs reference Centos9::setup_tracking() behind isolated transports. */
 class AlphaLinkCentos9TrackingDeploymentStage
 {
     /** @param list<string> $subDomains */

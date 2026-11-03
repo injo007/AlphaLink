@@ -49,7 +49,7 @@ class DropTrackingTest extends TestCase
         $this->postJson('/api/v1/drop', $payload)->assertForbidden();
     }
 
-    public function test_dms_stats_drop_events_record_visitors_update_list_state_and_exclude_unsubscribed_offer(): void
+    public function test_reference_stats_drop_events_record_visitors_update_list_state_and_exclude_unsubscribed_offer(): void
     {
         config(['tracking.ingest_key' => 'synthetic-tracking-key']);
         $fixture = $this->recipientFixture();
@@ -213,7 +213,7 @@ class DropTrackingTest extends TestCase
         $this->assertSame('fresh', $fixture['membership']->fresh()->email_type);
     }
 
-    public function test_dms_stats_drop_route_accepts_the_saved_sender_install_key(): void
+    public function test_reference_stats_drop_route_accepts_the_saved_sender_install_key(): void
     {
         config(['tracking.ingest_key' => null, 'infrastructure.bulk_install_settings.mini_app_key' => '']);
         $fixture = $this->recipientFixture();

@@ -8,7 +8,7 @@ use PHPUnit\Framework\TestCase;
 
 class AlphaLinkCentos9PhpInstallationStageTest extends TestCase
 {
-    public function test_it_replays_the_dms_centos_9_php_commands_in_order(): void
+    public function test_it_replays_the_reference_centos_9_php_commands_in_order(): void
     {
         $transport = new class implements AlphaLinkInstallerRemoteCommandTransport
         {

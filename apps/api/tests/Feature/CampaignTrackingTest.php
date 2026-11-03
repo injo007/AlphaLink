@@ -866,7 +866,7 @@ class CampaignTrackingTest extends TestCase
         $job->handle(app(ProcessCampaignTrackingEvent::class));
     }
 
-    public function test_dms_stats_callback_reaches_list_history_through_the_database_queue_worker(): void
+    public function test_reference_stats_callback_reaches_list_history_through_the_database_queue_worker(): void
     {
         config([
             'tracking.ingest_key' => 'synthetic-tracking-key',
@@ -889,7 +889,7 @@ class CampaignTrackingTest extends TestCase
         $payload['send_id'] = (string) $fixture['snapshot']->getKey();
         $payload['token'] = $token;
 
-        // DMS Helper::validateToken strictly decodes this same standard Base64 shape.
+        // The token validator strictly decodes this standard Base64 shape.
         $decoded = base64_decode(strtr(str_replace('/', '', $token), '-_', '+/'), true);
         $this->assertIsString($decoded);
         $this->assertCount(14, explode('-', $decoded));
@@ -990,7 +990,7 @@ class CampaignTrackingTest extends TestCase
         $this->assertSame(0, CampaignEngagementEvent::query()->count());
     }
 
-    public function test_dms_stats_route_accepts_the_saved_sender_install_key(): void
+    public function test_reference_stats_route_accepts_the_saved_sender_install_key(): void
     {
         config(['tracking.ingest_key' => null, 'infrastructure.bulk_install_settings.mini_app_key' => '']);
         $fixture = $this->recipientFixture();
@@ -1040,7 +1040,7 @@ class CampaignTrackingTest extends TestCase
         ]);
     }
 
-    public function test_dms_stats_route_accepts_the_install_fallback_when_workspace_settings_are_absent(): void
+    public function test_reference_stats_route_accepts_the_install_fallback_when_workspace_settings_are_absent(): void
     {
         config(['tracking.ingest_key' => null, 'infrastructure.bulk_install_settings.mini_app_key' => 'synthetic-fallback-install-key']);
         $fixture = $this->recipientFixture();
@@ -1086,7 +1086,7 @@ class CampaignTrackingTest extends TestCase
         $this->assertSame('fresh', $fixture['membership']->fresh()->email_type);
     }
 
-    public function test_dms_stats_actions_exclude_lead_events(): void
+    public function test_reference_stats_actions_exclude_lead_events(): void
     {
         config(['tracking.ingest_key' => 'synthetic-tracking-key']);
         $fixture = $this->recipientFixture();

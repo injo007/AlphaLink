@@ -12,7 +12,7 @@ use ReflectionClass;
 
 class AlphaLinkBulkInstallSubdomainGeneratorTest extends TestCase
 {
-    public function test_it_preserves_the_exact_dms_random_word_pool(): void
+    public function test_it_preserves_the_exact_reference_random_word_pool(): void
     {
         $words = (new ReflectionClass(AlphaLinkBulkInstallSubdomainGenerator::class))->getConstant('KEYWORDS');
 
@@ -23,7 +23,7 @@ class AlphaLinkBulkInstallSubdomainGeneratorTest extends TestCase
         );
     }
 
-    public function test_it_selects_distinct_source_entries_and_matches_dms_count_boundaries(): void
+    public function test_it_selects_distinct_source_entries_and_matches_reference_count_boundaries(): void
     {
         $words = (new ReflectionClass(AlphaLinkBulkInstallSubdomainGenerator::class))->getConstant('KEYWORDS');
         $generator = new AlphaLinkBulkInstallSubdomainGenerator(new Randomizer(new Mt19937(42)));

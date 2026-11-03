@@ -28,7 +28,7 @@ class AlphaLinkAffiliateNetworkOfferImportTest extends TestCase
 
         $this->owner = User::factory()->create();
         $this->workspace = Workspace::query()->create([
-            'name' => 'DMS HitPath import',
+            'name' => 'Synthetic HitPath import',
             'slug' => 'hitpath-import-'.Str::lower(Str::random(8)),
             'created_by' => $this->owner->getKey(),
         ]);
@@ -38,7 +38,7 @@ class AlphaLinkAffiliateNetworkOfferImportTest extends TestCase
         $this->useFakePublicDnsResolver();
     }
 
-    public function test_hitpath_import_maps_selected_offer_and_email_assets_using_dms_rules(): void
+    public function test_hitpath_import_maps_selected_offer_and_email_assets_using_reference_rules(): void
     {
         $operator = User::factory()->create();
         $this->workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
@@ -152,7 +152,7 @@ class AlphaLinkAffiliateNetworkOfferImportTest extends TestCase
         $this->assertDatabaseCount('workspace_offers', 0);
     }
 
-    public function test_unknown_networks_remain_unavailable_until_their_dms_adapters_are_implemented(): void
+    public function test_unknown_networks_remain_unavailable_until_their_reference_adapters_are_implemented(): void
     {
         Http::fake();
         $sponsor = $this->createSponsor(['type' => 'unknown-network']);

@@ -12,7 +12,7 @@ class CleanWorkspaceEntryRoutesTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_login_redirects_to_the_dms_dashboard_path(): void
+    public function test_login_redirects_to_the_reference_dashboard_path(): void
     {
         $user = User::factory()->create(['email' => 'clean-routes@example.test', 'password' => 'test-password']);
         $workspace = Workspace::query()->create([

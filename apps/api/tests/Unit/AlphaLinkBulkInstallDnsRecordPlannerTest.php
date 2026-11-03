@@ -7,7 +7,7 @@ use PHPUnit\Framework\TestCase;
 
 class AlphaLinkBulkInstallDnsRecordPlannerTest extends TestCase
 {
-    public function test_it_builds_the_dms_records_in_the_observed_order_for_each_option(): void
+    public function test_it_builds_the_reference_records_in_the_observed_order_for_each_option(): void
     {
         $records = (new AlphaLinkBulkInstallDnsRecordPlanner)->records(true, [
             [

@@ -550,7 +550,7 @@ class WorkspaceDropSuppressionTest extends TestCase
         $this->assertDatabaseCount('workspace_offer_list_suppressions', 0);
     }
 
-    public function test_empty_suppression_file_uses_dms_complete_ns_status(): void
+    public function test_empty_suppression_file_uses_reference_complete_ns_status(): void
     {
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner, 'owner');

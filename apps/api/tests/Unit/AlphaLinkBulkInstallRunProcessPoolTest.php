@@ -37,7 +37,7 @@ class AlphaLinkBulkInstallRunProcessPoolTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_it_starts_one_isolated_process_for_each_server_and_preserves_dms_row_results(): void
+    public function test_it_starts_one_isolated_process_for_each_server_and_preserves_reference_row_results(): void
     {
         $workspaceId = (string) Str::uuid();
         $runId = $this->transcripts->createRun($workspaceId, '1782155053000');

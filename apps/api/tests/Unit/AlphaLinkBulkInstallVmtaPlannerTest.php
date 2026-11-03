@@ -86,7 +86,7 @@ class AlphaLinkBulkInstallVmtaPlannerTest extends TestCase
         $this->assertNull($files['inbound']);
     }
 
-    public function test_it_rejects_a_platform_not_selected_by_the_dms_factory(): void
+    public function test_it_rejects_a_platform_not_selected_by_the_reference_factory(): void
     {
         $this->expectException(InvalidArgumentException::class);
 

@@ -18,7 +18,7 @@ class AlphaLinkSponsorOfferRefresher
     ) {}
 
     /**
-     * Apply DMS OffersUpdateInfo rules to one workspace offer.
+     * Apply reference implementation OffersUpdateInfo rules to one workspace offer.
      *
      * @return array{outcome: 'updated'|'unchanged'|'paused'|'skipped'|'failed', html_creatives_added: int}
      */

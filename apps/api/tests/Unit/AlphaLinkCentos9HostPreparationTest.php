@@ -8,7 +8,7 @@ use PHPUnit\Framework\TestCase;
 
 class AlphaLinkCentos9HostPreparationTest extends TestCase
 {
-    public function test_it_configures_host_then_removes_old_packages_in_dms_order(): void
+    public function test_it_configures_host_then_removes_old_packages_in_reference_order(): void
     {
         $transport = new RecordingInstallerTransport;
 
@@ -23,7 +23,7 @@ class AlphaLinkCentos9HostPreparationTest extends TestCase
         ], $transport->commands);
     }
 
-    public function test_it_uses_a_stable_ip_derived_fqdn_when_dms_domain_is_empty(): void
+    public function test_it_uses_a_stable_ip_derived_fqdn_when_reference_domain_is_empty(): void
     {
         $transport = new RecordingInstallerTransport;
 
@@ -58,7 +58,7 @@ class AlphaLinkCentos9HostPreparationTest extends TestCase
         $this->assertSame('rm -rf /etc/httpd;', $transport->commands[4]);
     }
 
-    public function test_host_configuration_and_cleanup_can_be_dispatched_as_separate_dms_phases(): void
+    public function test_host_configuration_and_cleanup_can_be_dispatched_as_separate_reference_phases(): void
     {
         $transport = new RecordingInstallerTransport;
         $stage = new AlphaLinkCentos9HostPreparation;

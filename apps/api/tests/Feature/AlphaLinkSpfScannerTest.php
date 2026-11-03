@@ -185,7 +185,7 @@ class AlphaLinkSpfScannerTest extends TestCase
             ->assertExactJson(['data' => []]);
     }
 
-    public function test_ip_search_supports_dms_datatables_prefix_filter_sort_and_pagination(): void
+    public function test_ip_search_supports_reference_datatables_prefix_filter_sort_and_pagination(): void
     {
         [$owner, $workspace] = $this->workspace();
         foreach (['alpha-one.example.test', 'alpha-two.example.test', 'beta.example.test'] as $domain) {
@@ -309,7 +309,7 @@ class AlphaLinkSpfScannerTest extends TestCase
         $this->assertStringNotContainsString('alpha-private.example.test', $csv);
     }
 
-    public function test_scanner_routes_are_workspace_scoped_and_validate_dms_limits(): void
+    public function test_scanner_routes_are_workspace_scoped_and_validate_reference_limits(): void
     {
         [$owner, $workspace] = $this->workspace();
         $outsider = User::factory()->create();

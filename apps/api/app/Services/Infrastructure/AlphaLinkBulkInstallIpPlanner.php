@@ -9,8 +9,8 @@ class AlphaLinkBulkInstallIpPlanner
     public function __construct(private readonly AlphaLinkBulkInstallSubdomainGenerator $subdomainGenerator = new AlphaLinkBulkInstallSubdomainGenerator) {}
 
     /**
-     * Reconstructs DMS get_ips ordering and ServerInstallBulk::format_ips output.
-     * The default path uses DMS's random alias picker; tests can inject sampled
+     * Reconstructs reference implementation get_ips ordering and ServerInstallBulk::format_ips output.
+     * The default path uses reference implementation's random alias picker; tests can inject sampled
      * values to make downstream DNS and VMTA output deterministic.
      *
      * @param  list<string>  $discoveredIps
@@ -55,7 +55,7 @@ class AlphaLinkBulkInstallIpPlanner
     }
 
     /**
-     * DMS removes duplicate command output, sorts IPv4 before IPv6, then sorts
+     * reference implementation removes duplicate command output, sorts IPv4 before IPv6, then sorts
      * addresses within each family by their packed binary representation.
      *
      * @param  list<string>  $discoveredIps

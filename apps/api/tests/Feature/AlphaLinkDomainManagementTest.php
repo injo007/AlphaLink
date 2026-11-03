@@ -30,7 +30,7 @@ class AlphaLinkDomainManagementTest extends TestCase
         $this->workspace = $this->workspace('domain-management-test', $this->owner);
     }
 
-    public function test_domains_register_uses_the_dms_table_filter_and_workspace_scope(): void
+    public function test_domains_register_uses_the_reference_table_filter_and_workspace_scope(): void
     {
         $provider = $this->provider();
         $owned = $this->domain($this->workspace, $provider, 'owned.example', true);
@@ -78,7 +78,7 @@ class AlphaLinkDomainManagementTest extends TestCase
         $this->assertDatabaseHas('sending_domains', ['id' => $manual->getKey(), 'is_our' => false]);
     }
 
-    public function test_domains_parent_matches_dms_table_shell_and_hosts_add_domains_in_an_iframe_modal(): void
+    public function test_domains_parent_matches_reference_table_shell_and_hosts_add_domains_in_an_iframe_modal(): void
     {
         $response = $this->actingAs($this->owner)->get($this->domainsUrl())->assertOk();
 
@@ -97,7 +97,7 @@ class AlphaLinkDomainManagementTest extends TestCase
             ->assertSee('datatable.ajax.reload(null, false)', false);
     }
 
-    public function test_sender_domain_verification_is_separate_from_the_dms_domain_register(): void
+    public function test_sender_domain_verification_is_separate_from_the_reference_domain_register(): void
     {
         $domain = $this->domain($this->workspace, $this->provider(), 'sender-import.example', false);
 
@@ -191,7 +191,7 @@ class AlphaLinkDomainManagementTest extends TestCase
         $this->assertNull($domain->fresh()->verified_at);
     }
 
-    public function test_manual_domains_map_to_dms_install_defaults_and_can_be_readded_after_soft_delete(): void
+    public function test_manual_domains_map_to_reference_install_defaults_and_can_be_readded_after_soft_delete(): void
     {
         $provider = $this->provider();
         $route = route('console.infrastructure.domains.manual', $this->workspace->getKey());
@@ -243,7 +243,7 @@ class AlphaLinkDomainManagementTest extends TestCase
         $this->assertSame(3, AuditEvent::query()->where('subject_id', $id)->count());
     }
 
-    public function test_domain_status_rejects_values_outside_the_dms_enum(): void
+    public function test_domain_status_rejects_values_outside_the_reference_enum(): void
     {
         $domain = $this->domain($this->workspace, $this->provider(), 'invalid-state.example', false);
 
@@ -283,7 +283,7 @@ class AlphaLinkDomainManagementTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_history_page_renders_the_dms_snapshot_columns_and_refresh_control(): void
+    public function test_history_page_renders_the_reference_snapshot_columns_and_refresh_control(): void
     {
         $domain = $this->domain($this->workspace, $this->provider(), 'history-view.example', false);
 
@@ -300,7 +300,7 @@ class AlphaLinkDomainManagementTest extends TestCase
             ->assertSee("titleAttr: 'REFRESH'", false);
     }
 
-    public function test_owned_domain_refresh_uses_the_provider_api_and_maps_the_same_dms_fields(): void
+    public function test_owned_domain_refresh_uses_the_provider_api_and_maps_the_same_reference_fields(): void
     {
         $provider = $this->provider();
         $domain = $this->domain($this->workspace, $provider, 'owned-refresh.example', true);

@@ -14,7 +14,7 @@ class AlphaLinkCentos9TrackingDeploymentStageTest extends TestCase
     public function test_it_replays_reference_mini_app_and_apache_behavior_without_putting_the_key_in_commands(): void
     {
         $commands = new RecordingTrackingCommands;
-        $files = new RecordingTrackingFiles('url=[IP];key=[KEY];server=[ID];decode=base64_decode($token, true)');
+        $files = new RecordingTrackingFiles("url=[IP];key=[KEY];server=[ID];decode=base64_decode(\$token, true);\$request = Http::asJson()->post(self::IP.'/api/v1/campaign', ['email_id' => \$token[2], 'isp_id' => \$token[5]]);");
 
         (new AlphaLinkCentos9TrackingDeploymentStage)->run(
             $commands,
@@ -46,7 +46,7 @@ class AlphaLinkCentos9TrackingDeploymentStageTest extends TestCase
         $this->assertStringContainsString("\$_SERVER['REQUEST_URI'] = '/'.ltrim(\$_GET['__alphalink_long_uri'], '/');", $files->uploads['/var/mini/public/index.php']);
         $this->assertSame('synthetic trusted IPs', $files->uploads['/etc/httpd/conf.d/remoteip.conf']);
         $this->assertSame(
-            "url=https://alpha.example.test;key=synthetic-private-key;server=42;decode=base64_decode(strtr(\$token, '-_', '+/'), true)",
+            "url=https://alpha.example.test;key=synthetic-private-key;server=42;decode=base64_decode(strtr(\$token, '-_', '+/'), true);\$request = Http::asJson()->post(self::IP.'/api/v1/campaign', ['email_id' => \$token[2],\n            'send_id' => \$token[1], 'isp_id' => \$token[5]]);",
             $files->uploads['/var/mini/app/Helper.php'],
         );
         $this->assertStringContainsString('httpd -M', implode("\n", $commands->commands));
@@ -115,7 +115,7 @@ class AlphaLinkCentos9TrackingDeploymentStageTest extends TestCase
                 return '';
             }
         };
-        $files = new RecordingTrackingFiles('url=[IP];key=[KEY];server=[ID];base64_decode($token, true)');
+        $files = new RecordingTrackingFiles("url=[IP];key=[KEY];server=[ID];base64_decode(\$token, true);\$request = Http::asJson()->post(self::IP.'/api/v1/campaign', ['email_id' => \$token[2],]);");
 
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Apache mod_rewrite could not be enabled and validated for tracking links.');

@@ -100,6 +100,7 @@ CONFIG;
                 "base64_decode(strtr(\$token, '-_', '+/'), true)",
                 $helper,
             );
+            $helper = $this->includeCampaignSnapshotIdInRedirectPayload($helper);
             $configuredHelper = str_replace(
                 ['[IP]', '[KEY]', '[ID]'],
                 [$appUrl, $miniAppKey, (string) $serverId],
@@ -226,6 +227,30 @@ CONFIG;
         }
 
         return $updated;
+    }
+
+    private function includeCampaignSnapshotIdInRedirectPayload(string $helper): string
+    {
+        $sendIdField = "'send_id' => \$token[1],";
+        $sendIdOccurrences = substr_count($helper, $sendIdField);
+        if ($sendIdOccurrences === 1) {
+            return $helper;
+        }
+        if ($sendIdOccurrences !== 0) {
+            throw new RuntimeException('The tracking helper has a partial campaign snapshot ID patch.');
+        }
+
+        $campaignRequest = strpos($helper, "post(self::IP.'/api/v1/campaign'");
+        if ($campaignRequest === false) {
+            throw new RuntimeException('The tracking helper does not expose the supported campaign redirect request.');
+        }
+        $emailIdField = "'email_id' => \$token[2],";
+        $emailIdPosition = strpos($helper, $emailIdField, $campaignRequest);
+        if ($emailIdPosition === false) {
+            throw new RuntimeException('The tracking helper campaign request does not expose its recipient ID.');
+        }
+
+        return substr_replace($helper, $emailIdField."\n            ".$sendIdField, $emailIdPosition, strlen($emailIdField));
     }
 
     private function preserveLongTrackingRequestUri(string $frontController): string

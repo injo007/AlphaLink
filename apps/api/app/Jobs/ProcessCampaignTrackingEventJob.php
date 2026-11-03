@@ -22,7 +22,9 @@ class ProcessCampaignTrackingEventJob implements ShouldQueue
         public Campaign $campaign,
         public Workspace $workspace,
         public array $data,
-    ) {}
+    ) {
+        $this->onQueue('campaign-tracking');
+    }
 
     public function tags(): array
     {

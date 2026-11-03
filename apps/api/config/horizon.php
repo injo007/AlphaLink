@@ -242,6 +242,19 @@ return [
             'timeout' => 600,
             'nice' => 0,
         ],
+        'campaign-tracking' => [
+            'connection' => 'redis',
+            'queue' => ['campaign-tracking'],
+            'balance' => 'simple',
+            'maxProcesses' => (int) env('CAMPAIGN_TRACKING_MAX_PROCESSES', 2),
+            'minProcesses' => 1,
+            'maxTime' => 3600,
+            'maxJobs' => 1000,
+            'memory' => 256,
+            'tries' => 5,
+            'timeout' => 120,
+            'nice' => 0,
+        ],
     ],
 
     'environments' => [
@@ -260,6 +273,10 @@ return [
                 'minProcesses' => 1,
                 'maxProcesses' => (int) env('CAMPAIGN_SEND_MAX_PROCESSES', 1),
             ],
+            'campaign-tracking' => [
+                'minProcesses' => 1,
+                'maxProcesses' => (int) env('CAMPAIGN_TRACKING_MAX_PROCESSES', 2),
+            ],
         ],
 
         'local' => [
@@ -268,6 +285,9 @@ return [
             ],
             'campaign-sends' => [
                 'maxProcesses' => (int) env('CAMPAIGN_SEND_MAX_PROCESSES', 1),
+            ],
+            'campaign-tracking' => [
+                'maxProcesses' => (int) env('CAMPAIGN_TRACKING_MAX_PROCESSES', 2),
             ],
         ],
     ],

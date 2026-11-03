@@ -16,6 +16,9 @@ class HorizonDeploymentTest extends TestCase
         $this->assertSame(['default'], config('horizon.defaults.supervisor-1.queue'));
         $this->assertSame('redis', config('horizon.defaults.audience-imports.connection'));
         $this->assertSame(['audience-imports'], config('horizon.defaults.audience-imports.queue'));
+        $this->assertSame('redis', config('horizon.defaults.campaign-tracking.connection'));
+        $this->assertSame(['campaign-tracking'], config('horizon.defaults.campaign-tracking.queue'));
+        $this->assertGreaterThanOrEqual(1, config('horizon.defaults.campaign-tracking.maxProcesses'));
         $this->assertSame(
             (int) env('HORIZON_MAX_PROCESSES', 2),
             config('horizon.environments.production.supervisor-1.maxProcesses'),
@@ -23,6 +26,10 @@ class HorizonDeploymentTest extends TestCase
         $this->assertSame(
             config('horizon.defaults.audience-imports.maxProcesses'),
             config('horizon.environments.production.audience-imports.maxProcesses'),
+        );
+        $this->assertSame(
+            config('horizon.defaults.campaign-tracking.maxProcesses'),
+            config('horizon.environments.production.campaign-tracking.maxProcesses'),
         );
         $this->assertSame(60, config('horizon.defaults.supervisor-1.timeout'));
         $this->assertSame(600, config('queue.connections.redis.retry_after'));

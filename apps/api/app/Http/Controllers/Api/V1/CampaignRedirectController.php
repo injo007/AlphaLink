@@ -29,12 +29,19 @@ class CampaignRedirectController extends Controller
         CampaignIpGeoResolver $geoResolver,
     ): JsonResponse {
         $normalizer = app(TrackingUuidNormalizer::class);
-        $request->merge(['campaign_id' => $normalizer->canonical($request->input('campaign_id')),
-            'email_id' => $normalizer->canonical($request->input('email_id'))]);
+        $normalizedIds = [
+            'campaign_id' => $normalizer->canonical($request->input('campaign_id')),
+            'email_id' => $normalizer->canonical($request->input('email_id')),
+        ];
+        if ($request->exists('send_id')) {
+            $normalizedIds['send_id'] = $normalizer->canonical($request->input('send_id'));
+        }
+        $request->merge($normalizedIds);
         $data = $request->validate([
             'key' => ['required', 'string', 'max:255'],
             'campaign_id' => ['required', 'uuid'],
             'email_id' => ['required', 'string', 'max:64'],
+            'send_id' => ['sometimes', 'nullable', 'string', 'max:64'],
             'isp_id' => ['required', 'integer', 'min:0'],
             'token' => ['required', 'string', 'max:4096'],
             'ip_address' => ['required', 'ip'],
@@ -64,7 +71,11 @@ class CampaignRedirectController extends Controller
             }
         }
 
-        $offerId = data_get($campaign->latestRevision?->payload, 'send_setup.offer_id');
+        $snapshot = $this->snapshotForRedirect($campaign, $workspace, $contact, $data);
+        $offerId = $snapshot?->offer_id ?? ($data['email_id'] === '0'
+            ? data_get($campaign->latestRevision?->payload, 'send_setup.offer_id')
+            : null);
+
         $offer = WorkspaceOffer::query()
             ->where('workspace_id', $workspace->getKey())
             ->whereKey($offerId)
@@ -121,6 +132,55 @@ class CampaignRedirectController extends Controller
         $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
 
         return filter_var($url, FILTER_VALIDATE_URL) !== false && in_array($scheme, ['http', 'https'], true);
+    }
+
+    /** @param array<string, mixed> $data */
+    private function snapshotForRedirect(
+        Campaign $campaign,
+        Workspace $workspace,
+        ?Contact $contact,
+        array $data,
+    ): ?CampaignRecipientSnapshot {
+        if ($data['email_id'] === '0') {
+            return null;
+        }
+
+        if (! $contact instanceof Contact) {
+            return null;
+        }
+
+        $snapshots = CampaignRecipientSnapshot::query()
+            ->where('workspace_id', $workspace->getKey())
+            ->where('campaign_id', $campaign->getKey())
+            ->whereIn('id', CampaignRecipientSnapshotItem::query()
+                ->select('snapshot_id')
+                ->where('workspace_id', $workspace->getKey())
+                ->where('contact_id', $contact->getKey()));
+
+        if (isset($data['send_id'])) {
+            if (! is_string($data['send_id']) || ! Str::isUuid($data['send_id'])) {
+                return null;
+            }
+
+            $snapshot = (clone $snapshots)->whereKey($data['send_id'])->first();
+
+            return $snapshot instanceof CampaignRecipientSnapshot ? $snapshot : null;
+        }
+
+        $campaignCompactId = str_replace('-', '', (string) $campaign->getKey());
+        $contactCompactId = str_replace('-', '', (string) $contact->getKey());
+        $matchingSnapshots = $snapshots->get(['id', 'offer_id'])->filter(
+            fn (CampaignRecipientSnapshot $candidate): bool => hash_equals(
+                hash('adler32', implode('_', [
+                    $campaignCompactId,
+                    str_replace('-', '', (string) $candidate->getKey()),
+                    $contactCompactId,
+                ])),
+                (string) $data['token'],
+            ),
+        );
+
+        return $matchingSnapshots->count() === 1 ? $matchingSnapshots->first() : null;
     }
 
     /** @param array<string, mixed> $location

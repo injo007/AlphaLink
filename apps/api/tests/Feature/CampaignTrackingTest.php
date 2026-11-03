@@ -96,10 +96,76 @@ class CampaignTrackingTest extends TestCase
         $payload = $this->redirectPayload($fixture);
         $payload['campaign_id'] = str_replace('-', '', $payload['campaign_id']);
         $payload['email_id'] = str_replace('-', '', $payload['email_id']);
+        $payload['send_id'] = str_replace('-', '', $payload['send_id']);
 
         $this->postJson('/api/v1/campaign', $payload)
             ->assertOk()
             ->assertJsonPath('link', 'https://offer.example.test');
+    }
+
+    public function test_campaign_redirect_uses_the_offer_bound_to_the_sent_snapshot_after_a_later_edit(): void
+    {
+        config(['tracking.ingest_key' => 'synthetic-tracking-key', 'infrastructure.ip_api_key' => null]);
+        $fixture = $this->recipientFixture();
+        $fixture['offer']->forceFill(['geo_target' => []])->save();
+        $replacementOffer = WorkspaceOffer::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(), 'sponsor_id' => $fixture['offer']->sponsor_id,
+            'offer_id' => 'tracking-fixture-replacement-offer', 'name' => 'Edited campaign offer',
+            'type' => 'cpa', 'vertical' => 'testing', 'geo_target' => [], 'payout' => 2,
+            'redirect' => 'https://replacement.example.test', 'allowed_days' => WorkspaceOffer::ALLOWED_DAYS,
+            'status' => 'live', 'allowed_users' => [], 'is_active' => true,
+        ]);
+        CampaignRevision::query()->create([
+            'campaign_id' => $fixture['campaign']->getKey(), 'revision_number' => 2,
+            'payload' => ['send_setup' => ['offer_id' => $replacementOffer->getKey()]],
+            'content_sha256' => hash('sha256', 'tracking-fixture-edited-revision'),
+            'idempotency_key' => (string) Str::uuid(), 'request_fingerprint' => hash('sha256', 'tracking-fixture-edited-request'),
+            'created_by' => $fixture['owner']->getKey(), 'created_at' => now(),
+        ]);
+
+        $this->postJson('/api/v1/campaign', $this->redirectPayload($fixture))
+            ->assertOk()
+            ->assertJsonPath('link', 'https://offer.example.test');
+    }
+
+    public function test_legacy_tracker_redirect_resolves_the_snapshot_from_its_token_checksum(): void
+    {
+        config(['tracking.ingest_key' => 'synthetic-tracking-key', 'infrastructure.ip_api_key' => null]);
+        $fixture = $this->recipientFixture();
+        $fixture['offer']->forceFill(['geo_target' => []])->save();
+        $replacementOffer = WorkspaceOffer::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(), 'sponsor_id' => $fixture['offer']->sponsor_id,
+            'offer_id' => 'tracking-fixture-legacy-replacement', 'name' => 'Edited campaign offer',
+            'type' => 'cpa', 'vertical' => 'testing', 'geo_target' => [], 'payout' => 2,
+            'redirect' => 'https://replacement.example.test', 'allowed_days' => WorkspaceOffer::ALLOWED_DAYS,
+            'status' => 'live', 'allowed_users' => [], 'is_active' => true,
+        ]);
+        CampaignRevision::query()->create([
+            'campaign_id' => $fixture['campaign']->getKey(), 'revision_number' => 2,
+            'payload' => ['send_setup' => ['offer_id' => $replacementOffer->getKey()]],
+            'content_sha256' => hash('sha256', 'tracking-fixture-legacy-revision'),
+            'idempotency_key' => (string) Str::uuid(), 'request_fingerprint' => hash('sha256', 'tracking-fixture-legacy-request'),
+            'created_by' => $fixture['owner']->getKey(), 'created_at' => now(),
+        ]);
+        $payload = $this->redirectPayload($fixture);
+        unset($payload['send_id']);
+
+        $this->postJson('/api/v1/campaign', $payload)
+            ->assertOk()
+            ->assertJsonPath('link', 'https://offer.example.test');
+    }
+
+    public function test_legacy_tracker_with_an_unmatched_checksum_uses_the_fixed_unknown_redirect(): void
+    {
+        config(['tracking.ingest_key' => 'synthetic-tracking-key', 'infrastructure.ip_api_key' => null]);
+        $fixture = $this->recipientFixture();
+        $payload = $this->redirectPayload($fixture);
+        unset($payload['send_id']);
+        $payload['token'] = '00000000';
+
+        $this->postJson('/api/v1/campaign', $payload)
+            ->assertOk()
+            ->assertExactJson(['link' => 'https://www.google.com']);
     }
 
     public function test_campaign_unsubscribe_redirect_uses_the_offer_default_when_no_url_is_saved(): void
@@ -902,6 +968,7 @@ class CampaignTrackingTest extends TestCase
             ->assertNoContent();
 
         Queue::assertPushed(ProcessCampaignTrackingEventJob::class, fn (ProcessCampaignTrackingEventJob $job): bool => $job->tries === 5
+            && $job->queue === 'campaign-tracking'
             && $job->data['action'] === 'open'
             && $job->campaign->is($fixture['campaign'])
             && $job->workspace->is($fixture['workspace']));
@@ -1012,6 +1079,7 @@ class CampaignTrackingTest extends TestCase
 
         $this->artisan('queue:work', [
             'connection' => 'database',
+            '--queue' => 'campaign-tracking',
             '--once' => true,
             '--quiet' => true,
         ])->assertExitCode(0);
@@ -1241,12 +1309,19 @@ class CampaignTrackingTest extends TestCase
      */
     private function redirectPayload(array $fixture, string $type = 'red'): array
     {
+        $token = hash('adler32', implode('_', [
+            str_replace('-', '', (string) $fixture['campaign']->getKey()),
+            str_replace('-', '', (string) $fixture['snapshot']->getKey()),
+            str_replace('-', '', (string) $fixture['contact']->getKey()),
+        ]));
+
         return [
             'key' => 'synthetic-tracking-key',
             'campaign_id' => (string) $fixture['campaign']->getKey(),
             'email_id' => (string) $fixture['contact']->getKey(),
+            'send_id' => (string) $fixture['snapshot']->getKey(),
             'isp_id' => $fixture['isp']->getKey(),
-            'token' => 'synthetic-campaign-redirect-token',
+            'token' => $token,
             'ip_address' => '203.0.113.25',
             'user_agent' => 'AlphaLink synthetic tracking server',
             'type' => $type,

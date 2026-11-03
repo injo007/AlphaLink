@@ -20,6 +20,7 @@ use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceOfferAsset;
 use App\Models\WorkspaceSponsor;
 use App\Services\Analytics\ImportAlphaLinkPmtaFeedback;
+use App\Services\Analytics\WorkspaceDailyAnalyticsRebuilder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -129,8 +130,8 @@ class WorkspaceCampaignStatisticsTest extends TestCase
         $response->assertOk()
             ->assertJsonCount(1)
             ->assertJsonFragment([
-                'opens' => 2,
-                'clicks' => 3,
+                'opens' => 1,
+                'clicks' => 1,
                 'leads' => 2,
                 'lead_revenue' => 12,
                 'unsubscribes' => 1,
@@ -141,6 +142,104 @@ class WorkspaceCampaignStatisticsTest extends TestCase
             ->where('workspace_id', $fixture['workspace']->getKey())
             ->where('campaign_id', $fixture['campaign']->getKey())
             ->count());
+    }
+
+    public function test_campaign_unique_actions_deduplicate_the_same_contact_across_sends(): void
+    {
+        $fixture = $this->campaignFixture();
+        $this->event($fixture, 'open');
+
+        $revision = CampaignRevision::query()->create([
+            'campaign_id' => $fixture['campaign']->getKey(),
+            'revision_number' => 2,
+            'payload' => $fixture['revision']->payload,
+            'content_sha256' => hash('sha256', 'second statistics revision '.Str::random(8)),
+            'idempotency_key' => (string) Str::uuid(),
+            'request_fingerprint' => hash('sha256', 'second statistics revision request '.Str::random(8)),
+            'created_by' => $fixture['owner']->getKey(),
+            'created_at' => now(),
+        ]);
+        $snapshot = CampaignRecipientSnapshot::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(),
+            'campaign_id' => $fixture['campaign']->getKey(),
+            'revision_id' => $revision->getKey(),
+            'offer_id' => $fixture['offer']->getKey(),
+            'suppression_sha256' => hash('sha256', 'second statistics suppression'),
+            'selection' => ['audience_segments' => [$fixture['list']->getKey().'_fresh']],
+            'recipient_count' => 1,
+            'recipients_sha256' => hash('sha256', 'second '.(string) $fixture['contact']->getKey()),
+            'created_at' => now(),
+        ]);
+        $item = CampaignRecipientSnapshotItem::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(),
+            'snapshot_id' => $snapshot->getKey(),
+            'contact_id' => $fixture['contact']->getKey(),
+            'position' => 1,
+            'email_lookup_hash' => $fixture['contact']->email_lookup_hash,
+            'source_list_id' => $fixture['list']->getKey(),
+            'source_email_type' => 'fresh',
+            'created_at' => now(),
+        ]);
+        $secondSendFixture = [...$fixture, 'revision' => $revision, 'snapshot' => $snapshot, 'item' => $item];
+        $this->event($secondSendFixture, 'open');
+
+        $this->assertSame(2, CampaignEngagementEvent::query()->where('action', 'open')->count());
+        $this->assertSame(1, DB::table('campaign_engagement_unique_actions')
+            ->where('workspace_id', $fixture['workspace']->getKey())
+            ->where('campaign_id', $fixture['campaign']->getKey())
+            ->where('contact_id', $fixture['contact']->getKey())
+            ->where('action', 'open')
+            ->count());
+
+        $this->actingAs($fixture['owner'])->getJson(route('console.campaign-statistics.index', [
+            $fixture['workspace']->getKey(),
+            'campaign_id' => $fixture['campaign']->getKey(),
+            'from' => today()->toDateString(),
+            'to' => today()->toDateString(),
+            'inline' => 1,
+        ]))->assertOk()->assertJsonFragment(['opens' => 1]);
+    }
+
+    public function test_unique_action_migration_backfills_deduplicated_and_scanner_classified_history(): void
+    {
+        $fixture = $this->campaignFixture();
+        $this->event($fixture, 'open');
+        $this->event($fixture, 'open');
+        $this->event($fixture, 'open', [], 'Mozilla/5.0 (compatible; GoogleImageProxy)');
+        $this->event(
+            $fixture,
+            'open',
+            [],
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36',
+            '108.177.2.6',
+        );
+
+        $migration = require database_path('migrations/2026_11_03_120000_create_campaign_engagement_unique_actions_table.php');
+        $migration->down();
+        $migration->up();
+
+        $this->assertSame(4, CampaignEngagementEvent::query()->count());
+        $this->assertSame(1, DB::table('campaign_engagement_unique_actions')
+            ->where('contact_id', $fixture['contact']->getKey())
+            ->where('action', 'open')
+            ->count());
+        $this->assertSame(1, DB::table('campaign_engagement_unique_actions')
+            ->where('contact_id', $fixture['contact']->getKey())
+            ->where('action', 'bot')
+            ->count());
+
+        app(WorkspaceDailyAnalyticsRebuilder::class)->rebuildRange(
+            now()->startOfDay(),
+            now()->endOfDay(),
+            (string) $fixture['workspace']->getKey(),
+        );
+        $dailyRow = DB::table('workspace_daily_analytics')
+            ->where('workspace_id', $fixture['workspace']->getKey())
+            ->where('campaign_id', $fixture['campaign']->getKey())
+            ->where('attribution_scope', 'workspace')
+            ->firstOrFail();
+        $this->assertSame(1, (int) $dailyRow->opens);
+        $this->assertSame(1, (int) $dailyRow->bots);
     }
 
     public function test_campaign_engagement_rollups_attribute_each_source_list_without_inflating_workspace_totals(): void
@@ -594,9 +693,14 @@ class WorkspaceCampaignStatisticsTest extends TestCase
     }
 
     /** @param array<string, mixed> $fixture */
-    private function event(array $fixture, string $action, array $dimensionIds = []): CampaignEngagementEvent
-    {
-        return CampaignEngagementEvent::query()->create([
+    private function event(
+        array $fixture,
+        string $action,
+        array $dimensionIds = [],
+        string $userAgent = 'Synthetic analytics test',
+        string $clientIp = '192.0.2.55',
+    ): CampaignEngagementEvent {
+        $event = CampaignEngagementEvent::query()->create([
             'workspace_id' => $fixture['workspace']->getKey(),
             'campaign_id' => $fixture['campaign']->getKey(),
             'revision_id' => $fixture['revision']->getKey(),
@@ -605,11 +709,21 @@ class WorkspaceCampaignStatisticsTest extends TestCase
             'contact_id' => $fixture['contact']->getKey(),
             'audience_list_id' => $fixture['list']->getKey(),
             'source_email_type' => 'fresh', 'action' => $action,
-            'isp_id' => $fixture['isp']->getKey(), 'client_ip' => '192.0.2.55',
+            'isp_id' => $fixture['isp']->getKey(), 'client_ip' => $clientIp,
             'dimension_ids' => $dimensionIds,
-            'user_agent' => 'Synthetic analytics test', 'token_sha256' => hash('sha256', Str::random(20)),
+            'user_agent' => $userAgent, 'token_sha256' => hash('sha256', Str::random(20)),
             'created_at' => now(),
         ]);
+        DB::table('campaign_engagement_unique_actions')->insertOrIgnore([
+            'workspace_id' => $event->workspace_id,
+            'campaign_id' => $event->campaign_id,
+            'contact_id' => $event->contact_id,
+            'action' => $event->action,
+            'engagement_event_id' => $event->getKey(),
+            'created_at' => $event->created_at,
+        ]);
+
+        return $event;
     }
 
     /** @param array<string, mixed> $fixture */

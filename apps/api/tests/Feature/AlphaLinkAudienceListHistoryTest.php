@@ -161,6 +161,42 @@ class AlphaLinkAudienceListHistoryTest extends TestCase
             ->assertJsonPath('histories.0.opt_out', 1);
     }
 
+    public function test_all_lists_history_omits_inactive_members_from_current_status_segments(): void
+    {
+        $source = $this->makeList('Lifecycle source');
+        $freshSegment = $this->makeList('Lifecycle source_fresh');
+        $freshSegment->forceFill([
+            'segment_source_list_id' => $source->getKey(),
+            'segment_action' => 'fresh',
+        ])->save();
+
+        $email = 'stale-fresh-'.Str::lower(Str::random(8)).'@example.test';
+        $contact = Contact::query()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'email' => $email,
+            'email_lookup_hash' => hash('sha256', $email),
+            'lookup_key_version' => 1,
+            'status' => 'active',
+            'idempotency_key' => (string) Str::uuid(),
+        ]);
+        ContactListMembership::query()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'audience_list_id' => $freshSegment->getKey(),
+            'contact_id' => $contact->getKey(),
+            'email_type' => 'fresh',
+            'status' => 'inactive',
+            'joined_at' => now()->subDay(),
+            'left_at' => now(),
+        ]);
+
+        $this->artisan('audience-lists:calculate-history')->assertExitCode(0);
+
+        $this->assertSame(0, (int) AudienceListHistory::query()
+            ->where('audience_list_id', $freshSegment->getKey())
+            ->whereDate('at', now()->toDateString())
+            ->value('fresh'));
+    }
+
     public function test_all_lists_history_sums_each_day_within_the_selected_isp(): void
     {
         $first = $this->makeList('Alpha');

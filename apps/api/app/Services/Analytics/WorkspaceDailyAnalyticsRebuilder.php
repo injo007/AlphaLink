@@ -136,7 +136,11 @@ class WorkspaceDailyAnalyticsRebuilder
             'creative_id' => $this->jsonTextExpression('ce.dimension_ids', 'creative_id'),
         ];
 
-        $query = DB::table('campaign_engagement_events as ce')
+        $query = DB::table('campaign_engagement_unique_actions as unique_actions')
+            ->join('campaign_engagement_events as ce', function (JoinClause $join): void {
+                $join->on('ce.id', '=', 'unique_actions.engagement_event_id')
+                    ->on('ce.workspace_id', '=', 'unique_actions.workspace_id');
+            })
             ->join('campaigns as c', function (JoinClause $join): void {
                 $join->on('c.id', '=', 'ce.campaign_id')
                     ->on('c.workspace_id', '=', 'ce.workspace_id');
@@ -179,10 +183,10 @@ class WorkspaceDailyAnalyticsRebuilder
         $this->selectDimensions($query, $dimensions);
 
         return $query
-            ->selectRaw("SUM(CASE WHEN ce.action = 'open' THEN 1 ELSE 0 END) AS opens")
-            ->selectRaw("SUM(CASE WHEN ce.action = 'click' THEN 1 ELSE 0 END) AS clicks")
-            ->selectRaw("SUM(CASE WHEN ce.action = 'unsubscribe' THEN 1 ELSE 0 END) AS unsubscribes")
-            ->selectRaw("SUM(CASE WHEN ce.action = 'bot' THEN 1 ELSE 0 END) AS bots")
+            ->selectRaw("SUM(CASE WHEN unique_actions.action = 'open' THEN 1 ELSE 0 END) AS opens")
+            ->selectRaw("SUM(CASE WHEN unique_actions.action = 'click' THEN 1 ELSE 0 END) AS clicks")
+            ->selectRaw("SUM(CASE WHEN unique_actions.action = 'unsubscribe' THEN 1 ELSE 0 END) AS unsubscribes")
+            ->selectRaw("SUM(CASE WHEN unique_actions.action = 'bot' THEN 1 ELSE 0 END) AS bots")
             ->selectRaw('0 AS leads, 0 AS lead_revenue')
             ->groupBy('ce.workspace_id')
             ->groupByRaw('DATE(ce.created_at)')

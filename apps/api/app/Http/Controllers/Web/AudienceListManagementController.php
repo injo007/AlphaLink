@@ -44,38 +44,50 @@ class AudienceListManagementController extends Controller
         $isp = $workspace->isps()->whereKey($ispId)->firstOrFail();
         $lists = $isp->lists()
             ->where('workspace_id', $workspace->getKey())
-            ->with('history')
             ->orderBy('id')
             ->get();
 
-        return response()->json(['data' => $lists->map(fn (AudienceList $list): array => [
-            'id' => (string) $list->getKey(),
-            'name' => $list->name,
-            'country' => $list->country,
-            'is_active' => $list->status === 'active',
-            'is_tracked' => (bool) $list->is_tracked,
-            'is_fresh_locked' => (bool) $list->is_fresh_locked,
-            'is_delivery_locked' => (bool) $list->is_delivery_locked,
-            'is_open_locked' => (bool) $list->is_open_locked,
-            'is_click_locked' => (bool) $list->is_click_locked,
-            'is_lead_locked' => (bool) $list->is_lead_locked,
-            'is_unsubscribe_locked' => (bool) $list->is_unsubscribe_locked,
-            'allowed_users' => $list->allowed_users ?? [],
-            'allowed_sponsors' => $list->allowed_sponsors ?? [],
-            'history' => [
-                'fresh' => $list->history?->fresh ?? 'NA',
-                'delivery' => $list->history?->delivery ?? 'NA',
-                'open' => $list->history?->open ?? 'NA',
-                'click' => $list->history?->click ?? 'NA',
-                'lead' => $list->history?->lead ?? 'NA',
-                'unsubscribe' => $list->history?->unsubscribe ?? 'NA',
-                'opt_out' => $list->history?->opt_out ?? 'NA',
-                'bot' => $list->history?->bot ?? 'NA',
-                'proxy' => $list->history?->proxy ?? 'NA',
-                'blacklist' => $list->history?->blacklist ?? 'NA',
-                'hard_bounce' => $list->history?->hard_bounce ?? 'NA',
-            ],
-        ])->values()]);
+        $historyTypes = [
+            ...ContactListMembership::CAMPAIGN_TYPES,
+            ...ContactListMembership::HISTORY_TRACKED_TYPES,
+        ];
+        $historyCounts = DB::table('contact_list_memberships')
+            ->where('workspace_id', $workspace->getKey())
+            ->whereIn('audience_list_id', $lists->pluck('id'))
+            ->select(['audience_list_id', 'email_type', 'status'])
+            ->selectRaw('COUNT(*) as aggregate')
+            ->groupBy(['audience_list_id', 'email_type', 'status'])
+            ->get()
+            ->groupBy('audience_list_id');
+
+        return response()->json(['data' => $lists->map(function (AudienceList $list) use ($historyCounts, $historyTypes): array {
+            $history = array_fill_keys($historyTypes, 0);
+            foreach ($historyCounts->get($list->getKey(), collect()) as $row) {
+                $isCurrentStatusSegment = in_array($list->segment_action, ['fresh', 'delivery'], true);
+                if (($isCurrentStatusSegment && $row->status !== 'active') || ! array_key_exists($row->email_type, $history)) {
+                    continue;
+                }
+
+                $history[$row->email_type] += (int) $row->aggregate;
+            }
+
+            return [
+                'id' => (string) $list->getKey(),
+                'name' => $list->name,
+                'country' => $list->country,
+                'is_active' => $list->status === 'active',
+                'is_tracked' => (bool) $list->is_tracked,
+                'is_fresh_locked' => (bool) $list->is_fresh_locked,
+                'is_delivery_locked' => (bool) $list->is_delivery_locked,
+                'is_open_locked' => (bool) $list->is_open_locked,
+                'is_click_locked' => (bool) $list->is_click_locked,
+                'is_lead_locked' => (bool) $list->is_lead_locked,
+                'is_unsubscribe_locked' => (bool) $list->is_unsubscribe_locked,
+                'allowed_users' => $list->allowed_users ?? [],
+                'allowed_sponsors' => $list->allowed_sponsors ?? [],
+                'history' => $history,
+            ];
+        })->values()]);
     }
 
     public function uploadForm(Request $request, string $workspaceId, string $listId): View

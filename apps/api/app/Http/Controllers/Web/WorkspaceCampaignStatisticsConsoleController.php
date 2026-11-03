@@ -214,14 +214,18 @@ class WorkspaceCampaignStatisticsConsoleController extends Controller
     /** @return list<array{opens:int, clicks:int, leads:int, lead_revenue:float, unsubscribes:int, bots:int}> */
     private function inlineCampaignSummary(Workspace $workspace, string $campaignId, Carbon $from, Carbon $to): array
     {
-        $engagement = DB::table('campaign_engagement_events')
-            ->where('workspace_id', $workspace->getKey())
-            ->where('campaign_id', $campaignId)
-            ->whereBetween('created_at', [$from, $to])
-            ->selectRaw("SUM(CASE WHEN action = 'open' THEN 1 ELSE 0 END) AS opens")
-            ->selectRaw("SUM(CASE WHEN action = 'click' THEN 1 ELSE 0 END) AS clicks")
-            ->selectRaw("SUM(CASE WHEN action = 'unsubscribe' THEN 1 ELSE 0 END) AS unsubscribes")
-            ->selectRaw("SUM(CASE WHEN action = 'bot' THEN 1 ELSE 0 END) AS bots")
+        $engagement = DB::table('campaign_engagement_unique_actions as unique_actions')
+            ->join('campaign_engagement_events as events', function (JoinClause $join): void {
+                $join->on('events.id', '=', 'unique_actions.engagement_event_id')
+                    ->on('events.workspace_id', '=', 'unique_actions.workspace_id');
+            })
+            ->where('unique_actions.workspace_id', $workspace->getKey())
+            ->where('unique_actions.campaign_id', $campaignId)
+            ->whereBetween('unique_actions.created_at', [$from, $to])
+            ->selectRaw("SUM(CASE WHEN unique_actions.action = 'open' THEN 1 ELSE 0 END) AS opens")
+            ->selectRaw("SUM(CASE WHEN unique_actions.action = 'click' THEN 1 ELSE 0 END) AS clicks")
+            ->selectRaw("SUM(CASE WHEN unique_actions.action = 'unsubscribe' THEN 1 ELSE 0 END) AS unsubscribes")
+            ->selectRaw("SUM(CASE WHEN unique_actions.action = 'bot' THEN 1 ELSE 0 END) AS bots")
             ->first();
         $leads = DB::table('campaign_lead_conversions')
             ->where('workspace_id', $workspace->getKey())

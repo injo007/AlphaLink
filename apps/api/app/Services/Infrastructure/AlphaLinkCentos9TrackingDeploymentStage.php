@@ -6,7 +6,7 @@ use Illuminate\Support\Str;
 use InvalidArgumentException;
 use RuntimeException;
 
-/** Reconstructs reference Centos9::setup_tracking() behind isolated transports. */
+/** Configures the AlphaLink tracking site and Apache routes on a CentOS 9 host. */
 class AlphaLinkCentos9TrackingDeploymentStage
 {
     /** @param list<string> $subDomains */

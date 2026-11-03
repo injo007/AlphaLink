@@ -18,7 +18,7 @@ class CampaignEngagementEvent extends Model
     protected $fillable = [
         'workspace_id', 'campaign_id', 'revision_id', 'recipient_snapshot_id',
         'snapshot_item_id', 'contact_id', 'audience_list_id', 'source_email_type',
-        'action', 'send_id', 'isp_id', 'client_ip', 'user_agent', 'country', 'state', 'city',
+        'action', 'send_id', 'isp_id', 'client_ip', 'user_agent', 'country', 'country_code', 'state', 'city',
         'device', 'platform', 'browser', 'is_mobile', 'is_proxy', 'is_hosting', 'dimension_ids',
         'token_sha256', 'created_at',
     ];

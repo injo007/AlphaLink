@@ -32,6 +32,7 @@ class BackfillCampaignActionAudienceSegments
             ->orderBy('source.id')
             ->select([
                 'event.id as event_id', 'event.revision_id', 'event.action', 'event.contact_id', 'event.created_at',
+                'event.country_code',
                 'source.source_membership_id', 'source.source_list_id',
             ])
             ->cursor()
@@ -47,10 +48,7 @@ class BackfillCampaignActionAudienceSegments
                     return;
                 }
 
-                $countryCode = $this->countryCode($membership);
-                if ($countryCode === null) {
-                    return;
-                }
+                $countryCode = $row->country_code ?: $this->countryCode($membership);
 
                 if ($this->membershipManager->recordActionSegment(
                     (string) $row->source_list_id,
@@ -92,9 +90,6 @@ class BackfillCampaignActionAudienceSegments
                 }
 
                 $countryCode = $this->countryCode($membership);
-                if ($countryCode === null) {
-                    return;
-                }
 
                 if ($this->membershipManager->recordActionSegment(
                     (string) $conversion->audience_list_id,

@@ -15,6 +15,7 @@ use App\Models\Workspace;
 use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceSponsor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -79,6 +80,8 @@ class WorkspaceCampaignVisitorsTest extends TestCase
     {
         $fixture = $this->fixture();
         $this->event($fixture, 'open');
+        $this->event($fixture, 'open');
+        $this->event($fixture, 'click');
         $this->event($fixture, 'click');
         $url = route('console.campaigns.visitors', [$fixture['workspace']->getKey(), $fixture['campaign']->getKey()]);
 
@@ -167,7 +170,7 @@ class WorkspaceCampaignVisitorsTest extends TestCase
     /** @param array<string, mixed> $fixture */
     private function event(array $fixture, string $action, ?bool $isProxy = null, ?bool $isHosting = null): void
     {
-        CampaignEngagementEvent::query()->create([
+        $event = CampaignEngagementEvent::query()->create([
             'workspace_id' => $fixture['workspace']->getKey(),
             'campaign_id' => $fixture['campaign']->getKey(),
             'revision_id' => $fixture['revision']->getKey(),
@@ -180,6 +183,14 @@ class WorkspaceCampaignVisitorsTest extends TestCase
             'user_agent' => 'Synthetic visitor test agent', 'token_sha256' => hash('sha256', Str::random(20)),
             'is_proxy' => $isProxy, 'is_hosting' => $isHosting,
             'created_at' => now(),
+        ]);
+        DB::table('campaign_engagement_unique_actions')->insertOrIgnore([
+            'workspace_id' => $event->workspace_id,
+            'campaign_id' => $event->campaign_id,
+            'contact_id' => $event->contact_id,
+            'action' => $event->action,
+            'engagement_event_id' => $event->getKey(),
+            'created_at' => $event->created_at,
         ]);
     }
 }

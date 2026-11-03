@@ -681,4 +681,21 @@ The app host appeared in fresh links because Laravel temporary signed routes inh
 
 ### E-TRACK-42 — Snapshot-bound offer redirect and dedicated analytics queue
 
+### DMS-CAMP-007 / DMS-TRACK-003 follow-up — E-TRACK-43
+
+The user reported opens counted before people read the email and repeated actions inflating campaign totals. AlphaLink now keeps raw immutable callback events but counts a unique action once per workspace/campaign/contact across sends. A migration backfills the first event, and recognizable image-proxy/scanner user agents are classified as bots in analytics; repeated click callbacks no longer repeat list-state fan-out. The offer click and unsubscribe action are separate, so one recipient offer click plus an unsubscribe produces one click and one unsubscribe. Dashboard daily rebuilds, Campaign Statistics inline totals and Campaign Visitors now use the unique-action projection.
+
+Focused SQLite coverage passes 76 tests / 749 assertions. Disposable PostgreSQL 18.6 passes Campaign Statistics/backfill 10 / 211, event ingestion 3 / 48, and Visitors 3 / 30; Pint passes. The migration and backfill were tested only against the disposable database. After production release, run `workspace:analytics-rebuild-daily --all` once so stored daily rollups stop showing old duplicate counts. No production DB, live send, mailbox or callback was accessed. Known UA signatures cannot reliably identify browser-like privacy proxies; 30k throughput and simultaneous worker contention remain untested. Keep DMS-CAMP-007 and DMS-TRACK-003 TESTING; do not claim live analytics verification until the deployed projection and daily rebuild are checked with an authorized fresh event.
+
+
 Campaign redirect now resolves the offer saved on the delivered recipient snapshot instead of reading the campaign's latest edited revision. Legacy installed tracker requests still work: the API matches their existing token checksum to the campaign/contact snapshot; new installs send `send_id` explicitly. Recipient `email_id=0` test links keep their no-recipient-analytics behavior. Campaign event jobs now run on a dedicated Redis/Horizon queue with configurable worker concurrency, separate from campaign sends. Focused PostgreSQL coverage passes 22 tests / 110 assertions; the full campaign tracking suite passes 42 / 43, with one existing append-only history cleanup test failing. Release `e6cc51a` is deployed on `baseheavy.shop`; the installer verified a 205 MiB PostgreSQL backup, had no migrations pending, and passed HTTPS health. Horizon is running with the campaign-tracking supervisor configured for 1–2 processes. Deployment also enabled single-server, bulk, and reinstall gates and synchronized egress for one auto-managed workspace. The tracker root/HTTPS and a synthetic invalid-token path are healthy, but no valid campaign click or 30k load test was run. Keep DMS-TRACK-001/003 TESTING.
+
+
+### DMS-CAMP-007 / DMS-TRACK-003 follow-up — E-TRACK-44
+
+The user-provided visitor page's 11 opens came from addresses that reverse/forward verified as Google proxy/fetcher hosts and matched Google's published fetcher ranges. AlphaLink now treats opens from those two exact /27s as bots regardless of browser-like user agent, including historical unique-action backfill; IP-only classification leaves clicks unchanged. SQLite passes 77 / 760; disposable PostgreSQL 18.6 passes statistics/backfill 10 / 211 and focused ingestion 4 / 59; Pint passes. No production data was changed, and a daily analytics rebuild is still required after release. Clicks from other hosting-flagged IPs remain unconfirmed as automated, other browser-like privacy proxies remain uncertain, and 30k throughput/concurrency were not tested. Keep TESTING until deployment and post-deploy verification.
+
+
+### DMS-AUD-002 / DMS-TRACK-003 follow-up — E-TRACK-45
+
+Source-prefixed action/status Lists and live membership counts are implemented and pass the focused local suites. The new metadata migrations and campaign action-segment backfill are not deployed; production list counts and existing generated list names have not been reconciled. After a future release, apply migrations, backfill affected campaigns, rebuild List History where needed, and verify the live Lists grid and send-recipient selector. No 30k/concurrency benchmark has been run. Keep both feature rows TESTING.

@@ -11,6 +11,7 @@ use App\Models\ContactListMembership;
 use App\Models\ContactListMembershipEvent;
 use App\Models\OutboxMessage;
 use App\Models\Workspace;
+use App\Services\Campaigns\TrackedCountryListManager;
 use Illuminate\Database\QueryException;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Http\Request;
@@ -27,6 +28,7 @@ class ImportAudienceListContacts
     public function __construct(
         private readonly AudienceListHistoryCalculator $historyCalculator,
         private readonly AudienceMembershipFilterIndexer $filterIndexer,
+        private readonly TrackedCountryListManager $membershipManager,
     ) {}
 
     public function handle(Request $request, Workspace $workspace, AudienceList $list, string $rawAddresses, string $lookupKey): AudienceListImportBatch
@@ -620,6 +622,18 @@ class ImportAudienceListContacts
                 (string) $contact->email,
             ),
         ])->save();
+
+        $this->membershipManager->recordActionSegment(
+            (string) $list->getKey(),
+            $membership,
+            $type,
+            $this->membershipManager->countryCodeForMembership($membership),
+            $type,
+            'list_import',
+            (string) $event->getKey(),
+            $now,
+            ['imported_email_type' => $type],
+        );
 
         $this->recordMembershipAdded($request, $workspace, $list, $contact, $event);
 

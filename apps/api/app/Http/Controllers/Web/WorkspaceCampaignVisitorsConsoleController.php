@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\Workspace;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Database\Query\JoinClause;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -38,16 +39,20 @@ class WorkspaceCampaignVisitorsConsoleController extends Controller
                 'order_index' => ['sometimes', 'integer', 'min:0', 'max:15'],
                 'order_dir' => ['sometimes', Rule::in(['asc', 'desc'])],
             ]);
-            $events = DB::table('campaign_engagement_events')
-                ->where('workspace_id', $workspace->getKey())
-                ->where('campaign_id', $campaign->getKey());
+            $events = DB::table('campaign_engagement_unique_actions as unique_actions')
+                ->join('campaign_engagement_events as event', function (JoinClause $join): void {
+                    $join->on('event.id', '=', 'unique_actions.engagement_event_id')
+                        ->on('event.workspace_id', '=', 'unique_actions.workspace_id');
+                })
+                ->where('unique_actions.workspace_id', $workspace->getKey())
+                ->where('unique_actions.campaign_id', $campaign->getKey());
             $eventTotals = (clone $events)->selectRaw(<<<'SQL'
-                COUNT(CASE WHEN action = 'open' THEN 1 END) AS opens,
-                COUNT(CASE WHEN action = 'click' THEN 1 END) AS clicks,
-                COUNT(CASE WHEN action = 'unsubscribe' THEN 1 END) AS unsubscribes,
-                COUNT(CASE WHEN action = 'bot' THEN 1 END) AS bots,
-                COUNT(CASE WHEN is_proxy = TRUE THEN 1 END) AS proxies,
-                COUNT(CASE WHEN is_hosting = TRUE THEN 1 END) AS hosting
+                COUNT(CASE WHEN unique_actions.action = 'open' THEN 1 END) AS opens,
+                COUNT(CASE WHEN unique_actions.action = 'click' THEN 1 END) AS clicks,
+                COUNT(CASE WHEN unique_actions.action = 'unsubscribe' THEN 1 END) AS unsubscribes,
+                COUNT(CASE WHEN unique_actions.action = 'bot' THEN 1 END) AS bots,
+                COUNT(CASE WHEN event.is_proxy = TRUE THEN 1 END) AS proxies,
+                COUNT(CASE WHEN event.is_hosting = TRUE THEN 1 END) AS hosting
             SQL)->first();
             $leadTotals = DB::table('campaign_lead_conversions')
                 ->where('workspace_id', $workspace->getKey())
@@ -158,14 +163,18 @@ class WorkspaceCampaignVisitorsConsoleController extends Controller
 
     private function visitorRows(Workspace $workspace, Campaign $campaign): Builder
     {
-        $events = DB::table('campaign_engagement_events')
-            ->where('workspace_id', $workspace->getKey())
-            ->where('campaign_id', $campaign->getKey())
+        $events = DB::table('campaign_engagement_unique_actions as unique_actions')
+            ->join('campaign_engagement_events as event', function (JoinClause $join): void {
+                $join->on('event.id', '=', 'unique_actions.engagement_event_id')
+                    ->on('event.workspace_id', '=', 'unique_actions.workspace_id');
+            })
+            ->where('unique_actions.workspace_id', $workspace->getKey())
+            ->where('unique_actions.campaign_id', $campaign->getKey())
             ->select([
-                'id', 'action', 'send_id', 'contact_id', 'revision_id', 'client_ip as ip',
-                'country', 'state', 'city', 'device', 'platform', 'browser', 'is_mobile', 'is_proxy', 'is_hosting',
+                'event.id', 'unique_actions.action', 'event.send_id', 'event.contact_id', 'event.revision_id', 'event.client_ip as ip',
+                'event.country', 'event.state', 'event.city', 'event.device', 'event.platform', 'event.browser', 'event.is_mobile', 'event.is_proxy', 'event.is_hosting',
                 DB::raw('CAST(NULL AS DECIMAL(16, 4)) AS revenue'),
-                'created_at',
+                'event.created_at',
             ]);
         $leads = DB::table('campaign_lead_conversions')
             ->where('workspace_id', $workspace->getKey())

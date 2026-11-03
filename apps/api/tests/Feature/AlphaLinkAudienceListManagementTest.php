@@ -85,9 +85,55 @@ class AlphaLinkAudienceListManagementTest extends TestCase
         $this->getJson(route('console.infrastructure.isps.lists', [$this->workspace->id, $this->isp->id]))
             ->assertOk()
             ->assertJsonPath('data.0.id', $list->id)
-            ->assertJsonPath('data.0.history.fresh', 'NA')
+            ->assertJsonPath('data.0.history.fresh', 0)
             ->assertJsonMissingPath('data.0.email')
             ->assertJsonMissingPath('data.0.members');
+    }
+
+    public function test_management_grid_counts_current_memberships_without_a_history_snapshot(): void
+    {
+        $list = $this->makeList('Live count list');
+        $this->addMembership($list, 'fresh', 'fresh-member');
+        $this->addMembership($list, 'click', 'click-member');
+        $this->addMembership($list, 'opt_out', 'opt-out-member');
+
+        $this->getJson(route('console.infrastructure.isps.lists', [$this->workspace->getKey(), $this->isp->getKey()]))
+            ->assertOk()
+            ->assertJsonPath('data.0.history.fresh', 1)
+            ->assertJsonPath('data.0.history.click', 1)
+            ->assertJsonPath('data.0.history.opt_out', 1);
+
+        $this->assertSame(0, AudienceListHistory::query()->where('audience_list_id', $list->getKey())->count());
+    }
+
+    public function test_management_grid_hides_inactive_current_status_members_but_keeps_unsubscribe_action_totals(): void
+    {
+        $source = $this->makeList('Segment source');
+        $freshSegment = $this->makeList('Segment source_fresh');
+        $freshSegment->forceFill([
+            'segment_source_list_id' => $source->getKey(),
+            'segment_action' => 'fresh',
+        ])->save();
+        $this->addMembership($freshSegment, 'fresh', 'old-fresh-member')
+            ->forceFill(['status' => 'inactive', 'left_at' => now()])
+            ->save();
+
+        $unsubscribeSegment = $this->makeList('Segment source_unsub');
+        $unsubscribeSegment->forceFill([
+            'segment_source_list_id' => $source->getKey(),
+            'segment_action' => 'unsubscribe',
+        ])->save();
+        $this->addMembership($unsubscribeSegment, 'unsubscribe', 'unsubscribed-member')
+            ->forceFill(['status' => 'inactive', 'left_at' => now()])
+            ->save();
+
+        $rows = $this->getJson(route('console.infrastructure.isps.lists', [$this->workspace->getKey(), $this->isp->getKey()]))
+            ->assertOk()
+            ->json('data');
+        $rowsByName = collect($rows)->keyBy('name');
+
+        $this->assertSame(0, $rowsByName['Segment source_fresh']['history']['fresh']);
+        $this->assertSame(1, $rowsByName['Segment source_unsub']['history']['unsubscribe']);
     }
 
     public function test_management_grid_uses_the_latest_reference_shaped_daily_membership_counts(): void
@@ -265,7 +311,7 @@ class AlphaLinkAudienceListManagementTest extends TestCase
         return route('console.infrastructure.lists.store', [$this->workspace->id, $this->isp->id]);
     }
 
-    private function addMembership(AudienceList $list, string $type, string $fixture): void
+    private function addMembership(AudienceList $list, string $type, string $fixture): ContactListMembership
     {
         $email = $fixture.'-'.Str::lower(Str::random(8)).'@example.test';
         $contact = Contact::query()->create([
@@ -277,7 +323,7 @@ class AlphaLinkAudienceListManagementTest extends TestCase
             'idempotency_key' => (string) Str::uuid(),
         ]);
 
-        ContactListMembership::query()->create([
+        return ContactListMembership::query()->create([
             'workspace_id' => $this->workspace->getKey(),
             'audience_list_id' => $list->getKey(),
             'contact_id' => $contact->getKey(),

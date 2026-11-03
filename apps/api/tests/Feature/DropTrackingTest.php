@@ -63,7 +63,7 @@ class DropTrackingTest extends TestCase
         $this->assertSame('unsubscribe', $fixture['membership']->fresh()->email_type);
 
         $this->assertSame(3, WorkspaceDropVisitor::query()->count());
-        $this->assertSame(3, ContactListMembershipEvent::query()->where('source', 'drop_tracking')->count());
+        $this->assertSame(6, ContactListMembershipEvent::query()->where('source', 'drop_tracking')->count());
         $this->assertDatabaseHas('workspace_drop_visitors', [
             'workspace_id' => $fixture['workspace']->getKey(),
             'workspace_drop_id' => $fixture['drop']->getKey(),
@@ -102,7 +102,7 @@ class DropTrackingTest extends TestCase
         $this->postJson($url, $this->payload($fixture, 'open'))->assertNoContent();
         $this->assertSame(4, WorkspaceDropVisitor::query()->count());
         $this->assertSame('unsubscribe', $fixture['membership']->fresh()->email_type);
-        $this->assertSame(3, ContactListMembershipEvent::query()->where('source', 'drop_tracking')->count());
+        $this->assertSame(7, ContactListMembershipEvent::query()->where('source', 'drop_tracking')->count());
         $this->assertSame(1, SuppressionEvent::query()->count());
     }
 
@@ -141,14 +141,10 @@ class DropTrackingTest extends TestCase
 
         $url = '/api/v1/stats-drop';
         $this->postJson($url, $this->payload($fixture, 'open'))->assertNoContent();
-        $countryList = AudienceList::query()->where('workspace_id', $fixture['workspace']->getKey())
-            ->where('isp_id', $isp->getKey())->where('name', 'US')->firstOrFail();
-        $this->assertSame((string) $countryList->getKey(), (string) $fixture['membership']->fresh()->audience_list_id);
+        $this->assertSame((string) $fixture['list']->getKey(), (string) $fixture['membership']->fresh()->audience_list_id);
         $this->assertSame('open', $fixture['membership']->fresh()->email_type);
-        $this->assertSame(['operator-2'], $countryList->allowed_users);
-        $this->assertSame(['sponsor-2'], $countryList->allowed_sponsors);
-        $this->assertTrue($countryList->is_delivery_locked);
-        $this->assertTrue($countryList->is_lead_locked);
+        $this->assertSame(0, AudienceList::query()->where('workspace_id', $fixture['workspace']->getKey())
+            ->where('name', 'US')->count());
         $this->assertDatabaseHas('workspace_drop_visitors', [
             'workspace_drop_id' => $fixture['drop']->getKey(),
             'list_id' => $fixture['list']->getKey(),
@@ -157,12 +153,16 @@ class DropTrackingTest extends TestCase
         ]);
 
         $this->postJson($url, $this->payload($fixture, 'click'))->assertNoContent();
-        $this->assertSame((string) $countryList->getKey(), (string) $fixture['membership']->fresh()->audience_list_id);
+        $this->assertSame((string) $fixture['list']->getKey(), (string) $fixture['membership']->fresh()->audience_list_id);
         $this->assertSame('click', $fixture['membership']->fresh()->email_type);
         $this->assertDatabaseHas('contact_list_membership_events', [
-            'audience_list_id' => $countryList->getKey(),
+            'audience_list_id' => $fixture['list']->getKey(),
             'contact_id' => $fixture['contact']->getKey(),
             'action' => 'click',
+        ]);
+        $this->assertDatabaseHas('audience_lists', [
+            'workspace_id' => $fixture['workspace']->getKey(),
+            'name' => 'Drop tracking audience_click_us',
         ]);
     }
 

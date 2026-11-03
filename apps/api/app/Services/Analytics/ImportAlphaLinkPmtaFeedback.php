@@ -426,6 +426,20 @@ class ImportAlphaLinkPmtaFeedback
         ]);
         $membership->forceFill(['email_type' => $newType, 'last_event_id' => $event->getKey()])->save();
 
+        if ($newType === 'delivery') {
+            $this->membershipManager->recordActionSegment(
+                (string) $membership->audience_list_id,
+                $membership,
+                'delivery',
+                $this->membershipManager->countryCodeForMembership($membership),
+                $newType,
+                'pmta_feedback',
+                (string) $event->getKey(),
+                $event->occurred_at,
+                ['record_key' => $record['record_key']],
+            );
+        }
+
         return (string) $membership->audience_list_id;
     }
 }

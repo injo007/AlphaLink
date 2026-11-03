@@ -192,8 +192,11 @@ class CampaignLeadReconciliationTest extends TestCase
             ->assertSee('CLICK')
             ->assertSee('LEAD')
             ->assertSee('UNSUB')
-            ->assertViewHas('audienceLists', fn ($lists): bool => $lists->first()->history->lead === 1
-                && $lists->first()->history->unsubscribe === 1);
+            ->assertViewHas('audienceLists', fn ($lists): bool => $lists->contains(
+                fn (AudienceList $list): bool => (string) $list->getKey() === (string) $fixture['list']->getKey()
+                    && $list->history->lead === 1
+                    && $list->history->unsubscribe === 1,
+            ));
     }
 
     public function test_affiliate_lead_reconciliation_updates_revenue_dashboard_reports_and_list_state(): void
@@ -243,7 +246,7 @@ class CampaignLeadReconciliationTest extends TestCase
         $this->assertSame(1, CampaignLeadConversion::query()->count());
         $this->assertSame('6.0000', (string) CampaignLeadConversion::query()->firstOrFail()->revenue);
         $this->assertSame('lead', $fixture['membership']->fresh()->email_type);
-        $this->assertSame(1, ContactListMembershipEvent::query()->where('source', 'affiliate_conversion')->count());
+        $this->assertSame(2, ContactListMembershipEvent::query()->where('source', 'affiliate_conversion')->count());
 
         $history = app(AudienceListHistoryCalculator::class)->calculate($fixture['list'], Carbon::today());
         $this->assertSame(1, (int) $history->lead);
@@ -334,18 +337,16 @@ class CampaignLeadReconciliationTest extends TestCase
         );
 
         $result = $importer->import($fixture['sponsor'], now()->subDay()->startOfDay(), now()->endOfDay());
-        $countryList = AudienceList::query()->where('workspace_id', $fixture['workspace']->getKey())
-            ->where('isp_id', $fixture['isp']->getKey())->where('name', 'US')->firstOrFail();
         $this->assertSame(['read' => 1, 'created' => 1, 'updated' => 0, 'skipped' => 0], $result);
-        $this->assertSame((string) $countryList->getKey(), (string) $fixture['membership']->fresh()->audience_list_id);
+        $this->assertSame((string) $fixture['list']->getKey(), (string) $fixture['membership']->fresh()->audience_list_id);
         $this->assertSame('lead', $fixture['membership']->fresh()->email_type);
         $this->assertSame('United States', CampaignLeadConversion::query()->firstOrFail()->country);
-        $this->assertSame(['lead-operator'], $countryList->allowed_users);
-        $this->assertTrue($countryList->is_unsubscribe_locked);
         $actionList = AudienceList::query()
             ->where('workspace_id', $fixture['workspace']->getKey())
-            ->where('name', 'Lead fixture audience_US_Lead')
+            ->where('name', 'Lead fixture audience_lead_us')
             ->firstOrFail();
+        $this->assertSame(['lead-operator'], $actionList->allowed_users);
+        $this->assertTrue($actionList->is_unsubscribe_locked);
         $this->assertSame(1, ContactListMembership::query()
             ->where('workspace_id', $fixture['workspace']->getKey())
             ->where('audience_list_id', $actionList->getKey())
@@ -397,20 +398,20 @@ class CampaignLeadReconciliationTest extends TestCase
         );
 
         $result = $importer->import($fixture['sponsor'], now()->subDay()->startOfDay(), now()->endOfDay());
-        $countryList = AudienceList::query()->where('workspace_id', $fixture['workspace']->getKey())
-            ->where('isp_id', $fixture['isp']->getKey())->where('name', 'US')->firstOrFail();
         $visitor = WorkspaceDropVisitor::query()->where('workspace_drop_id', $drop->getKey())->firstOrFail();
         $this->assertSame(['read' => 1, 'created' => 1, 'updated' => 0, 'skipped' => 0], $result);
-        $this->assertSame((string) $countryList->getKey(), (string) $fixture['membership']->fresh()->audience_list_id);
+        $this->assertSame((string) $fixture['list']->getKey(), (string) $fixture['membership']->fresh()->audience_list_id);
         $this->assertSame('lead', $fixture['membership']->fresh()->email_type);
         $this->assertSame('United States', $visitor->country);
-        $this->assertSame(['drop-operator'], $countryList->allowed_users);
-        $this->assertTrue($countryList->is_lead_locked);
         $this->assertDatabaseHas('contact_list_membership_events', [
-            'audience_list_id' => $countryList->getKey(),
+            'audience_list_id' => $fixture['list']->getKey(),
             'contact_id' => $fixture['contact']->getKey(),
             'action' => 'lead',
             'source' => 'affiliate_conversion',
+        ]);
+        $this->assertDatabaseHas('audience_lists', [
+            'workspace_id' => $fixture['workspace']->getKey(),
+            'name' => 'Lead fixture audience_lead',
         ]);
     }
 
@@ -451,7 +452,7 @@ class CampaignLeadReconciliationTest extends TestCase
         $this->assertSame((string) $fixture['contact']->getKey(), $visitor->email_id);
         $this->assertSame((string) $fixture['list']->getKey(), $visitor->list_id);
         $this->assertSame('lead', $fixture['membership']->fresh()->email_type);
-        $this->assertSame(1, ContactListMembershipEvent::query()->where('source', 'affiliate_conversion')->count());
+        $this->assertSame(2, ContactListMembershipEvent::query()->where('source', 'affiliate_conversion')->count());
 
         app(AudienceListHistoryCalculator::class)->calculate($fixture['list'], Carbon::today());
         $this->assertSame(1, (int) AudienceListHistory::query()->firstOrFail()->lead);

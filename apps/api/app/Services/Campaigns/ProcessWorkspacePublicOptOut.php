@@ -26,7 +26,7 @@ class ProcessWorkspacePublicOptOut
                 ...app(CampaignVisitorMetadataResolver::class)->parseUserAgent($userAgent),
             ]
             : app(CampaignVisitorMetadataResolver::class)->resolve($workspace, $ip, $userAgent, 'opt_out');
-        unset($metadata['blocked_open'], $metadata['country_code']);
+        unset($metadata['blocked_open']);
 
         DB::transaction(function () use ($workspace, $contactId, $ip, $userAgent, $metadata): void {
             $membership = ContactListMembership::query()
@@ -91,6 +91,18 @@ class ProcessWorkspacePublicOptOut
                 'email_type' => $nextType,
                 'last_event_id' => $event->getKey(),
             ])->save();
+
+            app(TrackedCountryListManager::class)->recordActionSegment(
+                (string) $membership->audience_list_id,
+                $membership,
+                'opt_out',
+                $metadata['country_code'] ?? null,
+                $nextType,
+                'public_opt_out',
+                (string) $event->getKey(),
+                $now,
+                ['country' => $metadata['country']],
+            );
 
             if (is_string($metadata['country']) && $metadata['country'] !== '') {
                 $profile = is_array($contact->profile) ? $contact->profile : [];

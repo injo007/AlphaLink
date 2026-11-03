@@ -16,6 +16,7 @@ class AudienceList extends Model
     protected $fillable = [
         'workspace_id', 'created_by', 'name', 'slug', 'description', 'status',
         'idempotency_key', 'request_fingerprint', 'isp_id', 'country',
+        'segment_source_list_id', 'segment_action', 'segment_country_code',
         'allowed_users', 'allowed_sponsors',
         'is_tracked', 'is_fresh_locked', 'is_delivery_locked', 'is_open_locked',
         'is_click_locked', 'is_lead_locked', 'is_unsubscribe_locked',

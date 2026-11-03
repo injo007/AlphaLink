@@ -224,19 +224,17 @@ class AlphaLinkSponsorLeadImporter
             'last_event_id' => $membershipEvent->getKey(),
         ])->save();
 
-        if (isset($metadata['campaign_id'])) {
-            $this->membershipManager->recordActionSegment(
-                $listId,
-                $membership,
-                'lead',
-                $countryCode,
-                'lead',
-                'affiliate_conversion',
-                (string) $membershipEvent->getKey(),
-                $occurredAt,
-                $metadata + ['campaign_id' => (string) $metadata['campaign_id']],
-            );
-        }
+        $this->membershipManager->recordActionSegment(
+            $listId,
+            $membership,
+            'lead',
+            $countryCode,
+            'lead',
+            'affiliate_conversion',
+            (string) $membershipEvent->getKey(),
+            $occurredAt,
+            $metadata,
+        );
     }
 
     private function membershipEventKey(WorkspaceSponsor $sponsor, string $conversionId): string

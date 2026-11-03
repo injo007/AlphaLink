@@ -33,6 +33,11 @@ class ProcessCampaignTrackingEvent
         }
 
         $data['tracking_event_id'] = $trackingEventId;
+        $data['action'] = app(CampaignAutomatedTrafficClassifier::class)->normalizeAction(
+            (string) $data['action'],
+            (string) ($data['user_agent'] ?? ''),
+            (string) ($data['ip_address'] ?? ''),
+        );
         $existingEvent = $this->findExistingRequestEvent($trackingEventId, $campaign, $data);
         if ($existingEvent !== null) {
             return $existingEvent;
@@ -97,6 +102,7 @@ class ProcessCampaignTrackingEvent
                 'isp_id' => (int) $data['isp_id'] > 0 ? (int) $data['isp_id'] : null,
                 'client_ip' => $data['ip_address'],
                 'user_agent' => $data['user_agent'],
+                'country_code' => $countryCode,
                 ...$metadata,
                 'dimension_ids' => [
                     'server_id' => (string) $data['server_id'],
@@ -141,6 +147,18 @@ class ProcessCampaignTrackingEvent
             ], $eventSources);
             foreach (array_chunk($eventSourceRows, 1000) as $sourceChunk) {
                 DB::table('campaign_engagement_event_sources')->insertOrIgnore($sourceChunk);
+            }
+
+            $uniqueActionInserted = DB::table('campaign_engagement_unique_actions')->insertOrIgnore([
+                'workspace_id' => $campaign->workspace_id,
+                'campaign_id' => $campaign->getKey(),
+                'contact_id' => $item->contact_id,
+                'action' => $data['action'],
+                'engagement_event_id' => $event->getKey(),
+                'created_at' => $event->created_at,
+            ]);
+            if ($uniqueActionInserted === 0) {
+                return $event;
             }
 
             $membershipManager = app(TrackedCountryListManager::class);

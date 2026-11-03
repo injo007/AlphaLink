@@ -185,7 +185,18 @@ class AlphaLinkPublicLandingApiTest extends TestCase
         $this->assertSame(1, ContactListMembershipEvent::query()
             ->where('contact_id', $contact->getKey())
             ->where('action', 'opt_out')
+            ->where('audience_list_id', $list->getKey())
             ->count());
+        $optOutList = AudienceList::query()
+            ->where('workspace_id', $this->workspace->getKey())
+            ->where('name', 'Synthetic intake list_optout')
+            ->firstOrFail();
+        $this->assertDatabaseHas('contact_list_memberships', [
+            'audience_list_id' => $optOutList->getKey(),
+            'contact_id' => $contact->getKey(),
+            'email_type' => 'opt_out',
+            'status' => 'inactive',
+        ]);
         $this->assertDatabaseMissing('suppression_events', ['contact_id' => $contact->getKey()]);
         $this->assertSame('United States', $contact->fresh()->profile['country']);
     }

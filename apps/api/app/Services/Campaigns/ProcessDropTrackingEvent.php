@@ -108,6 +108,21 @@ class ProcessDropTrackingEvent
                         'last_event_id' => $membershipEvent->getKey(),
                     ])->save();
                 }
+
+                $membershipManager->recordActionSegment(
+                    (string) $listId,
+                    $membership,
+                    (string) $data['action'],
+                    $countryCode,
+                    (string) $membership->email_type,
+                    'drop_tracking',
+                    (string) $event->getKey(),
+                    $event->created_at,
+                    [
+                        'drop_id' => (string) $drop->getKey(),
+                        'visitor_id' => (string) $event->getKey(),
+                    ],
+                );
             }
 
             if ($data['action'] === 'unsubscribe' && $contact !== null && $drop->offer_id !== null) {

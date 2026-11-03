@@ -18,15 +18,20 @@ class AudienceListHistoryCalculator
         ], 0);
 
         DB::table('contact_list_memberships')
-            ->select('email_type')
+            ->select(['email_type', 'status'])
             ->selectRaw('COUNT(*) as aggregate')
             ->where('workspace_id', $list->workspace_id)
             ->where('audience_list_id', $list->getKey())
-            ->groupBy('email_type')
+            ->groupBy(['email_type', 'status'])
             ->get()
-            ->each(function (object $row) use (&$counts): void {
+            ->each(function (object $row) use (&$counts, $list): void {
+                $isCurrentStatusSegment = in_array($list->segment_action, ['fresh', 'delivery'], true);
+                if ($isCurrentStatusSegment && $row->status !== 'active') {
+                    return;
+                }
+
                 if (array_key_exists($row->email_type, $counts)) {
-                    $counts[$row->email_type] = (int) $row->aggregate;
+                    $counts[$row->email_type] += (int) $row->aggregate;
                 }
             });
 
@@ -44,7 +49,7 @@ class AudienceListHistoryCalculator
     {
         $calculated = 0;
 
-        AudienceList::query()->select(['id', 'workspace_id'])->orderBy('id')->lazy()->each(function (AudienceList $list) use (&$calculated): void {
+        AudienceList::query()->select(['id', 'workspace_id', 'segment_action'])->orderBy('id')->lazy()->each(function (AudienceList $list) use (&$calculated): void {
             $this->calculate($list);
             $calculated++;
         });

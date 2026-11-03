@@ -68,6 +68,10 @@ class AudienceListImportTest extends TestCase
 
         $encrypted = (string) Contact::query()->firstOrFail()->getRawOriginal('email');
         $this->assertStringNotContainsString('@example.com', $encrypted);
+        $this->assertDatabaseHas('audience_lists', [
+            'workspace_id' => $this->workspace->getKey(),
+            'name' => 'Primary list_fresh',
+        ]);
     }
 
     public function test_contact_can_belong_to_multiple_lists_while_reimports_are_idempotent(): void
@@ -105,7 +109,7 @@ class AudienceListImportTest extends TestCase
         ], ['Idempotency-Key' => (string) Str::uuid()])
             ->assertCreated()
             ->assertJsonPath('data.status', 'active');
-        $this->assertDatabaseCount('contact_list_memberships', 3);
+        $this->assertDatabaseCount('contact_list_memberships', 5);
     }
 
     public function test_snapshot_migration_refuses_rollback_before_schema_changes_when_contact_has_multiple_list_memberships(): void
@@ -125,7 +129,7 @@ class AudienceListImportTest extends TestCase
             $this->assertStringContainsString('Use a forward migration', $exception->getMessage());
         }
 
-        $this->assertSame(2, ContactListMembership::query()->count());
+        $this->assertSame(4, ContactListMembership::query()->count());
         $this->assertTrue(Schema::hasTable('campaign_recipient_snapshots'));
         $this->assertTrue(Schema::hasTable('campaign_recipient_snapshot_items'));
     }
@@ -136,7 +140,9 @@ class AudienceListImportTest extends TestCase
         $this->postJson($this->importUrl($list), ['addresses' => 'opted-out@example.com'])
             ->assertAccepted()
             ->assertJsonPath('data.imported_count', 1);
-        $membership = ContactListMembership::query()->sole();
+        $membership = ContactListMembership::query()
+            ->where('audience_list_id', $list->getKey())
+            ->sole();
         $membership->forceFill(['email_type' => 'opt_out', 'status' => 'removed'])->save();
 
         $this->postJson($this->importUrl($list), ['addresses' => 'opted-out@example.com'])
@@ -147,7 +153,7 @@ class AudienceListImportTest extends TestCase
         $this->assertSame('opt_out', $membership->fresh()->email_type);
         $this->assertSame('removed', $membership->fresh()->status);
         $this->assertDatabaseCount('contacts', 1);
-        $this->assertDatabaseCount('contact_list_memberships', 1);
+        $this->assertDatabaseCount('contact_list_memberships', 2);
     }
 
     public function test_membership_profile_migration_refuses_a_data_losing_rollback(): void
@@ -222,7 +228,7 @@ class AudienceListImportTest extends TestCase
             ->assertJsonPath('data.duplicate_count', 5000);
 
         $this->assertDatabaseCount('contacts', 1);
-        $this->assertDatabaseCount('contact_list_memberships', 1);
+        $this->assertDatabaseCount('contact_list_memberships', 2);
     }
 
     public function test_import_accepts_large_raw_payloads_and_a_streamed_file_endpoint(): void
@@ -285,7 +291,7 @@ class AudienceListImportTest extends TestCase
         $this->assertSame('completed', $batch->fresh()->status);
         $this->assertNull($batch->fresh()->failure_message);
         $this->assertDatabaseCount('contacts', 1);
-        $this->assertDatabaseCount('contact_list_memberships', 1);
+        $this->assertDatabaseCount('contact_list_memberships', 2);
     }
 
     public function test_failed_import_status_does_not_expose_exception_data(): void

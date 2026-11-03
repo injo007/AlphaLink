@@ -113,6 +113,10 @@
             #campaign-context-menu { position: fixed; z-index: 1110; min-width: 190px; padding: 5px 0; background: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, .32); }
             #campaign-action-status { position: sticky; top: .25rem; z-index: 1120; }
             #campaign-action-status[hidden] { display: none !important; }
+            #campaign-body-preview { border: 1px solid #d5dce1; border-radius: .35rem; box-shadow: 0 8px 28px rgb(52 58 64 / 22%); max-height: 90vh; max-width: 96vw; padding: 1rem; width: min(1100px, 96vw); }
+            #campaign-body-preview::backdrop { background: rgba(27, 33, 40, .58); }
+            #campaign-body-preview .campaign-body-preview-header { align-items: center; display: flex; justify-content: space-between; margin-bottom: .75rem; }
+            #campaign-body-preview-frame { border: 1px solid #d7dce3; display: block; height: min(72vh, 820px); min-height: 360px; width: 100%; }
         </style>
         <form method="POST" action="{{ $editingCampaign ? route('console.campaigns.revisions.store', [$workspace->id, $editingCampaign->id]) : route('console.campaigns.store', $workspace->id) }}" id="campaign-create-form" data-options-url="{{ $sendOptionsUrl }}" novalidate>
         <div id="campaign-action-backdrop" hidden></div>
@@ -377,10 +381,16 @@
                         <div class="custom-control custom-switch custom-control-inline ml-2">
                             <input id="campaign-body-map" type="checkbox" class="custom-control-input">
                             <label for="campaign-body-map" class="custom-control-label">MAP BODY</label>
-                            <button type="button" id="campaign-body-insert-open-pixel" class="btn btn-link btn-sm p-0 ml-1" title="Insert open tracking pixel" aria-label="Insert open tracking pixel"><i class="fas fa-eye" aria-hidden="true"></i></button>
+                            <button type="button" id="campaign-body-insert-open-pixel" class="btn btn-link btn-sm p-0 ml-1" title="Insert open tracking pixel" aria-label="Insert open tracking pixel"><i class="fas fa-bullseye" aria-hidden="true"></i></button>
                         </div>
                         <textarea id="campaign-body" name="body" rows="28" class="form-control" spellcheck="false">{{ old('body', $savedContent['body'] ?? '') }}</textarea>
-                        <div id="campaign-body-preview" hidden class="mt-2"><iframe id="campaign-body-preview-frame" title="Campaign body preview" sandbox="" style="width:100%;min-height:360px;border:1px solid #d7dce3"></iframe></div>
+                        <dialog id="campaign-body-preview" class="campaign-body-preview-dialog" data-campaign-dialog-width="min(1100px, 96vw)" aria-labelledby="campaign-body-preview-title">
+                            <div class="campaign-body-preview-header">
+                                <h2 id="campaign-body-preview-title" class="h5 mb-0">HTML Preview</h2>
+                                <button type="button" id="campaign-body-preview-close" class="btn btn-sm btn-outline-secondary" aria-label="Close HTML preview"><i class="fas fa-times" aria-hidden="true"></i></button>
+                            </div>
+                            <iframe id="campaign-body-preview-frame" title="Campaign body preview" sandbox=""></iframe>
+                        </dialog>
                     </div>
                 </div>
                 <div class="form-row">
@@ -875,7 +885,11 @@
                     dialog.close();
                 }
                 const openerId = dialog.dataset.openerId;
-                if (openerId) document.getElementById(openerId)?.focus();
+                if (openerId) {
+                    const opener = document.getElementById(openerId);
+                    if (opener?.hasAttribute('aria-expanded')) opener.setAttribute('aria-expanded', 'false');
+                    opener?.focus();
+                }
             };
             const showDialog = (dialogId) => {
                 const dialog = document.getElementById(dialogId);
@@ -958,11 +972,15 @@
                     return copied;
                 }
             };
-            previewButton.addEventListener('click', () => {
-                preview.hidden = !preview.hidden;
-                previewButton.setAttribute('aria-expanded', String(!preview.hidden));
-                if (!preview.hidden) document.getElementById('campaign-body-preview-frame').srcdoc = body.value;
-            });
+            const previewFrame = document.getElementById('campaign-body-preview-frame');
+            const openBodyPreview = () => {
+                previewFrame.srcdoc = body.value;
+                showDialog('campaign-body-preview');
+                previewButton.setAttribute('aria-expanded', 'true');
+            };
+            previewButton.addEventListener('click', openBodyPreview);
+            preview.addEventListener('close', () => previewButton.setAttribute('aria-expanded', 'false'));
+            document.getElementById('campaign-body-preview-close').addEventListener('click', () => closeDialog(preview));
             document.getElementById('campaign-header-shuffle').addEventListener('click', () => {
                 const lines = header.value.replace(/\r\n/g, '\n').split('\n');
                 for (let index = lines.length - 1; index > 0; index--) {

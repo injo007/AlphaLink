@@ -216,6 +216,9 @@ test('route picker labels and accessible controls switch to SMTP route terminolo
 test('open tracking pixel control preserves a chosen caret and otherwise inserts inside the body', () => {
     const snippet = '<img src="[domain]/[rndUN_20]o[token]" width="1" height="1" style="display:block;">';
     assert.match(view, /id="campaign-body-insert-open-pixel"[^>]*title="Insert open tracking pixel"[^>]*aria-label="Insert open tracking pixel"/);
+    const pixelButton = view.match(/<button[^>]*id="campaign-body-insert-open-pixel"[^>]*>[\s\S]*?<\/button>/)?.[0] ?? '';
+    assert.match(pixelButton, /fa-bullseye/);
+    assert.doesNotMatch(pixelButton, /fa-eye/);
     assert.ok(view.includes(`insertTextAtSelection(body, '${snippet}', campaignBodyHasFocus)`));
     assert.ok(view.includes("openPixelButton?.addEventListener('mousedown', event => event.preventDefault());"));
 
@@ -256,6 +259,34 @@ test('open tracking pixel control preserves a chosen caret and otherwise inserts
     vm.runInNewContext(`${helper}\ninsertTextAtSelection(textarea, '${snippet}', false);`, fallbackEnv);
     assert.equal(fallbackTextarea.value, `<html><body>content${snippet}</body></html>`);
     assert.equal(fallbackTextarea.selectionMode, 'end');
+});
+
+test('campaign HTML preview renders in a labeled sandboxed modal popup', () => {
+    const dialog = view.match(/<dialog id="campaign-body-preview"[^>]*>[\s\S]*?<\/dialog>/)?.[0] ?? '';
+    assert.match(view, /id="campaign-body-preview-button"[^>]*title="Preview body"[^>]*aria-controls="campaign-body-preview"/);
+    assert.match(view, /id="campaign-body-preview-button"[^>]*><i class="fas fa-eye"/);
+    assert.match(dialog, /aria-labelledby="campaign-body-preview-title"/);
+    assert.match(dialog, /<h2 id="campaign-body-preview-title"[^>]*>HTML Preview<\/h2>/);
+    assert.match(dialog, /id="campaign-body-preview-close"[^>]*aria-label="Close HTML preview"/);
+    assert.match(dialog, /<iframe id="campaign-body-preview-frame"[^>]*sandbox=""/);
+    assert.ok(view.includes("preview.addEventListener('close', () => previewButton.setAttribute('aria-expanded', 'false'))"));
+    assert.ok(view.includes("document.getElementById('campaign-body-preview-close').addEventListener('click', () => closeDialog(preview))"));
+
+    const handlerStart = view.indexOf('            const openBodyPreview = () => {');
+    const handlerEnd = view.indexOf('\n            };', handlerStart) + '\n            };'.length;
+    assert.notEqual(handlerStart, -1, 'body preview handler exists');
+    assert.ok(handlerEnd > handlerStart, 'body preview handler closes');
+    let openedDialog = '';
+    const env = {
+        body: {value: '<html><body>current draft</body></html>'},
+        previewFrame: {srcdoc: ''},
+        previewButton: {setAttribute(name, value) { this[name] = value; }},
+        showDialog(dialogId) { openedDialog = dialogId; },
+    };
+    vm.runInNewContext(`${view.slice(handlerStart, handlerEnd)}\nopenBodyPreview();`, env);
+    assert.equal(env.previewFrame.srcdoc, env.body.value);
+    assert.equal(openedDialog, 'campaign-body-preview');
+    assert.equal(env.previewButton['aria-expanded'], 'true');
 });
 
 test('IP route choices disclose linked SMTP account and ambiguity', () => {

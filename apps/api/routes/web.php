@@ -145,6 +145,7 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::post('/app/workspaces/{workspace}/drops/suppression/kill', [WorkspaceDropSuppressionController::class, 'kill'])
         ->middleware('throttle:10,1')->name('console.drops.suppression.kill');
     Route::get('/app/workspaces/{workspace}/drops/monitoring', [WorkspaceDropsConsoleController::class, 'monitoring'])->name('console.drops.monitoring');
+    Route::get('/app/workspaces/{workspace}/drops/statistics', [WorkspaceDropsConsoleController::class, 'statistics'])->name('console.drops.statistics');
     Route::get('/app/workspaces/{workspace}/drops/{drop}/monitor', [WorkspaceDropsConsoleController::class, 'monitor'])
         ->whereNumber('drop')->name('console.drops.monitor');
     Route::get('/app/workspaces/{workspace}/drops/{drop}/stats', [WorkspaceDropsConsoleController::class, 'stats'])

@@ -14,6 +14,8 @@
 
 ## Current product behavior
 
+- E-DROP-STAT-001 implements the Drop Statistics slice: a workspace-scoped, database-aggregated report with date, Drop, ISP, List, geo and send-type filters, an interactive pivot, and a paginated fallback. Responses contain aggregate event dimensions only; recipient IDs, request IPs and creative HTML are withheld; the captured creative ID is used as its pivot dimension. Counts represent stored event rows, so repeated actions and scanner traffic may be present. Delivery/bounce measures are not inferred. See DMS-DROP-004 in the feature matrix and parity report; status remains TESTING.
+
 - AlphaLink is the visible product identity in the live application. The bounded scan found no DMS-name references in active application source, configuration, routes, views, public build assets, or installer assets.
 - The API now requires PHP `^8.5` in both `composer.json` and `composer.lock`; the fresh installer also targets PHP 8.5. The workstation's default CLI is PHP 8.3.6, so validation commands use the isolated PHP 8.5.12 runtime explicitly.
 - Four application paths retain old names solely for database/import compatibility: two migrations that normalize historical migration-ledger names and the `dms_csv` import-format marker, plus their two synthetic feature tests. Archived engineering reports preserve dated evidence and are labeled as historical.
@@ -23,6 +25,7 @@
 
 ## Verification
 
+- E-DROP-STAT-001 final verification: PHP 8.5.12 full suite **1,052 tests, 9,786 assertions**, 15 PHPUnit notices and one skipped test; focused Drop Statistics/Monitoring **14 tests, 135 assertions**; JavaScript **91/91**; Vite production build, Pint, and `git diff --check` passed.
 - Validation ran in an isolated PHP **8.5.12** container, matching the fresh installer target. Focused PHP coverage passed: **154 tests, 1,376 assertions**. PHP syntax checks and Pint passed.
 - Additional checks on the current worktree passed in PHP 8.5.12: **91 focused tests, 826 assertions**, including workspace tools, audience upload, campaign tracking, and Drop tracking. Pint passed for all **100 changed PHP files**. A repository-wide Pint scan also reports a pre-existing formatting issue in unchanged `apps/api/bootstrap/providers.php`.
 - The full PHP 8.5.12 suite now passes: **1,048 tests, 9,739 assertions**, with 15 PHPUnit notices and one skipped test. The prior failure was a stale assertion: delivery writes both the membership transition and its action-segment event; the test now checks the correct initial and resulting counts. No PMTA production behavior was changed.

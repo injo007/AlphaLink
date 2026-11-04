@@ -4,9 +4,11 @@ import test from 'node:test';
 import {
     allStatsPivotFields,
     campaignStatisticsPivotFields,
+    dropStatisticsPivotFields,
     mailerRevenuePivotFields,
     projectAllStatsRows,
     projectCampaignStatisticsRows,
+    projectDropStatisticsRows,
     projectMailerRevenueRows,
 } from '../../public/console-assets/analytics-pivot.js';
 
@@ -116,6 +118,53 @@ test('Mailer Revenue exposes imported delivery and bounce counts with partial CT
     assert.equal(byCaption['OPT-OUTS'], undefined);
     assert.equal(byCaption.CTOR.calculateSummaryValue(summary({ opens: 8, clicks: 2 })), '25.00%');
     assert.equal(byCaption.CTOR.calculateSummaryValue(summary({ opens: 0, clicks: 2 })), '0.00%');
+    assert.equal(byCaption.EPC.calculateSummaryValue(summary({ lead_revenue: 7.5, clicks: 3 })), '$2.50');
+    assert.equal(byCaption.EPC.calculateSummaryValue(summary({ lead_revenue: 7.5, clicks: 0 })), '$0.00');
+});
+
+test('Drop Statistics projects grouped activity without recipient identifiers', () => {
+    const rows = projectDropStatisticsRows([{
+        at: '2026-11-04',
+        drop_id: 42,
+        drop_type: 'send',
+        user: 'Synthetic mailer',
+        isp: 'Synthetic ISP',
+        list: 'Synthetic list',
+        list_type: 'fresh',
+        creative: 'creative-html-asset-91',
+        country: 'US',
+        opens: '2',
+        clicks: '1',
+        leads: '1',
+        conversions: '1',
+        unsubscribes: '1',
+        bots: '1',
+        lead_revenue: '7.50',
+        email_id: 'private-recipient-id',
+        recipient_email: 'private@example.test',
+    }]);
+
+    assert.deepEqual(rows, [{
+        at: '2026-11-04', drop_id: '42', drop_type: 'send', user: 'Synthetic mailer',
+        isp: 'Synthetic ISP', list: 'Synthetic list', list_type: 'fresh', provider: 'NA',
+        server: 'NA', ip: 'NA', domain: 'NA', sponsor: 'NA', offer: 'NA', vertical: 'NA',
+        from: 'NA', subject: 'NA', creative: 'creative-html-asset-91', country: 'US', opens: 2, clicks: 1,
+        leads: 1, conversions: 1, unsubscribes: 1, bots: 1, lead_revenue: 7.5,
+    }]);
+    assert.equal('email_id' in rows[0], false);
+    assert.equal('recipient_email' in rows[0], false);
+});
+
+test('Drop Statistics pivot exposes captured Drop dimensions and stored event measures', () => {
+    const byCaption = Object.fromEntries(dropStatisticsPivotFields().map((field) => [field.caption, field]));
+    for (const caption of ['DROP', 'MAILER', 'SEND TYPE', 'ISP', 'LIST', 'LIST TYPE', 'PROVIDER', 'SERVER', 'IP', 'DOMAIN', 'SPONSOR', 'OFFER', 'VERTICAL', 'FROM', 'SUBJECT', 'CREATIVE', 'GEO', 'DATE']) {
+        assert.ok(byCaption[caption], `expected ${caption} pivot dimension`);
+    }
+    for (const caption of ['OPENS', 'CLICKS', 'LEADS', 'CONVERSIONS', 'UNSUBS', 'BOTS', 'LEAD REVENUE', 'EPC']) {
+        assert.equal(byCaption[caption].area, 'data');
+    }
+    const summary = (values) => ({ value: (field) => values[field] ?? 0 });
+    assert.equal(byCaption.CTOR.calculateSummaryValue(summary({ opens: 8, clicks: 2 })), '25.00%');
     assert.equal(byCaption.EPC.calculateSummaryValue(summary({ lead_revenue: 7.5, clicks: 3 })), '$2.50');
     assert.equal(byCaption.EPC.calculateSummaryValue(summary({ lead_revenue: 7.5, clicks: 0 })), '$0.00');
 });

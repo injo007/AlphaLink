@@ -73,6 +73,7 @@
         $horizonUrl = route('clean.console.miscellaneous.horizon');
         $campaignsUrl = route('console.mailer.campaigns');
         $dropsMonitoringUrl = route('clean.console.drops.monitoring');
+        $dropsStatisticsUrl = route('clean.console.drops.statistics');
         $globalTestsUrl = route('clean.console.global-tests.index');
         $globalTestHistoriesUrl = route('clean.console.global-tests.histories');
         $seedListsUrl = route('clean.console.warmups.seeds.index');
@@ -138,7 +139,9 @@
         $isUsersPage = $routeIs('console.users.*');
         $isGlobalUsersPage = $routeIs('console.global-users.*');
         $isCampaignNegativesPage = $routeIs('console.campaign-negatives.*');
-        $isDropsPage = $routeIs('console.drops.monitoring', 'console.drops.visitors', 'console.drops.suppression*');
+        $isDropStatisticsPage = $routeIs('console.drops.statistics');
+        $isDropsMonitoringPage = $routeIs('console.drops.monitoring', 'console.drops.visitors');
+        $isDropsPage = $isDropsMonitoringPage || $isDropStatisticsPage || $routeIs('console.drops.suppression*');
         $isSeedListsPage = $routeIs('console.warmups.seeds.*', 'console.warmups.seed-emails.*');
         $isGlobalTestsPage = $routeIs('console.global-tests.index', 'console.global-tests.catalog', 'console.global-tests.test');
         $isGlobalTestHistoriesPage = $routeIs('console.global-tests.histories', 'console.global-tests.history');
@@ -236,9 +239,9 @@
             ['label' => 'DROPS', 'icon' => 'fas fa-paper-plane', 'open' => $isDropsPage, 'items' => [
                 ['label' => 'RECENT DROP', 'icon' => 'fas fa-paper-plane'],
                 ['label' => 'FRESH DROP', 'icon' => 'fas fa-plus'],
-                ['label' => 'MONITORING', 'icon' => 'fas fa-eye', 'href' => $dropsMonitoringUrl, 'active' => $isDropsPage],
+                ['label' => 'MONITORING', 'icon' => 'fas fa-eye', 'href' => $dropsMonitoringUrl, 'active' => $isDropsMonitoringPage],
                 ['label' => 'SUPPRESSION', 'icon' => 'fas fa-times', 'href' => route('clean.console.drops.suppression'), 'active' => $routeIs('console.drops.suppression*')],
-                ['label' => 'STATISTICS', 'icon' => 'fas fa-chart-line'],
+                ['label' => 'STATISTICS', 'icon' => 'fas fa-chart-line', 'href' => $dropsStatisticsUrl, 'active' => $isDropStatisticsPage],
             ]],
             ['label' => "WARMUP'S", 'icon' => 'fas fa-burn', 'open' => $isSeedListsPage, 'items' => [
                 ['label' => 'SEND', 'icon' => 'fas fa-burn'],

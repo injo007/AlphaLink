@@ -287,6 +287,111 @@ export function campaignStatisticsPivotFields() {
     ];
 }
 
+export function projectDropStatisticsRows(rows) {
+    return rows.map((row) => ({
+        at: String(row.at || 'NA'),
+        user: String(row.user || 'NA'),
+        drop_id: String(row.drop_id || 'NA'),
+        drop_type: String(row.drop_type || 'NA'),
+        isp: String(row.isp || 'NA'),
+        list: String(row.list || 'NA'),
+        list_type: String(row.list_type || 'NA'),
+        provider: String(row.provider || 'NA'),
+        server: String(row.server || 'NA'),
+        ip: String(row.ip || 'NA'),
+        domain: String(row.domain || 'NA'),
+        sponsor: String(row.sponsor || 'NA'),
+        offer: String(row.offer || 'NA'),
+        vertical: String(row.vertical || 'NA'),
+        from: String(row.from || 'NA'),
+        subject: String(row.subject || 'NA'),
+        creative: String(row.creative || 'NA'),
+        country: String(row.country || 'NA'),
+        opens: Number(row.opens) || 0,
+        clicks: Number(row.clicks) || 0,
+        leads: Number(row.leads) || 0,
+        conversions: Number(row.conversions) || 0,
+        unsubscribes: Number(row.unsubscribes) || 0,
+        bots: Number(row.bots) || 0,
+        lead_revenue: Number(row.lead_revenue) || 0,
+    }));
+}
+
+export function dropStatisticsPivotFields() {
+    const dimensions = [
+        ['drop_id', 'DROP', 'row'],
+        ['user', 'MAILER', 'filter'],
+        ['drop_type', 'SEND TYPE', 'filter'],
+        ['isp', 'ISP', 'filter'],
+        ['list', 'LIST', 'filter'],
+        ['list_type', 'LIST TYPE', undefined],
+        ['provider', 'PROVIDER', 'filter'],
+        ['server', 'SERVER', 'filter'],
+        ['ip', 'IP', 'filter'],
+        ['domain', 'DOMAIN', 'filter'],
+        ['sponsor', 'SPONSOR', 'filter'],
+        ['offer', 'OFFER', 'filter'],
+        ['vertical', 'VERTICAL', undefined],
+        ['from', 'FROM', undefined],
+        ['subject', 'SUBJECT', undefined],
+        ['creative', 'CREATIVE', undefined],
+        ['country', 'GEO', 'filter'],
+        ['at', 'DATE', 'filter'],
+    ].map(([dataField, caption, area]) => ({
+        dataField,
+        caption,
+        ...(area ? { area } : {}),
+        ...(dataField === 'drop_id' ? { width: 120, sortOrder: 'desc' } : {}),
+        ...(dataField === 'at' ? { dataType: 'string' } : {}),
+    }));
+    const measures = [
+        ['opens', 'OPENS'],
+        ['clicks', 'CLICKS'],
+        ['leads', 'LEADS'],
+        ['conversions', 'CONVERSIONS'],
+        ['unsubscribes', 'UNSUBS'],
+        ['bots', 'BOTS'],
+    ].map(([dataField, caption]) => ({
+        dataField,
+        caption,
+        area: 'data',
+        summaryType: 'sum',
+        format: 'fixedPoint',
+    }));
+
+    return [
+        ...dimensions,
+        ...measures,
+        {
+            dataField: 'lead_revenue',
+            caption: 'LEAD REVENUE',
+            area: 'data',
+            summaryType: 'sum',
+            dataType: 'number',
+            format: { type: 'currency', precision: 2 },
+        },
+        {
+            caption: 'CTOR',
+            calculateSummaryValue(event) {
+                const opens = event.value('opens');
+                const clicks = event.value('clicks');
+
+                return `${(opens > 0 ? (clicks / opens) * 100 : 0).toFixed(2)}%`;
+            },
+        },
+        {
+            caption: 'EPC',
+            area: 'data',
+            calculateSummaryValue(event) {
+                const revenue = event.value('lead_revenue');
+                const clicks = event.value('clicks');
+
+                return `$${(clicks > 0 ? revenue / clicks : 0).toFixed(2)}`;
+            },
+        },
+    ];
+}
+
 function initializeAllStatsPivot() {
     const shell = document.getElementById('all-stats-pivot-shell');
     const form = document.querySelector('[data-analytics-date-range-form][data-storage-key="all_stats"]');
@@ -834,8 +939,168 @@ function initializeCampaignStatisticsPivot() {
     window.setInterval(refresh, 15 * 60 * 1000);
 }
 
+function initializeDropStatisticsPivot() {
+    const shell = document.getElementById('drop-statistics-pivot-shell');
+    const form = document.querySelector('[data-analytics-date-range-form][data-storage-key="d_stats"]');
+    const grid = document.getElementById('drop-statistics-pivot');
+    const status = document.getElementById('drop-statistics-pivot-status');
+    const reloadButton = document.getElementById('drop-statistics-pivot-reload');
+
+    if (!shell || !form || !grid || !status) {
+        return;
+    }
+
+    const setStatus = (message, tone = 'muted') => {
+        status.textContent = message;
+        status.className = `small mb-2 text-${tone}`;
+        status.setAttribute('role', tone === 'danger' ? 'alert' : 'status');
+    };
+    const setTableVisible = (visible) => {
+        const fallback = document.getElementById('drop-statistics-table-wrap');
+        if (fallback) {
+            fallback.hidden = !visible;
+        }
+    };
+
+    if (!window.jQuery?.fn?.dxPivotGrid || !window.DevExpress?.data?.PivotGridDataSource) {
+        shell.hidden = false;
+        grid.hidden = true;
+        setStatus('The interactive pivot did not load. The grouped report table remains available.', 'danger');
+        reloadButton?.addEventListener('click', () => window.location.reload());
+        return;
+    }
+
+    let activeRequest = null;
+    let requestVersion = 0;
+    let lastRows = [];
+    let lastError = null;
+    const requestRows = async () => {
+        const url = new URL(shell.dataset.url, window.location.origin);
+        for (const name of ['from', 'to', 'drop_id', 'isp_id', 'list_id', 'country', 'send_type']) {
+            const value = form.elements.namedItem(name)?.value;
+            if (value) {
+                url.searchParams.set(name, value);
+            }
+        }
+        if (!url.searchParams.get('from') || !url.searchParams.get('to')) {
+            throw new Error('Choose a valid Drop Statistics date range.');
+        }
+
+        const version = ++requestVersion;
+        activeRequest?.abort();
+        activeRequest = new AbortController();
+        const request = activeRequest;
+        shell.setAttribute('aria-busy', 'true');
+
+        try {
+            const response = await window.fetch(url, {
+                headers: { Accept: 'application/json' },
+                credentials: 'same-origin',
+                signal: request.signal,
+            });
+            if (version !== requestVersion) {
+                return lastRows;
+            }
+            if (response.status === 401 || response.redirected) {
+                throw new Error('Your session may have expired. Sign in again before viewing this report.');
+            }
+            if (response.status === 403 || response.status === 404) {
+                throw new Error('You no longer have access to this report. Ask a workspace owner.');
+            }
+            if (!response.ok) {
+                throw new Error('Drop Statistics could not be loaded. The grouped report table remains available.');
+            }
+
+            const result = await response.json();
+            if (version !== requestVersion) {
+                return lastRows;
+            }
+            if (!Array.isArray(result)) {
+                throw new Error('Drop Statistics returned an invalid report.');
+            }
+
+            lastRows = projectDropStatisticsRows(result);
+            lastError = null;
+            grid.hidden = false;
+            setTableVisible(false);
+            setStatus(lastRows.length ? `${lastRows.length.toLocaleString()} grouped Drop statistics rows loaded.` : 'No recorded Drop activity matches these filters.');
+
+            return lastRows;
+        } catch (error) {
+            if (error?.name === 'AbortError' || version !== requestVersion) {
+                return lastRows;
+            }
+            lastError = error instanceof Error ? error.message : 'Drop Statistics could not be loaded.';
+            throw error;
+        } finally {
+            if (version === requestVersion) {
+                activeRequest = null;
+                shell.setAttribute('aria-busy', 'false');
+            }
+        }
+    };
+
+    const dataSource = new window.DevExpress.data.PivotGridDataSource({
+        remoteOperations: false,
+        fields: dropStatisticsPivotFields(),
+        load: async () => {
+            setStatus('Loading Drop Statistics…');
+            try {
+                return await requestRows();
+            } catch (error) {
+                grid.hidden = true;
+                setTableVisible(true);
+                setStatus(lastError || (error instanceof Error ? error.message : 'Drop Statistics could not be loaded.'), 'danger');
+                throw error;
+            }
+        },
+    });
+
+    shell.hidden = false;
+    window.jQuery(grid).dxPivotGrid({
+        rowHeaderLayout: 'tree',
+        allowSortingBySummary: true,
+        showColumnGrandTotals: true,
+        allowFiltering: true,
+        allowSorting: true,
+        fieldChooser: { enabled: true },
+        fieldPanel: { visible: true, showDataFields: false, showColumnFields: true, showRowFields: true },
+        stateStoring: { enabled: true, type: 'sessionStorage', storageKey: 'drop_statistics_states' },
+        onCellPrepared(event) {
+            const field = event.component.getDataSource().getAreaFields(event.area)
+                .find((item) => item.areaIndex === event.cell.dataIndex);
+            const colors = {
+                OPENS: '#52b8ff', CLICKS: '#006100', LEADS: '#0b54f1', CONVERSIONS: '#0b54f1',
+                UNSUBS: '#ff0006', BOTS: '#fd950c', 'LEAD REVENUE': '#0b54f1',
+            };
+            const color = colors[field?.caption];
+            if (color) {
+                Object.assign(event.cellElement.get(0).style, { color, fontWeight: 'bold' });
+            }
+        },
+        onDataErrorOccurred() {
+            grid.hidden = true;
+            setTableVisible(true);
+            setStatus(lastError || 'The Drop Statistics request failed. Retry Reload; the grouped report table remains available.', 'danger');
+            lastError = null;
+        },
+        dataSource,
+    });
+
+    const refresh = () => {
+        const result = dataSource.reload();
+        if (result && typeof result.catch === 'function') {
+            result.catch(() => {});
+        }
+    };
+    reloadButton?.addEventListener('click', refresh);
+    document.addEventListener('analytics-report-fragment-updated', refresh);
+    window.setInterval(refresh, 15 * 60 * 1000);
+}
+
 if (typeof document !== 'undefined') {
     initializeAllStatsPivot();
     initializeMailerRevenuePivot();
     initializeCampaignStatisticsPivot();
+    initializeDropStatisticsPivot();
 }

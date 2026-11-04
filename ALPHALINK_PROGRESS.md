@@ -2,7 +2,7 @@
 
 **Updated:** 2026-11-04
 **Active objective:** Complete Drops and Warmups reconstruction, then finish identity reconstruction.
-**Status:** Phase 1 read-only reference inventory is recorded; Drop and Warmup workflow parity remains incomplete. This branch contains a tested AlphaLink-owned tracker and identity increment for production release. No DMS changes or sender operations were made.
+**Status:** Workspace-scoped Drop and Warmup draft pages, navigation, and unique-action statistics are deployed in release `43a9a851d1f0b91d8e53e1562a9f663d6d26bb5d`. Draft/send parity remains incomplete because there is no verified AlphaLink-native Drop/Warmup execution path. No DMS changes or sender operations were made.
 
 ## Drops and Warmups gate
 
@@ -25,7 +25,7 @@
 
 ## Verification
 
-- E-CAMP-155 new Drop/Warmup workflow suite: **5 tests / 45 assertions**; combined Drop monitoring/statistics/suppression, seed-list, campaign clone/test-navigation suites: **72 tests / 716 assertions**. Both ran under PHP **8.5.12**. Route caching succeeds. Live route and menu verification is recorded under E-CAMP-155.
+- E-CAMP-155 Drop/Warmup workflow suite: **5 tests / 45 assertions**; combined Drop monitoring/statistics/suppression, seed-list, campaign clone/test-navigation suites: **72 tests / 716 assertions**. Both ran under PHP **8.5.12**. Route caching, targeted Pint, and `git diff --check` pass. Release `43a9a851d1f0b91d8e53e1562a9f663d6d26bb5d` is pushed to GitHub and deployed; live route checks are recorded in E-CAMP-155.
 
 - E-DROP-STAT-001 final verification: PHP 8.5.12 full suite **1,052 tests, 9,786 assertions**, 15 PHPUnit notices and one skipped test; focused Drop Statistics/Monitoring **14 tests, 135 assertions**; JavaScript **91/91**; Vite production build, Pint, and `git diff --check` passed.
 - Validation ran in an isolated PHP **8.5.12** container, matching the fresh installer target. Focused PHP coverage passed: **154 tests, 1,376 assertions**. PHP syntax checks and Pint passed.

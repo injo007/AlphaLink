@@ -120,6 +120,7 @@ class WorkspaceConsoleController extends Controller
         $campaignQuery = $workspace->campaigns()
             ->with('latestRevision')
             ->where('created_by', $request->user()->getKey())
+            ->whereIn('kind', ['marketing', 'transactional'])
             ->where('is_active', ! $showDisabled)
             ->when(! $activeOnly, fn ($query) => $query->whereBetween('created_at', [$from, $to]))
             ->when($activeOnly, fn ($query) => $query->whereHas('sendRuns', fn ($runs) => $runs->whereIn('state', ['planned', 'running'])))

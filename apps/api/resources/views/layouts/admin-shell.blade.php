@@ -75,9 +75,13 @@
         $campaignsUrl = route('console.mailer.campaigns');
         $dropsMonitoringUrl = route('clean.console.drops.monitoring');
         $dropsStatisticsUrl = route('clean.console.drops.statistics');
+        $dropDraftsUrl = route('clean.console.drops.drafts.index');
         $globalTestsUrl = route('clean.console.global-tests.index');
         $globalTestHistoriesUrl = route('clean.console.global-tests.histories');
         $seedListsUrl = route('clean.console.warmups.seeds.index');
+        $dropDraftCreateUrl = route('clean.console.drops.drafts.create');
+        $warmupsUrl = route('clean.console.warmups.index');
+        $warmupStatisticsUrl = route('clean.console.warmups.statistics');
         $pmtaAdminUrl = route('clean.console.pmta-admin.index');
         $pmtaSchedulerUrl = route('clean.console.pmta-scheduler.index');
         $pmtaSettingsUrl = route('clean.console.pmta-settings.index');
@@ -142,8 +146,14 @@
         $isCampaignNegativesPage = $routeIs('console.campaign-negatives.*');
         $isDropStatisticsPage = $routeIs('console.drops.statistics');
         $isDropsMonitoringPage = $routeIs('console.drops.monitoring', 'console.drops.visitors');
-        $isDropsPage = $isDropsMonitoringPage || $isDropStatisticsPage || $routeIs('console.drops.suppression*');
+        $isDropDraftPage = $routeIs('console.drops.drafts.*');
+        $isDropDraftIndexPage = $routeIs('console.drops.drafts.index');
+        $isDropDraftEditorPage = $routeIs('console.drops.drafts.create', 'console.drops.drafts.edit', 'console.drops.drafts.update', 'console.drops.drafts.store');
+        $isDropsPage = $isDropsMonitoringPage || $isDropStatisticsPage || $isDropDraftPage || $routeIs('console.drops.suppression*');
         $isSeedListsPage = $routeIs('console.warmups.seeds.*', 'console.warmups.seed-emails.*');
+        $isWarmupDraftPage = $routeIs('console.warmups.index', 'console.warmups.create', 'console.warmups.edit', 'console.warmups.update', 'console.warmups.store');
+        $isWarmupStatisticsPage = $routeIs('console.warmups.statistics');
+        $isWarmupsPage = $isSeedListsPage || $isWarmupDraftPage || $isWarmupStatisticsPage;
         $isGlobalTestsPage = $routeIs('console.global-tests.index', 'console.global-tests.catalog', 'console.global-tests.test');
         $isGlobalTestHistoriesPage = $routeIs('console.global-tests.histories', 'console.global-tests.history');
         $isWorkspaceProjectsPage = $routeIs('console.gcampaigns.projects');
@@ -238,16 +248,16 @@
                 ['label' => 'LOGS', 'icon' => 'fas fa-eye'],
             ]],
             ['label' => 'DROPS', 'icon' => 'fas fa-paper-plane', 'open' => $isDropsPage, 'items' => [
-                ['label' => 'RECENT DROP', 'icon' => 'fas fa-paper-plane'],
-                ['label' => 'FRESH DROP', 'icon' => 'fas fa-plus'],
+                ['label' => 'RECENT DROP', 'icon' => 'fas fa-paper-plane', 'href' => $dropDraftsUrl, 'active' => $isDropDraftIndexPage],
+                ['label' => 'FRESH DROP', 'icon' => 'fas fa-plus', 'href' => $dropDraftCreateUrl, 'active' => $isDropDraftEditorPage],
                 ['label' => 'MONITORING', 'icon' => 'fas fa-eye', 'href' => $dropsMonitoringUrl, 'active' => $isDropsMonitoringPage],
                 ['label' => 'SUPPRESSION', 'icon' => 'fas fa-times', 'href' => route('clean.console.drops.suppression'), 'active' => $routeIs('console.drops.suppression*')],
                 ['label' => 'STATISTICS', 'icon' => 'fas fa-chart-line', 'href' => $dropsStatisticsUrl, 'active' => $isDropStatisticsPage],
             ]],
-            ['label' => "WARMUP'S", 'icon' => 'fas fa-burn', 'open' => $isSeedListsPage, 'items' => [
-                ['label' => 'SEND', 'icon' => 'fas fa-burn'],
+            ['label' => "WARMUP'S", 'icon' => 'fas fa-burn', 'open' => $isWarmupsPage, 'items' => [
+                ['label' => 'SEND', 'icon' => 'fas fa-burn', 'href' => $warmupsUrl, 'active' => $isWarmupDraftPage],
                 ['label' => 'SEEDS', 'icon' => 'fas fa-book', 'href' => $seedListsUrl, 'active' => $isSeedListsPage],
-                ['label' => 'STATISTICS', 'icon' => 'fas fa-chart-line'],
+                ['label' => 'STATISTICS', 'icon' => 'fas fa-chart-line', 'href' => $warmupStatisticsUrl, 'active' => $isWarmupStatisticsPage],
             ]],
             ['label' => 'GLOBAL TESTS', 'icon' => 'fas fa-map-signs', 'open' => $isGlobalTestsPage || $isGlobalTestHistoriesPage, 'items' => [
                 ['label' => 'SEND', 'icon' => 'fas fa-map-signs', 'href' => $globalTestsUrl, 'active' => $isGlobalTestsPage],

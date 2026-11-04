@@ -26,6 +26,7 @@ use App\Http\Controllers\Web\WorkspaceDropSuppressionController;
 use App\Http\Controllers\Web\WorkspaceEmailManagementController;
 use App\Http\Controllers\Web\WorkspaceEncodingConsoleController;
 use App\Http\Controllers\Web\WorkspaceGlobalTestController;
+use App\Http\Controllers\Web\WorkspaceMailerOperationsConsoleController;
 use App\Http\Controllers\Web\WorkspaceOfferConsoleController;
 use App\Http\Controllers\Web\WorkspaceSeedListConsoleController;
 use App\Http\Controllers\Web\WorkspaceSpfScannerController;
@@ -146,12 +147,23 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
         ->middleware('throttle:10,1')->name('console.drops.suppression.kill');
     Route::get('/app/workspaces/{workspace}/drops/monitoring', [WorkspaceDropsConsoleController::class, 'monitoring'])->name('console.drops.monitoring');
     Route::get('/app/workspaces/{workspace}/drops/statistics', [WorkspaceDropsConsoleController::class, 'statistics'])->name('console.drops.statistics');
+    Route::get('/app/workspaces/{workspace}/drops/drafts', [WorkspaceMailerOperationsConsoleController::class, 'drops'])->name('console.drops.drafts.index');
+    Route::get('/app/workspaces/{workspace}/drops/drafts/create', [WorkspaceMailerOperationsConsoleController::class, 'createDrop'])->name('console.drops.drafts.create');
+    Route::post('/app/workspaces/{workspace}/drops/drafts', [WorkspaceMailerOperationsConsoleController::class, 'storeDrop'])->middleware('throttle:10,1')->name('console.drops.drafts.store');
+    Route::get('/app/workspaces/{workspace}/drops/drafts/{campaign}/edit', [WorkspaceMailerOperationsConsoleController::class, 'editDrop'])->whereUuid('campaign')->name('console.drops.drafts.edit');
+    Route::put('/app/workspaces/{workspace}/drops/drafts/{campaign}', [WorkspaceMailerOperationsConsoleController::class, 'updateDrop'])->whereUuid('campaign')->middleware('throttle:10,1')->name('console.drops.drafts.update');
     Route::get('/app/workspaces/{workspace}/drops/{drop}/monitor', [WorkspaceDropsConsoleController::class, 'monitor'])
         ->whereNumber('drop')->name('console.drops.monitor');
     Route::get('/app/workspaces/{workspace}/drops/{drop}/stats', [WorkspaceDropsConsoleController::class, 'stats'])
         ->whereNumber('drop')->name('console.drops.stats');
     Route::get('/app/workspaces/{workspace}/drops/{drop}/visitors', [WorkspaceDropsConsoleController::class, 'visitors'])
         ->whereNumber('drop')->name('console.drops.visitors');
+    Route::get('/app/workspaces/{workspace}/warmups', [WorkspaceMailerOperationsConsoleController::class, 'warmups'])->name('console.warmups.index');
+    Route::get('/app/workspaces/{workspace}/warmups/create', [WorkspaceMailerOperationsConsoleController::class, 'createWarmup'])->name('console.warmups.create');
+    Route::post('/app/workspaces/{workspace}/warmups', [WorkspaceMailerOperationsConsoleController::class, 'storeWarmup'])->middleware('throttle:10,1')->name('console.warmups.store');
+    Route::get('/app/workspaces/{workspace}/warmups/statistics', [WorkspaceMailerOperationsConsoleController::class, 'warmupStatistics'])->name('console.warmups.statistics');
+    Route::get('/app/workspaces/{workspace}/warmups/{campaign}/edit', [WorkspaceMailerOperationsConsoleController::class, 'editWarmup'])->whereUuid('campaign')->name('console.warmups.edit');
+    Route::put('/app/workspaces/{workspace}/warmups/{campaign}', [WorkspaceMailerOperationsConsoleController::class, 'updateWarmup'])->whereUuid('campaign')->middleware('throttle:10,1')->name('console.warmups.update');
     Route::get('/app/workspaces/{workspace}/warmups/seeds', [WorkspaceSeedListConsoleController::class, 'index'])->name('console.warmups.seeds.index');
     Route::get('/app/workspaces/{workspace}/warmups/seeds/create', [WorkspaceSeedListConsoleController::class, 'create'])->name('console.warmups.seeds.create');
     Route::post('/app/workspaces/{workspace}/warmups/seeds', [WorkspaceSeedListConsoleController::class, 'store'])->middleware('throttle:10,1')->name('console.warmups.seeds.store');

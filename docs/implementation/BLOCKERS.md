@@ -1,6 +1,18 @@
-# Current parity blockers
+# Archived parity blocker log
 
-> This file is a chronological audit record. References to the former service describe dated local evidence only; they are not current access instructions. The current no-access policy is in the repository-level `AGENTS.md`.
+> **Archived blocker log.** Entries below are chronological engineering notes. Use the root AlphaLink progress file for current status.
+
+> This file is a chronological audit record. References to the former service describe dated local evidence only; they are not current access instructions. For the active Drops/Warmups objective, `AGENTS.md` permits user-authorized read-only access to the confirmed DMS target.
+
+## 2026-11-04 validation update
+
+Current verification ran in a disposable PHP 8.5.12 container, matching the fresh installer target. The focused suite passes 154 tests / 1,376 assertions; Pint, PHP lint, the PHP 8.5 Vite build, and `git diff --check` pass. The tracking-key rename passes against disposable PostgreSQL 18 (1 test / 7 assertions). The full PHP suite now passes: 1,048 tests / 9,739 assertions, with 15 notices and one skip. The former PMTA feedback failure was a stale expected event count; no PMTA production behavior changed. Relay source/build provenance and a clean-host end-to-end install remain open. The detailed current status is in the root `ALPHALINK_PROGRESS.md`; following entries remain dated parity/release history.
+
+## 2026-11-04 DMS Drops/Warmups source-access update
+
+The user updated `.env` with the DMS URL, admin credentials, proxy and a second SSH block. The DMS hostname resolves to that second host, and strict-key SSH confirms `/var/app` as the DMS source root. HTTPS navigation through the proxy and read-only GETs confirm the Drops/Warmups navigation and core list/statistics screens. Forty-one source files and the send engine were copied read-only for local analysis; their hashes are in `audit/DMS_SOURCE_HASHES_2026-11-04.csv`. The earlier “no DMS source”/no-SSH notes below are chronological and are superseded for the current goal. The source inventory and implementation acceptance remain incomplete; the live progress and safety boundaries are in `audit/DROPS_WARMUPS_PHASE1_BLOCKER.md` and `ALPHALINK_PROGRESS.md`. No DMS business data or operational state was changed; no send, test-send, schedule, suppression process, or process-control action was invoked.
+
+E-CAMP-154 reverified eight page GETs through the configured proxy and retained only static page structure. Fifty-six selected PHP/source files (not forty-one) plus the separately hashed, unexecuted sender binary are available in the temporary read-only reference copy. The detailed inventory is `audit/DROPS_WARMUPS_REFERENCE_INVENTORY_2026-11-04.md`. Source discovery and implementation parity remain open.
 
 1. **Remaining server list behavior:** E-SRV-02 implements Allowed Users, lock, status, return and restore; E-SRV-03 implements the local history viewer and scheduled collector; E-SRV-LIVE-03 verifies one real snapshot and the live latest-SSH display; E-INST-54 adds the source-mapped edit/update flow; E-SRV-LIVE-02 fixes the DMS `withCount('ips')` mapping and verifies the displayed count in the live AlphaLink row. Console access, exact edit feedback, country fallback, scheduler supervision and automatic restart after the manually started worker exits or the container restarts, populated DMS row comparison and same-viewport edit-page comparison remain open; history ordering now matches the DMS shared-table default and is live-verified.
 2. **Server country fallback and visual comparison:** AlphaLink matches the DMS Pro IP-API query/cache when configured, but GeoIP2 and a MaxMind city database are not included, so the fallback is not active by default. Focused and full PHP suites pass, Pint passes, and tests use fake HTTP plus loopback; no external server or geo provider is contacted. A safe populated-history visual comparison remains open. Never request a host fingerprint.

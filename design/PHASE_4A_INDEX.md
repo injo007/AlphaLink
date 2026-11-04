@@ -1,5 +1,7 @@
 # AlphaLink Phase 4A — Architecture and Product Requirements
 
+> **Archived design evidence.** This index points to dated research and design records; it is not the current product specification.
+
 **Status:** Design reference; bounded API implementation has started in `apps/api` using Laravel 13/PHP 8.3, PostgreSQL, Redis, and Sanctum. Product, legal, transport, and operational decisions below remain open.
 
 ## Proposed document structure and evidence map

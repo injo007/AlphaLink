@@ -7,7 +7,7 @@ use App\Models\SendingDomain;
 use App\Models\Workspace;
 use RuntimeException;
 
-/** Loads the saved reference implementation reinstall form and its read-only server IP refresh. */
+/** Loads the saved AlphaLink reinstall form and its read-only server IP refresh. */
 class AlphaLinkReinstallSelectionLoader
 {
     public function __construct(

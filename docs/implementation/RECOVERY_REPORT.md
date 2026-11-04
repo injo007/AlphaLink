@@ -1,5 +1,7 @@
 # Workspace recovery report — 2026-10-22
 
+> **Archived recovery assessment.** This records historical repository findings and dispositions; current status is in `ALPHALINK_PROGRESS.md`.
+
 | Existing work | Classification | Disposition |
 |---|---|---|
 | DMS source, route, sender and integration audits under `audit/` | VERIFIED within each report's static/observed limits | Keep as reference evidence; retain hashes and caveats. Do not infer live outcomes from source alone. |

@@ -63,9 +63,9 @@ class AlphaLinkBulkInstallInstallerMatrixTest extends TestCase
         $requirements = $matrix->plan('AlmaLinux 9', 50, $options)['selected_option_requirements'];
 
         $this->assertSame([
-            'expected_assets' => ['install/mini_app.zip'],
+            'expected_assets' => ['install/tracker_index', 'install/tracker_handler'],
             'optional_assets' => ['install/cf_ips.conf'],
-            'when_mini_app_missing' => 'Apache is configured, but the tracking mini-app is not uploaded or configured.',
+            'when_tracking_app_missing' => 'Apache is configured, but the AlphaLink tracking application is not uploaded or configured.',
         ], $requirements['tracking']);
         $this->assertSame('install/squid_centos.conf', $requirements['proxy']['expected_assets'][0]);
         $this->assertSame('Squid is not installed or enabled when its configuration asset is missing.', $requirements['proxy']['when_asset_missing']);

@@ -36,7 +36,8 @@ class AlphaLinkBulkInstallSettingsTest extends TestCase
         mkdir($root.'/optional/tracking', 0700, true);
         mkdir($root.'/optional/imap', 0700, true);
         mkdir($root.'/optional/dkim', 0700, true);
-        file_put_contents($root.'/optional/tracking/mini-app.zip', 'synthetic archive');
+        file_put_contents($root.'/optional/tracking/index.php', '<?php echo "tracker";');
+        file_put_contents($root.'/optional/tracking/TrackerRequestHandler.php', '<?php class AlphaLinkTrackerRequestHandler {}');
         file_put_contents($root.'/optional/imap/dovecot.conf', 'synthetic config');
         file_put_contents($root.'/optional/dkim/keys.json', '{"key":"synthetic public","value":"synthetic private"}');
         config()->set('infrastructure.install_assets_directory', $root);
@@ -57,23 +58,24 @@ class AlphaLinkBulkInstallSettingsTest extends TestCase
             $second = $inputs->resolve($options, $this->workspace);
             $settings = $this->workspace->infrastructureSettings()->sole();
 
-            $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $first['settings']['mini_app_key']);
+            $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $first['settings']['tracking_ingest_key']);
             $this->assertMatchesRegularExpression('/^al[a-f0-9]{16}$/', $first['settings']['dkim_selector']);
             $this->assertMatchesRegularExpression('/^alimap[a-f0-9]{16}$/', $first['settings']['imap_username']);
             $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $first['settings']['imap_password']);
-            $this->assertSame($first['settings']['mini_app_key'], $second['settings']['mini_app_key']);
+            $this->assertSame($first['settings']['tracking_ingest_key'], $second['settings']['tracking_ingest_key']);
             $this->assertSame($first['settings']['dkim_selector'], $second['settings']['dkim_selector']);
             $this->assertSame($first['settings']['imap_username'], $second['settings']['imap_username']);
             $this->assertSame($first['settings']['imap_password'], $second['settings']['imap_password']);
-            $this->assertNotSame($settings->mini_app_key, $settings->getRawOriginal('mini_app_key'));
+            $this->assertNotSame($settings->tracking_ingest_key, $settings->getRawOriginal('tracking_ingest_key'));
             $this->assertNotSame($settings->dkim_key, $settings->getRawOriginal('dkim_key'));
             $this->assertNotSame($settings->webmail_username, $settings->getRawOriginal('webmail_username'));
             $this->assertNotSame($settings->webmail_password, $settings->getRawOriginal('webmail_password'));
-            $this->assertArrayNotHasKey('mini_app_key', $settings->toArray());
+            $this->assertArrayNotHasKey('tracking_ingest_key', $settings->toArray());
             $this->assertArrayNotHasKey('dkim_key', $settings->toArray());
             $this->assertArrayNotHasKey('webmail_password', $settings->toArray());
         } finally {
-            unlink($root.'/optional/tracking/mini-app.zip');
+            unlink($root.'/optional/tracking/index.php');
+            unlink($root.'/optional/tracking/TrackerRequestHandler.php');
             unlink($root.'/optional/imap/dovecot.conf');
             unlink($root.'/optional/dkim/keys.json');
             rmdir($root.'/optional/tracking');
@@ -92,7 +94,7 @@ class AlphaLinkBulkInstallSettingsTest extends TestCase
             'proxy_port' => 1214,
             'apply_firewall' => false,
             'allow_all_monitor' => false,
-            'mini_app_key' => 'synthetic-mini-key',
+            'tracking_ingest_key' => 'synthetic-mini-key',
             'proxy_password' => 'synthetic-proxy-password',
         ]);
 
@@ -171,7 +173,7 @@ class AlphaLinkBulkInstallSettingsTest extends TestCase
             'webmail_password' => 'synthetic-webmail-password',
             'proxy_username' => 'synthetic-proxy-user',
             'proxy_password' => 'synthetic-proxy-password',
-            'mini_app_key' => 'synthetic-mini-app-key',
+            'tracking_ingest_key' => 'synthetic-tracking-ingest-key',
         ])->assertRedirect($this->settingsPage().'#settings')
             ->assertSessionHas('status', 'Installation settings saved.');
 
@@ -198,7 +200,7 @@ class AlphaLinkBulkInstallSettingsTest extends TestCase
         $audit = AuditEvent::query()->where('action', 'infrastructure.install_settings_updated')->sole();
         $this->assertSame($this->workspace->getKey(), $audit->workspace_id);
         $this->assertSame(
-            ['dkim_key', 'webmail_username', 'webmail_password', 'proxy_username', 'proxy_password', 'mini_app_key'],
+            ['dkim_key', 'webmail_username', 'webmail_password', 'proxy_username', 'proxy_password', 'tracking_ingest_key'],
             $audit->properties['secrets_updated'],
         );
         $auditProperties = json_encode($audit->properties, JSON_THROW_ON_ERROR);

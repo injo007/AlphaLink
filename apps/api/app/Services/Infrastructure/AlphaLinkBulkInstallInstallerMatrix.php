@@ -4,7 +4,7 @@ namespace App\Services\Infrastructure;
 
 use InvalidArgumentException;
 
-/** Describes the source-backed reference implementation OS/PMTA branches and their local asset needs. */
+/** Describes the supported AlphaLink OS/PMTA branches and their local asset needs. */
 class AlphaLinkBulkInstallInstallerMatrix
 {
     public function __construct(private readonly AlphaLinkInstallPlatform $platform) {}
@@ -62,7 +62,7 @@ class AlphaLinkBulkInstallInstallerMatrix
                     50 => ['http-redirect-to-https false', 'http-csrf-protection false'],
                     default => [],
                 },
-                // reference implementation uses AND here: the PMTA method returns early only when both files are absent.
+                // AlphaLink uses AND here: the PMTA method returns early only when both files are absent.
                 'skip_gate' => ['rpm_and_patch_both_absent' => true],
             ],
             'selected_option_requirements' => $this->selectedOptionRequirements($options),
@@ -76,9 +76,9 @@ class AlphaLinkBulkInstallInstallerMatrix
 
         if ($options['tracking']) {
             $requirements['tracking'] = [
-                'expected_assets' => ['install/mini_app.zip'],
+                'expected_assets' => ['install/tracker_index', 'install/tracker_handler'],
                 'optional_assets' => ['install/cf_ips.conf'],
-                'when_mini_app_missing' => 'Apache is configured, but the tracking mini-app is not uploaded or configured.',
+                'when_tracking_app_missing' => 'Apache is configured, but the AlphaLink tracking application is not uploaded or configured.',
             ];
         }
 
@@ -114,7 +114,7 @@ class AlphaLinkBulkInstallInstallerMatrix
         return $requirements;
     }
 
-    /** Mirrors the reference implementation version-specific method's RPM/patch early-return guard. */
+    /** Mirrors the AlphaLink version-specific method's RPM/patch early-return guard. */
     public function pmtaVersionSetupWouldBeSkipped(bool $rpmExists, bool $patchExists): bool
     {
         return ! $rpmExists && ! $patchExists;

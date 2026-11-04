@@ -7,7 +7,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Reproduces the safe request contract at reference implementation's bulk-install boundary.
+ * Reproduces the safe request contract at AlphaLink's bulk-install boundary.
  * This only validates and reduces the request; it never starts an installer.
  */
 class AlphaLinkBulkInstallPayload

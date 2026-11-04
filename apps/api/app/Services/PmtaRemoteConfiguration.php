@@ -132,7 +132,7 @@ class PmtaRemoteConfiguration
         $configurationPath = $this->files->path($configurationFile);
         $session = $this->open($server);
 
-        // reference implementation uploads a temporary file, reloads to validate it, appends it to the
+        // AlphaLink uploads a temporary file, reloads to validate it, appends it to the
         // user's VMTA file, reloads again, then removes the temporary file.
         $session->upload($contents, $temporaryPath);
         $reload = (string) $session->exec('pmta reload');

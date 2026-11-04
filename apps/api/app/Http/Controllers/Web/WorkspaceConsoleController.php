@@ -2207,7 +2207,7 @@ class WorkspaceConsoleController extends Controller
     }
 
     /**
-     * Resolve the reference implementation send-text values for one selected AlphaLink server.
+     * Resolve the send-text values for one selected AlphaLink server.
      * Campaign Test may omit explicit IP IDs, so its approved server-only path
      * falls back to that server's primary active IP, then its first active IP.
      *
@@ -2279,7 +2279,7 @@ class WorkspaceConsoleController extends Controller
 
     /**
      * Resolve a selected IP/MTA for a server. The manual Campaign Test also
-     * supports the reference-mapped server-only form by using that server's first
+     * supports the server-only form by using that server's first
      * active route choice when no explicit IP/MTA row was selected.
      *
      * @param  list<array<string, mixed>>  $choices
@@ -2971,7 +2971,7 @@ class WorkspaceConsoleController extends Controller
     }
 
     /**
-     * reference implementation stores one ordered value list and a rotate interval for each
+     * AlphaLink stores one ordered value list and a rotate interval for each
      * [placeholderN] token. It also makes its two combination modes mutually
      * exclusive in the browser; enforce that rule on the server as well.
      *

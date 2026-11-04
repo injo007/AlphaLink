@@ -46,9 +46,9 @@
                     <div class="row">
                         <div class="col-sm-12 col-md-3">
                             <div class="form-group">
-                                <label for="mini_app_key">TRACKING APP KEY:</label>
-                                <input id="mini_app_key" name="mini_app_key" class="form-control" value="" autocomplete="off" placeholder="{{ $secretConfigured['mini_app_key'] ? 'Saved; leave blank to keep' : '' }}" aria-describedby="mini-app-key-help">
-                                <small id="mini-app-key-help" class="form-text text-muted">{{ $secretConfigured['mini_app_key'] ? 'Saved encrypted. Enter a new value to replace it.' : 'Required only when TRACKING is selected.' }}</small>
+                                <label for="tracking_ingest_key">TRACKING APP KEY:</label>
+                                <input id="tracking_ingest_key" name="tracking_ingest_key" class="form-control" value="" autocomplete="off" placeholder="{{ $secretConfigured['tracking_ingest_key'] ? 'Saved; leave blank to keep' : '' }}" aria-describedby="tracking-ingest-key-help">
+                                <small id="tracking-ingest-key-help" class="form-text text-muted">{{ $secretConfigured['tracking_ingest_key'] ? 'Saved encrypted. Enter a new value to replace it.' : 'Required only when TRACKING is selected.' }}</small>
                             </div>
                         </div>
                         <div class="col-sm-12 col-md-3">

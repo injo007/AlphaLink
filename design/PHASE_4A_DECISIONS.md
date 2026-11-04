@@ -1,5 +1,7 @@
 # AlphaLink Phase 4A — Decisions Register
 
+> **Archived design evidence.** This dated decision history is retained for traceability and does not define current product identity or requirements.
+
 **Status:** The owner authorized a bounded implementation kickoff on 2026-10-22. The decisions below remain open and are not assumed approved.
 
 These decisions bound product scope and policy. The initial API foundation uses Laravel/PHP, PostgreSQL, Redis, and Sanctum provisionally. The decisions below still gate sending, external integrations, infrastructure operations, and production rollout.

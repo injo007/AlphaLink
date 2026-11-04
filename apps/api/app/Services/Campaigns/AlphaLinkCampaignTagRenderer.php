@@ -5,11 +5,8 @@ namespace App\Services\Campaigns;
 use Illuminate\Support\Str;
 
 /**
- * Resolve the campaign text tags implemented by reference implementation's Send Helpers\Text.
- *
- * reference implementation's native campaign sender is not included in the PHP source snapshot, so
- * this renderer follows the readable helper's replacement order and leaves
- * sender-only behavior outside that contract unclaimed.
+ * Resolve campaign text tags against values supplied by the campaign workflow.
+ * Delivery and transport-specific behavior belongs to the sender services.
  */
 class AlphaLinkCampaignTagRenderer
 {
@@ -45,7 +42,7 @@ class AlphaLinkCampaignTagRenderer
         $text = preg_replace('/\bhttp:\/\/\s*(?=\[domain\](?:[\/?#"\'<>\s]|$))/i', 'https://', $text) ?? $text;
         $text = preg_replace('/(?<![A-Z0-9@.+-])(?<!:\/\/)(?=\[domain\](?:[\/?#"\'<>\s]|$))/i', 'https://', $text) ?? $text;
 
-        // SMTP route usernames are often complete mailbox addresses. reference implementation
+        // SMTP route usernames are often complete mailbox addresses. AlphaLink
         // templates also commonly append @[domain] to [smtp], so avoid
         // producing invalid values such as user@example.test@example.test.
         $smtp = trim((string) ($values['smtp'] ?? ''));
@@ -57,7 +54,7 @@ class AlphaLinkCampaignTagRenderer
             ) ?? $text;
         }
 
-        // Older reference implementation headers commonly use a fixed From local part with the
+        // Older AlphaLink headers commonly use a fixed From local part with the
         // SMTP tag in the domain position, e.g. `info@[smtp]`. SMTP route
         // usernames can be complete email addresses, so use their domain in
         // this specific position instead of producing `info@user@domain`.

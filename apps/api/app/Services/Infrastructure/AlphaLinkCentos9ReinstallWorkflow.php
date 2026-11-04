@@ -11,7 +11,7 @@ use Closure;
 use InvalidArgumentException;
 use RuntimeException;
 
-/** Replays the reference implementation Reinstall host, DNS, component, firewall, and persistence order. */
+/** Replays the AlphaLink Reinstall host, DNS, component, firewall, and persistence order. */
 class AlphaLinkCentos9ReinstallWorkflow
 {
     public function __construct(
@@ -104,8 +104,8 @@ class AlphaLinkCentos9ReinstallWorkflow
             ));
         }
 
-        if ($options['tracking'] && $inputs['assets']['mini_app'] !== null) {
-            $this->tracking->verifyCallback($session, $inputs['settings']['mini_app_url']);
+        if ($options['tracking'] && $inputs['assets']['tracking_app'] !== null) {
+            $this->tracking->verifyCallback($session, $inputs['settings']['tracking_callback_url']);
         }
 
         $log('Prepare Reinstalling Server : '.$server->getKey());
@@ -138,10 +138,10 @@ class AlphaLinkCentos9ReinstallWorkflow
                 (string) $server->getKey(),
                 $deploymentDomain,
                 $deploymentSubdomains,
-                $inputs['assets']['mini_app'],
+                $inputs['assets']['tracking_app'],
                 $inputs['assets']['cloudflare_ips'],
-                $inputs['settings']['mini_app_url'],
-                $inputs['settings']['mini_app_key'],
+                $inputs['settings']['tracking_callback_url'],
+                $inputs['settings']['tracking_ingest_key'],
                 $options['https'] && $mainDomainProviderReady,
                 (string) config('app.name', 'NA'),
             );

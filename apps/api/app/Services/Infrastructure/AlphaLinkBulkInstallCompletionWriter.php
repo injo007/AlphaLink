@@ -9,7 +9,7 @@ use App\Models\SendingDomain;
 use App\Models\Workspace;
 use InvalidArgumentException;
 
-/** Applies the source-traced reference implementation finalization writes in their original order. */
+/** Applies the documented AlphaLink finalization writes in their original order. */
 class AlphaLinkBulkInstallCompletionWriter
 {
     public function __construct(private readonly AlphaLinkBulkInstallCompletionPlanner $planner) {}

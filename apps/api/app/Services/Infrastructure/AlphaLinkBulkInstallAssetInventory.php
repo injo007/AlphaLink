@@ -3,7 +3,7 @@
 namespace App\Services\Infrastructure;
 
 /**
- * Checks AlphaLink-owned files referenced by the source-mapped install plan.
+ * Checks AlphaLink-owned files referenced by the supported install plan.
  * Source identifiers are translated by the AlphaLink catalog before local I/O.
  * Presence is not proof of artifact validity and this class never executes files.
  */
@@ -73,7 +73,7 @@ class AlphaLinkBulkInstallAssetInventory
                 'assets' => $assets,
                 'missing_assets' => $missing,
                 'optional_assets' => $optionalAssets,
-                'effect_if_missing' => $requirement['when_mini_app_missing']
+                'effect_if_missing' => $requirement['when_tracking_app_missing']
                     ?? $requirement['when_asset_missing']
                     ?? $requirement['when_key_missing']
                     ?? $requirement['behavior']

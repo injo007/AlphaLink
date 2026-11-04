@@ -44,7 +44,7 @@
             @include('console.app-settings.partials.field', ['field' => 'proxy_password', 'label' => 'PROXY PASSWORD', 'type' => 'text', 'secret' => true])
         </div>
         <div class="col-sm-12 col-md-6">
-            @include('console.app-settings.partials.field', ['field' => 'mini_app_key', 'label' => 'TRACKING APP KEY', 'type' => 'text', 'secret' => true])
+            @include('console.app-settings.partials.field', ['field' => 'tracking_ingest_key', 'label' => 'TRACKING APP KEY', 'type' => 'text', 'secret' => true])
         </div>
         <div class="col-sm-12 col-md-6">
             @include('console.app-settings.partials.field', ['field' => 'cloud_servers_password', 'label' => 'CLOUD SERVERS PASSWORD', 'type' => 'text', 'secret' => true])

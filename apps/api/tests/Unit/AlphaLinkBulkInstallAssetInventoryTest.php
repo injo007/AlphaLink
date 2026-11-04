@@ -31,7 +31,7 @@ class AlphaLinkBulkInstallAssetInventoryTest extends TestCase
         $options['tracking'] = true;
         $matrix = new AlphaLinkBulkInstallInstallerMatrix(new AlphaLinkInstallPlatform);
         $plan = $matrix->plan('CentOS Linux 7', 40, $options);
-        foreach ([...$plan['pmta']['referenced_assets'], 'install/mini_app.zip'] as $path) {
+        foreach ([...$plan['pmta']['referenced_assets'], ...$plan['selected_option_requirements']['tracking']['expected_assets']] as $path) {
             $this->writeAsset($path);
         }
 

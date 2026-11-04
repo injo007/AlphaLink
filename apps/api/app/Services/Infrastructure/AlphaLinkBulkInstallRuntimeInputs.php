@@ -102,11 +102,14 @@ class AlphaLinkBulkInstallRuntimeInputs
             }
         }
 
-        $miniApp = $options['tracking'] ? $this->assets->read($assetRoot, 'install/mini_app.zip') : null;
+        $trackingApp = $options['tracking'] ? [
+            'index' => $this->assets->read($assetRoot, 'install/tracker_index'),
+            'handler' => $this->assets->read($assetRoot, 'install/tracker_handler'),
+        ] : null;
         $cloudflareIps = $options['tracking'] ? $this->assets->read($assetRoot, 'install/cf_ips.conf', false) : null;
         $dovecot = $options['imap'] ? $this->assets->read($assetRoot, 'install/dovecot_centos.conf') : null;
         $squid = $options['proxy'] ? $this->assets->read($assetRoot, 'install/squid_centos.conf') : null;
-        if ($workspace !== null && (($options['tracking'] && $this->string($value('mini_app_key')) === '')
+        if ($workspace !== null && (($options['tracking'] && $this->string($value('tracking_ingest_key')) === '')
             || ($options['imap'] && ($this->string($value('webmail_username')) === '' || $this->string($value('webmail_password')) === ''))
             || ($options['dkim'] && $this->string($value('dkim_key')) === ''))) {
             $saved = $this->provisionSelectedServiceValues($workspace, $options, $configured);
@@ -126,11 +129,11 @@ class AlphaLinkBulkInstallRuntimeInputs
             $saved = $workspace->infrastructureSettings()->firstOrFail();
         }
 
-        $miniAppKey = $this->string($value('mini_app_key'));
+        $trackingIngestKey = $this->string($value('tracking_ingest_key'));
         $webmailUsername = $this->string($value('webmail_username'));
         $webmailPassword = $this->string($value('webmail_password'));
         $dkimSelector = $this->string($value('dkim_key'));
-        if (($options['tracking'] && $miniAppKey === '')
+        if (($options['tracking'] && $trackingIngestKey === '')
             || ($options['imap'] && ($webmailUsername === '' || $webmailPassword === ''))
             || ($options['dkim'] && $dkimSelector === '')) {
             throw new RuntimeException('Required selected AlphaLink service credentials are not configured.');
@@ -142,7 +145,7 @@ class AlphaLinkBulkInstallRuntimeInputs
         }
 
         $assets = [
-            'mini_app' => $miniApp,
+            'tracking_app' => $trackingApp,
             'cloudflare_ips' => $cloudflareIps,
             'dovecot_config' => $dovecot,
             'squid_config' => $squid,
@@ -170,8 +173,8 @@ class AlphaLinkBulkInstallRuntimeInputs
                 'imap_password' => $webmailPassword,
                 'proxy_username' => $this->string($value('proxy_username')),
                 'proxy_password' => $this->string($value('proxy_password')),
-                'mini_app_url' => (string) $callbackUrl,
-                'mini_app_key' => $miniAppKey,
+                'tracking_callback_url' => (string) $callbackUrl,
+                'tracking_ingest_key' => $trackingIngestKey,
             ],
             'assets' => $assets,
         ];
@@ -187,8 +190,8 @@ class AlphaLinkBulkInstallRuntimeInputs
             Workspace::query()->whereKey($workspace->getKey())->lockForUpdate()->firstOrFail();
             $settings = WorkspaceInfrastructureSettings::query()->firstOrCreate(['workspace_id' => $workspace->getKey()]);
 
-            if ($options['tracking'] && $this->string($settings->mini_app_key ?? ($configured['mini_app_key'] ?? null)) === '') {
-                $settings->mini_app_key = bin2hex(random_bytes(32));
+            if ($options['tracking'] && $this->string($settings->tracking_ingest_key ?? ($configured['tracking_ingest_key'] ?? null)) === '') {
+                $settings->tracking_ingest_key = bin2hex(random_bytes(32));
             }
             if ($options['dkim'] && $this->string($settings->dkim_key ?? ($configured['dkim_key'] ?? null)) === '') {
                 $settings->dkim_key = 'al'.bin2hex(random_bytes(8));

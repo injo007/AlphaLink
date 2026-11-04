@@ -42,7 +42,8 @@ return [
         'webmail_password' => env('ALPHALINK_INSTALL_WEBMAIL_PASSWORD', ''),
         'proxy_username' => env('ALPHALINK_INSTALL_PROXY_USERNAME', ''),
         'proxy_password' => env('ALPHALINK_INSTALL_PROXY_PASSWORD', ''),
-        'mini_app_key' => env('ALPHALINK_INSTALL_MINI_APP_KEY', ''),
+        // Keep the previous variable as a fallback until existing installations migrate their environment.
+        'tracking_ingest_key' => env('ALPHALINK_TRACKING_INGEST_KEY', env('ALPHALINK_INSTALL_MINI_APP_KEY', '')),
     ],
     'single_install_execution_enabled' => filter_var(env('ALPHALINK_SINGLE_INSTALL_EXECUTION_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
     'bulk_install_execution_enabled' => filter_var(env('ALPHALINK_INSTALL_EXECUTION_ENABLED', false), FILTER_VALIDATE_BOOLEAN),

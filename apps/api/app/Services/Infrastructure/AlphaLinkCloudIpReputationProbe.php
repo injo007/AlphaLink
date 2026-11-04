@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Process;
 use RuntimeException;
 use Throwable;
 
-/** Runs the same DNSBL and Sender Score lookups used by the reference implementation cloud tables. */
+/** Runs the same DNSBL and Sender Score lookups used by the AlphaLink cloud tables. */
 class AlphaLinkCloudIpReputationProbe
 {
     /** @return array{spamhaus:bool,barracuda:bool,spamcop:bool,score:string} */

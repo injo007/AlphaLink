@@ -39,7 +39,7 @@
                         <div class="col-sm-12 col-md-3">
                             @include('console.app-settings.partials.field', ['field' => 'app_name', 'label' => 'APP NAME', 'type' => 'text', 'secret' => false])
                             @include('console.app-settings.partials.field', ['field' => 'optizmo_token', 'label' => 'OPTIZMO TOKEN', 'type' => 'text', 'secret' => true])
-                            @include('console.app-settings.partials.field', ['field' => 'mini_app_key', 'label' => 'TRACKING APP KEY', 'type' => 'text', 'secret' => true])
+                            @include('console.app-settings.partials.field', ['field' => 'tracking_ingest_key', 'label' => 'TRACKING APP KEY', 'type' => 'text', 'secret' => true])
                             @include('console.app-settings.partials.field', ['field' => 'ip_api_key', 'label' => 'IP API TOKEN', 'type' => 'text', 'secret' => true])
                             @include('console.app-settings.partials.field', ['field' => 'offer_suppression_update', 'label' => 'UPDATE OFFER SUPPRESSION AFTER', 'type' => 'number', 'secret' => false])
                         </div>

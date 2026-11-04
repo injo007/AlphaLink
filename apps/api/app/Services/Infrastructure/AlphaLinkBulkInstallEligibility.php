@@ -42,7 +42,7 @@ class AlphaLinkBulkInstallEligibility
     }
 
     /**
-     * The reference implementation administration Install page lists active, uninstalled servers
+     * The AlphaLink administration Install page lists active, uninstalled servers
      * and includes owned and externally managed domains. AlphaLink scopes the
      * same candidate set to active workspace members under the user's access
      * rule. The separate Mailer Cloud bulk-install page has different filters.

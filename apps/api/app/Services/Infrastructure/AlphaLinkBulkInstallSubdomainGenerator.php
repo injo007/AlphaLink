@@ -5,7 +5,7 @@ namespace App\Services\Infrastructure;
 use Illuminate\Support\Arr;
 use Random\Randomizer;
 
-/** Recreates reference implementation generate_sub_domains() with its ordered word pool and selection behavior. */
+/** Recreates AlphaLink generate_sub_domains() with its ordered word pool and selection behavior. */
 class AlphaLinkBulkInstallSubdomainGenerator
 {
     private const KEYWORDS = [

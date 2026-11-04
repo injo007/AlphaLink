@@ -286,7 +286,7 @@ class PmtaConsoleController extends Controller
                     if (count($parts) !== 2) {
                         throw ValidationException::withMessages(['rows' => 'Each row must contain exactly: IP,VMTA host.']);
                     }
-                    // reference implementation resolves v2 IP rows by address, independently of the selected
+                    // AlphaLink resolves v2 IP rows by address, independently of the selected
                     // server that receives the generated config. Keep that behavior
                     // within this workspace and its active, installed server inventory.
                     $ip = ManagedServerIp::query()->where('workspace_id', $workspaceModel->getKey())->where('ip', $parts[0])->where('is_active', true)
@@ -295,7 +295,7 @@ class PmtaConsoleController extends Controller
                         throw ValidationException::withMessages(['rows' => 'Every IP must belong to an active, installed server in this workspace.']);
                     }
                     $record = PmtaVirtualMta::query()->create([
-                        // reference implementation associates the MTA row with the server that owns the IP,
+                        // AlphaLink associates the MTA row with the server that owns the IP,
                         // even though the v2 config is pushed to the selected server.
                         'workspace_id' => $workspaceModel->getKey(), 'managed_server_id' => $ip->managed_server_id, 'managed_server_ip_id' => $ip->getKey(),
                         'created_by' => $request->user()->getKey(), 'ip' => $ip->ip, 'domain' => $parts[1], 'name' => 'v_'.($index + 1),
@@ -352,12 +352,12 @@ class PmtaConsoleController extends Controller
         foreach ($servers as $server) {
             $file = 'vmta_'.$request->user()->getKey();
             try {
-                // reference implementation removes the selected user's local rows before remote cleanup.
+                // AlphaLink removes the selected user's local rows before remote cleanup.
                 // Preserve that failure ordering: a later SSH error does not restore them.
                 PmtaVirtualMta::query()->where('workspace_id', $workspace->getKey())->where('managed_server_id', $server->getKey())->where('created_by', $request->user()->getKey())->delete();
                 $session = $remote->open($server);
                 $path = escapeshellarg('/etc/pmta/conf/'.$file);
-                // reference implementation ignores command output/false results and reports success unless SSH setup throws.
+                // AlphaLink ignores command output/false results and reports success unless SSH setup throws.
                 $session->exec('rm -rf '.$path);
                 $session->exec('pmta reload');
                 $results[] = ['server' => $server->name, 'success' => true, 'message' => 'Restored Successfully'];

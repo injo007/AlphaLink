@@ -2,14 +2,14 @@
 
 namespace App\Services\Infrastructure;
 
-/** Reconstructs the source-backed reference CentOS 9/AlmaLinux 9 service setup phase. */
+/** Reconstructs the supported reference CentOS 9/AlmaLinux 9 service setup phase. */
 class AlphaLinkCentos9ServiceSetup
 {
     public function run(AlphaLinkInstallerRemoteCommandTransport $transport): void
     {
         $swap = $transport->exec('free -m | grep Swap | awk \'{print $2}\'');
         if ($swap == 0) {
-            // reference implementation provisions a 2 GiB swapfile only when the reported RAM is below 1 GiB.
+            // AlphaLink provisions a 2 GiB swapfile only when the reported RAM is below 1 GiB.
             $ram = $transport->exec('free -m | grep Mem | awk \'{print $2}\'');
             if ($ram < 1024) {
                 $transport->exec('fallocate -l 2G /swapfile');

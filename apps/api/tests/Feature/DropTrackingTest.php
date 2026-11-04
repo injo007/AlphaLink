@@ -197,7 +197,7 @@ class DropTrackingTest extends TestCase
 
     public function test_drop_tracking_requires_configured_shared_key_and_test_recipients_are_noops(): void
     {
-        config(['tracking.ingest_key' => null, 'infrastructure.bulk_install_settings.mini_app_key' => '']);
+        config(['tracking.ingest_key' => null, 'infrastructure.bulk_install_settings.tracking_ingest_key' => '']);
         $fixture = $this->recipientFixture();
         $payload = $this->payload($fixture, 'open');
 
@@ -215,14 +215,14 @@ class DropTrackingTest extends TestCase
 
     public function test_reference_stats_drop_route_accepts_the_saved_sender_install_key(): void
     {
-        config(['tracking.ingest_key' => null, 'infrastructure.bulk_install_settings.mini_app_key' => '']);
+        config(['tracking.ingest_key' => null, 'infrastructure.bulk_install_settings.tracking_ingest_key' => '']);
         $fixture = $this->recipientFixture();
         WorkspaceInfrastructureSettings::query()->create([
             'workspace_id' => $fixture['workspace']->getKey(),
-            'mini_app_key' => 'synthetic-installed-mini-app-key',
+            'tracking_ingest_key' => 'synthetic-installed-tracking-ingest-key',
         ]);
         $payload = $this->payload($fixture, 'open');
-        $payload['key'] = 'synthetic-installed-mini-app-key';
+        $payload['key'] = 'synthetic-installed-tracking-ingest-key';
 
         $this->postJson('/api/v1/stats-drop', $payload)->assertNoContent();
         $this->assertSame(1, WorkspaceDropVisitor::query()->count());

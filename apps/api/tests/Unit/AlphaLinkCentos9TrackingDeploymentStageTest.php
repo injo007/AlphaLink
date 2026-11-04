@@ -6,15 +6,17 @@ use App\Services\Infrastructure\AlphaLinkCentos9TrackingDeploymentStage;
 use App\Services\Infrastructure\AlphaLinkInstallerRemoteCommandTransport;
 use App\Services\Infrastructure\AlphaLinkInstallerRemoteFileTransport;
 use App\Services\Infrastructure\AlphaLinkInstallerRemoteReadableFileTransport;
+use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
 class AlphaLinkCentos9TrackingDeploymentStageTest extends TestCase
 {
-    public function test_it_replays_reference_mini_app_and_apache_behavior_without_putting_the_key_in_commands(): void
+    public function test_it_deploys_first_party_tracking_sources_and_validates_host_routing(): void
     {
         $commands = new RecordingTrackingCommands;
-        $files = new RecordingTrackingFiles("url=[IP];key=[KEY];server=[ID];decode=base64_decode(\$token, true);\$request = Http::asJson()->post(self::IP.'/api/v1/campaign', ['email_id' => \$token[2], 'isp_id' => \$token[5]]);");
+        $files = new RecordingTrackingFiles;
+        $source = ['index' => '<?php require_once __DIR__."/../TrackerRequestHandler.php";', 'handler' => '<?php final class AlphaLinkTrackerRequestHandler {}'];
 
         (new AlphaLinkCentos9TrackingDeploymentStage)->run(
             $commands,
@@ -23,7 +25,7 @@ class AlphaLinkCentos9TrackingDeploymentStageTest extends TestCase
             42,
             'mail.example.test',
             ['a.mail.example.test', 'b.mail.example.test'],
-            'synthetic zip bytes',
+            $source,
             'synthetic trusted IPs',
             'https://alpha.example.test',
             'synthetic-private-key',
@@ -32,71 +34,66 @@ class AlphaLinkCentos9TrackingDeploymentStageTest extends TestCase
 
         $this->assertStringContainsString('/api/v1/health', $commands->commands[0]);
         $this->assertSame('dnf install -y httpd', $commands->commands[1]);
-        $this->assertSame('mkdir -p /var/mini/', $commands->commands[2]);
-        $this->assertSame('unzip -o /var/mini/mini_app.zip -d /var/mini', $commands->commands[3]);
-        $this->assertContains('cd /var/mini && php artisan optimize', $commands->commands);
-        $this->assertContains('chmod 600 /var/mini/.env', $commands->commands);
-        $this->assertStringContainsString('APP_NAME="AlphaLink"', $files->uploads['/var/mini/.env']);
-        $this->assertStringContainsString('SESSION_COOKIE=alphalink-session', $files->uploads['/var/mini/.env']);
-        $this->assertMatchesRegularExpression('/APP_ENV=production\\nAPP_DEBUG=false\\nAPP_KEY=base64:[A-Za-z0-9+\\/=]+\\nAPP_URL=https:\/\/mail.example.test\\n/', $files->uploads['/var/mini/.env']);
-        $this->assertSame('synthetic zip bytes', $files->uploads['/var/mini/mini_app.zip']);
+        $this->assertStringContainsString('/var/mini/public', $commands->commands[2]);
+        $this->assertSame($source['handler'], $files->uploads['/var/alphalink-tracker/TrackerRequestHandler.php']);
+        $this->assertSame($source['index'], $files->uploads['/var/mini/public/index.php']);
+        $this->assertStringContainsString('Require all denied', $files->uploads['/etc/httpd/conf.d/alphalink-tracking-access.conf']);
+        $this->assertStringContainsString('Require all granted', $files->uploads['/etc/httpd/conf.d/alphalink-tracking-access.conf']);
+        $this->assertStringContainsString("'api_url' => 'https://alpha.example.test'", $files->uploads['/etc/alphalink-tracker.php']);
+        $this->assertStringContainsString("'ingest_key' => 'synthetic-private-key'", $files->uploads['/etc/alphalink-tracker.php']);
+        $this->assertStringContainsString("'server_id' => '42'", $files->uploads['/etc/alphalink-tracker.php']);
         $this->assertStringContainsString('ServerName mail.example.test', $files->uploads['/etc/httpd/conf.d/mail_example_test.conf']);
         $this->assertStringContainsString('ServerAlias 203.0.113.18 a.mail.example.test b.mail.example.test', $files->uploads['/etc/httpd/conf.d/mail_example_test.conf']);
-        $this->assertStringContainsString('RewriteRule ^/(.{255,})$ /index.php?__alphalink_long_uri=$1 [END,QSA,B]', $files->uploads['/etc/httpd/conf.d/mail_example_test.conf']);
-        $this->assertStringContainsString("\$_SERVER['REQUEST_URI'] = '/'.ltrim(\$_GET['__alphalink_long_uri'], '/');", $files->uploads['/var/mini/public/index.php']);
+        $this->assertStringContainsString('RewriteRule ^/healthz$ /index.php [END,QSA]', $files->uploads['/etc/httpd/conf.d/mail_example_test.conf']);
+        $this->assertStringContainsString('RewriteRule ^/([A-Za-z0-9]{10}[roub][A-Za-z0-9_-]{1,4096}(?:/[A-Za-z0-9_-]+)*)$ /index.php?__alphalink_long_uri=$1 [END,QSA,B]', $files->uploads['/etc/httpd/conf.d/mail_example_test.conf']);
+        $this->assertStringNotContainsString('RewriteRule ^/(.*)$ /index.php', $files->uploads['/etc/httpd/conf.d/mail_example_test.conf']);
+        $this->assertStringContainsString('DocumentRoot "/var/mini/public"', $files->uploads['/etc/httpd/conf.d/mail_example_test.conf']);
+        $this->assertStringContainsString('AllowOverride None', $files->uploads['/etc/httpd/conf.d/mail_example_test.conf']);
         $this->assertSame('synthetic trusted IPs', $files->uploads['/etc/httpd/conf.d/remoteip.conf']);
-        $this->assertSame(
-            "url=https://alpha.example.test;key=synthetic-private-key;server=42;decode=base64_decode(strtr(\$token, '-_', '+/'), true);\$request = Http::asJson()->post(self::IP.'/api/v1/campaign', ['email_id' => \$token[2],\n            'send_id' => \$token[1], 'isp_id' => \$token[5]]);",
-            $files->uploads['/var/mini/app/Helper.php'],
-        );
-        $this->assertStringContainsString('httpd -M', implode("\n", $commands->commands));
+
         $allCommands = implode("\n", $commands->commands);
+        $this->assertStringContainsString('httpd -M', $allCommands);
+        $this->assertStringContainsString('/healthz', $allCommands);
         $this->assertStringContainsString('/ALPHALINKTRACK10rprobe', $allCommands);
-        $this->assertStringContainsString('test -s /var/mini/public/.htaccess', $allCommands);
-        $this->assertStringContainsString('Host: 203.0.113.18', $allCommands);
         $this->assertStringContainsString('ALPHALINK_TRACKING_ROUTE_READY', $allCommands);
         $this->assertStringContainsString('ALPHALINK_TRACKING_IP_ROUTE_READY', $allCommands);
         $this->assertStringContainsString('ALPHALINK_TRACKING_LONG_ROUTE_READY', $allCommands);
-        $this->assertStringContainsString('Set-Cookie: alphalink-session=', $allCommands);
-        $this->assertSame([
-            '/var/mini/app/Helper.php',
-            '/var/mini/app/Http/Controllers/RedirectController.php',
-            '/var/mini/app/Http/Controllers/RedirectDropController.php',
-            '/var/mini/public/index.php',
-        ], $files->downloads);
-        foreach (['RedirectController.php', 'RedirectDropController.php'] as $controllerFile) {
-            $controller = $files->uploads['/var/mini/app/Http/Controllers/'.$controllerFile];
-            $this->assertSame(4, substr_count($controller, '$token .= str_replace(\'/\', \'\', (string) $option);'));
-        }
-        $this->assertStringNotContainsString('synthetic-private-key', implode("\n", $commands->commands));
+        $this->assertStringContainsString('Location: https://www.google.com', $allCommands);
+        $this->assertStringContainsString('X-AlphaLink-Tracking: active', $allCommands);
+        $this->assertStringNotContainsString('synthetic-private-key', $allCommands);
+        $this->assertStringNotContainsString('unzip', $allCommands);
+        $this->assertStringNotContainsString('chown -R', $allCommands);
+        $this->assertStringNotContainsString('rm -rf /var/mini', $allCommands);
+        $this->assertSame([], $files->downloads);
     }
 
-    public function test_it_still_configures_and_enables_apache_when_reference_mini_app_asset_is_absent(): void
+    public function test_it_still_configures_apache_when_tracking_is_not_selected(): void
     {
         $commands = new RecordingTrackingCommands;
-        $files = new RecordingTrackingFiles(false);
+        $files = new RecordingTrackingFiles;
 
         (new AlphaLinkCentos9TrackingDeploymentStage)->run(
             $commands, $files, '203.0.113.18', 42, null, [], null, null, '', '',
         );
 
-        $this->assertCount(7, $commands->commands);
+        $this->assertCount(6, $commands->commands);
         $this->assertSame('dnf install -y httpd', $commands->commands[0]);
-        $this->assertSame('systemctl enable httpd', $commands->commands[6]);
+        $this->assertSame('systemctl enable httpd', $commands->commands[5]);
         $this->assertSame([], $files->uploads);
         $this->assertSame([], $files->downloads);
     }
 
-    public function test_it_stops_before_helper_configuration_when_required_placeholders_are_missing(): void
+    public function test_it_rejects_an_incomplete_source_package_before_uploading_files(): void
     {
         $commands = new RecordingTrackingCommands;
-        $files = new RecordingTrackingFiles('unexpected helper');
+        $files = new RecordingTrackingFiles;
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('The tracking app helper is unavailable or does not contain the required placeholders.');
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('The AlphaLink tracking source files are incomplete.');
 
         (new AlphaLinkCentos9TrackingDeploymentStage)->run(
-            $commands, $files, '203.0.113.18', 42, 'mail.example.test', [], 'zip', null, 'https://alpha.example.test', 'private',
+            $commands, $files, '203.0.113.18', 42, 'mail.example.test', [], ['index' => '<?php'], null,
+            'https://alpha.example.test', 'synthetic-private-key',
         );
     }
 
@@ -108,25 +105,21 @@ class AlphaLinkCentos9TrackingDeploymentStageTest extends TestCase
             {
                 $this->commands[] = $command;
 
-                if (str_contains($command, 'ALPHALINK_CALLBACK_READY')) {
-                    return 'ALPHALINK_CALLBACK_READY';
-                }
-
-                return '';
+                return str_contains($command, 'ALPHALINK_CALLBACK_READY') ? 'ALPHALINK_CALLBACK_READY' : '';
             }
         };
-        $files = new RecordingTrackingFiles("url=[IP];key=[KEY];server=[ID];base64_decode(\$token, true);\$request = Http::asJson()->post(self::IP.'/api/v1/campaign', ['email_id' => \$token[2],]);");
+        $files = new RecordingTrackingFiles;
 
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Apache mod_rewrite could not be enabled and validated for tracking links.');
 
         (new AlphaLinkCentos9TrackingDeploymentStage)->run(
-            $commands, $files, '203.0.113.18', 42, 'mail.example.test', [], 'zip', null,
-            'https://alpha.example.test', 'private',
+            $commands, $files, '203.0.113.18', 42, 'mail.example.test', [], $this->trackingSources(), null,
+            'https://alpha.example.test', 'synthetic-private-key',
         );
     }
 
-    public function test_unreachable_callback_blocks_before_package_or_file_changes(): void
+    public function test_unreachable_callback_blocks_before_uploading_tracking_sources(): void
     {
         $commands = new class extends RecordingTrackingCommands
         {
@@ -137,12 +130,12 @@ class AlphaLinkCentos9TrackingDeploymentStageTest extends TestCase
                 return '';
             }
         };
-        $files = new RecordingTrackingFiles(false);
+        $files = new RecordingTrackingFiles;
 
         try {
             (new AlphaLinkCentos9TrackingDeploymentStage)->run(
-                $commands, $files, '203.0.113.18', 42, 'mail.example.test', [],
-                'synthetic zip bytes', null, 'https://alpha.example.test', 'synthetic-private-key',
+                $commands, $files, '203.0.113.18', 42, 'mail.example.test', [], $this->trackingSources(), null,
+                'https://alpha.example.test', 'synthetic-private-key',
             );
             $this->fail('Unreachable callback must block tracking deployment.');
         } catch (RuntimeException $exception) {
@@ -151,6 +144,12 @@ class AlphaLinkCentos9TrackingDeploymentStageTest extends TestCase
 
         $this->assertCount(1, $commands->commands);
         $this->assertSame([], $files->uploads);
+    }
+
+    /** @return array{index: string, handler: string} */
+    private function trackingSources(): array
+    {
+        return ['index' => '<?php', 'handler' => '<?php final class AlphaLinkTrackerRequestHandler {}'];
     }
 }
 
@@ -163,23 +162,13 @@ class RecordingTrackingCommands implements AlphaLinkInstallerRemoteCommandTransp
     {
         $this->commands[] = $command;
 
-        if (str_contains($command, 'ALPHALINK_CALLBACK_READY')) {
-            return 'ALPHALINK_CALLBACK_READY';
-        }
-        if (str_contains($command, 'ALPHALINK_TRACKING_READY')) {
-            return 'ALPHALINK_TRACKING_READY';
-        }
-        if (str_contains($command, 'ALPHALINK_REWRITE_READY')) {
-            return 'ALPHALINK_REWRITE_READY';
-        }
-        if (str_contains($command, 'ALPHALINK_TRACKING_ROUTE_READY')) {
-            return 'ALPHALINK_TRACKING_ROUTE_READY';
-        }
-        if (str_contains($command, 'ALPHALINK_TRACKING_IP_ROUTE_READY')) {
-            return 'ALPHALINK_TRACKING_IP_ROUTE_READY';
-        }
-        if (str_contains($command, 'ALPHALINK_TRACKING_LONG_ROUTE_READY')) {
-            return 'ALPHALINK_TRACKING_LONG_ROUTE_READY';
+        foreach ([
+            'ALPHALINK_CALLBACK_READY', 'ALPHALINK_TRACKING_READY', 'ALPHALINK_REWRITE_READY',
+            'ALPHALINK_TRACKING_ROUTE_READY', 'ALPHALINK_TRACKING_IP_ROUTE_READY', 'ALPHALINK_TRACKING_LONG_ROUTE_READY',
+        ] as $marker) {
+            if (str_contains($command, $marker)) {
+                return $marker;
+            }
         }
 
         return '';
@@ -193,8 +182,6 @@ class RecordingTrackingFiles implements AlphaLinkInstallerRemoteFileTransport, A
 
     /** @var list<string> */
     public array $downloads = [];
-
-    public function __construct(private readonly string|false $helper) {}
 
     public function upload(string $contents, string $destination): bool
     {
@@ -219,34 +206,6 @@ class RecordingTrackingFiles implements AlphaLinkInstallerRemoteFileTransport, A
     {
         $this->downloads[] = $path;
 
-        if (str_ends_with($path, '/Helper.php')) {
-            return $this->helper;
-        }
-        if (str_ends_with($path, '/public/index.php')) {
-            return "<?php\ndefine('LARAVEL_START', microtime(true));\n";
-        }
-
-        return <<<'PHP'
-<?php
-class TrackingController
-{
-    public function redirect(Request $request, string $token, ?string $option = null): Response {
-        $token = $request->filled('d') ? $request->get('d') : $token;
-        $info = Helper::validateToken($token);
-    }
-    public function unsubscribe(Request $request, string $token, ?string $option = null): Response {
-        $token = $request->filled('d') ? $request->get('d') : $token;
-        $info = Helper::validateToken($token);
-    }
-    public function open(Request $request, string $token, ?string $option = null)
-    {
-        $info = Helper::validateToken($token);
-    }
-    public function bot(Request $request, string $token, ?string $option = null)
-    {
-        $info = Helper::validateToken($token);
-            }
-}
-PHP;
+        return false;
     }
 }

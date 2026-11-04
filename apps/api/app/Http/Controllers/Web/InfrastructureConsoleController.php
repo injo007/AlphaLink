@@ -1301,7 +1301,7 @@ class InfrastructureConsoleController extends Controller
             $selectedDomains[(string) $domain->getKey()] = $domain;
         }
 
-        // Bulk Install has no separate LOAD IPS step. Match the reference implementation install
+        // Bulk Install has no separate LOAD IPS step. Match the AlphaLink install
         // flow by verifying missing host facts before evaluating platform and
         // PMTA readiness; otherwise an unprobed server is incorrectly shown
         // as an unsupported OS/architecture. This preflight is read-only.
@@ -1713,7 +1713,7 @@ class InfrastructureConsoleController extends Controller
         try {
             return response()->json($console->execute($server, $data['cmd']));
         } catch (RuntimeException $exception) {
-            // reference implementation returns execution errors as a JSON string with HTTP 200.
+            // AlphaLink returns execution errors as a JSON string with HTTP 200.
             return response()->json($exception->getMessage());
         } catch (\Throwable) {
             return response()->json('Console command failed.');

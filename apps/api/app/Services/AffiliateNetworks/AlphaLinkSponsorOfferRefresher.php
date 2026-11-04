@@ -18,7 +18,7 @@ class AlphaLinkSponsorOfferRefresher
     ) {}
 
     /**
-     * Apply reference implementation OffersUpdateInfo rules to one workspace offer.
+     * Refresh provider-owned fields and creatives for one workspace offer.
      *
      * @return array{outcome: 'updated'|'unchanged'|'paused'|'skipped'|'failed', html_creatives_added: int}
      */

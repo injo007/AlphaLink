@@ -114,7 +114,7 @@ class AlphaLinkChangeDomainRunner
         $log('End Setting Host');
 
         $log('Setup VHost');
-        $this->writeVhost($session, (string) $mainDomain->name, $subdomains);
+        $this->writeVhost($session, (string) $mainDomain->name, $subdomains, $tracking);
         $log('End Setting VHost');
 
         $dnsRecordResults = $this->writeDomainRecords($dnsGroups, $tracking, $imap, $options, $dkimSelector, $dkimMaterial['public_record'], $log);
@@ -412,21 +412,30 @@ class AlphaLinkChangeDomainRunner
         });
     }
 
-    private function writeVhost(AlphaLinkInstallerRemoteCommandTransport&AlphaLinkInstallerRemoteFileTransport $session, string $domain, array $subdomains): void
+    private function writeVhost(AlphaLinkInstallerRemoteCommandTransport&AlphaLinkInstallerRemoteFileTransport $session, string $domain, array $subdomains, bool $tracking): void
     {
         if (! preg_match('/\A(?=.{1,253}\z)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}\z/iD', $domain)) {
             throw new InvalidArgumentException('The selected main domain is not a valid hostname.');
         }
         $fileName = Str::slug(str_replace('.', '_', $domain), '_');
         $serverAlias = $subdomains === [] ? '' : '    ServerAlias '.implode(' ', $subdomains);
+        $trackingRoutes = $tracking
+            ? "    RewriteEngine On\n"
+                ."    RewriteRule ^/healthz$ /index.php [END,QSA]\n"
+                ."    RewriteRule ^/([A-Za-z0-9]{10}[roub][A-Za-z0-9_-]{1,4096}(?:/[A-Za-z0-9_-]+)*)$ /index.php?__alphalink_long_uri=$1 [END,QSA,B]\n"
+            : '';
         $content = "<VirtualHost *:80>\n"
             ."    ServerName {$domain}\n"
             .($serverAlias === '' ? '' : $serverAlias."\n")
             ."    DocumentRoot \"/var/mini/public\"\n"
+            .$trackingRoutes
             ."    <Directory /var/mini/public>\n"
-            ."        AllowOverride all\n"
-            ."        Options Indexes FollowSymLinks ExecCGI\n"
+            ."        AllowOverride None\n"
+            ."        Options -Indexes -FollowSymLinks -ExecCGI\n"
             ."        Require all granted\n"
+            .'        <FilesMatch "(?i)^(?!index\\.php$).*\\.(php[0-9]?|phtml|phar)$">'."\n"
+            ."            Require all denied\n"
+            ."        </FilesMatch>\n"
             ."    </Directory>\n"
             ."    ErrorLog \"logs/{$fileName}-error.log\"\n"
             ."    CustomLog \"logs/{$fileName}-access.log\" common\n"
@@ -435,6 +444,6 @@ class AlphaLinkChangeDomainRunner
         if (! $session->upload($content, '/etc/httpd/conf.d/'.$fileName.'.conf')) {
             throw new RuntimeException('The Apache virtual host configuration could not be uploaded.');
         }
-        $session->exec('systemctl restart httpd');
+        $session->exec('httpd -t && systemctl restart httpd');
     }
 }

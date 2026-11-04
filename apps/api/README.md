@@ -4,7 +4,7 @@ This Laravel application includes an API and a server-rendered workspace console
 
 ## Runtime requirements
 
-- PHP 8.3+ with `dom`, `xml`, `xmlwriter`, `mbstring`, `openssl`, `pdo_pgsql`, `zip` (for PMTA staging), and the Laravel-required extensions.
+- PHP 8.5+ with `dom`, `xml`, `xmlwriter`, `mbstring`, `openssl`, `pdo_pgsql`, `zip` (for PMTA staging), and the Laravel-required extensions.
 - Composer 2, PostgreSQL, and Redis.
 - Node.js 22+ and npm for building the Vite assets.
 - Keep each environment's `APP_KEY` and `CONTACT_LOOKUP_KEY` outside source control. `CONTACT_LOOKUP_KEY` must be a stable, independently generated secret of at least 32 characters. It creates a deterministic HMAC blind index; it is not an encryption key.

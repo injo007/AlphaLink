@@ -4,7 +4,7 @@ namespace App\Services\Infrastructure;
 
 use App\Models\SendingDomain;
 
-/** Provider boundary for the DNS record write in reference implementation ServerInstallBulk. */
+/** Provider boundary for DNS writes during bulk installation. */
 interface AlphaLinkBulkInstallDomainDnsRecordWriter
 {
     /** Return whether the provider can currently manage this exact domain. */

@@ -44,11 +44,12 @@ class AlphaLinkCentos9HttpsDeploymentStage
         $trackingVhostName = strtolower(preg_replace('/[^A-Za-z0-9_]+/', '_', str_replace('.', '_', $domain)) ?? '');
         $trackingVhost = '/etc/httpd/conf.d/'.$trackingVhostName.'-le-ssl.conf';
         $trackingRewriteScript = '/<VirtualHost '.chr(92).'*:443>/a'.chr(92)."\n"
-            .'    # ALPHALINK_LONG_TRACKING_URI'.chr(92)."\n"
+            .'    # ALPHALINK_TRACKING_ROUTES'.chr(92)."\n"
             .'    RewriteEngine On'.chr(92)."\n"
-            .'    RewriteRule ^/(.{255,})$ /index.php?__alphalink_long_uri=$1 [END,QSA,B]';
-        $trackingRewrite = 'if test -f '.escapeshellarg($trackingVhost).'; then '
-            ."if ! grep -Fq 'ALPHALINK_LONG_TRACKING_URI' ".escapeshellarg($trackingVhost).'; then '
+            .'    RewriteRule ^/healthz$ /index.php [END,QSA]'.chr(92)."\n"
+            .'    RewriteRule ^/([A-Za-z0-9]{10}[roub][A-Za-z0-9_-]{1,4096}(?:/[A-Za-z0-9_-]+)*)$ /index.php?__alphalink_long_uri=$1 [END,QSA,B]';
+        $trackingRewrite = 'if test -f /var/mini/public/index.php && grep -q ALPHALINK_TRACKING_READY /var/mini/public/index.php && test -f '.escapeshellarg($trackingVhost).'; then '
+            ."if ! grep -Fq 'ALPHALINK_TRACKING_ROUTES' ".escapeshellarg($trackingVhost).'; then '
             .'sed -i '.escapeshellarg($trackingRewriteScript).' '.escapeshellarg($trackingVhost).'; fi; '
             .'httpd -t && systemctl reload httpd; fi';
         $commands->exec($trackingRewrite);

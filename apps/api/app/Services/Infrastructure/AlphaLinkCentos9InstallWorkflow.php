@@ -35,8 +35,8 @@ class AlphaLinkCentos9InstallWorkflow
      * @param  list<string>  $discoveredIps
      * @param  list<string>  $isps
      * @param  array{tracking: bool, proxy: bool, imap: bool, spf: bool, dkim: bool, dmarc: bool, https: bool}  $options
-     * @param  array{pmta_port: int, pmta_admin_port: int, proxy_port: int, dev_ips: list<string>, pmta_relay_ips: list<string>, production_ips: list<string>, rdp_ips: list<string>, allow_all_monitor: bool, apply_firewall: bool, dkim_selector: string, dkim_key: string, dkim_public_key: ?string, imap_username: string, imap_password: string, proxy_username: string, proxy_password: string, mini_app_url: string, mini_app_key: string}  $settings
-     * @param  array{mini_app: ?string, cloudflare_ips: ?string, dovecot_config: ?string, squid_config: ?string, pmta_domains_override?: ?string}  $assets
+     * @param  array{pmta_port: int, pmta_admin_port: int, proxy_port: int, dev_ips: list<string>, pmta_relay_ips: list<string>, production_ips: list<string>, rdp_ips: list<string>, allow_all_monitor: bool, apply_firewall: bool, dkim_selector: string, dkim_key: string, dkim_public_key: ?string, imap_username: string, imap_password: string, proxy_username: string, proxy_password: string, tracking_callback_url: string, tracking_ingest_key: string}  $settings
+     * @param  array{tracking_app: ?array{index: string, handler: string}, cloudflare_ips: ?string, dovecot_config: ?string, squid_config: ?string, pmta_domains_override?: ?string}  $assets
      * @param  Closure(string): void  $log
      * @param  list<array{ip: string, type: string, main: bool, sub: string, domain_id: string, domain: string, is_our: bool}>|null  $ipAssignments
      * @param  list<SendingDomain>  $selectedDomains
@@ -153,8 +153,8 @@ class AlphaLinkCentos9InstallWorkflow
             (string) $server->ip_address,
         );
 
-        if ($options['tracking'] && $assets['mini_app'] !== null) {
-            $this->tracking->verifyCallback($session, $settings['mini_app_url']);
+        if ($options['tracking'] && $assets['tracking_app'] !== null) {
+            $this->tracking->verifyCallback($session, $settings['tracking_callback_url']);
         }
 
         $log('Setup Host');
@@ -184,8 +184,8 @@ class AlphaLinkCentos9InstallWorkflow
             $log('Setup Tracking App');
             $this->tracking->run(
                 $session, $session, (string) $server->ip_address, (string) $server->getKey(),
-                $deploymentDomain, $deploymentSubdomains, $assets['mini_app'], $assets['cloudflare_ips'],
-                $settings['mini_app_url'], $settings['mini_app_key'],
+                $deploymentDomain, $deploymentSubdomains, $assets['tracking_app'], $assets['cloudflare_ips'],
+                $settings['tracking_callback_url'], $settings['tracking_ingest_key'],
                 $options['https'] && $primaryDomainReady,
                 (string) config('app.name', 'NA'),
             );
@@ -286,7 +286,7 @@ class AlphaLinkCentos9InstallWorkflow
         );
         $log('End Setting Firewall');
 
-        // reference implementation starts both services but does not inspect their final state. Do not
+        // AlphaLink starts both services but does not inspect their final state. Do not
         // persist an installed server when the selected PMTA package or either
         // service failed after the VMTA configuration restart.
         $health = $session->exec($this->pmtaReadinessCommand(
@@ -397,7 +397,7 @@ class AlphaLinkCentos9InstallWorkflow
             }
         }
 
-        foreach (['dkim_selector', 'dkim_key', 'imap_username', 'imap_password', 'proxy_username', 'proxy_password', 'mini_app_url', 'mini_app_key'] as $value) {
+        foreach (['dkim_selector', 'dkim_key', 'imap_username', 'imap_password', 'proxy_username', 'proxy_password', 'tracking_callback_url', 'tracking_ingest_key'] as $value) {
             if (! isset($settings[$value]) || ! is_string($settings[$value])) {
                 throw new InvalidArgumentException('A required installation setting is missing.');
             }
@@ -408,11 +408,15 @@ class AlphaLinkCentos9InstallWorkflow
             throw new InvalidArgumentException('The DKIM public key setting is invalid.');
         }
 
-        foreach (['mini_app', 'cloudflare_ips', 'dovecot_config', 'squid_config'] as $asset) {
+        foreach (['tracking_app', 'cloudflare_ips', 'dovecot_config', 'squid_config'] as $asset) {
             if (! array_key_exists($asset, $assets)
-                || (! is_null($assets[$asset]) && ! is_string($assets[$asset]))) {
+                || (! is_null($assets[$asset]) && $asset !== 'tracking_app' && ! is_string($assets[$asset]))) {
                 throw new InvalidArgumentException('A required installation asset input is missing.');
             }
+        }
+        if ($assets['tracking_app'] !== null
+            && (! is_array($assets['tracking_app']) || ! is_string($assets['tracking_app']['index'] ?? null) || ! is_string($assets['tracking_app']['handler'] ?? null))) {
+            throw new InvalidArgumentException('The AlphaLink tracking application files are invalid.');
         }
     }
 

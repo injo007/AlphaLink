@@ -1,5 +1,7 @@
 # AlphaLink server installation: version 1 contract
 
+> **Archived installation evidence.** This versioned contract records past research and is not the current installation procedure.
+
 **Status:** product and engineering contract, 2026-10-22. No remote installation is enabled in the current application.
 
 ## Owner workflow

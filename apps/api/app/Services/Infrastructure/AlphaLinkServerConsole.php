@@ -4,7 +4,7 @@ namespace App\Services\Infrastructure;
 
 use App\Models\ManagedServer;
 
-/** Reproduces the reference implementation server-console host checks before executing an operator command. */
+/** Reproduces the AlphaLink server-console host checks before executing an operator command. */
 class AlphaLinkServerConsole
 {
     public function __construct(

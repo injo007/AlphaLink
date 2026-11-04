@@ -18,7 +18,7 @@ class AlphaLinkAffiliateProviderOfferReader
     ) {}
 
     /**
-     * Fetch and map only the selected offers using the reference implementation provider contracts.
+     * Fetch and map only the selected offers using the AlphaLink provider contracts.
      *
      * @param  list<string>  $offerIds
      * @return list<array<string, mixed>>

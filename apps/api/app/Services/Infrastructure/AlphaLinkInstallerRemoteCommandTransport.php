@@ -2,7 +2,7 @@
 
 namespace App\Services\Infrastructure;
 
-/** Executes one remote shell command and returns trimmed output or false, like reference implementation Ssh::exec(). */
+/** Executes one remote shell command and returns trimmed output or false. */
 interface AlphaLinkInstallerRemoteCommandTransport
 {
     public function exec(string $command): bool|string;

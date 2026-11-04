@@ -16,7 +16,7 @@ use SimpleXMLElement;
 use Throwable;
 
 /**
- * Imports the registrar domain catalog using the provider APIs used by reference implementation.
+ * Imports the registrar domain catalog using the provider APIs used by AlphaLink.
  * Network calls are isolated here; tests use Laravel's fake HTTP transport.
  */
 class AlphaLinkDomainProviderImport
@@ -67,7 +67,7 @@ class AlphaLinkDomainProviderImport
                 $seenProviderIds[$providerDomainId] = true;
                 $seenNames[$name] = true;
 
-                // reference implementation ignores provider IDs already present anywhere in its catalog. AlphaLink
+                // AlphaLink ignores provider IDs already present anywhere in its catalog. AlphaLink
                 // applies that rule within the workspace boundary used by its domain table.
                 $existing = SendingDomain::query()
                     ->where('workspace_id', $workspace->getKey())
@@ -90,7 +90,7 @@ class AlphaLinkDomainProviderImport
                     'domains_provider_id' => $provider->getKey(),
                     'provider_domain_id' => $providerDomainId,
                     'status' => 'new',
-                    // The reference implementation domains migration defaults imported registrar records to is_our=true.
+                    // The AlphaLink domains migration defaults imported registrar records to is_our=true.
                     'is_our' => true,
                     'is_active' => true,
                     'have_who_is' => $row['have_who_is'],
@@ -177,7 +177,7 @@ class AlphaLinkDomainProviderImport
                     $attributes[(string) $key] = (string) $value;
                 }
 
-                // This is the same reference implementation rule: locked and expired Namecheap domains are skipped.
+                // This is the same AlphaLink rule: locked and expired Namecheap domains are skipped.
                 if (($attributes['IsLocked'] ?? null) !== 'false' || ($attributes['IsExpired'] ?? null) !== 'false') {
                     continue;
                 }

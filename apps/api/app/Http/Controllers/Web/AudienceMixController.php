@@ -104,7 +104,7 @@ class AudienceMixController extends Controller
         }
         $lists = $listsQuery->get();
         $listIds = $lists->map(fn (AudienceList $list): string => (string) $list->getKey())->all();
-        // reference implementation returns activity choices for the selected ISP while the country
+        // AlphaLink returns activity choices for the selected ISP while the country
         // filter narrows only the list table. Keep that selector behavior.
         $ispListIds = $workspace->audienceLists()
             ->where('isp_id', $isp->getKey())

@@ -1,6 +1,10 @@
 # AlphaLink parity report
 
-> Historical comparisons in this report use archived local evidence. They do not authorize connection to the former service; follow `AGENTS.md` for current policy.
+> **Archived comparison report.** Its dated comparisons and status snapshots preserve historical evidence; they do not define AlphaLink's current product identity or active requirements.
+
+## 2026-11-04 maintenance addendum
+
+The first-party tracker source and credential-field migration are in progress. The standalone route tests pass, but the installer and migration PHPUnit suites have not yet run in this environment. No production deployment or event delivery is claimed. This maintenance slice does not change workflow parity counts.
 
 **Current result:** 0 features `PARITY_CONFIRMED`. The local Laravel tests exercise selected AlphaLink behavior, but none compares a complete feature contract to DMS. No reference mutation-based test has been run. E-ROUTE-13 maps all 110 matrix IDs to parity-report rows; the campaign workflow split improves inventory granularity but does not accept any feature.
 
@@ -742,3 +746,15 @@ Literal-host and `[domain]` offer links ending in `/[rndUN_10]r[token]` now reso
 ### Selected tracker host for generated campaign clicks — E-TRACK-41
 
 New regular-send, manual Campaign Test, and PMTA Campaign Test offer links now use the selected tracking hostname and the installed tracker URL shape. The helper forces HTTPS and adds t=1 for direct offer redirect. Authored HTML is not rewritten before rendering; unrelated external hosts are preserved. Existing signed AlphaLink routes remain available for messages already delivered. The focused campaign suites pass 107 tests / 1,685 assertions on the default SQLite profile. Five changed-link regressions pass 5 / 348 assertions on disposable PostgreSQL 18.6. A broader 107-test PostgreSQL run also exposed two unrelated existing test issues: a test deletes append-only audit events, and a catalog fixture expects a different first IP. Release `a7a6682` is installed on `baseheavy.shop`; the installer verified a PostgreSQL backup and HTTPS health, and the public `/up` endpoint returns 200. Deployment also enabled the installer execution gates and synchronized egress for one automatically managed workspace. No email or recipient click was generated, so the new delivered-message path remains unverified. The ordinary PHPUnit profile still uses SQLite for fast isolated tests; production remains PostgreSQL, verified by the installer backup. Keep TESTING.
+
+## 2026-11-04 — Drops and Warmups Phase 1 gate
+
+The active goal now prioritizes complete Drops and Warmups reconstruction. No new reference service access occurred: the repository-level `AGENTS.md` prohibits it, and a value-blind `.env` key check found no DMS-specific endpoint. Existing local source observations remain static historical evidence. Current per-workflow status and implementation gaps are summarized in `audit/DROPS_WARMUPS_PHASE1_BLOCKER.md`. Drops authoring/Test/Send/Schedule and the Warmup lifecycle remain INVESTIGATING; Drop monitor/statistics/visitors/suppression and seed-list management remain TESTING. No behavior was inferred from UI appearance, no sender was invoked, and no parity claim was added. Phase 2 is blocked until the reference access policy and a separately identified read-only source are resolved.
+
+## 2026-11-04 — DMS Drops/Warmups access and source discovery update
+
+The prior Phase 1 note remains a chronological checkpoint and is superseded on access only. The user updated `.env` with DMS frontend/admin/proxy settings and a second SSH block. `app.pxlrbldlnk.com` resolves to that second SSH host; strict known-host verification and SSH confirmed the remote `/var/app` source root. HTTPS page GETs through the configured proxy confirmed Drops Monitoring, Suppression, Statistics, Warmups, New Warmup, Seeds, Add Seed List and Warmups Statistics. Fifty-six selected source files and the send engine were copied read-only to `/tmp/alphalink-dms-reference-20261104`; hashes are recorded in `audit/DMS_SOURCE_HASHES_2026-11-04.csv`. The Drop initializer, clone and clear routes are GETs with writes, and Warmup update can kill a running process; none were invoked. The engine was not executed. REA native analysis providers were unavailable, so no decompilation or runtime claim is made. DMS source/UI discovery is active but incomplete; AlphaLink workflow statuses remain unchanged and no parity confirmation is claimed.
+
+### E-CAMP-154 follow-up
+
+The configured proxy was re-used for a fresh authenticated page pass. All eight documented Drops/Warmups page GETs returned HTTP 200. The sanitized pass retained page headings and static form labels only and deliberately skipped dynamic table JSON and recipient data. No DMS action control was clicked or submitted. See `audit/DROPS_WARMUPS_REFERENCE_INVENTORY_2026-11-04.md` for the source-backed route and side-effect inventory; this confirms access and discovery progress only, not workflow parity.

@@ -5,7 +5,7 @@ namespace App\Services\Infrastructure;
 use InvalidArgumentException;
 
 /**
- * Pins the exact reference implementation install bytes copied over the host-key-verified reference SSH session.
+ * Pins the exact reviewed installation bytes copied over the host-key-verified SSH session.
  * These hashes prevent local drift; they do not prove vendor authenticity, RPM validity,
  * license entitlement, or host compatibility.
  */
@@ -27,7 +27,8 @@ class AlphaLinkReviewedAssetDigestVerifier
         'pmta/5.0/domains.conf' => ['size' => 11326, 'sha256' => '1cc206a120b287a95733f9a8d03b62c083df2e25fc82519652d3de43eeb28e05'],
         'pmta/shared/source.conf' => ['size' => 443, 'sha256' => '0089794e29807889584ad0c7050766db26b7dcb60ce7d261261a0fd5e17c94e5'],
         'pmta/shared/base.conf' => ['size' => 5519, 'sha256' => '6f2391ca2369d5a26d932cc8cec4281e6310e844a418774ee9ba25fb509cbf81'],
-        'optional/tracking/mini-app.zip' => ['size' => 9855996, 'sha256' => 'be4c6fc20e109f57f532715727c9e305521fb6c8c9cad9438da9cd51412f921a'],
+        'optional/tracking/index.php' => ['size' => 3250, 'sha256' => '8fcc32fca7d97d3144715ddd9e676bcfc0cbfb7107d61300669d002039029974'],
+        'optional/tracking/TrackerRequestHandler.php' => ['size' => 11669, 'sha256' => 'c4a586dcea351051775e733bc092de5a715c48f4cd0d12db93119bbc696c65bb'],
         'optional/tracking/cloudflare-ips.conf' => ['size' => 830, 'sha256' => '286bc02aea42c1e2f02dfb90dc6e184b5e0cc6595e20eb71a55929fa8059f80f'],
         'optional/imap/dovecot.conf' => ['size' => 3703, 'sha256' => '9cf50a3953f57d7345a4ef72f740710b1d4e6076b51dc26f93cfc607a15bc4ff'],
         'optional/proxy/squid.conf' => ['size' => 3055, 'sha256' => '599b7848da81016448ad3433572223cd79f07e78178f85754dcfc4b128ab0af3'],
@@ -82,7 +83,7 @@ class AlphaLinkReviewedAssetDigestVerifier
         return true;
     }
 
-    /** Verify one source-named asset against the reference implementation asset pin set. */
+    /** Verify one catalog asset path against AlphaLink's reviewed asset pins. */
     public function verifiesAsset(string $root, string $sourceIdentifier, ?array $reviewedDigests = null): bool
     {
         if (! str_starts_with($root, DIRECTORY_SEPARATOR) || is_link($root) || ! is_dir($root)) {

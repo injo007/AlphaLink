@@ -10,7 +10,7 @@ class AlphaLinkAffiliateProviderSalesReader
     public function __construct(private readonly AlphaLinkAffiliateProviderHttp $http) {}
 
     /**
-     * Read the reference implementation sales-report contract for one configured sponsor.
+     * Read the AlphaLink sales-report contract for one configured sponsor.
      *
      * @return list<array{conversion_id: string, earning: float, s1: string, s2: string, s3: string, ip: ?string, id: ?string, created_at: Carbon}>
      */

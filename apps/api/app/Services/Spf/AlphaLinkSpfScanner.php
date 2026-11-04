@@ -7,7 +7,7 @@ use Closure;
 /**
  * SPF record resolver for the local reference-compatible scanner.
  *
- * The reference implementation parser is copied source-side; native DNS is used here because the
+ * The AlphaLink parser is maintained locally; native DNS is used here because the
  * alternate resolver package is not part of this application.
  */
 class AlphaLinkSpfScanner

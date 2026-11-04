@@ -317,6 +317,7 @@ class AlphaLinkPmtaFeedbackImportTest extends TestCase
             'workspace_id' => $workspace->getKey(), 'audience_list_id' => $list->getKey(),
             'contact_id' => $contact->getKey(), 'email_type' => 'fresh', 'status' => 'active', 'joined_at' => now(),
         ]);
+        $this->assertSame(0, DB::table('contact_list_membership_events')->where('workspace_id', $workspace->getKey())->count());
         $token = implode('-', [
             (string) $drop->getKey(), '0', str_replace('-', '', (string) $contact->getKey()), 'f',
             str_replace('-', '', (string) $list->getKey()), '1', str_replace('-', '', (string) $server->getKey()),
@@ -331,13 +332,13 @@ class AlphaLinkPmtaFeedbackImportTest extends TestCase
         $this->assertSame('delivery', $membership->fresh()->email_type);
         $importer->import($server, $bounce, 'bounce', 'type-bounce.csv', $date);
         $this->assertSame('hard_bounce', $membership->fresh()->email_type);
-        $this->assertSame(2, DB::table('contact_list_membership_events')->where('workspace_id', $workspace->getKey())->count());
+        $this->assertSame(3, DB::table('contact_list_membership_events')->where('workspace_id', $workspace->getKey())->count());
 
         $membership->forceFill(['email_type' => 'lead'])->save();
         rewind($bounce);
         $importer->import($server, $bounce, 'bounce', 'type-bounce-second.csv', $date);
         $this->assertSame('lead', $membership->fresh()->email_type);
-        $this->assertSame(2, DB::table('contact_list_membership_events')->where('workspace_id', $workspace->getKey())->count());
+        $this->assertSame(3, DB::table('contact_list_membership_events')->where('workspace_id', $workspace->getKey())->count());
 
         fclose($delivery);
         fclose($bounce);

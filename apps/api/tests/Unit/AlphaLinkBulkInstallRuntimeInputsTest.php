@@ -31,7 +31,8 @@ class AlphaLinkBulkInstallRuntimeInputsTest extends TestCase
         $root = sys_get_temp_dir().'/alphalink-install-fixture-'.bin2hex(random_bytes(6));
         mkdir($root, 0700);
         mkdir($root.'/optional/tracking', 0700, true);
-        file_put_contents($root.'/optional/tracking/mini-app.zip', 'synthetic archive');
+        file_put_contents($root.'/optional/tracking/index.php', '<?php echo "tracker";');
+        file_put_contents($root.'/optional/tracking/TrackerRequestHandler.php', '<?php class AlphaLinkTrackerRequestHandler {}');
         $owner = User::factory()->create();
         $workspace = Workspace::query()->create([
             'name' => 'Runtime input fixture',
@@ -47,12 +48,15 @@ class AlphaLinkBulkInstallRuntimeInputsTest extends TestCase
                 'pmta_admin_port' => '8080', 'proxy_port' => '3128',
                 'apply_firewall' => true, 'allow_all_monitor' => false,
                 'dev_ips' => '192.0.2.1, 192.0.2.2', 'pmta_relay_ips' => '198.51.100.44', 'production_ips' => '', 'rdp_ips' => '',
-                'dkim_key' => 'selector', 'mini_app_key' => 'synthetic key',
+                'dkim_key' => 'selector', 'tracking_ingest_key' => 'synthetic key',
             ]);
             $resolved = (new AlphaLinkBulkInstallRuntimeInputs(new AlphaLinkBulkInstallPrivateAssetReader))
                 ->resolve($this->installOptions(['tracking' => true, 'dkim' => true]), $workspace);
 
-            $this->assertSame('synthetic archive', $resolved['assets']['mini_app']);
+            $this->assertSame([
+                'index' => '<?php echo "tracker";',
+                'handler' => '<?php class AlphaLinkTrackerRequestHandler {}',
+            ], $resolved['assets']['tracking_app']);
             $this->assertNull($resolved['assets']['cloudflare_ips']);
             $this->assertStringContainsString('BEGIN PRIVATE KEY', $resolved['settings']['dkim_key']);
             $this->assertStringStartsWith('v=DKIM1;t=s;p=', $resolved['settings']['dkim_public_key']);
@@ -62,7 +66,8 @@ class AlphaLinkBulkInstallRuntimeInputsTest extends TestCase
             $this->assertSame(8080, $resolved['settings']['pmta_admin_port']);
             $this->assertTrue($resolved['settings']['apply_firewall']);
         } finally {
-            unlink($root.'/optional/tracking/mini-app.zip');
+            unlink($root.'/optional/tracking/index.php');
+            unlink($root.'/optional/tracking/TrackerRequestHandler.php');
             rmdir($root.'/optional/tracking');
             rmdir($root.'/optional');
             rmdir($root);
@@ -73,10 +78,11 @@ class AlphaLinkBulkInstallRuntimeInputsTest extends TestCase
     {
         $root = sys_get_temp_dir().'/alphalink-tracking-callback-'.bin2hex(random_bytes(6));
         mkdir($root.'/optional/tracking', 0700, true);
-        file_put_contents($root.'/optional/tracking/mini-app.zip', 'synthetic archive');
+        file_put_contents($root.'/optional/tracking/index.php', '<?php echo "tracker";');
+        file_put_contents($root.'/optional/tracking/TrackerRequestHandler.php', '<?php class AlphaLinkTrackerRequestHandler {}');
         config()->set('infrastructure.install_assets_directory', $root);
         config()->set('infrastructure.tracking_callback_url', 'http://127.0.0.1:8766');
-        config()->set('infrastructure.bulk_install_settings.mini_app_key', 'synthetic key');
+        config()->set('infrastructure.bulk_install_settings.tracking_ingest_key', 'synthetic key');
         config()->set('infrastructure.bulk_install_settings.dev_ips', '192.0.2.1');
 
         try {
@@ -85,7 +91,8 @@ class AlphaLinkBulkInstallRuntimeInputsTest extends TestCase
             (new AlphaLinkBulkInstallRuntimeInputs(new AlphaLinkBulkInstallPrivateAssetReader))
                 ->resolve($this->installOptions(['tracking' => true]));
         } finally {
-            unlink($root.'/optional/tracking/mini-app.zip');
+            unlink($root.'/optional/tracking/index.php');
+            unlink($root.'/optional/tracking/TrackerRequestHandler.php');
             rmdir($root.'/optional/tracking');
             rmdir($root.'/optional');
             rmdir($root);

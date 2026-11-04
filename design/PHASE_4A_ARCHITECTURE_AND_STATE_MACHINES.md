@@ -1,5 +1,7 @@
 # AlphaLink Phase 4A — Architecture and State Machines
 
+> **Archived design evidence.** This dated design record is not the current product specification; use `ALPHALINK_MASTER_SPEC.md` for active requirements.
+
 **Status:** Logical architecture proposal and implementation reference. The initial API foundation now uses Laravel 13/PHP 8.3, PostgreSQL, Redis, and Sanctum provisionally. This is not a deployment design; mail product, cloud, and service topology remain undecided.
 
 ## 1. Design constraints

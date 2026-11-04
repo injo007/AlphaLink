@@ -35,7 +35,7 @@
     @if ($field === 'optizmo_token')
         <small class="form-text text-muted">Used by this workspace’s suppression downloads when an offer provides an Optizmo mailer access key.</small>
     @endif
-    @if ($field === 'mini_app_key')
+    @if ($field === 'tracking_ingest_key')
         <small class="form-text text-muted">{{ ($secretConfigured[$field] ?? false) ? 'Generated automatically the first time TRACKING is selected during server installation. Use Reveal to view this workspace’s saved key.' : 'Not generated yet. AlphaLink creates and stores this key the first time TRACKING is selected during server installation.' }}</small>
     @endif
     @if ($field === 'app_redirect')

@@ -1,3 +1,7 @@
+# Archived test and verification history
+
+> This file preserves dated test outcomes and limitations. It is not a current test result summary.
+
 ## E-CAMP-34 — Live Symfony transport recheck — 2026-10-24 11:35 UTC
 
 - Actual AlphaLink runtime: bootstrapped Laravel in the running PHP container, opened the configured Symfony ESMTP transport, and completed the SMTP connection handshake to `152.228.228.236:25`.

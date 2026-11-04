@@ -21,7 +21,7 @@ class AlphaLinkCampaignRecipientSnapshotBuilder
     public function __construct(private readonly AlphaLinkOfferSuppressionFile $suppressionFiles) {}
 
     /**
-     * Reproduce reference implementation campaign creation's recipient suppression and point-in-time manifest.
+     * Reproduce AlphaLink campaign creation's recipient suppression and point-in-time manifest.
      * Persist keyed identities in the immutable manifest and addresses in an
      * append-only encrypted table; normalized plaintext is limited to staging.
      *
@@ -444,7 +444,7 @@ class AlphaLinkCampaignRecipientSnapshotBuilder
     /**
      * Carry the exact point-in-time recipient manifest forward when only the
      * immutable campaign content revision changes. Re-reading live lists here
-     * would silently change the audience of an existing reference implementation campaign.
+     * would silently change the audience of an existing AlphaLink campaign.
      */
     public function copyToRevision(CampaignRecipientSnapshot $source, string $revisionId): CampaignRecipientSnapshot
     {

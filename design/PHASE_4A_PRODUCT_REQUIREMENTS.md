@@ -1,5 +1,7 @@
 # AlphaLink Phase 4A — Product and Requirements
 
+> **Archived design evidence.** This dated requirements record is retained for traceability; use `ALPHALINK_MASTER_SPEC.md` for active product requirements.
+
 **Status:** Proposed requirements for review. They do not select a technology stack and do not assert that uncertain DMS behavior is correct or desirable.
 
 ## 1. Product intent and principles

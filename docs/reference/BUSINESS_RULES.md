@@ -1,5 +1,7 @@
 # Source-backed business rules across active implementation slices
 
+> **Archived business-rule research.** The historical comparisons in this file are evidence notes, not current product requirements. Use `ALPHALINK_MASTER_SPEC.md` for active decisions.
+
 ## DMS-CAMP-TEST-AJAX — Campaign Test response and log snapshot
 
 **Evidence:** Read-only DMS `resources/views/mailer/campaigns/edit.blade.php:1288-1354`, `CampaignController::test_manuel/test_auto`, `CampaignAction::add_manuel_test_history`, and the Campaign Logs test-detail view; AlphaLink E-CAMP-67 and E-CAMP-68.

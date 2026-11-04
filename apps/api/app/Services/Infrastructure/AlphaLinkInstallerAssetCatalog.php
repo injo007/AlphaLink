@@ -4,7 +4,7 @@ namespace App\Services\Infrastructure;
 
 use InvalidArgumentException;
 
-/** Maps reference implementation source asset identifiers to AlphaLink's independent private layout. */
+/** Maps AlphaLink installation identifiers to the private reviewed asset layout. */
 class AlphaLinkInstallerAssetCatalog
 {
     /**
@@ -15,7 +15,8 @@ class AlphaLinkInstallerAssetCatalog
         return [
             'install/pmta_source' => 'pmta/shared/source.conf',
             'install/pmta_config' => 'pmta/shared/base.conf',
-            'install/mini_app.zip' => 'optional/tracking/mini-app.zip',
+            'install/tracker_index' => 'optional/tracking/index.php',
+            'install/tracker_handler' => 'optional/tracking/TrackerRequestHandler.php',
             'install/cf_ips.conf' => 'optional/tracking/cloudflare-ips.conf',
             'install/dovecot_centos.conf' => 'optional/imap/dovecot.conf',
             'install/squid_centos.conf' => 'optional/proxy/squid.conf',

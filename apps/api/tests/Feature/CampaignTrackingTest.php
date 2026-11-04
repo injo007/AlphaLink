@@ -1286,7 +1286,7 @@ class CampaignTrackingTest extends TestCase
 
     public function test_tracking_key_is_required_and_compared_before_persisting(): void
     {
-        config(['tracking.ingest_key' => null, 'infrastructure.bulk_install_settings.mini_app_key' => '']);
+        config(['tracking.ingest_key' => null, 'infrastructure.bulk_install_settings.tracking_ingest_key' => '']);
         $fixture = $this->recipientFixture();
         $payload = $this->trackingPayload($fixture, 'open');
 
@@ -1298,14 +1298,14 @@ class CampaignTrackingTest extends TestCase
 
     public function test_reference_stats_route_accepts_the_saved_sender_install_key(): void
     {
-        config(['tracking.ingest_key' => null, 'infrastructure.bulk_install_settings.mini_app_key' => '']);
+        config(['tracking.ingest_key' => null, 'infrastructure.bulk_install_settings.tracking_ingest_key' => '']);
         $fixture = $this->recipientFixture();
         WorkspaceInfrastructureSettings::query()->create([
             'workspace_id' => $fixture['workspace']->getKey(),
-            'mini_app_key' => 'synthetic-installed-mini-app-key',
+            'tracking_ingest_key' => 'synthetic-installed-tracking-ingest-key',
         ]);
         $payload = $this->trackingPayload($fixture, 'open');
-        $payload['key'] = 'synthetic-installed-mini-app-key';
+        $payload['key'] = 'synthetic-installed-tracking-ingest-key';
 
         $this->postJson('/api/v1/stats', $payload)->assertNoContent();
         $this->assertSame(1, CampaignEngagementEvent::query()->count());
@@ -1318,7 +1318,7 @@ class CampaignTrackingTest extends TestCase
         $fixture = $this->recipientFixture();
         WorkspaceInfrastructureSettings::query()->create([
             'workspace_id' => $fixture['workspace']->getKey(),
-            'mini_app_key' => 'synthetic-workspace-key',
+            'tracking_ingest_key' => 'synthetic-workspace-key',
         ]);
         $payload = $this->trackingPayload($fixture, 'open');
         $payload['key'] = 'synthetic-global-key';
@@ -1348,7 +1348,7 @@ class CampaignTrackingTest extends TestCase
 
     public function test_reference_stats_route_accepts_the_install_fallback_when_workspace_settings_are_absent(): void
     {
-        config(['tracking.ingest_key' => null, 'infrastructure.bulk_install_settings.mini_app_key' => 'synthetic-fallback-install-key']);
+        config(['tracking.ingest_key' => null, 'infrastructure.bulk_install_settings.tracking_ingest_key' => 'synthetic-fallback-install-key']);
         $fixture = $this->recipientFixture();
         $payload = $this->trackingPayload($fixture, 'open');
         $payload['key'] = 'synthetic-fallback-install-key';
@@ -1362,11 +1362,11 @@ class CampaignTrackingTest extends TestCase
 
     public function test_saved_empty_install_key_does_not_fall_back_to_the_global_install_key(): void
     {
-        config(['tracking.ingest_key' => null, 'infrastructure.bulk_install_settings.mini_app_key' => 'synthetic-fallback-install-key']);
+        config(['tracking.ingest_key' => null, 'infrastructure.bulk_install_settings.tracking_ingest_key' => 'synthetic-fallback-install-key']);
         $fixture = $this->recipientFixture();
         WorkspaceInfrastructureSettings::query()->create([
             'workspace_id' => $fixture['workspace']->getKey(),
-            'mini_app_key' => '',
+            'tracking_ingest_key' => '',
         ]);
         $payload = $this->trackingPayload($fixture, 'open');
         $payload['key'] = 'synthetic-fallback-install-key';

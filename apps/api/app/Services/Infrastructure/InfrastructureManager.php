@@ -36,7 +36,7 @@ class InfrastructureManager
         $result = ['added' => 0, 'restored' => 0, 'servers' => collect()];
         $newRows = [];
 
-        // reference implementation restores deleted rows as it walks the IPs, then performs one bulk insert for new rows.
+        // AlphaLink restores deleted rows as it walks the IPs, then performs one bulk insert for new rows.
         // Keep that ordering: a later new-row failure does not roll back an earlier restore.
         foreach ($data['ips'] as $candidate) {
             if (! is_string($candidate)) {
@@ -247,7 +247,7 @@ class InfrastructureManager
     }
 
     /**
-     * reference implementation manual import counts only newly created domains and leaves existing names unchanged.
+     * AlphaLink manual import counts only newly created domains and leaves existing names unchanged.
      * This path supplies the provider-backed free/new domains used by bulk installation.
      *
      * @param  array<int, string>  $domains
@@ -295,7 +295,7 @@ class InfrastructureManager
     }
 
     /**
-     * Save a reference implementation-supported domain provider for one AlphaLink workspace.
+     * Save a supported domain provider for one AlphaLink workspace.
      * Provider secrets are encrypted by the model casts and never written to audit details.
      *
      * @param  array{name: string, type: string, username?: ?string, password?: ?string, api_key: string, api_secret?: ?string}  $data

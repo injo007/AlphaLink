@@ -406,9 +406,9 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
             'allow_all_monitor' => false, 'apply_firewall' => false,
             'dkim_selector' => 'selector', 'dkim_key' => '', 'dkim_public_key' => null,
             'imap_username' => '', 'imap_password' => '', 'proxy_username' => '', 'proxy_password' => '',
-            'mini_app_url' => '', 'mini_app_key' => '',
+            'tracking_callback_url' => '', 'tracking_ingest_key' => '',
         ];
-        $assets = ['mini_app' => null, 'cloudflare_ips' => null, 'dovecot_config' => null, 'squid_config' => null];
+        $assets = ['tracking_app' => null, 'cloudflare_ips' => null, 'dovecot_config' => null, 'squid_config' => null];
         $logs = [];
 
         $workflow->run(
@@ -508,10 +508,10 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
             'dkim_selector' => 'selector', 'dkim_key' => '', 'dkim_public_key' => null,
             'imap_username' => '', 'imap_password' => '',
             'proxy_username' => '', 'proxy_password' => '',
-            'mini_app_url' => '', 'mini_app_key' => '',
+            'tracking_callback_url' => '', 'tracking_ingest_key' => '',
         ];
         $settings = array_replace($settings, $settingsOverrides);
-        $assets = ['mini_app' => null, 'cloudflare_ips' => null, 'dovecot_config' => null, 'squid_config' => null];
+        $assets = ['tracking_app' => null, 'cloudflare_ips' => null, 'dovecot_config' => null, 'squid_config' => null];
         $dnsWriter = $this->createMock(AlphaLinkBulkInstallDomainDnsRecordWriter::class);
         $dnsWriter->method('isDomainAvailable')->willReturn($providerAvailable);
         if ($expectDnsWrite) {

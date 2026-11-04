@@ -72,7 +72,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
         $yesterdayEvents = $dailyByDate->get($yesterdayFrom->toDateString());
         $monthEvents = $dailyEvents->filter(fn (object $row): bool => $row->at >= $monthFrom->toDateString());
 
-        /** reference implementation calls the prior-day value YTD; its captured source query uses yesterday only. */
+        /** AlphaLink calls the prior-day value YTD; its captured source query uses yesterday only. */
         $dashboardHighlights = [
             'deliveries' => [
                 'today' => (int) ($todayEvents->deliveries ?? 0),

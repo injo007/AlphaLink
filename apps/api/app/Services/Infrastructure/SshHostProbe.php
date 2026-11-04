@@ -60,7 +60,7 @@ class SshHostProbe
     }
 
     /**
-     * Runs reference implementation's read-only global-IP discovery command after a successful local preflight.
+     * Runs AlphaLink's read-only global-IP discovery command after a successful local preflight.
      * The stored first-use host key is checked internally; no fingerprint is requested from an operator.
      */
     public function discoverGlobalServerIps(ManagedServer $server, string $credential, string $credentialType = 'password'): string
@@ -92,7 +92,7 @@ class SshHostProbe
     }
 
     /**
-     * Tests reference implementation's SSH/SFTP login outcome without running a command or persisting state.
+     * Tests AlphaLink's SSH/SFTP login outcome without running a command or persisting state.
      *
      * @return array{ip:string,status:string,message:string}
      */

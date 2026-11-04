@@ -8,12 +8,12 @@ class TrackingIngestAuthenticator
 {
     public function expectedKey(Workspace $workspace): ?string
     {
-        $workspaceKey = $workspace->infrastructureSettings?->mini_app_key;
+        $workspaceKey = $workspace->infrastructureSettings?->tracking_ingest_key;
         if (is_string($workspaceKey) && $workspaceKey !== '') {
             return $workspaceKey;
         }
 
-        foreach ([config('tracking.ingest_key'), config('infrastructure.bulk_install_settings.mini_app_key')] as $key) {
+        foreach ([config('tracking.ingest_key'), config('infrastructure.bulk_install_settings.tracking_ingest_key')] as $key) {
             if (is_string($key) && $key !== '') {
                 return $key;
             }
@@ -25,8 +25,8 @@ class TrackingIngestAuthenticator
     public function assertValid(Workspace $workspace, string $candidate): void
     {
         $savedSettings = $workspace->infrastructureSettings;
-        $workspaceKey = $savedSettings?->mini_app_key;
-        $fallbackInstallKey = config('infrastructure.bulk_install_settings.mini_app_key');
+        $workspaceKey = $savedSettings?->tracking_ingest_key;
+        $fallbackInstallKey = config('infrastructure.bulk_install_settings.tracking_ingest_key');
         $keys = is_string($workspaceKey) && $workspaceKey !== ''
             ? [$workspaceKey]
             : [config('tracking.ingest_key'), $workspaceKey ?? $fallbackInstallKey];

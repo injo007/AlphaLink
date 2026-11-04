@@ -5,7 +5,7 @@ namespace App\Jobs\Middleware;
 use Closure;
 use Illuminate\Support\Facades\Cache;
 
-/** Keep PMTA SSH/SFTP work within reference implementation's five-session concurrency envelope. */
+/** Keep PMTA SSH/SFTP work within AlphaLink's five-session concurrency envelope. */
 class LimitPmtaFeedbackConcurrency
 {
     private const MAX_CONCURRENT = 5;

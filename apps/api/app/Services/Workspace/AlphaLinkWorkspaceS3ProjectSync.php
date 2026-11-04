@@ -13,7 +13,7 @@ use InvalidArgumentException;
 use RuntimeException;
 use SimpleXMLElement;
 
-/** Imports Workspace service-account files from the public S3 folder format used by reference implementation. */
+/** Imports Workspace service-account files from the public S3 folder format used by AlphaLink. */
 class AlphaLinkWorkspaceS3ProjectSync
 {
     /** @return array{message: string, added: int, updated: int, unchanged: int} */

@@ -17,7 +17,7 @@ class AlphaLinkSponsorOfferImporter
     ) {}
 
     /**
-     * Fetch selected offers using the reference implementation network adapter, then save each new offer and its assets atomically.
+     * Fetch selected offers using the AlphaLink network adapter, then save each new offer and its assets atomically.
      *
      * @param  list<string>  $offerIds
      */

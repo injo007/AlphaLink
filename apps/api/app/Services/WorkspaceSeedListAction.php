@@ -27,7 +27,7 @@ class WorkspaceSeedListAction
             'updated_at' => $now,
         ], $validEmails);
 
-        // reference implementation's insert() boolean is coerced by SeedListAction's int return type.
+        // AlphaLink's insert() boolean is coerced by SeedListAction's int return type.
         return (int) WorkspaceSeedEmail::query()->insert($rows);
     }
 

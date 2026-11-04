@@ -68,7 +68,7 @@ class AppSettingsConsoleController extends Controller
         'webmail_password',
         'proxy_username',
         'proxy_password',
-        'mini_app_key',
+        'tracking_ingest_key',
         'cloud_servers_password',
     ];
 
@@ -91,7 +91,7 @@ class AppSettingsConsoleController extends Controller
         'webmail_password',
         'proxy_username',
         'proxy_password',
-        'mini_app_key',
+        'tracking_ingest_key',
         'cloud_servers_password',
     ];
 
@@ -128,7 +128,7 @@ class AppSettingsConsoleController extends Controller
         $settings = [
             'app_name' => $genericSettings['app_name'] ?? '',
             'optizmo_token' => '',
-            'mini_app_key' => '',
+            'tracking_ingest_key' => '',
             'ip_api_key' => '',
             'offer_suppression_update' => $genericSettings['offer_suppression_update'] ?? 1,
             'hash_token' => '',
@@ -161,7 +161,7 @@ class AppSettingsConsoleController extends Controller
             'webmail_username' => '',
             'webmail_password' => '',
             'allow_backup' => $genericSettings['allow_backup'] ?? false,
-            // reference implementation's settings view currently hard-codes this visible value to /home.
+            // AlphaLink's settings view currently hard-codes this visible value to /home.
             'backup_path' => '/home',
             'backup_server' => $genericSettings['backup_server'] ?? '',
             'backup_username' => $genericSettings['backup_username'] ?? '',
@@ -405,7 +405,7 @@ class AppSettingsConsoleController extends Controller
         $stringLimits = [
             'app_name' => 255,
             'optizmo_token' => 4096,
-            'mini_app_key' => 4096,
+            'tracking_ingest_key' => 4096,
             'ip_api_key' => 4096,
             'hash_token' => 4096,
             'dkim_key' => 255,

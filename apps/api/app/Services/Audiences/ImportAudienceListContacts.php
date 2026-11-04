@@ -88,10 +88,10 @@ class ImportAudienceListContacts
     }
 
     /**
-     * Import reference implementation-format TXT/CSV rows: comma-separated columns with the address
+     * Import TXT/CSV rows with comma-separated columns and the address
      * first, followed by first name, last name, country, age, sex, and vertical.
      * Invalid rows are ignored and addresses are normalized before lookup, as
-     * in reference ListsAction::process_list().
+     * part of the audience import contract.
      *
      * @return array{processed: int, valid: int, filtered: int, imported_count: int, duplicate_count: int, invalid_count: int}
      */
@@ -466,7 +466,7 @@ class ImportAudienceListContacts
             return ['status' => 'invalid'];
         }
 
-        // Preserve the observed reference implementation argument order for this substring filter.
+        // Preserve the observed AlphaLink argument order for this substring filter.
         if ($batch->filter && ! Str::contains($batch->filter, $email)) {
             return ['status' => 'filtered'];
         }

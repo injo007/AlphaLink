@@ -7,7 +7,7 @@ use Closure;
 use RuntimeException;
 use Throwable;
 
-/** Reconstructs ServerInstallBulk::setup_records() behind fakeable host/provider boundaries. */
+/** Builds the bulk-install DNS record set through host and provider adapters. */
 class AlphaLinkBulkInstallDomainRecordStage
 {
     public function __construct(private readonly AlphaLinkBulkInstallDnsRecordPlanner $planner) {}

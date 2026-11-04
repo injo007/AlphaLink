@@ -22,7 +22,7 @@ class AlphaLinkCampaignTrackingTokenBuilder
 
         // Apache resolves each URL segment against the filesystem before
         // mod_rewrite runs, so long Base64Url values must span route segments.
-        // The installed mini-app joins the optional path tail before decoding.
+        // The installed tracker joins the optional path tail before decoding.
         $encoded = rtrim(strtr(base64_encode(implode('-', $fields)), '+/', '-_'), '=');
 
         return implode('/', str_split($encoded, 160));

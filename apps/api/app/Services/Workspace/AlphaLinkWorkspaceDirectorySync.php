@@ -7,7 +7,7 @@ use App\Models\WorkspaceGoogleProject;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
-/** Read-only Google Admin Directory sync used by reference implementation Workspace projects. */
+/** Read-only Google Admin Directory sync used by AlphaLink Workspace projects. */
 class AlphaLinkWorkspaceDirectorySync
 {
     private const SCOPE = 'https://www.googleapis.com/auth/admin.directory.user';

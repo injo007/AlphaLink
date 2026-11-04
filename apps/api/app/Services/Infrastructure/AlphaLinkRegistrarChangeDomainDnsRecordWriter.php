@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Http;
 use SimpleXMLElement;
 use Throwable;
 
-/** Sends the same replacement record sets as reference implementation Namecheap and GoDaddy adapters. */
+/** Sends the same replacement record sets as AlphaLink Namecheap and GoDaddy adapters. */
 class AlphaLinkRegistrarChangeDomainDnsRecordWriter implements AlphaLinkBulkInstallDomainDnsRecordWriter, AlphaLinkChangeDomainDnsRecordWriter, AlphaLinkDomainRecordsHostWriter
 {
     private const ALLOWED_TYPES = ['A', 'AAAA', 'CNAME', 'MX', 'NS', 'SOA', 'SRV', 'TXT'];

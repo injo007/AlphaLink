@@ -36,7 +36,7 @@ class Ubuntu26FreshInstallContractTest extends TestCase
         $this->assertIsString($installer);
         $this->assertStringContainsString('REPOSITORY_INPUT="${GITHUB_REPO:-injo007/AlphaLink}"', $installer);
         $this->assertStringContainsString('BRANCH="${GITHUB_BRANCH:-master}"', $installer);
-        $this->assertStringContainsString('git clone --branch "$branch" --single-branch "$repository" "$destination"', $installer);
+        $this->assertStringContainsString('git -c credential.helper= clone --branch "$branch" --single-branch "$repository" "$destination"', $installer);
         $this->assertStringContainsString('RELEASE_SHA="$(git -C "$SOURCE_STAGING_DIR" rev-parse HEAD)"', $installer);
     }
 
@@ -122,6 +122,7 @@ class Ubuntu26FreshInstallContractTest extends TestCase
 
         $this->assertFileDoesNotExist($assetRoot.'/optional/dkim/keys.json');
         $this->assertFileExists($assetRoot.'/optional/reverse-proxy/nginx.conf');
-        $this->assertFileExists($assetRoot.'/optional/tracking/mini-app.zip');
+        $this->assertFileExists($assetRoot.'/optional/tracking/index.php');
+        $this->assertFileExists($assetRoot.'/optional/tracking/TrackerRequestHandler.php');
     }
 }

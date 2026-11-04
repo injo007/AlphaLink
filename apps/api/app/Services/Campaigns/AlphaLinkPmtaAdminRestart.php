@@ -6,7 +6,7 @@ use App\Models\ManagedServer;
 use App\Services\Infrastructure\AlphaLinkServerConsole;
 use RuntimeException;
 
-/** Executes the source-mapped reference PMTA restart sequence over the saved AlphaLink SSH session. */
+/** Executes the supported reference PMTA restart sequence over the saved AlphaLink SSH session. */
 class AlphaLinkPmtaAdminRestart
 {
     public function __construct(private readonly AlphaLinkServerConsole $console) {}

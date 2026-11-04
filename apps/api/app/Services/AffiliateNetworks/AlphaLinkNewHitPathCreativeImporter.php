@@ -13,7 +13,7 @@ class AlphaLinkNewHitPathCreativeImporter
     public function __construct(private readonly AlphaLinkAffiliateProviderHttp $http) {}
 
     /**
-     * Fetch NewHitPath email bodies and image attachments using reference implementation's HTML and link rules.
+     * Fetch NewHitPath email bodies and image attachments using AlphaLink's HTML and link rules.
      * The API token is sent only to the configured provider host, never to an image CDN.
      *
      * @return list<array{name: string, content: string, images: list<array{references: list<string>, bytes: string, extension: string}>}>

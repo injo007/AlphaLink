@@ -5,7 +5,7 @@ namespace App\Services\Infrastructure;
 use InvalidArgumentException;
 
 /**
- * Reconstructs ServerInstallBulk::install() ordering without running any step.
+ * Plans bulk-install step order without executing any step.
  */
 class AlphaLinkBulkInstallSequencePlanner
 {

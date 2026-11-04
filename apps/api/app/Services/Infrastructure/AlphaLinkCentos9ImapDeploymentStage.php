@@ -6,7 +6,7 @@ namespace App\Services\Infrastructure;
 class AlphaLinkCentos9ImapDeploymentStage
 {
     /**
-     * reference implementation skips IMAP entirely when its Dovecot config asset is absent. When present,
+     * AlphaLink skips IMAP entirely when its Dovecot config asset is absent. When present,
      * it installs Dovecot, uploads the config, creates the no-login account and
      * passwd file, then reloads/restarts/enables the service.
      */
@@ -29,7 +29,7 @@ class AlphaLinkCentos9ImapDeploymentStage
         $commands->exec('useradd -s /sbin/nologin '.escapeshellarg($username).';');
         $userId = $commands->exec('id -u '.escapeshellarg($username).';');
 
-        // reference implementation builds this line with `echo -e` in a shell command. Sending the
+        // AlphaLink builds this line with `echo -e` in a shell command. Sending the
         // content over the private file transport keeps the password out of logs,
         // command traces and process arguments while preserving the passwd format.
         $passwdFile = $username.':{plain}'.$password.':'.($userId === false ? '' : $userId).':'.($userId === false ? '' : $userId)."::/dev/null:/sbin/nologin\n";

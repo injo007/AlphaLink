@@ -1,5 +1,7 @@
 # Observed and local API contracts
 
+> **Archived API evidence.** These notes preserve historical source analysis. Current AlphaLink endpoints and behavior are defined by the active routes, controllers, and tests.
+
 ## DMS-SRV-001
 
 The prior read-only DMS source trace E-SRV-01 shows a form/controller/action flow for server creation. It establishes accepted business inputs and one-server-per-IP creation, but the exact wire request and error payload were not recorded. Do not claim HTTP contract parity from this source trace.

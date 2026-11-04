@@ -4,7 +4,7 @@ namespace App\Services\Infrastructure;
 
 use RuntimeException;
 
-/** Executes the source-mapped CentOS 9 PMTA plan only after the readiness gate passes. */
+/** Executes the supported CentOS 9 PMTA plan only after the readiness gate passes. */
 class AlphaLinkCentos9PmtaDeploymentStage
 {
     public function __construct(

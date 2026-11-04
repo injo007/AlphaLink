@@ -23,7 +23,7 @@ class AlphaLinkPublicLandingApiTest extends TestCase
 
     private Workspace $workspace;
 
-    private string $workspaceKey = 'synthetic-workspace-mini-app-key';
+    private string $workspaceKey = 'synthetic-workspace-tracking-ingest-key';
 
     protected function setUp(): void
     {
@@ -41,7 +41,7 @@ class AlphaLinkPublicLandingApiTest extends TestCase
         ]);
         WorkspaceInfrastructureSettings::query()->create([
             'workspace_id' => $this->workspace->getKey(),
-            'mini_app_key' => $this->workspaceKey,
+            'tracking_ingest_key' => $this->workspaceKey,
         ]);
 
         Http::fake([

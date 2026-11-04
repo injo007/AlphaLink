@@ -5,7 +5,7 @@ namespace App\Services\Infrastructure;
 use InvalidArgumentException;
 
 /**
- * Describes the database writes reference implementation performs after a successful server install.
+ * Describes the database writes AlphaLink performs after a successful server install.
  * The returned operations are data only; this class has no persistence adapter.
  */
 class AlphaLinkBulkInstallCompletionPlanner

@@ -33,7 +33,7 @@ class AlphaLinkAppSettingsPageTest extends TestCase
         $response = $this->get($this->settingsPage())->assertOk();
 
         foreach ([
-            'app_name', 'optizmo_token', 'mini_app_key', 'ip_api_key', 'offer_suppression_update',
+            'app_name', 'optizmo_token', 'tracking_ingest_key', 'ip_api_key', 'offer_suppression_update',
             'hash_token', 'dkim_key', 'extension_id', 'campaign_expire', 'cloud_servers_password',
             'apply_firewall', 'dev_ips', 'pmta_relay_ips', 'production_ips', 'rdp_ips', 'app_ips', 'app_redirect',
             'block_proxies', 'filter_geo', 'allowed_proxies', 'blocked_open_traffic', 'pmta_port',
@@ -117,7 +117,7 @@ class AlphaLinkAppSettingsPageTest extends TestCase
                 'webmail_password' => 'synthetic-webmail-password',
                 'proxy_username' => 'synthetic-proxy-user',
                 'proxy_password' => 'synthetic-proxy-password',
-                'mini_app_key' => 'synthetic-mini-app-key',
+                'tracking_ingest_key' => 'synthetic-tracking-ingest-key',
                 'cloud_servers_password' => 'synthetic-cloud-password',
             ],
             'settings_present' => [
@@ -222,7 +222,7 @@ class AlphaLinkAppSettingsPageTest extends TestCase
     {
         $secret = 'synthetic-tracking-key-'.Str::random(16);
         $optizmoToken = 'synthetic-optizmo-key-'.Str::random(16);
-        $this->workspace->infrastructureSettings()->create(['mini_app_key' => $secret]);
+        $this->workspace->infrastructureSettings()->create(['tracking_ingest_key' => $secret]);
         $this->workspace->appSettings()->create(['settings' => ['optizmo_token' => $optizmoToken]]);
 
         $page = $this->get($this->settingsPage())
@@ -231,13 +231,13 @@ class AlphaLinkAppSettingsPageTest extends TestCase
             ->assertSee('REVEAL')
             ->assertSee('Generated automatically the first time TRACKING is selected during server installation.');
         $page->assertSee('data-secret-url="'.e(route('clean.console.app-settings.secret', [
-            'field' => 'mini_app_key',
+            'field' => 'tracking_ingest_key',
         ])).'"', false);
 
         $this->get(route('clean.console.app-settings.secret', [
-            'field' => 'mini_app_key',
+            'field' => 'tracking_ingest_key',
         ]))->assertOk()
-            ->assertJsonPath('field', 'mini_app_key')
+            ->assertJsonPath('field', 'tracking_ingest_key')
             ->assertJsonPath('value', $secret)
             ->assertHeader('Cache-Control', 'must-revalidate, no-cache, no-store, private');
 
@@ -247,7 +247,7 @@ class AlphaLinkAppSettingsPageTest extends TestCase
 
         $audits = AuditEvent::query()->where('action', 'workspace.app_setting_secret_revealed')->get();
         $this->assertCount(2, $audits);
-        $this->assertSame(['field' => 'mini_app_key'], $audits->firstWhere('properties.field', 'mini_app_key')->properties);
+        $this->assertSame(['field' => 'tracking_ingest_key'], $audits->firstWhere('properties.field', 'tracking_ingest_key')->properties);
         $auditJson = json_encode($audits->pluck('properties'), JSON_THROW_ON_ERROR);
         $this->assertStringNotContainsString($secret, $auditJson);
         $this->assertStringNotContainsString($optizmoToken, $auditJson);
@@ -257,11 +257,11 @@ class AlphaLinkAppSettingsPageTest extends TestCase
     {
         $member = User::factory()->create();
         $this->workspace->users()->attach($member->getKey(), ['role' => 'operator']);
-        $this->workspace->infrastructureSettings()->create(['mini_app_key' => 'synthetic-secret']);
+        $this->workspace->infrastructureSettings()->create(['tracking_ingest_key' => 'synthetic-secret']);
         $this->actingAs($member);
 
         $this->get(route('clean.console.app-settings.secret', [
-            'field' => 'mini_app_key',
+            'field' => 'tracking_ingest_key',
         ]))->assertForbidden();
 
         $this->assertSame(0, AuditEvent::query()->where('action', 'workspace.app_setting_secret_revealed')->count());

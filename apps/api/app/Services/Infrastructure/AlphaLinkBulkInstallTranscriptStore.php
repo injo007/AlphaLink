@@ -57,7 +57,7 @@ class AlphaLinkBulkInstallTranscriptStore
         return $runId;
     }
 
-    /** Append one already-formatted, timestamped reference implementation transcript line. */
+    /** Append one already-formatted, timestamped AlphaLink transcript line. */
     public function append(string $workspaceId, string $runId, string $line): void
     {
         $this->validateUuid($workspaceId);

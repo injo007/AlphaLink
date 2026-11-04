@@ -5,8 +5,8 @@ namespace App\Services\Infrastructure;
 class AlphaLinkInstallPlatform
 {
     /**
-     * reference implementation's ServersInstallFactory rejects non-x86_64 hosts and matches these
-     * PRETTY_NAME values before selecting its CentOS 7/9 installer.
+     * Restricts supported installation hosts to x86_64 and recognized CentOS,
+     * Rocky Linux, and AlmaLinux release names.
      *
      * @param  array<string, mixed>  $facts
      * @return list<string>

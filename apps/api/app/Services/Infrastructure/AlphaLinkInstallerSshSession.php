@@ -20,7 +20,7 @@ class AlphaLinkInstallerSshSession implements AlphaLinkInstallerRemoteCommandTra
             throw new RuntimeException('The remote installer command timed out or the SSH channel failed.');
         }
 
-        // reference implementation trims the command response; keep its successful-output behavior.
+        // AlphaLink trims the command response; keep its successful-output behavior.
         return trim($result);
     }
 

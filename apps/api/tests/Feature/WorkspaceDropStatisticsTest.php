@@ -86,6 +86,7 @@ class WorkspaceDropStatisticsTest extends TestCase
         $this->assertNotNull($statisticsQuery);
         $this->assertStringContainsString('"event_isp"."id" = "v"."isp_id"', $statisticsQuery);
         $this->assertStringNotContainsString('CAST("event_isp"."id" AS TEXT)', $statisticsQuery);
+        $this->assertStringContainsString("COALESCE(CAST(msi.ip AS TEXT), 'NA') AS ip", $statisticsQuery);
         $this->assertStringNotContainsString('private-contact-id', $response->getContent());
         $this->assertStringNotContainsString('198.51.100.77', $response->getContent());
         $this->assertStringNotContainsString('email', strtolower($response->getContent()));

@@ -241,7 +241,7 @@ class WorkspaceDropsConsoleController extends Controller
             ->selectRaw('DATE(v.created_at) AS at, d.id AS drop_id, d.send_type AS drop_type')
             ->selectRaw("COALESCE(NULLIF(u.name, ''), NULLIF(u.username, ''), 'Unknown') AS user")
             ->selectRaw("COALESCE(event_isp.name, drop_isp.name, 'NA') AS isp, COALESCE(al.name, 'NA') AS list, COALESCE(NULLIF(v.list_type, ''), 'NA') AS list_type")
-            ->selectRaw("COALESCE(ms.provider, 'NA') AS provider, COALESCE(ms.name, 'NA') AS server, COALESCE(msi.ip, 'NA') AS ip, COALESCE(sd.name, 'NA') AS domain")
+            ->selectRaw("COALESCE(ms.provider, 'NA') AS provider, COALESCE(ms.name, 'NA') AS server, COALESCE(CAST(msi.ip AS TEXT), 'NA') AS ip, COALESCE(sd.name, 'NA') AS domain")
             ->selectRaw("COALESCE(sponsor.name, 'NA') AS sponsor, COALESCE(offer.name, 'NA') AS offer, COALESCE(offer.vertical, 'NA') AS vertical")
             ->selectRaw("COALESCE(from_asset.value, 'NA') AS from_name, COALESCE(subject_asset.value, 'NA') AS subject, COALESCE(NULLIF(v.creative_id, ''), 'NA') AS creative, COALESCE(NULLIF(v.country, ''), 'NA') AS country")
             ->selectRaw("SUM(CASE WHEN v.type = 'open' THEN 1 ELSE 0 END) AS opens")

@@ -192,7 +192,7 @@ class WorkspaceDropsConsoleController extends Controller
             ->leftJoin('users as u', 'u.id', '=', 'd.user_id')
             ->leftJoin('isps as event_isp', function ($join): void {
                 $join->on('event_isp.workspace_id', '=', 'v.workspace_id')
-                    ->whereRaw('CAST(event_isp.id AS TEXT) = v.isp_id');
+                    ->on('event_isp.id', '=', 'v.isp_id');
             })
             ->leftJoin('isps as drop_isp', function ($join): void {
                 $join->on('drop_isp.id', '=', 'd.isp_id')->on('drop_isp.workspace_id', '=', 'd.workspace_id');

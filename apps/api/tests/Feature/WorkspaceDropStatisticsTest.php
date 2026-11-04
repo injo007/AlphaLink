@@ -8,8 +8,10 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceDrop;
 use App\Models\WorkspaceDropVisitor;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -30,6 +32,12 @@ class WorkspaceDropStatisticsTest extends TestCase
         $drop = $this->drop($workspace, $owner, [
             'isp_id' => $isp->getKey(), 'send_type' => 'send', 'created_at' => now()->subHour(),
         ]);
+        $statisticsQuery = null;
+        DB::listen(function (QueryExecuted $query) use (&$statisticsQuery): void {
+            if (str_contains($query->sql, 'event_isp')) {
+                $statisticsQuery = $query->sql;
+            }
+        });
 
         foreach ([
             ['type' => 'open'], ['type' => 'open'], ['type' => 'click'],
@@ -75,6 +83,9 @@ class WorkspaceDropStatisticsTest extends TestCase
             ->assertJsonPath('0.unsubscribes', 1)
             ->assertJsonPath('0.bots', 1)
             ->assertJsonPath('0.lead_revenue', 7.5);
+        $this->assertNotNull($statisticsQuery);
+        $this->assertStringContainsString('"event_isp"."id" = "v"."isp_id"', $statisticsQuery);
+        $this->assertStringNotContainsString('CAST("event_isp"."id" AS TEXT)', $statisticsQuery);
         $this->assertStringNotContainsString('private-contact-id', $response->getContent());
         $this->assertStringNotContainsString('198.51.100.77', $response->getContent());
         $this->assertStringNotContainsString('email', strtolower($response->getContent()));

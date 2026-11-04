@@ -28,6 +28,18 @@ class Ubuntu26FreshInstallContractTest extends TestCase
         $this->assertSame('drop-suppression', config('queue.connections.drop_suppression.queue'));
     }
 
+    public function test_fresh_installer_defaults_to_the_current_alphalink_master_branch(): void
+    {
+        $repositoryRoot = dirname(base_path(), 2);
+        $installer = file_get_contents($repositoryRoot.'/install-ubuntu-26.sh');
+
+        $this->assertIsString($installer);
+        $this->assertStringContainsString('REPOSITORY_INPUT="${GITHUB_REPO:-injo007/AlphaLink}"', $installer);
+        $this->assertStringContainsString('BRANCH="${GITHUB_BRANCH:-master}"', $installer);
+        $this->assertStringContainsString('git clone --branch "$branch" --single-branch "$repository" "$destination"', $installer);
+        $this->assertStringContainsString('RELEASE_SHA="$(git -C "$SOURCE_STAGING_DIR" rev-parse HEAD)"', $installer);
+    }
+
     public function test_fresh_install_and_deploy_enable_and_verify_server_reinstall_execution(): void
     {
         $repositoryRoot = dirname(base_path(), 2);

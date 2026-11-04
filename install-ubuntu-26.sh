@@ -1271,8 +1271,10 @@ Usage:
   sudo bash install-ubuntu-26.sh --resume-initial-install [BRANCH]
 
 Install AlphaLink on a fresh Ubuntu 26.04 LTS server, then use --deploy for
-atomic GitHub releases. The initial installer asks for the GitHub repository,
-application hostname, TLS contact email, and first workspace owner. It also
+atomic GitHub releases. The initial installer clones injo007/AlphaLink from
+the master branch by default; set GITHUB_REPO and GITHUB_BRANCH to install a
+fork or another branch. It asks for the application hostname, TLS contact
+email, and first workspace owner. It also
 asks you to type and confirm the new PostgreSQL password; the entry is hidden.
 Private GitHub tokens are read without echo, used only for the current clone
 or fetch, and never saved on the server.
@@ -1291,7 +1293,7 @@ Laravel's config cache on existing installations. Per-server asset, host,
 credential, DNS, and selected-service checks still run before SSH.
 
 Optional non-secret environment inputs:
-  GITHUB_REPO       owner/repo or https://github.com/owner/repo[.git]
+  GITHUB_REPO       owner/repo or https://github.com/owner/repo[.git] (default: injo007/AlphaLink)
   GITHUB_BRANCH     branch to install (default: master)
   ALPHALINK_DOMAIN  DNS hostname for the application
   ACME_EMAIL        Let's Encrypt notification email
@@ -1398,10 +1400,7 @@ for path in \
     [[ ! -e "$path" && ! -L "$path" ]] || fail "Refusing to overwrite existing path: $path"
 done
 
-REPOSITORY_INPUT="${GITHUB_REPO:-}"
-if [[ -z "$REPOSITORY_INPUT" ]]; then
-    read -r -p 'GitHub repository (owner/repo or HTTPS URL): ' REPOSITORY_INPUT
-fi
+REPOSITORY_INPUT="${GITHUB_REPO:-injo007/AlphaLink}"
 if [[ "$REPOSITORY_INPUT" =~ ^([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)(\.git)?$ ]]; then
     REPOSITORY="https://github.com/${BASH_REMATCH[1]}/${BASH_REMATCH[2]%.git}.git"
 elif [[ "$REPOSITORY_INPUT" =~ ^https://github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)(\.git)?/?$ ]]; then

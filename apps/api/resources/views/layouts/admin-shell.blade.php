@@ -13,6 +13,7 @@
             'console.analytics.all-stats',
             'console.analytics.mailer-revenue',
             'console.campaign-statistics.index',
+            'console.drops.statistics',
         );
         $googleChartScriptSources = $usesGoogleCharts ? ' https://www.gstatic.com https://www.google.com' : '';
         $googleChartStyleSources = $usesGoogleCharts ? ' https://www.gstatic.com' : '';

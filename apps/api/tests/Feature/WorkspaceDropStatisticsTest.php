@@ -104,6 +104,7 @@ class WorkspaceDropStatisticsTest extends TestCase
         $this->actingAs($owner)
             ->get(route('console.drops.statistics', $workspace->getKey()))
             ->assertOk()
+            ->assertSee('script-src \'self\' \'unsafe-inline\' \'unsafe-eval\' https://cdn3.devexpress.com; style-src \'self\' \'unsafe-inline\' https://cdn3.devexpress.com;', false)
             ->assertSee('DROP STATISTICS')
             ->assertSee('drop-stats-drop')
             ->assertSee('drop-stats-isp')

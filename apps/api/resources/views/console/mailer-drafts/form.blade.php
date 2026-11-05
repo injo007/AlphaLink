@@ -2,6 +2,7 @@
 
 @php
     $isDrop = $kind === 'drop';
+    $isWarmup = $kind === 'warmup';
     $dropSendTypes = ['delay' => 'DELAY', 'delayp' => 'DELAYP (parallel)', 'hs' => 'HS', 'hsp' => 'HSP (parallel)', 'pickup' => 'PICKUP (parallel)'];
     $warmupSendTypes = ['delay' => 'DELAY', 'delayp' => 'DELAYP (parallel)', 'delayps' => 'DELAYPS (parallel)', 'hs' => 'HS', 'hsp' => 'HSP (parallel)', 'hsps' => 'HSPS (parallel by server)', 'pickup' => 'PICKUP (parallel)', 'pickups' => 'PICKUPS (parallel by server)'];
     $setup = (array) old('send_setup', $content['send_setup'] ?? []);
@@ -58,8 +59,16 @@
         @else
             <li><a href="{{ route('console.warmups.create', $workspace->id) }}"><span>CREATE WARMUP</span><i class="fas fa-plus"></i></a></li>
         @endif
-        <li><a href="#" class="text-muted" aria-disabled="true" title="Drop and Warmup execution is not connected in AlphaLink"><span>{{ $isDrop ? 'SEND DROP' : 'CREATE & SEND WARMUP' }} — UNAVAILABLE</span><i class="fas fa-paper-plane"></i></a></li>
-        <li><a href="#" class="text-muted" aria-disabled="true" title="No verified Drop or Warmup test workflow is connected"><span>TEST — UNAVAILABLE</span><i class="fas fa-vial"></i></a></li>
+        @if ($draft)
+            <li><a href="#" data-send-action title="Queue this saved {{ $isDrop ? 'Drop' : 'Warmup' }} using the saved recipient selection"><span>{{ $isDrop ? 'SEND DROP' : 'CREATE & SEND WARMUP' }}</span><i class="fas fa-paper-plane"></i></a></li>
+        @else
+            <li><a href="#" class="text-muted" aria-disabled="true" title="Save this draft before sending"><span>{{ $isDrop ? 'SEND DROP' : 'CREATE & SEND WARMUP' }} — SAVE DRAFT FIRST</span><i class="fas fa-paper-plane"></i></a></li>
+        @endif
+        @if ($draft)
+            <li><a href="#" data-test-action title="Send a PMTA test to the saved Email Test addresses"><span>TEST</span><i class="fas fa-vial"></i></a></li>
+        @else
+            <li><a href="#" class="text-muted" aria-disabled="true" title="Save this draft before testing"><span>TEST — SAVE DRAFT FIRST</span><i class="fas fa-vial"></i></a></li>
+        @endif
         @if ($isDrop)
             <li><a href="#" class="text-muted" aria-disabled="true" title="No verified Drop scheduling workflow is connected"><span>SCHEDULE — UNAVAILABLE</span><i class="fas fa-calendar-alt"></i></a></li>
         @endif
@@ -72,6 +81,17 @@
 </div>
 <div class="quick-nav-overlay"></div>
 <ul id="mailer-draft-context-menu" class="mailer-draft-context-menu" role="menu" aria-label="{{ $isDrop ? 'Drop' : 'Warmup' }} page actions" hidden></ul>
+@if ($draft)
+    <form id="mailer-draft-test-action" method="post" action="{{ route('console.campaigns.auto-test', [$workspace->getKey(), $draft->getKey()]) }}" hidden>
+        @csrf
+        <input type="hidden" name="idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
+        <input type="hidden" name="send_type" value="{{ $isWarmup ? ($content['send_type'] ?? $setup['send_type'] ?? 'delay') : ($setup['send_type'] ?? $content['send_type'] ?? 'delay') }}">
+    </form>
+    <form id="mailer-draft-send-action" method="post" action="{{ $sendUrl }}" hidden>
+        @csrf
+        <input type="hidden" name="idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
+    </form>
+@endif
 
 <section class="block block-rounded" id="mailer-composer" data-options-url="{{ $optionsUrl }}" data-kind="{{ $kind }}">
     <div class="block-header">
@@ -91,7 +111,7 @@
         </div>
     </div>
     <div class="block-content block-content-full">
-        <p class="small text-muted mb-3" role="note">AlphaLink draft · changes are saved as a revision. Send, test, and schedule are not available here.</p>
+        <p class="small text-muted mb-3" role="note">AlphaLink draft · changes are saved as a revision. Save the latest revision before sending a test to the saved Email Test addresses.</p>
         @if (session('status'))<div class="alert alert-success" role="status">{{ session('status') }}</div>@endif
         @if ($errors->any())
             <div class="alert alert-danger" role="alert"><strong>Review these fields:</strong><ul class="mb-0 mt-2">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
@@ -613,6 +633,26 @@
     document.querySelectorAll('[aria-disabled="true"]').forEach(element => element.addEventListener('click', event => event.preventDefault()));
     byId('clear-mailer-params')?.addEventListener('click', event => { event.preventDefault(); form.reset(); if (window.jQuery?.fn?.selectpicker) window.jQuery(form).find('.selectpicker').selectpicker('refresh'); refresh(); });
     document.querySelector('[data-save-draft]')?.addEventListener('click', event => { event.preventDefault(); form.requestSubmit(); });
+    document.addEventListener('click', event => {
+        const testAction = event.target.closest('[data-test-action]');
+        if (!testAction) return;
+        event.preventDefault();
+        const testForm = byId('mailer-draft-test-action');
+        if (!testForm) return;
+        const key = testForm.querySelector('[name="idempotency_key"]');
+        if (key && window.crypto?.randomUUID) key.value = window.crypto.randomUUID();
+        testForm.requestSubmit();
+    });
+    document.addEventListener('click', event => {
+        const sendAction = event.target.closest('[data-send-action]');
+        if (!sendAction) return;
+        event.preventDefault();
+        const sendForm = byId('mailer-draft-send-action');
+        if (!sendForm) return;
+        const key = sendForm.querySelector('[name="idempotency_key"]');
+        if (key && window.crypto?.randomUUID) key.value = window.crypto.randomUUID();
+        sendForm.requestSubmit();
+    });
 
     const bindDraftNavigationFallback = () => {
         const quickNav = document.querySelector('.quick-nav');

@@ -3,16 +3,20 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\PrepareAndStartDropSend;
 use App\Models\AudienceList;
 use App\Models\Campaign;
+use App\Models\CampaignSendRun;
 use App\Models\ContactListMembership;
 use App\Models\Isp;
 use App\Models\ManagedServer;
 use App\Models\User;
+use App\Models\WarmupSendRun;
 use App\Models\Workspace;
 use App\Models\WorkspaceCampaignTestAddress;
 use App\Models\WorkspaceSeedList;
 use App\Services\Campaigns\AlphaLinkCampaignSendCatalog;
+use App\Services\Campaigns\PrepareWarmupSendRun;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -44,7 +48,7 @@ class WorkspaceMailerOperationsConsoleController extends Controller
             ->with('latestRevision')
             ->where('created_by', $request->user()->getKey())
             ->where('kind', 'drop')
-            ->where('status', 'draft')
+            ->whereIn('status', ['draft', 'preparing_snapshot', 'snapshot_failed'])
             ->where('is_active', true)
             ->when(filled($filters['q'] ?? null), fn (Builder $query) => $query->where('name', 'like', '%'.str_replace(['%', '_'], ['\\%', '\\_'], $filters['q']).'%'))
             ->orderByDesc('updated_at')
@@ -56,7 +60,14 @@ class WorkspaceMailerOperationsConsoleController extends Controller
         $payloads = $pageRows->mapWithKeys(fn (Campaign $campaign): array => [(string) $campaign->getKey() => (array) ($campaign->latestRevision?->payload ?? [])]);
         $ispIds = $payloads->map(fn (array $payload): ?int => isset($payload['send_setup']['isp_id']) ? (int) $payload['send_setup']['isp_id'] : (isset($payload['isp_id']) ? (int) $payload['isp_id'] : null))->filter()->unique()->values();
         $ispNames = Isp::query()->where('workspace_id', $workspace->getKey())->whereIn('id', $ispIds)->pluck('name', 'id');
-        $pageRows->each(function (Campaign $campaign) use ($payloads, $ispNames): void {
+        $latestSendRuns = CampaignSendRun::query()
+            ->where('workspace_id', $workspace->getKey())
+            ->whereIn('campaign_id', $pageRows->modelKeys())
+            ->orderByDesc('created_at')
+            ->get()
+            ->unique('campaign_id')
+            ->keyBy(fn (CampaignSendRun $run): string => (string) $run->campaign_id);
+        $pageRows->each(function (Campaign $campaign) use ($payloads, $ispNames, $latestSendRuns): void {
             $payload = $payloads->get((string) $campaign->getKey(), []);
             $setup = (array) ($payload['send_setup'] ?? []);
             $ispId = $setup['isp_id'] ?? $payload['isp_id'] ?? null;
@@ -69,6 +80,8 @@ class WorkspaceMailerOperationsConsoleController extends Controller
             $campaign->setAttribute('drop_list_count', count($payload['list_ids'] ?? []));
             $campaign->setAttribute('drop_countries', collect($countries)->map(fn (string $country): string => strtoupper($country))->unique()->implode(', '));
             $campaign->setAttribute('drop_config', $setup);
+            $latestRun = $latestSendRuns->get((string) $campaign->getKey());
+            $campaign->setAttribute('drop_send_run', $latestRun && (string) $latestRun->revision_id === (string) $campaign->latestRevision?->getKey() ? $latestRun : null);
         });
 
         return view('console.drops.drafts.index', [
@@ -112,6 +125,99 @@ class WorkspaceMailerOperationsConsoleController extends Controller
         return $this->updateDraft($request, $workspace, $draft, $content);
     }
 
+    public function sendDrop(Request $request, string $workspace, string $campaign, AlphaLinkCampaignSendCatalog $catalog): RedirectResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        $data = $request->validate(['idempotency_key' => ['required', 'uuid']]);
+        $draft = $workspace->campaigns()
+            ->with('latestRevision')
+            ->where('created_by', $request->user()->getKey())
+            ->where('kind', 'drop')
+            ->where('is_active', true)
+            ->whereIn('status', ['draft', 'snapshot_failed', 'preparing_snapshot'])
+            ->whereKey($campaign)
+            ->firstOrFail();
+        $revision = $draft->latestRevision;
+        abort_unless($revision && is_array($revision->payload['send_setup'] ?? null), 409, 'Save the Drop setup before sending.');
+        $setup = (array) $revision->payload['send_setup'];
+        abort_if(empty($setup['offer_id']), 422, 'Select an active Offer before sending this Drop.');
+        abort_if(empty($setup['audience_segments']), 422, 'Select at least one audience list segment before sending this Drop.');
+        $catalog->validateRevisionRouting(
+            $workspace,
+            $request->user(),
+            (string) $workspace->pivot->role,
+            (string) ($setup['route_option'] ?? ''),
+            (string) ($setup['ip_type'] ?? ''),
+            array_map('strval', (array) ($setup['server_ids'] ?? [])),
+            array_map('strval', (array) ($setup['ip_ids'] ?? [])),
+        );
+
+        $shouldDispatch = DB::transaction(function () use ($workspace, $draft): bool {
+            $locked = Campaign::query()
+                ->where('workspace_id', $workspace->getKey())
+                ->whereKey($draft->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+            if ($locked->status === 'preparing_snapshot') {
+                return false;
+            }
+            abort_unless(in_array($locked->status, ['draft', 'snapshot_failed'], true), 409, 'This Drop is not ready to send.');
+            $activeRun = CampaignSendRun::query()
+                ->where('workspace_id', $workspace->getKey())
+                ->where('campaign_id', $draft->getKey())
+                ->whereIn('state', ['planned', 'running'])
+                ->exists();
+            if ($activeRun) {
+                return false;
+            }
+            $locked->forceFill([
+                'status' => 'preparing_snapshot',
+                'snapshot_build_stage' => 'queued',
+                'snapshot_build_percent' => 0,
+                'snapshot_build_processed' => 0,
+                'snapshot_build_total' => null,
+                'snapshot_build_error' => null,
+                'snapshot_build_updated_at' => now(),
+            ])->save();
+
+            return true;
+        }, attempts: 3);
+
+        if ($shouldDispatch) {
+            PrepareAndStartDropSend::dispatch(
+                (string) $workspace->getKey(),
+                (string) $draft->getKey(),
+                (string) $revision->getKey(),
+                (int) $request->user()->getKey(),
+                (string) $data['idempotency_key'],
+            )->afterCommit();
+        }
+
+        return redirect()->route('console.drops.drafts.index', $workspace->getKey())
+            ->with('status', $shouldDispatch
+                ? 'Drop audience preparation queued. Sending will start automatically when its snapshot and PMTA routes pass validation.'
+                : 'Drop audience preparation or sending is already in progress. Refresh for the latest status.');
+    }
+
+    public function stopDrop(Request $request, string $workspace, string $campaign, string $run): RedirectResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        $sendRun = CampaignSendRun::query()
+            ->where('workspace_id', $workspace->getKey())
+            ->where('campaign_id', $campaign)
+            ->whereHas('campaign', fn ($query) => $query->where('created_by', $request->user()->getKey())->where('kind', 'drop'))
+            ->whereKey($run)
+            ->firstOrFail();
+        if (in_array($sendRun->state, ['planned', 'running'], true)) {
+            $sendRun->state = 'stopped';
+            $sendRun->completed_at = now();
+            $sendRun->save();
+        }
+
+        return redirect()->route('console.drops.drafts.index', $workspace->getKey())
+            ->with('status', 'Drop send stopped. A message already in progress may finish; no new recipients will be started.');
+    }
+
     public function warmups(Request $request, string $workspace): View
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
@@ -141,23 +247,26 @@ class WorkspaceMailerOperationsConsoleController extends Controller
         $serverNames = ManagedServer::query()->where('workspace_id', $workspace->getKey())->whereIn('id', $serverIds)->pluck('name', 'id');
         $seedListIds = $payloads->flatMap(fn (array $payload): array => (array) ($payload['seed_list_ids'] ?? []))->map(fn ($id): int => (int) $id)->unique()->values();
         $seedCounts = WorkspaceSeedList::query()->where('workspace_id', $workspace->getKey())->whereIn('id', $seedListIds)->withCount('emails')->get(['id'])->keyBy('id');
-        $activeSends = DB::table('campaign_send_runs')
-            ->join('campaigns', function ($join): void {
-                $join->on('campaigns.id', '=', 'campaign_send_runs.campaign_id')
-                    ->on('campaigns.workspace_id', '=', 'campaign_send_runs.workspace_id');
-            })
-            ->where('campaign_send_runs.workspace_id', $workspace->getKey())
-            ->where('campaigns.created_by', $request->user()->getKey())
-            ->where('campaigns.kind', 'warmup')
-            ->whereIn('campaign_send_runs.state', ['planned', 'running'])
+        $warmupRuns = WarmupSendRun::query()
+            ->where('workspace_id', $workspace->getKey())
+            ->whereIn('campaign_id', $pageRows->modelKeys())
+            ->orderByDesc('created_at')
+            ->get()
+            ->unique('campaign_id')
+            ->keyBy(fn (WarmupSendRun $run): string => (string) $run->campaign_id);
+        $activeSends = WarmupSendRun::query()
+            ->where('workspace_id', $workspace->getKey())
+            ->whereIn('campaign_id', $workspace->campaigns()->where('created_by', $request->user()->getKey())->where('kind', 'warmup')->select('id'))
+            ->whereIn('state', ['planned', 'running'])
             ->count();
-        $pageRows->each(function (Campaign $campaign) use ($payloads, $serverNames, $seedCounts): void {
+        $pageRows->each(function (Campaign $campaign) use ($payloads, $serverNames, $seedCounts, $warmupRuns): void {
             $payload = $payloads->get((string) $campaign->getKey(), []);
             $setup = (array) ($payload['send_setup'] ?? []);
             $campaign->setAttribute('warmup_config', $payload);
             $campaign->setAttribute('warmup_servers', collect($setup['server_ids'] ?? [])->map(fn ($id): string => (string) ($serverNames->get($id) ?? 'Unknown server'))->values());
             $campaign->setAttribute('warmup_seed_count', collect($payload['seed_list_ids'] ?? [])->sum(fn ($id): int => (int) ($seedCounts->get((int) $id)?->emails_count ?? 0)));
             $campaign->setAttribute('warmup_seed_lists', count($payload['seed_list_ids'] ?? []));
+            $campaign->setAttribute('warmup_send_run', $warmupRuns->get((string) $campaign->getKey()));
         });
 
         return view('console.warmups.index', [
@@ -202,6 +311,37 @@ class WorkspaceMailerOperationsConsoleController extends Controller
         $content = $this->validatedWarmupContent($request, $workspace, $catalog);
 
         return $this->updateDraft($request, $workspace, $draft, $content);
+    }
+
+    public function sendWarmup(Request $request, string $workspace, string $campaign, PrepareWarmupSendRun $sendRun): RedirectResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        $data = $request->validate(['idempotency_key' => ['required', 'uuid']]);
+        $draft = $this->draftFor($request->user(), $workspace, $campaign, 'warmup');
+        $run = $sendRun->create($workspace, $draft, $request->user(), (string) $data['idempotency_key']);
+
+        return redirect()->route('console.warmups.index', $workspace->getKey())
+            ->with('status', in_array($run->state, ['planned', 'running'], true)
+                ? 'Warmup send queued or already running. Progress is shown in the Warmups register.'
+                : 'Warmup send request saved. Review its latest state in the Warmups register.');
+    }
+
+    public function stopWarmup(Request $request, string $workspace, string $campaign, string $run): RedirectResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        $sendRun = WarmupSendRun::query()
+            ->where('workspace_id', $workspace->getKey())
+            ->where('campaign_id', $campaign)
+            ->whereHas('campaign', fn ($query) => $query->where('created_by', $request->user()->getKey()))
+            ->whereKey($run)
+            ->firstOrFail();
+        abort_unless(in_array($sendRun->state, ['planned', 'running'], true), 409, 'This Warmup send has already finished.');
+        $sendRun->state = 'stopped';
+        $sendRun->completed_at = now();
+        $sendRun->save();
+
+        return redirect()->route('console.warmups.index', $workspace->getKey())
+            ->with('status', 'Warmup send stopped. A message already in progress may finish; no new recipients will be started.');
     }
 
     public function warmupStatistics(Request $request, string $workspace): View
@@ -306,6 +446,7 @@ class WorkspaceMailerOperationsConsoleController extends Controller
             'updateUrl' => $draft ? route($kind === 'drop' ? 'console.drops.drafts.update' : 'console.warmups.update', [$workspace->getKey(), $draft->getKey()]) : null,
             'indexUrl' => route($kind === 'drop' ? 'console.drops.drafts.index' : 'console.warmups.index', $workspace->getKey()),
             'seedListsUrl' => route('console.warmups.seeds.index', $workspace->getKey()),
+            'sendUrl' => $draft ? route($kind === 'drop' ? 'console.drops.send' : 'console.warmups.send', [$workspace->getKey(), $draft->getKey()]) : null,
             'optionsUrl' => route('console.campaigns.send-options', $workspace->getKey()),
         ]);
     }
@@ -744,7 +885,7 @@ class WorkspaceMailerOperationsConsoleController extends Controller
                 ->whereKey($draft->getKey())
                 ->lockForUpdate()
                 ->firstOrFail();
-            abort_unless($lockedDraft->status === 'draft' && $lockedDraft->is_active, 409, 'Only active drafts can be edited.');
+            abort_unless(in_array($lockedDraft->status, ['draft', 'snapshot_failed'], true) && $lockedDraft->is_active, 409, 'Only active drafts can be edited.');
             $latest = $lockedDraft->revisions()->lockForUpdate()->first();
             abort_unless((string) ($latest?->getKey() ?? '') === (string) $data['source_revision_id'], 409, 'This draft changed while you were editing it. Reload the latest version before saving.');
             $existingRevision = $lockedDraft->revisions()->where('idempotency_key', $data['idempotency_key'])->first();
@@ -761,6 +902,8 @@ class WorkspaceMailerOperationsConsoleController extends Controller
             }
 
             $lockedDraft->name = trim($data['name']);
+            $lockedDraft->status = 'draft';
+            $lockedDraft->snapshot_build_error = null;
             $lockedDraft->save();
             $lockedDraft->revisions()->create([
                 'revision_number' => ($latest?->revision_number ?? 0) + 1,
@@ -783,7 +926,7 @@ class WorkspaceMailerOperationsConsoleController extends Controller
             ->with('latestRevision')
             ->where('created_by', $user->getKey())
             ->where('kind', $kind)
-            ->where('status', 'draft')
+            ->whereIn('status', ['draft', 'snapshot_failed'])
             ->where('is_active', true)
             ->whereKey($campaignId)
             ->firstOrFail();

@@ -41,6 +41,7 @@
                         <th scope="col">TOTAL SEND</th>
                         <th scope="col">SEND TYPE</th>
                         <th scope="col">STATUS</th>
+                        <th scope="col">PROGRESS</th>
                         <th scope="col">UPDATED</th>
                         <th scope="col">ACTIONS</th>
                     </tr>
@@ -48,6 +49,8 @@
                 <tbody>
                 @forelse ($drafts as $draft)
                     @php($config = $draft->drop_config ?? [])
+                    @php($sendRun = $draft->drop_send_run)
+                    @php($processed = $sendRun ? (int) $sendRun->accepted_count + (int) $sendRun->rejected_count + (int) $sendRun->suppressed_count + (int) $sendRun->uncertain_count : 0)
                     <tr>
                         <th scope="row"><a href="{{ route('console.drops.drafts.edit', [$workspace->id, $draft->id]) }}">{{ substr((string) $draft->id, 0, 8) }}</a><br><small>{{ $draft->name }}</small></th>
                         <td>{{ $draft->drop_isp_name }}</td>
@@ -55,16 +58,21 @@
                         <td>{{ $draft->drop_countries !== '' ? $draft->drop_countries : 'ALL' }}</td>
                         <td>{{ $config['total_send'] ?? '—' }}</td>
                         <td>{{ strtoupper((string) ($config['send_type'] ?? '—')) }}</td>
-                        <td><span class="badge badge-secondary">DRAFT</span></td>
+                        <td><span class="badge badge-{{ $draft->status === 'preparing_snapshot' ? 'primary' : ($draft->status === 'snapshot_failed' ? 'danger' : ($sendRun ? (in_array($sendRun->state, ['planned', 'running'], true) ? 'primary' : ($sendRun->state === 'completed' ? 'success' : 'warning')) : 'secondary')) }}">{{ $draft->status === 'preparing_snapshot' ? 'PREPARING AUDIENCE' : ($draft->status === 'snapshot_failed' ? 'PREPARATION FAILED' : strtoupper($sendRun->state ?? 'draft')) }}</span>@if ($draft->status === 'snapshot_failed' && $draft->snapshot_build_error)<br><small class="text-danger">{{ $draft->snapshot_build_error }}</small>@endif</td>
+                        <td>@if ($sendRun){{ number_format($processed) }} / {{ number_format((int) $sendRun->recipient_count) }} · accepted {{ number_format((int) $sendRun->accepted_count) }} · rejected {{ number_format((int) $sendRun->rejected_count) }} · suppressed {{ number_format((int) $sendRun->suppressed_count) }} · uncertain {{ number_format((int) $sendRun->uncertain_count) }}@elseif ($draft->status === 'preparing_snapshot'){{ $draft->snapshot_build_stage ?? 'queued' }} · {{ (int) $draft->snapshot_build_percent }}%@else<span class="badge badge-secondary">—</span>@endif</td>
                         <td>{{ $draft->updated_at?->format('Y-m-d H:i') }}</td>
                         <td class="text-nowrap drop-draft-register-actions">
                             <a class="btn btn-sm btn-link" href="{{ route('console.drops.drafts.edit', [$workspace->id, $draft->id]) }}" title="Edit Drop draft" aria-label="Edit {{ $draft->name }}"><i class="fas fa-edit" aria-hidden="true"></i></a>
-                            <button class="btn btn-sm btn-link text-warning" type="button" disabled title="Drop test is not connected" aria-label="Drop test unavailable"><i class="far fa-paper-plane" aria-hidden="true"></i></button>
-                            <button class="btn btn-sm btn-link text-success" type="button" disabled title="Drop send is not connected" aria-label="Drop send unavailable"><i class="fas fa-paper-plane" aria-hidden="true"></i></button>
+                            <a class="btn btn-sm btn-link text-warning" href="{{ route('console.drops.drafts.edit', [$workspace->id, $draft->id]) }}" title="Open Drop composer to test saved Email Test addresses" aria-label="Test Drop"><i class="far fa-paper-plane" aria-hidden="true"></i></a>
+                            @if ($sendRun && in_array($sendRun->state, ['planned', 'running'], true))
+                                <form class="d-inline" method="post" action="{{ route('console.drops.send-stop', [$workspace->id, $draft->id, $sendRun->id]) }}">@csrf<button class="btn btn-sm btn-link text-danger" type="submit" title="Stop Drop send" aria-label="Stop Drop send"><i class="fas fa-stop" aria-hidden="true"></i></button></form>
+                            @elseif ($draft->status !== 'preparing_snapshot')
+                                <form class="d-inline" method="post" action="{{ route('console.drops.send', [$workspace->id, $draft->id]) }}">@csrf<input type="hidden" name="idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}"><button class="btn btn-sm btn-link text-success" type="submit" title="Queue Drop send" aria-label="Send Drop"><i class="fas fa-paper-plane" aria-hidden="true"></i></button></form>
+                            @endif
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="9" class="text-center text-muted">No Drop drafts found. Create a draft to get started.</td></tr>
+                    <tr><td colspan="10" class="text-center text-muted">No Drop drafts found. Create a draft to get started.</td></tr>
                 @endforelse
                 </tbody>
             </table>
@@ -73,7 +81,7 @@
             <small class="text-muted">Showing {{ $drafts->firstItem() ?? 0 }} to {{ $drafts->lastItem() ?? 0 }} of {{ $drafts->total() }} drafts.</small>
             {{ $drafts->links() }}
         </div>
-        <p class="sr-only" role="note">Only your saved drafts appear here. Test and send remain unavailable until AlphaLink has a verified sender connection.</p>
+        <p class="sr-only" role="note">Drop sends build a suppression-checked recipient snapshot and start in the background after PMTA route validation. Tests go only to saved Email Test addresses.</p>
     </div>
 </section>
 @endsection

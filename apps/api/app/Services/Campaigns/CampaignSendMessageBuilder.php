@@ -126,7 +126,7 @@ class CampaignSendMessageBuilder
             'negative_path' => $negativePath,
             'placeholder_rows' => (array) ($setup['placeholder_inputs'] ?? $setup['placeholders'] ?? []),
             'header_template' => $this->headerTemplate((string) ($revision->payload['header'] ?? '')),
-            'body_template' => (string) ($revision->payload['body'] ?? ''),
+            'body_template' => (string) ($revision->payload['body'] ?? $revision->payload['html_body'] ?? ''),
             'return_path' => (string) ($revision->payload['return_path'] ?? ''),
             'domain_fallback' => $domainFallback,
         ];

@@ -3423,6 +3423,104 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
         $this->assertSame(1, DB::table('campaign_manual_test_attempts')->count());
     }
 
+    public function test_saved_drop_and_warmup_test_actions_send_only_to_saved_test_addresses(): void
+    {
+        $this->withoutMiddleware(ThrottleRequests::class);
+        $owner = User::factory()->create();
+        $workspace = $this->workspace($owner, 'owner');
+        $server = $this->server($workspace, $owner, '203.0.113.96');
+        $domain = SendingDomain::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'name' => 'draft-tests.example.test',
+            'state' => 'verified',
+            'verification_token' => 'synthetic-draft-test-token',
+            'created_by' => $owner->getKey(),
+            'status' => 'free',
+            'is_our' => false,
+            'is_active' => true,
+        ]);
+        ManagedServerIp::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'managed_server_id' => $server->getKey(),
+            'sending_domain_id' => $domain->getKey(),
+            'ip' => '203.0.113.97',
+            'type' => 'ipv4',
+            'dns' => 'mta.draft-tests.example.test',
+            'is_active' => true,
+        ]);
+        $workspace->infrastructureSettings()->create(['pmta_port' => 2525]);
+
+        $sentRecipients = [];
+        $transport = Mockery::mock(SmtpTransport::class);
+        $transport->shouldReceive('start')->twice();
+        $transport->shouldReceive('send')->twice()->withArgs(function ($message, $envelope) use (&$sentRecipients): bool {
+            $recipient = $envelope->getRecipients()[0]->getAddress();
+            $sentRecipients[] = $recipient;
+
+            return str_contains($message->toString(), 'Subject: Saved draft test')
+                && str_contains($message->toString(), '<p>Saved draft test body</p>')
+                && $recipient === $envelope->getRecipients()[0]->getAddress();
+        });
+        $transport->shouldReceive('stop')->twice();
+        $factory = Mockery::mock(PmtaCampaignTestTransport::class);
+        $factory->shouldReceive('forServer')->twice()
+            ->withArgs(fn (ManagedServer $selected, int $port): bool => $selected->is($server) && $port === 2525)
+            ->andReturn($transport);
+        $this->app->instance(PmtaCampaignTestTransport::class, $factory);
+
+        foreach ([
+            ['kind' => 'drop', 'recipient' => 'drop-qa@example.test', 'send_type' => 'delay'],
+            ['kind' => 'warmup', 'recipient' => 'warmup-qa@example.test', 'send_type' => 'delayp'],
+        ] as $fixture) {
+            $campaign = Campaign::query()->create([
+                'workspace_id' => $workspace->getKey(),
+                'created_by' => $owner->getKey(),
+                'name' => 'Saved '.$fixture['kind'].' test fixture',
+                'kind' => $fixture['kind'],
+                'status' => 'draft',
+                'is_active' => true,
+                'idempotency_key' => (string) Str::uuid(),
+            ]);
+            CampaignRevision::query()->create([
+                'campaign_id' => $campaign->getKey(),
+                'revision_number' => 1,
+                'payload' => [
+                    'email_test_addresses' => [$fixture['recipient']],
+                    'send_type' => $fixture['kind'] === 'warmup' ? $fixture['send_type'] : null,
+                    'return_path' => 'return@draft-tests.example.test',
+                    'header' => "MIME-Version: 1.0\nContent-Type: text/html\nTo: [to]\nFrom: test@draft-tests.example.test\nSubject: Saved draft test\nDate: [date]",
+                    'html_body' => '<p>Saved draft test body</p>',
+                    'send_setup' => [
+                        'server_ids' => [(string) $server->getKey()],
+                        'route_option' => 'ip',
+                        'ip_type' => 'ipv4',
+                        'send_type' => 'delay',
+                        'from_asset_ids' => [],
+                        'subject_asset_ids' => [],
+                    ],
+                ],
+                'content_sha256' => hash('sha256', 'saved '.$fixture['kind'].' test content'),
+                'idempotency_key' => (string) Str::uuid(),
+                'request_fingerprint' => hash('sha256', 'saved '.$fixture['kind'].' test request'),
+                'created_by' => $owner->getKey(),
+                'created_at' => now(),
+            ]);
+
+            $editRoute = $fixture['kind'] === 'drop' ? 'console.drops.drafts.edit' : 'console.warmups.edit';
+            $this->actingAs($owner)->get(route($editRoute, [$workspace->getKey(), $campaign->getKey()]))
+                ->assertOk()->assertSee('data-test-action', false)->assertSee('data-send-action', false)
+                ->assertDontSee('TEST — UNAVAILABLE')->assertDontSee('SEND DROP — UNAVAILABLE')
+                ->assertDontSee('CREATE & SEND WARMUP — UNAVAILABLE');
+
+            $this->actingAs($owner)->postJson(route('console.campaigns.auto-test', [$workspace->getKey(), $campaign->getKey()]), [
+                'idempotency_key' => (string) Str::uuid(),
+            ])->assertOk()->assertJsonPath('outcome', 'accepted_by_transport');
+        }
+
+        $this->assertSame(['drop-qa@example.test', 'warmup-qa@example.test'], $sentRecipients);
+        $this->assertSame(2, DB::table('campaign_manual_test_attempts')->count());
+    }
+
     public function test_edit_page_reloads_available_ips_from_old_routing_input_after_email_validation_failure(): void
     {
         $owner = User::factory()->create();

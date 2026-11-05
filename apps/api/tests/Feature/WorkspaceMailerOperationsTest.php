@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\PrepareAndStartDropSend;
+use App\Jobs\ProcessWarmupSendRun;
 use App\Models\AudienceList;
 use App\Models\Campaign;
 use App\Models\CampaignEngagementEvent;
@@ -12,13 +14,20 @@ use App\Models\Contact;
 use App\Models\Isp;
 use App\Models\ManagedServer;
 use App\Models\User;
+use App\Models\WarmupSendRun;
 use App\Models\Workspace;
 use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceSeedList;
 use App\Models\WorkspaceSponsor;
+use App\Services\Campaigns\AlphaLinkCampaignSendCatalog;
+use App\Services\Campaigns\PmtaCampaignTestTransport;
+use App\Services\Campaigns\WarmupSendMessageBuilder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
+use Symfony\Component\Mailer\Transport\Smtp\SmtpTransport;
 use Tests\TestCase;
 
 class WorkspaceMailerOperationsTest extends TestCase
@@ -58,7 +67,7 @@ class WorkspaceMailerOperationsTest extends TestCase
         $this->assertStringContainsString('mailer-draft-navigation.js?v=', $dropComposerHtml);
         $this->assertStringContainsString('href="'.route('clean.console.pmta-admin.index').'"', $dropComposerHtml);
         $this->assertStringContainsString('data-pmta-panel-link', $dropComposerHtml);
-        $this->assertStringContainsString('No verified Drop or Warmup test workflow is connected', $dropComposerHtml);
+        $this->assertStringContainsString('TEST — SAVE DRAFT FIRST', $dropComposerHtml);
         $this->assertStringContainsString('Back to Drop Drafts', $dropComposerHtml);
         $this->assertStringContainsString('aria-label="Open page actions" aria-expanded="false"', $dropComposerHtml);
         $this->actingAs($owner)->get(route('console.warmups.index', $workspace->getKey()))
@@ -89,7 +98,7 @@ class WorkspaceMailerOperationsTest extends TestCase
         $this->assertStringContainsString('id="mailer-draft-context-menu"', $warmupComposerHtml);
         $this->assertStringContainsString('mailer-draft-navigation.js?v=', $warmupComposerHtml);
         $this->assertStringContainsString('href="'.route('clean.console.pmta-admin.index').'"', $warmupComposerHtml);
-        $this->assertStringContainsString('No verified Drop or Warmup test workflow is connected', $warmupComposerHtml);
+        $this->assertStringContainsString('TEST — SAVE DRAFT FIRST', $warmupComposerHtml);
         $this->assertStringContainsString('Back to My Warmups', $warmupComposerHtml);
         $this->actingAs($owner)->get(route('console.warmups.statistics', $workspace->getKey()))
             ->assertOk()->assertSee('Warmup Statistics')->assertSee('No Warmup actions in this date range');
@@ -269,6 +278,135 @@ class WorkspaceMailerOperationsTest extends TestCase
 
         $this->actingAs($owner)->get(route('console.warmups.index', $workspace->getKey()))
             ->assertOk()->assertSee('Synthetic warmup')->assertSee('TOTAL SEND')->assertSee('DRAFT');
+    }
+
+    public function test_drop_send_queues_snapshot_preparation_instead_of_claiming_it_started(): void
+    {
+        Queue::fake();
+        $owner = User::factory()->create();
+        $workspace = $this->workspace($owner, 'owner');
+        $serverId = (string) Str::uuid();
+        $ipId = (string) Str::uuid();
+        $catalog = \Mockery::mock(AlphaLinkCampaignSendCatalog::class);
+        $catalog->shouldReceive('validateRevisionRouting')->once()->andReturn([
+            'server_ids' => [$serverId],
+            'ip_ids' => [$ipId],
+        ]);
+        $this->app->instance(AlphaLinkCampaignSendCatalog::class, $catalog);
+
+        $campaign = Campaign::query()->create([
+            'workspace_id' => $workspace->getKey(), 'created_by' => $owner->getKey(),
+            'name' => 'Queued Drop fixture', 'kind' => 'drop', 'status' => 'draft', 'is_active' => true,
+            'idempotency_key' => (string) Str::uuid(),
+        ]);
+        $revision = CampaignRevision::query()->create([
+            'campaign_id' => $campaign->getKey(), 'revision_number' => 1,
+            'payload' => ['send_setup' => [
+                'offer_id' => 7, 'audience_segments' => [(string) Str::uuid().'_fresh'],
+                'route_option' => 'ip', 'ip_type' => 'ipv4', 'server_ids' => [$serverId], 'ip_ids' => [$ipId],
+            ]],
+            'content_sha256' => hash('sha256', 'queued drop content'),
+            'idempotency_key' => (string) Str::uuid(), 'request_fingerprint' => hash('sha256', 'queued drop request'),
+            'created_by' => $owner->getKey(), 'created_at' => now(),
+        ]);
+
+        $this->actingAs($owner)->post(route('console.drops.send', [$workspace->getKey(), $campaign->getKey()]), [
+            'idempotency_key' => (string) Str::uuid(),
+        ])->assertRedirect(route('clean.console.drops.drafts.index'));
+
+        $this->assertSame('preparing_snapshot', $campaign->fresh()->status);
+        Queue::assertPushedOn('drop-suppression', PrepareAndStartDropSend::class, fn (PrepareAndStartDropSend $job): bool => $job->workspaceId === (string) $workspace->getKey()
+            && $job->campaignId === (string) $campaign->getKey()
+            && $job->revisionId === (string) $revision->getKey());
+    }
+
+    public function test_warmup_send_snapshots_selected_seed_recipients_and_queues_the_worker(): void
+    {
+        Queue::fake();
+        $owner = User::factory()->create();
+        $workspace = $this->workspace($owner, 'owner');
+        $selectedList = WorkspaceSeedList::query()->create([
+            'workspace_id' => $workspace->getKey(), 'user_id' => $owner->getKey(), 'name' => 'Selected synthetic seeds', 'is_active' => true,
+        ]);
+        $unselectedList = WorkspaceSeedList::query()->create([
+            'workspace_id' => $workspace->getKey(), 'user_id' => $owner->getKey(), 'name' => 'Unselected synthetic seeds', 'is_active' => true,
+        ]);
+        $selectedList->emails()->createMany([
+            ['email' => 'first@example.test'],
+            ['email' => 'first@example.test'],
+            ['email' => 'second@example.test'],
+        ]);
+        $unselectedList->emails()->create(['email' => 'unselected@example.test']);
+        $serverId = (string) Str::uuid();
+        $ipId = (string) Str::uuid();
+        $catalog = \Mockery::mock(AlphaLinkCampaignSendCatalog::class);
+        $catalog->shouldReceive('validateRevisionRouting')->once()->andReturn([
+            'server_ids' => [$serverId],
+            'ip_ids' => [$ipId],
+        ]);
+        $this->app->instance(AlphaLinkCampaignSendCatalog::class, $catalog);
+
+        $campaign = Campaign::query()->create([
+            'workspace_id' => $workspace->getKey(), 'created_by' => $owner->getKey(),
+            'name' => 'Queued Warmup fixture', 'kind' => 'warmup', 'status' => 'draft', 'is_active' => true,
+            'idempotency_key' => (string) Str::uuid(),
+        ]);
+        CampaignRevision::query()->create([
+            'campaign_id' => $campaign->getKey(), 'revision_number' => 1,
+            'payload' => [
+                'send_type' => 'delayp', 'seed_list_ids' => [(int) $selectedList->getKey()], 'start_from' => 1, 'total_send' => 1,
+                'header' => 'Content-Type: text/html', 'html_body' => '<p>Warmup fixture</p>',
+                'send_setup' => ['route_option' => 'ip', 'ip_type' => 'ipv4', 'server_ids' => [$serverId], 'ip_ids' => [$ipId]],
+            ],
+            'content_sha256' => hash('sha256', 'queued warmup content'),
+            'idempotency_key' => (string) Str::uuid(), 'request_fingerprint' => hash('sha256', 'queued warmup request'),
+            'created_by' => $owner->getKey(), 'created_at' => now(),
+        ]);
+
+        $this->actingAs($owner)->post(route('console.warmups.send', [$workspace->getKey(), $campaign->getKey()]), [
+            'idempotency_key' => (string) Str::uuid(),
+        ])->assertRedirect(route('clean.console.warmups.index'));
+
+        $run = WarmupSendRun::query()->where('campaign_id', $campaign->getKey())->firstOrFail();
+        $recipient = $run->recipients()->firstOrFail();
+        $this->assertSame('planned', $run->state);
+        $this->assertSame('delayp', $run->send_type);
+        $this->assertSame(1, $run->recipient_count);
+        $this->assertNotSame('second@example.test', $recipient->recipient_ciphertext);
+        $this->assertSame('second@example.test', Crypt::decryptString($recipient->recipient_ciphertext));
+        Queue::assertPushedOn('campaign-sends', ProcessWarmupSendRun::class, fn (ProcessWarmupSendRun $job): bool => $job->sendRunId === (string) $run->getKey());
+
+        $server = $workspace->managedServers()->create([
+            'name' => 'Synthetic Warmup PMTA', 'provider' => 'Fixture provider', 'ip_address' => '203.0.113.180',
+            'ssh_port' => 22, 'ssh_username' => 'root', 'state' => 'verified', 'is_active' => true,
+            'is_installed' => true, 'idempotency_key' => (string) Str::uuid(),
+            'request_fingerprint' => hash('sha256', 'warmup worker server'), 'created_by' => $owner->getKey(),
+        ]);
+        $messageBuilder = \Mockery::mock(WarmupSendMessageBuilder::class);
+        $messageBuilder->shouldReceive('context')->once()->andReturn(['port' => 2525]);
+        $messageBuilder->shouldReceive('build')->once()->withArgs(fn (array $context, int $position, string $email, WarmupSendRun $activeRun): bool => $context['port'] === 2525
+            && $position === 1 && $email === 'second@example.test' && $activeRun->is($run))
+            ->andReturn([
+                'server' => $server, 'header' => "To: second@example.test\nSubject: Warmup test",
+                'body' => '<p>Warmup test body</p>', 'envelope_from' => 'warmup@example.test',
+                'recipient' => 'second@example.test',
+            ]);
+        $transport = \Mockery::mock(SmtpTransport::class);
+        $transport->shouldReceive('start')->once();
+        $transport->shouldReceive('send')->once()->withArgs(fn ($message, $envelope): bool => str_contains($message->toString(), '<p>Warmup test body</p>')
+            && $envelope->getRecipients()[0]->getAddress() === 'second@example.test');
+        $transport->shouldReceive('stop')->once();
+        $transportFactory = \Mockery::mock(PmtaCampaignTestTransport::class);
+        $transportFactory->shouldReceive('forServer')->once()
+            ->withArgs(fn (ManagedServer $selected, int $port): bool => $selected->is($server) && $port === 2525)
+            ->andReturn($transport);
+        (new ProcessWarmupSendRun((string) $run->getKey()))->handle($messageBuilder, $transportFactory);
+
+        $run->refresh();
+        $recipient->refresh();
+        $this->assertSame('completed', $run->state);
+        $this->assertSame(1, $run->accepted_count);
+        $this->assertSame('accepted', $recipient->state);
     }
 
     public function test_drop_draft_register_lists_all_owned_drafts_and_supports_search(): void

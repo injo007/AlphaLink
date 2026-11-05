@@ -1399,19 +1399,19 @@ class WorkspaceConsoleController extends Controller
         $this->authorizeRole($workspace, self::CAMPAIGN_ROLES);
         $data = $request->validate([
             'idempotency_key' => ['required', 'uuid'],
-            'send_type' => ['required', 'string', Rule::in(['delay', 'delayp', 'delayps', 'hs', 'hsp', 'hsps', 'pickup', 'pickups'])],
+            'send_type' => ['sometimes', 'string', Rule::in(['delay', 'delayp', 'delayps', 'hs', 'hsp', 'hsps', 'pickup', 'pickups'])],
         ]);
         $campaign = $workspace->campaigns()
             ->with('latestRevision')
             ->where('created_by', $request->user()->getKey())
             ->whereKey($campaign)
             ->firstOrFail();
-        abort_unless($campaign->kind === 'marketing', 409, 'Only marketing campaigns support the native campaign test action.');
+        abort_unless(in_array($campaign->kind, ['marketing', 'drop', 'warmup'], true), 409, 'This campaign type does not support the native PMTA test action.');
 
         $revision = $campaign->latestRevision;
         abort_unless($revision, 409, 'Save the campaign before testing it.');
         $payload = $revision->payload;
-        $emailTests = $payload['email_tests'] ?? [];
+        $emailTests = $payload['email_tests'] ?? $payload['email_test_addresses'] ?? [];
         if (! is_array($emailTests) || $emailTests === []) {
             if ($request->expectsJson()) {
                 return response()->json(['data' => 'No email test'], 400);
@@ -1430,9 +1430,11 @@ class WorkspaceConsoleController extends Controller
             'return_path' => (string) ($payload['return_path'] ?? ''),
             'email_test_addresses' => implode("\n", array_map('strval', $emailTests)),
             'header' => (string) ($payload['header'] ?? ''),
-            'body' => (string) ($payload['body'] ?? ''),
-            'domain' => (string) ($sendSetup['domain'] ?? ''),
-            'send_setup' => [...$sendSetup, 'send_type' => $data['send_type']],
+            'body' => (string) ($payload['body'] ?? $payload['html_body'] ?? ''),
+            'domain' => (string) ($sendSetup['domain'] ?? $payload['domain'] ?? ''),
+            'send_setup' => [...$sendSetup, 'send_type' => $campaign->kind === 'warmup'
+                ? ($payload['send_type'] ?? data_get($sendSetup, 'send_type', $data['send_type'] ?? 'delay'))
+                : data_get($sendSetup, 'send_type', $payload['send_type'] ?? $data['send_type'] ?? 'delay')],
         ]);
 
         return $this->sendCampaignManualTest($request, (string) $workspace->getKey(), $catalog, $transportFactory, $tagRenderer, $redirectUrlPolicy, $vmtaPlanner, $pmtaRemote);
@@ -1489,11 +1491,11 @@ class WorkspaceConsoleController extends Controller
         if (filled($data['test_campaign_id'] ?? null)) {
             $campaign = $workspace->campaigns()->where('created_by', $request->user()->getKey())
                 ->whereKey($data['test_campaign_id'])->firstOrFail();
-            abort_unless($campaign->kind === 'marketing', 409, 'Only marketing campaigns support the native campaign test action.');
+            abort_unless(in_array($campaign->kind, ['marketing', 'drop', 'warmup'], true), 409, 'This campaign type does not support the native PMTA test action.');
             abort_unless(
                 $request->attributes->get('automatic_campaign_test') === true || ($campaign->status === 'draft' && $campaign->is_active),
                 409,
-                'Only active marketing drafts can be tested from the Edit composer.'
+                'Only active drafts can be tested from the Edit composer.'
             );
             abort_unless((string) $campaign->latestRevision?->getKey() === (string) $request->input('expected_revision_id'), 409, 'The campaign changed. Reload the edit form before testing.');
         }
@@ -2450,7 +2452,7 @@ class WorkspaceConsoleController extends Controller
             ->where('created_by', $request->user()->getKey())
             ->whereKey($campaign)
             ->firstOrFail();
-        abort_unless($campaign->kind === 'marketing' && $campaign->status === 'draft' && $campaign->is_active, 409, 'Only active marketing drafts can send a PMTA campaign test.');
+        abort_unless(in_array($campaign->kind, ['marketing', 'drop', 'warmup'], true) && $campaign->status === 'draft' && $campaign->is_active, 409, 'Only active drafts can send a PMTA test.');
         $revision = $campaign->revisions()->whereKey($data['revision_id'])->firstOrFail();
         abort_unless($campaign->latestRevision?->is($revision), 409, 'The campaign changed. Reload its latest revision before testing.');
         $setup = $revision->payload['send_setup'] ?? null;

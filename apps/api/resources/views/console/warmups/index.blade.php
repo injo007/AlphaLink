@@ -21,7 +21,7 @@
                 </select>
             </div>
             <a class="btn btn-sm btn-alt-secondary mr-1 mb-2" href="{{ $createUrl }}" title="CREATE WARMUP" aria-label="CREATE WARMUP"><i class="fas fa-plus" aria-hidden="true"></i></a>
-            <button class="btn btn-sm btn-alt-secondary mr-1 mb-2" type="button" disabled title="Running process view is not connected" aria-label="Active sends unavailable"><i class="fas fa-cog" aria-hidden="true"></i> Active sends <span class="badge badge-secondary">{{ number_format($activeSends) }}</span></button>
+            <span class="btn btn-sm btn-alt-secondary mr-1 mb-2" aria-label="Active warmup sends"><i class="fas fa-cog" aria-hidden="true"></i> Active sends <span class="badge badge-secondary">{{ number_format($activeSends) }}</span></span>
             <button class="btn btn-sm btn-alt-secondary mr-1 mb-2" type="button" disabled title="Warmup deletion is not available" aria-label="Delete selected warmups unavailable"><i class="fas fa-trash" aria-hidden="true"></i></button>
             <button class="btn btn-sm btn-alt-secondary mb-2" type="submit" title="Refresh warmups" aria-label="Refresh warmups"><i class="fas fa-sync" aria-hidden="true"></i></button>
             <div class="ml-auto d-flex flex-wrap align-items-center warmup-register-filters-right">
@@ -60,6 +60,8 @@
                 <tbody>
                 @forelse ($drafts as $draft)
                     @php($config = $draft->warmup_config ?? [])
+                    @php($sendRun = $draft->warmup_send_run)
+                    @php($processed = $sendRun ? (int) $sendRun->accepted_count + (int) $sendRun->rejected_count + (int) $sendRun->uncertain_count : 0)
                     <tr>
                         <th scope="row"><a href="{{ route('console.warmups.edit', [$workspace->id, $draft->id]) }}">{{ substr((string) $draft->id, 0, 8) }}</a><br><small>{{ $draft->name }}</small></th>
                         <td>{{ auth()->user()->username }}</td>
@@ -70,16 +72,20 @@
                         <td>{{ $config['sleep_email'] ?? '—' }}</td>
                         <td>{{ $config['sleep_ip'] ?? '—' }}</td>
                         <td>{{ $config['seed_every'] ?? '—' }}</td>
-                        <td><span class="badge badge-secondary">DRAFT</span></td>
-                        <td><span class="badge badge-secondary">—</span></td>
+                        <td><span class="badge badge-{{ $sendRun ? (in_array($sendRun->state, ['planned', 'running'], true) ? 'primary' : ($sendRun->state === 'completed' ? 'success' : 'warning')) : 'secondary' }}">{{ strtoupper($sendRun->state ?? 'draft') }}</span></td>
+                        <td>@if ($sendRun){{ number_format($processed) }} / {{ number_format((int) $sendRun->recipient_count) }} accepted {{ number_format((int) $sendRun->accepted_count) }} · rejected {{ number_format((int) $sendRun->rejected_count) }} · uncertain {{ number_format((int) $sendRun->uncertain_count) }}@else<span class="badge badge-secondary">—</span>@endif</td>
                         <td>{{ strtoupper((string) ($config['send_type'] ?? '—')) }}</td>
                         <td class="text-nowrap warmup-register-actions">
                             <a class="btn btn-sm btn-link" href="{{ route('console.warmups.edit', [$workspace->id, $draft->id]) }}" title="SHOW" aria-label="Show Warmup"><i class="fas fa-edit" aria-hidden="true"></i></a>
-                            <button class="btn btn-sm btn-link text-warning" type="button" disabled title="Warmup test is not connected" aria-label="Warmup test unavailable"><i class="far fa-paper-plane" aria-hidden="true"></i></button>
+                            <a class="btn btn-sm btn-link text-warning" href="{{ route('console.warmups.edit', [$workspace->id, $draft->id]) }}" title="Open Warmup composer to test saved Email Test addresses" aria-label="Test Warmup"><i class="far fa-paper-plane" aria-hidden="true"></i></a>
                             <button class="btn btn-sm btn-link text-danger" type="button" disabled title="Warmup removal is not connected" aria-label="Warmup removal unavailable"><i class="fas fa-trash-alt" aria-hidden="true"></i></button>
                             <br>
                             <button class="btn btn-sm btn-link" type="button" disabled title="Resend requires a completed send" aria-label="Resend unavailable"><i class="fas fa-redo text-secondary" aria-hidden="true"></i></button>
-                            <button class="btn btn-sm btn-link text-success" type="button" disabled title="Warmup send is not connected" aria-label="Warmup send unavailable"><i class="fas fa-paper-plane" aria-hidden="true"></i></button>
+                            @if ($sendRun && in_array($sendRun->state, ['planned', 'running'], true))
+                                <form class="d-inline" method="post" action="{{ route('console.warmups.send-stop', [$workspace->id, $draft->id, $sendRun->id]) }}">@csrf<button class="btn btn-sm btn-link text-danger" type="submit" title="Stop Warmup send" aria-label="Stop Warmup send"><i class="fas fa-stop" aria-hidden="true"></i></button></form>
+                            @else
+                                <form class="d-inline" method="post" action="{{ route('console.warmups.send', [$workspace->id, $draft->id]) }}">@csrf<input type="hidden" name="idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}"><button class="btn btn-sm btn-link text-success" type="submit" title="Queue Warmup send" aria-label="Send Warmup"><i class="fas fa-paper-plane" aria-hidden="true"></i></button></form>
+                            @endif
                             <button class="btn btn-sm btn-link" type="button" disabled title="Warmup schedule is not connected" aria-label="Warmup schedule unavailable"><i class="fas fa-calendar-alt" aria-hidden="true"></i></button>
                             <button class="btn btn-sm btn-link" type="button" disabled title="No Warmup server process is attached" aria-label="Warmup PMTA unavailable"><i class="fas fa-server" aria-hidden="true"></i></button>
                         </td>
@@ -94,7 +100,7 @@
             <small class="text-muted">Showing {{ $drafts->firstItem() ?? 0 }} to {{ $drafts->lastItem() ?? 0 }} of {{ $drafts->total() }} entries.</small>
             {{ $drafts->links() }}
         </div>
-        <p class="sr-only" role="note">Saved drafts only. Test, send, schedule, delete, and process monitoring are unavailable.</p>
+        <p class="sr-only" role="note">Warmup sends use the saved seed lists and PMTA routes. Test messages go only to saved Email Test addresses.</p>
     </div>
 </section>
 @endsection

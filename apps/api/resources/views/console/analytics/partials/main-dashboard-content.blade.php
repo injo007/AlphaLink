@@ -1,4 +1,14 @@
 <div id="main-dashboard-refresh-region" data-main-dashboard-refresh data-refresh-url="{{ route('console.analytics.index', ['workspace' => $workspace->id, 'fragment' => 1]) }}" data-refresh-interval="300000">
+    <script type="application/json" id="command-os-dashboard-data">{!! \Illuminate\Support\Js::encode(array_merge($commandOsDashboard, [
+        'actions' => [
+            ['label' => 'All Stats', 'href' => route('console.analytics.all-stats', $workspace->id), 'icon' => 'chart'],
+            ['label' => 'ISP Stats', 'href' => route('console.analytics.isp-stats', $workspace->id), 'icon' => 'globe'],
+            ['label' => 'Mailer Revenue', 'href' => route('console.analytics.mailer-revenue', $workspace->id), 'icon' => 'dollar'],
+            ['label' => 'Performance', 'href' => '#performance', 'icon' => 'activity'],
+            ['label' => 'GEO data status', 'href' => '#geo-data-status', 'icon' => 'map'],
+            ['label' => 'Graph data status', 'href' => '#relationship-data-status', 'icon' => 'network'],
+        ],
+    ])) !!}</script>
     <h2 class="content-heading">MAIN DASHBOARD <small class="text-muted">LAST 30 DAYS</small></h2>
 
     <div class="row row-deck dashboard-summary" aria-label="Today, year-to-date, and month-to-date dashboard metrics">

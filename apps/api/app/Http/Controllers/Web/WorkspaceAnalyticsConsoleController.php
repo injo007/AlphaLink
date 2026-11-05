@@ -49,7 +49,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
         $yearFrom = $today->copy()->startOfYear()->startOfDay();
         $monthFrom = $today->copy()->startOfMonth()->startOfDay();
         $yesterdayFrom = $today->copy()->subDay()->startOfDay();
-        $eventFrom = $yearFrom;
+        $eventFrom = $lastThirtyDaysFrom->lessThan($yearFrom) ? $lastThirtyDaysFrom : $yearFrom;
 
         $to = $today->copy()->endOfDay();
         $dailyEvents = $this->dailyEvents($workspace, $request->user(), $eventFrom, $to);
@@ -60,6 +60,8 @@ class WorkspaceAnalyticsConsoleController extends Controller
 
             return [
                 'at' => $at,
+                'deliveries' => (int) ($row->deliveries ?? 0),
+                'bounces' => (int) ($row->soft_bounces ?? 0) + (int) ($row->hard_bounces ?? 0),
                 'opens' => (int) ($row->opens ?? 0),
                 'clicks' => (int) ($row->clicks ?? 0),
                 'leads' => (int) ($row->leads ?? 0),
@@ -111,6 +113,41 @@ class WorkspaceAnalyticsConsoleController extends Controller
             'leads' => $dailyRows->sum('leads'),
             'unsubscribes' => $dailyRows->sum('unsubscribes'),
             'lead_revenue' => $dailyRows->sum('lead_revenue'),
+        ];
+        $commandOsMetrics = [
+            ['key' => 'deliveries', 'label' => 'Deliveries', 'value' => $dailyRows->sum('deliveries'), 'format' => 'number', 'detail' => 'Imported PMTA delivery records'],
+            ['key' => 'opens', 'label' => 'Opens', 'value' => $eventTotals['opens'], 'format' => 'number', 'detail' => 'Campaign and Drop visitor events'],
+            ['key' => 'clicks', 'label' => 'Clicks', 'value' => $eventTotals['clicks'], 'format' => 'number', 'detail' => 'Campaign and Drop visitor events'],
+            ['key' => 'leads', 'label' => 'Leads', 'value' => $eventTotals['leads'], 'format' => 'number', 'detail' => 'Recorded campaign and Drop leads'],
+            ['key' => 'revenue', 'label' => 'Revenue', 'value' => $eventTotals['lead_revenue'], 'format' => 'currency', 'detail' => 'Attributed lead revenue only'],
+            ['key' => 'unsubscribes', 'label' => 'Unsubscribes', 'value' => $eventTotals['unsubscribes'], 'format' => 'number', 'detail' => 'Campaign and Drop visitor events'],
+            ['key' => 'bounces', 'label' => 'Bounces', 'value' => $dailyRows->sum('bounces'), 'format' => 'number', 'detail' => 'Imported PMTA soft and hard bounces'],
+        ];
+        $commandOsDashboard = [
+            'userName' => $request->user()->name ?: $request->user()->email,
+            'workspaceName' => $workspace->name,
+            'workspaceRole' => $workspace->pivot->role,
+            'period' => [
+                'label' => 'Last 30 days',
+                'from' => $lastThirtyDaysFrom->toDateString(),
+                'to' => $to->toDateString(),
+            ],
+            'metrics' => $commandOsMetrics,
+            'trend' => [
+                'labels' => $dailyRows->map(fn (array $row): string => Carbon::parse($row['at'])->format('M j'))->all(),
+                'deliveries' => $dailyRows->pluck('deliveries')->all(),
+                'opens' => $dailyRows->pluck('opens')->all(),
+            ],
+            'refresh' => [
+                'url' => route('console.analytics.index', ['workspace' => $workspace->getKey(), 'fragment' => 1]),
+                'interval' => 300000,
+            ],
+            'coverage' => [
+                'deliveries' => 'Locally imported PMTA delivery records and stored campaign/Drop visitor events.',
+                'revenue' => 'Revenue is attributed to recorded campaign and Drop leads; it is not PMTA earnings.',
+                'geo' => 'Country-level delivery totals and denominators are not available in the current dashboard contract.',
+                'graph' => 'A permission-safe relationship feed across AlphaLink modules has not been defined yet.',
+            ],
         ];
         $maxDailyEvents = max(1, $dailyRows->max(fn (array $row): int => $row['opens'] + $row['clicks'] + $row['leads'] + $row['unsubscribes']));
 
@@ -201,6 +238,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
                 'eventTotals' => $eventTotals,
                 'dashboardCharts' => $dashboardCharts,
                 'dashboardHighlights' => $dashboardHighlights,
+                'commandOsDashboard' => $commandOsDashboard,
                 'mtdLeadRevenue' => $mtdLeadRevenue,
                 'maxDailyEvents' => $maxDailyEvents,
                 'snapshotCounts' => $snapshotCounts,

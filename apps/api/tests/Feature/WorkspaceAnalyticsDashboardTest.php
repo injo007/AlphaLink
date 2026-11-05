@@ -71,6 +71,75 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
         }
     }
 
+    public function test_dashboard_aliases_load_react_assets_and_embed_parseable_json(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->makeWorkspace($owner, 'owner');
+        $this->actingAs($owner);
+
+        $routes = [
+            route('console.dashboard.main'),
+            route('console.workspace.dashboard.main', ['workspaceSlug' => $workspace->slug]),
+            route('console.analytics.index', ['workspace' => $workspace->getKey()]),
+        ];
+
+        foreach ($routes as $url) {
+            $response = $this->get($url)->assertOk();
+            $html = $response->getContent();
+
+            $this->assertStringContainsString('command-os-dashboard-root', $html);
+            $this->assertMatchesRegularExpression('/<script\\b[^>]*src="[^"]*command-os-[^"]*\\.js"/', $html);
+            $this->assertMatchesRegularExpression('/<link\\b[^>]*href="[^"]*command-os-[^"]*\\.css"/', $html);
+            $this->assertCommandOsPayloadIsParseable($html);
+        }
+
+        $fragment = $this->get(route('console.analytics.index', [
+            'workspace' => $workspace->getKey(),
+            'fragment' => 1,
+        ]))->assertOk();
+        $this->assertCommandOsPayloadIsParseable($fragment->getContent());
+    }
+
+    public function test_last_thirty_days_includes_data_from_december_when_january_starts(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->makeWorkspace($owner, 'owner');
+        $this->travelTo(Carbon::parse('2027-01-10 12:00:00'));
+
+        DB::table('workspace_daily_analytics')->insert([
+            'workspace_id' => $workspace->getKey(),
+            'source_type' => 'drop',
+            'source_id' => 'december-boundary',
+            'at' => '2026-12-20',
+            'dimensions_hash' => hash('sha256', 'december-boundary'),
+            'user_id' => $owner->getKey(),
+            'opens' => 7,
+            'clicks' => 3,
+            'leads' => 1,
+            'unsubscribes' => 0,
+            'bots' => 0,
+            'lead_revenue' => 5.25,
+            'deliveries' => 1200,
+            'soft_bounces' => 4,
+            'hard_bounces' => 2,
+            'attribution_scope' => 'workspace',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($owner)
+            ->get(route('console.dashboard.main'))
+            ->assertOk()
+            ->assertViewHas('commandOsDashboard', function (array $dashboard): bool {
+                $dayIndex = array_search('Dec 20', $dashboard['trend']['labels'], true);
+
+                return $dashboard['period']['from'] === '2026-12-12'
+                    && $dayIndex !== false
+                    && $dashboard['trend']['deliveries'][$dayIndex] === 1200
+                    && $dashboard['trend']['opens'][$dayIndex] === 7;
+            });
+    }
+
     public function test_dashboard_reports_recorded_drop_events_and_latest_list_states(): void
     {
         $owner = User::factory()->create();
@@ -148,6 +217,7 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
         $this->actingAs($owner);
         $this->get(route('console.dashboard.main'))
             ->assertOk()
+            ->assertSee('command-os-dashboard-root', false)
             ->assertSee('Dashboard')
             ->assertSee('CAMPAIGN & DROP ENGAGEMENT')
             ->assertSee('LATEST AUDIENCE-LIST STATES')
@@ -161,6 +231,20 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
                 && $totals['unsubscribes'] === 1
                 && $totals['lead_revenue'] === 10.0
             )
+            ->assertViewHas('commandOsDashboard', function (array $dashboard): bool {
+                $metrics = collect($dashboard['metrics'])->keyBy('key');
+
+                return $dashboard['workspaceRole'] === 'owner'
+                    && $metrics->get('opens')['value'] === 2
+                    && $metrics->get('clicks')['value'] === 2
+                    && $metrics->get('leads')['value'] === 2
+                    && $metrics->get('revenue')['value'] === 10.0
+                    && $metrics->get('unsubscribes')['value'] === 1
+                    && count($dashboard['trend']['labels']) === 30
+                    && count($dashboard['trend']['deliveries']) === 30
+                    && $dashboard['refresh']['interval'] === 300000
+                    && str_contains($dashboard['refresh']['url'], 'fragment=1');
+            })
             ->assertViewHas('dashboardHighlights', fn (array $highlights): bool => $highlights['opens'] === [
                 'today' => 1,
                 'ytd' => 1,
@@ -370,14 +454,19 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
 
         $this->artisan('workspace:analytics-rebuild-daily')->assertExitCode(0);
 
-        $this->actingAs($owner)
-            ->get(route('console.dashboard.main').'?fragment=1')
+        $this->get(route('console.dashboard.main').'?fragment=1')
+            ->assertRedirect(route('login'));
+
+        $fragment = $this->actingAs($owner)
+            ->get(route('console.dashboard.main').'?fragment=1');
+        $fragment
             ->assertOk()
             ->assertViewIs('console.analytics.partials.main-dashboard-content')
             ->assertSee('data-main-dashboard-refresh', false)
             ->assertSee('data-refresh-interval="300000"', false)
             ->assertDontSee('<!doctype html', false)
             ->assertViewHas('eventTotals', fn (array $totals): bool => $totals['opens'] === 1);
+        $this->assertCommandOsPayloadIsParseable($fragment->getContent());
 
         $stranger = User::factory()->create();
         $this->actingAs($stranger)
@@ -432,6 +521,13 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
             ->get(route('console.dashboard.main'))
             ->assertOk()
             ->assertViewHas('eventTotals', fn (array $totals): bool => $totals['clicks'] === 1)
+            ->assertViewHas('commandOsDashboard', function (array $dashboard) use ($operator): bool {
+                $clicks = collect($dashboard['metrics'])->firstWhere('key', 'clicks');
+
+                return $dashboard['workspaceRole'] === 'operator'
+                    && $dashboard['userName'] === $operator->name
+                    && $clicks['value'] === 1;
+            })
             ->assertViewHas('snapshotCounts', fn (array $counts): bool => $counts['open'] === 0);
 
         $operatorIspReport = $this->get(route('clean.console.analytics.isp-stats', [
@@ -899,6 +995,21 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
         $workspace->users()->attach($user->getKey(), ['role' => $role]);
 
         return $workspace;
+    }
+
+    /** @return array<string, mixed> */
+    private function assertCommandOsPayloadIsParseable(string $html): array
+    {
+        if (preg_match('/<script type="application\\/json" id="command-os-dashboard-data">(.*?)<\\/script>/s', $html, $matches) !== 1) {
+            $this->fail('The Command OS dashboard JSON payload was not rendered.');
+        }
+
+        $payload = json_decode($matches[1], true, 512, JSON_THROW_ON_ERROR);
+        $this->assertIsArray($payload);
+        $this->assertArrayHasKey('metrics', $payload);
+        $this->assertArrayHasKey('trend', $payload);
+
+        return $payload;
     }
 
     private function addVisitor(Workspace $workspace, WorkspaceDrop $drop, string $type, Carbon $createdAt, float $revenue = 0, ?int $ispId = null): void

@@ -7,6 +7,7 @@
                 || request()->routeIs(...array_map(static fn (string $pattern): string => 'clean.'.$pattern, $patterns));
         };
         $isDropVisitorsPage = $routeIs('console.drops.visitors');
+        $commandOsDashboard = $routeIs('console.dashboard.main', 'console.workspace.dashboard.main', 'console.analytics.index');
         $usesGoogleCharts = $isDropVisitorsPage || $routeIs('console.campaigns.visitors');
         $usesAnalyticsCharts = $routeIs('console.analytics.*', 'console.dashboard.main', 'console.campaign-statistics.*');
         $usesAnalyticsPivot = $routeIs(
@@ -32,6 +33,9 @@
         <link rel="stylesheet" href="{{ asset('console-assets/plugins/datatables/datatables.min.css') }}">
     @endif
     <link rel="stylesheet" href="{{ asset('console-assets/assets/css/theme.css') }}">
+    @if ($commandOsDashboard)
+        @vite(['resources/css/command-os.css', 'resources/js/command-os.tsx'])
+    @endif
     @if ($usesAnalyticsCharts)
         @vite('resources/css/analytics-charts.css')
     @endif
@@ -43,7 +47,7 @@
         @keyframes alphalink-toast-in { from { opacity: 0; transform: translateY(.4rem); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
-<body>
+<body class="{{ $commandOsDashboard ? 'command-os-dashboard' : '' }}">
     @php
         $serversUrl = route('clean.console.infrastructure.servers.index');
         $serverProvidersUrl = route('clean.console.infrastructure.server-providers.index');
@@ -285,12 +289,20 @@
             ['label' => 'CLOUDS', 'icon' => 'fas fa-cloud-sun', 'items' => $cloudNavigation, 'open' => $isCloudWorkflowPage],
         ];
     @endphp
-    <div id="page-container" class="sidebar-o enable-page-overlay sidebar-dark side-scroll page-header-fixed sidebar-mini">
+    <div id="page-container" class="sidebar-o enable-page-overlay sidebar-dark side-scroll page-header-fixed {{ $commandOsDashboard ? 'command-os-page' : 'sidebar-mini' }}">
         <nav id="sidebar" aria-label="Main Navigation">
             <div class="content-header bg-white-5">
                 <a class="font-w600 text-dual" href="{{ route('console.index') }}" aria-label="AlphaLink">
-                    <span class="smini-visible"><i class="fa fa-envelope text-primary"></i></span>
-                    <span class="smini-hide font-size-h5 tracking-wider font-w400 text-uppercase">AlphaLink</span>
+                    @if ($commandOsDashboard)
+                        <span class="command-os-brand">
+                            <img src="{{ asset('console-assets/alphalink-command-os-mark.png') }}" alt="" width="32" height="32">
+                            <span class="command-os-brand-copy"><strong>AlphaLink</strong><small>COMMAND OS</small></span>
+                            <span class="command-os-version">v2.0</span>
+                        </span>
+                    @else
+                        <span class="smini-visible"><i class="fa fa-envelope text-primary"></i></span>
+                        <span class="smini-hide font-size-h5 tracking-wider font-w400 text-uppercase">AlphaLink</span>
+                    @endif
                 </a>
                 <div><button type="button" class="d-lg-none btn btn-sm btn-dual ml-1" data-toggle="layout" data-action="sidebar_close" aria-label="Close navigation"><i class="fa fa-fw fa-times"></i></button></div>
             </div>
@@ -359,7 +371,12 @@
             <div class="content-header">
                 <div class="d-flex align-items-center">
                     <button type="button" class="btn btn-sm btn-dual mr-2 d-lg-none" data-toggle="layout" data-action="sidebar_open" aria-label="Open navigation"><i class="fa fa-fw fa-ellipsis-v"></i></button>
-                    <button type="button" class="btn btn-sm btn-dual mr-2 d-none d-lg-inline-block" data-toggle="layout" data-action="sidebar_mini_toggle" aria-label="Toggle navigation width" aria-pressed="true"><i class="fa fa-fw fa-ellipsis-v"></i></button>
+                    <button type="button" class="btn btn-sm btn-dual mr-2 d-none d-lg-inline-block" data-toggle="layout" data-action="sidebar_mini_toggle" aria-label="Toggle navigation width" aria-pressed="{{ $commandOsDashboard ? 'false' : 'true' }}"><i class="fa fa-fw fa-ellipsis-v"></i></button>
+                    @if ($commandOsDashboard)
+                        <button type="button" class="command-os-search-placeholder" disabled aria-label="Global search is planned for a later migration phase" title="Global search will be added after its permission-safe data contract is defined">
+                            <i class="fas fa-search" aria-hidden="true"></i><span>Search across AlphaLink modules</span><kbd>⌘ K</kbd>
+                        </button>
+                    @endif
                     <a class="btn btn-sm btn-dual mr-2" href="{{ $campaignsUrl }}" title="CAMPAIGNS" aria-label="Campaigns"><i class="fas fa-envelope"></i></a>
                     @if ($canManagePmta)
                         <a class="btn btn-sm btn-dual mr-2" href="{{ $pmtaAdminUrl }}" title="PMTA ADMIN" aria-label="PMTA Admin"><i class="fas fa-desktop"></i></a>
@@ -367,6 +384,9 @@
                     <a class="btn btn-sm btn-dual mr-2" href="{{ $globalTestsUrl }}" title="GLOBAL TEST" aria-label="Global Test"><i class="fas fa-map-signs"></i></a>
                 </div>
                 <div class="d-flex align-items-center">
+                    @if ($commandOsDashboard)
+                        <div id="command-os-theme-toggle"></div>
+                    @endif
                     @if (session()->has('alphalink.impersonator_id'))
                         <form method="post" action="{{ route('console.global-users.impersonation.leave') }}" class="mr-2">@csrf<button class="btn btn-sm btn-warning" type="submit">STOP IMPERSONATION</button></form>
                     @endif

@@ -98,14 +98,14 @@
             @endif
             <input type="hidden" name="idempotency_key" value="{{ $idempotencyKey }}">
             @if ($isDrop)
-                <div class="form-row"><div class="form-group col-sm-12 col-md-12"><label for="mailer-draft-name">Drop name:</label><input class="form-control" id="mailer-draft-name" name="name" maxlength="160" required value="{{ old('name', $draft?->name ?? 'New Drop') }}"></div></div>
+                <input type="hidden" id="mailer-draft-name" name="name" value="{{ old('name', $draft?->name ?? 'New Drop') }}">
                 <div class="form-row">
                     <div class="form-group col-sm-12 col-md-4"><label for="drop-sponsor">Sponsors:</label><select id="drop-sponsor" name="send_setup[sponsor_id]" class="form-control selectpicker" data-live-search="true"><option value="">Select Sponsor</option>@foreach ($sendOptions['sponsors'] as $sponsor)<option value="{{ $sponsor['id'] }}" @selected((string) $selectedSponsor === (string) $sponsor['id'])>{{ $sponsor['name'] }}</option>@endforeach</select></div>
                     <div class="form-group col-sm-12 col-md-2"><label for="drop-offer-country">Offers Country:</label><select id="drop-offer-country" name="send_setup[offer_country]" class="form-control selectpicker"><option value="ALL" @selected($selectedOfferCountry === 'ALL')>ALL</option>@foreach ($availableCountryCodes as $code)<option value="{{ $code }}" @selected($selectedOfferCountry === $code)>{{ $code }}{{ isset($countryCatalog[$code]) ? ' — '.$countryCatalog[$code] : '' }}</option>@endforeach</select></div>
                     <div class="form-group col-sm-12 col-md-6"><label for="drop-offer">Offers:</label><select id="drop-offer" name="send_setup[offer_id]" class="form-control selectpicker"><option value="">Select Offer</option>@foreach ($sendOptions['offers'] as $offer)<option value="{{ $offer['id'] }}" @selected((string) $selectedOffer === (string) $offer['id'])>({{ $offer['offer_id'] }}) {{ $offer['name'] }} — {{ $offer['vertical'] }}</option>@endforeach</select></div>
                 </div>
             @else
-                <div class="form-row"><div class="form-group col-sm-12 col-md-4"><label for="mailer-draft-name">Warmup name:</label><input class="form-control" id="mailer-draft-name" name="name" maxlength="160" required value="{{ old('name', $draft?->name ?? 'New Warmup') }}"></div></div>
+                <input type="hidden" id="mailer-draft-name" name="name" value="{{ old('name', $draft?->name ?? 'New Warmup') }}">
             @endif
 
             <div class="form-row">
@@ -128,13 +128,13 @@
                             <button type="button" class="btn btn-link btn-sm p-0" id="mailer-header-shuffle" title="Shuffle header lines" aria-label="Shuffle header lines"><i class="fas fa-random"></i></button>
                             <button type="button" class="btn btn-link btn-sm p-0 disabled" title="Header encoding is not available on draft pages" aria-label="Header encoding unavailable" aria-disabled="true" tabindex="-1"><i class="fas fa-pencil-ruler"></i></button>
                         </label>
-                        <div id="mailer-header-editor" class="mailer-ace-editor" role="textbox" aria-multiline="true" aria-label="Header editor" tabindex="0"></div><textarea id="mailer-header" name="header" class="form-control resize-none" rows="30" spellcheck="false">{{ $header }}</textarea>
+                        <div id="mailer-header-editor" class="mailer-ace-editor" role="textbox" aria-multiline="true" aria-label="Header editor" tabindex="0"></div><textarea id="mailer-header" name="header" class="form-control resize-none" rows="10" spellcheck="false">{{ $header }}</textarea>
                     </div>
                     <div class="col-sm-12 col-md-6">
                         <div class="form-row"><div class="form-group col-sm-12 col-md-6"><label for="mailer-domain">Domain:</label><select id="mailer-domain" name="domain" class="form-control selectpicker" data-allow-clear="true"><option value="">Select Domain</option>@foreach ($sendOptions['campaign_domains'] as $domainOption)<option value="{{ $domainOption['value'] }}" @selected((string) old('domain', $content['domain'] ?? '') === (string) $domainOption['value'])>{{ $domainOption['name'] }}{{ $domainOption['id'] ?? '' }} - {{ $domainOption['dns'] }}</option>@endforeach</select></div><div class="form-group col-sm-12 col-md-6"><label for="mailer-negative">Negative:</label><select id="mailer-negative" name="negative_id" class="form-control selectpicker" data-allow-clear="true"><option value="">Select Negative</option>@foreach ($sendOptions['negatives'] as $negative)<option value="{{ $negative['id'] }}" @selected((string) ($content['send_setup']['negative_id'] ?? '') === (string) $negative['id'])>{{ $negative['name'] }}</option>@endforeach</select></div></div>
                         <div class="form-group"><label for="mailer-body">Body:
                             <button type="button" id="mailer-body-preview-open" class="btn btn-link btn-sm p-0" title="Preview HTML" aria-controls="mailer-body-preview"><i class="fas fa-eye"></i></button>
-                        </label><div id="mailer-body-editor" class="mailer-ace-editor" role="textbox" aria-multiline="true" aria-label="HTML body editor" tabindex="0"></div><textarea id="mailer-body" name="html_body" class="form-control resize-none" rows="30" spellcheck="false">{{ $body }}</textarea></div>
+                        </label><div id="mailer-body-editor" class="mailer-ace-editor" role="textbox" aria-multiline="true" aria-label="HTML body editor" tabindex="0"></div><textarea id="mailer-body" name="html_body" class="form-control resize-none" rows="10" spellcheck="false">{{ $body }}</textarea></div>
                     </div>
                 </div>
             @endif
@@ -283,8 +283,8 @@
         source.hidden = true;
         return editor;
     };
-    const headerEditor = createMailerEditor('mailer-header-editor', 'mailer-header', 'text', isDrop ? 20 : 30);
-    const bodyEditor = createMailerEditor('mailer-body-editor', 'mailer-body', 'html', isDrop ? 20 : 30);
+    const headerEditor = createMailerEditor('mailer-header-editor', 'mailer-header', 'text', 30);
+    const bodyEditor = createMailerEditor('mailer-body-editor', 'mailer-body', 'html', 30);
     const readEditor = (editor, source) => editor?.getValue() ?? source?.value ?? '';
     form.addEventListener('submit', () => {
         if (headerEditor) byId('mailer-header').value = headerEditor.getValue();

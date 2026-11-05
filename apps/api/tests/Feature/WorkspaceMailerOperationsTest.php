@@ -36,18 +36,27 @@ class WorkspaceMailerOperationsTest extends TestCase
         $dropComposer = $this->actingAs($owner)->get(route('console.drops.drafts.create', $workspace->getKey()));
         $dropComposer->assertOk()->assertSee('DROP : NEW')->assertSee('Sponsors:')->assertSee('MAP BODY')
             ->assertSee('Duplicate Data:')->assertSee('Delay (MS):')->assertSee('Lists:')->assertSee('AlphaLink draft');
-        $this->assertSame(1, substr_count($dropComposer->getContent(), ' id="mailer-header"'));
-        $this->assertSame(1, substr_count($dropComposer->getContent(), ' id="mailer-body"'));
+        $dropComposerHtml = $dropComposer->getContent();
+        $this->assertSame(1, substr_count($dropComposerHtml, ' id="mailer-header"'));
+        $this->assertSame(1, substr_count($dropComposerHtml, ' id="mailer-body"'));
+        $this->assertStringContainsString('createMailerEditor(\'mailer-header-editor\', \'mailer-header\', \'text\', 30)', $dropComposerHtml);
+        $this->assertStringNotContainsString('for="mailer-draft-name"', $dropComposerHtml);
+        $this->assertStringContainsString('id="mailer-draft-name" name="name" value="New Drop"', $dropComposerHtml);
         $this->actingAs($owner)->get(route('console.warmups.index', $workspace->getKey()))
             ->assertOk()->assertSee('My Warmups')->assertSee('TOTAL SEND')->assertSee('CREATE WARMUP')
+            ->assertSee('Choose warmup date range')->assertDontSee('Date from')
             ->assertSee(route('clean.console.warmups.seeds.index'), false)
             ->assertSee(route('clean.console.warmups.statistics'), false);
         $warmupComposer = $this->actingAs($owner)->get(route('console.warmups.create', $workspace->getKey()));
         $warmupComposer
             ->assertOk()->assertSee('NEW WARMUP')->assertSee('Return Path:')->assertSee('Saved Emails:')
             ->assertSee('Seeds:')->assertSee('Sleep Btw Email')->assertSee('Test After:');
-        $this->assertSame(1, substr_count($warmupComposer->getContent(), ' id="mailer-header"'));
-        $this->assertSame(1, substr_count($warmupComposer->getContent(), ' id="mailer-body"'));
+        $warmupComposerHtml = $warmupComposer->getContent();
+        $this->assertSame(1, substr_count($warmupComposerHtml, ' id="mailer-header"'));
+        $this->assertSame(1, substr_count($warmupComposerHtml, ' id="mailer-body"'));
+        $this->assertStringContainsString('createMailerEditor(\'mailer-header-editor\', \'mailer-header\', \'text\', 30)', $warmupComposerHtml);
+        $this->assertStringNotContainsString('for="mailer-draft-name"', $warmupComposerHtml);
+        $this->assertStringContainsString('id="mailer-draft-name" name="name" value="New Warmup"', $warmupComposerHtml);
         $this->actingAs($owner)->get(route('console.warmups.statistics', $workspace->getKey()))
             ->assertOk()->assertSee('Warmup Statistics')->assertSee('No Warmup actions in this date range');
     }

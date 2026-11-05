@@ -1,8 +1,8 @@
 # AlphaLink development progress
 
-**Updated:** 2026-11-04
+**Updated:** 2026-11-05
 **Active objective:** Complete Drops and Warmups reconstruction, then finish identity reconstruction.
-**Status:** Workspace-scoped Drop and Warmup draft pages, navigation, and unique-action statistics are deployed in release `43a9a851d1f0b91d8e53e1562a9f663d6d26bb5d`. Draft/send parity remains incomplete because there is no verified AlphaLink-native Drop/Warmup execution path. No DMS changes or sender operations were made.
+**Status:** Drop/Warmup draft screens are deployed in release `b43fca44f6abd6907d58ac7b7d3005b358175d2c`. Their visible structure now follows the DMS source more closely, but pixel-level comparison and native send/test/schedule parity remain unverified. No DMS changes or sender operations were made.
 
 ## Drops and Warmups gate
 
@@ -11,6 +11,7 @@
 - Existing source observations remain useful historical evidence, but the live source/UI inventory is still incomplete. The sanitized route, permission, form, model, and side-effect inventory is [`audit/DROPS_WARMUPS_REFERENCE_INVENTORY_2026-11-04.md`](audit/DROPS_WARMUPS_REFERENCE_INVENTORY_2026-11-04.md); remaining discovery work is tracked in [`audit/DROPS_WARMUPS_PHASE1_BLOCKER.md`](audit/DROPS_WARMUPS_PHASE1_BLOCKER.md).
 - Drops now has an accessible workspace-scoped draft register and authoring form; Warmups now has draft list/create/edit pages plus a unique-action statistics report. These save encrypted immutable revisions and do not send, test, schedule, or claim delivery. Drop Test/Send/Schedule and Warmup execution/process lifecycle remain INVESTIGATING because the AlphaLink-native sender contract is unavailable. Drop monitoring/statistics/visitors/suppression and seed-list management remain TESTING with documented gaps. No feature is PARITY_CONFIRMED.
 - A sanitized read-only DMS source bundle is available under `/tmp/alphalink-dms-reference-20261104/source`, with hashes in the repository audit manifest. Phase 2 can proceed after the source/UI inventory and isolated sender contract are complete; do not use AlphaLink production credentials as a substitute.
+- E-CAMP-157 rechecked the current Drop and Warmup Blade templates directly over the confirmed DMS SSH host, read-only and with strict host-key validation. The DMS Drop initializer is state-changing, so it was not visited. Current source confirms 30-line Ace editors for both Drop and Warmup, no visible draft-name field in either composer, and a date-range toolbar/table layout for Warmups. The AlphaLink draft screens were adjusted accordingly; send/test/schedule/delete/process actions remain unavailable. No pixel screenshots were captured, and no parity status is promoted.
 
 ## Current product behavior
 
@@ -26,6 +27,7 @@
 ## Verification
 
 - E-CAMP-155 Drop/Warmup workflow suite: **5 tests / 45 assertions**; combined Drop monitoring/statistics/suppression, seed-list, campaign clone/test-navigation suites: **72 tests / 716 assertions**. Both ran under PHP **8.5.12**. Route caching, targeted Pint, and `git diff --check` pass. Release `43a9a851d1f0b91d8e53e1562a9f663d6d26bb5d` is pushed to GitHub and deployed; live route checks are recorded in E-CAMP-155.
+- E-CAMP-157 follow-up: `WorkspaceMailerOperationsTest` **6 tests / 86 assertions** under PHP **8.5.12**, Pint, and `git diff --check` pass. Commit `b43fca44f6abd6907d58ac7b7d3005b358175d2c` is pushed to GitHub `master` and the feature branch and deployed to `baseheavy.shop`. The installer verified PostgreSQL backup `/var/backups/alphalink/deploy-b43fca44f6abd6907d58ac7b7d3005b358175d2c-20261105T010829Z.dump`, applied no migrations, restored services, and passed its HTTPS health check. Fresh authenticated browser loads verified the recent/new Drop and Warmup list/create routes; no forms were submitted and no production data or send process was changed. Evidence is an accessibility-tree check, not pixel screenshots.
 
 - E-DROP-STAT-001 final verification: PHP 8.5.12 full suite **1,052 tests, 9,786 assertions**, 15 PHPUnit notices and one skipped test; focused Drop Statistics/Monitoring **14 tests, 135 assertions**; JavaScript **91/91**; Vite production build, Pint, and `git diff --check` passed.
 - Validation ran in an isolated PHP **8.5.12** container, matching the fresh installer target. Focused PHP coverage passed: **154 tests, 1,376 assertions**. PHP syntax checks and Pint passed.

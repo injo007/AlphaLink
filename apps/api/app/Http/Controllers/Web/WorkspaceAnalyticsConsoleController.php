@@ -148,6 +148,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
                 'geo' => 'Country-level delivery totals and denominators are not available in the current dashboard contract.',
                 'graph' => 'A permission-safe relationship feed across AlphaLink modules has not been defined yet.',
             ],
+            'actions' => $this->dashboardQuickActions($workspace),
         ];
         $maxDailyEvents = max(1, $dailyRows->max(fn (array $row): int => $row['opens'] + $row['clicks'] + $row['leads'] + $row['unsubscribes']));
 
@@ -246,6 +247,58 @@ class WorkspaceAnalyticsConsoleController extends Controller
                 'from' => $lastThirtyDaysFrom,
                 'to' => $to,
             ]);
+    }
+
+    /** @return array<int, array{label: string, href: string|null, icon: string, disabled?: bool, reason?: string}> */
+    private function dashboardQuickActions(Workspace $workspace): array
+    {
+        $role = (string) $workspace->pivot->role;
+        $campaignRoles = ['owner', 'admin', 'operator'];
+        $actions = [];
+
+        if (in_array($role, $campaignRoles, true)) {
+            $actions[] = [
+                'label' => 'Create Campaign',
+                'href' => route('console.campaigns.create', $workspace->getKey()),
+                'icon' => 'send',
+            ];
+            $actions[] = [
+                'label' => 'New Drop',
+                'href' => route('console.drops.drafts.create', $workspace->getKey()),
+                'icon' => 'layers',
+            ];
+            $actions[] = [
+                'label' => 'Start Warmup',
+                'href' => route('console.warmups.create', $workspace->getKey()),
+                'icon' => 'flame',
+            ];
+        }
+
+        if (in_array($role, ['owner', 'admin'], true)) {
+            $actions[] = [
+                'label' => 'Upload List',
+                'href' => route('console.infrastructure.lists.index', $workspace->getKey()),
+                'icon' => 'upload',
+            ];
+        }
+
+        if (in_array($role, $campaignRoles, true)) {
+            $actions[] = [
+                'label' => 'Check Deliverability',
+                'href' => route('console.global-tests.index', $workspace->getKey()),
+                'icon' => 'shield',
+            ];
+        }
+
+        $actions[] = [
+            'label' => 'Track a Link',
+            'href' => null,
+            'icon' => 'link',
+            'disabled' => true,
+            'reason' => 'No safe link-tracking page is available yet.',
+        ];
+
+        return $actions;
     }
 
     public function allStats(Request $request, string $workspace): View|JsonResponse

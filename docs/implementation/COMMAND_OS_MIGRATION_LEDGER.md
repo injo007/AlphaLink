@@ -84,18 +84,18 @@ The active system Goal cannot be edited through the available goal controls whil
 
 ### Implementation and verification checkpoint (2026-11-05)
 
-The first dashboard slice now mounts React + TypeScript at the existing `/dashboard/main` route, using the existing Laravel/Vite build and authenticated workspace-scoped controller data. Existing Blade navigation and all other page renderers remain in place. The React dashboard has semantic light/dark tokens, responsive layout, seven metrics, an ECharts delivery/open trend, route-backed existing analytics links, explicit GEO/relationship-data coverage states, a theme preference, and the existing five-minute fragment refresh URL. No screenshot sample metric values are included.
+The first dashboard slice now mounts React + TypeScript at the existing `/dashboard/main` route, using the existing Laravel/Vite build and authenticated workspace-scoped controller data. Existing Blade navigation and all other page renderers remain in place. The React dashboard has semantic light/dark tokens, responsive layout, seven metrics, an ECharts delivery/open trend, role-filtered quick actions linked only to existing GET workflows, explicit GEO/relationship-data coverage states, a theme preference, and the existing five-minute fragment refresh URL. The screenshot's `Track a Link` action is visibly and accessibly marked unavailable because no safe standalone GET page exists. No screenshot sample metric values are included.
 
 Files changed and the current phase scope are visible in the Git worktree. The route inventory is a baseline inventory; dashboard React state is recorded there. This does not claim parity for the other 782 routes or complete Phase 0 browser evidence.
 
 | Check | Result |
 |---|---|
-| Focused `WorkspaceAnalyticsDashboardTest.php` | PASS — 21 tests, 266 assertions (PHP 8.5 container; temporary SQLite) |
+| Focused `WorkspaceAnalyticsDashboardTest.php` | PASS — 22 tests, 316 assertions (PHP 8.5 container; in-memory SQLite), including role-filtered actions in rendered page and refresh payloads |
 | `npm run typecheck` | PASS |
 | `npm run build` | PASS — React dashboard entry is split from the lazy ECharts module; the ECharts chunk is 512.42 kB minified (173 kB gzip), above Vite's 500 kB advisory |
 | Production/configured database | NOT USED |
 | Authenticated Ubuntu browser review | NOT RUN — user requested to skip the Mint-host preview and use the Ubuntu SaaS version; review the deployed Command OS at desktop and 390px in both themes before Phase 1 sign-off |
-| GitHub push | AUTHORIZED — local dashboard commit created after independent audit and build/type/test checks; push is blocked because this machine has no authenticated HTTPS credential or authorized GitHub SSH key |
+| GitHub push | AUTHORIZED but BLOCKED — connected GitHub identity `visiontoprompt` has `push: false` for `injo007/AlphaLink`; HTTPS push has no authenticated username and GitHub SSH was rejected. The current dashboard slice remains local and unpushed |
 | Ubuntu release | AUTHORIZED — installer path reviewed; SSH to `baseheavy.shop` is blocked until ED25519 fingerprint `SHA256:cdBVpRiU4H3sBL4f3cwu/htb/QjIZlRdiLIvOvZMle4` is verified through a trusted server-side source |
 
 ### Ubuntu production baseline (2026-11-05)

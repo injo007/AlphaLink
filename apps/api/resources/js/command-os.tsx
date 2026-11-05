@@ -5,10 +5,12 @@ import {
     Activity,
     ChartNoAxesCombined,
     CircleHelp,
+    CloudUpload,
     DollarSign,
     Flame,
     Globe2,
     Layers3,
+    Link2,
     Mail,
     MapPinned,
     Moon,
@@ -16,6 +18,7 @@ import {
     Network,
     RefreshCw,
     Send,
+    ShieldCheck,
     Sun,
     Target,
     TriangleAlert,
@@ -31,7 +34,13 @@ type Metric = {
     format: 'number' | 'currency';
     detail: string;
 };
-type DashboardAction = { label: string; href: string; icon: string };
+type DashboardAction = {
+    label: string;
+    href: string | null;
+    icon: string;
+    disabled?: boolean;
+    reason?: string;
+};
 export type DashboardPayload = {
     userName: string;
     workspaceName: string;
@@ -74,6 +83,12 @@ const actionIcons: Record<string, LucideIcon> = {
     activity: Activity,
     map: MapPinned,
     network: Network,
+    send: Send,
+    layers: Layers3,
+    flame: Flame,
+    upload: CloudUpload,
+    shield: ShieldCheck,
+    link: Link2,
 };
 
 function number(value: number): string {
@@ -362,10 +377,29 @@ function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
             </section>
 
             <section className="command-os-quick-actions" aria-labelledby="command-os-actions-title">
-                <div className="command-os-quick-intro"><Flame size={19} aria-hidden="true" /><span><strong id="command-os-actions-title">Quick actions</strong><small>Open existing AlphaLink workspaces</small></span></div>
+                <div className="command-os-quick-intro"><Flame size={19} aria-hidden="true" /><span><strong id="command-os-actions-title">Quick actions</strong><small>Faster operations</small></span></div>
                 <div className="command-os-action-list">
                     {payload.actions.map((action) => {
                         const Icon = actionIcons[action.icon] ?? Layers3;
+                        if (action.disabled || !action.href) {
+                            const reasonId = `command-os-action-${action.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-reason`;
+
+                            return <button
+                                className="command-os-action command-os-action-disabled"
+                                type="button"
+                                aria-disabled="true"
+                                aria-describedby={reasonId}
+                                key={action.label}
+                                aria-label={action.label}
+                            >
+                                <Icon size={17} aria-hidden="true" />
+                                <span className="command-os-action-copy">
+                                    <span>{action.label}</span>
+                                    <small id={reasonId}>{action.reason ?? 'Unavailable'}</small>
+                                </span>
+                            </button>;
+                        }
+
                         return <a className="command-os-action" href={action.href} key={action.label}><Icon size={17} aria-hidden="true" /><span>{action.label}</span></a>;
                     })}
                 </div>

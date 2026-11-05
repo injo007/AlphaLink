@@ -716,6 +716,34 @@ html[data-command-theme='dark'] .command-os-metric-red .command-os-metric-icon {
     transition: border-color .16s ease, transform .16s ease, background .16s ease;
 }
 
+.command-os-action-disabled {
+    cursor: not-allowed;
+    color: var(--co-muted);
+    border-style: dashed;
+}
+
+.command-os-action-copy {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.command-os-action-copy > small {
+    margin-top: 2px;
+    font-size: 9px;
+    font-weight: 500;
+    line-height: 1.2;
+    white-space: normal;
+}
+
+.command-os-action-disabled:hover {
+    transform: none;
+    border-color: color-mix(in srgb, var(--co-purple) 20%, var(--co-border));
+    color: var(--co-muted);
+    background: color-mix(in srgb, var(--co-purple) 3%, var(--co-surface));
+}
+
 .command-os-action svg {
     flex: 0 0 auto;
     color: var(--co-purple);

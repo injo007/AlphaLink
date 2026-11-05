@@ -100,6 +100,113 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
         $this->assertCommandOsPayloadIsParseable($fragment->getContent());
     }
 
+    public function test_dashboard_quick_actions_use_role_authorized_get_pages_and_disable_unavailable_tracking(): void
+    {
+        $owner = User::factory()->create();
+        $ownerWorkspace = $this->makeWorkspace($owner, 'owner');
+
+        $ownerLabels = ['Create Campaign', 'New Drop', 'Start Warmup', 'Upload List', 'Check Deliverability', 'Track a Link'];
+        foreach ([false, true] as $fragment) {
+            $query = $fragment ? ['fragment' => 1] : [];
+            $html = $this->actingAs($owner)
+                ->get(route('console.analytics.index', ['workspace' => $ownerWorkspace->getKey()] + $query))
+                ->assertOk()->getContent();
+            $payload = $this->assertCommandOsPayloadIsParseable($html);
+            $this->assertSame($ownerLabels, collect($payload['actions'])->pluck('label')->all());
+            $this->assertNotContains('All Stats', collect($payload['actions'])->pluck('label')->all());
+        }
+
+        $this->actingAs($owner)
+            ->get(route('console.dashboard.main'))
+            ->assertOk()
+            ->assertViewHas('commandOsDashboard', function (array $dashboard) use ($ownerWorkspace): bool {
+                $actions = collect($dashboard['actions'])->keyBy('label');
+
+                return $actions->keys()->all() === [
+                    'Create Campaign',
+                    'New Drop',
+                    'Start Warmup',
+                    'Upload List',
+                    'Check Deliverability',
+                    'Track a Link',
+                ]
+                    && $actions->get('Create Campaign')['href'] === route('console.campaigns.create', $ownerWorkspace->getKey())
+                    && $actions->get('New Drop')['href'] === route('console.drops.drafts.create', $ownerWorkspace->getKey())
+                    && $actions->get('Start Warmup')['href'] === route('console.warmups.create', $ownerWorkspace->getKey())
+                    && $actions->get('Upload List')['href'] === route('console.infrastructure.lists.index', $ownerWorkspace->getKey())
+                    && $actions->get('Check Deliverability')['href'] === route('console.global-tests.index', $ownerWorkspace->getKey())
+                    && $actions->get('Track a Link')['href'] === null
+                    && $actions->get('Track a Link')['disabled'] === true
+                    && $actions->get('Track a Link')['reason'] !== '';
+            });
+
+        foreach ([
+            route('console.campaigns.create', $ownerWorkspace->getKey()),
+            route('console.drops.drafts.create', $ownerWorkspace->getKey()),
+            route('console.warmups.create', $ownerWorkspace->getKey()),
+            route('console.infrastructure.lists.index', $ownerWorkspace->getKey()),
+            route('console.global-tests.index', $ownerWorkspace->getKey()),
+        ] as $url) {
+            $this->get($url)->assertOk();
+        }
+
+        $operator = User::factory()->create();
+        $operatorWorkspace = $this->makeWorkspace($operator, 'operator');
+        $this->actingAs($operator)
+            ->get(route('console.dashboard.main'))
+            ->assertOk()
+            ->assertViewHas('commandOsDashboard', function (array $dashboard): bool {
+                $labels = collect($dashboard['actions'])->pluck('label')->all();
+
+                return $labels === ['Create Campaign', 'New Drop', 'Start Warmup', 'Check Deliverability', 'Track a Link']
+                    && ! collect($dashboard['actions'])->contains(fn (array $action): bool => $action['label'] === 'Upload List' && filled($action['href']));
+            });
+
+        foreach ([false, true] as $fragment) {
+            $query = $fragment ? ['fragment' => 1] : [];
+            $payload = $this->assertCommandOsPayloadIsParseable($this->actingAs($operator)
+                ->get(route('console.analytics.index', ['workspace' => $operatorWorkspace->getKey()] + $query))
+                ->assertOk()->getContent());
+            $labels = collect($payload['actions'])->pluck('label')->all();
+            $this->assertSame(['Create Campaign', 'New Drop', 'Start Warmup', 'Check Deliverability', 'Track a Link'], $labels);
+            $this->assertNotContains('All Stats', $labels);
+        }
+
+        $privacyOfficer = User::factory()->create();
+        $privacyWorkspace = $this->makeWorkspace($privacyOfficer, 'privacy_officer');
+        $this->actingAs($privacyOfficer)
+            ->get(route('console.dashboard.main'))
+            ->assertOk()
+            ->assertViewHas('commandOsDashboard', fn (array $dashboard): bool => $dashboard['actions'] === [[
+                'label' => 'Track a Link',
+                'href' => null,
+                'icon' => 'link',
+                'disabled' => true,
+                'reason' => 'No safe link-tracking page is available yet.',
+            ]]);
+
+        foreach ([false, true] as $fragment) {
+            $query = $fragment ? ['fragment' => 1] : [];
+            $payload = $this->assertCommandOsPayloadIsParseable($this->actingAs($privacyOfficer)
+                ->get(route('console.analytics.index', ['workspace' => $privacyWorkspace->getKey()] + $query))
+                ->assertOk()->getContent());
+            $this->assertSame([[
+                'label' => 'Track a Link', 'href' => null, 'icon' => 'link', 'disabled' => true,
+                'reason' => 'No safe link-tracking page is available yet.',
+            ]], $payload['actions']);
+        }
+
+        foreach ([
+            route('console.campaigns.create', $privacyWorkspace->getKey()),
+            route('console.drops.drafts.create', $privacyWorkspace->getKey()),
+            route('console.warmups.create', $privacyWorkspace->getKey()),
+            route('console.global-tests.index', $privacyWorkspace->getKey()),
+        ] as $url) {
+            $this->get($url)->assertForbidden();
+        }
+        $this->get(route('console.infrastructure.lists.index', $privacyWorkspace->getKey()))->assertForbidden();
+    }
+
     public function test_last_thirty_days_includes_data_from_december_when_january_starts(): void
     {
         $owner = User::factory()->create();

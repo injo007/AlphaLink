@@ -59,6 +59,7 @@
             try {
                 const response = await request(templateUrl(library.dataset.showUrlTemplate), { headers: {} });
                 target.value = response.data ?? '';
+                target.dispatchEvent(new Event('input', { bubbles: true }));
                 setStatus('Header loaded into the editor.');
             } catch (error) {
                 setStatus(error.message, true);

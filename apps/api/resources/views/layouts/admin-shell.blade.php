@@ -249,7 +249,7 @@
             ]],
             ['label' => 'DROPS', 'icon' => 'fas fa-paper-plane', 'open' => $isDropsPage, 'items' => [
                 ['label' => 'RECENT DROP', 'icon' => 'fas fa-paper-plane', 'href' => $dropDraftsUrl, 'active' => $isDropDraftIndexPage],
-                ['label' => 'FRESH DROP', 'icon' => 'fas fa-plus', 'href' => $dropDraftCreateUrl, 'active' => $isDropDraftEditorPage],
+                ['label' => 'NEW DROP DRAFT', 'icon' => 'fas fa-plus', 'href' => $dropDraftCreateUrl, 'active' => $isDropDraftEditorPage],
                 ['label' => 'MONITORING', 'icon' => 'fas fa-eye', 'href' => $dropsMonitoringUrl, 'active' => $isDropsMonitoringPage],
                 ['label' => 'SUPPRESSION', 'icon' => 'fas fa-times', 'href' => route('clean.console.drops.suppression'), 'active' => $routeIs('console.drops.suppression*')],
                 ['label' => 'STATISTICS', 'icon' => 'fas fa-chart-line', 'href' => $dropsStatisticsUrl, 'active' => $isDropStatisticsPage],
@@ -402,7 +402,7 @@
     </div>
     <script src="{{ asset('console-assets/assets/js/script.js') }}"></script>
     <script src="{{ asset('console-assets/assets/js/app.js') }}"></script>
-    @if ($isListsPage || $isListHistoryPage || $isSponsorManagementPage || $isNetworkSponsorsPage || $isOfferManagementPage || $isNetworkOffersPage || $isServerInstallPage || $isReinstallPage || $isChangeDomainPage || $isCloudProvidersPage || $isDomainProvidersPage || $isPmtaPage || $isDropsPage || $isWorkspaceToolPage || $routeIs('console.drops.suppression*', 'console.campaigns.create', 'console.campaigns.edit', 'console.campaigns.show', 'console.campaigns.clone', 'console.campaigns.index', 'console.mailer.campaigns'))
+    @if ($isListsPage || $isListHistoryPage || $isSponsorManagementPage || $isNetworkSponsorsPage || $isOfferManagementPage || $isNetworkOffersPage || $isServerInstallPage || $isReinstallPage || $isChangeDomainPage || $isCloudProvidersPage || $isDomainProvidersPage || $isPmtaPage || $isDropsPage || $isWarmupDraftPage || $isWorkspaceToolPage || $routeIs('console.drops.suppression*', 'console.campaigns.create', 'console.campaigns.edit', 'console.campaigns.show', 'console.campaigns.clone', 'console.campaigns.index', 'console.mailer.campaigns'))
         <script src="{{ asset('console-assets/plugins/bootstrap_select/bootstrap-select.js') }}"></script>
     @endif
     @if ($isServersPage || $isMyServersPage || $isMyIpsPage || $isServerProvidersPage || $isPmtaPage || $isDropsPage || $routeIs('console.drops.suppression*', 'console.tools.spf.*', 'console.campaigns.visitors') || $isSeedListsPage || $isPmtaHistoryPage || $isIspPage || $isListsPage || $isEmailManagementPage || $isDomainsPage || $isDomainProvidersPage || $isCloudProvidersPage || $isSubscribersPage || $isContactsPage || $isSponsorManagementPage || $isNetworkSponsorsPage || $isOfferManagementPage || $isNetworkOffersPage || $isGlobalUsersPage || $isWorkspaceProjectsPage || $isWorkspaceAccountsPage)

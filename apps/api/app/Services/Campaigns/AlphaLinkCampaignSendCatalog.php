@@ -155,8 +155,9 @@ class AlphaLinkCampaignSendCatalog
             ->where('status', 'redirect')
             ->where('is_active', true)
             ->orderBy('name')
-            ->get(['name'])
+            ->get(['id', 'name'])
             ->map(fn (SendingDomain $domain): array => [
+                'id' => $domain->getKey(),
                 'value' => $domain->name,
                 'name' => 'REDIRECT',
                 'dns' => $domain->name,
@@ -182,6 +183,7 @@ class AlphaLinkCampaignSendCatalog
             ->orderBy('id')
             ->get(['id', 'managed_server_id', 'dns'])
             ->map(fn (ManagedServerIp $ip): array => [
+                'id' => $ip->getKey(),
                 'value' => $ip->dns,
                 'name' => $ip->server?->name ?? 'SERVER',
                 'dns' => $ip->dns,
@@ -355,6 +357,7 @@ class AlphaLinkCampaignSendCatalog
         $vmtaDomains = $route === 'vmta'
             ? $ips->map(fn (ManagedServerMta $mta): ?array => filled($mta->virtualMta?->domain)
                 ? [
+                    'id' => $mta->getKey(),
                     'value' => trim((string) $mta->virtualMta->domain),
                     'name' => $mta->name ?: 'VMTA',
                     'dns' => trim((string) $mta->virtualMta->domain),

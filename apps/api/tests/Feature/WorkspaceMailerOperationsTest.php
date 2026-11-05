@@ -30,15 +30,24 @@ class WorkspaceMailerOperationsTest extends TestCase
         $workspace = $this->workspace($owner, 'owner');
 
         $this->actingAs($owner)->get(route('console.drops.drafts.index', $workspace->getKey()))
-            ->assertOk()->assertSee('Drop Drafts')->assertSee('NEW DROP')
+            ->assertOk()->assertSee('DROP : NEW')->assertSee('RECENT DROP')
             ->assertSee(route('clean.console.drops.drafts.create'), false)
             ->assertSee(route('clean.console.drops.monitoring'), false);
-        $this->actingAs($owner)->get(route('console.drops.drafts.create', $workspace->getKey()))
-            ->assertOk()->assertSee('New Drop Draft')->assertSee('HTML body')->assertSee('Draft only.');
+        $dropComposer = $this->actingAs($owner)->get(route('console.drops.drafts.create', $workspace->getKey()));
+        $dropComposer->assertOk()->assertSee('DROP : NEW')->assertSee('Sponsors:')->assertSee('MAP BODY')
+            ->assertSee('Duplicate Data:')->assertSee('Delay (MS):')->assertSee('Lists:')->assertSee('AlphaLink draft');
+        $this->assertSame(1, substr_count($dropComposer->getContent(), ' id="mailer-header"'));
+        $this->assertSame(1, substr_count($dropComposer->getContent(), ' id="mailer-body"'));
         $this->actingAs($owner)->get(route('console.warmups.index', $workspace->getKey()))
-            ->assertOk()->assertSee('Warmup Sends')->assertSee('NEW WARMUP')
+            ->assertOk()->assertSee('My Warmups')->assertSee('TOTAL SEND')->assertSee('CREATE WARMUP')
             ->assertSee(route('clean.console.warmups.seeds.index'), false)
             ->assertSee(route('clean.console.warmups.statistics'), false);
+        $warmupComposer = $this->actingAs($owner)->get(route('console.warmups.create', $workspace->getKey()));
+        $warmupComposer
+            ->assertOk()->assertSee('NEW WARMUP')->assertSee('Return Path:')->assertSee('Saved Emails:')
+            ->assertSee('Seeds:')->assertSee('Sleep Btw Email')->assertSee('Test After:');
+        $this->assertSame(1, substr_count($warmupComposer->getContent(), ' id="mailer-header"'));
+        $this->assertSame(1, substr_count($warmupComposer->getContent(), ' id="mailer-body"'));
         $this->actingAs($owner)->get(route('console.warmups.statistics', $workspace->getKey()))
             ->assertOk()->assertSee('Warmup Statistics')->assertSee('No Warmup actions in this date range');
     }
@@ -49,12 +58,19 @@ class WorkspaceMailerOperationsTest extends TestCase
         $workspace = $this->workspace($owner, 'owner');
         $isp = Isp::query()->create(['workspace_id' => $workspace->getKey(), 'name' => 'Synthetic ISP', 'is_active' => true]);
         $list = $this->audienceList($workspace, $owner, 'Synthetic US list', $isp->getKey(), 'US');
+        $australiaList = $this->audienceList($workspace, $owner, 'Synthetic AU list', $isp->getKey(), 'AU');
         $idempotencyKey = (string) Str::uuid();
         $url = route('console.drops.drafts.store', $workspace->getKey());
         $payload = [
             'name' => 'Synthetic Drop', 'from' => 'Updates <mail@example.test>', 'subject' => 'First subject',
             'header' => 'Content-Type: text/html', 'html_body' => '<p>Original [domain] tag</p>',
-            'isp_id' => $isp->getKey(), 'list_ids' => [$list->getKey()], 'countries' => ['US'],
+            'isp_id' => $isp->getKey(), 'list_ids' => [$list->getKey(), $australiaList->getKey()], 'countries' => ['US', 'AU'],
+            'send_setup' => [
+                'route_option' => 'ip', 'ip_type' => 'all', 'send_type' => 'delayp', 'total_send' => 50,
+                'duplicate_data' => 3, 'delay' => 250, 'email_types' => ['open', 'click'],
+                'placeholder_combination' => true,
+                'placeholder_inputs' => [['data_text' => "one\ntwo", 'rotate_every' => 2]],
+            ],
             'idempotency_key' => $idempotencyKey,
         ];
 
@@ -62,8 +78,15 @@ class WorkspaceMailerOperationsTest extends TestCase
         $draft = Campaign::query()->where('workspace_id', $workspace->getKey())->where('kind', 'drop')->firstOrFail();
         $revision = $draft->revisions()->firstOrFail();
         $this->assertSame('<p>Original [domain] tag</p>', $revision->payload['html_body']);
-        $this->assertSame([(string) $list->getKey()], $revision->payload['list_ids']);
-        $this->assertSame(['US'], $revision->payload['countries']);
+        $this->assertSame([(string) $list->getKey(), (string) $australiaList->getKey()], $revision->payload['list_ids']);
+        $this->assertSame(['US', 'AU'], $revision->payload['countries']);
+        $this->assertSame((int) $isp->getKey(), $revision->payload['send_setup']['isp_id']);
+        $this->assertSame('delayp', $revision->payload['send_setup']['send_type']);
+        $this->assertSame(3, $revision->payload['send_setup']['duplicate_data']);
+        $this->assertSame(250, $revision->payload['send_setup']['delay']);
+        $this->assertSame(['open', 'click'], $revision->payload['send_setup']['email_types']);
+        $this->assertSame([['data' => ['one', 'two'], 'rotate_every' => 2]], $revision->payload['send_setup']['placeholders']);
+        $this->assertTrue($revision->payload['send_setup']['placeholder_combination']);
         $this->assertSame(0, $draft->sendRuns()->count());
 
         $this->actingAs($owner)->put(route('console.drops.drafts.update', [$workspace->getKey(), $draft->getKey()]), [
@@ -131,7 +154,10 @@ class WorkspaceMailerOperationsTest extends TestCase
             'header' => 'Content-Type: text/html', 'html_body' => '<p>Warmup body</p>',
             'seed_list_ids' => [$ownerList->getKey()], 'send_type' => 'delayp',
             'total_send' => 500, 'fraction_ip' => 25, 'sleep_email' => 2, 'sleep_ip' => 5,
-            'seed_every' => 10, 'bounce_limit' => 15, 'idempotency_key' => (string) Str::uuid(),
+            'seed_every' => 10, 'bounce_limit' => 15, 'seed_accounts_text' => "warmup@example.test\n",
+            'placeholder_combination' => true,
+            'placeholder_inputs' => [['data_text' => "first\nsecond", 'rotate_every' => 3]],
+            'idempotency_key' => (string) Str::uuid(),
         ])->assertRedirect();
 
         $draft = Campaign::query()->where('workspace_id', $workspace->getKey())->where('kind', 'warmup')->firstOrFail();
@@ -139,7 +165,39 @@ class WorkspaceMailerOperationsTest extends TestCase
         $this->assertSame(['qa@example.test', 'ops@example.test'], $revision->payload['email_test_addresses']);
         $this->assertSame([(int) $ownerList->getKey()], $revision->payload['seed_list_ids']);
         $this->assertSame('delayp', $revision->payload['send_type']);
+        $this->assertSame('warmup@example.test', $revision->payload['seed_accounts_text']);
+        $this->assertSame([['data' => ['first', 'second'], 'rotate_every' => 3]], $revision->payload['send_setup']['placeholders']);
         $this->assertSame(0, $draft->sendRuns()->count());
+
+        $this->actingAs($owner)->get(route('console.warmups.index', $workspace->getKey()))
+            ->assertOk()->assertSee('Synthetic warmup')->assertSee('TOTAL SEND')->assertSee('DRAFT');
+    }
+
+    public function test_recent_drop_opens_latest_saved_drop_without_creating_another(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->workspace($owner, 'owner');
+        foreach (['Older saved Drop', 'Latest saved Drop'] as $index => $name) {
+            $campaign = Campaign::query()->create([
+                'workspace_id' => $workspace->getKey(), 'created_by' => $owner->getKey(),
+                'name' => $name, 'kind' => 'drop', 'status' => 'draft', 'is_active' => true,
+                'idempotency_key' => (string) Str::uuid(),
+            ]);
+            DB::table('campaigns')->where('id', $campaign->getKey())->update([
+                'created_at' => now()->addSeconds($index)->toDateTimeString(),
+                'updated_at' => now()->addSeconds($index)->toDateTimeString(),
+            ]);
+            CampaignRevision::query()->create([
+                'campaign_id' => $campaign->getKey(), 'revision_number' => 1,
+                'payload' => ['draft_type' => 'drop', 'subject' => 'Stored', 'html_body' => '<p>Stored</p>'],
+                'content_sha256' => hash('sha256', 'recent drop '.$index.' '.Str::random(8)),
+                'idempotency_key' => (string) Str::uuid(), 'request_fingerprint' => hash('sha256', 'recent '.Str::random(8)),
+                'created_by' => $owner->getKey(), 'created_at' => now()->addSeconds($index),
+            ]);
+        }
+        $this->actingAs($owner)->get(route('console.drops.drafts.index', $workspace->getKey()))
+            ->assertOk()->assertSee('Latest saved Drop')->assertDontSee('Older saved Drop');
+        $this->assertSame(2, Campaign::query()->where('workspace_id', $workspace->getKey())->where('kind', 'drop')->count());
     }
 
     public function test_warmup_statistics_count_only_saved_unique_recipient_actions(): void

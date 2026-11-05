@@ -1,4 +1,4 @@
-<div class="form-group col-md-6 campaign-header-library"
+<div class="{{ $containerClass ?? 'form-group col-md-6' }} campaign-header-library"
      data-list-url="{{ route('console.campaign-headers.index', $workspace->getKey()) }}"
      data-store-url="{{ route('console.campaign-headers.store', $workspace->getKey()) }}"
      data-show-url-template="{{ route('console.campaign-headers.show', [$workspace->getKey(), '__HEADER_ID__']) }}"
@@ -6,7 +6,7 @@
      data-target-id="{{ $textareaId }}">
     <label for="{{ $idPrefix }}-saved-headers">Saved Headers:</label>
     <div class="input-group">
-        <select id="{{ $idPrefix }}-saved-headers" class="form-control" aria-label="Select saved header">
+        <select id="{{ $idPrefix }}-saved-headers" class="form-control selectpicker" data-live-search="true" aria-label="Select saved header">
             <option value="">Select Header</option>
         </select>
         <div class="input-group-append">

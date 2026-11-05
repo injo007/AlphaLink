@@ -56,7 +56,7 @@ body.command-os-dashboard #sidebar {
     overflow-y: auto;
     transform: none;
     color: var(--co-ink);
-    background: var(--co-surface);
+    background: var(--co-surface) !important;
     border-right: 1px solid var(--co-border);
     box-shadow: none;
     scrollbar-color: var(--co-border-strong) transparent;
@@ -70,7 +70,7 @@ body.command-os-dashboard #sidebar .content-header {
     height: 66px;
     padding: 0 17px;
     border-bottom: 1px solid var(--co-border);
-    background: var(--co-surface);
+    background: var(--co-surface) !important;
 }
 
 body.command-os-dashboard #sidebar .content-header > a {
@@ -344,7 +344,7 @@ body.command-os-dashboard #page-footer {
     min-width: 0;
     border-top: 1px solid var(--co-border);
     color: var(--co-muted);
-    background: var(--co-surface);
+    background: var(--co-surface) !important;
 }
 
 body.command-os-dashboard #page-footer .content {

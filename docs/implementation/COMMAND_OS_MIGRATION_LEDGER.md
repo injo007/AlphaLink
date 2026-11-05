@@ -95,7 +95,7 @@ Files changed and the current phase scope are visible in the Git worktree. The r
 | `npm run build` | PASS — React dashboard entry is split from the lazy ECharts module; the ECharts chunk is 512.42 kB minified (173 kB gzip), above Vite's 500 kB advisory |
 | Production/configured database | NOT USED |
 | Authenticated Ubuntu browser review | NOT RUN — user requested to skip the Mint-host preview and use the Ubuntu SaaS version; review the deployed Command OS at desktop and 390px in both themes before Phase 1 sign-off |
-| GitHub push | AUTHORIZED — the repository's configured token was checked against GitHub without exposing its value; `injo007/AlphaLink` reports `permissions.push: true`. The active dashboard slice remains local and unpushed until implementation, audit, and automated checks are complete |
+| GitHub push | PASS — repository token permission was verified without exposing its value; reviewed commit `9b5271f` was pushed to `injo007/AlphaLink:codex/alphalink-identity-reconstruction` |
 | Ubuntu release | AUTHORIZED — installer path reviewed; SSH to `baseheavy.shop` is blocked until ED25519 fingerprint `SHA256:cdBVpRiU4H3sBL4f3cwu/htb/QjIZlRdiLIvOvZMle4` is verified through a trusted server-side source |
 
 #### E-DASH-39 shell permission and drawer follow-up (2026-11-05)
@@ -114,7 +114,7 @@ Changed files for this follow-up: `apps/api/resources/views/layouts/admin-shell.
 | Changed PHP files Pint; TypeScript typecheck; Vite build; JS syntax; `git diff --check` | PASS for the touched PHP files; typecheck/build/syntax/diff checks pass. A full-repository Pint scan still reports one existing style issue in unchanged `bootstrap/providers.php`; the build retains the known 512.42 kB minified ECharts advisory |
 | Premium strict static audit | One finding remains: `affordance.actionless-button` at `resources/js/command-os.tsx:362`. This is the intentional focusable `aria-disabled` Track a Link control; its visible reason is connected by `aria-describedby`. The exact unavailable behavior is documented in `apps/api/UX-CONTRACT.md`; do not remove this accessible state to silence the static false positive. |
 
-Current blockers: the saved local app cannot provide authenticated browser verification because the listener/database connection is unavailable and its APP_KEY is empty. GitHub push is available through the repository token; E-DASH-39/40 remain local until packaged as a reviewed candidate. Ubuntu release is blocked pending trusted verification of the recorded production host fingerprint; the authorized Ubuntu deployment has not been run. E-DASH-40 corrects the desktop compact-rail navigation and role visibility in code, but production hover/focus/keyboard and responsive browser verification remains open. Phase 1 remains **TESTING**, not complete; matching production desktop/mobile screenshots, both themes, keyboard behavior in the deployed browser, refresh/session behavior, and complete route-family parity remain open.
+Current blockers: the saved local app cannot provide authenticated browser verification because the listener/database connection is unavailable and its APP_KEY is empty. Reviewed commit `9b5271f` is pushed to GitHub. Ubuntu release is blocked pending trusted verification of the recorded production host fingerprint; deployment has not been run. E-DASH-40 corrects the desktop compact-rail navigation and role visibility in code, but production hover/focus/keyboard and responsive browser verification remains open. Phase 1 remains **TESTING**, not complete; matching production desktop/mobile screenshots, both themes, keyboard behavior in the deployed browser, refresh/session behavior, and complete route-family parity remain open.
 
 ### Ubuntu production baseline (2026-11-05)
 
@@ -206,4 +206,5 @@ Changed files for this slice: `apps/api/resources/views/layouts/admin-shell.blad
 | Collapsed-rail / drawer Node suite | PASS — 5 tests; desktop sticky hover/focus sizing and content transforms, mobile mini drawer hiding, desktop→mobile→desktop state, submenu activation, accessible labels, and `aria-pressed` synchronization on expansion/collapse are asserted |
 | Typecheck, build, changed-file Pint, and diff check | PASS — full-repository Pint also reports one existing style issue in unchanged `bootstrap/providers.php`; build retains the pre-existing 512.42 kB ECharts chunk advisory |
 | Production browser review | NOT RUN — the saved authenticated app listener/database is unavailable; hover/focus visuals and keyboard activation still need deployed-browser confirmation |
-| Phase status | TESTING — Phase 1 remains open; no completion or release claim |
+| GitHub candidate | PASS — commit `9b5271f` pushed to `codex/alphalink-identity-reconstruction` after code audit and automated checks |
+| Phase status | TESTING — Phase 1 remains open; no completion or production-release claim |

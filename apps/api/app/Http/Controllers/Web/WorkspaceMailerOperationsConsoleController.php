@@ -31,22 +31,53 @@ class WorkspaceMailerOperationsConsoleController extends Controller
 
     private const DROP_SEND_TYPES = ['delay', 'delayp', 'hs', 'hsp', 'pickup'];
 
-    public function drops(Request $request, string $workspace, AlphaLinkCampaignSendCatalog $catalog): View
+    public function drops(Request $request, string $workspace): View
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
-        $recentDraft = $workspace->campaigns()
+
+        $filters = $request->validate([
+            'q' => ['sometimes', 'nullable', 'string', 'max:160'],
+            'per_page' => ['sometimes', 'integer', 'in:25,50,100'],
+        ]);
+        $perPage = (int) ($filters['per_page'] ?? 50);
+        $drafts = $workspace->campaigns()
             ->with('latestRevision')
             ->where('created_by', $request->user()->getKey())
             ->where('kind', 'drop')
             ->where('status', 'draft')
             ->where('is_active', true)
+            ->when(filled($filters['q'] ?? null), fn (Builder $query) => $query->where('name', 'like', '%'.str_replace(['%', '_'], ['\\%', '\\_'], $filters['q']).'%'))
             ->orderByDesc('updated_at')
             ->orderByDesc('created_at')
             ->orderByDesc('id')
-            ->first();
+            ->paginate($perPage)
+            ->withQueryString();
+        $pageRows = $drafts->getCollection();
+        $payloads = $pageRows->mapWithKeys(fn (Campaign $campaign): array => [(string) $campaign->getKey() => (array) ($campaign->latestRevision?->payload ?? [])]);
+        $ispIds = $payloads->map(fn (array $payload): ?int => isset($payload['send_setup']['isp_id']) ? (int) $payload['send_setup']['isp_id'] : (isset($payload['isp_id']) ? (int) $payload['isp_id'] : null))->filter()->unique()->values();
+        $ispNames = Isp::query()->where('workspace_id', $workspace->getKey())->whereIn('id', $ispIds)->pluck('name', 'id');
+        $pageRows->each(function (Campaign $campaign) use ($payloads, $ispNames): void {
+            $payload = $payloads->get((string) $campaign->getKey(), []);
+            $setup = (array) ($payload['send_setup'] ?? []);
+            $ispId = $setup['isp_id'] ?? $payload['isp_id'] ?? null;
+            $countries = (array) ($payload['countries'] ?? []);
+            if ($countries === [] && filled($setup['country'] ?? null)) {
+                $countries = [(string) $setup['country']];
+            }
 
-        // Resume the latest saved Drop when one exists; a GET never creates a record.
-        return $this->draftForm($workspace, $request->user(), 'drop', $recentDraft, $request, $catalog);
+            $campaign->setAttribute('drop_isp_name', $ispNames->get((int) $ispId, '—'));
+            $campaign->setAttribute('drop_list_count', count($payload['list_ids'] ?? []));
+            $campaign->setAttribute('drop_countries', collect($countries)->map(fn (string $country): string => strtoupper($country))->unique()->implode(', '));
+            $campaign->setAttribute('drop_config', $setup);
+        });
+
+        return view('console.drops.drafts.index', [
+            'workspace' => $workspace,
+            'drafts' => $drafts,
+            'query' => (string) ($filters['q'] ?? ''),
+            'perPage' => $perPage,
+            'createUrl' => route('console.drops.drafts.create', $workspace->getKey()),
+        ]);
     }
 
     public function createDrop(Request $request, string $workspace, AlphaLinkCampaignSendCatalog $catalog): View

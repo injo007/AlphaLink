@@ -30,7 +30,8 @@ class WorkspaceMailerOperationsTest extends TestCase
         $workspace = $this->workspace($owner, 'owner');
 
         $this->actingAs($owner)->get(route('console.drops.drafts.index', $workspace->getKey()))
-            ->assertOk()->assertSee('DROP : NEW')->assertSee('RECENT DROP')
+            ->assertOk()->assertSee('My Drop Drafts')->assertSee('DROP DRAFTS')
+            ->assertSee('No Drop drafts found')
             ->assertSee(route('clean.console.drops.drafts.create'), false)
             ->assertSee(route('clean.console.drops.monitoring'), false);
         $dropComposer = $this->actingAs($owner)->get(route('console.drops.drafts.create', $workspace->getKey()));
@@ -51,6 +52,10 @@ class WorkspaceMailerOperationsTest extends TestCase
         $this->assertStringContainsString('createMailerEditor(\'mailer-header-editor\', \'mailer-header\', \'text\', 30)', $dropComposerHtml);
         $this->assertStringNotContainsString('for="mailer-draft-name"', $dropComposerHtml);
         $this->assertStringContainsString('id="mailer-draft-name" name="name" value="New Drop"', $dropComposerHtml);
+        $this->assertStringContainsString('id="mailer-page-actions" role="menu"', $dropComposerHtml);
+        $this->assertStringContainsString('id="mailer-draft-context-menu"', $dropComposerHtml);
+        $this->assertStringContainsString('mailer-draft-navigation.js?v=', $dropComposerHtml);
+        $this->assertStringContainsString('aria-label="Open page actions" aria-expanded="false"', $dropComposerHtml);
         $this->actingAs($owner)->get(route('console.warmups.index', $workspace->getKey()))
             ->assertOk()->assertSee('My Warmups')->assertSee('TOTAL SEND')->assertSee('CREATE WARMUP')
             ->assertSee('Choose warmup date range')->assertDontSee('Date from')
@@ -75,6 +80,9 @@ class WorkspaceMailerOperationsTest extends TestCase
         $this->assertStringContainsString('createMailerEditor(\'mailer-header-editor\', \'mailer-header\', \'text\', 30)', $warmupComposerHtml);
         $this->assertStringNotContainsString('for="mailer-draft-name"', $warmupComposerHtml);
         $this->assertStringContainsString('id="mailer-draft-name" name="name" value="New Warmup"', $warmupComposerHtml);
+        $this->assertStringContainsString('id="mailer-page-actions" role="menu"', $warmupComposerHtml);
+        $this->assertStringContainsString('id="mailer-draft-context-menu"', $warmupComposerHtml);
+        $this->assertStringContainsString('mailer-draft-navigation.js?v=', $warmupComposerHtml);
         $this->actingAs($owner)->get(route('console.warmups.statistics', $workspace->getKey()))
             ->assertOk()->assertSee('Warmup Statistics')->assertSee('No Warmup actions in this date range');
     }
@@ -200,10 +208,12 @@ class WorkspaceMailerOperationsTest extends TestCase
             ->assertOk()->assertSee('Synthetic warmup')->assertSee('TOTAL SEND')->assertSee('DRAFT');
     }
 
-    public function test_recent_drop_opens_latest_saved_drop_without_creating_another(): void
+    public function test_drop_draft_register_lists_all_owned_drafts_and_supports_search(): void
     {
         $owner = User::factory()->create();
+        $otherUser = User::factory()->create();
         $workspace = $this->workspace($owner, 'owner');
+        $workspace->users()->attach($otherUser->getKey(), ['role' => 'operator']);
         foreach (['Older saved Drop', 'Latest saved Drop'] as $index => $name) {
             $campaign = Campaign::query()->create([
                 'workspace_id' => $workspace->getKey(), 'created_by' => $owner->getKey(),
@@ -222,9 +232,24 @@ class WorkspaceMailerOperationsTest extends TestCase
                 'created_by' => $owner->getKey(), 'created_at' => now()->addSeconds($index),
             ]);
         }
+        $foreignDraft = Campaign::query()->create([
+            'workspace_id' => $workspace->getKey(), 'created_by' => $otherUser->getKey(),
+            'name' => 'Another user Drop', 'kind' => 'drop', 'status' => 'draft', 'is_active' => true,
+            'idempotency_key' => (string) Str::uuid(),
+        ]);
+        CampaignRevision::query()->create([
+            'campaign_id' => $foreignDraft->getKey(), 'revision_number' => 1,
+            'payload' => ['draft_type' => 'drop', 'subject' => 'Private', 'html_body' => '<p>Private</p>'],
+            'content_sha256' => hash('sha256', 'foreign drop '.Str::random(8)),
+            'idempotency_key' => (string) Str::uuid(), 'request_fingerprint' => hash('sha256', 'foreign '.Str::random(8)),
+            'created_by' => $otherUser->getKey(), 'created_at' => now(),
+        ]);
         $this->actingAs($owner)->get(route('console.drops.drafts.index', $workspace->getKey()))
-            ->assertOk()->assertSee('Latest saved Drop')->assertDontSee('Older saved Drop');
-        $this->assertSame(2, Campaign::query()->where('workspace_id', $workspace->getKey())->where('kind', 'drop')->count());
+            ->assertOk()->assertSee('My Drop Drafts')->assertSee('Latest saved Drop')->assertSee('Older saved Drop')
+            ->assertDontSee('Another user Drop')->assertSee('Edit Drop draft');
+        $this->actingAs($owner)->get(route('console.drops.drafts.index', [$workspace->getKey(), 'q' => 'Older']))
+            ->assertOk()->assertSee('Older saved Drop')->assertDontSee('Latest saved Drop');
+        $this->assertSame(3, Campaign::query()->where('workspace_id', $workspace->getKey())->where('kind', 'drop')->count());
     }
 
     public function test_warmup_statistics_count_only_saved_unique_recipient_actions(): void

@@ -37,12 +37,12 @@
         : "MIME-version: 1.0\nContent-type: text/html\nTo: [to]\nfrom: [rnd] <info@[domain]>\nSubject: [ip]_[rnda_5]_[domain]\nDate: [date]"));
 @endphp
 
-@section('title', $isDrop ? ($draft ? 'Recent Drop' : 'New Drop') : ($draft ? 'Edit Warmup' : 'New Warmup'))
+@section('title', $isDrop ? ($draft ? 'Edit Drop' : 'New Drop') : ($draft ? 'Edit Warmup' : 'New Warmup'))
 
 @section('content')
 <div class="quick-nav" aria-label="{{ $isDrop ? 'Drop actions' : 'Warmup actions' }}">
-    <a class="quick-nav-trigger" href="#" aria-label="Open page actions"><span></span></a>
-    <ul>
+    <button class="quick-nav-trigger" type="button" aria-label="Open page actions" aria-expanded="false" aria-controls="mailer-page-actions"><span></span></button>
+    <ul id="mailer-page-actions" role="menu" aria-hidden="true">
         @if ($draft)
             <li><a href="#" data-save-draft><span>SAVE {{ $isDrop ? 'DROP' : 'WARMUP' }}</span><i class="fas fa-save"></i></a></li>
         @endif
@@ -63,11 +63,12 @@
             <li><a href="#" class="text-muted" aria-disabled="true" title="Select a server to open its read-only PMTA panel"><span>PMTA PANEL — SELECT A SERVER</span><i class="fas fa-server"></i></a></li>
         @endif
         <li><a href="#" id="clear-mailer-params"><span>CLEAR PARAMS</span><i class="fas fa-trash"></i></a></li>
-        <li><a href="{{ $indexUrl }}"><span>BACK TO {{ $isDrop ? 'RECENT DROP' : 'MY WARMUPS' }}</span><i class="fas fa-arrow-left"></i></a></li>
+        <li><a href="{{ $indexUrl }}"><span>BACK TO {{ $isDrop ? 'DROP DRAFTS' : 'MY WARMUPS' }}</span><i class="fas fa-arrow-left"></i></a></li>
     </ul>
     <span class="quick-nav-bg"></span>
 </div>
 <div class="quick-nav-overlay"></div>
+<ul id="mailer-draft-context-menu" class="mailer-draft-context-menu" role="menu" aria-label="{{ $isDrop ? 'Drop' : 'Warmup' }} page actions" hidden></ul>
 
 <section class="block block-rounded" id="mailer-composer" data-options-url="{{ $optionsUrl }}" data-kind="{{ $kind }}">
     <div class="block-header">
@@ -554,4 +555,18 @@
     document.querySelector('[data-save-draft]')?.addEventListener('click', event => { event.preventDefault(); form.requestSubmit(); });
 })();
 </script>
+<script src="{{ asset('alphalink/mailer-draft-navigation.js') }}?v={{ substr(sha1_file(public_path('alphalink/mailer-draft-navigation.js')), 0, 12) }}" defer></script>
+@endpush
+
+@push('styles')
+    <style>
+        .quick-nav-trigger { background: transparent; border: 0; cursor: pointer; padding: 0; }
+        .quick-nav-trigger:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+        .mailer-draft-context-menu { background: #fff; border: 1px solid #d5dce1; border-radius: .2rem; box-shadow: 0 .25rem .8rem rgb(0 0 0 / 25%); list-style: none; margin: 0; max-height: calc(100vh - 8px); min-width: 13rem; overflow-y: auto; padding: .3rem 0; position: fixed; z-index: 10110; }
+        .mailer-draft-context-menu[hidden] { display: none !important; }
+        .mailer-draft-context-menu a { align-items: center; color: #253044; display: flex; justify-content: space-between; gap: 1rem; padding: .5rem .75rem; text-align: left; text-decoration: none; white-space: nowrap; }
+        .mailer-draft-context-menu a:hover, .mailer-draft-context-menu a:focus-visible { background: #edf2ff; outline: 0; }
+        .mailer-draft-context-menu a[aria-disabled="true"] { color: #8993a3; cursor: not-allowed; }
+        .mailer-draft-context-menu i { color: #5179d6; }
+    </style>
 @endpush

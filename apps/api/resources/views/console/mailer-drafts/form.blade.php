@@ -97,6 +97,7 @@
                 <input type="hidden" name="source_revision_id" value="{{ $draft->latestRevision?->id }}">
             @endif
             <input type="hidden" name="idempotency_key" value="{{ $idempotencyKey }}">
+            @include('console.mailer-drafts.partials.tags')
             @if ($isDrop)
                 <input type="hidden" id="mailer-draft-name" name="name" value="{{ old('name', $draft?->name ?? 'New Drop') }}">
                 <div class="form-row">
@@ -184,7 +185,7 @@
                 <div class="form-row align-items-start">
                     <div class="col-sm-12 col-md-7">
                         <div class="form-row"><div class="form-group col-sm-2"><label for="send-route">Option:</label><select id="send-route" name="send_setup[route_option]" class="form-control selectpicker"><option value="ip" @selected($selectedRoute === 'ip')>IP</option><option value="vmta" @selected($selectedRoute === 'vmta')>VMTA</option><option value="smtp" @selected($selectedRoute === 'smtp')>SMTP</option></select></div><div class="form-group col-sm-2"><label for="send-ip-type">Type IP:</label><select id="send-ip-type" name="send_setup[ip_type]" class="form-control selectpicker"><option value="all" @selected($selectedIpType === 'all')>ALL</option><option value="ipv4" @selected($selectedIpType === 'ipv4')>IPV4</option><option value="ipv6" @selected($selectedIpType === 'ipv6')>IPV6</option></select></div><div class="form-group col-sm-8"><label for="send-servers">Servers: <button type="button" id="reload-send-options" class="btn btn-link btn-sm p-0" title="Reload servers" aria-label="Reload servers"><i class="fas fa-sync"></i></button></label><select id="send-servers" name="send_setup[server_ids][]" class="form-control selectpicker" multiple data-live-search="true" data-actions-box="true" data-selected-text-format="count > 5" data-size="6">@foreach ($sendOptions['servers'] as $server)<option value="{{ $server['id'] }}" @selected(in_array((string) $server['id'], $selectedServers, true))>{{ $server['name'] }}{{ $server['id'] }} | {{ $server['ip'] }}</option>@endforeach</select></div></div>
-                        <div class="form-group"><label for="send-ips" class="sr-only">Selected IPs / MTAs</label><select id="send-ips" name="send_setup[ip_ids][]" class="form-control" multiple aria-label="Selected IPs or MTAs">@foreach ($sendOptions['ips'] as $ip)<option value="{{ $ip['id'] }}" data-server-id="{{ $ip['server_id'] }}" @selected(in_array((string) $ip['id'], $selectedIps, true))>{{ $ip['ip'] }} | {{ strtoupper($ip['type']) }} | {{ $ip['dns'] ?: 'no DNS' }} — server {{ $ip['server_id'] }}</option>@endforeach</select></div>
+                        @include('console.mailer-drafts.partials.send-ips', ['inputName' => 'send_setup[ip_ids][]'])
                     </div>
                     <div class="col-sm-12 col-md-5">
                         <div class="form-row"><div class="form-group col-sm-12 col-md-4"><label for="drop-isp">ISPs:</label><select id="drop-isp" name="send_setup[isp_id]" class="form-control selectpicker" data-live-search="true" data-allow-clear="true"><option value="">Select ISP</option>@foreach ($sendOptions['isps'] as $isp)<option value="{{ $isp['id'] }}" @selected((string) $selectedIsp === (string) $isp['id'])>{{ $isp['name'] }}</option>@endforeach</select></div><div class="form-group col-sm-12 col-md-4"><label for="drop-country">Countries:</label><select id="drop-country" name="countries[]" class="form-control selectpicker" multiple data-live-search="true" data-actions-box="true" data-selected-text-format="count > 5" data-size="6" title="Select Countries">@foreach ($availableCountryCodes as $code)<option value="{{ $code }}" @selected(in_array($code, $selectedCountries, true))>{{ $code }}</option>@endforeach</select></div><div class="form-group col-sm-12 col-md-4"><label for="drop-filter">Filters:</label><select id="drop-filter" name="send_setup[email_types][]" class="form-control selectpicker" multiple data-live-search="true" data-actions-box="true" data-selected-text-format="count > 3" data-size="6" title="Select Filters">@foreach (\App\Models\ContactListMembership::CAMPAIGN_TYPES as $emailType)<option value="{{ $emailType }}" @selected(in_array($emailType, $selectedEmailTypes, true))>{{ strtoupper($emailType) }}</option>@endforeach</select></div></div>
@@ -199,7 +200,7 @@
                 <div class="form-row align-items-start">
                     <div class="col-sm-12 col-md-8">
                         <div class="form-row"><div class="form-group col-sm-2"><label for="send-route">Option:</label><select id="send-route" name="route_option" class="form-control selectpicker"><option value="ip" @selected($selectedRoute === 'ip')>IP</option><option value="vmta" @selected($selectedRoute === 'vmta')>VMTA</option><option value="smtp" @selected($selectedRoute === 'smtp')>SMTP</option></select></div><div class="form-group col-sm-2"><label for="send-ip-type">Type IP:</label><select id="send-ip-type" name="ip_type" class="form-control selectpicker"><option value="all" @selected($selectedIpType === 'all')>ALL</option><option value="ipv4" @selected($selectedIpType === 'ipv4')>IPV4</option><option value="ipv6" @selected($selectedIpType === 'ipv6')>IPV6</option></select></div><div class="form-group col-sm-8"><label for="send-servers">Servers: <button type="button" id="reload-send-options" class="btn btn-link btn-sm p-0" title="Reload servers" aria-label="Reload servers"><i class="fas fa-sync"></i></button></label><select id="send-servers" name="server_ids[]" class="form-control selectpicker" multiple data-live-search="true" data-actions-box="true" data-selected-text-format="count > 5" data-size="6">@foreach ($sendOptions['servers'] as $server)<option value="{{ $server['id'] }}" @selected(in_array((string) $server['id'], $selectedServers, true))>{{ $server['name'] }}{{ $server['id'] }} | {{ $server['ip'] }}</option>@endforeach</select></div></div>
-                        <div class="form-group"><label for="send-ips" class="sr-only">Selected IPs / MTAs</label><select id="send-ips" name="ip_ids[]" class="form-control" multiple aria-label="Selected IPs or MTAs">@foreach ($sendOptions['ips'] as $ip)<option value="{{ $ip['id'] }}" data-server-id="{{ $ip['server_id'] }}" @selected(in_array((string) $ip['id'], $selectedIps, true))>{{ $ip['ip'] }} | {{ strtoupper($ip['type']) }} | {{ $ip['dns'] ?: 'no DNS' }} — server {{ $ip['server_id'] }}</option>@endforeach</select></div>
+                        @include('console.mailer-drafts.partials.send-ips', ['inputName' => 'ip_ids[]'])
                     </div>
                     <div class="col-sm-12 col-md-4">
                         <div class="form-group"><label for="warmup-seeds">Seeds: <span id="warmup-seed-total">{{ number_format($seedLists->whereIn('id', old('seed_list_ids', $content['seed_list_ids'] ?? []))->sum('emails_count')) }}</span></label><select id="warmup-seeds" name="seed_list_ids[]" class="form-control selectpicker" multiple data-live-search="true" data-actions-box="true" data-selected-text-format="count > 5" data-size="6">@foreach ($seedLists as $seedList)<option value="{{ $seedList->id }}" data-count="{{ $seedList->emails_count }}" @selected(in_array((int) $seedList->id, array_map('intval', old('seed_list_ids', $content['seed_list_ids'] ?? [])), true))>ID: {{ $seedList->id }}_{{ $seedList->name }} | TOTAL: {{ number_format($seedList->emails_count) }}</option>@endforeach</select><small class="form-text text-muted"><a href="{{ $seedListsUrl }}">Manage seed lists</a></small></div>
@@ -231,6 +232,12 @@
     .mailer-preview-dialog::backdrop { background: rgba(0,0,0,.58); }
     .mailer-preview-header { align-items: center; border-bottom: 1px solid #e4e7ed; display: flex; justify-content: space-between; padding: .75rem 1rem; }
     .mailer-preview-dialog iframe { border: 0; height: calc(100% - 3.5rem); width: 100%; }
+    .mailer-tags-dialog { border: 0; border-radius: .25rem; box-shadow: 0 .5rem 2rem rgba(0,0,0,.28); max-height: 90vh; max-width: min(1140px, calc(100vw - 2rem)); overflow: auto; padding: 0; width: min(1140px, calc(100vw - 2rem)); }
+    .mailer-tags-dialog::backdrop { background: rgba(0,0,0,.58); }
+    .mailer-ip-selector select { min-height: 13rem; }
+    .mailer-ip-selector-actions { align-items: center; display: flex; flex-direction: column; gap: .35rem; justify-content: center; padding-bottom: .35rem; }
+    .mailer-ip-selector-actions .btn { min-width: 2.7rem; }
+    @media (max-width: 767.98px) { .mailer-ip-selector-actions { flex-direction: row; padding: .5rem 0; } }
 </style>
 @endpush
 
@@ -355,6 +362,53 @@
         }
         if (window.jQuery?.fn?.selectpicker && element.classList.contains('selectpicker')) window.jQuery(element).selectpicker('refresh');
     };
+    const renderIpChoices = rows => {
+        const values = byId('send-ips');
+        const available = byId('available-send-ips');
+        const selected = byId('selected-send-ips');
+        if (!values || !available || !selected) return;
+        const selectedIds = new Set(multiValues(values));
+        values.replaceChildren();
+        available.replaceChildren();
+        selected.replaceChildren();
+        (rows || []).forEach(row => {
+            const id = String(row.id);
+            const label = `${row.ip} | ${String(row.type).toUpperCase()} | ${row.dns || 'no DNS'} — server ${row.server_id}`;
+            const isSelected = selectedIds.has(id);
+            const storedOption = new Option(label, id, false, isSelected);
+            storedOption.dataset.serverId = String(row.server_id);
+            values.add(storedOption);
+            const visibleOption = new Option(label, id);
+            visibleOption.dataset.serverId = String(row.server_id);
+            (isSelected ? selected : available).add(visibleOption);
+        });
+        const count = byId('selected-send-ips-count');
+        if (count) count.textContent = String(selected.options.length);
+        const empty = byId('send-ips-empty');
+        if (empty) empty.hidden = (rows || []).length > 0;
+    };
+    const syncSelectedIpValues = () => {
+        const selected = byId('selected-send-ips');
+        const values = byId('send-ips');
+        if (!selected || !values) return;
+        const selectedIds = new Set(Array.from(selected.options).map(option => String(option.value)));
+        Array.from(values.options).forEach(option => { option.selected = selectedIds.has(String(option.value)); });
+        const count = byId('selected-send-ips-count');
+        if (count) count.textContent = String(selected.options.length);
+    };
+    const moveIpOptions = (sourceId, targetId, moveAll = false) => {
+        const source = byId(sourceId);
+        const target = byId(targetId);
+        if (!source || !target) return;
+        const moving = moveAll ? Array.from(source.options) : Array.from(source.selectedOptions);
+        moving.forEach(option => {
+            const moved = new Option(option.textContent, option.value);
+            moved.dataset.serverId = option.dataset.serverId || '';
+            target.add(moved);
+            option.remove();
+        });
+        syncSelectedIpValues();
+    };
     const refresh = async () => {
         const params = new URLSearchParams();
         const sponsor = byId('drop-sponsor');
@@ -405,7 +459,7 @@
                 selectFill(creative, assets.filter(row => row.type === 'creative'), row => row.id, row => row.value, selectedCreative ? [selectedCreative] : []);
             }
             selectFill(byId('send-servers'), data.servers || [], row => row.id, row => `${row.name} | ${row.ip}`, multiValues(byId('send-servers')));
-            selectFill(byId('send-ips'), data.ips || [], row => row.id, row => `${row.ip} | ${String(row.type).toUpperCase()} | ${row.dns || 'no DNS'} — server ${row.server_id}`, multiValues(byId('send-ips')));
+            renderIpChoices(data.ips || []);
             const domain = byId('mailer-domain');
             if (domain) {
                 const current = domain.value;
@@ -438,6 +492,10 @@
     });
     byId('reload-send-options')?.addEventListener('click', refresh);
     byId('send-servers')?.addEventListener('change', refresh);
+    byId('mailer-ip-add')?.addEventListener('click', () => moveIpOptions('available-send-ips', 'selected-send-ips'));
+    byId('mailer-ip-add-all')?.addEventListener('click', () => moveIpOptions('available-send-ips', 'selected-send-ips', true));
+    byId('mailer-ip-remove')?.addEventListener('click', () => moveIpOptions('selected-send-ips', 'available-send-ips'));
+    byId('mailer-ip-remove-all')?.addEventListener('click', () => moveIpOptions('selected-send-ips', 'available-send-ips', true));
     byId('drop-segments')?.addEventListener('change', syncSegmentCount);
     byId('refresh-drop-lists')?.addEventListener('click', refresh);
     byId('drop-filter')?.addEventListener('change', () => renderSegments(latestSegments));
@@ -487,6 +545,10 @@
         preview.showModal();
     });
     byId('mailer-body-preview-close')?.addEventListener('click', () => preview.close());
+    const tagsDialog = byId('mailer-tags-dialog');
+    byId('mailer-tags-help')?.addEventListener('click', () => tagsDialog?.showModal());
+    byId('mailer-tags-close')?.addEventListener('click', () => tagsDialog?.close());
+    tagsDialog?.addEventListener('click', event => { if (event.target === tagsDialog) tagsDialog.close(); });
     document.querySelectorAll('[aria-disabled="true"]').forEach(element => element.addEventListener('click', event => event.preventDefault()));
     byId('clear-mailer-params')?.addEventListener('click', event => { event.preventDefault(); form.reset(); if (window.jQuery?.fn?.selectpicker) window.jQuery(form).find('.selectpicker').selectpicker('refresh'); refresh(); });
     document.querySelector('[data-save-draft]')?.addEventListener('click', event => { event.preventDefault(); form.requestSubmit(); });

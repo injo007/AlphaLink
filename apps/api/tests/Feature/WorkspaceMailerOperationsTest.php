@@ -35,10 +35,15 @@ class WorkspaceMailerOperationsTest extends TestCase
             ->assertSee(route('clean.console.drops.monitoring'), false);
         $dropComposer = $this->actingAs($owner)->get(route('console.drops.drafts.create', $workspace->getKey()));
         $dropComposer->assertOk()->assertSee('DROP : NEW')->assertSee('Sponsors:')->assertSee('MAP BODY')
-            ->assertSee('Duplicate Data:')->assertSee('Delay (MS):')->assertSee('Lists:')->assertSee('AlphaLink draft');
+            ->assertSee('Duplicate Data:')->assertSee('Delay (MS):')->assertSee('Lists:')->assertSee('AlphaLink draft')
+            ->assertSee('USABLE TAGS:')->assertSee('mailer-tags-help')->assertSee('Show tag examples')
+            ->assertSee('Available IPs or MTAs')->assertSee('Selected IPs or MTAs')->assertSee('Add selected IPs');
         $dropComposerHtml = $dropComposer->getContent();
         $this->assertSame(1, substr_count($dropComposerHtml, ' id="mailer-header"'));
         $this->assertSame(1, substr_count($dropComposerHtml, ' id="mailer-body"'));
+        $this->assertStringContainsString('id="send-ips" name="send_setup[ip_ids][]"', $dropComposerHtml);
+        $this->assertStringContainsString('id="available-send-ips"', $dropComposerHtml);
+        $this->assertStringContainsString('id="selected-send-ips"', $dropComposerHtml);
         $this->assertStringContainsString('createMailerEditor(\'mailer-header-editor\', \'mailer-header\', \'text\', 30)', $dropComposerHtml);
         $this->assertStringNotContainsString('for="mailer-draft-name"', $dropComposerHtml);
         $this->assertStringContainsString('id="mailer-draft-name" name="name" value="New Drop"', $dropComposerHtml);
@@ -50,10 +55,15 @@ class WorkspaceMailerOperationsTest extends TestCase
         $warmupComposer = $this->actingAs($owner)->get(route('console.warmups.create', $workspace->getKey()));
         $warmupComposer
             ->assertOk()->assertSee('NEW WARMUP')->assertSee('Return Path:')->assertSee('Saved Emails:')
-            ->assertSee('Seeds:')->assertSee('Sleep Btw Email')->assertSee('Test After:');
+            ->assertSee('Seeds:')->assertSee('Sleep Btw Email')->assertSee('Test After:')
+            ->assertSee('USABLE TAGS:')->assertSee('mailer-tags-help')
+            ->assertSee('Available IPs or MTAs')->assertSee('Selected IPs or MTAs');
         $warmupComposerHtml = $warmupComposer->getContent();
         $this->assertSame(1, substr_count($warmupComposerHtml, ' id="mailer-header"'));
         $this->assertSame(1, substr_count($warmupComposerHtml, ' id="mailer-body"'));
+        $this->assertStringContainsString('id="send-ips" name="ip_ids[]"', $warmupComposerHtml);
+        $this->assertStringContainsString('id="available-send-ips"', $warmupComposerHtml);
+        $this->assertStringContainsString('id="selected-send-ips"', $warmupComposerHtml);
         $this->assertStringContainsString('createMailerEditor(\'mailer-header-editor\', \'mailer-header\', \'text\', 30)', $warmupComposerHtml);
         $this->assertStringNotContainsString('for="mailer-draft-name"', $warmupComposerHtml);
         $this->assertStringContainsString('id="mailer-draft-name" name="name" value="New Warmup"', $warmupComposerHtml);

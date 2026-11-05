@@ -76,11 +76,13 @@ The JSON API has additional role distinctions recorded in `routes/api.php`: work
 
 ### User authorization and release path
 
-The user's latest reaffirmation (2026-11-05) explicitly authorizes the full redesign and upgrade journey, including use of available root/sudo privileges for the work, installation and updating of the approved frontend stack and required application/system packages, pushing every audited and verified phase to GitHub, and deploying each verified phase to the Ubuntu AlphaLink SaaS. Continue this release path throughout the journey without asking for the same authorization again. This supersedes the earlier planning-only clause in the active Codex Goal. Authorization does not establish that a credential, OS privilege, GitHub write permission, or trusted server identity is actually available; verify those operational prerequisites before use.
+The user's latest reaffirmation (2026-11-05) explicitly authorizes the full redesign and upgrade journey, grants root/sudo authority for the work on the Ubuntu SaaS when available, and authorizes installation and updating of the approved frontend stack and required application/system packages, pushing every audited and verified phase to GitHub, and deploying each verified phase to the Ubuntu AlphaLink SaaS. Continue this release path throughout the journey without asking for the same authorization again. This supersedes the earlier planning-only clause in the active Codex Goal. This is scope authorization, not evidence that remote root credentials, an SSH identity, or any other operational prerequisite is currently available; verify those before use.
 
 For every phase, finish its implementation, audit, automated checks, and release artifact before pushing the reviewed branch; then deploy that verified phase through the Ubuntu release path and verify it in the real SaaS before signing off. Preserve the release procedure's backup, health-check, and rollback gates, and never edit the active server checkout in place. Install the required versions and updates for the approved frontend stack and application compatibility, after confirming the existing PHP/Node/application versions and Ubuntu deployment method. Assess broader operating-system updates against production service dependencies and the release plan before applying them. The production SSH host identity must be verified against a trusted source before running privileged server commands. Do not access or modify the separate historical DMS service, and never include credential values from local or server environments in commits, logs, or reports.
 
 The active system Goal cannot be edited through the available goal controls while it is unfinished. Do not mark it complete or replace it to work around that limitation. This migration ledger is the controlling project record for the user's updated authorization, active phase, and release gates; the Codex Goal remains active until the redesign and its completion criteria are actually finished.
+
+**Release attempt (2026-11-05):** Sol audited the Phase 0 family-map and dashboard-contract documentation; `git diff --check` passed. The local documentation commit remains unpushed because HTTPS authentication was unavailable. The checked application `.env` has no GitHub or SSH credential entries, and the repository has no `.github` deployment workflow. The remote branch remains at `8d3ff0e`; preserve and push the local documentation commit after the secure credential source is restored. Production deployment remains blocked pending a trusted SSH host fingerprint; do not use the unverified key observed by `ssh-keyscan`.
 
 ### Implementation and verification checkpoint (2026-11-05)
 
@@ -94,7 +96,7 @@ Files changed and the current phase scope are visible in the Git worktree. The r
 | `npm run typecheck` | PASS |
 | `npm run build` | PASS — React dashboard entry is split from the lazy ECharts module; the ECharts chunk is 512.42 kB minified (173 kB gzip), above Vite's 500 kB advisory |
 | Production/configured database | NOT USED |
-| Authenticated Ubuntu browser review | NOT RUN — user requested to skip the Mint-host preview and use the Ubuntu SaaS version; review the deployed Command OS at desktop and 390px in both themes before Phase 1 sign-off |
+| Authenticated Ubuntu browser review | LEGACY BASELINE OBSERVED — the live SaaS still serves the legacy dashboard; the React Command OS candidate is not deployed. Compare the candidate at desktop and 390px in both themes after secure deployment. |
 | GitHub push | PASS — repository token permission was verified without exposing its value; reviewed commit `9b5271f` was pushed to `injo007/AlphaLink:codex/alphalink-identity-reconstruction` |
 | Ubuntu release | AUTHORIZED — installer path reviewed; SSH to `baseheavy.shop` is blocked until ED25519 fingerprint `SHA256:cdBVpRiU4H3sBL4f3cwu/htb/QjIZlRdiLIvOvZMle4` is verified through a trusted server-side source |
 
@@ -120,9 +122,9 @@ Current blockers: the saved local app cannot provide authenticated browser verif
 
 The authenticated production route `https://baseheavy.shop/dashboard/main` was opened read-only in the Codex in-app browser. The current viewport was 1229 × 892 pixels. A viewport screenshot and accessibility tree were captured in this audit run; no links, forms, or business controls were activated. The screenshot was visually inspected, but could not be exported to the local audit folder because the browser refused the local data-URL download path. Treat this as a live visual observation, not a retained screenshot artifact or final visual QA.
 
-The live page still renders the legacy dashboard. It uses a narrow icon-only sidebar, a small icon toolbar, a gray/white card layout, four today-oriented summary tiles, a separate row of four 30-day engagement tiles, revenue breakdown panels, MTD/YTD charts, and an event table. The captured viewport has no greeting/search/date-filter row, seven-card summary row, GEO map, relationship graph, quick-action row, or visible theme toggle from the target screenshot. Module groups and existing campaign/PMTA/global-test destinations remain in the page shell. The dashboard also presents attribution and data-freshness caveats; the redesign must preserve them. Its “YTD” summary line is explicitly documented as using the prior day's saved count, so period semantics need resolution before labels are carried over.
+The sampled live route renders the legacy dashboard. It uses a narrow icon-only sidebar, a small icon toolbar, a gray/white card layout, four today-oriented summary tiles, a separate row of four 30-day engagement tiles, revenue breakdown panels, MTD/YTD charts, and an event table. The captured viewport has no greeting/search/date-filter row, seven-card summary row, GEO map, relationship graph, quick-action row, or visible theme toggle from the target screenshot. Module groups and existing campaign/PMTA/global-test destinations remain in the page shell. The dashboard also presents attribution and data-freshness caveats; the redesign must preserve them. Its “YTD” summary line is explicitly documented as using the prior day's saved count, so period semantics need resolution before labels are carried over.
 
-This baseline confirms that the Command OS code is not deployed to production. Matching-viewport desktop comparison, full-page captures, 390px review, theme review, keyboard/focus, and refresh/session checks remain outstanding after the reviewed branch can be pushed and released.
+The Command OS candidate was not observed on this sampled route; the recorded release procedure has not been run. This observation alone does not establish the state of every production asset or route. Matching-viewport desktop comparison, full-page captures, 390px review, theme review, keyboard/focus, and refresh/session checks remain outstanding after secure release.
 
 The host PHP CLI is PHP 8.3 and lacks the DOM, XMLWriter, and `pdo_pgsql` extensions needed by this application. For reproducible automated verification, the existing `alphalink-php85-tests:tmp` image runs PHP 8.5 with the required extensions. An isolated preview used a separately migrated `/tmp` SQLite database and synthetic `Local Design Preview` workspace; it did not read `.env`, credentials, or the configured application database. That preview is stopped and will not be used for acceptance review, per the user's request to review the Ubuntu SaaS version.
 
@@ -161,10 +163,26 @@ Each phase is a small vertical slice. The implementation owner records changed r
 
 ### Phase 0 remaining work
 
-- Capture representative current authenticated routes on the Ubuntu SaaS in a browser at matching desktop and narrow viewports. PARTIAL: the dashboard was inspected at 1229 × 892; its screenshot could not be retained, and other representative routes plus 1672 × 941 and 390px captures remain. The screenshot attachment is the design target, not a baseline capture of the app. Local source/tests remain the reviewed release source; browser evidence is collected from the requested Ubuntu runtime.
-- Map each page family to its route/controller/view and current test/evidence source. Existing DMS-derived feature statuses are not frontend migration statuses.
-- Record the exact React-to-Laravel data contract for dashboard metrics, including actual freshness and period semantics.
+- Capture representative current authenticated routes on the Ubuntu SaaS in a browser at matching desktop and narrow viewports. PARTIAL: `/dashboard/main` was observed read-only at 1229 × 892 and visually inspected; the screenshot exists only in the current audit session, not as a saved evidence artifact. The live route still uses the legacy layout, so candidate comparison has not happened. Other routes plus 1672 × 941 and 390px captures remain. The user screenshot is the design target, not a baseline capture. Do not use the Mint-host preview for acceptance.
+- The source map is recorded in [`ALPHALINK_PAGE_FAMILY_COVERAGE.md`](ALPHALINK_PAGE_FAMILY_COVERAGE.md). It links representative route families to current controllers/views/tests; it explicitly does not claim route-by-route action parity. Existing DMS-derived feature statuses are not frontend migration statuses.
+- Keep the dashboard data contract and metric-period caveats explicit below; check source changes and tests if the contract changes.
 - Record the current Vite build and dependency changes in the Phase 1 implementation checkpoint above.
+
+#### Dashboard data contract (source-verified 2026-11-05)
+
+`GET /dashboard/main` and its workspace alias resolve through `WorkspaceEntryController::dashboard` to `WorkspaceAnalyticsConsoleController::index`. The controller authorizes active workspace roles `owner`, `admin`, `operator`, and `privacy_officer`. Its shared daily query reads `workspace_daily_analytics` for that workspace and `attribution_scope=workspace`, starting at the earlier of the date 29 days before today and January 1 of the current year, through today's end-of-day; it supplies both the React metrics and existing MTD/YTD panels. React selects the 30 dates from that query for its metrics/trend. Operators are additionally scoped to their own `user_id`; the other allowed roles receive workspace-level aggregates. Missing dates in the React window are emitted as zero rows so the 30-day series has 30 points.
+
+| React dashboard field | Source and meaning | Scope/period and qualification |
+|---|---|---|
+| Deliveries | Sum of imported PMTA delivery records in the daily analytics table | Last 30 calendar dates; operator's own rows or workspace aggregate |
+| Opens, clicks, leads, unsubscribes | Stored campaign and Drop visitor events | Last 30 calendar dates; workspace/user scope above |
+| Revenue | `lead_revenue` attributed to recorded campaign and Drop leads | Last 30 calendar dates; this is not PMTA earnings |
+| Bounces | Soft plus hard imported PMTA bounce counts | Last 30 calendar dates; workspace/user scope above |
+| Trend | Daily deliveries and opens | Thirty dated points from the same aggregate source |
+| Geography and relationship graph | No country delivery totals/denominators and no permission-safe cross-module relationship feed in this controller contract | Must remain an honest unavailable/coverage state until a separately scoped data contract exists |
+| Refresh | Authenticated existing analytics route with `fragment=1` | React refresh interval is 300,000 ms; source cache TTL is 600 seconds |
+
+The dashboard data cache key contains dataset, workspace, user, role, date bounds, and current minute. Legacy dashboard tiles also show today, prior-day data under the label `YTD`, and month-to-date values; existing MTD/YTD chart panels have their own date semantics. Do not relabel those legacy values as 30-day totals. Screenshot sample metrics/rates are illustrative and must not become API or fallback data.
 
 ### Required per-slice record
 
@@ -207,6 +225,6 @@ The current frontend lockfile declares React/React DOM 19.3.1, TypeScript 7.0.2,
 | Full affected dashboard/navigation suites | PASS — `WorkspaceAnalyticsDashboardTest.php` 24 tests / 361 assertions; `AlphaLinkCampaignSendNavigationTest.php` 10 tests / 90 assertions; `GlobalTestsWorkflowTest.php` 8 tests / 45 assertions; existing server-navigation test 1 test / 78 assertions |
 | Collapsed-rail / drawer Node suite | PASS — 5 tests; desktop sticky hover/focus sizing and content transforms, mobile mini drawer hiding, desktop→mobile→desktop state, submenu activation, accessible labels, and `aria-pressed` synchronization on expansion/collapse are asserted |
 | Typecheck, build, changed-file Pint, and diff check | PASS — full-repository Pint also reports one existing style issue in unchanged `bootstrap/providers.php`; build retains the pre-existing 512.42 kB ECharts chunk advisory |
-| Production browser review | NOT RUN — the saved authenticated app listener/database is unavailable; hover/focus visuals and keyboard activation still need deployed-browser confirmation |
+| Production browser review | LEGACY BASELINE ONLY — authenticated SaaS dashboard was observed read-only at 1229 × 892 and still serves the legacy shell; the Command OS candidate has not been deployed. Deployed hover/focus, keyboard, responsive, theme, session and refresh verification remains open. |
 | GitHub candidate | PASS — commit `9b5271f` pushed to `codex/alphalink-identity-reconstruction` after code audit and automated checks |
 | Phase status | TESTING — Phase 1 remains open; no completion or production-release claim |

@@ -94,6 +94,14 @@ Files changed and the current phase scope are visible in the Git worktree. The r
 | GitHub push | AUTHORIZED — local dashboard commit created after independent audit and build/type/test checks; push is blocked because this machine has no authenticated HTTPS credential or authorized GitHub SSH key |
 | Ubuntu release | AUTHORIZED — installer path reviewed; SSH to `baseheavy.shop` is blocked until ED25519 fingerprint `SHA256:cdBVpRiU4H3sBL4f3cwu/htb/QjIZlRdiLIvOvZMle4` is verified through a trusted server-side source |
 
+### Ubuntu production baseline (2026-11-05)
+
+The authenticated production route `https://baseheavy.shop/dashboard/main` was opened read-only in the Codex in-app browser. The current viewport was 1229 × 892 pixels. A viewport screenshot and accessibility tree were captured in this audit run; no links, forms, or business controls were activated. The screenshot was visually inspected, but could not be exported to the local audit folder because the browser refused the local data-URL download path. Treat this as a live visual observation, not a retained screenshot artifact or final visual QA.
+
+The live page still renders the legacy dashboard. It uses a narrow icon-only sidebar, a small icon toolbar, a gray/white card layout, four today-oriented summary tiles, a separate row of four 30-day engagement tiles, revenue breakdown panels, MTD/YTD charts, and an event table. The captured viewport has no greeting/search/date-filter row, seven-card summary row, GEO map, relationship graph, quick-action row, or visible theme toggle from the target screenshot. Module groups and existing campaign/PMTA/global-test destinations remain in the page shell. The dashboard also presents attribution and data-freshness caveats; the redesign must preserve them. Its “YTD” summary line is explicitly documented as using the prior day's saved count, so period semantics need resolution before labels are carried over.
+
+This baseline confirms that the Command OS code is not deployed to production. Matching-viewport desktop comparison, full-page captures, 390px review, theme review, keyboard/focus, and refresh/session checks remain outstanding after the reviewed branch can be pushed and released.
+
 The host PHP CLI is PHP 8.3 and lacks the DOM, XMLWriter, and `pdo_pgsql` extensions needed by this application. For reproducible automated verification, the existing `alphalink-php85-tests:tmp` image runs PHP 8.5 with the required extensions. An isolated preview used a separately migrated `/tmp` SQLite database and synthetic `Local Design Preview` workspace; it did not read `.env`, credentials, or the configured application database. That preview is stopped and will not be used for acceptance review, per the user's request to review the Ubuntu SaaS version.
 
 ## Command OS visual target and current gaps
@@ -131,7 +139,7 @@ Each phase is a small vertical slice. The implementation owner records changed r
 
 ### Phase 0 remaining work
 
-- Capture representative current authenticated routes on the Ubuntu SaaS in a browser at matching desktop and narrow viewports; the screenshot attachment is the design target, not a baseline capture of the app. Local source/tests remain the reviewed release source; browser evidence is collected from the requested Ubuntu runtime.
+- Capture representative current authenticated routes on the Ubuntu SaaS in a browser at matching desktop and narrow viewports. PARTIAL: the dashboard was inspected at 1229 × 892; its screenshot could not be retained, and other representative routes plus 1672 × 941 and 390px captures remain. The screenshot attachment is the design target, not a baseline capture of the app. Local source/tests remain the reviewed release source; browser evidence is collected from the requested Ubuntu runtime.
 - Map each page family to its route/controller/view and current test/evidence source. Existing DMS-derived feature statuses are not frontend migration statuses.
 - Record the exact React-to-Laravel data contract for dashboard metrics, including actual freshness and period semantics.
 - Record the current Vite build and dependency changes in the Phase 1 implementation checkpoint above.

@@ -759,3 +759,8 @@ The prior Phase 1 note remains a chronological checkpoint and is superseded on a
 ### E-CAMP-154 follow-up
 
 The configured proxy was re-used for a fresh authenticated page pass. All eight documented Drops/Warmups page GETs returned HTTP 200. The sanitized pass retained page headings and static form labels only and deliberately skipped dynamic table JSON and recipient data. No DMS action control was clicked or submitted. See `audit/DROPS_WARMUPS_REFERENCE_INVENTORY_2026-11-04.md` for the source-backed route and side-effect inventory; this confirms access and discovery progress only, not workflow parity.
+
+
+## 2026-11-05 PMTA composer navigation update
+
+E-CAMP-160 verifies DMS-style new-tab navigation for PMTA Admin and each selected PMTA Panel from both Drop and Warmup composer menus. AlphaLink keeps the composer in its original tab; the live Warmup click-through opened both destinations in separate tabs. The focused PHP suite passes **7 tests / 149 assertions**, and the deployed change passed the HTTPS health check. This is a navigation correction only. Test/Send remain unavailable because the AlphaLink-native Drop/Warmup sender contract is not implemented or verified; do not claim those workflows work or were tested. No messages were sent.

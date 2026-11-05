@@ -104,6 +104,80 @@ class Ubuntu26FreshInstallContractTest extends TestCase
         $this->assertStringContainsString('if (( backup_verified == 0 ))', $installer);
     }
 
+    public function test_shared_storage_permission_sweep_skips_live_private_feedback_files(): void
+    {
+        $repositoryRoot = dirname(base_path(), 2);
+        $installer = file_get_contents($repositoryRoot.'/install-ubuntu-26.sh');
+
+        $this->assertIsString($installer);
+        $this->assertStringContainsString('local pmta_feedback_staging_root="${SHARED_ROOT}/storage/app/private/pmta-feedback-staging"', $installer);
+        $this->assertStringContainsString('-path "$pmta_feedback_staging_root" \\) -prune -o -exec chown -h www-data:www-data {} +', $installer);
+        $this->assertStringContainsString('chown www-data:www-data "$pmta_feedback_staging_root"', $installer);
+        $this->assertStringContainsString('chmod 0700 "$pmta_feedback_staging_root"', $installer);
+        $this->assertStringNotContainsString('chown -R www-data:www-data "${roots[@]}"', $installer);
+    }
+
+    public function test_deploy_and_resume_normalize_only_the_inactive_bootstrap_cache(): void
+    {
+        $repositoryRoot = dirname(base_path(), 2);
+        $installer = file_get_contents($repositoryRoot.'/install-ubuntu-26.sh');
+
+        $this->assertIsString($installer);
+        $this->assertStringContainsString('normalize_release_bootstrap_cache_permissions "$temporary_release/apps/api/bootstrap/cache"', $installer);
+        $this->assertStringContainsString('normalize_release_bootstrap_cache_permissions "$staging_path/apps/api/bootstrap/cache"', $installer);
+        $this->assertStringNotContainsString('normalize_shared_storage_permissions "$temporary_release/apps/api/bootstrap/cache"', $installer);
+        $this->assertStringNotContainsString('normalize_shared_storage_permissions "$staging_path/apps/api/bootstrap/cache"', $installer);
+        $this->assertStringContainsString("normalize_shared_storage_permissions\ninstall -d -o www-data -g www-data -m 0700", $installer);
+    }
+
+    public function test_private_runtime_directories_keep_owner_only_modes_across_install_deploy_and_resume(): void
+    {
+        $repositoryRoot = dirname(base_path(), 2);
+        $installer = file_get_contents($repositoryRoot.'/install-ubuntu-26.sh');
+
+        $this->assertIsString($installer);
+        $ownerOnlyPaths = [
+            '"$SHARED_ROOT/storage/app/private"',
+            '"$SHARED_ROOT/storage/framework/uploads"',
+            '"$SHARED_ROOT/storage/framework/tmp"',
+            '"$SHARED_ROOT/storage/framework/nginx-body"',
+        ];
+
+        $this->assertStringContainsString('install -d -o www-data -g www-data -m 0700 "$SHARED_ROOT/storage/app/private"', $installer);
+        $this->assertStringContainsString("install -d -o www-data -g www-data -m 0700 \\\n            \"\$SHARED_ROOT/storage/app/private\" \\\n            \"\$SHARED_ROOT/storage/framework/uploads\" \"\$SHARED_ROOT/storage/framework/tmp\" \\\n            \"\$SHARED_ROOT/storage/framework/nginx-body\"", $installer);
+
+        foreach ($ownerOnlyPaths as $path) {
+            $this->assertStringNotContainsString($path, $this->permissionInstallBlock($installer, '2770'));
+        }
+
+        $sharedModeBlock = $this->permissionInstallBlock($installer, '2770');
+        $this->assertStringContainsString('"$SHARED_ROOT/storage/app/public"', $sharedModeBlock);
+        $this->assertStringContainsString('"$SHARED_ROOT/storage/framework/cache/data"', $sharedModeBlock);
+        $this->assertStringContainsString('"$SHARED_ROOT/storage/framework/sessions"', $sharedModeBlock);
+        $this->assertStringContainsString('"$SHARED_ROOT/storage/framework/views"', $sharedModeBlock);
+        $this->assertStringContainsString('"$SHARED_ROOT/storage/logs"', $sharedModeBlock);
+    }
+
+    private function permissionInstallBlock(string $installer, string $mode): string
+    {
+        $blocks = [];
+        $lines = explode("\n", $installer);
+
+        for ($index = 0, $lineCount = count($lines); $index < $lineCount; $index++) {
+            if (! str_contains($lines[$index], 'install -d -o www-data -g www-data -m '.$mode)) {
+                continue;
+            }
+
+            $block = [$lines[$index]];
+            while (str_ends_with(rtrim($lines[$index]), '\\') && $index + 1 < $lineCount) {
+                $block[] = $lines[++$index];
+            }
+            $blocks[] = implode("\n", $block);
+        }
+
+        return implode("\n", $blocks);
+    }
+
     public function test_repository_install_bundle_contains_every_reviewed_nonsecret_asset(): void
     {
         $assetRoot = dirname(base_path(), 2).'/install-assets';

@@ -385,6 +385,16 @@ normalize_release_permissions() {
     find "$api_path/bootstrap/cache" -type f -exec chmod 0660 {} +
 }
 
+normalize_release_bootstrap_cache_permissions() {
+    local cache_root="$1"
+
+    [[ -d "$cache_root" && ! -L "$cache_root" ]] \
+        || fail "The inactive release bootstrap cache is missing or unsafe: ${cache_root}."
+    chown -R www-data:www-data "$cache_root"
+    find "$cache_root" -type d -exec chmod 2770 {} +
+    find "$cache_root" -type f -exec chmod 0660 {} +
+}
+
 validate_install_assets_source() {
     local source="$1"
     local invalid_entry asset
@@ -424,17 +434,29 @@ normalize_private_install_assets() {
 
 normalize_shared_storage_permissions() {
     local extra_root="${1:-}"
+    local pmta_feedback_staging_root="${SHARED_ROOT}/storage/app/private/pmta-feedback-staging"
     local -a roots=("$SHARED_ROOT/storage")
 
     if [[ -n "$extra_root" ]]; then
         roots+=("$extra_root")
     fi
 
-    chown -R www-data:www-data "${roots[@]}"
-    # The installation bundle is private runtime input. Keep it out of the
-    # group-writable Laravel storage sweep on every install and deployment.
-    find "${roots[@]}" -path "$INSTALL_ASSETS_ROOT" -prune -o -type d -exec chmod 2770 {} +
-    find "${roots[@]}" -path "$INSTALL_ASSETS_ROOT" -prune -o -type f -exec chmod 0660 {} +
+    # The installation bundle and active PMTA feedback staging files are
+    # private runtime input. Prune both trees from recursive ownership/mode
+    # changes: feedback files can be removed by a live worker during deploy.
+    find "${roots[@]}" \( -path "$INSTALL_ASSETS_ROOT" -o -path "$pmta_feedback_staging_root" \) -prune -o -exec chown -h www-data:www-data {} +
+    find "${roots[@]}" \( -path "$INSTALL_ASSETS_ROOT" -o -path "$pmta_feedback_staging_root" \) -prune -o -type d -exec chmod 2770 {} +
+    find "${roots[@]}" \( -path "$INSTALL_ASSETS_ROOT" -o -path "$pmta_feedback_staging_root" \) -prune -o -type f -exec chmod 0660 {} +
+
+    # The feedback worker itself requires an owner-only staging directory and
+    # creates its files as 0600. Normalize the stable directory only; never
+    # walk files that the active application may be cleaning up.
+    if [[ -e "$pmta_feedback_staging_root" || -L "$pmta_feedback_staging_root" ]]; then
+        [[ -d "$pmta_feedback_staging_root" && ! -L "$pmta_feedback_staging_root" ]] \
+            || fail 'The PMTA feedback staging path is unsafe; preserving it.'
+        chown www-data:www-data "$pmta_feedback_staging_root"
+        chmod 0700 "$pmta_feedback_staging_root"
+    fi
 }
 
 stage_private_install_assets() {
@@ -605,7 +627,7 @@ configure_install_assets() {
     [[ "${EUID}" -eq 0 ]] || fail 'Run asset setup as root with sudo.'
     [[ -L "$CURRENT_ROOT" && -d "$API_ROOT" && -f "$ENV_ROOT/.env" ]] \
         || fail 'A completed release-based AlphaLink installation was not found.'
-    install -d -o www-data -g www-data -m 2770 "$SHARED_ROOT/storage/app/private"
+    install -d -o www-data -g www-data -m 0700 "$SHARED_ROOT/storage/app/private"
 
     if [[ -n "$source" ]]; then
         stage_private_install_assets "$source"
@@ -800,9 +822,11 @@ deploy_release() {
         rm -rf -- "$temporary_release/install-assets"
 
         install -d -o www-data -g www-data -m 2770 \
-            "$SHARED_ROOT/storage/app/private" "$SHARED_ROOT/storage/app/public" \
+            "$SHARED_ROOT/storage/app/public" \
             "$SHARED_ROOT/storage/framework/cache/data" "$SHARED_ROOT/storage/framework/sessions" \
-            "$SHARED_ROOT/storage/framework/views" "$SHARED_ROOT/storage/logs" \
+            "$SHARED_ROOT/storage/framework/views" "$SHARED_ROOT/storage/logs"
+        install -d -o www-data -g www-data -m 0700 \
+            "$SHARED_ROOT/storage/app/private" \
             "$SHARED_ROOT/storage/framework/uploads" "$SHARED_ROOT/storage/framework/tmp" \
             "$SHARED_ROOT/storage/framework/nginx-body"
         rm -rf -- "$temporary_release/apps/api/storage"
@@ -810,7 +834,7 @@ deploy_release() {
         chown -R root:www-data "$temporary_release"
         find "$temporary_release" -type d -exec chmod 0750 {} +
         find "$temporary_release" -type f -exec chmod 0640 {} +
-        normalize_shared_storage_permissions "$temporary_release/apps/api/bootstrap/cache"
+        normalize_release_bootstrap_cache_permissions "$temporary_release/apps/api/bootstrap/cache"
         chmod 0750 "$temporary_release" "$temporary_release/apps/api"
 
         info "Building release ${release_sha} before downtime..."
@@ -1064,9 +1088,11 @@ resume_initial_install() {
             [[ -f "$staging_path/apps/api/artisan" && -f "$staging_path/apps/api/composer.lock" && -f "$staging_path/apps/api/package-lock.json" ]] || fail 'The selected branch is missing Laravel or a committed frontend lockfile.'
 
             install -d -o www-data -g www-data -m 2770 \
-                "$SHARED_ROOT/storage/app/private" "$SHARED_ROOT/storage/app/public" \
+                "$SHARED_ROOT/storage/app/public" \
                 "$SHARED_ROOT/storage/framework/cache/data" "$SHARED_ROOT/storage/framework/sessions" \
-                "$SHARED_ROOT/storage/framework/views" "$SHARED_ROOT/storage/logs" \
+                "$SHARED_ROOT/storage/framework/views" "$SHARED_ROOT/storage/logs"
+            install -d -o www-data -g www-data -m 0700 \
+                "$SHARED_ROOT/storage/app/private" \
                 "$SHARED_ROOT/storage/framework/uploads" "$SHARED_ROOT/storage/framework/tmp" \
                 "$SHARED_ROOT/storage/framework/nginx-body"
             rm -rf -- "$staging_path/apps/api/storage"
@@ -1074,7 +1100,7 @@ resume_initial_install() {
             chown -R root:www-data "$staging_path"
             find "$staging_path" -type d -exec chmod 0750 {} +
             find "$staging_path" -type f -exec chmod 0640 {} +
-            normalize_shared_storage_permissions "$staging_path/apps/api/bootstrap/cache"
+            normalize_release_bootstrap_cache_permissions "$staging_path/apps/api/bootstrap/cache"
             chmod 0750 "$staging_path" "$staging_path/apps/api"
 
             info "Building corrected release ${release_sha}..."
@@ -1599,11 +1625,11 @@ rm -f -- "$DB_SETUP_FILE"
 
 install -d -o root -g www-data -m 0750 "$ENV_ROOT"
 install -d -o www-data -g www-data -m 2770 \
-    "$SHARED_ROOT/storage/app/private" "$SHARED_ROOT/storage/app/public" \
+    "$SHARED_ROOT/storage/app/public" \
     "$SHARED_ROOT/storage/framework/cache/data" "$SHARED_ROOT/storage/framework/sessions" \
     "$SHARED_ROOT/storage/framework/views" "$SHARED_ROOT/storage/logs" \
-    "$SHARED_ROOT/storage/framework/uploads" "$SHARED_ROOT/storage/framework/tmp" \
-    "$SHARED_ROOT/storage/framework/nginx-body" "$RELEASE_API_ROOT/bootstrap/cache"
+    "$RELEASE_API_ROOT/bootstrap/cache"
+install -d -o www-data -g www-data -m 0700 "$SHARED_ROOT/storage/app/private"
 install -d -o www-data -g www-data -m 0700 "$INSTALL_ASSETS_ROOT"
 if [[ -n "$INSTALL_ASSETS_SOURCE" ]]; then
     stage_private_install_assets "$INSTALL_ASSETS_SOURCE"
@@ -1681,6 +1707,7 @@ rm -rf -- node_modules
 normalize_release_permissions "$RELEASE_PATH"
 normalize_shared_storage_permissions
 install -d -o www-data -g www-data -m 0700 \
+    "$SHARED_ROOT/storage/app/private" \
     "$SHARED_ROOT/storage/framework/uploads" \
     "$SHARED_ROOT/storage/framework/tmp" \
     "$SHARED_ROOT/storage/framework/nginx-body"

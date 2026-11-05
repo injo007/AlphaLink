@@ -198,6 +198,8 @@ The dashboard mini rail now preserves accessible link names while visually clipp
 
 Changed files for this slice: `apps/api/resources/views/layouts/admin-shell.blade.php`, `apps/api/resources/css/command-os.css`, `apps/api/public/console-assets/command-os-drawer.js`, `apps/api/tests/Feature/WorkspaceAnalyticsDashboardTest.php`, `apps/api/tests/Feature/AlphaLinkCampaignSendNavigationTest.php`, `apps/api/tests/js/command-os-drawer.test.js`, and `apps/api/UX-CONTRACT.md`.
 
+The current frontend lockfile declares React/React DOM 19.3.1, TypeScript 7.0.2, Lucide React 1.69.0, ECharts 6.1.0, Vite 8.3.5, and Tailwind CSS 4.3.3. React Router, Radix primitives, XYFlow, MapLibre, TanStack Table/Query, Zustand, and Motion are not yet declared. E-DASH-39/40 required no package installation; add missing packages with the feature phase that uses them, after confirming the Ubuntu build/runtime versions and lockfile impact.
+
 | Check | Result |
 |---|---|
 | Dashboard role-rendered link test | PASS — `WorkspaceAnalyticsDashboardTest.php::test_dashboard_nested_campaign_and_global_test_links_match_the_workspace_role`, 1 test / 26 assertions; privacy officers see no empty Global Tests parent on the dashboard, authorized roles retain the group, and privacy officers still see it on the accessible GSend Projects page |

@@ -711,3 +711,7 @@ The user-provided visitor page's 11 opens came from addresses that reverse/forwa
 ### DMS-AUD-002 / DMS-TRACK-003 follow-up — E-TRACK-45
 
 Source-prefixed action/status Lists and live membership counts are implemented and pass the focused local suites. The new metadata migrations and campaign action-segment backfill are not deployed; production list counts and existing generated list names have not been reconciled. After a future release, apply migrations, backfill affected campaigns, rebuild List History where needed, and verify the live Lists grid and send-recipient selector. No 30k/concurrency benchmark has been run. Keep both feature rows TESTING.
+
+### E-CAMP-162 — Warmup Test return-path regression
+
+The production 500 after Warmup Test was caused by the shared composer treating flashed newline-delimited test addresses as an array. The first production trace also revealed null optional numeric settings rejected by the Test endpoint; both issues are fixed and covered by a redirected browser-flow regression. A live Warmup Test now returns the editor's PMTA-accepted status. Inbox delivery and campaign Send are not verified, and DMS native sender parity remains open.

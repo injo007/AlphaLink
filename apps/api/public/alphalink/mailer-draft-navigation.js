@@ -10,6 +10,39 @@
         return;
     }
 
+    const selectedServerIds = () => [...(composer.querySelector('#send-servers')?.selectedOptions || [])]
+        .map((option) => String(option.value));
+
+    const getPmtaAdminUrl = () => {
+        const adminLink = actionList.querySelector('[data-pmta-admin-link]');
+        const serverIds = selectedServerIds();
+        if (!adminLink || serverIds.length === 0) {
+            return null;
+        }
+
+        const url = new URL(adminLink.href, window.location.href);
+        [...url.searchParams.keys()]
+            .filter((key) => key === 'server_ids' || key.startsWith('server_ids['))
+            .forEach((key) => url.searchParams.delete(key));
+        serverIds.forEach((serverId) => url.searchParams.append('server_ids[]', serverId));
+
+        return url.toString();
+    };
+
+    const getPmtaPanelUrls = () => {
+        const panelLink = actionList.querySelector('[data-pmta-panel-link]');
+        let targets = {};
+        try {
+            targets = JSON.parse(panelLink?.dataset.pmtaPanelTargets || '{}');
+        } catch (_) {
+            targets = {};
+        }
+
+        return selectedServerIds()
+            .map((serverId) => targets[serverId])
+            .filter((url) => typeof url === 'string' && url.length > 0);
+    };
+
     let contextFocusTarget = null;
 
     const closeContextMenu = (restoreFocus = false) => {
@@ -173,15 +206,19 @@
             return;
         }
 
+        if (link.hasAttribute('data-pmta-admin-link')) {
+            event.preventDefault();
+            const url = getPmtaAdminUrl();
+            if (url) {
+                window.open(url, '_blank', 'noopener,noreferrer');
+            }
+            closeContextMenu();
+            return;
+        }
+
         if (link.hasAttribute('data-pmta-panel-link')) {
             event.preventDefault();
-            let urls = [];
-            try {
-                urls = JSON.parse(link.dataset.selectedPanelUrls || '[]');
-            } catch (_) {
-                urls = [];
-            }
-            urls.forEach((url) => window.open(url, '_blank', 'noopener,noreferrer'));
+            getPmtaPanelUrls().forEach((url) => window.open(url, '_blank', 'noopener,noreferrer'));
             closeContextMenu();
             return;
         }

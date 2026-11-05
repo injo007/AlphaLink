@@ -125,16 +125,29 @@ class WorkspaceMailerOperationsTest extends TestCase
         $adminUrl = route('clean.console.pmta-admin.index', ['server_ids' => [$server->getKey(), $secondServer->getKey()]]);
         $this->assertStringContainsString('href="'.htmlspecialchars($adminUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8').'" data-pmta-admin-link target="_blank" rel="noopener noreferrer"><span>PMTA ADMIN', $html);
         $this->assertStringContainsString("url.searchParams.append('server_ids[]', id)", $html);
+        $this->assertStringContainsString("window.open(pmtaAdminLink.href, '_blank', 'noopener,noreferrer')", $html);
         $this->assertStringContainsString('data-pmta-panel-link', $html);
         preg_match('/data-selected-panel-urls=\'([^\']*)\'/u', $html, $selectedPanelUrlsMatch);
         $selectedPanelUrls = json_decode(htmlspecialchars_decode($selectedPanelUrlsMatch[1] ?? '', ENT_QUOTES), true, flags: JSON_THROW_ON_ERROR);
         $this->assertCount(2, $selectedPanelUrls);
         $this->assertStringContainsString((string) $server->getKey(), $selectedPanelUrls[0]);
         $this->assertStringContainsString((string) $secondServer->getKey(), $selectedPanelUrls[1]);
-        $this->assertStringContainsString("window.open(url, '_blank', 'noopener,noreferrer')", $html);
+        $this->assertStringContainsString("urls.forEach(url => window.open(url, '_blank', 'noopener,noreferrer'))", $html);
+        $navigationScript = file_get_contents(public_path('alphalink/mailer-draft-navigation.js'));
+        $this->assertStringContainsString('link.hasAttribute(\'data-pmta-admin-link\')', $navigationScript);
+        $this->assertStringContainsString("window.open(url, '_blank', 'noopener,noreferrer')", $navigationScript);
         $this->assertStringContainsString("quickNav.dataset.alphalinkNavigationBound === 'true'", file_get_contents(public_path('alphalink/mailer-draft-navigation.js')));
         $this->assertStringContainsString("quickNav.dataset.alphalinkNavigationBound = 'true'", file_get_contents(public_path('alphalink/mailer-draft-navigation.js')));
         $this->assertStringContainsString('target="_blank" rel="noopener noreferrer"><span>PMTA PANEL</span>', $html);
+
+        $dropHtml = $this->actingAs($owner)
+            ->withSession(['_old_input' => ['send_setup' => ['server_ids' => [(string) $server->getKey(), (string) $secondServer->getKey()]]]])
+            ->get(route('console.drops.drafts.create', $workspace->getKey()))
+            ->assertOk()
+            ->getContent();
+        $this->assertStringContainsString('data-pmta-admin-link target="_blank" rel="noopener noreferrer"><span>PMTA ADMIN', $dropHtml);
+        $this->assertStringContainsString('data-pmta-panel-link', $dropHtml);
+        $this->assertStringContainsString("window.open(pmtaAdminLink.href, '_blank', 'noopener,noreferrer')", $dropHtml);
     }
 
     public function test_drop_drafts_save_workspace_selections_and_create_immutable_revisions(): void

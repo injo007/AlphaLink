@@ -286,18 +286,23 @@
         pmtaPanelLink.href = urls[0] || '#';
         pmtaPanelLink.dataset.selectedPanelUrls = JSON.stringify(urls);
     };
-    pmtaAdminLink?.addEventListener('click', syncPmtaAdminUrl);
-    pmtaPanelLink?.addEventListener('click', event => {
+    const openPmtaAdmin = () => {
+        if (!pmtaAdminLink || multiValues(byId('send-servers')).length === 0) return;
+        syncPmtaAdminUrl();
+        window.open(pmtaAdminLink.href, '_blank', 'noopener,noreferrer');
+    };
+    const openPmtaPanels = () => {
         syncPmtaPanelUrls();
-        const urls = JSON.parse(pmtaPanelLink.dataset.selectedPanelUrls || '[]');
-        if (urls.length === 0) {
-            event.preventDefault();
-            return;
-        }
-        if (urls.length > 1) {
-            event.preventDefault();
-            urls.forEach(url => window.open(url, '_blank', 'noopener,noreferrer'));
-        }
+        const urls = JSON.parse(pmtaPanelLink?.dataset.selectedPanelUrls || '[]');
+        urls.forEach(url => window.open(url, '_blank', 'noopener,noreferrer'));
+    };
+    pmtaAdminLink?.addEventListener('click', event => {
+        event.preventDefault();
+        openPmtaAdmin();
+    });
+    pmtaPanelLink?.addEventListener('click', event => {
+        event.preventDefault();
+        openPmtaPanels();
     });
     if (window.ace) {
         const aceBase = @json(asset('console-assets/vendor/ace'));
@@ -700,15 +705,15 @@
                 actionList.querySelector('#clear-mailer-params')?.click();
                 return;
             }
+            if (link.hasAttribute('data-pmta-admin-link')) {
+                event.preventDefault();
+                openPmtaAdmin();
+                setOpen(false);
+                return;
+            }
             if (link.hasAttribute('data-pmta-panel-link')) {
                 event.preventDefault();
-                let urls = [];
-                try {
-                    urls = JSON.parse(link.dataset.selectedPanelUrls || '[]');
-                } catch (_) {
-                    urls = [];
-                }
-                urls.forEach(url => window.open(url, '_blank', 'noopener,noreferrer'));
+                openPmtaPanels();
                 setOpen(false);
                 return;
             }

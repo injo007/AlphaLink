@@ -41,6 +41,9 @@ class WorkspaceMailerOperationsTest extends TestCase
         $dropComposerHtml = $dropComposer->getContent();
         $this->assertSame(1, substr_count($dropComposerHtml, ' id="mailer-header"'));
         $this->assertSame(1, substr_count($dropComposerHtml, ' id="mailer-body"'));
+        $this->assertStringContainsString('data-name-prefix="send_setup[placeholder_inputs]"', $dropComposerHtml);
+        $this->assertStringContainsString('data-placeholder-combination', $dropComposerHtml);
+        $this->assertStringContainsString('data-placeholder-all-combination', $dropComposerHtml);
         $this->assertStringContainsString('id="send-ips" name="send_setup[ip_ids][]"', $dropComposerHtml);
         $this->assertStringContainsString('id="available-send-ips"', $dropComposerHtml);
         $this->assertStringContainsString('id="selected-send-ips"', $dropComposerHtml);
@@ -61,6 +64,9 @@ class WorkspaceMailerOperationsTest extends TestCase
         $warmupComposerHtml = $warmupComposer->getContent();
         $this->assertSame(1, substr_count($warmupComposerHtml, ' id="mailer-header"'));
         $this->assertSame(1, substr_count($warmupComposerHtml, ' id="mailer-body"'));
+        $this->assertStringContainsString('data-name-prefix="placeholder_inputs"', $warmupComposerHtml);
+        $this->assertStringContainsString('name="placeholder_combination"', $warmupComposerHtml);
+        $this->assertStringContainsString('name="placeholder_all_combination"', $warmupComposerHtml);
         $this->assertStringContainsString('id="send-ips" name="ip_ids[]"', $warmupComposerHtml);
         $this->assertStringContainsString('id="available-send-ips"', $warmupComposerHtml);
         $this->assertStringContainsString('id="selected-send-ips"', $warmupComposerHtml);

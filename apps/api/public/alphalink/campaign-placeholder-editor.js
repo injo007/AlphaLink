@@ -6,8 +6,10 @@
         const body = editor.querySelector('[data-placeholder-rows]');
         const prefix = editor.dataset.namePrefix;
         const addButton = editor.querySelector('[data-placeholder-add]');
-        const combination = editor.querySelector('input[name="send_setup[placeholder_combination]"]');
-        const allCombination = editor.querySelector('input[name="send_setup[placeholder_all_combination]"]');
+        const combination = editor.querySelector('[data-placeholder-combination]');
+        const allCombination = editor.querySelector('[data-placeholder-all-combination]');
+
+        if (!body || !prefix || !addButton || !combination || !allCombination) return;
 
         const nextIndex = () => Array.from(body.querySelectorAll('[data-placeholder-row]'))
             .reduce((highest, row) => {

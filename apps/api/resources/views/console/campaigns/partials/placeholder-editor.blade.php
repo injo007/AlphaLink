@@ -6,16 +6,16 @@
 @endphp
 
 <div class="col-12">
-    <div class="block block-rounded" data-campaign-placeholder-editor data-name-prefix="send_setup[placeholder_inputs]">
+    <div class="block block-rounded" data-campaign-placeholder-editor data-name-prefix="{{ $placeholderNamePrefix }}">
         <div class="block-header">
             <h3 class="block-title">PLACEHOLDERS</h3>
             <div class="block-options d-flex align-items-center">
                 <div class="custom-control custom-switch custom-control-inline">
-                    <input type="checkbox" class="custom-control-input" id="{{ $idPrefix }}-placeholder-combination" name="{{ $combinationName }}" value="1" @checked(filter_var($combination ?? false, FILTER_VALIDATE_BOOLEAN))>
+                    <input type="checkbox" class="custom-control-input" id="{{ $idPrefix }}-placeholder-combination" name="{{ $combinationName }}" value="1" data-placeholder-combination @checked(filter_var($combination ?? false, FILTER_VALIDATE_BOOLEAN))>
                     <label class="custom-control-label" for="{{ $idPrefix }}-placeholder-combination">COMBINATION</label>
                 </div>
                 <div class="custom-control custom-switch custom-control-inline">
-                    <input type="checkbox" class="custom-control-input" id="{{ $idPrefix }}-placeholder-all-combination" name="{{ $allCombinationName }}" value="1" @checked(filter_var($allCombination ?? false, FILTER_VALIDATE_BOOLEAN))>
+                    <input type="checkbox" class="custom-control-input" id="{{ $idPrefix }}-placeholder-all-combination" name="{{ $allCombinationName }}" value="1" data-placeholder-all-combination @checked(filter_var($allCombination ?? false, FILTER_VALIDATE_BOOLEAN))>
                     <label class="custom-control-label" for="{{ $idPrefix }}-placeholder-all-combination">ALL COMBINATION</label>
                 </div>
             </div>

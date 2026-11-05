@@ -76,9 +76,9 @@ The JSON API has additional role distinctions recorded in `routes/api.php`: work
 
 ### User authorization and release path
 
-The user's latest instruction (2026-11-05) explicitly authorizes the full redesign and upgrade journey, including use of available root/sudo privileges, installing and updating dependencies required by the approved stack, pushing every verified phase to GitHub, and deploying each verified phase to the Ubuntu AlphaLink SaaS. This supersedes the earlier planning-only clause in the active Codex Goal. Apply that standing authorization across phases; it does not count as evidence that a credential, OS privilege, GitHub write permission, or trusted server identity is actually available.
+The user's latest reaffirmation (2026-11-05) explicitly authorizes the full redesign and upgrade journey, including use of available root/sudo privileges for the work, installation and updating of the approved frontend stack and required application/system packages, pushing every audited and verified phase to GitHub, and deploying each verified phase to the Ubuntu AlphaLink SaaS. Continue this release path throughout the journey without asking for the same authorization again. This supersedes the earlier planning-only clause in the active Codex Goal. Authorization does not establish that a credential, OS privilege, GitHub write permission, or trusted server identity is actually available; verify those operational prerequisites before use.
 
-For every phase, finish its implementation, audit, and automated checks before pushing the reviewed branch; then use the Ubuntu release path and verify the deployed phase in the real SaaS before signing off. Preserve the release procedure's backup, health-check, and rollback gates, and never edit the active server checkout in place. Install only dependencies required by the approved frontend stack or compatibility fixes, after confirming the existing PHP/Node/application versions and Ubuntu deployment method. The production SSH host identity must be verified against a trusted source before running privileged server commands. Do not access or modify the separate historical DMS service, and never include credential values from local or server environments in commits, logs, or reports.
+For every phase, finish its implementation, audit, automated checks, and release artifact before pushing the reviewed branch; then deploy that verified phase through the Ubuntu release path and verify it in the real SaaS before signing off. Preserve the release procedure's backup, health-check, and rollback gates, and never edit the active server checkout in place. Install the required versions and updates for the approved frontend stack and application compatibility, after confirming the existing PHP/Node/application versions and Ubuntu deployment method. Assess broader operating-system updates against production service dependencies and the release plan before applying them. The production SSH host identity must be verified against a trusted source before running privileged server commands. Do not access or modify the separate historical DMS service, and never include credential values from local or server environments in commits, logs, or reports.
 
 The active system Goal cannot be edited through the available goal controls while it is unfinished. Do not mark it complete or replace it to work around that limitation. This migration ledger is the controlling project record for the user's updated authorization, active phase, and release gates; the Codex Goal remains active until the redesign and its completion criteria are actually finished.
 
@@ -95,8 +95,26 @@ Files changed and the current phase scope are visible in the Git worktree. The r
 | `npm run build` | PASS — React dashboard entry is split from the lazy ECharts module; the ECharts chunk is 512.42 kB minified (173 kB gzip), above Vite's 500 kB advisory |
 | Production/configured database | NOT USED |
 | Authenticated Ubuntu browser review | NOT RUN — user requested to skip the Mint-host preview and use the Ubuntu SaaS version; review the deployed Command OS at desktop and 390px in both themes before Phase 1 sign-off |
-| GitHub push | AUTHORIZED but BLOCKED — connected GitHub identity `visiontoprompt` has `push: false` for `injo007/AlphaLink`; HTTPS push has no authenticated username and GitHub SSH was rejected. The current dashboard slice remains local and unpushed |
+| GitHub push | AUTHORIZED — the repository's configured token was checked against GitHub without exposing its value; `injo007/AlphaLink` reports `permissions.push: true`. The active dashboard slice remains local and unpushed until implementation, audit, and automated checks are complete |
 | Ubuntu release | AUTHORIZED — installer path reviewed; SSH to `baseheavy.shop` is blocked until ED25519 fingerprint `SHA256:cdBVpRiU4H3sBL4f3cwu/htb/QjIZlRdiLIvOvZMle4` is verified through a trusted server-side source |
+
+#### E-DASH-39 shell permission and drawer follow-up (2026-11-05)
+
+The dashboard shell header now shows its Campaigns and Global Test shortcuts only to workspace `owner`, `admin`, and `operator` roles; `privacy_officer` no longer sees links that the destinations reject. Server-side route authorization is unchanged. These guards apply only to Command OS dashboard routes, so non-dashboard shell shortcuts remain as before. Dashboard mobile navigation now uses a real backdrop, accessible dialog semantics while open, inert header/main/footer, focus entry and wrapping that skips hidden submenu links, Escape/backdrop/close dismissal, and focus restoration. Crossing to the desktop breakpoint closes modal/inert/backdrop/ARIA state and clears OneUI's mobile `.sidebar-o-xs` state without restoring focus to the mobile opener or changing the desktop `.sidebar-o` state. The JS scope is `apps/api/public/console-assets/command-os-drawer.js`, loaded only from the dashboard Blade shell; the existing Blade shell remains the route and navigation-label source.
+
+Changed files for this follow-up: `apps/api/resources/views/layouts/admin-shell.blade.php`, `apps/api/resources/css/command-os.css`, `apps/api/resources/js/command-os.tsx` (removes the earlier dashboard-only click/Escape toggle now owned by the shell controller), `apps/api/public/console-assets/command-os-drawer.js` (new), `apps/api/tests/Feature/WorkspaceAnalyticsDashboardTest.php`, `apps/api/tests/Feature/AlphaLinkCampaignSendNavigationTest.php`, `apps/api/tests/js/command-os-drawer.test.js` (new), `apps/api/UX-CONTRACT.md`, `docs/implementation/COMMAND_OS_MIGRATION_LEDGER.md`, `docs/implementation/PARITY_REPORT.md`, `docs/reference/EVIDENCE_REGISTER.md`, and `docs/reference/FEATURE_MATRIX.md`. No routes, backend logic, dependencies, or module destinations changed.
+
+| Check | Result |
+|---|---|
+| `WorkspaceAnalyticsDashboardTest.php` | PASS — 23 tests, 335 assertions; owner/admin/operator header shortcut destinations and privacy-officer absence are asserted in rendered dashboard HTML |
+| `AlphaLinkCampaignSendNavigationTest.php` | PASS — 9 tests, 85 assertions; campaign and Global Test shortcuts remain on the non-dashboard campaign page, with no stale drawer ARIA state on its opener |
+| `GlobalTestsWorkflowTest.php` | PASS — 8 tests, 45 assertions |
+| Existing server navigation case | PASS — 1 test, 78 assertions |
+| Drawer/campaign-register/dashboard-refresh Node suites | PASS — 7 tests; open, hidden submenu exclusion, focus trap, Escape/backdrop close, OneUI cleanup, breakpoint transition, no focus jump, campaign register, dashboard refresh |
+| Changed PHP files Pint; TypeScript typecheck; Vite build; JS syntax; `git diff --check` | PASS for the touched PHP files; typecheck/build/syntax/diff checks pass. A full-repository Pint scan still reports one existing style issue in unchanged `bootstrap/providers.php`; the build retains the known 512.42 kB minified ECharts advisory |
+| Premium strict static audit | One finding remains: `affordance.actionless-button` at `resources/js/command-os.tsx:362`. This is the intentional focusable `aria-disabled` Track a Link control; its visible reason is connected by `aria-describedby`. The exact unavailable behavior is documented in `apps/api/UX-CONTRACT.md`; do not remove this accessible state to silence the static false positive. |
+
+Current blockers: the saved local app cannot provide authenticated browser verification because the listener/database connection is unavailable and its APP_KEY is empty. GitHub push is available through the repository token; E-DASH-39/40 remain local until packaged as a reviewed candidate. Ubuntu release is blocked pending trusted verification of the recorded production host fingerprint; the authorized Ubuntu deployment has not been run. E-DASH-40 corrects the desktop compact-rail navigation and role visibility in code, but production hover/focus/keyboard and responsive browser verification remains open. Phase 1 remains **TESTING**, not complete; matching production desktop/mobile screenshots, both themes, keyboard behavior in the deployed browser, refresh/session behavior, and complete route-family parity remain open.
 
 ### Ubuntu production baseline (2026-11-05)
 
@@ -163,3 +181,29 @@ Every subsequent route family update must add:
 | Status | `NOT_DISCOVERED`, `INVESTIGATING`, `VERIFIED`, `IMPLEMENTING`, `TESTING`, `PARITY_CONFIRMED`, or `BLOCKED` |
 
 Visual similarity by itself never closes a workflow or permission gate.
+
+#### E-DASH-40 dashboard navigation visibility and collapsed desktop rail (2026-11-05)
+
+Dashboard-only navigation now follows the verified workspace role matrix below. The admin Blade shell remains the sole route and label source; server-side authorization is unchanged. Non-dashboard pages keep the prior destinations and visibility.
+
+| Destination | owner/admin/operator | privacy_officer | State |
+|---|---|---|---|
+| Campaigns SEND, NEGATIVES, MIXS | Visible | Hidden on Command OS dashboard | Existing routes still enforce their server authorization |
+| Global Tests SEND, HISTORIES | Visible | Hidden on Command OS dashboard | Existing routes still enforce their server authorization |
+| GSend PROJECTS, ACCOUNTS | Visible | Visible | Existing destinations retained |
+| Campaign Statistics | Visible | Visible | Existing destination retained |
+| GSend SEND, Campaign Logs | Existing no-href placeholders | Existing no-href placeholders | Retained as disabled placeholders; no route was invented |
+
+The dashboard mini rail now preserves accessible link names while visually clipping labels in the collapsed state. Source inspection confirmed OneUI translates the sidebar content by 180px in mini mode and translates it back only on pointer hover, while the Command OS grid track remains 74px. Dashboard desktop-only hover and focus-within styles keep the sidebar sticky, expand it to 240px, reset header/content transforms, and show opened submenus; the expanded rail extends over the main track. At mobile widths, mini mode retains the fixed off-canvas drawer and its hidden/open transform, so resizing cannot leave a compact rail exposed over the page. Activating a submenu while collapsed removes the mini state before the click reaches OneUI's existing submenu handler, and the drawer controller synchronizes the width toggle's `aria-pressed` value both immediately and after OneUI changes the class. No routes, role rules, dependencies, or business workflows were added.
+
+Changed files for this slice: `apps/api/resources/views/layouts/admin-shell.blade.php`, `apps/api/resources/css/command-os.css`, `apps/api/public/console-assets/command-os-drawer.js`, `apps/api/tests/Feature/WorkspaceAnalyticsDashboardTest.php`, `apps/api/tests/Feature/AlphaLinkCampaignSendNavigationTest.php`, `apps/api/tests/js/command-os-drawer.test.js`, and `apps/api/UX-CONTRACT.md`.
+
+| Check | Result |
+|---|---|
+| Dashboard role-rendered link test | PASS — `WorkspaceAnalyticsDashboardTest.php::test_dashboard_nested_campaign_and_global_test_links_match_the_workspace_role`, 1 test / 26 assertions; privacy officers see no empty Global Tests parent on the dashboard, authorized roles retain the group, and privacy officers still see it on the accessible GSend Projects page |
+| Direct privacy-officer access test | PASS — `AlphaLinkCampaignSendNavigationTest.php::test_privacy_officers_cannot_directly_open_hidden_dashboard_destinations`, 1 test / 5 assertions; all five forbidden GET routes return 403 |
+| Full affected dashboard/navigation suites | PASS — `WorkspaceAnalyticsDashboardTest.php` 24 tests / 361 assertions; `AlphaLinkCampaignSendNavigationTest.php` 10 tests / 90 assertions; `GlobalTestsWorkflowTest.php` 8 tests / 45 assertions; existing server-navigation test 1 test / 78 assertions |
+| Collapsed-rail / drawer Node suite | PASS — 5 tests; desktop sticky hover/focus sizing and content transforms, mobile mini drawer hiding, desktop→mobile→desktop state, submenu activation, accessible labels, and `aria-pressed` synchronization on expansion/collapse are asserted |
+| Typecheck, build, changed-file Pint, and diff check | PASS — full-repository Pint also reports one existing style issue in unchanged `bootstrap/providers.php`; build retains the pre-existing 512.42 kB ECharts chunk advisory |
+| Production browser review | NOT RUN — the saved authenticated app listener/database is unavailable; hover/focus visuals and keyboard activation still need deployed-browser confirmation |
+| Phase status | TESTING — Phase 1 remains open; no completion or release claim |

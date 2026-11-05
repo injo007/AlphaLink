@@ -811,6 +811,7 @@ html[data-command-theme='dark'] .command-os-metric-red .command-os-metric-icon {
     to { transform: rotate(360deg); }
 }
 
+@media (min-width: 992px) {
 body.command-os-dashboard #page-container.sidebar-mini.command-os-page {
     grid-template-columns: 74px minmax(0, 1fr);
 }
@@ -827,10 +828,21 @@ body.command-os-dashboard #page-container.sidebar-mini #sidebar .content-header 
 
 body.command-os-dashboard #page-container.sidebar-mini #sidebar .command-os-brand-copy,
 body.command-os-dashboard #page-container.sidebar-mini #sidebar .command-os-version,
-body.command-os-dashboard #page-container.sidebar-mini #sidebar .nav-main-link-name,
-body.command-os-dashboard #page-container.sidebar-mini #sidebar .nav-main-heading,
 body.command-os-dashboard #page-container.sidebar-mini #sidebar .nav-main-link-submenu::after {
     display: none;
+}
+
+body.command-os-dashboard #page-container.sidebar-mini #sidebar .nav-main-link-name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
 }
 
 body.command-os-dashboard #page-container.sidebar-mini #sidebar .command-os-brand img {
@@ -847,8 +859,44 @@ body.command-os-dashboard #page-container.sidebar-mini #sidebar .nav-main-link-i
     margin: 0;
 }
 
-body.command-os-dashboard #page-container.sidebar-mini #sidebar .nav-main-submenu {
-    display: none !important;
+body.command-os-dashboard #page-container.sidebar-mini #sidebar:hover .nav-main-link-name,
+body.command-os-dashboard #page-container.sidebar-mini #sidebar:focus-within .nav-main-link-name {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    clip-path: none;
+    white-space: normal;
+    opacity: 1;
+}
+
+body.command-os-dashboard #page-container.sidebar-mini #sidebar:hover .nav-main-heading,
+body.command-os-dashboard #page-container.sidebar-mini #sidebar:focus-within .nav-main-heading {
+    display: block;
+}
+
+body.command-os-dashboard #page-container.sidebar-mini #sidebar:hover,
+body.command-os-dashboard #page-container.sidebar-mini #sidebar:focus-within {
+    position: sticky;
+    z-index: 1050;
+    width: 240px;
+    overflow-x: visible;
+    box-shadow: 0 0 1.5rem rgb(8 14 35 / 24%);
+}
+
+body.command-os-dashboard #page-container.sidebar-mini #sidebar:hover .content-header,
+body.command-os-dashboard #page-container.sidebar-mini #sidebar:hover .content-side,
+body.command-os-dashboard #page-container.sidebar-mini #sidebar:focus-within .content-header,
+body.command-os-dashboard #page-container.sidebar-mini #sidebar:focus-within .content-side {
+    transform: translateX(0);
+}
+
+body.command-os-dashboard #page-container.sidebar-mini #sidebar:hover .nav-main-item.open > .nav-main-submenu,
+body.command-os-dashboard #page-container.sidebar-mini #sidebar:focus-within .nav-main-item.open > .nav-main-submenu {
+    display: block;
+}
 }
 
 @media (max-width: 1400px) {
@@ -877,16 +925,35 @@ body.command-os-dashboard #page-container.sidebar-mini #sidebar .nav-main-submen
         transition: transform .2s ease;
     }
 
+    body.command-os-dashboard #page-container.sidebar-mini #sidebar {
+        position: fixed;
+        width: min(292px, 86vw);
+        transform: translateX(-105%);
+    }
+
     body.command-os-dashboard #page-container.command-os-sidebar-open #sidebar {
         transform: translateX(0);
     }
 
-    body.command-os-dashboard #page-container.command-os-sidebar-open::before {
+    body.command-os-dashboard #page-container.sidebar-mini.command-os-sidebar-open #sidebar {
+        transform: translateX(0);
+    }
+
+    body.command-os-dashboard .command-os-sidebar-backdrop {
+        display: block;
         position: fixed;
         z-index: 1040;
         inset: 0;
         background: rgb(8 14 35 / 53%);
-        content: '';
+        border: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        cursor: default;
+    }
+
+    body.command-os-dashboard .command-os-sidebar-backdrop[hidden] {
+        display: none;
     }
 
     body.command-os-dashboard #page-header {

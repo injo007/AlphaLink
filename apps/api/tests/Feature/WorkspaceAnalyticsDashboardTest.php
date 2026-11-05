@@ -100,6 +100,77 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
         $this->assertCommandOsPayloadIsParseable($fragment->getContent());
     }
 
+    public function test_dashboard_header_shortcuts_follow_workspace_campaign_and_global_test_permissions(): void
+    {
+        foreach (['owner', 'admin', 'operator'] as $role) {
+            $user = User::factory()->create();
+            $workspace = $this->makeWorkspace($user, $role);
+            $html = $this->actingAs($user)->get(route('console.dashboard.main'))->assertOk()->getContent();
+
+            $this->assertStringContainsString('aria-label="Campaigns"', $html);
+            $this->assertStringContainsString('href="'.route('console.mailer.campaigns').'" title="CAMPAIGNS" aria-label="Campaigns"', $html);
+            $this->assertStringContainsString('href="'.route('clean.console.global-tests.index').'" title="GLOBAL TEST" aria-label="Global Test"', $html);
+        }
+
+        $privacyOfficer = User::factory()->create();
+        $this->makeWorkspace($privacyOfficer, 'privacy_officer');
+        $html = $this->actingAs($privacyOfficer)->get(route('console.dashboard.main'))->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('aria-label="Campaigns"', $html);
+        $this->assertStringNotContainsString('aria-label="Global Test"', $html);
+        $this->assertStringContainsString('aria-label="Open navigation"', $html);
+        $this->assertStringContainsString('aria-controls="sidebar" aria-expanded="false"', $html);
+        $this->assertStringContainsString('data-action="sidebar_backdrop"', $html);
+        $this->assertStringContainsString('command-os-drawer.js', $html);
+    }
+
+    public function test_dashboard_nested_campaign_and_global_test_links_match_the_workspace_role(): void
+    {
+        $campaignLinks = [
+            'SEND' => route('console.mailer.campaigns'),
+            'PROJECTS' => route('clean.console.gcampaigns.projects'),
+            'ACCOUNTS' => route('clean.console.gcampaigns.accounts'),
+            'NEGATIVES' => route('clean.console.campaign-negatives.index'),
+            'MIXS' => route('clean.console.audience-mixes.history'),
+            'STATISTICS' => route('clean.console.campaign-statistics.index'),
+        ];
+        $globalTestLinks = [
+            'SEND' => route('clean.console.global-tests.index'),
+            'HISTORIES' => route('clean.console.global-tests.histories'),
+        ];
+
+        foreach (['owner', 'admin', 'operator'] as $role) {
+            $user = User::factory()->create();
+            $this->makeWorkspace($user, $role);
+            $html = $this->actingAs($user)->get(route('console.dashboard.main'))->assertOk()->getContent();
+
+            $this->assertSame($campaignLinks, $this->dashboardNavigationLinks($html, 'nav-submenu-campaigns'));
+            $this->assertSame($globalTestLinks, $this->dashboardNavigationLinks($html, 'nav-submenu-global-tests'));
+            $this->assertStringContainsString('aria-controls="nav-submenu-global-tests"', $html);
+            $this->assertStringContainsString('href="#"', $html);
+            $this->assertStringContainsString('aria-disabled="true" tabindex="-1"', $html);
+        }
+
+        $privacyOfficer = User::factory()->create();
+        $privacyWorkspace = $this->makeWorkspace($privacyOfficer, 'privacy_officer');
+        $html = $this->actingAs($privacyOfficer)->get(route('console.dashboard.main'))->assertOk()->getContent();
+
+        $this->assertSame([
+            'PROJECTS' => $campaignLinks['PROJECTS'],
+            'ACCOUNTS' => $campaignLinks['ACCOUNTS'],
+            'STATISTICS' => $campaignLinks['STATISTICS'],
+        ], $this->dashboardNavigationLinks($html, 'nav-submenu-campaigns'));
+        $this->assertSame([], $this->dashboardNavigationLinks($html, 'nav-submenu-global-tests'));
+        $this->assertStringNotContainsString('aria-controls="nav-submenu-global-tests"', $html);
+        $this->assertStringContainsString('href="#"', $html);
+        $this->assertStringContainsString('aria-disabled="true" tabindex="-1"', $html);
+
+        $this->get(route('console.gcampaigns.projects', $privacyWorkspace->getKey()))
+            ->assertOk()
+            ->assertSee('aria-controls="nav-submenu-global-tests"', false);
+
+    }
+
     public function test_dashboard_quick_actions_use_role_authorized_get_pages_and_disable_unavailable_tracking(): void
     {
         $owner = User::factory()->create();
@@ -1102,6 +1173,26 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
         $workspace->users()->attach($user->getKey(), ['role' => $role]);
 
         return $workspace;
+    }
+
+    /** @return array<string, string> */
+    private function dashboardNavigationLinks(string $html, string $submenuId): array
+    {
+        $document = new \DOMDocument;
+        $previousErrors = libxml_use_internal_errors(true);
+        $document->loadHTML($html);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousErrors);
+
+        $xpath = new \DOMXPath($document);
+        $links = $xpath->query(sprintf('//*[@id="%s"]//a[@href and not(@aria-disabled="true") and not(@data-toggle="submenu")]', $submenuId));
+        $result = [];
+        foreach ($links as $link) {
+            $label = trim(preg_replace('/\s+/', ' ', $link->textContent) ?? '');
+            $result[$label] = $link->getAttribute('href');
+        }
+
+        return $result;
     }
 
     /** @return array<string, mixed> */

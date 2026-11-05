@@ -296,31 +296,6 @@ function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
         return () => window.clearInterval(interval);
     }, [payload.refresh.interval, refresh]);
 
-    useEffect(() => {
-        const page = document.getElementById('page-container');
-        const handleClick = (event: MouseEvent) => {
-            const target = event.target;
-            if (!(target instanceof Element)) return;
-
-            if (target.closest('[data-action="sidebar_open"]')) {
-                page?.classList.add('command-os-sidebar-open');
-            }
-            if (target.closest('[data-action="sidebar_close"]')) {
-                page?.classList.remove('command-os-sidebar-open');
-            }
-        };
-        const handleKeydown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') page?.classList.remove('command-os-sidebar-open');
-        };
-
-        document.addEventListener('click', handleClick);
-        document.addEventListener('keydown', handleKeydown);
-        return () => {
-            document.removeEventListener('click', handleClick);
-            document.removeEventListener('keydown', handleKeydown);
-        };
-    }, []);
-
     const checkedLabel = lastChecked
         ? `Last checked ${lastChecked.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
         : 'Auto refresh every 5 minutes';

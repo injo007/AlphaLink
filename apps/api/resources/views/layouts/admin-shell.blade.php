@@ -8,6 +8,8 @@
         };
         $isDropVisitorsPage = $routeIs('console.drops.visitors');
         $commandOsDashboard = $routeIs('console.dashboard.main', 'console.workspace.dashboard.main', 'console.analytics.index');
+        $canUseDashboardOperations = $commandOsDashboard && in_array($workspace->pivot->role ?? null, ['owner', 'admin', 'operator'], true);
+        $hideDashboardForbiddenDestinations = $commandOsDashboard && ! $canUseDashboardOperations;
         $usesGoogleCharts = $isDropVisitorsPage || $routeIs('console.campaigns.visitors');
         $usesAnalyticsCharts = $routeIs('console.analytics.*', 'console.dashboard.main', 'console.campaign-statistics.*');
         $usesAnalyticsPivot = $routeIs(
@@ -206,7 +208,7 @@
                 $serverNavigation[] = ['label' => 'PMTA', 'icon' => 'fas fa-desktop', 'href' => route('clean.console.pmta-admin.index'), 'active' => $isPmtaAdminPage, 'section' => 'servers'];
             }
         }
-        $navigation = [
+        $navigation = array_values(array_filter([
             ['label' => 'DASHBOARDS', 'icon' => 'fas fa-tachometer-alt', 'open' => $isDashboardPage, 'items' => [
                 ['label' => 'MAIN', 'icon' => 'fas fa-tachometer-alt', 'href' => route('console.dashboard.main'), 'active' => $isDashboardPage],
                 ['label' => 'ALL STATS', 'icon' => 'fas fa-hospital-alt', 'href' => route('clean.console.analytics.all-stats'), 'active' => $isDashboardAllStatsPage],
@@ -239,18 +241,18 @@
                 ['label' => 'SETTINGS', 'icon' => 'fas fa-cogs', 'href' => $appSettingsUrl, 'active' => $isAppSettingsPage],
                 ['label' => 'APP ERRORS', 'icon' => 'fas fa-exclamation-circle', 'href' => $appErrorsUrl, 'active' => $isAppErrorsPage],
             ]],
-            ['label' => 'CAMPAIGNS', 'id' => 'nav-submenu-campaigns', 'icon' => 'fas fa-envelope', 'open' => $isCampaignsPage || $isCampaignNegativesPage || $isAudienceMixesPage || $isGsendPage || $isCampaignStatisticsPage, 'items' => [
-                ['label' => 'SEND', 'icon' => 'fas fa-envelope', 'href' => $campaignsUrl, 'active' => $isCampaignsPage],
+            ['label' => 'CAMPAIGNS', 'id' => 'nav-submenu-campaigns', 'icon' => 'fas fa-envelope', 'open' => $isCampaignsPage || $isCampaignNegativesPage || $isAudienceMixesPage || $isGsendPage || $isCampaignStatisticsPage, 'items' => array_values(array_filter([
+                $hideDashboardForbiddenDestinations ? null : ['label' => 'SEND', 'icon' => 'fas fa-envelope', 'href' => $campaignsUrl, 'active' => $isCampaignsPage],
                 ['label' => 'GSEND', 'icon' => 'fab fa-google', 'open' => $isGsendPage, 'items' => [
                     ['label' => 'PROJECTS', 'icon' => 'fas fa-plus', 'href' => route('clean.console.gcampaigns.projects'), 'active' => $isWorkspaceProjectsPage],
                     ['label' => 'ACCOUNTS', 'icon' => 'fas fa-at', 'href' => route('clean.console.gcampaigns.accounts'), 'active' => $isWorkspaceAccountsPage],
                     ['label' => 'SEND', 'icon' => 'fas fa-envelope'],
                 ]],
-                ['label' => 'NEGATIVES', 'icon' => 'fas fa-sticky-note', 'href' => $campaignNegativesUrl, 'active' => $isCampaignNegativesPage],
-                ['label' => 'MIXS', 'icon' => 'fas fa-blender', 'href' => $mixesUrl, 'active' => $isAudienceMixesPage],
+                $hideDashboardForbiddenDestinations ? null : ['label' => 'NEGATIVES', 'icon' => 'fas fa-sticky-note', 'href' => $campaignNegativesUrl, 'active' => $isCampaignNegativesPage],
+                $hideDashboardForbiddenDestinations ? null : ['label' => 'MIXS', 'icon' => 'fas fa-blender', 'href' => $mixesUrl, 'active' => $isAudienceMixesPage],
                 ['label' => 'STATISTICS', 'icon' => 'fas fa-chart-line', 'href' => route('clean.console.campaign-statistics.index'), 'active' => $isCampaignStatisticsPage],
                 ['label' => 'LOGS', 'icon' => 'fas fa-eye'],
-            ]],
+            ]))],
             ['label' => 'DROPS', 'icon' => 'fas fa-paper-plane', 'open' => $isDropsPage, 'items' => [
                 ['label' => 'DROP DRAFTS', 'icon' => 'fas fa-paper-plane', 'href' => $dropDraftsUrl, 'active' => $isDropDraftIndexPage],
                 ['label' => 'NEW DROP DRAFT', 'icon' => 'fas fa-plus', 'href' => $dropDraftCreateUrl, 'active' => $isDropDraftEditorPage],
@@ -263,10 +265,10 @@
                 ['label' => 'SEEDS', 'icon' => 'fas fa-book', 'href' => $seedListsUrl, 'active' => $isSeedListsPage],
                 ['label' => 'STATISTICS', 'icon' => 'fas fa-chart-line', 'href' => $warmupStatisticsUrl, 'active' => $isWarmupStatisticsPage],
             ]],
-            ['label' => 'GLOBAL TESTS', 'icon' => 'fas fa-map-signs', 'open' => $isGlobalTestsPage || $isGlobalTestHistoriesPage, 'items' => [
-                ['label' => 'SEND', 'icon' => 'fas fa-map-signs', 'href' => $globalTestsUrl, 'active' => $isGlobalTestsPage],
-                ['label' => 'HISTORIES', 'icon' => 'fas fa-eye', 'href' => $globalTestHistoriesUrl, 'active' => $isGlobalTestHistoriesPage],
-            ]],
+            $hideDashboardForbiddenDestinations ? null : ['label' => 'GLOBAL TESTS', 'id' => 'nav-submenu-global-tests', 'icon' => 'fas fa-map-signs', 'open' => $isGlobalTestsPage || $isGlobalTestHistoriesPage, 'items' => array_values(array_filter([
+                $hideDashboardForbiddenDestinations ? null : ['label' => 'SEND', 'icon' => 'fas fa-map-signs', 'href' => $globalTestsUrl, 'active' => $isGlobalTestsPage],
+                $hideDashboardForbiddenDestinations ? null : ['label' => 'HISTORIES', 'icon' => 'fas fa-eye', 'href' => $globalTestHistoriesUrl, 'active' => $isGlobalTestHistoriesPage],
+            ]))],
             ['label' => 'SERVERS', 'icon' => 'fas fa-server', 'items' => $pmtaNavigation, 'open' => $isPmtaNavigationPage],
             ['label' => 'NETWORKS', 'icon' => 'fas fa-network-wired', 'open' => $isNetworkSponsorsPage || $isNetworkOffersPage, 'items' => [
                 ['label' => 'SPONSORS', 'icon' => 'fas fa-shopping-cart', 'href' => $networkSponsorsUrl, 'active' => $isNetworkSponsorsPage],
@@ -287,10 +289,10 @@
                 ['label' => 'TEXT MECHANIC', 'icon' => 'fas fa-circle', 'href' => route('clean.console.tools.text-mechanic'), 'active' => $isTextMechanicPage],
             ]],
             ['label' => 'CLOUDS', 'icon' => 'fas fa-cloud-sun', 'items' => $cloudNavigation, 'open' => $isCloudWorkflowPage],
-        ];
+        ]));
     @endphp
     <div id="page-container" class="sidebar-o enable-page-overlay sidebar-dark side-scroll page-header-fixed {{ $commandOsDashboard ? 'command-os-page' : 'sidebar-mini' }}">
-        <nav id="sidebar" aria-label="Main Navigation">
+        <nav id="sidebar" aria-label="Main Navigation" tabindex="-1">
             <div class="content-header bg-white-5">
                 <a class="font-w600 text-dual" href="{{ route('console.index') }}" aria-label="AlphaLink">
                     @if ($commandOsDashboard)
@@ -367,21 +369,28 @@
                 </div>
             </div>
         </nav>
+        @if ($commandOsDashboard)
+            <button type="button" class="command-os-sidebar-backdrop" data-action="sidebar_backdrop" aria-label="Close navigation" hidden tabindex="-1"></button>
+        @endif
         <header id="page-header">
             <div class="content-header">
                 <div class="d-flex align-items-center">
-                    <button type="button" class="btn btn-sm btn-dual mr-2 d-lg-none" data-toggle="layout" data-action="sidebar_open" aria-label="Open navigation"><i class="fa fa-fw fa-ellipsis-v"></i></button>
+                    <button type="button" class="btn btn-sm btn-dual mr-2 d-lg-none" data-toggle="layout" data-action="sidebar_open" aria-label="Open navigation" @if ($commandOsDashboard) aria-controls="sidebar" aria-expanded="false" @endif><i class="fa fa-fw fa-ellipsis-v"></i></button>
                     <button type="button" class="btn btn-sm btn-dual mr-2 d-none d-lg-inline-block" data-toggle="layout" data-action="sidebar_mini_toggle" aria-label="Toggle navigation width" aria-pressed="{{ $commandOsDashboard ? 'false' : 'true' }}"><i class="fa fa-fw fa-ellipsis-v"></i></button>
                     @if ($commandOsDashboard)
                         <button type="button" class="command-os-search-placeholder" disabled aria-label="Global search is planned for a later migration phase" title="Global search will be added after its permission-safe data contract is defined">
                             <i class="fas fa-search" aria-hidden="true"></i><span>Search across AlphaLink modules</span><kbd>⌘ K</kbd>
                         </button>
                     @endif
-                    <a class="btn btn-sm btn-dual mr-2" href="{{ $campaignsUrl }}" title="CAMPAIGNS" aria-label="Campaigns"><i class="fas fa-envelope"></i></a>
+                    @if (! $commandOsDashboard || $canUseDashboardOperations)
+                        <a class="btn btn-sm btn-dual mr-2" href="{{ $campaignsUrl }}" title="CAMPAIGNS" aria-label="Campaigns"><i class="fas fa-envelope"></i></a>
+                    @endif
                     @if ($canManagePmta)
                         <a class="btn btn-sm btn-dual mr-2" href="{{ $pmtaAdminUrl }}" title="PMTA ADMIN" aria-label="PMTA Admin"><i class="fas fa-desktop"></i></a>
                     @endif
-                    <a class="btn btn-sm btn-dual mr-2" href="{{ $globalTestsUrl }}" title="GLOBAL TEST" aria-label="Global Test"><i class="fas fa-map-signs"></i></a>
+                    @if (! $commandOsDashboard || $canUseDashboardOperations)
+                        <a class="btn btn-sm btn-dual mr-2" href="{{ $globalTestsUrl }}" title="GLOBAL TEST" aria-label="Global Test"><i class="fas fa-map-signs"></i></a>
+                    @endif
                 </div>
                 <div class="d-flex align-items-center">
                     @if ($commandOsDashboard)
@@ -422,6 +431,9 @@
     </div>
     <script src="{{ asset('console-assets/assets/js/script.js') }}"></script>
     <script src="{{ asset('console-assets/assets/js/app.js') }}"></script>
+    @if ($commandOsDashboard)
+        <script src="{{ asset('console-assets/command-os-drawer.js') }}" defer></script>
+    @endif
     @if ($isListsPage || $isListHistoryPage || $isSponsorManagementPage || $isNetworkSponsorsPage || $isOfferManagementPage || $isNetworkOffersPage || $isServerInstallPage || $isReinstallPage || $isChangeDomainPage || $isCloudProvidersPage || $isDomainProvidersPage || $isPmtaPage || $isDropsPage || $isWarmupDraftPage || $isWorkspaceToolPage || $routeIs('console.drops.suppression*', 'console.campaigns.create', 'console.campaigns.edit', 'console.campaigns.show', 'console.campaigns.clone', 'console.campaigns.index', 'console.mailer.campaigns'))
         <script src="{{ asset('console-assets/plugins/bootstrap_select/bootstrap-select.js') }}"></script>
     @endif

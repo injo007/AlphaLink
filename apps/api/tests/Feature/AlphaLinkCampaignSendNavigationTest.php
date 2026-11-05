@@ -21,7 +21,12 @@ class AlphaLinkCampaignSendNavigationTest extends TestCase
 
         $response = $this->actingAs($owner)->get($url)->assertOk();
 
+        $this->assertDoesNotMatchRegularExpression('/<button[^>]*data-action="sidebar_open"[^>]*aria-controls="sidebar"/', $response->getContent());
+        $this->assertDoesNotMatchRegularExpression('/<button[^>]*data-action="sidebar_open"[^>]*aria-expanded="false"/', $response->getContent());
+
         $response->assertSee('id="nav-submenu-campaigns"', false)
+            ->assertSee('href="'.route('console.mailer.campaigns').'" title="CAMPAIGNS" aria-label="Campaigns"', false)
+            ->assertSee('href="'.route('clean.console.global-tests.index').'" title="GLOBAL TEST" aria-label="Global Test"', false)
             ->assertSee('aria-expanded="true"', false)
             ->assertSee('class="nav-main-link active" href="'.$this->cleanWorkspaceUrl($url).'"', false)
             ->assertSee('aria-current="page"', false)
@@ -63,6 +68,24 @@ class AlphaLinkCampaignSendNavigationTest extends TestCase
         $this->actingAs($privacyOfficer)
             ->get(route('console.campaigns.index', $workspace->getKey()))
             ->assertForbidden();
+    }
+
+    public function test_privacy_officers_cannot_directly_open_hidden_dashboard_destinations(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->workspaceFor($owner, 'owner');
+        $privacyOfficer = User::factory()->create();
+        $workspace->users()->attach($privacyOfficer->getKey(), ['role' => 'privacy_officer']);
+
+        foreach ([
+            route('console.campaigns.index', $workspace->getKey()),
+            route('console.campaign-negatives.index', $workspace->getKey()),
+            route('console.audience-mixes.history', $workspace->getKey()),
+            route('console.global-tests.index', $workspace->getKey()),
+            route('console.global-tests.histories', $workspace->getKey()),
+        ] as $url) {
+            $this->actingAs($privacyOfficer)->get($url)->assertForbidden();
+        }
     }
 
     public function test_campaign_register_remains_workspace_scoped(): void

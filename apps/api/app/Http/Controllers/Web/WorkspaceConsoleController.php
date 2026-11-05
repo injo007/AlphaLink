@@ -1480,7 +1480,7 @@ class WorkspaceConsoleController extends Controller
             'send_setup.placeholder_inputs.*.data_text' => ['nullable', 'string'],
             'send_setup.placeholder_inputs.*.rotate_every' => ['required', 'integer', 'min:1'],
             'send_setup.bounce_limit' => ['sometimes', 'nullable', 'integer', 'min:0'],
-            'send_setup.total_send' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'send_setup.total_send' => ['sometimes', 'nullable', 'integer', 'min:0'],
             'send_setup.fraction_ip' => ['sometimes', 'nullable', 'integer', 'min:1'],
             'send_setup.sleep_email' => ['sometimes', 'nullable', 'integer', 'min:0'],
             'send_setup.sleep_ip' => ['sometimes', 'nullable', 'integer', 'min:0'],

@@ -3507,7 +3507,7 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
                         'from_asset_ids' => [],
                         'subject_asset_ids' => [],
                         'bounce_limit' => null,
-                        'total_send' => null,
+                        'total_send' => $fixture['kind'] === 'drop' ? 0 : null,
                         'fraction_ip' => null,
                         'sleep_email' => null,
                         'sleep_ip' => null,

@@ -1479,13 +1479,13 @@ class WorkspaceConsoleController extends Controller
             'send_setup.placeholder_inputs' => ['sometimes', 'array'],
             'send_setup.placeholder_inputs.*.data_text' => ['nullable', 'string'],
             'send_setup.placeholder_inputs.*.rotate_every' => ['required', 'integer', 'min:1'],
-            'send_setup.bounce_limit' => ['sometimes', 'integer', 'min:0'],
-            'send_setup.total_send' => ['sometimes', 'integer', 'min:1'],
-            'send_setup.fraction_ip' => ['sometimes', 'integer', 'min:1'],
-            'send_setup.sleep_email' => ['sometimes', 'integer', 'min:0'],
-            'send_setup.sleep_ip' => ['sometimes', 'integer', 'min:0'],
-            'send_setup.seed_every' => ['sometimes', 'integer', 'min:0'],
-            'send_setup.duplicate_data' => ['sometimes', 'integer', 'min:1'],
+            'send_setup.bounce_limit' => ['sometimes', 'nullable', 'integer', 'min:0'],
+            'send_setup.total_send' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'send_setup.fraction_ip' => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'send_setup.sleep_email' => ['sometimes', 'nullable', 'integer', 'min:0'],
+            'send_setup.sleep_ip' => ['sometimes', 'nullable', 'integer', 'min:0'],
+            'send_setup.seed_every' => ['sometimes', 'nullable', 'integer', 'min:0'],
+            'send_setup.duplicate_data' => ['sometimes', 'nullable', 'integer', 'min:1'],
         ]);
         $campaign = null;
         if (filled($data['test_campaign_id'] ?? null)) {

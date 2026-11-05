@@ -6,7 +6,7 @@
     const contextMenu = document.querySelector('#mailer-draft-context-menu');
     const composer = document.querySelector('#mailer-composer');
 
-    if (!quickNav || !trigger || !actionList || !overlay || !contextMenu || !composer) {
+    if (!quickNav || !trigger || !actionList || !overlay || !contextMenu || !composer || quickNav.dataset.alphalinkNavigationBound === 'true') {
         return;
     }
 
@@ -173,6 +173,19 @@
             return;
         }
 
+        if (link.hasAttribute('data-pmta-panel-link')) {
+            event.preventDefault();
+            let urls = [];
+            try {
+                urls = JSON.parse(link.dataset.selectedPanelUrls || '[]');
+            } catch (_) {
+                urls = [];
+            }
+            urls.forEach((url) => window.open(url, '_blank', 'noopener,noreferrer'));
+            closeContextMenu();
+            return;
+        }
+
         window.setTimeout(() => closeContextMenu(), 0);
     });
 
@@ -182,4 +195,6 @@
             setQuickNavOpen(true, true);
         }
     });
+
+    quickNav.dataset.alphalinkNavigationBound = 'true';
 })();

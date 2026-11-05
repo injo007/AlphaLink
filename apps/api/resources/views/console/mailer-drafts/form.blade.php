@@ -30,7 +30,14 @@
     $selectedIsp = old('send_setup.isp_id', $setup['isp_id'] ?? '');
     $selectedRoute = old('send_setup.route_option', $setup['route_option'] ?? 'ip');
     $selectedIpType = old('send_setup.ip_type', $setup['ip_type'] ?? 'all');
-    $selectedPanelServer = collect($sendOptions['servers'])->firstWhere('id', $selectedServers[0] ?? null);
+    $pmtaPanelTargets = collect($sendOptions['servers'])
+        ->mapWithKeys(fn (array $server): array => [(string) $server['id'] => $server['pmta_panel_display_url'] ?? $server['pmta_panel_url'] ?? null])
+        ->filter(fn ($url): bool => filled($url))
+        ->all();
+    $selectedPanelTargets = collect($selectedServers)
+        ->map(fn (string $serverId): ?string => $pmtaPanelTargets[$serverId] ?? null)
+        ->filter(fn ($url): bool => filled($url))
+        ->values();
     $body = old('html_body', $content['html_body'] ?? '');
     $header = old('header', $content['header'] ?? ($isDrop
         ? "MIME-version: 1.0\nContent-type: text/html\nTo: [to]\nfrom: [from] <info@[domain]>\nSubject: [subject]\nDate: [date]"
@@ -56,12 +63,8 @@
         @if ($isDrop)
             <li><a href="#" class="text-muted" aria-disabled="true" title="No verified Drop scheduling workflow is connected"><span>SCHEDULE — UNAVAILABLE</span><i class="fas fa-calendar-alt"></i></a></li>
         @endif
-        <li><a href="{{ route('clean.console.pmta-admin.index') }}"><span>PMTA ADMIN</span><i class="fas fa-grip-horizontal"></i></a></li>
-        @if ($selectedPanelServer && filled($selectedPanelServer['pmta_panel_display_url'] ?? $selectedPanelServer['pmta_panel_url'] ?? null))
-            <li><a href="{{ $selectedPanelServer['pmta_panel_display_url'] ?? $selectedPanelServer['pmta_panel_url'] }}" target="_blank" rel="noopener noreferrer"><span>PMTA PANEL — {{ $selectedPanelServer['name'] }}</span><i class="fas fa-server"></i></a></li>
-        @else
-            <li><a href="#" class="text-muted" aria-disabled="true" title="Select a server to open its read-only PMTA panel"><span>PMTA PANEL — SELECT A SERVER</span><i class="fas fa-server"></i></a></li>
-        @endif
+        <li><a href="{{ route('clean.console.pmta-admin.index', ['server_ids' => $selectedServers]) }}" data-pmta-admin-link target="_blank" rel="noopener noreferrer"><span>PMTA ADMIN</span><i class="fas fa-grip-horizontal"></i></a></li>
+        <li><a href="{{ $selectedPanelTargets->first() ?? '#' }}" data-pmta-panel-link data-pmta-panel-targets='@json($pmtaPanelTargets)' data-selected-panel-urls='@json($selectedPanelTargets)' target="_blank" rel="noopener noreferrer"><span>PMTA PANEL</span><i class="fas fa-server"></i></a></li>
         <li><a href="#" id="clear-mailer-params"><span>CLEAR PARAMS</span><i class="fas fa-trash"></i></a></li>
         <li><a href="{{ $indexUrl }}"><span>BACK TO {{ $isDrop ? 'DROP DRAFTS' : 'MY WARMUPS' }}</span><i class="fas fa-arrow-left"></i></a></li>
     </ul>
@@ -80,6 +83,9 @@
             @endif
         </h3>
         <div class="block-options d-flex align-items-center" style="gap:.5rem">
+            <a class="btn btn-sm btn-alt-secondary" href="{{ $indexUrl }}" aria-label="{{ $isDrop ? 'Back to Drop Drafts' : 'Back to My Warmups' }}">
+                <i class="fas fa-arrow-left mr-1" aria-hidden="true"></i>{{ $isDrop ? 'DROP DRAFTS' : 'MY WARMUPS' }}
+            </a>
             <span class="badge badge-secondary">DRAFT</span>
             <button type="button" class="btn-block-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle fullscreen"></button>
         </div>
@@ -254,6 +260,45 @@
     const isDrop = root.dataset.kind === 'drop';
     const byId = id => document.getElementById(id);
     const multiValues = element => Array.from(element?.selectedOptions || []).map(option => String(option.value));
+    const pmtaAdminLink = document.querySelector('[data-pmta-admin-link]');
+    const pmtaAdminBaseUrl = pmtaAdminLink?.getAttribute('href');
+    const pmtaPanelLink = document.querySelector('[data-pmta-panel-link]');
+    let pmtaPanelTargets = {};
+    try {
+        pmtaPanelTargets = JSON.parse(pmtaPanelLink?.dataset.pmtaPanelTargets || '{}');
+    } catch (_) {
+        pmtaPanelTargets = {};
+    }
+    const syncPmtaAdminUrl = () => {
+        if (!pmtaAdminLink || !pmtaAdminBaseUrl) return;
+        const url = new URL(pmtaAdminBaseUrl, window.location.href);
+        Array.from(url.searchParams.keys())
+            .filter(key => key === 'server_ids' || key.startsWith('server_ids['))
+            .forEach(key => url.searchParams.delete(key));
+        multiValues(byId('send-servers')).forEach(id => url.searchParams.append('server_ids[]', id));
+        pmtaAdminLink.href = url.toString();
+    };
+    const syncPmtaPanelUrls = () => {
+        if (!pmtaPanelLink) return;
+        const urls = multiValues(byId('send-servers'))
+            .map(id => pmtaPanelTargets[id])
+            .filter(url => typeof url === 'string' && url.length > 0);
+        pmtaPanelLink.href = urls[0] || '#';
+        pmtaPanelLink.dataset.selectedPanelUrls = JSON.stringify(urls);
+    };
+    pmtaAdminLink?.addEventListener('click', syncPmtaAdminUrl);
+    pmtaPanelLink?.addEventListener('click', event => {
+        syncPmtaPanelUrls();
+        const urls = JSON.parse(pmtaPanelLink.dataset.selectedPanelUrls || '[]');
+        if (urls.length === 0) {
+            event.preventDefault();
+            return;
+        }
+        if (urls.length > 1) {
+            event.preventDefault();
+            urls.forEach(url => window.open(url, '_blank', 'noopener,noreferrer'));
+        }
+    });
     if (window.ace) {
         const aceBase = @json(asset('console-assets/vendor/ace'));
         window.ace.config.set('basePath', aceBase);
@@ -362,6 +407,10 @@
             element.add(option);
         }
         if (window.jQuery?.fn?.selectpicker && element.classList.contains('selectpicker')) window.jQuery(element).selectpicker('refresh');
+        if (element.id === 'send-servers') {
+            syncPmtaAdminUrl();
+            syncPmtaPanelUrls();
+        }
     };
     const renderIpChoices = rows => {
         const values = byId('send-ips');
@@ -492,7 +541,11 @@
         refresh();
     });
     byId('reload-send-options')?.addEventListener('click', refresh);
-    byId('send-servers')?.addEventListener('change', refresh);
+    byId('send-servers')?.addEventListener('change', () => {
+        syncPmtaAdminUrl();
+        syncPmtaPanelUrls();
+        refresh();
+    });
     byId('mailer-ip-add')?.addEventListener('click', () => moveIpOptions('available-send-ips', 'selected-send-ips'));
     byId('mailer-ip-add-all')?.addEventListener('click', () => moveIpOptions('available-send-ips', 'selected-send-ips', true));
     byId('mailer-ip-remove')?.addEventListener('click', () => moveIpOptions('selected-send-ips', 'available-send-ips'));
@@ -509,6 +562,8 @@
         syncSegmentCount();
     });
     if (window.jQuery?.fn?.selectpicker) window.jQuery(form).find('.selectpicker').selectpicker();
+    syncPmtaAdminUrl();
+    syncPmtaPanelUrls();
     refresh();
 
     byId('add-saved-email')?.addEventListener('click', () => {
@@ -553,6 +608,131 @@
     document.querySelectorAll('[aria-disabled="true"]').forEach(element => element.addEventListener('click', event => event.preventDefault()));
     byId('clear-mailer-params')?.addEventListener('click', event => { event.preventDefault(); form.reset(); if (window.jQuery?.fn?.selectpicker) window.jQuery(form).find('.selectpicker').selectpicker('refresh'); refresh(); });
     document.querySelector('[data-save-draft]')?.addEventListener('click', event => { event.preventDefault(); form.requestSubmit(); });
+
+    const bindDraftNavigationFallback = () => {
+        const quickNav = document.querySelector('.quick-nav');
+        const trigger = quickNav?.querySelector('.quick-nav-trigger');
+        const actionList = byId('mailer-page-actions');
+        const overlay = document.querySelector('.quick-nav-overlay');
+        const contextMenu = byId('mailer-draft-context-menu');
+        if (!quickNav || !trigger || !actionList || !overlay || !contextMenu || quickNav.dataset.alphalinkNavigationBound === 'true') {
+            return;
+        }
+
+        const setOpen = open => {
+            contextMenu.hidden = true;
+            contextMenu.replaceChildren();
+            quickNav.classList.toggle('nav-is-visible', open);
+            trigger.setAttribute('aria-expanded', String(open));
+            trigger.setAttribute('aria-label', open ? 'Close page actions' : 'Open page actions');
+            actionList.setAttribute('aria-hidden', String(!open));
+        };
+        actionList.querySelectorAll(':scope > li > a').forEach(link => {
+            link.setAttribute('role', 'menuitem');
+            link.tabIndex = -1;
+        });
+        trigger.addEventListener('click', event => {
+            event.preventDefault();
+            event.stopPropagation();
+            setOpen(!quickNav.classList.contains('nav-is-visible'));
+            if (quickNav.classList.contains('nav-is-visible')) {
+                actionList.querySelector('[role="menuitem"]')?.focus({ preventScroll: true });
+            }
+        });
+        overlay.addEventListener('click', () => setOpen(false));
+        document.addEventListener('click', event => {
+            if (!quickNav.contains(event.target) && !contextMenu.contains(event.target)) {
+                setOpen(false);
+            }
+        });
+        document.addEventListener('contextmenu', event => {
+            if (!root.contains(event.target) || event.target.closest('input, textarea, select, button, a, [contenteditable="true"], .ace_editor, .bootstrap-select')) {
+                return;
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+            setOpen(false);
+            const items = [...actionList.querySelectorAll(':scope > li > a')].map(source => {
+                const link = source.cloneNode(true);
+                const originalId = link.id;
+                link.removeAttribute('id');
+                link.setAttribute('role', 'menuitem');
+                link.tabIndex = 0;
+                if (originalId === 'clear-mailer-params') {
+                    link.dataset.contextAction = 'clear-params';
+                }
+                return link;
+            });
+            const fragment = document.createDocumentFragment();
+            items.forEach(link => {
+                const item = document.createElement('li');
+                item.append(link);
+                fragment.append(item);
+            });
+            contextMenu.replaceChildren(fragment);
+            contextMenu.hidden = false;
+            const bounds = contextMenu.getBoundingClientRect();
+            const maxX = Math.max(4, document.documentElement.clientWidth - bounds.width - 4);
+            const maxY = Math.max(4, document.documentElement.clientHeight - bounds.height - 4);
+            contextMenu.style.left = `${Math.max(4, Math.min(event.clientX, maxX))}px`;
+            contextMenu.style.top = `${Math.max(4, Math.min(event.clientY, maxY))}px`;
+            contextMenu.querySelector('[role="menuitem"]')?.focus({ preventScroll: true });
+        });
+        contextMenu.addEventListener('click', event => {
+            const link = event.target.closest('a');
+            if (!link) {
+                return;
+            }
+            if (link.getAttribute('aria-disabled') === 'true') {
+                event.preventDefault();
+                return;
+            }
+            if (link.hasAttribute('data-save-draft')) {
+                event.preventDefault();
+                setOpen(false);
+                actionList.querySelector('[data-save-draft]')?.click();
+                return;
+            }
+            if (link.dataset.contextAction === 'clear-params') {
+                event.preventDefault();
+                setOpen(false);
+                actionList.querySelector('#clear-mailer-params')?.click();
+                return;
+            }
+            if (link.hasAttribute('data-pmta-panel-link')) {
+                event.preventDefault();
+                let urls = [];
+                try {
+                    urls = JSON.parse(link.dataset.selectedPanelUrls || '[]');
+                } catch (_) {
+                    urls = [];
+                }
+                urls.forEach(url => window.open(url, '_blank', 'noopener,noreferrer'));
+                setOpen(false);
+                return;
+            }
+            setOpen(false);
+        });
+        document.addEventListener('keydown', event => {
+            if (event.key !== 'Escape') {
+                return;
+            }
+            if (!contextMenu.hidden) {
+                setOpen(false);
+                trigger.focus({ preventScroll: true });
+            } else if (quickNav.classList.contains('nav-is-visible')) {
+                setOpen(false);
+                trigger.focus({ preventScroll: true });
+            }
+        });
+        quickNav.dataset.alphalinkNavigationBound = 'true';
+    };
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bindDraftNavigationFallback, { once: true });
+    } else {
+        bindDraftNavigationFallback();
+    }
 })();
 </script>
 <script src="{{ asset('alphalink/mailer-draft-navigation.js') }}?v={{ substr(sha1_file(public_path('alphalink/mailer-draft-navigation.js')), 0, 12) }}" defer></script>

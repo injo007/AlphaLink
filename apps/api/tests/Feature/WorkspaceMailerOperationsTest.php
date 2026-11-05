@@ -10,6 +10,7 @@ use App\Models\CampaignRecipientSnapshotItem;
 use App\Models\CampaignRevision;
 use App\Models\Contact;
 use App\Models\Isp;
+use App\Models\ManagedServer;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceOffer;
@@ -55,6 +56,10 @@ class WorkspaceMailerOperationsTest extends TestCase
         $this->assertStringContainsString('id="mailer-page-actions" role="menu"', $dropComposerHtml);
         $this->assertStringContainsString('id="mailer-draft-context-menu"', $dropComposerHtml);
         $this->assertStringContainsString('mailer-draft-navigation.js?v=', $dropComposerHtml);
+        $this->assertStringContainsString('href="'.route('clean.console.pmta-admin.index').'"', $dropComposerHtml);
+        $this->assertStringContainsString('data-pmta-panel-link', $dropComposerHtml);
+        $this->assertStringContainsString('No verified Drop or Warmup test workflow is connected', $dropComposerHtml);
+        $this->assertStringContainsString('Back to Drop Drafts', $dropComposerHtml);
         $this->assertStringContainsString('aria-label="Open page actions" aria-expanded="false"', $dropComposerHtml);
         $this->actingAs($owner)->get(route('console.warmups.index', $workspace->getKey()))
             ->assertOk()->assertSee('My Warmups')->assertSee('TOTAL SEND')->assertSee('CREATE WARMUP')
@@ -83,8 +88,53 @@ class WorkspaceMailerOperationsTest extends TestCase
         $this->assertStringContainsString('id="mailer-page-actions" role="menu"', $warmupComposerHtml);
         $this->assertStringContainsString('id="mailer-draft-context-menu"', $warmupComposerHtml);
         $this->assertStringContainsString('mailer-draft-navigation.js?v=', $warmupComposerHtml);
+        $this->assertStringContainsString('href="'.route('clean.console.pmta-admin.index').'"', $warmupComposerHtml);
+        $this->assertStringContainsString('No verified Drop or Warmup test workflow is connected', $warmupComposerHtml);
+        $this->assertStringContainsString('Back to My Warmups', $warmupComposerHtml);
         $this->actingAs($owner)->get(route('console.warmups.statistics', $workspace->getKey()))
             ->assertOk()->assertSee('Warmup Statistics')->assertSee('No Warmup actions in this date range');
+    }
+
+    public function test_pmta_menu_opens_admin_and_selected_server_panel_in_new_tabs(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->workspace($owner, 'owner');
+        $server = ManagedServer::query()->create([
+            'workspace_id' => $workspace->getKey(), 'name' => 'Synthetic PMTA',
+            'provider' => 'Synthetic provider', 'ip_address' => '198.51.100.36',
+            'ssh_port' => 22, 'ssh_username' => 'root', 'state' => 'verified',
+            'is_active' => true, 'is_installed' => true,
+            'idempotency_key' => (string) Str::uuid(), 'request_fingerprint' => str_repeat('d', 64),
+            'created_by' => $owner->getKey(),
+        ]);
+        $secondServer = ManagedServer::query()->create([
+            'workspace_id' => $workspace->getKey(), 'name' => 'Synthetic PMTA Second',
+            'provider' => 'Synthetic provider', 'ip_address' => '198.51.100.37',
+            'ssh_port' => 22, 'ssh_username' => 'root', 'state' => 'verified',
+            'is_active' => true, 'is_installed' => true,
+            'idempotency_key' => (string) Str::uuid(), 'request_fingerprint' => str_repeat('e', 64),
+            'created_by' => $owner->getKey(),
+        ]);
+
+        $html = $this->actingAs($owner)
+            ->withSession(['_old_input' => ['send_setup' => ['server_ids' => [(string) $server->getKey(), (string) $secondServer->getKey()]]]])
+            ->get(route('console.warmups.create', $workspace->getKey()))
+            ->assertOk()
+            ->getContent();
+
+        $adminUrl = route('clean.console.pmta-admin.index', ['server_ids' => [$server->getKey(), $secondServer->getKey()]]);
+        $this->assertStringContainsString('href="'.htmlspecialchars($adminUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8').'" data-pmta-admin-link target="_blank" rel="noopener noreferrer"><span>PMTA ADMIN', $html);
+        $this->assertStringContainsString("url.searchParams.append('server_ids[]', id)", $html);
+        $this->assertStringContainsString('data-pmta-panel-link', $html);
+        preg_match('/data-selected-panel-urls=\'([^\']*)\'/u', $html, $selectedPanelUrlsMatch);
+        $selectedPanelUrls = json_decode(htmlspecialchars_decode($selectedPanelUrlsMatch[1] ?? '', ENT_QUOTES), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertCount(2, $selectedPanelUrls);
+        $this->assertStringContainsString((string) $server->getKey(), $selectedPanelUrls[0]);
+        $this->assertStringContainsString((string) $secondServer->getKey(), $selectedPanelUrls[1]);
+        $this->assertStringContainsString("window.open(url, '_blank', 'noopener,noreferrer')", $html);
+        $this->assertStringContainsString("quickNav.dataset.alphalinkNavigationBound === 'true'", file_get_contents(public_path('alphalink/mailer-draft-navigation.js')));
+        $this->assertStringContainsString("quickNav.dataset.alphalinkNavigationBound = 'true'", file_get_contents(public_path('alphalink/mailer-draft-navigation.js')));
+        $this->assertStringContainsString('target="_blank" rel="noopener noreferrer"><span>PMTA PANEL</span>', $html);
     }
 
     public function test_drop_drafts_save_workspace_selections_and_create_immutable_revisions(): void

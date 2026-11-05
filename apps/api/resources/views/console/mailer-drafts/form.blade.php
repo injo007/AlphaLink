@@ -10,6 +10,11 @@
     $selectedEmailTypes = array_map('strval', old('send_setup.email_types', $setup['email_types'] ?? []));
     $selectedServers = array_map('strval', old('send_setup.server_ids', $setup['server_ids'] ?? []));
     $selectedIps = array_map('strval', old('send_setup.ip_ids', $setup['ip_ids'] ?? []));
+    $selectedEmailTestAddresses = old('email_test_addresses', $content['email_test_addresses'] ?? []);
+    if (! is_array($selectedEmailTestAddresses)) {
+        $selectedEmailTestAddresses = preg_split('/[\r\n,;]+/', (string) $selectedEmailTestAddresses, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+    }
+    $selectedEmailTestAddresses = array_map(fn ($address): string => trim((string) $address), $selectedEmailTestAddresses);
     $emailTestText = old('email_test_addresses_text', implode("\n", $content['email_test_addresses'] ?? []));
     $placeholderRows = collect($setup['placeholders'] ?? [])->map(fn (array $row): array => [
         'data_text' => implode("\n", $row['data'] ?? []),
@@ -138,7 +143,7 @@
 
             <div class="form-row">
                 <div class="form-group col-sm-12 col-md-4"><label for="return_path">Return Path:</label><input id="return_path" name="return_path" type="text" class="form-control" maxlength="320" placeholder="Return Path" value="{{ old('return_path', $content['return_path'] ?? '[rnd]@[domain]') }}"></div>
-                <div class="form-group col-sm-12 col-md-4"><label for="saved-emails">Saved Emails:</label><div class="input-group"><select id="saved-emails" class="form-control selectpicker" multiple data-actions-box="true" data-live-search="true" data-selected-text-format="count > 1" data-size="5" title="Select Emails">@foreach ($savedEmails as $savedEmail)<option value="{{ $savedEmail->email }}" @selected(in_array($savedEmail->email, old('email_test_addresses', $content['email_test_addresses'] ?? []), true))>{{ $savedEmail->email }}</option>@endforeach</select><div class="input-group-append"><button type="button" id="add-saved-email" class="btn btn-success" title="Add saved email to test addresses"><i class="fas fa-plus"></i></button></div></div></div>
+                <div class="form-group col-sm-12 col-md-4"><label for="saved-emails">Saved Emails:</label><div class="input-group"><select id="saved-emails" class="form-control selectpicker" multiple data-actions-box="true" data-live-search="true" data-selected-text-format="count > 1" data-size="5" title="Select Emails">@foreach ($savedEmails as $savedEmail)<option value="{{ $savedEmail->email }}" @selected(in_array($savedEmail->email, $selectedEmailTestAddresses, true))>{{ $savedEmail->email }}</option>@endforeach</select><div class="input-group-append"><button type="button" id="add-saved-email" class="btn btn-success" title="Add saved email to test addresses"><i class="fas fa-plus"></i></button></div></div></div>
                 <div class="form-group col-sm-12 col-md-4"><label for="email-test-addresses">{{ $isDrop ? 'Emails Test' : 'Email Test' }}:</label><textarea id="email-test-addresses" name="email_test_addresses_text" rows="1" class="form-control" placeholder="Email Test">{{ $emailTestText }}</textarea></div>
             </div>
 

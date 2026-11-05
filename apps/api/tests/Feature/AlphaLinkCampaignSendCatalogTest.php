@@ -25,6 +25,7 @@ use App\Models\SendingDomain;
 use App\Models\SuppressionEvent;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Models\WorkspaceCampaignTestAddress;
 use App\Models\WorkspaceGoogleAccount;
 use App\Models\WorkspaceGoogleProject;
 use App\Models\WorkspaceOffer;
@@ -3450,6 +3451,14 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
         ]);
         $workspace->infrastructureSettings()->create(['pmta_port' => 2525]);
 
+        foreach (['drop-qa@example.test', 'warmup-qa@example.test'] as $savedAddress) {
+            WorkspaceCampaignTestAddress::query()->create([
+                'workspace_id' => $workspace->getKey(),
+                'user_id' => $owner->getKey(),
+                'email' => $savedAddress,
+            ]);
+        }
+
         $sentRecipients = [];
         $transport = Mockery::mock(SmtpTransport::class);
         $transport->shouldReceive('start')->twice();
@@ -3512,9 +3521,23 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
                 ->assertDontSee('TEST — UNAVAILABLE')->assertDontSee('SEND DROP — UNAVAILABLE')
                 ->assertDontSee('CREATE & SEND WARMUP — UNAVAILABLE');
 
-            $this->actingAs($owner)->postJson(route('console.campaigns.auto-test', [$workspace->getKey(), $campaign->getKey()]), [
-                'idempotency_key' => (string) Str::uuid(),
-            ])->assertOk()->assertJsonPath('outcome', 'accepted_by_transport');
+            if ($fixture['kind'] === 'warmup') {
+                $editUrl = route('clean.console.warmups.edit', $campaign->getKey());
+                $this->actingAs($owner)->from($editUrl)
+                    ->post(route('console.campaigns.auto-test', [$workspace->getKey(), $campaign->getKey()]), [
+                        'idempotency_key' => (string) Str::uuid(),
+                    ])
+                    ->assertRedirect($editUrl)
+                    ->assertSessionHas('status');
+
+                $this->get($editUrl)
+                    ->assertOk()
+                    ->assertSee('value="warmup-qa@example.test" selected', false);
+            } else {
+                $this->actingAs($owner)->postJson(route('console.campaigns.auto-test', [$workspace->getKey(), $campaign->getKey()]), [
+                    'idempotency_key' => (string) Str::uuid(),
+                ])->assertOk()->assertJsonPath('outcome', 'accepted_by_transport');
+            }
         }
 
         $this->assertSame(['drop-qa@example.test', 'warmup-qa@example.test'], $sentRecipients);

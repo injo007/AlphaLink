@@ -44,6 +44,7 @@ class WorkspaceMailerOperationsTest extends TestCase
         $this->assertStringContainsString('data-name-prefix="send_setup[placeholder_inputs]"', $dropComposerHtml);
         $this->assertStringContainsString('data-placeholder-combination', $dropComposerHtml);
         $this->assertStringContainsString('data-placeholder-all-combination', $dropComposerHtml);
+        $this->assertStringContainsString('campaign-placeholder-editor.js?v=', $dropComposerHtml);
         $this->assertStringContainsString('id="send-ips" name="send_setup[ip_ids][]"', $dropComposerHtml);
         $this->assertStringContainsString('id="available-send-ips"', $dropComposerHtml);
         $this->assertStringContainsString('id="selected-send-ips"', $dropComposerHtml);
@@ -67,6 +68,7 @@ class WorkspaceMailerOperationsTest extends TestCase
         $this->assertStringContainsString('data-name-prefix="placeholder_inputs"', $warmupComposerHtml);
         $this->assertStringContainsString('name="placeholder_combination"', $warmupComposerHtml);
         $this->assertStringContainsString('name="placeholder_all_combination"', $warmupComposerHtml);
+        $this->assertStringContainsString('campaign-placeholder-editor.js?v=', $warmupComposerHtml);
         $this->assertStringContainsString('id="send-ips" name="ip_ids[]"', $warmupComposerHtml);
         $this->assertStringContainsString('id="available-send-ips"', $warmupComposerHtml);
         $this->assertStringContainsString('id="selected-send-ips"', $warmupComposerHtml);

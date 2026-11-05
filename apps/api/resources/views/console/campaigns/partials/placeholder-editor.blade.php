@@ -43,6 +43,6 @@
 
 @once
     @push('scripts')
-        <script src="{{ asset('alphalink/campaign-placeholder-editor.js') }}" defer></script>
+        <script src="{{ asset('alphalink/campaign-placeholder-editor.js') }}?v={{ substr(sha1_file(public_path('alphalink/campaign-placeholder-editor.js')), 0, 12) }}" defer></script>
     @endpush
 @endonce

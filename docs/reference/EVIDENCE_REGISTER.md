@@ -1061,3 +1061,12 @@ Rendered dashboard shell feature coverage verifies Campaigns and Global Test hea
 Refined `command-os-geo-map.tsx`, `command-os-graph.tsx`, and `command-os.css`: strengthened the dotted world-map palette for light/dark themes, widened the map beside its country summary, added colored module icons to the radial graph, and replaced the plain center letter with an AlphaLink mark. Authenticated production browser review at 1643×925 confirms both themes, map/graph rendering, and selection of a graph module. The selected live range has no country-coded rows; the map shows its empty state without fabricated activity markers. No production record values were copied into this report.
 
 `npm run typecheck` and `npm run build` pass; Vite transformed 2,667 modules. The existing large lazy MapLibre chunk warning remains. Release `11d0398a82db5edd06edc5d2944c25c4b99abaad` was pushed and deployed by the guarded installer; PostgreSQL backup verified, no migrations pending, services restored, HTTPS health passed. Tablet/mobile browser verification remains open, as does the independent Sol review (usage limit). Keep DMS-DASH-001 TESTING; no parity claim is made.
+
+
+### E-DASH-41 — Dashboard visualization polish — 2026-11-06
+
+Updated the dashboard presentation layer: the performance chart uses theme-aware gradient areas, stronger line emphasis and a more legible tooltip; the GEO map uses higher-contrast dotted fills and surfaced country cards; the Marketing Graph uses `/console-assets/alphalink-command-os-mark.png` as its center hub with more legible module pills, luminous spokes and a subtle radial field. Existing ECharts/MapLibre/React dependencies and backend contracts are unchanged.
+
+`npm run typecheck`, `npm run build` (2,667 modules transformed), and `git diff --check` pass. Authenticated `baseheavy.shop` verification confirms the graph mark and node selection in both themes. A 390 × 844 responsive check confirms the map/graph stack and fit all graph nodes; measured document/body width was 375px against a 390px viewport. The selected period contains no country-coded activity; no map markers or values were invented.
+
+Commit `c71af99fc9781b81d34288bb696f746a94117653` is pushed to `codex/alphalink-identity-reconstruction` and deployed by the guarded installer. PostgreSQL backup `/var/backups/alphalink/deploy-c71af99fc9781b81d34288bb696f746a94117653-20261106T093000Z.dump` was verified, no migrations were pending, services were restored, and HTTPS health passed. This is visual evidence only; dashboard parity remains TESTING.

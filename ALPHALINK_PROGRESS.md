@@ -2,7 +2,7 @@
 
 **Updated:** 2026-11-06
 **Active objective:** Complete the responsive AlphaLink Command OS dashboard analytics phase, including date-filtered Sponsor, Mailer and Top Offers panels, a live Marketing Graph, and GEO performance visualization. Preserve existing routes, permissions and business logic; display only workspace-scoped sourced data and state missing denominators clearly.
-**Status:** Dashboard analytics and the GEO map/Marketing Graph visual refinement are deployed through `11d0398`. Authenticated production checks pass in desktop light and dark themes, including graph-node selection. The dashboard phase remains open pending narrow-width verification, remaining data-contract checks, and the independent Sol audit.
+**Status:** Dashboard analytics and visualization polish are deployed through `c71af99`. Production checks pass in light and dark themes, including the actual AlphaLink logo in the graph center and graph-node selection. At 390px, the graph nodes fit and the page has no horizontal overflow. The phase remains open for remaining data-contract checks and the independent Sol audit.
 
 ## Current dashboard goal and delivery gates
 
@@ -10,7 +10,7 @@
 
 **Role split:** Luna implements the scoped changes. Sol orchestrates the phase gates and independently audits the implementation before closure. The existing Sol audit agent is currently unavailable because it hit its usage limit; automated and browser evidence will be recorded, and the independent Sol review remains open until it can run.
 
-**Latest slice — E-DASH-40:** Increased dotted-map contrast and gave the map more room beside its country summary. Added color-coded module icons and the AlphaLink mark to the radial graph. Production browser verification confirms both themes and the graph selection state. The tested range has no country-coded activity, so the map correctly shows no activity markers. Narrow viewport checks and independent Sol review remain open.
+**Latest slice — E-DASH-41:** Replaced the graph’s hand-drawn center symbol with the exact AlphaLink mark asset, strengthened the module spokes and node pills, upgraded the performance chart’s theme-aware gradients and glow, and improved GEO map contrast and country panels. Production verification passed in light/dark themes and at 390px; graph selection still works. The selected range has no country-coded activity, so the map correctly shows its empty state. Remaining data-contract checks and independent Sol review remain open.
 
 1. **Lock the data contract.** Use the current workspace analytics store and authenticated dashboard scope. Confirm each metric's source, operator/workspace permission boundary, target-versus-observed GEO semantics, empty state, and refresh behavior. Never expose recipient addresses, raw IPs, or provider credentials.
 2. **Add the shared date filter and attribution panels.** Provide Today, Yesterday, This week, This month, Last month, and Custom inclusive dates. Show Sponsor Analytics, Mailer Analytics and Top Offers using attributed lead revenue and stored activity totals. Preserve the existing Last 30 Days cards and chart semantics.

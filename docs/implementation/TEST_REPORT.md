@@ -1585,3 +1585,11 @@ Read-only DMS GET of `/mailer/tools/workspace` returned HTTP 200 through the GET
 Refined `command-os-geo-map.tsx`, `command-os-graph.tsx`, and `command-os.css`: strengthened the dotted world-map palette for light/dark themes, widened the map beside its country summary, added colored module icons to the radial graph, and replaced the plain center letter with an AlphaLink mark. Authenticated production browser review at 1643×925 confirms both themes, map/graph rendering, and selection of a graph module. The selected live range has no country-coded rows; the map shows its empty state without fabricated activity markers. No production record values were copied into this report.
 
 `npm run typecheck` and `npm run build` pass; Vite transformed 2,667 modules. The existing large lazy MapLibre chunk warning remains. Release `11d0398a82db5edd06edc5d2944c25c4b99abaad` was pushed and deployed by the guarded installer; PostgreSQL backup verified, no migrations pending, services restored, HTTPS health passed. Tablet/mobile browser verification remains open, as does the independent Sol review (usage limit). Keep DMS-DASH-001 TESTING; no parity claim is made.
+
+
+### E-DASH-41 — Dashboard visualization polish — 2026-11-06
+
+- `npm run typecheck` and `npm run build` pass; Vite transformed 2,667 modules. The existing >500 kB MapLibre lazy-chunk advisory remains. `git diff --check` passes. No dependencies were added.
+- Authenticated production browser checks on `baseheavy.shop` confirm light/dark styling, the AlphaLink mark in the Marketing Graph center, and a working graph-node selection. At 390 × 844, the map and graph stack cleanly, all graph modules fit, and document/body width (375px) stays below the viewport (390px).
+- Release `c71af99fc9781b81d34288bb696f746a94117653` is pushed to `codex/alphalink-identity-reconstruction` and active on Ubuntu production. The guarded installer applied no migrations, restored required services, passed HTTPS health, and verified backup `/var/backups/alphalink/deploy-c71af99fc9781b81d34288bb696f746a94117653-20261106T093000Z.dump`.
+- The currently selected period has no country-coded activity, and the GEO panel correctly remains in its sourced empty state. Remaining dashboard data-contract checks and the independent Sol review are open; keep the dashboard phase TESTING.

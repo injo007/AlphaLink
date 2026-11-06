@@ -446,6 +446,7 @@
         .campaign-register-table tbody tr:first-child td { border-top: 0; }
         .campaign-register-table tbody tr:hover td { background: color-mix(in srgb, var(--co-purple) 4%, var(--co-surface)); }
         .campaign-register-table [data-campaign-column="campaign"] { min-width: 138px; }
+        .campaign-register-table [data-campaign-column="offer"] { min-width: 220px; max-width: 300px; line-height: 1.4; }
         .campaign-register-table [data-campaign-column="campaign"] a { color: var(--co-purple); font-size: 10px; font-weight: 800; }
         .campaign-register-table [data-campaign-column="campaign"] .small { display: block; max-width: 170px; margin-top: 3px; color: var(--co-muted) !important; font-size: 9px; line-height: 1.4; }
         .campaign-register-table [data-campaign-column="actions"] { min-width: 214px; }

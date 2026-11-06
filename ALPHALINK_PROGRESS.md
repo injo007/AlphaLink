@@ -2,13 +2,15 @@
 
 **Updated:** 2026-11-06
 **Active objective:** Complete the responsive AlphaLink Command OS dashboard analytics phase, including date-filtered Sponsor, Mailer and Top Offers panels, a live Marketing Graph, and GEO performance visualization. Preserve existing routes, permissions and business logic; display only workspace-scoped sourced data and state missing denominators clearly.
-**Status:** The first dashboard analytics implementation is deployed in `fd74e30`; this visual refinement slice is in progress. The dashboard phase remains open until its browser and release gates pass.
+**Status:** Dashboard analytics and the GEO map/Marketing Graph visual refinement are deployed through `11d0398`. Authenticated production checks pass in desktop light and dark themes, including graph-node selection. The dashboard phase remains open pending narrow-width verification, remaining data-contract checks, and the independent Sol audit.
 
 ## Current dashboard goal and delivery gates
 
 **Goal:** Turn the Command OS dashboard into a fast, responsive workspace operations center that adds useful Sponsor/Mailer/Offer analytics and interactive graph/GEO views without changing existing AlphaLink workflows or implying unsupported data.
 
 **Role split:** Luna implements the scoped changes. Sol orchestrates the phase gates and independently audits the implementation before closure. The existing Sol audit agent is currently unavailable because it hit its usage limit; automated and browser evidence will be recorded, and the independent Sol review remains open until it can run.
+
+**Latest slice — E-DASH-40:** Increased dotted-map contrast and gave the map more room beside its country summary. Added color-coded module icons and the AlphaLink mark to the radial graph. Production browser verification confirms both themes and the graph selection state. The tested range has no country-coded activity, so the map correctly shows no activity markers. Narrow viewport checks and independent Sol review remain open.
 
 1. **Lock the data contract.** Use the current workspace analytics store and authenticated dashboard scope. Confirm each metric's source, operator/workspace permission boundary, target-versus-observed GEO semantics, empty state, and refresh behavior. Never expose recipient addresses, raw IPs, or provider credentials.
 2. **Add the shared date filter and attribution panels.** Provide Today, Yesterday, This week, This month, Last month, and Custom inclusive dates. Show Sponsor Analytics, Mailer Analytics and Top Offers using attributed lead revenue and stored activity totals. Preserve the existing Last 30 Days cards and chart semantics.

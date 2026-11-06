@@ -135,4 +135,8 @@ test('Ctrl/Command+K opens search and Escape closes it with focus restored', () 
     state.input.listeners.keydown({ key: 'Escape', preventDefault() {} });
     assert.equal(state.dialog.open, false);
     assert.equal(browser.activeElement, state.trigger);
+
+    const macState = createBrowser();
+    macState.documentListeners.keydown({ key: 'k', ctrlKey: false, metaKey: true, altKey: false, target: macState.trigger, preventDefault() {} });
+    assert.equal(macState.dialog.open, true);
 });

@@ -127,16 +127,16 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
     public function test_dashboard_nested_campaign_and_global_test_links_match_the_workspace_role(): void
     {
         $campaignLinks = [
-            'SEND' => route('console.mailer.campaigns'),
-            'PROJECTS' => route('clean.console.gcampaigns.projects'),
-            'ACCOUNTS' => route('clean.console.gcampaigns.accounts'),
-            'NEGATIVES' => route('clean.console.campaign-negatives.index'),
-            'MIXS' => route('clean.console.audience-mixes.history'),
-            'STATISTICS' => route('clean.console.campaign-statistics.index'),
+            'Send' => route('console.mailer.campaigns'),
+            'Projects' => route('clean.console.gcampaigns.projects'),
+            'Accounts' => route('clean.console.gcampaigns.accounts'),
+            'Negatives' => route('clean.console.campaign-negatives.index'),
+            'Mixs' => route('clean.console.audience-mixes.history'),
+            'Statistics' => route('clean.console.campaign-statistics.index'),
         ];
         $globalTestLinks = [
-            'SEND' => route('clean.console.global-tests.index'),
-            'HISTORIES' => route('clean.console.global-tests.histories'),
+            'Send' => route('clean.console.global-tests.index'),
+            'Histories' => route('clean.console.global-tests.histories'),
         ];
 
         foreach (['owner', 'admin', 'operator'] as $role) {
@@ -156,9 +156,9 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
         $html = $this->actingAs($privacyOfficer)->get(route('console.dashboard.main'))->assertOk()->getContent();
 
         $this->assertSame([
-            'PROJECTS' => $campaignLinks['PROJECTS'],
-            'ACCOUNTS' => $campaignLinks['ACCOUNTS'],
-            'STATISTICS' => $campaignLinks['STATISTICS'],
+            'Projects' => $campaignLinks['Projects'],
+            'Accounts' => $campaignLinks['Accounts'],
+            'Statistics' => $campaignLinks['Statistics'],
         ], $this->dashboardNavigationLinks($html, 'nav-submenu-campaigns'));
         $this->assertSame([], $this->dashboardNavigationLinks($html, 'nav-submenu-global-tests'));
         $this->assertStringNotContainsString('aria-controls="nav-submenu-global-tests"', $html);

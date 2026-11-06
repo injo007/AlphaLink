@@ -310,6 +310,23 @@
             </div>
             <div class="js-sidebar-scroll">
                 <div class="content-side">
+                    @php
+                        $commandOsNavLabel = static function (string $label) use ($commandOsDashboard): string {
+                            if (! $commandOsDashboard) {
+                                return $label;
+                            }
+
+                            $acronyms = [
+                                'api' => 'API', 'geo' => 'GEO', 'gsend' => 'GSend', 'ip' => 'IP', 'ips' => 'IPs',
+                                'isp' => 'ISP', 'isps' => 'ISPs', 'pmta' => 'PMTA', 'spf' => 'SPF', 'smtp' => 'SMTP', 'vmta' => 'VMTA',
+                            ];
+                            $words = preg_split('/\s+/u', mb_strtolower(trim($label)), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+                            return collect($words)
+                                ->map(fn (string $word) => $acronyms[$word] ?? \Illuminate\Support\Str::title($word))
+                                ->implode(' ');
+                        };
+                    @endphp
                     <ul class="nav-main">
                         @foreach ($navigation as $groupIndex => $group)
                             @if (($group['requires_management'] ?? false) && ! $canManageSponsors)
@@ -321,7 +338,7 @@
                             @if (isset($group['href']))
                                 <li class="nav-main-item {{ ($group['section'] ?? null) === 'servers' ? 'nav-server-item' : '' }}">
                                     <a class="nav-main-link {{ ($group['active'] ?? false) ? 'active' : '' }}" href="{{ $group['href'] }}" @if ($group['disabled'] ?? false) aria-disabled="true" tabindex="-1" @endif @if (($group['active'] ?? false)) aria-current="page" @endif>
-                                        <i class="nav-main-link-icon {{ $group['icon'] }}"></i><span class="nav-main-link-name">{{ $group['label'] }}</span>
+                                        <i class="nav-main-link-icon {{ $group['icon'] }}"></i><span class="nav-main-link-name">{{ $commandOsNavLabel($group['label']) }}</span>
                                     </a>
                                 </li>
                             @else
@@ -333,7 +350,7 @@
                                 @endphp
                                 <li class="nav-main-item {{ $groupIsOpen ? 'open' : '' }}">
                                     <a class="nav-main-link nav-main-link-submenu {{ $groupIsActive ? 'active' : '' }}" href="#" data-toggle="submenu" aria-expanded="{{ $groupIsOpen ? 'true' : 'false' }}" aria-controls="{{ $groupSubmenuId }}">
-                                        <i class="nav-main-link-icon {{ $group['icon'] }}"></i><span class="nav-main-link-name">{{ $group['label'] }}</span>
+                                        <i class="nav-main-link-icon {{ $group['icon'] }}"></i><span class="nav-main-link-name">{{ $commandOsNavLabel($group['label']) }}</span>
                                     </a>
                                     @if ($group['items'] !== [])
                                         <ul class="nav-main-submenu" id="{{ $groupSubmenuId }}">
@@ -342,20 +359,20 @@
                                                 <li class="nav-main-item {{ ($item['section'] ?? null) === 'servers' ? 'nav-server-item' : '' }} {{ $itemIsOpen ? 'open' : '' }}">
                                                     @if (isset($item['items']))
                                                         <a class="nav-main-link nav-main-link-submenu" href="#" data-toggle="submenu" aria-expanded="{{ $itemIsOpen ? 'true' : 'false' }}">
-                                                            <i class="nav-main-link-icon {{ $item['icon'] }}"></i><span class="nav-main-link-name">{{ $item['label'] }}</span>
+                                                            <i class="nav-main-link-icon {{ $item['icon'] }}"></i><span class="nav-main-link-name">{{ $commandOsNavLabel($item['label']) }}</span>
                                                         </a>
                                                         <ul class="nav-main-submenu">
                                                             @foreach ($item['items'] as $nestedItem)
                                                                 <li class="nav-main-item">
                                                                     <a class="nav-main-link {{ ($nestedItem['active'] ?? false) ? 'active' : '' }}" href="{{ $nestedItem['href'] ?? '#' }}" @if (! isset($nestedItem['href'])) aria-disabled="true" tabindex="-1" @endif @if (($nestedItem['active'] ?? false)) aria-current="page" @endif>
-                                                                        <i class="nav-main-link-icon {{ $nestedItem['icon'] }}"></i><span class="nav-main-link-name">{{ $nestedItem['label'] }}</span>
+                                                                        <i class="nav-main-link-icon {{ $nestedItem['icon'] }}"></i><span class="nav-main-link-name">{{ $commandOsNavLabel($nestedItem['label']) }}</span>
                                                                     </a>
                                                                 </li>
                                                             @endforeach
                                                         </ul>
                                                     @else
                                                         <a class="nav-main-link {{ ($item['active'] ?? false) ? 'active' : '' }}" href="{{ $item['href'] ?? '#' }}" @if (! isset($item['href'])) aria-disabled="true" tabindex="-1" @endif @if (($item['active'] ?? false)) aria-current="page" @endif>
-                                                            <i class="nav-main-link-icon {{ $item['icon'] }}"></i><span class="nav-main-link-name">{{ $item['label'] }}</span>
+                                                            <i class="nav-main-link-icon {{ $item['icon'] }}"></i><span class="nav-main-link-name">{{ $commandOsNavLabel($item['label']) }}</span>
                                                         </a>
                                                     @endif
                                                 </li>
@@ -375,8 +392,8 @@
         <header id="page-header">
             <div class="content-header">
                 <div class="d-flex align-items-center">
-                    <button type="button" class="btn btn-sm btn-dual mr-2 d-lg-none" data-toggle="layout" data-action="sidebar_open" aria-label="Open navigation" @if ($commandOsDashboard) aria-controls="sidebar" aria-expanded="false" @endif><i class="fa fa-fw fa-ellipsis-v"></i></button>
-                    <button type="button" class="btn btn-sm btn-dual mr-2 d-none d-lg-inline-block" data-toggle="layout" data-action="sidebar_mini_toggle" aria-label="Toggle navigation width" aria-pressed="{{ $commandOsDashboard ? 'false' : 'true' }}"><i class="fa fa-fw fa-ellipsis-v"></i></button>
+                    <button type="button" class="btn btn-sm btn-dual mr-2 d-lg-none" data-toggle="layout" data-action="sidebar_open" aria-label="Open navigation" @if ($commandOsDashboard) aria-controls="sidebar" aria-expanded="false" @endif><i class="fa fa-fw {{ $commandOsDashboard ? 'fa-bars' : 'fa-ellipsis-v' }}"></i></button>
+                    <button type="button" class="btn btn-sm btn-dual mr-2 d-none d-lg-inline-block" data-toggle="layout" data-action="sidebar_mini_toggle" aria-label="Toggle navigation width" aria-pressed="{{ $commandOsDashboard ? 'false' : 'true' }}"><i class="fa fa-fw {{ $commandOsDashboard ? 'fa-bars' : 'fa-ellipsis-v' }}"></i></button>
                     @if ($commandOsDashboard)
                         <button type="button" class="command-os-search-placeholder" disabled aria-label="Global search is planned for a later migration phase" title="Global search will be added after its permission-safe data contract is defined">
                             <i class="fas fa-search" aria-hidden="true"></i><span>Search across AlphaLink modules</span><kbd>⌘ K</kbd>

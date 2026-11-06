@@ -2,8 +2,8 @@
 
 **Owner:** Luna implements the UI slices; Sol coordinates the roadmap and audits each gate.
 **Objective:** Move AlphaLink to the user-supplied Command OS visual system without losing an existing route, page, action, permission boundary, workspace rule, backend behavior, or operational safety gate.
-**Current phase:** Phase 1 — React foundation and dashboard, awaiting Ubuntu browser validation.
-**Status:** `IN_PROGRESS` — route/source inventory and dashboard implementation are recorded; authenticated browser checks on the Ubuntu deployment and full baseline gates remain open.
+**Current phase:** Phase 1 — React foundation and dashboard, in production testing.
+**Status:** `TESTING` — the Command OS dashboard is deployed to Ubuntu and the live desktop shell has been visually checked; responsive, theme, keyboard/focus, session/refresh, route-family parity, and full screenshot fidelity gates remain open.
 
 This ledger covers the current AlphaLink application. It does not treat archived comparison notes as instructions or as proof of present runtime behavior. Current product rules come from `ALPHALINK_MASTER_SPEC.md`, `ALPHALINK_PROGRESS.md`, `apps/api/DESIGN.md`, `apps/api/UX-CONTRACT.md`, current code, and tests. Dated matrix and audit material supplies evidence with its recorded limitations.
 
@@ -132,6 +132,16 @@ The sampled live route renders the legacy dashboard. It uses a narrow icon-only 
 
 The Command OS candidate was not observed on this sampled route; the recorded release procedure has not been run. This observation alone does not establish the state of every production asset or route. Matching-viewport desktop comparison, full-page captures, 390px review, theme review, keyboard/focus, and refresh/session checks remain outstanding after secure release.
 
+### Production dashboard after first deployment (2026-11-05)
+
+The authenticated `https://baseheavy.shop/dashboard/main` route was reloaded after deployment of commit `a0b44f5027f8990e5c4db7cf73f7dc827c8706ec`. At a 1672 × 941 browser viewport, the React Command OS dashboard is visible with seven live-data KPI cards, a performance panel, honest GEO and relationship-data coverage states, quick actions, and the existing module navigation. The dashboard rail is 220px; the header spans the main content column. The screenshot was inspected in the live browser during this run but was not saved as a standalone file.
+
+This confirms the candidate is live and the corrected header/content grid is visible; it does not confirm screenshot parity or completion. The current sidebar still uses the existing nested module groups, the GEO map and marketing graph are unavailable because their permission-safe data feeds are undefined, and global search/Track a Link remain unavailable. Light-theme desktop is the only live visual state checked so far. The 390px layout, dark theme, keyboard/focus behavior, refresh/session behavior, and full role/route parity remain release gates. The user's reference metrics and graph/map content are illustrative and are not used as production data.
+
+### Production theme surface correction (2026-11-06)
+
+Commit `0800b420c150f09d3cab6f727a6a1b7db6feaaff` is active on Ubuntu. Its dashboard-scoped CSS sets the sidebar and footer surfaces from the Command OS theme tokens so light mode remains white and dark mode remains navy. The authenticated route was inspected in light and dark mode at 1672 × 941. The reference palette is closer, but the user correctly identified remaining visual gaps: the 66px header, excess vertical spacing and card height, legacy nested navigation, and unavailable GEO/relationship visuals. This is an intermediate theme correction, not screenshot parity. The 390px layout, keyboard/focus behavior, refresh/session behavior, and full role/route parity remain open.
+
 The host PHP CLI is PHP 8.3 and lacks the DOM, XMLWriter, and `pdo_pgsql` extensions needed by this application. For reproducible automated verification, the existing `alphalink-php85-tests:tmp` image runs PHP 8.5 with the required extensions. An isolated preview used a separately migrated `/tmp` SQLite database and synthetic `Local Design Preview` workspace; it did not read `.env`, credentials, or the configured application database. That preview is stopped and will not be used for acceptance review, per the user's request to review the Ubuntu SaaS version.
 
 ## Command OS visual target and current gaps
@@ -258,9 +268,11 @@ The current frontend lockfile declares React/React DOM 19.3.1, TypeScript 7.0.2,
 | Full affected dashboard/navigation suites | PASS — `WorkspaceAnalyticsDashboardTest.php` 24 tests / 361 assertions; `AlphaLinkCampaignSendNavigationTest.php` 10 tests / 90 assertions; `GlobalTestsWorkflowTest.php` 8 tests / 45 assertions; existing server-navigation test 1 test / 78 assertions |
 | Collapsed-rail / drawer Node suite | PASS — 5 tests; desktop sticky hover/focus sizing and content transforms, mobile mini drawer hiding, desktop→mobile→desktop state, submenu activation, accessible labels, and `aria-pressed` synchronization on expansion/collapse are asserted |
 | Typecheck, build, changed-file Pint, and diff check | PASS — full-repository Pint also reports one existing style issue in unchanged `bootstrap/providers.php`; build retains the pre-existing 512.42 kB ECharts chunk advisory |
-| Production browser review | LEGACY BASELINE ONLY — authenticated SaaS dashboard was observed read-only at 1229 × 892 and still serves the legacy shell; the Command OS candidate has not been deployed. Deployed hover/focus, keyboard, responsive, theme, session and refresh verification remains open. |
-| GitHub candidate | PASS — commit `9b5271f` pushed to `codex/alphalink-identity-reconstruction` after code audit and automated checks |
-| Phase status | TESTING — Phase 1 remains open; no completion or production-release claim |
+| Production browser review | PARTIAL PASS — commit `0800b42` was inspected in light and dark at 1672 × 941; the theme surfaces now follow the dashboard tokens. Header/card geometry, legacy nested navigation, 390px, keyboard/focus, session/refresh, and route-family parity remain open. |
+| GitHub candidate | PASS — commit `0800b42` pushed to `codex/alphalink-identity-reconstruction` after Sol's cascade audit and automated checks |
+| Ubuntu deployment | PASS — release `0800b420c150f09d3cab6f727a6a1b7db6feaaff` active; migrations were clear, required services were verified, and the local HTTPS health check passed. Backup: `/var/backups/alphalink/deploy-0800b420c150f09d3cab6f727a6a1b7db6feaaff-20261106T000015Z.dump` |
+| Latest deployed slice checks | PASS — `node --test tests/js/command-os-drawer.test.js` (5/5), `npm run build`, `git diff --check`, and Sol's cascade review; known ECharts 512.42 kB minified chunk advisory remains |
+| Phase status | TESTING — Phase 1 remains open; no full redesign completion or screenshot-parity claim |
 
 ### Production deployment attempt and recovery (2026-11-05)
 
@@ -270,4 +282,4 @@ The failed sweep had changed modes under shared `storage/app/private`. Those dir
 
 The release installer now normalizes only the inactive release's `bootstrap/cache` during deploy and resume. The full shared-storage sweep remains limited to fresh installation, before active services start; the default PMTA staging directory is excluded from that sweep and kept at `0700`. Private storage, uploads, tmp, and nginx-body directories use owner-only `0700` modes during setup and deploy. `bash -n install-ubuntu-26.sh`, the full installer contract suite (9 tests, 145 assertions), and `git diff --check` pass. Sol's code audit passed; this fix is ready to push.
 
-The old installer is embedded in the currently active release, so rerunning `/var/www/alphalink/current/install-ubuntu-26.sh --deploy ...` would execute the unfixed version. Recovery must use the audited fixed script from the pushed branch, transfer it to a root-owned temporary path over the verified SSH connection, check its SHA-256, and invoke its `--deploy codex/alphalink-identity-reconstruction` mode. Do not modify the active release in place. Phase 1 remains **TESTING** until that release is healthy and the authenticated production dashboard passes desktop, 390px, light/dark, keyboard/focus, session, and refresh checks.
+The initial storage-race failure was resolved before the first Command OS release: the deployed installer safely completed the immutable release build and activation, created a verified PostgreSQL backup, applied no pending migrations, and passed service plus HTTPS health checks. The currently active application release is commit `0800b42`; use the installed deployment procedure for later reviewed commits. Phase 1 remains **TESTING** until the authenticated production dashboard passes the remaining 390px, keyboard/focus, session, refresh, and route-family parity checks.

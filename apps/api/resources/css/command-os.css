@@ -36,7 +36,7 @@ html[data-command-theme='dark'] body.command-os-dashboard {
 body.command-os-dashboard #page-container.command-os-page {
     display: grid;
     grid-template-columns: 220px minmax(0, 1fr);
-    grid-template-rows: 66px minmax(calc(100vh - 112px), auto) auto;
+    grid-template-rows: 44px minmax(calc(100vh - 90px), auto) auto;
     min-height: 100vh;
     width: 100%;
     padding-left: 0 !important;
@@ -66,9 +66,9 @@ body.command-os-dashboard #sidebar .content-header {
     display: flex;
     align-items: center;
     justify-content: flex-start;
-    min-height: 66px;
-    height: 66px;
-    padding: 0 17px;
+    min-height: 44px;
+    height: 44px;
+    padding: 0 15px;
     border-bottom: 1px solid var(--co-border);
     background: var(--co-surface) !important;
 }
@@ -87,8 +87,8 @@ body.command-os-dashboard #sidebar .content-header > a {
 
 .command-os-brand > img {
     display: block;
-    width: 31px;
-    height: 31px;
+    width: 28px;
+    height: 28px;
     object-fit: contain;
 }
 
@@ -126,7 +126,7 @@ body.command-os-dashboard #sidebar .content-header > a {
 }
 
 body.command-os-dashboard #sidebar .content-side {
-    padding: 12px 10px 22px;
+    padding: 9px 10px 22px;
 }
 
 body.command-os-dashboard #sidebar .nav-main {
@@ -134,7 +134,15 @@ body.command-os-dashboard #sidebar .nav-main {
 }
 
 body.command-os-dashboard #sidebar .nav-main-heading {
-    padding: 13px 10px 5px;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+    padding: 7px 10px 3px;
     color: var(--co-subtle);
     font-size: 8px;
     font-weight: 750;
@@ -148,9 +156,9 @@ body.command-os-dashboard #sidebar .nav-main-item {
 body.command-os-dashboard #sidebar .nav-main-link {
     display: flex;
     align-items: center;
-    min-height: 34px;
+    min-height: 32px;
     margin: 1px 0;
-    padding: 6px 9px;
+    padding: 5px 9px;
     border-radius: 9px;
     color: var(--co-ink);
     font-size: 11px;
@@ -214,7 +222,7 @@ body.command-os-dashboard #page-header {
     top: 0;
     z-index: 25;
     min-width: 0;
-    height: 66px;
+    height: 44px;
     padding-left: 0 !important;
     border-bottom: 1px solid var(--co-border);
     color: var(--co-ink);
@@ -228,9 +236,9 @@ body.command-os-dashboard #page-header .content-header {
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    min-height: 66px;
-    height: 66px;
-    padding: 0 20px;
+    min-height: 44px;
+    height: 44px;
+    padding: 0 18px;
 }
 
 body.command-os-dashboard #page-header .content-header > .d-flex {
@@ -239,9 +247,9 @@ body.command-os-dashboard #page-header .content-header > .d-flex {
 }
 
 body.command-os-dashboard #page-header .btn-dual {
-    width: 34px;
-    height: 34px;
-    padding: 7px;
+    width: 30px;
+    height: 30px;
+    padding: 6px;
     border: 1px solid var(--co-border);
     border-radius: 9px;
     color: var(--co-ink);
@@ -254,7 +262,7 @@ body.command-os-dashboard #page-header .btn-dual {
     gap: 10px;
     width: min(460px, 42vw);
     min-width: 210px;
-    height: 36px;
+    height: 30px;
     margin-left: 4px;
     padding: 0 11px;
     border: 1px solid var(--co-border);
@@ -285,11 +293,12 @@ body.command-os-dashboard #page-header .btn-dual {
 }
 
 body.command-os-dashboard #page-header .dropdown > button {
-    min-height: 36px;
+    min-height: 30px;
     border-radius: 9px;
     color: var(--co-ink);
     background: transparent;
     font-size: 11px;
+    white-space: nowrap;
 }
 
 body.command-os-dashboard #page-header .dropdown-menu {
@@ -335,7 +344,7 @@ body.command-os-dashboard #main-container > .content#main_content {
     width: 100%;
     max-width: none;
     margin: 0;
-    padding: 20px 22px 26px !important;
+    padding: 11px 22px 20px !important;
 }
 
 body.command-os-dashboard #page-footer {
@@ -370,14 +379,19 @@ body.command-os-dashboard #page-footer a {
 
 .command-os-page-heading {
     display: flex;
-    align-items: flex-end;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 20px;
-    margin: 0 2px 17px;
+    margin: 0 2px 11px;
 }
 
 .command-os-eyebrow {
-    margin: 0 0 5px;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
     color: var(--co-muted);
     font-size: 9px;
     font-weight: 760;
@@ -388,16 +402,16 @@ body.command-os-dashboard #page-footer a {
 .command-os-page-heading h1 {
     margin: 0;
     color: var(--co-ink);
-    font-size: clamp(21px, 2vw, 27px);
+    font-size: clamp(18px, 1.5vw, 21px);
     font-weight: 760;
     letter-spacing: -.045em;
     line-height: 1.15;
 }
 
 .command-os-subtitle {
-    margin: 5px 0 0;
+    margin: 3px 0 0;
     color: var(--co-muted);
-    font-size: 11px;
+    font-size: 10px;
 }
 
 .command-os-heading-actions {
@@ -413,7 +427,7 @@ body.command-os-dashboard #page-footer a {
     align-items: center;
     justify-content: center;
     gap: 7px;
-    min-height: 34px;
+    min-height: 31px;
     padding: 0 10px;
     border: 1px solid var(--co-border);
     border-radius: 9px;
@@ -465,8 +479,8 @@ body.command-os-dashboard #page-footer a {
     align-items: center;
     gap: 10px;
     min-width: 0;
-    min-height: 76px;
-    padding: 11px 10px;
+    min-height: 60px;
+    padding: 8px 9px;
     border: 1px solid var(--co-border);
     border-radius: 12px;
     background: var(--co-surface);
@@ -476,10 +490,10 @@ body.command-os-dashboard #page-footer a {
 .command-os-metric-icon {
     display: grid;
     place-items: center;
-    width: 38px;
-    height: 38px;
-    flex: 0 0 38px;
-    border-radius: 11px;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    border-radius: 10px;
 }
 
 .command-os-metric-copy {
@@ -538,12 +552,12 @@ html[data-command-theme='dark'] .command-os-metric-red .command-os-metric-icon {
     display: grid;
     grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr);
     gap: 11px;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
 }
 
 .command-os-panel {
     min-width: 0;
-    min-height: 220px;
+    min-height: 200px;
     overflow: hidden;
     border: 1px solid var(--co-border);
     border-radius: 13px;
@@ -556,7 +570,7 @@ html[data-command-theme='dark'] .command-os-metric-red .command-os-metric-icon {
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    min-height: 44px;
+    min-height: 40px;
     padding: 0 13px;
     border-bottom: 1px solid color-mix(in srgb, var(--co-border) 78%, transparent);
 }
@@ -600,7 +614,7 @@ html[data-command-theme='dark'] .command-os-metric-red .command-os-metric-icon {
 
 .command-os-chart {
     width: 100%;
-    height: 174px;
+    height: 158px;
     padding: 3px 8px 5px;
 }
 
@@ -623,8 +637,8 @@ html[data-command-theme='dark'] .command-os-metric-red .command-os-metric-icon {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 174px;
-    padding: 15px 18px;
+    min-height: 158px;
+    padding: 12px 16px;
     flex-direction: column;
     text-align: center;
 }
@@ -632,9 +646,9 @@ html[data-command-theme='dark'] .command-os-metric-red .command-os-metric-icon {
 .command-os-status-icon {
     display: grid;
     place-items: center;
-    width: 50px;
-    height: 50px;
-    margin-bottom: 10px;
+    width: 44px;
+    height: 44px;
+    margin-bottom: 8px;
     border: 1px solid color-mix(in srgb, var(--co-purple) 17%, var(--co-border));
     border-radius: 16px;
     color: var(--co-purple);
@@ -658,10 +672,10 @@ html[data-command-theme='dark'] .command-os-metric-red .command-os-metric-icon {
 .command-os-quick-actions {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
     min-width: 0;
     margin-bottom: 10px;
-    padding: 9px 10px;
+    padding: 8px 9px;
     border: 1px solid var(--co-border);
     border-radius: 13px;
     background: var(--co-surface);
@@ -672,7 +686,7 @@ html[data-command-theme='dark'] .command-os-metric-red .command-os-metric-icon {
     display: flex;
     align-items: center;
     gap: 8px;
-    flex: 0 0 166px;
+    flex: 0 0 150px;
     padding-left: 4px;
     color: var(--co-purple);
 }
@@ -710,7 +724,7 @@ html[data-command-theme='dark'] .command-os-metric-red .command-os-metric-icon {
     justify-content: center;
     gap: 7px;
     min-width: 0;
-    min-height: 39px;
+    min-height: 44px;
     padding: 7px 8px;
     border: 1px solid color-mix(in srgb, var(--co-purple) 20%, var(--co-border));
     border-radius: 9px;

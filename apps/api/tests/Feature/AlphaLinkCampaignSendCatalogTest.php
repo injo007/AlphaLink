@@ -4261,6 +4261,11 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
 
         $response = $this->actingAs($owner)->get(route('clean.console.campaigns.create', $workspace->getKey()));
 
+        self::assertMatchesRegularExpression(
+            '/<div class="campaign-create-layout">\s*<div class="campaign-create-main">[\s\S]*?<\/div>\s*<aside class="campaign-create-summary"/',
+            $response->getContent(),
+        );
+
         $response->assertOk()
             ->assertSee('<h1 id="campaign-page-title">Create Campaign</h1>', false)
             ->assertSee('Campaign setup stages')

@@ -500,9 +500,6 @@
             html[data-command-theme='dark'] .campaign-readiness-track { background: #26365f; }
             html[data-command-theme='dark'] .campaign-create-page #campaign-actions-panel button { color: #eff2ff; }
             @media (max-width: 1120px) {
-                .campaign-create-layout { grid-template-columns: minmax(0, 1fr) 270px; }
-            }
-            @media (max-width: 960px) {
                 .campaign-create-layout { grid-template-columns: minmax(0, 1fr); }
                 .campaign-create-summary { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); position: static; }
                 .campaign-create-summary > * { margin-bottom: 0; }
@@ -962,6 +959,7 @@
             </div>
         </div>
 
+        </div>
         </div>
         <aside class="campaign-create-summary" id="campaign-summary"
             data-initial-audiences="{{ count($setup['audience_segments']) }}"

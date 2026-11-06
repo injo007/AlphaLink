@@ -3,13 +3,17 @@
     $placeholderNamePrefix = (string) ($namePrefix ?? 'send_setup[placeholder_inputs]');
     $combinationName = (string) ($combinationName ?? 'send_setup[placeholder_combination]');
     $allCombinationName = (string) ($allCombinationName ?? 'send_setup[placeholder_all_combination]');
+    $compactPlaceholderEditor = ($showHelp ?? true) === false;
 @endphp
 
 <div class="col-12">
     <div class="block block-rounded" data-campaign-placeholder-editor data-name-prefix="{{ $placeholderNamePrefix }}">
         <div class="block-header">
-            <h3 class="block-title"><i class="fas fa-code campaign-field-icon" aria-hidden="true"></i>PLACEHOLDERS</h3>
-            <div class="block-options d-flex align-items-center">
+            <h3 class="block-title {{ $compactPlaceholderEditor ? 'sr-only' : '' }}"><i class="fas fa-code campaign-field-icon" aria-hidden="true"></i>PLACEHOLDERS</h3>
+            <div class="block-options d-flex align-items-center campaign-placeholder-toolbar">
+                @if ($compactPlaceholderEditor)
+                    <button class="btn btn-sm btn-alt-primary" type="button" data-placeholder-add><i class="fa fa-plus mr-1" aria-hidden="true"></i>Add placeholder</button>
+                @endif
                 <div class="custom-control custom-switch custom-control-inline">
                     <input type="checkbox" class="custom-control-input" id="{{ $idPrefix }}-placeholder-combination" name="{{ $combinationName }}" value="1" data-placeholder-combination @checked(filter_var($combination ?? false, FILTER_VALIDATE_BOOLEAN))>
                     <label class="custom-control-label" for="{{ $idPrefix }}-placeholder-combination"><i class="fas fa-random campaign-field-icon" aria-hidden="true"></i>COMBINATION</label>
@@ -35,8 +39,10 @@
                     </tbody>
                 </table>
             </div>
-            <button class="btn btn-sm btn-alt-primary" type="button" data-placeholder-add><i class="fa fa-plus mr-1" aria-hidden="true"></i> Add placeholder</button>
-            <p class="small text-muted mt-2 mb-0">Each row supplies newline-separated values for <code>[placeholder1]</code>, <code>[placeholder2]</code>, and so on. Values are saved in this draft; combination fanout is not connected to a Drop or Warmup send process.</p>
+            @unless ($compactPlaceholderEditor)
+                <button class="btn btn-sm btn-alt-primary" type="button" data-placeholder-add><i class="fa fa-plus mr-1" aria-hidden="true"></i> Add placeholder</button>
+            @endunless
+            <p class="small text-muted mt-2 mb-0 {{ ($showHelp ?? true) ? '' : 'sr-only' }}">Each row supplies newline-separated values for <code>[placeholder1]</code>, <code>[placeholder2]</code>, and so on. Values are saved in this draft; combination fanout is not connected to a Drop or Warmup send process.</p>
         </div>
     </div>
 </div>

@@ -149,11 +149,12 @@ body.command-os-shell #sidebar .command-os-navigation-item {
 body.command-os-shell #sidebar .command-os-navigation-row {
     position: relative;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 38px;
+    grid-template-columns: minmax(0, 1fr) 28px;
     column-gap: 4px;
     align-items: center;
     min-height: 28px;
-    padding-right: 32px;
+    width: 100%;
+    padding-right: 4px;
     border-radius: 9px;
 }
 
@@ -223,7 +224,7 @@ body.command-os-shell #sidebar .command-os-navigation-disclosure > summary {
     place-items: center;
     grid-column: 2;
     grid-row: 1;
-    width: 38px;
+    width: 28px;
     height: 30px;
     padding: 0;
     border: 0;
@@ -255,6 +256,16 @@ body.command-os-shell #sidebar .command-os-navigation-disclosure[open] > summary
     transform: rotate(180deg);
 }
 
+body.command-os-shell #sidebar .command-os-navigation-row:has(> .command-os-navigation-disclosure[open]) > .command-os-navigation-link {
+    color: #fff;
+    background: linear-gradient(100deg, #7040ee, #9943f7);
+    box-shadow: 0 4px 12px rgb(114 61 232 / 22%);
+}
+
+body.command-os-shell #sidebar .command-os-navigation-disclosure[open] > summary {
+    color: #fff;
+}
+
 body.command-os-shell #sidebar .command-os-navigation-submenu {
     position: static;
     display: grid;
@@ -265,12 +276,13 @@ body.command-os-shell #sidebar .command-os-navigation-submenu {
     min-width: 0;
     max-height: min(60vh, 420px);
     overflow: auto;
-    margin: 2px 2px 4px 18px;
-    padding: 5px;
-    border: 1px solid var(--co-border);
-    border-radius: 10px;
-    background: var(--co-surface);
-    box-shadow: 0 12px 28px rgb(26 34 77 / 16%);
+    margin: 2px 4px 5px 13px;
+    padding: 4px 2px 4px 10px;
+    border: 0;
+    border-left: 1px solid var(--co-border-strong);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
     list-style: none;
     pointer-events: auto;
 }
@@ -301,10 +313,15 @@ body.command-os-shell #sidebar .command-os-navigation-submenu li > span {
     text-decoration: none;
 }
 
-body.command-os-shell #sidebar .command-os-navigation-submenu a:hover,
-body.command-os-shell #sidebar .command-os-navigation-submenu a.active {
+body.command-os-shell #sidebar .command-os-navigation-submenu a:not(.active):hover {
     color: var(--co-purple);
     background: var(--co-surface-muted);
+}
+
+body.command-os-shell #sidebar .command-os-navigation-submenu a.active {
+    color: #fff;
+    background: linear-gradient(100deg, #7040ee, #9943f7);
+    box-shadow: 0 4px 12px rgb(114 61 232 / 25%), 0 0 18px rgb(142 62 246 / 19%);
 }
 
 body.command-os-shell #sidebar .command-os-navigation-submenu li > span {
@@ -321,7 +338,7 @@ body.command-os-shell #sidebar .command-os-navigation-submenu li > span > i {
 }
 
 body.command-os-shell #sidebar .command-os-navigation-submenu a.active > i {
-    color: var(--co-purple);
+    color: #fff;
 }
 
 body.command-os-shell #sidebar .command-os-navigation-submenu a:focus-visible {
@@ -1768,8 +1785,8 @@ body.command-os-shell #page-container.sidebar-mini #sidebar:focus-within .comman
 
 body.command-os-shell #page-container.sidebar-mini #sidebar:hover .command-os-navigation-row,
 body.command-os-shell #page-container.sidebar-mini #sidebar:focus-within .command-os-navigation-row {
-    grid-template-columns: minmax(0, 1fr) 38px;
-    padding-right: 32px;
+    grid-template-columns: minmax(0, 1fr) 28px;
+    padding-right: 4px;
 }
 
 body.command-os-shell #page-container.sidebar-mini #sidebar .command-os-navigation-submenu {

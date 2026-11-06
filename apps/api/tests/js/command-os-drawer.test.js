@@ -174,12 +174,15 @@ test('backdrop click dismisses the drawer and restores focus', () => {
     assert.deepEqual(browser.layoutCalls, ['sidebar_close']);
 });
 
-test('native navigation disclosure keeps the chevron inset and the menu in flow', () => {
-    assert.match(stylesheet, /\.command-os-navigation-row\s*\{\s*position:\s*relative;\s*display:\s*grid;\s*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+38px;[\s\S]{0,100}padding-right:\s*32px;/);
+test('native navigation disclosure highlights the parent and renders a guided active submenu', () => {
+    assert.match(stylesheet, /\.command-os-navigation-row\s*\{\s*position:\s*relative;\s*display:\s*grid;\s*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+28px;[\s\S]{0,140}width:\s*100%;\s*padding-right:\s*4px;/);
     assert.match(stylesheet, /\.command-os-navigation-disclosure\s*\{\s*display:\s*contents;/);
-    assert.match(stylesheet, /\.command-os-navigation-disclosure\s*>\s*summary\s*\{[\s\S]{0,180}grid-column:\s*2;[\s\S]{0,100}width:\s*38px;/);
+    assert.match(stylesheet, /\.command-os-navigation-disclosure\s*>\s*summary\s*\{[\s\S]{0,180}grid-column:\s*2;[\s\S]{0,100}width:\s*28px;/);
     assert.match(stylesheet, /\.command-os-navigation-disclosure\[open\]\s*>\s*summary\s*>\s*i\s*\{\s*transform:\s*rotate\(180deg\);/);
     assert.match(stylesheet, /\.command-os-navigation-submenu\s*\{[\s\S]{0,160}grid-column:\s*1\s*\/\s*-1;[\s\S]{0,80}grid-row:\s*2;/);
+    assert.match(stylesheet, /\.command-os-navigation-row:has\(> \.command-os-navigation-disclosure\[open\]\) > \.command-os-navigation-link\s*\{[\s\S]{0,180}background:\s*linear-gradient\(100deg,\s*#7040ee,\s*#9943f7\);/);
+    assert.match(stylesheet, /\.command-os-navigation-submenu\s*\{[\s\S]{0,420}border-left:\s*1px solid var\(--co-border-strong\);[\s\S]{0,100}background:\s*transparent;/);
+    assert.match(stylesheet, /\.command-os-navigation-submenu a\.active\s*\{[\s\S]{0,160}background:\s*linear-gradient\(100deg,\s*#7040ee,\s*#9943f7\);/);
     assert.match(stylesheet, /#page-container\.sidebar-mini #sidebar \.command-os-navigation-row\s*\{\s*grid-template-columns:\s*minmax\(0,\s*1fr\);\s*padding-right:\s*0;/);
     assert.match(stylesheet, /#page-container\.sidebar-mini #sidebar \.command-os-navigation-link\s*\{\s*justify-content:\s*center;/);
 });

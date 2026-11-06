@@ -313,6 +313,12 @@
             .campaign-create-page #campaign-targeting > .row > [class*='col-'] { padding-left: 5px; padding-right: 5px; }
             .campaign-create-page #campaign-targeting .block { height: 100%; }
             .campaign-create-page #campaign-targeting .block-header { min-height: 40px; }
+            .campaign-create-page #campaign-targeting .block-content { padding: 9px 12px; }
+            .campaign-create-page #campaign-targeting .form-group { margin-bottom: 4px; }
+            .campaign-create-page #campaign-targeting .form-control:not(textarea):not([multiple]):not(.bootstrap-select) { height: 27px; min-height: 27px; padding: 2px 8px; }
+            .campaign-create-page #campaign-targeting .bootstrap-select.form-control > .dropdown-toggle { height: 27px; min-height: 27px; padding: 2px 8px; }
+            .campaign-create-page .campaign-target-label-row { align-items: center; display: flex; justify-content: space-between; margin-bottom: 4px; }
+            .campaign-create-page .campaign-target-label-row label { margin-bottom: 0; }
             .campaign-create-page #campaign-targeting > .row > [class*='col-']:first-child .block-header,
             .campaign-create-page .campaign-email-card .block-header,
             .campaign-create-page .campaign-delivery-card .block-header {
@@ -379,7 +385,7 @@
             .campaign-create-page #campaign-usable-tags > .campaign-usable-tag-list { min-width: 0; }
             .campaign-create-page #campaign-usable-tags small { color: var(--campaign-muted); font-size: 9px; }
             .campaign-create-page #campaign-usable-tags .close { margin-left: auto; }
-            .campaign-create-page .campaign-create-help { margin: -2px 0 6px; }
+            .campaign-create-page .campaign-create-help { margin: 0; }
             .campaign-create-page .campaign-create-help summary {
                 color: var(--campaign-muted);
                 cursor: pointer;
@@ -389,6 +395,17 @@
                 width: fit-content;
             }
             .campaign-create-page .campaign-create-help summary::-webkit-details-marker { display: none; }
+            .campaign-create-page .campaign-target-label-row .campaign-create-help summary {
+                align-items: center;
+                border: 1px solid #e3dcfb;
+                border-radius: 50%;
+                color: #7d43e8;
+                display: inline-flex;
+                height: 17px;
+                justify-content: center;
+                width: 17px;
+            }
+            .campaign-create-page .campaign-target-label-row .campaign-create-help summary .campaign-field-icon { margin: 0; width: auto; }
             .campaign-create-page .campaign-create-help > small { display: block; margin-top: 5px; }
             .campaign-create-page .campaign-email-card .block-content { padding-bottom: 8px; }
             .campaign-create-page .campaign-delivery-card [data-campaign-placeholder-editor] {
@@ -718,13 +735,18 @@
                                 </div>
                             </div>
                             <div class="form-group">
-                                <label for="send-lists"><i class="fas fa-list-ul campaign-field-icon" aria-hidden="true"></i>Lists / email segments:</label>
+                                <div class="campaign-target-label-row">
+                                    <label for="send-lists"><i class="fas fa-list-ul campaign-field-icon" aria-hidden="true"></i>Lists / email segments:</label>
+                                    <details class="campaign-create-help">
+                                        <summary title="Suppression details"><i class="fas fa-info-circle campaign-field-icon" aria-hidden="true"></i><span class="sr-only">Suppression details</span></summary>
+                                        <small class="form-text text-muted">Select unlocked email types. Saving automatically matches the selected offer’s saved suppression file against every selected List/email type and leaves matches out of the campaign snapshot. Drops → <a href="{{ route('console.drops.suppression', $workspace->id) }}">Suppression</a> separately applies that file to the chosen ISP/List memberships for reusable Offer/List exclusions; you do not need to run it first for campaign creation. Workspace suppressions and duplicate addresses are also excluded.</small>
+                                    </details>
+                                </div>
                                 <select id="send-lists" name="send_setup[audience_segments][]" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 3" title="Select Lists" multiple required>
                                     @foreach ($sendOptions['segments'] as $segment)
                                         <option value="{{ $segment['id'] }}" @selected(in_array((string) $segment['id'], $setup['audience_segments'], true))>{{ $segment['name'] }} — {{ $segment['country'] }} — {{ strtoupper($segment['email_type']) }} — {{ number_format($segment['recipient_count']) }}</option>
                                     @endforeach
                                 </select>
-                                <details class="campaign-create-help"><summary><i class="fas fa-info-circle campaign-field-icon" aria-hidden="true"></i>Suppression details</summary><small class="form-text text-muted">Select unlocked email types. Saving automatically matches the selected offer’s saved suppression file against every selected List/email type and leaves matches out of the campaign snapshot. Drops → <a href="{{ route('console.drops.suppression', $workspace->id) }}">Suppression</a> separately applies that file to the chosen ISP/List memberships for reusable Offer/List exclusions; you do not need to run it first for campaign creation. Workspace suppressions and duplicate addresses are also excluded.</small></details>
                             </div>
                             <div class="form-row mb-0">
                                 <div class="form-group col-sm-6">

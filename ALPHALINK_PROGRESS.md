@@ -4,6 +4,8 @@
 **Active objective:** Complete the responsive AlphaLink Command OS dashboard analytics phase, including date-filtered Sponsor, Mailer and Top Offers panels, a live Marketing Graph, and GEO performance visualization. Preserve existing routes, permissions and business logic; display only workspace-scoped sourced data and state missing denominators clearly.
 **Status:** Dashboard analytics and visualization polish are deployed through `c71af99`. Production checks pass in light and dark themes, including the actual AlphaLink logo in the graph center and graph-node selection. At 390px, the graph nodes fit and the page has no horizontal overflow. The phase remains open for remaining data-contract checks and the independent Sol audit.
 
+**Follow-up UI slice — E-IAM-08:** The sign-in page now follows the Command OS light/dark visual language with the AlphaLink mark, a module graph and responsive form. Its existing authentication route and behavior are preserved. Release `25a7778` is deployed; production guest HTML/assets and 1440px light/dark plus 390px responsive rendering were verified. Authentication parity remains TESTING for the backend differences recorded in the matrix.
+
 ## Current dashboard goal and delivery gates
 
 **Goal:** Turn the Command OS dashboard into a fast, responsive workspace operations center that adds useful Sponsor/Mailer/Offer analytics and interactive graph/GEO views without changing existing AlphaLink workflows or implying unsupported data.

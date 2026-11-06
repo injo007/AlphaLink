@@ -76,6 +76,13 @@
         $appSettingsUrl = route('clean.console.app-settings.index');
         $appHealthUrl = route('clean.console.miscellaneous.app-health');
         $appErrorsUrl = route('clean.console.miscellaneous.app-errors');
+        $headerUserLabel = auth()->user()->name ?: auth()->user()->email;
+        $headerUserParts = preg_split('/\s+/', trim($headerUserLabel)) ?: [];
+        $headerUserFirst = $headerUserParts[0] ?? 'U';
+        $headerUserSecondInitial = count($headerUserParts) > 1
+            ? mb_substr($headerUserParts[count($headerUserParts) - 1], 0, 1)
+            : mb_substr($headerUserFirst, 1, 1);
+        $headerUserInitials = mb_strtoupper(mb_substr($headerUserFirst, 0, 1).$headerUserSecondInitial);
         $subscribersUrl = route('clean.console.miscellaneous.subscribers');
         $contactsUrl = route('clean.console.miscellaneous.contacts');
         $horizonUrl = route('clean.console.miscellaneous.horizon');
@@ -562,6 +569,9 @@
                 </div>
                 <div class="d-flex align-items-center command-os-header-trailing">
                     @if ($commandOsShell)
+                        <a class="btn btn-sm btn-dual command-os-header-icon command-os-notification-link" href="{{ $appHealthUrl }}" aria-label="Notifications and system health" title="Notifications and system health">
+                            <i class="fas fa-bell" aria-hidden="true"></i>
+                        </a>
                         <div id="command-os-theme-toggle"></div>
                     @endif
                     @if (session()->has('alphalink.impersonator_id'))
@@ -569,7 +579,7 @@
                     @endif
                     <div class="dropdown d-inline-block ml-2 command-os-account-control">
                         <button type="button" class="btn btn-sm btn-dual d-flex align-items-center command-os-account-button" id="page-header-user-dropdown" data-toggle="dropdown" aria-label="Account menu" title="Account menu" aria-haspopup="true" aria-expanded="false">
-                            <i class="fa fa-user d-sm-none" aria-hidden="true"></i><span class="d-none d-sm-inline-block ml-1 command-os-account-name">{{ auth()->user()->name ?: auth()->user()->email }}</span><i class="fa fa-angle-down ml-1 command-os-account-chevron" aria-hidden="true"></i>
+                            <span class="command-os-profile-avatar" aria-hidden="true">{{ $headerUserInitials }}</span><span class="d-none d-sm-inline-block command-os-account-name">{{ $headerUserLabel }}</span><i class="fa fa-angle-down ml-1 command-os-account-chevron" aria-hidden="true"></i>
                         </button>
                         <div class="dropdown-menu dropdown-menu-md dropdown-menu-right p-0 border-0 command-os-account-menu" aria-labelledby="page-header-user-dropdown">
                             <div class="command-os-account-heading">

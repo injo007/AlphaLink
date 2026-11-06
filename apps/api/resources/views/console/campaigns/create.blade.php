@@ -12,6 +12,15 @@
             ? ($savedOfferAssets ?? [])
             : ($sendOptions['offers']->firstWhere('id', (int) old('send_setup.offer_id', 0))['assets'] ?? []);
         $defaultCampaignHeader = "MIME-version: 1.0\nContent-type: text/html\nTo: [to]\nfrom: [from] <info@[domain]>\nSubject: [subject]\nDate: [date]";
+        $campaignParameterIcons = [
+            'duplicate_data' => 'fa-copy',
+            'total_send' => 'fa-paper-plane',
+            'fraction_ip' => 'fa-percent',
+            'sleep_email' => 'fa-clock',
+            'sleep_ip' => 'fa-clock',
+            'seed_every' => 'fa-flask',
+            'bounce_limit' => 'fa-exclamation-triangle',
+        ];
         $setup = [
             'sponsor_id' => (string) old('send_setup.sponsor_id', $savedSetup['sponsor_id'] ?? ''),
             'offer_id' => (string) old('send_setup.offer_id', $savedSetup['offer_id'] ?? ''),
@@ -139,9 +148,9 @@
             }
             .campaign-create-page::after {
                 background-image: var(--campaign-hero-art);
-                background-position: center top;
+                background-position: left top;
                 background-repeat: no-repeat;
-                background-size: 100% auto;
+                background-size: 200% auto;
                 bottom: 0;
                 content: '';
                 height: 76px;
@@ -304,6 +313,14 @@
             .campaign-create-page #campaign-targeting > .row > [class*='col-'] { padding-left: 5px; padding-right: 5px; }
             .campaign-create-page #campaign-targeting .block { height: 100%; }
             .campaign-create-page #campaign-targeting .block-header { min-height: 40px; }
+            .campaign-create-page #campaign-targeting > .row > [class*='col-']:first-child .block-header,
+            .campaign-create-page .campaign-email-card .block-header,
+            .campaign-create-page .campaign-delivery-card .block-header {
+                background-image: linear-gradient(135deg, transparent 72%, rgb(143 75 247 / 5%) 72%, rgb(143 75 247 / 5%) 80%, transparent 80%, transparent 84%, rgb(143 75 247 / 8%) 84%, rgb(143 75 247 / 8%) 92%, transparent 92%);
+            }
+            .campaign-create-page #campaign-targeting > .row > [class*='col-']:last-child .block-header {
+                background-image: linear-gradient(135deg, transparent 72%, rgb(45 164 246 / 6%) 72%, rgb(45 164 246 / 6%) 80%, transparent 80%, transparent 84%, rgb(45 164 246 / 9%) 84%, rgb(45 164 246 / 9%) 92%, transparent 92%);
+            }
             .campaign-create-page .form-group { margin-bottom: 8px; }
             .campaign-create-page label { color: var(--campaign-ink); font-size: 11px; font-weight: 700; margin-bottom: 4px; }
             .campaign-create-page .form-control,
@@ -316,53 +333,7 @@
                 min-height: 30px;
                 padding: 4px 9px;
             }
-            .campaign-create-page #campaign-targeting label[for]::before,
-            .campaign-create-page .campaign-email-card label[for]::before,
-            .campaign-create-page #campaign-routing label[for]::before {
-                color: var(--campaign-purple);
-                display: inline-block;
-                font-family: 'Font Awesome 5 Free';
-                font-size: 11px;
-                font-weight: 900;
-                margin-right: 5px;
-                text-align: center;
-                width: 13px;
-            }
-            .campaign-create-page label[for='send-sponsor']::before { content: '\f0c0'; }
-            .campaign-create-page label[for='send-offer-country']::before,
-            .campaign-create-page label[for='send-country']::before,
-            .campaign-create-page label[for='campaign-domain']::before { content: '\f0ac'; }
-            .campaign-create-page label[for='send-offer']::before { content: '\f02b'; }
-            .campaign-create-page label[for='send-isp']::before { content: '\f519'; }
-            .campaign-create-page label[for='send-lists']::before { content: '\f03a'; }
-            .campaign-create-page label[for='send-order-by']::before { content: '\f0dc'; }
-            .campaign-create-page label[for='send-start-from']::before { content: '\f1b2'; }
-            .campaign-create-page label[for='campaign-return-path']::before { content: '\f1d8'; }
-            .campaign-create-page label[for='saved-email-addresses']::before,
-            .campaign-create-page label[for='campaign-email-tests']::before { content: '\f0e0'; }
-            .campaign-create-page label[for='saved-email-new']::before { content: '\f0fe'; }
-            .campaign-create-page label[for='campaign-negative']::before { content: '\f05e'; }
-            .campaign-create-page label[for='send-creative-asset']::before { content: '\f03e'; }
-            .campaign-create-page label[for='send-html-asset']::before,
-            .campaign-create-page label[for='campaign-body']::before { content: '\f121'; }
-            .campaign-create-page label[for='send-from-assets']::before { content: '\f007'; }
-            .campaign-create-page label[for='send-subject-assets']::before { content: '\f15c'; }
-            .campaign-create-page label[for='campaign-header']::before { content: '\f1dc'; }
-            .campaign-create-page label[for='send-route']::before { content: '\f0e8'; }
-            .campaign-create-page label[for='send-ip-type']::before { content: '\f3ed'; }
-            .campaign-create-page .campaign-label-icon { color: var(--campaign-purple); font-size: 11px; margin-right: 4px; }
-            .campaign-create-page label[for='send-servers']::before { content: '\f233'; }
-            .campaign-create-page label[for='send-ips-available']::before,
-            .campaign-create-page label[for='send-ips-selected']::before { content: '\f0c1'; }
-            .campaign-create-page label[for='campaign-start-progress']::before { content: '\f04b'; }
-            .campaign-create-page label[for='send-type']::before { content: '\f1d8'; }
-            .campaign-create-page label[for='send-duplicate_data']::before { content: '\f24d'; }
-            .campaign-create-page label[for='send-total_send']::before { content: '\f1d8'; }
-            .campaign-create-page label[for='send-fraction_ip']::before { content: '\f295'; }
-            .campaign-create-page label[for='send-sleep_email']::before,
-            .campaign-create-page label[for='send-sleep_ip']::before { content: '\f017'; }
-            .campaign-create-page label[for='send-seed_every']::before { content: '\f0c3'; }
-            .campaign-create-page label[for='send-bounce_limit']::before { content: '\f071'; }
+            .campaign-create-page .form-control:not(textarea):not([multiple]):not(.bootstrap-select) { height: 30px; }
             .campaign-create-page .form-control:focus,
             .campaign-create-page .bootstrap-select > .dropdown-toggle:focus {
                 border-color: #9254ff;
@@ -372,6 +343,24 @@
             .campaign-create-page .text-muted { color: var(--campaign-muted) !important; font-size: 10px; line-height: 1.45; }
             .campaign-create-page .bootstrap-select { width: 100% !important; }
             .campaign-create-page .bootstrap-select > .dropdown-toggle { box-shadow: none; }
+            .campaign-create-page .bootstrap-select.form-control {
+                background: transparent;
+                border: 0;
+                box-shadow: none;
+                height: auto;
+                min-height: 0;
+                padding: 0;
+            }
+            .campaign-create-page .bootstrap-select.form-control > .dropdown-toggle { height: 30px; min-height: 30px; }
+            .campaign-create-page .campaign-field-icon,
+            .campaign-create-page .campaign-label-icon {
+                color: var(--campaign-purple);
+                display: inline-block;
+                font-size: 11px;
+                margin-right: 5px;
+                text-align: center;
+                width: 13px;
+            }
             .campaign-create-page #campaign-usable-tags {
                 align-items: center;
                 background: linear-gradient(100deg, #fff, #f6f3ff);
@@ -387,9 +376,36 @@
                 padding: 8px 12px !important;
                 text-align: left !important;
             }
-            .campaign-create-page #campaign-usable-tags small { flex: 1 0 100%; color: var(--campaign-muted); font-size: 9px; text-align: left; }
+            .campaign-create-page #campaign-usable-tags > .campaign-usable-tag-list { min-width: 0; }
+            .campaign-create-page #campaign-usable-tags small { color: var(--campaign-muted); font-size: 9px; }
             .campaign-create-page #campaign-usable-tags .close { margin-left: auto; }
+            .campaign-create-page .campaign-create-help { margin: -2px 0 6px; }
+            .campaign-create-page .campaign-create-help summary {
+                color: var(--campaign-muted);
+                cursor: pointer;
+                font-size: 10px;
+                line-height: 1.3;
+                list-style: none;
+                width: fit-content;
+            }
+            .campaign-create-page .campaign-create-help summary::-webkit-details-marker { display: none; }
+            .campaign-create-page .campaign-create-help > small { display: block; margin-top: 5px; }
             .campaign-create-page .campaign-email-card .block-content { padding-bottom: 8px; }
+            .campaign-create-page .campaign-delivery-card [data-campaign-placeholder-editor] {
+                background: transparent;
+                border: 0;
+                border-radius: 0;
+                box-shadow: none;
+                margin: 0 0 7px;
+            }
+            .campaign-create-page .campaign-delivery-card [data-campaign-placeholder-editor] > .block-header {
+                background: transparent;
+                border: 0;
+                min-height: 28px;
+                padding: 0 3px 5px;
+            }
+            .campaign-create-page .campaign-delivery-card [data-campaign-placeholder-editor] > .block-header .block-title { font-size: 11px; }
+            .campaign-create-page .campaign-delivery-card [data-campaign-placeholder-editor] > .block-content { padding: 0 3px 3px; }
             .campaign-create-page .campaign-header-editor,
             .campaign-create-page #campaign-body {
                 background: #fcfbff;
@@ -535,6 +551,14 @@
             html[data-command-theme='dark'] .campaign-summary-stats > div,
             html[data-command-theme='dark'] .campaign-summary-actions { background: linear-gradient(120deg, #111d3b, #172447); border-color: var(--campaign-border); }
             html[data-command-theme='dark'] .campaign-create-page .block-header { background: transparent; border-color: var(--campaign-border); }
+            html[data-command-theme='dark'] .campaign-create-page #campaign-targeting > .row > [class*='col-']:first-child .block-header,
+            html[data-command-theme='dark'] .campaign-create-page .campaign-email-card .block-header,
+            html[data-command-theme='dark'] .campaign-create-page .campaign-delivery-card .block-header {
+                background-image: linear-gradient(135deg, transparent 72%, rgb(181 127 255 / 8%) 72%, rgb(181 127 255 / 8%) 80%, transparent 80%, transparent 84%, rgb(181 127 255 / 12%) 84%, rgb(181 127 255 / 12%) 92%, transparent 92%);
+            }
+            html[data-command-theme='dark'] .campaign-create-page #campaign-targeting > .row > [class*='col-']:last-child .block-header {
+                background-image: linear-gradient(135deg, transparent 72%, rgb(56 176 255 / 9%) 72%, rgb(56 176 255 / 9%) 80%, transparent 80%, transparent 84%, rgb(56 176 255 / 13%) 84%, rgb(56 176 255 / 13%) 92%, transparent 92%);
+            }
             html[data-command-theme='dark'] .campaign-stage-track li { color: #eef1ff; }
             html[data-command-theme='dark'] .campaign-stage-track li + li,
             html[data-command-theme='dark'] .campaign-summary-heading,
@@ -635,7 +659,7 @@
                         <div class="block-header"><h3 class="block-title"><i class="fas fa-tag" aria-hidden="true"></i> Select Offer</h3></div>
                         <div class="block-content">
                             <div class="form-group">
-                                <label for="send-sponsor">Sponsor:</label>
+                                <label for="send-sponsor"><i class="fas fa-users campaign-field-icon" aria-hidden="true"></i>Sponsor:</label>
                                 <select id="send-sponsor" name="send_setup[sponsor_id]" class="form-control selectpicker" data-live-search="true" data-allow-clear="true" title="Select Sponsor" required>
                                     <option value="">Select Sponsor</option>
                                     @foreach ($sendOptions['sponsors'] as $sponsor)
@@ -644,7 +668,7 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label for="send-offer-country">Offer Countries:</label>
+                                <label for="send-offer-country"><i class="fas fa-globe campaign-field-icon" aria-hidden="true"></i>Offer Countries:</label>
                                 <select id="send-offer-country" name="send_setup[offer_country]" class="form-control selectpicker" data-live-search="true" data-size="6" title="Select Countries" required>
                                     <option value="ALL" @selected($setup['offer_country'] === 'ALL')>ALL</option>
                                     @foreach ($countries as $code => $countryName)
@@ -653,7 +677,7 @@
                                 </select>
                             </div>
                             <div class="form-group mb-0">
-                                <label for="send-offer">Offers:</label>
+                                <label for="send-offer"><i class="fas fa-tag campaign-field-icon" aria-hidden="true"></i>Offers:</label>
                                 <select id="send-offer" name="send_setup[offer_id]" class="form-control selectpicker" data-live-search="true" data-size="6" title="Select Offer" required>
                                     <option value="">Select Offer</option>
                                     @foreach ($sendOptions['offers'] as $offer)
@@ -672,7 +696,7 @@
                             <div class="row">
                                 <div class="col-sm-12 col-md-6">
                                     <div class="form-group">
-                                        <label for="send-isp">ISPs:</label>
+                                        <label for="send-isp"><i class="fas fa-broadcast-tower campaign-field-icon" aria-hidden="true"></i>ISPs:</label>
                                         <select id="send-isp" name="send_setup[isp_id]" class="form-control selectpicker" data-live-search="true" data-allow-clear="true" title="Select ISP" required>
                                             <option value="">Select ISP</option>
                                             @foreach ($sendOptions['isps'] as $isp)
@@ -683,7 +707,7 @@
                                 </div>
                                 <div class="col-sm-12 col-md-6">
                                     <div class="form-group">
-                                        <label for="send-country">Country:</label>
+                                        <label for="send-country"><i class="fas fa-globe campaign-field-icon" aria-hidden="true"></i>Country:</label>
                                         <select id="send-country" name="send_setup[country]" class="form-control selectpicker" data-live-search="true" data-allow-clear="false" data-size="6" title="Select Country" required>
                                             <option value="ALL" @selected($setup['country'] === 'ALL')>ALL</option>
                                             @foreach ($countries as $code => $countryName)
@@ -694,17 +718,17 @@
                                 </div>
                             </div>
                             <div class="form-group">
-                                <label for="send-lists">Lists / email segments:</label>
+                                <label for="send-lists"><i class="fas fa-list-ul campaign-field-icon" aria-hidden="true"></i>Lists / email segments:</label>
                                 <select id="send-lists" name="send_setup[audience_segments][]" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 3" title="Select Lists" multiple required>
                                     @foreach ($sendOptions['segments'] as $segment)
                                         <option value="{{ $segment['id'] }}" @selected(in_array((string) $segment['id'], $setup['audience_segments'], true))>{{ $segment['name'] }} — {{ $segment['country'] }} — {{ strtoupper($segment['email_type']) }} — {{ number_format($segment['recipient_count']) }}</option>
                                     @endforeach
                                 </select>
-                                <small class="form-text text-muted">Select unlocked email types. Saving automatically matches the selected offer’s saved suppression file against every selected List/email type and leaves matches out of the campaign snapshot. Drops → <a href="{{ route('console.drops.suppression', $workspace->id) }}">Suppression</a> separately applies that file to the chosen ISP/List memberships for reusable Offer/List exclusions; you do not need to run it first for campaign creation. Workspace suppressions and duplicate addresses are also excluded.</small>
+                                <details class="campaign-create-help"><summary><i class="fas fa-info-circle campaign-field-icon" aria-hidden="true"></i>Suppression details</summary><small class="form-text text-muted">Select unlocked email types. Saving automatically matches the selected offer’s saved suppression file against every selected List/email type and leaves matches out of the campaign snapshot. Drops → <a href="{{ route('console.drops.suppression', $workspace->id) }}">Suppression</a> separately applies that file to the chosen ISP/List memberships for reusable Offer/List exclusions; you do not need to run it first for campaign creation. Workspace suppressions and duplicate addresses are also excluded.</small></details>
                             </div>
                             <div class="form-row mb-0">
                                 <div class="form-group col-sm-6">
-                                    <label for="send-order-by">Order By:</label>
+                                    <label for="send-order-by"><i class="fas fa-sort campaign-field-icon" aria-hidden="true"></i>Order By:</label>
                                     <select id="send-order-by" name="send_setup[order_by]" class="form-control" required>
                                         @foreach (['default' => 'DEFAULT', 'asc' => 'ASC', 'desc' => 'DESC', 'random' => 'RANDOM'] as $value => $label)
                                             <option value="{{ $value }}" @selected($setup['order_by'] === $value)>{{ $label }}</option>
@@ -712,7 +736,7 @@
                                     </select>
                                 </div>
                                 <div class="form-group col-sm-6">
-                                    <label for="send-start-from">Start From:</label>
+                                    <label for="send-start-from"><i class="fas fa-cube campaign-field-icon" aria-hidden="true"></i>Start From:</label>
                                     <input id="send-start-from" name="send_setup[start_from]" type="number" min="0" class="form-control" value="{{ $setup['start_from'] }}" required>
                                 </div>
                             </div>
@@ -725,10 +749,9 @@
         @endunless
         <div id="campaign-data" tabindex="-1">
         <div class="alert alert-primary alert-dismissible text-center py-2" id="campaign-usable-tags">
-            <strong>USABLE TAGS:</strong>
-            [server] [main_domain] [ip] [domain] [rdns] [to] [date] [name] [rnd]
-            [smtp] [smtp_name] [rnd(N|A|L|U|S|LU|LN|NU)_NUMBER] [text:a|b|c]
-            <small class="d-block">[smtp] and [smtp_name] fill message text; Option SMTP selects the outbound relay. Start a saved campaign from My Campaigns after suppression and recipient preparation finish.</small>
+            <strong><i class="fas fa-code campaign-field-icon" aria-hidden="true"></i>USABLE TAGS:</strong>
+            <span class="campaign-usable-tag-list">[server] [main_domain] [ip] [domain] [rdns] [to] [date] [name] [rnd] [smtp] [smtp_name] [rnd(N|A|L|U|S|LU|LN|NU)_NUMBER] [text:a|b|c]</span>
+            <small class="sr-only">[smtp] and [smtp_name] fill message text; Option SMTP selects the outbound relay. Start a saved campaign from My Campaigns after suppression and recipient preparation finish.</small>
             <button type="button" class="btn btn-link btn-sm p-0 ml-1" id="campaign-tags-help" title="SHOW EXAMPLE" aria-label="Show tag examples"><i class="fas fa-question-circle" aria-hidden="true"></i></button>
             <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button>
         </div>
@@ -740,11 +763,11 @@
             <div class="block-content">
                 <div class="form-row">
                     <div class="form-group col-md-4">
-                        <label for="campaign-return-path">Return path:</label>
+                        <label for="campaign-return-path"><i class="fas fa-paper-plane campaign-field-icon" aria-hidden="true"></i>Return path:</label>
                         <input id="campaign-return-path" name="return_path" type="text" maxlength="320" class="form-control" value="{{ old('return_path', $savedContent['return_path'] ?? '[rnd]@[domain]') }}">
                     </div>
                     <div class="form-group col-md-4" id="campaign-saved-emails" data-store-url="{{ route('console.campaign-test-addresses.store', $workspace->id) }}" data-delete-url-template="{{ route('console.campaign-test-addresses.destroy', [$workspace->id, '__ADDRESS_ID__']) }}">
-                        <label for="saved-email-addresses">Saved Emails:</label>
+                        <label for="saved-email-addresses"><i class="fas fa-envelope campaign-field-icon" aria-hidden="true"></i>Saved Emails:</label>
                         <div class="input-group">
                             <select id="saved-email-addresses" class="form-control selectpicker" data-live-search="true" data-actions-box="true" title="Select Emails" multiple>
                                 @foreach ($savedEmailAddresses as $savedAddress)
@@ -754,13 +777,13 @@
                             <div class="input-group-append"><button id="saved-email-manage" type="button" class="btn btn-success" aria-label="Manage saved email addresses" title="Manage saved email addresses"><i class="fas fa-plus" aria-hidden="true"></i></button></div>
                         </div>
                         <div id="saved-email-manager" class="mt-2" hidden>
-                            <label for="saved-email-new">Add a test address</label>
+                            <label for="saved-email-new"><i class="fas fa-plus-square campaign-field-icon" aria-hidden="true"></i>Add a test address</label>
                             <div class="input-group"><input id="saved-email-new" type="email" maxlength="255" class="form-control"><div class="input-group-append"><button id="saved-email-add" type="button" class="btn btn-success">Add</button><button id="saved-email-remove" type="button" class="btn btn-outline-danger">Delete selected</button></div></div>
                             <div id="saved-email-status" role="status" aria-live="polite" class="small mt-1"></div>
                         </div>
                     </div>
                     <div class="form-group col-md-4">
-                        <label for="campaign-email-tests">Email Test addresses:</label>
+                        <label for="campaign-email-tests"><i class="fas fa-envelope campaign-field-icon" aria-hidden="true"></i>Email Test addresses:</label>
                         <textarea id="campaign-email-tests" name="email_test_addresses" rows="2" class="form-control" autocomplete="off">{{ old('email_test_addresses', implode("\n", $savedContent['email_tests'] ?? [])) }}</textarea>
                     </div>
                 </div>
@@ -769,7 +792,7 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group col-sm-12 col-md-3">
-                        <label for="campaign-domain">Domain:</label>
+                        <label for="campaign-domain"><i class="fas fa-globe campaign-field-icon" aria-hidden="true"></i>Domain:</label>
                         <select id="campaign-domain" name="domain" class="form-control selectpicker" data-live-search="true" data-allow-clear="true" title="Select Domain">
                             <option value="">Select Domain</option>
                             @foreach ($sendOptions['campaign_domains'] as $domain)
@@ -779,7 +802,7 @@
                         <small id="campaign-domain-route-hint" class="form-text text-muted" hidden></small>
                     </div>
                     <div class="form-group col-sm-12 col-md-3">
-                        <label for="campaign-negative">Negative:</label>
+                        <label for="campaign-negative"><i class="fas fa-ban campaign-field-icon" aria-hidden="true"></i>Negative:</label>
                         <select id="campaign-negative" name="send_setup[negative_id]" class="form-control selectpicker" data-live-search="true" data-allow-clear="true" title="Select Negative">
                             <option value="">Select Negative</option>
                             @foreach ($sendOptions['negatives'] as $negative)
@@ -788,7 +811,7 @@
                         </select>
                     </div>
                     <div class="form-group col-sm-12 col-md-3">
-                        <label for="send-creative-asset">Creatives:</label>
+                        <label for="send-creative-asset"><i class="fas fa-image campaign-field-icon" aria-hidden="true"></i>Creatives:</label>
                         <select id="send-creative-asset" name="send_setup[creative_asset_id]" class="form-control selectpicker" data-live-search="true" title="Select Creative">
                             <option value="">Select Creative</option>
                             @foreach ($selectedOfferAssets as $asset)
@@ -799,7 +822,7 @@
                         </select>
                     </div>
                     <div class="form-group col-sm-12 col-md-3">
-                        <label for="send-html-asset">Html:</label>
+                        <label for="send-html-asset"><i class="fas fa-code campaign-field-icon" aria-hidden="true"></i>HTML:</label>
                         <select id="send-html-asset" name="send_setup[html_asset_id]" class="form-control selectpicker" data-live-search="true" title="Select HTML">
                             <option value="">Select HTML</option>
                             @foreach ($selectedOfferAssets as $asset)
@@ -812,7 +835,7 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group col-sm-12 col-md-6">
-                        <label for="send-from-assets">From values (optional):
+                        <label for="send-from-assets"><i class="fas fa-user campaign-field-icon" aria-hidden="true"></i>From values (optional):
                             <button type="button" class="btn btn-link btn-sm p-0" data-copy-selected="send-from-assets" title="Copy selected From values" aria-label="Copy selected From values"><i class="fas fa-copy" aria-hidden="true"></i></button>
                         </label>
                         <select id="send-from-assets" name="send_setup[from_asset_ids][]" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 2" title="Select optional From values" multiple>
@@ -824,7 +847,7 @@
                         </select>
                     </div>
                     <div class="form-group col-sm-12 col-md-6">
-                        <label for="send-subject-assets">Subjects (optional):
+                        <label for="send-subject-assets"><i class="fas fa-file-alt campaign-field-icon" aria-hidden="true"></i>Subjects (optional):
                             <button type="button" class="btn btn-link btn-sm p-0" data-copy-selected="send-subject-assets" title="Copy selected subjects" aria-label="Copy selected subjects"><i class="fas fa-copy" aria-hidden="true"></i></button>
                         </label>
                         <select id="send-subject-assets" name="send_setup[subject_asset_ids][]" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 2" title="Select optional subjects" multiple>
@@ -839,7 +862,7 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group col-md-6">
-                        <label for="campaign-header">Header:
+                        <label for="campaign-header"><i class="fas fa-heading campaign-field-icon" aria-hidden="true"></i>Header:
                             <button type="button" class="btn btn-link btn-sm p-0" id="campaign-header-shuffle" title="Shuffle header lines" aria-label="Shuffle header lines"><i class="fas fa-random" aria-hidden="true"></i></button>
                             <button type="button" class="btn btn-link btn-sm p-0" id="campaign-header-encode" title="Encoding tools" aria-label="Encoding tools"><i class="fas fa-pencil-ruler" aria-hidden="true"></i></button>
                             <button type="button" class="btn btn-link btn-sm p-0" id="campaign-header-use-smtp" title="Put the selected Workspace SMTP account in the From address">Use SMTP account as From</button>
@@ -848,7 +871,7 @@
                         <small class="form-text text-muted">This inserts <code>From: [smtp]@[domain]</code> and switches routing to SMTP. Select the Workspace account under Available SMTP routes; full email usernames and the supported form <code>info@[smtp]</code> are supported.</small>
                     </div>
                     <div class="form-group col-md-6">
-                        <label for="campaign-body">Body:
+                        <label for="campaign-body"><i class="fas fa-code campaign-field-icon" aria-hidden="true"></i>Body:
                             <button type="button" id="campaign-body-preview-button" class="btn btn-link btn-sm p-0" title="Preview body" aria-controls="campaign-body-preview" aria-expanded="false"><i class="fas fa-eye" aria-hidden="true"></i></button>
                             @if ($editingCampaign)
                                 <button type="button" id="campaign-body-generate-links" class="btn btn-link btn-sm p-0" data-generate-url="{{ route('console.campaigns.generate-body', [$workspace->id, $editingCampaign->id]) }}" title="Generate tracking links" aria-label="Generate tracking links"><i class="fas fa-link" aria-hidden="true"></i></button>
@@ -892,7 +915,7 @@
                         <div class="col-sm-12 col-md-8">
                             <div class="form-row">
                                 <div class="form-group col-sm-6 col-md-2">
-                                    <label for="send-route">Option:</label>
+                                    <label for="send-route"><i class="fas fa-sitemap campaign-field-icon" aria-hidden="true"></i>Option:</label>
                                     <select id="send-route" name="send_setup[route_option]" class="form-control" required>
                                         <option value="ip" @selected($setup['route_option'] === 'ip')>IP</option>
                                         <option value="vmta" @selected($setup['route_option'] === 'vmta')>VMTA</option>
@@ -900,7 +923,7 @@
                                     </select>
                                 </div>
                                 <div class="form-group col-sm-6 col-md-2">
-                                    <label for="send-ip-type">Type IP:</label>
+                                    <label for="send-ip-type"><i class="fas fa-shield-alt campaign-field-icon" aria-hidden="true"></i>Type IP:</label>
                                     <select id="send-ip-type" name="send_setup[ip_type]" class="form-control" required>
                                         <option value="all" @selected($setup['ip_type'] === 'all')>ALL</option>
                                         <option value="ipv4" @selected($setup['ip_type'] === 'ipv4')>IPv4</option>
@@ -908,7 +931,7 @@
                                     </select>
                                 </div>
                                 <div class="form-group col-sm-12 col-md-8">
-                                    <label for="send-servers">Servers:
+                                    <label for="send-servers"><i class="fas fa-server campaign-field-icon" aria-hidden="true"></i>Servers:
                                         <button type="button" class="btn btn-link btn-sm p-0" id="campaign-servers-reload" title="Reload servers and IPs" aria-label="Reload servers and IPs"><i class="fas fa-sync-alt" aria-hidden="true"></i></button>
                                         <button type="button" class="btn btn-link btn-sm p-0" id="campaign-servers-search" title="Search servers" aria-label="Search servers"><i class="fas fa-search" aria-hidden="true"></i></button>
                                     </label>
@@ -920,7 +943,7 @@
                                 </div>
                             </div>
                             <div class="form-group">
-                                <label for="send-ips-selected"><span id="send-route-choice-heading">{{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}</span>:
+                                <label for="send-ips-selected"><i class="fas fa-link campaign-field-icon" aria-hidden="true"></i><span id="send-route-choice-heading">{{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}</span>:
                                     <button type="button" class="btn btn-link btn-sm p-0" data-copy-ip-list="available" title="Copy available IPs" aria-label="Copy available IPs"><i class="fas fa-copy" aria-hidden="true"></i></button>
                                     <button type="button" class="btn btn-link btn-sm p-0" data-copy-ip-list="selected" title="Copy selected IPs" aria-label="Copy selected IPs"><i class="fas fa-copy" aria-hidden="true"></i></button>
                                 </label>
@@ -938,7 +961,7 @@
                                 </select>
                                 <div class="row">
                                     <div class="col-md-5">
-                                        <label class="small mb-1" for="send-ips-available"><span id="send-ips-available-label">Available {{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}</span></label>
+                                        <label class="small mb-1" for="send-ips-available"><i class="fas fa-list campaign-field-icon" aria-hidden="true"></i><span id="send-ips-available-label">Available {{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}</span></label>
                                         <input class="form-control form-control-sm mb-1" id="send-ips-available-filter" type="search" placeholder="Filter available IPs" aria-label="Filter available IPs">
                                         <select id="send-ips-available" class="form-control" multiple size="10" aria-label="Available {{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}" aria-describedby="send-ips-transfer-help"></select>
                                     </div>
@@ -949,7 +972,7 @@
                                         <button type="button" class="btn btn-outline-secondary btn-sm" data-ip-move="all-left" aria-label="Move all IPs back to available">«</button>
                                     </div>
                                     <div class="col-md-5">
-                                        <label class="small mb-1" for="send-ips-selected"><span id="send-ips-selected-label">Selected {{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}</span> (<span id="send-ips-selected-count">0</span>)</label>
+                                        <label class="small mb-1" for="send-ips-selected"><i class="fas fa-check-circle campaign-field-icon" aria-hidden="true"></i><span id="send-ips-selected-label">Selected {{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}</span> (<span id="send-ips-selected-count">0</span>)</label>
                                         <input class="form-control form-control-sm mb-1" id="send-ips-selected-filter" type="search" placeholder="Filter selected IPs" aria-label="Filter selected IPs">
                                         <select id="send-ips-selected" class="form-control" multiple size="10" aria-label="Selected {{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}" aria-describedby="send-ips-transfer-help"></select>
                                     </div>
@@ -977,7 +1000,7 @@
                                         $sendCount = \App\Models\CampaignRecipientSnapshot::query()->where('campaign_id', $editingCampaign->id)->max('recipient_count') ?? 0;
                                     @endphp
                                     <div class="form-group col-12">
-                                        <label for="campaign-start-progress">Start From: <span class="text-info">(TOTAL: {{ number_format($sendCount) }})</span></label>
+                                        <label for="campaign-start-progress"><i class="fas fa-play campaign-field-icon" aria-hidden="true"></i>Start From: <span class="text-info">(TOTAL: {{ number_format($sendCount) }})</span></label>
                                         <div class="input-group">
                                             <input id="campaign-start-progress" class="form-control" type="number" min="0" max="{{ $sendCount }}" value="{{ old('send_progress', $editingCampaign->send_progress ?? ($savedSetup['start_from'] ?? 0)) }}">
                                             <div class="input-group-append"><button type="button" class="btn btn-info" id="campaign-start-progress-change" data-progress-url="{{ route('console.campaigns.progress', [$workspace->id, $editingCampaign->id]) }}">CHANGE</button></div>
@@ -986,7 +1009,7 @@
                                     </div>
                                 @endif
                                 <div class="form-group col-6">
-                                    <label for="send-type">Send Type:</label>
+                                    <label for="send-type"><i class="fas fa-paper-plane campaign-field-icon" aria-hidden="true"></i>Send Type:</label>
                                     <select id="send-type" name="send_setup[send_type]" class="form-control" required>
                                         @foreach (['delay' => 'DELAY', 'delayp' => 'DELAYP (parallel)', 'delayps' => 'DELAYPS (parallel)', 'hs' => 'HS', 'hsp' => 'HSP (parallel)', 'hsps' => 'HSPS (parallel by server)', 'pickup' => 'PICKUP (parallel)', 'pickups' => 'PICKUPS (parallel by server)'] as $value => $label)
                                             <option value="{{ $value }}" @selected($setup['send_type'] === $value)>{{ $label }}</option>
@@ -1003,7 +1026,7 @@
                                     'bounce_limit' => ['Bounce Limit', 0],
                                 ] as $field => [$label, $minimum])
                                     <div class="form-group col-6">
-                                        <label for="send-{{ $field }}">{{ $label }}:</label>
+                                        <label for="send-{{ $field }}"><i class="fas {{ $campaignParameterIcons[$field] ?? 'fa-sliders-h' }} campaign-field-icon" aria-hidden="true"></i>{{ $label }}:</label>
                                         <input id="send-{{ $field }}" name="send_setup[{{ $field }}]" type="number" min="{{ $minimum }}" class="form-control" value="{{ $setup[$field] }}" required>
                                     </div>
                                 @endforeach
@@ -1065,17 +1088,17 @@
                 <div class="d-flex justify-content-between align-items-center mb-3"><h3 class="h5 mb-0" id="campaign-encoding-title">Encoding</h3><button type="button" class="btn btn-sm btn-outline-secondary" data-dialog-close="campaign-encoding-dialog" aria-label="Close encoding tools">×</button></div>
                 <ul class="nav nav-tabs" role="tablist"><li class="nav-item"><button type="button" class="nav-link active" data-encoding-tab="string">STRING</button></li><li class="nav-item"><button type="button" class="nav-link" data-encoding-tab="ip">IP</button></li></ul>
                 <div class="pt-3" data-encoding-panel="string">
-                    <div class="form-row"><div class="form-group col-md-6"><label for="campaign-encoding-text">Your String</label><input class="form-control" id="campaign-encoding-text"></div><div class="form-group col-md-3"><label for="campaign-encoding-schema">Schema</label><select class="form-control" id="campaign-encoding-schema"><option value="Q">Quoted-Printable</option><option value="HQ">Hex-Quoted-Printable</option><option value="B">Base64</option></select></div><div class="form-group col-md-3"><label for="campaign-encoding-charset">Charset</label><select class="form-control" id="campaign-encoding-charset"><option>UTF-8</option><option>UTF-7</option><option>ISO-8859-1</option><option>ISO-8859-15</option><option>windows-1252</option><option>US-ASCII</option><option>CP1256</option></select></div></div>
-                    <button type="button" class="btn btn-primary mb-2" id="campaign-encoding-run">ENCODE</button><label for="campaign-encoding-result">Result</label><textarea class="form-control" id="campaign-encoding-result" rows="4" readonly></textarea>
+                    <div class="form-row"><div class="form-group col-md-6"><label for="campaign-encoding-text"><i class="fas fa-font campaign-field-icon" aria-hidden="true"></i>Your String</label><input class="form-control" id="campaign-encoding-text"></div><div class="form-group col-md-3"><label for="campaign-encoding-schema"><i class="fas fa-code campaign-field-icon" aria-hidden="true"></i>Schema</label><select class="form-control" id="campaign-encoding-schema"><option value="Q">Quoted-Printable</option><option value="HQ">Hex-Quoted-Printable</option><option value="B">Base64</option></select></div><div class="form-group col-md-3"><label for="campaign-encoding-charset"><i class="fas fa-language campaign-field-icon" aria-hidden="true"></i>Charset</label><select class="form-control" id="campaign-encoding-charset"><option>UTF-8</option><option>UTF-7</option><option>ISO-8859-1</option><option>ISO-8859-15</option><option>windows-1252</option><option>US-ASCII</option><option>CP1256</option></select></div></div>
+                    <button type="button" class="btn btn-primary mb-2" id="campaign-encoding-run">ENCODE</button><label for="campaign-encoding-result"><i class="fas fa-file-alt campaign-field-icon" aria-hidden="true"></i>Result</label><textarea class="form-control" id="campaign-encoding-result" rows="4" readonly></textarea>
                 </div>
-                <div class="pt-3" data-encoding-panel="ip" hidden><div class="form-group"><label for="campaign-encoding-ip">IP</label><input class="form-control" id="campaign-encoding-ip" placeholder="192.0.2.1"></div><button type="button" class="btn btn-primary mb-2" id="campaign-encoding-ip-run">ENCODE</button><label for="campaign-encoding-ip-result">Result</label><textarea class="form-control" id="campaign-encoding-ip-result" rows="7" readonly></textarea></div>
+                <div class="pt-3" data-encoding-panel="ip" hidden><div class="form-group"><label for="campaign-encoding-ip"><i class="fas fa-network-wired campaign-field-icon" aria-hidden="true"></i>IP</label><input class="form-control" id="campaign-encoding-ip" placeholder="192.0.2.1"></div><button type="button" class="btn btn-primary mb-2" id="campaign-encoding-ip-run">ENCODE</button><label for="campaign-encoding-ip-result"><i class="fas fa-file-alt campaign-field-icon" aria-hidden="true"></i>Result</label><textarea class="form-control" id="campaign-encoding-ip-result" rows="7" readonly></textarea></div>
             </div>
         </dialog>
         <dialog id="campaign-shortlink-dialog" data-shortlink-url-template="{{ route('console.campaign-tools.shortlinks', [$workspace->id, '__PROVIDER__']) }}" aria-labelledby="campaign-shortlink-title">
             <div class="p-3" style="min-width:min(760px,90vw)">
                 <div class="d-flex justify-content-between align-items-center mb-3"><h3 class="h5 mb-0" id="campaign-shortlink-title">SHORTLINKS</h3><button type="button" class="btn btn-sm btn-outline-secondary" data-dialog-close="campaign-shortlink-dialog" aria-label="Close short-link tools">×</button></div>
                 <ul class="nav nav-tabs"><li class="nav-item"><button type="button" class="nav-link active" data-shortlink-provider="tinyurl">TINYURL</button></li><li class="nav-item"><button type="button" class="nav-link" data-shortlink-provider="isgd">ISGD</button></li></ul>
-                <label class="mt-3" for="campaign-shortlink-input">LINKS:</label><textarea class="form-control" id="campaign-shortlink-input" rows="5" placeholder="One http or https link per line"></textarea>
+                <label class="mt-3" for="campaign-shortlink-input"><i class="fas fa-link campaign-field-icon" aria-hidden="true"></i>LINKS:</label><textarea class="form-control" id="campaign-shortlink-input" rows="5" placeholder="One http or https link per line"></textarea>
                 <button type="button" class="btn btn-primary btn-block mt-2" id="campaign-shortlink-generate">GENERATE LINKS</button>
                 <div id="campaign-shortlink-status" class="small mt-2" role="status" aria-live="polite"></div>
                 <div class="table-responsive mt-2"><table class="table table-striped table-sm"><thead><tr><th>LINK</th><th>SHORTLINK</th></tr></thead><tbody id="campaign-shortlink-results"></tbody></table></div>
@@ -1130,7 +1153,7 @@
         <dialog id="campaign-server-search-dialog" aria-labelledby="campaign-server-search-title">
             <div class="p-3" style="min-width:min(520px,90vw)">
                 <div class="d-flex justify-content-between align-items-center mb-3"><h3 class="h5 mb-0" id="campaign-server-search-title">Search Servers</h3><button type="button" class="btn btn-sm btn-outline-secondary" data-dialog-close="campaign-server-search-dialog" aria-label="Close server search">×</button></div>
-                <label for="campaign-server-search-input">Server names or IP addresses, one per line</label>
+                <label for="campaign-server-search-input"><i class="fas fa-server campaign-field-icon" aria-hidden="true"></i>Server names or IP addresses, one per line</label>
                 <textarea class="form-control" id="campaign-server-search-input" rows="7" placeholder="Server name or IP address"></textarea>
                 <div class="d-flex justify-content-end mt-3"><button type="button" class="btn btn-alt-secondary mr-2" data-dialog-close="campaign-server-search-dialog">Cancel</button><button type="button" class="btn btn-primary" id="campaign-server-search-apply">Select Servers</button></div>
             </div>

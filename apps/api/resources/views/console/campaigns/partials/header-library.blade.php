@@ -4,7 +4,7 @@
      data-show-url-template="{{ route('console.campaign-headers.show', [$workspace->getKey(), '__HEADER_ID__']) }}"
      data-delete-url-template="{{ route('console.campaign-headers.destroy', [$workspace->getKey(), '__HEADER_ID__']) }}"
      data-target-id="{{ $textareaId }}">
-    <label for="{{ $idPrefix }}-saved-headers">Saved Headers:</label>
+    <label for="{{ $idPrefix }}-saved-headers"><i class="fas fa-layer-group campaign-field-icon" aria-hidden="true"></i>Saved Headers:</label>
     <div class="input-group">
         <select id="{{ $idPrefix }}-saved-headers" class="form-control selectpicker" data-live-search="true" aria-label="Select saved header">
             <option value="">Select Header</option>

@@ -8,22 +8,22 @@
 <div class="col-12">
     <div class="block block-rounded" data-campaign-placeholder-editor data-name-prefix="{{ $placeholderNamePrefix }}">
         <div class="block-header">
-            <h3 class="block-title">PLACEHOLDERS</h3>
+            <h3 class="block-title"><i class="fas fa-code campaign-field-icon" aria-hidden="true"></i>PLACEHOLDERS</h3>
             <div class="block-options d-flex align-items-center">
                 <div class="custom-control custom-switch custom-control-inline">
                     <input type="checkbox" class="custom-control-input" id="{{ $idPrefix }}-placeholder-combination" name="{{ $combinationName }}" value="1" data-placeholder-combination @checked(filter_var($combination ?? false, FILTER_VALIDATE_BOOLEAN))>
-                    <label class="custom-control-label" for="{{ $idPrefix }}-placeholder-combination">COMBINATION</label>
+                    <label class="custom-control-label" for="{{ $idPrefix }}-placeholder-combination"><i class="fas fa-random campaign-field-icon" aria-hidden="true"></i>COMBINATION</label>
                 </div>
                 <div class="custom-control custom-switch custom-control-inline">
                     <input type="checkbox" class="custom-control-input" id="{{ $idPrefix }}-placeholder-all-combination" name="{{ $allCombinationName }}" value="1" data-placeholder-all-combination @checked(filter_var($allCombination ?? false, FILTER_VALIDATE_BOOLEAN))>
-                    <label class="custom-control-label" for="{{ $idPrefix }}-placeholder-all-combination">ALL COMBINATION</label>
+                    <label class="custom-control-label" for="{{ $idPrefix }}-placeholder-all-combination"><i class="fas fa-layer-group campaign-field-icon" aria-hidden="true"></i>ALL COMBINATION</label>
                 </div>
             </div>
         </div>
         <div class="block-content">
             <div class="table-responsive">
                 <table class="table table-sm table-hover mb-2">
-                    <thead><tr><th scope="col">PLACEHOLDER</th><th scope="col">ROTATE EVERY</th><th scope="col" class="text-right">ACTION</th></tr></thead>
+                    <thead><tr><th scope="col"><i class="fas fa-code campaign-field-icon" aria-hidden="true"></i>PLACEHOLDER</th><th scope="col"><i class="fas fa-sync-alt campaign-field-icon" aria-hidden="true"></i>ROTATE EVERY</th><th scope="col" class="text-right"><i class="fas fa-sliders-h campaign-field-icon" aria-hidden="true"></i>ACTION</th></tr></thead>
                     <tbody data-placeholder-rows>
                         @foreach ($placeholderRows as $index => $row)
                             <tr data-placeholder-row>

@@ -6,6 +6,8 @@
 
 **Follow-up UI slice — E-IAM-08:** The sign-in page now follows the Command OS light/dark visual language with the AlphaLink mark, a module graph and responsive form. Its existing authentication route and behavior are preserved. Release `25a7778` is deployed; production guest HTML/assets and 1440px light/dark plus 390px responsive rendering were verified. Authentication parity remains TESTING for the backend differences recorded in the matrix.
 
+**Follow-up UI slice — E-IAM-09:** Redesigned the authenticated account dropdown with a themed identity card, icon-led Profile and Logout actions, visible keyboard focus, viewport-bounded width and light/dark color tokens. The Profile route and CSRF-protected POST Logout behavior are unchanged. Build, TypeScript and Pint checks pass; `AlphaLinkProfilePasswordTest` passes 6 tests / 33 assertions, exercising authenticated shell rendering; release `5c7e6b5` passed the guarded installer, created a PostgreSQL backup, applied no migrations and passed HTTPS health. Production dark-theme rendering shows the signed-in identity, Profile route and Logout control; Logout was not activated. Light-theme runtime rendering and DMS menu comparison remain unverified.
+
 ## Current dashboard goal and delivery gates
 
 **Goal:** Turn the Command OS dashboard into a fast, responsive workspace operations center that adds useful Sponsor/Mailer/Offer analytics and interactive graph/GEO views without changing existing AlphaLink workflows or implying unsupported data.

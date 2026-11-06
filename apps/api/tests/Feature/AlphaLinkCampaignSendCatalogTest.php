@@ -4262,7 +4262,11 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
         $response = $this->actingAs($owner)->get(route('clean.console.campaigns.create', $workspace->getKey()));
 
         $response->assertOk()
-            ->assertSee('CREATE CAMPAIGN')
+            ->assertSee('<h1 id="campaign-page-title">Create Campaign</h1>', false)
+            ->assertSee('Campaign setup stages')
+            ->assertSee('campaign-composer-atmosphere.png')
+            ->assertSee('id="campaign-summary"', false)
+            ->assertSee('id="campaign-save-button"', false)
             ->assertSee('id="campaign-snapshot-progress"', false)
             ->assertSee('SUPPRESSION AND RECIPIENT PREPARATION')
             ->assertSee('The campaign composer stays open while the selected lists are processed.')

@@ -41,7 +41,15 @@
         ];
     @endphp
 
-    <h2 class="content-heading">{{ $editingCampaign ? 'EDIT CAMPAIGN ' . $editingCampaign->id : 'CREATE CAMPAIGN' }}</h2>
+    <div class="campaign-create-page">
+    <header class="campaign-create-hero" style="--campaign-hero-art: url('{{ asset('console-assets/campaign-composer-atmosphere.png') }}')">
+        <div class="campaign-create-hero-icon" aria-hidden="true"><i class="fas fa-paper-plane"></i></div>
+        <div class="campaign-create-hero-copy">
+            <p class="campaign-create-eyebrow">ALPHALINK CAMPAIGN STUDIO</p>
+            <h1 id="campaign-page-title">{{ $editingCampaign ? 'Edit Campaign' : 'Create Campaign' }}</h1>
+            <p>Build, target and prepare your email campaign with full control.</p>
+        </div>
+    </header>
 
     @if (session('status'))
         <div class="alert alert-success" role="status" aria-live="polite">{{ session('status') }}</div>
@@ -117,6 +125,408 @@
             #campaign-body-preview::backdrop { background: rgba(27, 33, 40, .58); }
             #campaign-body-preview .campaign-body-preview-header { align-items: center; display: flex; justify-content: space-between; margin-bottom: .75rem; }
             #campaign-body-preview-frame { border: 1px solid #d7dce3; display: block; height: min(72vh, 820px); min-height: 360px; width: 100%; }
+            .campaign-create-page {
+                --campaign-ink: #101746;
+                --campaign-muted: #667092;
+                --campaign-border: #dce0f4;
+                --campaign-surface: #fff;
+                --campaign-wash: #f8f7ff;
+                --campaign-purple: #792bfa;
+                --campaign-blue: #238dff;
+                color: var(--campaign-ink);
+                font-family: Inter, 'Segoe UI', Arial, sans-serif;
+            }
+            .campaign-create-hero {
+                align-items: center;
+                display: flex;
+                gap: 18px;
+                min-height: 108px;
+                margin: 0 0 12px;
+                padding: 14px 18px;
+                overflow: hidden;
+                border: 1px solid rgb(129 99 241 / 12%);
+                border-radius: 18px;
+                background-color: #f4f1ff;
+                background-image: linear-gradient(90deg, rgb(255 255 255 / 92%) 0%, rgb(255 255 255 / 76%) 33%, rgb(255 255 255 / 15%) 100%), var(--campaign-hero-art);
+                background-position: center 46%;
+                background-size: cover;
+                box-shadow: 0 8px 28px rgb(74 55 169 / 7%);
+            }
+            .campaign-create-hero-icon {
+                align-items: center;
+                background: linear-gradient(145deg, #c45bff, #7027f4 72%);
+                border: 1px solid rgb(255 255 255 / 72%);
+                border-radius: 17px;
+                box-shadow: 0 8px 20px rgb(112 39 244 / 28%);
+                color: #fff;
+                display: flex;
+                flex: 0 0 58px;
+                font-size: 25px;
+                height: 58px;
+                justify-content: center;
+            }
+            .campaign-create-hero-copy { min-width: 0; }
+            .campaign-create-eyebrow {
+                color: #7040db;
+                font-size: 9px;
+                font-weight: 800;
+                letter-spacing: .16em;
+                margin: 0 0 3px;
+            }
+            .campaign-create-hero h1 {
+                color: #101443;
+                font-size: clamp(23px, 2vw, 31px);
+                font-weight: 800;
+                letter-spacing: -.045em;
+                line-height: 1.08;
+                margin: 0;
+            }
+            .campaign-create-hero-copy > p:last-child {
+                color: #303c70;
+                font-size: 13px;
+                margin: 4px 0 0;
+            }
+            .campaign-stage-track {
+                margin: 0 0 16px;
+                overflow: hidden;
+                border: 1px solid #d9dcf3;
+                border-radius: 17px;
+                background: linear-gradient(105deg, #fff 0%, #fbfaff 53%, #f3f1ff 100%);
+                box-shadow: 0 5px 16px rgb(63 67 140 / 6%);
+            }
+            .campaign-stage-track ol {
+                display: grid;
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+                list-style: none;
+                margin: 0;
+                padding: 0;
+            }
+            .campaign-stage-track li {
+                align-items: center;
+                color: #26315e;
+                display: flex;
+                gap: 11px;
+                min-height: 56px;
+                padding: 8px 17px;
+                position: relative;
+                z-index: 1;
+            }
+            .campaign-stage-track li + li { padding-left: 25px; }
+            .campaign-stage-track li:not(:last-child)::after {
+                border-bottom: 28px solid transparent;
+                border-left: 14px solid #f0effb;
+                border-top: 28px solid transparent;
+                content: '';
+                height: 0;
+                position: absolute;
+                right: -13px;
+                top: 0;
+                width: 0;
+                z-index: 2;
+            }
+            .campaign-stage-number {
+                align-items: center;
+                background: #fff;
+                border: 1px solid #c9ccef;
+                border-radius: 50%;
+                color: #15204d;
+                display: inline-flex;
+                flex: 0 0 36px;
+                font-size: 16px;
+                font-weight: 750;
+                height: 36px;
+                justify-content: center;
+            }
+            .campaign-stage-track li strong,
+            .campaign-stage-track li small { display: block; line-height: 1.2; }
+            .campaign-stage-track li strong { font-size: 13px; font-weight: 780; }
+            .campaign-stage-track li small { color: #687293; font-size: 11px; margin-top: 2px; }
+            .campaign-stage-track li.is-current {
+                background: linear-gradient(110deg, #c65aff, #762df4 75%);
+                color: #fff;
+                z-index: 4;
+            }
+            .campaign-stage-track li.is-current::after { border-left-color: #762df4; }
+            .campaign-stage-track li.is-current .campaign-stage-number {
+                background: rgb(255 255 255 / 20%);
+                border-color: rgb(255 255 255 / 75%);
+                color: #fff;
+            }
+            .campaign-stage-track li.is-current small { color: rgb(255 255 255 / 88%); }
+            .campaign-create-layout {
+                align-items: start;
+                display: grid;
+                gap: 14px;
+                grid-template-columns: minmax(0, 1fr) minmax(270px, 300px);
+            }
+            .campaign-create-main { min-width: 0; }
+            .campaign-create-page .block {
+                background: var(--campaign-surface);
+                border: 1px solid var(--campaign-border);
+                border-radius: 15px;
+                box-shadow: 0 5px 18px rgb(63 67 140 / 6%);
+                margin-bottom: 10px;
+                overflow: visible;
+            }
+            .campaign-create-page .block-header {
+                align-items: center;
+                background: linear-gradient(100deg, #fff, #f8f6ff);
+                border-bottom: 1px solid #efedfa;
+                border-radius: 15px 15px 0 0;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 4px 12px;
+                min-height: 42px;
+                padding: 8px 14px;
+            }
+            .campaign-create-page .block-title {
+                color: var(--campaign-ink);
+                font-size: 15px;
+                font-weight: 790;
+                letter-spacing: -.025em;
+                margin: 0;
+                text-transform: none;
+            }
+            .campaign-create-page .block-title > i,
+            .campaign-create-page #campaign-targeting .block-title > i {
+                color: var(--campaign-purple);
+                margin-right: 7px;
+            }
+            .campaign-section-caption { color: var(--campaign-muted); font-size: 11px; }
+            .campaign-create-page .block-content { padding: 12px 14px; }
+            .campaign-create-page #campaign-targeting > .row { margin-left: -5px; margin-right: -5px; }
+            .campaign-create-page #campaign-targeting > .row > [class*='col-'] { padding-left: 5px; padding-right: 5px; }
+            .campaign-create-page #campaign-targeting .block { height: 100%; }
+            .campaign-create-page #campaign-targeting .block-header { min-height: 40px; }
+            .campaign-create-page .form-group { margin-bottom: 10px; }
+            .campaign-create-page label { color: var(--campaign-ink); font-size: 11px; font-weight: 700; margin-bottom: 4px; }
+            .campaign-create-page .form-control,
+            .campaign-create-page .bootstrap-select > .dropdown-toggle {
+                background-color: #fff;
+                border: 1px solid #cfd4ed;
+                border-radius: 8px;
+                color: #151d43;
+                font-size: 12px;
+                min-height: 34px;
+                padding: 6px 10px;
+            }
+            .campaign-create-page .form-control:focus,
+            .campaign-create-page .bootstrap-select > .dropdown-toggle:focus {
+                border-color: #9254ff;
+                box-shadow: 0 0 0 3px rgb(139 74 255 / 12%);
+            }
+            .campaign-create-page .form-text,
+            .campaign-create-page .text-muted { color: var(--campaign-muted) !important; font-size: 10px; line-height: 1.45; }
+            .campaign-create-page .bootstrap-select { width: 100% !important; }
+            .campaign-create-page .bootstrap-select > .dropdown-toggle { box-shadow: none; }
+            .campaign-create-page #campaign-usable-tags {
+                align-items: center;
+                background: linear-gradient(100deg, #fff, #f6f3ff);
+                border: 1px solid #ddd7ff;
+                border-radius: 12px;
+                color: #5f32d5;
+                display: flex;
+                flex-wrap: wrap;
+                font-size: 10px;
+                gap: 4px 8px;
+                justify-content: flex-start;
+                margin: 0 0 10px;
+                padding: 8px 12px !important;
+                text-align: left !important;
+            }
+            .campaign-create-page #campaign-usable-tags small { flex: 1 0 100%; color: var(--campaign-muted); font-size: 9px; text-align: left; }
+            .campaign-create-page #campaign-usable-tags .close { margin-left: auto; }
+            .campaign-create-page .campaign-email-card .block-content { padding-bottom: 8px; }
+            .campaign-create-page .campaign-header-editor,
+            .campaign-create-page #campaign-body {
+                background: #fcfbff;
+                font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+                font-size: 11px;
+                line-height: 1.4;
+                min-height: 148px;
+                resize: vertical;
+            }
+            .campaign-create-page .campaign-header-editor { height: 164px; }
+            .campaign-create-page #campaign-body { height: 164px; }
+            .campaign-create-page #campaign-routing {
+                border-top: 1px solid #ebe9f6;
+                margin-top: 4px;
+                padding-top: 12px;
+            }
+            .campaign-create-page #campaign-routing > .row > [class*='col-'] { min-width: 0; }
+            .campaign-create-page #send-ips-available,
+            .campaign-create-page #send-ips-selected { min-height: 118px; }
+            .campaign-create-page #send-route-behavior { background: #f7f5ff; border-left: 3px solid #9a5aff; border-radius: 0 7px 7px 0; display: block; margin-top: 8px; padding: 7px 9px; }
+            .campaign-create-summary { position: sticky; top: 56px; }
+            .campaign-summary-card {
+                background: var(--campaign-surface);
+                border: 1px solid var(--campaign-border);
+                border-radius: 15px;
+                box-shadow: 0 5px 18px rgb(63 67 140 / 7%);
+                margin-bottom: 10px;
+                padding: 13px;
+            }
+            .campaign-summary-heading { align-items: center; border-bottom: 1px solid #efedfa; display: flex; gap: 10px; padding-bottom: 10px; }
+            .campaign-summary-icon {
+                align-items: center;
+                background: linear-gradient(145deg, #efe7ff, #e1e9ff);
+                border-radius: 11px;
+                color: #7b34f4;
+                display: inline-flex;
+                flex: 0 0 38px;
+                font-size: 17px;
+                height: 38px;
+                justify-content: center;
+            }
+            .campaign-summary-card h2 { color: var(--campaign-ink); font-size: 15px; font-weight: 790; letter-spacing: -.025em; margin: 0; }
+            .campaign-summary-heading p { color: var(--campaign-muted); font-size: 10px; line-height: 1.35; margin: 3px 0 0; }
+            .campaign-summary-checklist { list-style: none; margin: 6px 0 0; padding: 0; }
+            .campaign-summary-checklist li { align-items: center; border-bottom: 1px solid #f0eff8; display: flex; justify-content: space-between; gap: 8px; min-height: 33px; }
+            .campaign-summary-checklist li:last-child { border-bottom: 0; }
+            .campaign-summary-checklist li > span { color: var(--campaign-ink); font-size: 11px; font-weight: 680; white-space: nowrap; }
+            .campaign-summary-checklist li > span i { color: #7941ee; margin-right: 6px; width: 15px; }
+            .campaign-summary-checklist strong { color: #8a90a8; font-size: 10px; font-weight: 690; text-align: right; }
+            .campaign-summary-checklist strong.is-ready { color: #15975a; }
+            .campaign-summary-checklist strong.is-pending { color: #dc8b20; }
+            .campaign-summary-checklist strong.is-optional { color: #7b66bb; }
+            .campaign-summary-stats { display: grid; gap: 7px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 10px; }
+            .campaign-summary-stats > div { align-items: center; background: linear-gradient(150deg, #fff, #f8f7ff); border: 1px solid #e2e1f3; border-radius: 11px; display: flex; flex-direction: column; min-height: 78px; justify-content: center; padding: 7px 3px; text-align: center; }
+            .campaign-summary-stats i { color: #8035f4; font-size: 16px; margin-bottom: 3px; }
+            .campaign-summary-stats strong { color: var(--campaign-ink); font-size: 18px; font-variant-numeric: tabular-nums; font-weight: 800; line-height: 1.05; }
+            .campaign-summary-stats span { color: var(--campaign-muted); font-size: 9px; margin-top: 3px; }
+            .campaign-readiness-heading { align-items: center; display: flex; justify-content: space-between; gap: 8px; }
+            .campaign-readiness-heading strong { color: #7535ee; font-size: 12px; }
+            .campaign-readiness-track { background: #eceafd; border-radius: 99px; height: 10px; margin: 10px 0 6px; overflow: hidden; }
+            .campaign-readiness-track span { background: linear-gradient(90deg, #c04eff, #6d37f8); border-radius: inherit; display: block; height: 100%; transition: width .2s ease; width: 0; }
+            .campaign-readiness-card small { color: var(--campaign-muted); font-size: 10px; }
+            .campaign-summary-actions {
+                background: linear-gradient(145deg, #fff, #f6f3ff);
+                border: 1px solid #ded9f8;
+                border-radius: 15px;
+                box-shadow: 0 6px 18px rgb(77 56 169 / 8%);
+                padding: 12px;
+            }
+            .campaign-summary-actions p { color: var(--campaign-muted); font-size: 10px; line-height: 1.45; margin: 0 0 10px; }
+            .campaign-create-submit {
+                background: linear-gradient(100deg, #b34eff, #6e2df1);
+                border: 0;
+                border-radius: 11px;
+                box-shadow: 0 7px 16px rgb(112 42 242 / 22%);
+                color: #fff;
+                font-size: 14px;
+                font-weight: 780;
+                min-height: 46px;
+                width: 100%;
+            }
+            .campaign-create-submit:hover,
+            .campaign-create-submit:focus { background: linear-gradient(100deg, #a53df5, #5e22dd); box-shadow: 0 0 0 3px rgb(139 74 255 / 20%), 0 7px 16px rgb(112 42 242 / 22%); color: #fff; }
+            .campaign-create-submit i { margin-right: 7px; }
+            .campaign-create-page .campaign-cancel-link { border-color: #d9d8ed; border-radius: 9px; color: var(--campaign-ink); display: block; font-size: 12px; font-weight: 700; margin-top: 8px; padding: 8px; text-align: center; }
+            .campaign-create-page #campaign-floating-actions { bottom: 16px; right: 16px; top: auto; }
+            .campaign-create-page #campaign-actions-trigger {
+                background: linear-gradient(145deg, #b14eff, #7028f4);
+                border: 1px solid rgb(255 255 255 / 76%);
+                border-radius: 50%;
+                box-shadow: 0 5px 16px rgb(97 49 206 / 25%);
+                height: 40px;
+                width: 40px;
+            }
+            .campaign-create-page #campaign-actions-panel {
+                background: #fff;
+                border: 1px solid var(--campaign-border);
+                border-radius: 12px;
+                bottom: 64px;
+                box-shadow: 0 12px 30px rgb(29 31 68 / 18%);
+                padding: 6px;
+                right: 16px;
+                top: auto;
+                width: min(230px, calc(100vw - 32px));
+            }
+            .campaign-create-page #campaign-actions-panel button {
+                border-radius: 8px;
+                color: var(--campaign-ink);
+                justify-content: flex-start;
+                padding: 8px 8px 8px 42px;
+                text-align: left;
+                text-shadow: none;
+            }
+            .campaign-create-page #campaign-actions-panel button:hover,
+            .campaign-create-page #campaign-actions-panel button:focus { background: #f4efff; color: #5220b7; }
+            .campaign-create-page #campaign-actions-panel i {
+                background: transparent;
+                color: #7837ef;
+                left: 8px;
+                right: auto;
+                width: 26px;
+            }
+            .campaign-create-page #campaign-actions-panel [aria-disabled='true'] { color: #73798b; }
+            .campaign-create-page #campaign-actions-panel [aria-disabled='true'] i { background: transparent; color: #9095a4; }
+            .campaign-create-page :focus-visible { outline: 3px solid rgb(127 61 245 / 60%); outline-offset: 2px; }
+            html[data-command-theme='dark'] .campaign-create-page {
+                --campaign-ink: #f1f3ff;
+                --campaign-muted: #abb6d8;
+                --campaign-border: #26365f;
+                --campaign-surface: #111d3b;
+                --campaign-wash: #152342;
+                --campaign-purple: #bd72ff;
+                --campaign-blue: #3ca9ff;
+            }
+            html[data-command-theme='dark'] .campaign-create-hero {
+                background-color: #101b38;
+                background-image: linear-gradient(90deg, rgb(9 17 38 / 87%) 0%, rgb(9 17 38 / 65%) 35%, rgb(9 17 38 / 27%) 100%), var(--campaign-hero-art);
+            }
+            html[data-command-theme='dark'] .campaign-create-hero h1,
+            html[data-command-theme='dark'] .campaign-create-hero-copy > p:last-child { color: #f3f4ff; }
+            html[data-command-theme='dark'] .campaign-stage-track,
+            html[data-command-theme='dark'] .campaign-create-page .block-header,
+            html[data-command-theme='dark'] .campaign-summary-stats > div,
+            html[data-command-theme='dark'] .campaign-summary-actions { background: linear-gradient(120deg, #111d3b, #172447); border-color: var(--campaign-border); }
+            html[data-command-theme='dark'] .campaign-stage-track li { color: #eef1ff; }
+            html[data-command-theme='dark'] .campaign-stage-track li + li,
+            html[data-command-theme='dark'] .campaign-summary-heading,
+            html[data-command-theme='dark'] .campaign-summary-checklist li { border-color: #26365f; }
+            html[data-command-theme='dark'] .campaign-stage-track li:not(:last-child)::after { border-left-color: #172447; }
+            html[data-command-theme='dark'] .campaign-stage-track li.is-current::after { border-left-color: #762df4; }
+            html[data-command-theme='dark'] .campaign-stage-track li:nth-child(3),
+            html[data-command-theme='dark'] .campaign-stage-track li:nth-child(4) { border-top-color: #26365f; }
+            html[data-command-theme='dark'] .campaign-stage-number,
+            html[data-command-theme='dark'] .campaign-create-page .form-control,
+            html[data-command-theme='dark'] .campaign-create-page .bootstrap-select > .dropdown-toggle,
+            html[data-command-theme='dark'] .campaign-create-page #campaign-actions-panel { background-color: #0c1731; border-color: #334574; color: #eff2ff; }
+            html[data-command-theme='dark'] .campaign-create-page .campaign-header-editor,
+            html[data-command-theme='dark'] .campaign-create-page #campaign-body,
+            html[data-command-theme='dark'] .campaign-create-page #send-route-behavior { background: #0c1731; color: #eff2ff; }
+            html[data-command-theme='dark'] .campaign-create-page #campaign-usable-tags { background: #172347; border-color: #394778; }
+            html[data-command-theme='dark'] .campaign-readiness-track { background: #26365f; }
+            html[data-command-theme='dark'] .campaign-create-page #campaign-actions-panel button { color: #eff2ff; }
+            @media (max-width: 1120px) {
+                .campaign-create-layout { grid-template-columns: minmax(0, 1fr) 270px; }
+            }
+            @media (max-width: 960px) {
+                .campaign-create-layout { grid-template-columns: minmax(0, 1fr); }
+                .campaign-create-summary { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); position: static; }
+                .campaign-create-summary > * { margin-bottom: 0; }
+                .campaign-summary-actions { align-self: start; }
+            }
+            @media (max-width: 767.98px) {
+                .campaign-create-hero { align-items: flex-start; background-position: 58% center; border-radius: 13px; min-height: 100px; padding: 14px; }
+                .campaign-create-hero-icon { border-radius: 13px; flex-basis: 44px; font-size: 20px; height: 44px; }
+                .campaign-create-hero-copy > p:last-child { max-width: 32ch; }
+                .campaign-stage-track { border-radius: 13px; }
+                .campaign-stage-track ol { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+                .campaign-stage-track li { min-height: 52px; padding: 7px 9px; }
+                .campaign-stage-track li:nth-child(3) { border-left: 0; border-top: 1px solid #e6e6f4; }
+                .campaign-stage-track li:nth-child(4) { border-top: 1px solid #e6e6f4; }
+                .campaign-create-page #campaign-targeting > .row > [class*='col-'] { flex: 0 0 100%; max-width: 100%; }
+                .campaign-create-summary { grid-template-columns: minmax(0, 1fr); }
+                .campaign-create-page .block-header { align-items: flex-start; flex-direction: column; }
+                .campaign-create-page .form-row > [class*='col-'] { flex: 0 0 100%; max-width: 100%; }
+            }
+            @media (prefers-reduced-motion: reduce) {
+                .campaign-create-page *,
+                .campaign-create-page *::before,
+                .campaign-create-page *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+            }
         </style>
         <form method="POST" action="{{ $editingCampaign ? route('console.campaigns.revisions.store', [$workspace->id, $editingCampaign->id]) : route('console.campaigns.store', $workspace->id) }}" id="campaign-create-form" data-options-url="{{ $sendOptionsUrl }}" novalidate>
         <div id="campaign-action-backdrop" hidden></div>
@@ -154,12 +564,23 @@
         <input type="hidden" name="kind" value="marketing">
         @endunless
 
+        <nav class="campaign-stage-track" aria-label="Campaign setup stages">
+            <ol>
+                <li class="is-current" aria-current="step"><span class="campaign-stage-number">1</span><span><strong>Setup</strong><small>Offer &amp; list</small></span></li>
+                <li><span class="campaign-stage-number">2</span><span><strong>Configuration</strong><small>Headers &amp; content</small></span></li>
+                <li><span class="campaign-stage-number">3</span><span><strong>Sending</strong><small>Routes &amp; delivery</small></span></li>
+                <li><span class="campaign-stage-number">4</span><span><strong>Review</strong><small>Summary &amp; create</small></span></li>
+            </ol>
+        </nav>
+
+        <div class="campaign-create-layout">
+        <div class="campaign-create-main">
         @unless ($editingCampaign)
         <div id="campaign-targeting">
             <div class="row">
                 <div class="col-sm-12 col-md-6">
                     <div class="block block-rounded">
-                        <div class="block-header"><h3 class="block-title">Select Offer</h3></div>
+                        <div class="block-header"><h3 class="block-title"><i class="fas fa-tag" aria-hidden="true"></i> Select Offer</h3></div>
                         <div class="block-content">
                             <div class="form-group">
                                 <label for="send-sponsor">Sponsor:</label>
@@ -194,7 +615,7 @@
 
                 <div class="col-sm-12 col-md-6">
                     <div class="block block-rounded">
-                        <div class="block-header"><h3 class="block-title">Select List</h3></div>
+                        <div class="block-header"><h3 class="block-title"><i class="fas fa-list-ul" aria-hidden="true"></i> Select List</h3></div>
                         <div class="block-content">
                             <div class="row">
                                 <div class="col-sm-12 col-md-6">
@@ -259,7 +680,11 @@
             <button type="button" class="btn btn-link btn-sm p-0 ml-1" id="campaign-tags-help" title="SHOW EXAMPLE" aria-label="Show tag examples"><i class="fas fa-question-circle" aria-hidden="true"></i></button>
             <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button>
         </div>
-        <div class="block block-rounded">
+        <div class="block block-rounded campaign-email-card">
+            <div class="block-header">
+                <h3 class="block-title"><i class="fas fa-envelope" aria-hidden="true"></i> Email Configuration</h3>
+                <span class="campaign-section-caption">Configure return path, headers, and email content.</span>
+            </div>
             <div class="block-content">
                 <div class="form-row">
                     <div class="form-group col-md-4">
@@ -393,6 +818,14 @@
                         </dialog>
                     </div>
                 </div>
+            </div>
+        </div>
+        <div class="block block-rounded campaign-delivery-card">
+            <div class="block-header">
+                <h3 class="block-title"><i class="fas fa-paper-plane" aria-hidden="true"></i> Placeholders &amp; Sending</h3>
+                <span class="campaign-section-caption">Define message variations, routes, and delivery rules.</span>
+            </div>
+            <div class="block-content">
                 <div class="form-row">
                     @include('console.campaigns.partials.placeholder-editor', [
                         'idPrefix' => 'campaign',
@@ -529,12 +962,51 @@
             </div>
         </div>
 
-        <div class="d-flex justify-content-end mb-4">
-            <span class="align-self-center text-muted small mr-3">{{ $editingCampaign ? 'Editing preserves the existing audience snapshot and returns to Campaigns.' : 'Saving filters and snapshots recipients. It does not send.' }}</span>
-            <a class="btn btn-alt-secondary mr-2" href="{{ route('console.campaigns.index', $workspace->id) }}">Cancel</a>
-            <button class="btn btn-primary" id="campaign-save-button" type="submit">{{ $editingCampaign ? 'Edit Campaign' : 'Create Campaign' }}</button>
-            <a class="btn btn-primary ml-2" id="campaign-new-campaign" href="{{ route('console.campaigns.create', $workspace->id) }}" hidden>Start a new campaign</a>
         </div>
+        <aside class="campaign-create-summary" id="campaign-summary"
+            data-initial-audiences="{{ count($setup['audience_segments']) }}"
+            data-initial-routes="{{ count($setup['ip_ids']) }}"
+            data-initial-offer="{{ $setup['offer_id'] !== '' ? 'true' : 'false' }}"
+            data-initial-send-total="{{ $setup['total_send'] }}">
+            <section class="campaign-summary-card" aria-labelledby="campaign-summary-title">
+                <div class="campaign-summary-heading">
+                    <span class="campaign-summary-icon" aria-hidden="true"><i class="fas fa-chart-bar"></i></span>
+                    <div><h2 id="campaign-summary-title">Campaign Summary</h2><p>Review your setup before creating.</p></div>
+                </div>
+                <ul class="campaign-summary-checklist">
+                    <li><span><i class="fas fa-tag" aria-hidden="true"></i> Offer</span><strong data-campaign-summary="offer-status">Not selected</strong></li>
+                    <li><span><i class="fas fa-list-ul" aria-hidden="true"></i> Audience</span><strong data-campaign-summary="audience-status">Not selected</strong></li>
+                    <li><span><i class="fas fa-envelope" aria-hidden="true"></i> Email config</span><strong data-campaign-summary="email-status">Incomplete</strong></li>
+                    <li><span><i class="fas fa-layer-group" aria-hidden="true"></i> Placeholders</span><strong class="is-optional">Optional</strong></li>
+                    <li><span><i class="fas fa-share-alt" aria-hidden="true"></i> Sending</span><strong data-campaign-summary="route-status">Not selected</strong></li>
+                </ul>
+            </section>
+            <section class="campaign-summary-card" aria-labelledby="campaign-quick-stats-title">
+                <h2 id="campaign-quick-stats-title">Quick Stats</h2>
+                <div class="campaign-summary-stats">
+                    <div><i class="fas fa-paper-plane" aria-hidden="true"></i><strong data-campaign-summary="send-total">{{ $setup['total_send'] }}</strong><span>Total send</span></div>
+                    <div><i class="fas fa-users" aria-hidden="true"></i><strong data-campaign-summary="audiences">{{ count($setup['audience_segments']) }}</strong><span>Audiences</span></div>
+                    <div><i class="fas fa-server" aria-hidden="true"></i><strong data-campaign-summary="routes">{{ count($setup['ip_ids']) }}</strong><span>Routes</span></div>
+                </div>
+            </section>
+            <section class="campaign-summary-card campaign-readiness-card" aria-labelledby="campaign-readiness-title">
+                <div class="campaign-readiness-heading"><h2 id="campaign-readiness-title">Campaign Readiness</h2><strong data-campaign-summary="readiness-label">0%</strong></div>
+                <div class="campaign-readiness-track" role="progressbar" aria-label="Campaign setup readiness" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                    <span data-campaign-summary="readiness-bar"></span>
+                </div>
+                <small data-campaign-summary="readiness-detail">0 of 4 setup checks complete</small>
+            </section>
+            <section class="campaign-summary-actions" aria-label="Campaign actions">
+                <p>{{ $editingCampaign ? 'Saving creates a new campaign revision and preserves its audience snapshot.' : 'Creating saves the campaign and prepares its recipient snapshot. It does not send.' }}</p>
+                <button class="btn btn-primary campaign-create-submit" id="campaign-save-button" type="submit">
+                    <i class="fas fa-paper-plane" aria-hidden="true"></i> {{ $editingCampaign ? 'Save Campaign Changes' : 'Create Campaign' }}
+                </button>
+                <a class="btn btn-outline-secondary campaign-cancel-link" href="{{ route('console.campaigns.index', $workspace->id) }}">Cancel</a>
+                <a class="btn btn-primary ml-2" id="campaign-new-campaign" href="{{ route('console.campaigns.create', $workspace->id) }}" hidden>Start a new campaign</a>
+            </section>
+        </aside>
+        </div>
+
         <dialog id="campaign-encoding-dialog" data-encode-url="{{ route('console.campaign-tools.encode', $workspace->id) }}" aria-labelledby="campaign-encoding-title">
             <div class="p-3" style="min-width:min(720px,90vw)">
                 <div class="d-flex justify-content-between align-items-center mb-3"><h3 class="h5 mb-0" id="campaign-encoding-title">Encoding</h3><button type="button" class="btn btn-sm btn-outline-secondary" data-dialog-close="campaign-encoding-dialog" aria-label="Close encoding tools">×</button></div>
@@ -615,6 +1087,7 @@
 
     <div id="campaign-options-status" class="alert d-none" role="status" aria-live="polite"></div>
     <button type="button" id="campaign-options-retry" class="btn btn-alt-secondary d-none mb-4">Retry loading choices</button>
+    </div>
 @endsection
 
 @push('scripts')
@@ -1824,6 +2297,80 @@
                 startSnapshotProgress();
             }
             loadOptions();
+        })();
+
+        (() => {
+            const form = document.getElementById('campaign-create-form');
+            const summary = document.getElementById('campaign-summary');
+
+            if (!form || !summary) return;
+
+            const field = (id) => document.getElementById(id);
+            const summaryValue = (name) => summary.querySelector('[data-campaign-summary="' + name + '"]');
+            const initialAudienceCount = Number.parseInt(summary.dataset.initialAudiences || '0', 10) || 0;
+            const initialRouteCount = Number.parseInt(summary.dataset.initialRoutes || '0', 10) || 0;
+
+            const setStatus = (name, ready, readyLabel, pendingLabel) => {
+                const target = summaryValue(name);
+
+                if (!target) return;
+
+                target.textContent = ready ? readyLabel : pendingLabel;
+                target.classList.toggle('is-ready', ready);
+                target.classList.toggle('is-pending', !ready);
+            };
+
+            const updateSummary = () => {
+                const offerSelect = field('send-offer');
+                const listSelect = field('send-lists');
+                const visibleRoutes = field('send-ips-selected');
+                const hiddenRoutes = field('send-ips');
+                const header = field('campaign-header');
+                const totalSend = field('send-total_send');
+                const audienceCount = listSelect
+                    ? listSelect.selectedOptions.length
+                    : initialAudienceCount;
+                const visibleRouteCount = visibleRoutes ? visibleRoutes.selectedOptions.length : 0;
+                const hiddenRouteCount = hiddenRoutes ? hiddenRoutes.selectedOptions.length : 0;
+                const routeCount = visibleRoutes || hiddenRoutes
+                    ? Math.max(visibleRouteCount, hiddenRouteCount)
+                    : initialRouteCount;
+                const offerReady = offerSelect
+                    ? Boolean(offerSelect.value)
+                    : summary.dataset.initialOffer === 'true';
+                const audienceReady = audienceCount > 0;
+                const emailBodyReady = Boolean(field('campaign-body')?.value.trim() || field('send-html-asset')?.value);
+                const emailReady = Boolean(header?.value.trim()) && emailBodyReady;
+                const routeReady = routeCount > 0;
+                const completeChecks = [offerReady, audienceReady, emailReady, routeReady].filter(Boolean).length;
+                const readiness = Math.round((completeChecks / 4) * 100);
+                const routeMode = field('send-route')?.selectedOptions[0]?.textContent.trim() || 'Routes';
+
+                setStatus('offer-status', offerReady, 'Selected', 'Not selected');
+                setStatus('audience-status', audienceReady, audienceCount + ' selected', 'Not selected');
+                setStatus('email-status', emailReady, 'Content ready', 'Incomplete');
+                setStatus('route-status', routeReady, routeCount + ' ' + routeMode.toLowerCase() + ' selected', 'Not selected');
+
+                const audienceValue = summaryValue('audiences');
+                const routesValue = summaryValue('routes');
+                const sendValue = summaryValue('send-total');
+                const readinessLabel = summaryValue('readiness-label');
+                const readinessDetail = summaryValue('readiness-detail');
+                const readinessBar = summaryValue('readiness-bar');
+                const progress = summary.querySelector('[role="progressbar"]');
+
+                if (audienceValue) audienceValue.textContent = String(audienceCount);
+                if (routesValue) routesValue.textContent = String(routeCount);
+                if (sendValue) sendValue.textContent = totalSend?.value || summary.dataset.initialSendTotal || '0';
+                if (readinessLabel) readinessLabel.textContent = readiness + '%';
+                if (readinessDetail) readinessDetail.textContent = completeChecks + ' of 4 setup checks complete';
+                if (readinessBar) readinessBar.style.width = readiness + '%';
+                if (progress) progress.setAttribute('aria-valuenow', String(readiness));
+            };
+
+            form.addEventListener('change', updateSummary);
+            form.addEventListener('input', updateSummary);
+            updateSummary();
         })();
     </script>
 @endpush

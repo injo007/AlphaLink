@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import type { JSX } from 'react';
 import { AttributionControl, Map as MapLibreMap, NavigationControl, Popup, setWorkerUrl } from 'maplibre-gl';
-import type { Feature, FeatureCollection, Geometry } from 'geojson';
+import type { Feature, FeatureCollection, Geometry, Point } from 'geojson';
 import { feature } from 'topojson-client';
 import { getAlpha2Code, getName, getSimpleAlpha2Code, isValid, numericToAlpha2, registerLocale } from 'i18n-iso-countries';
 import englishLocale from 'i18n-iso-countries/langs/en.json';
@@ -88,6 +88,70 @@ function createCountryCollection(countries: GeoCountry[]): FeatureCollection<Geo
     };
 }
 
+function collectCoordinates(value: unknown, coordinates: [number, number][]): void {
+    if (!Array.isArray(value)) return;
+    if (typeof value[0] === 'number' && typeof value[1] === 'number') {
+        coordinates.push([value[0], value[1]]);
+        return;
+    }
+    value.forEach((item) => collectCoordinates(item, coordinates));
+}
+
+function geometryCoordinates(geometry: Geometry): [number, number][] {
+    if (geometry.type === 'GeometryCollection') {
+        return geometry.geometries.flatMap(geometryCoordinates);
+    }
+    const coordinates: [number, number][] = [];
+    collectCoordinates(geometry.coordinates, coordinates);
+    return coordinates;
+}
+
+function createActivityMarkers(countries: FeatureCollection<Geometry, CountryProperties>): FeatureCollection<Point, CountryProperties> {
+    const features = countries.features.flatMap((country): Feature<Point, CountryProperties>[] => {
+        const properties = country.properties;
+        if (properties.deliveries + properties.bounces + properties.engagement === 0) return [];
+        const coordinates = geometryCoordinates(country.geometry);
+        if (coordinates.length === 0) return [];
+
+        const longitudes = coordinates.map(([longitude]) => longitude);
+        const latitudes = coordinates.map(([, latitude]) => latitude);
+        const minLongitude = Math.min(...longitudes);
+        const maxLongitude = Math.max(...longitudes);
+        // Skip dateline-spanning geometries rather than placing a marker far from the country.
+        if (maxLongitude - minLongitude > 120) return [];
+
+        return [{
+            type: 'Feature',
+            geometry: {
+                type: 'Point',
+                coordinates: [(minLongitude + maxLongitude) / 2, (Math.min(...latitudes) + Math.max(...latitudes)) / 2],
+            },
+            properties,
+        }];
+    });
+
+    return { type: 'FeatureCollection', features };
+}
+
+function countryDotPattern(color: string): ImageData {
+    const size = 7;
+    const [red, green, blue] = [1, 3, 5].map((start) => Number.parseInt(color.slice(start, start + 2), 16));
+    const pixels = new Uint8ClampedArray(size * size * 4);
+    for (let y = 0; y < size; y += 1) {
+        for (let x = 0; x < size; x += 1) {
+            const dx = x - 3;
+            const dy = y - 3;
+            if (dx * dx + dy * dy > 2.1) continue;
+            const index = (y * size + x) * 4;
+            pixels[index] = red;
+            pixels[index + 1] = green;
+            pixels[index + 2] = blue;
+            pixels[index + 3] = 255;
+        }
+    }
+    return new ImageData(pixels, size, size);
+}
+
 function formatCount(value: number): string {
     return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value);
 }
@@ -126,7 +190,11 @@ function topCountries(countries: GeoCountry[]): { code: string; name: string; ro
     }
     return [...combined.entries()]
         .map(([code, row]) => ({ code, name: countryName(code, row.country), row }))
-        .sort((left, right) => (right.row.deliveries + right.row.opens + right.row.clicks) - (left.row.deliveries + left.row.opens + left.row.clicks))
+        .sort((left, right) => {
+            const leftActivity = left.row.opens + left.row.clicks + left.row.leads + left.row.unsubscribes;
+            const rightActivity = right.row.opens + right.row.clicks + right.row.leads + right.row.unsubscribes;
+            return (rightActivity + right.row.deliveries + right.row.bounces) - (leftActivity + left.row.deliveries + left.row.bounces);
+        })
         .slice(0, 4);
 }
 
@@ -134,6 +202,7 @@ export default function DeliverabilityGeoMap({ data, theme }: { data: DashboardA
     const container = useRef<HTMLDivElement>(null);
     const collection = useMemo(() => createCountryCollection(data.countries), [data.countries]);
     const summary = useMemo(() => topCountries(data.countries), [data.countries]);
+    const markers = useMemo(() => createActivityMarkers(collection), [collection]);
     const countryCount = useMemo(() => new Set(data.countries.map((row) => alpha2(row.country)).filter((code): code is string => code !== null)).size, [data.countries]);
 
     useEffect(() => {
@@ -141,20 +210,23 @@ export default function DeliverabilityGeoMap({ data, theme }: { data: DashboardA
         if (!element) return undefined;
 
         const dark = theme === 'dark';
-        const base = dark ? '#111a36' : '#edf1ff';
-        const countryFill = dark ? '#202c50' : '#dce4fb';
-        const boundary = dark ? '#485b91' : '#b1bfe5';
+        const base = dark ? '#0d1631' : '#f4f6ff';
+        const countryFill = dark ? '#172b4c' : '#dce5fb';
+        const boundary = dark ? '#31577d' : '#adbee5';
         const map = new MapLibreMap({
             container: element,
-            center: [0, 18],
-            zoom: 0.72,
-            minZoom: 0.55,
+            center: [0, 14],
+            zoom: 0,
+            minZoom: -1.5,
             maxZoom: 4,
             maxPitch: 0,
             attributionControl: false,
             style: {
                 version: 8,
-                sources: { countries: { type: 'geojson', data: collection } },
+                sources: {
+                    countries: { type: 'geojson', data: collection },
+                    'activity-markers': { type: 'geojson', data: markers },
+                },
                 layers: [
                     { id: 'map-background', type: 'background', paint: { 'background-color': base } },
                     {
@@ -178,25 +250,65 @@ export default function DeliverabilityGeoMap({ data, theme }: { data: DashboardA
                         source: 'countries',
                         paint: { 'line-color': boundary, 'line-width': 0.65, 'line-opacity': 0.78 },
                     },
+                    {
+                        id: 'activity-marker-halo',
+                        type: 'circle',
+                        source: 'activity-markers',
+                        paint: {
+                            'circle-radius': ['case', ['any', ['>', ['get', 'deliveries'], 0], ['>', ['get', 'bounces'], 0]], 8, 6],
+                            'circle-color': ['case', ['any', ['>', ['get', 'deliveries'], 0], ['>', ['get', 'bounces'], 0]], '#a34cff', '#1a9bff'],
+                            'circle-opacity': 0.46,
+                            'circle-blur': 0.85,
+                        },
+                    },
+                    {
+                        id: 'activity-marker-core',
+                        type: 'circle',
+                        source: 'activity-markers',
+                        paint: {
+                            'circle-radius': ['case', ['any', ['>', ['get', 'deliveries'], 0], ['>', ['get', 'bounces'], 0]], 3.2, 2.6],
+                            'circle-color': ['case', ['any', ['>', ['get', 'deliveries'], 0], ['>', ['get', 'bounces'], 0]], '#a34cff', '#1a9bff'],
+                            'circle-stroke-color': dark ? '#d9e4ff' : '#fff',
+                            'circle-stroke-width': 1,
+                        },
+                    },
                 ],
             },
         });
         map.addControl(new NavigationControl({ showCompass: false, visualizePitch: false }), 'top-right');
         map.addControl(new AttributionControl({ compact: true, customAttribution: 'Country boundaries: Natural Earth' }), 'bottom-right');
         const popup = new Popup({ closeButton: true, closeOnClick: true, maxWidth: '260px' });
-        map.on('click', 'country-fill', (event) => {
+        const showCountry = (event: { features?: Array<{ properties?: Record<string, unknown> | null }>; lngLat?: { lng: number; lat: number } }) => {
             const properties = event.features?.[0]?.properties as CountryProperties | undefined;
             if (!properties || !event.lngLat) return;
             popup.setLngLat(event.lngLat).setDOMContent(popupContent(properties)).addTo(map);
-        });
+        };
+        map.on('click', 'country-fill', showCountry);
+        map.on('click', 'activity-marker-core', showCountry);
         map.on('mouseenter', 'country-fill', () => { map.getCanvas().style.cursor = 'pointer'; });
         map.on('mouseleave', 'country-fill', () => { map.getCanvas().style.cursor = ''; });
+        map.once('load', () => {
+            const patterns: [string, string][] = dark
+                ? [['country-dots-base', '#2d507a'], ['country-dots-activity', '#168dca'], ['country-dots-feedback', '#8749db']]
+                : [['country-dots-base', '#a8b9e8'], ['country-dots-activity', '#4388e9'], ['country-dots-feedback', '#9a55e4']];
+            patterns.forEach(([id, color]) => map.addImage(id, countryDotPattern(color)));
+            map.setPaintProperty('country-fill', 'fill-pattern', [
+                'case',
+                ['any', ['>', ['get', 'deliveries'], 0], ['>', ['get', 'bounces'], 0]], 'country-dots-feedback',
+                ['>', ['get', 'engagement'], 0], 'country-dots-activity',
+                'country-dots-base',
+            ]);
+            map.fitBounds([[-178, -56], [178, 78]], { padding: 7, duration: 0 });
+            map.resize();
+        });
 
         return () => {
             popup.remove();
             map.remove();
         };
-    }, [collection, theme]);
+    }, [collection, markers, theme]);
+
+    const maximumEngagement = Math.max(1, ...summary.map(({ row }) => row.opens + row.clicks + row.leads + row.unsubscribes));
 
     return (
         <section className="command-os-panel command-os-geo-panel" id="deliverability-geo" aria-labelledby="command-os-geo-title">
@@ -205,20 +317,32 @@ export default function DeliverabilityGeoMap({ data, theme }: { data: DashboardA
                 <span className="command-os-status-tag">{countryCount} countries</span>
             </div>
             <div className="command-os-geo-legend" aria-label="Map legend">
-                <span><i className="command-os-legend-delivery" aria-hidden="true" />PMTA delivery feedback</span>
+                <span><i className="command-os-legend-delivery" aria-hidden="true" />Delivery feedback</span>
                 <span><i className="command-os-legend-engagement" aria-hidden="true" />Observed engagement</span>
             </div>
-            <div className="command-os-map-frame">
-                <div className="command-os-map" ref={container} role="application" aria-label="Interactive world map. Use zoom controls and select a country to inspect delivery feedback and engagement." />
+            <div className="command-os-geo-body">
+                <div className="command-os-map-frame">
+                    <div className="command-os-map" ref={container} role="application" aria-label="Interactive dotted world map. Markers represent approximate country-level activity aggregates, not recipient locations. Use zoom controls and select a country for its delivery feedback and engagement totals." />
+                </div>
+                <div className="command-os-geo-countries" aria-label="Countries with recorded activity">
+                    {summary.length === 0 ? <div className="command-os-geo-empty" role="status">
+                        <strong>No country data</strong>
+                        <span>Country-coded activity will appear here.</span>
+                    </div> : summary.map(({ code, name, row }) => {
+                        const engagement = row.opens + row.clicks + row.leads + row.unsubscribes;
+                        const relativeActivity = Math.round((engagement / maximumEngagement) * 100);
+                        return <div className="command-os-country-row" key={code}>
+                            <div className="command-os-country-label"><span aria-hidden="true">{code}</span><strong>{name}</strong></div>
+                            <span className="command-os-country-count">{formatCount(engagement)} events</span>
+                            <div className="command-os-country-track" role="meter" aria-label={`${name} relative engagement volume`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={relativeActivity} aria-valuetext={`${formatCount(engagement)} engagement events, relative to the highest-activity country`}>
+                                <span style={{ width: `${relativeActivity}%` }} />
+                            </div>
+                            <span className="command-os-country-feedback">{formatCount(row.deliveries)} delivery feedback · {formatCount(row.bounces)} bounces</span>
+                        </div>;
+                    })}
+                </div>
             </div>
-            <div className="command-os-geo-countries" aria-label="Highest activity countries">
-                {summary.length === 0 ? <p role="status">No country-coded activity is recorded for this date range.</p> : summary.map(({ code, name, row }) => <div key={code}>
-                    <strong>{name}</strong>
-                    <span>{formatCount(row.deliveries)} deliveries</span>
-                    <span>{formatCount(row.opens + row.clicks + row.leads)} engagements</span>
-                </div>)}
-            </div>
-            <p className="command-os-geo-note">{data.feedback_note}</p>
+            <p className="command-os-geo-note" title={data.feedback_note}>{data.feedback_note}</p>
         </section>
     );
 }

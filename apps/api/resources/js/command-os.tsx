@@ -296,8 +296,9 @@ function DateAnalyticsFilter({ period }: { period: DashboardAnalytics['period'] 
                 value={showCustom ? 'custom' : period.key}
                 onChange={(event) => {
                     const form = event.currentTarget.form;
+                    const selectedPeriod = event.currentTarget.value;
                     setDateError('');
-                    if (event.currentTarget.value === 'custom') {
+                    if (selectedPeriod === 'custom') {
                         setShowCustom(true);
                         if (period.key !== 'custom') {
                             setCustomFrom('');
@@ -305,7 +306,14 @@ function DateAnalyticsFilter({ period }: { period: DashboardAnalytics['period'] 
                         }
                     } else {
                         setShowCustom(false);
-                        form?.requestSubmit();
+                        setCustomFrom('');
+                        setCustomTo('');
+                        if (form) {
+                            const destination = new URL(form.action, window.location.origin);
+                            destination.search = '';
+                            destination.searchParams.set('analytics_period', selectedPeriod);
+                            window.location.assign(destination.toString());
+                        }
                     }
                 }}
             >

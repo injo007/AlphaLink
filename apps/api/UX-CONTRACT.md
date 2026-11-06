@@ -29,6 +29,12 @@ This document defines current AlphaLink interface behavior. It is scoped to Alph
 - Empty states must say when no records are available instead of inventing sample data.
 - Forms preserve user-authored campaign HTML during editing. Send-time substitutions apply only to declared AlphaLink tracking tokens.
 
+## Command OS dashboard visualizations
+
+- **Deliverability by GEO:** The world silhouette is a geographic reference. Country dots and halo markers are driven only by country-coded workspace event or imported feedback totals. A marker denotes an approximate country-level aggregate, not a recipient location. The side list shows event counts and a relative-engagement bar; neither is a delivery-rate percentage. Delivery/bounce feedback remains a count because the complete sent-recipient denominator is unavailable. Empty date ranges keep the map but show a clear no-country-data state.
+- **Marketing Graph:** The AlphaLink hub connects to workspace module summaries. Spokes describe module membership, not links between specific records. Selecting a module exposes its date-filtered count. The graph must fit its panel without clipping at the supported breakpoints and keep all authorized modules represented.
+- Both panels follow the Command OS light/dark theme. At narrow widths, the GEO country summary stacks below the map and the graph recomputes its radial layout to fit the panel.
+
 ## Verification
 
 Use focused PHPUnit suites for the affected controller, service, persistence, and UI behavior. Run PHP syntax checks and `vendor/bin/pint --dirty --format agent` after PHP changes. For browser work, verify the actual AlphaLink page and state when the local environment is available; synthetic fixtures do not establish production data or delivery behavior.

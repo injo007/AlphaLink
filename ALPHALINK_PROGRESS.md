@@ -2,7 +2,7 @@
 
 **Updated:** 2026-11-06
 **Active objective:** Complete the responsive AlphaLink Command OS dashboard analytics phase, including date-filtered Sponsor, Mailer and Top Offers panels, a live Marketing Graph, and GEO performance visualization. Preserve existing routes, permissions and business logic; display only workspace-scoped sourced data and state missing denominators clearly.
-**Status:** Dashboard analytics phase is in progress. No code or production changes have been deployed for this phase yet.
+**Status:** The first dashboard analytics implementation is deployed in `fd74e30`; this visual refinement slice is in progress. The dashboard phase remains open until its browser and release gates pass.
 
 ## Current dashboard goal and delivery gates
 
@@ -12,8 +12,8 @@
 
 1. **Lock the data contract.** Use the current workspace analytics store and authenticated dashboard scope. Confirm each metric's source, operator/workspace permission boundary, target-versus-observed GEO semantics, empty state, and refresh behavior. Never expose recipient addresses, raw IPs, or provider credentials.
 2. **Add the shared date filter and attribution panels.** Provide Today, Yesterday, This week, This month, Last month, and Custom inclusive dates. Show Sponsor Analytics, Mailer Analytics and Top Offers using attributed lead revenue and stored activity totals. Preserve the existing Last 30 Days cards and chart semantics.
-3. **Build Deliverability by GEO.** Render an interactive Command OS map in both themes and at mobile widths. Use country-coded stored events and country-specific delivery feedback only where the source supports it; state clearly that feedback-only counts do not establish a delivery rate without a complete sent denominator. Keep multi-country Drop delivery counts unallocated when the source cannot split them.
-4. **Build the Marketing Graph.** Show workspace-scoped AlphaLink module connections with sourced counts and safe navigation. Label aggregate/module links accurately; never invent entity-to-entity edges or expose hidden destinations to roles without permission.
+3. **Build Deliverability by GEO.** Match the reference's dotted world map, country-level activity highlights and adjacent country summary in both themes. Keep empty dates visibly geographic without inventing activity markers; only plot markers for sourced country aggregates, and identify them as country-level rather than exact recipient locations. Show counts and relative engagement volume, never a delivery-rate percentage without a complete sent denominator. Keep multi-country Drop delivery counts unallocated when the source cannot split them.
+4. **Build the Marketing Graph.** Match the reference's centered AlphaLink hub, compact radial module pills, and module-colored spokes. Fit every permitted module inside the panel at desktop and narrow widths; keep node selection usable and show sourced counts. Label aggregate/module links accurately; never invent entity-to-entity edges or expose hidden destinations to roles without permission.
 5. **Verify each slice before closing it.** Run focused PHP tests for preset/custom dates, workspace/operator isolation, labels and aggregation; JavaScript tests for graph/map rendering and interactions; TypeScript and production builds; responsive browser checks at desktop/tablet/mobile widths; light/dark, keyboard, loading/empty/failure states; then update the feature matrix, parity report, evidence register and this progress log. Keep the dashboard TESTING while any material data or browser gap remains.
 6. **Release only after the gate passes.** Review the exact diff, push the tested branch and deploy AlphaLink through the guarded installer, then confirm authenticated production pages, selected filters, map/graph rendering and health checks. Record the deployed commit and verification results.
 

@@ -73,6 +73,18 @@
             return;
         }
 
+        const navigationDisclosure = target.closest('[data-action="navigation_disclosure"]');
+        if (navigationDisclosure) {
+            const submenu = document.getElementById(navigationDisclosure.getAttribute('aria-controls'));
+            if (submenu) {
+                const isExpanded = navigationDisclosure.getAttribute('aria-expanded') === 'true';
+                navigationDisclosure.setAttribute('aria-expanded', String(!isExpanded));
+                submenu.hidden = isExpanded;
+            }
+            event.preventDefault();
+            return;
+        }
+
         if (window.matchMedia('(min-width: 992px)').matches
             && page.classList.contains('sidebar-mini')
             && target.closest('#sidebar a[data-toggle="submenu"]')) {

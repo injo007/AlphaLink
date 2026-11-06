@@ -437,6 +437,7 @@
                                     $groupHasChildren = ($group['items'] ?? []) !== [];
                                     $groupIsDisabled = $group['disabled'] ?? false;
                                     $submenuId = $group['id'] ?? 'nav-submenu-'.\Illuminate\Support\Str::slug($group['label']);
+                                    $submenuIsOpen = ($group['open'] ?? false) || ($group['active'] ?? false);
                                 @endphp
                                 <li class="command-os-navigation-item {{ ($group['active'] ?? false) ? 'is-active' : '' }} {{ $groupIsDisabled ? 'is-disabled' : '' }}">
                                     <div class="command-os-navigation-row">
@@ -449,28 +450,28 @@
                                                 <i class="command-os-navigation-icon {{ $group['icon'] }}" aria-hidden="true"></i><span>{{ $commandOsNavLabel($group['label']) }}</span>
                                             </span>
                                         @endif
+                                        @if ($groupHasChildren)
+                                            <button type="button" class="command-os-navigation-disclosure-toggle" data-action="navigation_disclosure" aria-label="Toggle {{ $commandOsNavLabel($group['label']) }} pages" aria-expanded="{{ $submenuIsOpen ? 'true' : 'false' }}" aria-controls="{{ $submenuId }}" title="Toggle {{ $commandOsNavLabel($group['label']) }} pages">
+                                                <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                                            </button>
+                                        @endif
                                     </div>
                                     @if ($groupHasChildren)
-                                        <details class="command-os-navigation-disclosure" @if (($group['open'] ?? false) || ($group['active'] ?? false)) open @endif>
-                                            <summary aria-label="Show {{ $commandOsNavLabel($group['label']) }} pages" aria-controls="{{ $submenuId }}" title="Show {{ $commandOsNavLabel($group['label']) }} pages">
-                                                <i class="fas fa-chevron-down" aria-hidden="true"></i>
-                                            </summary>
-                                            <ul class="command-os-navigation-submenu" id="{{ $submenuId }}">
-                                                @foreach ($group['items'] as $item)
-                                                    <li>
-                                                        @if (isset($item['href']) && ! ($item['disabled'] ?? false))
-                                                            <a class="{{ ($item['active'] ?? false) ? 'active' : '' }}" href="{{ $item['href'] }}" @if (($item['active'] ?? false)) aria-current="page" @endif>
-                                                                <i class="{{ $item['icon'] ?? 'fas fa-circle' }}" aria-hidden="true"></i><span>{{ $commandOsNavLabel($item['label']) }}</span>
-                                                            </a>
-                                                        @else
-                                                            <span aria-disabled="true" title="This destination is not connected in the current release.">
-                                                                <i class="{{ $item['icon'] ?? 'fas fa-circle' }}" aria-hidden="true"></i><span>{{ $commandOsNavLabel($item['label']) }}</span>
-                                                            </span>
-                                                        @endif
-                                                    </li>
-                                                @endforeach
-                                            </ul>
-                                        </details>
+                                        <ul class="command-os-navigation-submenu" id="{{ $submenuId }}" @if (! $submenuIsOpen) hidden @endif>
+                                            @foreach ($group['items'] as $item)
+                                                <li>
+                                                    @if (isset($item['href']) && ! ($item['disabled'] ?? false))
+                                                        <a class="{{ ($item['active'] ?? false) ? 'active' : '' }}" href="{{ $item['href'] }}" @if (($item['active'] ?? false)) aria-current="page" @endif>
+                                                            <i class="{{ $item['icon'] ?? 'fas fa-circle' }}" aria-hidden="true"></i><span>{{ $commandOsNavLabel($item['label']) }}</span>
+                                                        </a>
+                                                    @else
+                                                        <span aria-disabled="true" title="This destination is not connected in the current release.">
+                                                            <i class="{{ $item['icon'] ?? 'fas fa-circle' }}" aria-hidden="true"></i><span>{{ $commandOsNavLabel($item['label']) }}</span>
+                                                        </span>
+                                                    @endif
+                                                </li>
+                                            @endforeach
+                                        </ul>
                                     @endif
                                 </li>
                             @endforeach

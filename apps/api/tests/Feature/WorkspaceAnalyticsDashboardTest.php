@@ -142,7 +142,7 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
             $this->assertStringContainsString('aria-controls="nav-submenu-tools-utilities"', $html);
             $this->assertStringContainsString('href="'.route('clean.console.global-tests.index').'"', $html);
             $this->assertStringContainsString('href="'.route('clean.console.global-tests.histories').'"', $html);
-            $this->assertStringContainsString('aria-label="Show Campaigns pages"', $html);
+            $this->assertStringContainsString('aria-label="Toggle Campaigns pages" aria-expanded="false"', $html);
             $this->assertStringContainsString('aria-disabled="true"', $html);
             $this->assertStringContainsString('class="command-os-navigation"', $html);
             $this->assertStringContainsString('>Dashboard</span>', $html);

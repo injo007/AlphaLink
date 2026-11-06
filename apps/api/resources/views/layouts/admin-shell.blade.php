@@ -600,7 +600,7 @@
     <script src="{{ asset('console-assets/assets/js/script.js') }}"></script>
     <script src="{{ asset('console-assets/assets/js/app.js') }}"></script>
     @if ($commandOsShell)
-        <script src="{{ asset('console-assets/command-os-drawer.js') }}" defer></script>
+        <script src="{{ asset('console-assets/command-os-drawer.js') }}?v={{ substr(sha1_file(public_path('console-assets/command-os-drawer.js')), 0, 12) }}" defer></script>
     @endif
     @if ($isListsPage || $isListHistoryPage || $isSponsorManagementPage || $isNetworkSponsorsPage || $isOfferManagementPage || $isNetworkOffersPage || $isServerInstallPage || $isReinstallPage || $isChangeDomainPage || $isCloudProvidersPage || $isDomainProvidersPage || $isPmtaPage || $isDropsPage || $isWarmupDraftPage || $isWorkspaceToolPage || $routeIs('console.drops.suppression*', 'console.campaigns.create', 'console.campaigns.edit', 'console.campaigns.show', 'console.campaigns.clone', 'console.campaigns.index', 'console.mailer.campaigns'))
         <script src="{{ asset('console-assets/plugins/bootstrap_select/bootstrap-select.js') }}"></script>

@@ -443,6 +443,14 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
                     && $analytics['mailers'][0]['label'] === $owner->name
                     && $analytics['geo']['countries'][0]['country'] === 'United States'
                     && $analytics['geo']['countries'][0]['opens'] === 1
+                    && $analytics['mtdRevenue']['sponsors'][0]['mtd'] === 10.0
+                    && $analytics['mtdRevenue']['isps'][0]['label'] === 'Analytics ISP'
+                    && $analytics['mtdRevenue']['isps'][0]['mtd'] === 10.0
+                    && $analytics['mtdRevenue']['mailers'][0]['label'] === $owner->name
+                    && $analytics['mtdRevenue']['offers'][0]['label'] === 'Analytics offer'
+                    && count($dashboard['charts']['mtd_actions']['labels']) === now()->day
+                    && count($dashboard['charts']['mtd_revenue']['labels']) === now()->day
+                    && count($dashboard['charts']['ytd_revenue']['labels']) === now()->month
                     && $graphNodes->get('drops')['count'] === 1
                     && $graphNodes->get('tracking')['count'] === 7;
             })

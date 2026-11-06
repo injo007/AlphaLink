@@ -48,12 +48,16 @@ export type DashboardPayload = {
     period: { label: string; from: string; to: string };
     metrics: Metric[];
     trend: { labels: string[]; deliveries: number[]; opens: number[] };
+    charts: Record<'mtd_actions' | 'mtd_revenue' | 'ytd_revenue', DashboardChart>;
     refresh: { url: string; interval: number };
     coverage: { deliveries: string; revenue: string; geo: string; graph: string };
     analytics: DashboardAnalytics;
     actions: DashboardAction[];
 };
 export type AnalyticsRow = { label: string; leads: number; clicks: number; attributed_revenue: number; deliveries?: number; opens?: number; unsubscribes?: number; bounces?: number };
+export type RevenueBreakdownRow = { label: string; today: number; mtd: number };
+export type DashboardChartSeries = { label: string; color: string; values: number[] };
+export type DashboardChart = { labels: string[]; series: DashboardChartSeries[] };
 export type GeoCountry = { country: string; opens: number; clicks: number; leads: number; unsubscribes: number; deliveries: number; bounces: number };
 export type MarketingNode = { id: string; label: string; count: number; color: string };
 export type DashboardAnalytics = {
@@ -61,6 +65,7 @@ export type DashboardAnalytics = {
     sponsors: AnalyticsRow[];
     mailers: AnalyticsRow[];
     offers: AnalyticsRow[];
+    mtdRevenue: { sponsors: RevenueBreakdownRow[]; isps: RevenueBreakdownRow[]; mailers: RevenueBreakdownRow[]; offers: RevenueBreakdownRow[] };
     geo: { countries: GeoCountry[]; feedback_note: string };
     graph: { nodes: MarketingNode[]; note: string };
     period: { key: string; label: string; from: string; to: string; maxDate: string; action: string };
@@ -224,6 +229,68 @@ function PerformanceChart({ payload, theme }: { payload: DashboardPayload; theme
     );
 }
 
+function Sparkline({ values, color }: { values: number[]; color: string }): JSX.Element {
+    const maximum = Math.max(1, ...values);
+    const points = values.map((value, index) => {
+        const x = values.length < 2 ? 0 : (index / (values.length - 1)) * 120;
+        const y = 31 - (Math.max(0, value) / maximum) * 27;
+        return `${x.toFixed(2)},${y.toFixed(2)}`;
+    }).join(' ');
+
+    return <svg className="command-os-sparkline" viewBox="0 0 120 34" preserveAspectRatio="none" aria-hidden="true">
+        <polyline points={points} pathLength="1" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>;
+}
+
+const actionColors = ['#28b7ff', '#ff5dbb', '#a376ff', '#32d5a1', '#ffa34a', '#52a4ff'];
+
+function MtdActionsStats({ chart }: { chart: DashboardChart }): JSX.Element {
+    return (
+        <section className="command-os-panel command-os-stat-grid-panel" aria-labelledby="command-os-mtd-actions-title">
+            <div className="command-os-panel-heading">
+                <div className="command-os-panel-title"><span className="command-os-heading-icon"><Activity size={17} aria-hidden="true" /></span><h2 id="command-os-mtd-actions-title">MTD Actions Stats</h2></div>
+                <span className="command-os-status-tag">Month to date</span>
+            </div>
+            <div className="command-os-action-stats">
+                {chart.series.map((series, index) => {
+                    const total = series.values.reduce((sum, value) => sum + Number(value || 0), 0);
+                    const color = actionColors[index % actionColors.length];
+                    return <article className="command-os-action-stat" key={series.label}>
+                        <div className="command-os-action-stat-heading"><span>{series.label}</span><strong>{number(total)}</strong></div>
+                        <Sparkline values={series.values} color={color} />
+                    </article>;
+                })}
+            </div>
+            <p className="command-os-chart-caption">Daily totals through today. Deliveries and bounces use imported PMTA feedback; other events come from stored campaign and Drop activity.</p>
+        </section>
+    );
+}
+
+function RevenueTrendPanel({ title, icon: Icon, chart, theme, id }: { title: string; icon: LucideIcon; chart: DashboardChart; theme: Theme; id: string }): JSX.Element {
+    const container = useRef<HTMLDivElement>(null);
+    const total = chart.series[0]?.values.reduce((sum, value) => sum + Number(value || 0), 0) ?? 0;
+
+    useEffect(() => {
+        if (!container.current) return undefined;
+        let active = true;
+        let dispose: () => void = () => {};
+        void import('./command-os-chart').then(({ renderDashboardAnalyticsChart }) => {
+            if (!active || !container.current) return;
+            dispose = renderDashboardAnalyticsChart(container.current, chart, theme, true);
+        });
+        return () => { active = false; dispose(); };
+    }, [chart, theme]);
+
+    return <section className="command-os-panel command-os-revenue-chart" aria-labelledby={`${id}-title`}>
+        <div className="command-os-panel-heading">
+            <div className="command-os-panel-title"><span className="command-os-heading-icon"><Icon size={17} aria-hidden="true" /></span><h2 id={`${id}-title`}>{title}</h2></div>
+            <span className="command-os-chart-total">{money(total)}</span>
+        </div>
+        <div className="command-os-revenue-chart-canvas" ref={container} role="img" aria-label={`${title}, attributed lead revenue: ${chart.labels.map((label, index) => `${label} ${money(chart.series[0]?.values[index] ?? 0)}`).join(', ')}`} />
+        <p className="command-os-chart-caption">Attributed revenue from recorded campaign and Drop leads.</p>
+    </section>;
+}
+
 function MetricCard({ metric }: { metric: Metric }): JSX.Element {
     const Icon = metricIcons[metric.key];
     const value = metric.format === 'currency' ? money(metric.value) : number(metric.value);
@@ -337,60 +404,55 @@ function DateAnalyticsFilter({ period }: { period: DashboardAnalytics['period'] 
     );
 }
 
-function AnalyticsBreakdown({ title, icon: Icon, rows, columns, empty }: {
-    title: string;
-    icon: LucideIcon;
-    rows: AnalyticsRow[];
-    columns: { key: keyof AnalyticsRow; label: string; format?: 'money' | 'number' }[];
-    empty: string;
-}): JSX.Element {
+function MtdRevenueBreakdown({ title, icon: Icon, rows }: { title: string; icon: LucideIcon; rows: RevenueBreakdownRow[] }): JSX.Element {
     return (
-        <article className="command-os-panel command-os-analytics-card">
+        <article className="command-os-panel command-os-mtd-revenue-card">
             <div className="command-os-panel-heading">
                 <div className="command-os-panel-title"><span className="command-os-heading-icon"><Icon size={17} aria-hidden="true" /></span><h3>{title}</h3></div>
+                <span className="command-os-status-tag">MTD</span>
             </div>
-            {rows.length === 0 ? <p className="command-os-analytics-empty" role="status">{empty}</p> : (
-                <div className="command-os-analytics-list">
-                    {rows.map((row, index) => <div className="command-os-analytics-row" key={`${row.label}-${index}`}>
-                        <strong title={row.label}>{row.label}</strong>
-                        <span className="command-os-analytics-values">
-                            {columns.map((column) => <span key={column.key}><small>{column.label}</small><b>{column.format === 'money' ? money(Number(row[column.key] ?? 0)) : number(Number(row[column.key] ?? 0))}</b></span>)}
-                        </span>
-                    </div>)}
-                </div>
-            )}
-            <p className="command-os-analytics-footnote">Attributed lead revenue only.</p>
+            {rows.length === 0 ? <p className="command-os-analytics-empty" role="status">No attributed lead revenue is recorded this month.</p> : <div className="command-os-mtd-revenue-list">
+                <div className="command-os-mtd-revenue-head"><span>Partner</span><span>Today</span><span>Month to date</span></div>
+                {rows.map((row, index) => <div className="command-os-mtd-revenue-row" key={`${row.label}-${index}`}>
+                    <strong title={row.label}>{row.label}</strong><span>{money(row.today)}</span><b>{money(row.mtd)}</b>
+                </div>)}
+            </div>}
+            <p className="command-os-analytics-footnote">Revenue attributed to recorded campaign and Drop leads.</p>
         </article>
     );
 }
 
-function DateFilteredAnalytics({ analytics }: { analytics: DashboardAnalytics }): JSX.Element {
-    return (
-        <section className="command-os-analytics-section" aria-labelledby="command-os-analytics-title">
-            <div className="command-os-analytics-heading">
-                <div>
-                    <p className="command-os-eyebrow">SPONSORS · MAILERS · OFFERS</p>
-                    <h2 id="command-os-analytics-title">Performance by partner</h2>
-                    <p>Stored campaign and Drop analytics for {analytics.period.from} — {analytics.period.to}</p>
-                </div>
-                <DateAnalyticsFilter period={analytics.period} />
-            </div>
-            <div className="command-os-analytics-grid">
-                <AnalyticsBreakdown title="Sponsor analytics" icon={Target} rows={analytics.sponsors} columns={[
-                    { key: 'leads', label: 'Leads' }, { key: 'clicks', label: 'Clicks' }, { key: 'attributed_revenue', label: 'Revenue', format: 'money' },
-                ]} empty="No sponsor activity is recorded for this range." />
-                <AnalyticsBreakdown title="Mailer analytics" icon={Mail} rows={analytics.mailers} columns={[
-                    { key: 'deliveries', label: 'Sent feedback' }, { key: 'opens', label: 'Opens' }, { key: 'clicks', label: 'Clicks' },
-                ]} empty="No mailer activity is recorded for this range." />
-                <AnalyticsBreakdown title="Top offers" icon={Layers3} rows={analytics.offers} columns={[
-                    { key: 'leads', label: 'Leads' }, { key: 'clicks', label: 'Clicks' }, { key: 'attributed_revenue', label: 'Revenue', format: 'money' },
-                ]} empty="No offer activity is recorded for this range." />
-            </div>
-            <p className="command-os-analytics-note">Revenue is attributed to recorded leads. Mailer delivery feedback counts imported PMTA records and may not represent the full send denominator.</p>
-        </section>
-    );
+function MtdRevenueAnalytics({ analytics }: { analytics: DashboardAnalytics }): JSX.Element {
+    return <section className="command-os-mtd-revenue-section" aria-labelledby="command-os-mtd-revenue-title">
+        <div className="command-os-section-heading">
+            <div><p className="command-os-eyebrow">ATTRIBUTED LEAD REVENUE</p><h2 id="command-os-mtd-revenue-title">Month-to-date revenue</h2><p>Revenue is grouped by the attribution saved with each lead.</p></div>
+        </div>
+        <div className="command-os-mtd-revenue-grid">
+            <MtdRevenueBreakdown title="MTD Revenue by Affiliate" icon={Target} rows={analytics.mtdRevenue.sponsors} />
+            <MtdRevenueBreakdown title="MTD Revenue by ISP" icon={Globe2} rows={analytics.mtdRevenue.isps} />
+            <MtdRevenueBreakdown title="MTD Revenue by Mailer" icon={Mail} rows={analytics.mtdRevenue.mailers} />
+            <MtdRevenueBreakdown title="MTD Top 10 Offers" icon={Layers3} rows={analytics.mtdRevenue.offers} />
+        </div>
+    </section>;
 }
 
+function DashboardCharts({ payload, theme }: { payload: DashboardPayload; theme: Theme }): JSX.Element {
+    return <section className="command-os-charts-section" aria-label="Month-to-date and year-to-date statistics">
+        <MtdActionsStats chart={payload.charts.mtd_actions} />
+        <RevenueTrendPanel id="command-os-ytd-revenue" title="YTD Revenue Stats" icon={ChartNoAxesCombined} chart={payload.charts.ytd_revenue} theme={theme} />
+        <RevenueTrendPanel id="command-os-mtd-revenue" title="MTD Revenue Stats" icon={DollarSign} chart={payload.charts.mtd_revenue} theme={theme} />
+    </section>;
+}
+
+function PerformanceOverview({ payload, theme }: { payload: DashboardPayload; theme: Theme }): JSX.Element {
+    return <section className="command-os-panel command-os-performance command-os-performance-footer" id="performance" aria-labelledby="command-os-performance-title">
+        <div className="command-os-panel-heading">
+            <div className="command-os-panel-title"><span className="command-os-heading-icon"><ChartNoAxesCombined size={17} aria-hidden="true" /></span><h2 id="command-os-performance-title">Performance overview · last 30 days</h2></div>
+            <span className="command-os-panel-meta">{payload.period.from} — {payload.period.to}</span>
+        </div>
+        <PerformanceChart payload={payload} theme={theme} />
+    </section>;
+}
 function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
     const [payload, updatePayload] = useState(initial);
     const [theme, updateTheme] = useState<Theme>('light');
@@ -446,6 +508,7 @@ function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
                     <p className="command-os-subtitle">Email marketing intelligence &amp; operations center</p>
                 </div>
                 <div className="command-os-heading-actions">
+                    <DateAnalyticsFilter period={payload.analytics.period} />
                     <span className="command-os-period"><Activity size={15} aria-hidden="true" />{payload.period.label}</span>
                     <button type="button" className="command-os-refresh" onClick={() => void refresh()} disabled={refreshing} aria-label="Refresh dashboard data">
                         <RefreshCw size={15} className={refreshing ? 'command-os-spin' : ''} aria-hidden="true" />
@@ -460,15 +523,7 @@ function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
                 {payload.metrics.map((metric) => <MetricCard key={metric.key} metric={metric} />)}
             </section>
 
-            <section className="command-os-panels" aria-label="Performance and operational intelligence">
-                <section className="command-os-panel command-os-performance" id="performance" aria-labelledby="command-os-performance-title">
-                    <div className="command-os-panel-heading">
-                        <div className="command-os-panel-title"><span className="command-os-heading-icon"><ChartNoAxesCombined size={17} aria-hidden="true" /></span><h2 id="command-os-performance-title">Performance overview</h2></div>
-                        <span className="command-os-panel-meta">{payload.period.from} — {payload.period.to}</span>
-                    </div>
-                    <PerformanceChart payload={payload} theme={theme} />
-                </section>
-
+            <section className="command-os-panels command-os-intelligence-panels" aria-label="Geographic and network intelligence">
                 <Suspense fallback={<section className="command-os-panel command-os-async-panel" role="status">Loading country map…</section>}>
                     <DeliverabilityGeoMap data={payload.analytics.geo} theme={theme} />
                 </Suspense>
@@ -507,11 +562,17 @@ function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
                 </div>
             </section>
 
-            <DateFilteredAnalytics analytics={payload.analytics} />
+            <MtdRevenueAnalytics analytics={payload.analytics} />
+
+            <DashboardCharts payload={payload} theme={theme} />
+
+            <PerformanceOverview payload={payload} theme={theme} />
 
             <div className="command-os-data-notes" id="command-os-data-coverage">
                 <span><strong>Coverage:</strong> {payload.coverage.deliveries}</span>
                 <span>{payload.coverage.revenue}</span>
+                <span>{payload.coverage.geo}</span>
+                <span>{payload.coverage.graph}</span>
                 <span className="command-os-refresh-status" role="status">{refreshError || checkedLabel}</span>
             </div>
         </div>

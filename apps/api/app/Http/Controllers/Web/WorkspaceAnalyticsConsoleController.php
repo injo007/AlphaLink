@@ -157,6 +157,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
                 $analyticsPeriod['from'],
                 $analyticsPeriod['to'],
             ) + [
+                'mtdRevenue' => $mtdLeadRevenue,
                 'period' => [
                     ...$analyticsPeriod,
                     'action' => route('console.analytics.index', ['workspace' => $workspace->getKey()]),
@@ -228,6 +229,29 @@ class WorkspaceAnalyticsConsoleController extends Controller
                     'color' => '#17685f',
                     'values' => $yearChartRows->pluck('revenue')->all(),
                 ]],
+            ],
+        ];
+        $commandOsDashboard['charts'] = [
+            'mtd_actions' => [
+                'labels' => array_slice($dashboardCharts['mtd_actions']['labels'], 0, $today->day),
+                'series' => array_map(
+                    fn (array $series): array => [...$series, 'values' => array_slice($series['values'], 0, $today->day)],
+                    $dashboardCharts['mtd_actions']['series'],
+                ),
+            ],
+            'mtd_revenue' => [
+                'labels' => array_slice($dashboardCharts['mtd_revenue']['labels'], 0, $today->day),
+                'series' => array_map(
+                    fn (array $series): array => [...$series, 'values' => array_slice($series['values'], 0, $today->day)],
+                    $dashboardCharts['mtd_revenue']['series'],
+                ),
+            ],
+            'ytd_revenue' => [
+                'labels' => array_slice($dashboardCharts['ytd_revenue']['labels'], 0, $today->month),
+                'series' => array_map(
+                    fn (array $series): array => [...$series, 'values' => array_slice($series['values'], 0, $today->month)],
+                    $dashboardCharts['ytd_revenue']['series'],
+                ),
             ],
         ];
 

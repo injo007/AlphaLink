@@ -791,3 +791,8 @@ Refined `command-os-geo-map.tsx`, `command-os-graph.tsx`, and `command-os.css`: 
 ### E-DASH-41 — Dashboard visualization polish — 2026-11-06
 
 The performance chart now uses theme-aware gradient fills and clearer series emphasis; the GEO map has stronger dotted coloring and a more considered empty state; and the Marketing Graph now uses the same AlphaLink PNG mark as the product shell, with brighter module spokes and larger, clearer node labels. The live page was checked in light and dark themes at the default desktop viewport and at 390 × 844. All graph nodes fit at 390px and measured document width stayed within the viewport. Selecting Campaigns still reports its stored activity count. No backend data, APIs, routes, permissions, or dependencies changed. Dashboard parity remains TESTING; this visual check makes no DMS feature-parity claim.
+
+
+### E-DASH-42 — Responsive Command OS sidebar submenu — 2026-11-06
+
+The dashboard sidebar disclosure now uses the available row width, highlights its parent while open, keeps child routes in normal sidebar flow with an indented guide, and gives the active child a purple selected pill with a restrained glow. The live Campaigns page shows the expanded group and active Send destination on desktop; at 390 × 844 the mobile drawer opens with the same hierarchy and active state. Existing Blade navigation labels, destinations, and workspace role filters remain unchanged. This is a visual/navigation-shell correction only; DMS-DASH-001 remains TESTING.

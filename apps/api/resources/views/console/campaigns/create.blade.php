@@ -1005,11 +1005,11 @@
                     </div>
                     <div class="form-group col-md-6">
                         <label for="campaign-body"><i class="fas fa-code campaign-field-icon" aria-hidden="true"></i>Body:
-                            <button type="button" id="campaign-body-preview-button" class="btn btn-link btn-sm p-0" title="Preview body" aria-controls="campaign-body-preview" aria-expanded="false"><i class="fas fa-eye" aria-hidden="true"></i></button>
                             @if ($editingCampaign)
                                 <button type="button" id="campaign-body-generate-links" class="btn btn-link btn-sm p-0" data-generate-url="{{ route('console.campaigns.generate-body', [$workspace->id, $editingCampaign->id]) }}" title="Generate tracking links" aria-label="Generate tracking links"><i class="fas fa-link" aria-hidden="true"></i></button>
                             @endif
                             <button type="button" id="campaign-shortlink-open" class="btn btn-link btn-sm p-0" title="Shortlink tools" aria-label="Shortlink tools"><i class="fas fa-unlink" aria-hidden="true"></i></button>
+                            <button type="button" id="campaign-body-preview-button" class="btn btn-link btn-sm p-0" title="Preview body" aria-controls="campaign-body-preview" aria-expanded="false"><i class="fas fa-eye" aria-hidden="true"></i></button>
                         </label>
                         <div class="custom-control custom-switch custom-control-inline ml-2">
                             <input id="campaign-body-map" type="checkbox" class="custom-control-input">

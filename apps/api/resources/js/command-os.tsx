@@ -315,6 +315,30 @@ function MetricCard({ metric }: { metric: Metric }): JSX.Element {
     );
 }
 
+function AnalyticsBreakdown({ title, icon: Icon, rows, columns, empty, footnote }: {
+    title: string;
+    icon: LucideIcon;
+    rows: AnalyticsRow[];
+    columns: { key: Exclude<keyof AnalyticsRow, 'label'>; label: string; format?: 'money' | 'number' }[];
+    empty: string;
+    footnote: string;
+}): JSX.Element {
+    return <article className="command-os-panel command-os-analytics-card">
+        <div className="command-os-panel-heading">
+            <div className="command-os-panel-title"><span className="command-os-heading-icon"><Icon size={17} aria-hidden="true" /></span><h3>{title}</h3></div>
+        </div>
+        {rows.length === 0 ? <p className="command-os-analytics-empty" role="status">{empty}</p> : <div className="command-os-analytics-list">
+            {rows.map((row, index) => <div className="command-os-analytics-row" key={`${row.label}-${index}`}>
+                <strong title={row.label}>{row.label}</strong>
+                <span className="command-os-analytics-values">
+                    {columns.map((column) => <span key={column.key}><small>{column.label}</small><b>{column.format === 'money' ? money(Number(row[column.key] ?? 0)) : number(Number(row[column.key] ?? 0))}</b></span>)}
+                </span>
+            </div>)}
+        </div>}
+        <p className="command-os-analytics-footnote">{footnote}</p>
+    </article>;
+}
+
 function DateAnalyticsFilter({ period }: { period: DashboardAnalytics['period'] }): JSX.Element {
     const [showCustom, setShowCustom] = useState(period.key === 'custom');
     const [customFrom, setCustomFrom] = useState(period.key === 'custom' ? period.from : '');
@@ -406,7 +430,7 @@ function DateAnalyticsFilter({ period }: { period: DashboardAnalytics['period'] 
 
 function MtdRevenueBreakdown({ title, icon: Icon, rows }: { title: string; icon: LucideIcon; rows: RevenueBreakdownRow[] }): JSX.Element {
     return (
-        <article className="command-os-panel command-os-mtd-revenue-card">
+        <article className={`command-os-panel command-os-mtd-revenue-card${rows.length === 0 ? ' command-os-mtd-revenue-empty' : ''}`}>
             <div className="command-os-panel-heading">
                 <div className="command-os-panel-title"><span className="command-os-heading-icon"><Icon size={17} aria-hidden="true" /></span><h3>{title}</h3></div>
                 <span className="command-os-status-tag">MTD</span>
@@ -423,15 +447,38 @@ function MtdRevenueBreakdown({ title, icon: Icon, rows }: { title: string; icon:
 }
 
 function MtdRevenueAnalytics({ analytics }: { analytics: DashboardAnalytics }): JSX.Element {
-    return <section className="command-os-mtd-revenue-section" aria-labelledby="command-os-mtd-revenue-title">
+    return <section className="command-os-mtd-revenue-section" aria-labelledby="command-os-mtd-revenue-breakdowns-title">
         <div className="command-os-section-heading">
-            <div><p className="command-os-eyebrow">ATTRIBUTED LEAD REVENUE</p><h2 id="command-os-mtd-revenue-title">Month-to-date revenue</h2><p>Revenue is grouped by the attribution saved with each lead.</p></div>
+            <div><p className="command-os-eyebrow">ATTRIBUTED LEAD REVENUE</p><h2 id="command-os-mtd-revenue-breakdowns-title">Month-to-date revenue</h2><p>Revenue is grouped by the attribution saved with each lead.</p></div>
         </div>
         <div className="command-os-mtd-revenue-grid">
             <MtdRevenueBreakdown title="MTD Revenue by Affiliate" icon={Target} rows={analytics.mtdRevenue.sponsors} />
             <MtdRevenueBreakdown title="MTD Revenue by ISP" icon={Globe2} rows={analytics.mtdRevenue.isps} />
             <MtdRevenueBreakdown title="MTD Revenue by Mailer" icon={Mail} rows={analytics.mtdRevenue.mailers} />
             <MtdRevenueBreakdown title="MTD Top 10 Offers" icon={Layers3} rows={analytics.mtdRevenue.offers} />
+        </div>
+    </section>;
+}
+
+function RangePerformanceAnalytics({ analytics }: { analytics: DashboardAnalytics }): JSX.Element {
+    return <section className="command-os-analytics-section" aria-labelledby="command-os-range-analytics-title">
+        <div className="command-os-analytics-heading">
+            <div>
+                <p className="command-os-eyebrow">SELECTED DATE RANGE</p>
+                <h2 id="command-os-range-analytics-title">Performance by partner</h2>
+                <p>Stored campaign and Drop activity for {analytics.period.from} — {analytics.period.to}</p>
+            </div>
+        </div>
+        <div className="command-os-analytics-grid">
+            <AnalyticsBreakdown title="Sponsor analytics" icon={Target} rows={analytics.sponsors} columns={[
+                { key: 'leads', label: 'Leads' }, { key: 'clicks', label: 'Clicks' }, { key: 'attributed_revenue', label: 'Revenue', format: 'money' },
+            ]} empty="No sponsor activity is recorded for this range." footnote="Revenue attributed to recorded leads." />
+            <AnalyticsBreakdown title="Mailer analytics" icon={Mail} rows={analytics.mailers} columns={[
+                { key: 'deliveries', label: 'Delivery feedback' }, { key: 'opens', label: 'Opens' }, { key: 'clicks', label: 'Clicks' },
+            ]} empty="No mailer activity is recorded for this range." footnote="Delivery feedback may not represent the full send denominator." />
+            <AnalyticsBreakdown title="Top offers" icon={Layers3} rows={analytics.offers} columns={[
+                { key: 'leads', label: 'Leads' }, { key: 'clicks', label: 'Clicks' }, { key: 'attributed_revenue', label: 'Revenue', format: 'money' },
+            ]} empty="No offer activity is recorded for this range." footnote="Revenue attributed to recorded leads." />
         </div>
     </section>;
 }
@@ -567,6 +614,8 @@ function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
             <DashboardCharts payload={payload} theme={theme} />
 
             <PerformanceOverview payload={payload} theme={theme} />
+
+            <RangePerformanceAnalytics analytics={payload.analytics} />
 
             <div className="command-os-data-notes" id="command-os-data-coverage">
                 <span><strong>Coverage:</strong> {payload.coverage.deliveries}</span>

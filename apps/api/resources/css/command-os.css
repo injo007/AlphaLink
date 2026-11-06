@@ -1700,6 +1700,9 @@ body.command-os-dashboard #main_content ul.command-os-sr-only {
     animation: command-os-panel-arrive .45s ease both;
 }
 
+.command-os-mtd-revenue-empty { min-height: 150px; }
+.command-os-mtd-revenue-empty .command-os-analytics-empty { min-height: 58px; }
+
 .command-os-mtd-revenue-card:nth-child(2) { animation-delay: .05s; }
 .command-os-mtd-revenue-card:nth-child(3) { animation-delay: .1s; }
 .command-os-mtd-revenue-card:nth-child(4) { animation-delay: .15s; }

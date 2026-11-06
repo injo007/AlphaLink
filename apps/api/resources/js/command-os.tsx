@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import type { JSX } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
@@ -50,9 +50,25 @@ export type DashboardPayload = {
     trend: { labels: string[]; deliveries: number[]; opens: number[] };
     refresh: { url: string; interval: number };
     coverage: { deliveries: string; revenue: string; geo: string; graph: string };
+    analytics: DashboardAnalytics;
     actions: DashboardAction[];
 };
+export type AnalyticsRow = { label: string; leads: number; clicks: number; attributed_revenue: number; deliveries?: number; opens?: number; unsubscribes?: number; bounces?: number };
+export type GeoCountry = { country: string; opens: number; clicks: number; leads: number; unsubscribes: number; deliveries: number; bounces: number };
+export type MarketingNode = { id: string; label: string; count: number; color: string };
+export type DashboardAnalytics = {
+    totals: { deliveries: number; opens: number; clicks: number; leads: number; unsubscribes: number; bounces: number; attributed_revenue: number };
+    sponsors: AnalyticsRow[];
+    mailers: AnalyticsRow[];
+    offers: AnalyticsRow[];
+    geo: { countries: GeoCountry[]; feedback_note: string };
+    graph: { nodes: MarketingNode[]; note: string };
+    period: { key: string; label: string; from: string; to: string; maxDate: string; action: string };
+};
 type Theme = 'light' | 'dark';
+
+const DeliverabilityGeoMap = lazy(() => import('./command-os-geo-map'));
+const MarketingGraph = lazy(() => import('./command-os-graph'));
 
 class DashboardAuthenticationError extends Error {}
 
@@ -232,32 +248,137 @@ function MetricCard({ metric }: { metric: Metric }): JSX.Element {
     );
 }
 
-function StatusPanel({
-    id,
-    title,
-    icon: Icon,
-    message,
-    detail,
-    tag,
-}: {
-    id: string;
+function DateAnalyticsFilter({ period }: { period: DashboardAnalytics['period'] }): JSX.Element {
+    const [showCustom, setShowCustom] = useState(period.key === 'custom');
+    const [customFrom, setCustomFrom] = useState(period.key === 'custom' ? period.from : '');
+    const [customTo, setCustomTo] = useState(period.key === 'custom' ? period.to : '');
+    const [dateError, setDateError] = useState('');
+    const fromInput = useRef<HTMLInputElement>(null);
+    const toInput = useRef<HTMLInputElement>(null);
+
+    return (
+        <form
+            className="command-os-date-filter"
+            method="get"
+            action={period.action}
+            noValidate
+            onSubmit={(event) => {
+                const selectedPeriod = new FormData(event.currentTarget).get('analytics_period');
+                if (selectedPeriod !== 'custom') return;
+
+                let message = '';
+                let firstInvalid: HTMLInputElement | null = null;
+                if (!customFrom) {
+                    message = 'Choose a start date.';
+                    firstInvalid = fromInput.current;
+                } else if (!customTo) {
+                    message = 'Choose an end date.';
+                    firstInvalid = toInput.current;
+                } else if (customTo < customFrom) {
+                    message = 'End date must be on or after the start date.';
+                    firstInvalid = toInput.current;
+                } else if (customFrom > period.maxDate || customTo > period.maxDate) {
+                    message = 'Choose dates through today.';
+                    firstInvalid = customFrom > period.maxDate ? fromInput.current : toInput.current;
+                }
+
+                setDateError(message);
+                if (message) {
+                    event.preventDefault();
+                    firstInvalid?.focus();
+                }
+            }}
+        >
+            <label className="command-os-sr-only" htmlFor="command-os-analytics-period">Analytics date range</label>
+            <select
+                id="command-os-analytics-period"
+                name="analytics_period"
+                value={showCustom ? 'custom' : period.key}
+                onChange={(event) => {
+                    const form = event.currentTarget.form;
+                    setDateError('');
+                    if (event.currentTarget.value === 'custom') {
+                        setShowCustom(true);
+                        if (period.key !== 'custom') {
+                            setCustomFrom('');
+                            setCustomTo('');
+                        }
+                    } else {
+                        setShowCustom(false);
+                        form?.requestSubmit();
+                    }
+                }}
+            >
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="this_week">This week</option>
+                <option value="this_month">This month</option>
+                <option value="last_month">Last month</option>
+                <option value="custom">Custom range</option>
+            </select>
+            {showCustom && <>
+                <label className="command-os-sr-only" htmlFor="command-os-analytics-from">Start date</label>
+                <input ref={fromInput} id="command-os-analytics-from" type="date" name="analytics_from" value={customFrom} max={period.maxDate} aria-invalid={dateError && (!customFrom || customFrom > period.maxDate) ? true : undefined} aria-describedby={dateError ? 'command-os-analytics-date-error' : undefined} onChange={(event) => { setCustomFrom(event.currentTarget.value); setDateError(''); }} required />
+                <span aria-hidden="true">to</span>
+                <label className="command-os-sr-only" htmlFor="command-os-analytics-to">End date</label>
+                <input ref={toInput} id="command-os-analytics-to" type="date" name="analytics_to" value={customTo} min={customFrom || undefined} max={period.maxDate} aria-invalid={dateError && (!customTo || customTo < customFrom || customTo > period.maxDate) ? true : undefined} aria-describedby={dateError ? 'command-os-analytics-date-error' : undefined} onChange={(event) => { setCustomTo(event.currentTarget.value); setDateError(''); }} required />
+                <button type="submit">Apply</button>
+                {dateError && <span className="command-os-date-error" id="command-os-analytics-date-error" role="alert">{dateError}</span>}
+            </>}
+        </form>
+    );
+}
+
+function AnalyticsBreakdown({ title, icon: Icon, rows, columns, empty }: {
     title: string;
     icon: LucideIcon;
-    message: string;
-    detail: string;
-    tag: string;
+    rows: AnalyticsRow[];
+    columns: { key: keyof AnalyticsRow; label: string; format?: 'money' | 'number' }[];
+    empty: string;
 }): JSX.Element {
     return (
-        <section className="command-os-panel command-os-status-panel" id={id} aria-labelledby={`${id}-title`}>
+        <article className="command-os-panel command-os-analytics-card">
             <div className="command-os-panel-heading">
-                <div className="command-os-panel-title"><span className="command-os-heading-icon"><Icon size={17} aria-hidden="true" /></span><h2 id={`${id}-title`}>{title}</h2></div>
-                <span className="command-os-status-tag"><CircleHelp size={12} aria-hidden="true" />{tag}</span>
+                <div className="command-os-panel-title"><span className="command-os-heading-icon"><Icon size={17} aria-hidden="true" /></span><h3>{title}</h3></div>
             </div>
-            <div className="command-os-status-content">
-                <div className="command-os-status-icon"><Icon size={27} strokeWidth={1.7} aria-hidden="true" /></div>
-                <strong>{message}</strong>
-                <p>{detail}</p>
+            {rows.length === 0 ? <p className="command-os-analytics-empty" role="status">{empty}</p> : (
+                <div className="command-os-analytics-list">
+                    {rows.map((row, index) => <div className="command-os-analytics-row" key={`${row.label}-${index}`}>
+                        <strong title={row.label}>{row.label}</strong>
+                        <span className="command-os-analytics-values">
+                            {columns.map((column) => <span key={column.key}><small>{column.label}</small><b>{column.format === 'money' ? money(Number(row[column.key] ?? 0)) : number(Number(row[column.key] ?? 0))}</b></span>)}
+                        </span>
+                    </div>)}
+                </div>
+            )}
+            <p className="command-os-analytics-footnote">Attributed lead revenue only.</p>
+        </article>
+    );
+}
+
+function DateFilteredAnalytics({ analytics }: { analytics: DashboardAnalytics }): JSX.Element {
+    return (
+        <section className="command-os-analytics-section" aria-labelledby="command-os-analytics-title">
+            <div className="command-os-analytics-heading">
+                <div>
+                    <p className="command-os-eyebrow">SPONSORS · MAILERS · OFFERS</p>
+                    <h2 id="command-os-analytics-title">Performance by partner</h2>
+                    <p>Stored campaign and Drop analytics for {analytics.period.from} — {analytics.period.to}</p>
+                </div>
+                <DateAnalyticsFilter period={analytics.period} />
             </div>
+            <div className="command-os-analytics-grid">
+                <AnalyticsBreakdown title="Sponsor analytics" icon={Target} rows={analytics.sponsors} columns={[
+                    { key: 'leads', label: 'Leads' }, { key: 'clicks', label: 'Clicks' }, { key: 'attributed_revenue', label: 'Revenue', format: 'money' },
+                ]} empty="No sponsor activity is recorded for this range." />
+                <AnalyticsBreakdown title="Mailer analytics" icon={Mail} rows={analytics.mailers} columns={[
+                    { key: 'deliveries', label: 'Sent feedback' }, { key: 'opens', label: 'Opens' }, { key: 'clicks', label: 'Clicks' },
+                ]} empty="No mailer activity is recorded for this range." />
+                <AnalyticsBreakdown title="Top offers" icon={Layers3} rows={analytics.offers} columns={[
+                    { key: 'leads', label: 'Leads' }, { key: 'clicks', label: 'Clicks' }, { key: 'attributed_revenue', label: 'Revenue', format: 'money' },
+                ]} empty="No offer activity is recorded for this range." />
+            </div>
+            <p className="command-os-analytics-note">Revenue is attributed to recorded leads. Mailer delivery feedback counts imported PMTA records and may not represent the full send denominator.</p>
         </section>
     );
 }
@@ -340,23 +461,13 @@ function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
                     <PerformanceChart payload={payload} theme={theme} />
                 </section>
 
-                <StatusPanel
-                    id="geo-data-status"
-                    title="Deliverability by GEO"
-                    icon={Globe2}
-                    message="Country-level delivery data unavailable"
-                    detail={payload.coverage.geo}
-                    tag="Data coverage"
-                />
+                <Suspense fallback={<section className="command-os-panel command-os-async-panel" role="status">Loading country map…</section>}>
+                    <DeliverabilityGeoMap data={payload.analytics.geo} theme={theme} />
+                </Suspense>
 
-                <StatusPanel
-                    id="relationship-data-status"
-                    title="Marketing graph"
-                    icon={Network}
-                    message="Relationship feed not connected"
-                    detail={payload.coverage.graph}
-                    tag="Data coverage"
-                />
+                <Suspense fallback={<section className="command-os-panel command-os-async-panel" role="status">Loading Marketing Graph…</section>}>
+                    <MarketingGraph data={payload.analytics.graph} theme={theme} />
+                </Suspense>
             </section>
 
             <section className="command-os-quick-actions" aria-labelledby="command-os-actions-title">
@@ -387,6 +498,8 @@ function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
                     })}
                 </div>
             </section>
+
+            <DateFilteredAnalytics analytics={payload.analytics} />
 
             <div className="command-os-data-notes" id="command-os-data-coverage">
                 <span><strong>Coverage:</strong> {payload.coverage.deliveries}</span>

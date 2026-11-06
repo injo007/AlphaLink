@@ -1,4 +1,4 @@
-<div id="main-dashboard-refresh-region" data-main-dashboard-refresh data-refresh-url="{{ route('console.analytics.index', ['workspace' => $workspace->id, 'fragment' => 1]) }}" data-refresh-interval="300000">
+<div id="main-dashboard-refresh-region" data-main-dashboard-refresh data-refresh-url="{{ route('console.analytics.index', ['workspace' => $workspace->id, 'fragment' => 1, 'analytics_period' => $analyticsPeriod['key'], 'analytics_from' => $analyticsPeriod['key'] === 'custom' ? $analyticsPeriod['from'] : null, 'analytics_to' => $analyticsPeriod['key'] === 'custom' ? $analyticsPeriod['to'] : null]) }}" data-refresh-interval="300000">
     <script type="application/json" id="command-os-dashboard-data">{!! \Illuminate\Support\Js::encode($commandOsDashboard) !!}</script>
     <h2 class="content-heading">MAIN DASHBOARD <small class="text-muted">LAST 30 DAYS</small></h2>
 

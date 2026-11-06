@@ -1,8 +1,23 @@
 # AlphaLink development progress
 
-**Updated:** 2026-11-05
-**Active objective:** Complete Drops and Warmups reconstruction, then finish identity reconstruction.
-**Status:** Drop/Warmup Test and Send controls are deployed in release `4523f91dcbe61caa8bc624ae8ab49969b8753a7f`. Production migration, service health and authenticated composer UI checks passed. The PMTA test path and queued Drop/Warmup Send flows are connected; live recipient delivery and DMS native sender parity remain unverified. No DMS changes or live sender operations were made.
+**Updated:** 2026-11-06
+**Active objective:** Complete the responsive AlphaLink Command OS dashboard analytics phase, including date-filtered Sponsor, Mailer and Top Offers panels, a live Marketing Graph, and GEO performance visualization. Preserve existing routes, permissions and business logic; display only workspace-scoped sourced data and state missing denominators clearly.
+**Status:** Dashboard analytics phase is in progress. No code or production changes have been deployed for this phase yet.
+
+## Current dashboard goal and delivery gates
+
+**Goal:** Turn the Command OS dashboard into a fast, responsive workspace operations center that adds useful Sponsor/Mailer/Offer analytics and interactive graph/GEO views without changing existing AlphaLink workflows or implying unsupported data.
+
+**Role split:** Luna implements the scoped changes. Sol orchestrates the phase gates and independently audits the implementation before closure. The existing Sol audit agent is currently unavailable because it hit its usage limit; automated and browser evidence will be recorded, and the independent Sol review remains open until it can run.
+
+1. **Lock the data contract.** Use the current workspace analytics store and authenticated dashboard scope. Confirm each metric's source, operator/workspace permission boundary, target-versus-observed GEO semantics, empty state, and refresh behavior. Never expose recipient addresses, raw IPs, or provider credentials.
+2. **Add the shared date filter and attribution panels.** Provide Today, Yesterday, This week, This month, Last month, and Custom inclusive dates. Show Sponsor Analytics, Mailer Analytics and Top Offers using attributed lead revenue and stored activity totals. Preserve the existing Last 30 Days cards and chart semantics.
+3. **Build Deliverability by GEO.** Render an interactive Command OS map in both themes and at mobile widths. Use country-coded stored events and country-specific delivery feedback only where the source supports it; state clearly that feedback-only counts do not establish a delivery rate without a complete sent denominator. Keep multi-country Drop delivery counts unallocated when the source cannot split them.
+4. **Build the Marketing Graph.** Show workspace-scoped AlphaLink module connections with sourced counts and safe navigation. Label aggregate/module links accurately; never invent entity-to-entity edges or expose hidden destinations to roles without permission.
+5. **Verify each slice before closing it.** Run focused PHP tests for preset/custom dates, workspace/operator isolation, labels and aggregation; JavaScript tests for graph/map rendering and interactions; TypeScript and production builds; responsive browser checks at desktop/tablet/mobile widths; light/dark, keyboard, loading/empty/failure states; then update the feature matrix, parity report, evidence register and this progress log. Keep the dashboard TESTING while any material data or browser gap remains.
+6. **Release only after the gate passes.** Review the exact diff, push the tested branch and deploy AlphaLink through the guarded installer, then confirm authenticated production pages, selected filters, map/graph rendering and health checks. Record the deployed commit and verification results.
+
+**Phase exit criteria:** all six date choices return the requested inclusive workspace-only window; analytics panels agree with stored synthetic aggregates; operators see only their own activity; GEO visualizations distinguish observed visitor geography from delivery feedback and make unsupported denominators explicit; the graph uses sourced links/counts; the interface works with keyboard, both themes and narrow viewports; all focused checks pass. No framework will be added unless this phase uses it in production code and the existing stack cannot provide the needed behavior.
 
 ## Drops and Warmups gate
 

@@ -90,6 +90,12 @@ AlphaLink should feel like a well-kept mail operations ledger: a contemporary co
 - **Anti-references:** Generic blue-gradient SaaS dashboards, campaign-launch fireworks, and dense terminal-like admin screens obscure the evidence-first workflow.
 - **Token ownership/runtime mapping:** This file documents the accepted values. `resources/css/app.css` is the runtime token owner; its `:root` custom properties and `@theme` font adapters are the mapping. Verify the documented values against those variables when changing the system.
 
+### Command OS dashboard direction — 2026-11-06
+
+The user-approved Command OS dashboard reference uses a crisp operations-console palette: near-white and pale-lavender surfaces in light mode; midnight navy panels in dark mode; violet for the primary active state; and cyan/blue for measured activity. `resources/css/command-os.css` owns this dashboard-scoped token set (`--co-page`, `--co-surface`, `--co-border`, `--co-ink`, `--co-muted`, `--co-purple`, and `--co-blue`) and maps both modes through `html[data-command-theme='dark']`. Do not apply these tokens to unmigrated page families until their redesign phase.
+
+The dashboard layout follows the supplied image: fixed navigation rail, compact command bar, KPI strip, performance chart, GEO visualization, Marketing Graph, quick actions, then partner analytics. Keep the same hierarchy at narrow widths by stacking panels and wrapping controls; do not hide navigation destinations or sourced data. Use Inter/Segoe UI for operational controls and labels, tabular numerals for measures, and restrained violet/cyan chart colors. The connected module graph and GEO map are the signature visualization pair. Their labels and legends must distinguish observed engagement, imported PMTA feedback, and unsupported rates; the panels cannot imply attribution the stored data does not establish.
+
 ## Colors
 
 Warm canvas (`canvas`) and off-white panels (`surface`) provide a paper-like ground. `ink` and `muted` are semantic text roles; `primary` and `primary-dark` identify navigation and the main action. Terracotta `accent` marks small signal points and exceptions. Lime `signal` is reserved for the brand mark and focus/highlight accents, never for large body text. Success, warning, and danger use distinct status colors. The runtime border role is `#DFE3D9` (CSS `--color-border`); borders carry most static hierarchy. Preserve visible focus and do not rely on color alone for status.

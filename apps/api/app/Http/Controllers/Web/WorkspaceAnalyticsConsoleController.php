@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use App\Models\CampaignRevision;
 use App\Models\Isp;
 use App\Models\User;
 use App\Models\Workspace;
@@ -43,6 +44,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
     public function index(Request $request, string $workspace): View
     {
         $workspace = $this->authorizedWorkspace($request->user(), $workspace);
+        $analyticsPeriod = $this->dashboardAnalyticsPeriod($request);
 
         $today = now();
         $lastThirtyDaysFrom = $today->copy()->subDays(29)->startOfDay();
@@ -145,11 +147,29 @@ class WorkspaceAnalyticsConsoleController extends Controller
             'coverage' => [
                 'deliveries' => 'Locally imported PMTA delivery records and stored campaign/Drop visitor events.',
                 'revenue' => 'Revenue is attributed to recorded campaign and Drop leads; it is not PMTA earnings.',
-                'geo' => 'Country-level delivery totals and denominators are not available in the current dashboard contract.',
-                'graph' => 'A permission-safe relationship feed across AlphaLink modules has not been defined yet.',
+                'geo' => 'GEO delivery feedback is grouped only where a campaign or single-country Drop target can be proven. Country feedback totals are not a complete sent denominator or delivery rate.',
+                'graph' => 'The graph maps workspace modules and their stored activity. Spokes show module membership; they do not claim record-to-record relationships.',
             ],
             'actions' => $this->dashboardQuickActions($workspace),
+            'analytics' => $this->dateFilteredDashboardAnalytics(
+                $workspace,
+                $request->user(),
+                $analyticsPeriod['from'],
+                $analyticsPeriod['to'],
+            ) + [
+                'period' => [
+                    ...$analyticsPeriod,
+                    'action' => route('console.analytics.index', ['workspace' => $workspace->getKey()]),
+                ],
+            ],
         ];
+        $commandOsDashboard['refresh']['url'] = route('console.analytics.index', [
+            'workspace' => $workspace->getKey(),
+            'fragment' => 1,
+            'analytics_period' => $analyticsPeriod['key'],
+            'analytics_from' => $analyticsPeriod['key'] === 'custom' ? $analyticsPeriod['from'] : null,
+            'analytics_to' => $analyticsPeriod['key'] === 'custom' ? $analyticsPeriod['to'] : null,
+        ]);
         $maxDailyEvents = max(1, $dailyRows->max(fn (array $row): int => $row['opens'] + $row['clicks'] + $row['leads'] + $row['unsubscribes']));
 
         $mtdChartRows = collect(range(0, $today->copy()->endOfMonth()->day - 1))
@@ -246,7 +266,365 @@ class WorkspaceAnalyticsConsoleController extends Controller
                 'hasAudienceSnapshots' => $hasAudienceSnapshots,
                 'from' => $lastThirtyDaysFrom,
                 'to' => $to,
+                'analyticsPeriod' => $analyticsPeriod,
             ]);
+    }
+
+    /**
+     * @return array{key: string, label: string, from: string, to: string, maxDate: string}
+     */
+    private function dashboardAnalyticsPeriod(Request $request): array
+    {
+        $filters = $request->validate([
+            'analytics_period' => ['nullable', 'in:today,yesterday,this_week,this_month,last_month,custom'],
+            'analytics_from' => ['nullable', 'required_if:analytics_period,custom', 'date_format:Y-m-d', 'before_or_equal:today'],
+            'analytics_to' => ['nullable', 'required_if:analytics_period,custom', 'date_format:Y-m-d', 'after_or_equal:analytics_from', 'before_or_equal:today'],
+        ]);
+
+        $today = now()->startOfDay();
+        $key = $filters['analytics_period'] ?? 'this_month';
+        [$from, $to] = match ($key) {
+            'today' => [$today->copy(), $today->copy()->endOfDay()],
+            'yesterday' => [$today->copy()->subDay()->startOfDay(), $today->copy()->subDay()->endOfDay()],
+            'this_week' => [$today->copy()->startOfWeek(Carbon::MONDAY), $today->copy()->endOfDay()],
+            'last_month' => [$today->copy()->subMonthNoOverflow()->startOfMonth(), $today->copy()->subMonthNoOverflow()->endOfMonth()],
+            'custom' => [Carbon::parse($filters['analytics_from'])->startOfDay(), Carbon::parse($filters['analytics_to'])->endOfDay()],
+            default => [$today->copy()->startOfMonth(), $today->copy()->endOfDay()],
+        };
+
+        return [
+            'key' => $key,
+            'label' => match ($key) {
+                'today' => 'Today',
+                'yesterday' => 'Yesterday',
+                'this_week' => 'This week',
+                'this_month' => 'This month',
+                'last_month' => 'Last month',
+                default => 'Custom range',
+            },
+            'from' => $from->toDateString(),
+            'to' => $to->toDateString(),
+            'maxDate' => $today->toDateString(),
+        ];
+    }
+
+    /**
+     * @return array{
+     *     totals: array{deliveries: int, opens: int, clicks: int, leads: int, unsubscribes: int, bounces: int, attributed_revenue: float},
+     *     sponsors: list<array{label: string, leads: int, clicks: int, attributed_revenue: float}>,
+     *     mailers: list<array{label: string, deliveries: int, opens: int, clicks: int, leads: int, unsubscribes: int, bounces: int, attributed_revenue: float}>,
+     *     offers: list<array{label: string, leads: int, clicks: int, attributed_revenue: float}>,
+     *     geo: array{countries: list<array{country: string, opens: int, clicks: int, leads: int, unsubscribes: int, deliveries: int, bounces: int}>, feedback_note: string},
+     *     graph: array{nodes: list<array{id: string, label: string, count: int, color: string}>, note: string}
+     * }
+     */
+    private function dateFilteredDashboardAnalytics(Workspace $workspace, User $user, string $from, string $to): array
+    {
+        $fromDate = Carbon::parse($from)->startOfDay();
+        $toDate = Carbon::parse($to)->endOfDay();
+        $cacheKey = $this->mainDashboardCacheKey('attribution-analytics', $workspace, $user, $fromDate, $toDate);
+
+        return Cache::remember(
+            $cacheKey,
+            self::MAIN_DASHBOARD_CACHE_SECONDS,
+            fn (): array => $this->loadDateFilteredDashboardAnalytics($workspace, $user, $from, $to),
+        );
+    }
+
+    /**
+     * @return array{
+     *     totals: array{deliveries: int, opens: int, clicks: int, leads: int, unsubscribes: int, bounces: int, attributed_revenue: float},
+     *     sponsors: list<array{label: string, leads: int, clicks: int, attributed_revenue: float}>,
+     *     mailers: list<array{label: string, deliveries: int, opens: int, clicks: int, leads: int, unsubscribes: int, bounces: int, attributed_revenue: float}>,
+     *     offers: list<array{label: string, leads: int, clicks: int, attributed_revenue: float}>,
+     *     geo: array{countries: list<array{country: string, opens: int, clicks: int, leads: int, unsubscribes: int, deliveries: int, bounces: int}>, feedback_note: string},
+     *     graph: array{nodes: list<array{id: string, label: string, count: int, color: string}>, note: string}
+     * }
+     */
+    private function loadDateFilteredDashboardAnalytics(Workspace $workspace, User $user, string $from, string $to): array
+    {
+        $rows = DB::table('workspace_daily_analytics')
+            ->where('workspace_id', $workspace->getKey())
+            ->where('attribution_scope', 'workspace')
+            ->whereIn('source_type', ['campaign', 'drop'])
+            ->whereBetween('at', [$from, $to])
+            ->when($workspace->pivot->role === 'operator', fn ($query) => $query->where('user_id', $user->getKey()))
+            ->select('sponsor_id', 'offer_id', 'user_id')
+            ->selectRaw('SUM(deliveries) AS deliveries, SUM(opens) AS opens, SUM(clicks) AS clicks')
+            ->selectRaw('SUM(leads) AS leads, SUM(unsubscribes) AS unsubscribes, SUM(soft_bounces + hard_bounces) AS bounces')
+            ->selectRaw('SUM(lead_revenue) AS attributed_revenue')
+            ->groupBy('sponsor_id', 'offer_id', 'user_id')
+            ->get();
+
+        $sponsorIds = $rows->pluck('sponsor_id')->filter()->unique()->values();
+        $offerIds = $rows->pluck('offer_id')->filter()->unique()->values();
+        $mailerIds = $rows->pluck('user_id')->filter()->unique()->values();
+        $labels = [
+            'sponsor_id' => $sponsorIds->isEmpty() ? collect() : DB::table('workspace_sponsors')
+                ->where('workspace_id', $workspace->getKey())
+                ->whereIn('id', $sponsorIds)
+                ->pluck('name', 'id'),
+            'offer_id' => $offerIds->isEmpty() ? collect() : DB::table('workspace_offers')
+                ->where('workspace_id', $workspace->getKey())
+                ->whereIn('id', $offerIds)
+                ->pluck('name', 'id'),
+            'user_id' => $mailerIds->isEmpty() ? collect() : DB::table('users')
+                ->whereIn('id', $mailerIds)
+                ->selectRaw("id, COALESCE(name, username, 'Unknown') AS label")
+                ->pluck('label', 'id'),
+        ];
+
+        $mapDimension = function (string $column, string $fallback, int $limit, array $fields) use ($rows, $labels): array {
+            return $rows
+                ->groupBy(fn (object $row): string => (string) ($row->{$column} ?? 'unknown'))
+                ->map(function (Collection $dimensionRows, string $id) use ($column, $fallback, $fields, $labels): array {
+                    $result = ['label' => $labels[$column][$id] ?? ($id === 'unknown' ? 'Unknown '.$fallback : $fallback.' #'.$id)];
+                    foreach ($fields as $field) {
+                        $result[$field] = $field === 'attributed_revenue'
+                            ? round($dimensionRows->sum(fn (object $row): float => (float) $row->{$field}), 2)
+                            : (int) $dimensionRows->sum(fn (object $row): int => (int) $row->{$field});
+                    }
+
+                    return $result;
+                })
+                ->filter(fn (array $row): bool => collect($fields)->contains(fn (string $field): bool => $row[$field] > 0))
+                ->sort(fn (array $left, array $right): int => ($right['attributed_revenue'] <=> $left['attributed_revenue'])
+                    ?: ($right['leads'] <=> $left['leads'])
+                    ?: (($right['clicks'] ?? 0) <=> ($left['clicks'] ?? 0)))
+                ->take($limit)
+                ->values()
+                ->all();
+        };
+
+        return [
+            'totals' => [
+                'deliveries' => (int) $rows->sum(fn (object $row): int => (int) $row->deliveries),
+                'opens' => (int) $rows->sum(fn (object $row): int => (int) $row->opens),
+                'clicks' => (int) $rows->sum(fn (object $row): int => (int) $row->clicks),
+                'leads' => (int) $rows->sum(fn (object $row): int => (int) $row->leads),
+                'unsubscribes' => (int) $rows->sum(fn (object $row): int => (int) $row->unsubscribes),
+                'bounces' => (int) $rows->sum(fn (object $row): int => (int) $row->bounces),
+                'attributed_revenue' => round($rows->sum(fn (object $row): float => (float) $row->attributed_revenue), 2),
+            ],
+            'sponsors' => $mapDimension('sponsor_id', 'sponsor', 5, ['leads', 'clicks', 'attributed_revenue']),
+            'mailers' => $mapDimension('user_id', 'mailer', 5, ['deliveries', 'opens', 'clicks', 'leads', 'unsubscribes', 'bounces', 'attributed_revenue']),
+            'offers' => $mapDimension('offer_id', 'offer', 10, ['leads', 'clicks', 'attributed_revenue']),
+            'geo' => $this->dashboardGeoAnalytics($workspace, $user, $from, $to),
+            'graph' => $this->dashboardMarketingGraph($workspace, $user, $from, $to),
+        ];
+    }
+
+    /**
+     * Build GEO engagement from country-tagged visitor events and delivery feedback only
+     * where AlphaLink can tie a send snapshot to one country.
+     *
+     * @return array{countries: list<array{country: string, opens: int, clicks: int, leads: int, unsubscribes: int, deliveries: int, bounces: int}>, feedback_note: string}
+     */
+    private function dashboardGeoAnalytics(Workspace $workspace, User $user, string $from, string $to): array
+    {
+        $countries = [];
+        $add = function (string $country, string $metric, int $count) use (&$countries): void {
+            $country = trim($country);
+            if ($country === '' || $country === '0' || $count < 1) {
+                return;
+            }
+            $key = strtoupper($country);
+            $countries[$key] ??= [
+                'country' => $country,
+                'opens' => 0,
+                'clicks' => 0,
+                'leads' => 0,
+                'unsubscribes' => 0,
+                'deliveries' => 0,
+                'bounces' => 0,
+            ];
+            $countries[$key][$metric] += $count;
+        };
+
+        $campaignEvents = DB::table('campaign_engagement_events as e')
+            ->join('campaigns as c', function ($join): void {
+                $join->on('c.id', '=', 'e.campaign_id')->on('c.workspace_id', '=', 'e.workspace_id');
+            })
+            ->where('e.workspace_id', $workspace->getKey())
+            ->whereBetween('e.created_at', [$from.' 00:00:00', $to.' 23:59:59.999999'])
+            ->whereIn('e.action', ['open', 'click', 'unsubscribe'])
+            ->whereNotNull('e.country_code')
+            ->where('e.country_code', '<>', '')
+            ->when($workspace->pivot->role === 'operator', fn ($query) => $query->where('c.created_by', $user->getKey()))
+            ->select('e.country_code', 'e.action')
+            ->selectRaw('COUNT(*) AS total')
+            ->groupBy('e.country_code', 'e.action')
+            ->get();
+        foreach ($campaignEvents as $event) {
+            $metric = match ($event->action) {
+                'open' => 'opens',
+                'click' => 'clicks',
+                default => 'unsubscribes',
+            };
+            $add((string) $event->country_code, $metric, (int) $event->total);
+        }
+
+        $campaignLeads = DB::table('campaign_lead_conversions as l')
+            ->join('campaigns as c', function ($join): void {
+                $join->on('c.id', '=', 'l.campaign_id')->on('c.workspace_id', '=', 'l.workspace_id');
+            })
+            ->where('l.workspace_id', $workspace->getKey())
+            ->whereBetween('l.converted_at', [$from.' 00:00:00', $to.' 23:59:59.999999'])
+            ->whereNotNull('l.country')
+            ->where('l.country', '<>', '')
+            ->when($workspace->pivot->role === 'operator', fn ($query) => $query->where('c.created_by', $user->getKey()))
+            ->select('l.country')
+            ->selectRaw('COUNT(*) AS total')
+            ->groupBy('l.country')
+            ->get();
+        foreach ($campaignLeads as $lead) {
+            $add((string) $lead->country, 'leads', (int) $lead->total);
+        }
+
+        $dropEvents = DB::table('workspace_drop_visitors as v')
+            ->join('workspace_drops as d', function ($join): void {
+                $join->on('d.id', '=', 'v.workspace_drop_id')->on('d.workspace_id', '=', 'v.workspace_id');
+            })
+            ->where('v.workspace_id', $workspace->getKey())
+            ->whereBetween('v.created_at', [$from.' 00:00:00', $to.' 23:59:59.999999'])
+            ->whereNotNull('v.country')
+            ->where('v.country', '<>', '')
+            ->when($workspace->pivot->role === 'operator', fn ($query) => $query->where('d.user_id', $user->getKey()))
+            ->select('v.country', 'v.type')
+            ->selectRaw('COUNT(*) AS total')
+            ->groupBy('v.country', 'v.type')
+            ->get();
+        foreach ($dropEvents as $event) {
+            $metric = match ((string) $event->type) {
+                'open' => 'opens',
+                'click' => 'clicks',
+                'unsubscribe' => 'unsubscribes',
+                'lead', 'conversion' => 'leads',
+                default => null,
+            };
+            if ($metric !== null) {
+                $add((string) $event->country, $metric, (int) $event->total);
+            }
+        }
+
+        $campaignFeedback = DB::table('workspace_pmta_feedback_events as f')
+            ->join('campaigns as c', function ($join): void {
+                $join->on('c.id', '=', 'f.campaign_id')->on('c.workspace_id', '=', 'f.workspace_id');
+            })
+            ->where('f.workspace_id', $workspace->getKey())
+            ->where('f.source_type', 'campaign')
+            ->whereBetween('f.at', [$from, $to])
+            ->whereNotNull('f.snapshot_id')
+            ->when($workspace->pivot->role === 'operator', fn ($query) => $query->where('c.created_by', $user->getKey()))
+            ->select('f.snapshot_id', 'f.metric')
+            ->selectRaw('COUNT(*) AS total')
+            ->groupBy('f.snapshot_id', 'f.metric')
+            ->get();
+        $snapshotIds = $campaignFeedback->pluck('snapshot_id')->unique()->values();
+        $snapshots = $snapshotIds->isEmpty() ? collect() : DB::table('campaign_recipient_snapshots')
+            ->where('workspace_id', $workspace->getKey())
+            ->whereIn('id', $snapshotIds)
+            ->get(['id', 'revision_id'])
+            ->keyBy('id');
+        $revisionIds = $snapshots->pluck('revision_id')->unique()->values();
+        $revisions = $revisionIds->isEmpty() ? collect() : CampaignRevision::query()
+            ->whereIn('id', $revisionIds)
+            ->get(['id', 'payload'])
+            ->keyBy('id');
+        foreach ($campaignFeedback as $event) {
+            $snapshot = $snapshots->get($event->snapshot_id);
+            $revision = $snapshot ? $revisions->get($snapshot->revision_id) : null;
+            $country = strtoupper(trim((string) data_get($revision?->payload, 'send_setup.country', '')));
+            $metric = $this->dashboardFeedbackMetric((string) $event->metric);
+            if ($metric !== null && preg_match('/^[A-Z]{2}$/', $country)) {
+                $add($country, $metric, (int) $event->total);
+            }
+        }
+
+        $dropFeedback = DB::table('workspace_pmta_feedback_events as f')
+            ->join('workspace_drops as d', function ($join): void {
+                $join->on('d.id', '=', 'f.workspace_drop_id')->on('d.workspace_id', '=', 'f.workspace_id');
+            })
+            ->where('f.workspace_id', $workspace->getKey())
+            ->where('f.source_type', 'drop')
+            ->whereBetween('f.at', [$from, $to])
+            ->when($workspace->pivot->role === 'operator', fn ($query) => $query->where('d.user_id', $user->getKey()))
+            ->select('f.workspace_drop_id', 'f.metric')
+            ->selectRaw('COUNT(*) AS total')
+            ->groupBy('f.workspace_drop_id', 'f.metric')
+            ->get();
+        $dropIds = $dropFeedback->pluck('workspace_drop_id')->unique()->values();
+        $drops = $dropIds->isEmpty() ? collect() : DB::table('workspace_drops')
+            ->where('workspace_id', $workspace->getKey())
+            ->whereIn('id', $dropIds)
+            ->pluck('countries', 'id');
+        foreach ($dropFeedback as $event) {
+            $selectedCountries = $drops->get($event->workspace_drop_id);
+            if (is_string($selectedCountries)) {
+                $selectedCountries = json_decode($selectedCountries, true);
+            }
+            $selectedCountries = is_array($selectedCountries) ? array_values(array_unique(array_filter(array_map('strval', $selectedCountries)))) : [];
+            $country = count($selectedCountries) === 1 ? trim($selectedCountries[0]) : '';
+            $metric = $this->dashboardFeedbackMetric((string) $event->metric);
+            if ($metric !== null && $country !== '' && ! in_array(strtoupper($country), ['ALL', 'MIX', 'MULTI'], true)) {
+                $add($country, $metric, (int) $event->total);
+            }
+        }
+
+        $rows = array_values($countries);
+        usort($rows, fn (array $left, array $right): int => ($right['deliveries'] + $right['opens'] + $right['clicks'] + $right['leads']) <=> ($left['deliveries'] + $left['opens'] + $left['clicks'] + $left['leads']));
+
+        return [
+            'countries' => $rows,
+            'feedback_note' => 'Delivery and bounce values are imported PMTA feedback tied to one send country. They are feedback totals only; a complete sent-recipient denominator is unavailable, so no delivery rate is shown. Engagement is observed campaign and Drop activity.',
+        ];
+    }
+
+    private function dashboardFeedbackMetric(string $metric): ?string
+    {
+        return match ($metric) {
+            'deliveries' => 'deliveries',
+            'soft_bounces', 'hard_bounces' => 'bounces',
+            default => null,
+        };
+    }
+
+    /**
+     * @return array{nodes: list<array{id: string, label: string, count: int, color: string}>, note: string}
+     */
+    private function dashboardMarketingGraph(Workspace $workspace, User $user, string $from, string $to): array
+    {
+        $role = (string) $workspace->pivot->role;
+        $aggregate = DB::table('workspace_daily_analytics')
+            ->where('workspace_id', $workspace->getKey())
+            ->where('attribution_scope', 'workspace')
+            ->whereBetween('at', [$from, $to])
+            ->when($role === 'operator', fn ($query) => $query->where('user_id', $user->getKey()))
+            ->selectRaw('COUNT(DISTINCT campaign_id) AS campaigns, COUNT(DISTINCT workspace_drop_id) AS drops')
+            ->selectRaw("COUNT(DISTINCT CASE WHEN source_type = 'warmup' THEN source_id END) AS warmups")
+            ->selectRaw('COUNT(DISTINCT server_id) AS servers, COUNT(DISTINCT domain_id) AS domains, COUNT(DISTINCT list_id) AS lists')
+            ->selectRaw('COUNT(DISTINCT sponsor_id) AS sponsors, COUNT(DISTINCT offer_id) AS offers, COUNT(DISTINCT isp_id) AS isps')
+            ->selectRaw('SUM(opens + clicks + leads + unsubscribes) AS tracked_events')
+            ->first();
+
+        $count = fn (string $key): int => (int) ($aggregate->{$key} ?? 0);
+        $allNodes = [
+            ['id' => 'campaigns', 'label' => 'Campaigns', 'count' => $count('campaigns'), 'color' => 'blue'],
+            ['id' => 'drops', 'label' => 'Drops', 'count' => $count('drops'), 'color' => 'violet'],
+            ['id' => 'warmups', 'label' => 'Warmups', 'count' => $count('warmups'), 'color' => 'pink'],
+            ['id' => 'servers', 'label' => 'Servers', 'count' => $count('servers'), 'color' => 'cyan'],
+            ['id' => 'domains', 'label' => 'Domains', 'count' => $count('domains'), 'color' => 'blue'],
+            ['id' => 'lists', 'label' => 'Lists', 'count' => $count('lists'), 'color' => 'cyan'],
+            ['id' => 'offers', 'label' => 'Offers', 'count' => $count('offers'), 'color' => 'violet'],
+            ['id' => 'sponsors', 'label' => 'Sponsors', 'count' => $count('sponsors'), 'color' => 'pink'],
+            ['id' => 'isps', 'label' => 'ISPs', 'count' => $count('isps'), 'color' => 'blue'],
+            ['id' => 'tracking', 'label' => 'Tracking', 'count' => $count('tracked_events'), 'color' => 'indigo'],
+        ];
+
+        return [
+            'nodes' => $role === 'privacy_officer' ? [['id' => 'workspace-activity', 'label' => 'Workspace activity', 'count' => $count('tracked_events'), 'color' => 'indigo']] : $allNodes,
+            'note' => 'Badges show workspace-scoped entities with activity in this range; Tracking shows event volume. Lines radiate from AlphaLink as a module map and do not claim record-to-record attribution.',
+        ];
     }
 
     /** @return array<int, array{label: string, href: string|null, icon: string, disabled?: bool, reason?: string}> */

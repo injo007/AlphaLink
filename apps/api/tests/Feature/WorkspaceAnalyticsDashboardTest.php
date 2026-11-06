@@ -363,7 +363,7 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
             'isp_id' => $isp->getKey(),
         ]);
 
-        $this->addVisitor($workspace, $drop, 'open', now()->subDay());
+        $this->addVisitor($workspace, $drop, 'open', now()->subDay(), country: 'United States');
         $this->addVisitor($workspace, $drop, 'open', now());
         $this->addVisitor($workspace, $drop, 'click', now()->subDay());
         $this->addVisitor($workspace, $drop, 'click', now());
@@ -411,8 +411,10 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
                 && $totals['unsubscribes'] === 1
                 && $totals['lead_revenue'] === 10.0
             )
-            ->assertViewHas('commandOsDashboard', function (array $dashboard): bool {
+            ->assertViewHas('commandOsDashboard', function (array $dashboard) use ($owner): bool {
                 $metrics = collect($dashboard['metrics'])->keyBy('key');
+                $analytics = $dashboard['analytics'];
+                $graphNodes = collect($analytics['graph']['nodes'])->keyBy('id');
 
                 return $dashboard['workspaceRole'] === 'owner'
                     && $metrics->get('opens')['value'] === 2
@@ -423,7 +425,15 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
                     && count($dashboard['trend']['labels']) === 30
                     && count($dashboard['trend']['deliveries']) === 30
                     && $dashboard['refresh']['interval'] === 300000
-                    && str_contains($dashboard['refresh']['url'], 'fragment=1');
+                    && str_contains($dashboard['refresh']['url'], 'fragment=1')
+                    && $analytics['period']['key'] === 'this_month'
+                    && $analytics['sponsors'][0]['label'] === 'Analytics sponsor'
+                    && $analytics['offers'][0]['label'] === 'Analytics offer'
+                    && $analytics['mailers'][0]['label'] === $owner->name
+                    && $analytics['geo']['countries'][0]['country'] === 'United States'
+                    && $analytics['geo']['countries'][0]['opens'] === 1
+                    && $graphNodes->get('drops')['count'] === 1
+                    && $graphNodes->get('tracking')['count'] === 7;
             })
             ->assertViewHas('dashboardHighlights', fn (array $highlights): bool => $highlights['opens'] === [
                 'today' => 1,
@@ -495,6 +505,64 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
                 && $lists->first()->history->lead === 2
                 && $lists->first()->history->unsubscribe === 1
             );
+    }
+
+    public function test_dashboard_analytics_filter_supports_all_presets_and_custom_dates(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->makeWorkspace($owner, 'owner');
+        $today = Carbon::today();
+        $cases = [
+            'today' => [$today->toDateString(), $today->toDateString()],
+            'yesterday' => [$today->copy()->subDay()->toDateString(), $today->copy()->subDay()->toDateString()],
+            'this_week' => [$today->copy()->startOfWeek(Carbon::MONDAY)->toDateString(), $today->toDateString()],
+            'this_month' => [$today->copy()->startOfMonth()->toDateString(), $today->toDateString()],
+            'last_month' => [$today->copy()->subMonthNoOverflow()->startOfMonth()->toDateString(), $today->copy()->subMonthNoOverflow()->endOfMonth()->toDateString()],
+        ];
+
+        foreach ($cases as $key => [$from, $to]) {
+            $this->actingAs($owner)
+                ->get(route('console.analytics.index', ['workspace' => $workspace->getKey(), 'analytics_period' => $key]))
+                ->assertOk()
+                ->assertViewHas('commandOsDashboard', fn (array $dashboard): bool => $dashboard['analytics']['period']['key'] === $key
+                    && $dashboard['analytics']['period']['from'] === $from
+                    && $dashboard['analytics']['period']['to'] === $to);
+        }
+
+        $from = $today->copy()->subDays(4)->toDateString();
+        $to = $today->copy()->subDay()->toDateString();
+        $this->actingAs($owner)
+            ->get(route('console.analytics.index', [
+                'workspace' => $workspace->getKey(),
+                'fragment' => 1,
+                'analytics_period' => 'custom',
+                'analytics_from' => $from,
+                'analytics_to' => $to,
+            ]))
+            ->assertOk()
+            ->assertSee('analytics_period=custom', false)
+            ->assertSee('analytics_from='.$from, false)
+            ->assertSee('analytics_to='.$to, false)
+            ->assertViewHas('commandOsDashboard', function (array $dashboard) use ($from, $to): bool {
+                $query = [];
+                parse_str((string) parse_url($dashboard['refresh']['url'], PHP_URL_QUERY), $query);
+
+                return $dashboard['analytics']['period']['key'] === 'custom'
+                    && $dashboard['analytics']['period']['from'] === $from
+                    && $dashboard['analytics']['period']['to'] === $to
+                    && ($query['analytics_period'] ?? null) === 'custom'
+                    && ($query['analytics_from'] ?? null) === $from
+                    && ($query['analytics_to'] ?? null) === $to;
+            });
+
+        $this->actingAs($owner)
+            ->get(route('console.analytics.index', [
+                'workspace' => $workspace->getKey(),
+                'analytics_period' => 'custom',
+                'analytics_from' => $today->toDateString(),
+                'analytics_to' => $today->copy()->subDay()->toDateString(),
+            ]))
+            ->assertSessionHasErrors(['analytics_to']);
     }
 
     public function test_dashboard_keeps_event_totals_inside_workspace(): void
@@ -703,10 +771,14 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
             ->assertViewHas('eventTotals', fn (array $totals): bool => $totals['clicks'] === 1)
             ->assertViewHas('commandOsDashboard', function (array $dashboard) use ($operator): bool {
                 $clicks = collect($dashboard['metrics'])->firstWhere('key', 'clicks');
+                $nodes = collect($dashboard['analytics']['graph']['nodes'])->keyBy('id');
 
                 return $dashboard['workspaceRole'] === 'operator'
                     && $dashboard['userName'] === $operator->name
-                    && $clicks['value'] === 1;
+                    && $clicks['value'] === 1
+                    && $dashboard['analytics']['totals']['clicks'] === 1
+                    && $nodes->get('drops')['count'] === 1
+                    && $nodes->get('tracking')['count'] === 1;
             })
             ->assertViewHas('snapshotCounts', fn (array $counts): bool => $counts['open'] === 0);
 
@@ -1212,7 +1284,7 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
         return $payload;
     }
 
-    private function addVisitor(Workspace $workspace, WorkspaceDrop $drop, string $type, Carbon $createdAt, float $revenue = 0, ?int $ispId = null): void
+    private function addVisitor(Workspace $workspace, WorkspaceDrop $drop, string $type, Carbon $createdAt, float $revenue = 0, ?int $ispId = null, ?string $country = null): void
     {
         WorkspaceDropVisitor::factory()->forDrop($drop)->create([
             'workspace_id' => $workspace->getKey(),
@@ -1220,6 +1292,7 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
             'created_at' => $createdAt,
             'revenue' => $revenue,
             'isp_id' => $ispId,
+            'country' => $country,
         ]);
     }
 

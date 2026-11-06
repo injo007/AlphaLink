@@ -175,7 +175,7 @@ test('backdrop click dismisses the drawer and restores focus', () => {
 });
 
 test('native navigation disclosure keeps the chevron inset and the menu in flow', () => {
-    assert.match(stylesheet, /\.command-os-navigation-row\s*\{\s*position:\s*relative;\s*display:\s*grid;\s*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+38px;[\s\S]{0,100}padding-right:\s*16px;/);
+    assert.match(stylesheet, /\.command-os-navigation-row\s*\{\s*position:\s*relative;\s*display:\s*grid;\s*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+38px;[\s\S]{0,100}padding-right:\s*32px;/);
     assert.match(stylesheet, /\.command-os-navigation-disclosure\s*\{\s*display:\s*contents;/);
     assert.match(stylesheet, /\.command-os-navigation-disclosure\s*>\s*summary\s*\{[\s\S]{0,180}grid-column:\s*2;[\s\S]{0,100}width:\s*38px;/);
     assert.match(stylesheet, /\.command-os-navigation-disclosure\[open\]\s*>\s*summary\s*>\s*i\s*\{\s*transform:\s*rotate\(180deg\);/);

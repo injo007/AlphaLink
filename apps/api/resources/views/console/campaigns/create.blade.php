@@ -41,11 +41,10 @@
         ];
     @endphp
 
-    <div class="campaign-create-page">
-    <header class="campaign-create-hero" style="--campaign-hero-art: url('{{ asset('console-assets/campaign-composer-atmosphere.png') }}')">
+    <div class="campaign-create-page" style="--campaign-hero-art: url('{{ asset('console-assets/campaign-composer-atmosphere.png') }}')">
+    <header class="campaign-create-hero">
         <div class="campaign-create-hero-icon" aria-hidden="true"><i class="fas fa-paper-plane"></i></div>
         <div class="campaign-create-hero-copy">
-            <p class="campaign-create-eyebrow">ALPHALINK CAMPAIGN STUDIO</p>
             <h1 id="campaign-page-title">{{ $editingCampaign ? 'Edit Campaign' : 'Create Campaign' }}</h1>
             <p>Build, target and prepare your email campaign with full control.</p>
         </div>
@@ -135,22 +134,36 @@
                 --campaign-blue: #238dff;
                 color: var(--campaign-ink);
                 font-family: Inter, 'Segoe UI', Arial, sans-serif;
+                isolation: isolate;
+                position: relative;
+            }
+            .campaign-create-page::after {
+                background-image: var(--campaign-hero-art);
+                background-position: center top;
+                background-repeat: no-repeat;
+                background-size: 100% auto;
+                bottom: 0;
+                content: '';
+                height: 76px;
+                left: 0;
+                opacity: .54;
+                pointer-events: none;
+                position: fixed;
+                right: 0;
+                z-index: -1;
             }
             .campaign-create-hero {
                 align-items: center;
                 display: flex;
-                gap: 18px;
-                min-height: 108px;
-                margin: 0 0 12px;
-                padding: 14px 18px;
+                gap: 16px;
+                min-height: 78px;
+                margin: 0 0 8px;
+                padding: 8px 4px;
                 overflow: hidden;
-                border: 1px solid rgb(129 99 241 / 12%);
-                border-radius: 18px;
-                background-color: #f4f1ff;
-                background-image: linear-gradient(90deg, rgb(255 255 255 / 92%) 0%, rgb(255 255 255 / 76%) 33%, rgb(255 255 255 / 15%) 100%), var(--campaign-hero-art);
+                background-color: transparent;
+                background-image: linear-gradient(90deg, rgb(255 255 255 / 92%) 0%, rgb(255 255 255 / 74%) 34%, rgb(255 255 255 / 20%) 100%), var(--campaign-hero-art);
                 background-position: center 46%;
                 background-size: cover;
-                box-shadow: 0 8px 28px rgb(74 55 169 / 7%);
             }
             .campaign-create-hero-icon {
                 align-items: center;
@@ -166,16 +179,9 @@
                 justify-content: center;
             }
             .campaign-create-hero-copy { min-width: 0; }
-            .campaign-create-eyebrow {
-                color: #7040db;
-                font-size: 9px;
-                font-weight: 800;
-                letter-spacing: .16em;
-                margin: 0 0 3px;
-            }
             .campaign-create-hero h1 {
                 color: #101443;
-                font-size: clamp(23px, 2vw, 31px);
+                font-size: clamp(23px, 1.8vw, 29px);
                 font-weight: 800;
                 letter-spacing: -.045em;
                 line-height: 1.08;
@@ -270,8 +276,8 @@
             }
             .campaign-create-page .block-header {
                 align-items: center;
-                background: linear-gradient(100deg, #fff, #f8f6ff);
-                border-bottom: 1px solid #efedfa;
+                background: transparent;
+                border-bottom: 1px solid #f0eff8;
                 border-radius: 15px 15px 0 0;
                 display: flex;
                 flex-wrap: wrap;
@@ -298,18 +304,65 @@
             .campaign-create-page #campaign-targeting > .row > [class*='col-'] { padding-left: 5px; padding-right: 5px; }
             .campaign-create-page #campaign-targeting .block { height: 100%; }
             .campaign-create-page #campaign-targeting .block-header { min-height: 40px; }
-            .campaign-create-page .form-group { margin-bottom: 10px; }
+            .campaign-create-page .form-group { margin-bottom: 8px; }
             .campaign-create-page label { color: var(--campaign-ink); font-size: 11px; font-weight: 700; margin-bottom: 4px; }
             .campaign-create-page .form-control,
             .campaign-create-page .bootstrap-select > .dropdown-toggle {
                 background-color: #fff;
                 border: 1px solid #cfd4ed;
-                border-radius: 8px;
+                border-radius: 7px;
                 color: #151d43;
                 font-size: 12px;
-                min-height: 34px;
-                padding: 6px 10px;
+                min-height: 30px;
+                padding: 4px 9px;
             }
+            .campaign-create-page #campaign-targeting label[for]::before,
+            .campaign-create-page .campaign-email-card label[for]::before,
+            .campaign-create-page #campaign-routing label[for]::before {
+                color: var(--campaign-purple);
+                display: inline-block;
+                font-family: 'Font Awesome 5 Free';
+                font-size: 11px;
+                font-weight: 900;
+                margin-right: 5px;
+                text-align: center;
+                width: 13px;
+            }
+            .campaign-create-page label[for='send-sponsor']::before { content: '\f0c0'; }
+            .campaign-create-page label[for='send-offer-country']::before,
+            .campaign-create-page label[for='send-country']::before,
+            .campaign-create-page label[for='campaign-domain']::before { content: '\f0ac'; }
+            .campaign-create-page label[for='send-offer']::before { content: '\f02b'; }
+            .campaign-create-page label[for='send-isp']::before { content: '\f519'; }
+            .campaign-create-page label[for='send-lists']::before { content: '\f03a'; }
+            .campaign-create-page label[for='send-order-by']::before { content: '\f0dc'; }
+            .campaign-create-page label[for='send-start-from']::before { content: '\f1b2'; }
+            .campaign-create-page label[for='campaign-return-path']::before { content: '\f1d8'; }
+            .campaign-create-page label[for='saved-email-addresses']::before,
+            .campaign-create-page label[for='campaign-email-tests']::before { content: '\f0e0'; }
+            .campaign-create-page label[for='saved-email-new']::before { content: '\f0fe'; }
+            .campaign-create-page label[for='campaign-negative']::before { content: '\f05e'; }
+            .campaign-create-page label[for='send-creative-asset']::before { content: '\f03e'; }
+            .campaign-create-page label[for='send-html-asset']::before,
+            .campaign-create-page label[for='campaign-body']::before { content: '\f121'; }
+            .campaign-create-page label[for='send-from-assets']::before { content: '\f007'; }
+            .campaign-create-page label[for='send-subject-assets']::before { content: '\f15c'; }
+            .campaign-create-page label[for='campaign-header']::before { content: '\f1dc'; }
+            .campaign-create-page label[for='send-route']::before { content: '\f0e8'; }
+            .campaign-create-page label[for='send-ip-type']::before { content: '\f3ed'; }
+            .campaign-create-page .campaign-label-icon { color: var(--campaign-purple); font-size: 11px; margin-right: 4px; }
+            .campaign-create-page label[for='send-servers']::before { content: '\f233'; }
+            .campaign-create-page label[for='send-ips-available']::before,
+            .campaign-create-page label[for='send-ips-selected']::before { content: '\f0c1'; }
+            .campaign-create-page label[for='campaign-start-progress']::before { content: '\f04b'; }
+            .campaign-create-page label[for='send-type']::before { content: '\f1d8'; }
+            .campaign-create-page label[for='send-duplicate_data']::before { content: '\f24d'; }
+            .campaign-create-page label[for='send-total_send']::before { content: '\f1d8'; }
+            .campaign-create-page label[for='send-fraction_ip']::before { content: '\f295'; }
+            .campaign-create-page label[for='send-sleep_email']::before,
+            .campaign-create-page label[for='send-sleep_ip']::before { content: '\f017'; }
+            .campaign-create-page label[for='send-seed_every']::before { content: '\f0c3'; }
+            .campaign-create-page label[for='send-bounce_limit']::before { content: '\f071'; }
             .campaign-create-page .form-control:focus,
             .campaign-create-page .bootstrap-select > .dropdown-toggle:focus {
                 border-color: #9254ff;
@@ -475,12 +528,13 @@
                 background-color: #101b38;
                 background-image: linear-gradient(90deg, rgb(9 17 38 / 87%) 0%, rgb(9 17 38 / 65%) 35%, rgb(9 17 38 / 27%) 100%), var(--campaign-hero-art);
             }
+            html[data-command-theme='dark'] .campaign-create-page::after { opacity: .08; }
             html[data-command-theme='dark'] .campaign-create-hero h1,
             html[data-command-theme='dark'] .campaign-create-hero-copy > p:last-child { color: #f3f4ff; }
             html[data-command-theme='dark'] .campaign-stage-track,
-            html[data-command-theme='dark'] .campaign-create-page .block-header,
             html[data-command-theme='dark'] .campaign-summary-stats > div,
             html[data-command-theme='dark'] .campaign-summary-actions { background: linear-gradient(120deg, #111d3b, #172447); border-color: var(--campaign-border); }
+            html[data-command-theme='dark'] .campaign-create-page .block-header { background: transparent; border-color: var(--campaign-border); }
             html[data-command-theme='dark'] .campaign-stage-track li { color: #eef1ff; }
             html[data-command-theme='dark'] .campaign-stage-track li + li,
             html[data-command-theme='dark'] .campaign-summary-heading,
@@ -506,7 +560,8 @@
                 .campaign-summary-actions { align-self: start; }
             }
             @media (max-width: 767.98px) {
-                .campaign-create-hero { align-items: flex-start; background-position: 58% center; border-radius: 13px; min-height: 100px; padding: 14px; }
+                .campaign-create-page::after { height: 48px; opacity: .4; }
+                .campaign-create-hero { align-items: center; background-position: 64% center; min-height: 72px; padding: 6px 0; }
                 .campaign-create-hero-icon { border-radius: 13px; flex-basis: 44px; font-size: 20px; height: 44px; }
                 .campaign-create-hero-copy > p:last-child { max-width: 32ch; }
                 .campaign-stage-track { border-radius: 13px; }
@@ -802,7 +857,7 @@
                         </label>
                         <div class="custom-control custom-switch custom-control-inline ml-2">
                             <input id="campaign-body-map" type="checkbox" class="custom-control-input">
-                            <label for="campaign-body-map" class="custom-control-label">MAP BODY</label>
+                            <label for="campaign-body-map" class="custom-control-label"><i class="fas fa-map-marked-alt campaign-label-icon" aria-hidden="true"></i> MAP BODY</label>
                             <button type="button" id="campaign-body-insert-open-pixel" class="btn btn-link btn-sm p-0 ml-1" title="Insert open tracking pixel" aria-label="Insert open tracking pixel"><i class="fas fa-bullseye" aria-hidden="true"></i></button>
                         </div>
                         <textarea id="campaign-body" name="body" rows="28" class="form-control" spellcheck="false">{{ old('body', $savedContent['body'] ?? '') }}</textarea>

@@ -337,12 +337,11 @@
                 border: 1px solid var(--campaign-border);
                 position: relative;
                 box-shadow: 0 6px 18px rgb(78 64 164 / 7%);
-                overflow: hidden;
+                overflow: visible;
             }
             .campaign-create-page #campaign-targeting .block:focus-within,
             .campaign-create-page .campaign-email-card:focus-within,
             .campaign-create-page .campaign-delivery-card:focus-within {
-                overflow: visible;
                 z-index: 30;
             }
             .campaign-create-page .bootstrap-select:focus-within,

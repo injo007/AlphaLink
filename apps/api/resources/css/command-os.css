@@ -1,4 +1,4 @@
-body.command-os-dashboard {
+body.command-os-shell {
     --co-page: #f5f6fb;
     --co-surface: #ffffff;
     --co-surface-muted: #f7f8fd;
@@ -18,7 +18,7 @@ body.command-os-dashboard {
     font-size: 13px;
 }
 
-html[data-command-theme='dark'] body.command-os-dashboard {
+html[data-command-theme='dark'] body.command-os-shell {
     --co-page: #091126;
     --co-surface: #111d3b;
     --co-surface-muted: #142344;
@@ -33,7 +33,7 @@ html[data-command-theme='dark'] body.command-os-dashboard {
     --co-shadow: 0 7px 24px rgb(0 0 0 / 18%);
 }
 
-body.command-os-dashboard #page-container.command-os-page {
+body.command-os-shell #page-container.command-os-page {
     display: grid;
     grid-template-columns: 220px minmax(0, 1fr);
     grid-template-rows: 44px minmax(calc(100vh - 90px), auto) auto;
@@ -44,7 +44,7 @@ body.command-os-dashboard #page-container.command-os-page {
     background: var(--co-page);
 }
 
-body.command-os-dashboard #sidebar {
+body.command-os-shell #sidebar {
     grid-column: 1;
     grid-row: 1 / 4;
     position: sticky;
@@ -62,7 +62,7 @@ body.command-os-dashboard #sidebar {
     scrollbar-color: var(--co-border-strong) transparent;
 }
 
-body.command-os-dashboard #sidebar .content-header {
+body.command-os-shell #sidebar .content-header {
     display: flex;
     align-items: center;
     justify-content: flex-start;
@@ -73,7 +73,7 @@ body.command-os-dashboard #sidebar .content-header {
     background: var(--co-surface) !important;
 }
 
-body.command-os-dashboard #sidebar .content-header > a {
+body.command-os-shell #sidebar .content-header > a {
     color: var(--co-ink) !important;
     text-decoration: none;
 }
@@ -125,11 +125,11 @@ body.command-os-dashboard #sidebar .content-header > a {
     font-weight: 750;
 }
 
-body.command-os-dashboard #sidebar .content-side {
+body.command-os-shell #sidebar .content-side {
     padding: 9px 11px 22px;
 }
 
-body.command-os-dashboard #sidebar .command-os-navigation {
+body.command-os-shell #sidebar .command-os-navigation {
     display: flex;
     flex-direction: column;
     gap: 1px;
@@ -138,7 +138,7 @@ body.command-os-dashboard #sidebar .command-os-navigation {
     list-style: none;
 }
 
-body.command-os-dashboard #sidebar .command-os-navigation-item {
+body.command-os-shell #sidebar .command-os-navigation-item {
     position: relative;
     min-width: 0;
     margin: 0;
@@ -146,7 +146,7 @@ body.command-os-dashboard #sidebar .command-os-navigation-item {
     list-style: none;
 }
 
-body.command-os-dashboard #sidebar .command-os-navigation-row {
+body.command-os-shell #sidebar .command-os-navigation-row {
     position: relative;
     display: flex;
     align-items: center;
@@ -154,7 +154,7 @@ body.command-os-dashboard #sidebar .command-os-navigation-row {
     border-radius: 9px;
 }
 
-body.command-os-dashboard #sidebar .command-os-navigation-link {
+body.command-os-shell #sidebar .command-os-navigation-link {
     display: flex;
     align-items: center;
     flex: 1 1 auto;
@@ -175,18 +175,18 @@ body.command-os-dashboard #sidebar .command-os-navigation-link {
     white-space: nowrap;
 }
 
-body.command-os-dashboard #sidebar .command-os-navigation-link:hover {
+body.command-os-shell #sidebar .command-os-navigation-link:hover {
     color: var(--co-purple);
     background: var(--co-surface-muted);
 }
 
-body.command-os-dashboard #sidebar .command-os-navigation-link.active {
+body.command-os-shell #sidebar .command-os-navigation-link.active {
     color: #fff;
     background: linear-gradient(100deg, #7040ee, #9943f7);
     box-shadow: 0 4px 12px rgb(114 61 232 / 22%);
 }
 
-body.command-os-dashboard #sidebar .command-os-navigation-icon {
+body.command-os-shell #sidebar .command-os-navigation-icon {
     display: inline-grid;
     flex: 0 0 17px;
     width: 17px;
@@ -195,30 +195,31 @@ body.command-os-dashboard #sidebar .command-os-navigation-icon {
     text-align: center;
 }
 
-body.command-os-dashboard #sidebar .command-os-navigation-link.active .command-os-navigation-icon {
+body.command-os-shell #sidebar .command-os-navigation-link.active .command-os-navigation-icon {
     color: #fff;
 }
 
-body.command-os-dashboard #sidebar .command-os-navigation-link.is-disabled,
-body.command-os-dashboard #sidebar .command-os-navigation-item.is-disabled .command-os-navigation-link {
+body.command-os-shell #sidebar .command-os-navigation-link.is-disabled,
+body.command-os-shell #sidebar .command-os-navigation-item.is-disabled .command-os-navigation-link {
     color: var(--co-muted);
     cursor: not-allowed;
 }
 
-body.command-os-dashboard #sidebar .command-os-navigation-disclosure {
-    position: absolute;
-    top: 0;
-    left: 0;
-    z-index: 8;
-    width: 100%;
-    min-height: 28px;
-    pointer-events: none;
+body.command-os-shell #sidebar .command-os-navigation-disclosure {
+    position: static;
+    display: block;
+    width: auto;
+    min-height: 0;
+    pointer-events: auto;
 }
 
-body.command-os-dashboard #sidebar .command-os-navigation-disclosure > summary {
+body.command-os-shell #sidebar .command-os-navigation-disclosure > summary {
+    position: absolute;
+    top: 0;
+    right: 2px;
     display: grid;
     place-items: center;
-    margin-left: auto;
+    margin: 0;
     width: 24px;
     height: 28px;
     border-radius: 7px;
@@ -229,37 +230,34 @@ body.command-os-dashboard #sidebar .command-os-navigation-disclosure > summary {
     pointer-events: auto;
 }
 
-body.command-os-dashboard #sidebar .command-os-navigation-disclosure > summary::-webkit-details-marker {
+body.command-os-shell #sidebar .command-os-navigation-disclosure > summary::-webkit-details-marker {
     display: none;
 }
 
-body.command-os-dashboard #sidebar .command-os-navigation-disclosure > summary:hover,
-body.command-os-dashboard #sidebar .command-os-navigation-disclosure > summary:focus-visible {
+body.command-os-shell #sidebar .command-os-navigation-disclosure > summary:hover,
+body.command-os-shell #sidebar .command-os-navigation-disclosure > summary:focus-visible {
     color: var(--co-purple);
     background: var(--co-surface-muted);
 }
 
-body.command-os-dashboard #sidebar .command-os-navigation-disclosure > summary:focus-visible {
+body.command-os-shell #sidebar .command-os-navigation-disclosure > summary:focus-visible {
     outline: 2px solid var(--co-purple);
     outline-offset: 1px;
 }
 
-body.command-os-dashboard #sidebar .command-os-navigation-disclosure[open] > summary > i {
+body.command-os-shell #sidebar .command-os-navigation-disclosure[open] > summary > i {
     transform: rotate(180deg);
 }
 
-body.command-os-dashboard #sidebar .command-os-navigation-submenu {
-    position: absolute;
-    top: calc(100% + 3px);
-    left: 0;
-    z-index: 45;
+body.command-os-shell #sidebar .command-os-navigation-submenu {
+    position: static;
     display: grid;
     gap: 2px;
-    width: 100%;
-    min-width: 185px;
+    width: auto;
+    min-width: 0;
     max-height: min(60vh, 420px);
     overflow: auto;
-    margin: 0;
+    margin: 2px 2px 4px 18px;
     padding: 5px;
     border: 1px solid var(--co-border);
     border-radius: 10px;
@@ -269,15 +267,15 @@ body.command-os-dashboard #sidebar .command-os-navigation-submenu {
     pointer-events: auto;
 }
 
-body.command-os-dashboard #sidebar .command-os-navigation-submenu li {
+body.command-os-shell #sidebar .command-os-navigation-submenu li {
     min-width: 0;
     margin: 0;
     padding: 0;
     list-style: none;
 }
 
-body.command-os-dashboard #sidebar .command-os-navigation-submenu a,
-body.command-os-dashboard #sidebar .command-os-navigation-submenu li > span {
+body.command-os-shell #sidebar .command-os-navigation-submenu a,
+body.command-os-shell #sidebar .command-os-navigation-submenu li > span {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -291,39 +289,39 @@ body.command-os-dashboard #sidebar .command-os-navigation-submenu li > span {
     text-decoration: none;
 }
 
-body.command-os-dashboard #sidebar .command-os-navigation-submenu a:hover,
-body.command-os-dashboard #sidebar .command-os-navigation-submenu a.active {
+body.command-os-shell #sidebar .command-os-navigation-submenu a:hover,
+body.command-os-shell #sidebar .command-os-navigation-submenu a.active {
     color: var(--co-purple);
     background: var(--co-surface-muted);
 }
 
-body.command-os-dashboard #sidebar .command-os-navigation-submenu li > span {
+body.command-os-shell #sidebar .command-os-navigation-submenu li > span {
     color: var(--co-muted);
     cursor: not-allowed;
 }
 
-body.command-os-dashboard #sidebar .command-os-navigation-submenu a > i,
-body.command-os-dashboard #sidebar .command-os-navigation-submenu li > span > i {
+body.command-os-shell #sidebar .command-os-navigation-submenu a > i,
+body.command-os-shell #sidebar .command-os-navigation-submenu li > span > i {
     flex: 0 0 14px;
     color: var(--co-muted);
     font-size: 11px;
     text-align: center;
 }
 
-body.command-os-dashboard #sidebar .command-os-navigation-submenu a.active > i {
+body.command-os-shell #sidebar .command-os-navigation-submenu a.active > i {
     color: var(--co-purple);
 }
 
-body.command-os-dashboard #sidebar .command-os-navigation-submenu a:focus-visible {
+body.command-os-shell #sidebar .command-os-navigation-submenu a:focus-visible {
     outline: 2px solid var(--co-purple);
     outline-offset: -2px;
 }
 
-body.command-os-dashboard #sidebar .nav-main {
+body.command-os-shell #sidebar .nav-main {
     padding: 0;
 }
 
-body.command-os-dashboard #sidebar .nav-main-heading {
+body.command-os-shell #sidebar .nav-main-heading {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -339,11 +337,11 @@ body.command-os-dashboard #sidebar .nav-main-heading {
     letter-spacing: .1em;
 }
 
-body.command-os-dashboard #sidebar .nav-main-item {
+body.command-os-shell #sidebar .nav-main-item {
     margin: 2px 0;
 }
 
-body.command-os-dashboard #sidebar .nav-main-link {
+body.command-os-shell #sidebar .nav-main-link {
     display: flex;
     align-items: center;
     min-height: 32px;
@@ -357,18 +355,18 @@ body.command-os-dashboard #sidebar .nav-main-link {
     transition: color .16s ease, background .16s ease, box-shadow .16s ease;
 }
 
-body.command-os-dashboard #sidebar .nav-main-link:hover {
+body.command-os-shell #sidebar .nav-main-link:hover {
     color: var(--co-purple);
     background: var(--co-surface-muted);
 }
 
-body.command-os-dashboard #sidebar .nav-main-link.active {
+body.command-os-shell #sidebar .nav-main-link.active {
     color: #fff;
     background: linear-gradient(100deg, #7040ee, #9943f7);
     box-shadow: 0 4px 12px rgb(114 61 232 / 22%);
 }
 
-body.command-os-dashboard #sidebar .nav-main-link-icon {
+body.command-os-shell #sidebar .nav-main-link-icon {
     width: 18px;
     margin: 0 9px 0 0;
     color: var(--co-muted);
@@ -376,33 +374,33 @@ body.command-os-dashboard #sidebar .nav-main-link-icon {
     text-align: center;
 }
 
-body.command-os-dashboard #sidebar .nav-main-link.active .nav-main-link-icon {
+body.command-os-shell #sidebar .nav-main-link.active .nav-main-link-icon {
     color: #fff;
 }
 
-body.command-os-dashboard #sidebar .nav-main-submenu {
+body.command-os-shell #sidebar .nav-main-submenu {
     margin: 1px 0 6px 12px;
     padding: 2px 0 2px 7px;
     border-left: 1px solid var(--co-border-strong);
 }
 
-body.command-os-dashboard #sidebar .nav-main-submenu .nav-main-link {
+body.command-os-shell #sidebar .nav-main-submenu .nav-main-link {
     min-height: 29px;
     padding-top: 5px;
     padding-bottom: 5px;
     font-size: 10px;
 }
 
-body.command-os-dashboard #sidebar .nav-main-submenu .nav-main-link-icon {
+body.command-os-shell #sidebar .nav-main-submenu .nav-main-link-icon {
     font-size: 11px;
 }
 
-body.command-os-dashboard #sidebar .nav-main-link[aria-disabled='true'] {
+body.command-os-shell #sidebar .nav-main-link[aria-disabled='true'] {
     color: var(--co-subtle);
     opacity: .66;
 }
 
-body.command-os-dashboard #page-header {
+body.command-os-shell #page-header {
     grid-column: 2;
     grid-row: 1;
     margin: 0;
@@ -421,7 +419,7 @@ body.command-os-dashboard #page-header {
     backdrop-filter: blur(14px);
 }
 
-body.command-os-dashboard #page-header .content-header {
+body.command-os-shell #page-header .content-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -431,12 +429,12 @@ body.command-os-dashboard #page-header .content-header {
     padding: 0 18px;
 }
 
-body.command-os-dashboard #page-header .content-header > .d-flex {
+body.command-os-shell #page-header .content-header > .d-flex {
     min-width: 0;
     align-items: center;
 }
 
-body.command-os-dashboard #page-header .btn-dual {
+body.command-os-shell #page-header .btn-dual {
     width: 30px;
     height: 30px;
     padding: 6px;
@@ -482,7 +480,7 @@ body.command-os-dashboard #page-header .btn-dual {
     font-size: 9px;
 }
 
-body.command-os-dashboard #page-header .dropdown > button {
+body.command-os-shell #page-header .dropdown > button {
     min-height: 30px;
     border-radius: 9px;
     color: var(--co-ink);
@@ -491,7 +489,7 @@ body.command-os-dashboard #page-header .dropdown > button {
     white-space: nowrap;
 }
 
-body.command-os-dashboard #page-header .dropdown-menu {
+body.command-os-shell #page-header .dropdown-menu {
     border: 1px solid var(--co-border);
     border-radius: 11px;
     color: var(--co-ink);
@@ -517,7 +515,7 @@ body.command-os-dashboard #page-header .dropdown-menu {
     box-shadow: 0 0 0 3px rgb(121 61 246 / 10%);
 }
 
-body.command-os-dashboard #main-container {
+body.command-os-shell #main-container {
     grid-column: 2;
     grid-row: 2;
     min-width: 0;
@@ -526,18 +524,18 @@ body.command-os-dashboard #main-container {
     background: var(--co-page);
 }
 
-body.command-os-dashboard #main-container > .content.content-full {
+body.command-os-shell #main-container > .content.content-full {
     display: none;
 }
 
-body.command-os-dashboard #main-container > .content#main_content {
+body.command-os-shell #main-container > .content#main_content {
     width: 100%;
     max-width: none;
     margin: 0;
     padding: 11px 22px 20px !important;
 }
 
-body.command-os-dashboard #page-footer {
+body.command-os-shell #page-footer {
     grid-column: 2;
     grid-row: 3;
     min-width: 0;
@@ -546,11 +544,11 @@ body.command-os-dashboard #page-footer {
     background: var(--co-surface) !important;
 }
 
-body.command-os-dashboard #page-footer .content {
+body.command-os-shell #page-footer .content {
     padding: 8px 22px !important;
 }
 
-body.command-os-dashboard #page-footer a {
+body.command-os-shell #page-footer a {
     color: var(--co-purple);
 }
 
@@ -1082,13 +1080,78 @@ html[data-command-theme='dark'] .command-os-metric-red .command-os-metric-icon {
 }
 
 @media (min-width: 992px) {
-body.command-os-dashboard #page-container.sidebar-mini.command-os-page {
+body.command-os-shell #page-container.sidebar-mini.command-os-page {
     grid-template-columns: 74px minmax(0, 1fr);
 }
 
-body.command-os-dashboard #page-container.sidebar-mini.command-os-page #sidebar {
+body.command-os-shell #page-container.sidebar-mini.command-os-page #sidebar {
     width: auto;
     transform: none;
+}
+
+body.command-os-shell #page-container.sidebar-mini #sidebar .command-os-brand-copy,
+body.command-os-shell #page-container.sidebar-mini #sidebar .command-os-version,
+body.command-os-shell #page-container.sidebar-mini #sidebar .command-os-navigation-link > span,
+body.command-os-shell #page-container.sidebar-mini #sidebar .command-os-navigation-disclosure {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+}
+
+body.command-os-shell #page-container.sidebar-mini #sidebar .command-os-navigation-link {
+    justify-content: center;
+    padding: 4px;
+}
+
+body.command-os-shell #page-container.sidebar-mini #sidebar:hover,
+body.command-os-shell #page-container.sidebar-mini #sidebar:focus-within {
+    position: sticky;
+    z-index: 1050;
+    width: 220px;
+    overflow-x: visible;
+    box-shadow: 0 0 1.5rem rgb(8 14 35 / 24%);
+}
+
+body.command-os-shell #page-container.sidebar-mini #sidebar:hover .command-os-brand-copy,
+body.command-os-shell #page-container.sidebar-mini #sidebar:focus-within .command-os-brand-copy,
+body.command-os-shell #page-container.sidebar-mini #sidebar:hover .command-os-version,
+body.command-os-shell #page-container.sidebar-mini #sidebar:focus-within .command-os-version,
+body.command-os-shell #page-container.sidebar-mini #sidebar:hover .command-os-navigation-disclosure,
+body.command-os-shell #page-container.sidebar-mini #sidebar:focus-within .command-os-navigation-disclosure {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: initial;
+    padding: initial;
+    overflow: visible;
+    clip: auto;
+    clip-path: none;
+    white-space: normal;
+}
+
+body.command-os-shell #page-container.sidebar-mini #sidebar:hover .command-os-navigation-link > span,
+body.command-os-shell #page-container.sidebar-mini #sidebar:focus-within .command-os-navigation-link > span {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    clip-path: none;
+    white-space: nowrap;
+}
+
+body.command-os-shell #page-container.sidebar-mini #sidebar:hover .command-os-navigation-link,
+body.command-os-shell #page-container.sidebar-mini #sidebar:focus-within .command-os-navigation-link {
+    justify-content: flex-start;
+    padding: 4px 28px 4px 8px;
 }
 
 body.command-os-dashboard #page-container.sidebar-mini #sidebar .content-header {
@@ -1177,13 +1240,13 @@ body.command-os-dashboard #page-container.sidebar-mini #sidebar:focus-within .na
 }
 
 @media (max-width: 991.98px) {
-    body.command-os-dashboard #page-container.command-os-page {
+    body.command-os-shell #page-container.command-os-page {
         display: block;
         min-height: 100vh;
         padding-left: 0 !important;
     }
 
-    body.command-os-dashboard #sidebar {
+    body.command-os-shell #sidebar {
         position: fixed;
         top: 0;
         bottom: 0;
@@ -1195,21 +1258,21 @@ body.command-os-dashboard #page-container.sidebar-mini #sidebar:focus-within .na
         transition: transform .2s ease;
     }
 
-    body.command-os-dashboard #page-container.sidebar-mini #sidebar {
+    body.command-os-shell #page-container.sidebar-mini #sidebar {
         position: fixed;
         width: min(292px, 86vw);
         transform: translateX(-105%);
     }
 
-    body.command-os-dashboard #page-container.command-os-sidebar-open #sidebar {
+    body.command-os-shell #page-container.command-os-sidebar-open #sidebar {
         transform: translateX(0);
     }
 
-    body.command-os-dashboard #page-container.sidebar-mini.command-os-sidebar-open #sidebar {
+    body.command-os-shell #page-container.sidebar-mini.command-os-sidebar-open #sidebar {
         transform: translateX(0);
     }
 
-    body.command-os-dashboard .command-os-sidebar-backdrop {
+    body.command-os-shell .command-os-sidebar-backdrop {
         display: block;
         position: fixed;
         z-index: 1040;
@@ -1222,27 +1285,27 @@ body.command-os-dashboard #page-container.sidebar-mini #sidebar:focus-within .na
         cursor: default;
     }
 
-    body.command-os-dashboard .command-os-sidebar-backdrop[hidden] {
+    body.command-os-shell .command-os-sidebar-backdrop[hidden] {
         display: none;
     }
 
-    body.command-os-dashboard #page-header {
+    body.command-os-shell #page-header {
         position: sticky;
         height: 60px;
     }
 
-    body.command-os-dashboard #page-header .content-header {
+    body.command-os-shell #page-header .content-header {
         min-height: 60px;
         height: 60px;
         padding: 0 13px;
     }
 
-    body.command-os-dashboard #main-container,
-    body.command-os-dashboard #page-footer {
+    body.command-os-shell #main-container,
+    body.command-os-shell #page-footer {
         display: block;
     }
 
-    body.command-os-dashboard #main-container > .content#main_content {
+    body.command-os-shell #main-container > .content#main_content {
         padding: 18px 15px 24px !important;
     }
 
@@ -1250,18 +1313,18 @@ body.command-os-dashboard #page-container.sidebar-mini #sidebar:focus-within .na
         padding: 8px 15px !important;
     }
 
-    body.command-os-dashboard #page-container.sidebar-mini.command-os-page {
+    body.command-os-shell #page-container.sidebar-mini.command-os-page {
         grid-template-columns: 1fr;
     }
 }
 
 @media (max-width: 640px) {
     .command-os-search-placeholder { display: none; }
-    body.command-os-dashboard #page-header .content-header { gap: 7px; }
-    body.command-os-dashboard #page-header .content-header > .d-flex:last-child { gap: 2px; }
-    body.command-os-dashboard #page-header .content-header > .d-flex:first-child > a { display: none; }
-    body.command-os-dashboard #page-header .dropdown > button { max-width: 42px; overflow: hidden; }
-    body.command-os-dashboard #page-header .dropdown > button .d-none.d-sm-inline-block { display: none !important; }
+    body.command-os-shell #page-header .content-header { gap: 7px; }
+    body.command-os-shell #page-header .content-header > .d-flex:last-child { gap: 2px; }
+    body.command-os-shell #page-header .content-header > .d-flex:first-child > a { display: none; }
+    body.command-os-shell #page-header .dropdown > button { max-width: 42px; overflow: hidden; }
+    body.command-os-shell #page-header .dropdown > button .d-none.d-sm-inline-block { display: none !important; }
     .command-os-page-heading { align-items: flex-start; flex-direction: column; gap: 10px; }
     .command-os-heading-actions { width: 100%; justify-content: space-between; }
     .command-os-period { flex: 1; justify-content: flex-start; }
@@ -1283,9 +1346,9 @@ body.command-os-dashboard #page-container.sidebar-mini #sidebar:focus-within .na
 }
 
 @media (prefers-reduced-motion: reduce) {
-    body.command-os-dashboard *,
-    body.command-os-dashboard *::before,
-    body.command-os-dashboard *::after {
+    body.command-os-shell *,
+    body.command-os-shell *::before,
+    body.command-os-shell *::after {
         scroll-behavior: auto !important;
         animation-duration: .01ms !important;
         animation-iteration-count: 1 !important;

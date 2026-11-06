@@ -21,14 +21,18 @@ class AlphaLinkCampaignSendNavigationTest extends TestCase
 
         $response = $this->actingAs($owner)->get($url)->assertOk();
 
-        $this->assertDoesNotMatchRegularExpression('/<button[^>]*data-action="sidebar_open"[^>]*aria-controls="sidebar"/', $response->getContent());
-        $this->assertDoesNotMatchRegularExpression('/<button[^>]*data-action="sidebar_open"[^>]*aria-expanded="false"/', $response->getContent());
+        $this->assertSame(14, substr_count($response->getContent(), 'class="command-os-navigation-item'));
+        $this->assertMatchesRegularExpression('/<button[^>]*data-action="sidebar_open"[^>]*aria-controls="sidebar"/', $response->getContent());
+        $this->assertMatchesRegularExpression('/<button[^>]*data-action="sidebar_open"[^>]*aria-expanded="false"/', $response->getContent());
 
-        $response->assertSee('id="nav-submenu-campaigns"', false)
+        $response->assertSee('class="command-os-navigation"', false)
+            ->assertSee('>Dashboard</span>', false)
+            ->assertSee('>Lists &amp; Audiences</span>', false)
+            ->assertSee('id="nav-submenu-campaigns"', false)
             ->assertSee('href="'.route('console.mailer.campaigns').'" title="CAMPAIGNS" aria-label="Campaigns"', false)
             ->assertSee('href="'.route('clean.console.global-tests.index').'" title="GLOBAL TEST" aria-label="Global Test"', false)
-            ->assertSee('aria-expanded="true"', false)
-            ->assertSee('class="nav-main-link active" href="'.$this->cleanWorkspaceUrl($url).'"', false)
+            ->assertSee('aria-label="Show Campaigns pages"', false)
+            ->assertSee('class="command-os-navigation-link active" href="'.route('console.mailer.campaigns').'"', false)
             ->assertSee('aria-current="page"', false)
             ->assertSee('fas fa-envelope', false)
             ->assertSee('My campaigns')
@@ -47,6 +51,12 @@ class AlphaLinkCampaignSendNavigationTest extends TestCase
             ->assertSee('No data available in table')
             ->assertDontSee('recipient suppression snapshot is built when a campaign draft is saved')
             ->assertDontSee('no campaign can be launched');
+
+        $this->assertMatchesRegularExpression(
+            '/<div class="command-os-navigation-row">[\s\S]*?<\/div>\s*<details class="command-os-navigation-disclosure"/',
+            $response->getContent(),
+            'The submenu disclosure must follow the parent row so that an expanded submenu takes up space in the sidebar flow.'
+        );
     }
 
     public function test_campaign_send_is_available_to_workspace_operators_but_not_privacy_officers(): void

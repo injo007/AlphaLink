@@ -8,6 +8,7 @@
         };
         $isDropVisitorsPage = $routeIs('console.drops.visitors');
         $commandOsDashboard = $routeIs('console.dashboard.main', 'console.workspace.dashboard.main', 'console.analytics.index');
+        $commandOsShell = true;
         $canUseDashboardOperations = $commandOsDashboard && in_array($workspace->pivot->role ?? null, ['owner', 'admin', 'operator'], true);
         $hideDashboardForbiddenDestinations = $commandOsDashboard && ! $canUseDashboardOperations;
         $usesGoogleCharts = $isDropVisitorsPage || $routeIs('console.campaigns.visitors');
@@ -35,7 +36,7 @@
         <link rel="stylesheet" href="{{ asset('console-assets/plugins/datatables/datatables.min.css') }}">
     @endif
     <link rel="stylesheet" href="{{ asset('console-assets/assets/css/theme.css') }}">
-    @if ($commandOsDashboard)
+    @if ($commandOsShell)
         @vite(['resources/css/command-os.css', 'resources/js/command-os.tsx'])
     @endif
     @if ($usesAnalyticsCharts)
@@ -49,7 +50,7 @@
         @keyframes alphalink-toast-in { from { opacity: 0; transform: translateY(.4rem); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
-<body class="{{ $commandOsDashboard ? 'command-os-dashboard' : '' }}">
+<body class="command-os-shell {{ $commandOsDashboard ? 'command-os-dashboard' : '' }}">
     @php
         $serversUrl = route('clean.console.infrastructure.servers.index');
         $serverProvidersUrl = route('clean.console.infrastructure.server-providers.index');
@@ -393,11 +394,11 @@
         $commandOsNavigation[9]['reason'] = 'No redirect or rotator page is connected yet.';
         $commandOsNavigation = array_values(array_filter($commandOsNavigation, static fn (array $group): bool => $group !== []));
     @endphp
-    <div id="page-container" class="sidebar-o enable-page-overlay sidebar-dark side-scroll page-header-fixed {{ $commandOsDashboard ? 'command-os-page' : 'sidebar-mini' }}">
+    <div id="page-container" class="sidebar-o enable-page-overlay sidebar-dark side-scroll page-header-fixed {{ $commandOsShell ? 'command-os-page' : 'sidebar-mini' }}">
         <nav id="sidebar" aria-label="Main Navigation" tabindex="-1">
             <div class="content-header bg-white-5">
                 <a class="font-w600 text-dual" href="{{ route('console.index') }}" aria-label="AlphaLink">
-                    @if ($commandOsDashboard)
+                    @if ($commandOsShell)
                         <span class="command-os-brand">
                             <img src="{{ asset('console-assets/alphalink-command-os-mark.png') }}" alt="" width="32" height="32">
                             <span class="command-os-brand-copy"><strong>AlphaLink</strong><small>COMMAND OS</small></span>
@@ -413,8 +414,8 @@
             <div class="js-sidebar-scroll">
                 <div class="content-side">
                     @php
-                        $commandOsNavLabel = static function (string $label) use ($commandOsDashboard): string {
-                            if (! $commandOsDashboard) {
+                        $commandOsNavLabel = static function (string $label) use ($commandOsShell): string {
+                            if (! $commandOsShell) {
                                 return $label;
                             }
 
@@ -429,7 +430,7 @@
                                 ->implode(' ');
                         };
                     @endphp
-                    @if ($commandOsDashboard)
+                    @if ($commandOsShell)
                         <ul class="command-os-navigation">
                             @foreach ($commandOsNavigation as $group)
                                 @php
@@ -448,29 +449,29 @@
                                                 <i class="command-os-navigation-icon {{ $group['icon'] }}" aria-hidden="true"></i><span>{{ $commandOsNavLabel($group['label']) }}</span>
                                             </span>
                                         @endif
-                                        @if ($groupHasChildren)
-                                            <details class="command-os-navigation-disclosure" @if (($group['open'] ?? false) || ($group['active'] ?? false)) open @endif>
-                                                <summary aria-label="Show {{ $commandOsNavLabel($group['label']) }} pages" aria-controls="{{ $submenuId }}" title="Show {{ $commandOsNavLabel($group['label']) }} pages">
-                                                    <i class="fas fa-chevron-down" aria-hidden="true"></i>
-                                                </summary>
-                                                <ul class="command-os-navigation-submenu" id="{{ $submenuId }}">
-                                                    @foreach ($group['items'] as $item)
-                                                        <li>
-                                                            @if (isset($item['href']) && ! ($item['disabled'] ?? false))
-                                                                <a class="{{ ($item['active'] ?? false) ? 'active' : '' }}" href="{{ $item['href'] }}" @if (($item['active'] ?? false)) aria-current="page" @endif>
-                                                                    <i class="{{ $item['icon'] ?? 'fas fa-circle' }}" aria-hidden="true"></i><span>{{ $commandOsNavLabel($item['label']) }}</span>
-                                                                </a>
-                                                            @else
-                                                                <span aria-disabled="true" title="This destination is not connected in the current release.">
-                                                                    <i class="{{ $item['icon'] ?? 'fas fa-circle' }}" aria-hidden="true"></i><span>{{ $commandOsNavLabel($item['label']) }}</span>
-                                                                </span>
-                                                            @endif
-                                                        </li>
-                                                    @endforeach
-                                                </ul>
-                                            </details>
-                                        @endif
                                     </div>
+                                    @if ($groupHasChildren)
+                                        <details class="command-os-navigation-disclosure" @if (($group['open'] ?? false) || ($group['active'] ?? false)) open @endif>
+                                            <summary aria-label="Show {{ $commandOsNavLabel($group['label']) }} pages" aria-controls="{{ $submenuId }}" title="Show {{ $commandOsNavLabel($group['label']) }} pages">
+                                                <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                                            </summary>
+                                            <ul class="command-os-navigation-submenu" id="{{ $submenuId }}">
+                                                @foreach ($group['items'] as $item)
+                                                    <li>
+                                                        @if (isset($item['href']) && ! ($item['disabled'] ?? false))
+                                                            <a class="{{ ($item['active'] ?? false) ? 'active' : '' }}" href="{{ $item['href'] }}" @if (($item['active'] ?? false)) aria-current="page" @endif>
+                                                                <i class="{{ $item['icon'] ?? 'fas fa-circle' }}" aria-hidden="true"></i><span>{{ $commandOsNavLabel($item['label']) }}</span>
+                                                            </a>
+                                                        @else
+                                                            <span aria-disabled="true" title="This destination is not connected in the current release.">
+                                                                <i class="{{ $item['icon'] ?? 'fas fa-circle' }}" aria-hidden="true"></i><span>{{ $commandOsNavLabel($item['label']) }}</span>
+                                                            </span>
+                                                        @endif
+                                                    </li>
+                                                @endforeach
+                                            </ul>
+                                        </details>
+                                    @endif
                                 </li>
                             @endforeach
                         </ul>
@@ -535,15 +536,15 @@
                 </div>
             </div>
         </nav>
-        @if ($commandOsDashboard)
+        @if ($commandOsShell)
             <button type="button" class="command-os-sidebar-backdrop" data-action="sidebar_backdrop" aria-label="Close navigation" hidden tabindex="-1"></button>
         @endif
         <header id="page-header">
             <div class="content-header">
                 <div class="d-flex align-items-center">
-                    <button type="button" class="btn btn-sm btn-dual mr-2 d-lg-none" data-toggle="layout" data-action="sidebar_open" aria-label="Open navigation" @if ($commandOsDashboard) aria-controls="sidebar" aria-expanded="false" @endif><i class="fa fa-fw {{ $commandOsDashboard ? 'fa-bars' : 'fa-ellipsis-v' }}"></i></button>
-                    <button type="button" class="btn btn-sm btn-dual mr-2 d-none d-lg-inline-block" data-toggle="layout" data-action="sidebar_mini_toggle" aria-label="Toggle navigation width" aria-pressed="{{ $commandOsDashboard ? 'false' : 'true' }}"><i class="fa fa-fw {{ $commandOsDashboard ? 'fa-bars' : 'fa-ellipsis-v' }}"></i></button>
-                    @if ($commandOsDashboard)
+                    <button type="button" class="btn btn-sm btn-dual mr-2 d-lg-none" data-toggle="layout" data-action="sidebar_open" aria-label="Open navigation" @if ($commandOsShell) aria-controls="sidebar" aria-expanded="false" @endif><i class="fa fa-fw {{ $commandOsShell ? 'fa-bars' : 'fa-ellipsis-v' }}"></i></button>
+                    <button type="button" class="btn btn-sm btn-dual mr-2 d-none d-lg-inline-block" data-toggle="layout" data-action="sidebar_mini_toggle" aria-label="Toggle navigation width" aria-pressed="{{ $commandOsShell ? 'false' : 'true' }}"><i class="fa fa-fw {{ $commandOsShell ? 'fa-bars' : 'fa-ellipsis-v' }}"></i></button>
+                    @if ($commandOsShell)
                         <button type="button" class="command-os-search-placeholder" disabled aria-label="Global search is planned for a later migration phase" title="Global search will be added after its permission-safe data contract is defined">
                             <i class="fas fa-search" aria-hidden="true"></i><span>Search across AlphaLink modules</span><kbd>⌘ K</kbd>
                         </button>
@@ -559,7 +560,7 @@
                     @endif
                 </div>
                 <div class="d-flex align-items-center">
-                    @if ($commandOsDashboard)
+                    @if ($commandOsShell)
                         <div id="command-os-theme-toggle"></div>
                     @endif
                     @if (session()->has('alphalink.impersonator_id'))
@@ -597,7 +598,7 @@
     </div>
     <script src="{{ asset('console-assets/assets/js/script.js') }}"></script>
     <script src="{{ asset('console-assets/assets/js/app.js') }}"></script>
-    @if ($commandOsDashboard)
+    @if ($commandOsShell)
         <script src="{{ asset('console-assets/command-os-drawer.js') }}" defer></script>
     @endif
     @if ($isListsPage || $isListHistoryPage || $isSponsorManagementPage || $isNetworkSponsorsPage || $isOfferManagementPage || $isNetworkOffersPage || $isServerInstallPage || $isReinstallPage || $isChangeDomainPage || $isCloudProvidersPage || $isDomainProvidersPage || $isPmtaPage || $isDropsPage || $isWarmupDraftPage || $isWorkspaceToolPage || $routeIs('console.drops.suppression*', 'console.campaigns.create', 'console.campaigns.edit', 'console.campaigns.show', 'console.campaigns.clone', 'console.campaigns.index', 'console.mailer.campaigns'))

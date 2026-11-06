@@ -168,7 +168,7 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
 
         $this->get(route('console.gcampaigns.projects', $privacyWorkspace->getKey()))
             ->assertOk()
-            ->assertSee('aria-controls="nav-submenu-global-tests"', false);
+            ->assertSee('href="'.route('clean.console.global-tests.index').'"', false);
 
     }
 
@@ -1042,8 +1042,8 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
             ->assertOk()
             ->assertSee('ALL STATS REPORT')
             ->assertSee('ALL STATS')
-            ->assertSee('FROM')
-            ->assertSee('TO')
+            ->assertSee('name="from" type="hidden" value="'.today()->toDateString().'" required', false)
+            ->assertSee('name="to" type="hidden" value="'.today()->toDateString().'" required', false)
             ->assertSee('SHOW')
             ->assertSee('Showing 1–4 of 4 rows')
             ->assertSee('matching warmup/seed rows')

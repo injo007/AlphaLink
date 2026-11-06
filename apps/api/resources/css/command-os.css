@@ -149,12 +149,12 @@ body.command-os-shell #sidebar .command-os-navigation-item {
 body.command-os-shell #sidebar .command-os-navigation-row {
     position: relative;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 28px;
+    grid-template-columns: minmax(0, 1fr) 36px;
     column-gap: 4px;
     align-items: center;
     min-height: 28px;
     width: 100%;
-    padding-right: 4px;
+    padding-right: 12px;
     border-radius: 9px;
 }
 
@@ -1785,8 +1785,8 @@ body.command-os-shell #page-container.sidebar-mini #sidebar:focus-within .comman
 
 body.command-os-shell #page-container.sidebar-mini #sidebar:hover .command-os-navigation-row,
 body.command-os-shell #page-container.sidebar-mini #sidebar:focus-within .command-os-navigation-row {
-    grid-template-columns: minmax(0, 1fr) 28px;
-    padding-right: 4px;
+    grid-template-columns: minmax(0, 1fr) 36px;
+    padding-right: 12px;
 }
 
 body.command-os-shell #page-container.sidebar-mini #sidebar .command-os-navigation-submenu {

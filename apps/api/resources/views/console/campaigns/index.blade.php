@@ -490,6 +490,174 @@
         .campaign-clone-dialog-header { align-items: center; border-bottom: 1px solid var(--co-border); display: flex; justify-content: space-between; margin: -0.25rem 0 1rem; padding-bottom: .7rem; }
         .campaign-clone-dialog-header h2 { color: var(--co-ink); font-size: 15px; font-weight: 760; margin: 0; }
         .campaign-clone-form-content .form-group { margin-bottom: 1rem; }
+        /* Keep every campaign overlay inside the Command OS visual system. */
+        .campaign-status-dialog,
+        .campaign-clone-dialog {
+            max-height: min(90dvh, 56rem);
+            overscroll-behavior: contain;
+            scrollbar-color: var(--co-border-strong) transparent;
+        }
+        .campaign-status-dialog[open],
+        .campaign-clone-dialog[open] { animation: campaign-dialog-enter .18s cubic-bezier(.2,.8,.2,1) both; }
+        @keyframes campaign-dialog-enter {
+            from { opacity: 0; transform: translateY(8px) scale(.985); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .campaign-status-dialog::backdrop,
+        .campaign-clone-dialog::backdrop { background: rgb(8 13 31 / 64%); backdrop-filter: blur(6px); }
+        .campaign-status-dialog form > .d-flex,
+        .campaign-status-dialog > .d-flex { gap: 8px; margin-top: 1.15rem; }
+        .campaign-status-dialog .btn-alt-secondary,
+        .campaign-clone-dialog .btn-alt-secondary {
+            border: 1px solid var(--co-border-strong);
+            color: var(--co-ink);
+            background: var(--co-surface-muted);
+        }
+        .campaign-status-dialog .btn-primary,
+        .campaign-clone-dialog #clone-submit {
+            border-color: var(--co-purple);
+            color: #fff;
+            background: linear-gradient(110deg, var(--co-purple-bright), var(--co-purple));
+            box-shadow: 0 5px 14px color-mix(in srgb, var(--co-purple) 22%, transparent);
+        }
+        .campaign-status-dialog .btn-danger { border-color: #d43e60; color: #fff; background: #d43e60; }
+        .campaign-status-dialog .btn:focus-visible,
+        .campaign-clone-dialog .btn:focus-visible { outline: 3px solid color-mix(in srgb, var(--co-purple) 35%, transparent); outline-offset: 2px; }
+        .campaign-clone-dialog { padding: clamp(16px, 2.4vw, 26px); }
+        .campaign-clone-dialog-header {
+            position: sticky;
+            z-index: 2;
+            top: calc(-1 * clamp(16px, 2.4vw, 26px));
+            margin: calc(-1 * clamp(16px, 2.4vw, 26px)) calc(-1 * clamp(16px, 2.4vw, 26px)) 18px;
+            padding: 18px clamp(16px, 2.4vw, 26px) 14px;
+            background: linear-gradient(105deg, color-mix(in srgb, var(--co-purple) 9%, var(--co-surface)), var(--co-surface) 72%);
+            backdrop-filter: blur(16px);
+        }
+        .campaign-clone-dialog-header h2 { display: flex; align-items: center; gap: 9px; font-size: 16px; letter-spacing: -.025em; }
+        .campaign-clone-dialog-header h2::before {
+            display: grid;
+            width: 34px;
+            height: 34px;
+            place-items: center;
+            border-radius: 10px;
+            color: #fff;
+            background: linear-gradient(145deg, var(--co-purple-bright), var(--co-purple));
+            content: "⧉";
+            font-size: 17px;
+        }
+        .campaign-clone-dialog-header .btn { display: grid; width: 34px; height: 34px; place-items: center; padding: 0; border-radius: 10px; }
+        .campaign-clone-form-content > .alert { margin-bottom: 16px; padding: 12px 14px; border: 1px solid var(--co-border); border-radius: 11px; color: var(--co-muted); background: var(--co-surface-muted); font-size: 11px; line-height: 1.55; }
+        .campaign-clone-form-content > .alert-info { border-color: color-mix(in srgb, var(--co-blue) 24%, var(--co-border)); color: var(--co-ink); background: color-mix(in srgb, var(--co-blue) 7%, var(--co-surface)); }
+        .campaign-clone-form-content > .alert-danger { border-color: color-mix(in srgb, #d43e60 30%, var(--co-border)); background: color-mix(in srgb, #d43e60 7%, var(--co-surface)); }
+        .campaign-clone-form-content form { margin: 0; }
+        .campaign-clone-form-content label { margin-bottom: 6px; color: var(--co-muted); font-size: 10px; font-weight: 750; }
+        .campaign-clone-form-content .form-control,
+        .campaign-clone-form-content .bootstrap-select > .dropdown-toggle {
+            min-height: 40px;
+            border: 1px solid var(--co-border-strong);
+            border-radius: 10px;
+            color: var(--co-ink);
+            background-color: var(--co-surface);
+            box-shadow: none;
+            font-size: 11px;
+        }
+        .campaign-clone-form-content .form-control:focus,
+        .campaign-clone-form-content .bootstrap-select > .dropdown-toggle:focus,
+        .campaign-clone-form-content .bootstrap-select.show > .dropdown-toggle {
+            border-color: var(--co-purple);
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--co-purple) 12%, transparent);
+        }
+        .campaign-clone-form-content .bootstrap-select { width: 100% !important; }
+        .campaign-clone-form-content .bootstrap-select .dropdown-menu {
+            z-index: 11020;
+            overflow: hidden;
+            border: 1px solid var(--co-border-strong);
+            border-radius: 11px;
+            color: var(--co-ink);
+            background: var(--co-surface);
+            box-shadow: 0 14px 38px rgb(11 18 43 / 20%);
+        }
+        .campaign-clone-form-content .bootstrap-select .dropdown-menu .inner { scrollbar-color: var(--co-border-strong) transparent; }
+        .campaign-clone-form-content .bootstrap-select .dropdown-menu li a { padding: 8px 12px; color: var(--co-ink); font-size: 10px; }
+        .campaign-clone-form-content .bootstrap-select .dropdown-menu li a:hover,
+        .campaign-clone-form-content .bootstrap-select .dropdown-menu li.selected a { color: var(--co-purple); background: color-mix(in srgb, var(--co-purple) 9%, var(--co-surface)); }
+        .campaign-clone-form-content .form-text { color: var(--co-muted) !important; font-size: 9px; line-height: 1.5; }
+        .campaign-clone-form-content #clone-recipient-estimate { color: var(--co-purple); font-variant-numeric: tabular-nums; }
+        .campaign-clone-form-content #clone-status { min-height: 18px; margin: 6px 0 12px; }
+        .campaign-clone-form-content #clone-progress .progress { height: 9px; overflow: hidden; border-radius: 99px; background: var(--co-surface-muted); }
+        .campaign-clone-form-content #clone-progress .progress-bar { border-radius: inherit; background: linear-gradient(90deg, var(--co-blue), var(--co-purple-bright)); }
+        .campaign-clone-form-content form > .d-flex { gap: 8px; padding-top: 12px; border-top: 1px solid var(--co-border); }
+        .campaign-clone-form-content form > .d-flex .btn { min-height: 38px; padding-inline: 16px; border-radius: 10px; font-size: 10px; font-weight: 750; }
+        .campaign-register-page .campaign-register-filters select.form-control,
+        .campaign-register-page .campaign-register-actions select.form-control { appearance: auto; cursor: pointer; }
+        .campaign-statistics-dropdown {
+            padding: 14px;
+            border: 1px solid var(--co-border);
+            border-radius: 0 0 12px 12px;
+            color: var(--co-ink);
+            background: linear-gradient(110deg, color-mix(in srgb, var(--co-purple) 5%, var(--co-surface-muted)), var(--co-surface-muted));
+        }
+        .campaign-statistics-table { overflow: hidden; border: 1px solid var(--co-border); border-radius: 10px; background: var(--co-surface); }
+        .campaign-statistics-table thead th { background: var(--co-surface-muted); }
+        #campaign-auto-test-feedback { border-radius: 11px; box-shadow: var(--co-shadow); font-size: 11px; }
+        /* The date range picker is attached directly to body by its vendor plugin. */
+        body.command-os-shell .daterangepicker {
+            z-index: 11010;
+            overflow: hidden;
+            border: 1px solid var(--co-border-strong);
+            border-radius: 14px;
+            color: var(--co-ink);
+            background: var(--co-surface);
+            box-shadow: 0 18px 54px rgb(11 18 43 / 24%);
+            font-family: Inter, 'Segoe UI', Arial, sans-serif;
+            font-size: 11px;
+        }
+        body.command-os-shell .daterangepicker:before { border-bottom-color: var(--co-border-strong); }
+        body.command-os-shell .daterangepicker:after { border-bottom-color: var(--co-surface); }
+        body.command-os-shell .daterangepicker .calendar-table { border: 0; border-radius: 9px; background: var(--co-surface); }
+        body.command-os-shell .daterangepicker .calendar-table th,
+        body.command-os-shell .daterangepicker .calendar-table td { min-width: 32px; height: 30px; border-radius: 8px; color: var(--co-ink); font-size: 10px; }
+        body.command-os-shell .daterangepicker .calendar-table th { color: var(--co-muted); font-weight: 750; }
+        body.command-os-shell .daterangepicker .calendar-table th.month { color: var(--co-ink); font-size: 11px; font-weight: 800; }
+        body.command-os-shell .daterangepicker .calendar-table th.available span { border-color: var(--co-muted); }
+        body.command-os-shell .daterangepicker .calendar-table th.available:hover,
+        body.command-os-shell .daterangepicker td.available:hover { color: var(--co-purple); background: color-mix(in srgb, var(--co-purple) 9%, var(--co-surface)); }
+        body.command-os-shell .daterangepicker td.off,
+        body.command-os-shell .daterangepicker td.off.in-range,
+        body.command-os-shell .daterangepicker td.off.start-date,
+        body.command-os-shell .daterangepicker td.off.end-date { color: var(--co-subtle); background: transparent; opacity: .55; }
+        body.command-os-shell .daterangepicker td.in-range { color: var(--co-purple); background: color-mix(in srgb, var(--co-purple) 11%, var(--co-surface)); }
+        body.command-os-shell .daterangepicker td.active,
+        body.command-os-shell .daterangepicker td.active:hover { color: #fff; background: linear-gradient(135deg, var(--co-purple-bright), var(--co-purple)); box-shadow: 0 3px 9px color-mix(in srgb, var(--co-purple) 25%, transparent); }
+        body.command-os-shell .daterangepicker .ranges { padding: 8px; }
+        body.command-os-shell .daterangepicker .ranges ul { width: 142px; }
+        body.command-os-shell .daterangepicker .ranges li { margin: 2px 0; padding: 9px 10px; border-radius: 8px; color: var(--co-muted); font-size: 10px; font-weight: 650; }
+        body.command-os-shell .daterangepicker .ranges li:hover { color: var(--co-purple); background: color-mix(in srgb, var(--co-purple) 8%, var(--co-surface)); }
+        body.command-os-shell .daterangepicker .ranges li.active { color: #fff; background: linear-gradient(105deg, var(--co-purple-bright), var(--co-purple)); }
+        body.command-os-shell .daterangepicker .drp-calendar.left { border-left-color: var(--co-border); }
+        body.command-os-shell .daterangepicker .drp-buttons { border-top-color: var(--co-border); color: var(--co-muted); }
+        body.command-os-shell .daterangepicker .drp-selected { font-size: 9px; }
+        body.command-os-shell .daterangepicker .drp-buttons .btn { margin-left: 6px; padding: 7px 11px; border: 1px solid var(--co-border-strong); border-radius: 8px; color: var(--co-ink); background: var(--co-surface-muted); font-size: 10px; }
+        body.command-os-shell .daterangepicker .drp-buttons .applyBtn { border-color: var(--co-purple); color: #fff; background: linear-gradient(105deg, var(--co-purple-bright), var(--co-purple)); }
+        html[data-command-theme='dark'] body.command-os-shell .daterangepicker .calendar-table .next span,
+        html[data-command-theme='dark'] body.command-os-shell .daterangepicker .calendar-table .prev span { border-color: var(--co-muted); }
+        html[data-command-theme='dark'] body.command-os-shell .daterangepicker .ranges li:hover { background: color-mix(in srgb, var(--co-purple) 16%, var(--co-surface)); }
+        @media (max-width: 767.98px) {
+            .campaign-status-dialog { padding: 18px; }
+            .campaign-clone-dialog { width: min(96vw, 38rem); }
+            body.command-os-shell .daterangepicker { position: fixed !important; top: 50% !important; left: 50% !important; right: auto !important; width: min(94vw, 350px); max-height: 86dvh; overflow: auto; transform: translate(-50%, -50%); }
+            body.command-os-shell .daterangepicker:before,
+            body.command-os-shell .daterangepicker:after { display: none; }
+            body.command-os-shell .daterangepicker .ranges,
+            body.command-os-shell .daterangepicker .drp-calendar { float: none; width: 100%; max-width: none; }
+            body.command-os-shell .daterangepicker .ranges ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; width: 100%; }
+            body.command-os-shell .daterangepicker .drp-calendar.left { padding: 8px; }
+            body.command-os-shell .daterangepicker .drp-calendar.right { padding: 0 8px 8px; }
+            body.command-os-shell .daterangepicker.show-calendar .ranges { margin-top: 0; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .campaign-status-dialog[open], .campaign-clone-dialog[open] { animation: none; }
+        }
         html[data-command-theme='dark'] .campaign-register-table .badge-warning { color: #ffd591; background: rgb(209 126 20 / 22%); }
         html[data-command-theme='dark'] .campaign-register-table .badge-success { color: #75e4b4; background: rgb(25 173 116 / 20%); }
         html[data-command-theme='dark'] .campaign-register-table .badge-danger { color: #ff9eae; background: rgb(220 71 102 / 20%); }

@@ -408,11 +408,16 @@
             .campaign-create-page .campaign-target-label-row .campaign-create-help summary .campaign-field-icon { margin: 0; width: auto; }
             .campaign-create-page .campaign-create-help:not([open]) > small { display: none; }
             .campaign-create-page .campaign-create-help[open] > small { display: block; margin-top: 5px; }
-            .campaign-create-page .campaign-email-card .block-content { padding: 8px 12px 9px; }
-            .campaign-create-page .campaign-email-card .form-group { margin-bottom: 4px; }
-            .campaign-create-page .campaign-email-card .form-control:not(textarea):not([multiple]):not(.bootstrap-select) { height: 27px; min-height: 27px; padding: 2px 8px; }
-            .campaign-create-page .campaign-email-card .bootstrap-select.form-control > .dropdown-toggle { height: 27px; min-height: 27px; padding: 2px 8px; }
-            .campaign-create-page .campaign-email-card #campaign-email-tests { height: 27px; min-height: 27px; resize: vertical; }
+            .campaign-create-page .campaign-email-card .block-content { padding: 6px 12px; }
+            .campaign-create-page .campaign-email-card .form-group { margin-bottom: 0; }
+            .campaign-create-page .campaign-email-card label { margin-bottom: 2px; }
+            .campaign-create-page .campaign-email-card .form-control:not(textarea):not([multiple]):not(.bootstrap-select) { height: 24px; min-height: 24px; padding: 1px 8px; }
+            .campaign-create-page .campaign-email-card .bootstrap-select.form-control > .dropdown-toggle { height: 24px; min-height: 24px; padding: 1px 8px; }
+            .campaign-create-page .campaign-email-card #campaign-email-tests { height: 24px; min-height: 24px; resize: vertical; }
+            .campaign-create-page .campaign-header-library .input-group { display: flex; flex-wrap: nowrap; }
+            .campaign-create-page .campaign-header-library .input-group > .bootstrap-select.form-control { flex: 1 1 0; min-width: 0; width: 1% !important; }
+            .campaign-create-page .campaign-header-library .input-group > .input-group-append { display: flex; flex: 0 0 auto; }
+            .campaign-create-page .campaign-header-library [data-header-status]:empty { display: none; }
             .campaign-create-page .campaign-delivery-card [data-campaign-placeholder-editor] {
                 background: transparent;
                 border: 0;
@@ -434,11 +439,11 @@
                 font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
                 font-size: 11px;
                 line-height: 1.4;
-                min-height: 88px;
+                min-height: 80px;
                 resize: vertical;
             }
-            .campaign-create-page .campaign-header-editor { height: 90px; }
-            .campaign-create-page #campaign-body { height: 90px; }
+            .campaign-create-page .campaign-header-editor { height: 82px; }
+            .campaign-create-page #campaign-body { height: 82px; }
             .campaign-create-page #campaign-routing {
                 border-top: 0;
                 margin-top: 0;

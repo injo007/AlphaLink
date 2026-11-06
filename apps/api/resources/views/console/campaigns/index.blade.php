@@ -454,6 +454,10 @@
         .campaign-register-table [data-campaign-column="actions"] .btn-link:hover:not(:disabled) { border-color: var(--co-border); color: var(--co-purple); background: var(--co-surface-muted); }
         .campaign-register-table [data-campaign-column="send"],
         .campaign-register-table [data-campaign-column="progress"] { min-width: 160px; }
+        .campaign-register-table th[data-campaign-column="send"],
+        .campaign-register-table td[data-campaign-column="send"] { position: sticky; right: 0; z-index: 1; background: var(--co-surface); box-shadow: -8px 0 12px color-mix(in srgb, var(--co-ink) 6%, transparent); }
+        .campaign-register-table th[data-campaign-column="send"] { z-index: 3; background: var(--co-surface-muted); }
+        .campaign-register-table tbody tr:hover td[data-campaign-column="send"] { background: color-mix(in srgb, var(--co-purple) 4%, var(--co-surface)); }
         .campaign-register-table .form-control { min-width: 94px; height: 30px; border: 1px solid var(--co-border); border-radius: 8px; color: var(--co-ink); background: var(--co-surface); font-size: 9px; }
         .campaign-register-table .badge { border-radius: 20px; font-size: 8px; font-weight: 750; letter-spacing: .025em; }
         .campaign-register-table .badge-primary { color: var(--co-purple); background: color-mix(in srgb, var(--co-purple) 12%, var(--co-surface)); }

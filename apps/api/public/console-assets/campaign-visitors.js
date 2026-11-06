@@ -220,7 +220,7 @@
     mapToggle.addEventListener('click', () => {
         const isHidden = mapBlock.classList.toggle('block-mode-hidden');
         mapToggle.setAttribute('aria-expanded', String(!isHidden));
-        mapToggle.innerHTML = '<i class="si si-arrow-' + (isHidden ? 'down' : 'up') + '" aria-hidden="true"></i>';
+        mapToggle.innerHTML = '<span>' + (isHidden ? 'View map' : 'Hide map') + '</span><i class="si si-arrow-' + (isHidden ? 'down' : 'up') + '" aria-hidden="true"></i>';
         if (!isHidden) {
             mapLoaded = false;
             loadCountryMap();

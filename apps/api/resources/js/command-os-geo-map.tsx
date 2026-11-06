@@ -134,14 +134,14 @@ function createActivityMarkers(countries: FeatureCollection<Geometry, CountryPro
 }
 
 function countryDotPattern(color: string): ImageData {
-    const size = 7;
+    const size = 6;
     const [red, green, blue] = [1, 3, 5].map((start) => Number.parseInt(color.slice(start, start + 2), 16));
     const pixels = new Uint8ClampedArray(size * size * 4);
     for (let y = 0; y < size; y += 1) {
         for (let x = 0; x < size; x += 1) {
-            const dx = x - 3;
-            const dy = y - 3;
-            if (dx * dx + dy * dy > 2.1) continue;
+            const dx = x - 2.5;
+            const dy = y - 2.5;
+            if (dx * dx + dy * dy > 2.15) continue;
             const index = (y * size + x) * 4;
             pixels[index] = red;
             pixels[index + 1] = green;
@@ -210,9 +210,9 @@ export default function DeliverabilityGeoMap({ data, theme }: { data: DashboardA
         if (!element) return undefined;
 
         const dark = theme === 'dark';
-        const base = dark ? '#0d1631' : '#f4f6ff';
+        const base = dark ? '#0b1530' : '#f7f8ff';
         const countryFill = dark ? '#172b4c' : '#dce5fb';
-        const boundary = dark ? '#31577d' : '#adbee5';
+        const boundary = dark ? '#28557d' : '#bacbf3';
         const map = new MapLibreMap({
             container: element,
             center: [0, 14],
@@ -255,8 +255,8 @@ export default function DeliverabilityGeoMap({ data, theme }: { data: DashboardA
                         type: 'circle',
                         source: 'activity-markers',
                         paint: {
-                            'circle-radius': ['case', ['any', ['>', ['get', 'deliveries'], 0], ['>', ['get', 'bounces'], 0]], 8, 6],
-                            'circle-color': ['case', ['any', ['>', ['get', 'deliveries'], 0], ['>', ['get', 'bounces'], 0]], '#a34cff', '#1a9bff'],
+                            'circle-radius': ['case', ['any', ['>', ['get', 'deliveries'], 0], ['>', ['get', 'bounces'], 0]], 9, 7],
+                            'circle-color': ['case', ['any', ['>', ['get', 'deliveries'], 0], ['>', ['get', 'bounces'], 0]], '#a348ff', '#05a9f5'],
                             'circle-opacity': 0.46,
                             'circle-blur': 0.85,
                         },
@@ -267,7 +267,7 @@ export default function DeliverabilityGeoMap({ data, theme }: { data: DashboardA
                         source: 'activity-markers',
                         paint: {
                             'circle-radius': ['case', ['any', ['>', ['get', 'deliveries'], 0], ['>', ['get', 'bounces'], 0]], 3.2, 2.6],
-                            'circle-color': ['case', ['any', ['>', ['get', 'deliveries'], 0], ['>', ['get', 'bounces'], 0]], '#a34cff', '#1a9bff'],
+                            'circle-color': ['case', ['any', ['>', ['get', 'deliveries'], 0], ['>', ['get', 'bounces'], 0]], '#a348ff', '#05a9f5'],
                             'circle-stroke-color': dark ? '#d9e4ff' : '#fff',
                             'circle-stroke-width': 1,
                         },
@@ -289,8 +289,8 @@ export default function DeliverabilityGeoMap({ data, theme }: { data: DashboardA
         map.on('mouseleave', 'country-fill', () => { map.getCanvas().style.cursor = ''; });
         map.once('load', () => {
             const patterns: [string, string][] = dark
-                ? [['country-dots-base', '#2d507a'], ['country-dots-activity', '#168dca'], ['country-dots-feedback', '#8749db']]
-                : [['country-dots-base', '#a8b9e8'], ['country-dots-activity', '#4388e9'], ['country-dots-feedback', '#9a55e4']];
+                ? [['country-dots-base', '#267fb8'], ['country-dots-activity', '#12b8eb'], ['country-dots-feedback', '#a34cf0']]
+                : [['country-dots-base', '#7896e8'], ['country-dots-activity', '#2b82ee'], ['country-dots-feedback', '#9550e8']];
             patterns.forEach(([id, color]) => map.addImage(id, countryDotPattern(color)));
             map.setPaintProperty('country-fill', 'fill-pattern', [
                 'case',

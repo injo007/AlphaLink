@@ -100,7 +100,7 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
         $this->assertCommandOsPayloadIsParseable($fragment->getContent());
     }
 
-    public function test_dashboard_header_shortcuts_follow_workspace_campaign_and_global_test_permissions(): void
+    public function test_dashboard_header_shortcuts_and_page_search_follow_workspace_permissions(): void
     {
         foreach (['owner', 'admin', 'operator'] as $role) {
             $user = User::factory()->create();
@@ -110,6 +110,9 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
             $this->assertStringContainsString('aria-label="Campaigns"', $html);
             $this->assertStringContainsString('href="'.route('console.mailer.campaigns').'" title="CAMPAIGNS" aria-label="Campaigns"', $html);
             $this->assertStringContainsString('href="'.route('clean.console.global-tests.index').'" title="GLOBAL TEST" aria-label="Global Test"', $html);
+            $this->assertStringContainsString('data-action="command_os_search_open"', $html);
+            $this->assertStringContainsString('id="command-os-search-dialog"', $html);
+            $this->assertStringContainsString('command-os-search.js', $html);
         }
 
         $privacyOfficer = User::factory()->create();
@@ -118,6 +121,8 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
 
         $this->assertStringNotContainsString('aria-label="Campaigns"', $html);
         $this->assertStringNotContainsString('aria-label="Global Test"', $html);
+        $this->assertStringContainsString('data-action="command_os_search_open"', $html);
+        $this->assertStringContainsString('id="command-os-search-dialog"', $html);
         $this->assertStringContainsString('aria-label="Open navigation"', $html);
         $this->assertStringContainsString('aria-controls="sidebar" aria-expanded="false"', $html);
         $this->assertStringContainsString('data-action="sidebar_backdrop"', $html);

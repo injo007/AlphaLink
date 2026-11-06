@@ -546,8 +546,8 @@
                     <button type="button" class="btn btn-sm btn-dual mr-2 d-lg-none" data-toggle="layout" data-action="sidebar_open" aria-label="Open navigation" @if ($commandOsShell) aria-controls="sidebar" aria-expanded="false" @endif><i class="fa fa-fw {{ $commandOsShell ? 'fa-bars' : 'fa-ellipsis-v' }}"></i></button>
                     <button type="button" class="btn btn-sm btn-dual mr-2 d-none d-lg-inline-block" data-action="sidebar_mini_toggle" aria-label="Toggle navigation width" aria-pressed="{{ $commandOsShell ? 'false' : 'true' }}"><i class="fa fa-fw {{ $commandOsShell ? 'fa-bars' : 'fa-ellipsis-v' }}"></i></button>
                     @if ($commandOsShell)
-                        <button type="button" class="command-os-search-placeholder" disabled aria-label="Global search is planned for a later migration phase" title="Global search will be added after its permission-safe data contract is defined">
-                            <i class="fas fa-search" aria-hidden="true"></i><span>Search across AlphaLink modules</span><kbd>⌘ K</kbd>
+                        <button type="button" class="command-os-search-trigger" data-action="command_os_search_open" aria-label="Search pages and modules" aria-haspopup="dialog" aria-controls="command-os-search-dialog" title="Search pages and modules (Ctrl or ⌘ K)">
+                            <i class="fas fa-search" aria-hidden="true"></i><span>Search pages and modules…</span><kbd data-command-os-search-shortcut>Ctrl K</kbd>
                         </button>
                     @endif
                     @if (! $commandOsDashboard || $canUseDashboardOperations)
@@ -598,6 +598,24 @@
                     </div>
                 </div>
             </div>
+            @if ($commandOsShell)
+                <dialog id="command-os-search-dialog" class="command-os-search-dialog" aria-labelledby="command-os-search-title" aria-describedby="command-os-search-help">
+                    <div class="command-os-search-panel">
+                        <div class="command-os-search-heading">
+                            <div><span class="command-os-search-eyebrow">COMMAND PALETTE</span><h2 id="command-os-search-title">Find a page</h2></div>
+                            <button type="button" class="command-os-search-close" data-action="command_os_search_close" aria-label="Close search"><i class="fas fa-times" aria-hidden="true"></i></button>
+                        </div>
+                        <label class="command-os-search-input-wrap" for="command-os-search-input">
+                            <i class="fas fa-search" aria-hidden="true"></i>
+                            <input id="command-os-search-input" type="search" autocomplete="off" spellcheck="false" placeholder="Search pages and modules…" aria-controls="command-os-search-results" aria-describedby="command-os-search-help" role="combobox" aria-autocomplete="list" aria-expanded="true" aria-activedescendant="">
+                            <kbd>ESC</kbd>
+                        </label>
+                        <p id="command-os-search-help" class="command-os-search-help">Search destinations available to your account.</p>
+                        <div id="command-os-search-results" class="command-os-search-results" role="listbox" aria-label="Available pages"></div>
+                        <div class="command-os-search-footer"><span><kbd>↑</kbd><kbd>↓</kbd> to navigate</span><span><kbd>↵</kbd> to open</span></div>
+                    </div>
+                </dialog>
+            @endif
         </header>
         <main id="main-container">
             <div class="content content-full p-0"></div>
@@ -618,6 +636,7 @@
     <script src="{{ asset('console-assets/assets/js/app.js') }}"></script>
     @if ($commandOsShell)
         <script src="{{ asset('console-assets/command-os-drawer.js') }}?v={{ substr(sha1_file(public_path('console-assets/command-os-drawer.js')), 0, 12) }}" defer></script>
+        <script src="{{ asset('console-assets/command-os-search.js') }}?v={{ substr(sha1_file(public_path('console-assets/command-os-search.js')), 0, 12) }}" defer></script>
     @endif
     @if ($isListsPage || $isListHistoryPage || $isSponsorManagementPage || $isNetworkSponsorsPage || $isOfferManagementPage || $isNetworkOffersPage || $isServerInstallPage || $isReinstallPage || $isChangeDomainPage || $isCloudProvidersPage || $isDomainProvidersPage || $isPmtaPage || $isDropsPage || $isWarmupDraftPage || $isWorkspaceToolPage || $routeIs('console.drops.suppression*', 'console.campaigns.create', 'console.campaigns.edit', 'console.campaigns.show', 'console.campaigns.clone', 'console.campaigns.index', 'console.mailer.campaigns'))
         <script src="{{ asset('console-assets/plugins/bootstrap_select/bootstrap-select.js') }}"></script>

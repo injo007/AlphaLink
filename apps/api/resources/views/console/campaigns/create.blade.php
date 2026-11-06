@@ -109,28 +109,44 @@
     @endphp
 
         <style>
-            #campaign-action-backdrop { position: fixed; inset: 0; z-index: 1090; background: rgba(0, 0, 0, .82); }
+            #campaign-action-backdrop { position: fixed; inset: 0; z-index: 1090; background: rgb(27 19 58 / 28%); backdrop-filter: blur(3px); }
             #campaign-snapshot-progress[hidden], #campaign-snapshot-open[hidden], #campaign-snapshot-retry[hidden], #campaign-new-campaign[hidden] { display: none !important; }
-            #campaign-floating-actions { position: fixed; top: 45%; right: 0; z-index: 1100; }
-            #campaign-actions-trigger { width: 36px; height: 36px; border: 0; color: #fff; background: #527bd8; font-size: 18px; box-shadow: 0 2px 6px rgba(0, 0, 0, .25); }
-            #campaign-actions-panel { position: fixed; top: calc(45% + 42px); right: 0; width: min(218px, calc(100vw - 4px)); padding: 0; background: transparent; box-shadow: none; }
+            #campaign-floating-actions { position: fixed; top: calc(50% - 24px); right: max(14px, env(safe-area-inset-right)); z-index: 1100; }
+            #campaign-actions-trigger { align-items: center; background: linear-gradient(145deg, #b64eff, #7028f4 72%); border: 1px solid rgb(255 255 255 / 86%); border-radius: 16px; box-shadow: 0 8px 22px rgb(104 44 225 / 34%), inset 0 1px 0 rgb(255 255 255 / 40%); color: #fff; display: grid; height: 48px; place-items: center; transition: border-radius .18s ease, box-shadow .18s ease, transform .18s ease; width: 48px; }
+            #campaign-actions-trigger:hover, #campaign-actions-trigger:focus-visible { border-radius: 18px; box-shadow: 0 10px 28px rgb(104 44 225 / 42%), 0 0 0 4px rgb(148 78 255 / 16%), inset 0 1px 0 rgb(255 255 255 / 40%); transform: scale(1.04); }
+            #campaign-actions-trigger i { font-size: 17px; }
+            #campaign-actions-panel { position: fixed; right: 74px; top: 50%; transform: translateY(-50%); width: min(258px, calc(100vw - 100px)); max-height: calc(100vh - 24px); overflow-y: auto; overscroll-behavior: contain; padding: 7px; background: linear-gradient(145deg, var(--campaign-surface, #fff), var(--campaign-wash, #f8f7ff)); border: 1px solid var(--campaign-border, #ded9f8); border-radius: 18px; box-shadow: 0 18px 48px rgb(35 23 88 / 24%), 0 3px 10px rgb(42 26 94 / 10%); color: var(--campaign-ink, #101746); }
             #campaign-actions-panel[hidden], #campaign-action-backdrop[hidden], #campaign-context-menu[hidden] { display: none !important; }
-            #campaign-actions-panel button { position: relative; display: flex; width: 100%; min-height: 36px; align-items: center; justify-content: flex-end; border: 0; background: transparent; color: #fff; padding: 6px 46px 6px 8px; text-align: right; text-shadow: 0 1px 2px #111; white-space: nowrap; }
-            #campaign-context-menu button { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 16px; border: 0; background: transparent; color: #253044; padding: 8px 12px; text-align: left; white-space: nowrap; }
-            #campaign-actions-panel button:hover, #campaign-actions-panel button:focus { background: rgba(82, 123, 216, .28); color: #fff; outline: 0; }
-            #campaign-context-menu button:hover, #campaign-context-menu button:focus { background: #edf2ff; outline: 0; }
-            #campaign-actions-panel i { position: absolute; top: 0; right: 0; display: grid; width: 36px; height: 36px; place-items: center; color: #fff; background: #527bd8; text-shadow: none; }
-            #campaign-context-menu i { color: #3182ce; }
-            #campaign-actions-panel [aria-disabled="true"], #campaign-context-menu [aria-disabled="true"] { color: #687386; cursor: help; }
-            #campaign-actions-panel [aria-disabled="true"] { color: #e0e4ec; }
-            #campaign-actions-panel [aria-disabled="true"] i { background: #72809a; }
-            #campaign-actions-panel [aria-disabled="true"]:hover { background: rgba(82, 123, 216, .18); }
-            #campaign-context-menu [aria-disabled="true"]:hover { background: #f5f6f8; }
-            #campaign-context-menu { position: fixed; z-index: 1110; min-width: 190px; padding: 5px 0; background: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, .32); }
+            #campaign-actions-panel .campaign-menu-heading, #campaign-context-menu .campaign-menu-heading { align-items: center; border-bottom: 1px solid rgb(127 91 205 / 14%); color: #7851ce; display: flex; font-size: 9px; font-weight: 800; justify-content: space-between; letter-spacing: .13em; margin: 0 4px 5px; padding: 5px 7px 9px; }
+            #campaign-actions-panel .campaign-menu-heading i, #campaign-context-menu .campaign-menu-heading i { color: #a34bff; font-size: 12px; }
+            #campaign-actions-panel button, #campaign-context-menu button { align-items: center; background: transparent; border: 0; border-radius: 11px; color: var(--campaign-ink, #101746); cursor: pointer; display: flex; font-size: 10px; font-weight: 760; gap: 10px; justify-content: flex-start; min-height: 42px; padding: 6px 8px; text-align: left; transition: background .16s ease, color .16s ease, transform .16s ease; white-space: nowrap; width: 100%; }
+            #campaign-actions-panel button:hover, #campaign-actions-panel button:focus-visible, #campaign-context-menu button:hover, #campaign-context-menu button:focus-visible { background: linear-gradient(100deg, rgb(142 73 250 / 13%), rgb(106 75 235 / 6%)); color: #6123c8; outline: 0; transform: translateX(2px); }
+            #campaign-actions-panel button span, #campaign-context-menu button span { flex: 1; min-width: 0; }
+            #campaign-actions-panel button i, #campaign-context-menu button i { align-items: center; background: linear-gradient(145deg, #f0e6ff, #e7edff); border: 1px solid rgb(139 83 236 / 14%); border-radius: 9px; color: #7837ef; display: inline-flex; flex: 0 0 30px; height: 30px; justify-content: center; order: -1; width: 30px; }
+            #campaign-actions-panel [aria-disabled="true"], #campaign-context-menu [aria-disabled="true"] { color: #85879a; cursor: not-allowed; }
+            #campaign-actions-panel [aria-disabled="true"] i, #campaign-context-menu [aria-disabled="true"] i { background: #f1eff6; border-color: transparent; color: #9a98a7; }
+            #campaign-context-menu { position: fixed; z-index: 1110; min-width: 228px; width: max-content; max-width: min(280px, calc(100vw - 16px)); max-height: calc(100vh - 16px); overflow-y: auto; overscroll-behavior: contain; padding: 8px; background: linear-gradient(145deg, var(--campaign-surface, #fff), var(--campaign-wash, #f8f7ff)); border: 1px solid var(--campaign-border, #ded9f8); border-radius: 18px; box-shadow: 0 20px 52px rgb(35 23 88 / 26%), 0 3px 10px rgb(42 26 94 / 10%); color: var(--campaign-ink, #101746); backdrop-filter: blur(18px) saturate(1.2); }
             #campaign-action-status { position: sticky; top: .25rem; z-index: 1120; }
             #campaign-action-status[hidden] { display: none !important; }
-            #campaign-body-preview { border: 1px solid #d5dce1; border-radius: .35rem; box-shadow: 0 8px 28px rgb(52 58 64 / 22%); max-height: 90vh; max-width: 96vw; padding: 1rem; width: min(1100px, 96vw); }
-            #campaign-body-preview::backdrop { background: rgba(27, 33, 40, .58); }
+            .campaign-create-page dialog { background: linear-gradient(145deg, var(--campaign-surface), var(--campaign-wash)); border: 1px solid var(--campaign-border); border-radius: 20px; box-shadow: 0 26px 72px rgb(31 21 75 / 30%), 0 4px 14px rgb(33 23 78 / 12%); box-sizing: border-box; color: var(--campaign-ink); max-height: min(88vh, 900px); max-width: calc(100vw - 28px); overflow: auto; overscroll-behavior: contain; padding: 0; width: min(760px, calc(100vw - 28px)); }
+            .campaign-create-page dialog::backdrop { background: rgb(19 13 48 / 54%); backdrop-filter: blur(5px) saturate(1.08); }
+            .campaign-create-page dialog[open] { animation: campaign-dialog-enter .18s ease-out both; }
+            .campaign-create-page dialog > .p-3 { box-sizing: border-box; min-width: 0 !important; padding: clamp(16px, 2.2vw, 26px) !important; width: 100%; }
+            .campaign-create-page dialog .d-flex.justify-content-between.align-items-center { background: linear-gradient(100deg, rgb(139 79 247 / 10%), rgb(81 150 255 / 5%)); border-bottom: 1px solid rgb(126 105 190 / 15%); margin: calc(clamp(16px, 2.2vw, 26px) * -1) calc(clamp(16px, 2.2vw, 26px) * -1) 18px !important; padding: 15px clamp(16px, 2.2vw, 26px); }
+            .campaign-create-page dialog h2, .campaign-create-page dialog h3 { color: var(--campaign-ink); font-size: 15px; font-weight: 800; letter-spacing: -.02em; }
+            .campaign-create-page dialog .nav-tabs { border-bottom-color: var(--campaign-border); gap: 5px; }
+            .campaign-create-page dialog .nav-tabs .nav-link { border: 1px solid transparent; border-radius: 9px 9px 0 0; color: var(--campaign-muted); font-size: 10px; font-weight: 800; }
+            .campaign-create-page dialog .nav-tabs .nav-link.active { background: var(--campaign-surface); border-color: var(--campaign-border) var(--campaign-border) var(--campaign-surface); color: var(--campaign-purple); }
+            .campaign-create-page dialog .btn-primary { background: linear-gradient(100deg, #a946ff, #672de8); border: 0; border-radius: 10px; box-shadow: 0 6px 16px rgb(112 42 242 / 20%); font-weight: 750; }
+            .campaign-create-page dialog .btn-outline-secondary, .campaign-create-page dialog .btn-alt-secondary { border-color: var(--campaign-border); border-radius: 9px; color: var(--campaign-ink); }
+            .campaign-create-page dialog .campaign-body-preview-header { background: linear-gradient(100deg, rgb(139 79 247 / 10%), rgb(81 150 255 / 5%)); border-bottom: 1px solid rgb(126 105 190 / 15%); margin: -1rem -1rem 14px; padding: 14px 16px; }
+            .campaign-create-page .bootstrap-select .dropdown-menu { background: linear-gradient(145deg, var(--campaign-surface), var(--campaign-wash)); border: 1px solid var(--campaign-border); border-radius: 14px; box-shadow: 0 16px 40px rgb(34 25 76 / 19%); margin-top: 6px; overflow: hidden; padding: 6px; }
+            .campaign-create-page .bootstrap-select .dropdown-menu > .inner { max-height: min(55vh, 420px) !important; }
+            .campaign-create-page .bootstrap-select .dropdown-menu li a { border-radius: 8px; color: var(--campaign-ink); font-size: 11px; margin: 1px 0; padding: 7px 10px; transition: background .14s ease, color .14s ease; }
+            .campaign-create-page .bootstrap-select .dropdown-menu li a:hover, .campaign-create-page .bootstrap-select .dropdown-menu li.active a, .campaign-create-page .bootstrap-select .dropdown-menu li.selected a { background: #f1eaff; color: #6123c8; }
+            .campaign-create-page .bootstrap-select .dropdown-menu li.disabled a { color: #9b9dad; }
+            .campaign-create-page .bootstrap-select .dropdown-menu .no-results { background: var(--campaign-wash); border-radius: 8px; color: var(--campaign-muted); margin: 4px; padding: 10px; }
+            @keyframes campaign-dialog-enter { from { opacity: 0; transform: translateY(8px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
             #campaign-body-preview .campaign-body-preview-header { align-items: center; display: flex; justify-content: space-between; margin-bottom: .75rem; }
             #campaign-body-preview-frame { border: 1px solid #d7dce3; display: block; height: min(72vh, 820px); min-height: 360px; width: 100%; }
             .campaign-create-page {
@@ -139,6 +155,7 @@
                 --campaign-border: #dce0f4;
                 --campaign-surface: #fff;
                 --campaign-wash: #f8f7ff;
+                --campaign-canvas: #faf9ff;
                 --campaign-purple: #792bfa;
                 --campaign-blue: #238dff;
                 color: var(--campaign-ink);
@@ -147,15 +164,15 @@
                 position: relative;
             }
             .campaign-create-page::after {
-                background-image: var(--campaign-hero-art);
-                background-position: left top;
+                background-image: linear-gradient(90deg, var(--campaign-canvas) 0%, rgb(250 249 255 / 0%) 13%, rgb(250 249 255 / 0%) 87%, var(--campaign-canvas) 100%), linear-gradient(0deg, transparent 0%, var(--campaign-canvas) 100%), var(--campaign-hero-art);
+                background-position: center top, center top, left top;
                 background-repeat: no-repeat;
-                background-size: 200% auto;
+                background-size: 100% 100%, 100% 100%, 200% auto;
                 bottom: 0;
                 content: '';
-                height: 104px;
+                height: clamp(112px, 15vh, 176px);
                 left: 0;
-                opacity: .78;
+                opacity: .9;
                 pointer-events: none;
                 position: fixed;
                 right: 0;
@@ -583,45 +600,6 @@
             .campaign-create-submit:focus { background: linear-gradient(100deg, #a53df5, #5e22dd); box-shadow: 0 0 0 3px rgb(139 74 255 / 20%), 0 7px 16px rgb(112 42 242 / 22%); color: #fff; }
             .campaign-create-submit i { margin-right: 7px; }
             .campaign-create-page .campaign-cancel-link { border-color: #d9d8ed; border-radius: 9px; color: var(--campaign-ink); display: block; font-size: 12px; font-weight: 700; margin-top: 8px; padding: 8px; text-align: center; }
-            .campaign-create-page #campaign-floating-actions { bottom: 16px; right: 16px; top: auto; }
-            .campaign-create-page #campaign-actions-trigger {
-                background: linear-gradient(145deg, #b14eff, #7028f4);
-                border: 1px solid rgb(255 255 255 / 76%);
-                border-radius: 50%;
-                box-shadow: 0 5px 16px rgb(97 49 206 / 25%);
-                height: 40px;
-                width: 40px;
-            }
-            .campaign-create-page #campaign-actions-panel {
-                background: #fff;
-                border: 1px solid var(--campaign-border);
-                border-radius: 12px;
-                bottom: 64px;
-                box-shadow: 0 12px 30px rgb(29 31 68 / 18%);
-                padding: 6px;
-                right: 16px;
-                top: auto;
-                width: min(230px, calc(100vw - 32px));
-            }
-            .campaign-create-page #campaign-actions-panel button {
-                border-radius: 8px;
-                color: var(--campaign-ink);
-                justify-content: flex-start;
-                padding: 8px 8px 8px 42px;
-                text-align: left;
-                text-shadow: none;
-            }
-            .campaign-create-page #campaign-actions-panel button:hover,
-            .campaign-create-page #campaign-actions-panel button:focus { background: #f4efff; color: #5220b7; }
-            .campaign-create-page #campaign-actions-panel i {
-                background: transparent;
-                color: #7837ef;
-                left: 8px;
-                right: auto;
-                width: 26px;
-            }
-            .campaign-create-page #campaign-actions-panel [aria-disabled='true'] { color: #73798b; }
-            .campaign-create-page #campaign-actions-panel [aria-disabled='true'] i { background: transparent; color: #9095a4; }
             .campaign-create-page :focus-visible { outline: 3px solid rgb(127 61 245 / 60%); outline-offset: 2px; }
             html[data-command-theme='dark'] .campaign-create-page {
                 --campaign-ink: #f1f3ff;
@@ -629,6 +607,7 @@
                 --campaign-border: #26365f;
                 --campaign-surface: #111d3b;
                 --campaign-wash: #152342;
+                --campaign-canvas: #0b1530;
                 --campaign-purple: #bd72ff;
                 --campaign-blue: #3ca9ff;
             }
@@ -636,7 +615,7 @@
                 background-color: #101b38;
                 background-image: linear-gradient(90deg, rgb(9 17 38 / 87%) 0%, rgb(9 17 38 / 65%) 35%, rgb(9 17 38 / 27%) 100%), var(--campaign-hero-art);
             }
-            html[data-command-theme='dark'] .campaign-create-page::after { opacity: .12; }
+            html[data-command-theme='dark'] .campaign-create-page::after { opacity: .34; }
             html[data-command-theme='dark'] .campaign-create-page #campaign-targeting .block,
             html[data-command-theme='dark'] .campaign-create-page .campaign-email-card,
             html[data-command-theme='dark'] .campaign-create-page .campaign-delivery-card {
@@ -681,13 +660,25 @@
             html[data-command-theme='dark'] .campaign-stage-number,
             html[data-command-theme='dark'] .campaign-create-page .form-control,
             html[data-command-theme='dark'] .campaign-create-page .bootstrap-select > .dropdown-toggle,
-            html[data-command-theme='dark'] .campaign-create-page #campaign-actions-panel { background-color: #0c1731; border-color: #334574; color: #eff2ff; }
+            html[data-command-theme='dark'] .campaign-create-page #campaign-actions-panel,
+            html[data-command-theme='dark'] .campaign-create-page #campaign-context-menu,
+            html[data-command-theme='dark'] .campaign-create-page dialog,
+            html[data-command-theme='dark'] .campaign-create-page .bootstrap-select .dropdown-menu { background: linear-gradient(145deg, #101c3a, #111a35); border-color: #334574; color: #eff2ff; }
             html[data-command-theme='dark'] .campaign-create-page .campaign-header-editor,
             html[data-command-theme='dark'] .campaign-create-page #campaign-body,
             html[data-command-theme='dark'] .campaign-create-page #send-route-behavior { background: #0c1731; color: #eff2ff; }
             html[data-command-theme='dark'] .campaign-create-page #campaign-usable-tags { background: #172347; border-color: #394778; }
             html[data-command-theme='dark'] .campaign-readiness-track { background: #26365f; }
-            html[data-command-theme='dark'] .campaign-create-page #campaign-actions-panel button { color: #eff2ff; }
+            html[data-command-theme='dark'] .campaign-create-page #campaign-actions-panel button,
+            html[data-command-theme='dark'] .campaign-create-page #campaign-context-menu button,
+            html[data-command-theme='dark'] .campaign-create-page .bootstrap-select .dropdown-menu li a { color: #eff2ff; }
+            html[data-command-theme='dark'] .campaign-create-page .bootstrap-select .dropdown-menu li a:hover,
+            html[data-command-theme='dark'] .campaign-create-page .bootstrap-select .dropdown-menu li.active a,
+            html[data-command-theme='dark'] .campaign-create-page .bootstrap-select .dropdown-menu li.selected a { background: #2a2453; color: #e5caff; }
+            html[data-command-theme='dark'] .campaign-create-page #campaign-actions-panel .campaign-menu-heading,
+            html[data-command-theme='dark'] .campaign-create-page #campaign-context-menu .campaign-menu-heading { border-color: rgb(192 160 255 / 22%); color: #d4b7ff; }
+            html[data-command-theme='dark'] .campaign-create-page dialog .d-flex.justify-content-between.align-items-center { background: linear-gradient(100deg, rgb(147 93 255 / 15%), rgb(71 133 255 / 7%)); border-color: #334574; }
+            html[data-command-theme='dark'] .campaign-create-page dialog .nav-tabs .nav-link.active { background: #101c3a; border-color: #334574 #334574 #101c3a; color: #d2aeff; }
             @media (max-width: 1120px) {
                 .campaign-create-layout { grid-template-columns: minmax(0, 1fr); }
                 .campaign-create-summary { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); position: static; }
@@ -695,7 +686,12 @@
                 .campaign-summary-actions { align-self: start; }
             }
             @media (max-width: 767.98px) {
-                .campaign-create-page::after { height: 64px; opacity: .56; }
+                .campaign-create-page::after { height: clamp(88px, 13vh, 122px); opacity: .76; }
+                .campaign-create-page #campaign-floating-actions { right: max(10px, env(safe-area-inset-right)); top: calc(50% - 22px); }
+                .campaign-create-page #campaign-actions-trigger { border-radius: 14px; height: 44px; width: 44px; }
+                .campaign-create-page #campaign-actions-panel { right: 66px; width: min(250px, calc(100vw - 84px)); }
+                .campaign-create-page #campaign-context-menu { min-width: 210px; max-width: calc(100vw - 16px); }
+                .campaign-create-page dialog { border-radius: 16px; max-height: 88dvh; max-width: calc(100vw - 20px); width: calc(100vw - 20px); }
                 .campaign-create-hero { align-items: center; background-position: 64% center; min-height: 72px; padding: 6px 0; }
                 .campaign-create-hero-icon { border-radius: 13px; flex-basis: 44px; font-size: 20px; height: 44px; }
                 .campaign-create-hero-copy > p:last-child { max-width: 32ch; }
@@ -730,17 +726,19 @@
         <div id="campaign-floating-actions" data-pmta-admin-url="{{ route('console.pmta-admin.index', $workspace->id) }}" data-editing="{{ $editingCampaign ? 'true' : 'false' }}">
             <button type="button" id="campaign-actions-trigger" aria-label="Open campaign actions" aria-haspopup="menu" aria-expanded="false"><i class="fas fa-bars" aria-hidden="true"></i></button>
             <div id="campaign-actions-panel" role="menu" aria-label="Campaign actions" hidden>
+                <div class="campaign-menu-heading" role="presentation" aria-hidden="true"><span>CAMPAIGN CONTROL</span><i class="fas fa-bolt"></i></div>
                 @foreach ($campaignMenuItems as $item)
                     <button type="button" role="menuitem" data-campaign-menu-action="{{ $item['action'] }}" @if ($item['action'] === 'test') data-test-url="{{ route('console.campaigns.manual-test', $workspace->id) }}" @endif @if ($item['unavailable'] ?? false) aria-disabled="true" title="Save the draft, wait for recipient preparation, then use SEND from My Campaigns." @endif>
-                        {{ $item['label'] }} <i class="{{ $item['icon'] }}" aria-hidden="true"></i>
+                        <span>{{ $item['label'] }}</span><i class="{{ $item['icon'] }}" aria-hidden="true"></i>
                     </button>
                 @endforeach
             </div>
         </div>
         <div id="campaign-context-menu" role="menu" aria-label="Campaign actions" hidden>
+            <div class="campaign-menu-heading" role="presentation" aria-hidden="true"><span>CAMPAIGN CONTROL</span><i class="fas fa-bolt"></i></div>
             @foreach ($campaignMenuItems as $item)
                 <button type="button" role="menuitem" data-campaign-menu-action="{{ $item['action'] }}" @if ($item['action'] === 'test') data-test-url="{{ route('console.campaigns.manual-test', $workspace->id) }}" @endif @if ($item['unavailable'] ?? false) aria-disabled="true" title="Save the draft, wait for recipient preparation, then use SEND from My Campaigns." @endif>
-                    {{ $item['label'] }} <i class="{{ $item['icon'] }}" aria-hidden="true"></i>
+                    <span>{{ $item['label'] }}</span><i class="{{ $item['icon'] }}" aria-hidden="true"></i>
                 </button>
             @endforeach
         </div>
@@ -1231,7 +1229,7 @@
                 <div class="table-responsive mt-2"><table class="table table-striped table-sm"><thead><tr><th>LINK</th><th>SHORTLINK</th></tr></thead><tbody id="campaign-shortlink-results"></tbody></table></div>
             </div>
         </dialog>
-        <dialog id="campaign-tags-dialog" data-campaign-dialog-width="1140px" style="box-sizing:border-box;border:0;border-radius:.35rem;padding:0;max-width:92vw;max-height:90vh;overflow:auto;overflow-x:hidden;width:min(1140px,92vw)" aria-labelledby="campaign-tags-title">
+        <dialog id="campaign-tags-dialog" data-campaign-dialog-width="1140px" aria-labelledby="campaign-tags-title">
             <div class="p-3" style="box-sizing:border-box;width:100%">
                 <div class="d-flex justify-content-between align-items-center mb-3"><h3 class="h5 mb-0" id="campaign-tags-title">TAGS</h3><button type="button" class="btn btn-sm btn-outline-secondary" data-dialog-close="campaign-tags-dialog" aria-label="Close tag examples">×</button></div>
                 <div class="row"><div class="col-md-6">
@@ -1366,9 +1364,9 @@
                 trigger.setAttribute('aria-label', 'Close campaign actions');
                 trigger.querySelector('i')?.classList.replace('fa-bars', 'fa-times');
                 const viewportHeight = document.documentElement.clientHeight || window.innerHeight;
-                const triggerBottom = trigger.getBoundingClientRect().bottom;
                 const panelHeight = floatingPanel.scrollHeight;
-                floatingPanel.style.top = `${Math.max(4, Math.min(triggerBottom + 6, viewportHeight - panelHeight - 4))}px`;
+                floatingPanel.style.top = `${Math.max(12, Math.min((viewportHeight - panelHeight) / 2, viewportHeight - panelHeight - 12))}px`;
+                floatingPanel.style.transform = 'none';
                 floatingPanel.querySelector('[role="menuitem"]')?.focus();
             };
             const openContextMenu = (event) => {
@@ -1580,7 +1578,8 @@
                 backdrop.dataset.campaignDialogBackdrop = dialogId;
                 backdrop.setAttribute('aria-hidden', 'true');
                 Object.assign(backdrop.style, {
-                    background: 'rgb(52 58 64 / 45%)',
+                    backdropFilter: 'blur(5px)',
+                    background: 'rgb(19 13 48 / 54%)',
                     inset: '0',
                     position: 'fixed',
                     zIndex: '1050',
@@ -1591,20 +1590,20 @@
                 dialog.setAttribute('open', '');
                 dialog.setAttribute('aria-modal', 'true');
                 Object.assign(dialog.style, {
-                    background: 'white',
-                    border: '0',
-                    borderRadius: '.25rem',
-                    boxShadow: '0 8px 28px rgb(52 58 64 / 22%)',
+                    background: 'linear-gradient(145deg, var(--campaign-surface, #fff), var(--campaign-wash, #f8f7ff))',
+                    border: '1px solid var(--campaign-border, #dce0f4)',
+                    borderRadius: '20px',
+                    boxShadow: '0 26px 72px rgb(31 21 75 / 30%), 0 4px 14px rgb(33 23 78 / 12%)',
                     display: 'block',
                     left: '50%',
                     margin: '0',
-                    maxHeight: '90vh',
-                    maxWidth: '90vw',
+                    maxHeight: 'min(88vh, 900px)',
+                    maxWidth: 'calc(100vw - 28px)',
                     overflow: 'auto',
                     position: 'fixed',
                     top: '50%',
                     transform: 'translate(-50%, -50%)',
-                    width: dialog.dataset.campaignDialogWidth || '760px',
+                    width: dialog.dataset.campaignDialogWidth || 'min(760px, calc(100vw - 28px))',
                     zIndex: '1051',
                 });
                 dialog.querySelector('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled])')?.focus();

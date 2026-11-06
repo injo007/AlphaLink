@@ -213,13 +213,21 @@ function MetricCard({ metric }: { metric: Metric }): JSX.Element {
     const value = metric.format === 'currency' ? money(metric.value) : number(metric.value);
 
     return (
-        <article className={`command-os-metric command-os-metric-${metricColors[metric.key]}`} title={metric.detail}>
+        <article className={`command-os-metric command-os-metric-${metricColors[metric.key]}`} aria-label={`${metric.label}: ${value}`}>
             <span className="command-os-metric-icon"><Icon size={19} strokeWidth={2.1} aria-hidden="true" /></span>
             <span className="command-os-metric-copy">
                 <span className="command-os-metric-label">{metric.label}</span>
                 <strong className="command-os-metric-value">{value}</strong>
-                <span className="command-os-metric-detail">{metric.detail}</span>
             </span>
+            <details className="command-os-metric-source">
+                <summary aria-label={`Show ${metric.label.toLowerCase()} data source`} title={`Show ${metric.label.toLowerCase()} data source`}>
+                    <CircleHelp size={12} aria-hidden="true" />
+                </summary>
+                <span className="command-os-metric-source-popover">
+                    <strong>Data source</strong>
+                    <span>{metric.detail}</span>
+                </span>
+            </details>
         </article>
     );
 }

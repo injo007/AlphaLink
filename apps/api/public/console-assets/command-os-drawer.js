@@ -14,7 +14,7 @@
     }
 
     let returnFocus = null;
-    const focusableItems = () => Array.from(sidebar.querySelectorAll('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+    const focusableItems = () => Array.from(sidebar.querySelectorAll('a[href], button:not([disabled]), summary, [tabindex]:not([tabindex="-1"])'))
         .filter((item) => !item.hidden
             && item.getAttribute('aria-disabled') !== 'true'
             && item.getClientRects().length > 0

@@ -5,8 +5,8 @@ body.command-os-dashboard {
     --co-border: #dfe3f1;
     --co-border-strong: #d3d8eb;
     --co-ink: #17203e;
-    --co-muted: #707a9b;
-    --co-subtle: #98a1bd;
+    --co-muted: #5f6b89;
+    --co-subtle: #5f6b89;
     --co-purple: #793df6;
     --co-purple-bright: #9654ff;
     --co-blue: #277bff;
@@ -126,7 +126,197 @@ body.command-os-dashboard #sidebar .content-header > a {
 }
 
 body.command-os-dashboard #sidebar .content-side {
-    padding: 9px 10px 22px;
+    padding: 9px 11px 22px;
+}
+
+body.command-os-dashboard #sidebar .command-os-navigation {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+body.command-os-dashboard #sidebar .command-os-navigation-item {
+    position: relative;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+body.command-os-dashboard #sidebar .command-os-navigation-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-height: 28px;
+    border-radius: 9px;
+}
+
+body.command-os-dashboard #sidebar .command-os-navigation-link {
+    display: flex;
+    align-items: center;
+    flex: 1 1 auto;
+    gap: 9px;
+    min-width: 0;
+    min-height: 28px;
+    padding: 4px 28px 4px 8px;
+    border: 0;
+    border-radius: 9px;
+    color: var(--co-ink);
+    background: transparent;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 640;
+    line-height: 1.2;
+    text-align: left;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+body.command-os-dashboard #sidebar .command-os-navigation-link:hover {
+    color: var(--co-purple);
+    background: var(--co-surface-muted);
+}
+
+body.command-os-dashboard #sidebar .command-os-navigation-link.active {
+    color: #fff;
+    background: linear-gradient(100deg, #7040ee, #9943f7);
+    box-shadow: 0 4px 12px rgb(114 61 232 / 22%);
+}
+
+body.command-os-dashboard #sidebar .command-os-navigation-icon {
+    display: inline-grid;
+    flex: 0 0 17px;
+    width: 17px;
+    color: var(--co-muted);
+    font-size: 13px;
+    text-align: center;
+}
+
+body.command-os-dashboard #sidebar .command-os-navigation-link.active .command-os-navigation-icon {
+    color: #fff;
+}
+
+body.command-os-dashboard #sidebar .command-os-navigation-link.is-disabled,
+body.command-os-dashboard #sidebar .command-os-navigation-item.is-disabled .command-os-navigation-link {
+    color: var(--co-muted);
+    cursor: not-allowed;
+}
+
+body.command-os-dashboard #sidebar .command-os-navigation-disclosure {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 8;
+    width: 100%;
+    min-height: 28px;
+    pointer-events: none;
+}
+
+body.command-os-dashboard #sidebar .command-os-navigation-disclosure > summary {
+    display: grid;
+    place-items: center;
+    margin-left: auto;
+    width: 24px;
+    height: 28px;
+    border-radius: 7px;
+    color: var(--co-muted);
+    cursor: pointer;
+    font-size: 9px;
+    list-style: none;
+    pointer-events: auto;
+}
+
+body.command-os-dashboard #sidebar .command-os-navigation-disclosure > summary::-webkit-details-marker {
+    display: none;
+}
+
+body.command-os-dashboard #sidebar .command-os-navigation-disclosure > summary:hover,
+body.command-os-dashboard #sidebar .command-os-navigation-disclosure > summary:focus-visible {
+    color: var(--co-purple);
+    background: var(--co-surface-muted);
+}
+
+body.command-os-dashboard #sidebar .command-os-navigation-disclosure > summary:focus-visible {
+    outline: 2px solid var(--co-purple);
+    outline-offset: 1px;
+}
+
+body.command-os-dashboard #sidebar .command-os-navigation-disclosure[open] > summary > i {
+    transform: rotate(180deg);
+}
+
+body.command-os-dashboard #sidebar .command-os-navigation-submenu {
+    position: absolute;
+    top: calc(100% + 3px);
+    left: 0;
+    z-index: 45;
+    display: grid;
+    gap: 2px;
+    width: 100%;
+    min-width: 185px;
+    max-height: min(60vh, 420px);
+    overflow: auto;
+    margin: 0;
+    padding: 5px;
+    border: 1px solid var(--co-border);
+    border-radius: 10px;
+    background: var(--co-surface);
+    box-shadow: 0 12px 28px rgb(26 34 77 / 16%);
+    list-style: none;
+    pointer-events: auto;
+}
+
+body.command-os-dashboard #sidebar .command-os-navigation-submenu li {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+body.command-os-dashboard #sidebar .command-os-navigation-submenu a,
+body.command-os-dashboard #sidebar .command-os-navigation-submenu li > span {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 27px;
+    padding: 5px 8px;
+    border-radius: 7px;
+    color: var(--co-ink);
+    font-size: 10px;
+    font-weight: 590;
+    line-height: 1.25;
+    text-decoration: none;
+}
+
+body.command-os-dashboard #sidebar .command-os-navigation-submenu a:hover,
+body.command-os-dashboard #sidebar .command-os-navigation-submenu a.active {
+    color: var(--co-purple);
+    background: var(--co-surface-muted);
+}
+
+body.command-os-dashboard #sidebar .command-os-navigation-submenu li > span {
+    color: var(--co-muted);
+    cursor: not-allowed;
+}
+
+body.command-os-dashboard #sidebar .command-os-navigation-submenu a > i,
+body.command-os-dashboard #sidebar .command-os-navigation-submenu li > span > i {
+    flex: 0 0 14px;
+    color: var(--co-muted);
+    font-size: 11px;
+    text-align: center;
+}
+
+body.command-os-dashboard #sidebar .command-os-navigation-submenu a.active > i {
+    color: var(--co-purple);
+}
+
+body.command-os-dashboard #sidebar .command-os-navigation-submenu a:focus-visible {
+    outline: 2px solid var(--co-purple);
+    outline-offset: -2px;
 }
 
 body.command-os-dashboard #sidebar .nav-main {
@@ -408,7 +598,7 @@ body.command-os-dashboard #page-footer a {
     line-height: 1.15;
 }
 
-.command-os-subtitle {
+body.command-os-dashboard .command-os-page-heading .command-os-subtitle {
     margin: 3px 0 0;
     color: var(--co-muted);
     font-size: 10px;
@@ -475,12 +665,13 @@ body.command-os-dashboard #page-footer a {
 }
 
 .command-os-metric {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     min-width: 0;
     min-height: 60px;
-    padding: 8px 9px;
+    padding: 7px 8px;
     border: 1px solid var(--co-border);
     border-radius: 12px;
     background: var(--co-surface);
@@ -507,6 +698,7 @@ body.command-os-dashboard #page-footer a {
     color: var(--co-muted);
     font-size: 9px;
     font-weight: 680;
+    line-height: 1.1;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -518,18 +710,76 @@ body.command-os-dashboard #page-footer a {
     font-size: clamp(15px, 1.25vw, 19px);
     font-weight: 760;
     letter-spacing: -.04em;
-    line-height: 1.22;
+    line-height: 1.1;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .command-os-metric-detail {
     overflow: hidden;
-    margin-top: 3px;
+    margin-top: 2px;
     color: var(--co-subtle);
-    font-size: 8px;
+    font-size: 7px;
+    line-height: 1.1;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.command-os-metric-source {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    z-index: 20;
+}
+
+.command-os-metric-source > summary {
+    display: grid;
+    place-items: center;
+    width: 19px;
+    height: 19px;
+    border-radius: 6px;
+    color: var(--co-muted);
+    cursor: pointer;
+    list-style: none;
+}
+
+.command-os-metric-source > summary::-webkit-details-marker {
+    display: none;
+}
+
+.command-os-metric-source > summary:hover,
+.command-os-metric-source > summary:focus-visible {
+    color: var(--co-purple);
+    background: var(--co-surface-muted);
+}
+
+.command-os-metric-source > summary:focus-visible {
+    outline: 2px solid var(--co-purple);
+    outline-offset: 1px;
+}
+
+.command-os-metric-source-popover {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    display: grid;
+    gap: 4px;
+    width: min(220px, calc(100vw - 32px));
+    padding: 9px 10px;
+    border: 1px solid var(--co-border);
+    border-radius: 9px;
+    color: var(--co-ink);
+    background: var(--co-surface);
+    box-shadow: var(--co-shadow);
+    font-size: 10px;
+    line-height: 1.35;
+}
+
+.command-os-metric-source-popover strong {
+    color: var(--co-muted);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .02em;
 }
 
 .command-os-metric-blue .command-os-metric-icon { color: #2478ff; background: rgb(39 123 255 / 11%); }

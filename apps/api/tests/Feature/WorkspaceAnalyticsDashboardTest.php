@@ -128,15 +128,9 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
     {
         $campaignLinks = [
             'Send' => route('console.mailer.campaigns'),
-            'Projects' => route('clean.console.gcampaigns.projects'),
-            'Accounts' => route('clean.console.gcampaigns.accounts'),
-            'Negatives' => route('clean.console.campaign-negatives.index'),
+            'GSend Projects' => route('clean.console.gcampaigns.projects'),
+            'GSend Accounts' => route('clean.console.gcampaigns.accounts'),
             'Mixs' => route('clean.console.audience-mixes.history'),
-            'Statistics' => route('clean.console.campaign-statistics.index'),
-        ];
-        $globalTestLinks = [
-            'Send' => route('clean.console.global-tests.index'),
-            'Histories' => route('clean.console.global-tests.histories'),
         ];
 
         foreach (['owner', 'admin', 'operator'] as $role) {
@@ -145,10 +139,15 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
             $html = $this->actingAs($user)->get(route('console.dashboard.main'))->assertOk()->getContent();
 
             $this->assertSame($campaignLinks, $this->dashboardNavigationLinks($html, 'nav-submenu-campaigns'));
-            $this->assertSame($globalTestLinks, $this->dashboardNavigationLinks($html, 'nav-submenu-global-tests'));
-            $this->assertStringContainsString('aria-controls="nav-submenu-global-tests"', $html);
-            $this->assertStringContainsString('href="#"', $html);
-            $this->assertStringContainsString('aria-disabled="true" tabindex="-1"', $html);
+            $this->assertStringContainsString('aria-controls="nav-submenu-tools-utilities"', $html);
+            $this->assertStringContainsString('href="'.route('clean.console.global-tests.index').'"', $html);
+            $this->assertStringContainsString('href="'.route('clean.console.global-tests.histories').'"', $html);
+            $this->assertStringContainsString('aria-label="Show Campaigns pages"', $html);
+            $this->assertStringContainsString('aria-disabled="true"', $html);
+            $this->assertStringContainsString('class="command-os-navigation"', $html);
+            $this->assertStringContainsString('>Dashboard</span>', $html);
+            $this->assertStringContainsString('>Lists &amp; Audiences</span>', $html);
+            $this->assertStringContainsString('>ISP &amp; GEO</span>', $html);
         }
 
         $privacyOfficer = User::factory()->create();
@@ -156,14 +155,16 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
         $html = $this->actingAs($privacyOfficer)->get(route('console.dashboard.main'))->assertOk()->getContent();
 
         $this->assertSame([
-            'Projects' => $campaignLinks['Projects'],
-            'Accounts' => $campaignLinks['Accounts'],
-            'Statistics' => $campaignLinks['Statistics'],
+            'GSend Projects' => $campaignLinks['GSend Projects'],
+            'GSend Accounts' => $campaignLinks['GSend Accounts'],
         ], $this->dashboardNavigationLinks($html, 'nav-submenu-campaigns'));
-        $this->assertSame([], $this->dashboardNavigationLinks($html, 'nav-submenu-global-tests'));
-        $this->assertStringNotContainsString('aria-controls="nav-submenu-global-tests"', $html);
-        $this->assertStringContainsString('href="#"', $html);
-        $this->assertStringContainsString('aria-disabled="true" tabindex="-1"', $html);
+        $this->assertStringNotContainsString('href="'.route('console.mailer.campaigns').'"', $html);
+        $this->assertStringNotContainsString('href="'.route('clean.console.campaign-negatives.index').'"', $html);
+        $this->assertStringNotContainsString('href="'.route('clean.console.global-tests.index').'"', $html);
+        $this->assertStringNotContainsString('href="'.route('clean.console.global-tests.histories').'"', $html);
+        $this->assertStringNotContainsString('href="'.route('clean.console.offers.index').'"', $html);
+        $this->assertStringContainsString('href="'.route('clean.console.networks.offers.index').'"', $html);
+        $this->assertStringContainsString('aria-disabled="true"', $html);
 
         $this->get(route('console.gcampaigns.projects', $privacyWorkspace->getKey()))
             ->assertOk()

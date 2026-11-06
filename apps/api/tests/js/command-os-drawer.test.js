@@ -33,7 +33,10 @@ class MockElement {
         return null;
     }
     getClientRects() { return this.visible ? [1] : []; }
-    querySelectorAll() { return this.items ?? []; }
+    querySelectorAll(selector) {
+        const supportsSummary = selector.includes('summary');
+        return (this.items ?? []).filter((item) => !item.isSummary || supportsSummary);
+    }
     contains(item) { return this.items?.includes(item) ?? false; }
 }
 
@@ -52,13 +55,15 @@ function createBrowser() {
     const firstLink = new MockElement('first navigation link');
     const closeButton = new MockElement('close navigation');
     const lastLink = new MockElement('last navigation link');
+    const lastSummary = new MockElement('last navigation disclosure');
+    lastSummary.isSummary = true;
     const collapsedLink = new MockElement('collapsed submenu link');
     collapsedLink.visible = false;
     const ariaHiddenGroup = new MockElement('aria hidden submenu');
     ariaHiddenGroup.setAttribute('aria-hidden', 'true');
     const ariaHiddenLink = new MockElement('aria hidden submenu link');
     ariaHiddenLink.parent = ariaHiddenGroup;
-    sidebar.items = [firstLink, closeButton, lastLink, collapsedLink, ariaHiddenLink];
+    sidebar.items = [firstLink, closeButton, lastLink, lastSummary, collapsedLink, ariaHiddenLink];
     const main = new MockElement('main');
     const header = new MockElement('header');
     const footer = new MockElement('footer');
@@ -105,7 +110,7 @@ function createBrowser() {
         static [Symbol.hasInstance](target) { return target instanceof MockElement; }
     }
     runInNewContext(script, { document, window, Element, MutationObserver });
-    return { page, sidebar, firstLink, closeButton, lastLink, main, header, footer, opener, backdrop, desktopWidthToggle, documentListeners, document };
+    return { page, sidebar, firstLink, closeButton, lastLink, lastSummary, main, header, footer, opener, backdrop, desktopWidthToggle, documentListeners, document };
 }
 
 function triggerClick(browserState, target) {
@@ -133,12 +138,12 @@ test('opens an accessible modal drawer, traps focus, and restores focus on Escap
     assert.equal(state.backdrop.hidden, false);
     assert.equal(state.firstLink.focusCount, 1);
     assert.equal(triggerKey(state, 'Tab'), false);
-    state.document.activeElement = state.lastLink;
+    state.document.activeElement = state.lastSummary;
     assert.equal(triggerKey(state, 'Tab'), true);
     assert.equal(browser.activeElement, state.firstLink);
     state.document.activeElement = state.firstLink;
     assert.equal(triggerKey(state, 'Tab', true), true);
-    assert.equal(browser.activeElement, state.lastLink);
+    assert.equal(browser.activeElement, state.lastSummary);
 
     assert.equal(triggerKey(state, 'Escape'), true);
     assert.equal(state.page.classList.contains('command-os-sidebar-open'), false);

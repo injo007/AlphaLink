@@ -290,6 +290,108 @@
             ]],
             ['label' => 'CLOUDS', 'icon' => 'fas fa-cloud-sun', 'items' => $cloudNavigation, 'open' => $isCloudWorkflowPage],
         ]));
+        $findNavigationGroup = static function (string $label, ?string $section = null) use ($navigation): ?array {
+            return collect($navigation)->first(static fn (array $group): bool => $group['label'] === $label
+                && ($section === null || data_get($group, 'items.0.section') === $section));
+        };
+        $flattenNavigationItems = static function (array $items, string $prefix = '') use (&$flattenNavigationItems): array {
+            $flattened = [];
+            foreach ($items as $item) {
+                if (isset($item['items'])) {
+                    $nestedPrefix = trim($prefix.' '.$item['label']);
+                    array_push($flattened, ...$flattenNavigationItems($item['items'], $nestedPrefix));
+                    continue;
+                }
+                $item['label'] = trim($prefix.' '.$item['label']);
+                $flattened[] = $item;
+            }
+
+            return $flattened;
+        };
+        $filterNavigationItems = static fn (array $items, array $excluded): array => array_values(array_filter(
+            $items,
+            static fn (array $item): bool => ! in_array($item['label'], $excluded, true),
+        ));
+        $dashboardGroup = $findNavigationGroup('DASHBOARDS');
+        $usersGroup = $findNavigationGroup('USERS MANAGEMENT');
+        $listsGroup = $findNavigationGroup('ISPS MANAGEMENT');
+        $domainsGroup = $findNavigationGroup('DOMAINS');
+        $serversGroup = $findNavigationGroup('SERVERS', 'servers');
+        $pmtaGroup = $findNavigationGroup('SERVERS', 'pmta');
+        $sponsorsGroup = $findNavigationGroup('SPONSORS');
+        $offersGroup = $findNavigationGroup('OFFERS');
+        $miscellaneousGroup = $findNavigationGroup('MISCELLANEOUS');
+        $campaignsGroup = $findNavigationGroup('CAMPAIGNS');
+        $dropsGroup = $findNavigationGroup('DROPS');
+        $warmupsGroup = $findNavigationGroup("WARMUP'S");
+        $globalTestsGroup = $findNavigationGroup('GLOBAL TESTS');
+        $networksGroup = $findNavigationGroup('NETWORKS');
+        $toolsGroup = $findNavigationGroup('TOOLS');
+        $cloudsGroup = $findNavigationGroup('CLOUDS');
+        $makeCommandOsNavGroup = static function (string $label, string $icon, ?string $href, bool $active, array $items = [], bool $open = false, ?string $id = null): array {
+            return array_filter([
+                'label' => $label,
+                'icon' => $icon,
+                'href' => $href,
+                'active' => $active,
+                'items' => $items,
+                'open' => $open,
+                'id' => $id,
+            ], static fn (mixed $value): bool => $value !== null);
+        };
+        $dashboardStats = array_slice($dashboardGroup['items'] ?? [], 1);
+        $campaignItems = $filterNavigationItems($campaignsGroup['items'] ?? [], ['NEGATIVES', 'STATISTICS']);
+        $dropItems = $filterNavigationItems($dropsGroup['items'] ?? [], ['SUPPRESSION', 'STATISTICS']);
+        $warmupItems = $filterNavigationItems($warmupsGroup['items'] ?? [], ['STATISTICS']);
+        $listItems = $filterNavigationItems($listsGroup['items'] ?? [], ['ISPS']);
+        $campaignSuppression = collect($campaignsGroup['items'] ?? [])->firstWhere('label', 'NEGATIVES');
+        $dropSuppression = collect($dropsGroup['items'] ?? [])->firstWhere('label', 'SUPPRESSION');
+        $trackingItems = array_values(array_filter([
+            ...$dashboardStats,
+            collect($campaignsGroup['items'] ?? [])->firstWhere('label', 'STATISTICS'),
+            collect($dropsGroup['items'] ?? [])->firstWhere('label', 'STATISTICS'),
+            collect($warmupsGroup['items'] ?? [])->firstWhere('label', 'STATISTICS'),
+        ]));
+        $suppressionItems = array_values(array_filter([$campaignSuppression, $dropSuppression]));
+        $offerItems = array_values(array_filter([
+            $canManageSponsors && $sponsorsGroup ? ['label' => 'SPONSORS', 'icon' => $sponsorsGroup['icon'], 'href' => $sponsorsGroup['href'], 'active' => $sponsorsGroup['active']] : null,
+            $canManageSponsors && $offersGroup ? ['label' => 'OFFERS', 'icon' => $offersGroup['icon'], 'href' => $offersGroup['href'], 'active' => $offersGroup['active']] : null,
+            ...$flattenNavigationItems($networksGroup['items'] ?? [], 'NETWORKS'),
+        ]));
+        $operationItems = array_merge(
+            $flattenNavigationItems($toolsGroup['items'] ?? []),
+            $flattenNavigationItems($globalTestsGroup['items'] ?? [], 'GLOBAL TESTS'),
+            $filterNavigationItems($miscellaneousGroup['items'] ?? [], ['SETTINGS']),
+        );
+        $settingsItems = array_merge(
+            $flattenNavigationItems($usersGroup['items'] ?? [], 'USERS'),
+            array_values(array_filter($miscellaneousGroup['items'] ?? [], static fn (array $item): bool => $item['label'] === 'SETTINGS')),
+        );
+        $mailServerItems = array_merge(
+            $flattenNavigationItems($serversGroup['items'] ?? []),
+            $flattenNavigationItems($pmtaGroup['items'] ?? []),
+            $flattenNavigationItems($cloudsGroup['items'] ?? [], 'CLOUDS'),
+        );
+        $suppressionHref = collect($suppressionItems)->first(static fn (array $item): bool => isset($item['href']))['href'] ?? null;
+        $commandOsNavigation = [
+            $makeCommandOsNavGroup('DASHBOARD', 'fas fa-tachometer-alt', route('console.dashboard.main'), $routeIs('console.dashboard.main', 'console.workspace.dashboard.main', 'console.analytics.index')),
+            $makeCommandOsNavGroup('CAMPAIGNS', 'fas fa-envelope', $hideDashboardForbiddenDestinations ? null : $campaignsUrl, $isCampaignsPage || $isGsendPage, $flattenNavigationItems($campaignItems), $isCampaignsPage || $isGsendPage, 'nav-submenu-campaigns'),
+            $makeCommandOsNavGroup('DROPS', 'fas fa-layer-group', $dropDraftsUrl, $isDropDraftPage || $isDropsMonitoringPage, $flattenNavigationItems($dropItems), $isDropsPage && ! $isDropStatisticsPage && ! $routeIs('console.drops.suppression*'), 'nav-submenu-drops'),
+            $makeCommandOsNavGroup('WARMUPS', 'fas fa-fire', $warmupsUrl, $isWarmupDraftPage || $isSeedListsPage, $flattenNavigationItems($warmupItems), $isWarmupDraftPage || $isSeedListsPage, 'nav-submenu-warmups'),
+            $makeCommandOsNavGroup('LISTS & AUDIENCES', 'fas fa-users', $listsUrl, $isListsPage || $isListHistoryPage || $isEmailManagementPage || $isBlacklistCheckerPage, $flattenNavigationItems($listItems), $isIspManagementPage, 'nav-submenu-lists-audiences'),
+            $makeCommandOsNavGroup('MAIL SERVERS', 'fas fa-server', $serversUrl, $isServerNavigationPage || $isPmtaNavigationPage || $isCloudWorkflowPage, $mailServerItems, $isServerNavigationPage || $isPmtaNavigationPage || $isCloudWorkflowPage, 'nav-submenu-mail-servers'),
+            $makeCommandOsNavGroup('DOMAINS', 'fas fa-globe', $domainsUrl, $isDomainsPage || $routeIs('console.infrastructure.domain-providers.*'), $flattenNavigationItems($domainsGroup['items'] ?? []), $routeIs('console.infrastructure.domain-providers.*') || $isDomainsPage, 'nav-submenu-domains'),
+            $makeCommandOsNavGroup('ISP & GEO', 'fas fa-map-marker-alt', $ispsUrl, $routeIs('console.infrastructure.isps.*')),
+            $makeCommandOsNavGroup('TRACKING & ANALYTICS', 'fas fa-chart-bar', route('clean.console.analytics.all-stats'), $isDashboardAllStatsPage || $isDashboardIspStatsPage || $isDashboardMailerRevenuePage || $isCampaignStatisticsPage || $isDropStatisticsPage || $isWarmupStatisticsPage, $flattenNavigationItems($trackingItems), $isDashboardAllStatsPage || $isDashboardIspStatsPage || $isDashboardMailerRevenuePage || $isCampaignStatisticsPage || $isDropStatisticsPage || $isWarmupStatisticsPage, 'nav-submenu-tracking-analytics'),
+            $makeCommandOsNavGroup('REDIRECTS & ROTATORS', 'fas fa-link', null, false),
+            $makeCommandOsNavGroup('OFFERS', 'fas fa-tag', $canManageSponsors ? $offersUrl : null, $isSponsorManagementPage || $isOfferManagementPage || $isNetworkSponsorsPage || $isNetworkOffersPage, $offerItems, $isSponsorManagementPage || $isOfferManagementPage || $isNetworkSponsorsPage || $isNetworkOffersPage, 'nav-submenu-offers'),
+            $makeCommandOsNavGroup('SUPPRESSIONS', 'fas fa-shield-alt', $suppressionHref, $isCampaignNegativesPage || $routeIs('console.drops.suppression*'), $flattenNavigationItems($suppressionItems), $isCampaignNegativesPage || $routeIs('console.drops.suppression*'), 'nav-submenu-suppressions'),
+            $makeCommandOsNavGroup('TOOLS & UTILITIES', 'fas fa-toolbox', route('clean.console.tools.workspace.index'), $isTextMechanicPage || $isEncodingPage || $isSpfScannerPage || $isWorkspaceToolPage || $isGlobalTestsPage || $isGlobalTestHistoriesPage || $isSubscribersPage || $isContactsPage || $isHorizonPage || $isAppHealthPage || $isAppErrorsPage, $flattenNavigationItems($operationItems), $isGlobalTestsPage || $isGlobalTestHistoriesPage || $isTextMechanicPage || $isEncodingPage || $isSpfScannerPage || $isWorkspaceToolPage || $isSubscribersPage || $isContactsPage || $isHorizonPage || $isAppHealthPage || $isAppErrorsPage, 'nav-submenu-tools-utilities'),
+            $makeCommandOsNavGroup('SETTINGS', 'fas fa-cog', $appSettingsUrl, $isAppSettingsPage || $isUsersPage || $isGlobalUsersPage, $flattenNavigationItems($settingsItems), $isAppSettingsPage || $isUsersPage || $isGlobalUsersPage, 'nav-submenu-settings'),
+        ];
+        $commandOsNavigation[9]['disabled'] = true;
+        $commandOsNavigation[9]['reason'] = 'No redirect or rotator page is connected yet.';
+        $commandOsNavigation = array_values(array_filter($commandOsNavigation, static fn (array $group): bool => $group !== []));
     @endphp
     <div id="page-container" class="sidebar-o enable-page-overlay sidebar-dark side-scroll page-header-fixed {{ $commandOsDashboard ? 'command-os-page' : 'sidebar-mini' }}">
         <nav id="sidebar" aria-label="Main Navigation" tabindex="-1">
@@ -327,62 +429,109 @@
                                 ->implode(' ');
                         };
                     @endphp
-                    <ul class="nav-main">
-                        @foreach ($navigation as $groupIndex => $group)
-                            @if (($group['requires_management'] ?? false) && ! $canManageSponsors)
-                                @continue
-                            @endif
-                            @if ($group['label'] === 'CAMPAIGNS')
-                                <li class="nav-main-heading">SEND SECTION</li>
-                            @endif
-                            @if (isset($group['href']))
-                                <li class="nav-main-item {{ ($group['section'] ?? null) === 'servers' ? 'nav-server-item' : '' }}">
-                                    <a class="nav-main-link {{ ($group['active'] ?? false) ? 'active' : '' }}" href="{{ $group['href'] }}" @if ($group['disabled'] ?? false) aria-disabled="true" tabindex="-1" @endif @if (($group['active'] ?? false)) aria-current="page" @endif>
-                                        <i class="nav-main-link-icon {{ $group['icon'] }}"></i><span class="nav-main-link-name">{{ $commandOsNavLabel($group['label']) }}</span>
-                                    </a>
-                                </li>
-                            @else
+                    @if ($commandOsDashboard)
+                        <ul class="command-os-navigation">
+                            @foreach ($commandOsNavigation as $group)
                                 @php
-                                    $groupIsOpen = ($group['open'] ?? false)
-                                        || collect($group['items'])->contains(fn ($item) => ($item['active'] ?? false));
-                                    $groupIsActive = ($group['active'] ?? false) || collect($group['items'])->contains(fn ($item) => ($item['active'] ?? false));
-                                    $groupSubmenuId = $group['id'] ?? 'nav-submenu-'.\Illuminate\Support\Str::slug($group['label']).'-'.$groupIndex;
+                                    $groupHasChildren = ($group['items'] ?? []) !== [];
+                                    $groupIsDisabled = $group['disabled'] ?? false;
+                                    $submenuId = $group['id'] ?? 'nav-submenu-'.\Illuminate\Support\Str::slug($group['label']);
                                 @endphp
-                                <li class="nav-main-item {{ $groupIsOpen ? 'open' : '' }}">
-                                    <a class="nav-main-link nav-main-link-submenu {{ $groupIsActive ? 'active' : '' }}" href="#" data-toggle="submenu" aria-expanded="{{ $groupIsOpen ? 'true' : 'false' }}" aria-controls="{{ $groupSubmenuId }}">
-                                        <i class="nav-main-link-icon {{ $group['icon'] }}"></i><span class="nav-main-link-name">{{ $commandOsNavLabel($group['label']) }}</span>
-                                    </a>
-                                    @if ($group['items'] !== [])
-                                        <ul class="nav-main-submenu" id="{{ $groupSubmenuId }}">
-                                            @foreach ($group['items'] as $item)
-                                                @php($itemIsOpen = ($item['open'] ?? false) || collect($item['items'] ?? [])->contains(fn ($nestedItem) => ($nestedItem['active'] ?? false)))
-                                                <li class="nav-main-item {{ ($item['section'] ?? null) === 'servers' ? 'nav-server-item' : '' }} {{ $itemIsOpen ? 'open' : '' }}">
-                                                    @if (isset($item['items']))
-                                                        <a class="nav-main-link nav-main-link-submenu" href="#" data-toggle="submenu" aria-expanded="{{ $itemIsOpen ? 'true' : 'false' }}">
-                                                            <i class="nav-main-link-icon {{ $item['icon'] }}"></i><span class="nav-main-link-name">{{ $commandOsNavLabel($item['label']) }}</span>
-                                                        </a>
-                                                        <ul class="nav-main-submenu">
-                                                            @foreach ($item['items'] as $nestedItem)
-                                                                <li class="nav-main-item">
-                                                                    <a class="nav-main-link {{ ($nestedItem['active'] ?? false) ? 'active' : '' }}" href="{{ $nestedItem['href'] ?? '#' }}" @if (! isset($nestedItem['href'])) aria-disabled="true" tabindex="-1" @endif @if (($nestedItem['active'] ?? false)) aria-current="page" @endif>
-                                                                        <i class="nav-main-link-icon {{ $nestedItem['icon'] }}"></i><span class="nav-main-link-name">{{ $commandOsNavLabel($nestedItem['label']) }}</span>
-                                                                    </a>
-                                                                </li>
-                                                            @endforeach
-                                                        </ul>
-                                                    @else
-                                                        <a class="nav-main-link {{ ($item['active'] ?? false) ? 'active' : '' }}" href="{{ $item['href'] ?? '#' }}" @if (! isset($item['href'])) aria-disabled="true" tabindex="-1" @endif @if (($item['active'] ?? false)) aria-current="page" @endif>
-                                                            <i class="nav-main-link-icon {{ $item['icon'] }}"></i><span class="nav-main-link-name">{{ $commandOsNavLabel($item['label']) }}</span>
-                                                        </a>
-                                                    @endif
-                                                </li>
-                                            @endforeach
-                                        </ul>
-                                    @endif
+                                <li class="command-os-navigation-item {{ ($group['active'] ?? false) ? 'is-active' : '' }} {{ $groupIsDisabled ? 'is-disabled' : '' }}">
+                                    <div class="command-os-navigation-row">
+                                        @if (isset($group['href']) && ! $groupIsDisabled)
+                                            <a class="command-os-navigation-link {{ ($group['active'] ?? false) ? 'active' : '' }}" href="{{ $group['href'] }}" @if (($group['active'] ?? false)) aria-current="page" @endif>
+                                                <i class="command-os-navigation-icon {{ $group['icon'] }}" aria-hidden="true"></i><span>{{ $commandOsNavLabel($group['label']) }}</span>
+                                            </a>
+                                        @else
+                                            <span class="command-os-navigation-link {{ $groupIsDisabled ? 'is-disabled' : '' }}" @if ($groupIsDisabled) aria-disabled="true" title="{{ $group['reason'] }}" @endif>
+                                                <i class="command-os-navigation-icon {{ $group['icon'] }}" aria-hidden="true"></i><span>{{ $commandOsNavLabel($group['label']) }}</span>
+                                            </span>
+                                        @endif
+                                        @if ($groupHasChildren)
+                                            <details class="command-os-navigation-disclosure" @if (($group['open'] ?? false) || ($group['active'] ?? false)) open @endif>
+                                                <summary aria-label="Show {{ $commandOsNavLabel($group['label']) }} pages" aria-controls="{{ $submenuId }}" title="Show {{ $commandOsNavLabel($group['label']) }} pages">
+                                                    <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                                                </summary>
+                                                <ul class="command-os-navigation-submenu" id="{{ $submenuId }}">
+                                                    @foreach ($group['items'] as $item)
+                                                        <li>
+                                                            @if (isset($item['href']) && ! ($item['disabled'] ?? false))
+                                                                <a class="{{ ($item['active'] ?? false) ? 'active' : '' }}" href="{{ $item['href'] }}" @if (($item['active'] ?? false)) aria-current="page" @endif>
+                                                                    <i class="{{ $item['icon'] ?? 'fas fa-circle' }}" aria-hidden="true"></i><span>{{ $commandOsNavLabel($item['label']) }}</span>
+                                                                </a>
+                                                            @else
+                                                                <span aria-disabled="true" title="This destination is not connected in the current release.">
+                                                                    <i class="{{ $item['icon'] ?? 'fas fa-circle' }}" aria-hidden="true"></i><span>{{ $commandOsNavLabel($item['label']) }}</span>
+                                                                </span>
+                                                            @endif
+                                                        </li>
+                                                    @endforeach
+                                                </ul>
+                                            </details>
+                                        @endif
+                                    </div>
                                 </li>
-                            @endif
-                        @endforeach
-                    </ul>
+                            @endforeach
+                        </ul>
+                    @else
+                        <ul class="nav-main">
+                            @foreach ($navigation as $groupIndex => $group)
+                                @if (($group['requires_management'] ?? false) && ! $canManageSponsors)
+                                    @continue
+                                @endif
+                                @if ($group['label'] === 'CAMPAIGNS')
+                                    <li class="nav-main-heading">SEND SECTION</li>
+                                @endif
+                                @if (isset($group['href']))
+                                    <li class="nav-main-item {{ ($group['section'] ?? null) === 'servers' ? 'nav-server-item' : '' }}">
+                                        <a class="nav-main-link {{ ($group['active'] ?? false) ? 'active' : '' }}" href="{{ $group['href'] }}" @if ($group['disabled'] ?? false) aria-disabled="true" tabindex="-1" @endif @if (($group['active'] ?? false)) aria-current="page" @endif>
+                                            <i class="nav-main-link-icon {{ $group['icon'] }}"></i><span class="nav-main-link-name">{{ $commandOsNavLabel($group['label']) }}</span>
+                                        </a>
+                                    </li>
+                                @else
+                                    @php
+                                        $groupIsOpen = ($group['open'] ?? false)
+                                            || collect($group['items'])->contains(fn ($item) => ($item['active'] ?? false));
+                                        $groupIsActive = ($group['active'] ?? false) || collect($group['items'])->contains(fn ($item) => ($item['active'] ?? false));
+                                        $groupSubmenuId = $group['id'] ?? 'nav-submenu-'.\Illuminate\Support\Str::slug($group['label']).'-'.$groupIndex;
+                                    @endphp
+                                    <li class="nav-main-item {{ $groupIsOpen ? 'open' : '' }}">
+                                        <a class="nav-main-link nav-main-link-submenu {{ $groupIsActive ? 'active' : '' }}" href="#" data-toggle="submenu" aria-expanded="{{ $groupIsOpen ? 'true' : 'false' }}" aria-controls="{{ $groupSubmenuId }}">
+                                            <i class="nav-main-link-icon {{ $group['icon'] }}"></i><span class="nav-main-link-name">{{ $commandOsNavLabel($group['label']) }}</span>
+                                        </a>
+                                        @if ($group['items'] !== [])
+                                            <ul class="nav-main-submenu" id="{{ $groupSubmenuId }}">
+                                                @foreach ($group['items'] as $item)
+                                                    @php($itemIsOpen = ($item['open'] ?? false) || collect($item['items'] ?? [])->contains(fn ($nestedItem) => ($nestedItem['active'] ?? false)))
+                                                    <li class="nav-main-item {{ ($item['section'] ?? null) === 'servers' ? 'nav-server-item' : '' }} {{ $itemIsOpen ? 'open' : '' }}">
+                                                        @if (isset($item['items']))
+                                                            <a class="nav-main-link nav-main-link-submenu" href="#" data-toggle="submenu" aria-expanded="{{ $itemIsOpen ? 'true' : 'false' }}">
+                                                                <i class="nav-main-link-icon {{ $item['icon'] }}"></i><span class="nav-main-link-name">{{ $commandOsNavLabel($item['label']) }}</span>
+                                                            </a>
+                                                            <ul class="nav-main-submenu">
+                                                                @foreach ($item['items'] as $nestedItem)
+                                                                    <li class="nav-main-item">
+                                                                        <a class="nav-main-link {{ ($nestedItem['active'] ?? false) ? 'active' : '' }}" href="{{ $nestedItem['href'] ?? '#' }}" @if (! isset($nestedItem['href'])) aria-disabled="true" tabindex="-1" @endif @if (($nestedItem['active'] ?? false)) aria-current="page" @endif>
+                                                                            <i class="nav-main-link-icon {{ $nestedItem['icon'] }}"></i><span class="nav-main-link-name">{{ $commandOsNavLabel($nestedItem['label']) }}</span>
+                                                                        </a>
+                                                                    </li>
+                                                                @endforeach
+                                                            </ul>
+                                                        @else
+                                                            <a class="nav-main-link {{ ($item['active'] ?? false) ? 'active' : '' }}" href="{{ $item['href'] ?? '#' }}" @if (! isset($item['href'])) aria-disabled="true" tabindex="-1" @endif @if (($item['active'] ?? false)) aria-current="page" @endif>
+                                                                <i class="nav-main-link-icon {{ $item['icon'] }}"></i><span class="nav-main-link-name">{{ $commandOsNavLabel($item['label']) }}</span>
+                                                            </a>
+                                                        @endif
+                                                    </li>
+                                                @endforeach
+                                            </ul>
+                                        @endif
+                                    </li>
+                                @endif
+                            @endforeach
+                        </ul>
+                    @endif
                 </div>
             </div>
         </nav>

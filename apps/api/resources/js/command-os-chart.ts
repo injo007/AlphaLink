@@ -17,59 +17,95 @@ export function renderPerformanceChart(
     theme: 'light' | 'dark',
 ): () => void {
     const chart: EChartsType = init(element, undefined, { renderer: 'canvas' });
-    const muted = theme === 'dark' ? '#98a5c9' : '#657397';
-    const grid = theme === 'dark' ? 'rgba(148, 163, 220, .13)' : 'rgba(73, 95, 165, .12)';
+    const dark = theme === 'dark';
+    const muted = dark ? '#aab7dc' : '#68779a';
+    const grid = dark ? 'rgba(148, 170, 224, .15)' : 'rgba(73, 95, 165, .13)';
+    const deliveries = dark ? '#25bbff' : '#347cff';
+    const opens = dark ? '#ca5cff' : '#9146f3';
+    const fill = (color: string, opacity: number) => {
+        const alpha = (value: number) => Math.round(value * 255).toString(16).padStart(2, '0');
+        return {
+            type: 'linear' as const,
+            x: 0,
+            y: 0,
+            x2: 0,
+            y2: 1,
+            colorStops: [
+                { offset: 0, color: `${color}${alpha(opacity)}` },
+                { offset: 0.58, color: `${color}${alpha(opacity * 0.38)}` },
+                { offset: 1, color: `${color}00` },
+            ],
+            global: false,
+        };
+    };
     chart.setOption({
-        animationDuration: 450,
-        color: ['#267bff', '#a33df5'],
-        grid: { left: 42, right: 16, top: 33, bottom: 36, containLabel: false },
+        animationDuration: 720,
+        animationEasing: 'cubicOut',
+        color: [deliveries, opens],
+        grid: { left: 44, right: 16, top: 35, bottom: 38, containLabel: false },
         legend: {
             data: ['Deliveries', 'Opens'],
             right: 4,
             top: 0,
-            itemWidth: 8,
-            itemHeight: 8,
-            textStyle: { color: muted, fontSize: 10, fontFamily: 'Inter, sans-serif' },
+            itemWidth: 9,
+            itemHeight: 9,
+            itemGap: 15,
+            textStyle: { color: muted, fontSize: 9, fontWeight: 650, fontFamily: 'Inter, sans-serif' },
         },
         tooltip: {
             trigger: 'axis',
-            backgroundColor: theme === 'dark' ? '#172443' : '#ffffff',
+            axisPointer: { type: 'line', lineStyle: { color: dark ? '#91a3dc' : '#8b9bc4', type: 'dashed', width: 1 } },
+            backgroundColor: dark ? '#101b38' : '#ffffff',
             borderColor: grid,
-            textStyle: { color: theme === 'dark' ? '#eff3ff' : '#1b2648', fontSize: 11 },
+            borderWidth: 1,
+            padding: [9, 12],
+            extraCssText: 'box-shadow: 0 12px 30px rgba(13, 25, 60, .24); border-radius: 10px;',
+            textStyle: { color: dark ? '#eff3ff' : '#1b2648', fontSize: 11, fontFamily: 'Inter, sans-serif' },
             valueFormatter: (value: unknown) => formatNumber(Number(value ?? 0)),
         },
         xAxis: {
             type: 'category',
             boundaryGap: false,
             data: payload.trend.labels,
-            axisLine: { lineStyle: { color: grid } },
+            axisLine: { lineStyle: { color: grid, width: 1 } },
             axisTick: { show: false },
-            axisLabel: { color: muted, fontSize: 9, interval: 4, hideOverlap: true },
+            axisLabel: { color: muted, fontSize: 8.5, margin: 10, interval: 4, hideOverlap: true },
         },
         yAxis: {
             type: 'value',
             min: 0,
-            axisLabel: { color: muted, fontSize: 9, formatter: (value: number) => formatNumber(value) },
-            splitLine: { lineStyle: { color: grid, type: 'dashed' } },
+            axisLabel: { color: muted, fontSize: 8.5, margin: 10, formatter: (value: number) => formatNumber(value) },
+            axisLine: { show: false },
+            axisTick: { show: false },
+            splitNumber: 4,
+            splitLine: { lineStyle: { color: grid, type: 'dashed', dashOffset: 3 } },
         },
         series: [
             {
                 name: 'Deliveries',
                 type: 'line',
-                smooth: 0.32,
+                smooth: 0.38,
                 showSymbol: false,
                 data: payload.trend.deliveries,
-                lineStyle: { width: 2.4 },
-                areaStyle: { opacity: theme === 'dark' ? 0.13 : 0.08 },
+                lineStyle: { width: 2.8, shadowBlur: 12, shadowColor: `${deliveries}77` },
+                areaStyle: { color: fill(deliveries, dark ? 0.22 : 0.14) },
+                emphasis: { focus: 'series', lineStyle: { width: 3.4 }, itemStyle: { borderColor: dark ? '#071329' : '#fff', borderWidth: 2 } },
+                symbol: 'circle',
+                symbolSize: 7,
+                showAllSymbol: false,
             },
             {
                 name: 'Opens',
                 type: 'line',
-                smooth: 0.32,
+                smooth: 0.38,
                 showSymbol: false,
                 data: payload.trend.opens,
-                lineStyle: { width: 2.4 },
-                areaStyle: { opacity: theme === 'dark' ? 0.1 : 0.06 },
+                lineStyle: { width: 2.6, shadowBlur: 12, shadowColor: `${opens}77` },
+                areaStyle: { color: fill(opens, dark ? 0.19 : 0.12) },
+                emphasis: { focus: 'series', lineStyle: { width: 3.2 }, itemStyle: { borderColor: dark ? '#071329' : '#fff', borderWidth: 2 } },
+                symbol: 'circle',
+                symbolSize: 7,
+                showAllSymbol: false,
             },
         ],
     });

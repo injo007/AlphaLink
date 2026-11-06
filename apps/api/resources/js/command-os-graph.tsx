@@ -41,20 +41,20 @@ function iconImage(id: string, color: string): string {
     return svgDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`);
 }
 
-const brandMark = svgDataUri('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100"><defs><linearGradient id="brand" x1="12" y1="85" x2="84" y2="17" gradientUnits="userSpaceOnUse"><stop stop-color="#08a9ff"/><stop offset="1" stop-color="#b53cff"/></linearGradient></defs><path d="M17 76 46 25c2-4 7-4 9 0l28 51M29 62h43" fill="none" stroke="url(#brand)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+const brandMark = '/console-assets/alphalink-command-os-mark.png';
 
 function formatCount(value: number): string {
     return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value);
 }
 
 function moduleWidth(label: string): number {
-    return Math.min(104, Math.max(68, label.length * 5.15 + 32));
+    return Math.min(116, Math.max(76, label.length * 5.55 + 38));
 }
 
 function radialPosition(index: number, count: number, width: number, height: number): [number, number] {
     const angle = -Math.PI / 2 + (index * Math.PI * 2) / count;
-    const radiusX = Math.max(72, width / 2 - 55);
-    const radiusY = Math.max(32, height / 2 - 19);
+    const radiusX = Math.max(72, width / 2 - 65);
+    const radiusY = Math.max(32, height / 2 - 25);
     return [width / 2 + Math.cos(angle) * radiusX, height / 2 + Math.sin(angle) * radiusY];
 }
 
@@ -77,18 +77,18 @@ export default function MarketingGraph({ data, theme }: { data: DashboardAnalyti
                 value: '',
                 x: width / 2,
                 y: height / 2,
-                symbolSize: 42,
+                symbolSize: 52,
                 itemStyle: {
-                    color: dark ? '#1c2b60' : '#fff',
-                    borderColor: dark ? '#a577ff' : '#9870ff',
-                    borderWidth: 2,
-                    shadowBlur: 21,
-                    shadowColor: 'rgba(113, 75, 243, .62)',
+                    color: dark ? '#101d43' : '#ffffff',
+                    borderColor: dark ? '#9a63ff' : '#8254f5',
+                    borderWidth: 1.5,
+                    shadowBlur: 30,
+                    shadowColor: dark ? 'rgba(105, 65, 255, .9)' : 'rgba(106, 73, 234, .5)',
                 },
                 label: {
                     show: true,
                     formatter: '{brand| }',
-                    rich: { brand: { width: 26, height: 26, backgroundColor: { image: brandMark } } },
+                    rich: { brand: { width: 38, height: 38, backgroundColor: { image: brandMark } } },
                 },
             };
             const modules = data.nodes.map((node, index) => {
@@ -107,18 +107,18 @@ export default function MarketingGraph({ data, theme }: { data: DashboardAnalyti
                         color: dark ? `${color}24` : '#fff',
                         borderColor: color,
                         borderWidth: 1.5,
-                        shadowBlur: dark ? 12 : 8,
-                        shadowColor: `${color}55`,
+                        shadowBlur: dark ? 17 : 11,
+                        shadowColor: `${color}77`,
                     },
                     label: {
                         show: true,
                         color: muted,
-                        fontSize: 8.5,
+                        fontSize: 9.5,
                         fontWeight: 700,
                         formatter: `{icon| } {label|${node.label}}`,
                         rich: {
-                            icon: { width: 11, height: 11, backgroundColor: { image: icon } },
-                            label: { color: muted, fontSize: 8.5, fontWeight: 700 },
+                            icon: { width: 13, height: 13, backgroundColor: { image: icon } },
+                            label: { color: muted, fontSize: 9.5, fontWeight: 700 },
                         },
                     },
                 };
@@ -149,15 +149,17 @@ export default function MarketingGraph({ data, theme }: { data: DashboardAnalyti
                         target: node.id,
                         lineStyle: {
                             color: nodeColors[node.color] ?? '#7b4bf3',
-                            opacity: dark ? 0.9 : 0.68,
-                            width: 1.45,
+                            opacity: dark ? 0.82 : 0.64,
+                            width: 1.6,
+                            shadowBlur: 9,
+                            shadowColor: `${nodeColors[node.color] ?? '#7b4bf3'}99`,
                         },
                     })),
                     roam: false,
                     draggable: false,
                     edgeSymbol: ['none', 'none'],
-                    lineStyle: { width: 1.2, curveness: 0.025 },
-                    emphasis: { focus: 'adjacency', lineStyle: { width: 2 } },
+                    lineStyle: { width: 1.4, curveness: 0.045 },
+                    emphasis: { focus: 'adjacency', lineStyle: { width: 2.4, opacity: 1 } },
                     blur: { lineStyle: { opacity: 0.12 } },
                 }],
             }, { notMerge: true });
@@ -186,7 +188,7 @@ export default function MarketingGraph({ data, theme }: { data: DashboardAnalyti
     return (
         <section className="command-os-panel command-os-graph-panel" id="marketing-graph" aria-labelledby="command-os-graph-title">
             <div className="command-os-panel-heading">
-                <div className="command-os-panel-title"><span className="command-os-heading-icon"><span aria-hidden="true">✣</span></span><h2 id="command-os-graph-title">Marketing graph</h2></div>
+                <div className="command-os-panel-title"><span className="command-os-heading-icon command-os-graph-heading-icon"><span aria-hidden="true">✣</span></span><h2 id="command-os-graph-title">Marketing graph</h2></div>
                 <span className="command-os-status-tag">Network view</span>
             </div>
             <div className="command-os-graph-canvas" ref={container} role="application" aria-describedby="command-os-graph-note" aria-label="Interactive AlphaLink module graph. Select a module to inspect its stored activity count." />

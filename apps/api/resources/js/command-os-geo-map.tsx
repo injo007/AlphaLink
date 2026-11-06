@@ -211,8 +211,8 @@ export default function DeliverabilityGeoMap({ data, theme }: { data: DashboardA
 
         const dark = theme === 'dark';
         const base = dark ? '#0b1530' : '#f7f8ff';
-        const countryFill = dark ? '#172b4c' : '#dce5fb';
-        const boundary = dark ? '#28557d' : '#bacbf3';
+        const countryFill = dark ? '#152c4d' : '#dfe7fc';
+        const boundary = dark ? '#36729d' : '#aebff0';
         const map = new MapLibreMap({
             container: element,
             center: [0, 14],
@@ -237,27 +237,27 @@ export default function DeliverabilityGeoMap({ data, theme }: { data: DashboardA
                             'fill-color': [
                                 'case',
                                 ['>', ['get', 'deliveries'], 0],
-                                ['interpolate', ['linear'], ['get', 'deliveries'], 1, '#1878ff', 1000, '#8c43f5'],
-                                ['>', ['get', 'engagement'], 0], dark ? '#0756a7' : '#88aaf8',
+                                ['interpolate', ['linear'], ['get', 'deliveries'], 1, '#168dff', 1000, '#a649ff'],
+                                ['>', ['get', 'engagement'], 0], dark ? '#0875c4' : '#729df6',
                                 countryFill,
                             ],
-                            'fill-opacity': 0.94,
+                            'fill-opacity': 0.97,
                         },
                     },
                     {
                         id: 'country-outline',
                         type: 'line',
                         source: 'countries',
-                        paint: { 'line-color': boundary, 'line-width': 0.65, 'line-opacity': 0.78 },
+                        paint: { 'line-color': boundary, 'line-width': 0.8, 'line-opacity': 0.88 },
                     },
                     {
                         id: 'activity-marker-halo',
                         type: 'circle',
                         source: 'activity-markers',
                         paint: {
-                            'circle-radius': ['case', ['any', ['>', ['get', 'deliveries'], 0], ['>', ['get', 'bounces'], 0]], 9, 7],
+                            'circle-radius': ['case', ['any', ['>', ['get', 'deliveries'], 0], ['>', ['get', 'bounces'], 0]], 12, 9],
                             'circle-color': ['case', ['any', ['>', ['get', 'deliveries'], 0], ['>', ['get', 'bounces'], 0]], '#a348ff', '#05a9f5'],
-                            'circle-opacity': 0.46,
+                            'circle-opacity': dark ? 0.54 : 0.43,
                             'circle-blur': 0.85,
                         },
                     },
@@ -266,10 +266,10 @@ export default function DeliverabilityGeoMap({ data, theme }: { data: DashboardA
                         type: 'circle',
                         source: 'activity-markers',
                         paint: {
-                            'circle-radius': ['case', ['any', ['>', ['get', 'deliveries'], 0], ['>', ['get', 'bounces'], 0]], 3.2, 2.6],
+                            'circle-radius': ['case', ['any', ['>', ['get', 'deliveries'], 0], ['>', ['get', 'bounces'], 0]], 3.8, 3.1],
                             'circle-color': ['case', ['any', ['>', ['get', 'deliveries'], 0], ['>', ['get', 'bounces'], 0]], '#a348ff', '#05a9f5'],
                             'circle-stroke-color': dark ? '#d9e4ff' : '#fff',
-                            'circle-stroke-width': 1,
+                            'circle-stroke-width': 1.5,
                         },
                     },
                 ],
@@ -289,8 +289,8 @@ export default function DeliverabilityGeoMap({ data, theme }: { data: DashboardA
         map.on('mouseleave', 'country-fill', () => { map.getCanvas().style.cursor = ''; });
         map.once('load', () => {
             const patterns: [string, string][] = dark
-                ? [['country-dots-base', '#267fb8'], ['country-dots-activity', '#12b8eb'], ['country-dots-feedback', '#a34cf0']]
-                : [['country-dots-base', '#7896e8'], ['country-dots-activity', '#2b82ee'], ['country-dots-feedback', '#9550e8']];
+                ? [['country-dots-base', '#3474a7'], ['country-dots-activity', '#18c5f5'], ['country-dots-feedback', '#bc69ff']]
+                : [['country-dots-base', '#8da6ed'], ['country-dots-activity', '#347eef'], ['country-dots-feedback', '#9751ee']];
             patterns.forEach(([id, color]) => map.addImage(id, countryDotPattern(color)));
             map.setPaintProperty('country-fill', 'fill-pattern', [
                 'case',

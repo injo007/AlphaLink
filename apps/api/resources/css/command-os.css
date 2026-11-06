@@ -148,20 +148,28 @@ body.command-os-shell #sidebar .command-os-navigation-item {
 
 body.command-os-shell #sidebar .command-os-navigation-row {
     position: relative;
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 38px;
+    column-gap: 4px;
     align-items: center;
-    gap: 2px;
     min-height: 28px;
+    padding-right: 8px;
     border-radius: 9px;
+}
+
+body.command-os-shell #sidebar .command-os-navigation-row.is-standalone {
+    grid-template-columns: minmax(0, 1fr);
 }
 
 body.command-os-shell #sidebar .command-os-navigation-link {
     display: flex;
     align-items: center;
-    flex: 1 1 auto;
+    grid-column: 1;
+    grid-row: 1;
     gap: 9px;
     min-width: 0;
     min-height: 28px;
+    width: 100%;
     padding: 4px 8px;
     border: 0;
     border-radius: 9px;
@@ -206,12 +214,17 @@ body.command-os-shell #sidebar .command-os-navigation-item.is-disabled .command-
     cursor: not-allowed;
 }
 
-body.command-os-shell #sidebar .command-os-navigation-disclosure-toggle {
+body.command-os-shell #sidebar .command-os-navigation-disclosure {
+    display: contents;
+}
+
+body.command-os-shell #sidebar .command-os-navigation-disclosure > summary {
     display: grid;
     place-items: center;
-    flex: 0 0 26px;
-    width: 26px;
-    height: 28px;
+    grid-column: 2;
+    grid-row: 1;
+    width: 38px;
+    height: 30px;
     padding: 0;
     border: 0;
     border-radius: 7px;
@@ -220,26 +233,33 @@ body.command-os-shell #sidebar .command-os-navigation-disclosure-toggle {
     cursor: pointer;
     font-size: 9px;
     transition: color .16s ease, background .16s ease;
+    list-style: none;
 }
 
-body.command-os-shell #sidebar .command-os-navigation-disclosure-toggle:hover,
-body.command-os-shell #sidebar .command-os-navigation-disclosure-toggle:focus-visible {
+body.command-os-shell #sidebar .command-os-navigation-disclosure > summary::-webkit-details-marker {
+    display: none;
+}
+
+body.command-os-shell #sidebar .command-os-navigation-disclosure > summary:hover,
+body.command-os-shell #sidebar .command-os-navigation-disclosure > summary:focus-visible {
     color: var(--co-purple);
     background: var(--co-surface-muted);
 }
 
-body.command-os-shell #sidebar .command-os-navigation-disclosure-toggle:focus-visible {
+body.command-os-shell #sidebar .command-os-navigation-disclosure > summary:focus-visible {
     outline: 2px solid var(--co-purple);
     outline-offset: 1px;
 }
 
-body.command-os-shell #sidebar .command-os-navigation-disclosure-toggle[aria-expanded="true"] > i {
+body.command-os-shell #sidebar .command-os-navigation-disclosure[open] > summary > i {
     transform: rotate(180deg);
 }
 
 body.command-os-shell #sidebar .command-os-navigation-submenu {
     position: static;
     display: grid;
+    grid-column: 1 / -1;
+    grid-row: 2;
     gap: 2px;
     width: auto;
     min-width: 0;
@@ -255,7 +275,7 @@ body.command-os-shell #sidebar .command-os-navigation-submenu {
     pointer-events: auto;
 }
 
-body.command-os-shell #sidebar .command-os-navigation-submenu[hidden] {
+body.command-os-shell #sidebar .command-os-navigation-disclosure:not([open]) > .command-os-navigation-submenu {
     display: none;
 }
 
@@ -1091,7 +1111,7 @@ body.command-os-shell #page-container.sidebar-mini #sidebar .content-side {
 body.command-os-shell #page-container.sidebar-mini #sidebar .command-os-brand-copy,
 body.command-os-shell #page-container.sidebar-mini #sidebar .command-os-version,
 body.command-os-shell #page-container.sidebar-mini #sidebar .command-os-navigation-link > span,
-body.command-os-shell #page-container.sidebar-mini #sidebar .command-os-navigation-disclosure-toggle {
+body.command-os-shell #page-container.sidebar-mini #sidebar .command-os-navigation-disclosure > summary {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -1109,6 +1129,11 @@ body.command-os-shell #page-container.sidebar-mini #sidebar .command-os-navigati
     padding: 4px;
 }
 
+body.command-os-shell #page-container.sidebar-mini #sidebar .command-os-navigation-row {
+    grid-template-columns: minmax(0, 1fr);
+    padding-right: 0;
+}
+
 body.command-os-shell #page-container.sidebar-mini #sidebar:hover,
 body.command-os-shell #page-container.sidebar-mini #sidebar:focus-within {
     position: sticky;
@@ -1122,8 +1147,8 @@ body.command-os-shell #page-container.sidebar-mini #sidebar:hover .command-os-br
 body.command-os-shell #page-container.sidebar-mini #sidebar:focus-within .command-os-brand-copy,
 body.command-os-shell #page-container.sidebar-mini #sidebar:hover .command-os-version,
 body.command-os-shell #page-container.sidebar-mini #sidebar:focus-within .command-os-version,
-body.command-os-shell #page-container.sidebar-mini #sidebar:hover .command-os-navigation-disclosure-toggle,
-body.command-os-shell #page-container.sidebar-mini #sidebar:focus-within .command-os-navigation-disclosure-toggle {
+body.command-os-shell #page-container.sidebar-mini #sidebar:hover .command-os-navigation-disclosure > summary,
+body.command-os-shell #page-container.sidebar-mini #sidebar:focus-within .command-os-navigation-disclosure > summary {
     position: static;
     width: auto;
     height: auto;
@@ -1133,6 +1158,12 @@ body.command-os-shell #page-container.sidebar-mini #sidebar:focus-within .comman
     clip: auto;
     clip-path: none;
     white-space: normal;
+}
+
+body.command-os-shell #page-container.sidebar-mini #sidebar:hover .command-os-navigation-row,
+body.command-os-shell #page-container.sidebar-mini #sidebar:focus-within .command-os-navigation-row {
+    grid-template-columns: minmax(0, 1fr) 38px;
+    padding-right: 8px;
 }
 
 body.command-os-shell #page-container.sidebar-mini #sidebar .command-os-navigation-submenu {

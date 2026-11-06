@@ -31,7 +31,8 @@ class AlphaLinkCampaignSendNavigationTest extends TestCase
             ->assertSee('id="nav-submenu-campaigns"', false)
             ->assertSee('href="'.route('console.mailer.campaigns').'" title="CAMPAIGNS" aria-label="Campaigns"', false)
             ->assertSee('href="'.route('clean.console.global-tests.index').'" title="GLOBAL TEST" aria-label="Global Test"', false)
-            ->assertSee('aria-label="Toggle Campaigns pages" aria-expanded="true" aria-controls="nav-submenu-campaigns"', false)
+            ->assertSee('<details class="command-os-navigation-disclosure" open>', false)
+            ->assertSee('<summary aria-label="Toggle Campaigns pages" aria-controls="nav-submenu-campaigns"', false)
             ->assertSee('class="command-os-navigation-link active" href="'.route('console.mailer.campaigns').'"', false)
             ->assertSee('aria-current="page"', false)
             ->assertSee('fas fa-envelope', false)
@@ -53,9 +54,9 @@ class AlphaLinkCampaignSendNavigationTest extends TestCase
             ->assertDontSee('no campaign can be launched');
 
         $this->assertMatchesRegularExpression(
-            '/<div class="command-os-navigation-row">[\s\S]*?data-action="navigation_disclosure"[\s\S]*?<\/button>\s*<\/div>\s*<ul class="command-os-navigation-submenu" id="nav-submenu-campaigns"/',
+            '/<div class="command-os-navigation-row">[\s\S]*?<details class="command-os-navigation-disclosure" open>\s*<summary aria-label="Toggle Campaigns pages" aria-controls="nav-submenu-campaigns"[\s\S]*?<\/summary>\s*<ul class="command-os-navigation-submenu" id="nav-submenu-campaigns"/',
             $response->getContent(),
-            'The disclosure button must occupy its own parent-row slot and the submenu must follow the row in normal sidebar flow.'
+            'The native disclosure control must occupy its own parent-row slot and keep its submenu in normal sidebar flow.'
         );
     }
 

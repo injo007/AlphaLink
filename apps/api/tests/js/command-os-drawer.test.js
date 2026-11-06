@@ -70,12 +70,6 @@ function createBrowser() {
     const opener = new MockElement('open navigation');
     const backdrop = new MockElement('backdrop');
     const desktopWidthToggle = new MockElement('desktop width toggle');
-    const navigationDisclosure = new MockElement('campaign submenu toggle');
-    navigationDisclosure.selectors = ['[data-action="navigation_disclosure"]'];
-    navigationDisclosure.setAttribute('aria-controls', 'nav-submenu-campaigns');
-    navigationDisclosure.setAttribute('aria-expanded', 'false');
-    const navigationSubmenu = new MockElement('campaign submenu');
-    navigationSubmenu.hidden = true;
     backdrop.hidden = true;
     const documentListeners = {};
     const breakpointListeners = {};
@@ -87,7 +81,6 @@ function createBrowser() {
             'main-container': main,
             'page-header': header,
             'page-footer': footer,
-            'nav-submenu-campaigns': navigationSubmenu,
         })[id],
         querySelector: (selector) => selector.includes('sidebar_open') ? opener : selector.includes('sidebar_mini_toggle') ? desktopWidthToggle : backdrop,
         addEventListener: (name, callback) => { documentListeners[name] = callback; },
@@ -117,7 +110,7 @@ function createBrowser() {
         static [Symbol.hasInstance](target) { return target instanceof MockElement; }
     }
     runInNewContext(script, { document, window, Element, MutationObserver });
-    return { page, sidebar, firstLink, closeButton, lastLink, lastSummary, main, header, footer, opener, backdrop, desktopWidthToggle, navigationDisclosure, navigationSubmenu, documentListeners, document };
+    return { page, sidebar, firstLink, closeButton, lastLink, lastSummary, main, header, footer, opener, backdrop, desktopWidthToggle, documentListeners, document };
 }
 
 function triggerClick(browserState, target) {
@@ -181,26 +174,14 @@ test('backdrop click dismisses the drawer and restores focus', () => {
     assert.deepEqual(browser.layoutCalls, ['sidebar_close']);
 });
 
-test('navigation disclosure button opens and closes its controlled submenu', () => {
-    const state = createBrowser();
-    let prevented = false;
-
-    state.documentListeners.click({
-        target: state.navigationDisclosure,
-        preventDefault() { prevented = true; },
-    });
-
-    assert.equal(prevented, true);
-    assert.equal(state.navigationDisclosure.getAttribute('aria-expanded'), 'true');
-    assert.equal(state.navigationSubmenu.hidden, false);
-
-    state.documentListeners.click({
-        target: state.navigationDisclosure,
-        preventDefault() {},
-    });
-
-    assert.equal(state.navigationDisclosure.getAttribute('aria-expanded'), 'false');
-    assert.equal(state.navigationSubmenu.hidden, true);
+test('native navigation disclosure keeps the chevron inset and the menu in flow', () => {
+    assert.match(stylesheet, /\.command-os-navigation-row\s*\{\s*position:\s*relative;\s*display:\s*grid;\s*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+38px;[\s\S]{0,100}padding-right:\s*8px;/);
+    assert.match(stylesheet, /\.command-os-navigation-disclosure\s*\{\s*display:\s*contents;/);
+    assert.match(stylesheet, /\.command-os-navigation-disclosure\s*>\s*summary\s*\{[\s\S]{0,180}grid-column:\s*2;[\s\S]{0,100}width:\s*38px;/);
+    assert.match(stylesheet, /\.command-os-navigation-disclosure\[open\]\s*>\s*summary\s*>\s*i\s*\{\s*transform:\s*rotate\(180deg\);/);
+    assert.match(stylesheet, /\.command-os-navigation-submenu\s*\{[\s\S]{0,160}grid-column:\s*1\s*\/\s*-1;[\s\S]{0,80}grid-row:\s*2;/);
+    assert.match(stylesheet, /#page-container\.sidebar-mini #sidebar \.command-os-navigation-row\s*\{\s*grid-template-columns:\s*minmax\(0,\s*1fr\);\s*padding-right:\s*0;/);
+    assert.match(stylesheet, /#page-container\.sidebar-mini #sidebar \.command-os-navigation-link\s*\{\s*justify-content:\s*center;/);
 });
 
 test('entering the desktop breakpoint closes modal state without restoring focus to the mobile opener', () => {

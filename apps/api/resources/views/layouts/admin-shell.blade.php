@@ -440,7 +440,7 @@
                                     $submenuIsOpen = ($group['open'] ?? false) || ($group['active'] ?? false);
                                 @endphp
                                 <li class="command-os-navigation-item {{ ($group['active'] ?? false) ? 'is-active' : '' }} {{ $groupIsDisabled ? 'is-disabled' : '' }}">
-                                    <div class="command-os-navigation-row">
+                                    <div class="command-os-navigation-row{{ $groupHasChildren ? '' : ' is-standalone' }}">
                                         @if (isset($group['href']) && ! $groupIsDisabled)
                                             <a class="command-os-navigation-link {{ ($group['active'] ?? false) ? 'active' : '' }}" href="{{ $group['href'] }}" @if (($group['active'] ?? false)) aria-current="page" @endif>
                                                 <i class="command-os-navigation-icon {{ $group['icon'] }}" aria-hidden="true"></i><span>{{ $commandOsNavLabel($group['label']) }}</span>
@@ -451,28 +451,28 @@
                                             </span>
                                         @endif
                                         @if ($groupHasChildren)
-                                            <button type="button" class="command-os-navigation-disclosure-toggle" data-action="navigation_disclosure" aria-label="Toggle {{ $commandOsNavLabel($group['label']) }} pages" aria-expanded="{{ $submenuIsOpen ? 'true' : 'false' }}" aria-controls="{{ $submenuId }}" title="Toggle {{ $commandOsNavLabel($group['label']) }} pages">
-                                                <i class="fas fa-chevron-down" aria-hidden="true"></i>
-                                            </button>
+                                            <details class="command-os-navigation-disclosure"{{ $submenuIsOpen ? ' open' : '' }}>
+                                                <summary aria-label="Toggle {{ $commandOsNavLabel($group['label']) }} pages" aria-controls="{{ $submenuId }}" title="Toggle {{ $commandOsNavLabel($group['label']) }} pages">
+                                                    <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                                                </summary>
+                                                <ul class="command-os-navigation-submenu" id="{{ $submenuId }}">
+                                                    @foreach ($group['items'] as $item)
+                                                        <li>
+                                                            @if (isset($item['href']) && ! ($item['disabled'] ?? false))
+                                                                <a class="{{ ($item['active'] ?? false) ? 'active' : '' }}" href="{{ $item['href'] }}" @if (($item['active'] ?? false)) aria-current="page" @endif>
+                                                                    <i class="{{ $item['icon'] ?? 'fas fa-circle' }}" aria-hidden="true"></i><span>{{ $commandOsNavLabel($item['label']) }}</span>
+                                                                </a>
+                                                            @else
+                                                                <span aria-disabled="true" title="This destination is not connected in the current release.">
+                                                                    <i class="{{ $item['icon'] ?? 'fas fa-circle' }}" aria-hidden="true"></i><span>{{ $commandOsNavLabel($item['label']) }}</span>
+                                                                </span>
+                                                            @endif
+                                                        </li>
+                                                    @endforeach
+                                                </ul>
+                                            </details>
                                         @endif
                                     </div>
-                                    @if ($groupHasChildren)
-                                        <ul class="command-os-navigation-submenu" id="{{ $submenuId }}" @if (! $submenuIsOpen) hidden @endif>
-                                            @foreach ($group['items'] as $item)
-                                                <li>
-                                                    @if (isset($item['href']) && ! ($item['disabled'] ?? false))
-                                                        <a class="{{ ($item['active'] ?? false) ? 'active' : '' }}" href="{{ $item['href'] }}" @if (($item['active'] ?? false)) aria-current="page" @endif>
-                                                            <i class="{{ $item['icon'] ?? 'fas fa-circle' }}" aria-hidden="true"></i><span>{{ $commandOsNavLabel($item['label']) }}</span>
-                                                        </a>
-                                                    @else
-                                                        <span aria-disabled="true" title="This destination is not connected in the current release.">
-                                                            <i class="{{ $item['icon'] ?? 'fas fa-circle' }}" aria-hidden="true"></i><span>{{ $commandOsNavLabel($item['label']) }}</span>
-                                                        </span>
-                                                    @endif
-                                                </li>
-                                            @endforeach
-                                        </ul>
-                                    @endif
                                 </li>
                             @endforeach
                         </ul>
@@ -544,7 +544,7 @@
             <div class="content-header">
                 <div class="d-flex align-items-center">
                     <button type="button" class="btn btn-sm btn-dual mr-2 d-lg-none" data-toggle="layout" data-action="sidebar_open" aria-label="Open navigation" @if ($commandOsShell) aria-controls="sidebar" aria-expanded="false" @endif><i class="fa fa-fw {{ $commandOsShell ? 'fa-bars' : 'fa-ellipsis-v' }}"></i></button>
-                    <button type="button" class="btn btn-sm btn-dual mr-2 d-none d-lg-inline-block" data-toggle="layout" data-action="sidebar_mini_toggle" aria-label="Toggle navigation width" aria-pressed="{{ $commandOsShell ? 'false' : 'true' }}"><i class="fa fa-fw {{ $commandOsShell ? 'fa-bars' : 'fa-ellipsis-v' }}"></i></button>
+                    <button type="button" class="btn btn-sm btn-dual mr-2 d-none d-lg-inline-block" data-action="sidebar_mini_toggle" aria-label="Toggle navigation width" aria-pressed="{{ $commandOsShell ? 'false' : 'true' }}"><i class="fa fa-fw {{ $commandOsShell ? 'fa-bars' : 'fa-ellipsis-v' }}"></i></button>
                     @if ($commandOsShell)
                         <button type="button" class="command-os-search-placeholder" disabled aria-label="Global search is planned for a later migration phase" title="Global search will be added after its permission-safe data contract is defined">
                             <i class="fas fa-search" aria-hidden="true"></i><span>Search across AlphaLink modules</span><kbd>⌘ K</kbd>
@@ -633,19 +633,13 @@
     <script>
         (() => {
             const pageContainer = document.getElementById('page-container');
-            const sidebarToggle = document.querySelector('[data-toggle="layout"][data-action="sidebar_mini_toggle"]');
+            const sidebarToggle = document.querySelector('[data-action="sidebar_mini_toggle"]');
             if (!pageContainer || !sidebarToggle) return;
 
             sidebarToggle.addEventListener('click', (event) => {
                 event.preventDefault();
-                event.stopPropagation();
-
                 if (window.innerWidth > 991) {
-                    if (window.App && typeof window.App.layout === 'function') {
-                        window.App.layout('sidebar_mini_toggle');
-                    } else {
-                        pageContainer.classList.toggle('sidebar-mini');
-                    }
+                    pageContainer.classList.toggle('sidebar-mini');
                 }
 
                 sidebarToggle.setAttribute('aria-pressed', String(pageContainer.classList.contains('sidebar-mini')));

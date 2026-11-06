@@ -217,6 +217,7 @@ body.command-os-shell #sidebar .command-os-navigation-disclosure > summary {
     position: absolute;
     top: 0;
     right: 2px;
+    z-index: 2;
     display: grid;
     place-items: center;
     margin: 0;

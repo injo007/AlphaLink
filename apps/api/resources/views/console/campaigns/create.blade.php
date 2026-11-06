@@ -443,6 +443,7 @@
                 border-radius: 0;
                 box-shadow: none;
                 margin: 0;
+                position: static;
             }
             .campaign-create-page .campaign-delivery-card [data-campaign-placeholder-editor] > .block-header {
                 background: transparent;
@@ -458,8 +459,8 @@
             .campaign-create-page .campaign-delivery-card > .block-header > .campaign-section-caption { display: none; }
             .campaign-create-page .campaign-delivery-card > .block-content { padding: 6px 12px 10px; }
             .campaign-create-page .campaign-delivery-card [data-campaign-placeholder-editor] > .block-content { padding: 0 3px; }
-            .campaign-create-page .campaign-delivery-card [data-campaign-placeholder-editor] .table-responsive:has(tbody:empty) { display: none; }
-            .campaign-create-page .campaign-delivery-card [data-campaign-placeholder-editor]:has(tbody:not(:empty)) > .block-content { padding-top: 28px; }
+            .campaign-create-page .campaign-delivery-card [data-campaign-placeholder-editor] .table-responsive:not(:has(tbody tr)) { display: none; }
+            .campaign-create-page .campaign-delivery-card [data-campaign-placeholder-editor]:has(tbody tr) > .block-content { padding-top: 28px; }
             .campaign-create-page .campaign-placeholder-toolbar { gap: 7px; margin: 0; }
             .campaign-create-page .campaign-placeholder-toolbar .custom-control-inline { margin-right: 0; }
             .campaign-create-page .campaign-placeholder-toolbar [data-placeholder-add] {
@@ -712,8 +713,8 @@
                     padding: 0;
                     position: static;
                 }
-                .campaign-create-page .campaign-delivery-card [data-campaign-placeholder-editor]:has(tbody:not(:empty)) > .block-content { padding-top: 0; }
-                .campaign-create-page .campaign-delivery-card [data-campaign-placeholder-editor] .table-responsive:has(tbody:not(:empty)) { margin-top: 6px; }
+                .campaign-create-page .campaign-delivery-card [data-campaign-placeholder-editor]:has(tbody tr) > .block-content { padding-top: 0; }
+                .campaign-create-page .campaign-delivery-card [data-campaign-placeholder-editor] .table-responsive:has(tbody tr) { margin-top: 6px; }
                 .campaign-create-page .campaign-placeholder-toolbar { flex-wrap: wrap; justify-content: flex-start; }
                 .campaign-create-page .form-row > [class*='col-'] { flex: 0 0 100%; max-width: 100%; }
             }

@@ -322,7 +322,7 @@ export default function DeliverabilityGeoMap({ data, theme }: { data: DashboardA
             </div>
             <div className="command-os-geo-body">
                 <div className="command-os-map-frame">
-                    <div className="command-os-map" ref={container} role="application" aria-label="Interactive dotted world map. Markers represent approximate country-level activity aggregates, not recipient locations. Use zoom controls and select a country for its delivery feedback and engagement totals." />
+                    <div className="command-os-map" ref={container} role="application" aria-describedby="command-os-geo-note" aria-label="Interactive dotted world map. Markers represent approximate country-level activity aggregates, not recipient locations. Use zoom controls and select a country for its delivery feedback and engagement totals." />
                 </div>
                 <div className="command-os-geo-countries" aria-label="Countries with recorded activity">
                     {summary.length === 0 ? <div className="command-os-geo-empty" role="status">
@@ -342,7 +342,7 @@ export default function DeliverabilityGeoMap({ data, theme }: { data: DashboardA
                     })}
                 </div>
             </div>
-            <p className="command-os-geo-note" title={data.feedback_note}>{data.feedback_note}</p>
+            <p className="command-os-sr-only" id="command-os-geo-note">{data.feedback_note}</p>
         </section>
     );
 }

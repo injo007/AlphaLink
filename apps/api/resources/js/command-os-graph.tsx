@@ -150,12 +150,12 @@ export default function MarketingGraph({ data, theme }: { data: DashboardAnalyti
                 <div className="command-os-panel-title"><span className="command-os-heading-icon"><span aria-hidden="true">✣</span></span><h2 id="command-os-graph-title">Marketing graph</h2></div>
                 <span className="command-os-status-tag">Network view</span>
             </div>
-            <div className="command-os-graph-canvas" ref={container} role="application" aria-label="Interactive AlphaLink module graph. Select a module to inspect its stored activity count." />
+            <div className="command-os-graph-canvas" ref={container} role="application" aria-describedby="command-os-graph-note" aria-label="Interactive AlphaLink module graph. Select a module to inspect its stored activity count." />
             <p className="command-os-graph-selected" aria-live="polite">{selected}</p>
             <ul className="command-os-sr-only" aria-label="Module activity counts">
                 {data.nodes.map((node) => <li key={node.id}>{node.label}: {formatCount(node.count)} activity in this range</li>)}
             </ul>
-            <p className="command-os-graph-note" title={data.note}>Connections show module membership, not record links. Select a node for its activity count.</p>
+            <p className="command-os-sr-only" id="command-os-graph-note">{data.note} Select a node for its activity count.</p>
         </section>
     );
 }

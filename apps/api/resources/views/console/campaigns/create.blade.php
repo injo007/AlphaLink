@@ -313,10 +313,10 @@
             .campaign-create-page #campaign-targeting > .row > [class*='col-'] { padding-left: 5px; padding-right: 5px; }
             .campaign-create-page #campaign-targeting .block { height: 100%; }
             .campaign-create-page #campaign-targeting .block-header { min-height: 40px; }
-            .campaign-create-page #campaign-targeting .block-content { padding: 9px 12px; }
-            .campaign-create-page #campaign-targeting .form-group { margin-bottom: 4px; }
-            .campaign-create-page #campaign-targeting .form-control:not(textarea):not([multiple]):not(.bootstrap-select) { height: 27px; min-height: 27px; padding: 2px 8px; }
-            .campaign-create-page #campaign-targeting .bootstrap-select.form-control > .dropdown-toggle { height: 27px; min-height: 27px; padding: 2px 8px; }
+            .campaign-create-page #campaign-targeting .block-content { padding: 6px 12px; }
+            .campaign-create-page #campaign-targeting .form-group { margin-bottom: 0; }
+            .campaign-create-page #campaign-targeting .form-control:not(textarea):not([multiple]):not(.bootstrap-select) { height: 24px; min-height: 24px; padding: 1px 8px; }
+            .campaign-create-page #campaign-targeting .bootstrap-select.form-control > .dropdown-toggle { height: 24px; min-height: 24px; padding: 1px 8px; }
             .campaign-create-page .campaign-target-label-row { align-items: center; display: flex; justify-content: space-between; margin-bottom: 4px; }
             .campaign-create-page .campaign-target-label-row label { margin-bottom: 0; }
             .campaign-create-page #campaign-targeting > .row > [class*='col-']:first-child .block-header,
@@ -406,8 +406,13 @@
                 width: 17px;
             }
             .campaign-create-page .campaign-target-label-row .campaign-create-help summary .campaign-field-icon { margin: 0; width: auto; }
-            .campaign-create-page .campaign-create-help > small { display: block; margin-top: 5px; }
-            .campaign-create-page .campaign-email-card .block-content { padding-bottom: 8px; }
+            .campaign-create-page .campaign-create-help:not([open]) > small { display: none; }
+            .campaign-create-page .campaign-create-help[open] > small { display: block; margin-top: 5px; }
+            .campaign-create-page .campaign-email-card .block-content { padding: 8px 12px 9px; }
+            .campaign-create-page .campaign-email-card .form-group { margin-bottom: 4px; }
+            .campaign-create-page .campaign-email-card .form-control:not(textarea):not([multiple]):not(.bootstrap-select) { height: 27px; min-height: 27px; padding: 2px 8px; }
+            .campaign-create-page .campaign-email-card .bootstrap-select.form-control > .dropdown-toggle { height: 27px; min-height: 27px; padding: 2px 8px; }
+            .campaign-create-page .campaign-email-card #campaign-email-tests { height: 27px; min-height: 27px; resize: vertical; }
             .campaign-create-page .campaign-delivery-card [data-campaign-placeholder-editor] {
                 background: transparent;
                 border: 0;
@@ -429,20 +434,20 @@
                 font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
                 font-size: 11px;
                 line-height: 1.4;
-                min-height: 148px;
+                min-height: 88px;
                 resize: vertical;
             }
-            .campaign-create-page .campaign-header-editor { height: 164px; }
-            .campaign-create-page #campaign-body { height: 164px; }
+            .campaign-create-page .campaign-header-editor { height: 90px; }
+            .campaign-create-page #campaign-body { height: 90px; }
             .campaign-create-page #campaign-routing {
-                border-top: 1px solid #ebe9f6;
-                margin-top: 4px;
-                padding-top: 12px;
+                border-top: 0;
+                margin-top: 0;
+                padding-top: 4px;
             }
             .campaign-create-page #campaign-routing > .row > [class*='col-'] { min-width: 0; }
             .campaign-create-page #send-ips-available,
-            .campaign-create-page #send-ips-selected { min-height: 118px; }
-            .campaign-create-page #send-route-behavior { background: #f7f5ff; border-left: 3px solid #9a5aff; border-radius: 0 7px 7px 0; display: block; margin-top: 8px; padding: 7px 9px; }
+            .campaign-create-page #send-ips-selected { height: 56px; min-height: 56px; }
+            .campaign-create-page #send-route-behavior { background: #f7f5ff; border-left: 3px solid #9a5aff; border-radius: 0 7px 7px 0; margin-top: 8px; padding: 7px 9px; }
             .campaign-create-summary { position: sticky; top: 56px; }
             .campaign-summary-card {
                 background: var(--campaign-surface);
@@ -806,14 +811,12 @@
                     </div>
                     <div class="form-group col-md-4">
                         <label for="campaign-email-tests"><i class="fas fa-envelope campaign-field-icon" aria-hidden="true"></i>Email Test addresses:</label>
-                        <textarea id="campaign-email-tests" name="email_test_addresses" rows="2" class="form-control" autocomplete="off">{{ old('email_test_addresses', implode("\n", $savedContent['email_tests'] ?? [])) }}</textarea>
+                        <textarea id="campaign-email-tests" name="email_test_addresses" rows="1" class="form-control" autocomplete="off">{{ old('email_test_addresses', implode("\n", $savedContent['email_tests'] ?? [])) }}</textarea>
                     </div>
                 </div>
                 <div class="form-row">
-                    @include('console.campaigns.partials.header-library', ['workspace' => $workspace, 'textareaId' => 'campaign-header', 'idPrefix' => 'campaign'])
-                </div>
-                <div class="form-row">
-                    <div class="form-group col-sm-12 col-md-3">
+                    @include('console.campaigns.partials.header-library', ['workspace' => $workspace, 'textareaId' => 'campaign-header', 'idPrefix' => 'campaign', 'containerClass' => 'form-group col-sm-12 col-md-4'])
+                    <div class="form-group col-sm-12 col-md-4">
                         <label for="campaign-domain"><i class="fas fa-globe campaign-field-icon" aria-hidden="true"></i>Domain:</label>
                         <select id="campaign-domain" name="domain" class="form-control selectpicker" data-live-search="true" data-allow-clear="true" title="Select Domain">
                             <option value="">Select Domain</option>
@@ -823,12 +826,38 @@
                         </select>
                         <small id="campaign-domain-route-hint" class="form-text text-muted" hidden></small>
                     </div>
-                    <div class="form-group col-sm-12 col-md-3">
+                    <div class="form-group col-sm-12 col-md-4">
                         <label for="campaign-negative"><i class="fas fa-ban campaign-field-icon" aria-hidden="true"></i>Negative:</label>
                         <select id="campaign-negative" name="send_setup[negative_id]" class="form-control selectpicker" data-live-search="true" data-allow-clear="true" title="Select Negative">
                             <option value="">Select Negative</option>
                             @foreach ($sendOptions['negatives'] as $negative)
                                 <option value="{{ $negative['id'] }}" @selected($setup['negative_id'] === (string) $negative['id'])>{{ $negative['name'] }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group col-sm-12 col-md-3">
+                        <label for="send-from-assets"><i class="fas fa-user campaign-field-icon" aria-hidden="true"></i>From values (optional):
+                            <button type="button" class="btn btn-link btn-sm p-0" data-copy-selected="send-from-assets" title="Copy selected From values" aria-label="Copy selected From values"><i class="fas fa-copy" aria-hidden="true"></i></button>
+                        </label>
+                        <select id="send-from-assets" name="send_setup[from_asset_ids][]" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 2" title="Select optional From values" multiple>
+                            @foreach (($sendOptions['offers']->firstWhere('id', (int) $setup['offer_id'])['assets'] ?? []) as $asset)
+                                @if ($asset['type'] === 'from')
+                                    <option value="{{ $asset['id'] }}" @selected(in_array((string) $asset['id'], $setup['from_asset_ids'], true))>{{ $asset['value'] }}</option>
+                                @endif
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="form-group col-sm-12 col-md-3">
+                        <label for="send-subject-assets"><i class="fas fa-file-alt campaign-field-icon" aria-hidden="true"></i>Subjects (optional):
+                            <button type="button" class="btn btn-link btn-sm p-0" data-copy-selected="send-subject-assets" title="Copy selected subjects" aria-label="Copy selected subjects"><i class="fas fa-copy" aria-hidden="true"></i></button>
+                        </label>
+                        <select id="send-subject-assets" name="send_setup[subject_asset_ids][]" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 2" title="Select optional subjects" multiple>
+                            @foreach (($sendOptions['offers']->firstWhere('id', (int) $setup['offer_id'])['assets'] ?? []) as $asset)
+                                @if ($asset['type'] === 'subject')
+                                    <option value="{{ $asset['id'] }}" @selected(in_array((string) $asset['id'], $setup['subject_asset_ids'], true))>{{ $asset['value'] }}</option>
+                                @endif
                             @endforeach
                         </select>
                     </div>
@@ -854,43 +883,17 @@
                             @endforeach
                         </select>
                     </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group col-sm-12 col-md-6">
-                        <label for="send-from-assets"><i class="fas fa-user campaign-field-icon" aria-hidden="true"></i>From values (optional):
-                            <button type="button" class="btn btn-link btn-sm p-0" data-copy-selected="send-from-assets" title="Copy selected From values" aria-label="Copy selected From values"><i class="fas fa-copy" aria-hidden="true"></i></button>
-                        </label>
-                        <select id="send-from-assets" name="send_setup[from_asset_ids][]" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 2" title="Select optional From values" multiple>
-                            @foreach (($sendOptions['offers']->firstWhere('id', (int) $setup['offer_id'])['assets'] ?? []) as $asset)
-                                @if ($asset['type'] === 'from')
-                                    <option value="{{ $asset['id'] }}" @selected(in_array((string) $asset['id'], $setup['from_asset_ids'], true))>{{ $asset['value'] }}</option>
-                                @endif
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="form-group col-sm-12 col-md-6">
-                        <label for="send-subject-assets"><i class="fas fa-file-alt campaign-field-icon" aria-hidden="true"></i>Subjects (optional):
-                            <button type="button" class="btn btn-link btn-sm p-0" data-copy-selected="send-subject-assets" title="Copy selected subjects" aria-label="Copy selected subjects"><i class="fas fa-copy" aria-hidden="true"></i></button>
-                        </label>
-                        <select id="send-subject-assets" name="send_setup[subject_asset_ids][]" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 2" title="Select optional subjects" multiple>
-                            @foreach (($sendOptions['offers']->firstWhere('id', (int) $setup['offer_id'])['assets'] ?? []) as $asset)
-                                @if ($asset['type'] === 'subject')
-                                    <option value="{{ $asset['id'] }}" @selected(in_array((string) $asset['id'], $setup['subject_asset_ids'], true))>{{ $asset['value'] }}</option>
-                                @endif
-                            @endforeach
-                        </select>
-                    </div>
-                    <small class="form-text text-muted col-12">Optional rotation values. Leave these blank to use the literal From and Subject values in the Header.</small>
+                    <small class="sr-only form-text text-muted col-12">Optional rotation values. Leave these blank to use the literal From and Subject values in the Header.</small>
                 </div>
                 <div class="form-row">
                     <div class="form-group col-md-6">
                         <label for="campaign-header"><i class="fas fa-heading campaign-field-icon" aria-hidden="true"></i>Header:
                             <button type="button" class="btn btn-link btn-sm p-0" id="campaign-header-shuffle" title="Shuffle header lines" aria-label="Shuffle header lines"><i class="fas fa-random" aria-hidden="true"></i></button>
                             <button type="button" class="btn btn-link btn-sm p-0" id="campaign-header-encode" title="Encoding tools" aria-label="Encoding tools"><i class="fas fa-pencil-ruler" aria-hidden="true"></i></button>
-                            <button type="button" class="btn btn-link btn-sm p-0" id="campaign-header-use-smtp" title="Put the selected Workspace SMTP account in the From address">Use SMTP account as From</button>
+                            <button type="button" class="btn btn-link btn-sm p-0" id="campaign-header-use-smtp" title="Put the selected Workspace SMTP account in the From address" aria-label="Use selected SMTP account as From"><i class="fas fa-plug" aria-hidden="true"></i></button>
                         </label>
                         <textarea id="campaign-header" name="header" rows="30" class="form-control campaign-header-editor" spellcheck="false" required>{{ old('header', $savedContent['header'] ?? $defaultCampaignHeader) }}</textarea>
-                        <small class="form-text text-muted">This inserts <code>From: [smtp]@[domain]</code> and switches routing to SMTP. Select the Workspace account under Available SMTP routes; full email usernames and the supported form <code>info@[smtp]</code> are supported.</small>
+                        <small class="sr-only form-text text-muted">This inserts <code>From: [smtp]@[domain]</code> and switches routing to SMTP. Select the Workspace account under Available SMTP routes; full email usernames and the supported form <code>info@[smtp]</code> are supported.</small>
                     </div>
                     <div class="form-group col-md-6">
                         <label for="campaign-body"><i class="fas fa-code campaign-field-icon" aria-hidden="true"></i>Body:
@@ -999,9 +1002,12 @@
                                         <select id="send-ips-selected" class="form-control" multiple size="10" aria-label="Selected {{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}" aria-describedby="send-ips-transfer-help"></select>
                                     </div>
                                 </div>
-                                <small id="send-ips-transfer-help" class="form-text text-muted">Double-click an entry to move it between lists. You can also select entries and use the arrow buttons.</small>
-                                <small class="form-text text-muted">Campaign Save requires at least one selected IP, VMTA, or SMTP route. Test Campaign uses the saved route on this revision.</small>
-                                <small class="form-text text-info" id="send-route-behavior">Option IP sends through the selected IP route. <code>[smtp]</code> and <code>[smtp_name]</code> fill message text from one linked account; they do not choose the outbound route. To send through an SMTP relay, choose Option SMTP and select that account. AlphaLink connects to the selected server’s PMTA listener; that server IP is the PMTA ingress, while the selected route controls outbound delivery. Start a saved campaign from My Campaigns after recipient preparation finishes.</small>
+                                <small id="send-ips-transfer-help" class="sr-only form-text text-muted">Double-click an entry to move it between lists. You can also select entries and use the arrow buttons.</small>
+                                <small class="sr-only form-text text-muted">Campaign Save requires at least one selected IP, VMTA, or SMTP route. Test Campaign uses the saved route on this revision.</small>
+                                <details class="campaign-create-help campaign-route-help">
+                                    <summary title="Route behavior"><i class="fas fa-info-circle campaign-field-icon" aria-hidden="true"></i><span class="sr-only">Route behavior</span></summary>
+                                    <small class="form-text text-info" id="send-route-behavior">Option IP sends through the selected IP route. <code>[smtp]</code> and <code>[smtp_name]</code> fill message text from one linked account; they do not choose the outbound route. To send through an SMTP relay, choose Option SMTP and select that account. AlphaLink connects to the selected server’s PMTA listener; that server IP is the PMTA ingress, while the selected route controls outbound delivery. Start a saved campaign from My Campaigns after recipient preparation finishes.</small>
+                                </details>
                             </div>
                             <div id="campaign-pmta-panels" class="row" aria-live="polite">
                                 @foreach ($sendOptions['servers'] as $server)

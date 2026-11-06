@@ -435,15 +435,27 @@ body.command-os-shell #page-header .content-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    box-sizing: border-box;
     gap: 16px;
     min-height: 44px;
     height: 44px;
+    width: 100%;
     padding: 0 18px;
 }
 
 body.command-os-shell #page-header .content-header > .d-flex {
     min-width: 0;
     align-items: center;
+}
+
+body.command-os-shell #page-header .command-os-header-leading {
+    flex: 1 1 auto;
+}
+
+body.command-os-shell #page-header .command-os-header-trailing {
+    flex: 0 0 auto;
+    gap: 4px;
+    margin-left: auto;
 }
 
 body.command-os-shell #page-header .btn-dual {
@@ -551,6 +563,45 @@ body.command-os-shell #page-header .dropdown > button {
     background: transparent;
     font-size: 11px;
     white-space: nowrap;
+}
+
+body.command-os-shell #page-header #page-header-user-dropdown {
+    box-sizing: border-box;
+    flex: 0 1 auto;
+    width: auto;
+    min-width: 36px;
+    max-width: min(240px, 30vw);
+    height: 34px;
+    min-height: 34px;
+    gap: 6px;
+    justify-content: flex-start;
+    padding: 0 9px;
+    overflow: hidden;
+}
+
+body.command-os-shell #page-header .command-os-account-control {
+    flex: 0 0 auto;
+}
+
+body.command-os-shell #page-header .command-os-account-name {
+    display: block;
+    flex: 0 1 auto;
+    min-width: 0;
+    margin-left: 0 !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+body.command-os-shell #page-header .command-os-account-chevron {
+    flex: 0 0 auto;
+    margin-left: 0 !important;
+}
+
+body.command-os-shell #page-header #command-os-theme-toggle {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
 }
 
 body.command-os-shell #page-header .dropdown-menu {
@@ -1931,17 +1982,42 @@ body.command-os-dashboard #page-container.sidebar-mini #sidebar:focus-within .na
     }
 }
 
+@media (max-width: 1100px) {
+    body.command-os-shell #page-header .command-os-header-leading > a {
+        display: none;
+    }
+
+    body.command-os-shell #page-header .command-os-search-trigger {
+        flex: 1 1 340px;
+        width: min(460px, calc(100vw - 460px));
+        min-width: 120px;
+    }
+}
+
 @media (max-width: 640px) {
-    body.command-os-shell #page-header .content-header > .d-flex:first-child { flex: 1 1 auto; }
-    .command-os-search-trigger { flex: 0 0 40px; width: 40px; min-width: 40px; height: 40px; justify-content: center; margin-left: 0; padding: 0; }
+    body.command-os-shell #page-header .command-os-header-leading { flex: 1 1 auto; }
+    body.command-os-shell #page-header .command-os-search-trigger { flex: 0 0 40px; width: 40px; min-width: 40px; height: 40px; justify-content: center; margin-left: 0; padding: 0; }
     .command-os-search-trigger > span,
     .command-os-search-trigger > kbd { display: none; }
     body.command-os-shell #page-header .content-header { gap: 7px; }
-    body.command-os-shell #page-header .content-header > .d-flex:last-child { gap: 2px; }
-    body.command-os-shell #page-header .content-header > .d-flex:first-child > a { display: none; }
+    body.command-os-shell #page-header .command-os-header-trailing { gap: 4px; }
+    body.command-os-shell #page-header .command-os-header-leading > a { display: none; }
     body.command-os-shell #page-header .btn-dual { width: 40px; height: 40px; }
-    body.command-os-shell #page-header .dropdown > button { max-width: 42px; overflow: hidden; }
-    body.command-os-shell #page-header .dropdown > button .d-none.d-sm-inline-block { display: none !important; }
+    body.command-os-shell #page-header #page-header-user-dropdown {
+        width: 40px;
+        min-width: 40px;
+        max-width: 40px;
+        height: 40px;
+        min-height: 40px;
+        justify-content: center;
+        gap: 0;
+        padding: 0;
+    }
+    body.command-os-shell #page-header .command-os-account-control { margin-left: 0 !important; }
+    body.command-os-shell #page-header .command-os-account-name,
+    body.command-os-shell #page-header .command-os-account-chevron { display: none !important; }
+    body.command-os-shell #page-header #page-header-user-dropdown .fa-user { display: inline-block !important; }
+    body.command-os-shell #command-os-theme-toggle .command-os-theme-button { width: 40px; height: 40px; margin: 0; }
     .command-os-search-panel { padding: 16px; }
     .command-os-search-footer { justify-content: space-between; gap: 8px; }
     .command-os-page-heading { align-items: flex-start; flex-direction: column; gap: 10px; }

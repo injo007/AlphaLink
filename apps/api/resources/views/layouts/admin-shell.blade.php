@@ -542,7 +542,7 @@
         @endif
         <header id="page-header">
             <div class="content-header">
-                <div class="d-flex align-items-center">
+                <div class="d-flex align-items-center command-os-header-leading">
                     <button type="button" class="btn btn-sm btn-dual mr-2 d-lg-none" data-toggle="layout" data-action="sidebar_open" aria-label="Open navigation" @if ($commandOsShell) aria-controls="sidebar" aria-expanded="false" @endif><i class="fa fa-fw {{ $commandOsShell ? 'fa-bars' : 'fa-ellipsis-v' }}"></i></button>
                     <button type="button" class="btn btn-sm btn-dual mr-2 d-none d-lg-inline-block" data-action="sidebar_mini_toggle" aria-label="Toggle navigation width" aria-pressed="{{ $commandOsShell ? 'false' : 'true' }}"><i class="fa fa-fw {{ $commandOsShell ? 'fa-bars' : 'fa-ellipsis-v' }}"></i></button>
                     @if ($commandOsShell)
@@ -560,16 +560,16 @@
                         <a class="btn btn-sm btn-dual mr-2" href="{{ $globalTestsUrl }}" title="GLOBAL TEST" aria-label="Global Test"><i class="fas fa-map-signs"></i></a>
                     @endif
                 </div>
-                <div class="d-flex align-items-center">
+                <div class="d-flex align-items-center command-os-header-trailing">
                     @if ($commandOsShell)
                         <div id="command-os-theme-toggle"></div>
                     @endif
                     @if (session()->has('alphalink.impersonator_id'))
                         <form method="post" action="{{ route('console.global-users.impersonation.leave') }}" class="mr-2">@csrf<button class="btn btn-sm btn-warning" type="submit">STOP IMPERSONATION</button></form>
                     @endif
-                    <div class="dropdown d-inline-block ml-2">
-                        <button type="button" class="btn btn-sm btn-dual d-flex align-items-center" id="page-header-user-dropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                            <i class="fa fa-user d-sm-none"></i><span class="d-none d-sm-inline-block ml-1">{{ auth()->user()->name ?: auth()->user()->email }}</span><i class="fa fa-angle-down ml-1"></i>
+                    <div class="dropdown d-inline-block ml-2 command-os-account-control">
+                        <button type="button" class="btn btn-sm btn-dual d-flex align-items-center command-os-account-button" id="page-header-user-dropdown" data-toggle="dropdown" aria-label="Account menu" title="Account menu" aria-haspopup="true" aria-expanded="false">
+                            <i class="fa fa-user d-sm-none" aria-hidden="true"></i><span class="d-none d-sm-inline-block ml-1 command-os-account-name">{{ auth()->user()->name ?: auth()->user()->email }}</span><i class="fa fa-angle-down ml-1 command-os-account-chevron" aria-hidden="true"></i>
                         </button>
                         <div class="dropdown-menu dropdown-menu-md dropdown-menu-right p-0 border-0 command-os-account-menu" aria-labelledby="page-header-user-dropdown">
                             <div class="command-os-account-heading">

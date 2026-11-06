@@ -339,6 +339,16 @@
                 box-shadow: 0 6px 18px rgb(78 64 164 / 7%);
                 overflow: hidden;
             }
+            .campaign-create-page #campaign-targeting .block:focus-within,
+            .campaign-create-page .campaign-email-card:focus-within,
+            .campaign-create-page .campaign-delivery-card:focus-within {
+                overflow: visible;
+                z-index: 30;
+            }
+            .campaign-create-page .bootstrap-select:focus-within,
+            .campaign-create-page .bootstrap-select.open,
+            .campaign-create-page .bootstrap-select.show { position: relative; z-index: 31; }
+            .campaign-create-page .bootstrap-select .dropdown-menu { z-index: 32; }
             .campaign-create-page #campaign-targeting > .row > [class*='col-']:first-child .block {
                 background: linear-gradient(145deg, #fff 0%, #fdfaff 63%, #f7f2ff 100%);
             }

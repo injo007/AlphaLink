@@ -571,11 +571,28 @@
                         <button type="button" class="btn btn-sm btn-dual d-flex align-items-center" id="page-header-user-dropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                             <i class="fa fa-user d-sm-none"></i><span class="d-none d-sm-inline-block ml-1">{{ auth()->user()->name ?: auth()->user()->email }}</span><i class="fa fa-angle-down ml-1"></i>
                         </button>
-                        <div class="dropdown-menu dropdown-menu-md dropdown-menu-right p-0 border-0" aria-labelledby="page-header-user-dropdown">
-                            <div class="p-3 text-center bg-primary-dark rounded-top"><p class="text-white font-w600 mb-0">{{ auth()->user()->name ?: auth()->user()->email }}</p></div>
-                            <div class="p-2">
-                                <a class="dropdown-item d-flex align-items-center justify-content-between" href="{{ route('auth.profile') }}">PROFILE</a>
-                                <form method="post" action="{{ route('logout') }}">@csrf<button class="dropdown-item d-flex align-items-center justify-content-between w-100" type="submit">LOGOUT</button></form>
+                        <div class="dropdown-menu dropdown-menu-md dropdown-menu-right p-0 border-0 command-os-account-menu" aria-labelledby="page-header-user-dropdown">
+                            <div class="command-os-account-heading">
+                                <span class="command-os-account-avatar" aria-hidden="true"><i class="fas fa-user"></i></span>
+                                <div class="command-os-account-identity">
+                                    <span class="command-os-account-eyebrow">Signed in</span>
+                                    <p>{{ auth()->user()->name ?: auth()->user()->email }}</p>
+                                </div>
+                            </div>
+                            <div class="command-os-account-actions">
+                                <a class="dropdown-item command-os-account-action" href="{{ route('auth.profile') }}">
+                                    <span class="command-os-account-action-icon" aria-hidden="true"><i class="fas fa-id-card"></i></span>
+                                    <span>Profile</span>
+                                    <i class="fas fa-arrow-right command-os-account-action-arrow" aria-hidden="true"></i>
+                                </a>
+                                <form method="post" action="{{ route('logout') }}" class="command-os-account-form">
+                                    @csrf
+                                    <button class="dropdown-item command-os-account-action is-logout" type="submit">
+                                        <span class="command-os-account-action-icon" aria-hidden="true"><i class="fas fa-sign-out-alt"></i></span>
+                                        <span>Logout</span>
+                                        <i class="fas fa-arrow-right command-os-account-action-arrow" aria-hidden="true"></i>
+                                    </button>
+                                </form>
                             </div>
                         </div>
                     </div>

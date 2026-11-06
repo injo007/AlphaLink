@@ -156,6 +156,7 @@
                 --campaign-surface: #fff;
                 --campaign-wash: #f8f7ff;
                 --campaign-canvas: #faf9ff;
+                --campaign-wave-tint: rgb(145 99 255 / 10%);
                 --campaign-purple: #792bfa;
                 --campaign-blue: #238dff;
                 color: var(--campaign-ink);
@@ -164,10 +165,10 @@
                 position: relative;
             }
             .campaign-create-page::after {
-                background-image: linear-gradient(90deg, var(--campaign-canvas) 0%, rgb(250 249 255 / 0%) 13%, rgb(250 249 255 / 0%) 87%, var(--campaign-canvas) 100%), linear-gradient(0deg, transparent 0%, var(--campaign-canvas) 100%), var(--campaign-hero-art);
-                background-position: center top, center top, left top;
+                background-image: linear-gradient(90deg, var(--campaign-canvas) 0%, rgb(250 249 255 / 0%) 5%, rgb(250 249 255 / 0%) 95%, var(--campaign-canvas) 100%), linear-gradient(0deg, var(--campaign-wave-tint) 0%, transparent 84%), linear-gradient(0deg, transparent 0%, var(--campaign-canvas) 100%), var(--campaign-hero-art);
+                background-position: center top, center bottom, center top, left top;
                 background-repeat: no-repeat;
-                background-size: 100% 100%, 100% 100%, 200% auto;
+                background-size: 100% 100%, 100% 100%, 100% 100%, 200% auto;
                 bottom: 0;
                 content: '';
                 height: clamp(112px, 15vh, 176px);
@@ -608,6 +609,7 @@
                 --campaign-surface: #111d3b;
                 --campaign-wash: #152342;
                 --campaign-canvas: #0b1530;
+                --campaign-wave-tint: rgb(67 147 255 / 12%);
                 --campaign-purple: #bd72ff;
                 --campaign-blue: #3ca9ff;
             }

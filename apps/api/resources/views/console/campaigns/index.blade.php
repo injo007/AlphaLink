@@ -3,9 +3,16 @@
 @section('title', 'Campaigns')
 
 @section('content')
-    <div class="block block-rounded">
-        <div class="block-header">
-            <h3 class="block-title">MY CAMPAIGNS</h3>
+    <div class="block block-rounded campaign-register-page">
+        <div class="block-header campaign-register-page-header">
+            <div class="campaign-register-heading">
+                <span class="campaign-register-heading-icon" aria-hidden="true"><i class="fas fa-paper-plane"></i></span>
+                <div class="campaign-register-heading-copy">
+                    <span class="campaign-register-eyebrow">EMAIL OPERATIONS</span>
+                    <h1 class="block-title">My Campaigns</h1>
+                    <p>Review campaigns, delivery progress, and send readiness.</p>
+                </div>
+            </div>
             <div class="block-options d-flex align-items-center">
                 <form method="GET" action="{{ route('console.campaigns.index', $workspace->id) }}" aria-label="Campaign availability filter">
                     <input type="hidden" name="from" value="{{ $from->toDateString() }}">
@@ -41,7 +48,7 @@
             <div id="campaign-auto-test-feedback" class="alert d-none" role="status" aria-live="polite"></div>
 
             <div class="d-flex flex-wrap align-items-center justify-content-between mb-2 campaign-register-toolbar">
-                <div class="d-flex align-items-center mb-2">
+                <div class="d-flex align-items-center campaign-register-actions">
                     <form method="GET" action="{{ route('console.campaigns.index', $workspace->id) }}" class="form-inline mr-2" aria-label="Campaign rows per page">
                         <input type="hidden" name="from" value="{{ $from->toDateString() }}">
                         <input type="hidden" name="to" value="{{ $to->toDateString() }}">
@@ -58,17 +65,17 @@
                             @endforeach
                         </select>
                     </form>
-                    <a class="btn btn-sm btn-alt-primary mr-2" href="{{ route('console.campaigns.create', $workspace->id) }}" title="Create campaign" aria-label="Create campaign"><i class="fas fa-plus" aria-hidden="true"></i></a>
-                    <a class="btn btn-sm {{ $activeOnly ? 'btn-primary' : 'btn-alt-secondary' }} mr-2" href="{{ $activeOnly ? route('console.campaigns.index', $workspace->id) : route('console.campaigns.index', [$workspace->id, 'send_state' => 'active']) }}" title="{{ $activeOnly ? 'Show all campaigns' : 'Show active campaign sends' }}" aria-label="{{ $activeOnly ? 'Show all campaigns' : 'Show active campaign sends' }}"><i class="fas fa-cog mr-1" aria-hidden="true"></i>{{ $activeOnly ? 'All campaigns' : 'Active sends' }} <span class="badge badge-light ml-1">{{ $activeSendCount }}</span></a>
-                    <button class="btn btn-sm btn-alt-danger mr-2" type="submit" form="campaign-bulk-form" id="campaign-bulk-disable-open" disabled title="Select campaigns to disable"><i class="fas fa-trash" aria-hidden="true"></i><span class="sr-only">Disable selected campaigns</span></button>
-                    <a class="btn btn-sm btn-alt-secondary" href="{{ request()->fullUrl() }}" title="Reload campaign register" aria-label="Reload campaign register"><i class="fas fa-sync-alt" aria-hidden="true"></i></a>
+                    <a class="btn btn-sm btn-alt-primary campaign-register-create" href="{{ route('console.campaigns.create', $workspace->id) }}" title="Create campaign"><i class="fas fa-plus" aria-hidden="true"></i><span>New campaign</span></a>
+                    <a class="btn btn-sm campaign-register-active {{ $activeOnly ? 'btn-primary' : 'btn-alt-secondary' }}" href="{{ $activeOnly ? route('console.campaigns.index', $workspace->id) : route('console.campaigns.index', [$workspace->id, 'send_state' => 'active']) }}" title="{{ $activeOnly ? 'Show all campaigns' : 'Show active campaign sends' }}" aria-label="{{ $activeOnly ? 'Show all campaigns' : 'Show active campaign sends' }}"><i class="fas fa-paper-plane mr-1" aria-hidden="true"></i>{{ $activeOnly ? 'All campaigns' : 'Active sends' }} <span class="badge badge-light ml-1">{{ $activeSendCount }}</span></a>
+                    <button class="btn btn-sm btn-alt-danger campaign-register-icon-action" type="submit" form="campaign-bulk-form" id="campaign-bulk-disable-open" disabled title="Select campaigns to disable" aria-label="Disable selected campaigns"><i class="fas fa-trash" aria-hidden="true"></i></button>
+                    <a class="btn btn-sm btn-alt-secondary campaign-register-icon-action" href="{{ request()->fullUrl() }}" title="Reload campaign register" aria-label="Reload campaign register"><i class="fas fa-sync-alt" aria-hidden="true"></i></a>
                 </div>
                 <form id="campaign-filter-form" method="GET" action="{{ route('console.campaigns.index', $workspace->id) }}" class="form-inline mb-2 campaign-register-filters" aria-label="Filter campaigns" data-analytics-date-range-form data-storage-key="campaigns" data-min-date="none" novalidate>
                     <input type="hidden" name="per_page" value="{{ $perPage }}">
                     @if ($showDisabled)
                         <input type="hidden" name="disabled" value="1">
                     @endif
-                    <label for="analytics-dates" class="mr-1">Date:</label>
+                    <label for="analytics-dates" class="mr-1">Date</label>
                     <input id="analytics-dates" type="text" class="form-control form-control-sm mr-2 campaign-date-range" value="{{ $from->toDateString() }} - {{ $to->toDateString() }}" readonly aria-label="Choose campaign date range">
                     <input type="hidden" name="from" value="{{ $from->toDateString() }}">
                     <input type="hidden" name="to" value="{{ $to->toDateString() }}">
@@ -78,7 +85,7 @@
                         <button id="campaign-search-clear" class="campaign-search-clear" type="button" aria-label="Clear campaign search" title="Clear search" hidden><i class="fas fa-times" aria-hidden="true"></i></button>
                     </div>
                     <button class="btn btn-sm btn-alt-secondary ml-1" type="submit" title="Apply campaign filters" aria-label="Apply campaign filters"><i class="fas fa-search" aria-hidden="true"></i></button>
-                    <a class="small ml-2" href="{{ route('console.campaigns.test-draft.create', $workspace->id) }}" aria-label="New test message">New test message</a>
+                    <a class="campaign-register-test-link" href="{{ route('console.campaigns.test-draft.create', $workspace->id) }}" aria-label="New test message"><i class="far fa-envelope" aria-hidden="true"></i><span>New test message</span></a>
                 </form>
             </div>
             @if ($activeOnly)
@@ -260,6 +267,7 @@
                     </tbody>
                 </table>
             </div>
+            <p class="campaign-register-scroll-note"><i class="fas fa-arrows-left-right" aria-hidden="true"></i> Scroll horizontally to view all campaign fields and actions.</p>
 
             <div class="d-flex justify-content-end mt-2">{{ $campaigns->links() }}</div>
             <p class="text-muted small mb-0">Showing {{ $campaigns->firstItem() ?? 0 }} to {{ $campaigns->lastItem() ?? 0 }} of {{ $campaigns->total() }} campaigns in the selected date range.</p>
@@ -324,35 +332,188 @@
 @push('styles')
     <link rel="stylesheet" href="{{ asset('console-assets/vendor/daterangepicker/daterangepicker.css') }}">
     <style>
+        body.command-os-shell .campaign-register-page {
+            margin: 0 0 18px;
+            overflow: hidden;
+            border: 1px solid var(--co-border);
+            border-radius: 17px;
+            color: var(--co-ink);
+            background: var(--co-surface);
+            box-shadow: var(--co-shadow);
+        }
+        body.command-os-shell .campaign-register-page-header {
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            min-height: 88px;
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--co-border);
+            background: linear-gradient(105deg, color-mix(in srgb, var(--co-purple) 8%, var(--co-surface)), var(--co-surface) 48%, color-mix(in srgb, var(--co-blue) 6%, var(--co-surface)));
+        }
+        .campaign-register-heading { display: flex; align-items: center; gap: 12px; min-width: 0; }
+        .campaign-register-heading-icon {
+            display: grid;
+            flex: 0 0 46px;
+            width: 46px;
+            height: 46px;
+            place-items: center;
+            border: 1px solid color-mix(in srgb, var(--co-purple) 24%, var(--co-border));
+            border-radius: 14px;
+            color: #fff;
+            background: linear-gradient(145deg, var(--co-purple-bright), var(--co-purple));
+            box-shadow: 0 7px 18px color-mix(in srgb, var(--co-purple) 24%, transparent);
+            font-size: 18px;
+        }
+        .campaign-register-heading-copy { min-width: 0; }
+        .campaign-register-eyebrow { color: var(--co-purple); font-size: 9px; font-weight: 800; letter-spacing: .14em; }
+        body.command-os-shell .campaign-register-page .campaign-register-heading-copy .block-title {
+            margin: 2px 0 3px;
+            color: var(--co-ink);
+            font-size: 20px;
+            font-weight: 780;
+            letter-spacing: -.04em;
+            line-height: 1.15;
+        }
+        .campaign-register-heading-copy p { margin: 0; color: var(--co-muted); font-size: 10px; }
+        .campaign-register-page .block-options { flex: 0 0 auto; gap: 12px; margin: 0; }
+        .campaign-register-page .block-options form { margin: 0; }
+        .campaign-register-page .custom-control-label { color: var(--co-muted); font-size: 9px; font-weight: 750; letter-spacing: .06em; white-space: nowrap; }
+        .campaign-register-page .custom-control-label::before { border-color: var(--co-border-strong); background: var(--co-surface-muted); box-shadow: none; }
+        .campaign-register-page .custom-control-input:checked ~ .custom-control-label::before { border-color: var(--co-purple); background-color: var(--co-purple); }
+        .campaign-register-page .btn-block-option { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid var(--co-border); border-radius: 10px; color: var(--co-muted); background: var(--co-surface); }
+        .campaign-register-page .btn-block-option:hover { border-color: var(--co-purple); color: var(--co-purple); }
+        body.command-os-shell .campaign-register-page > .block-content { padding: 16px 18px 18px; }
+        .campaign-register-toolbar {
+            gap: 10px 14px;
+            margin: 0 0 14px !important;
+            padding: 10px;
+            border: 1px solid var(--co-border);
+            border-radius: 13px;
+            background: linear-gradient(110deg, color-mix(in srgb, var(--co-purple) 4%, var(--co-surface-muted)), var(--co-surface-muted));
+        }
+        .campaign-register-actions { flex: 0 1 auto; flex-wrap: wrap; gap: 7px; min-width: 0; }
+        .campaign-register-actions form { margin: 0 !important; }
+        .campaign-register-actions .form-control,
+        .campaign-register-filters .form-control {
+            height: 35px;
+            border: 1px solid var(--co-border-strong);
+            border-radius: 9px;
+            color: var(--co-ink);
+            background-color: var(--co-surface);
+            box-shadow: none;
+            font-size: 10px;
+        }
+        .campaign-register-actions .form-control:focus,
+        .campaign-register-filters .form-control:focus { border-color: var(--co-purple); box-shadow: 0 0 0 3px color-mix(in srgb, var(--co-purple) 12%, transparent); }
+        .campaign-register-actions .form-control { min-width: 126px; }
+        .campaign-register-page .campaign-register-create,
+        .campaign-register-page .campaign-register-active,
+        .campaign-register-page .campaign-register-icon-action,
+        .campaign-register-page .campaign-register-filters > button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 35px;
+            border-radius: 9px;
+            font-size: 10px;
+            font-weight: 700;
+            text-decoration: none;
+        }
+        .campaign-register-page .campaign-register-create { gap: 7px; padding: 0 13px; border: 1px solid var(--co-purple); color: #fff; background: linear-gradient(105deg, var(--co-purple-bright), var(--co-purple)); box-shadow: 0 4px 10px color-mix(in srgb, var(--co-purple) 20%, transparent); }
+        .campaign-register-page .campaign-register-create:hover { color: #fff; filter: brightness(1.04); transform: translateY(-1px); }
+        .campaign-register-page .campaign-register-active { padding: 0 10px; border: 1px solid var(--co-border-strong); }
+        .campaign-register-page .campaign-register-active.btn-alt-secondary { color: var(--co-ink); background: var(--co-surface); }
+        .campaign-register-page .campaign-register-active.btn-primary { border-color: var(--co-purple); color: #fff; background: var(--co-purple); }
+        .campaign-register-page .campaign-register-icon-action { width: 35px; padding: 0; border: 1px solid var(--co-border-strong); color: var(--co-muted); background: var(--co-surface); }
+        .campaign-register-page .campaign-register-icon-action:hover:not(:disabled) { border-color: var(--co-purple); color: var(--co-purple); }
+        .campaign-register-page .campaign-register-icon-action:disabled { opacity: .45; }
+        .campaign-register-filters { display: flex; flex: 1 1 560px; align-items: center; justify-content: flex-end; gap: 7px; min-width: 0; margin: 0 !important; }
+        .campaign-register-filters > label:not(.sr-only) { margin: 0 !important; color: var(--co-muted); font-size: 10px; font-weight: 700; }
+        .campaign-register-filters .campaign-date-range { width: 190px; margin: 0 !important; }
+        .campaign-register-filters .campaign-search-control { flex: 0 1 220px; min-width: 130px; }
+        .campaign-register-filters input[type="search"] { width: 100%; max-width: none; padding-right: 30px; }
+        .campaign-search-clear { color: var(--co-muted); }
+        .campaign-register-page .campaign-register-filters > button { width: 35px; padding: 0; border: 1px solid var(--co-border-strong); color: var(--co-muted); background: var(--co-surface); }
+        .campaign-register-page .campaign-register-filters > button:hover { border-color: var(--co-purple); color: var(--co-purple); }
+        .campaign-register-test-link { display: inline-flex; align-items: center; gap: 6px; padding: 7px 9px; border-radius: 8px; color: var(--co-purple); background: color-mix(in srgb, var(--co-purple) 7%, var(--co-surface)); font-size: 10px; font-weight: 700; white-space: nowrap; }
+        .campaign-register-test-link:hover { color: var(--co-purple-bright); text-decoration: none; }
+        .campaign-register-page .alert { border-radius: 11px; }
         .campaign-register-table { font-size: .8rem; min-width: 1360px; }
-        .campaign-register-table th { white-space: nowrap; }
-        .campaign-register-table td { vertical-align: middle; }
-        .campaign-statistics-dropdown { background: #fff; border-top: 1px solid #dce1e5; padding: 0; }
+        .campaign-register-table-wrap { overflow: auto; border: 1px solid var(--co-border); border-radius: 13px; background: var(--co-surface); box-shadow: var(--co-shadow); scrollbar-color: var(--co-border-strong) transparent; }
+        .campaign-register-table { margin: 0; border-collapse: separate; border-spacing: 0; color: var(--co-ink); font-size: 10px; }
+        .campaign-register-table th { position: sticky; top: 0; z-index: 2; padding: 11px 9px; border-top: 0; border-bottom: 1px solid var(--co-border); color: var(--co-muted); background: var(--co-surface-muted); font-size: 8px; font-weight: 800; letter-spacing: .07em; white-space: nowrap; }
+        .campaign-register-table td { padding: 10px 9px; border-top: 1px solid color-mix(in srgb, var(--co-border) 76%, transparent); color: var(--co-ink); vertical-align: middle; }
+        .campaign-register-table tbody tr:first-child td { border-top: 0; }
+        .campaign-register-table tbody tr:hover td { background: color-mix(in srgb, var(--co-purple) 4%, var(--co-surface)); }
+        .campaign-register-table [data-campaign-column="campaign"] { min-width: 138px; }
+        .campaign-register-table [data-campaign-column="campaign"] a { color: var(--co-purple); font-size: 10px; font-weight: 800; }
+        .campaign-register-table [data-campaign-column="campaign"] .small { display: block; max-width: 170px; margin-top: 3px; color: var(--co-muted) !important; font-size: 9px; line-height: 1.4; }
+        .campaign-register-table [data-campaign-column="actions"] { min-width: 214px; }
+        .campaign-register-table [data-campaign-column="actions"] .btn-link { display: inline-grid; width: 27px; height: 27px; place-items: center; margin: 1px; padding: 0; border: 1px solid transparent; border-radius: 7px; color: var(--co-muted); }
+        .campaign-register-table [data-campaign-column="actions"] .btn-link:hover:not(:disabled) { border-color: var(--co-border); color: var(--co-purple); background: var(--co-surface-muted); }
+        .campaign-register-table [data-campaign-column="send"],
+        .campaign-register-table [data-campaign-column="progress"] { min-width: 160px; }
+        .campaign-register-table .form-control { min-width: 94px; height: 30px; border: 1px solid var(--co-border); border-radius: 8px; color: var(--co-ink); background: var(--co-surface); font-size: 9px; }
+        .campaign-register-table .badge { border-radius: 20px; font-size: 8px; font-weight: 750; letter-spacing: .025em; }
+        .campaign-register-table .badge-primary { color: var(--co-purple); background: color-mix(in srgb, var(--co-purple) 12%, var(--co-surface)); }
+        .campaign-register-table .badge-secondary { color: var(--co-muted); background: color-mix(in srgb, var(--co-muted) 12%, var(--co-surface)); }
+        .campaign-register-table .badge-warning { color: #a65d00; background: #fff2d8; }
+        .campaign-register-table .badge-success { color: #08784e; background: #def8ec; }
+        .campaign-register-table .badge-danger { color: #b52c49; background: #ffe5eb; }
+        .campaign-register-table .progress { overflow: hidden; border-radius: 20px; background: var(--co-surface-muted); }
+        .campaign-register-table .progress-bar { background: linear-gradient(90deg, var(--co-blue), var(--co-purple-bright)); }
+        .campaign-register-scroll-note { display: none; margin: 9px 2px 0; color: var(--co-subtle); font-size: 9px; }
+        .campaign-statistics-dropdown { padding: 12px; border: 1px solid var(--co-border); border-top: 0; color: var(--co-ink); background: var(--co-surface-muted); }
         .campaign-statistics-table { font-size: .78rem; margin-bottom: 0; table-layout: fixed; width: 100%; }
-        .campaign-statistics-table thead th { border-top: 0; color: #303941; font-size: .68rem; font-weight: 700; padding: .45rem .6rem .2rem; white-space: nowrap; }
-        .campaign-statistics-table td { color: #252b30; font-variant-numeric: tabular-nums; padding: .2rem .6rem .45rem; }
-        .campaign-statistics-empty { color: #737e87; padding: .65rem .6rem; }
+        .campaign-statistics-table thead th { border-top: 0; color: var(--co-muted); font-size: 8px; font-weight: 800; padding: .55rem .6rem .35rem; white-space: nowrap; }
+        .campaign-statistics-table td { color: var(--co-ink); font-variant-numeric: tabular-nums; padding: .35rem .6rem .55rem; }
+        .campaign-statistics-empty { color: var(--co-muted); padding: .65rem .6rem; }
         .campaign-register-toolbar .btn[disabled] { cursor: not-allowed; opacity: .55; }
-        .campaign-register-filters .campaign-date-range { width: 12.6rem; }
         .campaign-register-filters .campaign-search-control { position: relative; }
-        .campaign-register-filters input[type="search"] { max-width: 12rem; padding-right: 2rem; }
         .campaign-search-clear { align-items: center; background: transparent; border: 0; color: #77818a; display: inline-flex; height: 100%; justify-content: center; padding: 0 .45rem; position: absolute; right: 0; top: 0; }
         .campaign-search-clear[hidden] { display: none; }
-        .campaign-search-clear:focus-visible { outline: 2px solid #376fc4; outline-offset: 2px; }
-        .campaign-status-dialog { border: 1px solid #d5dce1; border-radius: .35rem; color: #343a40; max-width: 32rem; padding: 1.25rem; width: min(92vw, 32rem); }
-        .campaign-status-dialog::backdrop { background: rgba(27, 33, 40, .55); }
-        .campaign-status-dialog h2 { font-size: 1.15rem; margin: 0 0 .75rem; }
-        .campaign-clone-dialog { border: 1px solid #d5dce1; border-radius: .35rem; color: #343a40; max-height: min(90vh, 56rem); max-width: 56rem; overflow: auto; padding: 1.25rem; width: min(94vw, 56rem); }
-        .campaign-clone-dialog::backdrop { background: rgba(27, 33, 40, .58); }
-        .campaign-clone-dialog-header { align-items: center; border-bottom: 1px solid #e1e6ea; display: flex; justify-content: space-between; margin: -0.25rem 0 1rem; padding-bottom: .7rem; }
-        .campaign-clone-dialog-header h2 { font-size: 1.05rem; font-weight: 600; margin: 0; }
+        .campaign-search-clear:focus-visible { outline: 2px solid var(--co-purple); outline-offset: 2px; }
+        .campaign-status-dialog,
+        .campaign-clone-dialog { border: 1px solid var(--co-border-strong); border-radius: 16px; color: var(--co-ink); background: var(--co-surface); box-shadow: 0 24px 80px rgb(13 20 48 / 25%); }
+        .campaign-status-dialog { max-width: 32rem; padding: 1.4rem; width: min(92vw, 32rem); }
+        .campaign-status-dialog::backdrop,
+        .campaign-clone-dialog::backdrop { background: rgb(8 13 31 / 58%); backdrop-filter: blur(4px); }
+        .campaign-status-dialog h2 { margin: 0 0 .7rem; color: var(--co-ink); font-size: 17px; font-weight: 760; letter-spacing: -.025em; }
+        .campaign-status-dialog p { color: var(--co-muted); font-size: 12px; line-height: 1.6; }
+        .campaign-status-dialog .btn { border-radius: 9px; font-size: 11px; font-weight: 700; }
+        .campaign-clone-dialog { max-height: min(90vh, 56rem); max-width: 56rem; overflow: auto; padding: 1.25rem; width: min(94vw, 56rem); }
+        .campaign-clone-dialog-header { align-items: center; border-bottom: 1px solid var(--co-border); display: flex; justify-content: space-between; margin: -0.25rem 0 1rem; padding-bottom: .7rem; }
+        .campaign-clone-dialog-header h2 { color: var(--co-ink); font-size: 15px; font-weight: 760; margin: 0; }
         .campaign-clone-form-content .form-group { margin-bottom: 1rem; }
+        html[data-command-theme='dark'] .campaign-register-table .badge-warning { color: #ffd591; background: rgb(209 126 20 / 22%); }
+        html[data-command-theme='dark'] .campaign-register-table .badge-success { color: #75e4b4; background: rgb(25 173 116 / 20%); }
+        html[data-command-theme='dark'] .campaign-register-table .badge-danger { color: #ff9eae; background: rgb(220 71 102 / 20%); }
+        @media (max-width: 1100px) {
+            .campaign-register-toolbar { align-items: stretch !important; }
+            .campaign-register-actions { flex: 1 1 100%; }
+            .campaign-register-filters { flex: 1 1 100%; justify-content: flex-start; }
+        }
         @media (max-width: 767.98px) {
-            .campaign-register-filters { align-items: stretch; width: 100%; }
-            .campaign-register-filters label[for="analytics-dates"] { width: 100%; }
-            .campaign-register-filters .campaign-date-range { flex: 1 1 12rem; width: auto; }
-            .campaign-register-filters .campaign-search-control { flex: 1 1 10rem; }
-            .campaign-register-filters input[type="search"] { max-width: none; width: 100%; }
+            body.command-os-shell .campaign-register-page-header { align-items: flex-start; flex-direction: column; padding: 14px; }
+            .campaign-register-page .block-options { justify-content: space-between; width: 100%; }
+            body.command-os-shell .campaign-register-page > .block-content { padding: 12px; }
+            .campaign-register-toolbar { padding: 9px; }
+            .campaign-register-actions { width: 100%; }
+            .campaign-register-actions .form-control { min-width: 116px; }
+            .campaign-register-filters { align-items: center; width: 100%; }
+            .campaign-register-filters > label:not(.sr-only) { flex: 0 0 100%; }
+            .campaign-register-filters .campaign-date-range { flex: 1 1 100%; width: 100%; }
+            .campaign-register-filters .campaign-search-control { flex: 1 1 calc(100% - 46px); min-width: 0; }
+            .campaign-register-filters input[type="search"] { width: 100%; }
+            .campaign-register-test-link { flex: 1 1 100%; justify-content: center; }
+            .campaign-register-scroll-note { display: flex; align-items: center; gap: 6px; }
+        }
+        @media (max-width: 420px) {
+            .campaign-register-heading-icon { flex-basis: 40px; width: 40px; height: 40px; }
+            body.command-os-shell .campaign-register-page .campaign-register-heading-copy .block-title { font-size: 18px; }
+            .campaign-register-actions { gap: 6px; }
+            .campaign-register-create { flex: 1 1 100%; }
+            .campaign-register-active { flex: 1 1 auto; }
         }
     </style>
 @endpush

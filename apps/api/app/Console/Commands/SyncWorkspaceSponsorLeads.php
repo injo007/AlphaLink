@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\WorkspaceSponsor;
 use App\Services\AffiliateNetworks\AlphaLinkSponsorLeadImporter;
+use App\Services\Analytics\WorkspaceDailyAnalyticsRebuilder;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -13,7 +14,7 @@ use Throwable;
 #[Description('Reconcile campaign and Drop lead conversions from active workspace sponsor reports')]
 class SyncWorkspaceSponsorLeads extends Command
 {
-    public function handle(AlphaLinkSponsorLeadImporter $importer): int
+    public function handle(AlphaLinkSponsorLeadImporter $importer, WorkspaceDailyAnalyticsRebuilder $dailyAnalytics): int
     {
         $days = filter_var($this->option('days'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 90]]);
         if ($days === false) {
@@ -27,16 +28,20 @@ class SyncWorkspaceSponsorLeads extends Command
         $to = now()->endOfDay();
         $failed = false;
         $processed = 0;
+        $changedWorkspaces = [];
 
         WorkspaceSponsor::query()
             ->where('is_active', true)
             ->whereIn('type', WorkspaceSponsor::IMPORT_TYPES)
             ->when(is_string($sponsorId) && $sponsorId !== '', fn ($query) => $query->whereKey($sponsorId))
             ->orderBy('id')
-            ->chunkById(50, function ($sponsors) use ($importer, $from, $to, &$failed, &$processed): void {
+            ->chunkById(50, function ($sponsors) use ($importer, $from, $to, &$failed, &$processed, &$changedWorkspaces): void {
                 foreach ($sponsors as $sponsor) {
                     try {
                         $result = $importer->import($sponsor, $from->copy(), $to->copy());
+                        if ($result['created'] > 0 || $result['updated'] > 0) {
+                            $changedWorkspaces[(string) $sponsor->workspace_id] = true;
+                        }
                         $this->line(sprintf(
                             'Sponsor %s: read %d, created %d, updated %d, skipped %d.',
                             $sponsor->getKey(), $result['read'], $result['created'], $result['updated'], $result['skipped'],
@@ -49,6 +54,10 @@ class SyncWorkspaceSponsorLeads extends Command
                     $processed++;
                 }
             });
+
+        foreach (array_keys($changedWorkspaces) as $workspaceId) {
+            $dailyAnalytics->rebuildRange($from, $to, $workspaceId);
+        }
 
         if ($processed === 0) {
             $this->info('No active sponsor providers were selected.');

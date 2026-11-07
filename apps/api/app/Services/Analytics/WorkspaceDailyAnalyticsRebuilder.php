@@ -6,10 +6,13 @@ use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class WorkspaceDailyAnalyticsRebuilder
 {
+    private const CACHE_REVISION_PREFIX = 'alphalink:dashboard:analytics-revision:v1:';
+
     /** @var list<string> */
     private const DIMENSION_COLUMNS = [
         'user_id',
@@ -109,7 +112,18 @@ class WorkspaceDailyAnalyticsRebuilder
             );
         }
 
+        foreach (array_unique(array_column($records, 'workspace_id')) as $updatedWorkspaceId) {
+            $revisionKey = self::cacheRevisionKey((string) $updatedWorkspaceId);
+            Cache::add($revisionKey, 0, now()->addYears(10));
+            Cache::increment($revisionKey);
+        }
+
         return count($records);
+    }
+
+    public static function cacheRevisionKey(string $workspaceId): string
+    {
+        return self::CACHE_REVISION_PREFIX.$workspaceId;
     }
 
     /** @return Collection<int, object> */

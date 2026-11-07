@@ -6,67 +6,126 @@
     @php
         $content = $campaign->latestRevision?->payload ?? [];
     @endphp
-    <div class="content-heading">Campaign draft: {{ $campaign->name }}</div>
+    <div class="command-os-campaign-detail">
+        <header class="command-os-campaign-detail-heading">
+            <div>
+                <p class="command-os-campaign-detail-eyebrow">CAMPAIGN WORKSPACE <span aria-hidden="true">/</span> MESSAGE REVIEW</p>
+                <h1>Campaign draft: {{ $campaign->name }}</h1>
+                <p>Review the latest saved message and its delivery setup.</p>
+            </div>
+        </header>
 
-    @if (session('status'))
-        <div class="alert alert-success" role="status">{{ session('status') }}</div>
-    @endif
-    @if ($errors->any())
-        <div class="alert alert-danger" role="alert">
-            <ul class="mb-0">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
-        </div>
-    @endif
+        @if (session('status'))
+            <div class="alert alert-success" role="status">{{ session('status') }}</div>
+        @endif
+        @if ($errors->any())
+            <div class="alert alert-danger" role="alert">
+                <ul class="mb-0">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
+            </div>
+        @endif
 
-    <div class="block block-rounded">
-        <div class="block-header">
-            <h3 class="block-title">Latest saved message</h3>
-            <div class="block-options">
+        <div class="block block-rounded command-os-campaign-message-card">
+            <div class="block-header command-os-campaign-message-card-header">
+                <div class="command-os-campaign-section-title">
+                    <span class="command-os-campaign-section-icon" aria-hidden="true"><i class="fa fa-envelope-open-text"></i></span>
+                    <div>
+                        <h2 class="block-title">Latest saved message</h2>
+                        <p>Header and body from the same saved revision.</p>
+                    </div>
+                </div>
+                <div class="block-options">
+                    @if ($campaign->latestRevision)
+                        <span class="command-os-campaign-revision"><i class="fa fa-history" aria-hidden="true"></i> REVISION {{ $campaign->latestRevision->revision_number }}</span>
+                    @else
+                        <span class="command-os-campaign-revision is-empty">NO CONTENT</span>
+                    @endif
+                </div>
+            </div>
+            <div class="block-content block-content-full command-os-campaign-message-content">
                 @if ($campaign->latestRevision)
-                    <span class="badge badge-primary">REVISION {{ $campaign->latestRevision->revision_number }}</span>
+                    <div class="command-os-campaign-message-grid">
+                        <section class="command-os-campaign-message-pane" aria-labelledby="campaign-saved-header-title">
+                            <div class="command-os-campaign-message-pane-heading">
+                                <span class="command-os-campaign-pane-icon" aria-hidden="true"><i class="fa fa-list-alt"></i></span>
+                                <div>
+                                    <h3 id="campaign-saved-header-title">Campaign header</h3>
+                                    <p>Message structure and delivery fields</p>
+                                </div>
+                            </div>
+                            <pre class="campaign-message-preview">{{ $content['header'] ?? '' }}</pre>
+                        </section>
+
+                        <section class="command-os-campaign-message-pane" aria-labelledby="campaign-saved-body-title">
+                            <div class="command-os-campaign-message-pane-heading">
+                                <span class="command-os-campaign-pane-icon is-body" aria-hidden="true"><i class="fa fa-code"></i></span>
+                                <div>
+                                    <h3 id="campaign-saved-body-title">Campaign body template</h3>
+                                    <p>Saved content with its original placeholders</p>
+                                </div>
+                            </div>
+                            @if (filled($content['body'] ?? null))
+                                <pre class="campaign-message-preview">{{ $content['body'] }}</pre>
+                            @else
+                                <div class="command-os-campaign-message-empty">No body content was saved in this revision.</div>
+                            @endif
+                        </section>
+                    </div>
+
+                    <dl class="command-os-campaign-message-meta">
+                        @if ($campaign->kind === 'transactional')
+                            <div class="command-os-campaign-meta-item">
+                                <dt>From</dt>
+                                <dd>{{ $content['from_name'] ?? '' }} &lt;{{ $content['from_email'] ?? '' }}&gt;</dd>
+                            </div>
+                            <div class="command-os-campaign-meta-item">
+                                <dt>Reply-to</dt>
+                                <dd>{{ $content['reply_to'] ?? 'Not set' }}</dd>
+                            </div>
+                            <div class="command-os-campaign-meta-item">
+                                <dt>Subject</dt>
+                                <dd>{{ $content['subject'] ?? '' }}</dd>
+                            </div>
+                        @endif
+                        <div class="command-os-campaign-meta-item">
+                            <dt>Return path</dt>
+                            <dd><code>{{ $content['return_path'] ?? '[rnd]@[domain]' }}</code></dd>
+                        </div>
+                        <div class="command-os-campaign-meta-item">
+                            <dt>Email test</dt>
+                            <dd>
+                                @if (! empty($content['email_tests']))
+                                    {{ implode(', ', $content['email_tests']) }}
+                                @else
+                                    <span class="text-muted">No test addresses saved.</span>
+                                @endif
+                            </dd>
+                        </div>
+                        <div class="command-os-campaign-meta-item is-fingerprint">
+                            <dt>Content fingerprint</dt>
+                            <dd><code>{{ $campaign->latestRevision->content_sha256 }}</code></dd>
+                        </div>
+                    </dl>
+
+                    @if ($campaign->kind === 'transactional' && filled($content['text_body'] ?? null))
+                        <section class="command-os-campaign-message-pane command-os-campaign-message-variant" aria-labelledby="campaign-saved-text-title">
+                            <div class="command-os-campaign-message-pane-heading">
+                                <span class="command-os-campaign-pane-icon" aria-hidden="true"><i class="fa fa-align-left"></i></span>
+                                <div><h3 id="campaign-saved-text-title">Plain-text body</h3><p>Text version saved for this transactional message</p></div>
+                            </div>
+                            <pre class="campaign-message-preview">{{ $content['text_body'] }}</pre>
+                        </section>
+                    @endif
+                    @if ($campaign->kind === 'transactional' && filled($content['html_body'] ?? null))
+                        <details class="command-os-campaign-html-source">
+                            <summary><span><i class="fa fa-file-code" aria-hidden="true"></i> View saved HTML source</span><i class="fa fa-chevron-down" aria-hidden="true"></i></summary>
+                            <pre class="campaign-message-preview mt-2">{{ $content['html_body'] }}</pre>
+                        </details>
+                    @endif
                 @else
-                    <span class="badge badge-secondary">NO CONTENT</span>
+                    <div class="command-os-campaign-message-empty" role="status">No saved content revision is attached yet.</div>
                 @endif
             </div>
         </div>
-        <div class="block-content block-content-full">
-            @if ($campaign->latestRevision)
-                <dl class="row mb-3">
-                    @if ($campaign->kind === 'transactional')
-                        <dt class="col-sm-2">From</dt><dd class="col-sm-10">{{ $content['from_name'] ?? '' }} &lt;{{ $content['from_email'] ?? '' }}&gt;</dd>
-                        <dt class="col-sm-2">Reply-to</dt><dd class="col-sm-10">{{ $content['reply_to'] ?? 'Not set' }}</dd>
-                        <dt class="col-sm-2">Subject</dt><dd class="col-sm-10">{{ $content['subject'] ?? '' }}</dd>
-                    @endif
-                    <dt class="col-sm-2">Return path</dt><dd class="col-sm-10"><code>{{ $content['return_path'] ?? '[rnd]@[domain]' }}</code></dd>
-                    <dt class="col-sm-2">Email Test</dt>
-                    <dd class="col-sm-10">
-                        @if (! empty($content['email_tests']))
-                            {{ implode(', ', $content['email_tests']) }}
-                        @else
-                            <span class="text-muted">No test addresses saved.</span>
-                        @endif
-                    </dd>
-                    <dt class="col-sm-2">Campaign header</dt><dd class="col-sm-10"><pre class="campaign-message-preview">{{ $content['header'] ?? '' }}</pre></dd>
-                    <dt class="col-sm-2">Content fingerprint</dt><dd class="col-sm-10"><code>{{ $campaign->latestRevision->content_sha256 }}</code></dd>
-                </dl>
-                @if (filled($content['body'] ?? null))
-                    <h4 class="h6">Campaign body template</h4>
-                    <pre class="campaign-message-preview">{{ $content['body'] }}</pre>
-                @endif
-                @if ($campaign->kind === 'transactional' && filled($content['text_body'] ?? null))
-                    <h4 class="h6">Plain-text body</h4>
-                    <pre class="campaign-message-preview">{{ $content['text_body'] }}</pre>
-                @endif
-                @if ($campaign->kind === 'transactional' && filled($content['html_body'] ?? null))
-                    <details class="mt-3">
-                        <summary>View saved HTML source</summary>
-                        <pre class="campaign-message-preview mt-2">{{ $content['html_body'] }}</pre>
-                    </details>
-                @endif
-            @else
-                <p class="mb-0">No saved content revision is attached yet.</p>
-            @endif
-        </div>
-    </div>
 
     @if (is_array($sendSetup))
         @php
@@ -87,7 +146,7 @@
         @endphp
         <div class="block block-rounded">
             <div class="block-header">
-                <h3 class="block-title">Saved campaign selections</h3>
+                <h3 class="block-title"><i class="fas fa-list-ul" aria-hidden="true"></i> Saved campaign selections</h3>
                 <div class="block-options"><span class="badge badge-warning">DRAFT · NOT SEND-READY</span></div>
             </div>
             <div class="block-content block-content-full">
@@ -112,7 +171,7 @@
                     <section class="alert alert-info mb-3" id="campaign-snapshot-progress"
                         data-progress-url="{{ route('console.campaigns.snapshot-progress', [$workspace->id, $campaign->id]) }}"
                         aria-labelledby="campaign-snapshot-progress-title">
-                        <h4 class="h6 mb-2" id="campaign-snapshot-progress-title">Preparing the campaign audience</h4>
+                        <h4 class="h6 mb-2" id="campaign-snapshot-progress-title"><i class="fas fa-users" aria-hidden="true"></i> Preparing the campaign audience</h4>
                         <p class="mb-3" id="campaign-snapshot-stage" aria-live="polite">{{ $snapshotStageLabel }}</p>
                         <div class="progress mb-2" style="height: 0.8rem">
                             <div id="campaign-snapshot-bar" class="progress-bar {{ $snapshotIsIndeterminate ? 'progress-bar-striped progress-bar-animated w-100' : '' }}"
@@ -215,7 +274,7 @@
                 <p class="mb-0 text-muted">Send parameters: {{ json_encode($sendSetup['parameters'] ?? [], JSON_UNESCAPED_SLASHES) }}</p>
                 @if ($recipientSnapshot)
                     <hr>
-                    <h4 class="h6">Immutable recipient snapshot</h4>
+                    <h4 class="h6"><i class="fas fa-shield-alt" aria-hidden="true"></i> Immutable recipient snapshot</h4>
                     <dl class="row mb-0">
                         <dt class="col-sm-3">Eligible addresses</dt><dd class="col-sm-9">{{ number_format($recipientSnapshot->recipient_count) }}</dd>
                         <dt class="col-sm-3">Offer suppressed</dt><dd class="col-sm-9">{{ number_format($recipientSnapshot->offer_suppressed_count) }}</dd>
@@ -234,7 +293,7 @@
 
     @if ($campaign->kind === 'marketing' && is_array($sendSetup) && $campaign->status === 'draft' && $campaign->is_active)
         <div id="pmta-test" class="block block-rounded">
-            <div class="block-header"><h3 class="block-title">Send a PMTA campaign test</h3></div>
+            <div class="block-header"><h3 class="block-title"><i class="fas fa-paper-plane" aria-hidden="true"></i> Send a PMTA campaign test</h3></div>
             <div class="block-content block-content-full">
                 <p>Select a saved campaign server and Email Test recipient. AlphaLink connects to that server’s PMTA listener at the server IP and workspace port; that is the PMTA ingress address. It then pins the campaign’s saved IP, VMTA, or SMTP route with <code>X-Virtual-MTA</code>, which controls the outbound source/account. With Option IP, using <code>[smtp]</code> or <code>[smtp_name]</code> selects the one active SMTP account linked to that IP for outbound delivery; without those tags it uses the selected IP route. Multiple linked SMTP accounts require choosing the exact account through Option SMTP. Review the From, subject and body before explicitly sending.</p>
                 @if (! $pmtaPort)
@@ -263,7 +322,7 @@
     @if ($campaign->kind === 'transactional')
     <div class="block block-rounded">
         <div class="block-header">
-            <h3 class="block-title">Send one test email</h3>
+            <h3 class="block-title"><i class="fas fa-envelope" aria-hidden="true"></i> Send one test email</h3>
             <div class="block-options">
                 @if ($smtpReady)
                     @if ($latestSmtpCheck?->action === 'campaign.smtp_connection_succeeded')
@@ -346,7 +405,7 @@
 
     @if ($campaign->kind === 'transactional' && $campaign->status === 'draft' && $campaign->is_active)
         <details id="edit-campaign" class="block block-rounded">
-            <summary class="block-header campaign-details-summary">{{ $campaign->kind === 'marketing' ? 'Edit campaign' : 'Save a new content revision' }}</summary>
+            <summary class="block-header campaign-details-summary"><i class="fas fa-edit" aria-hidden="true"></i> {{ $campaign->kind === 'marketing' ? 'Edit campaign' : 'Save a new content revision' }}</summary>
             <div class="block-content block-content-full">
                 <p class="text-muted">Saved revisions do not change after creation. Saving here creates a new revision; old test attempts remain attached to the revision they used.</p>
                 <form method="POST" action="{{ route('console.campaigns.revisions.store', [$workspace->id, $campaign->id]) }}">
@@ -480,7 +539,7 @@
 
     <div class="block block-rounded">
         <div class="block-header">
-            <h3 class="block-title">Test attempt history</h3>
+            <h3 class="block-title"><i class="fas fa-history" aria-hidden="true"></i> Test attempt history</h3>
             <div class="block-options">Most recent {{ $testMailAttempts->count() }}</div>
         </div>
         <div class="block-content block-content-full">
@@ -516,7 +575,7 @@
 
     <div id="campaign-test-logs" class="block block-rounded">
         <div class="block-header">
-            <h3 class="block-title">Campaign test logs</h3>
+            <h3 class="block-title"><i class="fas fa-clipboard-list" aria-hidden="true"></i> Campaign test logs</h3>
             <div class="block-options">Showing {{ $manualTestAttempts->count() }} of {{ $manualTestAttempts->total() }}</div>
         </div>
         <div class="block-content block-content-full">
@@ -548,7 +607,7 @@
                                     <td colspan="4" class="pt-0">
                                         @if (is_array($attempt->test_snapshot))
                                             <details class="campaign-test-log-details">
-                                                <summary>View test configuration</summary>
+                                                <summary><i class="fas fa-sliders-h" aria-hidden="true"></i> View test configuration</summary>
                                                 @php
                                                     $testSnapshot = $attempt->test_snapshot;
                                                     $testServers = collect($testSnapshot['servers'] ?? [])
@@ -648,7 +707,7 @@
 
     <div class="block block-rounded">
         <div class="block-header">
-            <h3 class="block-title">Content revisions</h3>
+            <h3 class="block-title"><i class="fas fa-code-branch" aria-hidden="true"></i> Content revisions</h3>
             <div class="block-options">{{ $revisions->total() }} {{ $revisions->total() === 1 ? 'revision' : 'revisions' }}</div>
         </div>
         <div class="block-content block-content-full">
@@ -678,17 +737,81 @@
         The campaign test path uses the selected PMTA server and recipient. Transactional drafts use Symfony Mailer, with separate header, placeholder, route and delivery behavior.
     </div>
     <a class="btn btn-alt-secondary" href="{{ route('console.campaigns.index', $workspace->id) }}"><i class="fa fa-arrow-left mr-1"></i> Back to campaigns</a>
+    </div>
 @endsection
 
 @push('styles')
     <style>
-        .campaign-message-preview { background: #f6f7f3; border: 1px solid #dfe3d9; border-radius: .35rem; color: #183636; font-family: SFMono-Regular, Consolas, Liberation Mono, monospace; font-size: .875rem; max-height: 24rem; overflow: auto; padding: .85rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+        .command-os-campaign-detail { max-width: 1680px; margin: 0 auto; padding-bottom: 18px; }
+        .command-os-campaign-detail-heading { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin: 2px 0 18px; }
+        .command-os-campaign-detail-heading h1 { margin: 4px 0 5px; color: var(--co-ink); font-size: clamp(22px, 2.2vw, 30px); font-weight: 780; letter-spacing: -.045em; line-height: 1.15; }
+        .command-os-campaign-detail-heading > div > p:last-child { margin: 0; color: var(--co-muted); font-size: 12px; }
+        .command-os-campaign-detail-eyebrow { margin: 0; color: var(--co-purple); font-size: 9px; font-weight: 800; letter-spacing: .15em; }
+        .command-os-campaign-detail-eyebrow span { padding: 0 5px; color: var(--co-subtle); }
+        .command-os-campaign-detail .alert { border-radius: 12px; }
+        .command-os-campaign-detail .block { overflow: visible; border: 1px solid var(--co-border); border-radius: 16px; background: var(--co-surface); box-shadow: var(--co-shadow); }
+        .command-os-campaign-detail .block-header { min-height: 68px; align-items: center; gap: 14px; padding: 13px 18px; border-bottom: 1px solid var(--co-border); border-radius: 16px 16px 0 0; background: color-mix(in srgb, var(--co-purple) 3%, var(--co-surface)); }
+        .command-os-campaign-detail .block-title { margin: 0; color: var(--co-ink); font-size: 16px; font-weight: 760; letter-spacing: -.025em; }
+        .command-os-campaign-detail .block-title > i,
+        .command-os-campaign-detail .campaign-details-summary > i { width: 20px; margin-right: 6px; color: var(--co-purple); text-align: center; }
+        .command-os-campaign-detail h4 > i,
+        .command-os-campaign-detail details summary > i { margin-right: 6px; color: var(--co-purple); }
+        .command-os-campaign-detail .block-content { color: var(--co-ink); }
+        .command-os-campaign-message-card { margin-bottom: 16px; }
+        .command-os-campaign-message-card-header { justify-content: space-between; }
+        .command-os-campaign-section-title { display: flex; min-width: 0; align-items: center; gap: 11px; }
+        .command-os-campaign-section-title > div > p { margin: 4px 0 0; color: var(--co-muted); font-size: 10px; }
+        .command-os-campaign-section-icon,
+        .command-os-campaign-pane-icon { display: grid; width: 38px; height: 38px; flex: 0 0 38px; place-items: center; border: 1px solid color-mix(in srgb, var(--co-purple) 18%, var(--co-border)); border-radius: 12px; color: var(--co-purple); background: color-mix(in srgb, var(--co-purple) 9%, var(--co-surface)); font-size: 15px; }
+        .command-os-campaign-revision { display: inline-flex; min-height: 28px; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid color-mix(in srgb, var(--co-purple) 24%, var(--co-border)); border-radius: 999px; color: var(--co-purple); background: color-mix(in srgb, var(--co-purple) 8%, var(--co-surface)); font-size: 9px; font-weight: 800; letter-spacing: .04em; white-space: nowrap; }
+        .command-os-campaign-revision.is-empty { color: var(--co-muted); border-color: var(--co-border); background: var(--co-surface-muted); }
+        .command-os-campaign-message-content { padding: 16px !important; }
+        .command-os-campaign-message-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; gap: 14px; }
+        .command-os-campaign-message-pane { min-width: 0; padding: 13px; border: 1px solid var(--co-border); border-radius: 13px; background: color-mix(in srgb, var(--co-surface-muted) 76%, var(--co-surface)); }
+        .command-os-campaign-message-pane-heading { display: flex; align-items: center; gap: 9px; margin-bottom: 11px; }
+        .command-os-campaign-pane-icon { width: 32px; height: 32px; flex-basis: 32px; border-radius: 10px; font-size: 12px; }
+        .command-os-campaign-pane-icon.is-body { color: var(--co-blue); border-color: color-mix(in srgb, var(--co-blue) 21%, var(--co-border)); background: color-mix(in srgb, var(--co-blue) 9%, var(--co-surface)); }
+        .command-os-campaign-message-pane-heading h3 { margin: 0; color: var(--co-ink); font-size: 12px; font-weight: 760; }
+        .command-os-campaign-message-pane-heading p { margin: 3px 0 0; color: var(--co-muted); font-size: 9px; }
+        .campaign-message-preview { max-height: 24rem; overflow: auto; margin: 0; padding: 13px; border: 1px solid var(--co-border); border-radius: 9px; color: var(--co-ink); background: var(--co-surface); font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace; font-size: 11px; line-height: 1.55; tab-size: 4; white-space: pre-wrap; overflow-wrap: anywhere; }
+        .command-os-campaign-message-empty { display: grid; min-height: 110px; place-items: center; padding: 18px; border: 1px dashed var(--co-border-strong); border-radius: 9px; color: var(--co-muted); background: var(--co-surface); font-size: 11px; text-align: center; }
+        .command-os-campaign-message-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 9px; margin: 14px 0 0; }
+        .command-os-campaign-meta-item { min-width: 0; margin: 0; padding: 11px 12px; border: 1px solid var(--co-border); border-radius: 11px; background: var(--co-surface); }
+        .command-os-campaign-meta-item dt { margin: 0 0 5px; color: var(--co-subtle); font-size: 8px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+        .command-os-campaign-meta-item dd { margin: 0; color: var(--co-ink); font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; }
+        .command-os-campaign-meta-item code { color: var(--co-purple); font-size: 10px; overflow-wrap: anywhere; white-space: normal; }
+        .command-os-campaign-meta-item.is-fingerprint { grid-column: span 2; }
+        .command-os-campaign-message-variant { margin-top: 14px; }
+        .command-os-campaign-html-source { margin-top: 12px; padding: 0 12px 12px; border: 1px solid var(--co-border); border-radius: 11px; background: var(--co-surface); }
+        .command-os-campaign-html-source > summary { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 12px; color: var(--co-ink); cursor: pointer; font-size: 10px; font-weight: 700; list-style: none; }
+        .command-os-campaign-html-source > summary::-webkit-details-marker { display: none; }
+        .command-os-campaign-html-source > summary span { display: inline-flex; align-items: center; gap: 8px; }
+        .command-os-campaign-html-source > summary span i { color: var(--co-purple); }
+        .command-os-campaign-html-source[open] > summary > i { transform: rotate(180deg); }
+        .command-os-campaign-html-source > summary > i { color: var(--co-muted); transition: transform .18s ease; }
+        .command-os-campaign-detail > .btn { min-height: 38px; border-radius: 10px; }
         .campaign-details-summary { cursor: pointer; display: block; font-weight: 600; list-style-position: inside; padding: 1rem 1.25rem; }
         .campaign-test-form { max-width: 42rem; }
         .campaign-test-form input[type="email"] { min-height: 2.8125rem; }
         .campaign-test-log-details > summary { color: var(--color-primary, #17685f); cursor: pointer; font-weight: 600; padding: .5rem 0; }
         .campaign-test-log-details .campaign-message-preview { max-height: 14rem; }
-        .campaign-test-form :focus-visible, .campaign-details-summary:focus-visible { outline: 3px solid #17685f; outline-offset: 2px; }
+        .campaign-test-form :focus-visible, .campaign-details-summary:focus-visible, .command-os-campaign-html-source > summary:focus-visible { outline: 3px solid color-mix(in srgb, var(--co-purple) 55%, transparent); outline-offset: 2px; }
+        @media (max-width: 760px) {
+            .command-os-campaign-detail-heading { margin-bottom: 14px; }
+            .command-os-campaign-message-grid { grid-template-columns: minmax(0, 1fr); }
+            .command-os-campaign-meta-item.is-fingerprint { grid-column: auto; }
+        }
+        @media (max-width: 480px) {
+            .command-os-campaign-detail-heading h1 { font-size: 22px; }
+            .command-os-campaign-detail .block-header { align-items: flex-start; padding: 12px; }
+            .command-os-campaign-message-card-header { flex-direction: column; }
+            .command-os-campaign-message-content { padding: 10px !important; }
+            .command-os-campaign-message-pane { padding: 10px; }
+            .campaign-message-preview { max-height: 18rem; padding: 10px; font-size: 10px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .command-os-campaign-html-source > summary > i { transition: none; }
+        }
     </style>
 @endpush
 

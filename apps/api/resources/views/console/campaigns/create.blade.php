@@ -504,14 +504,15 @@
             .campaign-create-page .campaign-header-editor,
             .campaign-create-page #campaign-body {
                 background: #fcfbff;
+                box-sizing: border-box;
                 font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
                 font-size: 11px;
                 line-height: 1.4;
-                min-height: 80px;
-                resize: vertical;
+                height: 500px;
+                min-height: 500px;
+                max-height: 500px;
+                resize: none;
             }
-            .campaign-create-page .campaign-header-editor { height: 82px; }
-            .campaign-create-page #campaign-body { height: 82px; }
             .campaign-create-page #campaign-routing {
                 border-top: 0;
                 margin-top: 0;

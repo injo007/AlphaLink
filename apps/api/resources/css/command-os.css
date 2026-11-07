@@ -1543,17 +1543,17 @@ html[data-command-theme='dark'] .command-os-panel {
     z-index: 5;
     display: inline-flex;
     min-width: 60px;
-    min-height: 38px;
+    min-height: 40px;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    padding: 0 9px;
-    border: 1.5px solid color-mix(in srgb, var(--node-accent) 88%, var(--co-border-strong));
+    padding: 0 10px;
+    border: 1.5px solid color-mix(in srgb, var(--node-accent) 96%, var(--co-border-strong));
     border-radius: 999px;
     color: var(--co-ink);
-    background: color-mix(in srgb, var(--node-accent) 20%, var(--co-surface));
-    box-shadow: 0 3px 10px rgb(33 47 94 / 18%), inset 0 1px rgb(255 255 255 / 76%);
-    font: 750 10px/1 Inter, 'Segoe UI', Arial, sans-serif;
+    background: color-mix(in srgb, var(--node-accent) 30%, var(--co-surface));
+    box-shadow: 0 4px 12px rgb(33 47 94 / 22%), inset 0 1px rgb(255 255 255 / 82%);
+    font: 750 10.5px/1 Inter, 'Segoe UI', Arial, sans-serif;
     white-space: nowrap;
     cursor: pointer;
     opacity: 1;
@@ -2302,7 +2302,7 @@ body.command-os-dashboard #page-container.sidebar-mini #sidebar:focus-within .na
     .command-os-geo-countries { padding-right: 3px; padding-left: 3px; }
     .command-os-geo-note,
     .command-os-graph-note { margin-right: 9px; margin-left: 9px; }
-    .command-os-graph-canvas { height: 204px; }
+    .command-os-graph-canvas { height: 250px; }
     .command-os-date-filter select { flex-basis: 100%; }
     .command-os-date-filter input { min-width: 0; flex: 1 1 120px; }
     .command-os-quick-actions { align-items: stretch; flex-direction: column; gap: 8px; }

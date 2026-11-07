@@ -36,8 +36,8 @@ function formatCount(value: number): string {
     return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value);
 }
 
-function nodeWidth(label: string, maxWidth = 112): number {
-    return Math.max(Math.min(72, maxWidth), Math.min(maxWidth, Math.ceil(label.length * 5.7 + 42)));
+function nodeWidth(label: string, maxWidth = 128): number {
+    return Math.max(Math.min(88, maxWidth), Math.min(maxWidth, Math.ceil(label.length * 6.4 + 48)));
 }
 
 function modulePosition(index: number, count: number, width: number, height: number, maxNodeWidth: number): [number, number] {
@@ -53,7 +53,7 @@ function modulePosition(index: number, count: number, width: number, height: num
 
     const angle = -Math.PI / 2 + (index * Math.PI * 2) / count;
     const radiusX = Math.max(72, width / 2 - maxNodeWidth / 2 - 14);
-    const radiusY = Math.max(38, height / 2 - 17);
+    const radiusY = Math.max(38, height / 2 - 21 - 10);
     return [width / 2 + Math.cos(angle) * radiusX, height / 2 + Math.sin(angle) * radiusY];
 }
 
@@ -70,7 +70,7 @@ export default function MarketingGraph({ data, theme }: { data: DashboardAnalyti
         .map((id) => data.nodes.find((node) => node.id === id))
         .filter((node): node is MarketingNode => node !== undefined);
     const modules = [...coreModules, ...data.nodes.filter((node) => !coreModuleOrder.includes(node.id))];
-    const nodeWidthLimit = size.width < 320 ? 84 : 112;
+    const nodeWidthLimit = size.width < 320 ? 104 : 128;
     const maxNodeWidth = Math.max(Math.min(92, nodeWidthLimit), ...modules.map((node) => nodeWidth(node.label, nodeWidthLimit)));
     const centerX = size.width / 2;
     const centerY = size.height / 2;

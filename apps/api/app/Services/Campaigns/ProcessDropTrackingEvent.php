@@ -28,7 +28,7 @@ class ProcessDropTrackingEvent
             return null;
         }
         $countryCode = $metadata['country_code'];
-        unset($metadata['blocked_open'], $metadata['blocked_proxy'], $metadata['country_code'], $metadata['is_proxy'], $metadata['is_hosting']);
+        unset($metadata['blocked_open'], $metadata['blocked_proxy'], $metadata['country_code'], $metadata['is_hosting']);
 
         return DB::transaction(function () use ($drop, $data, $metadata, $countryCode): WorkspaceDropVisitor {
             $emailId = $this->uuid((string) $data['email_id']);

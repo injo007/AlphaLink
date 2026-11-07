@@ -62,6 +62,8 @@ class WorkspaceAnalyticsConsoleController extends Controller
             return [
                 'at' => $at,
                 'deliveries' => (int) ($row->deliveries ?? 0),
+                'soft_bounces' => (int) ($row->soft_bounces ?? 0),
+                'hard_bounces' => (int) ($row->hard_bounces ?? 0),
                 'bounces' => (int) ($row->soft_bounces ?? 0) + (int) ($row->hard_bounces ?? 0),
                 'opens' => (int) ($row->opens ?? 0),
                 'clicks' => (int) ($row->clicks ?? 0),
@@ -108,13 +110,13 @@ class WorkspaceAnalyticsConsoleController extends Controller
             'lead_revenue' => $dailyRows->sum('lead_revenue'),
         ];
         $commandOsMetrics = [
-            ['key' => 'deliveries', 'label' => 'Deliveries', 'value' => $dailyRows->sum('deliveries'), 'format' => 'number', 'detail' => 'Imported PMTA delivery records'],
-            ['key' => 'opens', 'label' => 'Opens', 'value' => $eventTotals['opens'], 'format' => 'number', 'detail' => 'Campaign and Drop visitor events'],
-            ['key' => 'clicks', 'label' => 'Clicks', 'value' => $eventTotals['clicks'], 'format' => 'number', 'detail' => 'Campaign and Drop visitor events'],
-            ['key' => 'leads', 'label' => 'Leads', 'value' => $eventTotals['leads'], 'format' => 'number', 'detail' => 'Recorded campaign and Drop leads'],
-            ['key' => 'revenue', 'label' => 'Revenue', 'value' => $eventTotals['lead_revenue'], 'format' => 'currency', 'detail' => 'Attributed lead revenue only'],
-            ['key' => 'unsubscribes', 'label' => 'Unsubscribes', 'value' => $eventTotals['unsubscribes'], 'format' => 'number', 'detail' => 'Campaign and Drop visitor events'],
-            ['key' => 'bounces', 'label' => 'Bounces', 'value' => $dailyRows->sum('bounces'), 'format' => 'number', 'detail' => 'Imported PMTA soft and hard bounces'],
+            ['key' => 'deliveries', 'label' => 'Deliveries', 'value' => $dailyRows->sum('deliveries'), 'format' => 'number', 'detail' => 'Imported PMTA delivery records', 'trend' => $dailyRows->pluck('deliveries')->all()],
+            ['key' => 'opens', 'label' => 'Opens', 'value' => $eventTotals['opens'], 'format' => 'number', 'detail' => 'Campaign and Drop visitor events', 'trend' => $dailyRows->pluck('opens')->all()],
+            ['key' => 'clicks', 'label' => 'Clicks', 'value' => $eventTotals['clicks'], 'format' => 'number', 'detail' => 'Campaign and Drop visitor events', 'trend' => $dailyRows->pluck('clicks')->all()],
+            ['key' => 'leads', 'label' => 'Leads', 'value' => $eventTotals['leads'], 'format' => 'number', 'detail' => 'Recorded campaign and Drop leads', 'trend' => $dailyRows->pluck('leads')->all()],
+            ['key' => 'revenue', 'label' => 'Revenue', 'value' => $eventTotals['lead_revenue'], 'format' => 'currency', 'detail' => 'Attributed lead revenue only', 'trend' => $dailyRows->pluck('lead_revenue')->all()],
+            ['key' => 'unsubscribes', 'label' => 'Unsubscribes', 'value' => $eventTotals['unsubscribes'], 'format' => 'number', 'detail' => 'Campaign and Drop visitor events', 'trend' => $dailyRows->pluck('unsubscribes')->all()],
+            ['key' => 'bounces', 'label' => 'Bounces', 'value' => $dailyRows->sum('bounces'), 'format' => 'number', 'detail' => 'Imported PMTA soft and hard bounces', 'trend' => $dailyRows->pluck('bounces')->all()],
         ];
         $commandOsDashboard = [
             'userName' => $request->user()->name ?: $request->user()->email,
@@ -172,6 +174,8 @@ class WorkspaceAnalyticsConsoleController extends Controller
                     'date' => $date,
                     'label' => Carbon::parse($date)->format('j'),
                     'deliveries' => (int) ($row->deliveries ?? 0),
+                    'soft_bounces' => (int) ($row->soft_bounces ?? 0),
+                    'hard_bounces' => (int) ($row->hard_bounces ?? 0),
                     'bounces' => (int) ($row->soft_bounces ?? 0) + (int) ($row->hard_bounces ?? 0),
                     'opens' => (int) ($row->opens ?? 0),
                     'clicks' => (int) ($row->clicks ?? 0),
@@ -197,7 +201,8 @@ class WorkspaceAnalyticsConsoleController extends Controller
                 'labels' => $mtdChartRows->pluck('label')->all(),
                 'series' => [
                     ['label' => 'Deliveries', 'color' => '#17685f', 'values' => $mtdChartRows->pluck('deliveries')->all()],
-                    ['label' => 'Bounces', 'color' => '#b84d35', 'values' => $mtdChartRows->pluck('bounces')->all()],
+                    ['label' => 'Soft bounces', 'color' => '#e5a22f', 'values' => $mtdChartRows->pluck('soft_bounces')->all()],
+                    ['label' => 'Hard bounces', 'color' => '#e34f77', 'values' => $mtdChartRows->pluck('hard_bounces')->all()],
                     ['label' => 'Opens', 'color' => '#417da0', 'values' => $mtdChartRows->pluck('opens')->all()],
                     ['label' => 'Clicks', 'color' => '#b08b31', 'values' => $mtdChartRows->pluck('clicks')->all()],
                     ['label' => 'Unsubscribes', 'color' => '#76558f', 'values' => $mtdChartRows->pluck('unsubscribes')->all()],
@@ -328,7 +333,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
      *     isps: list<array{label: string, leads: int, clicks: int, attributed_revenue: float}>,
      *     mailers: list<array{label: string, deliveries: int, opens: int, clicks: int, leads: int, unsubscribes: int, bounces: int, attributed_revenue: float}>,
      *     offers: list<array{label: string, leads: int, clicks: int, attributed_revenue: float}>,
-     *     geo: array{countries: list<array{country: string, opens: int, clicks: int, leads: int, unsubscribes: int, deliveries: int, bounces: int}>, feedback_note: string},
+     *     geo: array{countries: list<array{country: string, opens: int, clicks: int, leads: int, unsubscribes: int, deliveries: int, bounces: int}>, proxy_opens_excluded: int, feedback_note: string},
      *     graph: array{nodes: list<array{id: string, label: string, count: int, color: string, href: string|null}>, note: string}
      * }
      */
@@ -352,7 +357,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
      *     isps: list<array{label: string, leads: int, clicks: int, attributed_revenue: float}>,
      *     mailers: list<array{label: string, deliveries: int, opens: int, clicks: int, leads: int, unsubscribes: int, bounces: int, attributed_revenue: float}>,
      *     offers: list<array{label: string, leads: int, clicks: int, attributed_revenue: float}>,
-     *     geo: array{countries: list<array{country: string, opens: int, clicks: int, leads: int, unsubscribes: int, deliveries: int, bounces: int}>, feedback_note: string},
+     *     geo: array{countries: list<array{country: string, opens: int, clicks: int, leads: int, unsubscribes: int, deliveries: int, bounces: int}>, proxy_opens_excluded: int, feedback_note: string},
      *     graph: array{nodes: list<array{id: string, label: string, count: int, color: string, href: string|null}>, note: string}
      * }
      */
@@ -442,6 +447,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
     private function dashboardGeoAnalytics(Workspace $workspace, User $user, string $from, string $to): array
     {
         $countries = [];
+        $uncertainProxyOpens = 0;
         $add = function (string $country, string $metric, int $count) use (&$countries): void {
             $country = trim($country);
             if ($country === '' || $country === '0' || $count < 1) {
@@ -472,15 +478,19 @@ class WorkspaceAnalyticsConsoleController extends Controller
             ->when($workspace->pivot->role === 'operator', fn ($query) => $query->where('c.created_by', $user->getKey()))
             ->select('e.country_code', 'e.action')
             ->selectRaw('COUNT(*) AS total')
+            ->selectRaw("COUNT(*) FILTER (WHERE e.action = 'open' AND e.is_proxy IS FALSE) AS located_opens")
+            ->selectRaw("COUNT(*) FILTER (WHERE e.action = 'open' AND e.is_proxy IS NOT FALSE) AS uncertain_opens")
             ->groupBy('e.country_code', 'e.action')
             ->get();
         foreach ($campaignEvents as $event) {
-            $metric = match ($event->action) {
-                'open' => 'opens',
-                'click' => 'clicks',
-                default => 'unsubscribes',
-            };
-            $add((string) $event->country_code, $metric, (int) $event->total);
+            if ($event->action === 'open') {
+                $uncertainProxyOpens += (int) $event->uncertain_opens;
+                $add((string) $event->country_code, 'opens', (int) $event->located_opens);
+
+                continue;
+            }
+
+            $add((string) $event->country_code, $event->action === 'click' ? 'clicks' : 'unsubscribes', (int) $event->total);
         }
 
         $campaignLeads = DB::table('campaign_lead_conversions as l')
@@ -511,6 +521,8 @@ class WorkspaceAnalyticsConsoleController extends Controller
             ->when($workspace->pivot->role === 'operator', fn ($query) => $query->where('d.user_id', $user->getKey()))
             ->select('v.country', 'v.type')
             ->selectRaw('COUNT(*) AS total')
+            ->selectRaw("COUNT(*) FILTER (WHERE v.type = 'open' AND v.is_proxy IS FALSE) AS located_opens")
+            ->selectRaw("COUNT(*) FILTER (WHERE v.type = 'open' AND v.is_proxy IS NOT FALSE) AS uncertain_opens")
             ->groupBy('v.country', 'v.type')
             ->get();
         foreach ($dropEvents as $event) {
@@ -522,7 +534,12 @@ class WorkspaceAnalyticsConsoleController extends Controller
                 default => null,
             };
             if ($metric !== null) {
-                $add((string) $event->country, $metric, (int) $event->total);
+                if ($metric === 'opens') {
+                    $uncertainProxyOpens += (int) $event->uncertain_opens;
+                    $add((string) $event->country, 'opens', (int) $event->located_opens);
+                } else {
+                    $add((string) $event->country, $metric, (int) $event->total);
+                }
             }
         }
 
@@ -595,7 +612,8 @@ class WorkspaceAnalyticsConsoleController extends Controller
 
         return [
             'countries' => $rows,
-            'feedback_note' => 'Delivery and bounce values are imported PMTA feedback tied to one send country. They are feedback totals only; a complete sent-recipient denominator is unavailable, so no delivery rate is shown. Engagement is observed campaign and Drop activity.',
+            'proxy_opens_excluded' => $uncertainProxyOpens,
+            'feedback_note' => 'The selected date range is applied. Delivery and bounce values are imported PMTA feedback tied to one send country; they describe targeting, not observed recipient GEO, and no delivery rate is shown. Opens, clicks, unsubscribes and leads use country-coded campaign/drop activity or attributed conversions. Dashboard charts are date-level totals, and campaign, ISP, offer, list and currency-safe country revenue joins are not present in this GEO aggregate.',
         ];
     }
 
@@ -1171,7 +1189,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
             now()->format('YmdHi'),
         ]);
 
-        return 'alphalink:dashboard:main:v2:'.$dataset.':'.hash('sha256', $scope);
+        return 'alphalink:dashboard:main:v3:'.$dataset.':'.hash('sha256', $scope);
     }
 
     private function reportContext(Request $request, string $workspaceId): array

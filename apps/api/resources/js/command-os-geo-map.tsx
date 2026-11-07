@@ -1,15 +1,17 @@
 /// <reference path="./world-atlas.d.ts" />
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { JSX } from 'react';
 import { AttributionControl, Map as MapLibreMap, NavigationControl, Popup, setWorkerUrl } from 'maplibre-gl';
 import type { Feature, FeatureCollection, Geometry, Point } from 'geojson';
+import type { MapLayerMouseEvent } from 'maplibre-gl';
+import { Globe2 } from 'lucide-react';
 import { feature } from 'topojson-client';
 import { getAlpha2Code, getName, getSimpleAlpha2Code, isValid, numericToAlpha2, registerLocale } from 'i18n-iso-countries';
 import englishLocale from 'i18n-iso-countries/langs/en.json';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import worldAtlas from 'world-atlas/countries-110m.json';
-import type { DashboardAnalytics, GeoCountry } from './command-os';
+import type { DashboardAnalytics, DashboardGeoMetric, GeoCountry } from './command-os';
 
 registerLocale(englishLocale);
 setWorkerUrl(workerUrl);
@@ -17,15 +19,31 @@ setWorkerUrl(workerUrl);
 type CountryProperties = {
     iso2: string;
     name: string;
+    hasData: boolean;
     deliveries: number;
     bounces: number;
     engagement: number;
     opens: number;
     clicks: number;
     leads: number;
+    unsubscribes: number;
 };
 
 type MapTheme = 'light' | 'dark';
+type GeoMetric = DashboardGeoMetric;
+
+const geoMetrics: { key: GeoMetric; label: string; source: string }[] = [
+    { key: 'deliveries', label: 'Deliveries', source: 'Send-country feedback' },
+    { key: 'opens', label: 'Opens', source: 'Observed event country' },
+    { key: 'clicks', label: 'Clicks', source: 'Observed event country' },
+    { key: 'leads', label: 'Leads', source: 'Attributed conversion country' },
+    { key: 'bounces', label: 'Bounces', source: 'Send-country feedback' },
+    { key: 'unsubscribes', label: 'Unsubscribes', source: 'Observed event country' },
+];
+
+function metricValue(row: GeoCountry, metric: GeoMetric): number {
+    return row[metric];
+}
 
 function alpha2(country: string): string | null {
     const value = country.trim();
@@ -76,12 +94,14 @@ function createCountryCollection(countries: GeoCountry[]): FeatureCollection<Geo
                 properties: {
                     iso2: code,
                     name: countryName(code, stat?.country),
+                    hasData: stat !== undefined,
                     deliveries: stat?.deliveries ?? 0,
                     bounces: stat?.bounces ?? 0,
                     engagement,
                     opens: stat?.opens ?? 0,
                     clicks: stat?.clicks ?? 0,
                     leads: stat?.leads ?? 0,
+                    unsubscribes: stat?.unsubscribes ?? 0,
                 },
             };
         }),
@@ -156,22 +176,29 @@ function formatCount(value: number): string {
     return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value);
 }
 
-function popupContent(properties: CountryProperties): HTMLElement {
+function popupContent(properties: CountryProperties, metric: GeoMetric): HTMLElement {
     const content = document.createElement('div');
     content.className = 'command-os-map-popup';
     const heading = document.createElement('strong');
     heading.textContent = properties.name;
     content.append(heading);
-    const details = document.createElement('span');
-    details.textContent = `${formatCount(properties.deliveries)} delivery feedback · ${formatCount(properties.bounces)} bounces`;
-    content.append(details);
-    const activity = document.createElement('span');
-    activity.textContent = `${formatCount(properties.opens)} opens · ${formatCount(properties.clicks)} clicks · ${formatCount(properties.leads)} leads`;
-    content.append(activity);
+    const value = properties[metric];
+    if (value === 0) {
+        const empty = document.createElement('span');
+        empty.textContent = `No ${geoMetrics.find((item) => item.key === metric)?.label.toLowerCase()} were recorded for this country in the selected range.`;
+        content.append(empty);
+        return content;
+    }
+    const activeMetric = document.createElement('span');
+    activeMetric.textContent = `${formatCount(value)} ${geoMetrics.find((item) => item.key === metric)?.label.toLowerCase()} · ${geoMetrics.find((item) => item.key === metric)?.source.toLowerCase()}`;
+    content.append(activeMetric);
+    const breakdown = document.createElement('span');
+    breakdown.textContent = `${formatCount(properties.deliveries)} deliveries · ${formatCount(properties.opens)} opens · ${formatCount(properties.clicks)} clicks · ${formatCount(properties.leads)} leads · ${formatCount(properties.bounces)} bounces · ${formatCount(properties.unsubscribes)} unsubscribes`;
+    content.append(breakdown);
     return content;
 }
 
-function topCountries(countries: GeoCountry[]): { code: string; name: string; row: GeoCountry }[] {
+function combineCountries(countries: GeoCountry[]): { code: string; name: string; row: GeoCountry }[] {
     const combined = new Map<string, GeoCountry>();
     for (const row of countries) {
         const code = alpha2(row.country);
@@ -188,22 +215,70 @@ function topCountries(countries: GeoCountry[]): { code: string; name: string; ro
             combined.set(code, { ...row });
         }
     }
-    return [...combined.entries()]
-        .map(([code, row]) => ({ code, name: countryName(code, row.country), row }))
-        .sort((left, right) => {
-            const leftActivity = left.row.opens + left.row.clicks + left.row.leads + left.row.unsubscribes;
-            const rightActivity = right.row.opens + right.row.clicks + right.row.leads + right.row.unsubscribes;
-            return (rightActivity + right.row.deliveries + right.row.bounces) - (leftActivity + left.row.deliveries + left.row.bounces);
-        })
+    return [...combined.entries()].map(([code, row]) => ({ code, name: countryName(code, row.country), row }));
+}
+
+function topCountries(countries: GeoCountry[], metric: GeoMetric): { code: string; name: string; row: GeoCountry }[] {
+    return combineCountries(countries)
+        .filter(({ row }) => metricValue(row, metric) > 0)
+        .sort((left, right) => metricValue(right.row, metric) - metricValue(left.row, metric))
         .slice(0, 4);
 }
 
-export default function DeliverabilityGeoMap({ data, theme }: { data: DashboardAnalytics['geo']; theme: MapTheme }): JSX.Element {
+function applyMetricStyle(map: MapLibreMap, metric: GeoMetric, countries: GeoCountry[], dark: boolean): void {
+    const maximum = Math.max(1, ...countries.map((row) => metricValue(row, metric)));
+    const feedback = metric === 'deliveries' || metric === 'bounces';
+    const accent = feedback ? '#a348ff' : '#079ee8';
+    const low = dark ? '#214265' : '#cbd9f2';
+    const high = feedback ? '#a348ff' : '#168dff';
+
+    map.setPaintProperty('country-fill', 'fill-color', [
+        'case',
+        ['>', ['get', metric], 0],
+        ['interpolate', ['linear'], ['get', metric], 0, low, maximum, high],
+        dark ? '#122a47' : '#dce6f7',
+    ]);
+    map.setPaintProperty('country-fill', 'fill-pattern', [
+        'case',
+        ['>', ['get', metric], 0],
+        feedback ? 'country-dots-feedback' : 'country-dots-activity',
+        'country-dots-base',
+    ]);
+    map.setPaintProperty('activity-marker-halo', 'circle-radius', ['interpolate', ['linear'], ['get', metric], 0, 0, maximum, 14]);
+    map.setPaintProperty('activity-marker-halo', 'circle-color', accent);
+    map.setPaintProperty('activity-marker-halo', 'circle-opacity', ['case', ['>', ['get', metric], 0], dark ? 0.6 : 0.48, 0]);
+    map.setPaintProperty('activity-marker-core', 'circle-radius', ['interpolate', ['linear'], ['get', metric], 0, 0, maximum, 4.2]);
+    map.setPaintProperty('activity-marker-core', 'circle-color', accent);
+    map.setPaintProperty('activity-marker-core', 'circle-opacity', ['case', ['>', ['get', metric], 0], 1, 0]);
+}
+
+export default function DeliverabilityGeoMap({ data, theme, selectedMetric, onMetricChange }: { data: DashboardAnalytics['geo']; theme: MapTheme; selectedMetric: GeoMetric; onMetricChange: (metric: GeoMetric) => void }): JSX.Element {
     const container = useRef<HTMLDivElement>(null);
+    const mapRef = useRef<MapLibreMap | null>(null);
+    const popupRef = useRef<Popup | null>(null);
+    const mapLoadedRef = useRef(false);
+    const activeCountryRef = useRef<string | null>(null);
+    const activeMetricRef = useRef<GeoMetric>('deliveries');
+    const selectedCountryRef = useRef<string | null>(null);
+    const previousSelectedCountryRef = useRef<string | null>(null);
+    const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+    const [mapError, setMapError] = useState(false);
+    activeMetricRef.current = selectedMetric;
+    selectedCountryRef.current = selectedCountry;
     const collection = useMemo(() => createCountryCollection(data.countries), [data.countries]);
-    const summary = useMemo(() => topCountries(data.countries), [data.countries]);
+    const summary = useMemo(() => topCountries(data.countries, selectedMetric), [data.countries, selectedMetric]);
+    const activeCountryCount = useMemo(
+        () => combineCountries(data.countries).filter(({ row }) => metricValue(row, selectedMetric) > 0).length,
+        [data.countries, selectedMetric],
+    );
     const markers = useMemo(() => createActivityMarkers(collection), [collection]);
-    const countryCount = useMemo(() => new Set(data.countries.map((row) => alpha2(row.country)).filter((code): code is string => code !== null)).size, [data.countries]);
+    const selectedCountryData = selectedCountry
+        ? combineCountries(data.countries).find((country) => country.code === selectedCountry)?.row ?? null
+        : null;
+    const selectedCountryName = selectedCountry
+        ? countryName(selectedCountry, selectedCountryData?.country)
+        : '';
+    const maximumMetric = Math.max(1, ...data.countries.map((row) => metricValue(row, selectedMetric)));
 
     useEffect(() => {
         const element = container.current;
@@ -225,7 +300,7 @@ export default function DeliverabilityGeoMap({ data, theme }: { data: DashboardA
             style: {
                 version: 8,
                 sources: {
-                    countries: { type: 'geojson', data: collection },
+                    countries: { type: 'geojson', data: collection, promoteId: 'iso2' },
                     'activity-markers': { type: 'geojson', data: markers },
                 },
                 layers: [
@@ -249,7 +324,11 @@ export default function DeliverabilityGeoMap({ data, theme }: { data: DashboardA
                         id: 'country-outline',
                         type: 'line',
                         source: 'countries',
-                        paint: { 'line-color': boundary, 'line-width': 0.55, 'line-opacity': 0.52 },
+                        paint: {
+                            'line-color': ['case', ['boolean', ['feature-state', 'selected'], false], '#9256ff', boundary],
+                            'line-width': ['case', ['boolean', ['feature-state', 'selected'], false], 1.8, 0.55],
+                            'line-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 0.98, 0.52],
+                        },
                     },
                     {
                         id: 'activity-marker-halo',
@@ -276,6 +355,9 @@ export default function DeliverabilityGeoMap({ data, theme }: { data: DashboardA
                 ],
             },
         });
+        setMapError(false);
+        map.on('error', () => setMapError(true));
+        mapRef.current = map;
         let mapLoaded = false;
         const fitWorld = () => {
             if (!mapLoaded) return;
@@ -290,27 +372,42 @@ export default function DeliverabilityGeoMap({ data, theme }: { data: DashboardA
         map.addControl(new NavigationControl({ showCompass: false, visualizePitch: false }), 'top-right');
         map.addControl(new AttributionControl({ compact: true, customAttribution: 'Country boundaries: Natural Earth' }), 'bottom-right');
         const popup = new Popup({ closeButton: true, closeOnClick: true, maxWidth: '260px' });
-        const showCountry = (event: { features?: Array<{ properties?: Record<string, unknown> | null }>; lngLat?: { lng: number; lat: number } }) => {
+        popupRef.current = popup;
+        const showCountry = (event: MapLayerMouseEvent) => {
             const properties = event.features?.[0]?.properties as CountryProperties | undefined;
-            if (!properties || !event.lngLat) return;
-            popup.setLngLat(event.lngLat).setDOMContent(popupContent(properties)).addTo(map);
+            if (!properties) return;
+            if (activeCountryRef.current !== properties.iso2 || activeMetricRef.current !== selectedMetric) {
+                popup.setDOMContent(popupContent(properties, activeMetricRef.current));
+                activeCountryRef.current = properties.iso2;
+            }
+            popup.setLngLat(event.lngLat).addTo(map);
         };
-        map.on('click', 'country-fill', showCountry);
-        map.on('click', 'activity-marker-core', showCountry);
+        const selectCountry = (event: MapLayerMouseEvent) => {
+            showCountry(event);
+            const properties = event.features?.[0]?.properties as CountryProperties | undefined;
+            if (properties?.iso2) setSelectedCountry(properties.iso2);
+        };
+        map.on('click', 'country-fill', selectCountry);
+        map.on('click', 'activity-marker-core', selectCountry);
+        map.on('mousemove', 'country-fill', showCountry);
+        map.on('mousemove', 'activity-marker-core', showCountry);
         map.on('mouseenter', 'country-fill', () => { map.getCanvas().style.cursor = 'pointer'; });
+        map.on('mouseenter', 'activity-marker-core', () => { map.getCanvas().style.cursor = 'pointer'; });
         map.on('mouseleave', 'country-fill', () => { map.getCanvas().style.cursor = ''; });
+        map.on('mouseleave', 'activity-marker-core', () => { map.getCanvas().style.cursor = ''; });
+        map.on('mouseout', () => { map.getCanvas().style.cursor = ''; popup.remove(); activeCountryRef.current = null; });
         map.once('load', () => {
             mapLoaded = true;
+            mapLoadedRef.current = true;
             const patterns: [string, string][] = dark
                 ? [['country-dots-base', '#5b8bb1'], ['country-dots-activity', '#27bde7'], ['country-dots-feedback', '#b47aff']]
                 : [['country-dots-base', '#7088b1'], ['country-dots-activity', '#347eef'], ['country-dots-feedback', '#9751ee']];
             patterns.forEach(([id, color]) => map.addImage(id, countryDotPattern(color)));
-            map.setPaintProperty('country-fill', 'fill-pattern', [
-                'case',
-                ['any', ['>', ['get', 'deliveries'], 0], ['>', ['get', 'bounces'], 0]], 'country-dots-feedback',
-                ['>', ['get', 'engagement'], 0], 'country-dots-activity',
-                'country-dots-base',
-            ]);
+            applyMetricStyle(map, activeMetricRef.current, data.countries, dark);
+            if (selectedCountryRef.current) {
+                map.setFeatureState({ source: 'countries', id: selectedCountryRef.current }, { selected: true });
+                previousSelectedCountryRef.current = selectedCountryRef.current;
+            }
             fitWorld();
         });
 
@@ -318,16 +415,49 @@ export default function DeliverabilityGeoMap({ data, theme }: { data: DashboardA
             resizeObserver.disconnect();
             popup.remove();
             map.remove();
+            mapRef.current = null;
+            popupRef.current = null;
+            mapLoadedRef.current = false;
+            previousSelectedCountryRef.current = null;
         };
-    }, [collection, markers, theme]);
+    }, [collection, markers, theme, data.countries]);
 
-    const maximumEngagement = Math.max(1, ...summary.map(({ row }) => row.opens + row.clicks + row.leads + row.unsubscribes));
+    useEffect(() => {
+        if (!mapLoadedRef.current || !mapRef.current) return;
+        applyMetricStyle(mapRef.current, selectedMetric, data.countries, theme === 'dark');
+        popupRef.current?.remove();
+        activeCountryRef.current = null;
+    }, [selectedMetric, data.countries, theme]);
+
+    useEffect(() => {
+        const map = mapRef.current;
+        if (!mapLoadedRef.current || !map) return;
+        if (previousSelectedCountryRef.current) {
+            map.setFeatureState({ source: 'countries', id: previousSelectedCountryRef.current }, { selected: false });
+        }
+        if (selectedCountry) {
+            map.setFeatureState({ source: 'countries', id: selectedCountry }, { selected: true });
+        }
+        previousSelectedCountryRef.current = selectedCountry;
+    }, [selectedCountry]);
+
+    const selectedMetricDefinition = geoMetrics.find((metric) => metric.key === selectedMetric)!;
 
     return (
         <section className="command-os-panel command-os-geo-panel" id="deliverability-geo" aria-labelledby="command-os-geo-title">
             <div className="command-os-panel-heading">
-                <div className="command-os-panel-title"><span className="command-os-heading-icon"><span aria-hidden="true">◎</span></span><h2 id="command-os-geo-title">Deliverability by GEO</h2></div>
-                <span className="command-os-status-tag">{countryCount} countries</span>
+                <div className="command-os-panel-title"><span className="command-os-heading-icon"><Globe2 size={16} aria-hidden="true" /></span><h2 id="command-os-geo-title">Deliverability by GEO</h2></div>
+                <label className="command-os-geo-metric-filter">
+                    <span className="command-os-sr-only">Map metric</span>
+                    <select value={selectedMetric} onChange={(event) => {
+                        const nextMetric = event.currentTarget.value;
+                        if (geoMetrics.some((metric) => metric.key === nextMetric)) onMetricChange(nextMetric as GeoMetric);
+                    }} aria-label="Map metric">
+                        {geoMetrics.map((metric) => <option value={metric.key} key={metric.key}>{metric.label}</option>)}
+                        <option value="revenue" disabled>Revenue · no country attribution</option>
+                    </select>
+                </label>
+                <span className="command-os-status-tag">{activeCountryCount} {activeCountryCount === 1 ? 'country' : 'countries'}</span>
             </div>
             <div className="command-os-geo-legend" aria-label="Map legend">
                 <span><i className="command-os-legend-delivery" aria-hidden="true" />Delivery feedback</span>
@@ -335,27 +465,32 @@ export default function DeliverabilityGeoMap({ data, theme }: { data: DashboardA
             </div>
             <div className="command-os-geo-body">
                 <div className="command-os-map-frame">
-                    <div className="command-os-map" ref={container} role="application" aria-describedby="command-os-geo-note" aria-label="Interactive dotted world map. Markers represent approximate country-level activity aggregates, not recipient locations. Use zoom controls and select a country for its delivery feedback and engagement totals." />
+                    <div className="command-os-map" ref={container} role="application" aria-describedby="command-os-geo-note" aria-label={`Interactive dotted world map showing ${selectedMetricDefinition.label} by country. Markers represent country-level aggregates, not recipient locations. Use zoom controls and select a country for its activity totals.`} />
+                    {mapError && <div className="command-os-map-error" role="status"><strong>Map unavailable</strong><span>The map could not finish rendering. Country totals remain available in the adjacent list.</span></div>}
                 </div>
                 <div className={`command-os-geo-countries${summary.length === 0 ? ' command-os-geo-countries-empty' : ''}`} aria-label="Countries with recorded activity">
+                    {selectedCountryData && <section className="command-os-geo-selected-country" aria-label={`${selectedCountryName} activity details`}>
+                        <div><strong>{selectedCountryName}</strong><button type="button" onClick={() => setSelectedCountry(null)} aria-label="Clear selected country">Clear</button></div>
+                        <b>{formatCount(metricValue(selectedCountryData, selectedMetric))} <span>{selectedMetricDefinition.label.toLowerCase()}</span></b>
+                        <small>{selectedMetricDefinition.source}. Campaign, ISP, offer, list and country-level revenue joins are not present in this GEO data feed.</small>
+                    </section>}
                     {summary.length === 0 ? <div className="command-os-geo-empty" role="status">
-                        <strong>No country data</strong>
-                        <span>Country-coded activity will appear here.</span>
+                        <strong>No {selectedMetricDefinition.label.toLowerCase()} by country</strong>
+                        <span>No country-coded {selectedMetricDefinition.label.toLowerCase()} were recorded for this date range.</span>
                     </div> : summary.map(({ code, name, row }) => {
-                        const engagement = row.opens + row.clicks + row.leads + row.unsubscribes;
-                        const relativeActivity = Math.round((engagement / maximumEngagement) * 100);
-                        return <div className="command-os-country-row" key={code}>
+                        const relativeActivity = Math.round((metricValue(row, selectedMetric) / maximumMetric) * 100);
+                        return <button className={`command-os-country-row${selectedCountry === code ? ' is-selected' : ''}`} key={code} type="button" aria-pressed={selectedCountry === code} onClick={() => setSelectedCountry(selectedCountry === code ? null : code)}>
                             <div className="command-os-country-label"><span aria-hidden="true">{code}</span><strong>{name}</strong></div>
-                            <span className="command-os-country-count">{formatCount(engagement)} events</span>
-                            <div className="command-os-country-track" role="meter" aria-label={`${name} relative engagement volume`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={relativeActivity} aria-valuetext={`${formatCount(engagement)} engagement events, relative to the highest-activity country`}>
+                            <span className="command-os-country-count">{formatCount(metricValue(row, selectedMetric))} {selectedMetricDefinition.label.toLowerCase()}</span>
+                            <div className="command-os-country-track" role="meter" aria-label={`${name} relative ${selectedMetricDefinition.label.toLowerCase()} volume`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={relativeActivity} aria-valuetext={`${formatCount(metricValue(row, selectedMetric))} ${selectedMetricDefinition.label.toLowerCase()}, relative to the highest-activity country`}>
                                 <span style={{ width: `${relativeActivity}%` }} />
                             </div>
-                            <span className="command-os-country-feedback">{formatCount(row.deliveries)} delivery feedback · {formatCount(row.bounces)} bounces</span>
-                        </div>;
+                            <span className="command-os-country-feedback">{formatCount(row.deliveries)} delivery feedback · {formatCount(row.bounces)} bounce feedback</span>
+                        </button>;
                     })}
                 </div>
             </div>
-            <p className="command-os-sr-only" id="command-os-geo-note">{data.feedback_note}</p>
+            <p className="command-os-geo-note" id="command-os-geo-note">{data.feedback_note} {formatCount(data.proxy_opens_excluded)} proxy or unclassified opens excluded from GEO.</p>
         </section>
     );
 }

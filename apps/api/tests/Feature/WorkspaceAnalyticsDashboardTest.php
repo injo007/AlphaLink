@@ -541,7 +541,8 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
 
                 return count($charts['mtd_actions']['labels']) === now()->daysInMonth
                     && $actions->get('Deliveries')['values'][$todayIndex] === 0
-                    && $actions->get('Bounces')['values'][$todayIndex] === 0
+                    && $actions->get('Soft bounces')['values'][$todayIndex] === 0
+                    && $actions->get('Hard bounces')['values'][$todayIndex] === 0
                     && $actions->get('Opens')['values'][$todayIndex] === 1
                     && $actions->get('Clicks')['values'][$todayIndex] === 1
                     && $actions->get('Unsubscribes')['values'][$todayIndex] === 1
@@ -1099,6 +1100,29 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_geo_dashboard_excludes_proxy_and_unclassified_drop_opens(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->makeWorkspace($owner, 'owner');
+        $drop = WorkspaceDrop::factory()->forWorkspace($workspace, $owner)->create();
+
+        $this->addVisitor($workspace, $drop, 'open', now(), country: 'United States', isProxy: false);
+        $this->addVisitor($workspace, $drop, 'open', now()->subHour(), country: 'Canada', isProxy: true);
+        $this->addVisitor($workspace, $drop, 'open', now()->subHours(2), country: 'Mexico', isProxy: null);
+
+        $this->actingAs($owner)
+            ->get(route('console.dashboard.main'))
+            ->assertOk()
+            ->assertViewHas('commandOsDashboard', function (array $dashboard): bool {
+                $geo = $dashboard['analytics']['geo'];
+
+                return $geo['proxy_opens_excluded'] === 2
+                    && count($geo['countries']) === 1
+                    && $geo['countries'][0]['country'] === 'United States'
+                    && $geo['countries'][0]['opens'] === 1;
+            });
+    }
+
     public function test_dashboard_charts_zero_fill_empty_month_and_year_periods(): void
     {
         $owner = User::factory()->create();
@@ -1115,8 +1139,8 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
             ->assertSee('Leads (AlphaLink)')
             ->assertViewHas('dashboardCharts', fn (array $charts): bool => count($charts['mtd_actions']['labels']) === now()->daysInMonth
                 && count($charts['ytd_revenue']['labels']) === 12
-                && collect($charts['mtd_actions']['series'])->pluck('label')->all() === ['Deliveries', 'Bounces', 'Opens', 'Clicks', 'Unsubscribes', 'Leads (AlphaLink)']
-                && collect($charts['mtd_actions']['series'])->pluck('color')->unique()->count() === 6
+                && collect($charts['mtd_actions']['series'])->pluck('label')->all() === ['Deliveries', 'Soft bounces', 'Hard bounces', 'Opens', 'Clicks', 'Unsubscribes', 'Leads (AlphaLink)']
+                && collect($charts['mtd_actions']['series'])->pluck('color')->unique()->count() === 7
                 && collect($charts['mtd_actions']['series'])->every(fn (array $series): bool => array_sum($series['values']) === 0)
                 && array_sum($charts['mtd_revenue']['series'][0]['values']) === 0.0
                 && array_sum($charts['ytd_revenue']['series'][0]['values']) === 0.0
@@ -1372,7 +1396,7 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
         return $payload;
     }
 
-    private function addVisitor(Workspace $workspace, WorkspaceDrop $drop, string $type, Carbon $createdAt, float $revenue = 0, ?int $ispId = null, ?string $country = null): void
+    private function addVisitor(Workspace $workspace, WorkspaceDrop $drop, string $type, Carbon $createdAt, float $revenue = 0, ?int $ispId = null, ?string $country = null, ?bool $isProxy = false): void
     {
         WorkspaceDropVisitor::factory()->forDrop($drop)->create([
             'workspace_id' => $workspace->getKey(),
@@ -1381,6 +1405,7 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
             'revenue' => $revenue,
             'isp_id' => $ispId,
             'country' => $country,
+            'is_proxy' => $isProxy,
         ]);
     }
 

@@ -13,47 +13,25 @@ const nodeColors: Record<string, string> = {
     indigo: '#7052ef',
 };
 
-const coreModuleOrder = ['servers', 'campaigns', 'drops', 'warmups', 'offers', 'tracking', 'lists', 'domains'];
+const featuredModuleOrder = ['campaigns', 'servers', 'isps', 'drops', 'warmups', 'offers', 'tracking', 'lists', 'domains', 'sponsors'];
+const additionalModuleOrder: string[] = [];
 const brandMark = '/console-assets/alphalink-command-os-mark.png';
-const moduleIcons: Record<string, string> = {
-    campaigns: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
-    drops: '<path d="m12 3 8.5 4.5L12 12 3.5 7.5 12 3Z"/><path d="m3.5 12 8.5 4.5 8.5-4.5M3.5 16.5 12 21l8.5-4.5"/>',
-    warmups: '<path d="M8.5 14.5c1.6-1.3 2.1-3.1 1.7-5.5 3.5 2 5.2 4.5 4.7 7.2-.3 1.6-1.5 2.8-3.2 2.8-2.2 0-3.7-1.7-3.2-4.5Z"/><path d="M12 22a8 8 0 0 0 8-8c0-4-2.5-7.3-6.5-10 .4 3.2-.7 5.2-2.3 6.6C10.1 6.6 8.4 4.7 6 3c.7 4-2 6.4-2 11a8 8 0 0 0 8 8Z"/>',
-    servers: '<rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01M11 7.5h6M11 16.5h6"/>',
-    domains: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z"/>',
-    lists: '<path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM20 8v6M23 11h-6"/>',
-    offers: '<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3.4 13.4A2 2 0 0 1 2.8 12V5a2 2 0 0 1 2-2h7a2 2 0 0 1 1.4.6l7.4 7a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r=".8"/>',
-    tracking: '<path d="M3 3v18h18"/><path d="m18 17-6-6-4 4-3-3"/><path d="M14 17h4v-4"/>',
-};
-
-function iconImage(id: string, color: string): string {
-    const paths = moduleIcons[id] ?? moduleIcons.domains;
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
-    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
-}
 
 function formatCount(value: number): string {
     return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value);
 }
 
 function nodeWidth(label: string, maxWidth = 128): number {
-    return Math.max(Math.min(88, maxWidth), Math.min(maxWidth, Math.ceil(label.length * 6.4 + 48)));
+    return Math.max(Math.min(88, maxWidth), Math.min(maxWidth, Math.ceil(label.length * 6.4 + 40)));
 }
 
 function modulePosition(index: number, count: number, width: number, height: number, maxNodeWidth: number): [number, number] {
-    if (width < 420) {
-        const column = index % 2;
-        const rows = Math.ceil(count / 2);
-        const row = Math.floor(index / 2);
-        const verticalInset = Math.min(22, height / 8);
-        const x = column === 0 ? maxNodeWidth / 2 + 12 : width - maxNodeWidth / 2 - 12;
-        const y = rows < 2 ? height / 2 : verticalInset + (row * (height - verticalInset * 2)) / (rows - 1);
-        return [x, y];
-    }
-
-    const angle = -Math.PI / 2 + (index * Math.PI * 2) / count;
-    const radiusX = Math.max(72, width / 2 - maxNodeWidth / 2 - 14);
-    const radiusY = Math.max(38, height / 2 - 21 - 10);
+    if (count <= 1) return [width / 2, height * 0.19];
+    if (width < 560 && count > 5) count = 5;
+    const visibleIndex = index % count;
+    const angle = -Math.PI / 2 + (visibleIndex * Math.PI * 2) / count;
+    const radiusX = Math.max(44, width / 2 - maxNodeWidth / 2 - 10);
+    const radiusY = Math.max(42, height / 2 - 18);
     return [width / 2 + Math.cos(angle) * radiusX, height / 2 + Math.sin(angle) * radiusY];
 }
 
@@ -63,19 +41,26 @@ function moduleCountLabel(node: MarketingNode): string {
 
 export default function MarketingGraph({ data, theme }: { data: DashboardAnalytics['graph']; theme: Theme }): JSX.Element {
     const container = useRef<HTMLDivElement>(null);
-    const [size, setSize] = useState<GraphSize>({ width: 480, height: 190 });
+    const [size, setSize] = useState<GraphSize>({ width: 480, height: 174 });
     const [selected, setSelected] = useState<string | null>(null);
+    const [hovered, setHovered] = useState<string | null>(null);
     const dark = theme === 'dark';
-    const coreModules = coreModuleOrder
+    const orderedModules = [...featuredModuleOrder, ...additionalModuleOrder]
         .map((id) => data.nodes.find((node) => node.id === id))
         .filter((node): node is MarketingNode => node !== undefined);
-    const modules = [...coreModules, ...data.nodes.filter((node) => !coreModuleOrder.includes(node.id))];
+    const orderedIds = new Set(orderedModules.map((node) => node.id));
+    const modules = [...orderedModules, ...data.nodes.filter((node) => !orderedIds.has(node.id))];
+    const featuredModules = modules.filter((node) => featuredModuleOrder.includes(node.id));
+    const useFullNetwork = size.width >= 560 && modules.length <= 10;
+    const primaryModules = useFullNetwork || featuredModules.length === 0 ? modules : featuredModules.slice(0, 5);
+    const additionalModules = modules.filter((node) => !primaryModules.some((primary) => primary.id === node.id));
     const nodeWidthLimit = size.width < 320 ? 104 : 128;
-    const maxNodeWidth = Math.max(Math.min(92, nodeWidthLimit), ...modules.map((node) => nodeWidth(node.label, nodeWidthLimit)));
+    const maxNodeWidth = Math.max(Math.min(92, nodeWidthLimit), ...primaryModules.map((node) => nodeWidth(node.label, nodeWidthLimit)));
     const centerX = size.width / 2;
-    const centerY = size.height / 2;
-    const positions = modules.map((node, index) => ({ node, point: modulePosition(index, modules.length, size.width, size.height, maxNodeWidth) }));
+    const centerY = size.height * 0.53;
+    const positions = primaryModules.map((node, index) => ({ node, point: modulePosition(index, primaryModules.length, size.width, size.height, maxNodeWidth) }));
     const selectedModule = modules.find((node) => node.id === selected);
+    const focusedId = hovered ?? selected;
 
     useEffect(() => {
         const element = container.current;
@@ -90,12 +75,62 @@ export default function MarketingGraph({ data, theme }: { data: DashboardAnalyti
     }, []);
 
     const selectModule = (node: MarketingNode) => setSelected(node.id);
+    const renderModuleButton = (node: MarketingNode, point?: [number, number]) => {
+        const color = nodeColors[node.color] ?? '#8a66ee';
+        const isSelected = selected === node.id;
+        const isFocused = focusedId === node.id;
+        const isMuted = focusedId !== null && !isFocused;
+        const style: CSSProperties = { '--node-accent': color } as CSSProperties;
+        if (point) {
+            style.left = `${(point[0] / size.width) * 100}%`;
+            style.top = `${(point[1] / size.height) * 100}%`;
+            style.width = `${nodeWidth(node.label, nodeWidthLimit)}px`;
+        }
+
+        const className = `command-os-network-node${point ? '' : ' command-os-graph-module-chip'}${isSelected ? ' is-selected' : ''}${isFocused ? ' is-focused' : ''}${isMuted ? ' is-muted' : ''}`;
+        const title = node.href ? `Open ${node.label} · ${moduleCountLabel(node)} in this range` : `${node.label}: ${moduleCountLabel(node)} in this range`;
+        const label = node.href ? `Open ${node.label}: ${moduleCountLabel(node)} in this range` : `Show ${node.label}: ${moduleCountLabel(node)} in this range`;
+        const content = <><span className="command-os-network-node-dot" aria-hidden="true" /><span>{node.label}</span></>;
+
+        if (node.href) {
+            return <a
+                className={className}
+                key={node.id}
+                style={style}
+                href={node.href}
+                title={title}
+                aria-label={label}
+                onClick={() => selectModule(node)}
+                onPointerEnter={() => setHovered(node.id)}
+                onPointerLeave={() => setHovered((current) => current === node.id ? null : current)}
+                onFocus={() => setHovered(node.id)}
+                onBlur={() => setHovered(null)}
+            >{content}</a>;
+        }
+
+        return <button
+            className={className}
+            key={node.id}
+            style={style}
+            type="button"
+            title={title}
+            aria-label={label}
+            aria-pressed={isSelected}
+            onClick={() => selectModule(node)}
+            onPointerEnter={() => setHovered(node.id)}
+            onPointerLeave={() => setHovered((current) => current === node.id ? null : current)}
+            onFocus={() => setHovered(node.id)}
+            onBlur={() => setHovered(null)}
+        >{content}</button>;
+    };
+
     return (
         <section className="command-os-panel command-os-graph-panel" id="marketing-graph" aria-labelledby="command-os-graph-title">
             <div className="command-os-panel-heading">
                 <div className="command-os-panel-title"><span className="command-os-heading-icon command-os-graph-heading-icon"><span aria-hidden="true">✣</span></span><h2 id="command-os-graph-title">Marketing graph</h2></div>
                 <span className="command-os-status-tag">{modules.length} modules</span>
             </div>
+            <p className="command-os-graph-intro">Bring campaigns, audiences, deliverability and infrastructure together in one focused workspace.</p>
             <div className="command-os-graph-canvas" ref={container}>
                 <svg
                     className="command-os-network-graphic"
@@ -105,15 +140,15 @@ export default function MarketingGraph({ data, theme }: { data: DashboardAnalyti
                     aria-describedby="command-os-graph-note"
                 >
                     <defs>
-                        <radialGradient id="command-os-network-hub-fill">
-                            <stop offset="0%" stopColor={dark ? '#7864ff' : '#9374ff'} />
-                            <stop offset="100%" stopColor={dark ? '#273a85' : '#e7e1ff'} />
-                        </radialGradient>
+                        <linearGradient id="command-os-network-hub-fill" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stopColor={dark ? '#a95bff' : '#8a46f4'} />
+                            <stop offset="100%" stopColor="#0879ec" />
+                        </linearGradient>
                     </defs>
                     <g aria-hidden="true">
                         {positions.map(({ node, point }) => (
                             <line
-                                className="command-os-network-spoke"
+                                className={`command-os-network-spoke${focusedId === node.id ? ' is-focused' : ''}${focusedId !== null && focusedId !== node.id ? ' is-muted' : ''}`}
                                 key={`spoke-${node.id}`}
                                 x1={centerX}
                                 y1={centerY}
@@ -124,57 +159,33 @@ export default function MarketingGraph({ data, theme }: { data: DashboardAnalyti
                         ))}
                     </g>
                     <g className="command-os-network-hub" aria-label="AlphaLink">
-                        <circle className="command-os-network-hub-halo" cx={centerX} cy={centerY} r={36} />
-                        <circle className="command-os-network-hub-disc" cx={centerX} cy={centerY} r={27} />
-                        <image href={brandMark} x={centerX - 29} y={centerY - 29} width={58} height={58} />
+                        <circle className="command-os-network-hub-ring command-os-network-hub-ring-outer" cx={centerX} cy={centerY} r={59} />
+                        <circle className="command-os-network-hub-ring command-os-network-hub-ring-inner" cx={centerX} cy={centerY} r={42} />
+                        <rect className="command-os-network-hub-tile" x={centerX - 22} y={centerY - 22} width={44} height={44} rx={13} transform={`rotate(45 ${centerX} ${centerY})`} />
+                        <image className="command-os-network-hub-logo" href={brandMark} x={centerX - 13} y={centerY - 13} width={26} height={26} />
                     </g>
                 </svg>
-                {positions.map(({ node, point }) => {
-                    const color = nodeColors[node.color] ?? '#8a66ee';
-                    const [x, y] = point;
-                    const isSelected = selected === node.id;
-                    const sharedProps = {
-                        className: `command-os-network-node${isSelected ? ' is-selected' : ''}`,
-                        key: node.id,
-                        style: {
-                            '--node-accent': color,
-                            left: `${(x / size.width) * 100}%`,
-                            top: `${(y / size.height) * 100}%`,
-                            width: `${nodeWidth(node.label, nodeWidthLimit)}px`,
-                        } as CSSProperties,
-                        title: node.href
-                            ? `Open ${node.label} · ${moduleCountLabel(node)} in this range`
-                            : `${node.label}: ${moduleCountLabel(node)} in this range`,
-                    };
-                    const content = <><img src={iconImage(node.id, color)} alt="" aria-hidden="true" /><span>{node.label}</span></>;
-
-                    return (
-                        <button
-                            {...sharedProps}
-                            type="button"
-                            aria-label={`Show ${node.label}: ${moduleCountLabel(node)} in this range`}
-                            aria-pressed={isSelected}
-                            onClick={() => selectModule(node)}
-                        >
-                            {content}
-                        </button>
-                    );
-                })}
+                {positions.map(({ node, point }) => renderModuleButton(node, point))}
             </div>
+            {additionalModules.length > 0 && (
+                <div className="command-os-graph-module-strip" role="group" aria-label="Additional workspace modules">
+                    {additionalModules.map((node) => renderModuleButton(node))}
+                </div>
+            )}
             <p className="command-os-graph-selected" aria-live="polite">
                 <span>
                     {selectedModule
                         ? `${selectedModule.label}: ${moduleCountLabel(selectedModule)} in this range.`
                         : modules.length > 0
-                            ? 'Select a module to inspect its activity count.'
+                            ? 'Open a linked module, or select a module without a destination to inspect its activity count.'
                             : 'No module activity is available for this date range.'}
                 </span>
-                {selectedModule?.href && <a className="command-os-graph-open-link" href={selectedModule.href}>Open {selectedModule.label}<span aria-hidden="true"> ↗</span></a>}
+                {selectedModule && !selectedModule.href && <span className="command-os-graph-open-link">No direct destination for {selectedModule.label}</span>}
             </p>
             <ul className="command-os-sr-only" aria-label="Module activity counts">
                 {data.nodes.map((node) => <li key={node.id}>{node.label}: {moduleCountLabel(node)} in this range</li>)}
             </ul>
-            <p className="command-os-sr-only" id="command-os-graph-note">{data.note} The spokes connect each workspace module to the AlphaLink hub; they do not claim record-to-record attribution. Module nodes open only pages available to your workspace role.</p>
+            <p className="command-os-sr-only" id="command-os-graph-note">{data.note} Featured modules connect radially to the AlphaLink hub; additional authorized modules remain selectable in the row below. The graph does not claim record-to-record attribution. Module buttons open only pages available to your workspace role.</p>
         </section>
     );
 }

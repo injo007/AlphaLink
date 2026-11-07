@@ -15,7 +15,7 @@ class WorkspaceDropVisitor extends Model
     protected $fillable = [
         'workspace_id', 'workspace_drop_id', 'type', 'revenue', 'revenue_id', 'ip', 'country', 'state', 'city',
         'device', 'platform', 'browser', 'is_mobile', 'server_id', 'ip_id', 'domain_id', 'from_id', 'subject_id',
-        'creative_id', 'isp_id', 'list_id', 'list_type', 'email_id', 'token_sha256',
+        'creative_id', 'isp_id', 'list_id', 'list_type', 'email_id', 'token_sha256', 'is_proxy',
     ];
 
     protected function casts(): array
@@ -23,6 +23,7 @@ class WorkspaceDropVisitor extends Model
         return [
             'revenue' => 'float',
             'is_mobile' => 'boolean',
+            'is_proxy' => 'boolean',
         ];
     }
 

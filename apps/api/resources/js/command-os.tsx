@@ -33,6 +33,7 @@ type Metric = {
     value: number;
     format: 'number' | 'currency';
     detail: string;
+    trend: number[];
 };
 type DashboardAction = {
     label: string;
@@ -57,6 +58,7 @@ export type DashboardPayload = {
 export type AnalyticsRow = { label: string; leads: number; clicks: number; attributed_revenue: number; deliveries?: number; opens?: number; unsubscribes?: number; bounces?: number };
 export type DashboardChartSeries = { label: string; color: string; values: number[] };
 export type DashboardChart = { labels: string[]; series: DashboardChartSeries[] };
+export type DashboardGeoMetric = 'deliveries' | 'opens' | 'clicks' | 'leads' | 'bounces' | 'unsubscribes';
 export type GeoCountry = { country: string; opens: number; clicks: number; leads: number; unsubscribes: number; deliveries: number; bounces: number };
 export type MarketingNode = { id: string; label: string; count: number; color: string; href: string | null };
 export type DashboardAnalytics = {
@@ -65,7 +67,7 @@ export type DashboardAnalytics = {
     isps: AnalyticsRow[];
     mailers: AnalyticsRow[];
     offers: AnalyticsRow[];
-    geo: { countries: GeoCountry[]; feedback_note: string };
+    geo: { countries: GeoCountry[]; proxy_opens_excluded: number; feedback_note: string };
     graph: { nodes: MarketingNode[]; note: string };
     period: { key: string; label: string; from: string; to: string; maxDate: string; action: string };
 };
@@ -241,9 +243,18 @@ function Sparkline({ values, color }: { values: number[]; color: string }): JSX.
     </svg>;
 }
 
-const actionColors = ['#28b7ff', '#ff5dbb', '#a376ff', '#32d5a1', '#ffa34a', '#52a4ff'];
+const actionColors = ['#28b7ff', '#ffbd31', '#ff5d7b', '#a376ff', '#32d5a1', '#ffa34a', '#52a4ff'];
 
-function MtdActionsStats({ chart }: { chart: DashboardChart }): JSX.Element {
+function MtdActionsStats({ chart, selectedMetric }: { chart: DashboardChart; selectedMetric: DashboardGeoMetric }): JSX.Element {
+    const selectedLabels: Record<DashboardGeoMetric, string[]> = {
+        deliveries: ['Deliveries'],
+        opens: ['Opens'],
+        clicks: ['Clicks'],
+        leads: ['Leads (AlphaLink)'],
+        bounces: ['Soft bounces', 'Hard bounces'],
+        unsubscribes: ['Unsubscribes'],
+    };
+
     return (
         <section className="command-os-panel command-os-stat-grid-panel" aria-labelledby="command-os-mtd-actions-title">
             <div className="command-os-panel-heading">
@@ -254,13 +265,14 @@ function MtdActionsStats({ chart }: { chart: DashboardChart }): JSX.Element {
                 {chart.series.map((series, index) => {
                     const total = series.values.reduce((sum, value) => sum + Number(value || 0), 0);
                     const color = actionColors[index % actionColors.length];
-                    return <article className="command-os-action-stat" key={series.label}>
+                    const linked = selectedLabels[selectedMetric].includes(series.label);
+                    return <article className={`command-os-action-stat${linked ? ' is-geo-linked' : ' is-geo-muted'}`} key={series.label}>
                         <div className="command-os-action-stat-heading"><span>{series.label}</span><strong>{number(total)}</strong></div>
                         <Sparkline values={series.values} color={color} />
                     </article>;
                 })}
             </div>
-            <p className="command-os-chart-caption">Daily totals through today. Deliveries and bounces use imported PMTA feedback; other events come from stored campaign and Drop activity.</p>
+            <p className="command-os-chart-caption">Daily totals through today. The GEO map’s {selectedMetric} selection is highlighted here and in its KPI. Deliveries and bounces use imported PMTA feedback; other events come from stored campaign and Drop activity.</p>
         </section>
     );
 }
@@ -290,17 +302,29 @@ function RevenueTrendPanel({ title, icon: Icon, chart, theme, id }: { title: str
     </section>;
 }
 
-function MetricCard({ metric }: { metric: Metric }): JSX.Element {
+function MetricCard({ metric, selectedMetric }: { metric: Metric; selectedMetric: DashboardGeoMetric }): JSX.Element {
     const Icon = metricIcons[metric.key];
     const value = metric.format === 'currency' ? money(metric.value) : number(metric.value);
+    const values = metric.trend;
+    const minimum = Math.min(0, ...values);
+    const maximum = Math.max(1, ...values);
+    const points = values.map((point, index) => {
+        const x = values.length < 2 ? 0 : (index / (values.length - 1)) * 48;
+        const y = 20 - ((point - minimum) / (maximum - minimum)) * 16;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
 
     return (
-        <article className={`command-os-metric command-os-metric-${metricColors[metric.key]}`} aria-label={`${metric.label}: ${value}`}>
+        <article className={`command-os-metric command-os-metric-${metricColors[metric.key]}${metric.key === selectedMetric ? ' is-geo-linked' : ''}`} aria-label={`${metric.label}: ${value}`} data-geo-selected={metric.key === selectedMetric || undefined}>
             <span className="command-os-metric-icon"><Icon size={19} strokeWidth={2.1} aria-hidden="true" /></span>
             <span className="command-os-metric-copy">
                 <span className="command-os-metric-label">{metric.label}</span>
                 <strong className="command-os-metric-value">{value}</strong>
+                {metric.key === selectedMetric && <span className="command-os-sr-only">Selected as the GEO map metric.</span>}
             </span>
+            <svg className="command-os-metric-sparkline" viewBox="0 0 48 22" aria-hidden="true" focusable="false">
+                <polyline points={points} pathLength="1" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
             <details className="command-os-metric-source">
                 <summary aria-label={`Show ${metric.label.toLowerCase()} data source`} title={`Show ${metric.label.toLowerCase()} data source`}>
                     <CircleHelp size={12} aria-hidden="true" />
@@ -449,16 +473,16 @@ function PartnerRevenueAnalytics({ analytics }: { analytics: DashboardAnalytics 
     </section>;
 }
 
-function DashboardCharts({ payload, theme }: { payload: DashboardPayload; theme: Theme }): JSX.Element {
+function DashboardCharts({ payload, theme, selectedMetric }: { payload: DashboardPayload; theme: Theme; selectedMetric: DashboardGeoMetric }): JSX.Element {
     return <section className="command-os-charts-section" aria-label="Activity and revenue trends">
-        <MtdActionsStats chart={payload.charts.mtd_actions} />
-        <RevenueTrendPanel id="command-os-ytd-revenue" title="Year-to-date attributed revenue" icon={ChartNoAxesCombined} chart={payload.charts.ytd_revenue} theme={theme} />
+        <MtdActionsStats chart={payload.charts.mtd_actions} selectedMetric={selectedMetric} />
         <RevenueTrendPanel id="command-os-mtd-revenue" title="Month-to-date attributed revenue" icon={DollarSign} chart={payload.charts.mtd_revenue} theme={theme} />
+        <RevenueTrendPanel id="command-os-ytd-revenue" title="Year-to-date attributed revenue" icon={ChartNoAxesCombined} chart={payload.charts.ytd_revenue} theme={theme} />
     </section>;
 }
 
 function PerformanceOverview({ payload, theme }: { payload: DashboardPayload; theme: Theme }): JSX.Element {
-    return <section className="command-os-panel command-os-performance command-os-performance-footer" id="performance" aria-labelledby="command-os-performance-title">
+    return <section className="command-os-panel command-os-performance" id="performance" aria-labelledby="command-os-performance-title">
         <div className="command-os-panel-heading">
             <div className="command-os-panel-title"><span className="command-os-heading-icon"><ChartNoAxesCombined size={17} aria-hidden="true" /></span><h2 id="command-os-performance-title">Performance overview · last 30 days</h2></div>
             <span className="command-os-panel-meta">{payload.period.from} — {payload.period.to}</span>
@@ -469,6 +493,7 @@ function PerformanceOverview({ payload, theme }: { payload: DashboardPayload; th
 function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
     const [payload, updatePayload] = useState(initial);
     const [theme, updateTheme] = useState<Theme>('light');
+    const [selectedGeoMetric, setSelectedGeoMetric] = useState<DashboardGeoMetric>('deliveries');
     const [refreshing, setRefreshing] = useState(false);
     const [refreshError, setRefreshError] = useState('');
     const [lastChecked, setLastChecked] = useState<Date | null>(null);
@@ -515,6 +540,10 @@ function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
     return (
         <div className="command-os-dashboard-content" data-theme={theme}>
             <div className="command-os-page-heading">
+                <svg className="command-os-header-wave" viewBox="0 0 1000 110" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                    <path className="command-os-header-wave-blue" d="M0 68 C110 64 119 12 238 24 S370 89 500 67 647 7 774 28 894 75 1000 45" />
+                    <path className="command-os-header-wave-violet" d="M0 82 C108 77 142 35 254 44 S381 103 523 80 674 25 796 42 915 94 1000 64" />
+                </svg>
                 <div>
                     <p className="command-os-eyebrow">ALPHALINK COMMAND OS — {payload.workspaceName}</p>
                     <h1>Welcome back, {payload.userName}</h1>
@@ -533,12 +562,12 @@ function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
             {refreshError && <div className="command-os-refresh-error" role="status">{refreshError}</div>}
 
             <section className="command-os-metrics" aria-label={`${payload.period.label} performance metrics`}>
-                {payload.metrics.map((metric) => <MetricCard key={metric.key} metric={metric} />)}
+                {payload.metrics.map((metric) => <MetricCard key={metric.key} metric={metric} selectedMetric={selectedGeoMetric} />)}
             </section>
 
-            <section className="command-os-panels command-os-intelligence-panels" aria-label="Geographic and network intelligence">
+            <section className="command-os-panels command-os-intelligence-panels" aria-label="Geographic and marketing intelligence">
                 <Suspense fallback={<section className="command-os-panel command-os-async-panel" role="status">Loading country map…</section>}>
-                    <DeliverabilityGeoMap data={payload.analytics.geo} theme={theme} />
+                    <DeliverabilityGeoMap data={payload.analytics.geo} theme={theme} selectedMetric={selectedGeoMetric} onMetricChange={setSelectedGeoMetric} />
                 </Suspense>
 
                 <Suspense fallback={<section className="command-os-panel command-os-async-panel" role="status">Loading Marketing Graph…</section>}>
@@ -546,7 +575,13 @@ function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
                 </Suspense>
             </section>
 
-            <section className="command-os-quick-actions" aria-labelledby="command-os-actions-title">
+            <PartnerRevenueAnalytics analytics={payload.analytics} />
+
+            <DashboardCharts payload={payload} theme={theme} selectedMetric={selectedGeoMetric} />
+
+            <PerformanceOverview payload={payload} theme={theme} />
+
+            <section className="command-os-quick-actions command-os-quick-actions-footer" aria-labelledby="command-os-actions-title">
                 <div className="command-os-quick-intro"><Flame size={19} aria-hidden="true" /><span><strong id="command-os-actions-title">Quick actions</strong><small>Faster operations</small></span></div>
                 <div className="command-os-action-list">
                     {payload.actions.map((action) => {
@@ -574,12 +609,6 @@ function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
                     })}
                 </div>
             </section>
-
-            <PartnerRevenueAnalytics analytics={payload.analytics} />
-
-            <DashboardCharts payload={payload} theme={theme} />
-
-            <PerformanceOverview payload={payload} theme={theme} />
 
             <div className="command-os-data-notes" id="command-os-data-coverage">
                 <span><strong>Coverage:</strong> {payload.coverage.deliveries}</span>

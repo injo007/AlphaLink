@@ -32,7 +32,7 @@ This document defines current AlphaLink interface behavior. It is scoped to Alph
 ## Command OS dashboard visualizations
 
 - **Deliverability by GEO:** The world silhouette is a geographic reference. Country dots and halo markers are driven only by country-coded workspace event or imported feedback totals. A marker denotes an approximate country-level aggregate, not a recipient location. The side list shows event counts and a relative-engagement bar; neither is a delivery-rate percentage. Delivery/bounce feedback remains a count because the complete sent-recipient denominator is unavailable. Empty date ranges keep the map but show a clear no-country-data state.
-- **Marketing Graph:** The AlphaLink hub connects to workspace module summaries. Spokes describe module membership, not links between specific records. Selecting a module exposes its date-filtered count. The graph must fit its panel without clipping at the supported breakpoints and keep all authorized modules represented.
+- **Marketing Graph:** The AlphaLink hub connects featured workspace modules with radial, module-colored spokes; other authorized modules remain selectable in a compact row beneath the graph. Spokes describe module membership, not links between specific records. Selecting a module exposes its date-filtered count. Hover and keyboard focus bring the active module forward while softening the others. The graph must fit its panel without clipping at supported breakpoints and keep all authorized modules represented.
 - Both panels follow the Command OS light/dark theme. At narrow widths, the GEO country summary stacks below the map and the graph recomputes its radial layout to fit the panel.
 
 ## Verification

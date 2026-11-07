@@ -52,7 +52,7 @@ function formatCompactCount(value: number): string {
     return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
 }
 
-function nodeWidth(label: string, maxWidth = 112): number {
+function nodeWidth(label: string, maxWidth = 128): number {
     return Math.max(Math.min(88, maxWidth), Math.min(maxWidth, Math.ceil(label.length * 5.8 + 50)));
 }
 
@@ -101,10 +101,10 @@ export default function MarketingGraph({ data, theme }: { data: DashboardAnalyti
     const orderedIds = new Set(orderedModules.map((node) => node.id));
     const modules = [...orderedModules, ...data.nodes.filter((node) => !orderedIds.has(node.id))];
     const nodeWidthLimit = size.width < 520 && modules.length > 5
-        ? Math.max(76, Math.min(112, size.width / 2 - 29))
+        ? Math.max(76, Math.min(128, size.width / 2 - 29))
         : size.width < 520
-            ? Math.min(112, size.width / 2 - 9)
-            : 112;
+            ? Math.min(128, size.width / 2 - 9)
+            : 128;
     const maxNodeWidth = Math.max(72, ...modules.map((node) => nodeWidth(node.label, nodeWidthLimit)));
     const layout: GraphPosition = size.width < 520 && modules.length > 5 ? 'columns' : 'orbit';
     const centerX = size.width / 2;

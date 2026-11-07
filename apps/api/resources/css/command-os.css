@@ -2940,7 +2940,8 @@ body.command-os-dashboard #main_content .command-os-graph-selected {
 
 body.command-os-dashboard #main_content .command-os-quick-actions-footer {
     margin-top: 0;
-    margin-bottom: 15px;
+    margin-bottom: 0;
+    grid-column: 1 / -1;
 }
 
 body.command-os-dashboard #main_content .command-os-geo-note {
@@ -2962,9 +2963,11 @@ body.command-os-dashboard #main_content .command-os-geo-note {
 @media (max-width: 1449.98px) {
     body.command-os-dashboard #main_content .command-os-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     body.command-os-dashboard #main_content .command-os-intelligence-panels { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-performance { grid-column: 1 / -1; grid-row: 2; }
+    body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-performance { grid-column: 1 / -1; }
     body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-geo-panel { grid-column: 1; grid-row: 1; }
     body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-graph-panel { grid-column: 2; grid-row: 1; }
+    body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-quick-actions-footer { grid-column: 1 / -1; grid-row: 2; }
+    body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-performance { grid-row: 3; }
     body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-panel { min-height: 248px; }
     body.command-os-dashboard #main_content .command-os-geo-body { grid-template-columns: minmax(0, 1.7fr) minmax(128px, .9fr); min-height: 150px; }
     body.command-os-dashboard #main_content .command-os-map-frame { min-height: 150px; }
@@ -2973,7 +2976,10 @@ body.command-os-dashboard #main_content .command-os-geo-note {
 
 @media (max-width: 991.98px) {
     body.command-os-dashboard #main_content .command-os-intelligence-panels { grid-template-columns: minmax(0, 1fr); }
-    body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-panel { grid-column: auto; grid-row: auto; }
+    body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-geo-panel { grid-column: 1; grid-row: 1; }
+    body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-graph-panel { grid-column: 1; grid-row: 2; }
+    body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-quick-actions-footer { grid-column: 1; grid-row: 3; }
+    body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-performance { grid-column: 1; grid-row: 4; }
     body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-panel { min-height: 0; }
     body.command-os-dashboard #main_content .command-os-performance .command-os-chart { min-height: 220px; }
 }

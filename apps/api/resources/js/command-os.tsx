@@ -598,35 +598,35 @@ function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
                 <Suspense fallback={<section className="command-os-panel command-os-async-panel" role="status">Loading Marketing Graph…</section>}>
                     <MarketingGraph data={payload.analytics.graph} theme={theme} />
                 </Suspense>
-            </section>
 
-            <section className="command-os-quick-actions command-os-quick-actions-footer" aria-labelledby="command-os-actions-title">
-                <div className="command-os-quick-intro"><Flame size={19} aria-hidden="true" /><span><strong id="command-os-actions-title">Quick actions</strong><small>Faster operations</small></span></div>
-                <div className="command-os-action-list">
-                    {payload.actions.map((action) => {
-                        const Icon = actionIcons[action.icon] ?? Layers3;
-                        if (action.disabled || !action.href) {
-                            const reasonId = `command-os-action-${action.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-reason`;
+                <section className="command-os-quick-actions command-os-quick-actions-footer" aria-labelledby="command-os-actions-title">
+                    <div className="command-os-quick-intro"><Flame size={19} aria-hidden="true" /><span><strong id="command-os-actions-title">Quick actions</strong><small>Faster operations</small></span></div>
+                    <div className="command-os-action-list">
+                        {payload.actions.map((action) => {
+                            const Icon = actionIcons[action.icon] ?? Layers3;
+                            if (action.disabled || !action.href) {
+                                const reasonId = `command-os-action-${action.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-reason`;
 
-                            return <button
-                                className="command-os-action command-os-action-disabled"
-                                type="button"
-                                disabled
-                                aria-describedby={reasonId}
-                                key={action.label}
-                                aria-label={action.label}
-                            >
-                                <Icon size={17} aria-hidden="true" />
-                                <span className="command-os-action-copy">
-                                    <span>{action.label}</span>
-                                    <small id={reasonId}>{action.reason ?? 'Unavailable'}</small>
-                                </span>
-                            </button>;
-                        }
+                                return <button
+                                    className="command-os-action command-os-action-disabled"
+                                    type="button"
+                                    disabled
+                                    aria-describedby={reasonId}
+                                    key={action.label}
+                                    aria-label={action.label}
+                                >
+                                    <Icon size={17} aria-hidden="true" />
+                                    <span className="command-os-action-copy">
+                                        <span>{action.label}</span>
+                                        <small id={reasonId}>{action.reason ?? 'Unavailable'}</small>
+                                    </span>
+                                </button>;
+                            }
 
-                        return <a className="command-os-action" href={action.href} key={action.label}><Icon size={17} aria-hidden="true" /><span>{action.label}</span></a>;
-                    })}
-                </div>
+                            return <a className="command-os-action" href={action.href} key={action.label}><Icon size={17} aria-hidden="true" /><span>{action.label}</span></a>;
+                        })}
+                    </div>
+                </section>
             </section>
 
             <PartnerRevenueAnalytics analytics={payload.analytics} />

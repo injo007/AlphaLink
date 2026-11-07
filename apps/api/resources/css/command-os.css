@@ -1516,56 +1516,84 @@ html[data-command-theme='dark'] .command-os-panel {
 
 .command-os-graph-canvas {
     position: relative;
+    container-type: inline-size;
     height: 190px;
     margin: 2px 8px 7px;
     width: calc(100% - 18px);
-    overflow: visible;
+    overflow: hidden;
 }
 
 .command-os-network-graphic {
+    position: absolute;
+    inset: 0;
     display: block;
     width: 100%;
     height: 100%;
-    overflow: visible;
-}
-
-.command-os-network-spoke {
-    stroke-width: 1.15;
-    stroke-opacity: .28;
-}
-
-.command-os-network-node {
-    cursor: pointer;
-    outline: none;
-}
-
-.command-os-network-node-pill {
-    fill: var(--co-surface);
-    stroke: var(--node-accent);
-    stroke-opacity: .56;
-    stroke-width: 1.15;
-    filter: drop-shadow(0 2px 4px rgb(48 60 107 / 10%));
-    transition: fill .16s ease, stroke-opacity .16s ease, filter .16s ease;
-}
-
-.command-os-network-label {
-    fill: var(--co-ink);
-    font-family: Inter, 'Segoe UI', Arial, sans-serif;
-    font-size: 9.5px;
-    font-weight: 700;
+    overflow: hidden;
     pointer-events: none;
 }
 
-.command-os-network-node:hover .command-os-network-node-pill,
-.command-os-network-node:focus-visible .command-os-network-node-pill,
-.command-os-network-node.is-selected .command-os-network-node-pill {
-    fill: color-mix(in srgb, var(--node-accent) 9%, var(--co-surface));
-    stroke-opacity: 1;
-    filter: drop-shadow(0 2px 7px color-mix(in srgb, var(--node-accent) 28%, transparent));
+.command-os-network-spoke {
+    stroke-width: 1.35;
+    stroke-opacity: .48;
 }
 
-.command-os-network-node:focus-visible .command-os-network-node-pill {
-    stroke-width: 2.2;
+.command-os-network-node {
+    position: absolute;
+    z-index: 2;
+    display: inline-flex;
+    min-width: 60px;
+    min-height: 34px;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 8px;
+    border: 1.4px solid color-mix(in srgb, var(--node-accent) 78%, var(--co-border));
+    border-radius: 999px;
+    color: var(--co-ink);
+    background: color-mix(in srgb, var(--node-accent) 12%, var(--co-surface));
+    box-shadow: 0 2px 7px rgb(33 47 94 / 15%), inset 0 1px rgb(255 255 255 / 70%);
+    font: 700 9px/1 Inter, 'Segoe UI', Arial, sans-serif;
+    white-space: nowrap;
+    cursor: pointer;
+    opacity: 1;
+    transform: translate(-50%, -50%);
+    transition: color .16s ease, background-color .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+
+.command-os-network-node img {
+    display: block;
+    width: 14px;
+    height: 14px;
+    flex: 0 0 14px;
+}
+
+.command-os-network-node span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.command-os-network-node:hover,
+.command-os-network-node.is-selected {
+    border-color: var(--node-accent);
+    color: var(--co-ink);
+    background: color-mix(in srgb, var(--node-accent) 23%, var(--co-surface));
+    box-shadow: 0 3px 11px color-mix(in srgb, var(--node-accent) 28%, transparent), inset 0 1px rgb(255 255 255 / 75%);
+    transform: translate(-50%, -50%) scale(1.04);
+}
+
+.command-os-network-node:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--node-accent) 52%, transparent);
+    outline-offset: 3px;
+}
+
+.command-os-network-node:active {
+    transform: translate(-50%, -50%) scale(.98);
+}
+
+@container (max-width: 319px) {
+    .command-os-network-node { gap: 4px; padding-right: 5px; padding-left: 5px; font-size: 8px; }
+    .command-os-network-node img { width: 12px; height: 12px; flex-basis: 12px; }
 }
 
 .command-os-network-hub-halo {
@@ -1586,14 +1614,12 @@ html[data-command-theme='dark'] .command-os-panel {
 
 .command-os-graph-selected { position: relative; z-index: 3; }
 .command-os-graph-selected {
-    min-height: 0;
-    margin: 0 12px;
+    min-height: 20px;
+    margin: 0 12px 5px;
     color: var(--co-muted);
-    font-size: 7.5px;
-    line-height: 1.3;
+    font-size: 9px;
+    line-height: 1.4;
 }
-
-.command-os-graph-selected:empty { display: none; }
 
 body.command-os-dashboard #main_content p.command-os-graph-selected,
 body.command-os-dashboard #main_content p.command-os-sr-only,

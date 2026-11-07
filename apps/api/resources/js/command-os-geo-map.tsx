@@ -219,6 +219,7 @@ export default function DeliverabilityGeoMap({ data, theme }: { data: DashboardA
             zoom: 0,
             minZoom: -1.5,
             maxZoom: 4,
+            renderWorldCopies: false,
             maxPitch: 0,
             attributionControl: false,
             style: {
@@ -275,6 +276,17 @@ export default function DeliverabilityGeoMap({ data, theme }: { data: DashboardA
                 ],
             },
         });
+        let mapLoaded = false;
+        const fitWorld = () => {
+            if (!mapLoaded) return;
+            map.resize();
+            map.fitBounds([[-178, -56], [178, 78]], {
+                padding: { top: 8, right: 8, bottom: 8, left: 8 },
+                duration: 0,
+            });
+        };
+        const resizeObserver = new ResizeObserver(fitWorld);
+        resizeObserver.observe(element);
         map.addControl(new NavigationControl({ showCompass: false, visualizePitch: false }), 'top-right');
         map.addControl(new AttributionControl({ compact: true, customAttribution: 'Country boundaries: Natural Earth' }), 'bottom-right');
         const popup = new Popup({ closeButton: true, closeOnClick: true, maxWidth: '260px' });
@@ -288,6 +300,7 @@ export default function DeliverabilityGeoMap({ data, theme }: { data: DashboardA
         map.on('mouseenter', 'country-fill', () => { map.getCanvas().style.cursor = 'pointer'; });
         map.on('mouseleave', 'country-fill', () => { map.getCanvas().style.cursor = ''; });
         map.once('load', () => {
+            mapLoaded = true;
             const patterns: [string, string][] = dark
                 ? [['country-dots-base', '#5b8bb1'], ['country-dots-activity', '#27bde7'], ['country-dots-feedback', '#b47aff']]
                 : [['country-dots-base', '#7088b1'], ['country-dots-activity', '#347eef'], ['country-dots-feedback', '#9751ee']];
@@ -298,11 +311,11 @@ export default function DeliverabilityGeoMap({ data, theme }: { data: DashboardA
                 ['>', ['get', 'engagement'], 0], 'country-dots-activity',
                 'country-dots-base',
             ]);
-            map.fitBounds([[-178, -56], [178, 78]], { padding: 7, duration: 0 });
-            map.resize();
+            fitWorld();
         });
 
         return () => {
+            resizeObserver.disconnect();
             popup.remove();
             map.remove();
         };

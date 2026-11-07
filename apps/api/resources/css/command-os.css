@@ -1427,6 +1427,8 @@ html[data-command-theme='dark'] .command-os-panel {
     padding: 0 2px 0 0;
 }
 
+.command-os-geo-countries-empty { align-content: stretch; }
+
 .command-os-country-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -1499,7 +1501,6 @@ html[data-command-theme='dark'] .command-os-panel {
     justify-items: center;
     gap: 5px;
     grid-column: 1 / -1;
-    height: 100%;
     min-height: 0;
     padding: 10px 12px;
     border: 1px solid color-mix(in srgb, var(--co-blue) 18%, var(--co-border));
@@ -2156,7 +2157,8 @@ body.command-os-dashboard #page-container.sidebar-mini #sidebar:focus-within .na
     .command-os-graph-canvas { height: 190px; }
     .command-os-geo-body { grid-template-columns: minmax(0, 1fr); }
     .command-os-geo-countries { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 7px 5px 3px; }
-    .command-os-geo-empty { height: auto; min-height: 86px; }
+    .command-os-geo-countries-empty { align-content: start; }
+    .command-os-geo-empty { min-height: 86px; }
     body.command-os-shell #page-container.command-os-page {
         display: block;
         min-height: 100vh;

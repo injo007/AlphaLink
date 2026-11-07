@@ -337,7 +337,7 @@ export default function DeliverabilityGeoMap({ data, theme }: { data: DashboardA
                 <div className="command-os-map-frame">
                     <div className="command-os-map" ref={container} role="application" aria-describedby="command-os-geo-note" aria-label="Interactive dotted world map. Markers represent approximate country-level activity aggregates, not recipient locations. Use zoom controls and select a country for its delivery feedback and engagement totals." />
                 </div>
-                <div className="command-os-geo-countries" aria-label="Countries with recorded activity">
+                <div className={`command-os-geo-countries${summary.length === 0 ? ' command-os-geo-countries-empty' : ''}`} aria-label="Countries with recorded activity">
                     {summary.length === 0 ? <div className="command-os-geo-empty" role="status">
                         <strong>No country data</strong>
                         <span>Country-coded activity will appear here.</span>

@@ -836,3 +836,7 @@ My Campaigns now places the selected real campaign actions in the supplied four-
 `AlphaLinkCampaignSendNavigationTest.php` and `WorkspaceCampaignStatisticsTest.php` pass **49 tests / 793 assertions** under PHP 8.5; Pint, TypeScript, Vite production build, strict UI audit, and `git diff --check` pass.
 
 Release `da7616ff` is active on `baseheavy.shop`. Authenticated production inspection confirms the eight real icon actions in the supplied four-column/two-row layout, with existing routes and availability preserved; IP editing remains explicitly unavailable. At 390×844, document width is 375 px while the campaign register has its own horizontal scroll area. Redundant hidden labels were removed because the select controls already have explicit accessible names. DMS-CAMP-001 remains IMPLEMENTING; no DMS parity claim is made.
+
+### DMS-CAMP-001 — Campaign Information panel follow-up — E-CAMP-165
+
+AlphaLink keeps its primary campaign, routing, action, progress, and send columns in the register. Total Send, Fraction IP, Email wait, IP wait, Seed, and Send Type are now grouped in Campaign Information and populated from each selected campaign's existing `send_register` data. The selected-campaign dropdown also filters analytics and keeps the panel synchronized; the editable Send Type control writes to that campaign's existing test form. This is a presentation change, not a claim of DMS's 14-column layout parity. Production browser verification is pending deployment.

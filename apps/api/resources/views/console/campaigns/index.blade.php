@@ -133,12 +133,6 @@
                             <th scope="col" data-campaign-column="isp">ISP</th>
                             <th scope="col" data-campaign-column="offer">OFFER</th>
                             <th scope="col" data-campaign-column="server">SERVER</th>
-                            <th scope="col" data-campaign-column="total-send">TOTAL SEND</th>
-                            <th scope="col" data-campaign-column="fraction-ip">FRACTION IP</th>
-                            <th scope="col" data-campaign-column="sleep-email" title="Seconds between recipients">SLEEP EMAIL (S)</th>
-                            <th scope="col" data-campaign-column="sleep-ip" title="Seconds between IP groups">SLEEP IP (S)</th>
-                            <th scope="col" data-campaign-column="seed">SEED</th>
-                            <th scope="col" data-campaign-column="send-type">SEND TYPE</th>
                             <th scope="col" data-campaign-column="actions">ACTIONS</th>
                             <th scope="col" data-campaign-column="progress">PROGRESS</th>
                             <th scope="col" data-campaign-column="send">SEND</th>
@@ -166,24 +160,13 @@
                                         —
                                     @endforelse
                                 </td>
-                                <td data-campaign-column="total-send">{{ $register['total_send'] ?? '—' }}</td>
-                                <td data-campaign-column="fraction-ip">{{ $register['fraction_ip'] ?? '—' }}</td>
-                                <td data-campaign-column="sleep-email">{{ $register['sleep_email'] ?? '—' }}</td>
-                                <td data-campaign-column="sleep-ip">{{ $register['sleep_ip'] ?? '—' }}</td>
-                                <td data-campaign-column="seed">{{ $register['seed_every'] ?? '—' }}</td>
-                                <td data-campaign-column="send-type">
-                                    @if ($campaign->kind === 'marketing' && ($register['configured'] ?? false))
-                                        <select id="campaign-send-type-{{ $campaign->id }}" class="form-control form-control-sm" name="send_type" form="campaign-auto-test-{{ $campaign->id }}" aria-label="Send type for {{ $campaign->name }}">
+                                <td data-campaign-column="actions">
+                                    @if ($campaign->kind !== 'transactional' && ($register['configured'] ?? false))
+                                        <select id="campaign-send-type-{{ $campaign->id }}" class="sr-only" name="send_type" form="campaign-auto-test-{{ $campaign->id }}" aria-label="Stored send type for {{ $campaign->name }}" hidden>
                                             @foreach (['delay' => 'DELAY', 'delayp' => 'DELAYP', 'delayps' => 'DELAYPS', 'hs' => 'HS', 'hsp' => 'HSP', 'hsps' => 'HSPS', 'pickup' => 'PICKUP', 'pickups' => 'PICKUPS'] as $sendType => $sendTypeLabel)
                                                 <option value="{{ $sendType }}" @selected(($register['send_type'] ?? 'delay') === $sendType)>{{ $sendTypeLabel }}</option>
                                             @endforeach
                                         </select>
-                                    @else
-                                        {{ isset($register['send_type']) ? strtoupper($register['send_type']) : '—' }}
-                                    @endif
-                                </td>
-                                <td data-campaign-column="actions">
-                                    @if ($campaign->kind !== 'transactional' && ($register['configured'] ?? false))
                                         <form id="campaign-auto-test-{{ $campaign->id }}" method="POST" action="{{ route('console.campaigns.auto-test', [$workspace->id, $campaign->id]) }}" class="d-none" data-campaign-auto-test-form data-logs-url="{{ route('console.campaigns.show', [$workspace->id, $campaign->id]) }}#campaign-test-logs" data-ip-count="{{ count($campaign->latestRevision?->payload['send_setup']['ip_ids'] ?? []) }}" data-send-type-selector="campaign-send-type-{{ $campaign->id }}" data-submit-button="campaign-auto-test-submit-{{ $campaign->id }}">
                                             @csrf
                                             <input type="hidden" name="idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
@@ -284,14 +267,14 @@
                                 </td>
                             </tr>
                             <tr id="campaign-statistics-{{ $campaign->id }}" data-campaign-statistics-panel hidden>
-                                <td colspan="14" data-campaign-colspan>
+                                <td colspan="8" data-campaign-colspan>
                                     <section class="campaign-statistics-dropdown" aria-label="Statistics for {{ $campaign->name }}">
                                         <div data-statistics-content role="status" aria-live="polite">Loading campaign statistics…</div>
                                     </section>
                                 </td>
                             </tr>
                         @empty
-                            <tr data-campaign-empty-row><td colspan="14" class="text-center text-muted" data-campaign-colspan>No data available in table</td></tr>
+                            <tr data-campaign-empty-row><td colspan="8" class="text-center text-muted" data-campaign-colspan>No data available in table</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -307,11 +290,11 @@
                         <header class="campaign-intelligence-heading">
                             <span class="campaign-intelligence-heading-icon" aria-hidden="true"><i class="fas fa-chart-bar"></i></span>
                             <div><h2>Campaign Analytics</h2><p>Attributed engagement for the selected period</p></div>
-                            <label class="sr-only" for="campaign-analytics-select">Choose campaign analytics</label>
-                            <select id="campaign-analytics-select" class="campaign-analytics-select" aria-label="Choose campaign analytics">
+                            <label class="sr-only" for="campaign-analytics-select">Select campaign for analytics and Campaign Information</label>
+                            <select id="campaign-analytics-select" class="campaign-analytics-select" aria-label="Select campaign for analytics and Campaign Information">
                                 <option value="all">All campaigns</option>
                                 @foreach ($campaigns as $analyticsCampaign)
-                                    <option value="{{ $analyticsCampaign->id }}" data-name="{{ $analyticsCampaign->name }}" data-id="{{ substr($analyticsCampaign->id, 0, 8) }}" data-offer="{{ $analyticsCampaign->send_register['offer'] ?? '—' }}" data-isp="{{ $analyticsCampaign->send_register['isp'] ?? '—' }}" data-server="{{ implode(', ', $analyticsCampaign->send_register['servers'] ?? []) ?: '—' }}" data-send-type="{{ strtoupper($analyticsCampaign->send_register['send_type'] ?? '—') }}" data-send-state="{{ strtoupper(str_replace('_', ' ', $analyticsCampaign->send_run?->state ?? $analyticsCampaign->status)) }}" data-total-send="{{ $analyticsCampaign->send_register['total_send'] ?? '—' }}" data-created="{{ $analyticsCampaign->created_at?->format('M j, Y') ?? '—' }}">{{ $analyticsCampaign->name }}</option>
+                                    <option value="{{ $analyticsCampaign->id }}" data-name="{{ $analyticsCampaign->name }}" data-id="{{ substr($analyticsCampaign->id, 0, 8) }}" data-offer="{{ $analyticsCampaign->send_register['offer'] ?? '—' }}" data-isp="{{ $analyticsCampaign->send_register['isp'] ?? '—' }}" data-server="{{ implode(', ', $analyticsCampaign->send_register['servers'] ?? []) ?: '—' }}" data-send-type="{{ strtoupper($analyticsCampaign->send_register['send_type'] ?? '—') }}" data-send-state="{{ strtoupper(str_replace('_', ' ', $analyticsCampaign->send_run?->state ?? $analyticsCampaign->status)) }}" data-total-send="{{ $analyticsCampaign->send_register['total_send'] ?? '—' }}" data-fraction-ip="{{ $analyticsCampaign->send_register['fraction_ip'] ?? '—' }}" data-sleep-email="{{ $analyticsCampaign->send_register['sleep_email'] ?? '—' }}" data-sleep-ip="{{ $analyticsCampaign->send_register['sleep_ip'] ?? '—' }}" data-seed-every="{{ $analyticsCampaign->send_register['seed_every'] ?? '—' }}" data-send-type-input="campaign-send-type-{{ $analyticsCampaign->id }}" data-send-type-editable="{{ $analyticsCampaign->kind === 'marketing' && ($analyticsCampaign->send_register['configured'] ?? false) ? '1' : '0' }}" data-created="{{ $analyticsCampaign->created_at?->format('M j, Y') ?? '—' }}">{{ $analyticsCampaign->name }}</option>
                                 @endforeach
                             </select>
                         </header>
@@ -346,10 +329,18 @@
                             <div><dt><i class="fas fa-fingerprint" aria-hidden="true"></i>Campaign ID</dt><dd data-campaign-info="id">All</dd></div>
                             <div><dt><i class="fas fa-calendar-alt" aria-hidden="true"></i>Created</dt><dd data-campaign-info="created">—</dd></div>
                             <div><dt><i class="fas fa-tag" aria-hidden="true"></i>Offer</dt><dd data-campaign-info="offer">—</dd></div>
-                            <div><dt><i class="fas fa-paper-plane" aria-hidden="true"></i>Send type</dt><dd data-campaign-info="send-type">—</dd></div>
+                            <div><dt><i class="fas fa-paper-plane" aria-hidden="true"></i>Send type</dt><dd><span data-campaign-info="send-type">—</span><select class="campaign-information-send-type" data-campaign-info-send-type aria-label="Send type for selected campaign" hidden disabled>
+                                @foreach (['delay' => 'DELAY', 'delayp' => 'DELAYP', 'delayps' => 'DELAYPS', 'hs' => 'HS', 'hsp' => 'HSP', 'hsps' => 'HSPS', 'pickup' => 'PICKUP', 'pickups' => 'PICKUPS'] as $sendType => $sendTypeLabel)
+                                    <option value="{{ $sendType }}">{{ $sendTypeLabel }}</option>
+                                @endforeach
+                            </select></dd></div>
                             <div><dt><i class="fas fa-globe" aria-hidden="true"></i>ISP</dt><dd data-campaign-info="isp">—</dd></div>
                             <div><dt><i class="fas fa-server" aria-hidden="true"></i>Server</dt><dd data-campaign-info="server">—</dd></div>
                             <div><dt><i class="fas fa-users" aria-hidden="true"></i>Total to send</dt><dd data-campaign-info="total-send">—</dd></div>
+                            <div><dt><i class="fas fa-layer-group" aria-hidden="true"></i>IP fraction</dt><dd data-campaign-info="fraction-ip">—</dd></div>
+                            <div><dt><i class="far fa-clock" aria-hidden="true"></i>Email wait (s)</dt><dd data-campaign-info="sleep-email">—</dd></div>
+                            <div><dt><i class="far fa-clock" aria-hidden="true"></i>IP wait (s)</dt><dd data-campaign-info="sleep-ip">—</dd></div>
+                            <div><dt><i class="fas fa-seedling" aria-hidden="true"></i>Seed every</dt><dd data-campaign-info="seed-every">—</dd></div>
                             <div><dt><i class="fas fa-wave-square" aria-hidden="true"></i>Latest status</dt><dd data-campaign-info="send-state">—</dd></div>
                         </dl>
                     </section>
@@ -475,6 +466,9 @@
         .campaign-information-grid dt { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--co-muted); font-size: 8px; font-weight: 700; }
         .campaign-information-grid dt i { color: var(--co-purple); }
         .campaign-information-grid dd { overflow: hidden; margin: 0; color: var(--co-ink); font-size: 8px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+        .campaign-information-grid dd [hidden] { display: none !important; }
+        .campaign-information-send-type { width: 100%; min-width: 0; height: 27px; padding: 0 7px; border: 1px solid var(--co-border-strong); border-radius: 8px; color: var(--co-ink); background: var(--co-surface); font: inherit; font-weight: 750; }
+        .campaign-information-send-type:focus-visible { outline: 2px solid var(--co-purple); outline-offset: 2px; }
         body.command-os-shell .campaign-register-page {
             margin: 0 0 18px;
             overflow: hidden;
@@ -587,7 +581,7 @@
         .campaign-register-test-link { display: inline-flex; align-items: center; gap: 6px; padding: 7px 9px; border-radius: 8px; color: var(--co-purple); background: color-mix(in srgb, var(--co-purple) 7%, var(--co-surface)); font-size: 10px; font-weight: 700; white-space: nowrap; }
         .campaign-register-test-link:hover { color: var(--co-purple-bright); text-decoration: none; }
         .campaign-register-page .alert { border-radius: 11px; }
-        .campaign-register-table { font-size: .8rem; min-width: 1360px; }
+        .campaign-register-table { font-size: .8rem; min-width: 1080px; }
         .campaign-register-table-wrap { overflow: auto; border: 1px solid var(--co-border); border-radius: 13px; background: var(--co-surface); box-shadow: var(--co-shadow); scrollbar-color: var(--co-border-strong) transparent; }
         .campaign-register-table { margin: 0; border-collapse: separate; border-spacing: 0; color: var(--co-ink); font-size: 10px; }
         .campaign-register-table th { position: sticky; top: 0; z-index: 2; padding: 11px 9px; border-top: 0; border-bottom: 1px solid var(--co-border); color: var(--co-muted); background: var(--co-surface-muted); font-size: 8px; font-weight: 800; letter-spacing: .07em; white-space: nowrap; }

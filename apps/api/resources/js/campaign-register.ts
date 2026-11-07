@@ -38,6 +38,12 @@ type CampaignOption = HTMLOptionElement & {
         sendType?: string;
         sendState?: string;
         totalSend?: string;
+        fractionIp?: string;
+        sleepEmail?: string;
+        sleepIp?: string;
+        seedEvery?: string;
+        sendTypeInput?: string;
+        sendTypeEditable?: string;
     };
 };
 
@@ -57,6 +63,8 @@ const infoElements = new Map(
         .map((element) => [element.dataset.campaignInfo ?? '', element]),
 );
 const infoName = document.querySelector<HTMLElement>('[data-campaign-info-name]');
+const infoSendType = document.querySelector<HTMLSelectElement>('[data-campaign-info-send-type]');
+const infoSendTypeValue = infoElements.get('send-type');
 const seriesButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-campaign-series]'));
 let selectedSeries: keyof Pick<CampaignDay, 'opens' | 'clicks' | 'leads'> = 'opens';
 let currentSummary: CampaignSummary | null = null;
@@ -152,6 +160,12 @@ if (summaryRoot && chartElement && campaignSelect && status) {
         if (!selectedOption || value === 'all') {
             if (infoName) infoName.textContent = 'All campaigns';
             for (const [key, element] of infoElements) element.textContent = key === 'id' ? 'All' : '—';
+            if (infoSendType) {
+                infoSendType.hidden = true;
+                infoSendType.disabled = true;
+                delete infoSendType.dataset.targetInput;
+            }
+            if (infoSendTypeValue) infoSendTypeValue.hidden = false;
             return;
         }
 
@@ -165,8 +179,29 @@ if (summaryRoot && chartElement && campaignSelect && status) {
             'send-type': selectedOption.dataset.sendType ?? '—',
             'send-state': selectedOption.dataset.sendState ?? '—',
             'total-send': selectedOption.dataset.totalSend ?? '—',
+            'fraction-ip': selectedOption.dataset.fractionIp ?? '—',
+            'sleep-email': selectedOption.dataset.sleepEmail ?? '—',
+            'sleep-ip': selectedOption.dataset.sleepIp ?? '—',
+            'seed-every': selectedOption.dataset.seedEvery ?? '—',
         };
         for (const [key, element] of infoElements) element.textContent = values[key] ?? '—';
+
+        if (infoSendType) {
+            const editableInput = selectedOption.dataset.sendTypeEditable === '1'
+                ? document.getElementById(selectedOption.dataset.sendTypeInput ?? '') as HTMLSelectElement | null
+                : null;
+            infoSendType.hidden = !editableInput;
+            infoSendType.disabled = !editableInput;
+            if (editableInput) {
+                infoSendType.dataset.targetInput = editableInput.id;
+                infoSendType.value = editableInput.value;
+                infoSendType.setAttribute('aria-label', `Send type for ${selectedOption.dataset.name ?? 'selected campaign'}`);
+                if (infoSendTypeValue) infoSendTypeValue.hidden = true;
+            } else {
+                delete infoSendType.dataset.targetInput;
+                if (infoSendTypeValue) infoSendTypeValue.hidden = false;
+            }
+        }
     };
 
     const updateMetrics = (summary: CampaignSummary | null): void => {
@@ -214,6 +249,12 @@ if (summaryRoot && chartElement && campaignSelect && status) {
     };
 
     campaignSelect.addEventListener('change', () => loadAnalytics(campaignSelect.value));
+    infoSendType?.addEventListener('change', () => {
+        const target = document.getElementById(infoSendType.dataset.targetInput ?? '') as HTMLSelectElement | null;
+        if (!target || infoSendType.disabled) return;
+        target.value = infoSendType.value;
+        target.dispatchEvent(new Event('change', { bubbles: true }));
+    });
     seriesButtons.forEach((button) => {
         button.addEventListener('click', () => {
             const series = button.dataset.campaignSeries;

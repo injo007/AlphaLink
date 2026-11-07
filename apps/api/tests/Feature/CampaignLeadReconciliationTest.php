@@ -23,6 +23,7 @@ use App\Models\WorkspaceSponsor;
 use App\Services\AffiliateNetworks\AlphaLinkAffiliateProviderHttp;
 use App\Services\AffiliateNetworks\AlphaLinkAffiliateProviderSalesReader;
 use App\Services\AffiliateNetworks\AlphaLinkSponsorLeadImporter;
+use App\Services\Analytics\WorkspaceDailyAnalyticsRebuilder;
 use App\Services\Audiences\AudienceListHistoryCalculator;
 use App\Services\Campaigns\AlphaLinkCampaignAffiliateAttribution;
 use App\Services\Campaigns\AlphaLinkDropAffiliateAttribution;
@@ -33,11 +34,67 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use Mockery;
 use Tests\TestCase;
 
 class CampaignLeadReconciliationTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_sponsor_sync_rebuilds_backdated_revenue_and_refreshes_dashboard_cache(): void
+    {
+        $fixture = $this->recipientFixture();
+        $convertedAt = now()->subDays(4);
+        $conversion = CampaignLeadConversion::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(),
+            'campaign_id' => $fixture['campaign']->getKey(),
+            'revision_id' => $fixture['revision']->getKey(),
+            'recipient_snapshot_id' => $fixture['snapshot']->getKey(),
+            'snapshot_item_id' => $fixture['item']->getKey(),
+            'contact_id' => $fixture['contact']->getKey(),
+            'audience_list_id' => $fixture['list']->getKey(),
+            'sponsor_id' => $fixture['sponsor']->getKey(),
+            'offer_id' => $fixture['offer']->getKey(),
+            'provider_type' => $fixture['sponsor']->type,
+            'provider_conversion_id' => 'backdated-revenue-fixture',
+            'revenue' => 2.5,
+            'isp_id' => $fixture['isp']->getKey(),
+            'dimension_ids' => [],
+            'converted_at' => $convertedAt,
+        ]);
+
+        $rebuilder = app(WorkspaceDailyAnalyticsRebuilder::class);
+        $rebuilder->rebuildRange($convertedAt, $convertedAt, (string) $fixture['workspace']->getKey());
+
+        $this->actingAs($fixture['owner'])
+            ->get(route('console.analytics.index', [
+                'workspace' => $fixture['workspace']->getKey(),
+                'analytics_period' => 'this_month',
+            ]))
+            ->assertOk()
+            ->assertViewHas('mtdLeadRevenue', fn (array $revenue): bool => $revenue['sponsors'][0]['mtd'] === 2.5);
+
+        $importer = Mockery::mock(AlphaLinkSponsorLeadImporter::class);
+        $importer->shouldReceive('import')
+            ->once()
+            ->andReturnUsing(function () use ($conversion): array {
+                $conversion->forceFill(['revenue' => 8.25])->save();
+
+                return ['read' => 1, 'created' => 0, 'updated' => 1, 'skipped' => 0];
+            });
+        $this->app->instance(AlphaLinkSponsorLeadImporter::class, $importer);
+
+        // Stay within the same minute so this proves the rollup timestamp busts stale analytics caches.
+        $this->travel(2)->seconds();
+        $this->artisan('workspace:sponsor-leads', ['--days' => 10])->assertExitCode(0);
+
+        $this->get(route('console.analytics.index', [
+            'workspace' => $fixture['workspace']->getKey(),
+            'analytics_period' => 'this_month',
+        ]))
+            ->assertOk()
+            ->assertViewHas('mtdLeadRevenue', fn (array $revenue): bool => $revenue['sponsors'][0]['mtd'] === 8.25);
+    }
 
     public function test_campaign_events_and_reconciled_leads_feed_dashboard_reports_and_list_history(): void
     {

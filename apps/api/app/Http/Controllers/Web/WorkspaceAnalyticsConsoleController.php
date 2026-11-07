@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Isp;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\Analytics\WorkspaceDailyAnalyticsRebuilder;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -749,6 +750,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
             $workspace->pivot->role,
             $from->toIso8601String(),
             $to->toIso8601String(),
+            (string) Cache::get(WorkspaceDailyAnalyticsRebuilder::cacheRevisionKey((string) $workspace->getKey()), 0),
             now()->format('YmdHi'),
         ]);
 

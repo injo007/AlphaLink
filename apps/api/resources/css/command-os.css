@@ -2458,6 +2458,11 @@ body.command-os-dashboard #page-container.sidebar-mini #sidebar:focus-within .na
     .command-os-partner-revenue-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .command-os-charts-section { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .command-os-stat-grid-panel { grid-row: auto; }
+    .command-os-page-heading { align-items: flex-start; flex-direction: column; gap: 10px; }
+    .command-os-heading-actions { width: 100%; min-width: 0; justify-content: space-between; flex-wrap: wrap; }
+    .command-os-heading-actions .command-os-date-filter { order: 3; }
+    .command-os-heading-actions .command-os-date-filter select { flex-basis: 100%; }
+    .command-os-period { flex: 1 1 auto; justify-content: flex-start; }
     .command-os-date-filter { justify-content: flex-start; width: 100%; }
     .command-os-date-filter select { flex: 1 1 180px; }
     .command-os-date-filter input { flex: 1 1 135px; }

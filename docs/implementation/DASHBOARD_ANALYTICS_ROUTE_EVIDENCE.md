@@ -32,6 +32,12 @@ The map filters stored country totals by deliveries, opens, clicks, leads, bounc
 
 Verification: `WorkspaceAnalyticsDashboardTest.php` passes **27 tests / 443 assertions** in the PHP 8.5 test container; focused Pint, PHP syntax checks, `npm run typecheck`, `npm run build`, and `git diff --check` pass. Vite reports existing large MapLibre and ECharts chunks (about 1,215 kB and 515 kB minified). The production browser has not been verified against this source update because it is not deployed. This does not establish complete theme/mobile interaction or DMS reporting parity; keep DMS-DASH-001 TESTING.
 
+## E-DASH-49 source responsiveness follow-up — 2026-11-07
+
+At the authenticated production dashboard, the reference desktop viewport (1672 × 944) rendered without horizontal overflow. The 768 × 1024 tablet viewport exposed 187 px of horizontal overflow: the page-heading period/refresh group extended to a 940 px document width. At 390 × 844, document scroll width matched its 375 px client width; no horizontal overflow was observed. The dark theme rendered after MapLibre completed its theme rebuild; no browser console errors were captured. The current production version still places Quick Actions before partner revenue, orders YTD before MTD revenue, and combines bounce classes; this is pre-`34efb83` evidence.
+
+A dashboard-scoped CSS change now stacks the page heading and wraps its period, refresh, and date-range controls below 992 px. `npm run build` passes with the existing 1,215 kB MapLibre and 515 kB ECharts chunk warnings; `git diff --check` passes. This source-only fix has not been verified in a browser because the current release cannot be safely deployed from this machine. Do not claim tablet overflow fixed in production; DMS-DASH-001 stays TESTING.
+
 ## Verified source behavior
 
 - The dashboard main route and workspace-slug alias are authenticated web routes under `auth`, `active`, and `auth.session`; both add `workspace.current`. `ResolveCurrentWorkspace` resolves an active workspace membership, puts its ID in session/request attributes, and returns 404 if none is available. The controller separately permits workspace roles `owner`, `admin`, `operator`, and `privacy_officer`; a membership outside that list is denied with 403. See [`routes/web.php`](../../apps/api/routes/web.php#L51), [`ResolveCurrentWorkspace`](../../apps/api/app/Http/Middleware/ResolveCurrentWorkspace.php#L14), and [`WorkspaceAnalyticsConsoleController`](../../apps/api/app/Http/Controllers/Web/WorkspaceAnalyticsConsoleController.php#L19).

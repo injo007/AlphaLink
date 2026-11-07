@@ -1,15 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import type { JSX } from 'react';
-import { init, use } from 'echarts/core';
-import { GraphChart } from 'echarts/charts';
-import { TooltipComponent } from 'echarts/components';
-import { CanvasRenderer } from 'echarts/renderers';
-import type { EChartsType } from 'echarts/core';
-import type { DashboardAnalytics } from './command-os';
-
-use([GraphChart, TooltipComponent, CanvasRenderer]);
+import type { CSSProperties, JSX } from 'react';
+import type { DashboardAnalytics, MarketingNode } from './command-os';
 
 type Theme = 'light' | 'dark';
+type GraphSize = { width: number; height: number };
 
 const nodeColors: Record<string, string> = {
     blue: '#347cff',
@@ -19,6 +13,8 @@ const nodeColors: Record<string, string> = {
     indigo: '#7052ef',
 };
 
+const coreModuleOrder = ['servers', 'campaigns', 'drops', 'warmups', 'offers', 'tracking', 'lists', 'domains'];
+const brandMark = '/console-assets/alphalink-command-os-mark.png';
 const moduleIcons: Record<string, string> = {
     campaigns: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
     drops: '<path d="m12 3 8.5 4.5L12 12 3.5 7.5 12 3Z"/><path d="m3.5 12 8.5 4.5 8.5-4.5M3.5 16.5 12 21l8.5-4.5"/>',
@@ -27,180 +23,139 @@ const moduleIcons: Record<string, string> = {
     domains: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z"/>',
     lists: '<path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM20 8v6M23 11h-6"/>',
     offers: '<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3.4 13.4A2 2 0 0 1 2.8 12V5a2 2 0 0 1 2-2h7a2 2 0 0 1 1.4.6l7.4 7a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r=".8"/>',
-    sponsors: '<path d="M16 11 12 15l-2-2"/><path d="M3 12V6l7-3 4 2 5-1 2 4-3 7-4 4-3-2-2 2-4-3-2-4Z"/><path d="m3 6 4 1 3-2m7 2 3 1"/>',
-    isps: '<path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/>',
     tracking: '<path d="M3 3v18h18"/><path d="m18 17-6-6-4 4-3-3"/><path d="M14 17h4v-4"/>',
 };
 
-function svgDataUri(content: string): string {
-    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(content)}`;
-}
-
 function iconImage(id: string, color: string): string {
     const paths = moduleIcons[id] ?? moduleIcons.domains;
-    return svgDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`);
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
-
-const brandMark = '/console-assets/alphalink-command-os-mark.png';
 
 function formatCount(value: number): string {
     return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value);
 }
 
-function moduleWidth(label: string, count: number): number {
-    return Math.min(132, Math.max(88, label.length * 5.1 + String(count).length * 5.1 + 42));
+function nodeWidth(label: string): number {
+    return Math.max(60, Math.min(92, label.length * 5.4 + 31));
 }
 
-function radialPosition(index: number, count: number, width: number, height: number): [number, number] {
+function modulePosition(index: number, count: number, width: number, height: number, maxNodeWidth: number): [number, number] {
     const angle = -Math.PI / 2 + (index * Math.PI * 2) / count;
-    const radiusX = Math.max(64, Math.min(width / 2 - 70, 168));
-    const radiusY = Math.max(50, Math.min(height / 2 - 38, 100));
-    return [width / 2 + Math.cos(angle) * radiusX, height * 0.51 + Math.sin(angle) * radiusY];
+    const radiusX = Math.max(72, width / 2 - maxNodeWidth / 2 - 14);
+    const radiusY = Math.max(38, height / 2 - 17);
+    return [width / 2 + Math.cos(angle) * radiusX, height / 2 + Math.sin(angle) * radiusY];
+}
+
+function moduleCountLabel(node: MarketingNode): string {
+    return `${formatCount(node.count)} ${node.id === 'tracking' || node.id === 'workspace-activity' ? 'tracked events' : 'entities with activity'}`;
 }
 
 export default function MarketingGraph({ data, theme }: { data: DashboardAnalytics['graph']; theme: Theme }): JSX.Element {
     const container = useRef<HTMLDivElement>(null);
+    const [size, setSize] = useState<GraphSize>({ width: 480, height: 190 });
     const [selected, setSelected] = useState<string | null>(null);
+    const dark = theme === 'dark';
+    const coreModules = coreModuleOrder
+        .map((id) => data.nodes.find((node) => node.id === id))
+        .filter((node): node is MarketingNode => node !== undefined);
+    const modules = coreModules.length > 0 ? coreModules : data.nodes;
+    const maxNodeWidth = Math.max(92, ...modules.map((node) => nodeWidth(node.label)));
+    const centerX = size.width / 2;
+    const centerY = size.height / 2;
+    const positions = modules.map((node, index) => ({ node, point: modulePosition(index, modules.length, size.width, size.height, maxNodeWidth) }));
 
     useEffect(() => {
-        if (!container.current) return undefined;
-        const dark = theme === 'dark';
-        const muted = '#e8edff';
-        const chart: EChartsType = init(container.current, undefined, { renderer: 'canvas' });
-
-        const renderGraph = () => {
-            const width = chart.getWidth();
-            const height = chart.getHeight();
-            const moduleCount = Math.max(1, data.nodes.length);
-            const center = {
-                id: 'alphalink',
-                name: 'AlphaLink',
-                value: '',
-                x: width / 2,
-                y: height * 0.51,
-                symbolSize: 62,
-                itemStyle: {
-                    color: '#101f3a',
-                    borderColor: '#a78bff',
-                    borderWidth: 2,
-                    shadowBlur: 34,
-                    shadowColor: 'rgba(132, 85, 255, .9)',
-                },
-                label: {
-                    show: true,
-                    formatter: '{brand| }',
-                    rich: { brand: { width: 46, height: 46, backgroundColor: { image: brandMark } } },
-                },
-            };
-            const modules = data.nodes.map((node, index) => {
-                const [x, y] = radialPosition(index, moduleCount, width, height);
-                const color = nodeColors[node.color] ?? '#7b4bf3';
-                const icon = iconImage(node.id, color);
-                return {
-                    id: node.id,
-                    name: node.label,
-                    value: node.count,
-                    x,
-                    y,
-                    symbol: 'roundRect',
-                    symbolSize: [moduleWidth(node.label, node.count), 36],
-                    itemStyle: {
-                        color: '#142444',
-                        borderColor: color,
-                        borderWidth: 1.2,
-                        shadowBlur: 20,
-                        shadowColor: `${color}99`,
-                    },
-                    label: {
-                        show: true,
-                        color: muted,
-                        fontSize: 9,
-                        fontWeight: 700,
-                        formatter: `{icon| } {label|${node.label}}\n{count|${formatCount(node.count)}${node.id === 'tracking' || node.id === 'workspace-activity' ? ' events' : ' entities'}}`,
-                        rich: {
-                            icon: { width: 12, height: 12, backgroundColor: { image: icon }, padding: [0, 3, 0, 0] },
-                            label: { color: muted, fontSize: 9, fontWeight: 720, lineHeight: 12 },
-                            count: { color: '#a9bbdb', fontSize: 7.5, fontWeight: 600, lineHeight: 12, padding: [0, 0, 0, 17] },
-                        },
-                    },
-                };
-            });
-
-            chart.setOption({
-                animationDuration: 260,
-                tooltip: {
-                    trigger: 'item',
-                    backgroundColor: dark ? '#101a35' : '#fff',
-                    borderColor: dark ? '#384c7c' : '#d8def1',
-                    textStyle: { color: dark ? '#eff3ff' : '#202b4d', fontSize: 11 },
-                    formatter: (params: { dataType?: string; data?: { id?: string; name?: string; value?: number | string } }) => {
-                        if (params.dataType !== 'node' || !params.data) return '';
-                        const unit = params.data.id === 'tracking' || params.data.id === 'workspace-activity' ? 'tracked events' : 'entities with activity';
-                        return params.data.id === 'alphalink' ? 'AlphaLink workspace' : `${params.data.name}: ${formatCount(Number(params.data.value ?? 0))} ${unit}`;
-                    },
-                },
-                series: [{
-                    type: 'graph',
-                    layout: 'none',
-                    left: 0,
-                    right: 0,
-                    top: 0,
-                    bottom: 0,
-                    data: [center, ...modules],
-                    links: data.nodes.map((node) => ({
-                        source: 'alphalink',
-                        target: node.id,
-                        lineStyle: {
-                            color: nodeColors[node.color] ?? '#7b4bf3',
-                            opacity: 0.68,
-                            width: 1.4,
-                            shadowBlur: 12,
-                            shadowColor: `${nodeColors[node.color] ?? '#7b4bf3'}99`,
-                        },
-                    })),
-                    roam: false,
-                    draggable: false,
-                    edgeSymbol: ['none', 'none'],
-                    lineStyle: { width: 1.4, curveness: 0.1 },
-                    emphasis: { focus: 'adjacency', lineStyle: { width: 2.4, opacity: 1 }, itemStyle: { shadowBlur: 25 } },
-                    blur: { lineStyle: { opacity: 0.12 } },
-                }],
-            }, { notMerge: true });
-        };
-
-        renderGraph();
-        chart.on('click', (params) => {
-            if (params.dataType !== 'node' || !params.data || typeof params.data !== 'object') return;
-            const item = params.data as { id?: unknown; name?: unknown; value?: unknown };
-            if (typeof item.id === 'string' && item.id !== 'alphalink' && typeof item.name === 'string') {
-                const unit = item.id === 'tracking' || item.id === 'workspace-activity' ? 'tracked events' : 'entities with activity';
-                setSelected(`${item.name}: ${formatCount(Number(item.value ?? 0))} ${unit} in this range`);
-            }
+        const element = container.current;
+        if (!element) return undefined;
+        const observer = new ResizeObserver(([entry]) => {
+            if (!entry) return;
+            const next = { width: Math.max(280, entry.contentRect.width), height: Math.max(160, entry.contentRect.height) };
+            setSize((previous) => previous.width === next.width && previous.height === next.height ? previous : next);
         });
-        const observer = new ResizeObserver(() => {
-            chart.resize();
-            renderGraph();
-        });
-        observer.observe(container.current);
+        observer.observe(element);
+        return () => observer.disconnect();
+    }, []);
 
-        return () => {
-            observer.disconnect();
-            chart.dispose();
-        };
-    }, [data, theme]);
+    const selectModule = (node: MarketingNode) => {
+        setSelected(`${node.label}: ${moduleCountLabel(node)} in this range`);
+    };
 
     return (
         <section className="command-os-panel command-os-graph-panel" id="marketing-graph" aria-labelledby="command-os-graph-title">
             <div className="command-os-panel-heading">
                 <div className="command-os-panel-title"><span className="command-os-heading-icon command-os-graph-heading-icon"><span aria-hidden="true">✣</span></span><h2 id="command-os-graph-title">Marketing graph</h2></div>
-                <span className="command-os-status-tag">{data.nodes.length} modules</span>
+                <span className="command-os-status-tag">{modules.length} modules</span>
             </div>
-            <div className="command-os-graph-canvas" ref={container} role="application" aria-describedby="command-os-graph-note" aria-label="Interactive AlphaLink module graph. Select a module to inspect its stored count." />
+            <div className="command-os-graph-canvas" ref={container}>
+                <svg
+                    className="command-os-network-graphic"
+                    viewBox={`0 0 ${size.width} ${size.height}`}
+                    role="group"
+                    aria-label="AlphaLink marketing modules connected to the workspace hub"
+                    aria-describedby="command-os-graph-note"
+                >
+                    <defs>
+                        <radialGradient id="command-os-network-hub-fill">
+                            <stop offset="0%" stopColor={dark ? '#7864ff' : '#9374ff'} />
+                            <stop offset="100%" stopColor={dark ? '#273a85' : '#e7e1ff'} />
+                        </radialGradient>
+                    </defs>
+                    <g aria-hidden="true">
+                        {positions.map(({ node, point }) => (
+                            <line
+                                className="command-os-network-spoke"
+                                key={`spoke-${node.id}`}
+                                x1={centerX}
+                                y1={centerY}
+                                x2={point[0]}
+                                y2={point[1]}
+                                stroke={nodeColors[node.color] ?? '#8a66ee'}
+                            />
+                        ))}
+                    </g>
+                    {positions.map(({ node, point }) => {
+                        const color = nodeColors[node.color] ?? '#8a66ee';
+                        const width = nodeWidth(node.label);
+                        const [x, y] = point;
+                        const selectedNode = selected?.startsWith(`${node.label}:`) ?? false;
+                        return (
+                            <g
+                                className={`command-os-network-node${selectedNode ? ' is-selected' : ''}`}
+                                key={node.id}
+                                transform={`translate(${x} ${y})`}
+                                role="button"
+                                tabIndex={0}
+                                aria-label={`${node.label}: ${moduleCountLabel(node)}`}
+                                aria-pressed={selectedNode}
+                                onClick={() => selectModule(node)}
+                                onKeyDown={(event) => {
+                                    if (event.key === 'Enter' || event.key === ' ') {
+                                        event.preventDefault();
+                                        selectModule(node);
+                                    }
+                                }}
+                                style={{ '--node-accent': color } as CSSProperties}
+                            >
+                                <rect className="command-os-network-node-pill" x={-width / 2} y={-13} width={width} height={26} rx={13} />
+                                <image href={iconImage(node.id, color)} x={-width / 2 + 9} y={-6.5} width={13} height={13} aria-hidden="true" />
+                                <text className="command-os-network-label" x={-width / 2 + 27} y={3.5}>{node.label}</text>
+                                <title>{`${node.label}: ${moduleCountLabel(node)}`}</title>
+                            </g>
+                        );
+                    })}
+                    <g className="command-os-network-hub" aria-label="AlphaLink">
+                        <circle className="command-os-network-hub-halo" cx={centerX} cy={centerY} r={36} />
+                        <circle className="command-os-network-hub-disc" cx={centerX} cy={centerY} r={27} />
+                        <image href={brandMark} x={centerX - 17} y={centerY - 17} width={34} height={34} />
+                    </g>
+                </svg>
+            </div>
             <p className="command-os-graph-selected" aria-live="polite">{selected}</p>
             <ul className="command-os-sr-only" aria-label="Module activity counts">
-                {data.nodes.map((node) => <li key={node.id}>{node.label}: {formatCount(node.count)} {node.id === 'tracking' || node.id === 'workspace-activity' ? 'tracked events' : 'entities with activity'} in this range</li>)}
+                {data.nodes.map((node) => <li key={node.id}>{node.label}: {moduleCountLabel(node)} in this range</li>)}
             </ul>
-            <p className="command-os-sr-only" id="command-os-graph-note">{data.note} Select a node for its sourced count.</p>
+            <p className="command-os-sr-only" id="command-os-graph-note">{data.note} The spokes connect each workspace module to the AlphaLink hub; they do not claim record-to-record attribution. Select a node for its sourced count.</p>
         </section>
     );
 }

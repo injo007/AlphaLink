@@ -122,6 +122,13 @@ class WorkspaceAnalyticsConsoleController extends Controller
             'userName' => $request->user()->name ?: $request->user()->email,
             'workspaceName' => $workspace->name,
             'workspaceRole' => $workspace->pivot->role,
+            'today' => [
+                'date' => $today->toDateString(),
+                'deliveries' => $dashboardHighlights['deliveries']['today'],
+                'opens' => $dashboardHighlights['opens']['today'],
+                'clicks' => $dashboardHighlights['clicks']['today'],
+                'revenue' => $dashboardHighlights['revenue']['today'],
+            ],
             'period' => [
                 'label' => 'Last 30 days',
                 'from' => $lastThirtyDaysFrom->toDateString(),

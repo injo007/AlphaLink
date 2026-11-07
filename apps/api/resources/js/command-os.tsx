@@ -46,6 +46,7 @@ export type DashboardPayload = {
     userName: string;
     workspaceName: string;
     workspaceRole: string;
+    today: { date: string; deliveries: number; opens: number; clicks: number; revenue: number };
     period: { label: string; from: string; to: string };
     metrics: Metric[];
     trend: { labels: string[]; deliveries: number[]; opens: number[] };
@@ -302,9 +303,11 @@ function RevenueTrendPanel({ title, icon: Icon, chart, theme, id }: { title: str
     </section>;
 }
 
-function MetricCard({ metric, selectedMetric }: { metric: Metric; selectedMetric: DashboardGeoMetric }): JSX.Element {
+function MetricCard({ metric, selectedMetric, onMetricChange }: { metric: Metric; selectedMetric: DashboardGeoMetric; onMetricChange: (metric: DashboardGeoMetric) => void }): JSX.Element {
     const Icon = metricIcons[metric.key];
     const value = metric.format === 'currency' ? money(metric.value) : number(metric.value);
+    const canDrillDown = metric.key !== 'revenue';
+    const isSelected = metric.key === selectedMetric;
     const values = metric.trend;
     const minimum = Math.min(0, ...values);
     const maximum = Math.max(1, ...values);
@@ -315,16 +318,28 @@ function MetricCard({ metric, selectedMetric }: { metric: Metric; selectedMetric
     }).join(' ');
 
     return (
-        <article className={`command-os-metric command-os-metric-${metricColors[metric.key]}${metric.key === selectedMetric ? ' is-geo-linked' : ''}`} aria-label={`${metric.label}: ${value}`} data-geo-selected={metric.key === selectedMetric || undefined}>
-            <span className="command-os-metric-icon"><Icon size={19} strokeWidth={2.1} aria-hidden="true" /></span>
-            <span className="command-os-metric-copy">
-                <span className="command-os-metric-label">{metric.label}</span>
-                <strong className="command-os-metric-value">{value}</strong>
-                {metric.key === selectedMetric && <span className="command-os-sr-only">Selected as the GEO map metric.</span>}
-            </span>
-            <svg className="command-os-metric-sparkline" viewBox="0 0 48 22" aria-hidden="true" focusable="false">
-                <polyline points={points} pathLength="1" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+        <article className={`command-os-metric command-os-metric-${metricColors[metric.key]}${isSelected ? ' is-geo-linked' : ''}`} aria-label={`${metric.label}: ${value}`} data-geo-selected={isSelected || undefined}>
+            <button
+                className="command-os-metric-main"
+                type="button"
+                disabled={!canDrillDown}
+                aria-pressed={canDrillDown ? isSelected : undefined}
+                aria-label={canDrillDown
+                    ? `Show ${metric.label.toLowerCase()} on the GEO map and activity report`
+                    : `${metric.label}: ${value}. Country drilldown is unavailable because revenue has no verified country attribution.`}
+                title={canDrillDown ? `Show ${metric.label.toLowerCase()} on the GEO map and activity report` : 'Revenue has no verified country attribution'}
+                onClick={() => { if (canDrillDown) onMetricChange(metric.key as DashboardGeoMetric); }}
+            >
+                <span className="command-os-metric-icon"><Icon size={19} strokeWidth={2.1} aria-hidden="true" /></span>
+                <span className="command-os-metric-copy">
+                    <span className="command-os-metric-label">{metric.label}</span>
+                    <strong className="command-os-metric-value">{value}</strong>
+                    {isSelected && <span className="command-os-sr-only">Selected as the GEO map metric.</span>}
+                </span>
+                <svg className="command-os-metric-sparkline" viewBox="0 0 48 22" aria-hidden="true" focusable="false">
+                    <polyline points={points} pathLength="1" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+            </button>
             <details className="command-os-metric-source">
                 <summary aria-label={`Show ${metric.label.toLowerCase()} data source`} title={`Show ${metric.label.toLowerCase()} data source`}>
                     <CircleHelp size={12} aria-hidden="true" />
@@ -488,6 +503,15 @@ function PerformanceOverview({ payload, theme }: { payload: DashboardPayload; th
             <span className="command-os-panel-meta">{payload.period.from} — {payload.period.to}</span>
         </div>
         <PerformanceChart payload={payload} theme={theme} />
+        <div className="command-os-today-pulse" aria-label={`Today's performance, ${payload.today.date}`}>
+            <div className="command-os-today-pulse-heading"><strong>Today</strong><span>{payload.today.date}</span></div>
+            <dl>
+                <div><dt>Deliveries</dt><dd>{number(payload.today.deliveries)}</dd></div>
+                <div><dt>Opens</dt><dd>{number(payload.today.opens)}</dd></div>
+                <div><dt>Clicks</dt><dd>{number(payload.today.clicks)}</dd></div>
+                <div><dt>Attributed revenue</dt><dd>{money(payload.today.revenue)}</dd></div>
+            </dl>
+        </div>
     </section>;
 }
 function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
@@ -546,7 +570,7 @@ function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
                 </svg>
                 <div>
                     <p className="command-os-eyebrow">ALPHALINK COMMAND OS — {payload.workspaceName}</p>
-                    <h1>Welcome back, {payload.userName}</h1>
+                    <h1>Welcome back, {payload.userName}<span className="command-os-greeting-wave" aria-hidden="true"> 👋</span></h1>
                     <p className="command-os-subtitle">Email marketing intelligence &amp; operations center</p>
                 </div>
                 <div className="command-os-heading-actions">
@@ -562,10 +586,11 @@ function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
             {refreshError && <div className="command-os-refresh-error" role="status">{refreshError}</div>}
 
             <section className="command-os-metrics" aria-label={`${payload.period.label} performance metrics`}>
-                {payload.metrics.map((metric) => <MetricCard key={metric.key} metric={metric} selectedMetric={selectedGeoMetric} />)}
+                {payload.metrics.map((metric) => <MetricCard key={metric.key} metric={metric} selectedMetric={selectedGeoMetric} onMetricChange={setSelectedGeoMetric} />)}
             </section>
 
-            <section className="command-os-panels command-os-intelligence-panels" aria-label="Geographic and marketing intelligence">
+            <section className="command-os-panels command-os-intelligence-panels" aria-label="Performance, geographic and marketing intelligence">
+                <PerformanceOverview payload={payload} theme={theme} />
                 <Suspense fallback={<section className="command-os-panel command-os-async-panel" role="status">Loading country map…</section>}>
                     <DeliverabilityGeoMap data={payload.analytics.geo} theme={theme} selectedMetric={selectedGeoMetric} onMetricChange={setSelectedGeoMetric} />
                 </Suspense>
@@ -574,12 +599,6 @@ function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
                     <MarketingGraph data={payload.analytics.graph} theme={theme} />
                 </Suspense>
             </section>
-
-            <PartnerRevenueAnalytics analytics={payload.analytics} />
-
-            <DashboardCharts payload={payload} theme={theme} selectedMetric={selectedGeoMetric} />
-
-            <PerformanceOverview payload={payload} theme={theme} />
 
             <section className="command-os-quick-actions command-os-quick-actions-footer" aria-labelledby="command-os-actions-title">
                 <div className="command-os-quick-intro"><Flame size={19} aria-hidden="true" /><span><strong id="command-os-actions-title">Quick actions</strong><small>Faster operations</small></span></div>
@@ -609,6 +628,10 @@ function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
                     })}
                 </div>
             </section>
+
+            <PartnerRevenueAnalytics analytics={payload.analytics} />
+
+            <DashboardCharts payload={payload} theme={theme} selectedMetric={selectedGeoMetric} />
 
             <div className="command-os-data-notes" id="command-os-data-coverage">
                 <span><strong>Coverage:</strong> {payload.coverage.deliveries}</span>

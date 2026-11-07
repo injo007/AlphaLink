@@ -2644,3 +2644,341 @@ body.command-os-dashboard #page-container.sidebar-mini #sidebar:focus-within .na
     }
     .command-os-header-wave path { animation: none !important; }
 }
+
+/* Dashboard reconstruction: keep the global shell and sidebar unchanged. */
+body.command-os-dashboard #main_content .command-os-page-heading {
+    min-height: 92px;
+    align-items: center;
+    margin: 0 2px 13px;
+    padding: 10px 15px;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--co-purple) 15%, var(--co-border));
+    border-radius: 15px;
+    background:
+        radial-gradient(ellipse at 77% 12%, color-mix(in srgb, var(--co-blue) 10%, transparent), transparent 40%),
+        linear-gradient(105deg, color-mix(in srgb, var(--co-purple) 6%, var(--co-surface)), color-mix(in srgb, var(--co-blue) 4%, var(--co-surface)) 62%, var(--co-surface));
+    box-shadow: var(--co-shadow), inset 0 1px 0 rgb(255 255 255 / 62%);
+}
+
+html[data-command-theme='dark'] body.command-os-dashboard #main_content .command-os-page-heading {
+    background:
+        radial-gradient(ellipse at 77% 12%, rgb(20 165 255 / 13%), transparent 42%),
+        linear-gradient(105deg, rgb(117 61 255 / 12%), rgb(16 33 73 / 72%) 66%, rgb(18 28 57 / 82%));
+    box-shadow: var(--co-shadow), inset 0 1px 0 rgb(255 255 255 / 5%);
+}
+
+body.command-os-dashboard #main_content .command-os-page-heading h1 {
+    font-size: clamp(22px, 2vw, 30px);
+    letter-spacing: -.05em;
+}
+
+body.command-os-dashboard #main_content .command-os-page-heading .command-os-subtitle {
+    margin-top: 5px;
+    font-size: 11px;
+}
+
+body.command-os-dashboard #main_content .command-os-header-wave {
+    top: -17px;
+    right: 1%;
+    width: min(83%, 1020px);
+    height: 126px;
+    opacity: .78;
+}
+
+body.command-os-dashboard #main_content .command-os-header-wave path {
+    stroke-width: 2.8;
+    filter: drop-shadow(0 0 5px color-mix(in srgb, var(--co-purple) 27%, transparent));
+}
+
+body.command-os-dashboard #main_content .command-os-greeting-wave {
+    display: inline-block;
+    transform-origin: 72% 72%;
+    animation: command-os-greeting-wave .8s ease-in-out .35s 2 alternate;
+}
+
+@keyframes command-os-greeting-wave {
+    from { transform: rotate(0); }
+    to { transform: rotate(15deg); }
+}
+
+body.command-os-dashboard #main_content .command-os-metrics {
+    gap: 9px;
+    margin-bottom: 14px;
+}
+
+body.command-os-dashboard #main_content .command-os-metric {
+    min-height: 68px;
+    overflow: visible;
+    padding: 7px 8px;
+    border-radius: 13px;
+    background: linear-gradient(145deg, color-mix(in srgb, var(--co-surface) 97%, var(--co-purple)), var(--co-surface) 58%, color-mix(in srgb, var(--co-surface) 97%, var(--co-blue)));
+    transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+
+body.command-os-dashboard #main_content .command-os-metric:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--co-shadow), 0 8px 22px color-mix(in srgb, var(--co-purple) 13%, transparent);
+}
+
+body.command-os-dashboard #main_content .command-os-metric-main {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    min-height: 52px;
+    align-items: center;
+    gap: 8px;
+    padding: 0;
+    border: 0;
+    color: inherit;
+    appearance: none;
+    background: transparent;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+body.command-os-dashboard #main_content .command-os-metric-main:disabled {
+    cursor: default;
+}
+
+body.command-os-dashboard #main_content .command-os-metric-main:not(:disabled):focus-visible {
+    outline: 2px solid var(--co-purple-bright);
+    outline-offset: 2px;
+    border-radius: 9px;
+}
+
+body.command-os-dashboard #main_content .command-os-metric-icon {
+    width: 34px;
+    height: 34px;
+    flex-basis: 34px;
+    border: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+    border-radius: 11px;
+    box-shadow: inset 0 1px rgb(255 255 255 / 45%), 0 4px 12px color-mix(in srgb, currentColor 12%, transparent);
+}
+
+body.command-os-dashboard #main_content .command-os-metric-source { top: 3px; right: 3px; }
+
+body.command-os-dashboard #main_content .command-os-intelligence-panels {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+    align-items: stretch;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-panel {
+    min-height: 0;
+    height: auto;
+}
+
+body.command-os-dashboard #main_content .command-os-performance .command-os-chart {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 136px;
+    padding: 2px 7px 3px;
+}
+
+body.command-os-dashboard #main_content .command-os-today-pulse {
+    margin: auto 10px 10px;
+    padding: 8px 10px 9px;
+    border: 1px solid color-mix(in srgb, var(--co-purple) 18%, var(--co-border));
+    border-radius: 10px;
+    background: linear-gradient(100deg, color-mix(in srgb, var(--co-purple) 6%, var(--co-surface)), color-mix(in srgb, var(--co-blue) 6%, var(--co-surface)));
+}
+
+body.command-os-dashboard #main_content .command-os-today-pulse-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+body.command-os-dashboard #main_content .command-os-today-pulse-heading strong {
+    color: var(--co-ink);
+    font-size: 9px;
+    font-weight: 780;
+}
+
+body.command-os-dashboard #main_content .command-os-today-pulse-heading span {
+    color: var(--co-subtle);
+    font-size: 8px;
+    font-variant-numeric: tabular-nums;
+}
+
+body.command-os-dashboard #main_content .command-os-today-pulse dl {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+    margin: 0;
+}
+
+body.command-os-dashboard #main_content .command-os-today-pulse dl > div {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+}
+
+body.command-os-dashboard #main_content .command-os-today-pulse dt {
+    overflow: hidden;
+    color: var(--co-subtle);
+    font-size: 7px;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+body.command-os-dashboard #main_content .command-os-today-pulse dd {
+    overflow: hidden;
+    margin: 0;
+    color: var(--co-ink);
+    font-size: 11px;
+    font-weight: 780;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.02em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+body.command-os-dashboard #main_content .command-os-graph-intro {
+    max-width: none;
+    min-height: 23px;
+    padding: 5px 10px 2px;
+    font-size: 8px;
+}
+
+body.command-os-dashboard #main_content .command-os-graph-canvas {
+    height: 150px;
+    flex: 0 0 150px;
+    margin: 0 7px;
+    border: 1px solid color-mix(in srgb, var(--co-purple) 12%, transparent);
+    background:
+        radial-gradient(circle at 50% 50%, transparent 0 53px, color-mix(in srgb, var(--co-purple) 12%, transparent) 54px 55px, transparent 56px 73px, color-mix(in srgb, var(--co-blue) 10%, transparent) 74px 75px, transparent 76px),
+        radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--co-purple) 8%, transparent), transparent 42%),
+        radial-gradient(ellipse at 12% 60%, color-mix(in srgb, var(--co-blue) 6%, transparent), transparent 47%),
+        radial-gradient(ellipse at 88% 24%, color-mix(in srgb, #a148ff 7%, transparent), transparent 45%);
+}
+
+body.command-os-dashboard #main_content .command-os-graph-canvas.is-compact-network {
+    background:
+        radial-gradient(circle at 50% 50%, transparent 0 18px, color-mix(in srgb, var(--co-purple) 12%, transparent) 19px 20px, transparent 21px 25px, color-mix(in srgb, var(--co-blue) 10%, transparent) 26px 27px, transparent 28px),
+        radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--co-purple) 8%, transparent), transparent 42%),
+        radial-gradient(ellipse at 12% 60%, color-mix(in srgb, var(--co-blue) 6%, transparent), transparent 47%),
+        radial-gradient(ellipse at 88% 24%, color-mix(in srgb, #a148ff 7%, transparent), transparent 45%);
+}
+
+html[data-command-theme='dark'] body.command-os-dashboard #main_content .command-os-graph-canvas {
+    border-color: color-mix(in srgb, #8c74ff 27%, var(--co-border));
+}
+
+body.command-os-dashboard #main_content .command-os-network-spoke { stroke-width: 1.35; stroke-opacity: .55; }
+body.command-os-dashboard #main_content .command-os-network-spoke.is-muted { stroke-opacity: .32; filter: none; }
+body.command-os-dashboard #main_content .command-os-network-spoke.is-focused { stroke-width: 2.5; stroke-opacity: 1; }
+
+body.command-os-dashboard #main_content .command-os-network-node {
+    min-width: 76px;
+    min-height: 34px;
+    gap: 5px;
+    padding: 0 7px;
+    border-color: color-mix(in srgb, var(--node-accent) 34%, var(--co-border));
+    background: linear-gradient(145deg, color-mix(in srgb, var(--co-surface) 91%, var(--node-accent)), color-mix(in srgb, var(--co-surface) 97%, var(--node-accent)) 72%);
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--node-accent) 10%, transparent), inset 0 1px rgb(255 255 255 / 70%);
+    backdrop-filter: none;
+    font-size: 8px;
+}
+
+body.command-os-dashboard #main_content .command-os-graph-canvas.is-compact-network .command-os-network-node {
+    min-height: 26px;
+}
+
+html[data-command-theme='dark'] body.command-os-dashboard #main_content .command-os-network-node {
+    color: var(--co-ink);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--co-surface) 90%, var(--node-accent)), color-mix(in srgb, var(--co-surface) 96%, var(--node-accent)) 74%);
+    box-shadow: 0 4px 13px color-mix(in srgb, var(--node-accent) 18%, transparent), inset 0 1px rgb(255 255 255 / 8%);
+}
+
+body.command-os-dashboard #main_content .command-os-network-node-icon { flex: 0 0 auto; color: var(--node-accent); }
+body.command-os-dashboard #main_content .command-os-network-node-label { flex: 1 1 auto; text-align: left; }
+body.command-os-dashboard #main_content .command-os-network-node-count {
+    flex: 0 0 auto;
+    min-width: 15px;
+    padding: 2px 4px;
+    border-radius: 999px;
+    color: var(--node-accent);
+    background: color-mix(in srgb, var(--node-accent) 11%, var(--co-surface));
+    font-size: 7px;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+}
+
+body.command-os-dashboard #main_content .command-os-network-node:hover,
+body.command-os-dashboard #main_content .command-os-network-node.is-focused {
+    border-color: var(--node-accent);
+    background: var(--co-surface);
+    box-shadow: 0 8px 20px color-mix(in srgb, var(--node-accent) 24%, transparent), 0 0 0 3px color-mix(in srgb, var(--node-accent) 10%, transparent), inset 0 1px rgb(255 255 255 / 76%);
+    transform: translate(-50%, -50%) scale(1.08);
+}
+
+body.command-os-dashboard #main_content .command-os-graph-canvas.is-compact-network .command-os-network-node:hover,
+body.command-os-dashboard #main_content .command-os-graph-canvas.is-compact-network .command-os-network-node.is-focused {
+    transform: translate(-50%, -50%) scale(1.03);
+}
+
+body.command-os-dashboard #main_content .command-os-network-node.is-muted {
+    opacity: .72;
+    filter: saturate(.82);
+}
+
+body.command-os-dashboard #main_content .command-os-graph-selected {
+    min-height: 28px;
+    margin: auto 9px 6px;
+    border: 1px solid color-mix(in srgb, var(--co-purple) 17%, var(--co-border));
+    border-left: 3px solid var(--co-purple-bright);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--co-purple) 5%, var(--co-surface));
+    font-size: 8px;
+}
+
+body.command-os-dashboard #main_content .command-os-quick-actions-footer {
+    margin-top: 0;
+    margin-bottom: 15px;
+}
+
+@media (min-width: 1280px) {
+    body.command-os-dashboard #main_content .command-os-metrics { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+    body.command-os-dashboard #main_content .command-os-intelligence-panels { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-performance { grid-column: auto; }
+    body.command-os-dashboard #main_content .command-os-geo-body { grid-template-columns: minmax(0, 1.8fr) minmax(96px, .9fr); min-height: 150px; }
+    body.command-os-dashboard #main_content .command-os-map-frame { min-height: 150px; }
+    body.command-os-dashboard #main_content .command-os-geo-note { margin: 4px 9px 6px; }
+}
+
+@media (max-width: 1279.98px) {
+    body.command-os-dashboard #main_content .command-os-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    body.command-os-dashboard #main_content .command-os-intelligence-panels { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-performance { grid-column: 1 / -1; }
+    body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-panel { min-height: 248px; }
+    body.command-os-dashboard #main_content .command-os-geo-body { grid-template-columns: minmax(0, 1.7fr) minmax(128px, .9fr); min-height: 150px; }
+    body.command-os-dashboard #main_content .command-os-map-frame { min-height: 150px; }
+    body.command-os-dashboard #main_content .command-os-graph-canvas { height: 150px; flex-basis: 150px; }
+}
+
+@media (max-width: 991.98px) {
+    body.command-os-dashboard #main_content .command-os-intelligence-panels { grid-template-columns: minmax(0, 1fr); }
+    body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-performance { grid-column: auto; }
+    body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-panel { min-height: 0; }
+    body.command-os-dashboard #main_content .command-os-performance .command-os-chart { min-height: 220px; }
+}
+
+@media (max-width: 640px) {
+    body.command-os-dashboard #main_content .command-os-page-heading { min-height: 0; padding: 12px; }
+    body.command-os-dashboard #main_content .command-os-page-heading h1 { font-size: 22px; }
+    body.command-os-dashboard #main_content .command-os-header-wave { top: -5px; right: 0; width: 100%; height: 90px; opacity: .42; }
+    body.command-os-dashboard #main_content .command-os-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    body.command-os-dashboard #main_content .command-os-metric { min-height: 70px; }
+    body.command-os-dashboard #main_content .command-os-today-pulse dl { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 8px; }
+    body.command-os-dashboard #main_content .command-os-graph-canvas { height: 292px; flex-basis: 292px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body.command-os-dashboard #main_content .command-os-greeting-wave { animation: none; }
+}

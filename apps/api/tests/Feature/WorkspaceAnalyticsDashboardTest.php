@@ -492,6 +492,13 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
                 $graphNodes = collect($analytics['graph']['nodes'])->keyBy('id');
 
                 return $dashboard['workspaceRole'] === 'owner'
+                    && $dashboard['today'] === [
+                        'date' => now()->toDateString(),
+                        'deliveries' => 0,
+                        'opens' => 1,
+                        'clicks' => 1,
+                        'revenue' => 2.5,
+                    ]
                     && $metrics->get('opens')['value'] === 2
                     && $metrics->get('clicks')['value'] === 2
                     && $metrics->get('leads')['value'] === 2

@@ -1496,16 +1496,18 @@ html[data-command-theme='dark'] .command-os-panel {
 .command-os-geo-empty {
     display: grid;
     align-content: center;
-    justify-items: start;
-    gap: 7px;
-    min-height: 150px;
-    padding: 12px;
+    justify-items: center;
+    gap: 5px;
+    grid-column: 1 / -1;
+    min-height: 86px;
+    padding: 10px 12px;
     border: 1px solid color-mix(in srgb, var(--co-blue) 18%, var(--co-border));
     border-radius: 10px;
     color: var(--co-muted);
     background: radial-gradient(ellipse at 100% 0%, color-mix(in srgb, var(--co-purple) 9%, transparent), transparent 70%), color-mix(in srgb, var(--co-surface-muted) 70%, transparent);
     font-size: 8.5px;
     line-height: 1.4;
+    text-align: center;
 }
 
 .command-os-geo-empty strong { color: var(--co-ink); font-size: 9px; }

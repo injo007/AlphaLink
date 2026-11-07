@@ -863,6 +863,10 @@
             .campaign-register-test-link { flex: 1 1 100%; justify-content: center; }
             .campaign-register-scroll-note { display: flex; align-items: center; gap: 6px; }
         }
+        @media (max-width: 767.98px) {
+            .campaign-register-table th,
+            .campaign-register-table td[data-campaign-column="send"] { position: static; z-index: auto; box-shadow: none; }
+        }
         @media (max-width: 420px) {
             .campaign-register-heading-icon { flex-basis: 40px; width: 40px; height: 40px; }
             body.command-os-shell .campaign-register-page .campaign-register-heading-copy .block-title { font-size: 18px; }

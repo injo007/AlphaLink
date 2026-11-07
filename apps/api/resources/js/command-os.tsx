@@ -592,7 +592,7 @@ function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
                             return <button
                                 className="command-os-action command-os-action-disabled"
                                 type="button"
-                                aria-disabled="true"
+                                disabled
                                 aria-describedby={reasonId}
                                 key={action.label}
                                 aria-label={action.label}

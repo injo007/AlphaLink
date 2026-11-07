@@ -148,7 +148,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
                 'deliveries' => 'Locally imported PMTA delivery records and stored campaign/Drop visitor events.',
                 'revenue' => 'Revenue is attributed to recorded campaign and Drop leads; it is not PMTA earnings.',
                 'geo' => 'GEO delivery feedback is grouped only where a campaign or single-country Drop target can be proven. Country feedback totals are not a complete sent denominator or delivery rate.',
-                'graph' => 'The graph maps workspace modules and their stored activity. Spokes show module membership; they do not claim record-to-record relationships.',
+                'graph' => 'Graph counts and observed links come from workspace-scoped activity dimensions in the selected range. Dashed spokes are a module map; solid links show dimensions recorded together on campaign, Drop, or warmup activity.',
             ],
             'actions' => $this->dashboardQuickActions($workspace),
             'analytics' => $this->dateFilteredDashboardAnalytics(
@@ -341,7 +341,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
      *     mailers: list<array{label: string, deliveries: int, opens: int, clicks: int, leads: int, unsubscribes: int, bounces: int, attributed_revenue: float}>,
      *     offers: list<array{label: string, leads: int, clicks: int, attributed_revenue: float}>,
      *     geo: array{countries: list<array{country: string, opens: int, clicks: int, leads: int, unsubscribes: int, deliveries: int, bounces: int}>, proxy_opens_excluded: int, feedback_note: string},
-     *     graph: array{nodes: list<array{id: string, label: string, count: int, color: string, href: string|null}>, note: string}
+     *     graph: array{nodes: list<array{id: string, label: string, count: int, color: string, href: string|null}>, edges: list<array{source: string, target: string, count: int}>, note: string}
      * }
      */
     private function dateFilteredDashboardAnalytics(Workspace $workspace, User $user, string $from, string $to): array
@@ -365,7 +365,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
      *     mailers: list<array{label: string, deliveries: int, opens: int, clicks: int, leads: int, unsubscribes: int, bounces: int, attributed_revenue: float}>,
      *     offers: list<array{label: string, leads: int, clicks: int, attributed_revenue: float}>,
      *     geo: array{countries: list<array{country: string, opens: int, clicks: int, leads: int, unsubscribes: int, deliveries: int, bounces: int}>, proxy_opens_excluded: int, feedback_note: string},
-     *     graph: array{nodes: list<array{id: string, label: string, count: int, color: string, href: string|null}>, note: string}
+     *     graph: array{nodes: list<array{id: string, label: string, count: int, color: string, href: string|null}>, edges: list<array{source: string, target: string, count: int}>, note: string}
      * }
      */
     private function loadDateFilteredDashboardAnalytics(Workspace $workspace, User $user, string $from, string $to): array
@@ -634,7 +634,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
     }
 
     /**
-     * @return array{nodes: list<array{id: string, label: string, count: int, color: string, href: string|null}>, note: string}
+     * @return array{nodes: list<array{id: string, label: string, count: int, color: string, href: string|null}>, edges: list<array{source: string, target: string, count: int}>, note: string}
      */
     private function dashboardMarketingGraph(Workspace $workspace, User $user, string $from, string $to): array
     {
@@ -668,10 +668,96 @@ class WorkspaceAnalyticsConsoleController extends Controller
             ['id' => 'tracking', 'label' => 'Tracking', 'count' => $count('tracked_events'), 'color' => 'indigo', 'href' => route('clean.console.analytics.all-stats')],
         ];
 
+        $privacyOfficer = $role === 'privacy_officer';
+
         return [
-            'nodes' => $role === 'privacy_officer' ? [['id' => 'workspace-activity', 'label' => 'Workspace activity', 'count' => $count('tracked_events'), 'color' => 'indigo', 'href' => null]] : $allNodes,
-            'note' => 'Badges show workspace-scoped entities with activity in this range; Tracking shows event volume. Lines radiate from AlphaLink as a module map and do not claim record-to-record attribution.',
+            'nodes' => $privacyOfficer ? [['id' => 'workspace-activity', 'label' => 'Workspace activity', 'count' => $count('tracked_events'), 'color' => 'indigo', 'href' => null]] : $allNodes,
+            'edges' => $privacyOfficer ? [] : $this->dashboardMarketingGraphEdges($workspace, $user, $from, $to, $role),
+            'note' => 'Badges show workspace-scoped entities with activity in this range; Tracking shows event volume. Solid links count distinct module-entity pairs whose stored activity dimensions co-occurred in the selected range. Dashed spokes are the module map.',
         ];
+    }
+
+    /**
+     * Return distinct module-entity pairs observed together in the selected workspace range.
+     *
+     * @return list<array{source: string, target: string, count: int}>
+     */
+    private function dashboardMarketingGraphEdges(Workspace $workspace, User $user, string $from, string $to, string $role): array
+    {
+        $relations = [
+            ['campaigns', 'isps', ['campaign'], 'campaign_id', 'isp_id'],
+            ['campaigns', 'lists', ['campaign'], 'campaign_id', 'list_id'],
+            ['campaigns', 'servers', ['campaign'], 'campaign_id', 'server_id'],
+            ['campaigns', 'domains', ['campaign'], 'campaign_id', 'domain_id'],
+            ['campaigns', 'offers', ['campaign'], 'campaign_id', 'offer_id'],
+            ['campaigns', 'sponsors', ['campaign'], 'campaign_id', 'sponsor_id'],
+            ['drops', 'isps', ['drop'], 'workspace_drop_id', 'isp_id'],
+            ['drops', 'lists', ['drop'], 'workspace_drop_id', 'list_id'],
+            ['drops', 'servers', ['drop'], 'workspace_drop_id', 'server_id'],
+            ['drops', 'domains', ['drop'], 'workspace_drop_id', 'domain_id'],
+            ['drops', 'offers', ['drop'], 'workspace_drop_id', 'offer_id'],
+            ['drops', 'sponsors', ['drop'], 'workspace_drop_id', 'sponsor_id'],
+            ['warmups', 'servers', ['warmup'], 'source_id', 'server_id'],
+            ['warmups', 'domains', ['warmup'], 'source_id', 'domain_id'],
+            ['sponsors', 'offers', ['campaign', 'drop'], 'sponsor_id', 'offer_id'],
+        ];
+        $pairQueries = [];
+
+        foreach ($relations as [$source, $target, $sourceTypes, $sourceColumn, $targetColumn]) {
+            $query = DB::table('workspace_daily_analytics')
+                ->where('workspace_id', $workspace->getKey())
+                ->where('attribution_scope', 'workspace')
+                ->whereIn('source_type', $sourceTypes)
+                ->whereBetween('at', [$from, $to])
+                ->when($role === 'operator', fn ($query) => $query->where('user_id', $user->getKey()))
+                ->whereNotNull($sourceColumn)
+                ->whereNotNull($targetColumn)
+                ->selectRaw('? AS source_module', [$source])
+                ->selectRaw('? AS target_module', [$target])
+                ->selectRaw('CAST('.$sourceColumn.' AS TEXT) AS source_entity_id')
+                ->selectRaw('CAST('.$targetColumn.' AS TEXT) AS target_entity_id')
+                ->distinct();
+
+            $pairQueries[] = $query;
+        }
+
+        foreach ([['campaign', 'campaigns', 'campaign_id'], ['drop', 'drops', 'workspace_drop_id']] as [$sourceType, $sourceModule, $sourceColumn]) {
+            $pairQueries[] = DB::table('workspace_daily_analytics')
+                ->where('workspace_id', $workspace->getKey())
+                ->where('attribution_scope', 'workspace')
+                ->where('source_type', $sourceType)
+                ->whereBetween('at', [$from, $to])
+                ->when($role === 'operator', fn ($query) => $query->where('user_id', $user->getKey()))
+                ->whereNotNull($sourceColumn)
+                ->whereRaw('(opens + clicks + leads + unsubscribes) > 0')
+                ->selectRaw('? AS source_module', [$sourceModule])
+                ->selectRaw("'tracking' AS target_module")
+                ->selectRaw('CAST('.$sourceColumn.' AS TEXT) AS source_entity_id')
+                ->selectRaw("'tracked' AS target_entity_id")
+                ->distinct();
+        }
+
+        $pairUnion = array_shift($pairQueries);
+        foreach ($pairQueries as $pairQuery) {
+            // A sponsor/offer pair may appear under multiple campaign or Drop rows.
+            // Union-level de-duplication keeps the displayed count at distinct entity pairs.
+            $pairUnion->union($pairQuery);
+        }
+
+        return DB::query()
+            ->fromSub($pairUnion, 'observed_module_pairs')
+            ->select('source_module', 'target_module')
+            ->selectRaw('COUNT(*) AS pair_count')
+            ->groupBy('source_module', 'target_module')
+            ->orderBy('source_module')
+            ->orderBy('target_module')
+            ->get()
+            ->map(fn (object $row): array => [
+                'source' => (string) $row->source_module,
+                'target' => (string) $row->target_module,
+                'count' => (int) $row->pair_count,
+            ])
+            ->all();
     }
 
     /** @return array<int, array{label: string, href: string|null, icon: string, disabled?: bool, reason?: string}> */
@@ -1196,7 +1282,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
             now()->format('YmdHi'),
         ]);
 
-        return 'alphalink:dashboard:main:v3:'.$dataset.':'.hash('sha256', $scope);
+        return 'alphalink:dashboard:main:v4:'.$dataset.':'.hash('sha256', $scope);
     }
 
     private function reportContext(Request $request, string $workspaceId): array

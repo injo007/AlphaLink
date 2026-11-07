@@ -840,3 +840,16 @@ Release `da7616ff` is active on `baseheavy.shop`. Authenticated production inspe
 ### DMS-CAMP-001 — Campaign Information panel follow-up — E-CAMP-165
 
 AlphaLink keeps its primary campaign, routing, action, progress, and send columns in the register. Total Send, Fraction IP, Email wait, IP wait, Seed, and Send Type are now grouped in Campaign Information and populated from each selected campaign's existing `send_register` data. The selected-campaign dropdown also filters analytics and keeps the panel synchronized; the editable Send Type control writes to that campaign's existing test form. This is a presentation change, not a claim of DMS's 14-column layout parity. Production browser verification is pending deployment.
+
+
+## E-DASH-50 — Marketing Graph observed activity relationships — 2026-11-07
+
+Solid graph links now represent distinct module-entity pairs recorded together in workspace activity rows for the selected date range. Campaigns and Drops can link to recorded ISPs, Lists, Servers, Domains, Sponsors and Offers; Warmups link to recorded Servers and Domains; Sponsor/Offer pairs are de-duplicated across Campaign and Drop source rows; tracked-event links require recorded opens, clicks, leads or unsubscribes. Workspace, attribution-scope, date and operator filters are enforced. Dashed spokes remain the conceptual map and do not claim record relationships. The graph is based on observed activity dimensions, not a complete catalog relationship model.
+
+`WorkspaceAnalyticsDashboardTest.php` passes **28 tests / 447 assertions** in the PHP 8.5 test container. Focused Pint, PHP syntax checks, `npm run typecheck`, `npm run build`, and `git diff --check` pass. The new rendered graph has not been browser-verified or deployed, and DMS parity is not claimed. Keep DMS-DASH-001 TESTING.
+
+## E-DASH-51 — Dashboard reference composition — 2026-11-07
+
+The live dashboard screenshot at 1730 × 892 showed Performance Overview sharing the top analytics row with GEO and Marketing Graph, with Quick Actions before revenue reports. The approved reference instead gives the top row to two wide GEO/Marketing panels, followed by four revenue rankings and MTD/YTD charts. Dashboard source now follows that sequence and moves Performance Overview/Quick Actions below the reference sections. The heading wave has a brighter violet/cyan spectrum. Existing real data, empty states, sidebar, controls, routes, and report logic remain intact.
+
+The PHP 8.5 dashboard suite passes 28 tests / 447 assertions; focused Pint, PHP syntax, TypeScript, Vite build and `git diff --check` pass. The production screenshot still reflects the old layout because `.env` remains in `reference_audit` mode with `ALLOW_PRODUCTION_WRITES=false`. No deployment or DMS parity is claimed; keep DMS-DASH-001 TESTING.

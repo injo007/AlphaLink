@@ -1148,6 +1148,18 @@ At the authenticated production dashboard, the reference desktop viewport (1672 
 
 A dashboard-scoped CSS change stacks the page heading and wraps its period, refresh, and date-range controls below 992 px. Production retest on release `da7616ff` confirms no horizontal overflow at phone, tablet, or desktop widths; GEO and Marketing graph render at each tested width. DMS-DASH-001 stays TESTING for reporting parity.
 
+### E-DASH-50 — Marketing Graph observed activity relationships — 2026-11-07
+
+Dashboard source now draws solid links only for distinct module-entity pairs co-occurring in workspace-scoped `workspace_daily_analytics` rows for the selected date range. Campaign and Drop activity can link to their recorded ISP, List, Server, Domain, Sponsor and Offer dimensions; warmups link to recorded Servers/Domains; Sponsors link to Offers; campaign/Drop activity links to Tracking only when opens, clicks, leads or unsubscribes were recorded. Workspace, `attribution_scope`, operator and date filters apply. Union-level de-duplication prevents one Sponsor/Offer pair repeated across Campaign and Drop activity from being counted twice. Dashed spokes remain the conceptual module map. These are activity co-occurrences, not a complete catalog relationship graph.
+
+`WorkspaceAnalyticsDashboardTest.php` passes **28 tests / 447 assertions** in the PHP 8.5 test container, including workspace/operator/date/scope filtering and duplicate Sponsor/Offer pair coverage. Focused Pint, PHP syntax checks, `npm run typecheck`, `npm run build`, and `git diff --check` pass; the existing large MapLibre/ECharts chunk advisory remains. New graph rendering has not been verified in a browser or deployed. Keep DMS-DASH-001 TESTING; no DMS parity claim is made.
+
+### E-DASH-51 — Dashboard reference composition — 2026-11-07
+
+Authenticated production screenshot evidence at 1730 × 892 showed the live dashboard used three top-row panels (Performance Overview, GEO and Marketing Graph) and placed Quick Actions before the revenue reports, unlike the supplied reference. Source now gives the GEO map and Marketing Graph equal columns, places partner revenue rankings and MTD/YTD reports immediately after them, then preserves Performance Overview and Quick Actions below. A violet/cyan spectrum wave brightens the heading. No sidebar, header control, route, calculation, or API behavior changed; empty data states remain truthful.
+
+Dashboard tests pass **28 / 447 assertions** in the PHP 8.5 container; focused Pint, PHP syntax, TypeScript, Vite build, and `git diff --check` pass. The live page remains on the prior release: `.env` has `PROJECT_MODE=reference_audit` and `ALLOW_PRODUCTION_WRITES=false`, so deployment was not run. Live visual verification of this source update and DMS parity remain unverified; keep DMS-DASH-001 TESTING.
+
 ### E-CAMP-164 — My Campaigns actions and analytics presentation — 2026-11-07
 
 Source: `apps/api/resources/views/console/campaigns/index.blade.php`, `apps/api/resources/js/campaign-register.ts`, `WorkspaceConsoleController`, `WorkspaceCampaignStatisticsConsoleController`, and focused campaign feature tests. Existing row actions remain in their four-column/two-row grid, with Command OS token-based colors and red/green disable/restore intent. Marketing rows retain Open, test history, test, Edit, IP selection state, statistics, Clone, and disable/restore; current configuration gates remain visible and explained.

@@ -10,6 +10,7 @@ body.command-os-shell {
     --co-purple: #793df6;
     --co-purple-bright: #9654ff;
     --co-blue: #277bff;
+    --co-cyan: #17aee0;
     --co-shadow: 0 4px 20px rgb(45 54 115 / 5%);
     min-width: 320px;
     color: var(--co-ink);
@@ -30,6 +31,7 @@ html[data-command-theme='dark'] body.command-os-shell {
     --co-purple: #a13fff;
     --co-purple-bright: #c454ff;
     --co-blue: #18a8ff;
+    --co-cyan: #16caff;
     --co-shadow: 0 7px 24px rgb(0 0 0 / 18%);
 }
 
@@ -955,13 +957,30 @@ body.command-os-shell #page-footer a {
     animation: command-os-header-wave-drift 18s ease-in-out infinite alternate;
 }
 
+.command-os-header-wave-glow {
+    stroke: url(#command-os-header-wave-spectrum);
+    stroke-width: 12px !important;
+    opacity: .2;
+    filter: blur(5px);
+}
+
 .command-os-header-wave-blue {
-    stroke: color-mix(in srgb, var(--co-blue) 54%, transparent);
+    stroke: url(#command-os-header-wave-spectrum);
+    stroke-width: 3px !important;
+    filter: drop-shadow(0 0 7px color-mix(in srgb, var(--co-cyan) 48%, transparent));
 }
 
 .command-os-header-wave-violet {
     stroke: color-mix(in srgb, var(--co-purple-bright) 48%, transparent);
     animation-delay: -7s;
+}
+
+.command-os-header-wave-cyan {
+    stroke: color-mix(in srgb, var(--co-cyan) 78%, white);
+    stroke-width: 1.8px !important;
+    opacity: .88;
+    filter: drop-shadow(0 0 5px color-mix(in srgb, var(--co-cyan) 60%, transparent));
+    animation-delay: -11s;
 }
 
 html[data-command-theme='dark'] .command-os-header-wave { opacity: .4; }
@@ -1845,6 +1864,7 @@ html[data-command-theme='dark'] .command-os-panel {
 @media (prefers-reduced-motion: reduce) {
     .command-os-network-node,
     .command-os-network-spoke,
+    .command-os-network-relation,
     .command-os-graph-module-chip { transition: none; }
     .command-os-network-node:hover,
     .command-os-network-node.is-focused { transform: translate(-50%, -50%); }
@@ -2759,10 +2779,21 @@ body.command-os-dashboard #main_content .command-os-metric-icon {
 body.command-os-dashboard #main_content .command-os-metric-source { top: 3px; right: 3px; }
 
 body.command-os-dashboard #main_content .command-os-intelligence-panels {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: stretch;
     gap: 12px;
     margin-bottom: 14px;
+}
+
+body.command-os-dashboard #main_content .command-os-secondary-panels {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+body.command-os-dashboard #main_content .command-os-secondary-panels > * {
+    min-width: 0;
 }
 
 body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-panel {
@@ -2870,9 +2901,92 @@ html[data-command-theme='dark'] body.command-os-dashboard #main_content .command
     border-color: color-mix(in srgb, #8c74ff 27%, var(--co-border));
 }
 
-body.command-os-dashboard #main_content .command-os-network-spoke { stroke-width: 1.35; stroke-opacity: .55; }
+body.command-os-dashboard #main_content .command-os-network-spoke { stroke-width: 1.2; stroke-opacity: .42; stroke-dasharray: 3 4; }
 body.command-os-dashboard #main_content .command-os-network-spoke.is-muted { stroke-opacity: .32; filter: none; }
 body.command-os-dashboard #main_content .command-os-network-spoke.is-focused { stroke-width: 2.5; stroke-opacity: 1; }
+
+body.command-os-dashboard #main_content .command-os-network-relation {
+    fill: none;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-opacity: .42;
+    transition: stroke-opacity .2s ease, stroke-width .2s ease, filter .2s ease;
+    vector-effect: non-scaling-stroke;
+}
+
+body.command-os-dashboard #main_content .command-os-network-relation.is-focused {
+    stroke-width: 2.6;
+    stroke-opacity: .96;
+    filter: drop-shadow(0 0 3px color-mix(in srgb, var(--co-purple) 42%, transparent));
+}
+
+body.command-os-dashboard #main_content .command-os-network-relation.is-muted { stroke-opacity: .09; }
+
+body.command-os-dashboard #main_content .command-os-network-relation-count rect {
+    fill: var(--co-surface);
+    stroke: color-mix(in srgb, var(--co-purple) 34%, var(--co-border));
+    stroke-width: 1;
+    filter: drop-shadow(0 2px 4px rgb(20 30 70 / 14%));
+}
+
+body.command-os-dashboard #main_content .command-os-network-relation-count text {
+    fill: var(--co-ink);
+    font: 750 8px/1 Inter, 'Segoe UI', Arial, sans-serif;
+    text-anchor: middle;
+    dominant-baseline: middle;
+}
+
+body.command-os-dashboard #main_content .command-os-graph-relations {
+    display: flex;
+    min-height: 25px;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 0 9px 3px;
+    color: var(--co-muted);
+    font-size: 7px;
+    line-height: 1.2;
+}
+
+body.command-os-dashboard #main_content .command-os-graph-relations-label {
+    margin-right: 2px;
+    color: var(--co-muted);
+    font-size: 7px;
+    font-weight: 800;
+    letter-spacing: .045em;
+    text-transform: uppercase;
+}
+
+body.command-os-dashboard #main_content .command-os-graph-relation-chip {
+    display: inline-flex;
+    min-height: 18px;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 5px;
+    border: 1px solid color-mix(in srgb, var(--co-purple) 19%, var(--co-border));
+    border-radius: 999px;
+    color: var(--co-ink);
+    background: color-mix(in srgb, var(--co-purple) 5%, var(--co-surface));
+    white-space: nowrap;
+}
+
+body.command-os-dashboard #main_content .command-os-graph-relation-chip b {
+    min-width: 13px;
+    padding: 1px 3px;
+    border-radius: 999px;
+    color: var(--co-purple-bright);
+    background: color-mix(in srgb, var(--co-purple) 12%, var(--co-surface));
+    font-size: 7px;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+}
+
+body.command-os-dashboard #main_content .command-os-graph-relations-empty { font-size: 7px; }
+
+html[data-command-theme='dark'] body.command-os-dashboard #main_content .command-os-network-relation-count rect {
+    fill: color-mix(in srgb, var(--co-surface) 96%, #a855f7);
+    filter: drop-shadow(0 2px 5px rgb(0 0 0 / 34%));
+}
 
 body.command-os-dashboard #main_content .command-os-network-node {
     min-width: 76px;
@@ -2953,9 +3067,8 @@ body.command-os-dashboard #main_content .command-os-geo-note {
 
 @media (min-width: 1450px) {
     body.command-os-dashboard #main_content .command-os-metrics { grid-template-columns: repeat(7, minmax(0, 1fr)); }
-    body.command-os-dashboard #main_content .command-os-intelligence-panels { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-performance { grid-column: auto; }
-    body.command-os-dashboard #main_content .command-os-geo-body { grid-template-columns: minmax(0, 1.8fr) minmax(96px, .9fr); min-height: 150px; }
+    body.command-os-dashboard #main_content .command-os-intelligence-panels { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    body.command-os-dashboard #main_content .command-os-geo-body { grid-template-columns: minmax(0, 3fr) minmax(140px, 1fr); min-height: 150px; }
     body.command-os-dashboard #main_content .command-os-map-frame { min-height: 150px; }
     body.command-os-dashboard #main_content .command-os-geo-note { margin: 4px 9px 6px; }
 }
@@ -2963,23 +3076,16 @@ body.command-os-dashboard #main_content .command-os-geo-note {
 @media (max-width: 1449.98px) {
     body.command-os-dashboard #main_content .command-os-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     body.command-os-dashboard #main_content .command-os-intelligence-panels { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-performance { grid-column: 1 / -1; }
-    body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-geo-panel { grid-column: 1; grid-row: 1; }
-    body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-graph-panel { grid-column: 2; grid-row: 1; }
-    body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-quick-actions-footer { grid-column: 1 / -1; grid-row: 2; }
-    body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-performance { grid-row: 3; }
+    body.command-os-dashboard #main_content .command-os-secondary-panels { grid-template-columns: minmax(0, 1fr); }
     body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-panel { min-height: 248px; }
-    body.command-os-dashboard #main_content .command-os-geo-body { grid-template-columns: minmax(0, 1.7fr) minmax(128px, .9fr); min-height: 150px; }
+    body.command-os-dashboard #main_content .command-os-geo-body { grid-template-columns: minmax(0, 2.4fr) minmax(128px, 1fr); min-height: 150px; }
     body.command-os-dashboard #main_content .command-os-map-frame { min-height: 150px; }
     body.command-os-dashboard #main_content .command-os-graph-canvas { height: 150px; flex-basis: 150px; }
 }
 
 @media (max-width: 991.98px) {
     body.command-os-dashboard #main_content .command-os-intelligence-panels { grid-template-columns: minmax(0, 1fr); }
-    body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-geo-panel { grid-column: 1; grid-row: 1; }
-    body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-graph-panel { grid-column: 1; grid-row: 2; }
-    body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-quick-actions-footer { grid-column: 1; grid-row: 3; }
-    body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-performance { grid-column: 1; grid-row: 4; }
+    body.command-os-dashboard #main_content .command-os-secondary-panels { grid-template-columns: minmax(0, 1fr); }
     body.command-os-dashboard #main_content .command-os-intelligence-panels > .command-os-panel { min-height: 0; }
     body.command-os-dashboard #main_content .command-os-performance .command-os-chart { min-height: 220px; }
 }

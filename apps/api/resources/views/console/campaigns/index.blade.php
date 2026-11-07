@@ -865,6 +865,7 @@
         }
         @media (max-width: 767.98px) {
             .campaign-register-table th,
+            .campaign-register-table th[data-campaign-column="send"],
             .campaign-register-table td[data-campaign-column="send"] { position: static; z-index: auto; box-shadow: none; }
         }
         @media (max-width: 420px) {

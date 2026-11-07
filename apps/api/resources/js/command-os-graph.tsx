@@ -47,15 +47,15 @@ function formatCount(value: number): string {
     return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value);
 }
 
-function moduleWidth(label: string): number {
-    return Math.min(116, Math.max(76, label.length * 5.55 + 38));
+function moduleWidth(label: string, count: number): number {
+    return Math.min(132, Math.max(88, label.length * 5.1 + String(count).length * 5.1 + 42));
 }
 
 function radialPosition(index: number, count: number, width: number, height: number): [number, number] {
     const angle = -Math.PI / 2 + (index * Math.PI * 2) / count;
-    const radiusX = Math.max(72, width / 2 - 65);
-    const radiusY = Math.max(32, height / 2 - 25);
-    return [width / 2 + Math.cos(angle) * radiusX, height / 2 + Math.sin(angle) * radiusY];
+    const radiusX = Math.max(64, Math.min(width / 2 - 70, 168));
+    const radiusY = Math.max(50, Math.min(height / 2 - 38, 100));
+    return [width / 2 + Math.cos(angle) * radiusX, height * 0.51 + Math.sin(angle) * radiusY];
 }
 
 export default function MarketingGraph({ data, theme }: { data: DashboardAnalytics['graph']; theme: Theme }): JSX.Element {
@@ -65,34 +65,35 @@ export default function MarketingGraph({ data, theme }: { data: DashboardAnalyti
     useEffect(() => {
         if (!container.current) return undefined;
         const dark = theme === 'dark';
-        const muted = dark ? '#b6c2e6' : '#536284';
+        const muted = '#e8edff';
         const chart: EChartsType = init(container.current, undefined, { renderer: 'canvas' });
 
         const renderGraph = () => {
             const width = chart.getWidth();
             const height = chart.getHeight();
+            const moduleCount = Math.max(1, data.nodes.length);
             const center = {
                 id: 'alphalink',
                 name: 'AlphaLink',
                 value: '',
                 x: width / 2,
-                y: height / 2,
-                symbolSize: 52,
+                y: height * 0.51,
+                symbolSize: 62,
                 itemStyle: {
-                    color: dark ? '#101d43' : '#ffffff',
-                    borderColor: dark ? '#9a63ff' : '#8254f5',
-                    borderWidth: 1.5,
-                    shadowBlur: 30,
-                    shadowColor: dark ? 'rgba(105, 65, 255, .9)' : 'rgba(106, 73, 234, .5)',
+                    color: '#101f3a',
+                    borderColor: '#a78bff',
+                    borderWidth: 2,
+                    shadowBlur: 34,
+                    shadowColor: 'rgba(132, 85, 255, .9)',
                 },
                 label: {
                     show: true,
                     formatter: '{brand| }',
-                    rich: { brand: { width: 38, height: 38, backgroundColor: { image: brandMark } } },
+                    rich: { brand: { width: 46, height: 46, backgroundColor: { image: brandMark } } },
                 },
             };
             const modules = data.nodes.map((node, index) => {
-                const [x, y] = radialPosition(index, data.nodes.length, width, height);
+                const [x, y] = radialPosition(index, moduleCount, width, height);
                 const color = nodeColors[node.color] ?? '#7b4bf3';
                 const icon = iconImage(node.id, color);
                 return {
@@ -102,23 +103,24 @@ export default function MarketingGraph({ data, theme }: { data: DashboardAnalyti
                     x,
                     y,
                     symbol: 'roundRect',
-                    symbolSize: [moduleWidth(node.label), 27],
+                    symbolSize: [moduleWidth(node.label, node.count), 36],
                     itemStyle: {
-                        color: dark ? `${color}24` : '#fff',
+                        color: '#142444',
                         borderColor: color,
-                        borderWidth: 1.5,
-                        shadowBlur: dark ? 17 : 11,
-                        shadowColor: `${color}77`,
+                        borderWidth: 1.2,
+                        shadowBlur: 20,
+                        shadowColor: `${color}99`,
                     },
                     label: {
                         show: true,
                         color: muted,
-                        fontSize: 9.5,
+                        fontSize: 9,
                         fontWeight: 700,
-                        formatter: `{icon| } {label|${node.label}}`,
+                        formatter: `{icon| } {label|${node.label}}\n{count|${formatCount(node.count)}${node.id === 'tracking' || node.id === 'workspace-activity' ? ' events' : ' entities'}}`,
                         rich: {
-                            icon: { width: 13, height: 13, backgroundColor: { image: icon } },
-                            label: { color: muted, fontSize: 9.5, fontWeight: 700 },
+                            icon: { width: 12, height: 12, backgroundColor: { image: icon }, padding: [0, 3, 0, 0] },
+                            label: { color: muted, fontSize: 9, fontWeight: 720, lineHeight: 12 },
+                            count: { color: '#a9bbdb', fontSize: 7.5, fontWeight: 600, lineHeight: 12, padding: [0, 0, 0, 17] },
                         },
                     },
                 };
@@ -133,33 +135,34 @@ export default function MarketingGraph({ data, theme }: { data: DashboardAnalyti
                     textStyle: { color: dark ? '#eff3ff' : '#202b4d', fontSize: 11 },
                     formatter: (params: { dataType?: string; data?: { id?: string; name?: string; value?: number | string } }) => {
                         if (params.dataType !== 'node' || !params.data) return '';
-                        return params.data.id === 'alphalink' ? 'AlphaLink workspace' : `${params.data.name}: ${formatCount(Number(params.data.value ?? 0))} activity`;
+                        const unit = params.data.id === 'tracking' || params.data.id === 'workspace-activity' ? 'tracked events' : 'entities with activity';
+                        return params.data.id === 'alphalink' ? 'AlphaLink workspace' : `${params.data.name}: ${formatCount(Number(params.data.value ?? 0))} ${unit}`;
                     },
                 },
                 series: [{
                     type: 'graph',
                     layout: 'none',
-                    left: 50,
-                    right: 50,
-                    top: 18,
-                    bottom: 18,
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
                     data: [center, ...modules],
                     links: data.nodes.map((node) => ({
                         source: 'alphalink',
                         target: node.id,
                         lineStyle: {
                             color: nodeColors[node.color] ?? '#7b4bf3',
-                            opacity: dark ? 0.82 : 0.64,
-                            width: 1.6,
-                            shadowBlur: 9,
+                            opacity: 0.68,
+                            width: 1.4,
+                            shadowBlur: 12,
                             shadowColor: `${nodeColors[node.color] ?? '#7b4bf3'}99`,
                         },
                     })),
                     roam: false,
                     draggable: false,
                     edgeSymbol: ['none', 'none'],
-                    lineStyle: { width: 1.4, curveness: 0.045 },
-                    emphasis: { focus: 'adjacency', lineStyle: { width: 2.4, opacity: 1 } },
+                    lineStyle: { width: 1.4, curveness: 0.1 },
+                    emphasis: { focus: 'adjacency', lineStyle: { width: 2.4, opacity: 1 }, itemStyle: { shadowBlur: 25 } },
                     blur: { lineStyle: { opacity: 0.12 } },
                 }],
             }, { notMerge: true });
@@ -170,7 +173,8 @@ export default function MarketingGraph({ data, theme }: { data: DashboardAnalyti
             if (params.dataType !== 'node' || !params.data || typeof params.data !== 'object') return;
             const item = params.data as { id?: unknown; name?: unknown; value?: unknown };
             if (typeof item.id === 'string' && item.id !== 'alphalink' && typeof item.name === 'string') {
-                setSelected(`${item.name}: ${formatCount(Number(item.value ?? 0))} activity in this range`);
+                const unit = item.id === 'tracking' || item.id === 'workspace-activity' ? 'tracked events' : 'entities with activity';
+                setSelected(`${item.name}: ${formatCount(Number(item.value ?? 0))} ${unit} in this range`);
             }
         });
         const observer = new ResizeObserver(() => {
@@ -189,14 +193,14 @@ export default function MarketingGraph({ data, theme }: { data: DashboardAnalyti
         <section className="command-os-panel command-os-graph-panel" id="marketing-graph" aria-labelledby="command-os-graph-title">
             <div className="command-os-panel-heading">
                 <div className="command-os-panel-title"><span className="command-os-heading-icon command-os-graph-heading-icon"><span aria-hidden="true">✣</span></span><h2 id="command-os-graph-title">Marketing graph</h2></div>
-                <span className="command-os-status-tag">Network view</span>
+                <span className="command-os-status-tag">{data.nodes.length} modules</span>
             </div>
-            <div className="command-os-graph-canvas" ref={container} role="application" aria-describedby="command-os-graph-note" aria-label="Interactive AlphaLink module graph. Select a module to inspect its stored activity count." />
+            <div className="command-os-graph-canvas" ref={container} role="application" aria-describedby="command-os-graph-note" aria-label="Interactive AlphaLink module graph. Select a module to inspect its stored count." />
             <p className="command-os-graph-selected" aria-live="polite">{selected}</p>
             <ul className="command-os-sr-only" aria-label="Module activity counts">
-                {data.nodes.map((node) => <li key={node.id}>{node.label}: {formatCount(node.count)} activity in this range</li>)}
+                {data.nodes.map((node) => <li key={node.id}>{node.label}: {formatCount(node.count)} {node.id === 'tracking' || node.id === 'workspace-activity' ? 'tracked events' : 'entities with activity'} in this range</li>)}
             </ul>
-            <p className="command-os-sr-only" id="command-os-graph-note">{data.note} Select a node for its activity count.</p>
+            <p className="command-os-sr-only" id="command-os-graph-note">{data.note} Select a node for its sourced count.</p>
         </section>
     );
 }

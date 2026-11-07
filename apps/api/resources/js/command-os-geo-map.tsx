@@ -134,19 +134,19 @@ function createActivityMarkers(countries: FeatureCollection<Geometry, CountryPro
 }
 
 function countryDotPattern(color: string): ImageData {
-    const size = 6;
+    const size = 9;
     const [red, green, blue] = [1, 3, 5].map((start) => Number.parseInt(color.slice(start, start + 2), 16));
     const pixels = new Uint8ClampedArray(size * size * 4);
     for (let y = 0; y < size; y += 1) {
         for (let x = 0; x < size; x += 1) {
-            const dx = x - 2.5;
-            const dy = y - 2.5;
-            if (dx * dx + dy * dy > 2.15) continue;
+            const dx = x - 4;
+            const dy = y - 4;
+            if (dx * dx + dy * dy > 1.7) continue;
             const index = (y * size + x) * 4;
             pixels[index] = red;
             pixels[index + 1] = green;
             pixels[index + 2] = blue;
-            pixels[index + 3] = 255;
+            pixels[index + 3] = 218;
         }
     }
     return new ImageData(pixels, size, size);
@@ -210,9 +210,9 @@ export default function DeliverabilityGeoMap({ data, theme }: { data: DashboardA
         if (!element) return undefined;
 
         const dark = theme === 'dark';
-        const base = dark ? '#0b1530' : '#f7f8ff';
-        const countryFill = dark ? '#152c4d' : '#dfe7fc';
-        const boundary = dark ? '#36729d' : '#aebff0';
+        const base = dark ? '#08152a' : '#f5f7ff';
+        const countryFill = dark ? '#122a47' : '#dce6f7';
+        const boundary = dark ? '#315f83' : '#a9b8d7';
         const map = new MapLibreMap({
             container: element,
             center: [0, 14],
@@ -289,8 +289,8 @@ export default function DeliverabilityGeoMap({ data, theme }: { data: DashboardA
         map.on('mouseleave', 'country-fill', () => { map.getCanvas().style.cursor = ''; });
         map.once('load', () => {
             const patterns: [string, string][] = dark
-                ? [['country-dots-base', '#3474a7'], ['country-dots-activity', '#18c5f5'], ['country-dots-feedback', '#bc69ff']]
-                : [['country-dots-base', '#8da6ed'], ['country-dots-activity', '#347eef'], ['country-dots-feedback', '#9751ee']];
+                ? [['country-dots-base', '#47769c'], ['country-dots-activity', '#27bde7'], ['country-dots-feedback', '#b47aff']]
+                : [['country-dots-base', '#8599bb'], ['country-dots-activity', '#347eef'], ['country-dots-feedback', '#9751ee']];
             patterns.forEach(([id, color]) => map.addImage(id, countryDotPattern(color)));
             map.setPaintProperty('country-fill', 'fill-pattern', [
                 'case',

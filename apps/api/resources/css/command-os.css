@@ -1164,7 +1164,7 @@ html[data-command-theme='dark'] .command-os-metric-red .command-os-metric-icon {
 }
 
 .command-os-intelligence-panels {
-    grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1.14fr) minmax(0, 1fr);
     margin-bottom: 13px;
 }
 
@@ -1361,7 +1361,7 @@ html[data-command-theme='dark'] .command-os-panel {
 .command-os-map-frame {
     position: relative;
     isolation: isolate;
-    height: 172px;
+    height: 202px;
     margin: 0;
     overflow: hidden;
     border: 1px solid color-mix(in srgb, var(--co-blue) 25%, var(--co-border));
@@ -1498,7 +1498,7 @@ html[data-command-theme='dark'] .command-os-panel {
     align-content: center;
     justify-items: start;
     gap: 7px;
-    min-height: 118px;
+    min-height: 150px;
     padding: 12px;
     border: 1px solid color-mix(in srgb, var(--co-blue) 18%, var(--co-border));
     border-radius: 10px;
@@ -1513,50 +1513,59 @@ html[data-command-theme='dark'] .command-os-panel {
 .command-os-graph-canvas {
     position: relative;
     isolation: isolate;
-    width: 100%;
-    height: 194px;
-    padding: 0 3px;
+    height: 258px;
+    margin: 8px 9px 9px;
+    width: calc(100% - 18px);
+    overflow: hidden;
+    border: 1px solid rgb(100 133 197 / 28%);
+    border-radius: 12px;
+    background-color: #08152a;
     background-image:
-        radial-gradient(circle at 50% 52%, color-mix(in srgb, #854cff 12%, transparent), transparent 34%),
-        radial-gradient(circle, color-mix(in srgb, var(--co-blue) 22%, transparent) 1px, transparent 1.3px);
-    background-size: auto, 18px 18px;
-    mask-image: radial-gradient(ellipse at center, #000 39%, transparent 98%);
+        radial-gradient(ellipse at 50% 48%, rgb(101 60 224 / 26%), transparent 34%),
+        radial-gradient(ellipse at 50% 50%, transparent 21%, rgb(83 124 187 / 12%) 21.2%, transparent 21.8%, transparent 35%, rgb(83 124 187 / 10%) 35.2%, transparent 35.8%),
+        radial-gradient(circle, rgb(143 174 224 / 19%) .7px, transparent 1px);
+    background-size: auto, auto, 22px 22px;
+    box-shadow: inset 0 0 44px rgb(4 10 24 / 45%), 0 8px 25px rgb(15 34 71 / 12%);
 }
 
 .command-os-graph-canvas::before,
 .command-os-graph-canvas::after {
     position: absolute;
     z-index: 2;
-    top: 52%;
+    top: 51%;
     left: 50%;
     pointer-events: none;
     content: "";
-    border: 1px solid color-mix(in srgb, var(--co-purple) 34%, transparent);
+    border: 1px solid rgb(132 158 211 / 30%);
     border-radius: 50%;
     transform: translate(-50%, -50%);
 }
 
 .command-os-graph-canvas::before {
-    width: 70px;
-    height: 70px;
-    box-shadow: 0 0 21px color-mix(in srgb, var(--co-purple) 22%, transparent), inset 0 0 18px color-mix(in srgb, var(--co-blue) 14%, transparent);
+    width: 86px;
+    height: 86px;
+    border-color: rgb(167 139 255 / 42%);
+    box-shadow: 0 0 28px rgb(112 70 255 / 28%), inset 0 0 20px rgb(51 161 255 / 12%);
     animation: command-os-graph-pulse 3.8s ease-in-out infinite;
 }
 
 .command-os-graph-canvas::after {
-    width: 91px;
-    height: 91px;
+    width: 116px;
+    height: 116px;
     border-style: dashed;
-    border-color: color-mix(in srgb, var(--co-blue) 42%, transparent);
+    border-color: rgb(70 187 244 / 38%);
     animation: command-os-graph-orbit 20s linear infinite;
 }
 
 html[data-command-theme='dark'] .command-os-graph-canvas {
     background-image:
-        radial-gradient(circle at 50% 52%, rgb(111 56 255 / 23%), transparent 35%),
-        radial-gradient(circle, rgb(93 136 255 / 27%) 1px, transparent 1.3px);
+        radial-gradient(ellipse at 50% 48%, rgb(101 60 224 / 30%), transparent 34%),
+        radial-gradient(ellipse at 50% 50%, transparent 21%, rgb(83 124 187 / 17%) 21.2%, transparent 21.8%, transparent 35%, rgb(83 124 187 / 13%) 35.2%, transparent 35.8%),
+        radial-gradient(circle, rgb(143 174 224 / 23%) .7px, transparent 1px);
+    background-size: auto, auto, 22px 22px;
 }
 
+.command-os-graph-selected { position: relative; z-index: 3; }
 .command-os-graph-selected {
     min-height: 0;
     margin: 0 12px;
@@ -1571,35 +1580,6 @@ body.command-os-dashboard #main_content p.command-os-graph-selected,
 body.command-os-dashboard #main_content p.command-os-sr-only,
 body.command-os-dashboard #main_content ul.command-os-sr-only {
     margin: 0;
-}
-
-.command-os-analytics-section {
-    margin: 14px 0 10px;
-}
-
-.command-os-analytics-heading {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 10px;
-}
-
-.command-os-analytics-heading > div { min-width: 0; }
-.command-os-analytics-heading .command-os-eyebrow { margin-bottom: 3px; }
-
-.command-os-analytics-heading h2 {
-    margin: 0;
-    color: var(--co-ink);
-    font-size: 17px;
-    font-weight: 780;
-    letter-spacing: -.035em;
-}
-
-.command-os-analytics-heading p:not(.command-os-eyebrow) {
-    margin: 3px 0 0;
-    color: var(--co-muted);
-    font-size: 9px;
 }
 
 .command-os-date-filter {
@@ -1631,47 +1611,8 @@ body.command-os-dashboard #main_content ul.command-os-sr-only {
 .command-os-date-filter input[aria-invalid='true'] { border-color: var(--color-danger); }
 .command-os-date-error { flex: 1 0 100%; color: var(--color-danger); font-size: 11px; line-height: 1.4; }
 
-.command-os-analytics-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 11px;
-}
-
-.command-os-analytics-card { min-height: 195px; }
-.command-os-analytics-card .command-os-panel-heading { min-height: 42px; }
-.command-os-analytics-card .command-os-panel-title h3 { margin: 0; color: var(--co-ink); font-size: 11px; font-weight: 750; }
-
-.command-os-analytics-list {
-    display: grid;
-    padding: 4px 11px;
-}
-
-.command-os-analytics-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    min-height: 36px;
-    border-bottom: 1px solid color-mix(in srgb, var(--co-border) 72%, transparent);
-}
-
-.command-os-analytics-row:last-child { border-bottom: 0; }
-.command-os-analytics-row > strong { overflow: hidden; color: var(--co-ink); font-size: 9px; font-weight: 690; text-overflow: ellipsis; white-space: nowrap; }
-
-.command-os-analytics-values {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 9px;
-    flex: 0 0 auto;
-}
-
-.command-os-analytics-values > span { display: grid; gap: 2px; text-align: right; }
-.command-os-analytics-values small { color: var(--co-subtle); font-size: 7px; }
-.command-os-analytics-values b { color: var(--co-ink); font-size: 8px; font-variant-numeric: tabular-nums; }
 .command-os-analytics-footnote { margin: 0; padding: 2px 11px 9px; color: var(--co-subtle); font-size: 7px; }
 .command-os-analytics-empty { display: grid; min-height: 105px; margin: 0; padding: 12px; place-items: center; color: var(--co-muted); font-size: 9px; text-align: center; }
-.command-os-analytics-note { margin: 6px 2px 0; color: var(--co-subtle); font-size: 8px; line-height: 1.45; }
 
 .command-os-mtd-revenue-section {
     margin: 14px 0 12px;
@@ -1709,6 +1650,41 @@ body.command-os-dashboard #main_content ul.command-os-sr-only {
 .command-os-mtd-revenue-card .command-os-panel-heading { min-height: 44px; }
 .command-os-mtd-revenue-card .command-os-panel-title h3 { margin: 0; color: var(--co-ink); font-size: 11px; font-weight: 750; }
 
+.command-os-analytics-toggle {
+    display: inline-flex;
+    flex: 0 0 auto;
+    gap: 2px;
+    padding: 2px;
+    border: 1px solid var(--co-border);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--co-surface-muted) 70%, transparent);
+}
+
+.command-os-analytics-toggle button {
+    min-height: 28px;
+    padding: 3px 7px;
+    border: 0;
+    border-radius: 6px;
+    color: var(--co-muted);
+    background: transparent;
+    font: inherit;
+    font-size: 8px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.command-os-analytics-toggle button[aria-pressed='true'] {
+    color: #fff;
+    background: linear-gradient(105deg, #7452f1, #397df5);
+    box-shadow: 0 2px 7px rgb(83 77 203 / 22%);
+}
+
+.command-os-analytics-toggle button:focus-visible {
+    outline: 2px solid var(--co-purple);
+    outline-offset: 2px;
+}
+
 .command-os-mtd-revenue-list { max-height: 226px; padding: 5px 12px 3px; overflow-y: auto; overscroll-behavior: contain; scrollbar-color: var(--co-border-strong) transparent; scrollbar-width: thin; }
 .command-os-mtd-revenue-head,
 .command-os-mtd-revenue-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(72px, .34fr) minmax(88px, .42fr); align-items: center; gap: 8px; }
@@ -1719,6 +1695,10 @@ body.command-os-dashboard #main_content ul.command-os-sr-only {
 .command-os-mtd-revenue-row > span,
 .command-os-mtd-revenue-row > b { color: var(--co-muted); font-size: 9px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 .command-os-mtd-revenue-row > b { color: var(--co-ink); font-weight: 760; }
+
+.command-os-mtd-revenue-list[data-view='range'] .command-os-mtd-revenue-head,
+.command-os-mtd-revenue-list[data-view='range'] .command-os-mtd-revenue-row { grid-template-columns: minmax(72px, 1.12fr) repeat(3, minmax(48px, .55fr)); gap: 5px; }
+.command-os-mtd-revenue-list[data-view='range'] .command-os-mtd-revenue-row > span { color: var(--co-ink); font-weight: 690; }
 
 .command-os-charts-section {
     display: grid;
@@ -2135,21 +2115,28 @@ body.command-os-dashboard #page-container.sidebar-mini #sidebar:focus-within .na
     .command-os-intelligence-panels { grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr); }
     .command-os-performance { grid-column: 1 / -1; }
     .command-os-action-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .command-os-analytics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .command-os-charts-section { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .command-os-stat-grid-panel { grid-row: span 2; }
 }
 
+@media (min-width: 1600px) {
+    .command-os-mtd-revenue-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+@media (max-width: 1180px) {
+    .command-os-intelligence-panels { grid-template-columns: minmax(0, 1fr); }
+    .command-os-geo-body { grid-template-columns: minmax(0, 1.7fr) minmax(180px, .9fr); }
+    .command-os-map-frame { height: 220px; }
+}
+
 @media (max-width: 991.98px) {
-    .command-os-analytics-grid { grid-template-columns: minmax(0, 1fr); }
-    .command-os-mtd-revenue-grid { grid-template-columns: minmax(0, 1fr); }
-    .command-os-charts-section { grid-template-columns: minmax(0, 1fr); }
+    .command-os-mtd-revenue-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .command-os-charts-section { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .command-os-stat-grid-panel { grid-row: auto; }
-    .command-os-analytics-heading { align-items: flex-start; flex-direction: column; }
     .command-os-date-filter { justify-content: flex-start; width: 100%; }
     .command-os-date-filter select { flex: 1 1 180px; }
     .command-os-date-filter input { flex: 1 1 135px; }
-    .command-os-graph-canvas { height: 210px; }
+    .command-os-graph-canvas { height: 244px; }
     .command-os-geo-body { grid-template-columns: minmax(0, 1fr); }
     .command-os-geo-countries { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 7px 5px 3px; }
     body.command-os-shell #page-container.command-os-page {
@@ -2294,12 +2281,9 @@ body.command-os-dashboard #page-container.sidebar-mini #sidebar:focus-within .na
     .command-os-geo-countries { padding-right: 3px; padding-left: 3px; }
     .command-os-geo-note,
     .command-os-graph-note { margin-right: 9px; margin-left: 9px; }
-    .command-os-graph-canvas { height: 220px; }
-    .command-os-analytics-heading h2 { font-size: 15px; }
+    .command-os-graph-canvas { height: 236px; }
     .command-os-date-filter select { flex-basis: 100%; }
     .command-os-date-filter input { min-width: 0; flex: 1 1 120px; }
-    .command-os-analytics-row { gap: 5px; }
-    .command-os-analytics-values { gap: 6px; }
     .command-os-quick-actions { align-items: stretch; flex-direction: column; gap: 8px; }
     .command-os-quick-intro { flex-basis: auto; min-height: 30px; }
     .command-os-action-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -2310,7 +2294,10 @@ body.command-os-dashboard #page-container.sidebar-mini #sidebar:focus-within .na
     .command-os-mtd-revenue-row > strong { font-size: 8px; }
     .command-os-mtd-revenue-row > span,
     .command-os-mtd-revenue-row > b { font-size: 8px; }
-    .command-os-charts-section { gap: 9px; }
+    .command-os-mtd-revenue-list[data-view='range'] .command-os-mtd-revenue-head,
+    .command-os-mtd-revenue-list[data-view='range'] .command-os-mtd-revenue-row { grid-template-columns: minmax(72px, 1.12fr) repeat(3, minmax(48px, .55fr)); gap: 5px; }
+    .command-os-mtd-revenue-grid,
+    .command-os-charts-section { grid-template-columns: minmax(0, 1fr); gap: 9px; }
     .command-os-chart-total { font-size: 10px; }
 }
 

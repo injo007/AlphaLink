@@ -142,16 +142,32 @@
                         @forelse ($campaigns as $campaign)
                             @php
                                 $register = $campaign->send_register ?? [];
+                                $ispName = trim((string) ($register['isp'] ?? ''));
+                                $ispKey = strtolower($ispName);
+                                $ispIcon = match (true) {
+                                    str_contains($ispKey, 'gmail'), str_contains($ispKey, 'google') => 'fab fa-google campaign-isp-brand-google',
+                                    str_contains($ispKey, 'yahoo') => 'fab fa-yahoo campaign-isp-brand-yahoo',
+                                    str_contains($ispKey, 'outlook'), str_contains($ispKey, 'hotmail'), str_contains($ispKey, 'microsoft'), str_contains($ispKey, 'live.com') => 'fab fa-microsoft campaign-isp-brand-microsoft',
+                                    str_contains($ispKey, 'apple'), str_contains($ispKey, 'icloud') => 'fab fa-apple campaign-isp-brand-apple',
+                                    str_contains($ispKey, 'proton') => 'fas fa-shield-alt campaign-isp-brand-proton',
+                                    default => 'fas fa-envelope campaign-isp-brand-generic',
+                                };
                                 $sendRun = $campaign->send_run;
                                 $sendActive = $sendRun && in_array($sendRun->state, ['planned', 'running'], true);
                             @endphp
-                            <tr>
+                            <tr data-campaign-focus-id="{{ $campaign->id }}" tabindex="0" aria-label="Show analytics for {{ $campaign->name }}" title="Select this campaign to view its analytics">
                                 <td data-campaign-column="select"><input class="campaign-row-select" type="checkbox" name="campaign_ids[]" value="{{ $campaign->id }}" form="campaign-bulk-form" aria-label="Select campaign {{ $campaign->name }}" @disabled($sendActive) title="{{ $sendActive ? 'Stop the active send before disabling this campaign.' : 'Select campaign to disable' }}"></td>
                                 <td data-campaign-column="campaign">
-                                    <a href="{{ route('console.campaigns.show', [$workspace->id, $campaign->id]) }}" title="{{ $campaign->name }} · created {{ $campaign->created_at?->format('Y-m-d H:i') }}">{{ substr($campaign->id, 0, 8) }}</a>
+                                    <a class="campaign-row-number" href="{{ route('console.campaigns.show', [$workspace->id, $campaign->id]) }}" title="{{ $campaign->name }} · created {{ $campaign->created_at?->format('Y-m-d H:i') }}">{{ ($campaigns->firstItem() ?? 1) + $loop->index }}</a>
                                     <div class="small text-muted">{{ $campaign->name }}</div>
                                 </td>
-                                <td data-campaign-column="isp">{{ $register['isp'] ?? '—' }}</td>
+                                <td data-campaign-column="isp">
+                                    @if ($ispName !== '')
+                                        <span class="campaign-isp-brand" title="{{ $ispName }}"><i class="{{ $ispIcon }}" aria-hidden="true"></i><span>{{ $ispName }}</span></span>
+                                    @else
+                                        —
+                                    @endif
+                                </td>
                                 <td data-campaign-column="offer">{{ $register['offer'] ?? '—' }}</td>
                                 <td data-campaign-column="server">
                                     @forelse (($register['servers'] ?? []) as $serverName)
@@ -238,32 +254,32 @@
                                         <span class="badge badge-secondary">DRAFT</span><div class="small text-muted">No send recorded</div>
                                     @endif
                                 </td>
-                                <td class="text-nowrap" data-campaign-column="send">
+                                <td class="text-nowrap campaign-send-cell" data-campaign-column="send">
                                     @foreach (($register['pmta_panels'] ?? []) as $panel)
-                                        <a class="btn btn-link btn-sm" href="{{ $panel['url'] }}" target="_blank" rel="noopener noreferrer" title="Open PMTA Web Monitor on {{ $panel['name'] }}" aria-label="Open PMTA Web Monitor on {{ $panel['name'] }}"><i class="fas fa-server" aria-hidden="true"></i></a>
+                                        <a class="btn btn-link btn-sm campaign-send-icon-action" href="{{ $panel['url'] }}" target="_blank" rel="noopener noreferrer" title="Open PMTA Web Monitor on {{ $panel['name'] }}" aria-label="Open PMTA Web Monitor on {{ $panel['name'] }}"><i class="fas fa-server" aria-hidden="true"></i></a>
                                     @endforeach
                                     @if ($campaign->send_ready)
                                         <form method="POST" action="{{ route('console.campaigns.send', [$workspace->id, $campaign->id]) }}" class="d-inline" data-campaign-send-form>
                                             @csrf
                                             <input type="hidden" name="idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
-                                            <button type="submit" class="btn btn-success btn-sm" title="Send the saved campaign through its selected PMTA routes" aria-label="Send {{ $campaign->name }}"><i class="fas fa-paper-plane mr-1" aria-hidden="true"></i>SEND</button>
+                                            <button type="submit" class="btn btn-success btn-sm campaign-send-primary" title="Send the saved campaign through its selected PMTA routes" aria-label="Send {{ $campaign->name }}"><i class="fas fa-paper-plane mr-1" aria-hidden="true"></i>SEND</button>
                                         </form>
                                         <div><span class="badge badge-success">READY TO SEND</span></div>
                                     @elseif ($sendRun && in_array($sendRun->state, ['planned', 'running'], true))
-                                        <button type="button" class="btn btn-danger btn-sm" data-campaign-stop-open data-campaign-name="{{ $campaign->name }}" data-stop-url="{{ route('console.campaigns.send-stop', [$workspace->id, $campaign->id, $sendRun->id]) }}" aria-label="Stop sending {{ $campaign->name }}"><i class="fas fa-stop mr-1" aria-hidden="true"></i>STOP</button>
+                                        <button type="button" class="btn btn-danger btn-sm campaign-send-danger" data-campaign-stop-open data-campaign-name="{{ $campaign->name }}" data-stop-url="{{ route('console.campaigns.send-stop', [$workspace->id, $campaign->id, $sendRun->id]) }}" aria-label="Stop sending {{ $campaign->name }}"><i class="fas fa-stop mr-1" aria-hidden="true"></i>STOP</button>
                                         <div><span class="badge badge-primary">{{ $sendRun->state === 'planned' ? 'QUEUED' : 'SENDING' }}</span></div>
                                     @elseif ($sendRun && in_array($sendRun->state, ['completed', 'needs_review', 'stopped'], true))
-                                        <button type="button" class="btn btn-link btn-sm" disabled title="This revision already has a send record. Revise or clone the campaign before sending again." aria-label="Campaign revision already sent"><i class="fas fa-paper-plane text-muted" aria-hidden="true"></i></button>
+                                        <button type="button" class="btn btn-link btn-sm campaign-send-icon-action" disabled title="This revision already has a send record. Revise or clone the campaign before sending again." aria-label="Campaign revision already sent"><i class="fas fa-paper-plane text-muted" aria-hidden="true"></i></button>
                                         <div><span class="badge badge-secondary">REVISION SENT</span></div>
                                     @elseif ($campaign->status === 'preparing_snapshot')
-                                        <button type="button" class="btn btn-link btn-sm" disabled title="Suppression and recipient preparation are running." aria-label="Campaign preparation running"><i class="fas fa-spinner fa-spin text-primary" aria-hidden="true"></i></button>
+                                        <button type="button" class="btn btn-link btn-sm campaign-send-icon-action" disabled title="Suppression and recipient preparation are running." aria-label="Campaign preparation running"><i class="fas fa-spinner fa-spin text-primary" aria-hidden="true"></i></button>
                                         <div><span class="badge badge-primary">PREPARING</span></div>
                                     @else
-                                        <button type="button" class="btn btn-link btn-sm" disabled title="The campaign must have a completed recipient snapshot and valid saved server routes before sending." aria-label="Send not ready"><i class="fas fa-paper-plane text-muted" aria-hidden="true"></i></button>
+                                        <button type="button" class="btn btn-link btn-sm campaign-send-icon-action" disabled title="The campaign must have a completed recipient snapshot and valid saved server routes before sending." aria-label="Send not ready"><i class="fas fa-paper-plane text-muted" aria-hidden="true"></i></button>
                                         <div><span class="badge badge-warning">SEND NOT READY</span></div>
                                     @endif
-                                    <button type="button" class="btn btn-link btn-sm" disabled title="Campaign scheduling is not implemented in AlphaLink." aria-label="Schedule unavailable for {{ $campaign->name }}"><i class="fas fa-calendar-alt" aria-hidden="true"></i></button>
-                                    <a class="btn btn-link btn-sm" href="{{ route('console.campaigns.visitors', [$workspace->id, $campaign->id]) }}" title="Open campaign visitor logs" aria-label="Open visitor logs for {{ $campaign->name }}"><i class="fas fa-eye" aria-hidden="true"></i></a>
+                                    <button type="button" class="btn btn-link btn-sm campaign-send-icon-action" disabled title="Campaign scheduling is not implemented in AlphaLink." aria-label="Schedule unavailable for {{ $campaign->name }}"><i class="fas fa-calendar-alt" aria-hidden="true"></i></button>
+                                    <a class="btn btn-link btn-sm campaign-send-icon-action" href="{{ route('console.campaigns.visitors', [$workspace->id, $campaign->id]) }}" title="Open campaign visitor logs" aria-label="Open visitor logs for {{ $campaign->name }}"><i class="fas fa-eye" aria-hidden="true"></i></a>
                                 </td>
                             </tr>
                             <tr id="campaign-statistics-{{ $campaign->id }}" data-campaign-statistics-panel hidden>
@@ -603,6 +619,12 @@
         .campaign-register-table td { padding: 10px 9px; border-top: 1px solid color-mix(in srgb, var(--co-border) 76%, transparent); color: var(--co-ink); vertical-align: middle; }
         .campaign-register-table tbody tr:first-child td { border-top: 0; }
         .campaign-register-table tbody tr:hover td { background: color-mix(in srgb, var(--co-purple) 4%, var(--co-surface)); }
+        .campaign-register-table tbody tr[data-campaign-focus-id] { cursor: pointer; }
+        .campaign-register-table tbody tr[data-campaign-focus-id]:focus-visible { outline: 2px solid var(--co-purple); outline-offset: -2px; }
+        .campaign-register-table tbody tr[data-campaign-focus-id].is-focused td { background: color-mix(in srgb, var(--co-purple) 9%, var(--co-surface)); }
+        .campaign-register-table tbody tr[data-campaign-focus-id].is-selected td { background: color-mix(in srgb, var(--co-blue) 6%, var(--co-surface)); }
+        .campaign-register-table .campaign-row-number { display: inline-flex; min-width: 25px; height: 24px; align-items: center; justify-content: center; padding: 0 6px; border: 1px solid color-mix(in srgb, var(--co-purple) 25%, var(--co-border)); border-radius: 8px; color: var(--co-purple) !important; background: color-mix(in srgb, var(--co-purple) 9%, var(--co-surface)); font-variant-numeric: tabular-nums; text-decoration: none; }
+        .campaign-register-table .campaign-row-number:hover { border-color: var(--co-purple); background: color-mix(in srgb, var(--co-purple) 15%, var(--co-surface)); }
         .campaign-register-table [data-campaign-column="campaign"] { min-width: 138px; }
         .campaign-register-table [data-campaign-column="offer"] { min-width: 220px; max-width: 300px; line-height: 1.4; }
         .campaign-register-table [data-campaign-column="campaign"] a { color: var(--co-purple); font-size: 10px; font-weight: 800; }
@@ -618,9 +640,39 @@
         .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action-danger:hover:not(:disabled) { color: var(--campaign-action-danger); background: linear-gradient(145deg, color-mix(in srgb, var(--campaign-action-danger) 19%, var(--co-surface)), color-mix(in srgb, var(--campaign-action-danger) 12%, var(--co-surface))); border-color: color-mix(in srgb, var(--campaign-action-danger) 50%, var(--co-border)); }
         .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action-success { color: var(--campaign-action-success); background: linear-gradient(145deg, color-mix(in srgb, var(--campaign-action-success) 12%, var(--co-surface)), color-mix(in srgb, var(--co-blue) 7%, var(--co-surface))); border-color: color-mix(in srgb, var(--campaign-action-success) 28%, var(--co-border)); }
         .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action-success:hover:not(:disabled) { color: var(--campaign-action-success); background: linear-gradient(145deg, color-mix(in srgb, var(--campaign-action-success) 19%, var(--co-surface)), color-mix(in srgb, var(--co-blue) 12%, var(--co-surface))); border-color: color-mix(in srgb, var(--campaign-action-success) 50%, var(--co-border)); }
+        .campaign-register-table .campaign-isp-brand { display: inline-flex; align-items: center; gap: 7px; min-width: 0; font-weight: 700; white-space: nowrap; }
+        .campaign-register-table .campaign-isp-brand i { display: inline-grid; width: 19px; height: 19px; flex: 0 0 19px; place-items: center; font-size: 15px; }
+        .campaign-register-table .campaign-isp-brand-google { color: #4285f4; }
+        .campaign-register-table .campaign-isp-brand-yahoo { color: #6001d2; }
+        .campaign-register-table .campaign-isp-brand-microsoft { color: #00a4ef; }
+        .campaign-register-table .campaign-isp-brand-apple { color: var(--co-ink); }
+        .campaign-register-table .campaign-isp-brand-proton { color: #6d4aff; }
+        .campaign-register-table .campaign-isp-brand-generic { color: var(--co-muted); }
+        .campaign-register-page .campaign-send-cell > a.campaign-send-icon-action,
+        .campaign-register-page .campaign-send-cell > button.campaign-send-icon-action { display: inline-flex; width: 30px; height: 30px; align-items: center; justify-content: center; margin: 0 3px 4px 0; padding: 0; border: 1px solid color-mix(in srgb, var(--co-purple) 26%, var(--co-border)); border-radius: 9px; color: var(--co-purple); background: linear-gradient(145deg, color-mix(in srgb, var(--co-purple) 12%, var(--co-surface)), color-mix(in srgb, var(--co-blue) 8%, var(--co-surface))); box-shadow: 0 2px 7px color-mix(in srgb, var(--co-purple) 10%, transparent); text-decoration: none; transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease; }
+        .campaign-register-page .campaign-send-cell .campaign-send-icon-action i { color: currentColor; font-size: 12px; }
+        .campaign-register-page .campaign-send-cell .campaign-send-icon-action:hover:not(:disabled) { border-color: color-mix(in srgb, var(--co-purple) 55%, var(--co-border)); color: var(--co-purple-bright); background: linear-gradient(145deg, color-mix(in srgb, var(--co-purple) 19%, var(--co-surface)), color-mix(in srgb, var(--co-blue) 13%, var(--co-surface))); box-shadow: 0 4px 10px color-mix(in srgb, var(--co-purple) 19%, transparent); transform: translateY(-1px); }
+        .campaign-register-page .campaign-send-cell .campaign-send-icon-action:focus-visible,
+        .campaign-register-page .campaign-send-cell .campaign-send-primary:focus-visible,
+        .campaign-register-page .campaign-send-cell .campaign-send-danger:focus-visible { outline: 3px solid color-mix(in srgb, var(--co-purple) 32%, transparent); outline-offset: 2px; }
+        .campaign-register-page .campaign-send-cell .campaign-send-icon-action:disabled { cursor: not-allowed; opacity: .48; box-shadow: none; }
+        .campaign-register-page .campaign-send-cell form { display: inline-flex; margin: 0 3px 4px 0; }
+        .campaign-register-page .campaign-send-cell .campaign-send-primary,
+        .campaign-register-page .campaign-send-cell .campaign-send-danger { min-height: 30px; padding: 0 10px; border: 1px solid transparent; border-radius: 9px; color: #fff; font-size: 8px; font-weight: 850; letter-spacing: .04em; box-shadow: 0 4px 11px color-mix(in srgb, var(--co-purple) 21%, transparent); transition: transform .16s ease, box-shadow .16s ease; }
+        .campaign-register-page .campaign-send-cell .campaign-send-primary { border-color: color-mix(in srgb, var(--co-purple) 56%, transparent); background: linear-gradient(115deg, var(--co-purple-bright), var(--co-purple)); }
+        .campaign-register-page .campaign-send-cell .campaign-send-danger { border-color: color-mix(in srgb, #db3d64 56%, transparent); background: linear-gradient(115deg, #f16b87, #c92f58); }
+        .campaign-register-page .campaign-send-cell .campaign-send-primary:hover,
+        .campaign-register-page .campaign-send-cell .campaign-send-danger:hover { color: #fff; box-shadow: 0 6px 14px color-mix(in srgb, var(--co-purple) 29%, transparent); transform: translateY(-1px); }
+        .campaign-register-page .campaign-send-cell > div { margin-top: 2px; }
         @media (prefers-reduced-motion: reduce) {
             .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action { transition: none; }
             .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action:hover:not(:disabled) { transform: none; }
+            .campaign-register-page .campaign-send-cell .campaign-send-icon-action,
+            .campaign-register-page .campaign-send-cell .campaign-send-primary,
+            .campaign-register-page .campaign-send-cell .campaign-send-danger { transition: none; }
+            .campaign-register-page .campaign-send-cell .campaign-send-icon-action:hover:not(:disabled),
+            .campaign-register-page .campaign-send-cell .campaign-send-primary:hover,
+            .campaign-register-page .campaign-send-cell .campaign-send-danger:hover { transform: none; }
         }
         .campaign-register-table [data-campaign-column="send"],
         .campaign-register-table [data-campaign-column="progress"] { min-width: 160px; }
@@ -1138,6 +1190,7 @@
             };
 
             rowSelections.forEach(input => input.addEventListener('change', updateSelection));
+            document.addEventListener('campaign-clear-bulk-selection', updateSelection);
             document.querySelectorAll('[data-campaign-send-form]').forEach(form => form.addEventListener('submit', async event => {
                 event.preventDefault();
                 const confirmed = await confirmCampaignAction('Start campaign send', 'Send this saved campaign to its selected, eligible recipients now? The saved sleep values are seconds between recipients and IP groups.', 'Start sending');

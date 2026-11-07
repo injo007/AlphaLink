@@ -289,12 +289,37 @@ if (summaryRoot && chartElement && campaignSelect && status) {
     };
 
     const rowSelections = Array.from(document.querySelectorAll<HTMLInputElement>('.campaign-row-select'));
+    const campaignRows = Array.from(document.querySelectorAll<HTMLTableRowElement>('tr[data-campaign-focus-id]'));
     const selectedRowIds = (): string[] => rowSelections.filter((input) => input.checked).map((input) => input.value);
+    const updateCampaignRowState = (focusedId?: string): void => {
+        campaignRows.forEach((row) => {
+            const checkbox = row.querySelector<HTMLInputElement>('.campaign-row-select');
+            row.classList.toggle('is-selected', checkbox?.checked ?? false);
+            row.classList.toggle('is-focused', focusedId !== undefined && row.dataset.campaignFocusId === focusedId);
+        });
+    };
+    const clearBulkSelection = (): void => {
+        rowSelections.forEach((input) => { input.checked = false; });
+        const selectAll = document.querySelector<HTMLInputElement>('#campaign-select-all');
+        if (selectAll) {
+            selectAll.checked = false;
+            selectAll.indeterminate = false;
+        }
+        document.dispatchEvent(new CustomEvent('campaign-clear-bulk-selection'));
+    };
     const removeMultiSelectionOption = (): void => {
         campaignSelect.querySelector<HTMLOptionElement>('option[data-selected-campaigns]')?.remove();
     };
+    const focusCampaign = (campaignId: string): void => {
+        clearBulkSelection();
+        removeMultiSelectionOption();
+        campaignSelect.value = campaignId;
+        updateCampaignRowState(campaignId);
+        void loadAnalytics(campaignId, [campaignId]);
+    };
     const syncAnalyticsFromRows = (): void => {
         const ids = selectedRowIds();
+        updateCampaignRowState();
         if (ids.length === 0) {
             removeMultiSelectionOption();
             campaignSelect.value = 'all';
@@ -321,10 +346,27 @@ if (summaryRoot && chartElement && campaignSelect && status) {
 
     rowSelections.forEach((input) => input.addEventListener('change', syncAnalyticsFromRows));
     document.addEventListener('campaign-row-selection-change', syncAnalyticsFromRows);
+    document.addEventListener('campaign-clear-bulk-selection', () => updateCampaignRowState());
+    campaignRows.forEach((row) => {
+        const activate = (event: Event): void => {
+            if (event.target instanceof Element && event.target.closest('a, button, input, select, textarea, label, form, [role="button"], [contenteditable="true"]')) return;
+            const campaignId = row.dataset.campaignFocusId;
+            if (!campaignId) return;
+            focusCampaign(campaignId);
+        };
+        row.addEventListener('click', activate);
+        row.addEventListener('keydown', (event: KeyboardEvent) => {
+            if (event.target !== row || (event.key !== 'Enter' && event.key !== ' ')) return;
+            event.preventDefault();
+            activate(event);
+        });
+    });
     campaignSelect.addEventListener('change', () => {
         const value = campaignSelect.value;
         if (value !== 'selected') {
+            clearBulkSelection();
             removeMultiSelectionOption();
+            updateCampaignRowState(value === 'all' ? undefined : value);
             void loadAnalytics(value, value === 'all' ? [] : [value]);
         }
     });
@@ -352,9 +394,7 @@ if (summaryRoot && chartElement && campaignSelect && status) {
         if (!button || !campaignSelect) return;
         const campaignId = button.dataset.campaignId;
         if (!campaignId) return;
-        removeMultiSelectionOption();
-        campaignSelect.value = campaignId;
-        void loadAnalytics(campaignId, [campaignId]);
+        focusCampaign(campaignId);
     });
 
     window.addEventListener('alphalink-command-os-theme-change', drawChart);

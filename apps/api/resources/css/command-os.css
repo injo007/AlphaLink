@@ -2248,6 +2248,7 @@ body.command-os-dashboard #page-container.sidebar-mini #sidebar:focus-within .na
 }
 
 @media (max-width: 640px) {
+    .command-os-dashboard-content::before { inset: -18px -5px 0; }
     body.command-os-shell #page-header .command-os-header-leading { flex: 1 1 auto; }
     body.command-os-shell #page-header .command-os-search-trigger { flex: 0 0 40px; width: 40px; min-width: 40px; height: 40px; justify-content: center; margin-left: 0; padding: 0; }
     .command-os-search-trigger > span,

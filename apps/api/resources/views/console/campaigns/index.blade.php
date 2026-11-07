@@ -1212,6 +1212,7 @@
             selectAll.addEventListener('change', () => {
                 selectableRows.forEach(input => { input.checked = selectAll.checked; });
                 updateSelection();
+                document.dispatchEvent(new CustomEvent('campaign-row-selection-change'));
             });
 
             document.querySelectorAll('.campaign-status-open').forEach(button => {

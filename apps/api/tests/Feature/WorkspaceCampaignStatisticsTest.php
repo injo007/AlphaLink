@@ -232,6 +232,31 @@ class WorkspaceCampaignStatisticsTest extends TestCase
             'register' => 1,
         ]));
         $aggregate->assertOk()->assertJsonFragment(['opens' => 1, 'clicks' => 1]);
+
+        $secondOwnerCampaign = $this->campaignFixture(
+            $fixture['owner'],
+            $fixture['workspace'],
+            'Another campaign owned by the same user',
+            'synthetic-same-owner@example.test',
+        );
+        $this->event($secondOwnerCampaign, 'open');
+        $selected = $this->actingAs($fixture['owner'])->getJson(route('console.campaign-statistics.index', [
+            $fixture['workspace']->getKey(),
+            'campaign_ids' => [$fixture['campaign']->getKey(), $secondOwnerCampaign['campaign']->getKey()],
+            'from' => today()->toDateString(),
+            'to' => today()->toDateString(),
+            'register' => 1,
+        ]));
+        $selected->assertOk()->assertJsonFragment(['opens' => 2, 'clicks' => 1, 'unsubscribes' => 1]);
+
+        $this->actingAs($fixture['owner'])->getJson(route('console.campaign-statistics.index', [
+            $fixture['workspace']->getKey(),
+            'campaign_ids' => [$otherFixture['campaign']->getKey()],
+            'from' => today()->toDateString(),
+            'to' => today()->toDateString(),
+            'register' => 1,
+        ]))->assertNotFound();
+
         $this->actingAs($fixture['owner'])->getJson(route('console.campaign-statistics.index', [
             $fixture['workspace']->getKey(),
             'campaign_id' => $otherFixture['campaign']->getKey(),

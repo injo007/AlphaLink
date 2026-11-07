@@ -166,7 +166,22 @@ if (summaryRoot && chartElement && campaignSelect && status) {
         }, true);
     };
 
-    const updateInformation = (value: string): void => {
+    const updateInformation = (value: string, selectedIds: string[] = []): void => {
+        if (value === 'selected') {
+            if (infoTitle) infoTitle.textContent = 'Selected Campaign Activity';
+            if (infoName) infoName.textContent = `${selectedIds.length} campaigns selected`;
+            if (informationDetails) informationDetails.hidden = true;
+            if (aggregateSummary) aggregateSummary.hidden = false;
+            for (const [key, element] of infoElements) element.textContent = key === 'id' ? 'Multiple' : '—';
+            if (infoSendType) {
+                infoSendType.hidden = true;
+                infoSendType.disabled = true;
+                delete infoSendType.dataset.targetInput;
+            }
+            if (infoSendTypeValue) infoSendTypeValue.hidden = false;
+            return;
+        }
+
         const selectedOption = campaignSelect?.selectedOptions[0] as CampaignOption | undefined;
         if (!selectedOption || value === 'all') {
             if (infoTitle) infoTitle.textContent = 'All Campaign Activity';
@@ -231,12 +246,18 @@ if (summaryRoot && chartElement && campaignSelect && status) {
         }
     };
 
-    const loadAnalytics = async (value = campaignSelect.value): Promise<void> => {
+    const loadAnalytics = async (value = campaignSelect.value, selectedIds: string[] = []): Promise<void> => {
         currentRequest?.abort();
         currentRequest = new AbortController();
         const url = new URL(summaryRoot.dataset.aggregateUrl ?? '', window.location.origin);
-        if (value !== 'all') url.searchParams.set('campaign_id', value);
-        updateInformation(value);
+        if (selectedIds.length > 1) {
+            selectedIds.forEach((id) => url.searchParams.append('campaign_ids[]', id));
+        } else if (selectedIds.length === 1) {
+            url.searchParams.set('campaign_id', selectedIds[0]);
+        } else if (value !== 'all' && value !== 'selected') {
+            url.searchParams.set('campaign_id', value);
+        }
+        updateInformation(value, selectedIds);
         updateMetrics(null);
         currentSummary = { sent: 0, deliveries: 0, opens: 0, clicks: 0, leads: 0, unsubscribes: 0, soft_bounces: 0, hard_bounces: 0, bounces: 0, timeline: [], coverage: '' };
         drawChart();
@@ -267,7 +288,46 @@ if (summaryRoot && chartElement && campaignSelect && status) {
         }
     };
 
-    campaignSelect.addEventListener('change', () => loadAnalytics(campaignSelect.value));
+    const rowSelections = Array.from(document.querySelectorAll<HTMLInputElement>('.campaign-row-select'));
+    const selectedRowIds = (): string[] => rowSelections.filter((input) => input.checked).map((input) => input.value);
+    const removeMultiSelectionOption = (): void => {
+        campaignSelect.querySelector<HTMLOptionElement>('option[data-selected-campaigns]')?.remove();
+    };
+    const syncAnalyticsFromRows = (): void => {
+        const ids = selectedRowIds();
+        if (ids.length === 0) {
+            removeMultiSelectionOption();
+            campaignSelect.value = 'all';
+            void loadAnalytics('all');
+            return;
+        }
+        if (ids.length === 1) {
+            removeMultiSelectionOption();
+            campaignSelect.value = ids[0];
+            void loadAnalytics(ids[0], ids);
+            return;
+        }
+        let multiOption = campaignSelect.querySelector<HTMLOptionElement>('option[data-selected-campaigns]');
+        if (!multiOption) {
+            multiOption = document.createElement('option');
+            multiOption.value = 'selected';
+            multiOption.dataset.selectedCampaigns = 'true';
+            campaignSelect.append(multiOption);
+        }
+        multiOption.textContent = `Selected campaigns (${ids.length})`;
+        campaignSelect.value = 'selected';
+        void loadAnalytics('selected', ids);
+    };
+
+    rowSelections.forEach((input) => input.addEventListener('change', syncAnalyticsFromRows));
+    document.addEventListener('campaign-row-selection-change', syncAnalyticsFromRows);
+    campaignSelect.addEventListener('change', () => {
+        const value = campaignSelect.value;
+        if (value !== 'selected') {
+            removeMultiSelectionOption();
+            void loadAnalytics(value, value === 'all' ? [] : [value]);
+        }
+    });
     infoSendType?.addEventListener('change', () => {
         const target = document.getElementById(infoSendType.dataset.targetInput ?? '') as HTMLSelectElement | null;
         if (!target || infoSendType.disabled) return;
@@ -292,11 +352,12 @@ if (summaryRoot && chartElement && campaignSelect && status) {
         if (!button || !campaignSelect) return;
         const campaignId = button.dataset.campaignId;
         if (!campaignId) return;
+        removeMultiSelectionOption();
         campaignSelect.value = campaignId;
-        void loadAnalytics(campaignId);
+        void loadAnalytics(campaignId, [campaignId]);
     });
 
     window.addEventListener('alphalink-command-os-theme-change', drawChart);
     window.addEventListener('resize', () => chart?.resize(), { passive: true });
-    void loadAnalytics('all');
+    syncAnalyticsFromRows();
 }

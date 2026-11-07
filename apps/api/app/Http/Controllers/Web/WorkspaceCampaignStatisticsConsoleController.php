@@ -28,6 +28,8 @@ class WorkspaceCampaignStatisticsConsoleController extends Controller
             'from' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:today'],
             'to' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:today', 'after_or_equal:from'],
             'campaign_id' => ['nullable', 'uuid'],
+            'campaign_ids' => ['nullable', 'array', 'min:1', 'max:100'],
+            'campaign_ids.*' => ['required', 'uuid', 'distinct'],
             'isp_id' => ['nullable', 'integer', 'min:1'],
             'list_id' => ['nullable', 'uuid'],
             'inline' => ['sometimes', 'boolean'],
@@ -63,16 +65,19 @@ class WorkspaceCampaignStatisticsConsoleController extends Controller
 
         if ($request->boolean('register')) {
             abort_if(! $request->expectsJson(), 400);
+            abort_if($selectedCampaignId !== '' && ! empty($dates['campaign_ids']), 400);
+            $registerCampaignIds = $dates['campaign_ids']
+                ?? ($selectedCampaignId !== '' ? [$selectedCampaignId] : []);
             $registerCampaigns = Campaign::query()
                 ->where('workspace_id', $workspace->getKey())
                 ->where('created_by', $request->user()->getKey())
-                ->when($selectedCampaignId !== '', fn ($query) => $query->whereKey($selectedCampaignId));
-            abort_unless($selectedCampaignId === '' || $registerCampaigns->exists(), 404);
+                ->when($registerCampaignIds !== [], fn ($query) => $query->whereIn('id', $registerCampaignIds));
+            abort_unless($registerCampaignIds === [] || $registerCampaigns->count() === count($registerCampaignIds), 404);
 
             return response()->json($this->campaignRegisterSummary(
                 $workspace,
                 (int) $request->user()->getKey(),
-                $selectedCampaignId !== '' ? $selectedCampaignId : null,
+                $registerCampaignIds,
                 $from,
                 $to,
             ));
@@ -273,7 +278,7 @@ class WorkspaceCampaignStatisticsConsoleController extends Controller
      *
      * @return list<array<string, mixed>>
      */
-    private function campaignRegisterSummary(Workspace $workspace, int $userId, ?string $campaignId, Carbon $from, Carbon $to): array
+    private function campaignRegisterSummary(Workspace $workspace, int $userId, array $campaignIds, Carbon $from, Carbon $to): array
     {
         $engagementRows = DB::table('campaign_engagement_unique_actions as unique_actions')
             ->join('campaigns as c', function (JoinClause $join): void {
@@ -282,7 +287,7 @@ class WorkspaceCampaignStatisticsConsoleController extends Controller
             })
             ->where('unique_actions.workspace_id', $workspace->getKey())
             ->where('c.created_by', $userId)
-            ->when($campaignId !== null, fn ($query) => $query->where('unique_actions.campaign_id', $campaignId))
+            ->when($campaignIds !== [], fn ($query) => $query->whereIn('unique_actions.campaign_id', $campaignIds))
             ->whereBetween('unique_actions.created_at', [$from, $to])
             ->selectRaw('DATE(unique_actions.created_at) AS event_date')
             ->selectRaw("SUM(CASE WHEN unique_actions.action = 'open' THEN 1 ELSE 0 END) AS opens")
@@ -298,7 +303,7 @@ class WorkspaceCampaignStatisticsConsoleController extends Controller
             })
             ->where('conversions.workspace_id', $workspace->getKey())
             ->where('c.created_by', $userId)
-            ->when($campaignId !== null, fn ($query) => $query->where('conversions.campaign_id', $campaignId))
+            ->when($campaignIds !== [], fn ($query) => $query->whereIn('conversions.campaign_id', $campaignIds))
             ->whereBetween('conversions.converted_at', [$from, $to])
             ->selectRaw('DATE(conversions.converted_at) AS event_date, COUNT(*) AS leads, COALESCE(SUM(conversions.revenue), 0) AS lead_revenue')
             ->groupByRaw('DATE(conversions.converted_at)')
@@ -313,7 +318,7 @@ class WorkspaceCampaignStatisticsConsoleController extends Controller
             ->where('feedback.source_type', 'campaign')
             ->whereIn('feedback.metric', ['deliveries', 'soft_bounces', 'hard_bounces'])
             ->where('c.created_by', $userId)
-            ->when($campaignId !== null, fn ($query) => $query->where('feedback.campaign_id', $campaignId))
+            ->when($campaignIds !== [], fn ($query) => $query->whereIn('feedback.campaign_id', $campaignIds))
             ->whereBetween('feedback.at', [$from->toDateString(), $to->toDateString()])
             ->selectRaw('feedback.at AS event_date')
             ->selectRaw("SUM(CASE WHEN feedback.metric = 'deliveries' THEN 1 ELSE 0 END) AS deliveries")
@@ -335,7 +340,7 @@ class WorkspaceCampaignStatisticsConsoleController extends Controller
             ->where('attempts.state', 'accepted')
             ->whereNotNull('attempts.finished_at')
             ->where('c.created_by', $userId)
-            ->when($campaignId !== null, fn ($query) => $query->where('runs.campaign_id', $campaignId))
+            ->when($campaignIds !== [], fn ($query) => $query->whereIn('runs.campaign_id', $campaignIds))
             ->whereBetween('attempts.finished_at', [$from, $to])
             ->selectRaw('DATE(attempts.finished_at) AS event_date, COUNT(*) AS sent')
             ->groupByRaw('DATE(attempts.finished_at)')

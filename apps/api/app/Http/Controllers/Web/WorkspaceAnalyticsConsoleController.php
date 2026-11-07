@@ -328,7 +328,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
      *     mailers: list<array{label: string, deliveries: int, opens: int, clicks: int, leads: int, unsubscribes: int, bounces: int, attributed_revenue: float}>,
      *     offers: list<array{label: string, leads: int, clicks: int, attributed_revenue: float}>,
      *     geo: array{countries: list<array{country: string, opens: int, clicks: int, leads: int, unsubscribes: int, deliveries: int, bounces: int}>, feedback_note: string},
-     *     graph: array{nodes: list<array{id: string, label: string, count: int, color: string}>, note: string}
+     *     graph: array{nodes: list<array{id: string, label: string, count: int, color: string, href: string|null}>, note: string}
      * }
      */
     private function dateFilteredDashboardAnalytics(Workspace $workspace, User $user, string $from, string $to): array
@@ -352,7 +352,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
      *     mailers: list<array{label: string, deliveries: int, opens: int, clicks: int, leads: int, unsubscribes: int, bounces: int, attributed_revenue: float}>,
      *     offers: list<array{label: string, leads: int, clicks: int, attributed_revenue: float}>,
      *     geo: array{countries: list<array{country: string, opens: int, clicks: int, leads: int, unsubscribes: int, deliveries: int, bounces: int}>, feedback_note: string},
-     *     graph: array{nodes: list<array{id: string, label: string, count: int, color: string}>, note: string}
+     *     graph: array{nodes: list<array{id: string, label: string, count: int, color: string, href: string|null}>, note: string}
      * }
      */
     private function loadDateFilteredDashboardAnalytics(Workspace $workspace, User $user, string $from, string $to): array
@@ -608,11 +608,14 @@ class WorkspaceAnalyticsConsoleController extends Controller
     }
 
     /**
-     * @return array{nodes: list<array{id: string, label: string, count: int, color: string}>, note: string}
+     * @return array{nodes: list<array{id: string, label: string, count: int, color: string, href: string|null}>, note: string}
      */
     private function dashboardMarketingGraph(Workspace $workspace, User $user, string $from, string $to): array
     {
         $role = (string) $workspace->pivot->role;
+        $canUseCampaignOperations = in_array($role, ['owner', 'admin', 'operator'], true);
+        $canManageSponsorsAndOffers = in_array($role, ['owner', 'admin'], true);
+        $canManageInfrastructure = in_array($role, ['owner', 'admin'], true);
         $aggregate = DB::table('workspace_daily_analytics')
             ->where('workspace_id', $workspace->getKey())
             ->where('attribution_scope', 'workspace')
@@ -627,20 +630,20 @@ class WorkspaceAnalyticsConsoleController extends Controller
 
         $count = fn (string $key): int => (int) ($aggregate->{$key} ?? 0);
         $allNodes = [
-            ['id' => 'campaigns', 'label' => 'Campaigns', 'count' => $count('campaigns'), 'color' => 'blue'],
-            ['id' => 'drops', 'label' => 'Drops', 'count' => $count('drops'), 'color' => 'violet'],
-            ['id' => 'warmups', 'label' => 'Warmups', 'count' => $count('warmups'), 'color' => 'pink'],
-            ['id' => 'servers', 'label' => 'Servers', 'count' => $count('servers'), 'color' => 'cyan'],
-            ['id' => 'domains', 'label' => 'Domains', 'count' => $count('domains'), 'color' => 'blue'],
-            ['id' => 'lists', 'label' => 'Lists', 'count' => $count('lists'), 'color' => 'cyan'],
-            ['id' => 'offers', 'label' => 'Offers', 'count' => $count('offers'), 'color' => 'violet'],
-            ['id' => 'sponsors', 'label' => 'Sponsors', 'count' => $count('sponsors'), 'color' => 'pink'],
-            ['id' => 'isps', 'label' => 'ISPs', 'count' => $count('isps'), 'color' => 'blue'],
-            ['id' => 'tracking', 'label' => 'Tracking', 'count' => $count('tracked_events'), 'color' => 'indigo'],
+            ['id' => 'campaigns', 'label' => 'Campaigns', 'count' => $count('campaigns'), 'color' => 'blue', 'href' => $canUseCampaignOperations ? route('console.mailer.campaigns') : null],
+            ['id' => 'drops', 'label' => 'Drops', 'count' => $count('drops'), 'color' => 'violet', 'href' => $canUseCampaignOperations ? route('clean.console.drops.drafts.index') : null],
+            ['id' => 'warmups', 'label' => 'Warmups', 'count' => $count('warmups'), 'color' => 'pink', 'href' => $canUseCampaignOperations ? route('clean.console.warmups.index') : null],
+            ['id' => 'servers', 'label' => 'Servers', 'count' => $count('servers'), 'color' => 'cyan', 'href' => route('clean.console.infrastructure.servers.index')],
+            ['id' => 'domains', 'label' => 'Domains', 'count' => $count('domains'), 'color' => 'blue', 'href' => $canManageInfrastructure ? route('clean.console.infrastructure.domains.index') : null],
+            ['id' => 'lists', 'label' => 'Lists', 'count' => $count('lists'), 'color' => 'cyan', 'href' => $canManageInfrastructure ? route('clean.console.infrastructure.lists.index') : null],
+            ['id' => 'offers', 'label' => 'Offers', 'count' => $count('offers'), 'color' => 'violet', 'href' => $canManageSponsorsAndOffers ? route('clean.console.offers.index') : null],
+            ['id' => 'sponsors', 'label' => 'Sponsors', 'count' => $count('sponsors'), 'color' => 'pink', 'href' => $canManageSponsorsAndOffers ? route('clean.console.sponsors.index') : null],
+            ['id' => 'isps', 'label' => 'ISPs', 'count' => $count('isps'), 'color' => 'blue', 'href' => $canManageInfrastructure ? route('clean.console.infrastructure.isps.index') : null],
+            ['id' => 'tracking', 'label' => 'Tracking', 'count' => $count('tracked_events'), 'color' => 'indigo', 'href' => route('clean.console.analytics.all-stats')],
         ];
 
         return [
-            'nodes' => $role === 'privacy_officer' ? [['id' => 'workspace-activity', 'label' => 'Workspace activity', 'count' => $count('tracked_events'), 'color' => 'indigo']] : $allNodes,
+            'nodes' => $role === 'privacy_officer' ? [['id' => 'workspace-activity', 'label' => 'Workspace activity', 'count' => $count('tracked_events'), 'color' => 'indigo', 'href' => null]] : $allNodes,
             'note' => 'Badges show workspace-scoped entities with activity in this range; Tracking shows event volume. Lines radiate from AlphaLink as a module map and do not claim record-to-record attribution.',
         ];
     }
@@ -1166,7 +1169,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
             now()->format('YmdHi'),
         ]);
 
-        return 'alphalink:dashboard:main:v1:'.$dataset.':'.hash('sha256', $scope);
+        return 'alphalink:dashboard:main:v2:'.$dataset.':'.hash('sha256', $scope);
     }
 
     private function reportContext(Request $request, string $workspaceId): array

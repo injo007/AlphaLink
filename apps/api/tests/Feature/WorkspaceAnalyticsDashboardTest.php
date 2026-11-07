@@ -135,6 +135,70 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
         $this->assertStringContainsString('command-os-drawer.js', $html);
     }
 
+    public function test_marketing_graph_nodes_open_existing_pages_without_bypassing_role_visibility(): void
+    {
+        $owner = User::factory()->create();
+        $this->makeWorkspace($owner, 'owner');
+        $ownerHrefs = [
+            'campaigns' => route('console.mailer.campaigns'),
+            'drops' => route('clean.console.drops.drafts.index'),
+            'warmups' => route('clean.console.warmups.index'),
+            'servers' => route('clean.console.infrastructure.servers.index'),
+            'domains' => route('clean.console.infrastructure.domains.index'),
+            'lists' => route('clean.console.infrastructure.lists.index'),
+            'offers' => route('clean.console.offers.index'),
+            'sponsors' => route('clean.console.sponsors.index'),
+            'isps' => route('clean.console.infrastructure.isps.index'),
+            'tracking' => route('clean.console.analytics.all-stats'),
+        ];
+
+        $this->actingAs($owner)
+            ->get(route('console.dashboard.main'))
+            ->assertOk()
+            ->assertViewHas('commandOsDashboard', function (array $dashboard) use ($ownerHrefs): bool {
+                $nodes = collect($dashboard['analytics']['graph']['nodes'])->keyBy('id');
+
+                foreach ($ownerHrefs as $id => $href) {
+                    $this->assertSame($href, $nodes->get($id)['href'] ?? null, "Unexpected Marketing Graph destination for {$id}.");
+                }
+
+                return true;
+            });
+
+        $operator = User::factory()->create();
+        $this->makeWorkspace($operator, 'operator');
+        $this->actingAs($operator)
+            ->get(route('console.dashboard.main'))
+            ->assertOk()
+            ->assertViewHas('commandOsDashboard', function (array $dashboard): bool {
+                $nodes = collect($dashboard['analytics']['graph']['nodes'])->keyBy('id');
+
+                $this->assertNull($nodes->get('sponsors')['href']);
+                $this->assertNull($nodes->get('offers')['href']);
+                $this->assertNull($nodes->get('domains')['href']);
+                $this->assertNull($nodes->get('lists')['href']);
+                $this->assertNull($nodes->get('isps')['href']);
+                $this->assertSame(route('console.mailer.campaigns'), $nodes->get('campaigns')['href']);
+                $this->assertSame(route('clean.console.infrastructure.servers.index'), $nodes->get('servers')['href']);
+
+                return true;
+            });
+
+        $privacyOfficer = User::factory()->create();
+        $this->makeWorkspace($privacyOfficer, 'privacy_officer');
+        $this->actingAs($privacyOfficer)
+            ->get(route('console.dashboard.main'))
+            ->assertOk()
+            ->assertViewHas('commandOsDashboard', function (array $dashboard): bool {
+                $nodes = collect($dashboard['analytics']['graph']['nodes'])->keyBy('id');
+
+                $this->assertSame(['workspace-activity'], $nodes->keys()->all());
+                $this->assertNull($nodes->get('workspace-activity')['href']);
+
+                return true;
+            });
+    }
+
     public function test_dashboard_nested_campaign_and_global_test_links_match_the_workspace_role(): void
     {
         $campaignLinks = [

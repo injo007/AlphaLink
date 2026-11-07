@@ -90,6 +90,7 @@ export default function MarketingGraph({ data, theme }: { data: DashboardAnalyti
     }, []);
 
     const selectModule = (node: MarketingNode) => setSelected(node.id);
+    const openableModules = modules.filter((node) => node.href !== null);
 
     return (
         <section className="command-os-panel command-os-graph-panel" id="marketing-graph" aria-labelledby="command-os-graph-title">
@@ -134,39 +135,55 @@ export default function MarketingGraph({ data, theme }: { data: DashboardAnalyti
                     const color = nodeColors[node.color] ?? '#8a66ee';
                     const [x, y] = point;
                     const isSelected = selected === node.id;
-                    return (
+                    const sharedProps = {
+                        className: `command-os-network-node${isSelected ? ' is-selected' : ''}`,
+                        key: node.id,
+                        style: {
+                            '--node-accent': color,
+                            left: `${(x / size.width) * 100}%`,
+                            top: `${(y / size.height) * 100}%`,
+                            width: `${nodeWidth(node.label, nodeWidthLimit)}px`,
+                        } as CSSProperties,
+                        title: node.href
+                            ? `Open ${node.label} · ${moduleCountLabel(node)} in this range`
+                            : `${node.label}: ${moduleCountLabel(node)} in this range`,
+                    };
+                    const content = <><img src={iconImage(node.id, color)} alt="" aria-hidden="true" /><span>{node.label}</span></>;
+
+                    return node.href ? (
+                        <a
+                            {...sharedProps}
+                            href={node.href}
+                            aria-label={`Open ${node.label}. ${moduleCountLabel(node)} in this range`}
+                        >
+                            {content}
+                        </a>
+                    ) : (
                         <button
-                            className={`command-os-network-node${isSelected ? ' is-selected' : ''}`}
-                            key={node.id}
+                            {...sharedProps}
                             type="button"
-                            style={{
-                                '--node-accent': color,
-                                left: `${(x / size.width) * 100}%`,
-                                top: `${(y / size.height) * 100}%`,
-                                width: `${nodeWidth(node.label, nodeWidthLimit)}px`,
-                            } as CSSProperties}
                             aria-label={`${node.label}: ${moduleCountLabel(node)} in this range`}
                             aria-pressed={isSelected}
                             onClick={() => selectModule(node)}
-                            title={`${node.label}: ${moduleCountLabel(node)} in this range`}
                         >
-                            <img src={iconImage(node.id, color)} alt="" aria-hidden="true" />
-                            <span>{node.label}</span>
+                            {content}
                         </button>
                     );
                 })}
             </div>
             <p className="command-os-graph-selected" aria-live="polite">
                 {selectedModule
-                    ? `${selectedModule.label}: ${moduleCountLabel(selectedModule)} in this range`
-                    : modules.length > 0
-                        ? 'Select a module to inspect its sourced activity count for this date range.'
+                    ? `${selectedModule.label}: ${moduleCountLabel(selectedModule)} in this range. No page is linked to this node.`
+                    : openableModules.length > 0
+                        ? 'Select a module to open its page. Counts show activity for this date range.'
+                        : modules.length > 0
+                            ? 'Select Workspace Activity to inspect its count for this date range.'
                         : 'No module activity is available for this date range.'}
             </p>
             <ul className="command-os-sr-only" aria-label="Module activity counts">
                 {data.nodes.map((node) => <li key={node.id}>{node.label}: {moduleCountLabel(node)} in this range</li>)}
             </ul>
-            <p className="command-os-sr-only" id="command-os-graph-note">{data.note} The spokes connect each workspace module to the AlphaLink hub; they do not claim record-to-record attribution. Select a node for its sourced count.</p>
+            <p className="command-os-sr-only" id="command-os-graph-note">{data.note} The spokes connect each workspace module to the AlphaLink hub; they do not claim record-to-record attribution. Module nodes open only pages available to your workspace role.</p>
         </section>
     );
 }

@@ -58,7 +58,7 @@ export type AnalyticsRow = { label: string; leads: number; clicks: number; attri
 export type DashboardChartSeries = { label: string; color: string; values: number[] };
 export type DashboardChart = { labels: string[]; series: DashboardChartSeries[] };
 export type GeoCountry = { country: string; opens: number; clicks: number; leads: number; unsubscribes: number; deliveries: number; bounces: number };
-export type MarketingNode = { id: string; label: string; count: number; color: string };
+export type MarketingNode = { id: string; label: string; count: number; color: string; href: string | null };
 export type DashboardAnalytics = {
     totals: { deliveries: number; opens: number; clicks: number; leads: number; unsubscribes: number; bounces: number; attributed_revenue: number };
     sponsors: AnalyticsRow[];

@@ -1540,24 +1540,27 @@ html[data-command-theme='dark'] .command-os-panel {
 
 .command-os-network-node {
     position: absolute;
-    z-index: 2;
+    z-index: 5;
     display: inline-flex;
     min-width: 60px;
-    min-height: 34px;
+    min-height: 38px;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    padding: 0 8px;
-    border: 1.4px solid color-mix(in srgb, var(--node-accent) 78%, var(--co-border));
+    padding: 0 9px;
+    border: 1.5px solid color-mix(in srgb, var(--node-accent) 88%, var(--co-border-strong));
     border-radius: 999px;
     color: var(--co-ink);
-    background: color-mix(in srgb, var(--node-accent) 12%, var(--co-surface));
-    box-shadow: 0 2px 7px rgb(33 47 94 / 15%), inset 0 1px rgb(255 255 255 / 70%);
-    font: 700 9px/1 Inter, 'Segoe UI', Arial, sans-serif;
+    background: color-mix(in srgb, var(--node-accent) 20%, var(--co-surface));
+    box-shadow: 0 3px 10px rgb(33 47 94 / 18%), inset 0 1px rgb(255 255 255 / 76%);
+    font: 750 10px/1 Inter, 'Segoe UI', Arial, sans-serif;
     white-space: nowrap;
     cursor: pointer;
     opacity: 1;
     transform: translate(-50%, -50%);
+    pointer-events: auto;
+    touch-action: manipulation;
+    text-decoration: none;
     transition: color .16s ease, background-color .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease;
 }
 
@@ -1569,6 +1572,7 @@ html[data-command-theme='dark'] .command-os-panel {
 }
 
 .command-os-network-node span {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
 }
@@ -1577,9 +1581,9 @@ html[data-command-theme='dark'] .command-os-panel {
 .command-os-network-node.is-selected {
     border-color: var(--node-accent);
     color: var(--co-ink);
-    background: color-mix(in srgb, var(--node-accent) 23%, var(--co-surface));
-    box-shadow: 0 3px 11px color-mix(in srgb, var(--node-accent) 28%, transparent), inset 0 1px rgb(255 255 255 / 75%);
-    transform: translate(-50%, -50%) scale(1.04);
+    background: color-mix(in srgb, var(--node-accent) 30%, var(--co-surface));
+    box-shadow: 0 5px 16px color-mix(in srgb, var(--node-accent) 38%, transparent), inset 0 1px rgb(255 255 255 / 78%);
+    transform: translate(-50%, -50%) scale(1.06);
 }
 
 .command-os-network-node:focus-visible {
@@ -1589,6 +1593,10 @@ html[data-command-theme='dark'] .command-os-panel {
 
 .command-os-network-node:active {
     transform: translate(-50%, -50%) scale(.98);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .command-os-network-node { transition: none; }
 }
 
 @container (max-width: 319px) {
@@ -1615,9 +1623,14 @@ html[data-command-theme='dark'] .command-os-panel {
 .command-os-graph-selected { position: relative; z-index: 3; }
 .command-os-graph-selected {
     min-height: 20px;
-    margin: 0 12px 5px;
-    color: var(--co-muted);
-    font-size: 9px;
+    margin: 0 12px 7px;
+    padding: 5px 8px;
+    border-left: 2px solid var(--co-purple-bright);
+    border-radius: 0 6px 6px 0;
+    color: var(--co-ink);
+    background: color-mix(in srgb, var(--co-purple) 7%, var(--co-surface));
+    font-size: 10px;
+    font-weight: 600;
     line-height: 1.4;
 }
 

@@ -62,6 +62,7 @@ export type DashboardChart = { labels: string[]; series: DashboardChartSeries[] 
 export type DashboardGeoMetric = 'deliveries' | 'opens' | 'clicks' | 'leads' | 'bounces' | 'unsubscribes';
 export type GeoCountry = { country: string; opens: number; clicks: number; leads: number; unsubscribes: number; deliveries: number; bounces: number };
 export type MarketingNode = { id: string; label: string; count: number; color: string; href: string | null };
+export type MarketingEdge = { source: string; target: string; count: number };
 export type DashboardAnalytics = {
     totals: { deliveries: number; opens: number; clicks: number; leads: number; unsubscribes: number; bounces: number; attributed_revenue: number };
     sponsors: AnalyticsRow[];
@@ -69,7 +70,7 @@ export type DashboardAnalytics = {
     mailers: AnalyticsRow[];
     offers: AnalyticsRow[];
     geo: { countries: GeoCountry[]; proxy_opens_excluded: number; feedback_note: string };
-    graph: { nodes: MarketingNode[]; note: string };
+    graph: { nodes: MarketingNode[]; edges: MarketingEdge[]; note: string };
     period: { key: string; label: string; from: string; to: string; maxDate: string; action: string };
 };
 type Theme = 'light' | 'dark';
@@ -565,8 +566,19 @@ function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
         <div className="command-os-dashboard-content" data-theme={theme}>
             <div className="command-os-page-heading">
                 <svg className="command-os-header-wave" viewBox="0 0 1000 110" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                    <defs>
+                        <linearGradient id="command-os-header-wave-spectrum" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stopColor="#a64cff" />
+                            <stop offset="42%" stopColor="#8f63ff" />
+                            <stop offset="60%" stopColor="#12c9ff" />
+                            <stop offset="82%" stopColor="#b451ff" />
+                            <stop offset="100%" stopColor="#ff8fe1" />
+                        </linearGradient>
+                    </defs>
+                    <path className="command-os-header-wave-glow" d="M0 68 C110 64 119 12 238 24 S370 89 500 67 647 7 774 28 894 75 1000 45" />
                     <path className="command-os-header-wave-blue" d="M0 68 C110 64 119 12 238 24 S370 89 500 67 647 7 774 28 894 75 1000 45" />
                     <path className="command-os-header-wave-violet" d="M0 82 C108 77 142 35 254 44 S381 103 523 80 674 25 796 42 915 94 1000 64" />
+                    <path className="command-os-header-wave-cyan" d="M0 54 C115 49 150 20 262 32 S390 76 515 57 661 14 789 31 909 69 1000 40" />
                 </svg>
                 <div>
                     <p className="command-os-eyebrow">ALPHALINK COMMAND OS — {payload.workspaceName}</p>
@@ -589,8 +601,7 @@ function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
                 {payload.metrics.map((metric) => <MetricCard key={metric.key} metric={metric} selectedMetric={selectedGeoMetric} onMetricChange={setSelectedGeoMetric} />)}
             </section>
 
-            <section className="command-os-panels command-os-intelligence-panels" aria-label="Performance, geographic and marketing intelligence">
-                <PerformanceOverview payload={payload} theme={theme} />
+            <section className="command-os-panels command-os-intelligence-panels" aria-label="Geographic and marketing intelligence">
                 <Suspense fallback={<section className="command-os-panel command-os-async-panel" role="status">Loading country map…</section>}>
                     <DeliverabilityGeoMap data={payload.analytics.geo} theme={theme} selectedMetric={selectedGeoMetric} onMetricChange={setSelectedGeoMetric} />
                 </Suspense>
@@ -598,7 +609,14 @@ function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
                 <Suspense fallback={<section className="command-os-panel command-os-async-panel" role="status">Loading Marketing Graph…</section>}>
                     <MarketingGraph data={payload.analytics.graph} theme={theme} />
                 </Suspense>
+            </section>
 
+            <PartnerRevenueAnalytics analytics={payload.analytics} />
+
+            <DashboardCharts payload={payload} theme={theme} selectedMetric={selectedGeoMetric} />
+
+            <section className="command-os-panels command-os-secondary-panels" aria-label="Additional performance and quick actions">
+                <PerformanceOverview payload={payload} theme={theme} />
                 <section className="command-os-quick-actions command-os-quick-actions-footer" aria-labelledby="command-os-actions-title">
                     <div className="command-os-quick-intro"><Flame size={19} aria-hidden="true" /><span><strong id="command-os-actions-title">Quick actions</strong><small>Faster operations</small></span></div>
                     <div className="command-os-action-list">
@@ -628,10 +646,6 @@ function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
                     </div>
                 </section>
             </section>
-
-            <PartnerRevenueAnalytics analytics={payload.analytics} />
-
-            <DashboardCharts payload={payload} theme={theme} selectedMetric={selectedGeoMetric} />
 
             <div className="command-os-data-notes" id="command-os-data-coverage">
                 <span><strong>Coverage:</strong> {payload.coverage.deliveries}</span>

@@ -14,11 +14,12 @@ import {
     UsersRound,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import type { DashboardAnalytics, MarketingNode } from './command-os';
+import type { DashboardAnalytics, MarketingEdge, MarketingNode } from './command-os';
 
 type Theme = 'light' | 'dark';
 type GraphSize = { width: number; height: number };
 type GraphPosition = 'orbit' | 'columns';
+type GraphPoint = [number, number];
 
 const nodeColors: Record<string, string> = {
     blue: '#347cff',
@@ -89,6 +90,56 @@ function moduleCountLabel(node: MarketingNode): string {
     return `${formatCount(node.count)} ${node.id === 'tracking' || node.id === 'workspace-activity' ? 'tracked events' : 'entities with activity'}`;
 }
 
+function edgeBoundary(center: GraphPoint, toward: GraphPoint, width: number, height: number): GraphPoint {
+    const dx = toward[0] - center[0];
+    const dy = toward[1] - center[1];
+    const scaleX = Math.abs(dx) > 0 ? (width / 2 + 3) / Math.abs(dx) : Number.POSITIVE_INFINITY;
+    const scaleY = Math.abs(dy) > 0 ? (height / 2 + 3) / Math.abs(dy) : Number.POSITIVE_INFINITY;
+    const scale = Math.min(scaleX, scaleY);
+
+    return [center[0] + dx * scale, center[1] + dy * scale];
+}
+
+function relationGeometry(
+    source: GraphPoint,
+    target: GraphPoint,
+    sourceWidth: number,
+    targetWidth: number,
+    nodeHeight: number,
+    hub: GraphPoint,
+    index: number,
+): { path: string; label: GraphPoint } {
+    const start = edgeBoundary(source, target, sourceWidth, nodeHeight);
+    const end = edgeBoundary(target, source, targetWidth, nodeHeight);
+    const dx = end[0] - start[0];
+    const dy = end[1] - start[1];
+    const distance = Math.max(1, Math.hypot(dx, dy));
+    const midpoint: GraphPoint = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2];
+    let radialX = midpoint[0] - hub[0];
+    let radialY = midpoint[1] - hub[1];
+    let radialLength = Math.hypot(radialX, radialY);
+
+    if (radialLength < 1) {
+        radialX = -dy / distance * (index % 2 === 0 ? 1 : -1);
+        radialY = dx / distance * (index % 2 === 0 ? 1 : -1);
+        radialLength = 1;
+    }
+
+    const bend = Math.min(46, Math.max(13, distance * 0.1));
+    const controlX = midpoint[0] + (radialX / radialLength) * bend;
+    const controlY = midpoint[1] + (radialY / radialLength) * bend;
+    const label: GraphPoint = [
+        (start[0] + 2 * controlX + end[0]) / 4,
+        (start[1] + 2 * controlY + end[1]) / 4,
+    ];
+
+    return { path: `M ${start[0]} ${start[1]} Q ${controlX} ${controlY} ${end[0]} ${end[1]}`, label };
+}
+
+function relationshipText(edge: MarketingEdge, labels: Map<string, string>): string {
+    return `${labels.get(edge.source) ?? edge.source} to ${labels.get(edge.target) ?? edge.target}: ${formatCount(edge.count)} distinct linked pairs with recorded activity in this range.`;
+}
+
 export default function MarketingGraph({ data, theme }: { data: DashboardAnalytics['graph']; theme: Theme }): JSX.Element {
     const container = useRef<HTMLDivElement>(null);
     const [size, setSize] = useState<GraphSize>({ width: 480, height: 150 });
@@ -113,8 +164,45 @@ export default function MarketingGraph({ data, theme }: { data: DashboardAnalyti
         node,
         point: modulePosition(index, modules.length, size.width, size.height, maxNodeWidth, layout),
     }));
+    const positionById = new Map(positions.map(({ node, point }) => [node.id, point]));
+    const nodeById = new Map(modules.map((node) => [node.id, node]));
+    const labelById = new Map(modules.map((node) => [node.id, node.label]));
     const selectedModule = modules.find((node) => node.id === selected);
     const focusedId = hovered ?? selected;
+    const nodeHeight = layout === 'columns' ? 26 : 34;
+    const graphRelations = data.edges
+        .filter((edge) => positionById.has(edge.source) && positionById.has(edge.target))
+        .map((edge, index) => {
+            const sourceNode = nodeById.get(edge.source);
+            const targetNode = nodeById.get(edge.target);
+            const source = positionById.get(edge.source);
+            const target = positionById.get(edge.target);
+            if (!sourceNode || !targetNode || !source || !target) return null;
+            const geometry = relationGeometry(
+                source,
+                target,
+                nodeWidth(sourceNode.label, nodeWidthLimit),
+                nodeWidth(targetNode.label, nodeWidthLimit),
+                nodeHeight,
+                [centerX, centerY],
+                index,
+            );
+            const isFocused = focusedId !== null && (edge.source === focusedId || edge.target === focusedId);
+            const isMuted = focusedId !== null && !isFocused;
+
+            return {
+                edge,
+                geometry,
+                color: nodeColors[sourceNode.color] ?? '#8a66ee',
+                isFocused,
+                isMuted,
+            };
+        })
+        .filter((relation): relation is NonNullable<typeof relation> => relation !== null);
+    const visibleRelations = (focusedId
+        ? graphRelations.filter(({ edge }) => edge.source === focusedId || edge.target === focusedId)
+        : [...graphRelations].sort((left, right) => right.edge.count - left.edge.count))
+        .slice(0, 3);
 
     useEffect(() => {
         const element = container.current;
@@ -172,7 +260,7 @@ export default function MarketingGraph({ data, theme }: { data: DashboardAnalyti
                 <div className="command-os-panel-title"><span className="command-os-heading-icon command-os-graph-heading-icon"><Network size={16} aria-hidden="true" /></span><h2 id="command-os-graph-title">Marketing graph</h2></div>
                 <span className="command-os-status-tag">{modules.length} modules</span>
             </div>
-            <p className="command-os-graph-intro">A connected view of campaigns, audiences, deliverability and infrastructure.</p>
+            <p className="command-os-graph-intro">Recorded campaign, Drop and warmup links across this workspace.</p>
             <div className={`command-os-graph-canvas${layout === 'columns' ? ' is-compact-network' : ''}`} ref={container}>
                 <svg
                     className="command-os-network-graphic"
@@ -205,6 +293,26 @@ export default function MarketingGraph({ data, theme }: { data: DashboardAnalyti
                             />
                         ))}
                     </g>
+                    <g className="command-os-network-relations" aria-hidden="true">
+                        {graphRelations.map(({ edge, geometry, color, isFocused, isMuted }) => (
+                            <path
+                                className={`command-os-network-relation${isFocused ? ' is-focused' : ''}${isMuted ? ' is-muted' : ''}`}
+                                key={`${edge.source}-${edge.target}`}
+                                d={geometry.path}
+                                stroke={color}
+                            />
+                        ))}
+                        {graphRelations.filter(({ isFocused }) => isFocused).map(({ edge, geometry }) => {
+                            const label = formatCompactCount(edge.count);
+                            const width = Math.max(19, label.length * 6 + 8);
+                            return (
+                                <g className="command-os-network-relation-count" key={`count-${edge.source}-${edge.target}`} transform={`translate(${geometry.label[0]} ${geometry.label[1]})`}>
+                                    <rect x={-width / 2} y={-8} width={width} height={16} rx={8} />
+                                    <text y={3}>{label}</text>
+                                </g>
+                            );
+                        })}
+                    </g>
                     <g className="command-os-network-hub" aria-label="AlphaLink">
                         <circle className="command-os-network-hub-ring command-os-network-hub-ring-outer" cx={centerX} cy={centerY} r={layout === 'columns' ? 26 : 54} />
                         <circle className="command-os-network-hub-ring command-os-network-hub-ring-inner" cx={centerX} cy={centerY} r={layout === 'columns' ? 19 : 39} />
@@ -213,6 +321,19 @@ export default function MarketingGraph({ data, theme }: { data: DashboardAnalyti
                     </g>
                 </svg>
                 {positions.map(({ node, point }) => renderModuleButton(node, point))}
+            </div>
+            <div className="command-os-graph-relations" aria-label="Observed module relationships">
+                <span className="command-os-graph-relations-label">{focusedId ? 'Linked activity' : 'Observed links'}</span>
+                {visibleRelations.length > 0 ? visibleRelations.map(({ edge }) => (
+                    <span className="command-os-graph-relation-chip" key={`chip-${edge.source}-${edge.target}`}>
+                        {labelById.get(edge.source) ?? edge.source}<span aria-hidden="true"> ↔ </span>{labelById.get(edge.target) ?? edge.target}
+                        <b>{formatCompactCount(edge.count)}</b>
+                    </span>
+                )) : (
+                    <span className="command-os-graph-relations-empty">
+                        {focusedId ? `No recorded links for ${labelById.get(focusedId) ?? focusedId} in this range.` : 'No recorded cross-module activity links in this range.'}
+                    </span>
+                )}
             </div>
             <p className="command-os-graph-selected" aria-live="polite">
                 <span>
@@ -227,7 +348,11 @@ export default function MarketingGraph({ data, theme }: { data: DashboardAnalyti
             <ul className="command-os-sr-only" aria-label="Module activity counts">
                 {data.nodes.map((node) => <li key={node.id}>{node.label}: {moduleCountLabel(node)} in this range</li>)}
             </ul>
-            <p className="command-os-sr-only" id="command-os-graph-note">{data.note} Every module is connected to the AlphaLink hub. Spokes describe the module map and do not imply record-to-record attribution. Module links open only destinations permitted for your workspace role.</p>
+            <ul className="command-os-sr-only" aria-label="Recorded module relationships">
+                {data.edges.map((edge) => <li key={`sr-${edge.source}-${edge.target}`}>{relationshipText(edge, labelById)}</li>)}
+                {data.edges.length === 0 && <li>No cross-module activity links were recorded for this range.</li>}
+            </ul>
+            <p className="command-os-sr-only" id="command-os-graph-note">{data.note} Dashed spokes map available modules. Solid links are derived only from stored workspace activity dimensions. Module links open only destinations permitted for your workspace role.</p>
         </section>
     );
 }

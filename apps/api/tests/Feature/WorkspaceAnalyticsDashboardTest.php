@@ -199,6 +199,102 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
             });
     }
 
+    public function test_marketing_graph_edges_use_only_distinct_workspace_activity_pairs_for_the_viewer(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->makeWorkspace($owner, 'owner');
+        $operator = User::factory()->create();
+        $workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
+
+        $otherOwner = User::factory()->create();
+        $otherWorkspace = $this->makeWorkspace($otherOwner, 'owner');
+
+        $insertActivity = function (
+            Workspace $activityWorkspace,
+            User $actor,
+            string $sourceId,
+            string $ispId,
+            string $sponsorId,
+            string $offerId,
+            string $date,
+            string $scope = 'workspace',
+            string $sourceType = 'drop',
+        ): void {
+            $dimensions = [
+                'workspace_id' => $activityWorkspace->getKey(),
+                'source_type' => $sourceType,
+                'source_id' => $sourceId,
+                'at' => $date,
+                'dimensions_hash' => hash('sha256', implode(':', [$sourceId, $ispId, $sponsorId, $offerId, $date, $scope])),
+                'user_id' => $actor->getKey(),
+                'campaign_id' => $sourceType === 'campaign' ? $sourceId : null,
+                'workspace_drop_id' => $sourceType === 'drop' ? (int) $sourceId : null,
+                'isp_id' => $ispId,
+                'list_id' => null,
+                'list_type' => null,
+                'server_id' => null,
+                'ip_id' => null,
+                'domain_id' => null,
+                'sponsor_id' => $sponsorId,
+                'offer_id' => $offerId,
+                'from_id' => null,
+                'subject_id' => null,
+                'creative_id' => null,
+                'opens' => 0,
+                'clicks' => 1,
+                'leads' => 0,
+                'unsubscribes' => 0,
+                'bots' => 0,
+                'lead_revenue' => 0,
+                'attribution_scope' => $scope,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+
+            DB::table('workspace_daily_analytics')->insert($dimensions);
+        };
+
+        $today = now()->toDateString();
+        $yesterday = now()->subDay()->toDateString();
+        $lastMonth = now()->subMonths(2)->toDateString();
+
+        $insertActivity($workspace, $owner, '101', '303', '501', '701', $today);
+        $insertActivity($workspace, $owner, '101', '303', '501', '701', $yesterday);
+        $insertActivity($workspace, $operator, '102', '304', '502', '702', $today);
+        $insertActivity($workspace, $owner, '103', '305', '503', '703', $lastMonth);
+        $insertActivity($workspace, $owner, '104', '306', '504', '704', $today, 'list');
+        $insertActivity($otherWorkspace, $otherOwner, '105', '307', '505', '705', $today);
+        $insertActivity($workspace, $owner, (string) Str::uuid(), '308', '501', '701', $today, 'workspace', 'campaign');
+
+        $this->actingAs($owner)
+            ->get(route('console.dashboard.main'))
+            ->assertOk()
+            ->assertViewHas('commandOsDashboard', function (array $dashboard): bool {
+                $edges = collect($dashboard['analytics']['graph']['edges'])
+                    ->keyBy(fn (array $edge): string => $edge['source'].'-'.$edge['target']);
+
+                return $edges->get('drops-isps')['count'] === 2
+                    && $edges->get('drops-offers')['count'] === 2
+                    && $edges->get('sponsors-offers')['count'] === 2
+                    && $edges->get('drops-tracking')['count'] === 2
+                    && $edges->get('campaigns-sponsors')['count'] === 1
+                    && $edges->get('campaigns-offers')['count'] === 1;
+            });
+
+        $this->actingAs($operator)
+            ->get(route('console.dashboard.main'))
+            ->assertOk()
+            ->assertViewHas('commandOsDashboard', function (array $dashboard): bool {
+                $edges = collect($dashboard['analytics']['graph']['edges'])
+                    ->keyBy(fn (array $edge): string => $edge['source'].'-'.$edge['target']);
+
+                return $edges->get('drops-isps')['count'] === 1
+                    && $edges->get('drops-offers')['count'] === 1
+                    && $edges->get('sponsors-offers')['count'] === 1
+                    && $edges->get('drops-tracking')['count'] === 1;
+            });
+    }
+
     public function test_dashboard_nested_campaign_and_global_test_links_match_the_workspace_role(): void
     {
         $campaignLinks = [

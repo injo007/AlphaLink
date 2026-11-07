@@ -147,7 +147,7 @@ export default function MarketingGraph({ data, theme }: { data: DashboardAnalyti
                     <g className="command-os-network-hub" aria-label="AlphaLink">
                         <circle className="command-os-network-hub-halo" cx={centerX} cy={centerY} r={36} />
                         <circle className="command-os-network-hub-disc" cx={centerX} cy={centerY} r={27} />
-                        <image href={brandMark} x={centerX - 17} y={centerY - 17} width={34} height={34} />
+                        <image href={brandMark} x={centerX - 29} y={centerY - 29} width={58} height={58} />
                     </g>
                 </svg>
             </div>

@@ -9,6 +9,7 @@ use App\Models\CampaignLeadConversion;
 use App\Models\CampaignRecipientSnapshot;
 use App\Models\CampaignRecipientSnapshotItem;
 use App\Models\CampaignRevision;
+use App\Models\CampaignSendRun;
 use App\Models\Contact;
 use App\Models\Isp;
 use App\Models\ManagedServer;
@@ -142,6 +143,126 @@ class WorkspaceCampaignStatisticsTest extends TestCase
             ->where('workspace_id', $fixture['workspace']->getKey())
             ->where('campaign_id', $fixture['campaign']->getKey())
             ->count());
+    }
+
+    public function test_campaign_register_analytics_uses_unique_engagement_attributed_leads_and_imported_bounces(): void
+    {
+        $fixture = $this->campaignFixture();
+        $this->event($fixture, 'open');
+        $this->event($fixture, 'click');
+        $this->event($fixture, 'unsubscribe');
+        $this->leadConversion($fixture, 'register-summary-conversion', 12.5);
+        $server = ManagedServer::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(), 'name' => 'Synthetic campaign feedback server',
+            'provider' => 'Synthetic provider', 'ip_address' => '198.51.100.42',
+            'ssh_port' => 22, 'ssh_username' => 'root', 'state' => 'verified',
+            'is_active' => true, 'is_installed' => true,
+            'idempotency_key' => (string) Str::uuid(), 'request_fingerprint' => str_repeat('b', 64),
+            'created_by' => $fixture['owner']->getKey(),
+        ]);
+        DB::table('workspace_pmta_feedback_events')->insert([
+            ['workspace_id' => $fixture['workspace']->getKey(), 'managed_server_id' => $server->getKey(), 'record_key' => hash('sha256', 'register-soft-bounce'), 'at' => today()->toDateString(), 'source_type' => 'campaign', 'source_id' => $fixture['campaign']->getKey(), 'campaign_id' => $fixture['campaign']->getKey(), 'metric' => 'soft_bounces', 'dimension_ids' => json_encode(['server_id' => (string) $server->getKey()], JSON_THROW_ON_ERROR), 'created_at' => now()],
+            ['workspace_id' => $fixture['workspace']->getKey(), 'managed_server_id' => $server->getKey(), 'record_key' => hash('sha256', 'register-hard-bounce'), 'at' => today()->toDateString(), 'source_type' => 'campaign', 'source_id' => $fixture['campaign']->getKey(), 'campaign_id' => $fixture['campaign']->getKey(), 'metric' => 'hard_bounces', 'dimension_ids' => json_encode(['server_id' => (string) $server->getKey()], JSON_THROW_ON_ERROR), 'created_at' => now()],
+        ]);
+
+        $response = $this->actingAs($fixture['owner'])->getJson(route('console.campaign-statistics.index', [
+            $fixture['workspace']->getKey(),
+            'from' => today()->toDateString(),
+            'to' => today()->toDateString(),
+            'register' => 1,
+        ]));
+
+        $response->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonFragment([
+                'opens' => 1,
+                'clicks' => 1,
+                'leads' => 1,
+                'unsubscribes' => 1,
+                'soft_bounces' => 1,
+                'hard_bounces' => 1,
+                'bounces' => 2,
+            ])
+            ->assertJsonPath('0.timeline.0.date', today()->toDateString())
+            ->assertJsonPath('0.timeline.0.lead_revenue', 12.5);
+        $this->assertStringNotContainsString('synthetic-statistics@example.test', $response->getContent());
+
+        $otherOwner = User::factory()->create();
+        $fixture['workspace']->users()->attach($otherOwner->getKey(), ['role' => 'operator']);
+        $otherFixture = $this->campaignFixture($otherOwner, $fixture['workspace'], 'Another operator campaign', 'synthetic-other@example.test');
+        $this->event($otherFixture, 'click');
+
+        $aggregate = $this->actingAs($fixture['owner'])->getJson(route('console.campaign-statistics.index', [
+            $fixture['workspace']->getKey(),
+            'from' => today()->toDateString(),
+            'to' => today()->toDateString(),
+            'register' => 1,
+        ]));
+        $aggregate->assertOk()->assertJsonFragment(['opens' => 1, 'clicks' => 1]);
+        $this->actingAs($fixture['owner'])->getJson(route('console.campaign-statistics.index', [
+            $fixture['workspace']->getKey(),
+            'campaign_id' => $otherFixture['campaign']->getKey(),
+            'from' => today()->toDateString(),
+            'to' => today()->toDateString(),
+            'register' => 1,
+        ]))->assertNotFound();
+    }
+
+    public function test_campaign_register_overview_counts_owner_campaigns_by_availability_completion_and_issues(): void
+    {
+        $fixture = $this->campaignFixture();
+        CampaignSendRun::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(),
+            'campaign_id' => $fixture['campaign']->getKey(),
+            'revision_id' => $fixture['revision']->getKey(),
+            'recipient_snapshot_id' => $fixture['snapshot']->getKey(),
+            'requested_by' => $fixture['owner']->getKey(),
+            'send_type' => 'delay',
+            'state' => 'completed',
+            'idempotency_key' => (string) Str::uuid(),
+            'request_fingerprint' => hash('sha256', 'completed overview run'),
+            'execution_options' => [],
+            'recipient_count' => 1,
+            'accepted_count' => 1,
+            'next_position' => 2,
+        ]);
+        $fixture['workspace']->campaigns()->create([
+            'created_by' => $fixture['owner']->getKey(),
+            'name' => 'Synthetic paused campaign',
+            'kind' => 'marketing',
+            'status' => 'draft',
+            'is_active' => false,
+            'idempotency_key' => (string) Str::uuid(),
+        ]);
+        $fixture['workspace']->campaigns()->create([
+            'created_by' => $fixture['owner']->getKey(),
+            'name' => 'Synthetic preparation issue',
+            'kind' => 'marketing',
+            'status' => 'snapshot_failed',
+            'idempotency_key' => (string) Str::uuid(),
+        ]);
+        $otherOwner = User::factory()->create();
+        $fixture['workspace']->users()->attach($otherOwner->getKey(), ['role' => 'operator']);
+        $fixture['workspace']->campaigns()->create([
+            'created_by' => $otherOwner->getKey(),
+            'name' => 'Synthetic other user campaign',
+            'kind' => 'marketing',
+            'status' => 'draft',
+            'idempotency_key' => (string) Str::uuid(),
+        ]);
+
+        $this->actingAs($fixture['owner'])->get(route('console.campaigns.index', [
+            $fixture['workspace']->getKey(),
+            'from' => today()->toDateString(),
+            'to' => today()->toDateString(),
+        ]))
+            ->assertOk()
+            ->assertSee('<strong data-campaign-overview-value="total">3</strong>', false)
+            ->assertSee('<strong data-campaign-overview-value="active">2</strong>', false)
+            ->assertSee('<strong data-campaign-overview-value="paused">1</strong>', false)
+            ->assertSee('<strong data-campaign-overview-value="completed">1</strong>', false)
+            ->assertSee('<strong data-campaign-overview-value="issues">1</strong>', false)
+            ->assertDontSee('Synthetic other user campaign');
     }
 
     public function test_campaign_unique_actions_deduplicate_the_same_contact_across_sends(): void
@@ -618,7 +739,7 @@ class WorkspaceCampaignStatisticsTest extends TestCase
     }
 
     /** @return array<string, mixed> */
-    private function campaignFixture(?User $owner = null, ?Workspace $workspace = null, string $campaignName = 'Synthetic statistics campaign'): array
+    private function campaignFixture(?User $owner = null, ?Workspace $workspace = null, string $campaignName = 'Synthetic statistics campaign', string $contactEmail = 'synthetic-statistics@example.test'): array
     {
         $owner ??= User::factory()->create();
         $workspace ??= $this->workspace($owner, 'owner');
@@ -646,8 +767,8 @@ class WorkspaceCampaignStatisticsTest extends TestCase
             'request_fingerprint' => hash('sha256', 'statistics list '.Str::random(8)), 'isp_id' => $isp->getKey(),
         ]);
         $contact = Contact::query()->create([
-            'workspace_id' => $workspace->getKey(), 'email' => 'synthetic-statistics@example.test',
-            'email_lookup_hash' => hash('sha256', 'synthetic-statistics@example.test'),
+            'workspace_id' => $workspace->getKey(), 'email' => $contactEmail,
+            'email_lookup_hash' => hash('sha256', $contactEmail),
             'lookup_key_version' => 1, 'status' => 'active', 'idempotency_key' => (string) Str::uuid(),
         ]);
         $campaign = Campaign::query()->create([

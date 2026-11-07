@@ -37,7 +37,7 @@ class AlphaLinkCampaignSendNavigationTest extends TestCase
             ->assertSee('aria-current="page"', false)
             ->assertSee('fas fa-envelope', false)
             ->assertSee('My campaigns')
-            ->assertSee('aria-label="Create campaign"', false)
+            ->assertSee('title="Create campaign"', false)
             ->assertSee('SHOW DISABLED')
             ->assertSee('Show 50 rows')
             ->assertSee('aria-label="New test message"', false)
@@ -48,6 +48,15 @@ class AlphaLinkCampaignSendNavigationTest extends TestCase
             ->assertSee('SLEEP IP')
             ->assertSee('SEND TYPE')
             ->assertSee('PROGRESS')
+            ->assertSee('Total Campaigns')
+            ->assertSee('Enabled for launch')
+            ->assertSee('Completed send runs')
+            ->assertSee('Campaign Analytics')
+            ->assertSee('Engagement Over Time')
+            ->assertSee('Soft Bounces')
+            ->assertSee('campaign-overview')
+            ->assertSee('data-campaign-series="opens"', false)
+            ->assertSee('data-campaign-statistics-toggle', false)
             ->assertSee('Active sends')
             ->assertSee('No data available in table')
             ->assertDontSee('recipient suppression snapshot is built when a campaign draft is saved')
@@ -130,12 +139,28 @@ class AlphaLinkCampaignSendNavigationTest extends TestCase
             'idempotency_key' => Str::random(24),
         ]);
 
-        $this->actingAs($owner)
+        $response = $this->actingAs($owner)
             ->get(route('console.campaigns.index', $workspace->getKey()))
             ->assertOk()
             ->assertSee('Visible synthetic campaign')
             ->assertDontSee('Foreign synthetic campaign')
             ->assertDontSee('Other owner synthetic campaign');
+
+        $response->assertSee('role="group" aria-label="Actions for Visible synthetic campaign"', false);
+        $this->assertSame(8, substr_count($response->getContent(), 'class="btn btn-link btn-sm campaign-register-icon-action'));
+        $response->assertSee('grid-template-columns: repeat(4, 30px)', false);
+        foreach ([
+            'fas fa-eye',
+            'fas fa-history',
+            'far fa-paper-plane',
+            'fas fa-edit',
+            'fas fa-list',
+            'fas fa-chart-bar',
+            'fas fa-clone',
+            'fas fa-trash',
+        ] as $campaignActionIcon) {
+            $response->assertSee($campaignActionIcon, false);
+        }
 
         $otherCampaign = $workspace->campaigns()->where('name', 'Other owner synthetic campaign')->firstOrFail();
         $this->actingAs($owner)
@@ -170,7 +195,7 @@ class AlphaLinkCampaignSendNavigationTest extends TestCase
             ->assertOk()
             ->assertSee($recent->name)
             ->assertDontSee($historical->name)
-            ->assertSee('Date:')
+            ->assertSee('Date')
             ->assertSee('Showing 1 to 1 of 1 campaigns in the selected date range.');
 
         $this->get($url.'?'.http_build_query([

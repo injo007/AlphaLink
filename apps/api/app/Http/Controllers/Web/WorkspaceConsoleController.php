@@ -117,6 +117,36 @@ class WorkspaceConsoleController extends Controller
             ->whereHas('campaign', fn ($query) => $query->where('created_by', $request->user()->getKey()))
             ->count();
 
+        $campaignOverviewRow = DB::table('campaigns as campaign')
+            ->where('campaign.workspace_id', $workspace->getKey())
+            ->where('campaign.created_by', $request->user()->getKey())
+            ->whereIn('campaign.kind', ['marketing', 'transactional'])
+            ->whereBetween('campaign.created_at', [$from, $to])
+            ->when($search !== '', function ($query) use ($search): void {
+                $query->where(function ($query) use ($search): void {
+                    $query->where('campaign.name', 'like', '%'.$search.'%')
+                        ->orWhere('campaign.kind', 'like', '%'.$search.'%')
+                        ->orWhere('campaign.status', 'like', '%'.$search.'%');
+
+                    if (preg_match('/^[0-9a-f-]{8,36}$/i', $search) === 1) {
+                        $query->orWhere('campaign.id', $search);
+                    }
+                });
+            })
+            ->selectRaw('COUNT(*) AS total')
+            ->selectRaw('COALESCE(SUM(CASE WHEN campaign.is_active THEN 1 ELSE 0 END), 0) AS active')
+            ->selectRaw('COALESCE(SUM(CASE WHEN NOT campaign.is_active THEN 1 ELSE 0 END), 0) AS paused')
+            ->selectRaw("COALESCE(SUM(CASE WHEN EXISTS (SELECT 1 FROM campaign_send_runs AS runs WHERE runs.workspace_id = campaign.workspace_id AND runs.campaign_id = campaign.id AND runs.state = 'completed') THEN 1 ELSE 0 END), 0) AS completed")
+            ->selectRaw("COALESCE(SUM(CASE WHEN campaign.status = 'snapshot_failed' OR EXISTS (SELECT 1 FROM campaign_send_runs AS runs WHERE runs.workspace_id = campaign.workspace_id AND runs.campaign_id = campaign.id AND runs.state IN ('failed', 'needs_review')) THEN 1 ELSE 0 END), 0) AS issues")
+            ->first();
+        $campaignOverview = [
+            'total' => (int) $campaignOverviewRow->total,
+            'active' => (int) $campaignOverviewRow->active,
+            'paused' => (int) $campaignOverviewRow->paused,
+            'completed' => (int) $campaignOverviewRow->completed,
+            'issues' => (int) $campaignOverviewRow->issues,
+        ];
+
         $campaignQuery = $workspace->campaigns()
             ->with('latestRevision')
             ->where('created_by', $request->user()->getKey())
@@ -225,7 +255,7 @@ class WorkspaceConsoleController extends Controller
             return $campaign;
         });
 
-        return view('console.campaigns.index', compact('workspace', 'campaigns', 'from', 'to', 'search', 'showDisabled', 'perPage', 'activeOnly', 'activeSendCount'));
+        return view('console.campaigns.index', compact('workspace', 'campaigns', 'from', 'to', 'search', 'showDisabled', 'perPage', 'activeOnly', 'activeSendCount', 'campaignOverview'));
     }
 
     public function createCampaign(Request $request, string $workspace, AlphaLinkCampaignSendCatalog $catalog): View

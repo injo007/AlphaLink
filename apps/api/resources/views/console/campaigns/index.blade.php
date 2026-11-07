@@ -13,6 +13,7 @@
                     <p>Review campaigns, delivery progress, and send readiness.</p>
                 </div>
             </div>
+            <span class="campaign-hero-illustration" aria-hidden="true"><i class="fas fa-paper-plane"></i></span>
             <div class="block-options d-flex align-items-center">
                 <form method="GET" action="{{ route('console.campaigns.index', $workspace->id) }}" aria-label="Campaign availability filter">
                     <input type="hidden" name="from" value="{{ $from->toDateString() }}">
@@ -46,6 +47,31 @@
                 </div>
             @endif
             <div id="campaign-auto-test-feedback" class="alert d-none" role="status" aria-live="polite"></div>
+
+            <div class="campaign-workspace-grid">
+                <main class="campaign-register-main" aria-label="Campaign operations">
+                    <section class="campaign-overview" aria-label="Campaign overview">
+                        <article class="campaign-overview-card campaign-overview-total">
+                            <span class="campaign-overview-icon" aria-hidden="true"><i class="fas fa-paper-plane"></i></span>
+                            <span class="campaign-overview-copy"><span>Total Campaigns</span><strong data-campaign-overview-value="total">{{ number_format($campaignOverview['total']) }}</strong><small>In selected date range</small></span>
+                        </article>
+                        <article class="campaign-overview-card campaign-overview-active" title="Active means enabled and available to launch; active send runs are shown separately.">
+                            <span class="campaign-overview-icon" aria-hidden="true"><i class="fas fa-play"></i></span>
+                            <span class="campaign-overview-copy"><span>Active</span><strong data-campaign-overview-value="active">{{ number_format($campaignOverview['active']) }}</strong><small>Enabled for launch</small></span>
+                        </article>
+                        <article class="campaign-overview-card campaign-overview-paused">
+                            <span class="campaign-overview-icon" aria-hidden="true"><i class="fas fa-pause"></i></span>
+                            <span class="campaign-overview-copy"><span>Paused</span><strong data-campaign-overview-value="paused">{{ number_format($campaignOverview['paused']) }}</strong><small>Disabled campaigns</small></span>
+                        </article>
+                        <article class="campaign-overview-card campaign-overview-completed" title="Counts campaigns with a completed send run in the selected date range.">
+                            <span class="campaign-overview-icon" aria-hidden="true"><i class="fas fa-check"></i></span>
+                            <span class="campaign-overview-copy"><span>Completed</span><strong data-campaign-overview-value="completed">{{ number_format($campaignOverview['completed']) }}</strong><small>Completed send runs</small></span>
+                        </article>
+                        <article class="campaign-overview-card campaign-overview-issues" title="Includes failed or review-required sends and failed recipient preparation.">
+                            <span class="campaign-overview-icon" aria-hidden="true"><i class="fas fa-exclamation-triangle"></i></span>
+                            <span class="campaign-overview-copy"><span>Issues</span><strong data-campaign-overview-value="issues">{{ number_format($campaignOverview['issues']) }}</strong><small>Failed or needs review</small></span>
+                        </article>
+                    </section>
 
             <div class="d-flex flex-wrap align-items-center justify-content-between mb-2 campaign-register-toolbar">
                 <div class="d-flex align-items-center campaign-register-actions">
@@ -178,7 +204,7 @@
                                             <a class="btn btn-link btn-sm campaign-register-icon-action" href="{{ route('console.campaigns.edit', [$workspace->id, $campaign->id]) }}" title="Edit campaign" aria-label="Edit {{ $campaign->name }}"><i class="fas fa-edit" aria-hidden="true"></i></a>
                                         @endif
                                         <button type="button" class="btn btn-link btn-sm campaign-register-icon-action" disabled title="Editing selected IPs is not implemented in AlphaLink." aria-label="Edit IPs unavailable for {{ $campaign->name }}"><i class="fas fa-list" aria-hidden="true"></i></button>
-                                        <button type="button" class="btn btn-link btn-sm campaign-register-icon-action" data-campaign-statistics-toggle aria-expanded="false" aria-controls="campaign-statistics-{{ $campaign->id }}" data-statistics-url="{{ route('console.campaign-statistics.index', [$workspace->id, 'campaign_id' => $campaign->id, 'from' => $from->toDateString(), 'to' => $to->toDateString(), 'inline' => 1]) }}" title="Show campaign statistics" aria-label="Show statistics for {{ $campaign->name }}"><i class="fas fa-chart-bar" aria-hidden="true"></i></button>
+                                        <button type="button" class="btn btn-link btn-sm campaign-register-icon-action" data-campaign-statistics-toggle data-campaign-id="{{ $campaign->id }}" aria-expanded="false" aria-controls="campaign-statistics-{{ $campaign->id }}" data-statistics-url="{{ route('console.campaign-statistics.index', [$workspace->id, 'campaign_id' => $campaign->id, 'from' => $from->toDateString(), 'to' => $to->toDateString(), 'inline' => 1]) }}" title="Show campaign statistics and focus analytics" aria-label="Show statistics for {{ $campaign->name }}"><i class="fas fa-chart-bar" aria-hidden="true"></i></button>
                                         @if ($campaign->kind === 'marketing' && ($register['configured'] ?? false))
                                             <a class="btn btn-link btn-sm campaign-register-icon-action" href="{{ route('console.campaigns.clone', [$workspace->id, $campaign->id]) }}" data-campaign-clone-open title="Clone campaign" aria-label="Clone {{ $campaign->name }}" aria-haspopup="dialog"><i class="fas fa-clone" aria-hidden="true"></i></a>
                                         @else
@@ -275,6 +301,61 @@
 
             <div class="d-flex justify-content-end mt-2">{{ $campaigns->links() }}</div>
             <p class="text-muted small mb-0">Showing {{ $campaigns->firstItem() ?? 0 }} to {{ $campaigns->lastItem() ?? 0 }} of {{ $campaigns->total() }} campaigns in the selected date range.</p>
+                </main>
+
+                <aside class="campaign-intelligence" aria-label="Campaign intelligence">
+                    <section class="campaign-intelligence-card campaign-analytics-card" data-campaign-analytics data-aggregate-url="{{ route('console.campaign-statistics.index', [$workspace->id, 'from' => $from->toDateString(), 'to' => $to->toDateString(), 'register' => 1]) }}">
+                        <header class="campaign-intelligence-heading">
+                            <span class="campaign-intelligence-heading-icon" aria-hidden="true"><i class="fas fa-chart-bar"></i></span>
+                            <div><h2>Campaign Analytics</h2><p>Attributed engagement for the selected period</p></div>
+                            <label class="sr-only" for="campaign-analytics-select">Choose campaign analytics</label>
+                            <select id="campaign-analytics-select" class="campaign-analytics-select" aria-label="Choose campaign analytics">
+                                <option value="all">All campaigns</option>
+                                @foreach ($campaigns as $analyticsCampaign)
+                                    <option value="{{ $analyticsCampaign->id }}" data-name="{{ $analyticsCampaign->name }}" data-id="{{ substr($analyticsCampaign->id, 0, 8) }}" data-offer="{{ $analyticsCampaign->send_register['offer'] ?? '—' }}" data-isp="{{ $analyticsCampaign->send_register['isp'] ?? '—' }}" data-server="{{ implode(', ', $analyticsCampaign->send_register['servers'] ?? []) ?: '—' }}" data-send-type="{{ strtoupper($analyticsCampaign->send_register['send_type'] ?? '—') }}" data-send-state="{{ strtoupper(str_replace('_', ' ', $analyticsCampaign->send_run?->state ?? $analyticsCampaign->status)) }}" data-total-send="{{ $analyticsCampaign->send_register['total_send'] ?? '—' }}" data-created="{{ $analyticsCampaign->created_at?->format('M j, Y') ?? '—' }}">{{ $analyticsCampaign->name }}</option>
+                                @endforeach
+                            </select>
+                        </header>
+                        <div class="campaign-analytics-period"><i class="far fa-calendar-alt" aria-hidden="true"></i><span>{{ $from->format('M j, Y') }} – {{ $to->format('M j, Y') }}</span></div>
+                        <div class="campaign-analytics-metrics" aria-live="polite">
+                            <article class="campaign-analytics-metric metric-opens"><span class="metric-icon" aria-hidden="true"><i class="far fa-envelope"></i></span><span><small>Opens</small><strong data-campaign-metric="opens">—</strong></span></article>
+                            <article class="campaign-analytics-metric metric-clicks"><span class="metric-icon" aria-hidden="true"><i class="fas fa-mouse-pointer"></i></span><span><small>Clicks</small><strong data-campaign-metric="clicks">—</strong></span></article>
+                            <article class="campaign-analytics-metric metric-leads"><span class="metric-icon" aria-hidden="true"><i class="fas fa-users"></i></span><span><small>Leads</small><strong data-campaign-metric="leads">—</strong></span></article>
+                            <article class="campaign-analytics-metric metric-unsubscribes"><span class="metric-icon" aria-hidden="true"><i class="fas fa-user-minus"></i></span><span><small>Unsubs</small><strong data-campaign-metric="unsubscribes">—</strong></span></article>
+                            <article class="campaign-analytics-metric metric-bounces"><span class="metric-icon" aria-hidden="true"><i class="fas fa-exclamation-triangle"></i></span><span><small>Bounces</small><strong data-campaign-metric="bounces">—</strong></span></article>
+                            <article class="campaign-analytics-metric metric-soft-bounces"><span class="metric-icon" aria-hidden="true"><i class="fas fa-layer-group"></i></span><span><small>Soft Bounces</small><strong data-campaign-metric="soft_bounces">—</strong></span></article>
+                        </div>
+                        <div class="campaign-chart-heading">
+                            <h3>Engagement Over Time</h3>
+                            <div class="campaign-chart-tabs" role="group" aria-label="Engagement chart metric">
+                                <button type="button" data-campaign-series="opens" aria-pressed="true">Opens</button>
+                                <button type="button" data-campaign-series="clicks" aria-pressed="false">Clicks</button>
+                                <button type="button" data-campaign-series="leads" aria-pressed="false">Leads</button>
+                            </div>
+                        </div>
+                        <div class="campaign-engagement-chart" data-campaign-engagement-chart role="img" aria-label="Campaign opens over time"></div>
+                        <p class="campaign-analytics-status" data-campaign-analytics-status role="status" aria-live="polite">Loading campaign activity…</p>
+                        <p class="campaign-analytics-coverage">Unique tracked engagement, attributed conversions, and imported PMTA bounce feedback.</p>
+                    </section>
+
+                    <section class="campaign-intelligence-card campaign-information-card" aria-labelledby="campaign-information-title">
+                        <header class="campaign-intelligence-heading campaign-information-heading">
+                            <span class="campaign-intelligence-heading-icon" aria-hidden="true"><i class="fas fa-info-circle"></i></span>
+                            <div><h2 id="campaign-information-title">Campaign Information</h2><p data-campaign-info-name>All campaigns</p></div>
+                        </header>
+                        <dl class="campaign-information-grid">
+                            <div><dt><i class="fas fa-fingerprint" aria-hidden="true"></i>Campaign ID</dt><dd data-campaign-info="id">All</dd></div>
+                            <div><dt><i class="fas fa-calendar-alt" aria-hidden="true"></i>Created</dt><dd data-campaign-info="created">—</dd></div>
+                            <div><dt><i class="fas fa-tag" aria-hidden="true"></i>Offer</dt><dd data-campaign-info="offer">—</dd></div>
+                            <div><dt><i class="fas fa-paper-plane" aria-hidden="true"></i>Send type</dt><dd data-campaign-info="send-type">—</dd></div>
+                            <div><dt><i class="fas fa-globe" aria-hidden="true"></i>ISP</dt><dd data-campaign-info="isp">—</dd></div>
+                            <div><dt><i class="fas fa-server" aria-hidden="true"></i>Server</dt><dd data-campaign-info="server">—</dd></div>
+                            <div><dt><i class="fas fa-users" aria-hidden="true"></i>Total to send</dt><dd data-campaign-info="total-send">—</dd></div>
+                            <div><dt><i class="fas fa-wave-square" aria-hidden="true"></i>Latest status</dt><dd data-campaign-info="send-state">—</dd></div>
+                        </dl>
+                    </section>
+                </aside>
+            </div>
         </div>
     </div>
 
@@ -336,6 +417,65 @@
 @push('styles')
     <link rel="stylesheet" href="{{ asset('console-assets/vendor/daterangepicker/daterangepicker.css') }}">
     <style>
+        body.command-os-shell .campaign-register-page-header { position: relative; isolation: isolate; overflow: hidden; min-height: 124px; background: linear-gradient(105deg, color-mix(in srgb, var(--co-purple) 9%, var(--co-surface)), var(--co-surface) 52%, color-mix(in srgb, var(--co-blue) 8%, var(--co-surface))); }
+        body.command-os-shell .campaign-register-page-header::before { position: absolute; z-index: -1; inset: -65% -5% -55% 28%; border-radius: 50%; background: radial-gradient(ellipse at 52% 50%, color-mix(in srgb, var(--co-purple-bright) 22%, transparent), transparent 57%), radial-gradient(ellipse at 73% 54%, color-mix(in srgb, var(--co-blue) 22%, transparent), transparent 48%); content: ""; animation: campaign-hero-glow 9s ease-in-out infinite alternate; }
+        body.command-os-shell .campaign-register-page-header::after { position: absolute; z-index: -1; right: -5%; bottom: -42px; left: 30%; height: 94px; border-top: 1px solid color-mix(in srgb, var(--co-purple) 18%, transparent); border-radius: 50% 50% 0 0; background: linear-gradient(180deg, color-mix(in srgb, var(--co-purple) 7%, transparent), transparent 78%); content: ""; transform: rotate(-2deg); animation: campaign-hero-wave 12s ease-in-out infinite alternate; }
+        .campaign-hero-illustration { position: absolute; z-index: -1; top: 23px; right: 17%; display: grid; width: 94px; height: 72px; place-items: center; color: color-mix(in srgb, var(--co-purple) 60%, var(--co-blue)); filter: drop-shadow(0 12px 13px color-mix(in srgb, var(--co-purple) 28%, transparent)); opacity: .42; transform: rotate(-15deg); }
+        .campaign-hero-illustration i { font-size: 58px; }
+        @keyframes campaign-hero-glow { from { transform: translateX(-1.5%) scale(.98); } to { transform: translateX(1.5%) scale(1.03); } }
+        @keyframes campaign-hero-wave { from { transform: translateX(-1%) rotate(-2deg); } to { transform: translateX(1%) rotate(1deg); } }
+        .campaign-workspace-grid { display: grid; grid-template-columns: minmax(0, 2.05fr) minmax(350px, 1fr); align-items: start; gap: 14px; }
+        .campaign-register-main { min-width: 0; }
+        .campaign-intelligence { display: grid; gap: 12px; min-width: 0; }
+        .campaign-overview { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 9px; margin: 1px 0 13px; }
+        .campaign-overview-card { display: flex; align-items: center; gap: 9px; min-width: 0; min-height: 83px; padding: 10px; border: 1px solid var(--co-border); border-radius: 13px; background: linear-gradient(145deg, color-mix(in srgb, var(--co-purple) 4%, var(--co-surface)), var(--co-surface)); box-shadow: 0 5px 16px color-mix(in srgb, var(--co-purple) 7%, transparent); }
+        .campaign-overview-icon { display: grid; flex: 0 0 38px; width: 38px; height: 38px; place-items: center; border: 1px solid color-mix(in srgb, currentColor 14%, transparent); border-radius: 50%; color: var(--co-purple); background: color-mix(in srgb, var(--co-purple) 11%, var(--co-surface)); font-size: 15px; }
+        .campaign-overview-copy { display: grid; gap: 1px; min-width: 0; }
+        .campaign-overview-copy > span { overflow: hidden; color: var(--co-muted); font-size: 9px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+        .campaign-overview-copy strong { color: var(--co-ink); font-size: 20px; font-weight: 800; line-height: 1.15; font-variant-numeric: tabular-nums; }
+        .campaign-overview-copy small { overflow: hidden; color: var(--co-subtle); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+        .campaign-overview-active .campaign-overview-icon { color: #0ea66d; background: color-mix(in srgb, #16bd82 12%, var(--co-surface)); }
+        .campaign-overview-paused .campaign-overview-icon { color: #964cf3; background: color-mix(in srgb, #964cf3 11%, var(--co-surface)); }
+        .campaign-overview-completed .campaign-overview-icon { color: #168bf0; background: color-mix(in srgb, #168bf0 11%, var(--co-surface)); }
+        .campaign-overview-issues .campaign-overview-icon { color: #ec4869; background: color-mix(in srgb, #ec4869 11%, var(--co-surface)); }
+        .campaign-intelligence-card { overflow: hidden; border: 1px solid var(--co-border); border-radius: 15px; color: var(--co-ink); background: linear-gradient(145deg, var(--co-surface), color-mix(in srgb, var(--co-purple) 3%, var(--co-surface))); box-shadow: var(--co-shadow); }
+        .campaign-intelligence-heading { display: flex; align-items: center; gap: 9px; min-width: 0; padding: 12px 13px 10px; border-bottom: 1px solid var(--co-border); }
+        .campaign-intelligence-heading-icon { display: grid; flex: 0 0 32px; width: 32px; height: 32px; place-items: center; border: 1px solid color-mix(in srgb, var(--co-purple) 18%, var(--co-border)); border-radius: 10px; color: var(--co-purple); background: color-mix(in srgb, var(--co-purple) 9%, var(--co-surface)); font-size: 14px; }
+        .campaign-intelligence-heading > div { min-width: 0; }
+        .campaign-intelligence-heading h2 { margin: 0; color: var(--co-ink); font-size: 13px; font-weight: 800; letter-spacing: -.02em; }
+        .campaign-intelligence-heading p { overflow: hidden; margin: 3px 0 0; color: var(--co-muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+        .campaign-analytics-select { flex: 0 1 145px; min-width: 94px; height: 32px; margin-left: auto; padding: 0 8px; border: 1px solid var(--co-border-strong); border-radius: 9px; color: var(--co-ink); background: var(--co-surface); font-size: 9px; }
+        .campaign-analytics-period { display: flex; align-items: center; gap: 7px; margin: 10px 12px; color: var(--co-muted); font-size: 9px; }
+        .campaign-analytics-period i { color: var(--co-purple); }
+        .campaign-analytics-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; padding: 0 11px 11px; }
+        .campaign-analytics-metric { display: flex; align-items: center; gap: 7px; min-width: 0; min-height: 58px; padding: 8px; border: 1px solid color-mix(in srgb, var(--co-border) 86%, transparent); border-radius: 11px; background: color-mix(in srgb, var(--co-surface) 92%, var(--co-purple) 8%); }
+        .campaign-analytics-metric .metric-icon { display: grid; flex: 0 0 30px; width: 30px; height: 30px; place-items: center; border-radius: 50%; color: #803cfa; background: color-mix(in srgb, #9a55ff 13%, var(--co-surface)); font-size: 12px; }
+        .campaign-analytics-metric > span:last-child { display: grid; min-width: 0; }
+        .campaign-analytics-metric small { color: var(--co-muted); font-size: 8px; font-weight: 700; white-space: nowrap; }
+        .campaign-analytics-metric strong { overflow: hidden; color: var(--co-ink); font-size: 15px; font-weight: 800; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+        .campaign-analytics-metric.metric-clicks .metric-icon { color: #168bef; background: color-mix(in srgb, #168bef 12%, var(--co-surface)); }
+        .campaign-analytics-metric.metric-leads .metric-icon { color: #9a42ec; background: color-mix(in srgb, #9a42ec 12%, var(--co-surface)); }
+        .campaign-analytics-metric.metric-unsubscribes .metric-icon { color: #d34395; background: color-mix(in srgb, #d34395 12%, var(--co-surface)); }
+        .campaign-analytics-metric.metric-bounces .metric-icon { color: #e84a69; background: color-mix(in srgb, #e84a69 12%, var(--co-surface)); }
+        .campaign-analytics-metric.metric-soft-bounces .metric-icon { color: #824be6; background: color-mix(in srgb, #824be6 12%, var(--co-surface)); }
+        .campaign-chart-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 0 12px 8px; }
+        .campaign-chart-heading h3 { margin: 0; color: var(--co-ink); font-size: 11px; font-weight: 800; }
+        .campaign-chart-tabs { display: inline-flex; gap: 3px; padding: 3px; border: 1px solid var(--co-border); border-radius: 10px; background: var(--co-surface-muted); }
+        .campaign-chart-tabs button { min-height: 25px; padding: 0 9px; border: 0; border-radius: 7px; color: var(--co-muted); background: transparent; font-size: 8px; font-weight: 750; cursor: pointer; }
+        .campaign-chart-tabs button[aria-pressed="true"] { color: #fff; background: linear-gradient(110deg, var(--co-purple-bright), var(--co-purple)); box-shadow: 0 3px 8px color-mix(in srgb, var(--co-purple) 22%, transparent); }
+        .campaign-chart-tabs button:focus-visible,
+        .campaign-analytics-select:focus-visible { outline: 2px solid var(--co-purple); outline-offset: 2px; }
+        .campaign-engagement-chart { width: 100%; height: 188px; }
+        .campaign-analytics-status { min-height: 15px; margin: -2px 12px 5px; color: var(--co-muted); font-size: 8px; }
+        .campaign-analytics-status:empty { display: none; }
+        .campaign-analytics-coverage { margin: 0; padding: 9px 12px 11px; border-top: 1px solid var(--co-border); color: var(--co-subtle); font-size: 8px; line-height: 1.5; }
+        .campaign-information-heading { border-bottom: 0; }
+        .campaign-information-heading p { color: var(--co-purple); font-weight: 750; }
+        .campaign-information-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; margin: 0; padding: 0 13px 13px; }
+        .campaign-information-grid > div { display: grid; grid-template-columns: minmax(78px, .8fr) minmax(0, 1.2fr); align-items: center; gap: 6px; min-width: 0; padding: 9px 0; border-top: 1px solid color-mix(in srgb, var(--co-border) 76%, transparent); }
+        .campaign-information-grid dt { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--co-muted); font-size: 8px; font-weight: 700; }
+        .campaign-information-grid dt i { color: var(--co-purple); }
+        .campaign-information-grid dd { overflow: hidden; margin: 0; color: var(--co-ink); font-size: 8px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
         body.command-os-shell .campaign-register-page {
             margin: 0 0 18px;
             overflow: hidden;
@@ -344,6 +484,12 @@
             color: var(--co-ink);
             background: var(--co-surface);
             box-shadow: var(--co-shadow);
+            --campaign-action-danger: #cf4054;
+            --campaign-action-success: #15845e;
+        }
+        html[data-command-theme='dark'] body.command-os-shell .campaign-register-page {
+            --campaign-action-danger: #ff8497;
+            --campaign-action-success: #62ddb1;
         }
         body.command-os-shell .campaign-register-page-header {
             align-items: center;
@@ -455,13 +601,15 @@
         .campaign-register-table [data-campaign-column="campaign"] .small { display: block; max-width: 170px; margin-top: 3px; color: var(--co-muted) !important; font-size: 9px; line-height: 1.4; }
         .campaign-register-table [data-campaign-column="actions"] { min-width: 142px; }
         .campaign-register-row-actions { display: grid; grid-template-columns: repeat(4, 30px); gap: 4px; justify-content: start; width: max-content; max-width: 100%; }
-        .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action { display: inline-flex; align-items: center; justify-content: center; width: 30px; min-width: 30px; height: 30px; min-height: 30px; margin: 0; padding: 0; border: 1px solid rgb(139 83 236 / 18%); border-radius: 9px; color: #7837ef; background: linear-gradient(145deg, #f0e6ff, #e7edff); box-shadow: 0 2px 5px rgb(79 53 157 / 7%); text-decoration: none; transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease, background .16s ease; }
+        .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action { display: inline-flex; align-items: center; justify-content: center; width: 30px; min-width: 30px; height: 30px; min-height: 30px; margin: 0; padding: 0; border: 1px solid color-mix(in srgb, var(--co-purple) 24%, var(--co-border)); border-radius: 9px; color: var(--co-purple); background: linear-gradient(145deg, color-mix(in srgb, var(--co-purple) 13%, var(--co-surface)), color-mix(in srgb, var(--co-blue) 9%, var(--co-surface))); box-shadow: 0 2px 6px color-mix(in srgb, var(--co-purple) 12%, transparent); cursor: pointer; text-decoration: none; transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease, background .16s ease; }
         .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action i { color: currentColor; font-size: 12px; line-height: 1; }
-        .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action:hover:not(:disabled) { border-color: rgb(120 55 239 / 48%); color: #6123c8; background: linear-gradient(145deg, #e6d5ff, #dce7ff); box-shadow: 0 4px 10px rgb(97 35 200 / 16%); transform: translateY(-1px); }
+        .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action:hover:not(:disabled) { border-color: color-mix(in srgb, var(--co-purple) 54%, var(--co-border)); color: var(--co-purple-bright); background: linear-gradient(145deg, color-mix(in srgb, var(--co-purple) 22%, var(--co-surface)), color-mix(in srgb, var(--co-blue) 16%, var(--co-surface))); box-shadow: 0 4px 10px color-mix(in srgb, var(--co-purple) 20%, transparent); transform: translateY(-1px); }
         .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action:focus-visible { outline: 3px solid color-mix(in srgb, var(--co-purple) 32%, transparent); outline-offset: 2px; }
         .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action:disabled { cursor: not-allowed; opacity: .48; box-shadow: none; }
-        .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action-danger { color: #e5485d; background: linear-gradient(145deg, #fff0f2, #fce8ef); border-color: rgb(229 72 93 / 18%); }
-        .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action-success { color: #139768; background: linear-gradient(145deg, #e8fff5, #e5f5ff); border-color: rgb(19 151 104 / 18%); }
+        .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action-danger { color: var(--campaign-action-danger); background: linear-gradient(145deg, color-mix(in srgb, var(--campaign-action-danger) 12%, var(--co-surface)), color-mix(in srgb, var(--campaign-action-danger) 7%, var(--co-surface))); border-color: color-mix(in srgb, var(--campaign-action-danger) 28%, var(--co-border)); }
+        .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action-danger:hover:not(:disabled) { color: var(--campaign-action-danger); background: linear-gradient(145deg, color-mix(in srgb, var(--campaign-action-danger) 19%, var(--co-surface)), color-mix(in srgb, var(--campaign-action-danger) 12%, var(--co-surface))); border-color: color-mix(in srgb, var(--campaign-action-danger) 50%, var(--co-border)); }
+        .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action-success { color: var(--campaign-action-success); background: linear-gradient(145deg, color-mix(in srgb, var(--campaign-action-success) 12%, var(--co-surface)), color-mix(in srgb, var(--co-blue) 7%, var(--co-surface))); border-color: color-mix(in srgb, var(--campaign-action-success) 28%, var(--co-border)); }
+        .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action-success:hover:not(:disabled) { color: var(--campaign-action-success); background: linear-gradient(145deg, color-mix(in srgb, var(--campaign-action-success) 19%, var(--co-surface)), color-mix(in srgb, var(--co-blue) 12%, var(--co-surface))); border-color: color-mix(in srgb, var(--campaign-action-success) 50%, var(--co-border)); }
         @media (prefers-reduced-motion: reduce) {
             .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action { transition: none; }
             .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action:hover:not(:disabled) { transform: none; }
@@ -675,6 +823,26 @@
         html[data-command-theme='dark'] .campaign-register-table .badge-warning { color: #ffd591; background: rgb(209 126 20 / 22%); }
         html[data-command-theme='dark'] .campaign-register-table .badge-success { color: #75e4b4; background: rgb(25 173 116 / 20%); }
         html[data-command-theme='dark'] .campaign-register-table .badge-danger { color: #ff9eae; background: rgb(220 71 102 / 20%); }
+        @media (max-width: 1299.98px) {
+            .campaign-workspace-grid { grid-template-columns: minmax(0, 1fr); }
+            .campaign-intelligence { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+            .campaign-analytics-card { grid-row: span 2; }
+        }
+        @media (max-width: 767.98px) {
+            .campaign-register-page .campaign-register-page-header { min-height: 115px; }
+            .campaign-hero-illustration { top: 20px; right: 7%; transform: rotate(-15deg) scale(.8); }
+            .campaign-workspace-grid { gap: 12px; }
+            .campaign-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .campaign-overview-card { min-height: 74px; }
+            .campaign-overview-card:last-child { grid-column: 1 / -1; }
+            .campaign-intelligence { grid-template-columns: minmax(0, 1fr); }
+            .campaign-analytics-card { grid-row: auto; }
+            .campaign-information-grid { gap: 0 10px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            body.command-os-shell .campaign-register-page-header::before,
+            body.command-os-shell .campaign-register-page-header::after { animation: none; }
+        }
         @media (max-width: 1100px) {
             .campaign-register-toolbar { align-items: stretch !important; }
             .campaign-register-actions { flex: 1 1 100%; }
@@ -706,6 +874,7 @@
 @endpush
 
 @push('scripts')
+    @vite('resources/js/campaign-register.ts')
     <script src="{{ asset('console-assets/vendor/daterangepicker/daterangepicker.js') }}?v=3.1.0"></script>
     <script src="{{ asset('console-assets/analytics-date-range.js') }}?v={{ substr(sha1_file(public_path('console-assets/analytics-date-range.js')), 0, 12) }}" defer></script>
     <script src="{{ asset('console-assets/campaign-register-controls.js') }}?v={{ substr(sha1_file(public_path('console-assets/campaign-register-controls.js')), 0, 12) }}" defer></script>

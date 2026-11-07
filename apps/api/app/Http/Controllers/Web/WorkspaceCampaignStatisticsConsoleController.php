@@ -31,6 +31,7 @@ class WorkspaceCampaignStatisticsConsoleController extends Controller
             'isp_id' => ['nullable', 'integer', 'min:1'],
             'list_id' => ['nullable', 'uuid'],
             'inline' => ['sometimes', 'boolean'],
+            'register' => ['sometimes', 'boolean'],
         ]);
         $from = Carbon::parse($dates['from'] ?? today()->toDateString())->startOfDay();
         $to = Carbon::parse($dates['to'] ?? today()->toDateString())->endOfDay();
@@ -59,6 +60,23 @@ class WorkspaceCampaignStatisticsConsoleController extends Controller
         abort_if($selectedCampaignId !== '' && ! $campaigns->contains('id', $selectedCampaignId), 404);
         abort_if($selectedIspId !== '' && ! $isps->contains('id', (int) $selectedIspId), 404);
         abort_if($selectedListId !== '' && ! $lists->contains('id', $selectedListId), 404);
+
+        if ($request->boolean('register')) {
+            abort_if(! $request->expectsJson(), 400);
+            $registerCampaigns = Campaign::query()
+                ->where('workspace_id', $workspace->getKey())
+                ->where('created_by', $request->user()->getKey())
+                ->when($selectedCampaignId !== '', fn ($query) => $query->whereKey($selectedCampaignId));
+            abort_unless($selectedCampaignId === '' || $registerCampaigns->exists(), 404);
+
+            return response()->json($this->campaignRegisterSummary(
+                $workspace,
+                (int) $request->user()->getKey(),
+                $selectedCampaignId !== '' ? $selectedCampaignId : null,
+                $from,
+                $to,
+            ));
+        }
 
         if ($request->boolean('inline')) {
             abort_if(! $request->expectsJson() || $selectedCampaignId === '', 400);
@@ -248,6 +266,123 @@ class WorkspaceCampaignStatisticsConsoleController extends Controller
             static fn (string $key): int|float => $summary[$key],
             ['opens', 'clicks', 'leads', 'lead_revenue', 'unsubscribes', 'bots'],
         )) === 0 ? [] : [$summary];
+    }
+
+    /**
+     * Return privacy-safe daily campaign totals for the My Campaigns intelligence panel.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function campaignRegisterSummary(Workspace $workspace, int $userId, ?string $campaignId, Carbon $from, Carbon $to): array
+    {
+        $engagementRows = DB::table('campaign_engagement_unique_actions as unique_actions')
+            ->join('campaigns as c', function (JoinClause $join): void {
+                $join->on('c.id', '=', 'unique_actions.campaign_id')
+                    ->on('c.workspace_id', '=', 'unique_actions.workspace_id');
+            })
+            ->where('unique_actions.workspace_id', $workspace->getKey())
+            ->where('c.created_by', $userId)
+            ->when($campaignId !== null, fn ($query) => $query->where('unique_actions.campaign_id', $campaignId))
+            ->whereBetween('unique_actions.created_at', [$from, $to])
+            ->selectRaw('DATE(unique_actions.created_at) AS event_date')
+            ->selectRaw("SUM(CASE WHEN unique_actions.action = 'open' THEN 1 ELSE 0 END) AS opens")
+            ->selectRaw("SUM(CASE WHEN unique_actions.action = 'click' THEN 1 ELSE 0 END) AS clicks")
+            ->selectRaw("SUM(CASE WHEN unique_actions.action = 'unsubscribe' THEN 1 ELSE 0 END) AS unsubscribes")
+            ->groupByRaw('DATE(unique_actions.created_at)')
+            ->get();
+
+        $leadRows = DB::table('campaign_lead_conversions as conversions')
+            ->join('campaigns as c', function (JoinClause $join): void {
+                $join->on('c.id', '=', 'conversions.campaign_id')
+                    ->on('c.workspace_id', '=', 'conversions.workspace_id');
+            })
+            ->where('conversions.workspace_id', $workspace->getKey())
+            ->where('c.created_by', $userId)
+            ->when($campaignId !== null, fn ($query) => $query->where('conversions.campaign_id', $campaignId))
+            ->whereBetween('conversions.converted_at', [$from, $to])
+            ->selectRaw('DATE(conversions.converted_at) AS event_date, COUNT(*) AS leads, COALESCE(SUM(conversions.revenue), 0) AS lead_revenue')
+            ->groupByRaw('DATE(conversions.converted_at)')
+            ->get();
+
+        $feedbackRows = DB::table('workspace_pmta_feedback_events as feedback')
+            ->join('campaigns as c', function (JoinClause $join): void {
+                $join->on('c.id', '=', 'feedback.campaign_id')
+                    ->on('c.workspace_id', '=', 'feedback.workspace_id');
+            })
+            ->where('feedback.workspace_id', $workspace->getKey())
+            ->where('feedback.source_type', 'campaign')
+            ->where('c.created_by', $userId)
+            ->when($campaignId !== null, fn ($query) => $query->where('feedback.campaign_id', $campaignId))
+            ->whereBetween('feedback.at', [$from->toDateString(), $to->toDateString()])
+            ->selectRaw('feedback.at AS event_date')
+            ->selectRaw("SUM(CASE WHEN feedback.metric = 'soft_bounces' THEN 1 ELSE 0 END) AS soft_bounces")
+            ->selectRaw("SUM(CASE WHEN feedback.metric = 'hard_bounces' THEN 1 ELSE 0 END) AS hard_bounces")
+            ->groupBy('feedback.at')
+            ->get();
+
+        $daily = [];
+        foreach ($engagementRows as $row) {
+            $date = (string) $row->event_date;
+            $daily[$date] ??= $this->emptyCampaignRegisterDay($date);
+            foreach (['opens', 'clicks', 'unsubscribes'] as $metric) {
+                $daily[$date][$metric] = (int) $row->{$metric};
+            }
+        }
+        foreach ($leadRows as $row) {
+            $date = (string) $row->event_date;
+            $daily[$date] ??= $this->emptyCampaignRegisterDay($date);
+            $daily[$date]['leads'] = (int) $row->leads;
+            $daily[$date]['lead_revenue'] = (float) $row->lead_revenue;
+        }
+        foreach ($feedbackRows as $row) {
+            $date = (string) $row->event_date;
+            $daily[$date] ??= $this->emptyCampaignRegisterDay($date);
+            $daily[$date]['soft_bounces'] = (int) $row->soft_bounces;
+            $daily[$date]['hard_bounces'] = (int) $row->hard_bounces;
+            $daily[$date]['bounces'] = $daily[$date]['soft_bounces'] + $daily[$date]['hard_bounces'];
+        }
+
+        if ($daily === []) {
+            return [];
+        }
+
+        ksort($daily);
+        $summary = [
+            'opens' => 0,
+            'clicks' => 0,
+            'leads' => 0,
+            'lead_revenue' => 0.0,
+            'unsubscribes' => 0,
+            'soft_bounces' => 0,
+            'hard_bounces' => 0,
+            'bounces' => 0,
+        ];
+        foreach ($daily as $day) {
+            foreach ($summary as $metric => $value) {
+                $summary[$metric] += $day[$metric];
+            }
+        }
+
+        return [$summary + [
+            'timeline' => array_values($daily),
+            'coverage' => 'Unique tracked engagement and attributed conversions are combined with imported PMTA soft and hard bounce feedback. No recipient details are returned.',
+        ]];
+    }
+
+    /** @return array{date: string, opens: int, clicks: int, leads: int, lead_revenue: float, unsubscribes: int, soft_bounces: int, hard_bounces: int, bounces: int} */
+    private function emptyCampaignRegisterDay(string $date): array
+    {
+        return [
+            'date' => $date,
+            'opens' => 0,
+            'clicks' => 0,
+            'leads' => 0,
+            'lead_revenue' => 0.0,
+            'unsubscribes' => 0,
+            'soft_bounces' => 0,
+            'hard_bounces' => 0,
+            'bounces' => 0,
+        ];
     }
 
     /** @param Collection<int, object> $engagementRows

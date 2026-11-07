@@ -6,7 +6,7 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
     plugins: [
         laravel({
-            input: ['resources/css/app.css', 'resources/css/analytics-charts.css', 'resources/js/app.js', 'resources/css/command-os.css', 'resources/js/command-os.tsx'],
+            input: ['resources/css/app.css', 'resources/css/analytics-charts.css', 'resources/js/app.js', 'resources/css/command-os.css', 'resources/js/command-os.tsx', 'resources/js/campaign-register.ts'],
             refresh: true,
         }),
         react(),

@@ -92,15 +92,19 @@ AlphaLink should feel like a well-kept mail operations ledger: a contemporary co
 
 ### Command OS dashboard direction — 2026-11-06
 
-The user-approved Command OS dashboard reference uses a crisp operations-console palette: near-white and pale-lavender surfaces in light mode; midnight navy panels in dark mode; violet for the primary active state; and cyan/blue for measured activity. `resources/css/command-os.css` owns this dashboard-scoped token set (`--co-page`, `--co-surface`, `--co-border`, `--co-ink`, `--co-muted`, `--co-purple`, and `--co-blue`) and maps both modes through `html[data-command-theme='dark']`. Do not apply these tokens to unmigrated page families until their redesign phase.
+The user-approved Command OS dashboard reference uses a crisp operations-console palette: near-white and pale-lavender surfaces in light mode; midnight navy panels in dark mode; violet for the primary active state; and cyan/blue for measured activity. `resources/css/command-os.css` owns this token set (`--co-page`, `--co-surface`, `--co-border`, `--co-ink`, `--co-muted`, `--co-purple`, and `--co-blue`) and maps both modes through `html[data-command-theme='dark']`. The Dashboard and My Campaigns are approved Command OS surfaces; other page families keep their existing visual system until their redesign phase.
 
 The dashboard layout follows the supplied image: fixed navigation rail, compact command bar, KPI strip, performance chart, GEO visualization, Marketing Graph, quick actions, then partner analytics. Keep the same hierarchy at narrow widths by stacking panels and wrapping controls; do not hide navigation destinations or sourced data. Use Inter/Segoe UI for operational controls and labels, tabular numerals for measures, and restrained violet/cyan chart colors. The connected module graph and GEO map are the signature visualization pair: render the GEO silhouette as a dotted world map with sourced country-level highlights and a compact adjacent country summary; render Marketing Graph as a centered AlphaLink hub with radial, module-colored spokes and compact labeled nodes. Their labels and legends must distinguish observed engagement, imported PMTA feedback, and unsupported rates; markers indicate approximate country aggregates rather than recipient locations, graph spokes indicate modules rather than record links, and neither panel may imply attribution the stored data does not establish.
+
+### My Campaigns register — 2026-11-07
+
+The campaign register follows the supplied Command OS campaign reference while retaining its existing route-backed row actions and permissions. Keep the existing row actions in their established order in a four-column, two-row icon grid: open, test history, test, edit (marketing campaigns), IP selection state, statistics, clone, and disable/restore. Configuration-gated actions remain visible but disabled with their existing explanation. Use Command OS surface, border, and accent tokens in both themes; reserve danger styling for disable and success styling for restore. Icon-only controls keep their existing accessible names and tooltips.
 
 ## Colors
 
 Warm canvas (`canvas`) and off-white panels (`surface`) provide a paper-like ground. `ink` and `muted` are semantic text roles; `primary` and `primary-dark` identify navigation and the main action. Terracotta `accent` marks small signal points and exceptions. Lime `signal` is reserved for the brand mark and focus/highlight accents, never for large body text. Success, warning, and danger use distinct status colors. The runtime border role is `#DFE3D9` (CSS `--color-border`); borders carry most static hierarchy. Preserve visible focus and do not rely on color alone for status.
 
-The initial interface is light-only. A dark theme and high-contrast theme are not implemented and should be designed as complete semantic remappings before being offered.
+The original base interface is light-only. The Dashboard and My Campaigns Command OS surfaces support semantic light/dark token remapping; other page families remain on their existing theme until migrated.
 
 ## Typography
 

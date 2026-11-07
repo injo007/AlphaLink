@@ -1551,12 +1551,14 @@ html[data-command-theme='dark'] .command-os-panel {
     border: 1.5px solid color-mix(in srgb, var(--node-accent) 96%, var(--co-border-strong));
     border-radius: 999px;
     color: var(--co-ink);
-    background: color-mix(in srgb, var(--node-accent) 30%, var(--co-surface));
-    box-shadow: 0 4px 12px rgb(33 47 94 / 22%), inset 0 1px rgb(255 255 255 / 82%);
+    appearance: none;
+    background: color-mix(in srgb, var(--node-accent) 12%, var(--co-surface));
+    box-shadow: 0 3px 10px rgb(33 47 94 / 14%), inset 0 1px rgb(255 255 255 / 82%);
     font: 750 10.5px/1 Inter, 'Segoe UI', Arial, sans-serif;
     white-space: nowrap;
     cursor: pointer;
     opacity: 1;
+    visibility: visible;
     transform: translate(-50%, -50%);
     pointer-events: auto;
     touch-action: manipulation;
@@ -1574,6 +1576,7 @@ html[data-command-theme='dark'] .command-os-panel {
 .command-os-network-node span {
     min-width: 0;
     overflow: hidden;
+    color: var(--co-ink);
     text-overflow: ellipsis;
 }
 
@@ -1581,8 +1584,8 @@ html[data-command-theme='dark'] .command-os-panel {
 .command-os-network-node.is-selected {
     border-color: var(--node-accent);
     color: var(--co-ink);
-    background: color-mix(in srgb, var(--node-accent) 30%, var(--co-surface));
-    box-shadow: 0 5px 16px color-mix(in srgb, var(--node-accent) 38%, transparent), inset 0 1px rgb(255 255 255 / 78%);
+    background: color-mix(in srgb, var(--node-accent) 20%, var(--co-surface));
+    box-shadow: 0 5px 16px color-mix(in srgb, var(--node-accent) 30%, transparent), inset 0 1px rgb(255 255 255 / 78%);
     transform: translate(-50%, -50%) scale(1.06);
 }
 
@@ -1620,9 +1623,14 @@ html[data-command-theme='dark'] .command-os-panel {
     filter: drop-shadow(0 2px 8px color-mix(in srgb, var(--co-purple) 38%, transparent));
 }
 
-.command-os-graph-selected { position: relative; z-index: 3; }
 .command-os-graph-selected {
-    min-height: 20px;
+    position: relative;
+    z-index: 3;
+    display: flex;
+    min-height: 32px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
     margin: 0 12px 7px;
     padding: 5px 8px;
     border-left: 2px solid var(--co-purple-bright);
@@ -1632,6 +1640,31 @@ html[data-command-theme='dark'] .command-os-panel {
     font-size: 10px;
     font-weight: 600;
     line-height: 1.4;
+}
+
+.command-os-graph-selected > span { min-width: 0; }
+
+.command-os-graph-open-link {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    min-height: 28px;
+    padding: 4px 9px;
+    border: 1px solid color-mix(in srgb, var(--co-purple) 38%, var(--co-border));
+    border-radius: 7px;
+    color: var(--co-purple-bright);
+    background: color-mix(in srgb, var(--co-purple) 9%, var(--co-surface));
+    font-size: 9px;
+    font-weight: 750;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.command-os-graph-open-link:hover { color: var(--co-ink); background: color-mix(in srgb, var(--co-purple) 17%, var(--co-surface)); }
+.command-os-graph-open-link:focus-visible { outline: 3px solid color-mix(in srgb, var(--co-purple) 48%, transparent); outline-offset: 2px; }
+
+@media (max-width: 520px) {
+    .command-os-graph-selected { align-items: flex-start; flex-direction: column; gap: 6px; }
 }
 
 body.command-os-dashboard #main_content p.command-os-graph-selected,

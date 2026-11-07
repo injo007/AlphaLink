@@ -90,8 +90,6 @@ export default function MarketingGraph({ data, theme }: { data: DashboardAnalyti
     }, []);
 
     const selectModule = (node: MarketingNode) => setSelected(node.id);
-    const openableModules = modules.filter((node) => node.href !== null);
-
     return (
         <section className="command-os-panel command-os-graph-panel" id="marketing-graph" aria-labelledby="command-os-graph-title">
             <div className="command-os-panel-heading">
@@ -150,19 +148,11 @@ export default function MarketingGraph({ data, theme }: { data: DashboardAnalyti
                     };
                     const content = <><img src={iconImage(node.id, color)} alt="" aria-hidden="true" /><span>{node.label}</span></>;
 
-                    return node.href ? (
-                        <a
-                            {...sharedProps}
-                            href={node.href}
-                            aria-label={`Open ${node.label}. ${moduleCountLabel(node)} in this range`}
-                        >
-                            {content}
-                        </a>
-                    ) : (
+                    return (
                         <button
                             {...sharedProps}
                             type="button"
-                            aria-label={`${node.label}: ${moduleCountLabel(node)} in this range`}
+                            aria-label={`Show ${node.label}: ${moduleCountLabel(node)} in this range`}
                             aria-pressed={isSelected}
                             onClick={() => selectModule(node)}
                         >
@@ -172,13 +162,14 @@ export default function MarketingGraph({ data, theme }: { data: DashboardAnalyti
                 })}
             </div>
             <p className="command-os-graph-selected" aria-live="polite">
-                {selectedModule
-                    ? `${selectedModule.label}: ${moduleCountLabel(selectedModule)} in this range. No page is linked to this node.`
-                    : openableModules.length > 0
-                        ? 'Select a module to open its page. Counts show activity for this date range.'
+                <span>
+                    {selectedModule
+                        ? `${selectedModule.label}: ${moduleCountLabel(selectedModule)} in this range.`
                         : modules.length > 0
-                            ? 'Select Workspace Activity to inspect its count for this date range.'
-                        : 'No module activity is available for this date range.'}
+                            ? 'Select a module to inspect its activity count.'
+                            : 'No module activity is available for this date range.'}
+                </span>
+                {selectedModule?.href && <a className="command-os-graph-open-link" href={selectedModule.href}>Open {selectedModule.label}<span aria-hidden="true"> ↗</span></a>}
             </p>
             <ul className="command-os-sr-only" aria-label="Module activity counts">
                 {data.nodes.map((node) => <li key={node.id}>{node.label}: {moduleCountLabel(node)} in this range</li>)}

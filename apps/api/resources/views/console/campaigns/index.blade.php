@@ -163,7 +163,7 @@
                                 </td>
                                 <td data-campaign-column="isp">
                                     @if ($ispName !== '')
-                                        <span class="campaign-isp-brand" title="{{ $ispName }}"><i class="{{ $ispIcon }}" aria-hidden="true"></i><span>{{ $ispName }}</span></span>
+                                        <span class="campaign-isp-brand" role="img" aria-label="{{ $ispName }}" title="{{ $ispName }}"><i class="{{ $ispIcon }}" aria-hidden="true"></i></span>
                                     @else
                                         —
                                     @endif

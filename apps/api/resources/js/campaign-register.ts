@@ -6,6 +6,8 @@ import type { EChartsType } from 'echarts/core';
 
 type CampaignDay = {
     date: string;
+    sent: number;
+    deliveries: number;
     opens: number;
     clicks: number;
     leads: number;
@@ -16,6 +18,8 @@ type CampaignDay = {
 };
 
 type CampaignSummary = {
+    sent: number;
+    deliveries: number;
     opens: number;
     clicks: number;
     leads: number;
@@ -63,6 +67,13 @@ const infoElements = new Map(
         .map((element) => [element.dataset.campaignInfo ?? '', element]),
 );
 const infoName = document.querySelector<HTMLElement>('[data-campaign-info-name]');
+const infoTitle = document.querySelector<HTMLElement>('[data-campaign-info-title]');
+const informationDetails = document.querySelector<HTMLElement>('[data-campaign-information-details]');
+const aggregateSummary = document.querySelector<HTMLElement>('[data-campaign-aggregate-summary]');
+const aggregateMetricElements = new Map(
+    Array.from(document.querySelectorAll<HTMLElement>('[data-campaign-aggregate-metric]'))
+        .map((element) => [element.dataset.campaignAggregateMetric ?? '', element]),
+);
 const infoSendType = document.querySelector<HTMLSelectElement>('[data-campaign-info-send-type]');
 const infoSendTypeValue = infoElements.get('send-type');
 const seriesButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-campaign-series]'));
@@ -158,7 +169,10 @@ if (summaryRoot && chartElement && campaignSelect && status) {
     const updateInformation = (value: string): void => {
         const selectedOption = campaignSelect?.selectedOptions[0] as CampaignOption | undefined;
         if (!selectedOption || value === 'all') {
+            if (infoTitle) infoTitle.textContent = 'All Campaign Activity';
             if (infoName) infoName.textContent = 'All campaigns';
+            if (informationDetails) informationDetails.hidden = true;
+            if (aggregateSummary) aggregateSummary.hidden = false;
             for (const [key, element] of infoElements) element.textContent = key === 'id' ? 'All' : '—';
             if (infoSendType) {
                 infoSendType.hidden = true;
@@ -169,7 +183,10 @@ if (summaryRoot && chartElement && campaignSelect && status) {
             return;
         }
 
+        if (infoTitle) infoTitle.textContent = 'Campaign Information';
         if (infoName) infoName.textContent = selectedOption.dataset.name ?? 'Selected campaign';
+        if (informationDetails) informationDetails.hidden = false;
+        if (aggregateSummary) aggregateSummary.hidden = true;
         const values: Record<string, string> = {
             id: selectedOption.dataset.id ?? '—',
             created: selectedOption.dataset.created ?? '—',
@@ -205,10 +222,12 @@ if (summaryRoot && chartElement && campaignSelect && status) {
     };
 
     const updateMetrics = (summary: CampaignSummary | null): void => {
-        const keys = ['opens', 'clicks', 'leads', 'unsubscribes', 'bounces', 'soft_bounces'] as const;
+        const keys = ['sent', 'deliveries', 'opens', 'clicks', 'leads', 'unsubscribes', 'bounces', 'soft_bounces'] as const;
         for (const key of keys) {
             const element = metricElements.get(key);
-            if (element) element.textContent = numberFormat.format(Number(summary?.[key] ?? 0));
+            if (element) element.textContent = summary ? numberFormat.format(Number(summary[key] ?? 0)) : '—';
+            const aggregateElement = aggregateMetricElements.get(key);
+            if (aggregateElement) aggregateElement.textContent = summary ? numberFormat.format(Number(summary[key] ?? 0)) : '—';
         }
     };
 
@@ -219,7 +238,7 @@ if (summaryRoot && chartElement && campaignSelect && status) {
         if (value !== 'all') url.searchParams.set('campaign_id', value);
         updateInformation(value);
         updateMetrics(null);
-        currentSummary = { opens: 0, clicks: 0, leads: 0, unsubscribes: 0, soft_bounces: 0, hard_bounces: 0, bounces: 0, timeline: [], coverage: '' };
+        currentSummary = { sent: 0, deliveries: 0, opens: 0, clicks: 0, leads: 0, unsubscribes: 0, soft_bounces: 0, hard_bounces: 0, bounces: 0, timeline: [], coverage: '' };
         drawChart();
         status.textContent = 'Loading campaign activity…';
 

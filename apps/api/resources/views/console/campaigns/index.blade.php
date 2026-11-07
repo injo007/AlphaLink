@@ -303,6 +303,8 @@
                             <article class="campaign-analytics-metric metric-opens"><span class="metric-icon" aria-hidden="true"><i class="far fa-envelope"></i></span><span><small>Opens</small><strong data-campaign-metric="opens">—</strong></span></article>
                             <article class="campaign-analytics-metric metric-clicks"><span class="metric-icon" aria-hidden="true"><i class="fas fa-mouse-pointer"></i></span><span><small>Clicks</small><strong data-campaign-metric="clicks">—</strong></span></article>
                             <article class="campaign-analytics-metric metric-leads"><span class="metric-icon" aria-hidden="true"><i class="fas fa-users"></i></span><span><small>Leads</small><strong data-campaign-metric="leads">—</strong></span></article>
+                            <article class="campaign-analytics-metric metric-sent" title="Recipient attempts accepted by the SMTP transport"><span class="metric-icon" aria-hidden="true"><i class="fas fa-paper-plane"></i></span><span><small>Sent</small><strong data-campaign-metric="sent">—</strong></span></article>
+                            <article class="campaign-analytics-metric metric-deliveries" title="Delivery feedback events imported from PMTA"><span class="metric-icon" aria-hidden="true"><i class="fas fa-inbox"></i></span><span><small>Delivered</small><strong data-campaign-metric="deliveries">—</strong></span></article>
                             <article class="campaign-analytics-metric metric-unsubscribes"><span class="metric-icon" aria-hidden="true"><i class="fas fa-user-minus"></i></span><span><small>Unsubs</small><strong data-campaign-metric="unsubscribes">—</strong></span></article>
                             <article class="campaign-analytics-metric metric-bounces"><span class="metric-icon" aria-hidden="true"><i class="fas fa-exclamation-triangle"></i></span><span><small>Bounces</small><strong data-campaign-metric="bounces">—</strong></span></article>
                             <article class="campaign-analytics-metric metric-soft-bounces"><span class="metric-icon" aria-hidden="true"><i class="fas fa-layer-group"></i></span><span><small>Soft Bounces</small><strong data-campaign-metric="soft_bounces">—</strong></span></article>
@@ -317,15 +319,15 @@
                         </div>
                         <div class="campaign-engagement-chart" data-campaign-engagement-chart role="img" aria-label="Campaign opens over time"></div>
                         <p class="campaign-analytics-status" data-campaign-analytics-status role="status" aria-live="polite">Loading campaign activity…</p>
-                        <p class="campaign-analytics-coverage">Unique tracked engagement, attributed conversions, and imported PMTA bounce feedback.</p>
+                        <p class="campaign-analytics-coverage">Sent = SMTP accepted. Delivered and bounce counts use imported PMTA feedback; engagement is unique tracked activity.</p>
                     </section>
 
                     <section class="campaign-intelligence-card campaign-information-card" aria-labelledby="campaign-information-title">
                         <header class="campaign-intelligence-heading campaign-information-heading">
                             <span class="campaign-intelligence-heading-icon" aria-hidden="true"><i class="fas fa-info-circle"></i></span>
-                            <div><h2 id="campaign-information-title">Campaign Information</h2><p data-campaign-info-name>All campaigns</p></div>
+                            <div><h2 id="campaign-information-title" data-campaign-info-title>Campaign Information</h2><p data-campaign-info-name>All campaigns</p></div>
                         </header>
-                        <dl class="campaign-information-grid">
+                        <dl class="campaign-information-grid" data-campaign-information-details hidden>
                             <div><dt><i class="fas fa-fingerprint" aria-hidden="true"></i>Campaign ID</dt><dd data-campaign-info="id">All</dd></div>
                             <div><dt><i class="fas fa-calendar-alt" aria-hidden="true"></i>Created</dt><dd data-campaign-info="created">—</dd></div>
                             <div><dt><i class="fas fa-tag" aria-hidden="true"></i>Offer</dt><dd data-campaign-info="offer">—</dd></div>
@@ -342,6 +344,16 @@
                             <div><dt><i class="far fa-clock" aria-hidden="true"></i>IP wait (s)</dt><dd data-campaign-info="sleep-ip">—</dd></div>
                             <div><dt><i class="fas fa-seedling" aria-hidden="true"></i>Seed every</dt><dd data-campaign-info="seed-every">—</dd></div>
                             <div><dt><i class="fas fa-wave-square" aria-hidden="true"></i>Latest status</dt><dd data-campaign-info="send-state">—</dd></div>
+                        </dl>
+                        <dl class="campaign-information-grid campaign-aggregate-grid" data-campaign-aggregate-summary>
+                            <div><dt><i class="fas fa-paper-plane" aria-hidden="true"></i>Sent (SMTP accepted)</dt><dd data-campaign-aggregate-metric="sent">—</dd></div>
+                            <div><dt><i class="fas fa-inbox" aria-hidden="true"></i>Delivered (PMTA)</dt><dd data-campaign-aggregate-metric="deliveries">—</dd></div>
+                            <div><dt><i class="far fa-envelope" aria-hidden="true"></i>Opens</dt><dd data-campaign-aggregate-metric="opens">—</dd></div>
+                            <div><dt><i class="fas fa-mouse-pointer" aria-hidden="true"></i>Clicks</dt><dd data-campaign-aggregate-metric="clicks">—</dd></div>
+                            <div><dt><i class="fas fa-user-minus" aria-hidden="true"></i>Unsubscribes</dt><dd data-campaign-aggregate-metric="unsubscribes">—</dd></div>
+                            <div><dt><i class="fas fa-users" aria-hidden="true"></i>Leads</dt><dd data-campaign-aggregate-metric="leads">—</dd></div>
+                            <div><dt><i class="fas fa-exclamation-triangle" aria-hidden="true"></i>Bounces</dt><dd data-campaign-aggregate-metric="bounces">—</dd></div>
+                            <div><dt><i class="fas fa-layer-group" aria-hidden="true"></i>Soft bounces</dt><dd data-campaign-aggregate-metric="soft_bounces">—</dd></div>
                         </dl>
                     </section>
                 </aside>
@@ -448,6 +460,8 @@
         .campaign-analytics-metric.metric-unsubscribes .metric-icon { color: #d34395; background: color-mix(in srgb, #d34395 12%, var(--co-surface)); }
         .campaign-analytics-metric.metric-bounces .metric-icon { color: #e84a69; background: color-mix(in srgb, #e84a69 12%, var(--co-surface)); }
         .campaign-analytics-metric.metric-soft-bounces .metric-icon { color: #824be6; background: color-mix(in srgb, #824be6 12%, var(--co-surface)); }
+        .campaign-analytics-metric.metric-sent .metric-icon { color: #168bef; background: color-mix(in srgb, #168bef 12%, var(--co-surface)); }
+        .campaign-analytics-metric.metric-deliveries .metric-icon { color: #19a974; background: color-mix(in srgb, #19a974 12%, var(--co-surface)); }
         .campaign-chart-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 0 12px 8px; }
         .campaign-chart-heading h3 { margin: 0; color: var(--co-ink); font-size: 11px; font-weight: 800; }
         .campaign-chart-tabs { display: inline-flex; gap: 3px; padding: 3px; border: 1px solid var(--co-border); border-radius: 10px; background: var(--co-surface-muted); }
@@ -462,6 +476,7 @@
         .campaign-information-heading { border-bottom: 0; }
         .campaign-information-heading p { color: var(--co-purple); font-weight: 750; }
         .campaign-information-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; margin: 0; padding: 0 13px 13px; }
+        .campaign-information-grid[hidden] { display: none !important; }
         .campaign-information-grid > div { display: grid; grid-template-columns: minmax(78px, .8fr) minmax(0, 1.2fr); align-items: center; gap: 6px; min-width: 0; padding: 9px 0; border-top: 1px solid color-mix(in srgb, var(--co-border) 76%, transparent); }
         .campaign-information-grid dt { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--co-muted); font-size: 8px; font-weight: 700; }
         .campaign-information-grid dt i { color: var(--co-purple); }

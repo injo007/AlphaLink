@@ -311,13 +311,34 @@ class WorkspaceCampaignStatisticsConsoleController extends Controller
             })
             ->where('feedback.workspace_id', $workspace->getKey())
             ->where('feedback.source_type', 'campaign')
+            ->whereIn('feedback.metric', ['deliveries', 'soft_bounces', 'hard_bounces'])
             ->where('c.created_by', $userId)
             ->when($campaignId !== null, fn ($query) => $query->where('feedback.campaign_id', $campaignId))
             ->whereBetween('feedback.at', [$from->toDateString(), $to->toDateString()])
             ->selectRaw('feedback.at AS event_date')
+            ->selectRaw("SUM(CASE WHEN feedback.metric = 'deliveries' THEN 1 ELSE 0 END) AS deliveries")
             ->selectRaw("SUM(CASE WHEN feedback.metric = 'soft_bounces' THEN 1 ELSE 0 END) AS soft_bounces")
             ->selectRaw("SUM(CASE WHEN feedback.metric = 'hard_bounces' THEN 1 ELSE 0 END) AS hard_bounces")
             ->groupBy('feedback.at')
+            ->get();
+
+        $sentRows = DB::table('campaign_delivery_attempts as attempts')
+            ->join('campaign_send_runs as runs', function (JoinClause $join): void {
+                $join->on('runs.id', '=', 'attempts.send_run_id')
+                    ->on('runs.workspace_id', '=', 'attempts.workspace_id');
+            })
+            ->join('campaigns as c', function (JoinClause $join): void {
+                $join->on('c.id', '=', 'runs.campaign_id')
+                    ->on('c.workspace_id', '=', 'runs.workspace_id');
+            })
+            ->where('attempts.workspace_id', $workspace->getKey())
+            ->where('attempts.state', 'accepted')
+            ->whereNotNull('attempts.finished_at')
+            ->where('c.created_by', $userId)
+            ->when($campaignId !== null, fn ($query) => $query->where('runs.campaign_id', $campaignId))
+            ->whereBetween('attempts.finished_at', [$from, $to])
+            ->selectRaw('DATE(attempts.finished_at) AS event_date, COUNT(*) AS sent')
+            ->groupByRaw('DATE(attempts.finished_at)')
             ->get();
 
         $daily = [];
@@ -337,17 +358,21 @@ class WorkspaceCampaignStatisticsConsoleController extends Controller
         foreach ($feedbackRows as $row) {
             $date = (string) $row->event_date;
             $daily[$date] ??= $this->emptyCampaignRegisterDay($date);
+            $daily[$date]['deliveries'] = (int) $row->deliveries;
             $daily[$date]['soft_bounces'] = (int) $row->soft_bounces;
             $daily[$date]['hard_bounces'] = (int) $row->hard_bounces;
             $daily[$date]['bounces'] = $daily[$date]['soft_bounces'] + $daily[$date]['hard_bounces'];
         }
-
-        if ($daily === []) {
-            return [];
+        foreach ($sentRows as $row) {
+            $date = (string) $row->event_date;
+            $daily[$date] ??= $this->emptyCampaignRegisterDay($date);
+            $daily[$date]['sent'] = (int) $row->sent;
         }
 
         ksort($daily);
         $summary = [
+            'sent' => 0,
+            'deliveries' => 0,
             'opens' => 0,
             'clicks' => 0,
             'leads' => 0,
@@ -365,15 +390,17 @@ class WorkspaceCampaignStatisticsConsoleController extends Controller
 
         return [$summary + [
             'timeline' => array_values($daily),
-            'coverage' => 'Unique tracked engagement and attributed conversions are combined with imported PMTA soft and hard bounce feedback. No recipient details are returned.',
+            'coverage' => 'Sent counts SMTP-accepted recipient attempts; deliveries and bounces count imported PMTA feedback; opens, clicks, and unsubscribes are unique tracked actions; leads are attributed conversions. No recipient details are returned.',
         ]];
     }
 
-    /** @return array{date: string, opens: int, clicks: int, leads: int, lead_revenue: float, unsubscribes: int, soft_bounces: int, hard_bounces: int, bounces: int} */
+    /** @return array{date: string, sent: int, deliveries: int, opens: int, clicks: int, leads: int, lead_revenue: float, unsubscribes: int, soft_bounces: int, hard_bounces: int, bounces: int} */
     private function emptyCampaignRegisterDay(string $date): array
     {
         return [
             'date' => $date,
+            'sent' => 0,
+            'deliveries' => 0,
             'opens' => 0,
             'clicks' => 0,
             'leads' => 0,

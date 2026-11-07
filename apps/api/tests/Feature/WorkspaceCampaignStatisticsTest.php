@@ -4,12 +4,15 @@ namespace Tests\Feature;
 
 use App\Models\AudienceList;
 use App\Models\Campaign;
+use App\Models\CampaignDeliveryAttempt;
 use App\Models\CampaignEngagementEvent;
 use App\Models\CampaignLeadConversion;
 use App\Models\CampaignRecipientSnapshot;
 use App\Models\CampaignRecipientSnapshotItem;
 use App\Models\CampaignRevision;
 use App\Models\CampaignSendRun;
+use App\Models\CampaignSendBatch;
+use App\Models\CampaignSendRecipientClaim;
 use App\Models\Contact;
 use App\Models\Isp;
 use App\Models\ManagedServer;
@@ -161,8 +164,34 @@ class WorkspaceCampaignStatisticsTest extends TestCase
             'created_by' => $fixture['owner']->getKey(),
         ]);
         DB::table('workspace_pmta_feedback_events')->insert([
+            ['workspace_id' => $fixture['workspace']->getKey(), 'managed_server_id' => $server->getKey(), 'record_key' => hash('sha256', 'register-delivery'), 'at' => today()->toDateString(), 'source_type' => 'campaign', 'source_id' => $fixture['campaign']->getKey(), 'campaign_id' => $fixture['campaign']->getKey(), 'metric' => 'deliveries', 'dimension_ids' => json_encode(['server_id' => (string) $server->getKey()], JSON_THROW_ON_ERROR), 'created_at' => now()],
             ['workspace_id' => $fixture['workspace']->getKey(), 'managed_server_id' => $server->getKey(), 'record_key' => hash('sha256', 'register-soft-bounce'), 'at' => today()->toDateString(), 'source_type' => 'campaign', 'source_id' => $fixture['campaign']->getKey(), 'campaign_id' => $fixture['campaign']->getKey(), 'metric' => 'soft_bounces', 'dimension_ids' => json_encode(['server_id' => (string) $server->getKey()], JSON_THROW_ON_ERROR), 'created_at' => now()],
             ['workspace_id' => $fixture['workspace']->getKey(), 'managed_server_id' => $server->getKey(), 'record_key' => hash('sha256', 'register-hard-bounce'), 'at' => today()->toDateString(), 'source_type' => 'campaign', 'source_id' => $fixture['campaign']->getKey(), 'campaign_id' => $fixture['campaign']->getKey(), 'metric' => 'hard_bounces', 'dimension_ids' => json_encode(['server_id' => (string) $server->getKey()], JSON_THROW_ON_ERROR), 'created_at' => now()],
+        ]);
+        $run = CampaignSendRun::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(), 'campaign_id' => $fixture['campaign']->getKey(),
+            'revision_id' => $fixture['revision']->getKey(), 'recipient_snapshot_id' => $fixture['snapshot']->getKey(),
+            'requested_by' => $fixture['owner']->getKey(), 'send_type' => 'delay', 'state' => 'completed',
+            'idempotency_key' => (string) Str::uuid(), 'request_fingerprint' => hash('sha256', 'register accepted send'),
+            'execution_options' => [], 'recipient_count' => 1, 'accepted_count' => 1,
+            'started_at' => now()->subMinute(), 'completed_at' => now(),
+        ]);
+        $batch = CampaignSendBatch::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(), 'send_run_id' => $run->getKey(),
+            'batch_number' => 1, 'claim_request_key' => (string) Str::uuid(),
+            'claim_request_fingerprint' => hash('sha256', 'register accepted batch'),
+            'first_position' => 1, 'last_position' => 1, 'state' => 'completed', 'accepted_count' => 1,
+        ]);
+        CampaignSendRecipientClaim::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(), 'send_run_id' => $run->getKey(),
+            'recipient_snapshot_id' => $fixture['snapshot']->getKey(), 'snapshot_item_id' => $fixture['item']->getKey(),
+            'batch_id' => $batch->getKey(), 'position' => 1, 'state' => 'accepted', 'accepted_at' => now(),
+        ]);
+        CampaignDeliveryAttempt::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(), 'send_run_id' => $run->getKey(),
+            'snapshot_item_id' => $fixture['item']->getKey(), 'batch_id' => $batch->getKey(),
+            'attempt_number' => 1, 'state' => 'accepted', 'idempotency_key' => $run->getKey().':accepted',
+            'worker_id' => 'synthetic-register-worker', 'started_at' => now()->subMinute(), 'finished_at' => now(),
         ]);
 
         $response = $this->actingAs($fixture['owner'])->getJson(route('console.campaign-statistics.index', [
@@ -175,6 +204,8 @@ class WorkspaceCampaignStatisticsTest extends TestCase
         $response->assertOk()
             ->assertJsonCount(1)
             ->assertJsonFragment([
+                'sent' => 1,
+                'deliveries' => 1,
                 'opens' => 1,
                 'clicks' => 1,
                 'leads' => 1,
@@ -184,6 +215,8 @@ class WorkspaceCampaignStatisticsTest extends TestCase
                 'bounces' => 2,
             ])
             ->assertJsonPath('0.timeline.0.date', today()->toDateString())
+            ->assertJsonPath('0.timeline.0.sent', 1)
+            ->assertJsonPath('0.timeline.0.deliveries', 1)
             ->assertJsonPath('0.timeline.0.lead_revenue', 12.5);
         $this->assertStringNotContainsString('synthetic-statistics@example.test', $response->getContent());
 

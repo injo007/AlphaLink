@@ -4,6 +4,10 @@
 
 **Count reconciliation:** The CSV has **8 WEB declarations** assigned to its `dashboard` and `analytics` module values (1 dashboard + 7 analytics). There is **one additional related WEB declaration**, `AL-0783`, assigned to `workspace`; it renders the same main dashboard. This sheet lists all **9 dashboard-related declarations** and does not change the CSV's module assignments.
 
+## E-DASH-43 source update — unified partner revenue period
+
+The React dashboard payload now derives Sponsor, ISP, Mailer and Top 10 Offer revenue from the same validated inclusive `analytics_period` window. The query reads workspace-scope campaign/Drop rows in `workspace_daily_analytics`, labels ISPs within the active workspace, and uses attributed lead revenue; per-card MTD/range overrides were removed. The no-JavaScript summary tables use the same selected-window payload. Focused verification: `WorkspaceAnalyticsDashboardTest` 25 passed / 416 assertions, TypeScript check and Vite production build passed. Production browser verification remains pending until deployment.
+
 ## Verified source behavior
 
 - The dashboard main route and workspace-slug alias are authenticated web routes under `auth`, `active`, and `auth.session`; both add `workspace.current`. `ResolveCurrentWorkspace` resolves an active workspace membership, puts its ID in session/request attributes, and returns 404 if none is available. The controller separately permits workspace roles `owner`, `admin`, `operator`, and `privacy_officer`; a membership outside that list is denied with 403. See [`routes/web.php`](../../apps/api/routes/web.php#L51), [`ResolveCurrentWorkspace`](../../apps/api/app/Http/Middleware/ResolveCurrentWorkspace.php#L14), and [`WorkspaceAnalyticsConsoleController`](../../apps/api/app/Http/Controllers/Web/WorkspaceAnalyticsConsoleController.php#L19).

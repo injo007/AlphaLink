@@ -439,15 +439,15 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
                     && str_contains($dashboard['refresh']['url'], 'fragment=1')
                     && $analytics['period']['key'] === 'this_month'
                     && $analytics['sponsors'][0]['label'] === 'Analytics sponsor'
+                    && $analytics['sponsors'][0]['attributed_revenue'] === 10.0
+                    && $analytics['isps'][0]['label'] === 'Analytics ISP'
+                    && $analytics['isps'][0]['attributed_revenue'] === 10.0
                     && $analytics['offers'][0]['label'] === 'Analytics offer'
+                    && $analytics['offers'][0]['attributed_revenue'] === 10.0
                     && $analytics['mailers'][0]['label'] === $owner->name
+                    && $analytics['mailers'][0]['attributed_revenue'] === 10.0
                     && $analytics['geo']['countries'][0]['country'] === 'United States'
                     && $analytics['geo']['countries'][0]['opens'] === 1
-                    && $analytics['mtdRevenue']['sponsors'][0]['mtd'] === 10.0
-                    && $analytics['mtdRevenue']['isps'][0]['label'] === 'Analytics ISP'
-                    && $analytics['mtdRevenue']['isps'][0]['mtd'] === 10.0
-                    && $analytics['mtdRevenue']['mailers'][0]['label'] === $owner->name
-                    && $analytics['mtdRevenue']['offers'][0]['label'] === 'Analytics offer'
                     && count($dashboard['charts']['mtd_actions']['labels']) === now()->day
                     && count($dashboard['charts']['mtd_revenue']['labels']) === now()->day
                     && count($dashboard['charts']['ytd_revenue']['labels']) === now()->month
@@ -486,32 +486,31 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
                     && count($charts['ytd_revenue']['labels']) === 12
                     && $charts['ytd_revenue']['series'][0]['values'][$currentMonthIndex] === 10.0;
             })
-            ->assertViewHas('mtdLeadRevenue', function (array $revenue) use ($owner): bool {
-                $this->assertSame([
-                    'label' => 'Analytics sponsor',
-                    'today' => 2.5,
-                    'mtd' => 10.0,
-                ], $revenue['sponsors'][0]);
-                $this->assertSame([
-                    'label' => 'Analytics ISP',
-                    'today' => 2.5,
-                    'mtd' => 10.0,
-                ], $revenue['isps'][0]);
-                $this->assertSame($owner->name, $revenue['mailers'][0]['label']);
-                $this->assertSame(10.0, $revenue['mailers'][0]['mtd']);
-                $this->assertSame([
-                    'label' => 'Analytics offer',
-                    'today' => 2.5,
-                    'mtd' => 10.0,
-                ], $revenue['offers'][0]);
-
-                return true;
-            })
             ->assertViewHas('snapshotCounts', fn (array $counts): bool => $counts['open'] === 5
                 && $counts['click'] === 3
                 && $counts['lead'] === 2
                 && $counts['unsubscribe'] === 1
             );
+
+        $this->get(route('console.analytics.index', [
+            'workspace' => $workspace->getKey(),
+            'analytics_period' => 'today',
+        ]))
+            ->assertOk()
+            ->assertViewHas('commandOsDashboard', function (array $dashboard) use ($owner): bool {
+                $analytics = $dashboard['analytics'];
+
+                return $analytics['period']['key'] === 'today'
+                    && $analytics['sponsors'][0]['attributed_revenue'] === 2.5
+                    && $analytics['isps'][0]['attributed_revenue'] === 2.5
+                    && $analytics['mailers'][0]['attributed_revenue'] === 2.5
+                    && $analytics['offers'][0]['attributed_revenue'] === 2.5
+                    && $analytics['sponsors'][0]['leads'] === 1
+                    && $analytics['isps'][0]['leads'] === 1
+                    && $analytics['mailers'][0]['leads'] === 1
+                    && $analytics['offers'][0]['leads'] === 1
+                    && $analytics['mailers'][0]['label'] === $owner->name;
+            });
 
         $this->get(route('clean.console.audiences.index'))
             ->assertOk()
@@ -667,11 +666,17 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
                 && $totals['leads'] === 1
                 && $totals['unsubscribes'] === 1
             )
-            ->assertViewHas('mtdLeadRevenue', function (array $revenue) use ($owner): bool {
-                $this->assertSame(['label' => 'Attribution scope ISP', 'today' => 2.5, 'mtd' => 2.5], $revenue['isps'][0]);
-                $this->assertSame(['label' => $owner->name, 'today' => 2.5, 'mtd' => 2.5], $revenue['mailers'][0]);
+            ->assertViewHas('commandOsDashboard', function (array $dashboard) use ($owner): bool {
+                $analytics = $dashboard['analytics'];
 
-                return true;
+                return $analytics['isps'][0] === [
+                    'label' => 'Attribution scope ISP',
+                    'leads' => 1,
+                    'clicks' => 1,
+                    'attributed_revenue' => 2.5,
+                ]
+                    && $analytics['mailers'][0]['label'] === $owner->name
+                    && $analytics['mailers'][0]['attributed_revenue'] === 2.5;
             });
 
         $this->getJson(route('clean.console.analytics.mailer-revenue', [
@@ -870,7 +875,7 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
             ->get(route('console.dashboard.main'))
             ->assertOk()
             ->assertViewHas('eventTotals', fn (array $totals): bool => $totals['opens'] === 1 && $totals['clicks'] === 1 && $totals['leads'] === 1)
-            ->assertViewHas('mtdLeadRevenue', fn (array $revenue): bool => $revenue['mailers'][0]['mtd'] === 1.0);
+            ->assertViewHas('commandOsDashboard', fn (array $dashboard): bool => $dashboard['analytics']['mailers'][0]['attributed_revenue'] === 1.0);
 
         $this->actingAs($operator)
             ->get(route('console.dashboard.main'))
@@ -886,7 +891,7 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
             ->get(route('console.dashboard.main'))
             ->assertOk()
             ->assertViewHas('eventTotals', fn (array $totals): bool => $totals['opens'] === 2 && $totals['clicks'] === 2 && $totals['leads'] === 2)
-            ->assertViewHas('mtdLeadRevenue', fn (array $revenue): bool => $revenue['mailers'][0]['mtd'] === 3.0);
+            ->assertViewHas('commandOsDashboard', fn (array $dashboard): bool => $dashboard['analytics']['mailers'][0]['attributed_revenue'] === 3.0);
 
         $this->actingAs($operator)
             ->get(route('console.dashboard.main'))

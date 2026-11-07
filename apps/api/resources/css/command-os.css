@@ -1633,7 +1633,7 @@ body.command-os-dashboard #main_content ul.command-os-sr-only {
 .command-os-analytics-footnote { margin: 0; padding: 2px 11px 9px; color: var(--co-subtle); font-size: 7px; }
 .command-os-analytics-empty { display: grid; min-height: 105px; margin: 0; padding: 12px; place-items: center; color: var(--co-muted); font-size: 9px; text-align: center; }
 
-.command-os-mtd-revenue-section {
+.command-os-partner-revenue-section {
     margin: 14px 0 12px;
 }
 
@@ -1649,75 +1649,36 @@ body.command-os-dashboard #main_content ul.command-os-sr-only {
 .command-os-section-heading h2 { margin: 0; color: var(--co-ink); font-size: 17px; font-weight: 780; letter-spacing: -.035em; }
 .command-os-section-heading p:not(.command-os-eyebrow) { margin: 3px 0 0; color: var(--co-muted); font-size: 9px; }
 
-.command-os-mtd-revenue-grid {
+.command-os-partner-revenue-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 11px;
 }
 
-.command-os-mtd-revenue-card {
+.command-os-partner-revenue-card {
     min-height: 190px;
     animation: command-os-panel-arrive .45s ease both;
 }
 
-.command-os-mtd-revenue-empty { min-height: 150px; }
-.command-os-mtd-revenue-empty .command-os-analytics-empty { min-height: 58px; }
+.command-os-partner-revenue-empty { min-height: 150px; }
+.command-os-partner-revenue-empty .command-os-analytics-empty { min-height: 58px; }
 
-.command-os-mtd-revenue-card:nth-child(2) { animation-delay: .05s; }
-.command-os-mtd-revenue-card:nth-child(3) { animation-delay: .1s; }
-.command-os-mtd-revenue-card:nth-child(4) { animation-delay: .15s; }
-.command-os-mtd-revenue-card .command-os-panel-heading { min-height: 44px; }
-.command-os-mtd-revenue-card .command-os-panel-title h3 { margin: 0; color: var(--co-ink); font-size: 11px; font-weight: 750; }
+.command-os-partner-revenue-card:nth-child(2) { animation-delay: .05s; }
+.command-os-partner-revenue-card:nth-child(3) { animation-delay: .1s; }
+.command-os-partner-revenue-card:nth-child(4) { animation-delay: .15s; }
+.command-os-partner-revenue-card .command-os-panel-heading { min-height: 44px; }
+.command-os-partner-revenue-card .command-os-panel-title h3 { margin: 0; color: var(--co-ink); font-size: 11px; font-weight: 750; }
 
-.command-os-analytics-toggle {
-    display: inline-flex;
-    flex: 0 0 auto;
-    gap: 2px;
-    padding: 2px;
-    border: 1px solid var(--co-border);
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--co-surface-muted) 70%, transparent);
-}
-
-.command-os-analytics-toggle button {
-    min-height: 28px;
-    padding: 3px 7px;
-    border: 0;
-    border-radius: 6px;
-    color: var(--co-muted);
-    background: transparent;
-    font: inherit;
-    font-size: 8px;
-    font-weight: 700;
-    white-space: nowrap;
-    cursor: pointer;
-}
-
-.command-os-analytics-toggle button[aria-pressed='true'] {
-    color: #fff;
-    background: linear-gradient(105deg, #7452f1, #397df5);
-    box-shadow: 0 2px 7px rgb(83 77 203 / 22%);
-}
-
-.command-os-analytics-toggle button:focus-visible {
-    outline: 2px solid var(--co-purple);
-    outline-offset: 2px;
-}
-
-.command-os-mtd-revenue-list { max-height: 226px; padding: 5px 12px 3px; overflow-y: auto; overscroll-behavior: contain; scrollbar-color: var(--co-border-strong) transparent; scrollbar-width: thin; }
-.command-os-mtd-revenue-head,
-.command-os-mtd-revenue-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(72px, .34fr) minmax(88px, .42fr); align-items: center; gap: 8px; }
-.command-os-mtd-revenue-head { position: sticky; top: -5px; z-index: 1; min-height: 25px; color: var(--co-subtle); background: var(--co-surface); font-size: 7px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
-.command-os-mtd-revenue-head span:nth-child(n + 2) { text-align: right; }
-.command-os-mtd-revenue-row { min-height: 31px; border-top: 1px solid color-mix(in srgb, var(--co-border) 75%, transparent); }
-.command-os-mtd-revenue-row > strong { overflow: hidden; color: var(--co-ink); font-size: 9px; font-weight: 680; text-overflow: ellipsis; white-space: nowrap; }
-.command-os-mtd-revenue-row > span,
-.command-os-mtd-revenue-row > b { color: var(--co-muted); font-size: 9px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
-.command-os-mtd-revenue-row > b { color: var(--co-ink); font-weight: 760; }
-
-.command-os-mtd-revenue-list[data-view='range'] .command-os-mtd-revenue-head,
-.command-os-mtd-revenue-list[data-view='range'] .command-os-mtd-revenue-row { grid-template-columns: minmax(72px, 1.12fr) repeat(3, minmax(48px, .55fr)); gap: 5px; }
-.command-os-mtd-revenue-list[data-view='range'] .command-os-mtd-revenue-row > span { color: var(--co-ink); font-weight: 690; }
+.command-os-partner-revenue-list { max-height: 226px; padding: 5px 12px 3px; overflow-y: auto; overscroll-behavior: contain; scrollbar-color: var(--co-border-strong) transparent; scrollbar-width: thin; }
+.command-os-partner-revenue-head,
+.command-os-partner-revenue-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(50px, .34fr) minmax(76px, .42fr); align-items: center; gap: 8px; }
+.command-os-partner-revenue-head { position: sticky; top: -5px; z-index: 1; min-height: 25px; color: var(--co-subtle); background: var(--co-surface); font-size: 7px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
+.command-os-partner-revenue-head span:nth-child(n + 2) { text-align: right; }
+.command-os-partner-revenue-row { min-height: 31px; border-top: 1px solid color-mix(in srgb, var(--co-border) 75%, transparent); }
+.command-os-partner-revenue-row > strong { overflow: hidden; color: var(--co-ink); font-size: 9px; font-weight: 680; text-overflow: ellipsis; white-space: nowrap; }
+.command-os-partner-revenue-row > span,
+.command-os-partner-revenue-row > b { color: var(--co-muted); font-size: 9px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.command-os-partner-revenue-row > b { color: var(--co-ink); font-weight: 760; }
 
 .command-os-charts-section {
     display: grid;
@@ -2138,7 +2099,7 @@ body.command-os-dashboard #page-container.sidebar-mini #sidebar:focus-within .na
 }
 
 @media (min-width: 1600px) {
-    .command-os-mtd-revenue-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .command-os-partner-revenue-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
 @media (max-width: 1180px) {
@@ -2148,7 +2109,7 @@ body.command-os-dashboard #page-container.sidebar-mini #sidebar:focus-within .na
 }
 
 @media (max-width: 991.98px) {
-    .command-os-mtd-revenue-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .command-os-partner-revenue-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .command-os-charts-section { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .command-os-stat-grid-panel { grid-row: auto; }
     .command-os-date-filter { justify-content: flex-start; width: 100%; }
@@ -2310,14 +2271,12 @@ body.command-os-dashboard #page-container.sidebar-mini #sidebar:focus-within .na
     .command-os-action-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .command-os-data-notes { align-items: flex-start; flex-direction: column; gap: 3px; }
     .command-os-refresh-status { align-self: flex-end; }
-    .command-os-mtd-revenue-row,
-    .command-os-mtd-revenue-head { grid-template-columns: minmax(0, 1fr) minmax(64px, .38fr) minmax(82px, .45fr); gap: 5px; }
-    .command-os-mtd-revenue-row > strong { font-size: 8px; }
-    .command-os-mtd-revenue-row > span,
-    .command-os-mtd-revenue-row > b { font-size: 8px; }
-    .command-os-mtd-revenue-list[data-view='range'] .command-os-mtd-revenue-head,
-    .command-os-mtd-revenue-list[data-view='range'] .command-os-mtd-revenue-row { grid-template-columns: minmax(72px, 1.12fr) repeat(3, minmax(48px, .55fr)); gap: 5px; }
-    .command-os-mtd-revenue-grid,
+    .command-os-partner-revenue-row,
+    .command-os-partner-revenue-head { grid-template-columns: minmax(0, 1fr) minmax(40px, .38fr) minmax(68px, .45fr); gap: 5px; }
+    .command-os-partner-revenue-row > strong { font-size: 8px; }
+    .command-os-partner-revenue-row > span,
+    .command-os-partner-revenue-row > b { font-size: 8px; }
+    .command-os-partner-revenue-grid,
     .command-os-charts-section { grid-template-columns: minmax(0, 1fr); gap: 9px; }
     .command-os-chart-total { font-size: 10px; }
 }

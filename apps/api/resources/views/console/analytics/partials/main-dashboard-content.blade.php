@@ -59,33 +59,38 @@
         @endforeach
     </div>
 
-    <div class="row row-deck" aria-label="Month-to-date attributed lead revenue breakdowns">
+    <div class="mb-2" aria-label="Partner revenue period">
+        <strong>Partner revenue — {{ $commandOsDashboard['analytics']['period']['label'] }}</strong>
+        <span class="text-muted">({{ $commandOsDashboard['analytics']['period']['from'] }}–{{ $commandOsDashboard['analytics']['period']['to'] }})</span>
+    </div>
+    <div class="row row-deck" aria-label="Attributed revenue by partner for the selected date range">
         @foreach ([
-            ['sponsors', 'MTD REVENUE BY AFFILIATE'],
-            ['isps', 'MTD REVENUE BY ISP'],
-            ['mailers', 'MTD REVENUE BY MAILER'],
-            ['offers', 'MTD TOP 10 OFFERS'],
-        ] as [$key, $title])
+            ['sponsors', 'SPONSOR REVENUE', 'SPONSOR'],
+            ['isps', 'ISP REVENUE', 'ISP'],
+            ['mailers', 'MAILER REVENUE', 'MAILER'],
+            ['offers', 'TOP 10 OFFERS BY REVENUE', 'OFFER'],
+        ] as [$key, $title, $dimension])
+            @php($partnerRevenueRows = $commandOsDashboard['analytics'][$key])
             <div class="col-sm-12 col-md-6">
                 <div class="block block-rounded">
                     <div class="block-header block-header-default"><h3 class="block-title">{{ $title }}</h3></div>
                     <div class="block-content block-content-full p-2">
-                        @if ($mtdLeadRevenue[$key] === [])
-                            <div class="text-muted p-2" role="status">No attributed lead revenue is recorded this month.</div>
+                        @if ($partnerRevenueRows === [])
+                            <div class="text-muted p-2" role="status">No attributed lead revenue was recorded for {{ strtolower($dimension) }}s in this date range.</div>
                         @else
                             <div class="table-responsive">
                                 <table class="table table-sm table-hover table-striped mb-0">
-                                    <caption class="sr-only">{{ $title }} from attributed campaign and Drop leads</caption>
-                                    <thead><tr><th scope="col">{{ $key === 'sponsors' ? 'AFFILIATE' : rtrim(strtoupper($key), 'S') }}</th><th scope="col" class="text-right">TODAY</th><th scope="col" class="text-right">MTD</th></tr></thead>
+                                    <caption class="sr-only">{{ $title }} from attributed campaign and Drop leads for the selected date range</caption>
+                                    <thead><tr><th scope="col">{{ $dimension }}</th><th scope="col" class="text-right">LEADS</th><th scope="col" class="text-right">ATTRIBUTED REVENUE</th></tr></thead>
                                     <tbody>
-                                        @foreach ($mtdLeadRevenue[$key] as $row)
-                                            <tr><td>{{ $row['label'] }}</td><td class="text-right">${{ number_format($row['today'], 2) }}</td><td class="text-right">${{ number_format($row['mtd'], 2) }}</td></tr>
+                                        @foreach ($partnerRevenueRows as $row)
+                                            <tr><td>{{ $row['label'] }}</td><td class="text-right">{{ number_format($row['leads']) }}</td><td class="text-right">${{ number_format($row['attributed_revenue'], 2) }}</td></tr>
                                         @endforeach
                                     </tbody>
                                 </table>
                             </div>
                         @endif
-                        <small class="text-muted">Attributed lead revenue only.</small>
+                        <small class="text-muted">Recorded campaign and Drop lead revenue.</small>
                     </div>
                 </div>
             </div>

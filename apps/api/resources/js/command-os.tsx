@@ -55,7 +55,6 @@ export type DashboardPayload = {
     actions: DashboardAction[];
 };
 export type AnalyticsRow = { label: string; leads: number; clicks: number; attributed_revenue: number; deliveries?: number; opens?: number; unsubscribes?: number; bounces?: number };
-export type RevenueBreakdownRow = { label: string; today: number; mtd: number };
 export type DashboardChartSeries = { label: string; color: string; values: number[] };
 export type DashboardChart = { labels: string[]; series: DashboardChartSeries[] };
 export type GeoCountry = { country: string; opens: number; clicks: number; leads: number; unsubscribes: number; deliveries: number; bounces: number };
@@ -63,9 +62,9 @@ export type MarketingNode = { id: string; label: string; count: number; color: s
 export type DashboardAnalytics = {
     totals: { deliveries: number; opens: number; clicks: number; leads: number; unsubscribes: number; bounces: number; attributed_revenue: number };
     sponsors: AnalyticsRow[];
+    isps: AnalyticsRow[];
     mailers: AnalyticsRow[];
     offers: AnalyticsRow[];
-    mtdRevenue: { sponsors: RevenueBreakdownRow[]; isps: RevenueBreakdownRow[]; mailers: RevenueBreakdownRow[]; offers: RevenueBreakdownRow[] };
     geo: { countries: GeoCountry[]; feedback_note: string };
     graph: { nodes: MarketingNode[]; note: string };
     period: { key: string; label: string; from: string; to: string; maxDate: string; action: string };
@@ -248,7 +247,7 @@ function MtdActionsStats({ chart }: { chart: DashboardChart }): JSX.Element {
     return (
         <section className="command-os-panel command-os-stat-grid-panel" aria-labelledby="command-os-mtd-actions-title">
             <div className="command-os-panel-heading">
-                <div className="command-os-panel-title"><span className="command-os-heading-icon"><Activity size={17} aria-hidden="true" /></span><h2 id="command-os-mtd-actions-title">MTD Actions Stats</h2></div>
+                <div className="command-os-panel-title"><span className="command-os-heading-icon"><Activity size={17} aria-hidden="true" /></span><h2 id="command-os-mtd-actions-title">Month-to-date activity</h2></div>
                 <span className="command-os-status-tag">Month to date</span>
             </div>
             <div className="command-os-action-stats">
@@ -404,87 +403,57 @@ function DateAnalyticsFilter({ period }: { period: DashboardAnalytics['period'] 
     );
 }
 
-type PartnerActivityColumn = {
-    key: Exclude<keyof AnalyticsRow, 'label'>;
-    label: string;
-    format?: 'money' | 'number';
-};
-
-function MtdRevenueBreakdown({
+function PartnerRevenueBreakdown({
     title,
     dimension,
     icon: Icon,
     rows,
-    activityRows,
-    activityColumns,
     rangeLabel,
-    activityFootnote,
 }: {
     title: string;
     dimension: string;
     icon: LucideIcon;
-    rows: RevenueBreakdownRow[];
-    activityRows?: AnalyticsRow[];
-    activityColumns?: PartnerActivityColumn[];
+    rows: AnalyticsRow[];
     rangeLabel: string;
-    activityFootnote?: string;
 }): JSX.Element {
-    const [view, setView] = useState<'mtd' | 'range'>('mtd');
-    const rangeRows = activityRows ?? [];
-    const rangeColumns = activityColumns ?? [];
-    const showingRange = view === 'range' && activityRows !== undefined && activityColumns !== undefined;
-    const displayRows = showingRange ? rangeRows : rows;
-    const heading = showingRange ? `${dimension} activity · ${rangeLabel}` : title;
-
     return (
-        <article className={`command-os-panel command-os-mtd-revenue-card${displayRows.length === 0 ? ' command-os-mtd-revenue-empty' : ''}`}>
+        <article className={`command-os-panel command-os-partner-revenue-card${rows.length === 0 ? ' command-os-partner-revenue-empty' : ''}`}>
             <div className="command-os-panel-heading">
-                <div className="command-os-panel-title"><span className="command-os-heading-icon"><Icon size={17} aria-hidden="true" /></span><h3>{heading}</h3></div>
-                {activityRows && activityColumns ? <div className="command-os-analytics-toggle" role="group" aria-label={`${dimension} metric range`}>
-                    <button type="button" aria-label={`Show month-to-date revenue by ${dimension.toLowerCase()}`} title="Month-to-date revenue" aria-pressed={!showingRange} onClick={() => setView('mtd')}>MTD</button>
-                    <button type="button" aria-label={`Show ${rangeLabel.toLowerCase()} activity by ${dimension.toLowerCase()}`} title={`Activity for ${rangeLabel}`} aria-pressed={showingRange} onClick={() => setView('range')}>Range</button>
-                </div> : <span className="command-os-status-tag">MTD</span>}
+                <div className="command-os-panel-title"><span className="command-os-heading-icon"><Icon size={17} aria-hidden="true" /></span><h3>{title}</h3></div>
+                <span className="command-os-status-tag">{rangeLabel}</span>
             </div>
-            {displayRows.length === 0 ? <p className="command-os-analytics-empty" role="status">{showingRange ? `No ${dimension.toLowerCase()} activity is recorded for ${rangeLabel.toLowerCase()}.` : 'No attributed lead revenue is recorded this month.'}</p> : <div className="command-os-mtd-revenue-list" data-view={showingRange ? 'range' : 'mtd'} aria-live="polite">
-                {showingRange ? <div className="command-os-mtd-revenue-head"> <span>{dimension}</span>{rangeColumns.map((column) => <span key={column.key}>{column.label}</span>)}</div> : <div className="command-os-mtd-revenue-head"><span>{dimension}</span><span>Today</span><span>Month to date</span></div>}
-                {displayRows.map((row, index) => <div className="command-os-mtd-revenue-row" key={`${row.label}-${index}`}>
+            {rows.length === 0 ? <p className="command-os-analytics-empty" role="status">No attributed lead revenue was recorded for {dimension.toLowerCase()}s {rangeLabel.toLowerCase()}.</p> : <div className="command-os-partner-revenue-list" aria-live="polite">
+                <div className="command-os-partner-revenue-head"><span>{dimension}</span><span>Leads</span><span>Revenue</span></div>
+                {rows.map((row, index) => <div className="command-os-partner-revenue-row" key={`${row.label}-${index}`}>
                     <strong title={row.label}>{row.label}</strong>
-                    {showingRange ? rangeColumns.map((column) => {
-                        const value = Number((row as AnalyticsRow)[column.key] ?? 0);
-                        return <span key={column.key}>{column.format === 'money' ? money(value) : number(value)}</span>;
-                    }) : <><span>{money((row as RevenueBreakdownRow).today)}</span><b>{money((row as RevenueBreakdownRow).mtd)}</b></>}
+                    <span>{number(row.leads)}</span>
+                    <b>{money(row.attributed_revenue)}</b>
                 </div>)}
             </div>}
-            <p className="command-os-analytics-footnote">{showingRange ? activityFootnote : 'Revenue attributed to recorded campaign and Drop leads.'}</p>
+            <p className="command-os-analytics-footnote">Attributed lead revenue from recorded campaign and Drop activity.</p>
         </article>
     );
 }
 
-function MtdRevenueAnalytics({ analytics }: { analytics: DashboardAnalytics }): JSX.Element {
-    return <section className="command-os-mtd-revenue-section" aria-labelledby="command-os-mtd-revenue-breakdowns-title">
+function PartnerRevenueAnalytics({ analytics }: { analytics: DashboardAnalytics }): JSX.Element {
+    return <section className="command-os-partner-revenue-section" aria-labelledby="command-os-partner-revenue-title">
         <div className="command-os-section-heading">
-            <div><p className="command-os-eyebrow">PARTNER PERFORMANCE</p><h2 id="command-os-mtd-revenue-breakdowns-title">Revenue by partner</h2><p>Switch each card between MTD revenue and activity for {analytics.period.label.toLowerCase()}.</p></div>
+            <div><p className="command-os-eyebrow">ATTRIBUTED PERFORMANCE</p><h2 id="command-os-partner-revenue-title">Partner revenue</h2><p>All rankings use the selected range: {analytics.period.label} ({analytics.period.from}–{analytics.period.to}).</p></div>
         </div>
-        <div className="command-os-mtd-revenue-grid">
-            <MtdRevenueBreakdown title="MTD Revenue by Affiliate" dimension="Affiliate" icon={Target} rows={analytics.mtdRevenue.sponsors} activityRows={analytics.sponsors} activityColumns={[
-                { key: 'leads', label: 'Leads' }, { key: 'clicks', label: 'Clicks' }, { key: 'attributed_revenue', label: 'Revenue', format: 'money' },
-            ]} rangeLabel={analytics.period.label} activityFootnote="Revenue reflects recorded lead attribution." />
-            <MtdRevenueBreakdown title="MTD Revenue by ISP" dimension="ISP" icon={Globe2} rows={analytics.mtdRevenue.isps} rangeLabel={analytics.period.label} />
-            <MtdRevenueBreakdown title="MTD Revenue by Mailer" dimension="Mailer" icon={Mail} rows={analytics.mtdRevenue.mailers} activityRows={analytics.mailers} activityColumns={[
-                { key: 'deliveries', label: 'Feedback' }, { key: 'opens', label: 'Opens' }, { key: 'clicks', label: 'Clicks' },
-            ]} rangeLabel={analytics.period.label} activityFootnote="Delivery feedback may not represent the full send denominator." />
-            <MtdRevenueBreakdown title="MTD Top 10 Offers" dimension="Offer" icon={Layers3} rows={analytics.mtdRevenue.offers} activityRows={analytics.offers} activityColumns={[
-                { key: 'leads', label: 'Leads' }, { key: 'clicks', label: 'Clicks' }, { key: 'attributed_revenue', label: 'Revenue', format: 'money' },
-            ]} rangeLabel={analytics.period.label} activityFootnote="Ranked by recorded attributed revenue." />
+        <div className="command-os-partner-revenue-grid">
+            <PartnerRevenueBreakdown title="Sponsor revenue" dimension="Sponsor" icon={Target} rows={analytics.sponsors} rangeLabel={analytics.period.label} />
+            <PartnerRevenueBreakdown title="ISP revenue" dimension="ISP" icon={Globe2} rows={analytics.isps} rangeLabel={analytics.period.label} />
+            <PartnerRevenueBreakdown title="Mailer revenue" dimension="Mailer" icon={Mail} rows={analytics.mailers} rangeLabel={analytics.period.label} />
+            <PartnerRevenueBreakdown title="Top 10 offers by revenue" dimension="Offer" icon={Layers3} rows={analytics.offers} rangeLabel={analytics.period.label} />
         </div>
     </section>;
 }
 
 function DashboardCharts({ payload, theme }: { payload: DashboardPayload; theme: Theme }): JSX.Element {
-    return <section className="command-os-charts-section" aria-label="Month-to-date and year-to-date statistics">
+    return <section className="command-os-charts-section" aria-label="Activity and revenue trends">
         <MtdActionsStats chart={payload.charts.mtd_actions} />
-        <RevenueTrendPanel id="command-os-ytd-revenue" title="YTD Revenue Stats" icon={ChartNoAxesCombined} chart={payload.charts.ytd_revenue} theme={theme} />
-        <RevenueTrendPanel id="command-os-mtd-revenue" title="MTD Revenue Stats" icon={DollarSign} chart={payload.charts.mtd_revenue} theme={theme} />
+        <RevenueTrendPanel id="command-os-ytd-revenue" title="Year-to-date attributed revenue" icon={ChartNoAxesCombined} chart={payload.charts.ytd_revenue} theme={theme} />
+        <RevenueTrendPanel id="command-os-mtd-revenue" title="Month-to-date attributed revenue" icon={DollarSign} chart={payload.charts.mtd_revenue} theme={theme} />
     </section>;
 }
 
@@ -606,7 +575,7 @@ function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
                 </div>
             </section>
 
-            <MtdRevenueAnalytics analytics={payload.analytics} />
+            <PartnerRevenueAnalytics analytics={payload.analytics} />
 
             <DashboardCharts payload={payload} theme={theme} />
 

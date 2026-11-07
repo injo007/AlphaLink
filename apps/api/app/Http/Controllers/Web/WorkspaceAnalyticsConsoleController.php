@@ -32,11 +32,9 @@ class WorkspaceAnalyticsConsoleController extends Controller
 
         $today = now();
         $yearFrom = $today->copy()->startOfYear()->startOfDay();
-        $monthFrom = $today->copy()->startOfMonth()->startOfDay();
         $to = $today->copy()->endOfDay();
 
         $this->dailyEvents($workspace, $user, $yearFrom, $to);
-        $this->mtdLeadRevenueBreakdowns($workspace, $user, $monthFrom, $today->copy()->startOfDay(), $to);
 
         return true;
     }
@@ -101,14 +99,6 @@ class WorkspaceAnalyticsConsoleController extends Controller
                 'mtd' => $monthEvents->sum(fn (object $row): float => (float) $row->lead_revenue),
             ],
         ];
-        $mtdLeadRevenue = $this->mtdLeadRevenueBreakdowns(
-            $workspace,
-            $request->user(),
-            $monthFrom,
-            $today->copy()->startOfDay(),
-            $to,
-        );
-
         $eventTotals = [
             'opens' => $dailyRows->sum('opens'),
             'clicks' => $dailyRows->sum('clicks'),
@@ -157,7 +147,6 @@ class WorkspaceAnalyticsConsoleController extends Controller
                 $analyticsPeriod['from'],
                 $analyticsPeriod['to'],
             ) + [
-                'mtdRevenue' => $mtdLeadRevenue,
                 'period' => [
                     ...$analyticsPeriod,
                     'action' => route('console.analytics.index', ['workspace' => $workspace->getKey()]),
@@ -284,7 +273,6 @@ class WorkspaceAnalyticsConsoleController extends Controller
                 'dashboardCharts' => $dashboardCharts,
                 'dashboardHighlights' => $dashboardHighlights,
                 'commandOsDashboard' => $commandOsDashboard,
-                'mtdLeadRevenue' => $mtdLeadRevenue,
                 'maxDailyEvents' => $maxDailyEvents,
                 'snapshotCounts' => $snapshotCounts,
                 'hasAudienceSnapshots' => $hasAudienceSnapshots,
@@ -336,6 +324,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
      * @return array{
      *     totals: array{deliveries: int, opens: int, clicks: int, leads: int, unsubscribes: int, bounces: int, attributed_revenue: float},
      *     sponsors: list<array{label: string, leads: int, clicks: int, attributed_revenue: float}>,
+     *     isps: list<array{label: string, leads: int, clicks: int, attributed_revenue: float}>,
      *     mailers: list<array{label: string, deliveries: int, opens: int, clicks: int, leads: int, unsubscribes: int, bounces: int, attributed_revenue: float}>,
      *     offers: list<array{label: string, leads: int, clicks: int, attributed_revenue: float}>,
      *     geo: array{countries: list<array{country: string, opens: int, clicks: int, leads: int, unsubscribes: int, deliveries: int, bounces: int}>, feedback_note: string},
@@ -359,6 +348,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
      * @return array{
      *     totals: array{deliveries: int, opens: int, clicks: int, leads: int, unsubscribes: int, bounces: int, attributed_revenue: float},
      *     sponsors: list<array{label: string, leads: int, clicks: int, attributed_revenue: float}>,
+     *     isps: list<array{label: string, leads: int, clicks: int, attributed_revenue: float}>,
      *     mailers: list<array{label: string, deliveries: int, opens: int, clicks: int, leads: int, unsubscribes: int, bounces: int, attributed_revenue: float}>,
      *     offers: list<array{label: string, leads: int, clicks: int, attributed_revenue: float}>,
      *     geo: array{countries: list<array{country: string, opens: int, clicks: int, leads: int, unsubscribes: int, deliveries: int, bounces: int}>, feedback_note: string},
@@ -373,11 +363,11 @@ class WorkspaceAnalyticsConsoleController extends Controller
             ->whereIn('source_type', ['campaign', 'drop'])
             ->whereBetween('at', [$from, $to])
             ->when($workspace->pivot->role === 'operator', fn ($query) => $query->where('user_id', $user->getKey()))
-            ->select('sponsor_id', 'offer_id', 'user_id')
+            ->select('sponsor_id', 'isp_id', 'offer_id', 'user_id')
             ->selectRaw('SUM(deliveries) AS deliveries, SUM(opens) AS opens, SUM(clicks) AS clicks')
             ->selectRaw('SUM(leads) AS leads, SUM(unsubscribes) AS unsubscribes, SUM(soft_bounces + hard_bounces) AS bounces')
             ->selectRaw('SUM(lead_revenue) AS attributed_revenue')
-            ->groupBy('sponsor_id', 'offer_id', 'user_id')
+            ->groupBy('sponsor_id', 'isp_id', 'offer_id', 'user_id')
             ->get();
 
         $sponsorIds = $rows->pluck('sponsor_id')->filter()->unique()->values();
@@ -387,6 +377,9 @@ class WorkspaceAnalyticsConsoleController extends Controller
             'sponsor_id' => $sponsorIds->isEmpty() ? collect() : DB::table('workspace_sponsors')
                 ->where('workspace_id', $workspace->getKey())
                 ->whereIn('id', $sponsorIds)
+                ->pluck('name', 'id'),
+            'isp_id' => DB::table('isps')
+                ->where('workspace_id', $workspace->getKey())
                 ->pluck('name', 'id'),
             'offer_id' => $offerIds->isEmpty() ? collect() : DB::table('workspace_offers')
                 ->where('workspace_id', $workspace->getKey())
@@ -411,7 +404,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
 
                     return $result;
                 })
-                ->filter(fn (array $row): bool => collect($fields)->contains(fn (string $field): bool => $row[$field] > 0))
+                ->filter(fn (array $row): bool => $row['attributed_revenue'] > 0)
                 ->sort(fn (array $left, array $right): int => ($right['attributed_revenue'] <=> $left['attributed_revenue'])
                     ?: ($right['leads'] <=> $left['leads'])
                     ?: (($right['clicks'] ?? 0) <=> ($left['clicks'] ?? 0)))
@@ -431,6 +424,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
                 'attributed_revenue' => round($rows->sum(fn (object $row): float => (float) $row->attributed_revenue), 2),
             ],
             'sponsors' => $mapDimension('sponsor_id', 'sponsor', 5, ['leads', 'clicks', 'attributed_revenue']),
+            'isps' => $mapDimension('isp_id', 'ISP', 5, ['leads', 'clicks', 'attributed_revenue']),
             'mailers' => $mapDimension('user_id', 'mailer', 5, ['deliveries', 'opens', 'clicks', 'leads', 'unsubscribes', 'bounces', 'attributed_revenue']),
             'offers' => $mapDimension('offer_id', 'offer', 10, ['leads', 'clicks', 'attributed_revenue']),
             'geo' => $this->dashboardGeoAnalytics($workspace, $user, $from, $to),
@@ -1159,79 +1153,6 @@ class WorkspaceAnalyticsConsoleController extends Controller
             ->groupBy('at')
             ->orderBy('at')
             ->get();
-    }
-
-    /**
-     * @return array<string, list<array{label: string, today: float, mtd: float}>>
-     */
-    private function mtdLeadRevenueBreakdowns(Workspace $workspace, User $user, Carbon $monthFrom, Carbon $todayFrom, Carbon $to): array
-    {
-        $cacheKey = $this->mainDashboardCacheKey('mtd-lead-revenue', $workspace, $user, $monthFrom, $to);
-
-        return Cache::remember(
-            $cacheKey,
-            self::MAIN_DASHBOARD_CACHE_SECONDS,
-            fn (): array => $this->loadMtdLeadRevenueBreakdowns($workspace, $user, $monthFrom, $todayFrom, $to),
-        );
-    }
-
-    /**
-     * @return array<string, list<array{label: string, today: float, mtd: float}>>
-     */
-    private function loadMtdLeadRevenueBreakdowns(Workspace $workspace, User $user, Carbon $monthFrom, Carbon $todayFrom, Carbon $to): array
-    {
-        $rows = DB::table('workspace_daily_analytics')
-            ->where('workspace_id', $workspace->getKey())
-            ->where('attribution_scope', 'workspace')
-            ->whereBetween('at', [$monthFrom->toDateString(), $to->toDateString()])
-            ->where('leads', '>', 0)
-            ->when($workspace->pivot->role === 'operator', fn ($query) => $query->where('user_id', $user->getKey()))
-            ->select('sponsor_id', 'isp_id', 'user_id', 'offer_id')
-            ->selectRaw('SUM(CASE WHEN at = ? THEN lead_revenue ELSE 0 END) AS today_revenue', [$todayFrom->toDateString()])
-            ->selectRaw('SUM(lead_revenue) AS mtd_revenue')
-            ->groupBy('sponsor_id', 'isp_id', 'user_id', 'offer_id')
-            ->get();
-        $userIds = $rows->pluck('user_id')->filter()->unique()->values();
-
-        $labels = [
-            'sponsor_id' => DB::table('workspace_sponsors')
-                ->where('workspace_id', $workspace->getKey())
-                ->pluck('name', 'id'),
-            'isp_id' => DB::table('isps')
-                ->where('workspace_id', $workspace->getKey())
-                ->pluck('name', 'id'),
-            'user_id' => DB::table('users')
-                ->whereIn('id', $userIds)
-                ->selectRaw("id, COALESCE(name, username, 'Unknown') AS label")
-                ->pluck('label', 'id'),
-            'offer_id' => DB::table('workspace_offers')
-                ->where('workspace_id', $workspace->getKey())
-                ->pluck('name', 'id'),
-        ];
-
-        $breakdowns = [];
-        foreach ([
-            'sponsors' => ['sponsor_id', 'affiliate'],
-            'isps' => ['isp_id', 'ISP'],
-            'mailers' => ['user_id', 'mailer'],
-            'offers' => ['offer_id', 'offer'],
-        ] as $key => [$column, $fallback]) {
-            $breakdown = $rows->groupBy(fn (object $row): string => (string) ($row->{$column} ?? 'unknown'))
-                ->map(function (Collection $dimensionRows, string $id) use ($column, $fallback, $labels): array {
-                    return [
-                        'label' => $labels[$column][$id] ?? 'Unknown '.$fallback,
-                        'today' => round($dimensionRows->sum(fn (object $row): float => (float) $row->today_revenue), 2),
-                        'mtd' => round($dimensionRows->sum(fn (object $row): float => (float) $row->mtd_revenue), 2),
-                    ];
-                })
-                ->filter(fn (array $row): bool => $row['mtd'] > 0)
-                ->sortByDesc('mtd')
-                ->values();
-
-            $breakdowns[$key] = $key === 'offers' ? $breakdown->take(10)->values()->all() : $breakdown->all();
-        }
-
-        return $breakdowns;
     }
 
     private function mainDashboardCacheKey(string $dataset, Workspace $workspace, User $user, Carbon $from, Carbon $to): string

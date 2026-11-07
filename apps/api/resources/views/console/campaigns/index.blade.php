@@ -157,31 +157,35 @@
                                         {{ isset($register['send_type']) ? strtoupper($register['send_type']) : '—' }}
                                     @endif
                                 </td>
-                                <td class="text-nowrap" data-campaign-column="actions">
-                                    <a class="btn btn-link btn-sm" href="{{ route('console.campaigns.show', [$workspace->id, $campaign->id]) }}" title="Open saved draft" aria-label="Open {{ $campaign->name }}"><i class="fas fa-eye" aria-hidden="true"></i></a>
-                                    <a class="btn btn-link btn-sm" href="{{ route('console.campaigns.show', [$workspace->id, $campaign->id]) }}#campaign-test-logs" title="Open campaign test logs" aria-label="Open test logs for {{ $campaign->name }}"><i class="fas fa-history" aria-hidden="true"></i></a>
-                                    @if ($campaign->kind === 'transactional')
-                                        <a class="btn btn-link btn-sm" href="{{ route('console.campaigns.show', [$workspace->id, $campaign->id]) }}#test-email" title="Send one test email through Symfony Mailer" aria-label="Open test email for {{ $campaign->name }}"><i class="far fa-paper-plane text-warning" aria-hidden="true"></i></a>
-                                    @elseif (($register['configured'] ?? false))
-                                        <form id="campaign-auto-test-{{ $campaign->id }}" method="POST" action="{{ route('console.campaigns.auto-test', [$workspace->id, $campaign->id]) }}" class="d-inline" data-campaign-auto-test-form data-logs-url="{{ route('console.campaigns.show', [$workspace->id, $campaign->id]) }}#campaign-test-logs" data-ip-count="{{ count($campaign->latestRevision?->payload['send_setup']['ip_ids'] ?? []) }}" data-send-type-selector="campaign-send-type-{{ $campaign->id }}" data-submit-button="campaign-auto-test-submit-{{ $campaign->id }}">
+                                <td data-campaign-column="actions">
+                                    @if ($campaign->kind !== 'transactional' && ($register['configured'] ?? false))
+                                        <form id="campaign-auto-test-{{ $campaign->id }}" method="POST" action="{{ route('console.campaigns.auto-test', [$workspace->id, $campaign->id]) }}" class="d-none" data-campaign-auto-test-form data-logs-url="{{ route('console.campaigns.show', [$workspace->id, $campaign->id]) }}#campaign-test-logs" data-ip-count="{{ count($campaign->latestRevision?->payload['send_setup']['ip_ids'] ?? []) }}" data-send-type-selector="campaign-send-type-{{ $campaign->id }}" data-submit-button="campaign-auto-test-submit-{{ $campaign->id }}">
                                             @csrf
                                             <input type="hidden" name="idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">
                                         </form>
-                                        <button id="campaign-auto-test-submit-{{ $campaign->id }}" class="btn btn-link btn-sm" type="submit" form="campaign-auto-test-{{ $campaign->id }}" title="Test saved campaign settings" aria-label="Test {{ $campaign->name }}"><i class="far fa-paper-plane text-warning" aria-hidden="true"></i></button>
-                                    @else
-                                        <button class="btn btn-link btn-sm" type="button" disabled title="Save Email Test addresses, Header and server settings to test this campaign." aria-label="Test unavailable for {{ $campaign->name }}"><i class="far fa-paper-plane text-warning" aria-hidden="true"></i></button>
                                     @endif
-                                    @if ($campaign->kind === 'marketing')
-                                        <a class="btn btn-link btn-sm" href="{{ route('console.campaigns.edit', [$workspace->id, $campaign->id]) }}" title="Edit campaign" aria-label="Edit {{ $campaign->name }}"><i class="fas fa-edit" aria-hidden="true"></i></a>
-                                    @endif
-                                    <button type="button" class="btn btn-link btn-sm" disabled title="Editing selected IPs is not implemented in AlphaLink." aria-label="Edit IPs unavailable for {{ $campaign->name }}"><i class="fas fa-list" aria-hidden="true"></i></button>
-                                    <button type="button" class="btn btn-link btn-sm" data-campaign-statistics-toggle aria-expanded="false" aria-controls="campaign-statistics-{{ $campaign->id }}" data-statistics-url="{{ route('console.campaign-statistics.index', [$workspace->id, 'campaign_id' => $campaign->id, 'from' => $from->toDateString(), 'to' => $to->toDateString(), 'inline' => 1]) }}" title="Show campaign statistics" aria-label="Show statistics for {{ $campaign->name }}"><i class="fas fa-chart-bar" aria-hidden="true"></i></button>
-                                    @if ($campaign->kind === 'marketing' && ($register['configured'] ?? false))
-                                        <a class="btn btn-link btn-sm" href="{{ route('console.campaigns.clone', [$workspace->id, $campaign->id]) }}" data-campaign-clone-open title="Clone campaign" aria-label="Clone {{ $campaign->name }}" aria-haspopup="dialog"><i class="fas fa-clone" aria-hidden="true"></i></a>
-                                    @else
-                                        <button type="button" class="btn btn-link btn-sm" disabled title="Only campaigns with a saved audience setup can be cloned." aria-label="Clone unavailable for {{ $campaign->name }}"><i class="fas fa-clone" aria-hidden="true"></i></button>
-                                    @endif
-                                    <button type="button" class="btn btn-link btn-sm campaign-status-open" data-campaign-name="{{ $campaign->name }}" data-next-active="{{ $campaign->is_active ? '0' : '1' }}" data-status-url="{{ route('console.campaigns.status', [$workspace->id, $campaign->id]) }}" title="{{ $sendActive ? 'Stop the active send before disabling this campaign.' : ($campaign->is_active ? 'Disable campaign' : 'Restore campaign') }}" aria-label="{{ $sendActive ? 'Stop active send before disabling '.$campaign->name : ($campaign->is_active ? 'Disable ' : 'Restore ').$campaign->name }}" @disabled($sendActive)><i class="{{ $campaign->is_active ? 'fas fa-trash text-danger' : 'fas fa-trash-restore text-success' }}" aria-hidden="true"></i></button>
+                                    <div class="campaign-register-row-actions" role="group" aria-label="Actions for {{ $campaign->name }}">
+                                        <a class="btn btn-link btn-sm campaign-register-icon-action" href="{{ route('console.campaigns.show', [$workspace->id, $campaign->id]) }}" title="Open saved draft" aria-label="Open {{ $campaign->name }}"><i class="fas fa-eye" aria-hidden="true"></i></a>
+                                        <a class="btn btn-link btn-sm campaign-register-icon-action" href="{{ route('console.campaigns.show', [$workspace->id, $campaign->id]) }}#campaign-test-logs" title="Open campaign test logs" aria-label="Open test logs for {{ $campaign->name }}"><i class="fas fa-history" aria-hidden="true"></i></a>
+                                        @if ($campaign->kind === 'transactional')
+                                            <a class="btn btn-link btn-sm campaign-register-icon-action" href="{{ route('console.campaigns.show', [$workspace->id, $campaign->id]) }}#test-email" title="Send one test email through Symfony Mailer" aria-label="Open test email for {{ $campaign->name }}"><i class="far fa-paper-plane" aria-hidden="true"></i></a>
+                                        @elseif (($register['configured'] ?? false))
+                                            <button id="campaign-auto-test-submit-{{ $campaign->id }}" class="btn btn-link btn-sm campaign-register-icon-action" type="submit" form="campaign-auto-test-{{ $campaign->id }}" title="Test saved campaign settings" aria-label="Test {{ $campaign->name }}"><i class="far fa-paper-plane" aria-hidden="true"></i></button>
+                                        @else
+                                            <button class="btn btn-link btn-sm campaign-register-icon-action" type="button" disabled title="Save Email Test addresses, Header and server settings to test this campaign." aria-label="Test unavailable for {{ $campaign->name }}"><i class="far fa-paper-plane" aria-hidden="true"></i></button>
+                                        @endif
+                                        @if ($campaign->kind === 'marketing')
+                                            <a class="btn btn-link btn-sm campaign-register-icon-action" href="{{ route('console.campaigns.edit', [$workspace->id, $campaign->id]) }}" title="Edit campaign" aria-label="Edit {{ $campaign->name }}"><i class="fas fa-edit" aria-hidden="true"></i></a>
+                                        @endif
+                                        <button type="button" class="btn btn-link btn-sm campaign-register-icon-action" disabled title="Editing selected IPs is not implemented in AlphaLink." aria-label="Edit IPs unavailable for {{ $campaign->name }}"><i class="fas fa-list" aria-hidden="true"></i></button>
+                                        <button type="button" class="btn btn-link btn-sm campaign-register-icon-action" data-campaign-statistics-toggle aria-expanded="false" aria-controls="campaign-statistics-{{ $campaign->id }}" data-statistics-url="{{ route('console.campaign-statistics.index', [$workspace->id, 'campaign_id' => $campaign->id, 'from' => $from->toDateString(), 'to' => $to->toDateString(), 'inline' => 1]) }}" title="Show campaign statistics" aria-label="Show statistics for {{ $campaign->name }}"><i class="fas fa-chart-bar" aria-hidden="true"></i></button>
+                                        @if ($campaign->kind === 'marketing' && ($register['configured'] ?? false))
+                                            <a class="btn btn-link btn-sm campaign-register-icon-action" href="{{ route('console.campaigns.clone', [$workspace->id, $campaign->id]) }}" data-campaign-clone-open title="Clone campaign" aria-label="Clone {{ $campaign->name }}" aria-haspopup="dialog"><i class="fas fa-clone" aria-hidden="true"></i></a>
+                                        @else
+                                            <button type="button" class="btn btn-link btn-sm campaign-register-icon-action" disabled title="Only campaigns with a saved audience setup can be cloned." aria-label="Clone unavailable for {{ $campaign->name }}"><i class="fas fa-clone" aria-hidden="true"></i></button>
+                                        @endif
+                                        <button type="button" class="btn btn-link btn-sm campaign-register-icon-action {{ $campaign->is_active ? 'campaign-register-icon-action-danger' : 'campaign-register-icon-action-success' }} campaign-status-open" data-campaign-name="{{ $campaign->name }}" data-next-active="{{ $campaign->is_active ? '0' : '1' }}" data-status-url="{{ route('console.campaigns.status', [$workspace->id, $campaign->id]) }}" title="{{ $sendActive ? 'Stop the active send before disabling this campaign.' : ($campaign->is_active ? 'Disable campaign' : 'Restore campaign') }}" aria-label="{{ $sendActive ? 'Stop active send before disabling '.$campaign->name : ($campaign->is_active ? 'Disable ' : 'Restore ').$campaign->name }}" @disabled($sendActive)><i class="{{ $campaign->is_active ? 'fas fa-trash' : 'fas fa-trash-restore' }}" aria-hidden="true"></i></button>
+                                    </div>
                                 </td>
                                 <td data-campaign-column="progress">
                                     @php
@@ -449,9 +453,19 @@
         .campaign-register-table [data-campaign-column="offer"] { min-width: 220px; max-width: 300px; line-height: 1.4; }
         .campaign-register-table [data-campaign-column="campaign"] a { color: var(--co-purple); font-size: 10px; font-weight: 800; }
         .campaign-register-table [data-campaign-column="campaign"] .small { display: block; max-width: 170px; margin-top: 3px; color: var(--co-muted) !important; font-size: 9px; line-height: 1.4; }
-        .campaign-register-table [data-campaign-column="actions"] { min-width: 214px; }
-        .campaign-register-table [data-campaign-column="actions"] .btn-link { display: inline-grid; width: 27px; height: 27px; place-items: center; margin: 1px; padding: 0; border: 1px solid transparent; border-radius: 7px; color: var(--co-muted); }
-        .campaign-register-table [data-campaign-column="actions"] .btn-link:hover:not(:disabled) { border-color: var(--co-border); color: var(--co-purple); background: var(--co-surface-muted); }
+        .campaign-register-table [data-campaign-column="actions"] { min-width: 142px; }
+        .campaign-register-row-actions { display: grid; grid-template-columns: repeat(4, 30px); gap: 4px; justify-content: start; width: max-content; max-width: 100%; }
+        .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action { display: inline-flex; align-items: center; justify-content: center; width: 30px; min-width: 30px; height: 30px; min-height: 30px; margin: 0; padding: 0; border: 1px solid rgb(139 83 236 / 18%); border-radius: 9px; color: #7837ef; background: linear-gradient(145deg, #f0e6ff, #e7edff); box-shadow: 0 2px 5px rgb(79 53 157 / 7%); text-decoration: none; transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease, background .16s ease; }
+        .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action i { color: currentColor; font-size: 12px; line-height: 1; }
+        .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action:hover:not(:disabled) { border-color: rgb(120 55 239 / 48%); color: #6123c8; background: linear-gradient(145deg, #e6d5ff, #dce7ff); box-shadow: 0 4px 10px rgb(97 35 200 / 16%); transform: translateY(-1px); }
+        .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action:focus-visible { outline: 3px solid color-mix(in srgb, var(--co-purple) 32%, transparent); outline-offset: 2px; }
+        .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action:disabled { cursor: not-allowed; opacity: .48; box-shadow: none; }
+        .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action-danger { color: #e5485d; background: linear-gradient(145deg, #fff0f2, #fce8ef); border-color: rgb(229 72 93 / 18%); }
+        .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action-success { color: #139768; background: linear-gradient(145deg, #e8fff5, #e5f5ff); border-color: rgb(19 151 104 / 18%); }
+        @media (prefers-reduced-motion: reduce) {
+            .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action { transition: none; }
+            .campaign-register-page .campaign-register-row-actions .campaign-register-icon-action:hover:not(:disabled) { transform: none; }
+        }
         .campaign-register-table [data-campaign-column="send"],
         .campaign-register-table [data-campaign-column="progress"] { min-width: 160px; }
         .campaign-register-table th[data-campaign-column="send"],

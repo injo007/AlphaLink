@@ -13,9 +13,25 @@
         'isp-stats' => 'isp_stats',
         default => 'mailers_stats',
     })
-    <h2 class="content-heading">{{ $title }} <small class="text-muted">CAMPAIGN &amp; DROP EVENTS</small></h2>
+    <div class="{{ $kind === 'all-stats' ? 'command-os-all-stats-report' : ($kind === 'mailer-revenue' ? 'command-os-mailer-revenue-report' : '') }}">
+    @if ($kind === 'all-stats')
+        <header class="command-os-report-hero" aria-labelledby="all-stats-page-title">
+            <div class="command-os-report-hero-mark" aria-hidden="true"><i class="fas fa-chart-line"></i></div>
+            <div class="command-os-report-hero-copy">
+                <p class="command-os-report-eyebrow">TRACKING &amp; ANALYTICS</p>
+                <h1 id="all-stats-page-title">{{ $title }}</h1>
+                <p>Explore campaign and Drop activity across the dimensions available to your workspace.</p>
+            </div>
+            <div class="command-os-report-hero-range">
+                <span>REPORTING WINDOW</span>
+                <strong>{{ $from }} <i class="fas fa-arrow-right" aria-hidden="true"></i> {{ $to }}</strong>
+            </div>
+        </header>
+    @else
+        <h2 class="content-heading">{{ $title }} <small class="text-muted">CAMPAIGN &amp; DROP EVENTS</small></h2>
+    @endif
 
-    <div class="block block-rounded">
+    <div class="block block-rounded {{ $kind === 'all-stats' ? 'command-os-all-stats-card' : '' }}">
         <div class="block-header block-header-default">
             <h3 class="block-title">{{ $title }} REPORT</h3>
             <div class="block-options">
@@ -61,7 +77,7 @@
             </form>
 
             @if ($kind === 'all-stats')
-                <section id="all-stats-pivot-shell" class="analytics-pivot-shell mb-3" data-url="{{ route($reportRoute, $workspace->id) }}" aria-label="All Stats pivot report" aria-busy="false" hidden>
+                <section id="all-stats-pivot-shell" class="analytics-pivot-shell command-os-all-stats-pivot mb-3" data-url="{{ route($reportRoute, $workspace->id) }}" aria-label="All Stats pivot report" aria-busy="false" hidden>
                     <div id="all-stats-pivot-status" class="small text-muted mb-2" role="status" aria-live="polite"></div>
                     <div id="all-stats-pivot" class="analytics-pivot-surface"></div>
                 </section>
@@ -108,6 +124,7 @@
             @endif
         </div>
     </div>
+    </div>
 @endsection
 
 @if (in_array($kind, ['all-stats', 'mailer-revenue', 'isp-stats'], true))
@@ -117,11 +134,11 @@
             <link rel="stylesheet" href="https://cdn3.devexpress.com/jslib/21.2.5/css/dx.material.blue.light.css">
         @endif
         <style>
-            .analytics-pivot-shell .dx-pivotgrid .dx-pivotgrid-area td { color: #000; padding: 10px 16px; }
-            .analytics-pivot-shell .dx-pivotgrid .dx-grandtotal { background-color: #fff; }
-            .analytics-pivot-shell:fullscreen { background: #fff; overflow: auto; padding: 1rem; }
+            .command-os-mailer-revenue-report .analytics-pivot-shell .dx-pivotgrid .dx-pivotgrid-area td { color: #000; padding: 10px 16px; }
+            .command-os-mailer-revenue-report .analytics-pivot-shell .dx-pivotgrid .dx-grandtotal { background-color: #fff; }
+            .analytics-pivot-shell:fullscreen { background: var(--co-page, #f5f6fb); overflow: auto; padding: 1rem; }
             .analytics-pivot-shell:fullscreen .analytics-pivot-surface { min-height: calc(100vh - 6rem); }
-            .analytics-pivot-shell.analytics-pivot-fullscreen { background: #fff; inset: 0; overflow: auto; padding: 1rem; position: fixed; z-index: 1300; }
+            .analytics-pivot-shell.analytics-pivot-fullscreen { background: var(--co-page, #f5f6fb); inset: 0; overflow: auto; padding: 1rem; position: fixed; z-index: 1300; }
             body.analytics-pivot-no-scroll { overflow: hidden; }
             .isp-stats-chart { overflow: hidden; position: relative; width: 100%; }
             .isp-stats-chart.is-rendered { min-height: 19rem; }

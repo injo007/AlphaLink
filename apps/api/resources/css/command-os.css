@@ -3773,3 +3773,214 @@ body.command-os-shell #main_content .command-os-user-created-copy { border-color
     body.command-os-shell #main_content .command-os-user-created-copy { transition: none; }
     body.command-os-shell #main_content .command-os-user-form-heading::after { display: none; }
 }
+
+/* All Stats report: Command OS treatment for the legacy pivot without changing its data model. */
+body.command-os-shell #main_content .command-os-all-stats-report {
+    max-width: 1760px;
+    margin: 0 auto;
+}
+
+body.command-os-shell #main_content .command-os-report-hero {
+    align-items: center;
+    background:
+        radial-gradient(ellipse at 76% 8%, color-mix(in srgb, var(--co-cyan) 12%, transparent), transparent 36%),
+        radial-gradient(ellipse at 95% 78%, color-mix(in srgb, var(--co-purple) 17%, transparent), transparent 40%),
+        linear-gradient(120deg, color-mix(in srgb, var(--co-surface) 90%, var(--co-purple) 10%), var(--co-surface));
+    border: 1px solid color-mix(in srgb, var(--co-purple) 26%, var(--co-border));
+    border-radius: 18px;
+    box-shadow: var(--co-shadow);
+    display: flex;
+    gap: 16px;
+    isolation: isolate;
+    margin: 10px 0 16px;
+    min-height: 128px;
+    overflow: hidden;
+    padding: 20px 24px;
+    position: relative;
+}
+
+body.command-os-shell #main_content .command-os-report-hero::after {
+    background: linear-gradient(105deg, transparent 12%, color-mix(in srgb, var(--co-purple) 27%, transparent) 42%, color-mix(in srgb, var(--co-cyan) 34%, transparent) 58%, transparent 82%);
+    border-radius: 50%;
+    content: '';
+    filter: blur(18px);
+    height: 44px;
+    opacity: .65;
+    pointer-events: none;
+    position: absolute;
+    right: -4%;
+    top: 20%;
+    transform: rotate(-4deg);
+    width: 58%;
+    z-index: -1;
+}
+
+body.command-os-shell #main_content .command-os-report-hero-mark {
+    align-items: center;
+    background: linear-gradient(145deg, var(--co-purple-bright), var(--co-purple));
+    border: 1px solid color-mix(in srgb, #fff 35%, var(--co-purple));
+    border-radius: 15px;
+    box-shadow: 0 8px 24px color-mix(in srgb, var(--co-purple) 28%, transparent);
+    color: #fff;
+    display: flex;
+    flex: 0 0 52px;
+    font-size: 20px;
+    height: 52px;
+    justify-content: center;
+}
+
+body.command-os-shell #main_content .command-os-report-hero-copy { min-width: 0; }
+body.command-os-shell #main_content .command-os-report-eyebrow { color: var(--co-purple); font-size: 10px; font-weight: 800; letter-spacing: .14em; margin: 0 0 4px; }
+body.command-os-shell #main_content .command-os-report-hero h1 { color: var(--co-ink); font-size: clamp(23px, 2.2vw, 31px); font-weight: 780; letter-spacing: -.035em; line-height: 1.1; margin: 0; }
+body.command-os-shell #main_content .command-os-report-hero-copy > p:last-child { color: var(--co-muted); font-size: 12px; margin: 6px 0 0; }
+
+body.command-os-shell #main_content .command-os-report-hero-range {
+    backdrop-filter: blur(10px);
+    background: color-mix(in srgb, var(--co-surface) 74%, transparent);
+    border: 1px solid var(--co-border);
+    border-radius: 12px;
+    display: grid;
+    gap: 5px;
+    margin-left: auto;
+    max-width: 100%;
+    padding: 10px 13px;
+    position: relative;
+    z-index: 1;
+}
+
+body.command-os-shell #main_content .command-os-report-hero-range > span { color: var(--co-subtle); font-size: 9px; font-weight: 800; letter-spacing: .1em; }
+body.command-os-shell #main_content .command-os-report-hero-range strong { align-items: center; color: var(--co-ink); display: flex; flex-wrap: wrap; font-size: 11px; gap: 8px; }
+body.command-os-shell #main_content .command-os-report-hero-range i { color: var(--co-purple); font-size: 9px; }
+
+body.command-os-shell #main_content .command-os-all-stats-card {
+    background: color-mix(in srgb, var(--co-surface) 94%, var(--co-purple) 6%);
+    border: 1px solid color-mix(in srgb, var(--co-purple) 20%, var(--co-border));
+    border-radius: 17px;
+    box-shadow: var(--co-shadow);
+    overflow: hidden;
+}
+
+body.command-os-shell #main_content .command-os-all-stats-card > .block-header {
+    align-items: center;
+    background: linear-gradient(100deg, color-mix(in srgb, var(--co-purple) 10%, var(--co-surface)), color-mix(in srgb, var(--co-cyan) 5%, var(--co-surface))) !important;
+    border-bottom: 1px solid var(--co-border);
+    color: var(--co-ink);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    min-height: 56px;
+    padding: 10px 16px;
+}
+
+body.command-os-shell #main_content .command-os-all-stats-card .block-title { color: var(--co-ink); font-size: 13px; font-weight: 780; letter-spacing: .02em; }
+body.command-os-shell #main_content .command-os-all-stats-card .block-options { align-items: center; display: flex; gap: 7px; margin-left: auto; }
+body.command-os-shell #main_content .command-os-all-stats-card .btn-block-option,
+body.command-os-shell #main_content .command-os-all-stats-card .block-options > a {
+    align-items: center;
+    background: var(--co-surface);
+    border: 1px solid var(--co-border);
+    border-radius: 9px;
+    color: var(--co-muted);
+    display: inline-flex;
+    font-size: 10px;
+    font-weight: 760;
+    justify-content: center;
+    min-height: 34px;
+    min-width: 36px;
+    padding: 0 10px;
+    text-decoration: none;
+    transition: border-color .16s ease, color .16s ease, transform .16s ease, box-shadow .16s ease;
+}
+
+body.command-os-shell #main_content .command-os-all-stats-card .btn-block-option:hover,
+body.command-os-shell #main_content .command-os-all-stats-card .block-options > a:hover { border-color: var(--co-purple); box-shadow: 0 3px 12px color-mix(in srgb, var(--co-purple) 16%, transparent); color: var(--co-purple); transform: translateY(-1px); }
+body.command-os-shell #main_content .command-os-all-stats-card .btn-block-option:focus-visible,
+body.command-os-shell #main_content .command-os-all-stats-card .block-options > a:focus-visible { outline: 2px solid var(--co-cyan); outline-offset: 2px; }
+
+body.command-os-shell #main_content .command-os-all-stats-card > .block-content { padding: 15px 16px 17px; }
+body.command-os-shell #main_content .command-os-all-stats-card form { margin-bottom: 14px !important; }
+body.command-os-shell #main_content .command-os-all-stats-card form .form-inline { align-items: end; display: flex; flex-wrap: wrap; gap: 8px; margin: 0 !important; }
+body.command-os-shell #main_content .command-os-all-stats-card form label { color: var(--co-muted); font-size: 9px; font-weight: 800; letter-spacing: .1em; margin: 0 2px 8px 0 !important; }
+body.command-os-shell #main_content .command-os-all-stats-card form .form-control {
+    background-color: var(--co-surface);
+    border: 1px solid var(--co-border-strong);
+    border-radius: 10px;
+    color: var(--co-ink);
+    font-size: 11px;
+    font-weight: 650;
+    height: 38px;
+    margin: 0 !important;
+    min-width: min(100%, 220px);
+    padding: 0 12px;
+}
+body.command-os-shell #main_content .command-os-all-stats-card form .form-control:focus { border-color: var(--co-purple); box-shadow: 0 0 0 3px color-mix(in srgb, var(--co-purple) 15%, transparent); }
+body.command-os-shell #main_content .command-os-all-stats-card form .btn-primary { background: linear-gradient(115deg, var(--co-purple-bright), var(--co-purple)); border: 0; border-radius: 10px; box-shadow: 0 5px 14px color-mix(in srgb, var(--co-purple) 22%, transparent); font-size: 10px; font-weight: 800; height: 38px; letter-spacing: .06em; margin: 0 0 0 2px; padding: 0 16px; }
+body.command-os-shell #main_content .command-os-all-stats-card form .btn-primary:hover { filter: brightness(1.08); transform: translateY(-1px); }
+
+body.command-os-shell #main_content .command-os-all-stats-pivot {
+    background: color-mix(in srgb, var(--co-surface-muted) 80%, transparent);
+    border: 1px solid var(--co-border);
+    border-radius: 13px;
+    margin-bottom: 14px !important;
+    max-width: 100%;
+    overflow: auto;
+    padding: 12px;
+    scrollbar-color: var(--co-border-strong) transparent;
+}
+body.command-os-shell #main_content .command-os-all-stats-pivot .analytics-pivot-surface { min-width: 980px; }
+body.command-os-shell #main_content .command-os-all-stats-pivot #all-stats-pivot-status { color: var(--co-muted) !important; font-size: 10px; min-height: 18px; }
+body.command-os-shell #main_content .command-os-all-stats-pivot #all-stats-pivot-status.text-danger { color: #ff7a91 !important; }
+body.command-os-shell #main_content .command-os-all-stats-pivot .dx-pivotgrid,
+body.command-os-shell #main_content .command-os-all-stats-pivot .dx-pivotgrid .dx-area,
+body.command-os-shell #main_content .command-os-all-stats-pivot .dx-pivotgrid .dx-area td { background: transparent !important; color: var(--co-ink) !important; }
+body.command-os-shell #main_content .command-os-all-stats-pivot .dx-pivotgrid { border: 0 !important; font-family: Inter, 'Segoe UI', Arial, sans-serif; }
+body.command-os-shell #main_content .command-os-all-stats-pivot .dx-pivotgrid .dx-pivotgrid-area td { border-color: var(--co-border) !important; color: var(--co-ink) !important; font-size: 10px; font-weight: 650; padding: 9px 11px; }
+body.command-os-shell #main_content .command-os-all-stats-pivot .dx-pivotgrid .dx-area-field,
+body.command-os-shell #main_content .command-os-all-stats-pivot .dx-pivotgrid .dx-area-field-container { background: color-mix(in srgb, var(--co-purple) 8%, var(--co-surface)) !important; border-color: var(--co-border) !important; color: var(--co-ink) !important; }
+body.command-os-shell #main_content .command-os-all-stats-pivot .dx-pivotgrid .dx-header-filter,
+body.command-os-shell #main_content .command-os-all-stats-pivot .dx-pivotgrid .dx-header-filter-empty { color: var(--co-purple) !important; }
+body.command-os-shell #main_content .command-os-all-stats-pivot .dx-pivotgrid .dx-grandtotal,
+body.command-os-shell #main_content .command-os-all-stats-pivot .dx-pivotgrid .dx-total { background: color-mix(in srgb, var(--co-purple) 9%, var(--co-surface)) !important; color: var(--co-ink) !important; font-weight: 800; }
+body.command-os-shell #main_content .command-os-all-stats-pivot .dx-pivotgrid .dx-row-total,
+body.command-os-shell #main_content .command-os-all-stats-pivot .dx-pivotgrid .dx-column-total { background: color-mix(in srgb, var(--co-cyan) 6%, var(--co-surface)) !important; }
+body.command-os-shell #main_content .command-os-all-stats-pivot .dx-pivotgrid .dx-area-data-cell { font-variant-numeric: tabular-nums; }
+body.command-os-shell #main_content .command-os-all-stats-pivot .dx-pivotgrid .dx-area-data-cell.dx-grandtotal { color: var(--co-purple) !important; }
+body.command-os-shell #main_content .command-os-all-stats-pivot .dx-pivotgrid .dx-pivotgrid-area td:hover { background: color-mix(in srgb, var(--co-cyan) 7%, var(--co-surface)) !important; }
+body.command-os-shell #main_content .command-os-all-stats-pivot .dx-pivotgrid .dx-button { background: transparent; color: var(--co-purple); }
+body.command-os-shell #main_content .command-os-all-stats-pivot .dx-pivotgrid .dx-area-field-container { border-radius: 8px; }
+body.command-os-shell #main_content .command-os-all-stats-pivot:fullscreen,
+body.command-os-shell #main_content .command-os-all-stats-pivot.analytics-pivot-fullscreen { background: var(--co-page); color: var(--co-ink); }
+body.command-os-shell #main_content .command-os-all-stats-report .alert-warning { background: color-mix(in srgb, #f6a723 9%, var(--co-surface)); border: 1px solid color-mix(in srgb, #f6a723 28%, var(--co-border)); border-radius: 11px; color: var(--co-muted); font-size: 10px; line-height: 1.6; margin: 0; padding: 12px 14px; }
+body.command-os-shell #main_content .command-os-all-stats-report .alert-warning strong { color: var(--co-ink); }
+body.command-os-shell #main_content .command-os-all-stats-report #all-stats-fallback .alert-info { background: color-mix(in srgb, var(--co-cyan) 8%, var(--co-surface)); border: 1px solid color-mix(in srgb, var(--co-cyan) 24%, var(--co-border)); border-radius: 11px; color: var(--co-ink); font-size: 11px; }
+body.command-os-shell #main_content .command-os-all-stats-report #all-stats-fallback .table-responsive { border: 1px solid var(--co-border); border-radius: 10px; max-width: 100%; }
+body.command-os-shell #main_content .command-os-all-stats-report #all-stats-fallback table { background: var(--co-surface); color: var(--co-ink); min-width: 1000px; margin: 0; }
+body.command-os-shell #main_content .command-os-all-stats-report #all-stats-fallback table th { background: color-mix(in srgb, var(--co-purple) 8%, var(--co-surface)); border-color: var(--co-border); color: var(--co-muted); font-size: 9px; white-space: nowrap; }
+body.command-os-shell #main_content .command-os-all-stats-report #all-stats-fallback table td { border-color: var(--co-border); color: var(--co-ink); font-size: 10px; }
+
+@media (max-width: 767px) {
+    body.command-os-shell #main_content .command-os-report-hero { align-items: flex-start; flex-wrap: wrap; gap: 12px; min-height: 0; padding: 16px; }
+    body.command-os-shell #main_content .command-os-report-hero-mark { flex-basis: 44px; height: 44px; }
+    body.command-os-shell #main_content .command-os-report-hero-copy { flex: 1 1 calc(100% - 60px); }
+    body.command-os-shell #main_content .command-os-report-hero-range { flex: 1 1 100%; margin-left: 56px; }
+    body.command-os-shell #main_content .command-os-all-stats-card > .block-content { padding: 12px; }
+    body.command-os-shell #main_content .command-os-all-stats-pivot { padding: 8px; }
+}
+
+@media (max-width: 420px) {
+    body.command-os-shell #main_content .command-os-report-hero { padding: 13px; }
+    body.command-os-shell #main_content .command-os-report-hero-range { margin-left: 0; }
+    body.command-os-shell #main_content .command-os-all-stats-card > .block-header { align-items: flex-start; padding: 10px 12px; }
+    body.command-os-shell #main_content .command-os-all-stats-card .block-options { flex-basis: 100%; margin-left: 0; }
+    body.command-os-shell #main_content .command-os-all-stats-card form .form-inline { align-items: stretch; }
+    body.command-os-shell #main_content .command-os-all-stats-card form label { flex: 1 1 100%; margin: 0 !important; }
+    body.command-os-shell #main_content .command-os-all-stats-card form .form-control,
+    body.command-os-shell #main_content .command-os-all-stats-card form .btn-primary { flex: 1 1 100%; width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body.command-os-shell #main_content .command-os-all-stats-card .btn-block-option,
+    body.command-os-shell #main_content .command-os-all-stats-card .block-options > a,
+    body.command-os-shell #main_content .command-os-all-stats-card form .btn-primary { transition: none; }
+    body.command-os-shell #main_content .command-os-report-hero::after { display: none; }
+}

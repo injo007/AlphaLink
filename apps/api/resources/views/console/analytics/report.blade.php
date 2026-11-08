@@ -75,11 +75,133 @@
                 </span>
             </article>
         </section>
+    @elseif ($kind === 'isp-stats')
+        <header class="command-os-report-hero" aria-labelledby="isp-stats-page-title">
+            <span class="command-os-report-hero-illustration" aria-hidden="true"><i class="fas fa-network-wired"></i></span>
+            <div class="command-os-report-hero-mark" aria-hidden="true"><i class="fas fa-network-wired"></i></div>
+            <div class="command-os-report-hero-copy">
+                <p class="command-os-report-eyebrow">TRACKING &amp; ANALYTICS</p>
+                <h1 id="isp-stats-page-title">{{ $title }}</h1>
+                <p>Deliverability and engagement breakdown by ISP and reporting period.</p>
+            </div>
+            <div class="command-os-report-hero-range">
+                <span>REPORTING WINDOW</span>
+                <strong id="isp-stats-reporting-window" aria-live="polite">
+                    <span data-report-window-start>{{ $from }}</span>
+                    <i class="fas fa-arrow-right" aria-hidden="true"></i>
+                    <span data-report-window-end>{{ $to }}</span>
+                </strong>
+            </div>
+        </header>
+
+        <section class="command-os-all-stats-overview" aria-label="ISP stats overview">
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-records" aria-hidden="true"><i class="fas fa-envelope-open"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Active ISPs</span>
+                    <strong>{{ number_format($isps->count()) }}</strong>
+                    <small>Tracked providers</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-scope" aria-hidden="true"><i class="fas fa-layer-group"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Grouping</span>
+                    <strong>{{ strtoupper($groupBy) }}</strong>
+                    <small>Time interval</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-events" aria-hidden="true"><i class="fas fa-paper-plane"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Deliveries</span>
+                    <strong>{{ number_format(collect($chartData['totals'] ?? [])->sum('deliveries')) }}</strong>
+                    <small>Period total</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-leads" aria-hidden="true"><i class="fas fa-funnel-dollar"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Revenue</span>
+                    <strong>${{ number_format(collect($chartData['totals'] ?? [])->sum('lead_revenue'), 2) }}</strong>
+                    <small>Period attributed</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-pivot" aria-hidden="true"><i class="fas fa-chart-bar"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Period Trend</span>
+                    <strong>Visual Charts</strong>
+                    <small>Per-mailer breakdown</small>
+                </span>
+            </article>
+        </section>
+    @elseif ($kind === 'mailer-revenue')
+        <header class="command-os-report-hero" aria-labelledby="mailer-revenue-page-title">
+            <span class="command-os-report-hero-illustration" aria-hidden="true"><i class="fas fa-funnel-dollar"></i></span>
+            <div class="command-os-report-hero-mark" aria-hidden="true"><i class="fas fa-funnel-dollar"></i></div>
+            <div class="command-os-report-hero-copy">
+                <p class="command-os-report-eyebrow">TRACKING &amp; ANALYTICS</p>
+                <h1 id="mailer-revenue-page-title">{{ $title }}</h1>
+                <p>Operator performance, volume deliveries, and attributed lead earnings.</p>
+            </div>
+            <div class="command-os-report-hero-range">
+                <span>REPORTING WINDOW</span>
+                <strong id="mailer-revenue-reporting-window" aria-live="polite">
+                    <span data-report-window-start>{{ $from }}</span>
+                    <i class="fas fa-arrow-right" aria-hidden="true"></i>
+                    <span data-report-window-end>{{ $to }}</span>
+                </strong>
+            </div>
+        </header>
+
+        <section class="command-os-all-stats-overview" aria-label="Mailer revenue overview">
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-records" aria-hidden="true"><i class="fas fa-users"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Active Mailers</span>
+                    <strong>{{ number_format($rows->total()) }}</strong>
+                    <small>With recorded events</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-leads" aria-hidden="true"><i class="fas fa-dollar-sign"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Attributed Revenue</span>
+                    <strong>${{ number_format(collect($rows->items())->sum('lead_revenue'), 2) }}</strong>
+                    <small>Lead earnings</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-events" aria-hidden="true"><i class="fas fa-paper-plane"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Deliveries</span>
+                    <strong>{{ number_format(collect($rows->items())->sum('deliveries')) }}</strong>
+                    <small>Delivered emails</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-scope" aria-hidden="true"><i class="fas fa-envelope-open"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Total Opens</span>
+                    <strong>{{ number_format(collect($rows->items())->sum('opens')) }}</strong>
+                    <small>Recipient opens</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-pivot" aria-hidden="true"><i class="fas fa-mouse-pointer"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Total Clicks</span>
+                    <strong>{{ number_format(collect($rows->items())->sum('clicks')) }}</strong>
+                    <small>Tracked clicks</small>
+                </span>
+            </article>
+        </section>
     @else
         <h2 class="content-heading">{{ $title }} <small class="text-muted">CAMPAIGN &amp; DROP EVENTS</small></h2>
     @endif
 
-    <div class="block block-rounded {{ $kind === 'all-stats' ? 'command-os-all-stats-card' : '' }}">
+    <div class="block block-rounded command-os-all-stats-card">
         <div class="block-header block-header-default">
             <h3 class="block-title">{{ $title }} REPORT</h3>
             <div class="block-options">
@@ -209,12 +331,17 @@
             <link rel="stylesheet" href="https://cdn3.devexpress.com/jslib/21.2.5/css/dx.material.blue.light.css">
         @endif
         <style>
-            .command-os-mailer-revenue-report .analytics-pivot-shell .dx-pivotgrid .dx-pivotgrid-area td { color: #000; padding: 10px 16px; }
-            .command-os-mailer-revenue-report .analytics-pivot-shell .dx-pivotgrid .dx-grandtotal { background-color: #fff; }
+            .command-os-mailer-revenue-report .analytics-pivot-shell .dx-pivotgrid .dx-pivotgrid-area td { color: var(--co-ink); padding: 10px 16px; border-color: var(--co-border); }
+            .command-os-mailer-revenue-report .analytics-pivot-shell .dx-pivotgrid .dx-grandtotal { background-color: color-mix(in srgb, var(--co-purple) 9%, var(--co-surface)); color: var(--co-ink); font-weight: 800; }
+            html[data-command-theme='dark'] .command-os-mailer-revenue-report .analytics-pivot-shell .dx-pivotgrid .dx-pivotgrid-area td { color: var(--co-ink) !important; background: var(--co-surface) !important; border-color: var(--co-border) !important; }
+            html[data-command-theme='dark'] .command-os-mailer-revenue-report .analytics-pivot-shell .dx-pivotgrid .dx-grandtotal { background-color: color-mix(in srgb, var(--co-purple) 26%, var(--co-surface)) !important; color: #fff !important; }
             .analytics-pivot-shell:fullscreen { background: var(--co-page, #f5f6fb); overflow: auto; padding: 1rem; }
             .analytics-pivot-shell:fullscreen .analytics-pivot-surface { min-height: calc(100vh - 6rem); }
             .analytics-pivot-shell.analytics-pivot-fullscreen { background: var(--co-page, #f5f6fb); inset: 0; overflow: auto; padding: 1rem; position: fixed; z-index: 1300; }
             body.analytics-pivot-no-scroll { overflow: hidden; }
+            .isp-stats-visuals .block { background: var(--co-surface); border: 1px solid var(--co-border); border-radius: 14px; box-shadow: var(--co-shadow); overflow: hidden; }
+            .isp-stats-visuals .block-header { background: linear-gradient(100deg, color-mix(in srgb, var(--co-purple) 8%, var(--co-surface)), var(--co-surface)); border-bottom: 1px solid var(--co-border); }
+            .isp-stats-visuals .block-title { color: var(--co-ink); font-size: 12px; font-weight: 750; letter-spacing: .04em; }
             .isp-stats-chart { overflow: hidden; position: relative; width: 100%; }
             .isp-stats-chart.is-rendered { min-height: 19rem; }
             .isp-stats-chart svg { display: block; height: auto; max-height: 20rem; overflow: visible; width: 100%; }
@@ -223,9 +350,9 @@
             .isp-stats-chart-swatch { border-radius: 50%; display: inline-block; height: .55rem; width: .55rem; }
             .isp-stats-visuals .table-responsive { max-width: 100%; }
             .isp-stats-visuals table th, .isp-stats-visuals table td { white-space: nowrap; }
-            .isp-sort-trigger { background: transparent; border: 0; color: inherit; font: inherit; padding: 0; text-align: left; }
-            .isp-sort-trigger:focus-visible { outline: 2px solid #17685f; outline-offset: 2px; }
-            .isp-sort-indicator { color: #687773; margin-left: .25rem; }
+            .isp-sort-trigger { background: transparent; border: 0; color: inherit; font: inherit; padding: 0; text-align: left; cursor: pointer; }
+            .isp-sort-trigger:focus-visible { outline: 2px solid var(--co-purple); outline-offset: 2px; }
+            .isp-sort-indicator { color: var(--co-muted); margin-left: .25rem; }
             @media (max-width: 767px) { .isp-stats-chart { min-height: 15rem; } }
             @media (max-width: 767px) { .analytics-pivot-shell .dx-pivotgrid .dx-pivotgrid-area td { padding: 7px 9px; } }
         </style>

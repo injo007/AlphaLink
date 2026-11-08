@@ -3,95 +3,101 @@
 @section('title', $isNetworkView ? 'My Offers' : 'Offers')
 
 @section('content')
-    <div class="block block-rounded command-os-card">
-        <div class="block-header command-os-entity-header">
-            <div class="d-flex align-items-center gap-3">
-                <div class="command-os-entity-mark" aria-hidden="true">
+    <div class="command-os-entity-page">
+        <!-- 1. Hero Card -->
+        <header class="command-os-hero-card">
+            <div class="command-os-hero-card-left">
+                <div class="command-os-hero-mark" aria-hidden="true">
                     <i class="fas fa-tag"></i>
                 </div>
-                <div class="command-os-entity-copy">
-                    <h1 class="command-os-entity-title">{{ $isNetworkView ? 'My Offers' : 'Offers' }}</h1>
+                <div class="command-os-hero-copy">
+                    <h1 class="command-os-hero-title">{{ $isNetworkView ? 'My Offers' : 'Offers' }}</h1>
                 </div>
             </div>
-            <div class="block-options">
+            <div class="command-os-hero-card-right">
                 @unless ($isNetworkView)
-                    <div class="custom-control custom-switch custom-control-danger command-os-switch">
-                        <input type="checkbox" class="custom-control-input" id="deleted">
-                        <label class="custom-control-label" for="deleted">DELETED</label>
-                    </div>
+                    <label class="command-os-toggle-wrap" for="deleted">
+                        <span class="command-os-toggle-label">DELETED</span>
+                        <input type="checkbox" class="command-os-toggle-input" id="deleted">
+                        <span class="command-os-toggle-slider"></span>
+                    </label>
                 @endunless
                 <button type="button" class="command-os-btn-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen">
                     <i class="si si-size-fullscreen"></i>
                 </button>
             </div>
+        </header>
+
+        <!-- 2. Filter Bar Card -->
+        <section class="command-os-filter-card" aria-label="Filter offers">
+            <div class="form-row align-items-end">
+                <div class="col-sm-6 col-lg-2">
+                    <label for="offer-sponsor">Sponsors:</label>
+                    <select class="form-control selectpicker" id="offer-sponsor" data-live-search="true">
+                        <option value="0">Select Sponsor</option>
+                        @foreach ($sponsors as $sponsor)
+                            <option value="{{ $sponsor->id }}" @selected((string) request('sponsor') === (string) $sponsor->id)>{{ $sponsor->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-sm-6 col-lg-2">
+                    <label for="offer-vertical">Verticals:</label>
+                    <select class="form-control selectpicker" id="offer-vertical" data-live-search="true">
+                        <option value="">Select Vertical</option>
+                        @foreach ($verticals as $vertical)
+                            <option value="{{ $vertical }}" @selected(request('vertical') === $vertical)>{{ $vertical }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-sm-6 col-lg-2">
+                    <label for="offer-status">Status:</label>
+                    <select class="form-control selectpicker" id="offer-status">
+                        <option value="0">Select Status</option>
+                        @foreach (\App\Models\WorkspaceOffer::STATUSES as $status)
+                            <option value="{{ $status }}" @selected(request('status') === $status)>{{ strtoupper($status) }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-sm-6 col-lg-2">
+                    <label for="offer-geo">Geo:</label>
+                    <select class="form-control selectpicker" id="offer-geo" data-live-search="true">
+                        <option value="ALL">Select Country</option>
+                        @foreach ($countries as $code => $country)
+                            <option value="{{ $code }}">{{ $country }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-sm-6 col-lg-2">
+                    <button id="filter-offers" class="command-os-btn-filter" type="button">FILTER</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. Info Banner -->
+        <div class="command-os-info-banner" role="status">
+            <div class="command-os-info-banner-icon" aria-hidden="true">
+                <i class="fas fa-info-circle"></i>
+            </div>
+            <div class="command-os-info-banner-content">
+                @if ($isNetworkView)
+                    Only active offers from active sponsors are shown. Operators must be assigned to both the sponsor and the offer.
+                @else
+                    New manual offers inherit the sponsor’s assigned operators and start inactive. Use each offer’s suppression-file action to view, refresh, download, or replace its saved file. Drops → Suppression remains the run and history screen.
+                @endif
+            </div>
         </div>
-        <div class="block-content block-content-full">
-            <div class="command-os-filter-bar mb-3">
-                <div class="form-row align-items-end">
-                    <div class="col-sm-6 col-lg-2">
-                        <label for="offer-sponsor">Sponsors:</label>
-                        <select class="form-control selectpicker" id="offer-sponsor" data-live-search="true">
-                            <option value="0">Select Sponsor</option>
-                            @foreach ($sponsors as $sponsor)
-                                <option value="{{ $sponsor->id }}" @selected((string) request('sponsor') === (string) $sponsor->id)>{{ $sponsor->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-sm-6 col-lg-2">
-                        <label for="offer-vertical">Verticals:</label>
-                        <select class="form-control selectpicker" id="offer-vertical" data-live-search="true">
-                            <option value="">Select Vertical</option>
-                            @foreach ($verticals as $vertical)
-                                <option value="{{ $vertical }}" @selected(request('vertical') === $vertical)>{{ $vertical }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-sm-6 col-lg-2">
-                        <label for="offer-status">Status:</label>
-                        <select class="form-control selectpicker" id="offer-status">
-                            <option value="0">Select Status</option>
-                            @foreach (\App\Models\WorkspaceOffer::STATUSES as $status)
-                                <option value="{{ $status }}" @selected(request('status') === $status)>{{ strtoupper($status) }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-sm-6 col-lg-2">
-                        <label for="offer-geo">Geo:</label>
-                        <select class="form-control selectpicker" id="offer-geo" data-live-search="true">
-                            <option value="ALL">Select Country</option>
-                            @foreach ($countries as $code => $country)
-                                <option value="{{ $code }}">{{ $country }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-sm-6 col-lg-2">
-                        <button id="filter-offers" class="btn btn-primary command-os-btn-filter" type="button">FILTER</button>
-                    </div>
-                </div>
-            </div>
-            <div class="command-os-info-banner" role="status">
-                <div class="command-os-info-banner-icon" aria-hidden="true">
-                    <i class="fas fa-info-circle"></i>
-                </div>
-                <div class="command-os-info-banner-content">
-                    @if ($isNetworkView)
-                        Only active offers from active sponsors are shown. Operators must be assigned to both the sponsor and the offer.
-                    @else
-                        New manual offers inherit the sponsor’s assigned operators and start inactive. Use each offer’s suppression-file action to view, refresh, download, or replace its saved file. Drops → Suppression remains the run and history screen.
-                    @endif
-                </div>
-            </div>
-            <div class="table-responsive">
-                <table id="offers" class="table table-sm table-hover"
-                       data-source-url="{{ $isNetworkView ? route('console.networks.offers.index', $workspace->id) : route('console.offers.index', $workspace->id) }}"
-                       data-create-url="{{ route('console.offers.create', $workspace->id) }}"
-                       data-bulk-users-url="{{ route('console.offers.bulk-users', $workspace->id) }}"
-                       data-share-url="{{ route('console.offers.share', $workspace->id) }}"
-                       data-suppression-url-template="{{ route('console.offers.suppression-file.show', [$workspace->id, '__OFFER_ID__']) }}"
-                       data-download-url="{{ route('console.offers.index', $workspace->id) }}"
-                       data-shareable="1"
-                       data-manage="{{ $isNetworkView ? '0' : '1' }}"></table>
-            </div>
+
+        <!-- 4. Table Card -->
+        <div class="command-os-table-card">
+            <table id="offers" class="table table-sm table-hover"
+                   data-source-url="{{ $isNetworkView ? route('console.networks.offers.index', $workspace->id) : route('console.offers.index', $workspace->id) }}"
+                   data-create-url="{{ route('console.offers.create', $workspace->id) }}"
+                   data-bulk-users-url="{{ route('console.offers.bulk-users', $workspace->id) }}"
+                   data-share-url="{{ route('console.offers.share', $workspace->id) }}"
+                   data-suppression-url-template="{{ route('console.offers.suppression-file.show', [$workspace->id, '__OFFER_ID__']) }}"
+                   data-download-url="{{ route('console.offers.index', $workspace->id) }}"
+                   data-shareable="1"
+                   data-manage="{{ $isNetworkView ? '0' : '1' }}"></table>
             <div id="offer-action-notice" class="alert alert-warning mt-3 d-none" role="status" aria-live="polite"></div>
         </div>
     </div>
@@ -179,6 +185,9 @@
                 pageLength: 50,
                 order: [[1, 'desc']],
                 select: canShare ? { style: 'os', selector: 'td:first-child' } : false,
+                dom: '<"command-table-toolbar"<"command-table-toolbar-left"lB><"command-table-toolbar-right"f>>' +
+                     '<"table-responsive"t>' +
+                     '<"command-table-footer"ip>',
                 language: {
                     lengthMenu: 'Show _MENU_ rows',
                     search: '',

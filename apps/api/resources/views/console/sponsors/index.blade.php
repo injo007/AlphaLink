@@ -3,45 +3,48 @@
 @section('title', 'Sponsors')
 
 @section('content')
-    <div class="block block-rounded command-os-card">
-        <div class="block-header command-os-entity-header">
-            <div class="d-flex align-items-center gap-3">
-                <div class="command-os-entity-mark" aria-hidden="true">
+    <div class="command-os-entity-page">
+        <!-- 1. Hero Card -->
+        <header class="command-os-hero-card">
+            <div class="command-os-hero-card-left">
+                <div class="command-os-hero-mark" aria-hidden="true">
                     <i class="fas fa-users"></i>
                 </div>
-                <div class="command-os-entity-copy">
-                    <h1 class="command-os-entity-title">SPONSORS</h1>
+                <div class="command-os-hero-copy">
+                    <h1 class="command-os-hero-title">SPONSORS</h1>
                 </div>
             </div>
-            <div class="block-options">
+            <div class="command-os-hero-card-right">
                 <button type="button" class="command-os-btn-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen">
                     <i class="si si-size-fullscreen"></i>
                 </button>
             </div>
+        </header>
+
+        <!-- 2. Info Banner -->
+        <div class="command-os-info-banner" role="note">
+            <div class="command-os-info-banner-icon" aria-hidden="true">
+                <i class="fas fa-info-circle"></i>
+            </div>
+            <div class="command-os-info-banner-content">
+                <div>Sponsor login opens a provider session in the browser helper. Download and load the helper before using Login.</div>
+                @if ($extensionUrl)
+                    <a href="{{ $extensionUrl }}" class="btn btn-sm btn-alt-primary mt-1">Download sponsor helper</a>
+                @else
+                    <div class="small mt-1 text-warning">The sponsor helper bundle is not installed on this app server, so download and browser handoff are unavailable.</div>
+                @endif
+                <div class="small mt-1">The browser helper requests cookie access across HTTP and HTTPS websites. Review that browser permission scope before installing it.</div>
+            </div>
         </div>
-        <div class="block-content block-content-full">
-            <div class="command-os-info-banner" role="note">
-                <div class="command-os-info-banner-icon" aria-hidden="true">
-                    <i class="fas fa-info-circle"></i>
-                </div>
-                <div class="command-os-info-banner-content">
-                    <div>Sponsor login opens a provider session in the browser helper. Download and load the helper before using Login.</div>
-                    @if ($extensionUrl)
-                        <a href="{{ $extensionUrl }}" class="btn btn-sm btn-alt-primary mt-1">Download sponsor helper</a>
-                    @else
-                        <div class="small mt-1 text-warning">The sponsor helper bundle is not installed on this app server, so download and browser handoff are unavailable.</div>
-                    @endif
-                    <div class="small mt-1">The browser helper requests cookie access across HTTP and HTTPS websites. Review that browser permission scope before installing it.</div>
-                </div>
-            </div>
-            <div class="table-responsive">
-                <table id="sponsors" class="table table-sm table-hover"
-                       data-source-url="{{ route('clean.console.sponsors.index') }}"
-                       data-create-url="{{ route('clean.console.sponsors.create') }}"
-                       data-bulk-users-url="{{ route('clean.console.sponsors.bulk-users') }}"
-                       data-login-url="{{ route('clean.console.sponsors.login', 0) }}"
-                       data-extension-id="{{ $extensionId }}"></table>
-            </div>
+
+        <!-- 3. Table Card -->
+        <div class="command-os-table-card">
+            <table id="sponsors" class="table table-sm table-hover"
+                   data-source-url="{{ route('clean.console.sponsors.index') }}"
+                   data-create-url="{{ route('clean.console.sponsors.create') }}"
+                   data-bulk-users-url="{{ route('clean.console.sponsors.bulk-users') }}"
+                   data-login-url="{{ route('clean.console.sponsors.login', 0) }}"
+                   data-extension-id="{{ $extensionId }}"></table>
         </div>
     </div>
 @endsection
@@ -79,6 +82,9 @@
                 serverSide: false,
                 pageLength: 20,
                 order: [[1, 'desc']],
+                dom: '<"command-table-toolbar"<"command-table-toolbar-left"lB><"command-table-toolbar-right"f>>' +
+                     '<"table-responsive"t>' +
+                     '<"command-table-footer"ip>',
                 language: {
                     lengthMenu: 'Show _MENU_ rows',
                     search: '',

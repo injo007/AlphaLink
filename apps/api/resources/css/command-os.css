@@ -3782,11 +3782,8 @@ body.command-os-shell #main_content .command-os-all-stats-report {
 
 body.command-os-shell #main_content .command-os-report-hero {
     align-items: center;
-    background:
-        radial-gradient(ellipse at 76% 8%, color-mix(in srgb, var(--co-cyan) 12%, transparent), transparent 36%),
-        radial-gradient(ellipse at 95% 78%, color-mix(in srgb, var(--co-purple) 17%, transparent), transparent 40%),
-        linear-gradient(120deg, color-mix(in srgb, var(--co-surface) 90%, var(--co-purple) 10%), var(--co-surface));
-    border: 1px solid color-mix(in srgb, var(--co-purple) 26%, var(--co-border));
+    background: linear-gradient(105deg, color-mix(in srgb, var(--co-purple) 9%, var(--co-surface)), var(--co-surface) 52%, color-mix(in srgb, var(--co-blue) 8%, var(--co-surface)));
+    border: 1px solid var(--co-border);
     border-radius: 18px;
     box-shadow: var(--co-shadow);
     display: flex;
@@ -3799,20 +3796,122 @@ body.command-os-shell #main_content .command-os-report-hero {
     position: relative;
 }
 
-body.command-os-shell #main_content .command-os-report-hero::after {
-    background: linear-gradient(105deg, transparent 12%, color-mix(in srgb, var(--co-purple) 27%, transparent) 42%, color-mix(in srgb, var(--co-cyan) 34%, transparent) 58%, transparent 82%);
-    border-radius: 50%;
-    content: '';
-    filter: blur(18px);
-    height: 44px;
-    opacity: .65;
-    pointer-events: none;
+body.command-os-shell #main_content .command-os-report-hero::before {
     position: absolute;
-    right: -4%;
-    top: 20%;
-    transform: rotate(-4deg);
-    width: 58%;
     z-index: -1;
+    inset: -65% -5% -55% 28%;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at 52% 50%, color-mix(in srgb, var(--co-purple-bright) 22%, transparent), transparent 57%), radial-gradient(ellipse at 73% 54%, color-mix(in srgb, var(--co-blue) 22%, transparent), transparent 48%);
+    content: "";
+    animation: report-hero-glow 9s ease-in-out infinite alternate;
+}
+
+body.command-os-shell #main_content .command-os-report-hero::after {
+    position: absolute;
+    z-index: -1;
+    right: -5%;
+    bottom: -42px;
+    left: 30%;
+    height: 94px;
+    border-top: 1px solid color-mix(in srgb, var(--co-purple) 18%, transparent);
+    border-radius: 50% 50% 0 0;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--co-purple) 7%, transparent), transparent 78%);
+    content: "";
+    transform: rotate(-2deg);
+    animation: report-hero-wave 12s ease-in-out infinite alternate;
+}
+
+.command-os-report-hero-illustration {
+    position: absolute;
+    z-index: -1;
+    top: 18px;
+    right: 22%;
+    display: grid;
+    width: 90px;
+    height: 72px;
+    place-items: center;
+    color: color-mix(in srgb, var(--co-purple) 60%, var(--co-blue));
+    filter: drop-shadow(0 12px 14px color-mix(in srgb, var(--co-purple) 28%, transparent));
+    opacity: .36;
+    transform: rotate(-12deg);
+    pointer-events: none;
+}
+.command-os-report-hero-illustration i { font-size: 56px; }
+
+@keyframes report-hero-glow { from { transform: translateX(-1.5%) scale(.98); } to { transform: translateX(1.5%) scale(1.03); } }
+@keyframes report-hero-wave { from { transform: translateX(-1%) rotate(-2deg); } to { transform: translateX(1%) rotate(1deg); } }
+
+.command-os-all-stats-overview {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 9px;
+    margin: 0 0 16px;
+}
+
+.all-stats-overview-card {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+    min-height: 82px;
+    padding: 10px 12px;
+    border: 1px solid var(--co-border);
+    border-radius: 13px;
+    background: linear-gradient(145deg, color-mix(in srgb, var(--co-purple) 4%, var(--co-surface)), var(--co-surface));
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--co-purple) 6%, transparent);
+    transition: transform .18s ease, box-shadow .18s ease;
+}
+.all-stats-overview-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px color-mix(in srgb, var(--co-purple) 12%, transparent);
+}
+
+.all-stats-overview-icon {
+    display: grid;
+    flex: 0 0 38px;
+    width: 38px;
+    height: 38px;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+    border-radius: 50%;
+    color: var(--co-purple);
+    background: color-mix(in srgb, var(--co-purple) 11%, var(--co-surface));
+    font-size: 15px;
+}
+.all-stats-overview-icon.icon-records { color: var(--co-purple); background: color-mix(in srgb, var(--co-purple) 12%, var(--co-surface)); }
+.all-stats-overview-icon.icon-leads { color: #10b981; background: color-mix(in srgb, #10b981 12%, var(--co-surface)); }
+.all-stats-overview-icon.icon-events { color: #3b82f6; background: color-mix(in srgb, #3b82f6 12%, var(--co-surface)); }
+.all-stats-overview-icon.icon-scope { color: #8b5cf6; background: color-mix(in srgb, #8b5cf6 12%, var(--co-surface)); }
+.all-stats-overview-icon.icon-pivot { color: #06b6d4; background: color-mix(in srgb, #06b6d4 12%, var(--co-surface)); }
+
+.all-stats-overview-copy {
+    display: grid;
+    gap: 1px;
+    min-width: 0;
+}
+.all-stats-overview-copy > span {
+    overflow: hidden;
+    color: var(--co-muted);
+    font-size: 9px;
+    font-weight: 750;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+}
+.all-stats-overview-copy strong {
+    color: var(--co-ink);
+    font-size: 18px;
+    font-weight: 800;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+}
+.all-stats-overview-copy small {
+    overflow: hidden;
+    color: var(--co-subtle);
+    font-size: 9px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 body.command-os-shell #main_content .command-os-report-hero-mark {
@@ -3954,10 +4053,132 @@ body.command-os-shell #main_content .command-os-all-stats-pivot.analytics-pivot-
 body.command-os-shell #main_content .command-os-all-stats-report .alert-warning { background: color-mix(in srgb, #f6a723 9%, var(--co-surface)); border: 1px solid color-mix(in srgb, #f6a723 28%, var(--co-border)); border-radius: 11px; color: var(--co-muted); font-size: 10px; line-height: 1.6; margin: 0; padding: 12px 14px; }
 body.command-os-shell #main_content .command-os-all-stats-report .alert-warning strong { color: var(--co-ink); }
 body.command-os-shell #main_content .command-os-all-stats-report #all-stats-fallback .alert-info { background: color-mix(in srgb, var(--co-cyan) 8%, var(--co-surface)); border: 1px solid color-mix(in srgb, var(--co-cyan) 24%, var(--co-border)); border-radius: 11px; color: var(--co-ink); font-size: 11px; }
-body.command-os-shell #main_content .command-os-all-stats-report #all-stats-fallback .table-responsive { border: 1px solid var(--co-border); border-radius: 10px; max-width: 100%; }
-body.command-os-shell #main_content .command-os-all-stats-report #all-stats-fallback table { background: var(--co-surface); color: var(--co-ink); min-width: 1000px; margin: 0; }
-body.command-os-shell #main_content .command-os-all-stats-report #all-stats-fallback table th { background: color-mix(in srgb, var(--co-purple) 8%, var(--co-surface)); border-color: var(--co-border); color: var(--co-muted); font-size: 9px; white-space: nowrap; }
-body.command-os-shell #main_content .command-os-all-stats-report #all-stats-fallback table td { border-color: var(--co-border); color: var(--co-ink); font-size: 10px; }
+body.command-os-shell #main_content .command-os-all-stats-report #all-stats-fallback .table-responsive,
+body.command-os-shell #main_content .all-stats-table-wrap {
+    background: var(--co-surface);
+    border: 1px solid var(--co-border);
+    border-radius: 14px;
+    box-shadow: 0 4px 16px color-mix(in srgb, var(--co-purple) 5%, transparent);
+    max-width: 100%;
+    overflow-x: auto;
+}
+body.command-os-shell #main_content .command-os-all-stats-report #all-stats-fallback table,
+body.command-os-shell #main_content .all-stats-table {
+    background: var(--co-surface);
+    border-collapse: separate;
+    border-spacing: 0;
+    color: var(--co-ink);
+    font-size: 11px;
+    margin: 0;
+    min-width: 1000px;
+    width: 100%;
+}
+body.command-os-shell #main_content .command-os-all-stats-report #all-stats-fallback table th,
+body.command-os-shell #main_content .all-stats-table th {
+    background: color-mix(in srgb, var(--co-purple) 8%, var(--co-surface));
+    border-bottom: 2px solid var(--co-border);
+    border-color: var(--co-border);
+    color: var(--co-muted);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    padding: 10px 12px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+body.command-os-shell #main_content .command-os-all-stats-report #all-stats-fallback table td,
+body.command-os-shell #main_content .all-stats-table td {
+    border-color: var(--co-border);
+    color: var(--co-ink);
+    font-size: 10.5px;
+    padding: 9px 12px;
+    vertical-align: middle;
+}
+body.command-os-shell #main_content .command-os-all-stats-report #all-stats-fallback table tbody tr:hover td,
+body.command-os-shell #main_content .all-stats-table tbody tr:hover td {
+    background: color-mix(in srgb, var(--co-purple) 4%, var(--co-surface));
+}
+
+.text-tabular { font-variant-numeric: tabular-nums; }
+.text-revenue {
+    background: color-mix(in srgb, #10b981 12%, var(--co-surface));
+    border: 1px solid color-mix(in srgb, #10b981 22%, transparent);
+    border-radius: 6px;
+    color: #10b981;
+    display: inline-block;
+    font-weight: 750;
+    padding: 2px 7px;
+}
+
+.badge-source {
+    background: color-mix(in srgb, var(--co-purple) 10%, var(--co-surface));
+    border: 1px solid color-mix(in srgb, var(--co-purple) 20%, transparent);
+    border-radius: 6px;
+    color: var(--co-purple);
+    font-size: 9px;
+    font-weight: 700;
+    padding: 3px 6px;
+}
+
+.badge-event {
+    border-radius: 6px;
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    padding: 3px 7px;
+}
+.badge-event-open { background: color-mix(in srgb, #0284c7 12%, var(--co-surface)); border: 1px solid color-mix(in srgb, #0284c7 20%, transparent); color: #0284c7; }
+.badge-event-click { background: color-mix(in srgb, #059669 12%, var(--co-surface)); border: 1px solid color-mix(in srgb, #059669 20%, transparent); color: #059669; }
+.badge-event-lead { background: color-mix(in srgb, #7c3aed 12%, var(--co-surface)); border: 1px solid color-mix(in srgb, #7c3aed 20%, transparent); color: #7c3aed; }
+.badge-event-unsubscribe, .badge-event-unsub { background: color-mix(in srgb, #e11d48 12%, var(--co-surface)); border: 1px solid color-mix(in srgb, #e11d48 20%, transparent); color: #e11d48; }
+.badge-event-bot { background: color-mix(in srgb, #d97706 12%, var(--co-surface)); border: 1px solid color-mix(in srgb, #d97706 20%, transparent); color: #d97706; }
+.badge-event-delivery { background: color-mix(in srgb, #16a34a 12%, var(--co-surface)); border: 1px solid color-mix(in srgb, #16a34a 20%, transparent); color: #16a34a; }
+.badge-event-soft-bounce, .badge-event-hard-bounce { background: color-mix(in srgb, #dc2626 12%, var(--co-surface)); border: 1px solid color-mix(in srgb, #dc2626 20%, transparent); color: #dc2626; }
+
+/* DevExpress Pivot Grid Dark Theme Integration */
+html[data-command-theme='dark'] body.command-os-shell #main_content .command-os-all-stats-pivot {
+    background: var(--co-surface-muted);
+    border-color: var(--co-border);
+}
+html[data-command-theme='dark'] body.command-os-shell #main_content .command-os-all-stats-pivot .dx-pivotgrid {
+    background: transparent !important;
+    color: var(--co-ink) !important;
+}
+html[data-command-theme='dark'] body.command-os-shell #main_content .command-os-all-stats-pivot .dx-pivotgrid .dx-area,
+html[data-command-theme='dark'] body.command-os-shell #main_content .command-os-all-stats-pivot .dx-pivotgrid .dx-area td {
+    background: var(--co-surface) !important;
+    border-color: var(--co-border) !important;
+    color: var(--co-ink) !important;
+}
+html[data-command-theme='dark'] body.command-os-shell #main_content .command-os-all-stats-pivot .dx-pivotgrid .dx-area-field,
+html[data-command-theme='dark'] body.command-os-shell #main_content .command-os-all-stats-pivot .dx-pivotgrid .dx-area-field-container {
+    background: color-mix(in srgb, var(--co-purple) 22%, var(--co-surface)) !important;
+    border-color: var(--co-border-strong) !important;
+    color: var(--co-ink) !important;
+}
+html[data-command-theme='dark'] body.command-os-shell #main_content .command-os-all-stats-pivot .dx-pivotgrid .dx-grandtotal,
+html[data-command-theme='dark'] body.command-os-shell #main_content .command-os-all-stats-pivot .dx-pivotgrid .dx-total {
+    background: color-mix(in srgb, var(--co-purple) 26%, var(--co-surface)) !important;
+    color: #fff !important;
+}
+html[data-command-theme='dark'] body.command-os-shell #main_content .command-os-all-stats-pivot .dx-pivotgrid .dx-row-total,
+html[data-command-theme='dark'] body.command-os-shell #main_content .command-os-all-stats-pivot .dx-pivotgrid .dx-column-total {
+    background: color-mix(in srgb, var(--co-cyan) 18%, var(--co-surface)) !important;
+    color: #fff !important;
+}
+html[data-command-theme='dark'] body.command-os-shell #main_content .command-os-all-stats-pivot .dx-pivotgrid .dx-pivotgrid-area td:hover {
+    background: color-mix(in srgb, var(--co-purple) 18%, var(--co-surface)) !important;
+}
+html[data-command-theme='dark'] .dx-popup-wrapper .dx-overlay-content {
+    background: var(--co-surface) !important;
+    border: 1px solid var(--co-border) !important;
+    color: var(--co-ink) !important;
+}
+html[data-command-theme='dark'] body.command-os-shell #main_content .command-os-all-stats-overview .all-stats-overview-card {
+    background: linear-gradient(145deg, color-mix(in srgb, var(--co-purple) 8%, var(--co-surface)), var(--co-surface));
+    box-shadow: 0 4px 14px rgb(0 0 0 / 25%);
+}
 
 @media (max-width: 767px) {
     body.command-os-shell #main_content .command-os-report-hero { align-items: flex-start; flex-wrap: wrap; gap: 12px; min-height: 0; padding: 16px; }

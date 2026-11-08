@@ -16,6 +16,7 @@
     <div class="{{ $kind === 'all-stats' ? 'command-os-all-stats-report' : ($kind === 'mailer-revenue' ? 'command-os-mailer-revenue-report' : '') }}">
     @if ($kind === 'all-stats')
         <header class="command-os-report-hero" aria-labelledby="all-stats-page-title">
+            <span class="command-os-report-hero-illustration" aria-hidden="true"><i class="fas fa-chart-line"></i></span>
             <div class="command-os-report-hero-mark" aria-hidden="true"><i class="fas fa-chart-line"></i></div>
             <div class="command-os-report-hero-copy">
                 <p class="command-os-report-eyebrow">TRACKING &amp; ANALYTICS</p>
@@ -31,6 +32,49 @@
                 </strong>
             </div>
         </header>
+
+        <section class="command-os-all-stats-overview" aria-label="Tracking overview">
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-records" aria-hidden="true"><i class="fas fa-layer-group"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Aggregated Rows</span>
+                    <strong>{{ number_format($rows->total()) }}</strong>
+                    <small>Selected date range</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-leads" aria-hidden="true"><i class="fas fa-funnel-dollar"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Attributed Revenue</span>
+                    <strong>${{ number_format(collect($rows->items())->sum('lead_revenue'), 2) }}</strong>
+                    <small>Active page revenue</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-events" aria-hidden="true"><i class="fas fa-bolt"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Logged Events</span>
+                    <strong>{{ number_format(collect($rows->items())->sum('event_count')) }}</strong>
+                    <small>Active page events</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-scope" aria-hidden="true"><i class="fas fa-cubes"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Tracked Scope</span>
+                    <strong>19 Dimensions</strong>
+                    <small>Workspace scoped</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-pivot" aria-hidden="true"><i class="fas fa-table"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Pivot Mode</span>
+                    <strong>Interactive</strong>
+                    <small>Drag-and-drop dimensions</small>
+                </span>
+            </article>
+        </section>
     @else
         <h2 class="content-heading">{{ $title }} <small class="text-muted">CAMPAIGN &amp; DROP EVENTS</small></h2>
     @endif
@@ -98,25 +142,52 @@
                     @if ($rows->isEmpty())
                         <div class="alert alert-info" role="status">No matching campaign events, Drop visitor events, or attributed campaign leads are recorded for this date range.</div>
                     @else
-                        <div class="table-responsive">
-                            <table class="table table-sm table-hover table-striped table-bordered">
+                        <div class="table-responsive all-stats-table-wrap">
+                            <table class="table table-sm table-hover table-striped table-bordered all-stats-table">
                                 <thead><tr>@foreach ($headers as $header)<th scope="col">{{ $header }}</th>@endforeach</tr></thead>
                                 <tbody>
                                     @foreach ($rows as $row)
+                                        @php($rowType = strtolower($row['type']))
                                         <tr>
-                                            <td>{{ $row['at'] }}</td><td>{{ $row['source'] }}</td><td>{{ $row['mailer'] }}</td><td>{{ $row['isp'] }}</td><td>{{ $row['list'] }}</td><td>{{ $row['list_type'] }}</td><td>{{ $row['provider'] }}</td><td>{{ $row['server'] }}</td><td>{{ $row['ip'] }}</td><td>{{ $row['domain'] }}</td><td>{{ $row['sponsor'] }}</td><td>{{ $row['offer'] }}</td><td>{{ $row['vertical'] }}</td><td>{{ $row['from'] }}</td><td>{{ $row['subject'] }}</td><td title="{{ $row['creative'] }}">{{ \Illuminate\Support\Str::limit(strip_tags($row['creative']), 80) }}</td><td>{{ strtoupper($row['type']) }}</td><td class="text-right">{{ number_format((int) $row['event_count']) }}</td><td class="text-right">${{ number_format((float) $row['lead_revenue'], 2) }}</td>
+                                            <td>{{ $row['at'] }}</td>
+                                            <td><span class="badge badge-source">{{ $row['source'] }}</span></td>
+                                            <td>{{ $row['mailer'] }}</td>
+                                            <td>{{ $row['isp'] }}</td>
+                                            <td>{{ $row['list'] }}</td>
+                                            <td><span class="badge badge-light">{{ $row['list_type'] }}</span></td>
+                                            <td>{{ $row['provider'] }}</td>
+                                            <td>{{ $row['server'] }}</td>
+                                            <td><code>{{ $row['ip'] }}</code></td>
+                                            <td>{{ $row['domain'] }}</td>
+                                            <td>{{ $row['sponsor'] }}</td>
+                                            <td>{{ $row['offer'] }}</td>
+                                            <td>{{ $row['vertical'] }}</td>
+                                            <td>{{ $row['from'] }}</td>
+                                            <td>{{ $row['subject'] }}</td>
+                                            <td title="{{ $row['creative'] }}">{{ \Illuminate\Support\Str::limit(strip_tags($row['creative']), 80) }}</td>
+                                            <td>
+                                                <span class="badge badge-event badge-event-{{ str_replace('_', '-', $rowType) }}">{{ strtoupper($row['type']) }}</span>
+                                            </td>
+                                            <td class="text-right text-tabular">{{ number_format((int) $row['event_count']) }}</td>
+                                            <td class="text-right text-tabular">
+                                                @if ((float) $row['lead_revenue'] > 0)
+                                                    <span class="text-revenue">${{ number_format((float) $row['lead_revenue'], 2) }}</span>
+                                                @else
+                                                    ${{ number_format((float) $row['lead_revenue'], 2) }}
+                                                @endif
+                                            </td>
                                         </tr>
                                     @endforeach
                                 </tbody>
                             </table>
                         </div>
-                        <div class="d-flex flex-wrap justify-content-between align-items-center mt-2" aria-label="Report pagination">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center mt-3 all-stats-pagination" aria-label="Report pagination">
                             <small class="text-muted">Showing {{ $rows->firstItem() }}–{{ $rows->lastItem() }} of {{ $rows->total() }} rows</small>
                             {{ $rows->links() }}
                         </div>
                     @endif
                 </div>
-                <div class="alert alert-warning mb-0" role="note"><strong>Data coverage:</strong> {{ $coverage }}</div>
+                <div class="alert alert-warning mb-0 mt-3" role="note"><strong>Data coverage:</strong> {{ $coverage }}</div>
             @elseif ($kind === 'mailer-revenue')
                 <div id="mailer-revenue-fallback">
                     <div class="small text-muted mb-2" data-analytics-report-status role="status" aria-live="polite"></div>

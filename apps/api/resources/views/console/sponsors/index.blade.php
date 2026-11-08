@@ -3,25 +3,39 @@
 @section('title', 'Sponsors')
 
 @section('content')
-    <div class="block block-rounded">
-        <div class="block-header">
-            <h3 class="block-title">Sponsors</h3>
+    <div class="block block-rounded command-os-card">
+        <div class="block-header command-os-entity-header">
+            <div class="d-flex align-items-center gap-3">
+                <div class="command-os-entity-mark" aria-hidden="true">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="command-os-entity-copy">
+                    <h1 class="command-os-entity-title">SPONSORS</h1>
+                </div>
+            </div>
             <div class="block-options">
-                <button type="button" class="btn-block-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen"></button>
+                <button type="button" class="command-os-btn-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen">
+                    <i class="si si-size-fullscreen"></i>
+                </button>
             </div>
         </div>
-        <div class="block-content">
-            <div class="alert alert-info" role="note">
-                Sponsor login opens a provider session in the browser helper. Download and load the helper before using Login.
-                @if ($extensionUrl)
-                <a href="{{ $extensionUrl }}" class="btn btn-sm btn-alt-primary ml-2">Download sponsor helper</a>
-                @else
-                <div class="small mt-2 text-warning">The sponsor helper bundle is not installed on this app server, so download and browser handoff are unavailable.</div>
-                @endif
-                <div class="small mt-2">The browser helper requests cookie access across HTTP and HTTPS websites. Review that browser permission scope before installing it.</div>
+        <div class="block-content block-content-full">
+            <div class="command-os-info-banner" role="note">
+                <div class="command-os-info-banner-icon" aria-hidden="true">
+                    <i class="fas fa-info-circle"></i>
+                </div>
+                <div class="command-os-info-banner-content">
+                    <div>Sponsor login opens a provider session in the browser helper. Download and load the helper before using Login.</div>
+                    @if ($extensionUrl)
+                        <a href="{{ $extensionUrl }}" class="btn btn-sm btn-alt-primary mt-1">Download sponsor helper</a>
+                    @else
+                        <div class="small mt-1 text-warning">The sponsor helper bundle is not installed on this app server, so download and browser handoff are unavailable.</div>
+                    @endif
+                    <div class="small mt-1">The browser helper requests cookie access across HTTP and HTTPS websites. Review that browser permission scope before installing it.</div>
+                </div>
             </div>
             <div class="table-responsive">
-                <table id="sponsors" class="table table-sm table-hover table-striped"
+                <table id="sponsors" class="table table-sm table-hover"
                        data-source-url="{{ route('clean.console.sponsors.index') }}"
                        data-create-url="{{ route('clean.console.sponsors.create') }}"
                        data-bulk-users-url="{{ route('clean.console.sponsors.bulk-users') }}"
@@ -60,15 +74,22 @@
                 });
             };
 
-            const actionButton = (icon, title, color, id, action, status) => (
-                `<button type="button" data-id="${escapeHtml(id)}" data-action="${escapeHtml(action)}" data-status="${escapeHtml(status)}" ` +
-                `class="btn ${color} btn-sm ${action}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"><i class="fas ${icon}"></i></button>&nbsp;`
-            );
-
             $('#sponsors').dataTable({
                 ajax: tableElement.dataset.sourceUrl,
                 serverSide: false,
+                pageLength: 20,
                 order: [[1, 'desc']],
+                language: {
+                    lengthMenu: 'Show _MENU_ rows',
+                    search: '',
+                    searchPlaceholder: 'Search...',
+                    info: 'Page _PAGE_ of _PAGES_ (_TOTAL_ records)',
+                    infoEmpty: 'Page 0 of 0 (0 records)',
+                    paginate: {
+                        previous: '<i class="fas fa-chevron-left"></i>',
+                        next: '<i class="fas fa-chevron-right"></i>'
+                    }
+                },
                 buttons: [
                     { extend: 'pageLength' },
                     {
@@ -103,18 +124,18 @@
                     { title: 'USERNAME', data: 'username' },
                     { title: 'TYPE', data: 'type' },
                     { title: 'CREATED AT', data: 'created_at' },
-                    { title: 'TOTAL OFFERS', data: 'offers_count', render: (value, type, row) => type === 'display' ? `<a href="${@json(route('clean.console.offers.index'))}?sponsor=${escapeHtml(row.id)}">${Number(value || 0)}</a>` : value },
+                    { title: 'TOTAL OFFERS', data: 'offers_count', render: (value, type, row) => type === 'display' ? `<a href="${@json(route('clean.console.offers.index'))}?sponsor=${escapeHtml(row.id)}" class="command-table-link">${Number(value || 0)}</a>` : value },
                     {
                         title: 'USERS',
                         data: 'allowed_users',
                         searchable: false,
-                        render: (users, type, row) => `<button type="button" data-id="${escapeHtml(row.id)}" class="btn btn-link users" title="ALLOWED USERS" aria-label="Manage allowed users for ${escapeHtml(row.name)}"><i class="fas fa-users"></i> : ${Array.isArray(users) ? users.length : 0}</button>&nbsp;`,
+                        render: (users, type, row) => `<button type="button" data-id="${escapeHtml(row.id)}" class="btn btn-link users command-users-link" title="ALLOWED USERS" aria-label="Manage allowed users for ${escapeHtml(row.name)}"><i class="fas fa-users"></i> : ${Array.isArray(users) ? users.length : 0}</button>`,
                     },
                     {
                         title: 'URL',
                         data: 'url',
                         render: (url, type) => type === 'display'
-                            ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="Open sponsor website"><i class="fas fa-link"></i></a>`
+                            ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="command-table-link" aria-label="Open sponsor website"><i class="fas fa-link"></i></a>`
                             : url,
                     },
                     {
@@ -124,10 +145,10 @@
                         searchable: false,
                         render: (data, type, row) => {
                             const editUrl = @json(route('clean.console.sponsors.index')) + `/${row.id}/edit`;
-                            const login = `<button type="button" data-id="${escapeHtml(row.id)}" class="btn btn-info btn-sm login" title="LOGIN SPONSOR" aria-label="Login to ${escapeHtml(row.name)}"><i class="fas fa-door-open"></i></button>&nbsp;`;
-                            const update = `<button type="button" data-url="${escapeHtml(editUrl)}" class="btn btn-info btn-sm update" title="UPDATE SPONSOR" aria-label="Update ${escapeHtml(row.name)}"><i class="fas fa-pencil-alt"></i></button>&nbsp;`;
-                            const statusButton = actionButton(row.is_active ? 'fa-times' : 'fa-check', row.is_active ? 'DISABLE SPONSOR' : 'ENABLE SPONSOR', row.is_active ? 'btn-warning' : 'btn-success', row.id, 'status', row.is_active ? 0 : 1);
-                            return login + update + statusButton;
+                            const login = `<button type="button" data-id="${escapeHtml(row.id)}" class="command-action-btn action-login login" title="LOGIN SPONSOR" aria-label="Login to ${escapeHtml(row.name)}"><i class="fas fa-poll"></i></button>`;
+                            const update = `<button type="button" data-url="${escapeHtml(editUrl)}" class="command-action-btn action-edit update" title="UPDATE SPONSOR" aria-label="Update ${escapeHtml(row.name)}"><i class="fas fa-pencil-alt"></i></button>`;
+                            const statusButton = `<button type="button" data-id="${escapeHtml(row.id)}" data-action="status" data-status="${row.is_active ? 0 : 1}" class="command-action-btn ${row.is_active ? 'action-status' : 'action-enable'} status" title="${row.is_active ? 'DISABLE SPONSOR' : 'ENABLE SPONSOR'}" aria-label="${row.is_active ? 'DISABLE SPONSOR' : 'ENABLE SPONSOR'}"><i class="fas ${row.is_active ? 'fa-times' : 'fa-check'}"></i></button>`;
+                            return `<div class="command-action-btn-group">${login}${update}${statusButton}</div>`;
                         },
                     },
                 ],

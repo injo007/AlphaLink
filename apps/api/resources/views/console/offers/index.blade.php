@@ -3,68 +3,86 @@
 @section('title', $isNetworkView ? 'My Offers' : 'Offers')
 
 @section('content')
-    <div class="block block-rounded">
-        <div class="block-header">
-            <h3 class="block-title">{{ $isNetworkView ? 'My Offers' : 'Offers' }}</h3>
+    <div class="block block-rounded command-os-card">
+        <div class="block-header command-os-entity-header">
+            <div class="d-flex align-items-center gap-3">
+                <div class="command-os-entity-mark" aria-hidden="true">
+                    <i class="fas fa-tag"></i>
+                </div>
+                <div class="command-os-entity-copy">
+                    <h1 class="command-os-entity-title">{{ $isNetworkView ? 'My Offers' : 'Offers' }}</h1>
+                </div>
+            </div>
             <div class="block-options">
                 @unless ($isNetworkView)
-                    <div class="custom-control custom-switch custom-control-danger custom-control-inline">
+                    <div class="custom-control custom-switch custom-control-danger command-os-switch">
                         <input type="checkbox" class="custom-control-input" id="deleted">
                         <label class="custom-control-label" for="deleted">DELETED</label>
                     </div>
                 @endunless
-                <button type="button" class="btn-block-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen"></button>
+                <button type="button" class="command-os-btn-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen">
+                    <i class="si si-size-fullscreen"></i>
+                </button>
             </div>
         </div>
         <div class="block-content block-content-full">
-            <div class="form-group form-row align-items-end">
-                <div class="col-sm-6 col-lg-2">
-                    <label for="offer-sponsor">Sponsors:</label>
-                    <select class="form-control selectpicker" id="offer-sponsor" data-live-search="true">
-                        <option value="0">Select Sponsor</option>
-                        @foreach ($sponsors as $sponsor)
-                            <option value="{{ $sponsor->id }}" @selected((string) request('sponsor') === (string) $sponsor->id)>{{ $sponsor->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-sm-6 col-lg-2">
-                    <label for="offer-vertical">Verticals:</label>
-                    <select class="form-control selectpicker" id="offer-vertical" data-live-search="true">
-                        <option value="">Select Vertical</option>
-                        @foreach ($verticals as $vertical)
-                            <option value="{{ $vertical }}" @selected(request('vertical') === $vertical)>{{ $vertical }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-sm-6 col-lg-2">
-                    <label for="offer-status">Status:</label>
-                    <select class="form-control selectpicker" id="offer-status">
-                        <option value="0">Select Status</option>
-                        @foreach (\App\Models\WorkspaceOffer::STATUSES as $status)
-                            <option value="{{ $status }}" @selected(request('status') === $status)>{{ strtoupper($status) }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-sm-6 col-lg-2">
-                    <label for="offer-geo">Geo:</label>
-                    <select class="form-control selectpicker" id="offer-geo" data-live-search="true">
-                        <option value="ALL">Select Country</option>
-                        @foreach ($countries as $code => $country)
-                            <option value="{{ $code }}">{{ $country }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-sm-6 col-lg-2">
-                    <button id="filter-offers" class="btn btn-primary" type="button">FILTER</button>
+            <div class="command-os-filter-bar mb-3">
+                <div class="form-row align-items-end">
+                    <div class="col-sm-6 col-lg-2">
+                        <label for="offer-sponsor">Sponsors:</label>
+                        <select class="form-control selectpicker" id="offer-sponsor" data-live-search="true">
+                            <option value="0">Select Sponsor</option>
+                            @foreach ($sponsors as $sponsor)
+                                <option value="{{ $sponsor->id }}" @selected((string) request('sponsor') === (string) $sponsor->id)>{{ $sponsor->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-sm-6 col-lg-2">
+                        <label for="offer-vertical">Verticals:</label>
+                        <select class="form-control selectpicker" id="offer-vertical" data-live-search="true">
+                            <option value="">Select Vertical</option>
+                            @foreach ($verticals as $vertical)
+                                <option value="{{ $vertical }}" @selected(request('vertical') === $vertical)>{{ $vertical }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-sm-6 col-lg-2">
+                        <label for="offer-status">Status:</label>
+                        <select class="form-control selectpicker" id="offer-status">
+                            <option value="0">Select Status</option>
+                            @foreach (\App\Models\WorkspaceOffer::STATUSES as $status)
+                                <option value="{{ $status }}" @selected(request('status') === $status)>{{ strtoupper($status) }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-sm-6 col-lg-2">
+                        <label for="offer-geo">Geo:</label>
+                        <select class="form-control selectpicker" id="offer-geo" data-live-search="true">
+                            <option value="ALL">Select Country</option>
+                            @foreach ($countries as $code => $country)
+                                <option value="{{ $code }}">{{ $country }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-sm-6 col-lg-2">
+                        <button id="filter-offers" class="btn btn-primary command-os-btn-filter" type="button">FILTER</button>
+                    </div>
                 </div>
             </div>
-            @if ($isNetworkView)
-                <div class="alert alert-info" role="status">Only active offers from active sponsors are shown. Operators must be assigned to both the sponsor and the offer.</div>
-            @else
-                <div class="alert alert-info" role="status">New manual offers inherit the sponsor’s assigned operators and start inactive. Use each offer’s suppression-file action to view, refresh, download, or replace its saved file. Drops → Suppression remains the run and history screen.</div>
-            @endif
+            <div class="command-os-info-banner" role="status">
+                <div class="command-os-info-banner-icon" aria-hidden="true">
+                    <i class="fas fa-info-circle"></i>
+                </div>
+                <div class="command-os-info-banner-content">
+                    @if ($isNetworkView)
+                        Only active offers from active sponsors are shown. Operators must be assigned to both the sponsor and the offer.
+                    @else
+                        New manual offers inherit the sponsor’s assigned operators and start inactive. Use each offer’s suppression-file action to view, refresh, download, or replace its saved file. Drops → Suppression remains the run and history screen.
+                    @endif
+                </div>
+            </div>
             <div class="table-responsive">
-                <table id="offers" class="table table-sm table-hover table-striped"
+                <table id="offers" class="table table-sm table-hover"
                        data-source-url="{{ $isNetworkView ? route('console.networks.offers.index', $workspace->id) : route('console.offers.index', $workspace->id) }}"
                        data-create-url="{{ route('console.offers.create', $workspace->id) }}"
                        data-bulk-users-url="{{ route('console.offers.bulk-users', $workspace->id) }}"
@@ -161,6 +179,17 @@
                 pageLength: 50,
                 order: [[1, 'desc']],
                 select: canShare ? { style: 'os', selector: 'td:first-child' } : false,
+                language: {
+                    lengthMenu: 'Show _MENU_ rows',
+                    search: '',
+                    searchPlaceholder: 'Search...',
+                    info: 'Page _PAGE_ of _PAGES_ (_TOTAL_ records)',
+                    infoEmpty: 'Page 0 of 0 (0 records)',
+                    paginate: {
+                        previous: '<i class="fas fa-chevron-left"></i>',
+                        next: '<i class="fas fa-chevron-right"></i>'
+                    }
+                },
                 buttons: [
                     { extend: 'pageLength' },
                     ...(canShare ? [{ text: '<i class="fas fa-share-alt"></i>', titleAttr: 'SHARE CREATIVES', action: (event, dt) => {
@@ -193,29 +222,31 @@
                     { title: 'PAYOUT', data: 'payout' },
                     { title: 'SUP LAST UPDATE', data: 'suppression_updated_at', render: (value, type, row) => {
                         const status = !value
-                            ? '<strong class="text-danger">NEVER</strong>'
+                            ? '<strong class="badge-suppression-stale">NEVER</strong>'
                             : (() => {
                                 const days = Math.max(0, Math.floor((Date.now() - new Date(`${value}T00:00:00Z`).getTime()) / 86400000));
-                                return `<strong class="${days > 7 ? 'text-danger' : 'text-success'}" title="${escapeHtml(value)}">${days} DAYS</strong>`;
+                                return `<strong class="${days > 7 ? 'badge-suppression-stale' : 'badge-suppression-live'}" title="${escapeHtml(value)}">${days} DAYS</strong>`;
                             })();
                         if (!canManage || row.deleted_at) return status;
-                        return `<span class="text-nowrap">${status} <button type="button" class="btn btn-link btn-sm p-0 ml-1 download-suppression" data-id="${escapeHtml(row.id)}" title="DOWNLOAD SUPPRESSION FILE FROM SPONSOR" aria-label="Download suppression file for ${escapeHtml(row.name)}"><i class="fas fa-sync-alt" aria-hidden="true"></i></button></span>`;
+                        return `<span class="text-nowrap">${status} <button type="button" class="btn btn-link btn-sm p-0 ml-1 download-suppression" style="color: #38bdf8;" data-id="${escapeHtml(row.id)}" title="DOWNLOAD SUPPRESSION FILE FROM SPONSOR" aria-label="Download suppression file for ${escapeHtml(row.name)}"><i class="fas fa-sync-alt" aria-hidden="true"></i></button></span>`;
                     } },
                     { title: 'STATUS', data: 'status', render: (value, type, row) => canManage && !row.deleted_at ? `<select class="form-control form-control-sm business-status" data-id="${escapeHtml(row.id)}">${['live','issue','paused'].map((status) => `<option value="${status}" ${value === status ? 'selected' : ''}>${status.toUpperCase()}</option>`).join('')}</select>` : escapeHtml(value) },
-                    { title: 'ACTIVE', data: 'is_active', render: (value) => value ? '<span class="badge badge-success">YES</span>' : '<span class="badge badge-secondary">NO</span>' },
+                    { title: 'ACTIVE', data: 'is_active', render: (value) => value ? '<span class="badge badge-command-active-yes">YES</span>' : '<span class="badge badge-command-active-no">NO</span>' },
                     { title: 'FROM', data: 'from_count', render: (value) => Number(value || 0) },
                     { title: 'SUBJECTS', data: 'subjects_count', render: (value) => Number(value || 0) },
-                    ...(canManage ? [{ title: 'USERS', data: 'allowed_users', searchable: false, render: (users, type, row) => !row.deleted_at ? `<button type="button" data-id="${escapeHtml(row.id)}" class="btn btn-link users" title="ALLOWED USERS"><i class="fas fa-users"></i> : ${Array.isArray(users) ? users.length : 0}</button>` : '' }] : []),
-                        { title: 'ACTIONS', data: null, orderable: false, searchable: false, render: (data, type, row) => {
+                    ...(canManage ? [{ title: 'USERS', data: 'allowed_users', searchable: false, render: (users, type, row) => !row.deleted_at ? `<button type="button" data-id="${escapeHtml(row.id)}" class="btn btn-link users command-users-link" title="ALLOWED USERS"><i class="fas fa-users"></i> : ${Array.isArray(users) ? users.length : 0}</button>` : '' }] : []),
+                    { title: 'ACTIONS', data: null, orderable: false, searchable: false, render: (data, type, row) => {
                         const assetsUrl = `${base}/${row.id}/assets`;
-                        if (!canManage) return `<a class="btn btn-sm btn-outline-primary" href="${assetsUrl}" title="SHOW OFFER ASSETS"><i class="fas fa-box-open"></i></a>`;
-                        if (row.deleted_at) return button('fa-trash-restore', 'restore', row.id, 'RESTORE OFFER', 'btn-secondary');
+                        if (!canManage) return `<a class="command-action-btn action-primary" href="${assetsUrl}" title="SHOW OFFER ASSETS"><i class="fas fa-box-open"></i></a>`;
+                        if (row.deleted_at) return `<button type="button" class="command-action-btn action-info restore" data-id="${escapeHtml(row.id)}" title="RESTORE OFFER"><i class="fas fa-trash-restore"></i></button>`;
                         const suppressionUrl = tableElement.dataset.suppressionUrlTemplate.replace('__OFFER_ID__', encodeURIComponent(row.id));
-                        return `<a class="btn btn-sm btn-outline-primary" href="${assetsUrl}" title="SHOW OFFER ASSETS"><i class="fas fa-box-open"></i></a>&nbsp;` +
-                            `<a class="btn btn-sm btn-outline-warning" href="${escapeHtml(suppressionUrl)}" title="MANAGE SUPPRESSION FILE" aria-label="Manage suppression file for ${escapeHtml(row.name)}"><i class="fas fa-file-upload" aria-hidden="true"></i></a>&nbsp;` +
-                            button('fa-pencil-alt', 'edit-offer', row.id, 'UPDATE OFFER') +
-                            `<button type="button" class="btn ${row.is_active ? 'btn-warning' : 'btn-success'} btn-sm active-offer" data-id="${escapeHtml(row.id)}" data-status="${row.is_active ? 0 : 1}" title="${row.is_active ? 'DISABLE OFFER' : 'ENABLE OFFER'}"><i class="fas ${row.is_active ? 'fa-times' : 'fa-check'}"></i></button>&nbsp;` +
-                            button('fa-trash', 'delete-offer', row.id, 'DELETE OFFER', 'btn-danger');
+                        return `<div class="command-action-btn-group">` +
+                            `<a class="command-action-btn action-primary" href="${assetsUrl}" title="SHOW OFFER ASSETS"><i class="fas fa-users"></i></a>` +
+                            `<a class="command-action-btn action-warning" href="${escapeHtml(suppressionUrl)}" title="MANAGE SUPPRESSION FILE" aria-label="Manage suppression file for ${escapeHtml(row.name)}"><i class="fas fa-file-alt"></i></a>` +
+                            `<button type="button" class="command-action-btn action-info edit-offer" data-id="${escapeHtml(row.id)}" title="UPDATE OFFER"><i class="fas fa-pencil-alt"></i></button>` +
+                            `<button type="button" class="command-action-btn ${row.is_active ? 'action-status' : 'action-enable'} active-offer" data-id="${escapeHtml(row.id)}" data-status="${row.is_active ? 0 : 1}" title="${row.is_active ? 'DISABLE OFFER' : 'ENABLE OFFER'}"><i class="fas ${row.is_active ? 'fa-times' : 'fa-check'}"></i></button>` +
+                            `<button type="button" class="command-action-btn action-danger delete-offer" data-id="${escapeHtml(row.id)}" title="DELETE OFFER"><i class="fas fa-trash"></i></button>` +
+                            `</div>`;
                     } },
                 ],
             });

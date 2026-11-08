@@ -3,25 +3,40 @@
 @section('title', 'My Sponsors')
 
 @section('content')
-    <div class="block block-rounded">
-        <div class="block-header">
-            <h3 class="block-title">My Sponsors</h3>
+    <div class="block block-rounded command-os-card">
+        <div class="block-header command-os-entity-header">
+            <div class="d-flex align-items-center gap-3">
+                <div class="command-os-entity-mark" aria-hidden="true">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="command-os-entity-copy">
+                    <span class="command-os-entity-eyebrow">MY SPONSORS</span>
+                    <h1 class="command-os-entity-title">MY SPONSORS</h1>
+                </div>
+            </div>
             <div class="block-options">
-                <button type="button" class="btn-block-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen"></button>
+                <button type="button" class="command-os-btn-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen">
+                    <i class="si si-size-fullscreen"></i>
+                </button>
             </div>
         </div>
-        <div class="block-content">
-            <div class="alert alert-info" role="note">
-                Sponsor login opens an assigned provider session in the browser helper. Download and load the helper before using Login.
-                @if ($extensionUrl)
-                <a href="{{ $extensionUrl }}" class="btn btn-sm btn-alt-primary ml-2">Download sponsor helper</a>
-                @else
-                <div class="small mt-2 text-warning">The sponsor helper bundle is not installed on this app server, so download and browser handoff are unavailable.</div>
-                @endif
-                <div class="small mt-2">The browser helper requests cookie access across HTTP and HTTPS websites. Review that browser permission scope before installing it.</div>
+        <div class="block-content block-content-full">
+            <div class="command-os-info-banner" role="note">
+                <div class="command-os-info-banner-icon" aria-hidden="true">
+                    <i class="fas fa-info-circle"></i>
+                </div>
+                <div class="command-os-info-banner-content">
+                    <div>Sponsor login opens an assigned provider session in the browser helper. Download and load the helper before using Login.</div>
+                    @if ($extensionUrl)
+                        <a href="{{ $extensionUrl }}" class="btn btn-sm btn-alt-primary mt-1">Download sponsor helper</a>
+                    @else
+                        <div class="small mt-1 text-warning">The sponsor helper bundle is not installed on this app server, so download and browser handoff are unavailable.</div>
+                    @endif
+                    <div class="small mt-1">The browser helper requests cookie access across HTTP and HTTPS websites. Review that browser permission scope before installing it.</div>
+                </div>
             </div>
             <div class="table-responsive">
-                <table id="network-sponsors" class="table table-sm table-hover table-striped"
+                <table id="network-sponsors" class="table table-sm table-hover"
                        data-source-url="{{ route('console.networks.sponsors.index', $workspace->id) }}"
                        data-login-url="{{ route('console.sponsors.login', [$workspace->id, 0]) }}"
                        data-extension-id="{{ $extensionId }}"></table>
@@ -40,7 +55,19 @@
             $('#network-sponsors').dataTable({
                 ajax: tableElement.dataset.sourceUrl,
                 serverSide: false,
+                pageLength: 20,
                 order: [[0, 'desc']],
+                language: {
+                    lengthMenu: 'Show _MENU_ rows',
+                    search: '',
+                    searchPlaceholder: 'Search...',
+                    info: 'Page _PAGE_ of _PAGES_ (_TOTAL_ records)',
+                    infoEmpty: 'Page 0 of 0 (0 records)',
+                    paginate: {
+                        previous: '<i class="fas fa-chevron-left"></i>',
+                        next: '<i class="fas fa-chevron-right"></i>'
+                    }
+                },
                 buttons: [
                     { extend: 'pageLength' },
                     {
@@ -53,13 +80,13 @@
                     { title: '#', data: 'id' },
                     { title: 'AFFILIATE ID', data: 'affiliate_id', defaultContent: '' },
                     { title: 'NAME', data: 'name' },
-                    { title: 'TOTAL OFFERS', data: 'offers_count', render: (value, type, row) => type === 'display' ? `<a href="${@json(route('console.networks.offers.index', $workspace->id))}?sponsor=${escapeHtml(row.id)}">${Number(value || 0)}</a>` : value },
+                    { title: 'TOTAL OFFERS', data: 'offers_count', render: (value, type, row) => type === 'display' ? `<a href="${@json(route('console.networks.offers.index', $workspace->id))}?sponsor=${escapeHtml(row.id)}" class="command-table-link">${Number(value || 0)}</a>` : value },
                     { title: 'CREATED AT', data: 'created_at' },
                     {
                         title: 'URL',
                         data: 'url',
                         render: (url, type) => type === 'display'
-                            ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="Open sponsor website"><i class="fas fa-link"></i></a>`
+                            ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="command-table-link" aria-label="Open sponsor website"><i class="fas fa-link"></i></a>`
                             : url,
                     },
                     {
@@ -67,7 +94,7 @@
                         data: null,
                         orderable: false,
                         searchable: false,
-                        render: (value, type, row) => `<button type="button" data-id="${escapeHtml(row.id)}" class="btn btn-info btn-sm login" title="LOGIN SPONSOR" aria-label="Login to ${escapeHtml(row.name)}"><i class="fas fa-door-open"></i></button>&nbsp;`,
+                        render: (value, type, row) => `<div class="command-action-btn-group"><button type="button" data-id="${escapeHtml(row.id)}" class="command-action-btn action-login login" title="LOGIN SPONSOR" aria-label="Login to ${escapeHtml(row.name)}"><i class="fas fa-poll"></i></button></div>`,
                     },
                 ],
             }).on('click', '.login', async function (event) {

@@ -126,7 +126,7 @@ For each template, record the canonical route(s) and preserved fields/actions; v
 | `console/tools/workspace/project-edit` · tools | PENDING — inspect current page and compare against references | PENDING — route-specific workflow and permission mapping | PENDING — theme, responsive, interaction, and regression evidence |
 | `console/tools/workspace/project-users` · tools | PENDING — inspect current page and compare against references | PENDING — route-specific workflow and permission mapping | PENDING — theme, responsive, interaction, and regression evidence |
 | `console/tools/workspace/projects` · tools | PENDING — inspect current page and compare against references | PENDING — route-specific workflow and permission mapping | PENDING — theme, responsive, interaction, and regression evidence |
-| `console/users/create` · users | IN PROGRESS — live page inspected; contrast/layout redesign next | PENDING — preserve member fields, role visibility, async save, credential copy | PENDING — verify production light/dark, narrow layout, keyboard, no mutation |
+| `console/users/create` · users | ACCEPTED — Command OS glass form deployed in `ea8cdb1`; admin Workspace Role panel spans the available card width; Mailer type reveals role controls | PASS — route, identity/access fields, role visibility, async save, credential display/copy, and workspace authorization preserved; focused feature tests cover create/edit/validation/access | PASS — production browser at desktop, tablet, and 390px; light/dark and keyboard theme switching; role toggle; no horizontal overflow; 5 tests / 81 assertions; Vite build passed |
 | `console/users/edit` · users | PENDING — inspect current page and compare against references | PENDING — route-specific workflow and permission mapping | PENDING — theme, responsive, interaction, and regression evidence |
 | `console/users/index` · users | PENDING — inspect current page and compare against references | PENDING — route-specific workflow and permission mapping | PENDING — theme, responsive, interaction, and regression evidence |
 | `console/users/password` · users | PENDING — inspect current page and compare against references | PENDING — route-specific workflow and permission mapping | PENDING — theme, responsive, interaction, and regression evidence |
@@ -136,9 +136,12 @@ For each template, record the canonical route(s) and preserved fields/actions; v
 | `console/warmups/statistics` · warmups | PENDING — inspect current page and compare against references | PENDING — route-specific workflow and permission mapping | PENDING — theme, responsive, interaction, and regression evidence |
 | `console/workspace` · workspace.blade.php | PENDING — inspect current page and compare against references | PENDING — route-specific workflow and permission mapping | PENDING — theme, responsive, interaction, and regression evidence |
 
-## Current slice — Workspace Users / Add User
+## Completed slice — Workspace Users / Add User
 
 - Route: `GET /users/create` (`clean.console.users.create`); submit: `POST /users` (`clean.console.users.store`).
-- Live baseline: the shared Command OS shell is dark, but the form body is a bright legacy card with very low-contrast labels. The page contains Full Name, Login Email, Username, User Type, User Roles, Workspace Role, Save, Cancel, API validation feedback, generated credential display, and Copy login details.
-- Authorization: workspace owners/admins manage members; membership scope and allowed roles are enforced by the existing controller. No account creation or credential mutation is part of visual verification.
-- Acceptance is open until the redesigned view passes focused tests and actual production browser checks in both themes and at desktop/narrow viewports.
+- Production release: `ea8cdb126355831c487a5479cd337b42727d4e4a`; deployment completed with HTTPS health check.
+- The page uses the Command OS glass form, with Full Name, Login Email, Username, User Type, User Roles, Workspace Role, Save, Cancel, API validation feedback, generated credential display, and Copy login details retained.
+- Authorization and member mutations remain in the existing controller. Focused tests passed: `WorkspaceUserManagementTest.php` (5 tests, 81 assertions); the production form was not submitted.
+- Browser evidence: production render inspected at 1503px desktop, 768px tablet, and 390px mobile; no horizontal overflow. Admin hides User Roles and uses the full access-grid width for Workspace Role. Changing User Type to Mailer reveals the existing role list. Theme switching works by keyboard in both directions; dark mode and the default Admin form were restored afterward.
+- Build: `npm run build` passed. It reported the existing GEO map JavaScript chunk above 500 kB. `git diff --check` passed.
+- Static audit note: strict project audit reports `affordance.actionless-button` at `resources/js/command-os-graph.tsx:254`. Source inspection confirms the node button receives `onClick: () => selectModule(node)` through the shared `common` props, so this is an auditor false positive outside the Add User slice.

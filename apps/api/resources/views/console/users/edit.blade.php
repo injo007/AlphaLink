@@ -3,52 +3,127 @@
 @section('title', 'Edit User')
 
 @section('content')
-    <div class="block block-rounded">
-        <div class="block-header"><h3 class="block-title">EDIT USER <span class="text-info">{{ $user->username }}</span></h3></div>
-        <div class="block-content"><div class="row justify-content-center"><div class="col-sm-10 col-lg-8">
-            <form id="edit-user-form" novalidate>
-                <div class="form-group"><label for="name">Full Name</label><input class="form-control" id="name" name="name" minlength="4" maxlength="255" required value="{{ $user->name }}"></div>
-                <div class="form-group"><label for="username">Username</label><input class="form-control" id="username" name="username" minlength="4" maxlength="255" required value="{{ $user->username }}"></div>
-                <div class="form-group"><label for="email">Login Email</label><input class="form-control" id="email" value="{{ $user->email }}" disabled></div>
-                <div class="form-group"><label for="type">User Type</label><select id="type" name="type" class="form-control">@foreach ($types as $type)<option value="{{ $type }}" @selected($type === $user->type)>{{ $type }}</option>@endforeach</select></div>
-                <fieldset class="form-group" id="role-container" @if ($user->type === 'admin') hidden @endif><legend class="col-form-label">User Roles</legend><div class="row">@foreach ($roles as $key => $label)<div class="col-sm-6"><div class="custom-control custom-checkbox"><input class="custom-control-input" id="role-{{ $key }}" name="roles[]" type="checkbox" value="{{ $key }}" @checked(in_array($key, $user->roles ?? [], true))><label class="custom-control-label" for="role-{{ $key }}">{{ $label }}</label></div></div>@endforeach</div><small class="form-text text-muted">Global user roles are stored with the account; workspace access remains governed by the workspace role.</small></fieldset>
-                <div class="form-group"><label for="workspace_role">Workspace Role</label><select class="form-control" id="workspace_role" name="workspace_role">@foreach ($workspaceRoles as $role)<option value="{{ $role }}" @selected($role === $user->pivot->role)>{{ str_replace('_', ' ', $role) }}</option>@endforeach</select></div>
-                <div class="form-group"><button class="btn btn-warning" id="save-user" type="submit">EDIT</button> <a class="btn btn-light" href="{{ route('console.users.index', $workspace->id) }}">CANCEL</a></div>
-                <div class="alert alert-danger d-none" id="user-error" role="alert"></div><p class="text-success" id="user-success" role="status" aria-live="polite"></p>
+    <main class="command-os-user-form" aria-labelledby="edit-user-title">
+        <header class="command-os-user-form-heading">
+            <span class="command-os-user-form-mark" aria-hidden="true"><i class="fas fa-user-edit"></i></span>
+            <div class="command-os-user-form-heading-copy">
+                <span class="command-os-user-form-eyebrow">ACCESS MANAGEMENT</span>
+                <h1 id="edit-user-title">Edit User</h1>
+                <p>Update this account’s details and workspace access.</p>
+            </div>
+        </header>
+
+        <section class="command-os-user-form-card" aria-label="Edit workspace member">
+            <div class="command-os-user-form-card-heading">
+                <span class="command-os-user-form-section-icon" aria-hidden="true"><i class="fas fa-id-card"></i></span>
+                <div>
+                    <h2>Member details</h2>
+                    <p>Change the account identity and permissions for this workspace.</p>
+                </div>
+            </div>
+
+            <form id="edit-user-form" class="command-os-user-form-body" novalidate>
+                <div class="command-os-user-form-fields">
+                    <div class="form-group command-os-user-field">
+                        <label for="name">Full Name</label>
+                        <input class="form-control" id="name" name="name" minlength="4" maxlength="255" required autocomplete="name" value="{{ $user->name }}">
+                    </div>
+                    <div class="form-group command-os-user-field">
+                        <label for="username">Username</label>
+                        <input class="form-control" id="username" name="username" minlength="4" maxlength="255" required autocomplete="username" autocapitalize="none" value="{{ $user->username }}">
+                    </div>
+                    <div class="form-group command-os-user-field">
+                        <label for="email">Login Email</label>
+                        <input class="form-control" id="email" type="email" autocomplete="email" aria-describedby="user-email-help" value="{{ $user->email }}" disabled>
+                        <small id="user-email-help" class="command-os-user-field-help">Login email is read-only on this screen.</small>
+                    </div>
+                    <div class="form-group command-os-user-field">
+                        <label for="type">User Type</label>
+                        <select id="type" name="type" class="form-control">
+                            @foreach ($types as $type)
+                                <option value="{{ $type }}" @selected($type === $user->type)>{{ $type }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+
+                <div class="command-os-user-access-grid @if ($user->type === 'admin') is-admin @endif">
+                    <fieldset class="command-os-user-roles" id="role-container" @if ($user->type === 'admin') hidden @endif>
+                        <legend>User Roles</legend>
+                        <div class="command-os-user-role-grid">
+                            @foreach ($roles as $key => $label)
+                                <div class="command-os-user-role-option">
+                                    <div class="custom-control custom-checkbox">
+                                        <input class="custom-control-input" id="role-{{ $key }}" name="roles[]" type="checkbox" value="{{ $key }}" @checked(in_array($key, $user->roles ?? [], true))>
+                                        <label class="custom-control-label" for="role-{{ $key }}">{{ $label }}</label>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                        <small>Global user roles are stored with the account. Workspace access is controlled separately.</small>
+                    </fieldset>
+
+                    <div class="command-os-user-workspace-role">
+                        <label for="workspace_role">Workspace Role</label>
+                        <p>Choose what the member can do in this workspace.</p>
+                        <select class="form-control" id="workspace_role" name="workspace_role">
+                            @foreach ($workspaceRoles as $role)
+                                <option value="{{ $role }}" @selected($role === $user->pivot->role)>{{ str_replace('_', ' ', $role) }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+
+                <div class="alert alert-danger d-none command-os-user-form-error" id="user-error" role="alert"></div>
+                <p class="command-os-user-form-success" id="user-success" role="status" aria-live="polite"></p>
+
+                <div class="command-os-user-form-actions">
+                    <button class="command-os-user-form-save" id="save-user" type="submit"><i class="fas fa-user-check" aria-hidden="true"></i><span id="edit-user-submit-label">Save Changes</span></button>
+                    <a class="command-os-user-form-cancel" href="{{ route('console.users.index', $workspace->id) }}">Cancel</a>
+                </div>
             </form>
-        </div></div></div>
-    </div>
+        </section>
+    </main>
     <script>
         (() => {
             const form = document.getElementById('edit-user-form');
             const button = document.getElementById('save-user');
+            const buttonLabel = document.getElementById('edit-user-submit-label');
             const error = document.getElementById('user-error');
             const roles = document.getElementById('role-container');
-            document.getElementById('type').addEventListener('change', (event) => {
-                roles.hidden = event.currentTarget.value === 'admin';
+            const typeField = document.getElementById('type');
+            const accessGrid = roles.closest('.command-os-user-access-grid');
+            const syncRoleVisibility = () => {
+                roles.hidden = typeField.value === 'admin';
+                accessGrid.classList.toggle('is-admin', roles.hidden);
                 if (roles.hidden) { roles.querySelectorAll('input').forEach((input) => { input.checked = false; }); }
-            });
+            };
+            typeField.addEventListener('change', syncRoleVisibility);
+            syncRoleVisibility();
             form.addEventListener('submit', async (event) => {
                 event.preventDefault();
                 error.classList.add('d-none');
+                error.textContent = '';
                 button.disabled = true;
-                button.textContent = 'UPDATING…';
+                buttonLabel.textContent = 'Saving…';
                 const data = new FormData(form);
                 const payload = Object.fromEntries(data.entries());
                 payload.roles = data.getAll('roles[]');
                 try {
                     const response = await fetch(@json(route('console.users.update', [$workspace->id, $user->id])), {
-                        method: 'PUT', headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content}, body: JSON.stringify(payload),
+                        method: 'PUT',
+                        headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content},
+                        body: JSON.stringify(payload),
                     });
                     const result = await response.json();
                     if (!response.ok) { throw new Error(Object.values(result.errors || {}).flat().join(' ') || result.message || 'The account could not be updated.'); }
                     document.getElementById('user-success').textContent = result.data;
-                    button.textContent = 'UPDATED';
+                    buttonLabel.textContent = 'Saved';
                 } catch (cause) {
                     error.textContent = cause.message || 'The account could not be updated.';
                     error.classList.remove('d-none');
                     button.disabled = false;
-                    button.textContent = 'EDIT';
+                    buttonLabel.textContent = 'Save Changes';
                 }
             });
         })();

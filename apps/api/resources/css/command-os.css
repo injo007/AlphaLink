@@ -3147,14 +3147,14 @@ body.command-os-dashboard #main_content .command-os-geo-note {
     body.command-os-dashboard #main_content .command-os-greeting-wave { animation: none; }
 }
 
-/* Workspace user creation — Command OS form surface. */
-body.command-os-shell #main_content .command-os-user-create {
+/* Workspace user forms — shared Command OS surface. */
+body.command-os-shell #main_content .command-os-user-form {
     width: min(100%, 1080px);
     margin: 0 auto;
     color: var(--co-ink);
 }
 
-body.command-os-shell #main_content .command-os-user-create-heading {
+body.command-os-shell #main_content .command-os-user-form-heading {
     position: relative;
     display: flex;
     min-height: 112px;
@@ -3171,7 +3171,7 @@ body.command-os-shell #main_content .command-os-user-create-heading {
     box-shadow: var(--co-shadow);
 }
 
-body.command-os-shell #main_content .command-os-user-create-heading::after {
+body.command-os-shell #main_content .command-os-user-form-heading::after {
     position: absolute;
     right: 4%;
     bottom: -44px;
@@ -3186,7 +3186,7 @@ body.command-os-shell #main_content .command-os-user-create-heading::after {
     transform: rotate(-7deg);
 }
 
-body.command-os-shell #main_content .command-os-user-create-mark {
+body.command-os-shell #main_content .command-os-user-form-mark {
     display: grid;
     flex: 0 0 54px;
     width: 54px;
@@ -3200,12 +3200,12 @@ body.command-os-shell #main_content .command-os-user-create-mark {
     font-size: 19px;
 }
 
-body.command-os-shell #main_content .command-os-user-create-heading-copy { position: relative; z-index: 1; min-width: 0; }
-body.command-os-shell #main_content .command-os-user-create-eyebrow { color: var(--co-purple); font-size: 9px; font-weight: 800; letter-spacing: .14em; }
-body.command-os-shell #main_content .command-os-user-create-heading h1 { margin: 3px 0 2px; color: var(--co-ink); font-size: clamp(21px, 2vw, 27px); font-weight: 780; letter-spacing: -.045em; line-height: 1.1; }
-body.command-os-shell #main_content .command-os-user-create-heading p { margin: 0; color: var(--co-muted); font-size: 12px; }
+body.command-os-shell #main_content .command-os-user-form-heading-copy { position: relative; z-index: 1; min-width: 0; }
+body.command-os-shell #main_content .command-os-user-form-eyebrow { color: var(--co-purple); font-size: 9px; font-weight: 800; letter-spacing: .14em; }
+body.command-os-shell #main_content .command-os-user-form-heading h1 { margin: 3px 0 2px; color: var(--co-ink); font-size: clamp(21px, 2vw, 27px); font-weight: 780; letter-spacing: -.045em; line-height: 1.1; }
+body.command-os-shell #main_content .command-os-user-form-heading p { margin: 0; color: var(--co-muted); font-size: 12px; }
 
-body.command-os-shell #main_content .command-os-user-create-card {
+body.command-os-shell #main_content .command-os-user-form-card {
     overflow: hidden;
     padding: 21px;
     border: 1px solid var(--co-border);
@@ -3214,7 +3214,7 @@ body.command-os-shell #main_content .command-os-user-create-card {
     box-shadow: var(--co-shadow);
 }
 
-body.command-os-shell #main_content .command-os-user-create-card-heading {
+body.command-os-shell #main_content .command-os-user-form-card-heading {
     display: flex;
     align-items: center;
     gap: 11px;
@@ -3223,7 +3223,7 @@ body.command-os-shell #main_content .command-os-user-create-card-heading {
     border-bottom: 1px solid var(--co-border);
 }
 
-body.command-os-shell #main_content .command-os-user-create-section-icon {
+body.command-os-shell #main_content .command-os-user-form-section-icon {
     display: grid;
     flex: 0 0 38px;
     width: 38px;
@@ -3236,7 +3236,7 @@ body.command-os-shell #main_content .command-os-user-create-section-icon {
     font-size: 15px;
 }
 
-body.command-os-shell #main_content .command-os-user-create-card-heading h2,
+body.command-os-shell #main_content .command-os-user-form-card-heading h2,
 body.command-os-shell #main_content .command-os-user-created-heading h2 {
     margin: 0;
     color: var(--co-ink);
@@ -3245,22 +3245,22 @@ body.command-os-shell #main_content .command-os-user-created-heading h2 {
     letter-spacing: -.025em;
 }
 
-body.command-os-shell #main_content .command-os-user-create-card-heading p,
+body.command-os-shell #main_content .command-os-user-form-card-heading p,
 body.command-os-shell #main_content .command-os-user-created-heading p {
     margin: 3px 0 0;
     color: var(--co-muted);
     font-size: 11px;
 }
 
-body.command-os-shell #main_content .command-os-user-create-fields {
+body.command-os-shell #main_content .command-os-user-form-fields {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 14px 18px;
 }
 
-body.command-os-shell #main_content .command-os-user-create .command-os-user-field { min-width: 0; margin: 0; }
-body.command-os-shell #main_content .command-os-user-create .command-os-user-field label,
-body.command-os-shell #main_content .command-os-user-create .command-os-user-workspace-role > label {
+body.command-os-shell #main_content .command-os-user-form .command-os-user-field { min-width: 0; margin: 0; }
+body.command-os-shell #main_content .command-os-user-form .command-os-user-field label,
+body.command-os-shell #main_content .command-os-user-form .command-os-user-workspace-role > label {
     display: block;
     margin: 0 0 6px;
     color: var(--co-ink);
@@ -3268,7 +3268,7 @@ body.command-os-shell #main_content .command-os-user-create .command-os-user-wor
     font-weight: 700;
 }
 
-body.command-os-shell #main_content .command-os-user-create .form-control {
+body.command-os-shell #main_content .command-os-user-form .form-control {
     display: block;
     width: 100%;
     min-width: 0;
@@ -3285,14 +3285,22 @@ body.command-os-shell #main_content .command-os-user-create .form-control {
     transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease;
 }
 
-body.command-os-shell #main_content .command-os-user-create .form-control:focus {
+body.command-os-shell #main_content .command-os-user-form .form-control:focus {
     border-color: color-mix(in srgb, var(--co-purple) 70%, var(--co-border));
     outline: 0;
     background-color: var(--co-surface);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--co-purple) 14%, transparent);
 }
 
-body.command-os-shell #main_content .command-os-user-create .form-control::placeholder { color: var(--co-subtle); }
+body.command-os-shell #main_content .command-os-user-form .form-control:disabled {
+    color: var(--co-muted);
+    background-color: color-mix(in srgb, var(--co-surface-muted) 70%, var(--co-surface));
+    cursor: not-allowed;
+    opacity: 1;
+}
+
+body.command-os-shell #main_content .command-os-user-form .form-control::placeholder { color: var(--co-subtle); }
+body.command-os-shell #main_content .command-os-user-field-help { display: block; margin-top: 5px; color: var(--co-muted); font-size: 10px; }
 
 body.command-os-shell #main_content .command-os-user-access-grid {
     display: grid;
@@ -3357,9 +3365,11 @@ body.command-os-shell #main_content .command-os-user-roles > small {
 }
 
 body.command-os-shell #main_content .command-os-user-workspace-role > p { margin: -2px 0 12px; color: var(--co-muted); font-size: 10px; }
-body.command-os-shell #main_content .command-os-user-create-error { margin: 16px 0 0; border-radius: 10px; }
+body.command-os-shell #main_content .command-os-user-form-error { margin: 16px 0 0; border-radius: 10px; }
+body.command-os-shell #main_content .command-os-user-form-success { margin: 12px 0 0; color: #16a765; font-size: 11px; font-weight: 650; }
+body.command-os-shell #main_content .command-os-user-form-success:empty { display: none; }
 
-body.command-os-shell #main_content .command-os-user-create-actions {
+body.command-os-shell #main_content .command-os-user-form-actions {
     display: flex;
     align-items: center;
     gap: 9px;
@@ -3368,8 +3378,8 @@ body.command-os-shell #main_content .command-os-user-create-actions {
     border-top: 1px solid var(--co-border);
 }
 
-body.command-os-shell #main_content .command-os-user-create-save,
-body.command-os-shell #main_content .command-os-user-create-cancel,
+body.command-os-shell #main_content .command-os-user-form-save,
+body.command-os-shell #main_content .command-os-user-form-cancel,
 body.command-os-shell #main_content .command-os-user-created-copy {
     display: inline-flex;
     min-height: 40px;
@@ -3387,19 +3397,19 @@ body.command-os-shell #main_content .command-os-user-created-copy {
     transition: transform .16s ease, box-shadow .16s ease, background-color .16s ease, border-color .16s ease;
 }
 
-body.command-os-shell #main_content .command-os-user-create-save {
+body.command-os-shell #main_content .command-os-user-form-save {
     color: #fff;
     background: linear-gradient(120deg, var(--co-purple-bright), var(--co-purple));
     box-shadow: 0 5px 14px color-mix(in srgb, var(--co-purple) 23%, transparent);
 }
 
-body.command-os-shell #main_content .command-os-user-create-save:hover:not(:disabled),
+body.command-os-shell #main_content .command-os-user-form-save:hover:not(:disabled),
 body.command-os-shell #main_content .command-os-user-created-copy:hover { box-shadow: 0 7px 18px color-mix(in srgb, var(--co-purple) 28%, transparent); transform: translateY(-1px); }
-body.command-os-shell #main_content .command-os-user-create-save:disabled { cursor: progress; opacity: .8; }
-body.command-os-shell #main_content .command-os-user-create-cancel { border-color: var(--co-border); color: var(--co-ink); background: var(--co-surface); }
-body.command-os-shell #main_content .command-os-user-create-cancel:hover { border-color: var(--co-purple); color: var(--co-purple); }
-body.command-os-shell #main_content .command-os-user-create-save:focus-visible,
-body.command-os-shell #main_content .command-os-user-create-cancel:focus-visible,
+body.command-os-shell #main_content .command-os-user-form-save:disabled { cursor: progress; opacity: .8; }
+body.command-os-shell #main_content .command-os-user-form-cancel { border-color: var(--co-border); color: var(--co-ink); background: var(--co-surface); }
+body.command-os-shell #main_content .command-os-user-form-cancel:hover { border-color: var(--co-purple); color: var(--co-purple); }
+body.command-os-shell #main_content .command-os-user-form-save:focus-visible,
+body.command-os-shell #main_content .command-os-user-form-cancel:focus-visible,
 body.command-os-shell #main_content .command-os-user-created-copy:focus-visible { outline: 2px solid var(--co-cyan); outline-offset: 3px; }
 
 body.command-os-shell #main_content .command-os-user-created {
@@ -3420,26 +3430,26 @@ body.command-os-shell #main_content .command-os-user-created-details code { over
 body.command-os-shell #main_content .command-os-user-created-copy { border-color: color-mix(in srgb, var(--co-purple) 30%, var(--co-border)); color: var(--co-purple); background: color-mix(in srgb, var(--co-purple) 8%, var(--co-surface)); }
 
 @media (max-width: 700px) {
-    body.command-os-shell #main_content .command-os-user-create-heading { min-height: 96px; padding: 15px; }
-    body.command-os-shell #main_content .command-os-user-create-card { padding: 15px; }
+    body.command-os-shell #main_content .command-os-user-form-heading { min-height: 96px; padding: 15px; }
+    body.command-os-shell #main_content .command-os-user-form-card { padding: 15px; }
     body.command-os-shell #main_content .command-os-user-access-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (max-width: 520px) {
-    body.command-os-shell #main_content .command-os-user-create-heading { align-items: flex-start; gap: 11px; padding: 14px 12px; }
-    body.command-os-shell #main_content .command-os-user-create-mark { flex-basis: 42px; width: 42px; height: 42px; border-radius: 13px; font-size: 15px; }
-    body.command-os-shell #main_content .command-os-user-create-heading p { max-width: 31ch; font-size: 11px; }
-    body.command-os-shell #main_content .command-os-user-create-fields,
+    body.command-os-shell #main_content .command-os-user-form-heading { align-items: flex-start; gap: 11px; padding: 14px 12px; }
+    body.command-os-shell #main_content .command-os-user-form-mark { flex-basis: 42px; width: 42px; height: 42px; border-radius: 13px; font-size: 15px; }
+    body.command-os-shell #main_content .command-os-user-form-heading p { max-width: 31ch; font-size: 11px; }
+    body.command-os-shell #main_content .command-os-user-form-fields,
     body.command-os-shell #main_content .command-os-user-role-grid { grid-template-columns: minmax(0, 1fr); }
-    body.command-os-shell #main_content .command-os-user-create-actions { align-items: stretch; }
-    body.command-os-shell #main_content .command-os-user-create-save,
-    body.command-os-shell #main_content .command-os-user-create-cancel { flex: 1 1 50%; }
+    body.command-os-shell #main_content .command-os-user-form-actions { align-items: stretch; }
+    body.command-os-shell #main_content .command-os-user-form-save,
+    body.command-os-shell #main_content .command-os-user-form-cancel { flex: 1 1 50%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    body.command-os-shell #main_content .command-os-user-create .form-control,
-    body.command-os-shell #main_content .command-os-user-create-save,
-    body.command-os-shell #main_content .command-os-user-create-cancel,
+    body.command-os-shell #main_content .command-os-user-form .form-control,
+    body.command-os-shell #main_content .command-os-user-form-save,
+    body.command-os-shell #main_content .command-os-user-form-cancel,
     body.command-os-shell #main_content .command-os-user-created-copy { transition: none; }
-    body.command-os-shell #main_content .command-os-user-create-heading::after { display: none; }
+    body.command-os-shell #main_content .command-os-user-form-heading::after { display: none; }
 }

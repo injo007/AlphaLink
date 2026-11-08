@@ -3,27 +3,27 @@
 @section('title', 'Add User')
 
 @section('content')
-    <main class="command-os-user-create" aria-labelledby="user-create-title">
-        <header class="command-os-user-create-heading">
-            <span class="command-os-user-create-mark" aria-hidden="true"><i class="fas fa-user-plus"></i></span>
-            <div class="command-os-user-create-heading-copy">
-                <span class="command-os-user-create-eyebrow">ACCESS MANAGEMENT</span>
+    <main class="command-os-user-form" aria-labelledby="user-create-title">
+        <header class="command-os-user-form-heading">
+            <span class="command-os-user-form-mark" aria-hidden="true"><i class="fas fa-user-plus"></i></span>
+            <div class="command-os-user-form-heading-copy">
+                <span class="command-os-user-form-eyebrow">ACCESS MANAGEMENT</span>
                 <h1 id="user-create-title">Add User</h1>
                 <p>Add a member to {{ $workspace->name }} and set their account and workspace access.</p>
             </div>
         </header>
 
-        <section class="command-os-user-create-card" aria-label="New workspace member">
-            <div class="command-os-user-create-card-heading">
-                <span class="command-os-user-create-section-icon" aria-hidden="true"><i class="fas fa-id-card"></i></span>
+        <section class="command-os-user-form-card" aria-label="New workspace member">
+            <div class="command-os-user-form-card-heading">
+                <span class="command-os-user-form-section-icon" aria-hidden="true"><i class="fas fa-id-card"></i></span>
                 <div>
                     <h2>Member details</h2>
                     <p>Enter the login identity and choose the access this member needs.</p>
                 </div>
             </div>
 
-            <form id="create-user-form" class="command-os-user-create-form" novalidate>
-                <div class="command-os-user-create-fields">
+            <form id="create-user-form" class="command-os-user-form-body" novalidate>
+                <div class="command-os-user-form-fields">
                     <div class="form-group command-os-user-field">
                         <label for="name">Full Name</label>
                         <input class="form-control" id="name" name="name" minlength="4" maxlength="255" required autocomplete="name">
@@ -73,11 +73,11 @@
                     </div>
                 </div>
 
-                <div class="alert alert-danger d-none command-os-user-create-error" id="user-error" role="alert"></div>
+                <div class="alert alert-danger d-none command-os-user-form-error" id="user-error" role="alert"></div>
 
-                <div class="command-os-user-create-actions">
-                    <button class="command-os-user-create-save" id="save-user" type="submit"><i class="fas fa-user-check" aria-hidden="true"></i><span>Save User</span></button>
-                    <a class="command-os-user-create-cancel" href="{{ route('console.users.index', $workspace->id) }}">Cancel</a>
+                <div class="command-os-user-form-actions">
+                    <button class="command-os-user-form-save" id="save-user" type="submit"><i class="fas fa-user-check" aria-hidden="true"></i><span>Save User</span></button>
+                    <a class="command-os-user-form-cancel" href="{{ route('console.users.index', $workspace->id) }}">Cancel</a>
                 </div>
             </form>
         </section>

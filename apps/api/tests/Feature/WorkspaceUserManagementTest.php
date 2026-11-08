@@ -22,6 +22,8 @@ class WorkspaceUserManagementTest extends TestCase
 
         $response->assertOk()
             ->assertSee('Add User')
+            ->assertSee('command-os-user-form', false)
+            ->assertSee('command-os-user-form-heading', false)
             ->assertSee('Member details')
             ->assertSee('Full Name')
             ->assertSee('Login Email')
@@ -76,6 +78,22 @@ class WorkspaceUserManagementTest extends TestCase
         $this->assertTrue(password_verify(explode(':', $created->json('info'), 2)[1], $member->password));
         $this->assertSame('operator', $workspace->users()->whereKey($member->getKey())->firstOrFail()->pivot->role);
 
+        $this->actingAs($owner)->get(route('console.users.edit', [$workspace->getKey(), $member->getKey()]))
+            ->assertOk()
+            ->assertSee('Edit User')
+            ->assertSee('command-os-user-form', false)
+            ->assertSee('id="edit-user-form"', false)
+            ->assertSee('id="email"', false)
+            ->assertSee('Login email is read-only on this screen.')
+            ->assertSee('disabled', false)
+            ->assertDontSee('name="email"', false)
+            ->assertSee('User Roles')
+            ->assertSee('id="role-container"', false)
+            ->assertSee('Save Changes')
+            ->assertSee('Cancel')
+            ->assertSee('id="user-success"', false)
+            ->assertSee("method: 'PUT'", false);
+
         $this->actingAs($owner)->putJson(route('console.users.update', [$workspace->getKey(), $member->getKey()]), [
             'username' => 'memberedited',
             'name' => 'Edited Workspace Member',
@@ -89,6 +107,15 @@ class WorkspaceUserManagementTest extends TestCase
         $this->assertSame('admin', $member->type);
         $this->assertSame([], $member->roles);
         $this->assertSame('viewer', $workspace->users()->whereKey($member->getKey())->firstOrFail()->pivot->role);
+
+        $adminEditScreen = $this->actingAs($owner)->get(route('console.users.edit', [$workspace->getKey(), $member->getKey()]));
+        $adminEditScreen->assertOk()
+            ->assertSee('command-os-user-access-grid', false)
+            ->assertSee('is-admin', false)
+            ->assertSee('id="role-container"', false)
+            ->assertSee('Workspace Role');
+        $this->assertMatchesRegularExpression('/class="command-os-user-access-grid[^"]*is-admin[^"]*"/', (string) $adminEditScreen->getContent());
+        $this->assertMatchesRegularExpression('/<fieldset[^>]*id="role-container"[^>]*\shidden/', (string) $adminEditScreen->getContent());
 
         $this->actingAs($owner)->putJson(route('console.users.password.update', [$workspace->getKey(), $member->getKey()]), [
             'password' => 'Updated-password-2026',

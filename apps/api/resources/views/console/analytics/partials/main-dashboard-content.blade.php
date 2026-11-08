@@ -63,9 +63,10 @@
         <strong>Partner revenue — {{ $commandOsDashboard['analytics']['period']['label'] }}</strong>
         <span class="text-muted">({{ $commandOsDashboard['analytics']['period']['from'] }}–{{ $commandOsDashboard['analytics']['period']['to'] }})</span>
     </div>
-    <div class="row row-deck" aria-label="Attributed revenue by partner for the selected date range">
+    <div class="row row-deck" aria-label="Revenue by partner for the selected date range">
         @foreach ([
-            ['sponsors', 'SPONSOR REVENUE', 'SPONSOR'],
+            ['provider_sponsors', 'SPONSOR REPORTED REVENUE', 'SPONSOR'],
+            ['sponsors', 'ATTRIBUTED SPONSOR REVENUE', 'SPONSOR'],
             ['isps', 'ISP REVENUE', 'ISP'],
             ['mailers', 'MAILER REVENUE', 'MAILER'],
             ['offers', 'TOP 10 OFFERS BY REVENUE', 'OFFER'],
@@ -76,21 +77,49 @@
                     <div class="block-header block-header-default"><h3 class="block-title">{{ $title }}</h3></div>
                     <div class="block-content block-content-full p-2">
                         @if ($partnerRevenueRows === [])
-                            <div class="text-muted p-2" role="status">No attributed lead revenue was recorded for {{ strtolower($dimension) }}s in this date range.</div>
+                            <div class="text-muted p-2" role="status">
+                                @if ($key === 'provider_sponsors')
+                                    No provider-reported conversion revenue was recorded for sponsors in this date range.
+                                @else
+                                    No attributed lead revenue was recorded for {{ strtolower($dimension) }}s in this date range.
+                                @endif
+                            </div>
                         @else
                             <div class="table-responsive">
                                 <table class="table table-sm table-hover table-striped mb-0">
-                                    <caption class="sr-only">{{ $title }} from attributed campaign and Drop leads for the selected date range</caption>
-                                    <thead><tr><th scope="col">{{ $dimension }}</th><th scope="col" class="text-right">LEADS</th><th scope="col" class="text-right">ATTRIBUTED REVENUE</th></tr></thead>
+                                    @if ($key === 'provider_sponsors')
+                                        <caption class="sr-only">Provider-reported sponsor conversion counts and revenue by currency for the selected date range</caption>
+                                        <thead><tr><th scope="col">SPONSOR</th><th scope="col" class="text-right">CONVERSIONS</th><th scope="col">CURRENCY</th><th scope="col" class="text-right">REPORTED REVENUE</th></tr></thead>
+                                    @else
+                                        <caption class="sr-only">{{ $title }} from attributed campaign and Drop leads for the selected date range</caption>
+                                        <thead><tr><th scope="col">{{ $dimension }}</th><th scope="col" class="text-right">LEADS</th><th scope="col" class="text-right">ATTRIBUTED REVENUE</th></tr></thead>
+                                    @endif
                                     <tbody>
                                         @foreach ($partnerRevenueRows as $row)
-                                            <tr><td>{{ $row['label'] }}</td><td class="text-right">{{ number_format($row['leads']) }}</td><td class="text-right">${{ number_format($row['attributed_revenue'], 2) }}</td></tr>
+                                            @if ($key === 'provider_sponsors')
+                                                <tr>
+                                                    <td>{{ $row['label'] }}</td>
+                                                    <td class="text-right">{{ number_format($row['reported_conversions'] ?? 0) }}</td>
+                                                    <td>{{ $row['currency_code'] ?? 'Not supplied' }}</td>
+                                                    <td class="text-right">{{ number_format($row['reported_amount'] ?? 0, 2) }}</td>
+                                                </tr>
+                                            @else
+                                                <tr><td>{{ $row['label'] }}</td><td class="text-right">{{ number_format($row['leads']) }}</td><td class="text-right">${{ number_format($row['attributed_revenue'], 2) }}</td></tr>
+                                            @endif
                                         @endforeach
                                     </tbody>
                                 </table>
                             </div>
                         @endif
-                        <small class="text-muted">Recorded campaign and Drop lead revenue.</small>
+                        <small class="text-muted">
+                            @if ($key === 'provider_sponsors')
+                                Provider totals are grouped by their reported currency. AlphaLink-attributed revenue appears separately and requires a verified campaign or Drop link.
+                            @elseif ($key === 'sponsors')
+                                Revenue is attributed to verified AlphaLink campaign and Drop leads.
+                            @else
+                                Recorded campaign and Drop lead revenue.
+                            @endif
+                        </small>
                     </div>
                 </div>
             </div>

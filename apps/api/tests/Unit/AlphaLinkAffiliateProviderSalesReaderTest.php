@@ -119,7 +119,7 @@ class AlphaLinkAffiliateProviderSalesReaderTest extends TestCase
                 return Http::response(['conversions' => [[
                     'conversion_id' => 'everflow-1', 'revenue' => '5.00', 'sub1' => $this->s1('C_44'),
                     'sub2' => 'recipient', 'sub3' => 'third', 'conversion_unix_timestamp' => 1792922400,
-                    'conversion_user_ip' => '192.0.2.10',
+                    'conversion_user_ip' => '192.0.2.10', 'currency_id' => 'eur',
                 ]]]);
             }
 
@@ -131,6 +131,7 @@ class AlphaLinkAffiliateProviderSalesReaderTest extends TestCase
         $this->assertCount(1, $sales);
         $this->assertSame('everflow-1', $sales[0]['conversion_id']);
         $this->assertSame('C_44', $sales[0]['id']);
+        $this->assertSame('EUR', $sales[0]['currency_code']);
         Http::assertSentCount(2);
         Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'page=1')
             && $request->hasHeader('x-eflow-api-key', 'synthetic-provider-key')

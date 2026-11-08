@@ -113,12 +113,17 @@ class WorkspaceDailyAnalyticsRebuilder
         }
 
         foreach (array_unique(array_column($records, 'workspace_id')) as $updatedWorkspaceId) {
-            $revisionKey = self::cacheRevisionKey((string) $updatedWorkspaceId);
-            Cache::add($revisionKey, 0, now()->addYears(10));
-            Cache::increment($revisionKey);
+            $this->invalidateDashboardCache((string) $updatedWorkspaceId);
         }
 
         return count($records);
+    }
+
+    public function invalidateDashboardCache(string $workspaceId): void
+    {
+        $revisionKey = self::cacheRevisionKey($workspaceId);
+        Cache::add($revisionKey, 0, now()->addYears(10));
+        Cache::increment($revisionKey);
     }
 
     public static function cacheRevisionKey(string $workspaceId): string

@@ -39,12 +39,17 @@ class SyncWorkspaceSponsorLeads extends Command
                 foreach ($sponsors as $sponsor) {
                     try {
                         $result = $importer->import($sponsor, $from->copy(), $to->copy());
-                        if ($result['created'] > 0 || $result['updated'] > 0) {
-                            $changedWorkspaces[(string) $sponsor->workspace_id] = true;
+                        $hasAttributedChanges = $result['created'] > 0 || $result['updated'] > 0;
+                        $hasReportedChanges = $result['reported_created'] > 0 || $result['reported_updated'] > 0;
+                        if ($hasAttributedChanges || $hasReportedChanges) {
+                            $workspaceId = (string) $sponsor->workspace_id;
+                            $changedWorkspaces[$workspaceId] = ($changedWorkspaces[$workspaceId] ?? false) || $hasAttributedChanges;
                         }
                         $this->line(sprintf(
-                            'Sponsor %s: read %d, created %d, updated %d, skipped %d.',
-                            $sponsor->getKey(), $result['read'], $result['created'], $result['updated'], $result['skipped'],
+                            'Sponsor %s: provider rows %d (%d new, %d updated); attributed leads %d new, %d updated, %d unlinked.',
+                            $sponsor->getKey(), $result['reported_created'] + $result['reported_updated'] + $result['reported_unchanged'],
+                            $result['reported_created'], $result['reported_updated'],
+                            $result['created'], $result['updated'], $result['skipped'],
                         ));
                     } catch (Throwable) {
                         $failed = true;
@@ -55,8 +60,14 @@ class SyncWorkspaceSponsorLeads extends Command
                 }
             });
 
-        foreach (array_keys($changedWorkspaces) as $workspaceId) {
-            $dailyAnalytics->rebuildRange($from, $to, $workspaceId);
+        foreach ($changedWorkspaces as $workspaceId => $hasAttributedChanges) {
+            if ($hasAttributedChanges) {
+                if ($dailyAnalytics->rebuildRange($from, $to, $workspaceId) === 0) {
+                    $dailyAnalytics->invalidateDashboardCache($workspaceId);
+                }
+            } else {
+                $dailyAnalytics->invalidateDashboardCache($workspaceId);
+            }
         }
 
         if ($processed === 0) {

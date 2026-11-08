@@ -336,7 +336,8 @@ class WorkspaceAnalyticsConsoleController extends Controller
     /**
      * @return array{
      *     totals: array{deliveries: int, opens: int, clicks: int, leads: int, unsubscribes: int, bounces: int, attributed_revenue: float},
-     *     sponsors: list<array{label: string, leads: int, clicks: int, attributed_revenue: float}>,
+     *     sponsors: list<array{dimension_id: string, label: string, leads: int, clicks: int, attributed_revenue: float}>,
+     *     provider_sponsors: list<array{dimension_id: string, label: string, currency_code: string|null, reported_conversions: int, reported_amount: float}>,
      *     isps: list<array{label: string, leads: int, clicks: int, attributed_revenue: float}>,
      *     mailers: list<array{label: string, deliveries: int, opens: int, clicks: int, leads: int, unsubscribes: int, bounces: int, attributed_revenue: float}>,
      *     offers: list<array{label: string, leads: int, clicks: int, attributed_revenue: float}>,
@@ -360,7 +361,8 @@ class WorkspaceAnalyticsConsoleController extends Controller
     /**
      * @return array{
      *     totals: array{deliveries: int, opens: int, clicks: int, leads: int, unsubscribes: int, bounces: int, attributed_revenue: float},
-     *     sponsors: list<array{label: string, leads: int, clicks: int, attributed_revenue: float}>,
+     *     sponsors: list<array{dimension_id: string, label: string, leads: int, clicks: int, attributed_revenue: float}>,
+     *     provider_sponsors: list<array{dimension_id: string, label: string, currency_code: string|null, reported_conversions: int, reported_amount: float}>,
      *     isps: list<array{label: string, leads: int, clicks: int, attributed_revenue: float}>,
      *     mailers: list<array{label: string, deliveries: int, opens: int, clicks: int, leads: int, unsubscribes: int, bounces: int, attributed_revenue: float}>,
      *     offers: list<array{label: string, leads: int, clicks: int, attributed_revenue: float}>,
@@ -408,7 +410,10 @@ class WorkspaceAnalyticsConsoleController extends Controller
             return $rows
                 ->groupBy(fn (object $row): string => (string) ($row->{$column} ?? 'unknown'))
                 ->map(function (Collection $dimensionRows, string $id) use ($column, $fallback, $fields, $labels): array {
-                    $result = ['label' => $labels[$column][$id] ?? ($id === 'unknown' ? 'Unknown '.$fallback : $fallback.' #'.$id)];
+                    $result = [
+                        'dimension_id' => $id,
+                        'label' => $labels[$column][$id] ?? ($id === 'unknown' ? 'Unknown '.$fallback : $fallback.' #'.$id),
+                    ];
                     foreach ($fields as $field) {
                         $result[$field] = $field === 'attributed_revenue'
                             ? round($dimensionRows->sum(fn (object $row): float => (float) $row->{$field}), 2)
@@ -426,6 +431,38 @@ class WorkspaceAnalyticsConsoleController extends Controller
                 ->all();
         };
 
+        $reportedSponsorRows = collect();
+        if ($workspace->pivot->role !== 'operator') {
+            $providerFrom = Carbon::parse($from)->startOfDay();
+            $providerTo = Carbon::parse($to)->endOfDay();
+            $reportedSponsorRows = DB::table('workspace_sponsor_revenues as revenue')
+                ->join('workspace_sponsors as sponsor', function ($join): void {
+                    $join->on('sponsor.id', '=', 'revenue.sponsor_id')
+                        ->on('sponsor.workspace_id', '=', 'revenue.workspace_id');
+                })
+                ->where('revenue.workspace_id', $workspace->getKey())
+                ->whereBetween('revenue.occurred_at', [$providerFrom, $providerTo])
+                ->groupBy('revenue.sponsor_id', 'sponsor.name', 'revenue.currency_code')
+                ->select('revenue.sponsor_id', 'sponsor.name', 'revenue.currency_code')
+                ->selectRaw('COUNT(*) AS reported_conversions, SUM(revenue.amount) AS reported_amount')
+                ->orderBy('sponsor.name')
+                ->orderBy('revenue.currency_code')
+                ->get();
+        }
+
+        $providerSponsors = $reportedSponsorRows
+            ->map(fn (object $row): array => [
+                'dimension_id' => (string) $row->sponsor_id,
+                'label' => (string) $row->name,
+                'currency_code' => is_string($row->currency_code) ? $row->currency_code : null,
+                'reported_conversions' => (int) $row->reported_conversions,
+                'reported_amount' => round((float) $row->reported_amount, 2),
+            ])
+            ->sort(fn (array $left, array $right): int => $left['label'] <=> $right['label']
+                ?: (($left['currency_code'] ?? '') <=> ($right['currency_code'] ?? '')))
+            ->values()
+            ->all();
+
         return [
             'totals' => [
                 'deliveries' => (int) $rows->sum(fn (object $row): int => (int) $row->deliveries),
@@ -437,6 +474,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
                 'attributed_revenue' => round($rows->sum(fn (object $row): float => (float) $row->attributed_revenue), 2),
             ],
             'sponsors' => $mapDimension('sponsor_id', 'sponsor', 5, ['leads', 'clicks', 'attributed_revenue']),
+            'provider_sponsors' => $providerSponsors,
             'isps' => $mapDimension('isp_id', 'ISP', 5, ['leads', 'clicks', 'attributed_revenue']),
             'mailers' => $mapDimension('user_id', 'mailer', 5, ['deliveries', 'opens', 'clicks', 'leads', 'unsubscribes', 'bounces', 'attributed_revenue']),
             'offers' => $mapDimension('offer_id', 'offer', 10, ['leads', 'clicks', 'attributed_revenue']),

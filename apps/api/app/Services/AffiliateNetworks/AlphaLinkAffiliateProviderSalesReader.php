@@ -12,7 +12,7 @@ class AlphaLinkAffiliateProviderSalesReader
     /**
      * Read the AlphaLink sales-report contract for one configured sponsor.
      *
-     * @return list<array{conversion_id: string, earning: float, s1: string, s2: string, s3: string, ip: ?string, id: ?string, created_at: Carbon}>
+     * @return list<array{conversion_id: string, earning: float, s1: string, s2: string, s3: string, ip: ?string, id: ?string, created_at: Carbon, currency_code: ?string}>
      */
     public function read(WorkspaceSponsor $sponsor, Carbon $from, Carbon $to): array
     {
@@ -26,7 +26,7 @@ class AlphaLinkAffiliateProviderSalesReader
         };
     }
 
-    /** @return list<array{conversion_id: string, earning: float, s1: string, s2: string, s3: string, ip: ?string, id: ?string, created_at: Carbon}> */
+    /** @return list<array{conversion_id: string, earning: float, s1: string, s2: string, s3: string, ip: ?string, id: ?string, created_at: Carbon, currency_code: ?string}> */
     private function readHitPath(WorkspaceSponsor $sponsor, Carbon $from, Carbon $to): array
     {
         $host = preg_replace('/^affiliate\./i', '', $this->sponsorHost($sponsor)) ?? $this->sponsorHost($sponsor);
@@ -68,7 +68,7 @@ class AlphaLinkAffiliateProviderSalesReader
         }, $rows)));
     }
 
-    /** @return list<array{conversion_id: string, earning: float, s1: string, s2: string, s3: string, ip: ?string, id: ?string, created_at: Carbon}> */
+    /** @return list<array{conversion_id: string, earning: float, s1: string, s2: string, s3: string, ip: ?string, id: ?string, created_at: Carbon, currency_code: ?string}> */
     private function readNewHitPath(WorkspaceSponsor $sponsor, Carbon $from, Carbon $to): array
     {
         $apiUrl = 'https://'.$this->sponsorHost($sponsor).'/api';
@@ -126,7 +126,7 @@ class AlphaLinkAffiliateProviderSalesReader
         return $result;
     }
 
-    /** @return list<array{conversion_id: string, earning: float, s1: string, s2: string, s3: string, ip: ?string, id: ?string, created_at: Carbon}> */
+    /** @return list<array{conversion_id: string, earning: float, s1: string, s2: string, s3: string, ip: ?string, id: ?string, created_at: Carbon, currency_code: ?string}> */
     private function readCake(WorkspaceSponsor $sponsor, Carbon $from, Carbon $to): array
     {
         if (blank($sponsor->affiliate_id)) {
@@ -168,7 +168,7 @@ class AlphaLinkAffiliateProviderSalesReader
         }, array_values(array_filter($sales, 'is_array')))));
     }
 
-    /** @return list<array{conversion_id: string, earning: float, s1: string, s2: string, s3: string, ip: ?string, id: ?string, created_at: Carbon}> */
+    /** @return list<array{conversion_id: string, earning: float, s1: string, s2: string, s3: string, ip: ?string, id: ?string, created_at: Carbon, currency_code: ?string}> */
     private function readHasOffers(WorkspaceSponsor $sponsor, Carbon $from, Carbon $to): array
     {
         $affiliateId = trim((string) $sponsor->affiliate_id);
@@ -214,7 +214,7 @@ class AlphaLinkAffiliateProviderSalesReader
         }, array_values(array_filter($sales, 'is_array')))));
     }
 
-    /** @return list<array{conversion_id: string, earning: float, s1: string, s2: string, s3: string, ip: ?string, id: ?string, created_at: Carbon}> */
+    /** @return list<array{conversion_id: string, earning: float, s1: string, s2: string, s3: string, ip: ?string, id: ?string, created_at: Carbon, currency_code: ?string}> */
     private function readEverFlow(WorkspaceSponsor $sponsor, Carbon $from, Carbon $to): array
     {
         $sales = [];
@@ -256,12 +256,15 @@ class AlphaLinkAffiliateProviderSalesReader
                 (string) ($sale['sub3'] ?? ''),
                 is_string($sale['conversion_user_ip'] ?? null) ? $sale['conversion_user_ip'] : null,
                 $createdAt,
+                is_string($sale['currency_id'] ?? null) && preg_match('/^[A-Za-z]{3}$/', $sale['currency_id'])
+                    ? strtoupper($sale['currency_id'])
+                    : null,
             );
         }, array_values(array_filter($sales, 'is_array')))));
     }
 
-    /** @return array{conversion_id: string, earning: float, s1: string, s2: string, s3: string, ip: ?string, id: ?string, created_at: Carbon} */
-    private function sale(string $conversionId, float $earning, string $s1, string $s2, string $s3, ?string $ip, Carbon $createdAt): array
+    /** @return array{conversion_id: string, earning: float, s1: string, s2: string, s3: string, ip: ?string, id: ?string, created_at: Carbon, currency_code: ?string} */
+    private function sale(string $conversionId, float $earning, string $s1, string $s2, string $s3, ?string $ip, Carbon $createdAt, ?string $currencyCode = null): array
     {
         return [
             'conversion_id' => $conversionId,
@@ -272,6 +275,7 @@ class AlphaLinkAffiliateProviderSalesReader
             'ip' => $ip,
             'id' => $this->decodeBase64Url($s1),
             'created_at' => $createdAt,
+            'currency_code' => $currencyCode,
         ];
     }
 

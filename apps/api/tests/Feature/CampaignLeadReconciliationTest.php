@@ -20,15 +20,16 @@ use App\Models\WorkspaceDrop;
 use App\Models\WorkspaceDropVisitor;
 use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceSponsor;
+use App\Models\WorkspaceSponsorRevenue;
 use App\Services\AffiliateNetworks\AlphaLinkAffiliateProviderHttp;
 use App\Services\AffiliateNetworks\AlphaLinkAffiliateProviderSalesReader;
 use App\Services\AffiliateNetworks\AlphaLinkSponsorLeadImporter;
+use App\Services\Analytics\WorkspaceDailyAnalyticsRebuilder;
 use App\Services\Audiences\AudienceListHistoryCalculator;
 use App\Services\Campaigns\AlphaLinkCampaignAffiliateAttribution;
 use App\Services\Campaigns\AlphaLinkDropAffiliateAttribution;
 use App\Services\Campaigns\CampaignIpGeoResolver;
 use App\Services\Campaigns\TrackedCountryListManager;
-use App\Services\Analytics\WorkspaceDailyAnalyticsRebuilder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
@@ -80,7 +81,7 @@ class CampaignLeadReconciliationTest extends TestCase
             ->andReturnUsing(function () use ($conversion): array {
                 $conversion->forceFill(['revenue' => 8.25])->save();
 
-                return ['read' => 1, 'created' => 0, 'updated' => 1, 'skipped' => 0];
+                return ['read' => 1, 'created' => 0, 'updated' => 1, 'skipped' => 0, 'reported_created' => 0, 'reported_updated' => 0, 'reported_unchanged' => 0, 'reported_skipped' => 0];
             });
         $this->app->instance(AlphaLinkSponsorLeadImporter::class, $importer);
 
@@ -94,6 +95,70 @@ class CampaignLeadReconciliationTest extends TestCase
         ]))
             ->assertOk()
             ->assertViewHas('commandOsDashboard', fn (array $dashboard): bool => $dashboard['analytics']['sponsors'][0]['attributed_revenue'] === 8.25);
+    }
+
+    public function test_dashboard_shows_provider_reported_sponsor_amount_separately_from_attributed_revenue(): void
+    {
+        $fixture = $this->recipientFixture();
+        $selectedDate = now()->subDay();
+        WorkspaceSponsorRevenue::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(),
+            'sponsor_id' => $fixture['sponsor']->getKey(),
+            'provider_type' => $fixture['sponsor']->type,
+            'provider_conversion_id' => 'provider-only-eur-fixture',
+            'amount' => 12.75,
+            'currency_code' => 'EUR',
+            'occurred_at' => $selectedDate->copy()->setTime(23, 59, 0),
+        ]);
+        WorkspaceSponsorRevenue::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(),
+            'sponsor_id' => $fixture['sponsor']->getKey(),
+            'provider_type' => $fixture['sponsor']->type,
+            'provider_conversion_id' => 'provider-only-usd-fixture',
+            'amount' => 20.00,
+            'currency_code' => 'USD',
+            'occurred_at' => $selectedDate->copy()->setTime(23, 59, 0),
+        ]);
+        WorkspaceSponsorRevenue::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(),
+            'sponsor_id' => $fixture['sponsor']->getKey(),
+            'provider_type' => $fixture['sponsor']->type,
+            'provider_conversion_id' => 'provider-following-day-fixture',
+            'amount' => 99.00,
+            'currency_code' => 'EUR',
+            'occurred_at' => $selectedDate->copy()->addDay()->setTime(0, 15, 0),
+        ]);
+
+        $this->actingAs($fixture['owner'])
+            ->get(route('console.analytics.index', [
+                'workspace' => $fixture['workspace']->getKey(),
+                'analytics_period' => 'custom',
+                'analytics_from' => $selectedDate->toDateString(),
+                'analytics_to' => $selectedDate->toDateString(),
+            ]))
+            ->assertOk()
+            ->assertViewHas('commandOsDashboard', fn (array $dashboard): bool => count($dashboard['analytics']['provider_sponsors']) === 2
+                && $dashboard['analytics']['provider_sponsors'][0]['currency_code'] === 'EUR'
+                && $dashboard['analytics']['provider_sponsors'][0]['reported_conversions'] === 1
+                && $dashboard['analytics']['provider_sponsors'][0]['reported_amount'] === 12.75
+                && $dashboard['analytics']['provider_sponsors'][1]['currency_code'] === 'USD'
+                && $dashboard['analytics']['provider_sponsors'][1]['reported_amount'] === 20.0
+                && $dashboard['analytics']['sponsors'] === [])
+            ->assertSee('SPONSOR REPORTED REVENUE')
+            ->assertSee('CURRENCY')
+            ->assertSee('EUR')
+            ->assertSee('USD');
+
+        $operator = User::factory()->create();
+        $fixture['workspace']->users()->attach($operator->getKey(), ['role' => 'operator']);
+        $this->actingAs($operator)
+            ->get(route('console.analytics.index', [
+                'workspace' => $fixture['workspace']->getKey(),
+                'analytics_period' => 'this_month',
+            ]))
+            ->assertOk()
+            ->assertViewHas('commandOsDashboard', fn (array $dashboard): bool => $dashboard['analytics']['sponsors'] === []
+                && $dashboard['analytics']['provider_sponsors'] === []);
     }
 
     public function test_campaign_events_and_reconciled_leads_feed_dashboard_reports_and_list_history(): void
@@ -177,7 +242,7 @@ class CampaignLeadReconciliationTest extends TestCase
         );
         $result = $importer->import($fixture['sponsor'], now()->subDay()->startOfDay(), now()->endOfDay());
 
-        $this->assertSame(['read' => 1, 'created' => 1, 'updated' => 0, 'skipped' => 0], $result);
+        $this->assertSame(['read' => 1, 'created' => 1, 'updated' => 0, 'skipped' => 0, 'reported_created' => 1, 'reported_updated' => 0, 'reported_unchanged' => 0, 'reported_skipped' => 0], $result);
         $this->assertSame('lead', $fixture['membership']->fresh()->email_type);
         $this->assertSame('unsubscribe', $unsubscribedMembership->fresh()->email_type);
         $history = app(AudienceListHistoryCalculator::class)->calculate($fixture['list'], Carbon::today());
@@ -297,9 +362,9 @@ class CampaignLeadReconciliationTest extends TestCase
         ]);
         $third = $importer->import($anotherSponsor, now()->subDay()->startOfDay(), now()->endOfDay());
 
-        $this->assertSame(['read' => 1, 'created' => 1, 'updated' => 0, 'skipped' => 0], $first);
-        $this->assertSame(['read' => 1, 'created' => 0, 'updated' => 1, 'skipped' => 0], $second);
-        $this->assertSame(['read' => 1, 'created' => 0, 'updated' => 1, 'skipped' => 0], $third);
+        $this->assertSame(['read' => 1, 'created' => 1, 'updated' => 0, 'skipped' => 0, 'reported_created' => 1, 'reported_updated' => 0, 'reported_unchanged' => 0, 'reported_skipped' => 0], $first);
+        $this->assertSame(['read' => 1, 'created' => 0, 'updated' => 1, 'skipped' => 0, 'reported_created' => 0, 'reported_updated' => 1, 'reported_unchanged' => 0, 'reported_skipped' => 0], $second);
+        $this->assertSame(['read' => 1, 'created' => 0, 'updated' => 1, 'skipped' => 0, 'reported_created' => 1, 'reported_updated' => 0, 'reported_unchanged' => 0, 'reported_skipped' => 0], $third);
         $this->assertSame(1, CampaignLeadConversion::query()->count());
         $this->assertSame('6.0000', (string) CampaignLeadConversion::query()->firstOrFail()->revenue);
         $this->assertSame('lead', $fixture['membership']->fresh()->email_type);
@@ -352,8 +417,9 @@ class CampaignLeadReconciliationTest extends TestCase
 
         $result = $importer->import($fixture['sponsor'], now()->subDay()->startOfDay(), now()->endOfDay());
 
-        $this->assertSame(['read' => 1, 'created' => 0, 'updated' => 0, 'skipped' => 1], $result);
+        $this->assertSame(['read' => 1, 'created' => 0, 'updated' => 0, 'skipped' => 1, 'reported_created' => 1, 'reported_updated' => 0, 'reported_unchanged' => 0, 'reported_skipped' => 0], $result);
         $this->assertSame(0, CampaignLeadConversion::query()->count());
+        $this->assertSame('3.0000', (string) WorkspaceSponsorRevenue::query()->sole()->amount);
         $this->assertSame('fresh', $fixture['membership']->fresh()->email_type);
     }
 
@@ -394,7 +460,7 @@ class CampaignLeadReconciliationTest extends TestCase
         );
 
         $result = $importer->import($fixture['sponsor'], now()->subDay()->startOfDay(), now()->endOfDay());
-        $this->assertSame(['read' => 1, 'created' => 1, 'updated' => 0, 'skipped' => 0], $result);
+        $this->assertSame(['read' => 1, 'created' => 1, 'updated' => 0, 'skipped' => 0, 'reported_created' => 1, 'reported_updated' => 0, 'reported_unchanged' => 0, 'reported_skipped' => 0], $result);
         $this->assertSame((string) $fixture['list']->getKey(), (string) $fixture['membership']->fresh()->audience_list_id);
         $this->assertSame('lead', $fixture['membership']->fresh()->email_type);
         $this->assertSame('United States', CampaignLeadConversion::query()->firstOrFail()->country);
@@ -456,7 +522,7 @@ class CampaignLeadReconciliationTest extends TestCase
 
         $result = $importer->import($fixture['sponsor'], now()->subDay()->startOfDay(), now()->endOfDay());
         $visitor = WorkspaceDropVisitor::query()->where('workspace_drop_id', $drop->getKey())->firstOrFail();
-        $this->assertSame(['read' => 1, 'created' => 1, 'updated' => 0, 'skipped' => 0], $result);
+        $this->assertSame(['read' => 1, 'created' => 1, 'updated' => 0, 'skipped' => 0, 'reported_created' => 1, 'reported_updated' => 0, 'reported_unchanged' => 0, 'reported_skipped' => 0], $result);
         $this->assertSame((string) $fixture['list']->getKey(), (string) $fixture['membership']->fresh()->audience_list_id);
         $this->assertSame('lead', $fixture['membership']->fresh()->email_type);
         $this->assertSame('United States', $visitor->country);
@@ -501,8 +567,8 @@ class CampaignLeadReconciliationTest extends TestCase
         $first = $importer->import($fixture['sponsor'], now()->subDay()->startOfDay(), now()->endOfDay());
         $second = $importer->import($fixture['sponsor'], now()->subDay()->startOfDay(), now()->endOfDay());
 
-        $this->assertSame(['read' => 1, 'created' => 1, 'updated' => 0, 'skipped' => 0], $first);
-        $this->assertSame(['read' => 1, 'created' => 0, 'updated' => 1, 'skipped' => 0], $second);
+        $this->assertSame(['read' => 1, 'created' => 1, 'updated' => 0, 'skipped' => 0, 'reported_created' => 1, 'reported_updated' => 0, 'reported_unchanged' => 0, 'reported_skipped' => 0], $first);
+        $this->assertSame(['read' => 1, 'created' => 0, 'updated' => 1, 'skipped' => 0, 'reported_created' => 0, 'reported_updated' => 1, 'reported_unchanged' => 0, 'reported_skipped' => 0], $second);
         $this->assertSame(1, WorkspaceDropVisitor::query()->where('type', 'lead')->count());
         $visitor = WorkspaceDropVisitor::query()->where('type', 'lead')->firstOrFail();
         $this->assertSame('4.7500', number_format((float) $visitor->revenue, 4, '.', ''));

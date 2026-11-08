@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Models\WorkspaceSponsor;
+use App\Services\AffiliateNetworks\AlphaLinkAffiliateProviderException;
 use App\Services\AffiliateNetworks\AlphaLinkAffiliateProviderHttp;
 use App\Services\AffiliateNetworks\AlphaLinkAffiliateProviderSalesReader;
 use Illuminate\Http\Client\Request;
@@ -138,6 +139,75 @@ class AlphaLinkAffiliateProviderSalesReaderTest extends TestCase
             && $request['timezone_id'] === 65
             && $request['show_conversions'] === true
             && $request['show_events'] === true);
+    }
+
+    public function test_hitpath_http_errors_are_not_treated_as_empty_sales(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake(['https://reporting.example.test/api.php' => Http::response('', 503)]);
+
+        $this->expectException(AlphaLinkAffiliateProviderException::class);
+        $this->expectExceptionMessage('Conversion report request failed with HTTP status 503.');
+
+        $this->reader()->read($this->sponsor('hitpath', 'https://affiliate.example.test'), Carbon::parse('2026-10-25'), Carbon::parse('2026-10-26'));
+    }
+
+    public function test_newhitpath_campaign_report_errors_are_not_treated_as_empty_sales(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake(['https://newhit.example.test/api/reports/campaigns*' => Http::response([], 502)]);
+
+        $this->expectException(AlphaLinkAffiliateProviderException::class);
+        $this->expectExceptionMessage('Conversion report request failed with HTTP status 502.');
+
+        $this->reader()->read($this->sponsor('newhitpath', 'newhit.example.test'), Carbon::parse('2026-10-25'), Carbon::parse('2026-10-26'));
+    }
+
+    public function test_newhitpath_sales_page_errors_do_not_return_partial_sales(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://newhit.example.test/api/reports/campaigns*' => Http::response(['data' => [['id' => 12, 'sales' => 1]]]),
+            'https://newhit.example.test/api/reports/sales-detail/12*' => Http::response([], 503),
+        ]);
+
+        $this->expectException(AlphaLinkAffiliateProviderException::class);
+        $this->expectExceptionMessage('Conversion report request failed with HTTP status 503.');
+
+        $this->reader()->read($this->sponsor('newhitpath', 'newhit.example.test'), Carbon::parse('2026-10-25'), Carbon::parse('2026-10-26'));
+    }
+
+    public function test_cake_http_errors_are_not_treated_as_empty_sales(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake(['https://cake.example.test/affiliates/api/Reports/Conversions*' => Http::response([], 503)]);
+
+        $this->expectException(AlphaLinkAffiliateProviderException::class);
+        $this->expectExceptionMessage('Conversion report request failed with HTTP status 503.');
+
+        $this->reader()->read($this->sponsor('cake', 'cake.example.test'), Carbon::parse('2026-10-25'), Carbon::parse('2026-10-26'));
+    }
+
+    public function test_hasoffers_http_and_provider_errors_are_not_treated_as_empty_sales(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake(['https://network.api.hasoffers.com/Apiv3/json*' => Http::response(['response' => ['status' => 0]])]);
+
+        $this->expectException(AlphaLinkAffiliateProviderException::class);
+        $this->expectExceptionMessage('The sponsor API rejected the conversion report request.');
+
+        $this->reader()->read($this->sponsor('hasoffers', 'network.example.test', 'network'), Carbon::parse('2026-10-25'), Carbon::parse('2026-10-26'));
+    }
+
+    public function test_everflow_http_errors_are_not_treated_as_empty_sales(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake(['https://api.eflow.team/v1/affiliates/reporting/conversions?page=1' => Http::response([], 503)]);
+
+        $this->expectException(AlphaLinkAffiliateProviderException::class);
+        $this->expectExceptionMessage('Conversion report request failed with HTTP status 503.');
+
+        $this->reader()->read($this->sponsor('everflow', 'unused.example.test'), Carbon::parse('2026-10-25'), Carbon::parse('2026-10-26'));
     }
 
     private function reader(): AlphaLinkAffiliateProviderSalesReader

@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\WorkspaceSponsor;
+use App\Services\AffiliateNetworks\AlphaLinkAffiliateProviderException;
 use App\Services\AffiliateNetworks\AlphaLinkSponsorLeadImporter;
 use App\Services\Analytics\WorkspaceDailyAnalyticsRebuilder;
 use Illuminate\Console\Attributes\Description;
@@ -51,9 +52,12 @@ class SyncWorkspaceSponsorLeads extends Command
                             $result['reported_created'], $result['reported_updated'],
                             $result['created'], $result['updated'], $result['skipped'],
                         ));
-                    } catch (Throwable) {
+                    } catch (Throwable $exception) {
                         $failed = true;
-                        $this->error(sprintf('Sponsor %s conversion report failed. Check the local provider configuration and application log.', $sponsor->getKey()));
+                        $reason = $exception instanceof AlphaLinkAffiliateProviderException
+                            ? $exception->getMessage()
+                            : 'A provider network or response error occurred; sensitive request details were omitted.';
+                        $this->error(sprintf('Sponsor %s conversion report failed: %s', $sponsor->getKey(), $reason));
                     }
 
                     $processed++;

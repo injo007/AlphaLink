@@ -3,6 +3,7 @@
 namespace App\Services\AffiliateNetworks;
 
 use App\Models\WorkspaceSponsor;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Carbon;
 
 class AlphaLinkAffiliateProviderSalesReader
@@ -38,7 +39,7 @@ class AlphaLinkAffiliateProviderSalesReader
             'end' => $to->toDateString(),
         ]);
         if (! $response->successful()) {
-            return [];
+            $this->throwForFailedResponse($response);
         }
 
         $body = str_replace(",,,,,,\n", '', trim($response->body()));
@@ -78,7 +79,7 @@ class AlphaLinkAffiliateProviderSalesReader
             'end' => $to->toDateString(),
         ], '', '&', PHP_QUERY_RFC3986), $headers);
         if (! $campaigns->successful()) {
-            return [];
+            $this->throwForFailedResponse($campaigns);
         }
 
         $result = [];
@@ -96,7 +97,7 @@ class AlphaLinkAffiliateProviderSalesReader
                 ], '', '&', PHP_QUERY_RFC3986);
                 $response = $this->http->get($url, $headers);
                 if (! $response->successful()) {
-                    break;
+                    $this->throwForFailedResponse($response);
                 }
 
                 $data = $response->json();
@@ -141,7 +142,7 @@ class AlphaLinkAffiliateProviderSalesReader
         ], '', '&', PHP_QUERY_RFC3986);
         $response = $this->http->get($url);
         if (! $response->successful()) {
-            return [];
+            $this->throwForFailedResponse($response);
         }
 
         $sales = $response->json('data', []);
@@ -185,8 +186,11 @@ class AlphaLinkAffiliateProviderSalesReader
             'limit' => 99999,
         ], '', '&', PHP_QUERY_RFC3986);
         $response = $this->http->get($url);
-        if (! $response->successful() || (int) $response->json('response.status', 0) !== 1) {
-            return [];
+        if (! $response->successful()) {
+            $this->throwForFailedResponse($response);
+        }
+        if ((int) $response->json('response.status', 0) !== 1) {
+            throw new AlphaLinkAffiliateProviderException('The sponsor API rejected the conversion report request.');
         }
 
         $sales = $response->json('response.data.data', []);
@@ -232,7 +236,7 @@ class AlphaLinkAffiliateProviderSalesReader
                 ['x-eflow-api-key' => (string) $sponsor->api_key],
             );
             if (! $response->successful()) {
-                break;
+                $this->throwForFailedResponse($response);
             }
 
             $data = $response->json();
@@ -261,6 +265,14 @@ class AlphaLinkAffiliateProviderSalesReader
                     : null,
             );
         }, array_values(array_filter($sales, 'is_array')))));
+    }
+
+    private function throwForFailedResponse(Response $response): never
+    {
+        throw new AlphaLinkAffiliateProviderException(sprintf(
+            'Conversion report request failed with HTTP status %d.',
+            $response->status(),
+        ));
     }
 
     /** @return array{conversion_id: string, earning: float, s1: string, s2: string, s3: string, ip: ?string, id: ?string, created_at: Carbon, currency_code: ?string} */

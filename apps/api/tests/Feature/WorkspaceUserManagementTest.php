@@ -13,6 +13,39 @@ class WorkspaceUserManagementTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_workspace_admin_create_screen_keeps_member_identity_and_access_controls(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->workspaceFor($owner);
+
+        $response = $this->actingAs($owner)->get(route('console.users.create', $workspace->getKey()));
+
+        $response->assertOk()
+            ->assertSee('Add User')
+            ->assertSee('Member details')
+            ->assertSee('Full Name')
+            ->assertSee('Login Email')
+            ->assertSee('Username')
+            ->assertSee('User Type')
+            ->assertSee('User Roles')
+            ->assertSee('Workspace Role')
+            ->assertSee('Save User')
+            ->assertSee('Cancel')
+            ->assertSee('Copy login details')
+            ->assertSee('id="create-user-form"', false)
+            ->assertSee('id="created-credentials"', false)
+            ->assertSee('fetch(', false)
+            ->assertSee("method: 'POST'", false);
+
+        foreach (array_keys(User::getRoles()) as $role) {
+            $response->assertSee('id="role-'.$role.'"', false);
+        }
+
+        foreach (['admin', 'operator', 'viewer', 'privacy_officer'] as $workspaceRole) {
+            $response->assertSee('value="'.$workspaceRole.'"', false);
+        }
+    }
+
     public function test_workspace_admin_can_create_edit_disable_and_change_a_member_password(): void
     {
         $owner = User::factory()->create();
@@ -21,7 +54,7 @@ class WorkspaceUserManagementTest extends TestCase
 
         $this->actingAs($owner)->get($index)
             ->assertOk()
-            ->assertSee('USERS MANAGEMENT')
+            ->assertSee('USERS')
             ->assertSee('ADD USER')
             ->assertSee('WORKSPACE ROLE');
 

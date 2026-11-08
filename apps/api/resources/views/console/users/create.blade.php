@@ -105,8 +105,10 @@
             const token = document.querySelector('meta[name="csrf-token"]')?.content;
             const roles = document.getElementById('role-container');
             const typeField = document.getElementById('type');
+            const accessGrid = roles.closest('.command-os-user-access-grid');
             const syncRoleVisibility = () => {
                 roles.hidden = typeField.value === 'admin';
+                accessGrid.classList.toggle('is-admin', roles.hidden);
                 if (roles.hidden) { roles.querySelectorAll('input').forEach((input) => { input.checked = false; }); }
             };
             typeField.addEventListener('change', syncRoleVisibility);

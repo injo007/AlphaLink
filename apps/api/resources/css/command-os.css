@@ -3301,6 +3301,10 @@ body.command-os-shell #main_content .command-os-user-access-grid {
     margin-top: 18px;
 }
 
+body.command-os-shell #main_content .command-os-user-access-grid.is-admin {
+    grid-template-columns: minmax(0, 1fr);
+}
+
 body.command-os-shell #main_content .command-os-user-roles,
 body.command-os-shell #main_content .command-os-user-workspace-role {
     min-width: 0;

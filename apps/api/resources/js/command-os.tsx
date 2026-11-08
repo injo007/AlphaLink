@@ -359,7 +359,7 @@ function MetricCard({ metric, selectedMetric, onMetricChange }: { metric: Metric
             >
                 <span className="command-os-metric-icon"><Icon size={19} strokeWidth={2.1} aria-hidden="true" /></span>
                 <span className="command-os-metric-copy">
-                    <span className="command-os-metric-label">{metric.label}</span>
+                    <span className="command-os-metric-label">{hasSponsorRevenue ? 'Sponsor revenue' : metric.label}</span>
                     {hasSponsorRevenue
                         ? <span className="command-os-metric-value command-os-metric-provider-values" aria-label={`Sponsor-reported · ${metric.provider_revenue_period}: ${sponsorRevenueSummary}`}>
                             {metric.provider_revenue?.map((total) => <span key={total.currency_code ?? 'unknown'}>{total.currency_code ?? 'Unknown currency'} {providerAmount(total.reported_amount)}</span>)}

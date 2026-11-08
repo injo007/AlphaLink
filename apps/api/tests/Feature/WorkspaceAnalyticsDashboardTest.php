@@ -834,10 +834,11 @@ class WorkspaceAnalyticsDashboardTest extends TestCase
                 && $totals['leads'] === 1
                 && $totals['unsubscribes'] === 1
             )
-            ->assertViewHas('commandOsDashboard', function (array $dashboard) use ($owner): bool {
+            ->assertViewHas('commandOsDashboard', function (array $dashboard) use ($owner, $isp): bool {
                 $analytics = $dashboard['analytics'];
 
                 return $analytics['isps'][0] === [
+                    'dimension_id' => (string) $isp->getKey(),
                     'label' => 'Attribution scope ISP',
                     'leads' => 1,
                     'clicks' => 1,

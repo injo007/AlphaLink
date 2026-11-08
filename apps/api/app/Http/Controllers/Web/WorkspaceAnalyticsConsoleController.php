@@ -128,14 +128,20 @@ class WorkspaceAnalyticsConsoleController extends Controller
             ])
             ->values()
             ->all();
+        $selectedRangeTrends = $this->dateFilteredDashboardMetricTrends(
+            $workspace,
+            $request->user(),
+            Carbon::parse($dashboardAnalytics['period']['from'])->startOfDay(),
+            Carbon::parse($dashboardAnalytics['period']['to'])->endOfDay(),
+        );
         $commandOsMetrics = [
-            ['key' => 'deliveries', 'label' => 'Deliveries', 'value' => $dailyRows->sum('deliveries'), 'format' => 'number', 'detail' => 'Imported PMTA delivery records', 'trend' => $dailyRows->pluck('deliveries')->all()],
-            ['key' => 'opens', 'label' => 'Opens', 'value' => $eventTotals['opens'], 'format' => 'number', 'detail' => 'Campaign and Drop visitor events', 'trend' => $dailyRows->pluck('opens')->all()],
-            ['key' => 'clicks', 'label' => 'Clicks', 'value' => $eventTotals['clicks'], 'format' => 'number', 'detail' => 'Campaign and Drop visitor events', 'trend' => $dailyRows->pluck('clicks')->all()],
-            ['key' => 'leads', 'label' => 'Leads', 'value' => $eventTotals['leads'], 'format' => 'number', 'detail' => 'Recorded campaign and Drop leads', 'trend' => $dailyRows->pluck('leads')->all()],
-            ['key' => 'revenue', 'label' => 'Revenue', 'value' => $eventTotals['lead_revenue'], 'format' => 'currency', 'detail' => 'AlphaLink-attributed campaign and Drop lead revenue. Sponsor-reported amounts are shown separately by currency for '.$dashboardAnalytics['period']['label'].'.', 'provider_revenue' => $selectedProviderRevenue, 'provider_revenue_period' => $dashboardAnalytics['period']['label'], 'trend' => $dailyRows->pluck('lead_revenue')->all()],
-            ['key' => 'unsubscribes', 'label' => 'Unsubscribes', 'value' => $eventTotals['unsubscribes'], 'format' => 'number', 'detail' => 'Campaign and Drop visitor events', 'trend' => $dailyRows->pluck('unsubscribes')->all()],
-            ['key' => 'bounces', 'label' => 'Bounces', 'value' => $dailyRows->sum('bounces'), 'format' => 'number', 'detail' => 'Imported PMTA soft and hard bounces', 'trend' => $dailyRows->pluck('bounces')->all()],
+            ['key' => 'deliveries', 'label' => 'Deliveries', 'value' => $dashboardAnalytics['totals']['deliveries'], 'format' => 'number', 'detail' => 'Imported PMTA delivery records for '.$dashboardAnalytics['period']['label'].'.', 'trend' => $selectedRangeTrends['deliveries']],
+            ['key' => 'opens', 'label' => 'Opens', 'value' => $dashboardAnalytics['totals']['opens'], 'format' => 'number', 'detail' => 'Campaign and Drop visitor events for '.$dashboardAnalytics['period']['label'].'.', 'trend' => $selectedRangeTrends['opens']],
+            ['key' => 'clicks', 'label' => 'Clicks', 'value' => $dashboardAnalytics['totals']['clicks'], 'format' => 'number', 'detail' => 'Campaign and Drop visitor events for '.$dashboardAnalytics['period']['label'].'.', 'trend' => $selectedRangeTrends['clicks']],
+            ['key' => 'leads', 'label' => 'Leads', 'value' => $dashboardAnalytics['totals']['leads'], 'format' => 'number', 'detail' => 'Recorded campaign and Drop leads for '.$dashboardAnalytics['period']['label'].'.', 'trend' => $selectedRangeTrends['leads']],
+            ['key' => 'revenue', 'label' => 'Revenue', 'value' => $dashboardAnalytics['totals']['attributed_revenue'], 'format' => 'currency', 'detail' => 'AlphaLink-attributed campaign and Drop lead revenue for '.$dashboardAnalytics['period']['label'].'. Sponsor-reported amounts are shown separately by currency.', 'provider_revenue' => $selectedProviderRevenue, 'provider_revenue_period' => $dashboardAnalytics['period']['label'], 'trend' => $selectedRangeTrends['lead_revenue']],
+            ['key' => 'unsubscribes', 'label' => 'Unsubscribes', 'value' => $dashboardAnalytics['totals']['unsubscribes'], 'format' => 'number', 'detail' => 'Campaign and Drop visitor events for '.$dashboardAnalytics['period']['label'].'.', 'trend' => $selectedRangeTrends['unsubscribes']],
+            ['key' => 'bounces', 'label' => 'Bounces', 'value' => $dashboardAnalytics['totals']['bounces'], 'format' => 'number', 'detail' => 'Imported PMTA soft and hard bounces for '.$dashboardAnalytics['period']['label'].'.', 'trend' => $selectedRangeTrends['bounces']],
         ];
         $commandOsDashboard = [
             'userName' => $request->user()->name ?: $request->user()->email,
@@ -230,8 +236,9 @@ class WorkspaceAnalyticsConsoleController extends Controller
                 'series' => [[
                     'label' => 'Attributed lead revenue',
                     'color' => '#17685f',
+                    'currency_code' => 'USD',
                     'values' => $mtdChartRows->pluck('lead_revenue')->all(),
-                ]],
+                ], ...$this->providerRevenueTrendSeries($workspace, $monthFrom, $to, 'day', $today->daysInMonth)],
                 'provider_revenue' => $this->providerRevenueByCurrency($workspace, $monthFrom, $to),
             ],
             'ytd_revenue' => [
@@ -239,8 +246,9 @@ class WorkspaceAnalyticsConsoleController extends Controller
                 'series' => [[
                     'label' => 'Attributed lead revenue',
                     'color' => '#17685f',
+                    'currency_code' => 'USD',
                     'values' => $yearChartRows->pluck('revenue')->all(),
-                ]],
+                ], ...$this->providerRevenueTrendSeries($workspace, $yearFrom, $to, 'month', 12)],
                 'provider_revenue' => $this->providerRevenueByCurrency($workspace, $yearFrom, $to),
             ],
         ];
@@ -521,6 +529,99 @@ class WorkspaceAnalyticsConsoleController extends Controller
                 'currency_code' => is_string($row->currency_code) ? $row->currency_code : null,
                 'reported_amount' => round((float) $row->reported_amount, 2),
             ])
+            ->all();
+    }
+
+    /**
+     * Build compact, selected-range KPI trends from the same daily rollups used by reports.
+     * Long custom ranges are grouped into at most 30 chronological buckets for the card sparklines.
+     *
+     * @return array<string, list<int|float>>
+     */
+    private function dateFilteredDashboardMetricTrends(Workspace $workspace, User $user, Carbon $from, Carbon $to): array
+    {
+        $cacheKey = $this->mainDashboardCacheKey('selected-range-trends', $workspace, $user, $from, $to);
+        $cached = Cache::remember($cacheKey, self::MAIN_DASHBOARD_CACHE_SECONDS, function () use ($workspace, $user, $from, $to): array {
+            $fromDate = $from->copy()->startOfDay();
+            $toDate = $to->copy()->startOfDay();
+            $dayCount = max(1, (int) $fromDate->diffInDays($toDate) + 1);
+            $bucketCount = min(30, $dayCount);
+            $trends = array_fill_keys(
+                ['deliveries', 'opens', 'clicks', 'leads', 'unsubscribes', 'bounces', 'lead_revenue'],
+                array_fill(0, $bucketCount, 0),
+            );
+            $dailyRows = DB::table('workspace_daily_analytics')
+                ->where('workspace_id', $workspace->getKey())
+                ->where('attribution_scope', 'workspace')
+                ->whereIn('source_type', ['campaign', 'drop'])
+                ->whereBetween('at', [$fromDate->toDateString(), $toDate->toDateString()])
+                ->when($workspace->pivot->role === 'operator', fn ($query) => $query->where('user_id', $user->getKey()))
+                ->select('at')
+                ->selectRaw('SUM(deliveries) AS deliveries, SUM(opens) AS opens, SUM(clicks) AS clicks')
+                ->selectRaw('SUM(leads) AS leads, SUM(unsubscribes) AS unsubscribes, SUM(soft_bounces + hard_bounces) AS bounces')
+                ->selectRaw('SUM(lead_revenue) AS lead_revenue')
+                ->groupBy('at')
+                ->orderBy('at')
+                ->get();
+
+            foreach ($dailyRows as $row) {
+                $date = Carbon::parse((string) $row->at)->startOfDay();
+                $daysFromStart = (int) $fromDate->diffInDays($date);
+                $bucket = min($bucketCount - 1, (int) floor($daysFromStart * $bucketCount / $dayCount));
+                foreach ($trends as $metric => $values) {
+                    $trends[$metric][$bucket] += (float) ($row->{$metric} ?? 0);
+                }
+            }
+
+            return $trends;
+        });
+
+        return is_array($cached) ? $cached : [];
+    }
+
+    /**
+     * Keep each provider currency as its own chart series so the UI never adds unlike currencies.
+     *
+     * @return list<array{label: string, color: string, currency_code: string|null, values: list<float|int>>>
+     */
+    private function providerRevenueTrendSeries(Workspace $workspace, Carbon $from, Carbon $to, string $bucketBy, int $bucketCount): array
+    {
+        if ($workspace->pivot->role === 'operator' || $bucketCount < 1) {
+            return [];
+        }
+
+        $dailyRows = DB::table('workspace_sponsor_revenues')
+            ->where('workspace_id', $workspace->getKey())
+            ->whereBetween('occurred_at', [$from->copy()->startOfDay(), $to->copy()->endOfDay()])
+            ->selectRaw('DATE(occurred_at) AS revenue_date, currency_code, SUM(amount) AS reported_amount')
+            ->groupByRaw('DATE(occurred_at), currency_code')
+            ->orderBy('revenue_date')
+            ->orderBy('currency_code')
+            ->get();
+
+        $colors = ['#a879ff', '#25bbff', '#f46bb5', '#f3ad45', '#51d9b3', '#6986ff'];
+
+        return $dailyRows
+            ->groupBy(fn (object $row): string => strtoupper((string) ($row->currency_code ?? '')))
+            ->map(function (Collection $rows, string $currency) use ($from, $bucketBy, $bucketCount, $colors): array {
+                $values = array_fill(0, $bucketCount, 0.0);
+                foreach ($rows as $row) {
+                    $date = Carbon::parse((string) $row->revenue_date);
+                    $bucket = $bucketBy === 'month' ? $date->month - 1 : $date->day - $from->day;
+                    if ($bucket >= 0 && $bucket < $bucketCount) {
+                        $values[$bucket] += (float) $row->reported_amount;
+                    }
+                }
+                $currencyCode = $currency === '' ? null : $currency;
+
+                return [
+                    'label' => 'Sponsor reported ('.($currencyCode ?? 'unknown currency').')',
+                    'color' => $colors[abs(crc32($currency)) % count($colors)],
+                    'currency_code' => $currencyCode,
+                    'values' => $values,
+                ];
+            })
+            ->values()
             ->all();
     }
 

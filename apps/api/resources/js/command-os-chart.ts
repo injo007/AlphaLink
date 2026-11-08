@@ -132,10 +132,10 @@ export function renderDashboardAnalyticsChart(
     const grid = dark ? 'rgba(148, 170, 224, .15)' : 'rgba(73, 95, 165, .13)';
     const accent = dark ? '#a879ff' : '#7445f5';
     const formatValue = (value: number) => currency
-        ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', notation: 'compact', maximumFractionDigits: 1 }).format(value)
+        ? new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value)
         : formatNumber(value);
     const values = data.series[0]?.values ?? [];
-    const total = values.reduce((sum, value) => sum + Number(value || 0), 0);
+    const hasRevenue = data.series.some((series) => series.values.some((value) => Number(value || 0) !== 0));
     const fill = {
         type: 'linear' as const,
         x: 0,
@@ -151,8 +151,17 @@ export function renderDashboardAnalyticsChart(
     chart.setOption({
         animationDuration: 900,
         animationEasing: 'cubicOut',
-        color: [accent],
-        grid: { left: 54, right: 15, top: 13, bottom: 29 },
+        color: data.series.map((series) => series.color),
+        grid: { left: 54, right: 15, top: data.series.length > 1 ? 31 : 13, bottom: 29 },
+        legend: data.series.length > 1 ? {
+            data: data.series.map((series) => series.label),
+            top: 0,
+            left: 'center',
+            itemWidth: 8,
+            itemHeight: 8,
+            itemGap: 12,
+            textStyle: { color: muted, fontSize: 8, fontWeight: 650, fontFamily: 'Inter, sans-serif' },
+        } : undefined,
         tooltip: {
             trigger: 'axis',
             axisPointer: { type: 'line', lineStyle: { color: dark ? '#91a3dc' : '#8b9bc4', type: 'dashed', width: 1 } },
@@ -162,7 +171,17 @@ export function renderDashboardAnalyticsChart(
             padding: [9, 12],
             extraCssText: 'box-shadow: 0 12px 30px rgba(13, 25, 60, .24); border-radius: 10px;',
             textStyle: { color: dark ? '#eff3ff' : '#1b2648', fontSize: 11, fontFamily: 'Inter, sans-serif' },
-            valueFormatter: (value: unknown) => formatValue(Number(value ?? 0)),
+            formatter: (items: unknown) => {
+                const points = (Array.isArray(items) ? items : [items]) as Array<{ marker?: string; seriesName?: string; value?: unknown }>;
+                return points.map((point) => {
+                    const series = data.series.find((item) => item.label === point.seriesName);
+                    const amount = Number(point.value ?? 0);
+                    const formatted = series?.currency_code
+                        ? new Intl.NumberFormat('en-US', { style: 'currency', currency: series.currency_code, maximumFractionDigits: 2 }).format(amount)
+                        : `${formatNumber(amount)} (currency not reported)`;
+                    return `${point.marker ?? ''}${point.seriesName ?? 'Revenue'}: ${formatted}`;
+                }).join('<br/>');
+            },
         },
         xAxis: {
             type: 'category',
@@ -181,24 +200,24 @@ export function renderDashboardAnalyticsChart(
             splitNumber: 3,
             splitLine: { lineStyle: { color: grid, type: 'dashed', dashOffset: 3 } },
         },
-        series: [{
-            name: data.series[0]?.label ?? 'Revenue',
+        series: data.series.map((series, index) => ({
+            name: series.label,
             type: 'line',
             smooth: 0.32,
             showSymbol: true,
             symbol: 'circle',
             symbolSize: 5,
-            data: values,
-            lineStyle: { width: 2.8, shadowBlur: 13, shadowColor: `${accent}88` },
-            itemStyle: { color: accent, borderColor: dark ? '#0b1430' : '#fff', borderWidth: 1.5 },
-            areaStyle: fill,
+            data: series.values,
+            lineStyle: { width: index === 0 ? 2.8 : 2.3, shadowBlur: 13, shadowColor: `${series.color}88` },
+            itemStyle: { color: series.color, borderColor: dark ? '#0b1430' : '#fff', borderWidth: 1.5 },
+            ...(index === 0 ? { areaStyle: fill } : {}),
             emphasis: { focus: 'series', scale: 1.6 },
-        }],
-        graphic: total === 0 ? [{
+        })),
+        graphic: !hasRevenue ? [{
             type: 'text',
             left: 'center',
             top: 'middle',
-            style: { text: 'No attributed revenue yet', fill: muted, font: '10px Inter, sans-serif' },
+            style: { text: 'No revenue recorded in this period', fill: muted, font: '10px Inter, sans-serif' },
         }] : [],
     });
 

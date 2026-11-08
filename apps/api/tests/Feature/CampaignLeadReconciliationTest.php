@@ -33,6 +33,7 @@ use App\Services\Campaigns\TrackedCountryListManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Mockery;
@@ -128,6 +129,27 @@ class CampaignLeadReconciliationTest extends TestCase
             'currency_code' => 'EUR',
             'occurred_at' => $selectedDate->copy()->addDay()->setTime(0, 15, 0),
         ]);
+        $dailyMetricRow = [
+            'workspace_id' => $fixture['workspace']->getKey(),
+            'source_type' => 'drop',
+            'source_id' => (string) Str::uuid(),
+            'at' => $selectedDate->toDateString(),
+            'dimensions_hash' => hash('sha256', 'dashboard-period-metrics'),
+            'user_id' => $fixture['owner']->getKey(),
+            'opens' => 2,
+            'clicks' => 3,
+            'leads' => 0,
+            'unsubscribes' => 0,
+            'bots' => 0,
+            'lead_revenue' => 0,
+            'deliveries' => 0,
+            'soft_bounces' => 0,
+            'hard_bounces' => 0,
+            'attribution_scope' => 'workspace',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ];
+        DB::table('workspace_daily_analytics')->insert($dailyMetricRow);
 
         $this->actingAs($fixture['owner'])
             ->get(route('console.analytics.index', [
@@ -137,7 +159,7 @@ class CampaignLeadReconciliationTest extends TestCase
                 'analytics_to' => $selectedDate->toDateString(),
             ]))
             ->assertOk()
-            ->assertViewHas('commandOsDashboard', function (array $dashboard): bool {
+            ->assertViewHas('commandOsDashboard', function (array $dashboard) use ($selectedDate): bool {
                 $revenueMetric = collect($dashboard['metrics'])->firstWhere('key', 'revenue');
 
                 return count($dashboard['analytics']['provider_sponsors']) === 2
@@ -147,6 +169,8 @@ class CampaignLeadReconciliationTest extends TestCase
                     && $dashboard['analytics']['provider_sponsors'][1]['currency_code'] === 'USD'
                     && $dashboard['analytics']['provider_sponsors'][1]['reported_amount'] === 20.0
                     && $dashboard['analytics']['sponsors'] === []
+                    && collect($dashboard['metrics'])->firstWhere('key', 'opens')['value'] === 2
+                    && collect($dashboard['metrics'])->firstWhere('key', 'clicks')['value'] === 3
                     && $revenueMetric['value'] === 0.0
                     && $revenueMetric['provider_revenue'] === [
                         ['currency_code' => 'EUR', 'reported_amount' => 12.75],
@@ -159,7 +183,9 @@ class CampaignLeadReconciliationTest extends TestCase
                     && $dashboard['charts']['ytd_revenue']['provider_revenue'] === [
                         ['currency_code' => 'EUR', 'reported_amount' => 111.75],
                         ['currency_code' => 'USD', 'reported_amount' => 20.0],
-                    ];
+                    ]
+                    && collect($dashboard['charts']['mtd_revenue']['series'])->keyBy('label')->get('Sponsor reported (EUR)')['values'][$selectedDate->day - 1] === 12.75
+                    && collect($dashboard['charts']['mtd_revenue']['series'])->keyBy('label')->get('Sponsor reported (USD)')['values'][$selectedDate->day - 1] === 20.0;
             })
             ->assertSee('SPONSOR REPORTED REVENUE')
             ->assertSee('CURRENCY')

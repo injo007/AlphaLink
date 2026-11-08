@@ -137,13 +137,30 @@ class CampaignLeadReconciliationTest extends TestCase
                 'analytics_to' => $selectedDate->toDateString(),
             ]))
             ->assertOk()
-            ->assertViewHas('commandOsDashboard', fn (array $dashboard): bool => count($dashboard['analytics']['provider_sponsors']) === 2
-                && $dashboard['analytics']['provider_sponsors'][0]['currency_code'] === 'EUR'
-                && $dashboard['analytics']['provider_sponsors'][0]['reported_conversions'] === 1
-                && $dashboard['analytics']['provider_sponsors'][0]['reported_amount'] === 12.75
-                && $dashboard['analytics']['provider_sponsors'][1]['currency_code'] === 'USD'
-                && $dashboard['analytics']['provider_sponsors'][1]['reported_amount'] === 20.0
-                && $dashboard['analytics']['sponsors'] === [])
+            ->assertViewHas('commandOsDashboard', function (array $dashboard): bool {
+                $revenueMetric = collect($dashboard['metrics'])->firstWhere('key', 'revenue');
+
+                return count($dashboard['analytics']['provider_sponsors']) === 2
+                    && $dashboard['analytics']['provider_sponsors'][0]['currency_code'] === 'EUR'
+                    && $dashboard['analytics']['provider_sponsors'][0]['reported_conversions'] === 1
+                    && $dashboard['analytics']['provider_sponsors'][0]['reported_amount'] === 12.75
+                    && $dashboard['analytics']['provider_sponsors'][1]['currency_code'] === 'USD'
+                    && $dashboard['analytics']['provider_sponsors'][1]['reported_amount'] === 20.0
+                    && $dashboard['analytics']['sponsors'] === []
+                    && $revenueMetric['value'] === 0.0
+                    && $revenueMetric['provider_revenue'] === [
+                        ['currency_code' => 'EUR', 'reported_amount' => 12.75],
+                        ['currency_code' => 'USD', 'reported_amount' => 20.0],
+                    ]
+                    && $dashboard['charts']['mtd_revenue']['provider_revenue'] === [
+                        ['currency_code' => 'EUR', 'reported_amount' => 111.75],
+                        ['currency_code' => 'USD', 'reported_amount' => 20.0],
+                    ]
+                    && $dashboard['charts']['ytd_revenue']['provider_revenue'] === [
+                        ['currency_code' => 'EUR', 'reported_amount' => 111.75],
+                        ['currency_code' => 'USD', 'reported_amount' => 20.0],
+                    ];
+            })
             ->assertSee('SPONSOR REPORTED REVENUE')
             ->assertSee('CURRENCY')
             ->assertSee('EUR')
@@ -158,7 +175,10 @@ class CampaignLeadReconciliationTest extends TestCase
             ]))
             ->assertOk()
             ->assertViewHas('commandOsDashboard', fn (array $dashboard): bool => $dashboard['analytics']['sponsors'] === []
-                && $dashboard['analytics']['provider_sponsors'] === []);
+                && $dashboard['analytics']['provider_sponsors'] === []
+                && collect($dashboard['metrics'])->firstWhere('key', 'revenue')['provider_revenue'] === []
+                && $dashboard['charts']['mtd_revenue']['provider_revenue'] === []
+                && $dashboard['charts']['ytd_revenue']['provider_revenue'] === []);
     }
 
     public function test_campaign_events_and_reconciled_leads_feed_dashboard_reports_and_list_history(): void

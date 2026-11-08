@@ -34,6 +34,8 @@ type Metric = {
     format: 'number' | 'currency';
     detail: string;
     trend: number[];
+    provider_revenue?: ProviderRevenueTotal[];
+    provider_revenue_period?: string;
 };
 type DashboardAction = {
     label: string;
@@ -58,8 +60,9 @@ export type DashboardPayload = {
 };
 export type AnalyticsRow = { label: string; leads: number; clicks: number; attributed_revenue: number; deliveries?: number; opens?: number; unsubscribes?: number; bounces?: number };
 export type ProviderSponsorRevenueRow = { dimension_id: string; label: string; currency_code: string | null; reported_conversions: number; reported_amount: number };
+export type ProviderRevenueTotal = { currency_code: string | null; reported_amount: number };
 export type DashboardChartSeries = { label: string; color: string; values: number[] };
-export type DashboardChart = { labels: string[]; series: DashboardChartSeries[] };
+export type DashboardChart = { labels: string[]; series: DashboardChartSeries[]; provider_revenue?: ProviderRevenueTotal[] };
 export type DashboardGeoMetric = 'deliveries' | 'opens' | 'clicks' | 'leads' | 'bounces' | 'unsubscribes';
 export type GeoCountry = { country: string; opens: number; clicks: number; leads: number; unsubscribes: number; deliveries: number; bounces: number };
 export type MarketingNode = { id: string; label: string; count: number; color: string; href: string | null };
@@ -127,6 +130,11 @@ function money(value: number): string {
 
 function providerAmount(value: number): string {
     return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+}
+
+function providerRevenueSummary(totals: ProviderRevenueTotal[] | undefined): string {
+    if (!totals?.length) return 'No sponsor reports';
+    return totals.map((total) => `${total.currency_code ?? 'Unknown currency'} ${providerAmount(total.reported_amount)}`).join(' · ');
 }
 
 function safeStoredTheme(): Theme {
@@ -303,16 +311,26 @@ function RevenueTrendPanel({ title, icon: Icon, chart, theme, id }: { title: str
     return <section className="command-os-panel command-os-revenue-chart" aria-labelledby={`${id}-title`}>
         <div className="command-os-panel-heading">
             <div className="command-os-panel-title"><span className="command-os-heading-icon"><Icon size={17} aria-hidden="true" /></span><h2 id={`${id}-title`}>{title}</h2></div>
-            <span className="command-os-chart-total">{money(total)}</span>
+            <span className="command-os-chart-total"><span>Attributed</span><strong>{money(total)}</strong></span>
         </div>
         <div className="command-os-revenue-chart-canvas" ref={container} role="img" aria-label={`${title}, attributed lead revenue: ${chart.labels.map((label, index) => `${label} ${money(chart.series[0]?.values[index] ?? 0)}`).join(', ')}`} />
-        <p className="command-os-chart-caption">Attributed revenue from recorded campaign and Drop leads.</p>
+        <div className="command-os-revenue-source-summary" aria-label={`Sponsor-reported revenue: ${providerRevenueSummary(chart.provider_revenue)}`}>
+            <span className="command-os-revenue-source-label">Sponsor-reported</span>
+            <div className="command-os-revenue-source-values">
+                {chart.provider_revenue?.length
+                    ? chart.provider_revenue.map((total) => <span className="command-os-revenue-currency" key={total.currency_code ?? 'unknown'}>{total.currency_code ?? 'Unknown currency'} <strong>{providerAmount(total.reported_amount)}</strong></span>)
+                    : <span className="command-os-revenue-no-reports">No sponsor reports for this period</span>}
+            </div>
+        </div>
+        <p className="command-os-chart-caption">The chart shows AlphaLink-attributed campaign and Drop lead revenue. Sponsor-reported totals remain separate and grouped by currency.</p>
     </section>;
 }
 
 function MetricCard({ metric, selectedMetric, onMetricChange }: { metric: Metric; selectedMetric: DashboardGeoMetric; onMetricChange: (metric: DashboardGeoMetric) => void }): JSX.Element {
     const Icon = metricIcons[metric.key];
     const value = metric.format === 'currency' ? money(metric.value) : number(metric.value);
+    const sponsorRevenueSummary = providerRevenueSummary(metric.provider_revenue);
+    const hasSponsorRevenue = metric.key === 'revenue' && Boolean(metric.provider_revenue?.length);
     const canDrillDown = metric.key !== 'revenue';
     const isSelected = metric.key === selectedMetric;
     const values = metric.trend;
@@ -325,7 +343,9 @@ function MetricCard({ metric, selectedMetric, onMetricChange }: { metric: Metric
     }).join(' ');
 
     return (
-        <article className={`command-os-metric command-os-metric-${metricColors[metric.key]}${isSelected ? ' is-geo-linked' : ''}`} aria-label={`${metric.label}: ${value}`} data-geo-selected={isSelected || undefined}>
+        <article className={`command-os-metric command-os-metric-${metricColors[metric.key]}${metric.key === 'revenue' ? ' command-os-metric-has-sponsor' : ''}${isSelected ? ' is-geo-linked' : ''}`} aria-label={metric.key === 'revenue'
+            ? `Revenue for ${metric.provider_revenue_period ?? 'the selected range'}: ${hasSponsorRevenue ? sponsorRevenueSummary : value}. AlphaLink-attributed revenue for the last 30 days: ${value}.`
+            : `${metric.label}: ${value}`} data-geo-selected={isSelected || undefined}>
             <button
                 className="command-os-metric-main"
                 type="button"
@@ -333,19 +353,27 @@ function MetricCard({ metric, selectedMetric, onMetricChange }: { metric: Metric
                 aria-pressed={canDrillDown ? isSelected : undefined}
                 aria-label={canDrillDown
                     ? `Show ${metric.label.toLowerCase()} on the GEO map and activity report`
-                    : `${metric.label}: ${value}. Country drilldown is unavailable because revenue has no verified country attribution.`}
+                    : `Revenue for ${metric.provider_revenue_period ?? 'the selected range'}: ${hasSponsorRevenue ? sponsorRevenueSummary : value}. AlphaLink-attributed revenue for the last 30 days: ${value}. Country drilldown is unavailable because revenue has no verified country attribution.`}
                 title={canDrillDown ? `Show ${metric.label.toLowerCase()} on the GEO map and activity report` : 'Revenue has no verified country attribution'}
                 onClick={() => { if (canDrillDown) onMetricChange(metric.key as DashboardGeoMetric); }}
             >
                 <span className="command-os-metric-icon"><Icon size={19} strokeWidth={2.1} aria-hidden="true" /></span>
                 <span className="command-os-metric-copy">
                     <span className="command-os-metric-label">{metric.label}</span>
-                    <strong className="command-os-metric-value">{value}</strong>
+                    {hasSponsorRevenue
+                        ? <span className="command-os-metric-value command-os-metric-provider-values" aria-label={`Sponsor-reported · ${metric.provider_revenue_period}: ${sponsorRevenueSummary}`}>
+                            {metric.provider_revenue?.map((total) => <span key={total.currency_code ?? 'unknown'}>{total.currency_code ?? 'Unknown currency'} {providerAmount(total.reported_amount)}</span>)}
+                        </span>
+                        : <strong className="command-os-metric-value">{value}</strong>}
+                    {metric.key === 'revenue' && <span className="command-os-metric-sponsor-summary" title={`Sponsor-reported · ${metric.provider_revenue_period ?? 'selected range'}: ${sponsorRevenueSummary}`}>
+                        <span>{hasSponsorRevenue ? 'AlphaLink attributed · last 30 days' : `Sponsor · ${metric.provider_revenue_period ?? 'Selected range'}`}</span>
+                        <strong>{hasSponsorRevenue ? value : sponsorRevenueSummary}</strong>
+                    </span>}
                     {isSelected && <span className="command-os-sr-only">Selected as the GEO map metric.</span>}
                 </span>
-                <svg className="command-os-metric-sparkline" viewBox="0 0 48 22" aria-hidden="true" focusable="false">
+                {metric.key !== 'revenue' && <svg className="command-os-metric-sparkline" viewBox="0 0 48 22" aria-hidden="true" focusable="false">
                     <polyline points={points} pathLength="1" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+                </svg>}
             </button>
             <details className="command-os-metric-source">
                 <summary aria-label={`Show ${metric.label.toLowerCase()} data source`} title={`Show ${metric.label.toLowerCase()} data source`}>
@@ -520,8 +548,8 @@ function PartnerRevenueAnalytics({ analytics }: { analytics: DashboardAnalytics 
 function DashboardCharts({ payload, theme, selectedMetric }: { payload: DashboardPayload; theme: Theme; selectedMetric: DashboardGeoMetric }): JSX.Element {
     return <section className="command-os-charts-section" aria-label="Activity and revenue trends">
         <MtdActionsStats chart={payload.charts.mtd_actions} selectedMetric={selectedMetric} />
-        <RevenueTrendPanel id="command-os-mtd-revenue" title="Month-to-date attributed revenue" icon={DollarSign} chart={payload.charts.mtd_revenue} theme={theme} />
-        <RevenueTrendPanel id="command-os-ytd-revenue" title="Year-to-date attributed revenue" icon={ChartNoAxesCombined} chart={payload.charts.ytd_revenue} theme={theme} />
+        <RevenueTrendPanel id="command-os-mtd-revenue" title="MTD Revenue Stats" icon={DollarSign} chart={payload.charts.mtd_revenue} theme={theme} />
+        <RevenueTrendPanel id="command-os-ytd-revenue" title="YTD Revenue Stats" icon={ChartNoAxesCombined} chart={payload.charts.ytd_revenue} theme={theme} />
     </section>;
 }
 

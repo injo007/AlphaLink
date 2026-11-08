@@ -109,12 +109,31 @@ class WorkspaceAnalyticsConsoleController extends Controller
             'unsubscribes' => $dailyRows->sum('unsubscribes'),
             'lead_revenue' => $dailyRows->sum('lead_revenue'),
         ];
+        $dashboardAnalytics = $this->dateFilteredDashboardAnalytics(
+            $workspace,
+            $request->user(),
+            $analyticsPeriod['from'],
+            $analyticsPeriod['to'],
+        ) + [
+            'period' => [
+                ...$analyticsPeriod,
+                'action' => route('console.analytics.index', ['workspace' => $workspace->getKey()]),
+            ],
+        ];
+        $selectedProviderRevenue = collect($dashboardAnalytics['provider_sponsors'])
+            ->groupBy(fn (array $row): string => $row['currency_code'] ?? '')
+            ->map(fn (Collection $rows, string $currency): array => [
+                'currency_code' => $currency === '' ? null : $currency,
+                'reported_amount' => round($rows->sum(fn (array $row): float => (float) $row['reported_amount']), 2),
+            ])
+            ->values()
+            ->all();
         $commandOsMetrics = [
             ['key' => 'deliveries', 'label' => 'Deliveries', 'value' => $dailyRows->sum('deliveries'), 'format' => 'number', 'detail' => 'Imported PMTA delivery records', 'trend' => $dailyRows->pluck('deliveries')->all()],
             ['key' => 'opens', 'label' => 'Opens', 'value' => $eventTotals['opens'], 'format' => 'number', 'detail' => 'Campaign and Drop visitor events', 'trend' => $dailyRows->pluck('opens')->all()],
             ['key' => 'clicks', 'label' => 'Clicks', 'value' => $eventTotals['clicks'], 'format' => 'number', 'detail' => 'Campaign and Drop visitor events', 'trend' => $dailyRows->pluck('clicks')->all()],
             ['key' => 'leads', 'label' => 'Leads', 'value' => $eventTotals['leads'], 'format' => 'number', 'detail' => 'Recorded campaign and Drop leads', 'trend' => $dailyRows->pluck('leads')->all()],
-            ['key' => 'revenue', 'label' => 'Revenue', 'value' => $eventTotals['lead_revenue'], 'format' => 'currency', 'detail' => 'Attributed lead revenue only', 'trend' => $dailyRows->pluck('lead_revenue')->all()],
+            ['key' => 'revenue', 'label' => 'Revenue', 'value' => $eventTotals['lead_revenue'], 'format' => 'currency', 'detail' => 'AlphaLink-attributed campaign and Drop lead revenue. Sponsor-reported amounts are shown separately by currency for '.$dashboardAnalytics['period']['label'].'.', 'provider_revenue' => $selectedProviderRevenue, 'provider_revenue_period' => $dashboardAnalytics['period']['label'], 'trend' => $dailyRows->pluck('lead_revenue')->all()],
             ['key' => 'unsubscribes', 'label' => 'Unsubscribes', 'value' => $eventTotals['unsubscribes'], 'format' => 'number', 'detail' => 'Campaign and Drop visitor events', 'trend' => $dailyRows->pluck('unsubscribes')->all()],
             ['key' => 'bounces', 'label' => 'Bounces', 'value' => $dailyRows->sum('bounces'), 'format' => 'number', 'detail' => 'Imported PMTA soft and hard bounces', 'trend' => $dailyRows->pluck('bounces')->all()],
         ];
@@ -151,17 +170,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
                 'graph' => 'Graph counts and observed links come from workspace-scoped activity dimensions in the selected range. Dashed spokes are a module map; solid links show dimensions recorded together on campaign, Drop, or warmup activity.',
             ],
             'actions' => $this->dashboardQuickActions($workspace),
-            'analytics' => $this->dateFilteredDashboardAnalytics(
-                $workspace,
-                $request->user(),
-                $analyticsPeriod['from'],
-                $analyticsPeriod['to'],
-            ) + [
-                'period' => [
-                    ...$analyticsPeriod,
-                    'action' => route('console.analytics.index', ['workspace' => $workspace->getKey()]),
-                ],
-            ],
+            'analytics' => $dashboardAnalytics,
         ];
         $commandOsDashboard['refresh']['url'] = route('console.analytics.index', [
             'workspace' => $workspace->getKey(),
@@ -223,6 +232,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
                     'color' => '#17685f',
                     'values' => $mtdChartRows->pluck('lead_revenue')->all(),
                 ]],
+                'provider_revenue' => $this->providerRevenueByCurrency($workspace, $monthFrom, $to),
             ],
             'ytd_revenue' => [
                 'labels' => $yearChartRows->pluck('label')->all(),
@@ -231,6 +241,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
                     'color' => '#17685f',
                     'values' => $yearChartRows->pluck('revenue')->all(),
                 ]],
+                'provider_revenue' => $this->providerRevenueByCurrency($workspace, $yearFrom, $to),
             ],
         ];
         $commandOsDashboard['charts'] = [
@@ -247,6 +258,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
                     fn (array $series): array => [...$series, 'values' => array_slice($series['values'], 0, $today->day)],
                     $dashboardCharts['mtd_revenue']['series'],
                 ),
+                'provider_revenue' => $dashboardCharts['mtd_revenue']['provider_revenue'],
             ],
             'ytd_revenue' => [
                 'labels' => array_slice($dashboardCharts['ytd_revenue']['labels'], 0, $today->month),
@@ -254,6 +266,7 @@ class WorkspaceAnalyticsConsoleController extends Controller
                     fn (array $series): array => [...$series, 'values' => array_slice($series['values'], 0, $today->month)],
                     $dashboardCharts['ytd_revenue']['series'],
                 ),
+                'provider_revenue' => $dashboardCharts['ytd_revenue']['provider_revenue'],
             ],
         ];
 
@@ -481,6 +494,34 @@ class WorkspaceAnalyticsConsoleController extends Controller
             'geo' => $this->dashboardGeoAnalytics($workspace, $user, $from, $to),
             'graph' => $this->dashboardMarketingGraph($workspace, $user, $from, $to),
         ];
+    }
+
+    /**
+     * @return list<array{currency_code: string|null, reported_amount: float}>
+     */
+    private function providerRevenueByCurrency(Workspace $workspace, Carbon $from, Carbon $to): array
+    {
+        if ($workspace->pivot->role === 'operator') {
+            return [];
+        }
+
+        return DB::table('workspace_sponsor_revenues')
+            ->join('workspace_sponsors as sponsor', function ($join): void {
+                $join->on('sponsor.id', '=', 'workspace_sponsor_revenues.sponsor_id')
+                    ->on('sponsor.workspace_id', '=', 'workspace_sponsor_revenues.workspace_id');
+            })
+            ->where('workspace_sponsor_revenues.workspace_id', $workspace->getKey())
+            ->whereBetween('workspace_sponsor_revenues.occurred_at', [$from->copy()->startOfDay(), $to->copy()->endOfDay()])
+            ->groupBy('workspace_sponsor_revenues.currency_code')
+            ->select('workspace_sponsor_revenues.currency_code')
+            ->selectRaw('SUM(amount) AS reported_amount')
+            ->orderBy('currency_code')
+            ->get()
+            ->map(fn (object $row): array => [
+                'currency_code' => is_string($row->currency_code) ? $row->currency_code : null,
+                'reported_amount' => round((float) $row->reported_amount, 2),
+            ])
+            ->all();
     }
 
     /**

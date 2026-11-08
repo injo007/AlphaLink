@@ -1136,6 +1136,12 @@ body.command-os-dashboard .command-os-page-heading .command-os-subtitle {
     white-space: nowrap;
 }
 
+.command-os-metric-has-sponsor { min-height: 84px; }
+.command-os-metric-has-sponsor .command-os-metric-main { min-height: 68px; }
+.command-os-metric-sponsor-summary { display: grid; min-width: 0; gap: 2px; margin-top: 3px; line-height: 1.15; }
+.command-os-metric-sponsor-summary > span { color: var(--co-subtle); font-size: 7px; font-weight: 650; }
+.command-os-metric-sponsor-summary > strong { color: var(--co-purple); font-size: 7px; font-weight: 760; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
 .command-os-metric-detail {
     overflow: hidden;
     margin-top: 2px;
@@ -2069,7 +2075,8 @@ body.command-os-dashboard #main_content ul.command-os-sr-only {
 .command-os-revenue-chart .command-os-panel-heading { min-height: 44px; }
 .command-os-stat-grid-panel .command-os-panel-title h2,
 .command-os-revenue-chart .command-os-panel-title h2 { font-size: 11px; }
-.command-os-chart-total { color: var(--co-ink); font-size: 12px; font-weight: 780; font-variant-numeric: tabular-nums; }
+.command-os-chart-total { display: flex; align-items: baseline; gap: 5px; color: var(--co-muted); font-size: 8px; font-weight: 650; white-space: nowrap; }
+.command-os-chart-total strong { color: var(--co-ink); font-size: 11px; font-weight: 780; font-variant-numeric: tabular-nums; }
 
 .command-os-action-stats {
     display: grid;
@@ -2102,7 +2109,13 @@ body.command-os-dashboard #main_content ul.command-os-sr-only {
 .command-os-sparkline { display: block; width: 100%; height: 30px; margin-top: 3px; overflow: visible; }
 .command-os-sparkline polyline { stroke-dasharray: 1; stroke-dashoffset: 1; animation: command-os-sparkline-draw 1.15s cubic-bezier(.2, .75, .3, 1) forwards; }
 .command-os-chart-caption { margin: 0; padding: 2px 12px 10px; color: var(--co-subtle); font-size: 7px; line-height: 1.45; }
-.command-os-revenue-chart-canvas { width: 100%; height: 182px; padding: 5px 8px 0; }
+.command-os-revenue-chart-canvas { width: 100%; height: 154px; padding: 5px 8px 0; }
+.command-os-revenue-source-summary { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin: 1px 11px 5px; padding: 6px 8px; border: 1px solid color-mix(in srgb, var(--co-border) 82%, var(--co-purple)); border-radius: 8px; background: color-mix(in srgb, var(--co-surface) 92%, var(--co-purple) 5%); }
+.command-os-revenue-source-label { flex: 0 0 auto; color: var(--co-muted); font-size: 8px; font-weight: 700; }
+.command-os-revenue-source-values { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+.command-os-revenue-currency { padding: 2px 6px; border: 1px solid color-mix(in srgb, var(--co-purple) 25%, var(--co-border)); border-radius: 999px; color: var(--co-muted); font-size: 8px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.command-os-revenue-currency strong { color: var(--co-ink); font-weight: 760; }
+.command-os-revenue-no-reports { color: var(--co-subtle); font-size: 8px; }
 
 @keyframes command-os-background-drift {
     from { background-position: 0 0, 0 0, 0 0, 0 0; }
@@ -2781,6 +2794,11 @@ body.command-os-dashboard #main_content .command-os-metric-main {
     text-align: left;
     cursor: pointer;
 }
+
+body.command-os-dashboard #main_content .command-os-metric-has-sponsor { min-height: 84px; }
+body.command-os-dashboard #main_content .command-os-metric-has-sponsor .command-os-metric-main { min-height: 68px; }
+body.command-os-dashboard #main_content .command-os-metric-provider-values { display: flex; flex-wrap: wrap; gap: 2px 6px; overflow: visible; font-size: 10px; line-height: 1.2; white-space: normal; }
+body.command-os-dashboard #main_content .command-os-metric-provider-values > span { color: var(--co-ink); white-space: nowrap; }
 
 body.command-os-dashboard #main_content .command-os-metric-main:disabled {
     cursor: default;

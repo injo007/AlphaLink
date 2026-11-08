@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
     allStatsPivotFields,
+    allStatsReportWindow,
     campaignStatisticsPivotFields,
     dropStatisticsPivotFields,
     mailerRevenuePivotFields,
@@ -11,6 +12,17 @@ import {
     projectDropStatisticsRows,
     projectMailerRevenueRows,
 } from '../../public/console-assets/analytics-pivot.js';
+
+test('All Stats reporting window mirrors the submitted date range values', () => {
+    assert.deepEqual(allStatsReportWindow('2026-11-01', '2026-11-08'), {
+        from: '2026-11-01',
+        to: '2026-11-08',
+    });
+    assert.deepEqual(allStatsReportWindow(' 2026-11-08 ', '2026-11-08 '), {
+        from: '2026-11-08',
+        to: '2026-11-08',
+    });
+});
 
 test('All Stats pivot projects event rows into count measures without recipient fields', () => {
     const rows = projectAllStatsRows([

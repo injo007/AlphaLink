@@ -24,7 +24,11 @@
             </div>
             <div class="command-os-report-hero-range">
                 <span>REPORTING WINDOW</span>
-                <strong>{{ $from }} <i class="fas fa-arrow-right" aria-hidden="true"></i> {{ $to }}</strong>
+                <strong id="all-stats-reporting-window" aria-live="polite">
+                    <span data-report-window-start>{{ $from }}</span>
+                    <i class="fas fa-arrow-right" aria-hidden="true"></i>
+                    <span data-report-window-end>{{ $to }}</span>
+                </strong>
             </div>
         </header>
     @else

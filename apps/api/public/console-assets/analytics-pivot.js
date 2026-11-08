@@ -27,6 +27,13 @@ export function projectAllStatsRows(rows) {
     }));
 }
 
+export function allStatsReportWindow(from, to) {
+    return {
+        from: String(from || '').trim(),
+        to: String(to || '').trim(),
+    };
+}
+
 export function allStatsPivotFields() {
     const dimensions = [
         ['user', 'MAILER', 'row'],
@@ -400,6 +407,8 @@ function initializeAllStatsPivot() {
     const status = document.getElementById('all-stats-pivot-status');
     const reloadButton = document.getElementById('all-stats-pivot-reload');
     const fullscreenButton = document.getElementById('all-stats-pivot-fullscreen');
+    const reportWindowStart = document.querySelector('[data-report-window-start]');
+    const reportWindowEnd = document.querySelector('[data-report-window-end]');
 
     if (!shell || !form || !grid || !status) {
         return;
@@ -434,7 +443,17 @@ function initializeAllStatsPivot() {
         return;
     }
 
+    const syncReportWindow = () => {
+        const range = allStatsReportWindow(
+            form.elements.namedItem('from')?.value,
+            form.elements.namedItem('to')?.value,
+        );
+        if (reportWindowStart && range.from) reportWindowStart.textContent = range.from;
+        if (reportWindowEnd && range.to) reportWindowEnd.textContent = range.to;
+    };
+
     const requestRows = async () => {
+        syncReportWindow();
         const from = form.elements.namedItem('from')?.value;
         const to = form.elements.namedItem('to')?.value;
         if (!from || !to || from > to) {

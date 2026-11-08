@@ -57,6 +57,7 @@ export type DashboardPayload = {
     actions: DashboardAction[];
 };
 export type AnalyticsRow = { label: string; leads: number; clicks: number; attributed_revenue: number; deliveries?: number; opens?: number; unsubscribes?: number; bounces?: number };
+export type ProviderSponsorRevenueRow = { dimension_id: string; label: string; currency_code: string | null; reported_conversions: number; reported_amount: number };
 export type DashboardChartSeries = { label: string; color: string; values: number[] };
 export type DashboardChart = { labels: string[]; series: DashboardChartSeries[] };
 export type DashboardGeoMetric = 'deliveries' | 'opens' | 'clicks' | 'leads' | 'bounces' | 'unsubscribes';
@@ -66,6 +67,7 @@ export type MarketingEdge = { source: string; target: string; count: number };
 export type DashboardAnalytics = {
     totals: { deliveries: number; opens: number; clicks: number; leads: number; unsubscribes: number; bounces: number; attributed_revenue: number };
     sponsors: AnalyticsRow[];
+    provider_sponsors: ProviderSponsorRevenueRow[];
     isps: AnalyticsRow[];
     mailers: AnalyticsRow[];
     offers: AnalyticsRow[];
@@ -121,6 +123,10 @@ function number(value: number): string {
 
 function money(value: number): string {
     return `$${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)}`;
+}
+
+function providerAmount(value: number): string {
+    return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
 }
 
 function safeStoredTheme(): Theme {
@@ -475,13 +481,35 @@ function PartnerRevenueBreakdown({
     );
 }
 
+function ProviderSponsorRevenueBreakdown({ rows, rangeLabel }: { rows: ProviderSponsorRevenueRow[]; rangeLabel: string }): JSX.Element {
+    return (
+        <article className={`command-os-panel command-os-provider-sponsor-card${rows.length === 0 ? ' command-os-partner-revenue-empty' : ''}`}>
+            <div className="command-os-panel-heading">
+                <div className="command-os-panel-title"><span className="command-os-heading-icon"><DollarSign size={17} aria-hidden="true" /></span><h3>Sponsor reported revenue</h3></div>
+                <span className="command-os-status-tag">{rangeLabel}</span>
+            </div>
+            {rows.length === 0 ? <p className="command-os-analytics-empty" role="status">No sponsor conversions were reported for this date range.</p> : <div className="command-os-provider-revenue-list" aria-live="polite">
+                <div className="command-os-provider-revenue-head"><span>Sponsor</span><span>Conversions</span><span>Currency</span><span>Reported amount</span></div>
+                {rows.map((row, index) => <div className="command-os-provider-revenue-row" key={`${row.dimension_id}-${row.currency_code ?? 'unknown'}-${index}`}>
+                    <strong title={row.label}>{row.label}</strong>
+                    <span>{number(row.reported_conversions)}</span>
+                    <span>{row.currency_code ?? 'Not supplied'}</span>
+                    <b>{providerAmount(row.reported_amount)}</b>
+                </div>)}
+            </div>}
+            <p className="command-os-analytics-footnote">Provider amounts stay grouped by currency. AlphaLink-attributed campaign and Drop revenue is shown separately.</p>
+        </article>
+    );
+}
+
 function PartnerRevenueAnalytics({ analytics }: { analytics: DashboardAnalytics }): JSX.Element {
     return <section className="command-os-partner-revenue-section" aria-labelledby="command-os-partner-revenue-title">
         <div className="command-os-section-heading">
-            <div><p className="command-os-eyebrow">ATTRIBUTED PERFORMANCE</p><h2 id="command-os-partner-revenue-title">Partner revenue</h2><p>All rankings use the selected range: {analytics.period.label} ({analytics.period.from}–{analytics.period.to}).</p></div>
+            <div><p className="command-os-eyebrow">PROVIDER REPORTS &amp; ATTRIBUTED PERFORMANCE</p><h2 id="command-os-partner-revenue-title">Partner revenue</h2><p>All panels use the selected range: {analytics.period.label} ({analytics.period.from}–{analytics.period.to}).</p></div>
         </div>
+        <ProviderSponsorRevenueBreakdown rows={analytics.provider_sponsors} rangeLabel={analytics.period.label} />
         <div className="command-os-partner-revenue-grid">
-            <PartnerRevenueBreakdown title="Sponsor revenue" dimension="Sponsor" icon={Target} rows={analytics.sponsors} rangeLabel={analytics.period.label} />
+            <PartnerRevenueBreakdown title="Attributed sponsor revenue" dimension="Sponsor" icon={Target} rows={analytics.sponsors} rangeLabel={analytics.period.label} />
             <PartnerRevenueBreakdown title="ISP revenue" dimension="ISP" icon={Globe2} rows={analytics.isps} rangeLabel={analytics.period.label} />
             <PartnerRevenueBreakdown title="Mailer revenue" dimension="Mailer" icon={Mail} rows={analytics.mailers} rangeLabel={analytics.period.label} />
             <PartnerRevenueBreakdown title="Top 10 offers by revenue" dimension="Offer" icon={Layers3} rows={analytics.offers} rangeLabel={analytics.period.label} />

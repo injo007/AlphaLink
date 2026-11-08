@@ -56,9 +56,17 @@ class WorkspaceUserManagementTest extends TestCase
 
         $this->actingAs($owner)->get($index)
             ->assertOk()
-            ->assertSee('USERS')
-            ->assertSee('ADD USER')
-            ->assertSee('WORKSPACE ROLE');
+            ->assertSee('Workspace Users')
+            ->assertSee('command-os-users', false)
+            ->assertSee('Total members')
+            ->assertSee('Active')
+            ->assertSee('Disabled')
+            ->assertSee('Admin accounts')
+            ->assertSee('workspace-user-search', false)
+            ->assertSee('Change password', false)
+            ->assertSee('data-user-status="'.$owner->getKey().'"', false)
+            ->assertSee('Add User')
+            ->assertSee('Account status applies across AlphaLink workspaces.');
 
         $created = $this->actingAs($owner)->postJson(route('console.users.store', $workspace->getKey()), [
             'email' => 'new.member@example.test',

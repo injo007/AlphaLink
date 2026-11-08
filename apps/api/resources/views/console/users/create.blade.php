@@ -104,10 +104,13 @@
             const error = document.getElementById('user-error');
             const token = document.querySelector('meta[name="csrf-token"]')?.content;
             const roles = document.getElementById('role-container');
-            document.getElementById('type').addEventListener('change', (event) => {
-                roles.hidden = event.currentTarget.value === 'admin';
+            const typeField = document.getElementById('type');
+            const syncRoleVisibility = () => {
+                roles.hidden = typeField.value === 'admin';
                 if (roles.hidden) { roles.querySelectorAll('input').forEach((input) => { input.checked = false; }); }
-            });
+            };
+            typeField.addEventListener('change', syncRoleVisibility);
+            syncRoleVisibility();
             form.addEventListener('submit', async (event) => {
                 event.preventDefault();
                 error.classList.add('d-none');

@@ -413,7 +413,7 @@
         $commandOsNavigation[9]['disabled'] = true;
         $commandOsNavigation[9]['reason'] = 'No redirect or rotator page is connected yet.';
         $commandOsNavigation = array_values(array_filter($commandOsNavigation, static fn (array $group): bool => $group !== []));
-        $navigationPreference = \App\Models\AppGlobalPreference::query()->whereKey('navigation_order')->value('value') ?? [];
+        $navigationPreference = \App\Models\AppGlobalPreference::query()->find('navigation_order')?->value ?? [];
         $commandOsNavigation = app(\App\Services\Navigation\GlobalNavigationOrder::class)->apply($commandOsNavigation, $navigationPreference);
         $canEditGlobalNavigation = auth()->user()?->type === \App\Models\User::ADMIN;
     @endphp
@@ -462,7 +462,7 @@
                                     $submenuId = $group['id'] ?? 'nav-submenu-'.\Illuminate\Support\Str::slug($group['label']);
                                     $submenuIsOpen = ($group['open'] ?? false) || ($group['active'] ?? false);
                                 @endphp
-                                <li class="command-os-navigation-item {{ ($group['active'] ?? false) ? 'is-active' : '' }} {{ $groupIsDisabled ? 'is-disabled' : '' }}" data-nav-group="{{ $group['navigation_group_key'] }}">
+                                <li class="command-os-navigation-item {{ ($group['active'] ?? false) ? 'is-active' : '' }} {{ $groupIsDisabled ? 'is-disabled' : '' }}" data-nav-group="{{ $group['navigation_group_key'] ?? $group['label'] ?? '' }}">
                                     <div class="command-os-navigation-row{{ $groupHasChildren ? '' : ' is-standalone' }}">
                                         @if (isset($group['href']) && ! $groupIsDisabled)
                                             <a class="command-os-navigation-link {{ ($group['active'] ?? false) ? 'active' : '' }}" href="{{ $group['href'] }}" @if (($group['active'] ?? false)) aria-current="page" @endif>
@@ -480,7 +480,7 @@
                                                 </summary>
                                                 <ul class="command-os-navigation-submenu" id="{{ $submenuId }}">
                                                     @foreach ($group['items'] as $item)
-                                                        <li data-nav-item="{{ $item['navigation_item_key'] }}">
+                                                        <li data-nav-item="{{ $item['navigation_item_key'] ?? $item['label'] ?? '' }}">
                                                             @if (isset($item['href']) && ! ($item['disabled'] ?? false))
                                                                 <a class="{{ ($item['active'] ?? false) ? 'active' : '' }}" href="{{ $item['href'] }}" @if (($item['active'] ?? false)) aria-current="page" @endif>
                                                                     <i class="{{ $item['icon'] ?? 'fas fa-circle' }}" aria-hidden="true"></i><span>{{ $commandOsNavLabel($item['label']) }}</span>

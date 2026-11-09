@@ -574,6 +574,8 @@
                 margin-top: 0;
                 padding-top: 4px;
             }
+            .campaign-create-page #campaign-routing > .row > .col-md-8,
+            .campaign-create-page #campaign-routing > .row > .col-md-4 { flex: 0 0 100%; max-width: 100%; }
             .campaign-create-page #campaign-routing > .row > [class*='col-'] { min-width: 0; }
             .campaign-create-page .campaign-delivery-card .form-group { margin-bottom: 2px; }
             .campaign-create-page .campaign-delivery-card label { margin-bottom: 2px; }
@@ -815,6 +817,7 @@
                 .campaign-create-page .campaign-placeholder-toolbar .custom-control-label { font-size: 9px; }
                 .campaign-create-page #campaign-routing .col-md-2.d-flex.flex-column { grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 8px 12px 12px; }
                 .campaign-create-page #campaign-routing .col-md-2 [data-ip-move] { height: 36px; }
+                .campaign-create-page #campaign-routing .campaign-route-selector { flex: 0 0 100%; max-width: 100%; }
                 .campaign-create-page .form-row > [class*='col-'] { flex: 0 0 100%; max-width: 100%; }
             }
             @media (max-width: 420px) {

@@ -157,6 +157,36 @@
             body:has(.campaign-create-page) .bs-container .dropdown-menu li.disabled a { color: #9b9dad; }
             .campaign-create-page .bootstrap-select .dropdown-menu .no-results,
             body:has(.campaign-create-page) .bs-container .dropdown-menu .no-results { background: var(--campaign-wash, #f8f7ff); border-radius: 8px; color: var(--campaign-muted, #66708e); margin: 4px; padding: 10px; }
+            /* Keep the campaign picker on one themed surface; reset legacy Bootstrap borders inside it. */
+            .campaign-create-page .bootstrap-select > .dropdown-toggle,
+            body:has(.campaign-create-page) .bootstrap-select > .dropdown-toggle { background: linear-gradient(145deg, var(--campaign-surface, #fff), var(--campaign-wash, #f8f7ff)); border: 1px solid var(--campaign-border, #ded9f8) !important; box-shadow: none !important; outline: 0; }
+            .campaign-create-page .bootstrap-select > .dropdown-toggle:focus,
+            .campaign-create-page .bootstrap-select > .dropdown-toggle:active,
+            body:has(.campaign-create-page) .bootstrap-select > .dropdown-toggle:focus,
+            body:has(.campaign-create-page) .bootstrap-select > .dropdown-toggle:active { border-color: #9b6aff !important; box-shadow: 0 0 0 3px rgb(139 74 255 / 12%) !important; outline: 0; }
+            body:has(.campaign-create-page) .bs-container .dropdown-menu { border: 1px solid var(--campaign-border, #ded9f8) !important; outline: 0 !important; max-width: calc(100vw - 24px); }
+            body:has(.campaign-create-page) .bs-container .dropdown-menu > .inner,
+            body:has(.campaign-create-page) .bs-container .dropdown-menu .inner > ul,
+            .campaign-create-page .bootstrap-select .dropdown-menu > .inner,
+            .campaign-create-page .bootstrap-select .dropdown-menu .inner > ul { background: transparent !important; border: 0 !important; box-shadow: none !important; outline: 0 !important; }
+            body:has(.campaign-create-page) .bs-container .bs-searchbox .form-control,
+            .campaign-create-page .bootstrap-select .bs-searchbox .form-control { background: var(--campaign-surface, #fff); border: 1px solid var(--campaign-border, #ded9f8) !important; border-radius: 8px; box-shadow: none; color: var(--campaign-ink, #101746); min-height: 34px; }
+            body:has(.campaign-create-page) .bs-container .bs-actionsbox .btn-group > .btn,
+            .campaign-create-page .bootstrap-select .bs-actionsbox .btn-group > .btn { background: var(--campaign-wash, #f8f7ff); border: 1px solid var(--campaign-border, #ded9f8); border-radius: 8px !important; box-shadow: none; color: var(--campaign-ink, #101746); font-size: 11px; font-weight: 700; margin: 0 3px; }
+            .campaign-create-page .campaign-header-library .input-group,
+            .campaign-create-page #campaign-saved-emails .input-group { gap: 6px; }
+            .campaign-create-page .campaign-header-library .input-group > .input-group-append,
+            .campaign-create-page #campaign-saved-emails .input-group > .input-group-append { gap: 5px; }
+            .campaign-create-page .campaign-icon-button { align-items: center; background: linear-gradient(145deg, #f0e7ff, #e8eaff); border: 1px solid #d9c8fb; border-radius: 9px; box-shadow: 0 2px 6px rgb(79 56 145 / 10%); color: #7135d4; display: inline-flex; flex: 0 0 34px; height: 32px; justify-content: center; padding: 0; transition: background .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease; width: 34px; }
+            .campaign-create-page .campaign-icon-button:hover,
+            .campaign-create-page .campaign-icon-button:focus-visible { border-color: #a77cf0; box-shadow: 0 0 0 3px rgb(139 74 255 / 12%); color: #5922b5; outline: 0; transform: translateY(-1px); }
+            .campaign-create-page .campaign-icon-button.is-add { background: linear-gradient(145deg, #e8fbf5, #ddf6ee); border-color: #b8e8d9; color: #138465; }
+            .campaign-create-page .campaign-icon-button.is-delete { background: linear-gradient(145deg, #fff0f2, #ffe8eb); border-color: #f4c4cd; color: #bd4054; }
+            .campaign-create-page .campaign-icon-button:disabled { box-shadow: none; cursor: not-allowed; opacity: .48; transform: none; }
+            .campaign-create-page #saved-email-manage { flex-basis: 34px; height: 32px; min-height: 32px; padding: 0; width: 34px; }
+            html[data-command-theme='dark'] .campaign-create-page .campaign-icon-button { background: linear-gradient(145deg, #28244b, #202947); border-color: #514477; color: #d8c1ff; }
+            html[data-command-theme='dark'] .campaign-create-page .campaign-icon-button.is-add { background: linear-gradient(145deg, #183d3b, #163333); border-color: #2e6960; color: #83e2c4; }
+            html[data-command-theme='dark'] .campaign-create-page .campaign-icon-button.is-delete { background: linear-gradient(145deg, #482936, #3b2635); border-color: #704454; color: #ff9aaa; }
             @keyframes campaign-dialog-enter { from { opacity: 0; transform: translateY(8px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
             #campaign-body-preview .campaign-body-preview-header { align-items: center; display: flex; justify-content: space-between; margin-bottom: .75rem; }
             #campaign-body-preview-frame { border: 1px solid #d7dce3; display: block; height: min(72vh, 820px); min-height: 360px; width: 100%; }
@@ -475,7 +505,7 @@
             .campaign-create-page #campaign-saved-emails .input-group { display: flex; flex-wrap: nowrap; }
             .campaign-create-page #campaign-saved-emails .input-group > .bootstrap-select.form-control { flex: 1 1 0; min-width: 0; width: 1% !important; }
             .campaign-create-page #campaign-saved-emails .input-group > .input-group-append { display: flex; flex: 0 0 auto; }
-            .campaign-create-page #saved-email-manage { height: 26px; min-height: 26px; padding: 1px 9px; }
+            .campaign-create-page #saved-email-manage { flex-basis: 34px; height: 32px; min-height: 32px; padding: 0; width: 34px; }
             .campaign-create-page .campaign-delivery-card [data-campaign-placeholder-editor] {
                 background: transparent;
                 border: 0;
@@ -744,6 +774,19 @@
                 .campaign-create-page .campaign-placeholder-toolbar { flex-wrap: wrap; justify-content: flex-start; }
                 .campaign-create-page .form-row > [class*='col-'] { flex: 0 0 100%; max-width: 100%; }
             }
+            @media (max-width: 420px) {
+                .campaign-create-page { overflow-x: clip; }
+                .campaign-create-page .campaign-create-hero-copy h1 { font-size: clamp(19px, 7vw, 25px); }
+                .campaign-create-page .campaign-create-hero-copy > p:last-child { font-size: 11px; }
+                .campaign-create-page .campaign-stage-track li { gap: 6px; min-width: 0; }
+                .campaign-create-page .campaign-stage-track li strong,
+                .campaign-create-page .campaign-stage-track li small { overflow-wrap: anywhere; }
+                .campaign-create-page .campaign-header-library .input-group > .bootstrap-select.form-control,
+                .campaign-create-page #campaign-saved-emails .input-group > .bootstrap-select.form-control { flex-basis: 0; }
+                .campaign-create-page .campaign-icon-button { flex-basis: 32px; height: 32px; width: 32px; }
+                .campaign-create-page .campaign-create-summary { min-width: 0; }
+                .campaign-create-page .campaign-summary-actions > * { max-width: 100%; }
+            }
             @media (prefers-reduced-motion: reduce) {
                 .campaign-create-page *,
                 .campaign-create-page *::before,
@@ -930,11 +973,11 @@
                                     <option value="{{ $savedAddress->email }}" data-address-id="{{ $savedAddress->id }}">{{ $savedAddress->email }}</option>
                                 @endforeach
                             </select>
-                            <div class="input-group-append"><button id="saved-email-manage" type="button" class="btn btn-success" aria-label="Manage saved email addresses" title="Manage saved email addresses"><i class="fas fa-plus" aria-hidden="true"></i></button></div>
+                            <div class="input-group-append"><button id="saved-email-manage" type="button" class="campaign-icon-button is-add" aria-label="Manage saved email addresses" title="Manage saved email addresses"><i class="fas fa-plus" aria-hidden="true"></i></button></div>
                         </div>
                         <div id="saved-email-manager" class="mt-2" hidden>
                             <label for="saved-email-new"><i class="fas fa-plus-square campaign-field-icon" aria-hidden="true"></i>Add a test address</label>
-                            <div class="input-group"><input id="saved-email-new" type="email" maxlength="255" class="form-control"><div class="input-group-append"><button id="saved-email-add" type="button" class="btn btn-success">Add</button><button id="saved-email-remove" type="button" class="btn btn-outline-danger">Delete selected</button></div></div>
+                            <div class="input-group"><input id="saved-email-new" type="email" maxlength="255" class="form-control"><div class="input-group-append"><button id="saved-email-add" type="button" class="campaign-icon-button is-add" title="Add test address" aria-label="Add test address"><i class="fas fa-plus" aria-hidden="true"></i></button><button id="saved-email-remove" type="button" class="campaign-icon-button is-delete" title="Delete selected address" aria-label="Delete selected address"><i class="fas fa-trash-alt" aria-hidden="true"></i></button></div></div>
                             <div id="saved-email-status" role="status" aria-live="polite" class="small mt-1"></div>
                         </div>
                     </div>

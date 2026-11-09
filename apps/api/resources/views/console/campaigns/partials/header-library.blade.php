@@ -10,11 +10,11 @@
             <option value="">Select Header</option>
         </select>
         <div class="input-group-append">
-            <button type="button" class="btn btn-success" data-header-save title="Save Header" aria-label="Save Header">
+            <button type="button" class="campaign-icon-button is-save" data-header-save title="Save Header" aria-label="Save Header">
                 <i class="fa fa-save" aria-hidden="true"></i>
             </button>
-            <button type="button" class="btn btn-danger" data-header-delete title="Delete Header" aria-label="Delete Header" disabled>
-                <i class="fa fa-times" aria-hidden="true"></i>
+            <button type="button" class="campaign-icon-button is-delete" data-header-delete title="Delete Header" aria-label="Delete Header" disabled>
+                <i class="fas fa-trash-alt" aria-hidden="true"></i>
             </button>
         </div>
     </div>

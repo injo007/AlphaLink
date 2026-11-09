@@ -350,14 +350,14 @@
                     ...(canManage ? [{ title: 'USERS', data: 'allowed_users', searchable: false, render: (users, type, row) => !row.deleted_at ? `<button type="button" data-id="${escapeHtml(row.id)}" class="btn btn-link users command-users-link" title="ALLOWED USERS"><i class="fas fa-users mr-1"></i>${Array.isArray(users) ? users.length : 0}</button>` : '' }] : []),
                     { title: 'ACTIONS', data: null, orderable: false, searchable: false, render: (data, type, row) => {
                         const assetsUrl = `${base}/${row.id}/assets`;
-                        if (!canManage) return `<a class="command-action-btn action-primary" href="${assetsUrl}" title="SHOW OFFER ASSETS"><i class="fas fa-box-open"></i></a>`;
-                        if (row.deleted_at) return `<button type="button" class="command-action-btn action-info restore" data-id="${escapeHtml(row.id)}" title="RESTORE OFFER"><i class="fas fa-trash-restore"></i></button>`;
+                        if (!canManage) return `<a class="command-action-btn action-assets" href="${assetsUrl}" title="SHOW OFFER ASSETS"><i class="fas fa-box-open"></i></a>`;
+                        if (row.deleted_at) return `<button type="button" class="command-action-btn action-restore restore" data-id="${escapeHtml(row.id)}" title="RESTORE OFFER"><i class="fas fa-trash-restore"></i></button>`;
                         const suppressionUrl = tableElement.dataset.suppressionUrlTemplate.replace('__OFFER_ID__', encodeURIComponent(row.id));
                         return `<div class="command-action-btn-group">` +
-                            `<a class="command-action-btn action-primary" href="${assetsUrl}" title="SHOW OFFER ASSETS"><i class="fas fa-box-open"></i></a>` +
-                            `<a class="command-action-btn action-warning" href="${escapeHtml(suppressionUrl)}" title="MANAGE SUPPRESSION FILE" aria-label="Manage suppression file for ${escapeHtml(row.name)}"><i class="fas fa-file-contract"></i></a>` +
-                            `<button type="button" class="command-action-btn action-info edit-offer" data-id="${escapeHtml(row.id)}" title="UPDATE OFFER"><i class="fas fa-edit"></i></button>` +
-                            `<button type="button" class="command-action-btn ${row.is_active ? 'action-status' : 'action-enable'} active-offer" data-id="${escapeHtml(row.id)}" data-status="${row.is_active ? 0 : 1}" title="${row.is_active ? 'DISABLE OFFER' : 'ENABLE OFFER'}"><i class="fas ${row.is_active ? 'fa-toggle-on' : 'fa-toggle-off'}"></i></button>` +
+                            `<a class="command-action-btn action-assets" href="${assetsUrl}" title="SHOW OFFER ASSETS"><i class="fas fa-box-open"></i></a>` +
+                            `<a class="command-action-btn action-suppression" href="${escapeHtml(suppressionUrl)}" title="MANAGE SUPPRESSION FILE" aria-label="Manage suppression file for ${escapeHtml(row.name)}"><i class="fas fa-file-contract"></i></a>` +
+                            `<button type="button" class="command-action-btn action-edit edit-offer" data-id="${escapeHtml(row.id)}" title="UPDATE OFFER"><i class="fas fa-edit"></i></button>` +
+                            `<button type="button" class="command-action-btn ${row.is_active ? 'action-status is-active' : 'action-enable'} active-offer" data-id="${escapeHtml(row.id)}" data-status="${row.is_active ? 0 : 1}" title="${row.is_active ? 'DISABLE OFFER' : 'ENABLE OFFER'}"><i class="fas ${row.is_active ? 'fa-toggle-on' : 'fa-toggle-off'}"></i></button>` +
                             `<button type="button" class="command-action-btn action-danger delete-offer" data-id="${escapeHtml(row.id)}" title="DELETE OFFER"><i class="fas fa-trash-alt"></i></button>` +
                             `</div>`;
                     } },

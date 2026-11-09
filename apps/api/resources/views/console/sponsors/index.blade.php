@@ -215,7 +215,7 @@
                         title: 'URL',
                         data: 'url',
                         render: (url, type) => type === 'display' && url
-                            ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="command-action-btn action-primary" title="Open sponsor website" aria-label="Open sponsor website"><i class="fas fa-external-link-alt"></i></a>`
+                            ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="command-action-btn action-url" title="Open sponsor website" aria-label="Open sponsor website"><i class="fas fa-external-link-alt"></i></a>`
                             : (url || ''),
                     },
                     {
@@ -227,7 +227,7 @@
                             const editUrl = @json(route('clean.console.sponsors.index')) + `/${row.id}/edit`;
                             const login = `<button type="button" data-id="${escapeHtml(row.id)}" class="command-action-btn action-login login" title="LOGIN SPONSOR" aria-label="Login to ${escapeHtml(row.name)}"><i class="fas fa-sign-in-alt"></i></button>`;
                             const update = `<button type="button" data-url="${escapeHtml(editUrl)}" class="command-action-btn action-edit update" title="UPDATE SPONSOR" aria-label="Update ${escapeHtml(row.name)}"><i class="fas fa-edit"></i></button>`;
-                            const statusButton = `<button type="button" data-id="${escapeHtml(row.id)}" data-action="status" data-status="${row.is_active ? 0 : 1}" class="command-action-btn ${row.is_active ? 'action-status' : 'action-enable'} status" title="${row.is_active ? 'DISABLE SPONSOR' : 'ENABLE SPONSOR'}" aria-label="${row.is_active ? 'DISABLE SPONSOR' : 'ENABLE SPONSOR'}"><i class="fas ${row.is_active ? 'fa-toggle-on' : 'fa-toggle-off'}"></i></button>`;
+                            const statusButton = `<button type="button" data-id="${escapeHtml(row.id)}" data-action="status" data-status="${row.is_active ? 0 : 1}" class="command-action-btn ${row.is_active ? 'action-status is-active' : 'action-enable'} status" title="${row.is_active ? 'DISABLE SPONSOR' : 'ENABLE SPONSOR'}" aria-label="${row.is_active ? 'DISABLE SPONSOR' : 'ENABLE SPONSOR'}"><i class="fas ${row.is_active ? 'fa-toggle-on' : 'fa-toggle-off'}"></i></button>`;
                             return `<div class="command-action-btn-group">${login}${update}${statusButton}</div>`;
                         },
                     },

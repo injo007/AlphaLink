@@ -353,11 +353,11 @@
                         render: (data, type, row) => {
                             const actions = [];
                             if (['from', 'subject'].includes(row.type)) {
-                                actions.push(`<button class="command-action-btn action-info asset-edit" type="button" data-id="${row.id}" data-value="${escapeHtml(row.value)}" title="EDIT"><i class="fas fa-pencil-alt"></i></button>`);
+                                actions.push(`<button class="command-action-btn action-edit asset-edit" type="button" data-id="${row.id}" data-value="${escapeHtml(row.value)}" title="EDIT"><i class="fas fa-pencil-alt"></i></button>`);
                                 actions.push(`<button class="command-action-btn action-danger asset-delete" type="button" data-id="${row.id}" title="DELETE"><i class="fas fa-trash-alt"></i></button>`);
                             }
                             if (['from', 'subject', 'creative', 'html'].includes(row.type)) {
-                                actions.push(`<button class="command-action-btn ${row.is_active ? 'action-status' : 'action-enable'} asset-toggle" type="button" data-id="${row.id}" data-status="${row.is_active ? 0 : 1}" title="${row.is_active ? 'DISABLE' : 'ENABLE'}"><i class="fas ${row.is_active ? 'fa-toggle-on' : 'fa-toggle-off'}"></i></button>`);
+                                actions.push(`<button class="command-action-btn ${row.is_active ? 'action-status is-active' : 'action-enable'} asset-toggle" type="button" data-id="${row.id}" data-status="${row.is_active ? 0 : 1}" title="${row.is_active ? 'DISABLE' : 'ENABLE'}"><i class="fas ${row.is_active ? 'fa-toggle-on' : 'fa-toggle-off'}"></i></button>`);
                             }
                             return `<div class="command-action-btn-group">${actions.join('')}</div>`;
                         },

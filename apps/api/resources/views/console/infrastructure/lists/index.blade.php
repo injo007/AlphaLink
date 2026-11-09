@@ -34,7 +34,7 @@
                 <span class="all-stats-overview-icon icon-purple" aria-hidden="true"><i class="fas fa-list-ul"></i></span>
                 <span class="all-stats-overview-copy">
                     <span>Total Lists</span>
-                    <strong id="stat-total-lists">{{ $workspace->lists()->count() }}</strong>
+                    <strong id="stat-total-lists">{{ $workspace->audienceLists()->count() }}</strong>
                     <small>Audience partitions</small>
                 </span>
             </article>

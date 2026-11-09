@@ -6,7 +6,7 @@
 
 ## 2026-11-09 AlphaLink navigation arrangement
 
-`ALPHALINK-NAV-001` adds cross-parent subpage arrangement to the AlphaLink admin sidebar. The isolated PHP service/controller tests pass; production browser verification and deployment are pending. The DMS equivalent is UNKNOWN because this request concerns AlphaLink navigation arrangement and no DMS inspection was requested; this does not block the AlphaLink-only behavior and must not be reported as parity.
+`ALPHALINK-NAV-001` adds cross-parent subpage arrangement to the AlphaLink admin sidebar. The focused PHP suite passes (5 tests / 11 assertions), and the local browser fixture using the production reorder script verifies drag/drop, keyboard movement and discard. Release `a2a86b7270d3f66c052d0ca8f4c7a2c584f1ca34` is deployed; the guarded installer verified its PostgreSQL backup, found no migrations pending and passed HTTPS health. Production health and served assets were checked. An authenticated production Arrange interaction was not separately exercised. The DMS equivalent is UNKNOWN because this request concerns AlphaLink navigation arrangement and no DMS inspection was requested; this does not block the AlphaLink-only behavior and must not be reported as parity.
 
 ## 2026-11-04 validation update
 

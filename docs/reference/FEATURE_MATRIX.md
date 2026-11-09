@@ -10,7 +10,7 @@ DMS-AUD-001, DMS-INST-001, DMS-INFRA-002, DMS-CLOUD-001, DMS-TOOLS-001, and DMS-
 
 | ID | Module / AlphaLink route | Source of behavior | Evidence | AlphaLink implementation | Status | Known difference |
 |---|---|---|---|---|---|---|
-| ALPHALINK-NAV-001 | Admin sidebar → Arrange navigation; `POST /app/navigation/order` | AlphaLink `GlobalNavigationOrder`, global preference controller, Command OS sidebar markup and interaction contract | E-NAV-01 | Admins can reorder parent sections and subpages, move a subpage between parent sections by drag/drop or keyboard, discard edits, and save the resulting global order/section assignment for all users. Role-filtered destinations remain governed by the existing server-rendered navigation payload. | TESTING | DMS behavior for cross-parent navigation arrangement was not inspected; no DMS parity claim is made. |
+| ALPHALINK-NAV-001 | Admin sidebar → Arrange navigation; `POST /app/navigation/order` | AlphaLink `GlobalNavigationOrder`, global preference controller, Command OS sidebar markup and interaction contract | E-NAV-01 | Admins can reorder parent sections and subpages, move a subpage between parent sections by drag/drop or keyboard, discard edits, and save the resulting global order/section assignment for all users. Role-filtered destinations remain governed by the existing server-rendered navigation payload. | VERIFIED | DMS behavior for cross-parent navigation arrangement was not inspected; no DMS parity claim is made. |
 
 This AlphaLink capability is tracked separately and does not change the archived DMS workflow count or status totals above.
 

@@ -41,6 +41,7 @@
                     </div>
                 </div>
                 <div class="col-sm-12 col-md-6 col-lg-3">
+                    <label class="command-os-field-label font-w600 text-uppercase font-size-xs mb-1 d-none d-md-block" style="visibility:hidden;">&nbsp;</label>
                     <button id="load_lists" type="button" class="command-os-btn-filter w-100">
                         <i class="fas fa-sync-alt mr-1"></i> LOAD LISTS
                     </button>

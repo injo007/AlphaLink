@@ -28,12 +28,11 @@
                 <div class="form-row align-items-end">
                     <div class="col-sm-12 col-lg-5 mb-3 mb-lg-0">
                         <label for="blacklist-file" class="command-os-field-label font-w700 text-uppercase font-size-xs mb-1">
-                            <i class="fas fa-file-upload mr-1 text-purple"></i> Upload Suppression File (.txt or .csv):
+                            <i class="fas fa-file-upload mr-1 text-purple"></i> Upload Suppression File (.txt, .csv):
                         </label>
                         <div class="command-input-wrap">
-                            <input class="form-control" id="blacklist-file" name="file" type="file" accept=".txt,.csv" required style="height: 42px; padding-top: 8px;">
+                            <input class="form-control" id="blacklist-file" name="file" type="file" accept=".txt,.csv" required style="height: 42px; padding: 7px 12px; font-size: 12px;">
                         </div>
-                        <small class="form-text text-muted font-size-xs mt-1">One address per line or in column 1. File is private and deleted after run.</small>
                     </div>
 
                     <div class="col-sm-12 col-lg-4 mb-3 mb-lg-0">
@@ -41,17 +40,17 @@
                             <i class="fas fa-exchange-alt mr-1 text-purple"></i> Move Matching Memberships To:
                         </label>
                         <div class="command-input-wrap">
-                            <select class="form-control selectpicker" id="blacklist-email-type" name="email_type" required data-size="8">
+                            <select class="form-control" id="blacklist-email-type" name="email_type" required style="height: 42px;">
                                 @foreach ($emailTypes as $type)
                                     <option value="{{ $type }}">{{ strtoupper(str_replace('_', ' ', $type)) }}</option>
                                 @endforeach
                             </select>
                         </div>
-                        <small class="form-text text-muted font-size-xs mt-1">Target membership classification for matching addresses.</small>
                     </div>
 
                     <div class="col-sm-12 col-lg-3">
-                        <button class="command-os-btn-filter w-100" id="blacklist-submit" type="submit">
+                        <label class="command-os-field-label font-w700 text-uppercase font-size-xs mb-1 d-none d-lg-block" style="visibility: hidden;">&nbsp;</label>
+                        <button class="command-os-btn-filter w-100" id="blacklist-submit" type="submit" style="height: 42px;">
                             <i class="fas fa-play-circle mr-1"></i> UPLOAD &amp; CHECK
                         </button>
                     </div>
@@ -61,7 +60,7 @@
             <div class="command-os-info-banner mt-3 py-2 px-3 font-size-xs" role="note">
                 <div class="command-os-info-banner-icon"><i class="fas fa-info-circle"></i></div>
                 <div class="command-os-info-banner-content text-muted">
-                    This AlphaLink workflow accepts email-address files. Files whose first value is a 32-character hash are rejected without changing records.
+                    This AlphaLink workflow accepts email-address files. Use one address per line, or put the address in the first CSV column. Files whose first value is a 32-character hash are rejected without changing records. File is deleted after processing.
                 </div>
             </div>
         </section>
@@ -116,10 +115,6 @@
             const cancelUrl = @json(route('clean.console.infrastructure.blacklist-checker.cancel', '__PROCESS__'));
             const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
             let refreshTimer = null;
-
-            if (window.jQuery.fn.selectpicker) {
-                window.jQuery('#blacklist-email-type').selectpicker();
-            }
 
             const escapeHtml = (value) => window.jQuery('<div>').text(value == null ? '' : String(value)).html();
             const announce = (message, tone = 'info') => {
@@ -195,9 +190,6 @@
                         throw new Error(firstError || payload.message || 'The blacklist file could not be queued.');
                     }
                     form.reset();
-                    if (window.jQuery.fn.selectpicker) {
-                        window.jQuery('#blacklist-email-type').selectpicker('render');
-                    }
                     announce(payload.message || 'Blacklist check queued.', 'success');
                     await refresh();
                 } catch (error) {

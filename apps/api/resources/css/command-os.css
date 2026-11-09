@@ -5153,10 +5153,24 @@ html:not([data-command-theme='dark']) body.command-os-shell .command-os-filter-c
     cursor: pointer;
     font-size: 12px !important;
     font-weight: 750 !important;
-    height: 40px !important;
+    height: 42px !important;
     letter-spacing: 0.08em !important;
     transition: all 0.18s ease;
     width: 100%;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    line-height: 1 !important;
+    vertical-align: middle !important;
+    padding: 0 20px !important;
+    box-sizing: border-box !important;
+}
+
+.command-os-btn-filter i {
+    font-size: 12px !important;
+    line-height: 1 !important;
+    vertical-align: middle !important;
 }
 
 .command-os-btn-filter:hover {
@@ -8412,6 +8426,14 @@ body.command-os-shell #sidebar .command-os-nav-editor {
     line-height: 1;
     opacity: .72;
 }
+body.command-os-shell #sidebar .command-os-navigation.is-reordering .command-os-navigation-row:has(> .command-os-navigation-disclosure[open]) > .command-os-navigation-link:not(.active) {
+    color: var(--co-ink);
+    background: transparent;
+    box-shadow: none;
+}
+body.command-os-shell #sidebar .command-os-navigation.is-reordering .command-os-navigation-disclosure[open] > summary {
+    color: var(--co-muted);
+}
 .command-os-navigation.is-reordering .is-dragging { cursor: grabbing; opacity: .45; }
 .command-os-navigation.is-reordering [data-nav-group].is-drop-target > .command-os-navigation-row,
 .command-os-navigation.is-reordering [data-nav-item].is-drop-target {
@@ -8428,11 +8450,11 @@ body.command-os-shell #sidebar .command-os-nav-editor {
     background: var(--co-purple);
     content: "";
 }
-.command-os-navigation.is-reordering [data-nav-group].is-parent-drop-target > .command-os-navigation-row > .command-os-navigation-link {
+body.command-os-shell #sidebar .command-os-navigation.is-reordering [data-nav-group].is-parent-drop-target > .command-os-navigation-row > .command-os-navigation-link:not(.active) {
     color: var(--co-purple);
     background: color-mix(in srgb, var(--co-purple) 8%, var(--co-surface));
 }
-.command-os-navigation.is-reordering [data-nav-group].is-parent-drop-target > .command-os-navigation-row > .command-os-navigation-link::after {
+body.command-os-shell #sidebar .command-os-navigation.is-reordering [data-nav-group].is-parent-drop-target > .command-os-navigation-row > .command-os-navigation-link:not(.active)::after {
     content: "Drop here";
     padding: 3px 5px;
     border-radius: 5px;
@@ -9462,4 +9484,3 @@ html:not([data-command-theme='dark']) body.command-os-shell .command-os-dialog {
     background: rgba(10, 15, 35, 0.7);
     backdrop-filter: blur(6px);
 }
-

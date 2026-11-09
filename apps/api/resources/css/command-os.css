@@ -939,13 +939,17 @@ body.command-os-shell #page-footer a {
 
 .command-os-header-wave {
     position: absolute;
-    z-index: -1;
-    top: -29px;
-    right: -8px;
-    width: min(78%, 920px);
-    height: 103px;
-    overflow: visible;
-    opacity: .58;
+    z-index: 0;
+    inset: 0;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    overflow: hidden;
+    opacity: .72;
     pointer-events: none;
 }
 
@@ -2618,7 +2622,7 @@ body.command-os-dashboard #page-container.sidebar-mini #sidebar:focus-within .na
 
 @media (max-width: 640px) {
     .command-os-dashboard-content::before { inset: -18px -5px 0; }
-    .command-os-header-wave { top: -12px; right: 0; width: 100%; max-width: 100%; height: 76px; opacity: .32; }
+    .command-os-header-wave { position: absolute; inset: 0; width: 100%; max-width: 100%; height: 100%; opacity: .42; }
     body.command-os-shell #page-header .command-os-header-leading { flex: 1 1 auto; }
     body.command-os-shell #page-header .command-os-search-trigger { flex: 0 0 40px; width: 40px; min-width: 40px; height: 40px; justify-content: center; margin-left: 0; padding: 0; }
     .command-os-search-trigger > span,
@@ -2737,11 +2741,30 @@ body.command-os-dashboard #main_content .command-os-page-heading .command-os-sub
 }
 
 body.command-os-dashboard #main_content .command-os-header-wave {
-    top: -17px;
-    right: 1%;
-    width: min(83%, 1020px);
-    height: 126px;
-    opacity: .78;
+    position: absolute;
+    inset: 0;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    z-index: 0;
+    overflow: hidden;
+    opacity: .85;
+    pointer-events: none;
+}
+
+body.command-os-dashboard #main_content .command-os-page-heading > div,
+body.command-os-dashboard #main_content .command-os-page-heading-info,
+body.command-os-dashboard #main_content .command-os-heading-actions {
+    position: relative;
+    z-index: 1;
+}
+
+html[data-command-theme='dark'] body.command-os-dashboard #main_content .command-os-header-wave {
+    opacity: .75;
 }
 
 body.command-os-dashboard #main_content .command-os-header-wave path {
@@ -3139,7 +3162,7 @@ body.command-os-dashboard #main_content .command-os-geo-note {
 @media (max-width: 640px) {
     body.command-os-dashboard #main_content .command-os-page-heading { min-height: 0; padding: 12px; }
     body.command-os-dashboard #main_content .command-os-page-heading h1 { font-size: 22px; }
-    body.command-os-dashboard #main_content .command-os-header-wave { top: -5px; right: 0; width: 100%; height: 90px; opacity: .42; }
+    body.command-os-dashboard #main_content .command-os-header-wave { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .55; }
     body.command-os-dashboard #main_content .command-os-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
     body.command-os-dashboard #main_content .command-os-metric { min-height: 70px; }
     body.command-os-dashboard #main_content .command-os-today-pulse dl { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 8px; }
@@ -8390,20 +8413,20 @@ body.command-os-shell #sidebar .command-os-nav-editor {
    ========================================================================== */
 
 /* 1. UNIVERSAL BOOTSTRAP-SELECT WRAPPER RESET (ELIMINATES DOUBLE BORDERS) */
-.bootstrap-select,
-.bootstrap-select.form-control,
-div.bootstrap-select,
-div.bootstrap-select.form-control,
-.command-os-filter-card .bootstrap-select,
-.command-os-filter-card .bootstrap-select.form-control,
-.command-os-filter-bar .bootstrap-select,
-.command-os-filter-bar .bootstrap-select.form-control,
-.command-input-wrap .bootstrap-select,
-.command-input-wrap .bootstrap-select.form-control,
-.command-os-field-group .bootstrap-select,
-.command-os-field-group .bootstrap-select.form-control,
-body.command-os-shell .bootstrap-select,
-body.command-os-shell .bootstrap-select.form-control {
+.bootstrap-select:not(.bs-container),
+.bootstrap-select.form-control:not(.bs-container),
+div.bootstrap-select:not(.bs-container),
+div.bootstrap-select.form-control:not(.bs-container),
+.command-os-filter-card .bootstrap-select:not(.bs-container),
+.command-os-filter-card .bootstrap-select.form-control:not(.bs-container),
+.command-os-filter-bar .bootstrap-select:not(.bs-container),
+.command-os-filter-bar .bootstrap-select.form-control:not(.bs-container),
+.command-input-wrap .bootstrap-select:not(.bs-container),
+.command-input-wrap .bootstrap-select.form-control:not(.bs-container),
+.command-os-field-group .bootstrap-select:not(.bs-container),
+.command-os-field-group .bootstrap-select.form-control:not(.bs-container),
+body.command-os-shell .bootstrap-select:not(.bs-container),
+body.command-os-shell .bootstrap-select.form-control:not(.bs-container) {
     background: transparent !important;
     background-color: transparent !important;
     border: none !important;

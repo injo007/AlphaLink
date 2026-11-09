@@ -1130,22 +1130,22 @@ function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
         <div className="command-os-dashboard-content" data-theme={theme}>
             {/* Header with wave and date filters */}
             <div className="command-os-page-heading">
-                <svg className="command-os-header-wave" viewBox="0 0 1000 110" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                <svg className="command-os-header-wave" viewBox="-40 0 1080 110" preserveAspectRatio="none" aria-hidden="true" focusable="false">
                     <defs>
                         <linearGradient id="command-os-header-wave-spectrum" x1="0" y1="0" x2="1" y2="0">
-                            <stop offset="0%" stopColor="#a64cff" />
-                            <stop offset="42%" stopColor="#8f63ff" />
-                            <stop offset="60%" stopColor="#12c9ff" />
-                            <stop offset="82%" stopColor="#b451ff" />
-                            <stop offset="100%" stopColor="#ff8fe1" />
+                            <stop offset="0%" stopColor="#a64cff" stopOpacity="0.85" />
+                            <stop offset="28%" stopColor="#8f63ff" stopOpacity="0.95" />
+                            <stop offset="55%" stopColor="#12c9ff" stopOpacity="1" />
+                            <stop offset="78%" stopColor="#b451ff" stopOpacity="0.95" />
+                            <stop offset="100%" stopColor="#ff8fe1" stopOpacity="0.85" />
                         </linearGradient>
                     </defs>
-                    <path className="command-os-header-wave-glow" d="M0 68 C110 64 119 12 238 24 S370 89 500 67 647 7 774 28 894 75 1000 45" />
-                    <path className="command-os-header-wave-blue" d="M0 68 C110 64 119 12 238 24 S370 89 500 67 647 7 774 28 894 75 1000 45" />
-                    <path className="command-os-header-wave-violet" d="M0 82 C108 77 142 35 254 44 S381 103 523 80 674 25 796 42 915 94 1000 64" />
-                    <path className="command-os-header-wave-cyan" d="M0 54 C115 49 150 20 262 32 S390 76 515 57 661 14 789 31 909 69 1000 40" />
+                    <path className="command-os-header-wave-glow" d="M-40 68 C110 64 119 12 238 24 S370 89 500 67 647 7 774 28 894 75 1040 45" />
+                    <path className="command-os-header-wave-blue" d="M-40 68 C110 64 119 12 238 24 S370 89 500 67 647 7 774 28 894 75 1040 45" />
+                    <path className="command-os-header-wave-violet" d="M-40 82 C108 77 142 35 254 44 S381 103 523 80 674 25 796 42 915 94 1040 64" />
+                    <path className="command-os-header-wave-cyan" d="M-40 54 C115 49 150 20 262 32 S390 76 515 57 661 14 789 31 909 69 1040 40" />
                 </svg>
-                <div>
+                <div className="command-os-page-heading-info">
                     <p className="command-os-eyebrow">ALPHALINK COMMAND OS — {payload.workspaceName}</p>
                     <h1>Welcome back, {payload.userName}<span className="command-os-greeting-wave" aria-hidden="true"> 👋</span></h1>
                     <p className="command-os-subtitle">Email marketing intelligence &amp; operations center</p>

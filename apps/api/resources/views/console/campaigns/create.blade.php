@@ -150,6 +150,11 @@
             .campaign-create-page .bootstrap-select .dropdown-menu li a:hover, .campaign-create-page .bootstrap-select .dropdown-menu li.active a, .campaign-create-page .bootstrap-select .dropdown-menu li.selected a { background: #f1eaff; color: #6123c8; }
             .campaign-create-page .bootstrap-select .dropdown-menu li.disabled a { color: #9b9dad; }
             .campaign-create-page .bootstrap-select .dropdown-menu .no-results { background: var(--campaign-wash, #f8f7ff); border-radius: 8px; color: var(--campaign-muted, #66708e); margin: 4px; padding: 10px; }
+            .campaign-create-page .bootstrap-select .dropdown-menu,
+            body:has(.campaign-create-page) .bootstrap-select .dropdown-menu { background: linear-gradient(145deg, var(--campaign-surface, #fff), var(--campaign-wash, #f8f7ff)) !important; border: 1px solid var(--campaign-border, #ded9f8) !important; border-radius: 14px !important; box-shadow: 0 16px 40px rgb(34 25 76 / 19%) !important; outline: 0 !important; }
+            .campaign-create-page .bootstrap-select .dropdown-menu .inner,
+            .campaign-create-page .bootstrap-select .dropdown-menu .inner > ul,
+            .campaign-create-page .bootstrap-select .dropdown-menu .inner > ul > li { border: 0 !important; box-shadow: none !important; outline: 0 !important; }
             /* Keep the campaign picker on one themed surface; reset legacy Bootstrap borders inside it. */
             .campaign-create-page .bootstrap-select > .dropdown-toggle,
             body:has(.campaign-create-page) .bootstrap-select > .dropdown-toggle { background: linear-gradient(145deg, var(--campaign-surface, #fff), var(--campaign-wash, #f8f7ff)); border: 1px solid var(--campaign-border, #ded9f8) !important; box-shadow: none !important; outline: 0; }
@@ -469,6 +474,10 @@
                 text-align: center;
                 width: 13px;
             }
+            .campaign-create-page label .btn-link,
+            .campaign-create-page #campaign-tags-help { align-items: center; background: linear-gradient(145deg, #fff, #f2efff); border: 1px solid #e0d8f4; border-radius: 8px; color: #7137dc; display: inline-flex; height: 25px; justify-content: center; margin: 0 0 0 4px; padding: 0; text-decoration: none; vertical-align: middle; width: 25px; }
+            .campaign-create-page label .btn-link:hover,
+            .campaign-create-page #campaign-tags-help:hover { background: #eee8ff; border-color: #bba4ee; color: #5921bc; }
             .campaign-create-page #campaign-usable-tags {
                 align-items: center;
                 background: linear-gradient(100deg, #fff, #f6f3ff);
@@ -512,13 +521,15 @@
             .campaign-create-page .campaign-create-help[open] > small { display: block; margin-top: 5px; }
             .campaign-create-page .campaign-email-card .block-content { padding: 6px 12px; }
             .campaign-create-page .campaign-email-card .form-group { margin-bottom: 0; }
-            .campaign-create-page .campaign-email-card label { margin-bottom: 2px; }
-            .campaign-create-page .campaign-email-card .form-control:not(textarea):not([multiple]):not(.bootstrap-select) { height: 24px; min-height: 24px; padding: 1px 8px; }
-            .campaign-create-page .campaign-email-card .bootstrap-select.form-control > .dropdown-toggle { height: 24px; min-height: 24px; padding: 1px 8px; }
-            .campaign-create-page .campaign-email-card #campaign-email-tests { height: 24px; min-height: 24px; resize: vertical; }
+            .campaign-create-page .campaign-email-card label { margin-bottom: 4px; }
+            .campaign-create-page .campaign-email-card .form-control:not(textarea):not([multiple]):not(.bootstrap-select) { height: 36px; min-height: 36px; padding: 4px 10px; }
+            .campaign-create-page .campaign-email-card .bootstrap-select.form-control > .dropdown-toggle { height: 36px !important; min-height: 36px !important; padding: 0 10px !important; }
+            .campaign-create-page .campaign-email-card #campaign-email-tests { height: 36px; min-height: 36px; resize: vertical; }
             .campaign-create-page .campaign-header-library .input-group { display: flex; flex-wrap: nowrap; }
             .campaign-create-page .campaign-header-library .input-group > .bootstrap-select.form-control { flex: 1 1 0; min-width: 0; width: 1% !important; }
             .campaign-create-page .campaign-header-library .input-group > .input-group-append { display: flex; flex: 0 0 auto; }
+            .campaign-create-page .campaign-header-library .input-group > .input-group-append .campaign-icon-button,
+            .campaign-create-page #campaign-saved-emails .input-group > .input-group-append .campaign-icon-button { flex-basis: 36px; height: 36px; width: 36px; }
             .campaign-create-page .campaign-header-library [data-header-status]:empty { display: none; }
             .campaign-create-page #campaign-saved-emails .input-group { display: flex; flex-wrap: nowrap; }
             .campaign-create-page #campaign-saved-emails .input-group > .bootstrap-select.form-control { flex: 1 1 0; min-width: 0; width: 1% !important; }
@@ -537,18 +548,29 @@
                 align-items: center;
                 background: linear-gradient(105deg, #f7f3ff, #f8faff);
                 border-bottom: 1px solid #ebe5fb;
+                gap: 12px;
                 justify-content: space-between;
                 min-height: 48px;
                 padding: 8px 12px;
                 position: static;
             }
-            .campaign-create-page .campaign-delivery-card [data-campaign-placeholder-editor] > .block-header .block-title { color: #332761; display: block; font-size: 11px; font-weight: 800; letter-spacing: .055em; margin: 0; }
+            .campaign-create-page .campaign-placeholder-heading { min-width: 190px; }
+            .campaign-create-page .campaign-delivery-card [data-campaign-placeholder-editor] > .block-header .block-title { align-items: center; color: #332761; display: flex; font-size: 12px; font-weight: 850; letter-spacing: -.01em; margin: 0 0 2px; text-transform: none; }
+            .campaign-create-page .campaign-delivery-card [data-campaign-placeholder-editor] > .block-header .campaign-placeholder-heading p { color: var(--campaign-muted); font-size: 10px; line-height: 1.35; margin: 0; }
             .campaign-create-page .campaign-delivery-card > .block-header > .campaign-section-caption { display: none; }
             .campaign-create-page .campaign-delivery-card > .block-content { padding: 8px 12px 12px; }
             .campaign-create-page .campaign-delivery-card [data-campaign-placeholder-editor] > .block-content { padding: 10px 12px 12px; }
             .campaign-create-page .campaign-delivery-card [data-campaign-placeholder-editor] .table-responsive:not(:has(tbody tr)) { display: none; }
-            .campaign-create-page .campaign-placeholder-toolbar { align-items: center; flex-wrap: wrap; gap: 7px; margin: 0; }
-            .campaign-create-page .campaign-placeholder-toolbar .custom-control-inline { margin-right: 0; }
+            .campaign-create-page .campaign-placeholder-toolbar { align-items: center; flex: 0 1 auto; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin: 0; }
+            .campaign-create-page .campaign-placeholder-toolbar .custom-control-inline { margin: 0; }
+            .campaign-create-page .campaign-placeholder-mode { align-items: center; background: #fff; border: 1px solid #e2ddf0; border-radius: 10px; display: inline-flex; min-height: 36px; padding: 0 10px 0 37px; transition: background .16s ease, border-color .16s ease; }
+            .campaign-create-page .campaign-placeholder-mode:focus-within { background: #fbf9ff; border-color: #b79ce9; }
+            .campaign-create-page .campaign-placeholder-mode .custom-control-label { align-items: center; color: #4f5875; display: inline-flex; font-size: 10px; font-weight: 800; gap: 6px; line-height: 1.1; margin: 0; min-height: 34px; padding: 0; text-transform: uppercase; white-space: nowrap; }
+            .campaign-create-page .campaign-placeholder-mode .custom-control-label::before,
+            .campaign-create-page .campaign-placeholder-mode .custom-control-label::after { top: 50%; transform: translateY(-50%); }
+            .campaign-create-page .campaign-placeholder-mode .custom-control-label::after { left: calc(-2.25rem + 2px); }
+            .campaign-create-page .campaign-placeholder-mode .custom-control-input:checked ~ .custom-control-label::after { transform: translate(.75rem, -50%); }
+            .campaign-create-page .campaign-placeholder-mode .campaign-field-icon { flex: 0 0 13px; margin: 0; width: 13px; }
             .campaign-create-page .campaign-placeholder-toolbar [data-placeholder-add] {
                 align-items: center;
                 background: linear-gradient(140deg, #7f3ef2, #a24ef7);
@@ -559,16 +581,20 @@
                 display: inline-flex;
                 font-size: 11px;
                 font-weight: 750;
-                gap: 6px;
+                gap: 7px;
                 line-height: 1.25;
-                min-height: 34px;
-                padding: 5px 11px;
+                min-height: 36px;
+                padding: 5px 13px;
                 transition: box-shadow .16s ease, transform .16s ease;
             }
+            .campaign-create-page .campaign-placeholder-toolbar [data-placeholder-add] > i { align-items: center; display: inline-flex; justify-content: center; line-height: 1; }
             .campaign-create-page .campaign-placeholder-toolbar [data-placeholder-add]:hover { box-shadow: 0 5px 13px rgb(111 48 222 / 28%); transform: translateY(-1px); }
             .campaign-create-page .campaign-placeholder-toolbar [data-placeholder-add]:focus-visible { box-shadow: 0 0 0 3px rgb(139 74 255 / 18%); outline: 0; }
             .campaign-create-page [data-campaign-placeholder-editor] .table { border-collapse: separate; border-spacing: 0; margin-bottom: 0; }
-            .campaign-create-page [data-campaign-placeholder-editor] .table thead th { background: #f4f3fb; border-bottom: 1px solid #e4e5f1; border-top: 0; color: #555d78; font-size: 10px; font-weight: 800; letter-spacing: .045em; padding: 9px 10px; }
+            .campaign-create-page [data-campaign-placeholder-editor] .table thead th { background: #f4f3fb; border-bottom: 1px solid #e4e5f1; border-top: 0; color: #555d78; font-size: 10px; font-weight: 800; letter-spacing: .045em; padding: 10px; vertical-align: middle; }
+            .campaign-create-page [data-campaign-placeholder-editor] .table thead th:nth-child(1) { width: 56%; }
+            .campaign-create-page [data-campaign-placeholder-editor] .table thead th:nth-child(2) { width: 29%; }
+            .campaign-create-page [data-campaign-placeholder-editor] .table thead th:nth-child(3) { width: 15%; }
             .campaign-create-page [data-campaign-placeholder-editor] .table tbody td { background: rgb(255 255 255 / 78%); border-top: 1px solid #ececf5; padding: 8px 7px; vertical-align: middle; }
             .campaign-create-page [data-campaign-placeholder-editor] .table tbody tr:hover td { background: #faf8ff; }
             .campaign-create-page [data-campaign-placeholder-editor] textarea.form-control { min-height: 54px; resize: vertical; }
@@ -595,39 +621,87 @@
             .campaign-create-page #campaign-routing > .row > [class*='col-'] { min-width: 0; }
             .campaign-create-page .campaign-delivery-card .form-group { margin-bottom: 2px; }
             .campaign-create-page .campaign-delivery-card label { margin-bottom: 2px; }
-            .campaign-create-page .campaign-delivery-card .form-control:not(textarea):not([multiple]):not(.bootstrap-select) { height: 24px; min-height: 24px; padding: 1px 8px; }
-            .campaign-create-page .campaign-delivery-card .bootstrap-select.form-control > .dropdown-toggle { height: 24px; min-height: 24px; padding: 1px 8px; }
-            .campaign-create-page #send-ips-available-filter,
-            .campaign-create-page #send-ips-selected-filter { height: 22px; min-height: 22px; padding: 1px 7px; }
-            .campaign-create-page #campaign-routing .campaign-route-selector { min-width: 0; }
-            .campaign-create-page #campaign-routing .campaign-route-selector > label { align-items: center; display: flex; font-size: 11px; font-weight: 760; gap: 3px; min-height: 23px; }
-            .campaign-create-page #campaign-routing .campaign-route-selector > label .campaign-field-icon { font-size: 12px; }
+            .campaign-create-page .campaign-editor-heading { align-items: center; display: flex; flex-wrap: wrap; gap: 8px 12px; justify-content: space-between; margin: 0 0 7px; min-height: 36px; }
+            .campaign-create-page .campaign-editor-title { align-items: center; color: var(--campaign-ink); display: inline-flex; font-size: 12px; font-weight: 800; gap: 6px; line-height: 1.2; margin: 0; }
+            .campaign-create-page .campaign-editor-title .campaign-field-icon { font-size: 13px; margin: 0; width: 16px; }
+            .campaign-create-page .campaign-editor-tools { align-items: center; display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+            .campaign-create-page .campaign-editor-icon-button { align-items: center; background: linear-gradient(145deg, #fff, #f2efff); border: 1px solid #ddd5f4; border-radius: 10px; box-shadow: 0 2px 5px rgb(57 43 109 / 6%); color: #7137dc; cursor: pointer; display: inline-flex; flex: 0 0 34px; height: 34px; justify-content: center; line-height: 1; padding: 0; text-decoration: none; transition: background .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease; width: 34px; }
+            .campaign-create-page .campaign-editor-icon-button:hover,
+            .campaign-create-page .campaign-editor-icon-button:focus-visible { background: #eee8ff; border-color: #bba4ee; box-shadow: 0 0 0 3px rgb(139 74 255 / 12%); color: #5921bc; outline: 0; transform: translateY(-1px); }
+            .campaign-create-page .campaign-editor-icon-button-pixel { background: linear-gradient(145deg, #eef9ff, #e9f1ff); border-color: #d1ddf7; color: #4769c7; }
+            .campaign-create-page .campaign-body-map-switch { align-items: center; background: linear-gradient(145deg, #fff, #f7f5ff); border: 1px solid #e0daf1; border-radius: 10px; display: inline-flex; margin: 0; min-height: 34px; padding: 0 9px 0 38px; }
+            .campaign-create-page .campaign-body-map-switch .custom-control-label { align-items: center; color: #515b78; display: inline-flex; font-size: 10px; font-weight: 800; gap: 5px; line-height: 1.1; margin: 0; min-height: 32px; padding: 0; text-transform: uppercase; white-space: nowrap; }
+            .campaign-create-page .campaign-body-map-switch .custom-control-label::before,
+            .campaign-create-page .campaign-body-map-switch .custom-control-label::after { top: 50%; transform: translateY(-50%); }
+            .campaign-create-page .campaign-body-map-switch .custom-control-label::after { left: calc(-2.25rem + 2px); }
+            .campaign-create-page .campaign-body-map-switch .custom-control-input:checked ~ .custom-control-label::after { transform: translate(.75rem, -50%); }
+            .campaign-create-page .campaign-body-map-switch .campaign-label-icon { color: #7538e0; font-size: 11px; margin: 0; text-align: center; width: 13px; }
+            .campaign-create-page .campaign-delivery-card .form-control:not(textarea):not([multiple]):not(.bootstrap-select) { height: 36px; min-height: 36px; padding: 4px 10px; }
+            .campaign-create-page .campaign-delivery-card .bootstrap-select.form-control > .dropdown-toggle { height: 36px !important; min-height: 36px !important; padding: 0 10px !important; }
+            .campaign-create-page .campaign-delivery-card label { line-height: 1.35; }
+            .campaign-create-page select.form-control:not([multiple]):not(.selectpicker) {
+                appearance: none;
+                background-color: #fff;
+                background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%237349c6' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.6'/%3E%3C/svg%3E");
+                background-position: right 12px center;
+                background-repeat: no-repeat;
+                background-size: 12px 8px;
+                padding-right: 34px !important;
+            }
+            .campaign-create-page #campaign-routing select.form-control { height: 38px; line-height: 1.25; min-height: 38px; padding: 4px 34px 4px 11px; }
+            .campaign-create-page .campaign-route-pools-heading { align-items: center; display: flex; gap: 12px; justify-content: space-between; margin: 6px 0 2px; }
+            .campaign-create-page .campaign-route-pools-heading > div { align-items: center; display: flex; flex-wrap: wrap; gap: 5px 8px; min-width: 0; }
+            .campaign-create-page .campaign-route-pools-heading > div > span { color: var(--campaign-ink); font-size: 12px; font-weight: 800; }
+            .campaign-create-page .campaign-route-pools-heading small { color: var(--campaign-muted); font-size: 10px; }
+            .campaign-create-page .campaign-route-kind { background: #f1eaff; border: 1px solid #e2d6ff; border-radius: 999px; color: #6631c7; flex: 0 0 auto; font-size: 10px; font-weight: 800; padding: 4px 9px; }
+            .campaign-create-page .campaign-route-picker {
+                display: grid !important;
+                gap: 12px;
+                grid-template-columns: minmax(0, 1fr) 52px minmax(0, 1fr);
+                margin: 8px 0 10px;
+            }
+            .campaign-create-page #campaign-routing .campaign-route-picker > .campaign-route-selector {
+                background: linear-gradient(145deg, #fff, #faf9ff);
+                border: 1px solid #e1def1;
+                border-radius: 14px;
+                box-shadow: 0 4px 12px rgb(58 45 111 / 5%);
+                flex: initial;
+                max-width: none;
+                min-width: 0;
+                padding: 12px;
+                width: auto;
+            }
+            .campaign-create-page .campaign-route-pane-heading { align-items: center; display: flex; gap: 7px; justify-content: space-between; margin-bottom: 8px; min-height: 30px; }
+            .campaign-create-page .campaign-route-pane-heading label { align-items: center; display: flex; flex: 1 1 auto; font-size: 11px; font-weight: 800; gap: 7px; line-height: 1.2; margin: 0; min-width: 0; }
+            .campaign-create-page .campaign-route-pane-heading label > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+            .campaign-create-page .campaign-route-count { align-items: center; background: #f0eaff; border: 1px solid #e5d9ff; border-radius: 999px; color: #642ec6; display: inline-flex; flex: 0 0 auto; font-size: 10px; font-weight: 800; justify-content: center; min-height: 23px; min-width: 26px; padding: 0 7px; }
+            .campaign-create-page .campaign-route-filter { height: 36px !important; margin-bottom: 8px !important; min-height: 36px !important; }
             .campaign-create-page #send-ips-available,
             .campaign-create-page #send-ips-selected {
                 background: linear-gradient(180deg, #fff, #fafaff);
                 border: 1px solid #dce0f0;
                 border-radius: 10px;
                 box-shadow: inset 0 1px 2px rgb(34 43 86 / 4%);
-                height: 230px;
-                min-height: 170px;
+                height: 286px;
+                min-height: 240px;
                 overflow: auto;
-                padding: 6px;
+                padding: 7px;
+                width: 100%;
             }
             .campaign-create-page #send-ips-available option,
-            .campaign-create-page #send-ips-selected option { border-radius: 6px; color: #242c4b; line-height: 1.5; padding: 7px 8px; }
+            .campaign-create-page #send-ips-selected option { border-radius: 6px; color: #242c4b; line-height: 1.55; padding: 8px 9px; }
             .campaign-create-page #send-ips-available option:checked,
             .campaign-create-page #send-ips-selected option:checked { background: linear-gradient(100deg, #eee7ff, #eaf2ff); color: #5d2dc2; }
-            .campaign-create-page #send-ips-available-filter,
-            .campaign-create-page #send-ips-selected-filter { background: #fff; border-radius: 8px; height: 30px; min-height: 30px; }
-            .campaign-create-page #campaign-routing .col-md-2.d-flex.flex-column {
+            .campaign-create-page #campaign-routing .campaign-route-transfer-controls {
                 align-content: center;
+                align-self: center;
                 display: grid !important;
                 gap: 7px;
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-                padding: 34px 14px 0;
+                grid-template-columns: minmax(0, 1fr);
+                padding: 0;
             }
-            .campaign-create-page #campaign-routing .col-md-2 [data-ip-move] { align-items: center; background: linear-gradient(145deg, #fff, #f3efff); border: 1px solid #ddd3f8; border-radius: 10px; box-shadow: 0 2px 6px rgb(59 44 117 / 8%); color: #6d35d5; display: inline-flex; font-size: 17px; height: 38px; justify-content: center; margin: 0 !important; padding: 0 4px; transition: background .16s ease, box-shadow .16s ease, transform .16s ease; width: 100%; }
-            .campaign-create-page #campaign-routing .col-md-2 [data-ip-move]:hover { background: #eee7ff; box-shadow: 0 4px 10px rgb(59 44 117 / 13%); transform: translateY(-1px); }
+            .campaign-create-page #campaign-routing .campaign-route-transfer-controls [data-ip-move] { align-items: center; background: linear-gradient(145deg, #fff, #f3efff); border: 1px solid #ddd3f8; border-radius: 11px; box-shadow: 0 2px 7px rgb(59 44 117 / 8%); color: #6d35d5; display: inline-flex; font-size: 16px; height: 40px; justify-content: center; margin: 0 !important; padding: 0 4px; transition: background .16s ease, box-shadow .16s ease, transform .16s ease; width: 100%; }
+            .campaign-create-page #campaign-routing .campaign-route-transfer-controls [data-ip-move]:hover { background: #eee7ff; box-shadow: 0 4px 10px rgb(59 44 117 / 13%); transform: translateY(-1px); }
             .campaign-create-page #send-route-behavior { background: #f7f5ff; border-left: 3px solid #9a5aff; border-radius: 0 7px 7px 0; margin-top: 8px; padding: 7px 9px; }
             #campaign-options-status.alert-info {
                 background-color: transparent !important;
@@ -776,6 +850,20 @@
             html[data-command-theme='dark'] .campaign-create-page .campaign-delivery-card [data-campaign-placeholder-editor] { background: linear-gradient(145deg, #101c3a, #111a35); border-color: #334574; }
             html[data-command-theme='dark'] .campaign-create-page .campaign-delivery-card [data-campaign-placeholder-editor] > .block-header,
             html[data-command-theme='dark'] .campaign-create-page [data-campaign-placeholder-editor] .table thead th { background: #162345; border-color: #334574; color: #e9edff; }
+            html[data-command-theme='dark'] .campaign-create-page .campaign-delivery-card [data-campaign-placeholder-editor] > .block-header .campaign-placeholder-heading p { color: #abb6d8; }
+            html[data-command-theme='dark'] .campaign-create-page .campaign-placeholder-mode,
+            html[data-command-theme='dark'] .campaign-create-page .campaign-body-map-switch,
+            html[data-command-theme='dark'] .campaign-create-page .campaign-editor-icon-button { background: linear-gradient(145deg, #172547, #182140); border-color: #3a4c79; color: #d4b7ff; }
+            html[data-command-theme='dark'] .campaign-create-page .campaign-placeholder-mode .custom-control-label,
+            html[data-command-theme='dark'] .campaign-create-page .campaign-body-map-switch .custom-control-label { color: #d9e0fb; }
+            html[data-command-theme='dark'] .campaign-create-page label .btn-link,
+            html[data-command-theme='dark'] .campaign-create-page #campaign-tags-help { background: #172547; border-color: #3a4c79; color: #d4b7ff; }
+            html[data-command-theme='dark'] .campaign-create-page .campaign-route-kind,
+            html[data-command-theme='dark'] .campaign-create-page .campaign-route-count { background: #27254e; border-color: #4b427d; color: #d4b7ff; }
+            html[data-command-theme='dark'] .campaign-create-page #campaign-routing .campaign-route-picker > .campaign-route-selector { background: linear-gradient(145deg, #101c3a, #141f3e); border-color: #334574; }
+            html[data-command-theme='dark'] .campaign-create-page #campaign-routing .campaign-route-transfer-controls [data-ip-move] { background: linear-gradient(145deg, #172547, #182140); border-color: #3a4c79; color: #d4b7ff; }
+            html[data-command-theme='dark'] .campaign-create-page .campaign-route-pools-heading small { color: #abb6d8; }
+            html[data-command-theme='dark'] .campaign-create-page select.form-control:not([multiple]):not(.selectpicker) { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%23d4b7ff' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.6'/%3E%3C/svg%3E"); background-position: right 12px center; background-repeat: no-repeat; background-size: 12px 8px; }
             html[data-command-theme='dark'] .campaign-create-page [data-campaign-placeholder-editor] .table tbody td { background: #101c3a; border-color: #26365f; }
             html[data-command-theme='dark'] .campaign-create-page [data-campaign-placeholder-editor] .table tbody tr:hover td { background: #17264a; }
             html[data-command-theme='dark'] .campaign-create-page #send-ips-available,
@@ -825,17 +913,23 @@
                 .campaign-create-summary { grid-template-columns: minmax(0, 1fr); }
                 .campaign-create-page .block-header { align-items: flex-start; flex-direction: column; }
                 .campaign-create-page .campaign-delivery-card [data-campaign-placeholder-editor] > .block-header {
-                    align-items: center;
-                    flex-direction: row;
-                    justify-content: space-between;
-                    padding: 8px 10px;
+                    align-items: flex-start;
+                    flex-direction: column;
+                    gap: 10px;
+                    justify-content: flex-start;
+                    padding: 11px;
                     position: static;
                 }
-                .campaign-create-page .campaign-placeholder-toolbar { flex-wrap: wrap; justify-content: flex-start; }
-                .campaign-create-page .campaign-placeholder-toolbar .custom-control-label { font-size: 9px; }
-                .campaign-create-page #campaign-routing .col-md-2.d-flex.flex-column { grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 8px 12px 12px; }
-                .campaign-create-page #campaign-routing .col-md-2 [data-ip-move] { height: 36px; }
-                .campaign-create-page #campaign-routing .campaign-route-selector { flex: 0 0 100%; max-width: 100%; }
+                .campaign-create-page .campaign-placeholder-heading { min-width: 0; }
+                .campaign-create-page .campaign-placeholder-toolbar { flex: 1 1 auto; justify-content: flex-start; width: 100%; }
+                .campaign-create-page .campaign-placeholder-toolbar .custom-control-label { font-size: 10px; }
+                .campaign-create-page .campaign-editor-heading { align-items: flex-start; }
+                .campaign-create-page .campaign-editor-tools { justify-content: flex-start; }
+                .campaign-create-page #campaign-routing .campaign-route-pools-heading { align-items: flex-start; }
+                .campaign-create-page #campaign-routing .campaign-route-picker { grid-template-columns: minmax(0, 1fr); }
+                .campaign-create-page #campaign-routing .campaign-route-transfer-controls { grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 0 2px; }
+                .campaign-create-page #campaign-routing .campaign-route-transfer-controls [data-ip-move] { height: 40px; }
+                .campaign-create-page #campaign-routing .campaign-route-selector { max-width: 100%; }
                 .campaign-create-page .form-row > [class*='col-'] { flex: 0 0 100%; max-width: 100%; }
             }
             @media (max-width: 420px) {
@@ -848,6 +942,12 @@
                 .campaign-create-page .campaign-header-library .input-group > .bootstrap-select.form-control,
                 .campaign-create-page #campaign-saved-emails .input-group > .bootstrap-select.form-control { flex-basis: 0; }
                 .campaign-create-page .campaign-icon-button { flex-basis: 32px; height: 32px; width: 32px; }
+                .campaign-create-page .campaign-editor-heading { align-items: flex-start; flex-direction: column; }
+                .campaign-create-page .campaign-editor-tools { justify-content: flex-start; width: 100%; }
+                .campaign-create-page .campaign-route-picker > .campaign-route-selector { padding: 9px !important; }
+                .campaign-create-page #send-ips-available,
+                .campaign-create-page #send-ips-selected { height: 220px; min-height: 200px; }
+                .campaign-create-page .campaign-route-pools-heading small { flex-basis: 100%; }
                 .campaign-create-page .campaign-create-summary { min-width: 0; }
                 .campaign-create-page .campaign-summary-actions > * { max-width: 100%; }
             }
@@ -1122,27 +1222,33 @@
                     <small class="sr-only form-text text-muted col-12">Optional rotation values. Leave these blank to use the literal From and Subject values in the Header.</small>
                 </div>
                 <div class="form-row">
-                    <div class="form-group col-md-6">
-                        <label for="campaign-header"><i class="fas fa-heading campaign-field-icon" aria-hidden="true"></i>Header:
-                            <button type="button" class="btn btn-link btn-sm p-0" id="campaign-header-shuffle" title="Shuffle header lines" aria-label="Shuffle header lines"><i class="fas fa-random" aria-hidden="true"></i></button>
-                            <button type="button" class="btn btn-link btn-sm p-0" id="campaign-header-encode" title="Encoding tools" aria-label="Encoding tools"><i class="fas fa-pencil-ruler" aria-hidden="true"></i></button>
-                            <button type="button" class="btn btn-link btn-sm p-0" id="campaign-header-use-smtp" title="Put the selected Workspace SMTP account in the From address" aria-label="Use selected SMTP account as From"><i class="fas fa-plug" aria-hidden="true"></i></button>
-                        </label>
+                    <div class="form-group col-md-6 campaign-editor-column">
+                        <div class="campaign-editor-heading">
+                            <label class="campaign-editor-title" for="campaign-header"><i class="fas fa-heading campaign-field-icon" aria-hidden="true"></i>Header</label>
+                            <div class="campaign-editor-tools" role="group" aria-label="Header tools">
+                                <button type="button" class="campaign-editor-icon-button" id="campaign-header-shuffle" title="Shuffle header lines" aria-label="Shuffle header lines"><i class="fas fa-random" aria-hidden="true"></i></button>
+                                <button type="button" class="campaign-editor-icon-button" id="campaign-header-encode" title="Encoding tools" aria-label="Encoding tools"><i class="fas fa-pencil-ruler" aria-hidden="true"></i></button>
+                                <button type="button" class="campaign-editor-icon-button" id="campaign-header-use-smtp" title="Put the selected Workspace SMTP account in the From address" aria-label="Use selected SMTP account as From"><i class="fas fa-plug" aria-hidden="true"></i></button>
+                            </div>
+                        </div>
                         <textarea id="campaign-header" name="header" rows="30" class="form-control campaign-header-editor" spellcheck="false" required>{{ old('header', $savedContent['header'] ?? $defaultCampaignHeader) }}</textarea>
                         <small class="sr-only form-text text-muted">This inserts <code>From: [smtp]@[domain]</code> and switches routing to SMTP. Select the Workspace account under Available SMTP routes; full email usernames and the supported form <code>info@[smtp]</code> are supported.</small>
                     </div>
-                    <div class="form-group col-md-6">
-                        <label for="campaign-body"><i class="fas fa-code campaign-field-icon" aria-hidden="true"></i>Body:
-                            @if ($editingCampaign)
-                                <button type="button" id="campaign-body-generate-links" class="btn btn-link btn-sm p-0" data-generate-url="{{ route('console.campaigns.generate-body', [$workspace->id, $editingCampaign->id]) }}" title="Generate tracking links" aria-label="Generate tracking links"><i class="fas fa-link" aria-hidden="true"></i></button>
-                            @endif
-                            <button type="button" id="campaign-shortlink-open" class="btn btn-link btn-sm p-0" title="Shortlink tools" aria-label="Shortlink tools"><i class="fas fa-unlink" aria-hidden="true"></i></button>
-                            <button type="button" id="campaign-body-preview-button" class="btn btn-link btn-sm p-0" title="Preview body" aria-controls="campaign-body-preview" aria-expanded="false"><i class="fas fa-eye" aria-hidden="true"></i></button>
-                        </label>
-                        <div class="custom-control custom-switch custom-control-inline ml-2">
-                            <input id="campaign-body-map" type="checkbox" class="custom-control-input">
-                            <label for="campaign-body-map" class="custom-control-label"><i class="fas fa-map-marked-alt campaign-label-icon" aria-hidden="true"></i> MAP BODY</label>
-                            <button type="button" id="campaign-body-insert-open-pixel" class="btn btn-link btn-sm p-0 ml-1" title="Insert open tracking pixel" aria-label="Insert open tracking pixel"><i class="fas fa-bullseye" aria-hidden="true"></i></button>
+                    <div class="form-group col-md-6 campaign-editor-column">
+                        <div class="campaign-editor-heading campaign-editor-heading-body">
+                            <label class="campaign-editor-title" for="campaign-body"><i class="fas fa-code campaign-field-icon" aria-hidden="true"></i>Body</label>
+                            <div class="campaign-editor-tools" role="group" aria-label="Body tools">
+                                @if ($editingCampaign)
+                                    <button type="button" id="campaign-body-generate-links" class="campaign-editor-icon-button" data-generate-url="{{ route('console.campaigns.generate-body', [$workspace->id, $editingCampaign->id]) }}" title="Generate tracking links" aria-label="Generate tracking links"><i class="fas fa-link" aria-hidden="true"></i></button>
+                                @endif
+                                <button type="button" id="campaign-shortlink-open" class="campaign-editor-icon-button" title="Shortlink tools" aria-label="Shortlink tools"><i class="fas fa-unlink" aria-hidden="true"></i></button>
+                                <button type="button" id="campaign-body-preview-button" class="campaign-editor-icon-button" title="Preview body" aria-controls="campaign-body-preview" aria-expanded="false"><i class="fas fa-eye" aria-hidden="true"></i></button>
+                                <div class="custom-control custom-switch campaign-body-map-switch">
+                                    <input id="campaign-body-map" type="checkbox" class="custom-control-input">
+                                    <label for="campaign-body-map" class="custom-control-label"><i class="fas fa-map-marked-alt campaign-label-icon" aria-hidden="true"></i><span>Map body</span></label>
+                                </div>
+                                <button type="button" id="campaign-body-insert-open-pixel" class="campaign-editor-icon-button campaign-editor-icon-button-pixel" title="Insert open tracking pixel" aria-label="Insert open tracking pixel"><i class="fas fa-bullseye" aria-hidden="true"></i></button>
+                            </div>
                         </div>
                         <textarea id="campaign-body" name="body" rows="28" class="form-control" spellcheck="false">{{ old('body', $savedContent['body'] ?? '') }}</textarea>
                         <dialog id="campaign-body-preview" class="campaign-body-preview-dialog" data-campaign-dialog-width="min(1100px, 96vw)" aria-labelledby="campaign-body-preview-title">
@@ -1204,10 +1310,10 @@
                                 </div>
                             </div>
                             <div class="form-group">
-                                <label for="send-ips-selected"><i class="fas fa-link campaign-field-icon" aria-hidden="true"></i><span id="send-route-choice-heading">{{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}</span>:
-                                    <button type="button" class="btn btn-link btn-sm p-0" data-copy-ip-list="available" title="Copy available IPs" aria-label="Copy available IPs"><i class="fas fa-copy" aria-hidden="true"></i></button>
-                                    <button type="button" class="btn btn-link btn-sm p-0" data-copy-ip-list="selected" title="Copy selected IPs" aria-label="Copy selected IPs"><i class="fas fa-copy" aria-hidden="true"></i></button>
-                                </label>
+                                <div class="campaign-route-pools-heading">
+                                    <div><i class="fas fa-share-alt campaign-field-icon" aria-hidden="true"></i><span>Delivery routes</span><small>Choose the outbound route or accounts for this campaign.</small></div>
+                                    <span class="campaign-route-kind" id="send-route-choice-heading">{{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}</span>
+                                </div>
                                 <select id="send-ips" name="send_setup[ip_ids][]" class="sr-only" aria-hidden="true" tabindex="-1" multiple>
                                     @foreach ($sendOptions['ips'] as $ip)
                                         @php
@@ -1220,21 +1326,27 @@
                                         <option value="{{ $ip['id'] }}" data-route="{{ $setup['route_option'] }}" data-route-choice-id="{{ $ip['id'] }}" data-server-id="{{ $ip['server_id'] }}" data-managed-server-ip-id="{{ $ip['managed_server_ip_id'] ?? '' }}" data-pmta-name="{{ $ip['pmta_name'] ?? '' }}" data-username="{{ $ip['username'] ?? '' }}" data-name="{{ $ip['name'] ?? '' }}" data-ip="{{ $ip['ip'] }}" data-dns="{{ $ip['dns'] ?? '' }}" data-vmta-domain="{{ $ip['vmta_domain'] ?? '' }}" @selected(in_array((string) $ip['id'], $setup['ip_ids'], true))>{{ $routeChoiceLabel }}</option>
                                     @endforeach
                                 </select>
-                                <div class="row">
+                                <div class="row campaign-route-picker">
                                     <div class="col-md-5 campaign-route-selector">
-                                        <label class="small mb-1" for="send-ips-available"><i class="fas fa-list campaign-field-icon" aria-hidden="true"></i><span id="send-ips-available-label">Available {{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}</span></label>
-                                        <input class="form-control form-control-sm mb-1" id="send-ips-available-filter" type="search" placeholder="Filter available IPs" aria-label="Filter available IPs">
+                                        <div class="campaign-route-pane-heading">
+                                            <label for="send-ips-available"><span id="send-ips-available-label">Available {{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}</span><span class="campaign-route-count" id="send-ips-available-count">0</span></label>
+                                            <button type="button" class="campaign-editor-icon-button" data-copy-ip-list="available" title="Copy available routes" aria-label="Copy available routes"><i class="fas fa-copy" aria-hidden="true"></i></button>
+                                        </div>
+                                        <input class="form-control form-control-sm campaign-route-filter" id="send-ips-available-filter" type="search" placeholder="Filter available IPs" aria-label="Filter available IPs">
                                         <select id="send-ips-available" class="form-control" multiple size="10" aria-label="Available {{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}" aria-describedby="send-ips-transfer-help"></select>
                                     </div>
-                                    <div class="col-md-2 d-flex flex-column justify-content-center align-items-center campaign-route-transfer-controls">
+                                    <div class="col-md-2 d-flex flex-column justify-content-center align-items-center campaign-route-transfer-controls" role="group" aria-label="Move routes between lists">
                                         <button type="button" class="btn btn-outline-secondary btn-sm mb-1" data-ip-move="all-right" aria-label="Move all IPs to selected" title="Move all to selected"><i class="fas fa-angle-double-right" aria-hidden="true"></i></button>
                                         <button type="button" class="btn btn-outline-secondary btn-sm mb-1" data-ip-move="right" aria-label="Move selected IPs to selected" title="Move selected to selected"><i class="fas fa-chevron-right" aria-hidden="true"></i></button>
                                         <button type="button" class="btn btn-outline-secondary btn-sm mb-1" data-ip-move="left" aria-label="Move IPs back to available" title="Move selected back"><i class="fas fa-chevron-left" aria-hidden="true"></i></button>
                                         <button type="button" class="btn btn-outline-secondary btn-sm" data-ip-move="all-left" aria-label="Move all IPs back to available" title="Move all back"><i class="fas fa-angle-double-left" aria-hidden="true"></i></button>
                                     </div>
                                     <div class="col-md-5 campaign-route-selector">
-                                        <label class="small mb-1" for="send-ips-selected"><i class="fas fa-check-circle campaign-field-icon" aria-hidden="true"></i><span id="send-ips-selected-label">Selected {{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}</span> (<span id="send-ips-selected-count">0</span>)</label>
-                                        <input class="form-control form-control-sm mb-1" id="send-ips-selected-filter" type="search" placeholder="Filter selected IPs" aria-label="Filter selected IPs">
+                                        <div class="campaign-route-pane-heading">
+                                            <label for="send-ips-selected"><span id="send-ips-selected-label">Selected {{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}</span><span class="campaign-route-count" id="send-ips-selected-count">0</span></label>
+                                            <button type="button" class="campaign-editor-icon-button" data-copy-ip-list="selected" title="Copy selected routes" aria-label="Copy selected routes"><i class="fas fa-copy" aria-hidden="true"></i></button>
+                                        </div>
+                                        <input class="form-control form-control-sm campaign-route-filter" id="send-ips-selected-filter" type="search" placeholder="Filter selected IPs" aria-label="Filter selected IPs">
                                         <select id="send-ips-selected" class="form-control" multiple size="10" aria-label="Selected {{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}" aria-describedby="send-ips-transfer-help"></select>
                                     </div>
                                 </div>
@@ -1945,6 +2057,8 @@
                     target.add(new Option(source.textContent, source.value));
                 });
                 document.getElementById('send-ips-selected-count').textContent = String(selectedIds.size);
+                const availableCount = document.getElementById('send-ips-available-count');
+                if (availableCount) availableCount.textContent = String(Math.max(0, ipSource.options.length - selectedIds.size));
             };
             const setIpSelection = (mode) => {
                 const selectedIds = new Set(Array.from(ipSource.options).filter((option) => option.selected).map((option) => option.value));

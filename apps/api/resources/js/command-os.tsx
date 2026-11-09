@@ -1,8 +1,9 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { JSX } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
     Activity,
+    BarChart3,
     ChartNoAxesCombined,
     CircleHelp,
     CloudUpload,
@@ -20,14 +21,15 @@ import {
     Send,
     ShieldCheck,
     Sun,
+    Table,
     Target,
     TriangleAlert,
     UserRoundMinus,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
-type MetricKey = 'deliveries' | 'opens' | 'clicks' | 'leads' | 'revenue' | 'unsubscribes' | 'bounces';
-type Metric = {
+export type MetricKey = 'deliveries' | 'opens' | 'clicks' | 'leads' | 'revenue' | 'unsubscribes' | 'bounces';
+export type Metric = {
     key: MetricKey;
     label: string;
     value: number;
@@ -37,7 +39,7 @@ type Metric = {
     provider_revenue?: ProviderRevenueTotal[];
     provider_revenue_period?: string;
 };
-type DashboardAction = {
+export type DashboardAction = {
     label: string;
     href: string | null;
     icon: string;
@@ -58,8 +60,23 @@ export type DashboardPayload = {
     analytics: DashboardAnalytics;
     actions: DashboardAction[];
 };
-export type AnalyticsRow = { label: string; leads: number; clicks: number; attributed_revenue: number; deliveries?: number; opens?: number; unsubscribes?: number; bounces?: number };
-export type ProviderSponsorRevenueRow = { dimension_id: string; label: string; currency_code: string | null; reported_conversions: number; reported_amount: number };
+export type AnalyticsRow = {
+    label: string;
+    leads: number;
+    clicks: number;
+    attributed_revenue: number;
+    deliveries?: number;
+    opens?: number;
+    unsubscribes?: number;
+    bounces?: number;
+};
+export type ProviderSponsorRevenueRow = {
+    dimension_id: string;
+    label: string;
+    currency_code: string | null;
+    reported_conversions: number;
+    reported_amount: number;
+};
 export type ProviderRevenueTotal = { currency_code: string | null; reported_amount: number };
 export type DashboardChartSeries = { label: string; color: string; currency_code?: string | null; values: number[] };
 export type DashboardChart = { labels: string[]; series: DashboardChartSeries[]; provider_revenue?: ProviderRevenueTotal[] };
@@ -78,7 +95,7 @@ export type DashboardAnalytics = {
     graph: { nodes: MarketingNode[]; edges: MarketingEdge[]; note: string };
     period: { key: string; label: string; from: string; to: string; maxDate: string; action: string };
 };
-type Theme = 'light' | 'dark';
+export type Theme = 'light' | 'dark';
 
 const DeliverabilityGeoMap = lazy(() => import('./command-os-geo-map'));
 const MarketingGraph = lazy(() => import('./command-os-graph'));
@@ -223,33 +240,6 @@ async function fetchPayload(url: string): Promise<DashboardPayload> {
     return refreshed;
 }
 
-function PerformanceChart({ payload, theme }: { payload: DashboardPayload; theme: Theme }): JSX.Element {
-    const container = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        if (!container.current) return undefined;
-        let active = true;
-        let dispose: () => void = () => {};
-
-        void import('./command-os-chart').then(({ renderPerformanceChart }) => {
-            if (!active || !container.current) return;
-            dispose = renderPerformanceChart(container.current, payload, theme);
-        });
-
-        return () => {
-            active = false;
-            dispose();
-        };
-    }, [payload.trend, theme]);
-
-    return (
-        <>
-            <div className="command-os-chart" ref={container} role="img" aria-label={`Daily deliveries and opens from ${payload.period.from} through ${payload.period.to}.`} />
-            <p className="command-os-sr-only">The chart plots daily imported PMTA deliveries and recorded campaign and Drop opens for the last 30 days.</p>
-        </>
-    );
-}
-
 function Sparkline({ values, color }: { values: number[]; color: string }): JSX.Element {
     const maximum = Math.max(1, ...values);
     const points = values.map((value, index) => {
@@ -258,80 +248,22 @@ function Sparkline({ values, color }: { values: number[]; color: string }): JSX.
         return `${x.toFixed(2)},${y.toFixed(2)}`;
     }).join(' ');
 
-    return <svg className="command-os-sparkline" viewBox="0 0 120 34" preserveAspectRatio="none" aria-hidden="true">
-        <polyline points={points} pathLength="1" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>;
-}
-
-const actionColors = ['#28b7ff', '#ffbd31', '#ff5d7b', '#a376ff', '#32d5a1', '#ffa34a', '#52a4ff'];
-
-function MtdActionsStats({ chart, selectedMetric }: { chart: DashboardChart; selectedMetric: DashboardGeoMetric }): JSX.Element {
-    const selectedLabels: Record<DashboardGeoMetric, string[]> = {
-        deliveries: ['Deliveries'],
-        opens: ['Opens'],
-        clicks: ['Clicks'],
-        leads: ['Leads (AlphaLink)'],
-        bounces: ['Soft bounces', 'Hard bounces'],
-        unsubscribes: ['Unsubscribes'],
-    };
-
     return (
-        <section className="command-os-panel command-os-stat-grid-panel" aria-labelledby="command-os-mtd-actions-title">
-            <div className="command-os-panel-heading">
-                <div className="command-os-panel-title"><span className="command-os-heading-icon"><Activity size={17} aria-hidden="true" /></span><h2 id="command-os-mtd-actions-title">Month-to-date activity</h2></div>
-                <span className="command-os-status-tag">Month to date</span>
-            </div>
-            <div className="command-os-action-stats">
-                {chart.series.map((series, index) => {
-                    const total = series.values.reduce((sum, value) => sum + Number(value || 0), 0);
-                    const color = actionColors[index % actionColors.length];
-                    const linked = selectedLabels[selectedMetric].includes(series.label);
-                    return <article className={`command-os-action-stat${linked ? ' is-geo-linked' : ' is-geo-muted'}`} key={series.label}>
-                        <div className="command-os-action-stat-heading"><span>{series.label}</span><strong>{number(total)}</strong></div>
-                        <Sparkline values={series.values} color={color} />
-                    </article>;
-                })}
-            </div>
-            <p className="command-os-chart-caption">Daily totals through today. The GEO map’s {selectedMetric} selection is highlighted here and in its KPI. Deliveries and bounces use imported PMTA feedback; other events come from stored campaign and Drop activity.</p>
-        </section>
+        <svg className="command-os-sparkline" viewBox="0 0 120 34" preserveAspectRatio="none" aria-hidden="true">
+            <polyline points={points} pathLength="1" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
     );
 }
 
-function RevenueTrendPanel({ title, icon: Icon, chart, theme, id }: { title: string; icon: LucideIcon; chart: DashboardChart; theme: Theme; id: string }): JSX.Element {
-    const container = useRef<HTMLDivElement>(null);
-    const total = chart.series[0]?.values.reduce((sum, value) => sum + Number(value || 0), 0) ?? 0;
-    const sponsorSummary = providerRevenueSummary(chart.provider_revenue);
-
-    useEffect(() => {
-        if (!container.current) return undefined;
-        let active = true;
-        let dispose: () => void = () => {};
-        void import('./command-os-chart').then(({ renderDashboardAnalyticsChart }) => {
-            if (!active || !container.current) return;
-            dispose = renderDashboardAnalyticsChart(container.current, chart, theme, true);
-        });
-        return () => { active = false; dispose(); };
-    }, [chart, theme]);
-
-    return <section className="command-os-panel command-os-revenue-chart" aria-labelledby={`${id}-title`}>
-        <div className="command-os-panel-heading">
-            <div className="command-os-panel-title"><span className="command-os-heading-icon"><Icon size={17} aria-hidden="true" /></span><h2 id={`${id}-title`}>{title}</h2></div>
-            <span className="command-os-chart-total"><span>AlphaLink attributed (USD)</span><strong>{money(total)}</strong><span className="command-os-chart-provider-total">Sponsor reports · {sponsorSummary}</span></span>
-        </div>
-        <div className="command-os-revenue-chart-canvas" ref={container} role="img" aria-label={`${title}. Separate revenue lines: ${chart.series.map((series) => `${series.label}: ${chart.labels.map((label, index) => `${label} ${series.currency_code ? new Intl.NumberFormat('en-US', { style: 'currency', currency: series.currency_code, maximumFractionDigits: 2 }).format(series.values[index] ?? 0) : providerAmount(series.values[index] ?? 0)}`).join(', ')}`).join('. ')}`} />
-        <div className="command-os-revenue-source-summary" aria-label={`Sponsor-reported revenue: ${providerRevenueSummary(chart.provider_revenue)}`}>
-            <span className="command-os-revenue-source-label">Sponsor-reported</span>
-            <div className="command-os-revenue-source-values">
-                {chart.provider_revenue?.length
-                    ? chart.provider_revenue.map((total) => <span className="command-os-revenue-currency" key={total.currency_code ?? 'unknown'}>{total.currency_code ?? 'Unknown currency'} <strong>{providerAmount(total.reported_amount)}</strong></span>)
-                    : <span className="command-os-revenue-no-reports">No sponsor reports for this period</span>}
-            </div>
-        </div>
-        <p className="command-os-chart-caption">Sponsor lines stay separate by currency; they are not converted or added to AlphaLink-attributed revenue.</p>
-    </section>;
-}
-
-function MetricCard({ metric, selectedMetric, onMetricChange }: { metric: Metric; selectedMetric: DashboardGeoMetric; onMetricChange: (metric: DashboardGeoMetric) => void }): JSX.Element {
+function MetricCard({
+    metric,
+    selectedMetric,
+    onMetricChange,
+}: {
+    metric: Metric;
+    selectedMetric: DashboardGeoMetric;
+    onMetricChange: (metric: DashboardGeoMetric) => void;
+}): JSX.Element {
     const Icon = metricIcons[metric.key];
     const value = metric.format === 'currency' ? money(metric.value) : number(metric.value);
     const sponsorRevenueSummary = providerRevenueSummary(metric.provider_revenue);
@@ -348,37 +280,59 @@ function MetricCard({ metric, selectedMetric, onMetricChange }: { metric: Metric
     }).join(' ');
 
     return (
-        <article className={`command-os-metric command-os-metric-${metricColors[metric.key]}${metric.key === 'revenue' ? ' command-os-metric-has-sponsor' : ''}${isSelected ? ' is-geo-linked' : ''}`} aria-label={metric.key === 'revenue'
-            ? `Revenue for ${metric.provider_revenue_period ?? 'the selected range'}: ${hasSponsorRevenue ? sponsorRevenueSummary : value}. AlphaLink-attributed revenue for ${metric.provider_revenue_period ?? 'the selected range'}: ${value}.`
-            : `${metric.label}: ${value}`} data-geo-selected={isSelected || undefined}>
+        <article
+            className={`command-os-metric command-os-metric-${metricColors[metric.key]}${metric.key === 'revenue' ? ' command-os-metric-has-sponsor' : ''}${isSelected ? ' is-geo-linked' : ''}`}
+            aria-label={
+                metric.key === 'revenue'
+                    ? `Revenue for ${metric.provider_revenue_period ?? 'the selected range'}: ${hasSponsorRevenue ? sponsorRevenueSummary : value}. AlphaLink-attributed revenue: ${value}.`
+                    : `${metric.label}: ${value}`
+            }
+            data-geo-selected={isSelected || undefined}
+        >
             <button
                 className="command-os-metric-main"
                 type="button"
                 disabled={!canDrillDown}
                 aria-pressed={canDrillDown ? isSelected : undefined}
-                aria-label={canDrillDown
-                    ? `Show ${metric.label.toLowerCase()} on the GEO map and activity report`
-                    : `Revenue for ${metric.provider_revenue_period ?? 'the selected range'}: ${hasSponsorRevenue ? sponsorRevenueSummary : value}. AlphaLink-attributed revenue for ${metric.provider_revenue_period ?? 'the selected range'}: ${value}. Country drilldown is unavailable because revenue has no verified country attribution.`}
+                aria-label={
+                    canDrillDown
+                        ? `Show ${metric.label.toLowerCase()} on the GEO map and activity report`
+                        : `Revenue: ${hasSponsorRevenue ? sponsorRevenueSummary : value}. Country drilldown is unavailable for revenue.`
+                }
                 title={canDrillDown ? `Show ${metric.label.toLowerCase()} on the GEO map and activity report` : 'Revenue has no verified country attribution'}
-                onClick={() => { if (canDrillDown) onMetricChange(metric.key as DashboardGeoMetric); }}
+                onClick={() => {
+                    if (canDrillDown) onMetricChange(metric.key as DashboardGeoMetric);
+                }}
             >
-                <span className="command-os-metric-icon"><Icon size={19} strokeWidth={2.1} aria-hidden="true" /></span>
+                <span className="command-os-metric-icon">
+                    <Icon size={19} strokeWidth={2.1} aria-hidden="true" />
+                </span>
                 <span className="command-os-metric-copy">
                     <span className="command-os-metric-label">{hasSponsorRevenue ? 'Sponsor revenue' : metric.label}</span>
-                    {hasSponsorRevenue
-                        ? <span className="command-os-metric-value command-os-metric-provider-values" aria-label={`Sponsor-reported · ${metric.provider_revenue_period}: ${sponsorRevenueSummary}`}>
-                            {metric.provider_revenue?.map((total) => <span key={total.currency_code ?? 'unknown'}>{total.currency_code ?? 'Unknown currency'} {providerAmount(total.reported_amount)}</span>)}
+                    {hasSponsorRevenue ? (
+                        <span className="command-os-metric-value command-os-metric-provider-values" aria-label={`Sponsor-reported · ${metric.provider_revenue_period}: ${sponsorRevenueSummary}`}>
+                            {metric.provider_revenue?.map((total) => (
+                                <span key={total.currency_code ?? 'unknown'}>
+                                    {total.currency_code ?? 'Unknown currency'} {providerAmount(total.reported_amount)}
+                                </span>
+                            ))}
                         </span>
-                        : <strong className="command-os-metric-value">{value}</strong>}
-                    {metric.key === 'revenue' && <span className="command-os-metric-sponsor-summary" title={`Sponsor-reported · ${metric.provider_revenue_period ?? 'selected range'}: ${sponsorRevenueSummary}`}>
-                        <span>{hasSponsorRevenue ? `AlphaLink attributed · ${metric.provider_revenue_period ?? 'selected range'}` : `Sponsor · ${metric.provider_revenue_period ?? 'Selected range'}`}</span>
-                        <strong>{hasSponsorRevenue ? value : sponsorRevenueSummary}</strong>
-                    </span>}
+                    ) : (
+                        <strong className="command-os-metric-value">{value}</strong>
+                    )}
+                    {metric.key === 'revenue' && (
+                        <span className="command-os-metric-sponsor-summary" title={`Sponsor-reported · ${metric.provider_revenue_period ?? 'selected range'}: ${sponsorRevenueSummary}`}>
+                            <span>{hasSponsorRevenue ? `AlphaLink attributed · ${metric.provider_revenue_period ?? 'selected range'}` : `Sponsor · ${metric.provider_revenue_period ?? 'Selected range'}`}</span>
+                            <strong>{hasSponsorRevenue ? value : sponsorRevenueSummary}</strong>
+                        </span>
+                    )}
                     {isSelected && <span className="command-os-sr-only">Selected as the GEO map metric.</span>}
                 </span>
-                {metric.key !== 'revenue' && <svg className="command-os-metric-sparkline" viewBox="0 0 48 22" aria-hidden="true" focusable="false">
-                    <polyline points={points} pathLength="1" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>}
+                {metric.key !== 'revenue' && (
+                    <svg className="command-os-metric-sparkline" viewBox="0 0 48 22" aria-hidden="true" focusable="false">
+                        <polyline points={points} pathLength="1" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                )}
             </button>
             <details className="command-os-metric-source">
                 <summary aria-label={`Show ${metric.label.toLowerCase()} data source`} title={`Show ${metric.label.toLowerCase()} data source`}>
@@ -469,113 +423,654 @@ function DateAnalyticsFilter({ period }: { period: DashboardAnalytics['period'] 
                 <option value="last_month">Last month</option>
                 <option value="custom">Custom range</option>
             </select>
-            {showCustom && <>
-                <label className="command-os-sr-only" htmlFor="command-os-analytics-from">Start date</label>
-                <input ref={fromInput} id="command-os-analytics-from" type="date" name="analytics_from" value={customFrom} max={period.maxDate} aria-invalid={dateError && (!customFrom || customFrom > period.maxDate) ? true : undefined} aria-describedby={dateError ? 'command-os-analytics-date-error' : undefined} onChange={(event) => { setCustomFrom(event.currentTarget.value); setDateError(''); }} required />
-                <span aria-hidden="true">to</span>
-                <label className="command-os-sr-only" htmlFor="command-os-analytics-to">End date</label>
-                <input ref={toInput} id="command-os-analytics-to" type="date" name="analytics_to" value={customTo} min={customFrom || undefined} max={period.maxDate} aria-invalid={dateError && (!customTo || customTo < customFrom || customTo > period.maxDate) ? true : undefined} aria-describedby={dateError ? 'command-os-analytics-date-error' : undefined} onChange={(event) => { setCustomTo(event.currentTarget.value); setDateError(''); }} required />
-                <button type="submit">Apply</button>
-                {dateError && <span className="command-os-date-error" id="command-os-analytics-date-error" role="alert">{dateError}</span>}
-            </>}
+            {showCustom && (
+                <>
+                    <label className="command-os-sr-only" htmlFor="command-os-analytics-from">Start date</label>
+                    <input
+                        ref={fromInput}
+                        id="command-os-analytics-from"
+                        type="date"
+                        name="analytics_from"
+                        value={customFrom}
+                        max={period.maxDate}
+                        aria-invalid={dateError && (!customFrom || customFrom > period.maxDate) ? true : undefined}
+                        aria-describedby={dateError ? 'command-os-analytics-date-error' : undefined}
+                        onChange={(event) => { setCustomFrom(event.currentTarget.value); setDateError(''); }}
+                        required
+                    />
+                    <span aria-hidden="true">to</span>
+                    <label className="command-os-sr-only" htmlFor="command-os-analytics-to">End date</label>
+                    <input
+                        ref={toInput}
+                        id="command-os-analytics-to"
+                        type="date"
+                        name="analytics_to"
+                        value={customTo}
+                        min={customFrom || undefined}
+                        max={period.maxDate}
+                        aria-invalid={dateError && (!customTo || customTo < customFrom || customTo > period.maxDate) ? true : undefined}
+                        aria-describedby={dateError ? 'command-os-analytics-date-error' : undefined}
+                        onChange={(event) => { setCustomTo(event.currentTarget.value); setDateError(''); }}
+                        required
+                    />
+                    <button type="submit">Apply</button>
+                    {dateError && <span className="command-os-date-error" id="command-os-analytics-date-error" role="alert">{dateError}</span>}
+                </>
+            )}
         </form>
     );
 }
 
-function PartnerRevenueBreakdown({
+/* -------------------------------------------------------------------------- */
+/* Row 3: Full-width Quick Actions Bar                                        */
+/* -------------------------------------------------------------------------- */
+function QuickActionsBar({ actions }: { actions: DashboardAction[] }): JSX.Element {
+    return (
+        <section className="command-os-quick-actions command-os-quick-actions-bar" aria-labelledby="command-os-actions-title">
+            <div className="command-os-quick-intro">
+                <Flame size={20} aria-hidden="true" />
+                <span>
+                    <strong id="command-os-actions-title">Quick Actions</strong>
+                    <small>Operational Shortcuts</small>
+                </span>
+            </div>
+            <div className="command-os-action-list">
+                {actions.map((action) => {
+                    const Icon = actionIcons[action.icon] ?? Layers3;
+                    if (action.disabled || !action.href) {
+                        const reasonId = `command-os-action-${action.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-reason`;
+                        return (
+                            <button
+                                className="command-os-action command-os-action-disabled"
+                                type="button"
+                                disabled
+                                aria-describedby={reasonId}
+                                key={action.label}
+                                aria-label={action.label}
+                            >
+                                <Icon size={16} aria-hidden="true" />
+                                <span className="command-os-action-copy">
+                                    <span>{action.label}</span>
+                                    <small id={reasonId}>{action.reason ?? 'Unavailable'}</small>
+                                </span>
+                            </button>
+                        );
+                    }
+                    return (
+                        <a className="command-os-action" href={action.href} key={action.label}>
+                            <Icon size={16} aria-hidden="true" />
+                            <span>{action.label}</span>
+                        </a>
+                    );
+                })}
+            </div>
+        </section>
+    );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Rows 4–6: Analytics Grid Panels                                            */
+/* -------------------------------------------------------------------------- */
+
+type CardViewMode = 'chart' | 'table';
+
+function HorizontalBarAnalyticsPanel({
     title,
     dimension,
     icon: Icon,
     rows,
     rangeLabel,
+    theme,
+    accentColor,
+    emptyMessage,
 }: {
     title: string;
     dimension: string;
     icon: LucideIcon;
     rows: AnalyticsRow[];
     rangeLabel: string;
+    theme: Theme;
+    accentColor?: string;
+    emptyMessage?: string;
 }): JSX.Element {
+    const [viewMode, setViewMode] = useState<CardViewMode>('chart');
+    const container = useRef<HTMLDivElement>(null);
+
+    const chartRows = useMemo(() => {
+        return rows.map((r) => ({
+            label: r.label,
+            value: r.attributed_revenue,
+            leads: r.leads,
+            clicks: r.clicks,
+            deliveries: r.deliveries,
+        }));
+    }, [rows]);
+
+    useEffect(() => {
+        if (viewMode !== 'chart' || !container.current) return undefined;
+        let active = true;
+        let dispose: () => void = () => {};
+
+        void import('./command-os-chart').then(({ renderHorizontalBarChart }) => {
+            if (!active || !container.current) return;
+            dispose = renderHorizontalBarChart(container.current, chartRows, theme, {
+                accentColor,
+                emptyMessage,
+            });
+        });
+
+        return () => {
+            active = false;
+            dispose();
+        };
+    }, [viewMode, chartRows, theme, accentColor, emptyMessage]);
+
+    const totalRevenue = rows.reduce((acc, r) => acc + (r.attributed_revenue || 0), 0);
+
     return (
-        <article className={`command-os-panel command-os-partner-revenue-card${rows.length === 0 ? ' command-os-partner-revenue-empty' : ''}`}>
+        <article className={`command-os-panel command-os-analytics-grid-card${rows.length === 0 ? ' command-os-partner-revenue-empty' : ''}`}>
             <div className="command-os-panel-heading">
-                <div className="command-os-panel-title"><span className="command-os-heading-icon"><Icon size={17} aria-hidden="true" /></span><h3>{title}</h3></div>
-                <span className="command-os-status-tag">{rangeLabel}</span>
+                <div className="command-os-panel-title">
+                    <span className="command-os-heading-icon"><Icon size={16} aria-hidden="true" /></span>
+                    <h3>{title}</h3>
+                </div>
+                <div className="command-os-panel-heading-right">
+                    <div className="command-os-view-switch" role="group" aria-label={`${title} view mode`}>
+                        <button
+                            type="button"
+                            className={`command-os-view-switch-btn ${viewMode === 'chart' ? 'is-active' : ''}`}
+                            onClick={() => setViewMode('chart')}
+                            title="Bar Chart view"
+                            aria-label="Bar Chart view"
+                        >
+                            <BarChart3 size={13} aria-hidden="true" />
+                            <span>Chart</span>
+                        </button>
+                        <button
+                            type="button"
+                            className={`command-os-view-switch-btn ${viewMode === 'table' ? 'is-active' : ''}`}
+                            onClick={() => setViewMode('table')}
+                            title="Table view"
+                            aria-label="Table view"
+                        >
+                            <Table size={13} aria-hidden="true" />
+                            <span>Table</span>
+                        </button>
+                    </div>
+                    <span className="command-os-status-tag">{rangeLabel}</span>
+                </div>
             </div>
-            {rows.length === 0 ? <p className="command-os-analytics-empty" role="status">No attributed lead revenue was recorded for {dimension.toLowerCase()}s {rangeLabel.toLowerCase()}.</p> : <div className="command-os-partner-revenue-list" aria-live="polite">
-                <div className="command-os-partner-revenue-head"><span>{dimension}</span><span>Leads</span><span>Revenue</span></div>
-                {rows.map((row, index) => <div className="command-os-partner-revenue-row" key={`${row.label}-${index}`}>
-                    <strong title={row.label}>{row.label}</strong>
-                    <span>{number(row.leads)}</span>
-                    <b>{money(row.attributed_revenue)}</b>
-                </div>)}
-            </div>}
-            <p className="command-os-analytics-footnote">Attributed lead revenue from recorded campaign and Drop activity.</p>
+
+            {viewMode === 'chart' ? (
+                <div className="command-os-bar-chart-container" ref={container} role="img" aria-label={`${title} ranked horizontal bar chart`} />
+            ) : (
+                rows.length === 0 ? (
+                    <p className="command-os-analytics-empty" role="status">No attributed lead revenue was recorded for {dimension.toLowerCase()}s {rangeLabel.toLowerCase()}.</p>
+                ) : (
+                    <div className="command-os-partner-revenue-list" aria-live="polite">
+                        <div className="command-os-partner-revenue-head">
+                            <span>{dimension}</span>
+                            <span>Leads</span>
+                            <span>Revenue</span>
+                        </div>
+                        {rows.map((row, index) => (
+                            <div className="command-os-partner-revenue-row" key={`${row.label}-${index}`}>
+                                <strong title={row.label}>{row.label}</strong>
+                                <span>{number(row.leads)}</span>
+                                <b>{money(row.attributed_revenue)}</b>
+                            </div>
+                        ))}
+                    </div>
+                )
+            )}
+
+            <div className="command-os-panel-footer">
+                <p className="command-os-analytics-footnote">Attributed lead revenue from recorded campaign and Drop activity.</p>
+                <span className="command-os-panel-footer-total">Total: <strong>{money(totalRevenue)}</strong></span>
+            </div>
         </article>
     );
 }
 
-function ProviderSponsorRevenueBreakdown({ rows, rangeLabel }: { rows: ProviderSponsorRevenueRow[]; rangeLabel: string }): JSX.Element {
+function AffiliateRevenuePanel({
+    title,
+    rows,
+    providerRows,
+    rangeLabel,
+    theme,
+}: {
+    title: string;
+    rows: AnalyticsRow[];
+    providerRows: ProviderSponsorRevenueRow[];
+    rangeLabel: string;
+    theme: Theme;
+}): JSX.Element {
+    const [viewMode, setViewMode] = useState<'chart' | 'table' | 'provider'>('chart');
+    const container = useRef<HTMLDivElement>(null);
+
+    const chartRows = useMemo(() => {
+        return rows.map((r) => ({
+            label: r.label,
+            value: r.attributed_revenue,
+            leads: r.leads,
+            clicks: r.clicks,
+        }));
+    }, [rows]);
+
+    useEffect(() => {
+        if (viewMode !== 'chart' || !container.current) return undefined;
+        let active = true;
+        let dispose: () => void = () => {};
+
+        void import('./command-os-chart').then(({ renderHorizontalBarChart }) => {
+            if (!active || !container.current) return;
+            dispose = renderHorizontalBarChart(container.current, chartRows, theme, {
+                accentColor: theme === 'dark' ? '#38bdf8' : '#0284c7',
+                emptyMessage: 'No affiliate revenue recorded for this period',
+            });
+        });
+
+        return () => {
+            active = false;
+            dispose();
+        };
+    }, [viewMode, chartRows, theme]);
+
+    const totalAttributed = rows.reduce((acc, r) => acc + (r.attributed_revenue || 0), 0);
+
     return (
-        <article className={`command-os-panel command-os-provider-sponsor-card${rows.length === 0 ? ' command-os-partner-revenue-empty' : ''}`}>
+        <article className="command-os-panel command-os-analytics-grid-card">
             <div className="command-os-panel-heading">
-                <div className="command-os-panel-title"><span className="command-os-heading-icon"><DollarSign size={17} aria-hidden="true" /></span><h3>Sponsor reported revenue</h3></div>
-                <span className="command-os-status-tag">{rangeLabel}</span>
+                <div className="command-os-panel-title">
+                    <span className="command-os-heading-icon"><Target size={16} aria-hidden="true" /></span>
+                    <h3>{title}</h3>
+                </div>
+                <div className="command-os-panel-heading-right">
+                    <div className="command-os-view-switch" role="group" aria-label="Affiliate view mode">
+                        <button
+                            type="button"
+                            className={`command-os-view-switch-btn ${viewMode === 'chart' ? 'is-active' : ''}`}
+                            onClick={() => setViewMode('chart')}
+                            title="Ranked Bar Chart"
+                        >
+                            <BarChart3 size={13} aria-hidden="true" />
+                            <span>Chart</span>
+                        </button>
+                        <button
+                            type="button"
+                            className={`command-os-view-switch-btn ${viewMode === 'table' ? 'is-active' : ''}`}
+                            onClick={() => setViewMode('table')}
+                            title="Attributed Table"
+                        >
+                            <Table size={13} aria-hidden="true" />
+                            <span>Table</span>
+                        </button>
+                        <button
+                            type="button"
+                            className={`command-os-view-switch-btn ${viewMode === 'provider' ? 'is-active' : ''}`}
+                            onClick={() => setViewMode('provider')}
+                            title="Sponsor Reported (Multi-currency)"
+                        >
+                            <DollarSign size={13} aria-hidden="true" />
+                            <span>Sponsor Reports</span>
+                        </button>
+                    </div>
+                    <span className="command-os-status-tag">{rangeLabel}</span>
+                </div>
             </div>
-            {rows.length === 0 ? <p className="command-os-analytics-empty" role="status">No sponsor conversions were reported for this date range.</p> : <div className="command-os-provider-revenue-list" aria-live="polite">
-                <div className="command-os-provider-revenue-head"><span>Sponsor</span><span>Conversions</span><span>Currency</span><span>Reported amount</span></div>
-                {rows.map((row, index) => <div className="command-os-provider-revenue-row" key={`${row.dimension_id}-${row.currency_code ?? 'unknown'}-${index}`}>
-                    <strong title={row.label}>{row.label}</strong>
-                    <span>{number(row.reported_conversions)}</span>
-                    <span>{row.currency_code ?? 'Not supplied'}</span>
-                    <b>{providerAmount(row.reported_amount)}</b>
-                </div>)}
-            </div>}
-            <p className="command-os-analytics-footnote">Provider amounts stay grouped by currency. AlphaLink-attributed campaign and Drop revenue is shown separately.</p>
+
+            {viewMode === 'chart' ? (
+                <div className="command-os-bar-chart-container" ref={container} role="img" aria-label="Revenue by Affiliate ranked horizontal bar chart" />
+            ) : viewMode === 'table' ? (
+                rows.length === 0 ? (
+                    <p className="command-os-analytics-empty" role="status">No attributed lead revenue was recorded for sponsors {rangeLabel.toLowerCase()}.</p>
+                ) : (
+                    <div className="command-os-partner-revenue-list" aria-live="polite">
+                        <div className="command-os-partner-revenue-head">
+                            <span>Sponsor / Affiliate</span>
+                            <span>Leads</span>
+                            <span>Revenue</span>
+                        </div>
+                        {rows.map((row, index) => (
+                            <div className="command-os-partner-revenue-row" key={`${row.label}-${index}`}>
+                                <strong title={row.label}>{row.label}</strong>
+                                <span>{number(row.leads)}</span>
+                                <b>{money(row.attributed_revenue)}</b>
+                            </div>
+                        ))}
+                    </div>
+                )
+            ) : (
+                providerRows.length === 0 ? (
+                    <p className="command-os-analytics-empty" role="status">No sponsor conversions were reported for this date range.</p>
+                ) : (
+                    <div className="command-os-provider-revenue-list" aria-live="polite">
+                        <div className="command-os-provider-revenue-head">
+                            <span>Sponsor</span>
+                            <span>Conversions</span>
+                            <span>Currency</span>
+                            <span>Reported amount</span>
+                        </div>
+                        {providerRows.map((row, index) => (
+                            <div className="command-os-provider-revenue-row" key={`${row.dimension_id}-${row.currency_code ?? 'unknown'}-${index}`}>
+                                <strong title={row.label}>{row.label}</strong>
+                                <span>{number(row.reported_conversions)}</span>
+                                <span>{row.currency_code ?? 'Not supplied'}</span>
+                                <b>{providerAmount(row.reported_amount)}</b>
+                            </div>
+                        ))}
+                    </div>
+                )
+            )}
+
+            <div className="command-os-panel-footer">
+                <p className="command-os-analytics-footnote">
+                    {viewMode === 'provider'
+                        ? 'Provider amounts stay grouped by currency. Attributed revenue shown separately.'
+                        : 'Attributed lead revenue from recorded campaign and Drop activity.'}
+                </p>
+                <span className="command-os-panel-footer-total">Total: <strong>{money(totalAttributed)}</strong></span>
+            </div>
         </article>
     );
 }
 
-function PartnerRevenueAnalytics({ analytics }: { analytics: DashboardAnalytics }): JSX.Element {
-    return <section className="command-os-partner-revenue-section" aria-labelledby="command-os-partner-revenue-title">
-        <div className="command-os-section-heading">
-            <div><p className="command-os-eyebrow">PROVIDER REPORTS &amp; ATTRIBUTED PERFORMANCE</p><h2 id="command-os-partner-revenue-title">Partner revenue</h2><p>All panels use the selected range: {analytics.period.label} ({analytics.period.from}–{analytics.period.to}).</p></div>
-        </div>
-        <ProviderSponsorRevenueBreakdown rows={analytics.provider_sponsors} rangeLabel={analytics.period.label} />
-        <div className="command-os-partner-revenue-grid">
-            <PartnerRevenueBreakdown title="Attributed sponsor revenue" dimension="Sponsor" icon={Target} rows={analytics.sponsors} rangeLabel={analytics.period.label} />
-            <PartnerRevenueBreakdown title="ISP revenue" dimension="ISP" icon={Globe2} rows={analytics.isps} rangeLabel={analytics.period.label} />
-            <PartnerRevenueBreakdown title="Mailer revenue" dimension="Mailer" icon={Mail} rows={analytics.mailers} rangeLabel={analytics.period.label} />
-            <PartnerRevenueBreakdown title="Top 10 offers by revenue" dimension="Offer" icon={Layers3} rows={analytics.offers} rangeLabel={analytics.period.label} />
-        </div>
-    </section>;
+const actionColors = ['#28b7ff', '#ffbd31', '#ff5d7b', '#a376ff', '#32d5a1', '#ffa34a', '#52a4ff'];
+
+function MtdActionsCard({
+    chart,
+    selectedMetric,
+    theme,
+}: {
+    chart: DashboardChart;
+    selectedMetric: DashboardGeoMetric;
+    theme: Theme;
+}): JSX.Element {
+    const [viewMode, setViewMode] = useState<CardViewMode>('chart');
+    const container = useRef<HTMLDivElement>(null);
+
+    const selectedLabels: Record<DashboardGeoMetric, string[]> = {
+        deliveries: ['Deliveries'],
+        opens: ['Opens'],
+        clicks: ['Clicks'],
+        leads: ['Leads (AlphaLink)'],
+        bounces: ['Soft bounces', 'Hard bounces'],
+        unsubscribes: ['Unsubscribes'],
+    };
+
+    useEffect(() => {
+        if (viewMode !== 'chart' || !container.current) return undefined;
+        let active = true;
+        let dispose: () => void = () => {};
+
+        void import('./command-os-chart').then(({ renderMtdActionsMultiLineChart }) => {
+            if (!active || !container.current) return;
+            dispose = renderMtdActionsMultiLineChart(container.current, chart, theme);
+        });
+
+        return () => {
+            active = false;
+            dispose();
+        };
+    }, [viewMode, chart, theme]);
+
+    return (
+        <article className="command-os-panel command-os-analytics-grid-card command-os-mtd-actions-card">
+            <div className="command-os-panel-heading">
+                <div className="command-os-panel-title">
+                    <span className="command-os-heading-icon"><Activity size={16} aria-hidden="true" /></span>
+                    <h3>MTD Actions Stats</h3>
+                </div>
+                <div className="command-os-panel-heading-right">
+                    <div className="command-os-view-switch" role="group" aria-label="MTD Actions view mode">
+                        <button
+                            type="button"
+                            className={`command-os-view-switch-btn ${viewMode === 'chart' ? 'is-active' : ''}`}
+                            onClick={() => setViewMode('chart')}
+                            title="Multi-line Chart view"
+                        >
+                            <BarChart3 size={13} aria-hidden="true" />
+                            <span>Chart</span>
+                        </button>
+                        <button
+                            type="button"
+                            className={`command-os-view-switch-btn ${viewMode === 'table' ? 'is-active' : ''}`}
+                            onClick={() => setViewMode('table')}
+                            title="Pill / Sparkline view"
+                        >
+                            <Table size={13} aria-hidden="true" />
+                            <span>Pills</span>
+                        </button>
+                    </div>
+                    <span className="command-os-status-tag">Month to date</span>
+                </div>
+            </div>
+
+            {viewMode === 'chart' ? (
+                <div className="command-os-multi-line-canvas" ref={container} role="img" aria-label="MTD actions multi-series line chart" />
+            ) : (
+                <div className="command-os-action-stats">
+                    {chart.series.map((series, index) => {
+                        const total = series.values.reduce((sum, value) => sum + Number(value || 0), 0);
+                        const color = actionColors[index % actionColors.length];
+                        const linked = selectedLabels[selectedMetric].includes(series.label);
+                        return (
+                            <article className={`command-os-action-stat${linked ? ' is-geo-linked' : ' is-geo-muted'}`} key={series.label}>
+                                <div className="command-os-action-stat-heading">
+                                    <span>{series.label}</span>
+                                    <strong>{number(total)}</strong>
+                                </div>
+                                <Sparkline values={series.values} color={color} />
+                            </article>
+                        );
+                    })}
+                </div>
+            )}
+
+            <div className="command-os-panel-footer">
+                <p className="command-os-analytics-footnote">
+                    Daily totals through today. Deliveries and bounces use imported PMTA feedback; other events come from stored campaign and Drop activity.
+                </p>
+            </div>
+        </article>
+    );
 }
 
-function DashboardCharts({ payload, theme, selectedMetric }: { payload: DashboardPayload; theme: Theme; selectedMetric: DashboardGeoMetric }): JSX.Element {
-    return <section className="command-os-charts-section" aria-label="Activity and revenue trends">
-        <MtdActionsStats chart={payload.charts.mtd_actions} selectedMetric={selectedMetric} />
-        <RevenueTrendPanel id="command-os-mtd-revenue" title="MTD Revenue Stats" icon={DollarSign} chart={payload.charts.mtd_revenue} theme={theme} />
-        <RevenueTrendPanel id="command-os-ytd-revenue" title="YTD Revenue Stats" icon={ChartNoAxesCombined} chart={payload.charts.ytd_revenue} theme={theme} />
-    </section>;
+function MtdRevenueCard({
+    chart,
+    theme,
+}: {
+    chart: DashboardChart;
+    theme: Theme;
+}): JSX.Element {
+    const container = useRef<HTMLDivElement>(null);
+    const total = chart.series[0]?.values.reduce((sum, value) => sum + Number(value || 0), 0) ?? 0;
+    const sponsorSummary = providerRevenueSummary(chart.provider_revenue);
+
+    useEffect(() => {
+        if (!container.current) return undefined;
+        let active = true;
+        let dispose: () => void = () => {};
+
+        void import('./command-os-chart').then(({ renderDashboardAnalyticsChart }) => {
+            if (!active || !container.current) return;
+            dispose = renderDashboardAnalyticsChart(container.current, chart, theme, true);
+        });
+
+        return () => {
+            active = false;
+            dispose();
+        };
+    }, [chart, theme]);
+
+    return (
+        <article className="command-os-panel command-os-analytics-grid-card command-os-revenue-chart">
+            <div className="command-os-panel-heading">
+                <div className="command-os-panel-title">
+                    <span className="command-os-heading-icon"><DollarSign size={16} aria-hidden="true" /></span>
+                    <h3>MTD Revenue Stats</h3>
+                </div>
+                <span className="command-os-chart-total">
+                    <span>AlphaLink attributed (USD)</span>
+                    <strong>{money(total)}</strong>
+                    <span className="command-os-chart-provider-total">Sponsor reports · {sponsorSummary}</span>
+                </span>
+            </div>
+            <div className="command-os-revenue-chart-canvas" ref={container} role="img" aria-label="MTD Revenue stats daily line chart" />
+            <div className="command-os-revenue-source-summary" aria-label={`Sponsor-reported revenue: ${sponsorSummary}`}>
+                <span className="command-os-revenue-source-label">Sponsor-reported</span>
+                <div className="command-os-revenue-source-values">
+                    {chart.provider_revenue?.length ? (
+                        chart.provider_revenue.map((total) => (
+                            <span className="command-os-revenue-currency" key={total.currency_code ?? 'unknown'}>
+                                {total.currency_code ?? 'Unknown currency'} <strong>{providerAmount(total.reported_amount)}</strong>
+                            </span>
+                        ))
+                    ) : (
+                        <span className="command-os-revenue-no-reports">No sponsor reports for this period</span>
+                    )}
+                </div>
+            </div>
+            <div className="command-os-panel-footer">
+                <p className="command-os-analytics-footnote">Sponsor lines stay separate by currency; they are not converted or added to AlphaLink-attributed revenue.</p>
+            </div>
+        </article>
+    );
 }
 
-function PerformanceOverview({ payload, theme }: { payload: DashboardPayload; theme: Theme }): JSX.Element {
-    return <section className="command-os-panel command-os-performance" id="performance" aria-labelledby="command-os-performance-title">
-        <div className="command-os-panel-heading">
-            <div className="command-os-panel-title"><span className="command-os-heading-icon"><ChartNoAxesCombined size={17} aria-hidden="true" /></span><h2 id="command-os-performance-title">Performance overview · last 30 days</h2></div>
-            <span className="command-os-panel-meta">{payload.period.from} — {payload.period.to}</span>
-        </div>
-        <PerformanceChart payload={payload} theme={theme} />
-        <div className="command-os-today-pulse" aria-label={`Today's performance, ${payload.today.date}`}>
-            <div className="command-os-today-pulse-heading"><strong>Today</strong><span>{payload.today.date}</span></div>
-            <dl>
-                <div><dt>Deliveries</dt><dd>{number(payload.today.deliveries)}</dd></div>
-                <div><dt>Opens</dt><dd>{number(payload.today.opens)}</dd></div>
-                <div><dt>Clicks</dt><dd>{number(payload.today.clicks)}</dd></div>
-                <div><dt>Attributed revenue</dt><dd>{money(payload.today.revenue)}</dd></div>
-            </dl>
-        </div>
-    </section>;
+/* -------------------------------------------------------------------------- */
+/* Row 7: Full-width YTD Revenue Intelligence Panel                           */
+/* -------------------------------------------------------------------------- */
+function YtdRevenueIntelligence({
+    chart,
+    payload,
+    theme,
+}: {
+    chart: DashboardChart;
+    payload: DashboardPayload;
+    theme: Theme;
+}): JSX.Element {
+    const [activeTab, setActiveTab] = useState<'ytd' | 'overview'>('ytd');
+    const ytdContainer = useRef<HTMLDivElement>(null);
+    const overviewContainer = useRef<HTMLDivElement>(null);
+
+    const totalYtd = chart.series[0]?.values.reduce((sum, value) => sum + Number(value || 0), 0) ?? 0;
+    const sponsorSummary = providerRevenueSummary(chart.provider_revenue);
+
+    useEffect(() => {
+        if (activeTab !== 'ytd' || !ytdContainer.current) return undefined;
+        let active = true;
+        let dispose: () => void = () => {};
+
+        void import('./command-os-chart').then(({ renderYtdRevenueBarTrendChart }) => {
+            if (!active || !ytdContainer.current) return;
+            dispose = renderYtdRevenueBarTrendChart(ytdContainer.current, chart, theme);
+        });
+
+        return () => {
+            active = false;
+            dispose();
+        };
+    }, [activeTab, chart, theme]);
+
+    useEffect(() => {
+        if (activeTab !== 'overview' || !overviewContainer.current) return undefined;
+        let active = true;
+        let dispose: () => void = () => {};
+
+        void import('./command-os-chart').then(({ renderPerformanceChart }) => {
+            if (!active || !overviewContainer.current) return;
+            dispose = renderPerformanceChart(overviewContainer.current, payload, theme);
+        });
+
+        return () => {
+            active = false;
+            dispose();
+        };
+    }, [activeTab, payload, theme]);
+
+    return (
+        <section className="command-os-panel command-os-ytd-intelligence-panel" aria-labelledby="command-os-ytd-title">
+            <div className="command-os-panel-heading">
+                <div className="command-os-panel-title">
+                    <span className="command-os-heading-icon"><ChartNoAxesCombined size={17} aria-hidden="true" /></span>
+                    <h2 id="command-os-ytd-title">YTD Revenue Stats</h2>
+                </div>
+                <div className="command-os-panel-heading-right">
+                    <div className="command-os-view-switch" role="group" aria-label="YTD Revenue Intelligence Tab">
+                        <button
+                            type="button"
+                            className={`command-os-view-switch-btn ${activeTab === 'ytd' ? 'is-active' : ''}`}
+                            onClick={() => setActiveTab('ytd')}
+                        >
+                            <BarChart3 size={13} aria-hidden="true" />
+                            <span>Monthly Trend</span>
+                        </button>
+                        <button
+                            type="button"
+                            className={`command-os-view-switch-btn ${activeTab === 'overview' ? 'is-active' : ''}`}
+                            onClick={() => setActiveTab('overview')}
+                        >
+                            <Activity size={13} aria-hidden="true" />
+                            <span>30-Day Activity</span>
+                        </button>
+                    </div>
+                    <span className="command-os-chart-total">
+                        <span>AlphaLink attributed (USD)</span>
+                        <strong>{money(totalYtd)}</strong>
+                        <span className="command-os-chart-provider-total">Sponsor reports · {sponsorSummary}</span>
+                    </span>
+                </div>
+            </div>
+
+            {activeTab === 'ytd' ? (
+                <>
+                    <div className="command-os-ytd-chart-canvas" ref={ytdContainer} role="img" aria-label="YTD Revenue monthly bar chart with trend line" />
+                    <div className="command-os-revenue-source-summary" aria-label={`Sponsor-reported revenue: ${sponsorSummary}`}>
+                        <span className="command-os-revenue-source-label">Sponsor-reported</span>
+                        <div className="command-os-revenue-source-values">
+                            {chart.provider_revenue?.length ? (
+                                chart.provider_revenue.map((total) => (
+                                    <span className="command-os-revenue-currency" key={total.currency_code ?? 'unknown'}>
+                                        {total.currency_code ?? 'Unknown currency'} <strong>{providerAmount(total.reported_amount)}</strong>
+                                    </span>
+                                ))
+                            ) : (
+                                <span className="command-os-revenue-no-reports">No sponsor reports for this period</span>
+                            )}
+                        </div>
+                    </div>
+                </>
+            ) : (
+                <div className="command-os-overview-drawer">
+                    <div className="command-os-chart" ref={overviewContainer} role="img" aria-label={`Daily deliveries and opens from ${payload.period.from} through ${payload.period.to}.`} />
+                    <div className="command-os-today-pulse" aria-label={`Today's performance, ${payload.today.date}`}>
+                        <div className="command-os-today-pulse-heading">
+                            <strong>Today</strong>
+                            <span>{payload.today.date}</span>
+                        </div>
+                        <dl>
+                            <div><dt>Deliveries</dt><dd>{number(payload.today.deliveries)}</dd></div>
+                            <div><dt>Opens</dt><dd>{number(payload.today.opens)}</dd></div>
+                            <div><dt>Clicks</dt><dd>{number(payload.today.clicks)}</dd></div>
+                            <div><dt>Attributed revenue</dt><dd>{money(payload.today.revenue)}</dd></div>
+                        </dl>
+                    </div>
+                </div>
+            )}
+
+            <div className="command-os-panel-footer">
+                <p className="command-os-analytics-footnote">
+                    Monthly revenue from January through December. Combination monthly bars and smooth trajectory line. Separate sponsor lines remain uncombined.
+                </p>
+            </div>
+        </section>
+    );
 }
+
+/* -------------------------------------------------------------------------- */
+/* Main Dashboard App Component                                               */
+/* -------------------------------------------------------------------------- */
 function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
     const [payload, updatePayload] = useState(initial);
     const [theme, updateTheme] = useState<Theme>('light');
@@ -623,8 +1118,17 @@ function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
         ? `Last checked ${lastChecked.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
         : 'Auto refresh every 5 minutes';
 
+    // The blueprint mandates Row 1 to have 4 horizontal cards: Deliveries | Opens | Leads | Revenue.
+    const kpiMetrics = useMemo(() => {
+        const priorityKeys: MetricKey[] = ['deliveries', 'opens', 'leads', 'revenue'];
+        return priorityKeys
+            .map((key) => payload.metrics.find((m) => m.key === key))
+            .filter((m): m is Metric => m !== undefined);
+    }, [payload.metrics]);
+
     return (
         <div className="command-os-dashboard-content" data-theme={theme}>
+            {/* Header with wave and date filters */}
             <div className="command-os-page-heading">
                 <svg className="command-os-header-wave" viewBox="0 0 1000 110" preserveAspectRatio="none" aria-hidden="true" focusable="false">
                     <defs>
@@ -658,10 +1162,19 @@ function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
 
             {refreshError && <div className="command-os-refresh-error" role="status">{refreshError}</div>}
 
-            <section className="command-os-metrics" aria-label={`${payload.analytics.period.label} performance metrics`}>
-                {payload.metrics.map((metric) => <MetricCard key={metric.key} metric={metric} selectedMetric={selectedGeoMetric} onMetricChange={setSelectedGeoMetric} />)}
+            {/* Row 1 — KPI Overview (Deliveries | Opens | Leads | Revenue) */}
+            <section className="command-os-metrics command-os-kpi-grid" aria-label={`${payload.analytics.period.label} core KPI metrics`}>
+                {kpiMetrics.map((metric) => (
+                    <MetricCard
+                        key={metric.key}
+                        metric={metric}
+                        selectedMetric={selectedGeoMetric}
+                        onMetricChange={setSelectedGeoMetric}
+                    />
+                ))}
             </section>
 
+            {/* Row 2 — Intelligence Visualizations (Left: Deliverability by GEO | Right: Marketing Graph) */}
             <section className="command-os-panels command-os-intelligence-panels" aria-label="Geographic and marketing intelligence">
                 <Suspense fallback={<section className="command-os-panel command-os-async-panel" role="status">Loading country map…</section>}>
                     <DeliverabilityGeoMap data={payload.analytics.geo} theme={theme} selectedMetric={selectedGeoMetric} onMetricChange={setSelectedGeoMetric} />
@@ -672,42 +1185,78 @@ function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
                 </Suspense>
             </section>
 
-            <PartnerRevenueAnalytics analytics={payload.analytics} />
+            {/* Row 3 — Quick Actions (Full-width) */}
+            <QuickActionsBar actions={payload.actions} />
 
-            <DashboardCharts payload={payload} theme={theme} selectedMetric={selectedGeoMetric} />
+            {/* Rows 4–6 — Analytics Grid (Two equal columns: 50% / 50%) */}
+            <section className="command-os-analytics-grid" aria-label="Performance and Revenue Analytics">
+                {/* Row 4 Left: Top 10 Offers */}
+                <HorizontalBarAnalyticsPanel
+                    title="Top 10 Offers"
+                    dimension="Offer"
+                    icon={Layers3}
+                    rows={payload.analytics.offers}
+                    rangeLabel={payload.analytics.period.label}
+                    theme={theme}
+                    accentColor={theme === 'dark' ? '#c084fc' : '#8b5cf6'}
+                    emptyMessage="No attributed revenue for offers in this period"
+                />
 
-            <section className="command-os-panels command-os-secondary-panels" aria-label="Additional performance and quick actions">
-                <PerformanceOverview payload={payload} theme={theme} />
-                <section className="command-os-quick-actions command-os-quick-actions-footer" aria-labelledby="command-os-actions-title">
-                    <div className="command-os-quick-intro"><Flame size={19} aria-hidden="true" /><span><strong id="command-os-actions-title">Quick actions</strong><small>Faster operations</small></span></div>
-                    <div className="command-os-action-list">
-                        {payload.actions.map((action) => {
-                            const Icon = actionIcons[action.icon] ?? Layers3;
-                            if (action.disabled || !action.href) {
-                                const reasonId = `command-os-action-${action.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-reason`;
+                {/* Row 4 Right: Revenue by ISP */}
+                <HorizontalBarAnalyticsPanel
+                    title="Revenue by ISP"
+                    dimension="ISP"
+                    icon={Globe2}
+                    rows={payload.analytics.isps}
+                    rangeLabel={payload.analytics.period.label}
+                    theme={theme}
+                    accentColor={theme === 'dark' ? '#38bdf8' : '#0284c7'}
+                    emptyMessage="No attributed revenue for ISPs in this period"
+                />
 
-                                return <button
-                                    className="command-os-action command-os-action-disabled"
-                                    type="button"
-                                    disabled
-                                    aria-describedby={reasonId}
-                                    key={action.label}
-                                    aria-label={action.label}
-                                >
-                                    <Icon size={17} aria-hidden="true" />
-                                    <span className="command-os-action-copy">
-                                        <span>{action.label}</span>
-                                        <small id={reasonId}>{action.reason ?? 'Unavailable'}</small>
-                                    </span>
-                                </button>;
-                            }
+                {/* Row 5 Left: Revenue by Mailer */}
+                <HorizontalBarAnalyticsPanel
+                    title="Revenue by Mailer"
+                    dimension="Mailer"
+                    icon={Mail}
+                    rows={payload.analytics.mailers}
+                    rangeLabel={payload.analytics.period.label}
+                    theme={theme}
+                    accentColor={theme === 'dark' ? '#34d399' : '#059669'}
+                    emptyMessage="No attributed revenue for mailers in this period"
+                />
 
-                            return <a className="command-os-action" href={action.href} key={action.label}><Icon size={17} aria-hidden="true" /><span>{action.label}</span></a>;
-                        })}
-                    </div>
-                </section>
+                {/* Row 5 Right: Revenue by Affiliate */}
+                <AffiliateRevenuePanel
+                    title="Revenue by Affiliate"
+                    rows={payload.analytics.sponsors}
+                    providerRows={payload.analytics.provider_sponsors}
+                    rangeLabel={payload.analytics.period.label}
+                    theme={theme}
+                />
+
+                {/* Row 6 Left: MTD Actions Stats */}
+                <MtdActionsCard
+                    chart={payload.charts.mtd_actions}
+                    selectedMetric={selectedGeoMetric}
+                    theme={theme}
+                />
+
+                {/* Row 6 Right: MTD Revenue Stats */}
+                <MtdRevenueCard
+                    chart={payload.charts.mtd_revenue}
+                    theme={theme}
+                />
             </section>
 
+            {/* Row 7 — Revenue Intelligence (Full-width YTD Revenue Stats + 30-day activity) */}
+            <YtdRevenueIntelligence
+                chart={payload.charts.ytd_revenue}
+                payload={payload}
+                theme={theme}
+            />
+
+            {/* Coverage and Status Footer */}
             <div className="command-os-data-notes" id="command-os-data-coverage">
                 <span><strong>Coverage:</strong> {payload.coverage.deliveries}</span>
                 <span>{payload.coverage.revenue}</span>

@@ -3150,6 +3150,239 @@ body.command-os-dashboard #main_content .command-os-geo-note {
     body.command-os-dashboard #main_content .command-os-greeting-wave { animation: none; }
 }
 
+/* ==========================================================================
+   Dashboard Blueprint Redesign (Rows 1-7 Blueprint Parity)
+   ========================================================================== */
+body.command-os-dashboard #main_content .command-os-metrics.command-os-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+@media (max-width: 1024px) {
+    body.command-os-dashboard #main_content .command-os-metrics.command-os-kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+}
+
+@media (max-width: 640px) {
+    body.command-os-dashboard #main_content .command-os-metrics.command-os-kpi-grid {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+}
+
+/* Row 3: Full-width Quick Actions Bar */
+body.command-os-dashboard #main_content .command-os-quick-actions-bar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    min-height: 56px;
+    margin-bottom: 14px;
+    padding: 7px 14px;
+    border: 1px solid color-mix(in srgb, var(--co-purple) 18%, var(--co-border));
+    border-radius: 14px;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--co-surface) 97%, var(--co-purple)), color-mix(in srgb, var(--co-surface) 98%, var(--co-blue)));
+    box-shadow: var(--co-shadow);
+}
+
+body.command-os-dashboard #main_content .command-os-quick-actions-bar .command-os-quick-intro {
+    flex: 0 0 150px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: var(--co-purple-bright);
+}
+
+body.command-os-dashboard #main_content .command-os-quick-actions-bar .command-os-action-list {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 9px;
+    flex: 1;
+    min-width: 0;
+}
+
+body.command-os-dashboard #main_content .command-os-quick-actions-bar .command-os-action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 40px;
+    padding: 6px 10px;
+    border: 1px solid color-mix(in srgb, var(--co-purple) 22%, var(--co-border));
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--co-surface) 96%, var(--co-purple) 4%);
+    color: var(--co-ink);
+    font-size: 9.5px;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: 0 2px 6px color-mix(in srgb, var(--co-purple) 6%, transparent);
+    transition: all .2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+body.command-os-dashboard #main_content .command-os-quick-actions-bar .command-os-action:hover {
+    transform: translateY(-2px);
+    border-color: var(--co-purple-bright);
+    background: color-mix(in srgb, var(--co-surface) 90%, var(--co-purple) 10%);
+    box-shadow: 0 6px 16px color-mix(in srgb, var(--co-purple) 18%, transparent);
+}
+
+@media (max-width: 1200px) {
+    body.command-os-dashboard #main_content .command-os-quick-actions-bar .command-os-action-list {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    body.command-os-dashboard #main_content .command-os-quick-actions-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 12px;
+    }
+    body.command-os-dashboard #main_content .command-os-quick-actions-bar .command-os-action-list {
+        width: 100%;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* Rows 4–6: 2-Column Analytics Grid (50% / 50%) */
+body.command-os-dashboard #main_content .command-os-analytics-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+@media (max-width: 1024px) {
+    body.command-os-dashboard #main_content .command-os-analytics-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+body.command-os-dashboard #main_content .command-os-analytics-grid-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 285px;
+    border: 1px solid color-mix(in srgb, var(--co-purple) 14%, var(--co-border));
+    border-radius: 14px;
+    background: var(--co-surface);
+    box-shadow: var(--co-shadow);
+    overflow: hidden;
+    transition: box-shadow .2s ease, border-color .2s ease;
+}
+
+body.command-os-dashboard #main_content .command-os-analytics-grid-card:hover {
+    border-color: color-mix(in srgb, var(--co-purple) 28%, var(--co-border));
+    box-shadow: var(--co-shadow), 0 8px 24px color-mix(in srgb, var(--co-purple) 8%, transparent);
+}
+
+body.command-os-dashboard #main_content .command-os-panel-heading-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+body.command-os-dashboard #main_content .command-os-view-switch {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px;
+    border: 1px solid color-mix(in srgb, var(--co-border) 80%, var(--co-purple));
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--co-surface) 92%, var(--co-purple) 5%);
+    gap: 2px;
+}
+
+body.command-os-dashboard #main_content .command-os-view-switch-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--co-muted);
+    font-size: 8.5px;
+    font-weight: 650;
+    cursor: pointer;
+    transition: all .15s ease;
+}
+
+body.command-os-dashboard #main_content .command-os-view-switch-btn:hover {
+    color: var(--co-ink);
+}
+
+body.command-os-dashboard #main_content .command-os-view-switch-btn.is-active {
+    background: var(--co-surface);
+    color: var(--co-purple-bright);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+html[data-command-theme='dark'] body.command-os-dashboard #main_content .command-os-view-switch-btn.is-active {
+    background: color-mix(in srgb, var(--co-purple) 25%, #182348);
+    color: #e0e7ff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+body.command-os-dashboard #main_content .command-os-bar-chart-container,
+body.command-os-dashboard #main_content .command-os-multi-line-canvas {
+    width: 100%;
+    height: 195px;
+    flex: 1 1 auto;
+}
+
+body.command-os-dashboard #main_content .command-os-panel-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 6px 14px 8px;
+    border-top: 1px solid color-mix(in srgb, var(--co-border) 70%, transparent);
+    background: color-mix(in srgb, var(--co-surface) 96%, var(--co-purple) 2%);
+}
+
+body.command-os-dashboard #main_content .command-os-panel-footer .command-os-analytics-footnote {
+    margin: 0;
+    padding: 0;
+    font-size: 7.5px;
+    color: var(--co-subtle);
+}
+
+body.command-os-dashboard #main_content .command-os-panel-footer-total {
+    font-size: 8.5px;
+    color: var(--co-muted);
+    white-space: nowrap;
+}
+
+body.command-os-dashboard #main_content .command-os-panel-footer-total strong {
+    color: var(--co-ink);
+    font-weight: 750;
+}
+
+/* Row 7: Full-width YTD Revenue Intelligence Panel */
+body.command-os-dashboard #main_content .command-os-ytd-intelligence-panel {
+    width: 100%;
+    min-height: 280px;
+    margin-bottom: 14px;
+    border: 1px solid color-mix(in srgb, var(--co-purple) 18%, var(--co-border));
+    border-radius: 14px;
+    background: var(--co-surface);
+    box-shadow: var(--co-shadow);
+    overflow: hidden;
+}
+
+body.command-os-dashboard #main_content .command-os-ytd-chart-canvas {
+    width: 100%;
+    height: 185px;
+}
+
+body.command-os-dashboard #main_content .command-os-overview-drawer {
+    display: flex;
+    flex-direction: column;
+    padding: 4px 6px;
+}
+
+
 /* Workspace Users directory — Command OS access management. */
 body.command-os-shell #main_content .command-os-users {
     display: grid;

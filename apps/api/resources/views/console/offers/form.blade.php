@@ -50,15 +50,12 @@
                         <label for="sponsor_id">
                             <span><i class="fas fa-building command-field-icon"></i> Connected Sponsor:</span>
                         </label>
-                        <div class="command-input-wrap">
-                            <span class="command-input-leading-icon"><i class="fas fa-building"></i></span>
-                            <select id="sponsor_id" class="form-control selectpicker command-input-with-icon" data-live-search="true" required>
-                                <option value="">Select Sponsor</option>
-                                @foreach ($sponsors as $sponsor)
-                                    <option value="{{ $sponsor->id }}" data-type="{{ $sponsor->type }}" @selected((string) old('sponsor_id', $offer?->sponsor_id ?? request('sponsor')) === (string) $sponsor->id)>{{ $sponsor->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
+                        <select id="sponsor_id" class="form-control selectpicker" data-live-search="true" required>
+                            <option value="">Select Sponsor</option>
+                            @foreach ($sponsors as $sponsor)
+                                <option value="{{ $sponsor->id }}" data-type="{{ $sponsor->type }}" @selected((string) old('sponsor_id', $offer?->sponsor_id ?? request('sponsor')) === (string) $sponsor->id)>{{ $sponsor->name }}</option>
+                            @endforeach
+                        </select>
                     </div>
                 </div>
                 <div class="col-sm-12 col-md-6">
@@ -159,15 +156,12 @@
                         <label for="geo_target">
                             <span><i class="fas fa-globe command-field-icon"></i> Geo Targeting:</span>
                         </label>
-                        <div class="command-input-wrap">
-                            <span class="command-input-leading-icon"><i class="fas fa-globe"></i></span>
-                            <select id="geo_target" class="form-control selectpicker" data-live-search="true" data-actions-box="true" multiple required>
-                                <option value="ALL" @selected(in_array('ALL', old('geo_target', $offer?->geo_target ?? []), true))>ALL COUNTRIES ALLOWED</option>
-                                @foreach ($countries as $code => $country)
-                                    <option value="{{ $code }}" @selected(in_array($code, old('geo_target', $offer?->geo_target ?? []), true))>{{ $country }} ({{ $code }})</option>
-                                @endforeach
-                            </select>
-                        </div>
+                        <select id="geo_target" class="form-control selectpicker" data-live-search="true" data-actions-box="true" multiple required>
+                            <option value="ALL" @selected(in_array('ALL', old('geo_target', $offer?->geo_target ?? []), true))>ALL COUNTRIES ALLOWED</option>
+                            @foreach ($countries as $code => $country)
+                                <option value="{{ $code }}" @selected(in_array($code, old('geo_target', $offer?->geo_target ?? []), true))>{{ $country }} ({{ $code }})</option>
+                            @endforeach
+                        </select>
                     </div>
                 </div>
                 <div class="col-sm-12 col-md-6">
@@ -175,14 +169,11 @@
                         <label for="allowed_days">
                             <span><i class="fas fa-calendar-week command-field-icon"></i> Allowed Days:</span>
                         </label>
-                        <div class="command-input-wrap">
-                            <span class="command-input-leading-icon"><i class="fas fa-calendar-week"></i></span>
-                            <select id="allowed_days" class="form-control selectpicker" data-actions-box="true" multiple required>
-                                @foreach (\App\Models\WorkspaceOffer::ALLOWED_DAYS as $day)
-                                    <option value="{{ $day }}" @selected(in_array($day, old('allowed_days', $offer?->allowed_days ?? \App\Models\WorkspaceOffer::ALLOWED_DAYS), true))>{{ $day }}</option>
-                                @endforeach
-                            </select>
-                        </div>
+                        <select id="allowed_days" class="form-control selectpicker" data-actions-box="true" multiple required>
+                            @foreach (\App\Models\WorkspaceOffer::ALLOWED_DAYS as $day)
+                                <option value="{{ $day }}" @selected(in_array($day, old('allowed_days', $offer?->allowed_days ?? \App\Models\WorkspaceOffer::ALLOWED_DAYS), true))>{{ $day }}</option>
+                            @endforeach
+                        </select>
                     </div>
                 </div>
             </div>

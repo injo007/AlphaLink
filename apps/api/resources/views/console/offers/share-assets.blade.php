@@ -43,18 +43,16 @@
 
     <div class="form-group mb-3">
         <label for="share-assets-servers" class="font-size-xs font-w700 text-uppercase text-muted"><i class="fas fa-server text-purple mr-1"></i> Select Servers (max 5):</label>
-        <div class="command-input-wrap">
-            <select id="share-assets-servers" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-max-options="5" multiple size="6" aria-describedby="share-assets-server-help" @disabled($servers->isEmpty())>
-                @foreach ($servers as $server)
-                    <option value="{{ $server->id }}">{{ $server->name }} | {{ substr((string) $server->id, 0, 8) }}</option>
-                @endforeach
-            </select>
-        </div>
+        <select id="share-assets-servers" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-max-options="5" multiple size="6" aria-describedby="share-assets-server-help" @disabled($servers->isEmpty())>
+            @foreach ($servers as $server)
+                <option value="{{ $server->id }}">{{ $server->name }} | {{ substr((string) $server->id, 0, 8) }}</option>
+            @endforeach
+        </select>
         <small id="share-assets-server-help" class="form-text text-muted font-size-xs mt-1">AlphaLink verifies the saved host key and SSH credential before copying files.</small>
     </div>
 
     <div class="form-group mb-3">
-        <button id="share-assets-submit" class="command-os-btn-filter w-100" type="button" @disabled($servers->isEmpty() || ! $hashTokenConfigured)>
+        <button id="share-assets-submit" class="btn-command-primary w-100 py-3 font-w700" type="button" @disabled($servers->isEmpty() || ! $hashTokenConfigured) style="border-radius: 10px; font-size: 12px; letter-spacing: .06em;">
             <i class="fas fa-paper-plane mr-2"></i>SHARE TO SELECTED SERVERS
         </button>
     </div>

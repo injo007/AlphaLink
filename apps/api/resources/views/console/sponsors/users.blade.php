@@ -47,7 +47,7 @@
         </div>
     @endif
 
-    <button id="update-users" class="command-os-btn-filter w-100" type="button">
+    <button id="update-users" class="btn-command-primary w-100 py-3 font-w700" type="button" style="border-radius: 10px; font-size: 12px; letter-spacing: .06em;">
         <i class="fas fa-save mr-2"></i>SAVE ALLOWED USERS
     </button>
 </div>

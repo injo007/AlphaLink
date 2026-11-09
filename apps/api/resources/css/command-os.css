@@ -3335,6 +3335,18 @@ body.command-os-shell #main_content .command-os-users-attach-form { display: gri
 body.command-os-shell #main_content .command-os-users-field { min-width: 0; margin: 0; }
 body.command-os-shell #main_content .command-os-users-field label { display: block; margin: 0 0 5px; color: var(--co-ink); font-size: 10px; font-weight: 700; }
 body.command-os-shell #main_content .command-os-users-attach-panel .form-control { width: 100%; min-width: 0; min-height: 39px; padding: 8px 10px; border: 1px solid var(--co-border-strong); border-radius: 9px; color: var(--co-ink); background-color: var(--co-surface-muted); font: inherit; font-size: 11px; }
+body.command-os-shell #main_content .command-os-users-attach-panel select.form-control {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    padding-right: 32px !important;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b5cf6' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 10px center !important;
+    background-size: 14px 14px !important;
+}
+html[data-command-theme='dark'] body.command-os-shell #main_content .command-os-users-attach-panel select.form-control {
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c084fc' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e") !important;
+}
 body.command-os-shell #main_content .command-os-users-attach:disabled { cursor: progress; opacity: .7; }
 body.command-os-shell #main_content .command-os-users-attach-error { grid-column: 1 / -1; margin: 0; color: #e15368; font-size: 11px; font-weight: 650; }
 
@@ -3854,22 +3866,16 @@ body.command-os-shell #main_content .command-os-report-hero::after {
 
 .command-os-all-stats-overview {
     display: grid !important;
-    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)) !important;
     gap: 12px !important;
     margin: 0 0 18px !important;
     width: 100% !important;
     box-sizing: border-box !important;
 }
 
-@media (max-width: 1499.98px) {
+@media (min-width: 1600px) {
     .command-os-all-stats-overview {
-        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-    }
-}
-
-@media (max-width: 991.98px) {
-    .command-os-all-stats-overview {
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
     }
 }
 
@@ -3957,17 +3963,13 @@ html:not([data-command-theme='dark']) body.command-os-shell .all-stats-overview-
     gap: 2px !important;
     min-width: 0 !important;
     flex: 1 1 auto !important;
-    overflow: hidden !important;
 }
 .all-stats-overview-copy > span {
     color: var(--co-muted) !important;
-    font-size: 10px !important;
+    font-size: 10.5px !important;
     font-weight: 750 !important;
     letter-spacing: .06em !important;
     text-transform: uppercase !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
     line-height: 1.25 !important;
 }
 .all-stats-overview-copy strong {
@@ -3975,17 +3977,11 @@ html:not([data-command-theme='dark']) body.command-os-shell .all-stats-overview-
     font-size: clamp(13px, 1.05vw, 16px) !important;
     font-weight: 800 !important;
     line-height: 1.2 !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
     font-variant-numeric: tabular-nums !important;
 }
 .all-stats-overview-copy small {
     color: var(--co-subtle) !important;
     font-size: 11px !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
     line-height: 1.25 !important;
 }
 
@@ -5147,27 +5143,28 @@ html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-ca
 }
 
 /* Secondary Action Buttons (REFRESH, SHARE, BULK USERS, etc.) */
-html[data-command-theme='light'] .command-os-table-card .dt-buttons .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]),
-html[data-command-theme='light'] .command-os-table-card .dt-buttons.btn-group > .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]),
-html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]),
-html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons.btn-group > .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]),
-.command-os-table-card .dt-buttons .btn.btn-command-action {
+html[data-command-theme='light'] .command-os-table-card .dt-buttons .btn:not(.btn-command-primary):not([title*="NEW"]):not([title*="ADD"]),
+html[data-command-theme='light'] .command-os-table-card .dt-buttons.btn-group > .btn:not(.btn-command-primary):not([title*="NEW"]):not([title*="ADD"]),
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons .btn:not(.btn-command-primary):not([title*="NEW"]):not([title*="ADD"]),
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons.btn-group > .btn:not(.btn-command-primary):not([title*="NEW"]):not([title*="ADD"]),
+.command-os-table-card .dt-buttons .btn.btn-command-action,
+.command-os-table-card .dt-buttons .btn:not(.btn-command-primary):not([title*="NEW"]):not([title*="ADD"]) {
     background: #ffffff !important;
     border: 1.5px solid #cbd5e1 !important;
     color: #475569 !important;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
 }
 
-html[data-command-theme='light'] .command-os-table-card .dt-buttons .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]) i,
-html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]) i,
+html[data-command-theme='light'] .command-os-table-card .dt-buttons .btn:not(.btn-command-primary):not([title*="NEW"]):not([title*="ADD"]) i,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons .btn:not(.btn-command-primary):not([title*="NEW"]):not([title*="ADD"]) i,
 .command-os-table-card .dt-buttons .btn.btn-command-action i {
     color: #8b5cf6 !important;
 }
 
-html[data-command-theme='light'] .command-os-table-card .dt-buttons .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]):hover,
-html[data-command-theme='light'] .command-os-table-card .dt-buttons.btn-group > .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]):hover,
-html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]):hover,
-html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons.btn-group > .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]):hover,
+html[data-command-theme='light'] .command-os-table-card .dt-buttons .btn:not(.btn-command-primary):not([title*="NEW"]):not([title*="ADD"]):hover,
+html[data-command-theme='light'] .command-os-table-card .dt-buttons.btn-group > .btn:not(.btn-command-primary):not([title*="NEW"]):not([title*="ADD"]):hover,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons .btn:not(.btn-command-primary):not([title*="NEW"]):not([title*="ADD"]):hover,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons.btn-group > .btn:not(.btn-command-primary):not([title*="NEW"]):not([title*="ADD"]):hover,
 .command-os-table-card .dt-buttons .btn.btn-command-action:hover {
     background: #ffffff !important;
     border-color: #8b5cf6 !important;
@@ -5176,20 +5173,20 @@ html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-ca
     box-shadow: 0 4px 14px rgba(139, 92, 246, 0.2) !important;
 }
 
-html[data-command-theme='dark'] .command-os-table-card .dt-buttons .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]),
-html[data-command-theme='dark'] .command-os-table-card .dt-buttons.btn-group > .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]) {
+html[data-command-theme='dark'] .command-os-table-card .dt-buttons .btn:not(.btn-command-primary):not([title*="NEW"]):not([title*="ADD"]),
+html[data-command-theme='dark'] .command-os-table-card .dt-buttons.btn-group > .btn:not(.btn-command-primary):not([title*="NEW"]):not([title*="ADD"]) {
     background: #0d1226 !important;
     border: 1.5px solid rgba(139, 92, 246, 0.3) !important;
     color: #cbd5e1 !important;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25) !important;
 }
 
-html[data-command-theme='dark'] .command-os-table-card .dt-buttons .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]) i {
+html[data-command-theme='dark'] .command-os-table-card .dt-buttons .btn:not(.btn-command-primary):not([title*="NEW"]):not([title*="ADD"]) i {
     color: #c084fc !important;
 }
 
-html[data-command-theme='dark'] .command-os-table-card .dt-buttons .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]):hover,
-html[data-command-theme='dark'] .command-os-table-card .dt-buttons.btn-group > .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]):hover {
+html[data-command-theme='dark'] .command-os-table-card .dt-buttons .btn:not(.btn-command-primary):not([title*="NEW"]):not([title*="ADD"]):hover,
+html[data-command-theme='dark'] .command-os-table-card .dt-buttons.btn-group > .btn:not(.btn-command-primary):not([title*="NEW"]):not([title*="ADD"]):hover {
     background: #141b4b !important;
     border-color: #a855f7 !important;
     color: #c084fc !important;
@@ -5202,13 +5199,8 @@ html[data-command-theme='light'] .command-os-table-card .dt-buttons .btn.btn-com
 html[data-command-theme='dark'] .command-os-table-card .dt-buttons .btn.btn-command-primary,
 html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons .btn.btn-command-primary,
 html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons.btn-group > .btn.btn-command-primary,
-html[data-command-theme='light'] .command-os-table-card .dt-buttons .btn:has(.fa-plus),
-html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons .btn:has(.fa-plus),
-html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons.btn-group > .btn:has(.fa-plus),
 .command-os-table-card .dt-buttons .btn.btn-command-primary,
 .command-os-table-card .dt-buttons.btn-group > .btn.btn-command-primary,
-.command-os-table-card .dt-buttons .btn:has(.fa-plus),
-.command-os-table-card .dt-buttons.btn-group > .btn:has(.fa-plus),
 .command-os-table-card .dt-buttons .btn[title*="NEW"],
 .command-os-table-card .dt-buttons .btn[title*="ADD"],
 .command-os-table-card .dt-buttons.btn-group > .btn[title*="NEW"],
@@ -5223,7 +5215,6 @@ html[data-command-theme='light'] .command-os-table-card .dt-buttons .btn.btn-com
 html[data-command-theme='dark'] .command-os-table-card .dt-buttons .btn.btn-command-primary i,
 html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons .btn.btn-command-primary i,
 .command-os-table-card .dt-buttons .btn.btn-command-primary i,
-.command-os-table-card .dt-buttons .btn:has(.fa-plus) i,
 .command-os-table-card .dt-buttons .btn[title*="NEW"] i,
 .command-os-table-card .dt-buttons .btn[title*="ADD"] i {
     color: #ffffff !important;
@@ -5233,13 +5224,8 @@ html[data-command-theme='light'] .command-os-table-card .dt-buttons .btn.btn-com
 html[data-command-theme='dark'] .command-os-table-card .dt-buttons .btn.btn-command-primary:hover,
 html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons .btn.btn-command-primary:hover,
 html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons.btn-group > .btn.btn-command-primary:hover,
-html[data-command-theme='light'] .command-os-table-card .dt-buttons .btn:has(.fa-plus):hover,
-html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons .btn:has(.fa-plus):hover,
-html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons.btn-group > .btn:has(.fa-plus):hover,
 .command-os-table-card .dt-buttons .btn.btn-command-primary:hover,
 .command-os-table-card .dt-buttons.btn-group > .btn.btn-command-primary:hover,
-.command-os-table-card .dt-buttons .btn:has(.fa-plus):hover,
-.command-os-table-card .dt-buttons.btn-group > .btn:has(.fa-plus):hover,
 .command-os-table-card .dt-buttons .btn[title*="NEW"]:hover,
 .command-os-table-card .dt-buttons .btn[title*="ADD"]:hover,
 .command-os-table-card .dt-buttons.btn-group > .btn[title*="NEW"]:hover,

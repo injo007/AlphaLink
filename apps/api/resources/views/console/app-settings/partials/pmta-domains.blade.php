@@ -19,14 +19,11 @@
                         <label for="pmta_version">
                             <span><i class="fas fa-code-branch command-field-icon"></i> PowerMTA Target Version:</span>
                         </label>
-                        <div class="command-input-wrap">
-                            <span class="command-input-leading-icon"><i class="fas fa-layer-group"></i></span>
-                            <select id="pmta_version" class="form-control command-os-custom-select" aria-label="PowerMTA version">
-                                <option value="40" selected>PowerMTA 4.0 &mdash; Legacy Stable</option>
-                                <option value="45">PowerMTA 4.5 &mdash; Fast Engine</option>
-                                <option value="50">PowerMTA 5.0 &mdash; High Volume</option>
-                            </select>
-                        </div>
+                        <select id="pmta_version" class="form-control command-os-custom-select" aria-label="PowerMTA version">
+                            <option value="40" selected>PowerMTA 4.0 &mdash; Legacy Stable</option>
+                            <option value="45">PowerMTA 4.5 &mdash; Fast Engine</option>
+                            <option value="50">PowerMTA 5.0 &mdash; High Volume</option>
+                        </select>
                     </div>
                 </div>
                 <div class="col-sm-12 col-md-6 col-lg-3 mt-3 mt-md-4">

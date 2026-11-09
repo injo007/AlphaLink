@@ -26,7 +26,7 @@
             </div>
         </div>
         <div class="d-flex justify-content-end">
-            <button class="command-os-btn-filter px-4" type="submit">
+            <button class="btn-command-primary px-4 py-2 font-w700" type="submit" style="height: 38px; display: inline-flex; align-items: center; border-radius: 10px; font-size: 11.5px; letter-spacing: .06em;">
                 <i class="fas fa-upload mr-2"></i>START UPLOAD
             </button>
         </div>

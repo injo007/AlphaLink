@@ -18,7 +18,7 @@
             <p>{{ $offer->name }} &middot; {{ $offer->sponsor?->name ?? 'Unknown sponsor' }} &middot; Offer ID {{ $offer->offer_id }} &middot; {{ $offer->vertical ?: 'No vertical' }}</p>
         </div>
         <div class="command-os-hero-actions">
-            <a class="btn btn-sm btn-light" href="{{ route('clean.console.offers.index', ['sponsor' => $offer->sponsor_id]) }}">
+            <a class="btn-command-action px-3 py-2 text-decoration-none" href="{{ route('clean.console.offers.index', ['sponsor' => $offer->sponsor_id]) }}" style="border-radius: 9px; font-size: 11px; font-weight: 750; letter-spacing: .05em;">
                 <i class="fas fa-arrow-left mr-1"></i> BACK TO OFFERS
             </a>
             <button type="button" class="command-os-btn-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen">

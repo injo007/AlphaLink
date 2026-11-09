@@ -85,59 +85,47 @@
                 <h4 class="font-size-sm font-w700 text-uppercase tracking-wider mb-0 text-muted">
                     <i class="fas fa-sliders-h mr-2 text-purple"></i> Filter &amp; Targeting
                 </h4>
-                <span class="badge badge-primary px-2 py-1"><i class="fas fa-filter mr-1"></i> Live Query</span>
+                <span class="badge badge-light border text-purple font-w700 px-2 py-1"><i class="fas fa-filter mr-1"></i> Live Query</span>
             </div>
             <div class="form-row align-items-end">
                 <div class="col-sm-6 col-lg-3">
                     <label for="offer-sponsor"><i class="fas fa-building text-purple mr-1"></i> Sponsors:</label>
-                    <div class="command-input-wrap">
-                        <span class="command-input-leading-icon"><i class="fas fa-building"></i></span>
-                        <select class="form-control selectpicker command-input-with-icon" id="offer-sponsor" data-live-search="true">
-                            <option value="0">Select Sponsor</option>
-                            @foreach ($sponsors as $sponsor)
-                                <option value="{{ $sponsor->id }}" @selected((string) request('sponsor') === (string) $sponsor->id)>{{ $sponsor->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
+                    <select class="form-control selectpicker" id="offer-sponsor" data-live-search="true">
+                        <option value="0">Select Sponsor</option>
+                        @foreach ($sponsors as $sponsor)
+                            <option value="{{ $sponsor->id }}" @selected((string) request('sponsor') === (string) $sponsor->id)>{{ $sponsor->name }}</option>
+                        @endforeach
+                    </select>
                 </div>
                 <div class="col-sm-6 col-lg-3">
                     <label for="offer-vertical"><i class="fas fa-layer-group text-purple mr-1"></i> Verticals:</label>
-                    <div class="command-input-wrap">
-                        <span class="command-input-leading-icon"><i class="fas fa-layer-group"></i></span>
-                        <select class="form-control selectpicker command-input-with-icon" id="offer-vertical" data-live-search="true">
-                            <option value="">Select Vertical</option>
-                            @foreach ($verticals as $vertical)
-                                <option value="{{ $vertical }}" @selected(request('vertical') === $vertical)>{{ $vertical }}</option>
-                            @endforeach
-                        </select>
-                    </div>
+                    <select class="form-control selectpicker" id="offer-vertical" data-live-search="true">
+                        <option value="">Select Vertical</option>
+                        @foreach ($verticals as $vertical)
+                            <option value="{{ $vertical }}" @selected(request('vertical') === $vertical)>{{ $vertical }}</option>
+                        @endforeach
+                    </select>
                 </div>
                 <div class="col-sm-6 col-lg-2">
                     <label for="offer-status"><i class="fas fa-toggle-on text-purple mr-1"></i> Status:</label>
-                    <div class="command-input-wrap">
-                        <span class="command-input-leading-icon"><i class="fas fa-toggle-on"></i></span>
-                        <select class="form-control selectpicker command-input-with-icon" id="offer-status">
-                            <option value="0">Select Status</option>
-                            @foreach (\App\Models\WorkspaceOffer::STATUSES as $status)
-                                <option value="{{ $status }}" @selected(request('status') === $status)>{{ strtoupper($status) }}</option>
-                            @endforeach
-                        </select>
-                    </div>
+                    <select class="form-control selectpicker" id="offer-status">
+                        <option value="0">Select Status</option>
+                        @foreach (\App\Models\WorkspaceOffer::STATUSES as $status)
+                            <option value="{{ $status }}" @selected(request('status') === $status)>{{ strtoupper($status) }}</option>
+                        @endforeach
+                    </select>
                 </div>
                 <div class="col-sm-6 col-lg-2">
                     <label for="offer-geo"><i class="fas fa-globe text-purple mr-1"></i> Geo:</label>
-                    <div class="command-input-wrap">
-                        <span class="command-input-leading-icon"><i class="fas fa-globe"></i></span>
-                        <select class="form-control selectpicker command-input-with-icon" id="offer-geo" data-live-search="true">
-                            <option value="ALL">Select Country</option>
-                            @foreach ($countries as $code => $country)
-                                <option value="{{ $code }}">{{ $country }}</option>
-                            @endforeach
-                        </select>
-                    </div>
+                    <select class="form-control selectpicker" id="offer-geo" data-live-search="true">
+                        <option value="ALL">Select Country</option>
+                        @foreach ($countries as $code => $country)
+                            <option value="{{ $code }}">{{ $country }}</option>
+                        @endforeach
+                    </select>
                 </div>
                 <div class="col-sm-12 col-lg-2">
-                    <button id="filter-offers" class="command-os-btn-filter" type="button">
+                    <button id="filter-offers" class="btn-command-primary w-100" type="button" style="height: 38px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; font-weight: 750; font-size: 11.5px; letter-spacing: .06em;">
                         <i class="fas fa-filter mr-2"></i>APPLY FILTERS
                     </button>
                 </div>
@@ -200,9 +188,9 @@
                             The verified file is saved to this offer. Open its suppression-file page to view or download it.
                         </div>
                     </div>
-                    <div class="modal-footer">
-                        <a id="offer-suppression-manage-link" class="btn btn-primary d-none" href="#">VIEW SAVED FILE</a>
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">CLOSE</button>
+                    <div class="modal-footer" style="border-top: 1px solid var(--co-border-strong); padding: 12px 16px;">
+                        <a id="offer-suppression-manage-link" class="btn-command-primary text-decoration-none px-3 py-2 d-none" style="border-radius: 9px; font-size: 11px; font-weight: 750;" href="#">VIEW SAVED FILE</a>
+                        <button type="button" class="btn-command-action px-3 py-2" style="border-radius: 9px; font-size: 11px; font-weight: 750;" data-dismiss="modal">CLOSE</button>
                     </div>
                 </div>
             </div>

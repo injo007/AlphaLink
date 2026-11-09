@@ -15,7 +15,7 @@
                 </div>
             </div>
             <div class="command-os-hero-card-right">
-                <a class="command-os-btn-filter d-inline-flex align-items-center justify-content-center text-decoration-none px-3 py-2" href="{{ route('console.global-users.create') }}" style="width: auto; height: 34px;"><i class="fa fa-plus mr-1" aria-hidden="true"></i> ADD USER</a>
+                <a class="btn-command-primary text-decoration-none px-3" href="{{ route('console.global-users.create') }}" style="height: 38px; display: inline-flex; align-items: center; border-radius: 10px; font-weight: 750; font-size: 11.5px; letter-spacing: .06em;"><i class="fas fa-plus mr-2" aria-hidden="true"></i> ADD USER</a>
                 <a class="command-os-btn-option" href="{{ route('console.global-users.index') }}" title="REFRESH" aria-label="Refresh users"><i class="fas fa-sync" aria-hidden="true"></i></a>
                 <button class="command-os-btn-option" type="button" data-toggle="block-option" data-action="fullscreen_toggle" title="FULLSCREEN" aria-label="Toggle fullscreen"><i class="si si-size-fullscreen"></i></button>
             </div>
@@ -35,24 +35,33 @@
 
         <!-- 3. Table Card -->
         <div class="command-os-table-card">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-users text-purple font-size-lg mr-2"></i>
+                    <h3 class="h6 font-w700 text-uppercase tracking-wider mb-0 text-ink">Global Users &amp; System Operators</h3>
+                </div>
+                <span class="badge badge-light border text-muted px-2 py-1 font-size-xs">
+                    <i class="fas fa-shield-alt mr-1 text-purple"></i> Security Directory
+                </span>
+            </div>
             <div class="table-responsive">
                 <table class="table table-sm table-hover table-striped" id="global-users-table">
                     <thead><tr><th>#</th><th>USERNAME</th><th>NAME</th><th>TYPE</th><th>SEEN AT</th><th>ACTIONS</th></tr></thead>
                     <tbody>
                         @foreach ($users as $user)
-                            <tr data-user-row="{{ $user->id }}" @class(['table-danger' => ! $user->is_active])>
-                                <td>{{ $user->id }}</td>
-                                <td>{{ $user->username }}</td>
-                                <td>{{ $user->name }}</td>
-                                <td><span class="badge badge-{{ $user->type === 'admin' ? 'primary' : 'info' }} p-1">{{ $user->type }}</span></td>
-                                <td data-order="{{ $user->seen_at?->timestamp ?? 0 }}">{{ $user->seen_at?->diffForHumans() ?? 'NA' }}</td>
+                            <tr data-user-row="{{ $user->id }}" @class(['is-inactive-row' => ! $user->is_active])>
+                                <td><span class="font-mono text-muted">#{{ $user->id }}</span></td>
+                                <td><strong class="text-ink">{{ $user->username }}</strong></td>
+                                <td><span class="text-muted font-w600">{{ $user->name }}</span></td>
+                                <td><span class="badge badge-light border text-purple font-w700 text-uppercase px-2 py-1">{{ $user->type }}</span></td>
+                                <td data-order="{{ $user->seen_at?->timestamp ?? 0 }}"><span class="badge badge-light border font-mono font-size-xs">{{ $user->seen_at?->diffForHumans() ?? 'NEVER' }}</span></td>
                                 <td class="text-nowrap">
                                     <div class="command-action-btn-group">
-                                        <a class="command-action-btn action-info" href="{{ route('console.global-users.edit', $user->id) }}" title="UPDATE" aria-label="Update {{ $user->username }}"><i class="fas fa-pencil-alt" aria-hidden="true"></i></a>
-                                        <button class="command-action-btn action-status {{ $user->is_active ? 'is-active' : '' }}" type="button" data-user-status="{{ $user->id }}" data-status="{{ $user->is_active ? 0 : 1 }}" @disabled(auth()->user()->is($user)) title="{{ $user->is_active ? 'DISABLE USER' : 'ENABLE USER' }}" aria-label="{{ $user->is_active ? 'Disable' : 'Enable' }} {{ $user->username }}"><i class="fas fa-{{ $user->is_active ? 'times' : 'check' }}" aria-hidden="true"></i></button>
-                                        <a class="command-action-btn action-warning" href="{{ route('console.global-users.password', $user->id) }}" title="EDIT PASSWORD" aria-label="Edit password for {{ $user->username }}"><i class="fas fa-unlock-alt" aria-hidden="true"></i></a>
+                                        <a class="command-action-btn action-edit" href="{{ route('console.global-users.edit', $user->id) }}" title="UPDATE USER" aria-label="Update {{ $user->username }}"><i class="fas fa-pencil-alt" aria-hidden="true"></i></a>
+                                        <button class="command-action-btn action-status {{ $user->is_active ? 'is-active' : '' }}" type="button" data-user-status="{{ $user->id }}" data-status="{{ $user->is_active ? 0 : 1 }}" @disabled(auth()->user()->is($user)) title="{{ $user->is_active ? 'DISABLE USER' : 'ENABLE USER' }}" aria-label="{{ $user->is_active ? 'Disable' : 'Enable' }} {{ $user->username }}"><i class="fas fa-{{ $user->is_active ? 'toggle-on' : 'toggle-off' }}" aria-hidden="true"></i></button>
+                                        <a class="command-action-btn action-warning" href="{{ route('console.global-users.password', $user->id) }}" title="EDIT PASSWORD" aria-label="Edit password for {{ $user->username }}"><i class="fas fa-key" aria-hidden="true"></i></a>
                                         @if (auth()->user()->canImpersonate() && $user->canBeImpersonated())
-                                            <form method="post" action="{{ route('console.global-users.impersonation.start', $user->id) }}" class="d-inline">@csrf<button class="command-action-btn action-danger" type="submit" title="IMPERSONATE" aria-label="Impersonate {{ $user->username }}"><i class="fas fa-user-ninja" aria-hidden="true"></i></button></form>
+                                            <form method="post" action="{{ route('console.global-users.impersonation.start', $user->id) }}" class="d-inline">@csrf<button class="command-action-btn action-login" type="submit" title="IMPERSONATE OPERATOR" aria-label="Impersonate {{ $user->username }}"><i class="fas fa-user-ninja" aria-hidden="true"></i></button></form>
                                         @endif
                                     </div>
                                 </td>
@@ -61,14 +70,31 @@
                     </tbody>
                 </table>
             </div>
-            <p id="global-users-message" role="status" aria-live="polite" class="mb-0"></p>
+            <p id="global-users-message" role="status" aria-live="polite" class="mb-0 text-muted small mt-2"></p>
         </div>
     </div>
     <script>
         (() => {
             const table = window.jQuery?.('#global-users-table');
             if (table && typeof table.DataTable === 'function') {
-                table.DataTable({pageLength: 50, order: [[4, 'desc']]});
+                table.DataTable({
+                    pageLength: 50,
+                    order: [[4, 'desc']],
+                    dom: '<"command-table-toolbar"<"command-table-toolbar-left"l><"command-table-toolbar-right"f>>' +
+                         '<"table-responsive"t>' +
+                         '<"command-table-footer"ip>',
+                    language: {
+                        lengthMenu: 'Show _MENU_ rows',
+                        search: '',
+                        searchPlaceholder: 'Search users...',
+                        info: 'Page _PAGE_ of _PAGES_ (_TOTAL_ records)',
+                        infoEmpty: 'Page 0 of 0 (0 records)',
+                        paginate: {
+                            previous: '<i class="fas fa-chevron-left"></i>',
+                            next: '<i class="fas fa-chevron-right"></i>'
+                        }
+                    }
+                });
             }
             const token = document.querySelector('meta[name="csrf-token"]')?.content;
             const message = document.getElementById('global-users-message');
@@ -84,13 +110,12 @@
                     if (!response.ok) { throw new Error(result.message || Object.values(result.errors || {}).flat().join(' ') || 'The status could not be changed.'); }
                     const active = nextStatus === '1';
                     const row = document.querySelector(`[data-user-row="${userId}"]`);
-                    row.classList.toggle('table-danger', !active);
+                    row.classList.toggle('is-inactive-row', !active);
                     button.dataset.status = active ? '0' : '1';
-                    button.classList.toggle('btn-warning', active);
-                    button.classList.toggle('btn-success', !active);
+                    button.classList.toggle('is-active', active);
                     button.title = active ? 'DISABLE USER' : 'ENABLE USER';
                     button.setAttribute('aria-label', `${active ? 'Disable' : 'Enable'} ${row.children[1].textContent}`);
-                    button.innerHTML = `<i class="fas fa-${active ? 'times' : 'check'}" aria-hidden="true"></i>`;
+                    button.innerHTML = `<i class="fas fa-${active ? 'toggle-on' : 'toggle-off'}" aria-hidden="true"></i>`;
                     message.textContent = result.data;
                 } catch (error) {
                     message.textContent = error.message || 'The status could not be changed.';

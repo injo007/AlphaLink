@@ -91,47 +91,35 @@
             <h4 class="font-size-sm font-w700 text-uppercase tracking-wider mb-0 text-muted">
                 <i class="fas fa-play-circle mr-2 text-purple"></i> Execute Suppression Run
             </h4>
-            <span class="badge badge-primary px-2 py-1"><i class="fas fa-cogs mr-1"></i> Interactive Pipeline</span>
+            <span class="badge badge-light border text-purple font-w700 px-2 py-1"><i class="fas fa-cogs mr-1"></i> Interactive Pipeline</span>
         </div>
         <form id="drops-suppression-form" class="form-row align-items-end" novalidate>
             <div class="form-group col-12 col-sm-6 col-lg-3">
                 <label for="drops-suppression-sponsor"><i class="fas fa-building text-purple mr-1"></i> Sponsors:</label>
-                <div class="command-input-wrap">
-                    <span class="command-input-leading-icon"><i class="fas fa-building"></i></span>
-                    <select id="drops-suppression-sponsor" class="form-control selectpicker command-input-with-icon" data-live-search="true" data-allow-clear="true" title="Select Sponsor">
-                        <option value="">Select Sponsor</option>
-                        @foreach ($sponsors as $sponsor)
-                            <option value="{{ $sponsor->id }}" @selected((string) $initialSponsorId === (string) $sponsor->id)>{{ $sponsor->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
+                <select id="drops-suppression-sponsor" class="form-control selectpicker" data-live-search="true" data-allow-clear="true" title="Select Sponsor">
+                    <option value="">Select Sponsor</option>
+                    @foreach ($sponsors as $sponsor)
+                        <option value="{{ $sponsor->id }}" @selected((string) $initialSponsorId === (string) $sponsor->id)>{{ $sponsor->name }}</option>
+                    @endforeach
+                </select>
             </div>
             <div class="form-group col-12 col-sm-6 col-lg-3">
                 <label for="drops-suppression-offer"><i class="fas fa-tag text-purple mr-1"></i> Offers:</label>
-                <div class="command-input-wrap">
-                    <span class="command-input-leading-icon"><i class="fas fa-tag"></i></span>
-                    <select id="drops-suppression-offer" class="form-control selectpicker command-input-with-icon" data-live-search="true" data-size="6" title="Select Offer" disabled>
-                        <option value="">Select Offer</option>
-                    </select>
-                </div>
+                <select id="drops-suppression-offer" class="form-control selectpicker" data-live-search="true" data-size="6" title="Select Offer" disabled>
+                    <option value="">Select Offer</option>
+                </select>
             </div>
             <div class="form-group col-12 col-sm-6 col-lg-3">
                 <label for="drops-suppression-isps"><i class="fas fa-network-wired text-purple mr-1"></i> ISPs:</label>
-                <div class="command-input-wrap">
-                    <span class="command-input-leading-icon"><i class="fas fa-network-wired"></i></span>
-                    <select id="drops-suppression-isps" class="form-control selectpicker command-input-with-icon" data-live-search="true" data-actions-box="true" data-size="6" title="Select ISPs" multiple disabled></select>
-                </div>
+                <select id="drops-suppression-isps" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" title="Select ISPs" multiple disabled></select>
             </div>
             <div class="form-group col-12 col-sm-6 col-lg-3">
                 <label for="drops-suppression-lists"><i class="fas fa-list text-purple mr-1"></i> Lists:</label>
-                <div class="command-input-wrap">
-                    <span class="command-input-leading-icon"><i class="fas fa-list"></i></span>
-                    <select id="drops-suppression-lists" class="form-control selectpicker command-input-with-icon" data-live-search="true" data-actions-box="true" data-size="6" title="Select Lists" multiple disabled></select>
-                </div>
+                <select id="drops-suppression-lists" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" title="Select Lists" multiple disabled></select>
             </div>
             <div class="form-group col-12 text-right mt-3 mb-0">
-                <button id="drops-suppression-start" type="submit" class="command-os-btn-filter d-inline-block" style="width: auto; padding: 0 28px;">
-                    <i class="fas fa-play mr-2"></i>START SUPPRESSION
+                <button id="drops-suppression-start" type="submit" class="btn-command-primary px-4" style="height: 38px; display: inline-flex; align-items: center; border-radius: 10px; font-weight: 750; font-size: 11.5px; letter-spacing: .06em;">
+                    <i class="fas fa-play mr-2"></i> START SUPPRESSION
                 </button>
             </div>
         </form>
@@ -144,8 +132,8 @@
             <span id="offer-suppression-file-status">Select an offer to check its saved suppression file.</span>
         </div>
         @if ($canManageSuppressionFiles)
-            <a id="offer-suppression-file-manage" class="btn btn-sm btn-outline-info ml-md-3 mt-2 mt-md-0" href="#" hidden>
-                <i class="fas fa-external-link-alt mr-1"></i> OPEN OFFER FILE
+            <a id="offer-suppression-file-manage" class="command-action-btn action-info ml-md-3 mt-2 mt-md-0" href="#" hidden title="OPEN OFFER FILE" aria-label="Open offer suppression file">
+                <i class="fas fa-external-link-alt"></i>
             </a>
         @endif
     </div>
@@ -175,7 +163,7 @@
             <caption class="sr-only">Suppression runs and their progress</caption>
         </table>
     </div>
-    <dialog id="drops-suppression-details" class="pmta-control-dialog" aria-labelledby="drops-suppression-details-title">
+    <dialog id="drops-suppression-details" class="pmta-control-dialog" aria-labelledby="drops-suppression-details-title" style="border-radius: 16px; border: 1px solid var(--co-border-strong); background: var(--co-surface); box-shadow: var(--co-shadow); padding: 24px;">
         <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
             <h3 id="drops-suppression-details-title" class="h6 font-w700 text-uppercase tracking-wider mb-0 text-ink">
                 <i class="fas fa-layer-group text-purple mr-2"></i>Selected Suppression Scope
@@ -186,7 +174,7 @@
         </div>
         <div id="drops-suppression-details-content" class="mb-4"></div>
         <form method="dialog" class="text-right">
-            <button type="submit" class="btn btn-secondary btn-sm px-4 font-w700" style="border-radius: 8px;">CLOSE</button>
+            <button type="submit" class="btn-command-action px-4 py-2" style="border-radius: 9px; font-weight: 700;">CLOSE</button>
         </form>
     </dialog>
 </div>

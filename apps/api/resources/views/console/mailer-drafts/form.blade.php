@@ -53,6 +53,9 @@
 @section('title', $isDrop ? ($draft ? 'Edit Drop' : 'New Drop') : ($draft ? 'Edit Warmup' : 'New Warmup'))
 
 @section('content')
+@if ($isWarmup)
+<div class="warmup-composer-shell">
+@endif
 <div class="quick-nav" aria-label="{{ $isDrop ? 'Drop actions' : 'Warmup actions' }}">
     <button class="quick-nav-trigger" type="button" aria-label="Open page actions" aria-expanded="false" aria-controls="mailer-page-actions"><span></span></button>
     <ul id="mailer-page-actions" role="menu" aria-hidden="true">
@@ -98,25 +101,30 @@
     </form>
 @endif
 
-<section class="block block-rounded" id="mailer-composer" data-options-url="{{ $optionsUrl }}" data-kind="{{ $kind }}">
-    <div class="block-header">
-        <h3 class="block-title">
-            @if ($isDrop)
-                DROP : {{ $draft?->getKey() ?? 'NEW' }} - TYPE: {{ strtoupper($setup['send_type'] ?? 'DRAFT') }} - PROCESSED: NO
-            @else
-                {{ $draft ? 'EDIT' : 'NEW' }} WARMUP
-            @endif
-        </h3>
+<section class="block block-rounded {{ $isWarmup ? 'warmup-composer-page' : '' }}" id="mailer-composer" data-options-url="{{ $optionsUrl }}" data-kind="{{ $kind }}">
+    <div class="block-header {{ $isWarmup ? 'warmup-composer-header' : '' }}">
+        @if ($isWarmup)
+            <div class="warmup-composer-heading">
+                <span class="warmup-composer-heading-icon" aria-hidden="true"><i class="fas fa-fire"></i></span>
+                <div>
+                    <span class="warmup-composer-eyebrow">{{ $draft ? 'EDIT WARMUP' : 'NEW WARMUP' }}</span>
+                    <h1>{{ $draft ? 'Edit Warmup' : 'New Warmup' }}</h1>
+                    <p>Configure your message, seed audience, and send pacing.</p>
+                </div>
+            </div>
+        @else
+            <h3 class="block-title">DROP : {{ $draft?->getKey() ?? 'NEW' }} - TYPE: {{ strtoupper($setup['send_type'] ?? 'DRAFT') }} - PROCESSED: NO</h3>
+        @endif
         <div class="block-options d-flex align-items-center" style="gap:.5rem">
-            <a class="btn btn-sm btn-alt-secondary" href="{{ $indexUrl }}" aria-label="{{ $isDrop ? 'Back to Drop Drafts' : 'Back to My Warmups' }}">
+            <a class="btn btn-sm btn-alt-secondary {{ $isWarmup ? 'warmup-composer-back' : '' }}" href="{{ $indexUrl }}" aria-label="{{ $isDrop ? 'Back to Drop Drafts' : 'Back to My Warmups' }}">
                 <i class="fas fa-arrow-left mr-1" aria-hidden="true"></i>{{ $isDrop ? 'DROP DRAFTS' : 'MY WARMUPS' }}
             </a>
-            <span class="badge badge-secondary">DRAFT</span>
-            <button type="button" class="btn-block-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle fullscreen"></button>
+            <span class="badge badge-secondary {{ $isWarmup ? 'warmup-composer-draft-badge' : '' }}">DRAFT</span>
+            <button type="button" class="btn-block-option {{ $isWarmup ? 'warmup-composer-fullscreen' : '' }}" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle fullscreen"><i class="si si-size-fullscreen" aria-hidden="true"></i></button>
         </div>
     </div>
     <div class="block-content block-content-full">
-        <p class="small text-muted mb-3" role="note">AlphaLink draft · changes are saved as a revision. Save the latest revision before sending a test to the saved Email Test addresses.</p>
+        <p class="small text-muted mb-3 {{ $isWarmup ? 'warmup-composer-note' : '' }}" role="note">AlphaLink draft · changes are saved as a revision. Save the latest revision before sending a test to the saved Email Test addresses.</p>
         @if (session('status'))<div class="alert alert-success" role="status">{{ session('status') }}</div>@endif
         @if ($errors->any())
             <div class="alert alert-danger" role="alert"><strong>Review these fields:</strong><ul class="mb-0 mt-2">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
@@ -141,13 +149,22 @@
                 <input type="hidden" id="mailer-draft-name" name="name" value="{{ old('name', $draft?->name ?? 'New Warmup') }}">
             @endif
 
-            <div class="form-row">
+            @if ($isWarmup)
+                <section class="warmup-composer-panel warmup-composer-test-panel" aria-labelledby="warmup-test-title">
+                    <header class="warmup-composer-panel-heading"><span class="warmup-composer-panel-icon" aria-hidden="true"><i class="fas fa-vial"></i></span><span><strong id="warmup-test-title">Test setup</strong><small>Choose a return path and saved test recipients.</small></span></header>
+            @endif
+            <div class="form-row {{ $isWarmup ? 'warmup-message-fields' : '' }}">
                 <div class="form-group col-sm-12 col-md-4"><label for="return_path">Return Path:</label><input id="return_path" name="return_path" type="text" class="form-control" maxlength="320" placeholder="Return Path" value="{{ old('return_path', $content['return_path'] ?? '[rnd]@[domain]') }}"></div>
                 <div class="form-group col-sm-12 col-md-4"><label for="saved-emails">Saved Emails:</label><div class="input-group"><select id="saved-emails" class="form-control selectpicker" multiple data-actions-box="true" data-live-search="true" data-selected-text-format="count > 1" data-size="5" title="Select Emails">@foreach ($savedEmails as $savedEmail)<option value="{{ $savedEmail->email }}" @selected(in_array($savedEmail->email, $selectedEmailTestAddresses, true))>{{ $savedEmail->email }}</option>@endforeach</select><div class="input-group-append"><button type="button" id="add-saved-email" class="btn btn-success" title="Add saved email to test addresses"><i class="fas fa-plus"></i></button></div></div></div>
                 <div class="form-group col-sm-12 col-md-4"><label for="email-test-addresses">{{ $isDrop ? 'Emails Test' : 'Email Test' }}:</label><textarea id="email-test-addresses" name="email_test_addresses_text" rows="1" class="form-control" placeholder="Email Test">{{ $emailTestText }}</textarea></div>
             </div>
+            @if ($isWarmup)
+                </section>
+                <section class="warmup-composer-panel warmup-composer-content-panel" aria-labelledby="warmup-content-title">
+                    <header class="warmup-composer-panel-heading"><span class="warmup-composer-panel-icon" aria-hidden="true"><i class="fas fa-envelope-open-text"></i></span><span><strong id="warmup-content-title">Message content</strong><small>Set sender details, headers, body, and placeholders.</small></span></header>
+            @endif
 
-            <hr>
+            @unless ($isWarmup)<hr>@endunless
             @if ($isDrop)
                 <div class="form-row">
                     @include('console.campaigns.partials.header-library', ['workspace' => $workspace, 'textareaId' => 'mailer-header', 'idPrefix' => 'mailer'])
@@ -212,6 +229,11 @@
                     'allCombination' => old($isDrop ? 'send_setup.placeholder_all_combination' : 'placeholder_all_combination', $setup['placeholder_all_combination'] ?? false),
                 ])
             </div>
+            @if ($isWarmup)
+                </section>
+                <section class="warmup-composer-panel warmup-composer-delivery-panel" aria-labelledby="warmup-delivery-title">
+                    <header class="warmup-composer-panel-heading"><span class="warmup-composer-panel-icon" aria-hidden="true"><i class="fas fa-route"></i></span><span><strong id="warmup-delivery-title">Sending &amp; pacing</strong><small>Choose the route, seed source, delivery mode, and rate limits.</small></span></header>
+            @endif
 
             @if ($isDrop)
                 <div class="form-row align-items-start">
@@ -247,14 +269,20 @@
                 </div>
             @endif
 
-            <div class="d-flex flex-wrap align-items-center mt-2" style="gap:.75rem">
-                <button class="btn btn-primary" id="save-mailer-draft" type="submit">{{ $draft ? 'SAVE NEW REVISION' : ($isDrop ? 'SAVE DROP DRAFT' : 'CREATE WARMUP') }}</button>
-                <a class="btn btn-alt-secondary" href="{{ $indexUrl }}">CANCEL</a>
+            @if ($isWarmup)
+                </section>
+            @endif
+            <div class="d-flex flex-wrap align-items-center mt-2 {{ $isWarmup ? 'warmup-composer-actions' : '' }}" style="gap:.75rem">
+                <button class="btn btn-primary {{ $isWarmup ? 'warmup-composer-save' : '' }}" id="save-mailer-draft" type="submit">{{ $draft ? 'SAVE NEW REVISION' : ($isDrop ? 'SAVE DROP DRAFT' : 'CREATE WARMUP') }}</button>
+                <a class="btn btn-alt-secondary {{ $isWarmup ? 'warmup-composer-cancel' : '' }}" href="{{ $indexUrl }}">CANCEL</a>
                 <span class="text-muted small">Save draft</span>
             </div>
         </form>
     </div>
 </section>
+@if ($isWarmup)
+</div>
+@endif
 @endsection
 
 @push('styles')
@@ -269,6 +297,85 @@
     .mailer-ip-selector select { min-height: 13rem; }
     .mailer-ip-selector-actions { align-items: center; display: flex; flex-direction: column; gap: .35rem; justify-content: center; padding-bottom: .35rem; }
     .mailer-ip-selector-actions .btn { min-width: 2.7rem; }
+    .warmup-composer-shell { --warmup-ink: var(--co-ink); --warmup-muted: var(--co-muted); --warmup-border: var(--co-border); --warmup-purple: var(--co-purple); --warmup-purple-bright: var(--co-purple-bright); color: var(--warmup-ink); min-width: 0; }
+    .warmup-composer-shell .quick-nav-trigger { align-items: center; background: linear-gradient(145deg, #b64eff, #7028f4 72%); border: 1px solid rgb(255 255 255 / 86%); border-radius: 15px; box-shadow: 0 8px 22px rgb(104 44 225 / 30%), inset 0 1px 0 rgb(255 255 255 / 40%); color: #fff; display: grid; place-items: center; }
+    .warmup-composer-shell #mailer-page-actions { background: linear-gradient(145deg, var(--co-surface), var(--co-surface-muted)); border: 1px solid var(--co-border); border-radius: 16px; box-shadow: 0 18px 48px color-mix(in srgb, var(--co-ink) 19%, transparent); color: var(--co-ink); }
+    .warmup-composer-shell #mailer-page-actions a { align-items: center; border-radius: 10px; color: var(--co-ink); display: flex; font-size: 10px; font-weight: 760; gap: 10px; min-height: 38px; padding: 6px 9px; text-decoration: none; }
+    .warmup-composer-shell #mailer-page-actions a:hover, .warmup-composer-shell #mailer-page-actions a:focus-visible { background: color-mix(in srgb, var(--co-purple) 10%, var(--co-surface)); color: var(--co-purple); outline: 0; }
+    .warmup-composer-shell #mailer-page-actions a i { color: var(--co-purple); }
+    .warmup-composer-page { background: var(--co-surface); border: 1px solid var(--co-border); border-radius: 17px; box-shadow: var(--co-shadow); color: var(--warmup-ink); margin-bottom: 20px; overflow: visible; }
+    .warmup-composer-page > .warmup-composer-header { align-items: center; background: linear-gradient(105deg, color-mix(in srgb, var(--co-purple) 9%, var(--co-surface)), var(--co-surface) 52%, color-mix(in srgb, var(--co-blue) 8%, var(--co-surface))); border-bottom: 1px solid var(--co-border); border-radius: 16px 16px 0 0; gap: 16px; min-height: 106px; overflow: hidden; padding: 17px 20px; position: relative; }
+    .warmup-composer-header::after { background: radial-gradient(ellipse at 80% 10%, color-mix(in srgb, var(--co-purple-bright) 16%, transparent), transparent 45%); content: ""; inset: 0; pointer-events: none; position: absolute; }
+    .warmup-composer-heading { align-items: center; display: flex; gap: 13px; min-width: 0; position: relative; z-index: 1; }
+    .warmup-composer-heading-icon { align-items: center; background: linear-gradient(145deg, var(--co-purple-bright), var(--co-purple)); border: 1px solid color-mix(in srgb, var(--co-purple) 25%, var(--co-border)); border-radius: 14px; box-shadow: 0 7px 18px color-mix(in srgb, var(--co-purple) 25%, transparent); color: #fff; display: grid; flex: 0 0 46px; font-size: 18px; height: 46px; justify-items: center; width: 46px; }
+    .warmup-composer-eyebrow { color: var(--co-purple); display: block; font-size: 9px; font-weight: 820; letter-spacing: .14em; }
+    .warmup-composer-heading h1 { color: var(--co-ink); font-size: clamp(20px, 2vw, 25px); font-weight: 800; letter-spacing: -.04em; line-height: 1.15; margin: 2px 0 3px; }
+    .warmup-composer-heading p { color: var(--co-muted); font-size: 10px; margin: 0; }
+    .warmup-composer-page .block-options { flex-wrap: wrap; gap: 8px !important; margin: 0; position: relative; z-index: 1; }
+    .warmup-composer-page .warmup-composer-back, .warmup-composer-page .warmup-composer-cancel { align-items: center; border: 1px solid var(--co-border-strong); border-radius: 9px; color: var(--co-ink); display: inline-flex; font-size: 9px; font-weight: 750; justify-content: center; min-height: 34px; padding: 0 10px; text-decoration: none; }
+    .warmup-composer-page .warmup-composer-back:hover, .warmup-composer-page .warmup-composer-cancel:hover { border-color: var(--co-purple); color: var(--co-purple); }
+    .warmup-composer-page .warmup-composer-draft-badge { background: color-mix(in srgb, var(--co-purple) 11%, var(--co-surface)); border: 1px solid color-mix(in srgb, var(--co-purple) 19%, var(--co-border)); border-radius: 20px; color: var(--co-purple); font-size: 8px; font-weight: 800; letter-spacing: .06em; padding: 6px 9px; }
+    .warmup-composer-page .warmup-composer-fullscreen { align-items: center; background: var(--co-surface); border: 1px solid var(--co-border); border-radius: 9px; color: var(--co-muted); display: grid; height: 34px; justify-items: center; width: 34px; }
+    .warmup-composer-page .warmup-composer-fullscreen:hover { border-color: var(--co-purple); color: var(--co-purple); }
+    .warmup-composer-page > .block-content { padding: 16px 18px 20px; }
+    .warmup-composer-note { align-items: center; background: color-mix(in srgb, var(--co-blue) 5%, var(--co-surface)); border: 1px solid color-mix(in srgb, var(--co-blue) 16%, var(--co-border)); border-radius: 10px; color: var(--co-muted) !important; display: flex; font-size: 10px !important; min-height: 38px; padding: 8px 11px; }
+    .warmup-composer-panel { background: linear-gradient(145deg, color-mix(in srgb, var(--co-purple) 3%, var(--co-surface)), var(--co-surface)); border: 1px solid var(--co-border); border-radius: 14px; box-shadow: 0 5px 16px color-mix(in srgb, var(--co-purple) 5%, transparent); margin: 0 0 13px; padding: 13px 14px 7px; }
+    .warmup-composer-panel-heading { align-items: center; border-bottom: 1px solid color-mix(in srgb, var(--co-purple) 13%, var(--co-border)); display: flex; gap: 9px; margin: -13px -14px 13px; min-height: 55px; padding: 9px 14px; }
+    .warmup-composer-panel-icon { align-items: center; background: color-mix(in srgb, var(--co-purple) 10%, var(--co-surface)); border: 1px solid color-mix(in srgb, var(--co-purple) 15%, var(--co-border)); border-radius: 10px; color: var(--co-purple); display: grid; flex: 0 0 32px; height: 32px; justify-items: center; width: 32px; }
+    .warmup-composer-panel-heading > span:last-child { display: grid; gap: 2px; min-width: 0; }
+    .warmup-composer-panel-heading strong { color: var(--co-ink); font-size: 12px; font-weight: 800; }
+    .warmup-composer-panel-heading small { color: var(--co-muted); font-size: 9px; }
+    .warmup-composer-page .form-group { margin-bottom: 9px; min-width: 0; }
+    .warmup-composer-page label { color: var(--co-ink); font-size: 10px; font-weight: 720; margin-bottom: 5px; }
+    .warmup-composer-page .form-control, .warmup-composer-page .bootstrap-select > .dropdown-toggle { background-color: var(--co-surface); border: 1px solid var(--co-border-strong); border-radius: 8px; color: var(--co-ink); font-size: 11px; min-height: 34px; }
+    .warmup-composer-page .form-control:not(textarea):not([multiple]):not(.bootstrap-select) { height: 34px; }
+    .warmup-composer-page .form-control:focus, .warmup-composer-page .bootstrap-select > .dropdown-toggle:focus { border-color: var(--co-purple); box-shadow: 0 0 0 3px color-mix(in srgb, var(--co-purple) 12%, transparent); }
+    .warmup-composer-page textarea.form-control { line-height: 1.5; min-height: 42px; padding: 8px 10px; resize: vertical; }
+    .warmup-composer-page .bootstrap-select { max-width: 100%; width: 100% !important; }
+    .warmup-composer-page .bootstrap-select.form-control { background: transparent !important; border: 0 !important; box-shadow: none !important; height: auto; min-height: 0; padding: 0 !important; }
+    .warmup-composer-page .bootstrap-select > .dropdown-toggle { align-items: center !important; display: flex !important; height: 34px !important; justify-content: space-between !important; line-height: 1.2 !important; min-height: 34px !important; min-width: 0; padding: 0 10px !important; text-align: left; width: 100% !important; }
+    .warmup-composer-page .bootstrap-select > .dropdown-toggle .filter-option, .warmup-composer-page .bootstrap-select > .dropdown-toggle .filter-option-inner, .warmup-composer-page .bootstrap-select > .dropdown-toggle .filter-option-inner-inner { min-width: 0; }
+    .warmup-composer-page .bootstrap-select > .dropdown-toggle .filter-option { align-items: center; display: flex; height: 100%; }
+    .warmup-composer-page .bootstrap-select > .dropdown-toggle .filter-option-inner-inner { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .warmup-composer-page .bootstrap-select .dropdown-menu { background: var(--co-surface); border: 1px solid var(--co-border); border-radius: 10px; box-shadow: 0 12px 32px color-mix(in srgb, var(--co-ink) 16%, transparent); color: var(--co-ink); max-width: min(100vw - 20px, 620px); z-index: 1085; }
+    .warmup-composer-page .bootstrap-select .dropdown-menu li a { color: var(--co-ink); font-size: 11px; }
+    .warmup-composer-page .bootstrap-select .dropdown-menu li a:hover, .warmup-composer-page .bootstrap-select .dropdown-menu li.selected a { background: color-mix(in srgb, var(--co-purple) 10%, var(--co-surface)); color: var(--co-purple); }
+    .warmup-composer-page .input-group > .bootstrap-select.form-control { flex: 1 1 0; min-width: 0; }
+    .warmup-composer-page .input-group-append .btn { align-items: center; border: 1px solid color-mix(in srgb, #1aa477 35%, var(--co-border)); border-radius: 9px; display: inline-flex; height: 34px; justify-content: center; margin-left: 6px; width: 36px; }
+    .warmup-composer-page .mailer-ace-editor, .warmup-composer-page textarea[name="header"], .warmup-composer-page textarea[name="html_body"] { border: 1px solid var(--co-border); border-radius: 9px; }
+    .warmup-composer-page textarea[name="header"], .warmup-composer-page textarea[name="html_body"] { background: color-mix(in srgb, var(--co-surface-muted) 58%, var(--co-surface)); font-family: var(--co-font-mono, ui-monospace, SFMono-Regular, Consolas, monospace); font-size: 10px; min-height: 220px; }
+    .warmup-composer-page .mailer-ace-editor { overflow: hidden; }
+    .warmup-composer-page .mailer-ip-selector { background: color-mix(in srgb, var(--co-purple) 3%, var(--co-surface)); border: 1px solid var(--co-border); border-radius: 13px; padding: 12px; }
+    .warmup-composer-page .mailer-ip-selector select { background: var(--co-surface); border: 1px solid var(--co-border-strong); border-radius: 9px; color: var(--co-ink); min-height: 300px; width: 100%; }
+    .warmup-composer-page .mailer-ip-selector-actions .btn { align-items: center; background: var(--co-surface); border: 1px solid var(--co-border); border-radius: 9px; color: var(--co-purple); display: inline-flex; height: 32px; justify-content: center; min-width: 34px; }
+    .warmup-composer-page #warmup-seed-accounts { min-height: 220px; }
+    .warmup-composer-page .form-text, .warmup-composer-page .text-muted { color: var(--co-muted) !important; font-size: 9px; line-height: 1.45; }
+    .warmup-composer-page .form-text a { color: var(--co-purple); font-weight: 750; }
+    .warmup-composer-page .warmup-composer-actions { background: linear-gradient(110deg, color-mix(in srgb, var(--co-purple) 5%, var(--co-surface)), color-mix(in srgb, var(--co-blue) 4%, var(--co-surface))); border: 1px solid var(--co-border); border-radius: 12px; margin-top: 4px !important; padding: 11px; }
+    .warmup-composer-page .warmup-composer-save { background: linear-gradient(105deg, var(--co-purple-bright), var(--co-purple)); border: 1px solid var(--co-purple); border-radius: 9px; box-shadow: 0 5px 13px color-mix(in srgb, var(--co-purple) 23%, transparent); color: #fff; font-size: 10px; font-weight: 800; min-height: 38px; padding: 0 15px; }
+    .warmup-composer-page .warmup-composer-save:hover { color: #fff; filter: brightness(1.05); transform: translateY(-1px); }
+    .warmup-composer-page dialog { background: var(--co-surface); border: 1px solid var(--co-border); border-radius: 16px; color: var(--co-ink); box-shadow: 0 24px 70px color-mix(in srgb, var(--co-ink) 25%, transparent); }
+    .warmup-composer-page dialog::backdrop { background: rgb(19 13 48 / 54%); backdrop-filter: blur(4px); }
+    @media (max-width: 1050px) {
+        .warmup-composer-page .form-row.align-items-start > [class*="col-"] { flex: 0 0 100%; max-width: 100%; }
+    }
+    @media (max-width: 767.98px) {
+        .warmup-composer-page > .warmup-composer-header { align-items: flex-start; flex-direction: column; padding: 14px; }
+        .warmup-composer-page .block-options { justify-content: flex-start; width: 100%; }
+        .warmup-composer-page > .block-content { padding: 12px; }
+        .warmup-composer-panel { padding: 11px 10px 5px; }
+        .warmup-composer-panel-heading { margin: -11px -10px 11px; padding: 8px 10px; }
+        .warmup-composer-page .form-row > [class*="col-"] { min-width: 0; }
+        .warmup-composer-page .form-row .form-group.col-sm-2 { flex: 0 0 50%; max-width: 50%; }
+        .warmup-composer-page .form-row .form-group.col-sm-8 { flex: 0 0 100%; max-width: 100%; }
+        .warmup-composer-page .form-row .form-group.col-sm-12 { flex-basis: 100%; max-width: 100%; }
+        .warmup-composer-page .mailer-ip-selector select { min-height: 300px; }
+        .warmup-composer-page .mailer-ip-selector-actions { flex-direction: row; padding: 8px 0; }
+        .warmup-composer-page textarea[name="header"], .warmup-composer-page textarea[name="html_body"] { min-height: 190px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .warmup-composer-shell *, .warmup-composer-shell *::before, .warmup-composer-shell *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+    }
     @media (max-width: 767.98px) { .mailer-ip-selector-actions { flex-direction: row; padding: .5rem 0; } }
 </style>
 @endpush

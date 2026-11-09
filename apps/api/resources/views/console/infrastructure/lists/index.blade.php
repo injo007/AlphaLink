@@ -5,51 +5,96 @@
 @section('content')
     <div class="command-os-entity-page">
         <!-- 1. Hero Card -->
-        <header class="command-os-hero-card">
-            <div class="command-os-hero-card-left">
-                <div class="command-os-hero-mark" aria-hidden="true">
-                    <i class="fas fa-list-ul"></i>
-                </div>
-                <div class="command-os-hero-copy">
-                    <h1 class="command-os-hero-title">LISTS</h1>
-                    <p class="command-os-hero-subtitle">Audience &amp; Infrastructure list partitions, locks, tracking, and recipient inventory</p>
-                </div>
+        <header class="command-os-report-hero" aria-labelledby="lists-hero-title">
+            <span class="command-os-report-hero-illustration" aria-hidden="true">
+                <i class="fas fa-list-ul"></i>
+            </span>
+            <div class="command-os-report-hero-mark" aria-hidden="true">
+                <i class="fas fa-list-ul"></i>
             </div>
-            <div class="command-os-hero-card-right d-flex align-items-center">
-                <span class="badge badge-light border text-purple px-2 py-1 font-w700 mr-2" id="stat-lists-pill" style="display:none;">
-                    <i class="fas fa-layer-group mr-1"></i><span id="stat-lists-count">0</span> Lists
-                </span>
+            <div class="command-os-report-hero-copy">
+                <p class="command-os-report-eyebrow">AUDIENCE MANAGEMENT // RECIPIENT INVENTORY</p>
+                <h1 id="lists-hero-title">LISTS</h1>
+                <p>Audience &amp; Infrastructure list partitions, locks, tracking, and recipient inventory.</p>
+            </div>
+            <div class="command-os-hero-actions">
+                <div class="command-os-report-hero-range">
+                    <span>POOL STATUS</span>
+                    <strong><i class="fas fa-circle text-success" style="font-size: 8px;"></i> LIVE INVENTORY</strong>
+                </div>
                 <button type="button" class="command-os-btn-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen">
-                    <i class="si si-size-fullscreen"></i>
+                    <i class="fas fa-expand"></i>
                 </button>
             </div>
         </header>
 
-        <!-- 2. Filter Bar Card -->
+        <!-- 2. KPI Overview Cards -->
+        <section class="command-os-all-stats-overview" aria-label="Lists Overview">
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-purple" aria-hidden="true"><i class="fas fa-list-ul"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Total Lists</span>
+                    <strong id="stat-total-lists">{{ $workspace->lists()->count() }}</strong>
+                    <small>Audience partitions</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-blue" aria-hidden="true"><i class="fas fa-server"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Active ISPs</span>
+                    <strong>{{ $isps->count() }}</strong>
+                    <small>Connected providers</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-emerald" aria-hidden="true"><i class="fas fa-check-circle"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Live Tracking</span>
+                    <strong>ENABLED</strong>
+                    <small>Real-time telemetry</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-cyan" aria-hidden="true"><i class="fas fa-lock"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Lock Security</span>
+                    <strong>ENFORCED</strong>
+                    <small>Partition guardrails</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-amber" aria-hidden="true"><i class="fas fa-users-cog"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Access Scope</span>
+                    <strong>WORKSPACE</strong>
+                    <small>Role &amp; operator scope</small>
+                </span>
+            </article>
+        </section>
+
+        <!-- 3. Filter Bar Card -->
         <section class="command-os-filter-card mb-3" aria-label="Filter lists">
             <div class="form-row align-items-end">
                 <div class="col-sm-12 col-md-6 col-lg-5 mb-2 mb-md-0">
-                    <label for="isps" class="command-os-field-label font-w600 text-uppercase font-size-xs mb-1">
+                    <label for="isps" class="command-os-field-label font-w700 text-uppercase font-size-xs mb-1">
                         <i class="fas fa-server mr-1 text-purple"></i> Select ISP:
                     </label>
-                    <div class="command-input-wrap">
-                        <select id="isps" name="isps" class="form-control selectpicker" data-size="10" data-live-search="true" title="Choose an ISP to load lists..." data-allow-clear="true">
-                            @foreach ($isps as $isp)
-                                <option value="{{ $isp->id }}">{{ $isp->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
+                    <select id="isps" name="isps" class="form-control selectpicker" data-size="10" data-live-search="true" title="Choose an ISP to load lists..." data-allow-clear="true">
+                        @foreach ($isps as $isp)
+                            <option value="{{ $isp->id }}">{{ $isp->name }}</option>
+                        @endforeach
+                    </select>
                 </div>
                 <div class="col-sm-12 col-md-6 col-lg-3">
-                    <label class="command-os-field-label font-w600 text-uppercase font-size-xs mb-1 d-none d-md-block" style="visibility:hidden;">&nbsp;</label>
-                    <button id="load_lists" type="button" class="command-os-btn-filter w-100">
-                        <i class="fas fa-sync-alt mr-1"></i> LOAD LISTS
+                    <label class="command-os-field-label font-w700 text-uppercase font-size-xs mb-1 d-none d-md-block" style="visibility:hidden;">&nbsp;</label>
+                    <button id="load_lists" type="button" class="btn-command-primary w-100" style="height: 42px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; font-weight: 750; font-size: 11.5px; letter-spacing: .06em;">
+                        <i class="fas fa-sync-alt mr-2"></i> LOAD LISTS
                     </button>
                 </div>
             </div>
         </section>
 
-        <!-- 3. Table Card -->
+        <!-- 4. Table Card -->
         <div class="command-os-table-card">
             <div id="lists-empty-prompt" class="command-table-empty-state py-5 text-center">
                 <div class="command-empty-state-icon mb-3" style="font-size: 2.2rem; color: #8b5cf6; opacity: 0.85;">
@@ -142,23 +187,35 @@
                     pageLength: -1,
                     lengthChange: false,
                     select: { style: 'os' },
-                    buttons: [
-                        { text: '<i class="far fa-square mr-1"></i> Deselect', className: 'btn btn-sm btn-alt-secondary mr-1 mb-1', titleAttr: 'SELECT NONE', action: (event, table) => table.rows({ page: 'current' }).deselect() },
-                        { text: '<i class="far fa-check-square mr-1"></i> Select All', className: 'btn btn-sm btn-alt-secondary mr-1 mb-1', titleAttr: 'SELECT ALL', action: (event, table) => table.rows({ page: 'current' }).select() },
-                        {
-                            text: '<i class="fas fa-users mr-1"></i> Allowed Users', className: 'btn btn-sm btn-alt-secondary mr-1 mb-1', titleAttr: 'ALLOWED USERS',
-                            action: (event, table) => openBulkAssignment(table, 'users'),
+                    buttons: {
+                        dom: {
+                            container: {
+                                tag: 'div',
+                                className: 'dt-buttons'
+                            },
+                            button: {
+                                tag: 'button',
+                                className: 'btn'
+                            }
                         },
-                        {
-                            text: '<i class="fas fa-hand-holding-usd mr-1"></i> Allowed Sponsors', className: 'btn btn-sm btn-alt-secondary mr-1 mb-1', titleAttr: 'ALLOWED SPONSORS',
-                            action: (event, table) => openBulkAssignment(table, 'sponsors'),
-                        },
-                        {
-                            text: '<i class="fa fa-plus mr-1"></i> Add New List', className: 'btn btn-sm btn-primary mr-1 mb-1', titleAttr: 'ADD NEW LIST',
-                            action: () => openFrame(`${baseUrl}/isps/${encodeURIComponent(ispId)}/lists/create`),
-                        },
-                        { text: '<i class="fas fa-sync-alt mr-1"></i> Refresh', className: 'btn btn-sm btn-alt-secondary mr-1 mb-1', titleAttr: 'REFRESH', action: (event, table) => table.ajax.reload(null, false) },
-                    ],
+                        buttons: [
+                            { text: '<i class="far fa-square mr-1"></i> DESELECT', className: 'btn-command-action', titleAttr: 'SELECT NONE', action: (event, table) => table.rows({ page: 'current' }).deselect() },
+                            { text: '<i class="far fa-check-square mr-1"></i> SELECT ALL', className: 'btn-command-action', titleAttr: 'SELECT ALL', action: (event, table) => table.rows({ page: 'current' }).select() },
+                            {
+                                text: '<i class="fas fa-users mr-1"></i> ALLOWED USERS', className: 'btn-command-action', titleAttr: 'ALLOWED USERS',
+                                action: (event, table) => openBulkAssignment(table, 'users'),
+                            },
+                            {
+                                text: '<i class="fas fa-hand-holding-usd mr-1"></i> ALLOWED SPONSORS', className: 'btn-command-action', titleAttr: 'ALLOWED SPONSORS',
+                                action: (event, table) => openBulkAssignment(table, 'sponsors'),
+                            },
+                            {
+                                text: '<i class="fa fa-plus mr-1"></i> ADD NEW LIST', className: 'btn-command-primary', titleAttr: 'ADD NEW LIST',
+                                action: () => openFrame(`${baseUrl}/isps/${encodeURIComponent(ispId)}/lists/create`),
+                            },
+                            { text: '<i class="fas fa-sync-alt mr-1"></i> REFRESH', className: 'btn-command-action', titleAttr: 'REFRESH', action: (event, table) => table.ajax.reload(null, false) },
+                        ]
+                    },
                     rowCallback: (row, data) => {
                         if (!data.is_active) $('td', row).addClass('row-disabled');
                         ['fresh', 'delivery', 'open', 'click', 'lead', 'unsubscribe'].forEach((type, index) => {

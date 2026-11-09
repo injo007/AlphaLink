@@ -5,53 +5,99 @@
 @section('content')
     <div class="command-os-entity-page">
         <!-- 1. Hero Header Card -->
-        <header class="command-os-hero-card">
-            <div class="command-os-hero-card-left">
-                <div class="command-os-hero-mark" aria-hidden="true">
-                    <i class="fas fa-shield-alt"></i>
-                </div>
-                <div class="command-os-hero-copy">
-                    <h1 class="command-os-hero-title">BLACKLIST CHECKER</h1>
-                    <p class="command-os-hero-subtitle">Bulk recipient suppression verification, membership reclassification, and hygiene audit</p>
-                </div>
+        <header class="command-os-report-hero" aria-labelledby="blacklist-hero-title">
+            <span class="command-os-report-hero-illustration" aria-hidden="true">
+                <i class="fas fa-shield-alt"></i>
+            </span>
+            <div class="command-os-report-hero-mark" aria-hidden="true">
+                <i class="fas fa-shield-alt"></i>
             </div>
-            <div class="command-os-hero-card-right d-flex align-items-center">
+            <div class="command-os-report-hero-copy">
+                <p class="command-os-report-eyebrow">AUDIENCE HYGIENE // SUPPRESSION VERIFICATION</p>
+                <h1 id="blacklist-hero-title">BLACKLIST CHECKER</h1>
+                <p>Bulk recipient suppression verification, membership reclassification, and hygiene audit.</p>
+            </div>
+            <div class="command-os-hero-actions">
+                <div class="command-os-report-hero-range">
+                    <span>SECURITY STATUS</span>
+                    <strong><i class="fas fa-circle text-success" style="font-size: 8px;"></i> HYGIENE GUARD</strong>
+                </div>
                 <button type="button" class="command-os-btn-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen">
-                    <i class="si si-size-fullscreen"></i>
+                    <i class="fas fa-expand"></i>
                 </button>
             </div>
         </header>
 
-        <!-- 2. Upload / Configuration Filter Card -->
-        <section class="command-os-filter-card" aria-label="Blacklist upload form">
+        <!-- 2. KPI Overview Cards -->
+        <section class="command-os-all-stats-overview" aria-label="Blacklist Checker Overview">
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-purple" aria-hidden="true"><i class="fas fa-shield-alt"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Engine</span>
+                    <strong>MD5 &amp; PLAIN</strong>
+                    <small>Dual hashing lookup</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-blue" aria-hidden="true"><i class="fas fa-file-alt"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>File Formats</span>
+                    <strong>CSV &amp; TXT</strong>
+                    <small>First column address</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-emerald" aria-hidden="true"><i class="fas fa-exchange-alt"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Action</span>
+                    <strong>RECLASSIFY</strong>
+                    <small>Membership reassign</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-cyan" aria-hidden="true"><i class="fas fa-trash-alt"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Storage Health</span>
+                    <strong>EPHEMERAL</strong>
+                    <small>Deleted post-run</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-amber" aria-hidden="true"><i class="fas fa-check-double"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Integrity</span>
+                    <strong>VERIFIED</strong>
+                    <small>Production grade</small>
+                </span>
+            </article>
+        </section>
+
+        <!-- 3. Upload / Configuration Filter Card -->
+        <section class="command-os-filter-card mb-3" aria-label="Blacklist upload form">
             <form id="blacklist-check-form" enctype="multipart/form-data">
                 <div class="form-row align-items-end">
                     <div class="col-sm-12 col-lg-5 mb-3 mb-lg-0">
                         <label for="blacklist-file" class="command-os-field-label font-w700 text-uppercase font-size-xs mb-1">
                             <i class="fas fa-file-upload mr-1 text-purple"></i> Upload Suppression File (.txt, .csv):
                         </label>
-                        <div class="command-input-wrap">
-                            <input class="form-control" id="blacklist-file" name="file" type="file" accept=".txt,.csv" required style="height: 42px; padding: 7px 12px; font-size: 12px;">
-                        </div>
+                        <input class="form-control" id="blacklist-file" name="file" type="file" accept=".txt,.csv" required style="height: 42px; padding: 7px 12px; font-size: 12px; border-radius: 10px;">
                     </div>
 
                     <div class="col-sm-12 col-lg-4 mb-3 mb-lg-0">
                         <label for="blacklist-email-type" class="command-os-field-label font-w700 text-uppercase font-size-xs mb-1">
                             <i class="fas fa-exchange-alt mr-1 text-purple"></i> Move Matching Memberships To:
                         </label>
-                        <div class="command-input-wrap">
-                            <select class="form-control" id="blacklist-email-type" name="email_type" required style="height: 42px;">
-                                @foreach ($emailTypes as $type)
-                                    <option value="{{ $type }}">{{ strtoupper(str_replace('_', ' ', $type)) }}</option>
-                                @endforeach
-                            </select>
-                        </div>
+                        <select class="form-control" id="blacklist-email-type" name="email_type" required style="height: 42px; border-radius: 10px;">
+                            @foreach ($emailTypes as $type)
+                                <option value="{{ $type }}">{{ strtoupper(str_replace('_', ' ', $type)) }}</option>
+                            @endforeach
+                        </select>
                     </div>
 
                     <div class="col-sm-12 col-lg-3">
                         <label class="command-os-field-label font-w700 text-uppercase font-size-xs mb-1 d-none d-lg-block" style="visibility: hidden;">&nbsp;</label>
-                        <button class="command-os-btn-filter w-100" id="blacklist-submit" type="submit" style="height: 42px;">
-                            <i class="fas fa-play-circle mr-1"></i> UPLOAD &amp; CHECK
+                        <button class="btn-command-primary w-100" id="blacklist-submit" type="submit" style="height: 42px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; font-weight: 750; font-size: 11.5px; letter-spacing: .06em;">
+                            <i class="fas fa-play-circle mr-2"></i> UPLOAD &amp; CHECK
                         </button>
                     </div>
                 </div>
@@ -68,13 +114,13 @@
         <!-- Status Message Banner -->
         <div id="blacklist-status" class="alert alert-info py-2 px-3 font-size-sm" role="status" aria-live="polite" hidden style="border-radius: 10px;"></div>
 
-        <!-- 3. Processes Table Card -->
+        <!-- 4. Processes Table Card -->
         <div class="command-os-table-card">
             <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
                 <h4 class="font-w700 text-uppercase font-size-sm mb-0">
                     <i class="fas fa-tasks mr-2 text-purple"></i> Active &amp; Historical Processes
                 </h4>
-                <button class="btn btn-sm btn-outline-secondary font-w700 font-size-xs px-3" id="blacklist-refresh" type="button" style="border-radius: 8px;">
+                <button class="btn btn-command-action" id="blacklist-refresh" type="button">
                     <i class="fas fa-sync-alt mr-1"></i> REFRESH
                 </button>
             </div>

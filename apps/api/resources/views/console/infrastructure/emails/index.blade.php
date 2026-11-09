@@ -5,25 +5,75 @@
 @section('content')
     <div class="command-os-entity-page">
         <!-- 1. Hero Header Card -->
-        <header class="command-os-hero-card">
-            <div class="command-os-hero-card-left">
-                <div class="command-os-hero-mark" aria-hidden="true">
-                    <i class="fas fa-search-location"></i>
-                </div>
-                <div class="command-os-hero-copy">
-                    <h1 class="command-os-hero-title">SEARCH EMAILS</h1>
-                    <p class="command-os-hero-subtitle">Cross-audience identity lookup, tracking token resolution, and member classification</p>
-                </div>
+        <header class="command-os-report-hero" aria-labelledby="email-search-hero-title">
+            <span class="command-os-report-hero-illustration" aria-hidden="true">
+                <i class="fas fa-search-location"></i>
+            </span>
+            <div class="command-os-report-hero-mark" aria-hidden="true">
+                <i class="fas fa-search-location"></i>
             </div>
-            <div class="command-os-hero-card-right d-flex align-items-center">
+            <div class="command-os-report-hero-copy">
+                <p class="command-os-report-eyebrow">IDENTITY RESOLUTION // RECIPIENT TELEMETRY</p>
+                <h1 id="email-search-hero-title">SEARCH EMAILS</h1>
+                <p>Cross-audience identity lookup, tracking token resolution, and member classification.</p>
+            </div>
+            <div class="command-os-hero-actions">
+                <div class="command-os-report-hero-range">
+                    <span>RESOLUTION SCOPE</span>
+                    <strong><i class="fas fa-circle text-success" style="font-size: 8px;"></i> MULTI-INDEX</strong>
+                </div>
                 <button type="button" class="command-os-btn-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen">
-                    <i class="si si-size-fullscreen"></i>
+                    <i class="fas fa-expand"></i>
                 </button>
             </div>
         </header>
 
-        <!-- 2. Search Filter Card -->
-        <section class="command-os-filter-card" aria-label="Search parameters">
+        <!-- 2. KPI Overview Cards -->
+        <section class="command-os-all-stats-overview" aria-label="Search Emails Overview">
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-purple" aria-hidden="true"><i class="fas fa-search"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Search Engine</span>
+                    <strong>WORKSPACE</strong>
+                    <small>Unified registry</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-blue" aria-hidden="true"><i class="fas fa-filter"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Query Modes</span>
+                    <strong>4 MODES</strong>
+                    <small>ID, Email, Hash, Token</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-emerald" aria-hidden="true"><i class="fas fa-user-shield"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Privacy Guard</span>
+                    <strong>SECURE</strong>
+                    <small>URL sanitized query</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-cyan" aria-hidden="true"><i class="fas fa-database"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Index Scope</span>
+                    <strong>OPTIMIZED</strong>
+                    <small>Multi-partition lookup</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-amber" aria-hidden="true"><i class="fas fa-layer-group"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Reclassification</span>
+                    <strong>SUPPORTED</strong>
+                    <small>Batch status change</small>
+                </span>
+            </article>
+        </section>
+
+        <!-- 3. Search Filter Card -->
+        <section class="command-os-filter-card mb-3" aria-label="Search parameters">
             <form id="email-search-form" novalidate>
                 <div class="row">
                     <div class="col-12 col-lg-8 offset-lg-2">
@@ -54,9 +104,7 @@
                             <label for="email-search-data" class="command-os-field-label font-w700 text-uppercase font-size-xs mb-1">
                                 <i class="fas fa-align-left mr-1 text-purple"></i> Search Values (One per line):
                             </label>
-                            <div class="command-input-wrap">
-                                <textarea id="email-search-data" class="form-control command-os-textarea" rows="4" placeholder="Enter contact IDs, addresses, hashes, or tracking tokens..." aria-describedby="email-search-help" autocomplete="off" spellcheck="false" style="font-family: var(--font-mono, monospace); font-size: 13px; line-height: 1.5; border-radius: 10px;"></textarea>
-                            </div>
+                            <textarea id="email-search-data" class="form-control command-os-textarea" rows="4" placeholder="Enter contact IDs, addresses, hashes, or tracking tokens..." aria-describedby="email-search-help" autocomplete="off" spellcheck="false" style="font-family: var(--font-mono, monospace); font-size: 13px; line-height: 1.5; border-radius: 10px;"></textarea>
                             <div class="command-os-info-banner mt-2 py-2 px-3 font-size-xs" id="email-search-help">
                                 <div class="command-os-info-banner-icon"><i class="fas fa-info-circle"></i></div>
                                 <div class="command-os-info-banner-content text-muted">
@@ -68,10 +116,10 @@
                         <!-- Action Buttons -->
                         <div class="d-flex flex-wrap align-items-center justify-content-between pt-1">
                             <div class="d-flex align-items-center">
-                                <button id="email-search-submit" type="submit" class="command-os-btn-filter px-4 mr-2" style="width: auto; height: 42px;">
-                                    <i class="fas fa-search mr-1"></i> SEARCH
+                                <button id="email-search-submit" type="submit" class="btn-command-primary px-4 mr-2" style="height: 42px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; font-weight: 750; font-size: 11.5px; letter-spacing: .06em;">
+                                    <i class="fas fa-search mr-2"></i> SEARCH
                                 </button>
-                                <button id="email-search-clear" type="button" class="btn btn-outline-secondary font-w700 font-size-xs px-3" style="border-radius: 10px; height: 42px;" hidden>
+                                <button id="email-search-clear" type="button" class="btn-command-action px-3" style="height: 42px; display: inline-flex; align-items: center; border-radius: 10px; font-weight: 700; font-size: 11.5px;" hidden>
                                     <i class="fas fa-times mr-1"></i> CLEAR
                                 </button>
                             </div>
@@ -87,7 +135,7 @@
         <!-- Status Message Banner -->
         <div id="email-search-status" class="alert alert-info py-2 px-3 font-size-sm" role="status" aria-live="polite" hidden style="border-radius: 10px;"></div>
 
-        <!-- 3. Results Section Card -->
+        <!-- 4. Results Section Card -->
         <div class="command-os-table-card">
             <section aria-labelledby="email-results-title">
                 <div class="d-flex flex-wrap align-items-center justify-content-between mb-3 pb-2 border-bottom">
@@ -100,29 +148,29 @@
 
                     <!-- Batch Action Buttons -->
                     <div id="email-results-actions" class="email-results-actions flex-wrap align-items-center gap-2 mb-0" hidden>
-                        <div class="btn-group mr-2 mb-1">
-                            <button type="button" class="btn btn-sm btn-outline-secondary font-w700 font-size-xs" id="email-select-all" style="border-radius: 8px 0 0 8px;">
+                        <div class="dt-buttons d-inline-flex flex-wrap gap-2 mr-2 mb-1">
+                            <button type="button" class="btn btn-command-action" id="email-select-all">
                                 <i class="far fa-check-square mr-1"></i> ALL
                             </button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary font-w700 font-size-xs" id="email-select-none" style="border-radius: 0 8px 8px 0;">
+                            <button type="button" class="btn btn-command-action" id="email-select-none">
                                 <i class="far fa-square mr-1"></i> NONE
                             </button>
                         </div>
-                        <div class="d-inline-flex flex-wrap gap-1 mb-1">
-                            <button type="button" class="btn btn-sm btn-outline-warning font-w700 font-size-xs mr-1" data-email-action="proxy" disabled style="border-radius: 8px;">
-                                <i class="fas fa-user-secret mr-1"></i> PROXY
+                        <div class="dt-buttons d-inline-flex flex-wrap gap-2 mb-1">
+                            <button type="button" class="btn btn-command-action" data-email-action="proxy" disabled>
+                                <i class="fas fa-user-secret mr-1 text-warning"></i> PROXY
                             </button>
-                            <button type="button" class="btn btn-sm btn-outline-warning font-w700 font-size-xs mr-1" data-email-action="bot" disabled style="border-radius: 8px;">
-                                <i class="fas fa-robot mr-1"></i> BOT
+                            <button type="button" class="btn btn-command-action" data-email-action="bot" disabled>
+                                <i class="fas fa-robot mr-1 text-warning"></i> BOT
                             </button>
-                            <button type="button" class="btn btn-sm btn-outline-danger font-w700 font-size-xs mr-1" data-email-action="blacklist" disabled style="border-radius: 8px;">
-                                <i class="fas fa-ban mr-1"></i> BLACKLIST
+                            <button type="button" class="btn btn-command-action" data-email-action="blacklist" disabled>
+                                <i class="fas fa-ban mr-1 text-danger"></i> BLACKLIST
                             </button>
-                            <button type="button" class="btn btn-sm btn-outline-danger font-w700 font-size-xs mr-1" data-email-action="hard_bounce" disabled style="border-radius: 8px;">
-                                <i class="fas fa-times-circle mr-1"></i> HARD BOUNCE
+                            <button type="button" class="btn btn-command-action" data-email-action="hard_bounce" disabled>
+                                <i class="fas fa-times-circle mr-1 text-danger"></i> HARD BOUNCE
                             </button>
-                            <button type="button" class="btn btn-sm btn-outline-success font-w700 font-size-xs" data-email-action="restore" disabled style="border-radius: 8px;">
-                                <i class="fas fa-undo mr-1"></i> RESTORE
+                            <button type="button" class="btn btn-command-action" data-email-action="restore" disabled>
+                                <i class="fas fa-undo mr-1 text-success"></i> RESTORE
                             </button>
                         </div>
                     </div>

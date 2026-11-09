@@ -70,14 +70,16 @@ class WorkspaceMailerOperationsTest extends TestCase
         $this->assertStringContainsString('TEST — SAVE DRAFT FIRST', $dropComposerHtml);
         $this->assertStringContainsString('Back to Drop Drafts', $dropComposerHtml);
         $this->assertStringContainsString('aria-label="Open page actions" aria-expanded="false"', $dropComposerHtml);
-        $this->actingAs($owner)->get(route('console.warmups.index', $workspace->getKey()))
-            ->assertOk()->assertSee('My Warmups')->assertSee('TOTAL SEND')->assertSee('CREATE WARMUP')
+        $warmupIndex = $this->actingAs($owner)->get(route('console.warmups.index', $workspace->getKey()));
+        $warmupIndex->assertOk()->assertSee('My Warmups')->assertSee('TOTAL SEND')->assertSee('New Warmup')
+            ->assertSee('warmup-register-page')->assertSee('warmup-register-overview')
             ->assertSee('Choose warmup date range')->assertDontSee('Date from')
             ->assertSee(route('clean.console.warmups.seeds.index'), false)
             ->assertSee(route('clean.console.warmups.statistics'), false);
         $warmupComposer = $this->actingAs($owner)->get(route('console.warmups.create', $workspace->getKey()));
         $warmupComposer
             ->assertOk()->assertSee('NEW WARMUP')->assertSee('Return Path:')->assertSee('Saved Emails:')
+            ->assertSee('warmup-composer-page')->assertSee('Message content')->assertSee('Sending &amp; pacing', false)
             ->assertSee('Seeds:')->assertSee('Sleep Btw Email')->assertSee('Test After:')
             ->assertSee('USABLE TAGS:')->assertSee('mailer-tags-help')
             ->assertSee('Available IPs or MTAs')->assertSee('Selected IPs or MTAs');

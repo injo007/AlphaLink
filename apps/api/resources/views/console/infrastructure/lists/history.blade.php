@@ -23,72 +23,118 @@
 @section('content')
     <div class="command-os-entity-page">
         <!-- 1. Hero Card -->
-        <header class="command-os-hero-card">
-            <div class="command-os-hero-card-left">
-                <div class="command-os-hero-mark" aria-hidden="true">
-                    <i class="fas fa-history"></i>
-                </div>
-                <div class="command-os-hero-copy">
-                    <h1 class="command-os-hero-title">LIST HISTORY</h1>
-                    <p class="command-os-hero-subtitle">Daily recipient snapshots, segment transitions, and delivery trends</p>
-                </div>
+        <header class="command-os-report-hero" aria-labelledby="history-hero-title">
+            <span class="command-os-report-hero-illustration" aria-hidden="true">
+                <i class="fas fa-history"></i>
+            </span>
+            <div class="command-os-report-hero-mark" aria-hidden="true">
+                <i class="fas fa-history"></i>
             </div>
-            <div class="command-os-hero-card-right">
+            <div class="command-os-report-hero-copy">
+                <p class="command-os-report-eyebrow">HISTORICAL TELEMETRY // RECIPIENT SNAPSHOTS</p>
+                <h1 id="history-hero-title">LIST HISTORY</h1>
+                <p>Daily recipient snapshots, segment transitions, and delivery trends across audience partitions.</p>
+            </div>
+            <div class="command-os-hero-actions">
+                <div class="command-os-report-hero-range">
+                    <span>TIMELINE SCOPE</span>
+                    <strong><i class="fas fa-circle text-success" style="font-size: 8px;"></i> DAILY SNAPSHOTS</strong>
+                </div>
                 <button type="button" class="command-os-btn-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle list history full screen">
-                    <i class="si si-size-fullscreen"></i>
+                    <i class="fas fa-expand"></i>
                 </button>
             </div>
         </header>
 
-        <!-- 2. Filter Bar Card -->
+        <!-- 2. KPI Overview Cards -->
+        <section class="command-os-all-stats-overview" aria-label="List History Overview">
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-purple" aria-hidden="true"><i class="fas fa-history"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Snapshot Mode</span>
+                    <strong>DAILY</strong>
+                    <small>Point-in-time state</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-blue" aria-hidden="true"><i class="fas fa-server"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Active ISPs</span>
+                    <strong>{{ $isps->count() }}</strong>
+                    <small>Provider scope</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-emerald" aria-hidden="true"><i class="fas fa-layer-group"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Segments</span>
+                    <strong>11 TYPES</strong>
+                    <small>Recipient classifications</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-cyan" aria-hidden="true"><i class="fas fa-chart-line"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Visual Trajectory</span>
+                    <strong>VECTOR SVG</strong>
+                    <small>Multi-series curves</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-amber" aria-hidden="true"><i class="fas fa-shield-alt"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Audit Status</span>
+                    <strong>VERIFIED</strong>
+                    <small>Database backed</small>
+                </span>
+            </article>
+        </section>
+
+        <!-- 3. Filter Bar Card -->
         <section class="command-os-filter-card mb-3" aria-label="Filter list history">
             <form id="list-history-filter" class="list-history-controls" novalidate
                 data-lists-url="{{ url('/app/workspaces/'.$workspace->id.'/infrastructure/list-history/isps') }}"
                 data-history-url="{{ route('console.infrastructure.list-history.data', $workspace->id) }}">
                 <div class="form-row align-items-end">
                     <div class="col-sm-12 col-md-3 mb-2 mb-md-0">
-                        <label for="history-isp" class="command-os-field-label font-w600 text-uppercase font-size-xs mb-1">
+                        <label for="history-isp" class="command-os-field-label font-w700 text-uppercase font-size-xs mb-1">
                             <i class="fas fa-server mr-1 text-purple"></i> ISPs:
                         </label>
-                        <div class="command-input-wrap">
-                            <select id="history-isp" class="form-control selectpicker" data-live-search="true" title="Select ISP" data-allow-clear="true" required>
-                                @foreach ($isps as $isp)
-                                    <option value="{{ $isp->id }}">{{ $isp->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
+                        <select id="history-isp" class="form-control selectpicker" data-live-search="true" title="Select ISP" data-allow-clear="true" required>
+                            @foreach ($isps as $isp)
+                                <option value="{{ $isp->id }}">{{ $isp->name }}</option>
+                            @endforeach
+                        </select>
                         <small id="history-isp-error" class="text-danger d-none"></small>
                     </div>
 
                     <div class="col-sm-12 col-md-3 mb-2 mb-md-0">
-                        <label for="history-list" class="command-os-field-label font-w600 text-uppercase font-size-xs mb-1">
+                        <label for="history-list" class="command-os-field-label font-w700 text-uppercase font-size-xs mb-1">
                             <i class="fas fa-list mr-1 text-purple"></i> Lists:
                         </label>
-                        <div class="command-input-wrap">
-                            <select id="history-list" class="form-control selectpicker" data-live-search="true" title="Select list" data-allow-clear="true" required disabled aria-describedby="history-list-help history-list-error">
-                                <option value="" selected>Select an ISP first</option>
-                            </select>
-                        </div>
+                        <select id="history-list" class="form-control selectpicker" data-live-search="true" title="Select list" data-allow-clear="true" required disabled aria-describedby="history-list-help history-list-error">
+                            <option value="" selected>Select an ISP first</option>
+                        </select>
                         <small id="history-list-error" class="text-danger d-none"></small>
                     </div>
 
                     <div class="col-sm-6 col-md-2 mb-2 mb-md-0">
-                        <label for="history-from" class="command-os-field-label font-w600 text-uppercase font-size-xs mb-1">
+                        <label for="history-from" class="command-os-field-label font-w700 text-uppercase font-size-xs mb-1">
                             <i class="far fa-calendar-alt mr-1 text-purple"></i> Date from:
                         </label>
-                        <input id="history-from" type="date" class="form-control" value="{{ $from }}" min="{{ $minDate }}" max="{{ $maxDate }}" required aria-describedby="history-date-error">
+                        <input id="history-from" type="date" class="form-control" value="{{ $from }}" min="{{ $minDate }}" max="{{ $maxDate }}" required aria-describedby="history-date-error" style="height: 42px;">
                     </div>
 
                     <div class="col-sm-6 col-md-2 mb-2 mb-md-0">
-                        <label for="history-to" class="command-os-field-label font-w600 text-uppercase font-size-xs mb-1">
+                        <label for="history-to" class="command-os-field-label font-w700 text-uppercase font-size-xs mb-1">
                             <i class="far fa-calendar-alt mr-1 text-purple"></i> Date to:
                         </label>
-                        <input id="history-to" type="date" class="form-control" value="{{ $to }}" min="{{ $minDate }}" max="{{ $maxDate }}" required aria-describedby="history-date-error">
+                        <input id="history-to" type="date" class="form-control" value="{{ $to }}" min="{{ $minDate }}" max="{{ $maxDate }}" required aria-describedby="history-date-error" style="height: 42px;">
                     </div>
 
                     <div class="col-sm-12 col-md-2">
-                        <button id="load-history" type="submit" class="command-os-btn-filter w-100">
-                            <i class="fas fa-chart-line mr-1"></i> LOAD
+                        <button id="load-history" type="submit" class="btn-command-primary w-100" style="height: 42px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; font-weight: 750; font-size: 11.5px; letter-spacing: .06em;">
+                            <i class="fas fa-chart-line mr-2"></i> LOAD
                         </button>
                     </div>
                 </div>
@@ -106,7 +152,7 @@
             @endif
         </section>
 
-        <!-- 3. Result Card -->
+        <!-- 4. Result Card -->
         <div class="command-os-table-card">
             <div id="history-empty-prompt" class="command-table-empty-state py-5 text-center">
                 <div class="command-empty-state-icon mb-3" style="font-size: 2.2rem; color: #8b5cf6; opacity: 0.85;">

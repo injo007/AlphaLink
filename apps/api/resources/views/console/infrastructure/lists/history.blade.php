@@ -4,81 +4,136 @@
 
 @push('styles')
     <style>
-        .list-history-controls label { display: block; }
-        .list-history-chart { min-height: 400px; }
+        .list-history-chart { min-height: 400px; width: 100%; position: relative; }
         .list-history-chart svg { display: block; width: 100%; height: 400px; }
-        .list-history-chart .history-grid { stroke: #e3e6e9; stroke-width: 1; }
-        .list-history-chart .history-axis-label { fill: #697782; font-size: 12px; }
-        .list-history-chart .history-series { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; }
-        .list-history-chart .history-point { stroke: #fff; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
-        .list-history-legend { display: flex; flex-wrap: wrap; gap: .5rem 1rem; padding: 0; list-style: none; }
-        .list-history-legend li { display: inline-flex; align-items: center; gap: .4rem; font-size: 12px; }
-        .list-history-legend-swatch { width: 1rem; height: 3px; }
-        .list-history-unknown { color: #697782; font-style: italic; }
+        .list-history-chart .history-grid { stroke: var(--co-border, #e2e8f0); stroke-width: 1; stroke-dasharray: 4,4; }
+        .list-history-chart .history-axis-label { fill: var(--co-muted, #64748b); font-size: 11px; font-weight: 500; font-family: Inter, system-ui, sans-serif; }
+        .list-history-chart .history-series { fill: none; stroke-width: 2.2; vector-effect: non-scaling-stroke; }
+        .list-history-chart .history-point { stroke: var(--co-surface, #fff); stroke-width: 2; vector-effect: non-scaling-stroke; }
+        .list-history-legend { display: flex; flex-wrap: wrap; gap: 8px 12px; padding: 12px 0 16px; margin: 0; list-style: none; }
+        .list-history-legend li { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 650; padding: 4px 10px; border-radius: 8px; background: color-mix(in srgb, var(--co-surface) 90%, var(--co-purple) 6%); border: 1px solid color-mix(in srgb, var(--co-border) 80%, var(--co-purple) 20%); color: var(--co-ink, #0f172a); }
+        .list-history-legend-swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+        .list-history-unknown { color: var(--co-muted, #64748b); font-style: italic; }
         @media (max-width: 575.98px) {
-            .list-history-chart, .list-history-chart svg { min-height: 300px; height: 300px; }
+            .list-history-chart, .list-history-chart svg { min-height: 280px; height: 280px; }
         }
     </style>
 @endpush
 
 @section('content')
-    <div class="block block-rounded">
-        <div class="block-header block-header-default">
-            <h3 class="block-title">List History</h3>
-            <div class="block-options">
-                <button type="button" class="btn-block-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle list history full screen"></button>
+    <div class="command-os-entity-page">
+        <!-- 1. Hero Card -->
+        <header class="command-os-hero-card">
+            <div class="command-os-hero-card-left">
+                <div class="command-os-hero-mark" aria-hidden="true">
+                    <i class="fas fa-history"></i>
+                </div>
+                <div class="command-os-hero-copy">
+                    <h1 class="command-os-hero-title">LIST HISTORY</h1>
+                    <p class="command-os-hero-subtitle">Daily recipient snapshots, segment transitions, and delivery trends</p>
+                </div>
             </div>
-        </div>
-        <div class="block-content block-content-full">
-            <form id="list-history-filter" class="row list-history-controls" novalidate
+            <div class="command-os-hero-card-right">
+                <button type="button" class="command-os-btn-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle list history full screen">
+                    <i class="si si-size-fullscreen"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- 2. Filter Bar Card -->
+        <section class="command-os-filter-card mb-3" aria-label="Filter list history">
+            <form id="list-history-filter" class="list-history-controls" novalidate
                 data-lists-url="{{ url('/app/workspaces/'.$workspace->id.'/infrastructure/list-history/isps') }}"
                 data-history-url="{{ route('console.infrastructure.list-history.data', $workspace->id) }}">
-                <div class="form-group col-sm-12 col-md-4">
-                    <label for="history-isp">ISPs:</label>
-                    <select id="history-isp" class="form-control selectpicker" data-live-search="true" title="Select ISP" data-allow-clear="true" required>
-                        @foreach ($isps as $isp)
-                            <option value="{{ $isp->id }}">{{ $isp->name }}</option>
-                        @endforeach
-                    </select>
-                    <small id="history-isp-error" class="text-danger d-none"></small>
+                <div class="form-row align-items-end">
+                    <div class="col-sm-12 col-md-3 mb-2 mb-md-0">
+                        <label for="history-isp" class="command-os-field-label font-w600 text-uppercase font-size-xs mb-1">
+                            <i class="fas fa-server mr-1 text-purple"></i> ISPs:
+                        </label>
+                        <div class="command-input-wrap">
+                            <select id="history-isp" class="form-control selectpicker" data-live-search="true" title="Select ISP" data-allow-clear="true" required>
+                                @foreach ($isps as $isp)
+                                    <option value="{{ $isp->id }}">{{ $isp->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <small id="history-isp-error" class="text-danger d-none"></small>
+                    </div>
+
+                    <div class="col-sm-12 col-md-3 mb-2 mb-md-0">
+                        <label for="history-list" class="command-os-field-label font-w600 text-uppercase font-size-xs mb-1">
+                            <i class="fas fa-list mr-1 text-purple"></i> Lists:
+                        </label>
+                        <div class="command-input-wrap">
+                            <select id="history-list" class="form-control selectpicker" data-live-search="true" title="Select list" data-allow-clear="true" required disabled aria-describedby="history-list-help history-list-error">
+                                <option value="" selected>Select an ISP first</option>
+                            </select>
+                        </div>
+                        <small id="history-list-error" class="text-danger d-none"></small>
+                    </div>
+
+                    <div class="col-sm-6 col-md-2 mb-2 mb-md-0">
+                        <label for="history-from" class="command-os-field-label font-w600 text-uppercase font-size-xs mb-1">
+                            <i class="far fa-calendar-alt mr-1 text-purple"></i> Date from:
+                        </label>
+                        <input id="history-from" type="date" class="form-control" value="{{ $from }}" min="{{ $minDate }}" max="{{ $maxDate }}" required aria-describedby="history-date-error">
+                    </div>
+
+                    <div class="col-sm-6 col-md-2 mb-2 mb-md-0">
+                        <label for="history-to" class="command-os-field-label font-w600 text-uppercase font-size-xs mb-1">
+                            <i class="far fa-calendar-alt mr-1 text-purple"></i> Date to:
+                        </label>
+                        <input id="history-to" type="date" class="form-control" value="{{ $to }}" min="{{ $minDate }}" max="{{ $maxDate }}" required aria-describedby="history-date-error">
+                    </div>
+
+                    <div class="col-sm-12 col-md-2">
+                        <button id="load-history" type="submit" class="command-os-btn-filter w-100">
+                            <i class="fas fa-chart-line mr-1"></i> LOAD
+                        </button>
+                    </div>
                 </div>
-                <div class="form-group col-sm-12 col-md-4">
-                    <label for="history-list">Lists:</label>
-                    <select id="history-list" class="form-control selectpicker" data-live-search="true" title="Select list" data-allow-clear="true" required disabled aria-describedby="history-list-help history-list-error">
-                        <option value="" selected>Select an ISP first</option>
-                    </select>
-                    <small id="history-list-help" class="form-text text-muted">Choose one list or ALL LISTS for the selected ISP.</small>
-                    <small id="history-list-error" class="text-danger d-none"></small>
-                </div>
-                <div class="form-group col-sm-12 col-md-2">
-                    <label for="history-from">Date from:</label>
-                    <input id="history-from" type="date" class="form-control" value="{{ $from }}" min="{{ $minDate }}" max="{{ $maxDate }}" required aria-describedby="history-date-error">
-                </div>
-                <div class="form-group col-sm-12 col-md-2">
-                    <label for="history-to">Date to:</label>
-                    <input id="history-to" type="date" class="form-control" value="{{ $to }}" min="{{ $minDate }}" max="{{ $maxDate }}" required aria-describedby="history-date-error">
-                </div>
-                <div class="form-group col-sm-12 d-flex flex-wrap align-items-center justify-content-between">
+                <div class="d-flex flex-wrap align-items-center justify-content-between mt-2">
                     <small id="history-date-error" class="text-danger d-none" role="alert"></small>
-                    <div id="history-form-status" class="text-muted" role="status" aria-live="polite"></div>
-                    <button id="load-history" type="submit" class="btn btn-alt-primary ml-auto">LOAD HISTORY</button>
+                    <small id="history-list-help" class="form-text text-muted">Choose one list or ALL LISTS for the selected ISP.</small>
+                    <div id="history-form-status" class="text-muted font-size-sm font-w600" role="status" aria-live="polite"></div>
                 </div>
             </form>
             @if ($isps->isEmpty())
-                <div class="alert alert-info mb-3" role="status">Add an active ISP before viewing list history.</div>
+                <div class="command-os-info-banner mt-3" role="status">
+                    <div class="command-os-info-banner-icon"><i class="fas fa-info-circle"></i></div>
+                    <div class="command-os-info-banner-content">Add an active ISP before viewing list history.</div>
+                </div>
             @endif
+        </section>
+
+        <!-- 3. Result Card -->
+        <div class="command-os-table-card">
+            <div id="history-empty-prompt" class="command-table-empty-state py-5 text-center">
+                <div class="command-empty-state-icon mb-3" style="font-size: 2.2rem; color: #8b5cf6; opacity: 0.85;">
+                    <i class="fas fa-chart-area"></i>
+                </div>
+                <h4 class="font-w600 text-ink mb-1">Select an ISP &amp; Date Range</h4>
+                <p class="text-muted font-size-sm mb-0">Choose your criteria and click Load to see daily snapshot history and trend visualizations.</p>
+            </div>
+
             <div id="history-result" class="d-none" aria-live="polite">
-                <div id="history-unknown-note" class="alert alert-info d-none" role="status">Older history rows can show NA for recipient types until their daily snapshot is recalculated.</div>
-                <div class="table-responsive">
-                    <table id="history-table" class="table table-bordered table-striped table-vcenter table-sm">
-                        <caption id="history-caption" class="text-left"></caption>
+                <div id="history-unknown-note" class="command-os-info-banner mb-3 d-none" role="status">
+                    <div class="command-os-info-banner-icon"><i class="fas fa-info-circle"></i></div>
+                    <div class="command-os-info-banner-content">Older history rows can show NA for recipient types until their daily snapshot is recalculated.</div>
+                </div>
+                <div class="table-responsive mb-4">
+                    <table id="history-table" class="table table-sm table-hover table-striped w-100">
+                        <caption id="history-caption" class="text-left font-w600 text-purple mb-2"></caption>
                         <thead><tr></tr></thead>
                         <tbody></tbody>
                     </table>
                 </div>
                 <p id="history-empty" class="alert alert-info d-none" role="status">No list history is available for this date range.</p>
-                <ul id="history-legend" class="list-history-legend" aria-label="History chart series"></ul>
-                <div id="history-chart" class="list-history-chart" aria-label="Daily list history chart"></div>
+                <div class="command-os-chart-section">
+                    <h5 class="font-w700 text-ink mb-2"><i class="fas fa-chart-line mr-1 text-purple"></i> Daily Recipient Trajectory</h5>
+                    <ul id="history-legend" class="list-history-legend" aria-label="History chart series"></ul>
+                    <div id="history-chart" class="list-history-chart" aria-label="Daily list history chart"></div>
+                </div>
             </div>
         </div>
     </div>

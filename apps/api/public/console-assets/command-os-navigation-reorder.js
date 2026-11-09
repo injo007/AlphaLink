@@ -21,6 +21,7 @@
         const isGroup = (item) => item?.hasAttribute('data-nav-group') ?? false;
         const submenuFor = (group) => group?.querySelector('.command-os-navigation-submenu') ?? null;
         const groupLabel = (group) => group?.querySelector('.command-os-navigation-link span')?.textContent?.trim() || 'section';
+        const itemLabel = (item) => item?.querySelector('span')?.textContent?.trim() || 'page';
 
         const ensureSubmenu = (group) => {
             let disclosure = group.querySelector('.command-os-navigation-disclosure');
@@ -92,17 +93,41 @@
             });
         };
 
+        const restoreExpandedSectionsAfterSave = (order) => {
+            if (!order) return;
+
+            const currentOrder = readOrder();
+            groups().forEach((group) => {
+                const key = group.dataset.navGroup;
+                const disclosure = group.querySelector('.command-os-navigation-disclosure');
+                if (!disclosure) return;
+
+                const originalItems = order.items[key] || [];
+                const currentItems = currentOrder.items[key] || [];
+                const sectionChanged = JSON.stringify(originalItems) !== JSON.stringify(currentItems);
+                disclosure.open = sectionChanged ? currentItems.length > 0 : Boolean(order.expanded[key]);
+            });
+        };
+
         const setEditing = (enabled, { saved = false } = {}) => {
             editing = enabled;
             navigation.classList.toggle('is-reordering', enabled);
             toggle.setAttribute('aria-pressed', String(enabled));
             toggle.querySelector('span').textContent = enabled ? 'Finish arranging' : 'Arrange navigation';
             status.textContent = enabled
-                ? 'Drag a page onto a section to move it. Alt + ↑/↓ reorders; Alt + ←/→ moves pages between sections.'
+                ? 'All pages are open. Drag a subpage onto another section to move it, or between pages to reorder. Alt + arrow keys also work.'
                 : 'Enable to reorder pages and move subpages between sections.';
 
-            if (enabled) groups().forEach(ensureSubmenu);
-            else cleanupDisclosures(saved);
+            if (enabled) {
+                groups().forEach((group) => {
+                    ensureSubmenu(group);
+                    const disclosure = group.querySelector('.command-os-navigation-disclosure');
+                    if (disclosure) disclosure.open = true;
+                });
+            } else {
+                if (saved) restoreExpandedSectionsAfterSave(initialOrder);
+                cleanupDisclosures(saved);
+            }
 
             navigation.querySelectorAll('[data-nav-group], [data-nav-item]').forEach((item) => {
                 item.draggable = enabled;
@@ -197,6 +222,9 @@
             item.setAttribute('aria-grabbed', 'true');
             event.dataTransfer.effectAllowed = 'move';
             event.dataTransfer.setData('text/plain', item.dataset.navGroup || item.dataset.navItem || 'navigation-item');
+            status.textContent = isGroup(item)
+                ? `Moving the ${groupLabel(item)} section. Drop it between sections to reorder.`
+                : `Moving ${itemLabel(item)} from ${groupLabel(groupFor(item))}. Drop it on a section to move it.`;
         });
 
         navigation.addEventListener('dragover', (event) => {
@@ -224,8 +252,13 @@
             const moved = placeAtPointer(target, event.clientY);
             clearDropTarget();
             if (moved && !isGroup(draggedItem)) {
-                status.textContent = `Moved ${draggedItem.querySelector('span')?.textContent?.trim() || 'page'} to ${groupLabel(groupFor(draggedItem))}.`;
+                status.textContent = `Moved ${itemLabel(draggedItem)} to ${groupLabel(groupFor(draggedItem))}.`;
             }
+        });
+
+        navigation.addEventListener('click', (event) => {
+            if (!editing || !event.target.closest('a')) return;
+            event.preventDefault();
         });
 
         navigation.addEventListener('dragleave', (event) => {
@@ -253,7 +286,7 @@
                 if (!destination || destination.classList.contains('is-disabled')) return;
                 if (moveChildToGroup(item, destination)) {
                     item.focus();
-                    status.textContent = `Moved ${item.querySelector('span')?.textContent?.trim() || 'page'} to ${groupLabel(destination)}.`;
+                    status.textContent = `Moved ${itemLabel(item)} to ${groupLabel(destination)}.`;
                 }
                 return;
             }

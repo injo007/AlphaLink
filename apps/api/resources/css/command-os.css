@@ -8398,6 +8398,20 @@ body.command-os-shell #sidebar .command-os-nav-editor {
 .command-os-navigation.is-reordering [data-nav-item]:hover,
 .command-os-navigation.is-reordering [data-nav-group]:focus-visible,
 .command-os-navigation.is-reordering [data-nav-item]:focus-visible { outline-color: var(--co-purple); }
+.command-os-navigation.is-reordering [data-nav-group] > .command-os-navigation-row > .command-os-navigation-link,
+.command-os-navigation.is-reordering [data-nav-item] > a,
+.command-os-navigation.is-reordering [data-nav-item] > span { cursor: grab; }
+.command-os-navigation.is-reordering [data-nav-group] > .command-os-navigation-row > .command-os-navigation-link::after,
+.command-os-navigation.is-reordering [data-nav-item] > a::after,
+.command-os-navigation.is-reordering [data-nav-item] > span::after {
+    flex: 0 0 auto;
+    margin-left: auto;
+    color: var(--co-purple);
+    content: "⠿";
+    font-size: 13px;
+    line-height: 1;
+    opacity: .72;
+}
 .command-os-navigation.is-reordering .is-dragging { cursor: grabbing; opacity: .45; }
 .command-os-navigation.is-reordering [data-nav-group].is-drop-target > .command-os-navigation-row,
 .command-os-navigation.is-reordering [data-nav-item].is-drop-target {
@@ -8417,6 +8431,15 @@ body.command-os-shell #sidebar .command-os-nav-editor {
 .command-os-navigation.is-reordering [data-nav-group].is-parent-drop-target > .command-os-navigation-row > .command-os-navigation-link {
     color: var(--co-purple);
     background: color-mix(in srgb, var(--co-purple) 8%, var(--co-surface));
+}
+.command-os-navigation.is-reordering [data-nav-group].is-parent-drop-target > .command-os-navigation-row > .command-os-navigation-link::after {
+    content: "Drop here";
+    padding: 3px 5px;
+    border-radius: 5px;
+    background: color-mix(in srgb, var(--co-purple) 12%, var(--co-surface));
+    font-size: 8px;
+    font-weight: 750;
+    opacity: 1;
 }
 .command-os-navigation.is-reordering [data-nav-item].is-drop-target {
     color: var(--co-purple);
@@ -9354,3 +9377,89 @@ body.command-os-shell #main_content .dataTables_wrapper .dataTables_filter label
 body.command-os-shell #main_content .dataTables_wrapper .dataTables_filter label input {
     font-size: 11px !important;
 }
+
+/* 9. COMMAND SEGMENTED PILLS */
+.command-segmented-pills {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.command-segment-pill {
+    cursor: pointer;
+    margin: 0;
+    user-select: none;
+}
+
+.command-segment-btn {
+    align-items: center;
+    border-radius: 9px;
+    display: inline-flex;
+    font-size: 11.5px;
+    font-weight: 750;
+    letter-spacing: 0.05em;
+    padding: 7px 15px;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html[data-command-theme='light'] .command-segment-btn,
+html:not([data-command-theme='dark']) body.command-os-shell .command-segment-btn {
+    background: #f8fafc;
+    border: 1.5px solid #cbd5e1;
+    color: #475569;
+}
+
+html[data-command-theme='light'] .command-segment-pill:hover .command-segment-btn,
+html:not([data-command-theme='dark']) body.command-os-shell .command-segment-pill:hover .command-segment-btn {
+    border-color: #8b5cf6;
+    color: #8b5cf6;
+}
+
+html[data-command-theme='dark'] .command-segment-btn {
+    background: #0d1226;
+    border: 1.5px solid rgba(139, 92, 246, 0.25);
+    color: #cbd5e1;
+}
+
+html[data-command-theme='dark'] .command-segment-pill:hover .command-segment-btn {
+    border-color: #a855f7;
+    color: #ffffff;
+    box-shadow: 0 0 10px rgba(168, 85, 247, 0.25);
+}
+
+.command-segment-pill input:checked + .command-segment-btn {
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%) !important;
+    border-color: #8b5cf6 !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 14px rgba(139, 92, 246, 0.45) !important;
+}
+
+/* 10. COMMAND OS DIALOG / MODAL */
+.command-os-dialog {
+    border: none;
+    border-radius: 16px;
+    max-width: 32rem;
+    padding: 0;
+    width: calc(100% - 2rem);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+    outline: none;
+}
+
+html[data-command-theme='dark'] .command-os-dialog {
+    background: #0d1238;
+    border: 1px solid rgba(168, 85, 247, 0.4);
+    color: #f1f5f9;
+}
+
+html[data-command-theme='light'] .command-os-dialog,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-dialog {
+    background: #ffffff;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    color: #1e293b;
+}
+
+.command-os-dialog::backdrop {
+    background: rgba(10, 15, 35, 0.7);
+    backdrop-filter: blur(6px);
+}
+

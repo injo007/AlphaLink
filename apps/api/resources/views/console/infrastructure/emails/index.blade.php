@@ -3,56 +3,131 @@
 @section('title', 'Search Emails')
 
 @section('content')
-    <div class="block block-rounded">
-        <div class="block-header">
-            <h3 class="block-title">Search Emails</h3>
-            <div class="block-options">
-                <button type="button" class="btn-block-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen"></button>
+    <div class="command-os-entity-page">
+        <!-- 1. Hero Header Card -->
+        <header class="command-os-hero-card">
+            <div class="command-os-hero-card-left">
+                <div class="command-os-hero-mark" aria-hidden="true">
+                    <i class="fas fa-search-location"></i>
+                </div>
+                <div class="command-os-hero-copy">
+                    <h1 class="command-os-hero-title">SEARCH EMAILS</h1>
+                    <p class="command-os-hero-subtitle">Cross-audience identity lookup, tracking token resolution, and member classification</p>
+                </div>
             </div>
-        </div>
-        <div class="block-content block-content-full">
+            <div class="command-os-hero-card-right d-flex align-items-center">
+                <button type="button" class="command-os-btn-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen">
+                    <i class="si si-size-fullscreen"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- 2. Search Filter Card -->
+        <section class="command-os-filter-card" aria-label="Search parameters">
             <form id="email-search-form" novalidate>
-                <div class="row push">
-                    <div class="col-sm-12 col-md-6 offset-md-3">
-                        <fieldset class="form-group mb-3">
-                            <legend class="font-size-sm font-w600">Search Type</legend>
-                            <div class="d-flex flex-wrap" role="radiogroup" aria-label="Search type">
+                <div class="row">
+                    <div class="col-12 col-lg-8 offset-lg-2">
+                        <!-- Search Type Pill Switcher -->
+                        <div class="mb-3">
+                            <label class="command-os-field-label font-w700 text-uppercase font-size-xs mb-2">
+                                <i class="fas fa-filter mr-1 text-purple"></i> Search Type:
+                            </label>
+                            <div class="command-segmented-pills d-flex flex-wrap" role="radiogroup" aria-label="Search type">
                                 @foreach (['id' => 'ID', 'email' => 'EMAIL', 'hash' => 'HASH', 'token' => 'TOKEN'] as $value => $label)
-                                    <div class="custom-control custom-radio custom-control-inline">
-                                        <input class="custom-control-input" id="email-search-{{ $value }}" type="radio" name="type" value="{{ $value }}" @checked($value === 'id')>
-                                        <label class="custom-control-label" for="email-search-{{ $value }}">{{ $label }}</label>
-                                    </div>
+                                    <label class="command-segment-pill mb-1 mr-2" for="email-search-{{ $value }}">
+                                        <input class="d-none" id="email-search-{{ $value }}" type="radio" name="type" value="{{ $value }}" @checked($value === 'id')>
+                                        <span class="command-segment-btn">
+                                            @if($value === 'id') <i class="fas fa-hashtag mr-1"></i>
+                                            @elseif($value === 'email') <i class="fas fa-envelope mr-1"></i>
+                                            @elseif($value === 'hash') <i class="fas fa-fingerprint mr-1"></i>
+                                            @elseif($value === 'token') <i class="fas fa-key mr-1"></i>
+                                            @endif
+                                            {{ $label }}
+                                        </span>
+                                    </label>
                                 @endforeach
                             </div>
-                        </fieldset>
-                        <div class="form-group">
-                            <label for="email-search-data">Data, one value per line</label>
-                            <textarea id="email-search-data" class="form-control" rows="5" aria-describedby="email-search-help" autocomplete="off" spellcheck="false"></textarea>
-                            <small id="email-search-help" class="form-text text-muted">Search uses workspace contact IDs, normalized addresses, saved keyed hashes, or exact tracking tokens with recorded events. Values are kept out of the URL.</small>
                         </div>
-                        <div class="d-flex flex-wrap align-items-center">
-                            <button id="email-search-submit" type="submit" class="btn btn-alt-primary mr-2">SEARCH</button>
-                            <button id="email-search-clear" type="button" class="btn btn-alt-secondary" hidden>CLEAR</button>
+
+                        <!-- Data Textarea -->
+                        <div class="form-group mb-3">
+                            <label for="email-search-data" class="command-os-field-label font-w700 text-uppercase font-size-xs mb-1">
+                                <i class="fas fa-align-left mr-1 text-purple"></i> Search Values (One per line):
+                            </label>
+                            <div class="command-input-wrap">
+                                <textarea id="email-search-data" class="form-control command-os-textarea" rows="4" placeholder="Enter contact IDs, addresses, hashes, or tracking tokens..." aria-describedby="email-search-help" autocomplete="off" spellcheck="false" style="font-family: var(--font-mono, monospace); font-size: 13px; line-height: 1.5; border-radius: 10px;"></textarea>
+                            </div>
+                            <div class="command-os-info-banner mt-2 py-2 px-3 font-size-xs" id="email-search-help">
+                                <div class="command-os-info-banner-icon"><i class="fas fa-info-circle"></i></div>
+                                <div class="command-os-info-banner-content text-muted">
+                                    Search uses workspace contact IDs, normalized addresses, saved keyed hashes, or exact tracking tokens with recorded events. Values are kept securely out of the URL.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="d-flex flex-wrap align-items-center justify-content-between pt-1">
+                            <div class="d-flex align-items-center">
+                                <button id="email-search-submit" type="submit" class="command-os-btn-filter px-4 mr-2" style="width: auto; height: 42px;">
+                                    <i class="fas fa-search mr-1"></i> SEARCH
+                                </button>
+                                <button id="email-search-clear" type="button" class="btn btn-outline-secondary font-w700 font-size-xs px-3" style="border-radius: 10px; height: 42px;" hidden>
+                                    <i class="fas fa-times mr-1"></i> CLEAR
+                                </button>
+                            </div>
+                            <div class="font-size-xs text-muted d-none d-sm-block">
+                                <kbd style="background: rgba(139, 92, 246, 0.15); color: #8b5cf6; padding: 3px 6px; border-radius: 4px;">Ctrl + Enter</kbd> to search
+                            </div>
                         </div>
                     </div>
                 </div>
             </form>
+        </section>
 
-            <div id="email-search-status" class="alert alert-info" role="status" aria-live="polite" hidden></div>
+        <!-- Status Message Banner -->
+        <div id="email-search-status" class="alert alert-info py-2 px-3 font-size-sm" role="status" aria-live="polite" hidden style="border-radius: 10px;"></div>
 
+        <!-- 3. Results Section Card -->
+        <div class="command-os-table-card">
             <section aria-labelledby="email-results-title">
-                <div class="d-flex flex-wrap align-items-center justify-content-between mb-2">
-                    <h4 id="email-results-title" class="h5 mb-2">Results <span id="email-results-count" class="text-muted font-size-sm"></span></h4>
-                    <div id="email-results-actions" class="email-results-actions align-items-center mb-2" hidden>
-                        <button type="button" class="btn btn-sm btn-alt-secondary mr-1 mb-1" id="email-select-all">SELECT ALL</button>
-                        <button type="button" class="btn btn-sm btn-alt-secondary mr-2 mb-1" id="email-select-none">SELECT NONE</button>
-                        <button type="button" class="btn btn-sm btn-alt-warning mr-1 mb-1" data-email-action="proxy" disabled>MOVE TO PROXY</button>
-                        <button type="button" class="btn btn-sm btn-alt-warning mr-1 mb-1" data-email-action="bot" disabled>MOVE TO BOT</button>
-                        <button type="button" class="btn btn-sm btn-alt-danger mr-1 mb-1" data-email-action="blacklist" disabled>MOVE TO BLACKLIST</button>
-                        <button type="button" class="btn btn-sm btn-alt-danger mr-1 mb-1" data-email-action="hard_bounce" disabled>MOVE TO HARD BOUNCE</button>
-                        <button type="button" class="btn btn-sm btn-alt-success mb-1" data-email-action="restore" disabled>RESTORE</button>
+                <div class="d-flex flex-wrap align-items-center justify-content-between mb-3 pb-2 border-bottom">
+                    <div class="d-flex align-items-center">
+                        <h4 id="email-results-title" class="font-w700 text-uppercase font-size-sm mb-0">
+                            <i class="fas fa-database mr-2 text-purple"></i> Search Results
+                        </h4>
+                        <span id="email-results-count" class="badge badge-light border text-purple font-w700 ml-2"></span>
+                    </div>
+
+                    <!-- Batch Action Buttons -->
+                    <div id="email-results-actions" class="email-results-actions flex-wrap align-items-center gap-2 mb-0" hidden>
+                        <div class="btn-group mr-2 mb-1">
+                            <button type="button" class="btn btn-sm btn-outline-secondary font-w700 font-size-xs" id="email-select-all" style="border-radius: 8px 0 0 8px;">
+                                <i class="far fa-check-square mr-1"></i> ALL
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary font-w700 font-size-xs" id="email-select-none" style="border-radius: 0 8px 8px 0;">
+                                <i class="far fa-square mr-1"></i> NONE
+                            </button>
+                        </div>
+                        <div class="d-inline-flex flex-wrap gap-1 mb-1">
+                            <button type="button" class="btn btn-sm btn-outline-warning font-w700 font-size-xs mr-1" data-email-action="proxy" disabled style="border-radius: 8px;">
+                                <i class="fas fa-user-secret mr-1"></i> PROXY
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-warning font-w700 font-size-xs mr-1" data-email-action="bot" disabled style="border-radius: 8px;">
+                                <i class="fas fa-robot mr-1"></i> BOT
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger font-w700 font-size-xs mr-1" data-email-action="blacklist" disabled style="border-radius: 8px;">
+                                <i class="fas fa-ban mr-1"></i> BLACKLIST
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger font-w700 font-size-xs mr-1" data-email-action="hard_bounce" disabled style="border-radius: 8px;">
+                                <i class="fas fa-times-circle mr-1"></i> HARD BOUNCE
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-success font-w700 font-size-xs" data-email-action="restore" disabled style="border-radius: 8px;">
+                                <i class="fas fa-undo mr-1"></i> RESTORE
+                            </button>
+                        </div>
                     </div>
                 </div>
+
                 <div class="table-responsive">
                     <table id="listEmails" class="table table-sm table-hover table-striped w-100" aria-label="Email search results"></table>
                 </div>
@@ -60,12 +135,20 @@
         </div>
     </div>
 
-    <dialog id="email-action-confirmation" aria-labelledby="email-action-confirmation-title" aria-describedby="email-action-confirmation-description" style="border:1px solid #d5d9df;border-radius:.35rem;max-width:32rem;padding:1.25rem;width:calc(100% - 2rem);box-shadow:0 1rem 3rem rgba(0,0,0,.25)">
-        <h3 id="email-action-confirmation-title" class="h5">Confirm email type change</h3>
-        <p id="email-action-confirmation-description" class="text-muted"></p>
-        <div class="text-right">
-            <button type="button" class="btn btn-alt-secondary mr-2" id="email-action-cancel">Cancel</button>
-            <button type="button" class="btn btn-primary" id="email-action-confirm">Continue</button>
+    <!-- Confirmation Modal Dialog -->
+    <dialog id="email-action-confirmation" aria-labelledby="email-action-confirmation-title" aria-describedby="email-action-confirmation-description" class="command-os-dialog">
+        <div class="command-os-dialog-content p-4">
+            <div class="d-flex align-items-center mb-3">
+                <div class="command-dialog-icon mr-3" style="font-size: 24px; color: #f59e0b;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <h3 id="email-action-confirmation-title" class="font-w700 font-size-base mb-0">Confirm Audience Reclassification</h3>
+            </div>
+            <p id="email-action-confirmation-description" class="text-muted font-size-sm mb-4"></p>
+            <div class="d-flex justify-content-end align-items-center">
+                <button type="button" class="btn btn-secondary font-w600 font-size-xs px-3 mr-2" id="email-action-cancel" style="border-radius: 8px;">Cancel</button>
+                <button type="button" class="btn btn-primary font-w700 font-size-xs px-4" id="email-action-confirm" style="border-radius: 8px; background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); border: none;">Continue</button>
+            </div>
         </div>
     </dialog>
 @endsection
@@ -117,7 +200,7 @@
                     if (type !== 'display') return value || '';
                     const colors = {fresh:'secondary',delivery:'info',open:'primary',click:'primary',lead:'success',unsubscribe:'warning',opt_out:'warning',proxy:'danger',bot:'danger',blacklist:'danger',hard_bounce:'danger'};
                     const label = value || 'unassigned';
-                    return `<span class="badge badge-${colors[label] || 'secondary'} p-1">${escapeHtml(label)}</span>`;
+                    return `<span class="badge badge-${colors[label] || 'secondary'} px-2 py-1 font-w700 font-size-xs text-uppercase" style="letter-spacing:0.04em;">${escapeHtml(label)}</span>`;
                 },
             };
             const textColumn = (title, data) => ({title, data, render: (value, type) => type === 'display' ? escapeHtml(value || '') : (value || '')});
@@ -129,7 +212,7 @@
                 {title:'email',data:'email',render:(value,type,row)=>{
                     if(type!=='display') return value || '';
                     const href=logsUrl.replace('__CONTACT__',encodeURIComponent(row.id));
-                    return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener">${escapeHtml(value || '')}</a>`;
+                    return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" class="font-w600 text-purple">${escapeHtml(value || '')}</a>`;
                 }},
                 typeColumn,
                 textColumn('first', 'first_name'),
@@ -141,14 +224,14 @@
                 {title:'l',data:'logs_count',render:(value,type,row)=>{
                     if(type!=='display') return Number(value || 0);
                     const href=logsUrl.replace('__CONTACT__',encodeURIComponent(row.id));
-                    return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" aria-label="View ${Number(value || 0)} logs">${Number(value || 0)}</a>`;
+                    return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" class="badge badge-light border text-purple font-w700 px-2 py-1" aria-label="View ${Number(value || 0)} logs"><i class="fas fa-file-alt mr-1"></i>${Number(value || 0)}</a>`;
                 }},
             ];
 
             if ($.fn.DataTable) {
                 table = $('#listEmails').DataTable({
                     data: [], columns, order:[[1,'asc']], paging:false, searching:false, info:false,
-                    language:{emptyTable:'Enter one or more values above, then search.'},
+                    language:{emptyTable:'<div class="py-4 text-center text-muted"><i class="fas fa-inbox fa-2x mb-2 d-block text-purple opacity-50"></i>Enter one or more values above, then search.</div>'},
                     drawCallback: () => {
                         document.querySelectorAll('.email-result-select').forEach((checkbox) => { checkbox.checked = selected.has(checkbox.value); });
                         updateActionButtons();
@@ -158,7 +241,7 @@
 
             const loadResults = async (search) => {
                 submitButton.disabled = true;
-                submitButton.textContent = 'SEARCHING…';
+                submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> SEARCHING…';
                 try {
                     const response = await fetch(baseSearchUrl, {
                         method:'POST',
@@ -179,7 +262,7 @@
                     announce(error.message || 'Search failed. Try again.', 'danger');
                 } finally {
                     submitButton.disabled = false;
-                    submitButton.textContent = 'SEARCH';
+                    submitButton.innerHTML = '<i class="fas fa-search mr-1"></i> SEARCH';
                     updateActionButtons();
                 }
             };

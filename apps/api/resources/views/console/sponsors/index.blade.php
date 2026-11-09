@@ -104,7 +104,7 @@
                    data-create-url="{{ route('clean.console.sponsors.create') }}"
                    data-bulk-users-url="{{ route('clean.console.sponsors.bulk-users') }}"
                    data-login-url="{{ route('clean.console.sponsors.login', 0) }}"
-                   data-extension-id="{{ $extensionId }}"></table>
+                   data-extension-id="{{ $extensionId ?? '' }}"></table>
         </div>
     </div>
 @endsection

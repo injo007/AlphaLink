@@ -66,7 +66,7 @@
             if (!button) return;
 
             const row = button.closest('[data-placeholder-row]');
-            if (!row || !window.confirm('Are you sure to remove this row?')) return;
+            if (!row) return;
 
             row.remove();
         });

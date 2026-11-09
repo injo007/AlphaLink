@@ -885,7 +885,7 @@
                             <div class="form-row mb-0">
                                 <div class="form-group col-sm-6">
                                     <label for="send-order-by"><i class="fas fa-sort campaign-field-icon" aria-hidden="true"></i>Order By:</label>
-                                    <select id="send-order-by" name="send_setup[order_by]" class="form-control" required>
+                                    <select id="send-order-by" name="send_setup[order_by]" class="form-control selectpicker" data-container="body" title="Select ordering" required>
                                         @foreach (['default' => 'DEFAULT', 'asc' => 'ASC', 'desc' => 'DESC', 'random' => 'RANDOM'] as $value => $label)
                                             <option value="{{ $value }}" @selected($setup['order_by'] === $value)>{{ $label }}</option>
                                         @endforeach
@@ -1720,7 +1720,6 @@
             document.getElementById('campaign-header-encode').addEventListener('click', () => showDialog('campaign-encoding-dialog'));
             document.getElementById('campaign-shortlink-open').addEventListener('click', () => showDialog('campaign-shortlink-dialog'));
             document.getElementById('campaign-tags-help').addEventListener('click', () => showDialog('campaign-tags-dialog'));
-            document.getElementById('campaign-mix-open').addEventListener('click', () => showDialog('campaign-mix-dialog'));
             document.querySelectorAll('[data-dialog-close]').forEach((button) => {
                 button.addEventListener('click', () => closeDialog(document.getElementById(button.dataset.dialogClose)));
             });
@@ -2672,4 +2671,5 @@
             updateSummary();
         })();
     </script>
+    <script src="{{ asset('console-assets/campaign-mix-dialog.js') }}" defer></script>
 @endpush

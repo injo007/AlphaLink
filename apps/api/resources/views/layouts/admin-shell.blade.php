@@ -413,6 +413,9 @@
         $commandOsNavigation[9]['disabled'] = true;
         $commandOsNavigation[9]['reason'] = 'No redirect or rotator page is connected yet.';
         $commandOsNavigation = array_values(array_filter($commandOsNavigation, static fn (array $group): bool => $group !== []));
+        $navigationPreference = \App\Models\AppGlobalPreference::query()->whereKey('navigation_order')->value('value') ?? [];
+        $commandOsNavigation = app(\App\Services\Navigation\GlobalNavigationOrder::class)->apply($commandOsNavigation, $navigationPreference);
+        $canEditGlobalNavigation = auth()->user()?->type === \App\Models\User::ADMIN;
     @endphp
     <div id="page-container" class="sidebar-o enable-page-overlay sidebar-dark side-scroll page-header-fixed {{ $commandOsShell ? 'command-os-page' : 'sidebar-mini' }}">
         <nav id="sidebar" aria-label="Main Navigation" tabindex="-1">
@@ -459,7 +462,7 @@
                                     $submenuId = $group['id'] ?? 'nav-submenu-'.\Illuminate\Support\Str::slug($group['label']);
                                     $submenuIsOpen = ($group['open'] ?? false) || ($group['active'] ?? false);
                                 @endphp
-                                <li class="command-os-navigation-item {{ ($group['active'] ?? false) ? 'is-active' : '' }} {{ $groupIsDisabled ? 'is-disabled' : '' }}">
+                                <li class="command-os-navigation-item {{ ($group['active'] ?? false) ? 'is-active' : '' }} {{ $groupIsDisabled ? 'is-disabled' : '' }}" data-nav-group="{{ $group['navigation_group_key'] }}">
                                     <div class="command-os-navigation-row{{ $groupHasChildren ? '' : ' is-standalone' }}">
                                         @if (isset($group['href']) && ! $groupIsDisabled)
                                             <a class="command-os-navigation-link {{ ($group['active'] ?? false) ? 'active' : '' }}" href="{{ $group['href'] }}" @if (($group['active'] ?? false)) aria-current="page" @endif>
@@ -477,7 +480,7 @@
                                                 </summary>
                                                 <ul class="command-os-navigation-submenu" id="{{ $submenuId }}">
                                                     @foreach ($group['items'] as $item)
-                                                        <li>
+                                                        <li data-nav-item="{{ $item['navigation_item_key'] }}">
                                                             @if (isset($item['href']) && ! ($item['disabled'] ?? false))
                                                                 <a class="{{ ($item['active'] ?? false) ? 'active' : '' }}" href="{{ $item['href'] }}" @if (($item['active'] ?? false)) aria-current="page" @endif>
                                                                     <i class="{{ $item['icon'] ?? 'fas fa-circle' }}" aria-hidden="true"></i><span>{{ $commandOsNavLabel($item['label']) }}</span>
@@ -556,7 +559,29 @@
                     @endif
                 </div>
             </div>
+            @if ($commandOsShell && $canEditGlobalNavigation)
+                <div class="command-os-nav-editor" data-navigation-editor data-save-url="{{ route('console.global-navigation.order.update') }}">
+                    <button type="button" class="command-os-nav-editor-toggle" data-navigation-toggle aria-pressed="false">
+                        <i class="fas fa-arrows-alt" aria-hidden="true"></i><span>Arrange navigation</span>
+                    </button>
+                    <p data-navigation-editor-status role="status" aria-live="polite">Enable to drag navigation items.</p>
+                </div>
+            @endif
         </nav>
+        @if ($commandOsShell && $canEditGlobalNavigation)
+            <dialog class="command-os-nav-save-dialog" id="command-os-nav-save-dialog" aria-labelledby="command-os-nav-save-title">
+                <form method="dialog">
+                    <h2 id="command-os-nav-save-title">Save navigation order?</h2>
+                    <p>This navigation order will become the default for everyone in AlphaLink.</p>
+                    <p class="command-os-nav-save-error" data-navigation-save-error role="alert" hidden></p>
+                    <div>
+                        <button type="button" class="command-os-nav-save-cancel" data-navigation-save-cancel>Keep arranging</button>
+                        <button type="button" class="command-os-nav-save-discard" data-navigation-save-discard>Discard changes</button>
+                        <button type="button" class="command-os-nav-save-submit" data-navigation-save-submit>Save for everyone</button>
+                    </div>
+                </form>
+            </dialog>
+        @endif
         @if ($commandOsShell)
             <button type="button" class="command-os-sidebar-backdrop" data-action="sidebar_backdrop" aria-label="Close navigation" hidden tabindex="-1"></button>
         @endif
@@ -687,6 +712,9 @@
         <script src="{{ asset('console-assets/my-servers.js') }}?v={{ substr(sha1_file(public_path('console-assets/my-servers.js')), 0, 12) }}" defer></script>
     @elseif ($isMyIpsPage)
         <script src="{{ asset('console-assets/plugins/datatables/natural.js') }}"></script>
+    @endif
+    @if ($commandOsShell && $canEditGlobalNavigation)
+        <script src="{{ asset('console-assets/command-os-navigation-reorder.js') }}?v={{ substr(sha1_file(public_path('console-assets/command-os-navigation-reorder.js')), 0, 12) }}" defer></script>
     @endif
     @stack('scripts')
     <script>

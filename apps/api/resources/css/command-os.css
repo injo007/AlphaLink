@@ -3784,6 +3784,7 @@ body.command-os-shell #main_content .command-os-report-hero {
     align-items: center;
     border-radius: 18px;
     display: flex;
+    justify-content: space-between;
     gap: 16px;
     isolation: isolate;
     margin: 10px 0 16px;
@@ -3911,6 +3912,13 @@ html:not([data-command-theme='dark']) body.command-os-shell .all-stats-overview-
 .all-stats-overview-icon.icon-events { color: #3b82f6; background: color-mix(in srgb, #3b82f6 12%, var(--co-surface)); }
 .all-stats-overview-icon.icon-scope { color: #8b5cf6; background: color-mix(in srgb, #8b5cf6 12%, var(--co-surface)); }
 .all-stats-overview-icon.icon-pivot { color: #06b6d4; background: color-mix(in srgb, #06b6d4 12%, var(--co-surface)); }
+.all-stats-overview-icon.icon-purple { color: #a855f7; background: color-mix(in srgb, #a855f7 14%, var(--co-surface)); }
+.all-stats-overview-icon.icon-emerald { color: #10b981; background: color-mix(in srgb, #10b981 14%, var(--co-surface)); }
+.all-stats-overview-icon.icon-blue { color: #3b82f6; background: color-mix(in srgb, #3b82f6 14%, var(--co-surface)); }
+.all-stats-overview-icon.icon-cyan { color: #06b6d4; background: color-mix(in srgb, #06b6d4 14%, var(--co-surface)); }
+.all-stats-overview-icon.icon-amber { color: #f59e0b; background: color-mix(in srgb, #f59e0b 14%, var(--co-surface)); }
+.all-stats-overview-icon.icon-rose { color: #f43f5e; background: color-mix(in srgb, #f43f5e 14%, var(--co-surface)); }
+.all-stats-overview-icon.icon-indigo { color: #6366f1; background: color-mix(in srgb, #6366f1 14%, var(--co-surface)); }
 
 .all-stats-overview-copy {
     display: grid;
@@ -3956,10 +3964,20 @@ body.command-os-shell #main_content .command-os-report-hero-mark {
     justify-content: center;
 }
 
-body.command-os-shell #main_content .command-os-report-hero-copy { min-width: 0; }
+body.command-os-shell #main_content .command-os-report-hero-copy { min-width: 0; flex: 1 1 auto; }
 body.command-os-shell #main_content .command-os-report-eyebrow { color: var(--co-purple); font-size: 10px; font-weight: 800; letter-spacing: .14em; margin: 0 0 4px; }
 body.command-os-shell #main_content .command-os-report-hero h1 { color: var(--co-ink); font-size: clamp(23px, 2.2vw, 31px); font-weight: 780; letter-spacing: -.035em; line-height: 1.1; margin: 0; }
 body.command-os-shell #main_content .command-os-report-hero-copy > p:last-child { color: var(--co-muted); font-size: 12px; margin: 6px 0 0; }
+
+.command-os-hero-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: relative;
+    z-index: 1;
+    margin-left: auto;
+    flex-shrink: 0;
+}
 
 body.command-os-shell #main_content .command-os-report-hero-range {
     backdrop-filter: blur(10px);
@@ -5105,78 +5123,193 @@ html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-ca
     background-color: transparent !important;
 }
 
+/* Bulletproof Dark Theme Table */
+html[data-command-theme='dark'] .command-os-table-card,
+html[data-command-theme='dark'] .command-os-table-card .table-responsive,
+html[data-command-theme='dark'] .command-os-table-card .dataTables_wrapper,
+html[data-command-theme='dark'] .command-os-table-card table,
+html[data-command-theme='dark'] .command-os-table-card .table {
+    background: #0b1139 !important;
+    background-color: #0b1139 !important;
+    color: #e2e8f0 !important;
+}
+
+html[data-command-theme='dark'] .command-os-table-card table thead th,
+html[data-command-theme='dark'] .command-os-table-card .table thead th,
 html[data-command-theme='dark'] .command-os-table-card table.dataTable thead th {
     background: #141b4b !important;
     background-color: #141b4b !important;
-    border-bottom: 1px solid rgba(99, 102, 241, 0.3) !important;
-    color: #94a3b8 !important;
+    border-top: none !important;
+    border-bottom: 2px solid rgba(139, 92, 246, 0.4) !important;
+    color: #a855f7 !important;
+    font-size: 10px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.07em !important;
+    text-transform: uppercase !important;
+    white-space: nowrap !important;
+    padding: 13px 10px !important;
 }
 
+html[data-command-theme='dark'] .command-os-table-card table tbody tr,
+html[data-command-theme='dark'] .command-os-table-card .table tbody tr,
+html[data-command-theme='dark'] .command-os-table-card table.dataTable tbody tr,
+html[data-command-theme='dark'] .command-os-table-card table.dataTable tbody tr.odd,
+html[data-command-theme='dark'] .command-os-table-card table.dataTable tbody tr.even,
+html[data-command-theme='dark'] .command-os-table-card .table-striped tbody tr:nth-of-type(odd),
+html[data-command-theme='dark'] .command-os-table-card .table-striped tbody tr:nth-of-type(even) {
+    background: #0b1139 !important;
+    background-color: #0b1139 !important;
+    color: #f1f5f9 !important;
+}
+
+html[data-command-theme='dark'] .command-os-table-card table tbody tr.odd td,
+html[data-command-theme='dark'] .command-os-table-card .table-striped tbody tr:nth-of-type(odd) td {
+    background: #0e1547 !important;
+    background-color: #0e1547 !important;
+}
+
+html[data-command-theme='dark'] .command-os-table-card table tbody tr:hover,
+html[data-command-theme='dark'] .command-os-table-card table tbody tr:hover td,
+html[data-command-theme='dark'] .command-os-table-card .table-hover tbody tr:hover,
+html[data-command-theme='dark'] .command-os-table-card .table-hover tbody tr:hover td,
+html[data-command-theme='dark'] .command-os-table-card table.dataTable tbody tr:hover td {
+    background: #18205c !important;
+    background-color: #18205c !important;
+    color: #ffffff !important;
+}
+
+html[data-command-theme='dark'] .command-os-table-card table tbody td,
+html[data-command-theme='dark'] .command-os-table-card .table tbody td,
+html[data-command-theme='dark'] .command-os-table-card table.dataTable tbody td {
+    border-top: none !important;
+    border-bottom: 1px solid rgba(40, 55, 95, 0.45) !important;
+    color: #e2e8f0 !important;
+    font-size: 11px !important;
+    padding: 12px 10px !important;
+    vertical-align: middle !important;
+    background: transparent !important;
+}
+
+html[data-command-theme='dark'] .command-os-table-card table tbody tr.is-inactive-row td {
+    color: #fca5a5 !important;
+    background: rgba(239, 68, 68, 0.08) !important;
+}
+
+/* Bulletproof Light Theme Table */
+html[data-command-theme='light'] .command-os-table-card,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card,
+html[data-command-theme='light'] .command-os-table-card .table-responsive,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .table-responsive,
+html[data-command-theme='light'] .command-os-table-card .dataTables_wrapper,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dataTables_wrapper,
+html[data-command-theme='light'] .command-os-table-card table,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card table,
+html[data-command-theme='light'] .command-os-table-card .table,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .table {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #1e293b !important;
+}
+
+html[data-command-theme='light'] .command-os-table-card table thead th,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card table thead th,
+html[data-command-theme='light'] .command-os-table-card .table thead th,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .table thead th,
 html[data-command-theme='light'] .command-os-table-card table.dataTable thead th,
 html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card table.dataTable thead th {
     background: #f1f5fd !important;
     background-color: #f1f5fd !important;
-    border-bottom: 1px solid #cbd5e1 !important;
-    color: #475569 !important;
+    border-top: none !important;
+    border-bottom: 2px solid #cbd5e1 !important;
+    color: #6366f1 !important;
+    font-size: 10px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.07em !important;
+    text-transform: uppercase !important;
+    white-space: nowrap !important;
+    padding: 13px 10px !important;
 }
 
-.command-os-table-card table.dataTable tbody tr {
-    background: transparent !important;
-}
-
-html[data-command-theme='dark'] .command-os-table-card table.dataTable tbody tr {
-    background: #0b1139 !important;
-    background-color: #0b1139 !important;
-}
-
+html[data-command-theme='light'] .command-os-table-card table tbody tr,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card table tbody tr,
+html[data-command-theme='light'] .command-os-table-card .table tbody tr,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .table tbody tr,
 html[data-command-theme='light'] .command-os-table-card table.dataTable tbody tr,
-html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card table.dataTable tbody tr {
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card table.dataTable tbody tr,
+html[data-command-theme='light'] .command-os-table-card table.dataTable tbody tr.odd,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card table.dataTable tbody tr.odd,
+html[data-command-theme='light'] .command-os-table-card table.dataTable tbody tr.even,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card table.dataTable tbody tr.even,
+html[data-command-theme='light'] .command-os-table-card .table-striped tbody tr:nth-of-type(odd),
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .table-striped tbody tr:nth-of-type(odd),
+html[data-command-theme='light'] .command-os-table-card .table-striped tbody tr:nth-of-type(even),
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .table-striped tbody tr:nth-of-type(even) {
     background: #ffffff !important;
     background-color: #ffffff !important;
-}
-
-.command-os-table-card table.dataTable tbody td {
-    background: transparent !important;
-    border: none !important;
-    font-size: 11px !important;
-    padding: 13px 10px !important;
-    vertical-align: middle !important;
-}
-
-html[data-command-theme='dark'] .command-os-table-card table.dataTable tbody td {
-    border-bottom: 1px solid rgba(40, 55, 95, 0.4) !important;
-    color: #f1f5f9 !important;
-}
-
-html[data-command-theme='dark'] .command-os-table-card table.dataTable tbody tr:hover td {
-    background: #151d54 !important;
-    background-color: #151d54 !important;
-}
-
-html[data-command-theme='light'] .command-os-table-card table.dataTable tbody td,
-html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card table.dataTable tbody td {
-    border-bottom: 1px solid #e2e8f0 !important;
     color: #1e293b !important;
 }
 
-html[data-command-theme='light'] .command-os-table-card table.dataTable tbody tr:hover td,
-html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card table.dataTable tbody tr:hover td {
+html[data-command-theme='light'] .command-os-table-card table tbody tr.odd td,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card table tbody tr.odd td,
+html[data-command-theme='light'] .command-os-table-card .table-striped tbody tr:nth-of-type(odd) td,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .table-striped tbody tr:nth-of-type(odd) td {
     background: #f8faff !important;
     background-color: #f8faff !important;
+}
+
+html[data-command-theme='light'] .command-os-table-card table tbody tr:hover,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card table tbody tr:hover,
+html[data-command-theme='light'] .command-os-table-card table tbody tr:hover td,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card table tbody tr:hover td,
+html[data-command-theme='light'] .command-os-table-card .table-hover tbody tr:hover,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .table-hover tbody tr:hover,
+html[data-command-theme='light'] .command-os-table-card .table-hover tbody tr:hover td,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .table-hover tbody tr:hover td,
+html[data-command-theme='light'] .command-os-table-card table.dataTable tbody tr:hover td,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card table.dataTable tbody tr:hover td {
+    background: #eef2ff !important;
+    background-color: #eef2ff !important;
+    color: #0f172a !important;
+}
+
+html[data-command-theme='light'] .command-os-table-card table tbody td,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card table tbody td,
+html[data-command-theme='light'] .command-os-table-card .table tbody td,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .table tbody td,
+html[data-command-theme='light'] .command-os-table-card table.dataTable tbody td,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card table.dataTable tbody td {
+    border-top: none !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    color: #1e293b !important;
+    font-size: 11px !important;
+    padding: 12px 10px !important;
+    vertical-align: middle !important;
+    background: transparent !important;
+}
+
+html[data-command-theme='light'] .command-os-table-card table tbody tr.is-inactive-row td {
+    color: #b91c1c !important;
+    background: rgba(239, 68, 68, 0.04) !important;
+}
+
+/* Ensure leading icons don't overlap bootstrap-select dropdown button */
+.command-input-wrap .bootstrap-select > .btn,
+.command-input-wrap .command-input-with-icon {
+    padding-left: 38px !important;
 }
 
 /* Action Buttons */
 .command-action-btn-group {
     align-items: center;
     display: inline-flex;
-    gap: 4px;
+    gap: 5px;
 }
 
 .command-action-btn {
     align-items: center;
     border: 0;
-    border-radius: 6px;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    border-radius: 7px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
     color: #ffffff !important;
     cursor: pointer;
     display: inline-flex;
@@ -5189,46 +5322,41 @@ html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-ca
 }
 
 .command-action-btn:hover {
-    filter: brightness(1.15);
-    transform: translateY(-1px);
+    filter: brightness(1.2);
+    transform: translateY(-1px) scale(1.06);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .command-action-btn.action-primary,
 .command-action-btn.action-assets,
 .command-action-btn.action-login {
-    background: #0284c7 !important;
-    box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4);
+    background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
 }
 
 .command-action-btn.action-warning,
 .command-action-btn.action-suppression {
-    background: #d97706 !important;
-    box-shadow: 0 2px 8px rgba(217, 119, 6, 0.4);
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
 }
 
 .command-action-btn.action-info,
 .command-action-btn.action-edit,
 .command-action-btn.action-update {
-    background: #0ea5e9 !important;
-    box-shadow: 0 2px 8px rgba(14, 165, 233, 0.4);
+    background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%) !important;
 }
 
 .command-action-btn.action-status,
 .command-action-btn.action-disable {
-    background: #ea580c !important;
-    box-shadow: 0 2px 8px rgba(234, 88, 12, 0.4);
+    background: linear-gradient(135deg, #f97316 0%, #ea580c 100%) !important;
 }
 
 .command-action-btn.action-status.is-active,
 .command-action-btn.action-enable {
-    background: #16a34a !important;
-    box-shadow: 0 2px 8px rgba(22, 163, 74, 0.4);
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
 }
 
 .command-action-btn.action-danger,
 .command-action-btn.action-delete {
-    background: #dc2626 !important;
-    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.4);
+    background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%) !important;
 }
 
 /* Badges & Selects */
@@ -7063,5 +7191,4 @@ html[data-command-theme='dark'] .command-os-footer-status {
 .command-os-btn-save-settings:active {
     transform: translateY(0);
 }
-
 

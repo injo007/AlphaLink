@@ -3209,6 +3209,7 @@
                             liActiveIndex = that.selectpicker.current.elements.length - 1;
                         } else {
                             activeLi = that.selectpicker.current.data[liActiveIndex];
+                            if (!activeLi) return;
                             offset = activeLi.position - activeLi.height;
 
                             updateScroll = offset < scrollTop;
@@ -3221,6 +3222,7 @@
                             liActiveIndex = that.selectpicker.view.firstHighlightIndex;
                         } else {
                             activeLi = that.selectpicker.current.data[liActiveIndex];
+                            if (!activeLi) return;
                             offset = activeLi.position - that.sizeInfo.menuInnerHeight;
 
                             updateScroll = offset > scrollTop;
@@ -3228,6 +3230,8 @@
                     }
 
                     liActive = that.selectpicker.current.elements[liActiveIndex];
+
+                    if (!that.selectpicker.current.data[liActiveIndex]) return;
 
                     that.activeIndex = that.selectpicker.current.data[liActiveIndex].index;
 

@@ -10,6 +10,7 @@ use App\Http\Controllers\Web\CampaignSendController;
 use App\Http\Controllers\Web\CloudProviderConsoleController;
 use App\Http\Controllers\Web\CloudWorkflowConsoleController;
 use App\Http\Controllers\Web\GlobalUserManagementController;
+use App\Http\Controllers\Web\GlobalNavigationPreferenceController;
 use App\Http\Controllers\Web\InfrastructureConsoleController;
 use App\Http\Controllers\Web\MiscellaneousConsoleController;
 use App\Http\Controllers\Web\PmtaConsoleController;
@@ -50,6 +51,8 @@ Route::middleware('guest')->group(function (): void {
 
 Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::post('/sign-out', [AuthController::class, 'destroy'])->name('logout');
+    Route::post('/app/navigation/order', [GlobalNavigationPreferenceController::class, 'update'])
+        ->middleware('throttle:10,1')->name('console.global-navigation.order.update');
     Route::get('/profile', [AuthController::class, 'profile'])->name('auth.profile');
     Route::post('/profile', [AuthController::class, 'changePassword'])
         ->middleware('throttle:10,1')->name('auth.change_password');

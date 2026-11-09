@@ -5,23 +5,74 @@
 @section('content')
     <div class="command-os-entity-page">
         <!-- 1. Hero Card -->
-        <header class="command-os-hero-card">
-            <div class="command-os-hero-card-left">
-                <div class="command-os-hero-mark" aria-hidden="true">
-                    <i class="fas fa-users"></i>
-                </div>
-                <div class="command-os-hero-copy">
-                    <h1 class="command-os-hero-title">SPONSORS</h1>
-                </div>
+        <header class="command-os-report-hero" aria-labelledby="sponsors-hero-title">
+            <span class="command-os-report-hero-illustration" aria-hidden="true">
+                <i class="fas fa-building"></i>
+            </span>
+            <div class="command-os-report-hero-mark" aria-hidden="true">
+                <i class="fas fa-building"></i>
             </div>
-            <div class="command-os-hero-card-right">
+            <div class="command-os-report-hero-copy">
+                <p class="command-os-report-eyebrow">SPONSOR DIRECTORY // ADVERTISER PLATFORMS</p>
+                <h1 id="sponsors-hero-title">SPONSORS</h1>
+                <p>Manage connected affiliate networks, API configurations, operator permissions, and session helpers.</p>
+            </div>
+            <div class="command-os-hero-actions">
+                <div class="command-os-report-hero-range">
+                    <span>CLUSTER STATUS</span>
+                    <strong><i class="fas fa-circle text-success" style="font-size: 8px;"></i> LIVE SYNC</strong>
+                </div>
                 <button type="button" class="command-os-btn-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen">
-                    <i class="si si-size-fullscreen"></i>
+                    <i class="fas fa-expand"></i>
                 </button>
             </div>
         </header>
 
-        <!-- 2. Info Banner -->
+        <!-- 2. KPI Overview Cards -->
+        <section class="command-os-all-stats-overview" aria-label="Sponsors Overview">
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-blue" aria-hidden="true"><i class="fas fa-building"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Total Sponsors</span>
+                    <strong id="stat-sponsors-count">{{ $workspace->sponsors()->count() }}</strong>
+                    <small>Connected platforms</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-emerald" aria-hidden="true"><i class="fas fa-plug"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Active Networks</span>
+                    <strong>{{ $workspace->sponsors()->where('is_active', true)->count() }}</strong>
+                    <small>Enabled integration</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-purple" aria-hidden="true"><i class="fas fa-puzzle-piece"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Browser Helper</span>
+                    <strong>{{ $extensionUrl ? 'READY' : 'LOCAL' }}</strong>
+                    <small>Session proxy agent</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-cyan" aria-hidden="true"><i class="fas fa-tags"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Linked Offers</span>
+                    <strong>{{ $workspace->offers()->count() }}</strong>
+                    <small>Campaigns catalog</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-amber" aria-hidden="true"><i class="fas fa-user-shield"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Access Control</span>
+                    <strong>ENFORCED</strong>
+                    <small>Role &amp; operator scope</small>
+                </span>
+            </article>
+        </section>
+
+        <!-- 3. Info Banner -->
         <div class="command-os-info-banner" role="note">
             <div class="command-os-info-banner-icon" aria-hidden="true">
                 <i class="fas fa-info-circle"></i>
@@ -29,16 +80,25 @@
             <div class="command-os-info-banner-content">
                 <div>Sponsor login opens a provider session in the browser helper. Download and load the helper before using Login.</div>
                 @if ($extensionUrl)
-                    <a href="{{ $extensionUrl }}" class="btn btn-sm btn-alt-primary mt-1">Download sponsor helper</a>
+                    <a href="{{ $extensionUrl }}" class="btn btn-sm btn-alt-primary mt-1"><i class="fas fa-download mr-1"></i> Download sponsor helper</a>
                 @else
-                    <div class="small mt-1 text-warning">The sponsor helper bundle is not installed on this app server, so download and browser handoff are unavailable.</div>
+                    <div class="small mt-1 text-warning"><i class="fas fa-exclamation-triangle mr-1"></i> The sponsor helper bundle is not installed on this app server, so download and browser handoff are unavailable.</div>
                 @endif
-                <div class="small mt-1">The browser helper requests cookie access across HTTP and HTTPS websites. Review that browser permission scope before installing it.</div>
+                <div class="small mt-1 text-muted">The browser helper requests cookie access across HTTP and HTTPS websites. Review that browser permission scope before installing it.</div>
             </div>
         </div>
 
-        <!-- 3. Table Card -->
+        <!-- 4. Table Card -->
         <div class="command-os-table-card">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-building text-purple font-size-lg mr-2"></i>
+                    <h3 class="h6 font-w700 text-uppercase tracking-wider mb-0 text-ink">Sponsor Networks &amp; Platform Gateways</h3>
+                </div>
+                <span class="badge badge-light border text-muted px-2 py-1 font-size-xs">
+                    <i class="fas fa-network-wired mr-1 text-purple"></i> API Integration Grid
+                </span>
+            </div>
             <table id="sponsors" class="table table-sm table-hover"
                    data-source-url="{{ route('clean.console.sponsors.index') }}"
                    data-create-url="{{ route('clean.console.sponsors.create') }}"
@@ -77,7 +137,7 @@
                 });
             };
 
-            $('#sponsors').dataTable({
+            const sponsorsTable = $('#sponsors').dataTable({
                 ajax: tableElement.dataset.sourceUrl,
                 serverSide: false,
                 pageLength: 20,
@@ -88,7 +148,7 @@
                 language: {
                     lengthMenu: 'Show _MENU_ rows',
                     search: '',
-                    searchPlaceholder: 'Search...',
+                    searchPlaceholder: 'Search sponsors...',
                     info: 'Page _PAGE_ of _PAGES_ (_TOTAL_ records)',
                     infoEmpty: 'Page 0 of 0 (0 records)',
                     paginate: {
@@ -97,19 +157,18 @@
                     }
                 },
                 buttons: [
-                    { extend: 'pageLength' },
                     {
-                        text: '<i class="fas fa-sync"></i>',
+                        text: '<i class="fas fa-sync-alt mr-1"></i> REFRESH',
                         titleAttr: 'REFRESH',
                         action: (event, table) => table.ajax.reload(null, false),
                     },
                     {
-                        text: '<i class="fa fa-plus"></i>',
+                        text: '<i class="fas fa-plus mr-1"></i> NEW SPONSOR',
                         titleAttr: 'ADD NEW SPONSOR',
                         action: () => openSponsorFrame(tableElement.dataset.createUrl),
                     },
                     {
-                        text: '<i class="fas fa-users"></i>',
+                        text: '<i class="fas fa-users-cog mr-1"></i> BULK USERS',
                         titleAttr: 'ALLOWED USERS',
                         action: (event, table) => {
                             const ids = table.rows({ selected: true }).data().toArray().map((row) => row.id);
@@ -119,7 +178,7 @@
                     },
                 ],
                 rowCallback: (row, data) => {
-                    if (!data.is_active) $('td', row).addClass('table-danger');
+                    if (!data.is_active) $('td', row).addClass('is-inactive-row');
                 },
                 select: { style: 'os', selector: 'td:first-child' },
                 columns: [
@@ -130,18 +189,18 @@
                     { title: 'USERNAME', data: 'username' },
                     { title: 'TYPE', data: 'type' },
                     { title: 'CREATED AT', data: 'created_at' },
-                    { title: 'TOTAL OFFERS', data: 'offers_count', render: (value, type, row) => type === 'display' ? `<a href="${@json(route('clean.console.offers.index'))}?sponsor=${escapeHtml(row.id)}" class="command-table-link">${Number(value || 0)}</a>` : value },
+                    { title: 'TOTAL OFFERS', data: 'offers_count', render: (value, type, row) => type === 'display' ? `<a href="${@json(route('clean.console.offers.index'))}?sponsor=${escapeHtml(row.id)}" class="command-table-link"><span class="badge badge-light border text-purple px-2 py-1 font-w700">${Number(value || 0)} Offers</span></a>` : value },
                     {
                         title: 'USERS',
                         data: 'allowed_users',
                         searchable: false,
-                        render: (users, type, row) => `<button type="button" data-id="${escapeHtml(row.id)}" class="btn btn-link users command-users-link" title="ALLOWED USERS" aria-label="Manage allowed users for ${escapeHtml(row.name)}"><i class="fas fa-users"></i> : ${Array.isArray(users) ? users.length : 0}</button>`,
+                        render: (users, type, row) => `<button type="button" data-id="${escapeHtml(row.id)}" class="btn btn-link users command-users-link" title="ALLOWED USERS" aria-label="Manage allowed users for ${escapeHtml(row.name)}"><i class="fas fa-users mr-1"></i>${Array.isArray(users) ? users.length : 0}</button>`,
                     },
                     {
                         title: 'URL',
                         data: 'url',
                         render: (url, type) => type === 'display'
-                            ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="command-table-link" aria-label="Open sponsor website"><i class="fas fa-link"></i></a>`
+                            ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="command-table-link" aria-label="Open sponsor website"><i class="fas fa-external-link-alt text-purple"></i></a>`
                             : url,
                     },
                     {
@@ -151,14 +210,22 @@
                         searchable: false,
                         render: (data, type, row) => {
                             const editUrl = @json(route('clean.console.sponsors.index')) + `/${row.id}/edit`;
-                            const login = `<button type="button" data-id="${escapeHtml(row.id)}" class="command-action-btn action-login login" title="LOGIN SPONSOR" aria-label="Login to ${escapeHtml(row.name)}"><i class="fas fa-poll"></i></button>`;
-                            const update = `<button type="button" data-url="${escapeHtml(editUrl)}" class="command-action-btn action-edit update" title="UPDATE SPONSOR" aria-label="Update ${escapeHtml(row.name)}"><i class="fas fa-pencil-alt"></i></button>`;
-                            const statusButton = `<button type="button" data-id="${escapeHtml(row.id)}" data-action="status" data-status="${row.is_active ? 0 : 1}" class="command-action-btn ${row.is_active ? 'action-status' : 'action-enable'} status" title="${row.is_active ? 'DISABLE SPONSOR' : 'ENABLE SPONSOR'}" aria-label="${row.is_active ? 'DISABLE SPONSOR' : 'ENABLE SPONSOR'}"><i class="fas ${row.is_active ? 'fa-times' : 'fa-check'}"></i></button>`;
+                            const login = `<button type="button" data-id="${escapeHtml(row.id)}" class="command-action-btn action-login login" title="LOGIN SPONSOR" aria-label="Login to ${escapeHtml(row.name)}"><i class="fas fa-sign-in-alt"></i></button>`;
+                            const update = `<button type="button" data-url="${escapeHtml(editUrl)}" class="command-action-btn action-edit update" title="UPDATE SPONSOR" aria-label="Update ${escapeHtml(row.name)}"><i class="fas fa-edit"></i></button>`;
+                            const statusButton = `<button type="button" data-id="${escapeHtml(row.id)}" data-action="status" data-status="${row.is_active ? 0 : 1}" class="command-action-btn ${row.is_active ? 'action-status' : 'action-enable'} status" title="${row.is_active ? 'DISABLE SPONSOR' : 'ENABLE SPONSOR'}" aria-label="${row.is_active ? 'DISABLE SPONSOR' : 'ENABLE SPONSOR'}"><i class="fas ${row.is_active ? 'fa-toggle-on' : 'fa-toggle-off'}"></i></button>`;
                             return `<div class="command-action-btn-group">${login}${update}${statusButton}</div>`;
                         },
                     },
                 ],
-            }).on('click', '.users', function (event) {
+            });
+
+            sponsorsTable.on('xhr.dt', function (e, settings, json) {
+                if (json?.data) {
+                    $('#stat-sponsors-count').text(json.data.length);
+                }
+            });
+
+            $('#sponsors').on('click', '.users', function (event) {
                 event.preventDefault();
                 const url = @json(route('clean.console.sponsors.index')) + `/${this.dataset.id}/users`;
                 openSponsorFrame(url);

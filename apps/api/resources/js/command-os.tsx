@@ -147,7 +147,11 @@ function safeStoredTheme(): Theme {
 
 function setTheme(theme: Theme): void {
     document.documentElement.dataset.commandTheme = theme;
-    document.body.dataset.commandTheme = theme;
+    document.documentElement.setAttribute('data-command-theme', theme);
+    if (document.body) {
+        document.body.dataset.commandTheme = theme;
+        document.body.setAttribute('data-command-theme', theme);
+    }
     try {
         window.localStorage.setItem('alphalink-command-os-theme', theme);
     } catch {

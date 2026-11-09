@@ -1,6 +1,19 @@
 <!doctype html>
 <html lang="en">
 <head>
+    <script>
+        (function() {
+            var theme = 'dark';
+            try {
+                var stored = localStorage.getItem('alphalink-command-os-theme');
+                if (stored === 'light' || stored === 'dark') {
+                    theme = stored;
+                }
+            } catch(e) {}
+            document.documentElement.setAttribute('data-command-theme', theme);
+            document.documentElement.dataset.commandTheme = theme;
+        })();
+    </script>
     @php
         $routeIs = static function (string ...$patterns): bool {
             return request()->routeIs(...$patterns)

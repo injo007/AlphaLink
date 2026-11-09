@@ -3,14 +3,26 @@
 @section('title', 'Servers Providers')
 
 @section('content')
-    <div class="block block-rounded">
-        <div class="block-header">
-            <h3 class="block-title">Servers Providers</h3>
-            <div class="block-options">
-                <button type="button" class="btn-block-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen"></button>
+    <div class="command-os-entity-page">
+        <!-- 1. Hero Card -->
+        <header class="command-os-hero-card">
+            <div class="command-os-hero-card-left">
+                <div class="command-os-hero-mark" aria-hidden="true">
+                    <i class="fas fa-server"></i>
+                </div>
+                <div class="command-os-hero-copy">
+                    <h1 class="command-os-hero-title">SERVER PROVIDERS</h1>
+                </div>
             </div>
-        </div>
-        <div class="block-content block-content-full">
+            <div class="command-os-hero-card-right">
+                <button type="button" class="command-os-btn-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen">
+                    <i class="si si-size-fullscreen"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- 2. Table Card -->
+        <div class="command-os-table-card">
             <div class="table-responsive">
                 <table id="server-providers" class="table table-sm table-hover table-striped"
                        data-source-url="{{ route('console.infrastructure.server-providers.index', $workspace->id) }}"

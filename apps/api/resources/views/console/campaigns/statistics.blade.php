@@ -3,27 +3,36 @@
 @section('title', 'Campaign Statistics')
 
 @section('content')
-    <h2 class="content-heading">CAMPAIGN STATISTICS <small class="text-muted">DELIVERY, ENGAGEMENT, LEADS &amp; CONVERSIONS</small></h2>
-
-    <div class="block block-rounded">
-        <div class="block-header block-header-default">
-            <h3 class="block-title">STATS</h3>
-            <div class="block-options">
-                <button type="button" class="btn-block-option" id="campaign-statistics-pivot-reload" aria-label="Reload campaign statistics" title="Reload"><i class="fas fa-sync" aria-hidden="true"></i></button>
-                <a href="{{ route('console.campaign-statistics.index', $workspace->id) }}" class="btn btn-sm btn-alt-secondary" data-clear-analytics-date-range="c_stats">RESET</a>
-                <button type="button" class="btn-block-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle campaign statistics full screen"></button>
+    <div class="command-os-entity-page">
+        <!-- 1. Hero Card -->
+        <header class="command-os-hero-card">
+            <div class="command-os-hero-card-left">
+                <div class="command-os-hero-mark" aria-hidden="true">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div class="command-os-hero-copy">
+                    <span class="command-os-hero-eyebrow">TRACKING &amp; ANALYTICS</span>
+                    <h1 class="command-os-hero-title">CAMPAIGN STATISTICS</h1>
+                </div>
             </div>
-        </div>
-        <div class="block-content block-content-full">
-            <form method="get" action="{{ route('console.campaign-statistics.index', $workspace->id) }}" class="row align-items-end mb-3" data-analytics-date-range-form data-storage-key="c_stats" data-min-date="none" data-analytics-report-refresh novalidate>
-                <div class="form-group col-sm-6 col-lg-3">
-                    <label for="analytics-dates">Date range</label>
+            <div class="command-os-hero-card-right">
+                <button type="button" class="command-os-btn-option" id="campaign-statistics-pivot-reload" aria-label="Reload campaign statistics" title="Reload"><i class="fas fa-sync" aria-hidden="true"></i></button>
+                <a href="{{ route('console.campaign-statistics.index', $workspace->id) }}" class="btn btn-sm btn-alt-secondary" data-clear-analytics-date-range="c_stats">RESET</a>
+                <button type="button" class="command-os-btn-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen"><i class="si si-size-fullscreen"></i></button>
+            </div>
+        </header>
+
+        <!-- 2. Filter Bar Card -->
+        <section class="command-os-filter-card" aria-label="Filter campaign statistics">
+            <form method="get" action="{{ route('console.campaign-statistics.index', $workspace->id) }}" class="form-row align-items-end" data-analytics-date-range-form data-storage-key="c_stats" data-min-date="none" data-analytics-report-refresh novalidate>
+                <div class="form-group col-sm-6 col-lg-3 mb-0">
+                    <label for="analytics-dates">Date range:</label>
                     <input id="analytics-dates" class="form-control" type="text" value="{{ $from }} - {{ $to }}" readonly aria-label="Choose campaign statistics date range">
                     <input type="hidden" name="from" value="{{ $from }}" required>
                     <input type="hidden" name="to" value="{{ $to }}" required>
                 </div>
-                <div class="form-group col-sm-6 col-lg-3">
-                    <label for="campaign-stats-campaign">Campaign</label>
+                <div class="form-group col-sm-6 col-lg-3 mb-0">
+                    <label for="campaign-stats-campaign">Campaign:</label>
                     <select id="campaign-stats-campaign" class="form-control" name="campaign_id">
                         <option value="">ALL CAMPAIGNS</option>
                         @foreach ($campaigns as $campaign)
@@ -31,8 +40,8 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="form-group col-sm-6 col-lg-2">
-                    <label for="campaign-stats-isp">ISP</label>
+                <div class="form-group col-sm-6 col-lg-2 mb-0">
+                    <label for="campaign-stats-isp">ISP:</label>
                     <select id="campaign-stats-isp" class="form-control" name="isp_id">
                         <option value="">ALL ISPS</option>
                         @foreach ($isps as $isp)
@@ -40,8 +49,8 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="form-group col-sm-6 col-lg-2">
-                    <label for="campaign-stats-list">List</label>
+                <div class="form-group col-sm-6 col-lg-2 mb-0">
+                    <label for="campaign-stats-list">List:</label>
                     <select id="campaign-stats-list" class="form-control" name="list_id">
                         <option value="">ALL LISTS</option>
                         @foreach ($lists as $list)
@@ -49,19 +58,22 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="form-group col-sm-6 col-lg-1">
-                    <button type="submit" class="btn btn-primary btn-block"><i class="fas fa-search mr-1" aria-hidden="true"></i> SHOW</button>
+                <div class="form-group col-sm-6 col-lg-2 mb-0">
+                    <button type="submit" class="command-os-btn-filter"><i class="fas fa-search mr-1" aria-hidden="true"></i> SHOW</button>
                 </div>
             </form>
+        </section>
 
+        <!-- 3. Report Card -->
+        <div class="command-os-table-card">
             <section id="campaign-statistics-pivot-shell" class="analytics-pivot-shell mb-3" data-url="{{ route('console.campaign-statistics.index', $workspace->id) }}" aria-label="Campaign Statistics pivot report" aria-busy="false" hidden>
                 <div id="campaign-statistics-pivot-status" class="small text-muted mb-2" role="status" aria-live="polite"></div>
                 <div id="campaign-statistics-pivot" class="analytics-pivot-surface"></div>
             </section>
             <div class="alert alert-warning mb-3" role="note"><strong>Data coverage:</strong> stored campaign opens, clicks, bot events, unsubscribes, actual lead-row counts and attributed lead revenue are available. Open, click and unsubscribe events are attributed to each selected eligible source List; totals across Lists can exceed unique events. Imported PMTA delivery and soft/hard bounce totals appear when feedback resolves to a campaign and its dimensions. CONVERSIONS follows the one-per-daily-stat-row positive-earnings rule; AlphaLink uses positive attributed lead-revenue rows because raw earnings are unavailable. It is a revenue-group proxy, separate from the actual LEADS count. Opt-out, seed and raw earnings measures remain unavailable, so no value is inferred. Server, IP, domain, sponsor, offer and creative dimensions appear only when they were captured with an event or imported feedback.</div>
             <div id="campaign-statistics-fallback">
-            <div class="small text-muted mb-2" data-analytics-report-status role="status" aria-live="polite"></div>
-            @include('console.campaigns.partials.statistics-results')
+                <div class="small text-muted mb-2" data-analytics-report-status role="status" aria-live="polite"></div>
+                @include('console.campaigns.partials.statistics-results')
             </div>
         </div>
     </div>

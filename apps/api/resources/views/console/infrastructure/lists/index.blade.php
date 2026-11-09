@@ -3,40 +3,53 @@
 @section('title', 'Lists')
 
 @section('content')
-    <div class="block block-rounded">
-        <div class="block-header">
-            <h3 class="block-title">Lists</h3>
-            <div class="block-options">
-                <button type="button" class="btn-block-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen"></button>
-            </div>
-        </div>
-        <div class="block-content block-content-full">
-            <div class="row">
-                <div class="col-sm-12 col-md-3">
-                    <div class="form-group">
-                        <label for="isps">Isps:</label>
-                        <select id="isps" name="isps" class="form-control selectpicker" data-size="10" data-live-search="true" title="Select Isp ..." data-allow-clear="true">
-                            @foreach ($isps as $isp)
-                                <option value="{{ $isp->id }}">{{ $isp->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
+    <div class="command-os-entity-page">
+        <!-- 1. Hero Card -->
+        <header class="command-os-hero-card">
+            <div class="command-os-hero-card-left">
+                <div class="command-os-hero-mark" aria-hidden="true">
+                    <i class="fas fa-list-ul"></i>
                 </div>
-                <div class="col-sm-12 col-md-2">
-                    <div class="form-group" style="margin-top: 1.8rem !important;">
-                        <button id="load_lists" type="button" class="btn btn-alt-primary btn-block">LOAD LISTS</button>
-                    </div>
+                <div class="command-os-hero-copy">
+                    <h1 class="command-os-hero-title">LISTS</h1>
                 </div>
             </div>
-            <div class="row push">
-                <div class="col-sm-12 table-responsive">
-                    <table id="lists" class="table table-sm table-hover"
-                        data-workspace-id="{{ $workspace->id }}"
-                        data-base-url="{{ url('/app/workspaces/'.$workspace->id.'/infrastructure') }}"></table>
+            <div class="command-os-hero-card-right">
+                <button type="button" class="command-os-btn-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen">
+                    <i class="si si-size-fullscreen"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- 2. Filter Bar Card -->
+        <section class="command-os-filter-card" aria-label="Filter lists">
+            <div class="form-row align-items-end">
+                <div class="col-sm-6 col-lg-4">
+                    <label for="isps">Isps:</label>
+                    <select id="isps" name="isps" class="form-control selectpicker" data-size="10" data-live-search="true" title="Select Isp ..." data-allow-clear="true">
+                        @foreach ($isps as $isp)
+                            <option value="{{ $isp->id }}">{{ $isp->name }}</option>
+                        @endforeach
+                    </select>
                 </div>
+                <div class="col-sm-6 col-lg-3">
+                    <button id="load_lists" type="button" class="command-os-btn-filter">LOAD LISTS</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. Table Card -->
+        <div class="command-os-table-card">
+            <div class="table-responsive">
+                <table id="lists" class="table table-sm table-hover"
+                    data-workspace-id="{{ $workspace->id }}"
+                    data-base-url="{{ url('/app/workspaces/'.$workspace->id.'/infrastructure') }}"></table>
             </div>
             @if ($isps->isEmpty())
-                <div class="alert alert-info mb-0">Add an ISP before creating its lists.</div>
+                <div class="command-os-info-banner mt-3" role="status">
+                    <div class="command-os-info-banner-icon"><i class="fas fa-info-circle"></i></div>
+                    <div class="command-os-info-banner-content">Add an ISP before creating its lists.</div>
+                </div>
             @endif
         </div>
     </div>

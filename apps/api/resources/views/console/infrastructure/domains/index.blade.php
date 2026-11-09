@@ -9,18 +9,31 @@
 @endpush
 
 @section('content')
-    <div class="block block-rounded">
-        <div class="block-header">
-            <h3 class="block-title">Domains</h3>
-            <div class="block-options">
-                <div class="custom-control custom-switch custom-control-info custom-control-inline">
-                    <input type="checkbox" class="custom-control-input" id="only_our" checked>
-                    <label id="label_auto" class="custom-control-label" for="only_our">ONLY OUR</label>
+    <div class="command-os-entity-page">
+        <!-- 1. Hero Card -->
+        <header class="command-os-hero-card">
+            <div class="command-os-hero-card-left">
+                <div class="command-os-hero-mark" aria-hidden="true">
+                    <i class="fas fa-globe"></i>
                 </div>
-                <button type="button" class="btn-block-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen"></button>
+                <div class="command-os-hero-copy">
+                    <h1 class="command-os-hero-title">DOMAINS</h1>
+                </div>
             </div>
-        </div>
-        <div class="block-content block-content-full">
+            <div class="command-os-hero-card-right">
+                <label class="command-os-toggle-wrap" for="only_our">
+                    <span class="command-os-toggle-label">ONLY OUR</span>
+                    <input type="checkbox" class="command-os-toggle-input" id="only_our" checked>
+                    <span class="command-os-toggle-slider"></span>
+                </label>
+                <button type="button" class="command-os-btn-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen">
+                    <i class="si si-size-fullscreen"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- 2. Table Card -->
+        <div class="command-os-table-card">
             <div class="table-responsive">
                 <table id="domains" class="table table-sm table-hover table-striped"></table>
             </div>
@@ -50,6 +63,20 @@
                 order: [[8, 'asc']],
                 displayLength: 50,
                 select: {style: 'os', selector: 'td:first-child'},
+                dom: '<"command-table-toolbar"<"command-table-toolbar-left"lB><"command-table-toolbar-right"f>>' +
+                     '<"table-responsive"t>' +
+                     '<"command-table-footer"ip>',
+                language: {
+                    lengthMenu: 'Show _MENU_ rows',
+                    search: '',
+                    searchPlaceholder: 'Search...',
+                    info: 'Page _PAGE_ of _PAGES_ (_TOTAL_ records)',
+                    infoEmpty: 'Page 0 of 0 (0 records)',
+                    paginate: {
+                        previous: '<i class="fas fa-chevron-left"></i>',
+                        next: '<i class="fas fa-chevron-right"></i>'
+                    }
+                },
                 buttons: [
                     {extend: 'pageLength'},
                     {
@@ -127,13 +154,13 @@
                         title: 'dns', data: 'dns', render: (data) => {
                             const dns = String(data ?? '');
                             if (!/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test(dns)) { return escapeHtml(dns); }
-                            return `<a href="//${escapeHtml(dns)}" target="_blank" rel="noopener noreferrer">${escapeHtml(dns)}</a>`;
+                            return `<a class="command-table-link" href="//${escapeHtml(dns)}" target="_blank" rel="noopener noreferrer">${escapeHtml(dns)}</a>`;
                         }
                     },
                     {
                         title: 'status', data: 'status', render: function (data, type, row) {
                             if (type !== 'display') { return data; }
-                            const select = $('<select class="d_status" aria-label="Domain status"></select>').attr('data-id', row.id);
+                            const select = $('<select class="business-status d_status" aria-label="Domain status"></select>').attr('data-id', row.id);
                             $.each(['new', 'free', 'used', 'redirect'], function (index, value) {
                                 const option = $('<option></option>').text(value.toUpperCase()).val(value);
                                 if (data === value) { option.attr('selected', 'selected'); }
@@ -169,12 +196,12 @@
                         render: function (data, type, row) {
                             const id = escapeHtml(row.id);
                             const recordsUrl = @json(route('console.infrastructure.domains.records', [$workspace->id, '__DOMAIN__']));
-                            const records = `<button data-url="${recordsUrl.replace('__DOMAIN__', encodeURIComponent(id))}" class="btn btn-primary btn-sm records" title="RECORDS" aria-label="Edit DNS records for ${escapeHtml(row.dns)}"><i class="fas fa-cogs" aria-hidden="true"></i></button>&nbsp;`;
-                            const refresh = `<button data-id="${id}" class="btn btn-info btn-sm update" title="UPDATE"><i class="fas fa-pencil-alt"></i></button>&nbsp;`;
+                            const records = `<button data-url="${recordsUrl.replace('__DOMAIN__', encodeURIComponent(id))}" class="command-action-btn action-primary records" title="RECORDS" aria-label="Edit DNS records for ${escapeHtml(row.dns)}"><i class="fas fa-cogs" aria-hidden="true"></i></button>`;
+                            const refresh = `<button data-id="${id}" class="command-action-btn action-info update" title="UPDATE"><i class="fas fa-pencil-alt"></i></button>`;
                             const active = Boolean(row.is_active);
-                            const status = `<button data-id="${id}" data-action="${active ? 0 : 1}" class="btn ${active ? 'btn-warning' : 'btn-success'} btn-sm active-status" title="${active ? 'DISABLE' : 'ENABLE'} DOMAIN"><i class="fas ${active ? 'fa-times' : 'fa-check'}"></i></button>&nbsp;`;
-                            const remove = `<button data-id="${id}" class="btn btn-danger btn-sm destroy" title="DELETE DOMAIN"><i class="fas fa-trash"></i></button>`;
-                            return records + refresh + status + remove;
+                            const status = `<button data-id="${id}" data-action="${active ? 0 : 1}" class="command-action-btn action-status ${active ? 'is-active' : ''} active-status" title="${active ? 'DISABLE' : 'ENABLE'} DOMAIN"><i class="fas ${active ? 'fa-times' : 'fa-check'}"></i></button>`;
+                            const remove = `<button data-id="${id}" class="command-action-btn action-danger destroy" title="DELETE DOMAIN"><i class="fas fa-trash"></i></button>`;
+                            return `<div class="command-action-btn-group">${records}${refresh}${status}${remove}</div>`;
                         }
                     }
                 ]

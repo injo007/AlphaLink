@@ -3,14 +3,26 @@
 @section('title', 'Isps')
 
 @section('content')
-    <div class="block block-rounded">
-        <div class="block-header">
-            <h3 class="block-title">Isps</h3>
-            <div class="block-options">
-                <button type="button" class="btn-block-option" data-toggle="block-option" data-action="fullscreen_toggle"></button>
+    <div class="command-os-entity-page">
+        <!-- 1. Hero Card -->
+        <header class="command-os-hero-card">
+            <div class="command-os-hero-card-left">
+                <div class="command-os-hero-mark" aria-hidden="true">
+                    <i class="fas fa-network-wired"></i>
+                </div>
+                <div class="command-os-hero-copy">
+                    <h1 class="command-os-hero-title">ISPS</h1>
+                </div>
             </div>
-        </div>
-        <div class="block-content block-content-full">
+            <div class="command-os-hero-card-right">
+                <button type="button" class="command-os-btn-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen">
+                    <i class="si si-size-fullscreen"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- 2. Table Card -->
+        <div class="command-os-table-card">
             <div class="table-responsive">
                 <table id="isps" class="table table-sm table-hover table-striped" data-source-url="{{ route('console.infrastructure.isps.index', $workspace->id) }}" data-create-url="{{ route('console.infrastructure.isps.create', $workspace->id) }}"></table>
             </div>
@@ -53,6 +65,20 @@
             $('#isps').dataTable({
                 ajax: tableElement.dataset.sourceUrl,
                 serverSide: false,
+                dom: '<"command-table-toolbar"<"command-table-toolbar-left"lB><"command-table-toolbar-right"f>>' +
+                     '<"table-responsive"t>' +
+                     '<"command-table-footer"ip>',
+                language: {
+                    lengthMenu: 'Show _MENU_ rows',
+                    search: '',
+                    searchPlaceholder: 'Search...',
+                    info: 'Page _PAGE_ of _PAGES_ (_TOTAL_ records)',
+                    infoEmpty: 'Page 0 of 0 (0 records)',
+                    paginate: {
+                        previous: '<i class="fas fa-chevron-left"></i>',
+                        next: '<i class="fas fa-chevron-right"></i>'
+                    }
+                },
                 buttons: [
                     { extend: 'pageLength' },
                     {
@@ -103,14 +129,13 @@
                         data: null,
                         orderable: false,
                         searchable: false,
-                        width: '20%',
                         render: (data, type, row) => {
                             const editUrl = @json(route('console.infrastructure.isps.index', $workspace->id)) + `/${row.id}/edit`;
-                            const update = `<button data-url="${escapeHtml(editUrl)}" class="btn btn-info btn-sm update" title="UPDATE"><i class="fas fa-pencil-alt"></i></button>&nbsp;`;
-                            const status = `<button data-id="${escapeHtml(row.id)}" data-action="${row.is_active ? 0 : 1}" class="btn ${row.is_active ? 'btn-warning' : 'btn-success'} btn-sm status" title="${row.is_active ? 'DISABLE' : 'ENABLE'} ISP"><i class="fas ${row.is_active ? 'fa-times' : 'fa-check'}"></i></button>&nbsp;`;
-                            const users = `<button data-id="${escapeHtml(row.id)}" class="btn btn-primary btn-sm users" title="ALLOWED USERS"><i class="fas fa-users"></i></button>&nbsp;`;
-                            const sponsors = `<button data-id="${escapeHtml(row.id)}" class="btn btn-primary btn-sm sponsors" title="ALLOWED SPONSORS"><i class="fas fa-hand-holding-usd"></i></button>&nbsp;`;
-                            return users + sponsors + update + status;
+                            const update = `<button data-url="${escapeHtml(editUrl)}" class="command-action-btn action-info update" title="UPDATE"><i class="fas fa-pencil-alt"></i></button>`;
+                            const status = `<button data-id="${escapeHtml(row.id)}" data-action="${row.is_active ? 0 : 1}" class="command-action-btn action-status ${row.is_active ? 'is-active' : ''} status" title="${row.is_active ? 'DISABLE' : 'ENABLE'} ISP"><i class="fas ${row.is_active ? 'fa-times' : 'fa-check'}"></i></button>`;
+                            const users = `<button data-id="${escapeHtml(row.id)}" class="command-action-btn action-primary users" title="ALLOWED USERS"><i class="fas fa-users"></i></button>`;
+                            const sponsors = `<button data-id="${escapeHtml(row.id)}" class="command-action-btn action-warning sponsors" title="ALLOWED SPONSORS"><i class="fas fa-hand-holding-usd"></i></button>`;
+                            return `<div class="command-action-btn-group">${users}${sponsors}${update}${status}</div>`;
                         },
                     },
                 ],

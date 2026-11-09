@@ -3800,7 +3800,7 @@ html[data-command-theme='dark'] body.command-os-shell #main_content .command-os-
 }
 
 html[data-command-theme='light'] body.command-os-shell #main_content .command-os-report-hero,
-body.command-os-shell:not([data-command-theme='dark']) #main_content .command-os-report-hero {
+html:not([data-command-theme='dark']) body.command-os-shell #main_content .command-os-report-hero {
     background: radial-gradient(ellipse at 85% 50%, rgba(192, 132, 252, 0.35) 0%, rgba(168, 85, 247, 0.18) 35%, rgba(245, 243, 255, 0.95) 70%, #ffffff 100%) !important;
     border: 1px solid rgba(139, 92, 246, 0.35) !important;
     box-shadow: 0 8px 30px rgba(139, 92, 246, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
@@ -3879,13 +3879,13 @@ html[data-command-theme='dark'] .all-stats-overview-card strong {
 }
 
 html[data-command-theme='light'] .all-stats-overview-card,
-body.command-os-shell:not([data-command-theme='dark']) .all-stats-overview-card {
+html:not([data-command-theme='dark']) body.command-os-shell .all-stats-overview-card {
     background: #ffffff !important;
     border: 1px solid rgba(139, 92, 246, 0.2) !important;
     box-shadow: 0 4px 16px rgba(139, 92, 246, 0.08) !important;
 }
 html[data-command-theme='light'] .all-stats-overview-card strong,
-body.command-os-shell:not([data-command-theme='dark']) .all-stats-overview-card strong {
+html:not([data-command-theme='dark']) body.command-os-shell .all-stats-overview-card strong {
     color: #1e293b !important;
 }
 
@@ -4031,43 +4031,43 @@ html[data-command-theme='dark'] body.command-os-shell #main_content .command-os-
 }
 
 html[data-command-theme='light'] body.command-os-shell #main_content .command-os-all-stats-card,
-body.command-os-shell:not([data-command-theme='dark']) #main_content .command-os-all-stats-card {
+html:not([data-command-theme='dark']) body.command-os-shell #main_content .command-os-all-stats-card {
     background: #ffffff !important;
     border: 1px solid rgba(139, 92, 246, 0.2) !important;
     box-shadow: 0 8px 24px rgba(139, 92, 246, 0.08) !important;
 }
 
 html[data-command-theme='light'] body.command-os-shell #main_content .command-os-all-stats-card > .block-header,
-body.command-os-shell:not([data-command-theme='dark']) #main_content .command-os-all-stats-card > .block-header {
+html:not([data-command-theme='dark']) body.command-os-shell #main_content .command-os-all-stats-card > .block-header {
     background: #f1f5fd !important;
     border-bottom: 1px solid #cbd5e1 !important;
 }
 
 html[data-command-theme='light'] body.command-os-shell #main_content .command-os-all-stats-card > .block-content,
-body.command-os-shell:not([data-command-theme='dark']) #main_content .command-os-all-stats-card > .block-content {
+html:not([data-command-theme='dark']) body.command-os-shell #main_content .command-os-all-stats-card > .block-content {
     background: transparent !important;
 }
 
 html[data-command-theme='light'] body.command-os-shell #main_content .command-os-all-stats-card thead th,
-body.command-os-shell:not([data-command-theme='dark']) #main_content .command-os-all-stats-card thead th {
+html:not([data-command-theme='dark']) body.command-os-shell #main_content .command-os-all-stats-card thead th {
     background: #f1f5fd !important;
     color: #475569 !important;
     border-bottom: 1px solid #cbd5e1 !important;
 }
 
 html[data-command-theme='light'] body.command-os-shell #main_content .command-os-all-stats-card tbody tr,
-body.command-os-shell:not([data-command-theme='dark']) #main_content .command-os-all-stats-card tbody tr {
+html:not([data-command-theme='dark']) body.command-os-shell #main_content .command-os-all-stats-card tbody tr {
     background: #ffffff !important;
     color: #1e293b !important;
 }
 
 html[data-command-theme='light'] body.command-os-shell #main_content .command-os-all-stats-card tbody tr:hover,
-body.command-os-shell:not([data-command-theme='dark']) #main_content .command-os-all-stats-card tbody tr:hover {
+html:not([data-command-theme='dark']) body.command-os-shell #main_content .command-os-all-stats-card tbody tr:hover {
     background: #f8faff !important;
 }
 
 html[data-command-theme='light'] body.command-os-shell #main_content .command-os-all-stats-card tbody td,
-body.command-os-shell:not([data-command-theme='dark']) #main_content .command-os-all-stats-card tbody td {
+html:not([data-command-theme='dark']) body.command-os-shell #main_content .command-os-all-stats-card tbody td {
     background: transparent !important;
     color: #1e293b !important;
     border-bottom: 1px solid #f1f5f9 !important;
@@ -4187,10 +4187,10 @@ html[data-command-theme='light'] .analytics-pivot-shell .dx-pivotgrid,
 html[data-command-theme='light'] .analytics-pivot-shell .dx-pivotgrid-container,
 html[data-command-theme='light'] .analytics-pivot-shell .dx-pivotgrid-area,
 html[data-command-theme='light'] .analytics-pivot-shell .dx-pivotgrid-table,
-body.command-os-shell:not([data-command-theme='dark']) .analytics-pivot-shell .dx-pivotgrid,
-body.command-os-shell:not([data-command-theme='dark']) .analytics-pivot-shell .dx-pivotgrid-container,
-body.command-os-shell:not([data-command-theme='dark']) .analytics-pivot-shell .dx-pivotgrid-area,
-body.command-os-shell:not([data-command-theme='dark']) .analytics-pivot-shell .dx-pivotgrid-table {
+html:not([data-command-theme='dark']) body.command-os-shell .analytics-pivot-shell .dx-pivotgrid,
+html:not([data-command-theme='dark']) body.command-os-shell .analytics-pivot-shell .dx-pivotgrid-container,
+html:not([data-command-theme='dark']) body.command-os-shell .analytics-pivot-shell .dx-pivotgrid-area,
+html:not([data-command-theme='dark']) body.command-os-shell .analytics-pivot-shell .dx-pivotgrid-table {
     background: #ffffff !important;
     background-color: #ffffff !important;
     color: #1e293b !important;
@@ -4198,7 +4198,7 @@ body.command-os-shell:not([data-command-theme='dark']) .analytics-pivot-shell .d
 }
 
 html[data-command-theme='light'] .analytics-pivot-shell .dx-pivotgrid-fields-area,
-body.command-os-shell:not([data-command-theme='dark']) .analytics-pivot-shell .dx-pivotgrid-fields-area {
+html:not([data-command-theme='dark']) body.command-os-shell .analytics-pivot-shell .dx-pivotgrid-fields-area {
     background: #f8faff !important;
     background-color: #f8faff !important;
     border: 1px dashed rgba(139, 92, 246, 0.3) !important;
@@ -4208,13 +4208,13 @@ body.command-os-shell:not([data-command-theme='dark']) .analytics-pivot-shell .d
 }
 
 html[data-command-theme='light'] .analytics-pivot-shell .dx-area-description-cell,
-body.command-os-shell:not([data-command-theme='dark']) .analytics-pivot-shell .dx-area-description-cell {
+html:not([data-command-theme='dark']) body.command-os-shell .analytics-pivot-shell .dx-area-description-cell {
     color: #64748b !important;
     background: transparent !important;
 }
 
 html[data-command-theme='light'] .analytics-pivot-shell .dx-area-field,
-body.command-os-shell:not([data-command-theme='dark']) .analytics-pivot-shell .dx-area-field {
+html:not([data-command-theme='dark']) body.command-os-shell .analytics-pivot-shell .dx-area-field {
     background: #f1f5fd !important;
     background-color: #f1f5fd !important;
     border: 1px solid #cbd5e1 !important;
@@ -4223,15 +4223,15 @@ body.command-os-shell:not([data-command-theme='dark']) .analytics-pivot-shell .d
 }
 
 html[data-command-theme='light'] .analytics-pivot-shell .dx-area-field .dx-area-field-content,
-body.command-os-shell:not([data-command-theme='dark']) .analytics-pivot-shell .dx-area-field .dx-area-field-content {
+html:not([data-command-theme='dark']) body.command-os-shell .analytics-pivot-shell .dx-area-field .dx-area-field-content {
     color: #1e293b !important;
     font-weight: 750 !important;
 }
 
 html[data-command-theme='light'] .analytics-pivot-shell .dx-pivotgrid-horizontal-headers td,
 html[data-command-theme='light'] .analytics-pivot-shell .dx-pivotgrid-horizontal-headers th,
-body.command-os-shell:not([data-command-theme='dark']) .analytics-pivot-shell .dx-pivotgrid-horizontal-headers td,
-body.command-os-shell:not([data-command-theme='dark']) .analytics-pivot-shell .dx-pivotgrid-horizontal-headers th {
+html:not([data-command-theme='dark']) body.command-os-shell .analytics-pivot-shell .dx-pivotgrid-horizontal-headers td,
+html:not([data-command-theme='dark']) body.command-os-shell .analytics-pivot-shell .dx-pivotgrid-horizontal-headers th {
     background: #f1f5fd !important;
     background-color: #f1f5fd !important;
     color: #475569 !important;
@@ -4240,13 +4240,13 @@ body.command-os-shell:not([data-command-theme='dark']) .analytics-pivot-shell .d
 }
 
 html[data-command-theme='light'] .analytics-pivot-shell .dx-pivotgrid-empty-cell,
-body.command-os-shell:not([data-command-theme='dark']) .analytics-pivot-shell .dx-pivotgrid-empty-cell {
+html:not([data-command-theme='dark']) body.command-os-shell .analytics-pivot-shell .dx-pivotgrid-empty-cell {
     background: #ffffff !important;
     color: #64748b !important;
 }
 
 html[data-command-theme='light'] .analytics-pivot-shell .dx-grandtotal,
-body.command-os-shell:not([data-command-theme='dark']) .analytics-pivot-shell .dx-grandtotal {
+html:not([data-command-theme='dark']) body.command-os-shell .analytics-pivot-shell .dx-grandtotal {
     background: #f1f5fd !important;
     color: #7c3aed !important;
     font-weight: 800 !important;
@@ -4541,15 +4541,15 @@ body.command-os-shell #main-container {
 }
 
 html[data-command-theme='dark'] .command-os-hero-card {
-    background: radial-gradient(ellipse at 85% 50%, rgba(168, 85, 247, 0.55) 0%, rgba(124, 58, 237, 0.35) 30%, rgba(20, 24, 60, 0.95) 75%, #0c0f2b 100%) !important;
+    background: linear-gradient(135deg, #0d1238 0%, #151a4f 35%, #24146a 70%, #3b1778 100%) !important;
     border: 1px solid rgba(168, 85, 247, 0.45) !important;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
     backdrop-filter: blur(16px);
 }
 
 html[data-command-theme='light'] .command-os-hero-card,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-hero-card {
-    background: radial-gradient(ellipse at 85% 50%, rgba(192, 132, 252, 0.35) 0%, rgba(168, 85, 247, 0.18) 35%, rgba(245, 243, 255, 0.95) 70%, #ffffff 100%) !important;
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-hero-card {
+    background: linear-gradient(135deg, #ffffff 0%, #f4f3ff 60%, #ede9fe 100%) !important;
     border: 1px solid rgba(139, 92, 246, 0.35) !important;
     box-shadow: 0 8px 30px rgba(139, 92, 246, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
     backdrop-filter: blur(12px);
@@ -4618,7 +4618,7 @@ html[data-command-theme='dark'] .command-os-hero-title {
 }
 
 html[data-command-theme='light'] .command-os-hero-title,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-hero-title {
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-hero-title {
     color: #1e1b4b;
 }
 
@@ -4662,7 +4662,7 @@ body.command-os-shell:not([data-command-theme='dark']) .command-os-hero-title {
 }
 
 html[data-command-theme='light'] .command-os-toggle-slider,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-toggle-slider {
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-toggle-slider {
     background: #cbd5e1;
     border-color: #94a3b8;
 }
@@ -4703,7 +4703,7 @@ html[data-command-theme='dark'] .command-os-toggle-label {
 }
 
 html[data-command-theme='light'] .command-os-toggle-label,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-toggle-label {
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-toggle-label {
     color: #475569;
 }
 
@@ -4737,8 +4737,8 @@ html[data-command-theme='dark'] .command-os-icon-btn:hover {
 
 html[data-command-theme='light'] .command-os-btn-option,
 html[data-command-theme='light'] .command-os-icon-btn,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-btn-option,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-icon-btn {
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-btn-option,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-icon-btn {
     background: #ffffff !important;
     border: 1px solid #cbd5e1 !important;
     color: #475569 !important;
@@ -4746,8 +4746,8 @@ body.command-os-shell:not([data-command-theme='dark']) .command-os-icon-btn {
 
 html[data-command-theme='light'] .command-os-btn-option:hover,
 html[data-command-theme='light'] .command-os-icon-btn:hover,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-btn-option:hover,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-icon-btn:hover {
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-btn-option:hover,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-icon-btn:hover {
     border-color: #8b5cf6 !important;
     color: #8b5cf6 !important;
 }
@@ -4768,7 +4768,7 @@ html[data-command-theme='dark'] .command-os-filter-card {
 }
 
 html[data-command-theme='light'] .command-os-filter-card,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-filter-card {
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-filter-card {
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(246, 248, 255, 0.95) 100%) !important;
     border: 1px solid rgba(139, 92, 246, 0.2) !important;
     box-shadow: 0 4px 18px rgba(139, 92, 246, 0.08) !important;
@@ -4787,7 +4787,7 @@ html[data-command-theme='dark'] .command-os-filter-card label {
 }
 
 html[data-command-theme='light'] .command-os-filter-card label,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-filter-card label {
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-filter-card label {
     color: #475569;
 }
 
@@ -4812,8 +4812,8 @@ html[data-command-theme='dark'] .command-os-filter-card .bootstrap-select > .btn
 
 html[data-command-theme='light'] .command-os-filter-card .bootstrap-select > .btn,
 html[data-command-theme='light'] .command-os-filter-card .form-control,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-filter-card .bootstrap-select > .btn,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-filter-card .form-control {
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-filter-card .bootstrap-select > .btn,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-filter-card .form-control {
     background: #ffffff !important;
     border: 1px solid #cbd5e1 !important;
     border-radius: 10px !important;
@@ -4862,7 +4862,7 @@ html[data-command-theme='dark'] .command-os-info-banner {
 }
 
 html[data-command-theme='light'] .command-os-info-banner,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-info-banner {
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-info-banner {
     background: rgba(239, 246, 255, 0.85) !important;
     border: 1px solid rgba(59, 130, 246, 0.3) !important;
     box-shadow: 0 2px 10px rgba(59, 130, 246, 0.08);
@@ -4894,7 +4894,7 @@ html[data-command-theme='dark'] .command-os-info-banner-content {
 }
 
 html[data-command-theme='light'] .command-os-info-banner-content,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-info-banner-content {
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-info-banner-content {
     color: #334155;
 }
 
@@ -4921,7 +4921,7 @@ html[data-command-theme='dark'] .command-os-table-card {
 }
 
 html[data-command-theme='light'] .command-os-table-card,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-table-card {
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card {
     background: #ffffff !important;
     background-color: #ffffff !important;
     border: 1px solid rgba(139, 92, 246, 0.2) !important;
@@ -4970,7 +4970,7 @@ html[data-command-theme='dark'] .command-os-table-card .dataTables_length select
 }
 
 html[data-command-theme='light'] .command-os-table-card .dataTables_length select,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-table-card .dataTables_length select {
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dataTables_length select {
     background-color: #ffffff !important;
     border: 1px solid #cbd5e1 !important;
     color: #1e293b !important;
@@ -5011,14 +5011,14 @@ html[data-command-theme='dark'] .command-os-table-card .dt-buttons .btn:hover {
 }
 
 html[data-command-theme='light'] .command-os-table-card .dt-buttons .btn,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-table-card .dt-buttons .btn {
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons .btn {
     background: #ffffff !important;
     border: 1px solid #cbd5e1 !important;
     color: #334155 !important;
 }
 
 html[data-command-theme='light'] .command-os-table-card .dt-buttons .btn:hover,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-table-card .dt-buttons .btn:hover {
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons .btn:hover {
     border-color: #8b5cf6 !important;
     color: #8b5cf6 !important;
 }
@@ -5071,7 +5071,7 @@ html[data-command-theme='dark'] .command-os-table-card .dataTables_filter input:
 }
 
 html[data-command-theme='light'] .command-os-table-card .dataTables_filter input,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-table-card .dataTables_filter input {
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dataTables_filter input {
     background: #ffffff !important;
     border: 1px solid #cbd5e1 !important;
     color: #1e293b !important;
@@ -5113,7 +5113,7 @@ html[data-command-theme='dark'] .command-os-table-card table.dataTable thead th 
 }
 
 html[data-command-theme='light'] .command-os-table-card table.dataTable thead th,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-table-card table.dataTable thead th {
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card table.dataTable thead th {
     background: #f1f5fd !important;
     background-color: #f1f5fd !important;
     border-bottom: 1px solid #cbd5e1 !important;
@@ -5130,7 +5130,7 @@ html[data-command-theme='dark'] .command-os-table-card table.dataTable tbody tr 
 }
 
 html[data-command-theme='light'] .command-os-table-card table.dataTable tbody tr,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-table-card table.dataTable tbody tr {
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card table.dataTable tbody tr {
     background: #ffffff !important;
     background-color: #ffffff !important;
 }
@@ -5154,13 +5154,13 @@ html[data-command-theme='dark'] .command-os-table-card table.dataTable tbody tr:
 }
 
 html[data-command-theme='light'] .command-os-table-card table.dataTable tbody td,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-table-card table.dataTable tbody td {
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card table.dataTable tbody td {
     border-bottom: 1px solid #e2e8f0 !important;
     color: #1e293b !important;
 }
 
 html[data-command-theme='light'] .command-os-table-card table.dataTable tbody tr:hover td,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-table-card table.dataTable tbody tr:hover td {
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card table.dataTable tbody tr:hover td {
     background: #f8faff !important;
     background-color: #f8faff !important;
 }
@@ -5259,7 +5259,7 @@ html[data-command-theme='dark'] select.business-status {
 }
 
 html[data-command-theme='light'] select.business-status,
-body.command-os-shell:not([data-command-theme='dark']) select.business-status {
+html:not([data-command-theme='dark']) body.command-os-shell select.business-status {
     background-color: #ffffff !important;
     border: 1px solid #cbd5e1 !important;
     color: #1e293b !important;
@@ -5328,7 +5328,7 @@ html[data-command-theme='dark'] .command-os-table-card .command-table-footer {
 }
 
 html[data-command-theme='light'] .command-os-table-card .command-table-footer,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-table-card .command-table-footer {
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .command-table-footer {
     border-top: 1px solid #e2e8f0;
 }
 
@@ -5343,7 +5343,7 @@ html[data-command-theme='dark'] .command-os-table-card .dataTables_info {
 }
 
 html[data-command-theme='light'] .command-os-table-card .dataTables_info,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-table-card .dataTables_info {
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dataTables_info {
     color: #64748b !important;
 }
 
@@ -5393,8 +5393,8 @@ html[data-command-theme='dark'] .command-os-table-card .dataTables_paginate .pag
 
 html[data-command-theme='light'] .command-os-table-card .dataTables_paginate .page-item .page-link,
 html[data-command-theme='light'] .command-os-table-card .dataTables_paginate .paginate_button,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-table-card .dataTables_paginate .page-item .page-link,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-table-card .dataTables_paginate .paginate_button {
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dataTables_paginate .page-item .page-link,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dataTables_paginate .paginate_button {
     background: transparent !important;
     border: 1px solid transparent !important;
     color: #64748b !important;
@@ -5402,8 +5402,8 @@ body.command-os-shell:not([data-command-theme='dark']) .command-os-table-card .d
 
 html[data-command-theme='light'] .command-os-table-card .dataTables_paginate .page-item.active .page-link,
 html[data-command-theme='light'] .command-os-table-card .dataTables_paginate .paginate_button.current,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-table-card .dataTables_paginate .page-item.active .page-link,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-table-card .dataTables_paginate .paginate_button.current {
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dataTables_paginate .page-item.active .page-link,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dataTables_paginate .paginate_button.current {
     background: #7c3aed !important;
     border-color: #7c3aed !important;
     box-shadow: 0 0 12px rgba(124, 58, 237, 0.35) !important;
@@ -5428,8 +5428,8 @@ html[data-command-theme='dark'] .command-os-table-card table.dataTable thead th.
 
 html[data-command-theme='light'] .command-os-table-card table.dataTable tbody td.select-checkbox::before,
 html[data-command-theme='light'] .command-os-table-card table.dataTable thead th.select-checkbox::before,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-table-card table.dataTable tbody td.select-checkbox::before,
-body.command-os-shell:not([data-command-theme='dark']) .command-os-table-card table.dataTable thead th.select-checkbox::before {
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card table.dataTable tbody td.select-checkbox::before,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card table.dataTable thead th.select-checkbox::before {
     background: #ffffff !important;
     border: 1px solid #cbd5e1 !important;
 }
@@ -6029,5 +6029,292 @@ body.command-os-shell #main_content table.dataTable tr.selected th.select-checkb
     font-size: 13px !important;
     margin-left: -5px !important;
     margin-top: -9px !important;
+}
+
+/* ==========================================================================
+   Global OneUI Modernization & Fallback System
+   Applies Command OS dark & light theme styling to all legacy .block views
+   ========================================================================== */
+
+/* Dark Theme Global OneUI Overrides */
+html[data-command-theme='dark'] body.command-os-shell #main_content .block {
+    background: #0d123a !important;
+    background-color: #0d123a !important;
+    border: 1px solid rgba(139, 92, 246, 0.25) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4) !important;
+    color: #f8fafc !important;
+    margin-bottom: 24px;
+    overflow: hidden;
+}
+
+html[data-command-theme='dark'] body.command-os-shell #main_content .block-header {
+    background: linear-gradient(135deg, #0d1238 0%, #151a4f 35%, #24146a 70%, #3b1778 100%) !important;
+    border-bottom: 1px solid rgba(168, 85, 247, 0.35) !important;
+    color: #ffffff !important;
+    min-height: 64px;
+    padding: 14px 20px !important;
+}
+
+html[data-command-theme='dark'] body.command-os-shell #main_content .block-title {
+    color: #ffffff !important;
+    font-size: 18px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.04em !important;
+    text-transform: uppercase !important;
+    text-shadow: 0 0 16px rgba(168, 85, 247, 0.35);
+}
+
+html[data-command-theme='dark'] body.command-os-shell #main_content .block-content {
+    background: transparent !important;
+    background-color: transparent !important;
+    color: #f8fafc !important;
+    padding: 20px !important;
+}
+
+html[data-command-theme='dark'] body.command-os-shell #main_content .table {
+    color: #f8fafc !important;
+}
+
+html[data-command-theme='dark'] body.command-os-shell #main_content .table thead th {
+    background: #151c4e !important;
+    background-color: #151c4e !important;
+    border-bottom: 2px solid rgba(139, 92, 246, 0.35) !important;
+    color: #cbd5e1 !important;
+    font-size: 11px !important;
+    font-weight: 750 !important;
+    letter-spacing: 0.05em !important;
+    text-transform: uppercase !important;
+}
+
+html[data-command-theme='dark'] body.command-os-shell #main_content .table tbody tr {
+    background: #0d123a !important;
+    background-color: #0d123a !important;
+    border-bottom: 1px solid rgba(139, 92, 246, 0.15) !important;
+    color: #f8fafc !important;
+}
+
+html[data-command-theme='dark'] body.command-os-shell #main_content .table-striped tbody tr:nth-of-type(odd) {
+    background: #0d123a !important;
+    background-color: #0d123a !important;
+}
+
+html[data-command-theme='dark'] body.command-os-shell #main_content .table-striped tbody tr:nth-of-type(even) {
+    background: #101642 !important;
+    background-color: #101642 !important;
+}
+
+html[data-command-theme='dark'] body.command-os-shell #main_content .table-hover tbody tr:hover {
+    background: #18225a !important;
+    background-color: #18225a !important;
+}
+
+html[data-command-theme='dark'] body.command-os-shell #main_content .table tbody td {
+    color: #f8fafc !important;
+    border-color: rgba(139, 92, 246, 0.15) !important;
+}
+
+html[data-command-theme='dark'] body.command-os-shell #main_content .form-control,
+html[data-command-theme='dark'] body.command-os-shell #main_content .form-select,
+html[data-command-theme='dark'] body.command-os-shell #main_content select.form-control {
+    background: #0b1033 !important;
+    background-color: #0b1033 !important;
+    border: 1px solid rgba(139, 92, 246, 0.3) !important;
+    color: #f8fafc !important;
+    border-radius: 8px !important;
+}
+
+html[data-command-theme='dark'] body.command-os-shell #main_content .form-control:focus {
+    border-color: #8b5cf6 !important;
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.3) !important;
+}
+
+html[data-command-theme='dark'] body.command-os-shell #main_content label {
+    color: #cbd5e1 !important;
+}
+
+html[data-command-theme='dark'] body.command-os-shell #main_content .text-muted {
+    color: #94a3b8 !important;
+}
+
+html[data-command-theme='dark'] body.command-os-shell #main_content .content-heading {
+    color: #ffffff !important;
+    border-bottom: 1px solid rgba(139, 92, 246, 0.25) !important;
+}
+
+html[data-command-theme='dark'] body.command-os-shell #main_content .content-heading small {
+    color: #94a3b8 !important;
+}
+
+html[data-command-theme='dark'] body.command-os-shell #main_content .alert-info {
+    background: #0b1438 !important;
+    border: 1px solid rgba(14, 165, 233, 0.35) !important;
+    color: #93c5fd !important;
+}
+
+html[data-command-theme='dark'] body.command-os-shell #main_content .alert-warning {
+    background: #241408 !important;
+    border: 1px solid rgba(245, 158, 11, 0.35) !important;
+    color: #fde68a !important;
+}
+
+html[data-command-theme='dark'] body.command-os-shell .modal-content {
+    background: #0d123a !important;
+    border: 1px solid rgba(139, 92, 246, 0.3) !important;
+    border-radius: 16px !important;
+    color: #f8fafc !important;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6) !important;
+}
+
+html[data-command-theme='dark'] body.command-os-shell .modal-header {
+    background: linear-gradient(135deg, #0d1238 0%, #151a4f 35%, #24146a 70%, #3b1778 100%) !important;
+    border-bottom: 1px solid rgba(168, 85, 247, 0.3) !important;
+    color: #ffffff !important;
+}
+
+html[data-command-theme='dark'] body.command-os-shell .modal-footer {
+    background: #0b1033 !important;
+    border-top: 1px solid rgba(139, 92, 246, 0.2) !important;
+}
+
+/* Light Theme Global OneUI Overrides */
+html[data-command-theme='light'] body.command-os-shell #main_content .block,
+html:not([data-command-theme='dark']) body.command-os-shell #main_content .block {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    border: 1px solid rgba(139, 92, 246, 0.2) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 6px 24px rgba(139, 92, 246, 0.08) !important;
+    color: #0f172a !important;
+    margin-bottom: 24px;
+    overflow: hidden;
+}
+
+html[data-command-theme='light'] body.command-os-shell #main_content .block-header,
+html:not([data-command-theme='dark']) body.command-os-shell #main_content .block-header {
+    background: linear-gradient(135deg, #ffffff 0%, #f4f3ff 60%, #ede9fe 100%) !important;
+    border-bottom: 1px solid rgba(139, 92, 246, 0.25) !important;
+    color: #1e1b4b !important;
+    min-height: 64px;
+    padding: 14px 20px !important;
+}
+
+html[data-command-theme='light'] body.command-os-shell #main_content .block-title,
+html:not([data-command-theme='dark']) body.command-os-shell #main_content .block-title {
+    color: #1e1b4b !important;
+    font-size: 18px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.04em !important;
+    text-transform: uppercase !important;
+}
+
+html[data-command-theme='light'] body.command-os-shell #main_content .block-content,
+html:not([data-command-theme='dark']) body.command-os-shell #main_content .block-content {
+    background: transparent !important;
+    background-color: transparent !important;
+    color: #0f172a !important;
+    padding: 20px !important;
+}
+
+html[data-command-theme='light'] body.command-os-shell #main_content .table,
+html:not([data-command-theme='dark']) body.command-os-shell #main_content .table {
+    color: #0f172a !important;
+}
+
+html[data-command-theme='light'] body.command-os-shell #main_content .table thead th,
+html:not([data-command-theme='dark']) body.command-os-shell #main_content .table thead th {
+    background: #f1f5f9 !important;
+    background-color: #f1f5f9 !important;
+    border-bottom: 2px solid #cbd5e1 !important;
+    color: #334155 !important;
+    font-size: 11px !important;
+    font-weight: 750 !important;
+    letter-spacing: 0.05em !important;
+    text-transform: uppercase !important;
+}
+
+html[data-command-theme='light'] body.command-os-shell #main_content .table tbody tr,
+html:not([data-command-theme='dark']) body.command-os-shell #main_content .table tbody tr {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    color: #0f172a !important;
+}
+
+html[data-command-theme='light'] body.command-os-shell #main_content .table-striped tbody tr:nth-of-type(odd),
+html:not([data-command-theme='dark']) body.command-os-shell #main_content .table-striped tbody tr:nth-of-type(odd) {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+}
+
+html[data-command-theme='light'] body.command-os-shell #main_content .table-striped tbody tr:nth-of-type(even),
+html:not([data-command-theme='dark']) body.command-os-shell #main_content .table-striped tbody tr:nth-of-type(even) {
+    background: #f8fafc !important;
+    background-color: #f8fafc !important;
+}
+
+html[data-command-theme='light'] body.command-os-shell #main_content .table-hover tbody tr:hover,
+html:not([data-command-theme='dark']) body.command-os-shell #main_content .table-hover tbody tr:hover {
+    background: #f1f5f9 !important;
+    background-color: #f1f5f9 !important;
+}
+
+html[data-command-theme='light'] body.command-os-shell #main_content .table tbody td,
+html:not([data-command-theme='dark']) body.command-os-shell #main_content .table tbody td {
+    color: #0f172a !important;
+    border-color: #e2e8f0 !important;
+}
+
+html[data-command-theme='light'] body.command-os-shell #main_content .form-control,
+html[data-command-theme='light'] body.command-os-shell #main_content .form-select,
+html:not([data-command-theme='dark']) body.command-os-shell #main_content .form-control {
+    background: #f8fafc !important;
+    background-color: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #0f172a !important;
+    border-radius: 8px !important;
+}
+
+html[data-command-theme='light'] body.command-os-shell #main_content label,
+html:not([data-command-theme='dark']) body.command-os-shell #main_content label {
+    color: #475569 !important;
+}
+
+html[data-command-theme='light'] body.command-os-shell #main_content .text-muted,
+html:not([data-command-theme='dark']) body.command-os-shell #main_content .text-muted {
+    color: #64748b !important;
+}
+
+html[data-command-theme='light'] body.command-os-shell #main_content .content-heading,
+html:not([data-command-theme='dark']) body.command-os-shell #main_content .content-heading {
+    color: #1e1b4b !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+}
+
+html[data-command-theme='light'] body.command-os-shell #main_content .content-heading small,
+html:not([data-command-theme='dark']) body.command-os-shell #main_content .content-heading small {
+    color: #64748b !important;
+}
+
+html[data-command-theme='light'] body.command-os-shell .modal-content,
+html:not([data-command-theme='dark']) body.command-os-shell .modal-content {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 16px !important;
+    color: #0f172a !important;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12) !important;
+}
+
+html[data-command-theme='light'] body.command-os-shell .modal-header,
+html:not([data-command-theme='dark']) body.command-os-shell .modal-header {
+    background: linear-gradient(135deg, #ffffff 0%, #f4f3ff 60%, #ede9fe 100%) !important;
+    border-bottom: 1px solid rgba(139, 92, 246, 0.25) !important;
+    color: #1e1b4b !important;
+}
+
+html[data-command-theme='light'] body.command-os-shell .modal-footer,
+html:not([data-command-theme='dark']) body.command-os-shell .modal-footer {
+    background: #f8fafc !important;
+    border-top: 1px solid #e2e8f0 !important;
 }
 

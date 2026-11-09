@@ -276,12 +276,10 @@
             .campaign-create-page dialog .campaign-body-preview-header { background: linear-gradient(100deg, rgb(139 79 247 / 10%), rgb(81 150 255 / 5%)); border-bottom: 1px solid rgb(126 105 190 / 15%); margin: -1rem -1rem 14px; padding: 14px 16px; }
             .campaign-create-page .bootstrap-select .dropdown-menu,
             body.command-os-campaign-composer .campaign-select.bs-container > .dropdown-menu {
-                animation: none !important;
                 background: linear-gradient(145deg, var(--campaign-surface, #fff), var(--campaign-wash, #f8f7ff)) !important;
                 border: 1px solid var(--campaign-border, #ded9f8) !important;
                 border-radius: 14px !important;
                 box-shadow: 0 16px 40px rgb(34 25 76 / 19%) !important;
-                margin-top: 0 !important;
                 overflow: hidden !important;
                 outline: 0 !important;
                 padding: 6px !important;
@@ -298,11 +296,6 @@
             .campaign-select.bs-container .dropdown-menu li.disabled a { color: #9b9dad; }
             .campaign-create-page .bootstrap-select .dropdown-menu .no-results,
             .campaign-select.bs-container .dropdown-menu .no-results { background: var(--campaign-wash, #f8f7ff); border-radius: 8px; color: var(--campaign-muted, #66708e); margin: 4px; padding: 10px; }
-            body.command-os-campaign-composer .campaign-select.bs-container > .dropdown-menu {
-                max-width: min(100%, calc(100vw - 24px)) !important;
-                min-width: 100% !important;
-                z-index: 1060 !important;
-            }
             .campaign-create-page .bootstrap-select .dropdown-menu .inner,
             .campaign-create-page .bootstrap-select .dropdown-menu .inner > ul,
             .campaign-create-page .bootstrap-select .dropdown-menu .inner > ul > li,

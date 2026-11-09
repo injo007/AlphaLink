@@ -1,4 +1,5 @@
 body.command-os-shell {
+    --co-layer-dropdown: 1060;
     --co-page: #f5f6fb;
     --co-surface: #ffffff;
     --co-surface-muted: #f7f8fd;
@@ -17,6 +18,10 @@ body.command-os-shell {
     background: var(--co-page);
     font-family: Inter, 'Segoe UI', Arial, sans-serif;
     font-size: 13px;
+}
+
+body.command-os-shell.command-os-campaign-composer {
+    --co-layer-dropdown: 1115;
 }
 
 html[data-command-theme='dark'] body.command-os-shell {
@@ -8726,21 +8731,45 @@ html[data-command-theme='dark'] .bootstrap-select .bs-placeholder .filter-option
 body.command-os-shell .dropdown-menu {
     border-radius: 14px !important;
     padding: 8px !important;
-    margin-top: 6px !important;
-    z-index: 1060 !important;
+    margin-top: 0 !important;
+    z-index: var(--co-layer-dropdown) !important;
     overflow: hidden !important;
     box-sizing: border-box !important;
     animation: commandDropdownFade 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
+.bootstrap-select.bs-container {
+    z-index: var(--co-layer-dropdown);
+}
+
+/* Body-portaled select menus should stay as wide as their owning control. */
+body.command-os-shell .bootstrap-select.bs-container > .dropdown-menu {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+body.command-os-shell .bootstrap-select.bs-container .dropdown-menu li a {
+    box-sizing: border-box;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+body.command-os-shell .bootstrap-select.bs-container .dropdown-menu li a span.text {
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 @keyframes commandDropdownFade {
     from {
         opacity: 0;
-        transform: translateY(-6px) scale(0.98);
     }
     to {
         opacity: 1;
-        transform: translateY(0) scale(1);
     }
 }
 
@@ -8880,11 +8909,19 @@ html[data-command-theme='dark'] .bootstrap-select .dropdown-menu li.selected a {
 /* 4. SELECT2 COMMAND OS POPUP DROPDOWN MENU */
 .select2-dropdown {
     border-radius: 12px !important;
-    margin-top: 4px !important;
+    margin-top: 0 !important;
     overflow: hidden !important;
-    z-index: 1060 !important;
+    z-index: var(--co-layer-dropdown) !important;
     padding: 6px !important;
     animation: commandDropdownFade 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bootstrap-select .dropdown-menu,
+    body.command-os-shell .dropdown-menu,
+    .select2-dropdown {
+        animation: none !important;
+    }
 }
 
 html[data-command-theme='light'] .select2-dropdown,

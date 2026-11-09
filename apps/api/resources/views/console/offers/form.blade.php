@@ -52,7 +52,7 @@
                         </label>
                         <div class="command-input-wrap">
                             <span class="command-input-leading-icon"><i class="fas fa-building"></i></span>
-                            <select id="sponsor_id" class="form-control selectpicker" data-live-search="true" required>
+                            <select id="sponsor_id" class="form-control selectpicker command-input-with-icon" data-live-search="true" required>
                                 <option value="">Select Sponsor</option>
                                 @foreach ($sponsors as $sponsor)
                                     <option value="{{ $sponsor->id }}" data-type="{{ $sponsor->type }}" @selected((string) old('sponsor_id', $offer?->sponsor_id ?? request('sponsor')) === (string) $sponsor->id)>{{ $sponsor->name }}</option>

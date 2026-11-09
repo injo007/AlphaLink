@@ -92,7 +92,7 @@
                     <label for="offer-sponsor"><i class="fas fa-building text-purple mr-1"></i> Sponsors:</label>
                     <div class="command-input-wrap">
                         <span class="command-input-leading-icon"><i class="fas fa-building"></i></span>
-                        <select class="form-control selectpicker" id="offer-sponsor" data-live-search="true">
+                        <select class="form-control selectpicker command-input-with-icon" id="offer-sponsor" data-live-search="true">
                             <option value="0">Select Sponsor</option>
                             @foreach ($sponsors as $sponsor)
                                 <option value="{{ $sponsor->id }}" @selected((string) request('sponsor') === (string) $sponsor->id)>{{ $sponsor->name }}</option>
@@ -104,7 +104,7 @@
                     <label for="offer-vertical"><i class="fas fa-layer-group text-purple mr-1"></i> Verticals:</label>
                     <div class="command-input-wrap">
                         <span class="command-input-leading-icon"><i class="fas fa-layer-group"></i></span>
-                        <select class="form-control selectpicker" id="offer-vertical" data-live-search="true">
+                        <select class="form-control selectpicker command-input-with-icon" id="offer-vertical" data-live-search="true">
                             <option value="">Select Vertical</option>
                             @foreach ($verticals as $vertical)
                                 <option value="{{ $vertical }}" @selected(request('vertical') === $vertical)>{{ $vertical }}</option>
@@ -116,7 +116,7 @@
                     <label for="offer-status"><i class="fas fa-toggle-on text-purple mr-1"></i> Status:</label>
                     <div class="command-input-wrap">
                         <span class="command-input-leading-icon"><i class="fas fa-toggle-on"></i></span>
-                        <select class="form-control selectpicker" id="offer-status">
+                        <select class="form-control selectpicker command-input-with-icon" id="offer-status">
                             <option value="0">Select Status</option>
                             @foreach (\App\Models\WorkspaceOffer::STATUSES as $status)
                                 <option value="{{ $status }}" @selected(request('status') === $status)>{{ strtoupper($status) }}</option>
@@ -128,7 +128,7 @@
                     <label for="offer-geo"><i class="fas fa-globe text-purple mr-1"></i> Geo:</label>
                     <div class="command-input-wrap">
                         <span class="command-input-leading-icon"><i class="fas fa-globe"></i></span>
-                        <select class="form-control selectpicker" id="offer-geo" data-live-search="true">
+                        <select class="form-control selectpicker command-input-with-icon" id="offer-geo" data-live-search="true">
                             <option value="ALL">Select Country</option>
                             @foreach ($countries as $code => $country)
                                 <option value="{{ $code }}">{{ $country }}</option>

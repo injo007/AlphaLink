@@ -59,6 +59,13 @@
                                 $criteria = $mix->criteria ?? [];
                                 $sourceListCount = count(array_unique($criteria['source_list_ids'] ?? []));
                                 $filters = $criteria['filters'] ?? [];
+                                $filterCount = count($filters) + count(array_filter([
+                                    $criteria['email_sex'] ?? null,
+                                    $criteria['email_device'] ?? null,
+                                    $criteria['last_insert_between'] ?? null,
+                                    $criteria['extensions'] ?? null,
+                                    $criteria['activity_between'] ?? null,
+                                ], static fn ($value): bool => filled($value)));
                             @endphp
                             <tr>
                                 <td>{{ ($mixes->firstItem() ?? 1) + $loop->index }}</td>
@@ -68,8 +75,8 @@
                                 <td>{{ $sourceListCount }}</td>
                                 <td>
                                     <details>
-                                        <summary>{{ count($filters) }}</summary>
-                                        <pre class="mb-0 mt-2 text-monospace" style="white-space: pre-wrap">{{ json_encode($filters, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+                                        <summary>{{ $filterCount }}</summary>
+                                        <pre class="mb-0 mt-2 text-monospace" style="white-space: pre-wrap">{{ json_encode($criteria, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
                                     </details>
                                 </td>
                                 <td>

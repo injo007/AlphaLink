@@ -159,16 +159,19 @@
                 buttons: [
                     {
                         text: '<i class="fas fa-sync-alt mr-1"></i> REFRESH',
+                        className: 'btn-command-action',
                         titleAttr: 'REFRESH',
                         action: (event, table) => table.ajax.reload(null, false),
                     },
                     {
                         text: '<i class="fas fa-plus mr-1"></i> NEW SPONSOR',
+                        className: 'btn-command-primary',
                         titleAttr: 'ADD NEW SPONSOR',
                         action: () => openSponsorFrame(tableElement.dataset.createUrl),
                     },
                     {
                         text: '<i class="fas fa-users-cog mr-1"></i> BULK USERS',
+                        className: 'btn-command-action',
                         titleAttr: 'ALLOWED USERS',
                         action: (event, table) => {
                             const ids = table.rows({ selected: true }).data().toArray().map((row) => row.id);

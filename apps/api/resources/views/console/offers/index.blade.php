@@ -279,7 +279,7 @@
                     }
                 },
                 buttons: [
-                    ...(canShare ? [{ text: '<i class="fas fa-share-alt mr-1"></i> SHARE', titleAttr: 'SHARE CREATIVES', action: (event, dt) => {
+                    ...(canShare ? [{ text: '<i class="fas fa-share-alt mr-1"></i> SHARE', className: 'btn-command-action', titleAttr: 'SHARE CREATIVES', action: (event, dt) => {
                         const ids = selectedOfferIds(dt);
                         if (!ids.length) {
                             showOfferNotice('Select one or more active offers before sharing creatives.');
@@ -288,10 +288,10 @@
                         $('#offer-action-notice').addClass('d-none').text('');
                         openFrame(`${tableElement.dataset.shareUrl}?${$.param({ ids })}`);
                     } }] : []),
-                    { text: '<i class="fas fa-sync-alt mr-1"></i> REFRESH', titleAttr: 'REFRESH', action: (event, dt) => dt.ajax.reload(null, false) },
+                    { text: '<i class="fas fa-sync-alt mr-1"></i> REFRESH', className: 'btn-command-action', titleAttr: 'REFRESH', action: (event, dt) => dt.ajax.reload(null, false) },
                     ...(canManage ? [
-                        { text: '<i class="fas fa-plus mr-1"></i> NEW OFFER', titleAttr: 'ADD NEW OFFER', action: () => openFrame(tableElement.dataset.createUrl) },
-                        { text: '<i class="fas fa-users-cog mr-1"></i> BULK USERS', titleAttr: 'ALLOWED USERS', action: (event, dt) => {
+                        { text: '<i class="fas fa-plus mr-1"></i> NEW OFFER', className: 'btn-command-primary', titleAttr: 'ADD NEW OFFER', action: () => openFrame(tableElement.dataset.createUrl) },
+                        { text: '<i class="fas fa-users-cog mr-1"></i> BULK USERS', className: 'btn-command-action', titleAttr: 'ALLOWED USERS', action: (event, dt) => {
                             const ids = selectedOfferIds(dt);
                             if (ids.length) openFrame(`${tableElement.dataset.bulkUsersUrl}?${$.param({ ids })}`);
                             else showOfferNotice('Select one or more offers to change allowed users.');

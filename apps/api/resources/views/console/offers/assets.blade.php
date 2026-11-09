@@ -272,11 +272,13 @@
                     buttons: [
                         {
                             text: '<i class="fas fa-sync-alt mr-1"></i> REFRESH',
+                            className: 'btn-command-action',
                             titleAttr: 'REFRESH',
                             action: (event, dataTable) => dataTable.ajax.reload(null, false),
                         },
                         {
                             text: '<i class="fas fa-plus mr-1"></i> ADD ASSET',
+                            className: 'btn-command-primary',
                             titleAttr: 'ADD NEW ASSET',
                             action: async () => {
                                 if (activeType === 'creatives') return uploadDialog(tableElement.dataset.uploadCreativeUrl);

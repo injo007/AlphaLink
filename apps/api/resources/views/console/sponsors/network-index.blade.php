@@ -136,6 +136,7 @@
                 buttons: [
                     {
                         text: '<i class="fas fa-sync-alt mr-1"></i> REFRESH',
+                        className: 'btn-command-action',
                         titleAttr: 'REFRESH',
                         action: (event, table) => table.ajax.reload(null, false),
                     },

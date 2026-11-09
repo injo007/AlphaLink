@@ -118,7 +118,7 @@
         </div>
         <div class="d-flex flex-wrap justify-content-between align-items-center warmup-register-footer">
             <small class="text-muted">Showing {{ $drafts->firstItem() ?? 0 }} to {{ $drafts->lastItem() ?? 0 }} of {{ $drafts->total() }} entries.</small>
-            <small class="warmup-register-scroll-hint"><i class="fas fa-arrows-alt-h" aria-hidden="true"></i> Swipe the table horizontally to see remaining fields and actions.</small>
+            <small class="warmup-register-scroll-hint"><i class="fas fa-arrows-alt-h" aria-hidden="true"></i> Scroll horizontally to view the remaining fields and actions.</small>
             {{ $drafts->links() }}
         </div>
         <p class="sr-only" role="note">Warmup sends use the saved seed lists and PMTA routes. Test messages go only to saved Email Test addresses.</p>
@@ -210,7 +210,7 @@
         .warmup-register-page .warmup-register-row-actions .warmup-action-danger { color: var(--warmup-danger); }
         .warmup-register-page .warmup-register-row-actions .warmup-action-success { color: var(--warmup-success); }
         .warmup-register-footer { gap: 10px; padding-top: 12px; color: var(--co-muted); }
-        .warmup-register-scroll-hint { display: none; color: var(--co-muted); font-size: 9px; }
+        .warmup-register-scroll-hint { align-items: center; display: inline-flex; gap: 6px; color: var(--co-muted); font-size: 9px; }
         .warmup-register-footer nav { margin-left: auto; }
         .warmup-register-footer .pagination { margin: 0; }
         @media (max-width: 767.98px) {
@@ -228,7 +228,6 @@
             .warmup-register-filters .warmup-search-control { flex: 1 1 10rem; }
             .warmup-register-filters input[type="search"] { width: 100%; }
             .warmup-register-footer { align-items: flex-start !important; flex-direction: column; }
-            .warmup-register-scroll-hint { align-items: center; display: inline-flex; gap: 6px; }
             .warmup-register-footer nav { margin-left: 0; max-width: 100%; overflow-x: auto; }
         }
         @media (prefers-reduced-motion: reduce) { .warmup-register-create { transition: none; } .warmup-register-create:hover { transform: none; } }

@@ -269,25 +269,36 @@
                 },
                 ...(canManage ? {
                     select: { style: 'os', selector: 'td:first-child' },
-                    buttons: [
-                        {
-                            text: '<i class="fas fa-sync-alt mr-1"></i> REFRESH',
-                            className: 'btn-command-action',
-                            titleAttr: 'REFRESH',
-                            action: (event, dataTable) => dataTable.ajax.reload(null, false),
+                    buttons: {
+                        dom: {
+                            container: {
+                                tag: 'div',
+                                className: 'dt-buttons'
+                            },
+                            button: {
+                                tag: 'button',
+                                className: 'btn'
+                            }
                         },
-                        {
-                            text: '<i class="fas fa-plus mr-1"></i> ADD ASSET',
-                            className: 'btn-command-primary',
-                            titleAttr: 'ADD NEW ASSET',
-                            action: async () => {
-                                if (activeType === 'creatives') return uploadDialog(tableElement.dataset.uploadCreativeUrl);
-                                if (activeType === 'unsubscribe') return uploadDialog(tableElement.dataset.uploadUnsubscribeUrl);
-                                if (!['from', 'subjects'].includes(activeType) || !window.swal?.fire) return;
-                                const label = activeType === 'from' ? 'FROM' : 'SUBJECTS';
-                                const result = await window.swal.fire({
-                                    title: `INSERT NEW ${label}`,
-                                    input: 'textarea',
+                        buttons: [
+                            {
+                                text: '<i class="fas fa-sync-alt mr-1"></i> REFRESH',
+                                className: 'btn-command-action',
+                                titleAttr: 'REFRESH',
+                                action: (event, dataTable) => dataTable.ajax.reload(null, false),
+                            },
+                            {
+                                text: '<i class="fas fa-plus mr-1"></i> ADD ASSET',
+                                className: 'btn-command-primary',
+                                titleAttr: 'ADD NEW ASSET',
+                                action: async () => {
+                                    if (activeType === 'creatives') return uploadDialog(tableElement.dataset.uploadCreativeUrl);
+                                    if (activeType === 'unsubscribe') return uploadDialog(tableElement.dataset.uploadUnsubscribeUrl);
+                                    if (!['from', 'subjects'].includes(activeType) || !window.swal?.fire) return;
+                                    const label = activeType === 'from' ? 'FROM' : 'SUBJECTS';
+                                    const result = await window.swal.fire({
+                                        title: `INSERT NEW ${label}`,
+                                        input: 'textarea',
                                     inputLabel: 'Enter one value per line',
                                     showCancelButton: true,
                                     confirmButtonText: 'ADD',

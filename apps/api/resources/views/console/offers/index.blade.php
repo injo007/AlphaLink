@@ -278,26 +278,38 @@
                         next: '<i class="fas fa-chevron-right"></i>'
                     }
                 },
-                buttons: [
-                    ...(canShare ? [{ text: '<i class="fas fa-share-alt mr-1"></i> SHARE', className: 'btn-command-action', titleAttr: 'SHARE CREATIVES', action: (event, dt) => {
-                        const ids = selectedOfferIds(dt);
-                        if (!ids.length) {
-                            showOfferNotice('Select one or more active offers before sharing creatives.');
-                            return;
+                buttons: {
+                    dom: {
+                        container: {
+                            tag: 'div',
+                            className: 'dt-buttons'
+                        },
+                        button: {
+                            tag: 'button',
+                            className: 'btn'
                         }
-                        $('#offer-action-notice').addClass('d-none').text('');
-                        openFrame(`${tableElement.dataset.shareUrl}?${$.param({ ids })}`);
-                    } }] : []),
-                    { text: '<i class="fas fa-sync-alt mr-1"></i> REFRESH', className: 'btn-command-action', titleAttr: 'REFRESH', action: (event, dt) => dt.ajax.reload(null, false) },
-                    ...(canManage ? [
-                        { text: '<i class="fas fa-plus mr-1"></i> NEW OFFER', className: 'btn-command-primary', titleAttr: 'ADD NEW OFFER', action: () => openFrame(tableElement.dataset.createUrl) },
-                        { text: '<i class="fas fa-users-cog mr-1"></i> BULK USERS', className: 'btn-command-action', titleAttr: 'ALLOWED USERS', action: (event, dt) => {
+                    },
+                    buttons: [
+                        ...(canShare ? [{ text: '<i class="fas fa-share-alt mr-1"></i> SHARE', className: 'btn-command-action', titleAttr: 'SHARE CREATIVES', action: (event, dt) => {
                             const ids = selectedOfferIds(dt);
-                            if (ids.length) openFrame(`${tableElement.dataset.bulkUsersUrl}?${$.param({ ids })}`);
-                            else showOfferNotice('Select one or more offers to change allowed users.');
-                        } },
-                    ] : []),
-                ],
+                            if (!ids.length) {
+                                showOfferNotice('Select one or more active offers before sharing creatives.');
+                                return;
+                            }
+                            $('#offer-action-notice').addClass('d-none').text('');
+                            openFrame(`${tableElement.dataset.shareUrl}?${$.param({ ids })}`);
+                        } }] : []),
+                        { text: '<i class="fas fa-sync-alt mr-1"></i> REFRESH', className: 'btn-command-action', titleAttr: 'REFRESH', action: (event, dt) => dt.ajax.reload(null, false) },
+                        ...(canManage ? [
+                            { text: '<i class="fas fa-plus mr-1"></i> NEW OFFER', className: 'btn-command-primary', titleAttr: 'ADD NEW OFFER', action: () => openFrame(tableElement.dataset.createUrl) },
+                            { text: '<i class="fas fa-users-cog mr-1"></i> BULK USERS', className: 'btn-command-action', titleAttr: 'ALLOWED USERS', action: (event, dt) => {
+                                const ids = selectedOfferIds(dt);
+                                if (ids.length) openFrame(`${tableElement.dataset.bulkUsersUrl}?${$.param({ ids })}`);
+                                else showOfferNotice('Select one or more offers to change allowed users.');
+                            } },
+                        ] : []),
+                    ]
+                },
                 columns: [
                     ...(canShare ? [{ data: null, defaultContent: '', orderable: false, searchable: false, className: 'select-checkbox', title: '' }] : []),
                     { title: '#', data: 'id', render: (val) => `<span class="font-mono text-muted">#${escapeHtml(val)}</span>` },

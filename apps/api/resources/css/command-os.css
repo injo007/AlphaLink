@@ -5082,18 +5082,23 @@ html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-ca
 
 /* DataTables Buttons (Decoupled from generic Bootstrap btn-group) */
 .command-os-table-card .dt-buttons,
+.command-os-table-card div.dt-buttons,
+.command-os-table-card .command-table-toolbar-left .dt-buttons,
 .command-os-table-card .dt-buttons.btn-group {
     display: inline-flex !important;
     align-items: center !important;
     flex-wrap: wrap !important;
     gap: 8px !important;
     margin: 0 !important;
+    padding: 0 !important;
     border: none !important;
     box-shadow: none !important;
     position: static !important;
+    background: transparent !important;
 }
 
 .command-os-table-card .dt-buttons .btn,
+.command-os-table-card .dt-buttons > button,
 .command-os-table-card .dt-buttons.btn-group > .btn,
 .command-os-table-card .dt-buttons.btn-group > .btn:not(:first-child),
 .command-os-table-card .dt-buttons.btn-group > .btn:not(:last-child),
@@ -5101,6 +5106,10 @@ html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-ca
 .command-os-table-card .dt-buttons.btn-group > .btn:last-child {
     align-items: center !important;
     border-radius: 10px !important;
+    border-top-left-radius: 10px !important;
+    border-top-right-radius: 10px !important;
+    border-bottom-left-radius: 10px !important;
+    border-bottom-right-radius: 10px !important;
     cursor: pointer !important;
     display: inline-flex !important;
     font-size: 11.5px !important;
@@ -5109,6 +5118,8 @@ html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-ca
     justify-content: center !important;
     letter-spacing: .05em !important;
     margin: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
     min-width: 38px !important;
     padding: 0 15px !important;
     text-transform: uppercase !important;
@@ -5119,54 +5130,81 @@ html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-ca
     box-sizing: border-box !important;
 }
 
+.command-os-table-card .dt-buttons .btn span,
+.command-os-table-card .dt-buttons.btn-group > .btn span {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    line-height: 1 !important;
+}
+
 .command-os-table-card .dt-buttons .btn i,
 .command-os-table-card .dt-buttons.btn-group > .btn i {
     font-size: 12px !important;
     line-height: 1 !important;
     vertical-align: middle !important;
-    margin-right: 4px !important;
+    margin-right: 2px !important;
 }
 
 /* Secondary Action Buttons (REFRESH, SHARE, BULK USERS, etc.) */
-html[data-command-theme='light'] .command-os-table-card .dt-buttons .btn,
-html[data-command-theme='light'] .command-os-table-card .dt-buttons.btn-group > .btn,
-html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons .btn,
-html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons.btn-group > .btn {
+html[data-command-theme='light'] .command-os-table-card .dt-buttons .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]),
+html[data-command-theme='light'] .command-os-table-card .dt-buttons.btn-group > .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]),
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]),
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons.btn-group > .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]),
+.command-os-table-card .dt-buttons .btn.btn-command-action {
     background: #ffffff !important;
     border: 1.5px solid #cbd5e1 !important;
     color: #475569 !important;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
 }
 
-html[data-command-theme='light'] .command-os-table-card .dt-buttons .btn:hover,
-html[data-command-theme='light'] .command-os-table-card .dt-buttons.btn-group > .btn:hover,
-html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons .btn:hover,
-html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons.btn-group > .btn:hover {
+html[data-command-theme='light'] .command-os-table-card .dt-buttons .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]) i,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]) i,
+.command-os-table-card .dt-buttons .btn.btn-command-action i {
+    color: #8b5cf6 !important;
+}
+
+html[data-command-theme='light'] .command-os-table-card .dt-buttons .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]):hover,
+html[data-command-theme='light'] .command-os-table-card .dt-buttons.btn-group > .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]):hover,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]):hover,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons.btn-group > .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]):hover,
+.command-os-table-card .dt-buttons .btn.btn-command-action:hover {
     background: #ffffff !important;
     border-color: #8b5cf6 !important;
     color: #8b5cf6 !important;
-    transform: translateY(-1px) !important;
-    box-shadow: 0 4px 14px rgba(139, 92, 246, 0.16) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 14px rgba(139, 92, 246, 0.2) !important;
 }
 
-html[data-command-theme='dark'] .command-os-table-card .dt-buttons .btn,
-html[data-command-theme='dark'] .command-os-table-card .dt-buttons.btn-group > .btn {
+html[data-command-theme='dark'] .command-os-table-card .dt-buttons .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]),
+html[data-command-theme='dark'] .command-os-table-card .dt-buttons.btn-group > .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]) {
     background: #0d1226 !important;
     border: 1.5px solid rgba(139, 92, 246, 0.3) !important;
     color: #cbd5e1 !important;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25) !important;
 }
 
-html[data-command-theme='dark'] .command-os-table-card .dt-buttons .btn:hover,
-html[data-command-theme='dark'] .command-os-table-card .dt-buttons.btn-group > .btn:hover {
+html[data-command-theme='dark'] .command-os-table-card .dt-buttons .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]) i {
+    color: #c084fc !important;
+}
+
+html[data-command-theme='dark'] .command-os-table-card .dt-buttons .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]):hover,
+html[data-command-theme='dark'] .command-os-table-card .dt-buttons.btn-group > .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]):hover {
     background: #141b4b !important;
     border-color: #a855f7 !important;
     color: #c084fc !important;
-    transform: translateY(-1px) !important;
+    transform: translateY(-2px) !important;
     box-shadow: 0 4px 16px rgba(139, 92, 246, 0.35) !important;
 }
 
-/* Primary Action Buttons (NEW OFFER, NEW SPONSOR, ADD ASSET) */
+/* Primary Action Buttons (NEW OFFER, NEW SPONSOR, ADD ASSET) - Maximum Specificity */
+html[data-command-theme='light'] .command-os-table-card .dt-buttons .btn.btn-command-primary,
+html[data-command-theme='dark'] .command-os-table-card .dt-buttons .btn.btn-command-primary,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons .btn.btn-command-primary,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons.btn-group > .btn.btn-command-primary,
+html[data-command-theme='light'] .command-os-table-card .dt-buttons .btn:has(.fa-plus),
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons .btn:has(.fa-plus),
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons.btn-group > .btn:has(.fa-plus),
 .command-os-table-card .dt-buttons .btn.btn-command-primary,
 .command-os-table-card .dt-buttons.btn-group > .btn.btn-command-primary,
 .command-os-table-card .dt-buttons .btn:has(.fa-plus),
@@ -5176,11 +5214,28 @@ html[data-command-theme='dark'] .command-os-table-card .dt-buttons.btn-group > .
 .command-os-table-card .dt-buttons.btn-group > .btn[title*="NEW"],
 .command-os-table-card .dt-buttons.btn-group > .btn[title*="ADD"] {
     background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%) !important;
-    border: none !important;
+    border: 1.5px solid #7c3aed !important;
     color: #ffffff !important;
-    box-shadow: 0 4px 14px rgba(139, 92, 246, 0.38) !important;
+    box-shadow: 0 4px 14px rgba(139, 92, 246, 0.45) !important;
 }
 
+html[data-command-theme='light'] .command-os-table-card .dt-buttons .btn.btn-command-primary i,
+html[data-command-theme='dark'] .command-os-table-card .dt-buttons .btn.btn-command-primary i,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons .btn.btn-command-primary i,
+.command-os-table-card .dt-buttons .btn.btn-command-primary i,
+.command-os-table-card .dt-buttons .btn:has(.fa-plus) i,
+.command-os-table-card .dt-buttons .btn[title*="NEW"] i,
+.command-os-table-card .dt-buttons .btn[title*="ADD"] i {
+    color: #ffffff !important;
+}
+
+html[data-command-theme='light'] .command-os-table-card .dt-buttons .btn.btn-command-primary:hover,
+html[data-command-theme='dark'] .command-os-table-card .dt-buttons .btn.btn-command-primary:hover,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons .btn.btn-command-primary:hover,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons.btn-group > .btn.btn-command-primary:hover,
+html[data-command-theme='light'] .command-os-table-card .dt-buttons .btn:has(.fa-plus):hover,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons .btn:has(.fa-plus):hover,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-card .dt-buttons.btn-group > .btn:has(.fa-plus):hover,
 .command-os-table-card .dt-buttons .btn.btn-command-primary:hover,
 .command-os-table-card .dt-buttons.btn-group > .btn.btn-command-primary:hover,
 .command-os-table-card .dt-buttons .btn:has(.fa-plus):hover,
@@ -5190,9 +5245,10 @@ html[data-command-theme='dark'] .command-os-table-card .dt-buttons.btn-group > .
 .command-os-table-card .dt-buttons.btn-group > .btn[title*="NEW"]:hover,
 .command-os-table-card .dt-buttons.btn-group > .btn[title*="ADD"]:hover {
     background: linear-gradient(135deg, #9d6cf8 0%, #8b5cf6 100%) !important;
+    border-color: #8b5cf6 !important;
     color: #ffffff !important;
-    transform: translateY(-1px) !important;
-    box-shadow: 0 6px 20px rgba(139, 92, 246, 0.5) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 20px rgba(139, 92, 246, 0.6) !important;
 }
 
 /* Search Box */
@@ -6113,33 +6169,122 @@ body.command-os-shell #main_content .dataTables_wrapper .dataTables_length selec
     box-shadow: none !important;
 }
 
-body.command-os-shell #main_content .dataTables_wrapper .dt-buttons {
-    display: inline-flex;
-    gap: 6px;
-    margin-left: 8px;
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons,
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons.btn-group {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin: 0 !important;
+    margin-left: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
 }
 body.command-os-shell #main_content .dataTables_wrapper .dt-buttons .btn,
-body.command-os-shell #main_content .dataTables_wrapper .dt-buttons .btn-secondary {
-    align-items: center;
-    background: var(--co-surface) !important;
-    border: 1px solid var(--co-border-strong) !important;
-    border-radius: 9px !important;
-    box-shadow: none !important;
-    color: var(--co-ink) !important;
-    display: inline-flex;
-    font-size: 11px;
-    height: 34px;
-    justify-content: center;
-    min-width: 34px;
-    padding: 0 10px;
-    transition: all .15s ease;
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons .btn-secondary,
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons.btn-group > .btn,
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons.btn-group > .btn:not(:first-child),
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons.btn-group > .btn:not(:last-child),
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons.btn-group > .btn:first-child,
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons.btn-group > .btn:last-child {
+    align-items: center !important;
+    border-radius: 10px !important;
+    border-top-left-radius: 10px !important;
+    border-top-right-radius: 10px !important;
+    border-bottom-left-radius: 10px !important;
+    border-bottom-right-radius: 10px !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    font-size: 11.5px !important;
+    font-weight: 750 !important;
+    height: 38px !important;
+    justify-content: center !important;
+    letter-spacing: .06em !important;
+    margin: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    min-width: 38px !important;
+    padding: 0 16px !important;
+    text-transform: uppercase !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    outline: none !important;
+    gap: 6px !important;
+    line-height: 1 !important;
+    box-sizing: border-box !important;
 }
-body.command-os-shell #main_content .dataTables_wrapper .dt-buttons .btn:hover {
-    background: color-mix(in srgb, var(--co-purple) 12%, var(--co-surface)) !important;
-    border-color: var(--co-purple) !important;
-    color: var(--co-purple) !important;
-    transform: translateY(-1px);
-    box-shadow: 0 0 10px color-mix(in srgb, var(--co-purple) 25%, transparent) !important;
+
+/* Secondary Button in #main_content */
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]),
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons.btn-group > .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]) {
+    background: #ffffff !important;
+    border: 1.5px solid #cbd5e1 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+    color: #475569 !important;
+}
+html[data-command-theme='dark'] body.command-os-shell #main_content .dataTables_wrapper .dt-buttons .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]),
+html[data-command-theme='dark'] body.command-os-shell #main_content .dataTables_wrapper .dt-buttons.btn-group > .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]) {
+    background: #0d1226 !important;
+    border: 1.5px solid rgba(139, 92, 246, 0.3) !important;
+    color: #cbd5e1 !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25) !important;
+}
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]) i {
+    color: #8b5cf6 !important;
+}
+html[data-command-theme='dark'] body.command-os-shell #main_content .dataTables_wrapper .dt-buttons .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]) i {
+    color: #c084fc !important;
+}
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]):hover,
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons.btn-group > .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]):hover {
+    background: #f8fafc !important;
+    border-color: #8b5cf6 !important;
+    color: #8b5cf6 !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 14px rgba(139, 92, 246, 0.2) !important;
+}
+html[data-command-theme='dark'] body.command-os-shell #main_content .dataTables_wrapper .dt-buttons .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]):hover,
+html[data-command-theme='dark'] body.command-os-shell #main_content .dataTables_wrapper .dt-buttons.btn-group > .btn:not(.btn-command-primary):not(:has(.fa-plus)):not([title*="NEW"]):not([title*="ADD"]):hover {
+    background: #141b4b !important;
+    border-color: #a855f7 !important;
+    color: #c084fc !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 16px rgba(139, 92, 246, 0.35) !important;
+}
+
+/* Primary Button in #main_content (VIBRANT PURPLE GRADIENT) */
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons .btn.btn-command-primary,
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons.btn-group > .btn.btn-command-primary,
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons .btn:has(.fa-plus),
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons.btn-group > .btn:has(.fa-plus),
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons .btn[title*="NEW"],
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons .btn[title*="ADD"],
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons.btn-group > .btn[title*="NEW"],
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons.btn-group > .btn[title*="ADD"] {
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%) !important;
+    border: 1.5px solid #7c3aed !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 14px rgba(139, 92, 246, 0.45) !important;
+}
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons .btn.btn-command-primary i,
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons .btn:has(.fa-plus) i,
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons .btn[title*="NEW"] i,
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons .btn[title*="ADD"] i {
+    color: #ffffff !important;
+}
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons .btn.btn-command-primary:hover,
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons.btn-group > .btn.btn-command-primary:hover,
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons .btn:has(.fa-plus):hover,
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons.btn-group > .btn:has(.fa-plus):hover,
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons .btn[title*="NEW"]:hover,
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons .btn[title*="ADD"]:hover,
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons.btn-group > .btn[title*="NEW"]:hover,
+body.command-os-shell #main_content .dataTables_wrapper .dt-buttons.btn-group > .btn[title*="ADD"]:hover {
+    background: linear-gradient(135deg, #9d6cf8 0%, #8b5cf6 100%) !important;
+    border-color: #8b5cf6 !important;
+    color: #ffffff !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 20px rgba(139, 92, 246, 0.6) !important;
 }
 
 body.command-os-shell #main_content .dataTables_wrapper .dataTables_filter {

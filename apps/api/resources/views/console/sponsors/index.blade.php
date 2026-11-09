@@ -156,30 +156,42 @@
                         next: '<i class="fas fa-chevron-right"></i>'
                     }
                 },
-                buttons: [
-                    {
-                        text: '<i class="fas fa-sync-alt mr-1"></i> REFRESH',
-                        className: 'btn-command-action',
-                        titleAttr: 'REFRESH',
-                        action: (event, table) => table.ajax.reload(null, false),
-                    },
-                    {
-                        text: '<i class="fas fa-plus mr-1"></i> NEW SPONSOR',
-                        className: 'btn-command-primary',
-                        titleAttr: 'ADD NEW SPONSOR',
-                        action: () => openSponsorFrame(tableElement.dataset.createUrl),
-                    },
-                    {
-                        text: '<i class="fas fa-users-cog mr-1"></i> BULK USERS',
-                        className: 'btn-command-action',
-                        titleAttr: 'ALLOWED USERS',
-                        action: (event, table) => {
-                            const ids = table.rows({ selected: true }).data().toArray().map((row) => row.id);
-                            if (!ids.length) return;
-                            openSponsorFrame(`${tableElement.dataset.bulkUsersUrl}?${$.param({ ids })}`);
+                buttons: {
+                    dom: {
+                        container: {
+                            tag: 'div',
+                            className: 'dt-buttons'
                         },
+                        button: {
+                            tag: 'button',
+                            className: 'btn'
+                        }
                     },
-                ],
+                    buttons: [
+                        {
+                            text: '<i class="fas fa-sync-alt mr-1"></i> REFRESH',
+                            className: 'btn-command-action',
+                            titleAttr: 'REFRESH',
+                            action: (event, table) => table.ajax.reload(null, false),
+                        },
+                        {
+                            text: '<i class="fas fa-plus mr-1"></i> NEW SPONSOR',
+                            className: 'btn-command-primary',
+                            titleAttr: 'ADD NEW SPONSOR',
+                            action: () => openSponsorFrame(tableElement.dataset.createUrl),
+                        },
+                        {
+                            text: '<i class="fas fa-users-cog mr-1"></i> BULK USERS',
+                            className: 'btn-command-action',
+                            titleAttr: 'ALLOWED USERS',
+                            action: (event, table) => {
+                                const ids = table.rows({ selected: true }).data().toArray().map((row) => row.id);
+                                if (!ids.length) return;
+                                openSponsorFrame(`${tableElement.dataset.bulkUsersUrl}?${$.param({ ids })}`);
+                            },
+                        },
+                    ]
+                },
                 rowCallback: (row, data) => {
                     if (!data.is_active) $('td', row).addClass('is-inactive-row');
                 },

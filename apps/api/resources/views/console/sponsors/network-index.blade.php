@@ -133,14 +133,26 @@
                         next: '<i class="fas fa-chevron-right"></i>'
                     }
                 },
-                buttons: [
-                    {
-                        text: '<i class="fas fa-sync-alt mr-1"></i> REFRESH',
-                        className: 'btn-command-action',
-                        titleAttr: 'REFRESH',
-                        action: (event, table) => table.ajax.reload(null, false),
+                buttons: {
+                    dom: {
+                        container: {
+                            tag: 'div',
+                            className: 'dt-buttons'
+                        },
+                        button: {
+                            tag: 'button',
+                            className: 'btn'
+                        }
                     },
-                ],
+                    buttons: [
+                        {
+                            text: '<i class="fas fa-sync-alt mr-1"></i> REFRESH',
+                            className: 'btn-command-action',
+                            titleAttr: 'REFRESH',
+                            action: (event, table) => table.ajax.reload(null, false),
+                        },
+                    ]
+                },
                 columns: [
                     { title: '#', data: 'id', render: (val) => `<span class="font-mono text-muted">#${escapeHtml(val)}</span>` },
                     { title: 'AFFILIATE ID', data: 'affiliate_id', render: (val) => val ? `<span class="badge badge-light border font-mono">${escapeHtml(val)}</span>` : '<span class="text-muted">—</span>' },

@@ -147,7 +147,7 @@
             .campaign-create-page .bootstrap-select .dropdown-menu { background: linear-gradient(145deg, var(--campaign-surface), var(--campaign-wash)); border: 1px solid var(--campaign-border); border-radius: 14px; box-shadow: 0 16px 40px rgb(34 25 76 / 19%); margin-top: 6px; overflow: hidden; padding: 6px; }
             .campaign-create-page .bootstrap-select .dropdown-menu > .inner { max-height: min(55vh, 420px) !important; }
             body:has(.campaign-create-page) .bs-container { z-index: 12020 !important; }
-            body:has(.campaign-create-page) .bs-container .dropdown-menu { background: linear-gradient(145deg, var(--campaign-surface, #fff), var(--campaign-wash, #f8f7ff)); border: 1px solid var(--campaign-border, #ded9f8); border-radius: 14px; box-shadow: 0 16px 40px rgb(34 25 76 / 19%); margin-top: 6px; overflow: hidden; padding: 6px; z-index: 12021; }
+            body:has(.campaign-create-page) .bs-container .dropdown-menu { background: linear-gradient(145deg, var(--campaign-surface, #fff), var(--campaign-wash, #f8f7ff)); border: 1px solid var(--campaign-border, #ded9f8); border-radius: 14px; box-shadow: 0 16px 40px rgb(34 25 76 / 19%); box-sizing: border-box; margin-top: 6px; max-width: min(420px, calc(100vw - 24px)) !important; overflow: hidden; padding: 6px; width: 100% !important; z-index: 12021; }
             body:has(.campaign-create-page) .bs-container .dropdown-menu > .inner { max-height: min(55vh, 420px) !important; }
             .campaign-create-page .bootstrap-select .dropdown-menu li a,
             body:has(.campaign-create-page) .bs-container .dropdown-menu li a { border-radius: 8px; color: var(--campaign-ink, #101746); font-size: 11px; margin: 1px 0; padding: 7px 10px; transition: background .14s ease, color .14s ease; }
@@ -164,7 +164,7 @@
             .campaign-create-page .bootstrap-select > .dropdown-toggle:active,
             body:has(.campaign-create-page) .bootstrap-select > .dropdown-toggle:focus,
             body:has(.campaign-create-page) .bootstrap-select > .dropdown-toggle:active { border-color: #9b6aff !important; box-shadow: 0 0 0 3px rgb(139 74 255 / 12%) !important; outline: 0; }
-            body:has(.campaign-create-page) .bs-container .dropdown-menu { border: 1px solid var(--campaign-border, #ded9f8) !important; outline: 0 !important; max-width: calc(100vw - 24px); }
+            body:has(.campaign-create-page) .bs-container .dropdown-menu { border: 1px solid var(--campaign-border, #ded9f8) !important; outline: 0 !important; }
             body:has(.campaign-create-page) .bs-container .dropdown-menu > .inner,
             body:has(.campaign-create-page) .bs-container .dropdown-menu .inner > ul,
             .campaign-create-page .bootstrap-select .dropdown-menu > .inner,
@@ -574,8 +574,6 @@
                 margin-top: 0;
                 padding-top: 4px;
             }
-            .campaign-create-page #campaign-routing > .row > .col-md-8,
-            .campaign-create-page #campaign-routing > .row > .col-md-4 { flex: 0 0 100%; max-width: 100%; }
             .campaign-create-page #campaign-routing > .row > [class*='col-'] { min-width: 0; }
             .campaign-create-page .campaign-delivery-card .form-group { margin-bottom: 2px; }
             .campaign-create-page .campaign-delivery-card label { margin-bottom: 2px; }
@@ -787,6 +785,10 @@
                 .campaign-create-summary { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); position: static; }
                 .campaign-create-summary > * { margin-bottom: 0; }
                 .campaign-summary-actions { align-self: start; }
+            }
+            @media (max-width: 991.98px) {
+                .campaign-create-page #campaign-routing > .row > .col-md-8,
+                .campaign-create-page #campaign-routing > .row > .col-md-4 { flex: 0 0 100%; max-width: 100%; }
             }
             @media (max-width: 767.98px) {
                 .campaign-create-page::after { height: clamp(88px, 13vh, 122px); opacity: .76; }
@@ -2676,7 +2678,21 @@
                 saveButton.setAttribute('aria-busy', 'true');
             });
 
-            if (window.jQuery && window.jQuery.fn.selectpicker) window.jQuery('.selectpicker').selectpicker();
+            if (window.jQuery && window.jQuery.fn.selectpicker) {
+                const $ = window.jQuery;
+                $(document).on('shown.bs.select', '.campaign-create-page .selectpicker', function () {
+                    const trigger = this.parentElement?.querySelector(':scope > .dropdown-toggle');
+                    const portal = document.querySelector('body > .bs-container.show');
+                    if (!trigger || !portal) return;
+
+                    const bounds = trigger.getBoundingClientRect();
+                    const width = Math.min(bounds.width, window.innerWidth - 24);
+                    const left = Math.max(12, Math.min(bounds.left, window.innerWidth - width - 12));
+                    portal.style.width = width + 'px';
+                    portal.style.left = left + window.scrollX + 'px';
+                });
+                $('.selectpicker').selectpicker();
+            }
             if (snapshotProgress.dataset.progressUrl) {
                 campaignSaved = true;
                 saveButton.disabled = true;

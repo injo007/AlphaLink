@@ -14,7 +14,6 @@
             </div>
         </div>
         <div class="block-options d-flex align-items-center">
-            <span class="warmup-active-send-pill"><i class="fas fa-paper-plane" aria-hidden="true"></i> Active sends <strong>{{ number_format($activeSends) }}</strong></span>
             <button type="button" class="btn-block-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle warmup register fullscreen">
                 <i class="si si-size-fullscreen" aria-hidden="true"></i>
             </button>
@@ -93,7 +92,7 @@
                         <td>{{ $config['sleep_ip'] ?? '—' }}</td>
                         <td>{{ $config['seed_every'] ?? '—' }}</td>
                         <td><span class="badge badge-{{ $sendRun ? (in_array($sendRun->state, ['planned', 'running'], true) ? 'primary' : ($sendRun->state === 'completed' ? 'success' : 'warning')) : 'secondary' }}">{{ strtoupper($sendRun->state ?? 'draft') }}</span></td>
-                        <td>@if ($sendRun){{ number_format($processed) }} / {{ number_format((int) $sendRun->recipient_count) }} accepted {{ number_format((int) $sendRun->accepted_count) }} · rejected {{ number_format((int) $sendRun->rejected_count) }} · uncertain {{ number_format((int) $sendRun->uncertain_count) }}@else<span class="badge badge-secondary">—</span>@endif</td>
+                        <td class="warmup-register-progress">@if ($sendRun)<strong>{{ number_format($processed) }} / {{ number_format((int) $sendRun->recipient_count) }}</strong><small>Accepted {{ number_format((int) $sendRun->accepted_count) }} · rejected {{ number_format((int) $sendRun->rejected_count) }} · uncertain {{ number_format((int) $sendRun->uncertain_count) }}</small>@else<span class="badge badge-secondary">—</span>@endif</td>
                         <td>{{ strtoupper((string) ($config['send_type'] ?? '—')) }}</td>
                         <td class="text-nowrap warmup-register-actions">
                             <div class="warmup-register-row-actions">
@@ -119,6 +118,7 @@
         </div>
         <div class="d-flex flex-wrap justify-content-between align-items-center warmup-register-footer">
             <small class="text-muted">Showing {{ $drafts->firstItem() ?? 0 }} to {{ $drafts->lastItem() ?? 0 }} of {{ $drafts->total() }} entries.</small>
+            <small class="warmup-register-scroll-hint"><i class="fas fa-arrows-alt-h" aria-hidden="true"></i> Swipe the table horizontally to see remaining fields and actions.</small>
             {{ $drafts->links() }}
         </div>
         <p class="sr-only" role="note">Warmup sends use the saved seed lists and PMTA routes. Test messages go only to saved Email Test addresses.</p>
@@ -130,14 +130,18 @@
     <link rel="stylesheet" href="{{ asset('console-assets/vendor/daterangepicker/daterangepicker.css') }}">
     <style>
         .warmup-register-page { --warmup-danger: #ce4560; --warmup-success: #14825d; margin: 0 0 18px; overflow: hidden; border: 1px solid var(--co-border); border-radius: 17px; color: var(--co-ink); background: var(--co-surface); box-shadow: var(--co-shadow); }
-        .warmup-register-page-header { align-items: center; justify-content: space-between; gap: 18px; min-height: 110px; padding: 15px 20px; border-bottom: 1px solid var(--co-border); background: linear-gradient(105deg, color-mix(in srgb, var(--co-purple) 8%, var(--co-surface)), var(--co-surface) 48%, color-mix(in srgb, var(--co-blue) 6%, var(--co-surface))); }
+        .warmup-register-page-header { align-items: center; justify-content: space-between; gap: 18px; min-height: 110px; overflow: hidden; padding: 15px 20px; position: relative; isolation: isolate; border-bottom: 1px solid var(--co-border); background: linear-gradient(105deg, color-mix(in srgb, var(--co-purple) 8%, var(--co-surface)), var(--co-surface) 48%, color-mix(in srgb, var(--co-blue) 6%, var(--co-surface))); }
+        .warmup-register-page-header::before { position: absolute; z-index: -1; inset: -65% -5% -55% 28%; border-radius: 50%; background: radial-gradient(ellipse at 52% 50%, color-mix(in srgb, var(--co-purple-bright) 22%, transparent), transparent 57%), radial-gradient(ellipse at 73% 54%, color-mix(in srgb, var(--co-blue) 22%, transparent), transparent 48%); content: ""; }
+        .warmup-register-page .campaign-register-heading { display: flex; align-items: center; gap: 12px; min-width: 0; }
+        .warmup-register-page .campaign-register-heading-icon { display: grid; flex: 0 0 46px; width: 46px; height: 46px; place-items: center; border: 1px solid color-mix(in srgb, var(--co-purple) 24%, var(--co-border)); border-radius: 14px; color: #fff; background: linear-gradient(145deg, var(--co-purple-bright), var(--co-purple)); box-shadow: 0 7px 18px color-mix(in srgb, var(--co-purple) 24%, transparent); font-size: 18px; }
+        .warmup-register-page .campaign-register-heading-copy { min-width: 0; }
+        .warmup-register-page .campaign-register-eyebrow { color: var(--co-purple); font-size: 9px; font-weight: 800; letter-spacing: .14em; }
+        .warmup-register-page .campaign-register-heading-copy p { margin: 0; color: var(--co-muted); font-size: 10px; }
         .warmup-register-heading-icon { background: linear-gradient(145deg, var(--co-purple-bright), var(--co-purple)); }
-        .warmup-register-page .block-title { margin: 2px 0 3px; color: var(--co-ink); font-size: 20px; font-weight: 780; letter-spacing: -.04em; line-height: 1.15; }
+        .warmup-register-page .block-title { margin: 2px 0 3px; color: var(--co-ink); font-size: 20px; font-weight: 780; letter-spacing: -.04em; line-height: 1.15; text-transform: none; }
         .warmup-register-page .block-options { gap: 12px; margin: 0; }
         .warmup-register-page .block-options .btn-block-option { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid var(--co-border); border-radius: 10px; color: var(--co-muted); background: var(--co-surface); }
         .warmup-register-page .block-options .btn-block-option:hover { border-color: var(--co-purple); color: var(--co-purple); }
-        .warmup-active-send-pill { display: inline-flex; align-items: center; gap: 7px; padding: 7px 10px; border: 1px solid color-mix(in srgb, var(--co-blue) 24%, var(--co-border)); border-radius: 10px; color: var(--co-blue); background: color-mix(in srgb, var(--co-blue) 7%, var(--co-surface)); font-size: 10px; font-weight: 700; white-space: nowrap; }
-        .warmup-active-send-pill strong { min-width: 22px; padding: 2px 6px; border-radius: 7px; color: var(--co-ink); background: var(--co-surface); text-align: center; font-variant-numeric: tabular-nums; }
         .warmup-register-page > .block-content { padding: 16px 18px 18px; }
         .warmup-register-overview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0 0 13px; }
         .warmup-register-metric { display: flex; align-items: center; gap: 11px; min-width: 0; min-height: 76px; padding: 11px 13px; border: 1px solid var(--co-border); border-radius: 13px; background: linear-gradient(145deg, color-mix(in srgb, var(--co-purple) 5%, var(--co-surface)), var(--co-surface)); box-shadow: 0 5px 16px color-mix(in srgb, var(--co-purple) 7%, transparent); }
@@ -157,15 +161,34 @@
         .warmup-register-filters .warmup-date-range { width: 190px; }
         .warmup-register-filters .warmup-search-control { flex: 0 1 220px; min-width: 130px; }
         .warmup-register-filters input[type="search"] { width: 100%; max-width: none; }
+        @media (min-width: 768px) { .warmup-register-filters-right { flex-wrap: nowrap !important; } }
         .warmup-register-create { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 35px; padding: 0 13px; border: 1px solid var(--co-purple); border-radius: 9px; color: #fff !important; background: linear-gradient(105deg, var(--co-purple-bright), var(--co-purple)); box-shadow: 0 4px 10px color-mix(in srgb, var(--co-purple) 20%, transparent); font-size: 10px; font-weight: 750; text-decoration: none; }
         .warmup-register-create:hover { filter: brightness(1.04); transform: translateY(-1px); }
         .warmup-register-page .campaign-register-icon-action { display: inline-flex; align-items: center; justify-content: center; width: 35px; min-width: 35px; height: 35px; min-height: 35px; padding: 0; border: 1px solid var(--co-border-strong); border-radius: 9px; color: var(--co-muted); background: var(--co-surface); text-decoration: none; }
         .warmup-register-page .campaign-register-icon-action:hover:not(:disabled) { border-color: var(--co-purple); color: var(--co-purple); }
         .warmup-register-page .campaign-register-icon-action:disabled { cursor: not-allowed; opacity: .46; }
-        .warmup-register-table-wrap { max-width: 100%; overflow: auto; border: 1px solid var(--co-border); border-radius: 13px; background: var(--co-surface); box-shadow: var(--co-shadow); -webkit-overflow-scrolling: touch; scrollbar-color: var(--co-border-strong) transparent; }
-        .warmup-register-table { width: 100%; min-width: 1160px; margin: 0; border-collapse: separate; border-spacing: 0; color: var(--co-ink); font-size: 10px; }
+        .warmup-register-table-wrap { max-width: 100%; overflow: auto; border: 1px solid var(--co-border); border-radius: 13px; background: var(--co-surface); box-shadow: var(--co-shadow); -webkit-overflow-scrolling: touch; scrollbar-color: var(--co-border-strong) transparent; scrollbar-width: thin; touch-action: pan-x pan-y; }
+        .warmup-register-table-wrap::-webkit-scrollbar { height: 8px; }
+        .warmup-register-table-wrap::-webkit-scrollbar-track { background: var(--co-surface-muted); }
+        .warmup-register-table-wrap::-webkit-scrollbar-thumb { border: 2px solid var(--co-surface-muted); border-radius: 8px; background: var(--co-border-strong); }
+        .warmup-register-table { width: 100%; min-width: 1330px; margin: 0; border-collapse: separate; border-spacing: 0; color: var(--co-ink); font-size: 10px; table-layout: fixed; }
+        .warmup-register-table th:nth-child(1), .warmup-register-table td:nth-child(1) { width: 120px; }
+        .warmup-register-table th:nth-child(2), .warmup-register-table td:nth-child(2) { width: 70px; }
+        .warmup-register-table th:nth-child(3), .warmup-register-table td:nth-child(3) { width: 65px; }
+        .warmup-register-table th:nth-child(4), .warmup-register-table td:nth-child(4) { width: 95px; }
+        .warmup-register-table th:nth-child(5), .warmup-register-table td:nth-child(5) { width: 95px; }
+        .warmup-register-table th:nth-child(6), .warmup-register-table td:nth-child(6) { width: 85px; }
+        .warmup-register-table th:nth-child(7), .warmup-register-table td:nth-child(7) { width: 100px; }
+        .warmup-register-table th:nth-child(8), .warmup-register-table td:nth-child(8) { width: 80px; }
+        .warmup-register-table th:nth-child(9), .warmup-register-table td:nth-child(9) { width: 75px; }
+        .warmup-register-table th:nth-child(10), .warmup-register-table td:nth-child(10) { width: 80px; }
+        .warmup-register-table th:nth-child(11), .warmup-register-table td:nth-child(11) { width: 185px; }
+        .warmup-register-table th:nth-child(12), .warmup-register-table td:nth-child(12) { width: 70px; }
+        .warmup-register-table th:nth-child(13), .warmup-register-table td:nth-child(13) { width: 160px; }
         .warmup-register-table th { position: sticky; top: 0; z-index: 1; padding: 11px 9px; border-top: 0; border-bottom: 1px solid var(--co-border); color: var(--co-muted); background: var(--co-surface-muted); font-size: 8px; font-weight: 800; letter-spacing: .07em; white-space: nowrap; }
         .warmup-register-table td { padding: 9px; border-top: 1px solid color-mix(in srgb, var(--co-border) 76%, transparent); color: var(--co-ink); vertical-align: middle; }
+        .warmup-register-table .warmup-register-progress strong { display: block; color: var(--co-ink); font-size: 10px; font-weight: 800; white-space: nowrap; }
+        .warmup-register-table .warmup-register-progress small { display: block; margin-top: 3px; color: var(--co-muted); font-size: 8px; line-height: 1.45; }
         .warmup-register-table tbody tr:first-child td { border-top: 0; }
         .warmup-register-table tbody tr:hover td { background: color-mix(in srgb, var(--co-purple) 4%, var(--co-surface)); }
         .warmup-register-table th:first-child, .warmup-register-table td:first-child { min-width: 120px; }
@@ -177,18 +200,22 @@
         .warmup-register-table .badge-secondary { color: var(--co-muted); background: color-mix(in srgb, var(--co-muted) 12%, var(--co-surface)); }
         .warmup-register-table .badge-success { color: #08784e; background: #def8ec; }
         .warmup-register-table .badge-warning { color: #a65d00; background: #fff2d8; }
+        html[data-command-theme='dark'] .warmup-register-table .badge-success { color: #75e4b4; background: rgb(25 173 116 / 20%); }
+        html[data-command-theme='dark'] .warmup-register-table .badge-warning { color: #ffd591; background: rgb(209 126 20 / 22%); }
         .warmup-register-table .warmup-register-actions { min-width: 160px; }
         .warmup-register-row-actions { display: grid; grid-template-columns: repeat(4, 30px); gap: 4px; }
-        .warmup-register-row-actions form { display: contents; margin: 0; }
+        .warmup-register-row-actions form { display: flex; margin: 0; }
         .warmup-register-page .warmup-register-row-actions .campaign-register-icon-action { width: 30px; min-width: 30px; height: 30px; min-height: 30px; border-color: color-mix(in srgb, var(--co-purple) 24%, var(--co-border)); border-radius: 9px; color: var(--co-purple); background: linear-gradient(145deg, color-mix(in srgb, var(--co-purple) 13%, var(--co-surface)), color-mix(in srgb, var(--co-blue) 9%, var(--co-surface))); box-shadow: 0 2px 6px color-mix(in srgb, var(--co-purple) 12%, transparent); }
         .warmup-register-page .warmup-register-row-actions .warmup-action-test { color: var(--co-blue); }
         .warmup-register-page .warmup-register-row-actions .warmup-action-danger { color: var(--warmup-danger); }
         .warmup-register-page .warmup-register-row-actions .warmup-action-success { color: var(--warmup-success); }
         .warmup-register-footer { gap: 10px; padding-top: 12px; color: var(--co-muted); }
+        .warmup-register-scroll-hint { display: none; color: var(--co-muted); font-size: 9px; }
         .warmup-register-footer nav { margin-left: auto; }
         .warmup-register-footer .pagination { margin: 0; }
         @media (max-width: 767.98px) {
             .warmup-register-page-header { align-items: flex-start; flex-direction: column; padding: 14px; }
+            .warmup-register-page .campaign-register-heading { align-items: flex-start; }
             .warmup-register-page .block-options { justify-content: space-between; width: 100%; }
             .warmup-register-page > .block-content { padding: 12px; }
             .warmup-register-overview { grid-template-columns: 1fr; }
@@ -201,6 +228,7 @@
             .warmup-register-filters .warmup-search-control { flex: 1 1 10rem; }
             .warmup-register-filters input[type="search"] { width: 100%; }
             .warmup-register-footer { align-items: flex-start !important; flex-direction: column; }
+            .warmup-register-scroll-hint { align-items: center; display: inline-flex; gap: 6px; }
             .warmup-register-footer nav { margin-left: 0; max-width: 100%; overflow-x: auto; }
         }
         @media (prefers-reduced-motion: reduce) { .warmup-register-create { transition: none; } .warmup-register-create:hover { transform: none; } }

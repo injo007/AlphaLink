@@ -17,14 +17,27 @@
                 @if ($compactPlaceholderEditor)
                     <button class="btn btn-sm btn-alt-primary" type="button" data-placeholder-add><i class="fa fa-plus" aria-hidden="true"></i><span>Add placeholder</span></button>
                 @endif
-                <div class="custom-control custom-switch custom-control-inline campaign-placeholder-mode">
-                    <input type="checkbox" class="custom-control-input" id="{{ $idPrefix }}-placeholder-combination" name="{{ $combinationName }}" value="1" data-placeholder-combination @checked(filter_var($combination ?? false, FILTER_VALIDATE_BOOLEAN))>
-                    <label class="custom-control-label" for="{{ $idPrefix }}-placeholder-combination"><i class="fas fa-random campaign-field-icon" aria-hidden="true"></i><span>Combination</span></label>
-                </div>
-                <div class="custom-control custom-switch custom-control-inline campaign-placeholder-mode">
-                    <input type="checkbox" class="custom-control-input" id="{{ $idPrefix }}-placeholder-all-combination" name="{{ $allCombinationName }}" value="1" data-placeholder-all-combination @checked(filter_var($allCombination ?? false, FILTER_VALIDATE_BOOLEAN))>
-                    <label class="custom-control-label" for="{{ $idPrefix }}-placeholder-all-combination"><i class="fas fa-layer-group campaign-field-icon" aria-hidden="true"></i><span>All combinations</span></label>
-                </div>
+                @if ($compactPlaceholderEditor)
+                    <label class="campaign-placeholder-mode campaign-mode-toggle" for="{{ $idPrefix }}-placeholder-combination">
+                        <input type="checkbox" class="campaign-mode-input" id="{{ $idPrefix }}-placeholder-combination" name="{{ $combinationName }}" value="1" data-placeholder-combination @checked(filter_var($combination ?? false, FILTER_VALIDATE_BOOLEAN))>
+                        <span class="campaign-mode-track" aria-hidden="true"></span>
+                        <i class="fas fa-random campaign-field-icon" aria-hidden="true"></i><span class="campaign-mode-label">Combination</span>
+                    </label>
+                    <label class="campaign-placeholder-mode campaign-mode-toggle" for="{{ $idPrefix }}-placeholder-all-combination">
+                        <input type="checkbox" class="campaign-mode-input" id="{{ $idPrefix }}-placeholder-all-combination" name="{{ $allCombinationName }}" value="1" data-placeholder-all-combination @checked(filter_var($allCombination ?? false, FILTER_VALIDATE_BOOLEAN))>
+                        <span class="campaign-mode-track" aria-hidden="true"></span>
+                        <i class="fas fa-layer-group campaign-field-icon" aria-hidden="true"></i><span class="campaign-mode-label">All combinations</span>
+                    </label>
+                @else
+                    <div class="custom-control custom-switch custom-control-inline campaign-placeholder-mode">
+                        <input type="checkbox" class="custom-control-input" id="{{ $idPrefix }}-placeholder-combination" name="{{ $combinationName }}" value="1" data-placeholder-combination @checked(filter_var($combination ?? false, FILTER_VALIDATE_BOOLEAN))>
+                        <label class="custom-control-label" for="{{ $idPrefix }}-placeholder-combination"><i class="fas fa-random campaign-field-icon" aria-hidden="true"></i><span>Combination</span></label>
+                    </div>
+                    <div class="custom-control custom-switch custom-control-inline campaign-placeholder-mode">
+                        <input type="checkbox" class="custom-control-input" id="{{ $idPrefix }}-placeholder-all-combination" name="{{ $allCombinationName }}" value="1" data-placeholder-all-combination @checked(filter_var($allCombination ?? false, FILTER_VALIDATE_BOOLEAN))>
+                        <label class="custom-control-label" for="{{ $idPrefix }}-placeholder-all-combination"><i class="fas fa-layer-group campaign-field-icon" aria-hidden="true"></i><span>All combinations</span></label>
+                    </div>
+                @endif
             </div>
         </div>
         <div class="block-content">

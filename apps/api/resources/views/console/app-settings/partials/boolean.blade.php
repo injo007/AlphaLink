@@ -17,9 +17,9 @@
     </label>
     <div class="command-input-wrap">
         <span class="command-input-leading-icon"><i class="{{ $icon }}"></i></span>
-        <select id="{{ $field }}" name="settings[{{ $field }}]" class="form-control command-input-with-icon" @if ($errors->has($errorKey)) aria-invalid="true" aria-describedby="{{ $field }}-error" @endif>
-            <option value="1" @selected($selected === '1')>YES</option>
-            <option value="0" @selected($selected === '0')>NO</option>
+        <select id="{{ $field }}" name="settings[{{ $field }}]" class="form-control selectpicker command-input-with-icon" data-width="100%" @if ($errors->has($errorKey)) aria-invalid="true" aria-describedby="{{ $field }}-error" @endif>
+            <option value="1" data-icon="fas fa-check-circle text-success" @selected($selected === '1')>YES &mdash; Active / Enabled</option>
+            <option value="0" data-icon="fas fa-times-circle text-danger" @selected($selected === '0')>NO &mdash; Inactive / Disabled</option>
         </select>
     </div>
     @if ($errors->has($errorKey))

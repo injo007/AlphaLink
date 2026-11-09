@@ -395,10 +395,18 @@
 </div>
 @endsection
 
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('vendor/select2/4.0.13/select2.min.css') }}">
+@endpush
+
 @push('scripts')
-    <script src="https://unpkg.com/select2@4.0.13/dist/js/select2.min.js"></script>
+    <script src="{{ asset('vendor/select2/4.0.13/select2.min.js') }}"></script>
     <script>
         $(function () {
+            if (window.jQuery?.fn?.selectpicker) {
+                $('.selectpicker').selectpicker();
+            }
+
             const placeholders = {
                 app_ips: 'ADD APP IPS',
                 dev_ips: 'ADD DEV IPS',

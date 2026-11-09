@@ -232,11 +232,33 @@
     };
 
     const addBadge = (label, values) => {
-        const section = document.createElement('p');
-        const title = document.createElement('strong');
-        title.textContent = `${label}: `;
-        section.append(title, document.createTextNode(values.length ? values.join(', ') : 'NA'));
-        return section;
+        const wrap = document.createElement('div');
+        wrap.className = 'mb-3';
+        const title = document.createElement('h5');
+        title.className = 'font-size-xs font-w700 text-uppercase tracking-wider text-muted mb-2';
+        title.textContent = label;
+        wrap.appendChild(title);
+
+        const listWrap = document.createElement('div');
+        listWrap.className = 'd-flex flex-wrap';
+        listWrap.style.gap = '6px';
+        if (values && values.length) {
+            values.forEach(val => {
+                const badge = document.createElement('span');
+                badge.className = 'badge badge-primary px-2 py-1 mr-1 mb-1 font-w600';
+                badge.style.borderRadius = '6px';
+                badge.style.fontSize = '11px';
+                badge.textContent = val;
+                listWrap.appendChild(badge);
+            });
+        } else {
+            const none = document.createElement('span');
+            none.className = 'text-muted font-size-xs';
+            none.textContent = 'None assigned (All)';
+            listWrap.appendChild(none);
+        }
+        wrap.appendChild(listWrap);
+        return wrap;
     };
 
     const showScope = (row) => {
@@ -332,17 +354,31 @@
             },
             displayLength: 50,
             order: [[0, 'desc']],
+            dom: '<"command-table-toolbar"<"command-table-toolbar-left"l><"command-table-toolbar-right"f>>' +
+                 '<"table-responsive"t>' +
+                 '<"command-table-footer"ip>',
+            language: {
+                lengthMenu: 'Show _MENU_ entries',
+                search: '',
+                searchPlaceholder: 'Search suppression runs...',
+                paginate: {
+                    first: '<i class="fas fa-angle-double-left"></i>',
+                    previous: '<i class="fas fa-chevron-left"></i>',
+                    next: '<i class="fas fa-chevron-right"></i>',
+                    last: '<i class="fas fa-angle-double-right"></i>',
+                },
+            },
             columns: [
                 { title: '#', data: 'id' },
                 { title: 'User', data: 'user.username', render: (value) => escapeHtml(value || 'NA') },
                 { title: 'Sponsor', data: 'sponsor.name', render: (value) => escapeHtml(value || 'NA') },
                 { title: 'Offer', data: 'offer', render: (value) => escapeHtml(`(${value?.offer_id || ''}) - ${value?.name || ''}`) },
-                { title: 'ISPs / Lists', data: null, orderable: false, render: () => '<button type="button" class="btn btn-link btn-sm js-suppression-scope">VIEW</button>' },
-                { title: 'Status', data: 'status', render: (value) => escapeHtml(value) },
+                { title: 'ISPs / Lists', data: null, orderable: false, render: () => '<button type="button" class="btn btn-sm btn-outline-info js-suppression-scope px-2 py-0 font-w700" style="font-size:10px; border-radius:6px;"><i class="fas fa-eye mr-1"></i>VIEW</button>' },
+                { title: 'Status', data: 'status', render: (value) => `<span class="badge ${value === 'complete' ? 'badge-success' : 'badge-warning'} font-w700 text-uppercase px-2 py-1">${escapeHtml(value)}</span>` },
                 { title: 'New found', data: 'found' },
                 { title: 'Elapsed', data: 'elapsed', render: (value) => escapeHtml(value || 'NA') },
                 { title: 'At', data: 'created_at', render: (value) => escapeHtml(value || 'NA') },
-                { title: 'Actions', data: null, orderable: false, searchable: false, render: (_value, _type, row) => terminal(row.status) ? '' : `<button type="button" class="btn btn-sm btn-danger js-suppression-kill" data-id="${Number(row.id)}">KILL</button>` },
+                { title: 'Actions', data: null, orderable: false, searchable: false, render: (_value, _type, row) => terminal(row.status) ? '<span class="text-muted font-size-xs">&mdash;</span>' : `<button type="button" class="btn btn-sm btn-danger js-suppression-kill px-2 py-0 font-w700" style="font-size:10px; border-radius:6px;" data-id="${Number(row.id)}"><i class="fas fa-stop-circle mr-1"></i>KILL</button>` },
             ],
             rowCallback: (_row, row) => {
                 if (!terminal(row.status)) monitor(row.id);

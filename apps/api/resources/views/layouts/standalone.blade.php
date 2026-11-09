@@ -6,13 +6,25 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' data:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; form-action 'self'; frame-src 'self'; object-src 'none'; base-uri 'self'">
     <title>@yield('title', 'Add Servers')</title>
-    <link rel="stylesheet" href="{{ asset('console-assets/plugins/bootstrap_select/bootstrap-select.css') }}">
+    <script>
+        (() => {
+            try {
+                const parentTheme = window.parent?.document?.documentElement?.getAttribute('data-command-theme')
+                    || localStorage.getItem('alphalink_command_os_theme')
+                    || 'light';
+                document.documentElement.setAttribute('data-command-theme', parentTheme);
+            } catch (e) {
+                document.documentElement.setAttribute('data-command-theme', 'light');
+            }
+        })();
+    </script>
     <link rel="stylesheet" href="{{ asset('console-assets/fonts/inter.css') }}">
+    <link rel="stylesheet" href="{{ asset('console-assets/plugins/bootstrap_select/bootstrap-select.css') }}">
     <link rel="stylesheet" href="{{ asset('console-assets/assets/css/theme.css') }}">
+    @vite(['resources/css/command-os.css'])
     <style>
-        body { background-color: #fff; }
+        body { background-color: transparent !important; }
         .content { padding: 0 .875rem; }
-        .form-control.selectpicker { background-color: #f6f7f8; border-color: #f6f7f8; font-weight: 600; }
         .form-control[type="date"] { min-height: calc(1.5em + .75rem + 2px); }
         .server-dialog { border: 0; border-radius: .25rem; box-shadow: 0 8px 28px rgb(52 58 64 / 22%); max-width: 560px; padding: 1.5rem; width: calc(100% - 2rem); }
         .server-dialog::backdrop { background: rgb(52 58 64 / 45%); }
@@ -31,10 +43,10 @@
     </style>
     @stack('styles')
 </head>
-<body>
+<body class="command-os-shell command-os-standalone-popup">
     <div id="page-container">
         <main id="main-container">
-            <div class="content p-3">
+            <div class="content p-2">
                 @yield('content')
             </div>
         </main>

@@ -178,9 +178,18 @@
         </div>
     </div>
     <dialog id="drops-suppression-details" class="pmta-control-dialog" aria-labelledby="drops-suppression-details-title">
-        <h3 id="drops-suppression-details-title" class="h5">Selected suppression scope</h3>
-        <div id="drops-suppression-details-content" class="mb-3"></div>
-        <form method="dialog" class="text-right"><button class="btn btn-secondary btn-sm">CLOSE</button></form>
+        <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+            <h3 id="drops-suppression-details-title" class="h6 font-w700 text-uppercase tracking-wider mb-0 text-ink">
+                <i class="fas fa-layer-group text-purple mr-2"></i>Selected Suppression Scope
+            </h3>
+            <form method="dialog" class="m-0">
+                <button type="submit" class="bootbox-close-button close" aria-label="Close">&times;</button>
+            </form>
+        </div>
+        <div id="drops-suppression-details-content" class="mb-4"></div>
+        <form method="dialog" class="text-right">
+            <button type="submit" class="btn btn-secondary btn-sm px-4 font-w700" style="border-radius: 8px;">CLOSE</button>
+        </form>
     </dialog>
 </div>
 @endsection

@@ -4810,7 +4810,7 @@ html:not([data-command-theme='dark']) body.command-os-shell .command-os-filter-c
 }
 
 html[data-command-theme='dark'] .command-os-filter-card .bootstrap-select > .btn,
-html[data-command-theme='dark'] .command-os-filter-card .form-control {
+html[data-command-theme='dark'] .command-os-filter-card .form-control:not(.bootstrap-select) {
     background: #0d1226 !important;
     border: 1px solid rgba(65, 85, 140, 0.5) !important;
     border-radius: 10px !important;
@@ -4829,9 +4829,9 @@ html[data-command-theme='dark'] .command-os-filter-card .bootstrap-select > .btn
 }
 
 html[data-command-theme='light'] .command-os-filter-card .bootstrap-select > .btn,
-html[data-command-theme='light'] .command-os-filter-card .form-control,
+html[data-command-theme='light'] .command-os-filter-card .form-control:not(.bootstrap-select),
 html:not([data-command-theme='dark']) body.command-os-shell .command-os-filter-card .bootstrap-select > .btn,
-html:not([data-command-theme='dark']) body.command-os-shell .command-os-filter-card .form-control {
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-filter-card .form-control:not(.bootstrap-select) {
     background: #ffffff !important;
     border: 1px solid #cbd5e1 !important;
     border-radius: 10px !important;
@@ -5294,8 +5294,8 @@ html[data-command-theme='light'] .command-os-table-card table tbody tr.is-inacti
 
 /* Ensure leading icons don't overlap bootstrap-select dropdown button */
 .command-input-wrap .bootstrap-select > .btn,
-.command-input-wrap .command-input-with-icon {
-    padding-left: 38px !important;
+.command-input-wrap .command-input-with-icon:not(.bootstrap-select) {
+    padding-left: 42px !important;
 }
 
 /* Action Buttons */
@@ -5739,7 +5739,7 @@ body.command-os-shell #main_content .command-os-filter-bar label {
     letter-spacing: .04em;
     margin-bottom: 6px;
 }
-body.command-os-shell #main_content .command-os-filter-bar .form-control,
+body.command-os-shell #main_content .command-os-filter-bar .form-control:not(.bootstrap-select),
 body.command-os-shell #main_content .command-os-filter-bar .bootstrap-select > .btn {
     background-color: var(--co-surface) !important;
     border: 1px solid var(--co-border-strong) !important;
@@ -5752,7 +5752,7 @@ body.command-os-shell #main_content .command-os-filter-bar .bootstrap-select > .
     box-shadow: none !important;
 }
 body.command-os-shell #main_content .command-os-filter-bar .bootstrap-select > .btn:focus,
-body.command-os-shell #main_content .command-os-filter-bar .form-control:focus {
+body.command-os-shell #main_content .command-os-filter-bar .form-control:not(.bootstrap-select):focus {
     border-color: var(--co-purple) !important;
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--co-purple) 20%, transparent) !important;
 }
@@ -6242,9 +6242,9 @@ html[data-command-theme='dark'] body.command-os-shell #main_content .table tbody
     border-color: rgba(139, 92, 246, 0.15) !important;
 }
 
-html[data-command-theme='dark'] body.command-os-shell #main_content .form-control,
+html[data-command-theme='dark'] body.command-os-shell #main_content .form-control:not(.bootstrap-select),
 html[data-command-theme='dark'] body.command-os-shell #main_content .form-select,
-html[data-command-theme='dark'] body.command-os-shell #main_content select.form-control {
+html[data-command-theme='dark'] body.command-os-shell #main_content select.form-control:not(.selectpicker) {
     background: #0b1033 !important;
     background-color: #0b1033 !important;
     border: 1px solid rgba(139, 92, 246, 0.3) !important;
@@ -6252,7 +6252,7 @@ html[data-command-theme='dark'] body.command-os-shell #main_content select.form-
     border-radius: 8px !important;
 }
 
-html[data-command-theme='dark'] body.command-os-shell #main_content .form-control:focus {
+html[data-command-theme='dark'] body.command-os-shell #main_content .form-control:not(.bootstrap-select):focus {
     border-color: #8b5cf6 !important;
     box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.3) !important;
 }
@@ -6393,9 +6393,9 @@ html:not([data-command-theme='dark']) body.command-os-shell #main_content .table
     border-color: #e2e8f0 !important;
 }
 
-html[data-command-theme='light'] body.command-os-shell #main_content .form-control,
+html[data-command-theme='light'] body.command-os-shell #main_content .form-control:not(.bootstrap-select),
 html[data-command-theme='light'] body.command-os-shell #main_content .form-select,
-html:not([data-command-theme='dark']) body.command-os-shell #main_content .form-control {
+html:not([data-command-theme='dark']) body.command-os-shell #main_content .form-control:not(.bootstrap-select) {
     background: #f8fafc !important;
     background-color: #f8fafc !important;
     border: 1px solid #cbd5e1 !important;
@@ -6755,39 +6755,51 @@ html[data-command-theme='dark'] .command-os-field-group label {
     color: #cbd5e1 !important;
 }
 
-.command-os-field-group .form-control {
+.command-os-field-group .form-control:not(.bootstrap-select) {
     height: 42px !important;
     border-radius: 10px !important;
     font-size: 13px !important;
     transition: all 0.2s ease !important;
 }
 
-html[data-command-theme='light'] .command-os-field-group .form-control,
-html:not([data-command-theme='dark']) body.command-os-shell .command-os-field-group .form-control {
+html[data-command-theme='light'] .command-os-field-group .form-control:not(.bootstrap-select),
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-field-group .form-control:not(.bootstrap-select) {
     background: #f8fafc !important;
     border: 1px solid #cbd5e1 !important;
     color: #0f172a !important;
 }
 
-html[data-command-theme='dark'] .command-os-field-group .form-control {
+html[data-command-theme='dark'] .command-os-field-group .form-control:not(.bootstrap-select) {
     background: #090d24 !important;
     border: 1px solid rgba(168, 85, 247, 0.25) !important;
     color: #f8fafc !important;
 }
 
-.command-os-field-group .form-control:focus {
+.command-os-field-group .form-control:not(.bootstrap-select):focus {
     border-color: #8b5cf6 !important;
     box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2) !important;
 }
 
-.command-os-field-group select.form-control {
+.command-os-field-group select.form-control:not(.bootstrap-select) {
     appearance: none;
     -webkit-appearance: none;
     background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b5cf6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e") !important;
     background-repeat: no-repeat !important;
-    background-position: right 12px center !important;
+    background-position: right 14px center !important;
     background-size: 16px !important;
-    padding-right: 36px !important;
+    padding-right: 38px !important;
+    cursor: pointer !important;
+}
+
+.command-os-field-group select.form-control:not(.bootstrap-select) option {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    padding: 10px 14px !important;
+}
+
+html[data-command-theme='dark'] .command-os-field-group select.form-control:not(.bootstrap-select) option {
+    background-color: #0d1238 !important;
+    color: #f8fafc !important;
 }
 
 /* Secret controls */
@@ -7192,3 +7204,809 @@ html[data-command-theme='dark'] .command-os-footer-status {
     transform: translateY(0);
 }
 
+body.command-os-shell #sidebar .command-os-nav-editor {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--co-border);
+    background: var(--co-surface);
+}
+
+.command-os-nav-editor-toggle,
+.command-os-nav-save-submit,
+.command-os-nav-save-discard,
+.command-os-nav-save-cancel {
+    min-height: 36px;
+    border: 1px solid var(--co-border-strong);
+    border-radius: 9px;
+    padding: 7px 10px;
+    color: var(--co-ink);
+    background: var(--co-surface-muted);
+    cursor: pointer;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.command-os-nav-editor-toggle { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; }
+.command-os-nav-editor-toggle[aria-pressed="true"],
+.command-os-nav-save-submit { border-color: transparent; color: #fff; background: linear-gradient(110deg, var(--co-purple), var(--co-blue)); }
+.command-os-nav-editor-status,
+.command-os-nav-editor [data-navigation-editor-status] { margin: 7px 2px 0; color: var(--co-muted); font-size: 9px; line-height: 1.35; text-align: center; }
+.command-os-navigation.is-reordering [data-nav-group],
+.command-os-navigation.is-reordering [data-nav-item] { cursor: grab; outline: 1px dashed transparent; outline-offset: 2px; }
+.command-os-navigation.is-reordering [data-nav-group]:hover,
+.command-os-navigation.is-reordering [data-nav-item]:hover,
+.command-os-navigation.is-reordering [data-nav-group]:focus-visible,
+.command-os-navigation.is-reordering [data-nav-item]:focus-visible { outline-color: var(--co-purple); }
+.command-os-navigation.is-reordering .is-dragging { cursor: grabbing; opacity: .45; }
+.command-os-nav-save-dialog { width: min(460px, calc(100vw - 28px)); border: 1px solid var(--co-border); border-radius: 16px; padding: 22px; color: var(--co-ink); background: var(--co-surface); box-shadow: 0 24px 72px rgb(12 18 45 / 30%); }
+.command-os-nav-save-dialog::backdrop { background: rgb(7 12 31 / 58%); backdrop-filter: blur(3px); }
+.command-os-nav-save-dialog h2 { margin: 0 0 8px; font-size: 17px; font-weight: 780; }
+.command-os-nav-save-dialog p { color: var(--co-muted); font-size: 12px; }
+.command-os-nav-save-dialog form > div { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; margin-top: 18px; }
+.command-os-nav-save-dialog button:focus-visible,
+.command-os-nav-editor-toggle:focus-visible { outline: 3px solid color-mix(in srgb, var(--co-purple) 45%, transparent); outline-offset: 2px; }
+.command-os-nav-save-error { color: #c22d4b !important; }
+
+@media (max-width: 480px) {
+    .command-os-nav-save-dialog form > div { justify-content: stretch; }
+    .command-os-nav-save-dialog form > div > button { flex: 1 1 100%; }
+}
+
+/* ==========================================================================
+   COMMAND OS // DROPDOWNS, SELECT2, MODALS & POPUPS MODERNIZATION
+   ========================================================================== */
+
+/* 1. UNIVERSAL BOOTSTRAP-SELECT WRAPPER RESET (ELIMINATES DOUBLE BORDERS) */
+.bootstrap-select,
+.bootstrap-select.form-control,
+div.bootstrap-select,
+div.bootstrap-select.form-control,
+.command-os-filter-card .bootstrap-select,
+.command-os-filter-card .bootstrap-select.form-control,
+.command-os-filter-bar .bootstrap-select,
+.command-os-filter-bar .bootstrap-select.form-control,
+.command-input-wrap .bootstrap-select,
+.command-input-wrap .bootstrap-select.form-control,
+.command-os-field-group .bootstrap-select,
+.command-os-field-group .bootstrap-select.form-control,
+body.command-os-shell .bootstrap-select,
+body.command-os-shell .bootstrap-select.form-control {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    border-width: 0 !important;
+    border-style: none !important;
+    border-color: transparent !important;
+    border-radius: 0 !important;
+    outline: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    width: 100% !important;
+}
+
+.bootstrap-select:focus,
+.bootstrap-select.form-control:focus,
+.bootstrap-select:focus-within,
+.bootstrap-select.open,
+.bootstrap-select.show {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* 2. THE SINGLE CLEAN BORDER ON THE DROPDOWN TOGGLE BUTTON */
+.bootstrap-select > .btn,
+.bootstrap-select > .btn.dropdown-toggle,
+.command-os-filter-card .bootstrap-select > .btn,
+.command-os-filter-bar .bootstrap-select > .btn,
+.command-os-field-group .bootstrap-select > .btn {
+    border-radius: 10px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    padding: 0 14px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    outline: none !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.command-input-wrap .bootstrap-select > .btn,
+.command-input-wrap .bootstrap-select > .btn.dropdown-toggle {
+    padding-left: 42px !important;
+}
+
+/* Dropdown Button - Light Theme */
+html[data-command-theme='light'] .bootstrap-select > .btn,
+html[data-command-theme='light'] body.command-os-shell .bootstrap-select > .btn,
+html:not([data-command-theme='dark']) body.command-os-shell .bootstrap-select > .btn {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #1e293b !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+}
+
+html[data-command-theme='light'] .bootstrap-select > .btn:hover,
+html[data-command-theme='light'] .bootstrap-select > .btn:focus,
+html[data-command-theme='light'] .bootstrap-select.open > .btn,
+html[data-command-theme='light'] .bootstrap-select.show > .btn,
+html:not([data-command-theme='dark']) body.command-os-shell .bootstrap-select > .btn:hover,
+html:not([data-command-theme='dark']) body.command-os-shell .bootstrap-select > .btn:focus,
+html:not([data-command-theme='dark']) body.command-os-shell .bootstrap-select.open > .btn,
+html:not([data-command-theme='dark']) body.command-os-shell .bootstrap-select.show > .btn {
+    border-color: #8b5cf6 !important;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.16) !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+}
+
+/* Dropdown Button - Dark Theme */
+html[data-command-theme='dark'] .bootstrap-select > .btn,
+html[data-command-theme='dark'] body.command-os-shell .bootstrap-select > .btn {
+    background: #0d1226 !important;
+    background-color: #0d1226 !important;
+    border: 1px solid rgba(65, 85, 140, 0.5) !important;
+    color: #e2e8f0 !important;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.25) !important;
+}
+
+html[data-command-theme='dark'] .bootstrap-select > .btn:hover,
+html[data-command-theme='dark'] .bootstrap-select > .btn:focus,
+html[data-command-theme='dark'] .bootstrap-select.open > .btn,
+html[data-command-theme='dark'] .bootstrap-select.show > .btn {
+    border-color: #8b5cf6 !important;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.3) !important;
+    background: #111736 !important;
+    color: #ffffff !important;
+}
+
+/* Button text and caret */
+.bootstrap-select .filter-option {
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    text-align: left !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+html[data-command-theme='light'] .bootstrap-select .filter-option,
+html:not([data-command-theme='dark']) body.command-os-shell .bootstrap-select .filter-option {
+    color: #1e293b !important;
+}
+html[data-command-theme='dark'] .bootstrap-select .filter-option {
+    color: #e2e8f0 !important;
+}
+
+/* Placeholder state */
+html[data-command-theme='light'] .bootstrap-select .bs-placeholder .filter-option,
+html:not([data-command-theme='dark']) body.command-os-shell .bootstrap-select .bs-placeholder .filter-option {
+    color: #64748b !important;
+}
+html[data-command-theme='dark'] .bootstrap-select .bs-placeholder .filter-option {
+    color: #94a3b8 !important;
+}
+
+.bootstrap-select .bs-caret {
+    margin-left: auto !important;
+    padding-left: 8px !important;
+}
+.bootstrap-select .caret {
+    border-top: 5px solid #8b5cf6 !important;
+    border-right: 4px solid transparent !important;
+    border-left: 4px solid transparent !important;
+    border-bottom: 0 !important;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    vertical-align: middle !important;
+}
+.bootstrap-select.open .caret,
+.bootstrap-select.show .caret {
+    transform: rotate(180deg) !important;
+}
+
+/* 3. COMMAND OS DROPDOWN MENU POPUP */
+.bootstrap-select .dropdown-menu,
+body.command-os-shell .dropdown-menu {
+    border-radius: 14px !important;
+    padding: 8px !important;
+    margin-top: 6px !important;
+    z-index: 1060 !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    animation: commandDropdownFade 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+@keyframes commandDropdownFade {
+    from {
+        opacity: 0;
+        transform: translateY(-6px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+html[data-command-theme='light'] .bootstrap-select .dropdown-menu,
+html[data-command-theme='light'] body.command-os-shell .dropdown-menu,
+html:not([data-command-theme='dark']) body.command-os-shell .bootstrap-select .dropdown-menu,
+html:not([data-command-theme='dark']) body.command-os-shell .dropdown-menu {
+    background: #ffffff !important;
+    border: 1px solid rgba(139, 92, 246, 0.25) !important;
+    box-shadow: 0 18px 45px rgba(139, 92, 246, 0.16), 0 4px 12px rgba(0, 0, 0, 0.06) !important;
+    color: #0f172a !important;
+}
+
+html[data-command-theme='dark'] .bootstrap-select .dropdown-menu,
+html[data-command-theme='dark'] body.command-os-shell .dropdown-menu {
+    background: #0d1238 !important;
+    border: 1px solid rgba(139, 92, 246, 0.4) !important;
+    box-shadow: 0 20px 55px rgba(0, 0, 0, 0.8), 0 0 25px rgba(139, 92, 246, 0.2) !important;
+    color: #f8fafc !important;
+}
+
+/* Searchbox inside Dropdown */
+.bootstrap-select .bs-searchbox {
+    padding: 4px 4px 8px 4px !important;
+}
+.bootstrap-select .bs-searchbox .form-control {
+    height: 36px !important;
+    border-radius: 8px !important;
+    font-size: 12px !important;
+    padding: 0 12px !important;
+}
+html[data-command-theme='light'] .bootstrap-select .bs-searchbox .form-control,
+html:not([data-command-theme='dark']) body.command-os-shell .bootstrap-select .bs-searchbox .form-control {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #1e293b !important;
+}
+html[data-command-theme='light'] .bootstrap-select .bs-searchbox .form-control:focus,
+html:not([data-command-theme='dark']) body.command-os-shell .bootstrap-select .bs-searchbox .form-control:focus {
+    border-color: #8b5cf6 !important;
+    background: #ffffff !important;
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2) !important;
+}
+html[data-command-theme='dark'] .bootstrap-select .bs-searchbox .form-control {
+    background: #080b1f !important;
+    border: 1px solid rgba(139, 92, 246, 0.35) !important;
+    color: #f1f5f9 !important;
+}
+html[data-command-theme='dark'] .bootstrap-select .bs-searchbox .form-control:focus {
+    border-color: #a855f7 !important;
+    background: #0d1230 !important;
+    box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.3) !important;
+}
+
+/* Actionsbox inside Dropdown (Select All / Deselect All) */
+.bootstrap-select .bs-actionsbox {
+    padding: 4px 4px 8px 4px !important;
+}
+.bootstrap-select .bs-actionsbox .btn-group {
+    display: flex !important;
+    gap: 6px !important;
+    width: 100% !important;
+}
+.bootstrap-select .bs-actionsbox .btn-group button {
+    border-radius: 6px !important;
+    font-size: 10px !important;
+    font-weight: 750 !important;
+    letter-spacing: 0.05em !important;
+    text-transform: uppercase !important;
+    padding: 5px 10px !important;
+    border: 1px solid rgba(139, 92, 246, 0.3) !important;
+    background: rgba(139, 92, 246, 0.08) !important;
+    color: #8b5cf6 !important;
+    transition: all 0.15s ease !important;
+    flex: 1 !important;
+}
+.bootstrap-select .bs-actionsbox .btn-group button:hover {
+    background: #8b5cf6 !important;
+    color: #ffffff !important;
+    border-color: #8b5cf6 !important;
+}
+
+/* Dropdown Options List */
+.bootstrap-select .dropdown-menu.inner {
+    max-height: 260px !important;
+    padding: 0 !important;
+}
+.bootstrap-select .dropdown-menu li {
+    margin-bottom: 2px !important;
+}
+.bootstrap-select .dropdown-menu li a,
+body.command-os-shell .dropdown-item {
+    border-radius: 8px !important;
+    padding: 8px 12px !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    transition: all 0.15s ease !important;
+    display: flex !important;
+    align-items: center !important;
+    text-decoration: none !important;
+}
+
+html[data-command-theme='light'] .bootstrap-select .dropdown-menu li a,
+html[data-command-theme='light'] body.command-os-shell .dropdown-item,
+html:not([data-command-theme='dark']) body.command-os-shell .bootstrap-select .dropdown-menu li a,
+html:not([data-command-theme='dark']) body.command-os-shell .dropdown-item {
+    color: #334155 !important;
+}
+html[data-command-theme='light'] .bootstrap-select .dropdown-menu li a:hover,
+html[data-command-theme='light'] .bootstrap-select .dropdown-menu li.active a,
+html[data-command-theme='light'] .bootstrap-select .dropdown-menu li.selected a,
+html:not([data-command-theme='dark']) body.command-os-shell .bootstrap-select .dropdown-menu li a:hover,
+html:not([data-command-theme='dark']) body.command-os-shell .bootstrap-select .dropdown-menu li.selected a {
+    background: #f4f0ff !important;
+    color: #7c3aed !important;
+    font-weight: 600 !important;
+}
+
+html[data-command-theme='dark'] .bootstrap-select .dropdown-menu li a,
+html[data-command-theme='dark'] body.command-os-shell .dropdown-item {
+    color: #cbd5e1 !important;
+}
+html[data-command-theme='dark'] .bootstrap-select .dropdown-menu li a:hover,
+html[data-command-theme='dark'] .bootstrap-select .dropdown-menu li.active a,
+html[data-command-theme='dark'] .bootstrap-select .dropdown-menu li.selected a {
+    background: rgba(139, 92, 246, 0.22) !important;
+    color: #ffffff !important;
+    font-weight: 600 !important;
+}
+
+.bootstrap-select .dropdown-menu li.selected a .check-mark {
+    color: #8b5cf6 !important;
+    margin-right: 8px !important;
+    font-weight: 900 !important;
+}
+
+/* 4. SELECT2 COMMAND OS POPUP DROPDOWN MENU */
+.select2-dropdown {
+    border-radius: 12px !important;
+    margin-top: 4px !important;
+    overflow: hidden !important;
+    z-index: 1060 !important;
+    padding: 6px !important;
+    animation: commandDropdownFade 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+html[data-command-theme='light'] .select2-dropdown,
+html:not([data-command-theme='dark']) body.command-os-shell .select2-dropdown {
+    background: #ffffff !important;
+    border: 1px solid rgba(139, 92, 246, 0.25) !important;
+    box-shadow: 0 16px 40px rgba(139, 92, 246, 0.16) !important;
+}
+
+html[data-command-theme='dark'] .select2-dropdown {
+    background: #0d1238 !important;
+    border: 1px solid rgba(139, 92, 246, 0.4) !important;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 25px rgba(139, 92, 246, 0.2) !important;
+}
+
+.select2-container--default .select2-results__option {
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    padding: 8px 12px !important;
+    margin: 2px 0 !important;
+    border-radius: 6px !important;
+    transition: all 0.15s ease !important;
+}
+
+html[data-command-theme='light'] .select2-container--default .select2-results__option,
+html:not([data-command-theme='dark']) body.command-os-shell .select2-container--default .select2-results__option {
+    color: #334155 !important;
+}
+
+html[data-command-theme='light'] .select2-container--default .select2-results__option--highlighted[aria-selected],
+html:not([data-command-theme='dark']) body.command-os-shell .select2-container--default .select2-results__option--highlighted[aria-selected] {
+    background: #f4f0ff !important;
+    color: #7c3aed !important;
+    font-weight: 600 !important;
+}
+
+html[data-command-theme='dark'] .select2-container--default .select2-results__option {
+    color: #cbd5e1 !important;
+}
+
+html[data-command-theme='dark'] .select2-container--default .select2-results__option--highlighted[aria-selected] {
+    background: rgba(139, 92, 246, 0.25) !important;
+    color: #ffffff !important;
+    font-weight: 600 !important;
+}
+
+.select2-container--default .select2-search--dropdown {
+    padding: 4px 4px 8px 4px !important;
+}
+.select2-container--default .select2-search--dropdown .select2-search__field {
+    border-radius: 8px !important;
+    height: 34px !important;
+    font-size: 12px !important;
+    padding: 0 10px !important;
+}
+html[data-command-theme='light'] .select2-container--default .select2-search--dropdown .select2-search__field,
+html:not([data-command-theme='dark']) body.command-os-shell .select2-container--default .select2-search--dropdown .select2-search__field {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #0f172a !important;
+}
+html[data-command-theme='dark'] .select2-container--default .select2-search--dropdown .select2-search__field {
+    background: #080b1f !important;
+    border: 1px solid rgba(139, 92, 246, 0.35) !important;
+    color: #f1f5f9 !important;
+}
+
+/* 5. MODALS, BOOTBOX & DIALOGS MODERNIZATION */
+.modal.fade .modal-dialog {
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease-out;
+    transform: scale(0.96) translateY(-10px);
+}
+.modal.show .modal-dialog {
+    transform: scale(1) translateY(0);
+}
+
+.modal-backdrop.show {
+    background-color: rgba(6, 9, 24, 0.75) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    opacity: 1 !important;
+}
+
+body.command-os-shell .modal-content,
+.bootbox .modal-content {
+    border-radius: 18px !important;
+    overflow: hidden !important;
+    position: relative !important;
+}
+
+/* Dark Mode Modal & Bootbox */
+html[data-command-theme='dark'] body.command-os-shell .modal-content,
+html[data-command-theme='dark'] .bootbox .modal-content {
+    background: #0d1238 !important;
+    border: 1px solid rgba(139, 92, 246, 0.35) !important;
+    box-shadow: 0 25px 70px rgba(0, 0, 0, 0.75), 0 0 40px rgba(139, 92, 246, 0.2) !important;
+    color: #f8fafc !important;
+}
+
+/* Light Mode Modal & Bootbox */
+html[data-command-theme='light'] body.command-os-shell .modal-content,
+html[data-command-theme='light'] .bootbox .modal-content,
+html:not([data-command-theme='dark']) body.command-os-shell .modal-content,
+html:not([data-command-theme='dark']) .bootbox .modal-content {
+    background: #ffffff !important;
+    border: 1px solid rgba(139, 92, 246, 0.22) !important;
+    box-shadow: 0 25px 60px rgba(139, 92, 246, 0.16), 0 6px 18px rgba(0, 0, 0, 0.06) !important;
+    color: #0f172a !important;
+}
+
+/* Modal Header */
+body.command-os-shell .modal-header {
+    padding: 16px 22px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+}
+
+html[data-command-theme='dark'] body.command-os-shell .modal-header {
+    background: linear-gradient(135deg, #0c1033 0%, #171d52 50%, #25176c 100%) !important;
+    border-bottom: 1px solid rgba(139, 92, 246, 0.3) !important;
+    color: #ffffff !important;
+}
+
+html[data-command-theme='light'] body.command-os-shell .modal-header,
+html:not([data-command-theme='dark']) body.command-os-shell .modal-header {
+    background: linear-gradient(135deg, #ffffff 0%, #f6f5ff 55%, #ede9fe 100%) !important;
+    border-bottom: 1px solid rgba(139, 92, 246, 0.2) !important;
+    color: #1e1b4b !important;
+}
+
+body.command-os-shell .modal-title {
+    font-size: 14px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.06em !important;
+    text-transform: uppercase !important;
+    margin: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+}
+
+/* Modern Close Button (X) */
+body.command-os-shell .modal-header .close,
+body.command-os-shell .bootbox-close-button,
+.bootbox .close,
+.bootbox-close-button {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 50% !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(139, 92, 246, 0.12) !important;
+    border: 1px solid rgba(139, 92, 246, 0.25) !important;
+    color: #8b5cf6 !important;
+    font-size: 18px !important;
+    line-height: 1 !important;
+    opacity: 1 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    cursor: pointer !important;
+    text-shadow: none !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    outline: none !important;
+}
+
+body.command-os-shell .modal-header .close:hover,
+body.command-os-shell .bootbox-close-button:hover,
+.bootbox .close:hover,
+.bootbox-close-button:hover {
+    background: #8b5cf6 !important;
+    color: #ffffff !important;
+    border-color: #8b5cf6 !important;
+    transform: rotate(90deg) scale(1.08) !important;
+    box-shadow: 0 0 14px rgba(139, 92, 246, 0.5) !important;
+}
+
+/* Bootbox Specific adjustments */
+.bootbox .modal-body {
+    padding: 12px !important;
+    position: relative !important;
+}
+.bootbox .bootbox-close-button {
+    position: absolute !important;
+    top: 14px !important;
+    right: 16px !important;
+    z-index: 1055 !important;
+}
+.bootbox .bootbox-body iframe {
+    border-radius: 12px !important;
+    display: block !important;
+    width: 100% !important;
+    background: transparent !important;
+}
+
+/* HTML5 Dialog Elements (PMTA dialog, Suppression details dialog, etc.) */
+dialog.pmta-control-dialog,
+dialog#drops-suppression-details,
+dialog#campaign-clone-dialog,
+dialog.command-os-nav-save-dialog {
+    border: none !important;
+    border-radius: 18px !important;
+    padding: 24px !important;
+    max-width: min(580px, calc(100vw - 32px)) !important;
+    width: 100% !important;
+    animation: commandDialogZoom 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+@keyframes commandDialogZoom {
+    from {
+        opacity: 0;
+        transform: scale(0.92) translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+dialog.pmta-control-dialog::backdrop,
+dialog#drops-suppression-details::backdrop,
+dialog#campaign-clone-dialog::backdrop,
+dialog.command-os-nav-save-dialog::backdrop {
+    background-color: rgba(6, 9, 24, 0.75) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+}
+
+html[data-command-theme='dark'] dialog.pmta-control-dialog,
+html[data-command-theme='dark'] dialog#drops-suppression-details,
+html[data-command-theme='dark'] dialog#campaign-clone-dialog,
+html[data-command-theme='dark'] dialog.command-os-nav-save-dialog {
+    background: #0d1238 !important;
+    border: 1px solid rgba(139, 92, 246, 0.4) !important;
+    box-shadow: 0 25px 70px rgba(0, 0, 0, 0.8), 0 0 35px rgba(139, 92, 246, 0.25) !important;
+    color: #f8fafc !important;
+}
+
+html[data-command-theme='light'] dialog.pmta-control-dialog,
+html[data-command-theme='light'] dialog#drops-suppression-details,
+html[data-command-theme='light'] dialog#campaign-clone-dialog,
+html[data-command-theme='light'] dialog.command-os-nav-save-dialog,
+html:not([data-command-theme='dark']) body.command-os-shell dialog.pmta-control-dialog,
+html:not([data-command-theme='dark']) body.command-os-shell dialog#drops-suppression-details {
+    background: #ffffff !important;
+    border: 1px solid rgba(139, 92, 246, 0.25) !important;
+    box-shadow: 0 25px 60px rgba(139, 92, 246, 0.16), 0 6px 18px rgba(0, 0, 0, 0.06) !important;
+    color: #0f172a !important;
+}
+
+/* 6. COMMAND OS // STANDALONE MODAL POPUP IFRAME STYLES */
+body.command-os-standalone-popup {
+    background: transparent !important;
+    background-color: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    min-height: auto !important;
+}
+body.command-os-standalone-popup #page-container,
+body.command-os-standalone-popup #main-container,
+body.command-os-standalone-popup .content {
+    background: transparent !important;
+    padding: 4px 6px !important;
+}
+
+body.command-os-standalone-popup .block {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    margin-bottom: 0 !important;
+}
+
+body.command-os-standalone-popup .block-header {
+    border-radius: 12px !important;
+    padding: 14px 18px !important;
+    margin-bottom: 16px !important;
+}
+
+html[data-command-theme='dark'] body.command-os-standalone-popup .block-header {
+    background: linear-gradient(135deg, rgba(13, 18, 56, 0.85) 0%, rgba(36, 20, 106, 0.85) 100%) !important;
+    border: 1px solid rgba(139, 92, 246, 0.35) !important;
+    color: #ffffff !important;
+}
+
+html[data-command-theme='light'] body.command-os-standalone-popup .block-header,
+html:not([data-command-theme='dark']) body.command-os-standalone-popup .block-header {
+    background: linear-gradient(135deg, #ffffff 0%, #f6f5ff 60%, #ede9fe 100%) !important;
+    border: 1px solid rgba(139, 92, 246, 0.22) !important;
+    color: #1e1b4b !important;
+}
+
+body.command-os-standalone-popup .block-title {
+    font-size: 13px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.06em !important;
+    text-transform: uppercase !important;
+}
+
+body.command-os-standalone-popup .block-content {
+    padding: 0 !important;
+}
+
+body.command-os-standalone-popup label {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.04em !important;
+    text-transform: uppercase !important;
+    margin-bottom: 6px !important;
+}
+
+html[data-command-theme='dark'] body.command-os-standalone-popup label {
+    color: #94a3b8 !important;
+}
+html[data-command-theme='light'] body.command-os-standalone-popup label,
+html:not([data-command-theme='dark']) body.command-os-standalone-popup label {
+    color: #475569 !important;
+}
+
+body.command-os-standalone-popup .form-control:not(.bootstrap-select) {
+    border-radius: 9px !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    transition: all 0.18s ease !important;
+}
+
+html[data-command-theme='dark'] body.command-os-standalone-popup .form-control:not(.bootstrap-select) {
+    background: #080c24 !important;
+    border: 1px solid rgba(139, 92, 246, 0.3) !important;
+    color: #f1f5f9 !important;
+}
+html[data-command-theme='dark'] body.command-os-standalone-popup .form-control:not(.bootstrap-select):focus {
+    border-color: #8b5cf6 !important;
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.3) !important;
+}
+
+html[data-command-theme='light'] body.command-os-standalone-popup .form-control:not(.bootstrap-select),
+html:not([data-command-theme='dark']) body.command-os-standalone-popup .form-control:not(.bootstrap-select) {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #1e293b !important;
+}
+html[data-command-theme='light'] body.command-os-standalone-popup .form-control:not(.bootstrap-select):focus,
+html:not([data-command-theme='dark']) body.command-os-standalone-popup .form-control:not(.bootstrap-select):focus {
+    border-color: #8b5cf6 !important;
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.18) !important;
+}
+
+body.command-os-standalone-popup .btn-info,
+body.command-os-standalone-popup .btn-primary,
+body.command-os-standalone-popup .btn-warning {
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%) !important;
+    border: none !important;
+    border-radius: 9px !important;
+    color: #ffffff !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.06em !important;
+    padding: 10px 24px !important;
+    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.35) !important;
+    transition: all 0.18s ease !important;
+}
+body.command-os-standalone-popup .btn-info:hover,
+body.command-os-standalone-popup .btn-primary:hover,
+body.command-os-standalone-popup .btn-warning:hover {
+    box-shadow: 0 6px 20px rgba(139, 92, 246, 0.5) !important;
+    transform: translateY(-1px) !important;
+    filter: brightness(1.1) !important;
+}
+
+body.command-os-standalone-popup .btn-alt-primary,
+body.command-os-standalone-popup .btn-secondary,
+body.command-os-standalone-popup .btn-alt-secondary {
+    border-radius: 9px !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.05em !important;
+    padding: 10px 20px !important;
+    transition: all 0.18s ease !important;
+}
+html[data-command-theme='dark'] body.command-os-standalone-popup .btn-alt-primary,
+html[data-command-theme='dark'] body.command-os-standalone-popup .btn-secondary,
+html[data-command-theme='dark'] body.command-os-standalone-popup .btn-alt-secondary {
+    background: rgba(139, 92, 246, 0.12) !important;
+    border: 1px solid rgba(139, 92, 246, 0.3) !important;
+    color: #c4b5fd !important;
+}
+html[data-command-theme='light'] body.command-os-standalone-popup .btn-alt-primary,
+html[data-command-theme='light'] body.command-os-standalone-popup .btn-secondary,
+html[data-command-theme='light'] body.command-os-standalone-popup .btn-alt-secondary,
+html:not([data-command-theme='dark']) body.command-os-standalone-popup .btn-alt-primary {
+    background: #f1f5f9 !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #475569 !important;
+}
+
+/* 7. CUSTOM SWITCH TOGGLE (VISIONARY PILL SWITCHES) */
+.custom-control.custom-switch .custom-control-input:checked ~ .custom-control-label::before {
+    background-color: #8b5cf6 !important;
+    border-color: #8b5cf6 !important;
+}
+.custom-control.custom-switch .custom-control-label::before {
+    border-radius: 12px !important;
+    height: 20px !important;
+    width: 38px !important;
+}
+.custom-control.custom-switch .custom-control-label::after {
+    border-radius: 50% !important;
+    height: 16px !important;
+    width: 16px !important;
+    top: calc(0.25rem + 2px) !important;
+}
+.custom-control-label {
+    font-size: 11px !important;
+    font-weight: 750 !important;
+    letter-spacing: 0.05em !important;
+}
+
+/* 8. DATATABLES SEARCH BOX TEXT RESET (NO TEXT OVERLAP) */
+.command-os-table-card .dataTables_filter label,
+body.command-os-shell #main_content .dataTables_wrapper .dataTables_filter label {
+    font-size: 0 !important;
+    color: transparent !important;
+    position: relative !important;
+    display: inline-flex !important;
+    align-items: center !important;
+}
+
+.command-os-table-card .dataTables_filter label input,
+body.command-os-shell #main_content .dataTables_wrapper .dataTables_filter label input {
+    font-size: 11px !important;
+}

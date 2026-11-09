@@ -80,24 +80,49 @@
                             <div class="command-os-settings-card-tag">10 PARAMETERS</div>
                         </div>
                         <div class="command-os-settings-card-body">
+                            {{-- Row 1: Primary System Identifiers (4 columns) --}}
                             <div class="row">
                                 <div class="col-sm-12 col-md-6 col-lg-3">
                                     @include('console.app-settings.partials.field', ['field' => 'app_name', 'label' => 'APP NAME', 'type' => 'text', 'secret' => false])
+                                </div>
+                                <div class="col-sm-12 col-md-6 col-lg-3">
                                     @include('console.app-settings.partials.field', ['field' => 'optizmo_token', 'label' => 'OPTIZMO TOKEN', 'type' => 'text', 'secret' => true])
+                                </div>
+                                <div class="col-sm-12 col-md-6 col-lg-3">
                                     @include('console.app-settings.partials.field', ['field' => 'tracking_ingest_key', 'label' => 'TRACKING APP KEY', 'type' => 'text', 'secret' => true])
                                 </div>
                                 <div class="col-sm-12 col-md-6 col-lg-3">
+                                    @include('console.app-settings.partials.field', ['field' => 'cloud_servers_password', 'label' => 'CLOUD SERVERS PASSWORD', 'type' => 'text', 'secret' => true])
+                                </div>
+                            </div>
+
+                            <hr class="command-os-divider">
+
+                            {{-- Row 2: API Keys & Verification Tokens (3 columns) --}}
+                            <div class="row">
+                                <div class="col-sm-12 col-md-4">
                                     @include('console.app-settings.partials.field', ['field' => 'ip_api_key', 'label' => 'IP API TOKEN', 'type' => 'text', 'secret' => true])
-                                    @include('console.app-settings.partials.field', ['field' => 'offer_suppression_update', 'label' => 'UPDATE OFFER SUPPRESSION AFTER', 'type' => 'number', 'secret' => false])
+                                </div>
+                                <div class="col-sm-12 col-md-4">
+                                    @include('console.app-settings.partials.field', ['field' => 'dkim_key', 'label' => 'APP DKIM KEY', 'type' => 'text', 'secret' => true])
+                                </div>
+                                <div class="col-sm-12 col-md-4">
                                     @include('console.app-settings.partials.field', ['field' => 'hash_token', 'label' => 'FOLDERS HASH TOKEN', 'type' => 'text', 'secret' => true])
                                 </div>
-                                <div class="col-sm-12 col-md-6 col-lg-3">
-                                    @include('console.app-settings.partials.field', ['field' => 'dkim_key', 'label' => 'APP DKIM KEY', 'type' => 'text', 'secret' => true])
+                            </div>
+
+                            <hr class="command-os-divider">
+
+                            {{-- Row 3: Cadence & Platform Extensions (3 columns) --}}
+                            <div class="row">
+                                <div class="col-sm-12 col-md-4">
                                     @include('console.app-settings.partials.field', ['field' => 'extension_id', 'label' => 'SPONSOR EXTENSION ID', 'type' => 'text', 'secret' => false])
-                                    @include('console.app-settings.partials.field', ['field' => 'campaign_expire', 'label' => 'Campaign Expire (days)', 'type' => 'number', 'secret' => false])
                                 </div>
-                                <div class="col-sm-12 col-md-6 col-lg-3">
-                                    @include('console.app-settings.partials.field', ['field' => 'cloud_servers_password', 'label' => 'Cloud Servers Password', 'type' => 'text', 'secret' => true])
+                                <div class="col-sm-12 col-md-4">
+                                    @include('console.app-settings.partials.field', ['field' => 'campaign_expire', 'label' => 'CAMPAIGN EXPIRE (DAYS)', 'type' => 'number', 'secret' => false])
+                                </div>
+                                <div class="col-sm-12 col-md-4">
+                                    @include('console.app-settings.partials.field', ['field' => 'offer_suppression_update', 'label' => 'UPDATE SUPPRESSION AFTER', 'type' => 'number', 'secret' => false])
                                 </div>
                             </div>
                         </div>
@@ -118,32 +143,40 @@
                             <div class="command-os-settings-card-tag">NETWORK POLICIES</div>
                         </div>
                         <div class="command-os-settings-card-body">
+                            {{-- Master Switch & Fixed Redirect Target --}}
                             <div class="row">
-                                <div class="col-sm-12 col-md-6 col-lg-4">
+                                <div class="col-sm-12 col-md-6">
                                     @include('console.app-settings.partials.boolean', ['field' => 'apply_firewall', 'label' => 'APPLY FIREWALL'])
                                 </div>
-                                <div class="col-sm-12 col-md-6 col-lg-4">
+                                <div class="col-sm-12 col-md-6">
+                                    @include('console.app-settings.partials.field', ['field' => 'app_redirect', 'label' => 'REDIRECT UNKNOWNS TO', 'type' => 'url', 'secret' => false, 'readonly' => true])
+                                </div>
+                            </div>
+
+                            <hr class="command-os-divider">
+
+                            {{-- Management IP Whitelists (4 equal columns) --}}
+                            <div class="row">
+                                <div class="col-sm-12 col-md-6 col-lg-3">
                                     @include('console.app-settings.partials.multi-value', ['field' => 'dev_ips', 'label' => 'DEV IPS'])
                                 </div>
-                                <div class="col-sm-12 col-md-6 col-lg-4">
+                                <div class="col-sm-12 col-md-6 col-lg-3">
                                     @include('console.app-settings.partials.multi-value', ['field' => 'pmta_relay_ips', 'label' => 'PMTA RELAY SOURCE IPS'])
                                 </div>
-                                <div class="col-sm-12 col-md-6 col-lg-6">
+                                <div class="col-sm-12 col-md-6 col-lg-3">
                                     @include('console.app-settings.partials.multi-value', ['field' => 'production_ips', 'label' => 'PRODUCTION IPS'])
                                 </div>
-                                <div class="col-sm-12 col-md-6 col-lg-6">
+                                <div class="col-sm-12 col-md-6 col-lg-3">
                                     @include('console.app-settings.partials.multi-value', ['field' => 'rdp_ips', 'label' => 'RDP IPS'])
                                 </div>
                             </div>
 
-                            <hr style="border-color: rgba(139, 92, 246, 0.12); margin: 20px 0;">
+                            <hr class="command-os-divider">
 
+                            {{-- Application Traffic Access --}}
                             <div class="row">
-                                <div class="col-sm-12 col-md-6">
+                                <div class="col-12">
                                     @include('console.app-settings.partials.multi-value', ['field' => 'app_ips', 'label' => 'ALLOWED APP (IPS, DDNS)'])
-                                </div>
-                                <div class="col-sm-12 col-md-6">
-                                    @include('console.app-settings.partials.field', ['field' => 'app_redirect', 'label' => 'REDIRECT UNKNOWNS TO', 'type' => 'url', 'secret' => false, 'readonly' => true])
                                 </div>
                             </div>
                         </div>
@@ -164,14 +197,25 @@
                             <div class="command-os-settings-card-tag">FILTER RULES</div>
                         </div>
                         <div class="command-os-settings-card-body">
+                            {{-- Row 1: Active Filter Booleans (50/50 balanced) --}}
                             <div class="row">
-                                <div class="col-sm-12 col-md-6 col-lg-3">
-                                    @include('console.app-settings.partials.boolean', ['field' => 'block_proxies', 'label' => 'Block Proxy Ips'])
-                                    @include('console.app-settings.partials.boolean', ['field' => 'filter_geo', 'label' => 'Block Geo'])
+                                <div class="col-sm-12 col-md-6">
+                                    @include('console.app-settings.partials.boolean', ['field' => 'block_proxies', 'label' => 'BLOCK PROXY IPS'])
                                 </div>
-                                <div class="col-sm-12 col-md-6 col-lg-9">
-                                    @include('console.app-settings.partials.multi-value', ['field' => 'allowed_proxies', 'label' => 'Allowed Proxy (CLICK - UNSUBSCRIBE) Traffic (org string)'])
-                                    @include('console.app-settings.partials.multi-value', ['field' => 'blocked_open_traffic', 'label' => 'Blocked Proxy (OPEN) Traffic (org string)'])
+                                <div class="col-sm-12 col-md-6">
+                                    @include('console.app-settings.partials.boolean', ['field' => 'filter_geo', 'label' => 'BLOCK GEO'])
+                                </div>
+                            </div>
+
+                            <hr class="command-os-divider">
+
+                            {{-- Row 2: Proxy String Filters (50/50 balanced) --}}
+                            <div class="row">
+                                <div class="col-sm-12 col-md-6">
+                                    @include('console.app-settings.partials.multi-value', ['field' => 'allowed_proxies', 'label' => 'ALLOWED PROXY (CLICK / UNSUBSCRIBE) TRAFFIC'])
+                                </div>
+                                <div class="col-sm-12 col-md-6">
+                                    @include('console.app-settings.partials.multi-value', ['field' => 'blocked_open_traffic', 'label' => 'BLOCKED PROXY (OPEN) TRAFFIC'])
                                 </div>
                             </div>
 
@@ -180,10 +224,11 @@
                                     <i class="fas fa-tachometer-alt"></i>
                                 </div>
                                 <div class="command-os-info-banner-content">
-                                    <strong>BLOCK EMAIL THAT MAKE MORE X ACTION IN MINUTE:</strong> Speed-trap limits applied across link tracking endpoints.
+                                    <strong>BLOCK EMAIL ACTIONS SURPASSING SPEED LIMIT:</strong> Speed-trap thresholds applied in real-time across link tracking endpoints.
                                 </div>
                             </div>
 
+                            {{-- Row 3: Speed-trap Action Limits (3 equal columns) --}}
                             <div class="row">
                                 <div class="col-sm-12 col-md-4">
                                     @include('console.app-settings.partials.field', ['field' => 'bot_open', 'label' => 'CATCH BOTS OPEN', 'type' => 'number', 'secret' => false])
@@ -213,6 +258,7 @@
                             <div class="command-os-settings-card-tag">DELIVERY ENGINE</div>
                         </div>
                         <div class="command-os-settings-card-body">
+                            {{-- Row 1: Ports & Monitor (3 equal columns) --}}
                             <div class="row">
                                 <div class="col-sm-12 col-md-4">
                                     @include('console.app-settings.partials.field', ['field' => 'pmta_port', 'label' => 'PMTA PORT', 'type' => 'number', 'secret' => false])
@@ -230,12 +276,13 @@
                                     <i class="fas fa-info-circle"></i>
                                 </div>
                                 <div class="command-os-info-banner-content">
-                                    <small class="form-text text-muted mb-0">PMTA PORT is the mail listener. PMTA WEB MONITOR PUBLIC PORT is the only browser-facing monitor port (1213 by default). PMTA 4.5/5.0 use a private backend managed by AlphaLink behind Nginx; do not open a second public port. PMTA 4.0 uses the configured port directly. SHOW PMTA MONITOR TO ALL enables public read-only access. If both DEV IPS and PRODUCTION IPS are empty, installation enables the public read-only monitor automatically; administrator commands remain restricted to AlphaLink's relay source/local proxy. PMTA RELAY SOURCE IPS is detected from this AlphaLink host's DigitalOcean/Linode metadata when available, otherwise from independent outbound IPv4 checks, during setup and deployment. Manually saving this field switches to your own address list. Saving settings affects future installs and generated links, but does not rewrite an installed server.</small>
+                                    <span>PMTA PORT is the mail listener. PMTA WEB MONITOR PUBLIC PORT is the only browser-facing monitor port (1213 by default). PMTA 4.5/5.0 use a private backend managed by AlphaLink behind Nginx; do not open a second public port. PMTA 4.0 uses the configured port directly. SHOW PMTA MONITOR TO ALL enables public read-only access. If both DEV IPS and PRODUCTION IPS are empty, installation enables the public read-only monitor automatically.</span>
                                 </div>
                             </div>
 
-                            <hr style="border-color: rgba(139, 92, 246, 0.12); margin: 20px 0;">
+                            <hr class="command-os-divider">
 
+                            {{-- Row 2: Proxy Coordinates (3 equal columns) --}}
                             <div class="row">
                                 <div class="col-sm-12 col-md-4">
                                     @include('console.app-settings.partials.field', ['field' => 'proxy_port', 'label' => 'PROXY PORT', 'type' => 'number', 'secret' => false])
@@ -248,8 +295,9 @@
                                 </div>
                             </div>
 
-                            <hr style="border-color: rgba(139, 92, 246, 0.12); margin: 20px 0;">
+                            <hr class="command-os-divider">
 
+                            {{-- Row 3: Dormant Cadence & Webmail (4 equal columns) --}}
                             <div class="row">
                                 <div class="col-sm-12 col-md-6 col-lg-3">
                                     @include('console.app-settings.partials.boolean', ['field' => 'move_emails_to_dormant', 'label' => 'MOVE TO DORMANT'])
@@ -282,17 +330,30 @@
                             <div class="command-os-settings-card-tag">REDUNDANCY</div>
                         </div>
                         <div class="command-os-settings-card-body">
+                            {{-- Row 1: Backup Switch & Path (50/50 balanced) --}}
                             <div class="row">
-                                <div class="col-sm-12 col-md-6 col-lg-4">
+                                <div class="col-sm-12 col-md-6">
                                     @include('console.app-settings.partials.boolean', ['field' => 'allow_backup', 'label' => 'ALLOW BACKUP'])
+                                </div>
+                                <div class="col-sm-12 col-md-6">
                                     @include('console.app-settings.partials.field', ['field' => 'backup_path', 'label' => 'BACKUP PATH', 'type' => 'text', 'secret' => false])
                                 </div>
-                                <div class="col-sm-12 col-md-6 col-lg-4">
+                            </div>
+
+                            <hr class="command-os-divider">
+
+                            {{-- Row 2: Remote Coordinates & Credentials (4 equal columns) --}}
+                            <div class="row">
+                                <div class="col-sm-12 col-md-6 col-lg-3">
                                     @include('console.app-settings.partials.field', ['field' => 'backup_server', 'label' => 'BACKUP SERVER', 'type' => 'text', 'secret' => false, 'placeholder' => '1.1.1.1'])
+                                </div>
+                                <div class="col-sm-12 col-md-6 col-lg-3">
+                                    @include('console.app-settings.partials.field', ['field' => 'backup_port', 'label' => 'BACKUP PORT', 'type' => 'number', 'secret' => false, 'placeholder' => '22'])
+                                </div>
+                                <div class="col-sm-12 col-md-6 col-lg-3">
                                     @include('console.app-settings.partials.field', ['field' => 'backup_username', 'label' => 'BACKUP USERNAME', 'type' => 'text', 'secret' => false, 'placeholder' => 'root'])
                                 </div>
-                                <div class="col-sm-12 col-md-6 col-lg-4">
-                                    @include('console.app-settings.partials.field', ['field' => 'backup_port', 'label' => 'BACKUP PORT', 'type' => 'number', 'secret' => false, 'placeholder' => '22'])
+                                <div class="col-sm-12 col-md-6 col-lg-3">
                                     @include('console.app-settings.partials.field', ['field' => 'backup_password', 'label' => 'BACKUP PASSWORD', 'type' => 'text', 'secret' => true])
                                 </div>
                             </div>
@@ -314,6 +375,7 @@
                             <div class="command-os-settings-card-tag">CONNECTIVITY</div>
                         </div>
                         <div class="command-os-settings-card-body">
+                            {{-- Telegram Alerts (4 equal columns) --}}
                             <div class="row">
                                 <div class="col-sm-12 col-md-6 col-lg-3">
                                     @include('console.app-settings.partials.field', ['field' => 'telegram_bot_name', 'label' => 'TELEGRAM BOT NAME', 'type' => 'text', 'secret' => false])
@@ -329,12 +391,20 @@
                                 </div>
                             </div>
 
-                            <hr style="border-color: rgba(139, 92, 246, 0.12); margin: 20px 0;">
+                            <hr class="command-os-divider">
 
-                            <div class="row">
+                            {{-- Bitly Integration --}}
+                            <div class="row align-items-center">
                                 <div class="col-sm-12 col-md-4">
-                                    <p class="font-w700 mb-1"><i class="fas fa-link mr-1 text-primary"></i> BITLY API:</p>
-                                    <small class="text-muted d-block">CALLBACK URL: AlphaLink callback not implemented.</small>
+                                    <div class="command-os-api-service-badge">
+                                        <div class="command-os-api-service-icon">
+                                            <i class="fas fa-link"></i>
+                                        </div>
+                                        <div class="command-os-api-service-meta">
+                                            <div class="command-os-api-service-name">BITLY API</div>
+                                            <div class="command-os-api-service-status">URL SHORTENER SERVICE</div>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="col-sm-12 col-md-4">
                                     @include('console.app-settings.partials.field', ['field' => 'bitly_client_id', 'label' => 'CLIENT ID', 'type' => 'text', 'secret' => true])
@@ -344,12 +414,20 @@
                                 </div>
                             </div>
 
-                            <hr style="border-color: rgba(139, 92, 246, 0.12); margin: 20px 0;">
+                            <hr class="command-os-divider">
 
-                            <div class="row">
+                            {{-- Imgur Integration --}}
+                            <div class="row align-items-center">
                                 <div class="col-sm-12 col-md-4">
-                                    <p class="font-w700 mb-1"><i class="far fa-image mr-1 text-primary"></i> IMGUR API:</p>
-                                    <small class="text-muted d-block">CALLBACK URL: AlphaLink callback not implemented.</small>
+                                    <div class="command-os-api-service-badge">
+                                        <div class="command-os-api-service-icon">
+                                            <i class="far fa-image"></i>
+                                        </div>
+                                        <div class="command-os-api-service-meta">
+                                            <div class="command-os-api-service-name">IMGUR API</div>
+                                            <div class="command-os-api-service-status">ASSET HOSTING SERVICE</div>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="col-sm-12 col-md-4">
                                     @include('console.app-settings.partials.field', ['field' => 'imgur_client_id', 'label' => 'CLIENT ID', 'type' => 'text', 'secret' => true])
@@ -359,12 +437,20 @@
                                 </div>
                             </div>
 
-                            <hr style="border-color: rgba(139, 92, 246, 0.12); margin: 20px 0;">
+                            <hr class="command-os-divider">
 
+                            {{-- NS.HN Integration --}}
                             <div class="row align-items-center">
                                 <div class="col-sm-12 col-md-4">
-                                    <p class="font-w700 mb-1"><i class="fas fa-network-wired mr-1 text-primary"></i> NS.HN API:</p>
-                                    <small class="text-muted d-block">Nameserver delegation and lookup integration key.</small>
+                                    <div class="command-os-api-service-badge">
+                                        <div class="command-os-api-service-icon">
+                                            <i class="fas fa-network-wired"></i>
+                                        </div>
+                                        <div class="command-os-api-service-meta">
+                                            <div class="command-os-api-service-name">NS.HN API</div>
+                                            <div class="command-os-api-service-status">DNS DELEGATION &amp; LOOKUP</div>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="col-sm-12 col-md-8">
                                     @include('console.app-settings.partials.field', ['field' => 'ns_hn_api', 'label' => 'API KEY', 'type' => 'text', 'secret' => true])
@@ -403,9 +489,18 @@
     <script src="{{ asset('vendor/select2/4.0.13/select2.min.js') }}"></script>
     <script>
         $(function () {
-            if (window.jQuery?.fn?.selectpicker) {
-                $('.selectpicker').selectpicker();
-            }
+            // Segmented pill switch click handler
+            $(document).on('click', '.command-os-seg-btn', function (e) {
+                e.preventDefault();
+                const btn = $(this);
+                const wrap = btn.closest('.command-os-seg-toggle');
+                const input = wrap.find('input[type="hidden"]');
+                const val = String(btn.data('val'));
+
+                wrap.find('.command-os-seg-btn').removeClass('is-active');
+                btn.addClass('is-active');
+                input.val(val).trigger('change');
+            });
 
             const placeholders = {
                 app_ips: 'ADD APP IPS',

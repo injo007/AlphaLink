@@ -7052,6 +7052,264 @@ html[data-command-theme='dark'] .select2-container--default .select2-search--inl
     color: #f8fafc !important;
 }
 
+/* ==========================================================================
+   VISIONARY SEGMENTED TOGGLE SWITCH (LEVEL-0 INFRASTRUCTURE CONTROLS)
+   ========================================================================== */
+.command-os-seg-toggle {
+    width: 100%;
+    height: 42px;
+    display: flex;
+    align-items: center;
+}
+
+.command-os-seg-track {
+    width: 100%;
+    height: 42px;
+    border-radius: 10px;
+    padding: 3px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    box-sizing: border-box;
+}
+
+html[data-command-theme='light'] .command-os-seg-track,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-seg-track {
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+html[data-command-theme='dark'] .command-os-seg-track {
+    background: #090d24;
+    border: 1px solid rgba(168, 85, 247, 0.28);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.command-os-seg-btn {
+    flex: 1;
+    height: 100%;
+    border: none;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 750;
+    letter-spacing: 0.04em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    background: transparent;
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    outline: none !important;
+    user-select: none;
+}
+
+/* Inactive button text */
+html[data-command-theme='light'] .command-os-seg-btn,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-seg-btn {
+    color: #64748b;
+}
+html[data-command-theme='light'] .command-os-seg-btn:hover,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-seg-btn:hover {
+    color: #0f172a;
+    background: rgba(255, 255, 255, 0.5);
+}
+
+html[data-command-theme='dark'] .command-os-seg-btn {
+    color: #94a3b8;
+}
+html[data-command-theme='dark'] .command-os-seg-btn:hover {
+    color: #f8fafc;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* Active State - YES (Green/Emerald Glow) */
+html[data-command-theme='light'] .command-os-seg-btn.is-yes.is-active,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-seg-btn.is-yes.is-active {
+    background: #ffffff !important;
+    color: #059669 !important;
+    font-weight: 850 !important;
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.22), 0 0 0 1px rgba(16, 185, 129, 0.35) !important;
+}
+
+html[data-command-theme='dark'] .command-os-seg-btn.is-yes.is-active {
+    background: rgba(16, 185, 129, 0.18) !important;
+    color: #34d399 !important;
+    font-weight: 850 !important;
+    box-shadow: 0 0 14px rgba(16, 185, 129, 0.35), 0 0 0 1px rgba(16, 185, 129, 0.5) !important;
+}
+
+/* Active State - NO (Crimson/Alert Glow) */
+html[data-command-theme='light'] .command-os-seg-btn.is-no.is-active,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-seg-btn.is-no.is-active {
+    background: #ffffff !important;
+    color: #dc2626 !important;
+    font-weight: 850 !important;
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.22), 0 0 0 1px rgba(239, 68, 68, 0.35) !important;
+}
+
+html[data-command-theme='dark'] .command-os-seg-btn.is-no.is-active {
+    background: rgba(239, 68, 68, 0.18) !important;
+    color: #f87171 !important;
+    font-weight: 850 !important;
+    box-shadow: 0 0 14px rgba(239, 68, 68, 0.35), 0 0 0 1px rgba(239, 68, 68, 0.5) !important;
+}
+
+/* ==========================================================================
+   COMMAND OS DIVIDERS & SERVICE INTEGRATION BADGES
+   ========================================================================== */
+.command-os-divider {
+    height: 1px;
+    border: none;
+    margin: 20px 0;
+    width: 100%;
+}
+
+html[data-command-theme='light'] .command-os-divider,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-divider {
+    background: linear-gradient(90deg, rgba(139, 92, 246, 0.22), rgba(99, 102, 241, 0.08) 75%, transparent) !important;
+}
+
+html[data-command-theme='dark'] .command-os-divider {
+    background: linear-gradient(90deg, rgba(168, 85, 247, 0.32), rgba(99, 102, 241, 0.12) 75%, transparent) !important;
+}
+
+.command-os-api-service-badge {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    transition: all 0.2s ease;
+}
+
+html[data-command-theme='light'] .command-os-api-service-badge,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-api-service-badge {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+}
+
+html[data-command-theme='dark'] .command-os-api-service-badge {
+    background: #090d24;
+    border: 1px solid rgba(168, 85, 247, 0.25);
+}
+
+.command-os-api-service-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+html[data-command-theme='light'] .command-os-api-service-icon,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-api-service-icon {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.14), rgba(99, 102, 241, 0.14));
+    color: #7c3aed;
+    border: 1px solid rgba(139, 92, 246, 0.25);
+}
+
+html[data-command-theme='dark'] .command-os-api-service-icon {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(99, 102, 241, 0.25));
+    color: #e9d5ff;
+    border: 1px solid rgba(168, 85, 247, 0.4);
+}
+
+.command-os-api-service-meta {
+    display: flex;
+    flex-direction: column;
+}
+
+.command-os-api-service-name {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+html[data-command-theme='light'] .command-os-api-service-name,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-api-service-name {
+    color: #0f172a;
+}
+
+html[data-command-theme='dark'] .command-os-api-service-name {
+    color: #f8fafc;
+}
+
+.command-os-api-service-status {
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: #8b5cf6;
+    margin-top: 2px;
+}
+
+/* ==========================================================================
+   COMMAND OS CUSTOM SELECT (CLEAN DROPDOWN WITHOUT DOUBLE BORDERS)
+   ========================================================================== */
+.command-os-custom-select {
+    width: 100% !important;
+    height: 42px !important;
+    border-radius: 10px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    padding-left: 42px !important;
+    padding-right: 36px !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    background-repeat: no-repeat !important;
+    background-position: right 14px center !important;
+    background-size: 16px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+
+html[data-command-theme='light'] .command-os-custom-select,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-custom-select {
+    background-color: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #0f172a !important;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b5cf6' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e") !important;
+}
+
+html[data-command-theme='light'] .command-os-custom-select:focus,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-custom-select:focus {
+    border-color: #8b5cf6 !important;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2) !important;
+}
+
+html[data-command-theme='dark'] .command-os-custom-select {
+    background-color: #090d24 !important;
+    border: 1px solid rgba(168, 85, 247, 0.25) !important;
+    color: #f8fafc !important;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c084fc' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e") !important;
+}
+
+html[data-command-theme='dark'] .command-os-custom-select:focus {
+    border-color: #a855f7 !important;
+    box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.25) !important;
+}
+
+.command-os-custom-select option {
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    padding: 10px 14px !important;
+}
+
+html[data-command-theme='light'] .command-os-custom-select option {
+    background: #ffffff !important;
+    color: #0f172a !important;
+}
+
+html[data-command-theme='dark'] .command-os-custom-select option {
+    background: #0d1238 !important;
+    color: #f8fafc !important;
+}
+
 /* PMTA Domains Terminal Card */
 .command-os-terminal-card {
     border-radius: 14px;
@@ -7324,6 +7582,13 @@ body.command-os-shell .bootstrap-select.form-control {
 .command-input-wrap .bootstrap-select > .btn,
 .command-input-wrap .bootstrap-select > .btn.dropdown-toggle {
     padding-left: 42px !important;
+}
+
+.bootstrap-select.command-input-with-icon,
+div.bootstrap-select.command-input-with-icon,
+.bootstrap-select.form-control.command-input-with-icon {
+    padding: 0 !important;
+    padding-left: 0 !important;
 }
 
 /* Dropdown Button - Light Theme */

@@ -21,10 +21,10 @@
                         </label>
                         <div class="command-input-wrap">
                             <span class="command-input-leading-icon"><i class="fas fa-layer-group"></i></span>
-                            <select id="pmta_version" class="form-control selectpicker command-input-with-icon" data-width="100%" aria-label="PowerMTA version">
-                                <option value="40" selected data-icon="fas fa-cube text-primary">PowerMTA 4.0 &mdash; Legacy Stable</option>
-                                <option value="45" data-icon="fas fa-bolt text-warning">PowerMTA 4.5 &mdash; Fast Engine</option>
-                                <option value="50" data-icon="fas fa-rocket text-purple">PowerMTA 5.0 &mdash; High Volume</option>
+                            <select id="pmta_version" class="form-control command-os-custom-select" aria-label="PowerMTA version">
+                                <option value="40" selected>PowerMTA 4.0 &mdash; Legacy Stable</option>
+                                <option value="45">PowerMTA 4.5 &mdash; Fast Engine</option>
+                                <option value="50">PowerMTA 5.0 &mdash; High Volume</option>
                             </select>
                         </div>
                     </div>

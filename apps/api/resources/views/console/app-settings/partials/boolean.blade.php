@@ -15,12 +15,16 @@
     <label for="{{ $field }}">
         <span><i class="{{ $icon }} command-field-icon"></i> {{ $label }}:</span>
     </label>
-    <div class="command-input-wrap">
-        <span class="command-input-leading-icon"><i class="{{ $icon }}"></i></span>
-        <select id="{{ $field }}" name="settings[{{ $field }}]" class="form-control selectpicker command-input-with-icon" data-width="100%" @if ($errors->has($errorKey)) aria-invalid="true" aria-describedby="{{ $field }}-error" @endif>
-            <option value="1" data-icon="fas fa-check-circle text-success" @selected($selected === '1')>YES &mdash; Active / Enabled</option>
-            <option value="0" data-icon="fas fa-times-circle text-danger" @selected($selected === '0')>NO &mdash; Inactive / Disabled</option>
-        </select>
+    <div class="command-os-seg-toggle" data-toggle-field="{{ $field }}">
+        <input type="hidden" id="{{ $field }}" name="settings[{{ $field }}]" value="{{ $selected }}" @if ($errors->has($errorKey)) aria-invalid="true" aria-describedby="{{ $field }}-error" @endif>
+        <div class="command-os-seg-track">
+            <button type="button" class="command-os-seg-btn is-yes {{ $selected === '1' ? 'is-active' : '' }}" data-val="1">
+                <i class="fas fa-check-circle mr-1"></i> YES &bull; ACTIVE
+            </button>
+            <button type="button" class="command-os-seg-btn is-no {{ $selected === '0' ? 'is-active' : '' }}" data-val="0">
+                <i class="fas fa-times-circle mr-1"></i> NO &bull; INACTIVE
+            </button>
+        </div>
     </div>
     @if ($errors->has($errorKey))
         <small class="text-danger" id="{{ $field }}-error">{{ $errors->first($errorKey) }}</small>

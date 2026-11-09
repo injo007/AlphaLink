@@ -16,20 +16,28 @@
         </div>
         <div class="command-os-settings-card-body">
             <div class="row">
-                <div class="col-sm-12 col-md-3">
+                <div class="col-sm-12 col-md-4">
                     @include('console.app-settings.partials.field', ['field' => 'pmta_port', 'label' => 'PMTA PORT', 'type' => 'number', 'secret' => false])
                 </div>
-                <div class="col-sm-12 col-md-3">
+                <div class="col-sm-12 col-md-4">
                     @include('console.app-settings.partials.field', ['field' => 'pmta_admin_port', 'label' => 'PMTA WEB MONITOR PUBLIC PORT', 'type' => 'number', 'secret' => false])
                 </div>
-                <div class="col-sm-12 col-md-3">
+                <div class="col-sm-12 col-md-4">
                     @include('console.app-settings.partials.boolean', ['field' => 'allow_all_monitor', 'label' => 'SHOW PMTA MONITOR TO ALL'])
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-sm-12 col-md-6">
                     @include('console.app-settings.partials.boolean', ['field' => 'apply_firewall', 'label' => 'APPLY FIREWALL'])
                 </div>
-                <div class="col-sm-12 col-md-3">
+                <div class="col-sm-12 col-md-6">
                     @include('console.app-settings.partials.field', ['field' => 'proxy_port', 'label' => 'PROXY PORT', 'type' => 'number', 'secret' => false])
                 </div>
             </div>
+
+            <hr class="command-os-divider">
+
             <div class="row">
                 <div class="col-sm-12 col-md-4">
                     @include('console.app-settings.partials.multi-value', ['field' => 'dev_ips', 'label' => 'DEV IPS'])
@@ -66,12 +74,20 @@
                 </div>
                 <div class="col-sm-12 col-md-4">
                     @include('console.app-settings.partials.field', ['field' => 'webmail_username', 'label' => 'WEBMAIL USERNAME', 'type' => 'text', 'secret' => true])
-                    @include('console.app-settings.partials.field', ['field' => 'webmail_password', 'label' => 'WEBMAIL PASSWORD', 'type' => 'text', 'secret' => true])
                 </div>
                 <div class="col-sm-12 col-md-4">
+                    @include('console.app-settings.partials.field', ['field' => 'webmail_password', 'label' => 'WEBMAIL PASSWORD', 'type' => 'text', 'secret' => true])
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-12 col-md-6">
                     @include('console.app-settings.partials.field', ['field' => 'proxy_username', 'label' => 'PROXY USERNAME', 'type' => 'text', 'secret' => true])
+                </div>
+                <div class="col-sm-12 col-md-6">
                     @include('console.app-settings.partials.field', ['field' => 'proxy_password', 'label' => 'PROXY PASSWORD', 'type' => 'text', 'secret' => true])
                 </div>
+            </div>
+            <div class="row">
                 <div class="col-sm-12 col-md-6">
                     @include('console.app-settings.partials.field', ['field' => 'tracking_ingest_key', 'label' => 'TRACKING APP KEY', 'type' => 'text', 'secret' => true])
                 </div>

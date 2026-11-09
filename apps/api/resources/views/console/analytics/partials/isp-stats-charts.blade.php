@@ -22,8 +22,8 @@
             <div class="isp-stats-chart" data-isp-stats-chart="overview" aria-label="Engagement totals by period">
                 <p class="text-center text-muted mb-0" data-isp-chart-empty role="status">NO DATA AVAILABLE</p>
             </div>
-            <div class="table-responsive mt-3">
-                <table class="table table-sm table-hover table-bordered mb-0" data-isp-sortable>
+            <div class="table-responsive mt-3 all-stats-table-wrap">
+                <table class="table table-sm table-hover all-stats-table mb-0" data-isp-sortable>
                     <caption class="sr-only">Engagement totals by period</caption>
                     <thead><tr>
                         @foreach (['PERIOD', 'DELIVERIES', 'OPENS', 'CLICKS', 'LEADS', 'UNSUBSCRIBES', 'ATTRIBUTED LEAD REVENUE'] as $column => $label)
@@ -58,8 +58,8 @@
                         <div class="isp-stats-chart" data-isp-stats-chart="{{ $metric }}" aria-label="{{ strtolower($config['title']) }} trend">
                             <p class="text-center text-muted mb-0" data-isp-chart-empty role="status">NO DATA AVAILABLE</p>
                         </div>
-                        <div class="table-responsive mt-3">
-                            <table class="table table-sm table-hover table-bordered mb-0" data-isp-sortable>
+                        <div class="table-responsive mt-3 all-stats-table-wrap">
+                            <table class="table table-sm table-hover all-stats-table mb-0" data-isp-sortable>
                                 <caption class="sr-only">{{ $config['title'] }} by period</caption>
                                 <thead><tr>
                                     <th scope="col"><button type="button" class="isp-sort-trigger" data-isp-sort-column="0" data-sort-type="text" aria-label="Sort by Mailer">MAILER <span class="isp-sort-indicator" aria-hidden="true">↕</span></button></th>

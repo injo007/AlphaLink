@@ -104,8 +104,8 @@
                     <p class="text-muted font-size-sm mb-0">This report uses saved AlphaLink tracking actions. It does not generate sample or estimated activity.</p>
                 </div>
             @else
-                <div class="table-responsive">
-                    <table class="table table-sm table-hover table-striped w-100">
+                <div class="table-responsive all-stats-table-wrap">
+                    <table class="table table-sm table-hover table-striped w-100 all-stats-table">
                         <caption class="sr-only">Unique recipient actions by Warmup</caption>
                         <thead>
                             <tr>

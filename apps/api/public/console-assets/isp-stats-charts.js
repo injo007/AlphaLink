@@ -31,7 +31,10 @@ export function calculateLineCoordinates(values, width, height, padding, minimum
     }
 
     const min = Number.isFinite(minimum) ? Math.min(0, minimum) : Math.min(0, ...normalized);
-    const max = Number.isFinite(maximum) ? Math.max(0, maximum) : Math.max(0, ...normalized);
+    let max = Number.isFinite(maximum) ? Math.max(0, maximum) : Math.max(0, ...normalized);
+    if (min === 0 && max === 0) {
+        max = 4;
+    }
     const valueRange = max - min || 1;
     const plotWidth = width - (padding.left + padding.right);
     const plotHeight = height - (padding.top + padding.bottom);
@@ -97,10 +100,18 @@ function renderLineChart(root, labels, series, metric) {
     const height = 330;
     const padding = { top: 18, right: 22, bottom: 48, left: 76 };
     const allValues = series.flatMap((item) => item.values.map((value) => Number(value) || 0));
-    const minimum = Math.min(0, ...allValues);
-    const maximum = Math.max(0, ...allValues);
+    let minimum = Math.min(0, ...allValues);
+    let maximum = Math.max(0, ...allValues);
+    if (minimum === 0 && maximum === 0) {
+        maximum = 4;
+    }
     const valueRange = maximum - minimum || 1;
     const plotHeight = height - padding.top - padding.bottom;
+    const isDark = document.documentElement.getAttribute('data-command-theme') === 'dark' || document.documentElement.classList.contains('command-theme-dark');
+    const gridStroke = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(226, 232, 240, 0.8)';
+    const textFill = isDark ? '#94a3b8' : '#64748b';
+    const circleStroke = isDark ? '#1e1b4b' : '#ffffff';
+
     const svg = svgElement('svg', {
         viewBox: `0 0 ${width} ${height}`,
         role: 'img',
@@ -119,14 +130,14 @@ function renderLineChart(root, labels, series, metric) {
             x2: width - padding.right,
             y1: y,
             y2: y,
-            stroke: '#d9dfd9',
+            stroke: gridStroke,
             'stroke-width': 1,
         }));
         appendText(svg, numberLabel(value, metric), {
             x: padding.left - 10,
             y: y + 4,
             'text-anchor': 'end',
-            fill: '#687773',
+            fill: textFill,
             'font-size': 12,
         });
     }
@@ -140,7 +151,7 @@ function renderLineChart(root, labels, series, metric) {
             x,
             y: height - 18,
             'text-anchor': index === 0 ? 'start' : 'middle',
-            fill: '#687773',
+            fill: textFill,
             'font-size': 11,
         });
     }
@@ -151,7 +162,7 @@ function renderLineChart(root, labels, series, metric) {
             x: width - padding.right,
             y: height - 18,
             'text-anchor': 'end',
-            fill: '#687773',
+            fill: textFill,
             'font-size': 11,
         });
     }
@@ -176,7 +187,7 @@ function renderLineChart(root, labels, series, metric) {
                 cy: point.y,
                 r: 3,
                 fill: color,
-                stroke: '#fffefa',
+                stroke: circleStroke,
                 'stroke-width': 1.5,
             });
             const tooltip = svgElement('title');

@@ -32,8 +32,8 @@
     </div>
 
     <div id="drop-statistics-table-wrap">
-        <div class="table-responsive">
-            <table class="table table-sm table-hover table-striped w-100" aria-label="Aggregated Drop event statistics">
+        <div class="table-responsive all-stats-table-wrap">
+            <table class="table table-sm table-hover table-striped w-100 all-stats-table" aria-label="Aggregated Drop event statistics">
                 <thead>
                     <tr>
                         <th scope="col">DATE</th>

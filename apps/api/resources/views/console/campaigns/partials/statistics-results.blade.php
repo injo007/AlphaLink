@@ -1,15 +1,15 @@
 <div id="analytics-report-results" aria-busy="false">
-    <div class="row row-deck mb-3" aria-label="Filtered campaign totals">
-        @foreach ([['DELIVERIES', 'deliveries'], ['SOFT BOUNCES', 'soft_bounces'], ['HARD BOUNCES', 'hard_bounces'], ['OPENS', 'opens'], ['CLICKS', 'clicks'], ['LEADS', 'leads'], ['CONVERSIONS', 'conversions'], ['UNSUBS', 'unsubscribes']] as [$label, $key])
-            <div class="col-6 col-xl-3"><div class="block block-rounded block-link-shadow"><div class="block-content block-content-full"><div class="font-size-h3 font-w600">{{ number_format($summary[$key]) }}</div><div class="font-size-sm text-muted">{{ $label }}</div></div></div></div>
-        @endforeach
-    </div>
-
     @if ($rows->isEmpty())
-        <div class="alert alert-info" role="status">No campaign activity or attributed leads match these filters.</div>
+        <div class="command-table-empty-state py-5 text-center" role="status">
+            <div class="command-empty-state-icon mb-3" style="font-size: 2.2rem; color: #8b5cf6; opacity: 0.85;">
+                <i class="fas fa-inbox"></i>
+            </div>
+            <h4 class="font-w600 text-ink mb-1">No Matching Activity Recorded</h4>
+            <p class="text-muted font-size-sm mb-0">No campaign activity or attributed leads match these filters.</p>
+        </div>
     @else
-        <div class="table-responsive">
-            <table class="table table-sm table-hover table-striped table-bordered table-vcenter">
+        <div class="table-responsive all-stats-table-wrap">
+            <table class="table table-sm table-hover table-striped w-100 all-stats-table">
                 <caption class="sr-only">Campaign delivery, bounce, engagement, and attributed lead statistics grouped by campaign, list, ISP, list type, and date</caption>
                 <thead><tr>
                     <th scope="col">DATE</th><th scope="col">CAMPAIGN</th><th scope="col">MAILER</th><th scope="col">ISP</th><th scope="col">LIST</th><th scope="col">LIST TYPE</th>

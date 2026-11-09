@@ -4726,6 +4726,93 @@ body.command-os-shell #main_content .all-stats-table tbody tr:hover td {
     background: color-mix(in srgb, var(--co-purple) 4%, var(--co-surface));
 }
 
+/* ISP and Analytics Report Table Headers & Sort Triggers */
+.isp-sort-trigger {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: inherit !important;
+    font-family: inherit !important;
+    font-size: 9px !important;
+    font-weight: 800 !important;
+    letter-spacing: .08em !important;
+    text-transform: uppercase !important;
+    padding: 2px 4px !important;
+    margin: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    cursor: pointer !important;
+    border-radius: 4px !important;
+    outline: none !important;
+    transition: color 0.15s ease, background-color 0.15s ease !important;
+}
+.isp-sort-trigger:hover,
+.isp-sort-trigger:focus {
+    color: var(--co-purple, #8b5cf6) !important;
+    background: color-mix(in srgb, var(--co-purple, #8b5cf6) 12%, transparent) !important;
+}
+.isp-sort-indicator {
+    font-size: 10px !important;
+    opacity: 0.5 !important;
+    display: inline-block !important;
+    transition: opacity 0.15s ease, color 0.15s ease !important;
+}
+.isp-sort-trigger:hover .isp-sort-indicator {
+    opacity: 1 !important;
+    color: var(--co-purple, #8b5cf6) !important;
+}
+
+/* ISP Stats Chart Container & Legend */
+.isp-stats-chart {
+    position: relative;
+    width: 100%;
+    min-height: 200px;
+}
+.isp-stats-chart svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 330px;
+    overflow: visible;
+}
+.isp-stats-chart-legend {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 12px 20px !important;
+    margin: 16px 0 12px 0 !important;
+    padding: 10px 18px !important;
+    background: var(--co-surface-subtle, rgba(248, 250, 252, 0.7)) !important;
+    border: 1px solid var(--co-border, rgba(226, 232, 240, 0.8)) !important;
+    border-radius: 10px !important;
+}
+html[data-command-theme='dark'] .isp-stats-chart-legend {
+    background: color-mix(in srgb, var(--co-purple) 6%, var(--co-surface)) !important;
+    border-color: var(--co-border) !important;
+}
+.isp-stats-chart-legend-item {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    font-size: 0.78rem !important;
+    font-weight: 600 !important;
+    color: var(--co-ink, #0f172a) !important;
+    letter-spacing: 0.02em !important;
+}
+html[data-command-theme='dark'] .isp-stats-chart-legend-item {
+    color: #e2e8f0 !important;
+}
+.isp-stats-chart-swatch {
+    display: inline-block !important;
+    width: 10px !important;
+    height: 10px !important;
+    border-radius: 3px !important;
+    flex-shrink: 0 !important;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12) !important;
+}
+
 .text-tabular { font-variant-numeric: tabular-nums; }
 .text-revenue {
     background: color-mix(in srgb, #10b981 12%, var(--co-surface));

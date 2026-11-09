@@ -925,7 +925,7 @@
                     <div class="form-group col-md-4" id="campaign-saved-emails" data-store-url="{{ route('console.campaign-test-addresses.store', $workspace->id) }}" data-delete-url-template="{{ route('console.campaign-test-addresses.destroy', [$workspace->id, '__ADDRESS_ID__']) }}">
                         <label for="saved-email-addresses"><i class="fas fa-envelope campaign-field-icon" aria-hidden="true"></i>Saved Emails:</label>
                         <div class="input-group">
-                            <select id="saved-email-addresses" class="form-control selectpicker" data-live-search="true" data-actions-box="true" title="Select Emails" multiple>
+                            <select id="saved-email-addresses" class="form-control selectpicker" data-container="body" data-live-search="true" data-actions-box="true" title="Select Emails" multiple>
                                 @foreach ($savedEmailAddresses as $savedAddress)
                                     <option value="{{ $savedAddress->email }}" data-address-id="{{ $savedAddress->id }}">{{ $savedAddress->email }}</option>
                                 @endforeach
@@ -947,7 +947,7 @@
                     @include('console.campaigns.partials.header-library', ['workspace' => $workspace, 'textareaId' => 'campaign-header', 'idPrefix' => 'campaign', 'containerClass' => 'form-group col-sm-12 col-md-4'])
                     <div class="form-group col-sm-12 col-md-4">
                         <label for="campaign-domain"><i class="fas fa-globe campaign-field-icon" aria-hidden="true"></i>Domain:</label>
-                        <select id="campaign-domain" name="domain" class="form-control selectpicker" data-live-search="true" data-allow-clear="true" title="Select Domain">
+                        <select id="campaign-domain" name="domain" class="form-control selectpicker" data-container="body" data-live-search="true" data-allow-clear="true" title="Select Domain">
                             <option value="">Select Domain</option>
                             @foreach ($sendOptions['campaign_domains'] as $domain)
                                 <option value="{{ $domain['value'] }}" @selected(old('domain', $savedSetup['domain'] ?? '') === $domain['value'])>{{ $domain['name'] }} — {{ $domain['dns'] }}</option>
@@ -957,7 +957,7 @@
                     </div>
                     <div class="form-group col-sm-12 col-md-4">
                         <label for="campaign-negative"><i class="fas fa-ban campaign-field-icon" aria-hidden="true"></i>Negative:</label>
-                        <select id="campaign-negative" name="send_setup[negative_id]" class="form-control selectpicker" data-live-search="true" data-allow-clear="true" title="Select Negative">
+                        <select id="campaign-negative" name="send_setup[negative_id]" class="form-control selectpicker" data-container="body" data-live-search="true" data-allow-clear="true" title="Select Negative">
                             <option value="">Select Negative</option>
                             @foreach ($sendOptions['negatives'] as $negative)
                                 <option value="{{ $negative['id'] }}" @selected($setup['negative_id'] === (string) $negative['id'])>{{ $negative['name'] }}</option>
@@ -970,7 +970,7 @@
                         <label for="send-from-assets"><i class="fas fa-user campaign-field-icon" aria-hidden="true"></i>From values (optional):
                             <button type="button" class="btn btn-link btn-sm p-0" data-copy-selected="send-from-assets" title="Copy selected From values" aria-label="Copy selected From values"><i class="fas fa-copy" aria-hidden="true"></i></button>
                         </label>
-                        <select id="send-from-assets" name="send_setup[from_asset_ids][]" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 2" title="Select optional From values" multiple>
+                        <select id="send-from-assets" name="send_setup[from_asset_ids][]" class="form-control selectpicker" data-container="body" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 2" title="Select optional From values" multiple>
                             @foreach (($sendOptions['offers']->firstWhere('id', (int) $setup['offer_id'])['assets'] ?? []) as $asset)
                                 @if ($asset['type'] === 'from')
                                     <option value="{{ $asset['id'] }}" @selected(in_array((string) $asset['id'], $setup['from_asset_ids'], true))>{{ $asset['value'] }}</option>
@@ -982,7 +982,7 @@
                         <label for="send-subject-assets"><i class="fas fa-file-alt campaign-field-icon" aria-hidden="true"></i>Subjects (optional):
                             <button type="button" class="btn btn-link btn-sm p-0" data-copy-selected="send-subject-assets" title="Copy selected subjects" aria-label="Copy selected subjects"><i class="fas fa-copy" aria-hidden="true"></i></button>
                         </label>
-                        <select id="send-subject-assets" name="send_setup[subject_asset_ids][]" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 2" title="Select optional subjects" multiple>
+                        <select id="send-subject-assets" name="send_setup[subject_asset_ids][]" class="form-control selectpicker" data-container="body" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 2" title="Select optional subjects" multiple>
                             @foreach (($sendOptions['offers']->firstWhere('id', (int) $setup['offer_id'])['assets'] ?? []) as $asset)
                                 @if ($asset['type'] === 'subject')
                                     <option value="{{ $asset['id'] }}" @selected(in_array((string) $asset['id'], $setup['subject_asset_ids'], true))>{{ $asset['value'] }}</option>
@@ -992,7 +992,7 @@
                     </div>
                     <div class="form-group col-sm-12 col-md-3">
                         <label for="send-creative-asset"><i class="fas fa-image campaign-field-icon" aria-hidden="true"></i>Creatives:</label>
-                        <select id="send-creative-asset" name="send_setup[creative_asset_id]" class="form-control selectpicker" data-live-search="true" title="Select Creative">
+                        <select id="send-creative-asset" name="send_setup[creative_asset_id]" class="form-control selectpicker" data-container="body" data-live-search="true" title="Select Creative">
                             <option value="">Select Creative</option>
                             @foreach ($selectedOfferAssets as $asset)
                                 @if ($asset['type'] === 'creative')
@@ -1003,7 +1003,7 @@
                     </div>
                     <div class="form-group col-sm-12 col-md-3">
                         <label for="send-html-asset"><i class="fas fa-code campaign-field-icon" aria-hidden="true"></i>HTML:</label>
-                        <select id="send-html-asset" name="send_setup[html_asset_id]" class="form-control selectpicker" data-live-search="true" title="Select HTML">
+                        <select id="send-html-asset" name="send_setup[html_asset_id]" class="form-control selectpicker" data-container="body" data-live-search="true" title="Select HTML">
                             <option value="">Select HTML</option>
                             @foreach ($selectedOfferAssets as $asset)
                                 @if ($asset['type'] === 'html')
@@ -1089,7 +1089,7 @@
                                         <button type="button" class="btn btn-link btn-sm p-0" id="campaign-servers-reload" title="Reload servers and IPs" aria-label="Reload servers and IPs"><i class="fas fa-sync-alt" aria-hidden="true"></i></button>
                                         <button type="button" class="btn btn-link btn-sm p-0" id="campaign-servers-search" title="Search servers" aria-label="Search servers"><i class="fas fa-search" aria-hidden="true"></i></button>
                                     </label>
-                                    <select id="send-servers" name="send_setup[server_ids][]" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 3" title="Select Servers" multiple required>
+                                    <select id="send-servers" name="send_setup[server_ids][]" class="form-control selectpicker" data-container="body" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 3" title="Select Servers" multiple required>
                                         @foreach ($sendOptions['servers'] as $server)
                                             <option value="{{ $server['id'] }}" data-panel-url="{{ $server['pmta_panel_url'] }}" data-monitor-url="{{ $server['pmta_panel_display_url'] }}" @selected(in_array((string) $server['id'], $setup['server_ids'], true))>{{ $server['name'] }} | {{ $server['ip'] }}</option>
                                         @endforeach

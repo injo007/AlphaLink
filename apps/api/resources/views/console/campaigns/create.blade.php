@@ -146,10 +146,17 @@
             .campaign-create-page dialog .campaign-body-preview-header { background: linear-gradient(100deg, rgb(139 79 247 / 10%), rgb(81 150 255 / 5%)); border-bottom: 1px solid rgb(126 105 190 / 15%); margin: -1rem -1rem 14px; padding: 14px 16px; }
             .campaign-create-page .bootstrap-select .dropdown-menu { background: linear-gradient(145deg, var(--campaign-surface), var(--campaign-wash)); border: 1px solid var(--campaign-border); border-radius: 14px; box-shadow: 0 16px 40px rgb(34 25 76 / 19%); margin-top: 6px; overflow: hidden; padding: 6px; }
             .campaign-create-page .bootstrap-select .dropdown-menu > .inner { max-height: min(55vh, 420px) !important; }
-            .campaign-create-page .bootstrap-select .dropdown-menu li a { border-radius: 8px; color: var(--campaign-ink); font-size: 11px; margin: 1px 0; padding: 7px 10px; transition: background .14s ease, color .14s ease; }
-            .campaign-create-page .bootstrap-select .dropdown-menu li a:hover, .campaign-create-page .bootstrap-select .dropdown-menu li.active a, .campaign-create-page .bootstrap-select .dropdown-menu li.selected a { background: #f1eaff; color: #6123c8; }
-            .campaign-create-page .bootstrap-select .dropdown-menu li.disabled a { color: #9b9dad; }
-            .campaign-create-page .bootstrap-select .dropdown-menu .no-results { background: var(--campaign-wash); border-radius: 8px; color: var(--campaign-muted); margin: 4px; padding: 10px; }
+            body:has(.campaign-create-page) .bs-container { z-index: 12020 !important; }
+            body:has(.campaign-create-page) .bs-container .dropdown-menu { background: linear-gradient(145deg, var(--campaign-surface, #fff), var(--campaign-wash, #f8f7ff)); border: 1px solid var(--campaign-border, #ded9f8); border-radius: 14px; box-shadow: 0 16px 40px rgb(34 25 76 / 19%); margin-top: 6px; overflow: hidden; padding: 6px; z-index: 12021; }
+            body:has(.campaign-create-page) .bs-container .dropdown-menu > .inner { max-height: min(55vh, 420px) !important; }
+            .campaign-create-page .bootstrap-select .dropdown-menu li a,
+            body:has(.campaign-create-page) .bs-container .dropdown-menu li a { border-radius: 8px; color: var(--campaign-ink, #101746); font-size: 11px; margin: 1px 0; padding: 7px 10px; transition: background .14s ease, color .14s ease; }
+            .campaign-create-page .bootstrap-select .dropdown-menu li a:hover, .campaign-create-page .bootstrap-select .dropdown-menu li.active a, .campaign-create-page .bootstrap-select .dropdown-menu li.selected a,
+            body:has(.campaign-create-page) .bs-container .dropdown-menu li a:hover, body:has(.campaign-create-page) .bs-container .dropdown-menu li.active a, body:has(.campaign-create-page) .bs-container .dropdown-menu li.selected a { background: #f1eaff; color: #6123c8; }
+            .campaign-create-page .bootstrap-select .dropdown-menu li.disabled a,
+            body:has(.campaign-create-page) .bs-container .dropdown-menu li.disabled a { color: #9b9dad; }
+            .campaign-create-page .bootstrap-select .dropdown-menu .no-results,
+            body:has(.campaign-create-page) .bs-container .dropdown-menu .no-results { background: var(--campaign-wash, #f8f7ff); border-radius: 8px; color: var(--campaign-muted, #66708e); margin: 4px; padding: 10px; }
             @keyframes campaign-dialog-enter { from { opacity: 0; transform: translateY(8px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
             #campaign-body-preview .campaign-body-preview-header { align-items: center; display: flex; justify-content: space-between; margin-bottom: .75rem; }
             #campaign-body-preview-frame { border: 1px solid #d7dce3; display: block; height: min(72vh, 820px); min-height: 360px; width: 100%; }
@@ -680,7 +687,8 @@
             html[data-command-theme='dark'] .campaign-create-page #campaign-actions-panel,
             html[data-command-theme='dark'] .campaign-create-page #campaign-context-menu,
             html[data-command-theme='dark'] .campaign-create-page dialog,
-            html[data-command-theme='dark'] .campaign-create-page .bootstrap-select .dropdown-menu { background: linear-gradient(145deg, #101c3a, #111a35); border-color: #334574; color: #eff2ff; }
+            html[data-command-theme='dark'] .campaign-create-page .bootstrap-select .dropdown-menu,
+            html[data-command-theme='dark'] body:has(.campaign-create-page) .bs-container .dropdown-menu { background: linear-gradient(145deg, #101c3a, #111a35); border-color: #334574; color: #eff2ff; }
             html[data-command-theme='dark'] .campaign-create-page .campaign-header-editor,
             html[data-command-theme='dark'] .campaign-create-page #campaign-body,
             html[data-command-theme='dark'] .campaign-create-page #send-route-behavior { background: #0c1731; color: #eff2ff; }
@@ -688,10 +696,14 @@
             html[data-command-theme='dark'] .campaign-readiness-track { background: #26365f; }
             html[data-command-theme='dark'] .campaign-create-page #campaign-actions-panel button,
             html[data-command-theme='dark'] .campaign-create-page #campaign-context-menu button,
-            html[data-command-theme='dark'] .campaign-create-page .bootstrap-select .dropdown-menu li a { color: #eff2ff; }
+            html[data-command-theme='dark'] .campaign-create-page .bootstrap-select .dropdown-menu li a,
+            html[data-command-theme='dark'] body:has(.campaign-create-page) .bs-container .dropdown-menu li a { color: #eff2ff; }
             html[data-command-theme='dark'] .campaign-create-page .bootstrap-select .dropdown-menu li a:hover,
             html[data-command-theme='dark'] .campaign-create-page .bootstrap-select .dropdown-menu li.active a,
-            html[data-command-theme='dark'] .campaign-create-page .bootstrap-select .dropdown-menu li.selected a { background: #2a2453; color: #e5caff; }
+            html[data-command-theme='dark'] .campaign-create-page .bootstrap-select .dropdown-menu li.selected a,
+            html[data-command-theme='dark'] body:has(.campaign-create-page) .bs-container .dropdown-menu li a:hover,
+            html[data-command-theme='dark'] body:has(.campaign-create-page) .bs-container .dropdown-menu li.active a,
+            html[data-command-theme='dark'] body:has(.campaign-create-page) .bs-container .dropdown-menu li.selected a { background: #2a2453; color: #e5caff; }
             html[data-command-theme='dark'] .campaign-create-page #campaign-actions-panel .campaign-menu-heading,
             html[data-command-theme='dark'] .campaign-create-page #campaign-context-menu .campaign-menu-heading { border-color: rgb(192 160 255 / 22%); color: #d4b7ff; }
             html[data-command-theme='dark'] .campaign-create-page dialog .d-flex.justify-content-between.align-items-center { background: linear-gradient(100deg, rgb(147 93 255 / 15%), rgb(71 133 255 / 7%)); border-color: #334574; }
@@ -796,7 +808,7 @@
                         <div class="block-content">
                             <div class="form-group">
                                 <label for="send-sponsor"><i class="fas fa-users campaign-field-icon" aria-hidden="true"></i>Sponsor:</label>
-                                <select id="send-sponsor" name="send_setup[sponsor_id]" class="form-control selectpicker" data-live-search="true" data-allow-clear="true" title="Select Sponsor" required>
+                                <select id="send-sponsor" name="send_setup[sponsor_id]" class="form-control selectpicker" data-container="body" data-live-search="true" data-allow-clear="true" title="Select Sponsor" required>
                                     <option value="">Select Sponsor</option>
                                     @foreach ($sendOptions['sponsors'] as $sponsor)
                                         <option value="{{ $sponsor['id'] }}" @selected($setup['sponsor_id'] === (string) $sponsor['id'])>{{ $sponsor['name'] }}</option>
@@ -805,7 +817,7 @@
                             </div>
                             <div class="form-group">
                                 <label for="send-offer-country"><i class="fas fa-globe campaign-field-icon" aria-hidden="true"></i>Offer Countries:</label>
-                                <select id="send-offer-country" name="send_setup[offer_country]" class="form-control selectpicker" data-live-search="true" data-size="6" title="Select Countries" required>
+                                <select id="send-offer-country" name="send_setup[offer_country]" class="form-control selectpicker" data-container="body" data-live-search="true" data-size="6" title="Select Countries" required>
                                     <option value="ALL" @selected($setup['offer_country'] === 'ALL')>ALL</option>
                                     @foreach ($countries as $code => $countryName)
                                         <option value="{{ $code }}" @selected($setup['offer_country'] === $code)>{{ $countryName }}</option>
@@ -814,7 +826,7 @@
                             </div>
                             <div class="form-group mb-0">
                                 <label for="send-offer"><i class="fas fa-tag campaign-field-icon" aria-hidden="true"></i>Offers:</label>
-                                <select id="send-offer" name="send_setup[offer_id]" class="form-control selectpicker" data-live-search="true" data-size="6" title="Select Offer" required>
+                                <select id="send-offer" name="send_setup[offer_id]" class="form-control selectpicker" data-container="body" data-live-search="true" data-size="6" title="Select Offer" required>
                                     <option value="">Select Offer</option>
                                     @foreach ($sendOptions['offers'] as $offer)
                                         <option value="{{ $offer['id'] }}" @selected($setup['offer_id'] === (string) $offer['id'])>({{ $offer['offer_id'] }}) {{ $offer['name'] }} — {{ $offer['vertical'] }}</option>
@@ -833,7 +845,7 @@
                                 <div class="col-sm-12 col-md-6">
                                     <div class="form-group">
                                         <label for="send-isp"><i class="fas fa-broadcast-tower campaign-field-icon" aria-hidden="true"></i>ISPs:</label>
-                                        <select id="send-isp" name="send_setup[isp_id]" class="form-control selectpicker" data-live-search="true" data-allow-clear="true" title="Select ISP" required>
+                                        <select id="send-isp" name="send_setup[isp_id]" class="form-control selectpicker" data-container="body" data-live-search="true" data-allow-clear="true" title="Select ISP" required>
                                             <option value="">Select ISP</option>
                                             @foreach ($sendOptions['isps'] as $isp)
                                                 <option value="{{ $isp['id'] }}" @selected($setup['isp_id'] === (string) $isp['id'])>{{ $isp['name'] }}</option>
@@ -844,7 +856,7 @@
                                 <div class="col-sm-12 col-md-6">
                                     <div class="form-group">
                                         <label for="send-country"><i class="fas fa-globe campaign-field-icon" aria-hidden="true"></i>Country:</label>
-                                        <select id="send-country" name="send_setup[country]" class="form-control selectpicker" data-live-search="true" data-allow-clear="false" data-size="6" title="Select Country" required>
+                                        <select id="send-country" name="send_setup[country]" class="form-control selectpicker" data-container="body" data-live-search="true" data-allow-clear="false" data-size="6" title="Select Country" required>
                                             <option value="ALL" @selected($setup['country'] === 'ALL')>ALL</option>
                                             @foreach ($countries as $code => $countryName)
                                                 <option value="{{ $code }}" @selected($setup['country'] === $code)>{{ $countryName }}</option>
@@ -864,7 +876,7 @@
                                         <small class="form-text text-muted">Select unlocked email types. Saving automatically matches the selected offer’s saved suppression file against every selected List/email type and leaves matches out of the campaign snapshot. Drops → <a href="{{ route('console.drops.suppression', $workspace->id) }}">Suppression</a> separately applies that file to the chosen ISP/List memberships for reusable Offer/List exclusions; you do not need to run it first for campaign creation. Workspace suppressions and duplicate addresses are also excluded.</small>
                                     </details>
                                 </div>
-                                <select id="send-lists" name="send_setup[audience_segments][]" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 3" title="Select Lists" multiple required>
+                                <select id="send-lists" name="send_setup[audience_segments][]" class="form-control selectpicker" data-container="body" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 3" title="Select Lists" multiple required>
                                     @foreach ($sendOptions['segments'] as $segment)
                                         <option value="{{ $segment['id'] }}" @selected(in_array((string) $segment['id'], $setup['audience_segments'], true))>{{ $segment['name'] }} — {{ $segment['country'] }} — {{ strtoupper($segment['email_type']) }} — {{ number_format($segment['recipient_count']) }}</option>
                                     @endforeach

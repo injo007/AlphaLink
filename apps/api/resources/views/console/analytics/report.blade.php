@@ -252,18 +252,11 @@
                     <div id="all-stats-pivot" class="analytics-pivot-surface"></div>
                 </section>
             @elseif ($kind === 'mailer-revenue')
-                <section id="mailer-revenue-pivot-shell" class="analytics-pivot-shell command-os-all-stats-pivot mb-3" data-url="{{ route($reportRoute, $workspace->id) }}" aria-label="Mailer Revenue pivot report" aria-busy="false" hidden>
+                <section id="mailer-revenue-pivot-shell" class="analytics-pivot-shell mb-3" data-url="{{ route($reportRoute, $workspace->id) }}" aria-label="Mailer Revenue pivot report" aria-busy="false" hidden>
                     <div id="mailer-revenue-pivot-status" class="small text-muted mb-2" role="status" aria-live="polite"></div>
                     <div id="mailer-revenue-pivot" class="analytics-pivot-surface"></div>
                 </section>
-                <div class="command-os-info-banner mt-3" role="note">
-                    <div class="command-os-info-banner-icon" aria-hidden="true">
-                        <i class="fas fa-info-circle"></i>
-                    </div>
-                    <div class="command-os-info-banner-content">
-                        <strong>Data coverage:</strong> {{ $coverage }}
-                    </div>
-                </div>
+                <div class="alert alert-warning" role="note"><strong>Data coverage:</strong> {{ $coverage }}</div>
             @endif
 
             @if ($kind === 'all-stats')
@@ -338,42 +331,209 @@
             <link rel="stylesheet" href="https://cdn3.devexpress.com/jslib/21.2.5/css/dx.material.blue.light.css">
         @endif
         <style>
-            html[data-command-theme='dark'] .analytics-pivot-shell,
-            html[data-command-theme='dark'] .command-os-all-stats-pivot {
-                background: #0b1139 !important;
-                border-color: rgba(99, 102, 241, 0.22) !important;
+            /* DevExtreme PivotGrid - Command OS Theme */
+            .analytics-pivot-shell .dx-pivotgrid,
+            .analytics-pivot-shell .dx-pivotgrid-container,
+            .analytics-pivot-shell .dx-scrollable-container,
+            .analytics-pivot-shell .dx-scrollable-wrapper,
+            .analytics-pivot-shell .dx-scrollable-content {
+                background: transparent !important;
+                background-color: transparent !important;
             }
-            html[data-command-theme='dark'] .analytics-pivot-shell .dx-area-field-container-empty,
-            html[data-command-theme='dark'] .analytics-pivot-shell .dx-area-description-cell,
-            html[data-command-theme='dark'] .analytics-pivot-shell .dx-pivotgrid-area-filter,
-            html[data-command-theme='dark'] .analytics-pivot-shell .dx-pivotgrid-area-column {
-                background: #111742 !important;
-                background-color: #111742 !important;
-                border: 1px dashed rgba(168, 85, 247, 0.45) !important;
-            }
-            html[data-command-theme='dark'] .analytics-pivot-shell .dx-empty-area-text {
-                color: #94a3b8 !important;
-            }
-            html[data-command-theme='dark'] .analytics-pivot-shell .dx-area-field {
-                background: #251b66 !important;
-                background-color: #251b66 !important;
-                border: 1px solid rgba(168, 85, 247, 0.5) !important;
-                color: #ffffff !important;
-            }
-            html[data-command-theme='dark'] .analytics-pivot-shell .dx-area-field-content {
-                color: #ffffff !important;
-            }
-            html[data-command-theme='dark'] .analytics-pivot-shell .dx-pivotgrid-area td {
+
+            /* Dark Theme Overrides */
+            html[data-command-theme='dark'] .analytics-pivot-shell .dx-pivotgrid,
+            html[data-command-theme='dark'] .analytics-pivot-shell .dx-pivotgrid-container,
+            html[data-command-theme='dark'] .analytics-pivot-shell .dx-pivotgrid-area,
+            html[data-command-theme='dark'] .analytics-pivot-shell .dx-pivotgrid-area table,
+            html[data-command-theme='dark'] .analytics-pivot-shell .dx-pivotgrid-table {
                 background: #0b1139 !important;
                 background-color: #0b1139 !important;
                 color: #f8fafc !important;
-                border-color: rgba(99, 102, 241, 0.18) !important;
             }
-            html[data-command-theme='dark'] .analytics-pivot-shell .dx-grandtotal {
-                background: #181452 !important;
-                background-color: #181452 !important;
-                color: #ffffff !important;
+
+            html[data-command-theme='dark'] .analytics-pivot-shell .dx-pivotgrid-fields-area {
+                background: #0f1642 !important;
+                background-color: #0f1642 !important;
+                border: 1px dashed rgba(139, 92, 246, 0.4) !important;
+                border-radius: 12px !important;
+                margin-bottom: 12px !important;
+                padding: 6px !important;
             }
+
+            html[data-command-theme='dark'] .analytics-pivot-shell .dx-pivotgrid-fields-area table,
+            html[data-command-theme='dark'] .analytics-pivot-shell .dx-pivotgrid-fields-area td,
+            html[data-command-theme='dark'] .analytics-pivot-shell .dx-pivotgrid-fields-area th,
+            html[data-command-theme='dark'] .analytics-pivot-shell .dx-area-description-cell {
+                background: transparent !important;
+                background-color: transparent !important;
+                color: #94a3b8 !important;
+                font-size: 11px !important;
+                font-style: italic !important;
+                border: none !important;
+            }
+
+            html[data-command-theme='dark'] .analytics-pivot-shell .dx-area-field {
+                background: #1a2358 !important;
+                background-color: #1a2358 !important;
+                border: 1px solid rgba(139, 92, 246, 0.45) !important;
+                border-radius: 6px !important;
+                color: #f8fafc !important;
+                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35) !important;
+            }
+
+            html[data-command-theme='dark'] .analytics-pivot-shell .dx-area-field .dx-area-field-content {
+                color: #f8fafc !important;
+                font-weight: 750 !important;
+                font-size: 11px !important;
+            }
+
+            html[data-command-theme='dark'] .analytics-pivot-shell .dx-area-field .dx-sort,
+            html[data-command-theme='dark'] .analytics-pivot-shell .dx-area-field .dx-header-filter {
+                color: #a855f7 !important;
+            }
+
+            html[data-command-theme='dark'] .analytics-pivot-shell .dx-pivotgrid .dx-pivotgrid-area td,
+            html[data-command-theme='dark'] .analytics-pivot-shell .dx-pivotgrid .dx-pivotgrid-area th,
+            html[data-command-theme='dark'] .analytics-pivot-shell .dx-pivotgrid-table td,
+            html[data-command-theme='dark'] .analytics-pivot-shell .dx-pivotgrid-table th {
+                background: #0b1139 !important;
+                background-color: #0b1139 !important;
+                color: #f8fafc !important;
+                border-color: rgba(99, 102, 241, 0.15) !important;
+                font-size: 11px !important;
+            }
+
+            html[data-command-theme='dark'] .analytics-pivot-shell .dx-pivotgrid-horizontal-headers td,
+            html[data-command-theme='dark'] .analytics-pivot-shell .dx-pivotgrid-horizontal-headers th {
+                background: #141b4b !important;
+                background-color: #141b4b !important;
+                color: #94a3b8 !important;
+                border-color: rgba(99, 102, 241, 0.25) !important;
+                font-weight: 750 !important;
+                text-transform: uppercase !important;
+            }
+
+            html[data-command-theme='dark'] .analytics-pivot-shell .dx-pivotgrid-empty-cell,
+            html[data-command-theme='dark'] .analytics-pivot-shell .dx-pivotgrid-table .dx-pivotgrid-empty-cell {
+                background: #0b1139 !important;
+                background-color: #0b1139 !important;
+                color: #94a3b8 !important;
+                font-style: italic !important;
+                border-color: rgba(99, 102, 241, 0.15) !important;
+                padding: 16px !important;
+            }
+
+            html[data-command-theme='dark'] .analytics-pivot-shell .dx-grandtotal,
+            html[data-command-theme='dark'] .analytics-pivot-shell .dx-pivotgrid-table .dx-grandtotal {
+                background: #141b4b !important;
+                background-color: #141b4b !important;
+                color: #a855f7 !important;
+                font-weight: 800 !important;
+            }
+
+            html[data-command-theme='dark'] .analytics-pivot-shell .dx-pivotgrid-table tr:hover td {
+                background: #151d54 !important;
+                background-color: #151d54 !important;
+            }
+
+            html[data-command-theme='dark'] .analytics-pivot-shell .dx-pivotgrid-border {
+                border-color: rgba(99, 102, 241, 0.2) !important;
+            }
+
+            html[data-command-theme='dark'] .alert-warning {
+                background: rgba(245, 158, 11, 0.12) !important;
+                border: 1px solid rgba(245, 158, 11, 0.28) !important;
+                border-radius: 10px !important;
+                color: #fde68a !important;
+                font-size: 11px !important;
+                line-height: 1.5 !important;
+                padding: 12px 16px !important;
+            }
+
+            html[data-command-theme='dark'] .alert-warning strong {
+                color: #fbbf24 !important;
+            }
+
+            /* Light Theme Overrides */
+            html[data-command-theme='light'] .analytics-pivot-shell .dx-pivotgrid,
+            html[data-command-theme='light'] .analytics-pivot-shell .dx-pivotgrid-container,
+            html[data-command-theme='light'] .analytics-pivot-shell .dx-pivotgrid-area,
+            html[data-command-theme='light'] .analytics-pivot-shell .dx-pivotgrid-table,
+            body.command-os-shell:not([data-command-theme='dark']) .analytics-pivot-shell .dx-pivotgrid,
+            body.command-os-shell:not([data-command-theme='dark']) .analytics-pivot-shell .dx-pivotgrid-container,
+            body.command-os-shell:not([data-command-theme='dark']) .analytics-pivot-shell .dx-pivotgrid-area,
+            body.command-os-shell:not([data-command-theme='dark']) .analytics-pivot-shell .dx-pivotgrid-table {
+                background: #ffffff !important;
+                background-color: #ffffff !important;
+                color: #1e293b !important;
+                border-color: #e2e8f0 !important;
+            }
+
+            html[data-command-theme='light'] .analytics-pivot-shell .dx-pivotgrid-fields-area,
+            body.command-os-shell:not([data-command-theme='dark']) .analytics-pivot-shell .dx-pivotgrid-fields-area {
+                background: #f8faff !important;
+                background-color: #f8faff !important;
+                border: 1px dashed rgba(139, 92, 246, 0.3) !important;
+                border-radius: 12px !important;
+                margin-bottom: 12px !important;
+                padding: 6px !important;
+            }
+
+            html[data-command-theme='light'] .analytics-pivot-shell .dx-area-description-cell,
+            body.command-os-shell:not([data-command-theme='dark']) .analytics-pivot-shell .dx-area-description-cell {
+                color: #64748b !important;
+                background: transparent !important;
+            }
+
+            html[data-command-theme='light'] .analytics-pivot-shell .dx-area-field,
+            body.command-os-shell:not([data-command-theme='dark']) .analytics-pivot-shell .dx-area-field {
+                background: #f1f5fd !important;
+                background-color: #f1f5fd !important;
+                border: 1px solid #cbd5e1 !important;
+                border-radius: 6px !important;
+                color: #1e293b !important;
+            }
+
+            html[data-command-theme='light'] .analytics-pivot-shell .dx-area-field .dx-area-field-content,
+            body.command-os-shell:not([data-command-theme='dark']) .analytics-pivot-shell .dx-area-field .dx-area-field-content {
+                color: #1e293b !important;
+                font-weight: 750 !important;
+            }
+
+            html[data-command-theme='light'] .analytics-pivot-shell .dx-pivotgrid-horizontal-headers td,
+            html[data-command-theme='light'] .analytics-pivot-shell .dx-pivotgrid-horizontal-headers th,
+            body.command-os-shell:not([data-command-theme='dark']) .analytics-pivot-shell .dx-pivotgrid-horizontal-headers td,
+            body.command-os-shell:not([data-command-theme='dark']) .analytics-pivot-shell .dx-pivotgrid-horizontal-headers th {
+                background: #f1f5fd !important;
+                background-color: #f1f5fd !important;
+                color: #475569 !important;
+                font-weight: 750 !important;
+                border-color: #cbd5e1 !important;
+            }
+
+            html[data-command-theme='light'] .analytics-pivot-shell .dx-pivotgrid-empty-cell,
+            body.command-os-shell:not([data-command-theme='dark']) .analytics-pivot-shell .dx-pivotgrid-empty-cell {
+                background: #ffffff !important;
+                color: #64748b !important;
+            }
+
+            html[data-command-theme='light'] .analytics-pivot-shell .dx-grandtotal,
+            body.command-os-shell:not([data-command-theme='dark']) .analytics-pivot-shell .dx-grandtotal {
+                background: #f1f5fd !important;
+                color: #7c3aed !important;
+                font-weight: 800 !important;
+            }
+
+            html[data-command-theme='light'] .alert-warning,
+            body.command-os-shell:not([data-command-theme='dark']) .alert-warning {
+                background: #fefce8 !important;
+                border: 1px solid #fde047 !important;
+                border-radius: 10px !important;
+                color: #854d0e !important;
+                font-size: 11px !important;
+            }
+
             .analytics-pivot-shell:fullscreen { background: var(--co-page, #f5f6fb); overflow: auto; padding: 1rem; }
             .analytics-pivot-shell:fullscreen .analytics-pivot-surface { min-height: calc(100vh - 6rem); }
             .analytics-pivot-shell.analytics-pivot-fullscreen { background: var(--co-page, #f5f6fb); inset: 0; overflow: auto; padding: 1rem; position: fixed; z-index: 1300; }

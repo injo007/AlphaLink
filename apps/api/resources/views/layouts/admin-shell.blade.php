@@ -564,15 +564,15 @@
                     <button type="button" class="command-os-nav-editor-toggle" data-navigation-toggle aria-pressed="false">
                         <i class="fas fa-arrows-alt" aria-hidden="true"></i><span>Arrange navigation</span>
                     </button>
-                    <p data-navigation-editor-status role="status" aria-live="polite">Enable to drag navigation items.</p>
+                    <p data-navigation-editor-status role="status" aria-live="polite">Enable to reorder pages and move subpages between sections.</p>
                 </div>
             @endif
         </nav>
         @if ($commandOsShell && $canEditGlobalNavigation)
             <dialog class="command-os-nav-save-dialog" id="command-os-nav-save-dialog" aria-labelledby="command-os-nav-save-title">
                 <form method="dialog">
-                    <h2 id="command-os-nav-save-title">Save navigation order?</h2>
-                    <p>This navigation order will become the default for everyone in AlphaLink.</p>
+                    <h2 id="command-os-nav-save-title">Save navigation changes?</h2>
+                    <p>Your page order and section assignments will become the default for everyone in AlphaLink.</p>
                     <p class="command-os-nav-save-error" data-navigation-save-error role="alert" hidden></p>
                     <div>
                         <button type="button" class="command-os-nav-save-cancel" data-navigation-save-cancel>Keep arranging</button>

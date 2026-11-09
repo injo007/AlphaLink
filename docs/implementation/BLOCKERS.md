@@ -4,6 +4,10 @@
 
 > This file is a chronological audit record. References to the former service describe dated local evidence only; they are not current access instructions. For the active Drops/Warmups objective, `AGENTS.md` permits user-authorized read-only access to the confirmed DMS target.
 
+## 2026-11-09 AlphaLink navigation arrangement
+
+`ALPHALINK-NAV-001` adds cross-parent subpage arrangement to the AlphaLink admin sidebar. The isolated PHP service/controller tests pass; production browser verification and deployment are pending. The DMS equivalent is UNKNOWN because this request concerns AlphaLink navigation arrangement and no DMS inspection was requested; this does not block the AlphaLink-only behavior and must not be reported as parity.
+
 ## 2026-11-04 validation update
 
 Current verification ran in a disposable PHP 8.5.12 container, matching the fresh installer target. The focused suite passes 154 tests / 1,376 assertions; Pint, PHP lint, the PHP 8.5 Vite build, and `git diff --check` pass. The tracking-key rename passes against disposable PostgreSQL 18 (1 test / 7 assertions). The full PHP suite now passes: 1,048 tests / 9,739 assertions, with 15 notices and one skip. The former PMTA feedback failure was a stale expected event count; no PMTA production behavior changed. Relay source/build provenance and a clean-host end-to-end install remain open. The detailed current status is in the root `ALPHALINK_PROGRESS.md`; following entries remain dated parity/release history.

@@ -8394,6 +8394,28 @@ body.command-os-shell #sidebar .command-os-nav-editor {
 .command-os-navigation.is-reordering [data-nav-group]:focus-visible,
 .command-os-navigation.is-reordering [data-nav-item]:focus-visible { outline-color: var(--co-purple); }
 .command-os-navigation.is-reordering .is-dragging { cursor: grabbing; opacity: .45; }
+.command-os-navigation.is-reordering [data-nav-group].is-drop-target > .command-os-navigation-row,
+.command-os-navigation.is-reordering [data-nav-item].is-drop-target {
+    outline: 2px dashed var(--co-purple);
+    outline-offset: 1px;
+    border-radius: 9px;
+    background: color-mix(in srgb, var(--co-purple) 10%, var(--co-surface));
+}
+.command-os-navigation.is-reordering [data-nav-group].is-drop-target:not(.is-parent-drop-target) > .command-os-navigation-row::after {
+    position: absolute;
+    inset: auto 8px -5px 8px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--co-purple);
+    content: "";
+}
+.command-os-navigation.is-reordering [data-nav-group].is-parent-drop-target > .command-os-navigation-row > .command-os-navigation-link {
+    color: var(--co-purple);
+    background: color-mix(in srgb, var(--co-purple) 8%, var(--co-surface));
+}
+.command-os-navigation.is-reordering [data-nav-item].is-drop-target {
+    color: var(--co-purple);
+}
 .command-os-nav-save-dialog { width: min(460px, calc(100vw - 28px)); border: 1px solid var(--co-border); border-radius: 16px; padding: 22px; color: var(--co-ink); background: var(--co-surface); box-shadow: 0 24px 72px rgb(12 18 45 / 30%); }
 .command-os-nav-save-dialog::backdrop { background: rgb(7 12 31 / 58%); backdrop-filter: blur(3px); }
 .command-os-nav-save-dialog h2 { margin: 0 0 8px; font-size: 17px; font-weight: 780; }

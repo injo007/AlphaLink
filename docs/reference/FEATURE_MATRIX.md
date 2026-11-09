@@ -6,6 +6,14 @@ Status describes AlphaLink implementation progress against the available referen
 
 DMS-AUD-001, DMS-INST-001, DMS-INFRA-002, DMS-CLOUD-001, DMS-TOOLS-001, and DMS-PMTA-001 are non-counting roll-ups; DMS-OPS-001 is the empty `/t` diagnostic stub and is excluded. DMS-INST-002 and DMS-INST-003 track the distinct PMTA deployment stage and Mailer Bulk Install route workflow; installer settings are separately tracked in DMS-MISC-001. E-ROUTE-13 decomposes the broad campaign row into authoring, test recipients/sends, saved Headers, Logs/restrictions, send lifecycle, and runtime monitoring. E-ROUTE-14 records a cross-cutting AlphaLink URL rewrite fix; E-TOOLS-13 adds source-evidenced Text Mechanic behavior; neither is an additional DMS workflow. The current matrix has 110 unique feature rows and 103 provisional candidates after seven exclusions. Current statuses are 73 TESTING, 11 IMPLEMENTING, 25 INVESTIGATING, 1 VERIFIED, and 0 PARITY_CONFIRMED; candidate statuses are 72 TESTING, 11 IMPLEMENTING, 19 INVESTIGATING, 1 VERIFIED, and 0 PARITY_CONFIRMED. The route assignment CSV maps all 513 catalogued declarations across 96 workflow IDs, with every route workflow ID represented in the matrix. The denominator remains provisional because provider, integration, background-job, and remaining campaign workflows still need decomposition review. No parity acceptance or verified-coverage percentage is claimed.
 
+## AlphaLink-only navigation arrangement addition — excluded from the DMS denominator
+
+| ID | Module / AlphaLink route | Source of behavior | Evidence | AlphaLink implementation | Status | Known difference |
+|---|---|---|---|---|---|---|
+| ALPHALINK-NAV-001 | Admin sidebar → Arrange navigation; `POST /app/navigation/order` | AlphaLink `GlobalNavigationOrder`, global preference controller, Command OS sidebar markup and interaction contract | E-NAV-01 | Admins can reorder parent sections and subpages, move a subpage between parent sections by drag/drop or keyboard, discard edits, and save the resulting global order/section assignment for all users. Role-filtered destinations remain governed by the existing server-rendered navigation payload. | TESTING | DMS behavior for cross-parent navigation arrangement was not inspected; no DMS parity claim is made. |
+
+This AlphaLink capability is tracked separately and does not change the archived DMS workflow count or status totals above.
+
 ## 2026-11-04 maintenance addendum
 
 The tracking installer is being rebuilt from AlphaLink-owned source. It preserves the current public media directory, routes only tracking-shaped paths into the handler, and uses a reversible rename for the encrypted tracking key. This infrastructure identity change does not add a workflow or change the historical matrix denominator. The slice remains **TESTING** until the installer, migration, asset digest, and fresh-install contract suites pass.

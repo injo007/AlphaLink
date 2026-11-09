@@ -936,7 +936,7 @@
                 .campaign-create-page #campaign-routing .campaign-route-pools-heading { align-items: flex-start; }
                 .campaign-create-page #campaign-routing .campaign-route-picker { grid-template-columns: minmax(0, 1fr); }
                 .campaign-create-page #campaign-routing .campaign-route-transfer-controls { grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 0 2px; }
-                .campaign-create-page #campaign-routing .campaign-route-transfer-controls [data-ip-move] { height: 40px; }
+                .campaign-create-page #campaign-routing .campaign-route-transfer-controls [data-ip-move] { height: 44px; min-height: 44px; }
                 .campaign-create-page #campaign-routing .campaign-route-selector { max-width: 100%; }
                 .campaign-create-page .form-row > [class*='col-'] { flex: 0 0 100%; max-width: 100%; }
             }

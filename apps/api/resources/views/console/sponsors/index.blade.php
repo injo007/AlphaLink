@@ -183,12 +183,12 @@
                 select: { style: 'os', selector: 'td:first-child' },
                 columns: [
                     { data: null, defaultContent: '', orderable: false, searchable: false, className: 'select-checkbox', title: '' },
-                    { title: '#', data: 'id' },
-                    { title: 'AFFILIATE ID', data: 'affiliate_id', defaultContent: '' },
-                    { title: 'NAME', data: 'name' },
-                    { title: 'USERNAME', data: 'username' },
-                    { title: 'TYPE', data: 'type' },
-                    { title: 'CREATED AT', data: 'created_at' },
+                    { title: '#', data: 'id', render: (val) => `<span class="font-mono text-muted">#${escapeHtml(val)}</span>` },
+                    { title: 'AFFILIATE ID', data: 'affiliate_id', render: (val) => val ? `<span class="badge badge-light border font-mono">${escapeHtml(val)}</span>` : '<span class="text-muted">—</span>' },
+                    { title: 'NAME', data: 'name', render: (val) => `<strong class="text-ink">${escapeHtml(val)}</strong>` },
+                    { title: 'USERNAME', data: 'username', render: (val) => `<span class="font-mono text-muted font-size-xs">${escapeHtml(val)}</span>` },
+                    { title: 'TYPE', data: 'type', render: (val) => `<span class="badge badge-light border text-purple font-w700 text-uppercase px-2 py-1">${escapeHtml(val || 'GENERIC')}</span>` },
+                    { title: 'CREATED AT', data: 'created_at', render: (val) => val ? `<span class="text-muted text-nowrap font-size-xs">${escapeHtml(val.split(' ')[0] || val)}</span>` : '' },
                     { title: 'TOTAL OFFERS', data: 'offers_count', render: (value, type, row) => type === 'display' ? `<a href="${@json(route('clean.console.offers.index'))}?sponsor=${escapeHtml(row.id)}" class="command-table-link"><span class="badge badge-light border text-purple px-2 py-1 font-w700">${Number(value || 0)} Offers</span></a>` : value },
                     {
                         title: 'USERS',
@@ -199,9 +199,9 @@
                     {
                         title: 'URL',
                         data: 'url',
-                        render: (url, type) => type === 'display'
-                            ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="command-table-link" aria-label="Open sponsor website"><i class="fas fa-external-link-alt text-purple"></i></a>`
-                            : url,
+                        render: (url, type) => type === 'display' && url
+                            ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="command-action-btn action-primary" title="Open sponsor website" aria-label="Open sponsor website"><i class="fas fa-external-link-alt"></i></a>`
+                            : (url || ''),
                     },
                     {
                         title: 'ACTIONS',

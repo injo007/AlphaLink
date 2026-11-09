@@ -3,24 +3,36 @@
 @section('title', "Offer {$offer->id} Assets")
 
 @section('content')
-    <div class="block block-rounded">
-        <div class="block-header block-header-default">
-            <h3 class="block-title text-uppercase">UPLOAD {{ $type }} ASSETS FOR OFFER <span class="text-info">{{ $offer->id }} | {{ $offer->offer_id }} | {{ $offer->name }}</span></h3>
+<div class="command-os-settings-card m-2 p-3 p-md-4">
+    <header class="command-os-card-header mb-3">
+        <div class="command-os-card-title">
+            <span class="command-os-card-icon icon-purple" aria-hidden="true"><i class="fas fa-cloud-upload-alt"></i></span>
+            <div>
+                <h2>UPLOAD {{ strtoupper($type) }} ASSETS</h2>
+                <p>Offer #{{ $offer->id }} &middot; {{ $offer->name }} (OID: {{ $offer->offer_id }})</p>
+            </div>
         </div>
-        <div class="block-content">
-            <form id="asset-upload-form" enctype="multipart/form-data" data-upload-url="{{ route('console.offers.assets.upload', [$workspace->id, $offer->id, $type]) }}">
-                <div class="form-group">
-                    <label for="asset-files">{{ $type === 'creative' ? 'Creative images' : 'Unsubscribe image' }}</label>
-                    <input class="form-control-file" type="file" id="asset-files" name="files[]" accept="image/jpeg,image/png,image/gif" @if ($type === 'creative') multiple @endif required>
-                    <small class="form-text text-muted">{{ $type === 'creative' ? "Maximum 20 images. " : 'Uploading replaces the previous unsubscribe image. ' }}JPEG, PNG or GIF; maximum 2 MB per file.</small>
-                </div>
-                <div class="d-flex justify-content-end">
-                    <button class="btn btn-primary" type="submit">UPLOAD</button>
-                </div>
-            </form>
-            <div id="asset-upload-result" class="alert mt-3 d-none" role="status" aria-live="polite"></div>
+    </header>
+
+    <form id="asset-upload-form" enctype="multipart/form-data" data-upload-url="{{ route('console.offers.assets.upload', [$workspace->id, $offer->id, $type]) }}">
+        <div class="form-group mb-3">
+            <label for="asset-files" class="font-size-xs font-w700 text-uppercase text-muted">
+                <i class="fas fa-images text-purple mr-1"></i> {{ $type === 'creative' ? 'Creative Images' : 'Unsubscribe Image' }}
+            </label>
+            <div class="p-3 border rounded text-center" style="border-style: dashed !important; border-color: var(--cv-border-strong) !important; background: var(--cv-surface-2);">
+                <i class="fas fa-file-image fa-2x text-purple mb-2"></i>
+                <input class="form-control-file d-block mx-auto" type="file" id="asset-files" name="files[]" accept="image/jpeg,image/png,image/gif" @if ($type === 'creative') multiple @endif required>
+                <small class="form-text text-muted mt-2">{{ $type === 'creative' ? "Maximum 20 images. " : 'Uploading replaces the previous unsubscribe image. ' }}JPEG, PNG or GIF; maximum 2 MB per file.</small>
+            </div>
         </div>
-    </div>
+        <div class="d-flex justify-content-end">
+            <button class="command-os-btn-filter px-4" type="submit">
+                <i class="fas fa-upload mr-2"></i>START UPLOAD
+            </button>
+        </div>
+    </form>
+    <div id="asset-upload-result" class="alert mt-3 d-none py-2 font-size-sm" role="status" aria-live="polite"></div>
+</div>
 @endsection
 
 @push('scripts')

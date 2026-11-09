@@ -92,7 +92,7 @@
                     <label for="offer-sponsor"><i class="fas fa-building text-purple mr-1"></i> Sponsors:</label>
                     <div class="command-input-wrap">
                         <span class="command-input-leading-icon"><i class="fas fa-building"></i></span>
-                        <select class="form-control selectpicker command-input-with-icon" id="offer-sponsor" data-live-search="true">
+                        <select class="form-control selectpicker" id="offer-sponsor" data-live-search="true">
                             <option value="0">Select Sponsor</option>
                             @foreach ($sponsors as $sponsor)
                                 <option value="{{ $sponsor->id }}" @selected((string) request('sponsor') === (string) $sponsor->id)>{{ $sponsor->name }}</option>
@@ -104,7 +104,7 @@
                     <label for="offer-vertical"><i class="fas fa-layer-group text-purple mr-1"></i> Verticals:</label>
                     <div class="command-input-wrap">
                         <span class="command-input-leading-icon"><i class="fas fa-layer-group"></i></span>
-                        <select class="form-control selectpicker command-input-with-icon" id="offer-vertical" data-live-search="true">
+                        <select class="form-control selectpicker" id="offer-vertical" data-live-search="true">
                             <option value="">Select Vertical</option>
                             @foreach ($verticals as $vertical)
                                 <option value="{{ $vertical }}" @selected(request('vertical') === $vertical)>{{ $vertical }}</option>
@@ -116,7 +116,7 @@
                     <label for="offer-status"><i class="fas fa-toggle-on text-purple mr-1"></i> Status:</label>
                     <div class="command-input-wrap">
                         <span class="command-input-leading-icon"><i class="fas fa-toggle-on"></i></span>
-                        <select class="form-control selectpicker command-input-with-icon" id="offer-status">
+                        <select class="form-control selectpicker" id="offer-status">
                             <option value="0">Select Status</option>
                             @foreach (\App\Models\WorkspaceOffer::STATUSES as $status)
                                 <option value="{{ $status }}" @selected(request('status') === $status)>{{ strtoupper($status) }}</option>
@@ -128,7 +128,7 @@
                     <label for="offer-geo"><i class="fas fa-globe text-purple mr-1"></i> Geo:</label>
                     <div class="command-input-wrap">
                         <span class="command-input-leading-icon"><i class="fas fa-globe"></i></span>
-                        <select class="form-control selectpicker command-input-with-icon" id="offer-geo" data-live-search="true">
+                        <select class="form-control selectpicker" id="offer-geo" data-live-search="true">
                             <option value="ALL">Select Country</option>
                             @foreach ($countries as $code => $country)
                                 <option value="{{ $code }}">{{ $country }}</option>
@@ -300,13 +300,21 @@
                 ],
                 columns: [
                     ...(canShare ? [{ data: null, defaultContent: '', orderable: false, searchable: false, className: 'select-checkbox', title: '' }] : []),
-                    { title: '#', data: 'id' },
-                    { title: 'OID', data: 'offer_id' },
-                    { title: 'SPONSOR', data: 'sponsor.name' },
-                    { title: 'NAME', data: 'name' },
-                    { title: 'VERTICAL', data: 'vertical' },
-                    { title: 'GEO', data: 'geo_target', render: (value) => Array.isArray(value) ? escapeHtml(value.join(', ')) : '' },
-                    { title: 'PAYOUT', data: 'payout' },
+                    { title: '#', data: 'id', render: (val) => `<span class="font-mono text-muted">#${escapeHtml(val)}</span>` },
+                    { title: 'OID', data: 'offer_id', render: (val) => `<span class="badge badge-light border text-purple font-mono font-w700">${escapeHtml(val)}</span>` },
+                    { title: 'SPONSOR', data: 'sponsor.name', render: (val) => `<strong class="text-ink text-nowrap">${escapeHtml(val || '—')}</strong>` },
+                    { title: 'NAME', data: 'name', render: (val) => `<span class="text-ink font-w600" title="${escapeHtml(val)}">${escapeHtml(val)}</span>` },
+                    { title: 'VERTICAL', data: 'vertical', render: (val) => val ? `<span class="badge badge-light border text-purple font-w700">${escapeHtml(val)}</span>` : '<span class="text-muted">—</span>' },
+                    { title: 'GEO', data: 'geo_target', render: (value) => {
+                        if (!Array.isArray(value) || !value.length) return '<span class="text-muted">—</span>';
+                        if (value.includes('ALL')) return '<span class="badge badge-success font-w700 px-2 py-1">ALL</span>';
+                        if (value.length <= 3) {
+                            return value.map(c => `<span class="badge badge-light border text-muted px-1 mr-1">${escapeHtml(c)}</span>`).join('');
+                        }
+                        const visible = value.slice(0, 2).map(c => `<span class="badge badge-light border text-muted px-1 mr-1">${escapeHtml(c)}</span>`).join('');
+                        return `<span class="text-nowrap" title="${escapeHtml(value.join(', '))}">${visible}<span class="badge badge-purple px-1">+${value.length - 2}</span></span>`;
+                    } },
+                    { title: 'PAYOUT', data: 'payout', render: (val) => `<span class="font-w700 text-success text-nowrap">$${Number(val || 0).toFixed(2)}</span>` },
                     { title: 'SUP LAST UPDATE', data: 'suppression_updated_at', render: (value, type, row) => {
                         const status = !value
                             ? '<strong class="badge-suppression-stale">NEVER</strong>'
@@ -317,10 +325,16 @@
                         if (!canManage || row.deleted_at) return status;
                         return `<span class="text-nowrap">${status} <button type="button" class="btn btn-link btn-sm p-0 ml-1 download-suppression" style="color: #38bdf8;" data-id="${escapeHtml(row.id)}" title="DOWNLOAD SUPPRESSION FILE FROM SPONSOR" aria-label="Download suppression file for ${escapeHtml(row.name)}"><i class="fas fa-sync-alt" aria-hidden="true"></i></button></span>`;
                     } },
-                    { title: 'STATUS', data: 'status', render: (value, type, row) => canManage && !row.deleted_at ? `<select class="form-control form-control-sm business-status" data-id="${escapeHtml(row.id)}">${['live','issue','paused'].map((status) => `<option value="${status}" ${value === status ? 'selected' : ''}>${status.toUpperCase()}</option>`).join('')}</select>` : escapeHtml(value) },
+                    { title: 'STATUS', data: 'status', render: (value, type, row) => {
+                        if (!canManage || row.deleted_at) {
+                            const colors = { live: 'badge-success', issue: 'badge-danger', paused: 'badge-warning' };
+                            return `<span class="badge ${colors[value] || 'badge-light border'} text-uppercase px-2 py-1 font-w700">${escapeHtml(value)}</span>`;
+                        }
+                        return `<select class="form-control form-control-sm business-status text-uppercase" data-id="${escapeHtml(row.id)}">${['live','issue','paused'].map((status) => `<option value="${status}" ${value === status ? 'selected' : ''}>${status.toUpperCase()}</option>`).join('')}</select>`;
+                    } },
                     { title: 'ACTIVE', data: 'is_active', render: (value) => value ? '<span class="badge badge-command-active-yes">YES</span>' : '<span class="badge badge-command-active-no">NO</span>' },
-                    { title: 'FROM', data: 'from_count', render: (value) => Number(value || 0) },
-                    { title: 'SUBJECTS', data: 'subjects_count', render: (value) => Number(value || 0) },
+                    { title: 'FROM', data: 'from_count', render: (val) => `<span class="badge badge-light border text-muted px-2 py-1 font-w700">${Number(val || 0)}</span>` },
+                    { title: 'SUBJECTS', data: 'subjects_count', render: (val) => `<span class="badge badge-light border text-muted px-2 py-1 font-w700">${Number(val || 0)}</span>` },
                     ...(canManage ? [{ title: 'USERS', data: 'allowed_users', searchable: false, render: (users, type, row) => !row.deleted_at ? `<button type="button" data-id="${escapeHtml(row.id)}" class="btn btn-link users command-users-link" title="ALLOWED USERS"><i class="fas fa-users mr-1"></i>${Array.isArray(users) ? users.length : 0}</button>` : '' }] : []),
                     { title: 'ACTIONS', data: null, orderable: false, searchable: false, render: (data, type, row) => {
                         const assetsUrl = `${base}/${row.id}/assets`;

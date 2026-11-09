@@ -6,7 +6,7 @@
      data-target-id="{{ $textareaId }}">
     <label for="{{ $idPrefix }}-saved-headers"><i class="fas fa-layer-group campaign-field-icon" aria-hidden="true"></i>Saved Headers:</label>
     <div class="input-group">
-        <select id="{{ $idPrefix }}-saved-headers" class="form-control selectpicker" data-container="body" data-live-search="true" aria-label="Select saved header">
+        <select id="{{ $idPrefix }}-saved-headers" class="form-control selectpicker" data-live-search="true" aria-label="Select saved header">
             <option value="">Select Header</option>
         </select>
         <div class="input-group-append">

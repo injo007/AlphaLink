@@ -9,45 +9,48 @@
 @section('title', $bulk ? 'Manage Sponsor Users' : 'Manage Users Sponsor')
 
 @section('content')
-    <div class="block block-rounded">
-        <div class="block-header block-header-default">
-            <h3 class="block-title">
-                @if ($bulk)
-                    Allowed Mailers for {{ $sponsors->count() }} Sponsors
-                @else
-                    Sponsor: <span class="text-info">{{ $sponsor->name }}</span>
-                @endif
-            </h3>
-        </div>
-        <div class="block-content">
-            <div class="row justify-content-center py-2">
-                <div class="col-sm-10">
-                    <div id="users-result" class="alert alert-danger d-none" role="alert" aria-live="assertive"></div>
-                    <div class="form-group">
-                        <label>
-                            Allowed Mailers:
-                            <button id="toggle-all" class="btn btn-link btn-sm" type="button">CHECK <span class="fas fa-check"></span></button>
-                        </label>
-                        <div class="row">
-                            @foreach ($users->chunk(2) as $chunk)
-                                <div class="col-sm-12 col-md-6">
-                                    @foreach ($chunk as $user)
-                                        <div class="custom-control custom-checkbox mb-1">
-                                            <input type="checkbox" value="{{ $user->id }}" class="custom-control-input" id="allowed-user-{{ $user->id }}" name="checked_users" @checked(!$bulk && in_array((int) $user->id, array_map('intval', $sponsor->allowed_users ?? []), true))>
-                                            <label class="custom-control-label" for="allowed-user-{{ $user->id }}">{{ $user->username ? $user->username.' | ' : '' }}{{ $user->name }}</label>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            @endforeach
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <button id="update-users" class="btn btn-block btn-info" type="button">UPDATE ALLOWED USERS</button>
-                    </div>
-                </div>
+<div class="command-os-settings-card m-2 p-3 p-md-4">
+    <header class="command-os-card-header mb-3">
+        <div class="command-os-card-title">
+            <span class="command-os-card-icon icon-purple" aria-hidden="true"><i class="fas fa-users-cog"></i></span>
+            <div>
+                <h2>@if ($bulk) BULK ASSIGN MAIL USERS ({{ $sponsors->count() }} SPONSORS) @else ASSIGN USERS: {{ $sponsor->name }} @endif</h2>
+                <p>Authorize mailers to operate campaigns and access offers belonging to this sponsor</p>
             </div>
         </div>
+    </header>
+
+    <div id="users-result" class="alert alert-danger d-none py-2 font-size-sm mb-3" role="alert" aria-live="assertive"></div>
+
+    <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+        <span class="font-size-xs font-w700 text-uppercase text-muted"><i class="fas fa-user-check text-purple mr-1"></i> Authorized Mailers:</span>
+        <button id="toggle-all" class="command-action-btn action-info px-3" type="button" aria-pressed="false" style="font-size: 11px; width: auto; height: 28px;">
+            <i class="fas fa-check-double mr-1"></i> CHECK ALL
+        </button>
     </div>
+
+    @if ($users->isEmpty())
+        <p class="text-muted font-size-sm">There are no operator members in this workspace to assign.</p>
+    @else
+        <div class="row mb-4">
+            @foreach ($users as $user)
+                <div class="col-12 col-md-6 mb-2">
+                    <label class="d-flex align-items-center p-2 rounded border" style="background: var(--cv-surface-2); cursor: pointer;" for="allowed-user-{{ $user->id }}">
+                        <input type="checkbox" value="{{ $user->id }}" class="mr-2" id="allowed-user-{{ $user->id }}" name="checked_users" @checked(!$bulk && in_array((int) $user->id, array_map('intval', $sponsor->allowed_users ?? []), true))>
+                        <span class="font-size-sm text-ink font-w600">{{ $user->name }}</span>
+                        @if ($user->username)
+                            <span class="font-size-xs text-muted ml-auto font-mono">{{ $user->username }}</span>
+                        @endif
+                    </label>
+                </div>
+            @endforeach
+        </div>
+    @endif
+
+    <button id="update-users" class="command-os-btn-filter w-100" type="button">
+        <i class="fas fa-save mr-2"></i>SAVE ALLOWED USERS
+    </button>
+</div>
 @endsection
 
 @push('scripts')

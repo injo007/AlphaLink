@@ -369,16 +369,19 @@
                 },
             },
             columns: [
-                { title: '#', data: 'id' },
-                { title: 'User', data: 'user.username', render: (value) => escapeHtml(value || 'NA') },
-                { title: 'Sponsor', data: 'sponsor.name', render: (value) => escapeHtml(value || 'NA') },
-                { title: 'Offer', data: 'offer', render: (value) => escapeHtml(`(${value?.offer_id || ''}) - ${value?.name || ''}`) },
-                { title: 'ISPs / Lists', data: null, orderable: false, render: () => '<button type="button" class="btn btn-sm btn-outline-info js-suppression-scope px-2 py-0 font-w700" style="font-size:10px; border-radius:6px;"><i class="fas fa-eye mr-1"></i>VIEW</button>' },
-                { title: 'Status', data: 'status', render: (value) => `<span class="badge ${value === 'complete' ? 'badge-success' : 'badge-warning'} font-w700 text-uppercase px-2 py-1">${escapeHtml(value)}</span>` },
-                { title: 'New found', data: 'found' },
-                { title: 'Elapsed', data: 'elapsed', render: (value) => escapeHtml(value || 'NA') },
-                { title: 'At', data: 'created_at', render: (value) => escapeHtml(value || 'NA') },
-                { title: 'Actions', data: null, orderable: false, searchable: false, render: (_value, _type, row) => terminal(row.status) ? '<span class="text-muted font-size-xs">&mdash;</span>' : `<button type="button" class="btn btn-sm btn-danger js-suppression-kill px-2 py-0 font-w700" style="font-size:10px; border-radius:6px;" data-id="${Number(row.id)}"><i class="fas fa-stop-circle mr-1"></i>KILL</button>` },
+                { title: '#', data: 'id', render: (val) => `<span class="font-mono text-muted">#${escapeHtml(val)}</span>` },
+                { title: 'User', data: 'user.username', render: (value) => `<span class="badge badge-light border text-muted">${escapeHtml(value || 'NA')}</span>` },
+                { title: 'Sponsor', data: 'sponsor.name', render: (value) => `<strong class="text-ink text-nowrap">${escapeHtml(value || 'NA')}</strong>` },
+                { title: 'Offer', data: 'offer', render: (value) => `<span class="badge badge-light border text-purple mr-1 font-mono">${escapeHtml(value?.offer_id || '')}</span> <span class="text-ink font-w600">${escapeHtml(value?.name || '')}</span>` },
+                { title: 'ISPs / Lists', data: null, orderable: false, render: () => '<button type="button" class="command-action-btn action-info js-suppression-scope" title="VIEW SCOPE"><i class="fas fa-eye"></i></button>' },
+                { title: 'Status', data: 'status', render: (value) => {
+                    const colors = { complete: 'badge-success', failed: 'badge-danger', killed: 'badge-danger' };
+                    return `<span class="badge ${colors[value] || 'badge-warning'} font-w700 text-uppercase px-2 py-1">${escapeHtml(value)}</span>`;
+                } },
+                { title: 'New found', data: 'found', render: (val) => `<span class="badge badge-purple px-2 py-1 font-w700">${Number(val || 0).toLocaleString()}</span>` },
+                { title: 'Elapsed', data: 'elapsed', render: (value) => `<span class="font-mono text-muted text-nowrap font-size-xs">${escapeHtml(value || '00:00:00')}</span>` },
+                { title: 'At', data: 'created_at', render: (value) => `<span class="font-mono text-muted text-nowrap font-size-xs">${escapeHtml(value ? value.split(' ')[0] : 'NA')}</span>` },
+                { title: 'Actions', data: null, orderable: false, searchable: false, render: (_value, _type, row) => terminal(row.status) ? '<span class="text-muted font-size-xs">&mdash;</span>' : `<button type="button" class="command-action-btn action-danger js-suppression-kill" data-id="${Number(row.id)}" title="KILL JOB"><i class="fas fa-stop-circle"></i></button>` },
             ],
             rowCallback: (_row, row) => {
                 if (!terminal(row.status)) monitor(row.id);

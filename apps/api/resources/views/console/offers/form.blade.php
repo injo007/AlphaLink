@@ -10,67 +10,250 @@
 @endphp
 
 @section('content')
-    <div class="block block-rounded">
-        <div class="block-header block-header-default">
-            <h3 class="block-title">{{ $offer ? 'EDIT OFFER' : 'ADD NEW OFFER' }}@if ($offer) <span class="text-info">{{ $offer->id }} | {{ $offer->offer_id }} | {{ $offer->name }}</span>@endif</h3>
-            @if ($canImport)
-                <div class="block-options">
-                    <div class="custom-control custom-switch custom-control-inline">
-                        <input type="checkbox" class="custom-control-input" id="offer-import-mode" checked>
-                        <label class="custom-control-label" for="offer-import-mode" id="offer-mode-label">IMPORT</label>
-                    </div>
+    <div class="command-os-settings-card m-0" style="border-radius: 0; min-height: 100vh;">
+        <div class="command-os-settings-card-header">
+            <div class="command-os-settings-card-title-group">
+                <div class="command-os-settings-card-icon">
+                    <i class="fas fa-tag"></i>
                 </div>
-            @endif
-        </div>
-        <div class="block-content">
-            <div class="row justify-content-center py-1">
-                <div class="col-sm-10">
-                    @unless ($canImport)
-                        <div class="alert alert-info" role="status">Manual offer entry and validation. New offers inherit the selected sponsor’s operator access and begin inactive.</div>
-                    @endunless
-                    <div id="offer-result" class="alert alert-danger d-none" role="alert" aria-live="assertive"></div>
-                    <div class="form-group"><label for="sponsor_id">Select Sponsor:</label><select id="sponsor_id" class="form-control selectpicker" data-live-search="true" required><option value="">Select Sponsor</option>@foreach ($sponsors as $sponsor)<option value="{{ $sponsor->id }}" data-type="{{ $sponsor->type }}" @selected((string) old('sponsor_id', $offer?->sponsor_id ?? request('sponsor')) === (string) $sponsor->id)>{{ $sponsor->name }}</option>@endforeach</select></div>
-                    @if ($canImport)
-                        <div id="import_div">
-                            <div class="form-group">
-                                <label for="offer_ids">Offer Ids:</label>
-                                <textarea id="offer_ids" rows="6" class="form-control form-control-alt" placeholder="Offer Ids" style="resize: none"></textarea>
-                            </div>
-                            <p id="import-provider-status" class="text-muted" role="status">Choose a HitPath, NewHitPath, Cake or EverFlow sponsor. Each import reads only the selected offer IDs.</p>
-                            <div id="import-result" class="alert alert-danger d-none" role="alert" aria-live="assertive"></div>
-                            <div class="form-group">
-                                <button id="import-offers" class="btn btn-block btn-info" type="button" disabled>IMPORT</button>
-                            </div>
-                        </div>
-                        <div id="save_div" class="d-none">
-                    @endif
-                    <div class="form-group"><label for="offer_id">Offer ID:</label><input id="offer_id" class="form-control form-control-alt" maxlength="255" value="{{ old('offer_id', $offer?->offer_id) }}" required></div>
-                    <div class="form-group"><label for="name">Offer Name:</label><input id="name" class="form-control form-control-alt" maxlength="255" value="{{ old('name', $offer?->name) }}" required></div>
-                    <div class="form-group"><label for="type">Offer Type:</label><select id="type" class="form-control selectpicker" required>@foreach (\App\Models\WorkspaceOffer::TYPES as $type)<option value="{{ $type }}" @selected(old('type', strtoupper($offer?->type ?? 'CPA')) === $type)>{{ $type }}</option>@endforeach</select></div>
-                    <div class="form-group"><label for="vertical">Offer Vertical:</label><input id="vertical" class="form-control form-control-alt" maxlength="255" value="{{ old('vertical', $offer?->vertical) }}" required></div>
-                    <div class="form-group"><label for="geo_target">Offer Geo Target:</label><select id="geo_target" class="form-control selectpicker" data-live-search="true" data-actions-box="true" multiple required>@foreach ($countries as $code => $country)<option value="{{ $code }}" @selected(in_array($code, old('geo_target', $offer?->geo_target ?? []), true))>{{ $country }}</option>@endforeach<option value="ALL" @selected(in_array('ALL', old('geo_target', $offer?->geo_target ?? []), true))>ALL COUNTRIES ALLOWED</option></select></div>
-                    <div class="form-group"><label for="payout">Offer Payout:</label><input id="payout" type="number" min="0" max="9999" step="0.0001" class="form-control form-control-alt" value="{{ old('payout', $offer?->payout ?? '0') }}" required></div>
-                    <div class="form-group"><label for="allowed_days">Offer Allowed Days:</label><select id="allowed_days" class="form-control selectpicker" data-actions-box="true" multiple required>@foreach (\App\Models\WorkspaceOffer::ALLOWED_DAYS as $day)<option value="{{ $day }}" @selected(in_array($day, old('allowed_days', $offer?->allowed_days ?? \App\Models\WorkspaceOffer::ALLOWED_DAYS), true))>{{ $day }}</option>@endforeach</select></div>
-                    <div class="form-group"><label for="note">Offer Note:</label><textarea id="note" class="form-control form-control-alt" maxlength="9999">{{ old('note', $offer?->note) }}</textarea></div>
-                    <div class="form-group"><label for="redirect">Redirect Link:</label><input id="redirect" type="url" class="form-control form-control-alt" maxlength="255" value="{{ old('redirect', $offer?->redirect) }}" required></div>
-                    <div class="form-group"><label for="unsubscribe">Unsubscribe Link:</label><input id="unsubscribe" type="url" class="form-control form-control-alt" maxlength="255" value="{{ old('unsubscribe', $offer?->unsubscribe) }}"></div>
-                    @if ($offer)
-                        <div class="alert alert-info mt-3" role="status">
-                            The saved offer file is managed on its own page, separate from Drops suppression runs.
-                            <a class="btn btn-sm btn-outline-primary ml-2" href="{{ route('console.offers.suppression-file.show', [$workspace->id, $offer->id]) }}" target="_blank" rel="noopener">MANAGE SUPPRESSION FILE</a>
-                        </div>
-                    @endif
-                    @unless ($offer)
-                        <div class="alert alert-info" role="status">After saving, open the offer’s suppression-file page from its row in Offers to refresh, download, or upload the saved file. Drops → Suppression is for starting and reviewing runs.</div>
-                        <div class="form-group"><label for="from">From:</label><textarea id="from" rows="5" class="form-control form-control-alt" placeholder="One sender name or address per line" required></textarea></div>
-                        <div class="form-group"><label for="subjects">Subjects:</label><textarea id="subjects" rows="5" class="form-control form-control-alt" placeholder="One subject line per line" required></textarea></div>
-                    @endunless
-                    @if ($canImport)
-                        </div>
-                    @endif
-                    <button id="save-offer" class="btn btn-block {{ $offer ? 'btn-warning' : 'btn-info' }} {{ $canImport ? 'd-none' : '' }}" type="button">{{ $offer ? 'EDIT' : 'SAVE' }}</button>
+                <div class="command-os-settings-card-titles">
+                    <h3>{{ $offer ? 'EDIT OFFER' : 'ADD NEW OFFER' }}</h3>
+                    <p>Campaign metadata, payout terms, geo-targeting policies, and tracking coordinates</p>
                 </div>
             </div>
+            <div class="d-flex align-items-center gap-3">
+                @if ($offer)
+                    <span class="badge badge-purple px-2 py-1 font-mono font-w700">OID: {{ $offer->offer_id }} &bull; {{ $offer->name }}</span>
+                @elseif ($canImport)
+                    <div class="command-os-seg-toggle" style="width: 220px; height: 36px;">
+                        <input type="checkbox" id="offer-import-mode" class="d-none" checked>
+                        <div class="command-os-seg-track" style="height: 36px; padding: 2px;">
+                            <button type="button" class="command-os-seg-btn is-active js-mode-btn" data-mode="import">
+                                <i class="fas fa-cloud-download-alt mr-1"></i> IMPORT
+                            </button>
+                            <button type="button" class="command-os-seg-btn js-mode-btn" data-mode="manual">
+                                <i class="fas fa-edit mr-1"></i> MANUAL
+                            </button>
+                        </div>
+                    </div>
+                @endif
+            </div>
+        </div>
+
+        <div class="command-os-settings-card-body p-4">
+            <div id="offer-result" class="alert alert-danger d-none mb-3" role="alert" aria-live="assertive"></div>
+
+            {{-- 1. Sponsor Selection (Always active) --}}
+            <div class="row">
+                <div class="col-sm-12 col-md-6">
+                    <div class="form-group command-os-field-group">
+                        <label for="sponsor_id">
+                            <span><i class="fas fa-building command-field-icon"></i> Connected Sponsor:</span>
+                        </label>
+                        <div class="command-input-wrap">
+                            <span class="command-input-leading-icon"><i class="fas fa-building"></i></span>
+                            <select id="sponsor_id" class="form-control selectpicker" data-live-search="true" required>
+                                <option value="">Select Sponsor</option>
+                                @foreach ($sponsors as $sponsor)
+                                    <option value="{{ $sponsor->id }}" data-type="{{ $sponsor->type }}" @selected((string) old('sponsor_id', $offer?->sponsor_id ?? request('sponsor')) === (string) $sponsor->id)>{{ $sponsor->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-12 col-md-6">
+                    <div class="form-group command-os-field-group">
+                        <label for="type">
+                            <span><i class="fas fa-layer-group command-field-icon"></i> Offer Type:</span>
+                        </label>
+                        <div class="command-input-wrap">
+                            <span class="command-input-leading-icon"><i class="fas fa-layer-group"></i></span>
+                            <select id="type" class="form-control command-os-custom-select" required>
+                                @foreach (\App\Models\WorkspaceOffer::TYPES as $type)
+                                    <option value="{{ $type }}" @selected(old('type', strtoupper($offer?->type ?? 'CPA')) === $type)>{{ $type }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @if ($canImport)
+                {{-- Import Panel --}}
+                <div id="import_div">
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="form-group command-os-field-group">
+                                <label for="offer_ids">
+                                    <span><i class="fas fa-list-ol command-field-icon"></i> Provider Offer IDs:</span>
+                                </label>
+                                <textarea id="offer_ids" rows="5" class="form-control font-mono" placeholder="Enter provider offer IDs, one per line (e.g. 10101)..." style="border-radius: 10px; font-size: 13px; resize: none;"></textarea>
+                                <small id="import-provider-status" class="form-text text-muted mt-2" role="status">Choose a HitPath, NewHitPath, Cake, HasOffers or EverFlow sponsor. Each import fetches and normalizes campaign metadata automatically.</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="import-result" class="alert d-none mb-3" role="alert" aria-live="assertive"></div>
+                    <div class="d-flex justify-content-end mt-3">
+                        <button id="import-offers" class="btn btn-primary command-os-btn-save-settings" type="button" disabled style="width: auto; padding: 10px 28px !important;">
+                            <i class="fas fa-cloud-download-alt mr-2"></i> IMPORT SELECTED OFFERS
+                        </button>
+                    </div>
+                </div>
+                <div id="save_div" class="d-none">
+            @endif
+
+            {{-- Manual Entry Panel --}}
+            <div class="row">
+                <div class="col-sm-12 col-md-6">
+                    <div class="form-group command-os-field-group">
+                        <label for="offer_id">
+                            <span><i class="fas fa-hashtag command-field-icon"></i> Offer ID:</span>
+                        </label>
+                        <div class="command-input-wrap">
+                            <span class="command-input-leading-icon"><i class="fas fa-hashtag"></i></span>
+                            <input id="offer_id" class="form-control command-input-with-icon font-mono" maxlength="255" value="{{ old('offer_id', $offer?->offer_id) }}" placeholder="e.g. 54321" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-12 col-md-6">
+                    <div class="form-group command-os-field-group">
+                        <label for="name">
+                            <span><i class="fas fa-tag command-field-icon"></i> Offer Name:</span>
+                        </label>
+                        <div class="command-input-wrap">
+                            <span class="command-input-leading-icon"><i class="fas fa-tag"></i></span>
+                            <input id="name" class="form-control command-input-with-icon" maxlength="255" value="{{ old('name', $offer?->name) }}" placeholder="e.g. Health Insurance Direct CPA" required>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-sm-12 col-md-6">
+                    <div class="form-group command-os-field-group">
+                        <label for="vertical">
+                            <span><i class="fas fa-cubes command-field-icon"></i> Offer Vertical:</span>
+                        </label>
+                        <div class="command-input-wrap">
+                            <span class="command-input-leading-icon"><i class="fas fa-cubes"></i></span>
+                            <input id="vertical" class="form-control command-input-with-icon" maxlength="255" value="{{ old('vertical', $offer?->vertical) }}" placeholder="e.g. Insurance, Finance, Sweepstakes..." required>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-12 col-md-6">
+                    <div class="form-group command-os-field-group">
+                        <label for="payout">
+                            <span><i class="fas fa-dollar-sign command-field-icon"></i> Payout ($ USD):</span>
+                        </label>
+                        <div class="command-input-wrap">
+                            <span class="command-input-leading-icon"><i class="fas fa-dollar-sign"></i></span>
+                            <input id="payout" type="number" min="0" max="9999" step="0.0001" class="form-control command-input-with-icon" value="{{ old('payout', $offer?->payout ?? '0') }}" placeholder="0.00" required>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-sm-12 col-md-6">
+                    <div class="form-group command-os-field-group">
+                        <label for="geo_target">
+                            <span><i class="fas fa-globe command-field-icon"></i> Geo Targeting:</span>
+                        </label>
+                        <div class="command-input-wrap">
+                            <span class="command-input-leading-icon"><i class="fas fa-globe"></i></span>
+                            <select id="geo_target" class="form-control selectpicker" data-live-search="true" data-actions-box="true" multiple required>
+                                <option value="ALL" @selected(in_array('ALL', old('geo_target', $offer?->geo_target ?? []), true))>ALL COUNTRIES ALLOWED</option>
+                                @foreach ($countries as $code => $country)
+                                    <option value="{{ $code }}" @selected(in_array($code, old('geo_target', $offer?->geo_target ?? []), true))>{{ $country }} ({{ $code }})</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-12 col-md-6">
+                    <div class="form-group command-os-field-group">
+                        <label for="allowed_days">
+                            <span><i class="fas fa-calendar-week command-field-icon"></i> Allowed Days:</span>
+                        </label>
+                        <div class="command-input-wrap">
+                            <span class="command-input-leading-icon"><i class="fas fa-calendar-week"></i></span>
+                            <select id="allowed_days" class="form-control selectpicker" data-actions-box="true" multiple required>
+                                @foreach (\App\Models\WorkspaceOffer::ALLOWED_DAYS as $day)
+                                    <option value="{{ $day }}" @selected(in_array($day, old('allowed_days', $offer?->allowed_days ?? \App\Models\WorkspaceOffer::ALLOWED_DAYS), true))>{{ $day }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-sm-12 col-md-6">
+                    <div class="form-group command-os-field-group">
+                        <label for="redirect">
+                            <span><i class="fas fa-external-link-alt command-field-icon"></i> Redirect Link:</span>
+                        </label>
+                        <div class="command-input-wrap">
+                            <span class="command-input-leading-icon"><i class="fas fa-external-link-alt"></i></span>
+                            <input id="redirect" type="url" class="form-control command-input-with-icon" maxlength="255" value="{{ old('redirect', $offer?->redirect) }}" placeholder="https://tracking.link/click..." required>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-12 col-md-6">
+                    <div class="form-group command-os-field-group">
+                        <label for="unsubscribe">
+                            <span><i class="fas fa-user-times command-field-icon"></i> Unsubscribe Link:</span>
+                        </label>
+                        <div class="command-input-wrap">
+                            <span class="command-input-leading-icon"><i class="fas fa-user-times"></i></span>
+                            <input id="unsubscribe" type="url" class="form-control command-input-with-icon" maxlength="255" value="{{ old('unsubscribe', $offer?->unsubscribe) }}" placeholder="https://optout.link/unsub...">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-12">
+                    <div class="form-group command-os-field-group">
+                        <label for="note">
+                            <span><i class="fas fa-sticky-note command-field-icon"></i> Internal Notes &amp; Suppression Instructions:</span>
+                        </label>
+                        <textarea id="note" class="form-control" rows="2" maxlength="9999" placeholder="Optional notes for operations and mailers..." style="border-radius: 10px; font-size: 13px;">{{ old('note', $offer?->note) }}</textarea>
+                    </div>
+                </div>
+            </div>
+
+            @unless ($offer)
+                <hr class="command-os-divider my-3">
+                <div class="row">
+                    <div class="col-sm-12 col-md-6">
+                        <div class="form-group command-os-field-group">
+                            <label for="from">
+                                <span><i class="fas fa-user-tag command-field-icon"></i> From Sender Names:</span>
+                            </label>
+                            <textarea id="from" rows="4" class="form-control font-mono" placeholder="One sender name per line..." style="border-radius: 10px; font-size: 12px;" required></textarea>
+                        </div>
+                    </div>
+                    <div class="col-sm-12 col-md-6">
+                        <div class="form-group command-os-field-group">
+                            <label for="subjects">
+                                <span><i class="fas fa-envelope-open-text command-field-icon"></i> Email Subjects:</span>
+                            </label>
+                            <textarea id="subjects" rows="4" class="form-control font-mono" placeholder="One subject line per line..." style="border-radius: 10px; font-size: 12px;" required></textarea>
+                        </div>
+                    </div>
+                </div>
+            @endunless
+
+            <div class="d-flex justify-content-end mt-4">
+                <button id="save-offer" class="btn btn-primary command-os-btn-save-settings {{ $canImport ? 'd-none' : '' }}" type="button" style="width: auto; padding: 10px 28px !important;">
+                    <i class="fas fa-check mr-2"></i> {{ $offer ? 'UPDATE OFFER' : 'SAVE OFFER' }}
+                </button>
+            </div>
+
+            @if ($canImport)
+                </div>
+            @endif
         </div>
     </div>
 @endsection
@@ -84,39 +267,52 @@
             const saveUrl = @json($saveUrl);
             const canImport = @json($canImport);
             const importUrl = @json(route('console.offers.import', $workspace->id));
-            const importMode = document.querySelector('#offer-import-mode');
+            const importModeCheckbox = document.querySelector('#offer-import-mode');
             const importButton = document.querySelector('#import-offers');
             const importResult = document.querySelector('#import-result');
             const providerStatus = document.querySelector('#import-provider-status');
             const sponsorSelect = document.querySelector('#sponsor_id');
             const importIds = document.querySelector('#offer_ids');
             const importableProviderTypes = @json(\App\Models\WorkspaceSponsor::IMPORT_TYPES);
+
             const syncImportAvailability = () => {
                 if (!canImport) return;
                 const selectedOption = sponsorSelect.selectedOptions[0];
                 const providerType = selectedOption?.dataset.type ?? '';
-                const ids = importIds.value.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
+                const ids = importIds?.value.split(/\r?\n/).map((value) => value.trim()).filter(Boolean) || [];
                 const providerSupported = importableProviderTypes.includes(providerType);
-                importButton.disabled = !providerSupported || ids.length === 0;
-                providerStatus.textContent = !selectedOption?.value
-                    ? 'Choose a HitPath, NewHitPath, Cake, HasOffers or EverFlow sponsor. Enter the provider offer IDs you want to import.'
-                    : (!providerSupported
-                        ? 'Automatic import is not yet implemented for this network. Use MANUEL mode to add an offer.'
-                        : ({
-                            hitpath: 'HitPath imports selected campaign IDs and reads offer fields, From/Subject lines, and the first redirect and last unsubscribe links from email assets.',
-                            newhitpath: 'NewHitPath imports selected campaign metadata and email assets, normalizes HTML, rewrites links, and safely fetches public HTTPS images.',
-                            cake: 'Cake imports selected campaign metadata and sender lines, uses the first creative link, and safely imports an available creative bundle.',
-                            hasoffers: 'HasOffers imports selected offer metadata, category and geo targeting, sender lines, tracking links, and the provider opt-out link.',
-                            everflow: 'EverFlow imports selected offer IDs, offer fields, From/Subject assets, and available HTML/image creatives.',
-                        })[providerType]);
+                if (importButton) {
+                    importButton.disabled = !providerSupported || ids.length === 0;
+                }
+                if (providerStatus) {
+                    providerStatus.textContent = !selectedOption?.value
+                        ? 'Choose a HitPath, NewHitPath, Cake, HasOffers or EverFlow sponsor. Enter the provider offer IDs you want to import.'
+                        : (!providerSupported
+                            ? 'Automatic import is not yet implemented for this network. Use MANUAL mode to add an offer.'
+                            : ({
+                                hitpath: 'HitPath imports selected campaign IDs and reads offer fields, From/Subject lines, and redirect/unsubscribe links.',
+                                newhitpath: 'NewHitPath imports campaign metadata, sender assets, normalizes HTML, rewrites links, and safely fetches public HTTPS images.',
+                                cake: 'Cake imports campaign metadata and sender lines, uses creative links, and imports available creative bundles.',
+                                hasoffers: 'HasOffers imports offer metadata, category and geo targeting, sender lines, tracking links, and provider opt-out link.',
+                                everflow: 'EverFlow imports selected offer IDs, offer fields, From/Subject assets, and available HTML/image creatives.',
+                            })[providerType] || 'Provider supported for direct API import.');
+                }
             };
-            importMode?.addEventListener('change', () => {
-                const importing = importMode.checked;
-                document.querySelector('#offer-mode-label').textContent = importing ? 'IMPORT' : 'MANUEL';
-                document.querySelector('#import_div').classList.toggle('d-none', !importing);
-                document.querySelector('#save_div').classList.toggle('d-none', importing);
-                document.querySelector('#save-offer').classList.toggle('d-none', importing);
+
+            document.querySelectorAll('.js-mode-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const mode = btn.dataset.mode;
+                    document.querySelectorAll('.js-mode-btn').forEach(b => b.classList.remove('is-active'));
+                    btn.classList.add('is-active');
+
+                    const importing = mode === 'import';
+                    if (importModeCheckbox) importModeCheckbox.checked = importing;
+                    document.querySelector('#import_div')?.classList.toggle('d-none', !importing);
+                    document.querySelector('#save_div')?.classList.toggle('d-none', importing);
+                    button?.classList.toggle('d-none', importing);
+                });
             });
+
             sponsorSelect.addEventListener('change', syncImportAvailability);
             importIds?.addEventListener('input', syncImportAvailability);
             importButton?.addEventListener('click', async () => {
@@ -124,7 +320,9 @@
                 const sponsor = sponsorSelect.value;
                 importResult.classList.add('d-none');
                 importButton.disabled = true;
-                importButton.textContent = 'IMPORTING';
+                const originalHtml = importButton.innerHTML;
+                importButton.innerHTML = '<span class="spinner-border spinner-border-sm mr-2" role="status"></span> IMPORTING…';
+
                 try {
                     const response = await fetch(importUrl, {
                         method: 'POST',
@@ -148,17 +346,22 @@
                     importResult.textContent = error.message;
                     importResult.classList.remove('d-none');
                 } finally {
-                    importButton.textContent = 'IMPORT';
+                    importButton.disabled = false;
+                    importButton.innerHTML = originalHtml;
                     syncImportAvailability();
                 }
             });
+
             syncImportAvailability();
             const csvLines = (value) => [...new Set(value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean))];
             const selected = (element) => [...element.selectedOptions].map((option) => option.value);
-            button.addEventListener('click', async () => {
+
+            button?.addEventListener('click', async () => {
                 button.disabled = true;
-                button.textContent = isEditing ? 'EDITING' : 'SAVING';
+                const originalHtml = button.innerHTML;
+                button.innerHTML = '<span class="spinner-border spinner-border-sm mr-2" role="status"></span> SAVING…';
                 result.classList.add('d-none');
+
                 const payload = {
                     sponsor_id: Number(document.querySelector('#sponsor_id').value),
                     offer_id: document.querySelector('#offer_id').value.trim(),
@@ -172,10 +375,12 @@
                     redirect: document.querySelector('#redirect').value.trim(),
                     unsubscribe: document.querySelector('#unsubscribe').value.trim() || null,
                 };
+
                 if (!isEditing) {
                     payload.from = csvLines(document.querySelector('#from').value);
                     payload.subjects = csvLines(document.querySelector('#subjects').value);
                 }
+
                 try {
                     const response = await fetch(saveUrl, {
                         method: @json($saveMethod),
@@ -193,7 +398,7 @@
                     result.classList.remove('d-none');
                 } finally {
                     button.disabled = false;
-                    button.textContent = isEditing ? 'EDIT' : 'SAVE';
+                    button.innerHTML = originalHtml;
                 }
             });
         })();

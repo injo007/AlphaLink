@@ -98,7 +98,7 @@
                 <label for="drops-suppression-sponsor"><i class="fas fa-building text-purple mr-1"></i> Sponsors:</label>
                 <div class="command-input-wrap">
                     <span class="command-input-leading-icon"><i class="fas fa-building"></i></span>
-                    <select id="drops-suppression-sponsor" class="form-control selectpicker command-input-with-icon" data-live-search="true" data-allow-clear="true" title="Select Sponsor">
+                    <select id="drops-suppression-sponsor" class="form-control selectpicker" data-live-search="true" data-allow-clear="true" title="Select Sponsor">
                         <option value="">Select Sponsor</option>
                         @foreach ($sponsors as $sponsor)
                             <option value="{{ $sponsor->id }}" @selected((string) $initialSponsorId === (string) $sponsor->id)>{{ $sponsor->name }}</option>
@@ -110,7 +110,7 @@
                 <label for="drops-suppression-offer"><i class="fas fa-tag text-purple mr-1"></i> Offers:</label>
                 <div class="command-input-wrap">
                     <span class="command-input-leading-icon"><i class="fas fa-tag"></i></span>
-                    <select id="drops-suppression-offer" class="form-control selectpicker command-input-with-icon" data-live-search="true" data-size="6" title="Select Offer" disabled>
+                    <select id="drops-suppression-offer" class="form-control selectpicker" data-live-search="true" data-size="6" title="Select Offer" disabled>
                         <option value="">Select Offer</option>
                     </select>
                 </div>
@@ -119,14 +119,14 @@
                 <label for="drops-suppression-isps"><i class="fas fa-network-wired text-purple mr-1"></i> ISPs:</label>
                 <div class="command-input-wrap">
                     <span class="command-input-leading-icon"><i class="fas fa-network-wired"></i></span>
-                    <select id="drops-suppression-isps" class="form-control selectpicker command-input-with-icon" data-live-search="true" data-actions-box="true" data-size="6" title="Select ISPs" multiple disabled></select>
+                    <select id="drops-suppression-isps" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" title="Select ISPs" multiple disabled></select>
                 </div>
             </div>
             <div class="form-group col-12 col-md-3">
                 <label for="drops-suppression-lists"><i class="fas fa-list text-purple mr-1"></i> Lists:</label>
                 <div class="command-input-wrap">
                     <span class="command-input-leading-icon"><i class="fas fa-list"></i></span>
-                    <select id="drops-suppression-lists" class="form-control selectpicker command-input-with-icon" data-live-search="true" data-actions-box="true" data-size="6" title="Select Lists" multiple disabled></select>
+                    <select id="drops-suppression-lists" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" title="Select Lists" multiple disabled></select>
                 </div>
             </div>
             <div class="form-group col-12 text-right mt-3 mb-0">
@@ -171,11 +171,9 @@
                 </button>
             </div>
         </div>
-        <div class="table-responsive">
-            <table id="drops-suppression-table" class="table table-sm table-hover table-striped w-100">
-                <caption class="sr-only">Suppression runs and their progress</caption>
-            </table>
-        </div>
+        <table id="drops-suppression-table" class="table table-sm table-hover table-striped w-100">
+            <caption class="sr-only">Suppression runs and their progress</caption>
+        </table>
     </div>
     <dialog id="drops-suppression-details" class="pmta-control-dialog" aria-labelledby="drops-suppression-details-title">
         <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">

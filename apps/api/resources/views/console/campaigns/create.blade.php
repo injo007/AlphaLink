@@ -117,6 +117,8 @@
             #campaign-body-preview::backdrop { background: rgba(27, 33, 40, .58); }
             #campaign-body-preview .campaign-body-preview-header { align-items: center; display: flex; justify-content: space-between; margin-bottom: .75rem; }
             #campaign-body-preview-frame { border: 1px solid #d7dce3; display: block; height: min(72vh, 820px); min-height: 360px; width: 100%; }
+            body:has(#campaign-targeting) .bs-container { z-index: 12020 !important; }
+            body:has(#campaign-targeting) .bs-container .dropdown-menu { z-index: 12021 !important; }
         </style>
         <form method="POST" action="{{ $editingCampaign ? route('console.campaigns.revisions.store', [$workspace->id, $editingCampaign->id]) : route('console.campaigns.store', $workspace->id) }}" id="campaign-create-form" data-options-url="{{ $sendOptionsUrl }}" novalidate>
         <div id="campaign-action-backdrop" hidden></div>
@@ -163,7 +165,7 @@
                         <div class="block-content">
                             <div class="form-group">
                                 <label for="send-sponsor">Sponsor:</label>
-                                <select id="send-sponsor" name="send_setup[sponsor_id]" class="form-control selectpicker" data-live-search="true" data-allow-clear="true" title="Select Sponsor" required>
+                                <select id="send-sponsor" name="send_setup[sponsor_id]" class="form-control selectpicker" data-container="body" data-live-search="true" data-allow-clear="true" title="Select Sponsor" required>
                                     <option value="">Select Sponsor</option>
                                     @foreach ($sendOptions['sponsors'] as $sponsor)
                                         <option value="{{ $sponsor['id'] }}" @selected($setup['sponsor_id'] === (string) $sponsor['id'])>{{ $sponsor['name'] }}</option>
@@ -172,7 +174,7 @@
                             </div>
                             <div class="form-group">
                                 <label for="send-offer-country">Offer Countries:</label>
-                                <select id="send-offer-country" name="send_setup[offer_country]" class="form-control selectpicker" data-live-search="true" data-size="6" title="Select Countries" required>
+                                <select id="send-offer-country" name="send_setup[offer_country]" class="form-control selectpicker" data-container="body" data-live-search="true" data-size="6" title="Select Countries" required>
                                     <option value="ALL" @selected($setup['offer_country'] === 'ALL')>ALL</option>
                                     @foreach ($countries as $code => $countryName)
                                         <option value="{{ $code }}" @selected($setup['offer_country'] === $code)>{{ $countryName }}</option>
@@ -181,7 +183,7 @@
                             </div>
                             <div class="form-group mb-0">
                                 <label for="send-offer">Offers:</label>
-                                <select id="send-offer" name="send_setup[offer_id]" class="form-control selectpicker" data-live-search="true" data-size="6" title="Select Offer" required>
+                                <select id="send-offer" name="send_setup[offer_id]" class="form-control selectpicker" data-container="body" data-live-search="true" data-size="6" title="Select Offer" required>
                                     <option value="">Select Offer</option>
                                     @foreach ($sendOptions['offers'] as $offer)
                                         <option value="{{ $offer['id'] }}" @selected($setup['offer_id'] === (string) $offer['id'])>({{ $offer['offer_id'] }}) {{ $offer['name'] }} — {{ $offer['vertical'] }}</option>
@@ -200,7 +202,7 @@
                                 <div class="col-sm-12 col-md-6">
                                     <div class="form-group">
                                         <label for="send-isp">ISPs:</label>
-                                        <select id="send-isp" name="send_setup[isp_id]" class="form-control selectpicker" data-live-search="true" data-allow-clear="true" title="Select ISP" required>
+                                        <select id="send-isp" name="send_setup[isp_id]" class="form-control selectpicker" data-container="body" data-live-search="true" data-allow-clear="true" title="Select ISP" required>
                                             <option value="">Select ISP</option>
                                             @foreach ($sendOptions['isps'] as $isp)
                                                 <option value="{{ $isp['id'] }}" @selected($setup['isp_id'] === (string) $isp['id'])>{{ $isp['name'] }}</option>
@@ -211,7 +213,7 @@
                                 <div class="col-sm-12 col-md-6">
                                     <div class="form-group">
                                         <label for="send-country">Country:</label>
-                                        <select id="send-country" name="send_setup[country]" class="form-control selectpicker" data-live-search="true" data-allow-clear="false" data-size="6" title="Select Country" required>
+                                        <select id="send-country" name="send_setup[country]" class="form-control selectpicker" data-container="body" data-live-search="true" data-allow-clear="false" data-size="6" title="Select Country" required>
                                             <option value="ALL" @selected($setup['country'] === 'ALL')>ALL</option>
                                             @foreach ($countries as $code => $countryName)
                                                 <option value="{{ $code }}" @selected($setup['country'] === $code)>{{ $countryName }}</option>
@@ -222,7 +224,7 @@
                             </div>
                             <div class="form-group">
                                 <label for="send-lists">Lists / email segments:</label>
-                                <select id="send-lists" name="send_setup[audience_segments][]" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 3" title="Select Lists" multiple required>
+                                <select id="send-lists" name="send_setup[audience_segments][]" class="form-control selectpicker" data-container="body" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 3" title="Select Lists" multiple required>
                                     @foreach ($sendOptions['segments'] as $segment)
                                         <option value="{{ $segment['id'] }}" @selected(in_array((string) $segment['id'], $setup['audience_segments'], true))>{{ $segment['name'] }} — {{ $segment['country'] }} — {{ strtoupper($segment['email_type']) }} — {{ number_format($segment['recipient_count']) }}</option>
                                     @endforeach
@@ -232,7 +234,7 @@
                             <div class="form-row mb-0">
                                 <div class="form-group col-sm-6">
                                     <label for="send-order-by">Order By:</label>
-                                    <select id="send-order-by" name="send_setup[order_by]" class="form-control" required>
+                                    <select id="send-order-by" name="send_setup[order_by]" class="form-control selectpicker" data-container="body" title="Select ordering" required>
                                         @foreach (['default' => 'DEFAULT', 'asc' => 'ASC', 'desc' => 'DESC', 'random' => 'RANDOM'] as $value => $label)
                                             <option value="{{ $value }}" @selected($setup['order_by'] === $value)>{{ $label }}</option>
                                         @endforeach

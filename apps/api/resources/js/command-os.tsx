@@ -1,5 +1,5 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { JSX } from 'react';
+import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { JSX, ReactNode, ErrorInfo } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
     Activity,
@@ -240,10 +240,11 @@ async function fetchPayload(url: string): Promise<DashboardPayload> {
     return refreshed;
 }
 
-function Sparkline({ values, color }: { values: number[]; color: string }): JSX.Element {
-    const maximum = Math.max(1, ...values);
-    const points = values.map((value, index) => {
-        const x = values.length < 2 ? 0 : (index / (values.length - 1)) * 120;
+function Sparkline({ values = [], color }: { values?: number[]; color: string }): JSX.Element {
+    const safeValues = Array.isArray(values) ? values.map((v) => Number(v) || 0) : [];
+    const maximum = Math.max(1, ...safeValues);
+    const points = safeValues.map((value, index) => {
+        const x = safeValues.length < 2 ? 0 : (index / (safeValues.length - 1)) * 120;
         const y = 31 - (Math.max(0, value) / maximum) * 27;
         return `${x.toFixed(2)},${y.toFixed(2)}`;
     }).join(' ');
@@ -552,7 +553,7 @@ function HorizontalBarAnalyticsPanel({
         let dispose: () => void = () => {};
 
         void import('./command-os-chart').then(({ renderHorizontalBarChart }) => {
-            if (!active || !container.current) return;
+            if (!active || !container.current || viewMode !== 'chart') return;
             dispose = renderHorizontalBarChart(container.current, chartRows, theme, {
                 accentColor,
                 emptyMessage,
@@ -602,12 +603,12 @@ function HorizontalBarAnalyticsPanel({
             </div>
 
             {viewMode === 'chart' ? (
-                <div className="command-os-bar-chart-container" ref={container} role="img" aria-label={`${title} ranked horizontal bar chart`} />
+                <div key="chart-view" className="command-os-bar-chart-container" ref={container} role="img" aria-label={`${title} ranked horizontal bar chart`} />
             ) : (
                 rows.length === 0 ? (
-                    <p className="command-os-analytics-empty" role="status">No attributed lead revenue was recorded for {dimension.toLowerCase()}s {rangeLabel.toLowerCase()}.</p>
+                    <p key="table-empty" className="command-os-analytics-empty" role="status">No attributed lead revenue was recorded for {dimension.toLowerCase()}s {rangeLabel.toLowerCase()}.</p>
                 ) : (
-                    <div className="command-os-partner-revenue-list" aria-live="polite">
+                    <div key="table-list" className="command-os-partner-revenue-list" aria-live="polite">
                         <div className="command-os-partner-revenue-head">
                             <span>{dimension}</span>
                             <span>Leads</span>
@@ -663,7 +664,7 @@ function AffiliateRevenuePanel({
         let dispose: () => void = () => {};
 
         void import('./command-os-chart').then(({ renderHorizontalBarChart }) => {
-            if (!active || !container.current) return;
+            if (!active || !container.current || viewMode !== 'chart') return;
             dispose = renderHorizontalBarChart(container.current, chartRows, theme, {
                 accentColor: theme === 'dark' ? '#38bdf8' : '#0284c7',
                 emptyMessage: 'No affiliate revenue recorded for this period',
@@ -720,12 +721,12 @@ function AffiliateRevenuePanel({
             </div>
 
             {viewMode === 'chart' ? (
-                <div className="command-os-bar-chart-container" ref={container} role="img" aria-label="Revenue by Affiliate ranked horizontal bar chart" />
+                <div key="chart-view" className="command-os-bar-chart-container" ref={container} role="img" aria-label="Revenue by Affiliate ranked horizontal bar chart" />
             ) : viewMode === 'table' ? (
                 rows.length === 0 ? (
-                    <p className="command-os-analytics-empty" role="status">No attributed lead revenue was recorded for sponsors {rangeLabel.toLowerCase()}.</p>
+                    <p key="table-empty" className="command-os-analytics-empty" role="status">No attributed lead revenue was recorded for sponsors {rangeLabel.toLowerCase()}.</p>
                 ) : (
-                    <div className="command-os-partner-revenue-list" aria-live="polite">
+                    <div key="table-list" className="command-os-partner-revenue-list" aria-live="polite">
                         <div className="command-os-partner-revenue-head">
                             <span>Sponsor / Affiliate</span>
                             <span>Leads</span>
@@ -742,9 +743,9 @@ function AffiliateRevenuePanel({
                 )
             ) : (
                 providerRows.length === 0 ? (
-                    <p className="command-os-analytics-empty" role="status">No sponsor conversions were reported for this date range.</p>
+                    <p key="provider-empty" className="command-os-analytics-empty" role="status">No sponsor conversions were reported for this date range.</p>
                 ) : (
-                    <div className="command-os-provider-revenue-list" aria-live="polite">
+                    <div key="provider-list" className="command-os-provider-revenue-list" aria-live="polite">
                         <div className="command-os-provider-revenue-head">
                             <span>Sponsor</span>
                             <span>Conversions</span>
@@ -804,7 +805,7 @@ function MtdActionsCard({
         let dispose: () => void = () => {};
 
         void import('./command-os-chart').then(({ renderMtdActionsMultiLineChart }) => {
-            if (!active || !container.current) return;
+            if (!active || !container.current || viewMode !== 'chart') return;
             dispose = renderMtdActionsMultiLineChart(container.current, chart, theme);
         });
 
@@ -847,13 +848,13 @@ function MtdActionsCard({
             </div>
 
             {viewMode === 'chart' ? (
-                <div className="command-os-multi-line-canvas" ref={container} role="img" aria-label="MTD actions multi-series line chart" />
+                <div key="chart-view" className="command-os-multi-line-canvas" ref={container} role="img" aria-label="MTD actions multi-series line chart" />
             ) : (
-                <div className="command-os-action-stats">
+                <div key="pills-view" className="command-os-action-stats">
                     {chart.series.map((series, index) => {
-                        const total = series.values.reduce((sum, value) => sum + Number(value || 0), 0);
+                        const total = (series.values ?? []).reduce((sum, value) => sum + Number(value || 0), 0);
                         const color = actionColors[index % actionColors.length];
-                        const linked = selectedLabels[selectedMetric].includes(series.label);
+                        const linked = selectedLabels[selectedMetric]?.includes(series.label) ?? false;
                         return (
                             <article className={`command-os-action-stat${linked ? ' is-geo-linked' : ' is-geo-muted'}`} key={series.label}>
                                 <div className="command-os-action-stat-heading">
@@ -963,7 +964,7 @@ function YtdRevenueIntelligence({
         let dispose: () => void = () => {};
 
         void import('./command-os-chart').then(({ renderYtdRevenueBarTrendChart }) => {
-            if (!active || !ytdContainer.current) return;
+            if (!active || !ytdContainer.current || activeTab !== 'ytd') return;
             dispose = renderYtdRevenueBarTrendChart(ytdContainer.current, chart, theme);
         });
 
@@ -979,7 +980,7 @@ function YtdRevenueIntelligence({
         let dispose: () => void = () => {};
 
         void import('./command-os-chart').then(({ renderPerformanceChart }) => {
-            if (!active || !overviewContainer.current) return;
+            if (!active || !overviewContainer.current || activeTab !== 'overview') return;
             dispose = renderPerformanceChart(overviewContainer.current, payload, theme);
         });
 
@@ -1024,7 +1025,7 @@ function YtdRevenueIntelligence({
             </div>
 
             {activeTab === 'ytd' ? (
-                <>
+                <div key="ytd-tab-content">
                     <div className="command-os-ytd-chart-canvas" ref={ytdContainer} role="img" aria-label="YTD Revenue monthly bar chart with trend line" />
                     <div className="command-os-revenue-source-summary" aria-label={`Sponsor-reported revenue: ${sponsorSummary}`}>
                         <span className="command-os-revenue-source-label">Sponsor-reported</span>
@@ -1040,9 +1041,9 @@ function YtdRevenueIntelligence({
                             )}
                         </div>
                     </div>
-                </>
+                </div>
             ) : (
-                <div className="command-os-overview-drawer">
+                <div key="overview-tab-content" className="command-os-overview-drawer">
                     <div className="command-os-chart" ref={overviewContainer} role="img" aria-label={`Daily deliveries and opens from ${payload.period.from} through ${payload.period.to}.`} />
                     <div className="command-os-today-pulse" aria-label={`Today's performance, ${payload.today.date}`}>
                         <div className="command-os-today-pulse-heading">
@@ -1268,12 +1269,59 @@ function DashboardApp({ initial }: { initial: DashboardPayload }): JSX.Element {
     );
 }
 
+interface ErrorBoundaryProps {
+    children: ReactNode;
+}
+interface ErrorBoundaryState {
+    hasError: boolean;
+    error: Error | null;
+}
+class DashboardErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+    constructor(props: ErrorBoundaryProps) {
+        super(props);
+        this.state = { hasError: false, error: null };
+    }
+    static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+        return { hasError: true, error };
+    }
+    componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
+        console.error('[Command OS Dashboard Error]', error, errorInfo);
+    }
+    render(): ReactNode {
+        if (this.state.hasError) {
+            return (
+                <div className="command-os-panel" style={{ padding: '32px', textAlign: 'center', margin: '24px 0' }}>
+                    <h3 style={{ marginBottom: '8px', color: 'var(--co-ink)' }}>Dashboard Display Issue Detected</h3>
+                    <p style={{ color: 'var(--co-muted)', fontSize: '12px', marginBottom: '16px' }}>
+                        An unexpected visual error occurred ({this.state.error?.message || 'unknown'}). Click below to reload.
+                    </p>
+                    <button
+                        type="button"
+                        className="btn btn-sm btn-primary"
+                        onClick={() => {
+                            this.setState({ hasError: false, error: null });
+                            window.location.reload();
+                        }}
+                    >
+                        Reload Dashboard
+                    </button>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
+
 function mountDashboard(): void {
     const rootElement = document.getElementById('command-os-dashboard-root');
     const payload = readPayload();
     if (!rootElement || !payload) return;
 
-    createRoot(rootElement).render(<DashboardApp initial={payload} />);
+    createRoot(rootElement).render(
+        <DashboardErrorBoundary>
+            <DashboardApp initial={payload} />
+        </DashboardErrorBoundary>
+    );
 }
 
 function mountThemeToggle(): void {

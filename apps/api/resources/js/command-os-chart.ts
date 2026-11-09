@@ -1,4 +1,4 @@
-import { init, use } from 'echarts/core';
+import { init, use, getInstanceByDom } from 'echarts/core';
 import { BarChart, LineChart } from 'echarts/charts';
 import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
@@ -6,6 +6,23 @@ import type { EChartsType } from 'echarts/core';
 import type { DashboardChart, DashboardPayload } from './command-os';
 
 use([BarChart, LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
+
+function safeInitChart(element: HTMLElement): EChartsType {
+    const existing = getInstanceByDom(element);
+    if (existing) {
+        existing.dispose();
+    }
+    element.removeAttribute('_echarts_instance_');
+    element.replaceChildren();
+    return init(element, undefined, { renderer: 'canvas' });
+}
+
+function safeDisposeChart(chart: EChartsType, element: HTMLElement, observer: ResizeObserver): void {
+    observer.disconnect();
+    chart.dispose();
+    element.removeAttribute('_echarts_instance_');
+    element.replaceChildren();
+}
 
 function formatNumber(value: number): string {
     return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value);
@@ -40,7 +57,7 @@ export function renderPerformanceChart(
     payload: DashboardPayload,
     theme: 'light' | 'dark',
 ): () => void {
-    const chart: EChartsType = init(element, undefined, { renderer: 'canvas' });
+    const chart: EChartsType = safeInitChart(element);
     const dark = theme === 'dark';
     const muted = dark ? '#aab7dc' : '#68779a';
     const grid = dark ? 'rgba(148, 170, 224, .15)' : 'rgba(73, 95, 165, .13)';
@@ -138,10 +155,7 @@ export function renderPerformanceChart(
     const observer = new ResizeObserver(resize);
     observer.observe(element);
 
-    return () => {
-        observer.disconnect();
-        chart.dispose();
-    };
+    return () => safeDisposeChart(chart, element, observer);
 }
 
 export function renderDashboardAnalyticsChart(
@@ -150,7 +164,7 @@ export function renderDashboardAnalyticsChart(
     theme: 'light' | 'dark',
     currency = false,
 ): () => void {
-    const chart: EChartsType = init(element, undefined, { renderer: 'canvas' });
+    const chart: EChartsType = safeInitChart(element);
     const dark = theme === 'dark';
     const muted = dark ? '#aab7dc' : '#68779a';
     const grid = dark ? 'rgba(148, 170, 224, .15)' : 'rgba(73, 95, 165, .13)';
@@ -247,10 +261,7 @@ export function renderDashboardAnalyticsChart(
     const observer = new ResizeObserver(resize);
     observer.observe(element);
 
-    return () => {
-        observer.disconnect();
-        chart.dispose();
-    };
+    return () => safeDisposeChart(chart, element, observer);
 }
 
 export function renderHorizontalBarChart(
@@ -263,7 +274,7 @@ export function renderHorizontalBarChart(
         emptyMessage?: string;
     },
 ): () => void {
-    const chart: EChartsType = init(element, undefined, { renderer: 'canvas' });
+    const chart: EChartsType = safeInitChart(element);
     const dark = theme === 'dark';
     const muted = dark ? '#aab7dc' : '#68779a';
     const grid = dark ? 'rgba(148, 170, 224, .15)' : 'rgba(73, 95, 165, .13)';
@@ -397,10 +408,7 @@ export function renderHorizontalBarChart(
     const observer = new ResizeObserver(resize);
     observer.observe(element);
 
-    return () => {
-        observer.disconnect();
-        chart.dispose();
-    };
+    return () => safeDisposeChart(chart, element, observer);
 }
 
 export function renderMtdActionsMultiLineChart(
@@ -408,7 +416,7 @@ export function renderMtdActionsMultiLineChart(
     chartData: DashboardChart,
     theme: 'light' | 'dark',
 ): () => void {
-    const chart: EChartsType = init(element, undefined, { renderer: 'canvas' });
+    const chart: EChartsType = safeInitChart(element);
     const dark = theme === 'dark';
     const muted = dark ? '#aab7dc' : '#68779a';
     const grid = dark ? 'rgba(148, 170, 224, .15)' : 'rgba(73, 95, 165, .13)';
@@ -479,10 +487,7 @@ export function renderMtdActionsMultiLineChart(
     const observer = new ResizeObserver(resize);
     observer.observe(element);
 
-    return () => {
-        observer.disconnect();
-        chart.dispose();
-    };
+    return () => safeDisposeChart(chart, element, observer);
 }
 
 export function renderYtdRevenueBarTrendChart(
@@ -490,7 +495,7 @@ export function renderYtdRevenueBarTrendChart(
     chartData: DashboardChart,
     theme: 'light' | 'dark',
 ): () => void {
-    const chart: EChartsType = init(element, undefined, { renderer: 'canvas' });
+    const chart: EChartsType = safeInitChart(element);
     const dark = theme === 'dark';
     const muted = dark ? '#aab7dc' : '#68779a';
     const grid = dark ? 'rgba(148, 170, 224, .15)' : 'rgba(73, 95, 165, .13)';
@@ -613,8 +618,5 @@ export function renderYtdRevenueBarTrendChart(
     const observer = new ResizeObserver(resize);
     observer.observe(element);
 
-    return () => {
-        observer.disconnect();
-        chart.dispose();
-    };
+    return () => safeDisposeChart(chart, element, observer);
 }

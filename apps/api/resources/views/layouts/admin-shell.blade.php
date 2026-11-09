@@ -21,6 +21,7 @@
         };
         $isDropVisitorsPage = $routeIs('console.drops.visitors');
         $commandOsDashboard = $routeIs('console.dashboard.main', 'console.workspace.dashboard.main', 'console.analytics.index');
+        $isCampaignComposerPage = $routeIs('console.campaigns.create', 'console.campaigns.edit');
         $commandOsShell = true;
         $canUseDashboardOperations = $commandOsDashboard && in_array($workspace->pivot->role ?? null, ['owner', 'admin', 'operator'], true);
         $hideDashboardForbiddenDestinations = $commandOsDashboard && ! $canUseDashboardOperations;
@@ -63,7 +64,7 @@
         @keyframes alphalink-toast-in { from { opacity: 0; transform: translateY(.4rem); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
-<body class="command-os-shell {{ $commandOsDashboard ? 'command-os-dashboard' : '' }}">
+<body class="command-os-shell {{ $commandOsDashboard ? 'command-os-dashboard' : '' }} {{ $isCampaignComposerPage ? 'command-os-campaign-composer' : '' }}">
     @php
         $serversUrl = route('clean.console.infrastructure.servers.index');
         $serverProvidersUrl = route('clean.console.infrastructure.server-providers.index');

@@ -249,20 +249,20 @@
                 color: #6425cc;
                 display: inline-flex;
                 flex: 0 0 auto;
-                font-size: 10px;
+                font-size: 11px;
                 font-weight: 800;
                 gap: 7px;
                 justify-content: center;
                 letter-spacing: .04em;
-                min-height: 38px;
-                padding: 5px 10px;
+                min-height: 40px;
+                padding: 7px 12px;
                 transition: background .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease;
                 white-space: nowrap;
             }
             .campaign-create-page #campaign-targeting .campaign-mix-trigger:hover,
             .campaign-create-page #campaign-targeting .campaign-mix-trigger:focus-visible { background: linear-gradient(110deg, #ede0ff, #e6ebff); border-color: #b898ed; box-shadow: 0 0 0 3px rgb(139 74 255 / 12%); color: #4f1fa8; outline: 0; transform: translateY(-1px); }
             .campaign-create-page .campaign-mix-trigger > i { font-size: 11px; }
-            .campaign-create-page .campaign-mix-trigger .badge { background: #fff; border: 1px solid #dfd5f5; border-radius: 7px; color: #5f32d5; font-size: 10px; min-width: 21px; padding: 3px 5px; }
+            .campaign-create-page .campaign-mix-trigger .badge { background: #fff; border: 1px solid #dfd5f5; border-radius: 7px; color: #5f32d5; font-size: 10px; min-width: 23px; padding: 3px 6px; }
             .campaign-create-page dialog[open] { animation: campaign-dialog-enter .18s ease-out both; }
             dialog.campaign-mix-dialog[open] { animation: campaign-dialog-enter .18s ease-out both; }
             .campaign-create-page dialog > .p-3 { box-sizing: border-box; min-width: 0 !important; padding: clamp(16px, 2.2vw, 26px) !important; width: 100%; }
@@ -275,9 +275,17 @@
             .campaign-create-page dialog .btn-outline-secondary, .campaign-create-page dialog .btn-alt-secondary { border-color: var(--campaign-border); border-radius: 9px; color: var(--campaign-ink); }
             .campaign-create-page dialog .campaign-body-preview-header { background: linear-gradient(100deg, rgb(139 79 247 / 10%), rgb(81 150 255 / 5%)); border-bottom: 1px solid rgb(126 105 190 / 15%); margin: -1rem -1rem 14px; padding: 14px 16px; }
             .campaign-create-page .bootstrap-select .dropdown-menu,
-            .campaign-select.bs-container .dropdown-menu { background: linear-gradient(145deg, var(--campaign-surface, #fff), var(--campaign-wash, #f8f7ff)); border: 1px solid var(--campaign-border, #ded9f8) !important; border-radius: 14px !important; box-shadow: 0 16px 40px rgb(34 25 76 / 19%) !important; margin-top: 6px; overflow: hidden; outline: 0 !important; padding: 6px; }
-            .campaign-create-page .bootstrap-select .dropdown-menu > .inner,
-            .campaign-select.bs-container .dropdown-menu > .inner { max-height: min(55vh, 420px) !important; }
+            body.command-os-campaign-composer .campaign-select.bs-container > .dropdown-menu {
+                animation: none !important;
+                background: linear-gradient(145deg, var(--campaign-surface, #fff), var(--campaign-wash, #f8f7ff)) !important;
+                border: 1px solid var(--campaign-border, #ded9f8) !important;
+                border-radius: 14px !important;
+                box-shadow: 0 16px 40px rgb(34 25 76 / 19%) !important;
+                margin-top: 0 !important;
+                overflow: hidden !important;
+                outline: 0 !important;
+                padding: 6px !important;
+            }
             .campaign-create-page .bootstrap-select .dropdown-menu li a,
             .campaign-select.bs-container .dropdown-menu li a { border-radius: 8px; color: var(--campaign-ink, #101746); font-size: 11px; margin: 1px 0; padding: 7px 10px; transition: background .14s ease, color .14s ease; }
             .campaign-create-page .bootstrap-select .dropdown-menu li a:hover,
@@ -290,8 +298,11 @@
             .campaign-select.bs-container .dropdown-menu li.disabled a { color: #9b9dad; }
             .campaign-create-page .bootstrap-select .dropdown-menu .no-results,
             .campaign-select.bs-container .dropdown-menu .no-results { background: var(--campaign-wash, #f8f7ff); border-radius: 8px; color: var(--campaign-muted, #66708e); margin: 4px; padding: 10px; }
-            .campaign-select.bs-container { z-index: 1110 !important; }
-            .campaign-select.bs-container .dropdown-menu { max-width: min(100%, calc(100vw - 24px)) !important; min-width: 100% !important; z-index: 1111 !important; }
+            body.command-os-campaign-composer .campaign-select.bs-container > .dropdown-menu {
+                max-width: min(100%, calc(100vw - 24px)) !important;
+                min-width: 100% !important;
+                z-index: 1060 !important;
+            }
             .campaign-create-page .bootstrap-select .dropdown-menu .inner,
             .campaign-create-page .bootstrap-select .dropdown-menu .inner > ul,
             .campaign-create-page .bootstrap-select .dropdown-menu .inner > ul > li,
@@ -323,6 +334,22 @@
             @keyframes campaign-dialog-enter { from { opacity: 0; transform: translateY(8px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
             #campaign-body-preview .campaign-body-preview-header { align-items: center; display: flex; justify-content: space-between; margin-bottom: .75rem; }
             #campaign-body-preview-frame { border: 1px solid #d7dce3; display: block; height: min(72vh, 820px); min-height: 360px; width: 100%; }
+            body.command-os-campaign-composer {
+                --campaign-ink: #101746;
+                --campaign-muted: #667092;
+                --campaign-border: #dce0f4;
+                --campaign-surface: #fff;
+                --campaign-wash: #f8f7ff;
+                --campaign-purple: #792bfa;
+            }
+            html[data-command-theme='dark'] body.command-os-campaign-composer {
+                --campaign-ink: #f1f3ff;
+                --campaign-muted: #abb6d8;
+                --campaign-border: #26365f;
+                --campaign-surface: #111d3b;
+                --campaign-wash: #152342;
+                --campaign-purple: #bd72ff;
+            }
             .campaign-create-page {
                 --campaign-ink: #101746;
                 --campaign-muted: #667092;
@@ -540,6 +567,13 @@
             }
             .campaign-create-page .form-group { margin-bottom: 8px; }
             .campaign-create-page label { color: var(--campaign-ink); font-size: 11px; font-weight: 700; margin-bottom: 4px; }
+            body.command-os-campaign-composer .campaign-create-page label {
+                font-size: 11px !important;
+                font-weight: 700 !important;
+                letter-spacing: normal !important;
+                margin-bottom: 4px !important;
+                text-transform: none !important;
+            }
             .campaign-create-page .form-control,
             .campaign-create-page .bootstrap-select > .dropdown-toggle {
                 background-color: #fff;
@@ -609,7 +643,7 @@
                 font-size: 10px;
                 gap: 4px 8px;
                 justify-content: flex-start;
-                margin: 12px 0 12px;
+                margin: 12px 0;
                 padding: 10px 12px !important;
                 text-align: left !important;
                 line-height: 1.5;
@@ -733,10 +767,14 @@
                 font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
                 font-size: 11px;
                 line-height: 1.4;
-                height: 500px;
-                min-height: 500px;
-                max-height: 500px;
-                resize: none;
+                height: clamp(300px, 42vh, 500px);
+                min-height: 300px;
+                max-height: 560px;
+                overflow: auto;
+                padding: 12px 14px;
+                resize: vertical;
+                text-align: left;
+                vertical-align: top;
             }
             .campaign-create-page #campaign-routing {
                 border-top: 0;

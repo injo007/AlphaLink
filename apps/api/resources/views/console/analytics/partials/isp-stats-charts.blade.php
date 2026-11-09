@@ -10,11 +10,15 @@
 @endphp
 
 <section class="isp-stats-visuals mb-3" aria-labelledby="isp-stats-visuals-title">
-    <div class="block block-rounded mb-3">
-        <div class="block-header block-header-default">
-            <h3 class="block-title" id="isp-stats-visuals-title">ENGAGEMENT BY PERIOD</h3>
+    <div class="command-os-table-card mb-3">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-chart-line text-purple mr-2 font-size-lg"></i>
+                <h3 class="h6 font-w700 text-uppercase tracking-wider mb-0 text-ink" id="isp-stats-visuals-title">ENGAGEMENT BY PERIOD</h3>
+            </div>
+            <span class="badge badge-light border text-purple font-w700 px-2 py-1"><i class="fas fa-calendar-alt mr-1"></i> Aggregate Metrics</span>
         </div>
-        <div class="block-content block-content-full">
+        <div class="p-0">
             <div class="isp-stats-chart" data-isp-stats-chart="overview" aria-label="Engagement totals by period">
                 <p class="text-center text-muted mb-0" data-isp-chart-empty role="status">NO DATA AVAILABLE</p>
             </div>
@@ -42,17 +46,21 @@
     <div class="row">
         @foreach ($ispChartMetrics as $metric => $config)
             <div class="col-12 mb-3">
-                <section class="block block-rounded mb-0" aria-labelledby="isp-stats-{{ $metric }}-title">
-                    <div class="block-header block-header-default">
-                        <h3 class="block-title" id="isp-stats-{{ $metric }}-title">{{ $config['title'] }}</h3>
+                <section class="command-os-table-card mb-0" aria-labelledby="isp-stats-{{ $metric }}-title">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-chart-bar text-purple mr-2 font-size-lg"></i>
+                            <h3 class="h6 font-w700 text-uppercase tracking-wider mb-0 text-ink" id="isp-stats-{{ $metric }}-title">{{ $config['title'] }}</h3>
+                        </div>
+                        <span class="badge badge-light border text-purple font-w700 px-2 py-1"><i class="fas fa-layer-group mr-1"></i> Mailer Breakdown</span>
                     </div>
-                    <div class="block-content block-content-full">
+                    <div class="p-0">
                         <div class="isp-stats-chart" data-isp-stats-chart="{{ $metric }}" aria-label="{{ strtolower($config['title']) }} trend">
                             <p class="text-center text-muted mb-0" data-isp-chart-empty role="status">NO DATA AVAILABLE</p>
                         </div>
                         <div class="table-responsive mt-3">
-                <table class="table table-sm table-hover table-bordered mb-0" data-isp-sortable>
-                    <caption class="sr-only">{{ $config['title'] }} by period</caption>
+                            <table class="table table-sm table-hover table-bordered mb-0" data-isp-sortable>
+                                <caption class="sr-only">{{ $config['title'] }} by period</caption>
                                 <thead><tr>
                                     <th scope="col"><button type="button" class="isp-sort-trigger" data-isp-sort-column="0" data-sort-type="text" aria-label="Sort by Mailer">MAILER <span class="isp-sort-indicator" aria-hidden="true">↕</span></button></th>
                                     @foreach ($chartData['labels'] as $column => $label)

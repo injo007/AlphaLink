@@ -368,11 +368,23 @@
         $listItems = $filterNavigationItems($listsGroup['items'] ?? [], ['ISPS']);
         $campaignSuppression = collect($campaignsGroup['items'] ?? [])->firstWhere('label', 'NEGATIVES');
         $dropSuppression = collect($dropsGroup['items'] ?? [])->firstWhere('label', 'SUPPRESSION');
+        $campaignStatItem = collect($campaignsGroup['items'] ?? [])->firstWhere('label', 'STATISTICS');
+        if ($campaignStatItem) {
+            $campaignStatItem['label'] = 'CAMPAIGN STATS';
+        }
+        $dropStatItem = collect($dropsGroup['items'] ?? [])->firstWhere('label', 'STATISTICS');
+        if ($dropStatItem) {
+            $dropStatItem['label'] = 'DROP STATS';
+        }
+        $warmupStatItem = collect($warmupsGroup['items'] ?? [])->firstWhere('label', 'STATISTICS');
+        if ($warmupStatItem) {
+            $warmupStatItem['label'] = 'WARMUP STATS';
+        }
         $trackingItems = array_values(array_filter([
             ...$dashboardStats,
-            collect($campaignsGroup['items'] ?? [])->firstWhere('label', 'STATISTICS'),
-            collect($dropsGroup['items'] ?? [])->firstWhere('label', 'STATISTICS'),
-            collect($warmupsGroup['items'] ?? [])->firstWhere('label', 'STATISTICS'),
+            $campaignStatItem,
+            $dropStatItem,
+            $warmupStatItem,
         ]));
         $suppressionItems = array_values(array_filter([$campaignSuppression, $dropSuppression]));
         $offerItems = array_values(array_filter([

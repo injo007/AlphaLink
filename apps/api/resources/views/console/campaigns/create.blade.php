@@ -170,7 +170,7 @@
             }
             .campaign-mix-dialog .campaign-mix-dialog-header {
                 align-items: center;
-                background: linear-gradient(110deg, rgb(139 79 247 / 11%), rgb(81 150 255 / 6%));
+                background: linear-gradient(110deg, var(--campaign-surface, #fff), var(--campaign-wash, #f8f7ff));
                 border-bottom: 1px solid rgb(126 105 190 / 17%);
                 display: flex;
                 gap: 16px;
@@ -1017,7 +1017,7 @@
             html[data-command-theme='dark'] .campaign-select.bs-container .dropdown-menu .bs-searchbox .form-control { background: #101c3a; border-color: #394778 !important; color: #eff2ff; }
             html[data-command-theme='dark'] .campaign-select.bs-container .bs-actionsbox .btn-group > .btn { background: #172547; border-color: #394778; color: #d4b7ff; }
             html[data-command-theme='dark'] dialog.campaign-mix-dialog { background: #0c1731; border-color: #334574; color: #eff2ff; }
-            html[data-command-theme='dark'] .campaign-mix-dialog .campaign-mix-dialog-header { background: linear-gradient(100deg, rgb(147 93 255 / 15%), rgb(71 133 255 / 7%)); border-color: #334574; }
+            html[data-command-theme='dark'] .campaign-mix-dialog .campaign-mix-dialog-header { background: linear-gradient(110deg, #111d3b, #152342); border-color: #334574; }
             html[data-command-theme='dark'] .campaign-mix-dialog .campaign-mix-dialog-close { background: #101c3a; border-color: #394778; color: #c2c9e3; }
             html[data-command-theme='dark'] .campaign-mix-dialog .campaign-mix-dialog-close:hover { background: #27254e; border-color: #7e5cca; color: #eadcff; }
             html[data-command-theme='dark'] .campaign-mix-dialog .campaign-mix-availability,

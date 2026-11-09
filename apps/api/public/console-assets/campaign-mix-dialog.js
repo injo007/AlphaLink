@@ -10,6 +10,11 @@
         trigger.dataset.mixDialogReady = 'true';
         let returnFocusTo = null;
 
+        const restoreTrigger = () => {
+            trigger.setAttribute('aria-expanded', 'false');
+            returnFocusTo?.focus();
+        };
+
         trigger.addEventListener('click', () => {
             if (dialog.open) return;
 
@@ -20,15 +25,19 @@
                 dialog.setAttribute('open', '');
                 dialog.dataset.campaignDialogFallback = 'true';
             }
+            trigger.setAttribute('aria-expanded', 'true');
 
-            dialog.querySelector('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled])')?.focus();
+            (dialog.querySelector('#mix-name:not([disabled])')
+                || dialog.querySelector('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled])'))?.focus();
         });
 
         dialog.addEventListener('click', (event) => {
             if (event.target === dialog) {
                 if (typeof dialog.close === 'function') dialog.close();
-                else dialog.removeAttribute('open');
-                returnFocusTo?.focus();
+                else {
+                    dialog.removeAttribute('open');
+                    restoreTrigger();
+                }
                 return;
             }
 
@@ -36,17 +45,19 @@
             if (!closeButton) return;
 
             if (typeof dialog.close === 'function') dialog.close();
-            else dialog.removeAttribute('open');
-            returnFocusTo?.focus();
+            else {
+                dialog.removeAttribute('open');
+                restoreTrigger();
+            }
         });
 
-        dialog.addEventListener('close', () => returnFocusTo?.focus());
+        dialog.addEventListener('close', restoreTrigger);
 
         document.addEventListener('keydown', (event) => {
             if (event.key !== 'Escape' || dialog.dataset.campaignDialogFallback !== 'true') return;
             dialog.removeAttribute('open');
             delete dialog.dataset.campaignDialogFallback;
-            returnFocusTo?.focus();
+            restoreTrigger();
         });
     };
 

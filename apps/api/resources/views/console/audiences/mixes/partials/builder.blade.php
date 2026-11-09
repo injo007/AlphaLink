@@ -1,14 +1,17 @@
-    <div class="block block-rounded">
-        <div class="block-header block-header-default">
-            <h3 class="block-title">CREATE MIX</h3>
-            <div class="block-options">
-                @unless ($mixBuilderInModal ?? false)
+    <div class="block block-rounded campaign-mix-builder">
+        @unless ($mixBuilderInModal ?? false)
+            <div class="block-header block-header-default">
+                <h3 class="block-title">CREATE MIX</h3>
+                <div class="block-options">
                     <a class="btn btn-sm btn-alt-primary" href="{{ route('console.audience-mixes.history', $workspace->id) }}">MIX HISTORY</a>
-                @endunless
+                </div>
             </div>
-        </div>
+        @endunless
         <div class="block-content block-content-full">
-            <p class="text-muted">Build a reusable recipient snapshot from current list states and recorded engagement. The mix stores contact references and criteria; email addresses stay encrypted.</p>
+            <p id="campaign-mix-description" class="campaign-mix-description text-muted">Build a reusable recipient snapshot from current list states and recorded engagement. The mix stores contact references and criteria; email addresses stay encrypted.</p>
+            @if ($mixBuilderInModal ?? false)
+                <p class="campaign-mix-availability"><i class="fas fa-clock" aria-hidden="true"></i><span>Created mixes appear in Mixes and stay available for 24 hours.</span></p>
+            @endif
             <form id="audience-mix-form" action="{{ route('console.audience-mixes.store', $workspace->id) }}" method="post" novalidate data-mix-modal="{{ ($mixBuilderInModal ?? false) ? 'true' : 'false' }}" data-sponsor-id="{{ $sponsorId }}">
                 @csrf
                 <div id="mix-errors" class="alert alert-danger" role="alert" tabindex="-1" hidden></div>
@@ -40,8 +43,8 @@
                         </div>
                     </div>
                 </div>
-                <div class="form-group">
-                    <button id="load-mix-lists" type="button" class="btn btn-alt-primary" disabled>LOAD LISTS</button>
+                <div class="form-group campaign-mix-load-row">
+                    <button id="load-mix-lists" type="button" class="btn btn-alt-primary campaign-mix-load" disabled><i class="fas fa-list-ul" aria-hidden="true"></i><span>Load lists</span></button>
                     <span id="mix-list-status" class="ml-2 text-muted" role="status" aria-live="polite">Select an ISP to load its lists.</span>
                 </div>
                 <div id="mix-lists-wrap" class="table-responsive mb-4" hidden>
@@ -118,9 +121,9 @@
                     </div>
                 </div>
 
-                <div class="form-group d-flex flex-wrap align-items-center">
-                    <button id="create-mix" type="submit" class="btn btn-info">MIX SELECTED LISTS</button>
-                    <span id="mix-submit-status" class="ml-3 text-muted" role="status" aria-live="polite"></span>
+                <div class="form-group d-flex flex-wrap align-items-center campaign-mix-actions">
+                    <span id="mix-submit-status" class="text-muted" role="status" aria-live="polite"></span>
+                    <button id="create-mix" type="submit" class="btn btn-info campaign-mix-submit"><i class="fas fa-layer-group" aria-hidden="true"></i><span>Create mix from selected lists</span></button>
                 </div>
             </form>
         </div>

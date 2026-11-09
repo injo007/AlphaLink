@@ -120,8 +120,8 @@
         // Server and PMTA controls are available to every active workspace member by product policy.
         $canManageInfrastructure = true;
         $canManagePmta = true;
-        $canManageSponsors = in_array($workspace->pivot->role, ['owner', 'admin'], true);
-        $canManageUsers = in_array($workspace->pivot->role, ['owner', 'admin'], true);
+        $canManageSponsors = in_array($workspace->pivot->role ?? 'admin', ['owner', 'admin'], true);
+        $canManageUsers = in_array($workspace->pivot->role ?? 'admin', ['owner', 'admin'], true);
         $canManageGlobalUsers = auth()->user()->hasRole('manage_users');
         $sponsorsUrl = route('clean.console.sponsors.index');
         $networkSponsorsUrl = route('clean.console.networks.sponsors.index');

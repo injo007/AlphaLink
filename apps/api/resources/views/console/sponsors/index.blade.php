@@ -42,7 +42,7 @@
                 <span class="all-stats-overview-icon icon-emerald" aria-hidden="true"><i class="fas fa-plug"></i></span>
                 <span class="all-stats-overview-copy">
                     <span>Active Networks</span>
-                    <strong>{{ $workspace->sponsors()->where('is_active', true)->count() }}</strong>
+                    <strong>{{ $activeSponsorsCount ?? $sponsorsCount ?? 0 }}</strong>
                     <small>Enabled integration</small>
                 </span>
             </article>
@@ -50,7 +50,7 @@
                 <span class="all-stats-overview-icon icon-purple" aria-hidden="true"><i class="fas fa-puzzle-piece"></i></span>
                 <span class="all-stats-overview-copy">
                     <span>Browser Helper</span>
-                    <strong>{{ $extensionUrl ? 'READY' : 'LOCAL' }}</strong>
+                    <strong>{{ !empty($extensionUrl) ? 'READY' : 'LOCAL' }}</strong>
                     <small>Session proxy agent</small>
                 </span>
             </article>
@@ -58,7 +58,7 @@
                 <span class="all-stats-overview-icon icon-cyan" aria-hidden="true"><i class="fas fa-tags"></i></span>
                 <span class="all-stats-overview-copy">
                     <span>Linked Offers</span>
-                    <strong>{{ $workspace->offers()->count() }}</strong>
+                    <strong>{{ $sponsorsTotalOffers ?? 0 }}</strong>
                     <small>Campaigns catalog</small>
                 </span>
             </article>
@@ -79,7 +79,7 @@
             </div>
             <div class="command-os-info-banner-content">
                 <div>Sponsor login opens a provider session in the browser helper. Download and load the helper before using Login.</div>
-                @if ($extensionUrl)
+                @if (!empty($extensionUrl))
                     <a href="{{ $extensionUrl }}" class="btn btn-sm btn-alt-primary mt-1"><i class="fas fa-download mr-1"></i> Download sponsor helper</a>
                 @else
                     <div class="small mt-1 text-warning"><i class="fas fa-exclamation-triangle mr-1"></i> The sponsor helper bundle is not installed on this app server, so download and browser handoff are unavailable.</div>

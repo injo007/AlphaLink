@@ -383,7 +383,12 @@
             .campaign-create-page .bootstrap-select:focus-within,
             .campaign-create-page .bootstrap-select.open,
             .campaign-create-page .bootstrap-select.show { position: relative; z-index: 61; }
-            .campaign-create-page .bootstrap-select .dropdown-menu { box-sizing: border-box; max-width: min(420px, calc(100vw - 24px)); z-index: 62; }
+            .campaign-create-page .bootstrap-select .dropdown-menu {
+                box-sizing: border-box;
+                max-width: min(100%, calc(100vw - 24px)) !important;
+                min-width: min(100%, calc(100vw - 24px)) !important;
+                z-index: 62;
+            }
             .campaign-create-page #campaign-targeting > .row > [class*='col-']:first-child .block {
                 background: linear-gradient(145deg, #fff 0%, #fdfaff 63%, #f7f2ff 100%);
             }
@@ -427,10 +432,24 @@
             .campaign-create-page .text-muted { color: var(--campaign-muted) !important; font-size: 10px; line-height: 1.45; }
             .campaign-create-page .bootstrap-select { width: 100% !important; }
             .campaign-create-page .bootstrap-select > .dropdown-toggle { box-shadow: none; }
-            .campaign-create-page .bootstrap-select > .dropdown-toggle { align-items: center; display: flex; min-width: 0; text-align: left; }
+            .campaign-create-page .bootstrap-select > .dropdown-toggle {
+                align-items: center !important;
+                display: flex !important;
+                height: 30px !important;
+                justify-content: space-between !important;
+                line-height: 1.2 !important;
+                min-height: 30px !important;
+                min-width: 0;
+                padding: 0 10px !important;
+                text-align: left;
+                width: 100% !important;
+            }
+            .campaign-create-page #campaign-targeting .bootstrap-select.form-control > .dropdown-toggle { height: 30px !important; min-height: 30px !important; }
+            .campaign-create-page #campaign-routing select.form-control { height: 30px; line-height: 1.2; min-height: 30px; padding: 3px 9px; }
             .campaign-create-page .bootstrap-select > .dropdown-toggle .filter-option,
             .campaign-create-page .bootstrap-select > .dropdown-toggle .filter-option-inner,
             .campaign-create-page .bootstrap-select > .dropdown-toggle .filter-option-inner-inner { min-width: 0; }
+            .campaign-create-page .bootstrap-select > .dropdown-toggle .filter-option { align-items: center; display: flex; height: 100%; }
             .campaign-create-page .bootstrap-select > .dropdown-toggle .filter-option-inner-inner { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
             .campaign-create-page .bootstrap-select.form-control {
                 background: transparent !important;

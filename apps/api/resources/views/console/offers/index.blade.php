@@ -41,7 +41,7 @@
                 <span class="all-stats-overview-icon icon-purple" aria-hidden="true"><i class="fas fa-tag"></i></span>
                 <span class="all-stats-overview-copy">
                     <span>{{ $isNetworkView ? 'My Offers' : 'Active Offers' }}</span>
-                    <strong id="stat-offers-count">{{ $workspace->offers()->where('is_active', true)->whereNull('deleted_at')->count() }}</strong>
+                    <strong id="stat-offers-count">{{ $activeOffersCount ?? $offersCount ?? 0 }}</strong>
                     <small>Catalog count</small>
                 </span>
             </article>
@@ -49,7 +49,7 @@
                 <span class="all-stats-overview-icon icon-blue" aria-hidden="true"><i class="fas fa-building"></i></span>
                 <span class="all-stats-overview-copy">
                     <span>Sponsors</span>
-                    <strong>{{ $sponsors->count() }}</strong>
+                    <strong>{{ count($sponsors) }}</strong>
                     <small>Connected networks</small>
                 </span>
             </article>
@@ -57,7 +57,7 @@
                 <span class="all-stats-overview-icon icon-cyan" aria-hidden="true"><i class="fas fa-layer-group"></i></span>
                 <span class="all-stats-overview-copy">
                     <span>Verticals</span>
-                    <strong>{{ $verticals->count() }}</strong>
+                    <strong>{{ count($verticals) }}</strong>
                     <small>Active categories</small>
                 </span>
             </article>

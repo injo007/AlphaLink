@@ -5,55 +5,86 @@
 @section('content')
     <div class="block block-rounded">
         <div class="block-header block-header-default">
-            <h3 class="block-title">MIX HISTORY</h3>
+            <h3 class="block-title">MY HISTORY</h3>
             <div class="block-options">
                 <a class="btn btn-sm btn-alt-primary" href="{{ route('console.audience-mixes.index', $workspace->id) }}">CREATE MIX</a>
             </div>
         </div>
         <div class="block-content block-content-full">
-            <form id="mix-history-dates" method="get" class="form-inline mb-3">
-                <div class="form-group mr-2 mb-2">
-                    <label for="mix-history-from" class="mr-2">From</label>
-                    <input id="mix-history-from" name="from" type="date" class="form-control" value="{{ $from }}" required>
+            <form id="mix-history-filters" method="get" class="d-flex flex-wrap align-items-end justify-content-between mb-3">
+                <div class="d-flex flex-wrap align-items-end">
+                    <div class="form-group mr-2 mb-2">
+                        <label for="mix-history-per-page" class="sr-only">Rows per page</label>
+                        <select id="mix-history-per-page" name="per_page" class="form-control" aria-label="Rows per page">
+                            @foreach ([25, 50, 100] as $size)
+                                <option value="{{ $size }}" @selected($perPage === $size)>Show {{ $size }} rows</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="form-group mr-2 mb-2">
+                        <label for="mix-history-from" class="mr-2">Date from</label>
+                        <input id="mix-history-from" name="from" type="date" class="form-control" value="{{ $from }}" required>
+                    </div>
+                    <div class="form-group mr-2 mb-2">
+                        <label for="mix-history-to" class="mr-2">to</label>
+                        <input id="mix-history-to" name="to" type="date" class="form-control" value="{{ $to }}" required>
+                    </div>
+                    <button type="submit" class="btn btn-alt-primary mb-2">FILTER</button>
                 </div>
-                <div class="form-group mr-2 mb-2">
-                    <label for="mix-history-to" class="mr-2">To</label>
-                    <input id="mix-history-to" name="to" type="date" class="form-control" value="{{ $to }}" required>
+                <div class="form-group mb-2">
+                    <label for="mix-history-search" class="sr-only">Search mix name or ISP</label>
+                    <input id="mix-history-search" name="search" type="search" class="form-control" value="{{ $search }}" maxlength="100" placeholder="Search…">
                 </div>
-                <button type="submit" class="btn btn-alt-primary mb-2">FILTER</button>
             </form>
             <div id="mix-history-status" class="sr-only" role="status" aria-live="polite"></div>
             <div class="table-responsive">
-                <table class="table table-sm table-striped table-bordered table-hover mb-0">
+                <table class="table table-sm table-striped table-bordered table-hover mb-0" aria-label="Mix history">
                     <thead>
                         <tr>
-                            <th scope="col">CREATED</th>
-                            <th scope="col">MIX</th>
+                            <th scope="col">#</th>
+                            <th scope="col">NAME</th>
+                            <th scope="col">TOTAL</th>
                             <th scope="col">ISP</th>
-                            <th scope="col">RECIPIENTS</th>
-                            <th scope="col">CRITERIA</th>
+                            <th scope="col">LISTS</th>
+                            <th scope="col">FILTERS</th>
                             <th scope="col">STATUS</th>
-                            <th scope="col">ACTION</th>
+                            <th scope="col">CREATED AT</th>
+                            <th scope="col">USABLE UNTIL</th>
+                            <th scope="col">ACTIONS</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse ($mixes as $mix)
+                            @php
+                                $criteria = $mix->criteria ?? [];
+                                $sourceListCount = count(array_unique($criteria['source_list_ids'] ?? []));
+                                $filters = $criteria['filters'] ?? [];
+                            @endphp
                             <tr>
-                                <td>{{ $mix->created_at?->format('Y-m-d H:i:s') }}</td>
+                                <td>{{ ($mixes->firstItem() ?? 1) + $loop->index }}</td>
                                 <th scope="row">{{ $mix->name }}</th>
-                                <td>{{ $mix->isp?->name ?? '—' }}</td>
                                 <td class="text-right">{{ number_format($mix->recipient_count) }}</td>
+                                <td>{{ $mix->isp?->name ?? '—' }}</td>
+                                <td>{{ $sourceListCount }}</td>
                                 <td>
                                     <details>
-                                        <summary>View saved criteria</summary>
-                                        <pre class="mb-0 mt-2 text-monospace" style="white-space: pre-wrap">{{ json_encode($mix->criteria, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+                                        <summary>{{ count($filters) }}</summary>
+                                        <pre class="mb-0 mt-2 text-monospace" style="white-space: pre-wrap">{{ json_encode($filters, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
                                     </details>
                                 </td>
                                 <td>
                                     @if ($mix->status === 'active')
                                         <span class="badge badge-success">ACTIVE</span>
                                     @else
-                                        <span class="badge badge-secondary">EXPIRED</span>
+                                        <span class="badge badge-danger">EXPIRED</span>
+                                    @endif
+                                </td>
+                                <td>{{ $mix->created_at?->format('Y-m-d H:i:s') }}</td>
+                                <td>
+                                    @if ($mix->status === 'active')
+                                        {{ $mix->created_at?->copy()->addHours(24)->format('Y-m-d H:i:s') ?? '—' }}
+                                    @else
+                                        {{ $mix->expired_at?->format('Y-m-d H:i:s') ?? 'Expired' }}
                                     @endif
                                 </td>
                                 <td>
@@ -62,22 +93,25 @@
                                             <i class="fas fa-sync mr-1" aria-hidden="true"></i>REMIX
                                         </button>
                                     @else
-                                        <span class="text-muted" title="This snapshot can be used until scheduled cleanup expires it.">READY</span>
+                                        <span class="text-muted" title="This mix can be selected in campaign targeting for 24 hours after creation.">READY</span>
                                     @endif
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="7" class="text-center text-muted py-4">No mixes were created in this date range.</td></tr>
+                            <tr><td colspan="10" class="text-center text-muted py-4">No mixes were created in this date range.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
-            <div class="mt-3">{{ $mixes->links() }}</div>
+            <div class="d-flex flex-wrap align-items-center justify-content-between mt-3">
+                <span>Page {{ $mixes->currentPage() }} of {{ $mixes->lastPage() }} ({{ $mixes->total() }} records)</span>
+                <div>{{ $mixes->links() }}</div>
+            </div>
         </div>
     </div>
     <script>
         (() => {
-            const dateForm = document.getElementById('mix-history-dates');
+            const filters = document.getElementById('mix-history-filters');
             const from = document.getElementById('mix-history-from');
             const to = document.getElementById('mix-history-to');
             const status = document.getElementById('mix-history-status');
@@ -86,16 +120,17 @@
             if (!params.has('from') && !params.has('to') && sessionStorage.getItem(`${prefix}_from`) && sessionStorage.getItem(`${prefix}_to`)) {
                 from.value = sessionStorage.getItem(`${prefix}_from`);
                 to.value = sessionStorage.getItem(`${prefix}_to`);
-                dateForm.requestSubmit();
+                filters.requestSubmit();
             }
-            dateForm.addEventListener('submit', () => {
+            filters.addEventListener('submit', () => {
                 sessionStorage.setItem(`${prefix}_from`, from.value);
                 sessionStorage.setItem(`${prefix}_to`, to.value);
             });
             document.querySelectorAll('.remix-mix').forEach((button) => button.addEventListener('click', async () => {
                 const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
                 button.disabled = true;
-                button.textContent = 'REMIXING…';
+                button.setAttribute('aria-busy', 'true');
+                button.innerHTML = '<i class="fas fa-sync fa-spin mr-1" aria-hidden="true"></i>REMIXING…';
                 status.textContent = 'Rebuilding the saved audience mix.';
                 try {
                     const response = await fetch(button.dataset.url, {
@@ -110,6 +145,7 @@
                 } catch (error) {
                     status.textContent = error.message || 'Mix could not be rebuilt.';
                     button.disabled = false;
+                    button.removeAttribute('aria-busy');
                     button.innerHTML = '<i class="fas fa-sync mr-1" aria-hidden="true"></i>REMIX';
                 }
             }));

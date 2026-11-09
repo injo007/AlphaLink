@@ -130,7 +130,7 @@ class AlphaLinkCampaignSendCatalog
                 ->where('created_by', $user->getKey())
                 ->where('isp_id', $ispId)
                 ->where('status', 'active')
-                ->where('created_at', '>=', now()->subDay()->endOfDay())
+                ->where('created_at', '>=', now()->subHours(24))
                 ->orderBy('name')
                 ->orderBy('id')
                 ->get(['id', 'name', 'recipient_count', 'criteria'])

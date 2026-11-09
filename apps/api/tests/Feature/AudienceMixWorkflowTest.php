@@ -36,6 +36,7 @@ class AudienceMixWorkflowTest extends TestCase
             ]))
             ->assertOk()
             ->assertSee('CREATE MIX')
+            ->assertSee('MIX SELECTED LISTS')
             ->assertSee('RECIPIENT CRITERIA')
             ->assertSee('LOAD LISTS')
             ->assertSee('Email Gender')
@@ -43,7 +44,8 @@ class AudienceMixWorkflowTest extends TestCase
             ->assertSee('ADD ACTIVITY FILTER')
             ->assertSee('MIX SELECTED LISTS')
             ->assertSee('value="'.$fixture['isp']->getKey().'"', false)
-            ->assertSee('const sponsorId = '.$fixture['sponsor']->getKey().';', false);
+            ->assertSee('let sponsorId = form.dataset.sponsorId;', false)
+            ->assertSee('value="'.$fixture['isp']->getKey().'"', false);
     }
 
     public function test_mix_options_are_workspace_scoped_and_follow_reference_isp_country_and_event_choices(): void
@@ -138,8 +140,23 @@ class AudienceMixWorkflowTest extends TestCase
         $this->actingAs($fixture['owner'])
             ->get(route('clean.console.audience-mixes.history', $fixture['workspace']->getKey()))
             ->assertOk()
-            ->assertSee('MIX HISTORY')
-            ->assertSee('mix_women with opens_2');
+            ->assertSee('MY HISTORY')
+            ->assertSee('mix_women with opens_2')
+            ->assertSee('TOTAL')
+            ->assertSee('LISTS')
+            ->assertSee('FILTERS')
+            ->assertSee('CREATED AT')
+            ->assertSee('USABLE UNTIL');
+
+        $this->actingAs($fixture['owner'])
+            ->get(route('clean.console.audience-mixes.history', [
+                $fixture['workspace']->getKey(),
+                'search' => 'no matching mix',
+                'per_page' => 25,
+            ]))
+            ->assertOk()
+            ->assertSee('No mixes were created in this date range.')
+            ->assertDontSee('mix_women with opens_2');
     }
 
     public function test_mix_sex_and_domain_filters_use_current_membership_indexes(): void

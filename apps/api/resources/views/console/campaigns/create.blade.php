@@ -130,6 +130,10 @@
             #campaign-action-status[hidden] { display: none !important; }
             .campaign-create-page dialog { background: linear-gradient(145deg, var(--campaign-surface), var(--campaign-wash)); border: 1px solid var(--campaign-border); border-radius: 20px; box-shadow: 0 26px 72px rgb(31 21 75 / 30%), 0 4px 14px rgb(33 23 78 / 12%); box-sizing: border-box; color: var(--campaign-ink); max-height: min(88vh, 900px); max-width: calc(100vw - 28px); overflow: auto; overscroll-behavior: contain; padding: 0; width: min(760px, calc(100vw - 28px)); }
             .campaign-create-page dialog::backdrop { background: rgb(19 13 48 / 54%); backdrop-filter: blur(5px) saturate(1.08); }
+            .campaign-create-page dialog.campaign-mix-dialog { max-height: min(92vh, 1100px); width: min(1480px, calc(100vw - 28px)); }
+            .campaign-create-page dialog.campaign-mix-dialog .block { box-shadow: none; }
+            .campaign-create-page dialog.campaign-mix-dialog .block-content { max-height: none; }
+            .campaign-create-page dialog.campaign-mix-dialog .table-responsive { max-height: min(42vh, 470px); overflow: auto; }
             .campaign-create-page dialog[open] { animation: campaign-dialog-enter .18s ease-out both; }
             .campaign-create-page dialog > .p-3 { box-sizing: border-box; min-width: 0 !important; padding: clamp(16px, 2.2vw, 26px) !important; width: 100%; }
             .campaign-create-page dialog .d-flex.justify-content-between.align-items-center { background: linear-gradient(100deg, rgb(139 79 247 / 10%), rgb(81 150 255 / 5%)); border-bottom: 1px solid rgb(126 105 190 / 15%); margin: calc(clamp(16px, 2.2vw, 26px) * -1) calc(clamp(16px, 2.2vw, 26px) * -1) 18px !important; padding: 15px clamp(16px, 2.2vw, 26px); }
@@ -293,6 +297,7 @@
                 grid-template-columns: minmax(0, 1fr) minmax(270px, 300px);
             }
             .campaign-create-main { min-width: 0; }
+            .campaign-create-page #campaign-targeting:has(.bootstrap-select.open, .bootstrap-select.show) { position: relative; z-index: 12000; }
             .campaign-create-page .block {
                 background: var(--campaign-surface);
                 border: 1px solid var(--campaign-border);
@@ -346,8 +351,8 @@
             }
             .campaign-create-page .bootstrap-select:focus-within,
             .campaign-create-page .bootstrap-select.open,
-            .campaign-create-page .bootstrap-select.show { position: relative; z-index: 31; }
-            .campaign-create-page .bootstrap-select .dropdown-menu { z-index: 32; }
+            .campaign-create-page .bootstrap-select.show { position: relative; z-index: 12001; }
+            .campaign-create-page .bootstrap-select .dropdown-menu { z-index: 12002; }
             .campaign-create-page #campaign-targeting > .row > [class*='col-']:first-child .block {
                 background: linear-gradient(145deg, #fff 0%, #fdfaff 63%, #f7f2ff 100%);
             }
@@ -849,9 +854,12 @@
                                 </div>
                             </div>
                             <div class="form-group">
-                                <div class="campaign-target-label-row">
-                                    <label for="send-lists"><i class="fas fa-list-ul campaign-field-icon" aria-hidden="true"></i>Lists / email segments:</label>
-                                    <details class="campaign-create-help">
+                                    <div class="campaign-target-label-row">
+                                        <label for="send-lists"><i class="fas fa-list-ul campaign-field-icon" aria-hidden="true"></i>Lists / email segments:</label>
+                                        <button type="button" id="campaign-mix-open" class="btn btn-sm btn-outline-primary" aria-haspopup="dialog" aria-controls="campaign-mix-dialog">
+                                            MIX LIST <span class="badge badge-light" id="campaign-mix-count">{{ $sendOptions['segments']->where('is_mix', true)->count() }}</span>
+                                        </button>
+                                        <details class="campaign-create-help">
                                         <summary title="Suppression details"><i class="fas fa-info-circle campaign-field-icon" aria-hidden="true"></i><span class="sr-only">Suppression details</span></summary>
                                         <small class="form-text text-muted">Select unlocked email types. Saving automatically matches the selected offer’s saved suppression file against every selected List/email type and leaves matches out of the campaign snapshot. Drops → <a href="{{ route('console.drops.suppression', $workspace->id) }}">Suppression</a> separately applies that file to the chosen ISP/List memberships for reusable Offer/List exclusions; you do not need to run it first for campaign creation. Workspace suppressions and duplicate addresses are also excluded.</small>
                                     </details>
@@ -1298,6 +1306,26 @@
         </div>
     </form>
 
+    <dialog id="campaign-mix-dialog" class="campaign-mix-dialog" aria-labelledby="campaign-mix-title" data-campaign-dialog-width="min(1480px, calc(100vw - 28px))">
+        <div class="p-3">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <p class="campaign-section-kicker mb-1">AUDIENCE BUILDER</p>
+                    <h2 class="h5 mb-0" id="campaign-mix-title">CREATE MIX</h2>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-dialog-close="campaign-mix-dialog" aria-label="Close mix builder">×</button>
+            </div>
+            @include('console.audiences.mixes.partials.builder', [
+                'workspace' => $workspace,
+                'isps' => $sendOptions['isps'],
+                'selectedIspId' => $setup['isp_id'],
+                'selectedCountry' => $setup['country'] === 'ALL' ? '' : $setup['country'],
+                'sponsorId' => $setup['sponsor_id'] ?: null,
+                'mixBuilderInModal' => true,
+            ])
+        </div>
+    </dialog>
+
     <div id="campaign-options-status" class="alert d-none" role="status" aria-live="polite"></div>
     <button type="button" id="campaign-options-retry" class="btn btn-alt-secondary d-none mb-4">Retry loading choices</button>
     </div>
@@ -1680,6 +1708,7 @@
             document.getElementById('campaign-header-encode').addEventListener('click', () => showDialog('campaign-encoding-dialog'));
             document.getElementById('campaign-shortlink-open').addEventListener('click', () => showDialog('campaign-shortlink-dialog'));
             document.getElementById('campaign-tags-help').addEventListener('click', () => showDialog('campaign-tags-dialog'));
+            document.getElementById('campaign-mix-open').addEventListener('click', () => showDialog('campaign-mix-dialog'));
             document.querySelectorAll('[data-dialog-close]').forEach((button) => {
                 button.addEventListener('click', () => closeDialog(document.getElementById(button.dataset.dialogClose)));
             });
@@ -2273,6 +2302,21 @@
                 lastOfferId = selectedOfferId;
                 fill('isp', data.isps, (item) => item.id, (item) => item.name, current.isp_id, 'Select ISP');
                 fill('lists', data.segments, (item) => item.id, (item) => `${item.name} — ${item.country} — ${String(item.email_type).toUpperCase()} — ${Number(item.recipient_count).toLocaleString()}`, current.audience_segments, 'Select Lists');
+                document.getElementById('campaign-mix-count').textContent = String(data.segments.filter((segment) => segment.is_mix).length);
+                const mixForm = document.getElementById('audience-mix-form');
+                if (mixForm) {
+                    mixForm.dataset.sponsorId = current.sponsor_id || '';
+                    const mixIsp = document.getElementById('mix-isp');
+                    const preferredMixIsp = mixIsp.value || current.isp_id;
+                    mixIsp.replaceChildren(new Option('Select ISP...', ''));
+                    data.isps.forEach((isp) => {
+                        const option = new Option(isp.name, isp.id);
+                        option.dataset.countries = JSON.stringify(isp.tracked_countries || []);
+                        mixIsp.add(option);
+                    });
+                    mixIsp.value = data.isps.some((isp) => String(isp.id) === String(preferredMixIsp)) ? String(preferredMixIsp) : '';
+                    mixIsp.dispatchEvent(new Event('change'));
+                }
                 fill('servers', data.servers, (item) => item.id, (item) => `${item.name} | ${item.ip}`, current.server_ids, 'Select Servers');
                 refreshCampaignDomainOptions(data.campaign_domains);
                 syncRouteChoiceLabels();
@@ -2367,6 +2411,35 @@
                     }
                 }
             };
+            window.addEventListener('alphalink:mix-created', async (event) => {
+                const mixIspId = String(event.detail?.isp_id || '');
+                const campaignIsp = select('isp');
+                if (!mixIspId || !Array.from(campaignIsp.options).some((option) => option.value === mixIspId)) {
+                    setStatus('The mix was created, but its ISP is no longer available in campaign targeting. Choose an available ISP and refresh choices.', 'warning');
+                    return;
+                }
+                campaignIsp.value = mixIspId;
+                pickerRefresh(campaignIsp);
+                const campaignCountry = select('country');
+                const mixCountry = String(event.detail?.country || 'ALL') || 'ALL';
+                if (Array.from(campaignCountry.options).some((option) => option.value === mixCountry)) {
+                    campaignCountry.value = mixCountry;
+                    pickerRefresh(campaignCountry);
+                }
+                await loadOptions();
+                if (!optionsReady) return;
+                const mixSegmentId = `${event.detail.id}_mix`;
+                const listSelect = select('lists');
+                const mixOption = Array.from(listSelect.options).find((option) => option.value === mixSegmentId);
+                if (!mixOption) {
+                    setStatus('The mix is saved. It is not available in this campaign selection; check the campaign ISP, country, sponsor, and workspace access.', 'warning');
+                    return;
+                }
+                mixOption.selected = true;
+                pickerRefresh(listSelect);
+                listSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                setStatus('Mix created and added to campaign targeting. Review the selected audience before saving.', 'success');
+            });
             const applySnapshotProgress = (payload) => {
                 const stage = String(payload.stage || (payload.ready ? 'complete' : 'queued'));
                 const percent = Math.max(0, Math.min(100, Number.parseInt(payload.percent ?? 0, 10) || 0));

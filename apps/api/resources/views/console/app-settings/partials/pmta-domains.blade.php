@@ -1,24 +1,61 @@
 <div class="tab-pane" id="pmta_domains" role="tabpanel" aria-labelledby="pmta_domains_tab">
-    <div class="form-group">
-        <div class="input-group">
-            <select id="pmta_version" class="form-control" aria-label="PowerMTA version">
-                <option value="40" selected>PMTA 4.0</option>
-                <option value="45">PMTA 4.5</option>
-                <option value="50">PMTA 5.0</option>
-            </select>
-            <div class="input-group-append">
-                <button id="load_pmta_domain_data" class="btn btn-primary" type="button">LOAD SETTINGS</button>
+    <div class="command-os-settings-card">
+        <div class="command-os-settings-card-header">
+            <div class="command-os-settings-card-title-group">
+                <div class="command-os-settings-card-icon">
+                    <i class="fa fa-terminal"></i>
+                </div>
+                <div class="command-os-settings-card-titles">
+                    <h3>PMTA DOMAINS SETTINGS</h3>
+                    <p>Virtual MTAs, envelope routing policies &amp; domain configuration profiles</p>
+                </div>
             </div>
+            <div class="command-os-settings-card-tag">ROUTING ENGINE</div>
+        </div>
+        <div class="command-os-settings-card-body">
+            <div class="row align-items-center mb-4">
+                <div class="col-sm-12 col-md-6 col-lg-4">
+                    <div class="form-group command-os-field-group mb-0">
+                        <label for="pmta_version">PowerMTA Target Version:</label>
+                        <select id="pmta_version" class="form-control" aria-label="PowerMTA version">
+                            <option value="40" selected>PMTA 4.0</option>
+                            <option value="45">PMTA 4.5</option>
+                            <option value="50">PMTA 5.0</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-sm-12 col-md-6 col-lg-3 mt-3 mt-md-4">
+                    <button id="load_pmta_domain_data" class="btn btn-primary command-os-btn-save-settings w-100" type="button" style="padding: 10px 20px !important;">
+                        <i class="fa fa-refresh mr-1"></i> LOAD SETTINGS
+                    </button>
+                </div>
+            </div>
+
+            <div class="command-os-terminal-card">
+                <div class="command-os-terminal-bar">
+                    <div class="command-os-terminal-dots">
+                        <span class="command-os-terminal-dot is-red"></span>
+                        <span class="command-os-terminal-dot is-yellow"></span>
+                        <span class="command-os-terminal-dot is-green"></span>
+                    </div>
+                    <div class="command-os-terminal-title">pmta.conf // DOMAIN &amp; IP CONFIGURATION</div>
+                    <div class="command-os-terminal-badge">PMTA-CONFIG</div>
+                </div>
+                <textarea id="pmta_domain_data" class="form-control" rows="35" aria-describedby="pmta-domain-status" placeholder="# Load PMTA settings above or paste domain directives here..."></textarea>
+            </div>
+
+            <div class="command-os-settings-footer-bar mt-4">
+                <div class="command-os-footer-status">
+                    <span class="command-os-pulse-dot"></span>
+                    <span>Directives Editor Ready</span>
+                </div>
+                <button id="save_pmta_domain_data" class="btn btn-primary command-os-btn-save-settings" type="button">
+                    <i class="fa fa-save mr-2"></i> SAVE SETTINGS
+                </button>
+            </div>
+            <div id="pmta-domain-status" class="alert d-none mt-3" role="status" aria-live="polite"></div>
         </div>
     </div>
-    <div class="form-group">
-        <label for="pmta_domain_data">PMTA DOMAINS SETTINGS</label>
-        <textarea id="pmta_domain_data" class="form-control" rows="50" aria-describedby="pmta-domain-status"></textarea>
-    </div>
-    <div class="form-group text-md-right">
-        <button id="save_pmta_domain_data" class="btn btn-primary" type="button">SAVE SETTINGS</button>
-    </div>
-    <div id="pmta-domain-status" class="alert d-none" role="status" aria-live="polite"></div>
 </div>
 
 @push('scripts')

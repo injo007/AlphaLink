@@ -3,7 +3,7 @@
 <head>
     <script>
         (function() {
-            var theme = 'dark';
+            var theme = 'light';
             try {
                 var stored = localStorage.getItem('alphalink-command-os-theme');
                 if (stored === 'light' || stored === 'dark') {

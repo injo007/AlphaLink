@@ -6318,3 +6318,678 @@ html:not([data-command-theme='dark']) body.command-os-shell .modal-footer {
     border-top: 1px solid #e2e8f0 !important;
 }
 
+/* ==========================================================================
+   COMMAND OS // SETTINGS & INFRASTRUCTURE FLAGSHIP PAGE
+   ========================================================================== */
+
+.command-os-settings-page {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    width: 100%;
+    margin-bottom: 32px;
+}
+
+/* Settings block container override */
+.command-os-settings-block {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    margin-bottom: 0 !important;
+}
+
+.command-os-settings-block > .block-content {
+    background: transparent !important;
+    padding: 0 !important;
+}
+
+/* Modern segmented nav tabs for settings */
+.command-os-settings-nav-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.command-os-settings-tabs {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 6px;
+    padding: 5px !important;
+    border-radius: 12px !important;
+    margin: 0 !important;
+    border: 1px solid rgba(139, 92, 246, 0.25) !important;
+    list-style: none;
+}
+
+html[data-command-theme='light'] .command-os-settings-tabs,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-settings-tabs {
+    background: #ffffff !important;
+    border-color: rgba(139, 92, 246, 0.25) !important;
+    box-shadow: 0 4px 16px rgba(139, 92, 246, 0.08) !important;
+}
+
+html[data-command-theme='dark'] .command-os-settings-tabs {
+    background: #0d123a !important;
+    border-color: rgba(168, 85, 247, 0.3) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+}
+
+.command-os-settings-tabs .nav-item {
+    margin: 0 !important;
+}
+
+.command-os-settings-tabs .nav-link {
+    border: none !important;
+    border-radius: 8px !important;
+    padding: 9px 20px !important;
+    font-size: 11px !important;
+    font-weight: 750 !important;
+    letter-spacing: 0.06em !important;
+    text-transform: uppercase !important;
+    transition: all 0.2s ease !important;
+    cursor: pointer;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    line-height: 1 !important;
+}
+
+html[data-command-theme='light'] .command-os-settings-tabs .nav-link,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-settings-tabs .nav-link {
+    color: #64748b !important;
+    background: transparent !important;
+}
+
+html[data-command-theme='light'] .command-os-settings-tabs .nav-link:hover,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-settings-tabs .nav-link:hover {
+    color: #1e1b4b !important;
+    background: rgba(139, 92, 246, 0.08) !important;
+}
+
+html[data-command-theme='light'] .command-os-settings-tabs .nav-link.active,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-settings-tabs .nav-link.active {
+    background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%) !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35) !important;
+}
+
+html[data-command-theme='dark'] .command-os-settings-tabs .nav-link {
+    color: #94a3b8 !important;
+    background: transparent !important;
+}
+
+html[data-command-theme='dark'] .command-os-settings-tabs .nav-link:hover {
+    color: #f8fafc !important;
+    background: rgba(168, 85, 247, 0.15) !important;
+}
+
+html[data-command-theme='dark'] .command-os-settings-tabs .nav-link.active {
+    background: linear-gradient(135deg, #a855f7 0%, #6366f1 100%) !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 20px rgba(168, 85, 247, 0.45) !important;
+}
+
+/* Cluster Status Pill in Hero */
+.command-os-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+html[data-command-theme='light'] .command-os-status-pill,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-status-pill {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    color: #047857;
+}
+
+html[data-command-theme='dark'] .command-os-status-pill {
+    background: rgba(16, 185, 129, 0.15);
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    color: #34d399;
+}
+
+.command-os-pulse-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 10px #10b981;
+    animation: command-pulse 2s infinite ease-in-out;
+}
+
+@keyframes command-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.3); opacity: 0.6; }
+}
+
+/* Modular Settings Card */
+.command-os-settings-card {
+    border-radius: 16px;
+    margin-bottom: 20px;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+html[data-command-theme='light'] .command-os-settings-card,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-settings-card {
+    background: #ffffff !important;
+    border: 1px solid rgba(139, 92, 246, 0.22) !important;
+    box-shadow: 0 8px 24px rgba(139, 92, 246, 0.07), 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+}
+
+html[data-command-theme='dark'] .command-os-settings-card {
+    background: linear-gradient(180deg, #0e1438 0%, #0a0e2a 100%) !important;
+    border: 1px solid rgba(168, 85, 247, 0.28) !important;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+.command-os-settings-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid rgba(139, 92, 246, 0.15);
+}
+
+html[data-command-theme='light'] .command-os-settings-card-header,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-settings-card-header {
+    background: linear-gradient(180deg, #fafafa 0%, #ffffff 100%);
+    border-bottom-color: rgba(139, 92, 246, 0.14);
+}
+
+html[data-command-theme='dark'] .command-os-settings-card-header {
+    background: rgba(255, 255, 255, 0.02);
+    border-bottom-color: rgba(168, 85, 247, 0.2);
+}
+
+.command-os-settings-card-title-group {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.command-os-settings-card-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    font-size: 15px;
+    flex-shrink: 0;
+}
+
+html[data-command-theme='light'] .command-os-settings-card-icon,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-settings-card-icon {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.14) 0%, rgba(99, 102, 241, 0.14) 100%);
+    color: #7c3aed;
+    border: 1px solid rgba(139, 92, 246, 0.25);
+}
+
+html[data-command-theme='dark'] .command-os-settings-card-icon {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.2) 0%, rgba(99, 102, 241, 0.2) 100%);
+    color: #c084fc;
+    border: 1px solid rgba(168, 85, 247, 0.35);
+}
+
+.command-os-settings-card-titles h3 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    line-height: 1.2;
+}
+
+html[data-command-theme='light'] .command-os-settings-card-titles h3,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-settings-card-titles h3 {
+    color: #1e1b4b;
+}
+
+html[data-command-theme='dark'] .command-os-settings-card-titles h3 {
+    color: #ffffff;
+}
+
+.command-os-settings-card-titles p {
+    margin: 3px 0 0;
+    font-size: 11px;
+    line-height: 1.3;
+}
+
+html[data-command-theme='light'] .command-os-settings-card-titles p,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-settings-card-titles p {
+    color: #64748b;
+}
+
+html[data-command-theme='dark'] .command-os-settings-card-titles p {
+    color: #94a3b8;
+}
+
+.command-os-settings-card-tag {
+    font-size: 9.5px;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+html[data-command-theme='light'] .command-os-settings-card-tag,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-settings-card-tag {
+    background: rgba(139, 92, 246, 0.1);
+    color: #7c3aed;
+    border: 1px solid rgba(139, 92, 246, 0.25);
+}
+
+html[data-command-theme='dark'] .command-os-settings-card-tag {
+    background: rgba(168, 85, 247, 0.15);
+    color: #e9d5ff;
+    border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.command-os-settings-card-body {
+    padding: 22px 24px;
+}
+
+/* Fields styling inside settings */
+.command-os-field-group {
+    margin-bottom: 20px;
+}
+
+.command-os-field-group label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 10.5px !important;
+    font-weight: 750 !important;
+    letter-spacing: 0.05em !important;
+    text-transform: uppercase !important;
+    margin-bottom: 6px !important;
+}
+
+html[data-command-theme='light'] .command-os-field-group label,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-field-group label {
+    color: #334155 !important;
+}
+
+html[data-command-theme='dark'] .command-os-field-group label {
+    color: #cbd5e1 !important;
+}
+
+.command-os-field-group .form-control {
+    height: 42px !important;
+    border-radius: 10px !important;
+    font-size: 13px !important;
+    transition: all 0.2s ease !important;
+}
+
+html[data-command-theme='light'] .command-os-field-group .form-control,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-field-group .form-control {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #0f172a !important;
+}
+
+html[data-command-theme='dark'] .command-os-field-group .form-control {
+    background: #090d24 !important;
+    border: 1px solid rgba(168, 85, 247, 0.25) !important;
+    color: #f8fafc !important;
+}
+
+.command-os-field-group .form-control:focus {
+    border-color: #8b5cf6 !important;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2) !important;
+}
+
+.command-os-field-group select.form-control {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b5cf6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 12px center !important;
+    background-size: 16px !important;
+    padding-right: 36px !important;
+}
+
+/* Secret controls */
+.command-secret-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+}
+
+.command-secret-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 28px;
+    padding: 0 12px;
+    font-size: 10px;
+    font-weight: 750;
+    letter-spacing: 0.06em;
+    border-radius: 7px;
+    text-transform: uppercase;
+    transition: all 0.15s ease;
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+
+html[data-command-theme='light'] .command-secret-btn[data-secret-reveal],
+html:not([data-command-theme='dark']) body.command-os-shell .command-secret-btn[data-secret-reveal] {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    color: #6366f1;
+}
+
+html[data-command-theme='light'] .command-secret-btn[data-secret-reveal]:hover,
+html:not([data-command-theme='dark']) body.command-os-shell .command-secret-btn[data-secret-reveal]:hover {
+    background: #e2e8f0;
+    color: #4f46e5;
+}
+
+html[data-command-theme='dark'] .command-secret-btn[data-secret-reveal] {
+    background: #141b42;
+    border-color: rgba(168, 85, 247, 0.3);
+    color: #c084fc;
+}
+
+html[data-command-theme='dark'] .command-secret-btn[data-secret-reveal]:hover {
+    background: #1f275a;
+    color: #e9d5ff;
+}
+
+html[data-command-theme='light'] .command-secret-btn[data-secret-copy],
+html:not([data-command-theme='dark']) body.command-os-shell .command-secret-btn[data-secret-copy] {
+    background: #ecfdf5;
+    border-color: #a7f3d0;
+    color: #059669;
+}
+
+html[data-command-theme='light'] .command-secret-btn[data-secret-copy]:hover,
+html:not([data-command-theme='dark']) body.command-os-shell .command-secret-btn[data-secret-copy]:hover {
+    background: #d1fae5;
+    color: #047857;
+}
+
+html[data-command-theme='dark'] .command-secret-btn[data-secret-copy] {
+    background: rgba(16, 185, 129, 0.15);
+    border-color: rgba(16, 185, 129, 0.4);
+    color: #34d399;
+}
+
+html[data-command-theme='dark'] .command-secret-btn[data-secret-copy]:hover {
+    background: rgba(16, 185, 129, 0.25);
+    color: #6ee7b7;
+}
+
+/* Custom Checkbox for Secret Clear */
+.command-secret-clear-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    font-size: 11px;
+}
+
+.command-secret-clear-wrap label {
+    margin: 0 !important;
+    cursor: pointer;
+    text-transform: none !important;
+    font-weight: 500 !important;
+}
+
+html[data-command-theme='light'] .command-secret-clear-wrap label,
+html:not([data-command-theme='dark']) body.command-os-shell .command-secret-clear-wrap label {
+    color: #ef4444 !important;
+}
+
+html[data-command-theme='dark'] .command-secret-clear-wrap label {
+    color: #f87171 !important;
+}
+
+/* Select2 Multiple Custom Command OS Pill Styling */
+.select2-container--default .select2-selection--multiple {
+    border-radius: 10px !important;
+    min-height: 42px !important;
+    padding: 3px 6px !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    transition: all 0.2s ease !important;
+}
+
+html[data-command-theme='light'] .select2-container--default .select2-selection--multiple,
+html:not([data-command-theme='dark']) body.command-os-shell .select2-container--default .select2-selection--multiple {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+}
+
+html[data-command-theme='dark'] .select2-container--default .select2-selection--multiple {
+    background: #090d24 !important;
+    border: 1px solid rgba(168, 85, 247, 0.25) !important;
+}
+
+.select2-container--default.select2-container--focus .select2-selection--multiple {
+    border-color: #8b5cf6 !important;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2) !important;
+}
+
+.select2-container--default .select2-selection--multiple .select2-selection__choice {
+    border-radius: 999px !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    padding: 2px 10px 2px 8px !important;
+    margin: 3px 4px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+}
+
+html[data-command-theme='light'] .select2-container--default .select2-selection--multiple .select2-selection__choice,
+html:not([data-command-theme='dark']) body.command-os-shell .select2-container--default .select2-selection--multiple .select2-selection__choice {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(99, 102, 241, 0.12)) !important;
+    border: 1px solid rgba(139, 92, 246, 0.35) !important;
+    color: #6d28d9 !important;
+}
+
+html[data-command-theme='dark'] .select2-container--default .select2-selection--multiple .select2-selection__choice {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(99, 102, 241, 0.2)) !important;
+    border: 1px solid rgba(168, 85, 247, 0.45) !important;
+    color: #e9d5ff !important;
+}
+
+.select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+    margin-right: 6px !important;
+    border: none !important;
+    background: transparent !important;
+    font-weight: bold !important;
+}
+
+html[data-command-theme='light'] .select2-container--default .select2-selection--multiple .select2-selection__choice__remove,
+html:not([data-command-theme='dark']) body.command-os-shell .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+    color: #7c3aed !important;
+}
+
+html[data-command-theme='dark'] .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+    color: #c084fc !important;
+}
+
+.select2-container--default .select2-search--inline .select2-search__field {
+    margin-top: 4px !important;
+    padding-left: 6px !important;
+}
+
+html[data-command-theme='light'] .select2-container--default .select2-search--inline .select2-search__field,
+html:not([data-command-theme='dark']) body.command-os-shell .select2-container--default .select2-search--inline .select2-search__field {
+    color: #0f172a !important;
+}
+
+html[data-command-theme='dark'] .select2-container--default .select2-search--inline .select2-search__field {
+    color: #f8fafc !important;
+}
+
+/* PMTA Domains Terminal Card */
+.command-os-terminal-card {
+    border-radius: 14px;
+    overflow: hidden;
+    margin-top: 16px;
+    border: 1px solid rgba(139, 92, 246, 0.25);
+}
+
+html[data-command-theme='light'] .command-os-terminal-card,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-terminal-card {
+    border-color: rgba(139, 92, 246, 0.25);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+
+html[data-command-theme='dark'] .command-os-terminal-card {
+    border-color: rgba(168, 85, 247, 0.35);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+}
+
+.command-os-terminal-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 18px;
+    background: #0f172a;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.command-os-terminal-dots {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.command-os-terminal-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.command-os-terminal-dot.is-red { background: #ef4444; }
+.command-os-terminal-dot.is-yellow { background: #f59e0b; }
+.command-os-terminal-dot.is-green { background: #10b981; }
+
+.command-os-terminal-title {
+    color: #cbd5e1;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    letter-spacing: 0.04em;
+}
+
+.command-os-terminal-badge {
+    background: rgba(168, 85, 247, 0.2);
+    border: 1px solid rgba(168, 85, 247, 0.4);
+    color: #d8b4fe;
+    font-size: 9px;
+    font-weight: 750;
+    padding: 2px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.06em;
+}
+
+#pmta_domain_data {
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, Monaco, Consolas, monospace !important;
+    font-size: 12px !important;
+    line-height: 1.65 !important;
+    min-height: 520px;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 18px !important;
+    background: #0a0e24 !important;
+    color: #38bdf8 !important;
+    caret-color: #a855f7 !important;
+    resize: vertical;
+}
+
+/* Sticky Bottom Action Bar */
+.command-os-settings-footer-bar {
+    position: sticky;
+    bottom: 20px;
+    z-index: 90;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+    border-radius: 14px;
+    margin-top: 24px;
+}
+
+html[data-command-theme='light'] .command-os-settings-footer-bar,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-settings-footer-bar {
+    background: rgba(255, 255, 255, 0.94) !important;
+    border: 1px solid rgba(139, 92, 246, 0.28) !important;
+    box-shadow: 0 10px 32px rgba(139, 92, 246, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04) !important;
+    backdrop-filter: blur(12px);
+}
+
+html[data-command-theme='dark'] .command-os-settings-footer-bar {
+    background: rgba(13, 18, 58, 0.92) !important;
+    border: 1px solid rgba(168, 85, 247, 0.35) !important;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6) !important;
+    backdrop-filter: blur(12px);
+}
+
+.command-os-footer-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+html[data-command-theme='light'] .command-os-footer-status,
+html:not([data-command-theme='dark']) body.command-os-shell .command-os-footer-status {
+    color: #64748b;
+}
+
+html[data-command-theme='dark'] .command-os-footer-status {
+    color: #94a3b8;
+}
+
+.command-os-btn-save-settings {
+    background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%) !important;
+    border: none !important;
+    border-radius: 10px !important;
+    color: #ffffff !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+    padding: 12px 30px !important;
+    box-shadow: 0 4px 18px rgba(124, 58, 237, 0.4) !important;
+    transition: all 0.2s ease !important;
+    cursor: pointer;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+}
+
+.command-os-btn-save-settings:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 24px rgba(124, 58, 237, 0.55) !important;
+    color: #ffffff !important;
+}
+
+.command-os-btn-save-settings:active {
+    transform: translateY(0);
+}
+
+

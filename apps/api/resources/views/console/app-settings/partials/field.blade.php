@@ -2,7 +2,7 @@
     $errorKey = 'settings.' . $field;
     $inputValue = $secret ? '' : (!empty($readonly) ? ($settings[$field] ?? '') : old($errorKey, $settings[$field] ?? ''));
 @endphp
-<div class="form-group">
+<div class="form-group command-os-field-group">
     <label for="{{ $field }}">{{ $label }}:</label>
     <input
         id="{{ $field }}"
@@ -19,16 +19,16 @@
     @if ($secret && ($secretConfigured[$field] ?? false))
         <small class="form-text text-muted">Saved encrypted. Leave blank to keep the current value.</small>
         @if ($canManageGeneralSettings ?? false)
-            <div class="btn-group btn-group-sm mt-1" role="group" aria-label="{{ $label }} controls">
-                <button type="button" class="btn btn-outline-secondary" data-secret-reveal="{{ $field }}" aria-controls="{{ $field }}">REVEAL</button>
-                <button type="button" class="btn btn-outline-secondary d-none" data-secret-copy="{{ $field }}">COPY</button>
+            <div class="btn-group btn-group-sm command-secret-actions" role="group" aria-label="{{ $label }} controls">
+                <button type="button" class="btn btn-outline-secondary command-secret-btn" data-secret-reveal="{{ $field }}" aria-controls="{{ $field }}">REVEAL</button>
+                <button type="button" class="btn btn-outline-secondary command-secret-btn d-none" data-secret-copy="{{ $field }}">COPY</button>
             </div>
             <small class="form-text text-danger d-none" data-secret-error="{{ $field }}" role="status"></small>
         @endif
         @if ($secretStored[$field] ?? false)
-            <div class="custom-control custom-checkbox mt-1">
+            <div class="custom-control custom-checkbox command-secret-clear-wrap">
                 <input type="checkbox" class="custom-control-input" id="clear_{{ $field }}" name="settings_clear[{{ $field }}]" value="1">
-                <label class="custom-control-label" for="clear_{{ $field }}">Clear saved value</label>
+                <label class="custom-control-label text-danger" for="clear_{{ $field }}">Clear saved value</label>
             </div>
         @endif
     @endif

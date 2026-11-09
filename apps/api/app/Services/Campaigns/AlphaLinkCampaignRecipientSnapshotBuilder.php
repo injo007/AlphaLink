@@ -79,7 +79,7 @@ class AlphaLinkCampaignRecipientSnapshotBuilder
                     ->where('created_by', $campaign->created_by)
                     ->where('isp_id', $sendSetup['isp_id'] ?? null)
                     ->where('status', 'active')
-                    ->where('created_at', '>=', now()->subDay()->endOfDay())
+                    ->where('created_at', '>=', now()->subHours(24))
                     ->whereIn('id', $mixIds)
                     ->get()
                     ->keyBy(fn (AudienceMixSnapshot $mix): string => (string) $mix->getKey());

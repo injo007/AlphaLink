@@ -51,21 +51,31 @@ class AudienceMixController extends Controller
         $dates = $request->validate([
             'from' => ['nullable', 'date_format:Y-m-d'],
             'to' => ['nullable', 'date_format:Y-m-d'],
+            'search' => ['nullable', 'string', 'max:100'],
+            'per_page' => ['nullable', 'integer', Rule::in([25, 50, 100])],
         ]);
         $from = $dates['from'] ?? now()->subDays(30)->format('Y-m-d');
         $to = $dates['to'] ?? now()->format('Y-m-d');
         if ($from > $to) {
             throw ValidationException::withMessages(['from' => 'The start date must be before or equal to the end date.']);
         }
+        $search = trim((string) ($dates['search'] ?? ''));
+        $perPage = (int) ($dates['per_page'] ?? 50);
 
         $mixes = AudienceMixSnapshot::query()
             ->with('isp:id,name')
             ->where('workspace_id', $workspace->getKey())
             ->where('created_by', $request->user()->getKey())
             ->whereBetween('created_at', [Carbon::parse($from)->startOfDay(), Carbon::parse($to)->endOfDay()])
+            ->when($search !== '', function ($query) use ($search): void {
+                $query->where(function ($query) use ($search): void {
+                    $query->whereRaw('LOWER(name) LIKE ?', ['%'.mb_strtolower($search).'%'])
+                        ->orWhereHas('isp', fn ($ispQuery) => $ispQuery->whereRaw('LOWER(name) LIKE ?', ['%'.mb_strtolower($search).'%']));
+                });
+            })
             ->orderByDesc('created_at')
             ->orderByDesc('id')
-            ->paginate(25)
+            ->paginate($perPage)
             ->withQueryString();
 
         return view('console.audiences.mixes.history', [
@@ -73,6 +83,8 @@ class AudienceMixController extends Controller
             'mixes' => $mixes,
             'from' => $from,
             'to' => $to,
+            'search' => $search,
+            'perPage' => $perPage,
         ]);
     }
 
@@ -313,7 +325,7 @@ class AudienceMixController extends Controller
 
     private function expireStale(Workspace $workspace): void
     {
-        $cutoff = now()->subDay()->endOfDay();
+        $cutoff = now()->subHours(24);
         $staleIds = AudienceMixSnapshot::query()
             ->where('workspace_id', $workspace->getKey())
             ->where('status', 'active')

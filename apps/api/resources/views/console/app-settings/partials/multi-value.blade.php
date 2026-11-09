@@ -7,7 +7,7 @@
     }
     $errorKey = 'settings.' . $field;
 @endphp
-<div class="form-group">
+<div class="form-group command-os-field-group">
     <label for="{{ $field }}">{{ $label }}:</label>
     <select id="{{ $field }}" name="settings[{{ $field }}][]" class="form-control app-settings-tag-list" multiple>
         @foreach ($selectedValues as $value)

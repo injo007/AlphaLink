@@ -2,7 +2,7 @@
     $selected = (string) old('settings.' . $field, (int) ($settings[$field] ?? false));
     $errorKey = 'settings.' . $field;
 @endphp
-<div class="form-group">
+<div class="form-group command-os-field-group">
     <label for="{{ $field }}">{{ $label }}:</label>
     <select id="{{ $field }}" name="settings[{{ $field }}]" class="form-control" @if ($errors->has($errorKey)) aria-invalid="true" aria-describedby="{{ $field }}-error" @endif>
         <option value="1" @selected($selected === '1')>YES</option>

@@ -8,7 +8,7 @@
     <div class="command-os-hero-card">
         <div class="command-os-hero-card-left">
             <div class="command-os-hero-mark">
-                <i class="fa fa-sliders"></i>
+                <i class="fas fa-sliders-h"></i>
             </div>
             <div class="command-os-hero-copy">
                 <span class="command-os-hero-eyebrow">SYSTEM CONFIGURATION // LEVEL-0 INFRASTRUCTURE</span>
@@ -32,12 +32,12 @@
             <ul class="nav nav-tabs command-os-settings-tabs align-items-center" data-toggle="tabs" role="tablist">
                 <li class="nav-item">
                     <a class="nav-link active" id="settings_tab" href="#settings" role="tab" aria-controls="settings" aria-selected="true">
-                        <i class="fa fa-cogs mr-1"></i> {{ $canManageGeneralSettings ? 'GENERAL SETTINGS' : 'SERVER / PMTA SETTINGS' }}
+                        <i class="fas fa-sliders-h mr-2"></i> {{ $canManageGeneralSettings ? 'GENERAL SETTINGS' : 'SERVER / PMTA SETTINGS' }}
                     </a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" id="pmta_domains_tab" href="#pmta_domains" role="tab" aria-controls="pmta_domains" aria-selected="false">
-                        <i class="fa fa-globe mr-1"></i> PMTA DOMAINS SETTINGS
+                        <i class="fas fa-globe mr-2"></i> PMTA DOMAINS SETTINGS
                     </a>
                 </li>
             </ul>
@@ -48,12 +48,12 @@
                 @if ($canManageGeneralSettings)
                 @if (session('status'))
                     <div class="alert alert-success alert-dismissible fade show" role="status">
-                        <i class="fa fa-check-circle mr-2"></i> {{ session('status') }}
+                        <i class="fas fa-check-circle mr-2"></i> {{ session('status') }}
                     </div>
                 @endif
                 @if ($errors->any())
                     <div class="alert alert-danger" role="alert">
-                        <div class="font-w700 mb-1"><i class="fa fa-exclamation-triangle mr-1"></i> Submission errors encountered:</div>
+                        <div class="font-w700 mb-1"><i class="fas fa-exclamation-triangle mr-1"></i> Submission errors encountered:</div>
                         <ul class="mb-0 pl-3">
                             @foreach ($errors->all() as $error)
                                 <li>{{ $error }}</li>
@@ -70,7 +70,7 @@
                         <div class="command-os-settings-card-header">
                             <div class="command-os-settings-card-title-group">
                                 <div class="command-os-settings-card-icon">
-                                    <i class="fa fa-key"></i>
+                                    <i class="fas fa-key"></i>
                                 </div>
                                 <div class="command-os-settings-card-titles">
                                     <h3>CORE TOKENS &amp; IDENTIFIERS</h3>
@@ -108,7 +108,7 @@
                         <div class="command-os-settings-card-header">
                             <div class="command-os-settings-card-title-group">
                                 <div class="command-os-settings-card-icon">
-                                    <i class="fa fa-shield"></i>
+                                    <i class="fas fa-shield-alt"></i>
                                 </div>
                                 <div class="command-os-settings-card-titles">
                                     <h3>FIREWALL &amp; ACCESS CONTROL</h3>
@@ -154,7 +154,7 @@
                         <div class="command-os-settings-card-header">
                             <div class="command-os-settings-card-title-group">
                                 <div class="command-os-settings-card-icon">
-                                    <i class="fa fa-user-secret"></i>
+                                    <i class="fas fa-user-shield"></i>
                                 </div>
                                 <div class="command-os-settings-card-titles">
                                     <h3>TRAFFIC &amp; ANTI-BOT DEFENSE</h3>
@@ -177,7 +177,7 @@
 
                             <div class="command-os-info-banner mt-3 mb-3">
                                 <div class="command-os-info-banner-icon">
-                                    <i class="fa fa-shield"></i>
+                                    <i class="fas fa-tachometer-alt"></i>
                                 </div>
                                 <div class="command-os-info-banner-content">
                                     <strong>BLOCK EMAIL THAT MAKE MORE X ACTION IN MINUTE:</strong> Speed-trap limits applied across link tracking endpoints.
@@ -203,7 +203,7 @@
                         <div class="command-os-settings-card-header">
                             <div class="command-os-settings-card-title-group">
                                 <div class="command-os-settings-card-icon">
-                                    <i class="fa fa-server"></i>
+                                    <i class="fas fa-server"></i>
                                 </div>
                                 <div class="command-os-settings-card-titles">
                                     <h3>PMTA &amp; MAIL ROUTING</h3>
@@ -227,7 +227,7 @@
 
                             <div class="command-os-info-banner mt-2 mb-3">
                                 <div class="command-os-info-banner-icon">
-                                    <i class="fa fa-info-circle"></i>
+                                    <i class="fas fa-info-circle"></i>
                                 </div>
                                 <div class="command-os-info-banner-content">
                                     <small class="form-text text-muted mb-0">PMTA PORT is the mail listener. PMTA WEB MONITOR PUBLIC PORT is the only browser-facing monitor port (1213 by default). PMTA 4.5/5.0 use a private backend managed by AlphaLink behind Nginx; do not open a second public port. PMTA 4.0 uses the configured port directly. SHOW PMTA MONITOR TO ALL enables public read-only access. If both DEV IPS and PRODUCTION IPS are empty, installation enables the public read-only monitor automatically; administrator commands remain restricted to AlphaLink's relay source/local proxy. PMTA RELAY SOURCE IPS is detected from this AlphaLink host's DigitalOcean/Linode metadata when available, otherwise from independent outbound IPv4 checks, during setup and deployment. Manually saving this field switches to your own address list. Saving settings affects future installs and generated links, but does not rewrite an installed server.</small>
@@ -272,7 +272,7 @@
                         <div class="command-os-settings-card-header">
                             <div class="command-os-settings-card-title-group">
                                 <div class="command-os-settings-card-icon">
-                                    <i class="fa fa-database"></i>
+                                    <i class="fas fa-database"></i>
                                 </div>
                                 <div class="command-os-settings-card-titles">
                                     <h3>AUTOMATED BACKUP &amp; STORAGE</h3>
@@ -304,7 +304,7 @@
                         <div class="command-os-settings-card-header">
                             <div class="command-os-settings-card-title-group">
                                 <div class="command-os-settings-card-icon">
-                                    <i class="fa fa-plug"></i>
+                                    <i class="fas fa-plug"></i>
                                 </div>
                                 <div class="command-os-settings-card-titles">
                                     <h3>THIRD-PARTY INTEGRATIONS &amp; APIS</h3>
@@ -333,7 +333,7 @@
 
                             <div class="row">
                                 <div class="col-sm-12 col-md-4">
-                                    <p class="font-w700 mb-1">BITLY API:</p>
+                                    <p class="font-w700 mb-1"><i class="fas fa-link mr-1 text-primary"></i> BITLY API:</p>
                                     <small class="text-muted d-block">CALLBACK URL: AlphaLink callback not implemented.</small>
                                 </div>
                                 <div class="col-sm-12 col-md-4">
@@ -348,7 +348,7 @@
 
                             <div class="row">
                                 <div class="col-sm-12 col-md-4">
-                                    <p class="font-w700 mb-1">IMGUR API:</p>
+                                    <p class="font-w700 mb-1"><i class="far fa-image mr-1 text-primary"></i> IMGUR API:</p>
                                     <small class="text-muted d-block">CALLBACK URL: AlphaLink callback not implemented.</small>
                                 </div>
                                 <div class="col-sm-12 col-md-4">
@@ -363,7 +363,7 @@
 
                             <div class="row align-items-center">
                                 <div class="col-sm-12 col-md-4">
-                                    <p class="font-w700 mb-1">NS.HN API:</p>
+                                    <p class="font-w700 mb-1"><i class="fas fa-network-wired mr-1 text-primary"></i> NS.HN API:</p>
                                     <small class="text-muted d-block">Nameserver delegation and lookup integration key.</small>
                                 </div>
                                 <div class="col-sm-12 col-md-8">
@@ -380,7 +380,7 @@
                             <span>READY // BUFFERED LOCALLY</span>
                         </div>
                         <button type="submit" class="btn btn-primary command-os-btn-save-settings">
-                            <i class="fa fa-check mr-2"></i> SAVE SETTINGS
+                            <i class="fas fa-check mr-2"></i> SAVE SETTINGS
                         </button>
                     </div>
                 </form>

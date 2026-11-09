@@ -3,7 +3,7 @@
         <div class="command-os-settings-card-header">
             <div class="command-os-settings-card-title-group">
                 <div class="command-os-settings-card-icon">
-                    <i class="fa fa-terminal"></i>
+                    <i class="fas fa-terminal"></i>
                 </div>
                 <div class="command-os-settings-card-titles">
                     <h3>PMTA DOMAINS SETTINGS</h3>
@@ -16,17 +16,22 @@
             <div class="row align-items-center mb-4">
                 <div class="col-sm-12 col-md-6 col-lg-4">
                     <div class="form-group command-os-field-group mb-0">
-                        <label for="pmta_version">PowerMTA Target Version:</label>
-                        <select id="pmta_version" class="form-control" aria-label="PowerMTA version">
-                            <option value="40" selected>PMTA 4.0</option>
-                            <option value="45">PMTA 4.5</option>
-                            <option value="50">PMTA 5.0</option>
-                        </select>
+                        <label for="pmta_version">
+                            <span><i class="fas fa-code-branch command-field-icon"></i> PowerMTA Target Version:</span>
+                        </label>
+                        <div class="command-input-wrap">
+                            <span class="command-input-leading-icon"><i class="fas fa-layer-group"></i></span>
+                            <select id="pmta_version" class="form-control command-input-with-icon" aria-label="PowerMTA version">
+                                <option value="40" selected>PMTA 4.0</option>
+                                <option value="45">PMTA 4.5</option>
+                                <option value="50">PMTA 5.0</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
                 <div class="col-sm-12 col-md-6 col-lg-3 mt-3 mt-md-4">
                     <button id="load_pmta_domain_data" class="btn btn-primary command-os-btn-save-settings w-100" type="button" style="padding: 10px 20px !important;">
-                        <i class="fa fa-refresh mr-1"></i> LOAD SETTINGS
+                        <i class="fas fa-sync-alt mr-2"></i> LOAD SETTINGS
                     </button>
                 </div>
             </div>
@@ -38,8 +43,8 @@
                         <span class="command-os-terminal-dot is-yellow"></span>
                         <span class="command-os-terminal-dot is-green"></span>
                     </div>
-                    <div class="command-os-terminal-title">pmta.conf // DOMAIN &amp; IP CONFIGURATION</div>
-                    <div class="command-os-terminal-badge">PMTA-CONFIG</div>
+                    <div class="command-os-terminal-title"><i class="fas fa-file-code mr-1"></i> pmta.conf // DOMAIN &amp; IP CONFIGURATION</div>
+                    <div class="command-os-terminal-badge"><i class="fas fa-terminal mr-1"></i> PMTA-CONFIG</div>
                 </div>
                 <textarea id="pmta_domain_data" class="form-control" rows="35" aria-describedby="pmta-domain-status" placeholder="# Load PMTA settings above or paste domain directives here..."></textarea>
             </div>
@@ -50,7 +55,7 @@
                     <span>Directives Editor Ready</span>
                 </div>
                 <button id="save_pmta_domain_data" class="btn btn-primary command-os-btn-save-settings" type="button">
-                    <i class="fa fa-save mr-2"></i> SAVE SETTINGS
+                    <i class="fas fa-save mr-2"></i> SAVE SETTINGS
                 </button>
             </div>
             <div id="pmta-domain-status" class="alert d-none mt-3" role="status" aria-live="polite"></div>

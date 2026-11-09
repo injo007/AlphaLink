@@ -5,7 +5,7 @@
         <div class="command-os-settings-card-header">
             <div class="command-os-settings-card-title-group">
                 <div class="command-os-settings-card-icon">
-                    <i class="fa fa-server"></i>
+                    <i class="fas fa-server"></i>
                 </div>
                 <div class="command-os-settings-card-titles">
                     <h3>SERVER / PMTA INFRASTRUCTURE</h3>
@@ -50,7 +50,7 @@
         <div class="command-os-settings-card-header">
             <div class="command-os-settings-card-title-group">
                 <div class="command-os-settings-card-icon">
-                    <i class="fa fa-key"></i>
+                    <i class="fas fa-key"></i>
                 </div>
                 <div class="command-os-settings-card-titles">
                     <h3>INSTALLATION CREDENTIALS</h3>
@@ -88,7 +88,7 @@
             <span>Server Directives Ready</span>
         </div>
         <button type="submit" class="btn btn-primary command-os-btn-save-settings">
-            <i class="fa fa-save mr-2"></i> SAVE SERVER SETTINGS
+            <i class="fas fa-save mr-2"></i> SAVE SERVER SETTINGS
         </button>
     </div>
 </form>

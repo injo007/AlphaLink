@@ -6687,6 +6687,78 @@ html[data-command-theme='dark'] .command-os-field-group .form-control {
     border: 1px solid transparent;
 }
 
+.command-secret-btn[data-secret-reveal]::before {
+    content: "\f06e";
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    margin-right: 5px;
+}
+
+.command-secret-btn[data-secret-copy]::before {
+    content: "\f0c5";
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    margin-right: 5px;
+}
+
+/* Input leading icon wrapper */
+.command-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.command-input-leading-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    font-size: 13px;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    transition: color 0.2s ease;
+}
+
+html[data-command-theme='light'] .command-input-leading-icon,
+html:not([data-command-theme='dark']) body.command-os-shell .command-input-leading-icon {
+    color: #8b5cf6;
+}
+
+html[data-command-theme='dark'] .command-input-leading-icon {
+    color: #a855f7;
+}
+
+.command-input-wrap:focus-within .command-input-leading-icon {
+    color: #6366f1 !important;
+}
+
+.command-input-with-icon {
+    padding-left: 40px !important;
+}
+
+.command-field-icon {
+    display: inline-block;
+    width: 15px;
+    text-align: center;
+    margin-right: 6px;
+    font-size: 12px;
+}
+
+html[data-command-theme='light'] .command-field-icon,
+html:not([data-command-theme='dark']) body.command-os-shell .command-field-icon {
+    color: #8b5cf6;
+}
+
+html[data-command-theme='dark'] .command-field-icon {
+    color: #c084fc;
+}
+
 html[data-command-theme='light'] .command-secret-btn[data-secret-reveal],
 html:not([data-command-theme='dark']) body.command-os-shell .command-secret-btn[data-secret-reveal] {
     background: #f1f5f9;

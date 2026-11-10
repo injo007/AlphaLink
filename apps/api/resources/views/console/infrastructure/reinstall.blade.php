@@ -252,7 +252,7 @@
                     const cell = document.createElement('td');
                     cell.colSpan = 6;
                     cell.className = 'text-center py-3 text-muted';
-                    cell.textContent = 'No saved IP and domain assignments found for this server.';
+                    cell.textContent = 'No saved server IP-to-domain map is available. Reinstall needs an existing AlphaLink IP and domain assignment map.';
                     row.append(cell);
                     rows.append(row);
                     updateRunAvailability();
@@ -272,7 +272,10 @@
                     row.append(ipCell);
 
                     const typeCell = document.createElement('td');
-                    typeCell.innerHTML = `<span class="badge-command-pill">${assignment.type.toUpperCase()}</span>`;
+                    const typeBadge = document.createElement('span');
+                    typeBadge.className = 'badge-command-pill';
+                    typeBadge.textContent = String(assignment.type || 'unknown').toUpperCase();
+                    typeCell.append(typeBadge);
                     row.append(typeCell);
 
                     const mainCell = document.createElement('td');
@@ -309,9 +312,9 @@
                         pendingRemoveRow = row;
                         if (typeof rowConfirmation.showModal === 'function') {
                             rowConfirmation.showModal();
-                        } else if (window.confirm('Remove this IP from the reinstall?')) {
-                            row.remove();
-                            updateRunAvailability();
+                        } else {
+                            pendingRemoveRow = null;
+                            showError('This browser cannot open the IP confirmation dialog. No row was removed.');
                         }
                     });
                     actionCell.append(remove);

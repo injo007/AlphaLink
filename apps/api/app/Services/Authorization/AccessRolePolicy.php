@@ -118,6 +118,7 @@ class AccessRolePolicy
     {
         if ($role === User::ACCESS_ROLE_OPERATOR) {
             return $this->matchesAny($routeName, [
+                'console.index',
                 'console.dashboard.main',
                 'console.dashboard.legacy-null',
                 'console.workspace.dashboard.main',
@@ -147,6 +148,7 @@ class AccessRolePolicy
             }
 
             return $this->matchesAny($routeName, [
+                'console.index',
                 'console.dashboard.main',
                 'console.dashboard.legacy-null',
                 'console.workspace.dashboard.main',
@@ -171,6 +173,7 @@ class AccessRolePolicy
         if ($role === User::ACCESS_ROLE_PRIVACY_OFFICER) {
             if (in_array($method, ['GET', 'HEAD'], true)) {
                 return $this->matchesAny($routeName, [
+                    'console.index',
                     'console.dashboard.main',
                     'console.dashboard.legacy-null',
                     'console.workspace.dashboard.main',
@@ -207,7 +210,7 @@ class AccessRolePolicy
 
     private function webRoutePermissionGroup(string $routeName): ?string
     {
-        if ($this->matchesAny($routeName, ['console.dashboard.*', 'console.workspace.dashboard.*', 'console.workspace'])) {
+        if ($this->matchesAny($routeName, ['console.index', 'console.dashboard.*', 'console.workspace.dashboard.*', 'console.workspace'])) {
             return 'dashboard';
         }
         if ($this->matchesAny($routeName, ['console.analytics.*'])) {
@@ -227,6 +230,12 @@ class AccessRolePolicy
         }
         if ($this->matchesAny($routeName, ['console.global-tests.*'])) {
             return 'global_tests';
+        }
+        if ($this->matchesAny($routeName, ['console.campaign-test-addresses.*'])) {
+            return 'global_tests';
+        }
+        if ($this->matchesAny($routeName, ['console.campaign-tools.*'])) {
+            return 'campaigns';
         }
         if ($this->matchesAny($routeName, ['console.campaigns.*', 'console.mailer.campaigns'])) {
             return 'campaigns';
@@ -267,6 +276,7 @@ class AccessRolePolicy
             'console.infrastructure.server-providers.*',
             'console.infrastructure.domain-providers.*',
             'console.infrastructure.cloud-providers.*',
+            'console.clouds.*',
             'console.networks.*',
             'console.sponsors.*',
         ])) {
@@ -314,6 +324,41 @@ class AccessRolePolicy
 
     private function webReadRequiresManage(string $routeName): bool
     {
+        if ($this->matchesAny($routeName, [
+            'console.campaign-test-addresses.*',
+            'console.campaign-tools.*',
+            'console.gcampaigns.*',
+            'console.miscellaneous.horizon',
+            'console.app-settings.secret',
+            'console.pmta-config-history.contents',
+            'console.infrastructure.bulk-install',
+            'console.infrastructure.change-domain.index',
+            'console.infrastructure.install.index',
+            'console.infrastructure.install-settings.edit',
+            'console.infrastructure.install-settings.domains.load',
+            'console.infrastructure.install-username.edit',
+            'console.infrastructure.reinstall.index',
+            'console.infrastructure.servers.create',
+            'console.infrastructure.servers.edit',
+            'console.infrastructure.server-providers.create',
+            'console.infrastructure.server-providers.edit',
+            'console.infrastructure.domain-providers.create',
+            'console.infrastructure.domain-providers.edit',
+            'console.infrastructure.cloud-providers.create',
+            'console.infrastructure.cloud-providers.edit',
+            'console.offers.create',
+            'console.offers.edit',
+            'console.offers.share',
+            'console.sponsors.create',
+            'console.sponsors.edit',
+            'console.tools.workspace.accounts.create',
+            'console.tools.workspace.projects.create',
+            'console.tools.workspace.projects.edit',
+            'console.tools.workspace.projects.access',
+        ])) {
+            return true;
+        }
+
         if (str_starts_with($routeName, 'console.campaigns.')) {
             return ! in_array($routeName, ['console.campaigns.index'], true);
         }

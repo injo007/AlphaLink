@@ -315,7 +315,14 @@ class InfrastructureConsoleController extends Controller
             ->whereKey($serverId)
             ->firstOrFail();
 
-        return response()->json($loader->loadConfiguration($workspace, $server));
+        try {
+            return response()->json($loader->loadConfiguration($workspace, $server));
+        } catch (RuntimeException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+                'code' => 'server_reinstall_config_unavailable',
+            ], 422);
+        }
     }
 
     public function reloadReinstallIps(

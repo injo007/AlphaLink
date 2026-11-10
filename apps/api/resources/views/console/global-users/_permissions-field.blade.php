@@ -228,6 +228,11 @@
         accountType?.addEventListener('change', () => updateMailerPreset(roleSelect.value));
 
         checkboxes.forEach((checkbox) => checkbox.addEventListener('change', () => {
+            const [group, access] = checkbox.value.split('.');
+            const viewPermission = checkboxes.find((candidate) => candidate.value === `${group}.view`);
+            const managePermission = checkboxes.find((candidate) => candidate.value === `${group}.manage`);
+            if (access === 'manage' && checkbox.checked && viewPermission) viewPermission.checked = true;
+            if (access === 'view' && !checkbox.checked && managePermission) managePermission.checked = false;
             if (status) status.textContent = 'Custom permissions selected. Save the account to apply these choices.';
         }));
 

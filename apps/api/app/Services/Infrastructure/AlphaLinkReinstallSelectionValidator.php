@@ -3,6 +3,7 @@
 namespace App\Services\Infrastructure;
 
 use App\Models\ManagedServer;
+use App\Models\ManagedServerIp;
 use App\Models\SendingDomain;
 use App\Models\Workspace;
 use InvalidArgumentException;
@@ -31,7 +32,25 @@ class AlphaLinkReinstallSelectionValidator
         }
 
         $savedRows = $server->install_parameters['data'] ?? null;
-        if (! is_array($savedRows)) {
+        if (is_array($savedRows)) {
+            $savedRows = array_values(array_filter($savedRows, static fn (mixed $row): bool => is_array($row)));
+        }
+
+        if (! is_array($savedRows) || $savedRows === []) {
+            $savedRows = $server->ips()
+                ->where('workspace_id', $workspace->getKey())
+                ->where('is_active', true)
+                ->orderBy('id')
+                ->get(['sending_domain_id', 'ip', 'type'])
+                ->map(static fn (ManagedServerIp $ip): array => [
+                    'ip' => (string) $ip->ip,
+                    'type' => (string) $ip->type,
+                    'domain_id' => (string) $ip->sending_domain_id,
+                ])
+                ->all();
+        }
+
+        if (! is_array($savedRows) || $savedRows === []) {
             throw new InvalidArgumentException('The saved reinstall configuration has no valid IP assignments.');
         }
 

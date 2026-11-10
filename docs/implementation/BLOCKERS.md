@@ -2,6 +2,10 @@
 
 > **Archived blocker log.** Entries below are chronological engineering notes. Use the root AlphaLink progress file for current status.
 
+## 2026-11-10 Account permission controls and Reinstall recovery — E-IAM-15 / E-INST-99
+
+Per-account View/Manage choices are available for Operator, Viewer, and Privacy Officer; Owner/Admin remain full access and the Owner alone can arrange shared navigation. The Mailer preset includes campaign, testing, infrastructure lookup, and recipient-list read access. Static source review and PHP syntax checks pass, but automated/authenticated permission checks remain open; local Pint is unavailable because PHP 8.3.6 lacks XML. The Reinstall page now reads the saved `data` response and can recover a missing install snapshot from active, workspace-scoped IP/domain rows already stored by AlphaLink. If neither source contains a valid map, the page must remain unable to start a reinstall. Both host-changing actions remain gated by their independent execution flags. No real reinstall/configuration action or automated workflow check ran. Keep `ALPHALINK-IAM-001` IMPLEMENTING and DMS-SRV-011 TESTING until the role matrix, populated map rendering, and real gated AlphaLink workflow are verified.
+
 ## 2026-11-10 Owner/Admin profile image management — E-IAM-14
 
 Image assignment, replacement, and removal are implemented in global user creation/edit forms, and private authenticated delivery is wired to the Users table and account menus. PHP syntax, route registration, `git diff --check`, and the Vite build pass. Local Pint cannot start because PHP 8.3.6 lacks XML; Blade view compilation cannot run because `DOMDocument` is unavailable. Release `b7f35f7ce59906edbd9f0b277d6f9e57ba09c4da` applied the migration and passed installer service/HTTPS checks; public `/up` returned HTTP 200. Automated and authenticated browser checks remain open. Keep `ALPHALINK-IAM-002` IMPLEMENTING.

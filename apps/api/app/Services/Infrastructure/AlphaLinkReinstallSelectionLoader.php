@@ -3,6 +3,7 @@
 namespace App\Services\Infrastructure;
 
 use App\Models\ManagedServer;
+use App\Models\ManagedServerIp;
 use App\Models\SendingDomain;
 use App\Models\Workspace;
 use RuntimeException;
@@ -23,7 +24,7 @@ class AlphaLinkReinstallSelectionLoader
     {
         $this->assertWorkspaceServer($workspace, $server);
         $settings = is_array($server->install_parameters) ? $server->install_parameters : [];
-        $data = is_array($settings['data'] ?? null) ? array_values($settings['data']) : [];
+        $data = $this->savedRows($workspace, $server);
 
         return [
             'spf' => (bool) ($settings['spf'] ?? false),
@@ -50,8 +51,7 @@ class AlphaLinkReinstallSelectionLoader
     public function reloadIps(Workspace $workspace, ManagedServer $server, bool $withIpv6 = true): array
     {
         $this->assertWorkspaceServer($workspace, $server);
-        $settings = is_array($server->install_parameters) ? $server->install_parameters : [];
-        $savedRows = is_array($settings['data'] ?? null) ? array_values($settings['data']) : [];
+        $savedRows = $this->savedRows($workspace, $server);
         $domainIds = collect($savedRows)
             ->pluck('domain_id')
             ->filter(static fn (mixed $domainId): bool => is_string($domainId) || is_int($domainId))
@@ -128,6 +128,76 @@ class AlphaLinkReinstallSelectionLoader
         }
 
         return $result;
+    }
+
+    /**
+     * Reuse the saved install snapshot when present, otherwise recover legacy rows
+     * from AlphaLink's persisted server IP-to-domain map.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function savedRows(Workspace $workspace, ManagedServer $server): array
+    {
+        $settings = is_array($server->install_parameters) ? $server->install_parameters : [];
+        $savedRows = $settings['data'] ?? null;
+        if (is_array($savedRows) && $savedRows !== []) {
+            $savedRows = array_values(array_filter($savedRows, static fn (mixed $row): bool => is_array($row)));
+            if ($savedRows !== []) {
+                return $savedRows;
+            }
+        }
+
+        $savedIps = $server->ips()
+            ->where('workspace_id', $workspace->getKey())
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->get(['id', 'sending_domain_id', 'ip', 'type', 'dns']);
+        if ($savedIps->isEmpty()) {
+            return [];
+        }
+
+        $domainIds = $savedIps->pluck('sending_domain_id')->map(static fn (mixed $id): string => (string) $id)->unique()->values();
+        $domains = SendingDomain::withTrashed()
+            ->where('workspace_id', $workspace->getKey())
+            ->whereIn('id', $domainIds)
+            ->get(['id', 'name', 'is_our'])
+            ->keyBy(static fn (SendingDomain $domain): string => (string) $domain->getKey());
+
+        if ($domains->count() !== $domainIds->count()) {
+            throw new RuntimeException('The saved server IP map references a domain that is unavailable in this workspace.');
+        }
+
+        return $savedIps->map(function (ManagedServerIp $ip) use ($domains, $server): array {
+            $domain = $domains->get((string) $ip->sending_domain_id);
+            if (! $domain instanceof SendingDomain) {
+                throw new RuntimeException('The saved server IP map references an unavailable domain.');
+            }
+
+            $subdomain = '';
+            $domainName = rtrim((string) $domain->name, '.');
+            $dnsName = rtrim((string) $ip->dns, '.');
+            if ($domain->is_our && strcasecmp($dnsName, $domainName) !== 0) {
+                $suffix = '.'.$domainName;
+                if (! str_ends_with(strtolower($dnsName), strtolower($suffix))) {
+                    throw new RuntimeException('The saved server IP map has a DNS name that cannot be safely restored.');
+                }
+
+                $subdomain = substr($dnsName, 0, -strlen($suffix));
+                if (! preg_match('/\A[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\z/iD', $subdomain)) {
+                    throw new RuntimeException('The saved server IP map has a subdomain that cannot be safely restored.');
+                }
+            }
+
+            return [
+                'id' => (int) $ip->getKey(),
+                'main' => (string) $ip->ip === (string) $server->ip_address,
+                'ip' => (string) $ip->ip,
+                'type' => (string) $ip->type,
+                'domain_id' => (string) $ip->sending_domain_id,
+                'sub' => $subdomain,
+                'domain' => (string) $domain->name,
+            ];
+        })->all();
     }
 
     private function assertWorkspaceServer(Workspace $workspace, ManagedServer $server): void

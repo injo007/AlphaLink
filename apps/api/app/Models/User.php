@@ -116,7 +116,7 @@ class User extends Authenticatable
     public const MAILER_SENDING_PERMISSIONS = [
         'campaigns.view', 'campaigns.manage', 'campaign_logs.view', 'campaign_headers.view',
         'campaign_headers.manage', 'global_tests.view', 'global_tests.manage', 'audiences.view',
-        'offers.view', 'provider_network.view', 'isp_geo.view', 'domains.view', 'mail_servers.view',
+        'privacy_data.view', 'offers.view', 'provider_network.view', 'isp_geo.view', 'domains.view', 'mail_servers.view',
     ];
 
     /** @use HasFactory<UserFactory> */

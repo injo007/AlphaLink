@@ -42,38 +42,56 @@
                 @csrf
                 @method('put')
 
-                <div class="command-form-group">
-                    <label class="command-form-label" for="servers_provider_id">
-                        <i class="fas fa-building mr-1 text-purple"></i> PROVIDER
-                    </label>
-                    <div class="command-select-wrapper">
-                        <select id="servers_provider_id" name="servers_provider_id" class="command-form-control command-select" required aria-describedby="servers_provider_id-error">
-                            @foreach ($providers as $provider)
-                                <option value="{{ $provider->id }}" @selected((int) $provider->id === (int) $server->servers_provider_id)>{{ $provider->name }}</option>
-                            @endforeach
-                        </select>
+                <div class="row">
+                    <div class="col-sm-12 col-md-6">
+                        <div class="command-form-group">
+                            <label class="command-form-label" for="servers_provider_id">
+                                <i class="fas fa-building mr-1 text-purple"></i> PROVIDER
+                            </label>
+                            <div class="command-select-wrapper">
+                                <select id="servers_provider_id" name="servers_provider_id" class="command-form-control command-select" required aria-describedby="servers_provider_id-error">
+                                    @foreach ($providers as $provider)
+                                        <option value="{{ $provider->id }}" @selected((int) $provider->id === (int) $server->servers_provider_id)>{{ $provider->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <small id="servers_provider_id-error" class="text-danger mt-1 d-block" data-error-for="servers_provider_id"></small>
+                        </div>
                     </div>
-                    <small id="servers_provider_id-error" class="text-danger mt-1 d-block" data-error-for="servers_provider_id"></small>
-                </div>
-
-                <div class="command-form-group">
-                    <label class="command-form-label" for="name">
-                        <i class="fas fa-tag mr-1 text-purple"></i> NAME
-                    </label>
-                    <input type="text" class="command-form-control" id="name" name="name" placeholder="Enter Name ..." value="{{ old('name', $server->name) }}" minlength="2" maxlength="120" required aria-describedby="name-error">
-                    <small id="name-error" class="text-danger mt-1 d-block" data-error-for="name"></small>
-                </div>
-
-                <div class="command-form-group">
-                    <label class="command-form-label" for="ip">
-                        <i class="fas fa-network-wired mr-1 text-purple"></i> MAIN IP ADDRESS
-                    </label>
-                    <input type="text" class="command-form-control" id="ip" name="ip" placeholder="Ip" value="{{ old('ip', $server->ip_address) }}" inputmode="url" required aria-describedby="ip-error" style="font-family: monospace;">
-                    <small id="ip-error" class="text-danger mt-1 d-block" data-error-for="ip"></small>
+                    <div class="col-sm-12 col-md-6">
+                        <div class="command-form-group">
+                            <label class="command-form-label" for="name">
+                                <i class="fas fa-tag mr-1 text-purple"></i> NAME
+                            </label>
+                            <input type="text" class="command-form-control" id="name" name="name" placeholder="Enter Name ..." value="{{ old('name', $server->name) }}" minlength="2" maxlength="120" required aria-describedby="name-error">
+                            <small id="name-error" class="text-danger mt-1 d-block" data-error-for="name"></small>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="row">
-                    <div class="col-sm-6">
+                    <div class="col-sm-12 col-md-6">
+                        <div class="command-form-group">
+                            <label class="command-form-label" for="ip">
+                                <i class="fas fa-network-wired mr-1 text-purple"></i> MAIN IP ADDRESS
+                            </label>
+                            <input type="text" class="command-form-control" id="ip" name="ip" placeholder="Ip" value="{{ old('ip', $server->ip_address) }}" inputmode="url" required aria-describedby="ip-error" style="font-family: monospace;">
+                            <small id="ip-error" class="text-danger mt-1 d-block" data-error-for="ip"></small>
+                        </div>
+                    </div>
+                    <div class="col-sm-12 col-md-6">
+                        <div class="command-form-group">
+                            <label class="command-form-label" for="password">
+                                <i class="fas fa-lock mr-1 text-purple"></i> PASSWORD / PRIVATE KEY
+                            </label>
+                            <textarea id="password" name="password" class="command-form-control" rows="3" placeholder="Leave empty to keep existing password..." autocomplete="new-password" spellcheck="false" aria-describedby="password-error"></textarea>
+                            <small id="password-error" class="text-danger mt-1 d-block" data-error-for="password"></small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-sm-12 col-md-4">
                         <div class="command-form-group">
                             <label class="command-form-label" for="port">
                                 <i class="fas fa-plug mr-1 text-purple"></i> PORT
@@ -82,7 +100,7 @@
                             <small id="port-error" class="text-danger mt-1 d-block" data-error-for="port"></small>
                         </div>
                     </div>
-                    <div class="col-sm-6">
+                    <div class="col-sm-12 col-md-4">
                         <div class="command-form-group">
                             <label class="command-form-label" for="username">
                                 <i class="fas fa-user mr-1 text-purple"></i> USERNAME
@@ -91,27 +109,20 @@
                             <small id="username-error" class="text-danger mt-1 d-block" data-error-for="username"></small>
                         </div>
                     </div>
-                </div>
-
-                <div class="command-form-group">
-                    <label class="command-form-label" for="login_type">
-                        <i class="fas fa-key mr-1 text-purple"></i> PASSWORD TYPE
-                    </label>
-                    <div class="command-select-wrapper">
-                        <select id="login_type" name="login_type" class="command-form-control command-select" required aria-describedby="login_type-error">
-                            <option value="password" @selected(old('login_type', $server->login_type) === 'password')>Password</option>
-                            <option value="ssh_key" @selected(old('login_type', $server->login_type) === 'ssh_key')>SSH Key</option>
-                        </select>
+                    <div class="col-sm-12 col-md-4">
+                        <div class="command-form-group">
+                            <label class="command-form-label" for="login_type">
+                                <i class="fas fa-key mr-1 text-purple"></i> PASSWORD TYPE
+                            </label>
+                            <div class="command-select-wrapper">
+                                <select id="login_type" name="login_type" class="command-form-control command-select" required aria-describedby="login_type-error">
+                                    <option value="password" @selected(old('login_type', $server->login_type) === 'password')>Password</option>
+                                    <option value="ssh_key" @selected(old('login_type', $server->login_type) === 'ssh_key')>SSH Key</option>
+                                </select>
+                            </div>
+                            <small id="login_type-error" class="text-danger mt-1 d-block" data-error-for="login_type"></small>
+                        </div>
                     </div>
-                    <small id="login_type-error" class="text-danger mt-1 d-block" data-error-for="login_type"></small>
-                </div>
-
-                <div class="command-form-group">
-                    <label class="command-form-label" for="password">
-                        <i class="fas fa-lock mr-1 text-purple"></i> PASSWORD / PRIVATE KEY
-                    </label>
-                    <textarea id="password" name="password" class="command-form-control" rows="3" placeholder="Leave empty to keep existing password..." autocomplete="new-password" spellcheck="false" aria-describedby="password-error"></textarea>
-                    <small id="password-error" class="text-danger mt-1 d-block" data-error-for="password"></small>
                 </div>
 
                 <div class="command-form-group">

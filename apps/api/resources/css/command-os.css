@@ -5430,6 +5430,12 @@ html:not([data-command-theme='dark']) body.command-os-shell .command-os-table-ca
     margin: 0 !important;
 }
 
+/* Hide duplicate native select when DataTables pageLength button is active */
+.command-os-table-card .command-table-toolbar-left:has(.buttons-page-length) .dataTables_length,
+.command-os-table-card .command-table-toolbar-left .dataTables_length:has(+ .dt-buttons) {
+    display: none !important;
+}
+
 .command-os-table-card .dataTables_length label {
     display: inline-flex !important;
     align-items: center !important;

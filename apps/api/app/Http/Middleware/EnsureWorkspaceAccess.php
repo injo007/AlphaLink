@@ -19,7 +19,7 @@ class EnsureWorkspaceAccess
 
         $routeName = (string) ($request->route()?->getName() ?? '');
         abort_unless(
-            $this->accessRolePolicy->canAccessWebRoute($user->access_role, $routeName, $request->method()),
+            $this->accessRolePolicy->canAccessWebRoute($user, $routeName, $request->method()),
             403,
             'Your access role does not allow this page or action.',
         );

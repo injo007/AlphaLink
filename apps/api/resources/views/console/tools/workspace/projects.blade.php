@@ -1,52 +1,173 @@
 @extends('layouts.admin-shell')
 
-@section('title', 'Gmail Projects')
+@section('title', 'GSend Projects')
 
 @section('content')
-    <div class="block block-rounded">
-        <div class="block-header">
-            <h3 class="block-title">GMAIL PROJECTS</h3>
-            <div class="block-options d-flex align-items-center">
-                <a class="btn btn-sm btn-alt-primary mr-2" href="{{ route('clean.console.tools.workspace.projects.create', $workspace->id) }}" data-workspace-project-create aria-label="Add Gmail project">
+    <div class="command-os-entity-page">
+        <!-- 1. Hero Header -->
+        <header class="command-os-report-hero" aria-labelledby="gsend-projects-title">
+            <span class="command-os-report-hero-illustration" aria-hidden="true">
+                <i class="fas fa-project-diagram"></i>
+            </span>
+            <div class="command-os-report-hero-mark" aria-hidden="true">
+                <i class="fas fa-project-diagram"></i>
+            </div>
+            <div class="command-os-report-hero-copy">
+                <p class="command-os-report-eyebrow">CAMPAIGN STUDIO // GOOGLE WORKSPACE DISPATCH</p>
+                <h1 id="gsend-projects-title">GSEND PROJECTS</h1>
+                <p>Configure Google Cloud service projects, API client access, authorization keys, and user permissions.</p>
+            </div>
+            <div class="command-os-hero-actions">
+                <a class="btn-command-primary mr-2" href="{{ route('clean.console.tools.workspace.projects.create', $workspace->id) }}" data-workspace-project-create aria-label="Add Gmail project">
                     <i class="fas fa-plus mr-1" aria-hidden="true"></i>ADD PROJECT
                 </a>
-                <button class="btn-block-option" type="button" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen"></button>
+                <button class="command-os-btn-option" type="button" id="workspace-project-refresh" title="Refresh projects" aria-label="Refresh projects">
+                    <i class="fas fa-sync-alt" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="command-os-btn-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen">
+                    <i class="fas fa-expand" aria-hidden="true"></i>
+                </button>
             </div>
+        </header>
+
+        <!-- 2. KPI Overview Cards -->
+        <section class="command-os-all-stats-overview" aria-label="Projects Overview">
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-purple" aria-hidden="true"><i class="fas fa-project-diagram"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Total Projects</span>
+                    <strong>{{ $projects->count() }}</strong>
+                    <small>Configured clusters</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-emerald" aria-hidden="true"><i class="fas fa-check-circle"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Active Projects</span>
+                    <strong>{{ $projects->where('is_active', true)->count() }}</strong>
+                    <small>Enabled integration</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-amber" aria-hidden="true"><i class="fas fa-pause-circle"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Disabled</span>
+                    <strong>{{ $projects->where('is_active', false)->count() }}</strong>
+                    <small>Paused integration</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-blue" aria-hidden="true"><i class="fas fa-at"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Total Accounts</span>
+                    <strong>{{ $projects->sum('accounts_count') }}</strong>
+                    <small>Synced senders</small>
+                </span>
+            </article>
+        </section>
+
+        <!-- 3. Status Alert -->
+        <div id="workspace-project-status" class="alert d-none" role="status" aria-live="polite"></div>
+
+        <div class="d-none" aria-hidden="true">
+            <button id="workspace-projects-status" type="button">ENABLE / DISABLE PROJECTS</button>
+            @if ($canManageProjects)
+                <button id="workspace-projects-users" type="button">ALLOWED USERS</button>
+                <button id="workspace-projects-delete" type="button">DELETE SELECTED</button>
+            @endif
+            <button id="workspace-project-add" type="button">ADD PROJECT</button>
         </div>
-        <div class="block-content">
-            <div id="workspace-project-status" class="alert d-none" role="status" aria-live="polite"></div>
-            <div class="d-none" aria-hidden="true">
-                <button id="workspace-projects-status" type="button">ENABLE / DISABLE PROJECTS</button>
-                @if ($canManageProjects)
-                    <button id="workspace-projects-users" type="button">ALLOWED USERS</button>
-                    <button id="workspace-projects-delete" type="button">DELETE SELECTED</button>
-                @endif
-                <button id="workspace-project-refresh" type="button">REFRESH PROJECTS</button>
-                <button id="workspace-project-add" type="button">ADD PROJECT</button>
+
+        <!-- 4. Table Card -->
+        <div class="command-os-table-card">
+            <div class="d-flex flex-wrap align-items-center justify-content-between mb-3" style="gap: 12px;">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-project-diagram text-purple font-size-lg mr-2"></i>
+                    <h2 class="h6 font-w700 text-uppercase tracking-wider mb-0 text-ink">WORKSPACE PROJECTS DIRECTORY</h2>
+                    <span class="badge badge-purple ml-2">{{ $projects->count() }}</span>
+                </div>
+                <div class="d-flex flex-wrap align-items-center" style="gap: 8px;">
+                    <button class="btn-command-action" type="button" onclick="document.getElementById('workspace-projects-status').click()">
+                        <i class="fas fa-toggle-on mr-1"></i>STATUS TOGGLE
+                    </button>
+                    @if ($canManageProjects)
+                        <button class="btn-command-action" type="button" onclick="document.getElementById('workspace-projects-users').click()">
+                            <i class="fas fa-users mr-1"></i>PERMISSIONS
+                        </button>
+                        <button class="btn-command-danger" type="button" onclick="document.getElementById('workspace-projects-delete').click()">
+                            <i class="fas fa-trash-alt mr-1"></i>DELETE SELECTED
+                        </button>
+                    @endif
+                </div>
             </div>
+
             <div class="table-responsive">
                 <table id="workspace-project-table" class="table table-sm table-hover table-striped">
-                    <thead><tr><th><input type="checkbox" id="workspace-projects-all" aria-label="Select all projects on this page"></th><th>#</th><th>TYPE</th><th>NAME</th><th>TOTAL ACCOUNTS</th><th>CREATED AT</th><th>ACTIONS</th></tr></thead>
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;">
+                                <label class="command-table-checkbox-label">
+                                    <input type="checkbox" id="workspace-projects-all" aria-label="Select all projects on this page">
+                                    <span class="command-checkbox-custom-box"></span>
+                                </label>
+                            </th>
+                            <th style="width: 60px;">#</th>
+                            <th style="width: 120px;">TYPE</th>
+                            <th>NAME</th>
+                            <th style="width: 150px;">TOTAL ACCOUNTS</th>
+                            <th style="width: 160px;">CREATED AT</th>
+                            <th class="text-right" style="width: 150px;">ACTIONS</th>
+                        </tr>
+                    </thead>
                     <tbody>
                         @forelse ($projects as $project)
                             <tr>
-                                <td><input type="checkbox" value="{{ $project->id }}" class="workspace-project-select" aria-label="Select project {{ $project->name }}"></td>
-                                <td>{{ $project->id }}</td>
-                                <td>Workspace</td>
-                                <td>{{ $project->name }}@if ($project->sync_error)<div class="small text-danger">{{ $project->sync_error }}</div>@endif</td>
-                                <td><a href="{{ route('console.gcampaigns.accounts', [$workspace->id, 'project' => $project->id]) }}">{{ $project->accounts_count }}</a></td>
-                                <td>{{ $project->created_at?->format('Y-m-d H:i:s') ?? '—' }}</td>
-                                <td class="text-nowrap">
-                                    <button class="btn btn-sm btn-info" type="button" data-project-sync="{{ $project->id }}" title="SYNC PROJECT{{ $project->synced_at ? ' — Last synced '.$project->synced_at->format('Y-m-d H:i:s') : ' — Not synced yet' }}" aria-label="Sync {{ $project->name }}"><i class="fas fa-sync" aria-hidden="true"></i></button>
-                                    <button class="btn btn-sm {{ $project->is_active ? 'btn-warning' : 'btn-success' }}" type="button" data-project-status="{{ $project->id }}" title="{{ $project->is_active ? 'DISABLE' : 'ENABLE' }} PROJECT" aria-label="{{ $project->is_active ? 'Disable' : 'Enable' }} {{ $project->name }}"><i class="fas {{ $project->is_active ? 'fa-minus' : 'fa-check' }}" aria-hidden="true"></i></button>
-                                    <button class="btn btn-sm btn-primary" type="button" data-project-edit="{{ $project->id }}" title="EDIT PROJECT" aria-label="Edit {{ $project->name }}"><i class="fas fa-pencil-alt" aria-hidden="true"></i></button>
+                                <td>
+                                    <label class="command-table-checkbox-label">
+                                        <input type="checkbox" value="{{ $project->id }}" class="workspace-project-select" aria-label="Select project {{ $project->name }}">
+                                        <span class="command-checkbox-custom-box"></span>
+                                    </label>
+                                </td>
+                                <td><span class="font-w700 text-muted">#{{ $project->id }}</span></td>
+                                <td><span class="badge badge-light border text-muted">Workspace</span></td>
+                                <td>
+                                    <div class="font-w600 text-ink">{{ $project->name }}</div>
+                                    @if ($project->sync_error)
+                                        <div class="small text-danger mt-1"><i class="fas fa-exclamation-triangle mr-1"></i>{{ $project->sync_error }}</div>
+                                    @endif
+                                </td>
+                                <td>
+                                    <a href="{{ route('console.gcampaigns.accounts', [$workspace->id, 'project' => $project->id]) }}" class="badge badge-purple-subtle" title="View accounts in this project">
+                                        <i class="fas fa-at mr-1 text-purple"></i>{{ $project->accounts_count }} Accounts
+                                    </a>
+                                </td>
+                                <td>
+                                    <span class="text-muted small"><i class="far fa-clock mr-1"></i>{{ $project->created_at?->format('Y-m-d H:i') ?? '—' }}</span>
+                                </td>
+                                <td class="text-right text-nowrap">
+                                    <button class="btn btn-sm btn-outline-info mr-1" type="button" data-project-sync="{{ $project->id }}" title="SYNC PROJECT{{ $project->synced_at ? ' — Last synced '.$project->synced_at->format('Y-m-d H:i:s') : ' — Not synced yet' }}" aria-label="Sync {{ $project->name }}">
+                                        <i class="fas fa-sync-alt" aria-hidden="true"></i>
+                                    </button>
+                                    <button class="btn btn-sm {{ $project->is_active ? 'btn-outline-warning' : 'btn-outline-success' }} mr-1" type="button" data-project-status="{{ $project->id }}" title="{{ $project->is_active ? 'DISABLE' : 'ENABLE' }} PROJECT" aria-label="{{ $project->is_active ? 'Disable' : 'Enable' }} {{ $project->name }}">
+                                        <i class="fas {{ $project->is_active ? 'fa-pause' : 'fa-play' }}" aria-hidden="true"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-primary mr-1" type="button" data-project-edit="{{ $project->id }}" title="EDIT PROJECT" aria-label="Edit {{ $project->name }}">
+                                        <i class="fas fa-pencil-alt" aria-hidden="true"></i>
+                                    </button>
                                     @if ($canManageProjects)
-                                        <button class="btn btn-sm btn-danger" type="button" data-project-delete="{{ $project->id }}" title="DELETE PROJECT" aria-label="Delete {{ $project->name }}"><i class="fas fa-trash" aria-hidden="true"></i></button>
+                                        <button class="btn btn-sm btn-outline-danger" type="button" data-project-delete="{{ $project->id }}" title="DELETE PROJECT" aria-label="Delete {{ $project->name }}">
+                                            <i class="fas fa-trash-alt" aria-hidden="true"></i>
+                                        </button>
                                     @endif
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="7" class="text-muted">No Workspace projects have been added. <a href="{{ route('clean.console.tools.workspace.projects.create', $workspace->id) }}" data-workspace-project-create>Add the first project</a>.</td></tr>
+                            <tr>
+                                <td colspan="7" class="text-center py-4 text-muted">
+                                    <i class="fas fa-project-diagram font-size-h3 d-block mb-2 text-muted"></i>
+                                    No Workspace projects have been added. <a href="{{ route('clean.console.tools.workspace.projects.create', $workspace->id) }}" data-workspace-project-create>Add the first project</a>.
+                                </td>
+                            </tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -80,7 +201,7 @@
             };
             window.closeModal = function () { frameModal?.modal('hide'); window.location.reload(); };
 
-            document.getElementById('workspace-project-add').addEventListener('click', () => openFrame(`${base}/projects/create`));
+            document.getElementById('workspace-project-add')?.addEventListener('click', () => openFrame(`${base}/projects/create`));
             document.querySelectorAll('[data-workspace-project-create]').forEach((link) => {
                 link.addEventListener('click', (event) => {
                     event.preventDefault();
@@ -88,9 +209,9 @@
                 });
             });
 
-            document.getElementById('workspace-project-refresh').addEventListener('click', () => window.location.reload());
+            document.getElementById('workspace-project-refresh')?.addEventListener('click', () => window.location.reload());
 
-            document.getElementById('workspace-projects-all').addEventListener('change', (event) => {
+            document.getElementById('workspace-projects-all')?.addEventListener('change', (event) => {
                 document.querySelectorAll('#workspace-project-table tbody .workspace-project-select').forEach((checkbox) => { checkbox.checked = event.target.checked; });
             });
 
@@ -108,7 +229,7 @@
                     busy(button, false);
                 }
             };
-            document.getElementById('workspace-projects-status').addEventListener('click', async (event) => {
+            document.getElementById('workspace-projects-status')?.addEventListener('click', async (event) => {
                 if (!selectedProjectIds().length) return showStatus('Select at least one project.', false);
                 const modal = window.Swal || window.swal;
                 let statusValue = null;
@@ -173,22 +294,14 @@
             });
 
             if (window.jQuery?.fn?.DataTable) {
-                const grid = window.jQuery('#workspace-project-table').DataTable({
-                    dom:'<"table-tools"B>frtip',
-                    pageLength:50,
-                    order:[[1,'desc']],
-                    buttons:[
-                        {extend:'pageLength'},
-                        {text:'<i class="far fa-square"></i>',titleAttr:'SELECT NONE',action:(event,table)=>{table.rows({page:'current'}).nodes().to$().find('.workspace-project-select').prop('checked',false);document.getElementById('workspace-projects-all').checked=false;}},
-                        {text:'<i class="far fa-check-square"></i>',titleAttr:'SELECT ALL',action:(event,table)=>{table.rows({page:'current'}).nodes().to$().find('.workspace-project-select').prop('checked',true);document.getElementById('workspace-projects-all').checked=true;}},
-                        {text:'<i class="fa fa-plus"></i>',titleAttr:'ADD NEW PROJECT',action:()=>document.getElementById('workspace-project-add').click()},
-                        {text:'<i class="fas fa-check"></i><i class="fas fa-times"></i>',titleAttr:'ENABLE / DISABLE PROJECTS',action:()=>document.getElementById('workspace-projects-status').click()},
-                        @if ($canManageProjects)
-                            {text:'<i class="fas fa-users"></i>',titleAttr:'ALLOWED USERS',action:()=>document.getElementById('workspace-projects-users').click()},
-                            {text:'<i class="fas fa-trash"></i>',titleAttr:'DELETE PROJECTS',action:()=>document.getElementById('workspace-projects-delete').click()},
-                        @endif
-                        {text:'<i class="fas fa-sync"></i>',titleAttr:'REFRESH PROJECTS',action:()=>document.getElementById('workspace-project-refresh').click()},
-                    ],
+                window.jQuery('#workspace-project-table').DataTable({
+                    pageLength: 50,
+                    order: [[1, 'desc']],
+                    language: {
+                        search: "_INPUT_",
+                        searchPlaceholder: "Search projects...",
+                        lengthMenu: "Show _MENU_ rows"
+                    }
                 });
             }
         })();

@@ -57,6 +57,13 @@ class GlobalUserManagementController extends Controller
         return view('console.global-users.create', [
             'types' => User::TYPES,
             'accessRoles' => $this->assignableAccessRoles($request->user()),
+            'permissionGroups' => User::PERMISSION_GROUPS,
+            'permissionChoices' => User::permissionChoices(),
+            'permissionDefaults' => User::DEFAULT_PERMISSIONS_BY_ACCESS_ROLE,
+            'selectedPermissions' => User::defaultPermissions(User::ACCESS_ROLE_OPERATOR),
+            'permissionsAreRoleDefaults' => true,
+            'selectedAccessRole' => User::ACCESS_ROLE_OPERATOR,
+            'mailerPermissions' => User::MAILER_SENDING_PERMISSIONS,
             'workspace' => $this->layoutWorkspace($request->user()),
         ]);
     }
@@ -70,6 +77,9 @@ class GlobalUserManagementController extends Controller
             'full_name' => ['required', 'string', 'min:4', 'max:255'],
             'type' => ['required', 'string', Rule::in(User::TYPES)],
             'access_role' => ['required', 'string', Rule::in($this->assignableAccessRoles($actor))],
+            'permission_selection_submitted' => ['required', 'accepted'],
+            'roles' => ['sometimes', 'array', 'max:64'],
+            'roles.*' => ['string', Rule::in(array_keys(User::permissionChoices()))],
             'avatar' => $this->avatarUploadRules(),
         ]);
 
@@ -77,6 +87,9 @@ class GlobalUserManagementController extends Controller
         $avatarPath = null;
         try {
             $user = DB::transaction(function () use ($actor, $data, $password, $request, $accessRoleAssignment, &$avatarPath): User {
+                $permissions = in_array($data['access_role'], [User::ACCESS_ROLE_OWNER, User::ACCESS_ROLE_ADMIN], true)
+                    ? null
+                    : User::normalizePermissions($data['roles'] ?? []);
                 $user = User::query()->create([
                     'name' => $data['full_name'],
                     'username' => $data['username'],
@@ -84,6 +97,7 @@ class GlobalUserManagementController extends Controller
                     'password' => Hash::make($password),
                     'type' => $data['type'],
                     'access_role' => User::ACCESS_ROLE_VIEWER,
+                    'roles' => $permissions,
                     'is_active' => true,
                 ]);
 
@@ -123,6 +137,13 @@ class GlobalUserManagementController extends Controller
             'user' => $user,
             'types' => User::TYPES,
             'accessRoles' => $this->assignableAccessRoles($request->user(), $user),
+            'permissionGroups' => User::PERMISSION_GROUPS,
+            'permissionChoices' => User::permissionChoices(),
+            'permissionDefaults' => User::DEFAULT_PERMISSIONS_BY_ACCESS_ROLE,
+            'selectedPermissions' => $user->effectivePermissions(),
+            'permissionsAreRoleDefaults' => $user->roles === null,
+            'selectedAccessRole' => (string) $user->access_role,
+            'mailerPermissions' => User::MAILER_SENDING_PERMISSIONS,
             'workspace' => $this->layoutWorkspace($request->user()),
         ]);
     }
@@ -136,6 +157,9 @@ class GlobalUserManagementController extends Controller
             'full_name' => ['required', 'string', 'min:4', 'max:255'],
             'type' => ['required', 'string', Rule::in(User::TYPES)],
             'access_role' => ['required', 'string', Rule::in($this->assignableAccessRoles($actor, $user))],
+            'permission_selection_submitted' => ['required', 'accepted'],
+            'roles' => ['sometimes', 'array', 'max:64'],
+            'roles.*' => ['string', Rule::in(array_keys(User::permissionChoices()))],
             'avatar' => $this->avatarUploadRules(),
             'remove_avatar' => ['sometimes', 'boolean'],
         ]);
@@ -156,11 +180,15 @@ class GlobalUserManagementController extends Controller
 
         try {
             $saved = DB::transaction(function () use ($actor, $user, $data, $avatarPath, $accessRoleAssignment): bool {
+                $permissions = in_array($data['access_role'], [User::ACCESS_ROLE_OWNER, User::ACCESS_ROLE_ADMIN], true)
+                    ? $user->roles
+                    : User::normalizePermissions($data['roles'] ?? []);
                 $saved = $user->forceFill([
                     'username' => $data['username'],
                     'name' => $data['full_name'],
                     'type' => $data['type'],
                     'avatar_path' => $avatarPath,
+                    'roles' => $permissions,
                 ])->save();
                 $accessRoleAssignment->assign($actor, $user, $data['access_role']);
 

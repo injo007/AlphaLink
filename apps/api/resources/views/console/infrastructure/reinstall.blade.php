@@ -123,6 +123,9 @@
                     @unless (config('infrastructure.reinstall_ip_config_execution_enabled', false))
                         <p class="small text-warning mt-2 mb-0" role="status"><i class="fas fa-info-circle mr-1"></i> CONFIG IPS execution is disabled by ALPHALINK_REINSTALL_IP_CONFIG_EXECUTION_ENABLED.</p>
                     @endunless
+                    @unless (config('infrastructure.reinstall_execution_enabled', false))
+                        <p class="small text-warning mt-2 mb-0" role="status"><i class="fas fa-info-circle mr-1"></i> REINSTALL execution is disabled by ALPHALINK_REINSTALL_EXECUTION_ENABLED.</p>
+                    @endunless
                     <p class="small text-muted mt-1" id="reinstall-network-blocker">CONFIG IPS modifies server network interfaces. Permanent mode replaces existing IPv4 alias files and restarts networking.</p>
 
                     <div class="mt-4">
@@ -190,8 +193,8 @@
             let confirmedAction = null;
             let pendingRemoveRow = null;
 
-            function serverUrl(template) {
-                return template.replace('__SERVER__', encodeURIComponent(serverSelect.value));
+            function serverUrl(template, serverId = serverSelect.value) {
+                return template.replace('__SERVER__', encodeURIComponent(serverId));
             }
 
             function clearError() {
@@ -210,12 +213,24 @@
 
             function updateRunAvailability() {
                 const hasRows = rows.querySelectorAll('tr[data-ip-id]').length > 0;
-                const enabled = hasRows && isMainSelected();
-                reinstallButton.disabled = !enabled;
-                reloadButton.disabled = !loadedServerId;
-                configureButton.disabled = !loadedServerId;
-                if (!reinstallExecutionEnabled && enabled) {
-                    actionStatus.textContent = 'Reinstall is staged and validated. Execution is disabled in configuration.';
+                const currentConfigurationLoaded = loadedServerId !== '' && loadedServerId === serverSelect.value;
+                const hasMain = hasRows && isMainSelected();
+                reinstallButton.disabled = !currentConfigurationLoaded || !hasRows || !hasMain || !reinstallExecutionEnabled;
+                reloadButton.disabled = !currentConfigurationLoaded || !hasRows;
+                configureButton.disabled = !currentConfigurationLoaded || !reinstallIpConfigExecutionEnabled;
+
+                if (!serverSelect.value) {
+                    actionStatus.textContent = 'Select a server, then load its saved configuration before reinstalling.';
+                } else if (!currentConfigurationLoaded) {
+                    actionStatus.textContent = 'Load this server’s saved configuration before using its IP assignments.';
+                } else if (!hasRows) {
+                    actionStatus.textContent = 'This server has no saved IP and domain assignments. Reinstall is unavailable until its configuration includes them.';
+                } else if (!hasMain) {
+                    actionStatus.textContent = 'Choose one IP as MAIN before reinstalling.';
+                } else if (!reinstallExecutionEnabled) {
+                    actionStatus.textContent = 'The configuration is ready, but reinstall execution is disabled by ALPHALINK_REINSTALL_EXECUTION_ENABLED.';
+                } else {
+                    actionStatus.textContent = 'Configuration ready. Review the options and IP assignments before reinstalling.';
                 }
             }
 
@@ -237,16 +252,16 @@
                     const cell = document.createElement('td');
                     cell.colSpan = 6;
                     cell.className = 'text-center py-3 text-muted';
-                    cell.textContent = 'No saved IP assignments found for this server.';
+                    cell.textContent = 'No saved IP and domain assignments found for this server.';
                     row.append(cell);
                     rows.append(row);
                     updateRunAvailability();
                     return;
                 }
                 let mainAssigned = false;
-                for (const assignment of assignments) {
+                for (const [index, assignment] of assignments.entries()) {
                     const row = document.createElement('tr');
-                    row.dataset.ipId = String(assignment.id);
+                    row.dataset.ipId = String(assignment.id ?? assignment.ip_id ?? index + 1);
                     row.dataset.domainId = String(assignment.domain_id || '');
 
                     const ipCell = document.createElement('td');
@@ -327,12 +342,17 @@
 
             loadButton.addEventListener('click', async () => {
                 if (!serverSelect.value) return;
+                const requestedServerId = serverSelect.value;
                 clearError();
                 loadButton.disabled = true;
+                loadedServerId = '';
+                holder.classList.add('d-none');
+                updateRunAvailability();
                 actionStatus.textContent = 'Loading configuration…';
                 try {
-                    const response = await fetch(serverUrl(configUrl), {headers: {Accept: 'application/json'}});
+                    const response = await fetch(serverUrl(configUrl, requestedServerId), {headers: {Accept: 'application/json'}});
                     const config = await response.json();
+                    if (serverSelect.value !== requestedServerId) return;
                     if (!response.ok) throw new Error(config.message || 'Could not load server configuration.');
 
                     document.getElementById('reinstall-pmta-version').value = String(config.pmta_version || 45);
@@ -340,43 +360,76 @@
                         const input = document.getElementById(`reinstall-${option}`);
                         if (input) input.checked = Boolean(config[option]);
                     }
-                    loadedServerId = serverSelect.value;
+                    loadedServerId = requestedServerId;
                     holder.classList.remove('d-none');
-                    actionStatus.textContent = 'Configuration loaded. Review the options and IP list below.';
-                    renderRows(config.assignments || []);
+                    const assignments = Array.isArray(config.assignments)
+                        ? config.assignments
+                        : (Array.isArray(config.data) ? config.data : []);
+                    renderRows(assignments);
                 } catch (failure) {
+                    if (serverSelect.value !== requestedServerId) return;
+                    loadedServerId = '';
+                    holder.classList.add('d-none');
                     showError(failure.message);
                     actionStatus.textContent = failure.message;
                 } finally {
-                    loadButton.disabled = false;
+                    loadButton.disabled = !serverSelect.value;
                 }
             });
 
             reloadButton.addEventListener('click', async () => {
                 if (!loadedServerId) return;
+                const requestedServerId = loadedServerId;
                 clearError();
                 reloadButton.disabled = true;
                 try {
-                    const response = await fetch(serverUrl(ipsUrl), {
+                    const response = await fetch(serverUrl(ipsUrl, requestedServerId), {
                         method: 'POST',
                         headers: {'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf},
                         body: JSON.stringify({with_ipv6: document.getElementById('reinstall-with-ipv6').checked}),
                     });
                     const ips = await response.json();
+                    if (serverSelect.value !== requestedServerId || loadedServerId !== requestedServerId) return;
                     if (!response.ok) throw new Error(ips.message || 'Could not reload IPs.');
-                    renderRows(ips.assignments || []);
+                    const assignments = Array.isArray(ips.assignments)
+                        ? ips.assignments
+                        : (Array.isArray(ips.data) ? ips.data : []);
+                    renderRows(assignments);
                 } catch (failure) {
-                    showError(failure.message);
+                    if (serverSelect.value === requestedServerId && loadedServerId === requestedServerId) showError(failure.message);
                 } finally {
-                    reloadButton.disabled = false;
+                    updateRunAvailability();
                 }
             });
 
+            serverSelect.addEventListener('change', () => {
+                loadedServerId = '';
+                holder.classList.add('d-none');
+                rows.replaceChildren();
+                const row = document.createElement('tr');
+                const cell = document.createElement('td');
+                cell.colSpan = 6;
+                cell.className = 'text-center py-3 text-muted';
+                cell.textContent = 'Load a server configuration to review its saved IP assignments.';
+                row.append(cell);
+                rows.append(row);
+                log.textContent = 'Load a server configuration to begin.';
+                clearError();
+                updateRunAvailability();
+            });
+
             reinstallButton.addEventListener('click', () => {
+                const requestedServerId = loadedServerId;
+                if (!requestedServerId || requestedServerId !== serverSelect.value || reinstallButton.disabled) return;
                 if (typeof confirmation.showModal === 'function') {
                     confirmation.showModal();
                 }
                 confirmedAction = (async () => {
+                    if (serverSelect.value !== requestedServerId || loadedServerId !== requestedServerId) {
+                        showError('The selected server changed. Load its configuration again before reinstalling.');
+                        updateRunAvailability();
+                        return;
+                    }
                     clearError();
                     reinstallButton.disabled = true;
                     reinstallButton.textContent = 'REINSTALLING…';
@@ -398,7 +451,7 @@
                         payload[option] = document.getElementById(`reinstall-${option}`).checked;
                     }
                     try {
-                        const response = await fetch(serverUrl(runUrl), {
+                        const response = await fetch(serverUrl(runUrl, requestedServerId), {
                             method: 'POST',
                             headers: {'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf},
                             body: JSON.stringify(payload),
@@ -440,7 +493,7 @@
                         showError(failure.message || 'The reinstall request could not be completed.');
                         log.textContent = failure.message || 'The reinstall request could not be completed.';
                     } finally {
-                        reinstallButton.textContent = 'REINSTALL';
+                        reinstallButton.textContent = 'REINSTALL SERVER';
                         loadButton.disabled = false;
                         reloadButton.disabled = false;
                         configureButton.disabled = false;

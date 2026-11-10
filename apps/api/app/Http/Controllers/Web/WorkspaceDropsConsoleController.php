@@ -57,7 +57,7 @@ class WorkspaceDropsConsoleController extends Controller
             ->orderByDesc('id')
             ->get();
 
-        if ($request->user()->access_role === User::ACCESS_ROLE_VIEWER) {
+        if ($request->user()->roles === null && $request->user()->access_role === User::ACCESS_ROLE_VIEWER) {
             return response()->json([
                 'data' => $drops->map(fn (WorkspaceDrop $drop): array => [
                     'id' => (int) $drop->getKey(),

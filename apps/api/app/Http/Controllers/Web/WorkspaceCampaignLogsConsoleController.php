@@ -325,8 +325,8 @@ class WorkspaceCampaignLogsConsoleController extends Controller
         $manual = DB::table('campaign_manual_test_attempts')
             ->where('workspace_id', $workspace->getKey())
             ->where('campaign_id', $campaign->getKey())
-            ->select(['id', 'status', 'actor_user_id', 'created_at', 'exception_type', 'test_snapshot'])
-            ->selectRaw('NULL AS revision_id, NULL AS managed_server_id')
+            ->select(['id', 'status', 'actor_user_id', 'created_at', 'exception_type'])
+            ->selectRaw('NULL AS revision_id, NULL AS managed_server_id, test_snapshot')
             ->selectRaw("'Manual test' AS test_source, 'manual' AS test_source_key");
         $saved = DB::table('campaign_test_mail_attempts')
             ->where('workspace_id', $workspace->getKey())

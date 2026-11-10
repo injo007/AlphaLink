@@ -13,6 +13,7 @@ use App\Models\Workspace;
 use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceSponsor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -27,6 +28,7 @@ class WorkspaceCampaignLogsTest extends TestCase
         $owner = $fixture['owner'];
         $workspace = $fixture['workspace'];
         $campaign = $fixture['campaign'];
+        $this->insertManualTestAttempt($fixture);
 
         $this->actingAs($owner)
             ->get(route('console.campaign-logs.index', $workspace->getKey()))
@@ -35,7 +37,7 @@ class WorkspaceCampaignLogsTest extends TestCase
             ->assertSee('Synthetic campaign log')
             ->assertSee('Gmail')
             ->assertSee('Synthetic campaign offer')
-            ->assertSee('T:1', false)
+            ->assertSee('T:2', false)
             ->assertSee('U:1', false)
             ->assertSee('S:1', false)
             ->assertSee('aria-label="Scrollable Campaign Logs table" tabindex="0"', false)
@@ -50,6 +52,7 @@ class WorkspaceCampaignLogsTest extends TestCase
             ->get(route('console.campaign-logs.history', [$workspace->getKey(), $campaign->getKey(), 'tests']))
             ->assertOk()
             ->assertSee('Test history')
+            ->assertSee('Manual test')
             ->assertSee('Saved campaign test')
             ->assertSee('ACCEPTED BY TRANSPORT')
             ->assertDontSee('recipient@example.test');
@@ -120,6 +123,7 @@ class WorkspaceCampaignLogsTest extends TestCase
         $owner = $fixture['owner'];
         $workspace = $fixture['workspace'];
         $campaign = $fixture['campaign'];
+        $manualTestId = $this->insertManualTestAttempt($fixture);
         $savedTestId = (string) DB::table('campaign_test_mail_attempts')->where('campaign_id', $campaign->getKey())->value('id');
         $update = CampaignRevision::query()->where('campaign_id', $campaign->getKey())->where('revision_number', 2)->firstOrFail();
         $sendRun = CampaignSendRun::query()->where('campaign_id', $campaign->getKey())->firstOrFail();
@@ -136,6 +140,15 @@ class WorkspaceCampaignLogsTest extends TestCase
             ->assertOk()
             ->assertSee('Synthetic test subject')
             ->assertSee('Synthetic campaign body')
+            ->assertSee('Test delivery server')
+            ->assertSee('To: [recipient hidden]')
+            ->assertDontSee('recipient@example.test');
+
+        $manualTestUrl = route('console.campaign-logs.history-detail', [$workspace->getKey(), $campaign->getKey(), 'tests', $manualTestId]).'?source=manual&fragment=1';
+        $this->actingAs($owner)
+            ->get($manualTestUrl)
+            ->assertOk()
+            ->assertSee('Manual test subject')
             ->assertSee('Test delivery server')
             ->assertSee('To: [recipient hidden]')
             ->assertDontSee('recipient@example.test');
@@ -328,5 +341,32 @@ class WorkspaceCampaignLogsTest extends TestCase
         $workspace->users()->attach($user->getKey(), ['role' => 'owner']);
 
         return $workspace;
+    }
+
+    /** @param array{owner: User, workspace: Workspace, campaign: Campaign, server: ManagedServer} $fixture */
+    private function insertManualTestAttempt(array $fixture): string
+    {
+        $id = (string) Str::uuid();
+        DB::table('campaign_manual_test_attempts')->insert([
+            'id' => $id,
+            'workspace_id' => $fixture['workspace']->getKey(),
+            'campaign_id' => $fixture['campaign']->getKey(),
+            'actor_user_id' => $fixture['owner']->getKey(),
+            'managed_server_id' => $fixture['server']->getKey(),
+            'recipient_sha256' => hash('sha256', 'manual synthetic recipient'),
+            'idempotency_key_hash' => hash('sha256', 'manual synthetic test '.$id),
+            'request_fingerprint' => hash('sha256', 'manual synthetic request '.$id),
+            'status' => 'accepted_by_transport',
+            'exception_type' => null,
+            'test_snapshot' => Crypt::encryptString(json_encode([
+                'return_path' => 'bounce@example.test',
+                'header' => "To: recipient@example.test\nSubject: Manual test subject",
+                'body' => '<p>Manual synthetic body</p>',
+            ], JSON_THROW_ON_ERROR)),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $id;
     }
 }

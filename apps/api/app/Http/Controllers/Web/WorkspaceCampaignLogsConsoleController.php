@@ -28,9 +28,10 @@ class WorkspaceCampaignLogsConsoleController extends Controller
 
     private const HISTORY_ROLES = ['owner', 'admin', 'operator'];
 
-    public function index(Request $request, string $workspaceId, AdminOperatorCampaignFilter $operatorCampaignFilter): View
+    public function index(Request $request, string $workspaceId, ?AdminOperatorCampaignFilter $operatorCampaignFilter = null): View
     {
         $workspace = $this->authorizedWorkspace($request, $workspaceId);
+        $operatorCampaignFilter = $operatorCampaignFilter ?? app(AdminOperatorCampaignFilter::class);
         $operatorScope = $operatorCampaignFilter->resolve($request, $workspace, $request->user());
         $isAdmin = $operatorScope['is_admin'];
         $showOperatorCampaigns = $operatorScope['enabled'];

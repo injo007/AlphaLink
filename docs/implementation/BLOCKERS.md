@@ -2,6 +2,10 @@
 
 > **Archived blocker log.** Entries below are chronological engineering notes. Use the root AlphaLink progress file for current status.
 
+## 2026-11-10 Admin operator campaign visibility — E-IAM-13
+
+The Admin-only campaign scope is implemented in source for My Campaigns and Campaign Logs, including the header placement beside SHOW DISABLED and workspace operator selection. PHP syntax, route registration, and `git diff --check` pass; Pint is blocked because the local PHP 8.3.6 runtime lacks XML while the app requires PHP 8.5. Automated role/filter regression and authenticated browser checks have not run. Do not mark `ALPHALINK-CAMP-001` complete until those checks and deployment health verification are recorded.
+
 ## 2026-11-10 Global access-role verification — E-IAM-12
 
 Owner, Admin, Operator, Viewer, and Privacy Officer are wired through global role assignment, navigation filtering, and route-level authorization. Static PHP/JavaScript checks, route registration, and `git diff --check` pass. Local PHP is 8.3.6 without XML/DOM while the project requires PHP 8.5, so Pint and Blade view-cache compilation are unavailable; no automated or authenticated role-matrix requests ran. Release `912482cfd820ffb216d6bd9fc4aa03db6e9eee48` is deployed; the installer verified PostgreSQL backup `/var/backups/alphalink/deploy-912482cfd820ffb216d6bd9fc4aa03db6e9eee48-20261110T182807Z.dump`, migration status `Ran`, required services, and HTTPS health. Independent public and origin health checks return HTTP 200. Authenticated role-specific page/action checks and automated regression tests remain outstanding. Keep `ALPHALINK-IAM-001` IMPLEMENTING until those checks are complete.

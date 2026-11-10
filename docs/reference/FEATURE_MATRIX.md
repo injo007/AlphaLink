@@ -15,6 +15,12 @@ DMS-AUD-001, DMS-INST-001, DMS-INFRA-002, DMS-CLOUD-001, DMS-TOOLS-001, and DMS-
 
 This AlphaLink capability is tracked separately and does not change the archived DMS workflow count or status totals above.
 
+## Admin campaign visibility
+
+| ID | Module / AlphaLink route | Source of behavior | Evidence | AlphaLink implementation | Status | Known difference |
+|---|---|---|---|---|---|---|
+| ALPHALINK-CAMP-001 | Admin → My Campaigns and Campaign Logs → Show operator campaigns | Explicit AlphaLink request 2026-11-10; no DMS behavior inferred | E-IAM-13 | Global Admin may enable a workspace-scoped view of campaigns created by Operators, and optionally filter to one existing Operator. The default remains the signed-in user's own campaigns. The checkbox and dropdown appear beside SHOW DISABLED in My Campaigns; Campaign Logs has the matching filter. Cross-operator registers are read-only; campaign history routes remain workspace- and creator-role-scoped. | IMPLEMENTING | PHP syntax, route registration, and diff checks pass. Pint is blocked by the local missing XML extension; no automated or authenticated role/filter regression was run for this slice. Production deployment and live role-specific verification are pending. This is an AlphaLink-only product rule and does not establish DMS parity. |
+
 ## 2026-11-04 maintenance addendum
 
 The tracking installer is being rebuilt from AlphaLink-owned source. It preserves the current public media directory, routes only tracking-shaped paths into the handler, and uses a reversible rename for the encrypted tracking key. This infrastructure identity change does not add a workflow or change the historical matrix denominator. The slice remains **TESTING** until the installer, migration, asset digest, and fresh-install contract suites pass.

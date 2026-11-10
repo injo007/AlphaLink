@@ -93,10 +93,11 @@ class WorkspaceConsoleController extends Controller
         return redirect()->route('console.dashboard.main');
     }
 
-    public function campaigns(Request $request, string $workspace, AdminOperatorCampaignFilter $operatorCampaignFilter): View
+    public function campaigns(Request $request, string $workspace, ?AdminOperatorCampaignFilter $operatorCampaignFilter = null): View
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $this->authorizeRole($workspace, self::CAMPAIGN_ROLES);
+        $operatorCampaignFilter = $operatorCampaignFilter ?? app(AdminOperatorCampaignFilter::class);
         $operatorScope = $operatorCampaignFilter->resolve($request, $workspace, $request->user());
         $isAdmin = $operatorScope['is_admin'];
         $showOperatorCampaigns = $operatorScope['enabled'];

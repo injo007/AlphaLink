@@ -129,6 +129,13 @@
         @if ($errors->any())
             <div class="alert alert-danger" role="alert"><strong>Review these fields:</strong><ul class="mb-0 mt-2">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
         @endif
+        @if ($isWarmup)
+            <nav class="warmup-composer-section-nav" aria-label="Jump to warmup section">
+                <a href="#warmup-test-setup"><span class="warmup-composer-step-number">01</span><span class="warmup-composer-step-copy"><strong>Test setup</strong><small>Return path and recipients</small></span><i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+                <a href="#warmup-message-content"><span class="warmup-composer-step-number">02</span><span class="warmup-composer-step-copy"><strong>Message content</strong><small>Headers, body, placeholders</small></span><i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+                <a href="#warmup-sending-pacing"><span class="warmup-composer-step-number">03</span><span class="warmup-composer-step-copy"><strong>Sending &amp; pacing</strong><small>Servers, seeds, rate limits</small></span><i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+            </nav>
+        @endif
 
         <form id="mailer-draft-form" method="post" action="{{ $draft ? $updateUrl : $storeUrl }}">
             @csrf
@@ -150,7 +157,7 @@
             @endif
 
             @if ($isWarmup)
-                <section class="warmup-composer-panel warmup-composer-test-panel" aria-labelledby="warmup-test-title">
+                <section id="warmup-test-setup" class="warmup-composer-panel warmup-composer-test-panel" aria-labelledby="warmup-test-title">
                     <header class="warmup-composer-panel-heading"><span class="warmup-composer-panel-icon" aria-hidden="true"><i class="fas fa-vial"></i></span><span><strong id="warmup-test-title">Test setup</strong><small>Choose a return path and saved test recipients.</small></span></header>
             @endif
             <div class="form-row {{ $isWarmup ? 'warmup-message-fields' : '' }}">
@@ -160,7 +167,7 @@
             </div>
             @if ($isWarmup)
                 </section>
-                <section class="warmup-composer-panel warmup-composer-content-panel" aria-labelledby="warmup-content-title">
+                <section id="warmup-message-content" class="warmup-composer-panel warmup-composer-content-panel" aria-labelledby="warmup-content-title">
                     <header class="warmup-composer-panel-heading"><span class="warmup-composer-panel-icon" aria-hidden="true"><i class="fas fa-envelope-open-text"></i></span><span><strong id="warmup-content-title">Message content</strong><small>Set sender details, headers, body, and placeholders.</small></span></header>
             @endif
 
@@ -231,7 +238,7 @@
             </div>
             @if ($isWarmup)
                 </section>
-                <section class="warmup-composer-panel warmup-composer-delivery-panel" aria-labelledby="warmup-delivery-title">
+                <section id="warmup-sending-pacing" class="warmup-composer-panel warmup-composer-delivery-panel" aria-labelledby="warmup-delivery-title">
                     <header class="warmup-composer-panel-heading"><span class="warmup-composer-panel-icon" aria-hidden="true"><i class="fas fa-route"></i></span><span><strong id="warmup-delivery-title">Sending &amp; pacing</strong><small>Choose the route, seed source, delivery mode, and rate limits.</small></span></header>
             @endif
 
@@ -319,6 +326,16 @@
     .warmup-composer-page .warmup-composer-fullscreen:hover { border-color: var(--co-purple); color: var(--co-purple); }
     .warmup-composer-page > .block-content { padding: 16px 18px 20px; }
     .warmup-composer-note { align-items: center; background: color-mix(in srgb, var(--co-blue) 5%, var(--co-surface)); border: 1px solid color-mix(in srgb, var(--co-blue) 16%, var(--co-border)); border-radius: 10px; color: var(--co-muted) !important; display: flex; font-size: 10px !important; min-height: 38px; padding: 8px 11px; }
+    .warmup-composer-section-nav { display: grid; gap: 8px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: -3px 0 13px; }
+    .warmup-composer-section-nav a { align-items: center; background: linear-gradient(125deg, color-mix(in srgb, var(--co-purple) 5%, var(--co-surface)), var(--co-surface)); border: 1px solid var(--co-border); border-radius: 11px; color: var(--co-ink); display: flex; gap: 9px; min-height: 57px; min-width: 0; padding: 8px 10px; text-decoration: none; transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease; }
+    .warmup-composer-section-nav a:hover, .warmup-composer-section-nav a:focus-visible { border-color: color-mix(in srgb, var(--co-purple) 55%, var(--co-border)); box-shadow: 0 4px 13px color-mix(in srgb, var(--co-purple) 10%, transparent); color: var(--co-ink); outline: 0; transform: translateY(-1px); }
+    .warmup-composer-step-number { align-items: center; background: color-mix(in srgb, var(--co-purple) 10%, var(--co-surface)); border: 1px solid color-mix(in srgb, var(--co-purple) 19%, var(--co-border)); border-radius: 9px; color: var(--co-purple); display: inline-flex; flex: 0 0 32px; font-size: 9px; font-weight: 850; height: 32px; justify-content: center; letter-spacing: .04em; }
+    .warmup-composer-step-copy { display: grid; gap: 2px; min-width: 0; }
+    .warmup-composer-step-copy strong { color: var(--co-ink); font-size: 10px; font-weight: 790; line-height: 1.2; }
+    .warmup-composer-step-copy small { color: var(--co-muted); font-size: 8px; line-height: 1.25; }
+    .warmup-composer-section-nav a > i { color: var(--co-purple); font-size: 9px; margin-left: auto; }
+    .warmup-composer-page #warmup-test-setup, .warmup-composer-page #warmup-message-content, .warmup-composer-page #warmup-sending-pacing { scroll-margin-top: 76px; }
+    .warmup-composer-panel:target { border-color: color-mix(in srgb, var(--co-purple) 42%, var(--co-border)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--co-purple) 8%, transparent), var(--co-shadow); }
     .warmup-composer-panel { background: linear-gradient(145deg, color-mix(in srgb, var(--co-purple) 3%, var(--co-surface)), var(--co-surface)); border: 1px solid var(--co-border); border-radius: 14px; box-shadow: 0 5px 16px color-mix(in srgb, var(--co-purple) 5%, transparent); margin: 0 0 13px; padding: 13px 14px 7px; }
     .warmup-composer-panel-heading { align-items: center; border-bottom: 1px solid color-mix(in srgb, var(--co-purple) 13%, var(--co-border)); display: flex; gap: 9px; margin: -13px -14px 13px; min-height: 55px; padding: 9px 14px; }
     .warmup-composer-panel-icon { align-items: center; background: color-mix(in srgb, var(--co-purple) 10%, var(--co-surface)); border: 1px solid color-mix(in srgb, var(--co-purple) 15%, var(--co-border)); border-radius: 10px; color: var(--co-purple); display: grid; flex: 0 0 32px; height: 32px; justify-items: center; width: 32px; }
@@ -422,6 +439,12 @@
         .warmup-composer-page > .warmup-composer-header { align-items: flex-start; flex-direction: column; padding: 14px; }
         .warmup-composer-page .block-options { flex: 1 1 auto; flex-wrap: wrap; justify-content: flex-start; width: 100%; }
         .warmup-composer-page > .block-content { padding: 12px; }
+        .warmup-composer-section-nav { gap: 5px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 10px; }
+        .warmup-composer-section-nav a { gap: 6px; min-height: 50px; padding: 6px; }
+        .warmup-composer-step-number { border-radius: 8px; flex-basis: 27px; height: 27px; font-size: 8px; }
+        .warmup-composer-step-copy strong { font-size: 9px; }
+        .warmup-composer-step-copy small { font-size: 7px; }
+        .warmup-composer-section-nav a > i { display: none; }
         .warmup-composer-panel { padding: 11px 10px 5px; }
         .warmup-composer-panel-heading { margin: -11px -10px 11px; padding: 8px 10px; }
         .warmup-composer-page [data-campaign-placeholder-editor] > .block-header { align-items: flex-start; }
@@ -436,6 +459,12 @@
         .warmup-composer-page .mailer-ip-selector select { min-height: 300px; }
         .warmup-composer-page .mailer-ip-selector-actions { flex-direction: row; padding: 8px 0; }
         .warmup-composer-page textarea[name="header"], .warmup-composer-page textarea[name="html_body"] { min-height: 190px; }
+    }
+    @media (max-width: 390px) {
+        .warmup-composer-section-nav { gap: 4px; }
+        .warmup-composer-section-nav a { align-items: flex-start; flex-direction: column; min-height: 64px; }
+        .warmup-composer-step-copy strong { font-size: 9px; }
+        .warmup-composer-step-copy small { display: none; }
     }
     @media (prefers-reduced-motion: reduce) {
         .warmup-composer-shell *, .warmup-composer-shell *::before, .warmup-composer-shell *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }

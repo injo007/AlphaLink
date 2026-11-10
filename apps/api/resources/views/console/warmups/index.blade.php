@@ -81,6 +81,8 @@
                     @php($config = $draft->warmup_config ?? [])
                     @php($sendRun = $draft->warmup_send_run)
                     @php($processed = $sendRun ? (int) $sendRun->accepted_count + (int) $sendRun->rejected_count + (int) $sendRun->uncertain_count : 0)
+                    @php($recipientCount = (int) ($sendRun->recipient_count ?? 0))
+                    @php($progressPercent = $recipientCount > 0 ? min(100, (int) floor($processed * 100 / $recipientCount)) : 0)
                     <tr>
                         <th scope="row"><a href="{{ route('console.warmups.edit', [$workspace->id, $draft->id]) }}">{{ substr((string) $draft->id, 0, 8) }}</a><br><small>{{ $draft->name }}</small></th>
                         <td>{{ auth()->user()->username }}</td>
@@ -92,7 +94,15 @@
                         <td>{{ $config['sleep_ip'] ?? '—' }}</td>
                         <td>{{ $config['seed_every'] ?? '—' }}</td>
                         <td><span class="badge badge-{{ $sendRun ? (in_array($sendRun->state, ['planned', 'running'], true) ? 'primary' : ($sendRun->state === 'completed' ? 'success' : 'warning')) : 'secondary' }}">{{ strtoupper($sendRun->state ?? 'draft') }}</span></td>
-                        <td class="warmup-register-progress">@if ($sendRun)<strong>{{ number_format($processed) }} / {{ number_format((int) $sendRun->recipient_count) }}</strong><small>Accepted {{ number_format((int) $sendRun->accepted_count) }} · rejected {{ number_format((int) $sendRun->rejected_count) }} · uncertain {{ number_format((int) $sendRun->uncertain_count) }}</small>@else<span class="badge badge-secondary">—</span>@endif</td>
+                        <td class="warmup-register-progress">
+                            @if ($sendRun)
+                                <div class="warmup-register-progress-label"><strong>{{ number_format($processed) }} / {{ number_format($recipientCount) }}</strong><span>{{ $progressPercent }}%</span></div>
+                                <div class="warmup-register-progress-track" role="progressbar" aria-label="Warmup send progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $progressPercent }}" aria-valuetext="{{ number_format($processed) }} of {{ number_format($recipientCount) }} recipients processed"><span style="width: {{ $progressPercent }}%"></span></div>
+                                <small>Accepted {{ number_format((int) $sendRun->accepted_count) }} · rejected {{ number_format((int) $sendRun->rejected_count) }} · uncertain {{ number_format((int) $sendRun->uncertain_count) }}</small>
+                            @else
+                                <span class="badge badge-secondary">No send run yet</span>
+                            @endif
+                        </td>
                         <td>{{ strtoupper((string) ($config['send_type'] ?? '—')) }}</td>
                         <td class="text-nowrap warmup-register-actions">
                             <div class="warmup-register-row-actions">
@@ -186,11 +196,17 @@
         .warmup-register-table th:nth-child(12), .warmup-register-table td:nth-child(12) { width: 70px; }
         .warmup-register-table th:nth-child(13), .warmup-register-table td:nth-child(13) { width: 160px; }
         .warmup-register-table th { position: sticky; top: 0; z-index: 1; padding: 11px 9px; border-top: 0; border-bottom: 1px solid var(--co-border); color: var(--co-muted); background: var(--co-surface-muted); font-size: 8px; font-weight: 800; letter-spacing: .07em; white-space: nowrap; }
+        .warmup-register-table thead th:first-child { left: 0; z-index: 3; box-shadow: 5px 0 10px color-mix(in srgb, var(--co-ink) 6%, transparent); }
+        .warmup-register-table tbody th[scope="row"] { left: 0; position: sticky; z-index: 2; background: var(--co-surface); box-shadow: 5px 0 10px color-mix(in srgb, var(--co-ink) 6%, transparent); }
         .warmup-register-table td { padding: 9px; border-top: 1px solid color-mix(in srgb, var(--co-border) 76%, transparent); color: var(--co-ink); vertical-align: middle; }
-        .warmup-register-table .warmup-register-progress strong { display: block; color: var(--co-ink); font-size: 10px; font-weight: 800; white-space: nowrap; }
-        .warmup-register-table .warmup-register-progress small { display: block; margin-top: 3px; color: var(--co-muted); font-size: 8px; line-height: 1.45; }
+        .warmup-register-table .warmup-register-progress-label { align-items: baseline; display: flex; gap: 8px; justify-content: space-between; }
+        .warmup-register-table .warmup-register-progress-label strong { color: var(--co-ink); font-size: 10px; font-weight: 800; white-space: nowrap; }
+        .warmup-register-table .warmup-register-progress-label span { color: var(--co-purple); font-size: 9px; font-weight: 800; font-variant-numeric: tabular-nums; }
+        .warmup-register-progress-track { height: 6px; margin: 5px 0 4px; overflow: hidden; border-radius: 99px; background: color-mix(in srgb, var(--co-purple) 10%, var(--co-surface-muted)); }
+        .warmup-register-progress-track > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--co-purple-bright), var(--co-purple)); transition: width .25s ease; }
+        .warmup-register-table .warmup-register-progress small { display: block; color: var(--co-muted); font-size: 8px; line-height: 1.45; }
         .warmup-register-table tbody tr:first-child td { border-top: 0; }
-        .warmup-register-table tbody tr:hover td { background: color-mix(in srgb, var(--co-purple) 4%, var(--co-surface)); }
+        .warmup-register-table tbody tr:hover td, .warmup-register-table tbody tr:hover th[scope="row"] { background: color-mix(in srgb, var(--co-purple) 4%, var(--co-surface)); }
         .warmup-register-table th:first-child, .warmup-register-table td:first-child { min-width: 120px; }
         .warmup-register-table tbody th a { color: var(--co-purple); font-weight: 800; text-decoration: none; }
         .warmup-register-table tbody th a:hover { text-decoration: underline; }
@@ -230,6 +246,7 @@
             .warmup-register-footer { align-items: flex-start !important; flex-direction: column; }
             .warmup-register-footer nav { margin-left: 0; max-width: 100%; overflow-x: auto; }
         }
+        @media (prefers-reduced-motion: reduce) { .warmup-register-progress-track > span { transition: none; } }
         @media (prefers-reduced-motion: reduce) { .warmup-register-create { transition: none; } .warmup-register-create:hover { transform: none; } }
     </style>
 @endpush

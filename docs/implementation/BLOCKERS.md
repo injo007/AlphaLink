@@ -4,7 +4,7 @@
 
 ## 2026-11-10 Owner/Admin profile image management — E-IAM-14
 
-Image assignment, replacement, and removal are implemented in global user creation/edit forms, and private authenticated delivery is wired to the Users table and account menus. PHP syntax, route registration, `git diff --check`, and the Vite build pass. Local Pint cannot start because PHP 8.3.6 lacks XML; Blade view compilation cannot run because `DOMDocument` is unavailable. Automated and authenticated browser checks, migration application, and deployment/health verification remain open. Keep `ALPHALINK-IAM-002` IMPLEMENTING.
+Image assignment, replacement, and removal are implemented in global user creation/edit forms, and private authenticated delivery is wired to the Users table and account menus. PHP syntax, route registration, `git diff --check`, and the Vite build pass. Local Pint cannot start because PHP 8.3.6 lacks XML; Blade view compilation cannot run because `DOMDocument` is unavailable. Release `b7f35f7ce59906edbd9f0b277d6f9e57ba09c4da` applied the migration and passed installer service/HTTPS checks; public `/up` returned HTTP 200. Automated and authenticated browser checks remain open. Keep `ALPHALINK-IAM-002` IMPLEMENTING.
 
 ## 2026-11-10 Admin operator campaign visibility — E-IAM-13
 

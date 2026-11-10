@@ -1632,8 +1632,17 @@ class InfrastructureConsoleController extends Controller
             ]);
         }
 
+        $stats = [
+            'total_servers' => $workspace->managedServers()->count(),
+            'active_servers' => $workspace->managedServers()->where('is_active', true)->count(),
+            'installed_servers' => $workspace->managedServers()->where('is_installed', true)->count(),
+            'total_ips' => (int) $workspace->managedServers()->withCount('ips')->get()->sum('ips_count'),
+            'providers_count' => (int) $workspace->managedServers()->whereNotNull('servers_provider_id')->distinct('servers_provider_id')->count('servers_provider_id'),
+        ];
+
         return view('console.infrastructure.servers', [
             'workspace' => $workspace,
+            'stats' => $stats,
             'serversDataUrl' => route('console.infrastructure.servers.index', ['workspace' => $workspace->id] + $request->only('provider_id')),
             'createUrl' => $canManageServers ? route('console.infrastructure.servers.create', $workspace->id) : null,
             'editUrlTemplate' => route('console.infrastructure.servers.edit', [$workspace->id, '__SERVER__']),

@@ -3,53 +3,79 @@
 @section('title', $provider ? 'Edit Server Provider' : 'Add Server Provider')
 
 @section('content')
-    <div class="block block-rounded">
-        <div class="block-header block-header-default">
-            <h3 class="block-title">@if ($provider) EDIT PROVIDER <span class="text-info">{{ $provider->id }} | {{ $provider->name }}</span> @else ADD PROVIDER @endif</h3>
-        </div>
-        <div class="block-content">
-            <div class="row justify-content-center py-1">
-                <div class="col-sm-10">
-                    @php
-                        $saveUrl = $provider
-                            ? route('console.infrastructure.server-providers.update', [$workspace->id, $provider->id])
-                            : route('console.infrastructure.server-providers.store', $workspace->id);
-                    @endphp
-                    <form id="server-provider-form" action="{{ $saveUrl }}" method="post">
-                        @csrf
-                        <div class="form-group">
-                            <label for="name">Name:</label>
-                            <input type="text" class="form-control form-control-alt" id="name" name="name"
-                                   placeholder="Enter Provider Name ..." value="{{ $provider?->name }}"
-                                   minlength="{{ $provider ? 4 : 2 }}" maxlength="255" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="url">Link:</label>
-                            <input type="url" class="form-control form-control-alt" id="url" name="url"
-                                   placeholder="Enter Provider Link ..." value="{{ $provider?->url }}" maxlength="255" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="username">Username:</label>
-                            <input type="text" class="form-control form-control-alt" id="username" name="username"
-                                   placeholder="Enter Provider Username ..." value="{{ $provider?->username }}"
-                                   minlength="4" maxlength="255">
-                        </div>
-                        <div class="form-group">
-                            <label for="password">Password:</label>
-                            <input type="password" class="form-control form-control-alt" id="password" name="password"
-                                   placeholder="{{ $provider ? 'Leave empty to keep saved password' : 'Enter Provider Password ...' }}"
-                                   minlength="4" maxlength="255" @required(! $provider) autocomplete="new-password">
-                            @if ($provider)
-                                <small class="form-text text-muted">Leave empty to keep the saved password.</small>
-                            @endif
-                        </div>
-                        <div class="form-group">
-                            <div id="provider-result" class="alert alert-danger d-none" role="alert" aria-live="polite"></div>
-                            <button id="save-provider" class="btn btn-block {{ $provider ? 'btn-warning' : 'btn-info' }}" type="submit">{{ $provider ? 'EDIT' : 'SAVE' }}</button>
-                        </div>
-                    </form>
+    <div class="command-modal-surface">
+        <div class="command-modal-hero">
+            <div class="command-modal-hero-left">
+                <div class="command-modal-hero-icon">
+                    <i class="fas fa-server"></i>
+                </div>
+                <div>
+                    <div class="command-modal-hero-eyebrow">HARDWARE VENDORS // INFRASTRUCTURE API</div>
+                    <h3 class="command-modal-hero-title">
+                        @if ($provider)
+                            EDIT PROVIDER <span class="badge-command-pill ml-2" style="font-weight: 700; color: #8b5cf6;">#{{ $provider->id }} &bull; {{ $provider->name }}</span>
+                        @else
+                            CONNECT SERVER PROVIDER
+                        @endif
+                    </h3>
                 </div>
             </div>
+        </div>
+
+        <div class="command-modal-body">
+            @php
+                $saveUrl = $provider
+                    ? route('console.infrastructure.server-providers.update', [$workspace->id, $provider->id])
+                    : route('console.infrastructure.server-providers.store', $workspace->id);
+            @endphp
+            <form id="server-provider-form" action="{{ $saveUrl }}" method="post">
+                @csrf
+                <div class="command-form-group">
+                    <label class="command-form-label" for="name">
+                        <i class="fas fa-tag mr-1 text-purple"></i> PROVIDER NAME
+                    </label>
+                    <input type="text" class="command-form-control" id="name" name="name"
+                           placeholder="Enter Provider Name ..." value="{{ $provider?->name }}"
+                           minlength="{{ $provider ? 4 : 2 }}" maxlength="255" required>
+                </div>
+
+                <div class="command-form-group">
+                    <label class="command-form-label" for="url">
+                        <i class="fas fa-link mr-1 text-purple"></i> PORTAL URL / LINK
+                    </label>
+                    <input type="url" class="command-form-control" id="url" name="url"
+                           placeholder="https://provider.com/portal ..." value="{{ $provider?->url }}" maxlength="255" required>
+                </div>
+
+                <div class="command-form-group">
+                    <label class="command-form-label" for="username">
+                        <i class="fas fa-user mr-1 text-purple"></i> USERNAME
+                    </label>
+                    <input type="text" class="command-form-control" id="username" name="username"
+                           placeholder="Enter Provider Username ..." value="{{ $provider?->username }}"
+                           minlength="4" maxlength="255">
+                </div>
+
+                <div class="command-form-group">
+                    <label class="command-form-label" for="password">
+                        <i class="fas fa-lock mr-1 text-purple"></i> PASSWORD
+                    </label>
+                    <input type="password" class="command-form-control" id="password" name="password"
+                           placeholder="{{ $provider ? 'Leave empty to keep saved password' : 'Enter Provider Password ...' }}"
+                           minlength="4" maxlength="255" @required(! $provider) autocomplete="new-password">
+                    @if ($provider)
+                        <small class="text-muted mt-1 d-block" style="font-size: 0.75rem;">Leave empty to keep the saved password.</small>
+                    @endif
+                </div>
+
+                <div id="provider-result" class="alert alert-danger d-none mb-3" role="alert" aria-live="polite" style="border-radius: 12px; font-size: 0.8125rem;"></div>
+
+                <div class="command-modal-actions mt-4">
+                    <button id="save-provider" class="btn-command-primary" type="submit">
+                        <i class="fas fa-save mr-1"></i> {{ $provider ? 'UPDATE PROVIDER' : 'CONNECT PROVIDER' }}
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 @endsection
@@ -63,7 +89,7 @@
             const result = form.querySelector('#provider-result');
             const payload = Object.fromEntries(new FormData(form));
             button.disabled = true;
-            button.textContent = @json($provider ? 'UPDATING' : 'SAVING');
+            button.textContent = @json($provider ? 'UPDATING...' : 'SAVING...');
             result.classList.add('d-none');
             result.textContent = '';
 
@@ -94,7 +120,7 @@
                 result.classList.remove('d-none');
             } finally {
                 button.disabled = false;
-                button.textContent = @json($provider ? 'EDIT' : 'SAVE');
+                button.textContent = @json($provider ? 'UPDATE PROVIDER' : 'CONNECT PROVIDER');
             }
         });
     </script>

@@ -1,31 +1,44 @@
 @extends('layouts.standalone')
 
-@section('title', 'Edit User')
+@section('title', 'Edit Username')
 
 @section('content')
-    <div class="block block-rounded">
-        <div class="block-header block-header-default">
-            <h3 class="block-title">EDIT USER <span class="text-info">{{ $user->username }}</span></h3>
-        </div>
-        <div class="block-content">
-            <div class="row justify-content-center py-1">
-                <div class="col-sm-10">
-                    <form id="install-username-form" action="{{ route('console.infrastructure.install-username.update', $workspace->id) }}" method="post">
-                        @csrf
-                        @method('put')
-                        <div class="form-group">
-                            <label for="username">Username</label>
-                            <input type="text" class="form-control form-control-alt" id="username" name="username"
-                                placeholder="Enter Username ..." value="{{ $user->username }}" minlength="4" maxlength="255" required>
-                            <small class="form-text text-muted">Use the username that appears in this server's name.</small>
-                        </div>
-                        <div class="form-group">
-                            <div id="username-result" class="alert alert-danger d-none" role="alert" aria-live="polite"></div>
-                            <button id="edit-username" class="btn btn-block btn-warning" type="submit">EDIT</button>
-                        </div>
-                    </form>
+    <div class="command-modal-surface">
+        <div class="command-modal-hero">
+            <div class="command-modal-hero-left">
+                <div class="command-modal-hero-icon">
+                    <i class="fas fa-user-edit"></i>
+                </div>
+                <div>
+                    <div class="command-modal-hero-eyebrow">WORKSPACE PROVISIONING PROFILE</div>
+                    <h3 class="command-modal-hero-title">
+                        EDIT USERNAME <span class="badge-command-pill ml-2" style="font-weight: 700; color: #8b5cf6;">{{ $user->username }}</span>
+                    </h3>
                 </div>
             </div>
+        </div>
+
+        <div class="command-modal-body">
+            <form id="install-username-form" action="{{ route('console.infrastructure.install-username.update', $workspace->id) }}" method="post">
+                @csrf
+                @method('put')
+                <div class="command-form-group">
+                    <label class="command-form-label" for="username">
+                        <i class="fas fa-user mr-1 text-purple"></i> USERNAME
+                    </label>
+                    <input type="text" class="command-form-control" id="username" name="username"
+                        placeholder="Enter Username ..." value="{{ $user->username }}" minlength="4" maxlength="255" required>
+                    <small class="text-muted mt-1 d-block" style="font-size: 0.75rem;">Use the identifier that appears in your server host names.</small>
+                </div>
+
+                <div id="username-result" class="alert alert-danger d-none mb-3" role="alert" aria-live="polite" style="border-radius: 12px; font-size: 0.8125rem;"></div>
+
+                <div class="command-modal-actions mt-4">
+                    <button id="edit-username" class="btn-command-primary" type="submit">
+                        <i class="fas fa-save mr-1"></i> UPDATE USERNAME
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 @endsection
@@ -38,7 +51,7 @@
             const button = form.querySelector('#edit-username');
             const result = form.querySelector('#username-result');
             button.disabled = true;
-            button.textContent = 'UPDATING';
+            button.textContent = 'UPDATING...';
             result.classList.add('d-none');
             result.textContent = '';
 
@@ -63,7 +76,7 @@
                 result.classList.remove('d-none');
             } finally {
                 button.disabled = false;
-                button.textContent = 'EDIT';
+                button.textContent = 'UPDATE USERNAME';
             }
         });
     </script>

@@ -3,30 +3,88 @@
 @section('title', 'Servers')
 
 @section('content')
-    <div class="command-os-entity-page">
-        <!-- 1. Hero Card -->
-        <header class="command-os-hero-card">
-            <div class="command-os-hero-card-left">
-                <div class="command-os-hero-mark" aria-hidden="true">
+    <div class="command-os-report-page">
+        <!-- 1. Hero Header -->
+        <header class="command-os-report-hero">
+            <div class="command-os-report-hero-left">
+                <div class="command-os-report-hero-icon" aria-hidden="true">
                     <i class="fas fa-server"></i>
                 </div>
-                <div class="command-os-hero-copy">
-                    <h1 class="command-os-hero-title">SERVERS</h1>
+                <div>
+                    <div class="command-os-report-hero-eyebrow">INFRASTRUCTURE TELEMETRY // CORE FLEET</div>
+                    <h1 class="command-os-report-hero-title">SERVERS</h1>
+                    <p class="command-os-report-hero-desc">Dedicated MTA infrastructure, IP allocation matrices, and daemon lifecycle control.</p>
                 </div>
             </div>
-            <div class="command-os-hero-card-right">
-                <label class="command-os-toggle-wrap" for="returned">
-                    <span class="command-os-toggle-label">RETURNED</span>
-                    <input type="checkbox" class="command-os-toggle-input" id="returned" aria-label="Show returned servers">
-                    <span class="command-os-toggle-slider"></span>
-                </label>
-                <button type="button" class="command-os-btn-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen">
-                    <i class="si si-size-fullscreen"></i>
-                </button>
+            <div class="command-os-report-hero-right">
+                <div class="command-os-report-hero-meta">
+                    <div class="command-mode-toggle-pill">
+                        <span class="command-mode-label" id="label_returned">RETURNED</span>
+                        <label class="command-switch">
+                            <input type="checkbox" id="returned" aria-label="Show returned servers">
+                            <span class="command-slider"></span>
+                        </label>
+                    </div>
+                    <span class="command-os-live-badge">
+                        <span class="command-os-live-dot"></span>
+                        PMTA CLUSTER // FLEET TELEMETRY
+                    </span>
+                    <button type="button" class="command-os-btn-option ml-2" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen">
+                        <i class="si si-size-fullscreen"></i>
+                    </button>
+                </div>
             </div>
         </header>
 
-        <!-- 2. Table Card -->
+        <!-- 2. Overview KPI Metrics -->
+        <div class="all-stats-overview-grid mb-4">
+            <div class="all-stats-overview-card">
+                <div class="all-stats-overview-icon"><i class="fas fa-server"></i></div>
+                <div class="all-stats-overview-body">
+                    <div class="all-stats-overview-label">TOTAL SERVERS</div>
+                    <div class="all-stats-overview-value font-mono">{{ number_format($stats['total_servers'] ?? 0) }}</div>
+                    <div class="all-stats-overview-sub">Registered server nodes</div>
+                </div>
+            </div>
+
+            <div class="all-stats-overview-card">
+                <div class="all-stats-overview-icon"><i class="fas fa-power-off"></i></div>
+                <div class="all-stats-overview-body">
+                    <div class="all-stats-overview-label">ACTIVE STATUS</div>
+                    <div class="all-stats-overview-value font-mono text-purple">{{ number_format($stats['active_servers'] ?? 0) }} ACTIVE</div>
+                    <div class="all-stats-overview-sub">Online &amp; routing traffic</div>
+                </div>
+            </div>
+
+            <div class="all-stats-overview-card">
+                <div class="all-stats-overview-icon"><i class="fas fa-hammer"></i></div>
+                <div class="all-stats-overview-body">
+                    <div class="all-stats-overview-label">PMTA ENGINES</div>
+                    <div class="all-stats-overview-value font-mono text-purple">{{ number_format($stats['installed_servers'] ?? 0) }} INSTALLED</div>
+                    <div class="all-stats-overview-sub">Daemon verified &amp; ready</div>
+                </div>
+            </div>
+
+            <div class="all-stats-overview-card">
+                <div class="all-stats-overview-icon"><i class="fas fa-network-wired"></i></div>
+                <div class="all-stats-overview-body">
+                    <div class="all-stats-overview-label">IP FOOTPRINT</div>
+                    <div class="all-stats-overview-value font-mono">{{ number_format($stats['total_ips'] ?? 0) }} IPs</div>
+                    <div class="all-stats-overview-sub">Egress allocation pool</div>
+                </div>
+            </div>
+
+            <div class="all-stats-overview-card">
+                <div class="all-stats-overview-icon"><i class="fas fa-tasks"></i></div>
+                <div class="all-stats-overview-body">
+                    <div class="all-stats-overview-label">PROVIDERS</div>
+                    <div class="all-stats-overview-value font-mono">{{ number_format($stats['providers_count'] ?? 0) }}</div>
+                    <div class="all-stats-overview-sub">Connected hosting networks</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Table Card -->
         <div class="command-os-table-card">
             <div class="table-responsive">
                 <table id="servers" class="table table-sm table-hover table-striped"
@@ -82,4 +140,14 @@
         #servers td { overflow-wrap: anywhere; }
         #servers td:nth-child(5) { font-size: .72rem; white-space: nowrap; }
     </style>
+@endpush
+
+@push('scripts')
+    <script>
+        window.addEventListener('message', function (event) {
+            if (event.data && event.data.type === 'alphalink-dialog-resize' && event.data.height) {
+                $('.command-modal-dialog iframe').css('height', event.data.height + 'px');
+            }
+        });
+    </script>
 @endpush

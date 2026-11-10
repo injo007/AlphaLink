@@ -5,40 +5,40 @@ window.jQuery(function () {
     const $ = window.jQuery;
     const serverUrl = (template, id) => template.replace('__SERVER__', encodeURIComponent(id));
     const showBadge = (value) => {
-        if (value == null) return '<span class="badge badge-secondary p-1" title="UNKNOWN">N/A</span>';
+        if (value == null) return '<span class="badge-command-pill" title="UNKNOWN">N/A</span>';
         const text = value ? 'YES' : 'NO';
-        const color = value ? 'success' : 'danger';
-        return `<span class="badge badge-${color} p-1" title="${text}">${text}</span>`;
+        const cls = value ? 'badge-command-active-yes' : 'badge-command-active-no';
+        return `<span class="badge-command-pill ${cls}" title="${text}">${text}</span>`;
     };
     const escapeHtml = (value) => $('<div>').text(value == null ? '' : String(value)).html();
-    const button = (icon, title, color, action, id, value) => (
+    const button = (icon, title, actionClass, action, id, value) => (
         `<button type="button" data-id="${escapeHtml(id)}"${value == null ? '' : ` data-action="${value}"`} ` +
-        `class="btn ${color} btn-sm ${action}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"><i class="fas ${icon}"></i></button>&nbsp;`
+        `class="command-action-btn ${actionClass} ${action}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"><i class="fas ${icon}"></i></button>`
     );
     const consoleAction = (row) => (
         `<a href="${escapeHtml(serverUrl(tableElement.dataset.consoleUrlTemplate, row.id))}" target="_self" role="button" ` +
-        `data-id="${escapeHtml(row.id)}" class="btn btn-alt-dark btn-sm console" title="CONSOLE" ` +
-        `aria-label="CONSOLE"><i class="fas fa-terminal"></i></a>&nbsp;`
+        `data-id="${escapeHtml(row.id)}" class="command-action-btn action-terminal console" title="CONSOLE" ` +
+        `aria-label="CONSOLE"><i class="fas fa-terminal"></i></a>`
     );
     const historyAction = (row) => (
         `<a href="${escapeHtml(serverUrl(tableElement.dataset.historyUrlTemplate, row.id))}" target="_blank" rel="noopener" ` +
-        `class="btn btn-info btn-sm history" title="SERVER HISTORY" aria-label="SERVER HISTORY"><i class="fas fa-history"></i></a>&nbsp;`
+        `class="command-action-btn action-info history" title="SERVER HISTORY" aria-label="SERVER HISTORY"><i class="fas fa-history"></i></a>`
     );
     const ipsAction = (row, count) => row.can_manage
-        ? `<a href="${escapeHtml(serverUrl(tableElement.dataset.ipsUrlTemplate, row.id))}" target="_self" role="button" data-id="${escapeHtml(row.id)}" class="btn btn-link btn-sm ips" title="TOTAL IPS" aria-label="TOTAL IPS ${escapeHtml(count)}">${escapeHtml(count)}</a>&nbsp;`
-        : `<span class="text-muted" title="TOTAL IPS">${escapeHtml(count)}</span>`;
+        ? `<a href="${escapeHtml(serverUrl(tableElement.dataset.ipsUrlTemplate, row.id))}" target="_self" role="button" data-id="${escapeHtml(row.id)}" class="badge-command-pill ips" style="color: #6366f1; font-weight: 700; text-decoration: none;" title="TOTAL IPS" aria-label="TOTAL IPS ${escapeHtml(count)}"><i class="fas fa-network-wired" style="font-size: 0.75rem; margin-right: 4px;"></i>${escapeHtml(count)}</a>`
+        : `<span class="badge-command-pill" style="opacity: 0.6;" title="TOTAL IPS">${escapeHtml(count)}</span>`;
     const usersAction = (row, users) => (
         `<a href="${escapeHtml(serverUrl(tableElement.dataset.usersUrlTemplate, row.id))}" target="_self" role="button" ` +
-        `data-id="${escapeHtml(row.id)}" class="btn btn-link btn-sm users" title="ALLOWED USERS : ${users.length}" ` +
-        `aria-label="ALLOWED USERS : ${users.length}"><i class="fas fa-users"></i> : ${users.length}</a>&nbsp;`
+        `data-id="${escapeHtml(row.id)}" class="badge-command-pill users" style="color: #8b5cf6; font-weight: 600; text-decoration: none;" title="ALLOWED USERS : ${users.length}" ` +
+        `aria-label="ALLOWED USERS : ${users.length}"><i class="fas fa-users" style="font-size: 0.75rem; margin-right: 4px;"></i>${users.length}</a>`
     );
     const editAction = (row) => (
         `<a href="${escapeHtml(serverUrl(tableElement.dataset.editUrlTemplate, row.id))}" target="_self" role="button" ` +
-        `data-id="${escapeHtml(row.id)}" class="btn btn-info btn-sm edit" title="UPDATE SERVER" ` +
-        `aria-label="UPDATE SERVER"><i class="fas fa-pencil-alt"></i></a>&nbsp;`
+        `data-id="${escapeHtml(row.id)}" class="command-action-btn action-info edit" title="UPDATE SERVER" ` +
+        `aria-label="UPDATE SERVER"><i class="fas fa-pencil-alt"></i></a>`
     );
-    const inactiveButton = (icon, title, color = 'btn-info') => (
-        `<button type="button" class="btn ${color} btn-sm" title="${title}" aria-label="${title}" disabled><i class="fas ${icon}"></i></button>&nbsp;`
+    const inactiveButton = (icon, title) => (
+        `<button type="button" class="command-action-btn" title="${title}" aria-label="${title}" disabled style="opacity: 0.4;"><i class="fas ${icon}"></i></button>`
     );
     const returned = $('#returned');
     const canManage = tableElement.dataset.canManage === 'true';
@@ -50,25 +50,29 @@ window.jQuery(function () {
                 query.returned = returned.is(':checked');
             },
         },
+        dom: '<"command-table-toolbar"<"command-table-toolbar-left"lB><"command-table-toolbar-right"f>>rt<"command-table-footer"ip>',
         processing: true,
         displayLength: 50,
         autoWidth: false,
         order: [[6, 'asc'], [1, 'desc']],
         select: { style: 'os', selector: 'td:first-child' },
         buttons: [
-            { extend: 'pageLength' },
+            { extend: 'pageLength', className: 'btn-command-action' },
             {
-                text: '<i class="far fa-square"></i>',
+                text: '<i class="far fa-square mr-1"></i> DESELECT',
+                className: 'btn-command-action',
                 titleAttr: 'SELECT NONE',
                 action: (event, dt) => dt.rows({ page: 'current' }).deselect(),
             },
             {
-                text: '<i class="far fa-check-square"></i>',
+                text: '<i class="far fa-check-square mr-1"></i> SELECT ALL',
+                className: 'btn-command-action',
                 titleAttr: 'SELECT ALL',
                 action: (event, dt) => dt.rows({ page: 'current' }).select(),
             },
             {
-                text: '<i class="fa fa-plus"></i>',
+                text: '<i class="fa fa-plus mr-1"></i> NEW SERVER',
+                className: 'btn-command-primary',
                 titleAttr: 'ADD NEW SERVERS',
                 action: () => openFrame(
                     tableElement.dataset.createUrl,
@@ -79,31 +83,36 @@ window.jQuery(function () {
                 enabled: canManage && Boolean(tableElement.dataset.createUrl),
             },
             {
-                text: '<i class="fa fa-trash"></i>',
+                text: '<i class="fa fa-trash mr-1"></i> DELETE',
+                className: 'btn-command-action text-danger',
                 titleAttr: 'DELETE SERVERS',
                 action: (event, dt) => returnServers(dt.rows({ selected: true }).data().toArray().map((row) => row.id), true),
                 enabled: false,
             },
             {
-                text: '<i class="fas fa-users"></i>',
+                text: '<i class="fas fa-users mr-1"></i> USERS',
+                className: 'btn-command-action',
                 titleAttr: 'ALLOWED USERS',
                 action: (event, dt) => openBulkUsers(dt.rows({ selected: true }).data().toArray().map((row) => row.id)),
                 enabled: false,
             },
             {
-                text: '<i class="fas fa-magic"></i>',
+                text: '<i class="fas fa-magic mr-1"></i> INSTALL',
+                className: 'btn-command-action',
                 titleAttr: 'INSTALL SERVER',
                 action: () => window.open(tableElement.dataset.installUrl, '_blank', 'noopener'),
                 enabled: Boolean(tableElement.dataset.installUrl),
             },
             {
-                text: '<i class="fas fa-hat-wizard"></i>',
+                text: '<i class="fas fa-hat-wizard mr-1"></i> BULK INSTALL',
+                className: 'btn-command-action',
                 titleAttr: 'BULK INSTALL SERVERS',
                 action: () => window.open(tableElement.dataset.bulkInstallUrl, '_blank', 'noopener'),
                 enabled: Boolean(tableElement.dataset.bulkInstallUrl),
             },
             {
-                text: '<i class="fa fa-sync"></i>',
+                text: '<i class="fa fa-sync mr-1"></i> REFRESH',
+                className: 'btn-command-action',
                 titleAttr: 'REFRESH',
                 action: (event, dt) => dt.ajax.reload(null, false),
             },
@@ -115,41 +124,59 @@ window.jQuery(function () {
                 data: 'id',
                 width: '6%',
                 render: (value, type) => type === 'display'
-                    ? `<span title="${escapeHtml(value)}">${escapeHtml(String(value).slice(0, 6))}…</span>`
+                    ? `<span class="command-mono-badge" title="${escapeHtml(value)}">#${escapeHtml(String(value).slice(0, 6))}</span>`
                     : value,
             },
             {
                 title: 'PROVIDER',
                 data: 'provider.name',
                 width: '8%',
-                render: (value, type) => type === 'display' ? escapeHtml(value || 'NA') : value,
+                render: (value, type) => type === 'display'
+                    ? `<span style="font-weight: 600; color: #8b5cf6;">${escapeHtml(value || 'NA')}</span>`
+                    : value,
             },
-            { title: 'NAME', type: 'natural', data: null, width: '10%', render: (data, type, row) => type === 'display' ? escapeHtml(`${row.name}${row.id.slice(0, 4)}`) : `${row.name}${row.id}` },
+            {
+                title: 'NAME',
+                type: 'natural',
+                data: null,
+                width: '10%',
+                render: (data, type, row) => type === 'display'
+                    ? `<span style="font-weight: 700;">${escapeHtml(`${row.name}${row.id ? row.id.slice(0, 4) : ''}`)}</span>`
+                    : `${row.name}${row.id}`
+            },
             {
                 title: 'MAIN IP',
                 data: 'ip',
                 width: '10%',
                 render: (value, type) => type === 'display'
-                    ? `<span class="text-primary">${escapeHtml(value || '')}</span>`
+                    ? `<span style="font-family: monospace; font-weight: 600; color: #6366f1;">${escapeHtml(value || '')}</span>`
                     : value,
             },
             {
                 title: 'COUNTRY',
                 data: 'country',
                 width: '8%',
-                render: (value) => value ? escapeHtml(String(value).toUpperCase()) : 'N/A',
+                render: (value) => `<span class="badge-command-pill" style="font-family: monospace;">${value ? escapeHtml(String(value).toUpperCase()) : 'N/A'}</span>`,
             },
-            { title: 'EXPIRE AT', data: 'expire_at', width: '9%' },
+            {
+                title: 'EXPIRE AT',
+                data: 'expire_at',
+                width: '9%',
+                render: (value, type) => type === 'display'
+                    ? `<span style="font-size: 0.8125rem; color: var(--command-os-text-muted, #64748b);">${escapeHtml(value || 'N/A')}</span>`
+                    : value,
+            },
             { title: 'INSTALLED', data: 'is_installed', width: '8%', render: showBadge },
             {
                 title: 'STATUS',
                 data: 'history',
                 width: '7%',
                 render: (history) => {
-                    if (!history) return '<span class="badge badge-secondary p-1" title="NA">NA</span>';
+                    if (!history) return '<span class="badge-command-pill" title="NA">NA</span>';
                     const down = history.is_ssh_down === true;
                     const title = down ? 'DOWN' : 'UP';
-                    return `<span class="badge badge-${down ? 'danger' : 'success'} p-1" title="${title}">${title}</span>`;
+                    const cls = down ? 'badge-command-active-no' : 'badge-command-active-yes';
+                    return `<span class="badge-command-pill ${cls}" title="${title}">${title}</span>`;
                 },
             },
             {
@@ -158,7 +185,7 @@ window.jQuery(function () {
                 searchable: false,
                 width: '8%',
                 render: (value, type, row) => value == null
-                    ? '<span class="text-muted">N/A</span>'
+                    ? '<span class="badge-command-pill" style="opacity: 0.6;">N/A</span>'
                     : ipsAction(row, value),
             },
             {
@@ -166,11 +193,11 @@ window.jQuery(function () {
                 data: 'allowed_users',
                 width: '6%',
                 render: (users, type, row) => {
-                    if (!Array.isArray(users)) return '<span class="text-muted">N/A</span>';
+                    if (!Array.isArray(users)) return '<span class="badge-command-pill" style="opacity: 0.6;">N/A</span>';
                     if (row.deleted_at) return '';
                     return row.can_manage
                         ? usersAction(row, users)
-                        : `<span class="text-muted" title="ALLOWED USERS"><i class="fas fa-users"></i> : ${users.length}</span>`;
+                        : `<span class="badge-command-pill" style="opacity: 0.6;" title="ALLOWED USERS"><i class="fas fa-users"></i> : ${users.length}</span>`;
                 },
             },
             {
@@ -181,29 +208,29 @@ window.jQuery(function () {
                 width: '17%',
                 render: (data, type, row) => {
                     if (row.deleted_at) return row.can_restore
-                        ? button('fa-trash-restore', 'RESTORE', 'btn-secondary', 'restore', row.id)
+                        ? `<div class="command-action-btn-group">${button('fa-trash-restore', 'RESTORE', 'action-info', 'restore', row.id)}</div>`
                         : '';
                     const locked = row.is_locked === true;
                     const status = locked || !row.can_operate ? '' : button(
-                        row.is_active ? 'fa-times' : 'fa-check',
+                        row.is_active ? 'fa-pause' : 'fa-play',
                         row.is_active ? 'DISABLE SERVER' : 'ENABLE SERVER',
-                        row.is_active ? 'btn-warning' : 'btn-success',
+                        row.is_active ? 'action-warning' : 'action-success',
                         'status', row.id, row.is_active ? 0 : 1,
                     );
-                    const returnedServer = !row.can_return ? '' : button('fa-trash', 'DELETE SERVER', 'btn-danger', 'return', row.id);
+                    const returnedServer = !row.can_return ? '' : button('fa-trash', 'DELETE SERVER', 'action-danger', 'return', row.id);
                     const lockButton = row.can_manage
-                        ? button(locked ? 'fa-lock' : 'fa-lock-open', locked ? 'UNLOCK SERVER' : 'LOCK SERVER', locked ? 'btn-warning' : 'btn-success', 'lock', row.id, locked ? 0 : 1)
+                        ? button(locked ? 'fa-lock' : 'fa-lock-open', locked ? 'UNLOCK SERVER' : 'LOCK SERVER', locked ? 'action-warning' : 'action-success', 'lock', row.id, locked ? 0 : 1)
                         : '';
-                    return [
+                    return `<div class="command-action-btn-group">` + [
                         historyAction(row),
                         row.can_console
                             ? consoleAction(row)
-                            : inactiveButton('fa-terminal', 'CONSOLE', 'btn-alt-dark'),
-                        row.can_manage ? editAction(row) : inactiveButton('fa-pencil-alt', 'UPDATE SERVER', 'btn-info'),
+                            : inactiveButton('fa-terminal', 'CONSOLE'),
+                        row.can_manage ? editAction(row) : inactiveButton('fa-pencil-alt', 'UPDATE SERVER'),
                         lockButton,
                         status,
                         returnedServer,
-                    ].join('');
+                    ].filter(Boolean).join('') + `</div>`;
                 },
             },
         ],
@@ -280,7 +307,7 @@ window.jQuery(function () {
             }
             const opener = document.activeElement;
             const modalSizeClass = size === 'xl' ? 'modal-xl' : 'modal-lg';
-            dialog.className = 'server-frame-dialog';
+            dialog.className = 'server-frame-dialog command-modal-dialog';
             dialog.setAttribute('aria-label', title);
             dialog.innerHTML = `
                 <div class="modal-dialog ${modalSizeClass} modal-dialog-centered modal-dialog-scrollable">
@@ -309,6 +336,7 @@ window.jQuery(function () {
 
         const iframe = `<iframe class="server-action-frame" src="${escapeHtml(url)}" width="100%" scrolling="auto" frameborder="0" title="${escapeHtml(title)}"></iframe>`;
         window.bootbox.dialog({
+            className: 'command-modal-dialog',
             scrollable: true,
             closeButton: true,
             size,

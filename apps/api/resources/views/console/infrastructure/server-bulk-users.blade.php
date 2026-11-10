@@ -3,11 +3,20 @@
 @section('title', 'Manage Users Servers')
 
 @section('content')
-    <div class="block block-rounded">
-        <div class="block-header block-header-default">
-            <h3 class="block-title">Servers Allowed Users</h3>
+    <div class="command-modal-surface">
+        <div class="command-modal-hero">
+            <div class="command-modal-hero-left">
+                <div class="command-modal-hero-icon">
+                    <i class="fas fa-users-cog"></i>
+                </div>
+                <div>
+                    <div class="command-modal-hero-eyebrow">BULK ACCESS CONTROL // MULTI-SERVER DELEGATION</div>
+                    <h3 class="command-modal-hero-title">ALLOWED MAILERS ASSIGNMENT</h3>
+                </div>
+            </div>
         </div>
-        <div class="block-content">
+
+        <div class="command-modal-body">
             @include('console.infrastructure._allowed-users-form', [
                 'users' => $users,
                 'serverIds' => $servers->pluck('id')->all(),

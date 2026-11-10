@@ -3,18 +3,32 @@
 @section('title', 'My IPs')
 
 @section('content')
-    <div class="block block-rounded">
-        <div class="block-header">
-            <h3 class="block-title">My IPs</h3>
-            <div class="block-options">
-                <button type="button" class="btn-block-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen"></button>
+    <div class="command-os-report-page">
+        <!-- 1. Hero Header -->
+        <header class="command-os-report-hero mb-4">
+            <div class="command-os-report-hero-left">
+                <div class="command-os-report-hero-icon" aria-hidden="true">
+                    <i class="fas fa-network-wired"></i>
+                </div>
+                <div>
+                    <div class="command-os-report-hero-eyebrow">NETWORK ASSETS // REPUTATION TELEMETRY</div>
+                    <h1 class="command-os-report-hero-title">MY IPS</h1>
+                    <p class="command-os-report-hero-desc">Active IP allocations, reverse DNS PTR mappings, sender reputation scores, and blacklist telemetry across assigned servers.</p>
+                </div>
             </div>
-        </div>
-        <div class="block-content block-content-full">
-            <p class="text-muted mb-3">Active IPs on active, installed servers in this workspace. PTR, sender score and blacklist badges use the latest saved local history snapshot.</p>
-            <div class="alert alert-info py-2" role="note">
-                Webmail access is not enabled here. Opening Webmail uses an external SSO session and changes remote mail-service and PMTA queue state.
+            <div class="command-os-report-hero-right">
+                <div class="command-os-report-hero-meta">
+                    <span class="command-os-report-badge">IP POOL AUDIT</span>
+                </div>
             </div>
+        </header>
+
+        <!-- 2. Table Card -->
+        <div class="command-os-table-card">
+            <div class="alert alert-info mx-3 mt-3 mb-2 py-2" role="note" style="border-radius: 10px; font-size: 0.8125rem;">
+                <i class="fas fa-info-circle mr-1"></i> PTR, sender score, and blacklist matrices reflect the latest automated telemetry audit snapshot.
+            </div>
+
             <div class="table-responsive">
                 <table id="my-ips" class="table table-sm table-hover table-striped"
                        data-source-url="{{ $ipsUrl }}"
@@ -28,7 +42,7 @@
 @push('styles')
     <style>
         #my-ips { min-width: 920px; }
-        #my-ips .ip-copy { border: 0; background: transparent; color: #4c78a8; cursor: pointer; padding: 0 .2rem; }
+        #my-ips .ip-copy { border: 0; background: transparent; color: #8b5cf6; cursor: pointer; padding: 0 .2rem; }
         #my-ips .ip-badge { display: inline-block; margin: .08rem; }
     </style>
 @endpush
@@ -58,12 +72,15 @@
             const hostCell = (value, label) => {
                 const text = String(value == null ? '' : value);
                 const url = safeHostUrl(text);
-                const link = url ? '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(text) + '</a>' : escapeHtml(text || 'NA');
+                const link = url
+                    ? '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer" style="font-family: monospace; font-weight: 600; color: #6366f1;">' + escapeHtml(text) + '</a>'
+                    : '<span style="font-family: monospace; font-weight: 600; color: #6366f1;">' + escapeHtml(text || 'NA') + '</span>';
                 return link + copyButton(text || 'NA', label);
             };
             const statusBadge = (value, label) => {
                 const isListed = value === true;
-                return '<span class="badge ip-badge ' + (isListed ? 'badge-danger' : 'badge-success') + '" title="' + escapeHtml(label) + '">' + (isListed ? 'YES' : 'NO') + '</span>';
+                const color = isListed ? 'badge-command-active-no' : 'badge-command-active-yes';
+                return '<span class="badge-command-pill ip-badge ' + color + '" title="' + escapeHtml(label) + '">' + (isListed ? 'YES' : 'NO') + '</span>';
             };
             const historyValue = (history, key) => history && history[key] != null ? history[key] : '';
             const ajaxUrl = new URL(table.dataset.sourceUrl, window.location.href);
@@ -76,64 +93,85 @@
                 order: [[0, 'desc']],
                 pageLength: 50,
                 responsive: false,
-                dom: 'Bfrtip',
+                dom: '<"command-table-toolbar"<"command-table-toolbar-left"lB><"command-table-toolbar-right"f>>rt<"command-table-footer"ip>',
                 buttons: [
-                    { extend: 'pageLength' },
+                    { extend: 'pageLength', className: 'btn-command-action' },
                     {
-                        text: 'EXPORT',
+                        text: '<i class="fas fa-file-export mr-1"></i> EXPORT',
+                        className: 'btn-command-action',
                         action: function () {
                             window.location.assign(table.dataset.exportUrl);
                         }
                     },
                     {
-                        text: '<i class="fas fa-sync" aria-hidden="true"></i>',
+                        text: '<i class="fas fa-sync mr-1" aria-hidden="true"></i> REFRESH',
+                        className: 'btn-command-action',
                         titleAttr: 'Refresh',
                         action: function (event, dt) { dt.ajax.reload(null, false); }
                     }
                 ],
                 columns: [
-                    { title: '#', data: 'id', width: '5%' },
                     {
-                        title: 'server',
+                        title: '#', data: 'id', width: '5%',
+                        render: function (id, type) {
+                            return type === 'display' ? '<span class="command-mono-badge">#' + escapeHtml(id) + '</span>' : id;
+                        }
+                    },
+                    {
+                        title: 'SERVER',
                         data: 'server',
                         type: 'natural',
                         render: function (server, type) {
                             const text = (server && server.name ? server.name : '') + (server && server.id ? server.id : '');
-                            return type === 'display' ? escapeHtml(text) : text;
+                            return type === 'display' ? '<strong style="color: var(--command-os-text, #1e293b);">' + escapeHtml(text) + '</strong>' : text;
                         }
                     },
                     {
-                        title: 'ip',
+                        title: 'IP',
                         data: 'ip',
                         type: 'ip-address',
                         render: function (value, type) { return type === 'display' ? hostCell(value, 'IP address') : value; }
                     },
-                    { title: 'type', data: 'type' },
                     {
-                        title: 'domain',
-                        data: 'dns',
-                        render: function (value, type) { return type === 'display' ? hostCell(value, 'domain') : value; }
+                        title: 'TYPE',
+                        data: 'type',
+                        render: function (value) { return '<span class="badge-command-pill">' + escapeHtml(value || 'N/A') + '</span>'; }
                     },
                     {
-                        title: 'ptr',
-                        data: 'history',
-                        render: function (history, type) {
-                            const value = historyValue(history, 'ptr') || 'NA';
-                            return type === 'display' ? escapeHtml(value) + copyButton(value, 'PTR') : value;
+                        title: 'DOMAIN',
+                        data: 'dns',
+                        render: function (value, type) {
+                            const text = String(value == null ? '' : value);
+                            const url = safeHostUrl(text);
+                            const link = url
+                                ? '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer" style="font-weight: 600; color: #8b5cf6;">' + escapeHtml(text) + '</a>'
+                                : '<span style="font-weight: 600; color: #8b5cf6;">' + escapeHtml(text || 'NA') + '</span>';
+                            return link + copyButton(text || 'NA', 'domain');
                         }
                     },
                     {
-                        title: 'score',
+                        title: 'PTR',
                         data: 'history',
-                        render: function (history) { return escapeHtml(historyValue(history, 'sender_score') || 'NA'); }
+                        render: function (history, type) {
+                            const value = historyValue(history, 'ptr') || 'NA';
+                            return type === 'display' ? '<span style="font-family: monospace; font-size: 0.8125rem;">' + escapeHtml(value) + '</span>' + copyButton(value, 'PTR') : value;
+                        }
                     },
                     {
-                        title: 'webmail',
+                        title: 'SCORE',
+                        data: 'history',
+                        render: function (history) {
+                            const score = historyValue(history, 'sender_score');
+                            return score ? '<span class="badge-command-pill" style="font-weight: 700; color: #10b981;">' + escapeHtml(score) + '</span>' : '<span class="text-muted">NA</span>';
+                        }
+                    },
+                    {
+                        title: 'WEBMAIL',
                         data: 'id',
                         orderable: false,
                         searchable: false,
                         render: function () {
-                            return '<button type="button" class="btn btn-sm btn-link" title="Unavailable: remote SSO and PMTA actions are not implemented" aria-label="Webmail unavailable" disabled><i class="far fa-envelope" aria-hidden="true"></i></button>';
+                            return '<button type="button" class="command-action-btn" title="Unavailable: remote SSO and PMTA actions are not implemented" aria-label="Webmail unavailable" disabled style="opacity: 0.35;"><i class="far fa-envelope" aria-hidden="true"></i></button>';
                         }
                     },
                     {

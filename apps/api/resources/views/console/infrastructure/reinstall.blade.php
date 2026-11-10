@@ -3,85 +3,133 @@
 @section('title', 'Reinstall Servers')
 
 @section('content')
-    <div class="block block-rounded">
-        <div class="block-header block-header-default">
-            <h3 class="block-title">Reinstall Servers</h3>
-            <div class="block-options">
-                <button type="button" class="btn-block-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen"></button>
+    <div class="command-os-report-page">
+        <!-- 1. Hero Header -->
+        <header class="command-os-report-hero mb-4">
+            <div class="command-os-report-hero-left">
+                <div class="command-os-report-hero-icon" aria-hidden="true">
+                    <i class="fas fa-redo"></i>
+                </div>
+                <div>
+                    <div class="command-os-report-hero-eyebrow">LIFECYCLE RECOVERY // FULL STACK REBUILD</div>
+                    <h1 class="command-os-report-hero-title">REINSTALL SERVERS</h1>
+                    <p class="command-os-report-hero-desc">Rebuild operating system mail stack, reinstall PowerMTA, regenerate certificates, and update DNS bindings.</p>
+                </div>
             </div>
-        </div>
-        <div class="block-content block-content-full">
-            <div class="row push">
-                <div class="col-sm-12 offset-md-3 col-md-6">
-                    <div class="form-group">
-                        <label for="reinstall-server">Servers:</label>
-                        <select id="reinstall-server" class="form-control selectpicker" data-live-search="true" title="Select Server ..." @disabled($servers->isEmpty())>
-                            @foreach ($servers as $server)
-                                <option value="{{ $server->id }}">{{ $server->name }}{{ $server->id }} | {{ $server->ip_address }}</option>
-                            @endforeach
-                        </select>
+            <div class="command-os-report-hero-right">
+                <div class="command-os-report-hero-meta">
+                    <span class="command-os-report-badge">MAINTENANCE MODE</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- 2. Form & Workspace Card -->
+        <div class="command-os-table-card p-4">
+            <div class="row justify-content-center push">
+                <div class="col-sm-12 col-md-8 col-lg-6">
+                    <div class="command-form-group">
+                        <label class="command-form-label" for="reinstall-server">
+                            <i class="fas fa-server mr-1 text-purple"></i> TARGET SERVER
+                        </label>
+                        <div class="command-select-wrapper">
+                            <select id="reinstall-server" class="command-form-control command-select" title="Select Server ..." @disabled($servers->isEmpty())>
+                                <option value="" disabled selected>Select Target Server ...</option>
+                                @foreach ($servers as $server)
+                                    <option value="{{ $server->id }}">{{ $server->name }}{{ $server->id }} | {{ $server->ip_address }}</option>
+                                @endforeach
+                            </select>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <button type="button" class="btn btn-primary btn-block" id="load-reinstall-config" @disabled($servers->isEmpty())>LOAD CONFIG</button>
-                        <p class="small text-muted mt-2 mb-0" id="reinstall-action-status" role="status" aria-live="polite">Select a server, then load its saved configuration before reinstalling.</p>
+
+                    <div class="command-modal-actions mt-3">
+                        <button type="button" class="btn-command-primary w-100" id="load-reinstall-config" @disabled($servers->isEmpty())>
+                            <i class="fas fa-sync mr-1"></i> LOAD SAVED CONFIGURATION
+                        </button>
                     </div>
+                    <p class="small text-muted mt-2 text-center" id="reinstall-action-status" role="status" aria-live="polite">Select a server, then load its saved configuration before reinstalling.</p>
+
                     @if ($servers->isEmpty())
-                        <div class="alert alert-info" role="status">No active installed servers are available to reinstall.</div>
+                        <div class="alert alert-info mt-3" role="status" style="border-radius: 12px; font-size: 0.8125rem;">
+                            <i class="fas fa-info-circle mr-1"></i> No active installed servers are available to reinstall.
+                        </div>
                     @endif
-                    <div class="alert alert-danger d-none" id="reinstall-error" role="alert" aria-live="polite"></div>
+                    <div class="alert alert-danger d-none mt-3" id="reinstall-error" role="alert" aria-live="polite" style="border-radius: 12px; font-size: 0.8125rem;"></div>
                 </div>
             </div>
 
-            <div class="alert alert-warning" role="status">
-                Reinstall changes the selected server's host and mail services. Owned-domain DNS records may be replaced, and the saved IP map may be refreshed when PMTA is selected. AlphaLink checks PMTA assets and host readiness before opening an SSH session.
+            <div class="alert alert-warning my-3" role="status" style="border-radius: 12px; font-size: 0.8125rem;">
+                <i class="fas fa-exclamation-triangle mr-1"></i> <strong>NOTICE:</strong> Reinstall modifies the target server's host services. Owned-domain DNS records may be replaced and the saved IP allocation map refreshed when PMTA is selected.
             </div>
 
-            <div class="row push d-none" id="reinstall-holder">
+            <div class="row push d-none mt-4" id="reinstall-holder">
                 <div class="col-sm-12">
-                    <fieldset class="form-group" aria-label="Reinstallation settings">
-                        <div class="custom-control custom-control-inline">
-                            <select id="reinstall-pmta-version" class="form-control" style="height: 30px;">
-                                <option value="40">PMTA 4.0</option>
-                                <option value="45">PMTA 4.5</option>
-                                <option value="50">PMTA 5.0</option>
-                            </select>
-                        </div>
-                        @foreach (['pmta' => 'PMTA', 'tracking' => 'TRACKING', 'https' => 'HTTPS', 'proxy' => 'PROXY', 'imap' => 'IMAP', 'spf' => 'SPF', 'dkim' => 'DKIM', 'dmarc' => 'DMARC'] as $option => $label)
-                            <div class="custom-control custom-switch custom-control-inline">
-                                <input type="checkbox" class="custom-control-input" id="reinstall-{{ $option }}" data-reinstall-option="{{ $option }}">
-                                <label class="custom-control-label" for="reinstall-{{ $option }}">{{ $label }}</label>
+                    <div class="p-3 mb-3 d-flex flex-wrap align-items-center justify-content-between" style="background: rgba(99, 102, 241, 0.04); border: 1px solid rgba(99, 102, 241, 0.12); border-radius: 12px; gap: 12px;">
+                        <div class="d-flex align-items-center" style="gap: 8px;">
+                            <label class="mb-0 font-w600" for="reinstall-pmta-version" style="font-size: 0.8125rem;">PMTA Version:</label>
+                            <div class="command-select-wrapper" style="width: 140px;">
+                                <select id="reinstall-pmta-version" class="command-form-control command-select" style="height: 34px; padding: 4px 8px; font-size: 0.8125rem;">
+                                    <option value="40">PMTA 4.0</option>
+                                    <option value="45" selected>PMTA 4.5</option>
+                                    <option value="50">PMTA 5.0</option>
+                                </select>
                             </div>
-                        @endforeach
-                    </fieldset>
+                        </div>
+                        <div class="d-flex flex-wrap align-items-center" style="gap: 12px;">
+                            @foreach (['pmta' => 'PMTA', 'tracking' => 'TRACKING', 'https' => 'HTTPS', 'proxy' => 'PROXY', 'imap' => 'IMAP', 'spf' => 'SPF', 'dkim' => 'DKIM', 'dmarc' => 'DMARC'] as $option => $label)
+                                <div class="custom-control custom-switch custom-control-inline">
+                                    <input type="checkbox" class="custom-control-input" id="reinstall-{{ $option }}" data-reinstall-option="{{ $option }}">
+                                    <label class="custom-control-label" for="reinstall-{{ $option }}" style="font-size: 0.75rem; font-weight: 600;">{{ $label }}</label>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
 
                     <div class="table-responsive">
-                        <table id="reinstall-ips" class="table table-sm table-hover">
-                            <thead>
-                                <tr><th scope="col">IP</th><th scope="col">TYPE</th><th scope="col">MAIN</th><th scope="col">SUB DOMAIN</th><th scope="col">DOMAIN</th><th scope="col" aria-label="Actions"></th></tr>
+                        <table id="reinstall-ips" class="table table-sm table-hover table-striped">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th scope="col">IP ADDRESS</th>
+                                    <th scope="col">TYPE</th>
+                                    <th scope="col">MAIN</th>
+                                    <th scope="col">SUB DOMAIN</th>
+                                    <th scope="col">ASSIGNED DOMAIN</th>
+                                    <th scope="col" aria-label="Actions"></th>
+                                </tr>
                             </thead>
                             <tbody id="reinstall-ips-body">
-                                <tr><td colspan="6">Load a server configuration to review its saved IP assignments.</td></tr>
+                                <tr><td colspan="6" class="text-center py-3 text-muted">Load a server configuration to review its saved IP assignments.</td></tr>
                             </tbody>
                         </table>
                     </div>
 
-                    <div class="form-group">
-                        <div class="custom-control custom-switch custom-control-inline mb-1">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between mt-3" style="gap: 10px;">
+                        <div class="custom-control custom-switch custom-control-inline">
                             <input type="checkbox" class="custom-control-input" id="reinstall-with-ipv6" checked>
-                            <label class="custom-control-label" for="reinstall-with-ipv6">WITH IPV6</label>
+                            <label class="custom-control-label font-w600" for="reinstall-with-ipv6" style="font-size: 0.8125rem;">WITH IPV6 SUPPORT</label>
                         </div>
-                        <button type="button" class="btn btn-info" id="reload-reinstall-ips" disabled>RELOAD IPS</button>
-                        <button type="button" class="btn btn-warning" id="configure-reinstall-ips" disabled aria-haspopup="dialog" aria-controls="reinstall-ip-config-dialog">CONFIG IPS</button>
-                        <button type="button" class="btn btn-primary float-md-right" id="reinstall-submit" disabled aria-haspopup="dialog" aria-controls="reinstall-confirmation">REINSTALL</button>
-                        @unless (config('infrastructure.reinstall_ip_config_execution_enabled', false))
-                            <p class="small text-warning mt-2" role="status">CONFIG IPS is disabled by ALPHALINK_REINSTALL_IP_CONFIG_EXECUTION_ENABLED.</p>
-                        @endunless
+                        <div class="d-flex align-items-center" style="gap: 8px;">
+                            <button type="button" class="btn-command-action" id="reload-reinstall-ips" disabled>
+                                <i class="fas fa-sync mr-1"></i> RELOAD IPS
+                            </button>
+                            <button type="button" class="btn-command-action" id="configure-reinstall-ips" disabled aria-haspopup="dialog" aria-controls="reinstall-ip-config-dialog">
+                                <i class="fas fa-sliders-h mr-1"></i> CONFIG IPS
+                            </button>
+                            <button type="button" class="btn-command-primary" id="reinstall-submit" disabled aria-haspopup="dialog" aria-controls="reinstall-confirmation">
+                                <i class="fas fa-redo mr-1"></i> REINSTALL SERVER
+                            </button>
+                        </div>
                     </div>
-                    <p class="small text-warning" id="reinstall-network-blocker">CONFIG IPS changes server network interfaces. Permanent mode replaces existing IPv4 alias files and restarts networking.</p>
 
-                    <div class="form-group">
-                        <h2 class="content-heading border-bottom mb-4 pb-2">Logs</h2>
-                        <code id="reinstall-log" role="status" aria-live="polite" style="white-space: pre-wrap;">Load a server configuration to begin.</code>
+                    @unless (config('infrastructure.reinstall_ip_config_execution_enabled', false))
+                        <p class="small text-warning mt-2 mb-0" role="status"><i class="fas fa-info-circle mr-1"></i> CONFIG IPS execution is disabled by ALPHALINK_REINSTALL_IP_CONFIG_EXECUTION_ENABLED.</p>
+                    @endunless
+                    <p class="small text-muted mt-1" id="reinstall-network-blocker">CONFIG IPS modifies server network interfaces. Permanent mode replaces existing IPv4 alias files and restarts networking.</p>
+
+                    <div class="mt-4">
+                        <h4 class="mb-2 font-w700" style="font-size: 0.9375rem;"><i class="fas fa-terminal mr-1 text-purple"></i> REINSTALL LOGS</h4>
+                        <div style="background: #090d16; border: 1px solid rgba(99, 102, 241, 0.25); border-radius: 12px; padding: 1rem; max-height: 400px; overflow-y: auto;">
+                            <code id="reinstall-log" role="status" aria-live="polite" style="white-space: pre-wrap; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.8125rem; color: #4ade80; display: block;">Load a server configuration to begin.</code>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -95,26 +143,27 @@
         'logSelector' => '#reinstall-log',
         'refreshSelector' => '#reload-reinstall-ips',
     ])
-    <dialog id="reinstall-confirmation" aria-labelledby="reinstall-confirmation-title" aria-describedby="reinstall-confirmation-description" style="max-width: 34rem; width: calc(100% - 2rem); border: 1px solid #DFE3D9; border-radius: .7rem; padding: 1.25rem; color: #183636; background: #FFFEFA; box-shadow: 0 1rem 3.5rem rgba(24,54,54,.22);">
-        <h2 id="reinstall-confirmation-title" class="h4">Confirm server reinstall</h2>
-        <p id="reinstall-confirmation-description" class="mb-4">This reruns the selected host and mail services. It can replace DNS records for domains managed by AlphaLink and update saved server IP assignments. Continue only if this maintenance is intended.</p>
-        <div class="d-flex justify-content-end">
-            <button type="button" class="btn btn-alt-secondary mr-2" id="reinstall-confirm-cancel">Cancel</button>
-            <button type="button" class="btn btn-danger" id="reinstall-confirm-accept">Reinstall server</button>
+
+    <dialog id="reinstall-confirmation" aria-labelledby="reinstall-confirmation-title" aria-describedby="reinstall-confirmation-description" style="max-width: 34rem; width: calc(100% - 2rem); border: 1px solid var(--command-os-border, rgba(99, 102, 241, 0.2)); border-radius: 16px; padding: 1.5rem; color: var(--command-os-text, #1e293b); background: var(--command-os-card-bg, #ffffff); box-shadow: 0 1rem 3.5rem rgba(0, 0, 0, 0.25);">
+        <h3 id="reinstall-confirmation-title" class="font-w700 mb-2" style="font-size: 1.125rem;"><i class="fas fa-exclamation-triangle mr-1 text-warning"></i> Confirm Server Reinstallation</h3>
+        <p id="reinstall-confirmation-description" class="mb-4 text-muted" style="font-size: 0.875rem;">This reruns the selected host and mail services. It can replace DNS records for domains managed by AlphaLink and update saved server IP assignments. Continue only if this maintenance is intended.</p>
+        <div class="d-flex justify-content-end" style="gap: 8px;">
+            <button type="button" class="btn-command-action" id="reinstall-confirm-cancel">Cancel</button>
+            <button type="button" class="btn-command-primary text-danger" id="reinstall-confirm-accept">Proceed with Reinstall</button>
         </div>
     </dialog>
-    <dialog id="reinstall-row-confirmation" aria-labelledby="reinstall-row-confirmation-title" aria-describedby="reinstall-row-confirmation-description" style="max-width: 32rem; width: calc(100% - 2rem); border: 1px solid #DFE3D9; border-radius: .7rem; padding: 1.25rem; color: #183636; background: #FFFEFA; box-shadow: 0 1rem 3.5rem rgba(24,54,54,.22);">
-        <h2 id="reinstall-row-confirmation-title" class="h4">Remove this IP from the reinstall</h2>
-        <p id="reinstall-row-confirmation-description" class="mb-4">The saved assignment remains untouched unless a reinstall completes with PMTA selected.</p>
-        <div class="d-flex justify-content-end">
-            <button type="button" class="btn btn-alt-secondary mr-2" id="reinstall-row-cancel">Keep IP</button>
-            <button type="button" class="btn btn-danger" id="reinstall-row-accept">Remove IP</button>
+
+    <dialog id="reinstall-row-confirmation" aria-labelledby="reinstall-row-confirmation-title" aria-describedby="reinstall-row-confirmation-description" style="max-width: 32rem; width: calc(100% - 2rem); border: 1px solid var(--command-os-border, rgba(99, 102, 241, 0.2)); border-radius: 16px; padding: 1.5rem; color: var(--command-os-text, #1e293b); background: var(--command-os-card-bg, #ffffff); box-shadow: 0 1rem 3.5rem rgba(0, 0, 0, 0.25);">
+        <h3 id="reinstall-row-confirmation-title" class="font-w700 mb-2" style="font-size: 1.125rem;">Remove IP From Reinstallation</h3>
+        <p id="reinstall-row-confirmation-description" class="mb-4 text-muted" style="font-size: 0.875rem;">The saved assignment remains untouched unless a reinstall completes with PMTA selected.</p>
+        <div class="d-flex justify-content-end" style="gap: 8px;">
+            <button type="button" class="btn-command-action" id="reinstall-row-cancel">Keep IP</button>
+            <button type="button" class="btn-command-primary text-danger" id="reinstall-row-accept">Remove IP</button>
         </div>
     </dialog>
 @endsection
 
 @push('scripts')
-    <script src="{{ asset('console-assets/plugins/bootstrap_select/bootstrap-select.js') }}"></script>
     <script type="module" src="/alphalink/infrastructure/server-ip-config-dialog.js"></script>
     <script>
         (() => {
@@ -141,32 +190,13 @@
             let confirmedAction = null;
             let pendingRemoveRow = null;
 
-            if (window.jQuery?.fn?.selectpicker) {
-                window.jQuery(serverSelect).selectpicker();
-            }
-
             function serverUrl(template) {
                 return template.replace('__SERVER__', encodeURIComponent(serverSelect.value));
             }
 
-            function requestConfirmation(dialog, acceptButton, cancelButton, callback) {
-                if (typeof dialog.showModal !== 'function') {
-                    showError('This browser does not support the confirmation dialog required for server changes.');
-                    return;
-                }
-                confirmedAction = callback;
-                dialog.showModal();
-                acceptButton.focus();
-                const finish = (accepted) => {
-                    const action = confirmedAction;
-                    confirmedAction = null;
-                    dialog.close();
-                    if (accepted && typeof action === 'function') action();
-                };
-                acceptButton.onclick = () => finish(true);
-                cancelButton.onclick = () => finish(false);
-                dialog.oncancel = () => { confirmedAction = null; };
-                dialog.onclose = () => { confirmedAction = null; };
+            function clearError() {
+                error.classList.add('d-none');
+                error.textContent = '';
             }
 
             function showError(message) {
@@ -174,179 +204,190 @@
                 error.classList.remove('d-none');
             }
 
-            function textCell(value) {
-                const cell = document.createElement('td');
-                cell.textContent = String(value ?? '');
-                return cell;
+            function isMainSelected() {
+                return rows.querySelector('input[type="checkbox"]:checked') !== null;
+            }
+
+            function updateRunAvailability() {
+                const hasRows = rows.querySelectorAll('tr[data-ip-id]').length > 0;
+                const enabled = hasRows && isMainSelected();
+                reinstallButton.disabled = !enabled;
+                reloadButton.disabled = !loadedServerId;
+                configureButton.disabled = !loadedServerId;
+                if (!reinstallExecutionEnabled && enabled) {
+                    actionStatus.textContent = 'Reinstall is staged and validated. Execution is disabled in configuration.';
+                }
+            }
+
+            function setSingleMain(changedInput) {
+                if (!changedInput.checked) {
+                    updateRunAvailability();
+                    return;
+                }
+                for (const checkbox of rows.querySelectorAll('input[type="checkbox"]')) {
+                    if (checkbox !== changedInput) checkbox.checked = false;
+                }
+                updateRunAvailability();
             }
 
             function renderRows(assignments) {
                 rows.replaceChildren();
                 if (!assignments.length) {
                     const row = document.createElement('tr');
-                    const cell = textCell('No saved IP assignments are available.');
+                    const cell = document.createElement('td');
                     cell.colSpan = 6;
+                    cell.className = 'text-center py-3 text-muted';
+                    cell.textContent = 'No saved IP assignments found for this server.';
                     row.append(cell);
                     rows.append(row);
+                    updateRunAvailability();
                     return;
                 }
-
+                let mainAssigned = false;
                 for (const assignment of assignments) {
                     const row = document.createElement('tr');
-                    row.dataset.domainId = String(assignment.domain_id ?? '');
-                    row.dataset.ip = String(assignment.ip ?? '');
-                    row.append(textCell(assignment.ip));
-                    row.append(textCell(String(assignment.type ?? '').toUpperCase()));
+                    row.dataset.ipId = String(assignment.id);
+                    row.dataset.domainId = String(assignment.domain_id || '');
+
+                    const ipCell = document.createElement('td');
+                    ipCell.style.fontFamily = 'monospace';
+                    ipCell.style.fontWeight = '600';
+                    ipCell.style.color = '#6366f1';
+                    ipCell.textContent = assignment.ip;
+                    row.append(ipCell);
+
+                    const typeCell = document.createElement('td');
+                    typeCell.innerHTML = `<span class="badge-command-pill">${assignment.type.toUpperCase()}</span>`;
+                    row.append(typeCell);
 
                     const mainCell = document.createElement('td');
                     const main = document.createElement('input');
                     main.type = 'checkbox';
-                    main.checked = Boolean(assignment.main);
-                    main.setAttribute('aria-label', `Main IP ${assignment.ip}`);
-                    main.addEventListener('change', () => {
-                        if (main.checked) {
-                            for (const other of rows.querySelectorAll('input[type="checkbox"]')) {
-                                if (other !== main) other.checked = false;
-                            }
-                        }
-                    });
+                    main.checked = Boolean(assignment.main) && !mainAssigned;
+                    if (main.checked) mainAssigned = true;
+                    main.setAttribute('aria-label', `Mark ${assignment.ip} as main IP`);
+                    main.addEventListener('change', () => setSingleMain(main));
                     mainCell.append(main);
                     row.append(mainCell);
 
                     const subCell = document.createElement('td');
                     const sub = document.createElement('input');
                     sub.type = 'text';
-                    sub.className = 'form-control form-control-sm';
-                    sub.value = String(assignment.sub ?? '');
+                    sub.className = 'command-form-control form-control-sm';
+                    sub.value = assignment.sub || '';
                     sub.setAttribute('aria-label', `Subdomain for ${assignment.ip}`);
                     subCell.append(sub);
                     row.append(subCell);
 
-                    row.append(textCell(assignment.domain));
+                    const domainCell = document.createElement('td');
+                    domainCell.style.fontWeight = '600';
+                    domainCell.textContent = assignment.domain_name || 'No domain';
+                    row.append(domainCell);
 
                     const actionCell = document.createElement('td');
                     const remove = document.createElement('button');
                     remove.type = 'button';
-                    remove.className = 'btn btn-sm btn-alt-danger';
-                    remove.setAttribute('aria-label', `Remove IP ${assignment.ip}`);
-                    const removeIcon = document.createElement('i');
-                    removeIcon.className = 'fa fa-times';
-                    removeIcon.setAttribute('aria-hidden', 'true');
-                    remove.append(removeIcon);
+                    remove.className = 'command-action-btn action-danger';
+                    remove.innerHTML = '<i class="fa fa-times" aria-hidden="true"></i>';
+                    remove.setAttribute('aria-label', `Remove ${assignment.ip}`);
                     remove.addEventListener('click', () => {
                         pendingRemoveRow = row;
-                        requestConfirmation(
-                            rowConfirmation,
-                            document.getElementById('reinstall-row-accept'),
-                            document.getElementById('reinstall-row-cancel'),
-                            () => { pendingRemoveRow?.remove(); pendingRemoveRow = null; updateRunAvailability(); },
-                        );
+                        if (typeof rowConfirmation.showModal === 'function') {
+                            rowConfirmation.showModal();
+                        } else if (window.confirm('Remove this IP from the reinstall?')) {
+                            row.remove();
+                            updateRunAvailability();
+                        }
                     });
                     actionCell.append(remove);
                     row.append(actionCell);
+
                     rows.append(row);
                 }
-            }
-
-            function applyConfiguration(configuration) {
-                document.getElementById('reinstall-pmta').checked = true;
-                document.getElementById('reinstall-pmta-version').value = String(configuration.pmta_version ?? 40);
-                for (const option of ['tracking', 'https', 'proxy', 'imap', 'spf', 'dkim', 'dmarc']) {
-                    document.getElementById(`reinstall-${option}`).checked = Boolean(configuration[option]);
-                }
-                renderRows(Array.isArray(configuration.data) ? configuration.data : []);
-                loadedServerId = serverSelect.value;
                 updateRunAvailability();
             }
 
-            function updateRunAvailability() {
-                const hasLoadedConfiguration = loadedServerId === serverSelect.value && Boolean(serverSelect.value);
-                const hasAssignments = rows.querySelectorAll('tr[data-ip]').length > 0;
-                reinstallButton.disabled = !reinstallExecutionEnabled || !hasLoadedConfiguration || !hasAssignments;
-                configureButton.disabled = !reinstallIpConfigExecutionEnabled || !hasLoadedConfiguration;
-
-                if (!reinstallExecutionEnabled) {
-                    actionStatus.textContent = 'Server reinstall is disabled by ALPHALINK_REINSTALL_EXECUTION_ENABLED.';
-                } else if (!serverSelect.value) {
-                    actionStatus.textContent = 'Select a server, then load its saved configuration before reinstalling.';
-                } else if (!hasLoadedConfiguration) {
-                    actionStatus.textContent = 'Click LOAD CONFIG to review saved IP assignments before reinstalling.';
-                } else if (!hasAssignments) {
-                    actionStatus.textContent = 'No saved IP assignments are available for this server.';
-                } else {
-                    actionStatus.textContent = 'Configuration loaded. Click REINSTALL and confirm to begin.';
+            document.getElementById('reinstall-confirm-cancel').addEventListener('click', () => confirmation.close());
+            document.getElementById('reinstall-row-cancel').addEventListener('click', () => {
+                pendingRemoveRow = null;
+                rowConfirmation.close();
+            });
+            document.getElementById('reinstall-confirm-accept').addEventListener('click', () => {
+                confirmation.close();
+                if (typeof confirmedAction === 'function') confirmedAction();
+            });
+            document.getElementById('reinstall-row-accept').addEventListener('click', () => {
+                rowConfirmation.close();
+                if (pendingRemoveRow) {
+                    pendingRemoveRow.remove();
+                    pendingRemoveRow = null;
+                    updateRunAvailability();
                 }
-            }
-
-            serverSelect.addEventListener('change', updateRunAvailability);
+            });
 
             loadButton.addEventListener('click', async () => {
-                error.classList.add('d-none');
-                if (!serverSelect.value) {
-                    showError('Please select server!');
-                    return;
-                }
+                if (!serverSelect.value) return;
+                clearError();
                 loadButton.disabled = true;
-                loadButton.textContent = 'LOADING CONFIG';
+                actionStatus.textContent = 'Loading configuration…';
                 try {
                     const response = await fetch(serverUrl(configUrl), {headers: {Accept: 'application/json'}});
-                    const configuration = await response.json();
-                    if (!response.ok) throw new Error(configuration.message || 'Unable to load server configuration.');
-                    applyConfiguration(configuration);
+                    const config = await response.json();
+                    if (!response.ok) throw new Error(config.message || 'Could not load server configuration.');
+
+                    document.getElementById('reinstall-pmta-version').value = String(config.pmta_version || 45);
+                    for (const option of ['pmta', 'tracking', 'https', 'proxy', 'imap', 'spf', 'dkim', 'dmarc']) {
+                        const input = document.getElementById(`reinstall-${option}`);
+                        if (input) input.checked = Boolean(config[option]);
+                    }
+                    loadedServerId = serverSelect.value;
                     holder.classList.remove('d-none');
-                    reloadButton.disabled = false;
-                    log.textContent = 'Server configuration loaded.';
-                    updateRunAvailability();
+                    actionStatus.textContent = 'Configuration loaded. Review the options and IP list below.';
+                    renderRows(config.assignments || []);
                 } catch (failure) {
-                    showError(failure.message || 'Unable to load server configuration.');
+                    showError(failure.message);
+                    actionStatus.textContent = failure.message;
                 } finally {
                     loadButton.disabled = false;
-                    loadButton.textContent = 'LOAD CONFIG';
                 }
             });
 
             reloadButton.addEventListener('click', async () => {
-                error.classList.add('d-none');
+                if (!loadedServerId) return;
+                clearError();
                 reloadButton.disabled = true;
-                reloadButton.textContent = 'RELOADING IPS';
                 try {
                     const response = await fetch(serverUrl(ipsUrl), {
                         method: 'POST',
                         headers: {'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf},
                         body: JSON.stringify({with_ipv6: document.getElementById('reinstall-with-ipv6').checked}),
                     });
-                    const result = await response.json();
-                    if (!response.ok) throw new Error(result.data || result.message || 'Unable to rediscover server IPs.');
-                    renderRows(result.data || []);
-                    updateRunAvailability();
-                    log.textContent = 'Server IPs rediscovered. No server configuration was changed.';
+                    const ips = await response.json();
+                    if (!response.ok) throw new Error(ips.message || 'Could not reload IPs.');
+                    renderRows(ips.assignments || []);
                 } catch (failure) {
-                    showError(failure.message || 'Unable to rediscover server IPs.');
+                    showError(failure.message);
                 } finally {
                     reloadButton.disabled = false;
-                    reloadButton.textContent = 'RELOAD IPS';
-                }
-            });
-
-            serverSelect.addEventListener('change', () => {
-                if (loadedServerId !== serverSelect.value) {
-                    holder.classList.add('d-none');
-                    reinstallButton.disabled = true;
                 }
             });
 
             reinstallButton.addEventListener('click', () => {
-                if (reinstallButton.disabled || loadedServerId !== serverSelect.value) return;
-                error.classList.add('d-none');
-                requestConfirmation(confirmation, document.getElementById('reinstall-confirm-accept'), document.getElementById('reinstall-confirm-cancel'), async () => {
+                if (typeof confirmation.showModal === 'function') {
+                    confirmation.showModal();
+                }
+                confirmedAction = (async () => {
+                    clearError();
                     reinstallButton.disabled = true;
+                    reinstallButton.textContent = 'REINSTALLING…';
                     loadButton.disabled = true;
                     reloadButton.disabled = true;
                     configureButton.disabled = true;
-                    reinstallButton.textContent = 'REINSTALLING';
-                    log.textContent = 'Checking readiness…';
-                    const assignments = Array.from(rows.querySelectorAll('tr[data-ip]')).map((row) => ({
-                        ip: row.dataset.ip,
+                    log.textContent = 'Dispatching reinstall request…';
+
+                    const assignments = [...rows.querySelectorAll('tr[data-ip-id]')].map((row) => ({
+                        id: Number(row.dataset.ipId),
+                        ip: row.cells[0].textContent.trim(),
                         type: row.cells[1].textContent.trim().toLowerCase(),
                         main: row.querySelector('input[type="checkbox"]')?.checked || false,
                         sub: row.querySelector('input[type="text"]')?.value.trim() || '',
@@ -388,7 +429,7 @@
                                     return;
                                 }
                             } catch {
-                                // Continue polling while retaining the latest transcript.
+                                // Continue polling
                             }
                             if (runState === 'queued' || runState === 'running') {
                                 await new Promise((resolve) => window.setTimeout(resolve, 1000));
@@ -409,7 +450,6 @@
             });
 
             updateRunAvailability();
-
         })();
     </script>
 @endpush

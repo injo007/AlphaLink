@@ -3,18 +3,32 @@
 @section('title', 'Cloud Providers')
 
 @section('content')
-    <div class="block block-rounded">
-        <div class="block-header">
-            <h3 class="block-title">Cloud Providers</h3>
-            <div class="block-options">
-                <button type="button" class="btn-block-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen"></button>
+    <div class="command-os-report-page">
+        <!-- 1. Hero Header -->
+        <header class="command-os-report-hero mb-4">
+            <div class="command-os-report-hero-left">
+                <div class="command-os-report-hero-icon" aria-hidden="true">
+                    <i class="fas fa-cloud-sun"></i>
+                </div>
+                <div>
+                    <div class="command-os-report-hero-eyebrow">CLOUD INFRASTRUCTURE // API INTEGRATIONS</div>
+                    <h1 class="command-os-report-hero-title">CLOUD PROVIDERS</h1>
+                    <p class="command-os-report-hero-desc">API access tokens and integrations for external cloud computing and virtual server providers.</p>
+                </div>
             </div>
-        </div>
-        <div class="block-content block-content-full">
+            <div class="command-os-report-hero-right">
+                <div class="command-os-report-hero-meta">
+                    <span class="command-os-report-badge">CLOUD VENDORS</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- 2. Table Card -->
+        <div class="command-os-table-card">
             <div class="table-responsive">
-                <table id="cloud-providers" class="table table-sm table-hover table-striped">
+                <table id="cloud-providers" class="table table-sm table-hover table-striped" aria-label="Cloud infrastructure providers">
                     <thead>
-                        <tr><th>#</th><th>type</th><th>name</th><th>created at</th><th>Actions</th></tr>
+                        <tr><th>#</th><th>TYPE</th><th>NAME</th><th>CREATED AT</th><th>ACTIONS</th></tr>
                     </thead>
                     <tbody></tbody>
                 </table>
@@ -29,31 +43,48 @@
             const $ = window.jQuery;
             const table = $('#cloud-providers').DataTable({
                 ajax: @json(route('clean.console.infrastructure.cloud-providers.index')),
+                dom: '<"command-table-toolbar"<"command-table-toolbar-left"lB><"command-table-toolbar-right"f>>rt<"command-table-footer"ip>',
                 serverSide: true,
                 buttons: [
-                    { extend: 'pageLength' },
+                    { extend: 'pageLength', className: 'btn-command-action' },
                     {
-                        text: '<i class="fas fa-sync"></i>',
-                        titleAttr: 'REFRESH',
-                        action: (event, datatable) => datatable.ajax.reload(null, false),
-                    },
-                    {
-                        text: '<i class="fa fa-plus"></i>',
+                        text: '<i class="fa fa-plus mr-1"></i> NEW CLOUD PROVIDER',
+                        className: 'btn-command-primary',
                         titleAttr: 'ADD NEW CLOUD',
                         action: () => openCloudProviderForm(@json(route('clean.console.infrastructure.cloud-providers.create')), 'Add cloud provider'),
                     },
+                    {
+                        text: '<i class="fas fa-sync mr-1"></i> REFRESH',
+                        className: 'btn-command-action',
+                        titleAttr: 'REFRESH',
+                        action: (event, datatable) => datatable.ajax.reload(null, false),
+                    },
                 ],
                 columns: [
-                    { title: '#', data: 'id' },
-                    { title: 'type', data: 'type', render: $.fn.dataTable.render.text() },
-                    { title: 'name', data: 'name', render: $.fn.dataTable.render.text() },
-                    { title: 'created at', data: 'created_at', render: $.fn.dataTable.render.text() },
+                    {
+                        title: '#', data: 'id',
+                        render: (value, type) => type === 'display' ? `<span class="command-mono-badge">#${value}</span>` : value
+                    },
+                    {
+                        title: 'TYPE', data: 'type',
+                        render: (value) => `<span class="badge-command-pill" style="font-weight: 700; color: #8b5cf6;">${value ? String(value).toUpperCase() : 'N/A'}</span>`
+                    },
+                    {
+                        title: 'NAME', data: 'name',
+                        render: (value) => `<span style="font-weight: 700;">${value || ''}</span>`
+                    },
+                    {
+                        title: 'CREATED AT', data: 'created_at',
+                        render: (value, type) => type === 'display' ? `<span style="font-size: 0.8125rem; color: var(--command-os-text-muted, #64748b);">${value || ''}</span>` : value
+                    },
                     {
                         title: 'ACTIONS', data: null, orderable: false, searchable: false,
                         render: function (data, type, row) {
                             const id = $('<div>').text(String(row.id)).html();
-                            return `<button type="button" data-id="${id}" class="btn btn-info btn-sm update" title="UPDATE PROVIDER" aria-label="Update provider"><i class="fas fa-pencil-alt"></i></button>&nbsp;` +
-                                `<button type="button" data-id="${id}" class="btn btn-danger btn-sm destroy" title="DELETE PROVIDER" aria-label="Delete provider"><i class="fas fa-trash"></i></button>`;
+                            return `<div class="command-action-btn-group">` +
+                                `<button type="button" data-id="${id}" class="command-action-btn action-info update" title="UPDATE PROVIDER" aria-label="Update provider"><i class="fas fa-pencil-alt"></i></button>` +
+                                `<button type="button" data-id="${id}" class="command-action-btn action-danger destroy" title="DELETE PROVIDER" aria-label="Delete provider"><i class="fas fa-trash"></i></button>` +
+                                `</div>`;
                         },
                     },
                 ],
@@ -68,6 +99,7 @@
                 const escapedUrl = $('<div>').text(url).html();
                 const iframe = `<iframe src="${escapedUrl}" width="100%" scrolling="no" frameborder="0" title="${title}"></iframe>`;
                 window.cloudProviderDialog = window.bootbox.dialog({
+                    className: 'command-modal-dialog',
                     scrollable: true,
                     closeButton: true,
                     size: 'lg',
@@ -88,7 +120,7 @@
                 const button = this;
                 const confirmation = await window.swal.fire({
                     icon: 'question',
-                    title: 'Are you sure ?',
+                    title: 'Delete this cloud provider?',
                     allowOutsideClick: false,
                     showCloseButton: true,
                     confirmButtonText: 'DELETE',
@@ -97,9 +129,7 @@
 
                 if (!confirmation.isConfirmed && !confirmation.value) { return; }
 
-                const original = button.innerHTML;
                 button.disabled = true;
-                button.innerHTML = window.spinner();
 
                 try {
                     const base = @json(route('clean.console.infrastructure.cloud-providers.index'));
@@ -117,7 +147,6 @@
                 } catch (error) {
                     window.App.processAjaxFail({ error: error.message });
                 } finally {
-                    button.innerHTML = original;
                     button.disabled = false;
                 }
             });

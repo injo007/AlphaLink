@@ -15,7 +15,8 @@ window.jQuery(function () {
     const formatBadge = (value, title) => {
         const listed = Boolean(value);
         const text = listed ? 'YES' : 'NO';
-        return `<span class="badge badge-${listed ? 'danger' : 'success'} p-1" title="${escapeHtml(title)}">${text}</span>&nbsp;`;
+        const cls = listed ? 'badge-command-active-no' : 'badge-command-active-yes';
+        return `<span class="badge-command-pill ${cls} mr-1" title="${escapeHtml(title)}">${text}</span>`;
     };
     const formatHistory = (row, historyUrlTemplate) => {
         const history = row.history;
@@ -26,28 +27,29 @@ window.jQuery(function () {
             <thead><tr><th>PTR</th><th>BLACKLISTED</th><th>SENDER SCORE</th><th>CREATED AT</th><th>SEE MORE</th></tr></thead>
             <tbody><tr><td>${escapeHtml(history?.ptr || 'NA')}</td><td>${badges}</td>
             <td>${escapeHtml(history?.sender_score || 'NA')}</td><td>${escapeHtml(history?.created_at || 'NA')}</td>
-            <td><a href="${escapeHtml(more)}" target="_blank" rel="noopener">IP history <i class="fas fa-door-open" aria-hidden="true"></i></a></td></tr></tbody>
+            <td><a href="${escapeHtml(more)}" target="_blank" rel="noopener" class="badge-command-pill" style="color: #6366f1; text-decoration: none;">IP history <i class="fas fa-door-open ml-1" aria-hidden="true"></i></a></td></tr></tbody>
         </table></div>`;
     };
     const ipLink = (value, type) => {
         if (type !== 'display') return value;
         const safe = escapeHtml(value);
-        return `<a href="//${safe}" target="_blank" rel="noopener noreferrer">${safe}</a>&nbsp;<button type="button" class="btn btn-link btn-sm ip-copy" data-copy="${safe}" aria-label="Copy ${safe}" title="COPY"><i class="fa fa-clone" aria-hidden="true"></i></button>`;
+        return `<span style="font-family: monospace; font-weight: 600; color: #6366f1;">${safe}</span>&nbsp;<button type="button" class="btn btn-link btn-sm ip-copy" data-copy="${safe}" aria-label="Copy ${safe}" title="COPY"><i class="fa fa-clone" aria-hidden="true"></i></button>`;
     };
     const domainLink = (value, type) => {
         if (type !== 'display') return value;
         const safe = escapeHtml(value);
-        return `<a href="//${safe}" target="_blank" rel="noopener noreferrer">${safe}</a>&nbsp;<button type="button" class="btn btn-link btn-sm ip-copy" data-copy="${safe}" aria-label="Copy ${safe}" title="COPY"><i class="fa fa-clone" aria-hidden="true"></i></button>`;
+        return `<a href="//${safe}" target="_blank" rel="noopener noreferrer" style="color: #8b5cf6; font-weight: 600;">${safe}</a>&nbsp;<button type="button" class="btn btn-link btn-sm ip-copy" data-copy="${safe}" aria-label="Copy ${safe}" title="COPY"><i class="fa fa-clone" aria-hidden="true"></i></button>`;
     };
 
     if (historyPage && $.fn.DataTable) {
         const table = $('#histories').DataTable({
             ajax: { url: historyPage.dataset.sourceUrl, dataType: 'json' },
+            dom: '<"command-table-toolbar"<"command-table-toolbar-left"l><"command-table-toolbar-right"f>>rt<"command-table-footer"ip>',
             processing: true,
             serverSide: true,
             order: [[0, 'desc']],
             columns: [
-                { title: '#', data: 'id' },
+                { title: '#', data: 'id', render: (value, type) => type === 'display' ? `<span class="command-mono-badge">#${value}</span>` : value },
                 { title: 'PTR', data: 'ptr', render: (value, type) => type === 'display' ? escapeHtml(value || 'NA') : value },
                 {
                     title: 'BLACKLISTED',
@@ -59,7 +61,7 @@ window.jQuery(function () {
                         : '',
                 },
                 { title: 'SENDER SCORE', data: 'sender_score' },
-                { title: 'AT', data: 'created_at' },
+                { title: 'AUDIT DATE', data: 'created_at' },
             ],
         });
 
@@ -101,15 +103,16 @@ window.jQuery(function () {
         const active = Boolean(row.is_active);
         const nextStatus = active ? 0 : 1;
         const title = active ? 'DISABLE' : 'ENABLE';
-        const icon = active ? 'fa-times' : 'fa-check';
-        const color = active ? 'btn-warning' : 'btn-success';
+        const icon = active ? 'fa-pause' : 'fa-play';
+        const color = active ? 'action-warning' : 'action-success';
 
-        return `<button type="button" data-record-id="${escapeHtml(row.id)}" data-next-status="${nextStatus}" ` +
-            `class="btn ${color} btn-sm status" title="${title}" aria-label="${title} ${escapeHtml(row.ip)}">` +
-            `<i class="fas ${icon}" aria-hidden="true"></i></button>`;
+        return `<div class="command-action-btn-group"><button type="button" data-record-id="${escapeHtml(row.id)}" data-next-status="${nextStatus}" ` +
+            `class="command-action-btn ${color} status" title="${title}" aria-label="${title} ${escapeHtml(row.ip)}">` +
+            `<i class="fas ${icon}" aria-hidden="true"></i></button></div>`;
     };
     const ipTable = $('#mta_ip').DataTable({
         ajax: { url: container.dataset.ipsUrl, dataType: 'json' },
+        dom: '<"command-table-toolbar"<"command-table-toolbar-left"l><"command-table-toolbar-right"f>>rt<"command-table-footer"ip>',
         processing: true,
         serverSide: true,
         order: [[0, 'desc']],
@@ -117,11 +120,11 @@ window.jQuery(function () {
             if (!data.is_active) $(row).addClass('table-danger');
         },
         columns: [
-            { title: '#', data: 'id' },
+            { title: '#', data: 'id', render: (value, type) => type === 'display' ? `<span class="command-mono-badge">#${value}</span>` : value },
             { title: 'IP', data: 'ip', type: 'ip-address', render: ipLink },
-            { title: 'TYPE', data: 'type' },
+            { title: 'TYPE', data: 'type', render: (value) => `<span class="badge-command-pill">${escapeHtml(value || 'N/A')}</span>` },
             { title: 'DOMAIN', data: 'dns', render: domainLink },
-            { title: 'CREATED AT', data: 'created_at' },
+            { title: 'CREATED AT', data: 'created_at', render: (value, type) => type === 'display' ? `<span style="font-size: 0.8125rem; color: var(--command-os-text-muted, #64748b);">${value}</span>` : value },
             {
                 title: 'ACTIONS',
                 data: null,
@@ -129,9 +132,9 @@ window.jQuery(function () {
                 searchable: false,
                 render: (value, type, row) => type !== 'display'
                     ? row.histories_count
-                    : `<button type="button" class="btn btn-sm btn-info history" data-history-count="${escapeHtml(row.histories_count)}" ` +
-                        `title="IP HISTORY" aria-expanded="false">HISTORIES : ${escapeHtml(row.histories_count)} ` +
-                        '<i class="fas fa-angle-down" aria-hidden="true"></i></button>&nbsp;' + actionButton(row),
+                    : `<div style="display: flex; align-items: center; gap: 6px;"><button type="button" class="btn-command-action history" data-history-count="${escapeHtml(row.histories_count)}" ` +
+                        `title="IP HISTORY" aria-expanded="false" style="padding: 3px 8px; font-size: 0.75rem;">AUDITS : ${escapeHtml(row.histories_count)} ` +
+                        '<i class="fas fa-angle-down ml-1" aria-hidden="true"></i></button>' + actionButton(row) + '</div>',
             },
         ],
     });
@@ -157,6 +160,7 @@ window.jQuery(function () {
         const $table = $(selector);
         const table = $table.DataTable({
             ajax: { url, dataType: 'json' },
+            dom: '<"command-table-toolbar"<"command-table-toolbar-left"l><"command-table-toolbar-right"f>>rt<"command-table-footer"ip>',
             processing: true,
             serverSide: true,
             order: [[0, 'desc']],
@@ -164,12 +168,12 @@ window.jQuery(function () {
                 if (!data.is_active) $(row).addClass('table-danger');
             },
             columns: [
-                { title: '#', data: 'id' },
+                { title: '#', data: 'id', render: (value, type) => type === 'display' ? `<span class="command-mono-badge">#${value}</span>` : value },
                 { title: 'IP', data: 'ip', type: 'ip-address', render: ipLink },
-                { title: 'TYPE', data: 'ip_type' },
+                { title: 'TYPE', data: 'ip_type', render: (value) => `<span class="badge-command-pill">${escapeHtml(value || 'N/A')}</span>` },
                 { title: 'DOMAIN', data: 'dns', render: domainLink },
-                { title: 'CREATED AT', data: 'created_at' },
-                { title: 'CREATED BY', data: 'user.name', defaultContent: 'NA' },
+                { title: 'CREATED AT', data: 'created_at', render: (value, type) => type === 'display' ? `<span style="font-size: 0.8125rem; color: var(--command-os-text-muted, #64748b);">${value}</span>` : value },
+                { title: 'CREATED BY', data: 'user.name', defaultContent: 'NA', render: (value) => `<span style="font-weight: 600; color: #8b5cf6;">${escapeHtml(value || 'NA')}</span>` },
                 {
                     title: 'ACTIONS',
                     data: null,

@@ -3,21 +3,23 @@
 @section('title', 'My Servers')
 
 @section('content')
-    <div class="command-os-entity-page">
-        <!-- 1. Hero Card -->
-        <header class="command-os-hero-card">
-            <div class="command-os-hero-card-left">
-                <div class="command-os-hero-mark" aria-hidden="true">
+    <div class="command-os-report-page">
+        <!-- 1. Hero Header -->
+        <header class="command-os-report-hero mb-4">
+            <div class="command-os-report-hero-left">
+                <div class="command-os-report-hero-icon" aria-hidden="true">
                     <i class="fas fa-server"></i>
                 </div>
-                <div class="command-os-hero-copy">
-                    <h1 class="command-os-hero-title">MY SERVERS</h1>
+                <div>
+                    <div class="command-os-report-hero-eyebrow">MEMBER SERVERS // ASSIGNED HARDWARE</div>
+                    <h1 class="command-os-report-hero-title">MY SERVERS</h1>
+                    <p class="command-os-report-hero-desc">All dedicated MTA servers, IP allocations, and PowerMTA daemon controllers assigned to your account.</p>
                 </div>
             </div>
-            <div class="command-os-hero-card-right">
-                <button type="button" class="command-os-btn-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen">
-                    <i class="si si-size-fullscreen"></i>
-                </button>
+            <div class="command-os-report-hero-right">
+                <div class="command-os-report-hero-meta">
+                    <span class="command-os-report-badge">ASSIGNED FLEET</span>
+                </div>
             </div>
         </header>
 

@@ -1,13 +1,24 @@
 @extends('layouts.standalone')
 
-@section('title', 'Ip History')
+@section('title', 'IP Reputation History')
 
 @section('content')
-    <div class="block block-rounded" id="server-ip-history" data-source-url="{{ $historyUrl }}">
-        <div class="block-header block-header-default">
-            <h3 class="block-title"><span class="text-info">{{ $server->name }} | {{ $server->id }}</span> IP {{ $ip->ip }} HISTORIES</h3>
+    <div class="command-modal-surface" id="server-ip-history" data-source-url="{{ $historyUrl }}">
+        <div class="command-modal-hero">
+            <div class="command-modal-hero-left">
+                <div class="command-modal-hero-icon">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <div>
+                    <div class="command-modal-hero-eyebrow">REPUTATION AUDIT // BLACKLIST TELEMETRY</div>
+                    <h3 class="command-modal-hero-title">
+                        IP HISTORY <span class="badge-command-pill ml-2" style="font-weight: 700; color: #8b5cf6;">{{ $ip->ip }} &bull; {{ $server->name }}</span>
+                    </h3>
+                </div>
+            </div>
         </div>
-        <div class="block-content">
+
+        <div class="command-modal-body">
             <div class="table-responsive">
                 <table id="histories" class="table table-sm table-hover table-striped" aria-label="IP reputation history"></table>
             </div>

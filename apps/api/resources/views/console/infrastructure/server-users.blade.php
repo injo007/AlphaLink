@@ -3,11 +3,22 @@
 @section('title', 'Manage Users Server')
 
 @section('content')
-    <div class="block block-rounded">
-        <div class="block-header block-header-default">
-            <h3 class="block-title">Server <span class="text-info">{{ $server->name }} | {{ $server->id }}</span> Users</h3>
+    <div class="command-modal-surface">
+        <div class="command-modal-hero">
+            <div class="command-modal-hero-left">
+                <div class="command-modal-hero-icon">
+                    <i class="fas fa-users-cog"></i>
+                </div>
+                <div>
+                    <div class="command-modal-hero-eyebrow">ACCESS CONTROL // MAILER DELEGATION</div>
+                    <h3 class="command-modal-hero-title">
+                        SERVER USERS <span class="badge-command-pill ml-2" style="font-weight: 700; color: #8b5cf6;">#{{ $server->id }} &bull; {{ $server->name }}</span>
+                    </h3>
+                </div>
+            </div>
         </div>
-        <div class="block-content">
+
+        <div class="command-modal-body">
             @include('console.infrastructure._allowed-users-form', [
                 'users' => $users,
                 'serverIds' => [$server->id],

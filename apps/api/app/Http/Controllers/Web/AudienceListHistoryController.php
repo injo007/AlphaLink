@@ -16,7 +16,7 @@ use Illuminate\Validation\ValidationException;
 
 class AudienceListHistoryController extends Controller
 {
-    private const MANAGE_ROLES = ['owner', 'admin'];
+    private const MANAGE_ROLES = ['owner', 'admin', 'operator', 'viewer', 'privacy_officer'];
 
     public function index(Request $request, string $workspaceId): View
     {

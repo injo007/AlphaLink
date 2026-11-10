@@ -23,7 +23,7 @@
         $commandOsDashboard = $routeIs('console.dashboard.main', 'console.workspace.dashboard.main', 'console.analytics.index');
         $isCampaignComposerPage = $routeIs('console.campaigns.create', 'console.campaigns.edit');
         $commandOsShell = true;
-        $canUseDashboardOperations = $commandOsDashboard && in_array($workspace->pivot->role ?? null, ['owner', 'admin', 'operator'], true);
+        $canUseDashboardOperations = $commandOsDashboard && in_array(auth()->user()?->access_role, ['owner', 'admin', 'operator', 'viewer'], true);
         $hideDashboardForbiddenDestinations = $commandOsDashboard && ! $canUseDashboardOperations;
         $usesGoogleCharts = $isDropVisitorsPage || $routeIs('console.campaigns.visitors');
         $usesAnalyticsCharts = $routeIs('console.analytics.*', 'console.dashboard.main', 'console.campaign-statistics.*');
@@ -120,10 +120,10 @@
         $pmtaConfigHistoryUrl = route('clean.console.pmta-config-history.index');
         $campaignNegativesUrl = route('clean.console.campaign-negatives.index');
         // Server and PMTA controls are available to every active workspace member by product policy.
-        $canManageInfrastructure = true;
-        $canManagePmta = true;
-        $canManageSponsors = in_array($workspace->pivot->role ?? 'admin', ['owner', 'admin'], true);
-        $canManageUsers = in_array($workspace->pivot->role ?? 'admin', ['owner', 'admin'], true);
+        $canManageInfrastructure = auth()->user()?->hasFullAccess() ?? false;
+        $canManagePmta = auth()->user()?->hasFullAccess() ?? false;
+        $canManageSponsors = auth()->user()?->hasFullAccess() ?? false;
+        $canManageUsers = auth()->user()?->hasFullAccess() ?? false;
         $canManageGlobalUsers = auth()->user()->hasRole('manage_users');
         $sponsorsUrl = route('clean.console.sponsors.index');
         $networkSponsorsUrl = route('clean.console.networks.sponsors.index');
@@ -317,6 +317,8 @@
             ]],
             ['label' => 'CLOUDS', 'icon' => 'fas fa-cloud-sun', 'items' => $cloudNavigation, 'open' => $isCloudWorkflowPage],
         ]));
+        $accessRolePolicy = app(\App\Services\Authorization\AccessRolePolicy::class);
+        $navigation = $accessRolePolicy->filterNavigation($navigation, auth()->user(), app('router'));
         $findNavigationGroup = static function (string $label, ?string $section = null) use ($navigation): ?array {
             return collect($navigation)->first(static fn (array $group): bool => $group['label'] === $label
                 && ($section === null || data_get($group, 'items.0.section') === $section));
@@ -472,9 +474,10 @@
             $redirectsGroup,
         ];
         $commandOsNavigation = array_values(array_filter($commandOsNavigation, static fn (array $group): bool => $group !== []));
+        $commandOsNavigation = $accessRolePolicy->filterNavigation($commandOsNavigation, auth()->user(), app('router'));
         $navigationPreference = \App\Models\AppGlobalPreference::query()->find('navigation_order')?->value ?? [];
         $commandOsNavigation = app(\App\Services\Navigation\GlobalNavigationOrder::class)->apply($commandOsNavigation, $navigationPreference);
-        $canEditGlobalNavigation = auth()->user()?->type === \App\Models\User::ADMIN;
+        $canEditGlobalNavigation = auth()->user()?->isOwner() ?? false;
     @endphp
     <div id="page-container" class="sidebar-o enable-page-overlay sidebar-dark side-scroll page-header-fixed {{ $commandOsShell ? 'command-os-page' : 'sidebar-mini' }}">
         <nav id="sidebar" aria-label="Main Navigation" tabindex="-1">

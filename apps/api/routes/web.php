@@ -59,15 +59,15 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
         ->middleware('throttle:10,1')->name('auth.change_password');
 
     Route::get('/dashboard/main', [WorkspaceEntryController::class, 'dashboard'])
-        ->middleware('workspace.current')->name('console.dashboard.main');
+        ->middleware(['workspace.current', 'workspace.access'])->name('console.dashboard.main');
     Route::get('/null/dashboard', fn () => redirect()->route('console.dashboard.main'))
-        ->middleware('workspace.current')->name('console.dashboard.legacy-null');
+        ->middleware(['workspace.current', 'workspace.access'])->name('console.dashboard.legacy-null');
     Route::get('/workspaces/{workspaceSlug}/dashboard/main', [WorkspaceEntryController::class, 'dashboard'])
-        ->middleware('workspace.current')->name('console.workspace.dashboard.main');
+        ->middleware(['workspace.current', 'workspace.access'])->name('console.workspace.dashboard.main');
     Route::get('/mailer/campaigns', [WorkspaceEntryController::class, 'campaigns'])
-        ->middleware('workspace.current')->name('console.mailer.campaigns');
+        ->middleware(['workspace.current', 'workspace.access'])->name('console.mailer.campaigns');
     Route::get('/mailer/campaign-logs', [WorkspaceEntryController::class, 'campaignLogs'])
-        ->middleware('workspace.current')->name('console.mailer.campaign-logs');
+        ->middleware(['workspace.current', 'workspace.access'])->name('console.mailer.campaign-logs');
 
     Route::get('/app/users', [GlobalUserManagementController::class, 'index'])->name('console.global-users.index');
     Route::get('/app/users/create', [GlobalUserManagementController::class, 'create'])->name('console.global-users.create');
@@ -503,7 +503,7 @@ foreach (Route::getRoutes()->getRoutes() as $workspaceRoute) {
         continue;
     }
 
-    $workspaceRoute->middleware('workspace.legacy-redirect');
+    $workspaceRoute->middleware(['workspace.legacy-redirect', 'workspace.access']);
     $suffix = trim(substr($legacyUri, strlen($workspaceRoutePrefix)), '/');
     $cleanUri = match ($suffix) {
         '', 'analytics' => 'dashboard/main',
@@ -513,7 +513,7 @@ foreach (Route::getRoutes()->getRoutes() as $workspaceRoute) {
             : $suffix,
     };
     $middleware = array_values(array_unique(array_merge(
-        ['auth', 'active', 'workspace.current'],
+        ['auth', 'active', 'workspace.current', 'workspace.access'],
         array_diff($workspaceRoute->gatherMiddleware(), ['auth', 'active', 'workspace.member', 'workspace.current', 'workspace.legacy-redirect']),
     )));
     $action = $workspaceRoute->getAction();

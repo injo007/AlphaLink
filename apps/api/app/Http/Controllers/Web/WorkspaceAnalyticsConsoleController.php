@@ -20,7 +20,7 @@ use Illuminate\Support\Str;
 
 class WorkspaceAnalyticsConsoleController extends Controller
 {
-    public const ACCESS_ROLES = ['owner', 'admin', 'operator', 'privacy_officer'];
+    public const ACCESS_ROLES = ['owner', 'admin', 'operator', 'viewer', 'privacy_officer'];
 
     private const MAIN_DASHBOARD_CACHE_SECONDS = 600;
 
@@ -818,10 +818,12 @@ class WorkspaceAnalyticsConsoleController extends Controller
      */
     private function dashboardMarketingGraph(Workspace $workspace, User $user, string $from, string $to): array
     {
-        $role = (string) $workspace->pivot->role;
+        $role = (string) $user->access_role;
+        $hasFullAccess = in_array($role, ['owner', 'admin'], true);
         $canUseCampaignOperations = in_array($role, ['owner', 'admin', 'operator'], true);
-        $canManageSponsorsAndOffers = in_array($role, ['owner', 'admin'], true);
-        $canManageInfrastructure = in_array($role, ['owner', 'admin'], true);
+        $canViewCampaignSummaries = in_array($role, ['owner', 'admin', 'operator', 'viewer'], true);
+        $canManageSponsorsAndOffers = $hasFullAccess;
+        $canManageInfrastructure = $hasFullAccess;
         $aggregate = DB::table('workspace_daily_analytics')
             ->where('workspace_id', $workspace->getKey())
             ->where('attribution_scope', 'workspace')
@@ -836,12 +838,12 @@ class WorkspaceAnalyticsConsoleController extends Controller
 
         $count = fn (string $key): int => (int) ($aggregate->{$key} ?? 0);
         $allNodes = [
-            ['id' => 'campaigns', 'label' => 'Campaigns', 'count' => $count('campaigns'), 'color' => 'blue', 'href' => $canUseCampaignOperations ? route('console.mailer.campaigns') : null],
-            ['id' => 'drops', 'label' => 'Drops', 'count' => $count('drops'), 'color' => 'violet', 'href' => $canUseCampaignOperations ? route('clean.console.drops.drafts.index') : null],
-            ['id' => 'warmups', 'label' => 'Warmups', 'count' => $count('warmups'), 'color' => 'pink', 'href' => $canUseCampaignOperations ? route('clean.console.warmups.index') : null],
-            ['id' => 'servers', 'label' => 'Servers', 'count' => $count('servers'), 'color' => 'cyan', 'href' => route('clean.console.infrastructure.servers.index')],
+            ['id' => 'campaigns', 'label' => 'Campaigns', 'count' => $count('campaigns'), 'color' => 'blue', 'href' => $canViewCampaignSummaries ? route('console.mailer.campaigns') : null],
+            ['id' => 'drops', 'label' => 'Drops', 'count' => $count('drops'), 'color' => 'violet', 'href' => $role === 'viewer' ? route('console.drops.monitoring', $workspace->getKey()) : ($canUseCampaignOperations ? route('clean.console.drops.drafts.index') : null)],
+            ['id' => 'warmups', 'label' => 'Warmups', 'count' => $count('warmups'), 'color' => 'pink', 'href' => $canViewCampaignSummaries ? route('clean.console.warmups.index') : null],
+            ['id' => 'servers', 'label' => 'Servers', 'count' => $count('servers'), 'color' => 'cyan', 'href' => $canManageInfrastructure ? route('clean.console.infrastructure.servers.index') : null],
             ['id' => 'domains', 'label' => 'Domains', 'count' => $count('domains'), 'color' => 'blue', 'href' => $canManageInfrastructure ? route('clean.console.infrastructure.domains.index') : null],
-            ['id' => 'lists', 'label' => 'Lists', 'count' => $count('lists'), 'color' => 'cyan', 'href' => $canManageInfrastructure ? route('clean.console.infrastructure.lists.index') : null],
+            ['id' => 'lists', 'label' => 'Lists', 'count' => $count('lists'), 'color' => 'cyan', 'href' => $hasFullAccess ? route('clean.console.infrastructure.lists.index') : (in_array($role, ['operator', 'viewer'], true) ? route('clean.console.audiences.index') : null)],
             ['id' => 'offers', 'label' => 'Offers', 'count' => $count('offers'), 'color' => 'violet', 'href' => $canManageSponsorsAndOffers ? route('clean.console.offers.index') : null],
             ['id' => 'sponsors', 'label' => 'Sponsors', 'count' => $count('sponsors'), 'color' => 'pink', 'href' => $canManageSponsorsAndOffers ? route('clean.console.sponsors.index') : null],
             ['id' => 'isps', 'label' => 'ISPs', 'count' => $count('isps'), 'color' => 'blue', 'href' => $canManageInfrastructure ? route('clean.console.infrastructure.isps.index') : null],
@@ -849,10 +851,24 @@ class WorkspaceAnalyticsConsoleController extends Controller
         ];
 
         $privacyOfficer = $role === 'privacy_officer';
+        $visibleNodeIds = match ($role) {
+            'owner', 'admin' => null,
+            'operator' => ['campaigns', 'drops', 'warmups', 'lists', 'tracking'],
+            'viewer' => ['campaigns', 'drops', 'warmups', 'lists', 'tracking'],
+            default => ['workspace-activity'],
+        };
+        $visibleNodes = $privacyOfficer
+            ? [['id' => 'workspace-activity', 'label' => 'Workspace activity', 'count' => $count('tracked_events'), 'color' => 'indigo', 'href' => null]]
+            : array_values(array_filter($allNodes, fn (array $node): bool => $visibleNodeIds === null || in_array($node['id'], $visibleNodeIds, true)));
+        $visibleNodeIds = array_column($visibleNodes, 'id');
+        $visibleEdges = $privacyOfficer ? [] : array_values(array_filter(
+            $this->dashboardMarketingGraphEdges($workspace, $user, $from, $to, $role),
+            fn (array $edge): bool => in_array($edge['source'], $visibleNodeIds, true) && in_array($edge['target'], $visibleNodeIds, true),
+        ));
 
         return [
-            'nodes' => $privacyOfficer ? [['id' => 'workspace-activity', 'label' => 'Workspace activity', 'count' => $count('tracked_events'), 'color' => 'indigo', 'href' => null]] : $allNodes,
-            'edges' => $privacyOfficer ? [] : $this->dashboardMarketingGraphEdges($workspace, $user, $from, $to, $role),
+            'nodes' => $visibleNodes,
+            'edges' => $visibleEdges,
             'note' => 'Badges show workspace-scoped entities with activity in this range; Tracking shows event volume. Solid links count distinct module-entity pairs whose stored activity dimensions co-occurred in the selected range. Dashed spokes are the module map.',
         ];
     }

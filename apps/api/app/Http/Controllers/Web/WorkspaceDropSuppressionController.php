@@ -21,9 +21,9 @@ use Illuminate\View\View;
 
 class WorkspaceDropSuppressionController extends Controller
 {
-    private const ALLOWED_ROLES = ['owner', 'admin', 'operator'];
+    private const ALLOWED_ROLES = ['owner', 'admin', 'operator', 'privacy_officer'];
 
-    private const FILE_MANAGEMENT_ROLES = ['owner', 'admin'];
+    private const FILE_MANAGEMENT_ROLES = ['owner', 'admin', 'privacy_officer'];
 
     private const ACTIVE_TYPES = ['fresh', 'delivery', 'open', 'click', 'lead', 'unsubscribe'];
 

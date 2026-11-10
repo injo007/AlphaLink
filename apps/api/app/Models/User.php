@@ -11,7 +11,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['name', 'email', 'password', 'username', 'type', 'roles', 'is_active', 'seen_at'])]
+#[Fillable(['name', 'email', 'password', 'username', 'type', 'roles', 'access_role', 'is_active', 'seen_at'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -20,6 +20,32 @@ class User extends Authenticatable
     public const MAILER = 'mailer';
 
     public const TYPES = [self::ADMIN, self::MAILER];
+
+    public const ACCESS_ROLE_OWNER = 'owner';
+
+    public const ACCESS_ROLE_ADMIN = 'admin';
+
+    public const ACCESS_ROLE_OPERATOR = 'operator';
+
+    public const ACCESS_ROLE_VIEWER = 'viewer';
+
+    public const ACCESS_ROLE_PRIVACY_OFFICER = 'privacy_officer';
+
+    public const ACCESS_ROLES = [
+        self::ACCESS_ROLE_OWNER,
+        self::ACCESS_ROLE_ADMIN,
+        self::ACCESS_ROLE_OPERATOR,
+        self::ACCESS_ROLE_VIEWER,
+        self::ACCESS_ROLE_PRIVACY_OFFICER,
+    ];
+
+    public const ACCESS_ROLE_LABELS = [
+        self::ACCESS_ROLE_OWNER => 'Owner',
+        self::ACCESS_ROLE_ADMIN => 'Admin',
+        self::ACCESS_ROLE_OPERATOR => 'Operator',
+        self::ACCESS_ROLE_VIEWER => 'Viewer',
+        self::ACCESS_ROLE_PRIVACY_OFFICER => 'Privacy Officer',
+    ];
 
     public const ROLES = [
         'dashboard' => 'dashboard',
@@ -65,17 +91,35 @@ class User extends Authenticatable
 
     public function hasRole(string $role): bool
     {
-        return $this->type === self::ADMIN || in_array($role, $this->roles ?? [], true);
+        if ($role === 'manage_users') {
+            return in_array($this->access_role, [self::ACCESS_ROLE_OWNER, self::ACCESS_ROLE_ADMIN], true);
+        }
+
+        if ($role === 'share_headers') {
+            return $this->hasFullAccess();
+        }
+
+        return in_array($role, $this->roles ?? [], true);
+    }
+
+    public function isOwner(): bool
+    {
+        return $this->access_role === self::ACCESS_ROLE_OWNER;
+    }
+
+    public function hasFullAccess(): bool
+    {
+        return in_array($this->access_role, [self::ACCESS_ROLE_OWNER, self::ACCESS_ROLE_ADMIN], true);
     }
 
     public function canImpersonate(): bool
     {
-        return $this->type === self::ADMIN;
+        return $this->hasFullAccess();
     }
 
     public function canBeImpersonated(): bool
     {
-        return $this->type === self::MAILER;
+        return $this->type === self::MAILER && ! $this->hasFullAccess();
     }
 
     public function workspaces()

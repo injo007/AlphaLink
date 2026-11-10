@@ -3,6 +3,7 @@
 @section('title', 'Warmups')
 
 @section('content')
+@php($canOperateWarmups = in_array(auth()->user()?->access_role, [\App\Models\User::ACCESS_ROLE_OWNER, \App\Models\User::ACCESS_ROLE_ADMIN, \App\Models\User::ACCESS_ROLE_OPERATOR], true))
 <section class="block block-rounded campaign-register-page warmup-register-page" id="warmup-register">
     <div class="block-header campaign-register-page-header warmup-register-page-header">
         <div class="campaign-register-heading">
@@ -93,7 +94,9 @@
                         @endforeach
                     </select>
                 </form>
-                <a class="btn btn-sm campaign-register-create warmup-register-create" href="{{ $createUrl }}" title="Create new warmup"><i class="fas fa-plus" aria-hidden="true"></i><span>New Warmup</span></a>
+                @if ($canOperateWarmups)
+                    <a class="btn btn-sm campaign-register-create warmup-register-create" href="{{ $createUrl }}" title="Create new warmup"><i class="fas fa-plus" aria-hidden="true"></i><span>New Warmup</span></a>
+                @endif
                 <a class="btn btn-sm campaign-register-active btn-alt-secondary" href="{{ route('console.warmups.index', $workspace->id) }}" title="Active warmup sends"><i class="fas fa-fire mr-1" aria-hidden="true"></i>Active sends <span class="badge badge-light ml-1">{{ $activeSends }}</span></a>
                 <a class="btn btn-sm btn-alt-secondary campaign-register-icon-action" href="{{ request()->fullUrl() }}" title="Reload warmup register" aria-label="Reload warmup register"><i class="fas fa-sync-alt" aria-hidden="true"></i></a>
             </div>
@@ -125,17 +128,21 @@
                     <tr>
                         <th scope="col">#</th>
                         <th scope="col">USER</th>
-                        <th scope="col">SEEDS</th>
-                        <th scope="col">SERVER</th>
-                        <th scope="col">TOTAL SEND</th>
-                        <th scope="col">FRACTION IP</th>
-                        <th scope="col">SLEEP EMAIL</th>
-                        <th scope="col">SLEEP IP</th>
-                        <th scope="col">SEED</th>
+                        @if ($canOperateWarmups)
+                            <th scope="col">SEEDS</th>
+                            <th scope="col">SERVER</th>
+                            <th scope="col">TOTAL SEND</th>
+                            <th scope="col">FRACTION IP</th>
+                            <th scope="col">SLEEP EMAIL</th>
+                            <th scope="col">SLEEP IP</th>
+                            <th scope="col">SEED</th>
+                        @endif
                         <th scope="col">STATUS</th>
                         <th scope="col">PROGRESS</th>
-                        <th scope="col">TYPE</th>
-                        <th scope="col">ACTIONS</th>
+                        @if ($canOperateWarmups)
+                            <th scope="col">TYPE</th>
+                            <th scope="col">ACTIONS</th>
+                        @endif
                     </tr>
                 </thead>
                 <tbody>
@@ -148,10 +155,15 @@
                     @php($runState = $sendRun ? $sendRun->state : 'draft')
                     <tr>
                         <th scope="row" data-label="ID">
-                            <a class="campaign-row-number" href="{{ route('console.warmups.edit', [$workspace->id, $draft->id]) }}" title="Edit warmup {{ $draft->name }}">#{{ substr((string) $draft->id, 0, 8) }}</a>
+                            @if ($canOperateWarmups)
+                                <a class="campaign-row-number" href="{{ route('console.warmups.edit', [$workspace->id, $draft->id]) }}" title="Edit warmup {{ $draft->name }}">#{{ substr((string) $draft->id, 0, 8) }}</a>
+                            @else
+                                <span class="campaign-row-number">#{{ substr((string) $draft->id, 0, 8) }}</span>
+                            @endif
                             <small class="d-block mt-1 text-truncate" style="max-width: 140px;" title="{{ $draft->name }}">{{ $draft->name }}</small>
                         </th>
                         <td data-label="User"><span class="badge badge-light border text-muted"><i class="fas fa-user mr-1 text-purple"></i>{{ auth()->user()->username }}</span></td>
+                        @if ($canOperateWarmups)
                         <td data-label="Seeds"><span class="font-w600 text-purple font-size-sm"><i class="fas fa-seedling mr-1"></i>{{ number_format((int) ($draft->warmup_seed_count ?? 0)) }}</span></td>
                         <td data-label="Server">
                             @if ($draft->warmup_servers->isNotEmpty())
@@ -165,6 +177,7 @@
                         <td data-label="Sleep email"><span class="font-mono">{{ $config['sleep_email'] ?? '—' }}</span></td>
                         <td data-label="Sleep IP"><span class="font-mono">{{ $config['sleep_ip'] ?? '—' }}</span></td>
                         <td data-label="Seed"><span class="font-mono">{{ $config['seed_every'] ?? '—' }}</span></td>
+                        @endif
                         <td data-label="Status">
                             <span class="warmup-status-pill warmup-status-{{ $runState }}">
                                 <span class="status-indicator"></span>
@@ -185,6 +198,7 @@
                                 <span class="badge badge-secondary"><i class="fas fa-clock mr-1"></i>No send run yet</span>
                             @endif
                         </td>
+                        @if ($canOperateWarmups)
                         <td data-label="Type"><span class="badge badge-light border">{{ strtoupper((string) ($config['send_type'] ?? 'DELAY')) }}</span></td>
                         <td data-label="Actions" class="text-nowrap warmup-register-actions">
                             <div class="campaign-register-row-actions warmup-register-row-actions">
@@ -208,14 +222,17 @@
                                 <button class="campaign-register-icon-action campaign-register-icon-action-danger" type="button" disabled title="Warmup removal is not connected" aria-label="Warmup removal unavailable"><i class="fas fa-trash-alt" aria-hidden="true"></i></button>
                             </div>
                         </td>
+                        @endif
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="13" class="text-center py-5 text-muted">
+                        <td colspan="{{ $canOperateWarmups ? 13 : 5 }}" class="text-center py-5 text-muted">
                             <div class="py-3">
                                 <i class="fas fa-fire fa-2x text-muted mb-3 opacity-50"></i>
                                 <p class="mb-2 font-w600">No warmups found in this date range</p>
-                                <a class="btn btn-sm btn-alt-primary" href="{{ $createUrl }}"><i class="fas fa-plus mr-1"></i>Create your first warmup</a>
+                                @if ($canOperateWarmups)
+                                    <a class="btn btn-sm btn-alt-primary" href="{{ $createUrl }}"><i class="fas fa-plus mr-1"></i>Create your first warmup</a>
+                                @endif
                             </div>
                         </td>
                     </tr>

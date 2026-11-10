@@ -70,6 +70,7 @@ class MiscellaneousConsoleController extends Controller
     public function horizon(Request $request, string $workspace): View
     {
         $workspace = $this->adminWorkspace($request->user(), $workspace);
+        abort_unless(in_array($workspace->pivot->role, ['owner', 'admin'], true), 403);
         $available = class_exists(HorizonServiceProvider::class) && Route::has('horizon.index');
         $connection = (string) config('queue.default', 'unknown');
 
@@ -135,7 +136,7 @@ class MiscellaneousConsoleController extends Controller
     private function adminWorkspace(User $user, string $workspaceId): Workspace
     {
         $workspace = $this->workspaceFor($user, $workspaceId);
-        abort_unless(in_array($workspace->pivot->role, ['owner', 'admin'], true), 403);
+        abort_unless(in_array($workspace->pivot->role, ['owner', 'admin', 'privacy_officer'], true), 403);
 
         return $workspace;
     }

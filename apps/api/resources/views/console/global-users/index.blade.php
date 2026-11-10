@@ -24,11 +24,11 @@
         <!-- 2. Info Banner -->
         <div class="command-os-info-banner" role="note">
             <div class="command-os-info-banner-icon" aria-hidden="true"><i class="fas fa-info-circle"></i></div>
-            <div class="command-os-info-banner-content">
+                    <div class="command-os-info-banner-content">
                 @if ($workspace)
-                    Global account directory. Workspace access is assigned separately from account roles.
+                    Global access roles control pages across AlphaLink. Workspace membership still scopes each account's data.
                 @else
-                    Global account directory. Attach an account to a workspace to grant workspace access.
+                    Global access roles control pages. Attach an account to a workspace to grant workspace access.
                 @endif
             </div>
         </div>
@@ -46,22 +46,27 @@
             </div>
             <div class="table-responsive">
                 <table class="table table-sm table-hover table-striped" id="global-users-table">
-                    <thead><tr><th>#</th><th>USERNAME</th><th>NAME</th><th>TYPE</th><th>SEEN AT</th><th>ACTIONS</th></tr></thead>
+                    <thead><tr><th>#</th><th>USERNAME</th><th>NAME</th><th>GLOBAL ROLE</th><th>ACCOUNT TYPE</th><th>SEEN AT</th><th>ACTIONS</th></tr></thead>
                     <tbody>
                         @foreach ($users as $user)
                             <tr data-user-row="{{ $user->id }}" @class(['is-inactive-row' => ! $user->is_active])>
                                 <td><span class="font-mono text-muted">#{{ $user->id }}</span></td>
                                 <td><strong class="text-ink">{{ $user->username }}</strong></td>
                                 <td><span class="text-muted font-w600">{{ $user->name }}</span></td>
-                                <td><span class="badge badge-light border text-purple font-w700 text-uppercase px-2 py-1">{{ $user->type }}</span></td>
+                                <td><span class="badge badge-light border text-purple font-w700 px-2 py-1">{{ \App\Models\User::ACCESS_ROLE_LABELS[$user->access_role] ?? $user->access_role }}</span></td>
+                                <td><span class="badge badge-light border text-muted font-w700 text-uppercase px-2 py-1">{{ $user->type }}</span></td>
                                 <td data-order="{{ $user->seen_at?->timestamp ?? 0 }}"><span class="badge badge-light border font-mono font-size-xs">{{ $user->seen_at?->diffForHumans() ?? 'NEVER' }}</span></td>
                                 <td class="text-nowrap">
                                     <div class="command-action-btn-group">
-                                        <a class="command-action-btn action-edit" href="{{ route('console.global-users.edit', $user->id) }}" title="UPDATE USER" aria-label="Update {{ $user->username }}"><i class="fas fa-pencil-alt" aria-hidden="true"></i></a>
-                                        <button class="command-action-btn action-status {{ $user->is_active ? 'is-active' : '' }}" type="button" data-user-status="{{ $user->id }}" data-status="{{ $user->is_active ? 0 : 1 }}" @disabled(auth()->user()->is($user)) title="{{ $user->is_active ? 'DISABLE USER' : 'ENABLE USER' }}" aria-label="{{ $user->is_active ? 'Disable' : 'Enable' }} {{ $user->username }}"><i class="fas fa-{{ $user->is_active ? 'toggle-on' : 'toggle-off' }}" aria-hidden="true"></i></button>
-                                        <a class="command-action-btn action-warning" href="{{ route('console.global-users.password', $user->id) }}" title="EDIT PASSWORD" aria-label="Edit password for {{ $user->username }}"><i class="fas fa-key" aria-hidden="true"></i></a>
-                                        @if (auth()->user()->canImpersonate() && $user->canBeImpersonated())
-                                            <form method="post" action="{{ route('console.global-users.impersonation.start', $user->id) }}" class="d-inline">@csrf<button class="command-action-btn action-login" type="submit" title="IMPERSONATE OPERATOR" aria-label="Impersonate {{ $user->username }}"><i class="fas fa-user-ninja" aria-hidden="true"></i></button></form>
+                                        @if (! $user->isOwner() || auth()->user()->isOwner())
+                                            <a class="command-action-btn action-edit" href="{{ route('console.global-users.edit', $user->id) }}" title="UPDATE USER" aria-label="Update {{ $user->username }}"><i class="fas fa-pencil-alt" aria-hidden="true"></i></a>
+                                            <button class="command-action-btn action-status {{ $user->is_active ? 'is-active' : '' }}" type="button" data-user-status="{{ $user->id }}" data-status="{{ $user->is_active ? 0 : 1 }}" @disabled(auth()->user()->is($user)) title="{{ $user->is_active ? 'DISABLE USER' : 'ENABLE USER' }}" aria-label="{{ $user->is_active ? 'Disable' : 'Enable' }} {{ $user->username }}"><i class="fas fa-{{ $user->is_active ? 'toggle-on' : 'toggle-off' }}" aria-hidden="true"></i></button>
+                                            <a class="command-action-btn action-warning" href="{{ route('console.global-users.password', $user->id) }}" title="EDIT PASSWORD" aria-label="Edit password for {{ $user->username }}"><i class="fas fa-key" aria-hidden="true"></i></a>
+                                            @if (auth()->user()->canImpersonate() && $user->canBeImpersonated())
+                                                <form method="post" action="{{ route('console.global-users.impersonation.start', $user->id) }}" class="d-inline">@csrf<button class="command-action-btn action-login" type="submit" title="IMPERSONATE OPERATOR" aria-label="Impersonate {{ $user->username }}"><i class="fas fa-user-ninja" aria-hidden="true"></i></button></form>
+                                            @endif
+                                        @else
+                                            <span class="badge badge-light border text-muted px-2 py-1" title="Only the Owner can manage this account">Owner protected</span>
                                         @endif
                                     </div>
                                 </td>
@@ -79,7 +84,7 @@
             if (table && typeof table.DataTable === 'function') {
                 table.DataTable({
                     pageLength: 50,
-                    order: [[4, 'desc']],
+                    order: [[5, 'desc']],
                     dom: '<"command-table-toolbar"<"command-table-toolbar-left"l><"command-table-toolbar-right"f>>' +
                          '<"table-responsive"t>' +
                          '<"command-table-footer"ip>',

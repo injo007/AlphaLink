@@ -34,6 +34,9 @@ class WorkspaceController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        abort_unless($request->user()?->hasFullAccess(), 403);
+        $globalRole = (string) $request->user()->access_role;
+
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'slug' => ['nullable', 'string', 'alpha_dash', 'max:120'],
@@ -57,7 +60,7 @@ class WorkspaceController extends Controller
                 'id' => $existing->id,
                 'name' => $existing->name,
                 'slug' => $existing->slug,
-                'role' => 'owner',
+                'role' => $globalRole,
             ]], 200);
         }
 
@@ -68,7 +71,7 @@ class WorkspaceController extends Controller
         }
 
         try {
-            $workspace = DB::transaction(function () use ($request, $name, $slug, $idempotencyKey, $fingerprint): Workspace {
+            $workspace = DB::transaction(function () use ($request, $name, $slug, $idempotencyKey, $fingerprint, $globalRole): Workspace {
                 $workspace = Workspace::query()->create([
                     'name' => $name,
                     'slug' => $slug,
@@ -79,7 +82,7 @@ class WorkspaceController extends Controller
                 ]);
 
                 $workspace->users()->attach($request->user()->getKey(), [
-                    'role' => 'owner',
+                    'role' => $globalRole,
                     'joined_at' => now(),
                 ]);
 
@@ -90,7 +93,7 @@ class WorkspaceController extends Controller
                     'subject_type' => 'workspace',
                     'subject_id' => $workspace->getKey(),
                     'request_id' => $request->attributes->get('request_id'),
-                    'properties' => ['role_granted' => 'owner'],
+                    'properties' => ['role_granted' => $globalRole],
                     'occurred_at' => now(),
                 ]);
 
@@ -118,7 +121,7 @@ class WorkspaceController extends Controller
                     'id' => $existing->id,
                     'name' => $existing->name,
                     'slug' => $existing->slug,
-                    'role' => 'owner',
+                    'role' => $globalRole,
                 ]], 200);
             }
 
@@ -134,7 +137,7 @@ class WorkspaceController extends Controller
                 'id' => $workspace->id,
                 'name' => $workspace->name,
                 'slug' => $workspace->slug,
-                'role' => 'owner',
+                    'role' => $globalRole,
             ],
         ], 201);
     }

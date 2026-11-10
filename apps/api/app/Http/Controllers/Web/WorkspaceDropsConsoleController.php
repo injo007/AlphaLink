@@ -22,7 +22,7 @@ use Illuminate\View\View;
 
 class WorkspaceDropsConsoleController extends Controller
 {
-    private const ALLOWED_ROLES = ['owner', 'admin', 'operator'];
+    private const ALLOWED_ROLES = ['owner', 'admin', 'operator', 'viewer'];
 
     public function monitoring(Request $request, string $workspace): View|JsonResponse
     {
@@ -56,6 +56,19 @@ class WorkspaceDropsConsoleController extends Controller
             ->whereBetween('created_at', [$from, $to])
             ->orderByDesc('id')
             ->get();
+
+        if ($request->user()->access_role === User::ACCESS_ROLE_VIEWER) {
+            return response()->json([
+                'data' => $drops->map(fn (WorkspaceDrop $drop): array => [
+                    'id' => (int) $drop->getKey(),
+                    'send_type' => $drop->send_type,
+                    'send_status' => $drop->send_status,
+                    'send_progress' => $drop->send_progress,
+                    'send_count' => $drop->send_count,
+                    'created_at' => $drop->created_at?->toISOString(),
+                ])->all(),
+            ]);
+        }
 
         $serverIds = $drops->flatMap(fn (WorkspaceDrop $drop): array => $drop->servers ?? [])->unique()->values();
         $servers = ManagedServer::withTrashed()

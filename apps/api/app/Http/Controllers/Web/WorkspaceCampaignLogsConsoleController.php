@@ -23,7 +23,9 @@ use Illuminate\Support\Facades\DB;
 
 class WorkspaceCampaignLogsConsoleController extends Controller
 {
-    private const ALLOWED_ROLES = ['owner', 'admin', 'operator'];
+    private const ALLOWED_ROLES = ['owner', 'admin', 'operator', 'viewer'];
+
+    private const HISTORY_ROLES = ['owner', 'admin', 'operator'];
 
     public function index(Request $request, string $workspaceId): View
     {
@@ -124,12 +126,16 @@ class WorkspaceCampaignLogsConsoleController extends Controller
             return $campaign;
         });
 
-        return view('console.campaign-logs.index', compact('workspace', 'campaigns', 'from', 'to', 'search', 'perPage'));
+        $canReviewHistory = in_array($workspace->pivot->role, self::HISTORY_ROLES, true);
+        $canManageRestrictions = in_array($workspace->pivot->role, self::HISTORY_ROLES, true);
+
+        return view('console.campaign-logs.index', compact('workspace', 'campaigns', 'from', 'to', 'search', 'perPage', 'canReviewHistory', 'canManageRestrictions'));
     }
 
     public function history(Request $request, string $workspaceId, string $campaignId, string $history): View
     {
         $workspace = $this->authorizedWorkspace($request, $workspaceId);
+        abort_unless(in_array($workspace->pivot->role, self::HISTORY_ROLES, true), 403);
         abort_unless(in_array($history, ['tests', 'updates', 'sends'], true), 404);
         $campaign = $this->campaignForUser($request, $workspace, $campaignId);
 
@@ -183,6 +189,7 @@ class WorkspaceCampaignLogsConsoleController extends Controller
     public function historyDetail(Request $request, string $workspaceId, string $campaignId, string $history, string $entry): View
     {
         $workspace = $this->authorizedWorkspace($request, $workspaceId);
+        abort_unless(in_array($workspace->pivot->role, self::HISTORY_ROLES, true), 403);
         abort_unless(in_array($history, ['tests', 'updates', 'sends'], true), 404);
         $campaign = $this->campaignForUser($request, $workspace, $campaignId);
         $payload = [];
@@ -247,6 +254,7 @@ class WorkspaceCampaignLogsConsoleController extends Controller
     public function setRestriction(Request $request, string $workspaceId, string $campaignId): RedirectResponse
     {
         $workspace = $this->authorizedWorkspace($request, $workspaceId);
+        abort_unless(in_array($workspace->pivot->role, self::HISTORY_ROLES, true), 403);
         $validated = $request->validate(['is_restricted' => ['required', 'boolean']]);
         $isRestricted = (bool) $validated['is_restricted'];
 

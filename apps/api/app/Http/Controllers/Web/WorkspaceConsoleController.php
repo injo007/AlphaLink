@@ -64,7 +64,7 @@ use Throwable;
 
 class WorkspaceConsoleController extends Controller
 {
-    private const CAMPAIGN_ROLES = ['owner', 'admin', 'operator'];
+    private const CAMPAIGN_ROLES = ['owner', 'admin', 'operator', 'viewer'];
 
     private const CAMPAIGN_IP_SELECTION_REQUIRED = 'Choose at least one IP, VMTA, or SMTP route in the Selected routes list before saving. Test Campaign uses the route saved on this revision.';
 
@@ -256,7 +256,9 @@ class WorkspaceConsoleController extends Controller
             return $campaign;
         });
 
-        return view('console.campaigns.index', compact('workspace', 'campaigns', 'from', 'to', 'search', 'showDisabled', 'perPage', 'activeOnly', 'activeSendCount', 'campaignOverview'));
+        $canOperateCampaigns = in_array($workspace->pivot->role, ['owner', 'admin', 'operator'], true);
+
+        return view('console.campaigns.index', compact('workspace', 'campaigns', 'from', 'to', 'search', 'showDisabled', 'perPage', 'activeOnly', 'activeSendCount', 'campaignOverview', 'canOperateCampaigns'));
     }
 
     public function createCampaign(Request $request, string $workspace, AlphaLinkCampaignSendCatalog $catalog): View

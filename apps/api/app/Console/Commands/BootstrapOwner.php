@@ -90,6 +90,7 @@ class BootstrapOwner extends Command
                 'username' => $username !== '' ? $username : null,
                 'email_verified_at' => now(),
                 'password' => $password,
+                'access_role' => User::ACCESS_ROLE_OWNER,
             ]);
             $user->save();
 

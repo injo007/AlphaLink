@@ -13,7 +13,7 @@ class GlobalNavigationPreferenceController extends Controller
     public function update(Request $request): JsonResponse
     {
         $actor = $request->user();
-        abort_unless($actor instanceof User && $actor->type === User::ADMIN, 403);
+        abort_unless($actor instanceof User && $actor->isOwner(), 403);
 
         $data = $request->validate([
             'groups' => ['required', 'array', 'max:40'],

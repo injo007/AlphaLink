@@ -9,7 +9,7 @@
             <div class="command-os-user-form-heading-copy">
                 <span class="command-os-user-form-eyebrow">ACCESS MANAGEMENT</span>
                 <h1 id="edit-user-title">Edit User</h1>
-                <p>Update this account’s details and workspace access.</p>
+                <p>Update this account’s details and global access role.</p>
             </div>
         </header>
 
@@ -18,7 +18,7 @@
                 <span class="command-os-user-form-section-icon" aria-hidden="true"><i class="fas fa-id-card"></i></span>
                 <div>
                     <h2>Member details</h2>
-                    <p>Change the account identity and permissions for this workspace.</p>
+                    <p>The selected Global Access Role applies across the account’s workspace memberships.</p>
                 </div>
             </div>
 
@@ -38,7 +38,7 @@
                         <small id="user-email-help" class="command-os-user-field-help">Login email is read-only on this screen.</small>
                     </div>
                     <div class="form-group command-os-user-field">
-                        <label for="type">User Type</label>
+                        <label for="type">Account Type</label>
                         <select id="type" name="type" class="form-control">
                             @foreach ($types as $type)
                                 <option value="{{ $type }}" @selected($type === $user->type)>{{ $type }}</option>
@@ -47,28 +47,13 @@
                     </div>
                 </div>
 
-                <div class="command-os-user-access-grid @if ($user->type === 'admin') is-admin @endif">
-                    <fieldset class="command-os-user-roles" id="role-container" @if ($user->type === 'admin') hidden @endif>
-                        <legend>User Roles</legend>
-                        <div class="command-os-user-role-grid">
-                            @foreach ($roles as $key => $label)
-                                <div class="command-os-user-role-option">
-                                    <div class="custom-control custom-checkbox">
-                                        <input class="custom-control-input" id="role-{{ $key }}" name="roles[]" type="checkbox" value="{{ $key }}" @checked(in_array($key, $user->roles ?? [], true))>
-                                        <label class="custom-control-label" for="role-{{ $key }}">{{ $label }}</label>
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                        <small>Global user roles are stored with the account. Workspace access is controlled separately.</small>
-                    </fieldset>
-
+                <div class="command-os-user-access-grid is-role-only">
                     <div class="command-os-user-workspace-role">
-                        <label for="workspace_role">Workspace Role</label>
-                        <p>Choose what the member can do in this workspace.</p>
+                        <label for="workspace_role">Global Access Role</label>
+                        <p>Changing this role updates access across every workspace. Owner alone can arrange the shared navigation.</p>
                         <select class="form-control" id="workspace_role" name="workspace_role">
                             @foreach ($workspaceRoles as $role)
-                                <option value="{{ $role }}" @selected($role === $user->pivot->role)>{{ str_replace('_', ' ', $role) }}</option>
+                                <option value="{{ $role }}" @selected($role === $user->access_role)>{{ \App\Models\User::ACCESS_ROLE_LABELS[$role] }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -90,16 +75,6 @@
             const button = document.getElementById('save-user');
             const buttonLabel = document.getElementById('edit-user-submit-label');
             const error = document.getElementById('user-error');
-            const roles = document.getElementById('role-container');
-            const typeField = document.getElementById('type');
-            const accessGrid = roles.closest('.command-os-user-access-grid');
-            const syncRoleVisibility = () => {
-                roles.hidden = typeField.value === 'admin';
-                accessGrid.classList.toggle('is-admin', roles.hidden);
-                if (roles.hidden) { roles.querySelectorAll('input').forEach((input) => { input.checked = false; }); }
-            };
-            typeField.addEventListener('change', syncRoleVisibility);
-            syncRoleVisibility();
             form.addEventListener('submit', async (event) => {
                 event.preventDefault();
                 error.classList.add('d-none');
@@ -108,7 +83,6 @@
                 buttonLabel.textContent = 'Saving…';
                 const data = new FormData(form);
                 const payload = Object.fromEntries(data.entries());
-                payload.roles = data.getAll('roles[]');
                 try {
                     const response = await fetch(@json(route('console.users.update', [$workspace->id, $user->id])), {
                         method: 'PUT',

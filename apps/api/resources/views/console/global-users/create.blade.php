@@ -9,8 +9,8 @@
             <form id="global-user-form" novalidate>
                 <div class="form-group"><label for="full_name">Full Name</label><input class="form-control" id="full_name" name="full_name" minlength="4" maxlength="255" required autocomplete="name"></div>
                 <div class="form-group"><label for="username">Username</label><input class="form-control" id="username" name="username" minlength="4" maxlength="255" required autocomplete="username" autocapitalize="none"></div>
-                <div class="form-group"><label for="type">User Type</label><select class="form-control" id="type" name="type" required><option value="">Select User Type ...</option>@foreach ($types as $type)<option value="{{ $type }}">{{ $type }}</option>@endforeach</select></div>
-                <fieldset class="form-group" id="role-container" hidden><legend class="col-form-label">User Roles</legend><div class="row">@foreach ($roles as $key => $label)<div class="col-sm-6"><div class="custom-control custom-checkbox"><input class="custom-control-input" id="role-{{ $key }}" name="roles[]" type="checkbox" value="{{ $key }}"><label class="custom-control-label" for="role-{{ $key }}">{{ $label }}</label></div></div>@endforeach</div></fieldset>
+                <div class="form-group"><label for="access_role">Global Access Role</label><select class="form-control" id="access_role" name="access_role" required>@foreach ($accessRoles as $role)<option value="{{ $role }}" @selected($role === 'operator')>{{ \App\Models\User::ACCESS_ROLE_LABELS[$role] }}</option>@endforeach</select><small class="form-text text-muted">Owner alone can arrange navigation; Owner and Admin have full access. Operator runs campaign and audience operations. Viewer reviews approved summaries. Privacy Officer manages contact and suppression workflows.</small></div>
+                <div class="form-group"><label for="type">Account Type</label><select class="form-control" id="type" name="type" required><option value="">Select Account Type ...</option>@foreach ($types as $type)<option value="{{ $type }}">{{ $type }}</option>@endforeach</select><small class="form-text text-muted">Account Type preserves legacy login behavior; permissions come from Global Access Role.</small></div>
                 <div class="form-group"><button class="btn btn-info" id="save-user" type="submit">SAVE</button> <a class="btn btn-light" href="{{ route('console.global-users.index') }}">CANCEL</a></div>
                 <div class="alert alert-danger d-none" id="user-error" role="alert"></div>
                 <section class="alert alert-success d-none" id="created-credentials" aria-live="polite"><strong id="created-message"></strong><p class="mt-2 mb-2">Copy these login details now. The temporary password will not be shown again.</p><label for="created-login">Username:password</label><input class="form-control" id="created-login" readonly><button class="btn btn-success mt-2" id="copy-login" type="button">COPY LOGIN AND PASSWORD</button></section>
@@ -21,16 +21,11 @@
         (() => {
             const form = document.getElementById('global-user-form');
             const button = document.getElementById('save-user');
-            const roleContainer = document.getElementById('role-container');
             const error = document.getElementById('user-error');
-            const type = document.getElementById('type');
-            type.addEventListener('change', () => {
-                roleContainer.hidden = type.value !== 'mailer';
-            });
             form.addEventListener('submit', async (event) => {
                 event.preventDefault(); error.classList.add('d-none'); button.disabled = true; button.textContent = 'SAVING…';
                 const data = new FormData(form);
-                const payload = {username: data.get('username'), full_name: data.get('full_name'), type: data.get('type'), roles: data.getAll('roles[]')};
+                const payload = {username: data.get('username'), full_name: data.get('full_name'), type: data.get('type'), access_role: data.get('access_role')};
                 try {
                     const response = await fetch(@json(route('console.global-users.store')), {method: 'POST', headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content}, body: JSON.stringify(payload)});
                     const result = await response.json();
@@ -38,8 +33,7 @@
                     document.getElementById('created-message').textContent = result.data;
                     document.getElementById('created-login').value = result.info;
                     document.getElementById('created-credentials').classList.remove('d-none');
-                    form.querySelectorAll('#full_name, #username, #type, #role-container').forEach((field) => { field.disabled = true; });
-                    roleContainer.querySelectorAll('input').forEach((field) => { field.disabled = true; });
+                    form.querySelectorAll('#full_name, #username, #type, #access_role').forEach((field) => { field.disabled = true; });
                     button.classList.add('d-none');
                 } catch (cause) {
                     error.textContent = cause.message || 'The account could not be created.'; error.classList.remove('d-none'); button.disabled = false; button.textContent = 'SAVE';

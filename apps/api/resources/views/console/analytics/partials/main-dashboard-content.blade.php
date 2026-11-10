@@ -161,7 +161,9 @@
     <div class="block block-rounded">
         <div class="block-header block-header-default">
             <h3 class="block-title">CAMPAIGN &amp; DROP ENGAGEMENT — DAILY EVENTS</h3>
-            <div class="block-options"><a class="btn btn-sm btn-alt-primary" href="{{ route('console.drops.monitoring', $workspace->id) }}">DROP MONITORING</a></div>
+            @if (auth()->user()?->access_role !== \App\Models\User::ACCESS_ROLE_PRIVACY_OFFICER)
+                <div class="block-options"><a class="btn btn-sm btn-alt-primary" href="{{ route('console.drops.monitoring', $workspace->id) }}">DROP MONITORING</a></div>
+            @endif
         </div>
         <div class="block-content block-content-full">
             @if ($eventTotals['opens'] + $eventTotals['clicks'] + $eventTotals['leads'] + $eventTotals['unsubscribes'] === 0)

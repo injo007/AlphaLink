@@ -62,7 +62,7 @@ class WorkspaceCampaignHeaderController extends Controller
         $workspace = $this->workspaceFor($request, $workspaceId);
         $header = $workspace->campaignHeaders()->whereKey($headerId)->firstOrFail();
         $user = $request->user();
-        abort_unless($user->type === User::ADMIN || (int) $header->created_by === (int) $user->getKey(), 403);
+        abort_unless($user->hasFullAccess() || (int) $header->created_by === (int) $user->getKey(), 403);
 
         DB::transaction(function () use ($request, $workspace, $header): void {
             $this->recordAudit($request, $workspace, 'campaign.header.deleted', $header);

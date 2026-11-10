@@ -3,13 +3,15 @@
 @section('title', 'Drops Monitoring')
 
 @section('content')
+@php($readOnlySummary = auth()->user()?->access_role === \App\Models\User::ACCESS_ROLE_VIEWER)
 <div id="drops-monitoring"
     class="command-os-entity-page"
+    data-viewer="{{ $readOnlySummary ? 'true' : 'false' }}"
     data-rows-url="{{ route('console.drops.monitoring', $workspace->id) }}"
-    data-monitor-url-template="{{ route('console.drops.monitor', [$workspace->id, '__DROP_ID__']) }}"
-    data-pmta-admin-url="{{ route('console.pmta-admin.index', $workspace->id) }}"
-    data-stats-url-template="{{ route('console.drops.stats', [$workspace->id, '__DROP_ID__']) }}"
-    data-visitors-url-template="{{ route('console.drops.visitors', [$workspace->id, '__DROP_ID__']) }}"
+    data-monitor-url-template="{{ $readOnlySummary ? '' : route('console.drops.monitor', [$workspace->id, '__DROP_ID__']) }}"
+    data-pmta-admin-url="{{ $readOnlySummary ? '' : route('console.pmta-admin.index', $workspace->id) }}"
+    data-stats-url-template="{{ $readOnlySummary ? '' : route('console.drops.stats', [$workspace->id, '__DROP_ID__']) }}"
+    data-visitors-url-template="{{ $readOnlySummary ? '' : route('console.drops.visitors', [$workspace->id, '__DROP_ID__']) }}"
     data-today="{{ $today }}">
     <!-- 1. Hero Card -->
     <header class="command-os-hero-card">

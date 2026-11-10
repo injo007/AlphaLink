@@ -3,17 +3,19 @@
 @section('title', 'Seeds')
 
 @section('content')
+@php($canManageSeeds = in_array(auth()->user()?->access_role, [\App\Models\User::ACCESS_ROLE_OWNER, \App\Models\User::ACCESS_ROLE_ADMIN, \App\Models\User::ACCESS_ROLE_OPERATOR], true))
 <div id="warmup-seeds"
     data-rows-url="{{ route('console.warmups.seeds.index', $workspace->id) }}"
-    data-create-form-url="{{ route('console.warmups.seeds.create', $workspace->id) }}"
-    data-store-url="{{ route('console.warmups.seeds.store', $workspace->id) }}"
-    data-clean-form-url="{{ route('console.warmups.seeds.clean.form', $workspace->id) }}"
-    data-clean-url="{{ route('console.warmups.seeds.clean', $workspace->id) }}"
-    data-upload-form-template="{{ route('console.warmups.seeds.upload-form', [$workspace->id, '__SEED_ID__']) }}"
-    data-upload-url-template="{{ route('console.warmups.seeds.upload', [$workspace->id, '__SEED_ID__']) }}"
+    data-can-manage="{{ $canManageSeeds ? 'true' : 'false' }}"
+    data-create-form-url="{{ $canManageSeeds ? route('console.warmups.seeds.create', $workspace->id) : '' }}"
+    data-store-url="{{ $canManageSeeds ? route('console.warmups.seeds.store', $workspace->id) : '' }}"
+    data-clean-form-url="{{ $canManageSeeds ? route('console.warmups.seeds.clean.form', $workspace->id) : '' }}"
+    data-clean-url="{{ $canManageSeeds ? route('console.warmups.seeds.clean', $workspace->id) : '' }}"
+    data-upload-form-template="{{ $canManageSeeds ? route('console.warmups.seeds.upload-form', [$workspace->id, '__SEED_ID__']) : '' }}"
+    data-upload-url-template="{{ $canManageSeeds ? route('console.warmups.seeds.upload', [$workspace->id, '__SEED_ID__']) : '' }}"
     data-show-url-template="{{ route('console.warmups.seeds.show', [$workspace->id, '__SEED_ID__']) }}"
     data-status-url-template="{{ route('console.warmups.seeds.status', [$workspace->id, '__SEED_ID__']) }}"
-    data-delete-url-template="{{ route('console.warmups.seeds.destroy', [$workspace->id, '__SEED_ID__']) }}">
+    data-delete-url-template="{{ $canManageSeeds ? route('console.warmups.seeds.destroy', [$workspace->id, '__SEED_ID__']) : '' }}">
     <section class="block block-rounded">
         <div class="block-header">
             <h3 class="block-title">Seeds</h3>

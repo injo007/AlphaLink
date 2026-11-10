@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\Authorization\AccessRoleAssignment;
 use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -23,7 +25,7 @@ class GlobalUserManagementController extends Controller
     public function index(Request $request): View|JsonResponse
     {
         $this->authorizeUserManagement($request);
-        $users = User::query()->orderBy('id')->get(['id', 'username', 'name', 'type', 'is_active', 'seen_at']);
+        $users = User::query()->orderBy('id')->get(['id', 'username', 'name', 'type', 'access_role', 'is_active', 'seen_at']);
 
         if ($request->wantsJson()) {
             return response()->json(['data' => $users->map(fn (User $user): array => [
@@ -31,6 +33,7 @@ class GlobalUserManagementController extends Controller
                 'username' => $user->username,
                 'full_name' => $user->name,
                 'type' => $user->type,
+                'access_role' => $user->access_role,
                 'is_active' => $user->is_active,
                 'seen_at' => $user->seen_at,
                 'seen_at_human' => $user->seen_at?->diffForHumans(),
@@ -49,33 +52,37 @@ class GlobalUserManagementController extends Controller
 
         return view('console.global-users.create', [
             'types' => User::TYPES,
-            'roles' => User::getRoles(),
+            'accessRoles' => $this->assignableAccessRoles($request->user()),
             'workspace' => $this->layoutWorkspace($request->user()),
         ]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, AccessRoleAssignment $accessRoleAssignment): JsonResponse
     {
-        $this->authorizeUserManagement($request);
+        $actor = $this->authorizeUserManagement($request);
         $request->merge(['username' => Str::lower(trim((string) $request->input('username')))]);
         $data = $request->validate([
             'username' => ['required', 'alpha', 'min:4', 'max:255', $this->uniqueUsernameRule()],
             'full_name' => ['required', 'string', 'min:4', 'max:255'],
             'type' => ['required', 'string', Rule::in(User::TYPES)],
-            'roles' => ['nullable', 'array'],
-            'roles.*' => ['string', Rule::in(array_keys(User::getRoles()))],
+            'access_role' => ['required', 'string', Rule::in($this->assignableAccessRoles($actor))],
         ]);
 
         $password = Str::random(8);
-        $user = User::query()->create([
-            'name' => $data['full_name'],
-            'username' => $data['username'],
-            'email' => null,
-            'password' => Hash::make($password),
-            'type' => $data['type'],
-            'roles' => array_values(array_unique($data['roles'] ?? [])),
-            'is_active' => true,
-        ]);
+        $user = DB::transaction(function () use ($actor, $data, $password, $accessRoleAssignment): User {
+            $user = User::query()->create([
+                'name' => $data['full_name'],
+                'username' => $data['username'],
+                'email' => null,
+                'password' => Hash::make($password),
+                'type' => $data['type'],
+                'access_role' => User::ACCESS_ROLE_VIEWER,
+                'is_active' => true,
+            ]);
+            $accessRoleAssignment->assign($actor, $user, $data['access_role']);
+
+            return $user;
+        });
 
         return response()->json([
             'data' => 'User created',
@@ -90,28 +97,32 @@ class GlobalUserManagementController extends Controller
         return view('console.global-users.edit', [
             'user' => $user,
             'types' => User::TYPES,
-            'roles' => User::getRoles(),
+            'accessRoles' => $this->assignableAccessRoles($request->user(), $user),
             'workspace' => $this->layoutWorkspace($request->user()),
         ]);
     }
 
-    public function update(Request $request, User $user): JsonResponse
+    public function update(Request $request, User $user, AccessRoleAssignment $accessRoleAssignment): JsonResponse
     {
-        $this->authorizeUserManagement($request);
+        $actor = $this->authorizeUserManagement($request);
+        $this->authorizeTarget($actor, $user);
         $data = $request->validate([
             'username' => ['required', 'string', 'min:4', 'max:255', $this->uniqueUsernameRule($user)],
             'full_name' => ['required', 'string', 'min:4', 'max:255'],
             'type' => ['required', 'string', Rule::in(User::TYPES)],
-            'roles' => ['nullable', 'array'],
-            'roles.*' => ['string', Rule::in(array_keys(User::getRoles()))],
+            'access_role' => ['required', 'string', Rule::in($this->assignableAccessRoles($actor, $user))],
         ]);
 
-        $saved = $user->forceFill([
-            'username' => $data['username'],
-            'name' => $data['full_name'],
-            'type' => $data['type'],
-            'roles' => array_values(array_unique($data['roles'] ?? [])),
-        ])->save();
+        $saved = DB::transaction(function () use ($actor, $user, $data, $accessRoleAssignment): bool {
+            $saved = $user->forceFill([
+                'username' => $data['username'],
+                'name' => $data['full_name'],
+                'type' => $data['type'],
+            ])->save();
+            $accessRoleAssignment->assign($actor, $user, $data['access_role']);
+
+            return $saved;
+        });
 
         return response()->json(['data' => $saved ? 'User updated' : 'Failed'], $saved ? 200 : 400);
     }
@@ -119,6 +130,7 @@ class GlobalUserManagementController extends Controller
     public function status(Request $request, User $user): JsonResponse
     {
         $actor = $this->authorizeUserManagement($request);
+        $this->authorizeTarget($actor, $user);
         abort_if($actor->is($user), 401, 'Not Allowed');
         $data = $request->validate(['status' => ['required', 'boolean']]);
         $saved = $user->forceFill(['is_active' => (bool) $data['status']])->save();
@@ -128,7 +140,8 @@ class GlobalUserManagementController extends Controller
 
     public function password(Request $request, User $user): View
     {
-        $this->authorizeUserManagement($request);
+        $actor = $this->authorizeUserManagement($request);
+        $this->authorizeTarget($actor, $user);
 
         return view('console.global-users.password', [
             'user' => $user,
@@ -138,7 +151,8 @@ class GlobalUserManagementController extends Controller
 
     public function updatePassword(Request $request, User $user): JsonResponse
     {
-        $this->authorizeUserManagement($request);
+        $actor = $this->authorizeUserManagement($request);
+        $this->authorizeTarget($actor, $user);
         $data = $request->validate(['password' => ['required', Password::default()]]);
         $saved = $user->forceFill(['password' => Hash::make($data['password'])])->save();
 
@@ -176,6 +190,26 @@ class GlobalUserManagementController extends Controller
         abort_unless($actor instanceof User && $actor->hasRole('manage_users'), 403);
 
         return $actor;
+    }
+
+    private function authorizeTarget(User $actor, User $target): void
+    {
+        abort_if($target->isOwner() && ! $actor->isOwner(), 403, 'Only the Owner can manage the Owner account.');
+    }
+
+    /** @return list<string> */
+    private function assignableAccessRoles(User $actor, ?User $target = null): array
+    {
+        if ($target?->isOwner()) {
+            return $actor->isOwner() ? [User::ACCESS_ROLE_OWNER] : [];
+        }
+
+        $roles = array_values(array_filter(
+            User::ACCESS_ROLES,
+            static fn (string $role): bool => $role !== User::ACCESS_ROLE_OWNER || $actor->isOwner(),
+        ));
+
+        return array_values(array_unique($roles));
     }
 
     private function uniqueUsernameRule(?User $ignore = null): Closure

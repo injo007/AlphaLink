@@ -7,7 +7,7 @@
         $userCount = $users->count();
         $activeCount = $users->where('is_active', true)->count();
         $disabledCount = $userCount - $activeCount;
-        $adminCount = $users->where('type', 'admin')->count();
+        $adminCount = $users->whereIn('access_role', ['owner', 'admin'])->count();
     @endphp
 
     <main class="command-os-users" aria-labelledby="workspace-users-title">
@@ -39,7 +39,7 @@
             </article>
             <article class="command-os-users-stat command-os-users-stat-cyan">
                 <span class="command-os-users-stat-icon" aria-hidden="true"><i class="fas fa-user-shield"></i></span>
-                <span class="command-os-users-stat-copy"><span>Admin accounts</span><strong>{{ number_format($adminCount) }}</strong><small>Global account type</small></span>
+                    <span class="command-os-users-stat-copy"><span>Full access</span><strong>{{ number_format($adminCount) }}</strong><small>Owner and Admin roles</small></span>
             </article>
         </section>
 
@@ -49,7 +49,7 @@
                     <span class="command-os-users-panel-icon" aria-hidden="true"><i class="fas fa-user-plus"></i></span>
                     <div>
                         <h2 id="attach-existing-user-title">Add an existing account</h2>
-                        <p>Connect an existing AlphaLink account to this workspace and choose its workspace role.</p>
+                        <p>Connect an existing AlphaLink account and set its global role across every workspace.</p>
                     </div>
                 </div>
                 <form id="attach-existing-user-form" class="command-os-users-attach-form" novalidate>
@@ -58,15 +58,15 @@
                         <select id="existing-user-id" class="form-control" name="user_id" required>
                             <option value="">Select an account</option>
                             @foreach ($availableUsers as $availableUser)
-                                <option value="{{ $availableUser->id }}">{{ $availableUser->username ?: $availableUser->name }} · {{ $availableUser->name }}{{ $availableUser->is_active ? '' : ' · Disabled' }}</option>
+                                <option value="{{ $availableUser->id }}">{{ $availableUser->username ?: $availableUser->name }} · {{ $availableUser->name }} · {{ \App\Models\User::ACCESS_ROLE_LABELS[$availableUser->access_role] ?? $availableUser->access_role }}{{ $availableUser->is_active ? '' : ' · Disabled' }}</option>
                             @endforeach
                         </select>
                     </div>
                     <div class="command-os-users-field command-os-users-role-field">
-                        <label for="existing-user-role">Workspace role</label>
+                        <label for="existing-user-role">Global access role</label>
                         <select id="existing-user-role" class="form-control" name="workspace_role" required>
                             @foreach ($workspaceRoles as $role)
-                                <option value="{{ $role }}">{{ str_replace('_', ' ', $role) }}</option>
+                                <option value="{{ $role }}">{{ \App\Models\User::ACCESS_ROLE_LABELS[$role] }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -100,7 +100,7 @@
                     <table class="command-os-users-table" id="workspace-users">
                         <caption class="sr-only">Workspace user accounts, access roles, status, and actions</caption>
                         <thead>
-                            <tr><th scope="col">#</th><th scope="col">Username</th><th scope="col">Name</th><th scope="col">Email</th><th scope="col">Type</th><th scope="col">Workspace role</th><th scope="col">Last seen</th><th scope="col">Status</th><th scope="col">Actions</th></tr>
+                            <tr><th scope="col">#</th><th scope="col">Username</th><th scope="col">Name</th><th scope="col">Email</th><th scope="col">Account type</th><th scope="col">Global access role</th><th scope="col">Last seen</th><th scope="col">Status</th><th scope="col">Actions</th></tr>
                         </thead>
                         <tbody>
                             @foreach ($users as $user)
@@ -112,6 +112,7 @@
                                         $user->name,
                                         $user->email,
                                         $user->type,
+                                        $user->access_role,
                                         $user->pivot->role,
                                     ])));
                                     $userSearchText = trim($userSearchBase.' '.($user->is_active ? 'active' : 'disabled'));
@@ -122,14 +123,18 @@
                                     <td data-label="Name">{{ $user->name }}</td>
                                     <td data-label="Email" class="command-os-users-email">{{ $user->email ?: '—' }}</td>
                                     <td data-label="Type"><span class="command-os-users-type command-os-users-type-{{ $user->type }}">{{ $user->type }}</span></td>
-                                    <td data-label="Workspace role"><span class="command-os-users-role">{{ str_replace('_', ' ', $user->pivot->role) }}</span></td>
+                                    <td data-label="Global access role"><span class="command-os-users-role">{{ \App\Models\User::ACCESS_ROLE_LABELS[$user->access_role] ?? $user->access_role }}</span></td>
                                     <td data-label="Last seen">{{ $user->seen_at?->diffForHumans() ?? 'Never' }}</td>
                                     <td data-label="Status"><span class="command-os-users-status {{ $user->is_active ? 'is-active' : 'is-disabled' }}" data-status>{{ $user->is_active ? 'Active' : 'Disabled' }}</span></td>
                                     <td data-label="Actions">
                                         <div class="command-os-users-row-actions">
-                                            <a class="command-os-users-action command-os-users-action-edit" href="{{ route('console.users.edit', [$workspace->id, $user->id]) }}" aria-label="Edit {{ $userLabel }}" title="Edit user"><i class="fas fa-pen" aria-hidden="true"></i><span>Edit</span></a>
-                                            <a class="command-os-users-action command-os-users-action-password" href="{{ route('console.users.password', [$workspace->id, $user->id]) }}" aria-label="Change password for {{ $userLabel }}" title="Change password"><i class="fas fa-key" aria-hidden="true"></i><span>Password</span></a>
-                                            <button class="command-os-users-action command-os-users-status-action {{ $user->is_active ? 'is-disable' : 'is-enable' }}" type="button" data-user-status="{{ $user->id }}" data-status="{{ $user->is_active ? 0 : 1 }}" @disabled(auth()->user()->is($user)) aria-label="{{ $user->is_active ? 'Disable' : 'Enable' }} {{ $userLabel }}" title="{{ $user->is_active ? 'Disable account' : 'Enable account' }}"><i class="fas fa-{{ $user->is_active ? 'user-slash' : 'user-check' }}" aria-hidden="true"></i><span>{{ $user->is_active ? 'Disable' : 'Enable' }}</span></button>
+                                            @if (! $user->isOwner() || auth()->user()->isOwner())
+                                                <a class="command-os-users-action command-os-users-action-edit" href="{{ route('console.users.edit', [$workspace->id, $user->id]) }}" aria-label="Edit {{ $userLabel }}" title="Edit user"><i class="fas fa-pen" aria-hidden="true"></i><span>Edit</span></a>
+                                                <a class="command-os-users-action command-os-users-action-password" href="{{ route('console.users.password', [$workspace->id, $user->id]) }}" aria-label="Change password for {{ $userLabel }}" title="Change password"><i class="fas fa-key" aria-hidden="true"></i><span>Password</span></a>
+                                                <button class="command-os-users-action command-os-users-status-action {{ $user->is_active ? 'is-disable' : 'is-enable' }}" type="button" data-user-status="{{ $user->id }}" data-status="{{ $user->is_active ? 0 : 1 }}" @disabled(auth()->user()->is($user)) aria-label="{{ $user->is_active ? 'Disable' : 'Enable' }} {{ $userLabel }}" title="{{ $user->is_active ? 'Disable account' : 'Enable account' }}"><i class="fas fa-{{ $user->is_active ? 'user-slash' : 'user-check' }}" aria-hidden="true"></i><span>{{ $user->is_active ? 'Disable' : 'Enable' }}</span></button>
+                                            @else
+                                                <span class="command-os-users-role" title="Only the Owner can manage this account">Owner protected</span>
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>

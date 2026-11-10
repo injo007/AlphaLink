@@ -127,6 +127,7 @@ $application = Application::configure(basePath: dirname(__DIR__))
             'workspace.member' => EnsureWorkspaceMember::class,
             'workspace.role' => EnsureWorkspaceRole::class,
             'workspace.current' => ResolveCurrentWorkspace::class,
+            'workspace.access' => \App\Http\Middleware\EnsureWorkspaceAccess::class,
             'workspace.legacy-redirect' => RedirectLegacyWorkspaceUrl::class,
         ]);
     })

@@ -85,11 +85,6 @@ return [
 
     'middleware' => ['web'],
 
-    'authorized_emails' => array_values(array_filter(array_map(
-        static fn (string $email): string => mb_strtolower(trim($email)),
-        explode(',', (string) env('HORIZON_AUTHORIZED_EMAILS', '')),
-    ))),
-
     /*
     |--------------------------------------------------------------------------
     | Queue Wait Time Thresholds

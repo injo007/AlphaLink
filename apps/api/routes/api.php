@@ -50,20 +50,23 @@ Route::prefix('v1')->group(function (): void {
         Route::prefix('/workspaces/{workspace}')
             ->middleware('workspace.member')
             ->group(function (): void {
-                Route::middleware('workspace.role:owner,admin,operator,privacy_officer')->group(function (): void {
+                Route::middleware('workspace.role:owner,admin,operator,viewer,privacy_officer')->group(function (): void {
                     Route::get('/audience-lists', [AudienceListController::class, 'index'])->middleware('throttle:60,1');
                     Route::get('/audience-lists/{list}', [AudienceListController::class, 'show'])->middleware('throttle:60,1');
+                });
+
+                Route::middleware('workspace.role:owner,admin,operator,privacy_officer')->group(function (): void {
                     Route::get('/audience-lists/{list}/members', [AudienceListController::class, 'members'])->middleware('throttle:60,1');
                     Route::get('/audience-lists/{list}/members/{contact}/events', [AudienceListController::class, 'membershipEvents'])->middleware('throttle:60,1');
                     Route::get('/contacts', [ContactController::class, 'index'])->middleware('throttle:60,1');
                     Route::get('/contacts/{contact}', [ContactController::class, 'show'])->middleware('throttle:60,1');
-                    Route::post('/contacts', [ContactController::class, 'store'])->middleware('throttle:30,1');
                     Route::get('/contacts/{contact}/consent-records', [ConsentRecordController::class, 'index'])->middleware('throttle:60,1');
                     Route::post('/contacts/{contact}/consent-records', [ConsentRecordController::class, 'store'])->middleware('throttle:30,1');
                     Route::get('/contacts/{contact}/suppression-events', [SuppressionEventController::class, 'index'])->middleware('throttle:60,1');
                 });
 
                 Route::middleware('workspace.role:owner,admin,operator')->group(function (): void {
+                    Route::post('/contacts', [ContactController::class, 'store'])->middleware('throttle:30,1');
                     Route::post('/audience-lists', [AudienceListController::class, 'store'])->middleware('throttle:30,1');
                     Route::post('/audience-lists/{list}/members', [AudienceListController::class, 'addMember'])->middleware('throttle:30,1');
                     Route::post('/audience-lists/{list}/members/import', [AudienceListController::class, 'importMembers'])->middleware('throttle:10,1');
@@ -74,9 +77,15 @@ Route::prefix('v1')->group(function (): void {
                 Route::post('/contacts/{contact}/suppressions', [SuppressionEventController::class, 'store'])
                     ->middleware(['workspace.role:owner,admin,privacy_officer', 'throttle:30,1']);
 
-                Route::middleware('workspace.role:owner,admin,operator')->group(function (): void {
+                Route::middleware('workspace.role:owner,admin,operator,viewer')->group(function (): void {
                     Route::get('/campaigns', [CampaignController::class, 'index']);
+                });
+
+                Route::middleware('workspace.role:owner,admin,operator')->group(function (): void {
                     Route::get('/campaigns/{campaign}', [CampaignController::class, 'show']);
+                });
+
+                Route::middleware('workspace.role:owner,admin,operator')->group(function (): void {
                     Route::post('/campaigns', [CampaignController::class, 'store'])->middleware('throttle:20,1');
                     Route::post('/campaigns/{campaign}/revisions', [CampaignController::class, 'revise'])->middleware('throttle:20,1');
                 });

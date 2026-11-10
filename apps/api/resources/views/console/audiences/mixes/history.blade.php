@@ -3,6 +3,7 @@
 @section('title', 'Mix Lists')
 
 @section('content')
+@php($canCreateMix = in_array(auth()->user()?->access_role, [\App\Models\User::ACCESS_ROLE_OWNER, \App\Models\User::ACCESS_ROLE_ADMIN, \App\Models\User::ACCESS_ROLE_OPERATOR], true))
     <div class="command-os-entity-page">
         <!-- 1. Hero Header Card -->
         <header class="command-os-report-hero" aria-labelledby="mix-history-hero-title">
@@ -18,9 +19,11 @@
                 <p>Point-in-time audience snapshots, criteria definitions, and campaign targeting sets.</p>
             </div>
             <div class="command-os-hero-actions">
-                <a class="btn-command-primary mr-2" href="{{ route('clean.console.audience-mixes.index') }}">
-                    <i class="fas fa-plus mr-1"></i> CREATE MIX
-                </a>
+                @if ($canCreateMix)
+                    <a class="btn-command-primary mr-2" href="{{ route('clean.console.audience-mixes.index') }}">
+                        <i class="fas fa-plus mr-1"></i> CREATE MIX
+                    </a>
+                @endif
                 <button type="button" class="command-os-btn-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen">
                     <i class="fas fa-expand"></i>
                 </button>
@@ -148,7 +151,7 @@
                                     @endif
                                 </td>
                                 <td class="text-right">
-                                    @if ($mix->status === 'expired')
+                                    @if ($mix->status === 'expired' && $canCreateMix)
                                         <button type="button" class="btn-command-action remix-mix" style="padding: 4px 10px; font-size: 11px;" data-url="{{ route('clean.console.audience-mixes.remix', $mix->id) }}">
                                             <i class="fas fa-sync-alt mr-1" aria-hidden="true"></i> REMIX
                                         </button>

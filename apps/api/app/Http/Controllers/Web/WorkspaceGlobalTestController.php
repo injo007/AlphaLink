@@ -22,7 +22,7 @@ use Illuminate\View\View;
 
 class WorkspaceGlobalTestController extends Controller
 {
-    private const ALLOWED_ROLES = ['owner', 'admin', 'operator'];
+    private const ALLOWED_ROLES = ['owner', 'admin', 'operator', 'viewer'];
 
     private const DEFAULT_HEADER = "MIME-version: 1.0\nContent-type: text/html\nTo: [to]\nfrom: [rnd] <info@[domain]>\nSubject: [ip]_[rnda_5]_[domain]\nDate: [date]";
 

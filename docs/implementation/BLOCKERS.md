@@ -2,6 +2,10 @@
 
 > **Archived blocker log.** Entries below are chronological engineering notes. Use the root AlphaLink progress file for current status.
 
+## 2026-11-10 Global access-role verification — E-IAM-12
+
+Owner, Admin, Operator, Viewer, and Privacy Officer are wired through global role assignment, navigation filtering, and route-level authorization. Static PHP/JavaScript checks, route registration, and `git diff --check` pass. Local PHP is 8.3.6 without XML/DOM while the project requires PHP 8.5, so Pint and Blade view-cache compilation are unavailable; no automated or authenticated role-matrix requests ran. The role backfill migration, authenticated role-specific page/action checks, and production health after deployment are outstanding. Keep `ALPHALINK-IAM-001` IMPLEMENTING until those checks are complete.
+
 > This file is a chronological audit record. References to the former service describe dated local evidence only; they are not current access instructions. For the active Drops/Warmups objective, `AGENTS.md` permits user-authorized read-only access to the confirmed DMS target.
 
 ## 2026-11-09 AlphaLink navigation arrangement

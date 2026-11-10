@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\DB;
 
 class WorkspaceCampaignStatisticsConsoleController extends Controller
 {
-    private const ALLOWED_ROLES = ['owner', 'admin', 'operator', 'privacy_officer'];
+    private const ALLOWED_ROLES = ['owner', 'admin', 'operator', 'viewer', 'privacy_officer'];
 
     public function index(Request $request, string $workspaceId): View|JsonResponse
     {

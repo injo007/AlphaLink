@@ -327,7 +327,7 @@ class WorkspaceEmailManagementController extends Controller
             ->where('workspaces.status', 'active')
             ->whereKey($workspaceId)
             ->firstOrFail();
-        abort_unless(in_array($workspace->pivot->role, ['owner', 'admin'], true), 403);
+        abort_unless(in_array($workspace->pivot->role, ['owner', 'admin', 'privacy_officer'], true), 403);
 
         return $workspace;
     }

@@ -9,6 +9,7 @@
     const filterButton = document.getElementById('drops-monitoring-filter');
     const typeInput = document.getElementById('drops-monitoring-type');
     const message = document.getElementById('drops-monitoring-message');
+    const viewerSummary = root.dataset.viewer === 'true';
     const dateFormat = 'YYYY-MM-DD';
     const today = window.moment(root.dataset.today, dateFormat, true).startOf('day');
     let fromDate = today.clone();
@@ -177,10 +178,11 @@
         rowCallback: (row, data) => {
             row.classList.toggle('table-danger', Boolean(data.is_restricted));
             row.classList.toggle('table-warning', !data.is_restricted && Boolean(data.is_scheduled));
-            if (data.send_status === 'progress') {
+            if (!viewerSummary && data.send_status === 'progress') {
                 scheduleProgressPoll(data.id);
             }
         },
+        columnDefs: viewerSummary ? [{ targets: [1, 3, 4, 5, 9], visible: false }] : [],
         columns: [
             { title: '#', data: 'id', width: '5%' },
             { title: 'USER', data: 'user', className: 'text-uppercase', render: (data, type) => type === 'display' ? escapeHtml(data).toUpperCase() : data },
@@ -255,6 +257,9 @@
                 searchable: false,
                 render: (data, type, row) => {
                     if (type !== 'display') {
+                        return '';
+                    }
+                    if (viewerSummary) {
                         return '';
                     }
 

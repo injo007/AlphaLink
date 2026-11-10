@@ -17,7 +17,7 @@ use Throwable;
 
 class WorkspaceCampaignNegativeController extends Controller
 {
-    private const CAMPAIGN_ROLES = ['owner', 'admin', 'operator'];
+    private const CAMPAIGN_ROLES = ['owner', 'admin', 'operator', 'privacy_officer'];
 
     public function index(Request $request, string $workspace): View
     {

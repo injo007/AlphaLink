@@ -10,8 +10,10 @@ class EnsureWorkspaceRole
 {
     public function handle(Request $request, Closure $next, string ...$roles): Response
     {
+        $accessRole = $request->user()?->access_role;
+
         abort_unless(
-            in_array($request->attributes->get('alphalink.workspace_role'), $roles, true),
+            in_array($accessRole, ['owner', 'admin'], true) || in_array($accessRole, $roles, true),
             403,
         );
 

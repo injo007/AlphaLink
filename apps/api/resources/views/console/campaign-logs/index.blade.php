@@ -212,9 +212,14 @@
                             <td class="text-nowrap">{{ $campaign->created_at?->format('Y-m-d H:i:s') ?? '—' }}</td>
                             <td>
                                 <div class="campaign-log-counts" role="group" aria-label="History actions for {{ $campaign->name }}">
+                                    @if ($canReviewHistory)
                                     <a class="campaign-log-action" href="{{ route('console.campaign-logs.history', [$workspace->id, $campaign->id, 'tests']) }}" data-campaign-history-url="{{ route('console.campaign-logs.history', [$workspace->id, $campaign->id, 'tests']) }}?fragment=1" title="Open test history" aria-label="Open {{ $campaign->tests_count }} tests for {{ $campaign->name }}"><i class="fas fa-vial" aria-hidden="true"></i><span>T:{{ $campaign->tests_count }}</span></a>
                                     <a class="campaign-log-action" href="{{ route('console.campaign-logs.history', [$workspace->id, $campaign->id, 'updates']) }}" data-campaign-history-url="{{ route('console.campaign-logs.history', [$workspace->id, $campaign->id, 'updates']) }}?fragment=1" title="Open update history" aria-label="Open {{ $campaign->updates_count }} updates for {{ $campaign->name }}"><i class="fas fa-pen-to-square" aria-hidden="true"></i><span>U:{{ $campaign->updates_count }}</span></a>
                                     <a class="campaign-log-action" href="{{ route('console.campaign-logs.history', [$workspace->id, $campaign->id, 'sends']) }}" data-campaign-history-url="{{ route('console.campaign-logs.history', [$workspace->id, $campaign->id, 'sends']) }}?fragment=1" title="Open send history" aria-label="Open {{ $campaign->sends_count }} sends for {{ $campaign->name }}"><i class="fas fa-paper-plane" aria-hidden="true"></i><span>S:{{ $campaign->sends_count }}</span></a>
+                                    @else
+                                        <span class="text-muted small">Tests: {{ $campaign->tests_count }} · Updates: {{ $campaign->updates_count }} · Sends: {{ $campaign->sends_count }}</span>
+                                    @endif
+                                    @if ($canManageRestrictions)
                                     <form method="POST" action="{{ route('console.campaign-logs.restriction', [$workspace->id, $campaign->id]) }}" onsubmit="return confirm(this.dataset.confirmMessage)" data-confirm-message="{{ $campaign->is_restricted ? 'Unrestrict this campaign so new sends can be started?' : 'Restrict this campaign from new sends?' }}">
                                         @csrf
                                         @method('PATCH')
@@ -223,6 +228,9 @@
                                             {{ $campaign->is_restricted ? 'UNRESTRICT' : 'RESTRICT' }}
                                         </button>
                                     </form>
+                                    @elseif ($campaign->is_restricted)
+                                        <span class="campaign-log-restrict is-restricted" aria-label="Campaign restricted">RESTRICTED</span>
+                                    @endif
                                 </div>
                             </td>
                         </tr>

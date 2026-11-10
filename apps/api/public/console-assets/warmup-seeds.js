@@ -44,6 +44,7 @@
         const dialog = document.getElementById('warmup-seeds-dialog');
         const dialogTitle = document.getElementById('warmup-seeds-dialog-title');
         const dialogContent = document.getElementById('warmup-seeds-dialog-content');
+        const canManageSeeds = listRoot.dataset.canManage === 'true';
         const closeDialog = () => dialog.close();
         document.getElementById('warmup-seeds-dialog-close').addEventListener('click', closeDialog);
         dialog.addEventListener('click', (event) => {
@@ -66,17 +67,20 @@
                 buttons: [
                     { extend: 'pageLength' },
                     { text: '<i class="fas fa-sync" aria-hidden="true"></i>', titleAttr: 'REFRESH', action: (event, table) => table.ajax.reload(null, false) },
-                    { text: '<i class="fas fa-plus" aria-hidden="true"></i>', titleAttr: 'ADD NEW SEED LIST', action: () => openForm(listRoot.dataset.createFormUrl, 'ADD SEED LIST') },
-                    { text: '<i class="fas fa-broom" aria-hidden="true"></i>', titleAttr: 'CLEAN SEEDS', action: () => openForm(listRoot.dataset.cleanFormUrl, 'CLEAN SEEDS') },
+                    ...(canManageSeeds ? [
+                        { text: '<i class="fas fa-plus" aria-hidden="true"></i>', titleAttr: 'ADD NEW SEED LIST', action: () => openForm(listRoot.dataset.createFormUrl, 'ADD SEED LIST') },
+                        { text: '<i class="fas fa-broom" aria-hidden="true"></i>', titleAttr: 'CLEAN SEEDS', action: () => openForm(listRoot.dataset.cleanFormUrl, 'CLEAN SEEDS') },
+                    ] : []),
                 ],
                 rowCallback: (row, data) => row.classList.toggle('table-danger', !data.is_active),
                 columns: [
                     { title: '#', data: 'id', width: '5%' },
                     { title: 'owner', data: 'user', searchable: false, orderable: false, render: (data) => escapeHtml(data?.username || 'NA') },
                     { title: 'name', data: 'name', render: (data) => escapeHtml(data) },
-                    { title: 'total emails', data: 'seed_emails_count', searchable: false, orderable: false, render: (data, type, row) => '<a href="' + escapeHtml(listRoot.dataset.showUrlTemplate.replace('__SEED_ID__', encodeURIComponent(row.id))) + '" target="_blank" rel="noopener">' + escapeHtml(data) + '</a>' },
+                    { title: 'total emails', data: 'seed_emails_count', searchable: false, orderable: false, render: (data, type, row) => canManageSeeds ? '<a href="' + escapeHtml(listRoot.dataset.showUrlTemplate.replace('__SEED_ID__', encodeURIComponent(row.id))) + '" target="_blank" rel="noopener">' + escapeHtml(data) + '</a>' : escapeHtml(data) },
                     { title: 'created at', data: 'created_at' },
                     { title: 'actions', data: 'id', searchable: false, orderable: false, render: (id, type, row) => {
+                        if (!canManageSeeds) return '';
                         const add = '<button data-id="' + escapeHtml(id) + '" class="btn btn-info btn-sm seed-email-add" title="ADD EMAILS" aria-label="Add emails"><i class="fas fa-plus" aria-hidden="true"></i></button> ';
                         const status = '<button data-id="' + escapeHtml(id) + '" data-status="' + (row.is_active ? '0' : '1') + '" class="btn btn-' + (row.is_active ? 'warning' : 'success') + ' btn-sm seed-status" title="' + (row.is_active ? 'DISABLE LIST' : 'ENABLE LIST') + '" aria-label="' + (row.is_active ? 'Disable list' : 'Enable list') + '"><i class="fas ' + (row.is_active ? 'fa-times' : 'fa-check') + '" aria-hidden="true"></i></button> ';
                         const remove = row.can_delete ? '<button data-id="' + escapeHtml(id) + '" class="btn btn-danger btn-sm seed-remove" title="REMOVE LIST" aria-label="Remove list"><i class="fas fa-trash" aria-hidden="true"></i></button>' : '';

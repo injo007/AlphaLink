@@ -9,7 +9,7 @@
             <div class="command-os-user-form-heading-copy">
                 <span class="command-os-user-form-eyebrow">ACCESS MANAGEMENT</span>
                 <h1 id="user-create-title">Add User</h1>
-                <p>Add a member to {{ $workspace->name }} and set their account and workspace access.</p>
+                <p>Add a member to {{ $workspace->name }} and choose one global access role for their AlphaLink account.</p>
             </div>
         </header>
 
@@ -18,7 +18,7 @@
                 <span class="command-os-user-form-section-icon" aria-hidden="true"><i class="fas fa-id-card"></i></span>
                 <div>
                     <h2>Member details</h2>
-                    <p>Enter the login identity and choose the access this member needs.</p>
+                    <p>Account Type preserves legacy login behavior. Global Access Role controls page access in every workspace.</p>
                 </div>
             </div>
 
@@ -37,7 +37,7 @@
                         <input class="form-control" id="username" name="username" minlength="4" maxlength="255" pattern="[A-Za-z]+" required autocomplete="username" autocapitalize="none">
                     </div>
                     <div class="form-group command-os-user-field">
-                        <label for="type">User Type</label>
+                        <label for="type">Account Type</label>
                         <select id="type" name="type" class="form-control" required>
                             @foreach ($types as $type)
                                 <option value="{{ $type }}">{{ $type }}</option>
@@ -46,28 +46,13 @@
                     </div>
                 </div>
 
-                <div class="command-os-user-access-grid">
-                    <fieldset class="command-os-user-roles" id="role-container">
-                        <legend>User Roles</legend>
-                        <div class="command-os-user-role-grid">
-                            @foreach ($roles as $key => $label)
-                                <div class="command-os-user-role-option">
-                                    <div class="custom-control custom-checkbox">
-                                        <input class="custom-control-input" id="role-{{ $key }}" name="roles[]" type="checkbox" value="{{ $key }}">
-                                        <label class="custom-control-label" for="role-{{ $key }}">{{ $label }}</label>
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                        <small>Account permissions apply across the platform. Workspace access is controlled separately.</small>
-                    </fieldset>
-
+                <div class="command-os-user-access-grid is-role-only">
                     <div class="command-os-user-workspace-role">
-                        <label for="workspace_role">Workspace Role</label>
-                        <p>Choose what the member can do in this workspace.</p>
+                        <label for="workspace_role">Global Access Role</label>
+                        <p>Owner alone can arrange the shared navigation. Owner and Admin have full access. Operator runs campaign and audience operations. Viewer can review approved summaries. Privacy Officer manages contact and suppression workflows.</p>
                         <select class="form-control" id="workspace_role" name="workspace_role" required>
                             @foreach ($workspaceRoles as $role)
-                                <option value="{{ $role }}" @selected($role === 'operator')>{{ str_replace('_', ' ', $role) }}</option>
+                                <option value="{{ $role }}" @selected($role === 'operator')>{{ \App\Models\User::ACCESS_ROLE_LABELS[$role] }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -103,22 +88,11 @@
             const button = document.getElementById('save-user');
             const error = document.getElementById('user-error');
             const token = document.querySelector('meta[name="csrf-token"]')?.content;
-            const roles = document.getElementById('role-container');
-            const typeField = document.getElementById('type');
-            const accessGrid = roles.closest('.command-os-user-access-grid');
-            const syncRoleVisibility = () => {
-                roles.hidden = typeField.value === 'admin';
-                accessGrid.classList.toggle('is-admin', roles.hidden);
-                if (roles.hidden) { roles.querySelectorAll('input').forEach((input) => { input.checked = false; }); }
-            };
-            typeField.addEventListener('change', syncRoleVisibility);
-            syncRoleVisibility();
             form.addEventListener('submit', async (event) => {
                 event.preventDefault();
                 error.classList.add('d-none');
                 const data = new FormData(form);
                 const payload = Object.fromEntries(data.entries());
-                payload.roles = data.getAll('roles[]');
                 button.disabled = true;
                 button.textContent = 'SAVING…';
                 try {

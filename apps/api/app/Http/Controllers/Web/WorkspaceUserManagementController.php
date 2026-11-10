@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\Authorization\AccessRoleAssignment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
@@ -15,14 +17,12 @@ use Illuminate\View\View;
 
 class WorkspaceUserManagementController extends Controller
 {
-    private const WORKSPACE_ROLES = ['admin', 'operator', 'viewer', 'privacy_officer'];
-
     public function index(Request $request, string $workspace): View|JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $this->authorizeManager($workspace);
         $users = $workspace->users()->orderBy('users.id')->get([
-            'users.id', 'users.name', 'users.email', 'users.username', 'users.type',
+            'users.id', 'users.name', 'users.email', 'users.username', 'users.type', 'users.access_role',
             'users.roles', 'users.is_active', 'users.seen_at',
         ]);
 
@@ -33,7 +33,7 @@ class WorkspaceUserManagementController extends Controller
                 'full_name' => $user->name,
                 'email' => $user->email,
                 'type' => $user->type,
-                'roles' => $user->roles ?? [],
+                'access_role' => $user->access_role,
                 'is_active' => $user->is_active,
                 'seen_at' => $user->seen_at,
                 'seen_at_human' => $user->seen_at?->diffForHumans(),
@@ -47,10 +47,9 @@ class WorkspaceUserManagementController extends Controller
             'availableUsers' => User::query()
                 ->whereDoesntHave('workspaces', fn ($query) => $query->whereKey($workspace->getKey()))
                 ->orderBy('name')
-                ->get(['id', 'name', 'username', 'type', 'is_active']),
+                ->get(['id', 'name', 'username', 'type', 'access_role', 'is_active']),
             'types' => User::TYPES,
-            'roles' => User::getRoles(),
-            'workspaceRoles' => self::WORKSPACE_ROLES,
+            'workspaceRoles' => $this->assignableRoles($request->user()),
         ]);
     }
 
@@ -62,12 +61,11 @@ class WorkspaceUserManagementController extends Controller
         return view('console.users.create', [
             'workspace' => $workspace,
             'types' => User::TYPES,
-            'roles' => User::getRoles(),
-            'workspaceRoles' => self::WORKSPACE_ROLES,
+            'workspaceRoles' => $this->assignableRoles($request->user()),
         ]);
     }
 
-    public function store(Request $request, string $workspace): JsonResponse
+    public function store(Request $request, string $workspace, AccessRoleAssignment $accessRoleAssignment): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $this->authorizeManager($workspace);
@@ -76,22 +74,25 @@ class WorkspaceUserManagementController extends Controller
             'username' => ['required', 'alpha', 'min:4', 'max:255', Rule::unique('users', 'username')],
             'name' => ['required', 'string', 'min:4', 'max:255'],
             'type' => ['required', 'string', Rule::in(User::TYPES)],
-            'roles' => ['nullable', 'array'],
-            'roles.*' => ['string', Rule::in(array_keys(User::getRoles()))],
-            'workspace_role' => ['required', 'string', Rule::in(self::WORKSPACE_ROLES)],
+            'workspace_role' => ['required', 'string', Rule::in($this->assignableRoles($request->user()))],
         ]);
 
         $password = Str::random(8);
-        $user = User::query()->create([
-            'name' => $data['name'],
-            'email' => Str::lower($data['email']),
-            'username' => Str::lower($data['username']),
-            'password' => Hash::make($password),
-            'type' => $data['type'],
-            'roles' => array_values(array_unique($data['roles'] ?? [])),
-            'is_active' => true,
-        ]);
-        $workspace->users()->attach($user->getKey(), ['role' => $data['workspace_role']]);
+        $user = DB::transaction(function () use ($request, $workspace, $data, $password, $accessRoleAssignment): User {
+            $user = User::query()->create([
+                'name' => $data['name'],
+                'email' => Str::lower($data['email']),
+                'username' => Str::lower($data['username']),
+                'password' => Hash::make($password),
+                'type' => $data['type'],
+                'access_role' => User::ACCESS_ROLE_VIEWER,
+                'is_active' => true,
+            ]);
+            $accessRoleAssignment->assign($request->user(), $user, $data['workspace_role']);
+            $workspace->users()->attach($user->getKey(), ['role' => $data['workspace_role']]);
+
+            return $user;
+        });
 
         return response()->json([
             'data' => 'User created',
@@ -100,20 +101,24 @@ class WorkspaceUserManagementController extends Controller
         ]);
     }
 
-    public function attachExisting(Request $request, string $workspace): JsonResponse
+    public function attachExisting(Request $request, string $workspace, AccessRoleAssignment $accessRoleAssignment): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $this->authorizeManager($workspace);
         $data = $request->validate([
             'user_id' => ['required', 'integer', Rule::exists('users', 'id')],
-            'workspace_role' => ['required', 'string', Rule::in(self::WORKSPACE_ROLES)],
+            'workspace_role' => ['required', 'string', Rule::in($this->assignableRoles($request->user()))],
         ]);
         abort_if($workspace->users()->whereKey($data['user_id'])->exists(), 409, 'This account already belongs to the workspace.');
-
-        $workspace->users()->attach($data['user_id'], [
-            'role' => $data['workspace_role'],
-            'joined_at' => now(),
-        ]);
+        $member = User::query()->findOrFail($data['user_id']);
+        $this->authorizeTarget($request->user(), $member);
+        DB::transaction(function () use ($workspace, $member, $data, $request, $accessRoleAssignment): void {
+            $accessRoleAssignment->assign($request->user(), $member, $data['workspace_role']);
+            $workspace->users()->attach($member->getKey(), [
+                'role' => $data['workspace_role'],
+                'joined_at' => now(),
+            ]);
+        });
 
         return response()->json(['data' => 'Account added to workspace']);
     }
@@ -123,36 +128,39 @@ class WorkspaceUserManagementController extends Controller
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $this->authorizeManager($workspace);
 
+        $member = $this->memberFor($workspace, $user);
+        $this->authorizeTarget($request->user(), $member);
+
         return view('console.users.edit', [
             'workspace' => $workspace,
-            'user' => $this->memberFor($workspace, $user),
+            'user' => $member,
             'types' => User::TYPES,
-            'roles' => User::getRoles(),
-            'workspaceRoles' => self::WORKSPACE_ROLES,
+            'workspaceRoles' => $this->assignableRoles($request->user(), $member),
         ]);
     }
 
-    public function update(Request $request, string $workspace, int $user): JsonResponse
+    public function update(Request $request, string $workspace, int $user, AccessRoleAssignment $accessRoleAssignment): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $this->authorizeManager($workspace);
         $member = $this->memberFor($workspace, $user);
+        $this->authorizeTarget($request->user(), $member);
         $data = $request->validate([
             'username' => ['required', 'string', 'min:4', 'max:255', Rule::unique('users', 'username')->ignoreModel($member)],
             'name' => ['required', 'string', 'min:4', 'max:255'],
             'type' => ['required', 'string', Rule::in(User::TYPES)],
-            'roles' => ['nullable', 'array'],
-            'roles.*' => ['string', Rule::in(array_keys(User::getRoles()))],
-            'workspace_role' => ['required', 'string', Rule::in(self::WORKSPACE_ROLES)],
+            'workspace_role' => ['required', 'string', Rule::in($this->assignableRoles($request->user(), $member))],
         ]);
 
-        $member->forceFill([
-            'username' => $data['username'],
-            'name' => $data['name'],
-            'type' => $data['type'],
-            'roles' => array_values(array_unique($data['roles'] ?? [])),
-        ])->save();
-        $workspace->users()->updateExistingPivot($member->getKey(), ['role' => $data['workspace_role']]);
+        DB::transaction(function () use ($request, $workspace, $member, $data, $accessRoleAssignment): void {
+            $member->forceFill([
+                'username' => $data['username'],
+                'name' => $data['name'],
+                'type' => $data['type'],
+            ])->save();
+            $accessRoleAssignment->assign($request->user(), $member, $data['workspace_role']);
+            $workspace->users()->updateExistingPivot($member->getKey(), ['role' => $data['workspace_role']]);
+        });
 
         return response()->json(['data' => 'User updated']);
     }
@@ -162,6 +170,7 @@ class WorkspaceUserManagementController extends Controller
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $this->authorizeManager($workspace);
         $member = $this->memberFor($workspace, $user);
+        $this->authorizeTarget($request->user(), $member);
         abort_if($request->user()->is($member), 401, 'Not Allowed');
         $data = $request->validate(['status' => ['required', 'boolean']]);
         $member->forceFill(['is_active' => (bool) $data['status']])->save();
@@ -173,10 +182,12 @@ class WorkspaceUserManagementController extends Controller
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $this->authorizeManager($workspace);
+        $member = $this->memberFor($workspace, $user);
+        $this->authorizeTarget($request->user(), $member);
 
         return view('console.users.password', [
             'workspace' => $workspace,
-            'user' => $this->memberFor($workspace, $user),
+            'user' => $member,
         ]);
     }
 
@@ -185,6 +196,7 @@ class WorkspaceUserManagementController extends Controller
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $this->authorizeManager($workspace);
         $member = $this->memberFor($workspace, $user);
+        $this->authorizeTarget($request->user(), $member);
         $data = $request->validate(['password' => ['required', Password::default()]]);
         $member->forceFill(['password' => Hash::make($data['password'])])->save();
 
@@ -206,6 +218,26 @@ class WorkspaceUserManagementController extends Controller
 
     private function authorizeManager(Workspace $workspace): void
     {
-        abort_unless(in_array($workspace->pivot->role, ['owner', 'admin'], true), 403);
+        abort_unless(request()->user()?->hasFullAccess(), 403);
+    }
+
+    private function authorizeTarget(User $actor, User $target): void
+    {
+        abort_if($target->isOwner() && ! $actor->isOwner(), 403, 'Only the Owner can manage the Owner account.');
+    }
+
+    /** @return list<string> */
+    private function assignableRoles(User $actor, ?User $target = null): array
+    {
+        if ($target?->isOwner()) {
+            return $actor->isOwner() ? [User::ACCESS_ROLE_OWNER] : [];
+        }
+
+        $roles = array_values(array_filter(
+            User::ACCESS_ROLES,
+            static fn (string $role): bool => $role !== User::ACCESS_ROLE_OWNER || $actor->isOwner(),
+        ));
+
+        return array_values(array_unique($roles));
     }
 }

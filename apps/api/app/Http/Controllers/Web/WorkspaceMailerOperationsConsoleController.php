@@ -29,7 +29,7 @@ use Illuminate\View\View;
 
 class WorkspaceMailerOperationsConsoleController extends Controller
 {
-    private const ALLOWED_ROLES = ['owner', 'admin', 'operator'];
+    private const ALLOWED_ROLES = ['owner', 'admin', 'operator', 'viewer'];
 
     private const WARMUP_SEND_TYPES = ['delay', 'delayp', 'delayps', 'hs', 'hsp', 'hsps', 'pickup', 'pickups'];
 

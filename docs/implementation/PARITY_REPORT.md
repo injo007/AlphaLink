@@ -2,6 +2,10 @@
 
 > **Archived comparison report.** Its dated comparisons and status snapshots preserve historical evidence; they do not define AlphaLink's current product identity or active requirements.
 
+## 2026-11-10 AlphaLink global access hierarchy — E-IAM-12
+
+The explicit Owner, Admin, Operator, Viewer, and Privacy Officer policy is implemented as an AlphaLink product rule, not inferred DMS parity. Global role assignment synchronizes membership roles, reserves ownership transfer and shared navigation arrangement for Owner, and blocks Admin from managing Owner. Navigation filtering and named-route middleware are backed by controller/API checks. Viewer-facing campaign, Warmup, Drop, and audience pages expose summaries without recipient or delivery configuration details. The Privacy Officer receives the dashboard overview plus contact, subscriber, audience/list-history, consent, and suppression pages, without send or infrastructure controls. PHP syntax, JavaScript syntax, route registration, and `git diff --check` pass. No automated or authenticated role-matrix test ran; local PHP 8.3.6 lacks XML/DOM, so Pint and Blade view compilation could not run. Production migration and access verification remain pending; keep `ALPHALINK-IAM-001` IMPLEMENTING. No DMS comparison was requested or made.
+
 ## 2026-11-04 maintenance addendum
 
 The first-party tracker source and credential-field migration are in progress. The standalone route tests pass, but the installer and migration PHPUnit suites have not yet run in this environment. No production deployment or event delivery is claimed. This maintenance slice does not change workflow parity counts.

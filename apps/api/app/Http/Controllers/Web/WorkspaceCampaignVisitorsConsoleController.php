@@ -16,7 +16,7 @@ use Illuminate\Validation\Rule;
 
 class WorkspaceCampaignVisitorsConsoleController extends Controller
 {
-    private const ALLOWED_ROLES = ['owner', 'admin', 'operator'];
+    private const ALLOWED_ROLES = ['owner', 'admin', 'operator', 'viewer'];
 
     private const TABLE_COLUMNS = [
         'id', 'action', 'send_id', 'contact_id', 'revision_id', 'ip',

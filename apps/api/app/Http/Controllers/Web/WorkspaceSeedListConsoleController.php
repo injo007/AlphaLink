@@ -20,7 +20,7 @@ use Illuminate\View\View;
 
 class WorkspaceSeedListConsoleController extends Controller
 {
-    private const ALLOWED_ROLES = ['owner', 'admin', 'operator'];
+    private const ALLOWED_ROLES = ['owner', 'admin', 'operator', 'viewer'];
 
     public function index(Request $request, string $workspace): View|JsonResponse
     {

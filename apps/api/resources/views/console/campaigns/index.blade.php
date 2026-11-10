@@ -653,9 +653,9 @@
             line-height: 1.15;
         }
         .campaign-register-heading-copy p { margin: 0; color: var(--co-muted); font-size: 10px; }
-        .campaign-register-page .block-options { flex: 0 0 auto; gap: 12px; margin: 0; }
+        .campaign-register-page .block-options { flex: 1 1 auto; gap: 12px; justify-content: flex-end; min-width: 0; margin: 0; }
         .campaign-register-page .block-options form { margin: 0; }
-        .campaign-availability-controls { align-items: center; display: flex; flex: 1 1 auto; flex-wrap: wrap; gap: 12px; justify-content: flex-end; min-width: 0; }
+        .campaign-availability-controls { align-items: center; display: flex; flex: 1 1 auto; flex-wrap: nowrap; gap: 16px; justify-content: flex-end; min-width: 0; }
         .campaign-register-page .custom-control-label { color: var(--co-muted); font-size: 9px; font-weight: 750; letter-spacing: .06em; white-space: nowrap; }
         .campaign-register-page .custom-control-label::before { border-color: var(--co-border-strong); background: var(--co-surface-muted); box-shadow: none; }
         .campaign-register-page .custom-control-input:checked ~ .custom-control-label::before { border-color: var(--co-purple); background-color: var(--co-purple); }
@@ -711,9 +711,9 @@
         .campaign-register-filters > label:not(.sr-only) { margin: 0 !important; color: var(--co-muted); font-size: 10px; font-weight: 700; }
         .campaign-register-filters .campaign-date-range { width: 190px; margin: 0 !important; }
         .campaign-register-filters .campaign-search-control { flex: 0 1 220px; min-width: 130px; }
-        .campaign-operator-filter { display: flex; flex: 0 1 auto; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+        .campaign-operator-filter { display: flex; flex: 0 0 auto; align-items: center; flex-wrap: nowrap; gap: 10px; min-width: max-content; }
         .campaign-operator-toggle { margin: 0; color: var(--co-ink); font-size: 10px; font-weight: 700; white-space: nowrap; }
-        .campaign-operator-filter select.form-control { flex: 0 1 230px; min-width: 160px; }
+        .campaign-operator-filter select.form-control { flex: 0 0 230px; width: 230px; min-width: 0; }
         .campaign-operator-view-note { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; padding: 10px 13px; border: 1px solid color-mix(in srgb, var(--co-blue) 26%, var(--co-border)); border-radius: 10px; color: var(--co-ink); background: color-mix(in srgb, var(--co-blue) 7%, var(--co-surface)); font-size: 11px; }
         .campaign-operator-view-note i { color: var(--co-blue); }
         .campaign-register-filters input[type="search"] { width: 100%; max-width: none; padding-right: 30px; }
@@ -1018,6 +1018,9 @@
             .campaign-register-toolbar { align-items: stretch !important; }
             .campaign-register-actions { flex: 1 1 100%; }
             .campaign-register-filters { flex: 1 1 100%; justify-content: flex-start; }
+            body.command-os-shell .campaign-register-page-header { flex-wrap: wrap; }
+            .campaign-register-page .block-options { flex: 1 1 100%; justify-content: flex-start; }
+            .campaign-availability-controls { flex-wrap: wrap; justify-content: flex-start; }
         }
         @media (max-width: 767.98px) {
             body.command-os-shell .campaign-register-page-header { align-items: flex-start; flex-direction: column; padding: 14px; }

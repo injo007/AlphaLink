@@ -9138,19 +9138,21 @@ html[data-command-theme='dark'] .bootstrap-select .bs-placeholder .filter-option
 }
 
 /* 3. COMMAND OS DROPDOWN MENU POPUP */
-.bootstrap-select .dropdown-menu,
-body.command-os-shell .dropdown-menu {
+.bootstrap-select .dropdown-menu:not(.inner),
+body.command-os-shell .dropdown-menu:not(.inner) {
     border-radius: 14px !important;
     padding: 8px !important;
     margin-top: 0 !important;
-    z-index: var(--co-layer-dropdown) !important;
+    z-index: var(--co-layer-dropdown, 9999) !important;
     overflow: hidden !important;
     box-sizing: border-box !important;
     animation: commandDropdownFade 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
 }
 
 .bootstrap-select.bs-container {
-    z-index: var(--co-layer-dropdown);
+    z-index: var(--co-layer-dropdown, 9999);
 }
 
 /* Body-portaled select menus should stay as wide as their owning control. */
@@ -9184,18 +9186,18 @@ body.command-os-shell .bootstrap-select.bs-container .dropdown-menu li a span.te
     }
 }
 
-html[data-command-theme='light'] .bootstrap-select .dropdown-menu,
-html[data-command-theme='light'] body.command-os-shell .dropdown-menu,
-html:not([data-command-theme='dark']) body.command-os-shell .bootstrap-select .dropdown-menu,
-html:not([data-command-theme='dark']) body.command-os-shell .dropdown-menu {
+html[data-command-theme='light'] .bootstrap-select .dropdown-menu:not(.inner),
+html[data-command-theme='light'] body.command-os-shell .dropdown-menu:not(.inner),
+html:not([data-command-theme='dark']) body.command-os-shell .bootstrap-select .dropdown-menu:not(.inner),
+html:not([data-command-theme='dark']) body.command-os-shell .dropdown-menu:not(.inner) {
     background: #ffffff !important;
     border: 1px solid rgba(139, 92, 246, 0.25) !important;
     box-shadow: 0 18px 45px rgba(139, 92, 246, 0.16), 0 4px 12px rgba(0, 0, 0, 0.06) !important;
     color: #0f172a !important;
 }
 
-html[data-command-theme='dark'] .bootstrap-select .dropdown-menu,
-html[data-command-theme='dark'] body.command-os-shell .dropdown-menu {
+html[data-command-theme='dark'] .bootstrap-select .dropdown-menu:not(.inner),
+html[data-command-theme='dark'] body.command-os-shell .dropdown-menu:not(.inner) {
     background: #0d1238 !important;
     border: 1px solid rgba(139, 92, 246, 0.4) !important;
     box-shadow: 0 20px 55px rgba(0, 0, 0, 0.8), 0 0 25px rgba(139, 92, 246, 0.2) !important;
@@ -10950,12 +10952,12 @@ div.btn-group > button {
 /* ==========================================================================
    COMMAND OS ENHANCED DROPDOWN MENUS (GLASSMORPHISM, ACCESSIBLE, RESPONSIVE)
    ========================================================================== */
-.dropdown-menu,
-.bootstrap-select .dropdown-menu,
-body.command-os-shell .dropdown-menu,
-body.command-os-standalone-popup .dropdown-menu,
-div.dt-button-collection,
-.dt-button-collection.dropdown-menu {
+
+/* Outer Dropdown Menu Cards (Excluding inner nested Bootstrap-Select lists) */
+.dropdown-menu:not(.inner),
+.bootstrap-select .dropdown-menu:not(.inner),
+body.command-os-shell .dropdown-menu:not(.inner),
+body.command-os-standalone-popup .dropdown-menu:not(.inner) {
     border-radius: 14px !important;
     padding: 8px !important;
     z-index: 99999 !important;
@@ -10968,11 +10970,10 @@ div.dt-button-collection,
 }
 
 /* Dark Theme Dropdown Menu */
-html[data-command-theme='dark'] .dropdown-menu,
-html[data-command-theme='dark'] .bootstrap-select .dropdown-menu,
-html[data-command-theme='dark'] body.command-os-shell .dropdown-menu,
-html[data-command-theme='dark'] body.command-os-standalone-popup .dropdown-menu,
-html[data-command-theme='dark'] div.dt-button-collection {
+html[data-command-theme='dark'] .dropdown-menu:not(.inner),
+html[data-command-theme='dark'] .bootstrap-select .dropdown-menu:not(.inner),
+html[data-command-theme='dark'] body.command-os-shell .dropdown-menu:not(.inner),
+html[data-command-theme='dark'] body.command-os-standalone-popup .dropdown-menu:not(.inner) {
     background: #0d1238 !important;
     border: 1px solid rgba(139, 92, 246, 0.35) !important;
     box-shadow: 0 25px 65px rgba(0, 0, 0, 0.8), 0 0 30px rgba(139, 92, 246, 0.25) !important;
@@ -10980,19 +10981,98 @@ html[data-command-theme='dark'] div.dt-button-collection {
 }
 
 /* Light Theme Dropdown Menu */
-html[data-command-theme='light'] .dropdown-menu,
-html[data-command-theme='light'] .bootstrap-select .dropdown-menu,
-html[data-command-theme='light'] body.command-os-shell .dropdown-menu,
-html[data-command-theme='light'] body.command-os-standalone-popup .dropdown-menu,
-html:not([data-command-theme='dark']) .dropdown-menu,
-html:not([data-command-theme='dark']) div.dt-button-collection {
+html[data-command-theme='light'] .dropdown-menu:not(.inner),
+html[data-command-theme='light'] .bootstrap-select .dropdown-menu:not(.inner),
+html[data-command-theme='light'] body.command-os-shell .dropdown-menu:not(.inner),
+html[data-command-theme='light'] body.command-os-standalone-popup .dropdown-menu:not(.inner),
+html:not([data-command-theme='dark']) .dropdown-menu:not(.inner) {
     background: #ffffff !important;
     border: 1px solid rgba(139, 92, 246, 0.22) !important;
     box-shadow: 0 20px 50px rgba(139, 92, 246, 0.16), 0 4px 14px rgba(0, 0, 0, 0.06) !important;
     color: #0f172a !important;
 }
 
-/* Dropdown items */
+/* DataTables Dropdown Collections (Page Length, Column Visibility, Export) */
+div.dt-button-collection {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    z-index: 99999 !important;
+}
+
+div.dt-button-collection > .dropdown-menu {
+    position: static !important;
+    display: block !important;
+    margin: 4px 0 0 0 !important;
+    float: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    min-width: 140px !important;
+}
+
+/* Fallback for DataTables button collection without dropdown-menu child */
+div.dt-button-collection:not(:has(.dropdown-menu)) {
+    border-radius: 14px !important;
+    padding: 8px !important;
+    z-index: 99999 !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    min-width: 160px !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+    animation: commandDropdownFade 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+html[data-command-theme='dark'] div.dt-button-collection:not(:has(.dropdown-menu)) {
+    background: #0d1238 !important;
+    border: 1px solid rgba(139, 92, 246, 0.35) !important;
+    box-shadow: 0 25px 65px rgba(0, 0, 0, 0.8), 0 0 30px rgba(139, 92, 246, 0.25) !important;
+    color: #f8fafc !important;
+}
+
+html[data-command-theme='light'] div.dt-button-collection:not(:has(.dropdown-menu)),
+html:not([data-command-theme='dark']) div.dt-button-collection:not(:has(.dropdown-menu)) {
+    background: #ffffff !important;
+    border: 1px solid rgba(139, 92, 246, 0.22) !important;
+    box-shadow: 0 20px 50px rgba(139, 92, 246, 0.16), 0 4px 14px rgba(0, 0, 0, 0.06) !important;
+    color: #0f172a !important;
+}
+
+/* Inner list resets for Bootstrap-Select to prevent double-border and clipping */
+.bootstrap-select .dropdown-menu.inner,
+.bootstrap-select .dropdown-menu .inner,
+.bootstrap-select .dropdown-menu .inner > ul,
+.bootstrap-select .dropdown-menu .inner > ul.dropdown-menu,
+.bootstrap-select.bs-container .dropdown-menu.inner,
+.bootstrap-select.bs-container .dropdown-menu .inner > ul,
+body.command-os-shell .bootstrap-select .dropdown-menu.inner,
+body.command-os-shell .bootstrap-select .dropdown-menu .inner,
+body.command-os-shell .bootstrap-select .dropdown-menu .inner > ul {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    max-height: 260px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    list-style: none !important;
+}
+
+.bootstrap-select .dropdown-menu .inner > ul > li {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    margin-bottom: 2px !important;
+    list-style: none !important;
+}
+
+/* Universal Dropdown items */
 .dropdown-menu .dropdown-item,
 .dropdown-item,
 body.command-os-shell .dropdown-item,
@@ -11017,6 +11097,7 @@ div.dt-button-collection a.dt-button {
     width: 100% !important;
 }
 
+/* Dark Theme Dropdown item normal state */
 html[data-command-theme='dark'] .dropdown-menu .dropdown-item,
 html[data-command-theme='dark'] .dropdown-item,
 html[data-command-theme='dark'] body.command-os-shell .dropdown-item,
@@ -11027,19 +11108,33 @@ html[data-command-theme='dark'] div.dt-button-collection .dt-button {
     background: transparent !important;
 }
 
+/* Dark Theme Dropdown item hover & focus */
 html[data-command-theme='dark'] .dropdown-menu .dropdown-item:hover,
 html[data-command-theme='dark'] .dropdown-item:hover,
-html[data-command-theme='dark'] .dropdown-item.active,
 html[data-command-theme='dark'] .dropdown-item:focus,
 html[data-command-theme='dark'] .bootstrap-select .dropdown-menu li a:hover,
-html[data-command-theme='dark'] .bootstrap-select .dropdown-menu li.selected a,
-html[data-command-theme='dark'] div.dt-button-collection .dt-button:hover,
-html[data-command-theme='dark'] div.dt-button-collection .dt-button.active {
+html[data-command-theme='dark'] div.dt-button-collection .dt-button:hover {
     background: rgba(139, 92, 246, 0.22) !important;
     color: #ffffff !important;
     transform: translateX(3px) !important;
 }
 
+/* Dark Theme Dropdown item active & selected */
+html[data-command-theme='dark'] .dropdown-menu .dropdown-item.active,
+html[data-command-theme='dark'] .dropdown-item.active,
+html[data-command-theme='dark'] .bootstrap-select .dropdown-menu li.active a,
+html[data-command-theme='dark'] .bootstrap-select .dropdown-menu li.selected a,
+html[data-command-theme='dark'] div.dt-button-collection .dt-button.active,
+html[data-command-theme='dark'] div.dt-button-collection a.dt-button.active {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.45) 0%, rgba(124, 58, 237, 0.55) 100%) !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    border-left: 3px solid #8b5cf6 !important;
+    box-shadow: 0 2px 10px rgba(139, 92, 246, 0.35) !important;
+    transform: translateX(3px) !important;
+}
+
+/* Light Theme Dropdown item normal state */
 html[data-command-theme='light'] .dropdown-menu .dropdown-item,
 html[data-command-theme='light'] .dropdown-item,
 html[data-command-theme='light'] body.command-os-shell .dropdown-item,
@@ -11051,43 +11146,98 @@ html[data-command-theme='light'] div.dt-button-collection .dt-button {
     background: transparent !important;
 }
 
+/* Light Theme Dropdown item hover & focus */
 html[data-command-theme='light'] .dropdown-menu .dropdown-item:hover,
 html[data-command-theme='light'] .dropdown-item:hover,
-html[data-command-theme='light'] .dropdown-item.active,
 html[data-command-theme='light'] .dropdown-item:focus,
 html[data-command-theme='light'] .bootstrap-select .dropdown-menu li a:hover,
-html[data-command-theme='light'] .bootstrap-select .dropdown-menu li.selected a,
-html[data-command-theme='light'] div.dt-button-collection .dt-button:hover,
-html[data-command-theme='light'] div.dt-button-collection .dt-button.active {
+html[data-command-theme='light'] div.dt-button-collection .dt-button:hover {
     background: #f4f0ff !important;
     color: #7c3aed !important;
     transform: translateX(3px) !important;
 }
 
-/* Native select element options styling in dark mode */
-html[data-command-theme='dark'] select option {
-    background-color: #0d1238 !important;
-    color: #f8fafc !important;
-    padding: 8px !important;
+/* Light Theme Dropdown item active & selected */
+html[data-command-theme='light'] .dropdown-menu .dropdown-item.active,
+html[data-command-theme='light'] .dropdown-item.active,
+html[data-command-theme='light'] .bootstrap-select .dropdown-menu li.active a,
+html[data-command-theme='light'] .bootstrap-select .dropdown-menu li.selected a,
+html:not([data-command-theme='dark']) .dropdown-menu .dropdown-item.active,
+html:not([data-command-theme='dark']) .dropdown-item.active,
+html:not([data-command-theme='dark']) .bootstrap-select .dropdown-menu li.active a,
+html:not([data-command-theme='dark']) .bootstrap-select .dropdown-menu li.selected a,
+html[data-command-theme='light'] div.dt-button-collection .dt-button.active,
+html[data-command-theme='light'] div.dt-button-collection a.dt-button.active,
+html:not([data-command-theme='dark']) div.dt-button-collection .dt-button.active,
+html:not([data-command-theme='dark']) div.dt-button-collection a.dt-button.active {
+    background: linear-gradient(135deg, #f4edff 0%, #ebe0ff 100%) !important;
+    color: #6d28d9 !important;
+    font-weight: 700 !important;
+    border-left: 3px solid #8b5cf6 !important;
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.15) !important;
+    transform: translateX(3px) !important;
 }
 
-html[data-command-theme='light'] select option,
-html:not([data-command-theme='dark']) select option {
-    background-color: #ffffff !important;
-    color: #1e293b !important;
-    padding: 8px !important;
+/* Dropdown Headers & Dividers */
+.dropdown-header {
+    font-size: 10px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+    padding: 6px 12px 4px 12px !important;
+    margin-top: 4px !important;
+}
+html[data-command-theme='dark'] .dropdown-header {
+    color: #94a3b8 !important;
+}
+html[data-command-theme='light'] .dropdown-header,
+html:not([data-command-theme='dark']) .dropdown-header {
+    color: #64748b !important;
+}
+
+.dropdown-divider {
+    height: 0 !important;
+    margin: 6px 4px !important;
+    overflow: hidden !important;
+    border: 0 !important;
+}
+html[data-command-theme='dark'] .dropdown-divider {
+    border-top: 1px solid rgba(139, 92, 246, 0.25) !important;
+}
+html[data-command-theme='light'] .dropdown-divider,
+html:not([data-command-theme='dark']) .dropdown-divider {
+    border-top: 1px solid rgba(139, 92, 246, 0.15) !important;
+}
+
+/* Dropdown Scrollbars */
+.dropdown-menu::-webkit-scrollbar,
+.bootstrap-select .dropdown-menu .inner::-webkit-scrollbar,
+.select2-results__options::-webkit-scrollbar {
+    width: 6px !important;
+}
+.dropdown-menu::-webkit-scrollbar-thumb,
+.bootstrap-select .dropdown-menu .inner::-webkit-scrollbar-thumb,
+.select2-results__options::-webkit-scrollbar-thumb {
+    background: rgba(139, 92, 246, 0.4) !important;
+    border-radius: 999px !important;
+}
+.dropdown-menu::-webkit-scrollbar-track,
+.bootstrap-select .dropdown-menu .inner::-webkit-scrollbar-track,
+.select2-results__options::-webkit-scrollbar-track {
+    background: transparent !important;
 }
 
 /* Select2 Single Select Modernization */
 .select2-container--default .select2-selection--single {
-    height: 38px !important;
+    height: 40px !important;
     border-radius: 10px !important;
-    padding: 6px 14px !important;
+    padding: 0 14px !important;
     display: flex !important;
     align-items: center !important;
     position: relative !important;
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
     outline: none !important;
+    box-sizing: border-box !important;
 }
 
 html[data-command-theme='light'] .select2-container--default .select2-selection--single,
@@ -11095,12 +11245,14 @@ html:not([data-command-theme='dark']) body.command-os-shell .select2-container--
     background: #ffffff !important;
     border: 1px solid rgba(139, 92, 246, 0.25) !important;
     color: #1e293b !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
 }
 
 html[data-command-theme='dark'] .select2-container--default .select2-selection--single {
-    background: rgba(13, 18, 56, 0.8) !important;
+    background: rgba(13, 18, 56, 0.85) !important;
     border: 1px solid rgba(139, 92, 246, 0.35) !important;
     color: #e2e8f0 !important;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.25) !important;
 }
 
 .select2-container--default.select2-container--open .select2-selection--single,
@@ -11114,51 +11266,76 @@ html[data-command-theme='dark'] .select2-container--default .select2-selection--
     font-size: 0.8125rem !important;
     font-weight: 600 !important;
     padding-left: 0 !important;
-    padding-right: 20px !important;
-    line-height: 24px !important;
+    padding-right: 24px !important;
+    line-height: 38px !important;
+    display: flex !important;
+    align-items: center !important;
 }
 
 .select2-container--default .select2-selection--single .select2-selection__arrow {
-    height: 36px !important;
-    right: 8px !important;
+    height: 38px !important;
+    right: 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
 }
 
 .select2-container--default .select2-selection--single .select2-selection__arrow b {
     border-color: #8b5cf6 transparent transparent transparent !important;
     border-width: 5px 4px 0 4px !important;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
 .select2-container--default.select2-container--open .select2-selection--single .select2-selection__arrow b {
-    border-color: transparent transparent #8b5cf6 transparent !important;
-    border-width: 0 4px 5px 4px !important;
+    border-color: #8b5cf6 transparent transparent transparent !important;
+    transform: rotate(180deg) !important;
 }
 
 /* Universal Select styling across the application */
 select.form-control:not(.bootstrap-select),
 select.command-form-control,
-select.command-select {
+select.command-select,
+.dataTables_length select {
     appearance: none !important;
     -webkit-appearance: none !important;
     -moz-appearance: none !important;
     background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b5cf6' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e") !important;
     background-repeat: no-repeat !important;
     background-position: right 12px center !important;
-    background-size: 15px !important;
+    background-size: 14px !important;
     padding-right: 36px !important;
     cursor: pointer !important;
     border-radius: 10px !important;
-    height: 38px !important;
+    height: 40px !important;
+    min-height: 40px !important;
     font-size: 0.8125rem !important;
     font-weight: 600 !important;
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    box-sizing: border-box !important;
+}
+
+/* Compact table length select */
+.dataTables_length select,
+select.form-control-sm {
+    height: 34px !important;
+    min-height: 34px !important;
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
+    padding-left: 10px !important;
+    padding-right: 30px !important;
+    font-size: 12px !important;
+    background-size: 12px !important;
+    background-position: right 8px center !important;
 }
 
 html[data-command-theme='light'] select.form-control:not(.bootstrap-select),
 html[data-command-theme='light'] select.command-form-control,
 html[data-command-theme='light'] select.command-select,
+html[data-command-theme='light'] .dataTables_length select,
 html:not([data-command-theme='dark']) body.command-os-shell select.form-control:not(.bootstrap-select),
 html:not([data-command-theme='dark']) body.command-os-shell select.command-form-control,
-html:not([data-command-theme='dark']) body.command-os-shell select.command-select {
+html:not([data-command-theme='dark']) body.command-os-shell select.command-select,
+html:not([data-command-theme='dark']) body.command-os-shell .dataTables_length select {
     background-color: #ffffff !important;
     border: 1px solid rgba(139, 92, 246, 0.25) !important;
     color: #1e293b !important;
@@ -11167,7 +11344,8 @@ html:not([data-command-theme='dark']) body.command-os-shell select.command-selec
 
 html[data-command-theme='dark'] select.form-control:not(.bootstrap-select),
 html[data-command-theme='dark'] select.command-form-control,
-html[data-command-theme='dark'] select.command-select {
+html[data-command-theme='dark'] select.command-select,
+html[data-command-theme='dark'] .dataTables_length select {
     background-color: rgba(13, 18, 56, 0.85) !important;
     border: 1px solid rgba(139, 92, 246, 0.35) !important;
     color: #e2e8f0 !important;
@@ -11176,33 +11354,41 @@ html[data-command-theme='dark'] select.command-select {
 
 select.form-control:not(.bootstrap-select):focus,
 select.command-form-control:focus,
-select.command-select:focus {
+select.command-select:focus,
+.dataTables_length select:focus {
     border-color: #8b5cf6 !important;
     box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.25) !important;
     outline: none !important;
 }
 
+/* Native select element options styling in dark mode */
 select.form-control:not(.bootstrap-select) option,
 select.command-form-control option,
-select.command-select option {
+select.command-select option,
+.dataTables_length select option {
     font-size: 0.8125rem !important;
     font-weight: 500 !important;
     padding: 8px 12px !important;
 }
 
+html[data-command-theme='dark'] select option,
 html[data-command-theme='dark'] select.form-control:not(.bootstrap-select) option,
 html[data-command-theme='dark'] select.command-form-control option,
-html[data-command-theme='dark'] select.command-select option {
+html[data-command-theme='dark'] select.command-select option,
+html[data-command-theme='dark'] .dataTables_length select option {
     background-color: #0d1238 !important;
     color: #f8fafc !important;
 }
 
+html[data-command-theme='light'] select option,
+html:not([data-command-theme='dark']) select option,
 html[data-command-theme='light'] select.form-control:not(.bootstrap-select) option,
 html[data-command-theme='light'] select.command-form-control option,
 html[data-command-theme='light'] select.command-select option,
 html:not([data-command-theme='dark']) select.form-control:not(.bootstrap-select) option,
 html:not([data-command-theme='dark']) select.command-form-control option,
-html:not([data-command-theme='dark']) select.command-select option {
+html:not([data-command-theme='dark']) select.command-select option,
+html:not([data-command-theme='dark']) .dataTables_length select option {
     background-color: #ffffff !important;
     color: #1e293b !important;
 }

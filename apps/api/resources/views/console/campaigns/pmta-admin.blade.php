@@ -54,7 +54,7 @@
             gap: 8px;
         }
 
-        @media (max-width: 767.98px) {
+        @media (max-width: 575.98px) {
             .pmta-automation-input-row {
                 flex-wrap: wrap;
             }
@@ -167,7 +167,7 @@
 
                 <!-- 3. Automation Intervals (Schedule & Restart) -->
                 <div class="row mb-3" id="pmta-admin-schedule-row">
-                    <div class="col-md-6 mb-3 mb-md-0 pmta-admin-schedule-column">
+                    <div class="col-xl-6 col-lg-12 mb-3 pmta-admin-schedule-column">
                         <div class="pmta-admin-surface pmta-automation-box">
                             <label class="command-form-label mb-0" for="pmta-admin-seconds" style="font-size: 0.8125rem;">
                                 <i class="fas fa-clock mr-1 text-purple"></i> Queue Runner Interval:
@@ -179,7 +179,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-6 pmta-admin-restart-column">
+                    <div class="col-xl-6 col-lg-12 mb-3 pmta-admin-restart-column">
                         <div class="pmta-admin-surface pmta-automation-box">
                             <label class="command-form-label mb-0" for="pmta-admin-restart-seconds" style="font-size: 0.8125rem;">
                                 <i class="fas fa-redo-alt mr-1 text-purple"></i> Daemon Auto-Restart Interval:

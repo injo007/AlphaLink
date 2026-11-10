@@ -13,6 +13,38 @@ class AlphaLinkCampaignSendNavigationTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_provider_network_groups_the_existing_provider_and_sponsor_destinations(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->workspaceFor($owner, 'owner');
+        $response = $this->actingAs($owner)->get(route('console.campaigns.index', $workspace->getKey()))->assertOk();
+        $document = new \DOMDocument;
+        @$document->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($document);
+        $providerGroup = $xpath->query('//ul[contains(concat(" ", normalize-space(@class), " "), " command-os-navigation ")]/li[@data-nav-group="nav-v2-provider-network"]')->item(0);
+
+        $this->assertNotNull($providerGroup, 'Provider Network must be a top-level navigation group.');
+        $this->assertSame(14, substr_count($response->getContent(), 'class="command-os-navigation-item'));
+
+        foreach ([
+            route('clean.console.infrastructure.server-providers.index'),
+            route('clean.console.infrastructure.cloud-providers.index'),
+            route('clean.console.infrastructure.domain-providers.index'),
+            route('clean.console.sponsors.index'),
+            route('clean.console.clouds.index', 'linode'),
+            route('clean.console.clouds.index', 'digitalocean'),
+        ] as $destination) {
+            $literal = "'".str_replace("'", '&apos;', $destination)."'";
+            $matches = $xpath->query('.//a[@href='.$literal.']', $providerGroup);
+            $this->assertGreaterThan(0, $matches->length, 'Provider Network is missing '.$destination);
+        }
+
+        $response->assertSee('>Provider Network</span>', false)
+            ->assertSee('>Domains Providers</span>', false)
+            ->assertSee('>Sponsors</span>', false)
+            ->assertSee('href="'.route('console.mailer.campaign-logs').'"', false);
+    }
+
     public function test_campaign_send_is_a_route_backed_active_reference_navigation_item(): void
     {
         $owner = User::factory()->create();
@@ -26,13 +58,13 @@ class AlphaLinkCampaignSendNavigationTest extends TestCase
         $this->assertMatchesRegularExpression('/<button[^>]*data-action="sidebar_open"[^>]*aria-expanded="false"/', $response->getContent());
 
         $response->assertSee('class="command-os-navigation"', false)
-            ->assertSee('>Dashboard</span>', false)
-            ->assertSee('>Lists &amp; Audiences</span>', false)
-            ->assertSee('id="nav-submenu-campaigns"', false)
-            ->assertSee('href="'.route('console.mailer.campaigns').'" title="CAMPAIGNS" aria-label="Campaigns"', false)
-            ->assertSee('href="'.route('clean.console.global-tests.index').'" title="GLOBAL TEST" aria-label="Global Test"', false)
+            ->assertSee('>Operations Overview</span>', false)
+            ->assertSee('>Audience Intelligence</span>', false)
+            ->assertSee('data-nav-group="nav-v2-campaign-studio"', false)
+            ->assertSee('href="'.route('console.mailer.campaigns').'"', false)
+            ->assertSee('href="'.route('clean.console.global-tests.index').'"', false)
             ->assertSee('<details class="command-os-navigation-disclosure" open>', false)
-            ->assertSee('<summary aria-label="Toggle Campaigns pages" aria-controls="nav-submenu-campaigns"', false)
+            ->assertSee('<summary aria-label="Toggle Campaign Studio pages" aria-controls="nav-v2-campaign-studio"', false)
             ->assertSee('class="command-os-navigation-link active" href="'.route('console.mailer.campaigns').'"', false)
             ->assertSee('aria-current="page"', false)
             ->assertSee('fas fa-envelope', false)
@@ -70,7 +102,7 @@ class AlphaLinkCampaignSendNavigationTest extends TestCase
             ->assertDontSee('no campaign can be launched');
 
         $this->assertMatchesRegularExpression(
-            '/<div class="command-os-navigation-row">[\s\S]*?<details class="command-os-navigation-disclosure" open>\s*<summary aria-label="Toggle Campaigns pages" aria-controls="nav-submenu-campaigns"[\s\S]*?<\/summary>\s*<ul class="command-os-navigation-submenu" id="nav-submenu-campaigns"/',
+            '/<div class="command-os-navigation-row">[\s\S]*?<details class="command-os-navigation-disclosure" open>\s*<summary aria-label="Toggle Campaign Studio pages" aria-controls="nav-v2-campaign-studio"[\s\S]*?<\/summary>\s*<ul class="command-os-navigation-submenu" id="nav-v2-campaign-studio"/',
             $response->getContent(),
             'The native disclosure control must occupy its own parent-row slot and keep its submenu in normal sidebar flow.'
         );

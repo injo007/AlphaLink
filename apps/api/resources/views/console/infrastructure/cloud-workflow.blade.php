@@ -53,19 +53,19 @@
                 <div class="col-md-6">
                     <div class="form-group mb-3">
                         <label class="command-form-label" for="cloud-account">Account Provider:</label>
-                        <div class="input-group">
-                            <select id="cloud-account" class="form-control" aria-describedby="cloud-account-help">
-                                @forelse ($providers as $account)
-                                    <option value="{{ $account->id }}">{{ $account->name }}</option>
-                                @empty
-                                    <option value="">No eligible provider accounts</option>
-                                @endforelse
-                            </select>
-                            <div class="input-group-append">
-                                <button id="cloud-load-catalog" class="btn-command-primary" type="button" @disabled(!$hasProviders)>
-                                    <i class="fas fa-cloud-download-alt mr-1"></i> GET DATA
-                                </button>
+                        <div class="d-flex align-items-center" style="gap: 10px;">
+                            <div class="command-select-wrapper flex-grow-1">
+                                <select id="cloud-account" class="command-form-control command-select w-100" aria-describedby="cloud-account-help">
+                                    @forelse ($providers as $account)
+                                        <option value="{{ $account->id }}">{{ $account->name }}</option>
+                                    @empty
+                                        <option value="">No eligible provider accounts</option>
+                                    @endforelse
+                                </select>
                             </div>
+                            <button id="cloud-load-catalog" class="btn-command-primary text-nowrap" type="button" @disabled(!$hasProviders) style="height: 40px; padding: 0 18px;">
+                                <i class="fas fa-cloud-download-alt mr-1"></i> GET DATA
+                            </button>
                         </div>
                         @if ($hasProviders)
                             <small id="cloud-account-help" class="form-text text-muted" style="font-size: 0.75rem;">Only accounts assigned to your workspace role are listed.</small>
@@ -82,36 +82,42 @@
                     </div>
                     <div class="form-group mb-3">
                         <label class="command-form-label" for="cloud-region">Instance Region:</label>
-                        <select id="cloud-region" name="region" class="form-control" required>
-                            <option value="">Load account data first</option>
-                        </select>
+                        <div class="command-select-wrapper">
+                            <select id="cloud-region" name="region" class="command-form-control command-select w-100" required>
+                                <option value="">Load account data first</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="form-group mb-3">
                         <label class="command-form-label" for="cloud-image">Instance OS Image:</label>
-                        <select id="cloud-image" name="image" class="form-control" required>
-                            <option value="">Load account data first</option>
-                        </select>
+                        <div class="command-select-wrapper">
+                            <select id="cloud-image" name="image" class="command-form-control command-select w-100" required>
+                                <option value="">Load account data first</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="form-group mb-3">
                         <label class="command-form-label" for="cloud-type">Instance Size / Type:</label>
-                        <select id="cloud-type" name="type" class="form-control" required>
-                            <option value="">Load account data first</option>
-                        </select>
+                        <div class="command-select-wrapper">
+                            <select id="cloud-type" name="type" class="command-form-control command-select w-100" required>
+                                <option value="">Load account data first</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="form-group mb-3">
                         <label class="command-form-label" for="cloud-name">{{ $type === 'digitalocean' ? 'Hostname Prefix:' : 'Instance Name:' }}</label>
-                        <input id="cloud-name" name="name" class="form-control" autocomplete="off" placeholder="node-">
+                        <input id="cloud-name" name="name" class="command-form-control w-100" autocomplete="off" placeholder="node-">
                     </div>
                     <div class="form-group mb-3">
                         <label class="command-form-label" for="cloud-count">Number of Instances to Create:</label>
-                        <input id="cloud-count" name="count" type="number" step="1" class="form-control" value="1" required>
+                        <input id="cloud-count" name="count" type="number" step="1" class="command-form-control w-100" value="1" required>
                     </div>
                 </div>
             </div>
 
-            <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+            <div class="d-flex flex-wrap align-items-center justify-content-between pt-3 mt-3 border-top" style="gap: 12px;">
                 <button id="cloud-load-instances" class="btn-command-action" type="button" @disabled(!$hasProviders)>
                     <i class="fas fa-sync mr-1"></i> GET INSTANCES
                 </button>
@@ -133,37 +139,77 @@
     <!-- 3. Deployed Instances Card -->
     <div class="command-os-table-card">
         <div class="command-cloud-toolbar">
-            <span class="badge-command-pill mr-2" style="font-weight: 700; color: #8b5cf6;">
-                <span id="cloud-instance-count">0</span> INSTANCES
-            </span>
-            <button id="cloud-select-none" class="btn-command-action" type="button" title="SELECT NONE" style="padding: 4px 10px; font-size: 0.75rem;">SELECT NONE</button>
-            <button id="cloud-select-all-visible" class="btn-command-action" type="button" title="SELECT ALL" style="padding: 4px 10px; font-size: 0.75rem;">SELECT ALL</button>
-            <button id="cloud-delete-selected" class="btn-command-danger" type="button" disabled style="padding: 4px 10px; font-size: 0.75rem;">DELETE INSTANCES</button>
-            <button id="cloud-add-selected" class="btn-command-primary" type="button" disabled style="padding: 4px 10px; font-size: 0.75rem;">ADD IPS TO DB</button>
-            <a class="btn-command-action ml-auto" href="{{ route('console.infrastructure.bulk-install', $workspace->id) }}" target="_blank" rel="noopener" style="padding: 4px 10px; font-size: 0.75rem;">
-                <i class="fas fa-external-link-alt mr-1"></i> BULK INSTALL SERVERS
-            </a>
+            <div class="command-cloud-toolbar-left">
+                <span class="badge-command-pill" style="font-weight: 700; color: #8b5cf6; padding: 6px 14px;">
+                    <i class="fas fa-server mr-1"></i> <span id="cloud-instance-count">0</span> INSTANCES
+                </span>
+                <div class="command-btn-group ml-1">
+                    <button id="cloud-select-none" class="btn-command-action" type="button" title="SELECT NONE" style="padding: 6px 12px; font-size: 0.75rem;">
+                        <i class="far fa-square mr-1"></i> SELECT NONE
+                    </button>
+                    <button id="cloud-select-all-visible" class="btn-command-action" type="button" title="SELECT ALL" style="padding: 6px 12px; font-size: 0.75rem;">
+                        <i class="far fa-check-square mr-1"></i> SELECT ALL
+                    </button>
+                </div>
+                <div class="command-btn-group ml-2">
+                    <button id="cloud-delete-selected" class="btn-command-danger" type="button" disabled style="padding: 6px 14px; font-size: 0.75rem;">
+                        <i class="fas fa-trash-alt mr-1"></i> DELETE INSTANCES
+                    </button>
+                    <button id="cloud-add-selected" class="btn-command-primary" type="button" disabled style="padding: 6px 14px; font-size: 0.75rem;">
+                        <i class="fas fa-database mr-1"></i> ADD IPS TO DB
+                    </button>
+                </div>
+            </div>
+            <div class="command-cloud-toolbar-right">
+                <a class="btn-command-action" href="{{ route('console.infrastructure.bulk-install', $workspace->id) }}" target="_blank" rel="noopener" style="padding: 6px 14px; font-size: 0.75rem;">
+                    <i class="fas fa-external-link-alt mr-1"></i> BULK INSTALL SERVERS
+                </a>
+            </div>
         </div>
-        <div class="p-2 px-3">
-            <p class="small text-muted mb-0" style="font-size: 0.75rem;"><i class="fas fa-check-double mr-1"></i> IP blacklist and Sender Score checks start automatically when GET INSTANCES loads rows.</p>
+        <div class="p-2 px-3 d-flex align-items-center" style="border-bottom: 1px solid var(--command-os-border, rgba(139, 92, 246, 0.1)); background: rgba(139, 92, 246, 0.02);">
+            <p class="small text-muted mb-0" style="font-size: 0.75rem;">
+                <i class="fas fa-shield-alt mr-1 text-purple"></i> Telemetry audits for Blacklists (Spamhaus, SpamCop, Barracuda) and Sender Score trigger automatically upon instance discovery.
+            </p>
         </div>
         <div class="table-responsive">
-            <table class="table table-sm table-hover table-striped command-os-table" aria-label="Cloud instances">
+            <table class="table table-sm table-hover table-striped command-os-table mb-0" aria-label="Cloud instances">
                 <thead>
                     <tr>
-                        <th scope="col" aria-label="Select" style="width: 40px;"></th>
-                        <th scope="col">#</th>
+                        <th scope="col" style="width: 44px; text-align: center;">
+                            <label class="command-table-checkbox-label mb-0" title="Select all instances">
+                                <input type="checkbox" id="cloud-header-select-all" aria-label="Select all instances">
+                                <span class="command-checkbox-custom-box"></span>
+                            </label>
+                        </th>
+                        <th scope="col" style="width: 70px;">ID</th>
                         @if ($type === 'linode')
-                            <th scope="col">LABEL</th><th scope="col">TYPE</th><th scope="col">REGION</th>
+                            <th scope="col">LABEL</th>
+                            <th scope="col">PLAN / TYPE</th>
+                            <th scope="col">DATACENTER</th>
                         @else
-                            <th scope="col">NAME</th><th scope="col">LOCATION</th>
+                            <th scope="col">NAME</th>
+                            <th scope="col">LOCATION</th>
                         @endif
-                        <th scope="col">STATUS</th><th scope="col">IP</th><th scope="col">BLACKLISTED</th><th scope="col">SCORE</th><th scope="col">CREATED AT</th>
-                        @if ($canSetRdns)<th scope="col">ACTIONS</th>@endif
+                        <th scope="col">STATUS</th>
+                        <th scope="col">IPV4 ADDRESS</th>
+                        <th scope="col">BLACKLIST AUDIT</th>
+                        <th scope="col">SENDER SCORE</th>
+                        <th scope="col">PROVISIONED</th>
+                        @if ($canSetRdns)<th scope="col" style="text-align: right; width: 90px;">ACTIONS</th>@endif
                     </tr>
                 </thead>
                 <tbody id="cloud-instance-rows">
-                    <tr><td colspan="{{ $type === 'linode' ? 11 : 9 }}" class="text-muted text-center py-4">No instances loaded.</td></tr>
+                    <tr>
+                        <td colspan="{{ ($type === 'linode' ? 10 : 9) + ($canSetRdns ? 1 : 0) }}" class="text-center py-5">
+                            <div class="command-table-empty-state">
+                                <div class="command-empty-state-icon mb-2" style="font-size: 2rem; color: #8b5cf6; opacity: 0.8;">
+                                    <i class="fas fa-server"></i>
+                                </div>
+                                <h5 class="font-w600 mb-1 text-ink" style="font-size: 0.9375rem;">No Cloud Instances Loaded</h5>
+                                <p class="text-muted mb-0" style="font-size: 0.8125rem;">Select an account provider and click <strong>GET DATA</strong> then <strong>GET INSTANCES</strong> to discover live nodes.</p>
+                            </div>
+                        </td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -347,78 +393,111 @@
                 }
             }
 
+            function escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text ?? '';
+                return div.innerHTML;
+            }
+
             function instanceCheckbox(instance, index) {
+                const label = document.createElement('label');
+                label.className = 'command-table-checkbox-label mb-0';
+                label.title = `Select ${instance.name || instance.id}`;
                 const input = document.createElement('input');
                 input.type = 'checkbox';
                 input.className = 'cloud-instance-checkbox';
                 input.dataset.index = String(index);
-                input.setAttribute('aria-label', `Select instance ${instance.name}`);
-                input.addEventListener('change', updateSelectionButtons);
-                return input;
+                input.setAttribute('aria-label', `Select instance ${instance.name || instance.id}`);
+                input.addEventListener('change', (e) => {
+                    e.stopPropagation();
+                    input.closest('tr')?.classList.toggle('selected', input.checked);
+                    updateSelectionButtons();
+                });
+                const box = document.createElement('span');
+                box.className = 'command-checkbox-custom-box';
+                label.append(input, box);
+                return label;
             }
 
             function renderInstances(items) {
                 instances = items || [];
                 rows.replaceChildren();
                 count.textContent = String(instances.length);
+                const totalColumns = {{ ($type === 'linode' ? 10 : 9) + ($canSetRdns ? 1 : 0) }};
                 if (!instances.length) {
                     const row = rows.insertRow();
                     const cell = row.insertCell();
-                    cell.colSpan = {{ $type === 'linode' ? 11 : 9 }};
-                    cell.className = 'text-muted text-center py-4';
-                    cell.textContent = 'No instances are available in this account.';
+                    cell.colSpan = totalColumns;
+                    cell.className = 'text-center py-5';
+                    cell.innerHTML = `
+                        <div class="command-table-empty-state">
+                            <div class="command-empty-state-icon mb-2" style="font-size: 2rem; color: #8b5cf6; opacity: 0.8;">
+                                <i class="fas fa-server"></i>
+                            </div>
+                            <h5 class="font-w600 mb-1 text-ink" style="font-size: 0.9375rem;">No Instances Found</h5>
+                            <p class="text-muted mb-0" style="font-size: 0.8125rem;">No active cloud instances are currently deployed in this provider account.</p>
+                        </div>
+                    `;
                     updateSelectionButtons();
                     return;
                 }
 
                 instances.forEach((instance, index) => {
                     const row = rows.insertRow();
-                    row.insertCell().append(instanceCheckbox(instance, index));
+                    row.className = 'command-instance-row';
+                    row.style.cursor = 'pointer';
+                    const checkCell = row.insertCell();
+                    checkCell.style.textAlign = 'center';
+                    checkCell.append(instanceCheckbox(instance, index));
+
                     const fields = type === 'linode'
                         ? ['id', 'name', 'type', 'region', 'status', 'ip']
                         : ['id', 'name', 'region', 'status', 'ip'];
                     fields.forEach((key) => {
                         const cell = row.insertCell();
                         if (key === 'id') {
-                            cell.innerHTML = `<span class="command-mono-badge">#${instance[key] ?? ''}</span>`;
+                            cell.innerHTML = `<span class="command-mono-badge font-weight-bold">#${escapeHtml(instance[key])}</span>`;
                         } else if (key === 'name') {
-                            cell.innerHTML = `<strong>${instance[key] ?? ''}</strong>`;
+                            cell.innerHTML = `<span class="font-w700 text-ink">${escapeHtml(instance[key])}</span>`;
                         } else if (key === 'status') {
                             const isRunning = String(instance[key] || '').toLowerCase() === 'running' || String(instance[key] || '').toLowerCase() === 'active';
-                            cell.innerHTML = `<span class="badge-command-pill ${isRunning ? 'badge-command-active-yes' : ''}">${instance[key] ?? '—'}</span>`;
+                            cell.innerHTML = `<span class="badge-command-pill ${isRunning ? 'badge-command-active-yes' : ''}"><span class="badge-dot" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${isRunning ? '#10b981' : '#94a3b8'};margin-right:5px;"></span>${escapeHtml(instance[key] || '—')}</span>`;
                         } else if (key === 'ip') {
-                            cell.innerHTML = `<span style="font-family: monospace; font-weight: 600; color: #6366f1;">${instance[key] ?? '—'}</span>`;
+                            cell.innerHTML = `<span class="font-mono" style="font-weight: 700; color: #6366f1;">${escapeHtml(instance[key] || '—')}</span>`;
                         } else {
-                            cell.textContent = String(instance[key] ?? '—');
+                            cell.innerHTML = `<span class="text-muted" style="font-size: 0.8125rem;">${escapeHtml(String(instance[key] || '—'))}</span>`;
                         }
                     });
+
                     const reputationCell = row.insertCell();
                     const scoreCell = row.insertCell();
                     if (instance.ip && instance.ip.includes('.')) {
                         [reputationCell, scoreCell].forEach((cell) => {
-                            const spinner = document.createElement('span');
-                            spinner.className = 'spinner-border spinner-border-sm';
-                            spinner.setAttribute('role', 'status');
-                            spinner.setAttribute('aria-label', 'Checking IP reputation');
-                            cell.append(spinner);
+                            cell.innerHTML = `<span class="spinner-border spinner-border-sm text-purple" role="status" aria-label="Auditing IP telemetry"></span>`;
                         });
                     } else {
-                        reputationCell.textContent = 'NA';
-                        scoreCell.textContent = 'NA';
+                        reputationCell.innerHTML = `<span class="badge-command-pill" style="opacity: 0.6;">NA</span>`;
+                        scoreCell.innerHTML = `<span class="badge-command-pill" style="opacity: 0.6;">NA</span>`;
                     }
+
                     const createdCell = row.insertCell();
-                    createdCell.innerHTML = `<span style="font-size: 0.8125rem; color: var(--command-os-text-muted, #64748b);">${instance.created_at ?? '—'}</span>`;
+                    createdCell.innerHTML = `<span style="font-size: 0.8125rem; color: var(--command-os-text-muted, #64748b); white-space: nowrap;">${escapeHtml(instance.created_at || '—')}</span>`;
+
                     @if ($canSetRdns)
                         const actionsCell = row.insertCell();
+                        actionsCell.style.textAlign = 'right';
                         if (instance.ip) {
                             const rdnsButton = document.createElement('button');
                             rdnsButton.type = 'button';
                             rdnsButton.className = 'btn-command-action';
-                            rdnsButton.style.padding = '2px 8px';
+                            rdnsButton.style.padding = '4px 10px';
                             rdnsButton.style.fontSize = '0.75rem';
-                            rdnsButton.textContent = 'RDNS';
-                            rdnsButton.title = 'Set rDNS';
-                            rdnsButton.addEventListener('click', () => openRdnsDialog(instance, rdnsButton));
+                            rdnsButton.innerHTML = '<i class="fas fa-network-wired mr-1"></i> RDNS';
+                            rdnsButton.title = 'Set Reverse DNS PTR';
+                            rdnsButton.addEventListener('click', (e) => {
+                                e.stopPropagation();
+                                openRdnsDialog(instance, rdnsButton);
+                            });
                             actionsCell.append(rdnsButton);
                         } else {
                             actionsCell.textContent = '—';
@@ -427,6 +506,18 @@
                 });
                 updateSelectionButtons();
             }
+
+            rows.addEventListener('click', (e) => {
+                if (e.target.closest('button, a, input, label')) return;
+                const row = e.target.closest('tr');
+                if (!row) return;
+                const cb = row.querySelector('.cloud-instance-checkbox');
+                if (cb) {
+                    cb.checked = !cb.checked;
+                    row.classList.toggle('selected', cb.checked);
+                    updateSelectionButtons();
+                }
+            });
 
             async function loadInstances() {
                 if (!account.value) { setStatus('Select a cloud account first.', 'warning'); return; }
@@ -465,6 +556,12 @@
                 const selected = selectedInstances();
                 deleteButton.disabled = selected.length === 0;
                 addButton.disabled = selected.length === 0 || selected.some((item) => !item.ip);
+                const allCheckboxes = [...document.querySelectorAll('.cloud-instance-checkbox')];
+                const headerCb = document.querySelector('#cloud-header-select-all');
+                if (headerCb && allCheckboxes.length > 0) {
+                    headerCb.checked = allCheckboxes.every((cb) => cb.checked);
+                    headerCb.indeterminate = !headerCb.checked && allCheckboxes.some((cb) => cb.checked);
+                }
             }
 
             function showConfirm(message, actionLabel, action) {
@@ -535,18 +632,24 @@
                     if (!reputationCell.isConnected || !scoreCell.isConnected) { return; }
                     reputationCell.replaceChildren();
                     for (const [name, key] of [['SPAMCOP', 'spamcop'], ['SPAMHAUS', 'spamhaus'], ['BARRACUDA', 'barracuda']]) {
-                        const mark = document.createElement('span');
-                        mark.className = result[key] ? 'text-danger' : 'text-success';
-                        mark.textContent = '●';
-                        mark.title = `${name}: ${result[key] ? 'listed' : 'clear'}`;
-                        mark.setAttribute('aria-label', mark.title);
-                        reputationCell.append(mark, document.createTextNode(' '));
+                        const badge = document.createElement('span');
+                        const isListed = Boolean(result[key]);
+                        badge.className = `badge badge-pill mr-1 ${isListed ? 'badge-danger' : 'badge-success'}`;
+                        badge.style.fontSize = '9px';
+                        badge.style.fontWeight = '700';
+                        badge.style.letterSpacing = '0.04em';
+                        badge.style.padding = '3px 6px';
+                        badge.textContent = name;
+                        badge.title = `${name}: ${isListed ? 'LISTED' : 'CLEAN'}`;
+                        reputationCell.append(badge);
                     }
-                    scoreCell.innerHTML = result.score ? `<span class="badge-command-pill" style="font-weight: 700; color: #10b981;">${result.score}</span>` : 'NA';
+                    scoreCell.innerHTML = result.score
+                        ? `<span class="badge-command-pill font-mono" style="font-weight: 800; color: #10b981; border-color: rgba(16, 185, 129, 0.4);"><i class="fas fa-check-circle mr-1"></i>${result.score}/100</span>`
+                        : '<span class="badge-command-pill" style="opacity: 0.6;">NA</span>';
                 } catch (error) {
                     if (!reputationCell.isConnected || !scoreCell.isConnected) { return; }
-                    reputationCell.textContent = 'FAILED';
-                    scoreCell.textContent = 'FAILED';
+                    reputationCell.innerHTML = '<span class="badge badge-warning" style="font-size: 10px;">FAILED</span>';
+                    scoreCell.innerHTML = '<span class="badge badge-warning" style="font-size: 10px;">FAILED</span>';
                 }
             }
 
@@ -580,12 +683,31 @@
                 });
             });
             document.querySelector('#cloud-rdns-form')?.addEventListener('submit', updateRdns);
+
+            const headerSelectAll = document.querySelector('#cloud-header-select-all');
+            headerSelectAll?.addEventListener('change', () => {
+                const checked = headerSelectAll.checked;
+                document.querySelectorAll('.cloud-instance-checkbox').forEach((input) => {
+                    input.checked = checked;
+                    input.closest('tr')?.classList.toggle('selected', checked);
+                });
+                updateSelectionButtons();
+            });
+
             selectNoneButton.addEventListener('click', () => {
-                document.querySelectorAll('.cloud-instance-checkbox').forEach((input) => { input.checked = false; });
+                document.querySelectorAll('.cloud-instance-checkbox').forEach((input) => {
+                    input.checked = false;
+                    input.closest('tr')?.classList.remove('selected');
+                });
+                if (headerSelectAll) { headerSelectAll.checked = false; headerSelectAll.indeterminate = false; }
                 updateSelectionButtons();
             });
             selectAllButton.addEventListener('click', () => {
-                document.querySelectorAll('.cloud-instance-checkbox').forEach((input) => { input.checked = true; });
+                document.querySelectorAll('.cloud-instance-checkbox').forEach((input) => {
+                    input.checked = true;
+                    input.closest('tr')?.classList.add('selected');
+                });
+                if (headerSelectAll) { headerSelectAll.checked = true; headerSelectAll.indeterminate = false; }
                 updateSelectionButtons();
             });
             deleteButton.addEventListener('click', () => performSelectedAction('delete'));

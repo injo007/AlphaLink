@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Campaign extends Model
@@ -12,6 +13,7 @@ class Campaign extends Model
 
     protected $fillable = [
         'workspace_id', 'created_by', 'name', 'kind', 'status', 'is_active', 'idempotency_key', 'send_progress',
+        'is_restricted',
         'snapshot_build_stage', 'snapshot_build_percent', 'snapshot_build_processed', 'snapshot_build_total',
         'snapshot_build_error', 'snapshot_build_updated_at',
     ];
@@ -20,6 +22,7 @@ class Campaign extends Model
     {
         return [
             'is_active' => 'boolean',
+            'is_restricted' => 'boolean',
             'send_progress' => 'integer',
             'snapshot_build_percent' => 'integer',
             'snapshot_build_processed' => 'integer',
@@ -31,6 +34,11 @@ class Campaign extends Model
     public function workspace()
     {
         return $this->belongsTo(Workspace::class);
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function revisions()

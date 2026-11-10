@@ -203,7 +203,7 @@
                 { text: '<i class="fas fa-search mr-1"></i> IDS', className: 'btn-command-action', titleAttr: 'SEARCH BY IDS', action: async (event, table) => { const text = await promptForLines('Search IDs'); table.columns().search(''); if (text) table.column(1).search([...new Set(text.split(/\r?\n/).map((value) => value.trim()).filter(Boolean))].join('|'), true, false); table.draw(); } },
                 { text: '<i class="fas fa-search mr-1"></i> USR', className: 'btn-command-action', titleAttr: 'SEARCH BY USERNAMES', action: async (event, table) => { const text = await promptForLines('Search usernames'); table.columns().search(''); if (text) table.column(4).search([...new Set(text.split(/\r?\n/).map((value) => value.trim()).filter(Boolean))].join('|'), true, false); table.draw(); } },
             ],
-            order: [[1, 'desc']], pageLength: 50, select: { style: 'os', selector: 'td:first-child' },
+            order: [[1, 'desc']], pageLength: 50, select: { style: 'multi+shift', selector: 'td:first-child' },
             rowCallback: (row, data) => { if (!data.is_active) window.jQuery(row).find('td').addClass('table-danger'); },
             columns: [
                 { data: null, defaultContent: '', orderable: false, searchable: false, className: 'select-checkbox' },

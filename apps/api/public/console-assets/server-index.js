@@ -55,7 +55,7 @@ window.jQuery(function () {
         displayLength: 50,
         autoWidth: false,
         order: [[6, 'asc'], [1, 'desc']],
-        select: { style: 'os', selector: 'td:first-child' },
+        select: { style: 'multi+shift', selector: 'td:first-child' },
         buttons: [
             { extend: 'pageLength', className: 'btn-command-action' },
             {

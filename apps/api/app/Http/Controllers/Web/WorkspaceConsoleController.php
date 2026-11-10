@@ -246,6 +246,7 @@ class WorkspaceConsoleController extends Controller
             $campaign->setAttribute('send_run', $sendRun);
             $campaign->setAttribute('send_ready', $campaign->kind === 'marketing'
                 && $campaign->is_active
+                && ! $campaign->is_restricted
                 && $campaign->status === 'draft'
                 && $setup !== []
                 && $hasSnapshot

@@ -9,8 +9,8 @@ use App\Http\Controllers\Web\CampaignComposerToolsController;
 use App\Http\Controllers\Web\CampaignSendController;
 use App\Http\Controllers\Web\CloudProviderConsoleController;
 use App\Http\Controllers\Web\CloudWorkflowConsoleController;
-use App\Http\Controllers\Web\GlobalUserManagementController;
 use App\Http\Controllers\Web\GlobalNavigationPreferenceController;
+use App\Http\Controllers\Web\GlobalUserManagementController;
 use App\Http\Controllers\Web\InfrastructureConsoleController;
 use App\Http\Controllers\Web\MiscellaneousConsoleController;
 use App\Http\Controllers\Web\PmtaConsoleController;
@@ -18,6 +18,7 @@ use App\Http\Controllers\Web\ServerProviderConsoleController;
 use App\Http\Controllers\Web\WorkspaceAnalyticsConsoleController;
 use App\Http\Controllers\Web\WorkspaceBlacklistCheckerController;
 use App\Http\Controllers\Web\WorkspaceCampaignHeaderController;
+use App\Http\Controllers\Web\WorkspaceCampaignLogsConsoleController;
 use App\Http\Controllers\Web\WorkspaceCampaignNegativeController;
 use App\Http\Controllers\Web\WorkspaceCampaignStatisticsConsoleController;
 use App\Http\Controllers\Web\WorkspaceCampaignVisitorsConsoleController;
@@ -65,6 +66,8 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
         ->middleware('workspace.current')->name('console.workspace.dashboard.main');
     Route::get('/mailer/campaigns', [WorkspaceEntryController::class, 'campaigns'])
         ->middleware('workspace.current')->name('console.mailer.campaigns');
+    Route::get('/mailer/campaign-logs', [WorkspaceEntryController::class, 'campaignLogs'])
+        ->middleware('workspace.current')->name('console.mailer.campaign-logs');
 
     Route::get('/app/users', [GlobalUserManagementController::class, 'index'])->name('console.global-users.index');
     Route::get('/app/users/create', [GlobalUserManagementController::class, 'create'])->name('console.global-users.create');
@@ -84,6 +87,11 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::get('/app/workspaces/{workspace}/dashboard/isp', [WorkspaceAnalyticsConsoleController::class, 'ispStats'])->name('console.analytics.isp-stats');
     Route::get('/app/workspaces/{workspace}/dashboard/mailer', [WorkspaceAnalyticsConsoleController::class, 'mailerRevenue'])->name('console.analytics.mailer-revenue');
     Route::get('/app/workspaces/{workspace}/campaign-statistics', [WorkspaceCampaignStatisticsConsoleController::class, 'index'])->name('console.campaign-statistics.index');
+    Route::get('/app/workspaces/{workspace}/campaign-logs', [WorkspaceCampaignLogsConsoleController::class, 'index'])->name('console.campaign-logs.index');
+    Route::get('/app/workspaces/{workspace}/campaign-logs/{campaign}/{history}', [WorkspaceCampaignLogsConsoleController::class, 'history'])
+        ->whereUuid(['workspace', 'campaign'])->where('history', 'tests|updates|sends')->name('console.campaign-logs.history');
+    Route::patch('/app/workspaces/{workspace}/campaign-logs/{campaign}/restriction', [WorkspaceCampaignLogsConsoleController::class, 'setRestriction'])
+        ->whereUuid(['workspace', 'campaign'])->middleware('throttle:10,1')->name('console.campaign-logs.restriction');
     Route::get('/app/workspaces/{workspace}/users', [WorkspaceUserManagementController::class, 'index'])->name('console.users.index');
     Route::get('/app/workspaces/{workspace}/users/create', [WorkspaceUserManagementController::class, 'create'])->name('console.users.create');
     Route::post('/app/workspaces/{workspace}/users', [WorkspaceUserManagementController::class, 'store'])->middleware('throttle:10,1')->name('console.users.store');

@@ -37,6 +37,7 @@ class CampaignSendController extends Controller
             ->where('created_by', $request->user()->getKey())
             ->whereKey($campaign)
             ->firstOrFail();
+        abort_if($campaign->is_restricted, 409, 'This campaign is restricted. Unrestrict it in Campaign Logs before starting a send.');
         abort_unless($campaign->kind === 'marketing' && $campaign->is_active && $campaign->status === 'draft', 409, 'Only active, prepared marketing drafts can be sent.');
 
         $revision = $campaign->latestRevision;
@@ -59,7 +60,12 @@ class CampaignSendController extends Controller
         );
 
         [$run, $alreadyRunning] = DB::transaction(function () use ($campaign, $revision, $snapshot, $request, $data, $messageBuilder, $workspace, $planner): array {
-            Campaign::query()->where('workspace_id', $workspace->getKey())->whereKey($campaign->getKey())->lockForUpdate()->firstOrFail();
+            $lockedCampaign = Campaign::query()
+                ->where('workspace_id', $workspace->getKey())
+                ->whereKey($campaign->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+            abort_if($lockedCampaign->is_restricted, 409, 'This campaign is restricted. Unrestrict it in Campaign Logs before starting a send.');
             $activeRun = CampaignSendRun::query()
                 ->where('workspace_id', $workspace->getKey())
                 ->where('campaign_id', $campaign->getKey())

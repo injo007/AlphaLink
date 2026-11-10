@@ -195,7 +195,7 @@
                 rowCallback: (row, data) => {
                     if (!data.is_active) $('td', row).addClass('is-inactive-row');
                 },
-                select: { style: 'os', selector: 'td:first-child' },
+                select: { style: 'multi+shift', selector: 'td:first-child' },
                 columns: [
                     { data: null, defaultContent: '', orderable: false, searchable: false, className: 'select-checkbox', title: '' },
                     { title: '#', data: 'id', render: (val) => `<span class="font-mono text-muted">#${escapeHtml(val)}</span>` },

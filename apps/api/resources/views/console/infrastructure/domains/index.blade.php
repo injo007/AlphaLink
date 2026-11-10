@@ -143,7 +143,7 @@
                 },
                 order: [[8, 'asc']],
                 displayLength: 50,
-                select: {style: 'os', selector: 'td:first-child'},
+                select: {style: 'multi+shift', selector: 'td:first-child'},
                 dom: '<"command-table-toolbar"<"command-table-toolbar-left"lB><"command-table-toolbar-right"f>>' +
                      '<"table-responsive"t>' +
                      '<"command-table-footer"ip>',

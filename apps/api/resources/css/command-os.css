@@ -6012,27 +6012,85 @@ html[data-command-theme='light'] .command-os-table-card table tbody tr.is-inacti
     display: inline-flex !important;
     font-size: 11.5px !important;
     height: 32px !important;
-    width: 32px !important;
+    min-width: 32px !important;
+    padding: 0 8px !important;
     justify-content: center !important;
     text-decoration: none !important;
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
     box-sizing: border-box !important;
     outline: none !important;
-}
-
-.command-action-btn:hover {
-    transform: translateY(-2px) scale(1.08) !important;
-    color: #ffffff !important;
+    position: relative !important;
 }
 
 .command-action-btn i {
     font-size: 12px !important;
     line-height: 1 !important;
-    transition: color 0.15s ease !important;
+    color: inherit !important;
+    transition: color 0.15s ease, transform 0.15s ease !important;
 }
 
-.command-action-btn:hover i {
+/* Default State (Light Theme) */
+html[data-command-theme='light'] .command-action-btn,
+html:not([data-command-theme='dark']) body.command-os-shell .command-action-btn,
+.command-action-btn {
+    background: #f1f5f9 !important;
+    border: 1.5px solid #cbd5e1 !important;
+    color: #475569 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+html[data-command-theme='light'] .command-action-btn:hover,
+html:not([data-command-theme='dark']) body.command-os-shell .command-action-btn:hover {
+    background: #8b5cf6 !important;
+    border-color: #7c3aed !important;
     color: #ffffff !important;
+    transform: translateY(-2px) scale(1.06) !important;
+    box-shadow: 0 4px 14px rgba(139, 92, 246, 0.35) !important;
+}
+
+html[data-command-theme='light'] .command-action-btn:active,
+html[data-command-theme='light'] .command-action-btn.active,
+html:not([data-command-theme='dark']) body.command-os-shell .command-action-btn:active,
+html:not([data-command-theme='dark']) body.command-os-shell .command-action-btn.active {
+    background: #6d28d9 !important;
+    border-color: #5b21b6 !important;
+    color: #ffffff !important;
+    transform: translateY(0) scale(0.96) !important;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Default State (Dark Theme) */
+html[data-command-theme='dark'] .command-action-btn {
+    background: rgba(30, 41, 59, 0.8) !important;
+    border: 1.5px solid rgba(139, 92, 246, 0.35) !important;
+    color: #c084fc !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25) !important;
+}
+
+html[data-command-theme='dark'] .command-action-btn:hover {
+    background: #7c3aed !important;
+    border-color: #8b5cf6 !important;
+    color: #ffffff !important;
+    transform: translateY(-2px) scale(1.06) !important;
+    box-shadow: 0 0 16px rgba(139, 92, 246, 0.55) !important;
+}
+
+html[data-command-theme='dark'] .command-action-btn:active,
+html[data-command-theme='dark'] .command-action-btn.active {
+    background: #5b21b6 !important;
+    border-color: #7c3aed !important;
+    color: #ffffff !important;
+    transform: translateY(0) scale(0.96) !important;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+}
+
+.command-action-btn:disabled,
+.command-action-btn[disabled] {
+    opacity: 0.38 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+    box-shadow: none !important;
+    pointer-events: none !important;
 }
 
 /* URL / External Link */
@@ -6050,6 +6108,13 @@ html:not([data-command-theme='dark']) body.command-os-shell .command-action-btn.
     color: #ffffff !important;
     box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35) !important;
 }
+.command-action-btn.action-url:active,
+.command-action-btn.action-url.active {
+    background: #1d4ed8 !important;
+    border-color: #1e40af !important;
+    color: #ffffff !important;
+    transform: translateY(0) scale(0.96) !important;
+}
 html[data-command-theme='dark'] .command-action-btn.action-url {
     background: rgba(37, 99, 235, 0.15) !important;
     border: 1.5px solid rgba(59, 130, 246, 0.35) !important;
@@ -6061,6 +6126,13 @@ html[data-command-theme='dark'] .command-action-btn.action-url:hover {
     border-color: #3b82f6 !important;
     color: #ffffff !important;
     box-shadow: 0 0 14px rgba(59, 130, 246, 0.5) !important;
+}
+html[data-command-theme='dark'] .command-action-btn.action-url:active,
+html[data-command-theme='dark'] .command-action-btn.action-url.active {
+    background: #1d4ed8 !important;
+    border-color: #2563eb !important;
+    color: #ffffff !important;
+    transform: translateY(0) scale(0.96) !important;
 }
 
 /* Login / Session */
@@ -6078,6 +6150,13 @@ html:not([data-command-theme='dark']) body.command-os-shell .command-action-btn.
     color: #ffffff !important;
     box-shadow: 0 4px 14px rgba(124, 58, 237, 0.4) !important;
 }
+.command-action-btn.action-login:active,
+.command-action-btn.action-login.active {
+    background: #6d28d9 !important;
+    border-color: #5b21b6 !important;
+    color: #ffffff !important;
+    transform: translateY(0) scale(0.96) !important;
+}
 html[data-command-theme='dark'] .command-action-btn.action-login {
     background: rgba(139, 92, 246, 0.15) !important;
     border: 1.5px solid rgba(139, 92, 246, 0.35) !important;
@@ -6089,6 +6168,13 @@ html[data-command-theme='dark'] .command-action-btn.action-login:hover {
     border-color: #8b5cf6 !important;
     color: #ffffff !important;
     box-shadow: 0 0 16px rgba(139, 92, 246, 0.55) !important;
+}
+html[data-command-theme='dark'] .command-action-btn.action-login:active,
+html[data-command-theme='dark'] .command-action-btn.action-login.active {
+    background: #5b21b6 !important;
+    border-color: #7c3aed !important;
+    color: #ffffff !important;
+    transform: translateY(0) scale(0.96) !important;
 }
 
 /* Edit / Update */
@@ -6110,6 +6196,15 @@ html:not([data-command-theme='dark']) body.command-os-shell .command-action-btn.
     color: #ffffff !important;
     box-shadow: 0 4px 14px rgba(5, 150, 105, 0.35) !important;
 }
+.command-action-btn.action-edit:active,
+.command-action-btn.action-edit.active,
+.command-action-btn.action-update:active,
+.command-action-btn.action-update.active {
+    background: #047857 !important;
+    border-color: #065f46 !important;
+    color: #ffffff !important;
+    transform: translateY(0) scale(0.96) !important;
+}
 html[data-command-theme='dark'] .command-action-btn.action-edit,
 html[data-command-theme='dark'] .command-action-btn.action-update {
     background: rgba(16, 185, 129, 0.15) !important;
@@ -6123,6 +6218,15 @@ html[data-command-theme='dark'] .command-action-btn.action-update:hover {
     border-color: #34d399 !important;
     color: #ffffff !important;
     box-shadow: 0 0 14px rgba(16, 185, 129, 0.5) !important;
+}
+html[data-command-theme='dark'] .command-action-btn.action-edit:active,
+html[data-command-theme='dark'] .command-action-btn.action-edit.active,
+html[data-command-theme='dark'] .command-action-btn.action-update:active,
+html[data-command-theme='dark'] .command-action-btn.action-update.active {
+    background: #047857 !important;
+    border-color: #10b981 !important;
+    color: #ffffff !important;
+    transform: translateY(0) scale(0.96) !important;
 }
 
 /* Status Active / Inactive Toggle */
@@ -6144,7 +6248,13 @@ html:not([data-command-theme='dark']) body.command-os-shell .command-action-btn.
     color: #ffffff !important;
     box-shadow: 0 4px 14px rgba(5, 150, 105, 0.4) !important;
 }
-
+.command-action-btn.action-status:active,
+.command-action-btn.action-status.active {
+    background: #047857 !important;
+    border-color: #065f46 !important;
+    color: #ffffff !important;
+    transform: translateY(0) scale(0.96) !important;
+}
 html[data-command-theme='light'] .command-action-btn.action-enable,
 html[data-command-theme='light'] .command-action-btn.action-disable,
 html:not([data-command-theme='dark']) body.command-os-shell .command-action-btn.action-enable,
@@ -6163,18 +6273,50 @@ html:not([data-command-theme='dark']) body.command-os-shell .command-action-btn.
     color: #ffffff !important;
     box-shadow: 0 4px 14px rgba(225, 29, 72, 0.4) !important;
 }
-
+.command-action-btn.action-enable:active,
+.command-action-btn.action-disable:active {
+    background: #be123c !important;
+    border-color: #9f1239 !important;
+    color: #ffffff !important;
+    transform: translateY(0) scale(0.96) !important;
+}
 html[data-command-theme='dark'] .command-action-btn.action-status.is-active,
 html[data-command-theme='dark'] .command-action-btn.action-status {
     background: rgba(16, 185, 129, 0.15) !important;
     border: 1.5px solid rgba(16, 185, 129, 0.35) !important;
     color: #34d399 !important;
 }
+html[data-command-theme='dark'] .command-action-btn.action-status:hover {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    border-color: #34d399 !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 14px rgba(16, 185, 129, 0.5) !important;
+}
+html[data-command-theme='dark'] .command-action-btn.action-status:active {
+    background: #047857 !important;
+    border-color: #10b981 !important;
+    color: #ffffff !important;
+    transform: translateY(0) scale(0.96) !important;
+}
 html[data-command-theme='dark'] .command-action-btn.action-enable,
 html[data-command-theme='dark'] .command-action-btn.action-disable {
     background: rgba(239, 68, 68, 0.15) !important;
     border: 1.5px solid rgba(239, 68, 68, 0.35) !important;
     color: #f87171 !important;
+}
+html[data-command-theme='dark'] .command-action-btn.action-enable:hover,
+html[data-command-theme='dark'] .command-action-btn.action-disable:hover {
+    background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%) !important;
+    border-color: #f87171 !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 14px rgba(244, 63, 94, 0.5) !important;
+}
+html[data-command-theme='dark'] .command-action-btn.action-enable:active,
+html[data-command-theme='dark'] .command-action-btn.action-disable:active {
+    background: #be123c !important;
+    border-color: #f87171 !important;
+    color: #ffffff !important;
+    transform: translateY(0) scale(0.96) !important;
 }
 
 /* Assets */
@@ -6194,6 +6336,13 @@ html:not([data-command-theme='dark']) body.command-os-shell .command-action-btn.
     color: #ffffff !important;
     box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4) !important;
 }
+.command-action-btn.action-assets:active,
+.command-action-btn.action-primary:active {
+    background: #1e40af !important;
+    border-color: #1e3a8a !important;
+    color: #ffffff !important;
+    transform: translateY(0) scale(0.96) !important;
+}
 html[data-command-theme='dark'] .command-action-btn.action-assets,
 html[data-command-theme='dark'] .command-action-btn.action-primary {
     background: rgba(59, 130, 246, 0.15) !important;
@@ -6206,6 +6355,13 @@ html[data-command-theme='dark'] .command-action-btn.action-primary:hover {
     border-color: #3b82f6 !important;
     color: #ffffff !important;
     box-shadow: 0 0 14px rgba(59, 130, 246, 0.55) !important;
+}
+html[data-command-theme='dark'] .command-action-btn.action-assets:active,
+html[data-command-theme='dark'] .command-action-btn.action-primary:active {
+    background: #1e40af !important;
+    border-color: #3b82f6 !important;
+    color: #ffffff !important;
+    transform: translateY(0) scale(0.96) !important;
 }
 
 /* Suppression */
@@ -6227,11 +6383,32 @@ html:not([data-command-theme='dark']) body.command-os-shell .command-action-btn.
     color: #ffffff !important;
     box-shadow: 0 4px 14px rgba(217, 119, 6, 0.4) !important;
 }
+.command-action-btn.action-suppression:active,
+.command-action-btn.action-warning:active {
+    background: #b45309 !important;
+    border-color: #92400e !important;
+    color: #ffffff !important;
+    transform: translateY(0) scale(0.96) !important;
+}
 html[data-command-theme='dark'] .command-action-btn.action-suppression,
 html[data-command-theme='dark'] .command-action-btn.action-warning {
     background: rgba(245, 158, 11, 0.15) !important;
     border: 1.5px solid rgba(245, 158, 11, 0.35) !important;
     color: #fbbf24 !important;
+}
+html[data-command-theme='dark'] .command-action-btn.action-suppression:hover,
+html[data-command-theme='dark'] .command-action-btn.action-warning:hover {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+    border-color: #fbbf24 !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 14px rgba(245, 158, 11, 0.5) !important;
+}
+html[data-command-theme='dark'] .command-action-btn.action-suppression:active,
+html[data-command-theme='dark'] .command-action-btn.action-warning:active {
+    background: #b45309 !important;
+    border-color: #fbbf24 !important;
+    color: #ffffff !important;
+    transform: translateY(0) scale(0.96) !important;
 }
 
 /* Delete */
@@ -6253,11 +6430,32 @@ html:not([data-command-theme='dark']) body.command-os-shell .command-action-btn.
     color: #ffffff !important;
     box-shadow: 0 4px 14px rgba(225, 29, 72, 0.4) !important;
 }
+.command-action-btn.action-delete:active,
+.command-action-btn.action-danger:active {
+    background: #be123c !important;
+    border-color: #9f1239 !important;
+    color: #ffffff !important;
+    transform: translateY(0) scale(0.96) !important;
+}
 html[data-command-theme='dark'] .command-action-btn.action-delete,
 html[data-command-theme='dark'] .command-action-btn.action-danger {
     background: rgba(244, 63, 94, 0.15) !important;
     border: 1.5px solid rgba(244, 63, 94, 0.35) !important;
     color: #fb7185 !important;
+}
+html[data-command-theme='dark'] .command-action-btn.action-delete:hover,
+html[data-command-theme='dark'] .command-action-btn.action-danger:hover {
+    background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%) !important;
+    border-color: #fb7185 !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 14px rgba(244, 63, 94, 0.5) !important;
+}
+html[data-command-theme='dark'] .command-action-btn.action-delete:active,
+html[data-command-theme='dark'] .command-action-btn.action-danger:active {
+    background: #be123c !important;
+    border-color: #fb7185 !important;
+    color: #ffffff !important;
+    transform: translateY(0) scale(0.96) !important;
 }
 
 /* Restore */
@@ -6272,6 +6470,29 @@ html[data-command-theme='dark'] .command-action-btn.action-danger {
     border-color: #0d9488 !important;
     color: #ffffff !important;
     box-shadow: 0 4px 14px rgba(13, 148, 136, 0.4) !important;
+}
+.command-action-btn.action-restore:active {
+    background: #0f766e !important;
+    border-color: #115e59 !important;
+    color: #ffffff !important;
+    transform: translateY(0) scale(0.96) !important;
+}
+html[data-command-theme='dark'] .command-action-btn.action-restore {
+    background: rgba(13, 148, 136, 0.15) !important;
+    border: 1.5px solid rgba(20, 184, 166, 0.35) !important;
+    color: #2dd4bf !important;
+}
+html[data-command-theme='dark'] .command-action-btn.action-restore:hover {
+    background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%) !important;
+    border-color: #2dd4bf !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 14px rgba(20, 184, 166, 0.5) !important;
+}
+html[data-command-theme='dark'] .command-action-btn.action-restore:active {
+    background: #0f766e !important;
+    border-color: #2dd4bf !important;
+    color: #ffffff !important;
+    transform: translateY(0) scale(0.96) !important;
 }
 
 /* Row Users Link Button */
@@ -9766,6 +9987,123 @@ html[data-command-theme='dark'] .custom-control.custom-checkbox .custom-control-
     transform: translateY(-60%) rotate(45deg) scale(1) !important;
 }
 
+/* Empty label centered checkbox support */
+.custom-control.custom-checkbox .custom-control-label:empty {
+    padding-left: 20px !important;
+    width: 20px !important;
+    min-height: 20px !important;
+    display: inline-block !important;
+}
+
+/* Fallback for bare checkboxes in tables and standalone controls */
+.command-table-checkbox-label {
+    position: relative !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    margin: 0 !important;
+    user-select: none !important;
+    vertical-align: middle !important;
+}
+
+.command-table-checkbox-label input[type="checkbox"],
+.cloud-instance-checkbox {
+    position: absolute !important;
+    opacity: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+    pointer-events: none !important;
+}
+
+.command-checkbox-custom-box {
+    display: inline-block !important;
+    width: 18px !important;
+    height: 18px !important;
+    border-radius: 6px !important;
+    box-sizing: border-box !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    position: relative !important;
+    cursor: pointer !important;
+    flex-shrink: 0 !important;
+}
+
+html[data-command-theme='light'] .command-checkbox-custom-box,
+html:not([data-command-theme='dark']) .command-checkbox-custom-box {
+    background: #ffffff !important;
+    border: 1.5px solid #cbd5e1 !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+
+html[data-command-theme='dark'] .command-checkbox-custom-box {
+    background: #0d1226 !important;
+    border: 1.5px solid rgba(139, 92, 246, 0.4) !important;
+}
+
+.command-table-checkbox-label:hover .command-checkbox-custom-box {
+    border-color: #8b5cf6 !important;
+    box-shadow: 0 0 8px rgba(139, 92, 246, 0.35) !important;
+}
+
+.command-table-checkbox-label input[type="checkbox"]:checked ~ .command-checkbox-custom-box {
+    background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%) !important;
+    border-color: #7c3aed !important;
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.45) !important;
+}
+
+.command-table-checkbox-label input[type="checkbox"]:checked ~ .command-checkbox-custom-box::after {
+    content: "" !important;
+    position: absolute !important;
+    left: 5px !important;
+    top: 2px !important;
+    width: 5px !important;
+    height: 9px !important;
+    border: solid #ffffff !important;
+    border-width: 0 2px 2px 0 !important;
+    transform: rotate(45deg) !important;
+}
+
+.command-table-checkbox-label input[type="checkbox"]:indeterminate ~ .command-checkbox-custom-box {
+    background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%) !important;
+    border-color: #7c3aed !important;
+}
+
+.command-table-checkbox-label input[type="checkbox"]:indeterminate ~ .command-checkbox-custom-box::after {
+    content: "" !important;
+    position: absolute !important;
+    left: 4px !important;
+    top: 7px !important;
+    width: 8px !important;
+    height: 2px !important;
+    background: #ffffff !important;
+    border-radius: 1px !important;
+}
+
+/* Fallback for standard checkboxes */
+table.dataTable tbody td.select-checkbox,
+table.command-os-table tbody td.select-checkbox {
+    cursor: pointer !important;
+    pointer-events: auto !important;
+}
+
+table input[type="checkbox"]:not(.cloud-instance-checkbox):not(.custom-control-input) {
+    accent-color: #8b5cf6 !important;
+    cursor: pointer !important;
+    width: 17px !important;
+    height: 17px !important;
+    vertical-align: middle !important;
+}
+
+.command-os-table-card table.dataTable tbody tr.selected,
+table.command-os-table tbody tr.selected {
+    background: rgba(139, 92, 246, 0.08) !important;
+}
+
+html[data-command-theme='dark'] .command-os-table-card table.dataTable tbody tr.selected,
+html[data-command-theme='dark'] table.command-os-table tbody tr.selected {
+    background: rgba(139, 92, 246, 0.18) !important;
+}
+
 /* 8. DATATABLES SEARCH BOX TEXT RESET (NO TEXT OVERLAP) */
 .command-os-table-card .dataTables_filter label,
 body.command-os-shell #main_content .dataTables_wrapper .dataTables_filter label {
@@ -10189,8 +10527,21 @@ a.btn-command-primary:hover {
 .btn-command-primary:active,
 button.btn-command-primary:active,
 a.btn-command-primary:active {
-    transform: translateY(0) !important;
+    transform: translateY(0) scale(0.98) !important;
     box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4) !important;
+}
+
+.btn-command-primary:disabled,
+button.btn-command-primary:disabled,
+a.btn-command-primary:disabled,
+.btn-command-primary[disabled],
+button.btn-command-primary[disabled],
+a.btn-command-primary[disabled] {
+    opacity: 0.45 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+    box-shadow: none !important;
+    pointer-events: none !important;
 }
 
 /* Universal Command OS Danger Button */
@@ -10363,6 +10714,32 @@ html:not([data-command-theme='dark']) .btn-command-action:hover {
     box-shadow: 0 4px 14px rgba(139, 92, 246, 0.2) !important;
 }
 
+html[data-command-theme='light'] .btn-command-action:active,
+html[data-command-theme='light'] .btn-command-action.active,
+html[data-command-theme='light'] button.btn-command-action:active,
+html[data-command-theme='light'] button.btn-command-action.active,
+html:not([data-command-theme='dark']) .btn-command-action:active,
+html:not([data-command-theme='dark']) .btn-command-action.active,
+html:not([data-command-theme='dark']) button.btn-command-action:active,
+html:not([data-command-theme='dark']) button.btn-command-action.active {
+    background: #7c3aed !important;
+    border-color: #6d28d9 !important;
+    color: #ffffff !important;
+    transform: translateY(0) scale(0.98) !important;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15) !important;
+}
+
+html[data-command-theme='light'] .btn-command-action:active i,
+html[data-command-theme='light'] .btn-command-action.active i,
+html[data-command-theme='light'] button.btn-command-action:active i,
+html[data-command-theme='light'] button.btn-command-action.active i,
+html:not([data-command-theme='dark']) .btn-command-action:active i,
+html:not([data-command-theme='dark']) .btn-command-action.active i,
+html:not([data-command-theme='dark']) button.btn-command-action:active i,
+html:not([data-command-theme='dark']) button.btn-command-action.active i {
+    color: #ffffff !important;
+}
+
 html[data-command-theme='dark'] .btn-command-action,
 html[data-command-theme='dark'] button.btn-command-action,
 html[data-command-theme='dark'] a.btn-command-action {
@@ -10384,6 +10761,37 @@ html[data-command-theme='dark'] .btn-command-action:hover {
     box-shadow: 0 4px 16px rgba(139, 92, 246, 0.35) !important;
 }
 
+html[data-command-theme='dark'] .btn-command-action:active,
+html[data-command-theme='dark'] .btn-command-action.active,
+html[data-command-theme='dark'] button.btn-command-action:active,
+html[data-command-theme='dark'] button.btn-command-action.active {
+    background: #6d28d9 !important;
+    border-color: #8b5cf6 !important;
+    color: #ffffff !important;
+    transform: translateY(0) scale(0.98) !important;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+}
+
+html[data-command-theme='dark'] .btn-command-action:active i,
+html[data-command-theme='dark'] .btn-command-action.active i,
+html[data-command-theme='dark'] button.btn-command-action:active i,
+html[data-command-theme='dark'] button.btn-command-action.active i {
+    color: #ffffff !important;
+}
+
+.btn-command-action:disabled,
+button.btn-command-action:disabled,
+a.btn-command-action:disabled,
+.btn-command-action[disabled],
+button.btn-command-action[disabled],
+a.btn-command-action[disabled] {
+    opacity: 0.45 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+    box-shadow: none !important;
+    pointer-events: none !important;
+}
+
 .btn-command-action.text-danger,
 button.btn-command-action.text-danger {
     color: #ef4444 !important;
@@ -10402,6 +10810,42 @@ button.btn-command-action.text-danger {
 /* ==========================================================================
    BUTTON SPACING & RESPONSIVENESS (NO STICKING BUTTONS)
    ========================================================================== */
+.command-cloud-toolbar {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 12px 16px !important;
+    padding: 1rem 1.25rem !important;
+    border-bottom: 1px solid var(--command-os-border, rgba(139, 92, 246, 0.15)) !important;
+    background: var(--command-os-surface, #ffffff) !important;
+}
+
+html[data-command-theme='dark'] .command-cloud-toolbar {
+    background: rgba(13, 18, 56, 0.7) !important;
+    border-bottom-color: rgba(139, 92, 246, 0.25) !important;
+}
+
+.command-cloud-toolbar-left {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 10px 14px !important;
+}
+
+.command-cloud-toolbar-right {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    margin-left: auto !important;
+}
+
+.command-btn-group {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+}
+
 .command-modal-actions,
 .modal-footer,
 .bootbox .modal-footer,
@@ -10632,6 +11076,135 @@ html:not([data-command-theme='dark']) select option {
     background-color: #ffffff !important;
     color: #1e293b !important;
     padding: 8px !important;
+}
+
+/* Select2 Single Select Modernization */
+.select2-container--default .select2-selection--single {
+    height: 38px !important;
+    border-radius: 10px !important;
+    padding: 6px 14px !important;
+    display: flex !important;
+    align-items: center !important;
+    position: relative !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    outline: none !important;
+}
+
+html[data-command-theme='light'] .select2-container--default .select2-selection--single,
+html:not([data-command-theme='dark']) body.command-os-shell .select2-container--default .select2-selection--single {
+    background: #ffffff !important;
+    border: 1px solid rgba(139, 92, 246, 0.25) !important;
+    color: #1e293b !important;
+}
+
+html[data-command-theme='dark'] .select2-container--default .select2-selection--single {
+    background: rgba(13, 18, 56, 0.8) !important;
+    border: 1px solid rgba(139, 92, 246, 0.35) !important;
+    color: #e2e8f0 !important;
+}
+
+.select2-container--default.select2-container--open .select2-selection--single,
+.select2-container--default.select2-container--focus .select2-selection--single {
+    border-color: #8b5cf6 !important;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.25) !important;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    color: inherit !important;
+    font-size: 0.8125rem !important;
+    font-weight: 600 !important;
+    padding-left: 0 !important;
+    padding-right: 20px !important;
+    line-height: 24px !important;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 36px !important;
+    right: 8px !important;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow b {
+    border-color: #8b5cf6 transparent transparent transparent !important;
+    border-width: 5px 4px 0 4px !important;
+}
+
+.select2-container--default.select2-container--open .select2-selection--single .select2-selection__arrow b {
+    border-color: transparent transparent #8b5cf6 transparent !important;
+    border-width: 0 4px 5px 4px !important;
+}
+
+/* Universal Select styling across the application */
+select.form-control:not(.bootstrap-select),
+select.command-form-control,
+select.command-select {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b5cf6' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 12px center !important;
+    background-size: 15px !important;
+    padding-right: 36px !important;
+    cursor: pointer !important;
+    border-radius: 10px !important;
+    height: 38px !important;
+    font-size: 0.8125rem !important;
+    font-weight: 600 !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+html[data-command-theme='light'] select.form-control:not(.bootstrap-select),
+html[data-command-theme='light'] select.command-form-control,
+html[data-command-theme='light'] select.command-select,
+html:not([data-command-theme='dark']) body.command-os-shell select.form-control:not(.bootstrap-select),
+html:not([data-command-theme='dark']) body.command-os-shell select.command-form-control,
+html:not([data-command-theme='dark']) body.command-os-shell select.command-select {
+    background-color: #ffffff !important;
+    border: 1px solid rgba(139, 92, 246, 0.25) !important;
+    color: #1e293b !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+}
+
+html[data-command-theme='dark'] select.form-control:not(.bootstrap-select),
+html[data-command-theme='dark'] select.command-form-control,
+html[data-command-theme='dark'] select.command-select {
+    background-color: rgba(13, 18, 56, 0.85) !important;
+    border: 1px solid rgba(139, 92, 246, 0.35) !important;
+    color: #e2e8f0 !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25) !important;
+}
+
+select.form-control:not(.bootstrap-select):focus,
+select.command-form-control:focus,
+select.command-select:focus {
+    border-color: #8b5cf6 !important;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.25) !important;
+    outline: none !important;
+}
+
+select.form-control:not(.bootstrap-select) option,
+select.command-form-control option,
+select.command-select option {
+    font-size: 0.8125rem !important;
+    font-weight: 500 !important;
+    padding: 8px 12px !important;
+}
+
+html[data-command-theme='dark'] select.form-control:not(.bootstrap-select) option,
+html[data-command-theme='dark'] select.command-form-control option,
+html[data-command-theme='dark'] select.command-select option {
+    background-color: #0d1238 !important;
+    color: #f8fafc !important;
+}
+
+html[data-command-theme='light'] select.form-control:not(.bootstrap-select) option,
+html[data-command-theme='light'] select.command-form-control option,
+html[data-command-theme='light'] select.command-select option,
+html:not([data-command-theme='dark']) select.form-control:not(.bootstrap-select) option,
+html:not([data-command-theme='dark']) select.command-form-control option,
+html:not([data-command-theme='dark']) select.command-select option {
+    background-color: #ffffff !important;
+    color: #1e293b !important;
 }
 
 /* ==========================================================================

@@ -113,14 +113,57 @@ class GlobalNavigationOrder
         }
         unset($item);
 
+        $defaultItems = array_values($items);
         usort($items, static fn (array $left, array $right): int => ($left['_navigation_saved_rank'] <=> $right['_navigation_saved_rank'])
             ?: ($left['_navigation_default_index'] <=> $right['_navigation_default_index']));
 
-        foreach ($items as &$item) {
+        $orderedItems = array_values(array_filter($items, static fn (array $item): bool => $item['_navigation_saved_rank'] !== PHP_INT_MAX));
+        foreach ($defaultItems as $defaultIndex => $item) {
+            if ($item['_navigation_saved_rank'] !== PHP_INT_MAX) {
+                continue;
+            }
+
+            $orderedKeys = array_column($orderedItems, $key);
+            $nextKey = null;
+            for ($index = $defaultIndex + 1, $count = count($defaultItems); $index < $count; $index++) {
+                $candidateKey = $defaultItems[$index][$key] ?? null;
+                if (in_array($candidateKey, $orderedKeys, true)) {
+                    $nextKey = $candidateKey;
+                    break;
+                }
+            }
+
+            if ($nextKey !== null) {
+                $nextPosition = array_search($nextKey, $orderedKeys, true);
+                array_splice($orderedItems, (int) $nextPosition, 0, [$item]);
+
+                continue;
+            }
+
+            $previousKey = null;
+            for ($index = $defaultIndex - 1; $index >= 0; $index--) {
+                $candidateKey = $defaultItems[$index][$key] ?? null;
+                if (in_array($candidateKey, $orderedKeys, true)) {
+                    $previousKey = $candidateKey;
+                    break;
+                }
+            }
+
+            if ($previousKey === null) {
+                $orderedItems[] = $item;
+
+                continue;
+            }
+
+            $previousPosition = array_search($previousKey, array_column($orderedItems, $key), true);
+            array_splice($orderedItems, (int) $previousPosition + 1, 0, [$item]);
+        }
+
+        foreach ($orderedItems as &$item) {
             unset($item['_navigation_default_index'], $item['_navigation_saved_rank']);
         }
         unset($item);
 
-        return array_values($items);
+        return $orderedItems;
     }
 }

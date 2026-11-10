@@ -268,7 +268,7 @@
             ],
             order: [[1, 'desc']],
             pageLength: 50,
-            select: { style: 'os', selector: 'td:first-child' },
+            select: { style: 'multi+shift', selector: 'td:first-child' },
             rowCallback: (row, data) => { if (!data.is_active) $(row).find('td').addClass('table-danger'); },
             columns: [
                 { data: null, defaultContent: '', orderable: false, searchable: false, className: 'select-checkbox' },

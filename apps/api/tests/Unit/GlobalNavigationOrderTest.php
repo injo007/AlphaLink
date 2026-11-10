@@ -64,6 +64,27 @@ class GlobalNavigationOrderTest extends TestCase
         self::assertSame([$stableKey, $destinationDefaultKey], array_column($arranged[1]['items'], 'navigation_item_key'));
     }
 
+    public function test_new_default_group_is_inserted_near_its_default_neighbors_in_saved_order(): void
+    {
+        $order = new GlobalNavigationOrder;
+        $groups = [
+            ['id' => 'nav-operations', 'label' => 'Operations', 'items' => []],
+            ['id' => 'nav-mail', 'label' => 'Mail Infrastructure', 'items' => []],
+            ['id' => 'nav-provider-network', 'label' => 'Provider Network', 'items' => []],
+            ['id' => 'nav-domains', 'label' => 'Domain Management', 'items' => []],
+            ['id' => 'nav-settings', 'label' => 'Settings', 'items' => []],
+        ];
+
+        $arranged = $order->apply($groups, [
+            'groups' => ['nav-operations', 'nav-mail', 'nav-domains', 'nav-settings'],
+        ]);
+
+        self::assertSame(
+            ['nav-operations', 'nav-mail', 'nav-provider-network', 'nav-domains', 'nav-settings'],
+            array_column($arranged, 'navigation_group_key'),
+        );
+    }
+
     private function navigationGroups(): array
     {
         return [

@@ -258,7 +258,10 @@
                                     @foreach (($register['pmta_panels'] ?? []) as $panel)
                                         <a class="btn btn-link btn-sm campaign-send-icon-action" href="{{ $panel['url'] }}" target="_blank" rel="noopener noreferrer" title="Open PMTA Web Monitor on {{ $panel['name'] }}" aria-label="Open PMTA Web Monitor on {{ $panel['name'] }}"><i class="fas fa-server" aria-hidden="true"></i></a>
                                     @endforeach
-                                    @if ($campaign->send_ready)
+                                    @if ($campaign->is_restricted)
+                                        <button type="button" class="btn btn-link btn-sm campaign-send-icon-action" disabled title="This campaign is restricted. Unrestrict it from Campaign Logs before starting a new send." aria-label="Campaign restricted; new sends are blocked"><i class="fas fa-ban text-warning" aria-hidden="true"></i></button>
+                                        <div><span class="badge badge-warning">RESTRICTED</span></div>
+                                    @elseif ($campaign->send_ready)
                                         <form method="POST" action="{{ route('console.campaigns.send', [$workspace->id, $campaign->id]) }}" class="d-inline" data-campaign-send-form>
                                             @csrf
                                             <input type="hidden" name="idempotency_key" value="{{ (string) \Illuminate\Support\Str::uuid() }}">

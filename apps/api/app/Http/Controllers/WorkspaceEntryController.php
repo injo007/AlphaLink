@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Web\WorkspaceAnalyticsConsoleController;
+use App\Http\Controllers\Web\WorkspaceCampaignLogsConsoleController;
 use App\Http\Controllers\Web\WorkspaceConsoleController;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -17,6 +18,11 @@ class WorkspaceEntryController extends Controller
     public function campaigns(Request $request): View
     {
         return app(WorkspaceConsoleController::class)->campaigns($request, $this->workspaceId($request));
+    }
+
+    public function campaignLogs(Request $request): View
+    {
+        return app(WorkspaceCampaignLogsConsoleController::class)->index($request, $this->workspaceId($request));
     }
 
     private function workspaceId(Request $request): string

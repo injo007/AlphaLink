@@ -37,52 +37,52 @@
         </header>
 
         <!-- 2. Overview KPI Metrics -->
-        <div class="all-stats-overview-grid mb-4">
-            <div class="all-stats-overview-card">
-                <div class="all-stats-overview-icon"><i class="fas fa-server"></i></div>
-                <div class="all-stats-overview-body">
-                    <div class="all-stats-overview-label">TOTAL SERVERS</div>
-                    <div class="all-stats-overview-value font-mono">{{ number_format($stats['total_servers'] ?? 0) }}</div>
-                    <div class="all-stats-overview-sub">Registered server nodes</div>
-                </div>
-            </div>
+        <section class="command-os-all-stats-overview mb-4" aria-label="Servers Fleet Overview">
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-purple" aria-hidden="true"><i class="fas fa-server"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span class="all-stats-overview-label">TOTAL SERVERS</span>
+                    <span class="all-stats-overview-value font-mono">{{ number_format($stats['total_servers'] ?? 0) }}</span>
+                    <span class="all-stats-overview-sub">Registered server nodes</span>
+                </span>
+            </article>
 
-            <div class="all-stats-overview-card">
-                <div class="all-stats-overview-icon"><i class="fas fa-power-off"></i></div>
-                <div class="all-stats-overview-body">
-                    <div class="all-stats-overview-label">ACTIVE STATUS</div>
-                    <div class="all-stats-overview-value font-mono text-purple">{{ number_format($stats['active_servers'] ?? 0) }} ACTIVE</div>
-                    <div class="all-stats-overview-sub">Online &amp; routing traffic</div>
-                </div>
-            </div>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-purple" aria-hidden="true"><i class="fas fa-power-off"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span class="all-stats-overview-label">ACTIVE STATUS</span>
+                    <span class="all-stats-overview-value font-mono text-purple">{{ number_format($stats['active_servers'] ?? 0) }} ACTIVE</span>
+                    <span class="all-stats-overview-sub">Online &amp; routing traffic</span>
+                </span>
+            </article>
 
-            <div class="all-stats-overview-card">
-                <div class="all-stats-overview-icon"><i class="fas fa-hammer"></i></div>
-                <div class="all-stats-overview-body">
-                    <div class="all-stats-overview-label">PMTA ENGINES</div>
-                    <div class="all-stats-overview-value font-mono text-purple">{{ number_format($stats['installed_servers'] ?? 0) }} INSTALLED</div>
-                    <div class="all-stats-overview-sub">Daemon verified &amp; ready</div>
-                </div>
-            </div>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-purple" aria-hidden="true"><i class="fas fa-hammer"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span class="all-stats-overview-label">PMTA ENGINES</span>
+                    <span class="all-stats-overview-value font-mono text-purple">{{ number_format($stats['installed_servers'] ?? 0) }} INSTALLED</span>
+                    <span class="all-stats-overview-sub">Daemon verified &amp; ready</span>
+                </span>
+            </article>
 
-            <div class="all-stats-overview-card">
-                <div class="all-stats-overview-icon"><i class="fas fa-network-wired"></i></div>
-                <div class="all-stats-overview-body">
-                    <div class="all-stats-overview-label">IP FOOTPRINT</div>
-                    <div class="all-stats-overview-value font-mono">{{ number_format($stats['total_ips'] ?? 0) }} IPs</div>
-                    <div class="all-stats-overview-sub">Egress allocation pool</div>
-                </div>
-            </div>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-purple" aria-hidden="true"><i class="fas fa-network-wired"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span class="all-stats-overview-label">IP FOOTPRINT</span>
+                    <span class="all-stats-overview-value font-mono">{{ number_format($stats['total_ips'] ?? 0) }} IPs</span>
+                    <span class="all-stats-overview-sub">Egress allocation pool</span>
+                </span>
+            </article>
 
-            <div class="all-stats-overview-card">
-                <div class="all-stats-overview-icon"><i class="fas fa-tasks"></i></div>
-                <div class="all-stats-overview-body">
-                    <div class="all-stats-overview-label">PROVIDERS</div>
-                    <div class="all-stats-overview-value font-mono">{{ number_format($stats['providers_count'] ?? 0) }}</div>
-                    <div class="all-stats-overview-sub">Connected hosting networks</div>
-                </div>
-            </div>
-        </div>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-purple" aria-hidden="true"><i class="fas fa-tasks"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span class="all-stats-overview-label">PROVIDERS</span>
+                    <span class="all-stats-overview-value font-mono">{{ number_format($stats['providers_count'] ?? 0) }}</span>
+                    <span class="all-stats-overview-sub">Connected hosting networks</span>
+                </span>
+            </article>
+        </section>
 
         <!-- 3. Table Card -->
         <div class="command-os-table-card">
@@ -128,7 +128,7 @@
         .server-frame-dialog .modal-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 0; }
         .server-frame-dialog iframe { border: 0; display: block; height: 100%; min-height: 450px; width: 100%; }
         .server-frame-dialog .close { font-size: 1.5rem; }
-        .bootbox .server-action-frame { border: 0; display: block; height: min(72vh, 760px); min-height: 450px; width: 100%; }
+        .bootbox .server-action-frame { border: 0; display: block; height: min(88vh, 840px); min-height: 640px; width: 100%; }
         @media (max-width: 575.98px) {
             .server-frame-dialog { height: calc(100dvh - 1rem); max-height: calc(100dvh - 1rem); max-width: calc(100vw - 1rem); width: calc(100vw - 1rem); }
             .server-frame-dialog iframe { min-height: 360px; }

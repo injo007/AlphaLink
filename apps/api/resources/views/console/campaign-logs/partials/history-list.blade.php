@@ -13,7 +13,7 @@
     </header>
     <nav class="campaign-log-history-tabs" aria-label="Campaign history type">
         @foreach (['tests' => 'Tests', 'updates' => 'Updates', 'sends' => 'Sends'] as $key => $label)
-            <button type="button" data-campaign-history-tab="{{ route('console.campaign-logs.history', [$workspace->id, $campaign->id, $key]) }}?fragment=1" @if ($history === $key) aria-current="page" @endif>{{ $label }} <span>{{ number_format($counts[$key]) }}</span></button>
+            <button type="button" data-campaign-history-tab="{{ route('console.campaign-logs.history', array_merge([$workspace->id, $campaign->id, $key], array_merge($operatorCampaignViewQuery, ['fragment' => 1]))) }}" @if ($history === $key) aria-current="page" @endif>{{ $label }} <span>{{ number_format($counts[$key]) }}</span></button>
         @endforeach
     </nav>
 
@@ -23,7 +23,7 @@
                 <thead><tr><th scope="col">Type</th><th scope="col">Outcome</th><th scope="col">Recorded by</th><th scope="col">Created at</th><th scope="col">Configuration</th></tr></thead>
                 <tbody>
                     @forelse ($historyRows as $row)
-                        @php $detailUrl = route('console.campaign-logs.history-detail', [$workspace->id, $campaign->id, 'tests', $row->id]).'?'.http_build_query(['source' => $row->test_source_key, 'fragment' => 1]); @endphp
+                        @php $detailUrl = route('console.campaign-logs.history-detail', array_merge([$workspace->id, $campaign->id, 'tests', $row->id], ['source' => $row->test_source_key, 'fragment' => 1], $operatorCampaignViewQuery)); @endphp
                         <tr>
                             <td>{{ $row->test_source }}</td>
                             <td><span class="campaign-log-modal-status">{{ strtoupper(str_replace('_', ' ', $row->status)) }}</span></td>
@@ -39,7 +39,7 @@
                 <thead><tr><th scope="col">Revision</th><th scope="col">Content fingerprint</th><th scope="col">Updated by</th><th scope="col">Created at</th><th scope="col">Configuration</th></tr></thead>
                 <tbody>
                     @forelse ($historyRows as $row)
-                        @php $detailUrl = route('console.campaign-logs.history-detail', [$workspace->id, $campaign->id, 'updates', $row->id]).'?fragment=1'; @endphp
+                        @php $detailUrl = route('console.campaign-logs.history-detail', array_merge([$workspace->id, $campaign->id, 'updates', $row->id], array_merge($operatorCampaignViewQuery, ['fragment' => 1]))); @endphp
                         <tr>
                             <td>Revision {{ $row->revision_number }}</td>
                             <td class="campaign-log-modal-id">{{ substr($row->content_sha256, 0, 12) }}</td>
@@ -55,7 +55,7 @@
                 <thead><tr><th scope="col">Send type</th><th scope="col">Status</th><th scope="col">Accepted / rejected</th><th scope="col">Requested by</th><th scope="col">Started at</th><th scope="col">Configuration</th></tr></thead>
                 <tbody>
                     @forelse ($historyRows as $row)
-                        @php $detailUrl = route('console.campaign-logs.history-detail', [$workspace->id, $campaign->id, 'sends', $row->id]).'?fragment=1'; @endphp
+                        @php $detailUrl = route('console.campaign-logs.history-detail', array_merge([$workspace->id, $campaign->id, 'sends', $row->id], array_merge($operatorCampaignViewQuery, ['fragment' => 1]))); @endphp
                         <tr>
                             <td>{{ strtoupper($row->send_type) }}</td>
                             <td><span class="campaign-log-modal-status">{{ strtoupper(str_replace('_', ' ', $row->state)) }}</span></td>

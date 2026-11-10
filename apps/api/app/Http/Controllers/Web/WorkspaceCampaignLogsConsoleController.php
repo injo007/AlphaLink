@@ -147,6 +147,7 @@ class WorkspaceCampaignLogsConsoleController extends Controller
         abort_unless(in_array($workspace->pivot->role, self::HISTORY_ROLES, true), 403);
         abort_unless(in_array($history, ['tests', 'updates', 'sends'], true), 404);
         $campaign = $this->campaignForUser($request, $workspace, $campaignId);
+        $operatorCampaignViewQuery = $this->operatorCampaignViewQuery($request);
 
         $historyRows = match ($history) {
             'tests' => $this->testHistory($workspace, $campaign),
@@ -189,10 +190,10 @@ class WorkspaceCampaignLogsConsoleController extends Controller
         ];
 
         if ($request->boolean('fragment')) {
-            return view('console.campaign-logs.partials.history-list', compact('workspace', 'campaign', 'history', 'historyRows', 'counts'));
+            return view('console.campaign-logs.partials.history-list', compact('workspace', 'campaign', 'history', 'historyRows', 'counts', 'operatorCampaignViewQuery'));
         }
 
-        return view('console.campaign-logs.history', compact('workspace', 'campaign', 'history', 'historyRows', 'counts'));
+        return view('console.campaign-logs.history', compact('workspace', 'campaign', 'history', 'historyRows', 'counts', 'operatorCampaignViewQuery'));
     }
 
     public function historyDetail(Request $request, string $workspaceId, string $campaignId, string $history, string $entry): View
@@ -201,6 +202,7 @@ class WorkspaceCampaignLogsConsoleController extends Controller
         abort_unless(in_array($workspace->pivot->role, self::HISTORY_ROLES, true), 403);
         abort_unless(in_array($history, ['tests', 'updates', 'sends'], true), 404);
         $campaign = $this->campaignForUser($request, $workspace, $campaignId);
+        $operatorCampaignViewQuery = $this->operatorCampaignViewQuery($request);
         $payload = [];
         $serverLabels = [];
         $event = ['type' => $history, 'revision' => null, 'status' => null, 'actor' => '—', 'recorded_at' => null];
@@ -254,10 +256,10 @@ class WorkspaceCampaignLogsConsoleController extends Controller
         $configuration = $this->campaignConfiguration($workspace, $payload, $serverLabels);
 
         if ($request->boolean('fragment')) {
-            return view('console.campaign-logs.partials.history-detail', compact('campaign', 'event', 'configuration'));
+            return view('console.campaign-logs.partials.history-detail', compact('campaign', 'event', 'configuration', 'workspace', 'history', 'operatorCampaignViewQuery'));
         }
 
-        return view('console.campaign-logs.detail', compact('workspace', 'campaign', 'history', 'event', 'configuration'));
+        return view('console.campaign-logs.detail', compact('workspace', 'campaign', 'history', 'event', 'configuration', 'operatorCampaignViewQuery'));
     }
 
     public function setRestriction(Request $request, string $workspaceId, string $campaignId): RedirectResponse
@@ -334,15 +336,33 @@ class WorkspaceCampaignLogsConsoleController extends Controller
             ->whereKey($campaignId);
 
         if ($request->user()->access_role === User::ACCESS_ROLE_ADMIN) {
-            $operatorIds = $workspace->users()
-                ->wherePivot('role', User::ACCESS_ROLE_OPERATOR)
-                ->pluck('users.id');
+            $operatorScope = app(AdminOperatorCampaignFilter::class)->resolve($request, $workspace, $request->user());
+            $operatorIds = $operatorScope['enabled']
+                ? $operatorScope['creator_ids']
+                : $workspace->users()
+                    ->wherePivot('role', User::ACCESS_ROLE_OPERATOR)
+                    ->pluck('users.id');
             $campaignQuery->whereIn('created_by', $operatorIds);
         } else {
             $campaignQuery->where('created_by', $request->user()->getKey());
         }
 
         return $campaignQuery->firstOrFail();
+    }
+
+    /** @return array{view_operator_campaigns?: int, operator_id?: mixed} */
+    private function operatorCampaignViewQuery(Request $request): array
+    {
+        if ($request->user()->access_role !== User::ACCESS_ROLE_ADMIN || ! $request->boolean('view_operator_campaigns')) {
+            return [];
+        }
+
+        $query = ['view_operator_campaigns' => 1];
+        if (filled($request->query('operator_id'))) {
+            $query['operator_id'] = $request->query('operator_id');
+        }
+
+        return $query;
     }
 
     /** @return LengthAwarePaginator<object> */

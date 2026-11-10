@@ -9,8 +9,8 @@
                 <span class="campaign-register-heading-icon" aria-hidden="true"><i class="fas fa-paper-plane"></i></span>
                 <div class="campaign-register-heading-copy">
                     <span class="campaign-register-eyebrow">EMAIL OPERATIONS</span>
-                    <h1 class="block-title">{{ $showOperatorCampaigns ? 'Operator Campaigns' : 'My Campaigns' }}</h1>
-                    <p>{{ $showOperatorCampaigns ? 'Review campaign activity across workspace operators.' : 'Review campaigns, delivery progress, and send readiness.' }}</p>
+                    <h1 class="block-title">My Campaigns</h1>
+                    <p>{{ $showOperatorCampaigns ? 'Review campaign activity for workspace operators.' : 'Review campaigns, delivery progress, and send readiness.' }}</p>
                 </div>
             </div>
             <span class="campaign-hero-illustration" aria-hidden="true"><i class="fas fa-paper-plane"></i></span>
@@ -72,7 +72,7 @@
                 <p class="campaign-operator-view-note" role="status"><i class="fas fa-eye" aria-hidden="true"></i> Read-only view for {{ $selectedOperator ? ($selectedOperator->name ?: $selectedOperator->username) : 'all workspace operators' }}. Campaign actions stay with the campaign owner/operator.</p>
             @endif
 
-            <div class="campaign-workspace-grid {{ $showOperatorCampaigns ? 'campaign-workspace-grid-operator-view' : '' }}">
+            <div class="campaign-workspace-grid">
                 <main class="campaign-register-main" aria-label="Campaign operations">
                     <section class="campaign-overview" aria-label="Campaign overview">
                         <article class="campaign-overview-card campaign-overview-total">
@@ -135,6 +135,7 @@
                         $campaignBrowseUrl = route('console.campaigns.index', array_merge([$workspace->id], $campaignBrowseQuery));
                     @endphp
                     <a class="btn btn-sm campaign-register-active {{ $activeOnly ? 'btn-primary' : 'btn-alt-secondary' }}" href="{{ $campaignBrowseUrl }}" title="{{ $activeOnly ? 'Show all campaigns' : 'Show active campaign sends' }}" aria-label="{{ $activeOnly ? 'Show all campaigns' : 'Show active campaign sends' }}"><i class="fas fa-paper-plane mr-1" aria-hidden="true"></i>{{ $activeOnly ? 'All campaigns' : 'Active sends' }} <span class="badge badge-light ml-1">{{ $activeSendCount }}</span></a>
+                    <a class="btn btn-sm btn-alt-secondary campaign-register-active" href="{{ $campaignLogsUrl }}" title="Review campaign tests, updates, and send history"><i class="fas fa-history mr-1" aria-hidden="true"></i>Campaign logs</a>
                     @if ($canManageVisibleCampaigns)
                         <button class="btn btn-sm btn-alt-danger campaign-register-icon-action" type="submit" form="campaign-bulk-form" id="campaign-bulk-disable-open" disabled title="Select campaigns to disable" aria-label="Disable selected campaigns"><i class="fas fa-trash" aria-hidden="true"></i></button>
                     @endif
@@ -396,9 +397,8 @@
             <p class="text-muted small mb-0">Showing {{ $campaigns->firstItem() ?? 0 }} to {{ $campaigns->lastItem() ?? 0 }} of {{ $campaigns->total() }} campaigns in the selected date range.</p>
                 </main>
 
-                @unless ($showOperatorCampaigns)
                 <aside class="campaign-intelligence" aria-label="Campaign intelligence">
-                    <section class="campaign-intelligence-card campaign-analytics-card" data-campaign-analytics data-aggregate-url="{{ route('console.campaign-statistics.index', [$workspace->id, 'from' => $from->toDateString(), 'to' => $to->toDateString(), 'register' => 1]) }}">
+                    <section class="campaign-intelligence-card campaign-analytics-card" data-campaign-analytics data-aggregate-url="{{ route('console.campaign-statistics.index', array_merge([$workspace->id], ['from' => $from->toDateString(), 'to' => $to->toDateString(), 'register' => 1], $operatorCampaignViewQuery)) }}">
                         <header class="campaign-intelligence-heading">
                             <span class="campaign-intelligence-heading-icon" aria-hidden="true"><i class="fas fa-chart-bar"></i></span>
                             <div><h2>Campaign Analytics</h2><p>Attributed engagement for the selected period</p></div>
@@ -475,7 +475,6 @@
                         </dl>
                     </section>
                 </aside>
-                @endunless
             </div>
         </div>
     </div>
@@ -546,7 +545,6 @@
         @keyframes campaign-hero-glow { from { transform: translateX(-1.5%) scale(.98); } to { transform: translateX(1.5%) scale(1.03); } }
         @keyframes campaign-hero-wave { from { transform: translateX(-1%) rotate(-2deg); } to { transform: translateX(1%) rotate(1deg); } }
         .campaign-workspace-grid { display: grid; grid-template-columns: minmax(0, 2.05fr) minmax(350px, 1fr); align-items: start; gap: 14px; }
-        .campaign-workspace-grid-operator-view { grid-template-columns: minmax(0, 1fr); }
         .campaign-register-main { min-width: 0; }
         .campaign-intelligence { display: grid; gap: 12px; min-width: 0; }
         .campaign-overview { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 9px; margin: 1px 0 13px; }

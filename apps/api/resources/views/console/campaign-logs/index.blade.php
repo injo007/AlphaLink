@@ -168,7 +168,7 @@
                     <p>Review campaign tests, saved updates, send runs, and restriction status.</p>
                 </div>
             </div>
-            <a class="btn btn-sm btn-alt-secondary" href="{{ route('console.mailer.campaigns') }}"><i class="fas fa-arrow-left mr-1" aria-hidden="true"></i>My campaigns</a>
+            <a class="btn btn-sm btn-alt-secondary" href="{{ route('console.mailer.campaigns', $operatorCampaignViewQuery) }}"><i class="fas fa-arrow-left mr-1" aria-hidden="true"></i>My campaigns</a>
         </header>
 
         <div class="campaign-logs-toolbar">
@@ -214,7 +214,7 @@
                 @endif
                 <div class="campaign-logs-filter-actions">
                     <button class="btn btn-sm btn-primary campaign-logs-apply" type="submit"><i class="fas fa-filter mr-1" aria-hidden="true"></i>Apply filters</button>
-                    <a class="btn btn-sm btn-alt-secondary" href="{{ route('console.campaign-logs.index', $workspace->id) }}">Reset</a>
+                    <a class="btn btn-sm btn-alt-secondary" href="{{ route('console.mailer.campaign-logs', $operatorCampaignViewQuery) }}">Reset</a>
                 </div>
             </form>
             @if ($showOperatorCampaigns)
@@ -263,9 +263,9 @@
                             <td>
                                 <div class="campaign-log-counts" role="group" aria-label="History actions for {{ $campaign->name }}">
                                     @if ($canReviewHistory)
-                                    <a class="campaign-log-action" href="{{ route('console.campaign-logs.history', [$workspace->id, $campaign->id, 'tests']) }}" data-campaign-history-url="{{ route('console.campaign-logs.history', [$workspace->id, $campaign->id, 'tests']) }}?fragment=1" title="Open test history" aria-label="Open {{ $campaign->tests_count }} tests for {{ $campaign->name }}"><i class="fas fa-vial" aria-hidden="true"></i><span>T:{{ $campaign->tests_count }}</span></a>
-                                    <a class="campaign-log-action" href="{{ route('console.campaign-logs.history', [$workspace->id, $campaign->id, 'updates']) }}" data-campaign-history-url="{{ route('console.campaign-logs.history', [$workspace->id, $campaign->id, 'updates']) }}?fragment=1" title="Open update history" aria-label="Open {{ $campaign->updates_count }} updates for {{ $campaign->name }}"><i class="fas fa-pen-to-square" aria-hidden="true"></i><span>U:{{ $campaign->updates_count }}</span></a>
-                                    <a class="campaign-log-action" href="{{ route('console.campaign-logs.history', [$workspace->id, $campaign->id, 'sends']) }}" data-campaign-history-url="{{ route('console.campaign-logs.history', [$workspace->id, $campaign->id, 'sends']) }}?fragment=1" title="Open send history" aria-label="Open {{ $campaign->sends_count }} sends for {{ $campaign->name }}"><i class="fas fa-paper-plane" aria-hidden="true"></i><span>S:{{ $campaign->sends_count }}</span></a>
+                                    <a class="campaign-log-action" href="{{ route('console.campaign-logs.history', array_merge([$workspace->id, $campaign->id, 'tests'], $operatorCampaignViewQuery)) }}" data-campaign-history-url="{{ route('console.campaign-logs.history', array_merge([$workspace->id, $campaign->id, 'tests'], array_merge($operatorCampaignViewQuery, ['fragment' => 1]))) }}" title="Open test history" aria-label="Open {{ $campaign->tests_count }} tests for {{ $campaign->name }}"><i class="fas fa-vial" aria-hidden="true"></i><span>T:{{ $campaign->tests_count }}</span></a>
+                                    <a class="campaign-log-action" href="{{ route('console.campaign-logs.history', array_merge([$workspace->id, $campaign->id, 'updates'], $operatorCampaignViewQuery)) }}" data-campaign-history-url="{{ route('console.campaign-logs.history', array_merge([$workspace->id, $campaign->id, 'updates'], array_merge($operatorCampaignViewQuery, ['fragment' => 1]))) }}" title="Open update history" aria-label="Open {{ $campaign->updates_count }} updates for {{ $campaign->name }}"><i class="fas fa-pen-to-square" aria-hidden="true"></i><span>U:{{ $campaign->updates_count }}</span></a>
+                                    <a class="campaign-log-action" href="{{ route('console.campaign-logs.history', array_merge([$workspace->id, $campaign->id, 'sends'], $operatorCampaignViewQuery)) }}" data-campaign-history-url="{{ route('console.campaign-logs.history', array_merge([$workspace->id, $campaign->id, 'sends'], array_merge($operatorCampaignViewQuery, ['fragment' => 1]))) }}" title="Open send history" aria-label="Open {{ $campaign->sends_count }} sends for {{ $campaign->name }}"><i class="fas fa-paper-plane" aria-hidden="true"></i><span>S:{{ $campaign->sends_count }}</span></a>
                                     @else
                                         <span class="text-muted small">Tests: {{ $campaign->tests_count }} · Updates: {{ $campaign->updates_count }} · Sends: {{ $campaign->sends_count }}</span>
                                     @endif

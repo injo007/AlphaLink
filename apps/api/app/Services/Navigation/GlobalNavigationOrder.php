@@ -71,6 +71,11 @@ class GlobalNavigationOrder
                 $item['navigation_item_key'] = $itemKey;
                 $itemsByKey[$itemKey] = $item;
                 $legacyItemKeys[$this->legacyItemKey($groupKey, $item)] = $itemKey;
+                foreach ($this->legacyLabelAliases($item) as $legacyLabel) {
+                    $legacyItem = [...$item, 'label' => $legacyLabel];
+                    $legacyItemKeys[$this->itemKey($legacyItem)] = $itemKey;
+                    $legacyItemKeys[$this->legacyItemKey($groupKey, $legacyItem)] = $itemKey;
+                }
                 $defaultItemsByGroup[$groupKey][] = $itemKey;
             }
             unset($item);
@@ -151,6 +156,22 @@ class GlobalNavigationOrder
         $path = parse_url((string) ($item['href'] ?? ''), PHP_URL_PATH);
 
         return is_string($path) ? $path : '';
+    }
+
+    /** @return list<string> */
+    private function legacyLabelAliases(array $item): array
+    {
+        $path = $this->navigationPath($item);
+
+        if ($path === '/app/users' && ($item['label'] ?? null) === 'GLOBAL USER ACCOUNTS') {
+            return ['USERS', 'USERS USERS'];
+        }
+
+        if (preg_match('#^/app/workspaces/[^/]+/users$#', $path) === 1 && ($item['label'] ?? null) === 'WORKSPACE MEMBERS') {
+            return ['WORKSPACE USERS', 'USERS WORKSPACE USERS'];
+        }
+
+        return [];
     }
 
     private function sortBySavedOrder(array $items, mixed $order, string $key): array

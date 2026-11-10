@@ -100,8 +100,15 @@
         $subscribersUrl = route('clean.console.miscellaneous.subscribers');
         $contactsUrl = route('clean.console.miscellaneous.contacts');
         $horizonUrl = route('clean.console.miscellaneous.horizon');
-        $campaignsUrl = route('console.mailer.campaigns');
-        $campaignLogsUrl = route('console.mailer.campaign-logs');
+        $operatorCampaignViewQuery = [];
+        if (auth()->user()->access_role === \App\Models\User::ACCESS_ROLE_ADMIN && request()->boolean('view_operator_campaigns')) {
+            $operatorCampaignViewQuery = ['view_operator_campaigns' => 1];
+            if (filled(request()->query('operator_id'))) {
+                $operatorCampaignViewQuery['operator_id'] = request()->query('operator_id');
+            }
+        }
+        $campaignsUrl = route('console.mailer.campaigns', $operatorCampaignViewQuery);
+        $campaignLogsUrl = route('console.mailer.campaign-logs', $operatorCampaignViewQuery);
         $dropsMonitoringUrl = route('clean.console.drops.monitoring');
         $dropsStatisticsUrl = route('clean.console.drops.statistics');
         $dropDraftsUrl = route('clean.console.drops.drafts.index');
@@ -243,8 +250,8 @@
                 ['label' => 'MAILERS REV STATS', 'icon' => 'fas fa-user-alt', 'href' => route('clean.console.analytics.mailer-revenue'), 'active' => $isDashboardMailerRevenuePage],
             ]],
             ['label' => 'USERS MANAGEMENT', 'icon' => 'fas fa-users-cog', 'items' => array_values(array_filter([
-                $canManageGlobalUsers ? ['label' => 'USERS', 'icon' => 'fas fa-user-friends', 'href' => route('console.global-users.index'), 'active' => $isGlobalUsersPage] : null,
-                $canManageUsers ? ['label' => 'WORKSPACE USERS', 'icon' => 'fas fa-users', 'href' => route('clean.console.users.index'), 'active' => $isUsersPage] : null,
+                $canManageGlobalUsers ? ['label' => 'GLOBAL USER ACCOUNTS', 'icon' => 'fas fa-user-friends', 'href' => route('console.global-users.index'), 'active' => $isGlobalUsersPage] : null,
+                $canManageUsers ? ['label' => 'WORKSPACE MEMBERS', 'icon' => 'fas fa-users', 'href' => route('clean.console.users.index'), 'active' => $isUsersPage] : null,
             ]))],
             ['label' => 'ISPS MANAGEMENT', 'icon' => 'far fa-envelope', 'open' => $isIspManagementPage, 'items' => [
                 ['label' => 'ISPS', 'icon' => 'fas fa-envelope-open', 'href' => $ispsUrl, 'active' => $routeIs('console.infrastructure.isps.*')],
@@ -417,7 +424,7 @@
             $filterNavigationItems($miscellaneousGroup['items'] ?? [], ['SETTINGS']),
         );
         $settingsItems = array_merge(
-            $flattenNavigationItems($usersGroup['items'] ?? [], 'USERS'),
+            $flattenNavigationItems($usersGroup['items'] ?? []),
             array_values(array_filter($miscellaneousGroup['items'] ?? [], static fn (array $item): bool => $item['label'] === 'SETTINGS')),
         );
         $serverProviderItem = collect($serversGroup['items'] ?? [])->firstWhere('label', 'SERVERS PROVIDERS');

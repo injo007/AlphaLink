@@ -3,7 +3,7 @@
         @if (request()->boolean('fragment'))
             <button class="campaign-log-config-back" type="button" data-campaign-history-back><i class="fas fa-arrow-left" aria-hidden="true"></i> History</button>
         @else
-            <a class="campaign-log-config-back" href="{{ route('console.campaign-logs.history', [$workspace->id, $campaign->id, $history]) }}"><i class="fas fa-arrow-left" aria-hidden="true"></i> History</a>
+            <a class="campaign-log-config-back" href="{{ route('console.campaign-logs.history', array_merge([$workspace->id, $campaign->id, $history], $operatorCampaignViewQuery)) }}"><i class="fas fa-arrow-left" aria-hidden="true"></i> History</a>
         @endif
         <div>
             <span class="campaign-log-modal-eyebrow">{{ strtoupper($event['type']) }} CONFIGURATION</span>

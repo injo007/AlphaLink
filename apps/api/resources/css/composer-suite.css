@@ -1056,7 +1056,6 @@
 
             /* Shared Workspace Intelligence & Grid Layouts */
             .campaign-workspace-grid { display: grid; grid-template-columns: minmax(0, 2.05fr) minmax(350px, 1fr); align-items: start; gap: 14px; }
-            .campaign-workspace-grid-operator-view { grid-template-columns: minmax(0, 1fr); }
             .campaign-register-main { min-width: 0; }
             .campaign-intelligence { display: grid; gap: 12px; min-width: 0; }
             .campaign-intelligence-card { overflow: hidden; border: 1px solid var(--co-border); border-radius: 15px; color: var(--co-ink); background: linear-gradient(145deg, var(--co-surface), color-mix(in srgb, var(--co-purple) 3%, var(--co-surface))); box-shadow: var(--co-shadow); }

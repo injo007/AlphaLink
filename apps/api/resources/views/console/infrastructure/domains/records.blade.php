@@ -17,80 +17,85 @@
 @endpush
 
 @section('content')
-    <div class="block block-rounded">
-        <div class="block-header">
-            <h3 class="block-title">Editing <span class="text-info">{{ $domain->name }}</span> nameservers</h3>
-            <div class="block-options">
-                <button type="button" class="btn-block-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle nameservers full screen"></button>
-                <button type="button" class="btn-block-option" data-toggle="block-option" data-action="content_toggle" aria-label="Collapse nameservers"><i class="si si-arrow-down" aria-hidden="true"></i></button>
+    <div class="command-card mb-4">
+        <div class="command-modal-hero">
+            <div class="command-modal-hero-left">
+                <div class="command-modal-hero-icon"><i class="fas fa-server"></i></div>
+                <div>
+                    <div class="command-modal-hero-eyebrow">DNS CONFIGURATION // ZONE SERVERS</div>
+                    <h3 class="command-modal-hero-title">EDITING NAMESERVERS <span class="badge badge-purple ml-2">{{ $domain->name }}</span></h3>
+                </div>
             </div>
         </div>
-        <div class="block-content block-content-full">
+        <div class="command-modal-body">
             @if($nameservers['status'])
                 <div class="table-responsive">
-                    <table class="table table-sm table-hover dns-record-editor" id="nameservers-editor">
+                    <table class="command-data-table table-sm dns-record-editor w-100" id="nameservers-editor">
                         <thead><tr><th scope="col">NAMESERVER</th><th scope="col" aria-label="Actions"></th></tr></thead>
                         <tbody></tbody>
                     </table>
                 </div>
-                <div class="dns-record-toolbar justify-content-end">
-                    <button type="button" class="btn btn-secondary btn-sm" data-add-row="nameservers"><i class="fas fa-plus" aria-hidden="true"></i> Add nameserver</button>
-                    <button type="button" class="btn btn-primary" id="edit_nameservers"><i class="fas fa-save" aria-hidden="true"></i> EDIT NAMESERVERS</button>
-                    <button type="button" class="btn btn-danger" id="reset_nameservers"><i class="fas fa-undo" aria-hidden="true"></i> RESET NAMESERVERS</button>
+                <div class="dns-record-toolbar justify-content-end mt-3">
+                    <button type="button" class="btn-command-action mr-2" data-add-row="nameservers"><i class="fas fa-plus mr-1"></i> ADD NAMESERVER</button>
+                    <button type="button" class="btn-command-primary mr-2" id="edit_nameservers"><i class="fas fa-save mr-1"></i> EDIT NAMESERVERS</button>
+                    <button type="button" class="btn-command-action text-danger" id="reset_nameservers"><i class="fas fa-undo mr-1"></i> RESET NAMESERVERS</button>
                 </div>
-                <p id="nameservers-message" class="dns-record-message text-muted mb-0" role="status" aria-live="polite"></p>
+                <p id="nameservers-message" class="dns-record-message text-muted mt-2 mb-0 font-size-xs" role="status" aria-live="polite"></p>
             @else
-                <p class="text-danger text-uppercase text-center" role="alert">{{ $nameservers['data'] }}</p>
+                <p class="text-danger text-uppercase text-center py-3" role="alert">{{ $nameservers['data'] }}</p>
             @endif
         </div>
     </div>
 
-    <div class="block block-rounded">
-        <div class="block-header">
-            <h3 class="block-title">Editing <span class="text-info">{{ $domain->name }}</span> hosts</h3>
-            <div class="block-options">
-                <button type="button" class="btn-block-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle hosts full screen"></button>
+    <div class="command-card mb-4">
+        <div class="command-modal-hero">
+            <div class="command-modal-hero-left">
+                <div class="command-modal-hero-icon"><i class="fas fa-network-wired"></i></div>
+                <div>
+                    <div class="command-modal-hero-eyebrow">DNS ROUTING // HOST RECORDS</div>
+                    <h3 class="command-modal-hero-title">EDITING HOSTS <span class="badge badge-purple ml-2">{{ $domain->name }}</span></h3>
+                </div>
             </div>
         </div>
-        <div class="block-content block-content-full">
+        <div class="command-modal-body">
             @if($hosts['status'])
                 <div class="table-responsive">
-                    <table class="table table-sm table-hover dns-record-editor" id="hosts-editor">
+                    <table class="command-data-table table-sm dns-record-editor w-100" id="hosts-editor">
                         <thead><tr><th scope="col">HOST</th><th scope="col">TYPE</th><th scope="col">VALUE</th><th scope="col">TTL</th><th scope="col" aria-label="Actions"></th></tr></thead>
                         <tbody></tbody>
                     </table>
                 </div>
-                <div class="dns-record-toolbar">
-                    <button type="button" class="btn btn-secondary btn-sm" data-add-row="hosts"><i class="fas fa-plus" aria-hidden="true"></i> Add host</button>
-                    <button type="button" class="btn btn-danger" id="clear_hosts"><i class="fas fa-eraser" aria-hidden="true"></i> CLEAR HOSTS</button>
-                    <button type="button" class="btn btn-primary" id="export_hosts"><i class="fas fa-file-export" aria-hidden="true"></i> EXPORT HOSTS</button>
-                    <button type="button" class="btn btn-primary" id="import_hosts"><i class="fas fa-file-import" aria-hidden="true"></i> IMPORT HOSTS</button>
-                    <button type="button" class="btn btn-primary ml-md-auto" id="edit_hosts"><i class="fas fa-save" aria-hidden="true"></i> EDIT HOSTS</button>
+                <div class="dns-record-toolbar mt-3">
+                    <button type="button" class="btn-command-action mr-2" data-add-row="hosts"><i class="fas fa-plus mr-1"></i> ADD HOST</button>
+                    <button type="button" class="btn-command-action text-danger mr-2" id="clear_hosts"><i class="fas fa-eraser mr-1"></i> CLEAR HOSTS</button>
+                    <button type="button" class="btn-command-action mr-2" id="export_hosts"><i class="fas fa-file-export mr-1"></i> EXPORT HOSTS</button>
+                    <button type="button" class="btn-command-action mr-2" id="import_hosts"><i class="fas fa-file-import mr-1"></i> IMPORT HOSTS</button>
+                    <button type="button" class="btn-command-primary ml-auto" id="edit_hosts"><i class="fas fa-save mr-1"></i> EDIT HOSTS</button>
                 </div>
-                <p id="hosts-message" class="dns-record-message text-muted mb-0" role="status" aria-live="polite"></p>
+                <p id="hosts-message" class="dns-record-message text-muted mt-2 mb-0 font-size-xs" role="status" aria-live="polite"></p>
             @else
-                <p class="text-danger text-uppercase text-center" role="alert">{{ $hosts['data'] }}</p>
+                <p class="text-danger text-uppercase text-center py-3" role="alert">{{ $hosts['data'] }}</p>
             @endif
         </div>
     </div>
 
     <dialog class="dns-record-dialog" id="remove-row-dialog" aria-labelledby="remove-row-title" aria-describedby="remove-row-description">
-        <h2 id="remove-row-title">Remove this row?</h2>
-        <p id="remove-row-description">The row will be removed from the editor. Save the page to apply DNS changes.</p>
-        <div class="dns-record-dialog-actions">
-            <button type="button" class="btn btn-secondary" data-dialog-close>Cancel</button>
-            <button type="button" class="btn btn-danger" id="confirm-remove-row">Remove row</button>
+        <h2 id="remove-row-title" class="h5 font-w700 mb-2">Remove this row?</h2>
+        <p id="remove-row-description" class="text-muted font-size-sm">The row will be removed from the editor. Save the page to apply DNS changes.</p>
+        <div class="dns-record-dialog-actions mt-3">
+            <button type="button" class="btn-command-action mr-2" data-dialog-close>Cancel</button>
+            <button type="button" class="btn-command-action text-danger" id="confirm-remove-row">Remove row</button>
         </div>
     </dialog>
 
     <dialog class="dns-record-dialog" id="import-hosts-dialog" aria-labelledby="import-hosts-title">
-        <h2 id="import-hosts-title">Import host records</h2>
-        <p>Enter one record per line as <code>host;type;value;ttl</code>.</p>
-        <label for="import-hosts-text">Records</label>
-        <textarea class="form-control" id="import-hosts-text" placeholder="@;A;192.0.2.1;600"></textarea>
+        <h2 id="import-hosts-title" class="h5 font-w700 mb-2">Import host records</h2>
+        <p class="text-muted font-size-sm">Enter one record per line as <code class="font-mono">host;type;value;ttl</code>.</p>
+        <label for="import-hosts-text" class="command-form-label mt-2">Records</label>
+        <textarea class="command-form-control font-mono mb-3" id="import-hosts-text" placeholder="@;A;192.0.2.1;600" rows="6"></textarea>
         <div class="dns-record-dialog-actions">
-            <button type="button" class="btn btn-secondary" data-dialog-close>Cancel</button>
-            <button type="button" class="btn btn-primary" id="confirm-import-hosts">Import records</button>
+            <button type="button" class="btn-command-action mr-2" data-dialog-close>Cancel</button>
+            <button type="button" class="btn-command-primary" id="confirm-import-hosts">Import records</button>
         </div>
     </dialog>
 @endsection

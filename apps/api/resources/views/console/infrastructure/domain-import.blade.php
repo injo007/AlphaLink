@@ -3,45 +3,67 @@
 @section('title', 'Add Domains')
 
 @section('content')
-    <div class="block block-rounded">
-        <div class="block-header block-header-default">
-            <h3 class="block-title">ADD DOMAINS</h3>
-            <div class="block-options">
-                <div class="custom-control custom-switch custom-control-inline">
-                    <input type="checkbox" class="custom-control-input" id="auto" checked>
-                    <label id="label_auto" class="custom-control-label" for="auto">AUTO</label>
+    <div class="command-modal-surface">
+        <div class="command-modal-hero">
+            <div class="command-modal-hero-left">
+                <div class="command-modal-hero-icon">
+                    <i class="fas fa-globe"></i>
+                </div>
+                <div>
+                    <div class="command-modal-hero-eyebrow">DNS INVENTORY // DOMAIN INGESTION</div>
+                    <h3 class="command-modal-hero-title">ADD DOMAINS</h3>
+                </div>
+            </div>
+            <div class="command-modal-hero-right">
+                <div class="command-mode-toggle-pill">
+                    <span class="command-mode-label" id="label_auto">AUTO</span>
+                    <label class="command-switch">
+                        <input type="checkbox" id="auto" checked>
+                        <span class="command-slider"></span>
+                    </label>
                 </div>
             </div>
         </div>
-        <div class="block-content">
-            <div class="row justify-content-center py-1">
-                <div class="col-sm-10">
-                    <div class="form-group">
-                        <label for="provider">Select Provider:</label>
-                        <select class="form-control selectpicker" id="provider" name="provider">
-                            @foreach ($providers as $provider)
-                                <option value="{{ $provider->id }}">{{ $provider->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div id="save_div" hidden>
-                        <div class="form-group">
-                            <label for="domains">Domains:</label>
-                            <textarea id="domains" rows="10" class="form-control form-control-alt"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <button id="save-domains" class="btn btn-block btn-info" type="button">SAVE</button>
-                        </div>
-                    </div>
-                    <div id="import_div">
-                        <div class="form-group">
-                            <button id="import-domains" class="btn btn-block btn-info" type="button">IMPORT</button>
-                        </div>
-                        <div class="form-group">
-                            <div class="table-responsive">
-                                <table id="domain-import-result" class="table table-sm table-hover"></table>
-                            </div>
-                        </div>
+
+        <div class="command-modal-body">
+            <div id="validation_errors_container"></div>
+
+            <div class="command-form-group">
+                <label class="command-form-label" for="provider">
+                    <i class="fas fa-cloud mr-1 text-purple"></i> SELECT PROVIDER
+                </label>
+                <div class="command-select-wrapper">
+                    <select class="command-form-control command-select" id="provider" name="provider">
+                        @foreach ($providers as $provider)
+                            <option value="{{ $provider->id }}">{{ $provider->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+
+            <div id="save_div" hidden>
+                <div class="command-form-group">
+                    <label class="command-form-label" for="domains">
+                        <i class="fas fa-list mr-1 text-purple"></i> DOMAIN NAMES <span class="command-form-hint">(ONE PER LINE)</span>
+                    </label>
+                    <textarea id="domains" rows="8" class="command-form-control font-mono" placeholder="example.com&#10;mail.domain.org&#10;newsletter.brand.net"></textarea>
+                </div>
+                <div class="command-form-group mt-3">
+                    <button id="save-domains" class="btn-command-primary btn-block py-2 text-center" type="button">
+                        <i class="fas fa-save mr-2"></i> SAVE DOMAINS
+                    </button>
+                </div>
+            </div>
+
+            <div id="import_div">
+                <div class="command-form-group mt-2">
+                    <button id="import-domains" class="btn-command-primary btn-block py-2 text-center" type="button">
+                        <i class="fas fa-cloud-download-alt mr-2"></i> IMPORT DOMAINS FROM PROVIDER
+                    </button>
+                </div>
+                <div class="command-form-group mt-3">
+                    <div class="table-responsive">
+                        <table id="domain-import-result" class="command-data-table table-sm w-100"></table>
                     </div>
                 </div>
             </div>
@@ -54,26 +76,28 @@
         const autoMode = document.querySelector('#auto');
         const importPanel = document.querySelector('#import_div');
         const savePanel = document.querySelector('#save_div');
-        const formColumn = document.querySelector('.col-sm-10');
+        const errorContainer = document.querySelector('#validation_errors_container');
         const appWindow = window.parent !== window && window.parent.App ? window.parent : window;
         const csrf = document.querySelector('meta[name="csrf-token"]').content;
 
         function clearErrors() {
-            formColumn.querySelector('#validation_errors')?.remove();
+            errorContainer.innerHTML = '';
         }
 
         function showErrors(validationErrors) {
+            clearErrors();
             const errors = document.createElement('div');
             errors.id = 'validation_errors';
             errors.className = 'alert alert-danger';
             const list = document.createElement('ul');
+            list.className = 'mb-0 pl-3';
             Object.values(validationErrors || {}).flat().forEach((message) => {
                 const item = document.createElement('li');
                 item.textContent = message;
                 list.append(item);
             });
             errors.append(list);
-            formColumn.prepend(errors);
+            errorContainer.appendChild(errors);
         }
 
         async function post(url, data) {
@@ -108,7 +132,7 @@
         async function submit(button, url, data, idleLabel, busyLabel) {
             clearErrors();
             button.disabled = true;
-            button.innerHTML = `${busyLabel} ${window.spinner()}`;
+            button.innerHTML = `${busyLabel} <i class="fas fa-spinner fa-spin ml-2"></i>`;
             try {
                 const payload = await post(url, data);
                 await appWindow.App.swalPromise({
@@ -129,13 +153,13 @@
                 }
             } finally {
                 button.disabled = false;
-                button.textContent = idleLabel;
+                button.innerHTML = idleLabel;
             }
         }
 
         function updateMode() {
             const isAutomatic = autoMode.checked;
-            document.querySelector('#label_auto').textContent = isAutomatic ? 'AUTO' : 'MANUEL';
+            document.querySelector('#label_auto').textContent = isAutomatic ? 'AUTO' : 'MANUAL';
             importPanel.hidden = !isAutomatic;
             savePanel.hidden = isAutomatic;
         }
@@ -150,7 +174,7 @@
                 button,
                 @json(route('console.infrastructure.domains.import', $workspace->id)),
                 { provider },
-                'IMPORT',
+                '<i class="fas fa-cloud-download-alt mr-2"></i> IMPORT DOMAINS FROM PROVIDER',
                 'IMPORTING',
             );
         });
@@ -165,7 +189,7 @@
                 button,
                 @json(route('console.infrastructure.domains.manual', $workspace->id)),
                 { provider: document.querySelector('#provider').value, domains },
-                'SAVE',
+                '<i class="fas fa-save mr-2"></i> SAVE DOMAINS',
                 'SAVING',
             );
         });

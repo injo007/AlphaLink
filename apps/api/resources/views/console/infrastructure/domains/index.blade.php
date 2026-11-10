@@ -178,6 +178,7 @@
                                 const link = @json(route('console.infrastructure.domains.create', $workspace->id));
                                 const iframe = `<iframe src="${link}" width="100%" scrolling="no" frameborder="0"></iframe>`;
                                 window.domainDialog = bootbox.dialog({
+                                    className: 'command-modal-dialog',
                                     scrollable: true,
                                     closeButton: true,
                                     size: 'lg',
@@ -308,7 +309,7 @@
             $('#domains').on('click', '.history', function (event) {
                 event.preventDefault();
                 const iframe = `<iframe src="${$(this).data('url')}" width="100%" scrolling="no" frameborder="0"></iframe>`;
-                bootbox.dialog({scrollable: true, closeButton: true, size: 'xl', message: iframe, onEscape: true, centerVertical: true})
+                bootbox.dialog({className: 'command-modal-dialog', scrollable: true, closeButton: true, size: 'xl', message: iframe, onEscape: true, centerVertical: true})
                     .on('shown.bs.modal', function () { if (typeof iFrameResize === 'function') { iFrameResize({}, 'iframe'); } })
                     .on('hidden.bs.modal', function () { $('iframe').remove(); });
             }).on('click', '.records', function () {
@@ -399,6 +400,12 @@
                     datatable.ajax.reload(null, false);
                 } finally {
                     select.prop('disabled', false);
+                }
+            });
+
+            window.addEventListener('message', function (event) {
+                if (event.data && event.data.type === 'alphalink-dialog-resize' && event.data.height) {
+                    $('.command-modal-dialog iframe').css('height', event.data.height + 'px');
                 }
             });
 

@@ -16,31 +16,41 @@
 @endpush
 
 @section('content')
-    <div class="block block-rounded">
-        <div class="block-header block-header-default">
-            <h3 class="block-title">Cloudflare DNS Records <span class="text-info">{{ $domain->name }}</span></h3>
-            <div class="block-options">
-                <a class="btn btn-sm btn-secondary" href="{{ route('console.infrastructure.domains.index', $workspace->id) }}">Back to domains</a>
+    <div class="command-card mb-4">
+        <div class="command-modal-hero">
+            <div class="command-modal-hero-left">
+                <div class="command-modal-hero-icon"><i class="fas fa-cloud"></i></div>
+                <div>
+                    <div class="command-modal-hero-eyebrow">CLOUDFLARE DNS // ZONE EDITOR</div>
+                    <h3 class="command-modal-hero-title">DNS RECORDS <span class="badge badge-purple ml-2">{{ $domain->name }}</span></h3>
+                </div>
+            </div>
+            <div class="command-modal-hero-right">
+                <a class="btn-command-action mr-2" href="{{ route('console.infrastructure.domains.index', $workspace->id) }}">
+                    <i class="fas fa-arrow-left mr-1"></i> BACK TO DOMAINS
+                </a>
                 @if($records['status'])
-                    <button class="btn btn-sm btn-primary" type="button" id="add-cloudflare-record"><i class="fas fa-plus" aria-hidden="true"></i> Add record</button>
+                    <button class="btn-command-primary" type="button" id="add-cloudflare-record">
+                        <i class="fas fa-plus mr-1"></i> ADD RECORD
+                    </button>
                 @endif
             </div>
         </div>
-        <div class="block-content block-content-full">
-            <p class="cloudflare-dns-help text-muted">Records are managed through the saved Cloudflare API token. Nameservers and zone activation are managed in Cloudflare; this page edits DNS records inside the selected zone.</p>
+        <div class="command-modal-body">
+            <p class="cloudflare-dns-help text-muted font-size-xs mb-3">Records are managed through the saved Cloudflare API token. Nameservers and zone activation are managed in Cloudflare; this page edits DNS records inside the selected zone.</p>
             @if($records['status'])
                 <div class="table-responsive">
-                    <table class="table table-sm table-hover cloudflare-dns-records">
+                    <table class="command-data-table table-sm cloudflare-dns-records w-100">
                         <thead>
                             <tr><th scope="col">NAME</th><th scope="col">TYPE</th><th scope="col">VALUE / DATA</th><th scope="col">TTL</th><th scope="col">PROXIED</th><th scope="col">PRIORITY</th><th scope="col" aria-label="Actions"></th></tr>
                         </thead>
                         <tbody id="cloudflare-record-list"></tbody>
                     </table>
                 </div>
-                <p id="cloudflare-record-message" class="cloudflare-dns-message text-muted mb-0" role="status" aria-live="polite"></p>
+                <p id="cloudflare-record-message" class="cloudflare-dns-message text-muted mt-2 mb-0 font-size-xs" role="status" aria-live="polite"></p>
             @else
                 <div class="alert alert-danger" role="alert">{{ $records['data'] }} Verify that the token has Zone Read and DNS Read access for this zone.</div>
-                <button class="btn btn-secondary" type="button" onclick="window.location.reload()"><i class="fas fa-sync-alt" aria-hidden="true"></i> Retry</button>
+                <button class="btn-command-action" type="button" onclick="window.location.reload()"><i class="fas fa-sync-alt mr-1"></i> Retry</button>
             @endif
         </div>
     </div>
@@ -48,56 +58,60 @@
     @if($records['status'])
         <dialog class="cloudflare-dns-dialog" id="cloudflare-record-dialog" aria-labelledby="cloudflare-record-title">
             <form id="cloudflare-record-form" novalidate>
-                <h2 class="h4" id="cloudflare-record-title">Add DNS record</h2>
-                <div class="form-group">
-                    <label for="record-type">Type</label>
-                    <select class="form-control" id="record-type" name="type" required>
-                        @foreach(['A', 'AAAA', 'CAA', 'CERT', 'CNAME', 'DNSKEY', 'DS', 'HTTPS', 'LOC', 'MX', 'NAPTR', 'NS', 'OPENPGPKEY', 'PTR', 'SMIMEA', 'SRV', 'SSHFP', 'SVCB', 'TLSA', 'TXT', 'URI'] as $type)
-                            <option value="{{ $type }}">{{ $type }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="record-name">Name</label>
-                    <input class="form-control" id="record-name" name="name" required maxlength="253" placeholder="@ or mail">
-                    <small class="form-text text-muted">Relative names are saved inside {{ $domain->name }}. Fully qualified names must belong to this zone.</small>
-                </div>
-                <div class="form-group">
-                    <label for="record-content">Content</label>
-                    <textarea class="form-control" id="record-content" name="content" maxlength="4096" placeholder="IP address, target, text value, or other content"></textarea>
-                </div>
-                <div class="form-row">
-                    <div class="form-group col-md-4">
-                        <label for="record-ttl">TTL</label>
-                        <input class="form-control" id="record-ttl" name="ttl" type="number" min="1" max="86400" step="1" value="1" required>
-                        <small class="form-text text-muted">1 is automatic; otherwise use 60–86400 seconds.</small>
-                    </div>
-                    <div class="form-group col-md-4" id="record-priority-group">
-                        <label for="record-priority">Priority</label>
-                        <input class="form-control" id="record-priority" name="priority" type="number" min="0" max="65535" step="1">
-                    </div>
-                    <div class="form-group col-md-4" id="record-proxied-group">
-                        <label for="record-proxied">Proxy</label>
-                        <select class="form-control" id="record-proxied" name="proxied">
-                            <option value="false">DNS only</option>
-                            <option value="true">Proxied</option>
+                <h2 class="h5 font-w700 mb-3" id="cloudflare-record-title">Add DNS record</h2>
+                <div class="command-form-group">
+                    <label class="command-form-label" for="record-type">Type</label>
+                    <div class="command-select-wrapper">
+                        <select class="command-form-control command-select" id="record-type" name="type" required>
+                            @foreach(['A', 'AAAA', 'CAA', 'CERT', 'CNAME', 'DNSKEY', 'DS', 'HTTPS', 'LOC', 'MX', 'NAPTR', 'NS', 'OPENPGPKEY', 'PTR', 'SMIMEA', 'SRV', 'SSHFP', 'SVCB', 'TLSA', 'TXT', 'URI'] as $type)
+                                <option value="{{ $type }}">{{ $type }}</option>
+                            @endforeach
                         </select>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label for="record-comment">Comment <small>(optional)</small></label>
-                    <input class="form-control" id="record-comment" name="comment" maxlength="500">
+                <div class="command-form-group">
+                    <label class="command-form-label" for="record-name">Name</label>
+                    <input class="command-form-control font-mono" id="record-name" name="name" required maxlength="253" placeholder="@ or mail">
+                    <small class="form-text text-muted">Relative names are saved inside {{ $domain->name }}. Fully qualified names must belong to this zone.</small>
                 </div>
-                <div class="form-group">
-                    <label for="record-data">Type-specific data <small>(optional JSON object)</small></label>
-                    <textarea class="form-control" id="record-data" name="data_json" maxlength="4000" spellcheck="false" placeholder='{"flags":0,"tag":"issue","value":"ca.example"}'></textarea>
+                <div class="command-form-group">
+                    <label class="command-form-label" for="record-content">Content</label>
+                    <textarea class="command-form-control font-mono" id="record-content" name="content" maxlength="4096" placeholder="IP address, target, text value, or other content"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="command-form-group col-md-4">
+                        <label class="command-form-label" for="record-ttl">TTL</label>
+                        <input class="command-form-control" id="record-ttl" name="ttl" type="number" min="1" max="86400" step="1" value="1" required>
+                        <small class="form-text text-muted">1 is automatic; otherwise use 60–86400 seconds.</small>
+                    </div>
+                    <div class="command-form-group col-md-4" id="record-priority-group">
+                        <label class="command-form-label" for="record-priority">Priority</label>
+                        <input class="command-form-control" id="record-priority" name="priority" type="number" min="0" max="65535" step="1">
+                    </div>
+                    <div class="command-form-group col-md-4" id="record-proxied-group">
+                        <label class="command-form-label" for="record-proxied">Proxy</label>
+                        <div class="command-select-wrapper">
+                            <select class="command-form-control command-select" id="record-proxied" name="proxied">
+                                <option value="false">DNS only</option>
+                                <option value="true">Proxied</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="command-form-group">
+                    <label class="command-form-label" for="record-comment">Comment <span class="command-form-hint">(optional)</span></label>
+                    <input class="command-form-control" id="record-comment" name="comment" maxlength="500">
+                </div>
+                <div class="command-form-group">
+                    <label class="command-form-label" for="record-data">Type-specific data <span class="command-form-hint">(optional JSON object)</span></label>
+                    <textarea class="command-form-control font-mono" id="record-data" name="data_json" maxlength="4000" spellcheck="false" placeholder='{"flags":0,"tag":"issue","value":"ca.example"}'></textarea>
                     <small class="form-text text-muted">Use this for structured record types such as CAA, SRV, TLSA, or URI. Cloudflare validates the fields for the selected type.</small>
                 </div>
-                <p class="text-muted">Cloudflare token needs DNS Write for changes. Deletes require explicit confirmation.</p>
-                <p id="cloudflare-form-error" class="text-danger" role="alert" aria-live="polite"></p>
-                <div class="cloudflare-dns-actions">
-                    <button class="btn btn-secondary" type="button" data-close-dialog>Cancel</button>
-                    <button class="btn btn-primary" id="save-cloudflare-record" type="submit">Save record</button>
+                <p class="text-muted font-size-xs">Cloudflare token needs DNS Write for changes. Deletes require explicit confirmation.</p>
+                <p id="cloudflare-form-error" class="text-danger font-size-xs" role="alert" aria-live="polite"></p>
+                <div class="cloudflare-dns-actions mt-3">
+                    <button class="btn-command-action mr-2" type="button" data-close-dialog>Cancel</button>
+                    <button class="btn-command-primary" id="save-cloudflare-record" type="submit">Save record</button>
                 </div>
             </form>
         </dialog>

@@ -267,7 +267,7 @@
                         <div class="form-group"><label for="warmup-seeds">Seeds: <span id="warmup-seed-total">{{ number_format($seedLists->whereIn('id', old('seed_list_ids', $content['seed_list_ids'] ?? []))->sum('emails_count')) }}</span></label><select id="warmup-seeds" name="seed_list_ids[]" class="form-control selectpicker" multiple data-live-search="true" data-actions-box="true" data-selected-text-format="count > 5" data-size="6">@foreach ($seedLists as $seedList)<option value="{{ $seedList->id }}" data-count="{{ $seedList->emails_count }}" @selected(in_array((int) $seedList->id, array_map('intval', old('seed_list_ids', $content['seed_list_ids'] ?? [])), true))>ID: {{ $seedList->id }}_{{ $seedList->name }} | TOTAL: {{ number_format($seedList->emails_count) }}</option>@endforeach</select><small class="form-text text-muted"><a href="{{ $seedListsUrl }}">Manage seed lists</a></small></div>
                         <div class="form-group"><label for="warmup-seed-accounts" class="sr-only">Seed accounts</label><textarea id="warmup-seed-accounts" name="seed_accounts_text" rows="10" class="form-control resize-none" placeholder="Seed accounts">{{ old('seed_accounts_text', $content['seed_accounts_text'] ?? '') }}</textarea></div>
                         @if ($draft)<div class="form-group"><label for="warmup-start-from">Start From:</label><input id="warmup-start-from" name="start_from" type="number" min="0" class="form-control" value="{{ old('start_from', $content['start_from'] ?? 0) }}"></div>@endif
-                        <div class="form-group"><label for="warmup-send-type">Send Type:</label><select id="warmup-send-type" name="send_type" class="form-control">@foreach ($warmupSendTypes as $type => $label)<option value="{{ $type }}" @selected(old('send_type', $content['send_type'] ?? 'delay') === $type)>{{ $label }}</option>@endforeach</select></div>
+                        <div class="form-group"><label for="warmup-send-type">Send Type:</label><select id="warmup-send-type" name="send_type" class="form-control selectpicker">@foreach ($warmupSendTypes as $type => $label)<option value="{{ $type }}" @selected(old('send_type', $content['send_type'] ?? 'delay') === $type)>{{ $label }}</option>@endforeach</select></div>
                         <div class="form-row">
                             <div class="col-sm-12 col-md-6">@foreach ([['total_send', 'Total Send', 1], ['sleep_email', 'Sleep Btw Email (MS)', 0], ['seed_every', 'Test After', 0]] as [$field, $label, $default])<div class="form-group"><label for="warmup-{{ $field }}">{{ $label }}:</label><input id="warmup-{{ $field }}" name="{{ $field }}" type="number" min="0" max="2147483647" class="form-control" value="{{ old($field, $content[$field] ?? $default) }}"></div>@endforeach</div>
                             <div class="col-sm-12 col-md-6">@foreach ([['fraction_ip', 'Fraction IP', 1], ['sleep_ip', 'Sleep Btw IP (MS)', 0], ['bounce_limit', 'Bounce Limit', 1000]] as [$field, $label, $default])<div class="form-group"><label for="warmup-{{ $field }}">{{ $label }}:</label><input id="warmup-{{ $field }}" name="{{ $field }}" type="number" min="0" max="2147483647" class="form-control" value="{{ old($field, $content[$field] ?? $default) }}"></div>@endforeach</div>
@@ -432,6 +432,138 @@
     .warmup-composer-page .warmup-composer-save:hover { color: #fff; filter: brightness(1.05); transform: translateY(-1px); }
     .warmup-composer-page dialog { background: var(--co-surface); border: 1px solid var(--co-border); border-radius: 16px; color: var(--co-ink); box-shadow: 0 24px 70px color-mix(in srgb, var(--co-ink) 25%, transparent); }
     .warmup-composer-page dialog::backdrop { background: rgb(19 13 48 / 54%); backdrop-filter: blur(4px); }
+    /* Warmup controls use one consistent surface, including bootstrap-select's generated button. */
+    .warmup-composer-page { min-width: 0; width: 100%; }
+    .warmup-composer-page > .block-content, .warmup-composer-page form, .warmup-composer-panel, .warmup-composer-panel .form-row, .warmup-composer-panel .form-group { min-width: 0; overflow: visible; }
+    .warmup-composer-page .form-group { margin-bottom: 13px; }
+    .warmup-composer-page label { font-size: 11px; font-weight: 760; letter-spacing: .005em; margin-bottom: 6px; }
+    .warmup-composer-page .form-control,
+    .warmup-composer-page .bootstrap-select > .dropdown-toggle {
+        background-color: color-mix(in srgb, var(--co-surface-muted) 46%, var(--co-surface));
+        border-color: var(--co-border-strong);
+        border-radius: 9px;
+        box-shadow: none;
+        color: var(--co-ink);
+        font-size: 12px;
+        min-height: 40px;
+        transition: background-color .16s ease, border-color .16s ease, box-shadow .16s ease;
+    }
+    .warmup-composer-page .form-control:not(textarea):not([multiple]):not(.bootstrap-select) { height: 40px; }
+    .warmup-composer-page .form-control:hover:not(:disabled):not(:focus),
+    .warmup-composer-page .bootstrap-select > .dropdown-toggle:hover { background-color: var(--co-surface); border-color: color-mix(in srgb, var(--co-purple) 34%, var(--co-border-strong)); }
+    .warmup-composer-page .form-control:focus,
+    .warmup-composer-page .bootstrap-select > .dropdown-toggle:focus,
+    .warmup-composer-page .bootstrap-select > .dropdown-toggle:focus-visible {
+        background-color: var(--co-surface);
+        border-color: var(--co-purple);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--co-purple) 13%, transparent);
+        outline: 0;
+    }
+    .warmup-composer-page .form-control:disabled { background-color: var(--co-surface-muted); color: var(--co-muted); cursor: not-allowed; opacity: .72; }
+    .warmup-composer-page select.form-control:not(.selectpicker):not([multiple]) {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23715be8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+        background-position: right 11px center;
+        background-repeat: no-repeat;
+        padding-right: 34px;
+    }
+    .warmup-composer-page .bootstrap-select { position: relative; }
+    .warmup-composer-page .bootstrap-select > .dropdown-toggle {
+        background-image: none;
+        border: 1px solid var(--co-border-strong);
+        height: 40px !important;
+        min-height: 40px !important;
+        padding: 0 11px !important;
+    }
+    .warmup-composer-page .bootstrap-select > .dropdown-toggle .filter-option { align-items: center; display: flex; }
+    .warmup-composer-page .bootstrap-select > .dropdown-toggle .filter-option-inner-inner { line-height: 1.35; }
+    .warmup-composer-page .bootstrap-select > .dropdown-toggle .bs-caret { align-items: center; color: var(--co-purple); display: inline-flex; margin-left: 8px; }
+    .warmup-composer-page .bootstrap-select.show,
+    .warmup-composer-page .bootstrap-select.open { position: relative; z-index: 1120; }
+    .warmup-composer-page .bootstrap-select > .dropdown-menu:not(.inner) {
+        background: var(--co-surface);
+        border: 1px solid var(--co-border);
+        border-radius: 12px;
+        box-shadow: 0 16px 36px color-mix(in srgb, var(--co-ink) 19%, transparent);
+        color: var(--co-ink);
+        max-width: min(calc(100vw - 24px), 620px);
+        min-width: 100%;
+        overflow: hidden;
+        padding: 6px;
+        z-index: 1125;
+    }
+    .warmup-composer-page .bootstrap-select .dropdown-menu.inner {
+        background: transparent !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        margin: 0;
+        padding: 2px 0;
+    }
+    .warmup-composer-page .bootstrap-select .dropdown-menu li a {
+        align-items: center;
+        border-radius: 7px;
+        color: var(--co-ink);
+        display: flex;
+        font-size: 12px;
+        line-height: 1.35;
+        min-height: 34px;
+        padding: 7px 10px;
+        white-space: normal;
+    }
+    .warmup-composer-page .bootstrap-select .dropdown-menu li a:hover,
+    .warmup-composer-page .bootstrap-select .dropdown-menu li.selected a,
+    .warmup-composer-page .bootstrap-select .dropdown-menu li.active a { background: color-mix(in srgb, var(--co-purple) 9%, var(--co-surface)); color: var(--co-purple); }
+    .warmup-composer-page .bootstrap-select .bs-searchbox { padding: 2px 2px 7px; }
+    .warmup-composer-page .bootstrap-select .bs-searchbox .form-control { background: var(--co-surface-muted); border: 1px solid var(--co-border); border-radius: 8px; font-size: 12px; min-height: 36px; }
+    .warmup-composer-page .bootstrap-select .bs-actionsbox { padding: 2px 2px 7px; }
+    .warmup-composer-page .bootstrap-select .bs-actionsbox .btn-group { display: flex; gap: 6px; width: 100%; }
+    .warmup-composer-page .bootstrap-select .bs-actionsbox .btn { background: color-mix(in srgb, var(--co-purple) 7%, var(--co-surface)); border: 1px solid color-mix(in srgb, var(--co-purple) 22%, var(--co-border)); border-radius: 7px !important; color: var(--co-purple); flex: 1 1 0; font-size: 10px; font-weight: 760; min-height: 31px; }
+    .warmup-composer-page .input-group { align-items: center; gap: 7px; }
+    .warmup-composer-page .input-group > .bootstrap-select.form-control { min-height: 0; }
+    .warmup-composer-page .campaign-header-library .input-group { gap: 7px; }
+    .warmup-composer-page .input-group-append { align-items: center; display: flex; gap: 6px; }
+    .warmup-composer-page .input-group-append .btn,
+    .warmup-composer-page .campaign-icon-button,
+    .warmup-composer-page #add-saved-email { border-radius: 9px; height: 40px; width: 40px; }
+    .warmup-composer-page .btn { align-items: center; border-radius: 9px; display: inline-flex; font-size: 11px; font-weight: 760; gap: 7px; justify-content: center; line-height: 1.2; min-height: 38px; transition: background-color .16s ease, border-color .16s ease, box-shadow .16s ease, color .16s ease, transform .16s ease; }
+    .warmup-composer-page .btn:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--co-purple) 15%, transparent); outline: 0; }
+    .warmup-composer-page .btn:not(:disabled):hover { transform: translateY(-1px); }
+    .warmup-composer-page .btn:disabled { cursor: not-allowed; opacity: .52; transform: none; }
+    .warmup-composer-page .btn-link { align-items: center; background: color-mix(in srgb, var(--co-purple) 7%, var(--co-surface)); border: 1px solid color-mix(in srgb, var(--co-purple) 18%, var(--co-border)); border-radius: 8px; color: var(--co-purple); display: inline-flex; height: 28px; justify-content: center; margin: 0 0 0 4px; min-height: 28px; padding: 0; text-decoration: none; vertical-align: middle; width: 28px; }
+    .warmup-composer-page .btn-link:hover { background: color-mix(in srgb, var(--co-purple) 13%, var(--co-surface)); color: var(--co-purple); }
+    .warmup-composer-page .warmup-composer-page .campaign-icon-button { box-shadow: 0 2px 7px color-mix(in srgb, var(--co-ink) 8%, transparent); }
+    .warmup-composer-page #mailer-header-shuffle,
+    .warmup-composer-page #mailer-insert-open-pixel,
+    .warmup-composer-page #mailer-body-preview-open,
+    .warmup-composer-page #reload-send-options { height: 29px; min-height: 29px; width: 29px; }
+    .warmup-composer-page .mailer-ip-selector { background: linear-gradient(145deg, color-mix(in srgb, var(--co-purple) 4%, var(--co-surface)), var(--co-surface)); border-radius: 14px; box-shadow: inset 0 1px 0 rgb(255 255 255 / 65%); padding: 13px; }
+    .warmup-composer-page .mailer-ip-selector select { height: 300px; min-height: 300px; padding: 8px; }
+    .warmup-composer-page .mailer-ip-selector select option { border-radius: 5px; padding: 5px 6px; }
+    .warmup-composer-page .mailer-ip-selector select option:checked { background: color-mix(in srgb, var(--co-purple) 16%, var(--co-surface)); color: var(--co-purple); }
+    .warmup-composer-page .mailer-ip-selector-actions { gap: 7px; }
+    .warmup-composer-page .mailer-ip-selector-actions .btn { background: var(--co-surface); border-color: var(--co-border); box-shadow: 0 2px 6px color-mix(in srgb, var(--co-ink) 7%, transparent); color: var(--co-purple); height: 36px; min-height: 36px; min-width: 38px; }
+    .warmup-composer-page .warmup-composer-save { box-shadow: 0 6px 16px color-mix(in srgb, var(--co-purple) 25%, transparent); font-size: 12px; min-height: 42px; }
+    .warmup-composer-page .warmup-composer-cancel { min-height: 40px; }
+    .warmup-composer-page dialog { margin: auto; max-height: min(86vh, 760px); }
+    .warmup-composer-page .mailer-preview-dialog { border: 1px solid var(--co-border); display: none; height: min(82vh, 760px); max-height: 86vh; max-width: min(1120px, calc(100vw - 28px)); overflow: hidden; width: min(1120px, calc(100vw - 28px)); }
+    .warmup-composer-page .mailer-preview-dialog[open] { display: flex; flex-direction: column; }
+    .warmup-composer-page .mailer-preview-header { background: linear-gradient(105deg, color-mix(in srgb, var(--co-purple) 7%, var(--co-surface)), var(--co-surface)); border-bottom: 1px solid var(--co-border); flex: 0 0 auto; min-height: 60px; padding: 12px 16px; }
+    .warmup-composer-page .mailer-preview-header h4,
+    .warmup-composer-page #mailer-tags-title { color: var(--co-ink); font-size: 15px; font-weight: 820; letter-spacing: -.02em; }
+    .warmup-composer-page .mailer-preview-header .btn { background: color-mix(in srgb, var(--co-purple) 7%, var(--co-surface)); border: 1px solid var(--co-border); color: var(--co-ink); height: 34px; min-height: 34px; width: 36px; }
+    .warmup-composer-page .mailer-preview-dialog iframe { flex: 1 1 auto; height: auto; min-height: 0; }
+    .warmup-composer-page .mailer-tags-dialog { max-width: min(1140px, calc(100vw - 28px)); overflow: auto; padding: 0; width: min(1140px, calc(100vw - 28px)); }
+    .warmup-composer-page .mailer-tags-dialog > .p-3 { padding: clamp(16px, 3vw, 28px) !important; }
+    .warmup-composer-page .mailer-tags-dialog h4 { color: var(--co-ink); font-size: 12px; font-weight: 800; margin: 18px 0 8px; }
+    .warmup-composer-page .mailer-tags-dialog p { color: var(--co-muted); font-size: 11px; line-height: 1.65; }
+    .warmup-composer-page .mailer-tags-dialog code { background: color-mix(in srgb, var(--co-purple) 9%, var(--co-surface)); border: 1px solid color-mix(in srgb, var(--co-purple) 16%, var(--co-border)); border-radius: 5px; color: var(--co-purple); padding: 2px 4px; white-space: normal; }
+    .warmup-composer-page .mailer-tags-dialog #mailer-tags-close { background: var(--co-surface); border: 1px solid var(--co-border); color: var(--co-ink); min-height: 34px; }
+    html[data-command-theme='dark'] .warmup-composer-page .form-control,
+    html[data-command-theme='dark'] .warmup-composer-page .bootstrap-select > .dropdown-toggle { background-color: color-mix(in srgb, var(--co-surface-muted) 54%, var(--co-surface)); }
+    html[data-command-theme='dark'] .warmup-composer-page .form-control:focus,
+    html[data-command-theme='dark'] .warmup-composer-page .bootstrap-select > .dropdown-toggle:focus { background-color: var(--co-surface); }
+    html[data-command-theme='dark'] .warmup-composer-page .mailer-ip-selector { box-shadow: inset 0 1px 0 rgb(255 255 255 / 3%); }
     @media (max-width: 1050px) {
         .warmup-composer-page .form-row.align-items-start > [class*="col-"] { flex: 0 0 100%; max-width: 100%; }
     }
@@ -439,12 +571,12 @@
         .warmup-composer-page > .warmup-composer-header { align-items: flex-start; flex-direction: column; padding: 14px; }
         .warmup-composer-page .block-options { flex: 1 1 auto; flex-wrap: wrap; justify-content: flex-start; width: 100%; }
         .warmup-composer-page > .block-content { padding: 12px; }
-        .warmup-composer-section-nav { gap: 5px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 10px; }
-        .warmup-composer-section-nav a { gap: 6px; min-height: 50px; padding: 6px; }
+        .warmup-composer-section-nav { gap: 6px; grid-template-columns: minmax(0, 1fr); margin-bottom: 12px; }
+        .warmup-composer-section-nav a { gap: 8px; min-height: 48px; padding: 7px 9px; }
         .warmup-composer-step-number { border-radius: 8px; flex-basis: 27px; height: 27px; font-size: 8px; }
-        .warmup-composer-step-copy strong { font-size: 9px; }
-        .warmup-composer-step-copy small { font-size: 7px; }
-        .warmup-composer-section-nav a > i { display: none; }
+        .warmup-composer-step-copy strong { font-size: 10px; }
+        .warmup-composer-step-copy small { font-size: 8px; }
+        .warmup-composer-section-nav a > i { display: block; }
         .warmup-composer-panel { padding: 11px 10px 5px; }
         .warmup-composer-panel-heading { margin: -11px -10px 11px; padding: 8px 10px; }
         .warmup-composer-page [data-campaign-placeholder-editor] > .block-header { align-items: flex-start; }
@@ -458,13 +590,18 @@
         .warmup-composer-page .form-row .form-group.col-sm-12 { flex-basis: 100%; max-width: 100%; }
         .warmup-composer-page .mailer-ip-selector select { min-height: 300px; }
         .warmup-composer-page .mailer-ip-selector-actions { flex-direction: row; padding: 8px 0; }
+        .warmup-composer-page .mailer-ip-selector select { height: 240px; min-height: 240px; }
+        .warmup-composer-page .input-group-append .btn,
+        .warmup-composer-page .campaign-icon-button,
+        .warmup-composer-page #add-saved-email { height: 38px; width: 38px; }
+        .warmup-composer-page .mailer-tags-dialog .row > [class*="col-"] { flex: 0 0 100%; max-width: 100%; }
         .warmup-composer-page textarea[name="header"], .warmup-composer-page textarea[name="html_body"] { min-height: 190px; }
     }
     @media (max-width: 390px) {
-        .warmup-composer-section-nav { gap: 4px; }
-        .warmup-composer-section-nav a { align-items: flex-start; flex-direction: column; min-height: 64px; }
-        .warmup-composer-step-copy strong { font-size: 9px; }
-        .warmup-composer-step-copy small { display: none; }
+        .warmup-composer-section-nav { gap: 5px; }
+        .warmup-composer-section-nav a { align-items: center; flex-direction: row; min-height: 46px; }
+        .warmup-composer-step-copy strong { font-size: 10px; }
+        .warmup-composer-step-copy small { display: block; }
     }
     @media (prefers-reduced-motion: reduce) {
         .warmup-composer-shell *, .warmup-composer-shell *::before, .warmup-composer-shell *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }

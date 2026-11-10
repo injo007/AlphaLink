@@ -1,63 +1,98 @@
 @extends('layouts.standalone')
 
-@section('title', $provider ? 'Edit Provider' : 'Add domains Provider')
+@section('title', $provider ? 'Edit Provider' : 'Add Domain Provider')
 
 @section('content')
-    <div class="block block-rounded">
-        <div class="block-header block-header-default">
-            <h3 class="block-title">@if ($provider) EDIT PROVIDER <span class="text-info">{{ $provider->id }} | {{ $provider->name }}</span> @else ADD PROVIDER @endif</h3>
-        </div>
-        <div class="block-content">
-            <div class="row justify-content-center py-1">
-                <div class="col-sm-10">
-                    @php
-                        $saveUrl = $provider
-                            ? route('clean.console.infrastructure.domain-providers.update', $provider->id)
-                            : route('clean.console.infrastructure.domain-providers.store');
-                        $testUrl = $provider
-                            ? route('clean.console.infrastructure.domain-providers.test-existing-connection', $provider->id)
-                            : route('clean.console.infrastructure.domain-providers.test-new-connection');
-                    @endphp
-                    <form id="domain-provider-form" action="{{ $saveUrl }}" data-test-url="{{ $testUrl }}" method="post">
-                        @csrf
-                        <div class="form-group">
-                            <label for="name">Name:</label>
-                            <input type="text" class="form-control form-control-alt" id="name" name="name" placeholder="Enter Provide Name ..." value="{{ $provider?->name }}" minlength="4" maxlength="255" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="type">Provider Type:</label>
-                            <select class="form-control selectpicker" id="type" name="type" required>
-                                @foreach ($types as $type)
-                                    <option value="{{ $type }}" @selected($provider?->type === $type)>{{ $type }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="username">Username:</label>
-                            <input type="text" class="form-control form-control-alt" id="username" name="username" placeholder="Enter Username ..." value="{{ $provider?->username }}" minlength="4" maxlength="255">
-                        </div>
-                        <div class="form-group">
-                            <label for="password">Password:</label>
-                            <input type="password" class="form-control form-control-alt" id="password" name="password" placeholder="Enter Password ..." minlength="4" maxlength="255" autocomplete="new-password">
-                        </div>
-                        <div class="form-group">
-                            <label for="api_key" id="api-key-label">Api Key:</label>
-                            <input type="password" class="form-control form-control-alt" id="api_key" name="api_key" placeholder="{{ $provider ? 'Leave empty to keep saved credential' : 'Enter Api Key ...' }}" minlength="4" maxlength="255" autocomplete="new-password" @required(! $provider)>
-                        </div>
-                        <div class="form-group">
-                            <label for="api_secret">Api Secret: <small>(Leave Empty If None)</small></label>
-                            <input type="password" class="form-control form-control-alt" id="api_secret" name="api_secret" placeholder="Enter Api Secret ..." minlength="4" maxlength="255" autocomplete="new-password">
-                        </div>
-                        <div class="form-group">
-                            <div id="provider-result" class="alert d-none" role="status" aria-live="polite"></div>
-                            <div class="d-flex flex-wrap justify-content-between">
-                                <button id="test-provider" class="btn btn-alt-primary mb-2" type="button">TEST CONNECTION</button>
-                                <button id="save-provider" class="btn {{ $provider ? 'btn-warning' : 'btn-info' }} mb-2" type="submit">{{ $provider ? 'EDIT' : 'SAVE' }}</button>
-                            </div>
-                        </div>
-                    </form>
+    <div class="command-modal-surface">
+        <div class="command-modal-hero">
+            <div class="command-modal-hero-left">
+                <div class="command-modal-hero-icon">
+                    <i class="fas fa-cloud"></i>
+                </div>
+                <div>
+                    <div class="command-modal-hero-eyebrow">DNS GATEWAYS // API CONFIGURATION</div>
+                    <h3 class="command-modal-hero-title">
+                        @if ($provider)
+                            EDIT PROVIDER <span class="badge badge-purple ml-2">#{{ $provider->id }} &bull; {{ $provider->name }}</span>
+                        @else
+                            CONNECT DOMAIN PROVIDER
+                        @endif
+                    </h3>
                 </div>
             </div>
+        </div>
+
+        <div class="command-modal-body">
+            @php
+                $saveUrl = $provider
+                    ? route('clean.console.infrastructure.domain-providers.update', $provider->id)
+                    : route('clean.console.infrastructure.domain-providers.store');
+                $testUrl = $provider
+                    ? route('clean.console.infrastructure.domain-providers.test-existing-connection', $provider->id)
+                    : route('clean.console.infrastructure.domain-providers.test-new-connection');
+            @endphp
+            <form id="domain-provider-form" action="{{ $saveUrl }}" data-test-url="{{ $testUrl }}" method="post">
+                @csrf
+                <div class="command-form-group">
+                    <label class="command-form-label" for="name">
+                        <i class="fas fa-tag mr-1 text-purple"></i> PROVIDER NAME
+                    </label>
+                    <input type="text" class="command-form-control" id="name" name="name" placeholder="Enter provider name..." value="{{ $provider?->name }}" minlength="4" maxlength="255" required>
+                </div>
+
+                <div class="command-form-group">
+                    <label class="command-form-label" for="type">
+                        <i class="fas fa-layer-group mr-1 text-purple"></i> PROVIDER TYPE
+                    </label>
+                    <div class="command-select-wrapper">
+                        <select class="command-form-control command-select" id="type" name="type" required>
+                            @foreach ($types as $type)
+                                <option value="{{ $type }}" @selected($provider?->type === $type)>{{ strtoupper($type) }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+
+                <div class="command-form-group">
+                    <label class="command-form-label" for="username">
+                        <i class="fas fa-user mr-1 text-purple"></i> USERNAME
+                    </label>
+                    <input type="text" class="command-form-control font-mono" id="username" name="username" placeholder="Enter account username..." value="{{ $provider?->username }}" minlength="4" maxlength="255">
+                </div>
+
+                <div class="command-form-group">
+                    <label class="command-form-label" for="password">
+                        <i class="fas fa-key mr-1 text-purple"></i> PASSWORD
+                    </label>
+                    <input type="password" class="command-form-control font-mono" id="password" name="password" placeholder="Enter account password..." minlength="4" maxlength="255" autocomplete="new-password">
+                </div>
+
+                <div class="command-form-group">
+                    <label class="command-form-label" for="api_key" id="api-key-label">
+                        <i class="fas fa-shield-alt mr-1 text-purple"></i> API KEY
+                    </label>
+                    <input type="password" class="command-form-control font-mono" id="api_key" name="api_key" placeholder="{{ $provider ? 'Leave empty to keep saved credential' : 'Enter API key / token...' }}" minlength="4" maxlength="255" autocomplete="new-password" @required(! $provider)>
+                </div>
+
+                <div class="command-form-group">
+                    <label class="command-form-label" for="api_secret">
+                        <i class="fas fa-lock mr-1 text-purple"></i> API SECRET <span class="command-form-hint">(LEAVE EMPTY IF NONE)</span>
+                    </label>
+                    <input type="password" class="command-form-control font-mono" id="api_secret" name="api_secret" placeholder="Enter API secret if applicable..." minlength="4" maxlength="255" autocomplete="new-password">
+                </div>
+
+                <div class="command-form-group mt-3">
+                    <div id="provider-result" class="alert d-none py-2 px-3 font-size-sm" role="status" aria-live="polite"></div>
+                    <div class="d-flex flex-wrap align-items-center justify-content-between pt-2">
+                        <button id="test-provider" class="btn-command-action mb-2" type="button">
+                            <i class="fas fa-bolt mr-1"></i> TEST CONNECTION
+                        </button>
+                        <button id="save-provider" class="btn-command-primary mb-2" type="submit">
+                            <i class="fas fa-check mr-1"></i> {{ $provider ? 'UPDATE PROVIDER' : 'CONNECT PROVIDER' }}
+                        </button>
+                    </div>
+                </div>
+            </form>
         </div>
     </div>
 @endsection
@@ -76,11 +111,11 @@
         const resultBox = document.querySelector('#provider-result');
         const syncProviderFields = () => {
             const cloudflare = providerType.value === 'cloudflare';
-            username.closest('.form-group').hidden = cloudflare;
-            password.closest('.form-group').hidden = cloudflare;
-            apiSecret.closest('.form-group').hidden = cloudflare;
+            username.closest('.command-form-group').hidden = cloudflare;
+            password.closest('.command-form-group').hidden = cloudflare;
+            apiSecret.closest('.command-form-group').hidden = cloudflare;
             username.required = !cloudflare;
-            apiKeyLabel.textContent = cloudflare ? 'Cloudflare API Token:' : 'Api Key:';
+            apiKeyLabel.innerHTML = cloudflare ? '<i class="fas fa-shield-alt mr-1 text-purple"></i> CLOUDFLARE API TOKEN:' : '<i class="fas fa-shield-alt mr-1 text-purple"></i> API KEY:';
             apiKey.placeholder = cloudflare
                 ? 'Token with Zone Read, DNS Read, and DNS Write permissions'
                 : @json($provider ? 'Leave empty to keep saved credential' : 'Enter Api Key ...');
@@ -91,10 +126,10 @@
 
         testButton.addEventListener('click', async () => {
             const form = document.querySelector('#domain-provider-form');
-            const originalText = testButton.textContent;
+            const originalHtml = testButton.innerHTML;
             testButton.disabled = true;
-            testButton.textContent = 'TESTING…';
-            resultBox.className = 'alert d-none';
+            testButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> TESTING…';
+            resultBox.className = 'alert d-none py-2 px-3 font-size-sm';
             resultBox.textContent = '';
 
             try {
@@ -112,14 +147,14 @@
                     const errors = Object.values(body.errors ?? {}).flat();
                     throw new Error(errors.join(' ') || 'Connection check could not be completed.');
                 }
-                resultBox.className = `alert alert-${body.success ? 'success' : 'danger'}`;
+                resultBox.className = `alert alert-${body.success ? 'success' : 'danger'} py-2 px-3 font-size-sm`;
                 resultBox.textContent = body.message;
             } catch (error) {
-                resultBox.className = 'alert alert-danger';
+                resultBox.className = 'alert alert-danger py-2 px-3 font-size-sm';
                 resultBox.textContent = error.message || 'Connection check could not be completed.';
             } finally {
                 testButton.disabled = false;
-                testButton.textContent = originalText;
+                testButton.innerHTML = originalHtml;
             }
         });
 
@@ -129,9 +164,10 @@
             const button = form.querySelector('#save-provider');
             const result = form.querySelector('#provider-result');
             const payload = Object.fromEntries(new FormData(form));
+            const originalHtml = button.innerHTML;
             button.disabled = true;
-            button.textContent = 'SAVING';
-            result.className = 'alert alert-danger d-none';
+            button.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> SAVING…';
+            result.className = 'alert alert-danger d-none py-2 px-3 font-size-sm';
             result.textContent = '';
 
             try {
@@ -161,7 +197,7 @@
                 result.classList.remove('d-none');
             } finally {
                 button.disabled = false;
-                button.textContent = @json($provider ? 'EDIT' : 'SAVE');
+                button.innerHTML = originalHtml;
             }
         });
     </script>

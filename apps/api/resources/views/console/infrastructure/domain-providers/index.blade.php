@@ -122,6 +122,7 @@
                                 const link = @json(route('clean.console.infrastructure.domain-providers.create'));
                                 const iframe = `<iframe src="${escapeHtml(link)}" width="100%" scrolling="no" frameborder="0" title="Add domain provider"></iframe>`;
                                 window.providerDialog = bootbox.dialog({
+                                    className: 'command-modal-dialog',
                                     scrollable: true,
                                     closeButton: true,
                                     size: 'lg',
@@ -169,6 +170,7 @@
                 const link = `${base}/${encodeURIComponent(this.dataset.id)}/edit`;
                 const iframe = `<iframe src="${escapeHtml(link)}" width="100%" scrolling="no" frameborder="0" title="Edit domain provider"></iframe>`;
                 window.providerDialog = bootbox.dialog({
+                    className: 'command-modal-dialog',
                     scrollable: true, closeButton: true, size: 'lg', message: iframe,
                     onEscape: true, centerVertical: true,
                 }).on('shown.bs.modal', function () {
@@ -198,6 +200,12 @@
                 } finally {
                     button.innerHTML = original;
                     button.disabled = false;
+                }
+            });
+
+            window.addEventListener('message', function (event) {
+                if (event.data && event.data.type === 'alphalink-dialog-resize' && event.data.height) {
+                    $('.command-modal-dialog iframe').css('height', event.data.height + 'px');
                 }
             });
 

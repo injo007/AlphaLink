@@ -8,9 +8,22 @@
         display: flex;
         flex-wrap: wrap;
         align-items: center;
-        gap: 8px;
+        justify-content: space-between;
+        gap: 12px;
         padding: 1rem 1.25rem;
         border-bottom: 1px solid var(--command-os-border, rgba(99, 102, 241, 0.12));
+    }
+    .command-cloud-toolbar-left {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .command-cloud-toolbar-right {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
     }
 </style>
 @endpush
@@ -143,7 +156,7 @@
                 <span class="badge-command-pill" style="font-weight: 700; color: #8b5cf6; padding: 6px 14px;">
                     <i class="fas fa-server mr-1"></i> <span id="cloud-instance-count">0</span> INSTANCES
                 </span>
-                <div class="command-btn-group ml-1">
+                <div class="command-btn-group">
                     <button id="cloud-select-none" class="btn-command-action" type="button" title="SELECT NONE" style="padding: 6px 12px; font-size: 0.75rem;">
                         <i class="far fa-square mr-1"></i> SELECT NONE
                     </button>
@@ -151,7 +164,7 @@
                         <i class="far fa-check-square mr-1"></i> SELECT ALL
                     </button>
                 </div>
-                <div class="command-btn-group ml-2">
+                <div class="command-btn-group">
                     <button id="cloud-delete-selected" class="btn-command-danger" type="button" disabled style="padding: 6px 14px; font-size: 0.75rem;">
                         <i class="fas fa-trash-alt mr-1"></i> DELETE INSTANCES
                     </button>

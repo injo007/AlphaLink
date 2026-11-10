@@ -9,106 +9,61 @@
             display: none !important;
         }
 
-        @media (min-width: 1200px) and (max-width: 1399.98px) {
-            #pmta-admin-fields-row {
-                margin-left: 0;
-                margin-right: 0;
-            }
+        .pmta-admin-container {
+            width: 100%;
+        }
 
-            #pmta-admin-controls {
-                display: grid;
-                flex: 0 0 69.5rem;
-                grid-template-columns: repeat(12, minmax(0, 1fr));
-                gap: 0 .5rem;
-                max-width: 69.5rem;
-                min-width: 69.5rem;
-                padding: 0;
-                width: 100%;
-            }
+        .pmta-admin-surface {
+            background: rgba(139, 92, 246, 0.03);
+            border: 1px solid var(--command-os-border, rgba(139, 92, 246, 0.12));
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            transition: all 0.2s ease;
+        }
 
-            #pmta-admin-server-column {
-                grid-column: 1 / -1;
-                grid-row: 1;
-                margin-left: 3.9%;
-                max-width: 69.1%;
-                width: 69.1%;
-            }
+        html[data-command-theme='dark'] .pmta-admin-surface {
+            background: rgba(15, 23, 42, 0.45);
+            border-color: rgba(139, 92, 246, 0.22);
+        }
 
-            #pmta-admin-tag-column {
-                grid-column: 1 / -1;
-                grid-row: 1;
-                margin-left: 74.3%;
-                max-width: 24%;
-                width: 24%;
-            }
+        .pmta-admin-action-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
 
-            #pmta-admin-controls > fieldset {
-                grid-column: 1 / -1;
-                grid-row: 2;
-                margin-left: 1.6%;
-                margin-top: -.9rem;
-                margin-bottom: -.2rem;
-                width: 25%;
-            }
+        .pmta-admin-action-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
 
-            #pmta-admin-controls > fieldset > div {
-                align-items: flex-start !important;
-                flex-direction: column;
-            }
+        .pmta-automation-box {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            height: 100%;
+        }
 
-            #pmta-admin-controls > fieldset .custom-control-inline {
-                display: block;
-                margin-right: 0;
-            }
+        .pmta-automation-input-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
 
-            #pmta-admin-controls > fieldset .custom-control-inline + .custom-control-inline {
-                margin-top: .7rem;
+        @media (max-width: 767.98px) {
+            .pmta-automation-input-row {
+                flex-wrap: wrap;
             }
-
-            #pmta-admin-controls > fieldset > div > .font-weight-bold {
-                display: none;
+            .pmta-automation-input-row input {
+                width: 100% !important;
+                flex: 1 1 100% !important;
             }
-
-            #pmta-admin-action-row {
-                align-self: end;
-                grid-column: 1 / span 4;
-                grid-row: 3;
-                margin-left: .14rem;
-                margin-bottom: .5rem;
-                text-align: left !important;
-            }
-
-            #pmta-admin-schedule-row {
-                display: contents;
-            }
-
-            #pmta-admin-schedule-row .pmta-admin-schedule-column,
-            #pmta-admin-schedule-row .pmta-admin-restart-column {
-                align-self: end;
-                flex: none;
-                max-width: none;
-                padding-left: 0;
-                padding-right: 0;
-                width: auto;
-            }
-
-            #pmta-admin-schedule-row .pmta-admin-schedule-column {
-                grid-column: 5 / span 4;
-                grid-row: 3;
-                left: -.83rem;
-                position: relative;
-            }
-
-            #pmta-admin-schedule-row .pmta-admin-restart-column {
-                grid-column: 9 / span 4;
-                grid-row: 3;
-                left: .1rem;
-                position: relative;
-            }
-
-            #pmta-admin-results-column {
-                grid-column: 1 / -1;
-                grid-row: 4;
+            .pmta-automation-input-row button {
+                flex: 1 1 calc(50% - 4px);
             }
         }
     </style>
@@ -151,81 +106,101 @@
                 </div>
             </div>
 
-            <div class="row justify-content-center" id="pmta-admin-fields-row">
-                <div class="col-sm-12 col-md-7" id="pmta-admin-controls">
-                    <div class="form-group" id="pmta-admin-server-column">
-                        <label class="command-form-label" for="pmta-admin-servers">
-                            Servers:
-                            <button type="button" class="btn-command-action ml-1" id="pmta-admin-reload-servers" title="Reload servers" aria-label="Reload servers" style="padding: 2px 8px; font-size: 0.75rem;"><i class="fas fa-sync-alt" aria-hidden="true"></i></button>
-                            <button type="button" class="btn-command-action ml-1" id="pmta-admin-search-servers" title="Search servers" aria-label="Search servers" style="padding: 2px 8px; font-size: 0.75rem;"><i class="fas fa-search" aria-hidden="true"></i></button>
-                        </label>
-                        <select class="form-control selectpicker" id="pmta-admin-servers" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 5" multiple title="Select Servers">
-                            @foreach ($servers as $server)
-                                <option value="{{ $server['id'] }}" data-panel-url="{{ $server['pmta_panel_url'] }}" data-monitor-url="{{ $server['pmta_panel_display_url'] }}" data-monitor-endpoint="{{ $server['ip'] }}:{{ $pmtaAdminPort }}" data-monitor-proxied="{{ $server['pmta_panel_display_url'] !== $server['pmta_panel_url'] ? 'true' : 'false' }}" @selected(in_array((string) $server['id'], $selectedServerIds, true))>{{ $server['name'] }} | {{ $server['ip'] }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <fieldset class="form-group border-0 p-0 mb-2">
-                        <legend class="sr-only">Queue:</legend>
-                        <div class="d-flex align-items-center" style="gap: 16px;">
-                            <span class="command-form-label mb-0" aria-hidden="true">Queue:</span>
-                            <label class="mb-0 d-inline-flex align-items-center" style="gap: 4px; font-size: 0.8125rem; font-weight: 600; cursor: pointer;">
-                                <input type="radio" id="pmta-domain-queue" name="pmta-queue" value="domain" checked>
-                                <span>Domain</span>
+            <div class="pmta-admin-container" id="pmta-admin-controls">
+                <!-- 1. Configuration Row: Servers on Left, Queue Target on Right -->
+                <div class="row mb-3" id="pmta-admin-fields-row">
+                    <div class="col-lg-6 mb-3 mb-lg-0" id="pmta-admin-server-column">
+                        <div class="form-group mb-0">
+                            <label class="command-form-label d-flex align-items-center justify-content-between mb-2" for="pmta-admin-servers">
+                                <span><i class="fas fa-server mr-1 text-purple"></i> SERVERS:</span>
+                                <span class="d-inline-flex" style="gap: 4px;">
+                                    <button type="button" class="btn-command-action" id="pmta-admin-reload-servers" title="Reload servers" aria-label="Reload servers" style="padding: 2px 8px; font-size: 0.75rem;"><i class="fas fa-sync-alt" aria-hidden="true"></i></button>
+                                    <button type="button" class="btn-command-action" id="pmta-admin-search-servers" title="Search servers" aria-label="Search servers" style="padding: 2px 8px; font-size: 0.75rem;"><i class="fas fa-search" aria-hidden="true"></i></button>
+                                </span>
                             </label>
-                            <label class="mb-0 d-inline-flex align-items-center" style="gap: 4px; font-size: 0.8125rem; font-weight: 600; cursor: pointer;">
-                                <input type="radio" id="pmta-campaign-queue" name="pmta-queue" value="campaign">
-                                <span>Job ID</span>
-                            </label>
-                        </div>
-                    </fieldset>
-                    <div class="form-group" id="pmta-admin-tag-column">
-                        <label class="sr-only" for="pmta-admin-tag-entry">Domain/VMTA or Job ID</label>
-                        <div class="form-control d-flex flex-wrap align-items-center" id="pmta-admin-tag-box" style="min-height: 38px; height: auto; gap: .35rem; padding: .35rem .65rem; border-radius: 10px;">
-                            <div class="d-flex flex-wrap align-items-center" id="pmta-admin-tags" aria-live="polite"></div>
-                            <input id="pmta-admin-tag-entry" type="text" class="border-0 flex-grow-1" style="width: 0; min-width: 0; outline: none; background: transparent; font-size: 0.8125rem;" placeholder="Domain/VMTA" autocomplete="off">
+                            <select class="form-control selectpicker" id="pmta-admin-servers" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 5" multiple title="Select Servers">
+                                @foreach ($servers as $server)
+                                    <option value="{{ $server['id'] }}" data-panel-url="{{ $server['pmta_panel_url'] }}" data-monitor-url="{{ $server['pmta_panel_display_url'] }}" data-monitor-endpoint="{{ $server['ip'] }}:{{ $pmtaAdminPort }}" data-monitor-proxied="{{ $server['pmta_panel_display_url'] !== $server['pmta_panel_url'] ? 'true' : 'false' }}" @selected(in_array((string) $server['id'], $selectedServerIds, true))>{{ $server['name'] }} | {{ $server['ip'] }}</option>
+                                @endforeach
+                            </select>
                         </div>
                     </div>
-                    <div class="form-group text-center" id="pmta-admin-action-row" role="group" aria-label="PMTA queue actions" style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
-                        @foreach (['pause' => 'PAUSE', 'resume' => 'RESUME', 'delete' => 'DELETE', 'reset' => 'RESET'] as $action => $label)
-                            <button type="button" class="btn-command-primary pmta-admin-action" data-action="{{ $action }}" style="padding: 6px 14px; font-size: 0.75rem;">{{ $label }}</button>
-                        @endforeach
-                        <button type="button" class="btn-command-danger" id="pmta-admin-clear" style="padding: 6px 14px; font-size: 0.75rem;">CLEAR</button>
-                    </div>
-                    <div class="row" id="pmta-admin-schedule-row">
-                        <div class="col-sm-12 col-md-6 pmta-admin-schedule-column">
-                            <div class="form-group">
-                                <label class="sr-only" for="pmta-admin-seconds">Seconds between queue schedules</label>
-                                <div class="input-group input-group-sm">
-                                    <input id="pmta-admin-seconds" class="form-control" type="number" min="1" placeholder="Seconds &gt;= 1">
-                                    <div class="input-group-append">
-                                        <button type="button" class="btn-command-primary pmta-admin-action" data-action="schedule">SCHEDULE</button>
-                                        <button type="button" class="btn-command-danger" id="pmta-admin-stop-schedule">STOP</button>
-                                    </div>
-                                </div>
+                    <div class="col-lg-6" id="pmta-admin-tag-column">
+                        <div class="form-group mb-0">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <span class="command-form-label mb-0"><i class="fas fa-filter mr-1 text-purple"></i> QUEUE TARGET:</span>
+                                <fieldset class="border-0 p-0 m-0 d-inline-flex align-items-center" style="gap: 14px;">
+                                    <legend class="sr-only">Queue:</legend>
+                                    <label class="mb-0 d-inline-flex align-items-center" style="gap: 4px; font-size: 0.8125rem; font-weight: 600; cursor: pointer;">
+                                        <input type="radio" id="pmta-domain-queue" name="pmta-queue" value="domain" checked>
+                                        <span>DOMAIN / VMTA</span>
+                                    </label>
+                                    <label class="mb-0 d-inline-flex align-items-center" style="gap: 4px; font-size: 0.8125rem; font-weight: 600; cursor: pointer;">
+                                        <input type="radio" id="pmta-campaign-queue" name="pmta-queue" value="campaign">
+                                        <span>JOB ID</span>
+                                    </label>
+                                </fieldset>
                             </div>
-                        </div>
-                        <div class="col-sm-12 col-md-6 pmta-admin-restart-column">
-                            <div class="form-group">
-                                <label class="sr-only" for="pmta-admin-restart-seconds">Seconds between PMTA restarts</label>
-                                <div class="input-group input-group-sm">
-                                    <input id="pmta-admin-restart-seconds" class="form-control" type="number" min="5" placeholder="Seconds &gt;= 5">
-                                    <div class="input-group-append">
-                                        <button type="button" class="btn-command-action pmta-admin-restart">RESTART</button>
-                                        <button type="button" class="btn-command-danger" id="pmta-admin-stop-restart">STOP</button>
-                                    </div>
-                                </div>
+                            <div class="form-control d-flex flex-wrap align-items-center" id="pmta-admin-tag-box" style="min-height: 40px; height: auto; gap: .35rem; padding: .35rem .65rem; border-radius: 10px;">
+                                <div class="d-flex flex-wrap align-items-center" id="pmta-admin-tags" aria-live="polite"></div>
+                                <input id="pmta-admin-tag-entry" type="text" class="border-0 flex-grow-1" style="width: 0; min-width: 100px; outline: none; background: transparent; font-size: 0.8125rem;" placeholder="Type Domain/VMTA and press Enter..." autocomplete="off">
                             </div>
                         </div>
                     </div>
-                    <div id="pmta-admin-results-column">
-                        <p id="pmta-admin-schedule-status" class="small text-muted mb-2" hidden role="status" aria-live="polite"></p>
-                        <div class="table-responsive d-none" id="pmta-admin-results-wrap">
-                            <table class="table table-sm table-hover table-striped command-os-table" id="pmta-admin-results" aria-live="polite">
-                                <thead><tr><th>Run</th><th>Server</th><th>Command</th><th>Result</th></tr></thead>
-                                <tbody></tbody>
-                            </table>
+                </div>
+
+                <!-- 2. Queue Operations Action Bar -->
+                <div class="pmta-admin-surface mb-3">
+                    <div class="pmta-admin-action-bar">
+                        <span class="font-w700 d-inline-flex align-items-center" style="font-size: 0.75rem; letter-spacing: 0.05em; color: var(--command-os-text-muted, #64748b); text-transform: uppercase;">
+                            <i class="fas fa-tasks mr-1 text-purple"></i> Queue Controls
+                        </span>
+                        <div id="pmta-admin-action-row" class="pmta-admin-action-group" role="group" aria-label="PMTA queue actions">
+                            <button type="button" class="btn-command-primary pmta-admin-action" data-action="pause" style="padding: 7px 14px; font-size: 0.75rem;"><i class="fas fa-pause mr-1"></i> PAUSE</button>
+                            <button type="button" class="btn-command-primary pmta-admin-action" data-action="resume" style="padding: 7px 14px; font-size: 0.75rem;"><i class="fas fa-play mr-1"></i> RESUME</button>
+                            <button type="button" class="btn-command-primary pmta-admin-action" data-action="delete" style="padding: 7px 14px; font-size: 0.75rem;"><i class="fas fa-trash-alt mr-1"></i> DELETE</button>
+                            <button type="button" class="btn-command-primary pmta-admin-action" data-action="reset" style="padding: 7px 14px; font-size: 0.75rem;"><i class="fas fa-undo mr-1"></i> RESET</button>
+                            <button type="button" class="btn-command-danger" id="pmta-admin-clear" style="padding: 7px 14px; font-size: 0.75rem;"><i class="fas fa-broom mr-1"></i> CLEAR</button>
                         </div>
+                    </div>
+                </div>
+
+                <!-- 3. Automation Intervals (Schedule & Restart) -->
+                <div class="row mb-3" id="pmta-admin-schedule-row">
+                    <div class="col-md-6 mb-3 mb-md-0 pmta-admin-schedule-column">
+                        <div class="pmta-admin-surface pmta-automation-box">
+                            <label class="command-form-label mb-0" for="pmta-admin-seconds" style="font-size: 0.8125rem;">
+                                <i class="fas fa-clock mr-1 text-purple"></i> Queue Runner Interval:
+                            </label>
+                            <div class="pmta-automation-input-row">
+                                <input id="pmta-admin-seconds" class="command-form-control flex-grow-1" type="number" min="1" placeholder="Seconds &gt;= 1" style="height: 38px;">
+                                <button type="button" class="btn-command-primary pmta-admin-action text-nowrap" data-action="schedule" style="height: 38px; padding: 0 14px; font-size: 0.75rem;"><i class="fas fa-calendar-alt mr-1"></i> SCHEDULE</button>
+                                <button type="button" class="btn-command-danger text-nowrap" id="pmta-admin-stop-schedule" style="height: 38px; padding: 0 14px; font-size: 0.75rem;"><i class="fas fa-stop mr-1"></i> STOP</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 pmta-admin-restart-column">
+                        <div class="pmta-admin-surface pmta-automation-box">
+                            <label class="command-form-label mb-0" for="pmta-admin-restart-seconds" style="font-size: 0.8125rem;">
+                                <i class="fas fa-redo-alt mr-1 text-purple"></i> Daemon Auto-Restart Interval:
+                            </label>
+                            <div class="pmta-automation-input-row">
+                                <input id="pmta-admin-restart-seconds" class="command-form-control flex-grow-1" type="number" min="5" placeholder="Seconds &gt;= 5" style="height: 38px;">
+                                <button type="button" class="btn-command-action pmta-admin-restart text-nowrap" style="height: 38px; padding: 0 14px; font-size: 0.75rem;"><i class="fas fa-sync-alt mr-1"></i> RESTART</button>
+                                <button type="button" class="btn-command-danger text-nowrap" id="pmta-admin-stop-restart" style="height: 38px; padding: 0 14px; font-size: 0.75rem;"><i class="fas fa-stop mr-1"></i> STOP</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Results Column -->
+                <div id="pmta-admin-results-column">
+                    <p id="pmta-admin-schedule-status" class="small text-muted mb-2" hidden role="status" aria-live="polite"></p>
+                    <div class="table-responsive d-none" id="pmta-admin-results-wrap">
+                        <table class="table table-sm table-hover table-striped command-os-table" id="pmta-admin-results" aria-live="polite">
+                            <thead><tr><th>Run</th><th>Server</th><th>Command</th><th>Result</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
                     </div>
                 </div>
             </div>

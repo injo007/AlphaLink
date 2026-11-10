@@ -426,10 +426,25 @@ body.command-os-shell #sidebar .nav-main-submenu .nav-main-link {
     padding-top: 5px;
     padding-bottom: 5px;
     font-size: 10px;
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
 }
 
 body.command-os-shell #sidebar .nav-main-submenu .nav-main-link-icon {
     font-size: 11px;
+}
+
+body.command-os-shell #sidebar .nav-main-submenu .nav-main-link.active,
+#sidebar .nav-main-submenu .nav-main-link.active {
+    color: #fff !important;
+    background: linear-gradient(100deg, #7040ee, #9943f7) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 12px rgb(114 61 232 / 25%) !important;
+}
+
+body.command-os-shell #sidebar .nav-main-submenu .nav-main-link.active .nav-main-link-icon,
+#sidebar .nav-main-submenu .nav-main-link.active .nav-main-link-icon {
+    color: #fff !important;
 }
 
 body.command-os-shell #sidebar .nav-main-link[aria-disabled='true'] {
@@ -9797,14 +9812,15 @@ html[data-command-theme='light'] .command-trigger-bar {
     display: inline-flex !important;
     align-items: center !important;
     margin-bottom: 0 !important;
-    padding-left: 50px !important; /* Exactly 38px track + 12px whitespace gap */
+    padding-left: 48px !important;
+    padding-right: 6px !important;
     min-height: 24px !important;
-    height: 24px !important;
+    height: auto !important;
     font-size: 0.75rem !important;
     font-weight: 700 !important;
     letter-spacing: 0.04em !important;
     text-transform: uppercase !important;
-    line-height: 24px !important;
+    line-height: 1.4 !important;
     cursor: pointer !important;
     white-space: nowrap !important;
     color: var(--command-os-text, #1e293b) !important;
@@ -9826,16 +9842,16 @@ html[data-command-theme='light'] .command-switch-item .command-switch-label {
     color: #8b5cf6 !important;
 }
 
-/* Track pill (::before) - Exactly 20px height at top: 2px, perfectly centered in 24px row */
+/* Track pill (::before) - Exactly 20px height, centered vertically with translateY(-50%) */
 .custom-control.custom-switch .custom-control-label::before,
 .command-switch-item .command-switch-label::before {
     content: "" !important;
     position: absolute !important;
     left: 0 !important;
-    top: 2px !important;
+    top: 50% !important;
     bottom: auto !important;
     right: auto !important;
-    transform: none !important;
+    transform: translateY(-50%) !important;
     width: 38px !important;
     height: 20px !important;
     border-radius: 9999px !important;
@@ -9852,16 +9868,16 @@ html[data-command-theme='dark'] .command-switch-item .command-switch-label::befo
     border-color: rgba(255, 255, 255, 0.14) !important;
 }
 
-/* Thumb circle (::after) - Exactly 16px circle, top: 4px, left: 2px (2px inset on all sides) */
+/* Thumb circle (::after) - Exactly 16px circle, left: 2px, centered vertically with translateY(-50%) */
 .custom-control.custom-switch .custom-control-label::after,
 .command-switch-item .command-switch-label::after {
     content: "" !important;
     position: absolute !important;
     left: 2px !important;
-    top: 4px !important;
+    top: 50% !important;
     bottom: auto !important;
     right: auto !important;
-    transform: none !important;
+    transform: translateY(-50%) !important;
     width: 16px !important;
     height: 16px !important;
     border-radius: 50% !important;
@@ -9872,7 +9888,7 @@ html[data-command-theme='dark'] .command-switch-item .command-switch-label::befo
     box-sizing: border-box !important;
 }
 
-/* Checked state - thumb translates 18px horizontally (2px + 18px = 20px, 38px - 20px - 16px = 2px inset on right) */
+/* Checked state - thumb translates 18px horizontally while staying centered */
 .custom-control.custom-switch .custom-control-input:checked ~ .custom-control-label::before,
 .command-switch-item input[type="checkbox"]:checked ~ .command-switch-label::before {
     background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%) !important;
@@ -9883,8 +9899,8 @@ html[data-command-theme='dark'] .command-switch-item .command-switch-label::befo
 .custom-control.custom-switch .custom-control-input:checked ~ .custom-control-label::after,
 .command-switch-item input[type="checkbox"]:checked ~ .command-switch-label::after {
     left: 2px !important;
-    top: 4px !important;
-    transform: translateX(18px) !important;
+    top: 50% !important;
+    transform: translate(18px, -50%) !important;
     background: #ffffff !important;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3) !important;
 }
@@ -10853,6 +10869,20 @@ html[data-command-theme='dark'] .command-cloud-toolbar {
 }
 
 .command-btn-group {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    flex-wrap: wrap !important;
+}
+
+/* Universal Button Group & Input Group protection against sticking */
+.input-group .input-group-append > .btn,
+.input-group .input-group-append > [class*="btn-command-"] {
+    margin-left: 8px !important;
+    border-radius: 8px !important;
+}
+
+.input-group-append {
     display: inline-flex !important;
     align-items: center !important;
     gap: 8px !important;

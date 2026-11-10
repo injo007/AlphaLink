@@ -296,7 +296,7 @@
 
                     const domainCell = document.createElement('td');
                     domainCell.style.fontWeight = '600';
-                    domainCell.textContent = assignment.domain_name || 'No domain';
+                    domainCell.textContent = assignment.domain_name || assignment.domain || 'No domain';
                     row.append(domainCell);
 
                     const actionCell = document.createElement('td');
@@ -353,7 +353,7 @@
                     const response = await fetch(serverUrl(configUrl, requestedServerId), {headers: {Accept: 'application/json'}});
                     const config = await response.json();
                     if (serverSelect.value !== requestedServerId) return;
-                    if (!response.ok) throw new Error(config.message || 'Could not load server configuration.');
+                    if (!response.ok) throw new Error(config.message || config.data || 'Could not load server configuration.');
 
                     document.getElementById('reinstall-pmta-version').value = String(config.pmta_version || 45);
                     for (const option of ['pmta', 'tracking', 'https', 'proxy', 'imap', 'spf', 'dkim', 'dmarc']) {
@@ -390,7 +390,7 @@
                     });
                     const ips = await response.json();
                     if (serverSelect.value !== requestedServerId || loadedServerId !== requestedServerId) return;
-                    if (!response.ok) throw new Error(ips.message || 'Could not reload IPs.');
+                    if (!response.ok) throw new Error(ips.message || ips.data || 'Could not reload IPs.');
                     const assignments = Array.isArray(ips.assignments)
                         ? ips.assignments
                         : (Array.isArray(ips.data) ? ips.data : []);
@@ -433,6 +433,7 @@
                     clearError();
                     reinstallButton.disabled = true;
                     reinstallButton.textContent = 'REINSTALLING…';
+                    serverSelect.disabled = true;
                     loadButton.disabled = true;
                     reloadButton.disabled = true;
                     configureButton.disabled = true;
@@ -494,6 +495,7 @@
                         log.textContent = failure.message || 'The reinstall request could not be completed.';
                     } finally {
                         reinstallButton.textContent = 'REINSTALL SERVER';
+                        serverSelect.disabled = false;
                         loadButton.disabled = false;
                         reloadButton.disabled = false;
                         configureButton.disabled = false;

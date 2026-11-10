@@ -21,7 +21,7 @@
 
     <div class="global-user-permissions-custom" id="permission-custom-access" @if ($fullAccessRole) hidden @endif>
         <div class="global-user-permissions-toolbar">
-            <p id="permission-state" role="status" aria-live="polite">Role defaults are selected. Change any permission for this account.</p>
+            <p id="permission-state" role="status" aria-live="polite">@if ($permissionsAreRoleDefaults) Role defaults are selected. Change any permission for this account. @else Custom permissions are selected for this account. @endif</p>
             <div class="global-user-permissions-toolbar-actions">
                 <button type="button" class="global-user-permissions-button" id="reset-role-permissions">Reset to role defaults</button>
                 <button type="button" class="global-user-permissions-button global-user-permissions-mailer-preset" id="apply-mailer-permissions" hidden>Apply mailer sending access</button>
@@ -194,6 +194,7 @@
         const permissionDefaults = @json($permissionDefaults);
         const mailerPermissions = @json($mailerPermissions);
         const roleLabels = @json(\App\Models\User::ACCESS_ROLE_LABELS);
+        const permissionsAreRoleDefaults = @json($permissionsAreRoleDefaults);
         const mailerPreset = document.getElementById('apply-mailer-permissions');
 
         function updateFullAccessState(role) {
@@ -226,6 +227,10 @@
         });
         accountType?.addEventListener('change', () => updateMailerPreset(roleSelect.value));
 
+        checkboxes.forEach((checkbox) => checkbox.addEventListener('change', () => {
+            if (status) status.textContent = 'Custom permissions selected. Save the account to apply these choices.';
+        }));
+
         document.getElementById('reset-role-permissions')?.addEventListener('click', () => {
             const role = roleSelect.value;
             setPermissions(permissionDefaults[role] || [], role);
@@ -238,5 +243,8 @@
         });
 
         updateFullAccessState(roleSelect.value);
+        if (!permissionsAreRoleDefaults && status && roleSelect.value !== 'owner' && roleSelect.value !== 'admin') {
+            status.textContent = 'Custom permissions are selected for this account.';
+        }
     })();
 </script>

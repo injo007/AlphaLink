@@ -13,7 +13,7 @@
                 <i class="fas fa-project-diagram"></i>
             </div>
             <div class="command-os-report-hero-copy">
-                <p class="command-os-report-eyebrow">CAMPAIGN STUDIO // GOOGLE WORKSPACE DISPATCH</p>
+                <p class="command-os-report-eyebrow">CAMPAIGN STUDIO // GMAIL PROJECTS</p>
                 <h1 id="gsend-projects-title">GSEND PROJECTS</h1>
                 <p>Configure Google Cloud service projects, API client access, authorization keys, and user permissions.</p>
             </div>
@@ -75,7 +75,11 @@
                 <button id="workspace-projects-users" type="button">ALLOWED USERS</button>
                 <button id="workspace-projects-delete" type="button">DELETE SELECTED</button>
             @endif
+            <button id="workspace-project-refresh" type="button">REFRESH PROJECTS</button>
             <button id="workspace-project-add" type="button">ADD PROJECT</button>
+            <span>SELECT NONE</span>
+            <span>SELECT ALL</span>
+            <span>ADD NEW PROJECT</span>
         </div>
 
         <!-- 4. Table Card -->
@@ -145,20 +149,22 @@
                                     <span class="text-muted small"><i class="far fa-clock mr-1"></i>{{ $project->created_at?->format('Y-m-d H:i') ?? '—' }}</span>
                                 </td>
                                 <td class="text-right text-nowrap">
-                                    <button class="btn btn-sm btn-outline-info mr-1" type="button" data-project-sync="{{ $project->id }}" title="SYNC PROJECT{{ $project->synced_at ? ' — Last synced '.$project->synced_at->format('Y-m-d H:i:s') : ' — Not synced yet' }}" aria-label="Sync {{ $project->name }}">
-                                        <i class="fas fa-sync-alt" aria-hidden="true"></i>
-                                    </button>
-                                    <button class="btn btn-sm {{ $project->is_active ? 'btn-outline-warning' : 'btn-outline-success' }} mr-1" type="button" data-project-status="{{ $project->id }}" title="{{ $project->is_active ? 'DISABLE' : 'ENABLE' }} PROJECT" aria-label="{{ $project->is_active ? 'Disable' : 'Enable' }} {{ $project->name }}">
-                                        <i class="fas {{ $project->is_active ? 'fa-pause' : 'fa-play' }}" aria-hidden="true"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-primary mr-1" type="button" data-project-edit="{{ $project->id }}" title="EDIT PROJECT" aria-label="Edit {{ $project->name }}">
-                                        <i class="fas fa-pencil-alt" aria-hidden="true"></i>
-                                    </button>
-                                    @if ($canManageProjects)
-                                        <button class="btn btn-sm btn-outline-danger" type="button" data-project-delete="{{ $project->id }}" title="DELETE PROJECT" aria-label="Delete {{ $project->name }}">
-                                            <i class="fas fa-trash-alt" aria-hidden="true"></i>
+                                    <div class="command-action-btn-group justify-content-end">
+                                        <button class="command-action-btn action-info" type="button" data-project-sync="{{ $project->id }}" title="SYNC PROJECT{{ $project->synced_at ? ' — Last synced '.$project->synced_at->format('Y-m-d H:i:s') : ' — Not synced yet' }}" aria-label="Sync {{ $project->name }}">
+                                            <i class="fas fa-sync-alt" aria-hidden="true"></i>
                                         </button>
-                                    @endif
+                                        <button class="command-action-btn {{ $project->is_active ? 'action-warning' : 'action-success' }}" type="button" data-project-status="{{ $project->id }}" title="{{ $project->is_active ? 'DISABLE' : 'ENABLE' }} PROJECT" aria-label="{{ $project->is_active ? 'Disable' : 'Enable' }} {{ $project->name }}">
+                                            <i class="fas {{ $project->is_active ? 'fa-pause' : 'fa-play' }}" aria-hidden="true"></i>
+                                        </button>
+                                        <button class="command-action-btn action-primary" type="button" data-project-edit="{{ $project->id }}" title="EDIT PROJECT" aria-label="Edit {{ $project->name }}">
+                                            <i class="fas fa-pencil-alt" aria-hidden="true"></i>
+                                        </button>
+                                        @if ($canManageProjects)
+                                            <button class="command-action-btn action-danger" type="button" data-project-delete="{{ $project->id }}" title="DELETE PROJECT" aria-label="Delete {{ $project->name }}">
+                                                <i class="fas fa-trash-alt" aria-hidden="true"></i>
+                                            </button>
+                                        @endif
+                                    </div>
                                 </td>
                             </tr>
                         @empty

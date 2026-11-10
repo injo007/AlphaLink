@@ -160,19 +160,21 @@
                                     <span class="text-muted small"><i class="far fa-clock mr-1"></i>{{ $account->created_at?->format('Y-m-d H:i') ?? '—' }}</span>
                                 </td>
                                 <td class="text-right text-nowrap">
-                                    <button class="btn btn-sm btn-command-action mr-1" type="button" disabled title="Per-account OAuth authentication is not configured in AlphaLink">AUTH</button>
-                                    @if ($account->is_active)
-                                        <button class="btn btn-sm btn-outline-warning mr-1" type="button" data-account-id="{{ $account->id }}" data-account-status="0" title="DISABLE ACCOUNT" aria-label="Disable {{ $account->email }}">
-                                            <i class="fas fa-pause" aria-hidden="true"></i>
+                                    <div class="command-action-btn-group justify-content-end">
+                                        <button class="command-action-btn action-primary" type="button" disabled title="Per-account OAuth authentication is not configured in AlphaLink" style="width: auto; padding: 0 10px; font-weight: 700; font-size: 0.6875rem;">AUTH</button>
+                                        @if ($account->is_active)
+                                            <button class="command-action-btn action-warning" type="button" data-account-id="{{ $account->id }}" data-account-status="0" title="DISABLE ACCOUNT" aria-label="Disable {{ $account->email }}">
+                                                <i class="fas fa-pause" aria-hidden="true"></i>
+                                            </button>
+                                        @else
+                                            <button class="command-action-btn action-success" type="button" data-account-id="{{ $account->id }}" data-account-status="1" title="ENABLE ACCOUNT" aria-label="Enable {{ $account->email }}">
+                                                <i class="fas fa-play" aria-hidden="true"></i>
+                                            </button>
+                                        @endif
+                                        <button class="command-action-btn action-danger" type="button" data-account-delete="{{ $account->id }}" title="DELETE ACCOUNT" aria-label="Delete {{ $account->email }}">
+                                            <i class="fas fa-trash-alt" aria-hidden="true"></i>
                                         </button>
-                                    @else
-                                        <button class="btn btn-sm btn-outline-success mr-1" type="button" data-account-id="{{ $account->id }}" data-account-status="1" title="ENABLE ACCOUNT" aria-label="Enable {{ $account->email }}">
-                                            <i class="fas fa-play" aria-hidden="true"></i>
-                                        </button>
-                                    @endif
-                                    <button class="btn btn-sm btn-outline-danger" type="button" data-account-delete="{{ $account->id }}" title="DELETE ACCOUNT" aria-label="Delete {{ $account->email }}">
-                                        <i class="fas fa-trash-alt" aria-hidden="true"></i>
-                                    </button>
+                                    </div>
                                 </td>
                             </tr>
                         @empty

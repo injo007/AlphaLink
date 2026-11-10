@@ -6,37 +6,141 @@
 <link rel="stylesheet" href="{{ asset('vendor/select2/4.0.13/select2.min.css') }}">
 <style>
     .pmta-schedule-tags + .select2-container { width: 100% !important; }
-    .pmta-schedule-tags + .select2-container .select2-selection--multiple { min-height: 38px; border-color: #d1d9e0; border-radius: .25rem; }
-    .pmta-schedule-tags + .select2-container .select2-selection__choice { margin-top: 5px; }
+    .pmta-schedule-tags + .select2-container .select2-selection--multiple {
+        min-height: 40px;
+        background: var(--command-os-card-bg, #ffffff);
+        border: 1px solid var(--command-os-border, rgba(99, 102, 241, 0.18));
+        border-radius: 12px;
+        padding: 2px 6px;
+    }
+    .pmta-schedule-tags + .select2-container .select2-selection__choice {
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.15)) !important;
+        border: 1px solid rgba(99, 102, 241, 0.3) !important;
+        border-radius: 8px !important;
+        color: #6366f1 !important;
+        font-weight: 600 !important;
+        font-size: 0.75rem !important;
+        margin-top: 4px;
+        padding: 2px 8px !important;
+    }
+    .pmta-schedule-tags + .select2-container .select2-selection__choice__remove {
+        color: #ef4444 !important;
+        margin-right: 4px !important;
+    }
+    .pmta-queue-radio-group {
+        display: flex;
+        gap: 16px;
+        margin-top: 8px;
+    }
+    .pmta-queue-radio {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        cursor: pointer;
+    }
 </style>
 @endpush
 
 @section('content')
-<section class="block" id="pmta-scheduler"
-    data-store-url="{{ route('console.pmta-scheduler.store', $workspace->id) }}"
-    data-data-url="{{ route('console.pmta-scheduler.data', $workspace->id) }}"
-    data-delete-url="{{ route('console.pmta-scheduler.destroy', [$workspace->id, '__ID__']) }}">
-    <div class="block-header"><h3 class="block-title">pmta scheduler</h3><div class="block-options"><button type="button" class="btn-block-option" data-toggle="block-option" data-action="content_toggle" aria-label="Collapse PMTA scheduler"><i class="si si-arrow-up"></i></button></div></div>
-    <div class="block-content">
+<div class="command-os-report-page">
+    <!-- 1. Hero Header -->
+    <header class="command-os-report-hero mb-4">
+        <div class="command-os-report-hero-left">
+            <div class="command-os-report-hero-icon" aria-hidden="true">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div>
+                <div class="command-os-report-hero-eyebrow">DAEMON AUTOMATION // CRON SCHEDULES</div>
+                <h1 class="command-os-report-hero-title">PMTA SCHEDULER</h1>
+                <p class="command-os-report-hero-desc">Automated queue operations, interval-based pausing, resuming, and resets across managed servers.</p>
+            </div>
+        </div>
+        <div class="command-os-report-hero-right">
+            <div class="command-os-report-hero-meta">
+                <span class="command-os-report-badge">DAEMON CRON</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- 2. Form Card -->
+    <div class="command-os-table-card p-4 mb-4" id="pmta-scheduler"
+        data-store-url="{{ route('console.pmta-scheduler.store', $workspace->id) }}"
+        data-data-url="{{ route('console.pmta-scheduler.data', $workspace->id) }}"
+        data-delete-url="{{ route('console.pmta-scheduler.destroy', [$workspace->id, '__ID__']) }}">
+        
+        <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+            <h3 style="font-size: 0.9375rem; font-weight: 700; color: var(--command-os-text, #1e293b); margin: 0; text-transform: uppercase; letter-spacing: 0.04em;">
+                <i class="fas fa-plus-circle mr-1 text-purple"></i> Schedule Queue Task
+            </h3>
+        </div>
+
         <div class="row">
             <div class="col-sm-12 col-md-3">
-                <div class="form-group"><label for="pmta-schedule-servers">Servers:</label><select id="pmta-schedule-servers" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 5" multiple title="Select Servers">@foreach ($servers as $server)<option value="{{ $server->id }}">{{ $server->name }} | {{ $server->ip_address }}</option>@endforeach</select></div>
+                <div class="form-group mb-2">
+                    <label class="command-form-label" for="pmta-schedule-servers">Servers:</label>
+                    <select id="pmta-schedule-servers" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 5" multiple title="Select Servers">
+                        @foreach ($servers as $server)
+                            <option value="{{ $server->id }}">{{ $server->name }} | {{ $server->ip_address }}</option>
+                        @endforeach
+                    </select>
+                </div>
                 <fieldset class="form-group mb-0" role="radiogroup" aria-labelledby="pmta-schedule-queue-label">
                     <legend class="sr-only" id="pmta-schedule-queue-label">Queue</legend>
-                    <label class="custom-control custom-radio d-block mb-1"><input class="custom-control-input" type="radio" name="pmta-schedule-queue" value="domain" checked><span class="custom-control-label">Domain</span></label>
-                    <label class="custom-control custom-radio d-block mb-0"><input class="custom-control-input" type="radio" name="pmta-schedule-queue" value="campaign"><span class="custom-control-label">Job Id</span></label>
+                    <div class="pmta-queue-radio-group">
+                        <label class="pmta-queue-radio">
+                            <input type="radio" name="pmta-schedule-queue" value="domain" checked>
+                            <span>Domain</span>
+                        </label>
+                        <label class="pmta-queue-radio">
+                            <input type="radio" name="pmta-schedule-queue" value="campaign">
+                            <span>Job Id</span>
+                        </label>
+                    </div>
                 </fieldset>
             </div>
-            <div class="col-sm-12 col-md-3 form-group"><label for="pmta-schedule-tags">Tags (domain/vmta):</label><select id="pmta-schedule-tags" class="form-control pmta-schedule-tags" multiple><option value="*/*" selected>*/*</option></select></div>
-            <div class="col-sm-12 col-md-2 form-group"><label for="pmta-schedule-action">Action:</label><select id="pmta-schedule-action" class="form-control selectpicker" data-live-search="true"><option value="pause">PAUSE</option><option value="resume">RESUME</option><option value="delete">DELETE</option><option value="reset">RESET</option><option value="schedule">SCHEDULE</option></select></div>
-            <div class="col-sm-12 col-md-2 form-group"><label for="pmta-schedule-frequency">Frequency:</label><select id="pmta-schedule-frequency" class="form-control selectpicker" data-live-search="true" data-size="6">@foreach ($frequencies as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach</select></div>
+            <div class="col-sm-12 col-md-3 form-group mb-2">
+                <label class="command-form-label" for="pmta-schedule-tags">Tags (domain/vmta):</label>
+                <select id="pmta-schedule-tags" class="form-control pmta-schedule-tags" multiple>
+                    <option value="*/*" selected>*/*</option>
+                </select>
+            </div>
+            <div class="col-sm-12 col-md-3 form-group mb-2">
+                <label class="command-form-label" for="pmta-schedule-action">Action:</label>
+                <select id="pmta-schedule-action" class="form-control selectpicker" data-live-search="true">
+                    <option value="pause">PAUSE</option>
+                    <option value="resume">RESUME</option>
+                    <option value="delete">DELETE</option>
+                    <option value="reset">RESET</option>
+                    <option value="schedule">SCHEDULE</option>
+                </select>
+            </div>
+            <div class="col-sm-12 col-md-3 form-group mb-2">
+                <label class="command-form-label" for="pmta-schedule-frequency">Frequency:</label>
+                <select id="pmta-schedule-frequency" class="form-control selectpicker" data-live-search="true" data-size="6">
+                    @foreach ($frequencies as $value => $label)
+                        <option value="{{ $value }}">{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
         </div>
-        <div class="row"><div class="col-sm-12"><div class="form-group text-md-right"><button class="btn btn-primary" type="button" id="pmta-schedule-add">ADD TASK</button></div></div></div>
-        <hr>
-        <div class="sr-only" id="pmta-schedule-status" role="status" aria-live="polite"></div>
-        <div class="table-responsive"><table class="table table-sm table-hover table-striped" id="pmta-schedule-table"></table></div>
+
+        <div class="d-flex justify-content-end mt-3 pt-3 border-top">
+            <button class="btn-command-primary" type="button" id="pmta-schedule-add">
+                <i class="fas fa-calendar-plus mr-1"></i> ADD TASK
+            </button>
+        </div>
     </div>
-</section>
+
+    <!-- 3. Scheduled Tasks Table Card -->
+    <div class="command-os-table-card">
+        <div class="sr-only" id="pmta-schedule-status" role="status" aria-live="polite"></div>
+        <div class="table-responsive">
+            <table class="table table-sm table-hover table-striped command-os-table" id="pmta-schedule-table" aria-label="Scheduled tasks"></table>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -55,21 +159,45 @@ const initializePmtaScheduler = () => {
     };
     const announce = (message, tone = 'info') => { status.textContent = message; if (window.AlphaLinkToast) window.AlphaLinkToast.show(message, tone); };
     const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
-    const formatTags = (values) => (values || []).map((value) => `<span class="badge badge-primary mr-1">${escapeHtml(value).toUpperCase()}</span>`).join(' ');
+    const formatTags = (values) => (values || []).map((value) => `<span class="badge-command-pill mr-1">${escapeHtml(value).toUpperCase()}</span>`).join(' ');
     const grid = window.jQuery?.fn?.DataTable ? window.jQuery('#pmta-schedule-table').DataTable({
         ajax: { url: root.dataset.dataUrl, dataSrc: 'data' },
+        dom: '<"command-table-toolbar"<"command-table-toolbar-left"lB><"command-table-toolbar-right"f>>rt<"command-table-footer"ip>',
         buttons: [
-            { extend: 'pageLength' },
-            { text: '<i class="fas fa-sync"></i>', titleAttr: 'REFRESH', action: (event, table) => table.ajax.reload(null, false) },
+            { extend: 'pageLength', className: 'btn-command-action' },
+            {
+                text: '<i class="fas fa-sync mr-1"></i> REFRESH',
+                className: 'btn-command-action',
+                titleAttr: 'REFRESH',
+                action: (event, table) => table.ajax.reload(null, false)
+            },
         ],
         displayLength: 50, order: [[0, 'desc']],
         columns: [
-            { title: '#', data: 'id' }, { title: 'USER', data: 'user' },
+            {
+                title: '#', data: 'id', width: '5%',
+                render: (value, type) => type === 'display' ? `<span class="command-mono-badge">#${value}</span>` : value
+            },
+            {
+                title: 'USER', data: 'user',
+                render: (val, type) => type === 'display' ? `<strong>${escapeHtml(val || '')}</strong>` : val
+            },
             { title: 'SERVERS', data: 'servers', render: (data, type) => type === 'display' ? formatTags(data) : (data || []).join(' ') },
-            { title: 'QUEUE', data: 'queue' },
+            {
+                title: 'QUEUE', data: 'queue',
+                render: (val) => `<span class="badge-command-pill" style="font-weight: 700; color: #8b5cf6;">${escapeHtml(val || '').toUpperCase()}</span>`
+            },
             { title: 'TAGS', data: 'tags', render: (data, type) => type === 'display' ? formatTags(data) : (data || []).join(' ') },
-            { title: 'TODO', data: 'action' }, { title: 'FREQUENCY', data: 'frequency' }, { title: 'CREATED AT', data: 'created_at' },
-            { title: 'ACTIONS', data: null, orderable: false, searchable: false, render: (data, type, row) => `<button type="button" class="btn btn-sm btn-danger pmta-schedule-stop" data-id="${Number(row.id)}">STOP</button>` },
+            {
+                title: 'TODO', data: 'action',
+                render: (val) => `<span class="badge-command-pill" style="font-weight: 700; color: #6366f1;">${escapeHtml(val || '').toUpperCase()}</span>`
+            },
+            { title: 'FREQUENCY', data: 'frequency' },
+            { title: 'CREATED AT', data: 'created_at', render: (val, type) => type === 'display' ? `<span style="font-size: 0.8125rem; color: var(--command-os-text-muted, #64748b);">${escapeHtml(val || '')}</span>` : val },
+            {
+                title: 'ACTIONS', data: null, orderable: false, searchable: false,
+                render: (data, type, row) => `<div class="command-action-btn-group"><button type="button" class="command-action-btn action-danger pmta-schedule-stop" data-id="${Number(row.id)}" title="STOP TASK" aria-label="Stop Task"><i class="fas fa-trash"></i></button></div>`
+            },
         ],
     }) : null;
     document.getElementById('pmta-schedule-table').addEventListener('click', async (event) => {

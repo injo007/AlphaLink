@@ -2,30 +2,149 @@
 
 @section('title', 'Pmta SMTP')
 
+@push('styles')
+<style>
+    .command-switch-box {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    #pmta-smtp-ip-search {
+        border: none;
+        border-radius: 16px;
+        background: var(--command-os-card-bg, #ffffff);
+        color: var(--command-os-text, #1e293b);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+        padding: 0;
+        max-width: 540px;
+        width: 90vw;
+    }
+    #pmta-smtp-ip-search::backdrop {
+        background: rgba(15, 23, 42, 0.7);
+        backdrop-filter: blur(4px);
+    }
+</style>
+@endpush
+
 @section('content')
-<div id="pmta-smtp" data-push-url="{{ route('console.pmta-smtp.push', $workspace->id) }}" data-restore-url="{{ route('console.pmta-smtp.restore', $workspace->id) }}" data-rows-url="{{ route('console.pmta-smtp.rows', $workspace->id) }}" data-delete-url="{{ route('console.pmta-smtp.rows.destroy', $workspace->id) }}">
-    <section class="block block-rounded">
-        <div class="block-header"><h3 class="block-title">Pmta SMTP</h3><div class="block-options"><button type="button" class="btn-block-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle fullscreen"><i class="fas fa-expand-arrows-alt"></i></button></div></div>
-        <div class="block-content block-content-full">
-            <div class="row justify-content-center"><div class="col-sm-12 col-md-6">
-                <div class="form-group">
-                    <label for="pmta-smtp-ips">Ips: <button type="button" class="btn btn-link btn-sm p-0" id="pmta-smtp-search-ips" title="Search Servers" aria-label="Search IPs"><i class="fas fa-search"></i></button></label>
-                    <select id="pmta-smtp-ips" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 5" multiple title="Select Ips">@foreach ($ips as $ip)<option value="{{ $ip->id }}" data-server-id="{{ $ip->managed_server_id }}">{{ $ip->server?->name }} | {{ $ip->ip }}</option>@endforeach</select>
-                </div>
-                <div class="form-group"><label for="pmta-smtp-lines">SMTP: (username,password,route,port,domain*)</label><textarea id="pmta-smtp-lines" rows="5" class="form-control" placeholder="username,password,route,port"></textarea><small class="text-info">* OPTIONAL</small></div>
-                <div class="form-group"><div class="custom-control custom-switch custom-control-inline"><input type="checkbox" class="custom-control-input" id="pmta-smtp-gscript"><label class="custom-control-label" for="pmta-smtp-gscript">GSCRIPT</label><button type="button" class="btn btn-link btn-sm p-0 ml-1" id="pmta-smtp-copy-script" title="Copy script" aria-label="Copy Google Apps Script"><i class="fas fa-copy"></i></button></div></div>
-                <div class="form-group"><button type="button" id="pmta-smtp-push" class="btn btn-primary">PUSH</button><button type="button" id="pmta-smtp-reset" class="btn btn-danger float-md-right">RESET</button></div>
-                <div class="form-group"><div class="table-responsive"><table id="pmta-smtp-result" class="table table-sm table-hover table-bordered"></table></div></div>
-                <div id="pmta-smtp-status" class="sr-only" role="status" aria-live="polite"></div>
-            </div></div>
+<div class="command-os-report-page">
+    <!-- 1. Hero Header -->
+    <header class="command-os-report-hero mb-4">
+        <div class="command-os-report-hero-left">
+            <div class="command-os-report-hero-icon" aria-hidden="true">
+                <i class="fas fa-bus-alt"></i>
+            </div>
+            <div>
+                <div class="command-os-report-hero-eyebrow">SMTP SUITE // AUTHENTICATED RELAYS</div>
+                <h1 class="command-os-report-hero-title">PMTA SMTP</h1>
+                <p class="command-os-report-hero-desc">Direct SMTP user credential provisioning, port bindings, relay routing, and Google Apps Script integrations.</p>
+            </div>
         </div>
-    </section>
-    <section class="block block-rounded mb-2">
-        <div class="block-header block-header-default"><h3 class="block-title">MY SMTP</h3><div class="block-options"><button type="button" class="btn-block-option" data-toggle="block-option" data-action="content_toggle" aria-label="Collapse MY SMTP"><i class="si si-arrow-up"></i></button></div></div>
-        <div class="block-content block-content-full"><div class="table-responsive"><table id="pmta-smtp-table" class="table table-sm table-hover table-striped"></table></div></div>
-    </section>
+        <div class="command-os-report-hero-right">
+            <div class="command-os-report-hero-meta">
+                <span class="command-os-report-badge">SMTP RELAYS</span>
+            </div>
+        </div>
+    </header>
+
+    <div id="pmta-smtp"
+        data-push-url="{{ route('console.pmta-smtp.push', $workspace->id) }}"
+        data-restore-url="{{ route('console.pmta-smtp.restore', $workspace->id) }}"
+        data-rows-url="{{ route('console.pmta-smtp.rows', $workspace->id) }}"
+        data-delete-url="{{ route('console.pmta-smtp.rows.destroy', $workspace->id) }}">
+
+        <!-- 2. Form Card -->
+        <div class="command-os-table-card p-4 mb-4">
+            <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+                <h3 style="font-size: 0.9375rem; font-weight: 700; color: var(--command-os-text, #1e293b); margin: 0; text-transform: uppercase; letter-spacing: 0.04em;">
+                    <i class="fas fa-plus-circle mr-1 text-purple"></i> Configure &amp; Deploy SMTP Identities
+                </h3>
+            </div>
+            <div class="row justify-content-center">
+                <div class="col-sm-12 col-md-8">
+                    <div class="form-group mb-3">
+                        <label class="command-form-label" for="pmta-smtp-ips">
+                            IP Allocations:
+                            <button type="button" class="btn-command-action ml-1" id="pmta-smtp-search-ips" title="Search Servers" aria-label="Search IPs" style="padding: 2px 8px; font-size: 0.75rem;">
+                                <i class="fas fa-search"></i> SEARCH
+                            </button>
+                        </label>
+                        <select id="pmta-smtp-ips" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 5" multiple title="Select Ips">
+                            @foreach ($ips as $ip)
+                                <option value="{{ $ip->id }}" data-server-id="{{ $ip->managed_server_id }}">{{ $ip->server?->name }} | {{ $ip->ip }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label class="command-form-label" for="pmta-smtp-lines">
+                            SMTP Credentials: <span style="font-size: 0.75rem; color: var(--command-os-text-muted, #64748b);">(username,password,route,port,domain*)</span>
+                        </label>
+                        <textarea id="pmta-smtp-lines" rows="5" class="form-control" placeholder="username,password,route,port" style="font-family: monospace;"></textarea>
+                        <small class="text-info mt-1 d-block" style="font-size: 0.75rem;">* OPTIONAL: domain directive</small>
+                    </div>
+                    <div class="form-group mb-3 d-flex align-items-center justify-content-between">
+                        <div class="command-switch-box">
+                            <div class="custom-control custom-switch">
+                                <input type="checkbox" class="custom-control-input" id="pmta-smtp-gscript">
+                                <label class="custom-control-label command-form-label mb-0" for="pmta-smtp-gscript">GSCRIPT COMPATIBILITY</label>
+                            </div>
+                            <button type="button" class="btn-command-action ml-2" id="pmta-smtp-copy-script" title="Copy Google Apps Script" aria-label="Copy Google Apps Script" style="padding: 2px 8px; font-size: 0.75rem;">
+                                <i class="fas fa-copy mr-1"></i> COPY SCRIPT
+                            </button>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                        <button type="button" id="pmta-smtp-push" class="btn-command-primary">
+                            <i class="fas fa-upload mr-1"></i> PUSH SMTP
+                        </button>
+                        <button type="button" id="pmta-smtp-reset" class="btn-command-danger">
+                            <i class="fas fa-trash-alt mr-1"></i> RESET SMTP
+                        </button>
+                    </div>
+                    <div class="table-responsive mt-3">
+                        <table id="pmta-smtp-result" class="table table-sm table-hover table-striped command-os-table"></table>
+                    </div>
+                    <div id="pmta-smtp-status" class="sr-only" role="status" aria-live="polite"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. MY SMTP Table Card -->
+        <div class="command-os-table-card">
+            <div class="d-flex align-items-center justify-content-between p-3 border-bottom">
+                <h3 style="font-size: 0.9375rem; font-weight: 700; color: var(--command-os-text, #1e293b); margin: 0; text-transform: uppercase; letter-spacing: 0.04em;">
+                    <i class="fas fa-table mr-1 text-purple"></i> MY SMTP Identities
+                </h3>
+            </div>
+            <div class="table-responsive">
+                <table id="pmta-smtp-table" class="table table-sm table-hover table-striped command-os-table" aria-label="SMTP records"></table>
+            </div>
+        </div>
+    </div>
 </div>
-<dialog id="pmta-smtp-ip-search"><div class="p-3" style="min-width:min(520px,90vw)"><h3 class="h5">Search IPs</h3><label for="pmta-smtp-ip-search-input">Server or IP, one per line</label><textarea id="pmta-smtp-ip-search-input" class="form-control" rows="6"></textarea><div class="text-right mt-3"><button type="button" class="btn btn-alt-secondary" id="pmta-smtp-ip-search-cancel">Cancel</button> <button type="button" class="btn btn-primary" id="pmta-smtp-ip-search-apply">Select IPs</button></div></div></dialog>
+
+<!-- Search IPs Dialog -->
+<dialog id="pmta-smtp-ip-search">
+    <div class="command-modal-surface p-4">
+        <div class="command-modal-hero mb-3">
+            <div class="command-modal-hero-left">
+                <div class="command-modal-hero-icon"><i class="fas fa-search"></i></div>
+                <div>
+                    <h3 class="command-modal-hero-title">SEARCH IPS</h3>
+                    <div class="command-modal-hero-eyebrow">SERVER OR IP FILTER</div>
+                </div>
+            </div>
+        </div>
+        <div class="form-group mb-3">
+            <label class="command-form-label" for="pmta-smtp-ip-search-input">Server or IP, one per line:</label>
+            <textarea id="pmta-smtp-ip-search-input" class="form-control" rows="6" placeholder="server-1&#10;192.168.1.1" style="font-family: monospace;"></textarea>
+        </div>
+        <div class="command-modal-actions mt-3">
+            <button type="button" class="btn-command-action" id="pmta-smtp-ip-search-cancel">CANCEL</button>
+            <button type="button" class="btn-command-primary" id="pmta-smtp-ip-search-apply"><i class="fas fa-check mr-1"></i> SELECT IPS</button>
+        </div>
+    </div>
+</dialog>
 @endsection
 
 @push('scripts')
@@ -67,13 +186,13 @@
         const $ = window.jQuery;
         grid = $('#pmta-smtp-table').DataTable({
             ajax: { url: root.dataset.rowsUrl, dataSrc: 'data' },
-            dom: '<"table-tools"B>frtip',
+            dom: '<"command-table-toolbar"<"command-table-toolbar-left"lB><"command-table-toolbar-right"f>>rt<"command-table-footer"ip>',
             buttons: [
-                { extend: 'pageLength' },
-                { text: '<i class="fas fa-sync"></i>', titleAttr: 'REFRESH', action: (event, table) => table.ajax.reload(null, false) },
-                { text: '<i class="far fa-square"></i>', titleAttr: 'SELECT NONE', action: (event, table) => table.rows({ page: 'current' }).deselect() },
-                { text: '<i class="far fa-check-square"></i>', titleAttr: 'SELECT ALL', action: (event, table) => table.rows({ page: 'current' }).select() },
-                { text: '<i class="fas fa-trash"></i>', titleAttr: 'REMOVE SELECTED', action: async (event, table, node) => {
+                { extend: 'pageLength', className: 'btn-command-action' },
+                { text: '<i class="fas fa-sync mr-1"></i> REFRESH', className: 'btn-command-action', titleAttr: 'REFRESH', action: (event, table) => table.ajax.reload(null, false) },
+                { text: '<i class="far fa-square mr-1"></i> NONE', className: 'btn-command-action', titleAttr: 'SELECT NONE', action: (event, table) => table.rows({ page: 'current' }).deselect() },
+                { text: '<i class="far fa-check-square mr-1"></i> ALL', className: 'btn-command-action', titleAttr: 'SELECT ALL', action: (event, table) => table.rows({ page: 'current' }).select() },
+                { text: '<i class="fas fa-trash mr-1"></i> REMOVE', className: 'btn-command-danger', titleAttr: 'REMOVE SELECTED', action: async (event, table, node) => {
                     const ids = table.rows({ selected: true }).data().toArray().map((row) => row.id);
                     if (!ids.length || !await ask('Remove selected SMTP rows?', 'The selected records will be removed from your AlphaLink list.', 'Remove')) return;
                     table.buttons(node).disable();
@@ -81,15 +200,18 @@
                     catch (error) { announce(error.message, 'danger'); }
                     finally { table.buttons(node).enable(); }
                 } },
-                { text: 'IDS <i class="fas fa-search"></i>', titleAttr: 'SEARCH BY IDS', action: async (event, table) => { const text = await promptForLines('Search IDs'); table.columns().search(''); if (text) table.column(1).search([...new Set(text.split(/\r?\n/).map((value) => value.trim()).filter(Boolean))].join('|'), true, false); table.draw(); } },
-                { text: 'USR <i class="fas fa-search"></i>', titleAttr: 'SEARCH BY USERNAMES', action: async (event, table) => { const text = await promptForLines('Search usernames'); table.columns().search(''); if (text) table.column(4).search([...new Set(text.split(/\r?\n/).map((value) => value.trim()).filter(Boolean))].join('|'), true, false); table.draw(); } },
+                { text: '<i class="fas fa-search mr-1"></i> IDS', className: 'btn-command-action', titleAttr: 'SEARCH BY IDS', action: async (event, table) => { const text = await promptForLines('Search IDs'); table.columns().search(''); if (text) table.column(1).search([...new Set(text.split(/\r?\n/).map((value) => value.trim()).filter(Boolean))].join('|'), true, false); table.draw(); } },
+                { text: '<i class="fas fa-search mr-1"></i> USR', className: 'btn-command-action', titleAttr: 'SEARCH BY USERNAMES', action: async (event, table) => { const text = await promptForLines('Search usernames'); table.columns().search(''); if (text) table.column(4).search([...new Set(text.split(/\r?\n/).map((value) => value.trim()).filter(Boolean))].join('|'), true, false); table.draw(); } },
             ],
             order: [[1, 'desc']], pageLength: 50, select: { style: 'os', selector: 'td:first-child' },
             rowCallback: (row, data) => { if (!data.is_active) window.jQuery(row).find('td').addClass('table-danger'); },
             columns: [
                 { data: null, defaultContent: '', orderable: false, searchable: false, className: 'select-checkbox' },
-                { title: '#', data: 'id' }, { title: 'IP', data: 'ip' }, { title: 'DOMAIN', data: 'dns' },
-                { title: 'USERNAME', data: 'username' }, { title: 'CREATED AT', data: 'created_at' },
+                { title: '#', data: 'id', render: (val, type) => type === 'display' ? `<span class="command-mono-badge">#${val}</span>` : val },
+                { title: 'IP', data: 'ip', render: (val, type) => type === 'display' ? `<span style="font-family: monospace; font-weight: 600; color: #6366f1;">${val || ''}</span>` : val },
+                { title: 'DOMAIN', data: 'dns', render: (val, type) => type === 'display' ? `<span style="font-weight: 600; color: #8b5cf6;">${val || ''}</span>` : val },
+                { title: 'USERNAME', data: 'username', render: (val, type) => type === 'display' ? `<strong>${val || ''}</strong>` : val },
+                { title: 'CREATED AT', data: 'created_at', render: (val, type) => type === 'display' ? `<span style="font-size: 0.8125rem; color: var(--command-os-text-muted, #64748b);">${val || ''}</span>` : val },
             ],
         });
     }

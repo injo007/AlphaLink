@@ -112,33 +112,52 @@
             }
         }
     </style>
-    <section class="block block-rounded" data-pmta-admin
-             data-action-url="{{ $actionUrl }}"
-             data-restart-url="{{ $restartUrl }}"
->
-        <div class="block-header">
-            <h3 class="block-title">PMTA ADMIN ACTIONS</h3>
-            <div class="block-options d-flex align-items-center">
-                <span class="mr-2">GRID:</span>
-                @foreach ([2, 3, 4] as $columns)
-                    <div class="custom-control custom-radio custom-control-inline">
-                        <input type="radio" class="custom-control-input" id="pmta-grid-{{ $columns }}" name="pmta-grid" value="{{ $columns }}" @checked($columns === 2)>
-                        <label class="custom-control-label" for="pmta-grid-{{ $columns }}">x{{ $columns }}</label>
-                    </div>
-                @endforeach
-                <button type="button" class="btn-block-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle fullscreen">
-                    <i class="fas fa-expand-arrows-alt" aria-hidden="true"></i>
-                </button>
+    <div class="command-os-report-page">
+        <!-- 1. Hero Header -->
+        <header class="command-os-report-hero mb-4">
+            <div class="command-os-report-hero-left">
+                <div class="command-os-report-hero-icon" aria-hidden="true">
+                    <i class="fas fa-desktop"></i>
+                </div>
+                <div>
+                    <div class="command-os-report-hero-eyebrow">POWERMTA MANAGEMENT // DAEMON MONITOR</div>
+                    <h1 class="command-os-report-hero-title">PMTA CONTROLLER</h1>
+                    <p class="command-os-report-hero-desc">Real-time PowerMTA daemon management, multi-server monitor grid, queue manipulation, and restart automation.</p>
+                </div>
             </div>
-        </div>
-        <div class="block-content block-content-full">
+            <div class="command-os-report-hero-right">
+                <div class="command-os-report-hero-meta">
+                    <span class="command-os-report-badge">DAEMON ORCHESTRATION</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="command-os-table-card p-4 mb-4" data-pmta-admin
+             data-action-url="{{ $actionUrl }}"
+             data-restart-url="{{ $restartUrl }}">
+            
+            <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+                <h3 style="font-size: 0.9375rem; font-weight: 700; color: var(--command-os-text, #1e293b); margin: 0; text-transform: uppercase; letter-spacing: 0.04em;">
+                    <i class="fas fa-terminal mr-1 text-purple"></i> PMTA Queue &amp; Daemon Controls
+                </h3>
+                <div class="d-flex align-items-center" style="gap: 12px;">
+                    <span style="font-size: 0.75rem; font-weight: 700; color: var(--command-os-text-muted, #64748b);">GRID:</span>
+                    @foreach ([2, 3, 4] as $columns)
+                        <label class="mb-0 d-inline-flex align-items-center" style="gap: 4px; font-size: 0.8125rem; font-weight: 600; cursor: pointer;">
+                            <input type="radio" id="pmta-grid-{{ $columns }}" name="pmta-grid" value="{{ $columns }}" @checked($columns === 2)>
+                            <span>x{{ $columns }}</span>
+                        </label>
+                    @endforeach
+                </div>
+            </div>
+
             <div class="row justify-content-center" id="pmta-admin-fields-row">
                 <div class="col-sm-12 col-md-7" id="pmta-admin-controls">
                     <div class="form-group" id="pmta-admin-server-column">
-                        <label for="pmta-admin-servers">
+                        <label class="command-form-label" for="pmta-admin-servers">
                             Servers:
-                            <button type="button" class="btn btn-link btn-sm p-0 ml-1" id="pmta-admin-reload-servers" title="Reload servers" aria-label="Reload servers"><i class="fas fa-sync-alt" aria-hidden="true"></i></button>
-                            <button type="button" class="btn btn-link btn-sm p-0 ml-1" id="pmta-admin-search-servers" title="Search servers" aria-label="Search servers"><i class="fas fa-search" aria-hidden="true"></i></button>
+                            <button type="button" class="btn-command-action ml-1" id="pmta-admin-reload-servers" title="Reload servers" aria-label="Reload servers" style="padding: 2px 8px; font-size: 0.75rem;"><i class="fas fa-sync-alt" aria-hidden="true"></i></button>
+                            <button type="button" class="btn-command-action ml-1" id="pmta-admin-search-servers" title="Search servers" aria-label="Search servers" style="padding: 2px 8px; font-size: 0.75rem;"><i class="fas fa-search" aria-hidden="true"></i></button>
                         </label>
                         <select class="form-control selectpicker" id="pmta-admin-servers" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 5" multiple title="Select Servers">
                             @foreach ($servers as $server)
@@ -146,32 +165,32 @@
                             @endforeach
                         </select>
                     </div>
-                    <fieldset class="form-group border-0 p-0">
+                    <fieldset class="form-group border-0 p-0 mb-2">
                         <legend class="sr-only">Queue:</legend>
-                        <div class="d-flex align-items-center">
-                            <span class="font-weight-bold mr-2" aria-hidden="true">Queue:</span>
-                            <div class="custom-control custom-radio custom-control-inline">
-                                <input class="custom-control-input" type="radio" id="pmta-domain-queue" name="pmta-queue" value="domain" checked>
-                                <label class="custom-control-label" for="pmta-domain-queue">Domain</label>
-                            </div>
-                            <div class="custom-control custom-radio custom-control-inline">
-                                <input class="custom-control-input" type="radio" id="pmta-campaign-queue" name="pmta-queue" value="campaign">
-                                <label class="custom-control-label" for="pmta-campaign-queue">Job ID</label>
-                            </div>
+                        <div class="d-flex align-items-center" style="gap: 16px;">
+                            <span class="command-form-label mb-0" aria-hidden="true">Queue:</span>
+                            <label class="mb-0 d-inline-flex align-items-center" style="gap: 4px; font-size: 0.8125rem; font-weight: 600; cursor: pointer;">
+                                <input type="radio" id="pmta-domain-queue" name="pmta-queue" value="domain" checked>
+                                <span>Domain</span>
+                            </label>
+                            <label class="mb-0 d-inline-flex align-items-center" style="gap: 4px; font-size: 0.8125rem; font-weight: 600; cursor: pointer;">
+                                <input type="radio" id="pmta-campaign-queue" name="pmta-queue" value="campaign">
+                                <span>Job ID</span>
+                            </label>
                         </div>
                     </fieldset>
                     <div class="form-group" id="pmta-admin-tag-column">
                         <label class="sr-only" for="pmta-admin-tag-entry">Domain/VMTA or Job ID</label>
-                        <div class="form-control d-flex flex-wrap align-items-center" id="pmta-admin-tag-box" style="min-height: 32px; height: auto; gap: .25rem; padding: .25rem .5rem;">
+                        <div class="form-control d-flex flex-wrap align-items-center" id="pmta-admin-tag-box" style="min-height: 38px; height: auto; gap: .35rem; padding: .35rem .65rem; border-radius: 10px;">
                             <div class="d-flex flex-wrap align-items-center" id="pmta-admin-tags" aria-live="polite"></div>
-                            <input id="pmta-admin-tag-entry" type="text" class="border-0 flex-grow-1" style="width: 0; min-width: 0; outline: none;" placeholder="Domain/VMTA" autocomplete="off">
+                            <input id="pmta-admin-tag-entry" type="text" class="border-0 flex-grow-1" style="width: 0; min-width: 0; outline: none; background: transparent; font-size: 0.8125rem;" placeholder="Domain/VMTA" autocomplete="off">
                         </div>
                     </div>
-                    <div class="form-group text-center" id="pmta-admin-action-row" role="group" aria-label="PMTA queue actions" style="white-space: nowrap;">
+                    <div class="form-group text-center" id="pmta-admin-action-row" role="group" aria-label="PMTA queue actions" style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
                         @foreach (['pause' => 'PAUSE', 'resume' => 'RESUME', 'delete' => 'DELETE', 'reset' => 'RESET'] as $action => $label)
-                            <button type="button" class="btn btn-primary btn-sm pmta-admin-action" data-action="{{ $action }}">{{ $label }}</button>
+                            <button type="button" class="btn-command-primary pmta-admin-action" data-action="{{ $action }}" style="padding: 6px 14px; font-size: 0.75rem;">{{ $label }}</button>
                         @endforeach
-                        <button type="button" class="btn btn-danger btn-sm" id="pmta-admin-clear">CLEAR</button>
+                        <button type="button" class="btn-command-danger" id="pmta-admin-clear" style="padding: 6px 14px; font-size: 0.75rem;">CLEAR</button>
                     </div>
                     <div class="row" id="pmta-admin-schedule-row">
                         <div class="col-sm-12 col-md-6 pmta-admin-schedule-column">
@@ -180,8 +199,8 @@
                                 <div class="input-group input-group-sm">
                                     <input id="pmta-admin-seconds" class="form-control" type="number" min="1" placeholder="Seconds &gt;= 1">
                                     <div class="input-group-append">
-                                        <button type="button" class="btn btn-primary pmta-admin-action" data-action="schedule">SCHEDULE</button>
-                                        <button type="button" class="btn btn-danger" id="pmta-admin-stop-schedule">STOP</button>
+                                        <button type="button" class="btn-command-primary pmta-admin-action" data-action="schedule">SCHEDULE</button>
+                                        <button type="button" class="btn-command-danger" id="pmta-admin-stop-schedule">STOP</button>
                                     </div>
                                 </div>
                             </div>
@@ -192,8 +211,8 @@
                                 <div class="input-group input-group-sm">
                                     <input id="pmta-admin-restart-seconds" class="form-control" type="number" min="5" placeholder="Seconds &gt;= 5">
                                     <div class="input-group-append">
-                                        <button type="button" class="btn btn-warning pmta-admin-restart">RESTART</button>
-                                        <button type="button" class="btn btn-danger" id="pmta-admin-stop-restart">STOP</button>
+                                        <button type="button" class="btn-command-action pmta-admin-restart">RESTART</button>
+                                        <button type="button" class="btn-command-danger" id="pmta-admin-stop-restart">STOP</button>
                                     </div>
                                 </div>
                             </div>
@@ -202,7 +221,7 @@
                     <div id="pmta-admin-results-column">
                         <p id="pmta-admin-schedule-status" class="small text-muted mb-2" hidden role="status" aria-live="polite"></p>
                         <div class="table-responsive d-none" id="pmta-admin-results-wrap">
-                            <table class="table table-sm table-hover table-bordered" id="pmta-admin-results" aria-live="polite">
+                            <table class="table table-sm table-hover table-striped command-os-table" id="pmta-admin-results" aria-live="polite">
                                 <thead><tr><th>Run</th><th>Server</th><th>Command</th><th>Result</th></tr></thead>
                                 <tbody></tbody>
                             </table>
@@ -211,9 +230,9 @@
                 </div>
             </div>
         </div>
-        <p class="small text-muted mb-2">HTTP-only monitors open through AlphaLink’s authenticated HTTPS read-only proxy, which fetches the server’s public-IP HTTP endpoint on the configured PMTA port. Verified PMTA certificates open directly over HTTPS.</p>
-        <div class="row no-gutters" id="pmta-admin-panels" @if ($selectedServerIds === []) hidden @endif aria-live="polite"></div>
-    </section>
+        <p class="small text-muted mb-3" style="font-size: 0.75rem;"><i class="fas fa-shield-alt mr-1"></i> HTTP-only monitors open through AlphaLink’s authenticated HTTPS read-only proxy. Verified PMTA certificates open directly over HTTPS.</p>
+        <div class="row" id="pmta-admin-panels" @if ($selectedServerIds === []) hidden @endif aria-live="polite"></div>
+    </div>
 @endsection
 
 @push('scripts')
@@ -277,11 +296,12 @@
                 tagList.replaceChildren();
                 selectedTags().forEach((value) => {
                     const chip = document.createElement('span');
-                    chip.className = 'badge badge-primary d-inline-flex align-items-center';
+                    chip.className = 'badge-command-pill mr-1 d-inline-flex align-items-center';
+                    chip.style.fontWeight = '700';
                     chip.textContent = value;
                     const remove = document.createElement('button');
                     remove.type = 'button';
-                    remove.className = 'btn btn-link btn-sm text-white p-0 ml-1';
+                    remove.className = 'btn btn-link btn-sm text-danger p-0 ml-1';
                     remove.setAttribute('aria-label', `Remove ${value}`);
                     remove.innerHTML = '<i class="fas fa-times" aria-hidden="true"></i>';
                     remove.addEventListener('click', () => {
@@ -348,10 +368,16 @@
                 selected.forEach((server) => {
                     const column = document.createElement('div');
                     column.className = `col-12 col-md-${columns} mb-3`;
+                    const card = document.createElement('div');
+                    card.className = 'command-os-table-card p-3 h-100';
+                    card.style.borderRadius = '14px';
+                    card.style.overflow = 'hidden';
                     const heading = document.createElement('h6');
                     heading.className = 'mb-2 px-2 d-flex align-items-center';
                     const label = document.createElement('span');
-                    label.className = 'text-danger';
+                    label.className = 'badge-command-pill mr-2';
+                    label.style.fontWeight = '700';
+                    label.style.color = '#8b5cf6';
                     label.textContent = server.textContent.trim();
                     const refreshLabel = document.createElement('span');
                     refreshLabel.className = 'small text-muted ml-2 pmta-monitor-refresh-label';
@@ -376,7 +402,9 @@
                     }
                     const reload = document.createElement('button');
                     reload.type = 'button';
-                    reload.className = 'btn btn-link btn-sm p-0 ml-2';
+                    reload.className = 'btn-command-action ml-2';
+                    reload.style.padding = '2px 8px';
+                    reload.style.fontSize = '0.75rem';
                     reload.title = 'Reload PMTA monitor';
                     reload.setAttribute('aria-label', `Reload PMTA monitor for ${server.textContent.trim()}`);
                     reload.innerHTML = '<i class="fas fa-sync-alt" aria-hidden="true"></i>';
@@ -387,6 +415,8 @@
                     frame.scrolling = 'yes';
                     frame.style.width = '100%';
                     frame.style.height = '500px';
+                    frame.style.borderRadius = '10px';
+                    frame.style.border = '1px solid var(--command-os-border, rgba(99, 102, 241, 0.15))';
                     frame.addEventListener('load', () => {
                         if (!frame.dataset.monitorRefreshPending) return;
                         frame.dataset.monitorRefreshPending = 'false';
@@ -412,7 +442,8 @@
                         refreshLabel.textContent = monitorUrl === null
                             ? 'PMTA monitor URL is unavailable · check the saved server address and installation state'
                             : 'PMTA monitor is HTTP-only · open the link in a new tab';
-                        column.append(heading);
+                        card.append(heading);
+                        column.append(card);
                         panels.append(column);
                         return;
                     }
@@ -420,7 +451,8 @@
                         frame.setAttribute('sandbox', '');
                         refreshLabel.textContent = 'Read-only monitor via AlphaLink HTTPS · auto refresh 5s';
                     }
-                    column.append(heading, frame);
+                    card.append(heading, frame);
+                    column.append(card);
                     panels.append(column);
                     refreshMonitor(frame);
                 });

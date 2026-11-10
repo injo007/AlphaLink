@@ -5,55 +5,86 @@
 @push('styles')
     <link rel="stylesheet" href="{{ asset('console-assets/vendor/jstree/style.min.css') }}">
     <style>
-        #pmta-settings-files { min-height: 35rem; overflow: auto; }
+        #pmta-settings-files {
+            min-height: 35rem;
+            max-height: 35rem;
+            overflow: auto;
+            background: var(--command-os-surface, #ffffff);
+            border: 1px solid var(--command-os-border, rgba(99, 102, 241, 0.14));
+            border-radius: 12px;
+        }
         #pmta-settings-contents { min-height: 35rem; }
-        #pmta-settings-editor .ace_editor { height: 35rem; width: 100%; }
+        #pmta-settings-editor .ace_editor {
+            height: 35rem;
+            width: 100%;
+            border-radius: 12px;
+            border: 1px solid var(--command-os-border, rgba(99, 102, 241, 0.18));
+            font-family: 'JetBrains Mono', 'Fira Code', 'Roboto Mono', monospace !important;
+        }
         #pmta-settings-push-panel[hidden] { display: none !important; }
         #pmta-settings-holder[hidden] { display: none !important; }
     </style>
 @endpush
 
 @section('content')
-    <section class="block block-rounded" id="pmta-settings"
+<div class="command-os-report-page">
+    <!-- 1. Hero Header -->
+    <header class="command-os-report-hero mb-4">
+        <div class="command-os-report-hero-left">
+            <div class="command-os-report-hero-icon" aria-hidden="true">
+                <i class="fas fa-cog"></i>
+            </div>
+            <div>
+                <div class="command-os-report-hero-eyebrow">DAEMON CONFIGURATION // FILE MANAGEMENT</div>
+                <h1 class="command-os-report-hero-title">PMTA SETTINGS</h1>
+                <p class="command-os-report-hero-desc">Direct PowerMTA configuration files, directive editor, and multi-node sync orchestration.</p>
+            </div>
+        </div>
+        <div class="command-os-report-hero-right">
+            <div class="command-os-report-hero-meta">
+                <span class="command-os-report-badge">CONFIG CONTROLLER</span>
+            </div>
+        </div>
+    </header>
+
+    <div id="pmta-settings"
         data-servers-url="{{ route('console.pmta-settings.servers', $workspace->id) }}"
         data-files-url="{{ route('console.pmta-settings.files', $workspace->id) }}"
         data-file-url="{{ route('console.pmta-settings.file', $workspace->id) }}"
         data-edit-url="{{ route('console.pmta-settings.edit', $workspace->id) }}"
         data-push-url="{{ route('console.pmta-settings.push', $workspace->id) }}"
         data-default-domains-url="{{ route('console.pmta-settings.default-domains', $workspace->id) }}">
-        <div class="block-header">
-            <h3 class="block-title">Pmta Settings</h3>
-            <div class="block-options">
-                <button type="button" class="btn-block-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle fullscreen">
-                    <i class="fas fa-expand-arrows-alt" aria-hidden="true"></i>
-                </button>
-            </div>
-        </div>
-        <div class="block-content block-content-full">
-            <div class="row justify-content-center">
-                <div class="col-sm-12 col-md-6">
-                    <div class="form-group">
-                        <label for="pmta-settings-server">
-                            Servers:
-                            <button type="button" class="btn btn-link btn-sm p-0 ml-1" id="pmta-settings-reload-servers" title="Reload servers" aria-label="Reload servers">
-                                <i class="fas fa-sync" aria-hidden="true"></i>
-                            </button>
-                        </label>
-                        <select id="pmta-settings-server" class="form-control selectpicker" data-live-search="true" data-size="6" title="Select Server">
-                            <option value="" selected>Select Server</option>
-                            @foreach ($servers as $server)
-                                <option value="{{ $server->id }}">{{ $server->name }} | {{ $server->ip_address }}</option>
-                            @endforeach
-                        </select>
-                        <button type="button" class="btn btn-warning mt-1" id="pmta-settings-open-edit-push">EDIT AND PUSH</button>
-                    </div>
+
+        <!-- 2. Target Server Card -->
+        <div class="command-os-table-card p-4 mb-4">
+            <div class="row align-items-center">
+                <div class="col-sm-12 col-md-7">
+                    <label class="command-form-label" for="pmta-settings-server">
+                        Target Server:
+                        <button type="button" class="btn-command-action ml-1" id="pmta-settings-reload-servers" title="Reload servers" aria-label="Reload servers" style="padding: 2px 8px; font-size: 0.75rem;">
+                            <i class="fas fa-sync" aria-hidden="true"></i>
+                        </button>
+                    </label>
+                    <select id="pmta-settings-server" class="form-control selectpicker" data-live-search="true" data-size="6" title="Select Server">
+                        <option value="" selected>Select Server</option>
+                        @foreach ($servers as $server)
+                            <option value="{{ $server->id }}">{{ $server->name }} | {{ $server->ip_address }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-sm-12 col-md-5 d-flex justify-content-md-end mt-3 mt-md-4">
+                    <button type="button" class="btn-command-action" id="pmta-settings-open-edit-push">
+                        <i class="fas fa-paper-plane mr-1 text-purple"></i> EDIT &amp; PUSH TO MULTIPLE
+                    </button>
                 </div>
             </div>
-            <div class="row justify-content-center">
-                <div class="col-sm-12 col-md-6">
-                    <div id="pmta-settings-push-panel" hidden>
-                        <div class="form-group">
-                            <label for="pmta-settings-push-servers">Select Server:</label>
+
+            <!-- Push Panel -->
+            <div id="pmta-settings-push-panel" class="mt-4 pt-3 border-top" hidden>
+                <div class="row">
+                    <div class="col-sm-12 col-md-8">
+                        <div class="form-group mb-2">
+                            <label class="command-form-label" for="pmta-settings-push-servers">Push Destination Servers:</label>
                             <div class="input-group">
                                 <select id="pmta-settings-push-servers" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 5" title="Select servers" multiple>
                                     @foreach ($servers as $server)
@@ -61,45 +92,62 @@
                                     @endforeach
                                 </select>
                                 <div class="input-group-append">
-                                    <button type="button" class="btn btn-warning" id="pmta-settings-edit-push">EDIT AND PUSH</button>
+                                    <button type="button" class="btn-command-primary" id="pmta-settings-edit-push">
+                                        <i class="fas fa-upload mr-1"></i> EXECUTE PUSH
+                                    </button>
                                 </div>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <div class="table-responsive">
-                                <table id="pmta-settings-push-results" class="table table-sm table-hover table-bordered" aria-label="PMTA configuration push results"></table>
-                            </div>
-                        </div>
                     </div>
+                </div>
+                <div class="table-responsive mt-3">
+                    <table id="pmta-settings-push-results" class="table table-sm table-hover table-striped command-os-table" aria-label="PMTA configuration push results"></table>
                 </div>
             </div>
-            <div class="row" id="pmta-settings-holder" hidden>
-                <div class="col-sm-12 col-md-3">
-                    <div class="form-group">
-                        <label for="pmta-settings-files">
-                            Files:
-                            <button type="button" class="btn btn-link btn-sm p-0 ml-1" id="pmta-settings-files-reload" title="Reload files" aria-label="Reload files">
-                                <i class="fas fa-sync" aria-hidden="true"></i>
-                            </button>
+        </div>
+
+        <!-- 3. Editor & Files Section -->
+        <div class="row" id="pmta-settings-holder" hidden>
+            <div class="col-sm-12 col-md-3 mb-4">
+                <div class="command-os-table-card p-3 h-100">
+                    <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+                        <label class="command-form-label mb-0" for="pmta-settings-files">
+                            <i class="fas fa-folder-open mr-1 text-purple"></i> Configuration Files
                         </label>
-                        <div class="card p-2" id="pmta-settings-files" aria-label="PMTA configuration files"></div>
+                        <button type="button" class="btn-command-action" id="pmta-settings-files-reload" title="Reload files" aria-label="Reload files" style="padding: 2px 8px; font-size: 0.75rem;">
+                            <i class="fas fa-sync" aria-hidden="true"></i>
+                        </button>
                     </div>
+                    <div class="p-2" id="pmta-settings-files" aria-label="PMTA configuration files"></div>
                 </div>
-                <div class="col-sm-12 col-md-9">
-                    <div class="form-group" id="pmta-settings-editor">
-                        <label for="pmta-settings-contents">Edit File: <span id="pmta-settings-file-name" class="badge badge-primary"></span></label>
-                        <textarea id="pmta-settings-contents" class="form-control" placeholder="Select a server and file" aria-label="PMTA configuration contents"></textarea>
+            </div>
+            <div class="col-sm-12 col-md-9 mb-4">
+                <div class="command-os-table-card p-4">
+                    <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+                        <label class="command-form-label mb-0" for="pmta-settings-contents">
+                            Edit File: <span id="pmta-settings-file-name" class="badge-command-pill ml-1" style="font-weight: 700; color: #8b5cf6;"></span>
+                        </label>
+                        <div class="d-flex align-items-center" style="gap: 8px;">
+                            <button type="button" class="btn-command-danger" id="pmta-settings-restore-domains" hidden>
+                                <i class="fas fa-undo mr-1"></i> RESTORE DEFAULT CONFIG
+                            </button>
+                            <button type="button" class="btn-command-action" id="pmta-settings-toggle-push">
+                                <i class="fas fa-share-alt mr-1"></i> PUSH PANEL
+                            </button>
+                            <button type="button" class="btn-command-primary" id="pmta-settings-edit">
+                                <i class="fas fa-save mr-1"></i> SAVE &amp; EDIT FILE
+                            </button>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <button type="button" class="btn btn-primary" id="pmta-settings-edit">EDIT FILE</button>
-                        <button type="button" class="btn btn-info" id="pmta-settings-toggle-push">PUSH</button>
-                        <button type="button" class="btn btn-warning" id="pmta-settings-restore-domains" hidden>RESTORE DEFAULT CONFIG</button>
+                    <div class="form-group mb-0" id="pmta-settings-editor">
+                        <textarea id="pmta-settings-contents" class="form-control" placeholder="Select a server and file" aria-label="PMTA configuration contents"></textarea>
                     </div>
                     <div id="pmta-settings-status" class="sr-only" role="status" aria-live="polite"></div>
                 </div>
             </div>
         </div>
-    </section>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -129,7 +177,8 @@
                 window.ace.config.set('modePath', `${aceBase}/`);
                 window.ace.config.set('themePath', `${aceBase}/`);
                 editor = window.ace.edit('pmta-settings-contents');
-                editor.setTheme('ace/theme/github');
+                const isDark = document.documentElement.getAttribute('data-command-theme') === 'dark';
+                editor.setTheme(isDark ? 'ace/theme/tomorrow_night_eighties' : 'ace/theme/github');
                 editor.session.setMode('ace/mode/text');
                 editor.session.setUseWorker(false);
                 editor.setAutoScrollEditorIntoView(false);

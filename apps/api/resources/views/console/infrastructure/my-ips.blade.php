@@ -30,7 +30,7 @@
             </div>
 
             <div class="table-responsive">
-                <table id="my-ips" class="table table-sm table-hover table-striped"
+                <table id="my-ips" class="table table-sm table-hover table-striped command-os-table"
                        data-source-url="{{ $ipsUrl }}"
                        data-export-url="{{ $exportUrl }}"
                        aria-label="Workspace IP addresses"></table>

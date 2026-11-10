@@ -2,138 +2,222 @@
 
 @section('title', $title.' Cloud')
 
+@push('styles')
+<style>
+    .command-cloud-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--command-os-border, rgba(99, 102, 241, 0.12));
+    }
+</style>
+@endpush
+
 @section('content')
-    <div class="block block-rounded">
-        <div class="block-header block-header-default">
-            <h3 class="block-title">{{ $title }}</h3>
-            <div class="block-options">
-                <button type="button" class="btn-block-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen"></button>
+<div class="command-os-report-page">
+    <!-- 1. Hero Header -->
+    <header class="command-os-report-hero mb-4">
+        <div class="command-os-report-hero-left">
+            <div class="command-os-report-hero-icon" aria-hidden="true">
+                <i class="fas fa-cloud"></i>
+            </div>
+            <div>
+                <div class="command-os-report-hero-eyebrow">CLOUD PROVISIONING // {{ strtoupper($type) }} FLEET</div>
+                <h1 class="command-os-report-hero-title">CLOUDS {{ strtoupper($title) }}</h1>
+                <p class="command-os-report-hero-desc">Deploy virtual instances, automate IP telemetry audit, set reverse DNS PTR records, and register servers with AlphaLink.</p>
             </div>
         </div>
-        <div class="block-content">
-            <div id="cloud-status" class="alert alert-info" role="status" aria-live="polite">Load provider options with GET DATA, then load existing resources with GET INSTANCES.</div>
-            <form id="cloud-create-form" class="border-top pt-3" novalidate>
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="cloud-account">Account</label>
-                            <div class="input-group">
-                                <select id="cloud-account" class="form-control" aria-describedby="cloud-account-help">
-                                    @forelse ($providers as $account)
-                                        <option value="{{ $account->id }}">{{ $account->name }}</option>
-                                    @empty
-                                        <option value="">No eligible provider accounts</option>
-                                    @endforelse
-                                </select>
-                                <div class="input-group-append"><button id="cloud-load-catalog" class="btn btn-primary" type="button" @disabled(!$hasProviders)>GET DATA</button></div>
+        <div class="command-os-report-hero-right">
+            <div class="command-os-report-hero-meta">
+                <span class="command-os-report-badge">CLOUD ENGINE</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- 2. Provisioning Wizard Card -->
+    <div class="command-os-table-card p-4 mb-4">
+        <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+            <h3 style="font-size: 0.9375rem; font-weight: 700; color: var(--command-os-text, #1e293b); margin: 0; text-transform: uppercase; letter-spacing: 0.04em;">
+                <i class="fas fa-server mr-1 text-purple"></i> Provision {{ $title }} Instances
+            </h3>
+        </div>
+
+        <div id="cloud-status" class="alert alert-info mb-3" role="status" aria-live="polite" style="border-radius: 12px; font-size: 0.8125rem;">
+            <i class="fas fa-info-circle mr-1"></i> Load provider options with GET DATA, then load existing resources with GET INSTANCES.
+        </div>
+
+        <form id="cloud-create-form" novalidate>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group mb-3">
+                        <label class="command-form-label" for="cloud-account">Account Provider:</label>
+                        <div class="input-group">
+                            <select id="cloud-account" class="form-control" aria-describedby="cloud-account-help">
+                                @forelse ($providers as $account)
+                                    <option value="{{ $account->id }}">{{ $account->name }}</option>
+                                @empty
+                                    <option value="">No eligible provider accounts</option>
+                                @endforelse
+                            </select>
+                            <div class="input-group-append">
+                                <button id="cloud-load-catalog" class="btn-command-primary" type="button" @disabled(!$hasProviders)>
+                                    <i class="fas fa-cloud-download-alt mr-1"></i> GET DATA
+                                </button>
                             </div>
-                            @if ($hasProviders)
-                                <small id="cloud-account-help" class="form-text text-muted">Only accounts assigned to your workspace role are listed.</small>
-                            @else
-                                <small id="cloud-account-help" class="form-text text-warning">
-                                    No eligible {{ $title }} account is configured for this workspace.
-                                    @if ($canManageCloudProviders)
-                                        <a href="{{ $cloudProviderManagementUrl }}">Add a cloud provider account</a> before testing this workflow.
-                                    @else
-                                        Ask a workspace administrator to add a {{ $title }} account.
-                                    @endif
-                                </small>
-                            @endif
                         </div>
-                        <div class="form-group">
-                            <label for="cloud-region">Instance Region</label>
-                            <select id="cloud-region" name="region" class="form-control" required><option value="">Load account data first</option></select>
-                        </div>
-                        <div class="form-group">
-                            <label for="cloud-image">Instance Images</label>
-                            <select id="cloud-image" name="image" class="form-control" required><option value="">Load account data first</option></select>
-                        </div>
+                        @if ($hasProviders)
+                            <small id="cloud-account-help" class="form-text text-muted" style="font-size: 0.75rem;">Only accounts assigned to your workspace role are listed.</small>
+                        @else
+                            <small id="cloud-account-help" class="form-text text-warning" style="font-size: 0.75rem;">
+                                No eligible {{ $title }} account is configured for this workspace.
+                                @if ($canManageCloudProviders)
+                                    <a href="{{ $cloudProviderManagementUrl }}" style="font-weight: 600; color: #8b5cf6;">Add a cloud provider account</a> before testing this workflow.
+                                @else
+                                    Ask a workspace administrator to add a {{ $title }} account.
+                                @endif
+                            </small>
+                        @endif
                     </div>
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="cloud-type">Instance Type</label>
-                            <select id="cloud-type" name="type" class="form-control" required><option value="">Load account data first</option></select>
-                        </div>
-                        <div class="form-group">
-                            <label for="cloud-name">{{ $type === 'digitalocean' ? 'Hostname' : 'Instance Name' }}</label>
-                            <input id="cloud-name" name="name" class="form-control" autocomplete="off">
-                        </div>
-                        <div class="form-group">
-                            <label for="cloud-count">Create Count</label>
-                            <input id="cloud-count" name="count" type="number" step="1" class="form-control" value="1" required>
-                        </div>
+                    <div class="form-group mb-3">
+                        <label class="command-form-label" for="cloud-region">Instance Region:</label>
+                        <select id="cloud-region" name="region" class="form-control" required>
+                            <option value="">Load account data first</option>
+                        </select>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label class="command-form-label" for="cloud-image">Instance OS Image:</label>
+                        <select id="cloud-image" name="image" class="form-control" required>
+                            <option value="">Load account data first</option>
+                        </select>
                     </div>
                 </div>
-                <div class="row">
-                    <div class="col-12 text-md-right">
-                        <button id="cloud-load-instances" class="btn btn-info" type="button" @disabled(!$hasProviders)>GET INSTANCES</button>
-                        <button id="cloud-create" class="btn btn-success" type="submit" @disabled(!$hasProviders)>CREATE INSTANCES</button>
+                <div class="col-md-6">
+                    <div class="form-group mb-3">
+                        <label class="command-form-label" for="cloud-type">Instance Size / Type:</label>
+                        <select id="cloud-type" name="type" class="form-control" required>
+                            <option value="">Load account data first</option>
+                        </select>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label class="command-form-label" for="cloud-name">{{ $type === 'digitalocean' ? 'Hostname Prefix:' : 'Instance Name:' }}</label>
+                        <input id="cloud-name" name="name" class="form-control" autocomplete="off" placeholder="node-">
+                    </div>
+                    <div class="form-group mb-3">
+                        <label class="command-form-label" for="cloud-count">Number of Instances to Create:</label>
+                        <input id="cloud-count" name="count" type="number" step="1" class="form-control" value="1" required>
                     </div>
                 </div>
-            </form>
+            </div>
 
+            <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                <button id="cloud-load-instances" class="btn-command-action" type="button" @disabled(!$hasProviders)>
+                    <i class="fas fa-sync mr-1"></i> GET INSTANCES
+                </button>
+                <button id="cloud-create" class="btn-command-primary" type="submit" @disabled(!$hasProviders)>
+                    <i class="fas fa-plus-circle mr-1"></i> CREATE INSTANCES
+                </button>
+            </div>
+        </form>
 
+        <div class="mt-3 pt-2">
             @if ($type === 'linode')
-                <p class="small text-muted">The provider password comes from Settings → Cloud Server Password. Set it before creating or adding instances to Servers.</p>
+                <p class="small text-muted mb-0" style="font-size: 0.75rem;"><i class="fas fa-info-circle mr-1"></i> The provider password comes from Settings → Cloud Server Password. Set it before creating or adding instances to Servers.</p>
             @else
-                <p class="small text-muted">AlphaLink keeps a workspace SSH key encrypted and registers its public key with this provider when creating instances. Add to Servers uses the matching private key.</p>
+                <p class="small text-muted mb-0" style="font-size: 0.75rem;"><i class="fas fa-info-circle mr-1"></i> AlphaLink keeps a workspace SSH key encrypted and registers its public key with this provider when creating instances. Add to Servers uses the matching private key.</p>
             @endif
-
-            <div class="d-flex flex-wrap align-items-center border-top pt-3 mb-2">
-                <div class="mr-3"><strong id="cloud-instance-count">0</strong> instances</div>
-                <button id="cloud-select-none" class="btn btn-sm btn-outline-secondary mr-2" type="button" title="SELECT NONE">SELECT NONE</button>
-                <button id="cloud-select-all-visible" class="btn btn-sm btn-outline-secondary mr-2" type="button" title="SELECT ALL">SELECT ALL</button>
-                <button id="cloud-delete-selected" class="btn btn-sm btn-danger mr-2" type="button" disabled>DELETE INSTANCES</button>
-                <button id="cloud-add-selected" class="btn btn-sm btn-primary mr-2" type="button" disabled>ADD IPS TO DB</button>
-                <a class="btn btn-sm btn-outline-primary" href="{{ route('console.infrastructure.bulk-install', $workspace->id) }}" target="_blank" rel="noopener">BULK INSTALL SERVERS</a>
-            </div>
-            <p class="small text-muted">IP blacklist and Sender Score checks start automatically when GET INSTANCES loads rows.</p>
-            <div class="table-responsive">
-                <table class="table table-sm table-hover table-striped" aria-label="Cloud instances">
-                    <thead>
-                        <tr>
-                            <th scope="col" aria-label="Select"></th><th scope="col">#</th>
-                            @if ($type === 'linode')
-                                <th scope="col">LABEL</th><th scope="col">TYPE</th><th scope="col">REGION</th>
-                            @else
-                                <th scope="col">NAME</th><th scope="col">LOCATION</th>
-                            @endif
-                            <th scope="col">STATUS</th><th scope="col">IP</th><th scope="col">BLACKLISTED</th><th scope="col">SCORE</th><th scope="col">CREATED AT</th>
-                            @if ($canSetRdns)<th scope="col">ACTIONS</th>@endif
-                        </tr>
-                    </thead>
-                    <tbody id="cloud-instance-rows">
-                        <tr><td colspan="{{ $type === 'linode' ? 11 : 9 }}" class="text-muted">No instances loaded.</td></tr>
-                    </tbody>
-                </table>
-            </div>
         </div>
     </div>
 
+    <!-- 3. Deployed Instances Card -->
+    <div class="command-os-table-card">
+        <div class="command-cloud-toolbar">
+            <span class="badge-command-pill mr-2" style="font-weight: 700; color: #8b5cf6;">
+                <span id="cloud-instance-count">0</span> INSTANCES
+            </span>
+            <button id="cloud-select-none" class="btn-command-action" type="button" title="SELECT NONE" style="padding: 4px 10px; font-size: 0.75rem;">SELECT NONE</button>
+            <button id="cloud-select-all-visible" class="btn-command-action" type="button" title="SELECT ALL" style="padding: 4px 10px; font-size: 0.75rem;">SELECT ALL</button>
+            <button id="cloud-delete-selected" class="btn-command-danger" type="button" disabled style="padding: 4px 10px; font-size: 0.75rem;">DELETE INSTANCES</button>
+            <button id="cloud-add-selected" class="btn-command-primary" type="button" disabled style="padding: 4px 10px; font-size: 0.75rem;">ADD IPS TO DB</button>
+            <a class="btn-command-action ml-auto" href="{{ route('console.infrastructure.bulk-install', $workspace->id) }}" target="_blank" rel="noopener" style="padding: 4px 10px; font-size: 0.75rem;">
+                <i class="fas fa-external-link-alt mr-1"></i> BULK INSTALL SERVERS
+            </a>
+        </div>
+        <div class="p-2 px-3">
+            <p class="small text-muted mb-0" style="font-size: 0.75rem;"><i class="fas fa-check-double mr-1"></i> IP blacklist and Sender Score checks start automatically when GET INSTANCES loads rows.</p>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm table-hover table-striped command-os-table" aria-label="Cloud instances">
+                <thead>
+                    <tr>
+                        <th scope="col" aria-label="Select" style="width: 40px;"></th>
+                        <th scope="col">#</th>
+                        @if ($type === 'linode')
+                            <th scope="col">LABEL</th><th scope="col">TYPE</th><th scope="col">REGION</th>
+                        @else
+                            <th scope="col">NAME</th><th scope="col">LOCATION</th>
+                        @endif
+                        <th scope="col">STATUS</th><th scope="col">IP</th><th scope="col">BLACKLISTED</th><th scope="col">SCORE</th><th scope="col">CREATED AT</th>
+                        @if ($canSetRdns)<th scope="col">ACTIONS</th>@endif
+                    </tr>
+                </thead>
+                <tbody id="cloud-instance-rows">
+                    <tr><td colspan="{{ $type === 'linode' ? 11 : 9 }}" class="text-muted text-center py-4">No instances loaded.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Confirm Dialog -->
     <div class="modal fade" id="cloud-confirm-dialog" tabindex="-1" role="dialog" aria-labelledby="cloud-confirm-title" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered" role="document">
-            <div class="modal-content">
-                <div class="modal-header"><h5 class="modal-title" id="cloud-confirm-title">Confirm cloud action</h5><button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>
-                <div class="modal-body" id="cloud-confirm-message"></div>
-                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button><button type="button" class="btn btn-danger" id="cloud-confirm-action">Continue</button></div>
+            <div class="modal-content command-modal-surface p-4">
+                <div class="command-modal-hero mb-3">
+                    <div class="command-modal-hero-left">
+                        <div class="command-modal-hero-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                        <div>
+                            <h3 class="command-modal-hero-title" id="cloud-confirm-title">Confirm Cloud Action</h3>
+                            <div class="command-modal-hero-eyebrow">CONFIRMATION REQUIRED</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-body p-0 mb-3" id="cloud-confirm-message" style="font-size: 0.875rem;"></div>
+                <div class="command-modal-actions">
+                    <button type="button" class="btn-command-action" data-dismiss="modal">CANCEL</button>
+                    <button type="button" class="btn-command-danger" id="cloud-confirm-action">CONTINUE</button>
+                </div>
             </div>
         </div>
     </div>
 
     @if ($canSetRdns)
+        <!-- rDNS Dialog -->
         <div class="modal fade" id="cloud-rdns-dialog" tabindex="-1" role="dialog" aria-labelledby="cloud-rdns-title" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered" role="document">
-                <form class="modal-content" id="cloud-rdns-form">
-                    <div class="modal-header"><h5 class="modal-title" id="cloud-rdns-title">Set rDNS</h5><button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>
-                    <div class="modal-body">
-                        <label for="cloud-rdns-value">rDNS hostname</label>
-                        <input id="cloud-rdns-value" class="form-control" autocomplete="off" required>
+                <form class="modal-content command-modal-surface p-4" id="cloud-rdns-form">
+                    <div class="command-modal-hero mb-3">
+                        <div class="command-modal-hero-left">
+                            <div class="command-modal-hero-icon"><i class="fas fa-network-wired"></i></div>
+                            <div>
+                                <h3 class="command-modal-hero-title" id="cloud-rdns-title">Set Reverse DNS PTR</h3>
+                                <div class="command-modal-hero-eyebrow">rDNS RECORD CONFIGURATION</div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="modal-footer"><button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary" id="cloud-rdns-save">Set rDNS</button></div>
+                    <div class="form-group mb-3">
+                        <label class="command-form-label" for="cloud-rdns-value">rDNS Hostname:</label>
+                        <input id="cloud-rdns-value" class="form-control" autocomplete="off" placeholder="mail.domain.com" required>
+                    </div>
+                    <div class="command-modal-actions">
+                        <button type="button" class="btn-command-action" data-dismiss="modal">CANCEL</button>
+                        <button type="submit" class="btn-command-primary" id="cloud-rdns-save"><i class="fas fa-check mr-1"></i> SET RDNS</button>
+                    </div>
                 </form>
             </div>
         </div>
     @endif
+</div>
 @endsection
 
 @push('scripts')
@@ -189,7 +273,7 @@
             }
 
             function setStatus(message, tone = 'info') {
-                status.className = `alert alert-${tone}`;
+                status.className = `alert alert-${tone} mb-3`;
                 status.textContent = message;
             }
 
@@ -281,7 +365,7 @@
                     const row = rows.insertRow();
                     const cell = row.insertCell();
                     cell.colSpan = {{ $type === 'linode' ? 11 : 9 }};
-                    cell.className = 'text-muted';
+                    cell.className = 'text-muted text-center py-4';
                     cell.textContent = 'No instances are available in this account.';
                     updateSelectionButtons();
                     return;
@@ -295,7 +379,18 @@
                         : ['id', 'name', 'region', 'status', 'ip'];
                     fields.forEach((key) => {
                         const cell = row.insertCell();
-                        cell.textContent = String(instance[key] ?? '—');
+                        if (key === 'id') {
+                            cell.innerHTML = `<span class="command-mono-badge">#${instance[key] ?? ''}</span>`;
+                        } else if (key === 'name') {
+                            cell.innerHTML = `<strong>${instance[key] ?? ''}</strong>`;
+                        } else if (key === 'status') {
+                            const isRunning = String(instance[key] || '').toLowerCase() === 'running' || String(instance[key] || '').toLowerCase() === 'active';
+                            cell.innerHTML = `<span class="badge-command-pill ${isRunning ? 'badge-command-active-yes' : ''}">${instance[key] ?? '—'}</span>`;
+                        } else if (key === 'ip') {
+                            cell.innerHTML = `<span style="font-family: monospace; font-weight: 600; color: #6366f1;">${instance[key] ?? '—'}</span>`;
+                        } else {
+                            cell.textContent = String(instance[key] ?? '—');
+                        }
                     });
                     const reputationCell = row.insertCell();
                     const scoreCell = row.insertCell();
@@ -312,13 +407,15 @@
                         scoreCell.textContent = 'NA';
                     }
                     const createdCell = row.insertCell();
-                    createdCell.textContent = String(instance.created_at ?? '—');
+                    createdCell.innerHTML = `<span style="font-size: 0.8125rem; color: var(--command-os-text-muted, #64748b);">${instance.created_at ?? '—'}</span>`;
                     @if ($canSetRdns)
                         const actionsCell = row.insertCell();
                         if (instance.ip) {
                             const rdnsButton = document.createElement('button');
                             rdnsButton.type = 'button';
-                            rdnsButton.className = 'btn btn-sm btn-link';
+                            rdnsButton.className = 'btn-command-action';
+                            rdnsButton.style.padding = '2px 8px';
+                            rdnsButton.style.fontSize = '0.75rem';
                             rdnsButton.textContent = 'RDNS';
                             rdnsButton.title = 'Set rDNS';
                             rdnsButton.addEventListener('click', () => openRdnsDialog(instance, rdnsButton));
@@ -445,7 +542,7 @@
                         mark.setAttribute('aria-label', mark.title);
                         reputationCell.append(mark, document.createTextNode(' '));
                     }
-                    scoreCell.textContent = result.score || 'NA';
+                    scoreCell.innerHTML = result.score ? `<span class="badge-command-pill" style="font-weight: 700; color: #10b981;">${result.score}</span>` : 'NA';
                 } catch (error) {
                     if (!reputationCell.isConnected || !scoreCell.isConnected) { return; }
                     reputationCell.textContent = 'FAILED';

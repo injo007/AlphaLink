@@ -149,7 +149,7 @@
                         searchable: false,
                         render: (data, type, row) => {
                             const editUrl = @json(route('clean.console.infrastructure.isps.index')) + `/${row.id}/edit`;
-                            const update = `<button data-url="${escapeHtml(editUrl)}" class="command-action-btn action-info update" title="UPDATE"><i class="fas fa-pencil-alt"></i></button>`;
+                            const update = `<button data-url="${escapeHtml(editUrl)}" class="command-action-btn action-update update" title="UPDATE"><i class="fas fa-pencil-alt"></i></button>`;
                             const status = `<button data-id="${escapeHtml(row.id)}" data-action="${row.is_active ? 0 : 1}" class="command-action-btn action-status ${row.is_active ? 'is-active' : ''} status" title="${row.is_active ? 'DISABLE' : 'ENABLE'} ISP"><i class="fas ${row.is_active ? 'fa-times' : 'fa-check'}"></i></button>`;
                             const users = `<button data-id="${escapeHtml(row.id)}" class="command-action-btn action-primary users" title="ALLOWED USERS"><i class="fas fa-users"></i></button>`;
                             const sponsors = `<button data-id="${escapeHtml(row.id)}" class="command-action-btn action-warning sponsors" title="ALLOWED SPONSORS"><i class="fas fa-hand-holding-usd"></i></button>`;

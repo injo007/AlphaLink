@@ -10248,6 +10248,75 @@ a.btn-command-danger:disabled {
     box-shadow: none !important;
 }
 
+/* Universal Command OS Badge Pill */
+.badge-command-pill {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 5px !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.03em !important;
+    padding: 3px 10px !important;
+    border-radius: 9999px !important;
+    line-height: 1.4 !important;
+    transition: all 0.2s ease !important;
+    text-decoration: none !important;
+    vertical-align: middle !important;
+}
+
+html[data-command-theme='dark'] .badge-command-pill,
+html[data-command-theme='dark'] button.badge-command-pill,
+html[data-command-theme='dark'] a.badge-command-pill {
+    background: rgba(139, 92, 246, 0.14) !important;
+    border: 1px solid rgba(139, 92, 246, 0.3) !important;
+    color: #c4b5fd !important;
+}
+
+html[data-command-theme='light'] .badge-command-pill,
+html[data-command-theme='light'] button.badge-command-pill,
+html[data-command-theme='light'] a.badge-command-pill,
+html:not([data-command-theme='dark']) .badge-command-pill,
+html:not([data-command-theme='dark']) button.badge-command-pill,
+html:not([data-command-theme='dark']) a.badge-command-pill {
+    background: #ede9fe !important;
+    border: 1px solid rgba(139, 92, 246, 0.35) !important;
+    color: #6d28d9 !important;
+}
+
+.badge-command-pill.status-ready,
+.badge-command-pill.status-active,
+.badge-command-pill.status-success,
+html[data-command-theme='dark'] .badge-command-pill.status-ready,
+html[data-command-theme='light'] .badge-command-pill.status-ready {
+    color: #10b981 !important;
+    border-color: rgba(16, 185, 129, 0.35) !important;
+    background: rgba(16, 185, 129, 0.12) !important;
+}
+
+.badge-command-pill.status-danger,
+.badge-command-pill.status-expired,
+html[data-command-theme='dark'] .badge-command-pill.status-expired,
+html[data-command-theme='light'] .badge-command-pill.status-expired {
+    color: #ef4444 !important;
+    border-color: rgba(239, 68, 68, 0.35) !important;
+    background: rgba(239, 68, 68, 0.12) !important;
+}
+
+.badge-command-pill.status-warning,
+html[data-command-theme='dark'] .badge-command-pill.status-warning,
+html[data-command-theme='light'] .badge-command-pill.status-warning {
+    color: #f59e0b !important;
+    border-color: rgba(245, 158, 11, 0.35) !important;
+    background: rgba(245, 158, 11, 0.12) !important;
+}
+
+button.badge-command-pill:hover,
+a.badge-command-pill:hover {
+    transform: translateY(-1px) !important;
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.25) !important;
+}
+
 /* Universal Command OS Action/Secondary Button */
 .btn-command-action,
 button.btn-command-action,

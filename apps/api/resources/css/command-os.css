@@ -13,6 +13,10 @@ body.command-os-shell {
     --co-blue: #277bff;
     --co-cyan: #17aee0;
     --co-shadow: 0 4px 20px rgb(45 54 115 / 5%);
+    --command-os-text: var(--co-ink);
+    --command-os-text-muted: var(--co-muted);
+    --command-os-surface: var(--co-surface);
+    --command-os-border: var(--co-border);
     min-width: 320px;
     color: var(--co-ink);
     background: var(--co-page);

@@ -131,6 +131,7 @@
         $ispsUrl = route('clean.console.infrastructure.isps.index');
         $listsUrl = route('clean.console.infrastructure.lists.index');
         $mixesUrl = route('clean.console.audience-mixes.history');
+        $createMixUrl = route('clean.console.audience-mixes.index');
         $domainsUrl = route('clean.console.infrastructure.domains.index');
         $domainProvidersUrl = route('clean.console.infrastructure.domain-providers.index');
         $isServersPage = $routeIs('console.infrastructure.servers.*');
@@ -169,6 +170,8 @@
         $isMiscellaneousPage = $isAppSettingsPage || $isAppHealthPage || $isAppErrorsPage || $isSubscribersPage || $isContactsPage || $isHorizonPage;
         $isCampaignsPage = $routeIs('console.campaigns.*', 'console.mailer.campaigns');
         $isAudienceMixesPage = $routeIs('console.audience-mixes.*');
+        $isAudienceMixHistoryPage = $routeIs('console.audience-mixes.history');
+        $isAudienceMixBuilderPage = $routeIs('console.audience-mixes.index');
         $isUsersPage = $routeIs('console.users.*');
         $isGlobalUsersPage = $routeIs('console.global-users.*');
         $isCampaignNegativesPage = $routeIs('console.campaign-negatives.*');
@@ -362,12 +365,18 @@
             ], static fn (mixed $value): bool => $value !== null);
         };
         $dashboardStats = array_slice($dashboardGroup['items'] ?? [], 1);
-        $campaignItems = $filterNavigationItems($campaignsGroup['items'] ?? [], ['NEGATIVES', 'STATISTICS']);
+        $campaignItems = $filterNavigationItems($campaignsGroup['items'] ?? [], ['NEGATIVES', 'STATISTICS', 'MIXS']);
         $dropItems = $filterNavigationItems($dropsGroup['items'] ?? [], ['SUPPRESSION', 'STATISTICS']);
         $warmupItems = $filterNavigationItems($warmupsGroup['items'] ?? [], ['STATISTICS']);
         $listItems = $filterNavigationItems($listsGroup['items'] ?? [], ['ISPS']);
+        $ispItem = collect($listsGroup['items'] ?? [])->firstWhere('label', 'ISPS');
         $campaignSuppression = collect($campaignsGroup['items'] ?? [])->firstWhere('label', 'NEGATIVES');
         $dropSuppression = collect($dropsGroup['items'] ?? [])->firstWhere('label', 'SUPPRESSION');
+        $mixListItem = collect($campaignsGroup['items'] ?? [])->firstWhere('label', 'MIXS');
+        if ($mixListItem) {
+            $mixListItem['label'] = 'MIX LISTS';
+            $mixListItem['active'] = $isAudienceMixHistoryPage;
+        }
         $campaignStatItem = collect($campaignsGroup['items'] ?? [])->firstWhere('label', 'STATISTICS');
         if ($campaignStatItem) {
             $campaignStatItem['label'] = 'CAMPAIGN STATS';
@@ -392,6 +401,12 @@
             $canManageSponsors && $offersGroup ? ['label' => 'OFFERS', 'icon' => $offersGroup['icon'], 'href' => $offersGroup['href'], 'active' => $offersGroup['active']] : null,
             ...$flattenNavigationItems($networksGroup['items'] ?? [], 'NETWORKS'),
         ]));
+        $audienceItems = array_values(array_filter([
+            $ispItem ? ['label' => 'ISP & GEO', 'icon' => 'fas fa-map-marker-alt', 'href' => $ispsUrl, 'active' => $isIspPage] : null,
+            ...$flattenNavigationItems($listItems),
+            $mixListItem,
+            $hideDashboardForbiddenDestinations ? null : ['label' => 'CREATE MIX', 'icon' => 'fas fa-blender', 'href' => $createMixUrl, 'active' => $isAudienceMixBuilderPage],
+        ]));
         $operationItems = array_merge(
             $flattenNavigationItems($toolsGroup['items'] ?? []),
             $flattenNavigationItems($globalTestsGroup['items'] ?? [], 'GLOBAL TESTS'),
@@ -401,30 +416,48 @@
             $flattenNavigationItems($usersGroup['items'] ?? [], 'USERS'),
             array_values(array_filter($miscellaneousGroup['items'] ?? [], static fn (array $item): bool => $item['label'] === 'SETTINGS')),
         );
+        $mailServerItems = array_values(array_filter($serversGroup['items'] ?? [], static fn (array $item): bool => ! str_starts_with($item['label'] ?? '', 'PMTA')));
+        $serverResourceItems = array_values(array_filter($pmtaGroup['items'] ?? [], static fn (array $item): bool => in_array($item['label'] ?? '', ['MY SERVERS', 'MY IPS'], true)));
+        $pmtaItems = array_values(array_filter($pmtaGroup['items'] ?? [], static fn (array $item): bool => ! in_array($item['label'] ?? '', ['MY SERVERS', 'MY IPS'], true)));
         $mailServerItems = array_merge(
-            $flattenNavigationItems($serversGroup['items'] ?? []),
-            $flattenNavigationItems($pmtaGroup['items'] ?? []),
+            $flattenNavigationItems($mailServerItems),
+            $flattenNavigationItems($serverResourceItems),
             $flattenNavigationItems($cloudsGroup['items'] ?? [], 'CLOUDS'),
         );
-        $suppressionHref = collect($suppressionItems)->first(static fn (array $item): bool => isset($item['href']))['href'] ?? null;
+        $offerSuppressionItems = array_values(array_filter(array_map(static function (array $item): array {
+            if (($item['label'] ?? null) === 'NEGATIVES') {
+                $item['label'] = 'CAMPAIGN SUPPRESSIONS';
+                $item['icon'] = 'fas fa-shield-alt';
+            } elseif (($item['label'] ?? null) === 'SUPPRESSION') {
+                $item['label'] = 'DROP SUPPRESSIONS';
+                $item['icon'] = 'fas fa-shield-alt';
+            }
+
+            return $item;
+        }, $suppressionItems)));
+        $offerItems = array_merge($offerItems, $offerSuppressionItems);
+        $offerGroupHref = $canManageSponsors ? $offersUrl : (collect($offerSuppressionItems)->first(static fn (array $item): bool => isset($item['href']))['href'] ?? null);
+        $offersOrSuppressionActive = $isSponsorManagementPage || $isOfferManagementPage || $isNetworkSponsorsPage || $isNetworkOffersPage || $isCampaignNegativesPage || $routeIs('console.drops.suppression*');
+        $analyticsActive = $isDashboardAllStatsPage || $isDashboardIspStatsPage || $isDashboardMailerRevenuePage || $isCampaignStatisticsPage || $isDropStatisticsPage || $isWarmupStatisticsPage;
+        $mailInfrastructureActive = $isServerNavigationPage || $isServersPage || $isMyServersPage || $isMyIpsPage || $isCloudWorkflowPage;
+        $redirectsGroup = $makeCommandOsNavGroup('REDIRECTS & ROTATORS', 'fas fa-link', null, false, [], false, 'nav-v2-redirects-rotators');
+        $redirectsGroup['disabled'] = true;
+        $redirectsGroup['reason'] = 'No redirect or rotator page is connected yet.';
         $commandOsNavigation = [
-            $makeCommandOsNavGroup('DASHBOARD', 'fas fa-tachometer-alt', route('console.dashboard.main'), $routeIs('console.dashboard.main', 'console.workspace.dashboard.main', 'console.analytics.index')),
-            $makeCommandOsNavGroup('CAMPAIGNS', 'fas fa-envelope', $hideDashboardForbiddenDestinations ? null : $campaignsUrl, $isCampaignsPage || $isGsendPage, $flattenNavigationItems($campaignItems), $isCampaignsPage || $isGsendPage, 'nav-submenu-campaigns'),
-            $makeCommandOsNavGroup('DROPS', 'fas fa-layer-group', $dropDraftsUrl, $isDropDraftPage || $isDropsMonitoringPage, $flattenNavigationItems($dropItems), $isDropsPage && ! $isDropStatisticsPage && ! $routeIs('console.drops.suppression*'), 'nav-submenu-drops'),
-            $makeCommandOsNavGroup('WARMUPS', 'fas fa-fire', $warmupsUrl, $isWarmupDraftPage || $isSeedListsPage, $flattenNavigationItems($warmupItems), $isWarmupDraftPage || $isSeedListsPage, 'nav-submenu-warmups'),
-            $makeCommandOsNavGroup('LISTS & AUDIENCES', 'fas fa-users', $listsUrl, $isListsPage || $isListHistoryPage || $isEmailManagementPage || $isBlacklistCheckerPage, $flattenNavigationItems($listItems), $isIspManagementPage, 'nav-submenu-lists-audiences'),
-            $makeCommandOsNavGroup('MAIL SERVERS', 'fas fa-server', $serversUrl, $isServerNavigationPage || $isPmtaNavigationPage || $isCloudWorkflowPage, $mailServerItems, $isServerNavigationPage || $isPmtaNavigationPage || $isCloudWorkflowPage, 'nav-submenu-mail-servers'),
-            $makeCommandOsNavGroup('DOMAINS', 'fas fa-globe', $domainsUrl, $isDomainsPage || $routeIs('console.infrastructure.domain-providers.*'), $flattenNavigationItems($domainsGroup['items'] ?? []), $routeIs('console.infrastructure.domain-providers.*') || $isDomainsPage, 'nav-submenu-domains'),
-            $makeCommandOsNavGroup('ISP & GEO', 'fas fa-map-marker-alt', $ispsUrl, $routeIs('console.infrastructure.isps.*')),
-            $makeCommandOsNavGroup('TRACKING & ANALYTICS', 'fas fa-chart-bar', route('clean.console.analytics.all-stats'), $isDashboardAllStatsPage || $isDashboardIspStatsPage || $isDashboardMailerRevenuePage || $isCampaignStatisticsPage || $isDropStatisticsPage || $isWarmupStatisticsPage, $flattenNavigationItems($trackingItems), $isDashboardAllStatsPage || $isDashboardIspStatsPage || $isDashboardMailerRevenuePage || $isCampaignStatisticsPage || $isDropStatisticsPage || $isWarmupStatisticsPage, 'nav-submenu-tracking-analytics'),
-            $makeCommandOsNavGroup('REDIRECTS & ROTATORS', 'fas fa-link', null, false),
-            $makeCommandOsNavGroup('OFFERS', 'fas fa-tag', $canManageSponsors ? $offersUrl : null, $isSponsorManagementPage || $isOfferManagementPage || $isNetworkSponsorsPage || $isNetworkOffersPage, $offerItems, $isSponsorManagementPage || $isOfferManagementPage || $isNetworkSponsorsPage || $isNetworkOffersPage, 'nav-submenu-offers'),
-            $makeCommandOsNavGroup('SUPPRESSIONS', 'fas fa-shield-alt', $suppressionHref, $isCampaignNegativesPage || $routeIs('console.drops.suppression*'), $flattenNavigationItems($suppressionItems), $isCampaignNegativesPage || $routeIs('console.drops.suppression*'), 'nav-submenu-suppressions'),
-            $makeCommandOsNavGroup('TOOLS & UTILITIES', 'fas fa-toolbox', route('clean.console.tools.workspace.index'), $isTextMechanicPage || $isEncodingPage || $isSpfScannerPage || $isWorkspaceToolPage || $isGlobalTestsPage || $isGlobalTestHistoriesPage || $isSubscribersPage || $isContactsPage || $isHorizonPage || $isAppHealthPage || $isAppErrorsPage, $flattenNavigationItems($operationItems), $isGlobalTestsPage || $isGlobalTestHistoriesPage || $isTextMechanicPage || $isEncodingPage || $isSpfScannerPage || $isWorkspaceToolPage || $isSubscribersPage || $isContactsPage || $isHorizonPage || $isAppHealthPage || $isAppErrorsPage, 'nav-submenu-tools-utilities'),
-            $makeCommandOsNavGroup('SETTINGS', 'fas fa-cog', $appSettingsUrl, $isAppSettingsPage || $isUsersPage || $isGlobalUsersPage, $flattenNavigationItems($settingsItems), $isAppSettingsPage || $isUsersPage || $isGlobalUsersPage, 'nav-submenu-settings'),
+            $makeCommandOsNavGroup('OPERATIONS OVERVIEW', 'fas fa-tachometer-alt', route('console.dashboard.main'), $routeIs('console.dashboard.main', 'console.workspace.dashboard.main', 'console.analytics.index'), [], false, 'nav-v2-operations-overview'),
+            $makeCommandOsNavGroup('ANALYTICS & INSIGHTS', 'fas fa-chart-bar', route('clean.console.analytics.all-stats'), $analyticsActive, $flattenNavigationItems($trackingItems), $analyticsActive, 'nav-v2-analytics-insights'),
+            $makeCommandOsNavGroup('CAMPAIGN STUDIO', 'fas fa-envelope', $hideDashboardForbiddenDestinations ? null : $campaignsUrl, $isCampaignsPage || $isGsendPage, $flattenNavigationItems($campaignItems), $isCampaignsPage || $isGsendPage, 'nav-v2-campaign-studio'),
+            $makeCommandOsNavGroup('WARMUP OPERATIONS', 'fas fa-fire', $warmupsUrl, $isWarmupDraftPage || $isSeedListsPage, $flattenNavigationItems($warmupItems), $isWarmupDraftPage || $isSeedListsPage, 'nav-v2-warmup-operations'),
+            $makeCommandOsNavGroup('MAIL INFRASTRUCTURE', 'fas fa-server', $serversUrl, $mailInfrastructureActive, $mailServerItems, $mailInfrastructureActive, 'nav-v2-mail-infrastructure'),
+            $makeCommandOsNavGroup('DOMAIN MANAGEMENT', 'fas fa-globe', $domainsUrl, $isDomainsPage || $routeIs('console.infrastructure.domain-providers.*'), $flattenNavigationItems($domainsGroup['items'] ?? []), $routeIs('console.infrastructure.domain-providers.*') || $isDomainsPage, 'nav-v2-domain-management'),
+            $makeCommandOsNavGroup('OFFERS & SUPPRESSIONS', 'fas fa-tag', $offerGroupHref, $offersOrSuppressionActive, $offerItems, $offersOrSuppressionActive, 'nav-v2-offers-suppressions'),
+            $makeCommandOsNavGroup('PMTA MANAGEMENT', 'fas fa-desktop', $pmtaAdminUrl, $isPmtaPage, $flattenNavigationItems($pmtaItems), $isPmtaPage, 'nav-v2-pmta-management'),
+            $makeCommandOsNavGroup('AUDIENCE INTELLIGENCE', 'fas fa-users', $listsUrl, $isIspManagementPage || $isAudienceMixesPage, $audienceItems, $isIspManagementPage || $isAudienceMixesPage, 'nav-v2-audience-intelligence'),
+            $makeCommandOsNavGroup('OPERATIONS TOOLKIT', 'fas fa-toolbox', route('clean.console.tools.workspace.index'), $isTextMechanicPage || $isEncodingPage || $isSpfScannerPage || $isWorkspaceToolPage || $isGlobalTestsPage || $isGlobalTestHistoriesPage || $isSubscribersPage || $isContactsPage || $isHorizonPage || $isAppHealthPage || $isAppErrorsPage, $flattenNavigationItems($operationItems), $isGlobalTestsPage || $isGlobalTestHistoriesPage || $isTextMechanicPage || $isEncodingPage || $isSpfScannerPage || $isWorkspaceToolPage || $isSubscribersPage || $isContactsPage || $isHorizonPage || $isAppHealthPage || $isAppErrorsPage, 'nav-v2-operations-toolkit'),
+            $makeCommandOsNavGroup('DROP CAMPAIGNS (V1)', 'fas fa-layer-group', $dropDraftsUrl, $isDropDraftPage || $isDropsMonitoringPage, $flattenNavigationItems($dropItems), $isDropDraftPage || $isDropsMonitoringPage, 'nav-v2-drop-campaigns'),
+            $makeCommandOsNavGroup('WORKSPACE SETTINGS', 'fas fa-cog', $appSettingsUrl, $isAppSettingsPage || $isUsersPage || $isGlobalUsersPage, $flattenNavigationItems($settingsItems), $isAppSettingsPage || $isUsersPage || $isGlobalUsersPage, 'nav-v2-workspace-settings'),
+            $redirectsGroup,
         ];
-        $commandOsNavigation[9]['disabled'] = true;
-        $commandOsNavigation[9]['reason'] = 'No redirect or rotator page is connected yet.';
         $commandOsNavigation = array_values(array_filter($commandOsNavigation, static fn (array $group): bool => $group !== []));
         $navigationPreference = \App\Models\AppGlobalPreference::query()->find('navigation_order')?->value ?? [];
         $commandOsNavigation = app(\App\Services\Navigation\GlobalNavigationOrder::class)->apply($commandOsNavigation, $navigationPreference);

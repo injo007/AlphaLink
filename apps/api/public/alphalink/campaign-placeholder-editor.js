@@ -23,6 +23,7 @@
             row.dataset.placeholderRow = '';
 
             const valuesCell = document.createElement('td');
+            valuesCell.dataset.label = 'Values';
             const values = document.createElement('textarea');
             values.className = 'form-control form-control-sm';
             values.name = `${prefix}[${index}][data_text]`;
@@ -32,6 +33,7 @@
             valuesCell.append(values);
 
             const intervalCell = document.createElement('td');
+            intervalCell.dataset.label = 'Rotate every';
             const interval = document.createElement('input');
             interval.className = 'form-control form-control-sm';
             interval.name = `${prefix}[${index}][rotate_every]`;
@@ -43,6 +45,7 @@
             intervalCell.append(interval);
 
             const actionCell = document.createElement('td');
+            actionCell.dataset.label = 'Action';
             actionCell.className = 'text-right';
             const remove = document.createElement('button');
             remove.className = 'btn btn-sm btn-alt-danger';

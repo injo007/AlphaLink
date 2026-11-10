@@ -85,16 +85,16 @@
                     @php($progressPercent = $recipientCount > 0 ? min(100, (int) floor($processed * 100 / $recipientCount)) : 0)
                     <tr>
                         <th scope="row"><a href="{{ route('console.warmups.edit', [$workspace->id, $draft->id]) }}">{{ substr((string) $draft->id, 0, 8) }}</a><br><small>{{ $draft->name }}</small></th>
-                        <td>{{ auth()->user()->username }}</td>
-                        <td>{{ number_format((int) ($draft->warmup_seed_count ?? 0)) }}</td>
-                        <td>@if ($draft->warmup_servers->isNotEmpty())<span class="badge badge-primary">{{ $draft->warmup_servers->count() > 1 ? 'GROUPED : '.$draft->warmup_servers->count() : $draft->warmup_servers->first() }}</span>@else — @endif</td>
-                        <td>{{ $config['total_send'] ?? '—' }}</td>
-                        <td>{{ $config['fraction_ip'] ?? '—' }}</td>
-                        <td>{{ $config['sleep_email'] ?? '—' }}</td>
-                        <td>{{ $config['sleep_ip'] ?? '—' }}</td>
-                        <td>{{ $config['seed_every'] ?? '—' }}</td>
-                        <td><span class="badge badge-{{ $sendRun ? (in_array($sendRun->state, ['planned', 'running'], true) ? 'primary' : ($sendRun->state === 'completed' ? 'success' : 'warning')) : 'secondary' }}">{{ strtoupper($sendRun->state ?? 'draft') }}</span></td>
-                        <td class="warmup-register-progress">
+                        <td data-label="User">{{ auth()->user()->username }}</td>
+                        <td data-label="Seeds">{{ number_format((int) ($draft->warmup_seed_count ?? 0)) }}</td>
+                        <td data-label="Server">@if ($draft->warmup_servers->isNotEmpty())<span class="badge badge-primary">{{ $draft->warmup_servers->count() > 1 ? 'GROUPED : '.$draft->warmup_servers->count() : $draft->warmup_servers->first() }}</span>@else — @endif</td>
+                        <td data-label="Total send">{{ $config['total_send'] ?? '—' }}</td>
+                        <td data-label="Fraction IP">{{ $config['fraction_ip'] ?? '—' }}</td>
+                        <td data-label="Sleep email">{{ $config['sleep_email'] ?? '—' }}</td>
+                        <td data-label="Sleep IP">{{ $config['sleep_ip'] ?? '—' }}</td>
+                        <td data-label="Seed">{{ $config['seed_every'] ?? '—' }}</td>
+                        <td data-label="Status"><span class="badge badge-{{ $sendRun ? (in_array($sendRun->state, ['planned', 'running'], true) ? 'primary' : ($sendRun->state === 'completed' ? 'success' : 'warning')) : 'secondary' }}">{{ strtoupper($sendRun->state ?? 'draft') }}</span></td>
+                        <td data-label="Progress" class="warmup-register-progress">
                             @if ($sendRun)
                                 <div class="warmup-register-progress-label"><strong>{{ number_format($processed) }} / {{ number_format($recipientCount) }}</strong><span>{{ $progressPercent }}%</span></div>
                                 <div class="warmup-register-progress-track" role="progressbar" aria-label="Warmup send progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $progressPercent }}" aria-valuetext="{{ number_format($processed) }} of {{ number_format($recipientCount) }} recipients processed"><span style="width: {{ $progressPercent }}%"></span></div>
@@ -103,8 +103,8 @@
                                 <span class="badge badge-secondary">No send run yet</span>
                             @endif
                         </td>
-                        <td>{{ strtoupper((string) ($config['send_type'] ?? '—')) }}</td>
-                        <td class="text-nowrap warmup-register-actions">
+                        <td data-label="Type">{{ strtoupper((string) ($config['send_type'] ?? '—')) }}</td>
+                        <td data-label="Actions" class="text-nowrap warmup-register-actions">
                             <div class="warmup-register-row-actions">
                             <a class="campaign-register-icon-action" href="{{ route('console.warmups.edit', [$workspace->id, $draft->id]) }}" title="Edit Warmup" aria-label="Edit Warmup"><i class="fas fa-edit" aria-hidden="true"></i></a>
                             <a class="campaign-register-icon-action warmup-action-test" href="{{ route('console.warmups.edit', [$workspace->id, $draft->id]) }}" title="Open Warmup composer to test saved Email Test addresses" aria-label="Test Warmup"><i class="far fa-paper-plane" aria-hidden="true"></i></a>
@@ -245,6 +245,39 @@
             .warmup-register-filters input[type="search"] { width: 100%; }
             .warmup-register-footer { align-items: flex-start !important; flex-direction: column; }
             .warmup-register-footer nav { margin-left: 0; max-width: 100%; overflow-x: auto; }
+        }
+        @media (max-width: 991.98px) {
+            .warmup-register-table-wrap { overflow: visible; border: 0; background: transparent; box-shadow: none; }
+            .warmup-register-table { display: block; min-width: 0; table-layout: auto; }
+            .warmup-register-table th:nth-child(n), .warmup-register-table td:nth-child(n) { width: auto; min-width: 0; max-width: none; }
+            .warmup-register-table thead { display: none; }
+            .warmup-register-table tbody { display: grid; gap: 10px; }
+            .warmup-register-table tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 0; overflow: hidden; border: 1px solid var(--co-border); border-radius: 12px; background: var(--co-surface); box-shadow: 0 4px 14px color-mix(in srgb, var(--co-purple) 7%, transparent); }
+            .warmup-register-table tbody th[scope="row"] { position: static; display: flex; align-items: center; justify-content: space-between; grid-column: 1 / -1; gap: 10px; width: auto; min-width: 0; padding: 12px; border: 0; border-bottom: 1px solid var(--co-border); background: color-mix(in srgb, var(--co-purple) 5%, var(--co-surface)); box-shadow: none; text-align: left; }
+            .warmup-register-table tbody th a { flex: 0 0 auto; }
+            .warmup-register-table tbody th small { max-width: 68%; overflow: hidden; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+            .warmup-register-table td { display: grid; grid-template-columns: minmax(74px, .7fr) minmax(0, 1fr); align-items: start; gap: 8px; min-width: 0; padding: 9px 10px; border: 0 !important; border-bottom: 1px solid color-mix(in srgb, var(--co-border) 64%, transparent) !important; overflow-wrap: anywhere; }
+            .warmup-register-table td { font-size: 11px; line-height: 1.4; }
+            .warmup-register-table td::before { color: var(--co-muted); content: attr(data-label); font-size: 9px; font-weight: 800; letter-spacing: .04em; line-height: 1.4; text-transform: uppercase; }
+            .warmup-register-table .warmup-register-progress, .warmup-register-table .warmup-register-actions { grid-column: 1 / -1; }
+            .warmup-register-table .warmup-register-progress { grid-template-columns: minmax(74px, 100px) minmax(0, 1fr); }
+            .warmup-register-table .warmup-register-actions { grid-template-columns: minmax(74px, 100px) minmax(0, 1fr); border-bottom: 0 !important; }
+            .warmup-register-row-actions { grid-template-columns: repeat(4, 32px); gap: 6px; }
+            .warmup-register-table tbody tr:has(td[colspan]) { display: block; padding: 12px; }
+            .warmup-register-table tbody tr:has(td[colspan]) td { display: block; padding: 0; border: 0 !important; text-align: center; }
+            .warmup-register-table tbody tr:has(td[colspan]) td::before { content: none; }
+            .warmup-register-scroll-hint { display: none; }
+        }
+        @media (min-width: 576px) and (max-width: 991.98px) {
+            .warmup-register-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .warmup-register-table tbody tr { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .warmup-register-table .warmup-register-progress, .warmup-register-table .warmup-register-actions { grid-column: 1 / -1; }
+        }
+        @media (max-width: 359.98px) {
+            .warmup-register-table tbody tr { grid-template-columns: minmax(0, 1fr); }
+            .warmup-register-table td:not(.warmup-register-progress):not(.warmup-register-actions) { grid-template-columns: minmax(74px, .55fr) minmax(0, 1fr); }
+            .warmup-register-table .warmup-register-actions { grid-template-columns: minmax(0, 1fr); }
+            .warmup-register-metric { padding: 10px; }
         }
         @media (prefers-reduced-motion: reduce) { .warmup-register-progress-track > span { transition: none; } }
         @media (prefers-reduced-motion: reduce) { .warmup-register-create { transition: none; } .warmup-register-create:hover { transform: none; } }

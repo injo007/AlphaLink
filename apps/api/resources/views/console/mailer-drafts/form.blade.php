@@ -615,6 +615,22 @@
         .warmup-composer-page .mailer-tags-dialog .row > [class*="col-"] { flex: 0 0 100%; max-width: 100%; }
         .warmup-composer-page textarea[name="header"], .warmup-composer-page textarea[name="html_body"] { min-height: 190px; }
     }
+    @media (max-width: 575.98px) {
+        .warmup-composer-page [data-campaign-placeholder-editor] .table-responsive { overflow: visible; }
+        .warmup-composer-page [data-campaign-placeholder-editor] .table { display: block; min-width: 0; width: 100%; }
+        .warmup-composer-page [data-campaign-placeholder-editor] .table thead { display: none; }
+        .warmup-composer-page [data-campaign-placeholder-editor] .table tbody { display: grid; gap: 9px; }
+        .warmup-composer-page [data-campaign-placeholder-editor] .table tbody tr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(90px, .55fr); gap: 9px; padding: 10px; border: 1px solid var(--co-border); border-radius: 10px; background: var(--co-surface); }
+        .warmup-composer-page [data-campaign-placeholder-editor] .table tbody td { display: flex; flex-direction: column; gap: 5px; min-width: 0; padding: 0; border: 0 !important; background: transparent !important; }
+        .warmup-composer-page [data-campaign-placeholder-editor] .table tbody td::before { color: var(--co-muted); content: attr(data-label); font-size: 8px; font-weight: 800; letter-spacing: .045em; text-transform: uppercase; }
+        .warmup-composer-page [data-campaign-placeholder-editor] .table tbody td:first-child { grid-column: 1 / -1; }
+        .warmup-composer-page [data-campaign-placeholder-editor] .table tbody td:last-child { align-items: flex-end; justify-content: flex-end; }
+        .warmup-composer-page [data-campaign-placeholder-editor] .table tbody td:last-child::before { align-self: flex-start; }
+        .warmup-composer-page [data-campaign-placeholder-editor] .table tbody td [data-placeholder-remove] { width: 38px; }
+        .warmup-composer-page .campaign-placeholder-toolbar { gap: 6px; }
+        .warmup-composer-page .campaign-placeholder-toolbar .campaign-mode-toggle { flex: 1 1 auto; justify-content: center; }
+        .warmup-composer-page .campaign-placeholder-toolbar [data-placeholder-add] { flex: 1 1 100%; }
+    }
     @media (max-width: 390px) {
         .warmup-composer-section-nav { gap: 5px; }
         .warmup-composer-section-nav a { align-items: center; flex-direction: row; min-height: 46px; }

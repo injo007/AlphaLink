@@ -58,14 +58,16 @@
 
             <div class="row push d-none mt-4" id="change-domain-editor">
                 <div class="col-sm-12">
-                    <div class="p-3 mb-3 d-flex flex-wrap align-items-center" style="background: rgba(99, 102, 241, 0.04); border: 1px solid rgba(99, 102, 241, 0.12); border-radius: 12px; gap: 14px;">
-                        <span class="font-w600" style="font-size: 0.8125rem;">DNS & Security Options:</span>
-                        @foreach (['https' => 'HTTPS', 'spf' => 'SPF', 'dkim' => 'DKIM', 'dmarc' => 'DMARC'] as $option => $label)
-                            <div class="custom-control custom-switch custom-control-inline">
-                                <input type="checkbox" class="custom-control-input" id="change-domain-{{ $option }}" data-change-domain-option="{{ $option }}">
-                                <label class="custom-control-label" for="change-domain-{{ $option }}" style="font-size: 0.75rem; font-weight: 600;">{{ $label }}</label>
-                            </div>
-                        @endforeach
+                    <div class="command-trigger-bar mb-3">
+                        <span class="font-w600" style="font-size: 0.8125rem;"><i class="fas fa-shield-alt mr-1 text-purple"></i> DNS & Security Options:</span>
+                        <div class="command-trigger-group">
+                            @foreach (['https' => 'HTTPS', 'spf' => 'SPF', 'dkim' => 'DKIM', 'dmarc' => 'DMARC'] as $option => $label)
+                                <div class="custom-control custom-switch">
+                                    <input type="checkbox" class="custom-control-input" id="change-domain-{{ $option }}" data-change-domain-option="{{ $option }}">
+                                    <label class="custom-control-label" for="change-domain-{{ $option }}">{{ $label }}</label>
+                                </div>
+                            @endforeach
+                        </div>
                     </div>
 
                     <div class="table-responsive">

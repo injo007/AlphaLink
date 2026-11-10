@@ -35,7 +35,7 @@
 
         <!-- 2. Table Card -->
         <div class="command-os-table-card p-4">
-            <div class="p-3 mb-3 d-flex flex-wrap align-items-center justify-content-between" style="background: rgba(99, 102, 241, 0.04); border: 1px solid rgba(99, 102, 241, 0.12); border-radius: 12px; gap: 12px;">
+            <div class="command-trigger-bar mb-3">
                 <div class="d-flex align-items-center" style="gap: 8px;">
                     <label class="mb-0 font-w600" for="pmta_version" style="font-size: 0.8125rem;">PowerMTA Engine:</label>
                     <div class="command-select-wrapper" style="width: 140px;">
@@ -46,11 +46,11 @@
                         </select>
                     </div>
                 </div>
-                <div class="d-flex flex-wrap align-items-center" style="gap: 12px;">
+                <div class="command-trigger-group">
                     @foreach (['tracking' => 'TRACKING', 'proxy' => 'PROXY', 'imap' => 'IMAP', 'spf' => 'SPF', 'dkim' => 'DKIM', 'dmarc' => 'DMARC', 'https' => 'HTTPS'] as $option => $label)
-                        <div class="custom-control custom-switch custom-control-inline">
+                        <div class="custom-control custom-switch">
                             <input type="checkbox" class="custom-control-input" id="{{ $option }}" name="{{ $option }}" @checked(in_array($option, ['tracking', 'imap', 'spf', 'dkim', 'dmarc'], true))>
-                            <label class="custom-control-label" for="{{ $option }}" style="font-size: 0.75rem; font-weight: 600;">{{ $label }}</label>
+                            <label class="custom-control-label" for="{{ $option }}">{{ $label }}</label>
                         </div>
                     @endforeach
                 </div>

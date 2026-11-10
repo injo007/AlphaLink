@@ -9504,26 +9504,260 @@ html:not([data-command-theme='dark']) body.command-os-standalone-popup .btn-alt-
     color: #475569 !important;
 }
 
-/* 7. CUSTOM SWITCH TOGGLE (VISIONARY PILL SWITCHES) */
-.custom-control.custom-switch .custom-control-input:checked ~ .custom-control-label::before {
-    background-color: #8b5cf6 !important;
+/* 7. CUSTOM SWITCH TOGGLE (VISIONARY PILL SWITCHES & RESPONSIVE TRIGGERS) */
+.command-trigger-bar {
+    background: rgba(99, 102, 241, 0.04) !important;
+    border: 1px solid rgba(99, 102, 241, 0.14) !important;
+    border-radius: 14px !important;
+    padding: 12px 16px !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 14px 20px !important;
+    transition: all 0.2s ease !important;
+}
+
+html[data-command-theme='dark'] .command-trigger-bar {
+    background: rgba(15, 23, 42, 0.6) !important;
+    border-color: rgba(139, 92, 246, 0.22) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+html[data-command-theme='light'] .command-trigger-bar {
+    background: #f8fafc !important;
+    border-color: rgba(99, 102, 241, 0.16) !important;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.command-trigger-group {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 10px 18px !important;
+}
+
+.custom-control.custom-switch,
+.command-switch-item {
+    position: relative !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    min-height: 26px !important;
+    padding-left: 0 !important;
+    margin: 0 !important;
+    cursor: pointer !important;
+    user-select: none !important;
+}
+
+.custom-control.custom-switch .custom-control-input,
+.command-switch-item input[type="checkbox"] {
+    position: absolute !important;
+    opacity: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    pointer-events: none !important;
+}
+
+.custom-control.custom-switch .custom-control-label,
+.command-switch-item .command-switch-label {
+    position: relative !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    margin-bottom: 0 !important;
+    padding-left: 48px !important; /* Exactly 38px track + 10px whitespace gap */
+    min-height: 24px !important;
+    font-size: 0.75rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.04em !important;
+    text-transform: uppercase !important;
+    line-height: 24px !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+    color: var(--command-os-text, #1e293b) !important;
+    transition: color 0.15s ease !important;
+}
+
+html[data-command-theme='dark'] .custom-control.custom-switch .custom-control-label,
+html[data-command-theme='dark'] .command-switch-item .command-switch-label {
+    color: #e2e8f0 !important;
+}
+
+html[data-command-theme='light'] .custom-control.custom-switch .custom-control-label,
+html[data-command-theme='light'] .command-switch-item .command-switch-label {
+    color: #334155 !important;
+}
+
+.custom-control.custom-switch:hover .custom-control-label,
+.command-switch-item:hover .command-switch-label {
+    color: #8b5cf6 !important;
+}
+
+/* Track pill (::before) */
+.custom-control.custom-switch .custom-control-label::before,
+.command-switch-item .command-switch-label::before {
+    content: "" !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 38px !important;
+    height: 22px !important;
+    border-radius: 9999px !important;
+    background: #cbd5e1 !important;
+    border: 1px solid rgba(148, 163, 184, 0.4) !important;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    pointer-events: none !important;
+    box-sizing: border-box !important;
+}
+
+html[data-command-theme='dark'] .custom-control.custom-switch .custom-control-label::before,
+html[data-command-theme='dark'] .command-switch-item .command-switch-label::before {
+    background: #334155 !important;
+    border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+/* Thumb circle (::after) */
+.custom-control.custom-switch .custom-control-label::after,
+.command-switch-item .command-switch-label::after {
+    content: "" !important;
+    position: absolute !important;
+    left: 3px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 16px !important;
+    height: 16px !important;
+    border-radius: 50% !important;
+    background: #ffffff !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.15) !important;
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, box-shadow 0.2s ease !important;
+    pointer-events: none !important;
+    box-sizing: border-box !important;
+}
+
+/* Checked state */
+.custom-control.custom-switch .custom-control-input:checked ~ .custom-control-label::before,
+.command-switch-item input[type="checkbox"]:checked ~ .command-switch-label::before {
+    background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%) !important;
+    border-color: #7c3aed !important;
+    box-shadow: 0 0 12px rgba(139, 92, 246, 0.4) !important;
+}
+
+.custom-control.custom-switch .custom-control-input:checked ~ .custom-control-label::after,
+.command-switch-item input[type="checkbox"]:checked ~ .command-switch-label::after {
+    transform: translateY(-50%) translateX(16px) !important;
+    background: #ffffff !important;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Focus state */
+.custom-control.custom-switch .custom-control-input:focus ~ .custom-control-label::before,
+.command-switch-item input[type="checkbox"]:focus ~ .command-switch-label::before {
+    outline: none !important;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.35) !important;
+}
+
+.custom-control.custom-switch:hover .custom-control-label::before,
+.command-switch-item:hover .command-switch-label::before {
     border-color: #8b5cf6 !important;
 }
-.custom-control.custom-switch .custom-control-label::before {
-    border-radius: 12px !important;
-    height: 20px !important;
-    width: 38px !important;
+
+@media (max-width: 991px) {
+    .command-trigger-bar {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 14px !important;
+    }
+    .command-trigger-bar > div:first-child {
+        width: 100% !important;
+        justify-content: space-between !important;
+    }
+    .command-trigger-group {
+        gap: 12px 16px !important;
+    }
 }
-.custom-control.custom-switch .custom-control-label::after {
-    border-radius: 50% !important;
-    height: 16px !important;
-    width: 16px !important;
-    top: calc(0.25rem + 2px) !important;
+
+@media (max-width: 576px) {
+    .command-trigger-group {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important;
+        gap: 10px 12px !important;
+        width: 100% !important;
+    }
 }
-.custom-control-label {
-    font-size: 11px !important;
-    font-weight: 750 !important;
-    letter-spacing: 0.05em !important;
+
+/* Custom Checkbox Modernization */
+.custom-control.custom-checkbox {
+    position: relative !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    min-height: 24px !important;
+    padding-left: 0 !important;
+    cursor: pointer !important;
+    user-select: none !important;
+}
+
+.custom-control.custom-checkbox .custom-control-input {
+    position: absolute !important;
+    opacity: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+    pointer-events: none !important;
+}
+
+.custom-control.custom-checkbox .custom-control-label {
+    position: relative !important;
+    padding-left: 28px !important;
+    cursor: pointer !important;
+    font-size: 0.8125rem !important;
+    font-weight: 600 !important;
+    line-height: 20px !important;
+    color: var(--command-os-text, #1e293b) !important;
+}
+
+html[data-command-theme='dark'] .custom-control.custom-checkbox .custom-control-label {
+    color: #e2e8f0 !important;
+}
+
+.custom-control.custom-checkbox .custom-control-label::before {
+    content: "" !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 18px !important;
+    height: 18px !important;
+    border-radius: 6px !important;
+    background: #cbd5e1 !important;
+    border: 1px solid rgba(148, 163, 184, 0.5) !important;
+    transition: all 0.2s ease !important;
+}
+
+html[data-command-theme='dark'] .custom-control.custom-checkbox .custom-control-label::before {
+    background: #1e293b !important;
+    border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.custom-control.custom-checkbox .custom-control-input:checked ~ .custom-control-label::before {
+    background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%) !important;
+    border-color: #7c3aed !important;
+}
+
+.custom-control.custom-checkbox .custom-control-label::after {
+    content: "" !important;
+    position: absolute !important;
+    left: 6px !important;
+    top: 50% !important;
+    transform: translateY(-60%) rotate(45deg) scale(0) !important;
+    width: 6px !important;
+    height: 10px !important;
+    border: solid #ffffff !important;
+    border-width: 0 2px 2px 0 !important;
+    transition: transform 0.15s ease !important;
+}
+
+.custom-control.custom-checkbox .custom-control-input:checked ~ .custom-control-label::after {
+    transform: translateY(-60%) rotate(45deg) scale(1) !important;
 }
 
 /* 8. DATATABLES SEARCH BOX TEXT RESET (NO TEXT OVERLAP) */

@@ -101,23 +101,16 @@ window.jQuery(function () {
                     return type === 'display' ? '<a href="' + escapeHtml(ipsUrl(row.id)) + '" class="badge-command-pill" style="color: #6366f1; text-decoration: none; font-weight: 700;"><i class="fas fa-network-wired mr-1" style="font-size: 0.75rem;"></i>' + value + '</a>' : value;
                 },
             },
+            { title: 'SSH', data: 'history', width: '8%', render: (history) => status(history ? history.is_ssh_down : null, 'SSH status') },
+            { title: 'APACHE', data: 'history', width: '8%', render: (history) => status(history ? history.is_apache_down : null, 'Apache status') },
+            { title: 'PMTA', data: 'history', width: '8%', render: (history) => status(history ? history.is_pmta_down : null, 'PowerMTA status') },
             {
-                title: 'EXPIRE AT', data: 'expire_at', width: '12%',
-                render: function (date, type) {
-                    return type === 'display' ? '<span style="font-size: 0.8125rem; color: var(--command-os-text-muted, #64748b);">' + escapeHtml(date || 'N/A') + '</span>' : date;
+                title: 'LAST CHECK', data: 'history', width: '12%',
+                render: function (history, type) {
+                    if (!history || !history.created_at) return '<span class="text-muted">N/A</span>';
+                    const value = type === 'display' ? new Date(history.created_at).toLocaleString() : history.created_at;
+                    return type === 'display' ? '<span style="font-size: 0.8125rem; color: var(--command-os-text-muted, #64748b);">' + escapeHtml(value) + '</span>' : value;
                 },
-            },
-            {
-                title: 'SSH', data: 'is_ssh_down', width: '7%',
-                render: function (isDown) { return status(isDown, 'SSH status'); },
-            },
-            {
-                title: 'APACHE', data: 'is_apache_down', width: '7%',
-                render: function (isDown) { return status(isDown, 'Apache status'); },
-            },
-            {
-                title: 'PMTA', data: 'is_pmta_down', width: '7%',
-                render: function (isDown) { return status(isDown, 'PowerMTA status'); },
             },
             {
                 title: 'ACTIONS', data: null, orderable: false, searchable: false, width: '10%',

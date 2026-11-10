@@ -5379,7 +5379,7 @@ html:not([data-command-theme='dark']) body.command-os-shell .command-os-info-ban
 /* 4. Table Card */
 .command-os-table-card {
     border-radius: 16px;
-    overflow: hidden;
+    overflow: visible;
     padding: 20px;
     position: relative;
     transition: all 0.2s ease;
@@ -11121,12 +11121,19 @@ html[data-command-theme='dark'] div.dt-button-collection .dt-button:hover {
 
 /* Dark Theme Dropdown item active & selected */
 html[data-command-theme='dark'] .dropdown-menu .dropdown-item.active,
+html[data-command-theme='dark'] .dropdown-menu .dropdown-item.selected,
 html[data-command-theme='dark'] .dropdown-item.active,
+html[data-command-theme='dark'] .dropdown-item.selected,
+html[data-command-theme='dark'] .bootstrap-select .dropdown-menu li.active > a,
+html[data-command-theme='dark'] .bootstrap-select .dropdown-menu li.selected > a,
+html[data-command-theme='dark'] .bootstrap-select .dropdown-menu li.active .dropdown-item,
+html[data-command-theme='dark'] .bootstrap-select .dropdown-menu li.selected .dropdown-item,
 html[data-command-theme='dark'] .bootstrap-select .dropdown-menu li.active a,
 html[data-command-theme='dark'] .bootstrap-select .dropdown-menu li.selected a,
 html[data-command-theme='dark'] div.dt-button-collection .dt-button.active,
 html[data-command-theme='dark'] div.dt-button-collection a.dt-button.active {
     background: linear-gradient(135deg, rgba(139, 92, 246, 0.45) 0%, rgba(124, 58, 237, 0.55) 100%) !important;
+    background-color: rgba(139, 92, 246, 0.45) !important;
     color: #ffffff !important;
     font-weight: 700 !important;
     border-left: 3px solid #8b5cf6 !important;
@@ -11159,11 +11166,23 @@ html[data-command-theme='light'] div.dt-button-collection .dt-button:hover {
 
 /* Light Theme Dropdown item active & selected */
 html[data-command-theme='light'] .dropdown-menu .dropdown-item.active,
+html[data-command-theme='light'] .dropdown-menu .dropdown-item.selected,
 html[data-command-theme='light'] .dropdown-item.active,
+html[data-command-theme='light'] .dropdown-item.selected,
+html[data-command-theme='light'] .bootstrap-select .dropdown-menu li.active > a,
+html[data-command-theme='light'] .bootstrap-select .dropdown-menu li.selected > a,
+html[data-command-theme='light'] .bootstrap-select .dropdown-menu li.active .dropdown-item,
+html[data-command-theme='light'] .bootstrap-select .dropdown-menu li.selected .dropdown-item,
 html[data-command-theme='light'] .bootstrap-select .dropdown-menu li.active a,
 html[data-command-theme='light'] .bootstrap-select .dropdown-menu li.selected a,
 html:not([data-command-theme='dark']) .dropdown-menu .dropdown-item.active,
+html:not([data-command-theme='dark']) .dropdown-menu .dropdown-item.selected,
 html:not([data-command-theme='dark']) .dropdown-item.active,
+html:not([data-command-theme='dark']) .dropdown-item.selected,
+html:not([data-command-theme='dark']) .bootstrap-select .dropdown-menu li.active > a,
+html:not([data-command-theme='dark']) .bootstrap-select .dropdown-menu li.selected > a,
+html:not([data-command-theme='dark']) .bootstrap-select .dropdown-menu li.active .dropdown-item,
+html:not([data-command-theme='dark']) .bootstrap-select .dropdown-menu li.selected .dropdown-item,
 html:not([data-command-theme='dark']) .bootstrap-select .dropdown-menu li.active a,
 html:not([data-command-theme='dark']) .bootstrap-select .dropdown-menu li.selected a,
 html[data-command-theme='light'] div.dt-button-collection .dt-button.active,
@@ -11171,6 +11190,7 @@ html[data-command-theme='light'] div.dt-button-collection a.dt-button.active,
 html:not([data-command-theme='dark']) div.dt-button-collection .dt-button.active,
 html:not([data-command-theme='dark']) div.dt-button-collection a.dt-button.active {
     background: linear-gradient(135deg, #f4edff 0%, #ebe0ff 100%) !important;
+    background-color: #f4edff !important;
     color: #6d28d9 !important;
     font-weight: 700 !important;
     border-left: 3px solid #8b5cf6 !important;

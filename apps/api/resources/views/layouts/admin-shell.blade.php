@@ -733,8 +733,7 @@
         <footer id="page-footer" class="bg-body-light">
             <div class="content py-1">
                 <div class="row font-size-sm">
-                    <div class="col-sm-6 order-sm-2 py-1 text-center text-sm-right"><i class="fa fa-heart text-danger" title="With Love"></i></div>
-                    <div class="col-sm-6 order-sm-1 py-1 text-center text-sm-left"><a class="font-w600" href="{{ route('console.index') }}">AlphaLink</a> <span>© AlphaLink {{ now()->year }}</span></div>
+                    <div class="col-12 py-1 text-center"><a class="font-w600" href="{{ route('console.index') }}">AlphaLink</a> <span>© AlphaLink {{ now()->year }}</span></div>
                 </div>
             </div>
         </footer>

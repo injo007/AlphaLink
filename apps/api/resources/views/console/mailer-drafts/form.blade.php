@@ -483,22 +483,40 @@
     .warmup-composer-page .bootstrap-select > .dropdown-menu:not(.inner) {
         background: var(--co-surface);
         border: 1px solid var(--co-border);
-        border-radius: 12px;
+        border-radius: 12px !important;
         box-shadow: 0 16px 36px color-mix(in srgb, var(--co-ink) 19%, transparent);
         color: var(--co-ink);
         max-width: min(calc(100vw - 24px), 620px);
         min-width: 100%;
         overflow: hidden;
-        padding: 6px;
-        z-index: 1125;
+        padding: 6px !important;
+        z-index: 1125 !important;
+    }
+    html[data-command-theme] body.command-os-shell .warmup-composer-page .bootstrap-select > .dropdown-menu:not(.inner) {
+        border-radius: 12px !important;
+        padding: 6px !important;
+        z-index: 1125 !important;
     }
     .warmup-composer-page .bootstrap-select .dropdown-menu.inner {
         background: transparent !important;
         border: 0 !important;
         border-radius: 0 !important;
         box-shadow: none !important;
+        color: inherit;
+        max-width: none;
+        animation: none !important;
         margin: 0;
-        padding: 2px 0;
+        padding: 0 !important;
+        z-index: auto !important;
+    }
+    html[data-command-theme] body.command-os-shell .warmup-composer-page .bootstrap-select .dropdown-menu.inner {
+        animation: none !important;
+        background: transparent !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        z-index: auto !important;
     }
     .warmup-composer-page .bootstrap-select .dropdown-menu li a {
         align-items: center;
@@ -532,7 +550,7 @@
     .warmup-composer-page .btn:disabled { cursor: not-allowed; opacity: .52; transform: none; }
     .warmup-composer-page .btn-link { align-items: center; background: color-mix(in srgb, var(--co-purple) 7%, var(--co-surface)); border: 1px solid color-mix(in srgb, var(--co-purple) 18%, var(--co-border)); border-radius: 8px; color: var(--co-purple); display: inline-flex; height: 28px; justify-content: center; margin: 0 0 0 4px; min-height: 28px; padding: 0; text-decoration: none; vertical-align: middle; width: 28px; }
     .warmup-composer-page .btn-link:hover { background: color-mix(in srgb, var(--co-purple) 13%, var(--co-surface)); color: var(--co-purple); }
-    .warmup-composer-page .warmup-composer-page .campaign-icon-button { box-shadow: 0 2px 7px color-mix(in srgb, var(--co-ink) 8%, transparent); }
+    .warmup-composer-page .campaign-icon-button { box-shadow: 0 2px 7px color-mix(in srgb, var(--co-ink) 8%, transparent); }
     .warmup-composer-page #mailer-header-shuffle,
     .warmup-composer-page #mailer-insert-open-pixel,
     .warmup-composer-page #mailer-body-preview-open,
@@ -590,7 +608,7 @@
         .warmup-composer-page .form-row .form-group.col-sm-12 { flex-basis: 100%; max-width: 100%; }
         .warmup-composer-page .mailer-ip-selector select { min-height: 300px; }
         .warmup-composer-page .mailer-ip-selector-actions { flex-direction: row; padding: 8px 0; }
-        .warmup-composer-page .mailer-ip-selector select { height: 240px; min-height: 240px; }
+        .warmup-composer-page .mailer-ip-selector select { height: 300px; min-height: 300px; }
         .warmup-composer-page .input-group-append .btn,
         .warmup-composer-page .campaign-icon-button,
         .warmup-composer-page #add-saved-email { height: 38px; width: 38px; }

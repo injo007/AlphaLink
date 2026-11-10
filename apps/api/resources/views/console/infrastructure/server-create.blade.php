@@ -93,6 +93,9 @@
             </div>
 
             <div class="command-modal-actions mt-4">
+                <button type="button" class="btn-command-action" onclick="if(window.parent!==window&&typeof window.parent.closeModal==='function'){window.parent.closeModal();}else{window.history.back();}">
+                    <i class="fas fa-times mr-1"></i> CANCEL
+                </button>
                 <button id="test" class="btn-command-action" type="button" data-url="{{ route('console.infrastructure.servers.test-connection', $workspace->id) }}">
                     <i class="fas fa-bolt mr-1"></i> TEST CONNECTION
                 </button>

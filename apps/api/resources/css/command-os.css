@@ -10268,3 +10268,350 @@ button.btn-command-action.text-danger {
     color: #ef4444 !important;
     box-shadow: 0 4px 14px rgba(239, 68, 68, 0.25) !important;
 }
+
+/* ==========================================================================
+   BUTTON SPACING & RESPONSIVENESS (NO STICKING BUTTONS)
+   ========================================================================== */
+.command-modal-actions,
+.modal-footer,
+.bootbox .modal-footer,
+.server-dialog-actions,
+.server-form-actions {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 12px !important;
+    margin-top: 20px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.modal-footer,
+.bootbox .modal-footer {
+    padding: 16px 24px !important;
+    border-top: 1px solid rgba(139, 92, 246, 0.15) !important;
+}
+
+html[data-command-theme='dark'] .modal-footer,
+html[data-command-theme='dark'] .bootbox .modal-footer {
+    border-top-color: rgba(139, 92, 246, 0.25) !important;
+    background: rgba(10, 14, 40, 0.6) !important;
+}
+
+html[data-command-theme='light'] .modal-footer,
+html[data-command-theme='light'] .bootbox .modal-footer {
+    border-top-color: rgba(139, 92, 246, 0.15) !important;
+    background: #f8fafc !important;
+}
+
+.command-modal-actions > *,
+.modal-footer > *,
+.bootbox .modal-footer > *,
+.server-dialog-actions > * {
+    margin: 0 !important;
+}
+
+/* Decouple generic Bootstrap .btn-group so buttons NEVER stick to each other */
+.btn-group,
+div.btn-group,
+.btn-toolbar {
+    display: inline-flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 8px !important;
+    vertical-align: middle !important;
+    position: relative !important;
+}
+
+.btn-group > .btn,
+div.btn-group > .btn,
+.btn-toolbar .btn,
+.btn-group > button,
+div.btn-group > button {
+    border-radius: 10px !important;
+    margin: 0 !important;
+    flex: 0 0 auto !important;
+    position: relative !important;
+}
+
+/* Sibling action buttons */
+.command-modal-actions button + button,
+.command-modal-actions a + button,
+.command-modal-actions button + a,
+.command-modal-actions a + a,
+.btn-command-action + .btn-command-action,
+.btn-command-action + .btn-command-primary,
+.btn-command-primary + .btn-command-action,
+.btn-command-primary + .btn-command-primary {
+    margin-left: 0 !important;
+}
+
+/* Responsive Modal and Action Buttons (Mobile & Tablet) */
+@media (max-width: 576px) {
+    .command-modal-actions,
+    .modal-footer,
+    .bootbox .modal-footer,
+    .server-dialog-actions {
+        flex-direction: column-reverse !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+    }
+    .command-modal-actions > button,
+    .command-modal-actions > a,
+    .modal-footer > .btn,
+    .bootbox .modal-footer > .btn,
+    .server-dialog-actions > .btn {
+        width: 100% !important;
+        justify-content: center !important;
+        padding: 11px 16px !important;
+    }
+}
+
+/* ==========================================================================
+   COMMAND OS ENHANCED DROPDOWN MENUS (GLASSMORPHISM, ACCESSIBLE, RESPONSIVE)
+   ========================================================================== */
+.dropdown-menu,
+.bootstrap-select .dropdown-menu,
+body.command-os-shell .dropdown-menu,
+body.command-os-standalone-popup .dropdown-menu,
+div.dt-button-collection,
+.dt-button-collection.dropdown-menu {
+    border-radius: 14px !important;
+    padding: 8px !important;
+    z-index: 99999 !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    animation: commandDropdownFade 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+    min-width: 180px !important;
+}
+
+/* Dark Theme Dropdown Menu */
+html[data-command-theme='dark'] .dropdown-menu,
+html[data-command-theme='dark'] .bootstrap-select .dropdown-menu,
+html[data-command-theme='dark'] body.command-os-shell .dropdown-menu,
+html[data-command-theme='dark'] body.command-os-standalone-popup .dropdown-menu,
+html[data-command-theme='dark'] div.dt-button-collection {
+    background: #0d1238 !important;
+    border: 1px solid rgba(139, 92, 246, 0.35) !important;
+    box-shadow: 0 25px 65px rgba(0, 0, 0, 0.8), 0 0 30px rgba(139, 92, 246, 0.25) !important;
+    color: #f8fafc !important;
+}
+
+/* Light Theme Dropdown Menu */
+html[data-command-theme='light'] .dropdown-menu,
+html[data-command-theme='light'] .bootstrap-select .dropdown-menu,
+html[data-command-theme='light'] body.command-os-shell .dropdown-menu,
+html[data-command-theme='light'] body.command-os-standalone-popup .dropdown-menu,
+html:not([data-command-theme='dark']) .dropdown-menu,
+html:not([data-command-theme='dark']) div.dt-button-collection {
+    background: #ffffff !important;
+    border: 1px solid rgba(139, 92, 246, 0.22) !important;
+    box-shadow: 0 20px 50px rgba(139, 92, 246, 0.16), 0 4px 14px rgba(0, 0, 0, 0.06) !important;
+    color: #0f172a !important;
+}
+
+/* Dropdown items */
+.dropdown-menu .dropdown-item,
+.dropdown-item,
+body.command-os-shell .dropdown-item,
+body.command-os-standalone-popup .dropdown-item,
+.bootstrap-select .dropdown-menu li a,
+div.dt-button-collection .dt-button,
+div.dt-button-collection button.dt-button,
+div.dt-button-collection a.dt-button {
+    border-radius: 9px !important;
+    padding: 8px 14px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    margin: 2px 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    border: none !important;
+    cursor: pointer !important;
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    text-decoration: none !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+}
+
+html[data-command-theme='dark'] .dropdown-menu .dropdown-item,
+html[data-command-theme='dark'] .dropdown-item,
+html[data-command-theme='dark'] body.command-os-shell .dropdown-item,
+html[data-command-theme='dark'] body.command-os-standalone-popup .dropdown-item,
+html[data-command-theme='dark'] .bootstrap-select .dropdown-menu li a,
+html[data-command-theme='dark'] div.dt-button-collection .dt-button {
+    color: #cbd5e1 !important;
+    background: transparent !important;
+}
+
+html[data-command-theme='dark'] .dropdown-menu .dropdown-item:hover,
+html[data-command-theme='dark'] .dropdown-item:hover,
+html[data-command-theme='dark'] .dropdown-item.active,
+html[data-command-theme='dark'] .dropdown-item:focus,
+html[data-command-theme='dark'] .bootstrap-select .dropdown-menu li a:hover,
+html[data-command-theme='dark'] .bootstrap-select .dropdown-menu li.selected a,
+html[data-command-theme='dark'] div.dt-button-collection .dt-button:hover,
+html[data-command-theme='dark'] div.dt-button-collection .dt-button.active {
+    background: rgba(139, 92, 246, 0.22) !important;
+    color: #ffffff !important;
+    transform: translateX(3px) !important;
+}
+
+html[data-command-theme='light'] .dropdown-menu .dropdown-item,
+html[data-command-theme='light'] .dropdown-item,
+html[data-command-theme='light'] body.command-os-shell .dropdown-item,
+html[data-command-theme='light'] body.command-os-standalone-popup .dropdown-item,
+html:not([data-command-theme='dark']) .dropdown-item,
+html[data-command-theme='light'] .bootstrap-select .dropdown-menu li a,
+html[data-command-theme='light'] div.dt-button-collection .dt-button {
+    color: #334155 !important;
+    background: transparent !important;
+}
+
+html[data-command-theme='light'] .dropdown-menu .dropdown-item:hover,
+html[data-command-theme='light'] .dropdown-item:hover,
+html[data-command-theme='light'] .dropdown-item.active,
+html[data-command-theme='light'] .dropdown-item:focus,
+html[data-command-theme='light'] .bootstrap-select .dropdown-menu li a:hover,
+html[data-command-theme='light'] .bootstrap-select .dropdown-menu li.selected a,
+html[data-command-theme='light'] div.dt-button-collection .dt-button:hover,
+html[data-command-theme='light'] div.dt-button-collection .dt-button.active {
+    background: #f4f0ff !important;
+    color: #7c3aed !important;
+    transform: translateX(3px) !important;
+}
+
+/* Native select element options styling in dark mode */
+html[data-command-theme='dark'] select option {
+    background-color: #0d1238 !important;
+    color: #f8fafc !important;
+    padding: 8px !important;
+}
+
+html[data-command-theme='light'] select option,
+html:not([data-command-theme='dark']) select option {
+    background-color: #ffffff !important;
+    color: #1e293b !important;
+    padding: 8px !important;
+}
+
+/* ==========================================================================
+   POP-UPS, BOOTBOX & MODAL DIALOGS ENHANCEMENTS
+   ========================================================================== */
+.modal-content,
+body.command-os-shell .modal-content,
+.bootbox .modal-content {
+    border-radius: 20px !important;
+    overflow: hidden !important;
+    position: relative !important;
+    box-shadow: 0 25px 70px rgba(0, 0, 0, 0.45) !important;
+}
+
+html[data-command-theme='dark'] .modal-content,
+html[data-command-theme='dark'] body.command-os-shell .modal-content,
+html[data-command-theme='dark'] .bootbox .modal-content {
+    background: #0d1238 !important;
+    border: 1px solid rgba(139, 92, 246, 0.35) !important;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.8), 0 0 40px rgba(139, 92, 246, 0.25) !important;
+}
+
+html[data-command-theme='light'] .modal-content,
+html[data-command-theme='light'] body.command-os-shell .modal-content,
+html[data-command-theme='light'] .bootbox .modal-content {
+    background: #ffffff !important;
+    border: 1px solid rgba(139, 92, 246, 0.22) !important;
+    box-shadow: 0 25px 65px rgba(139, 92, 246, 0.18), 0 6px 20px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Native HTML <dialog> styling */
+dialog.command-modal-dialog,
+dialog.server-ip-config-dialog,
+dialog#reinstall-confirmation,
+dialog#reinstall-row-confirmation,
+dialog.pmta-control-dialog {
+    border-radius: 20px !important;
+    overflow: hidden !important;
+    border: 1px solid rgba(139, 92, 246, 0.3) !important;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7), 0 0 40px rgba(139, 92, 246, 0.25) !important;
+    animation: commandDialogZoom 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+html[data-command-theme='dark'] dialog.command-modal-dialog,
+html[data-command-theme='dark'] dialog.server-ip-config-dialog,
+html[data-command-theme='dark'] dialog#reinstall-confirmation,
+html[data-command-theme='dark'] dialog#reinstall-row-confirmation {
+    background: #0d1238 !important;
+    color: #f8fafc !important;
+}
+
+html[data-command-theme='light'] dialog.command-modal-dialog,
+html[data-command-theme='light'] dialog.server-ip-config-dialog,
+html[data-command-theme='light'] dialog#reinstall-confirmation,
+html[data-command-theme='light'] dialog#reinstall-row-confirmation {
+    background: #ffffff !important;
+    color: #1e293b !important;
+}
+
+dialog::backdrop {
+    background-color: rgba(6, 9, 24, 0.75) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+}
+
+/* Bootbox Alert/Confirm standard buttons mapping to Command OS buttons */
+.bootbox .modal-footer .btn-default,
+.bootbox .modal-footer .btn-secondary,
+.bootbox .modal-footer [data-bb-handler="cancel"] {
+    background: rgba(13, 18, 56, 0.8) !important;
+    border: 1px solid rgba(139, 92, 246, 0.35) !important;
+    color: #cbd5e1 !important;
+    border-radius: 10px !important;
+    padding: 8px 16px !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+html[data-command-theme='light'] .bootbox .modal-footer .btn-default,
+html[data-command-theme='light'] .bootbox .modal-footer .btn-secondary,
+html[data-command-theme='light'] .bootbox .modal-footer [data-bb-handler="cancel"] {
+    background: #ffffff !important;
+    border: 1px solid rgba(139, 92, 246, 0.25) !important;
+    color: #475569 !important;
+}
+
+.bootbox .modal-footer .btn-primary,
+.bootbox .modal-footer .btn-success,
+.bootbox .modal-footer [data-bb-handler="confirm"],
+.bootbox .modal-footer [data-bb-handler="ok"] {
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%) !important;
+    border: 1px solid #7c3aed !important;
+    color: #ffffff !important;
+    border-radius: 10px !important;
+    padding: 8px 18px !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    box-shadow: 0 4px 14px rgba(139, 92, 246, 0.45) !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.bootbox .modal-footer .btn-danger {
+    background: rgba(239, 68, 68, 0.15) !important;
+    border: 1px solid rgba(239, 68, 68, 0.45) !important;
+    color: #ef4444 !important;
+    border-radius: 10px !important;
+    padding: 8px 16px !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}

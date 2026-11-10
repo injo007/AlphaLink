@@ -71,6 +71,9 @@
                 <div id="provider-result" class="alert alert-danger d-none mb-3" role="alert" aria-live="polite" style="border-radius: 12px; font-size: 0.8125rem;"></div>
 
                 <div class="command-modal-actions mt-4">
+                    <button type="button" class="btn-command-action" onclick="if(window.parent!==window&&typeof window.parent.closeModal==='function'){window.parent.closeModal();}else{window.history.back();}">
+                        <i class="fas fa-times mr-1"></i> CANCEL
+                    </button>
                     <button id="save-provider" class="btn-command-primary" type="submit">
                         <i class="fas fa-save mr-1"></i> {{ $provider ? 'UPDATE PROVIDER' : 'CONNECT PROVIDER' }}
                     </button>

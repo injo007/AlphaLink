@@ -1,8 +1,10 @@
 # AlphaLink development progress
 
 **Updated:** 2026-11-10
-**Active objective:** Add configurable sponsor-asset retrieval to the New Offer import flow while preserving AlphaLink workspace boundaries.
-**Status:** Release `56cd8daf3b9a049bdc540fe05def2605caae3f21` is pushed and deployed. PHP syntax and `git diff --check` pass; the guarded installer built the release, applied no migrations, cached routes/views, verified PHP-FPM, Horizon, suppression worker, and scheduler, and passed HTTPS health. Public `/up` returned HTTP 200. The verified database backup is `/var/backups/alphalink/deploy-56cd8daf3b9a049bdc540fe05def2605caae3f21-20261110T193257Z.dump`. Pint is blocked by the local missing XML extension; automated tests and authenticated form interaction checks were not run. No sponsor API request or offer import was made.
+**Active objective:** Correct sidebar parent activation, disclosure exclusivity, width persistence, and compact Owner Arrange control.
+**Status:** Implemented locally; Node syntax and `git diff --check` pass. Pint cannot start because host PHP 8.3.6 lacks XML. Automated/browser verification and production deployment are pending.
+
+**Navigation parent activation and sidebar persistence — E-NAV-02 (2026-11-10):** Saved cross-parent assignments now determine the active parent for the current subpage, parent disclosures remain mutually exclusive during use and arrangement, and the desktop mini/expanded preference persists. The Owner Arrange control becomes icon-only in the compact rail. See E-NAV-02 in the evidence register; automated/browser verification and deployment remain pending.
 
 **New Offer sponsor asset retrieval — E-OFFER-IMPORT-01 (2026-11-10):** Add Offer starts with “Retrieve all available assets” enabled. Turning it off reveals inline Subject, From, Creative, and Suppression selectors. The import endpoint validates the chosen set, stores only selected sender/subject/creative assets, avoids unselected NewHitPath email and creative retrieval, and queues selected suppression files through the existing private background-download worker. The success dialog reports when suppression downloads are queued. PHP syntax and diff checks pass; Pint cannot start because local PHP lacks XML. No automated or authenticated browser test and no sponsor API/data import were performed. Release `56cd8daf3b9a049bdc540fe05def2605caae3f21` is pushed and deployed; the guarded installer passed service and HTTPS health checks and public `/up` returned 200. This is an AlphaLink-only requested feature; no DMS parity is claimed.
 

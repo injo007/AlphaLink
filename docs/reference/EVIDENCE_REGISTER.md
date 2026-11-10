@@ -1183,6 +1183,12 @@ The PHP 8.5 focused suites pass **5 tests / 11 assertions**; Pint passes. The ex
 
 The local visibility follow-up opens all parent sections while arranging, shows drag grips and a drop cue, and prevents link navigation during edits. Synthetic browser coverage confirms parent transfer, discard and saved-parent persistence after a new request across 14 groups; a 390px browser check confirms Alt+Right parent transfer, discard and no horizontal document overflow. The Vite build passes with the existing large-chunk warning. This follow-up has not been pushed or deployed.
 
+### E-NAV-02 — Active parent, single-open disclosures, and sidebar width — 2026-11-10
+
+The global navigation preference is now applied before active-parent selection. The current child route selects its assigned parent after reordering, so navigation follows a moved subpage without returning to its former default parent. Parent disclosures share one native group name and a JavaScript exclusive-open handler; arrangement keeps only one section open and moving a page opens its destination. Save keeps the destination section open, and discard restores the original order and active route. Desktop mini/expanded mode is saved in local storage and applied before the sidebar renders. The Owner Arrange control becomes a centered icon button in the collapsed rail with an accessible label; the existing labeled control remains in the expanded sidebar.
+
+`node --check apps/api/public/console-assets/command-os-navigation-reorder.js` and `git diff --check` pass. Pint could not start because host PHP 8.3.6 lacks XML, required by the project's PHP 8.5 environment. Automated/browser verification and production deployment are pending. No DMS behavior was inspected or changed.
+
 ### E-CAMP-166 — Campaign composer dropdown positioning and responsive layout — 2026-11-09
 
 The global `.dropdown-menu` entrance animation replaced Bootstrap Select's Popper transform and positioned body-ported menus at the viewport origin. Campaign composer menus now disable that transform animation, retain Popper placement, use campaign light/dark tokens and theme rules, and no longer force a fixed inner menu height. The same view also restores title-case field labels, equal Usable Tags top/bottom spacing, responsive header/body editors and a larger Mix List trigger. Create and Edit use this shared view.

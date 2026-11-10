@@ -22,10 +22,30 @@
         const submenuFor = (group) => group?.querySelector('.command-os-navigation-submenu') ?? null;
         const groupLabel = (group) => group?.querySelector('.command-os-navigation-link span')?.textContent?.trim() || 'section';
         const itemLabel = (item) => item?.querySelector('span')?.textContent?.trim() || 'page';
+        const setOpenGroup = (activeGroup) => {
+            groups().forEach((group) => {
+                const disclosure = group.querySelector('.command-os-navigation-disclosure');
+                if (disclosure) disclosure.open = group === activeGroup;
+            });
+        };
+        const currentPageGroup = () => groups().find((group) => group.querySelector('.command-os-navigation-submenu a[aria-current="page"]'))
+            || groups().find((group) => group.querySelector('.command-os-navigation-link[aria-current="page"]'))
+            || groups().find((group) => group.querySelector('.command-os-navigation-disclosure')?.open)
+            || null;
+        const bindSingleOpenDisclosure = (disclosure) => {
+            if (!disclosure || disclosure.dataset.singleOpenBound === 'true') return;
+            disclosure.dataset.singleOpenBound = 'true';
+            disclosure.addEventListener('toggle', () => {
+                if (disclosure.open) setOpenGroup(groupFor(disclosure));
+            });
+        };
 
         const ensureSubmenu = (group) => {
             let disclosure = group.querySelector('.command-os-navigation-disclosure');
-            if (disclosure) return submenuFor(group);
+            if (disclosure) {
+                bindSingleOpenDisclosure(disclosure);
+                return submenuFor(group);
+            }
 
             const row = group.querySelector('.command-os-navigation-row');
             if (!row) return null;
@@ -34,6 +54,7 @@
             const submenuId = `nav-arranged-${groupId}`;
             disclosure = document.createElement('details');
             disclosure.className = 'command-os-navigation-disclosure';
+            disclosure.name = 'command-os-navigation';
             disclosure.dataset.navigationTemporaryDisclosure = 'true';
 
             const summary = document.createElement('summary');
@@ -51,6 +72,7 @@
             disclosure.append(summary, list);
             row.classList.remove('is-standalone');
             row.append(disclosure);
+            bindSingleOpenDisclosure(disclosure);
 
             return list;
         };
@@ -94,9 +116,10 @@
         };
 
         const restoreExpandedSectionsAfterSave = (order) => {
-            if (!order) return;
+            if (!order) return currentPageGroup();
 
             const currentOrder = readOrder();
+            let changedGroup = null;
             groups().forEach((group) => {
                 const key = group.dataset.navGroup;
                 const disclosure = group.querySelector('.command-os-navigation-disclosure');
@@ -104,29 +127,37 @@
 
                 const originalItems = order.items[key] || [];
                 const currentItems = currentOrder.items[key] || [];
-                const sectionChanged = JSON.stringify(originalItems) !== JSON.stringify(currentItems);
-                disclosure.open = sectionChanged ? currentItems.length > 0 : Boolean(order.expanded[key]);
+                const gainedItems = currentItems.filter((itemKey) => !originalItems.includes(itemKey));
+                if (gainedItems.length > 0) changedGroup = group;
             });
+            return changedGroup || currentPageGroup()
+                || groups().find((group) => order.expanded[group.dataset.navGroup])
+                || null;
         };
 
         const setEditing = (enabled, { saved = false } = {}) => {
             editing = enabled;
             navigation.classList.toggle('is-reordering', enabled);
             toggle.setAttribute('aria-pressed', String(enabled));
-            toggle.querySelector('span').textContent = enabled ? 'Finish arranging' : 'Arrange navigation';
+            const actionLabel = enabled ? 'Finish arranging' : 'Arrange navigation';
+            const label = toggle.querySelector('span');
+            if (label) label.textContent = actionLabel;
+            toggle.setAttribute('aria-label', actionLabel);
+            toggle.title = actionLabel;
             status.textContent = enabled
-                ? 'All pages are open. Drag a subpage onto another section to move it, or between pages to reorder. Alt + arrow keys also work.'
+                ? 'Open a section to arrange its pages. Drag a subpage onto another section to move it, or between pages to reorder. Alt + arrow keys also work.'
                 : 'Enable to reorder pages and move subpages between sections.';
 
             if (enabled) {
+                const activeGroup = currentPageGroup() || groups()[0] || null;
                 groups().forEach((group) => {
                     ensureSubmenu(group);
-                    const disclosure = group.querySelector('.command-os-navigation-disclosure');
-                    if (disclosure) disclosure.open = true;
                 });
+                setOpenGroup(activeGroup);
             } else {
-                if (saved) restoreExpandedSectionsAfterSave(initialOrder);
+                const groupToKeepOpen = saved ? restoreExpandedSectionsAfterSave(initialOrder) : currentPageGroup();
                 cleanupDisclosures(saved);
+                setOpenGroup(groupToKeepOpen);
             }
 
             navigation.querySelectorAll('[data-nav-group], [data-nav-item]').forEach((item) => {
@@ -162,6 +193,7 @@
                 if (disclosure) disclosure.open = expanded;
             });
             cleanupDisclosures();
+            setOpenGroup(currentPageGroup());
         };
 
         const sortableItem = (target) => target?.closest('[data-nav-item], [data-nav-group]') ?? null;
@@ -176,8 +208,7 @@
             const list = ensureSubmenu(group);
             if (!list) return false;
             list.append(item);
-            const disclosure = group.querySelector('.command-os-navigation-disclosure');
-            if (disclosure) disclosure.open = true;
+            setOpenGroup(group);
             return true;
         };
 
@@ -190,9 +221,7 @@
                 const list = isGroup(draggedItem) ? navigation : target.parentElement;
                 list.insertBefore(draggedItem, insertAfter ? target.nextElementSibling : target);
                 if (!isGroup(draggedItem)) {
-                    const parentGroup = groupFor(target);
-                    const disclosure = parentGroup?.querySelector('.command-os-navigation-disclosure');
-                    if (disclosure) disclosure.open = true;
+                    setOpenGroup(groupFor(target));
                 }
                 return true;
             }
@@ -343,6 +372,8 @@
             }
         });
 
+        groups().forEach((group) => bindSingleOpenDisclosure(group.querySelector('.command-os-navigation-disclosure')));
+        setOpenGroup(currentPageGroup());
         setEditing(false);
     };
 

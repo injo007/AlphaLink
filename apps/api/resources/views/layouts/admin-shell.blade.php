@@ -363,6 +363,7 @@
                 'icon' => $icon,
                 'href' => $href,
                 'active' => $active,
+                'page_active' => $href !== null && parse_url($href, PHP_URL_PATH) === parse_url(request()->url(), PHP_URL_PATH),
                 'items' => $items,
                 'open' => $open,
                 'id' => $id,
@@ -477,9 +478,31 @@
         $commandOsNavigation = $accessRolePolicy->filterNavigation($commandOsNavigation, auth()->user(), app('router'));
         $navigationPreference = \App\Models\AppGlobalPreference::query()->find('navigation_order')?->value ?? [];
         $commandOsNavigation = app(\App\Services\Navigation\GlobalNavigationOrder::class)->apply($commandOsNavigation, $navigationPreference);
+        $groupWithActiveChild = collect($commandOsNavigation)
+            ->first(static fn (array $group): bool => collect($group['items'] ?? [])->contains(static fn (array $item): bool => ($item['active'] ?? false)));
+        $groupWithActivePage = collect($commandOsNavigation)->firstWhere('page_active', true);
+        $activeNavigationGroupKey = $groupWithActiveChild['navigation_group_key'] ?? $groupWithActivePage['navigation_group_key'] ?? null;
+        foreach ($commandOsNavigation as &$navigationGroup) {
+            $isCurrentNavigationGroup = ($navigationGroup['navigation_group_key'] ?? null) === $activeNavigationGroupKey;
+            $navigationGroup['active'] = $isCurrentNavigationGroup;
+            $navigationGroup['open'] = $isCurrentNavigationGroup && ($navigationGroup['items'] ?? []) !== [];
+            unset($navigationGroup['page_active']);
+        }
+        unset($navigationGroup);
         $canEditGlobalNavigation = auth()->user()?->isOwner() ?? false;
     @endphp
     <div id="page-container" class="sidebar-o enable-page-overlay sidebar-dark side-scroll page-header-fixed {{ $commandOsShell ? 'command-os-page' : 'sidebar-mini' }}">
+        @if ($commandOsShell)
+            <script>
+                (() => {
+                    try {
+                        if (localStorage.getItem('alphalink-command-os-sidebar-mode') === 'mini') {
+                            document.currentScript?.parentElement?.classList.add('sidebar-mini');
+                        }
+                    } catch (error) {}
+                })();
+            </script>
+        @endif
         <nav id="sidebar" aria-label="Main Navigation" tabindex="-1">
             <div class="content-header bg-white-5">
                 <a class="font-w600 text-dual" href="{{ route('console.index') }}" aria-label="AlphaLink">
@@ -536,7 +559,7 @@
                                             </span>
                                         @endif
                                         @if ($groupHasChildren)
-                                            <details class="command-os-navigation-disclosure"{{ $submenuIsOpen ? ' open' : '' }}>
+                                            <details class="command-os-navigation-disclosure" name="command-os-navigation"{{ $submenuIsOpen ? ' open' : '' }}>
                                                 <summary aria-label="Toggle {{ $commandOsNavLabel($group['label']) }} pages" aria-controls="{{ $submenuId }}" title="Toggle {{ $commandOsNavLabel($group['label']) }} pages">
                                                     <i class="fas fa-chevron-down" aria-hidden="true"></i>
                                                 </summary>
@@ -623,7 +646,7 @@
             </div>
             @if ($commandOsShell && $canEditGlobalNavigation)
                 <div class="command-os-nav-editor" data-navigation-editor data-save-url="{{ route('console.global-navigation.order.update') }}">
-                    <button type="button" class="command-os-nav-editor-toggle" data-navigation-toggle aria-pressed="false">
+                    <button type="button" class="command-os-nav-editor-toggle" data-navigation-toggle aria-label="Arrange navigation" title="Arrange navigation" aria-pressed="false">
                         <i class="fas fa-arrows-alt" aria-hidden="true"></i><span>Arrange navigation</span>
                     </button>
                     <p data-navigation-editor-status role="status" aria-live="polite">Enable to reorder pages and move subpages between sections.</p>
@@ -784,13 +807,33 @@
             const sidebarToggle = document.querySelector('[data-action="sidebar_mini_toggle"]');
             if (!pageContainer || !sidebarToggle) return;
 
+            const storageKey = 'alphalink-command-os-sidebar-mode';
+            const syncSidebarWidth = () => {
+                const isMini = pageContainer.classList.contains('sidebar-mini');
+                const actionLabel = isMini ? 'Expand navigation' : 'Minimize navigation';
+                sidebarToggle.setAttribute('aria-pressed', String(isMini));
+                sidebarToggle.setAttribute('aria-label', actionLabel);
+                sidebarToggle.title = actionLabel;
+            };
+
+            try {
+                const savedMode = localStorage.getItem(storageKey);
+                if (savedMode === 'mini') pageContainer.classList.add('sidebar-mini');
+                if (savedMode === 'expanded') pageContainer.classList.remove('sidebar-mini');
+            } catch (error) {}
+
+            syncSidebarWidth();
+
             sidebarToggle.addEventListener('click', (event) => {
                 event.preventDefault();
                 if (window.innerWidth > 991) {
                     pageContainer.classList.toggle('sidebar-mini');
+                    try {
+                        localStorage.setItem(storageKey, pageContainer.classList.contains('sidebar-mini') ? 'mini' : 'expanded');
+                    } catch (error) {}
                 }
 
-                sidebarToggle.setAttribute('aria-pressed', String(pageContainer.classList.contains('sidebar-mini')));
+                syncSidebarWidth();
             });
         })();
     </script>

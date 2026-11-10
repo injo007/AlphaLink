@@ -9904,3 +9904,133 @@ html[data-command-theme='light'] .command-mode-toggle-pill {
 .command-switch input:checked + .command-slider:before {
     transform: translateX(18px);
 }
+
+/* ==========================================================================
+   GLOBAL COMMAND OS PRIMARY & ACTION BUTTONS
+   ========================================================================== */
+.btn-command-primary,
+button.btn-command-primary,
+a.btn-command-primary {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%) !important;
+    color: #ffffff !important;
+    border: 1px solid #7c3aed !important;
+    border-radius: 10px !important;
+    padding: 9px 18px !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.05em !important;
+    text-transform: uppercase !important;
+    box-shadow: 0 4px 14px rgba(139, 92, 246, 0.45) !important;
+    cursor: pointer !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    text-decoration: none !important;
+    outline: none !important;
+}
+
+.btn-command-primary i,
+button.btn-command-primary i,
+a.btn-command-primary i {
+    color: #ffffff !important;
+}
+
+.btn-command-primary:hover,
+button.btn-command-primary:hover,
+a.btn-command-primary:hover {
+    background: linear-gradient(135deg, #9333ea 0%, #6d28d9 100%) !important;
+    box-shadow: 0 6px 20px rgba(139, 92, 246, 0.6) !important;
+    transform: translateY(-1px) !important;
+    color: #ffffff !important;
+}
+
+.btn-command-primary:active,
+button.btn-command-primary:active,
+a.btn-command-primary:active {
+    transform: translateY(0) !important;
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4) !important;
+}
+
+/* Universal Command OS Action/Secondary Button */
+.btn-command-action,
+button.btn-command-action,
+a.btn-command-action {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    border-radius: 10px !important;
+    padding: 9px 16px !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.05em !important;
+    text-transform: uppercase !important;
+    cursor: pointer !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    text-decoration: none !important;
+    outline: none !important;
+}
+
+html[data-command-theme='light'] .btn-command-action,
+html[data-command-theme='light'] button.btn-command-action,
+html[data-command-theme='light'] a.btn-command-action,
+html:not([data-command-theme='dark']) .btn-command-action,
+html:not([data-command-theme='dark']) button.btn-command-action,
+html:not([data-command-theme='dark']) a.btn-command-action {
+    background: #ffffff !important;
+    border: 1px solid rgba(139, 92, 246, 0.25) !important;
+    color: #475569 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+html[data-command-theme='light'] .btn-command-action i,
+html:not([data-command-theme='dark']) .btn-command-action i {
+    color: #8b5cf6 !important;
+}
+
+html[data-command-theme='light'] .btn-command-action:hover,
+html:not([data-command-theme='dark']) .btn-command-action:hover {
+    background: #f8fafc !important;
+    border-color: #8b5cf6 !important;
+    color: #8b5cf6 !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 14px rgba(139, 92, 246, 0.2) !important;
+}
+
+html[data-command-theme='dark'] .btn-command-action,
+html[data-command-theme='dark'] button.btn-command-action,
+html[data-command-theme='dark'] a.btn-command-action {
+    background: rgba(13, 18, 56, 0.8) !important;
+    border: 1px solid rgba(139, 92, 246, 0.35) !important;
+    color: #cbd5e1 !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25) !important;
+}
+
+html[data-command-theme='dark'] .btn-command-action i {
+    color: #c084fc !important;
+}
+
+html[data-command-theme='dark'] .btn-command-action:hover {
+    background: #151b4e !important;
+    border-color: #a855f7 !important;
+    color: #c084fc !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 16px rgba(139, 92, 246, 0.35) !important;
+}
+
+.btn-command-action.text-danger,
+button.btn-command-action.text-danger {
+    color: #ef4444 !important;
+    border-color: rgba(239, 68, 68, 0.35) !important;
+}
+.btn-command-action.text-danger i {
+    color: #ef4444 !important;
+}
+.btn-command-action.text-danger:hover {
+    background: rgba(239, 68, 68, 0.1) !important;
+    border-color: #ef4444 !important;
+    color: #ef4444 !important;
+    box-shadow: 0 4px 14px rgba(239, 68, 68, 0.25) !important;
+}

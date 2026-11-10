@@ -73,6 +73,7 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::get('/app/users/create', [GlobalUserManagementController::class, 'create'])->name('console.global-users.create');
     Route::post('/app/users', [GlobalUserManagementController::class, 'store'])->middleware('throttle:10,1')->name('console.global-users.store');
     Route::post('/app/users/impersonation/leave', [GlobalUserManagementController::class, 'stopImpersonating'])->name('console.global-users.impersonation.leave');
+    Route::get('/app/users/{user}/avatar', [GlobalUserManagementController::class, 'avatar'])->whereNumber('user')->name('console.global-users.avatar');
     Route::get('/app/users/{user}/edit', [GlobalUserManagementController::class, 'edit'])->whereNumber('user')->name('console.global-users.edit');
     Route::put('/app/users/{user}', [GlobalUserManagementController::class, 'update'])->whereNumber('user')->middleware('throttle:10,1')->name('console.global-users.update');
     Route::patch('/app/users/{user}/status', [GlobalUserManagementController::class, 'status'])->whereNumber('user')->middleware('throttle:10,1')->name('console.global-users.status');

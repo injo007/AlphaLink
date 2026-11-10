@@ -13,10 +13,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 class GlobalUserManagementController extends Controller
 {
@@ -25,7 +29,7 @@ class GlobalUserManagementController extends Controller
     public function index(Request $request): View|JsonResponse
     {
         $this->authorizeUserManagement($request);
-        $users = User::query()->orderBy('id')->get(['id', 'username', 'name', 'type', 'access_role', 'is_active', 'seen_at']);
+        $users = User::query()->orderBy('id')->get(['id', 'username', 'name', 'type', 'access_role', 'is_active', 'seen_at', 'avatar_path']);
 
         if ($request->wantsJson()) {
             return response()->json(['data' => $users->map(fn (User $user): array => [
@@ -66,23 +70,43 @@ class GlobalUserManagementController extends Controller
             'full_name' => ['required', 'string', 'min:4', 'max:255'],
             'type' => ['required', 'string', Rule::in(User::TYPES)],
             'access_role' => ['required', 'string', Rule::in($this->assignableAccessRoles($actor))],
+            'avatar' => $this->avatarUploadRules(),
         ]);
 
         $password = Str::random(8);
-        $user = DB::transaction(function () use ($actor, $data, $password, $accessRoleAssignment): User {
-            $user = User::query()->create([
-                'name' => $data['full_name'],
-                'username' => $data['username'],
-                'email' => null,
-                'password' => Hash::make($password),
-                'type' => $data['type'],
-                'access_role' => User::ACCESS_ROLE_VIEWER,
-                'is_active' => true,
-            ]);
-            $accessRoleAssignment->assign($actor, $user, $data['access_role']);
+        $avatarPath = null;
+        try {
+            $user = DB::transaction(function () use ($actor, $data, $password, $request, $accessRoleAssignment, &$avatarPath): User {
+                $user = User::query()->create([
+                    'name' => $data['full_name'],
+                    'username' => $data['username'],
+                    'email' => null,
+                    'password' => Hash::make($password),
+                    'type' => $data['type'],
+                    'access_role' => User::ACCESS_ROLE_VIEWER,
+                    'is_active' => true,
+                ]);
 
-            return $user;
-        });
+                if ($request->hasFile('avatar')) {
+                    $avatarPath = $request->file('avatar')->store('user-avatars/'.$user->getKey(), 'local');
+                    if (! is_string($avatarPath) || $avatarPath === '') {
+                        throw ValidationException::withMessages(['avatar' => 'The image could not be stored. Please try again.']);
+                    }
+
+                    $user->forceFill(['avatar_path' => $avatarPath])->save();
+                }
+
+                $accessRoleAssignment->assign($actor, $user, $data['access_role']);
+
+                return $user;
+            });
+        } catch (Throwable $exception) {
+            if (is_string($avatarPath)) {
+                Storage::disk('local')->delete($avatarPath);
+            }
+
+            throw $exception;
+        }
 
         return response()->json([
             'data' => 'User created',
@@ -92,7 +116,8 @@ class GlobalUserManagementController extends Controller
 
     public function edit(Request $request, User $user): View
     {
-        $this->authorizeUserManagement($request);
+        $actor = $this->authorizeUserManagement($request);
+        $this->authorizeTarget($actor, $user);
 
         return view('console.global-users.edit', [
             'user' => $user,
@@ -111,20 +136,69 @@ class GlobalUserManagementController extends Controller
             'full_name' => ['required', 'string', 'min:4', 'max:255'],
             'type' => ['required', 'string', Rule::in(User::TYPES)],
             'access_role' => ['required', 'string', Rule::in($this->assignableAccessRoles($actor, $user))],
+            'avatar' => $this->avatarUploadRules(),
+            'remove_avatar' => ['sometimes', 'boolean'],
         ]);
 
-        $saved = DB::transaction(function () use ($actor, $user, $data, $accessRoleAssignment): bool {
-            $saved = $user->forceFill([
-                'username' => $data['username'],
-                'name' => $data['full_name'],
-                'type' => $data['type'],
-            ])->save();
-            $accessRoleAssignment->assign($actor, $user, $data['access_role']);
+        $oldAvatarPath = $user->avatar_path;
+        $newAvatarPath = null;
+        $avatarPath = $oldAvatarPath;
 
-            return $saved;
-        });
+        if ($request->hasFile('avatar')) {
+            $newAvatarPath = $request->file('avatar')->store('user-avatars/'.$user->getKey(), 'local');
+            if (! is_string($newAvatarPath) || $newAvatarPath === '') {
+                throw ValidationException::withMessages(['avatar' => 'The image could not be stored. Please try again.']);
+            }
+            $avatarPath = $newAvatarPath;
+        } elseif (filter_var($data['remove_avatar'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+            $avatarPath = null;
+        }
+
+        try {
+            $saved = DB::transaction(function () use ($actor, $user, $data, $avatarPath, $accessRoleAssignment): bool {
+                $saved = $user->forceFill([
+                    'username' => $data['username'],
+                    'name' => $data['full_name'],
+                    'type' => $data['type'],
+                    'avatar_path' => $avatarPath,
+                ])->save();
+                $accessRoleAssignment->assign($actor, $user, $data['access_role']);
+
+                return $saved;
+            });
+        } catch (Throwable $exception) {
+            if (is_string($newAvatarPath)) {
+                Storage::disk('local')->delete($newAvatarPath);
+            }
+
+            throw $exception;
+        }
+
+        if (! $saved) {
+            if (is_string($newAvatarPath)) {
+                Storage::disk('local')->delete($newAvatarPath);
+            }
+
+            return response()->json(['data' => 'Failed'], 400);
+        }
+
+        if (is_string($oldAvatarPath) && $oldAvatarPath !== $avatarPath) {
+            Storage::disk('local')->delete($oldAvatarPath);
+        }
 
         return response()->json(['data' => $saved ? 'User updated' : 'Failed'], $saved ? 200 : 400);
+    }
+
+    public function avatar(Request $request, User $user): StreamedResponse
+    {
+        $actor = $request->user();
+        abort_unless($actor instanceof User && ($actor->is($user) || $actor->hasRole('manage_users')), 403);
+        abort_unless(is_string($user->avatar_path) && Storage::disk('local')->exists($user->avatar_path), 404);
+
+        return Storage::disk('local')->response($user->avatar_path, null, [
+            'Cache-Control' => 'private, no-store, max-age=0',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     public function status(Request $request, User $user): JsonResponse
@@ -228,6 +302,12 @@ class GlobalUserManagementController extends Controller
                 $fail('The username has already been taken.');
             }
         };
+    }
+
+    /** @return array<int, string> */
+    private function avatarUploadRules(): array
+    {
+        return ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120', 'dimensions:max_width=2048,max_height=2048'];
     }
 
     private function layoutWorkspace(User $user): ?Workspace

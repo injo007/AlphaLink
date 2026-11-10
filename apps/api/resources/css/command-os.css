@@ -718,6 +718,10 @@ body.command-os-shell #page-header .command-os-account-name {
     line-height: 1;
 }
 
+.command-os-profile-avatar-image {
+    object-fit: cover;
+}
+
 body.command-os-shell #page-header .command-os-account-chevron {
     flex: 0 0 auto;
     margin-left: 0 !important;
@@ -771,6 +775,11 @@ body.command-os-shell #page-header .command-os-account-heading {
     background: linear-gradient(140deg, #9147ff, #397fff);
     box-shadow: 0 5px 14px rgb(110 69 229 / 25%);
     font-size: 16px;
+}
+
+.command-os-account-avatar-image {
+    object-fit: cover;
+    padding: 0;
 }
 
 .command-os-account-identity {

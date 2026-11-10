@@ -2,6 +2,10 @@
 
 > **Archived blocker log.** Entries below are chronological engineering notes. Use the root AlphaLink progress file for current status.
 
+## 2026-11-10 Owner/Admin profile image management — E-IAM-14
+
+Image assignment, replacement, and removal are implemented in global user creation/edit forms, and private authenticated delivery is wired to the Users table and account menus. PHP syntax, route registration, `git diff --check`, and the Vite build pass. Local Pint cannot start because PHP 8.3.6 lacks XML; Blade view compilation cannot run because `DOMDocument` is unavailable. Automated and authenticated browser checks, migration application, and deployment/health verification remain open. Keep `ALPHALINK-IAM-002` IMPLEMENTING.
+
 ## 2026-11-10 Admin operator campaign visibility — E-IAM-13
 
 The Admin-only campaign scope is implemented in source for My Campaigns and Campaign Logs, including the header placement beside SHOW DISABLED and workspace operator selection. Release `7a7c1234bb1245dba652200b5cdd39159d217002` is pushed and active; the guarded installer cached routes/views, found no migration pending, verified services, and passed HTTPS health, and public `/up` returned HTTP 200. PHP syntax, route registration, and `git diff --check` pass; Pint is blocked because local PHP 8.3.6 lacks XML while the app requires PHP 8.5. Automated role/filter regression and authenticated browser checks remain open. Keep `ALPHALINK-CAMP-001` IMPLEMENTING until those checks are complete.

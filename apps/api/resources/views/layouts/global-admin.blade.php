@@ -7,6 +7,10 @@
     <title>@yield('title', 'Users')</title>
     <link rel="stylesheet" href="{{ asset('console-assets/fonts/inter.css') }}">
     <link rel="stylesheet" href="{{ asset('console-assets/assets/css/theme.css') }}">
+    <style>
+        .global-admin-user-image { border: 1px solid rgba(255,255,255,.7); border-radius: 50%; box-shadow: 0 3px 9px rgba(110,69,229,.2); height: 32px; object-fit: cover; width: 32px; }
+        .global-admin-user-fallback { align-items: center; background: linear-gradient(145deg, #9147ff, #397fff); border-radius: 50%; color: #fff; display: inline-flex; font-size: 10px; font-weight: 800; height: 32px; justify-content: center; width: 32px; }
+    </style>
     @if (request()->routeIs('console.global-users.index'))
         <link rel="stylesheet" href="{{ asset('console-assets/plugins/datatables/datatables.min.css') }}">
     @endif
@@ -35,6 +39,11 @@
                 <div class="d-flex align-items-center">
                     @if (session()->has('alphalink.impersonator_id'))
                         <form method="post" action="{{ route('console.global-users.impersonation.leave') }}" class="mr-2">@csrf<button class="btn btn-sm btn-warning" type="submit">STOP IMPERSONATION</button></form>
+                    @endif
+                    @if (auth()->user()->avatar_path)
+                        <img class="global-admin-user-image mr-2" src="{{ route('console.global-users.avatar', auth()->id()) }}" alt="">
+                    @else
+                        <span class="global-admin-user-fallback mr-2" aria-hidden="true">{{ $headerUserInitials ?? mb_strtoupper(mb_substr(auth()->user()->username, 0, 2)) }}</span>
                     @endif
                     <span class="mr-3">{{ auth()->user()->name ?: auth()->user()->username }}</span>
                     <a class="btn btn-sm btn-dual mr-2" href="{{ route('auth.profile') }}">PROFILE</a>

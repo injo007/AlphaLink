@@ -46,11 +46,13 @@
             </div>
             <div class="table-responsive">
                 <table class="table table-sm table-hover table-striped" id="global-users-table">
-                    <thead><tr><th>#</th><th>USERNAME</th><th>NAME</th><th>GLOBAL ROLE</th><th>ACCOUNT TYPE</th><th>SEEN AT</th><th>ACTIONS</th></tr></thead>
+                    <thead><tr><th>#</th><th>IMAGE</th><th>USERNAME</th><th>NAME</th><th>GLOBAL ROLE</th><th>ACCOUNT TYPE</th><th>SEEN AT</th><th>ACTIONS</th></tr></thead>
                     <tbody>
                         @foreach ($users as $user)
+                            @php $userInitials = mb_strtoupper(mb_substr(preg_replace('/\s+/', '', (string) ($user->name ?: $user->username)) ?: 'U', 0, 2)); @endphp
                             <tr data-user-row="{{ $user->id }}" @class(['is-inactive-row' => ! $user->is_active])>
                                 <td><span class="font-mono text-muted">#{{ $user->id }}</span></td>
+                                <td><span class="global-user-avatar-cell">@if ($user->avatar_path)<img src="{{ route('console.global-users.avatar', $user->id) }}" alt="" loading="lazy">@else<span>{{ $userInitials }}</span>@endif</span></td>
                                 <td><strong class="text-ink">{{ $user->username }}</strong></td>
                                 <td><span class="text-muted font-w600">{{ $user->name }}</span></td>
                                 <td><span class="badge badge-light border text-purple font-w700 px-2 py-1">{{ \App\Models\User::ACCESS_ROLE_LABELS[$user->access_role] ?? $user->access_role }}</span></td>
@@ -84,7 +86,7 @@
             if (table && typeof table.DataTable === 'function') {
                 table.DataTable({
                     pageLength: 50,
-                    order: [[5, 'desc']],
+                    order: [[6, 'desc']],
                     dom: '<"command-table-toolbar"<"command-table-toolbar-left"l><"command-table-toolbar-right"f>>' +
                          '<"table-responsive"t>' +
                          '<"command-table-footer"ip>',
@@ -119,7 +121,7 @@
                     button.dataset.status = active ? '0' : '1';
                     button.classList.toggle('is-active', active);
                     button.title = active ? 'DISABLE USER' : 'ENABLE USER';
-                    button.setAttribute('aria-label', `${active ? 'Disable' : 'Enable'} ${row.children[1].textContent}`);
+                    button.setAttribute('aria-label', `${active ? 'Disable' : 'Enable'} ${row.children[2].textContent}`);
                     button.innerHTML = `<i class="fas fa-${active ? 'toggle-on' : 'toggle-off'}" aria-hidden="true"></i>`;
                     message.textContent = result.data;
                 } catch (error) {
@@ -131,3 +133,12 @@
         })();
     </script>
 @endsection
+
+@push('styles')
+    <style>
+        .global-user-avatar-cell { align-items: center; background: linear-gradient(145deg, #9147ff, #397fff); border: 1px solid rgba(255,255,255,.8); border-radius: 50%; box-shadow: 0 3px 9px rgba(110,69,229,.18); color: #fff; display: inline-flex; font-size: 11px; font-weight: 800; height: 36px; justify-content: center; overflow: hidden; vertical-align: middle; width: 36px; }
+        .global-user-avatar-cell img { height: 100%; object-fit: cover; width: 100%; }
+        #global-users-table th:nth-child(2), #global-users-table td:nth-child(2) { text-align: center; width: 64px; }
+        @media (max-width: 575.98px) { .global-user-avatar-cell { height: 32px; width: 32px; } }
+    </style>
+@endpush

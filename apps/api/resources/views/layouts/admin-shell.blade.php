@@ -702,11 +702,20 @@
                     @endif
                     <div class="dropdown d-inline-block ml-2 command-os-account-control">
                         <button type="button" class="btn btn-sm btn-dual d-flex align-items-center command-os-account-button" id="page-header-user-dropdown" data-toggle="dropdown" aria-label="Account menu" title="Account menu" aria-haspopup="true" aria-expanded="false">
-                            <span class="command-os-profile-avatar" aria-hidden="true">{{ $headerUserInitials }}</span><span class="d-none d-sm-inline-block command-os-account-name">{{ $headerUserLabel }}</span><i class="fa fa-angle-down ml-1 command-os-account-chevron" aria-hidden="true"></i>
+                            @if (auth()->user()->avatar_path)
+                                <img class="command-os-profile-avatar command-os-profile-avatar-image" src="{{ route('console.global-users.avatar', auth()->id()) }}" alt="" aria-hidden="true">
+                            @else
+                                <span class="command-os-profile-avatar" aria-hidden="true">{{ $headerUserInitials }}</span>
+                            @endif
+                            <span class="d-none d-sm-inline-block command-os-account-name">{{ $headerUserLabel }}</span><i class="fa fa-angle-down ml-1 command-os-account-chevron" aria-hidden="true"></i>
                         </button>
                         <div class="dropdown-menu dropdown-menu-md dropdown-menu-right p-0 border-0 command-os-account-menu" aria-labelledby="page-header-user-dropdown">
                             <div class="command-os-account-heading">
-                                <span class="command-os-account-avatar" aria-hidden="true"><i class="fas fa-user"></i></span>
+                                @if (auth()->user()->avatar_path)
+                                    <img class="command-os-account-avatar command-os-account-avatar-image" src="{{ route('console.global-users.avatar', auth()->id()) }}" alt="" aria-hidden="true">
+                                @else
+                                    <span class="command-os-account-avatar" aria-hidden="true"><i class="fas fa-user"></i></span>
+                                @endif
                                 <div class="command-os-account-identity">
                                     <span class="command-os-account-eyebrow">Signed in</span>
                                     <p>{{ auth()->user()->name ?: auth()->user()->email }}</p>

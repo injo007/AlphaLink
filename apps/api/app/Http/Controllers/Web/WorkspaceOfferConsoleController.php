@@ -601,18 +601,42 @@ class WorkspaceOfferConsoleController extends Controller
             'sponsor' => ['required', 'integer', 'min:1'],
             'ids' => ['required', 'array', 'min:1', 'max:100'],
             'ids.*' => ['required', 'string', 'max:255'],
+            'include_all_assets' => ['sometimes', 'boolean'],
+            'asset_types' => ['required_if:include_all_assets,false', 'array', 'max:4'],
+            'asset_types.*' => ['required', 'string', 'distinct', Rule::in(AlphaLinkSponsorOfferImporter::ASSET_TYPES)],
         ]);
+        $includeAllAssets = $data['include_all_assets'] ?? true;
+        $assetTypes = $includeAllAssets
+            ? AlphaLinkSponsorOfferImporter::ASSET_TYPES
+            : array_values(array_unique($data['asset_types'] ?? []));
+        if (! $includeAllAssets && $assetTypes === []) {
+            throw ValidationException::withMessages([
+                'asset_types' => 'Choose at least one asset type to retrieve.',
+            ]);
+        }
         $sponsor = $workspace->sponsors()->where('is_active', true)->whereKey($data['sponsor'])->firstOrFail();
 
         try {
-            $imported = $importer->import($workspace, $sponsor, $request->user(), array_values($data['ids']));
+            $result = $importer->importSelected($workspace, $sponsor, $request->user(), array_values($data['ids']), $assetTypes);
         } catch (ConnectionException|AlphaLinkAffiliateProviderException) {
             return response()->json([
                 'message' => 'The affiliate provider request failed before offer records were saved. Check the sponsor API settings and retry.',
             ], 502);
         }
 
-        return response()->json(['data' => 'Imported '.$imported.' offers']);
+        if (in_array('suppression', $assetTypes, true)) {
+            foreach ($result['offer_ids'] as $offerId) {
+                $download = WorkspaceOfferSuppressionDownload::query()->create([
+                    'workspace_id' => $workspace->getKey(),
+                    'offer_id' => $offerId,
+                    'requested_by' => $request->user()->getKey(),
+                    'status' => 'queued',
+                ]);
+                DownloadWorkspaceOfferSuppressionFile::dispatch($download->getKey());
+            }
+        }
+
+        return response()->json(['data' => 'Imported '.$result['imported'].' offers']);
     }
 
     public function edit(Request $request, string $workspaceId, int $offerId): View

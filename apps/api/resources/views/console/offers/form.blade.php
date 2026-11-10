@@ -89,6 +89,34 @@
                             </div>
                         </div>
                     </div>
+                    <div class="offer-import-assets mb-3 p-3" style="border: 1px solid rgba(114, 74, 255, .18); border-radius: 12px; background: rgba(114, 74, 255, .035);">
+                        <div class="d-flex flex-wrap align-items-center" style="gap: 10px 18px;">
+                            <label for="retrieve-all-assets" class="d-inline-flex align-items-center mb-0 font-w700" style="gap: 8px; cursor: pointer; white-space: nowrap;">
+                                <input id="retrieve-all-assets" type="checkbox" checked aria-controls="offer-asset-types">
+                                <span><i class="fas fa-box-open command-field-icon mr-1" aria-hidden="true"></i> Retrieve all available assets</span>
+                            </label>
+                            <div id="offer-asset-types" class="d-none d-flex flex-wrap align-items-center" role="group" aria-label="Sponsor asset types to retrieve" style="gap: 8px 16px;">
+                                <label class="d-inline-flex align-items-center mb-0" style="gap: 6px; cursor: pointer; white-space: nowrap;">
+                                    <input type="checkbox" name="asset_types[]" value="subject" checked>
+                                    <span>Subjects</span>
+                                </label>
+                                <label class="d-inline-flex align-items-center mb-0" style="gap: 6px; cursor: pointer; white-space: nowrap;">
+                                    <input type="checkbox" name="asset_types[]" value="from" checked>
+                                    <span>From names</span>
+                                </label>
+                                <label class="d-inline-flex align-items-center mb-0" style="gap: 6px; cursor: pointer; white-space: nowrap;">
+                                    <input type="checkbox" name="asset_types[]" value="creative" checked>
+                                    <span>Creatives</span>
+                                </label>
+                                <label class="d-inline-flex align-items-center mb-0" style="gap: 6px; cursor: pointer; white-space: nowrap;">
+                                    <input type="checkbox" name="asset_types[]" value="suppression" checked>
+                                    <span>Suppression file</span>
+                                </label>
+                            </div>
+                        </div>
+                        <small class="d-block text-muted mt-2">All available sender, subject, creative, and suppression assets are included by default. Turn this off to choose asset types; suppression files are downloaded securely in the background.</small>
+                        <small id="offer-asset-selection-error" class="d-none text-danger mt-2" role="status">Choose at least one asset type, or turn on Retrieve all available assets.</small>
+                    </div>
                     <div id="import-result" class="alert d-none mb-3" role="alert" aria-live="assertive"></div>
                     <div class="d-flex justify-content-end mt-3">
                         <button id="import-offers" class="btn btn-primary command-os-btn-save-settings" type="button" disabled style="width: auto; padding: 10px 28px !important;">
@@ -264,6 +292,10 @@
             const providerStatus = document.querySelector('#import-provider-status');
             const sponsorSelect = document.querySelector('#sponsor_id');
             const importIds = document.querySelector('#offer_ids');
+            const retrieveAllAssets = document.querySelector('#retrieve-all-assets');
+            const assetTypeGroup = document.querySelector('#offer-asset-types');
+            const assetTypeInputs = [...document.querySelectorAll('input[name="asset_types[]"]')];
+            const assetSelectionError = document.querySelector('#offer-asset-selection-error');
             const importableProviderTypes = @json(\App\Models\WorkspaceSponsor::IMPORT_TYPES);
 
             const syncImportAvailability = () => {
@@ -272,8 +304,12 @@
                 const providerType = selectedOption?.dataset.type ?? '';
                 const ids = importIds?.value.split(/\r?\n/).map((value) => value.trim()).filter(Boolean) || [];
                 const providerSupported = importableProviderTypes.includes(providerType);
+                const selectedAssetTypes = assetTypeInputs.filter((input) => input.checked).map((input) => input.value);
+                const missingAssetSelection = !retrieveAllAssets?.checked && selectedAssetTypes.length === 0;
+                assetTypeGroup?.classList.toggle('d-none', Boolean(retrieveAllAssets?.checked));
+                assetSelectionError?.classList.toggle('d-none', !missingAssetSelection);
                 if (importButton) {
-                    importButton.disabled = !providerSupported || ids.length === 0;
+                    importButton.disabled = !providerSupported || ids.length === 0 || missingAssetSelection;
                 }
                 if (providerStatus) {
                     providerStatus.textContent = !selectedOption?.value
@@ -306,9 +342,12 @@
 
             sponsorSelect.addEventListener('change', syncImportAvailability);
             importIds?.addEventListener('input', syncImportAvailability);
+            retrieveAllAssets?.addEventListener('change', syncImportAvailability);
+            assetTypeInputs.forEach((input) => input.addEventListener('change', syncImportAvailability));
             importButton?.addEventListener('click', async () => {
                 const ids = [...new Set(importIds.value.split(/\r?\n/).filter(Boolean))].map((value) => value.trim());
                 const sponsor = sponsorSelect.value;
+                const selectedAssetTypes = assetTypeInputs.filter((input) => input.checked).map((input) => input.value);
                 importResult.classList.add('d-none');
                 importButton.disabled = true;
                 const originalHtml = importButton.innerHTML;
@@ -318,17 +357,27 @@
                     const response = await fetch(importUrl, {
                         method: 'POST',
                         headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
-                        body: JSON.stringify({ sponsor, ids }),
+                        body: JSON.stringify({
+                            sponsor,
+                            ids,
+                            include_all_assets: retrieveAllAssets.checked,
+                            asset_types: selectedAssetTypes,
+                        }),
                     });
                     const body = await response.json();
                     if (!response.ok) throw new Error(Object.values(body.errors ?? {}).flat().join(' ') || body.message || 'Offer import failed.');
+                    const importedCount = Number(body.data?.match(/Imported\s+(\d+)/i)?.[1] ?? 0);
+                    const includesSuppression = retrieveAllAssets.checked || selectedAssetTypes.includes('suppression');
+                    const successMessage = includesSuppression && importedCount > 0
+                        ? `${body.data}. Suppression file downloads are queued for the newly imported offers.`
+                        : body.data;
                     const close = () => window.parent.closeModal?.();
                     if (window.parent !== window && typeof window.parent.closeModal === 'function') {
-                        window.parent.App?.swalPromise ? window.parent.App.swalPromise({ icon: 'success', title: body.data, confirmButtonText: 'close' }).then(close) : close();
+                        window.parent.App?.swalPromise ? window.parent.App.swalPromise({ icon: 'success', title: successMessage, confirmButtonText: 'close' }).then(close) : close();
                     } else {
                         importResult.classList.remove('alert-danger');
                         importResult.classList.add('alert-success');
-                        importResult.textContent = body.data;
+                        importResult.textContent = successMessage;
                         importResult.classList.remove('d-none');
                     }
                 } catch (error) {

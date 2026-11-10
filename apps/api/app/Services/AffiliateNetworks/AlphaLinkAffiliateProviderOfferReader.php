@@ -21,13 +21,19 @@ class AlphaLinkAffiliateProviderOfferReader
      * Fetch and map only the selected offers using the AlphaLink provider contracts.
      *
      * @param  list<string>  $offerIds
+     * @param  list<string>  $assetTypes
      * @return list<array<string, mixed>>
      */
-    public function read(WorkspaceSponsor $sponsor, array $offerIds, bool $throwOnProviderFailure = false): array
+    public function read(
+        WorkspaceSponsor $sponsor,
+        array $offerIds,
+        bool $throwOnProviderFailure = false,
+        array $assetTypes = ['from', 'subject', 'creative', 'suppression'],
+    ): array
     {
         return match ($sponsor->type) {
             'hitpath' => $this->readHitPath($sponsor, $offerIds),
-            'newhitpath' => $this->readNewHitPath($sponsor, $offerIds, $throwOnProviderFailure),
+            'newhitpath' => $this->readNewHitPath($sponsor, $offerIds, $throwOnProviderFailure, $assetTypes),
             'cake' => $this->readCake($sponsor, $offerIds),
             'hasoffers' => $this->readHasOffers($sponsor, $offerIds, $throwOnProviderFailure),
             'everflow' => $this->readEverFlow($sponsor, $offerIds),
@@ -328,7 +334,12 @@ class AlphaLinkAffiliateProviderOfferReader
     /** @param list<string> $offerIds
      * @return list<array<string, mixed>>
      */
-    private function readNewHitPath(WorkspaceSponsor $sponsor, array $offerIds, bool $throwOnProviderFailure = false): array
+    private function readNewHitPath(
+        WorkspaceSponsor $sponsor,
+        array $offerIds,
+        bool $throwOnProviderFailure = false,
+        array $assetTypes = ['from', 'subject', 'creative', 'suppression'],
+    ): array
     {
         $host = $this->sponsorHost($sponsor);
         $apiUrl = sprintf('https://%s/api', $host);
@@ -354,8 +365,9 @@ class AlphaLinkAffiliateProviderOfferReader
                 }
 
                 $emailCount = is_numeric($offer['email_count'] ?? null) ? (int) $offer['email_count'] : 0;
-                $assets = $emailCount > 0
-                    ? $this->readNewHitPathEmailAssets($apiUrl, (int) $offerId, $headers)
+                $readsEmailLines = array_intersect(['from', 'subject'], $assetTypes) !== [];
+                $assets = $emailCount > 0 && $readsEmailLines
+                    ? $this->readNewHitPathEmailAssets($apiUrl, (int) $offerId, $headers, $assetTypes)
                     : ['from' => [], 'subjects' => []];
                 $name = is_string($offer['name'] ?? null) ? $offer['name'] : '';
                 $description = is_string($offer['description'] ?? null) ? $offer['description'] : '';
@@ -363,12 +375,14 @@ class AlphaLinkAffiliateProviderOfferReader
                     ? $offer['geo']['from']
                     : '';
                 $vertical = $this->newHitPathVertical($name);
-                $creatives = $this->newHitPathCreativeImporter->read(
-                    $apiUrl,
-                    (int) $offerId,
-                    (string) $sponsor->api_key,
-                    $host,
-                );
+                $creatives = in_array('creative', $assetTypes, true)
+                    ? $this->newHitPathCreativeImporter->read(
+                        $apiUrl,
+                        (int) $offerId,
+                        (string) $sponsor->api_key,
+                        $host,
+                    )
+                    : [];
                 $redirect = str_ends_with($redirect, '/') ? $redirect : $redirect.'/';
                 $unsubscribe = is_string($offer['optout'] ?? null) ? $offer['optout'] : '';
                 $payout = $offer['payout'] ?? 0;
@@ -405,7 +419,7 @@ class AlphaLinkAffiliateProviderOfferReader
     /** @param array<string, string> $headers
      * @return array{from: list<string>, subjects: list<string>}
      */
-    private function readNewHitPathEmailAssets(string $apiUrl, int $offerId, array $headers): array
+    private function readNewHitPathEmailAssets(string $apiUrl, int $offerId, array $headers, array $assetTypes): array
     {
         $response = $this->http->get(sprintf('%s/campaigns/%d/emails', $apiUrl, $offerId), $headers);
         $emails = $response->successful() ? $response->json('data') : null;
@@ -420,14 +434,18 @@ class AlphaLinkAffiliateProviderOfferReader
                 continue;
             }
 
-            foreach (is_array($email['from_lines'] ?? null) ? $email['from_lines'] : [] as $line) {
-                if (is_string($line)) {
-                    $from[] = $line;
+            if (in_array('from', $assetTypes, true)) {
+                foreach (is_array($email['from_lines'] ?? null) ? $email['from_lines'] : [] as $line) {
+                    if (is_string($line)) {
+                        $from[] = $line;
+                    }
                 }
             }
-            foreach (is_array($email['subjects'] ?? null) ? $email['subjects'] : [] as $line) {
-                if (is_string($line)) {
-                    $subjects[] = $line;
+            if (in_array('subject', $assetTypes, true)) {
+                foreach (is_array($email['subjects'] ?? null) ? $email['subjects'] : [] as $line) {
+                    if (is_string($line)) {
+                        $subjects[] = $line;
+                    }
                 }
             }
         }

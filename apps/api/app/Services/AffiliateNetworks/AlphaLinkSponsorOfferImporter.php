@@ -11,6 +11,8 @@ use Illuminate\Validation\ValidationException;
 
 class AlphaLinkSponsorOfferImporter
 {
+    public const ASSET_TYPES = ['subject', 'from', 'creative', 'suppression'];
+
     public function __construct(
         private readonly AlphaLinkAffiliateProviderOfferReader $offerReader,
         private readonly AlphaLinkEverFlowCreativeBundleImporter $creativeBundleImporter,
@@ -20,8 +22,20 @@ class AlphaLinkSponsorOfferImporter
      * Fetch selected offers using the AlphaLink network adapter, then save each new offer and its assets atomically.
      *
      * @param  list<string>  $offerIds
-     */
+    */
     public function import(Workspace $workspace, WorkspaceSponsor $sponsor, User $user, array $offerIds): int
+    {
+        return $this->importSelected($workspace, $sponsor, $user, $offerIds, ['subject', 'from', 'creative'])['imported'];
+    }
+
+    /**
+     * Fetch selected offers and save only the requested asset types.
+     *
+     * @param  list<string>  $offerIds
+     * @param  list<string>  $assetTypes
+     * @return array{imported: int, offer_ids: list<int>}
+     */
+    public function importSelected(Workspace $workspace, WorkspaceSponsor $sponsor, User $user, array $offerIds, array $assetTypes): array
     {
         abort_unless($sponsor->workspace_id === $workspace->getKey(), 404);
 
@@ -55,15 +69,16 @@ class AlphaLinkSponsorOfferImporter
             ]);
         }
 
-        $offers = $this->offerReader->read($sponsor, array_values(array_unique($offerIds)));
+        $assetTypes = array_values(array_intersect(self::ASSET_TYPES, array_unique($assetTypes)));
+        $offers = $this->offerReader->read($sponsor, array_values(array_unique($offerIds)), assetTypes: $assetTypes);
         foreach ($offers as &$offer) {
-            $offer['creatives'] = filled($offer['creative_bundle_url'] ?? null)
+            $offer['creatives'] = in_array('creative', $assetTypes, true) && filled($offer['creative_bundle_url'] ?? null)
                 ? $this->creativeBundleImporter->fetch($offer['creative_bundle_url'])
-                : ($offer['creatives'] ?? []);
+                : (in_array('creative', $assetTypes, true) ? ($offer['creatives'] ?? []) : []);
         }
         unset($offer);
 
-        $imported = 0;
+        $importedOfferIds = [];
         foreach ($offers as $offerData) {
             if (WorkspaceOffer::withTrashed()
                 ->where('workspace_id', $workspace->getKey())
@@ -73,7 +88,7 @@ class AlphaLinkSponsorOfferImporter
                 continue;
             }
 
-            DB::transaction(function () use ($workspace, $sponsor, $user, $offerData, &$imported): void {
+            $importedOfferIds[] = DB::transaction(function () use ($workspace, $sponsor, $user, $offerData, $assetTypes): int {
                 $offer = $workspace->offers()->create([
                     'sponsor_id' => $sponsor->getKey(),
                     'offer_id' => $offerData['offer_id'],
@@ -92,38 +107,47 @@ class AlphaLinkSponsorOfferImporter
                 ]);
 
                 $assets = [];
-                foreach ($offerData['from'] as $value) {
-                    $assets[] = [
-                        'workspace_id' => $workspace->getKey(),
-                        'type' => 'from',
-                        'value' => $value,
-                        'created_by' => $user->getKey(),
-                    ];
+                if (in_array('from', $assetTypes, true)) {
+                    foreach ($offerData['from'] as $value) {
+                        $assets[] = [
+                            'workspace_id' => $workspace->getKey(),
+                            'type' => 'from',
+                            'value' => $value,
+                            'created_by' => $user->getKey(),
+                        ];
+                    }
                 }
-                foreach ($offerData['subjects'] as $value) {
-                    $assets[] = [
-                        'workspace_id' => $workspace->getKey(),
-                        'type' => 'subject',
-                        'value' => $value,
-                        'created_by' => $user->getKey(),
-                    ];
+                if (in_array('subject', $assetTypes, true)) {
+                    foreach ($offerData['subjects'] as $value) {
+                        $assets[] = [
+                            'workspace_id' => $workspace->getKey(),
+                            'type' => 'subject',
+                            'value' => $value,
+                            'created_by' => $user->getKey(),
+                        ];
+                    }
                 }
 
                 if ($assets !== []) {
                     $offer->assets()->createMany($assets);
                 }
 
-                $this->creativeBundleImporter->persist(
-                    $workspace,
-                    $offer,
-                    $user,
-                    $offerData['creatives'] ?? [],
-                );
+                if (in_array('creative', $assetTypes, true)) {
+                    $this->creativeBundleImporter->persist(
+                        $workspace,
+                        $offer,
+                        $user,
+                        $offerData['creatives'] ?? [],
+                    );
+                }
 
-                $imported++;
+                return (int) $offer->getKey();
             });
         }
 
-        return $imported;
+        return [
+            'imported' => count($importedOfferIds),
+            'offer_ids' => $importedOfferIds,
+        ];
     }
 }

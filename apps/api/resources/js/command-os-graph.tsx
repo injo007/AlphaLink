@@ -234,13 +234,14 @@ export default function MarketingGraph({ data, theme }: { data: DashboardAnalyti
         const title = node.href ? `Open ${node.label} · ${countLabel} in this range` : `${node.label}: ${countLabel} in this range`;
         const label = node.href ? `Open ${node.label}: ${countLabel} in this range` : `Show ${node.label}: ${countLabel} in this range`;
         const content = <><Icon className="command-os-network-node-icon" size={13} strokeWidth={2.1} aria-hidden="true" /><span className="command-os-network-node-label">{node.label}</span><span className="command-os-network-node-count" aria-hidden="true">{formatCompactCount(node.count)}</span></>;
+        const selectThisModule = () => selectModule(node);
         const common = {
             className,
             key: node.id,
             style,
             title,
             'aria-label': label,
-            onClick: () => selectModule(node),
+            onClick: selectThisModule,
             onPointerEnter: () => setHovered(node.id),
             onPointerLeave: () => setHovered((current) => current === node.id ? null : current),
             onFocus: () => setHovered(node.id),
@@ -251,7 +252,7 @@ export default function MarketingGraph({ data, theme }: { data: DashboardAnalyti
             return <a {...common} href={node.href}>{content}</a>;
         }
 
-        return <button {...common} type="button" aria-pressed={isSelected}>{content}</button>;
+        return <button {...common} onClick={selectThisModule} type="button" aria-pressed={isSelected}>{content}</button>;
     };
 
     return (

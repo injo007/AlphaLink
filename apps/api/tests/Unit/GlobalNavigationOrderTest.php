@@ -85,6 +85,34 @@ class GlobalNavigationOrderTest extends TestCase
         );
     }
 
+    public function test_provider_network_default_membership_migrates_existing_saved_subpages(): void
+    {
+        $order = new GlobalNavigationOrder;
+        $serverProvider = ['label' => 'SERVERS PROVIDERS', 'icon' => 'fas fa-tasks', 'href' => '/infrastructure/server-providers'];
+        $cloudProvider = ['label' => 'CLOUD PROVIDERS', 'icon' => 'fas fa-cloud-sun', 'href' => '/infrastructure/cloud-providers'];
+        $domainProvider = ['label' => 'DOMAINS PROVIDERS', 'icon' => 'fas fa-tasks', 'href' => '/infrastructure/domain-providers'];
+        $sponsors = ['label' => 'SPONSORS', 'icon' => 'fas fa-hand-holding-usd', 'href' => '/sponsors'];
+        $linode = ['label' => 'LINODE', 'icon' => 'fab fa-linode', 'href' => '/clouds/linode'];
+        $digitalOcean = ['label' => 'DIGITAL OCEAN', 'icon' => 'fab fa-digital-ocean', 'href' => '/clouds/digitalocean'];
+        $campaign = ['label' => 'CAMPAIGNS', 'icon' => 'fas fa-envelope', 'href' => '/mailer/campaigns'];
+        $providerKeys = array_map($order->itemKey(...), [$serverProvider, $cloudProvider, $domainProvider, $sponsors, $linode, $digitalOcean]);
+
+        $savedOrder = $order->moveItemsIntoGroup([
+            'groups' => ['nav-v2-provider-network', 'nav-v2-mail-infrastructure', 'nav-v2-domain-management', 'nav-v2-offers-suppressions'],
+            'items' => [
+                'nav-v2-provider-network' => [$order->itemKey($linode), $order->itemKey($digitalOcean)],
+                'nav-v2-mail-infrastructure' => [$order->itemKey($serverProvider), $order->itemKey($cloudProvider), $order->itemKey($campaign)],
+                'nav-v2-domain-management' => [$order->itemKey($domainProvider)],
+                'nav-v2-offers-suppressions' => [$order->itemKey($sponsors)],
+            ],
+        ], 'nav-v2-provider-network', $providerKeys);
+
+        self::assertSame($providerKeys, $savedOrder['items']['nav-v2-provider-network']);
+        self::assertSame([$order->itemKey($campaign)], $savedOrder['items']['nav-v2-mail-infrastructure']);
+        self::assertSame([], $savedOrder['items']['nav-v2-domain-management']);
+        self::assertSame([], $savedOrder['items']['nav-v2-offers-suppressions']);
+    }
+
     private function navigationGroups(): array
     {
         return [

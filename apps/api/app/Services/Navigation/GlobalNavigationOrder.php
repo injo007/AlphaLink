@@ -6,6 +6,55 @@ use Illuminate\Support\Str;
 
 class GlobalNavigationOrder
 {
+    /**
+     * Move known navigation destinations to their new default parent once,
+     * without disabling future admin reordering of those destinations.
+     *
+     * @param  list<string>  $itemKeys
+     */
+    public function moveItemsIntoGroup(array $savedOrder, string $targetGroupKey, array $itemKeys): array
+    {
+        $itemKeys = array_values(array_unique(array_filter($itemKeys, 'is_string')));
+        $items = is_array($savedOrder['items'] ?? null) ? $savedOrder['items'] : [];
+        $targetItems = [];
+
+        foreach ($items as $groupKey => $groupItems) {
+            if (! is_array($groupItems)) {
+                continue;
+            }
+
+            $keptItems = [];
+            foreach ($groupItems as $itemKey) {
+                if (! is_string($itemKey)) {
+                    continue;
+                }
+
+                if (! in_array($itemKey, $itemKeys, true)) {
+                    $keptItems[] = $itemKey;
+
+                    continue;
+                }
+
+                if ($groupKey === $targetGroupKey && ! in_array($itemKey, $targetItems, true)) {
+                    $targetItems[] = $itemKey;
+                }
+            }
+
+            $items[$groupKey] = $keptItems;
+        }
+
+        $newItems = array_values(array_filter(
+            $itemKeys,
+            static fn (string $itemKey): bool => ! in_array($itemKey, $targetItems, true),
+        ));
+        $targetItems = [...$newItems, ...$targetItems];
+
+        $items[$targetGroupKey] = $targetItems;
+        $savedOrder['items'] = $items;
+
+        return $savedOrder;
+    }
+
     public function apply(array $groups, array $savedOrder): array
     {
         $itemsByKey = [];

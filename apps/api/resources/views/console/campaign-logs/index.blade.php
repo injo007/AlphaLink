@@ -4,28 +4,30 @@
 
 @push('styles')
     <style>
-        .campaign-logs-page { --logs-border: var(--co-border, #e1def4); --logs-ink: var(--co-ink, #1e214d); --logs-muted: var(--co-muted, #64709b); --logs-surface: var(--co-surface, #fff); color: var(--logs-ink); }
+        .campaign-logs-page { --logs-border: var(--co-border, #e1def4); --logs-ink: var(--co-ink, #1e214d); --logs-muted: var(--co-muted, #64709b); --logs-surface: var(--co-surface, #fff); color: var(--logs-ink); min-width: 0; width: 100%; }
         .campaign-logs-header { align-items: center; background: var(--logs-surface); border-bottom: 1px solid var(--logs-border); display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; padding: 1.25rem 1.5rem; }
         .campaign-logs-title { align-items: center; display: flex; gap: .9rem; min-width: 0; }
         .campaign-logs-title-mark { align-items: center; background: color-mix(in srgb, var(--co-purple, #7a3cff) 12%, var(--logs-surface)); border: 1px solid color-mix(in srgb, var(--co-purple, #7a3cff) 24%, var(--logs-border)); border-radius: .85rem; color: var(--co-purple, #7a3cff); display: inline-flex; flex: 0 0 2.75rem; height: 2.75rem; justify-content: center; }
         .campaign-logs-title h1 { color: var(--logs-ink); font-size: clamp(1.2rem, 2vw, 1.55rem); font-weight: 750; letter-spacing: -.025em; margin: 0; }
         .campaign-logs-title p { color: var(--logs-muted); font-size: .85rem; margin: .2rem 0 0; }
         .campaign-logs-eyebrow { color: var(--co-purple, #7a3cff); display: inline-block; font-size: .65rem; font-weight: 800; letter-spacing: .12em; margin-bottom: .22rem; }
-        .campaign-logs-toolbar { align-items: end; background: color-mix(in srgb, var(--logs-surface) 88%, var(--co-page, #f4f3fb)); border-bottom: 1px solid var(--logs-border); display: flex; flex-wrap: wrap; gap: .75rem; justify-content: space-between; padding: 1rem 1.25rem; }
-        .campaign-logs-filters { align-items: end; display: flex; flex: 1 1 42rem; flex-wrap: wrap; gap: .65rem; }
-        .campaign-logs-field { display: flex; flex: 1 1 9rem; flex-direction: column; gap: .3rem; min-width: 8rem; }
+        .campaign-logs-toolbar { align-items: end; background: color-mix(in srgb, var(--logs-surface) 88%, var(--co-page, #f4f3fb)); border-bottom: 1px solid var(--logs-border); display: flex; min-width: 0; padding: 1rem 1.25rem; }
+        .campaign-logs-filters { align-items: end; display: grid; flex: 1 1 auto; gap: .65rem; grid-template-columns: repeat(4, minmax(8rem, 1fr)) auto; min-width: 0; }
+        .campaign-logs-field { display: flex; flex-direction: column; gap: .3rem; min-width: 0; }
         .campaign-logs-field label { color: var(--logs-muted); font-size: .72rem; font-weight: 700; letter-spacing: .045em; margin: 0; text-transform: uppercase; }
         .campaign-logs-field input, .campaign-logs-field select { background: var(--logs-surface); border: 1px solid var(--logs-border); border-radius: .6rem; color: var(--logs-ink); min-height: 2.55rem; padding: .45rem .7rem; width: 100%; }
         .campaign-logs-field input:focus, .campaign-logs-field select:focus { border-color: var(--co-purple, #7a3cff); box-shadow: 0 0 0 .18rem color-mix(in srgb, var(--co-purple, #7a3cff) 18%, transparent); outline: 0; }
-        .campaign-logs-table-wrap { overflow-x: auto; }
-        .campaign-logs-table { margin: 0; min-width: 900px; }
+        .campaign-logs-table-wrap { max-width: 100%; min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-gutter: stable; width: 100%; }
+        .campaign-logs-table-wrap:focus-visible { outline: 2px solid var(--co-purple, #7a3cff); outline-offset: -2px; }
+        .campaign-logs-table { margin: 0; min-width: 1050px; width: max-content; }
         .campaign-logs-table thead th { background: color-mix(in srgb, var(--logs-surface) 82%, var(--co-page, #f4f3fb)); border-bottom: 1px solid var(--logs-border); color: var(--logs-muted); font-size: .7rem; font-weight: 750; letter-spacing: .06em; padding: .78rem .85rem; text-transform: uppercase; white-space: nowrap; }
         .campaign-logs-table tbody td { border-top: 1px solid var(--logs-border); color: var(--logs-ink); padding: .8rem .85rem; vertical-align: middle; }
         .campaign-logs-table tbody tr:hover { background: color-mix(in srgb, var(--co-purple, #7a3cff) 4%, var(--logs-surface)); }
         .campaign-log-id { color: var(--logs-muted); font-family: var(--font-mono, ui-monospace, monospace); font-size: .8rem; font-variant-numeric: tabular-nums; }
         .campaign-log-status { align-items: center; border: 1px solid var(--logs-border); border-radius: 999px; display: inline-flex; font-size: .7rem; font-weight: 750; gap: .38rem; padding: .27rem .55rem; text-transform: uppercase; white-space: nowrap; }
         .campaign-log-status::before { background: currentColor; border-radius: 50%; content: ''; height: .42rem; width: .42rem; }
-        .campaign-log-counts { display: flex; flex-wrap: wrap; gap: .35rem; min-width: 11.5rem; }
+        .campaign-log-counts { align-items: center; display: flex; flex-wrap: nowrap; gap: .35rem; min-width: max-content; }
+        .campaign-log-counts form { display: inline-flex; margin: 0; }
         .campaign-log-action { align-items: center; background: color-mix(in srgb, var(--co-blue, #4888f4) 9%, var(--logs-surface)); border: 1px solid color-mix(in srgb, var(--co-blue, #4888f4) 23%, var(--logs-border)); border-radius: .5rem; color: var(--co-blue, #3978e8); display: inline-flex; font-size: .72rem; font-weight: 750; gap: .3rem; justify-content: center; min-height: 2rem; padding: .3rem .5rem; text-decoration: none; transition: background-color .15s ease, border-color .15s ease, transform .15s ease; }
         .campaign-log-action:hover { background: color-mix(in srgb, var(--co-blue, #4888f4) 16%, var(--logs-surface)); color: var(--co-blue, #3978e8); text-decoration: none; transform: translateY(-1px); }
         .campaign-log-action:focus-visible, .campaign-log-restrict:focus-visible, .campaign-logs-apply:focus-visible { box-shadow: 0 0 0 .2rem color-mix(in srgb, var(--co-purple, #7a3cff) 30%, transparent); outline: 0; }
@@ -38,12 +40,18 @@
         .campaign-logs-footer .pagination { margin: 0; }
         .campaign-logs-empty { color: var(--logs-muted); padding: 3rem 1rem !important; text-align: center; }
         .campaign-logs-empty i { color: var(--co-purple, #7a3cff); display: block; font-size: 1.4rem; margin-bottom: .55rem; }
+        @media (max-width: 1100px) {
+            .campaign-logs-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .campaign-logs-field.search-field { grid-column: 1 / -1; }
+            .campaign-logs-filter-actions { align-self: end; display: flex; flex-wrap: wrap; gap: .5rem; }
+        }
         @media (max-width: 640px) {
             .campaign-logs-header { align-items: flex-start; padding: 1rem; }
             .campaign-logs-toolbar { padding: .85rem; }
-            .campaign-logs-filters { flex-basis: 100%; }
-            .campaign-logs-field { flex-basis: calc(50% - .5rem); }
-            .campaign-logs-field.search-field { flex-basis: 100%; }
+            .campaign-logs-filters { grid-template-columns: minmax(0, 1fr); }
+            .campaign-logs-field.search-field { grid-column: auto; }
+            .campaign-logs-filter-actions { grid-column: auto; }
+            .campaign-logs-filter-actions > * { flex: 1 1 8rem; }
             .campaign-logs-footer { align-items: flex-start; flex-direction: column; padding: .85rem; }
         }
         @media (prefers-reduced-motion: reduce) { .campaign-log-action { transition: none; } }
@@ -86,8 +94,10 @@
                         @endforeach
                     </select>
                 </div>
-                <button class="btn btn-sm btn-primary campaign-logs-apply" type="submit"><i class="fas fa-filter mr-1" aria-hidden="true"></i>Apply filters</button>
-                <a class="btn btn-sm btn-alt-secondary" href="{{ route('console.campaign-logs.index', $workspace->id) }}">Reset</a>
+                <div class="campaign-logs-filter-actions">
+                    <button class="btn btn-sm btn-primary campaign-logs-apply" type="submit"><i class="fas fa-filter mr-1" aria-hidden="true"></i>Apply filters</button>
+                    <a class="btn btn-sm btn-alt-secondary" href="{{ route('console.campaign-logs.index', $workspace->id) }}">Reset</a>
+                </div>
             </form>
         </div>
 
@@ -98,7 +108,7 @@
             <div class="alert alert-warning m-3" role="alert">{{ $errors->first('is_restricted') }}</div>
         @endif
 
-        <div class="campaign-logs-table-wrap">
+        <div class="campaign-logs-table-wrap" role="region" aria-label="Scrollable Campaign Logs table" tabindex="0">
             <table class="table table-sm campaign-logs-table" aria-label="Campaign log register">
                 <thead>
                     <tr>

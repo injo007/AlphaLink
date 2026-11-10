@@ -37,6 +37,7 @@ class WorkspaceCampaignLogsTest extends TestCase
             ->assertSee('T:1', false)
             ->assertSee('U:1', false)
             ->assertSee('S:1', false)
+            ->assertSee('aria-label="Scrollable Campaign Logs table" tabindex="0"', false)
             ->assertSee('RESTRICT');
 
         $this->actingAs($owner)

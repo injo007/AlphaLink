@@ -507,6 +507,16 @@
                 updateSelectionButtons();
             }
 
+            rows.addEventListener('change', (e) => {
+                const cb = e.target.closest('.cloud-instance-checkbox');
+                if (!cb) return;
+                const row = cb.closest('tr');
+                if (row) {
+                    row.classList.toggle('selected', cb.checked);
+                }
+                updateSelectionButtons();
+            });
+
             rows.addEventListener('click', (e) => {
                 if (e.target.closest('button, a, input, label')) return;
                 const row = e.target.closest('tr');

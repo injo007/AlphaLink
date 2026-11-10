@@ -6,58 +6,159 @@
 
 @push('styles')
     <style>
-        .encoding-tool-block .block-content { padding: 0; }
-        .encoding-tool-block .nav-tabs-block { margin-bottom: 0; }
-        .encoding-tool-block .tab-content { padding: 21px 20px 7px !important; }
-        .encoding-tool-block .tab-content .form-group:last-child { margin-bottom: 0; }
-        .encoding-main-block { margin-left: -13px; margin-right: -13px; margin-top: -12px; }
-        .encoding-main-block .tab-content { padding-top: 17px !important; }
-        .encoding-tool-block #encoding-string-panel .form-row {
-            column-gap: 2.23%;
-            display: grid;
-            grid-template-columns: minmax(0, 49%) minmax(0, 14.8%) minmax(0, 14.8%) minmax(0, 7.2%);
-            margin-left: 0;
-            margin-right: 0;
+        .encoding-tabs {
+            display: inline-flex;
+            gap: 8px;
+            padding: 4px;
+            background: rgba(139, 92, 246, 0.06);
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--command-os-border, rgba(139, 92, 246, 0.12));
         }
-        .encoding-tool-block #encoding-string-panel .form-row > .form-group {
-            flex: initial;
-            max-width: none;
-            padding-left: 0;
-            padding-right: 0;
+        .encoding-tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--command-os-text-muted, #64748b);
+            font-size: 0.8125rem;
+            font-weight: 700;
+            padding: 8px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            letter-spacing: 0.05em;
         }
-        @media (max-width: 767.98px) {
-            .encoding-tool-block #encoding-string-panel .form-row {
-                column-gap: 16px;
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
+        .encoding-tab-btn.active {
+            background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.35);
+        }
+        .encoding-result-area {
+            font-family: 'JetBrains Mono', 'Fira Code', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace;
+            font-size: 0.875rem;
+            line-height: 1.6;
+            color: var(--command-os-text, #1e293b);
+            background: var(--command-os-card-bg, #ffffff);
+            border: 1px solid var(--command-os-border, rgba(139, 92, 246, 0.2));
+            border-radius: 10px;
+            padding: 12px 14px;
+            width: 100%;
+            outline: none;
+            resize: vertical;
+        }
+        html[data-command-theme='dark'] .encoding-tabs {
+            background: rgba(15, 23, 42, 0.6);
+            border-color: rgba(139, 92, 246, 0.22);
+        }
+        html[data-command-theme='dark'] .encoding-result-area {
+            background: #0b1033;
+            color: #e2e8f0;
+            border-color: rgba(139, 92, 246, 0.25);
         }
     </style>
 @endpush
 
 @section('content')
-    <div class="block block-rounded mb-0 encoding-tool-block{{ $isEncodingPopup ? ' encoding-popup-block' : ' encoding-main-block' }}">
-        <div class="block-content">
-            <ul class="nav nav-tabs nav-tabs-block" role="tablist" aria-label="Encoding modes">
-                <li class="nav-item"><button class="nav-link active" type="button" id="encoding-string-tab" role="tab" aria-selected="true" aria-controls="encoding-string-panel" data-encoding-tab="string">STRING</button></li>
-                <li class="nav-item"><button class="nav-link" type="button" id="encoding-ip-tab" role="tab" aria-selected="false" aria-controls="encoding-ip-panel" data-encoding-tab="ip">IP</button></li>
-            </ul>
-            <div class="tab-content pt-3">
-                <section class="tab-pane active" id="encoding-string-panel" role="tabpanel" aria-labelledby="encoding-string-tab" data-encoding-panel="string">
-                    <div class="form-row align-items-end">
-                        <div class="form-group col-md-6"><label for="encoding-text">Your String</label><input class="form-control" id="encoding-text" placeholder="Your String"></div>
-                        <div class="form-group col-md-2"><label for="encoding-schema">Schema :</label><select id="encoding-schema" class="form-control"><option value="Q" selected>Quoted-Printable</option><option value="HQ">Hex-Quoted-Printable</option><option value="B">Base64</option></select></div>
-                        <div class="form-group col-md-2"><label for="encoding-charset">Charset :</label><select id="encoding-charset" class="form-control"><option>UTF-8</option><option>UTF-7</option><option>ISO-8859-1</option><option>ISO-8859-15</option><option>windows-1252</option><option value="US-ASCII">ASCII</option><option>CP1256</option></select></div>
-                        <div class="form-group col-md-1"><button id="encoding-run" class="btn btn-primary btn-block" type="button" aria-busy="false">ENCODE</button></div>
+    <div class="{{ $isEncodingPopup ? 'p-3' : 'command-os-report-page' }}">
+        @unless ($isEncodingPopup)
+            <!-- 1. Hero Header -->
+            <header class="command-os-report-hero mb-4">
+                <div class="command-os-report-hero-left">
+                    <div class="command-os-report-hero-icon" aria-hidden="true">
+                        <i class="fas fa-pencil-ruler"></i>
                     </div>
-                    <div class="form-group"><label for="encoding-result">Result</label><textarea class="form-control" id="encoding-result" rows="5" placeholder="Encoded String" readonly></textarea><small id="encoding-message" class="form-text text-muted" role="status"></small></div>
+                    <div>
+                        <div class="command-os-report-hero-eyebrow">OPERATIONS TOOLKIT // ENCODING ENGINE</div>
+                        <h1 class="command-os-report-hero-title">STRING &amp; IP ENCODER</h1>
+                        <p class="command-os-report-hero-desc">Encode strings into Quoted-Printable, Hex-QP, or Base64 schemas and convert IP addresses across formats.</p>
+                    </div>
+                </div>
+                <div class="command-os-report-hero-right">
+                    <div class="command-os-report-hero-meta">
+                        <span class="command-os-report-badge">TOOLKIT</span>
+                    </div>
+                </div>
+            </header>
+        @endunless
+
+        <!-- 2. Form Surface Card -->
+        <div class="command-os-table-card p-4">
+            <div class="encoding-tabs" role="tablist" aria-label="Encoding modes">
+                <button class="encoding-tab-btn active" type="button" id="encoding-string-tab" role="tab" aria-selected="true" aria-controls="encoding-string-panel" data-encoding-tab="string">
+                    <i class="fas fa-font mr-1"></i> STRING ENCODER
+                </button>
+                <button class="encoding-tab-btn" type="button" id="encoding-ip-tab" role="tab" aria-selected="false" aria-controls="encoding-ip-panel" data-encoding-tab="ip">
+                    <i class="fas fa-network-wired mr-1"></i> IP CONVERTER
+                </button>
+            </div>
+
+            <div class="tab-content">
+                <!-- String Panel -->
+                <section class="tab-pane active" id="encoding-string-panel" role="tabpanel" aria-labelledby="encoding-string-tab" data-encoding-panel="string">
+                    <div class="row align-items-end mb-3">
+                        <div class="col-md-5 mb-3 mb-md-0">
+                            <label class="command-form-label" for="encoding-text"><i class="fas fa-i-cursor mr-1 text-purple"></i> Your String:</label>
+                            <input class="command-form-control" id="encoding-text" placeholder="Enter text to encode..." style="height: 38px;">
+                        </div>
+                        <div class="col-md-3 mb-3 mb-md-0">
+                            <label class="command-form-label" for="encoding-schema"><i class="fas fa-cog mr-1 text-purple"></i> Schema:</label>
+                            <div class="command-select-wrapper">
+                                <select id="encoding-schema" class="command-form-control command-select" style="height: 38px;">
+                                    <option value="Q" selected>Quoted-Printable</option>
+                                    <option value="HQ">Hex-Quoted-Printable</option>
+                                    <option value="B">Base64</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-2 mb-3 mb-md-0">
+                            <label class="command-form-label" for="encoding-charset"><i class="fas fa-globe mr-1 text-purple"></i> Charset:</label>
+                            <div class="command-select-wrapper">
+                                <select id="encoding-charset" class="command-form-control command-select" style="height: 38px;">
+                                    <option>UTF-8</option>
+                                    <option>UTF-7</option>
+                                    <option>ISO-8859-1</option>
+                                    <option>ISO-8859-15</option>
+                                    <option>windows-1252</option>
+                                    <option value="US-ASCII">ASCII</option>
+                                    <option>CP1256</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <button id="encoding-run" class="btn-command-primary w-100" type="button" aria-busy="false" style="height: 38px;">
+                                <i class="fas fa-bolt mr-1"></i> ENCODE
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-group mb-0">
+                        <label class="command-form-label" for="encoding-result"><i class="fas fa-check-circle mr-1 text-purple"></i> Result:</label>
+                        <textarea class="encoding-result-area" id="encoding-result" rows="6" placeholder="Encoded string output will appear here..." readonly></textarea>
+                        <small id="encoding-message" class="form-text text-muted mt-2" role="status"></small>
+                    </div>
                 </section>
+
+                <!-- IP Panel -->
                 <section class="tab-pane d-none" id="encoding-ip-panel" role="tabpanel" aria-labelledby="encoding-ip-tab" data-encoding-panel="ip">
-                    <div class="form-row align-items-end"><div class="form-group col-md-6"><label for="encoding-ip">Ip</label><input class="form-control" id="encoding-ip" placeholder="Your Ip" inputmode="decimal"></div><div class="form-group col-md-1"><button id="encoding-ip-run" class="btn btn-primary btn-block" type="button">ENCODE</button></div></div>
-                    <div class="form-group"><label for="encoding-ip-result">Result</label><textarea class="form-control" id="encoding-ip-result" rows="7" placeholder="Encoded Ip" readonly></textarea><small id="encoding-ip-message" class="form-text text-muted" role="status"></small></div>
+                    <div class="row align-items-end mb-3">
+                        <div class="col-md-8 mb-3 mb-md-0">
+                            <label class="command-form-label" for="encoding-ip"><i class="fas fa-network-wired mr-1 text-purple"></i> IPv4 Address:</label>
+                            <input class="command-form-control" id="encoding-ip" placeholder="e.g. 192.168.1.1" inputmode="decimal" style="height: 38px;">
+                        </div>
+                        <div class="col-md-4">
+                            <button id="encoding-ip-run" class="btn-command-primary w-100" type="button" style="height: 38px;">
+                                <i class="fas fa-sync mr-1"></i> CONVERT IP
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-group mb-0">
+                        <label class="command-form-label" for="encoding-ip-result"><i class="fas fa-code mr-1 text-purple"></i> Representations:</label>
+                        <textarea class="encoding-result-area" id="encoding-ip-result" rows="8" placeholder="Converted IP formats (Octal, Hex, Integer, etc.) will appear here..." readonly></textarea>
+                        <small id="encoding-ip-message" class="form-text text-muted mt-2" role="status"></small>
+                    </div>
                 </section>
             </div>
         </div>
     </div>
+
     <script>
         (() => {
             const token = document.querySelector('meta[name="csrf-token"]')?.content;
@@ -87,7 +188,7 @@
                     button.setAttribute('aria-busy', String(busy));
                     button.innerHTML = busy
                         ? '<i class="fa fa-spinner fa-spin mr-1" aria-hidden="true"></i>ENCODE'
-                        : 'ENCODE';
+                        : '<i class="fas fa-bolt mr-1"></i> ENCODE';
                 };
 
                 setBusy(true);
@@ -145,7 +246,7 @@
                 if (!ip) return;
 
                 const output = document.getElementById('encoding-ip-result');
-                output.value = `Dotted Decimal IP : ${ip}\nOctal IP : ${toOcta(ip)}\nInteger IP : ${toInteger(ip)}\nHexadecimal IP :${toHex(ip)}\nOctalHexa IP : ${toOctalHexadecimal(ip)}\nDecimalHexa IP : ${toDecimalHexadecimal(ip)}\nDecimalOctal IP : ${toDecimalOctal(ip)}`;
+                output.value = `Dotted Decimal IP : ${ip}\nOctal IP : ${toOcta(ip)}\nInteger IP : ${toInteger(ip)}\nHexadecimal IP : ${toHex(ip)}\nOctalHexa IP : ${toOctalHexadecimal(ip)}\nDecimalHexa IP : ${toDecimalHexadecimal(ip)}\nDecimalOctal IP : ${toDecimalOctal(ip)}`;
             });
         })();
     </script>

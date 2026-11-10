@@ -3,25 +3,57 @@
 @section('title', 'Workspace SMTP')
 
 @section('content')
-    <div class="block block-rounded">
-        <div class="block-header">
-            <h3 class="block-title">PUSH WORKSPACE ACCOUNTS</h3>
-            <div class="block-options"><button class="btn-block-option" type="button" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen"></button></div>
-        </div>
-        <div class="block-content">
-            <div id="workspace-status" class="alert d-none" role="status" aria-live="polite"></div>
+    <div class="command-os-report-page">
+        <!-- 1. Hero Header -->
+        <header class="command-os-report-hero mb-4">
+            <div class="command-os-report-hero-left">
+                <div class="command-os-report-hero-icon" aria-hidden="true">
+                    <i class="fas fa-th-large"></i>
+                </div>
+                <div>
+                    <div class="command-os-report-hero-eyebrow">OPERATIONS TOOLKIT // WORKSPACE SMTP AUTOMATION</div>
+                    <h1 class="command-os-report-hero-title">PUSH WORKSPACE ACCOUNTS</h1>
+                    <p class="command-os-report-hero-desc">Distribute configured server IPs and projects to workspace accounts with optional IP-splitting.</p>
+                </div>
+            </div>
+            <div class="command-os-report-hero-right">
+                <div class="command-os-report-hero-meta">
+                    <span class="command-os-report-badge">TOOLKIT</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- 2. Form Surface Card -->
+        <div class="command-os-table-card p-4">
+            <div id="workspace-status" class="alert d-none mb-4" role="status" aria-live="polite" style="border-radius: 12px; font-size: 0.8125rem;"></div>
+
             <div class="row justify-content-center">
-                <div class="col-12 col-md-6">
-                    <div class="form-group">
-                        <label for="workspace-ips">IPs: <button class="btn btn-link btn-sm p-0" id="workspace-search-ips" type="button" title="Search Servers" aria-label="Search servers"><i class="fas fa-search" aria-hidden="true"></i></button></label>
+                <div class="col-12 col-md-8 col-lg-6">
+                    <div class="form-group mb-3">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <label class="command-form-label mb-0" for="workspace-ips">
+                                <i class="fas fa-network-wired mr-1 text-purple"></i> TARGET IPS:
+                            </label>
+                            <button class="btn-command-action" id="workspace-search-ips" type="button" title="Search Servers" aria-label="Search servers" style="padding: 2px 8px; font-size: 0.75rem;">
+                                <i class="fas fa-search mr-1" aria-hidden="true"></i> Batch Search
+                            </button>
+                        </div>
                         <select class="form-control selectpicker" id="workspace-ips" data-live-search="true" title="Select Ips" data-size="6" data-selected-text-format="count > 5" data-actions-box="true" multiple aria-label="Select IPs">
                             @foreach ($ips as $ip)
                                 <option value="{{ $ip->id }}">{{ $ip->server?->name }}{{ $ip->managed_server_id }} | {{ $ip->ip }}</option>
                             @endforeach
                         </select>
                     </div>
-                    <div class="form-group">
-                        <label for="workspace-projects">Project: <button class="btn btn-link btn-sm p-0" id="workspace-search-projects" type="button" title="Search Projects by Email" aria-label="Search projects by email"><i class="fas fa-search" aria-hidden="true"></i></button></label>
+
+                    <div class="form-group mb-3">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <label class="command-form-label mb-0" for="workspace-projects">
+                                <i class="fas fa-project-diagram mr-1 text-purple"></i> PROJECT:
+                            </label>
+                            <button class="btn-command-action" id="workspace-search-projects" type="button" title="Search Projects by Email" aria-label="Search projects by email" style="padding: 2px 8px; font-size: 0.75rem;">
+                                <i class="fas fa-search mr-1" aria-hidden="true"></i> Search By Email
+                            </button>
+                        </div>
                         <select class="form-control selectpicker" id="workspace-projects" data-live-search="true" title="Select Project" data-size="6" data-actions-box="true" multiple aria-label="Select Workspace projects">
                             @forelse ($projects->where('is_active', true) as $project)
                                 <option value="{{ $project->id }}" data-email="{{ $project->name }}">{{ $project->name }} -- {{ $project->created_at }}</option>
@@ -29,12 +61,26 @@
                             @endforelse
                         </select>
                     </div>
-                    <div class="form-group"><div class="custom-control custom-switch custom-control-inline"><input class="custom-control-input" id="workspace-split" type="checkbox"><label class="custom-control-label" for="workspace-split">SPLIT ON IPS</label></div></div>
-                    <div class="form-group">
-                        <button type="button" class="btn btn-primary" id="workspace-push">PUSH</button>
-                        <button type="button" class="btn btn-danger float-md-right" id="workspace-reset">RESET</button>
+
+                    <div class="form-group mb-4">
+                        <div class="custom-control custom-switch">
+                            <input class="custom-control-input" id="workspace-split" type="checkbox">
+                            <label class="custom-control-label" for="workspace-split">SPLIT ON IPS</label>
+                        </div>
                     </div>
-                    <div class="table-responsive"><table id="workspace-results" class="table table-sm table-hover table-bordered"></table></div>
+
+                    <div class="d-flex align-items-center justify-content-between mb-4" style="gap: 12px;">
+                        <button type="button" class="btn-command-primary flex-grow-1" id="workspace-push" style="height: 40px;">
+                            <i class="fas fa-paper-plane mr-1"></i> PUSH TO SERVERS
+                        </button>
+                        <button type="button" class="btn-command-danger" id="workspace-reset" style="height: 40px; padding: 0 18px;">
+                            <i class="fas fa-undo mr-1"></i> RESET
+                        </button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table id="workspace-results" class="table table-sm table-hover command-os-table"></table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -52,11 +98,11 @@
                 if (!response.ok) throw new Error(payload.message || payload.error || payload.data || Object.values(payload.errors || {}).flat().join(' ') || 'Request failed.');
                 return payload;
             };
-            const showStatus = (message, tone = 'success') => { status.textContent = message; status.className = `alert alert-${tone}`; };
+            const showStatus = (message, tone = 'success') => { status.textContent = message; status.className = `alert alert-${tone} mb-4`; };
             const busy = (button, value) => { button.disabled = value; button.setAttribute('aria-busy', String(value)); };
             const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
             const selected = (element) => [...element.selectedOptions].map((option) => option.value);
-            const draw = (rows) => { table.innerHTML = `<thead><tr><th class="col-md-4">Server</th><th class="col-md-8">Result</th></tr></thead><tbody class="collapse show">${rows.map((row) => `<tr><td>${escape(row.id)}</td><td><strong>${escape(row.data)}</strong></td></tr>`).join('')}</tbody>`; };
+            const draw = (rows) => { table.innerHTML = `<thead><tr><th class="col-md-4">Server</th><th class="col-md-8">Result</th></tr></thead><tbody class="collapse show">${rows.map((row) => `<tr><td><span class="command-mono-badge">${escape(row.id)}</span></td><td><strong>${escape(row.data)}</strong></td></tr>`).join('')}</tbody>`; };
             const showDialog = async (options) => {
                 const dialog = window.swal?.fire ? window.swal : window.Swal?.fire ? window.Swal : null;
                 if (dialog) return dialog.fire(options);
@@ -128,9 +174,6 @@
             };
             document.getElementById('workspace-push').addEventListener('click', (event) => runAction(event.currentTarget, 'PUSH', 'Workspace push:'));
             document.getElementById('workspace-reset').addEventListener('click', async (event) => {
-                // currentTarget is cleared as soon as this async listener yields
-                // at the confirmation dialog. Keep the button reference before
-                // awaiting so RESET can proceed after the user confirms.
                 const button = event.currentTarget;
                 if (!selected(document.getElementById('workspace-ips')).length) {
                     await showDialog({icon:'error',title:'Oops',text:'Please select at least one IP.'});
@@ -147,7 +190,6 @@
             const applySelection = (select, values) => { if (window.jQuery?.fn?.selectpicker) window.jQuery(select).selectpicker('val', values).selectpicker('refresh'); else for (const option of select.options) option.selected = values.includes(option.value); };
             document.getElementById('workspace-search-ips').addEventListener('click', async () => { const result = await showDialog({input:'textarea',inputLabel:'Search Ips',inputPlaceholder:'Type your Ips here...',inputAttributes:{'aria-label':'Type your servers here'},showCancelButton:true}); const text = result.value; if (!text) return; const queries = [...new Set(text.split('\n').map((value) => value.trim().toLowerCase()).filter(Boolean))]; const ids = [...document.querySelectorAll('#workspace-ips option')].filter((option) => queries.some((query) => option.textContent.toLowerCase().trim().includes(query))).map((option) => option.value); applySelection(document.getElementById('workspace-ips'), ids); });
             document.getElementById('workspace-search-projects').addEventListener('click', async () => { const result = await showDialog({input:'textarea',inputLabel:'Search Projects by Email',inputPlaceholder:'Type emails here, one per line...',inputAttributes:{'aria-label':'Type emails here'},showCancelButton:true}); const emails = new Set((result.value || '').split('\n').map((value) => value.trim().toLowerCase()).filter(Boolean)); if (!emails.size) return; const ids = [...document.querySelectorAll('#workspace-projects option')].filter((option) => emails.has((option.dataset.email || '').toLowerCase())).map((option) => option.value); applySelection(document.getElementById('workspace-projects'), ids); });
-
         })();
     </script>
 @endsection

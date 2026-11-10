@@ -421,16 +421,40 @@ body.command-os-shell #sidebar .nav-main-submenu {
     border-left: 1px solid var(--co-border-strong);
 }
 
-body.command-os-shell #sidebar .nav-main-submenu .nav-main-link {
-    min-height: 29px;
-    padding-top: 5px;
-    padding-bottom: 5px;
-    font-size: 10px;
+body.command-os-shell #sidebar .nav-main-link,
+#sidebar .nav-main-link {
     white-space: nowrap !important;
+    overflow: hidden !important;
     text-overflow: ellipsis !important;
+    display: flex !important;
+    align-items: center !important;
+    min-width: 0 !important;
 }
 
-body.command-os-shell #sidebar .nav-main-submenu .nav-main-link-icon {
+body.command-os-shell #sidebar .nav-main-link-name,
+#sidebar .nav-main-link-name {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+}
+
+body.command-os-shell #sidebar .nav-main-submenu .nav-main-link,
+#sidebar .nav-main-submenu .nav-main-link {
+    min-height: 32px !important;
+    padding: 6px 10px !important;
+    font-size: 11px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+}
+
+body.command-os-shell #sidebar .nav-main-submenu .nav-main-link-icon,
+#sidebar .nav-main-submenu .nav-main-link-icon {
     font-size: 11px;
 }
 
@@ -440,6 +464,7 @@ body.command-os-shell #sidebar .nav-main-submenu .nav-main-link.active,
     background: linear-gradient(100deg, #7040ee, #9943f7) !important;
     border-radius: 8px !important;
     box-shadow: 0 4px 12px rgb(114 61 232 / 25%) !important;
+    white-space: nowrap !important;
 }
 
 body.command-os-shell #sidebar .nav-main-submenu .nav-main-link.active .nav-main-link-icon,
@@ -3919,6 +3944,10 @@ body.command-os-shell #main_content .command-os-user-access-grid {
 }
 
 body.command-os-shell #main_content .command-os-user-access-grid.is-admin {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+body.command-os-shell #main_content .command-os-user-access-grid.is-role-only {
     grid-template-columns: minmax(0, 1fr);
 }
 
@@ -9783,6 +9812,8 @@ html[data-command-theme='light'] .command-trigger-bar {
 }
 
 .custom-control.custom-switch,
+.custom-switch.custom-control,
+.custom-switch,
 .command-switch-item {
     position: relative !important;
     display: inline-flex !important;
@@ -9797,6 +9828,7 @@ html[data-command-theme='light'] .command-trigger-bar {
 }
 
 .custom-control.custom-switch .custom-control-input,
+.custom-switch .custom-control-input,
 .command-switch-item input[type="checkbox"] {
     position: absolute !important;
     opacity: 0 !important;
@@ -9807,13 +9839,14 @@ html[data-command-theme='light'] .command-trigger-bar {
 }
 
 .custom-control.custom-switch .custom-control-label,
+.custom-switch .custom-control-label,
 .command-switch-item .command-switch-label {
     position: relative !important;
     display: inline-flex !important;
     align-items: center !important;
     margin-bottom: 0 !important;
-    padding-left: 48px !important;
-    padding-right: 6px !important;
+    padding-left: 50px !important;
+    padding-right: 8px !important;
     min-height: 24px !important;
     height: auto !important;
     font-size: 0.75rem !important;
@@ -9828,22 +9861,26 @@ html[data-command-theme='light'] .command-trigger-bar {
 }
 
 html[data-command-theme='dark'] .custom-control.custom-switch .custom-control-label,
+html[data-command-theme='dark'] .custom-switch .custom-control-label,
 html[data-command-theme='dark'] .command-switch-item .command-switch-label {
     color: #e2e8f0 !important;
 }
 
 html[data-command-theme='light'] .custom-control.custom-switch .custom-control-label,
+html[data-command-theme='light'] .custom-switch .custom-control-label,
 html[data-command-theme='light'] .command-switch-item .command-switch-label {
     color: #334155 !important;
 }
 
 .custom-control.custom-switch:hover .custom-control-label,
+.custom-switch:hover .custom-control-label,
 .command-switch-item:hover .command-switch-label {
     color: #8b5cf6 !important;
 }
 
 /* Track pill (::before) - Exactly 20px height, centered vertically with translateY(-50%) */
 .custom-control.custom-switch .custom-control-label::before,
+.custom-switch .custom-control-label::before,
 .command-switch-item .command-switch-label::before {
     content: "" !important;
     position: absolute !important;
@@ -9860,9 +9897,11 @@ html[data-command-theme='light'] .command-switch-item .command-switch-label {
     transition: background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease, box-shadow 0.25s ease !important;
     pointer-events: none !important;
     box-sizing: border-box !important;
+    margin: 0 !important;
 }
 
 html[data-command-theme='dark'] .custom-control.custom-switch .custom-control-label::before,
+html[data-command-theme='dark'] .custom-switch .custom-control-label::before,
 html[data-command-theme='dark'] .command-switch-item .command-switch-label::before {
     background: #334155 !important;
     border-color: rgba(255, 255, 255, 0.14) !important;
@@ -9870,6 +9909,7 @@ html[data-command-theme='dark'] .command-switch-item .command-switch-label::befo
 
 /* Thumb circle (::after) - Exactly 16px circle, left: 2px, centered vertically with translateY(-50%) */
 .custom-control.custom-switch .custom-control-label::after,
+.custom-switch .custom-control-label::after,
 .command-switch-item .command-switch-label::after {
     content: "" !important;
     position: absolute !important;
@@ -9882,14 +9922,17 @@ html[data-command-theme='dark'] .command-switch-item .command-switch-label::befo
     height: 16px !important;
     border-radius: 50% !important;
     background: #ffffff !important;
+    border: none !important;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.15) !important;
     transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, box-shadow 0.2s ease !important;
     pointer-events: none !important;
     box-sizing: border-box !important;
+    margin: 0 !important;
 }
 
 /* Checked state - thumb translates 18px horizontally while staying centered */
 .custom-control.custom-switch .custom-control-input:checked ~ .custom-control-label::before,
+.custom-switch .custom-control-input:checked ~ .custom-control-label::before,
 .command-switch-item input[type="checkbox"]:checked ~ .command-switch-label::before {
     background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%) !important;
     border-color: #7c3aed !important;
@@ -9897,6 +9940,7 @@ html[data-command-theme='dark'] .command-switch-item .command-switch-label::befo
 }
 
 .custom-control.custom-switch .custom-control-input:checked ~ .custom-control-label::after,
+.custom-switch .custom-control-input:checked ~ .custom-control-label::after,
 .command-switch-item input[type="checkbox"]:checked ~ .command-switch-label::after {
     left: 2px !important;
     top: 50% !important;

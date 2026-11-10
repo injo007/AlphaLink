@@ -7,38 +7,69 @@
 <style>
     .pmta-schedule-tags + .select2-container { width: 100% !important; }
     .pmta-schedule-tags + .select2-container .select2-selection--multiple {
-        min-height: 40px;
-        background: var(--command-os-card-bg, #ffffff);
-        border: 1px solid var(--command-os-border, rgba(99, 102, 241, 0.18));
-        border-radius: 12px;
-        padding: 2px 6px;
+        min-height: 38px !important;
+        height: 38px !important;
+        max-height: 38px !important;
+        background: var(--command-os-card-bg, #ffffff) !important;
+        border: 1px solid var(--command-os-border, rgba(99, 102, 241, 0.18)) !important;
+        border-radius: 10px !important;
+        padding: 2px 8px !important;
+        display: flex !important;
+        align-items: center !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        white-space: nowrap !important;
+        box-sizing: border-box !important;
+    }
+    .pmta-schedule-tags + .select2-container .select2-selection__rendered {
+        display: flex !important;
+        align-items: center !important;
+        flex-wrap: nowrap !important;
+        gap: 4px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
+        overflow-x: auto !important;
     }
     .pmta-schedule-tags + .select2-container .select2-selection__choice {
         background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.15)) !important;
         border: 1px solid rgba(99, 102, 241, 0.3) !important;
-        border-radius: 8px !important;
+        border-radius: 6px !important;
         color: #6366f1 !important;
         font-weight: 600 !important;
         font-size: 0.75rem !important;
-        margin-top: 4px;
+        margin: 0 !important;
         padding: 2px 8px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        flex-shrink: 0 !important;
     }
     .pmta-schedule-tags + .select2-container .select2-selection__choice__remove {
         color: #ef4444 !important;
         margin-right: 4px !important;
+        font-weight: bold !important;
     }
-    .pmta-queue-radio-group {
-        display: flex;
-        gap: 16px;
-        margin-top: 8px;
+    .pmta-schedule-tags + .select2-container .select2-search--inline {
+        margin: 0 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        flex-grow: 1 !important;
     }
-    .pmta-queue-radio {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 0.8125rem;
-        font-weight: 600;
-        cursor: pointer;
+    .pmta-schedule-tags + .select2-container .select2-search__field {
+        margin: 0 !important;
+        height: 28px !important;
+        font-size: 0.8125rem !important;
+        padding: 0 4px !important;
+        min-width: 80px !important;
+        color: var(--command-os-text, #1e293b) !important;
+    }
+    html[data-command-theme='dark'] .pmta-schedule-tags + .select2-container .select2-selection--multiple {
+        background: #0d1238 !important;
+        border-color: rgba(139, 92, 246, 0.25) !important;
+        color: #f8fafc !important;
+    }
+    html[data-command-theme='dark'] .pmta-schedule-tags + .select2-container .select2-search__field {
+        color: #f8fafc !important;
     }
 </style>
 @endpush
@@ -76,38 +107,42 @@
             </h3>
         </div>
 
-        <div class="row">
-            <div class="col-sm-12 col-md-3">
-                <div class="form-group mb-2">
-                    <label class="command-form-label" for="pmta-schedule-servers">Servers:</label>
-                    <select id="pmta-schedule-servers" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 5" multiple title="Select Servers">
-                        @foreach ($servers as $server)
-                            <option value="{{ $server->id }}">{{ $server->name }} | {{ $server->ip_address }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <fieldset class="form-group mb-0" role="radiogroup" aria-labelledby="pmta-schedule-queue-label">
-                    <legend class="sr-only" id="pmta-schedule-queue-label">Queue</legend>
-                    <div class="pmta-queue-radio-group">
-                        <label class="pmta-queue-radio">
-                            <input type="radio" name="pmta-schedule-queue" value="domain" checked>
-                            <span>Domain</span>
-                        </label>
-                        <label class="pmta-queue-radio">
-                            <input type="radio" name="pmta-schedule-queue" value="campaign">
-                            <span>Job Id</span>
-                        </label>
-                    </div>
-                </fieldset>
+        <div class="row align-items-end">
+            <div class="col-sm-12 col-md-3 mb-3">
+                <label class="command-form-label" for="pmta-schedule-servers">
+                    <i class="fas fa-server mr-1 text-purple"></i> SERVERS:
+                </label>
+                <select id="pmta-schedule-servers" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 5" multiple title="Select Servers">
+                    @foreach ($servers as $server)
+                        <option value="{{ $server->id }}">{{ $server->name }} | {{ $server->ip_address }}</option>
+                    @endforeach
+                </select>
             </div>
-            <div class="col-sm-12 col-md-3 form-group mb-2">
-                <label class="command-form-label" for="pmta-schedule-tags">Tags (domain/vmta):</label>
+            <div class="col-sm-12 col-md-3 mb-3">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <label class="command-form-label mb-0" for="pmta-schedule-tags">
+                        <i class="fas fa-tags mr-1 text-purple"></i> TAGS (DOMAIN/VMTA):
+                    </label>
+                    <fieldset class="border-0 p-0 m-0 d-inline-flex align-items-center" style="gap: 10px;" role="radiogroup" aria-labelledby="pmta-schedule-queue-label">
+                        <legend class="sr-only" id="pmta-schedule-queue-label">Queue</legend>
+                        <label class="mb-0 d-inline-flex align-items-center" style="gap: 4px; font-size: 0.75rem; font-weight: 600; cursor: pointer;">
+                            <input type="radio" name="pmta-schedule-queue" value="domain" checked>
+                            <span>DOMAIN</span>
+                        </label>
+                        <label class="mb-0 d-inline-flex align-items-center" style="gap: 4px; font-size: 0.75rem; font-weight: 600; cursor: pointer;">
+                            <input type="radio" name="pmta-schedule-queue" value="campaign">
+                            <span>JOB ID</span>
+                        </label>
+                    </fieldset>
+                </div>
                 <select id="pmta-schedule-tags" class="form-control pmta-schedule-tags" multiple>
                     <option value="*/*" selected>*/*</option>
                 </select>
             </div>
-            <div class="col-sm-12 col-md-3 form-group mb-2">
-                <label class="command-form-label" for="pmta-schedule-action">Action:</label>
+            <div class="col-sm-12 col-md-3 mb-3">
+                <label class="command-form-label" for="pmta-schedule-action">
+                    <i class="fas fa-play mr-1 text-purple"></i> ACTION:
+                </label>
                 <select id="pmta-schedule-action" class="form-control selectpicker" data-live-search="true">
                     <option value="pause">PAUSE</option>
                     <option value="resume">RESUME</option>
@@ -116,8 +151,10 @@
                     <option value="schedule">SCHEDULE</option>
                 </select>
             </div>
-            <div class="col-sm-12 col-md-3 form-group mb-2">
-                <label class="command-form-label" for="pmta-schedule-frequency">Frequency:</label>
+            <div class="col-sm-12 col-md-3 mb-3">
+                <label class="command-form-label" for="pmta-schedule-frequency">
+                    <i class="fas fa-redo mr-1 text-purple"></i> FREQUENCY:
+                </label>
                 <select id="pmta-schedule-frequency" class="form-control selectpicker" data-live-search="true" data-size="6">
                     @foreach ($frequencies as $value => $label)
                         <option value="{{ $value }}">{{ $label }}</option>

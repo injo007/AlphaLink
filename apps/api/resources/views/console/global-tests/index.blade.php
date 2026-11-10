@@ -19,7 +19,7 @@
         <button type="button" role="menuitem" data-quick-action="pmta-panel"><span>PMTA PANEL</span><i class="fas fa-server" aria-hidden="true"></i></button>
     </div>
 
-    <div id="global-tests-page"
+    <div class="command-os-report-page" id="global-tests-page"
          data-test-url="{{ route('console.global-tests.test', $workspace->id) }}"
          data-catalog-url="{{ route('console.global-tests.catalog', $workspace->id) }}"
          data-encode-url="{{ route('console.global-tests.encoding', $workspace->id) }}"
@@ -28,25 +28,39 @@
          data-header-base="{{ url('/app/workspaces/'.$workspace->id.'/campaign-headers') }}"
          data-pmta-admin-url="{{ route('console.pmta-admin.index', $workspace->id) }}"
          data-pmta-admin-port="{{ $pmtaAdminPort }}">
-        <section class="block block-rounded" id="global-tests-block">
-            <div class="block-header">
-                <h3 class="block-title">GLOBAL TESTS</h3>
-                <div class="block-options">
-                    <a class="btn btn-sm btn-alt-secondary" href="{{ route('console.global-tests.histories', $workspace->id) }}">
-                        <i class="fas fa-history mr-1" aria-hidden="true"></i>Histories
-                    </a>
-                    <button type="button" class="btn-block-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen"></button>
+
+        <!-- 1. Hero Header -->
+        <header class="command-os-report-hero mb-4">
+            <div class="command-os-report-hero-left">
+                <div class="command-os-report-hero-icon" aria-hidden="true">
+                    <i class="fas fa-vial"></i>
+                </div>
+                <div>
+                    <div class="command-os-report-hero-eyebrow">OPERATIONS TOOLKIT // LIVE DELIVERABILITY VALIDATION</div>
+                    <h1 class="command-os-report-hero-title">GLOBAL TESTS</h1>
+                    <p class="command-os-report-hero-desc">Dispatch live deliverability test emails across configured MTA servers, test addresses, and message headers.</p>
                 </div>
             </div>
-            <div class="block-content block-content-full">
+            <div class="command-os-report-hero-right">
+                <div class="command-os-report-hero-meta">
+                    <a class="btn-command-action" href="{{ route('console.global-tests.histories', $workspace->id) }}">
+                        <i class="fas fa-history mr-1" aria-hidden="true"></i> View Histories
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <!-- 2. Main Form Card -->
+        <section class="command-os-table-card p-4" id="global-tests-block">
+            <div>
                 @unless ($senderConfigured)
-                    <div class="alert alert-warning" role="status">
-                        AlphaLink’s Global Test sender is not configured. The form is ready, but sending stays unavailable until an AlphaLink sender is installed.
+                    <div class="alert alert-warning mb-3" role="status" style="border-radius: 12px;">
+                        <i class="fas fa-exclamation-triangle mr-1"></i> AlphaLink’s Global Test sender is not configured. The form is ready, but sending stays unavailable until an AlphaLink sender is installed.
                     </div>
                 @endunless
 
-                <div class="alert alert-primary alert-dismissible fade show text-center" role="note">
-                    <strong>USABLE TAGS:</strong>
+                <div class="d-flex align-items-center flex-wrap p-3 mb-4" role="note" style="background: rgba(139, 92, 246, 0.05); border: 1px solid var(--command-os-border, rgba(139, 92, 246, 0.15)); border-radius: 12px; gap: 6px;">
+                    <strong class="mr-2" style="font-size: 0.75rem; letter-spacing: 0.05em; color: var(--command-os-text, #1e293b);"><i class="fas fa-tags mr-1 text-purple"></i> USABLE TAGS:</strong>
                     <button type="button" class="global-tag-button" data-insert-tag="[server]">[server]</button>
                     <button type="button" class="global-tag-button" data-insert-tag="[main_domain]">[main_domain]</button>
                     <button type="button" class="global-tag-button" data-insert-tag="[ip]">[ip]</button>
@@ -58,8 +72,7 @@
                     <button type="button" class="global-tag-button" data-insert-tag="[rnd]">[rnd]</button>
                     <button type="button" class="global-tag-button" data-insert-tag="[rnda_10]">[rnda_10]</button>
                     <button type="button" class="global-tag-button" data-insert-tag="[text:a|b|c]">[text:a|b|c]</button>
-                    <button type="button" class="global-tag-help" id="show-global-tags" title="Show tag meanings" aria-label="Show tag meanings"><i class="fas fa-question-circle" aria-hidden="true"></i></button>
-                    <button type="button" class="close" data-dismiss="alert" aria-label="Close tag guide"><span aria-hidden="true">&times;</span></button>
+                    <button type="button" class="global-tag-help ml-auto" id="show-global-tags" title="Show tag meanings" aria-label="Show tag meanings"><i class="fas fa-question-circle text-purple" aria-hidden="true"></i></button>
                 </div>
 
                 <form id="global-test-form" method="post" action="{{ route('console.global-tests.test', $workspace->id) }}" novalidate>
@@ -239,7 +252,7 @@
                                 <label for="repeat">Repeat Test:</label>
                                 <input id="repeat" type="number" min="1" class="form-control" value="1">
                             </div>
-                            <button id="send-global-test" class="btn btn-primary" type="submit"><i class="fas fa-vial mr-1" aria-hidden="true"></i>SEND TEST</button>
+                            <button id="send-global-test" class="btn-command-primary w-100" type="submit" style="height: 40px;"><i class="fas fa-vial mr-1" aria-hidden="true"></i> SEND TEST</button>
                         </div>
                     </div>
                 </form>
@@ -330,38 +343,58 @@
 
 @push('styles')
     <style>
-        #global-test-form .ace_editor { height: 30rem; width: 100%; }
-        .global-test-editor { min-height: 17rem; resize: vertical; font-family: var(--font-family-monospace, monospace); }
-        .global-icon-button, .global-tag-button, .global-tag-help { border: 0; background: transparent; color: #216eb4; cursor: pointer; padding: .1rem .25rem; }
-        .global-tag-button { color: #204e94; font-family: var(--font-family-monospace, monospace); font-size: .82rem; }
-        .global-icon-button:focus-visible, .global-tag-button:focus-visible, .global-tag-help:focus-visible { outline: 2px solid #216eb4; outline-offset: 2px; }
-        .global-ip-picker { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: .5rem; align-items: center; }
+        #global-test-form .ace_editor { height: 30rem; width: 100%; border-radius: 10px; }
+        .global-test-editor { min-height: 17rem; resize: vertical; font-family: 'JetBrains Mono', monospace; font-size: 0.8125rem; }
+        .global-icon-button { border: 0; background: transparent; color: #8b5cf6; cursor: pointer; padding: .1rem .35rem; }
+        .global-tag-button {
+            border: 1px solid rgba(139, 92, 246, 0.25);
+            background: rgba(139, 92, 246, 0.1);
+            color: #8b5cf6;
+            cursor: pointer;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            font-weight: 600;
+            transition: all 0.15s ease;
+        }
+        .global-tag-button:hover {
+            background: linear-gradient(135deg, #8b5cf6, #6366f1);
+            color: #ffffff;
+            box-shadow: 0 2px 8px rgba(139, 92, 246, 0.35);
+        }
+        .global-tag-help { border: 0; background: transparent; cursor: pointer; padding: .1rem .25rem; }
+        .global-icon-button:focus-visible, .global-tag-button:focus-visible, .global-tag-help:focus-visible { outline: 2px solid #8b5cf6; outline-offset: 2px; }
+        .global-ip-picker { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: .75rem; align-items: center; }
         .global-ip-list { min-width: 0; }
-        .global-ip-list select { min-height: 20rem; }
-        .global-ip-actions { display: flex; flex-direction: column; gap: .25rem; }
+        .global-ip-list select { min-height: 20rem; border-radius: 8px; }
+        .global-ip-actions { display: flex; flex-direction: column; gap: .35rem; }
         .global-ip-actions .btn { min-width: 2.5rem; }
-        .global-test-output { max-height: 24rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: #f6f7f8; border: 1px solid #d8dee4; padding: .75rem; }
+        .global-test-output { max-height: 24rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--command-os-card-bg, #ffffff); border: 1px solid var(--command-os-border, rgba(139, 92, 246, 0.2)); border-radius: 10px; padding: 1rem; }
         .global-quick-nav { position: fixed; right: 0; top: 50%; transform: translateY(-50%); z-index: 1100; }
-        .global-quick-nav-trigger { background: #4f78d7; border: 0; color: #fff; font-size: 1.2rem; min-height: 3rem; min-width: 3rem; }
-        .global-quick-nav-menu { background: #4f78d7; box-shadow: 0 .25rem .8rem rgb(0 0 0 / 25%); padding: .35rem; }
-        .global-quick-nav-menu button { background: transparent; border: 0; color: #fff; display: flex; gap: .6rem; align-items: center; min-height: 2.25rem; padding: .4rem .5rem; text-align: left; width: 100%; white-space: nowrap; }
-        .global-quick-nav-menu button:hover, .global-quick-nav-menu button:focus-visible { background: rgb(255 255 255 / 18%); }
+        .global-quick-nav-trigger { background: linear-gradient(135deg, #8b5cf6, #6366f1); border: 0; color: #fff; font-size: 1.2rem; min-height: 3rem; min-width: 3rem; border-radius: 8px 0 0 8px; box-shadow: -2px 0 10px rgba(139, 92, 246, 0.35); }
+        .global-quick-nav-menu { background: var(--command-os-card-bg, #ffffff); border: 1px solid var(--command-os-border, rgba(139, 92, 246, 0.25)); box-shadow: 0 .25rem 1.2rem rgba(0, 0, 0, 0.25); padding: .5rem; border-radius: 10px 0 0 10px; }
+        .global-quick-nav-menu button { background: transparent; border: 0; color: var(--command-os-text, #1e293b); display: flex; gap: .6rem; align-items: center; min-height: 2.25rem; padding: .4rem .65rem; text-align: left; width: 100%; white-space: nowrap; border-radius: 6px; font-weight: 600; font-size: 0.8125rem; }
+        .global-quick-nav-menu button:hover, .global-quick-nav-menu button:focus-visible { background: rgba(139, 92, 246, 0.12); color: #8b5cf6; }
         #global-test-context-menu[hidden] { display: none !important; }
-        #global-test-context-menu { position: fixed; z-index: 1110; min-width: 12rem; padding: .3rem 0; background: #fff; box-shadow: 0 2px 8px rgb(0 0 0 / 32%); }
-        #global-test-context-menu button { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 1rem; border: 0; background: transparent; color: #253044; padding: .5rem .75rem; text-align: left; white-space: nowrap; }
-        #global-test-context-menu button:hover, #global-test-context-menu button:focus-visible { background: #edf2ff; outline: 0; }
-        #global-test-context-menu i { color: #3182ce; }
-        .global-dialog { border: 0; border-radius: .25rem; box-shadow: 0 .5rem 1.5rem rgb(0 0 0 / 28%); max-height: min(88vh, 56rem); max-width: min(44rem, calc(100% - 2rem)); overflow: auto; padding: 1.25rem; width: calc(100% - 2rem); }
-        .global-dialog::backdrop { background: rgb(0 0 0 / 50%); }
-        .global-dialog h2 { font-size: 1.2rem; margin: 0 2rem .8rem 0; }
+        #global-test-context-menu { position: fixed; z-index: 1110; min-width: 12rem; padding: .3rem 0; background: var(--command-os-card-bg, #ffffff); border: 1px solid var(--command-os-border, rgba(139, 92, 246, 0.25)); border-radius: 10px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25); }
+        #global-test-context-menu button { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 1rem; border: 0; background: transparent; color: var(--command-os-text, #1e293b); padding: .5rem .75rem; text-align: left; white-space: nowrap; font-size: 0.8125rem; font-weight: 600; }
+        #global-test-context-menu button:hover, #global-test-context-menu button:focus-visible { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; outline: 0; }
+        #global-test-context-menu i { color: #8b5cf6; }
+        .global-dialog { border: 1px solid var(--command-os-border, rgba(139, 92, 246, 0.25)); border-radius: 16px; box-shadow: 0 .5rem 2rem rgba(0, 0, 0, 0.35); max-height: min(88vh, 56rem); max-width: min(44rem, calc(100% - 2rem)); overflow: auto; padding: 1.5rem; width: calc(100% - 2rem); background: var(--command-os-card-bg, #ffffff); }
+        .global-dialog::backdrop { background: rgba(10, 14, 40, 0.7); backdrop-filter: blur(6px); }
+        .global-dialog h2 { font-size: 1.125rem; margin: 0 2rem .8rem 0; font-weight: 700; color: var(--command-os-text, #1e293b); }
         .global-dialog-close { position: absolute; right: 1rem; top: .9rem; }
         .global-dialog-actions { display: flex; gap: .5rem; justify-content: flex-end; margin-top: 1rem; }
         .global-preview-dialog { height: 80vh; max-width: min(70rem, calc(100% - 2rem)); }
-        .global-preview-dialog iframe { border: 1px solid #d8dee4; height: calc(100% - 6rem); width: 100%; }
+        .global-preview-dialog iframe { border: 1px solid var(--command-os-border, rgba(139, 92, 246, 0.2)); height: calc(100% - 6rem); width: 100%; border-radius: 8px; }
         .global-tag-reference { line-height: 1.65; }
-        .global-encoding-tabs { border-bottom: 1px solid #d8dee4; display: flex; gap: .35rem; margin-bottom: 1rem; }
-        .global-encoding-tabs button[aria-selected="true"] { border-bottom: 2px solid #216eb4; color: #216eb4; }
-        .global-encoding-tabs button { background: transparent; border: 0; padding: .5rem .75rem; }
+        .global-encoding-tabs { border-bottom: 1px solid var(--command-os-border, rgba(139, 92, 246, 0.15)); display: flex; gap: .35rem; margin-bottom: 1rem; }
+        .global-encoding-tabs button[aria-selected="true"] { border-bottom: 2px solid #8b5cf6; color: #8b5cf6; font-weight: 700; }
+        .global-encoding-tabs button { background: transparent; border: 0; padding: .5rem .75rem; color: var(--command-os-text-muted, #64748b); }
+        html[data-command-theme='dark'] .global-test-output { background: #090d28; color: #e2e8f0; border-color: rgba(139, 92, 246, 0.25); }
+        html[data-command-theme='dark'] .global-dialog { background: #0d1238; color: #f8fafc; border-color: rgba(139, 92, 246, 0.3); }
+        html[data-command-theme='dark'] .global-quick-nav-menu, html[data-command-theme='dark'] #global-test-context-menu { background: #0d1238; border-color: rgba(139, 92, 246, 0.3); }
         @media (max-width: 767.98px) {
             .global-ip-picker { grid-template-columns: 1fr; }
             .global-ip-actions { flex-direction: row; justify-content: center; order: 2; }

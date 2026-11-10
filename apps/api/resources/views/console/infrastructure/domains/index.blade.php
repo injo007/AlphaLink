@@ -4,35 +4,116 @@
 
 @push('styles')
     <style>
-        .d_status { width: 100%; padding: 0 12px; border: transparent; outline: none; background-color: inherit; }
+        .d_status {
+            width: 100%;
+            min-width: 90px;
+            padding: 3px 8px;
+            border: 1px solid var(--co-border, #e2e8f0);
+            border-radius: 6px;
+            outline: none;
+            background-color: var(--co-surface, #ffffff);
+            color: var(--co-ink, #0f172a);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .d_status:focus {
+            border-color: var(--co-purple, #8b5cf6);
+            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+        }
+        html[data-command-theme='dark'] .d_status {
+            background-color: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.12);
+            color: #e2e8f0;
+        }
+        html[data-command-theme='dark'] .d_status option {
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+        .expireSoon {
+            color: #ef4444 !important;
+            font-weight: 700;
+        }
     </style>
 @endpush
 
 @section('content')
     <div class="command-os-entity-page">
         <!-- 1. Hero Card -->
-        <header class="command-os-hero-card">
-            <div class="command-os-hero-card-left">
-                <div class="command-os-hero-mark" aria-hidden="true">
+        <header class="command-os-report-hero">
+            <div class="command-os-report-hero-left">
+                <div class="command-os-report-hero-mark" aria-hidden="true">
                     <i class="fas fa-globe"></i>
                 </div>
-                <div class="command-os-hero-copy">
-                    <h1 class="command-os-hero-title">DOMAINS</h1>
+                <div class="command-os-report-hero-copy">
+                    <span class="command-os-report-hero-eyebrow">INFRASTRUCTURE TELEMETRY // DNS MANAGEMENT</span>
+                    <h1 class="command-os-report-hero-title">DOMAINS</h1>
+                    <p class="command-os-report-hero-subtitle">Domain registration, DNS record synchronization, and blacklist hygiene audit.</p>
                 </div>
             </div>
-            <div class="command-os-hero-card-right">
-                <label class="command-os-toggle-wrap" for="only_our">
-                    <span class="command-os-toggle-label">ONLY OUR</span>
+            <div class="command-os-report-hero-right">
+                <label class="command-os-toggle-wrap mr-3" for="only_our" style="display: inline-flex; align-items: center; gap: 8px;">
+                    <span class="command-os-toggle-label font-w700 font-size-xs text-uppercase" style="letter-spacing: 0.05em;">ONLY OUR</span>
                     <input type="checkbox" class="command-os-toggle-input" id="only_our" checked>
                     <span class="command-os-toggle-slider"></span>
                 </label>
-                <button type="button" class="command-os-btn-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen">
-                    <i class="si si-size-fullscreen"></i>
+                <div class="command-os-report-hero-badge">
+                    <span class="status-dot"></span>
+                    <span>DNS MAPPING // LIVE INVENTORY</span>
+                </div>
+                <button type="button" class="command-os-btn-option ml-2" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen" title="Full screen">
+                    <i class="fas fa-expand-alt" aria-hidden="true"></i>
                 </button>
             </div>
         </header>
 
-        <!-- 2. Table Card -->
+        <!-- 2. KPI Overview Cards -->
+        <section class="command-os-all-stats-overview" aria-label="Domains Overview">
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-purple" aria-hidden="true"><i class="fas fa-globe"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Total Domains</span>
+                    <strong id="stat-total-domains">{{ $workspace->sendingDomains()->count() }}</strong>
+                    <small>Registered sending roots</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-blue" aria-hidden="true"><i class="fas fa-cloud"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Providers</span>
+                    <strong id="stat-providers">{{ \App\Models\DomainProvider::where('workspace_id', $workspace->getKey())->count() }}</strong>
+                    <small>Cloudflare &amp; registrars</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-emerald" aria-hidden="true"><i class="fas fa-check-double"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Active Status</span>
+                    <strong>ROUTING READY</strong>
+                    <small>DNS zones synced</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-cyan" aria-hidden="true"><i class="fas fa-shield-alt"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Hygiene Guard</span>
+                    <strong>SPAMHAUS &amp; KARMA</strong>
+                    <small>Real-time blacklist audit</small>
+                </span>
+            </article>
+            <article class="all-stats-overview-card">
+                <span class="all-stats-overview-icon icon-amber" aria-hidden="true"><i class="fas fa-users-cog"></i></span>
+                <span class="all-stats-overview-copy">
+                    <span>Access Scope</span>
+                    <strong>WORKSPACE</strong>
+                    <small>Isolated tenant inventory</small>
+                </span>
+            </article>
+        </section>
+
+        <!-- 3. Table Card -->
         <div class="command-os-table-card">
             <div class="table-responsive">
                 <table id="domains" class="table table-sm table-hover table-striped"></table>
@@ -49,8 +130,8 @@
             const formatBoolBadge = (value, title = '', listed = false) => {
                 const text = value ? 'YES' : 'NO';
                 const displayValue = listed ? !value : value;
-                const color = displayValue ? 'badge-success' : 'badge-danger';
-                return `<span class="badge ${color} p-1 mr-1" title="${escapeHtml(title)}">${text}</span>`;
+                const badgeClass = displayValue ? 'badge-command-active-yes' : 'badge-command-active-no';
+                return `<span class="badge ${badgeClass} mr-1" title="${escapeHtml(title)}">${text}</span>`;
             };
             const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
             const datatable = $('#domains').DataTable({
@@ -69,7 +150,7 @@
                 language: {
                     lengthMenu: 'Show _MENU_ rows',
                     search: '',
-                    searchPlaceholder: 'Search...',
+                    searchPlaceholder: 'Search domains...',
                     info: 'Page _PAGE_ of _PAGES_ (_TOTAL_ records)',
                     infoEmpty: 'Page 0 of 0 (0 records)',
                     paginate: {
@@ -77,68 +158,76 @@
                         next: '<i class="fas fa-chevron-right"></i>'
                     }
                 },
-                buttons: [
-                    {extend: 'pageLength'},
-                    {
-                        text: '<i class="fas fa-sync"></i>',
-                        titleAttr: 'REFRESH',
-                        action: function (event, table) { table.ajax.reload(null, false); }
+                buttons: {
+                    dom: {
+                        container: { tag: 'div', className: 'dt-buttons' },
+                        button: { tag: 'button', className: 'btn' }
                     },
-                    {
-                        text: '<i class="fa fa-plus"></i>',
-                        titleAttr: 'ADD NEW DOMAINS',
-                        action: function () {
-                            const link = @json(route('console.infrastructure.domains.create', $workspace->id));
-                            const iframe = `<iframe src="${link}" width="100%" scrolling="no" frameborder="0"></iframe>`;
-                            window.domainDialog = bootbox.dialog({
-                                scrollable: true,
-                                closeButton: true,
-                                size: 'lg',
-                                message: iframe,
-                                onEscape: true,
-                                centerVertical: true
-                            }).on('shown.bs.modal', function () {
-                                if (typeof iFrameResize === 'function') { iFrameResize({}, 'iframe'); }
-                            }).on('hidden.bs.modal', function () {
-                                $('iframe').remove();
-                            });
+                    buttons: [
+                        {
+                            text: '<i class="fas fa-sync mr-1"></i> REFRESH',
+                            className: 'btn-command-action',
+                            titleAttr: 'REFRESH DOMAINS',
+                            action: function (event, table) { table.ajax.reload(null, false); }
+                        },
+                        {
+                            text: '<i class="fas fa-plus mr-1"></i> NEW DOMAIN',
+                            className: 'btn-command-primary',
+                            titleAttr: 'ADD NEW DOMAINS',
+                            action: function () {
+                                const link = @json(route('console.infrastructure.domains.create', $workspace->id));
+                                const iframe = `<iframe src="${link}" width="100%" scrolling="no" frameborder="0"></iframe>`;
+                                window.domainDialog = bootbox.dialog({
+                                    scrollable: true,
+                                    closeButton: true,
+                                    size: 'lg',
+                                    message: iframe,
+                                    onEscape: true,
+                                    centerVertical: true
+                                }).on('shown.bs.modal', function () {
+                                    if (typeof iFrameResize === 'function') { iFrameResize({}, 'iframe'); }
+                                }).on('hidden.bs.modal', function () {
+                                    $('iframe').remove();
+                                });
+                            }
+                        },
+                        {
+                            text: '<i class="fas fa-trash mr-1"></i> DELETE SELECTED',
+                            className: 'btn-command-action text-danger',
+                            titleAttr: 'DELETE SELECTED DOMAINS',
+                            action: function (event, table, node) {
+                                const rows = table.rows({selected: true}).data().toArray();
+                                if (!rows.length) { return; }
+                                swal.fire({
+                                    icon: 'question',
+                                    title: 'Are you sure ?',
+                                    allowOutsideClick: false,
+                                    showCloseButton: true,
+                                    confirmButtonText: 'DELETE',
+                                    showCancelButton: true,
+                                }).then(async (result) => {
+                                    if (!result.value) { return; }
+                                    table.buttons(node).disable();
+                                    try {
+                                        const response = await fetch(@json(route('console.infrastructure.domains.destroy', $workspace->id)), {
+                                            method: 'DELETE',
+                                            headers: {'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken},
+                                            body: JSON.stringify({ids: rows.map((row) => row.id)})
+                                        });
+                                        const payload = await response.json();
+                                        if (!response.ok) { throw new Error(payload.message || payload.data || 'Failed'); }
+                                        await App.swalPromise({icon: 'success', title: payload.data, confirmButtonText: 'close'});
+                                        table.ajax.reload(null, false);
+                                    } catch (error) {
+                                        await swal.fire({icon: 'error', title: error.message || 'Failed'});
+                                    } finally {
+                                        table.buttons(node).enable();
+                                    }
+                                });
+                            }
                         }
-                    },
-                    {
-                        text: '<i class="fas fa-trash"></i>',
-                        titleAttr: 'DELETE SELECTED DOMAINS',
-                        action: function (event, table, node) {
-                            const rows = table.rows({selected: true}).data().toArray();
-                            if (!rows.length) { return; }
-                            swal.fire({
-                                icon: 'question',
-                                title: 'Are you sure ?',
-                                allowOutsideClick: false,
-                                showCloseButton: true,
-                                confirmButtonText: 'DELETE',
-                                showCancelButton: true,
-                            }).then(async (result) => {
-                                if (!result.value) { return; }
-                                table.buttons(node).disable();
-                                try {
-                                    const response = await fetch(@json(route('console.infrastructure.domains.destroy', $workspace->id)), {
-                                        method: 'DELETE',
-                                        headers: {'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken},
-                                        body: JSON.stringify({ids: rows.map((row) => row.id)})
-                                    });
-                                    const payload = await response.json();
-                                    if (!response.ok) { throw new Error(payload.message || payload.data || 'Failed'); }
-                                    await App.swalPromise({icon: 'success', title: payload.data, confirmButtonText: 'close'});
-                                    table.ajax.reload(null, false);
-                                } catch (error) {
-                                    await swal.fire({icon: 'error', title: error.message || 'Failed'});
-                                } finally {
-                                    table.buttons(node).enable();
-                                }
-                            });
-                        }
-                    }
-                ],
+                    ]
+                },
                 rowCallback: function (row, data) {
                     if (!data.is_active) { $('td', row).eq(1).addClass('text-danger'); }
                     if (data.expire_at && moment(data.expire_at).diff(moment(), 'days') < 15) {
@@ -147,18 +236,18 @@
                 },
                 columns: [
                     {data: null, defaultContent: '', orderable: false, searchable: false, className: 'select-checkbox'},
-                    {title: '#', data: 'id', render: (data) => `<span title="${escapeHtml(data)}">${escapeHtml(data)}</span>`},
-                    {title: 'DID', data: 'domain_id', defaultContent: ''},
-                    {title: 'account', data: 'provider', render: (data) => data ? `${escapeHtml(data.name)} (${escapeHtml(data.type)})` : ''},
+                    {title: '#', data: 'id', render: (data) => `<span class="badge badge-light border font-mono font-size-xs text-muted" title="${escapeHtml(data)}">#${escapeHtml(data)}</span>`},
+                    {title: 'DID', data: 'domain_id', defaultContent: '', render: (data) => data ? `<span class="badge badge-light border font-mono">${escapeHtml(data)}</span>` : '<span class="text-muted">—</span>'},
+                    {title: 'ACCOUNT', data: 'provider', render: (data) => data ? `<span class="badge badge-light border text-purple font-w700">${escapeHtml(data.name)}</span> <small class="text-muted">(${escapeHtml(data.type)})</small>` : '<span class="text-muted">—</span>'},
                     {
-                        title: 'dns', data: 'dns', render: (data) => {
+                        title: 'DNS', data: 'dns', render: (data) => {
                             const dns = String(data ?? '');
                             if (!/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test(dns)) { return escapeHtml(dns); }
-                            return `<a class="command-table-link" href="//${escapeHtml(dns)}" target="_blank" rel="noopener noreferrer">${escapeHtml(dns)}</a>`;
+                            return `<a class="command-table-link font-w600" href="//${escapeHtml(dns)}" target="_blank" rel="noopener noreferrer">${escapeHtml(dns)}</a>`;
                         }
                     },
                     {
-                        title: 'status', data: 'status', render: function (data, type, row) {
+                        title: 'STATUS', data: 'status', render: function (data, type, row) {
                             if (type !== 'display') { return data; }
                             const select = $('<select class="business-status d_status" aria-label="Domain status"></select>').attr('data-id', row.id);
                             $.each(['new', 'free', 'used', 'redirect'], function (index, value) {
@@ -170,25 +259,31 @@
                         }
                     },
                     {
-                        title: 'info', data: null, render: function (data, type, row) {
+                        title: 'INFO', data: null, render: function (data, type, row) {
                             return formatBoolBadge(row.is_our, 'IS OUR')
                                 + formatBoolBadge(row.have_who_is, 'HAVE WHO IS')
                                 + formatBoolBadge(row.have_renew, 'HAVE RENEW');
                         }
                     },
-                    {title: 'EXPIRE AT', data: 'expire_at', defaultContent: ''},
-                    {title: 'DAYS LEFT', data: 'expire_at', render: (data) => moment(data).diff(moment(), 'days')},
+                    {title: 'EXPIRE AT', data: 'expire_at', defaultContent: '<span class="text-muted">—</span>'},
                     {
-                        title: 'is listed', data: 'history', render: function (history) {
-                            if (!history) { return 'NA'; }
+                        title: 'DAYS LEFT', data: 'expire_at', render: (data) => {
+                            if (!data) return '<span class="text-muted">—</span>';
+                            const diff = moment(data).diff(moment(), 'days');
+                            return `<span class="font-w700 ${diff < 15 ? 'text-danger' : 'text-success'}">${diff}d</span>`;
+                        }
+                    },
+                    {
+                        title: 'IS LISTED', data: 'history', render: function (history) {
+                            if (!history) { return '<span class="text-muted">NA</span>'; }
                             return formatBoolBadge(history.is_listed_spamhaus, 'SPAMHAUS', true)
                                 + formatBoolBadge(history.is_listed_hostkarma, 'HOSTKARMA', true);
                         }
                     },
                     {
-                        title: 'History', data: 'histories_count', render: function (count, type, row) {
+                        title: 'HISTORY', data: 'histories_count', render: function (count, type, row) {
                             const historyUrl = @json(route('console.infrastructure.domains.history', [$workspace->id, '__DOMAIN__']));
-                            return `<button data-id="${escapeHtml(row.id)}" data-url="${historyUrl.replace('__DOMAIN__', encodeURIComponent(row.id))}" class="btn btn-link btn-sm history" title="HISTORY">${Number(count) || 0}</button>`;
+                            return `<button data-id="${escapeHtml(row.id)}" data-url="${historyUrl.replace('__DOMAIN__', encodeURIComponent(row.id))}" class="badge badge-light border text-purple font-w700 px-2 py-1 history" title="INSPECT HISTORY" style="cursor: pointer; background: transparent;"><i class="fas fa-history mr-1"></i>${Number(count) || 0}</button>`;
                         }
                     },
                     {
@@ -196,8 +291,8 @@
                         render: function (data, type, row) {
                             const id = escapeHtml(row.id);
                             const recordsUrl = @json(route('console.infrastructure.domains.records', [$workspace->id, '__DOMAIN__']));
-                            const records = `<button data-url="${recordsUrl.replace('__DOMAIN__', encodeURIComponent(id))}" class="command-action-btn action-primary records" title="RECORDS" aria-label="Edit DNS records for ${escapeHtml(row.dns)}"><i class="fas fa-cogs" aria-hidden="true"></i></button>`;
-                            const refresh = `<button data-id="${id}" class="command-action-btn action-info update" title="UPDATE"><i class="fas fa-pencil-alt"></i></button>`;
+                            const records = `<button data-url="${recordsUrl.replace('__DOMAIN__', encodeURIComponent(id))}" class="command-action-btn action-primary records" title="DNS RECORDS" aria-label="Edit DNS records for ${escapeHtml(row.dns)}"><i class="fas fa-cogs" aria-hidden="true"></i></button>`;
+                            const refresh = `<button data-id="${id}" class="command-action-btn action-info update" title="UPDATE TELEMETRY"><i class="fas fa-pencil-alt"></i></button>`;
                             const active = Boolean(row.is_active);
                             const status = `<button data-id="${id}" data-action="${active ? 0 : 1}" class="command-action-btn action-status ${active ? 'is-active' : ''} active-status" title="${active ? 'DISABLE' : 'ENABLE'} DOMAIN"><i class="fas ${active ? 'fa-times' : 'fa-check'}"></i></button>`;
                             const remove = `<button data-id="${id}" class="command-action-btn action-danger destroy" title="DELETE DOMAIN"><i class="fas fa-trash"></i></button>`;
@@ -207,9 +302,8 @@
                 ]
             });
 
-            // The Reload after checkbox changes to refresh dependent values. Keep the same
-            // interaction so the visible filter and the table stay in sync.
-            $('#only_our').on('click', function () { datatable.ajax.reload(); });
+            // Reload after checkbox changes to refresh dependent values.
+            $('#only_our').on('change', function () { datatable.ajax.reload(); });
 
             $('#domains').on('click', '.history', function (event) {
                 event.preventDefault();
@@ -224,7 +318,7 @@
                 const button = $(this);
                 const id = button.data('id');
                 const original = button.html();
-                button.html(spinner()).prop('disabled', true);
+                button.html('<i class="fas fa-spinner fa-spin"></i>').prop('disabled', true);
                 try {
                     const response = await fetch(`${endpoint}/${encodeURIComponent(id)}`, {
                         method: 'PUT', headers: {'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken}
@@ -242,7 +336,7 @@
                 const button = $(this);
                 const id = button.data('id');
                 const original = button.html();
-                button.html(spinner()).prop('disabled', true);
+                button.html('<i class="fas fa-spinner fa-spin"></i>').prop('disabled', true);
                 try {
                     const response = await fetch(`${endpoint}/${encodeURIComponent(id)}/active`, {
                         method: 'PATCH',
@@ -258,26 +352,35 @@
                 } finally {
                     button.html(original).prop('disabled', false);
                 }
-            }).on('click', '.destroy', async function () {
+            }).on('click', '.destroy', function () {
                 const button = $(this);
                 const id = button.data('id');
-                const original = button.html();
-                button.html(spinner()).prop('disabled', true);
-                try {
-                    const response = await fetch(@json(route('console.infrastructure.domains.destroy', $workspace->id)), {
-                        method: 'DELETE',
-                        headers: {'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken},
-                        body: JSON.stringify({ids: [id]})
-                    });
-                    const payload = await response.json();
-                    if (!response.ok) { throw new Error(payload.message || payload.data || 'Failed'); }
-                    await swal.fire({icon: 'success', title: payload.data});
-                    datatable.ajax.reload(null, false);
-                } catch (error) {
-                    await swal.fire({icon: 'error', title: error.message || 'Failed'});
-                } finally {
-                    button.html(original).prop('disabled', false);
-                }
+                swal.fire({
+                    icon: 'question',
+                    title: 'Are you sure you want to delete this domain ?',
+                    showCancelButton: true,
+                    confirmButtonText: 'DELETE',
+                    showCloseButton: true,
+                    allowOutsideClick: false
+                }).then(async (result) => {
+                    if (!result.value) { return; }
+                    button.prop('disabled', true);
+                    try {
+                        const response = await fetch(@json(route('console.infrastructure.domains.destroy', $workspace->id)), {
+                            method: 'DELETE',
+                            headers: {'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken},
+                            body: JSON.stringify({ids: [id]})
+                        });
+                        const payload = await response.json();
+                        if (!response.ok) { throw new Error(payload.message || payload.data || 'Failed'); }
+                        await swal.fire({icon: 'success', title: payload.data});
+                        datatable.ajax.reload(null, false);
+                    } catch (error) {
+                        await swal.fire({icon: 'error', title: error.message || 'Failed'});
+                    } finally {
+                        button.prop('disabled', false);
+                    }
+                });
             }).on('change', '.d_status', async function () {
                 const select = $(this);
                 const id = select.data('id');

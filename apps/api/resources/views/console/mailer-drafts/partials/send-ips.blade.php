@@ -11,10 +11,10 @@
             </select>
         </div>
         <div class="col-md-2 mailer-ip-selector-actions" role="group" aria-label="Move IPs between lists">
-            <button type="button" class="btn btn-alt-secondary" id="mailer-ip-add" title="Add selected IPs" aria-label="Add selected IPs">&gt;</button>
-            <button type="button" class="btn btn-alt-secondary" id="mailer-ip-add-all" title="Add all IPs" aria-label="Add all IPs">&raquo;</button>
-            <button type="button" class="btn btn-alt-secondary" id="mailer-ip-remove" title="Remove selected IPs" aria-label="Remove selected IPs">&lt;</button>
-            <button type="button" class="btn btn-alt-secondary" id="mailer-ip-remove-all" title="Remove all selected IPs" aria-label="Remove all selected IPs">&laquo;</button>
+            <button type="button" class="btn btn-alt-secondary" id="mailer-ip-add" title="Add selected IPs" aria-label="Add selected IPs"><i class="fas fa-chevron-right"></i></button>
+            <button type="button" class="btn btn-alt-secondary" id="mailer-ip-add-all" title="Add all IPs" aria-label="Add all IPs"><i class="fas fa-angle-double-right"></i></button>
+            <button type="button" class="btn btn-alt-secondary" id="mailer-ip-remove" title="Remove selected IPs" aria-label="Remove selected IPs"><i class="fas fa-chevron-left"></i></button>
+            <button type="button" class="btn btn-alt-secondary" id="mailer-ip-remove-all" title="Remove all selected IPs" aria-label="Remove all selected IPs"><i class="fas fa-angle-double-left"></i></button>
         </div>
         <div class="col-md-5">
             <label for="selected-send-ips">Selected Ips <span class="text-muted">(<span id="selected-send-ips-count">{{ count($selectedIps) }}</span>)</span></label>

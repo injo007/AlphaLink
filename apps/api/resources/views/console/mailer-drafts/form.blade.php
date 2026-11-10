@@ -57,8 +57,9 @@
 <div class="warmup-composer-shell">
 @endif
 <div class="quick-nav" aria-label="{{ $isDrop ? 'Drop actions' : 'Warmup actions' }}">
-    <button class="quick-nav-trigger" type="button" aria-label="Open page actions" aria-expanded="false" aria-controls="mailer-page-actions"><span></span></button>
+    <button class="quick-nav-trigger" type="button" aria-label="Open page actions" aria-expanded="false" aria-controls="mailer-page-actions"><i class="fas {{ $isDrop ? 'fa-bolt' : 'fa-fire' }}"></i><span></span></button>
     <ul id="mailer-page-actions" role="menu" aria-hidden="true">
+        <li class="quick-nav-heading"><span>{{ $isDrop ? 'DROP ACTIONS' : 'WARMUP ACTIONS' }}</span><i class="fas {{ $isDrop ? 'fa-paper-plane' : 'fa-fire' }}"></i></li>
         @if ($draft)
             <li><a href="#" data-save-draft><span>SAVE {{ $isDrop ? 'DROP' : 'WARMUP' }}</span><i class="fas fa-save"></i></a></li>
         @endif
@@ -116,7 +117,7 @@
             <h3 class="block-title">DROP : {{ $draft?->getKey() ?? 'NEW' }} - TYPE: {{ strtoupper($setup['send_type'] ?? 'DRAFT') }} - PROCESSED: NO</h3>
         @endif
         <div class="block-options d-flex align-items-center" style="gap:.5rem">
-            <a class="btn btn-sm btn-alt-secondary {{ $isWarmup ? 'warmup-composer-back' : '' }}" href="{{ $indexUrl }}" aria-label="{{ $isDrop ? 'Back to Drop Drafts' : 'Back to My Warmups' }}">
+            <a class="btn btn-sm {{ $isWarmup ? 'warmup-composer-back' : 'btn-alt-secondary' }}" href="{{ $indexUrl }}" aria-label="{{ $isDrop ? 'Back to Drop Drafts' : 'Back to My Warmups' }}">
                 <i class="fas fa-arrow-left mr-1" aria-hidden="true"></i>{{ $isDrop ? 'DROP DRAFTS' : 'MY WARMUPS' }}
             </a>
             <span class="badge badge-secondary {{ $isWarmup ? 'warmup-composer-draft-badge' : '' }}">DRAFT</span>
@@ -162,7 +163,7 @@
             @endif
             <div class="form-row {{ $isWarmup ? 'warmup-message-fields' : '' }}">
                 <div class="form-group col-sm-12 col-md-4"><label for="return_path">Return Path:</label><input id="return_path" name="return_path" type="text" class="form-control" maxlength="320" placeholder="Return Path" value="{{ old('return_path', $content['return_path'] ?? '[rnd]@[domain]') }}"></div>
-                <div class="form-group col-sm-12 col-md-4"><label for="saved-emails">Saved Emails:</label><div class="input-group"><select id="saved-emails" class="form-control selectpicker" multiple data-actions-box="true" data-live-search="true" data-selected-text-format="count > 1" data-size="5" title="Select Emails">@foreach ($savedEmails as $savedEmail)<option value="{{ $savedEmail->email }}" @selected(in_array($savedEmail->email, $selectedEmailTestAddresses, true))>{{ $savedEmail->email }}</option>@endforeach</select><div class="input-group-append"><button type="button" id="add-saved-email" class="btn btn-success" title="Add saved email to test addresses"><i class="fas fa-plus"></i></button></div></div></div>
+                <div class="form-group col-sm-12 col-md-4"><label for="saved-emails">Saved Emails:</label><div class="input-group"><select id="saved-emails" class="form-control selectpicker" multiple data-actions-box="true" data-live-search="true" data-selected-text-format="count > 1" data-size="5" title="Select Emails">@foreach ($savedEmails as $savedEmail)<option value="{{ $savedEmail->email }}" @selected(in_array($savedEmail->email, $selectedEmailTestAddresses, true))>{{ $savedEmail->email }}</option>@endforeach</select><div class="input-group-append"><button type="button" id="add-saved-email" class="btn btn-alt-primary" title="Add saved email to test addresses"><i class="fas fa-plus"></i></button></div></div></div>
                 <div class="form-group col-sm-12 col-md-4"><label for="email-test-addresses">{{ $isDrop ? 'Emails Test' : 'Email Test' }}:</label><textarea id="email-test-addresses" name="email_test_addresses_text" rows="1" class="form-control" placeholder="Email Test">{{ $emailTestText }}</textarea></div>
             </div>
             @if ($isWarmup)
@@ -280,9 +281,9 @@
                 </section>
             @endif
             <div class="d-flex flex-wrap align-items-center mt-2 {{ $isWarmup ? 'warmup-composer-actions' : '' }}" style="gap:.75rem">
-                <button class="btn btn-primary {{ $isWarmup ? 'warmup-composer-save' : '' }}" id="save-mailer-draft" type="submit">{{ $draft ? 'SAVE NEW REVISION' : ($isDrop ? 'SAVE DROP DRAFT' : 'CREATE WARMUP') }}</button>
-                <a class="btn btn-alt-secondary {{ $isWarmup ? 'warmup-composer-cancel' : '' }}" href="{{ $indexUrl }}">CANCEL</a>
-                <span class="text-muted small">Save draft</span>
+                <button class="btn btn-primary {{ $isWarmup ? 'warmup-composer-save' : '' }}" id="save-mailer-draft" type="submit"><i class="fas fa-save mr-1"></i>{{ $draft ? 'SAVE NEW REVISION' : ($isDrop ? 'SAVE DROP DRAFT' : 'CREATE WARMUP') }}</button>
+                <a class="btn {{ $isWarmup ? 'warmup-composer-cancel' : 'btn-alt-secondary' }}" href="{{ $indexUrl }}">CANCEL</a>
+                <span class="text-muted small">Save draft revision</span>
             </div>
         </form>
     </div>
@@ -305,11 +306,159 @@
     .mailer-ip-selector-actions { align-items: center; display: flex; flex-direction: column; gap: .35rem; justify-content: center; padding-bottom: .35rem; }
     .mailer-ip-selector-actions .btn { min-width: 2.7rem; }
     .warmup-composer-shell { --warmup-ink: var(--co-ink); --warmup-muted: var(--co-muted); --warmup-border: var(--co-border); --warmup-purple: var(--co-purple); --warmup-purple-bright: var(--co-purple-bright); color: var(--warmup-ink); min-width: 0; }
-    .warmup-composer-shell .quick-nav-trigger { align-items: center; background: linear-gradient(145deg, #b64eff, #7028f4 72%); border: 1px solid rgb(255 255 255 / 86%); border-radius: 15px; box-shadow: 0 8px 22px rgb(104 44 225 / 30%), inset 0 1px 0 rgb(255 255 255 / 40%); color: #fff; display: grid; place-items: center; }
-    .warmup-composer-shell #mailer-page-actions { background: linear-gradient(145deg, var(--co-surface), var(--co-surface-muted)); border: 1px solid var(--co-border); border-radius: 16px; box-shadow: 0 18px 48px color-mix(in srgb, var(--co-ink) 19%, transparent); color: var(--co-ink); }
-    .warmup-composer-shell #mailer-page-actions a { align-items: center; border-radius: 10px; color: var(--co-ink); display: flex; font-size: 10px; font-weight: 760; gap: 10px; min-height: 38px; padding: 6px 9px; text-decoration: none; }
-    .warmup-composer-shell #mailer-page-actions a:hover, .warmup-composer-shell #mailer-page-actions a:focus-visible { background: color-mix(in srgb, var(--co-purple) 10%, var(--co-surface)); color: var(--co-purple); outline: 0; }
-    .warmup-composer-shell #mailer-page-actions a i { color: var(--co-purple); }
+
+    /* Modern Floating Actions to match Campaigns */
+    .quick-nav {
+        position: fixed !important;
+        top: calc(50% - 24px) !important;
+        right: max(16px, env(safe-area-inset-right)) !important;
+        z-index: 1100 !important;
+        margin: 0 !important;
+        pointer-events: auto !important;
+        width: 48px !important;
+        height: 48px !important;
+    }
+    .quick-nav .quick-nav-bg { display: none !important; }
+    .quick-nav-trigger {
+        position: relative !important;
+        width: 48px !important;
+        height: 48px !important;
+        display: grid !important;
+        place-items: center !important;
+        background: linear-gradient(145deg, #b64eff, #7028f4 72%) !important;
+        border: 1px solid rgba(255, 255, 255, 0.85) !important;
+        border-radius: 16px !important;
+        box-shadow: 0 8px 24px rgba(112, 40, 244, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.45) !important;
+        color: #ffffff !important;
+        cursor: pointer !important;
+        transition: transform 0.18s ease, box-shadow 0.18s ease, border-radius 0.18s ease !important;
+    }
+    .quick-nav-trigger:hover,
+    .quick-nav-trigger:focus-visible {
+        border-radius: 18px !important;
+        box-shadow: 0 10px 28px rgba(112, 40, 244, 0.5), 0 0 0 4px rgba(148, 78, 255, 0.2) !important;
+        transform: scale(1.05) !important;
+        outline: none !important;
+    }
+    .quick-nav-trigger i { font-size: 18px !important; color: #ffffff !important; }
+    .quick-nav-trigger span { display: none !important; }
+
+    /* Actions Panel */
+    .quick-nav #mailer-page-actions {
+        position: fixed !important;
+        right: 74px !important;
+        top: 50% !important;
+        transform: translateY(-50%) scale(0.95) !important;
+        width: min(265px, calc(100vw - 90px)) !important;
+        max-height: calc(100vh - 30px) !important;
+        overflow-y: auto !important;
+        overscroll-behavior: contain !important;
+        padding: 8px !important;
+        background: linear-gradient(145deg, var(--co-surface), var(--co-surface-muted)) !important;
+        border: 1px solid var(--co-border) !important;
+        border-radius: 18px !important;
+        box-shadow: 0 20px 52px rgba(15, 23, 42, 0.25), 0 4px 12px rgba(15, 23, 42, 0.1) !important;
+        list-style: none !important;
+        margin: 0 !important;
+        opacity: 0 !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+        transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease !important;
+        z-index: 1101 !important;
+        backdrop-filter: blur(16px) !important;
+    }
+    .quick-nav.nav-is-visible #mailer-page-actions {
+        opacity: 1 !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+        transform: translateY(-50%) scale(1) !important;
+    }
+    .quick-nav #mailer-page-actions .quick-nav-heading {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        padding: 6px 10px 10px !important;
+        margin-bottom: 6px !important;
+        border-bottom: 1px solid rgba(139, 92, 246, 0.16) !important;
+        font-size: 9px !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.12em !important;
+        color: var(--co-purple) !important;
+        text-transform: uppercase !important;
+    }
+    .quick-nav #mailer-page-actions .quick-nav-heading i { font-size: 13px !important; color: var(--co-purple-bright) !important; }
+    .quick-nav #mailer-page-actions li:not(.quick-nav-heading) { margin-bottom: 2px !important; }
+    .quick-nav #mailer-page-actions li:not(.quick-nav-heading) a {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        gap: 10px !important;
+        min-height: 40px !important;
+        height: auto !important;
+        line-height: normal !important;
+        padding: 7px 10px !important;
+        border-radius: 10px !important;
+        color: var(--co-ink) !important;
+        font-size: 10px !important;
+        font-weight: 750 !important;
+        text-decoration: none !important;
+        transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease !important;
+        white-space: nowrap !important;
+    }
+    .quick-nav #mailer-page-actions li:not(.quick-nav-heading) a:hover,
+    .quick-nav #mailer-page-actions li:not(.quick-nav-heading) a:focus-visible {
+        background: rgba(139, 92, 246, 0.12) !important;
+        color: var(--co-purple) !important;
+        transform: translateX(2px) !important;
+        outline: none !important;
+    }
+    .quick-nav #mailer-page-actions li:not(.quick-nav-heading) a i {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 28px !important;
+        height: 28px !important;
+        flex: 0 0 28px !important;
+        position: static !important;
+        background: rgba(139, 92, 246, 0.12) !important;
+        border: 1px solid rgba(139, 92, 246, 0.2) !important;
+        border-radius: 8px !important;
+        color: var(--co-purple) !important;
+        font-size: 12px !important;
+        order: -1 !important;
+    }
+    .quick-nav #mailer-page-actions li:not(.quick-nav-heading) a span {
+        flex: 1 !important;
+        opacity: 1 !important;
+        transform: none !important;
+        color: inherit !important;
+        text-align: left !important;
+    }
+    .quick-nav #mailer-page-actions li:not(.quick-nav-heading) a::before,
+    .quick-nav #mailer-page-actions li:not(.quick-nav-heading) a::after { display: none !important; }
+    .quick-nav #mailer-page-actions li:not(.quick-nav-heading) a[aria-disabled="true"],
+    .quick-nav #mailer-page-actions li:not(.quick-nav-heading) a.text-muted { color: var(--co-muted) !important; opacity: 0.55 !important; cursor: not-allowed !important; }
+    .quick-nav #mailer-page-actions li:not(.quick-nav-heading) a[aria-disabled="true"] i,
+    .quick-nav #mailer-page-actions li:not(.quick-nav-heading) a.text-muted i { background: var(--co-surface-muted) !important; border-color: transparent !important; color: var(--co-muted) !important; }
+
+    /* Overlay backdrop */
+    .quick-nav-overlay {
+        position: fixed !important;
+        inset: 0 !important;
+        z-index: 1099 !important;
+        background: rgba(15, 23, 42, 0.35) !important;
+        backdrop-filter: blur(4px) !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        transition: opacity 0.2s ease !important;
+    }
+    .quick-nav.nav-is-visible + .quick-nav-overlay,
+    .quick-nav.nav-is-visible ~ .quick-nav-overlay {
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        display: block !important;
+    }
+
     .warmup-composer-page { background: var(--co-surface); border: 1px solid var(--co-border); border-radius: 17px; box-shadow: var(--co-shadow); color: var(--warmup-ink); margin-bottom: 20px; overflow: visible; }
     .warmup-composer-page > .warmup-composer-header { align-items: center; background: linear-gradient(105deg, color-mix(in srgb, var(--co-purple) 9%, var(--co-surface)), var(--co-surface) 52%, color-mix(in srgb, var(--co-blue) 8%, var(--co-surface))); border-bottom: 1px solid var(--co-border); border-radius: 16px 16px 0 0; gap: 16px; min-height: 106px; overflow: hidden; padding: 17px 20px; position: relative; }
     .warmup-composer-header::after { background: radial-gradient(ellipse at 80% 10%, color-mix(in srgb, var(--co-purple-bright) 16%, transparent), transparent 45%); content: ""; inset: 0; pointer-events: none; position: absolute; }
@@ -319,8 +468,45 @@
     .warmup-composer-heading h1 { color: var(--co-ink); font-size: clamp(20px, 2vw, 25px); font-weight: 800; letter-spacing: -.04em; line-height: 1.15; margin: 2px 0 3px; }
     .warmup-composer-heading p { color: var(--co-muted); font-size: 10px; margin: 0; }
     .warmup-composer-page .block-options { display: flex !important; flex: 0 0 auto; flex-wrap: nowrap; gap: 8px !important; justify-content: flex-end; margin: 0; position: relative; z-index: 1; }
-    .warmup-composer-page .warmup-composer-back, .warmup-composer-page .warmup-composer-cancel { align-items: center; border: 1px solid var(--co-border-strong); border-radius: 9px; color: var(--co-ink); display: inline-flex; font-size: 9px; font-weight: 750; justify-content: center; min-height: 34px; padding: 0 10px; text-decoration: none; }
-    .warmup-composer-page .warmup-composer-back:hover, .warmup-composer-page .warmup-composer-cancel:hover { border-color: var(--co-purple); color: var(--co-purple); }
+    
+    /* High-contrast Buttons */
+    .warmup-composer-page .warmup-composer-back,
+    .warmup-composer-page .warmup-composer-cancel {
+        align-items: center;
+        border: 1px solid var(--co-border-strong);
+        border-radius: 9px;
+        color: var(--co-ink) !important;
+        background: var(--co-surface-muted) !important;
+        display: inline-flex;
+        font-size: 10px;
+        font-weight: 750;
+        justify-content: center;
+        min-height: 36px;
+        padding: 0 14px;
+        text-decoration: none;
+        transition: all 0.16s ease;
+    }
+    .warmup-composer-page .warmup-composer-back:hover,
+    .warmup-composer-page .warmup-composer-cancel:hover {
+        border-color: var(--co-purple);
+        color: #fff !important;
+        background: var(--co-purple) !important;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px color-mix(in srgb, var(--co-purple) 25%, transparent);
+    }
+    html[data-command-theme='dark'] .warmup-composer-page .warmup-composer-back,
+    html[data-command-theme='dark'] .warmup-composer-page .warmup-composer-cancel {
+        color: #e2e8f0 !important;
+        background: rgba(30, 41, 59, 0.7) !important;
+        border-color: rgba(139, 92, 246, 0.3) !important;
+    }
+    html[data-command-theme='dark'] .warmup-composer-page .warmup-composer-back:hover,
+    html[data-command-theme='dark'] .warmup-composer-page .warmup-composer-cancel:hover {
+        color: #ffffff !important;
+        background: #8b5cf6 !important;
+        border-color: #8b5cf6 !important;
+        box-shadow: 0 4px 14px rgba(139, 92, 246, 0.4);
+    }
     .warmup-composer-page .warmup-composer-draft-badge { background: color-mix(in srgb, var(--co-purple) 11%, var(--co-surface)); border: 1px solid color-mix(in srgb, var(--co-purple) 19%, var(--co-border)); border-radius: 20px; color: var(--co-purple); font-size: 8px; font-weight: 800; letter-spacing: .06em; padding: 6px 9px; }
     .warmup-composer-page .warmup-composer-fullscreen { align-items: center; background: var(--co-surface); border: 1px solid var(--co-border); border-radius: 9px; color: var(--co-muted); display: grid; height: 34px; justify-items: center; width: 34px; }
     .warmup-composer-page .warmup-composer-fullscreen:hover { border-color: var(--co-purple); color: var(--co-purple); }
@@ -578,10 +764,51 @@
     .warmup-composer-page .mailer-tags-dialog code { background: color-mix(in srgb, var(--co-purple) 9%, var(--co-surface)); border: 1px solid color-mix(in srgb, var(--co-purple) 16%, var(--co-border)); border-radius: 5px; color: var(--co-purple); padding: 2px 4px; white-space: normal; }
     .warmup-composer-page .mailer-tags-dialog #mailer-tags-close { background: var(--co-surface); border: 1px solid var(--co-border); color: var(--co-ink); min-height: 34px; }
     html[data-command-theme='dark'] .warmup-composer-page .form-control,
-    html[data-command-theme='dark'] .warmup-composer-page .bootstrap-select > .dropdown-toggle { background-color: color-mix(in srgb, var(--co-surface-muted) 54%, var(--co-surface)); }
+    html[data-command-theme='dark'] .warmup-composer-page .bootstrap-select > .dropdown-toggle {
+        background-color: color-mix(in srgb, var(--co-surface-muted) 54%, var(--co-surface)) !important;
+        color: #e2e8f0 !important;
+        border-color: rgba(139, 92, 246, 0.28) !important;
+    }
     html[data-command-theme='dark'] .warmup-composer-page .form-control:focus,
-    html[data-command-theme='dark'] .warmup-composer-page .bootstrap-select > .dropdown-toggle:focus { background-color: var(--co-surface); }
-    html[data-command-theme='dark'] .warmup-composer-page .mailer-ip-selector { box-shadow: inset 0 1px 0 rgb(255 255 255 / 3%); }
+    html[data-command-theme='dark'] .warmup-composer-page .bootstrap-select > .dropdown-toggle:focus {
+        background-color: var(--co-surface) !important;
+        border-color: #8b5cf6 !important;
+        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.25) !important;
+    }
+    html[data-command-theme='dark'] .warmup-composer-page textarea.form-control,
+    html[data-command-theme='dark'] .warmup-composer-page textarea#mailer-header,
+    html[data-command-theme='dark'] .warmup-composer-page textarea#mailer-body,
+    html[data-command-theme='dark'] .warmup-composer-page textarea#warmup-seed-accounts,
+    html[data-command-theme='dark'] .warmup-composer-page textarea#email-test-addresses {
+        background: #090d1e !important;
+        color: #f1f5f9 !important;
+        border: 1px solid rgba(139, 92, 246, 0.3) !important;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.45) !important;
+        font-family: var(--co-font-mono, ui-monospace, SFMono-Regular, Consolas, monospace) !important;
+    }
+    html[data-command-theme='dark'] .warmup-composer-page .mailer-ip-selector {
+        background: linear-gradient(145deg, rgba(139, 92, 246, 0.05), rgba(15, 23, 42, 0.6)) !important;
+        border-color: rgba(139, 92, 246, 0.25) !important;
+    }
+    html[data-command-theme='dark'] .warmup-composer-page .mailer-ip-selector select {
+        background: #090d1e !important;
+        color: #e2e8f0 !important;
+        border-color: rgba(139, 92, 246, 0.3) !important;
+    }
+    html[data-command-theme='dark'] .warmup-composer-page .mailer-ip-selector select option:checked {
+        background: rgba(139, 92, 246, 0.35) !important;
+        color: #ffffff !important;
+    }
+    html[data-command-theme='dark'] .warmup-composer-page .mailer-ip-selector-actions .btn {
+        background: #1e1b4b !important;
+        border-color: rgba(139, 92, 246, 0.4) !important;
+        color: #c4b5fd !important;
+    }
+    html[data-command-theme='dark'] .warmup-composer-page .mailer-ip-selector-actions .btn:hover {
+        background: #8b5cf6 !important;
+        border-color: #8b5cf6 !important;
+        color: #ffffff !important;
+    }
     @media (max-width: 1050px) {
         .warmup-composer-page .form-row.align-items-start > [class*="col-"] { flex: 0 0 100%; max-width: 100%; }
     }

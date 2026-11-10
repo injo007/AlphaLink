@@ -4,7 +4,7 @@
 
 ## 2026-11-10 Admin operator campaign visibility — E-IAM-13
 
-The Admin-only campaign scope is implemented in source for My Campaigns and Campaign Logs, including the header placement beside SHOW DISABLED and workspace operator selection. Release `f0af185fd119c52c863717bc3f17ff5478decfce` is pushed and active; the guarded installer and public `/up` health checks passed, with no migration needed. PHP syntax, route registration, and `git diff --check` pass; Pint is blocked because local PHP 8.3.6 lacks XML while the app requires PHP 8.5. Automated role/filter regression and authenticated browser checks remain open. Keep `ALPHALINK-CAMP-001` IMPLEMENTING until those checks are complete.
+The Admin-only campaign scope is implemented in source for My Campaigns and Campaign Logs, including the header placement beside SHOW DISABLED and workspace operator selection. Release `7a7c1234bb1245dba652200b5cdd39159d217002` is pushed and active; the guarded installer cached routes/views, found no migration pending, verified services, and passed HTTPS health, and public `/up` returned HTTP 200. PHP syntax, route registration, and `git diff --check` pass; Pint is blocked because local PHP 8.3.6 lacks XML while the app requires PHP 8.5. Automated role/filter regression and authenticated browser checks remain open. Keep `ALPHALINK-CAMP-001` IMPLEMENTING until those checks are complete.
 
 ## 2026-11-10 Global access-role verification — E-IAM-12
 

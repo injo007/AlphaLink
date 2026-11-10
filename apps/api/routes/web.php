@@ -90,6 +90,8 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::get('/app/workspaces/{workspace}/campaign-logs', [WorkspaceCampaignLogsConsoleController::class, 'index'])->name('console.campaign-logs.index');
     Route::get('/app/workspaces/{workspace}/campaign-logs/{campaign}/{history}', [WorkspaceCampaignLogsConsoleController::class, 'history'])
         ->whereUuid(['workspace', 'campaign'])->where('history', 'tests|updates|sends')->name('console.campaign-logs.history');
+    Route::get('/app/workspaces/{workspace}/campaign-logs/{campaign}/{history}/{entry}', [WorkspaceCampaignLogsConsoleController::class, 'historyDetail'])
+        ->whereUuid(['workspace', 'campaign', 'entry'])->where('history', 'tests|updates|sends')->name('console.campaign-logs.history-detail');
     Route::patch('/app/workspaces/{workspace}/campaign-logs/{campaign}/restriction', [WorkspaceCampaignLogsConsoleController::class, 'setRestriction'])
         ->whereUuid(['workspace', 'campaign'])->middleware('throttle:10,1')->name('console.campaign-logs.restriction');
     Route::get('/app/workspaces/{workspace}/users', [WorkspaceUserManagementController::class, 'index'])->name('console.users.index');

@@ -51,12 +51,72 @@
         .campaign-logs-footer .pagination { margin: 0; }
         .campaign-logs-empty { color: var(--logs-muted); padding: 3rem 1rem !important; text-align: center; }
         .campaign-logs-empty i { color: var(--co-purple, #7a3cff); display: block; font-size: 1.4rem; margin-bottom: .55rem; }
+        .campaign-log-dialog { background: var(--logs-surface, #fff); border: 1px solid var(--logs-border, #e1def4); border-radius: 1rem; box-shadow: 0 1.5rem 5rem rgba(24, 22, 58, .28); color: var(--logs-ink, #1e214d); height: min(88vh, 920px); max-height: calc(100dvh - 1.5rem); max-width: min(1120px, calc(100vw - 1.5rem)); overflow: hidden; padding: 0; width: 100%; }
+        .campaign-log-dialog::backdrop { background: rgba(20, 21, 45, .56); backdrop-filter: blur(3px); }
+        .campaign-log-dialog-shell { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+        .campaign-log-dialog-top { align-items: center; background: color-mix(in srgb, var(--co-purple, #7a3cff) 5%, var(--logs-surface, #fff)); border-bottom: 1px solid var(--logs-border, #e1def4); display: flex; flex: 0 0 auto; gap: 1rem; justify-content: space-between; padding: .9rem 1.1rem; }
+        .campaign-log-dialog-top h2 { color: var(--logs-ink, #1e214d); font-size: .98rem; font-weight: 800; margin: 0; }
+        .campaign-log-dialog-close { align-items: center; background: var(--logs-surface, #fff); border: 1px solid var(--logs-border, #e1def4); border-radius: .6rem; color: var(--logs-muted, #64709b); cursor: pointer; display: inline-flex; height: 2.25rem; justify-content: center; width: 2.25rem; }
+        .campaign-log-dialog-close:hover, .campaign-log-dialog-close:focus-visible { border-color: var(--co-purple, #7a3cff); color: var(--co-purple, #7a3cff); outline: 0; }
+        .campaign-log-dialog-content { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 1rem 1.1rem 1.1rem; }
+        .campaign-log-dialog-content[aria-busy="true"] { cursor: progress; }
+        .campaign-log-modal-heading, .campaign-log-config-heading { align-items: center; border-bottom: 1px solid var(--logs-border, #e1def4); display: flex; flex-wrap: wrap; gap: .85rem; justify-content: space-between; margin: -.15rem 0 .85rem; padding: .1rem 0 .85rem; }
+        .campaign-log-modal-heading h2, .campaign-log-config-heading h2 { color: var(--logs-ink, #1e214d); font-size: clamp(1.05rem, 2vw, 1.3rem); font-weight: 800; margin: 0; }
+        .campaign-log-modal-heading h2 i { color: var(--co-purple, #7a3cff); margin-right: .4rem; }
+        .campaign-log-modal-heading p, .campaign-log-config-heading p { color: var(--logs-muted, #64709b); font-size: .8rem; margin: .22rem 0 0; }
+        .campaign-log-modal-eyebrow { color: var(--co-purple, #7a3cff); display: block; font-size: .65rem; font-weight: 800; letter-spacing: .1em; margin-bottom: .25rem; text-transform: uppercase; }
+        .campaign-log-modal-id { color: var(--logs-muted, #64709b); font-family: var(--font-mono, ui-monospace, monospace); font-size: .75rem; margin-left: .3rem; }
+        .campaign-log-modal-count { background: color-mix(in srgb, var(--co-purple, #7a3cff) 10%, var(--logs-surface, #fff)); border: 1px solid color-mix(in srgb, var(--co-purple, #7a3cff) 22%, var(--logs-border, #e1def4)); border-radius: 999px; color: var(--co-purple, #7a3cff); font-size: .75rem; font-weight: 800; padding: .35rem .7rem; white-space: nowrap; }
+        .campaign-log-history-tabs { border-bottom: 1px solid var(--logs-border, #e1def4); display: flex; flex-wrap: wrap; gap: .35rem; margin: -.15rem 0 .8rem; }
+        .campaign-log-history-tabs button { background: transparent; border: 1px solid transparent; border-bottom: 0; border-radius: .5rem .5rem 0 0; color: var(--logs-muted, #64709b); cursor: pointer; font-size: .75rem; font-weight: 750; margin-bottom: -1px; padding: .45rem .7rem; }
+        .campaign-log-history-tabs button span { background: color-mix(in srgb, var(--logs-muted, #64709b) 9%, var(--logs-surface, #fff)); border-radius: 99px; font-size: .67rem; margin-left: .25rem; padding: .12rem .36rem; }
+        .campaign-log-history-tabs button[aria-current="page"] { background: color-mix(in srgb, var(--co-purple, #7a3cff) 8%, var(--logs-surface, #fff)); border-color: var(--logs-border, #e1def4); color: var(--co-purple, #7a3cff); }
+        .campaign-log-modal-table-wrap { max-width: 100%; overflow: auto; overscroll-behavior: contain; }
+        .campaign-log-modal-table { border-collapse: collapse; min-width: 730px; width: 100%; }
+        .campaign-log-modal-table th { background: color-mix(in srgb, var(--logs-surface, #fff) 83%, var(--co-page, #f4f3fb)); border-bottom: 1px solid var(--logs-border, #e1def4); color: var(--logs-muted, #64709b); font-size: .67rem; font-weight: 800; letter-spacing: .055em; padding: .65rem .7rem; text-align: left; text-transform: uppercase; white-space: nowrap; }
+        .campaign-log-modal-table td { border-bottom: 1px solid var(--logs-border, #e1def4); color: var(--logs-ink, #1e214d); font-size: .8rem; padding: .7rem; vertical-align: middle; }
+        .campaign-log-modal-table tbody tr:hover { background: color-mix(in srgb, var(--co-purple, #7a3cff) 4%, var(--logs-surface, #fff)); }
+        .campaign-log-modal-status { background: color-mix(in srgb, var(--co-blue, #4888f4) 10%, var(--logs-surface, #fff)); border: 1px solid color-mix(in srgb, var(--co-blue, #4888f4) 22%, var(--logs-border, #e1def4)); border-radius: 999px; color: var(--co-blue, #3978e8); display: inline-flex; font-size: .65rem; font-weight: 800; padding: .2rem .5rem; white-space: nowrap; }
+        .campaign-log-config-button, .campaign-log-config-back { align-items: center; background: color-mix(in srgb, var(--co-purple, #7a3cff) 8%, var(--logs-surface, #fff)); border: 1px solid color-mix(in srgb, var(--co-purple, #7a3cff) 24%, var(--logs-border, #e1def4)); border-radius: .55rem; color: var(--co-purple, #7a3cff); cursor: pointer; display: inline-flex; font-size: .74rem; font-weight: 750; gap: .4rem; justify-content: center; min-height: 2.15rem; padding: .35rem .65rem; white-space: nowrap; }
+        .campaign-log-config-button:hover, .campaign-log-config-back:hover, .campaign-log-config-button:focus-visible, .campaign-log-config-back:focus-visible { background: color-mix(in srgb, var(--co-purple, #7a3cff) 15%, var(--logs-surface, #fff)); outline: 2px solid color-mix(in srgb, var(--co-purple, #7a3cff) 40%, transparent); outline-offset: 1px; }
+        .campaign-log-modal-empty { color: var(--logs-muted, #64709b) !important; padding: 2rem !important; text-align: center; }
+        .campaign-log-modal-footer { align-items: center; color: var(--logs-muted, #64709b); display: flex; flex-wrap: wrap; gap: .75rem; justify-content: space-between; padding: .8rem .15rem 0; }
+        .campaign-log-modal-footer .pagination { margin: 0; }
+        .campaign-log-config-heading { align-items: flex-start; }
+        .campaign-log-config-heading > div { flex: 1 1 16rem; min-width: 0; }
+        .campaign-log-config-back { flex: 0 0 auto; }
+        .campaign-log-config-unavailable { background: color-mix(in srgb, #edaa3a 10%, var(--logs-surface, #fff)); border: 1px solid color-mix(in srgb, #edaa3a 32%, var(--logs-border, #e1def4)); border-radius: .65rem; color: var(--logs-ink, #1e214d); margin-bottom: .85rem; padding: .7rem .8rem; }
+        .campaign-log-config-grid { display: grid; gap: .8rem; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: .8rem; }
+        .campaign-log-config-card { background: var(--logs-surface, #fff); border: 1px solid var(--logs-border, #e1def4); border-radius: .75rem; min-width: 0; padding: .85rem; }
+        .campaign-log-config-card h3 { align-items: center; color: var(--logs-ink, #1e214d); display: flex; font-size: .86rem; font-weight: 800; gap: .5rem; margin: 0 0 .65rem; }
+        .campaign-log-config-card h3 i { color: var(--co-purple, #7a3cff); }
+        .campaign-log-config-card h4 { color: var(--logs-muted, #64709b); font-size: .68rem; font-weight: 800; letter-spacing: .05em; margin: .65rem 0 .35rem; text-transform: uppercase; }
+        .campaign-log-config-card dl { display: grid; gap: .35rem; margin: 0; }
+        .campaign-log-config-card dl > div { align-items: start; border-bottom: 1px solid color-mix(in srgb, var(--logs-border, #e1def4) 70%, transparent); display: grid; gap: .6rem; grid-template-columns: minmax(7rem, .75fr) minmax(0, 1.25fr); padding: .3rem 0; }
+        .campaign-log-config-card dt { color: var(--logs-muted, #64709b); font-size: .72rem; font-weight: 700; }
+        .campaign-log-config-card dd { color: var(--logs-ink, #1e214d); font-size: .76rem; margin: 0; overflow-wrap: anywhere; }
+        .campaign-log-server-note { color: var(--logs-muted, #64709b); display: block; font-size: .66rem; line-height: 1.4; margin-top: .25rem; }
+        .campaign-log-value-chip { background: color-mix(in srgb, var(--co-purple, #7a3cff) 8%, var(--logs-surface, #fff)); border: 1px solid var(--logs-border, #e1def4); border-radius: .4rem; display: inline-flex; margin: 0 .25rem .2rem 0; padding: .14rem .4rem; }
+        .campaign-log-route-list > div { border-top: 1px solid var(--logs-border, #e1def4); display: flex; flex-wrap: wrap; gap: .3rem .7rem; justify-content: space-between; padding: .45rem 0; }
+        .campaign-log-route-list strong { color: var(--logs-ink, #1e214d); font-size: .73rem; }
+        .campaign-log-route-list span, .campaign-log-config-muted { color: var(--logs-muted, #64709b); font-size: .72rem; }
+        .campaign-log-config-message { margin-top: .8rem; }
+        .campaign-log-config-message pre { background: color-mix(in srgb, var(--co-page, #f4f3fb) 70%, var(--logs-surface, #fff)); border: 1px solid var(--logs-border, #e1def4); border-radius: .55rem; color: var(--logs-ink, #1e214d); font-family: var(--font-mono, ui-monospace, monospace); font-size: .72rem; line-height: 1.5; margin: 0; max-height: 15rem; overflow: auto; padding: .7rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+        .campaign-log-modal-loading, .campaign-log-modal-error { align-items: center; color: var(--logs-muted, #64709b); display: flex; gap: .65rem; justify-content: center; min-height: 10rem; padding: 2rem; text-align: center; }
+        .campaign-log-modal-error { flex-direction: column; }
         @media (max-width: 1450px) {
             .campaign-logs-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .campaign-logs-field.search-field { grid-column: 1 / -1; }
             .campaign-logs-filter-actions { align-self: end; }
         }
         @media (max-width: 640px) {
+            .campaign-log-dialog { border-radius: .75rem; height: calc(100dvh - 1rem); max-height: calc(100dvh - 1rem); max-width: calc(100vw - 1rem); }
+            .campaign-log-dialog-top { padding: .75rem .85rem; }
+            .campaign-log-dialog-content { padding: .8rem; }
+            .campaign-log-config-grid { grid-template-columns: minmax(0, 1fr); }
+            .campaign-log-modal-heading { align-items: flex-start; }
+            .campaign-log-modal-footer { align-items: flex-start; flex-direction: column; }
+            .campaign-log-config-card dl > div { grid-template-columns: minmax(6rem, .7fr) minmax(0, 1.3fr); }
             .campaign-logs-header { align-items: flex-start; padding: 1rem; }
             .campaign-logs-toolbar { padding: .85rem; }
             .campaign-logs-filters { grid-template-columns: minmax(0, 1fr); }
@@ -152,9 +212,9 @@
                             <td class="text-nowrap">{{ $campaign->created_at?->format('Y-m-d H:i:s') ?? '—' }}</td>
                             <td>
                                 <div class="campaign-log-counts" role="group" aria-label="History actions for {{ $campaign->name }}">
-                                    <a class="campaign-log-action" href="{{ route('console.campaign-logs.history', [$workspace->id, $campaign->id, 'tests']) }}" title="Open test history" aria-label="Open {{ $campaign->tests_count }} tests for {{ $campaign->name }}"><i class="fas fa-vial" aria-hidden="true"></i><span>T:{{ $campaign->tests_count }}</span></a>
-                                    <a class="campaign-log-action" href="{{ route('console.campaign-logs.history', [$workspace->id, $campaign->id, 'updates']) }}" title="Open update history" aria-label="Open {{ $campaign->updates_count }} updates for {{ $campaign->name }}"><i class="fas fa-pen-to-square" aria-hidden="true"></i><span>U:{{ $campaign->updates_count }}</span></a>
-                                    <a class="campaign-log-action" href="{{ route('console.campaign-logs.history', [$workspace->id, $campaign->id, 'sends']) }}" title="Open send history" aria-label="Open {{ $campaign->sends_count }} sends for {{ $campaign->name }}"><i class="fas fa-paper-plane" aria-hidden="true"></i><span>S:{{ $campaign->sends_count }}</span></a>
+                                    <a class="campaign-log-action" href="{{ route('console.campaign-logs.history', [$workspace->id, $campaign->id, 'tests']) }}" data-campaign-history-url="{{ route('console.campaign-logs.history', [$workspace->id, $campaign->id, 'tests']) }}?fragment=1" title="Open test history" aria-label="Open {{ $campaign->tests_count }} tests for {{ $campaign->name }}"><i class="fas fa-vial" aria-hidden="true"></i><span>T:{{ $campaign->tests_count }}</span></a>
+                                    <a class="campaign-log-action" href="{{ route('console.campaign-logs.history', [$workspace->id, $campaign->id, 'updates']) }}" data-campaign-history-url="{{ route('console.campaign-logs.history', [$workspace->id, $campaign->id, 'updates']) }}?fragment=1" title="Open update history" aria-label="Open {{ $campaign->updates_count }} updates for {{ $campaign->name }}"><i class="fas fa-pen-to-square" aria-hidden="true"></i><span>U:{{ $campaign->updates_count }}</span></a>
+                                    <a class="campaign-log-action" href="{{ route('console.campaign-logs.history', [$workspace->id, $campaign->id, 'sends']) }}" data-campaign-history-url="{{ route('console.campaign-logs.history', [$workspace->id, $campaign->id, 'sends']) }}?fragment=1" title="Open send history" aria-label="Open {{ $campaign->sends_count }} sends for {{ $campaign->name }}"><i class="fas fa-paper-plane" aria-hidden="true"></i><span>S:{{ $campaign->sends_count }}</span></a>
                                     <form method="POST" action="{{ route('console.campaign-logs.restriction', [$workspace->id, $campaign->id]) }}" onsubmit="return confirm(this.dataset.confirmMessage)" data-confirm-message="{{ $campaign->is_restricted ? 'Unrestrict this campaign so new sends can be started?' : 'Restrict this campaign from new sends?' }}">
                                         @csrf
                                         @method('PATCH')
@@ -180,4 +240,99 @@
             {{ $campaigns->links() }}
         </footer>
     </section>
+    <dialog id="campaign-log-dialog" class="campaign-log-dialog" aria-labelledby="campaign-log-dialog-title" aria-modal="true">
+        <div class="campaign-log-dialog-shell">
+            <header class="campaign-log-dialog-top"><h2 id="campaign-log-dialog-title">Campaign activity</h2><button class="campaign-log-dialog-close" type="button" data-campaign-dialog-close aria-label="Close campaign activity"><i class="fas fa-times" aria-hidden="true"></i></button></header>
+            <div id="campaign-log-dialog-content" class="campaign-log-dialog-content" aria-live="polite" aria-busy="false"><p class="campaign-log-modal-loading">Choose Tests, Updates, or Sends to review campaign activity.</p></div>
+        </div>
+    </dialog>
 @endsection
+
+@push('scripts')
+<script>
+(() => {
+    const dialog = document.getElementById('campaign-log-dialog');
+    const content = document.getElementById('campaign-log-dialog-content');
+    if (!dialog || !content) return;
+
+    let activeRequest;
+    let lastOpener;
+    const load = async (rawUrl, focusSelector = null) => {
+        activeRequest?.abort();
+        activeRequest = new AbortController();
+        const url = new URL(rawUrl, window.location.href);
+        url.searchParams.set('fragment', '1');
+        dialog.dataset.currentUrl = url.toString();
+        content.setAttribute('aria-busy', 'true');
+        content.innerHTML = '<p class="campaign-log-modal-loading" role="status"><i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i> Loading campaign history…</p>';
+        try {
+            const response = await fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'text/html', 'X-Requested-With': 'XMLHttpRequest' }, signal: activeRequest.signal });
+            if (!response.ok || new URL(response.url).origin !== window.location.origin || /\/(sign-in|login)(\/|$)/i.test(new URL(response.url).pathname)) {
+                throw new Error('Campaign history could not be loaded. Refresh the page and try again.');
+            }
+            content.innerHTML = await response.text();
+            content.setAttribute('aria-busy', 'false');
+            if (focusSelector) content.querySelector(focusSelector)?.focus({ preventScroll: true });
+        } catch (error) {
+            if (error.name === 'AbortError') return;
+            content.setAttribute('aria-busy', 'false');
+            content.innerHTML = '<div class="campaign-log-modal-error" role="alert"><span>Campaign history could not be loaded.</span><button class="campaign-log-config-button" type="button" data-campaign-modal-retry>Try again</button></div>';
+        }
+    };
+
+    document.addEventListener('click', (event) => {
+        const historyLink = event.target.closest('[data-campaign-history-url]');
+        if (historyLink) {
+            if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            event.preventDefault();
+            lastOpener = historyLink;
+            dialog.dataset.historyUrl = historyLink.dataset.campaignHistoryUrl;
+            document.getElementById('campaign-log-dialog-title').textContent = 'Campaign activity';
+            if (!dialog.open) dialog.showModal();
+            load(dialog.dataset.historyUrl, '.campaign-log-modal-heading h2');
+            return;
+        }
+
+        const detailButton = event.target.closest('[data-campaign-detail-url]');
+        if (detailButton && dialog.contains(detailButton)) {
+            load(detailButton.dataset.campaignDetailUrl, '#campaign-log-config-title');
+            return;
+        }
+
+        const historyTab = event.target.closest('[data-campaign-history-tab]');
+        if (historyTab && dialog.contains(historyTab)) {
+            dialog.dataset.historyUrl = historyTab.dataset.campaignHistoryTab;
+            load(dialog.dataset.historyUrl, '.campaign-log-modal-heading h2');
+            return;
+        }
+
+        if (event.target.closest('[data-campaign-history-back]') && dialog.open) {
+            load(dialog.dataset.historyUrl, '.campaign-log-modal-heading h2');
+            return;
+        }
+
+        const pageLink = event.target.closest('.campaign-log-modal-footer .pagination a');
+        if (pageLink && dialog.contains(pageLink)) {
+            event.preventDefault();
+            dialog.dataset.historyUrl = pageLink.href;
+            load(dialog.dataset.historyUrl, '.campaign-log-modal-heading h2');
+            return;
+        }
+
+        if (event.target.closest('[data-campaign-modal-retry]') && dialog.dataset.currentUrl) {
+            load(dialog.dataset.currentUrl);
+            return;
+        }
+
+        if (event.target.closest('[data-campaign-dialog-close]')) dialog.close();
+    });
+
+    dialog.addEventListener('click', (event) => { if (event.target === dialog) dialog.close(); });
+    dialog.addEventListener('close', () => {
+        activeRequest?.abort();
+        content.setAttribute('aria-busy', 'false');
+        lastOpener?.focus();
+    });
+})();
+</script>
+@endpush

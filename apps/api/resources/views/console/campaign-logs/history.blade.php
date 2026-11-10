@@ -57,30 +57,31 @@
         <div class="campaign-history-table-wrap">
             <table class="table table-sm campaign-history-table" aria-label="{{ $historyTitle }} for {{ $campaign->name }}">
                 @if ($history === 'tests')
-                    <thead><tr><th scope="col">Type</th><th scope="col">Outcome</th><th scope="col">Recorded by</th><th scope="col">Created at</th></tr></thead>
+                    <thead><tr><th scope="col">Type</th><th scope="col">Outcome</th><th scope="col">Recorded by</th><th scope="col">Created at</th><th scope="col">Configuration</th></tr></thead>
                     <tbody>
                         @forelse ($historyRows as $row)
-                            <tr><td>{{ $row->test_source }}</td><td><span class="badge badge-{{ in_array($row->status, ['accepted_by_transport', 'sent'], true) ? 'success' : (in_array($row->status, ['rejected_by_transport', 'failed'], true) ? 'danger' : 'secondary') }}">{{ strtoupper(str_replace('_', ' ', $row->status)) }}</span></td><td>{{ $row->actor_label }}</td><td class="text-nowrap">{{ \Illuminate\Support\Carbon::parse($row->created_at)->format('Y-m-d H:i:s') }}</td></tr>
+                            @php $detailUrl = route('console.campaign-logs.history-detail', [$workspace->id, $campaign->id, 'tests', $row->id]).'?'.http_build_query(['source' => $row->test_source_key]); @endphp
+                            <tr><td>{{ $row->test_source }}</td><td><span class="badge badge-{{ in_array($row->status, ['accepted_by_transport', 'sent'], true) ? 'success' : (in_array($row->status, ['rejected_by_transport', 'failed'], true) ? 'danger' : 'secondary') }}">{{ strtoupper(str_replace('_', ' ', $row->status)) }}</span></td><td>{{ $row->actor_label }}</td><td class="text-nowrap">{{ \Illuminate\Support\Carbon::parse($row->created_at)->format('Y-m-d H:i:s') }}</td><td><a class="btn btn-sm btn-alt-primary" href="{{ $detailUrl }}">View config</a></td></tr>
                         @empty
-                            <tr><td colspan="4" class="campaign-history-empty">No test activity is recorded for this campaign.</td></tr>
+                            <tr><td colspan="5" class="campaign-history-empty">No test activity is recorded for this campaign.</td></tr>
                         @endforelse
                     </tbody>
                 @elseif ($history === 'updates')
-                    <thead><tr><th scope="col">Revision</th><th scope="col">Content fingerprint</th><th scope="col">Updated by</th><th scope="col">Created at</th></tr></thead>
+                    <thead><tr><th scope="col">Revision</th><th scope="col">Content fingerprint</th><th scope="col">Updated by</th><th scope="col">Created at</th><th scope="col">Configuration</th></tr></thead>
                     <tbody>
                         @forelse ($historyRows as $row)
-                            <tr><td>Revision {{ $row->revision_number }}</td><td class="campaign-history-code">{{ substr($row->content_sha256, 0, 12) }}</td><td>{{ $row->actor_label }}</td><td class="text-nowrap">{{ $row->created_at?->format('Y-m-d H:i:s') ?? '—' }}</td></tr>
+                            <tr><td>Revision {{ $row->revision_number }}</td><td class="campaign-history-code">{{ substr($row->content_sha256, 0, 12) }}</td><td>{{ $row->actor_label }}</td><td class="text-nowrap">{{ $row->created_at?->format('Y-m-d H:i:s') ?? '—' }}</td><td><a class="btn btn-sm btn-alt-primary" href="{{ route('console.campaign-logs.history-detail', [$workspace->id, $campaign->id, 'updates', $row->id]) }}">View config</a></td></tr>
                         @empty
-                            <tr><td colspan="4" class="campaign-history-empty">No campaign updates are recorded.</td></tr>
+                            <tr><td colspan="5" class="campaign-history-empty">No campaign updates are recorded.</td></tr>
                         @endforelse
                     </tbody>
                 @else
-                    <thead><tr><th scope="col">Send type</th><th scope="col">Status</th><th scope="col">Accepted</th><th scope="col">Rejected</th><th scope="col">Suppressed</th><th scope="col">Uncertain</th><th scope="col">Requested by</th><th scope="col">Started at</th></tr></thead>
+                    <thead><tr><th scope="col">Send type</th><th scope="col">Status</th><th scope="col">Accepted</th><th scope="col">Rejected</th><th scope="col">Suppressed</th><th scope="col">Uncertain</th><th scope="col">Requested by</th><th scope="col">Started at</th><th scope="col">Configuration</th></tr></thead>
                     <tbody>
                         @forelse ($historyRows as $row)
-                            <tr><td>{{ strtoupper($row->send_type) }}</td><td><span class="badge badge-{{ in_array($row->state, ['completed', 'running'], true) ? 'success' : (in_array($row->state, ['failed', 'needs_review'], true) ? 'warning' : 'secondary') }}">{{ strtoupper(str_replace('_', ' ', $row->state)) }}</span></td><td>{{ number_format((int) $row->accepted_count) }}</td><td>{{ number_format((int) $row->rejected_count) }}</td><td>{{ number_format((int) $row->suppressed_count) }}</td><td>{{ number_format((int) $row->uncertain_count) }}</td><td>{{ $row->actor_label }}</td><td class="text-nowrap">{{ $row->started_at?->format('Y-m-d H:i:s') ?? '—' }}</td></tr>
+                            <tr><td>{{ strtoupper($row->send_type) }}</td><td><span class="badge badge-{{ in_array($row->state, ['completed', 'running'], true) ? 'success' : (in_array($row->state, ['failed', 'needs_review'], true) ? 'warning' : 'secondary') }}">{{ strtoupper(str_replace('_', ' ', $row->state)) }}</span></td><td>{{ number_format((int) $row->accepted_count) }}</td><td>{{ number_format((int) $row->rejected_count) }}</td><td>{{ number_format((int) $row->suppressed_count) }}</td><td>{{ number_format((int) $row->uncertain_count) }}</td><td>{{ $row->actor_label }}</td><td class="text-nowrap">{{ $row->started_at?->format('Y-m-d H:i:s') ?? '—' }}</td><td><a class="btn btn-sm btn-alt-primary" href="{{ route('console.campaign-logs.history-detail', [$workspace->id, $campaign->id, 'sends', $row->id]) }}">View config</a></td></tr>
                         @empty
-                            <tr><td colspan="8" class="campaign-history-empty">No send runs are recorded for this campaign.</td></tr>
+                            <tr><td colspan="9" class="campaign-history-empty">No send runs are recorded for this campaign.</td></tr>
                         @endforelse
                     </tbody>
                 @endif

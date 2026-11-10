@@ -7,6 +7,7 @@ use App\Models\Campaign;
 use App\Models\CampaignRecipientSnapshot;
 use App\Models\CampaignRevision;
 use App\Models\CampaignSendRun;
+use App\Models\ManagedServer;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceOffer;
@@ -113,6 +114,46 @@ class WorkspaceCampaignLogsTest extends TestCase
         $this->assertSame(2, AuditEvent::query()->where('action', 'campaign.restriction_changed')->count());
     }
 
+    public function test_campaign_history_detail_shows_the_recorded_revision_config_without_test_recipients(): void
+    {
+        $fixture = $this->campaignFixture();
+        $owner = $fixture['owner'];
+        $workspace = $fixture['workspace'];
+        $campaign = $fixture['campaign'];
+        $savedTestId = (string) DB::table('campaign_test_mail_attempts')->where('campaign_id', $campaign->getKey())->value('id');
+        $update = CampaignRevision::query()->where('campaign_id', $campaign->getKey())->where('revision_number', 2)->firstOrFail();
+        $sendRun = CampaignSendRun::query()->where('campaign_id', $campaign->getKey())->firstOrFail();
+
+        $this->actingAs($owner)
+            ->get(route('console.campaign-logs.history', [$workspace->getKey(), $campaign->getKey(), 'tests']).'?fragment=1')
+            ->assertOk()
+            ->assertSee('data-campaign-history-tab', false)
+            ->assertSee('data-campaign-detail-url', false);
+
+        $testUrl = route('console.campaign-logs.history-detail', [$workspace->getKey(), $campaign->getKey(), 'tests', $savedTestId]).'?source=saved&fragment=1';
+        $this->actingAs($owner)
+            ->get($testUrl)
+            ->assertOk()
+            ->assertSee('Synthetic test subject')
+            ->assertSee('Synthetic campaign body')
+            ->assertSee('Test delivery server')
+            ->assertSee('To: [recipient hidden]')
+            ->assertDontSee('recipient@example.test');
+
+        $this->actingAs($owner)
+            ->get(route('console.campaign-logs.history-detail', [$workspace->getKey(), $campaign->getKey(), 'updates', $update->getKey()]).'?fragment=1')
+            ->assertOk()
+            ->assertSee('Synthetic update subject')
+            ->assertSee('Updated campaign body');
+
+        $this->actingAs($owner)
+            ->get(route('console.campaign-logs.history-detail', [$workspace->getKey(), $campaign->getKey(), 'sends', $sendRun->getKey()]).'?fragment=1')
+            ->assertOk()
+            ->assertSee('Synthetic test subject')
+            ->assertSee('Synthetic campaign body')
+            ->assertSee('Test delivery server');
+    }
+
     public function test_campaign_logs_are_workspace_scoped_and_respect_role_access(): void
     {
         $fixture = $this->campaignFixture();
@@ -194,10 +235,25 @@ class WorkspaceCampaignLogsTest extends TestCase
             'updated_at' => now(),
         ]);
 
+        $server = ManagedServer::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'name' => 'Test delivery server',
+            'provider' => 'Synthetic provider',
+            'ip_address' => '192.0.2.15',
+            'idempotency_key' => (string) Str::uuid(),
+            'request_fingerprint' => hash('sha256', 'synthetic managed server'),
+            'created_by' => $owner->getKey(),
+        ]);
+
         $firstRevision = CampaignRevision::query()->create([
             'campaign_id' => $campaign->getKey(),
             'revision_number' => 1,
-            'payload' => ['send_setup' => ['isp_id' => $isp, 'offer_id' => $offer->getKey(), 'send_type' => 'delay']],
+            'payload' => [
+                'return_path' => 'bounce@example.test',
+                'header' => "To: recipient@example.test\nSubject: Synthetic test subject",
+                'body' => '<p>Synthetic campaign body</p>',
+                'send_setup' => ['isp_id' => $isp, 'offer_id' => $offer->getKey(), 'send_type' => 'delay', 'route_option' => 'ip', 'server_ids' => [$server->getKey()], 'ip_ids' => ['test-ip-route'], 'total_send' => 50],
+            ],
             'content_sha256' => hash('sha256', 'synthetic campaign revision one'),
             'idempotency_key' => (string) Str::uuid(),
             'request_fingerprint' => hash('sha256', 'synthetic revision one'),
@@ -206,7 +262,12 @@ class WorkspaceCampaignLogsTest extends TestCase
         CampaignRevision::query()->create([
             'campaign_id' => $campaign->getKey(),
             'revision_number' => 2,
-            'payload' => ['send_setup' => ['isp_id' => $isp, 'offer_id' => $offer->getKey(), 'send_type' => 'delay']],
+            'payload' => [
+                'return_path' => 'bounce@example.test',
+                'header' => "To: recipient@example.test\nSubject: Synthetic update subject",
+                'body' => '<p>Updated campaign body</p>',
+                'send_setup' => ['isp_id' => $isp, 'offer_id' => $offer->getKey(), 'send_type' => 'delay', 'route_option' => 'ip', 'server_ids' => [$server->getKey()], 'ip_ids' => ['test-ip-route'], 'total_send' => 75],
+            ],
             'content_sha256' => hash('sha256', 'synthetic campaign revision two'),
             'idempotency_key' => (string) Str::uuid(),
             'request_fingerprint' => hash('sha256', 'synthetic revision two'),
@@ -254,7 +315,7 @@ class WorkspaceCampaignLogsTest extends TestCase
             'completed_at' => now(),
         ]);
 
-        return compact('owner', 'workspace', 'campaign');
+        return compact('owner', 'workspace', 'campaign', 'server');
     }
 
     private function workspaceFor(User $user): Workspace

@@ -59,6 +59,15 @@ class HorizonDeploymentTest extends TestCase
         $this->assertTrue(Gate::forUser($operator)->allows('viewHorizon'));
     }
 
+    public function test_horizon_dashboard_gate_allows_global_admins_without_an_email_override(): void
+    {
+        config(['horizon.authorized_emails' => []]);
+
+        $administrator = User::factory()->make(['type' => User::ADMIN]);
+
+        $this->assertTrue(Gate::forUser($administrator)->allows('viewHorizon'));
+    }
+
     public function test_horizon_dashboard_route_allows_the_configured_owner(): void
     {
         config(['horizon.authorized_emails' => ['owner@example.test']]);

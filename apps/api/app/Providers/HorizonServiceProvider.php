@@ -32,7 +32,8 @@ class HorizonServiceProvider extends HorizonApplicationServiceProvider
                 return false;
             }
 
-            return in_array(mb_strtolower(trim((string) $user->email)), config('horizon.authorized_emails', []), true);
+            return $user->type === User::ADMIN
+                || in_array(mb_strtolower(trim((string) $user->email)), config('horizon.authorized_emails', []), true);
         });
     }
 }

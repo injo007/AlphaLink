@@ -8,14 +8,17 @@ use App\Models\Campaign;
 use App\Models\CampaignRevision;
 use App\Models\CampaignSendRun;
 use App\Models\Isp;
+use App\Models\ManagedServer;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceOffer;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 
 class WorkspaceCampaignLogsConsoleController extends Controller
@@ -170,7 +173,75 @@ class WorkspaceCampaignLogsConsoleController extends Controller
             'sends' => CampaignSendRun::query()->where('workspace_id', $workspace->getKey())->where('campaign_id', $campaign->getKey())->count(),
         ];
 
+        if ($request->boolean('fragment')) {
+            return view('console.campaign-logs.partials.history-list', compact('workspace', 'campaign', 'history', 'historyRows', 'counts'));
+        }
+
         return view('console.campaign-logs.history', compact('workspace', 'campaign', 'history', 'historyRows', 'counts'));
+    }
+
+    public function historyDetail(Request $request, string $workspaceId, string $campaignId, string $history, string $entry): View
+    {
+        $workspace = $this->authorizedWorkspace($request, $workspaceId);
+        abort_unless(in_array($history, ['tests', 'updates', 'sends'], true), 404);
+        $campaign = $this->campaignForUser($request, $workspace, $campaignId);
+        $payload = [];
+        $serverLabels = [];
+        $event = ['type' => $history, 'revision' => null, 'status' => null, 'actor' => '—', 'recorded_at' => null];
+
+        if ($history === 'tests') {
+            $source = $request->validate(['source' => ['required', 'in:manual,saved']])['source'];
+            if ($source === 'manual') {
+                $attempt = DB::table('campaign_manual_test_attempts')
+                    ->where('workspace_id', $workspace->getKey())
+                    ->where('campaign_id', $campaign->getKey())
+                    ->where('id', $entry)
+                    ->first();
+                abort_unless($attempt, 404);
+                $event = ['type' => 'Manual test', 'revision' => null, 'status' => $attempt->status, 'actor' => $this->actorLabel($attempt->actor_user_id), 'recorded_at' => $attempt->created_at];
+                $server = ManagedServer::query()->where('workspace_id', $workspace->getKey())->whereKey($attempt->managed_server_id)->first(['id', 'name']);
+                $serverLabels = $server ? [$server->name] : [];
+
+                if (filled($attempt->test_snapshot)) {
+                    try {
+                        $decoded = json_decode(Crypt::decryptString($attempt->test_snapshot), true, flags: JSON_THROW_ON_ERROR);
+                        $payload = is_array($decoded) ? $decoded : [];
+                    } catch (DecryptException|\JsonException) {
+                        $payload = [];
+                    }
+                }
+            } else {
+                $attempt = DB::table('campaign_test_mail_attempts')
+                    ->where('workspace_id', $workspace->getKey())
+                    ->where('campaign_id', $campaign->getKey())
+                    ->where('id', $entry)
+                    ->first();
+                abort_unless($attempt, 404);
+                $revision = CampaignRevision::query()->where('campaign_id', $campaign->getKey())->whereKey($attempt->revision_id)->first();
+                abort_unless($revision, 404);
+                $payload = $revision->payload;
+                $event = ['type' => 'Saved campaign test', 'revision' => $revision->revision_number, 'status' => $attempt->status, 'actor' => $this->actorLabel($attempt->actor_user_id), 'recorded_at' => $attempt->created_at];
+                $server = ManagedServer::query()->where('workspace_id', $workspace->getKey())->whereKey($attempt->managed_server_id)->first(['id', 'name']);
+                $serverLabels = $server ? [$server->name] : [];
+            }
+        } elseif ($history === 'updates') {
+            $revision = CampaignRevision::query()->where('campaign_id', $campaign->getKey())->where('revision_number', '>', 1)->whereKey($entry)->firstOrFail();
+            $payload = $revision->payload;
+            $event = ['type' => 'Campaign update', 'revision' => $revision->revision_number, 'status' => 'Saved', 'actor' => $this->actorLabel($revision->created_by), 'recorded_at' => $revision->created_at];
+        } else {
+            $run = CampaignSendRun::query()->where('workspace_id', $workspace->getKey())->where('campaign_id', $campaign->getKey())->whereKey($entry)->firstOrFail();
+            $revision = CampaignRevision::query()->where('campaign_id', $campaign->getKey())->whereKey($run->revision_id)->first();
+            $payload = $revision?->payload ?? [];
+            $event = ['type' => 'Campaign send', 'revision' => $revision?->revision_number, 'status' => $run->state, 'actor' => $this->actorLabel($run->requested_by), 'recorded_at' => $run->started_at ?? $run->created_at, 'send_type' => $run->send_type];
+        }
+
+        $configuration = $this->campaignConfiguration($workspace, $payload, $serverLabels);
+
+        if ($request->boolean('fragment')) {
+            return view('console.campaign-logs.partials.history-detail', compact('campaign', 'event', 'configuration'));
+        }
+
+        return view('console.campaign-logs.detail', compact('workspace', 'campaign', 'history', 'event', 'configuration'));
     }
 
     public function setRestriction(Request $request, string $workspaceId, string $campaignId): RedirectResponse
@@ -254,18 +325,89 @@ class WorkspaceCampaignLogsConsoleController extends Controller
         $manual = DB::table('campaign_manual_test_attempts')
             ->where('workspace_id', $workspace->getKey())
             ->where('campaign_id', $campaign->getKey())
-            ->select(['id', 'status', 'actor_user_id', 'created_at', 'exception_type'])
-            ->selectRaw("'Manual test' AS test_source");
+            ->select(['id', 'status', 'actor_user_id', 'created_at', 'exception_type', 'test_snapshot'])
+            ->selectRaw('NULL AS revision_id, NULL AS managed_server_id')
+            ->selectRaw("'Manual test' AS test_source, 'manual' AS test_source_key");
         $saved = DB::table('campaign_test_mail_attempts')
             ->where('workspace_id', $workspace->getKey())
             ->where('campaign_id', $campaign->getKey())
-            ->select(['id', 'status', 'actor_user_id', 'created_at', 'exception_type'])
-            ->selectRaw("'Saved campaign test' AS test_source");
+            ->select(['id', 'status', 'actor_user_id', 'created_at', 'exception_type', 'revision_id', 'managed_server_id'])
+            ->selectRaw('NULL AS test_snapshot')
+            ->selectRaw("'Saved campaign test' AS test_source, 'saved' AS test_source_key");
 
         return DB::query()
             ->fromSub($manual->unionAll($saved), 'campaign_tests')
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->paginate(25);
+    }
+
+    /** @param array<string, mixed> $payload @param list<string> $extraServerLabels @return array<string, mixed> */
+    private function campaignConfiguration(Workspace $workspace, array $payload, array $extraServerLabels = []): array
+    {
+        $setup = is_array($payload['send_setup'] ?? null) ? $payload['send_setup'] : [];
+        $snapshotServers = collect(is_array($payload['servers'] ?? null) ? $payload['servers'] : []);
+        $serverIds = collect($setup['server_ids'] ?? [])
+            ->merge($snapshotServers->pluck('id'))
+            ->filter()->map(fn ($id): string => (string) $id)->unique()->values();
+        $serverRecords = $serverIds->isEmpty() ? collect() : ManagedServer::query()
+            ->where('workspace_id', $workspace->getKey())->whereIn('id', $serverIds)->get(['id', 'name'])->keyBy('id');
+        $snapshotServerNames = $snapshotServers->pluck('name')->map(fn ($name): string => trim((string) $name))->filter();
+        $serverNames = collect($extraServerLabels)->merge($snapshotServerNames);
+        foreach ($serverIds as $id) {
+            $snapshotName = $snapshotServers->first(fn ($server): bool => (string) ($server['id'] ?? '') === $id)['name'] ?? null;
+            $serverNames->push($serverRecords->get($id)?->name ?: ($snapshotName ?: 'Unavailable server ('.substr($id, 0, 8).')'));
+        }
+        $serverNames = $serverNames->filter()->unique()->values();
+
+        $settings = [];
+        foreach ([
+            'route_option' => 'Route mode', 'ip_type' => 'IP type', 'country' => 'Country',
+            'offer_country' => 'Offer country', 'order_by' => 'Order by', 'start_from' => 'Start from',
+            'total_send' => 'Total send', 'fraction_ip' => 'Fraction IP', 'sleep_email' => 'Sleep between emails (ms)',
+            'sleep_ip' => 'Sleep between IPs (ms)', 'seed_every' => 'Seed every', 'bounce_limit' => 'Bounce limit',
+            'duplicate_data' => 'Duplicate data',
+        ] as $key => $label) {
+            $value = $setup[$key] ?? $payload[$key] ?? null;
+            if ($value !== null && $value !== '') {
+                $settings[$label] = is_scalar($value) ? (string) $value : json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            }
+        }
+
+        $routeTargets = collect($payload['virtual_mtas'] ?? [])->map(fn ($target): array => is_array($target) ? [
+            'name' => (string) ($target['name'] ?? '—'),
+            'pmta_name' => (string) ($target['pmta_name'] ?? '—'),
+            'domain' => (string) ($target['domain'] ?? '—'),
+        ] : [])->filter(fn (array $target): bool => $target !== [])->values();
+
+        return [
+            'return_path' => (string) ($payload['resolved_return_path'] ?? $payload['return_path'] ?? '—'),
+            'header' => $this->hideHeaderRecipients((string) ($payload['resolved_header'] ?? $payload['header'] ?? '')),
+            'body' => (string) ($payload['resolved_body'] ?? $payload['body'] ?? $payload['html_body'] ?? ''),
+            'route' => strtoupper(str_replace('_', ' ', (string) ($payload['outbound_route'] ?? $payload['mta'] ?? $setup['route_option'] ?? '—'))),
+            'send_type' => strtoupper(str_replace('_', ' ', (string) ($payload['send_type'] ?? $setup['send_type'] ?? '—'))),
+            'servers' => $serverNames,
+            'server_note' => $snapshotServers->isNotEmpty() ? 'Server and route names captured with this test.' : 'The revision stores server IDs; displayed names come from the current workspace catalog.',
+            'ip_ids' => collect($payload['ips'] ?? $setup['ip_ids'] ?? [])->map(fn ($id): string => (string) $id)->values(),
+            'route_targets' => $routeTargets,
+            'settings' => $settings,
+            'available' => $payload !== [],
+        ];
+    }
+
+    private function hideHeaderRecipients(string $header): string
+    {
+        return preg_replace('/^\s*(to|cc|bcc)\s*:\s*.*$/im', '$1: [recipient hidden]', $header) ?? $header;
+    }
+
+    private function actorLabel(?int $userId): string
+    {
+        if ($userId === null) {
+            return 'Removed user';
+        }
+
+        $actor = User::query()->whereKey($userId)->first(['id', 'name', 'username']);
+
+        return $actor?->name ?: ($actor?->username ?: 'Removed user');
     }
 }

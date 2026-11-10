@@ -1,56 +1,95 @@
 @extends('layouts.admin-shell')
 
-@section('title', 'Mix History')
+@section('title', 'Mix Lists')
 
 @section('content')
-    <div class="block block-rounded">
-        <div class="block-header block-header-default">
-            <h3 class="block-title">MY HISTORY</h3>
-            <div class="block-options">
-                <a class="btn btn-sm btn-alt-primary" href="{{ route('console.audience-mixes.index', $workspace->id) }}">CREATE MIX</a>
+    <div class="command-os-entity-page">
+        <!-- 1. Hero Header Card -->
+        <header class="command-os-report-hero" aria-labelledby="mix-history-hero-title">
+            <span class="command-os-report-hero-illustration" aria-hidden="true">
+                <i class="fas fa-blender"></i>
+            </span>
+            <div class="command-os-report-hero-mark" aria-hidden="true">
+                <i class="fas fa-blender"></i>
             </div>
-        </div>
-        <div class="block-content block-content-full">
-            <form id="mix-history-filters" method="get" class="d-flex flex-wrap align-items-end justify-content-between mb-3">
-                <div class="d-flex flex-wrap align-items-end">
-                    <div class="form-group mr-2 mb-2">
-                        <label for="mix-history-per-page" class="sr-only">Rows per page</label>
-                        <select id="mix-history-per-page" name="per_page" class="form-control" aria-label="Rows per page">
+            <div class="command-os-report-hero-copy">
+                <p class="command-os-report-eyebrow">AUDIENCE INTELLIGENCE // REUSABLE SNAPSHOTS</p>
+                <h1 id="mix-history-hero-title">MIX LISTS</h1>
+                <p>Point-in-time audience snapshots, criteria definitions, and campaign targeting sets.</p>
+            </div>
+            <div class="command-os-hero-actions">
+                <a class="btn-command-primary mr-2" href="{{ route('clean.console.audience-mixes.index') }}">
+                    <i class="fas fa-plus mr-1"></i> CREATE MIX
+                </a>
+                <button type="button" class="command-os-btn-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen">
+                    <i class="fas fa-expand"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- 2. Filter Bar Card -->
+        <section class="command-os-filter-card mb-3" aria-label="Filter mix history">
+            <form id="mix-history-filters" method="get" class="d-flex flex-wrap align-items-end justify-content-between">
+                <div class="d-flex flex-wrap align-items-end" style="gap: 12px;">
+                    <div>
+                        <label for="mix-history-per-page" class="command-os-field-label font-w700 text-uppercase font-size-xs mb-1">
+                            <i class="fas fa-list-ol mr-1 text-purple"></i> Rows:
+                        </label>
+                        <select id="mix-history-per-page" name="per_page" class="form-control" style="height: 40px; border-radius: 10px; font-size: 12px; font-weight: 600;">
                             @foreach ([25, 50, 100] as $size)
                                 <option value="{{ $size }}" @selected($perPage === $size)>Show {{ $size }} rows</option>
                             @endforeach
                         </select>
                     </div>
-                    <div class="form-group mr-2 mb-2">
-                        <label for="mix-history-from" class="mr-2">Date from</label>
-                        <input id="mix-history-from" name="from" type="date" class="form-control" value="{{ $from }}" required>
+                    <div>
+                        <label for="mix-history-from" class="command-os-field-label font-w700 text-uppercase font-size-xs mb-1">
+                            <i class="far fa-calendar-alt mr-1 text-purple"></i> Date From:
+                        </label>
+                        <input id="mix-history-from" name="from" type="date" class="form-control" value="{{ $from }}" required style="height: 40px; border-radius: 10px; font-size: 12px;">
                     </div>
-                    <div class="form-group mr-2 mb-2">
-                        <label for="mix-history-to" class="mr-2">to</label>
-                        <input id="mix-history-to" name="to" type="date" class="form-control" value="{{ $to }}" required>
+                    <div>
+                        <label for="mix-history-to" class="command-os-field-label font-w700 text-uppercase font-size-xs mb-1">
+                            <i class="far fa-calendar-alt mr-1 text-purple"></i> Date To:
+                        </label>
+                        <input id="mix-history-to" name="to" type="date" class="form-control" value="{{ $to }}" required style="height: 40px; border-radius: 10px; font-size: 12px;">
                     </div>
-                    <button type="submit" class="btn btn-alt-primary mb-2">FILTER</button>
+                    <div>
+                        <label class="command-os-field-label font-w700 text-uppercase font-size-xs mb-1 d-none d-md-block" style="visibility: hidden;">&nbsp;</label>
+                        <button type="submit" class="btn-command-action" style="height: 40px;">
+                            <i class="fas fa-filter mr-1"></i> FILTER
+                        </button>
+                    </div>
                 </div>
-                <div class="form-group mb-2">
-                    <label for="mix-history-search" class="sr-only">Search mix name or ISP</label>
-                    <input id="mix-history-search" name="search" type="search" class="form-control" value="{{ $search }}" maxlength="100" placeholder="Search…">
+                <div class="mt-2 mt-md-0" style="min-width: 260px;">
+                    <label for="mix-history-search" class="command-os-field-label font-w700 text-uppercase font-size-xs mb-1">
+                        <i class="fas fa-search mr-1 text-purple"></i> Search Mix or ISP:
+                    </label>
+                    <div class="position-relative">
+                        <input id="mix-history-search" name="search" type="search" class="form-control" value="{{ $search }}" maxlength="100" placeholder="Search by name..." style="height: 40px; border-radius: 10px; font-size: 12px; padding-left: 34px;">
+                        <i class="fas fa-search position-absolute text-muted" style="left: 12px; top: 13px; font-size: 12px;"></i>
+                    </div>
                 </div>
             </form>
-            <div id="mix-history-status" class="sr-only" role="status" aria-live="polite"></div>
+        </section>
+
+        <div id="mix-history-status" class="sr-only" role="status" aria-live="polite"></div>
+
+        <!-- 3. Table Card -->
+        <div class="command-os-table-card">
             <div class="table-responsive">
-                <table class="table table-sm table-striped table-bordered table-hover mb-0" aria-label="Mix history">
+                <table class="table command-os-table table-sm table-hover mb-0" aria-label="Mix history">
                     <thead>
                         <tr>
-                            <th scope="col">#</th>
+                            <th scope="col" style="width: 50px;">#</th>
                             <th scope="col">NAME</th>
-                            <th scope="col">TOTAL</th>
+                            <th scope="col" class="text-right">TOTAL</th>
                             <th scope="col">ISP</th>
-                            <th scope="col">LISTS</th>
+                            <th scope="col" class="text-center">LISTS</th>
                             <th scope="col">FILTERS</th>
-                            <th scope="col">STATUS</th>
+                            <th scope="col" class="text-center">STATUS</th>
                             <th scope="col">CREATED AT</th>
                             <th scope="col">USABLE UNTIL</th>
-                            <th scope="col">ACTIONS</th>
+                            <th scope="col" class="text-right">ACTIONS</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -68,54 +107,80 @@
                                 ], static fn ($value): bool => filled($value)));
                             @endphp
                             <tr>
-                                <td>{{ ($mixes->firstItem() ?? 1) + $loop->index }}</td>
-                                <th scope="row">{{ $mix->name }}</th>
-                                <td class="text-right">{{ number_format($mix->recipient_count) }}</td>
-                                <td>{{ $mix->isp?->name ?? '—' }}</td>
-                                <td>{{ $sourceListCount }}</td>
+                                <td><span class="text-muted font-mono" style="font-size: 11px;">#{{ ($mixes->firstItem() ?? 1) + $loop->index }}</span></td>
                                 <td>
-                                    <details>
-                                        <summary>{{ $filterCount }}</summary>
-                                        <pre class="mb-0 mt-2 text-monospace" style="white-space: pre-wrap">{{ json_encode($criteria, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+                                    <strong class="font-w600" style="color: var(--command-os-text, #1e293b); font-size: 12.5px;">{{ $mix->name }}</strong>
+                                </td>
+                                <td class="text-right">
+                                    <span class="font-mono font-w700 text-purple" style="font-size: 12px;">{{ number_format($mix->recipient_count) }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge-command-pill" style="font-size: 11px;">{{ $mix->isp?->name ?? '—' }}</span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge-command-pill" style="font-size: 11px;">{{ $sourceListCount }}</span>
+                                </td>
+                                <td>
+                                    <details class="command-details-pop">
+                                        <summary class="badge-command-pill" style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+                                            <i class="fas fa-sliders-h" style="font-size: 10px;"></i> {{ $filterCount }} criteria
+                                        </summary>
+                                        <pre class="mt-2 p-2 rounded" style="background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(139, 92, 246, 0.2); font-size: 10.5px; font-family: monospace; max-height: 180px; overflow-y: auto; white-space: pre-wrap;">{{ json_encode($criteria, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
                                     </details>
                                 </td>
-                                <td>
+                                <td class="text-center">
                                     @if ($mix->status === 'active')
-                                        <span class="badge badge-success">ACTIVE</span>
+                                        <span class="badge-command-pill status-ready">
+                                            <i class="fas fa-check-circle mr-1" style="color: #10b981;"></i> ACTIVE
+                                        </span>
                                     @else
-                                        <span class="badge badge-danger">EXPIRED</span>
+                                        <span class="badge-command-pill" style="border-color: rgba(239, 68, 68, 0.35); color: #ef4444;">
+                                            <i class="fas fa-clock mr-1"></i> EXPIRED
+                                        </span>
                                     @endif
                                 </td>
-                                <td>{{ $mix->created_at?->format('Y-m-d H:i:s') }}</td>
+                                <td><span class="text-muted font-mono" style="font-size: 11px;">{{ $mix->created_at?->format('Y-m-d H:i:s') }}</span></td>
                                 <td>
                                     @if ($mix->status === 'active')
-                                        {{ $mix->created_at?->copy()->addHours(24)->format('Y-m-d H:i:s') ?? '—' }}
+                                        <span class="font-mono text-purple" style="font-size: 11px;">{{ $mix->created_at?->copy()->addHours(24)->format('Y-m-d H:i:s') ?? '—' }}</span>
                                     @else
-                                        {{ $mix->expired_at?->format('Y-m-d H:i:s') ?? 'Expired' }}
+                                        <span class="font-mono text-muted" style="font-size: 11px;">{{ $mix->expired_at?->format('Y-m-d H:i:s') ?? 'Expired' }}</span>
                                     @endif
                                 </td>
-                                <td>
+                                <td class="text-right">
                                     @if ($mix->status === 'expired')
-                                        <button type="button" class="btn btn-sm btn-alt-info remix-mix" data-url="{{ route('console.audience-mixes.remix', [$workspace->id, $mix->id]) }}">
-                                            <i class="fas fa-sync mr-1" aria-hidden="true"></i>REMIX
+                                        <button type="button" class="btn-command-action remix-mix" style="padding: 4px 10px; font-size: 11px;" data-url="{{ route('clean.console.audience-mixes.remix', $mix->id) }}">
+                                            <i class="fas fa-sync-alt mr-1" aria-hidden="true"></i> REMIX
                                         </button>
                                     @else
-                                        <span class="text-muted" title="This mix can be selected in campaign targeting for 24 hours after creation.">READY</span>
+                                        <span class="badge-command-pill status-ready" title="This mix can be selected in campaign targeting for 24 hours after creation.">
+                                            READY
+                                        </span>
                                     @endif
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="10" class="text-center text-muted py-4">No mixes were created in this date range.</td></tr>
+                            <tr>
+                                <td colspan="10" class="text-center text-muted py-5">
+                                    <i class="fas fa-blender fa-2x mb-2 d-block text-purple" style="opacity: 0.5;"></i>
+                                    No audience mixes were created in this date range.
+                                </td>
+                            </tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
-            <div class="d-flex flex-wrap align-items-center justify-content-between mt-3">
-                <span>Page {{ $mixes->currentPage() }} of {{ $mixes->lastPage() }} ({{ $mixes->total() }} records)</span>
+
+            <!-- 4. Footer Pagination -->
+            <div class="command-table-footer d-flex flex-wrap align-items-center justify-content-between p-3 border-top">
+                <span class="text-muted font-size-xs">Page {{ $mixes->currentPage() }} of {{ $mixes->lastPage() }} ({{ number_format($mixes->total()) }} records)</span>
                 <div>{{ $mixes->links() }}</div>
             </div>
         </div>
     </div>
+@endsection
+
+@push('scripts')
     <script>
         (() => {
             const filters = document.getElementById('mix-history-filters');
@@ -137,7 +202,7 @@
                 const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
                 button.disabled = true;
                 button.setAttribute('aria-busy', 'true');
-                button.innerHTML = '<i class="fas fa-sync fa-spin mr-1" aria-hidden="true"></i>REMIXING…';
+                button.innerHTML = '<i class="fas fa-sync fa-spin mr-1" aria-hidden="true"></i> REMIXING…';
                 status.textContent = 'Rebuilding the saved audience mix.';
                 try {
                     const response = await fetch(button.dataset.url, {
@@ -150,12 +215,16 @@
                     status.textContent = `${result.data}.`;
                     window.location.reload();
                 } catch (error) {
-                    status.textContent = error.message || 'Mix could not be rebuilt.';
                     button.disabled = false;
-                    button.removeAttribute('aria-busy');
-                    button.innerHTML = '<i class="fas fa-sync mr-1" aria-hidden="true"></i>REMIX';
+                    button.innerHTML = '<i class="fas fa-sync-alt mr-1" aria-hidden="true"></i> REMIX';
+                    status.textContent = error.message;
+                    if (window.AlphaLinkToast?.show) {
+                        window.AlphaLinkToast.show(error.message, 'danger');
+                    } else {
+                        alert(error.message);
+                    }
                 }
             }));
         })();
     </script>
-@endsection
+@endpush

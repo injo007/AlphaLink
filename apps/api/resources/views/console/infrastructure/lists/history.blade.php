@@ -168,7 +168,7 @@
                     <div class="command-os-info-banner-content">Older history rows can show NA for recipient types until their daily snapshot is recalculated.</div>
                 </div>
                 <div class="table-responsive mb-4">
-                    <table id="history-table" class="table table-sm table-hover table-striped w-100">
+                    <table id="history-table" class="table command-os-table table-sm table-hover w-100">
                         <caption id="history-caption" class="text-left font-w600 text-purple mb-2"></caption>
                         <thead><tr></tr></thead>
                         <tbody></tbody>

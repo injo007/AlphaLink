@@ -104,7 +104,7 @@
                 <p class="text-muted font-size-sm mb-0">Choose an active ISP from the dropdown above and click Load Lists to inspect audiences.</p>
             </div>
             <div class="table-responsive" id="lists-table-wrapper" style="display: none;">
-                <table id="lists" class="table table-sm table-hover table-striped w-100"
+                <table id="lists" class="table command-os-table table-sm table-hover w-100"
                     data-workspace-id="{{ $workspace->id }}"
                     data-base-url="{{ url('/app/workspaces/'.$workspace->id.'/infrastructure') }}"></table>
             </div>
@@ -139,7 +139,7 @@
                     scrollable: true,
                     closeButton: true,
                     size: 'lg',
-                    message: `<iframe src="${escapeHtml(url)}" width="100%" scrolling="no" frameborder="0"></iframe>`,
+                    message: `<div class="command-modal-surface p-1"><iframe src="${escapeHtml(url)}" width="100%" scrolling="no" frameborder="0" style="min-height: 440px; border-radius: 12px;"></iframe></div>`,
                     onEscape: true,
                     centerVertical: true,
                 }).on('shown.bs.modal', function () {

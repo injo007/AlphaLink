@@ -80,14 +80,17 @@
                         <label for="blacklist-file" class="command-os-field-label font-w700 text-uppercase font-size-xs mb-1">
                             <i class="fas fa-file-upload mr-1 text-purple"></i> Upload Suppression File (.txt, .csv):
                         </label>
-                        <input class="form-control" id="blacklist-file" name="file" type="file" accept=".txt,.csv" required style="height: 42px; padding: 7px 12px; font-size: 12px; border-radius: 10px;">
+                        <div class="custom-file">
+                            <input class="custom-file-input" id="blacklist-file" name="file" type="file" accept=".txt,.csv" required style="border-radius: 10px;">
+                            <label class="custom-file-label" for="blacklist-file" id="blacklist-file-label" style="border-radius: 10px; font-size: 12px; height: 42px; line-height: 28px;">Choose suppression file...</label>
+                        </div>
                     </div>
 
                     <div class="col-sm-12 col-lg-4 mb-3 mb-lg-0">
                         <label for="blacklist-email-type" class="command-os-field-label font-w700 text-uppercase font-size-xs mb-1">
                             <i class="fas fa-exchange-alt mr-1 text-purple"></i> Move Matching Memberships To:
                         </label>
-                        <select class="form-control" id="blacklist-email-type" name="email_type" required style="height: 42px; border-radius: 10px;">
+                        <select class="form-control" id="blacklist-email-type" name="email_type" required style="height: 42px; border-radius: 10px; font-size: 12px; font-weight: 600;">
                             @foreach ($emailTypes as $type)
                                 <option value="{{ $type }}">{{ strtoupper(str_replace('_', ' ', $type)) }}</option>
                             @endforeach
@@ -120,12 +123,12 @@
                 <h4 class="font-w700 text-uppercase font-size-sm mb-0">
                     <i class="fas fa-tasks mr-2 text-purple"></i> Active &amp; Historical Processes
                 </h4>
-                <button class="btn btn-command-action" id="blacklist-refresh" type="button">
+                <button class="btn-command-action" id="blacklist-refresh" type="button">
                     <i class="fas fa-sync-alt mr-1"></i> REFRESH
                 </button>
             </div>
             <div class="table-responsive">
-                <table class="table table-sm table-hover table-striped w-100" aria-label="Blacklist checker processes">
+                <table class="table command-os-table table-sm table-hover w-100" aria-label="Blacklist checker processes">
                     <thead>
                         <tr>
                             <th>USER</th>
@@ -161,6 +164,10 @@
             const cancelUrl = @json(route('clean.console.infrastructure.blacklist-checker.cancel', '__PROCESS__'));
             const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
             let refreshTimer = null;
+            const fileLabel = document.getElementById('blacklist-file-label');
+            fileInput?.addEventListener('change', () => {
+                if (fileLabel) fileLabel.textContent = fileInput.files?.[0]?.name || 'Choose suppression file...';
+            });
 
             const escapeHtml = (value) => window.jQuery('<div>').text(value == null ? '' : String(value)).html();
             const announce = (message, tone = 'info') => {

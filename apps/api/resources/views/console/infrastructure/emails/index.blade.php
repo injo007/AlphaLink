@@ -177,7 +177,7 @@
                 </div>
 
                 <div class="table-responsive">
-                    <table id="listEmails" class="table table-sm table-hover table-striped w-100" aria-label="Email search results"></table>
+                    <table id="listEmails" class="table command-os-table table-sm table-hover w-100" aria-label="Email search results"></table>
                 </div>
             </section>
         </div>
@@ -185,7 +185,7 @@
 
     <!-- Confirmation Modal Dialog -->
     <dialog id="email-action-confirmation" aria-labelledby="email-action-confirmation-title" aria-describedby="email-action-confirmation-description" class="command-os-dialog">
-        <div class="command-os-dialog-content p-4">
+        <div class="command-modal-surface p-4" style="max-width: 520px; border-radius: 14px;">
             <div class="d-flex align-items-center mb-3">
                 <div class="command-dialog-icon mr-3" style="font-size: 24px; color: #f59e0b;">
                     <i class="fas fa-exclamation-triangle"></i>
@@ -193,9 +193,9 @@
                 <h3 id="email-action-confirmation-title" class="font-w700 font-size-base mb-0">Confirm Audience Reclassification</h3>
             </div>
             <p id="email-action-confirmation-description" class="text-muted font-size-sm mb-4"></p>
-            <div class="d-flex justify-content-end align-items-center">
-                <button type="button" class="btn btn-secondary font-w600 font-size-xs px-3 mr-2" id="email-action-cancel" style="border-radius: 8px;">Cancel</button>
-                <button type="button" class="btn btn-primary font-w700 font-size-xs px-4" id="email-action-confirm" style="border-radius: 8px; background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); border: none;">Continue</button>
+            <div class="command-modal-actions">
+                <button type="button" class="btn-command-action" id="email-action-cancel">CANCEL</button>
+                <button type="button" class="btn-command-primary" id="email-action-confirm">CONTINUE</button>
             </div>
         </div>
     </dialog>

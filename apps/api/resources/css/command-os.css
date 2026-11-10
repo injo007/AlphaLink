@@ -10193,6 +10193,61 @@ a.btn-command-primary:active {
     box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4) !important;
 }
 
+/* Universal Command OS Danger Button */
+.btn-command-danger,
+button.btn-command-danger,
+a.btn-command-danger {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+    color: #ffffff !important;
+    border: 1px solid #dc2626 !important;
+    border-radius: 10px !important;
+    padding: 9px 18px !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.05em !important;
+    text-transform: uppercase !important;
+    box-shadow: 0 4px 14px rgba(239, 68, 68, 0.4) !important;
+    cursor: pointer !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    text-decoration: none !important;
+    outline: none !important;
+}
+
+.btn-command-danger i,
+button.btn-command-danger i,
+a.btn-command-danger i {
+    color: #ffffff !important;
+}
+
+.btn-command-danger:hover,
+button.btn-command-danger:hover,
+a.btn-command-danger:hover {
+    background: linear-gradient(135deg, #f87171 0%, #b91c1c 100%) !important;
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.55) !important;
+    transform: translateY(-1px) !important;
+    color: #ffffff !important;
+}
+
+.btn-command-danger:active,
+button.btn-command-danger:active,
+a.btn-command-danger:active {
+    transform: translateY(0) !important;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.35) !important;
+}
+
+.btn-command-danger:disabled,
+button.btn-command-danger:disabled,
+a.btn-command-danger:disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
 /* Universal Command OS Action/Secondary Button */
 .btn-command-action,
 button.btn-command-action,
@@ -10349,7 +10404,12 @@ div.btn-group > button {
 .btn-command-action + .btn-command-action,
 .btn-command-action + .btn-command-primary,
 .btn-command-primary + .btn-command-action,
-.btn-command-primary + .btn-command-primary {
+.btn-command-primary + .btn-command-primary,
+.btn-command-danger + .btn-command-danger,
+.btn-command-danger + .btn-command-action,
+.btn-command-action + .btn-command-danger,
+.btn-command-danger + .btn-command-primary,
+.btn-command-primary + .btn-command-danger {
     margin-left: 0 !important;
 }
 

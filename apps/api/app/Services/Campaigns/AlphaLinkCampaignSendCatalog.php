@@ -763,7 +763,7 @@ class AlphaLinkCampaignSendCatalog
             ->value('id');
 
         if ($available === null) {
-            throw ValidationException::withMessages(['send_setup.negative_id' => 'Choose one of your uploaded negative files in this workspace, or leave the field empty.']);
+            throw ValidationException::withMessages(['send_setup.negative_id' => 'Choose one of your uploaded Negative Token Files, or leave the field empty.']);
         }
 
         return (int) $available;

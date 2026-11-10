@@ -56,9 +56,11 @@ class AlphaLinkCampaignNegativesTest extends TestCase
 
         $this->get(route('console.campaign-negatives.index', $this->workspace->getKey()))
             ->assertOk()
-            ->assertSee('Suppression list')
+            ->assertSee('Negative Token Files')
+            ->assertSee('[negative]')
+            ->assertSee('Offer/List Exclusions')
             ->assertSee('blocked.txt')
-            ->assertSee('NEGATIVES');
+            ->assertDontSee('CAMPAIGN SUPPRESSIONS');
         $this->get(route('console.campaign-negatives.download', [$this->workspace->getKey(), $negative->getKey()]))
             ->assertOk()
             ->assertHeader('content-disposition');

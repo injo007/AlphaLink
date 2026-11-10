@@ -171,6 +171,14 @@ class GlobalNavigationOrder
             return ['WORKSPACE USERS', 'USERS WORKSPACE USERS'];
         }
 
+        if (preg_match('#^/app/workspaces/[^/]+/campaign-negatives$#', $path) === 1 && ($item['label'] ?? null) === 'NEGATIVE TOKEN FILES') {
+            return ['CAMPAIGN SUPPRESSIONS', 'NEGATIVES'];
+        }
+
+        if (preg_match('#^/app/workspaces/[^/]+/drops/suppression$#', $path) === 1 && ($item['label'] ?? null) === 'OFFER/LIST EXCLUSIONS') {
+            return ['DROP SUPPRESSIONS', 'SUPPRESSION'];
+        }
+
         return [];
     }
 

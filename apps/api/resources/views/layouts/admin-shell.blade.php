@@ -377,12 +377,19 @@
             ], static fn (mixed $value): bool => $value !== null);
         };
         $dashboardStats = array_slice($dashboardGroup['items'] ?? [], 1);
-        $campaignItems = $filterNavigationItems($campaignsGroup['items'] ?? [], ['NEGATIVES', 'STATISTICS', 'MIXS']);
+        $campaignItems = $filterNavigationItems($campaignsGroup['items'] ?? [], ['STATISTICS', 'MIXS']);
+        $campaignItems = array_map(static function (array $item): array {
+            if (($item['label'] ?? null) === 'NEGATIVES') {
+                $item['label'] = 'NEGATIVE TOKEN FILES';
+                $item['icon'] = 'fas fa-file-alt';
+            }
+
+            return $item;
+        }, $campaignItems);
         $dropItems = $filterNavigationItems($dropsGroup['items'] ?? [], ['SUPPRESSION', 'STATISTICS']);
         $warmupItems = $filterNavigationItems($warmupsGroup['items'] ?? [], ['STATISTICS']);
         $listItems = $filterNavigationItems($listsGroup['items'] ?? [], ['ISPS']);
         $ispItem = collect($listsGroup['items'] ?? [])->firstWhere('label', 'ISPS');
-        $campaignSuppression = collect($campaignsGroup['items'] ?? [])->firstWhere('label', 'NEGATIVES');
         $dropSuppression = collect($dropsGroup['items'] ?? [])->firstWhere('label', 'SUPPRESSION');
         $mixListItem = collect($campaignsGroup['items'] ?? [])->firstWhere('label', 'MIXS');
         if ($mixListItem) {
@@ -407,7 +414,7 @@
             $dropStatItem,
             $warmupStatItem,
         ]));
-        $suppressionItems = array_values(array_filter([$campaignSuppression, $dropSuppression]));
+        $suppressionItems = array_values(array_filter([$dropSuppression]));
         $offerItems = array_values(array_filter([
             $canManageSponsors && $offersGroup ? ['label' => 'OFFERS', 'icon' => $offersGroup['icon'], 'href' => $offersGroup['href'], 'active' => $offersGroup['active']] : null,
             ...$flattenNavigationItems($networksGroup['items'] ?? [], 'NETWORKS'),
@@ -446,11 +453,8 @@
         );
         $domainManagementItems = array_values(array_filter($domainsGroup['items'] ?? [], static fn (array $item): bool => ($item['label'] ?? '') !== 'DOMAINS PROVIDERS'));
         $offerSuppressionItems = array_values(array_filter(array_map(static function (array $item): array {
-            if (($item['label'] ?? null) === 'NEGATIVES') {
-                $item['label'] = 'CAMPAIGN SUPPRESSIONS';
-                $item['icon'] = 'fas fa-shield-alt';
-            } elseif (($item['label'] ?? null) === 'SUPPRESSION') {
-                $item['label'] = 'DROP SUPPRESSIONS';
+            if (($item['label'] ?? null) === 'SUPPRESSION') {
+                $item['label'] = 'OFFER/LIST EXCLUSIONS';
                 $item['icon'] = 'fas fa-shield-alt';
             }
 
@@ -468,7 +472,7 @@
         $commandOsNavigation = [
             $makeCommandOsNavGroup('OPERATIONS OVERVIEW', 'fas fa-tachometer-alt', route('console.dashboard.main'), $routeIs('console.dashboard.main', 'console.workspace.dashboard.main', 'console.analytics.index'), [], false, 'nav-v2-operations-overview'),
             $makeCommandOsNavGroup('ANALYTICS & INSIGHTS', 'fas fa-chart-bar', route('clean.console.analytics.all-stats'), $analyticsActive, $flattenNavigationItems($trackingItems), $analyticsActive, 'nav-v2-analytics-insights'),
-            $makeCommandOsNavGroup('CAMPAIGN STUDIO', 'fas fa-envelope', $hideDashboardForbiddenDestinations ? null : $campaignsUrl, $isCampaignsPage || $isGsendPage, $flattenNavigationItems($campaignItems), $isCampaignsPage || $isGsendPage, 'nav-v2-campaign-studio'),
+            $makeCommandOsNavGroup('CAMPAIGN STUDIO', 'fas fa-envelope', $hideDashboardForbiddenDestinations ? null : $campaignsUrl, $isCampaignsPage || $isCampaignNegativesPage || $isGsendPage, $flattenNavigationItems($campaignItems), $isCampaignsPage || $isCampaignNegativesPage || $isGsendPage, 'nav-v2-campaign-studio'),
             $makeCommandOsNavGroup('WARMUP OPERATIONS', 'fas fa-fire', $warmupsUrl, $isWarmupDraftPage || $isSeedListsPage, $flattenNavigationItems($warmupItems), $isWarmupDraftPage || $isSeedListsPage, 'nav-v2-warmup-operations'),
             $makeCommandOsNavGroup('MAIL INFRASTRUCTURE', 'fas fa-server', $serversUrl, $mailInfrastructureActive, $mailServerItems, $mailInfrastructureActive, 'nav-v2-mail-infrastructure'),
             $makeCommandOsNavGroup('PROVIDER NETWORK', 'fas fa-network-wired', $serverProvidersUrl, $providerNetworkActive, $flattenNavigationItems($providerNetworkItems), $providerNetworkActive, 'nav-v2-provider-network'),

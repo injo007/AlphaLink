@@ -69,7 +69,7 @@ class WorkspaceCampaignNegativeController extends Controller
         }
 
         return redirect()->route('console.campaign-negatives.index', $workspace->getKey())
-            ->with('status', 'Negative file uploaded. It is available in your campaign setup.');
+            ->with('status', 'Negative token file uploaded. It is available for the [negative] message placeholder.');
     }
 
     public function download(Request $request, string $workspace, int $negativeId)
@@ -96,7 +96,7 @@ class WorkspaceCampaignNegativeController extends Controller
         Storage::disk('local')->delete($path);
 
         return redirect()->route('console.campaign-negatives.index', $workspace->getKey())
-            ->with('status', 'Negative file deleted. Drafts that referenced it retain their saved ID, but the file is no longer available.');
+            ->with('status', 'Negative token file deleted. Drafts that referenced it retain their saved ID, but the file is no longer available.');
     }
 
     private function workspaceFor(Request $request, string $workspaceId): Workspace

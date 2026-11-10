@@ -145,9 +145,9 @@
                                     </select>
                                 </div>
                                 <div class="form-group col-md-6">
-                                    <label for="negative">Negative:</label>
+                                    <label for="negative">Negative token file:</label>
                                     <select id="negative" class="form-control">
-                                        <option value="">Select Negative</option>
+                                        <option value="">Select token file</option>
                                         @foreach ($negatives as $negative)
                                             <option value="{{ $negative->id }}">{{ $negative->name }}</option>
                                         @endforeach
@@ -358,7 +358,7 @@
         <h2 id="global-tags-title">Message tags</h2>
         <div class="global-tag-reference">
             <p><code>[ip]</code> IP · <code>[server]</code> server name · <code>[main_domain]</code> server domain · <code>[domain]</code> selected IP domain · <code>[rdns]</code> reverse DNS · <code>[to]</code> recipient · <code>[date]</code> current date · <code>[name]</code> recipient name · <code>[rnd]</code> random text.</p>
-            <p><code>[from]</code> random From · <code>[subject]</code> random Subject · <code>[ids]</code> server ID · <code>[idd]</code> domain ID · <code>[idi]</code> IP ID · <code>[ide]</code> email ID · <code>[negative]</code> negative file · <code>[smtp]</code> SMTP username · <code>[smtp_name]</code> SMTP name.</p>
+            <p><code>[from]</code> random From · <code>[subject]</code> random Subject · <code>[ids]</code> server ID · <code>[idd]</code> domain ID · <code>[idi]</code> IP ID · <code>[ide]</code> email ID · <code>[negative]</code> Negative Token File · <code>[smtp]</code> SMTP username · <code>[smtp_name]</code> SMTP name.</p>
             <p><code>[rnda_10]</code> random alphanumeric string of length 10. Other random string tags include <code>[rndn_N]</code>, <code>[rndl_N]</code>, <code>[rndu_N]</code>, <code>[rnds_N]</code>, <code>[rndlu_N]</code>, <code>[rndln_N]</code> and <code>[rndun_N]</code>. <code>[text:a|b|c]</code> chooses one listed value.</p>
             <p>Boundary forms include <code>[bndn_N]</code>, <code>[bnda_N]</code>, <code>[bndl_N]</code>, <code>[bndu_N]</code>, <code>[bnds_N]</code>, <code>[bndlu_N]</code>, <code>[bndln_N]</code> and <code>[bndun_N]</code>. Placeholder rows below map to <code>[placeholder1]</code>, <code>[placeholder2]</code>, and subsequent numbered tags.</p>
             <p><code>[base64:text]</code> Base64 · <code>[printable:text]</code> quoted printable · <code>[boundary]</code> and <code>[bnd]</code> static boundary text · <code>[placeholder1]</code>, <code>[placeholder2]</code> and so on use the values configured below.</p>

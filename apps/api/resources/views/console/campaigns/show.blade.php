@@ -216,7 +216,7 @@
                         </form>
                     </div>
                 @else
-                    <div class="alert alert-info" role="status">The selected suppression file was applied when this recipient snapshot was prepared. Before delivery, AlphaLink verifies the reviewed offer suppression file and checks current consent, workspace suppression, and offer suppression again. After preparation completes, open My Campaigns and choose SEND to start the background PMTA delivery.</div>
+                    <div class="alert alert-info" role="status">Campaign preparation applies the saved Offer suppression file and existing Offer/List exclusions to the selected audience. Before delivery, AlphaLink checks the current consent and suppression state again. After preparation completes, open My Campaigns and choose SEND to start the background PMTA delivery.</div>
                 @endif
                 <dl class="row mb-3">
                     <dt class="col-sm-3">Sponsor</dt><dd class="col-sm-9">{{ $sponsorChoice['name'] ?? 'No longer available' }} (ID {{ $sendSetup['sponsor_id'] ?? '—' }})</dd>
@@ -224,7 +224,7 @@
                     <dt class="col-sm-3">ISP</dt><dd class="col-sm-9">{{ $ispChoice['name'] ?? 'No longer available' }} (ID {{ $sendSetup['isp_id'] ?? '—' }})</dd>
                     <dt class="col-sm-3">Country</dt><dd class="col-sm-9">Offer {{ $sendSetup['offer_country'] ?? '—' }} · List {{ $sendSetup['country'] ?? '—' }}</dd>
                     <dt class="col-sm-3">Campaign domain</dt><dd class="col-sm-9">{{ $sendSetup['domain'] ?? 'Not selected' }}</dd>
-                    <dt class="col-sm-3">Negative file</dt><dd class="col-sm-9">{{ ($sendSetup['negative_id'] ?? null) ? ($negativeChoice['name'] ?? 'No longer available').' (ID '.$sendSetup['negative_id'].')' : 'Not selected' }}</dd>
+                    <dt class="col-sm-3">Negative token file</dt><dd class="col-sm-9">{{ ($sendSetup['negative_id'] ?? null) ? ($negativeChoice['name'] ?? 'No longer available').' (ID '.$sendSetup['negative_id'].')' : 'Not selected' }}</dd>
                     <dt class="col-sm-3">Creative image</dt><dd class="col-sm-9">{{ $creativeChoice['value'] ?? 'Not selected or no longer available' }}</dd>
                     <dt class="col-sm-3">HTML template</dt><dd class="col-sm-9">{{ $htmlChoice ? 'Selected (ID '.$htmlChoice['id'].')' : 'Not selected or no longer available' }}</dd>
                     <dt class="col-sm-3">Order / start</dt><dd class="col-sm-9">{{ strtoupper($sendSetup['order_by'] ?? 'default') }} / {{ $sendSetup['start_from'] ?? 0 }}</dd>
@@ -449,14 +449,14 @@
                                 <small class="form-text text-muted">Only current active redirect domains and domains on installed, accessible servers are accepted.</small>
                             </div>
                             <div class="form-group col-md-6">
-                                <label for="revision-negative">Negative</label>
-                                <select id="revision-negative" name="send_setup[negative_id]" class="form-control selectpicker" data-live-search="true" data-allow-clear="true" title="Select Negative">
-                                    <option value="">Select Negative</option>
+                                <label for="revision-negative">Negative token file</label>
+                                <select id="revision-negative" name="send_setup[negative_id]" class="form-control selectpicker" data-live-search="true" data-allow-clear="true" title="Select token file">
+                                    <option value="">Select token file</option>
                                     @foreach (($sendOptions['negatives'] ?? []) as $negativeOption)
                                         <option value="{{ $negativeOption['id'] }}" @selected((string) old('send_setup.negative_id', $sendSetup['negative_id'] ?? '') === (string) $negativeOption['id'])>{{ $negativeOption['name'] }}</option>
                                     @endforeach
                                 </select>
-                                <small class="form-text text-muted">The selected file ID is saved. This field does not alter the saved recipient snapshot.</small>
+                                <small class="form-text text-muted">Used only for the <code>[negative]</code> message placeholder. It does not suppress recipients or alter the saved recipient snapshot.</small>
                             </div>
                             <div class="form-group col-md-6">
                                 <label for="revision-creative-asset">Creative image</label>
@@ -653,7 +653,7 @@
                                                             <small class="form-text text-muted">AlphaLink connects to the server’s PMTA listener using its IP. This route alias tells PMTA which source IP or SMTP relay virtual MTA to use. PMTA acceptance does not confirm mailbox delivery.</small>
                                                         </div>
                                                         <div class="form-group">
-                                                            <label>Domain · Negative · Creative</label>
+                                                            <label>Domain · Negative token file · Creative</label>
                                                             <input class="form-control" type="text" value="{{ ($testSnapshot['domain'] ?? '—').' · '.($testSnapshot['negative_id'] ?? '—').' · '.($testSnapshot['creative_id'] ?? '—') }}" readonly>
                                                         </div>
                                                     </div>

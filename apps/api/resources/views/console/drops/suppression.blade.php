@@ -1,6 +1,6 @@
 @extends('layouts.admin-shell')
 
-@section('title', 'Drop Suppression')
+@section('title', 'Offer/List Exclusions')
 
 @section('content')
 <div id="drops-suppression"
@@ -26,14 +26,14 @@
             <i class="fas fa-shield-alt"></i>
         </div>
         <div class="command-os-report-hero-copy">
-            <p class="command-os-report-eyebrow">SUPPRESSION ENGINE // DEDUPLICATION &amp; EXCLUSIONS</p>
-            <h1 id="drops-suppression-hero-title">DROP SUPPRESSION</h1>
-            <p>Execute MD5/plain opt-out suppression runs, verify exclusion catalogs, and monitor live worker deduplication pipelines.</p>
+            <p class="command-os-report-eyebrow">DROP SUPPRESSION RUNS // CAMPAIGN AUDIENCE EXCLUSIONS</p>
+            <h1 id="drops-suppression-hero-title">OFFER/LIST EXCLUSIONS</h1>
+            <p>Match an Offer’s saved suppression file against selected Lists and save reusable campaign exclusions.</p>
         </div>
         <div class="command-os-hero-actions">
             <div class="command-os-report-hero-range">
-                <span>CLUSTER STATUS</span>
-                <strong><i class="fas fa-circle text-success" style="font-size: 8px;"></i> ENGINE READY</strong>
+                <span>CAMPAIGN USE</span>
+                <strong><i class="fas fa-circle text-success" style="font-size: 8px;"></i> OFFER/LIST AUTO-FILTER</strong>
             </div>
             <button type="button" class="command-os-btn-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle full screen">
                 <i class="fas fa-expand"></i>
@@ -42,45 +42,45 @@
     </header>
 
     <!-- 2. KPI Overview Cards -->
-    <section class="command-os-all-stats-overview" aria-label="Suppression Overview">
+    <section class="command-os-all-stats-overview" aria-label="Offer and List Exclusion Overview">
         <article class="all-stats-overview-card">
             <span class="all-stats-overview-icon icon-amber" aria-hidden="true"><i class="fas fa-shield-alt"></i></span>
             <span class="all-stats-overview-copy">
-                <span>Suppression Runs</span>
-                <strong>MONITORED</strong>
-                <small>Active job scheduler</small>
+                <span>Run History</span>
+                <strong>TRACKED</strong>
+                <small>Queued and completed work</small>
             </span>
         </article>
         <article class="all-stats-overview-card">
             <span class="all-stats-overview-icon icon-rose" aria-hidden="true"><i class="fas fa-user-slash"></i></span>
             <span class="all-stats-overview-copy">
                 <span>Dedupe Scope</span>
-                <strong>MD5 &amp; PLAIN</strong>
-                <small>Dual hashing lookup</small>
+                <strong>OFFER + LIST</strong>
+                <small>Stored for the selected audience</small>
             </span>
         </article>
         <article class="all-stats-overview-card">
             <span class="all-stats-overview-icon icon-purple" aria-hidden="true"><i class="fas fa-database"></i></span>
             <span class="all-stats-overview-copy">
-                <span>Storage Health</span>
-                <strong>CLEAN</strong>
-                <small>Zero stale cache</small>
+                <span>Suppression Source</span>
+                <strong>OFFER FILE</strong>
+                <small>Stored with the selected Offer</small>
             </span>
         </article>
         <article class="all-stats-overview-card">
             <span class="all-stats-overview-icon icon-emerald" aria-hidden="true"><i class="fas fa-bolt"></i></span>
             <span class="all-stats-overview-copy">
-                <span>Worker Engine</span>
-                <strong>SUB-SECOND</strong>
-                <small>Fast stream filter</small>
+                <span>Campaign Use</span>
+                <strong>AUTOMATIC</strong>
+                <small>Applied to matching Offer/List</small>
             </span>
         </article>
         <article class="all-stats-overview-card">
             <span class="all-stats-overview-icon icon-cyan" aria-hidden="true"><i class="fas fa-check-double"></i></span>
             <span class="all-stats-overview-copy">
-                <span>Integrity</span>
-                <strong>VERIFIED</strong>
-                <small>Production grade</small>
+                <span>Matching</span>
+                <strong>EMAIL / HASH</strong>
+                <small>Uses the saved Offer file format</small>
             </span>
         </article>
     </section>
@@ -89,7 +89,7 @@
     <section class="command-os-filter-card" aria-label="Filter suppression">
         <div class="d-flex align-items-center justify-content-between mb-3">
             <h4 class="font-size-sm font-w700 text-uppercase tracking-wider mb-0 text-muted">
-                <i class="fas fa-play-circle mr-2 text-purple"></i> Execute Suppression Run
+                <i class="fas fa-play-circle mr-2 text-purple"></i> Build Offer/List Exclusions
             </h4>
             <span class="badge badge-light border text-purple font-w700 px-2 py-1"><i class="fas fa-cogs mr-1"></i> Interactive Pipeline</span>
         </div>
@@ -138,13 +138,20 @@
         @endif
     </div>
 
+    <div class="command-os-info-banner" role="note">
+        <div class="command-os-info-banner-icon" aria-hidden="true"><i class="fas fa-info-circle"></i></div>
+        <div class="command-os-info-banner-content">
+            A completed run saves matching contacts as Offer/List exclusions. Campaign preparation automatically skips those matches when the same Offer and List are selected. It also checks the saved Offer file directly, so you can create a campaign without running this page first.
+        </div>
+    </div>
+
     <!-- 5. Table Card -->
     <div class="command-os-table-card">
         <div id="drops-suppression-message" class="alert alert-warning py-2 mb-3" role="status" aria-live="polite" hidden></div>
         <div class="d-flex flex-wrap align-items-center justify-content-between mb-3">
             <div class="d-flex align-items-center">
                 <i class="fas fa-history text-purple font-size-lg mr-2"></i>
-                <h3 class="h6 font-w700 text-uppercase tracking-wider mb-0 text-ink">Suppression Runs &amp; Live Workers</h3>
+                <h3 class="h6 font-w700 text-uppercase tracking-wider mb-0 text-ink">Offer/List Exclusion Runs &amp; Live Workers</h3>
             </div>
             <div class="d-flex align-items-center gap-2">
                 <div class="form-inline">
@@ -160,7 +167,7 @@
             </div>
         </div>
         <table id="drops-suppression-table" class="table table-sm table-hover table-striped w-100">
-            <caption class="sr-only">Suppression runs and their progress</caption>
+            <caption class="sr-only">Offer and List exclusion runs and their progress</caption>
         </table>
     </div>
     <dialog id="drops-suppression-details" class="pmta-control-dialog" aria-labelledby="drops-suppression-details-title" style="border-radius: 16px; border: 1px solid var(--co-border-strong); background: var(--co-surface); box-shadow: var(--co-shadow); padding: 24px;">

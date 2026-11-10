@@ -1264,7 +1264,7 @@
                                         </button>
                                         <details class="campaign-create-help">
                                         <summary title="Suppression details"><i class="fas fa-info-circle campaign-field-icon" aria-hidden="true"></i><span class="sr-only">Suppression details</span></summary>
-                                        <small class="form-text text-muted">Select unlocked email types. Saving automatically matches the selected offer’s saved suppression file against every selected List/email type and leaves matches out of the campaign snapshot. Drops → <a href="{{ route('console.drops.suppression', $workspace->id) }}">Suppression</a> separately applies that file to the chosen ISP/List memberships for reusable Offer/List exclusions; you do not need to run it first for campaign creation. Workspace suppressions and duplicate addresses are also excluded.</small>
+                                        <small class="form-text text-muted">Select unlocked email types. Campaign preparation excludes matches from the selected Offer’s saved suppression file, existing Offer/List exclusions, workspace suppressions, and duplicate addresses. Use <a href="{{ route('console.drops.suppression', $workspace->id) }}">Offer/List Exclusions</a> to build reusable matches from that same Offer file; running it is optional before campaign creation.</small>
                                     </details>
                                 </div>
                                 <select id="send-lists" name="send_setup[audience_segments][]" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 3" title="Select Lists" multiple required>
@@ -1347,13 +1347,14 @@
                         <small id="campaign-domain-route-hint" class="form-text text-muted" hidden></small>
                     </div>
                     <div class="form-group col-sm-12 col-md-4">
-                        <label for="campaign-negative"><i class="fas fa-ban campaign-field-icon" aria-hidden="true"></i>Negative:</label>
-                        <select id="campaign-negative" name="send_setup[negative_id]" class="form-control selectpicker" data-live-search="true" data-allow-clear="true" title="Select Negative">
-                            <option value="">Select Negative</option>
+                        <label for="campaign-negative"><i class="fas fa-file-alt campaign-field-icon" aria-hidden="true"></i>Negative token file:</label>
+                        <select id="campaign-negative" name="send_setup[negative_id]" class="form-control selectpicker" data-live-search="true" data-allow-clear="true" title="Select token file">
+                            <option value="">Select token file</option>
                             @foreach ($sendOptions['negatives'] as $negative)
                                 <option value="{{ $negative['id'] }}" @selected($setup['negative_id'] === (string) $negative['id'])>{{ $negative['name'] }}</option>
                             @endforeach
                         </select>
+                        <small class="form-text text-muted">Used only when the message contains <code>[negative]</code>; audience exclusions are handled by Offer/List Suppression.</small>
                     </div>
                 </div>
                 <div class="form-row">
@@ -1671,7 +1672,7 @@
                 <div class="row"><div class="col-md-6">
                     <h4 class="h6">Message and server tags</h4>
                     <p><code>[ip]</code> IP · <code>[server]</code> Server name · <code>[main_domain]</code> Server domain · <code>[domain]</code> IP domain with TLD · <code>[domain_sld]</code> IP domain without the final TLD · <code>[rdns]</code> IP reverse DNS</p>
-                    <p><code>[from]</code> Random From · <code>[subject]</code> Random Subject · <code>[ids]</code> Server ID · <code>[idd]</code> Domain ID · <code>[idi]</code> IP ID · <code>[ide]</code> Email ID · <code>[to]</code> Destination email · <code>[negative]</code> Negative file · <code>[name]</code> Email username · <code>[date]</code> Current date</p>
+                    <p><code>[from]</code> Random From · <code>[subject]</code> Random Subject · <code>[ids]</code> Server ID · <code>[idd]</code> Domain ID · <code>[idi]</code> IP ID · <code>[ide]</code> Email ID · <code>[to]</code> Destination email · <code>[negative]</code> Negative token file · <code>[name]</code> Email username · <code>[date]</code> Current date</p>
                     <p><code>[rnd]</code> 18 random characters · <code>[text:a|b|c]</code> Choose one value · <code>[base64:text]</code> Base64 encode · <code>[printable:text]</code> Quoted-printable encode</p>
                     <p><code>[boundary]</code> 30 static characters · <code>[bnd]</code> 30 static characters · <code>[smtp]</code> SMTP username · <code>[smtp_name]</code> SMTP name · <code>[tag]</code> Tag reply extractor · <code>#[token]</code> Track redirect/unsubscribe short links</p>
                     <h4 class="h6">Random tags</h4>

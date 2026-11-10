@@ -19,7 +19,16 @@
         .campaign-logs-field input:focus, .campaign-logs-field select:focus { border-color: var(--co-purple, #7a3cff); box-shadow: 0 0 0 .18rem color-mix(in srgb, var(--co-purple, #7a3cff) 18%, transparent); outline: 0; }
         .campaign-logs-table-wrap { max-width: 100%; min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-gutter: stable; width: 100%; }
         .campaign-logs-table-wrap:focus-visible { outline: 2px solid var(--co-purple, #7a3cff); outline-offset: -2px; }
-        .campaign-logs-table { margin: 0; min-width: 1050px; width: 100%; }
+        .campaign-logs-table { margin: 0; min-width: 1100px; table-layout: fixed; width: 100%; }
+        .campaign-logs-table th:nth-child(1) { width: 7%; }
+        .campaign-logs-table th:nth-child(2) { width: 6%; }
+        .campaign-logs-table th:nth-child(3) { width: 21%; }
+        .campaign-logs-table th:nth-child(4) { width: 8%; }
+        .campaign-logs-table th:nth-child(5) { width: 12%; }
+        .campaign-logs-table th:nth-child(6) { width: 8%; }
+        .campaign-logs-table th:nth-child(7) { width: 17%; }
+        .campaign-logs-table th:nth-child(8) { width: 21%; }
+        .campaign-logs-table tbody td:nth-child(3) { overflow-wrap: anywhere; }
         .campaign-logs-table thead th { background: color-mix(in srgb, var(--logs-surface) 82%, var(--co-page, #f4f3fb)); border-bottom: 1px solid var(--logs-border); color: var(--logs-muted); font-size: .7rem; font-weight: 750; letter-spacing: .06em; padding: .78rem .85rem; text-transform: uppercase; white-space: nowrap; }
         .campaign-logs-table tbody td { border-top: 1px solid var(--logs-border); color: var(--logs-ink); padding: .8rem .85rem; vertical-align: middle; }
         .campaign-logs-table tbody tr:hover { background: color-mix(in srgb, var(--co-purple, #7a3cff) 4%, var(--logs-surface)); }
@@ -28,11 +37,11 @@
         .campaign-log-status::before { background: currentColor; border-radius: 50%; content: ''; height: .42rem; width: .42rem; }
         .campaign-log-counts { align-items: center; display: flex; flex-wrap: nowrap; gap: .35rem; min-width: max-content; }
         .campaign-log-counts form { display: inline-flex; margin: 0; }
-        .campaign-log-action { align-items: center; background: color-mix(in srgb, var(--co-blue, #4888f4) 9%, var(--logs-surface)); border: 1px solid color-mix(in srgb, var(--co-blue, #4888f4) 23%, var(--logs-border)); border-radius: .5rem; color: var(--co-blue, #3978e8); display: inline-flex; font-size: .72rem; font-weight: 750; gap: .3rem; justify-content: center; min-height: 2rem; padding: .3rem .5rem; text-decoration: none; transition: background-color .15s ease, border-color .15s ease, transform .15s ease; }
+        .campaign-log-action { align-items: center; background: color-mix(in srgb, var(--co-blue, #4888f4) 9%, var(--logs-surface)); border: 1px solid color-mix(in srgb, var(--co-blue, #4888f4) 23%, var(--logs-border)); border-radius: .5rem; color: var(--co-blue, #3978e8); display: inline-flex; font-size: .66rem; font-weight: 750; gap: .22rem; justify-content: center; min-height: 2rem; padding: .25rem .32rem; text-decoration: none; transition: background-color .15s ease, border-color .15s ease, transform .15s ease; }
         .campaign-log-action:hover { background: color-mix(in srgb, var(--co-blue, #4888f4) 16%, var(--logs-surface)); color: var(--co-blue, #3978e8); text-decoration: none; transform: translateY(-1px); }
         .campaign-log-action:focus-visible, .campaign-log-restrict:focus-visible, .campaign-logs-apply:focus-visible { box-shadow: 0 0 0 .2rem color-mix(in srgb, var(--co-purple, #7a3cff) 30%, transparent); outline: 0; }
         .campaign-log-action span { font-variant-numeric: tabular-nums; }
-        .campaign-log-restrict { border: 1px solid #e55a69; border-radius: .5rem; color: #c43c4b; display: inline-flex; font-size: .7rem; font-weight: 750; justify-content: center; min-height: 2rem; padding: .3rem .6rem; white-space: nowrap; }
+        .campaign-log-restrict { border: 1px solid #e55a69; border-radius: .5rem; color: #c43c4b; display: inline-flex; font-size: .66rem; font-weight: 750; justify-content: center; min-height: 2rem; padding: .25rem .4rem; white-space: nowrap; }
         .campaign-log-restrict.is-restricted { background: #e34e5e; color: #fff; }
         .campaign-log-restrict.is-unrestricted { background: color-mix(in srgb, #e34e5e 8%, var(--logs-surface)); }
         .campaign-log-restrict:disabled { cursor: not-allowed; opacity: .48; }
@@ -41,7 +50,7 @@
         .campaign-logs-footer .pagination { margin: 0; }
         .campaign-logs-empty { color: var(--logs-muted); padding: 3rem 1rem !important; text-align: center; }
         .campaign-logs-empty i { color: var(--co-purple, #7a3cff); display: block; font-size: 1.4rem; margin-bottom: .55rem; }
-        @media (max-width: 1100px) {
+        @media (max-width: 1450px) {
             .campaign-logs-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .campaign-logs-field.search-field { grid-column: 1 / -1; }
             .campaign-logs-filter-actions { align-self: end; }

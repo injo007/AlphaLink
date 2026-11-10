@@ -102,7 +102,7 @@ The campaign register follows the supplied Command OS campaign reference while r
 
 ### Campaign Logs register — 2026-11-10
 
-Campaign Logs shares the campaign register's quiet Command OS surfaces and compact data typography. Keep its date/search/page-size controls wrapped inside the page width. Preserve all eight columns in a keyboard-focusable horizontal scroll region when needed, and keep Tests, Updates, Sends, and Restrict together on one action row. Status always includes readable text; history pages remain concise, privacy-safe summaries.
+Campaign Logs shares the campaign register's quiet Command OS surfaces and compact data typography. Keep its date/search/page-size controls wrapped inside the page width in a two-column filter grid, with Search spanning the grid. Preserve all eight columns in a keyboard-focusable horizontal scroll region when needed. Keep Tests, Updates, Sends, and Restrict together in the Actions cell; use one row when space permits and wrap within the cell at narrow widths. Status always includes readable text; history pages remain concise, privacy-safe summaries.
 
 ### Provider Network navigation — 2026-11-10
 

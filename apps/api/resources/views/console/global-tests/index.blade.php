@@ -19,7 +19,7 @@
         <button type="button" role="menuitem" data-quick-action="pmta-panel"><span>PMTA PANEL</span><i class="fas fa-server" aria-hidden="true"></i></button>
     </div>
 
-    <div class="command-os-report-page" id="global-tests-page"
+    <div class="command-os-report-page campaign-create-page" id="global-tests-page"
          data-test-url="{{ route('console.global-tests.test', $workspace->id) }}"
          data-catalog-url="{{ route('console.global-tests.catalog', $workspace->id) }}"
          data-encode-url="{{ route('console.global-tests.encoding', $workspace->id) }}"
@@ -30,52 +30,55 @@
          data-pmta-admin-port="{{ $pmtaAdminPort }}">
 
         <!-- 1. Hero Header -->
-        <header class="command-os-report-hero mb-4">
-            <div class="command-os-report-hero-left">
-                <div class="command-os-report-hero-icon" aria-hidden="true">
-                    <i class="fas fa-vial"></i>
-                </div>
-                <div>
-                    <div class="command-os-report-hero-eyebrow">OPERATIONS TOOLKIT // LIVE DELIVERABILITY VALIDATION</div>
-                    <h1 class="command-os-report-hero-title">GLOBAL TESTS</h1>
-                    <p class="command-os-report-hero-desc">Dispatch live deliverability test emails across configured MTA servers, test addresses, and message headers.</p>
-                </div>
+        <div class="campaign-create-hero mb-3">
+            <div class="campaign-create-hero-icon" aria-hidden="true">
+                <i class="fas fa-vial"></i>
             </div>
-            <div class="command-os-report-hero-right">
-                <div class="command-os-report-hero-meta">
-                    <a class="btn-command-action" href="{{ route('console.global-tests.histories', $workspace->id) }}">
-                        <i class="fas fa-history mr-1" aria-hidden="true"></i> View Histories
-                    </a>
-                </div>
+            <div class="campaign-create-hero-copy">
+                <span class="campaign-register-eyebrow">OPERATIONS TOOLKIT // LIVE DELIVERABILITY VALIDATION</span>
+                <h1>Global Tests</h1>
+                <p>Dispatch live deliverability test emails across configured MTA servers, test addresses, and message headers.</p>
             </div>
-        </header>
+        </div>
 
-        <!-- 2. Main Form Card -->
-        <section class="command-os-table-card p-4" id="global-tests-block">
-            <div>
-                @unless ($senderConfigured)
-                    <div class="alert alert-warning mb-3" role="status" style="border-radius: 12px;">
-                        <i class="fas fa-exclamation-triangle mr-1"></i> AlphaLink’s Global Test sender is not configured. The form is ready, but sending stays unavailable until an AlphaLink sender is installed.
-                    </div>
-                @endunless
+        <!-- 2. Stage Track -->
+        <nav class="campaign-stage-track mb-4" aria-label="Global Test stages">
+            <ol>
+                <li class="is-complete" data-step="1"><span><span class="step-badge">1</span><strong>Setup</strong></span><small>Recipients &amp; path</small></li>
+                <li class="is-current" data-step="2"><span><span class="step-badge">2</span><strong>Headers &amp; Tags</strong></span><small>MIME &amp; tokens</small></li>
+                <li data-step="3"><span><span class="step-badge">3</span><strong>Content</strong></span><small>HTML &amp; test body</small></li>
+                <li data-step="4"><span><span class="step-badge">4</span><strong>Delivery</strong></span><small>Servers &amp; dispatch</small></li>
+            </ol>
+        </nav>
 
-                <div class="d-flex align-items-center flex-wrap p-3 mb-4" role="note" style="background: rgba(139, 92, 246, 0.05); border: 1px solid var(--command-os-border, rgba(139, 92, 246, 0.15)); border-radius: 12px; gap: 6px;">
-                    <strong class="mr-2" style="font-size: 0.75rem; letter-spacing: 0.05em; color: var(--command-os-text, #1e293b);"><i class="fas fa-tags mr-1 text-purple"></i> USABLE TAGS:</strong>
-                    <button type="button" class="global-tag-button" data-insert-tag="[server]">[server]</button>
-                    <button type="button" class="global-tag-button" data-insert-tag="[main_domain]">[main_domain]</button>
-                    <button type="button" class="global-tag-button" data-insert-tag="[ip]">[ip]</button>
-                    <button type="button" class="global-tag-button" data-insert-tag="[domain]">[domain]</button>
-                    <button type="button" class="global-tag-button" data-insert-tag="[rdns]">[rdns]</button>
-                    <button type="button" class="global-tag-button" data-insert-tag="[to]">[to]</button>
-                    <button type="button" class="global-tag-button" data-insert-tag="[date]">[date]</button>
-                    <button type="button" class="global-tag-button" data-insert-tag="[name]">[name]</button>
-                    <button type="button" class="global-tag-button" data-insert-tag="[rnd]">[rnd]</button>
-                    <button type="button" class="global-tag-button" data-insert-tag="[rnda_10]">[rnda_10]</button>
-                    <button type="button" class="global-tag-button" data-insert-tag="[text:a|b|c]">[text:a|b|c]</button>
-                    <button type="button" class="global-tag-help ml-auto" id="show-global-tags" title="Show tag meanings" aria-label="Show tag meanings"><i class="fas fa-question-circle text-purple" aria-hidden="true"></i></button>
-                </div>
+        <!-- 3. Two-Column Composer Layout -->
+        <div class="campaign-create-layout">
+            <main class="campaign-create-main">
+                <section class="command-os-table-card p-4" id="global-tests-block">
+                    <div>
+                        @unless ($senderConfigured)
+                            <div class="alert alert-warning mb-3" role="status" style="border-radius: 12px;">
+                                <i class="fas fa-exclamation-triangle mr-1"></i> AlphaLink’s Global Test sender is not configured. The form is ready, but sending stays unavailable until an AlphaLink sender is installed.
+                            </div>
+                        @endunless
 
-                <form id="global-test-form" method="post" action="{{ route('console.global-tests.test', $workspace->id) }}" novalidate>
+                        <div class="d-flex align-items-center flex-wrap p-3 mb-4" role="note" style="background: rgba(139, 92, 246, 0.05); border: 1px solid var(--command-os-border, rgba(139, 92, 246, 0.15)); border-radius: 12px; gap: 6px;">
+                            <strong class="mr-2" style="font-size: 0.75rem; letter-spacing: 0.05em; color: var(--command-os-text, #1e293b);"><i class="fas fa-tags mr-1 text-purple"></i> USABLE TAGS:</strong>
+                            <button type="button" class="global-tag-button" data-insert-tag="[server]">[server]</button>
+                            <button type="button" class="global-tag-button" data-insert-tag="[main_domain]">[main_domain]</button>
+                            <button type="button" class="global-tag-button" data-insert-tag="[ip]">[ip]</button>
+                            <button type="button" class="global-tag-button" data-insert-tag="[domain]">[domain]</button>
+                            <button type="button" class="global-tag-button" data-insert-tag="[rdns]">[rdns]</button>
+                            <button type="button" class="global-tag-button" data-insert-tag="[to]">[to]</button>
+                            <button type="button" class="global-tag-button" data-insert-tag="[date]">[date]</button>
+                            <button type="button" class="global-tag-button" data-insert-tag="[name]">[name]</button>
+                            <button type="button" class="global-tag-button" data-insert-tag="[rnd]">[rnd]</button>
+                            <button type="button" class="global-tag-button" data-insert-tag="[rnda_10]">[rnda_10]</button>
+                            <button type="button" class="global-tag-button" data-insert-tag="[text:a|b|c]">[text:a|b|c]</button>
+                            <button type="button" class="global-tag-help ml-auto" id="show-global-tags" title="Show tag meanings" aria-label="Show tag meanings"><i class="fas fa-question-circle text-purple" aria-hidden="true"></i></button>
+                        </div>
+
+                        <form id="global-test-form" method="post" action="{{ route('console.global-tests.test', $workspace->id) }}" novalidate>
                     @csrf
                     <div class="form-row">
                         <div class="form-group col-md-4">
@@ -263,8 +266,54 @@
                     <pre id="global-test-output" class="global-test-output"></pre>
                     <a id="global-test-log-link" href="#" hidden>Open saved history</a>
                 </section>
-            </div>
-        </section>
+                    </div>
+                </section>
+            </main>
+
+            <!-- 4. Summary & Quick Action Sidebar -->
+            <aside class="campaign-create-summary" id="global-test-summary">
+                <section class="campaign-summary-card">
+                    <div class="campaign-summary-heading">
+                        <span class="campaign-summary-icon" aria-hidden="true"><i class="fas fa-vial"></i></span>
+                        <div><h2>Test Summary</h2><p>Review deliverability parameters</p></div>
+                    </div>
+                    <ul class="campaign-summary-checklist">
+                        <li><span><i class="fas fa-at mr-1 text-purple"></i> Return Path</span><strong id="global-summary-path">Configured</strong></li>
+                        <li><span><i class="fas fa-paper-plane mr-1 text-purple"></i> Email Test</span><strong id="global-summary-emails">Ready</strong></li>
+                        <li><span><i class="fas fa-server mr-1 text-purple"></i> Servers &amp; IPs</span><strong id="global-summary-routes">Selected</strong></li>
+                        <li><span><i class="fas fa-envelope mr-1 text-purple"></i> Headers</span><strong id="global-summary-headers">Ready</strong></li>
+                        <li><span><i class="fas fa-code mr-1 text-purple"></i> HTML Body</span><strong id="global-summary-body">Ready</strong></li>
+                    </ul>
+                </section>
+
+                <section class="campaign-summary-card">
+                    <h2>Quick Stats</h2>
+                    <div class="campaign-summary-stats">
+                        <div><i class="fas fa-paper-plane" aria-hidden="true"></i><strong id="global-quick-recipients">1</strong><span>Recipients</span></div>
+                        <div><i class="fas fa-server" aria-hidden="true"></i><strong id="global-quick-servers">{{ count($servers) }}</strong><span>Servers</span></div>
+                        <div><i class="fas fa-network-wired" aria-hidden="true"></i><strong id="global-quick-vmtas">0</strong><span>VMTAs</span></div>
+                    </div>
+                </section>
+
+                <section class="campaign-summary-card campaign-readiness-card">
+                    <div class="campaign-readiness-heading"><h2>Test Readiness</h2><strong id="global-readiness-pct">100%</strong></div>
+                    <div class="campaign-readiness-track" role="progressbar" aria-label="Global test readiness" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
+                        <span id="global-readiness-bar" style="width: 100%;"></span>
+                    </div>
+                    <small id="global-readiness-desc">Deliverability dispatch engine ready</small>
+                </section>
+
+                <section class="campaign-summary-actions">
+                    <p>Dispatch live deliverability test emails across target servers.</p>
+                    <button class="btn btn-primary campaign-create-submit" id="global-summary-submit-btn" type="button" onclick="document.getElementById('send-global-test').click()">
+                        <i class="fas fa-vial mr-1"></i> SEND GLOBAL TEST
+                    </button>
+                    <a class="btn btn-alt-secondary w-100 mt-2" href="{{ route('console.global-tests.histories', $workspace->id) }}" style="border-radius: 10px; font-weight: 700; font-size: 0.8125rem;">
+                        <i class="fas fa-history mr-1"></i> View Test Histories
+                    </a>
+                </section>
+            </aside>
+        </div>
     </div>
 
     <dialog id="global-email-dialog" class="global-dialog" aria-labelledby="global-email-title">

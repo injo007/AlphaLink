@@ -54,7 +54,27 @@
 
 @section('content')
 @if ($isWarmup)
-<div class="warmup-composer-shell">
+<div class="campaign-create-page warmup-create-page">
+    <div class="campaign-create-hero mb-3">
+        <div class="campaign-create-hero-icon" aria-hidden="true">
+            <i class="fas fa-fire"></i>
+        </div>
+        <div class="campaign-create-hero-copy">
+            <span class="campaign-register-eyebrow">WARMUP OPERATIONS // SEED INFRASTRUCTURE</span>
+            <h1>{{ $draft ? 'Edit Warmup' : 'New Warmup' }}</h1>
+            <p>Configure reputation ramp-up, seed lists, PMTA routing, and pacing schedules.</p>
+        </div>
+    </div>
+    <nav class="campaign-stage-track mb-4" aria-label="Warmup stages">
+        <ol>
+            <li class="is-complete" data-step="1"><span><span class="step-badge">1</span><strong>Targeting</strong></span><small>Seeds &amp; audiences</small></li>
+            <li class="is-current" data-step="2"><span><span class="step-badge">2</span><strong>Configuration</strong></span><small>Headers &amp; message</small></li>
+            <li data-step="3"><span><span class="step-badge">3</span><strong>Sending</strong></span><small>Servers &amp; pacing</small></li>
+            <li data-step="4"><span><span class="step-badge">4</span><strong>Review</strong></span><small>Summary &amp; launch</small></li>
+        </ol>
+    </nav>
+    <div class="campaign-create-layout">
+        <main class="campaign-create-main">
 @endif
 <div class="quick-nav" aria-label="{{ $isDrop ? 'Drop actions' : 'Warmup actions' }}">
     <button class="quick-nav-trigger" type="button" aria-label="Open page actions" aria-expanded="false" aria-controls="mailer-page-actions"><i class="fas {{ $isDrop ? 'fa-bolt' : 'fa-fire' }}"></i><span></span></button>
@@ -289,6 +309,44 @@
     </div>
 </section>
 @if ($isWarmup)
+        </main>
+        <aside class="campaign-create-summary" id="warmup-summary">
+            <section class="campaign-summary-card">
+                <div class="campaign-summary-heading">
+                    <span class="campaign-summary-icon" aria-hidden="true"><i class="fas fa-fire"></i></span>
+                    <div><h2>Warmup Summary</h2><p>Review warmup parameters</p></div>
+                </div>
+                <ul class="campaign-summary-checklist">
+                    <li><span><i class="fas fa-seedling mr-1 text-purple"></i> Seed Accounts</span><strong id="warmup-summary-seeds-status">{{ count(old('seed_list_ids', $content['seed_list_ids'] ?? [])) > 0 ? 'Selected' : 'Pending' }}</strong></li>
+                    <li><span><i class="fas fa-server mr-1 text-purple"></i> Servers &amp; IPs</span><strong id="warmup-summary-servers-status">{{ count($selectedServers) > 0 ? 'Selected' : 'Pending' }}</strong></li>
+                    <li><span><i class="fas fa-envelope mr-1 text-purple"></i> Headers &amp; Body</span><strong id="warmup-summary-body-status">Configured</strong></li>
+                    <li><span><i class="fas fa-clock mr-1 text-purple"></i> Pacing &amp; Delay</span><strong id="warmup-summary-pacing-status">Configured</strong></li>
+                    <li><span><i class="fas fa-layer-group mr-1 text-purple"></i> Placeholders</span><strong class="is-optional">Optional</strong></li>
+                </ul>
+            </section>
+            <section class="campaign-summary-card">
+                <h2>Quick Stats</h2>
+                <div class="campaign-summary-stats">
+                    <div><i class="fas fa-seedling" aria-hidden="true"></i><strong id="warmup-quick-seeds">{{ number_format($seedLists->whereIn('id', old('seed_list_ids', $content['seed_list_ids'] ?? []))->sum('emails_count')) }}</strong><span>Seeds</span></div>
+                    <div><i class="fas fa-server" aria-hidden="true"></i><strong id="warmup-quick-servers">{{ count($selectedServers) }}</strong><span>Servers</span></div>
+                    <div><i class="fas fa-network-wired" aria-hidden="true"></i><strong id="warmup-quick-routes">{{ count($selectedIps) }}</strong><span>Routes</span></div>
+                </div>
+            </section>
+            <section class="campaign-summary-card campaign-readiness-card">
+                <div class="campaign-readiness-heading"><h2>Warmup Readiness</h2><strong id="warmup-readiness-pct">100%</strong></div>
+                <div class="campaign-readiness-track" role="progressbar" aria-label="Warmup readiness" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
+                    <span id="warmup-readiness-bar" style="width: 100%;"></span>
+                </div>
+                <small id="warmup-readiness-desc">All required configuration valid</small>
+            </section>
+            <section class="campaign-summary-actions">
+                <p>{{ $draft ? 'Saving creates a new warmup revision.' : 'Creating saves the warmup draft for dispatch.' }}</p>
+                <button class="btn btn-primary campaign-create-submit" id="warmup-summary-save-btn" type="button" onclick="document.getElementById('save-mailer-draft').click()">
+                    <i class="fas fa-save mr-1"></i> {{ $draft ? 'SAVE WARMUP' : 'CREATE WARMUP' }}
+                </button>
+            </section>
+        </aside>
+    </div>
 </div>
 @endif
 @endsection

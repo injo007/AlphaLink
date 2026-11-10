@@ -16,7 +16,13 @@
         .campaign-logs-field { display: flex; flex-direction: column; gap: .3rem; min-width: 0; }
         .campaign-logs-field.search-field { grid-column: 1 / -1; }
         .campaign-logs-field label { color: var(--logs-muted); font-size: .72rem; font-weight: 700; letter-spacing: .045em; margin: 0; text-transform: uppercase; }
+        .campaign-logs-field.operator-filter-toggle { justify-content: end; }
+        .campaign-logs-operator-switch { align-items: center; display: flex; gap: .55rem; min-height: 2.55rem; }
+        .campaign-logs-operator-switch input { accent-color: var(--co-purple, #7a3cff); height: 1rem; min-height: 1rem; width: 1rem; }
+        .campaign-logs-operator-switch span { color: var(--logs-ink); font-size: .75rem; font-weight: 700; letter-spacing: 0; text-transform: none; }
+        .campaign-logs-operator-note { border: 1px solid color-mix(in srgb, var(--co-blue, #4888f4) 25%, var(--logs-border)); border-radius: .6rem; color: var(--logs-ink); font-size: .75rem; margin: .85rem 0 0; padding: .6rem .75rem; background: color-mix(in srgb, var(--co-blue, #4888f4) 7%, var(--logs-surface)); }
         .campaign-logs-field input, .campaign-logs-field select { background: var(--logs-surface); border: 1px solid var(--logs-border); border-radius: .6rem; color: var(--logs-ink); min-height: 2.55rem; padding: .45rem .7rem; width: 100%; }
+        .campaign-logs-field.operator-filter-toggle .campaign-logs-operator-switch input[type="checkbox"] { accent-color: var(--co-purple, #7a3cff); border: 0; flex: 0 0 1rem; height: 1rem; min-height: 1rem; padding: 0; width: 1rem; }
         .campaign-logs-field input:focus, .campaign-logs-field select:focus { border-color: var(--co-purple, #7a3cff); box-shadow: 0 0 0 .18rem color-mix(in srgb, var(--co-purple, #7a3cff) 18%, transparent); outline: 0; }
         .campaign-logs-table-wrap { max-width: 100%; min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-gutter: stable; width: 100%; }
         .campaign-logs-table-wrap:focus-visible { outline: 2px solid var(--co-purple, #7a3cff); outline-offset: -2px; }
@@ -165,11 +171,33 @@
                         @endforeach
                     </select>
                 </div>
+                @if ($isAdmin)
+                    <div class="campaign-logs-field operator-filter-toggle">
+                        <label class="campaign-logs-operator-switch" for="campaign-logs-operator-campaigns">
+                            <input id="campaign-logs-operator-campaigns" name="view_operator_campaigns" type="checkbox" value="1" @checked($showOperatorCampaigns) onchange="this.form.submit()">
+                            <span>Show operator campaigns</span>
+                        </label>
+                    </div>
+                    @if ($showOperatorCampaigns)
+                        <div class="campaign-logs-field">
+                            <label for="campaign-logs-operator-select">Operator</label>
+                            <select id="campaign-logs-operator-select" name="operator_id" aria-label="Select operator" onchange="this.form.submit()">
+                                <option value="">All operators</option>
+                                @foreach ($operatorUsers as $operator)
+                                    <option value="{{ $operator->id }}" @selected($selectedOperatorId === (int) $operator->id)>{{ $operator->name ?: $operator->username }}{{ ! $operator->is_active ? ' (Inactive)' : '' }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    @endif
+                @endif
                 <div class="campaign-logs-filter-actions">
                     <button class="btn btn-sm btn-primary campaign-logs-apply" type="submit"><i class="fas fa-filter mr-1" aria-hidden="true"></i>Apply filters</button>
                     <a class="btn btn-sm btn-alt-secondary" href="{{ route('console.campaign-logs.index', $workspace->id) }}">Reset</a>
                 </div>
             </form>
+            @if ($showOperatorCampaigns)
+                <p class="campaign-logs-operator-note" role="status">Read-only campaign history for {{ $selectedOperator ? ($selectedOperator->name ?: $selectedOperator->username) : 'all workspace operators' }}.</p>
+            @endif
         </div>
 
         @if (session('status'))

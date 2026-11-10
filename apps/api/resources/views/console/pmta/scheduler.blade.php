@@ -5,15 +5,34 @@
 @push('styles')
 <link rel="stylesheet" href="{{ asset('vendor/select2/4.0.13/select2.min.css') }}">
 <style>
+    .pmta-scheduler-col {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+    }
+    .pmta-scheduler-label-row {
+        min-height: 24px;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+    }
+    .pmta-scheduler-label-row .command-form-label {
+        margin-bottom: 0 !important;
+        font-size: 0.8125rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+    }
     .pmta-schedule-tags + .select2-container { width: 100% !important; }
     .pmta-schedule-tags + .select2-container .select2-selection--multiple {
-        min-height: 38px !important;
-        height: 38px !important;
-        max-height: 38px !important;
+        min-height: 40px !important;
+        height: 40px !important;
+        max-height: 40px !important;
         background: var(--command-os-card-bg, #ffffff) !important;
         border: 1px solid var(--command-os-border, rgba(99, 102, 241, 0.18)) !important;
         border-radius: 10px !important;
-        padding: 2px 8px !important;
+        padding: 0 8px !important;
         display: flex !important;
         align-items: center !important;
         overflow-x: auto !important;
@@ -107,20 +126,22 @@
             </h3>
         </div>
 
-        <div class="row align-items-end">
-            <div class="col-sm-12 col-md-3 mb-3">
-                <label class="command-form-label" for="pmta-schedule-servers">
-                    <i class="fas fa-server mr-1 text-purple"></i> SERVERS:
-                </label>
+        <div class="row align-items-start">
+            <div class="col-sm-12 col-md-3 mb-3 pmta-scheduler-col">
+                <div class="pmta-scheduler-label-row">
+                    <label class="command-form-label" for="pmta-schedule-servers">
+                        <i class="fas fa-server mr-1 text-purple"></i> SERVERS:
+                    </label>
+                </div>
                 <select id="pmta-schedule-servers" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 5" multiple title="Select Servers">
                     @foreach ($servers as $server)
                         <option value="{{ $server->id }}">{{ $server->name }} | {{ $server->ip_address }}</option>
                     @endforeach
                 </select>
             </div>
-            <div class="col-sm-12 col-md-3 mb-3">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <label class="command-form-label mb-0" for="pmta-schedule-tags">
+            <div class="col-sm-12 col-md-3 mb-3 pmta-scheduler-col">
+                <div class="pmta-scheduler-label-row">
+                    <label class="command-form-label" for="pmta-schedule-tags">
                         <i class="fas fa-tags mr-1 text-purple"></i> TAGS (DOMAIN/VMTA):
                     </label>
                     <fieldset class="border-0 p-0 m-0 d-inline-flex align-items-center" style="gap: 10px;" role="radiogroup" aria-labelledby="pmta-schedule-queue-label">
@@ -139,10 +160,12 @@
                     <option value="*/*" selected>*/*</option>
                 </select>
             </div>
-            <div class="col-sm-12 col-md-3 mb-3">
-                <label class="command-form-label" for="pmta-schedule-action">
-                    <i class="fas fa-play mr-1 text-purple"></i> ACTION:
-                </label>
+            <div class="col-sm-12 col-md-3 mb-3 pmta-scheduler-col">
+                <div class="pmta-scheduler-label-row">
+                    <label class="command-form-label" for="pmta-schedule-action">
+                        <i class="fas fa-play mr-1 text-purple"></i> ACTION:
+                    </label>
+                </div>
                 <select id="pmta-schedule-action" class="form-control selectpicker" data-live-search="true">
                     <option value="pause">PAUSE</option>
                     <option value="resume">RESUME</option>
@@ -151,10 +174,12 @@
                     <option value="schedule">SCHEDULE</option>
                 </select>
             </div>
-            <div class="col-sm-12 col-md-3 mb-3">
-                <label class="command-form-label" for="pmta-schedule-frequency">
-                    <i class="fas fa-redo mr-1 text-purple"></i> FREQUENCY:
-                </label>
+            <div class="col-sm-12 col-md-3 mb-3 pmta-scheduler-col">
+                <div class="pmta-scheduler-label-row">
+                    <label class="command-form-label" for="pmta-schedule-frequency">
+                        <i class="fas fa-redo mr-1 text-purple"></i> FREQUENCY:
+                    </label>
+                </div>
                 <select id="pmta-schedule-frequency" class="form-control selectpicker" data-live-search="true" data-size="6">
                     @foreach ($frequencies as $value => $label)
                         <option value="{{ $value }}">{{ $label }}</option>

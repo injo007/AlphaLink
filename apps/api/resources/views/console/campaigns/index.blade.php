@@ -9,23 +9,43 @@
                 <span class="campaign-register-heading-icon" aria-hidden="true"><i class="fas fa-paper-plane"></i></span>
                 <div class="campaign-register-heading-copy">
                     <span class="campaign-register-eyebrow">EMAIL OPERATIONS</span>
-                    <h1 class="block-title">My Campaigns</h1>
-                    <p>Review campaigns, delivery progress, and send readiness.</p>
+                    <h1 class="block-title">{{ $showOperatorCampaigns ? 'Operator Campaigns' : 'My Campaigns' }}</h1>
+                    <p>{{ $showOperatorCampaigns ? 'Review campaign activity across workspace operators.' : 'Review campaigns, delivery progress, and send readiness.' }}</p>
                 </div>
             </div>
             <span class="campaign-hero-illustration" aria-hidden="true"><i class="fas fa-paper-plane"></i></span>
             <div class="block-options d-flex align-items-center">
-                <form method="GET" action="{{ route('console.campaigns.index', $workspace->id) }}" aria-label="Campaign availability filter">
+                <form method="GET" action="{{ route('console.campaigns.index', $workspace->id) }}" class="campaign-availability-controls" aria-label="Campaign availability filter">
                     <input type="hidden" name="from" value="{{ $from->toDateString() }}">
                     <input type="hidden" name="to" value="{{ $to->toDateString() }}">
                     @if ($search !== '')
                         <input type="hidden" name="q" value="{{ $search }}">
                     @endif
                     <input type="hidden" name="per_page" value="{{ $perPage }}">
+                    @if ($activeOnly)
+                        <input type="hidden" name="send_state" value="active">
+                    @endif
                     <div class="custom-control custom-switch custom-control-danger custom-control-inline mb-0">
                         <input id="campaign-disabled" name="disabled" value="1" type="checkbox" class="custom-control-input" @checked($showDisabled) onchange="this.form.submit()">
                         <label class="custom-control-label" for="campaign-disabled">SHOW DISABLED</label>
                     </div>
+                    @if ($isAdmin)
+                        <div class="campaign-operator-filter" aria-label="Operator campaign filter">
+                            <label class="custom-control custom-switch campaign-operator-toggle" for="campaign-operator-campaigns">
+                                <input id="campaign-operator-campaigns" name="view_operator_campaigns" value="1" type="checkbox" class="custom-control-input" @checked($showOperatorCampaigns) onchange="this.form.submit()">
+                                <span class="custom-control-label">Show operator campaigns</span>
+                            </label>
+                            @if ($showOperatorCampaigns)
+                                <label class="sr-only" for="campaign-operator-select">Select operator</label>
+                                <select id="campaign-operator-select" class="form-control form-control-sm" name="operator_id" aria-label="Select operator" onchange="this.form.submit()">
+                                    <option value="">All operators</option>
+                                    @foreach ($operatorUsers as $operator)
+                                        <option value="{{ $operator->id }}" @selected($selectedOperatorId === (int) $operator->id)>{{ $operator->name ?: $operator->username }}{{ ! $operator->is_active ? ' (Inactive)' : '' }}</option>
+                                    @endforeach
+                                </select>
+                            @endif
+                        </div>
+                    @endif
                 </form>
                 <button type="button" class="btn-block-option" data-toggle="block-option" data-action="fullscreen_toggle" aria-label="Toggle campaign register fullscreen">
                     <i class="si si-size-fullscreen" aria-hidden="true"></i>
@@ -48,7 +68,11 @@
             @endif
             <div id="campaign-auto-test-feedback" class="alert d-none" role="status" aria-live="polite"></div>
 
-            <div class="campaign-workspace-grid">
+            @if ($showOperatorCampaigns)
+                <p class="campaign-operator-view-note" role="status"><i class="fas fa-eye" aria-hidden="true"></i> Read-only view for {{ $selectedOperator ? ($selectedOperator->name ?: $selectedOperator->username) : 'all workspace operators' }}. Campaign actions stay with the campaign owner/operator.</p>
+            @endif
+
+            <div class="campaign-workspace-grid {{ $showOperatorCampaigns ? 'campaign-workspace-grid-operator-view' : '' }}">
                 <main class="campaign-register-main" aria-label="Campaign operations">
                     <section class="campaign-overview" aria-label="Campaign overview">
                         <article class="campaign-overview-card campaign-overview-total">
@@ -84,6 +108,15 @@
                         @if ($showDisabled)
                             <input type="hidden" name="disabled" value="1">
                         @endif
+                        @if ($activeOnly)
+                            <input type="hidden" name="send_state" value="active">
+                        @endif
+                        @if ($showOperatorCampaigns)
+                            <input type="hidden" name="view_operator_campaigns" value="1">
+                            @if ($selectedOperatorId)
+                                <input type="hidden" name="operator_id" value="{{ $selectedOperatorId }}">
+                            @endif
+                        @endif
                         <label class="sr-only" for="campaign-per-page">Rows per page</label>
                         <select id="campaign-per-page" name="per_page" class="form-control form-control-sm" onchange="this.form.submit()" aria-label="Show campaign rows">
                             @foreach ([20, 50, 100] as $pageSize)
@@ -94,8 +127,15 @@
                     @if ($canOperateCampaigns)
                         <a class="btn btn-sm btn-alt-primary campaign-register-create" href="{{ route('console.campaigns.create', $workspace->id) }}" title="Create campaign"><i class="fas fa-plus" aria-hidden="true"></i><span>New campaign</span></a>
                     @endif
-                    <a class="btn btn-sm campaign-register-active {{ $activeOnly ? 'btn-primary' : 'btn-alt-secondary' }}" href="{{ $activeOnly ? route('console.campaigns.index', $workspace->id) : route('console.campaigns.index', [$workspace->id, 'send_state' => 'active']) }}" title="{{ $activeOnly ? 'Show all campaigns' : 'Show active campaign sends' }}" aria-label="{{ $activeOnly ? 'Show all campaigns' : 'Show active campaign sends' }}"><i class="fas fa-paper-plane mr-1" aria-hidden="true"></i>{{ $activeOnly ? 'All campaigns' : 'Active sends' }} <span class="badge badge-light ml-1">{{ $activeSendCount }}</span></a>
-                    @if ($canOperateCampaigns)
+                    @php
+                        $campaignBrowseQuery = request()->except(['page', 'send_state']);
+                        if (! $activeOnly) {
+                            $campaignBrowseQuery['send_state'] = 'active';
+                        }
+                        $campaignBrowseUrl = route('console.campaigns.index', array_merge([$workspace->id], $campaignBrowseQuery));
+                    @endphp
+                    <a class="btn btn-sm campaign-register-active {{ $activeOnly ? 'btn-primary' : 'btn-alt-secondary' }}" href="{{ $campaignBrowseUrl }}" title="{{ $activeOnly ? 'Show all campaigns' : 'Show active campaign sends' }}" aria-label="{{ $activeOnly ? 'Show all campaigns' : 'Show active campaign sends' }}"><i class="fas fa-paper-plane mr-1" aria-hidden="true"></i>{{ $activeOnly ? 'All campaigns' : 'Active sends' }} <span class="badge badge-light ml-1">{{ $activeSendCount }}</span></a>
+                    @if ($canManageVisibleCampaigns)
                         <button class="btn btn-sm btn-alt-danger campaign-register-icon-action" type="submit" form="campaign-bulk-form" id="campaign-bulk-disable-open" disabled title="Select campaigns to disable" aria-label="Disable selected campaigns"><i class="fas fa-trash" aria-hidden="true"></i></button>
                     @endif
                     <a class="btn btn-sm btn-alt-secondary campaign-register-icon-action" href="{{ request()->fullUrl() }}" title="Reload campaign register" aria-label="Reload campaign register"><i class="fas fa-sync-alt" aria-hidden="true"></i></a>
@@ -104,6 +144,15 @@
                     <input type="hidden" name="per_page" value="{{ $perPage }}">
                     @if ($showDisabled)
                         <input type="hidden" name="disabled" value="1">
+                    @endif
+                    @if ($activeOnly)
+                        <input type="hidden" name="send_state" value="active">
+                    @endif
+                    @if ($showOperatorCampaigns)
+                        <input type="hidden" name="view_operator_campaigns" value="1">
+                        @if ($selectedOperatorId)
+                            <input type="hidden" name="operator_id" value="{{ $selectedOperatorId }}">
+                        @endif
                     @endif
                     <label for="analytics-dates" class="mr-1">Date</label>
                     <input id="analytics-dates" type="text" class="form-control form-control-sm mr-2 campaign-date-range" value="{{ $from->toDateString() }} - {{ $to->toDateString() }}" readonly aria-label="Choose campaign date range">
@@ -125,7 +174,7 @@
             @endif
             <div id="campaign-selection-count" class="text-muted small mb-2" aria-live="polite" hidden></div>
 
-            <form id="campaign-bulk-form" method="POST" action="{{ route('console.campaigns.bulk-disable', $workspace->id) }}" @if (! $canOperateCampaigns) hidden @endif>
+            <form id="campaign-bulk-form" method="POST" action="{{ route('console.campaigns.bulk-disable', $workspace->id) }}" @if (! $canManageVisibleCampaigns) hidden @endif>
                 @csrf
                 @method('PATCH')
             </form>
@@ -135,7 +184,7 @@
                     <thead>
                         <tr>
                             <th scope="col" data-campaign-column="select">
-                                @if ($canOperateCampaigns)
+                                @if ($canManageVisibleCampaigns)
                                     <input id="campaign-select-all" type="checkbox" aria-label="Select all campaigns on this page" form="campaign-bulk-form">
                                 @else
                                     <input id="campaign-select-all" class="sr-only" type="checkbox" disabled aria-label="Campaign selection unavailable in read-only access">
@@ -167,19 +216,22 @@
                                 $sendRun = $campaign->send_run;
                                 $sendActive = $sendRun && in_array($sendRun->state, ['planned', 'running'], true);
                             @endphp
-                            <tr data-campaign-focus-id="{{ $campaign->id }}" tabindex="0" aria-label="Show analytics for {{ $campaign->name }}" title="Select this campaign to view its analytics">
+                            <tr data-campaign-focus-id="{{ $campaign->id }}" tabindex="0" aria-label="{{ $showOperatorCampaigns ? 'Campaign '.$campaign->name : 'Show analytics for '.$campaign->name }}" title="{{ $showOperatorCampaigns ? 'Operator campaign · read only' : 'Select this campaign to view its analytics' }}">
                                 <td data-campaign-column="select">
-                                    @if ($canOperateCampaigns)
+                                    @if ($canManageVisibleCampaigns)
                                         <input class="campaign-row-select" type="checkbox" name="campaign_ids[]" value="{{ $campaign->id }}" form="campaign-bulk-form" aria-label="Select campaign {{ $campaign->name }}" @disabled($sendActive) title="{{ $sendActive ? 'Stop the active send before disabling this campaign.' : 'Select campaign to disable' }}">
                                     @endif
                                 </td>
                                 <td data-campaign-column="campaign">
-                                    @if ($canOperateCampaigns)
+                                    @if ($canManageVisibleCampaigns)
                                         <a class="campaign-row-number" href="{{ route('console.campaigns.show', [$workspace->id, $campaign->id]) }}" title="{{ $campaign->name }} · created {{ $campaign->created_at?->format('Y-m-d H:i') }}">{{ ($campaigns->firstItem() ?? 1) + $loop->index }}</a>
                                     @else
                                         <span class="campaign-row-number">{{ ($campaigns->firstItem() ?? 1) + $loop->index }}</span>
                                     @endif
                                     <div class="small text-muted">{{ $campaign->name }}</div>
+                                    @if ($showOperatorCampaigns)
+                                        <div class="small text-muted">{{ $campaign->creator?->name ?: ($campaign->creator?->username ?: 'Unknown operator') }}</div>
+                                    @endif
                                 </td>
                                 <td data-campaign-column="isp">
                                     @if (! $canOperateCampaigns)
@@ -203,7 +255,7 @@
                                     @endif
                                 </td>
                                 <td data-campaign-column="actions">
-                                    @if ($canOperateCampaigns)
+                                    @if ($canManageVisibleCampaigns)
                                     @if ($campaign->kind !== 'transactional' && ($register['configured'] ?? false))
                                         <select id="campaign-send-type-{{ $campaign->id }}" class="sr-only" name="send_type" form="campaign-auto-test-{{ $campaign->id }}" aria-label="Stored send type for {{ $campaign->name }}" hidden>
                                             @foreach (['delay' => 'DELAY', 'delayp' => 'DELAYP', 'delayps' => 'DELAYPS', 'hs' => 'HS', 'hsp' => 'HSP', 'hsps' => 'HSPS', 'pickup' => 'PICKUP', 'pickups' => 'PICKUPS'] as $sendType => $sendTypeLabel)
@@ -230,7 +282,9 @@
                                         @endif
                                         <button type="button" class="btn btn-link btn-sm campaign-register-icon-action" disabled title="Editing selected IPs is not implemented in AlphaLink." aria-label="Edit IPs unavailable for {{ $campaign->name }}"><i class="fas fa-list" aria-hidden="true"></i></button>
                                     @endif
+                                    @unless ($showOperatorCampaigns)
                                         <button type="button" class="btn btn-link btn-sm campaign-register-icon-action" data-campaign-statistics-toggle data-campaign-id="{{ $campaign->id }}" aria-expanded="false" aria-controls="campaign-statistics-{{ $campaign->id }}" data-statistics-url="{{ route('console.campaign-statistics.index', [$workspace->id, 'campaign_id' => $campaign->id, 'from' => $from->toDateString(), 'to' => $to->toDateString(), 'inline' => 1]) }}" title="Show campaign statistics and focus analytics" aria-label="Show statistics for {{ $campaign->name }}"><i class="fas fa-chart-bar" aria-hidden="true"></i></button>
+                                    @endunless
                                     @if ($canOperateCampaigns)
                                         @if ($campaign->kind === 'marketing' && ($register['configured'] ?? false))
                                             <a class="btn btn-link btn-sm campaign-register-icon-action" href="{{ route('console.campaigns.clone', [$workspace->id, $campaign->id]) }}" data-campaign-clone-open title="Clone campaign" aria-label="Clone {{ $campaign->name }}" aria-haspopup="dialog"><i class="fas fa-clone" aria-hidden="true"></i></a>
@@ -252,7 +306,7 @@
                                     @endphp
                                     @if ($campaign->status === 'preparing_snapshot')
                                         <span class="badge badge-primary" data-snapshot-state>PREPARING SUPPRESSION</span>
-                                        <div class="progress mt-1" style="height: .7rem" role="progressbar" aria-label="Campaign suppression preparation" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ (int) $campaign->snapshot_build_percent }}" @if ($canOperateCampaigns) data-campaign-snapshot-progress data-progress-url="{{ route('console.campaigns.snapshot-progress', [$workspace->id, $campaign->id]) }}" @endif>
+                                        <div class="progress mt-1" style="height: .7rem" role="progressbar" aria-label="Campaign suppression preparation" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ (int) $campaign->snapshot_build_percent }}" @if ($canManageVisibleCampaigns) data-campaign-snapshot-progress data-progress-url="{{ route('console.campaigns.snapshot-progress', [$workspace->id, $campaign->id]) }}" @endif>
                                             <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: {{ max(5, (int) $campaign->snapshot_build_percent) }}%"></div>
                                         </div>
                                         <div class="small text-muted" data-snapshot-summary>{{ $canOperateCampaigns ? 'Preparing the cloned recipient list…' : 'Recipient preparation is underway.' }}</div>
@@ -260,21 +314,21 @@
                                     @elseif ($campaign->status === 'snapshot_failed')
                                         <span class="badge badge-danger">PREPARATION FAILED</span>
                                         <div class="small text-danger">{{ $campaign->snapshot_build_error ?? 'Recipient preparation failed.' }}</div>
-                                        @if ($canOperateCampaigns)
+                                        @if ($canManageVisibleCampaigns)
                                             <a class="small" href="{{ route('console.campaigns.show', [$workspace->id, $campaign->id]) }}">Review and retry</a>
                                         @else
                                             <span class="small text-muted">Contact an operator to review.</span>
                                         @endif
                                     @elseif ($sendRun)
                                         <span class="badge {{ in_array($sendRun->state, ['completed', 'running'], true) ? 'badge-primary' : ($sendRun->state === 'needs_review' ? 'badge-warning' : ($sendRun->state === 'failed' ? 'badge-danger' : 'badge-secondary')) }}" data-send-state>{{ strtoupper(str_replace('_', ' ', $sendRun->state)) }}</span>
-                                        <div class="progress mt-1" style="height: .7rem" role="progressbar" aria-label="Campaign send progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $sendPercent }}" @if ($canOperateCampaigns && in_array($sendRun->state, ['planned', 'running'], true)) data-campaign-send-progress data-progress-url="{{ route('console.campaigns.send-progress', [$workspace->id, $campaign->id, $sendRun->id]) }}" @endif>
+                                        <div class="progress mt-1" style="height: .7rem" role="progressbar" aria-label="Campaign send progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $sendPercent }}" @if ($canManageVisibleCampaigns && in_array($sendRun->state, ['planned', 'running'], true)) data-campaign-send-progress data-progress-url="{{ route('console.campaigns.send-progress', [$workspace->id, $campaign->id, $sendRun->id]) }}" @endif>
                                             <div class="progress-bar {{ $sendRun->state === 'needs_review' ? 'bg-warning' : ($sendRun->state === 'failed' ? 'bg-danger' : '') }}" style="width: {{ $sendPercent }}%"></div>
                                         </div>
                                         <div class="small text-muted" data-send-summary>{{ $sendProcessed }} / {{ $sendRun->recipient_count }} · {{ $sendRun->accepted_count }} accepted · {{ $sendRun->rejected_count }} rejected · {{ $sendRun->suppressed_count }} suppressed · {{ $sendRun->uncertain_count }} uncertain</div>
-                                        @if ($canOperateCampaigns && in_array($sendRun->state, ['planned', 'running'], true))
+                                        @if ($canManageVisibleCampaigns && in_array($sendRun->state, ['planned', 'running'], true))
                                             <div class="small text-muted" data-send-next data-sleep-email="{{ (int) ($register['sleep_email'] ?? 0) }}" data-next-batch-at="{{ $sendRun->execution_options['next_batch_at'] ?? '' }}">{{ $sendRun->state === 'planned' ? 'Waiting for send worker…' : ((int) ($register['sleep_email'] ?? 0) > 0 ? 'Pacing: '.(int) $register['sleep_email'].' seconds between recipients.' : 'Processing next batch…') }}</div>
                                         @endif
-                                        @if ($canOperateCampaigns && $sendRun->last_smtp_error)
+                                        @if ($canManageVisibleCampaigns && $sendRun->last_smtp_error)
                                             <div class="small text-danger">Latest SMTP rejection: {{ $sendRun->last_smtp_error }}</div>
                                         @endif
                                         @if ($sendRun->state === 'failed')
@@ -289,7 +343,7 @@
                                     @endif
                                 </td>
                                 <td class="text-nowrap campaign-send-cell" data-campaign-column="send">
-                                    @if ($canOperateCampaigns)
+                                    @if ($canManageVisibleCampaigns)
                                     @foreach (($register['pmta_panels'] ?? []) as $panel)
                                         <a class="btn btn-link btn-sm campaign-send-icon-action" href="{{ $panel['url'] }}" target="_blank" rel="noopener noreferrer" title="Open PMTA Web Monitor on {{ $panel['name'] }}" aria-label="Open PMTA Web Monitor on {{ $panel['name'] }}"><i class="fas fa-server" aria-hidden="true"></i></a>
                                     @endforeach
@@ -342,6 +396,7 @@
             <p class="text-muted small mb-0">Showing {{ $campaigns->firstItem() ?? 0 }} to {{ $campaigns->lastItem() ?? 0 }} of {{ $campaigns->total() }} campaigns in the selected date range.</p>
                 </main>
 
+                @unless ($showOperatorCampaigns)
                 <aside class="campaign-intelligence" aria-label="Campaign intelligence">
                     <section class="campaign-intelligence-card campaign-analytics-card" data-campaign-analytics data-aggregate-url="{{ route('console.campaign-statistics.index', [$workspace->id, 'from' => $from->toDateString(), 'to' => $to->toDateString(), 'register' => 1]) }}">
                         <header class="campaign-intelligence-heading">
@@ -420,6 +475,7 @@
                         </dl>
                     </section>
                 </aside>
+                @endunless
             </div>
         </div>
     </div>
@@ -490,6 +546,7 @@
         @keyframes campaign-hero-glow { from { transform: translateX(-1.5%) scale(.98); } to { transform: translateX(1.5%) scale(1.03); } }
         @keyframes campaign-hero-wave { from { transform: translateX(-1%) rotate(-2deg); } to { transform: translateX(1%) rotate(1deg); } }
         .campaign-workspace-grid { display: grid; grid-template-columns: minmax(0, 2.05fr) minmax(350px, 1fr); align-items: start; gap: 14px; }
+        .campaign-workspace-grid-operator-view { grid-template-columns: minmax(0, 1fr); }
         .campaign-register-main { min-width: 0; }
         .campaign-intelligence { display: grid; gap: 12px; min-width: 0; }
         .campaign-overview { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 9px; margin: 1px 0 13px; }
@@ -598,6 +655,7 @@
         .campaign-register-heading-copy p { margin: 0; color: var(--co-muted); font-size: 10px; }
         .campaign-register-page .block-options { flex: 0 0 auto; gap: 12px; margin: 0; }
         .campaign-register-page .block-options form { margin: 0; }
+        .campaign-availability-controls { align-items: center; display: flex; flex: 1 1 auto; flex-wrap: wrap; gap: 12px; justify-content: flex-end; min-width: 0; }
         .campaign-register-page .custom-control-label { color: var(--co-muted); font-size: 9px; font-weight: 750; letter-spacing: .06em; white-space: nowrap; }
         .campaign-register-page .custom-control-label::before { border-color: var(--co-border-strong); background: var(--co-surface-muted); box-shadow: none; }
         .campaign-register-page .custom-control-input:checked ~ .custom-control-label::before { border-color: var(--co-purple); background-color: var(--co-purple); }
@@ -626,6 +684,7 @@
         }
         .campaign-register-actions .form-control:focus,
         .campaign-register-filters .form-control:focus { border-color: var(--co-purple); box-shadow: 0 0 0 3px color-mix(in srgb, var(--co-purple) 12%, transparent); }
+        .campaign-availability-controls select.form-control { height: 35px; min-width: 170px; border: 1px solid var(--co-border-strong); border-radius: 9px; color: var(--co-ink); background-color: var(--co-surface); box-shadow: none; font-size: 10px; }
         .campaign-register-actions .form-control { min-width: 126px; }
         .campaign-register-page .campaign-register-create,
         .campaign-register-page .campaign-register-active,
@@ -652,6 +711,11 @@
         .campaign-register-filters > label:not(.sr-only) { margin: 0 !important; color: var(--co-muted); font-size: 10px; font-weight: 700; }
         .campaign-register-filters .campaign-date-range { width: 190px; margin: 0 !important; }
         .campaign-register-filters .campaign-search-control { flex: 0 1 220px; min-width: 130px; }
+        .campaign-operator-filter { display: flex; flex: 0 1 auto; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+        .campaign-operator-toggle { margin: 0; color: var(--co-ink); font-size: 10px; font-weight: 700; white-space: nowrap; }
+        .campaign-operator-filter select.form-control { flex: 0 1 230px; min-width: 160px; }
+        .campaign-operator-view-note { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; padding: 10px 13px; border: 1px solid color-mix(in srgb, var(--co-blue) 26%, var(--co-border)); border-radius: 10px; color: var(--co-ink); background: color-mix(in srgb, var(--co-blue) 7%, var(--co-surface)); font-size: 11px; }
+        .campaign-operator-view-note i { color: var(--co-blue); }
         .campaign-register-filters input[type="search"] { width: 100%; max-width: none; padding-right: 30px; }
         .campaign-search-clear { color: var(--co-muted); }
         .campaign-register-page .campaign-register-filters > button { width: 35px; padding: 0; border: 1px solid var(--co-border-strong); color: var(--co-muted); background: var(--co-surface); }
@@ -963,6 +1027,9 @@
             .campaign-register-actions { width: 100%; }
             .campaign-register-actions .form-control { min-width: 116px; }
             .campaign-register-filters { align-items: center; width: 100%; }
+            .campaign-availability-controls { justify-content: flex-start; }
+            .campaign-operator-filter { flex: 0 1 auto; align-items: center; }
+            .campaign-availability-controls select.form-control { flex: 0 1 180px; min-width: 150px; }
             .campaign-register-filters > label:not(.sr-only) { flex: 0 0 100%; }
             .campaign-register-filters .campaign-date-range { flex: 1 1 100%; width: 100%; }
             .campaign-register-filters .campaign-search-control { flex: 1 1 calc(100% - 46px); min-width: 0; }

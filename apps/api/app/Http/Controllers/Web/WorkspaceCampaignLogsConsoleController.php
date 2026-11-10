@@ -12,6 +12,7 @@ use App\Models\ManagedServer;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceOffer;
+use App\Services\Campaigns\AdminOperatorCampaignFilter;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -27,9 +28,16 @@ class WorkspaceCampaignLogsConsoleController extends Controller
 
     private const HISTORY_ROLES = ['owner', 'admin', 'operator'];
 
-    public function index(Request $request, string $workspaceId): View
+    public function index(Request $request, string $workspaceId, AdminOperatorCampaignFilter $operatorCampaignFilter): View
     {
         $workspace = $this->authorizedWorkspace($request, $workspaceId);
+        $operatorScope = $operatorCampaignFilter->resolve($request, $workspace, $request->user());
+        $isAdmin = $operatorScope['is_admin'];
+        $showOperatorCampaigns = $operatorScope['enabled'];
+        $operatorUsers = $operatorScope['operators'];
+        $selectedOperatorId = $operatorScope['selected_operator_id'];
+        $selectedOperator = $operatorScope['selected_operator'];
+        $campaignCreatorIds = $operatorScope['creator_ids'];
         $filters = $request->validate([
             'from' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:today'],
             'to' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:today', 'after_or_equal:from'],
@@ -49,7 +57,7 @@ class WorkspaceCampaignLogsConsoleController extends Controller
                 'sendRuns as sends_count' => fn ($query) => $query->where('workspace_id', $workspace->getKey()),
             ])
             ->where('workspace_id', $workspace->getKey())
-            ->where('created_by', $request->user()->getKey())
+            ->whereIn('created_by', $campaignCreatorIds)
             ->whereIn('kind', ['marketing', 'transactional'])
             ->whereBetween('created_at', [$from, $to])
             ->selectSub(
@@ -127,9 +135,9 @@ class WorkspaceCampaignLogsConsoleController extends Controller
         });
 
         $canReviewHistory = in_array($workspace->pivot->role, self::HISTORY_ROLES, true);
-        $canManageRestrictions = in_array($workspace->pivot->role, self::HISTORY_ROLES, true);
+        $canManageRestrictions = in_array($workspace->pivot->role, self::HISTORY_ROLES, true) && ! $showOperatorCampaigns;
 
-        return view('console.campaign-logs.index', compact('workspace', 'campaigns', 'from', 'to', 'search', 'perPage', 'canReviewHistory', 'canManageRestrictions'));
+        return view('console.campaign-logs.index', compact('workspace', 'campaigns', 'from', 'to', 'search', 'perPage', 'canReviewHistory', 'canManageRestrictions', 'isAdmin', 'showOperatorCampaigns', 'operatorUsers', 'selectedOperatorId', 'selectedOperator'));
     }
 
     public function history(Request $request, string $workspaceId, string $campaignId, string $history): View
@@ -319,12 +327,21 @@ class WorkspaceCampaignLogsConsoleController extends Controller
 
     private function campaignForUser(Request $request, Workspace $workspace, string $campaignId): Campaign
     {
-        return $workspace->campaigns()
+        $campaignQuery = $workspace->campaigns()
             ->with(['latestRevision', 'creator'])
-            ->where('created_by', $request->user()->getKey())
             ->whereIn('kind', ['marketing', 'transactional'])
-            ->whereKey($campaignId)
-            ->firstOrFail();
+            ->whereKey($campaignId);
+
+        if ($request->user()->access_role === User::ACCESS_ROLE_ADMIN) {
+            $operatorIds = $workspace->users()
+                ->wherePivot('role', User::ACCESS_ROLE_OPERATOR)
+                ->pluck('users.id');
+            $campaignQuery->whereIn('created_by', $operatorIds);
+        } else {
+            $campaignQuery->where('created_by', $request->user()->getKey());
+        }
+
+        return $campaignQuery->firstOrFail();
     }
 
     /** @return LengthAwarePaginator<object> */

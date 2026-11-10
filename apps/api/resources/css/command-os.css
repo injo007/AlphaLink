@@ -1,3 +1,5 @@
+@import './composer-suite.css';
+
 body.command-os-shell {
     --co-layer-dropdown: 1060;
     --co-page: #f5f6fb;
@@ -201,6 +203,11 @@ body.command-os-shell #sidebar .command-os-navigation-link:hover {
     background: var(--co-surface-muted);
 }
 
+body.command-os-shell #sidebar .command-os-navigation-link:hover .command-os-navigation-icon {
+    color: var(--co-purple);
+    transform: scale(1.08);
+}
+
 body.command-os-shell #sidebar .command-os-navigation-link.active {
     color: #fff;
     background: linear-gradient(100deg, #7040ee, #9943f7);
@@ -214,6 +221,7 @@ body.command-os-shell #sidebar .command-os-navigation-icon {
     color: var(--co-muted);
     font-size: 13px;
     text-align: center;
+    transition: color 0.16s ease, transform 0.16s ease;
 }
 
 body.command-os-shell #sidebar .command-os-navigation-link.active .command-os-navigation-icon {
@@ -314,15 +322,18 @@ body.command-os-shell #sidebar .command-os-navigation-submenu li > span {
     display: flex;
     align-items: center;
     gap: 8px;
-    min-height: 27px;
-    padding: 5px 8px;
-    border-radius: 7px;
+    min-height: 28px;
+    padding: 5px 10px;
+    border-radius: 8px;
     color: var(--co-ink);
-    font-size: 10px;
-    font-weight: 590;
+    font-size: 11px;
+    font-weight: 600;
     line-height: 1.25;
     text-decoration: none;
     white-space: nowrap !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: all 0.16s ease;
 }
 
 body.command-os-shell #sidebar .command-os-navigation-submenu a:not(.active):hover {
@@ -330,10 +341,15 @@ body.command-os-shell #sidebar .command-os-navigation-submenu a:not(.active):hov
     background: var(--co-surface-muted);
 }
 
+body.command-os-shell #sidebar .command-os-navigation-submenu a:not(.active):hover > i {
+    color: var(--co-purple);
+    transform: scale(1.1);
+}
+
 body.command-os-shell #sidebar .command-os-navigation-submenu a.active {
-    color: #fff;
-    background: linear-gradient(100deg, #7040ee, #9943f7);
-    box-shadow: 0 4px 12px rgb(114 61 232 / 25%), 0 0 18px rgb(142 62 246 / 19%);
+    color: #fff !important;
+    background: linear-gradient(100deg, #7040ee, #9943f7) !important;
+    box-shadow: 0 4px 14px rgba(114, 61, 232, 0.28), 0 0 18px rgba(142, 62, 246, 0.18) !important;
 }
 
 body.command-os-shell #sidebar .command-os-navigation-submenu li > span {
@@ -343,14 +359,16 @@ body.command-os-shell #sidebar .command-os-navigation-submenu li > span {
 
 body.command-os-shell #sidebar .command-os-navigation-submenu a > i,
 body.command-os-shell #sidebar .command-os-navigation-submenu li > span > i {
-    flex: 0 0 14px;
+    flex: 0 0 16px;
+    width: 16px;
     color: var(--co-muted);
     font-size: 11px;
     text-align: center;
+    transition: color 0.16s ease, transform 0.16s ease;
 }
 
 body.command-os-shell #sidebar .command-os-navigation-submenu a.active > i {
-    color: #fff;
+    color: #fff !important;
 }
 
 body.command-os-shell #sidebar .command-os-navigation-submenu a:focus-visible {
@@ -10086,10 +10104,14 @@ html[data-command-theme='dark'] .custom-control.custom-checkbox .custom-control-
 .command-table-checkbox-label input[type="checkbox"],
 .cloud-instance-checkbox {
     position: absolute !important;
+    inset: 0 !important;
     opacity: 0 !important;
-    width: 0 !important;
-    height: 0 !important;
-    pointer-events: none !important;
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    cursor: pointer !important;
+    pointer-events: auto !important;
+    z-index: 2 !important;
 }
 
 .command-checkbox-custom-box {
@@ -11322,11 +11344,15 @@ body.command-os-shell *::-webkit-scrollbar,
 body.command-os-shell::-webkit-scrollbar,
 .dropdown-menu::-webkit-scrollbar,
 .bootstrap-select .dropdown-menu .inner::-webkit-scrollbar,
-.select2-results__options::-webkit-scrollbar,
-.js-sidebar-scroll::-webkit-scrollbar,
-#sidebar::-webkit-scrollbar {
+.select2-results__options::-webkit-scrollbar {
     width: 6px !important;
     height: 6px !important;
+}
+
+.js-sidebar-scroll::-webkit-scrollbar,
+#sidebar::-webkit-scrollbar {
+    width: 4px !important;
+    height: 4px !important;
 }
 
 body.command-os-shell *::-webkit-scrollbar-button,

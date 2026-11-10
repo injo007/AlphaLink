@@ -14,16 +14,18 @@
         }
 
         .pmta-admin-surface {
-            background: rgba(139, 92, 246, 0.03);
-            border: 1px solid var(--command-os-border, rgba(139, 92, 246, 0.12));
+            background: var(--command-os-card-bg, #ffffff);
+            border: 1px solid var(--command-os-border, rgba(99, 102, 241, 0.16));
             border-radius: 12px;
-            padding: 1rem 1.25rem;
+            padding: 1.1rem 1.25rem;
+            box-shadow: 0 4px 14px rgba(99, 102, 241, 0.04);
             transition: all 0.2s ease;
         }
 
         html[data-command-theme='dark'] .pmta-admin-surface {
-            background: rgba(15, 23, 42, 0.45);
-            border-color: rgba(139, 92, 246, 0.22);
+            background: rgba(15, 23, 42, 0.65);
+            border-color: rgba(139, 92, 246, 0.25);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
         }
 
         .pmta-admin-action-bar {
@@ -35,16 +37,33 @@
         }
 
         .pmta-admin-action-group {
-            display: inline-flex;
+            display: flex;
             align-items: center;
             gap: 8px;
             flex-wrap: wrap;
         }
 
+        .pmta-admin-action-group .btn-command-primary,
+        .pmta-admin-action-group .btn-command-danger,
+        .pmta-admin-action-group .btn-command-action {
+            height: 38px;
+            padding: 0 16px;
+            border-radius: 8px;
+            font-size: 0.8125rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin: 0 !important;
+            transition: all 0.18s ease;
+        }
+
         .pmta-automation-box {
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 10px;
             height: 100%;
         }
 
@@ -52,9 +71,44 @@
             display: flex;
             align-items: center;
             gap: 8px;
+            flex-wrap: nowrap;
         }
 
-        @media (max-width: 575.98px) {
+        .pmta-automation-input-row input {
+            height: 40px !important;
+            border-radius: 8px !important;
+            font-size: 0.8125rem !important;
+            min-width: 120px;
+        }
+
+        .pmta-automation-input-row button {
+            height: 40px !important;
+            padding: 0 16px !important;
+            border-radius: 8px !important;
+            font-size: 0.8125rem !important;
+            font-weight: 700 !important;
+            letter-spacing: 0.03em !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 6px !important;
+            margin: 0 !important;
+            white-space: nowrap !important;
+            flex-shrink: 0 !important;
+        }
+
+        @media (max-width: 767.98px) {
+            .pmta-admin-action-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .pmta-admin-action-group {
+                width: 100%;
+                justify-content: stretch;
+            }
+            .pmta-admin-action-group button {
+                flex: 1 1 calc(50% - 6px);
+            }
             .pmta-automation-input-row {
                 flex-wrap: wrap;
             }
@@ -63,7 +117,7 @@
                 flex: 1 1 100% !important;
             }
             .pmta-automation-input-row button {
-                flex: 1 1 calc(50% - 4px);
+                flex: 1 1 calc(50% - 4px) !important;
             }
         }
     </style>
@@ -156,11 +210,11 @@
                             <i class="fas fa-tasks mr-1 text-purple"></i> Queue Controls
                         </span>
                         <div id="pmta-admin-action-row" class="pmta-admin-action-group" role="group" aria-label="PMTA queue actions">
-                            <button type="button" class="btn-command-primary pmta-admin-action" data-action="pause" style="padding: 7px 14px; font-size: 0.75rem;"><i class="fas fa-pause mr-1"></i> PAUSE</button>
-                            <button type="button" class="btn-command-primary pmta-admin-action" data-action="resume" style="padding: 7px 14px; font-size: 0.75rem;"><i class="fas fa-play mr-1"></i> RESUME</button>
-                            <button type="button" class="btn-command-primary pmta-admin-action" data-action="delete" style="padding: 7px 14px; font-size: 0.75rem;"><i class="fas fa-trash-alt mr-1"></i> DELETE</button>
-                            <button type="button" class="btn-command-primary pmta-admin-action" data-action="reset" style="padding: 7px 14px; font-size: 0.75rem;"><i class="fas fa-undo mr-1"></i> RESET</button>
-                            <button type="button" class="btn-command-danger" id="pmta-admin-clear" style="padding: 7px 14px; font-size: 0.75rem;"><i class="fas fa-broom mr-1"></i> CLEAR</button>
+                            <button type="button" class="btn-command-primary pmta-admin-action" data-action="pause"><i class="fas fa-pause mr-1"></i> PAUSE</button>
+                            <button type="button" class="btn-command-primary pmta-admin-action" data-action="resume"><i class="fas fa-play mr-1"></i> RESUME</button>
+                            <button type="button" class="btn-command-primary pmta-admin-action" data-action="delete"><i class="fas fa-trash-alt mr-1"></i> DELETE</button>
+                            <button type="button" class="btn-command-primary pmta-admin-action" data-action="reset"><i class="fas fa-undo mr-1"></i> RESET</button>
+                            <button type="button" class="btn-command-danger" id="pmta-admin-clear"><i class="fas fa-broom mr-1"></i> CLEAR</button>
                         </div>
                     </div>
                 </div>
@@ -173,9 +227,9 @@
                                 <i class="fas fa-clock mr-1 text-purple"></i> Queue Runner Interval:
                             </label>
                             <div class="pmta-automation-input-row">
-                                <input id="pmta-admin-seconds" class="command-form-control flex-grow-1" type="number" min="1" placeholder="Seconds &gt;= 1" style="height: 38px;">
-                                <button type="button" class="btn-command-primary pmta-admin-action text-nowrap" data-action="schedule" style="height: 38px; padding: 0 14px; font-size: 0.75rem;"><i class="fas fa-calendar-alt mr-1"></i> SCHEDULE</button>
-                                <button type="button" class="btn-command-danger text-nowrap" id="pmta-admin-stop-schedule" style="height: 38px; padding: 0 14px; font-size: 0.75rem;"><i class="fas fa-stop mr-1"></i> STOP</button>
+                                <input id="pmta-admin-seconds" class="command-form-control flex-grow-1" type="number" min="1" placeholder="Seconds &gt;= 1">
+                                <button type="button" class="btn-command-primary pmta-admin-action" data-action="schedule"><i class="fas fa-calendar-alt mr-1"></i> SCHEDULE</button>
+                                <button type="button" class="btn-command-danger" id="pmta-admin-stop-schedule"><i class="fas fa-stop mr-1"></i> STOP</button>
                             </div>
                         </div>
                     </div>
@@ -185,9 +239,9 @@
                                 <i class="fas fa-redo-alt mr-1 text-purple"></i> Daemon Auto-Restart Interval:
                             </label>
                             <div class="pmta-automation-input-row">
-                                <input id="pmta-admin-restart-seconds" class="command-form-control flex-grow-1" type="number" min="5" placeholder="Seconds &gt;= 5" style="height: 38px;">
-                                <button type="button" class="btn-command-action pmta-admin-restart text-nowrap" style="height: 38px; padding: 0 14px; font-size: 0.75rem;"><i class="fas fa-sync-alt mr-1"></i> RESTART</button>
-                                <button type="button" class="btn-command-danger text-nowrap" id="pmta-admin-stop-restart" style="height: 38px; padding: 0 14px; font-size: 0.75rem;"><i class="fas fa-stop mr-1"></i> STOP</button>
+                                <input id="pmta-admin-restart-seconds" class="command-form-control flex-grow-1" type="number" min="5" placeholder="Seconds &gt;= 5">
+                                <button type="button" class="btn-command-action pmta-admin-restart"><i class="fas fa-sync-alt mr-1"></i> RESTART</button>
+                                <button type="button" class="btn-command-danger" id="pmta-admin-stop-restart"><i class="fas fa-stop mr-1"></i> STOP</button>
                             </div>
                         </div>
                     </div>

@@ -17,13 +17,30 @@
         display: flex;
         align-items: center;
         flex-wrap: wrap;
-        gap: 10px;
+        gap: 12px;
     }
     .command-cloud-toolbar-right {
         display: flex;
         align-items: center;
         flex-wrap: wrap;
-        gap: 8px;
+        gap: 10px;
+    }
+    .command-cloud-toolbar .btn-command-action,
+    .command-cloud-toolbar .btn-command-primary,
+    .command-cloud-toolbar .btn-command-danger {
+        height: 38px;
+        padding: 0 16px !important;
+        border-radius: 8px !important;
+        font-size: 0.8125rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.03em !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 6px !important;
+        margin: 0 !important;
+        white-space: nowrap !important;
+        transition: all 0.18s ease;
     }
 </style>
 @endpush
@@ -131,10 +148,10 @@
             </div>
 
             <div class="d-flex flex-wrap align-items-center justify-content-between pt-3 mt-3 border-top" style="gap: 12px;">
-                <button id="cloud-load-instances" class="btn-command-action" type="button" @disabled(!$hasProviders)>
+                <button id="cloud-load-instances" class="btn-command-action" type="button" @disabled(!$hasProviders) style="height: 40px; padding: 0 18px; border-radius: 8px; font-weight: 700;">
                     <i class="fas fa-sync mr-1"></i> GET INSTANCES
                 </button>
-                <button id="cloud-create" class="btn-command-primary" type="submit" @disabled(!$hasProviders)>
+                <button id="cloud-create" class="btn-command-primary" type="submit" @disabled(!$hasProviders) style="height: 40px; padding: 0 18px; border-radius: 8px; font-weight: 700;">
                     <i class="fas fa-plus-circle mr-1"></i> CREATE INSTANCES
                 </button>
             </div>
@@ -157,24 +174,24 @@
                     <i class="fas fa-server mr-1"></i> <span id="cloud-instance-count">0</span> INSTANCES
                 </span>
                 <div class="command-btn-group">
-                    <button id="cloud-select-none" class="btn-command-action" type="button" title="SELECT NONE" style="padding: 6px 12px; font-size: 0.75rem;">
+                    <button id="cloud-select-none" class="btn-command-action" type="button" title="SELECT NONE">
                         <i class="far fa-square mr-1"></i> SELECT NONE
                     </button>
-                    <button id="cloud-select-all-visible" class="btn-command-action" type="button" title="SELECT ALL" style="padding: 6px 12px; font-size: 0.75rem;">
+                    <button id="cloud-select-all-visible" class="btn-command-action" type="button" title="SELECT ALL">
                         <i class="far fa-check-square mr-1"></i> SELECT ALL
                     </button>
                 </div>
                 <div class="command-btn-group">
-                    <button id="cloud-delete-selected" class="btn-command-danger" type="button" disabled style="padding: 6px 14px; font-size: 0.75rem;">
+                    <button id="cloud-delete-selected" class="btn-command-danger" type="button" disabled>
                         <i class="fas fa-trash-alt mr-1"></i> DELETE INSTANCES
                     </button>
-                    <button id="cloud-add-selected" class="btn-command-primary" type="button" disabled style="padding: 6px 14px; font-size: 0.75rem;">
+                    <button id="cloud-add-selected" class="btn-command-primary" type="button" disabled>
                         <i class="fas fa-database mr-1"></i> ADD IPS TO DB
                     </button>
                 </div>
             </div>
             <div class="command-cloud-toolbar-right">
-                <a class="btn-command-action" href="{{ route('console.infrastructure.bulk-install', $workspace->id) }}" target="_blank" rel="noopener" style="padding: 6px 14px; font-size: 0.75rem;">
+                <a class="btn-command-action" href="{{ route('console.infrastructure.bulk-install', $workspace->id) }}" target="_blank" rel="noopener">
                     <i class="fas fa-external-link-alt mr-1"></i> BULK INSTALL SERVERS
                 </a>
             </div>

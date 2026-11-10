@@ -27,6 +27,7 @@ use App\Services\Campaigns\AlphaLinkCampaignRecipientSnapshotBuilder;
 use App\Services\Campaigns\AlphaLinkCampaignSendCatalog;
 use App\Services\Campaigns\AlphaLinkCampaignTagRenderer;
 use App\Services\Campaigns\AlphaLinkPmtaAdminRestart;
+use App\Services\Campaigns\AdminOperatorCampaignFilter;
 use App\Services\Campaigns\CampaignRedirectUrlPolicy;
 use App\Services\Campaigns\PmtaCampaignTestTransport;
 use App\Services\Campaigns\PmtaMonitorProxy;
@@ -92,10 +93,17 @@ class WorkspaceConsoleController extends Controller
         return redirect()->route('console.dashboard.main');
     }
 
-    public function campaigns(Request $request, string $workspace): View
+    public function campaigns(Request $request, string $workspace, AdminOperatorCampaignFilter $operatorCampaignFilter): View
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $this->authorizeRole($workspace, self::CAMPAIGN_ROLES);
+        $operatorScope = $operatorCampaignFilter->resolve($request, $workspace, $request->user());
+        $isAdmin = $operatorScope['is_admin'];
+        $showOperatorCampaigns = $operatorScope['enabled'];
+        $operatorUsers = $operatorScope['operators'];
+        $selectedOperatorId = $operatorScope['selected_operator_id'];
+        $selectedOperator = $operatorScope['selected_operator'];
+        $campaignCreatorIds = $operatorScope['creator_ids'];
 
         $filters = $request->validate([
             'from' => ['sometimes', 'required_with:to', 'date_format:Y-m-d'],
@@ -114,12 +122,12 @@ class WorkspaceConsoleController extends Controller
         $activeSendCount = CampaignSendRun::query()
             ->where('workspace_id', $workspace->getKey())
             ->whereIn('state', ['planned', 'running'])
-            ->whereHas('campaign', fn ($query) => $query->where('created_by', $request->user()->getKey()))
+            ->whereHas('campaign', fn ($query) => $query->whereIn('created_by', $campaignCreatorIds))
             ->count();
 
         $campaignOverviewRow = DB::table('campaigns as campaign')
             ->where('campaign.workspace_id', $workspace->getKey())
-            ->where('campaign.created_by', $request->user()->getKey())
+            ->whereIn('campaign.created_by', $campaignCreatorIds)
             ->whereIn('campaign.kind', ['marketing', 'transactional'])
             ->whereBetween('campaign.created_at', [$from, $to])
             ->when($search !== '', function ($query) use ($search): void {
@@ -148,8 +156,8 @@ class WorkspaceConsoleController extends Controller
         ];
 
         $campaignQuery = $workspace->campaigns()
-            ->with('latestRevision')
-            ->where('created_by', $request->user()->getKey())
+            ->with(['latestRevision', 'creator'])
+            ->whereIn('created_by', $campaignCreatorIds)
             ->whereIn('kind', ['marketing', 'transactional'])
             ->where('is_active', ! $showDisabled)
             ->when(! $activeOnly, fn ($query) => $query->whereBetween('created_at', [$from, $to]))
@@ -257,8 +265,9 @@ class WorkspaceConsoleController extends Controller
         });
 
         $canOperateCampaigns = in_array($workspace->pivot->role, ['owner', 'admin', 'operator'], true);
+        $canManageVisibleCampaigns = $canOperateCampaigns && ! $showOperatorCampaigns;
 
-        return view('console.campaigns.index', compact('workspace', 'campaigns', 'from', 'to', 'search', 'showDisabled', 'perPage', 'activeOnly', 'activeSendCount', 'campaignOverview', 'canOperateCampaigns'));
+        return view('console.campaigns.index', compact('workspace', 'campaigns', 'from', 'to', 'search', 'showDisabled', 'perPage', 'activeOnly', 'activeSendCount', 'campaignOverview', 'canOperateCampaigns', 'canManageVisibleCampaigns', 'isAdmin', 'showOperatorCampaigns', 'operatorUsers', 'selectedOperatorId', 'selectedOperator'));
     }
 
     public function createCampaign(Request $request, string $workspace, AlphaLinkCampaignSendCatalog $catalog): View

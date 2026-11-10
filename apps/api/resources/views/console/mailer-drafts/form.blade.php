@@ -279,19 +279,118 @@
                     </div>
                 </div>
             @else
-                <div class="form-row align-items-start">
-                    <div class="col-sm-12 col-md-8">
-                        <div class="form-row"><div class="form-group col-sm-2"><label for="send-route">Option:</label><select id="send-route" name="route_option" class="form-control selectpicker"><option value="ip" @selected($selectedRoute === 'ip')>IP</option><option value="vmta" @selected($selectedRoute === 'vmta')>VMTA</option><option value="smtp" @selected($selectedRoute === 'smtp')>SMTP</option></select></div><div class="form-group col-sm-2"><label for="send-ip-type">Type IP:</label><select id="send-ip-type" name="ip_type" class="form-control selectpicker"><option value="all" @selected($selectedIpType === 'all')>ALL</option><option value="ipv4" @selected($selectedIpType === 'ipv4')>IPV4</option><option value="ipv6" @selected($selectedIpType === 'ipv6')>IPV6</option></select></div><div class="form-group col-sm-8"><label for="send-servers">Servers: <button type="button" id="reload-send-options" class="btn btn-link btn-sm p-0" title="Reload servers" aria-label="Reload servers"><i class="fas fa-sync"></i></button></label><select id="send-servers" name="server_ids[]" class="form-control selectpicker" multiple data-live-search="true" data-actions-box="true" data-selected-text-format="count > 5" data-size="6">@foreach ($sendOptions['servers'] as $server)<option value="{{ $server['id'] }}" @selected(in_array((string) $server['id'], $selectedServers, true))>{{ $server['name'] }}{{ $server['id'] }} | {{ $server['ip'] }}</option>@endforeach</select></div></div>
-                        @include('console.mailer-drafts.partials.send-ips', ['inputName' => 'ip_ids[]'])
+                <div class="warmup-delivery-routing-box mb-4">
+                    <div class="form-row align-items-end mb-3">
+                        <div class="form-group col-sm-12 col-md-2 mb-0">
+                            <label class="command-form-label font-weight-bold" for="send-route"><i class="fas fa-random mr-1 text-purple"></i> Option:</label>
+                            <select id="send-route" name="route_option" class="form-control selectpicker">
+                                <option value="ip" @selected($selectedRoute === 'ip')>IP</option>
+                                <option value="vmta" @selected($selectedRoute === 'vmta')>VMTA</option>
+                                <option value="smtp" @selected($selectedRoute === 'smtp')>SMTP</option>
+                            </select>
+                        </div>
+                        <div class="form-group col-sm-12 col-md-2 mb-0">
+                            <label class="command-form-label font-weight-bold" for="send-ip-type"><i class="fas fa-network-wired mr-1 text-purple"></i> Type IP:</label>
+                            <select id="send-ip-type" name="ip_type" class="form-control selectpicker">
+                                <option value="all" @selected($selectedIpType === 'all')>ALL</option>
+                                <option value="ipv4" @selected($selectedIpType === 'ipv4')>IPV4</option>
+                                <option value="ipv6" @selected($selectedIpType === 'ipv6')>IPV6</option>
+                            </select>
+                        </div>
+                        <div class="form-group col-sm-12 col-md-8 mb-0">
+                            <label class="command-form-label font-weight-bold" for="send-servers">
+                                <i class="fas fa-server mr-1 text-purple"></i> Servers:
+                                <button type="button" id="reload-send-options" class="btn btn-link btn-sm p-0 ml-1 text-purple" title="Reload servers" aria-label="Reload servers"><i class="fas fa-sync-alt"></i></button>
+                            </label>
+                            <select id="send-servers" name="server_ids[]" class="form-control selectpicker" multiple data-live-search="true" data-actions-box="true" data-selected-text-format="count > 5" data-size="6" title="Select Servers">
+                                @foreach ($sendOptions['servers'] as $server)
+                                    <option value="{{ $server['id'] }}" @selected(in_array((string) $server['id'], $selectedServers, true))>{{ $server['name'] }}{{ $server['id'] }} | {{ $server['ip'] }}</option>
+                                @endforeach
+                            </select>
+                        </div>
                     </div>
-                    <div class="col-sm-12 col-md-4">
-                        <div class="form-group"><label for="warmup-seeds">Seeds: <span id="warmup-seed-total">{{ number_format($seedLists->whereIn('id', old('seed_list_ids', $content['seed_list_ids'] ?? []))->sum('emails_count')) }}</span></label><select id="warmup-seeds" name="seed_list_ids[]" class="form-control selectpicker" multiple data-live-search="true" data-actions-box="true" data-selected-text-format="count > 5" data-size="6">@foreach ($seedLists as $seedList)<option value="{{ $seedList->id }}" data-count="{{ $seedList->emails_count }}" @selected(in_array((int) $seedList->id, array_map('intval', old('seed_list_ids', $content['seed_list_ids'] ?? [])), true))>ID: {{ $seedList->id }}_{{ $seedList->name }} | TOTAL: {{ number_format($seedList->emails_count) }}</option>@endforeach</select><small class="form-text text-muted"><a href="{{ $seedListsUrl }}">Manage seed lists</a></small></div>
-                        <div class="form-group"><label for="warmup-seed-accounts" class="sr-only">Seed accounts</label><textarea id="warmup-seed-accounts" name="seed_accounts_text" rows="10" class="form-control resize-none" placeholder="Seed accounts">{{ old('seed_accounts_text', $content['seed_accounts_text'] ?? '') }}</textarea></div>
-                        @if ($draft)<div class="form-group"><label for="warmup-start-from">Start From:</label><input id="warmup-start-from" name="start_from" type="number" min="0" class="form-control" value="{{ old('start_from', $content['start_from'] ?? 0) }}"></div>@endif
-                        <div class="form-group"><label for="warmup-send-type">Send Type:</label><select id="warmup-send-type" name="send_type" class="form-control selectpicker">@foreach ($warmupSendTypes as $type => $label)<option value="{{ $type }}" @selected(old('send_type', $content['send_type'] ?? 'delay') === $type)>{{ $label }}</option>@endforeach</select></div>
-                        <div class="form-row">
-                            <div class="col-sm-12 col-md-6">@foreach ([['total_send', 'Total Send', 1], ['sleep_email', 'Sleep Btw Email (MS)', 0], ['seed_every', 'Test After', 0]] as [$field, $label, $default])<div class="form-group"><label for="warmup-{{ $field }}">{{ $label }}:</label><input id="warmup-{{ $field }}" name="{{ $field }}" type="number" min="0" max="2147483647" class="form-control" value="{{ old($field, $content[$field] ?? $default) }}"></div>@endforeach</div>
-                            <div class="col-sm-12 col-md-6">@foreach ([['fraction_ip', 'Fraction IP', 1], ['sleep_ip', 'Sleep Btw IP (MS)', 0], ['bounce_limit', 'Bounce Limit', 1000]] as [$field, $label, $default])<div class="form-group"><label for="warmup-{{ $field }}">{{ $label }}:</label><input id="warmup-{{ $field }}" name="{{ $field }}" type="number" min="0" max="2147483647" class="form-control" value="{{ old($field, $content[$field] ?? $default) }}"></div>@endforeach</div>
+
+                    @include('console.mailer-drafts.partials.send-ips', ['inputName' => 'ip_ids[]'])
+                </div>
+
+                <div class="row align-items-start mt-3">
+                    <div class="col-sm-12 col-md-6 mb-3">
+                        <div class="warmup-composer-param-card p-3 border rounded-lg bg-surface">
+                            <div class="d-flex align-items-center mb-2 pb-2 border-bottom">
+                                <i class="fas fa-users-cog text-purple mr-2 font-size-lg"></i>
+                                <strong class="text-uppercase font-size-sm letter-spacing-sm">Seed Audience &amp; Inboxes</strong>
+                            </div>
+                            <div class="form-group">
+                                <label class="command-form-label font-weight-bold" for="warmup-seeds">Seed Lists: <span id="warmup-seed-total" class="badge badge-purple ml-1">{{ number_format($seedLists->whereIn('id', old('seed_list_ids', $content['seed_list_ids'] ?? []))->sum('emails_count')) }} seeds</span></label>
+                                <select id="warmup-seeds" name="seed_list_ids[]" class="form-control selectpicker" multiple data-live-search="true" data-actions-box="true" data-selected-text-format="count > 3" data-size="6" title="Select Seed Lists">
+                                    @foreach ($seedLists as $seedList)
+                                        <option value="{{ $seedList->id }}" data-count="{{ $seedList->emails_count }}" @selected(in_array((int) $seedList->id, array_map('intval', old('seed_list_ids', $content['seed_list_ids'] ?? [])), true))>ID: {{ $seedList->id }}_{{ $seedList->name }} | TOTAL: {{ number_format($seedList->emails_count) }}</option>
+                                    @endforeach
+                                </select>
+                                <small class="form-text text-muted mt-1"><a href="{{ $seedListsUrl }}" target="_blank"><i class="fas fa-external-link-alt mr-1"></i>Manage seed lists</a></small>
+                            </div>
+                            <div class="form-group mb-0">
+                                <label class="command-form-label font-weight-bold" for="warmup-seed-accounts">Direct Seed Accounts (one per line):</label>
+                                <textarea id="warmup-seed-accounts" name="seed_accounts_text" rows="5" class="form-control font-monospace resize-none" placeholder="seed1@domain.com&#10;seed2@domain.com">{{ old('seed_accounts_text', $content['seed_accounts_text'] ?? '') }}</textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-sm-12 col-md-6 mb-3">
+                        <div class="warmup-composer-param-card p-3 border rounded-lg bg-surface">
+                            <div class="d-flex align-items-center mb-2 pb-2 border-bottom">
+                                <i class="fas fa-tachometer-alt text-purple mr-2 font-size-lg"></i>
+                                <strong class="text-uppercase font-size-sm letter-spacing-sm">Pacing &amp; Throttle Limits</strong>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group col-sm-12 col-md-6">
+                                    <label class="command-form-label font-weight-bold" for="warmup-send-type">Send Type:</label>
+                                    <select id="warmup-send-type" name="send_type" class="form-control selectpicker">
+                                        @foreach ($warmupSendTypes as $type => $label)
+                                            <option value="{{ $type }}" @selected(old('send_type', $content['send_type'] ?? 'delay') === $type)>{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                @if ($draft)
+                                    <div class="form-group col-sm-12 col-md-6">
+                                        <label class="command-form-label font-weight-bold" for="warmup-start-from">Start From Index:</label>
+                                        <input id="warmup-start-from" name="start_from" type="number" min="0" class="form-control" value="{{ old('start_from', $content['start_from'] ?? 0) }}">
+                                    </div>
+                                @else
+                                    <div class="form-group col-sm-12 col-md-6">
+                                        <label class="command-form-label font-weight-bold" for="warmup-total_send">Total Send Count:</label>
+                                        <input id="warmup-total_send" name="total_send" type="number" min="0" max="2147483647" class="form-control" value="{{ old('total_send', $content['total_send'] ?? 1) }}">
+                                    </div>
+                                @endif
+                            </div>
+                            <div class="form-row">
+                                @if ($draft)
+                                    <div class="form-group col-sm-6 col-md-6">
+                                        <label class="command-form-label font-weight-bold" for="warmup-total_send">Total Send:</label>
+                                        <input id="warmup-total_send" name="total_send" type="number" min="0" max="2147483647" class="form-control" value="{{ old('total_send', $content['total_send'] ?? 1) }}">
+                                    </div>
+                                @endif
+                                <div class="form-group col-sm-6 {{ $draft ? 'col-md-6' : 'col-md-6' }}">
+                                    <label class="command-form-label font-weight-bold" for="warmup-fraction_ip">Fraction IP:</label>
+                                    <input id="warmup-fraction_ip" name="fraction_ip" type="number" min="0" max="2147483647" class="form-control" value="{{ old('fraction_ip', $content['fraction_ip'] ?? 1) }}">
+                                </div>
+                                <div class="form-group col-sm-6 {{ $draft ? 'col-md-6' : 'col-md-6' }}">
+                                    <label class="command-form-label font-weight-bold" for="warmup-sleep_email">Sleep Email (MS):</label>
+                                    <input id="warmup-sleep_email" name="sleep_email" type="number" min="0" max="2147483647" class="form-control" value="{{ old('sleep_email', $content['sleep_email'] ?? 0) }}">
+                                </div>
+                                <div class="form-group col-sm-6 col-md-6">
+                                    <label class="command-form-label font-weight-bold" for="warmup-sleep_ip">Sleep IP (MS):</label>
+                                    <input id="warmup-sleep_ip" name="sleep_ip" type="number" min="0" max="2147483647" class="form-control" value="{{ old('sleep_ip', $content['sleep_ip'] ?? 0) }}">
+                                </div>
+                                <div class="form-group col-sm-6 col-md-6">
+                                    <label class="command-form-label font-weight-bold" for="warmup-seed_every">Test After (Seeds):</label>
+                                    <input id="warmup-seed_every" name="seed_every" type="number" min="0" max="2147483647" class="form-control" value="{{ old('seed_every', $content['seed_every'] ?? 0) }}">
+                                </div>
+                                <div class="form-group col-sm-6 col-md-6">
+                                    <label class="command-form-label font-weight-bold" for="warmup-bounce_limit">Bounce Limit:</label>
+                                    <input id="warmup-bounce_limit" name="bounce_limit" type="number" min="0" max="2147483647" class="form-control" value="{{ old('bounce_limit', $content['bounce_limit'] ?? 1000) }}">
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1174,6 +1273,8 @@
         });
         const count = byId('selected-send-ips-count');
         if (count) count.textContent = String(selected.options.length);
+        const availCount = byId('available-send-ips-count');
+        if (availCount) availCount.textContent = String(available.options.length);
         const empty = byId('send-ips-empty');
         if (empty) empty.hidden = (rows || []).length > 0;
     };
@@ -1185,6 +1286,9 @@
         Array.from(values.options).forEach(option => { option.selected = selectedIds.has(String(option.value)); });
         const count = byId('selected-send-ips-count');
         if (count) count.textContent = String(selected.options.length);
+        const availCount = byId('available-send-ips-count');
+        const available = byId('available-send-ips');
+        if (availCount && available) availCount.textContent = String(available.options.length);
     };
     const moveIpOptions = (sourceId, targetId, moveAll = false) => {
         const source = byId(sourceId);
@@ -1290,6 +1394,42 @@
     byId('mailer-ip-add-all')?.addEventListener('click', () => moveIpOptions('available-send-ips', 'selected-send-ips', true));
     byId('mailer-ip-remove')?.addEventListener('click', () => moveIpOptions('selected-send-ips', 'available-send-ips'));
     byId('mailer-ip-remove-all')?.addEventListener('click', () => moveIpOptions('selected-send-ips', 'available-send-ips', true));
+    byId('available-send-ips')?.addEventListener('dblclick', () => moveIpOptions('available-send-ips', 'selected-send-ips'));
+    byId('selected-send-ips')?.addEventListener('dblclick', () => moveIpOptions('selected-send-ips', 'available-send-ips'));
+
+    const filterSelectOptions = (filterInput, selectElement) => {
+        if (!filterInput || !selectElement) return;
+        filterInput.addEventListener('input', () => {
+            const query = filterInput.value.toLowerCase().trim();
+            Array.from(selectElement.options).forEach(opt => {
+                const match = !query || opt.textContent.toLowerCase().includes(query);
+                opt.style.display = match ? '' : 'none';
+            });
+        });
+    };
+    filterSelectOptions(byId('available-send-ips-filter'), byId('available-send-ips'));
+    filterSelectOptions(byId('selected-send-ips-filter'), byId('selected-send-ips'));
+
+    byId('copy-available-ips')?.addEventListener('click', () => {
+        const text = Array.from(byId('available-send-ips')?.options || []).map(o => o.textContent).join('\n');
+        navigator.clipboard?.writeText(text);
+    });
+    byId('copy-selected-ips')?.addEventListener('click', () => {
+        const text = Array.from(byId('selected-send-ips')?.options || []).map(o => o.textContent).join('\n');
+        navigator.clipboard?.writeText(text);
+    });
+
+    byId('send-route')?.addEventListener('change', () => {
+        const heading = byId('send-route-choice-heading');
+        const route = byId('send-route')?.value || 'ip';
+        if (heading) {
+            heading.textContent = route === 'smtp' ? 'SMTP routes' : (route === 'vmta' ? 'VMTAs' : 'IPs');
+        }
+        const availLabel = byId('available-send-ips-label');
+        if (availLabel) availLabel.textContent = `Available ${heading ? heading.textContent : 'IPs'}`;
+        const selLabel = byId('selected-send-ips-label');
+        if (selLabel) selLabel.textContent = `Selected ${heading ? heading.textContent : 'IPs'}`;
+    });
     byId('drop-segments')?.addEventListener('change', syncSegmentCount);
     byId('refresh-drop-lists')?.addEventListener('click', refresh);
     byId('drop-filter')?.addEventListener('change', () => renderSegments(latestSegments));

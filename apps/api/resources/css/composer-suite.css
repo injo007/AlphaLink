@@ -700,7 +700,7 @@
                 grid-template-columns: minmax(0, 1fr) 52px minmax(0, 1fr);
                 margin: 8px 0 10px;
             }
-            .campaign-create-page #campaign-routing .campaign-route-picker > .campaign-route-selector {
+            .campaign-create-page .campaign-route-picker > .campaign-route-selector {
                 background: linear-gradient(145deg, #fff, #faf9ff);
                 border: 1px solid #e1def1;
                 border-radius: 14px;
@@ -717,7 +717,9 @@
             .campaign-create-page .campaign-route-count { align-items: center; background: #f0eaff; border: 1px solid #e5d9ff; border-radius: 999px; color: #642ec6; display: inline-flex; flex: 0 0 auto; font-size: 10px; font-weight: 800; justify-content: center; min-height: 23px; min-width: 26px; padding: 0 7px; }
             .campaign-create-page .campaign-route-filter { height: 36px !important; margin-bottom: 8px !important; min-height: 36px !important; }
             .campaign-create-page #send-ips-available,
-            .campaign-create-page #send-ips-selected {
+            .campaign-create-page #send-ips-selected,
+            .campaign-create-page #available-send-ips,
+            .campaign-create-page #selected-send-ips {
                 background: linear-gradient(180deg, #fff, #fafaff);
                 border: 1px solid #dce0f0;
                 border-radius: 10px;
@@ -732,10 +734,14 @@
                 width: 100%;
             }
             .campaign-create-page #send-ips-available option,
-            .campaign-create-page #send-ips-selected option { border-radius: 6px; color: #242c4b; line-height: 1.55; padding: 8px 9px; }
+            .campaign-create-page #send-ips-selected option,
+            .campaign-create-page #available-send-ips option,
+            .campaign-create-page #selected-send-ips option { border-radius: 6px; color: #242c4b; line-height: 1.55; padding: 8px 9px; }
             .campaign-create-page #send-ips-available option:checked,
-            .campaign-create-page #send-ips-selected option:checked { background: linear-gradient(100deg, #eee7ff, #eaf2ff); color: #5d2dc2; }
-            .campaign-create-page #campaign-routing .campaign-route-transfer-controls {
+            .campaign-create-page #send-ips-selected option:checked,
+            .campaign-create-page #available-send-ips option:checked,
+            .campaign-create-page #selected-send-ips option:checked { background: linear-gradient(100deg, #eee7ff, #eaf2ff); color: #5d2dc2; }
+            .campaign-create-page .campaign-route-transfer-controls {
                 align-content: center;
                 align-self: stretch;
                 display: grid !important;
@@ -746,10 +752,14 @@
                 min-width: 0;
                 width: 100%;
             }
-            .campaign-create-page #campaign-routing .campaign-route-transfer-controls [data-ip-move] { align-items: center; background: linear-gradient(145deg, #fff, #f3efff); border: 1px solid #ddd3f8; border-radius: 11px; box-shadow: 0 2px 7px rgb(59 44 117 / 8%); color: #6d35d5; cursor: pointer; display: inline-flex; font-size: 16px; height: 44px; justify-content: center; margin: 0 !important; min-width: 44px; padding: 0 4px; transition: background .16s ease, box-shadow .16s ease, transform .16s ease; width: 100%; }
-            .campaign-create-page #campaign-routing .campaign-route-transfer-controls [data-ip-move]:hover { background: #eee7ff; box-shadow: 0 4px 10px rgb(59 44 117 / 13%); transform: translateY(-1px); }
-            .campaign-create-page #campaign-routing .campaign-route-transfer-controls [data-ip-move]:focus-visible { box-shadow: 0 0 0 3px rgb(139 74 255 / 18%); outline: 2px solid #9b6aff; outline-offset: 2px; }
-            .campaign-create-page #campaign-routing .campaign-route-transfer-controls [data-ip-move]:disabled { cursor: not-allowed; opacity: .48; }
+            .campaign-create-page .campaign-route-transfer-controls [data-ip-move],
+            .campaign-create-page .campaign-route-transfer-controls button { align-items: center; background: linear-gradient(145deg, #fff, #f3efff); border: 1px solid #ddd3f8; border-radius: 11px; box-shadow: 0 2px 7px rgb(59 44 117 / 8%); color: #6d35d5; cursor: pointer; display: inline-flex; font-size: 16px; height: 44px; justify-content: center; margin: 0 !important; min-width: 44px; padding: 0 4px; transition: background .16s ease, box-shadow .16s ease, transform .16s ease; width: 100%; }
+            .campaign-create-page .campaign-route-transfer-controls [data-ip-move]:hover,
+            .campaign-create-page .campaign-route-transfer-controls button:hover { background: #eee7ff; box-shadow: 0 4px 10px rgb(59 44 117 / 13%); transform: translateY(-1px); }
+            .campaign-create-page .campaign-route-transfer-controls [data-ip-move]:focus-visible,
+            .campaign-create-page .campaign-route-transfer-controls button:focus-visible { box-shadow: 0 0 0 3px rgb(139 74 255 / 18%); outline: 2px solid #9b6aff; outline-offset: 2px; }
+            .campaign-create-page .campaign-route-transfer-controls [data-ip-move]:disabled,
+            .campaign-create-page .campaign-route-transfer-controls button:disabled { cursor: not-allowed; opacity: .48; }
             .campaign-create-page #send-route-behavior { background: #f7f5ff; border-left: 3px solid #9a5aff; border-radius: 0 7px 7px 0; margin-top: 8px; padding: 7px 9px; }
             #campaign-options-status.alert-info {
                 background-color: transparent !important;
@@ -911,8 +921,21 @@
             html[data-command-theme='dark'] .campaign-create-page #campaign-tags-help { background: #172547; border-color: #3a4c79; color: #d4b7ff; }
             html[data-command-theme='dark'] .campaign-create-page .campaign-route-kind,
             html[data-command-theme='dark'] .campaign-create-page .campaign-route-count { background: #27254e; border-color: #4b427d; color: #d4b7ff; }
-            html[data-command-theme='dark'] .campaign-create-page #campaign-routing .campaign-route-picker > .campaign-route-selector { background: linear-gradient(145deg, #101c3a, #141f3e); border-color: #334574; }
-            html[data-command-theme='dark'] .campaign-create-page #campaign-routing .campaign-route-transfer-controls [data-ip-move] { background: linear-gradient(145deg, #172547, #182140); border-color: #3a4c79; color: #d4b7ff; }
+            html[data-command-theme='dark'] .campaign-create-page .campaign-route-picker > .campaign-route-selector { background: linear-gradient(145deg, #101c3a, #141f3e); border-color: #334574; }
+            html[data-command-theme='dark'] .campaign-create-page .campaign-route-transfer-controls [data-ip-move],
+            html[data-command-theme='dark'] .campaign-create-page .campaign-route-transfer-controls button { background: linear-gradient(145deg, #172547, #182140); border-color: #3a4c79; color: #d4b7ff; }
+            html[data-command-theme='dark'] .campaign-create-page #send-ips-available,
+            html[data-command-theme='dark'] .campaign-create-page #send-ips-selected,
+            html[data-command-theme='dark'] .campaign-create-page #available-send-ips,
+            html[data-command-theme='dark'] .campaign-create-page #selected-send-ips { background: linear-gradient(180deg, #101c3a, #141f3e); border-color: #334574; }
+            html[data-command-theme='dark'] .campaign-create-page #send-ips-available option,
+            html[data-command-theme='dark'] .campaign-create-page #send-ips-selected option,
+            html[data-command-theme='dark'] .campaign-create-page #available-send-ips option,
+            html[data-command-theme='dark'] .campaign-create-page #selected-send-ips option { color: #d4b7ff; }
+            html[data-command-theme='dark'] .campaign-create-page #send-ips-available option:checked,
+            html[data-command-theme='dark'] .campaign-create-page #send-ips-selected option:checked,
+            html[data-command-theme='dark'] .campaign-create-page #available-send-ips option:checked,
+            html[data-command-theme='dark'] .campaign-create-page #selected-send-ips option:checked { background: linear-gradient(100deg, #302657, #212c52); color: #fff; }
             html[data-command-theme='dark'] .campaign-create-page .campaign-route-pools-heading small { color: #abb6d8; }
             html[data-command-theme='dark'] .campaign-create-page select.form-control:not([multiple]):not(.selectpicker) { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%23d4b7ff' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.6'/%3E%3C/svg%3E"); background-position: right 12px center; background-repeat: no-repeat; background-size: 12px 8px; }
             html[data-command-theme='dark'] .campaign-create-page [data-campaign-placeholder-editor] .table tbody td { background: #101c3a; border-color: #26365f; }
@@ -997,11 +1020,12 @@
                 .campaign-create-page .campaign-placeholder-toolbar .campaign-mode-label { font-size: 10px; }
                 .campaign-create-page .campaign-editor-heading { align-items: flex-start; }
                 .campaign-create-page .campaign-editor-tools { justify-content: flex-start; }
-                .campaign-create-page #campaign-routing .campaign-route-pools-heading { align-items: flex-start; }
-                .campaign-create-page #campaign-routing .campaign-route-picker { grid-template-columns: minmax(0, 1fr); }
-                .campaign-create-page #campaign-routing .campaign-route-transfer-controls { grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 0 2px; }
-                .campaign-create-page #campaign-routing .campaign-route-transfer-controls [data-ip-move] { height: 44px; min-height: 44px; }
-                .campaign-create-page #campaign-routing .campaign-route-selector { max-width: 100%; }
+                .campaign-create-page .campaign-route-pools-heading { align-items: flex-start; }
+                .campaign-create-page .campaign-route-picker { grid-template-columns: minmax(0, 1fr); }
+                .campaign-create-page .campaign-route-transfer-controls { grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 0 2px; }
+                .campaign-create-page .campaign-route-transfer-controls [data-ip-move],
+                .campaign-create-page .campaign-route-transfer-controls button { height: 44px; min-height: 44px; }
+                .campaign-create-page .campaign-route-selector { max-width: 100%; }
                 .campaign-create-page .form-row > [class*='col-'] { flex: 0 0 100%; max-width: 100%; }
             }
             @media (max-width: 420px) {

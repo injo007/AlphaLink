@@ -185,9 +185,7 @@
         quickNavMenu.hidden = !open;
         quickNavToggle.setAttribute('aria-expanded', String(open));
         quickNavToggle.setAttribute('aria-label', open ? 'Close quick navigation' : 'Open quick navigation');
-        if (open) {
-            quickNavMenu.querySelector('[role="menuitem"]')?.focus();
-        }
+        if (open) quickNavMenu.querySelector('[role="menuitem"]')?.focus();
     };
     quickNavToggle.addEventListener('click', () => setQuickNavOpen(quickNavMenu.hidden));
     document.addEventListener('click', (event) => {
@@ -247,11 +245,8 @@
             const url = new URL(page.dataset.pmtaAdminUrl, window.location.origin);
             selectedServers.forEach((option) => url.searchParams.append('server_ids[]', option.value));
             const opened = window.open(url.toString(), '_blank');
-            if (!opened) {
-                showToast('The PMTA Admin page was blocked by the browser. Allow pop-ups for AlphaLink.', 'warning');
-            } else {
-                opened.opener = null;
-            }
+            if (!opened) showToast('The PMTA Admin page was blocked by the browser. Allow pop-ups for AlphaLink.', 'warning');
+            else opened.opener = null;
             return;
         }
         if (action === 'pmta-panel') {
@@ -279,14 +274,13 @@
         runQuickAction(event.target.closest('[data-quick-action]')?.dataset.quickAction);
     }));
 
-    // Saved Emails + Add Email Test (Inline Manager + Modal Sync + Smart Merge)
+    // Saved Emails + Inline Add/Delete Manager (1:1 Edit Campaign UX + Smart Merge)
     const savedEmailsSelect = byId('saved_emails');
     const emailTextarea = byId('email_test');
     const inlineEmailManager = byId('saved-email-manager');
     const inlineEmailInput = byId('saved-email-new');
     const inlineEmailStatus = byId('saved-email-status');
     const manageEmailsButton = byId('manage-emails');
-    const clearEmailTestButton = byId('clear-email-test');
     let syncedSavedEmails = new Set();
 
     const parsedEmailLines = () => emailTextarea.value.split(/\r?\n/).map((v) => v.trim()).filter(Boolean);
@@ -299,8 +293,7 @@
     const mergeSavedSelectionsIntoTextarea = () => {
         const selectedNow = new Set([...savedEmailsSelect.selectedOptions].map((o) => o.value));
         const manualLines = parsedEmailLines().filter((email) => !syncedSavedEmails.has(email));
-        const combined = [...new Set([...manualLines, ...selectedNow])];
-        emailTextarea.value = combined.join('\n');
+        emailTextarea.value = [...new Set([...manualLines, ...selectedNow])].join('\n');
         syncedSavedEmails = selectedNow;
         updateRouteCountsAndSummary();
     };
@@ -310,112 +303,57 @@
     manageEmailsButton.addEventListener('click', () => {
         inlineEmailManager.hidden = !inlineEmailManager.hidden;
         manageEmailsButton.setAttribute('aria-expanded', String(!inlineEmailManager.hidden));
-        if (!inlineEmailManager.hidden) {
+        if (!inlineEmailManager.hidden) inlineEmailInput.focus();
+    });
+
+    const addTestEmail = async () => {
+        const rawEmail = inlineEmailInput.value.trim();
+        if (!rawEmail || !inlineEmailInput.checkValidity()) {
             inlineEmailInput.focus();
-        }
-    });
-    byId('saved-email-close')?.addEventListener('click', () => {
-        inlineEmailManager.hidden = true;
-        manageEmailsButton.setAttribute('aria-expanded', 'false');
-        manageEmailsButton.focus();
-    });
-    byId('open-saved-emails-dialog')?.addEventListener('click', () => {
-        openDialog(byId('global-email-dialog'), byId('new-test-email'));
-    });
-
-    clearEmailTestButton?.addEventListener('click', () => {
-        emailTextarea.value = '';
-        syncedSavedEmails.clear();
-        [...savedEmailsSelect.options].forEach((o) => { o.selected = false; });
-        refreshPicker(savedEmailsSelect);
-        updateRouteCountsAndSummary();
-        emailTextarea.focus();
-    });
-
-    const addressOptionExists = (email) => [...savedEmailsSelect.options].some((option) => option.value.toLowerCase() === email.toLowerCase());
-    const addAddressToUi = ({ id, email }, selectAndInsert = true) => {
-        let targetOption = [...savedEmailsSelect.options].find((o) => o.value.toLowerCase() === email.toLowerCase());
-        if (!targetOption) {
-            targetOption = new Option(email, email);
-            targetOption.dataset.addressId = id;
-            savedEmailsSelect.add(targetOption);
-        }
-        if (selectAndInsert) {
-            targetOption.selected = true;
-        }
-        refreshPicker(savedEmailsSelect);
-        if (selectAndInsert) {
-            mergeSavedSelectionsIntoTextarea();
-        }
-        if (![...byId('saved-email-list').children].some((item) => item.dataset.addressId === String(id))) {
-            const row = document.createElement('li');
-            row.className = 'list-group-item d-flex justify-content-between align-items-center';
-            row.dataset.addressId = id;
-            const label = document.createElement('span');
-            label.textContent = email;
-            const remove = document.createElement('button');
-            remove.type = 'button';
-            remove.className = 'campaign-icon-button is-delete remove-saved-email';
-            remove.setAttribute('aria-label', `Delete ${email}`);
-            remove.title = `Delete ${email}`;
-            remove.innerHTML = '<i class="fas fa-trash-alt" aria-hidden="true"></i>';
-            row.append(label, remove);
-            byId('saved-email-list').append(row);
-        }
-    };
-
-    const removeAddressFromUiById = (addressId) => {
-        const option = [...savedEmailsSelect.options].find((o) => String(o.dataset.addressId) === String(addressId));
-        const email = option?.value || '';
-        option?.remove();
-        refreshPicker(savedEmailsSelect);
-        byId('saved-email-list').querySelector(`[data-address-id="${CSS.escape(String(addressId))}"]`)?.remove();
-        if (email) {
-            syncedSavedEmails.delete(email);
-            const remaining = parsedEmailLines().filter((line) => line !== email);
-            emailTextarea.value = remaining.join('\n');
-        }
-        updateRouteCountsAndSummary();
-    };
-
-    const handleAddSavedEmail = async (inputEl, triggerBtn, feedbackFn) => {
-        const rawEmail = inputEl.value.trim();
-        if (!rawEmail || !inputEl.checkValidity()) {
-            inputEl.focus();
-            inputEl.reportValidity();
-            feedbackFn('Enter a valid email address.', 'danger');
+            inlineEmailInput.reportValidity();
+            setInlineEmailStatus('Enter a valid email address.', 'danger');
             return;
         }
-        triggerBtn.disabled = true;
+        const addBtn = byId('saved-email-add');
+        addBtn.disabled = true;
         try {
             const result = await jsonRequest(page.dataset.addressStoreUrl, {
                 method: 'POST',
                 body: JSON.stringify({ email: rawEmail }),
             });
-            addAddressToUi(result.data, true);
-            inputEl.value = '';
-            feedbackFn('Email address saved & added to test list.', 'success');
-            showToast('Email address saved and selected.', 'success');
+            const data = result.data || { email: rawEmail, id: '' };
+            let opt = [...savedEmailsSelect.options].find((o) => o.value.toLowerCase() === data.email.toLowerCase());
+            if (!opt) {
+                opt = new Option(data.email, data.email);
+                opt.dataset.addressId = String(data.id);
+                savedEmailsSelect.add(opt);
+            }
+            opt.selected = true;
+            refreshPicker(savedEmailsSelect);
+            mergeSavedSelectionsIntoTextarea();
+            inlineEmailInput.value = '';
+            setInlineEmailStatus('Address saved & added.', 'success');
+            showToast('Email address saved.', 'success');
         } catch (error) {
-            feedbackFn(error.message, 'danger');
+            setInlineEmailStatus(error.message, 'danger');
             showToast(error.message, 'danger');
         } finally {
-            triggerBtn.disabled = false;
+            addBtn.disabled = false;
         }
     };
 
-    byId('saved-email-add')?.addEventListener('click', () => handleAddSavedEmail(inlineEmailInput, byId('saved-email-add'), setInlineEmailStatus));
+    byId('saved-email-add')?.addEventListener('click', addTestEmail);
     inlineEmailInput?.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
             event.preventDefault();
-            handleAddSavedEmail(inlineEmailInput, byId('saved-email-add'), setInlineEmailStatus);
+            addTestEmail();
         }
     });
 
     byId('saved-email-remove')?.addEventListener('click', async () => {
         const selected = [...savedEmailsSelect.selectedOptions];
         if (!selected.length) {
-            setInlineEmailStatus('Select one or more saved addresses in Saved Emails first.', 'warning');
+            setInlineEmailStatus('Select a saved address first.', 'warning');
             return;
         }
         const btn = byId('saved-email-remove');
@@ -425,8 +363,13 @@
                 const addressId = option.dataset.addressId;
                 if (!addressId) continue;
                 await jsonRequest(`${page.dataset.addressDeleteBase}/${encodeURIComponent(addressId)}`, { method: 'DELETE' });
-                removeAddressFromUiById(addressId);
+                const email = option.value;
+                option.remove();
+                syncedSavedEmails.delete(email);
+                emailTextarea.value = parsedEmailLines().filter((line) => line !== email).join('\n');
             }
+            refreshPicker(savedEmailsSelect);
+            updateRouteCountsAndSummary();
             setInlineEmailStatus('Selected addresses deleted.', 'success');
             showToast('Selected saved addresses deleted.', 'success');
         } catch (error) {
@@ -434,28 +377,6 @@
             showToast(error.message, 'danger');
         } finally {
             btn.disabled = false;
-        }
-    });
-
-    byId('save-email-form').addEventListener('submit', (event) => {
-        event.preventDefault();
-        handleAddSavedEmail(byId('new-test-email'), event.currentTarget.querySelector('[type="submit"]'), () => {});
-    });
-
-    byId('saved-email-list').addEventListener('click', async (event) => {
-        const remove = event.target.closest('.remove-saved-email');
-        if (!remove) return;
-        const row = remove.closest('[data-address-id]');
-        const addressId = row?.dataset.addressId;
-        if (!addressId) return;
-        remove.disabled = true;
-        try {
-            await jsonRequest(`${page.dataset.addressDeleteBase}/${encodeURIComponent(addressId)}`, { method: 'DELETE' });
-            removeAddressFromUiById(addressId);
-            showToast('Email address deleted.', 'success');
-        } catch (error) {
-            showToast(error.message, 'danger');
-            remove.disabled = false;
         }
     });
 
@@ -501,12 +422,8 @@
         const button = byId('confirm-save-header');
         button.disabled = true;
         try {
-            const result = await jsonRequest(page.dataset.headerBase, {
-                method: 'POST',
-                body: JSON.stringify({ name, text: getHeader() }),
-            });
-            const option = new Option(name, result.header_id);
-            headerSelect.add(option);
+            const result = await jsonRequest(page.dataset.headerBase, { method: 'POST', body: JSON.stringify({ name, text: getHeader() }) });
+            headerSelect.add(new Option(name, result.header_id));
             headerSelect.value = result.header_id;
             deleteHeaderBtn.disabled = false;
             refreshPicker(headerSelect);
@@ -526,8 +443,7 @@
             showToast('Select a saved header first.', 'warning');
             return;
         }
-        const selected = headerSelect.selectedOptions[0];
-        byId('global-confirm-copy').textContent = `Delete “${selected.textContent}” from saved headers?`;
+        byId('global-confirm-copy').textContent = `Delete “${headerSelect.selectedOptions[0].textContent}” from saved headers?`;
         openDialog(byId('global-confirm-dialog'), byId('confirm-delete-header'));
     });
     byId('confirm-delete-header').addEventListener('click', async () => {
@@ -552,9 +468,9 @@
 
     byId('shuffle-header').addEventListener('click', () => {
         const lines = getHeader().replace(/\r\n/g, '\n').split('\n');
-        for (let index = lines.length - 1; index > 0; index -= 1) {
-            const target = Math.floor(Math.random() * (index + 1));
-            [lines[index], lines[target]] = [lines[target], lines[index]];
+        for (let i = lines.length - 1; i > 0; i -= 1) {
+            const target = Math.floor(Math.random() * (i + 1));
+            [lines[i], lines[target]] = [lines[target], lines[i]];
         }
         setHeader(lines.join('\n'));
         headerEditor ? headerEditor.focus() : headerElement.focus();
@@ -579,7 +495,7 @@
             refreshPicker(route);
             route.dispatchEvent(new Event('change', { bubbles: true }));
         }
-        showToast('Header From now uses [smtp]@[domain] and switched Option to SMTP.', 'info');
+        showToast('Header From set to [smtp]@[domain].', 'info');
     });
 
     byId('domain').addEventListener('change', (event) => {
@@ -615,12 +531,10 @@
     // Encoding Modal
     const setIpTab = (tab) => {
         const stringSelected = tab === 'string';
-        const stringTab = byId('global-encoding-string-tab');
-        const ipTab = byId('global-encoding-ip-tab');
-        stringTab.setAttribute('aria-selected', String(stringSelected));
-        stringTab.classList.toggle('active', stringSelected);
-        ipTab.setAttribute('aria-selected', String(!stringSelected));
-        ipTab.classList.toggle('active', !stringSelected);
+        byId('global-encoding-string-tab').setAttribute('aria-selected', String(stringSelected));
+        byId('global-encoding-string-tab').classList.toggle('active', stringSelected);
+        byId('global-encoding-ip-tab').setAttribute('aria-selected', String(!stringSelected));
+        byId('global-encoding-ip-tab').classList.toggle('active', !stringSelected);
         byId('global-encoding-string').hidden = !stringSelected;
         byId('global-encoding-ip').hidden = stringSelected;
     };
@@ -638,11 +552,7 @@
         try {
             const result = await jsonRequest(page.dataset.encodeUrl, {
                 method: 'POST',
-                body: JSON.stringify({
-                    string: value,
-                    schema: byId('encoding-schema').value,
-                    charset: byId('encoding-charset').value,
-                }),
+                body: JSON.stringify({ string: value, schema: byId('encoding-schema').value, charset: byId('encoding-charset').value }),
             });
             byId('encoding-result').value = result;
         } catch (error) {
@@ -664,27 +574,21 @@
         const address = byId('encoding-ip').value.trim();
         try {
             const parts = ipv4Parts(address);
-            const octal = parts.map((part) => padded(part, 8, 4)).join('.');
-            const integer = parts[0] * 16777216 + parts[1] * 65536 + parts[2] * 256 + parts[3];
-            const hex = `0x${parts.map((part) => padded(part, 16, 2)).join('').toUpperCase()}`;
-            const octalHex = `${padded(parts[0], 8, 4)}.${padded(parts[1], 8, 4)}.0x${padded(parts[2], 16, 2)}${padded(parts[3], 16, 2)}`;
-            const decimalHex = `${parts[0]}.${parts[1]}.0x${padded(parts[2], 16, 2)}${padded(parts[3], 16, 2)}`;
-            const decimalOctal = `${parts[0]}.${parts[1]}.${padded(parts[2], 8, 4)}.${padded(parts[3], 8, 4)}`;
             byId('encoding-ip-result').value = [
                 `Dotted Decimal IP : ${address}`,
-                `Octal IP : ${octal}`,
-                `Integer IP : ${integer}`,
-                `Hexadecimal IP : ${hex}`,
-                `OctalHexa IP : ${octalHex}`,
-                `DecimalHexa IP : ${decimalHex}`,
-                `DecimalOctal IP : ${decimalOctal}`,
+                `Octal IP : ${parts.map((part) => padded(part, 8, 4)).join('.')}`,
+                `Integer IP : ${parts[0] * 16777216 + parts[1] * 65536 + parts[2] * 256 + parts[3]}`,
+                `Hexadecimal IP : 0x${parts.map((part) => padded(part, 16, 2)).join('').toUpperCase()}`,
+                `OctalHexa IP : ${padded(parts[0], 8, 4)}.${padded(parts[1], 8, 4)}.0x${padded(parts[2], 16, 2)}${padded(parts[3], 16, 2)}`,
+                `DecimalHexa IP : ${parts[0]}.${parts[1]}.0x${padded(parts[2], 16, 2)}${padded(parts[3], 16, 2)}`,
+                `DecimalOctal IP : ${parts[0]}.${parts[1]}.${padded(parts[2], 8, 4)}.${padded(parts[3], 8, 4)}`,
             ].join('\n');
         } catch (error) {
             showToast(error.message, 'warning');
         }
     });
 
-    // Servers, Routes & IPs Management (Full Edit-Campaign Parity + Preserved Selections)
+    // Servers, Routes & IPs Management (1:1 Edit Campaign Parity)
     const optionSelect = byId('option');
     const typeSelect = byId('type');
     const serverSelect = byId('servers');
@@ -699,12 +603,8 @@
     let loadedRouteMode = optionSelect.value;
 
     const formatRouteLabel = (ip, routeMode) => {
-        if (routeMode === 'vmta') {
-            return [ip.ip, ip.dns, ip.name || ip.pmta_name].filter(Boolean).join(' | ');
-        }
-        if (routeMode === 'smtp') {
-            return [ip.ip, ip.username, ip.name, ip.dns].filter(Boolean).join(' | ');
-        }
+        if (routeMode === 'vmta') return [ip.ip, ip.dns, ip.name || ip.pmta_name].filter(Boolean).join(' | ');
+        if (routeMode === 'smtp') return [ip.ip, ip.username, ip.name, ip.dns].filter(Boolean).join(' | ');
         return [ip.ip, ip.dns, ip.username].filter(Boolean).join(' | ');
     };
 
@@ -724,25 +624,11 @@
         const behavior = byId('send-route-behavior');
         if (behavior) {
             behavior.innerHTML = route === 'smtp'
-                ? '<strong>SMTP Mode:</strong> Option SMTP selects the outbound relay. <code>[smtp]</code> is its username and <code>[smtp_name]</code> is its label. AlphaLink connects through the server PMTA listener.'
+                ? 'Option SMTP selects the outbound relay. <code>[smtp]</code> is its username and <code>[smtp_name]</code> is its label.'
                 : route === 'vmta'
-                    ? '<strong>VMTA Mode:</strong> Uses the selected virtual MTA for outbound routing and its configured domain. Output logs are saved to Global Test Histories.'
-                    : '<strong>IP Mode:</strong> Sends through the selected source-IP route. Double-click or use arrows to add routes. Output logs are saved to Global Test Histories immediately.';
+                    ? 'VMTA mode uses the selected virtual MTA for outbound routing and its configured domain.'
+                    : 'Option IP sends through the selected source-IP route. Double-click or use arrows to move items.';
         }
-
-        const moveLabels = {
-            'all-right': `Move all ${routeName} to selected`,
-            right: `Move selected ${routeName} to selected`,
-            left: `Move selected ${routeName} back to available`,
-            'all-left': `Remove all selected ${routeName}`,
-        };
-        document.querySelectorAll('[data-ip-move]').forEach((btn) => {
-            const label = moveLabels[btn.dataset.ipMove];
-            if (label) {
-                btn.title = label;
-                btn.setAttribute('aria-label', label);
-            }
-        });
     };
 
     const syncTransferButtons = () => {
@@ -768,22 +654,21 @@
             const monitorUrl = meta?.pmta_panel_display_url || meta?.pmta_panel_url || opt.dataset.monitorUrl || opt.dataset.panelUrl;
             const rawPanelUrl = meta?.pmta_panel_url || opt.dataset.panelUrl || monitorUrl;
             if (!monitorUrl) return;
+            const col = document.createElement('div');
+            col.className = 'col-sm-6 col-lg-4';
             const link = document.createElement('a');
             link.href = monitorUrl;
             link.target = '_blank';
             link.rel = 'noopener noreferrer';
             const usesProxy = rawPanelUrl && monitorUrl !== rawPanelUrl;
-            const scheme = (() => {
-                try {
-                    return new URL(monitorUrl, window.location.href).protocol === 'https:' ? 'HTTPS' : 'HTTP/IP';
-                } catch {
-                    return 'HTTP/IP';
-                }
-            })();
+            let scheme = 'HTTP/IP';
+            try {
+                if (new URL(monitorUrl, window.location.href).protocol === 'https:') scheme = 'HTTPS';
+            } catch {}
             const srvName = meta?.name || opt.textContent.split('|')[0].trim();
-            link.innerHTML = `<i class="fas fa-external-link-alt mr-1" aria-hidden="true"></i>Open PMTA monitor (${usesProxy ? 'HTTPS read-only proxy' : scheme}) — `;
-            link.append(document.createTextNode(srvName));
-            pmtaPanels.append(link);
+            link.textContent = `Open PMTA monitor (${usesProxy ? 'HTTPS read-only proxy' : scheme}) — ${srvName}`;
+            col.append(link);
+            pmtaPanels.append(col);
         });
         pmtaPanels.hidden = pmtaPanels.children.length === 0;
     };
@@ -826,10 +711,6 @@
         const repeatVal = Math.max(1, Number(byId('repeat')?.value || 1));
         const projected = emailsList.length * selCount * repeatVal;
 
-        const emailBadge = byId('email-test-count-badge');
-        if (emailBadge) emailBadge.textContent = String(emailsList.length);
-        if (clearEmailTestButton) clearEmailTestButton.hidden = emailsList.length === 0;
-
         const availEl = byId('send-ips-available-count');
         const selEl = byId('send-ips-selected-count');
         if (availEl) availEl.textContent = String(availCount);
@@ -843,8 +724,10 @@
         if (qVmtas) qVmtas.textContent = String(selCount);
 
         const projEl = byId('global-projected-messages');
+        const projField = byId('global-projected-messages-field');
         const estBox = byId('global-send-estimate-box');
         if (projEl) projEl.textContent = String(projected);
+        if (projField) projField.value = `${projected} / ${maxMessages}`;
         if (estBox) estBox.classList.toggle('is-over-limit', projected > maxMessages);
 
         const sPath = byId('global-summary-path');
@@ -853,40 +736,18 @@
         const sHeaders = byId('global-summary-headers');
         const sBody = byId('global-summary-body');
 
-        if (sPath) {
-            sPath.textContent = hasReturnPath ? 'Configured' : 'Missing';
-            sPath.className = hasReturnPath ? 'is-ready' : 'is-pending';
-        }
-        if (sEmails) {
-            sEmails.textContent = emailsList.length > 0 ? `${emailsList.length} selected` : 'Required';
-            sEmails.className = emailsList.length > 0 ? 'is-ready' : 'is-pending';
-        }
-        if (sRoutes) {
-            sRoutes.textContent = selCount > 0 ? `${selCount} selected` : (srvCount > 0 ? 'Pick routes' : 'Not selected');
-            sRoutes.className = selCount > 0 ? 'is-ready' : 'is-pending';
-        }
-        if (sHeaders) {
-            sHeaders.textContent = hasHeader ? 'Ready' : 'Required';
-            sHeaders.className = hasHeader ? 'is-ready' : 'is-pending';
-        }
-        if (sBody) {
-            sBody.textContent = hasBody ? 'Ready' : 'Empty (optional)';
-            sBody.className = hasBody ? 'is-ready' : 'is-optional';
-        }
+        if (sPath) { sPath.textContent = hasReturnPath ? 'Configured' : 'Missing'; sPath.className = hasReturnPath ? 'is-ready' : 'is-pending'; }
+        if (sEmails) { sEmails.textContent = emailsList.length > 0 ? `${emailsList.length} selected` : 'Required'; sEmails.className = emailsList.length > 0 ? 'is-ready' : 'is-pending'; }
+        if (sRoutes) { sRoutes.textContent = selCount > 0 ? `${selCount} selected` : (srvCount > 0 ? 'Pick routes' : 'Not selected'); sRoutes.className = selCount > 0 ? 'is-ready' : 'is-pending'; }
+        if (sHeaders) { sHeaders.textContent = hasHeader ? 'Ready' : 'Required'; sHeaders.className = hasHeader ? 'is-ready' : 'is-pending'; }
+        if (sBody) { sBody.textContent = hasBody ? 'Ready' : 'Empty (optional)'; sBody.className = hasBody ? 'is-ready' : 'is-optional'; }
 
         const totalPhRows = document.querySelectorAll('#placeholders .placeholder-row').length;
-        const activePhRows = [...document.querySelectorAll('#placeholders .placeholder-row .placeholder-data')]
-            .filter((el) => el.value.trim() !== '').length;
+        const activePhRows = [...document.querySelectorAll('#placeholders .placeholder-row .placeholder-data')].filter((el) => el.value.trim() !== '').length;
         const isPhOpen = !byId('placeholder-content').hidden;
-        const phBadge = byId('placeholder-count-badge');
-        if (phBadge) {
-            phBadge.textContent = totalPhRows === 0
-                ? (isPhOpen ? 'Open · 0' : 'Closed · 0')
-                : `${isPhOpen ? 'Open' : 'Closed'} · ${totalPhRows}`;
-        }
         const sPlaceholders = byId('global-summary-placeholders');
         if (sPlaceholders) {
-            sPlaceholders.textContent = activePhRows > 0 ? `${activePhRows} active` : (totalPhRows > 0 ? `${totalPhRows} empty` : (isPhOpen ? 'Optional (0)' : 'Closed (0)'));
+            sPlaceholders.textContent = activePhRows > 0 ? `${activePhRows} active` : (totalPhRows > 0 ? `${totalPhRows} empty` : (isPhOpen ? 'Optional' : 'Closed'));
             sPlaceholders.className = activePhRows > 0 ? 'is-ready' : 'is-optional';
         }
 
@@ -898,21 +759,16 @@
         const descEl = byId('global-readiness-desc');
         if (pctEl) pctEl.textContent = `${pct}%`;
         if (barEl) barEl.style.width = `${pct}%`;
-        if (descEl) descEl.textContent = `${passed} of ${checks.length} test checks complete`;
+        if (descEl) descEl.textContent = `${passed} of ${checks.length} setup checks complete`;
 
         const canDispatch = page.dataset.senderConfigured === 'true' && page.dataset.canSend === 'true' && projected <= maxMessages;
-        const mainBtn = byId('send-global-test');
-        const sideBtn = byId('global-summary-submit-btn');
-        [mainBtn, sideBtn].forEach((btn) => {
-            if (!btn) return;
-            btn.disabled = !canDispatch;
-            btn.title = projected > maxMessages
+        const sendBtn = byId('send-global-test');
+        if (sendBtn) {
+            sendBtn.disabled = !canDispatch;
+            sendBtn.title = projected > maxMessages
                 ? `Reduce this run to ${maxMessages} messages or fewer.`
-                : page.dataset.canSend !== 'true'
-                    ? 'Your role cannot dispatch Global Tests.'
-                    : '';
-        });
-
+                : page.dataset.canSend !== 'true' ? 'Your role cannot dispatch Global Tests.' : '';
+        }
         syncTransferButtons();
     };
 
@@ -946,22 +802,16 @@
         const routeChanged = routeMode !== loadedRouteMode;
         const selectedServerIds = new Set([...serverSelect.selectedOptions].map((o) => String(o.value)));
         const existingSelectedIds = (preserveSelected && !routeChanged)
-            ? new Set([...selectedSelect.options]
-                .filter((opt) => selectedServerIds.has(String(opt.dataset.serverId || '')) || opt.dataset.serverId === '')
-                .map((opt) => String(opt.value)))
+            ? new Set([...selectedSelect.options].filter((opt) => selectedServerIds.has(String(opt.dataset.serverId || '')) || opt.dataset.serverId === '').map((opt) => String(opt.value)))
             : new Set();
 
         availableSelect.replaceChildren();
         selectedSelect.replaceChildren();
 
         ips.forEach((ip) => {
-            const idStr = String(ip.id);
             const opt = makeRouteOption(ip, routeMode);
-            if (existingSelectedIds.has(idStr)) {
-                selectedSelect.add(opt);
-            } else {
-                availableSelect.add(opt);
-            }
+            if (existingSelectedIds.has(String(ip.id))) selectedSelect.add(opt);
+            else availableSelect.add(opt);
         });
 
         loadedRouteMode = routeMode;
@@ -983,21 +833,16 @@
         try {
             const response = await fetch(catalogUrl, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
             const result = await response.json();
-            if (!response.ok) {
-                throw new Error(result.message || 'Could not load the selected servers.');
-            }
-            if (includeServerChoices) {
-                renderServerOptions(result.servers || [], selectedServers);
-            } else {
-                renderPmtaMonitorLinks(result.servers || []);
-            }
+            if (!response.ok) throw new Error(result.message || 'Could not load the selected servers.');
+            if (includeServerChoices) renderServerOptions(result.servers || [], selectedServers);
+            else renderPmtaMonitorLinks(result.servers || []);
             renderIpOptions(result.ips || [], preserveSelected);
         } catch (error) {
             showToast(error.message, 'danger');
         }
     };
 
-    // Bulk Server Search Modal (Matches Edit Campaign)
+    // Bulk Server Search Modal
     byId('toggle-server-search')?.addEventListener('click', () => {
         openDialog(byId('global-server-search-dialog'), byId('global-server-search-input'));
     });
@@ -1011,9 +856,7 @@
             [...serverSelect.options].forEach((opt) => {
                 const [name = '', ...rest] = opt.textContent.split('|');
                 const ip = rest.join('|').trim();
-                if (name.trim().toLowerCase().includes(normalized) || ip.includes(query)) {
-                    matches.add(opt);
-                }
+                if (name.trim().toLowerCase().includes(normalized) || ip.includes(query)) matches.add(opt);
             });
         });
         [...serverSelect.options].forEach((opt) => { opt.selected = matches.has(opt); });
@@ -1022,16 +865,9 @@
         showToast(matches.size ? `${matches.size} matching server(s) selected.` : 'No matching servers found.', matches.size ? 'success' : 'warning');
     });
 
-    serverSelect.addEventListener('change', () => {
-        loadCatalog(false, true);
-    });
-    optionSelect.addEventListener('change', () => {
-        syncRouteChoiceLabels();
-        loadCatalog(false, false);
-    });
-    typeSelect.addEventListener('change', () => {
-        loadCatalog(false, true);
-    });
+    serverSelect.addEventListener('change', () => loadCatalog(false, true));
+    optionSelect.addEventListener('change', () => { syncRouteChoiceLabels(); loadCatalog(false, false); });
+    typeSelect.addEventListener('change', () => loadCatalog(false, true));
     byId('reload-servers').addEventListener('click', (event) => {
         const icon = event.currentTarget.querySelector('i');
         icon?.classList.add('fa-spin');
@@ -1043,11 +879,8 @@
         candidates.forEach((option) => {
             option.selected = false;
             const exists = [...destination.options].some((selected) => selected.value === option.value);
-            if (!exists) {
-                destination.add(option);
-            } else {
-                option.remove();
-            }
+            if (!exists) destination.add(option);
+            else option.remove();
         });
         applyOptionFilter(availableSelect, byId('ips-available-filter'));
         applyOptionFilter(selectedSelect, byId('ips-selected-filter'));
@@ -1066,26 +899,15 @@
     document.querySelectorAll('[data-copy-ip-list]').forEach((btn) => btn.addEventListener('click', async () => {
         const list = btn.dataset.copyIpList === 'selected' ? selectedSelect : availableSelect;
         const lines = [...list.options].filter((opt) => !opt.hidden).map((opt) => opt.dataset.ip || opt.textContent.trim()).filter(Boolean);
-        if (lines.length === 0) {
-            showToast('No routes in this list to copy.', 'warning');
-            return;
-        }
+        if (lines.length === 0) { showToast('No routes in this list to copy.', 'warning'); return; }
         const ok = await copyText(lines.join('\n'));
-        showToast(ok ? `Copied ${lines.length} route IP(s) to clipboard.` : 'Clipboard permission denied.', ok ? 'success' : 'warning');
+        showToast(ok ? `Copied ${lines.length} route IP(s).` : 'Clipboard permission denied.', ok ? 'success' : 'warning');
     }));
 
-    document.querySelectorAll('.global-clear-filter').forEach((button) => button.addEventListener('click', () => {
-        const input = byId(button.dataset.clear);
-        input.value = '';
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-        input.focus();
-    }));
-
-    // Closable & Clean Message Placeholders (Starts Closed when empty, Closes when emptied)
+    // Closable Placeholders
     const placeholderContent = byId('placeholder-content');
     const togglePlaceholdersBtn = byId('toggle-placeholders');
     const clearPlaceholdersBtn = byId('clear-placeholders');
-    const placeholderEmptyNote = byId('placeholder-empty-note');
     const placeholderRowsBody = document.querySelector('#placeholders tbody');
 
     const syncPlaceholderChrome = () => {
@@ -1093,11 +915,10 @@
         rows.forEach((row, index) => {
             const chip = row.querySelector('.global-placeholder-token-chip');
             if (chip) chip.textContent = `[placeholder${index + 1}]`;
-            row.querySelector('.placeholder-data')?.setAttribute('aria-label', `Placeholder ${index + 1} values, one per line`);
+            row.querySelector('.placeholder-data')?.setAttribute('aria-label', `Placeholder ${index + 1} values`);
             row.querySelector('.placeholder-rotate')?.setAttribute('aria-label', `Placeholder ${index + 1} rotate every`);
         });
         if (clearPlaceholdersBtn) clearPlaceholdersBtn.hidden = rows.length === 0;
-        if (placeholderEmptyNote) placeholderEmptyNote.hidden = rows.length > 0;
         if (togglePlaceholdersBtn) {
             const open = !placeholderContent.hidden;
             togglePlaceholdersBtn.setAttribute('aria-expanded', String(open));
@@ -1157,9 +978,7 @@
         const remove = event.target.closest('.remove-placeholder');
         if (!remove) return;
         remove.closest('.placeholder-row')?.remove();
-        if (placeholderRowsBody.querySelectorAll('.placeholder-row').length === 0) {
-            placeholderContent.hidden = true;
-        }
+        if (placeholderRowsBody.querySelectorAll('.placeholder-row').length === 0) placeholderContent.hidden = true;
         syncPlaceholderChrome();
     });
     byId('placeholders').addEventListener('input', updateRouteCountsAndSummary);
@@ -1172,19 +991,12 @@
         syncPlaceholderChrome();
     });
 
-    byId('placeholder_combination').addEventListener('change', (event) => {
-        if (event.currentTarget.checked) byId('placeholder_all_combination').checked = false;
-    });
-    byId('placeholder_all_combination').addEventListener('change', (event) => {
-        if (event.currentTarget.checked) byId('placeholder_combination').checked = false;
-    });
-
-    togglePlaceholdersBtn.addEventListener('click', () => {
-        setPlaceholdersOpen(placeholderContent.hidden);
-    });
+    byId('placeholder_combination').addEventListener('change', (e) => { if (e.currentTarget.checked) byId('placeholder_all_combination').checked = false; });
+    byId('placeholder_all_combination').addEventListener('change', (e) => { if (e.currentTarget.checked) byId('placeholder_combination').checked = false; });
+    togglePlaceholdersBtn.addEventListener('click', () => setPlaceholdersOpen(placeholderContent.hidden));
 
     const readPlaceholders = () => [...document.querySelectorAll('.placeholder-row')].map((row) => ({
-        data: row.querySelector('.placeholder-data').value.split(/\r?\n/).map((value) => value.trim()).filter(Boolean),
+        data: row.querySelector('.placeholder-data').value.split(/\r?\n/).map((v) => v.trim()).filter(Boolean),
         rotate_every: Number(row.querySelector('.placeholder-rotate').value),
     })).filter((item) => item.data.length > 0 && item.rotate_every > 0);
 
@@ -1197,7 +1009,6 @@
         return btoa(binary);
     };
 
-    // Form Listeners & Dispatch
     emailTextarea.addEventListener('input', updateRouteCountsAndSummary);
     byId('return_path').addEventListener('input', updateRouteCountsAndSummary);
     byId('repeat').addEventListener('input', updateRouteCountsAndSummary);
@@ -1208,10 +1019,6 @@
         headerElement.addEventListener('input', updateRouteCountsAndSummary);
         bodyElement.addEventListener('input', updateRouteCountsAndSummary);
     }
-
-    byId('global-summary-submit-btn')?.addEventListener('click', () => {
-        form.requestSubmit();
-    });
 
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -1226,13 +1033,10 @@
                     : serverIds.length === 0 ? 'Select at least one server.' : 'Move at least one route into Selected.';
             setStatus(message, 'warning');
             showToast(message, 'warning');
-            if (emailTests.length === 0) emailTextarea.focus();
-            else if (serverIds.length === 0) serverSelect.focus();
-            else if (ipIds.length === 0) availableSelect.focus();
             return;
         }
         if (emailTests.length * ipIds.length * repeatValue > maxMessages) {
-            const message = `Reduce this run to ${maxMessages} messages or fewer (currently ${emailTests.length * ipIds.length * repeatValue}).`;
+            const message = `Reduce this run to ${maxMessages} messages or fewer.`;
             setStatus(message, 'warning');
             showToast(message, 'warning');
             return;
@@ -1257,15 +1061,10 @@
         };
 
         const mainBtn = byId('send-global-test');
-        const sideBtn = byId('global-summary-submit-btn');
-        const origMainHtml = mainBtn.innerHTML;
-        const origSideHtml = sideBtn ? sideBtn.innerHTML : '';
-        [mainBtn, sideBtn].forEach((b) => {
-            if (!b) return;
-            b.disabled = true;
-            b.setAttribute('aria-busy', 'true');
-            b.innerHTML = '<i class="fas fa-spinner fa-spin mr-1" aria-hidden="true"></i>TEST RUNNING';
-        });
+        const origHtml = mainBtn.innerHTML;
+        mainBtn.disabled = true;
+        mainBtn.setAttribute('aria-busy', 'true');
+        mainBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1" aria-hidden="true"></i>TEST RUNNING';
         setStatus('Global Test is running. Keep this page open until the sender returns.', 'info');
         byId('global-test-output-panel').hidden = true;
 
@@ -1282,17 +1081,12 @@
             setStatus(error.message, 'danger');
             showToast(error.message, 'danger');
         } finally {
-            mainBtn.innerHTML = origMainHtml;
-            if (sideBtn) sideBtn.innerHTML = origSideHtml;
-            [mainBtn, sideBtn].forEach((b) => {
-                if (!b) return;
-                b.removeAttribute('aria-busy');
-            });
+            mainBtn.innerHTML = origHtml;
+            mainBtn.removeAttribute('aria-busy');
             updateRouteCountsAndSummary();
         }
     });
 
-    // Initial sync
     syncRouteChoiceLabels();
     syncPlaceholderChrome();
     renderPmtaMonitorLinks();
@@ -1303,6 +1097,5 @@
     byId('global-preview-dialog').addEventListener('close', () => byId('preview-body').focus());
     byId('global-tags-dialog').addEventListener('close', () => byId('show-global-tags').focus());
     byId('global-encoding-dialog').addEventListener('close', () => byId('open-encoding').focus());
-    byId('global-email-dialog').addEventListener('close', () => byId('open-saved-emails-dialog')?.focus());
     byId('global-server-search-dialog')?.addEventListener('close', () => byId('toggle-server-search')?.focus());
 })();

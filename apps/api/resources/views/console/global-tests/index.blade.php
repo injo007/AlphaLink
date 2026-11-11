@@ -59,10 +59,10 @@
         <!-- 2. Stage Track -->
         <nav class="campaign-stage-track mb-4" aria-label="Global Test stages">
             <ol>
-                <li class="is-complete" data-step="1"><span><span class="step-badge">1</span><strong>Setup</strong></span><small>Recipients &amp; path</small></li>
-                <li class="is-current" data-step="2"><span><span class="step-badge">2</span><strong>Configuration</strong></span><small>Headers &amp; content</small></li>
-                <li data-step="3"><span><span class="step-badge">3</span><strong>Sending</strong></span><small>Routes &amp; placeholders</small></li>
-                <li data-step="4"><span><span class="step-badge">4</span><strong>Dispatch</strong></span><small>Review &amp; send test</small></li>
+                <li class="is-current" aria-current="step" data-step="1"><span class="campaign-stage-number">1</span><span><strong>Setup</strong><small>Recipients &amp; path</small></span></li>
+                <li data-step="2"><span class="campaign-stage-number">2</span><span><strong>Configuration</strong><small>Headers &amp; content</small></span></li>
+                <li data-step="3"><span class="campaign-stage-number">3</span><span><strong>Sending</strong><small>Routes &amp; placeholders</small></span></li>
+                <li data-step="4"><span class="campaign-stage-number">4</span><span><strong>Dispatch</strong><small>Review &amp; send test</small></span></li>
             </ol>
         </nav>
 
@@ -579,7 +579,7 @@
         .campaign-create-page .block-content {
             padding: 12px 14px;
         }
-        .campaign-create-page label {
+        body.command-os-campaign-composer .campaign-create-page label {
             color: var(--campaign-ink, #101746);
             font-size: 11px !important;
             font-weight: 700 !important;
@@ -587,6 +587,74 @@
             text-transform: none !important;
             letter-spacing: normal !important;
         }
+        /* Match Edit Campaign Stage Track 1:1 */
+        .campaign-stage-track {
+            margin: 0 0 16px;
+            overflow: hidden;
+            border: 1px solid #d9dcf3;
+            border-radius: 17px;
+            background: linear-gradient(105deg, #fff 0%, #fbfaff 53%, #f3f1ff 100%);
+            box-shadow: 0 5px 16px rgb(63 67 140 / 6%);
+        }
+        .campaign-stage-track ol {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        .campaign-stage-track li {
+            align-items: center;
+            color: #26315e;
+            display: flex;
+            gap: 11px;
+            min-height: 56px;
+            padding: 8px 17px;
+            position: relative;
+            z-index: 1;
+        }
+        .campaign-stage-track li + li { padding-left: 25px; }
+        .campaign-stage-track li:not(:last-child)::after {
+            border-bottom: 28px solid transparent;
+            border-left: 14px solid #f0effb;
+            border-top: 28px solid transparent;
+            content: '';
+            height: 0;
+            position: absolute;
+            right: -13px;
+            top: 0;
+            width: 0;
+            z-index: 2;
+        }
+        .campaign-stage-number {
+            align-items: center;
+            background: #fff;
+            border: 1px solid #c9ccef;
+            border-radius: 50%;
+            color: #15204d;
+            display: inline-flex;
+            flex: 0 0 36px;
+            font-size: 16px;
+            font-weight: 750;
+            height: 36px;
+            justify-content: center;
+        }
+        .campaign-stage-track li strong,
+        .campaign-stage-track li small { display: block; line-height: 1.2; }
+        .campaign-stage-track li strong { font-size: 13px; font-weight: 780; }
+        .campaign-stage-track li small { color: #687293; font-size: 11px; margin-top: 2px; }
+        .campaign-stage-track li.is-current {
+            background: linear-gradient(110deg, #c65aff, #762df4 75%);
+            color: #fff;
+            z-index: 4;
+        }
+        .campaign-stage-track li.is-current::after { border-left-color: #762df4; }
+        .campaign-stage-track li.is-current .campaign-stage-number {
+            background: rgb(255 255 255 / 20%);
+            border-color: rgb(255 255 255 / 75%);
+            color: #fff;
+        }
+        .campaign-stage-track li.is-current small { color: rgb(255 255 255 / 88%); }
         .campaign-create-page .campaign-field-icon {
             color: var(--campaign-purple, #792bfa);
             display: inline-block;
@@ -759,10 +827,16 @@
             min-height: 360px;
             max-height: 440px;
             width: 100%;
+            padding: 0 !important;
+            overflow: hidden;
+            background: #ffffff;
             border: 1px solid #cfd4ed;
             border-radius: 10px;
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
             font-size: 12px;
+        }
+        #global-test-form .ace_editor .ace_content {
+            padding: 4px 0;
         }
 
         /* Placeholders Panel */
@@ -962,11 +1036,12 @@
             padding: 14px;
         }
 
-        /* Floating Quick Nav Trigger (Does Not Overlap Sidebar!) */
+        /* Floating Quick Nav Trigger (Bottom-Right so Sidebar Text is 100% Clear) */
         #global-quick-nav {
             position: fixed;
-            top: calc(50% - 24px);
-            right: max(14px, env(safe-area-inset-right));
+            bottom: 20px;
+            top: auto;
+            right: max(18px, env(safe-area-inset-right));
             z-index: 1100;
         }
         .global-quick-nav-trigger {
@@ -983,9 +1058,10 @@
         }
         .global-quick-nav-menu {
             position: fixed;
-            right: 74px;
-            top: 50%;
-            transform: translateY(-50%);
+            right: max(18px, env(safe-area-inset-right));
+            bottom: 78px;
+            top: auto;
+            transform: none;
             width: 228px;
             padding: 7px;
             background: linear-gradient(145deg, var(--campaign-surface, #fff), var(--campaign-wash, #f8f7ff));
@@ -1076,6 +1152,30 @@
         }
 
         /* Dark Theme Overrides */
+        html[data-command-theme='dark'] .campaign-stage-track {
+            background: linear-gradient(105deg, #101936 0%, #141f42 54%, #1a244f 100%);
+            border-color: #283a69;
+            box-shadow: 0 8px 24px rgb(3 8 24 / 45%);
+        }
+        html[data-command-theme='dark'] .campaign-stage-track li { color: #eef1ff; }
+        html[data-command-theme='dark'] .campaign-stage-track li:not(:last-child)::after { border-left-color: #172447; }
+        html[data-command-theme='dark'] .campaign-stage-track li.is-current::after { border-left-color: #762df4; }
+        html[data-command-theme='dark'] .campaign-stage-track li small { color: #95a4cc; }
+        html[data-command-theme='dark'] .campaign-stage-number {
+            background: #18254a;
+            border-color: #384c82;
+            color: #eef2ff;
+        }
+        html[data-command-theme='dark'] body.command-os-campaign-composer .campaign-create-page label,
+        html[data-command-theme='dark'] .campaign-create-page .block-title,
+        html[data-command-theme='dark'] .campaign-create-page .campaign-editor-title {
+            color: #eef2ff;
+        }
+        html[data-command-theme='dark'] .campaign-create-page .campaign-section-caption,
+        html[data-command-theme='dark'] .campaign-create-page .campaign-placeholder-heading p,
+        html[data-command-theme='dark'] .campaign-create-page .campaign-route-pools-heading small {
+            color: #96a4cb;
+        }
         html[data-command-theme='dark'] .campaign-create-page .campaign-email-card,
         html[data-command-theme='dark'] .campaign-create-page .campaign-delivery-card,
         html[data-command-theme='dark'] .campaign-create-page .campaign-route-selector,
@@ -1093,25 +1193,47 @@
         html[data-command-theme='dark'] .campaign-create-page #campaign-usable-tags,
         html[data-command-theme='dark'] .campaign-create-page .campaign-mode-toggle,
         html[data-command-theme='dark'] .campaign-create-page .campaign-editor-icon-button,
-        html[data-command-theme='dark'] .campaign-create-page .campaign-route-transfer-controls button {
+        html[data-command-theme='dark'] .campaign-create-page .campaign-route-transfer-controls button,
+        html[data-command-theme='dark'] .global-quick-nav-menu,
+        html[data-command-theme='dark'] #global-test-context-menu {
             background: #141b2d !important;
             border-color: #2c3e66 !important;
             color: #e2e8f0 !important;
         }
+        html[data-command-theme='dark'] .global-quick-nav-menu button,
+        html[data-command-theme='dark'] #global-test-context-menu button {
+            color: #e2e8f0;
+        }
+        html[data-command-theme='dark'] .campaign-create-page .campaign-route-kind,
+        html[data-command-theme='dark'] .campaign-create-page .campaign-route-count {
+            background: rgba(124, 58, 237, 0.22);
+            border-color: rgba(167, 139, 250, 0.35);
+            color: #d8b4fe;
+        }
         html[data-command-theme='dark'] #global-test-form .ace_editor,
         html[data-command-theme='dark'] .global-test-editor,
+        html[data-command-theme='dark'] #global-test-form .ace-tomorrow-night,
+        html[data-command-theme='dark'] #global-test-form .ace-tomorrow-night .ace_scroller,
         html[data-command-theme='dark'] #ips-available,
         html[data-command-theme='dark'] #ips-selected,
         html[data-command-theme='dark'] .campaign-create-page .form-control,
         html[data-command-theme='dark'] .campaign-create-page .bootstrap-select > .dropdown-toggle {
-            background: #0b1120 !important;
+            background: #0d1326 !important;
             border-color: #26365f !important;
             color: #f1f5f9 !important;
+        }
+        html[data-command-theme='dark'] #global-test-form .ace_editor {
+            padding: 0 !important;
         }
         html[data-command-theme='dark'] .global-test-output {
             background: #090d28;
             color: #e2e8f0;
             border-color: #26365f;
+        }
+        @media (max-width: 991.98px) {
+            .campaign-stage-track ol { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .campaign-stage-track li:not(:last-child)::after { display: none; }
+            .campaign-stage-track li + li { padding-left: 14px; }
         }
         @media (max-width: 767.98px) {
             .campaign-route-picker {

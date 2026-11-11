@@ -11655,6 +11655,7 @@ html[data-command-theme='dark'] .bootstrap-select .dropdown-menu .inner,
 html[data-command-theme='dark'] .select2-results__options,
 html[data-command-theme='dark'] .js-sidebar-scroll,
 html[data-command-theme='dark'] #sidebar {
+    scrollbar-width: thin !important;
     scrollbar-color: rgba(255, 255, 255, 0.18) transparent !important;
 }
 
@@ -12237,25 +12238,6 @@ body.command-os-shell #page-header .command-os-communications {
     background: linear-gradient(105deg, color-mix(in srgb, var(--co-purple) 8%, var(--co-surface)), var(--co-surface) 56%, color-mix(in srgb, var(--co-blue) 5%, var(--co-surface)));
 }
 
-.command-os-ticker-label {
-    position: relative;
-    z-index: 1;
-    display: inline-flex;
-    flex: 0 0 auto;
-    align-items: center;
-    gap: 5px;
-    height: 100%;
-    padding: 0 8px;
-    border-right: 1px solid var(--co-border);
-    color: var(--co-purple);
-    background: color-mix(in srgb, var(--co-purple) 5%, var(--co-surface));
-    font-size: 8px;
-    font-weight: 800;
-    letter-spacing: .075em;
-    white-space: nowrap;
-}
-
-.command-os-ticker-label svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .command-os-ticker-viewport { flex: 1 1 auto; min-width: 0; height: 100%; overflow: hidden; }
 .command-os-ticker-track { display: flex; width: max-content; height: 100%; animation: command-os-ticker-scroll var(--ticker-duration, 36s) linear infinite; will-change: transform; }
 .command-os-ticker-set { display: flex; flex: 0 0 auto; align-items: center; gap: 18px; width: max-content; height: 100%; padding: 0 16px 0 11px; }
@@ -12320,15 +12302,12 @@ body.command-os-shell #page-header .command-os-inbox-trigger .command-os-header-
 .global-user-comms-section .workspace-comms-alert { margin: 0; }
 
 @media (max-width: 1000px) {
-    .command-os-ticker-label > span { display: none; }
-    .command-os-ticker-label { padding: 0 7px; }
     .command-os-update-ticker { flex-basis: clamp(150px, 24vw, 250px); }
     .workspace-comms-form { padding: 18px; }
 }
 
 @media (max-width: 760px) {
     .command-os-update-ticker { flex-basis: clamp(112px, 25vw, 180px); height: 34px; }
-    .command-os-ticker-label { display: none; }
     .command-os-ticker-pause { flex-basis: 25px; width: 25px; }
     .command-os-ticker-item { min-width: 120px; max-width: 230px; }
     .workspace-comms-grid { grid-template-columns: minmax(0, 1fr); }
@@ -12351,7 +12330,7 @@ body.command-os-shell #page-header .command-os-inbox-trigger .command-os-header-
 }
 
 @media (max-width: 575px) {
-    .command-os-update-ticker { flex-basis: clamp(82px, 22vw, 130px); height: 36px; }
+    .command-os-update-ticker { flex-basis: clamp(140px, 30vw, 190px); height: 36px; }
     .command-os-ticker-set { gap: 12px; padding-right: 12px; padding-left: 8px; }
     .command-os-ticker-item { min-width: 108px; gap: 5px; }
     .command-os-ticker-copy strong, .command-os-ticker-copy > span { max-width: 120px; }
@@ -12386,7 +12365,7 @@ body.command-os-shell #page-header .command-os-inbox-trigger .command-os-header-
 
 @media (max-width: 390px) {
     body.command-os-shell #page-header .command-os-inbox-trigger { display: none !important; }
-    .command-os-update-ticker { flex-basis: clamp(82px, 25vw, 100px); }
+    .command-os-update-ticker { flex-basis: clamp(120px, 34vw, 150px); }
     .command-os-ticker-item { min-width: 96px; }
     .command-os-ticker-copy strong, .command-os-ticker-copy > span { max-width: 105px; }
 }
@@ -12394,3 +12373,71 @@ body.command-os-shell #page-header .command-os-inbox-trigger .command-os-header-
 @media (prefers-reduced-motion: reduce) {
     .command-os-ticker-track { animation: none !important; }
 }
+
+/* Communication priority colors — labeled everywhere so meaning never depends on color alone. */
+.workspace-comms-form .workspace-comms-tone-field { grid-column: 1 / -1; }
+.global-user-comms-compose-fields > fieldset.workspace-comms-tone-field { grid-column: 1 / -1; }
+.workspace-comms-tone-field { min-width: 0; margin: 0; padding: 0; border: 0; }
+.workspace-comms-tone-field legend { margin: 0 0 7px; padding: 0; color: var(--co-ink); font-size: 11px; font-weight: 700; }
+.workspace-comms-tone-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 142px), 1fr)); gap: 8px; }
+.workspace-comms-tone-option { position: relative; display: block; min-width: 0; margin: 0; cursor: pointer; }
+.workspace-comms-tone-option input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); clip-path: inset(50%); white-space: nowrap; }
+.workspace-comms-tone-card { display: flex; align-items: center; gap: 9px; min-height: 40px; padding: 7px 10px; border: 1px solid var(--co-border); border-radius: 10px; color: var(--co-ink); background: var(--co-surface-muted); font-size: 11px; font-weight: 650; transition: border-color .16s ease, background-color .16s ease, box-shadow .16s ease; }
+.workspace-comms-tone-card.tone-standard { --communication-tone: var(--co-purple); --communication-tone-fill: color-mix(in srgb, var(--co-purple) 8%, var(--co-surface)); }
+.workspace-comms-tone-card.tone-info { --communication-tone: #1f6fae; --communication-tone-fill: color-mix(in srgb, #277bff 9%, var(--co-surface)); }
+.workspace-comms-tone-card.tone-warning { --communication-tone: #825000; --communication-tone-fill: color-mix(in srgb, #d58a16 12%, var(--co-surface)); }
+.workspace-comms-tone-card.tone-urgent { --communication-tone: #b43249; --communication-tone-fill: color-mix(in srgb, #d94c68 11%, var(--co-surface)); }
+.workspace-comms-tone-swatch { flex: 0 0 10px; width: 10px; height: 10px; border-radius: 50%; background: var(--communication-tone); box-shadow: 0 0 0 3px var(--communication-tone-fill); }
+.workspace-comms-tone-option input:checked + .workspace-comms-tone-card { border-color: color-mix(in srgb, var(--communication-tone) 55%, var(--co-border)); background: var(--communication-tone-fill); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--communication-tone) 16%, transparent); }
+.workspace-comms-tone-option input:focus-visible + .workspace-comms-tone-card { outline: 3px solid color-mix(in srgb, var(--communication-tone) 32%, transparent); outline-offset: 2px; }
+.workspace-comms-tone-option:hover .workspace-comms-tone-card { border-color: color-mix(in srgb, var(--communication-tone) 45%, var(--co-border)); }
+
+.command-os-ticker-priority, .command-os-communication-priority, .workspace-comms-priority { --communication-tone: var(--co-purple); --communication-tone-fill: color-mix(in srgb, var(--co-purple) 8%, var(--co-surface)); }
+.command-os-ticker-priority.tone-info, .command-os-communication-priority.tone-info, .workspace-comms-priority.tone-info { --communication-tone: #1f6fae; --communication-tone-fill: color-mix(in srgb, #277bff 9%, var(--co-surface)); }
+.command-os-ticker-priority.tone-warning, .command-os-communication-priority.tone-warning, .workspace-comms-priority.tone-warning { --communication-tone: #825000; --communication-tone-fill: color-mix(in srgb, #d58a16 12%, var(--co-surface)); }
+.command-os-ticker-priority.tone-urgent, .command-os-communication-priority.tone-urgent, .workspace-comms-priority.tone-urgent { --communication-tone: #b43249; --communication-tone-fill: color-mix(in srgb, #d94c68 11%, var(--co-surface)); }
+.command-os-ticker-priority, .command-os-communication-priority, .workspace-comms-priority { display: inline-flex; flex: 0 0 auto; align-items: center; min-height: 19px; padding: 2px 7px; border: 1px solid color-mix(in srgb, var(--communication-tone) 23%, var(--co-border)); border-radius: 999px; color: var(--communication-tone); background: var(--communication-tone-fill); font-size: 8px; font-weight: 800; line-height: 1.15; white-space: nowrap; }
+.command-os-ticker-priority { min-height: 16px; padding: 2px 5px; border-radius: 5px; font-size: 7px; }
+.workspace-comms-priority { min-height: 21px; padding: 2px 9px; font-size: 9px; }
+
+.workspace-comms-confirm { width: min(440px, calc(100vw - 32px)); padding: 24px; border: 1px solid var(--co-border); border-radius: 16px; color: var(--co-ink); background: var(--co-surface); box-shadow: 0 20px 60px rgb(20 26 60 / 25%); }
+.workspace-comms-confirm::backdrop { background: rgb(17 24 39 / 48%); backdrop-filter: blur(3px); }
+.workspace-comms-confirm-mark { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 12px; color: #a86608; background: color-mix(in srgb, #d58a16 12%, var(--co-surface)); font-size: 19px; }
+.workspace-comms-confirm h2 { margin: 14px 0 6px; color: var(--co-ink); font-size: 17px; }
+.workspace-comms-confirm p { margin: 0; color: var(--co-muted); font-size: 12px; line-height: 1.5; }
+.workspace-comms-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.workspace-comms-confirm-actions button { min-height: 36px; padding: 7px 11px; border: 1px solid var(--co-border); border-radius: 9px; color: var(--co-ink); background: var(--co-surface); font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
+.workspace-comms-confirm-actions button:focus-visible { outline: 3px solid color-mix(in srgb, var(--co-purple) 28%, transparent); outline-offset: 2px; }
+.workspace-comms-confirm-actions .workspace-comms-confirm-submit { border-color: #c43b52; color: #fff; background: #c43b52; }
+
+@media (max-width: 575px) {
+    .workspace-comms-tone-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .workspace-comms-tone-card { min-height: 42px; padding: 7px 8px; }
+}
+
+@media (max-width: 360px) {
+    .workspace-comms-tone-options { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .workspace-comms-tone-card { transition: none; }
+}
+
+@media (forced-colors: active) {
+    .workspace-comms-tone-card { border-color: ButtonText; }
+    .workspace-comms-tone-swatch { background: CanvasText; box-shadow: none; }
+    .workspace-comms-tone-option input:checked + .workspace-comms-tone-card { outline: 1px solid Highlight; outline-offset: 2px; }
+}
+
+html[data-command-theme='dark'] .workspace-comms-tone-card.tone-warning,
+html[data-command-theme='dark'] .command-os-ticker-priority.tone-warning,
+html[data-command-theme='dark'] .command-os-communication-priority.tone-warning,
+html[data-command-theme='dark'] .workspace-comms-priority.tone-warning { --communication-tone: #f3bf69; --communication-tone-fill: color-mix(in srgb, #f3bf69 16%, var(--co-surface)); }
+html[data-command-theme='dark'] .workspace-comms-tone-card.tone-urgent,
+html[data-command-theme='dark'] .command-os-ticker-priority.tone-urgent,
+html[data-command-theme='dark'] .command-os-communication-priority.tone-urgent,
+html[data-command-theme='dark'] .workspace-comms-priority.tone-urgent { --communication-tone: #ff8397; --communication-tone-fill: color-mix(in srgb, #ff8397 16%, var(--co-surface)); }
+html[data-command-theme='dark'] .workspace-comms-tone-card.tone-info,
+html[data-command-theme='dark'] .command-os-ticker-priority.tone-info,
+html[data-command-theme='dark'] .command-os-communication-priority.tone-info,
+html[data-command-theme='dark'] .workspace-comms-priority.tone-info { --communication-tone: #7cc7ff; --communication-tone-fill: color-mix(in srgb, #7cc7ff 14%, var(--co-surface)); }

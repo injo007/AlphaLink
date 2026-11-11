@@ -41,6 +41,7 @@
                     <div class="global-user-comms-compose-fields">
                         <label class="workspace-comms-field"><span>Update type</span><select name="kind" data-account-kind required><option value="task" @selected(old('kind', 'task') === 'task')>Task</option><option value="message" @selected(old('kind') === 'message')>Message</option><option value="notification" @selected(old('kind') === 'notification')>Notification</option></select></label>
                         <label class="workspace-comms-field"><span>Title</span><input name="title" type="text" minlength="3" maxlength="140" required value="{{ old('title') }}" placeholder="A clear, short title"></label>
+                        @include('console.workspace-communications._tone-field', ['selectedTone' => old('tone', 'standard')])
                         <label class="workspace-comms-field global-user-comms-compose-body"><span>Details</span><textarea name="body" rows="3" minlength="3" maxlength="5000" required placeholder="Add the context and next steps…">{{ old('body') }}</textarea></label>
                         <label class="workspace-comms-field global-user-comms-compose-due" data-account-due @if (old('kind', 'task') !== 'task') hidden @endif><span>Due date <em>Optional</em></span><input type="datetime-local" name="due_at" value="{{ old('due_at') }}"></label>
                         <button class="workspace-comms-submit" type="submit"><span aria-hidden="true">↗</span> Send to operator</button>
@@ -55,7 +56,7 @@
                 <div class="global-user-comms-list">
                     @foreach ($communicationsForUser as $recipientUpdate)
                         @php($update = $recipientUpdate->communication)
-                        <article><div class="global-user-comms-item-heading"><span class="workspace-comms-kind workspace-comms-kind-{{ $update->kind }}">{{ ucfirst($update->kind) }}</span><time datetime="{{ $update->created_at->toIso8601String() }}">{{ $update->created_at->format('M j, Y · H:i') }}</time></div><h3>{{ $update->title }}</h3><p>{{ $update->body }}</p><footer><span>From {{ $update->author?->name ?? 'Workspace admin' }}</span><span>{{ $recipientUpdate->completed_at ? 'Completed' : ($recipientUpdate->read_at ? 'Read' : 'Unread') }}</span></footer></article>
+                        <article><div class="global-user-comms-item-heading"><span class="workspace-comms-kind workspace-comms-kind-{{ $update->kind }}">{{ ucfirst($update->kind) }}</span><span class="workspace-comms-priority tone-{{ $update->tone }}">{{ \App\Models\WorkspaceCommunication::TONE_LABELS[$update->tone] ?? 'Standard' }}</span><time datetime="{{ $update->created_at->toIso8601String() }}">{{ $update->created_at->format('M j, Y · H:i') }}</time></div><h3>{{ $update->title }}</h3><p>{{ $update->body }}</p><footer><span>From {{ $update->author?->name ?? 'Workspace admin' }}</span><span>{{ $recipientUpdate->completed_at ? 'Completed' : ($recipientUpdate->read_at ? 'Read' : 'Unread') }}</span></footer></article>
                     @endforeach
                 </div>
             @endif

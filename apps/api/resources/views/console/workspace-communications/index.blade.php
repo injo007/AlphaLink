@@ -48,6 +48,7 @@
                         <small data-kind-help>A task appears in the team inbox with an optional due date and completion status.</small>
                     </label>
                     <label class="workspace-comms-field workspace-comms-field-title"><span>Title</span><input name="title" type="text" maxlength="140" minlength="3" required value="{{ old('title') }}" placeholder="A clear, short title"></label>
+                    @include('console.workspace-communications._tone-field', ['selectedTone' => old('tone', 'standard')])
                     <label class="workspace-comms-field workspace-comms-field-body"><span>Details</span><textarea name="body" rows="5" maxlength="5000" minlength="3" required placeholder="Add the context and next steps…">{{ old('body') }}</textarea><small>Up to 5,000 characters.</small></label>
                     <div class="workspace-comms-field workspace-comms-field-audience"><span>Audience</span>
                         <div class="workspace-comms-audience-options">
@@ -79,6 +80,7 @@
                         <article class="workspace-comms-record">
                             <div class="workspace-comms-record-topline">
                                 <span class="workspace-comms-kind workspace-comms-kind-{{ $communication->kind }}">{{ ucfirst($communication->kind) }}</span>
+                                <span class="workspace-comms-priority tone-{{ $communication->tone }}">{{ \App\Models\WorkspaceCommunication::TONE_LABELS[$communication->tone] ?? 'Standard' }}</span>
                                 <time datetime="{{ $communication->created_at->toIso8601String() }}">{{ $communication->created_at->format('M j, Y · H:i') }}</time>
                             </div>
                             <h3>{{ $communication->title }}</h3>
@@ -90,7 +92,7 @@
                                 <span><strong>{{ $communication->unread_count }}</strong> unread</span>
                             </div>
                             <div class="workspace-comms-record-footer"><span>Posted by {{ $communication->author?->name ?? 'Workspace admin' }}</span>
-                                <form method="post" action="{{ route('clean.console.workspace-communications.archive', ['communication' => $communication->id]) }}" onsubmit="return confirm('Archive this update for everyone?')">@csrf @method('PATCH')<button type="submit" class="workspace-comms-archive">Archive</button></form>
+                                <form method="post" action="{{ route('clean.console.workspace-communications.archive', ['communication' => $communication->id]) }}" data-archive-form>@csrf @method('PATCH')<button type="submit" class="workspace-comms-archive">Archive</button></form>
                             </div>
                         </article>
                     @empty
@@ -101,6 +103,16 @@
             </section>
         </div>
     </div>
+
+    <dialog class="workspace-comms-confirm" data-archive-dialog aria-labelledby="workspace-comms-archive-title" aria-describedby="workspace-comms-archive-description">
+        <div class="workspace-comms-confirm-mark" aria-hidden="true">↗</div>
+        <h2 id="workspace-comms-archive-title">Archive this update?</h2>
+        <p id="workspace-comms-archive-description">It will disappear from every recipient’s inbox and notification feed.</p>
+        <div class="workspace-comms-confirm-actions">
+            <button type="button" class="workspace-comms-confirm-cancel" data-archive-cancel>Keep update</button>
+            <button type="button" class="workspace-comms-confirm-submit" data-archive-confirm>Archive update</button>
+        </div>
+    </dialog>
 
     <script>
         (() => {
@@ -126,6 +138,30 @@
             form.querySelectorAll('[name="audience"]').forEach((input) => input.addEventListener('change', syncForm));
             kindSelect.addEventListener('change', syncForm);
             syncForm();
+
+            const archiveDialog = document.querySelector('[data-archive-dialog]');
+            const archiveConfirm = archiveDialog?.querySelector('[data-archive-confirm]');
+            let pendingArchiveForm = null;
+            form.closest('.workspace-comms-page')?.querySelectorAll('[data-archive-form]').forEach((archiveForm) => {
+                archiveForm.addEventListener('submit', (event) => {
+                    if (archiveForm.dataset.confirmed === 'true') {
+                        delete archiveForm.dataset.confirmed;
+                        return;
+                    }
+                    event.preventDefault();
+                    pendingArchiveForm = archiveForm;
+                    archiveDialog?.showModal();
+                });
+            });
+            archiveDialog?.querySelector('[data-archive-cancel]')?.addEventListener('click', () => archiveDialog.close());
+            archiveDialog?.addEventListener('close', () => { pendingArchiveForm = null; });
+            archiveConfirm?.addEventListener('click', () => {
+                if (!pendingArchiveForm) return;
+                const archiveForm = pendingArchiveForm;
+                archiveForm.dataset.confirmed = 'true';
+                archiveDialog.close();
+                archiveForm.requestSubmit();
+            });
         })();
     </script>
 @endsection

@@ -19,6 +19,8 @@
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
     let currentFeed = { inbox: [], notifications: [], open_task_count: 0 };
     let feedRequest = null;
+    const toneLabels = { standard: 'Standard', info: 'Informational', warning: 'Attention', urgent: 'Urgent' };
+    const toneFor = (value) => Object.prototype.hasOwnProperty.call(toneLabels, value) ? value : 'standard';
 
     const closePopovers = (restoreFocus = false) => {
         const openButton = root.querySelector('[data-communication-open][aria-expanded="true"]');
@@ -64,12 +66,14 @@
         }
 
         items.slice(0, 12).forEach((item) => {
+            const tone = toneFor(item.tone);
             const update = document.createElement('button');
             update.type = 'button';
-            update.className = `command-os-ticker-item kind-${item.kind}`;
+            update.className = `command-os-ticker-item kind-${item.kind} tone-${tone}`;
             update.dataset.tickerOpen = 'inbox';
-            update.setAttribute('aria-label', `${item.kind}: ${item.title}. Open team inbox.`);
+            update.setAttribute('aria-label', `${toneLabels[tone]} ${item.kind}: ${item.title}. Open tasks and messages.`);
             addText(update, 'span', 'command-os-ticker-kind', item.kind === 'task' ? 'TASK' : 'MESSAGE');
+            if (tone !== 'standard') addText(update, 'span', `command-os-ticker-priority tone-${tone}`, toneLabels[tone]);
             const copy = document.createElement('span');
             copy.className = 'command-os-ticker-copy';
             addText(copy, 'strong', '', item.title);
@@ -106,11 +110,13 @@
 
         items.forEach((item) => {
             const card = document.createElement('article');
-            card.className = `command-os-communication-item${item.read ? '' : ' is-unread'}${item.completed ? ' is-complete' : ''}`;
+            const tone = toneFor(item.tone);
+            card.className = `command-os-communication-item tone-${tone}${item.read ? '' : ' is-unread'}${item.completed ? ' is-complete' : ''}`;
             const meta = document.createElement('div');
             meta.className = 'command-os-communication-item-meta';
             const kind = addText(meta, 'span', `command-os-communication-kind kind-${item.kind}`, item.kind);
             kind.setAttribute('aria-label', item.kind);
+            addText(meta, 'span', `command-os-communication-priority tone-${tone}`, toneLabels[tone]);
             const time = addText(meta, 'time', '', formatDate(item.created_at));
             if (item.created_at) time.dateTime = item.created_at;
             card.append(meta);
@@ -170,8 +176,8 @@
                     message.textContent = 'Updates could not be loaded. Reopen this panel to try again.';
                     container.replaceChildren(message);
                 });
-                if (tickerPrimary) tickerPrimary.textContent = 'Team updates are temporarily unavailable';
-                if (tickerCopy) tickerCopy.textContent = 'Team updates are temporarily unavailable';
+                if (tickerPrimary) tickerPrimary.textContent = 'Workspace messages are temporarily unavailable';
+                if (tickerCopy) tickerCopy.textContent = 'Workspace messages are temporarily unavailable';
                 if (ticker) ticker.dataset.hasUpdates = 'false';
                 tickerTrack?.style.removeProperty('--ticker-duration');
             }
@@ -226,8 +232,8 @@
         if (!ticker || !tickerPause) return;
         ticker.dataset.paused = String(paused);
         tickerPause.setAttribute('aria-pressed', String(paused));
-        tickerPause.setAttribute('aria-label', paused ? 'Resume team updates' : 'Pause team updates');
-        tickerPause.title = paused ? 'Resume team updates' : 'Pause team updates';
+        tickerPause.setAttribute('aria-label', paused ? 'Resume the message ticker' : 'Pause the message ticker');
+        tickerPause.title = paused ? 'Resume the message ticker' : 'Pause the message ticker';
     };
 
     inboxButton?.addEventListener('click', () => openPopover('inbox'));

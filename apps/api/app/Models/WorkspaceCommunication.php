@@ -8,8 +8,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class WorkspaceCommunication extends Model
 {
+    public const TONE_LABELS = [
+        'standard' => 'Standard',
+        'info' => 'Informational',
+        'warning' => 'Attention',
+        'urgent' => 'Urgent',
+    ];
+
     protected $fillable = [
-        'workspace_id', 'created_by_id', 'target_operator_id', 'kind', 'audience', 'title', 'body', 'due_at', 'archived_at',
+        'workspace_id', 'created_by_id', 'target_operator_id', 'kind', 'tone', 'audience', 'title', 'body', 'due_at', 'archived_at',
     ];
 
     protected function casts(): array

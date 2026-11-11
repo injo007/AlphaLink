@@ -901,4 +901,8 @@ This is a user-directed AlphaLink feature; no DMS workflow or visual behavior wa
 
 Release `e62caa6cf1ccb819909201ae37080dcedc5984c1` is deployed on AlphaLink through the guarded installer. It verified the pre-deploy PostgreSQL backup, no pending migrations, required services and HTTPS health; public GETs confirmed the communication script, Vite manifest, ticker styles and `/up` endpoint are available. This does not verify the authenticated experience: `/communications` redirects to sign-in without a session, and no authenticated responsive screenshot was captured. Keep this feature IMPLEMENTING until role/action checks and desktop/tablet/phone UI review are complete.
 
+### E-COMMS-01 follow-up — 2026-11-11
+
+The fixed TEAM UPDATES header label is removed. Owner/Admin publishing surfaces now share a saved tone choice (Standard/violet, Informational/blue, Attention/amber, Urgent/red); text labels accompany the accent in the ticker, inbox, and both history surfaces. New and existing records use the Standard default unless a tone is chosen. The database migration and source changes are not yet deployed. PHP/JavaScript syntax and the Vite build pass; PHPUnit, authenticated browser behavior, and production migration checks remain unverified. This remains an AlphaLink-only behavior with no DMS parity claim.
+
 PHP syntax, JavaScript syntax, custom Blade compilation, `npm run build`, and `git diff --check` pass. The build reports the existing large MapLibre chunk advisory. PHPUnit and authenticated desktop/tablet/phone interaction checks were not run, so this slice remains IMPLEMENTING and has no parity acceptance. Pint cannot start because local PHP 8.3.6 lacks XML; `php artisan view:cache` is blocked by missing `DOMDocument`.

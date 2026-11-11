@@ -61,6 +61,7 @@ class WorkspaceCommunicationController extends Controller
 
         $data = $request->validate([
             'kind' => ['required', Rule::in(['task', 'message', 'notification'])],
+            'tone' => ['required', Rule::in(array_keys(WorkspaceCommunication::TONE_LABELS))],
             'title' => ['required', 'string', 'min:3', 'max:140'],
             'body' => ['required', 'string', 'min:3', 'max:5000'],
             'audience' => ['required', Rule::in(['team', 'operator'])],
@@ -92,6 +93,7 @@ class WorkspaceCommunicationController extends Controller
                 'created_by_id' => $request->user()->getKey(),
                 'target_operator_id' => $targetOperator?->getKey(),
                 'kind' => $data['kind'],
+                'tone' => $data['tone'],
                 'audience' => $data['audience'],
                 'title' => $data['title'],
                 'body' => $data['body'],
@@ -145,6 +147,7 @@ class WorkspaceCommunicationController extends Controller
             'title' => $recipient->communication->title,
             'body' => $recipient->communication->body,
             'kind' => $recipient->communication->kind,
+            'tone' => $recipient->communication->tone,
             'author' => $recipient->communication->author?->name ?? 'Workspace admin',
             'created_at' => $recipient->communication->created_at?->toIso8601String(),
             'due_at' => $recipient->communication->due_at?->toIso8601String(),

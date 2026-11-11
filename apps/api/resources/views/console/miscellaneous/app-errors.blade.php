@@ -43,6 +43,13 @@
                     <span id="auto-refresh-countdown" class="auto-refresh-badge d-none">15s</span>
                 </div>
 
+                <button type="button" class="btn-command-action" id="btn-telegram-rules" title="Configure Telegram automated threshold alerts & custom message templates">
+                    <i class="fab fa-telegram-plane mr-1" style="color: #0ea5e9;"></i>
+                    <span class="d-none d-xl-inline">TELEGRAM ALERTS</span><span class="d-xl-none">ALERTS</span>
+                    @if (!empty($telegramConfig['rules']['enabled']))
+                        <span class="badge-tg-status-on ml-1">ON</span>
+                    @endif
+                </button>
                 <button type="button" class="btn-command-action" id="btn-archive-logs" title="Archive active log to compressed backup (keeps last 5) and rotate cleanly">
                     <i class="fas fa-archive mr-1"></i> <span class="d-none d-xl-inline">ARCHIVE LOGS</span><span class="d-xl-none">ARCHIVE</span>
                 </button>
@@ -342,12 +349,29 @@
                                         @endif
                                     </td>
 
-                                    <!-- Action Drawer Toggle -->
+                                    @php
+                                        $tgPayload = json_encode([
+                                            'summary' => $hit['summary'] ?? $hit['message'] ?? 'Application Error',
+                                            'level' => $lvl,
+                                            'module' => $mod,
+                                            'file' => ($hit['file'] ?? 'unknown').(!empty($hit['line']) ? ':'.$hit['line'] : ''),
+                                            'request_id' => $hit['request_id'] ?? '',
+                                            'fingerprint' => $hit['fingerprint'] ?? '',
+                                            'occurrences_count' => $hit['occurrences_count'] ?? 1,
+                                        ]);
+                                    @endphp
+
+                                    <!-- Action Drawer Toggle & Telegram Dispatch -->
                                     <td style="text-align: right;">
-                                        <button type="button" class="btn-toggle-trace" data-target="trace-{{ $hitId }}" aria-expanded="false" title="Inspect stack trace & context">
-                                            <span>Trace</span>
-                                            <i class="fas fa-chevron-down ml-1 arrow-icon"></i>
-                                        </button>
+                                        <div class="d-inline-flex align-items-center" style="gap: 5px;">
+                                            <button type="button" class="btn-tg-icon btn-open-telegram-modal" data-error-payload="{{ $tgPayload }}" title="Send custom Telegram alert for this issue" aria-label="Send Telegram alert">
+                                                <i class="fab fa-telegram-plane"></i>
+                                            </button>
+                                            <button type="button" class="btn-toggle-trace" data-target="trace-{{ $hitId }}" aria-expanded="false" title="Inspect stack trace & context">
+                                                <span>Trace</span>
+                                                <i class="fas fa-chevron-down ml-1 arrow-icon"></i>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
 
@@ -371,12 +395,15 @@
                                                         </span>
                                                     @endif
                                                 </div>
-                                                <div class="d-flex align-items-center" style="gap: 8px;">
+                                                <div class="d-flex align-items-center flex-wrap" style="gap: 8px;">
                                                     @if (!empty($hit['request_id']))
                                                         <span class="badge-corr-pill">
                                                             <i class="fas fa-fingerprint mr-1"></i> REQ: {{ $hit['request_id'] }}
                                                         </span>
                                                     @endif
+                                                    <button type="button" class="btn-tg-drawer btn-open-telegram-modal" data-error-payload="{{ $tgPayload }}">
+                                                        <i class="fab fa-telegram-plane mr-1"></i> Alert Telegram
+                                                    </button>
                                                     @php $frames = $hit['exception']['frames'] ?? []; @endphp
                                                     @if (!empty($frames))
                                                         <button type="button" class="btn-toggle-vendor-frames" data-target="frames-list-{{ $hitId }}">
@@ -477,6 +504,226 @@
             </p>
         </div>
     </div>
+
+    <!-- Command OS Dialog 1: Per-Error Custom Telegram Alert Composer -->
+    <dialog id="dialog-telegram-send" class="command-os-modal" aria-labelledby="tg-send-title">
+        <div class="command-os-modal-panel">
+            <header class="command-os-modal-header">
+                <div class="d-flex align-items-center" style="gap: 12px;">
+                    <span class="modal-icon-badge modal-icon-tg"><i class="fab fa-telegram-plane"></i></span>
+                    <div>
+                        <p class="command-os-modal-eyebrow">INCIDENT DISPATCH // SANITIZED ALERT</p>
+                        <h2 id="tg-send-title" class="command-os-modal-title">SEND TELEGRAM ALERT</h2>
+                    </div>
+                </div>
+                <button type="button" class="command-os-modal-close" id="btn-close-tg-send" aria-label="Close modal">&times;</button>
+            </header>
+
+            <div class="command-os-modal-body">
+                @if (!($telegramConfig['ready'] ?? false))
+                    <div class="command-os-alert-warn mb-3">
+                        <div class="d-flex align-items-start" style="gap: 10px;">
+                            <i class="fas fa-exclamation-triangle mt-1"></i>
+                            <div class="flex-1">
+                                <strong>Telegram Bot Credentials Missing</strong>
+                                <p class="small mb-2 mt-1">Configure your Bot Token and Channel ID in Workspace Settings before dispatching alerts.</p>
+                                <a href="{{ route('console.app-settings.index', $workspace->getKey()) }}" class="btn-command-action" style="height: 30px; padding: 0 12px; font-size: 0.72rem;">
+                                    CONFIGURE IN SETTINGS <i class="fas fa-arrow-right ml-1"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+
+                <div class="tg-issue-preview-card mb-3">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <div class="d-flex align-items-center" style="gap: 6px;">
+                            <span id="tg-preview-level" class="badge-level badge-level-error">ERROR</span>
+                            <span id="tg-preview-module" class="badge-module badge-module-api">API</span>
+                        </div>
+                        <span id="tg-preview-occ" class="badge-cluster-count d-none">1x</span>
+                    </div>
+                    <div id="tg-preview-summary" class="tg-preview-summary-text">Loading issue summary...</div>
+                    <div class="small text-muted mt-1"><i class="far fa-file-code mr-1"></i> <code id="tg-preview-file">unknown</code></div>
+                </div>
+
+                <form id="form-telegram-send">
+                    <input type="hidden" id="tg-field-summary">
+                    <input type="hidden" id="tg-field-level">
+                    <input type="hidden" id="tg-field-module">
+                    <input type="hidden" id="tg-field-file">
+                    <input type="hidden" id="tg-field-request-id">
+                    <input type="hidden" id="tg-field-fingerprint">
+                    <input type="hidden" id="tg-field-occurrences" value="1">
+
+                    <div class="form-group mb-3">
+                        <label class="command-field-label" for="tg-select-channel">TARGET TELEGRAM CHANNEL</label>
+                        <select id="tg-select-channel" class="form-control form-control-sm command-select">
+                            <option value="it" @selected(($telegramConfig['has_it_channel'] ?? false))>
+                                IT / DevOps Channel ({{ ($telegramConfig['channel_it_masked'] ?? '') ?: 'Not configured' }})
+                            </option>
+                            <option value="main" @selected(!($telegramConfig['has_it_channel'] ?? false) && ($telegramConfig['has_main_channel'] ?? false))>
+                                General Channel ({{ ($telegramConfig['channel_main_masked'] ?? '') ?: 'Not configured' }})
+                            </option>
+                            <option value="both">Both IT &amp; General Channels</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="command-field-label mb-0" for="tg-custom-message">CUSTOM ALERT MESSAGE / NOTE</label>
+                            <span class="small text-muted">Typed message appears at the top of the Telegram alert</span>
+                        </div>
+                        <textarea id="tg-custom-message" rows="3" class="form-control command-textarea" placeholder="Write a custom message for your team (e.g., Investigating regression on Campaign Logs after deploy)..."></textarea>
+                        <div class="d-flex flex-wrap mt-2" style="gap: 6px;">
+                            <button type="button" class="tg-preset-chip" data-text="Investigating this issue now — will update once patched.">Investigating now</button>
+                            <button type="button" class="tg-preset-chip" data-text="URGENT: Production impact detected. Please check Horizon and server status immediately.">Urgent escalation</button>
+                            <button type="button" class="tg-preset-chip" data-text="Observed after latest deployment. Rolling out fix shortly.">Deployment notice</button>
+                            <button type="button" class="tg-preset-chip" data-text="Needs infrastructure / PMTA check on sending nodes.">Needs infra check</button>
+                        </div>
+                    </div>
+
+                    <div class="tg-options-grid mb-3">
+                        <label class="tg-checkbox-pill">
+                            <input type="checkbox" id="tg-opt-summary" checked>
+                            <span>Include Redacted Summary</span>
+                        </label>
+                        <label class="tg-checkbox-pill">
+                            <input type="checkbox" id="tg-opt-link" checked>
+                            <span>Include Error Center Link</span>
+                        </label>
+                        <label class="tg-checkbox-pill">
+                            <input type="checkbox" id="tg-opt-reqid">
+                            <span>Include Correlation ID</span>
+                        </label>
+                    </div>
+
+                    <div class="tg-security-notice mb-3">
+                        <i class="fas fa-shield-alt mr-1 text-success"></i> Stack traces, API tokens, passwords, emails, and IP addresses are strictly stripped before leaving AlphaLink.
+                    </div>
+                </form>
+            </div>
+
+            <footer class="command-os-modal-footer">
+                <button type="button" class="btn-command-action" id="btn-cancel-tg-send">CANCEL</button>
+                <button type="button" class="btn-command-primary" id="btn-submit-tg-send" @disabled(!($telegramConfig['ready'] ?? false))>
+                    <i class="fab fa-telegram-plane mr-1"></i> SEND ALERT NOW
+                </button>
+            </footer>
+        </div>
+    </dialog>
+
+    <!-- Command OS Dialog 2: Automated Telegram Alert Rules & Custom Message Templates -->
+    <dialog id="dialog-telegram-rules" class="command-os-modal" aria-labelledby="tg-rules-title">
+        <div class="command-os-modal-panel" style="max-width: 660px;">
+            <header class="command-os-modal-header">
+                <div class="d-flex align-items-center" style="gap: 12px;">
+                    <span class="modal-icon-badge modal-icon-purple"><i class="fas fa-bell"></i></span>
+                    <div>
+                        <p class="command-os-modal-eyebrow">AUTOMATION &amp; SAFETY // THRESHOLD ALERTS</p>
+                        <h2 id="tg-rules-title" class="command-os-modal-title">TELEGRAM ALERT RULES &amp; TEMPLATES</h2>
+                    </div>
+                </div>
+                <button type="button" class="command-os-modal-close" id="btn-close-tg-rules" aria-label="Close modal">&times;</button>
+            </header>
+
+            <div class="command-os-modal-body">
+                @if (!($telegramConfig['ready'] ?? false))
+                    <div class="command-os-alert-warn mb-3">
+                        <div class="d-flex align-items-start" style="gap: 10px;">
+                            <i class="fas fa-exclamation-triangle mt-1"></i>
+                            <div class="flex-1">
+                                <strong>Bot Credentials Needed</strong>
+                                <p class="small mb-2 mt-1">Configure your Telegram Bot Token and Channel ID in Workspace Settings to enable delivery.</p>
+                                <a href="{{ route('console.app-settings.index', $workspace->getKey()) }}" class="btn-command-action" style="height: 30px; padding: 0 12px; font-size: 0.72rem;">
+                                    OPEN SETTINGS <i class="fas fa-arrow-right ml-1"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+
+                <form id="form-telegram-rules">
+                    <div class="tg-rule-toggle-card mb-3">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div>
+                                <strong style="font-size: 0.875rem; color: var(--co-ink);">Enable Automated Threshold Alerts</strong>
+                                <p class="small text-muted mb-0">Rate-limited alerts per error fingerprint (zero spam bursts).</p>
+                            </div>
+                            <label class="command-switch mb-0">
+                                <input type="checkbox" id="rule-enabled" @checked(!empty($telegramConfig['rules']['enabled']))>
+                                <span class="command-switch-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="row m-0 mb-3" style="gap: 10px;">
+                        <div class="col p-0" style="min-width: 160px;">
+                            <label class="command-field-label" for="rule-channel">DESTINATION CHANNEL</label>
+                            <select id="rule-channel" class="form-control form-control-sm command-select">
+                                <option value="it" @selected(($telegramConfig['rules']['target_channel'] ?? 'it') === 'it')>IT Channel ({{ ($telegramConfig['channel_it_masked'] ?? '') ?: 'Unset' }})</option>
+                                <option value="main" @selected(($telegramConfig['rules']['target_channel'] ?? 'it') === 'main')>General Channel ({{ ($telegramConfig['channel_main_masked'] ?? '') ?: 'Unset' }})</option>
+                                <option value="both" @selected(($telegramConfig['rules']['target_channel'] ?? 'it') === 'both')>Both Channels</option>
+                            </select>
+                        </div>
+                        <div class="col p-0" style="min-width: 150px;">
+                            <label class="command-field-label" for="rule-threshold">SEVERITY THRESHOLD</label>
+                            <select id="rule-threshold" class="form-control form-control-sm command-select">
+                                <option value="CRITICAL" @selected(($telegramConfig['rules']['severity_threshold'] ?? 'CRITICAL') === 'CRITICAL')>CRITICAL / FATAL Only</option>
+                                <option value="ERROR" @selected(($telegramConfig['rules']['severity_threshold'] ?? 'CRITICAL') === 'ERROR')>ERROR &amp; Above</option>
+                            </select>
+                        </div>
+                        <div class="col p-0" style="min-width: 140px;">
+                            <label class="command-field-label" for="rule-cooldown">FINGERPRINT COOLDOWN</label>
+                            <select id="rule-cooldown" class="form-control form-control-sm command-select">
+                                <option value="15" @selected((int)($telegramConfig['rules']['cooldown_minutes'] ?? 30) === 15)>15 Minutes</option>
+                                <option value="30" @selected((int)($telegramConfig['rules']['cooldown_minutes'] ?? 30) === 30)>30 Minutes</option>
+                                <option value="60" @selected((int)($telegramConfig['rules']['cooldown_minutes'] ?? 30) === 60)>1 Hour</option>
+                                <option value="180" @selected((int)($telegramConfig['rules']['cooldown_minutes'] ?? 30) === 180)>3 Hours</option>
+                                <option value="360" @selected((int)($telegramConfig['rules']['cooldown_minutes'] ?? 30) === 360)>6 Hours</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label class="command-field-label" for="rule-custom-prefix">DEFAULT CUSTOM PREFIX / CALLOUT</label>
+                        <input type="text" id="rule-custom-prefix" class="form-control form-control-sm command-input-plain" placeholder="Optional banner note (e.g., Production Node Alert — On-call team check logs)" value="{{ $telegramConfig['rules']['custom_prefix'] ?? '' }}">
+                    </div>
+
+                    <div class="form-group mb-2">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="command-field-label mb-0" for="rule-custom-template">CUSTOM MESSAGE TEMPLATE</label>
+                            <button type="button" id="btn-reset-template" class="btn-link-subtle small">Reset Default</button>
+                        </div>
+                        <textarea id="rule-custom-template" rows="4" class="form-control command-textarea" style="font-family: ui-monospace, monospace; font-size: 0.78rem;">{{ $telegramConfig['rules']['custom_template'] ?? \App\Services\Telegram\TelegramAlertService::DEFAULT_TEMPLATE }}</textarea>
+                        <div class="d-flex flex-wrap align-items-center mt-2" style="gap: 5px;">
+                            <span class="small text-muted mr-1">Insert token:</span>
+                            <button type="button" class="tg-token-chip" data-token="{app_name}">{app_name}</button>
+                            <button type="button" class="tg-token-chip" data-token="{level}">{level}</button>
+                            <button type="button" class="tg-token-chip" data-token="{module}">{module}</button>
+                            <button type="button" class="tg-token-chip" data-token="{summary}">{summary}</button>
+                            <button type="button" class="tg-token-chip" data-token="{file}">{file}</button>
+                            <button type="button" class="tg-token-chip" data-token="{occurrences}">{occurrences}</button>
+                            <button type="button" class="tg-token-chip" data-token="{request_id}">{request_id}</button>
+                            <button type="button" class="tg-token-chip" data-token="{custom_note}">{custom_note}</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <footer class="command-os-modal-footer justify-content-between">
+                <button type="button" class="btn-command-action" id="btn-test-telegram" @disabled(!($telegramConfig['ready'] ?? false))>
+                    <i class="fas fa-paper-plane mr-1"></i> TEST CONNECTION
+                </button>
+                <div class="d-flex" style="gap: 8px;">
+                    <button type="button" class="btn-command-action" id="btn-cancel-tg-rules">CANCEL</button>
+                    <button type="button" class="btn-command-primary" id="btn-save-tg-rules">
+                        <i class="fas fa-save mr-1"></i> SAVE ALERT RULES
+                    </button>
+                </div>
+            </footer>
+        </div>
+    </dialog>
 
     <!-- Scoped Styles for Error Intelligence Center -->
     <style>
@@ -1147,6 +1394,315 @@
             background: rgba(255, 255, 255, 0.04);
             border-color: #1e293b;
         }
+
+        /* Telegram Integration UI (Command OS New Theme Only) */
+        .badge-tg-status-on {
+            display: inline-block;
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-size: 0.625rem;
+            font-weight: 800;
+            background: rgba(16, 185, 129, 0.16);
+            color: #059669;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        .btn-tg-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 28px;
+            border-radius: 7px;
+            background: rgba(14, 165, 233, 0.1);
+            color: #0284c7;
+            border: 1px solid rgba(14, 165, 233, 0.25);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .btn-tg-icon:hover {
+            background: rgba(14, 165, 233, 0.2);
+            transform: translateY(-1px);
+        }
+        .btn-tg-drawer {
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 9px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            background: rgba(14, 165, 233, 0.12);
+            color: #0284c7;
+            border: 1px solid rgba(14, 165, 233, 0.28);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .btn-tg-drawer:hover {
+            background: rgba(14, 165, 233, 0.22);
+        }
+
+        /* Command OS Native Modal (<dialog>) */
+        dialog.command-os-modal {
+            border: 1px solid var(--co-border, #dce0f4);
+            border-radius: 20px;
+            padding: 0;
+            width: min(600px, calc(100vw - 24px));
+            max-width: 100%;
+            max-height: 90vh;
+            overflow: visible;
+            background: var(--co-surface, #ffffff);
+            color: var(--co-ink, #0f172a);
+            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+            margin: auto;
+        }
+        dialog.command-os-modal::backdrop {
+            background: rgba(10, 15, 30, 0.58);
+            backdrop-filter: blur(5px);
+        }
+        .command-os-modal-panel {
+            display: flex;
+            flex-direction: column;
+            max-height: 90vh;
+            border-radius: 20px;
+            overflow: hidden;
+            background: var(--co-surface, #ffffff);
+        }
+        .command-os-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--co-border, #e2e8f0);
+            background: var(--co-surface-muted, #f8fafc);
+        }
+        .modal-icon-badge {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            display: grid;
+            place-items: center;
+            font-size: 1rem;
+        }
+        .modal-icon-tg {
+            background: rgba(14, 165, 233, 0.14);
+            color: #0284c7;
+            border: 1px solid rgba(14, 165, 233, 0.28);
+        }
+        .modal-icon-purple {
+            background: rgba(124, 58, 237, 0.14);
+            color: #7c3aed;
+            border: 1px solid rgba(124, 58, 237, 0.28);
+        }
+        .command-os-modal-eyebrow {
+            margin: 0;
+            font-size: 0.65rem;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            color: var(--co-purple, #7c3aed);
+        }
+        .command-os-modal-title {
+            margin: 2px 0 0;
+            font-size: 1rem;
+            font-weight: 800;
+            color: var(--co-ink, #0f172a);
+        }
+        .command-os-modal-close {
+            background: transparent;
+            border: 1px solid var(--co-border, #e2e8f0);
+            border-radius: 8px;
+            width: 32px;
+            height: 32px;
+            font-size: 1.25rem;
+            line-height: 1;
+            color: var(--co-muted, #64748b);
+            cursor: pointer;
+        }
+        .command-os-modal-close:hover {
+            color: var(--co-ink, #0f172a);
+            border-color: var(--co-purple, #7c3aed);
+        }
+        .command-os-modal-body {
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .command-os-modal-footer {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+            padding: 14px 20px;
+            border-top: 1px solid var(--co-border, #e2e8f0);
+            background: var(--co-surface-muted, #f8fafc);
+        }
+        .command-os-alert-warn {
+            padding: 12px 14px;
+            border-radius: 10px;
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            color: #b45309;
+            font-size: 0.8125rem;
+        }
+        .tg-issue-preview-card {
+            padding: 12px 14px;
+            border-radius: 10px;
+            background: var(--co-surface-muted, #f8fafc);
+            border: 1px solid var(--co-border, #e2e8f0);
+        }
+        .tg-preview-summary-text {
+            font-size: 0.8125rem;
+            font-weight: 650;
+            color: var(--co-ink, #0f172a);
+            word-break: break-word;
+        }
+        .command-field-label {
+            display: block;
+            font-size: 0.7rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            color: var(--co-muted, #64748b);
+            margin-bottom: 5px;
+        }
+        .command-textarea, .command-input-plain {
+            border-radius: 9px;
+            background: var(--co-surface-muted, #f8fafc);
+            border: 1px solid var(--co-border, #cbd5e1);
+            color: var(--co-ink, #0f172a);
+            font-size: 0.8125rem;
+        }
+        .command-textarea:focus, .command-input-plain:focus {
+            border-color: var(--co-purple, #7c3aed);
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+            outline: none;
+        }
+        .tg-preset-chip, .tg-token-chip {
+            padding: 3px 9px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 650;
+            background: rgba(124, 58, 237, 0.08);
+            color: var(--co-purple, #7c3aed);
+            border: 1px solid rgba(124, 58, 237, 0.22);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .tg-preset-chip:hover, .tg-token-chip:hover {
+            background: rgba(124, 58, 237, 0.16);
+        }
+        .tg-options-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .tg-checkbox-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 10px;
+            border-radius: 7px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: var(--co-surface-muted, #f1f5f9);
+            border: 1px solid var(--co-border, #e2e8f0);
+            cursor: pointer;
+            margin: 0;
+        }
+        .tg-security-notice {
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.72rem;
+            color: var(--co-muted, #475569);
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.22);
+        }
+        .tg-rule-toggle-card {
+            padding: 12px 14px;
+            border-radius: 10px;
+            background: var(--co-surface-muted, #f8fafc);
+            border: 1px solid var(--co-border, #e2e8f0);
+        }
+        .command-switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+        .command-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .command-switch-slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background-color: #cbd5e1;
+            transition: .25s;
+            border-radius: 24px;
+        }
+        .command-switch-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .25s;
+            border-radius: 50%;
+        }
+        .command-switch input:checked + .command-switch-slider {
+            background-color: var(--co-purple, #7c3aed);
+        }
+        .command-switch input:checked + .command-switch-slider:before {
+            transform: translateX(20px);
+        }
+        .btn-link-subtle {
+            background: transparent;
+            border: 0;
+            color: var(--co-purple, #7c3aed);
+            font-weight: 650;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        /* Dark Theme Modal & Telegram Adaptations */
+        html[data-command-theme="dark"] .btn-tg-icon,
+        html[data-command-theme="dark"] .btn-tg-drawer {
+            background: rgba(14, 165, 233, 0.16);
+            color: #38bdf8;
+            border-color: rgba(14, 165, 233, 0.35);
+        }
+        html[data-command-theme="dark"] dialog.command-os-modal,
+        html[data-command-theme="dark"] .command-os-modal-panel {
+            background: #0f172a;
+            border-color: #242f49;
+            color: #f1f5f9;
+        }
+        html[data-command-theme="dark"] .command-os-modal-header,
+        html[data-command-theme="dark"] .command-os-modal-footer {
+            background: #141b2d;
+            border-color: #242f49;
+        }
+        html[data-command-theme="dark"] .command-os-modal-title,
+        html[data-command-theme="dark"] .tg-preview-summary-text {
+            color: #f8fafc;
+        }
+        html[data-command-theme="dark"] .tg-issue-preview-card,
+        html[data-command-theme="dark"] .tg-rule-toggle-card,
+        html[data-command-theme="dark"] .tg-checkbox-pill {
+            background: #141b2d;
+            border-color: #242f49;
+            color: #e2e8f0;
+        }
+        html[data-command-theme="dark"] .command-textarea,
+        html[data-command-theme="dark"] .command-input-plain {
+            background: #0b1120;
+            border-color: #242f49;
+            color: #f1f5f9;
+        }
+        html[data-command-theme="dark"] .command-os-alert-warn {
+            background: rgba(245, 158, 11, 0.14);
+            color: #fbbf24;
+        }
     </style>
 
     <!-- Client-side Telemetry Script -->
@@ -1448,6 +2004,254 @@
 
                 autoRefreshSelect.addEventListener('change', function () {
                     startAutoRefresh(Number(autoRefreshSelect.value || '0'));
+                });
+            }
+
+            // 11. Telegram Alert Composer & Rules Modals (Command OS Theme)
+            const dialogTgSend = document.getElementById('dialog-telegram-send');
+            const dialogTgRules = document.getElementById('dialog-telegram-rules');
+
+            function notifyUser(message, tone) {
+                if (window.AlphaLinkToast) {
+                    window.AlphaLinkToast.show(message, tone || 'info');
+                } else {
+                    alert(message);
+                }
+            }
+
+            // Open Per-Error Telegram Send Modal
+            document.querySelectorAll('.btn-open-telegram-modal').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    if (!dialogTgSend) return;
+                    let payload = {};
+                    try {
+                        payload = JSON.parse(btn.getAttribute('data-error-payload') || '{}');
+                    } catch (e) {}
+
+                    document.getElementById('tg-field-summary').value = payload.summary || 'Application Error';
+                    document.getElementById('tg-field-level').value = payload.level || 'ERROR';
+                    document.getElementById('tg-field-module').value = payload.module || 'system';
+                    document.getElementById('tg-field-file').value = payload.file || 'laravel.log';
+                    document.getElementById('tg-field-request-id').value = payload.request_id || '';
+                    document.getElementById('tg-field-fingerprint').value = payload.fingerprint || '';
+                    document.getElementById('tg-field-occurrences').value = payload.occurrences_count || 1;
+
+                    const lvlEl = document.getElementById('tg-preview-level');
+                    if (lvlEl) {
+                        const lvl = String(payload.level || 'ERROR').toUpperCase();
+                        lvlEl.textContent = lvl;
+                        lvlEl.className = 'badge-level badge-level-' + lvl.toLowerCase();
+                    }
+                    const modEl = document.getElementById('tg-preview-module');
+                    if (modEl) {
+                        const mod = String(payload.module || 'system').toLowerCase();
+                        modEl.textContent = mod.toUpperCase();
+                        modEl.className = 'badge-module badge-module-' + mod;
+                    }
+                    const occEl = document.getElementById('tg-preview-occ');
+                    if (occEl) {
+                        const cnt = Number(payload.occurrences_count || 1);
+                        if (cnt > 1) {
+                            occEl.textContent = cnt + 'x';
+                            occEl.classList.remove('d-none');
+                        } else {
+                            occEl.classList.add('d-none');
+                        }
+                    }
+
+                    document.getElementById('tg-preview-summary').textContent = payload.summary || '';
+                    document.getElementById('tg-preview-file').textContent = payload.file || 'laravel.log';
+                    document.getElementById('tg-custom-message').value = '';
+
+                    if (typeof dialogTgSend.showModal === 'function') {
+                        dialogTgSend.showModal();
+                    }
+                });
+            });
+
+            [document.getElementById('btn-close-tg-send'), document.getElementById('btn-cancel-tg-send')].forEach(function (el) {
+                if (el && dialogTgSend) {
+                    el.addEventListener('click', function () { dialogTgSend.close(); });
+                }
+            });
+
+            // Quick Preset Chips for Custom Message
+            document.querySelectorAll('.tg-preset-chip').forEach(function (chip) {
+                chip.addEventListener('click', function () {
+                    const ta = document.getElementById('tg-custom-message');
+                    if (ta) {
+                        ta.value = chip.getAttribute('data-text') || '';
+                        ta.focus();
+                    }
+                });
+            });
+
+            // Dispatch Custom Per-Error Telegram Alert
+            const btnSubmitTgSend = document.getElementById('btn-submit-tg-send');
+            if (btnSubmitTgSend) {
+                btnSubmitTgSend.addEventListener('click', function () {
+                    const originalHtml = btnSubmitTgSend.innerHTML;
+                    btnSubmitTgSend.disabled = true;
+                    btnSubmitTgSend.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> SENDING...';
+
+                    fetch('{{ route('console.miscellaneous.app-errors.telegram.send', $workspace->getKey()) }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            channel_type: document.getElementById('tg-select-channel').value,
+                            custom_message: document.getElementById('tg-custom-message').value,
+                            error_summary: document.getElementById('tg-field-summary').value,
+                            level: document.getElementById('tg-field-level').value,
+                            module: document.getElementById('tg-field-module').value,
+                            file: document.getElementById('tg-field-file').value,
+                            request_id: document.getElementById('tg-field-request-id').value,
+                            fingerprint: document.getElementById('tg-field-fingerprint').value,
+                            occurrences_count: Number(document.getElementById('tg-field-occurrences').value || 1),
+                            include_summary: document.getElementById('tg-opt-summary').checked,
+                            include_link: document.getElementById('tg-opt-link').checked,
+                            include_request_id: document.getElementById('tg-opt-reqid').checked
+                        })
+                    })
+                    .then(function (res) { return res.json(); })
+                    .then(function (data) {
+                        btnSubmitTgSend.disabled = false;
+                        btnSubmitTgSend.innerHTML = originalHtml;
+                        if (data.success) {
+                            notifyUser('Telegram alert sent to: ' + (data.sent_channels || []).join(', ').toUpperCase(), 'success');
+                            if (dialogTgSend) dialogTgSend.close();
+                        } else {
+                            notifyUser('Telegram Error: ' + (data.error || 'Failed to deliver alert.'), 'danger');
+                        }
+                    })
+                    .catch(function (err) {
+                        btnSubmitTgSend.disabled = false;
+                        btnSubmitTgSend.innerHTML = originalHtml;
+                        notifyUser('Network error: ' + err.message, 'danger');
+                    });
+                });
+            }
+
+            // Open Automated Rules & Templates Modal
+            const btnOpenRules = document.getElementById('btn-telegram-rules');
+            if (btnOpenRules && dialogTgRules) {
+                btnOpenRules.addEventListener('click', function () {
+                    if (typeof dialogTgRules.showModal === 'function') {
+                        dialogTgRules.showModal();
+                    }
+                });
+            }
+            [document.getElementById('btn-close-tg-rules'), document.getElementById('btn-cancel-tg-rules')].forEach(function (el) {
+                if (el && dialogTgRules) {
+                    el.addEventListener('click', function () { dialogTgRules.close(); });
+                }
+            });
+
+            // Insert Template Tokens at Cursor
+            document.querySelectorAll('.tg-token-chip').forEach(function (chip) {
+                chip.addEventListener('click', function () {
+                    const ta = document.getElementById('rule-custom-template');
+                    const token = chip.getAttribute('data-token') || '';
+                    if (!ta || !token) return;
+                    const start = ta.selectionStart || 0;
+                    const end = ta.selectionEnd || 0;
+                    ta.value = ta.value.substring(0, start) + token + ta.value.substring(end);
+                    ta.focus();
+                    ta.selectionStart = ta.selectionEnd = start + token.length;
+                });
+            });
+
+            // Reset Default Template
+            const btnResetTpl = document.getElementById('btn-reset-template');
+            if (btnResetTpl) {
+                btnResetTpl.addEventListener('click', function () {
+                    const ta = document.getElementById('rule-custom-template');
+                    if (ta) {
+                        ta.value = @json(\App\Services\Telegram\TelegramAlertService::DEFAULT_TEMPLATE);
+                    }
+                });
+            }
+
+            // Save Automated Rules & Template
+            const btnSaveRules = document.getElementById('btn-save-tg-rules');
+            if (btnSaveRules) {
+                btnSaveRules.addEventListener('click', function () {
+                    const originalHtml = btnSaveRules.innerHTML;
+                    btnSaveRules.disabled = true;
+                    btnSaveRules.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> SAVING...';
+
+                    fetch('{{ route('console.miscellaneous.app-errors.telegram.config', $workspace->getKey()) }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            enabled: document.getElementById('rule-enabled').checked,
+                            target_channel: document.getElementById('rule-channel').value,
+                            severity_threshold: document.getElementById('rule-threshold').value,
+                            cooldown_minutes: Number(document.getElementById('rule-cooldown').value || 30),
+                            custom_prefix: document.getElementById('rule-custom-prefix').value,
+                            custom_template: document.getElementById('rule-custom-template').value
+                        })
+                    })
+                    .then(function (res) { return res.json(); })
+                    .then(function (data) {
+                        btnSaveRules.disabled = false;
+                        btnSaveRules.innerHTML = originalHtml;
+                        if (data.success) {
+                            notifyUser('Telegram alert rules & custom templates saved!', 'success');
+                            setTimeout(function () { window.location.reload(); }, 900);
+                        } else {
+                            notifyUser('Error saving rules.', 'danger');
+                        }
+                    })
+                    .catch(function (err) {
+                        btnSaveRules.disabled = false;
+                        btnSaveRules.innerHTML = originalHtml;
+                        notifyUser('Error: ' + err.message, 'danger');
+                    });
+                });
+            }
+
+            // Test Telegram Connection
+            const btnTestTg = document.getElementById('btn-test-telegram');
+            if (btnTestTg) {
+                btnTestTg.addEventListener('click', function () {
+                    const originalHtml = btnTestTg.innerHTML;
+                    btnTestTg.disabled = true;
+                    btnTestTg.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> TESTING...';
+
+                    fetch('{{ route('console.miscellaneous.app-errors.telegram.test', $workspace->getKey()) }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            channel_type: document.getElementById('rule-channel').value
+                        })
+                    })
+                    .then(function (res) { return res.json(); })
+                    .then(function (data) {
+                        btnTestTg.disabled = false;
+                        btnTestTg.innerHTML = originalHtml;
+                        if (data.success) {
+                            notifyUser('Test ping delivered to: ' + (data.sent_channels || []).join(', ').toUpperCase(), 'success');
+                        } else {
+                            notifyUser('Ping failed: ' + (data.error || 'Verify Bot Token & Channel ID in Settings.'), 'danger');
+                        }
+                    })
+                    .catch(function (err) {
+                        btnTestTg.disabled = false;
+                        btnTestTg.innerHTML = originalHtml;
+                        notifyUser('Network error: ' + err.message, 'danger');
+                    });
                 });
             }
         });

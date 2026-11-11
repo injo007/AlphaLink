@@ -118,6 +118,9 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::get('/app/workspaces/{workspace}/miscellaneous/app-errors', [MiscellaneousConsoleController::class, 'appErrors'])->name('console.miscellaneous.app-errors');
     Route::post('/app/workspaces/{workspace}/miscellaneous/app-errors/sync', [MiscellaneousConsoleController::class, 'appErrorsSync'])->name('console.miscellaneous.app-errors.sync');
     Route::post('/app/workspaces/{workspace}/miscellaneous/app-errors/archive-logs', [MiscellaneousConsoleController::class, 'appErrorsArchiveLogs'])->name('console.miscellaneous.app-errors.archive-logs');
+    Route::post('/app/workspaces/{workspace}/miscellaneous/app-errors/telegram/send', [MiscellaneousConsoleController::class, 'appErrorsTelegramSend'])->middleware('throttle:30,1')->name('console.miscellaneous.app-errors.telegram.send');
+    Route::post('/app/workspaces/{workspace}/miscellaneous/app-errors/telegram/config', [MiscellaneousConsoleController::class, 'appErrorsTelegramConfig'])->middleware('throttle:20,1')->name('console.miscellaneous.app-errors.telegram.config');
+    Route::post('/app/workspaces/{workspace}/miscellaneous/app-errors/telegram/test', [MiscellaneousConsoleController::class, 'appErrorsTelegramTest'])->middleware('throttle:10,1')->name('console.miscellaneous.app-errors.telegram.test');
     Route::get('/app/workspaces/{workspace}/miscellaneous/subscribers', [MiscellaneousConsoleController::class, 'subscribers'])->name('console.miscellaneous.subscribers');
     Route::get('/app/workspaces/{workspace}/miscellaneous/contacts', [MiscellaneousConsoleController::class, 'contacts'])->name('console.miscellaneous.contacts');
     Route::get('/app/workspaces/{workspace}/miscellaneous/horizon', [MiscellaneousConsoleController::class, 'horizon'])->name('console.miscellaneous.horizon');

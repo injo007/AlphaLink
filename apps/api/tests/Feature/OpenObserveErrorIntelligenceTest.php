@@ -4,12 +4,15 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Models\Workspace;
+use App\Models\WorkspaceAppSettings;
 use App\Services\AppErrorLogReader;
 use App\Services\OpenObserve\ErrorIntelligenceService;
 use App\Services\OpenObserve\OpenObserveClient;
 use App\Services\OpenObserve\OpenObserveLogHandler;
+use App\Services\Telegram\TelegramAlertService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Monolog\Level;
 use Monolog\LogRecord;
@@ -212,5 +215,111 @@ class OpenObserveErrorIntelligenceTest extends TestCase
         $response = $this->postJson(route('console.miscellaneous.app-errors.archive-logs', $this->workspace->getKey()));
         $response->assertOk()
             ->assertJsonStructure(['success', 'retained_count']);
+    }
+
+    public function test_telegram_custom_alert_redacts_secrets_and_preserves_custom_message(): void
+    {
+        WorkspaceAppSettings::query()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'settings' => [
+                'telegram_bot_token' => '123456:ABC-synthetic-token',
+                'telegram_channel_it' => '-100999888777',
+                'telegram_channel' => '-100111222333',
+            ],
+        ]);
+
+        Http::fake([
+            'https://api.telegram.org/*' => Http::response(['ok' => true, 'result' => ['message_id' => 42]], 200),
+        ]);
+
+        $response = $this->postJson(route('console.miscellaneous.app-errors.telegram.send', $this->workspace->getKey()), [
+            'channel_type' => 'it',
+            'custom_message' => 'Investigating outage for admin@example.com from 10.20.30.40',
+            'error_summary' => 'Runtime failure token=super_secret_xyz',
+            'level' => 'CRITICAL',
+            'module' => 'horizon',
+            'file' => 'SendJob.php:88',
+            'occurrences_count' => 7,
+            'include_summary' => true,
+            'include_link' => true,
+        ]);
+
+        $response->assertOk()
+            ->assertJson([
+                'success' => true,
+                'sent_channels' => ['it'],
+            ]);
+
+        Http::assertSent(function ($request) {
+            $text = (string) ($request->data()['text'] ?? '');
+            return str_contains($request->url(), 'api.telegram.org/bot123456:ABC-synthetic-token/sendMessage')
+                && $request->data()['chat_id'] === '-100999888777'
+                && str_contains($text, 'Investigating outage for [email] from [ip]')
+                && str_contains($text, 'token=[redacted]')
+                && str_contains($text, 'Occurrences:</b> 7x')
+                && ! str_contains($text, 'super_secret_xyz')
+                && ! str_contains($text, 'admin@example.com');
+        });
+    }
+
+    public function test_telegram_rules_save_preserves_existing_bot_token_and_enforces_cooldown(): void
+    {
+        WorkspaceAppSettings::query()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'settings' => [
+                'telegram_bot_token' => '987654:XYZ-encrypted-token',
+                'telegram_channel_it' => '-100555666777',
+            ],
+        ]);
+
+        $saveResponse = $this->postJson(route('console.miscellaneous.app-errors.telegram.config', $this->workspace->getKey()), [
+            'enabled' => true,
+            'target_channel' => 'it',
+            'severity_threshold' => 'CRITICAL',
+            'cooldown_minutes' => 30,
+            'custom_prefix' => 'On-Call Alert',
+            'custom_template' => '[{level}] {summary} ({occurrences}x)',
+        ]);
+
+        $saveResponse->assertOk()->assertJson(['success' => true]);
+
+        // Ensure existing encrypted bot token was NOT overwritten
+        $freshSettings = $this->workspace->fresh()->appSettings->settings;
+        $this->assertSame('987654:XYZ-encrypted-token', $freshSettings['telegram_bot_token']);
+        $this->assertSame('On-Call Alert', $freshSettings['error_alert_rules']['custom_prefix']);
+
+        // Test rate-limiting cooldown on automated dispatch
+        Http::fake([
+            'https://api.telegram.org/*' => Http::response(['ok' => true], 200),
+        ]);
+
+        /** @var TelegramAlertService $service */
+        $service = $this->app->make(TelegramAlertService::class);
+        $record = [
+            'fingerprint' => 'fp-cooldown-test',
+            'level' => 'CRITICAL',
+            'module' => 'infrastructure',
+            'summary' => 'PMTA socket unreachable',
+            'file' => 'PmtaService.php',
+            'occurrences_count' => 1,
+        ];
+
+        $this->assertTrue($service->dispatchAutomatedAlertIfEligible($this->workspace->fresh(), $record));
+        $this->assertFalse($service->dispatchAutomatedAlertIfEligible($this->workspace->fresh(), $record)); // Blocked by 30m cooldown!
+
+        Http::assertSentCount(1);
+    }
+
+    public function test_operator_cannot_access_telegram_alert_endpoints(): void
+    {
+        $operator = User::factory()->create(['access_role' => User::ACCESS_ROLE_OPERATOR]);
+        $this->workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
+
+        $this->actingAs($operator)
+            ->postJson(route('console.miscellaneous.app-errors.telegram.send', $this->workspace->getKey()), [
+                'channel_type' => 'it',
+                'error_summary' => 'Test',
+            ])
+            ->assertForbidden();
     }
 }

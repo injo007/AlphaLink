@@ -11,6 +11,7 @@ use App\Services\AppErrorLogReader;
 use App\Services\AppHealthReport;
 use App\Services\AppLogArchiveService;
 use App\Services\OpenObserve\ErrorIntelligenceService;
+use App\Services\Telegram\TelegramAlertService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -35,7 +36,7 @@ class MiscellaneousConsoleController extends Controller
         return view('console.miscellaneous.app-health', compact('workspace', 'report'));
     }
 
-    public function appErrors(Request $request, string $workspace, AppErrorLogReader $logs, ErrorIntelligenceService $service): View|JsonResponse
+    public function appErrors(Request $request, string $workspace, AppErrorLogReader $logs, ErrorIntelligenceService $service, TelegramAlertService $telegram): View|JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         abort_unless(in_array($workspace->pivot->role, ['owner', 'admin'], true), 403);
@@ -57,8 +58,9 @@ class MiscellaneousConsoleController extends Controller
         }
 
         $entries = $logs->entries();
+        $telegramConfig = $telegram->getConfigForWorkspace($workspace);
 
-        return view('console.miscellaneous.app-errors', compact('workspace', 'entries', 'intelligence', 'filters'));
+        return view('console.miscellaneous.app-errors', compact('workspace', 'entries', 'intelligence', 'filters', 'telegramConfig'));
     }
 
     public function appErrorsSync(Request $request, string $workspace, ErrorIntelligenceService $service): JsonResponse
@@ -78,6 +80,69 @@ class MiscellaneousConsoleController extends Controller
         abort_unless(in_array($workspace->pivot->role, ['owner', 'admin'], true), 403);
 
         $result = $archiveService->archiveAndRotate(5);
+
+        return response()->json($result);
+    }
+
+    public function appErrorsTelegramSend(Request $request, string $workspace, TelegramAlertService $telegram): JsonResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        abort_unless(in_array($workspace->pivot->role, ['owner', 'admin'], true), 403);
+
+        $validated = $request->validate([
+            'channel_type' => ['required', 'in:it,main,both'],
+            'custom_message' => ['nullable', 'string', 'max:1000'],
+            'error_summary' => ['required', 'string', 'max:500'],
+            'level' => ['nullable', 'string', 'max:32'],
+            'module' => ['nullable', 'string', 'max:64'],
+            'file' => ['nullable', 'string', 'max:255'],
+            'request_id' => ['nullable', 'string', 'max:128'],
+            'fingerprint' => ['nullable', 'string', 'max:64'],
+            'occurrences_count' => ['nullable', 'integer', 'min:1'],
+            'include_summary' => ['nullable', 'boolean'],
+            'include_request_id' => ['nullable', 'boolean'],
+            'include_link' => ['nullable', 'boolean'],
+        ]);
+
+        $result = $telegram->sendCustomAlert(
+            $workspace,
+            $validated,
+            $request->user()?->getKey(),
+            $request->attributes->get('request_id')
+        );
+
+        return response()->json($result);
+    }
+
+    public function appErrorsTelegramConfig(Request $request, string $workspace, TelegramAlertService $telegram): JsonResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        abort_unless(in_array($workspace->pivot->role, ['owner', 'admin'], true), 403);
+
+        $validated = $request->validate([
+            'enabled' => ['required', 'boolean'],
+            'target_channel' => ['required', 'in:it,main,both'],
+            'severity_threshold' => ['required', 'in:CRITICAL,ERROR'],
+            'cooldown_minutes' => ['required', 'integer', 'min:1', 'max:1440'],
+            'custom_template' => ['nullable', 'string', 'max:1500'],
+            'custom_prefix' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $config = $telegram->saveRules($workspace, $validated);
+
+        return response()->json(['success' => true, 'config' => $config]);
+    }
+
+    public function appErrorsTelegramTest(Request $request, string $workspace, TelegramAlertService $telegram): JsonResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        abort_unless(in_array($workspace->pivot->role, ['owner', 'admin'], true), 403);
+
+        $validated = $request->validate([
+            'channel_type' => ['nullable', 'in:it,main,both'],
+        ]);
+
+        $result = $telegram->sendTestPing($workspace, $validated['channel_type'] ?? 'it');
 
         return response()->json($result);
     }

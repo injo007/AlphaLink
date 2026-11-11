@@ -398,7 +398,7 @@
                 </main>
 
                 <aside class="campaign-intelligence" aria-label="Campaign intelligence">
-                    <section class="campaign-intelligence-card campaign-analytics-card" data-campaign-analytics data-aggregate-url="{{ route('console.campaign-statistics.index', array_merge([$workspace->id], ['from' => $from->toDateString(), 'to' => $to->toDateString(), 'register' => 1], $operatorCampaignViewQuery)) }}">
+                    <section class="campaign-intelligence-card campaign-analytics-card" data-campaign-analytics data-aggregate-url="{{ route('console.campaign-statistics.index', array_merge([$workspace->id], ['from' => $from->toDateString(), 'to' => $to->toDateString(), 'register' => 1], $operatorCampaignViewQuery ?? [])) }}">
                         <header class="campaign-intelligence-heading">
                             <span class="campaign-intelligence-heading-icon" aria-hidden="true"><i class="fas fa-chart-bar"></i></span>
                             <div><h2>Campaign Analytics</h2><p>Attributed engagement for the selected period</p></div>

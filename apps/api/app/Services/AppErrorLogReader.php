@@ -36,7 +36,7 @@ class AppErrorLogReader
         return array_slice($entries, 0, self::MAX_ENTRIES);
     }
 
-    /** @return list<array{date:string,level:string,summary:string,file:string}> */
+    /** @return list<array{date:string,level:string,summary:string,file:string,exception_class?:string,exception_file?:string,exception_line?:?int,trace?:?string}> */
     private function readFile(string $file): array
     {
         $handle = @fopen($file, 'rb');
@@ -51,17 +51,80 @@ class AppErrorLogReader
                 fgets($handle);
             }
 
-            $entries = [];
+            $rawEntries = [];
+            $current = null;
+
             while (($line = fgets($handle)) !== false) {
-                if (preg_match('/^\[([^\]]+)\]\s+[^.]+\.(ERROR|CRITICAL|ALERT|EMERGENCY):\s+(.*)$/i', rtrim($line), $matches) !== 1) {
-                    continue;
+                $trimmed = rtrim($line);
+                if (preg_match('/^\[([^\]]+)\]\s+[^.]+\.(ERROR|CRITICAL|ALERT|EMERGENCY):\s+(.*)$/i', $trimmed, $matches) === 1) {
+                    if ($current !== null) {
+                        $rawEntries[] = $current;
+                    }
+                    $current = [
+                        'date' => $matches[1],
+                        'level' => strtoupper($matches[2]),
+                        'raw_message' => $matches[3],
+                        'trace_lines' => [],
+                    ];
+                } elseif ($current !== null) {
+                    if (preg_match('/^\[\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\]/', $trimmed) === 1) {
+                        $rawEntries[] = $current;
+                        $current = null;
+                    } else {
+                        if (count($current['trace_lines']) < 80) {
+                            $current['trace_lines'][] = $trimmed;
+                        }
+                    }
+                }
+            }
+
+            if ($current !== null) {
+                $rawEntries[] = $current;
+            }
+
+            $entries = [];
+            foreach ($rawEntries as $raw) {
+                $rawMsg = $raw['raw_message'];
+                $summary = $this->redact($rawMsg);
+
+                $exceptionClass = null;
+                $exceptionFile = null;
+                $exceptionLine = null;
+
+                if (preg_match('/\[object\]\s+\(([A-Za-z0-9_\\\\]+)\(code:\s*\d+\):\s*(.*?)\s+at\s+([^:]+):(\d+)\)/s', $rawMsg, $exMatches)) {
+                    $exceptionClass = basename(str_replace('\\', '/', $exMatches[1]));
+                    $exceptionFile = basename($exMatches[3]);
+                    $exceptionLine = (int) $exMatches[4];
+                } elseif (preg_match('/^([A-Za-z0-9_\\\\]+(?:Exception|Error)):\s*(.*)$/', $summary, $classMatches)) {
+                    $exceptionClass = basename(str_replace('\\', '/', $classMatches[1]));
+                }
+
+                $traceText = '';
+                if (! empty($raw['trace_lines'])) {
+                    $cleanLines = [];
+                    foreach ($raw['trace_lines'] as $tLine) {
+                        $tLine = trim($tLine, "\r\n\"}");
+                        if ($tLine === '' || $tLine === '[stacktrace]') {
+                            continue;
+                        }
+                        $cleanLines[] = $this->redact($tLine);
+                    }
+                    $traceText = implode("\n", $cleanLines);
+                }
+
+                if (empty($traceText) && $exceptionClass) {
+                    $traceText = "{$exceptionClass}: {$summary}\nat " . ($exceptionFile ?? basename($file)) . ($exceptionLine ? ":{$exceptionLine}" : "");
                 }
 
                 $entries[] = [
-                    'date' => $matches[1],
-                    'level' => strtoupper($matches[2]),
-                    'summary' => $this->redact($matches[3]),
+                    'date' => $raw['date'],
+                    'level' => $raw['level'],
+                    'summary' => $summary,
                     'file' => basename($file),
+                    'exception_class' => $exceptionClass ?? 'RuntimeException',
+                    'exception_file' => $exceptionFile ?? basename($file),
+                    'exception_line' => $exceptionLine,
+                    'trace' => $traceText ?: null,
                 ];
             }
 

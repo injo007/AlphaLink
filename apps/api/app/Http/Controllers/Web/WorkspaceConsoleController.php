@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\BuildCampaignRecipientSnapshot;
+use App\Models\AudienceList;
+use App\Models\AudienceMixSnapshot;
 use App\Models\AuditEvent;
 use App\Models\Campaign;
 use App\Models\CampaignRecipientSnapshot;
@@ -222,8 +224,60 @@ class WorkspaceConsoleController extends Controller
         $pmtaAdminPort = is_numeric($configuredPmtaAdminPort) && (int) $configuredPmtaAdminPort >= 1 && (int) $configuredPmtaAdminPort <= 65535
             ? (int) $configuredPmtaAdminPort
             : (int) config('infrastructure.pmta_admin_port', 1213);
+        $canOperateCampaigns = in_array($workspace->pivot->role, ['owner', 'admin', 'operator'], true);
+        $snapshotSelections = collect();
+        $audienceListNames = collect();
+        $mixSnapshots = collect();
 
-        $campaigns->getCollection()->transform(function (Campaign $campaign) use ($sendSetups, $ispNames, $offerNames, $serverNames, $servers, $pmtaAdminPort, $latestSendRuns, $latestSmtpErrors, $recipientSnapshotRevisionIds): Campaign {
+        if ($canOperateCampaigns) {
+            $snapshotSelections = $campaignRevisionIds->isEmpty()
+                ? collect()
+                : CampaignRecipientSnapshot::query()
+                    ->where('workspace_id', $workspace->getKey())
+                    ->whereIn('revision_id', $campaignRevisionIds)
+                    ->get(['revision_id', 'selection'])
+                    ->keyBy(fn (CampaignRecipientSnapshot $snapshot): string => (string) $snapshot->revision_id);
+
+            $regularListIds = [];
+            $mixSnapshotIds = [];
+            foreach ($campaigns->getCollection() as $campaignItem) {
+                $itemSetup = $sendSetups->get($campaignItem->getKey(), []);
+                $segments = $itemSetup['audience_segments'] ?? [];
+                if (! is_array($segments) || $segments === []) {
+                    $revId = (string) ($campaignItem->latestRevision?->getKey() ?? '');
+                    $segments = $snapshotSelections->get($revId)?->selection['audience_segments'] ?? [];
+                }
+                foreach ((array) $segments as $segmentId) {
+                    if (preg_match('/\A([0-9a-f-]{36})_(fresh|delivery|open|click|lead|unsubscribe|mix)\z/i', (string) $segmentId, $matches) === 1) {
+                        $uuid = strtolower($matches[1]);
+                        if (strtolower($matches[2]) === 'mix') {
+                            $mixSnapshotIds[] = $uuid;
+                        } else {
+                            $regularListIds[] = $uuid;
+                        }
+                    }
+                }
+            }
+
+            $regularListIds = array_values(array_unique($regularListIds));
+            $mixSnapshotIds = array_values(array_unique($mixSnapshotIds));
+            if ($regularListIds !== []) {
+                $audienceListNames = AudienceList::withTrashed()
+                    ->where('workspace_id', $workspace->getKey())
+                    ->whereIn('id', $regularListIds)
+                    ->pluck('name', 'id')
+                    ->mapWithKeys(fn (string $name, string $id): array => [strtolower($id) => $name]);
+            }
+            if ($mixSnapshotIds !== []) {
+                $mixSnapshots = AudienceMixSnapshot::query()
+                    ->where('workspace_id', $workspace->getKey())
+                    ->whereIn('id', $mixSnapshotIds)
+                    ->get(['id', 'name', 'recipient_count'])
+                    ->keyBy(fn (AudienceMixSnapshot $mix): string => strtolower((string) $mix->getKey()));
+            }
+        }
+
+        $campaigns->getCollection()->transform(function (Campaign $campaign) use ($sendSetups, $ispNames, $offerNames, $serverNames, $servers, $pmtaAdminPort, $latestSendRuns, $latestSmtpErrors, $recipientSnapshotRevisionIds, $canOperateCampaigns, $snapshotSelections, $audienceListNames, $mixSnapshots): Campaign {
             $setup = $sendSetups->get($campaign->getKey(), []);
             $offer = $offerNames->get($setup['offer_id'] ?? null);
             $parameters = $setup['parameters'] ?? [];
@@ -235,11 +289,46 @@ class WorkspaceConsoleController extends Controller
 
                 return ['name' => $server->name, 'url' => PmtaPanelUrl::displayUrl($server, $pmtaAdminPort)];
             })->filter()->values()->all();
+            $audienceLists = [];
+            if ($canOperateCampaigns) {
+                $rawSegments = $setup['audience_segments'] ?? [];
+                if (! is_array($rawSegments) || $rawSegments === []) {
+                    $revId = (string) ($campaign->latestRevision?->getKey() ?? '');
+                    $rawSegments = $snapshotSelections->get($revId)?->selection['audience_segments'] ?? [];
+                }
+                foreach ((array) $rawSegments as $segmentId) {
+                    if (preg_match('/\A([0-9a-f-]{36})_(fresh|delivery|open|click|lead|unsubscribe|mix)\z/i', (string) $segmentId, $matches) === 1) {
+                        $uuid = strtolower($matches[1]);
+                        $segmentType = strtolower($matches[2]);
+                        if ($segmentType === 'mix') {
+                            $mix = $mixSnapshots->get($uuid);
+                            $mixName = $mix?->name ?: ('Mix '.substr($uuid, 0, 8));
+                            $audienceLists[] = [
+                                'label' => $mixName,
+                                'list_name' => $mixName,
+                                'type' => 'mix',
+                                'is_mix' => true,
+                                'recipient_count' => $mix?->recipient_count,
+                            ];
+                        } else {
+                            $listName = $audienceListNames->get($uuid) ?? ('List '.substr($uuid, 0, 8));
+                            $audienceLists[] = [
+                                'label' => $listName.'_'.$segmentType,
+                                'list_name' => $listName,
+                                'type' => $segmentType,
+                                'is_mix' => false,
+                            ];
+                        }
+                    }
+                }
+            }
             $campaign->setAttribute('send_register', [
                 'isp' => $ispNames->get($setup['isp_id'] ?? null),
+                'country' => $setup['country'] ?? null,
                 'offer' => $offer ? trim('('.$offer->offer_id.') '.$offer->name) : null,
                 'servers' => collect($setup['server_ids'] ?? [])->map(fn (string $id): ?string => $serverNames->get($id))->filter()->values()->all(),
                 'pmta_panels' => $pmtaPanels,
+                'audience_lists' => $audienceLists,
                 'total_send' => $parameters['total_send'] ?? null,
                 'fraction_ip' => $parameters['fraction_ip'] ?? null,
                 'sleep_email' => $parameters['sleep_email'] ?? null,
@@ -273,7 +362,6 @@ class WorkspaceConsoleController extends Controller
             return $campaign;
         });
 
-        $canOperateCampaigns = in_array($workspace->pivot->role, ['owner', 'admin', 'operator'], true);
         $canManageVisibleCampaigns = $canOperateCampaigns && ! $showOperatorCampaigns;
 
         return view('console.campaigns.index', compact('workspace', 'campaigns', 'from', 'to', 'search', 'showDisabled', 'perPage', 'activeOnly', 'activeSendCount', 'campaignOverview', 'canOperateCampaigns', 'canManageVisibleCampaigns', 'isAdmin', 'showOperatorCampaigns', 'operatorUsers', 'selectedOperatorId', 'selectedOperator', 'campaignLogsUrl', 'operatorCampaignViewQuery'));

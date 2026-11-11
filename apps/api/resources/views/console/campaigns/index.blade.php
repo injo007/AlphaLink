@@ -238,7 +238,32 @@
                                     @if (! $canOperateCampaigns)
                                         <span class="text-muted">Hidden</span>
                                     @elseif ($ispName !== '')
-                                        <span class="campaign-isp-brand" role="img" aria-label="{{ $ispName }}" title="{{ $ispName }}"><i class="{{ $ispIcon }}" aria-hidden="true"></i></span>
+                                        @php
+                                            $ispAudienceLists = $register['audience_lists'] ?? [];
+                                            $ispAudienceCount = count($ispAudienceLists);
+                                            $campaignDisplayRef = '#'.(($campaigns->firstItem() ?? 1) + $loop->index).' · '.$campaign->name;
+                                        @endphp
+                                        <button
+                                            type="button"
+                                            class="campaign-isp-trigger"
+                                            data-campaign-isp-popover
+                                            data-campaign-id="{{ $campaign->id }}"
+                                            data-campaign-ref="{{ $campaignDisplayRef }}"
+                                            data-isp-name="{{ $ispName }}"
+                                            data-isp-icon="{{ $ispIcon }}"
+                                            data-country="{{ $register['country'] ?? 'ALL' }}"
+                                            data-audience-lists="{{ json_encode($ispAudienceLists) }}"
+                                            aria-haspopup="dialog"
+                                            aria-expanded="false"
+                                            aria-controls="campaign-isp-popover"
+                                            title="{{ $ispName }} · Click to view selected lists ({{ $ispAudienceCount }})"
+                                            aria-label="View selected lists for {{ $campaign->name }} ({{ $ispName }}, {{ $ispAudienceCount }} selected)"
+                                        >
+                                            <span class="campaign-isp-brand"><i class="{{ $ispIcon }}" aria-hidden="true"></i></span>
+                                            @if ($ispAudienceCount > 0)
+                                                <span class="campaign-isp-count">{{ $ispAudienceCount }}</span>
+                                            @endif
+                                        </button>
                                     @else
                                         —
                                     @endif
@@ -532,6 +557,38 @@
             <p class="text-muted mb-0">Loading campaign settings…</p>
         </div>
     </dialog>
+
+    <div id="campaign-isp-popover" class="campaign-isp-popover" role="dialog" aria-modal="false" aria-labelledby="campaign-isp-popover-title" hidden>
+        <div class="campaign-isp-popover-head">
+            <div class="campaign-isp-popover-identity">
+                <span id="campaign-isp-popover-brand" class="campaign-isp-popover-brand" aria-hidden="true"><i class="fas fa-envelope"></i></span>
+                <div class="campaign-isp-popover-title-wrap">
+                    <div class="campaign-isp-popover-eyebrow">
+                        <span id="campaign-isp-popover-isp">ISP</span>
+                        <span id="campaign-isp-popover-country" class="campaign-isp-popover-country" hidden>ALL</span>
+                    </div>
+                    <h3 id="campaign-isp-popover-title" class="campaign-isp-popover-title">Lists</h3>
+                </div>
+            </div>
+            <div class="campaign-isp-popover-actions">
+                <button type="button" id="campaign-isp-popover-copy" class="campaign-isp-popover-icon-btn" title="Copy selected list names" aria-label="Copy selected list names" hidden>
+                    <i class="far fa-copy" aria-hidden="true"></i>
+                </button>
+                <button type="button" id="campaign-isp-popover-close" class="campaign-isp-popover-icon-btn" title="Close (Esc)" aria-label="Close selected lists popup">
+                    <i class="fas fa-times" aria-hidden="true"></i>
+                </button>
+            </div>
+        </div>
+        <div id="campaign-isp-popover-search-wrap" class="campaign-isp-popover-search-wrap" hidden>
+            <i class="fas fa-search campaign-isp-popover-search-icon" aria-hidden="true"></i>
+            <input type="search" id="campaign-isp-popover-search" class="campaign-isp-popover-search" placeholder="Filter lists or segment type…" aria-label="Filter selected audience lists">
+        </div>
+        <div id="campaign-isp-popover-body" class="campaign-isp-popover-body"></div>
+        <div id="campaign-isp-popover-foot" class="campaign-isp-popover-foot">
+            <span id="campaign-isp-popover-summary"></span>
+            <span class="campaign-isp-popover-hint">ESC to close</span>
+        </div>
+    </div>
 @endsection
 
 @push('styles')
@@ -757,6 +814,245 @@
         .campaign-register-table .campaign-isp-brand-apple { color: var(--co-ink); }
         .campaign-register-table .campaign-isp-brand-proton { color: #6d4aff; }
         .campaign-register-table .campaign-isp-brand-generic { color: var(--co-muted); }
+        .campaign-register-table .campaign-isp-trigger {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            min-height: 30px;
+            padding: 4px 8px;
+            border: 1px solid color-mix(in srgb, var(--co-purple) 18%, var(--co-border));
+            border-radius: 10px;
+            background: linear-gradient(145deg, color-mix(in srgb, var(--co-purple) 6%, var(--co-surface)), var(--co-surface));
+            box-shadow: 0 2px 6px color-mix(in srgb, var(--co-purple) 8%, transparent);
+            cursor: pointer;
+            transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease, background .16s ease;
+        }
+        .campaign-register-table .campaign-isp-trigger:hover,
+        .campaign-register-table .campaign-isp-trigger[aria-expanded="true"] {
+            border-color: color-mix(in srgb, var(--co-purple) 52%, var(--co-border));
+            background: linear-gradient(145deg, color-mix(in srgb, var(--co-purple) 14%, var(--co-surface)), color-mix(in srgb, var(--co-blue) 9%, var(--co-surface)));
+            box-shadow: 0 4px 12px color-mix(in srgb, var(--co-purple) 20%, transparent);
+            transform: translateY(-1px);
+        }
+        .campaign-register-table .campaign-isp-trigger:focus-visible {
+            outline: 3px solid color-mix(in srgb, var(--co-purple) 34%, transparent);
+            outline-offset: 2px;
+        }
+        .campaign-register-table .campaign-isp-count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            border-radius: 999px;
+            color: var(--co-purple);
+            background: color-mix(in srgb, var(--co-purple) 13%, var(--co-surface));
+            font-size: 9px;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+            line-height: 1;
+        }
+        .campaign-isp-popover {
+            position: fixed;
+            z-index: 11040;
+            display: flex;
+            flex-direction: column;
+            width: min(410px, calc(100vw - 24px));
+            max-height: min(440px, calc(100dvh - 24px));
+            overflow: hidden;
+            border: 1px solid color-mix(in srgb, var(--co-purple) 26%, var(--co-border-strong));
+            border-radius: 16px;
+            color: var(--co-ink);
+            background: color-mix(in srgb, var(--co-surface) 95%, var(--co-purple) 5%);
+            box-shadow: 0 22px 56px rgb(11 18 43 / 24%), 0 2px 10px color-mix(in srgb, var(--co-purple) 14%, transparent);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            font-family: Inter, 'Segoe UI', Arial, sans-serif;
+            animation: campaign-dialog-enter .16s cubic-bezier(.2,.8,.2,1) both;
+        }
+        .campaign-isp-popover[hidden] { display: none !important; }
+        [data-command-theme='dark'] .campaign-isp-popover {
+            background: color-mix(in srgb, var(--co-surface) 94%, #1b1636 6%);
+            box-shadow: 0 26px 64px rgb(3 6 18 / 65%), 0 0 0 1px color-mix(in srgb, var(--co-purple) 28%, transparent);
+        }
+        .campaign-isp-popover-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 13px 15px 11px;
+            border-bottom: 1px solid var(--co-border);
+            background: linear-gradient(108deg, color-mix(in srgb, var(--co-purple) 11%, var(--co-surface)), color-mix(in srgb, var(--co-blue) 6%, var(--co-surface)) 70%, var(--co-surface));
+        }
+        .campaign-isp-popover-identity { display: flex; align-items: center; gap: 10px; min-width: 0; }
+        .campaign-isp-popover-brand {
+            display: grid;
+            flex: 0 0 34px;
+            width: 34px;
+            height: 34px;
+            place-items: center;
+            border: 1px solid color-mix(in srgb, var(--co-purple) 24%, var(--co-border));
+            border-radius: 10px;
+            background: var(--co-surface);
+            box-shadow: 0 3px 9px color-mix(in srgb, var(--co-purple) 14%, transparent);
+            font-size: 16px;
+        }
+        .campaign-isp-popover-brand .campaign-isp-brand-google { color: #4285f4; }
+        .campaign-isp-popover-brand .campaign-isp-brand-yahoo { color: #6001d2; }
+        .campaign-isp-popover-brand .campaign-isp-brand-microsoft { color: #00a4ef; }
+        .campaign-isp-popover-brand .campaign-isp-brand-apple { color: var(--co-ink); }
+        .campaign-isp-popover-brand .campaign-isp-brand-proton { color: #6d4aff; }
+        .campaign-isp-popover-brand .campaign-isp-brand-generic { color: var(--co-muted); }
+        .campaign-isp-popover-title-wrap { min-width: 0; }
+        .campaign-isp-popover-eyebrow {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--co-purple);
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: .12em;
+            text-transform: uppercase;
+        }
+        .campaign-isp-popover-country {
+            padding: 1px 6px;
+            border: 1px solid color-mix(in srgb, var(--co-blue) 26%, var(--co-border));
+            border-radius: 999px;
+            color: var(--co-blue);
+            background: color-mix(in srgb, var(--co-blue) 10%, var(--co-surface));
+            font-size: 8px;
+            letter-spacing: .06em;
+        }
+        .campaign-isp-popover-title {
+            overflow: hidden;
+            margin: 2px 0 0;
+            color: var(--co-ink);
+            font-size: 13px;
+            font-weight: 780;
+            letter-spacing: -.02em;
+            line-height: 1.25;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .campaign-isp-popover-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 6px; }
+        .campaign-isp-popover-icon-btn {
+            display: grid;
+            width: 28px;
+            height: 28px;
+            place-items: center;
+            padding: 0;
+            border: 1px solid var(--co-border-strong);
+            border-radius: 8px;
+            color: var(--co-muted);
+            background: var(--co-surface);
+            font-size: 11px;
+            cursor: pointer;
+            transition: border-color .14s ease, color .14s ease, background .14s ease;
+        }
+        .campaign-isp-popover-icon-btn:hover { border-color: var(--co-purple); color: var(--co-purple); background: color-mix(in srgb, var(--co-purple) 8%, var(--co-surface)); }
+        .campaign-isp-popover-icon-btn.is-copied { border-color: #10b981; color: #10b981; background: color-mix(in srgb, #10b981 12%, var(--co-surface)); }
+        .campaign-isp-popover-icon-btn:focus-visible { outline: 3px solid color-mix(in srgb, var(--co-purple) 34%, transparent); outline-offset: 2px; }
+        .campaign-isp-popover-search-wrap { position: relative; padding: 9px 14px 4px; }
+        .campaign-isp-popover-search-icon { position: absolute; top: 50%; left: 24px; color: var(--co-subtle); font-size: 11px; transform: translateY(-20%); pointer-events: none; }
+        .campaign-isp-popover-search {
+            width: 100%;
+            height: 32px;
+            padding: 0 10px 0 28px;
+            border: 1px solid var(--co-border-strong);
+            border-radius: 9px;
+            color: var(--co-ink);
+            background: var(--co-surface-muted);
+            font-size: 11px;
+            outline: none;
+        }
+        .campaign-isp-popover-search:focus { border-color: var(--co-purple); background: var(--co-surface); box-shadow: 0 0 0 3px color-mix(in srgb, var(--co-purple) 13%, transparent); }
+        .campaign-isp-popover-body {
+            overflow-y: auto;
+            padding: 13px 15px;
+            scrollbar-color: var(--co-border-strong) transparent;
+        }
+        .campaign-isp-popover-pills { display: flex; flex-wrap: wrap; gap: 7px; }
+        .campaign-isp-segment-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            max-width: 100%;
+            padding: 5px 10px;
+            border: 1px solid color-mix(in srgb, var(--pill-accent, var(--co-blue)) 30%, var(--co-border));
+            border-radius: 9px;
+            color: var(--co-ink);
+            background: linear-gradient(135deg, color-mix(in srgb, var(--pill-accent, var(--co-blue)) 13%, var(--co-surface)), color-mix(in srgb, var(--pill-accent, var(--co-blue)) 5%, var(--co-surface)));
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1.25;
+            box-shadow: 0 2px 5px color-mix(in srgb, var(--pill-accent, var(--co-blue)) 10%, transparent);
+            transition: transform .14s ease, border-color .14s ease;
+        }
+        .campaign-isp-segment-pill:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--pill-accent, var(--co-blue)) 58%, var(--co-border)); }
+        .campaign-isp-segment-dot { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: var(--pill-accent, var(--co-blue)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--pill-accent, var(--co-blue)) 22%, transparent); }
+        .campaign-isp-segment-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .campaign-isp-segment-tag {
+            flex: 0 0 auto;
+            padding: 1px 5px;
+            border-radius: 5px;
+            color: var(--pill-accent, var(--co-blue));
+            background: color-mix(in srgb, var(--pill-accent, var(--co-blue)) 14%, var(--co-surface));
+            font-size: 8px;
+            font-weight: 800;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+        }
+        .campaign-isp-segment-pill[data-segment-type="click"] { --pill-accent: #2563eb; }
+        .campaign-isp-segment-pill[data-segment-type="lead"] { --pill-accent: #059669; }
+        .campaign-isp-segment-pill[data-segment-type="fresh"] { --pill-accent: #7c3aed; }
+        .campaign-isp-segment-pill[data-segment-type="open"] { --pill-accent: #0891b2; }
+        .campaign-isp-segment-pill[data-segment-type="delivery"] { --pill-accent: #4f46e5; }
+        .campaign-isp-segment-pill[data-segment-type="unsubscribe"] { --pill-accent: #d97706; }
+        .campaign-isp-segment-pill[data-segment-type="mix"] { --pill-accent: #c026d3; }
+        [data-command-theme='dark'] .campaign-isp-segment-pill[data-segment-type="click"] { --pill-accent: #60a5fa; }
+        [data-command-theme='dark'] .campaign-isp-segment-pill[data-segment-type="lead"] { --pill-accent: #34d399; }
+        [data-command-theme='dark'] .campaign-isp-segment-pill[data-segment-type="fresh"] { --pill-accent: #a78bfa; }
+        [data-command-theme='dark'] .campaign-isp-segment-pill[data-segment-type="open"] { --pill-accent: #22d3ee; }
+        [data-command-theme='dark'] .campaign-isp-segment-pill[data-segment-type="delivery"] { --pill-accent: #818cf8; }
+        [data-command-theme='dark'] .campaign-isp-segment-pill[data-segment-type="unsubscribe"] { --pill-accent: #fbbf24; }
+        [data-command-theme='dark'] .campaign-isp-segment-pill[data-segment-type="mix"] { --pill-accent: #e879f9; }
+        .campaign-isp-popover-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 18px 10px;
+            border: 1px dashed var(--co-border-strong);
+            border-radius: 12px;
+            color: var(--co-muted);
+            background: var(--co-surface-muted);
+            font-size: 11px;
+            text-align: center;
+        }
+        .campaign-isp-popover-foot {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 8px 15px;
+            border-top: 1px solid var(--co-border);
+            color: var(--co-subtle);
+            background: var(--co-surface-muted);
+            font-size: 9px;
+            font-weight: 650;
+        }
+        .campaign-isp-popover-hint { letter-spacing: .04em; opacity: .85; }
+        @media (max-width: 560px) {
+            .campaign-isp-popover { left: 12px !important; right: 12px !important; width: auto; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .campaign-register-table .campaign-isp-trigger,
+            .campaign-isp-segment-pill,
+            .campaign-isp-popover { transition: none; animation: none; }
+        }
         .campaign-register-page .campaign-send-cell > a.campaign-send-icon-action,
         .campaign-register-page .campaign-send-cell > button.campaign-send-icon-action { display: inline-flex; width: 30px; height: 30px; align-items: center; justify-content: center; margin: 0 3px 4px 0; padding: 0; border: 1px solid color-mix(in srgb, var(--co-purple) 26%, var(--co-border)); border-radius: 9px; color: var(--co-purple); background: linear-gradient(145deg, color-mix(in srgb, var(--co-purple) 12%, var(--co-surface)), color-mix(in srgb, var(--co-blue) 8%, var(--co-surface))); box-shadow: 0 2px 7px color-mix(in srgb, var(--co-purple) 10%, transparent); text-decoration: none; transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease; }
         .campaign-register-page .campaign-send-cell .campaign-send-icon-action i { color: currentColor; font-size: 12px; }
@@ -1419,6 +1715,228 @@
                 confirm.textContent = 'Disabling…';
                 bulkForm.submit();
             });
+
+            const ispPopover = document.getElementById('campaign-isp-popover');
+            if (ispPopover) {
+                const ispBrandBox = document.getElementById('campaign-isp-popover-brand');
+                const ispNameEl = document.getElementById('campaign-isp-popover-isp');
+                const ispCountryEl = document.getElementById('campaign-isp-popover-country');
+                const ispTitleEl = document.getElementById('campaign-isp-popover-title');
+                const ispCopyBtn = document.getElementById('campaign-isp-popover-copy');
+                const ispCloseBtn = document.getElementById('campaign-isp-popover-close');
+                const ispSearchWrap = document.getElementById('campaign-isp-popover-search-wrap');
+                const ispSearchInput = document.getElementById('campaign-isp-popover-search');
+                const ispBodyEl = document.getElementById('campaign-isp-popover-body');
+                const ispSummaryEl = document.getElementById('campaign-isp-popover-summary');
+                let activeIspTrigger = null;
+                let currentIspItems = [];
+
+                const renderIspPills = (query = '') => {
+                    ispBodyEl.replaceChildren();
+                    const term = query.trim().toLowerCase();
+                    const filtered = term === ''
+                        ? currentIspItems
+                        : currentIspItems.filter(item =>
+                            String(item.label || '').toLowerCase().includes(term)
+                            || String(item.list_name || '').toLowerCase().includes(term)
+                            || String(item.type || '').toLowerCase().includes(term)
+                        );
+
+                    if (filtered.length === 0) {
+                        const empty = document.createElement('div');
+                        empty.className = 'campaign-isp-popover-empty';
+                        const icon = document.createElement('i');
+                        icon.className = currentIspItems.length === 0 ? 'far fa-folder-open' : 'fas fa-search';
+                        icon.setAttribute('aria-hidden', 'true');
+                        const msg = document.createElement('span');
+                        msg.textContent = currentIspItems.length === 0
+                            ? 'No audience lists are saved on this campaign yet.'
+                            : 'No saved lists match that filter.';
+                        empty.append(icon, msg);
+                        ispBodyEl.append(empty);
+                        return;
+                    }
+
+                    const wrap = document.createElement('div');
+                    wrap.className = 'campaign-isp-popover-pills';
+                    for (const item of filtered) {
+                        const pill = document.createElement('span');
+                        const segType = String(item.type || 'fresh').toLowerCase();
+                        pill.className = 'campaign-isp-segment-pill';
+                        pill.dataset.segmentType = segType;
+                        pill.title = String(item.label || '');
+
+                        const dot = document.createElement('span');
+                        dot.className = 'campaign-isp-segment-dot';
+                        dot.setAttribute('aria-hidden', 'true');
+
+                        const label = document.createElement('span');
+                        label.className = 'campaign-isp-segment-label';
+                        label.textContent = String(item.label || '');
+
+                        const tag = document.createElement('span');
+                        tag.className = 'campaign-isp-segment-tag';
+                        tag.textContent = segType === 'unsubscribe' ? 'UNSUB' : segType.toUpperCase();
+
+                        pill.append(dot, label, tag);
+                        wrap.append(pill);
+                    }
+                    ispBodyEl.append(wrap);
+                };
+
+                const positionIspPopover = () => {
+                    if (ispPopover.hidden || !activeIspTrigger || window.innerWidth <= 560) {
+                        return;
+                    }
+                    const triggerRect = activeIspTrigger.getBoundingClientRect();
+                    const popRect = ispPopover.getBoundingClientRect();
+                    const margin = 12;
+                    const gap = 8;
+
+                    let left = triggerRect.left;
+                    if (left + popRect.width > window.innerWidth - margin) {
+                        left = Math.max(margin, triggerRect.right - popRect.width);
+                    }
+                    left = Math.max(margin, Math.min(left, window.innerWidth - popRect.width - margin));
+
+                    let top = triggerRect.bottom + gap;
+                    if (top + popRect.height > window.innerHeight - margin) {
+                        const aboveTop = triggerRect.top - popRect.height - gap;
+                        top = aboveTop >= margin ? aboveTop : Math.max(margin, window.innerHeight - popRect.height - margin);
+                    }
+
+                    ispPopover.style.left = `${Math.round(left)}px`;
+                    ispPopover.style.top = `${Math.round(top)}px`;
+                };
+
+                const closeIspPopover = ({ restoreFocus = false } = {}) => {
+                    if (ispPopover.hidden) return;
+                    const prevTrigger = activeIspTrigger;
+                    ispPopover.hidden = true;
+                    if (prevTrigger) {
+                        prevTrigger.setAttribute('aria-expanded', 'false');
+                    }
+                    activeIspTrigger = null;
+                    if (restoreFocus && prevTrigger) {
+                        prevTrigger.focus();
+                    }
+                };
+
+                document.querySelectorAll('[data-campaign-isp-popover]').forEach(trigger => {
+                    trigger.addEventListener('click', event => {
+                        event.preventDefault();
+                        event.stopPropagation();
+
+                        if (activeIspTrigger === trigger && !ispPopover.hidden) {
+                            closeIspPopover();
+                            return;
+                        }
+
+                        if (activeIspTrigger) {
+                            activeIspTrigger.setAttribute('aria-expanded', 'false');
+                        }
+                        activeIspTrigger = trigger;
+                        trigger.setAttribute('aria-expanded', 'true');
+
+                        let items = [];
+                        try {
+                            const parsed = JSON.parse(trigger.dataset.audienceLists || '[]');
+                            if (Array.isArray(parsed)) items = parsed;
+                        } catch (_) {
+                            items = [];
+                        }
+                        currentIspItems = items;
+
+                        const iconEl = document.createElement('i');
+                        iconEl.className = trigger.dataset.ispIcon || 'fas fa-envelope campaign-isp-brand-generic';
+                        iconEl.setAttribute('aria-hidden', 'true');
+                        ispBrandBox.replaceChildren(iconEl);
+
+                        ispNameEl.textContent = trigger.dataset.ispName || 'ISP';
+                        const country = (trigger.dataset.country || '').trim();
+                        if (country !== '') {
+                            ispCountryEl.textContent = country.toUpperCase();
+                            ispCountryEl.hidden = false;
+                        } else {
+                            ispCountryEl.hidden = true;
+                        }
+
+                        ispTitleEl.textContent = `Lists On ${trigger.dataset.campaignRef || 'Campaign'}`;
+                        const uniqueLists = new Set(items.map(item => String(item.list_name || item.label || ''))).size;
+                        ispSummaryEl.textContent = items.length === 0
+                            ? '0 selected segments'
+                            : `${items.length} segment${items.length === 1 ? '' : 's'} · ${uniqueLists} list${uniqueLists === 1 ? '' : 's'}`;
+
+                        ispCopyBtn.hidden = items.length === 0;
+                        ispCopyBtn.classList.remove('is-copied');
+                        ispSearchWrap.hidden = items.length < 6;
+                        ispSearchInput.value = '';
+                        renderIspPills('');
+
+                        ispPopover.hidden = false;
+                        ispPopover.style.left = '12px';
+                        ispPopover.style.top = '12px';
+                        positionIspPopover();
+                    });
+                });
+
+                ispSearchInput.addEventListener('input', () => renderIspPills(ispSearchInput.value));
+
+                ispCopyBtn.addEventListener('click', async () => {
+                    if (currentIspItems.length === 0) return;
+                    const text = currentIspItems.map(item => String(item.label || '')).filter(Boolean).join(', ');
+                    try {
+                        if (navigator.clipboard?.writeText) {
+                            await navigator.clipboard.writeText(text);
+                        }
+                        ispCopyBtn.classList.add('is-copied');
+                        const check = document.createElement('i');
+                        check.className = 'fas fa-check';
+                        check.setAttribute('aria-hidden', 'true');
+                        ispCopyBtn.replaceChildren(check);
+                        window.AlphaLinkToast?.show('Copied selected audience lists.', 'success');
+                        window.setTimeout(() => {
+                            const copy = document.createElement('i');
+                            copy.className = 'far fa-copy';
+                            copy.setAttribute('aria-hidden', 'true');
+                            ispCopyBtn.replaceChildren(copy);
+                            ispCopyBtn.classList.remove('is-copied');
+                        }, 1400);
+                    } catch (_) {
+                        window.AlphaLinkToast?.show('Copy failed. Please select and copy manually.', 'warning');
+                    }
+                });
+
+                ispCloseBtn.addEventListener('click', () => closeIspPopover({ restoreFocus: true }));
+
+                document.addEventListener('click', event => {
+                    if (ispPopover.hidden) return;
+                    if (!ispPopover.contains(event.target) && (!activeIspTrigger || !activeIspTrigger.contains(event.target))) {
+                        closeIspPopover();
+                    }
+                });
+
+                document.addEventListener('keydown', event => {
+                    if (event.key === 'Escape' && !ispPopover.hidden) {
+                        event.preventDefault();
+                        closeIspPopover({ restoreFocus: true });
+                    }
+                });
+
+                window.addEventListener('resize', () => {
+                    if (!ispPopover.hidden) positionIspPopover();
+                });
+
+                window.addEventListener('scroll', () => {
+                    if (ispPopover.hidden || !activeIspTrigger) return;
+                    const rect = activeIspTrigger.getBoundingClientRect();
+                    if (rect.bottom < 0 || rect.top > window.innerHeight) {
+                        closeIspPopover();
+                    } else {
+                        positionIspPopover();
+                    }
+                }, true);
+            }
 
             updateSelection();
         })();

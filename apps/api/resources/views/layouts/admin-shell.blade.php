@@ -435,7 +435,7 @@
             $flattenNavigationItems($usersGroup['items'] ?? []),
             array_values(array_filter($miscellaneousGroup['items'] ?? [], static fn (array $item): bool => $item['label'] === 'SETTINGS')),
             auth()->user()->hasFullAccess() && $workspace ? [[
-                'label' => 'TEAM TASKS & MESSAGES',
+                'label' => 'TEAM SUPPORT',
                 'icon' => 'fas fa-inbox',
                 'href' => route('console.workspace-communications.index', ['workspace' => $workspace->getKey()]),
                 'active' => $isWorkspaceCommunicationsPage,
@@ -725,19 +725,19 @@
                                 data-feed-url="{{ route('console.workspace-communications.feed', ['workspace' => $workspace->getKey()]) }}"
                                 data-read-url-template="{{ route('console.workspace-communications.read', ['workspace' => $workspace->getKey(), 'communication' => '__COMMUNICATION__']) }}"
                                 data-complete-url-template="{{ route('console.workspace-communications.complete', ['workspace' => $workspace->getKey(), 'communication' => '__COMMUNICATION__']) }}">
-                                <div class="command-os-update-ticker" data-update-ticker data-paused="false" role="region" aria-label="Recent tasks and messages">
-                                    <div class="command-os-ticker-viewport" data-ticker-viewport><div class="command-os-ticker-track" data-ticker-track aria-live="off"><div class="command-os-ticker-set" data-ticker-primary><span class="command-os-ticker-empty">Loading tasks and messages…</span></div><div class="command-os-ticker-set" data-ticker-copy aria-hidden="true"></div></div></div>
+                                <div class="command-os-update-ticker" data-update-ticker data-paused="false" role="region" aria-label="Recent team support updates">
+                                    <div class="command-os-ticker-viewport" data-ticker-viewport><div class="command-os-ticker-track" data-ticker-track aria-live="off"><div class="command-os-ticker-set" data-ticker-primary><span class="command-os-ticker-empty">Loading team support…</span></div><div class="command-os-ticker-set" data-ticker-copy aria-hidden="true"></div></div></div>
                                     <button type="button" class="command-os-ticker-pause" data-ticker-pause aria-pressed="false" aria-label="Pause the message ticker" title="Pause the message ticker"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14M16 5v14"/></svg></button>
                                 </div>
-                                <button type="button" class="btn btn-sm btn-dual command-os-header-control command-os-inbox-trigger" data-communication-open="inbox" aria-haspopup="dialog" aria-expanded="false" aria-controls="command-os-inbox-popover" aria-label="Open tasks and messages" title="Open tasks and messages">
+                                <button type="button" class="btn btn-sm btn-dual command-os-header-control command-os-inbox-trigger" data-communication-open="inbox" aria-haspopup="dialog" aria-expanded="false" aria-controls="command-os-inbox-popover" aria-label="Open team support" title="Open team support">
                                     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 13h4l2 3h6l2-3h4" /></svg>
                                     <span class="command-os-header-badge" data-open-task-count hidden>0</span>
                                 </button>
                                 <div class="command-os-communication-popover command-os-inbox-popover" id="command-os-inbox-popover" role="dialog" aria-labelledby="command-os-inbox-title" hidden>
-                                    <div class="command-os-communication-heading"><div><span class="command-os-communication-kicker">WORKSPACE</span><h2 id="command-os-inbox-title">Tasks &amp; messages</h2></div><button type="button" class="command-os-communication-close" data-communication-close aria-label="Close tasks and messages">×</button></div>
+                                    <div class="command-os-communication-heading"><div><span class="command-os-communication-kicker">WORKSPACE</span><h2 id="command-os-inbox-title">Team Support</h2></div><button type="button" class="command-os-communication-close" data-communication-close aria-label="Close team support">×</button></div>
                                     <div class="command-os-communication-list" data-inbox-list><p class="command-os-communication-empty">Loading your workspace inbox…</p></div>
                                     @if (auth()->user()->hasFullAccess())
-                                        <a class="command-os-communication-footer" href="{{ route('console.workspace-communications.index', ['workspace' => $workspace->getKey()]) }}">Manage tasks and messages <span aria-hidden="true">→</span></a>
+                                        <a class="command-os-communication-footer" href="{{ route('console.workspace-communications.index', ['workspace' => $workspace->getKey()]) }}">Manage team support <span aria-hidden="true">→</span></a>
                                     @endif
                                 </div>
                                 <button type="button" class="btn btn-sm btn-dual command-os-header-icon command-os-header-control command-os-notification-link" data-communication-open="notifications" aria-haspopup="dialog" aria-expanded="false" aria-controls="command-os-notification-popover" aria-label="Notifications" title="Notifications">

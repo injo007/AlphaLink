@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\ManagedServer;
 use App\Models\ManagedServerIp;
 use App\Models\ManagedServerMta;
+use App\Models\PmtaSmtpConfig;
 use App\Models\PmtaVirtualMta;
 use App\Models\SendingDomain;
 use App\Models\User;
@@ -12,9 +13,11 @@ use App\Models\Workspace;
 use App\Models\WorkspaceGlobalTestLog;
 use App\Services\Campaigns\AlphaLinkGlobalTestReverseDnsResolver;
 use App\Services\Campaigns\AlphaLinkGlobalTestRunner;
+use App\Services\Campaigns\PmtaCampaignTestTransport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Mockery;
+use Symfony\Component\Mailer\Transport\Smtp\SmtpTransport;
 use Tests\TestCase;
 
 class GlobalTestsWorkflowTest extends TestCase
@@ -24,23 +27,26 @@ class GlobalTestsWorkflowTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->withoutVite();
 
         $resolver = Mockery::mock(AlphaLinkGlobalTestReverseDnsResolver::class);
         $resolver->shouldReceive('resolve')->andReturnUsing(fn (string $ip, string $fallback): string => $fallback);
         $this->app->instance(AlphaLinkGlobalTestReverseDnsResolver::class, $resolver);
     }
 
-    public function test_global_test_page_uses_reference_navigation_and_exposes_the_test_controls(): void
+    public function test_global_tests_page_uses_a_distinct_delivery_lab_workbench(): void
     {
-        $owner = User::factory()->create();
+        $owner = $this->owner();
         $workspace = $this->workspace($owner, 'owner');
 
         $this->actingAs($owner)
             ->get(route('console.global-tests.index', $workspace->getKey()))
             ->assertOk()
             ->assertSee('GLOBAL TESTS')
+            ->assertSee('global-tests-workbench')
+            ->assertDontSee('campaign-create-page')
             ->assertSee('Select Header')
-            ->assertSee('PLACEHOLDERS')
+            ->assertSee('Message placeholders')
             ->assertSee('SEND TEST')
             ->assertSee($this->cleanWorkspaceUrl(route('console.global-tests.histories', $workspace->getKey())), false)
             ->assertSee('global-tests.js');
@@ -48,7 +54,7 @@ class GlobalTestsWorkflowTest extends TestCase
 
     public function test_catalog_returns_only_active_installed_server_ip_options_from_the_workspace(): void
     {
-        $owner = User::factory()->create();
+        $owner = $this->owner();
         $workspace = $this->workspace($owner, 'owner');
         $server = $this->server($workspace, $owner, '203.0.113.40');
         $domain = $this->domain($workspace, $owner, 'mta.example.test');
@@ -74,12 +80,12 @@ class GlobalTestsWorkflowTest extends TestCase
 
     public function test_sender_output_is_saved_with_the_reference_payload_and_returned_without_page_reload(): void
     {
-        $owner = User::factory()->create();
+        $owner = $this->owner();
         $workspace = $this->workspace($owner, 'owner');
         $server = $this->server($workspace, $owner, '203.0.113.40');
         $domain = $this->domain($workspace, $owner, 'mta.example.test');
         $ip = $this->ip($workspace, $server, $domain, '203.0.113.41', 'mta.example.test');
-        $encodedHeader = base64_encode("MIME-version: 1.0\nTo: [to]");
+        $encodedHeader = base64_encode("MIME-version: 1.0\nTo: [to]\nFrom: info@[domain]");
 
         $runner = Mockery::mock(AlphaLinkGlobalTestRunner::class);
         $runner->shouldReceive('isConfigured')->once()->andReturn(true);
@@ -120,9 +126,100 @@ class GlobalTestsWorkflowTest extends TestCase
         $this->assertSame('Accepted by local sender.', $log->output);
     }
 
+    public function test_global_test_uses_the_native_pmta_transport_renders_the_selected_route_and_saves_output(): void
+    {
+        config(['infrastructure.pmta_port' => 2525]);
+        $owner = $this->owner();
+        $workspace = $this->workspace($owner, 'owner');
+        $server = $this->server($workspace, $owner, '203.0.113.40');
+        $domain = $this->domain($workspace, $owner, 'mta.example.test');
+        $selectedDomain = $this->domain($workspace, $owner, 'selected.example.test');
+        $ip = $this->ip($workspace, $server, $domain, '203.0.113.41', 'mta.example.test');
+        $this->ip($workspace, $server, $selectedDomain, '203.0.113.42', 'selected.example.test');
+        $capturedRawMessage = '';
+        $capturedEnvelope = null;
+
+        $transport = Mockery::mock(SmtpTransport::class);
+        $transport->shouldReceive('start')->once();
+        $transport->shouldReceive('send')->once()->withArgs(function ($message, $envelope) use (&$capturedRawMessage, &$capturedEnvelope): bool {
+            $capturedRawMessage = $message->toString();
+            $capturedEnvelope = $envelope;
+
+            return true;
+        });
+        $transport->shouldReceive('stop')->once();
+        $factory = Mockery::mock(PmtaCampaignTestTransport::class);
+        $factory->shouldReceive('forAddress')->once()->with($server->ip_address, 2525)->andReturn($transport);
+        $this->app->instance(PmtaCampaignTestTransport::class, $factory);
+
+        $payload = $this->validRequest($server, $ip);
+        $payload['domain'] = $selectedDomain->name;
+        $payload['header'] = base64_encode("MIME-version: 1.0\nTo: [to]\nFrom: [rnd] <info@[domain]>\nSubject: [server] [ip]");
+        $payload['body'] = base64_encode('<p>Route [ip] for [to]</p>');
+
+        $this->actingAs($owner)
+            ->postJson(route('console.global-tests.test', $workspace->getKey()), $payload)
+            ->assertOk()
+            ->assertJsonPath('data', 'PMTA accepted 1 of 1 test message(s). Inbox delivery is unconfirmed.')
+            ->assertJsonStructure(['log_id']);
+
+        $this->assertStringContainsString('To: test@example.test', $capturedRawMessage);
+        $this->assertStringContainsString('Subject: '.$server->name.$server->getKey().' 203.0.113.41', $capturedRawMessage);
+        $this->assertStringContainsString('X-Virtual-Mta: mta-203.0.113.41', $capturedRawMessage);
+        $this->assertStringContainsString('Route 203.0.113.41 for test@example.test', $capturedRawMessage);
+        $this->assertMatchesRegularExpression('/\\A[a-zA-Z0-9]{18}@selected\\.example\\.test\\z/', $capturedEnvelope->getSender()->getAddress());
+        $this->assertSame(1, WorkspaceGlobalTestLog::query()->count());
+    }
+
+    public function test_global_test_rejects_a_dispatch_over_the_run_message_limit_before_connecting(): void
+    {
+        config(['infrastructure.pmta_port' => 2525, 'global-tests.max_messages' => 1]);
+        $owner = $this->owner();
+        $workspace = $this->workspace($owner, 'owner');
+        $server = $this->server($workspace, $owner, '203.0.113.40');
+        $domain = $this->domain($workspace, $owner, 'mta.example.test');
+        $ip = $this->ip($workspace, $server, $domain, '203.0.113.41', 'mta.example.test');
+        $factory = Mockery::mock(PmtaCampaignTestTransport::class);
+        $factory->shouldNotReceive('forAddress');
+        $this->app->instance(PmtaCampaignTestTransport::class, $factory);
+
+        $this->actingAs($owner)
+            ->postJson(route('console.global-tests.test', $workspace->getKey()), array_replace(
+                $this->validRequest($server, $ip),
+                ['repeat' => 2],
+            ))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('repeat');
+
+        $this->assertDatabaseCount('workspace_global_test_logs', 0);
+    }
+
+    public function test_viewer_cannot_send_global_test_messages(): void
+    {
+        $owner = $this->owner();
+        $viewer = User::factory()->create([
+            'access_role' => User::ACCESS_ROLE_VIEWER,
+            'roles' => ['global_tests.manage'],
+        ]);
+        $workspace = $this->workspace($owner, 'owner');
+        $workspace->users()->attach($viewer->getKey(), ['role' => 'viewer']);
+        $server = $this->server($workspace, $owner, '203.0.113.40');
+        $domain = $this->domain($workspace, $owner, 'mta.example.test');
+        $ip = $this->ip($workspace, $server, $domain, '203.0.113.41', 'mta.example.test');
+        $runner = Mockery::mock(AlphaLinkGlobalTestRunner::class);
+        $runner->shouldNotReceive('run');
+        $this->app->instance(AlphaLinkGlobalTestRunner::class, $runner);
+
+        $this->actingAs($viewer)
+            ->postJson(route('console.global-tests.test', $workspace->getKey()), $this->validRequest($server, $ip))
+            ->assertForbidden();
+
+        $this->assertDatabaseCount('workspace_global_test_logs', 0);
+    }
+
     public function test_no_sender_output_does_not_create_a_history_row(): void
     {
-        $owner = User::factory()->create();
+        $owner = $this->owner();
         $workspace = $this->workspace($owner, 'owner');
         $server = $this->server($workspace, $owner, '203.0.113.40');
         $domain = $this->domain($workspace, $owner, 'mta.example.test');
@@ -148,7 +245,7 @@ class GlobalTestsWorkflowTest extends TestCase
 
     public function test_vmta_and_smtp_payloads_match_the_alpha_link_identifier_and_name_format(): void
     {
-        $owner = User::factory()->create();
+        $owner = $this->owner();
         $workspace = $this->workspace($owner, 'owner');
         $server = $this->server($workspace, $owner, '203.0.113.40');
         $domain = $this->domain($workspace, $owner, 'mta.example.test');
@@ -172,15 +269,57 @@ class GlobalTestsWorkflowTest extends TestCase
             $this->actingAs($owner)
                 ->postJson(route('console.global-tests.test', $workspace->getKey()), array_replace(
                     $this->validRequest($server, $ip),
-                    ['option' => $route, 'ips' => [$mta->getKey()]],
+                    ['option' => $route, 'ips' => [(string) $mta->getKey()]],
                 ))
                 ->assertOk();
         }
     }
 
+    public function test_global_test_accepts_pmta_smtp_catalog_ids_and_maps_them_to_the_native_route_name(): void
+    {
+        config(['infrastructure.pmta_port' => 2525]);
+        $owner = $this->owner();
+        $workspace = $this->workspace($owner, 'owner');
+        $server = $this->server($workspace, $owner, '203.0.113.40');
+        $domain = $this->domain($workspace, $owner, 'mta.example.test');
+        $ip = $this->ip($workspace, $server, $domain, '203.0.113.41', 'mta.example.test');
+        $smtp = PmtaSmtpConfig::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'managed_server_id' => $server->getKey(),
+            'managed_server_ip_id' => $ip->getKey(),
+            'created_by' => $owner->getKey(),
+            'ip' => $ip->ip,
+            'dns' => $ip->dns,
+            'username' => 'smtp-user',
+            'password' => 'synthetic-password',
+            'host' => 'smtp.example.test',
+            'port' => 587,
+            'google_script' => false,
+            'is_active' => true,
+        ]);
+
+        $runner = Mockery::mock(AlphaLinkGlobalTestRunner::class);
+        $runner->shouldReceive('isConfigured')->once()->with(2525)->andReturn(true);
+        $runner->shouldReceive('run')
+            ->once()
+            ->with(Mockery::on(fn (array $configuration): bool => $configuration['servers'][0]['ips'][0]['idi'] === $ip->getKey()
+                && $configuration['servers'][0]['ips'][0]['vmta'] === 'smtp-203.0.113.41-'.$smtp->getKey()
+            ))
+            ->andReturn(['configured' => true, 'output' => 'SMTP route accepted.', 'error' => '', 'exit_code' => 0]);
+        $this->app->instance(AlphaLinkGlobalTestRunner::class, $runner);
+
+        $this->actingAs($owner)
+            ->postJson(route('console.global-tests.test', $workspace->getKey()), array_replace(
+                $this->validRequest($server, $ip),
+                ['option' => 'smtp', 'ips' => ['pmta-smtp:'.$smtp->getKey()]],
+            ))
+            ->assertOk()
+            ->assertJsonPath('data', 'SMTP route accepted.');
+    }
+
     public function test_empty_placeholder_array_matches_reference_minimum_validation(): void
     {
-        $owner = User::factory()->create();
+        $owner = $this->owner();
         $workspace = $this->workspace($owner, 'owner');
         $server = $this->server($workspace, $owner, '203.0.113.40');
         $domain = $this->domain($workspace, $owner, 'mta.example.test');
@@ -201,8 +340,8 @@ class GlobalTestsWorkflowTest extends TestCase
 
     public function test_unconfigured_alpha_link_sender_fails_closed_without_creating_a_history_row(): void
     {
-        config(['global-tests.sender_path' => null]);
-        $owner = User::factory()->create();
+        config(['infrastructure.pmta_port' => null]);
+        $owner = $this->owner();
         $workspace = $this->workspace($owner, 'owner');
         $server = $this->server($workspace, $owner, '203.0.113.40');
         $domain = $this->domain($workspace, $owner, 'mta.example.test');
@@ -214,15 +353,15 @@ class GlobalTestsWorkflowTest extends TestCase
         $this->actingAs($owner)
             ->postJson(route('console.global-tests.test', $workspace->getKey()), $this->validRequest($server, $ip))
             ->assertStatus(503)
-            ->assertJsonPath('data', 'Could Not Send The AlphaLink Global Test sender is not configured or is not executable.');
+            ->assertJsonPath('data', 'Could Not Send: this workspace has no valid PMTA SMTP listener port configured.');
 
         $this->assertDatabaseCount('workspace_global_test_logs', 0);
     }
 
     public function test_operator_cannot_view_another_members_global_test_history(): void
     {
-        $owner = User::factory()->create();
-        $operator = User::factory()->create();
+        $owner = $this->owner();
+        $operator = User::factory()->create(['access_role' => User::ACCESS_ROLE_OPERATOR]);
         $workspace = $this->workspace($owner, 'owner');
         $workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
         $log = $workspace->globalTestLogs()->create([
@@ -245,12 +384,12 @@ class GlobalTestsWorkflowTest extends TestCase
         return [
             'return_path' => '[rnd]@[domain]',
             'email_test' => ['test@example.test'],
-            'header' => base64_encode("MIME-version: 1.0\nTo: [to]"),
+            'header' => base64_encode("MIME-version: 1.0\nTo: [to]\nFrom: info@[domain]"),
             'body' => base64_encode(''),
             'option' => 'ip',
             'type' => 'ipv4',
             'servers' => [$server->getKey()],
-            'ips' => [$ip->getKey()],
+            'ips' => [(string) $ip->getKey()],
             'placeholders' => [['data' => ['alpha'], 'rotate_every' => 1]],
             'repeat' => 1,
         ];
@@ -266,6 +405,11 @@ class GlobalTestsWorkflowTest extends TestCase
         $workspace->users()->attach($owner->getKey(), ['role' => $role]);
 
         return $workspace;
+    }
+
+    private function owner(): User
+    {
+        return User::factory()->create(['access_role' => User::ACCESS_ROLE_OWNER]);
     }
 
     /** @param array<string, mixed> $overrides */

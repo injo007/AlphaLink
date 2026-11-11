@@ -747,3 +747,8 @@ The production 500 after Warmup Test was caused by the shared composer treating 
 ## 2026-11-11 Install readiness repair — E-INST-100
 
 The production missing-file and digest-coverage blockers are resolved. Deployment `0e2d22624111e3fcdf788b9ac361601ca3edfd4f` restored the two absent tracking files from the fetched Git commit; live hashes, sizes, and modes match the reviewed pins. Production runtime inventory reports all selected assets present and full reviewed-digest coverage; local HTTPS `/up` and `/sign-in` return 200. Install/reinstall throttles are isolated per actor/workspace/target/action, and Bulk Install has no shared three-per-minute route throttle. The verified deployment backup is `/var/backups/alphalink/deploy-0e2d22624111e3fcdf788b9ac361601ca3edfd4f-20261111T180320Z.dump`. No target install/reinstall was run; independent PMTA package/target compatibility and real host acceptance remain unverified. Keep install parity `TESTING`.
+
+
+### Global Tests — native send-path repair in progress (E-CAMP-171, 2026-11-11)
+
+The formerly unconfigured standalone sender path has been replaced with AlphaLink’s workspace-PMTA SMTP adapter, and the SMTP picker’s namespaced `pmta-smtp:<id>` values now pass validation and map to the deployed route name. The page has a separate Delivery Lab design. Synthetic suite: 12 passed / 72 assertions, fake transport only. Remaining gate: production PMTA acceptance/history verification with an explicitly selected test recipient; no email was sent during this change. DMS acceptance/retry semantics and inbox delivery remain UNKNOWN. Keep DMS-GLOBALTEST-001 TESTING.

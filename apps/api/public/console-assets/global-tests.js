@@ -203,6 +203,7 @@
     const emailTextarea = byId('email_test');
     byId('saved_emails').addEventListener('change', (event) => {
         emailTextarea.value = [...event.target.selectedOptions].map((option) => option.value).join('\n');
+        emailTextarea.dispatchEvent(new Event('input', { bubbles: true }));
     });
     byId('manage-emails').addEventListener('click', () => openDialog(byId('global-email-dialog'), byId('new-test-email')));
 
@@ -266,6 +267,7 @@
             row.remove();
             [...byId('saved_emails').options].filter((option) => option.value === email).forEach((option) => option.remove());
             emailTextarea.value = [...byId('saved_emails').selectedOptions].map((option) => option.value).join('\n');
+            emailTextarea.dispatchEvent(new Event('input', { bubbles: true }));
             showToast('Email address deleted.', 'success');
         } catch (error) {
             showToast(error.message, 'danger');
@@ -462,6 +464,28 @@
     const availableSelect = byId('ips-available');
     const selectedSelect = byId('ips-selected');
     const catalogUrl = new URL(page.dataset.catalogUrl, window.location.origin);
+    const messageLimit = Number(page.dataset.maxMessages || 100);
+    const updateEstimate = () => {
+        const recipientCount = emailTextarea.value.split(/\r?\n/).map((value) => value.trim()).filter(Boolean).length;
+        const serverCount = [...serverSelect.selectedOptions].length;
+        const routeCount = selectedSelect.options.length;
+        const repeat = Math.max(1, Number(byId('repeat').value) || 1);
+        const projected = recipientCount * routeCount * repeat;
+        byId('global-quick-recipients').textContent = String(recipientCount);
+        byId('global-quick-servers').textContent = String(serverCount);
+        byId('global-projected-messages').textContent = String(projected);
+        byId('global-send-estimate').textContent = String(projected);
+        byId('global-send-estimate').closest('.global-tests-send-estimate')?.classList.toggle('is-over-limit', projected > messageLimit);
+        const sendButton = byId('send-global-test');
+        sendButton.disabled = page.dataset.senderConfigured !== 'true'
+            || page.dataset.canSend !== 'true'
+            || projected > messageLimit;
+        sendButton.title = projected > messageLimit
+            ? `Reduce the test to ${messageLimit} messages or fewer.`
+            : page.dataset.canSend !== 'true' ? 'Your account role cannot send Global Tests.' : '';
+    };
+    emailTextarea.addEventListener('input', updateEstimate);
+    byId('repeat').addEventListener('input', updateEstimate);
 
     const applyOptionFilter = (select, filter) => {
         const query = filter.value.trim().toLocaleLowerCase();
@@ -491,6 +515,7 @@
             serverSelect.add(option);
         });
         applyOptionFilter(serverSelect, byId('server-search'));
+        updateEstimate();
     };
 
     const renderIpOptions = (ips) => {
@@ -511,6 +536,7 @@
         });
         applyOptionFilter(availableSelect, byId('ips-available-filter'));
         applyOptionFilter(selectedSelect, byId('ips-selected-filter'));
+        updateEstimate();
     };
 
     const loadCatalog = async (includeServerChoices = false) => {
@@ -542,14 +568,17 @@
 
     serverSelect.addEventListener('change', () => {
         selectedSelect.replaceChildren();
+        updateEstimate();
         loadCatalog(false);
     });
     byId('option').addEventListener('change', () => {
         selectedSelect.replaceChildren();
+        updateEstimate();
         loadCatalog(false);
     });
     byId('type').addEventListener('change', () => {
         selectedSelect.replaceChildren();
+        updateEstimate();
         loadCatalog(false);
     });
     byId('reload-servers').addEventListener('click', (event) => {
@@ -570,6 +599,7 @@
         });
         applyOptionFilter(availableSelect, byId('ips-available-filter'));
         applyOptionFilter(selectedSelect, byId('ips-selected-filter'));
+        updateEstimate();
     };
     byId('move-all-right').addEventListener('click', () => moveOptions(availableSelect, selectedSelect, true));
     byId('move-right').addEventListener('click', () => moveOptions(availableSelect, selectedSelect));
@@ -589,13 +619,13 @@
         row.className = 'placeholder-row';
         const valuesCell = document.createElement('td');
         const values = document.createElement('textarea');
-        values.className = 'form-control form-control-sm placeholder-data';
+        values.className = 'form-control placeholder-data';
         values.rows = 2;
         values.setAttribute('aria-label', 'Placeholder values, one per line');
         valuesCell.append(values);
         const rotateCell = document.createElement('td');
         const rotate = document.createElement('input');
-        rotate.className = 'form-control form-control-sm placeholder-rotate';
+        rotate.className = 'form-control placeholder-rotate';
         rotate.type = 'number';
         rotate.min = '1';
         rotate.value = '1';
@@ -603,7 +633,7 @@
         rotateCell.append(rotate);
         const actionCell = document.createElement('td');
         const remove = document.createElement('button');
-        remove.className = 'btn btn-sm btn-alt-danger remove-placeholder';
+        remove.className = 'global-icon-button global-icon-danger remove-placeholder';
         remove.type = 'button';
         remove.setAttribute('aria-label', 'Remove placeholder row');
         remove.title = 'Remove row';
@@ -639,7 +669,8 @@
         const content = byId('placeholder-content');
         content.hidden = !content.hidden;
         event.currentTarget.setAttribute('aria-label', content.hidden ? 'Expand placeholders' : 'Collapse placeholders');
-        event.currentTarget.innerHTML = `<i class="si ${content.hidden ? 'si-arrow-down' : 'si-arrow-up'}" aria-hidden="true"></i>`;
+        event.currentTarget.setAttribute('aria-expanded', String(!content.hidden));
+        event.currentTarget.innerHTML = `<i class="fas ${content.hidden ? 'fa-chevron-down' : 'fa-chevron-up'}" aria-hidden="true"></i>`;
     });
 
     const readPlaceholders = () => [...document.querySelectorAll('.placeholder-row')].map((row) => ({
@@ -669,10 +700,17 @@
             showToast(message, 'warning');
             return;
         }
+        if (Number(byId('global-projected-messages').textContent) > messageLimit) {
+            const message = `Reduce this test to ${messageLimit} messages or fewer.`;
+            setStatus(message, 'warning');
+            showToast(message, 'warning');
+            return;
+        }
 
         const payload = {
             return_path: byId('return_path').value,
             email_test: emailTests,
+            domain: byId('domain').value || null,
             negative: byId('negative').value || null,
             header: encodeBase64(getHeader()),
             body: encodeBase64(getBody()),
@@ -711,6 +749,8 @@
             button.innerHTML = originalHtml;
         }
     });
+
+    updateEstimate();
 
     byId('global-confirm-dialog').addEventListener('close', () => {
         byId('delete-header').focus();

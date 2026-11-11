@@ -17,7 +17,7 @@
                 <h1 id="app-errors-hero-title" class="command-os-report-hero-title">APP ERROR MONITOR</h1>
                 <p class="command-os-report-hero-desc">OpenObserve-powered Error Intelligence Center. Real-time exception exploration, structured telemetry, queue failures, and correlation diagnostics.</p>
             </div>
-            <div class="command-os-hero-actions">
+            <div class="command-os-hero-actions" style="flex-wrap: wrap;">
                 @if (($intelligence['status']['mode'] ?? '') === 'openobserve')
                     <span class="badge-status-live" title="Direct telemetry ingestion active">
                         <span class="pulse-indicator pulse-green"></span>
@@ -30,8 +30,24 @@
                         <span class="status-label">LOCAL LOG FALLBACK</span>
                     </span>
                 @endif
+
+                <!-- Read-Only Auto-Refresh Selector -->
+                <div class="auto-refresh-wrap d-inline-flex align-items-center" title="Read-only background polling">
+                    <i class="fas fa-satellite-dish text-purple mr-1" style="font-size: 0.75rem;"></i>
+                    <select id="select-auto-refresh" class="auto-refresh-select" aria-label="Auto-refresh interval">
+                        <option value="0">Live: Off</option>
+                        <option value="15">Live: 15s</option>
+                        <option value="30">Live: 30s</option>
+                        <option value="60">Live: 60s</option>
+                    </select>
+                    <span id="auto-refresh-countdown" class="auto-refresh-badge d-none">15s</span>
+                </div>
+
+                <button type="button" class="btn-command-action" id="btn-archive-logs" title="Archive active log to compressed backup (keeps last 5) and rotate cleanly">
+                    <i class="fas fa-archive mr-1"></i> <span class="d-none d-xl-inline">ARCHIVE LOGS</span><span class="d-xl-none">ARCHIVE</span>
+                </button>
                 <button type="button" class="btn-command-action" id="btn-sync-openobserve" title="Ingest recent local logs and failed queue jobs into OpenObserve">
-                    <i class="fas fa-cloud-upload-alt mr-1"></i> <span class="d-none d-sm-inline">SYNC TO OPENOBSERVE</span><span class="d-sm-none">SYNC</span>
+                    <i class="fas fa-cloud-upload-alt mr-1"></i> <span class="d-none d-xl-inline">SYNC OPENOBSERVE</span><span class="d-xl-none">SYNC</span>
                 </button>
                 <button type="button" class="command-os-btn-option" id="btn-refresh-errors" title="Refresh error logs">
                     <i class="fas fa-sync-alt" aria-hidden="true"></i>
@@ -151,10 +167,10 @@
         <section class="command-os-card mb-4 p-3 error-filter-toolbar">
             <form id="filter-form" method="GET" action="{{ route('console.miscellaneous.app-errors', $workspace->getKey()) }}" class="row align-items-center g-2 m-0">
                 <!-- Search input -->
-                <div class="col-12 col-md-4 p-1">
+                <div class="col-12 col-lg-3 p-1">
                     <div class="input-with-icon">
                         <i class="fas fa-search input-icon"></i>
-                        <input type="text" name="search" id="input-search" class="form-control form-control-sm command-input" placeholder="Search message, request ID, file, trace..." value="{{ $filters['search'] ?? '' }}">
+                        <input type="text" name="search" id="input-search" class="form-control form-control-sm command-input" placeholder="Search message, request ID, file..." value="{{ $filters['search'] ?? '' }}">
                         @if (!empty($filters['search']))
                             <button type="button" class="btn-clear-search" id="btn-clear-search" aria-label="Clear search">&times;</button>
                         @endif
@@ -162,7 +178,7 @@
                 </div>
 
                 <!-- Severity Level -->
-                <div class="col-6 col-md-2 p-1">
+                <div class="col-6 col-md-3 col-lg-2 p-1">
                     <select name="level" id="select-level" class="form-control form-control-sm command-select">
                         <option value="">All Severities</option>
                         <option value="CRITICAL" @selected(($filters['level'] ?? '') === 'CRITICAL')>Critical / Fatal</option>
@@ -175,7 +191,7 @@
                 </div>
 
                 <!-- Subsystem Module -->
-                <div class="col-6 col-md-2 p-1">
+                <div class="col-6 col-md-3 col-lg-2 p-1">
                     <select name="module" id="select-module" class="form-control form-control-sm command-select">
                         <option value="">All Modules</option>
                         <option value="horizon" @selected(($filters['module'] ?? '') === 'horizon')>Horizon Queue</option>
@@ -188,7 +204,7 @@
                 </div>
 
                 <!-- Time Range -->
-                <div class="col-6 col-md-2 p-1">
+                <div class="col-6 col-md-3 col-lg-2 p-1">
                     <select name="time_range" id="select-time-range" class="form-control form-control-sm command-select">
                         <option value="" @selected(empty($filters['time_range']))>All Time (Recent)</option>
                         <option value="1h" @selected(($filters['time_range'] ?? '') === '1h')>Last 1 Hour</option>
@@ -198,14 +214,31 @@
                     </select>
                 </div>
 
-                <!-- Filter Actions -->
-                <div class="col-6 col-md-2 p-1 d-flex justify-content-end" style="gap: 6px;">
+                <!-- Clustering / Grouping Mode -->
+                <div class="col-6 col-md-3 col-lg-1 p-1">
+                    <select name="grouped" id="select-grouped" class="form-control form-control-sm command-select" title="Group recurring identical errors by fingerprint">
+                        <option value="1" @selected(($filters['grouped'] ?? '1') !== '0')>Clustered</option>
+                        <option value="0" @selected(($filters['grouped'] ?? '1') === '0')>Raw Stream</option>
+                    </select>
+                </div>
+
+                <!-- Filter Actions + Sanitized Export -->
+                <div class="col-12 col-lg-2 p-1 d-flex justify-content-end" style="gap: 6px;">
                     <button type="submit" class="btn-command-primary w-100" style="height: 34px; font-size: 0.75rem;">
                         <i class="fas fa-filter mr-1"></i> APPLY
                     </button>
                     <a href="{{ route('console.miscellaneous.app-errors', $workspace->getKey()) }}" class="btn-command-action" style="height: 34px; padding: 0 10px; font-size: 0.75rem;" title="Reset filters">
                         <i class="fas fa-undo"></i>
                     </a>
+                    <div class="dropdown">
+                        <button type="button" class="btn-command-action dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="height: 34px; padding: 0 10px; font-size: 0.75rem;" title="Export sanitized telemetry">
+                            <i class="fas fa-download"></i>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-right">
+                            <button type="button" class="dropdown-item small" id="btn-export-json"><i class="fas fa-code mr-2 text-purple"></i> Export Sanitized JSON</button>
+                            <button type="button" class="dropdown-item small" id="btn-export-csv"><i class="fas fa-file-csv mr-2 text-success"></i> Export Sanitized CSV</button>
+                        </div>
+                    </div>
                 </div>
             </form>
         </section>
@@ -278,11 +311,19 @@
                                                 @if (!empty($hit['is_failed_job']))
                                                     <span class="badge-tag-job mr-1"><i class="fas fa-layer-group"></i> QUEUE JOB</span>
                                                 @endif
+                                                @if (($hit['occurrences_count'] ?? 1) > 1)
+                                                    <span class="badge-cluster-count mr-1" title="First: {{ $hit['first_seen'] ?? '' }} | Last: {{ $hit['last_seen'] ?? '' }}">
+                                                        <i class="fas fa-layer-group mr-1"></i>Seen {{ $hit['occurrences_count'] }}x
+                                                    </span>
+                                                @endif
                                                 <span class="message-text">{{ $hit['summary'] ?? $hit['message'] ?? 'Error' }}</span>
                                             </div>
                                             <div class="cell-source-file mt-1">
                                                 <i class="far fa-file-code mr-1 text-muted"></i>
                                                 <code class="file-code">{{ $hit['file'] ?? 'unknown' }}@if(!empty($hit['line'])):{{ $hit['line'] }}@endif</code>
+                                                @if (!empty($hit['first_seen']) && $hit['first_seen'] !== ($hit['last_seen'] ?? ''))
+                                                    <span class="text-muted small ml-2"><i class="far fa-clock mr-1"></i>Active {{ $hit['first_seen'] }} &rarr; {{ $hit['last_seen'] }}</span>
+                                                @endif
                                             </div>
                                         </div>
                                     </td>
@@ -324,6 +365,11 @@
                                                             <i class="fas fa-external-link-alt mr-1"></i> VIEW FAILED JOB IN HORIZON
                                                         </a>
                                                     @endif
+                                                    @if (($hit['occurrences_count'] ?? 1) > 1)
+                                                        <span class="badge-cluster-count">
+                                                            <i class="fas fa-history mr-1"></i> {{ $hit['occurrences_count'] }} Incidents Recorded
+                                                        </span>
+                                                    @endif
                                                 </div>
                                                 <div class="d-flex align-items-center" style="gap: 8px;">
                                                     @if (!empty($hit['request_id']))
@@ -331,11 +377,24 @@
                                                             <i class="fas fa-fingerprint mr-1"></i> REQ: {{ $hit['request_id'] }}
                                                         </span>
                                                     @endif
+                                                    @php $frames = $hit['exception']['frames'] ?? []; @endphp
+                                                    @if (!empty($frames))
+                                                        <button type="button" class="btn-toggle-vendor-frames" data-target="frames-list-{{ $hitId }}">
+                                                            <i class="fas fa-filter mr-1"></i> Hide Framework Frames
+                                                        </button>
+                                                    @endif
                                                     <button type="button" class="btn-copy-trace" data-trace-id="trace-content-{{ $hitId }}">
                                                         <i class="far fa-copy mr-1"></i> Copy Trace
                                                     </button>
                                                 </div>
                                             </div>
+
+                                            @if (!empty($hit['first_seen']) && $hit['first_seen'] !== ($hit['last_seen'] ?? ''))
+                                                <div class="incident-timeline-bar mb-2 p-2 rounded small text-muted d-flex align-items-center justify-content-between">
+                                                    <span><i class="fas fa-hourglass-start mr-1 text-purple"></i> First detected: <strong>{{ $hit['first_seen'] }}</strong></span>
+                                                    <span><i class="fas fa-hourglass-end mr-1 text-danger"></i> Most recent: <strong>{{ $hit['last_seen'] }}</strong></span>
+                                                </div>
+                                            @endif
 
                                             <!-- Context Metadata (if any) -->
                                             @if (!empty($hit['context']))
@@ -345,9 +404,38 @@
                                                 </div>
                                             @endif
 
-                                            <!-- Formatted Stack Trace Box -->
+                                            <!-- Structured Frames List -->
+                                            @if (!empty($frames))
+                                                <div class="frames-container mb-3" id="frames-list-{{ $hitId }}">
+                                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                                        <span class="text-muted small font-w600">CALL STACK FRAMES ({{ count($frames) }}):</span>
+                                                        <span class="small text-muted"><span class="badge-app-pill mr-1">APP</span> Application Code &nbsp;&bull;&nbsp; Framework Code</span>
+                                                    </div>
+                                                    <div class="frames-list">
+                                                        @foreach ($frames as $frame)
+                                                            <div class="frame-item {{ $frame['is_app'] ? 'frame-is-app' : 'frame-is-vendor' }}">
+                                                                <div class="frame-num">#{{ $frame['index'] }}</div>
+                                                                <div class="frame-body">
+                                                                    <div class="frame-headline">
+                                                                        @if ($frame['is_app'])
+                                                                            <span class="badge-app-pill mr-1">APP CODE</span>
+                                                                        @endif
+                                                                        <strong class="frame-file-name">{{ $frame['short_file'] }}</strong>@if ($frame['line'])<span class="frame-line-num">:{{ $frame['line'] }}</span>@endif
+                                                                        @if ($frame['call'])
+                                                                            <span class="frame-call-text ml-2">&rarr; {{ $frame['call'] }}</span>
+                                                                        @endif
+                                                                    </div>
+                                                                    <div class="frame-full-path">{{ $frame['file'] }}</div>
+                                                                </div>
+                                                            </div>
+                                                        @endforeach
+                                                    </div>
+                                                </div>
+                                            @endif
+
+                                            <!-- Formatted Stack Trace Box (Raw) -->
                                             <div class="trace-box-wrapper">
-                                                <div class="text-muted small font-w600 mb-1">EXCEPTION STACK TRACE:</div>
+                                                <div class="text-muted small font-w600 mb-1">RAW EXCEPTION TRACE:</div>
                                                 <pre class="trace-code-box" id="trace-content-{{ $hitId }}"><code>{{ $hit['exception']['trace'] ?? 'No additional stack trace captured.' }}</code></pre>
                                             </div>
                                         </div>
@@ -439,6 +527,146 @@
             background: rgba(245, 158, 11, 0.12);
             color: #d97706;
             border: 1px solid rgba(245, 158, 11, 0.25);
+        }
+
+        /* Auto-Refresh Badge & Select */
+        .auto-refresh-wrap {
+            background: var(--co-surface-muted, #f8fafc);
+            border: 1px solid var(--co-border, #e2e8f0);
+            border-radius: 9px;
+            padding: 0 8px;
+            height: 34px;
+        }
+        .auto-refresh-select {
+            background: transparent;
+            border: 0;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--co-ink, #0f172a);
+            outline: none;
+            cursor: pointer;
+        }
+        .auto-refresh-badge {
+            font-size: 0.65rem;
+            font-weight: 800;
+            padding: 1px 5px;
+            border-radius: 4px;
+            background: rgba(124, 58, 237, 0.12);
+            color: var(--co-purple, #792bfa);
+            margin-left: 4px;
+            font-family: monospace;
+        }
+
+        /* Cluster / Fingerprint Badge */
+        .badge-cluster-count {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 7px;
+            border-radius: 5px;
+            font-size: 0.6875rem;
+            font-weight: 800;
+            background: rgba(124, 58, 237, 0.12);
+            color: var(--co-purple, #6d28d9);
+            border: 1px solid rgba(124, 58, 237, 0.25);
+        }
+        .incident-timeline-bar {
+            background: rgba(0, 0, 0, 0.03);
+            border: 1px dashed var(--co-border, #e2e8f0);
+        }
+
+        /* Structured Stack Frames */
+        .frames-container {
+            border: 1px solid var(--co-border, #e2e8f0);
+            border-radius: 8px;
+            background: var(--co-surface, #ffffff);
+            padding: 10px;
+        }
+        .frames-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            max-height: 380px;
+            overflow-y: auto;
+        }
+        .frame-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.725rem;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            background: var(--co-surface-muted, #f8fafc);
+            border: 1px solid transparent;
+            transition: all 0.15s ease;
+        }
+        .frame-item:hover {
+            border-color: var(--co-border, #cbd5e1);
+        }
+        .frame-is-app {
+            background: rgba(124, 58, 237, 0.06);
+            border-color: rgba(124, 58, 237, 0.25);
+        }
+        .frame-is-app .frame-file-name {
+            color: var(--co-purple, #6d28d9);
+            font-weight: 750;
+        }
+        .frame-is-vendor {
+            opacity: 0.75;
+        }
+        .frames-container.hide-vendor .frame-is-vendor {
+            display: none !important;
+        }
+        .frame-num {
+            font-size: 0.6875rem;
+            font-weight: 800;
+            color: var(--co-muted, #94a3b8);
+            width: 28px;
+            flex-shrink: 0;
+        }
+        .frame-body {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+        }
+        .frame-headline {
+            word-break: break-all;
+        }
+        .badge-app-pill {
+            display: inline-block;
+            font-size: 0.6rem;
+            font-weight: 800;
+            padding: 1px 4px;
+            border-radius: 3px;
+            background: #7c3aed;
+            color: #ffffff;
+            letter-spacing: 0.04em;
+        }
+        .frame-full-path {
+            font-size: 0.65rem;
+            color: var(--co-muted, #94a3b8);
+            margin-top: 2px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .frame-call-text {
+            color: var(--co-ink, #1e293b);
+            font-weight: 600;
+        }
+        .btn-toggle-vendor-frames {
+            background: transparent;
+            border: 1px solid var(--co-border, #cbd5e1);
+            border-radius: 6px;
+            padding: 3px 8px;
+            font-size: 0.7rem;
+            font-weight: 650;
+            color: var(--co-ink, #334155);
+            cursor: pointer;
+        }
+        .btn-toggle-vendor-frames:hover {
+            border-color: var(--co-purple, #792bfa);
+            color: var(--co-purple, #792bfa);
         }
 
         /* Module Chips */
@@ -843,11 +1071,48 @@
             background: rgba(255, 255, 255, 0.08);
             color: #94a3b8;
         }
+        html[data-command-theme="dark"] .auto-refresh-wrap {
+            background: var(--co-surface-muted, #141b2d);
+            border-color: var(--co-border, #242f49);
+        }
+        html[data-command-theme="dark"] .auto-refresh-select {
+            color: #f1f5f9;
+        }
+        html[data-command-theme="dark"] .auto-refresh-select option {
+            background: #141b2d;
+            color: #f1f5f9;
+        }
+        html[data-command-theme="dark"] .frames-container {
+            background: #0f172a;
+            border-color: #1e293b;
+        }
+        html[data-command-theme="dark"] .frame-item {
+            background: #111827;
+            color: #cbd5e1;
+        }
+        html[data-command-theme="dark"] .frame-is-app {
+            background: rgba(124, 58, 237, 0.14);
+            border-color: rgba(139, 92, 246, 0.35);
+        }
+        html[data-command-theme="dark"] .frame-call-text {
+            color: #f1f5f9;
+        }
+        html[data-command-theme="dark"] .btn-toggle-vendor-frames {
+            border-color: #242f49;
+            color: #cbd5e1;
+        }
+        html[data-command-theme="dark"] .incident-timeline-bar {
+            background: rgba(255, 255, 255, 0.04);
+            border-color: #1e293b;
+        }
     </style>
 
     <!-- Client-side Telemetry Script -->
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+            // Current filtered dataset for instant sanitized export
+            const currentTelemetryHits = @json($hits ?? []);
+
             // 1. Toggle Trace Drawer
             document.querySelectorAll('.btn-toggle-trace').forEach(function (button) {
                 button.addEventListener('click', function () {
@@ -862,6 +1127,22 @@
                     } else {
                         targetRow.classList.add('d-none');
                         button.setAttribute('aria-expanded', 'false');
+                    }
+                });
+            });
+
+            // 1b. Toggle Vendor / Framework Frames
+            document.querySelectorAll('.btn-toggle-vendor-frames').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    const targetId = btn.getAttribute('data-target');
+                    const container = document.getElementById(targetId);
+                    if (!container) return;
+
+                    const isHidden = container.classList.toggle('hide-vendor');
+                    if (isHidden) {
+                        btn.innerHTML = '<i class="fas fa-eye mr-1"></i> Show All Frames';
+                    } else {
+                        btn.innerHTML = '<i class="fas fa-filter mr-1"></i> Hide Framework Frames';
                     }
                 });
             });
@@ -967,6 +1248,164 @@
                         btnSync.disabled = false;
                         btnSync.innerHTML = originalHtml;
                     });
+                });
+            }
+
+            // 8. Archive & Rotate Logs with Retention (No destructive deletion)
+            const btnArchive = document.getElementById('btn-archive-logs');
+            if (btnArchive) {
+                btnArchive.addEventListener('click', function () {
+                    if (!confirm('Archive active laravel.log into a compressed timestamped backup (retaining latest 5 rotations) and start a fresh log buffer?')) {
+                        return;
+                    }
+                    const originalHtml = btnArchive.innerHTML;
+                    btnArchive.disabled = true;
+                    btnArchive.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> ARCHIVING...';
+
+                    fetch('{{ route('console.miscellaneous.app-errors.archive-logs', $workspace->getKey()) }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                            'Accept': 'application/json'
+                        }
+                    })
+                    .then(function (res) { return res.json(); })
+                    .then(function (data) {
+                        if (data.success) {
+                            if (window.AlphaLinkToast) {
+                                window.AlphaLinkToast.show('Log archived cleanly: ' + (data.archived_file || 'done') + ' (' + (data.retained_count || 0) + ' retained)', 'success');
+                            } else {
+                                alert('Log archived: ' + (data.archived_file || 'done'));
+                            }
+                            setTimeout(function () { window.location.reload(); }, 1000);
+                        } else {
+                            alert('Archive error: ' + (data.error || 'Unable to archive log file.'));
+                            btnArchive.disabled = false;
+                            btnArchive.innerHTML = originalHtml;
+                        }
+                    })
+                    .catch(function (err) {
+                        alert('Archive error: ' + err.message);
+                        btnArchive.disabled = false;
+                        btnArchive.innerHTML = originalHtml;
+                    });
+                });
+            }
+
+            // 9. Sanitized Exports (JSON & CSV)
+            function triggerDownload(content, filename, mimeType) {
+                const blob = new Blob([content], { type: mimeType });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+
+            const btnExportJson = document.getElementById('btn-export-json');
+            if (btnExportJson) {
+                btnExportJson.addEventListener('click', function () {
+                    const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+                    triggerDownload(JSON.stringify(currentTelemetryHits, null, 2), 'alphalink-errors-' + stamp + '.json', 'application/json');
+                });
+            }
+
+            const btnExportCsv = document.getElementById('btn-export-csv');
+            if (btnExportCsv) {
+                btnExportCsv.addEventListener('click', function () {
+                    const headers = ['Date', 'Level', 'Module', 'Occurrences', 'File', 'Line', 'Summary', 'RequestID', 'Fingerprint'];
+                    const rows = [headers.join(',')];
+                    currentTelemetryHits.forEach(function (item) {
+                        const row = [
+                            '"' + String(item.date || '').replace(/"/g, '""') + '"',
+                            '"' + String(item.level || '').replace(/"/g, '""') + '"',
+                            '"' + String(item.module || '').replace(/"/g, '""') + '"',
+                            Number(item.occurrences_count || 1),
+                            '"' + String(item.file || '').replace(/"/g, '""') + '"',
+                            item.line || '',
+                            '"' + String(item.summary || item.message || '').replace(/"/g, '""') + '"',
+                            '"' + String(item.request_id || '').replace(/"/g, '""') + '"',
+                            '"' + String(item.fingerprint || '').replace(/"/g, '""') + '"'
+                        ];
+                        rows.push(row.join(','));
+                    });
+                    const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+                    triggerDownload(rows.join('\n'), 'alphalink-errors-' + stamp + '.csv', 'text/csv;charset=utf-8;');
+                });
+            }
+
+            // 10. Read-Only Auto-Refresh Polling (NOC Mode)
+            const autoRefreshSelect = document.getElementById('select-auto-refresh');
+            const countdownBadge = document.getElementById('auto-refresh-countdown');
+            let refreshTimerId = null;
+            let remainingSeconds = 0;
+
+            function startAutoRefresh(intervalSeconds) {
+                if (refreshTimerId) {
+                    clearInterval(refreshTimerId);
+                    refreshTimerId = null;
+                }
+                if (intervalSeconds <= 0) {
+                    if (countdownBadge) countdownBadge.classList.add('d-none');
+                    try { localStorage.setItem('alphalink-app-errors-refresh', '0'); } catch (e) {}
+                    return;
+                }
+                try { localStorage.setItem('alphalink-app-errors-refresh', String(intervalSeconds)); } catch (e) {}
+                remainingSeconds = intervalSeconds;
+                if (countdownBadge) {
+                    countdownBadge.classList.remove('d-none');
+                    countdownBadge.innerText = remainingSeconds + 's';
+                }
+
+                refreshTimerId = setInterval(function () {
+                    remainingSeconds--;
+                    if (countdownBadge) countdownBadge.innerText = remainingSeconds + 's';
+                    if (remainingSeconds <= 0) {
+                        remainingSeconds = intervalSeconds;
+                        // Check if any trace drawer is currently open
+                        const anyDrawerOpen = document.querySelector('.trace-drawer-row:not(.d-none)') !== null;
+                        const fetchUrl = window.location.href + (window.location.href.includes('?') ? '&' : '?') + 'json=1';
+
+                        fetch(fetchUrl, { headers: { 'Accept': 'application/json' } })
+                            .then(function (res) { return res.json(); })
+                            .then(function (data) {
+                                // Smoothly update KPI counters
+                                const kpiTotal = document.getElementById('kpi-total-errors');
+                                const kpiCrit = document.getElementById('kpi-critical-errors');
+                                const kpiJobs = document.getElementById('kpi-failed-jobs');
+                                const kpiMod = document.getElementById('kpi-top-module');
+                                if (kpiTotal && data.total_errors !== undefined) kpiTotal.innerText = Number(data.total_errors).toLocaleString();
+                                if (kpiCrit && data.critical_count !== undefined) kpiCrit.innerText = Number(data.critical_count).toLocaleString();
+                                if (kpiJobs && data.failed_jobs_count !== undefined) kpiJobs.innerText = Number(data.failed_jobs_count).toLocaleString();
+                                if (kpiMod && data.top_module) kpiMod.innerText = String(data.top_module).toUpperCase();
+
+                                // Reload full table only if operator isn't reading an open stack trace drawer
+                                if (!anyDrawerOpen) {
+                                    window.location.reload();
+                                } else if (window.AlphaLinkToast) {
+                                    window.AlphaLinkToast.show('Telemetry updated in background (trace drawer kept open).', 'info');
+                                }
+                            })
+                            .catch(function () {});
+                    }
+                }, 1000);
+            }
+
+            if (autoRefreshSelect) {
+                try {
+                    const saved = Number(localStorage.getItem('alphalink-app-errors-refresh') || '0');
+                    if (saved > 0) {
+                        autoRefreshSelect.value = String(saved);
+                        startAutoRefresh(saved);
+                    }
+                } catch (e) {}
+
+                autoRefreshSelect.addEventListener('change', function () {
+                    startAutoRefresh(Number(autoRefreshSelect.value || '0'));
                 });
             }
         });

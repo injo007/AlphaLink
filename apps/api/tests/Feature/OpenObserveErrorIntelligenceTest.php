@@ -166,4 +166,51 @@ class OpenObserveErrorIntelligenceTest extends TestCase
         $this->artisan('openobserve:sync')
             ->assertFailed();
     }
+
+    public function test_fingerprinting_clusters_recurring_errors(): void
+    {
+        /** @var ErrorIntelligenceService $service */
+        $service = $this->app->make(ErrorIntelligenceService::class);
+
+        $items = [
+            [
+                'id' => '1',
+                '_timestamp' => 1000,
+                'date' => '2026-11-11 12:00:00',
+                'level' => 'ERROR',
+                'module' => 'api',
+                'summary' => 'Undefined variable $foo in blade template',
+                'message' => 'Undefined variable $foo in blade template',
+                'file' => 'index.blade.php',
+                'line' => 45,
+                'exception' => ['class' => 'ErrorException', 'trace' => '#0 /app/Test.php(45): run()'],
+            ],
+            [
+                'id' => '2',
+                '_timestamp' => 2000,
+                'date' => '2026-11-11 12:05:00',
+                'level' => 'ERROR',
+                'module' => 'api',
+                'summary' => 'Undefined variable $foo in blade template',
+                'message' => 'Undefined variable $foo in blade template',
+                'file' => 'index.blade.php',
+                'line' => 45,
+                'exception' => ['class' => 'ErrorException', 'trace' => '#0 /app/Test.php(45): run()'],
+            ],
+        ];
+
+        $clusters = $service->clusterHits($items);
+
+        $this->assertCount(1, $clusters);
+        $this->assertSame(2, $clusters[0]['occurrences_count']);
+        $this->assertSame('2026-11-11 12:00:00', $clusters[0]['first_seen']);
+        $this->assertSame('2026-11-11 12:05:00', $clusters[0]['last_seen']);
+    }
+
+    public function test_archive_logs_endpoint_rotates_and_enforces_retention(): void
+    {
+        $response = $this->postJson(route('console.miscellaneous.app-errors.archive-logs', $this->workspace->getKey()));
+        $response->assertOk()
+            ->assertJsonStructure(['success', 'retained_count']);
+    }
 }

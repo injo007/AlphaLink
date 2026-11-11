@@ -9,6 +9,7 @@ use App\Models\WorkspaceContactSubmission;
 use App\Models\WorkspaceSubscriber;
 use App\Services\AppErrorLogReader;
 use App\Services\AppHealthReport;
+use App\Services\AppLogArchiveService;
 use App\Services\OpenObserve\ErrorIntelligenceService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
@@ -44,6 +45,7 @@ class MiscellaneousConsoleController extends Controller
             'level' => $request->input('level'),
             'module' => $request->input('module'),
             'time_range' => $request->input('time_range'),
+            'grouped' => $request->input('grouped', '1'),
             'page' => max(1, (int) $request->input('page', 1)),
             'per_page' => min(100, max(10, (int) $request->input('per_page', 25))),
         ];
@@ -66,6 +68,16 @@ class MiscellaneousConsoleController extends Controller
 
         $limit = min(500, max(10, (int) $request->input('limit', 200)));
         $result = $service->syncToOpenObserve($limit);
+
+        return response()->json($result);
+    }
+
+    public function appErrorsArchiveLogs(Request $request, string $workspace, AppLogArchiveService $archiveService): JsonResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        abort_unless(in_array($workspace->pivot->role, ['owner', 'admin'], true), 403);
+
+        $result = $archiveService->archiveAndRotate(5);
 
         return response()->json($result);
     }

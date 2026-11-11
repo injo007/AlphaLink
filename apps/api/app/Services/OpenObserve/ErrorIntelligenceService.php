@@ -252,6 +252,17 @@ class ErrorIntelligenceService
             $hits[] = $this->formatHit($row);
         }
 
+        $isGrouped = ($filters['grouped'] ?? '1') !== '0';
+        $displayHits = $isGrouped ? $this->clusterHits($hits) : $hits;
+        foreach ($displayHits as &$h) {
+            $h['exception']['frames'] = $this->parseStackFrames($h['exception']['trace'] ?? '');
+            $h['fingerprint'] = $h['fingerprint'] ?? $this->computeFingerprint($h);
+            $h['occurrences_count'] = $h['occurrences_count'] ?? 1;
+            $h['first_seen'] = $h['first_seen'] ?? $h['date'];
+            $h['last_seen'] = $h['last_seen'] ?? $h['date'];
+        }
+        unset($h);
+
         // Generate trend points
         $trend = $this->generateTrendPoints($hits, $timeRange);
 
@@ -265,14 +276,16 @@ class ErrorIntelligenceService
 
         return [
             'mode' => 'openobserve',
+            'grouped' => $isGrouped,
             'total_errors' => $total,
+            'total_unique_clusters' => count($displayHits),
             'critical_count' => $criticalCount,
             'failed_jobs_count' => $failedJobsCount,
             'top_module' => $topModule,
             'trend' => $trend,
             'severity_breakdown' => $severityBreakdown,
             'module_breakdown' => $moduleBreakdown,
-            'hits' => $hits,
+            'hits' => $displayHits,
             'pagination' => [
                 'page' => $page,
                 'per_page' => $perPage,
@@ -401,12 +414,23 @@ class ErrorIntelligenceService
             return true;
         }));
 
-        $total = count($filtered);
+        $isGrouped = ($filters['grouped'] ?? '1') !== '0';
+        $displayItems = $isGrouped ? $this->clusterHits($filtered) : $filtered;
+
+        $total = count($displayItems);
         $page = max(1, (int) ($filters['page'] ?? 1));
         $perPage = max(10, min(100, (int) ($filters['per_page'] ?? 25)));
         $offset = ($page - 1) * $perPage;
 
-        $pagedHits = array_slice($filtered, $offset, $perPage);
+        $pagedHits = array_slice($displayItems, $offset, $perPage);
+        foreach ($pagedHits as &$h) {
+            $h['exception']['frames'] = $this->parseStackFrames($h['exception']['trace'] ?? '');
+            $h['fingerprint'] = $h['fingerprint'] ?? $this->computeFingerprint($h);
+            $h['occurrences_count'] = $h['occurrences_count'] ?? 1;
+            $h['first_seen'] = $h['first_seen'] ?? $h['date'];
+            $h['last_seen'] = $h['last_seen'] ?? $h['date'];
+        }
+        unset($h);
 
         // Calculate statistics
         $severityBreakdown = [];
@@ -439,7 +463,9 @@ class ErrorIntelligenceService
 
         return [
             'mode' => 'local_fallback',
-            'total_errors' => $total,
+            'grouped' => $isGrouped,
+            'total_errors' => count($filtered),
+            'total_unique_clusters' => count($displayItems),
             'critical_count' => $criticalCount,
             'failed_jobs_count' => $failedJobsCount,
             'top_module' => $topModule,
@@ -586,5 +612,122 @@ class ErrorIntelligenceService
         }
 
         return $trend;
+    }
+
+    /**
+     * Compute normalized error fingerprint for clustering.
+     *
+     * @param  array<string, mixed>  $item
+     */
+    public function computeFingerprint(array $item): string
+    {
+        $level = strtoupper((string) ($item['level'] ?? 'ERROR'));
+        $module = strtolower((string) ($item['module'] ?? 'system'));
+        $exceptionClass = (string) ($item['exception']['class'] ?? 'RuntimeException');
+        $file = basename((string) ($item['file'] ?? ''));
+        $line = (string) ($item['line'] ?? '');
+
+        $msg = (string) ($item['message'] ?? $item['summary'] ?? '');
+        $normalizedMsg = preg_replace('/\b[0-9a-f]{8,}\b|\b\d{4}-\d{2}-\d{2}\b|\b\d+\b/i', '#', $msg);
+        $normalizedMsg = mb_substr(trim((string) $normalizedMsg), 0, 120);
+
+        return md5("{$level}:{$module}:{$exceptionClass}:{$file}:{$line}:{$normalizedMsg}");
+    }
+
+    /**
+     * Group recurring error events by fingerprint.
+     *
+     * @param  list<array<string, mixed>>  $items
+     * @return list<array<string, mixed>>
+     */
+    public function clusterHits(array $items): array
+    {
+        $clusters = [];
+        foreach ($items as $item) {
+            $fp = $this->computeFingerprint($item);
+            if (! isset($clusters[$fp])) {
+                $item['fingerprint'] = $fp;
+                $item['occurrences_count'] = 1;
+                $item['first_seen'] = $item['date'];
+                $item['last_seen'] = $item['date'];
+                $item['first_seen_ts'] = $item['_timestamp'];
+                $item['last_seen_ts'] = $item['_timestamp'];
+                $clusters[$fp] = $item;
+            } else {
+                $clusters[$fp]['occurrences_count']++;
+                if ($item['_timestamp'] < $clusters[$fp]['first_seen_ts']) {
+                    $clusters[$fp]['first_seen'] = $item['date'];
+                    $clusters[$fp]['first_seen_ts'] = $item['_timestamp'];
+                }
+                if ($item['_timestamp'] > $clusters[$fp]['last_seen_ts']) {
+                    $clusters[$fp]['last_seen'] = $item['date'];
+                    $clusters[$fp]['last_seen_ts'] = $item['_timestamp'];
+                }
+            }
+        }
+
+        return array_values($clusters);
+    }
+
+    /**
+     * Parse raw stack trace string into structured frames with app vs vendor tags.
+     *
+     * @return list<array{index: int, file: string, short_file: string, line: ?int, call: string, is_app: bool, is_vendor: bool, raw: string}>
+     */
+    public function parseStackFrames(?string $trace): array
+    {
+        if (empty($trace)) {
+            return [];
+        }
+
+        $lines = explode("\n", $trace);
+        $frames = [];
+        $idx = 0;
+
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '' || $line === '[stacktrace]' || str_starts_with($line, '[previous exception]')) {
+                continue;
+            }
+
+            // Pattern: #0 /path/to/file.php(123): Class->method()
+            if (preg_match('/^#\d+\s+([^(]+)(?:\((\d+)\))?:\s*(.*)$/', $line, $matches)) {
+                $filePath = trim($matches[1]);
+                $lineNum = isset($matches[2]) && $matches[2] !== '' ? (int) $matches[2] : null;
+                $call = trim($matches[3] ?? '');
+                $isVendor = str_contains($filePath, '/vendor/') || str_contains($filePath, '\\vendor\\');
+                $isApp = ! $isVendor && (str_contains($filePath, '/app/') || str_contains($filePath, '/resources/') || str_contains($filePath, '/routes/'));
+
+                $frames[] = [
+                    'index' => $idx++,
+                    'file' => $filePath,
+                    'short_file' => basename($filePath),
+                    'line' => $lineNum,
+                    'call' => $call,
+                    'is_app' => $isApp,
+                    'is_vendor' => $isVendor,
+                    'raw' => $line,
+                ];
+            } else {
+                $isVendor = str_contains($line, '/vendor/') || str_contains($line, '\\vendor\\');
+                $isApp = ! $isVendor && (str_contains($line, '/app/') || str_contains($line, '/resources/') || str_contains($line, '/routes/'));
+                $frames[] = [
+                    'index' => $idx++,
+                    'file' => $line,
+                    'short_file' => basename($line),
+                    'line' => null,
+                    'call' => '',
+                    'is_app' => $isApp,
+                    'is_vendor' => $isVendor,
+                    'raw' => $line,
+                ];
+            }
+
+            if (count($frames) >= 60) {
+                break;
+            }
+        }
+
+        return $frames;
     }
 }

@@ -437,7 +437,7 @@
             auth()->user()->hasFullAccess() && $workspace ? [[
                 'label' => 'TEAM TASKS & MESSAGES',
                 'icon' => 'fas fa-inbox',
-                'href' => route('clean.console.workspace-communications.index'),
+                'href' => route('console.workspace-communications.index', ['workspace' => $workspace->getKey()]),
                 'active' => $isWorkspaceCommunicationsPage,
             ]] : [],
         );
@@ -722,10 +722,9 @@
                     @if ($commandOsShell)
                         @if ($workspace && in_array(auth()->user()->access_role, ['owner', 'admin', 'operator'], true))
                             <div class="command-os-communications" id="command-os-communications"
-                                data-feed-url="{{ route('clean.console.workspace-communications.feed') }}"
-                                data-read-url-template="{{ route('clean.console.workspace-communications.read', ['communication' => '__COMMUNICATION__']) }}"
-                                data-complete-url-template="{{ route('clean.console.workspace-communications.complete', ['communication' => '__COMMUNICATION__']) }}"
-                                data-health-url="{{ auth()->user()->hasFullAccess() ? $appHealthUrl : '' }}">
+                                data-feed-url="{{ route('console.workspace-communications.feed', ['workspace' => $workspace->getKey()]) }}"
+                                data-read-url-template="{{ route('console.workspace-communications.read', ['workspace' => $workspace->getKey(), 'communication' => '__COMMUNICATION__']) }}"
+                                data-complete-url-template="{{ route('console.workspace-communications.complete', ['workspace' => $workspace->getKey(), 'communication' => '__COMMUNICATION__']) }}">
                                 <button type="button" class="btn btn-sm btn-dual command-os-header-control command-os-inbox-trigger" data-communication-open="inbox" aria-haspopup="dialog" aria-expanded="false" aria-controls="command-os-inbox-popover" title="Tasks and messages">
                                     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 13h4l2 3h6l2-3h4" /></svg>
                                     <span class="command-os-header-action-label">Tasks &amp; messages</span><span class="command-os-header-badge" data-open-task-count hidden>0</span>
@@ -734,7 +733,7 @@
                                     <div class="command-os-communication-heading"><div><span class="command-os-communication-kicker">WORKSPACE</span><h2 id="command-os-inbox-title">Tasks &amp; messages</h2></div><button type="button" class="command-os-communication-close" data-communication-close aria-label="Close tasks and messages">×</button></div>
                                     <div class="command-os-communication-list" data-inbox-list><p class="command-os-communication-empty">Loading your workspace inbox…</p></div>
                                     @if (auth()->user()->hasFullAccess())
-                                        <a class="command-os-communication-footer" href="{{ route('clean.console.workspace-communications.index') }}">Manage team updates <span aria-hidden="true">→</span></a>
+                                        <a class="command-os-communication-footer" href="{{ route('console.workspace-communications.index', ['workspace' => $workspace->getKey()]) }}">Manage team updates <span aria-hidden="true">→</span></a>
                                     @endif
                                 </div>
                                 <button type="button" class="btn btn-sm btn-dual command-os-header-icon command-os-header-control command-os-notification-link" data-communication-open="notifications" aria-haspopup="dialog" aria-expanded="false" aria-controls="command-os-notification-popover" aria-label="Notifications" title="Notifications">
@@ -836,7 +835,7 @@
     @if ($commandOsShell)
         <script src="{{ asset('console-assets/command-os-drawer.js') }}?v={{ substr(sha1_file(public_path('console-assets/command-os-drawer.js')), 0, 12) }}" defer></script>
         <script src="{{ asset('console-assets/command-os-search.js') }}?v={{ substr(sha1_file(public_path('console-assets/command-os-search.js')), 0, 12) }}" defer></script>
-        @if ($workspace && in_array(auth()->user()->access_role, ['owner', 'admin', 'operator'], true))
+        @if ($workspace && in_array(auth()->user()->access_role, ['owner', 'admin', 'operator'], true) && file_exists(public_path('console-assets/team-communications.js')))
             <script src="{{ asset('console-assets/team-communications.js') }}?v={{ substr(sha1_file(public_path('console-assets/team-communications.js')), 0, 12) }}" defer></script>
         @endif
     @endif

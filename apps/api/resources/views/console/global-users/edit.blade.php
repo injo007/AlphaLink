@@ -23,7 +23,7 @@
         <section class="global-user-comms-section" aria-labelledby="global-user-comms-title">
             <div class="global-user-comms-heading">
                 <div><p>GLOBAL USER ACCOUNT</p><h2 id="global-user-comms-title">Tasks &amp; messages</h2><span>Recent workspace updates addressed to this account.</span></div>
-                @if ($operatorInWorkspace)<a href="{{ route('clean.console.workspace-communications.index', ['operator_id' => $user->id]) }}">Create update for {{ $user->name ?: $user->username }} <span aria-hidden="true">→</span></a>@endif
+                @if ($operatorInWorkspace)<a href="{{ route('console.workspace-communications.index', ['workspace' => $workspace->getKey(), 'operator_id' => $user->id]) }}">Create update for {{ $user->name ?: $user->username }} <span aria-hidden="true">→</span></a>@endif
             </div>
             @if ($communicationsForUser->isEmpty())
                 <p class="global-user-comms-empty">No task, message, or notification has been sent to this account in {{ $workspace->name }}.</p>

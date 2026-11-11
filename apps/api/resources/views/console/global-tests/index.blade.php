@@ -325,7 +325,7 @@
                                                 <input id="repeat" type="number" min="1" class="form-control" value="1">
                                             </div>
                                             <div class="form-group col-6">
-                                                <label for="global-projected-messages-field"><i class="fas fa-calculator campaign-field-icon" aria-hidden="true"></i>Total Messages:</label>
+                                                <label for="global-projected-messages-field"><i class="fas fa-calculator campaign-field-icon" aria-hidden="true"></i>Messages:</label>
                                                 <input id="global-projected-messages-field" type="text" class="form-control" value="0 / {{ config('global-tests.max_messages', 100) }}" readonly>
                                             </div>
                                         </div>
@@ -650,12 +650,14 @@
         /* Single-line Usable Tags Banner */
         .campaign-create-page #campaign-usable-tags {
             align-items: center; background: linear-gradient(100deg, #fff, #f6f3ff); border: 1px solid #ddd7ff; border-radius: 12px;
-            color: #5f32d5; display: flex; flex-wrap: wrap; font-size: 10px; gap: 4px 7px; justify-content: flex-start; margin: 0 0 12px; padding: 8px 12px !important;
+            color: #5f32d5; display: flex; flex-wrap: nowrap; font-size: 10px; gap: 4px 8px; justify-content: flex-start; margin: 0 0 12px; padding: 8px 12px !important;
         }
-        .campaign-create-page #campaign-usable-tags > .campaign-usable-tag-list { display: inline-flex; flex-wrap: wrap; gap: 2px; line-height: 1.35; }
+        .campaign-create-page #campaign-usable-tags > strong { flex: 0 0 auto; white-space: nowrap; }
+        .campaign-create-page #campaign-usable-tags > .campaign-usable-tag-list { display: inline-flex; flex: 1 1 auto; flex-wrap: wrap; gap: 2px; line-height: 1.35; min-width: 0; }
         .global-tag-button { background: transparent; border: 0; border-radius: 5px; color: #5f32d5; cursor: pointer; font-family: ui-monospace, monospace; font-size: 10.5px; font-weight: 700; padding: 1px 4px; }
         .global-tag-button:hover { background: rgb(139 92 246 / 13%); color: #4c1d95; }
-        .campaign-create-page #campaign-usable-tags .close { margin-left: auto; position: static; padding: 0 4px; }
+        .campaign-create-page #campaign-usable-tags > #show-global-tags { flex: 0 0 auto; }
+        .campaign-create-page #campaign-usable-tags .close { flex: 0 0 auto; margin-left: 4px; position: static; padding: 0 4px; }
 
         /* Equal-height Editors matching Edit Campaign */
         .campaign-editor-heading { align-items: center; display: flex; flex-wrap: wrap; gap: 8px 12px; justify-content: space-between; margin: 0 0 7px; min-height: 36px; }
@@ -813,13 +815,14 @@
         html[data-command-theme='dark'] .campaign-create-page .campaign-route-count { background: #27254e; border-color: #4b427d; color: #d4b7ff; }
         html[data-command-theme='dark'] #global-test-form .ace_editor,
         html[data-command-theme='dark'] .global-test-editor,
-        html[data-command-theme='dark'] #global-test-form .ace-github,
+        html[data-command-theme='dark'] #global-test-form .ace_editor.ace-github,
         html[data-command-theme='dark'] #global-test-form .ace-github .ace_scroller,
+        html[data-command-theme='dark'] #global-test-form .ace-github .ace_content,
         html[data-command-theme='dark'] #ips-available,
         html[data-command-theme='dark'] #ips-selected,
         html[data-command-theme='dark'] .campaign-create-page .form-control,
         html[data-command-theme='dark'] .campaign-create-page .bootstrap-select > .dropdown-toggle,
-        html[data-command-theme='dark'] .campaign-select.bs-container .dropdown-menu { background: #0c1731 !important; border-color: #334574 !important; color: #eff2ff !important; }
+        html[data-command-theme='dark'] .campaign-select.bs-container .dropdown-menu { background: #0c1731 !important; background-color: #0c1731 !important; border-color: #334574 !important; color: #eff2ff !important; }
         html[data-command-theme='dark'] #ips-available option, html[data-command-theme='dark'] #ips-selected option { color: #eff2ff; }
         html[data-command-theme='dark'] .campaign-select.bs-container .dropdown-menu li a { color: #eff2ff; }
         html[data-command-theme='dark'] .campaign-select.bs-container .dropdown-menu li a:hover,
@@ -830,6 +833,9 @@
         html[data-command-theme='dark'] #global-test-form .ace-github .ace_string { color: #86efac !important; }
         html[data-command-theme='dark'] #global-test-form .ace-github .ace_variable,
         html[data-command-theme='dark'] #global-test-form .ace-github .ace_constant { color: #c4b5fd !important; }
+        html[data-command-theme='dark'] #global-test-form .ace-github .ace_cursor { color: #c4b5fd !important; }
+        html[data-command-theme='dark'] #global-test-form .ace-github .ace_marker-layer .ace_active-line { background: rgba(139, 92, 246, .16) !important; }
+        html[data-command-theme='dark'] #global-test-form .ace-github .ace_marker-layer .ace_selection { background: rgba(139, 92, 246, .32) !important; }
         html[data-command-theme='dark'] .global-tests-send-estimate, html[data-command-theme='dark'] #send-route-behavior { background: #0c1731; border-color: #334574; color: #cbd5e1 !important; }
         html[data-command-theme='dark'] .global-tests-send-estimate.is-over-limit { background: #3b1723; border-color: #881337; color: #fecdd3; }
         html[data-command-theme='dark'] dialog.global-dialog { background: #0c1731; border-color: #334574; color: #eff2ff; }

@@ -246,13 +246,16 @@
         .command-os-health-timestamp {
             display: inline-flex;
             align-items: center;
-            height: 36px;
-            padding: 0 12px;
+            min-height: 36px;
+            max-width: 100%;
+            padding: 6px 12px;
             border-radius: 10px;
             background: rgba(255, 255, 255, 0.85);
             border: 1px solid #d9d6f4;
             font-size: 0.78rem;
             color: #313b67;
+            white-space: normal;
+            overflow-wrap: anywhere;
         }
         .command-os-health-card {
             background: linear-gradient(145deg, #ffffff 0%, #faf8ff 100%);

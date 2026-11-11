@@ -25,9 +25,7 @@
         headerEditor = window.ace.edit('header');
         bodyEditor = window.ace.edit('body');
         const applyAceTheme = () => {
-            const isDark = document.documentElement.getAttribute('data-command-theme') === 'dark';
-            const theme = isDark ? 'ace/theme/tomorrow_night' : 'ace/theme/github';
-            [headerEditor, bodyEditor].forEach((ed) => ed && ed.setTheme(theme));
+            [headerEditor, bodyEditor].forEach((ed) => ed && ed.setTheme('ace/theme/github'));
         };
         [headerEditor, bodyEditor].forEach((editor) => {
             editor.session.setUseWorker(false);

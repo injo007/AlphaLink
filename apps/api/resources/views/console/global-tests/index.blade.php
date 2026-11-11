@@ -1216,15 +1216,25 @@
         }
         html[data-command-theme='dark'] #global-test-form .ace_editor,
         html[data-command-theme='dark'] .global-test-editor,
-        html[data-command-theme='dark'] #global-test-form .ace-tomorrow-night,
-        html[data-command-theme='dark'] #global-test-form .ace-tomorrow-night .ace_scroller,
+        html[data-command-theme='dark'] #global-test-form .ace-github,
+        html[data-command-theme='dark'] #global-test-form .ace-github .ace_scroller,
         html[data-command-theme='dark'] #ips-available,
         html[data-command-theme='dark'] #ips-selected,
         html[data-command-theme='dark'] .campaign-create-page .form-control,
         html[data-command-theme='dark'] .campaign-create-page .bootstrap-select > .dropdown-toggle {
             background: #0d1326 !important;
+            background-color: #0d1326 !important;
             border-color: #26365f !important;
-            color: #f1f5f9 !important;
+            color: #e2e8f0 !important;
+        }
+        html[data-command-theme='dark'] #global-test-form .ace-github .ace_cursor {
+            color: #c4b5fd !important;
+        }
+        html[data-command-theme='dark'] #global-test-form .ace-github .ace_marker-layer .ace_active-line {
+            background: rgba(139, 92, 246, 0.14) !important;
+        }
+        html[data-command-theme='dark'] #global-test-form .ace-github .ace_marker-layer .ace_selection {
+            background: rgba(139, 92, 246, 0.30) !important;
         }
         html[data-command-theme='dark'] #global-test-form .ace_editor {
             padding: 0 !important;

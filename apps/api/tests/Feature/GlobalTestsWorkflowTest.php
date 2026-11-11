@@ -46,7 +46,14 @@ class GlobalTestsWorkflowTest extends TestCase
             ->assertSee('PLACEHOLDERS')
             ->assertSee('SEND TEST')
             ->assertSee($this->cleanWorkspaceUrl(route('console.global-tests.histories', $workspace->getKey())), false)
-            ->assertSee('global-tests.js');
+            ->assertSee('global-tests.js')
+            ->assertSee('id="saved-email-manager"', false)
+            ->assertSee('id="placeholder-content" hidden', false)
+            ->assertSee('id="toggle-placeholders"', false)
+            ->assertSee('id="clear-placeholders"', false)
+            ->assertSee('id="global-server-search-dialog"', false)
+            ->assertSee('id="global-pmta-panels"', false)
+            ->assertSee('id="global-projected-messages"', false);
     }
 
     public function test_catalog_returns_only_active_installed_server_ip_options_from_the_workspace(): void

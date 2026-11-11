@@ -22,8 +22,8 @@ use App\Http\Controllers\Web\WorkspaceCampaignLogsConsoleController;
 use App\Http\Controllers\Web\WorkspaceCampaignNegativeController;
 use App\Http\Controllers\Web\WorkspaceCampaignStatisticsConsoleController;
 use App\Http\Controllers\Web\WorkspaceCampaignVisitorsConsoleController;
-use App\Http\Controllers\Web\WorkspaceConsoleController;
 use App\Http\Controllers\Web\WorkspaceCommunicationController;
+use App\Http\Controllers\Web\WorkspaceConsoleController;
 use App\Http\Controllers\Web\WorkspaceDropsConsoleController;
 use App\Http\Controllers\Web\WorkspaceDropSuppressionController;
 use App\Http\Controllers\Web\WorkspaceEmailManagementController;
@@ -343,7 +343,7 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::post('/app/workspaces/{workspace}/infrastructure/install/load-ips', [InfrastructureConsoleController::class, 'loadSingleInstallIps'])
         ->middleware('throttle:10,1')->name('console.infrastructure.install.load-ips');
     Route::post('/app/workspaces/{workspace}/infrastructure/install/{server}/config-ips', [InfrastructureConsoleController::class, 'configureSingleInstallIps'])
-        ->whereUuid('server')->middleware('throttle:3,1')->name('console.infrastructure.install.config-ips');
+        ->whereUuid('server')->middleware('throttle:10,1')->name('console.infrastructure.install.config-ips');
     Route::get('/app/workspaces/{workspace}/infrastructure/bulk-install', [InfrastructureConsoleController::class, 'bulkInstall'])->name('console.infrastructure.bulk-install');
     Route::get('/app/workspaces/{workspace}/infrastructure/change-domain', [InfrastructureConsoleController::class, 'changeDomain'])->name('console.infrastructure.change-domain.index');
     Route::post('/app/workspaces/{workspace}/infrastructure/change-domain/load-ips', [InfrastructureConsoleController::class, 'loadChangeDomainIps'])->middleware('throttle:10,1')->name('console.infrastructure.change-domain.load-ips');
@@ -351,9 +351,9 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::get('/app/workspaces/{workspace}/infrastructure/change-domain/{server}/logs', [InfrastructureConsoleController::class, 'changeDomainLogs'])->whereUuid('server')->name('console.infrastructure.change-domain.logs');
     Route::get('/app/workspaces/{workspace}/infrastructure/reinstall', [InfrastructureConsoleController::class, 'reinstall'])->name('console.infrastructure.reinstall.index');
     Route::get('/app/workspaces/{workspace}/infrastructure/reinstall/{server}/config', [InfrastructureConsoleController::class, 'loadReinstallConfiguration'])->whereUuid('server')->name('console.infrastructure.reinstall.config');
-    Route::post('/app/workspaces/{workspace}/infrastructure/reinstall/{server}/ips', [InfrastructureConsoleController::class, 'reloadReinstallIps'])->whereUuid('server')->middleware('throttle:3,1')->name('console.infrastructure.reinstall.ips');
-    Route::post('/app/workspaces/{workspace}/infrastructure/reinstall/{server}/config-ips', [InfrastructureConsoleController::class, 'configureReinstallIps'])->whereUuid('server')->middleware('throttle:3,1')->name('console.infrastructure.reinstall.config-ips');
-    Route::post('/app/workspaces/{workspace}/infrastructure/reinstall/{server}/runs', [InfrastructureConsoleController::class, 'startReinstall'])->whereUuid('server')->middleware('throttle:2,1')->name('console.infrastructure.reinstall.runs.store');
+    Route::post('/app/workspaces/{workspace}/infrastructure/reinstall/{server}/ips', [InfrastructureConsoleController::class, 'reloadReinstallIps'])->whereUuid('server')->middleware('throttle:10,1')->name('console.infrastructure.reinstall.ips');
+    Route::post('/app/workspaces/{workspace}/infrastructure/reinstall/{server}/config-ips', [InfrastructureConsoleController::class, 'configureReinstallIps'])->whereUuid('server')->middleware('throttle:10,1')->name('console.infrastructure.reinstall.config-ips');
+    Route::post('/app/workspaces/{workspace}/infrastructure/reinstall/{server}/runs', [InfrastructureConsoleController::class, 'startReinstall'])->whereUuid('server')->middleware('throttle:5,1')->name('console.infrastructure.reinstall.runs.store');
     Route::get('/app/workspaces/{workspace}/infrastructure/reinstall/runs/{runId}/logs', [InfrastructureConsoleController::class, 'reinstallLogs'])->whereUuid('runId')->name('console.infrastructure.reinstall.runs.logs');
     Route::get('/app/workspaces/{workspace}/infrastructure/cloud-providers', [CloudProviderConsoleController::class, 'index'])->name('console.infrastructure.cloud-providers.index');
     Route::get('/app/workspaces/{workspace}/infrastructure/cloud-providers/available/{type}', [CloudProviderConsoleController::class, 'available'])->name('console.infrastructure.cloud-providers.available');
@@ -446,7 +446,7 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::post('/app/workspaces/{workspace}/infrastructure/bulk-install/runs', [InfrastructureConsoleController::class, 'startBulkInstall'])
         ->middleware('throttle:3,1')->name('console.infrastructure.bulk-install.runs.store');
     Route::post('/app/workspaces/{workspace}/infrastructure/install/runs', [InfrastructureConsoleController::class, 'startSingleInstall'])
-        ->middleware('throttle:3,1')->name('console.infrastructure.install.runs.store');
+        ->middleware('throttle:5,1')->name('console.infrastructure.install.runs.store');
     Route::post('/app/workspaces/{workspace}/infrastructure/isps', [InfrastructureConsoleController::class, 'storeIsp'])->middleware('throttle:10,1')->name('console.infrastructure.isps.store');
     Route::put('/app/workspaces/{workspace}/infrastructure/isps/{ispId}', [InfrastructureConsoleController::class, 'updateIsp'])->whereNumber('ispId')->middleware('throttle:10,1')->name('console.infrastructure.isps.update');
     Route::patch('/app/workspaces/{workspace}/infrastructure/isps/{ispId}/status', [InfrastructureConsoleController::class, 'setIspStatus'])->whereNumber('ispId')->middleware('throttle:10,1')->name('console.infrastructure.isps.status');

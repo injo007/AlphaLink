@@ -1451,11 +1451,29 @@ class InfrastructureConsoleController extends Controller
         AlphaLinkBulkInstallTranscriptStore $transcripts,
         AlphaLinkInfrastructureRunLauncher $runLauncher,
     ): JsonResponse {
+        $serverSelection = $request->validate([
+            'server_id' => ['required', 'string', 'uuid'],
+        ]);
         if (! is_array($request->input('data')) || count($request->input('data')) !== 1) {
             throw ValidationException::withMessages([
                 'data' => 'Install accepts exactly one server. Use Bulk Install for multiple servers.',
             ]);
         }
+        $data = $request->input('data');
+        if (! is_array($data[0])) {
+            throw ValidationException::withMessages([
+                'data.0' => 'Reload the server IP map before starting installation.',
+            ]);
+        }
+        $submittedServerId = $data[0]['id'] ?? null;
+        if (! is_string($submittedServerId) || trim($submittedServerId) === '') {
+            $data[0]['id'] = $serverSelection['server_id'];
+        } elseif ($submittedServerId !== $serverSelection['server_id']) {
+            throw ValidationException::withMessages([
+                'server_id' => 'The selected server does not match the server in the installation payload.',
+            ]);
+        }
+        $request->merge(['data' => $data]);
         if (! is_array($request->input('data.0.ip_assignments')) || $request->input('data.0.ip_assignments') === []) {
             throw ValidationException::withMessages([
                 'data.0.ip_assignments' => 'Load and review the server IP assignments before installing.',

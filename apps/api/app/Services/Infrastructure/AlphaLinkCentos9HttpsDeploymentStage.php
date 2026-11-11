@@ -21,9 +21,9 @@ class AlphaLinkCentos9HttpsDeploymentStage
         AlphaLinkInstallerRemoteCommandTransport $commands,
         ?string $domain,
         array $subdomains = [],
-    ): void {
+    ): bool {
         if (! $domain) {
-            return;
+            return false;
         }
 
         // PMTA TLS is required independently of the optional tracking app.
@@ -39,6 +39,11 @@ class AlphaLinkCentos9HttpsDeploymentStage
             'certbot --apache --no-redirect -d '.escapeshellarg($certificateDomains).
             ' -m '.escapeshellarg($email).' -n --agree-tos',
         );
+        $certificateReady = $commands->exec(
+            'test -s '.escapeshellarg('/etc/letsencrypt/live/'.$domain.'/fullchain.pem')
+                .' && test -s '.escapeshellarg('/etc/letsencrypt/live/'.$domain.'/privkey.pem')
+                .' && printf ALPHALINK_DOMAIN_CERTIFICATE_READY',
+        );
         $commands->exec("(crontab -l | grep 'certbot') || { crontab -l; echo '0 0 */15 * * certbot renew'; } | crontab -");
 
         $trackingVhostName = strtolower(preg_replace('/[^A-Za-z0-9_]+/', '_', str_replace('.', '_', $domain)) ?? '');
@@ -53,6 +58,8 @@ class AlphaLinkCentos9HttpsDeploymentStage
             .'sed -i '.escapeshellarg($trackingRewriteScript).' '.escapeshellarg($trackingVhost).'; fi; '
             .'httpd -t && systemctl reload httpd; fi';
         $commands->exec($trackingRewrite);
+
+        return trim((string) $certificateReady) === 'ALPHALINK_DOMAIN_CERTIFICATE_READY';
     }
 
     /**

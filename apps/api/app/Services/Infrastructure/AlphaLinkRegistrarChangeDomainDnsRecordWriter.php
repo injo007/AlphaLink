@@ -40,7 +40,7 @@ class AlphaLinkRegistrarChangeDomainDnsRecordWriter implements AlphaLinkBulkInst
         if (strtolower((string) $provider->type) === 'cloudflare') {
             $zoneId = $this->cloudflareDnsApi->zoneIdForExactDomain($provider, (string) $domain->name, $domain->provider_domain_id);
 
-            return $this->setHostsWithProvider($provider, $domain->name, $records, $zoneId);
+            return $this->cloudflareDnsApi->synchronizeInstallerRecords($provider, $zoneId, (string) $domain->name, $records);
         }
 
         return $this->setHostsWithProvider($provider, $domain->name, $records, (string) $domain->provider_domain_id);

@@ -7,6 +7,21 @@ class AlphaLinkCentos9FirewallDeploymentStage
 {
     public function __construct(private readonly AlphaLinkCentos9FirewallPlanner $planner) {}
 
+    /** Opens only the web services needed for HTTP-01 certificate validation. */
+    public function prepareDomainCertificatePorts(AlphaLinkInstallerRemoteCommandTransport $commands): bool
+    {
+        $result = $commands->exec(
+            'if systemctl is-active --quiet firewalld; then '
+                .'firewall-cmd --permanent --zone=public --add-service=http >/dev/null 2>&1 && '
+                .'firewall-cmd --permanent --zone=public --add-service=https >/dev/null 2>&1 && '
+                .'firewall-cmd --reload >/dev/null 2>&1 && '
+                .'printf ALPHALINK_CERTIFICATE_PORTS_READY; '
+                .'else printf ALPHALINK_CERTIFICATE_PORTS_READY; fi',
+        );
+
+        return trim((string) $result) === 'ALPHALINK_CERTIFICATE_PORTS_READY';
+    }
+
     /**
      * @param  list<string>  $developmentIps
      * @param  list<string>  $productionIps

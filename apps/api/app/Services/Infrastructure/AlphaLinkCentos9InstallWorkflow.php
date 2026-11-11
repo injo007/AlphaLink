@@ -199,8 +199,11 @@ class AlphaLinkCentos9InstallWorkflow
                 new AlphaLinkCentos9PublicIpResolver($session), $dnsWriter, $log,
                 continueOnDnsFailure: true,
             );
-            if ($dnsReady === false) {
-                $domainProviderReady[(string) $domainGroup['domain']->getKey()] = false;
+            if ($dnsReady !== null) {
+                // The write is authoritative: a transient provider preflight
+                // failure must not force a successful installation onto IP-only
+                // PMTA monitor URLs.
+                $domainProviderReady[(string) $domainGroup['domain']->getKey()] = $dnsReady;
             }
         }
 
@@ -254,7 +257,13 @@ class AlphaLinkCentos9InstallWorkflow
         }
 
         $log($options['https'] && $primaryDomainReady ? 'Setup Https' : 'Setup HTTPS for PMTA Web Monitor');
-        $this->https->run($session, $monitorDomain, $primaryDomainReady ? $subdomains : []);
+        if ($monitorDomain !== null && ! $this->firewall->prepareDomainCertificatePorts($session)) {
+            $log('The host firewall could not confirm HTTP/HTTPS access before domain certificate issuance; the PMTA monitor may fall back to the AlphaLink HTTPS proxy.');
+        }
+        $domainCertificateReady = $this->https->run($session, $monitorDomain, $primaryDomainReady ? $subdomains : []);
+        if ($monitorDomain !== null && ! $domainCertificateReady) {
+            $log('The selected domain certificate was not issued; check public DNS and inbound HTTP port 80 before retrying.');
+        }
         $pmtaMonitorHttps = $this->https->configurePmtaMonitor(
             $session,
             $session,

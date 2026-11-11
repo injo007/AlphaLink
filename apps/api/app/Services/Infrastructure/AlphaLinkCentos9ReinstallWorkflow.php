@@ -167,8 +167,8 @@ class AlphaLinkCentos9ReinstallWorkflow
                 $log,
                 continueOnDnsFailure: true,
             );
-            if ($dnsReady === false && (string) $group['domain']->getKey() === (string) $mainDomain->getKey()) {
-                $mainDomainProviderReady = false;
+            if ($dnsReady !== null && (string) $group['domain']->getKey() === (string) $mainDomain->getKey()) {
+                $mainDomainProviderReady = $dnsReady;
             }
         }
 
@@ -261,7 +261,13 @@ class AlphaLinkCentos9ReinstallWorkflow
 
         if ($options['https'] || $options['pmta']) {
             $log($options['https'] && $mainDomainProviderReady ? 'Re Setup Https' : 'Re Setup HTTPS for PMTA Web Monitor');
-            $this->https->run($session, $monitorDomain, $mainDomainProviderReady ? $subdomains : []);
+            if ($monitorDomain !== null && ! $this->firewall->prepareDomainCertificatePorts($session)) {
+                $log('The host firewall could not confirm HTTP/HTTPS access before domain certificate issuance; the PMTA monitor may fall back to the AlphaLink HTTPS proxy.');
+            }
+            $domainCertificateReady = $this->https->run($session, $monitorDomain, $mainDomainProviderReady ? $subdomains : []);
+            if ($monitorDomain !== null && ! $domainCertificateReady) {
+                $log('The selected domain certificate was not issued; check public DNS and inbound HTTP port 80 before retrying.');
+            }
             if ($options['pmta']) {
                 $pmtaMonitorHttps = $this->https->configurePmtaMonitor(
                     $session,

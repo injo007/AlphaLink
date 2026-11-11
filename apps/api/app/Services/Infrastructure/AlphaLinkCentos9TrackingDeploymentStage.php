@@ -125,7 +125,7 @@ CONFIG;
         if ($trackingAppFiles !== null) {
             $localHealth = $commands->exec(
                 'curl -fsS --max-time 10 -H '.escapeshellarg('Host: '.$serverName)
-                    .' '.escapeshellarg('http://127.0.0.1/healthz').' | grep -Fx ALPHALINK_TRACKING_READY && printf ALPHALINK_TRACKING_READY',
+                    .' '.escapeshellarg('http://127.0.0.1/healthz').' | grep -Fxq ALPHALINK_TRACKING_READY && printf ALPHALINK_TRACKING_READY',
             );
             if (trim((string) $localHealth) !== 'ALPHALINK_TRACKING_READY') {
                 throw new RuntimeException('The installed AlphaLink tracking site did not answer its local health check.');

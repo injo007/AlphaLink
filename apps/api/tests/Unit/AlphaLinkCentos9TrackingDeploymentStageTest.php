@@ -54,6 +54,8 @@ class AlphaLinkCentos9TrackingDeploymentStageTest extends TestCase
         $allCommands = implode("\n", $commands->commands);
         $this->assertStringContainsString('httpd -M', $allCommands);
         $this->assertStringContainsString('/healthz', $allCommands);
+        $this->assertStringContainsString('grep -Fxq ALPHALINK_TRACKING_READY', $allCommands);
+        $this->assertStringNotContainsString('grep -Fx ALPHALINK_TRACKING_READY', $allCommands);
         $this->assertStringContainsString('/ALPHALINKTRACK10rprobe', $allCommands);
         $this->assertStringContainsString('ALPHALINK_TRACKING_ROUTE_READY', $allCommands);
         $this->assertStringContainsString('ALPHALINK_TRACKING_IP_ROUTE_READY', $allCommands);

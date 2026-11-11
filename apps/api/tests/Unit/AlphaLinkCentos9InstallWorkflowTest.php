@@ -196,7 +196,7 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
         $session = new RecordingWorkflowSession;
         $logs = [];
 
-        $this->runWorkflow($workflow, $session, $logs, providerAvailable: false);
+        $this->runWorkflow($workflow, $session, $logs, providerAvailable: false, dnsWriteSuccessful: false);
 
         $this->assertArrayNotHasKey('/etc/nginx/conf.d/default.conf.alphalink-tls-stage', $session->uploads);
         $this->assertSame("hostnamectl set-hostname 'pmta-08080808.invalid'", $session->commands[0]);
@@ -214,6 +214,44 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
         $this->assertStringNotContainsString('nginx-service', $healthCommand);
         $this->assertStringNotContainsString('certbot --apache', implode("\n", $session->commands));
         $this->assertStringNotContainsString("grep -Fq 'listen 8080 ssl;' /etc/nginx/conf.d/default.conf", end($session->commands));
+    }
+
+    public function test_successful_dns_write_promotes_domain_after_a_provider_preflight_miss(): void
+    {
+        [$workflow, $gate, $pmta, $completion] = $this->workflow();
+        $gate->method('evaluate')->willReturn(['installation_authorized' => true]);
+        $pmta->expects($this->once())->method('run');
+        $completion->expects($this->once())
+            ->method('finalize')
+            ->willReturnCallback(function (...$arguments): array {
+                $this->assertTrue($arguments[7]);
+                $this->assertSame('example.test', $arguments[8]);
+
+                return [];
+            });
+        $session = new RecordingWorkflowSession;
+        $logs = [];
+
+        $this->runWorkflow(
+            $workflow,
+            $session,
+            $logs,
+            settingsOverrides: ['pmta_admin_port' => 1213, 'allow_all_monitor' => true],
+            pmtaVersion: 45,
+            providerAvailable: false,
+            dnsWriteSuccessful: true,
+        );
+
+        $this->assertStringContainsString(
+            "certbot --apache --no-redirect -d 'example.test' -m 'cert@example.test' -n --agree-tos",
+            implode("\n", $session->commands),
+        );
+        $configuration = $session->uploads['/etc/nginx/conf.d/default.conf.alphalink-tls-stage'];
+        $this->assertStringContainsString('server_name example.test;', $configuration);
+        $this->assertContains(
+            'PMTA WEB MONITOR LINK (HTTPS; public port 1213): >>> <a target="_blank" rel="noopener noreferrer" href="https://example.test:1213/">example.test:1213</a>',
+            $logs,
+        );
     }
 
     public function test_pmta_45_missing_provider_uses_ip_http_through_nginx_and_completes_install(): void
@@ -241,6 +279,7 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
             settingsOverrides: ['pmta_admin_port' => 1213, 'allow_all_monitor' => true],
             pmtaVersion: 45,
             providerAvailable: false,
+            dnsWriteSuccessful: false,
         );
 
         $nginxConfig = $session->uploads['/etc/nginx/conf.d/default.conf.alphalink-tls-stage'];
@@ -490,7 +529,7 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
      * @param  array<string, mixed>  $settingsOverrides
      * @param  array<string, mixed>  $hostFactsOverrides
      */
-    private function runWorkflow(AlphaLinkCentos9InstallWorkflow $workflow, RecordingWorkflowSession $session, array &$logs, array $selectedOptions = [], array $settingsOverrides = [], array $hostFactsOverrides = [], array $discoveredIps = ['8.8.8.8'], bool $expectDnsWrite = true, int $pmtaVersion = 40, bool $providerAvailable = true): void
+    private function runWorkflow(AlphaLinkCentos9InstallWorkflow $workflow, RecordingWorkflowSession $session, array &$logs, array $selectedOptions = [], array $settingsOverrides = [], array $hostFactsOverrides = [], array $discoveredIps = ['8.8.8.8'], bool $expectDnsWrite = true, int $pmtaVersion = 40, bool $providerAvailable = true, bool $dnsWriteSuccessful = true): void
     {
         $workspace = (new Workspace)->forceFill(['id' => 'workspace-one']);
         $server = (new ManagedServer)->forceFill([
@@ -527,7 +566,7 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
         $dnsWriter = $this->createMock(AlphaLinkBulkInstallDomainDnsRecordWriter::class);
         $dnsWriter->method('isDomainAvailable')->willReturn($providerAvailable);
         if ($expectDnsWrite) {
-            $dnsWriter->expects($this->once())->method('setHosts')->willReturn(true);
+            $dnsWriter->expects($this->once())->method('setHosts')->willReturn($dnsWriteSuccessful);
         } else {
             $dnsWriter->expects($this->never())->method('setHosts');
         }
@@ -561,6 +600,12 @@ class RecordingWorkflowSession implements AlphaLinkInstallerRemoteCommandTranspo
         }
         if (str_contains($command, 'ALPHALINK_PHP_FPM_READY')) {
             return 'ALPHALINK_PHP_FPM_READY';
+        }
+        if (str_contains($command, 'ALPHALINK_CERTIFICATE_PORTS_READY')) {
+            return 'ALPHALINK_CERTIFICATE_PORTS_READY';
+        }
+        if (str_contains($command, 'ALPHALINK_DOMAIN_CERTIFICATE_READY')) {
+            return 'ALPHALINK_DOMAIN_CERTIFICATE_READY';
         }
         if (str_contains($command, 'printf ALPHALINK_PMTA_READY')) {
             return $this->pmtaReady

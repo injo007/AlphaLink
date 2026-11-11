@@ -178,6 +178,12 @@ class CloudflareDnsApi
                     : $record['address'],
                 'ttl' => max(1, (int) $record['ttl']),
             ];
+            if (in_array($type, ['A', 'AAAA'], true)) {
+                // PMTA's monitor uses a configurable port that Cloudflare's
+                // HTTP proxy does not support. Installer addresses must resolve
+                // directly to the server.
+                $body['proxied'] = false;
+            }
             if ($type === 'MX') {
                 $body['priority'] = 10;
             }
@@ -241,6 +247,7 @@ class CloudflareDnsApi
 
                     if (($existing['content'] ?? null) === $body['content']
                         && (int) ($existing['ttl'] ?? 0) === $body['ttl']
+                        && (! array_key_exists('proxied', $body) || ($existing['proxied'] ?? false) === false)
                         && ($body['type'] !== 'MX' || (int) ($existing['priority'] ?? 10) === $body['priority'])) {
                         $same = (string) $existing['id'];
                         break;
@@ -304,6 +311,9 @@ class CloudflareDnsApi
                     'content' => (string) ($item['content'] ?? ''),
                     'ttl' => (int) ($item['ttl'] ?? 0),
                 ];
+                if (in_array($type, ['A', 'AAAA'], true)) {
+                    $body['proxied'] = (bool) ($item['proxied'] ?? false);
+                }
                 if ($type === 'MX') {
                     $body['priority'] = (int) ($item['priority'] ?? 10);
                 }

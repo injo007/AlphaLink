@@ -42,7 +42,11 @@ class AlphaLinkCentos9FirewallPlanner
             'systemctl unmask --now firewalld',
             'systemctl start firewalld;',
             'systemctl enable firewalld;',
-            'firewall-cmd --permanent --zone=public --add-service={http,https,dns,smtp,ntp,dns};',
+            'firewall-cmd --permanent --zone=public --add-service=http;',
+            'firewall-cmd --permanent --zone=public --add-service=https;',
+            'firewall-cmd --permanent --zone=public --add-service=dns;',
+            'firewall-cmd --permanent --zone=public --add-service=smtp;',
+            'firewall-cmd --permanent --zone=public --add-service=ntp;',
             'firewall-cmd --permanent --new-zone=dev;',
             // Older releases exposed PMTA's internal backend port in the dev
             // zone. Remove that stale rule during both install and reinstall.

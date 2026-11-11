@@ -752,3 +752,8 @@ The production missing-file and digest-coverage blockers are resolved. Deploymen
 ### Global Tests — native send-path repair in progress (E-CAMP-171, 2026-11-11)
 
 The formerly unconfigured standalone sender path has been replaced with AlphaLink’s workspace-PMTA SMTP adapter, and the SMTP picker’s namespaced `pmta-smtp:<id>` values now pass validation and map to the deployed route name. The page has a separate Delivery Lab design. Synthetic suite: 12 passed / 72 assertions, fake transport only. Remaining gate: production PMTA acceptance/history verification with an explicitly selected test recipient; no email was sent during this change. DMS acceptance/retry semantics and inbox delivery remain UNKNOWN. Keep DMS-GLOBALTEST-001 TESTING.
+
+
+## 2026-11-11 Tracking PHP runtime failure — E-INST-101
+
+The supplied real install transcript failed at tracking `/healthz`. The source PHP stage had no PHP-FPM install/start/validation, while EL9 Apache requires FPM to execute PHP. The AlphaLink stage now installs and verifies PHP-FPM plus Apache FastCGI config. Focused PHP checks reported 7 passed, 12 warnings, and 185 assertions; targeted Pint, PHP lint, and `git diff --check` pass. No target HTTP response or Apache/FPM logs were provided, and the partially configured target was not retried. Deployment and a new real install are still required to verify recovery. Keep install parity TESTING.

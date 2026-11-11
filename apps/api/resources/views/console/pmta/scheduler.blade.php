@@ -17,12 +17,14 @@
         align-items: center;
         justify-content: space-between;
         gap: 8px;
+        flex-wrap: wrap;
     }
     .pmta-scheduler-label-row .command-form-label {
         margin-bottom: 0 !important;
         font-size: 0.8125rem;
         font-weight: 700;
         letter-spacing: 0.04em;
+        white-space: nowrap;
     }
     .pmta-schedule-tags + .select2-container { width: 100% !important; }
     .pmta-schedule-tags + .select2-container .select2-selection--multiple {
@@ -127,7 +129,7 @@
         </div>
 
         <div class="row align-items-start">
-            <div class="col-sm-12 col-md-3 mb-3 pmta-scheduler-col">
+            <div class="col-12 col-md-6 col-xl-3 mb-3 pmta-scheduler-col">
                 <div class="pmta-scheduler-label-row">
                     <label class="command-form-label" for="pmta-schedule-servers">
                         <i class="fas fa-server mr-1 text-purple"></i> SERVERS:
@@ -139,7 +141,7 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-sm-12 col-md-3 mb-3 pmta-scheduler-col">
+            <div class="col-12 col-md-6 col-xl-3 mb-3 pmta-scheduler-col">
                 <div class="pmta-scheduler-label-row">
                     <label class="command-form-label" for="pmta-schedule-tags">
                         <i class="fas fa-tags mr-1 text-purple"></i> TAGS (DOMAIN/VMTA):
@@ -160,7 +162,7 @@
                     <option value="*/*" selected>*/*</option>
                 </select>
             </div>
-            <div class="col-sm-12 col-md-3 mb-3 pmta-scheduler-col">
+            <div class="col-12 col-md-6 col-xl-3 mb-3 pmta-scheduler-col">
                 <div class="pmta-scheduler-label-row">
                     <label class="command-form-label" for="pmta-schedule-action">
                         <i class="fas fa-play mr-1 text-purple"></i> ACTION:
@@ -174,7 +176,7 @@
                     <option value="schedule">SCHEDULE</option>
                 </select>
             </div>
-            <div class="col-sm-12 col-md-3 mb-3 pmta-scheduler-col">
+            <div class="col-12 col-md-6 col-xl-3 mb-3 pmta-scheduler-col">
                 <div class="pmta-scheduler-label-row">
                     <label class="command-form-label" for="pmta-schedule-frequency">
                         <i class="fas fa-redo mr-1 text-purple"></i> FREQUENCY:

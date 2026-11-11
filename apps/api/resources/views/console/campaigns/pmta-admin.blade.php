@@ -97,18 +97,23 @@
             flex-shrink: 0 !important;
         }
 
-        @media (max-width: 767.98px) {
+        @media (max-width: 991.98px) {
             .pmta-admin-action-bar {
                 flex-direction: column;
                 align-items: stretch;
+                gap: 12px;
             }
             .pmta-admin-action-group {
                 width: 100%;
-                justify-content: stretch;
+                justify-content: flex-start;
             }
             .pmta-admin-action-group button {
-                flex: 1 1 calc(50% - 6px);
+                flex: 1 1 calc(33.333% - 8px);
+                min-width: 100px;
             }
+        }
+
+        @media (max-width: 767.98px) {
             .pmta-automation-input-row {
                 flex-wrap: wrap;
             }
@@ -118,6 +123,15 @@
             }
             .pmta-automation-input-row button {
                 flex: 1 1 calc(50% - 4px) !important;
+            }
+        }
+
+        @media (max-width: 575.98px) {
+            .pmta-admin-action-group button {
+                flex: 1 1 calc(50% - 6px);
+            }
+            .pmta-admin-action-group button#pmta-admin-clear {
+                flex: 1 1 100%;
             }
         }
     </style>
@@ -181,7 +195,7 @@
                     </div>
                     <div class="col-lg-6" id="pmta-admin-tag-column">
                         <div class="form-group mb-0">
-                            <div class="d-flex align-items-center justify-content-between mb-2">
+                            <div class="d-flex align-items-center justify-content-between flex-wrap mb-2" style="gap: 8px;">
                                 <span class="command-form-label mb-0"><i class="fas fa-filter mr-1 text-purple"></i> QUEUE TARGET:</span>
                                 <fieldset class="border-0 p-0 m-0 d-inline-flex align-items-center" style="gap: 14px;">
                                     <legend class="sr-only">Queue:</legend>

@@ -22,7 +22,7 @@ class AlphaLinkCentos9HttpsDeploymentStageTest extends TestCase
     {
         $commands = $this->commands();
 
-        (new AlphaLinkCentos9HttpsDeploymentStage)->run($commands, 'sender.example.test', ['relay.example.test', 'mail.example.test']);
+        $certificateReady = (new AlphaLinkCentos9HttpsDeploymentStage)->run($commands, 'sender.example.test', ['relay.example.test', 'mail.example.test']);
 
         $this->assertSame([
             'rpm -qa | grep -qw httpd || dnf -y install httpd;',
@@ -30,14 +30,16 @@ class AlphaLinkCentos9HttpsDeploymentStageTest extends TestCase
             'rpm -qa | grep -qw certbot || dnf -y install certbot;',
             'rpm -qa | grep -qw python3-certbot-apache || dnf -y install python3-certbot-apache;',
             "certbot --apache --no-redirect -d 'sender.example.test,relay.example.test,mail.example.test' -m 'cert@sender.example.test' -n --agree-tos",
+            "test -s '/etc/letsencrypt/live/sender.example.test/fullchain.pem' && test -s '/etc/letsencrypt/live/sender.example.test/privkey.pem' && printf ALPHALINK_DOMAIN_CERTIFICATE_READY",
             "(crontab -l | grep 'certbot') || { crontab -l; echo '0 0 */15 * * certbot renew'; } | crontab -",
-        ], array_slice($commands->commands, 0, 6));
-        $this->assertCount(7, $commands->commands);
-        $this->assertStringContainsString('ALPHALINK_TRACKING_READY', $commands->commands[6]);
-        $this->assertStringContainsString('ALPHALINK_TRACKING_ROUTES', $commands->commands[6]);
-        $this->assertStringContainsString('RewriteRule ^/healthz$ /index.php [END,QSA]', $commands->commands[6]);
-        $this->assertStringContainsString('RewriteRule ^/([A-Za-z0-9]{10}[roub][A-Za-z0-9_-]{1,4096}(?:/[A-Za-z0-9_-]+)*)$ /index.php?__alphalink_long_uri=$1 [END,QSA,B]', $commands->commands[6]);
-        $this->assertStringContainsString('sender_example_test-le-ssl.conf', $commands->commands[6]);
+        ], array_slice($commands->commands, 0, 7));
+        $this->assertTrue($certificateReady);
+        $this->assertCount(8, $commands->commands);
+        $this->assertStringContainsString('ALPHALINK_TRACKING_READY', $commands->commands[7]);
+        $this->assertStringContainsString('ALPHALINK_TRACKING_ROUTES', $commands->commands[7]);
+        $this->assertStringContainsString('RewriteRule ^/healthz$ /index.php [END,QSA]', $commands->commands[7]);
+        $this->assertStringContainsString('RewriteRule ^/([A-Za-z0-9]{10}[roub][A-Za-z0-9_-]{1,4096}(?:/[A-Za-z0-9_-]+)*)$ /index.php?__alphalink_long_uri=$1 [END,QSA,B]', $commands->commands[7]);
+        $this->assertStringContainsString('sender_example_test-le-ssl.conf', $commands->commands[7]);
     }
 
     public function test_domain_values_are_shell_quoted_in_the_certbot_request(): void
@@ -242,7 +244,14 @@ class AlphaLinkCentos9HttpsDeploymentStageTest extends TestCase
             {
                 $this->commands[] = $command;
 
-                return str_contains($command, 'ALPHALINK_PMTA_PROXY_READY') ? 'ALPHALINK_PMTA_PROXY_READY' : '';
+                if (str_contains($command, 'ALPHALINK_PMTA_PROXY_READY')) {
+                    return 'ALPHALINK_PMTA_PROXY_READY';
+                }
+                if (str_contains($command, 'ALPHALINK_DOMAIN_CERTIFICATE_READY')) {
+                    return 'ALPHALINK_DOMAIN_CERTIFICATE_READY';
+                }
+
+                return '';
             }
         };
     }

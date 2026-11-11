@@ -164,8 +164,8 @@ class AlphaLinkChangeDomainDnsRecordWriterTest extends TestCase
                     'content' => '"v=spf1 ip4:203.0.113.12 -all"', 'ttl' => 300,
                 ]],
                 'posts' => [
-                    ['type' => 'A', 'name' => 'example.co.uk', 'content' => '203.0.113.12', 'ttl' => 300],
-                    ['type' => 'AAAA', 'name' => 'example.co.uk', 'content' => '2001:41d0:601:2000::e65', 'ttl' => 300],
+                    ['type' => 'A', 'name' => 'example.co.uk', 'content' => '203.0.113.12', 'ttl' => 300, 'proxied' => false],
+                    ['type' => 'AAAA', 'name' => 'example.co.uk', 'content' => '2001:41d0:601:2000::e65', 'ttl' => 300, 'proxied' => false],
                 ],
             ]);
         self::assertCount(2, Http::recorded(fn ($request) => $request->method() === 'GET'
@@ -311,9 +311,55 @@ class AlphaLinkChangeDomainDnsRecordWriterTest extends TestCase
         [$domain] = $this->ownedDomain('cloudflare', ['api_key' => 'synthetic-cloudflare-token']);
         $domain->forceFill(['provider_domain_id' => $zoneId])->save();
 
-        self::assertFalse(app(AlphaLinkBulkInstallDomainDnsRecordWriter::class)->setHosts($domain, [[
+        $this->expectException(CloudflareDnsApiException::class);
+        $this->expectExceptionMessage('Cloudflare accepted the DNS update but the selected zone does not contain the requested installer records.');
+
+        app(AlphaLinkBulkInstallDomainDnsRecordWriter::class)->setHosts($domain, [[
+            'host' => '@', 'address' => '203.0.113.12', 'type' => 'A', 'ttl' => '60',
+        ]]);
+    }
+
+    public function test_cloudflare_installer_changes_proxied_addresses_to_dns_only(): void
+    {
+        $zoneId = str_repeat('a', 32);
+        $dnsRecords = [[
+            'id' => str_repeat('d', 32), 'type' => 'A', 'name' => 'example.co.uk',
+            'content' => '203.0.113.12', 'ttl' => 60, 'proxied' => true,
+        ]];
+        Http::fake(function ($request) use ($zoneId, &$dnsRecords) {
+            if (str_contains($request->url(), '/zones?')) {
+                return Http::response([
+                    'success' => true,
+                    'result' => [['id' => $zoneId, 'name' => 'example.co.uk']],
+                    'result_info' => ['total_pages' => 1],
+                ]);
+            }
+            if (str_ends_with($request->url(), '/dns_records/batch')) {
+                foreach ($request->data()['patches'] ?? [] as $record) {
+                    foreach ($dnsRecords as $index => $current) {
+                        if (($current['id'] ?? null) === ($record['id'] ?? null)) {
+                            $dnsRecords[$index] = [...$current, ...$record];
+                        }
+                    }
+                }
+
+                return Http::response(['success' => true, 'result' => ['patches' => $request->data()['patches'] ?? []]]);
+            }
+
+            return Http::response(['success' => true, 'result' => $dnsRecords, 'result_info' => ['total_pages' => 1]]);
+        });
+        [$domain] = $this->ownedDomain('cloudflare', ['api_key' => 'synthetic-cloudflare-token']);
+        $domain->forceFill(['provider_domain_id' => $zoneId])->save();
+
+        self::assertTrue(app(AlphaLinkBulkInstallDomainDnsRecordWriter::class)->setHosts($domain, [[
             'host' => '@', 'address' => '203.0.113.12', 'type' => 'A', 'ttl' => '60',
         ]]));
+        Http::assertSent(fn ($request) => $request->method() === 'POST'
+            && str_ends_with($request->url(), '/dns_records/batch')
+            && $request->data()['patches'] === [[
+                'id' => str_repeat('d', 32), 'type' => 'A', 'name' => 'example.co.uk',
+                'content' => '203.0.113.12', 'ttl' => 60, 'proxied' => false,
+            ]]);
     }
 
     public function test_cloudflare_install_rejects_a_saved_zone_that_belongs_to_another_domain(): void

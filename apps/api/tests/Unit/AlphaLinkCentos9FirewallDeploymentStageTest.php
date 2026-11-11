@@ -36,6 +36,17 @@ class AlphaLinkCentos9FirewallDeploymentStageTest extends TestCase
         $this->assertSame('firewall-cmd --reload;', $transport->commands[array_key_last($transport->commands)]);
     }
 
+    public function test_domain_certificate_ports_are_opened_without_changing_ssh_access(): void
+    {
+        $transport = $this->transport('ALPHALINK_CERTIFICATE_PORTS_READY');
+
+        $this->assertTrue($this->stage()->prepareDomainCertificatePorts($transport));
+        $this->assertCount(1, $transport->commands);
+        $this->assertStringContainsString('--add-service=http', $transport->commands[0]);
+        $this->assertStringContainsString('--add-service=https', $transport->commands[0]);
+        $this->assertStringNotContainsString('--remove-service=ssh', $transport->commands[0]);
+    }
+
     private function stage(?AlphaLinkCentos9FirewallPlanner $planner = null): AlphaLinkCentos9FirewallDeploymentStage
     {
         return new AlphaLinkCentos9FirewallDeploymentStage($planner ?? new AlphaLinkCentos9FirewallPlanner);

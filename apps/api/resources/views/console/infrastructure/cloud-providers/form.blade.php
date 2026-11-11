@@ -83,14 +83,17 @@
                     @foreach ($users->chunk(ceil(max(1, count($users)) / 2)) as $chunk)
                         <div class="col-sm-12 col-md-6">
                             @foreach ($chunk as $user)
-                                <div class="custom-control custom-checkbox mb-2 px-3 py-1">
-                                    <input type="checkbox" value="{{ $user->id }}"
-                                           class="custom-control-input" id="allowed-mailer-{{ $user->id }}"
-                                           name="allowed_users[]"
-                                           @checked(in_array((string) $user->id, array_map('strval', old('allowed_users', $provider?->allowed_users ?? [])), true))>
-                                    <label class="custom-control-label" for="allowed-mailer-{{ $user->id }}" style="cursor: pointer; font-size: 0.8125rem;">
-                                        <strong style="color: var(--command-os-text, #1e293b);">{{ $user->name }}</strong>
-                                        <span style="color: var(--command-os-text-muted, #64748b); font-size: 0.75rem;">({{ $user->username }})</span>
+                                <div class="mb-2 px-3 py-1">
+                                    <label class="command-table-checkbox-label d-inline-flex align-items-center mb-0" for="allowed-mailer-{{ $user->id }}" style="cursor: pointer;">
+                                        <input type="checkbox" value="{{ $user->id }}"
+                                               id="allowed-mailer-{{ $user->id }}"
+                                               name="allowed_users[]"
+                                               @checked(in_array((string) $user->id, array_map('strval', old('allowed_users', $provider?->allowed_users ?? [])), true))>
+                                        <span class="command-checkbox-custom-box mr-2"></span>
+                                        <span style="font-size: 0.8125rem;">
+                                            <strong style="color: var(--command-os-text, #1e293b);">{{ $user->name }}</strong>
+                                            <span style="color: var(--command-os-text-muted, #64748b); font-size: 0.75rem;">({{ $user->username }})</span>
+                                        </span>
                                     </label>
                                 </div>
                             @endforeach

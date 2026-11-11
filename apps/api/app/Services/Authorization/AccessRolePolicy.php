@@ -23,6 +23,10 @@ class AccessRolePolicy
         }
 
         $routeName = preg_replace('/^clean\./', '', $routeName) ?? $routeName;
+        if ($this->matchesAny($routeName, ['console.workspace-communications.*'])) {
+            return $role === User::ACCESS_ROLE_OPERATOR;
+        }
+
         if ($user instanceof User && $user->roles !== null) {
             $permissionGroup = $this->webRoutePermissionGroup($routeName);
             if ($permissionGroup === null) {

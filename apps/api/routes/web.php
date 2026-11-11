@@ -23,6 +23,7 @@ use App\Http\Controllers\Web\WorkspaceCampaignNegativeController;
 use App\Http\Controllers\Web\WorkspaceCampaignStatisticsConsoleController;
 use App\Http\Controllers\Web\WorkspaceCampaignVisitorsConsoleController;
 use App\Http\Controllers\Web\WorkspaceConsoleController;
+use App\Http\Controllers\Web\WorkspaceCommunicationController;
 use App\Http\Controllers\Web\WorkspaceDropsConsoleController;
 use App\Http\Controllers\Web\WorkspaceDropSuppressionController;
 use App\Http\Controllers\Web\WorkspaceEmailManagementController;
@@ -104,6 +105,12 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::patch('/app/workspaces/{workspace}/users/{user}/status', [WorkspaceUserManagementController::class, 'status'])->whereNumber('user')->middleware('throttle:10,1')->name('console.users.status');
     Route::get('/app/workspaces/{workspace}/users/{user}/password', [WorkspaceUserManagementController::class, 'password'])->whereNumber('user')->name('console.users.password');
     Route::put('/app/workspaces/{workspace}/users/{user}/password', [WorkspaceUserManagementController::class, 'updatePassword'])->whereNumber('user')->middleware('throttle:10,1')->name('console.users.password.update');
+    Route::get('/app/workspaces/{workspace}/communications', [WorkspaceCommunicationController::class, 'index'])->name('console.workspace-communications.index');
+    Route::post('/app/workspaces/{workspace}/communications', [WorkspaceCommunicationController::class, 'store'])->middleware('throttle:20,1')->name('console.workspace-communications.store');
+    Route::get('/app/workspaces/{workspace}/communications/feed', [WorkspaceCommunicationController::class, 'feed'])->middleware('throttle:60,1')->name('console.workspace-communications.feed');
+    Route::patch('/app/workspaces/{workspace}/communications/{communication}/read', [WorkspaceCommunicationController::class, 'markRead'])->whereNumber('communication')->middleware('throttle:60,1')->name('console.workspace-communications.read');
+    Route::patch('/app/workspaces/{workspace}/communications/{communication}/complete', [WorkspaceCommunicationController::class, 'complete'])->whereNumber('communication')->middleware('throttle:60,1')->name('console.workspace-communications.complete');
+    Route::patch('/app/workspaces/{workspace}/communications/{communication}/archive', [WorkspaceCommunicationController::class, 'archive'])->whereNumber('communication')->middleware('throttle:20,1')->name('console.workspace-communications.archive');
     Route::get('/app/workspaces/{workspace}/settings', [AppSettingsConsoleController::class, 'index'])->name('console.app-settings.index');
     Route::get('/app/workspaces/{workspace}/settings/secrets/{field}', [AppSettingsConsoleController::class, 'revealSecret'])
         ->where('field', '[a-z_]+')->middleware('throttle:20,1')->name('console.app-settings.secret');

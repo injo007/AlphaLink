@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Models\WorkspaceCommunicationRecipient;
 use App\Services\Authorization\AccessRoleAssignment;
 use Closure;
 use Illuminate\Http\JsonResponse;
@@ -132,6 +133,20 @@ class GlobalUserManagementController extends Controller
     {
         $actor = $this->authorizeUserManagement($request);
         $this->authorizeTarget($actor, $user);
+        $workspace = $this->layoutWorkspace($actor);
+        $operatorInWorkspace = $workspace !== null
+            && $user->access_role === User::ACCESS_ROLE_OPERATOR
+            && $user->is_active
+            && $workspace->users()->whereKey($user->getKey())->exists();
+        $communicationsForUser = $workspace === null
+            ? collect()
+            : WorkspaceCommunicationRecipient::query()
+                ->where('user_id', $user->getKey())
+                ->whereHas('communication', fn ($query) => $query->where('workspace_id', $workspace->getKey()))
+                ->with('communication.author:id,name,username')
+                ->latest()
+                ->limit(8)
+                ->get();
 
         return view('console.global-users.edit', [
             'user' => $user,
@@ -144,7 +159,9 @@ class GlobalUserManagementController extends Controller
             'permissionsAreRoleDefaults' => $user->roles === null,
             'selectedAccessRole' => (string) $user->access_role,
             'mailerPermissions' => User::MAILER_SENDING_PERMISSIONS,
-            'workspace' => $this->layoutWorkspace($request->user()),
+            'workspace' => $workspace,
+            'operatorInWorkspace' => $operatorInWorkspace,
+            'communicationsForUser' => $communicationsForUser,
         ]);
     }
 

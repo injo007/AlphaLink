@@ -62,9 +62,12 @@
                         <span class="font-w600" style="font-size: 0.8125rem;"><i class="fas fa-shield-alt mr-1 text-purple"></i> DNS & Security Options:</span>
                         <div class="command-trigger-group">
                             @foreach (['https' => 'HTTPS', 'spf' => 'SPF', 'dkim' => 'DKIM', 'dmarc' => 'DMARC'] as $option => $label)
-                                <div class="custom-control custom-switch">
-                                    <input type="checkbox" class="custom-control-input" id="change-domain-{{ $option }}" data-change-domain-option="{{ $option }}">
-                                    <label class="custom-control-label" for="change-domain-{{ $option }}">{{ $label }}</label>
+                                <div class="d-inline-flex align-items-center mr-2">
+                                    <label class="command-switch mr-2">
+                                        <input type="checkbox" id="change-domain-{{ $option }}" data-change-domain-option="{{ $option }}">
+                                        <span class="command-slider"></span>
+                                    </label>
+                                    <label class="command-form-label mb-0" for="change-domain-{{ $option }}" style="cursor: pointer; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em;">{{ $label }}</label>
                                 </div>
                             @endforeach
                         </div>

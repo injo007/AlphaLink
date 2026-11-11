@@ -123,4 +123,9 @@ class Workspace extends Model
     {
         return $this->hasMany(WorkspaceContactSubmission::class);
     }
+
+    public function communications(): HasMany
+    {
+        return $this->hasMany(WorkspaceCommunication::class);
+    }
 }

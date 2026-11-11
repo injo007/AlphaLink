@@ -102,63 +102,59 @@
                         next: '<i class="fas fa-chevron-right"></i>'
                     }
                 },
-                buttons: {
-                    dom: {
-                        container: { tag: 'div', className: 'dt-buttons' },
-                        button: { tag: 'button', className: 'btn' }
-                    },
-                    buttons: [
-                        {
-                            text: '<i class="fas fa-sync mr-1"></i> REFRESH',
-                            className: 'btn-command-action',
-                            titleAttr: 'REFRESH PROVIDERS',
-                            action: (event, datatable) => datatable.ajax.reload(null, false)
-                        },
-                        {
-                            text: '<i class="fas fa-plus mr-1"></i> NEW PROVIDER',
-                            className: 'btn-command-primary',
-                            titleAttr: 'ADD NEW PROVIDER',
-                            action: function () {
-                                const link = @json(route('clean.console.infrastructure.domain-providers.create'));
-                                const iframe = `<iframe src="${escapeHtml(link)}" width="100%" scrolling="no" frameborder="0" title="Add domain provider"></iframe>`;
-                                window.providerDialog = bootbox.dialog({
-                                    className: 'command-modal-dialog',
-                                    scrollable: true,
-                                    closeButton: true,
-                                    size: 'lg',
-                                    message: iframe,
-                                    onEscape: true,
-                                    centerVertical: true,
-                                }).on('shown.bs.modal', function () {
-                                    if (typeof iFrameResize === 'function') { iFrameResize({}, 'iframe'); }
-                                }).on('hidden.bs.modal', function () {
-                                    $('iframe').remove();
-                                });
-                            }
+                buttons: [
+                    { extend: 'pageLength', className: 'btn-command-action' },
+                    {
+                        text: '<i class="fas fa-plus mr-1"></i> NEW PROVIDER',
+                        className: 'btn-command-primary',
+                        titleAttr: 'ADD NEW PROVIDER',
+                        action: function () {
+                            const link = @json(route('clean.console.infrastructure.domain-providers.create'));
+                            const iframe = `<iframe src="${escapeHtml(link)}" width="100%" scrolling="no" frameborder="0" title="Add domain provider"></iframe>`;
+                            window.providerDialog = bootbox.dialog({
+                                className: 'command-modal-dialog',
+                                scrollable: true,
+                                closeButton: true,
+                                size: 'lg',
+                                message: iframe,
+                                onEscape: true,
+                                centerVertical: true,
+                            }).on('shown.bs.modal', function () {
+                                if (typeof iFrameResize === 'function') { iFrameResize({}, 'iframe'); }
+                            }).on('hidden.bs.modal', function () {
+                                $('iframe').remove();
+                            });
                         }
-                    ]
-                },
+                    },
+                    {
+                        text: '<i class="fas fa-sync mr-1"></i> REFRESH',
+                        className: 'btn-command-action',
+                        titleAttr: 'REFRESH PROVIDERS',
+                        action: (event, datatable) => datatable.ajax.reload(null, false)
+                    },
+                ],
                 rowCallback: function (row, data) {
                     if (!data.is_active) { $(row).addClass('table-danger'); }
                 },
                 columns: [
-                    { title: '#', data: 'id', render: (data) => `<span class="badge badge-light border font-mono font-size-xs text-muted">#${escapeHtml(data)}</span>` },
-                    { title: 'NAME', data: 'name', render: (data) => `<span class="font-w600 text-purple">${escapeHtml(data)}</span>` },
-                    { title: 'TYPE', data: 'type', render: (data) => `<span class="badge badge-light border text-purple font-w700 text-uppercase px-2 py-1">${escapeHtml(data)}</span>` },
-                    { title: 'USERNAME', data: 'username', render: (data) => `<span class="font-mono font-size-sm">${escapeHtml(data)}</span>` },
+                    { title: '#', data: 'id', width: '6%', render: (data) => `<span class="command-mono-badge">#${escapeHtml(data)}</span>` },
+                    { title: 'NAME', data: 'name', width: '18%', render: (data) => `<span class="font-w600" style="color: #8b5cf6;">${escapeHtml(data)}</span>` },
+                    { title: 'TYPE', data: 'type', width: '14%', render: (data) => `<span class="badge-command-pill" style="color: #8b5cf6; font-weight: 700; text-transform: uppercase;">${escapeHtml(data)}</span>` },
+                    { title: 'USERNAME', data: 'username', width: '18%', render: (data) => `<span style="font-family: monospace; font-size: 0.8125rem;">${escapeHtml(data || 'N/A')}</span>` },
                     {
                         title: 'TOTAL DOMAINS',
                         data: 'sending_domains_count',
-                        render: (count, type) => type === 'display' ? `<a href="${@json(route('clean.console.infrastructure.domains.index'))}" class="command-table-link"><span class="badge badge-light border text-purple px-2 py-1 font-w700">${Number(count) || 0} Domains</span></a>` : count,
+                        width: '16%',
+                        render: (count, type) => type === 'display' ? `<a href="${@json(route('clean.console.infrastructure.domains.index'))}" class="badge-command-pill" style="color: #6366f1; text-decoration: none; font-weight: 700;"><i class="fas fa-globe mr-1" style="font-size: 0.75rem;"></i>${Number(count) || 0} Domains</a>` : count,
                     },
-                    { title: 'CREATED AT', data: 'created_at', render: (data) => `<span class="text-muted font-size-xs">${escapeHtml(data)}</span>` },
+                    { title: 'CREATED AT', data: 'created_at', width: '14%', render: (data) => `<span style="font-size: 0.8125rem; color: var(--command-os-text-muted, #64748b);">${escapeHtml(data || '')}</span>` },
                     {
-                        title: 'ACTIONS', data: null, orderable: false, searchable: false, width: '120px',
+                        title: 'ACTIONS', data: null, orderable: false, searchable: false, width: '14%',
                         render: function (data, type, row) {
                             const id = escapeHtml(row.id);
                             const update = `<button type="button" data-id="${id}" class="command-action-btn action-info update" title="UPDATE PROVIDER" aria-label="Update provider"><i class="fas fa-pencil-alt"></i></button>`;
                             const active = Boolean(row.is_active);
-                            const status = `<button type="button" data-id="${id}" data-action="${active ? 0 : 1}" class="command-action-btn action-status ${active ? 'is-active' : ''} status" title="${active ? 'DISABLE' : 'ENABLE'} PROVIDER" aria-label="${active ? 'Disable' : 'Enable'} provider"><i class="fas ${active ? 'fa-times' : 'fa-check'}"></i></button>`;
+                            const status = `<button type="button" data-id="${id}" data-action="${active ? 0 : 1}" class="command-action-btn ${active ? 'action-warning' : 'action-success'} status" title="${active ? 'DISABLE' : 'ENABLE'} PROVIDER" aria-label="${active ? 'Disable' : 'Enable'} provider"><i class="fas ${active ? 'fa-pause' : 'fa-play'}"></i></button>`;
                             return `<div class="command-action-btn-group">${update}${status}</div>`;
                         },
                     },

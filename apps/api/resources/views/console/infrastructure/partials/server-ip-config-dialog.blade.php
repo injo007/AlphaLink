@@ -32,9 +32,12 @@
         ></textarea>
     </div>
 
-    <div class="custom-control custom-checkbox mt-2">
-        <input type="checkbox" class="custom-control-input" id="{{ $idPrefix }}-ip-config-permanent" data-server-ip-config-permanent>
-        <label class="custom-control-label" for="{{ $idPrefix }}-ip-config-permanent" style="font-size: 0.8125rem; font-weight: 600;">PERMANENT CONFIGURATION</label>
+    <div class="mt-2">
+        <label class="command-table-checkbox-label d-inline-flex align-items-center mb-0" for="{{ $idPrefix }}-ip-config-permanent" style="cursor: pointer;">
+            <input type="checkbox" id="{{ $idPrefix }}-ip-config-permanent" data-server-ip-config-permanent>
+            <span class="command-checkbox-custom-box mr-2"></span>
+            <span class="font-w600" style="font-size: 0.8125rem;">PERMANENT CONFIGURATION</span>
+        </label>
     </div>
     <p class="server-ip-config-note" style="font-size: 0.75rem; color: var(--command-os-text-muted, #64748b); margin-top: 6px;">Permanent configuration writes interface alias files and restarts networking. Temporary configuration applies aliases dynamically until the next restart.</p>
     <p class="server-ip-config-error text-danger" role="alert" aria-live="polite" data-server-ip-config-error style="font-size: 0.8125rem;"></p>

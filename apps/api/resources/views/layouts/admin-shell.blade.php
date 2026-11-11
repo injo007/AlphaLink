@@ -170,6 +170,7 @@
         $isCloudProvidersPage = $routeIs('console.infrastructure.cloud-providers.*');
         $isCloudWorkflowPage = $routeIs('console.clouds.*');
         $isAppSettingsPage = $routeIs('console.app-settings.*');
+        $isWorkspaceCommunicationsPage = $routeIs('console.workspace-communications.*');
         $isAppHealthPage = $routeIs('console.miscellaneous.app-health');
         $isAppErrorsPage = $routeIs('console.miscellaneous.app-errors');
         $isSubscribersPage = $routeIs('console.miscellaneous.subscribers');
@@ -433,6 +434,12 @@
         $settingsItems = array_merge(
             $flattenNavigationItems($usersGroup['items'] ?? []),
             array_values(array_filter($miscellaneousGroup['items'] ?? [], static fn (array $item): bool => $item['label'] === 'SETTINGS')),
+            auth()->user()->hasFullAccess() && $workspace ? [[
+                'label' => 'TEAM TASKS & MESSAGES',
+                'icon' => 'fas fa-inbox',
+                'href' => route('clean.console.workspace-communications.index'),
+                'active' => $isWorkspaceCommunicationsPage,
+            ]] : [],
         );
         $serverProviderItem = collect($serversGroup['items'] ?? [])->firstWhere('label', 'SERVERS PROVIDERS');
         $cloudProviderItem = collect($serversGroup['items'] ?? [])->firstWhere('label', 'CLOUD PROVIDERS');
@@ -482,7 +489,7 @@
             $makeCommandOsNavGroup('AUDIENCE INTELLIGENCE', 'fas fa-users', $listsUrl, $isIspManagementPage || $isAudienceMixesPage, $audienceItems, $isIspManagementPage || $isAudienceMixesPage, 'nav-v2-audience-intelligence'),
             $makeCommandOsNavGroup('OPERATIONS TOOLKIT', 'fas fa-toolbox', route('clean.console.tools.workspace.index'), $isTextMechanicPage || $isEncodingPage || $isSpfScannerPage || $isWorkspaceToolPage || $isGlobalTestsPage || $isGlobalTestHistoriesPage || $isSubscribersPage || $isContactsPage || $isHorizonPage || $isAppHealthPage || $isAppErrorsPage, $flattenNavigationItems($operationItems), $isGlobalTestsPage || $isGlobalTestHistoriesPage || $isTextMechanicPage || $isEncodingPage || $isSpfScannerPage || $isWorkspaceToolPage || $isSubscribersPage || $isContactsPage || $isHorizonPage || $isAppHealthPage || $isAppErrorsPage, 'nav-v2-operations-toolkit'),
             $makeCommandOsNavGroup('DROP CAMPAIGNS (V1)', 'fas fa-layer-group', $dropDraftsUrl, $isDropDraftPage || $isDropsMonitoringPage, $flattenNavigationItems($dropItems), $isDropDraftPage || $isDropsMonitoringPage, 'nav-v2-drop-campaigns'),
-            $makeCommandOsNavGroup('WORKSPACE SETTINGS', 'fas fa-cog', $appSettingsUrl, $isAppSettingsPage || $isUsersPage || $isGlobalUsersPage, $flattenNavigationItems($settingsItems), $isAppSettingsPage || $isUsersPage || $isGlobalUsersPage, 'nav-v2-workspace-settings'),
+            $makeCommandOsNavGroup('WORKSPACE SETTINGS', 'fas fa-cog', $appSettingsUrl, $isAppSettingsPage || $isUsersPage || $isGlobalUsersPage || $isWorkspaceCommunicationsPage, $flattenNavigationItems($settingsItems), $isAppSettingsPage || $isUsersPage || $isGlobalUsersPage || $isWorkspaceCommunicationsPage, 'nav-v2-workspace-settings'),
             $redirectsGroup,
         ];
         $commandOsNavigation = array_values(array_filter($commandOsNavigation, static fn (array $group): bool => $group !== []));
@@ -713,9 +720,39 @@
                 </div>
                 <div class="d-flex align-items-center command-os-header-trailing">
                     @if ($commandOsShell)
-                        <a class="btn btn-sm btn-dual command-os-header-icon command-os-header-control command-os-notification-link" href="{{ $appHealthUrl }}" aria-label="Notifications and system health" title="Notifications and system health">
-                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>
-                        </a>
+                        @if ($workspace && in_array(auth()->user()->access_role, ['owner', 'admin', 'operator'], true))
+                            <div class="command-os-communications" id="command-os-communications"
+                                data-feed-url="{{ route('clean.console.workspace-communications.feed') }}"
+                                data-read-url-template="{{ route('clean.console.workspace-communications.read', ['communication' => '__COMMUNICATION__']) }}"
+                                data-complete-url-template="{{ route('clean.console.workspace-communications.complete', ['communication' => '__COMMUNICATION__']) }}"
+                                data-health-url="{{ auth()->user()->hasFullAccess() ? $appHealthUrl : '' }}">
+                                <button type="button" class="btn btn-sm btn-dual command-os-header-control command-os-inbox-trigger" data-communication-open="inbox" aria-haspopup="dialog" aria-expanded="false" aria-controls="command-os-inbox-popover" title="Tasks and messages">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 13h4l2 3h6l2-3h4" /></svg>
+                                    <span class="command-os-header-action-label">Tasks &amp; messages</span><span class="command-os-header-badge" data-open-task-count hidden>0</span>
+                                </button>
+                                <div class="command-os-communication-popover command-os-inbox-popover" id="command-os-inbox-popover" role="dialog" aria-labelledby="command-os-inbox-title" hidden>
+                                    <div class="command-os-communication-heading"><div><span class="command-os-communication-kicker">WORKSPACE</span><h2 id="command-os-inbox-title">Tasks &amp; messages</h2></div><button type="button" class="command-os-communication-close" data-communication-close aria-label="Close tasks and messages">×</button></div>
+                                    <div class="command-os-communication-list" data-inbox-list><p class="command-os-communication-empty">Loading your workspace inbox…</p></div>
+                                    @if (auth()->user()->hasFullAccess())
+                                        <a class="command-os-communication-footer" href="{{ route('clean.console.workspace-communications.index') }}">Manage team updates <span aria-hidden="true">→</span></a>
+                                    @endif
+                                </div>
+                                <button type="button" class="btn btn-sm btn-dual command-os-header-icon command-os-header-control command-os-notification-link" data-communication-open="notifications" aria-haspopup="dialog" aria-expanded="false" aria-controls="command-os-notification-popover" aria-label="Notifications" title="Notifications">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg><span class="command-os-header-badge command-os-notification-badge" data-unread-count hidden>0</span>
+                                </button>
+                                <div class="command-os-communication-popover command-os-notification-popover" id="command-os-notification-popover" role="dialog" aria-labelledby="command-os-notification-title" hidden>
+                                    <div class="command-os-communication-heading"><div><span class="command-os-communication-kicker">WORKSPACE</span><h2 id="command-os-notification-title">Notifications</h2></div><button type="button" class="command-os-communication-close" data-communication-close aria-label="Close notifications">×</button></div>
+                                    <div class="command-os-communication-list" data-notification-list><p class="command-os-communication-empty">Loading your notifications…</p></div>
+                                    @if (auth()->user()->hasFullAccess())
+                                        <a class="command-os-communication-footer" href="{{ $appHealthUrl }}"><span>Application health</span><span aria-hidden="true">→</span></a>
+                                    @endif
+                                </div>
+                            </div>
+                        @elseif (auth()->user()->hasFullAccess())
+                            <a class="btn btn-sm btn-dual command-os-header-icon command-os-header-control command-os-notification-link" href="{{ $appHealthUrl }}" aria-label="Application health" title="Application health">
+                                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>
+                            </a>
+                        @endif
                         <div id="command-os-theme-toggle"></div>
                     @endif
                     @if (session()->has('alphalink.impersonator_id'))
@@ -799,6 +836,9 @@
     @if ($commandOsShell)
         <script src="{{ asset('console-assets/command-os-drawer.js') }}?v={{ substr(sha1_file(public_path('console-assets/command-os-drawer.js')), 0, 12) }}" defer></script>
         <script src="{{ asset('console-assets/command-os-search.js') }}?v={{ substr(sha1_file(public_path('console-assets/command-os-search.js')), 0, 12) }}" defer></script>
+        @if ($workspace && in_array(auth()->user()->access_role, ['owner', 'admin', 'operator'], true))
+            <script src="{{ asset('console-assets/team-communications.js') }}?v={{ substr(sha1_file(public_path('console-assets/team-communications.js')), 0, 12) }}" defer></script>
+        @endif
     @endif
     @if ($isListsPage || $isListHistoryPage || $isSponsorManagementPage || $isNetworkSponsorsPage || $isOfferManagementPage || $isNetworkOffersPage || $isServerInstallPage || $isReinstallPage || $isChangeDomainPage || $isCloudProvidersPage || $isDomainProvidersPage || $isPmtaPage || $isDropsPage || $isWarmupDraftPage || $isWorkspaceToolPage || $isAppSettingsPage || $routeIs('console.drops.suppression*', 'console.campaigns.create', 'console.campaigns.edit', 'console.campaigns.show', 'console.campaigns.clone', 'console.campaigns.index', 'console.mailer.campaigns'))
         <script src="{{ asset('console-assets/plugins/bootstrap_select/bootstrap-select.js') }}"></script>

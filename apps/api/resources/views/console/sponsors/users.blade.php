@@ -35,11 +35,12 @@
         <div class="row mb-4">
             @foreach ($users as $user)
                 <div class="col-12 col-md-6 mb-2">
-                    <label class="d-flex align-items-center p-2 rounded border" style="background: var(--cv-surface-2); cursor: pointer;" for="allowed-user-{{ $user->id }}">
-                        <input type="checkbox" value="{{ $user->id }}" class="mr-2" id="allowed-user-{{ $user->id }}" name="checked_users" @checked(!$bulk && in_array((int) $user->id, array_map('intval', $sponsor->allowed_users ?? []), true))>
+                    <label class="command-table-checkbox-label d-flex align-items-center p-2 rounded border mb-0" style="background: var(--command-os-card-bg, #ffffff); border-color: var(--command-os-border, rgba(99, 102, 241, 0.16)) !important; cursor: pointer;" for="allowed-user-{{ $user->id }}">
+                        <input type="checkbox" value="{{ $user->id }}" id="allowed-user-{{ $user->id }}" name="checked_users" @checked(!$bulk && in_array((int) $user->id, array_map('intval', $sponsor->allowed_users ?? []), true))>
+                        <span class="command-checkbox-custom-box mr-2"></span>
                         <span class="font-size-sm text-ink font-w600">{{ $user->name }}</span>
                         @if ($user->username)
-                            <span class="font-size-xs text-muted ml-auto font-mono">{{ $user->username }}</span>
+                            <span class="font-size-xs text-muted ml-auto font-mono">({{ $user->username }})</span>
                         @endif
                     </label>
                 </div>

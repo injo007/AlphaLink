@@ -79,8 +79,10 @@
             };
             const statusBadge = (value, label) => {
                 const isListed = value === true;
-                const color = isListed ? 'badge-command-active-no' : 'badge-command-active-yes';
-                return '<span class="badge-command-pill ip-badge ' + color + '" title="' + escapeHtml(label) + '">' + (isListed ? 'YES' : 'NO') + '</span>';
+                const style = isListed
+                    ? 'background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.5); color: #f87171; font-weight: 800; font-size: 9px; padding: 2px 7px;'
+                    : 'background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); color: #34d399; font-weight: 700; font-size: 9px; padding: 2px 7px;';
+                return `<span class="badge-command-pill ip-badge" style="${style}" title="${escapeHtml(label)}: ${isListed ? 'LISTED (ALERT)' : 'CLEAN'}">${isListed ? 'YES' : 'NO'}</span>`;
             };
             const historyValue = (history, key) => history && history[key] != null ? history[key] : '';
             const ajaxUrl = new URL(table.dataset.sourceUrl, window.location.href);

@@ -76,9 +76,12 @@
                         </div>
                         <div class="command-trigger-group">
                             @foreach (['pmta' => 'PMTA', 'tracking' => 'TRACKING', 'https' => 'HTTPS', 'proxy' => 'PROXY', 'imap' => 'IMAP', 'spf' => 'SPF', 'dkim' => 'DKIM', 'dmarc' => 'DMARC'] as $option => $label)
-                                <div class="custom-control custom-switch">
-                                    <input type="checkbox" class="custom-control-input" id="reinstall-{{ $option }}" data-reinstall-option="{{ $option }}">
-                                    <label class="custom-control-label" for="reinstall-{{ $option }}">{{ $label }}</label>
+                                <div class="d-inline-flex align-items-center mr-2">
+                                    <label class="command-switch mr-2">
+                                        <input type="checkbox" id="reinstall-{{ $option }}" data-reinstall-option="{{ $option }}">
+                                        <span class="command-slider"></span>
+                                    </label>
+                                    <label class="command-form-label mb-0" for="reinstall-{{ $option }}" style="cursor: pointer; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em;">{{ $label }}</label>
                                 </div>
                             @endforeach
                         </div>
@@ -103,9 +106,12 @@
                     </div>
 
                     <div class="d-flex flex-wrap align-items-center justify-content-between mt-3" style="gap: 10px;">
-                        <div class="custom-control custom-switch custom-control-inline">
-                            <input type="checkbox" class="custom-control-input" id="reinstall-with-ipv6" checked>
-                            <label class="custom-control-label font-w600" for="reinstall-with-ipv6" style="font-size: 0.8125rem;">WITH IPV6 SUPPORT</label>
+                        <div class="d-inline-flex align-items-center">
+                            <label class="command-switch mr-2">
+                                <input type="checkbox" id="reinstall-with-ipv6" checked>
+                                <span class="command-slider"></span>
+                            </label>
+                            <label class="command-form-label mb-0" for="reinstall-with-ipv6" style="cursor: pointer; font-size: 0.8125rem; font-weight: 700;">WITH IPV6 SUPPORT</label>
                         </div>
                         <div class="d-flex align-items-center" style="gap: 8px;">
                             <button type="button" class="btn-command-action" id="reload-reinstall-ips" disabled>

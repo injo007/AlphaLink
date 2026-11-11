@@ -76,10 +76,13 @@
                             <small class="text-muted mt-1 d-block" style="font-size: 0.75rem;">Select domains in the order they should receive IP groups.</small>
                         </div>
 
-                        <div class="command-form-group">
-                            <div class="custom-control custom-switch custom-control-primary mb-1">
-                                <input type="checkbox" class="custom-control-input" id="single-with-ipv6" checked>
-                                <label class="custom-control-label" for="single-with-ipv6" style="font-size: 0.8125rem; font-weight: 600;">WITH IPV6 SUPPORT</label>
+                        <div class="command-form-group mb-3">
+                            <div class="d-inline-flex align-items-center">
+                                <label class="command-switch mr-2">
+                                    <input type="checkbox" id="single-with-ipv6" checked>
+                                    <span class="command-slider"></span>
+                                </label>
+                                <label class="command-form-label mb-0" for="single-with-ipv6" style="cursor: pointer; font-size: 0.8125rem; font-weight: 700;">WITH IPV6 SUPPORT</label>
                             </div>
                         </div>
 
@@ -106,9 +109,12 @@
                             </div>
                             <div class="command-trigger-group">
                                 @foreach (['tracking' => 'TRACKING', 'https' => 'HTTPS', 'proxy' => 'PROXY', 'imap' => 'IMAP', 'spf' => 'SPF', 'dkim' => 'DKIM', 'dmarc' => 'DMARC'] as $option => $label)
-                                    <div class="custom-control custom-switch">
-                                        <input type="checkbox" class="custom-control-input" id="{{ $option }}" @checked(in_array($option, ['tracking', 'imap', 'spf', 'dkim', 'dmarc'], true))>
-                                        <label class="custom-control-label" for="{{ $option }}">{{ $label }}</label>
+                                    <div class="d-inline-flex align-items-center mr-2">
+                                        <label class="command-switch mr-2">
+                                            <input type="checkbox" id="{{ $option }}" @checked(in_array($option, ['tracking', 'imap', 'spf', 'dkim', 'dmarc'], true))>
+                                            <span class="command-slider"></span>
+                                        </label>
+                                        <label class="command-form-label mb-0" for="{{ $option }}" style="cursor: pointer; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em;">{{ $label }}</label>
                                     </div>
                                 @endforeach
                             </div>

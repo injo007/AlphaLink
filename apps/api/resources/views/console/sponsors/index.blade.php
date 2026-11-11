@@ -168,11 +168,18 @@
                         }
                     },
                     buttons: [
+                        { extend: 'pageLength', className: 'btn-command-action' },
                         {
-                            text: '<i class="fas fa-sync-alt mr-1"></i> REFRESH',
+                            text: '<i class="far fa-square mr-1"></i> DESELECT',
                             className: 'btn-command-action',
-                            titleAttr: 'REFRESH',
-                            action: (event, table) => table.ajax.reload(null, false),
+                            titleAttr: 'SELECT NONE',
+                            action: (event, dt) => dt.rows({ page: 'current' }).deselect(),
+                        },
+                        {
+                            text: '<i class="far fa-check-square mr-1"></i> SELECT ALL',
+                            className: 'btn-command-action',
+                            titleAttr: 'SELECT ALL',
+                            action: (event, dt) => dt.rows({ page: 'current' }).select(),
                         },
                         {
                             text: '<i class="fas fa-plus mr-1"></i> NEW SPONSOR',
@@ -190,6 +197,12 @@
                                 openSponsorFrame(`${tableElement.dataset.bulkUsersUrl}?${$.param({ ids })}`);
                             },
                         },
+                        {
+                            text: '<i class="fas fa-sync-alt mr-1"></i> REFRESH',
+                            className: 'btn-command-action',
+                            titleAttr: 'REFRESH',
+                            action: (event, table) => table.ajax.reload(null, false),
+                        },
                     ]
                 },
                 rowCallback: (row, data) => {
@@ -197,23 +210,25 @@
                 },
                 select: { style: 'multi+shift', selector: 'td:first-child' },
                 columns: [
-                    { data: null, defaultContent: '', orderable: false, searchable: false, className: 'select-checkbox', title: '' },
-                    { title: '#', data: 'id', render: (val) => `<span class="font-mono text-muted">#${escapeHtml(val)}</span>` },
-                    { title: 'AFFILIATE ID', data: 'affiliate_id', render: (val) => val ? `<span class="badge badge-light border font-mono">${escapeHtml(val)}</span>` : '<span class="text-muted">—</span>' },
-                    { title: 'NAME', data: 'name', render: (val) => `<strong class="text-ink">${escapeHtml(val)}</strong>` },
-                    { title: 'USERNAME', data: 'username', render: (val) => `<span class="font-mono text-muted font-size-xs">${escapeHtml(val)}</span>` },
-                    { title: 'TYPE', data: 'type', render: (val) => `<span class="badge badge-light border text-purple font-w700 text-uppercase px-2 py-1">${escapeHtml(val || 'GENERIC')}</span>` },
-                    { title: 'CREATED AT', data: 'created_at', render: (val) => val ? `<span class="text-muted text-nowrap font-size-xs">${escapeHtml(val.split(' ')[0] || val)}</span>` : '' },
-                    { title: 'TOTAL OFFERS', data: 'offers_count', render: (value, type, row) => type === 'display' ? `<a href="${@json(route('clean.console.offers.index'))}?sponsor=${escapeHtml(row.id)}" class="command-table-link"><span class="badge badge-light border text-purple px-2 py-1 font-w700">${Number(value || 0)} Offers</span></a>` : value },
+                    { data: null, defaultContent: '', orderable: false, searchable: false, className: 'select-checkbox', title: '', width: '3%' },
+                    { title: '#', data: 'id', width: '6%', render: (val) => `<span class="command-mono-badge">#${escapeHtml(val)}</span>` },
+                    { title: 'AFFILIATE ID', data: 'affiliate_id', width: '8%', render: (val) => val ? `<span class="badge-command-pill" style="font-family: monospace;">${escapeHtml(val)}</span>` : '<span class="text-muted">—</span>' },
+                    { title: 'NAME', data: 'name', width: '12%', render: (val) => `<strong style="color: var(--command-os-text, #1e293b);">${escapeHtml(val)}</strong>` },
+                    { title: 'USERNAME', data: 'username', width: '14%', render: (val) => `<span style="font-family: monospace; font-size: 0.8125rem; color: var(--command-os-text-muted, #64748b);">${escapeHtml(val)}</span>` },
+                    { title: 'TYPE', data: 'type', width: '8%', render: (val) => `<span class="badge-command-pill" style="color: #8b5cf6; font-weight: 700; text-transform: uppercase;">${escapeHtml(val || 'GENERIC')}</span>` },
+                    { title: 'CREATED AT', data: 'created_at', width: '9%', render: (val) => val ? `<span style="font-size: 0.8125rem; color: var(--command-os-text-muted, #64748b);">${escapeHtml(val.split(' ')[0] || val)}</span>` : '' },
+                    { title: 'TOTAL OFFERS', data: 'offers_count', width: '8%', render: (value, type, row) => type === 'display' ? `<a href="${@json(route('clean.console.offers.index'))}?sponsor=${escapeHtml(row.id)}" class="badge-command-pill" style="color: #6366f1; text-decoration: none; font-weight: 700;"><i class="fas fa-tag mr-1" style="font-size: 0.75rem;"></i>${Number(value || 0)} Offers</a>` : value },
                     {
                         title: 'USERS',
                         data: 'allowed_users',
                         searchable: false,
-                        render: (users, type, row) => `<button type="button" data-id="${escapeHtml(row.id)}" class="btn btn-link users command-users-link" title="ALLOWED USERS" aria-label="Manage allowed users for ${escapeHtml(row.name)}"><i class="fas fa-users mr-1"></i>${Array.isArray(users) ? users.length : 0}</button>`,
+                        width: '7%',
+                        render: (users, type, row) => `<button type="button" data-id="${escapeHtml(row.id)}" class="badge-command-pill users command-users-link" title="ALLOWED USERS" aria-label="Manage allowed users for ${escapeHtml(row.name)}"><i class="fas fa-users mr-1"></i>${Array.isArray(users) ? users.length : 0}</button>`,
                     },
                     {
                         title: 'URL',
                         data: 'url',
+                        width: '6%',
                         render: (url, type) => type === 'display' && url
                             ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="command-action-btn action-url" title="Open sponsor website" aria-label="Open sponsor website"><i class="fas fa-external-link-alt"></i></a>`
                             : (url || ''),
@@ -223,11 +238,12 @@
                         data: null,
                         orderable: false,
                         searchable: false,
+                        width: '14%',
                         render: (data, type, row) => {
                             const editUrl = @json(route('clean.console.sponsors.index')) + `/${row.id}/edit`;
-                            const login = `<button type="button" data-id="${escapeHtml(row.id)}" class="command-action-btn action-login login" title="LOGIN SPONSOR" aria-label="Login to ${escapeHtml(row.name)}"><i class="fas fa-sign-in-alt"></i></button>`;
-                            const update = `<button type="button" data-url="${escapeHtml(editUrl)}" class="command-action-btn action-edit update" title="UPDATE SPONSOR" aria-label="Update ${escapeHtml(row.name)}"><i class="fas fa-edit"></i></button>`;
-                            const statusButton = `<button type="button" data-id="${escapeHtml(row.id)}" data-action="status" data-status="${row.is_active ? 0 : 1}" class="command-action-btn ${row.is_active ? 'action-status is-active' : 'action-enable'} status" title="${row.is_active ? 'DISABLE SPONSOR' : 'ENABLE SPONSOR'}" aria-label="${row.is_active ? 'DISABLE SPONSOR' : 'ENABLE SPONSOR'}"><i class="fas ${row.is_active ? 'fa-toggle-on' : 'fa-toggle-off'}"></i></button>`;
+                            const login = `<button type="button" data-id="${escapeHtml(row.id)}" class="command-action-btn action-terminal login" title="LOGIN SPONSOR" aria-label="Login to ${escapeHtml(row.name)}"><i class="fas fa-sign-in-alt"></i></button>`;
+                            const update = `<button type="button" data-url="${escapeHtml(editUrl)}" class="command-action-btn action-info update" title="UPDATE SPONSOR" aria-label="Update ${escapeHtml(row.name)}"><i class="fas fa-pencil-alt"></i></button>`;
+                            const statusButton = `<button type="button" data-id="${escapeHtml(row.id)}" data-action="status" data-status="${row.is_active ? 0 : 1}" class="command-action-btn ${row.is_active ? 'action-warning' : 'action-success'} status" title="${row.is_active ? 'DISABLE SPONSOR' : 'ENABLE SPONSOR'}" aria-label="${row.is_active ? 'DISABLE SPONSOR' : 'ENABLE SPONSOR'}"><i class="fas ${row.is_active ? 'fa-pause' : 'fa-play'}"></i></button>`;
                             return `<div class="command-action-btn-group">${login}${update}${statusButton}</div>`;
                         },
                     },

@@ -48,9 +48,12 @@
                 </div>
                 <div class="command-trigger-group">
                     @foreach (['tracking' => 'TRACKING', 'proxy' => 'PROXY', 'imap' => 'IMAP', 'spf' => 'SPF', 'dkim' => 'DKIM', 'dmarc' => 'DMARC', 'https' => 'HTTPS'] as $option => $label)
-                        <div class="custom-control custom-switch">
-                            <input type="checkbox" class="custom-control-input" id="{{ $option }}" name="{{ $option }}" @checked(in_array($option, ['tracking', 'imap', 'spf', 'dkim', 'dmarc'], true))>
-                            <label class="custom-control-label" for="{{ $option }}">{{ $label }}</label>
+                        <div class="d-inline-flex align-items-center mr-2">
+                            <label class="command-switch mr-2">
+                                <input type="checkbox" id="{{ $option }}" name="{{ $option }}" @checked(in_array($option, ['tracking', 'imap', 'spf', 'dkim', 'dmarc'], true))>
+                                <span class="command-slider"></span>
+                            </label>
+                            <label class="command-form-label mb-0" for="{{ $option }}" style="cursor: pointer; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em;">{{ $label }}</label>
                         </div>
                     @endforeach
                 </div>
@@ -87,10 +90,10 @@
                                     </div>
                                 </td>
                                 <td class="bulk-install-apply text-center">
-                                    <div class="custom-control custom-checkbox d-inline-block">
-                                        <input type="checkbox" class="custom-control-input" id="apply-domain-{{ $server->id }}" data-apply-domain aria-label="Apply this domain to all servers">
-                                        <label class="custom-control-label" for="apply-domain-{{ $server->id }}"></label>
-                                    </div>
+                                    <label class="command-table-checkbox-label d-inline-flex align-items-center justify-content-center mb-0" for="apply-domain-{{ $server->id }}" style="cursor: pointer;">
+                                        <input type="checkbox" id="apply-domain-{{ $server->id }}" data-apply-domain aria-label="Apply this domain to all servers">
+                                        <span class="command-checkbox-custom-box"></span>
+                                    </label>
                                 </td>
                                 <td>
                                     <button type="button" class="command-action-btn action-danger bulk-install-remove" data-remove-row aria-label="Remove server from bulk installation"><i class="fa fa-times" aria-hidden="true"></i></button>

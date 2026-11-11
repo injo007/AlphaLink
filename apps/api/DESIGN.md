@@ -108,6 +108,10 @@ Campaign Logs shares the campaign register's quiet Command OS surfaces and compa
 
 Provider Network is the shared parent for server-provider setup, cloud-provider setup and workflows, domain-provider setup, and sponsor management. Existing route permissions stay authoritative. Saved global navigation order may move any child to another parent; migrations that establish a new default must preserve other saved page placements and relative ordering.
 
+### Workspace communication center — 2026-11-11
+
+Team Tasks & Messages is a workspace-owned feature in Workspace Settings. The Owner and Admin author tasks, messages, or notifications for the active team or one active Operator. Tasks and messages use the shared header inbox; notifications use the shared bell. The Admin and Owner bell also links to Application Health. Operators can read their own assignments and complete only their own tasks. Keep recipient-level read/completion state and workspace scope explicit. Use Command OS surfaces, violet as the action accent, compact status labels, and native labeled controls; preserve responsive header popovers with keyboard dismissal and focus return. The Global User Account page shows that user's recent workspace items in its own section.
+
 ## Colors
 
 Warm canvas (`canvas`) and off-white panels (`surface`) provide a paper-like ground. `ink` and `muted` are semantic text roles; `primary` and `primary-dark` identify navigation and the main action. Terracotta `accent` marks small signal points and exceptions. Lime `signal` is reserved for the brand mark and focus/highlight accents, never for large body text. Success, warning, and danger use distinct status colors. The runtime border role is `#DFE3D9` (CSS `--color-border`); borders carry most static hierarchy. Preserve visible focus and do not rely on color alone for status.
@@ -126,7 +130,7 @@ Spacing is set by content role rather than a universal grid: 1.1875rem is the se
 
 ## Elevation & Depth
 
-Static content uses thin borders and near-white tonal layers. A low, broad shadow separates record panels from the canvas but must remain nearly invisible. No glass blur or floating-card stack. Navigation is distinguished by fill and text color. Overlays are not part of the current read-only UI.
+Static content uses thin borders and near-white tonal layers. A low, broad shadow separates record panels from the canvas but must remain nearly invisible. No glass blur or floating-card stack. Navigation is distinguished by fill and text color. The authenticated header uses contained, anchored communication popovers that dismiss on Escape and outside click.
 
 ## Shapes
 
@@ -136,7 +140,7 @@ Controls use a modest 0.45rem radius; panels use 0.7rem. Keep tables square with
 
 ### Foundational visual states
 
-Links and buttons have visible focus, hover, and pressed states. Disabled and busy actions are not used in this read-only slice. Empty states explain what data would appear. Errors use a bordered inline banner and text; status pills pair text with a marker. Pages are server-rendered, so no client skeleton is needed.
+Links and buttons have visible focus, hover, and pressed states. Mutating actions expose disabled/busy states while saving. Empty states explain what data would appear. Errors use a bordered inline banner and text; status pills pair text with a marker. Pages are server-rendered, so no client skeleton is needed.
 
 ### Buttons and actions
 
@@ -148,7 +152,7 @@ Persistent workspace navigation becomes a labeled horizontal row on narrow scree
 
 ### Forms and overlays
 
-The sign-in page uses a white, centered login layout with an envelope mark, Username and Password fields, Remember Me, and a full-width LOGIN action. Inputs keep screen-reader labels, password-manager autocomplete, paste, server-owned validation, and an inline live error. AlphaLink accepts an email identifier as a compatibility path for existing accounts. Server installation preparation uses labeled native fields and selects, inline validation, and an immutable preview. Package and host checks appear as explicit blockers. The campaign composer has a floating action menu, a right-click context menu, a dismissible backdrop, and an inline live status for safe action blockers.
+The sign-in page uses a white, centered login layout with an envelope mark, Username and Password fields, Remember Me, and a full-width LOGIN action. Inputs keep screen-reader labels, password-manager autocomplete, paste, server-owned validation, and an inline live error. AlphaLink accepts an email identifier as a compatibility path for existing accounts. Server installation preparation uses labeled native fields and selects, inline validation, and an immutable preview. Package and host checks appear as explicit blockers. The campaign composer has a floating action menu, a right-click context menu, a dismissible backdrop, and an inline live status for safe action blockers. Team Tasks & Messages uses native controls for admin publishing and anchored header popovers for recipient inbox and notification feed, including loading, error, empty, read, task-completion, and keyboard dismissal states.
 
 ### Iconography
 

@@ -28,13 +28,16 @@
             @foreach ($users->chunk(ceil(max(1, count($users)) / 2)) as $chunk)
                 <div class="col-sm-12 col-md-6">
                     @foreach ($chunk as $user)
-                        <div class="custom-control custom-checkbox mb-2 px-3 py-1" style="border-radius: 8px;">
-                            <input type="checkbox" value="{{ $user->id }}" class="custom-control-input"
-                                   id="allowed-user-{{ $user->id }}" name="checked_users"
-                                   @checked(in_array($user->id, $allowedUserIds, false))>
-                            <label class="custom-control-label" for="allowed-user-{{ $user->id }}" style="cursor: pointer; font-size: 0.8125rem;">
-                                <strong style="color: var(--command-os-text, #1e293b);">{{ $user->name }}</strong>
-                                <span style="color: var(--command-os-text-muted, #64748b); font-size: 0.75rem;">({{ $user->email }})</span>
+                        <div class="mb-2 px-3 py-1" style="border-radius: 8px;">
+                            <label class="command-table-checkbox-label d-inline-flex align-items-center mb-0" for="allowed-user-{{ $user->id }}" style="cursor: pointer;">
+                                <input type="checkbox" value="{{ $user->id }}"
+                                       id="allowed-user-{{ $user->id }}" name="checked_users"
+                                       @checked(in_array($user->id, $allowedUserIds, false))>
+                                <span class="command-checkbox-custom-box mr-2"></span>
+                                <span style="font-size: 0.8125rem;">
+                                    <strong style="color: var(--command-os-text, #1e293b);">{{ $user->name }}</strong>
+                                    <span style="color: var(--command-os-text-muted, #64748b); font-size: 0.75rem;">({{ $user->email }})</span>
+                                </span>
                             </label>
                         </div>
                     @endforeach

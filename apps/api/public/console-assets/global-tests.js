@@ -12,30 +12,45 @@
     const aceBase = `${window.location.origin}/console-assets/vendor/ace`;
     let headerEditor = null;
     let bodyEditor = null;
+    const refreshPicker = (el) => {
+        if (window.jQuery && window.jQuery.fn?.selectpicker && el?.classList?.contains('selectpicker')) {
+            window.jQuery(el).selectpicker('refresh');
+        }
+    };
+
     if (window.ace) {
         window.ace.config.set('basePath', aceBase);
         window.ace.config.set('modePath', `${aceBase}/`);
         window.ace.config.set('themePath', `${aceBase}/`);
         headerEditor = window.ace.edit('header');
         bodyEditor = window.ace.edit('body');
+        const applyAceTheme = () => {
+            const isDark = document.documentElement.getAttribute('data-command-theme') === 'dark';
+            const theme = isDark ? 'ace/theme/tomorrow_night' : 'ace/theme/github';
+            [headerEditor, bodyEditor].forEach((ed) => ed && ed.setTheme(theme));
+        };
         [headerEditor, bodyEditor].forEach((editor) => {
-            editor.setTheme('ace/theme/github');
             editor.session.setUseWorker(false);
             editor.setAutoScrollEditorIntoView(false);
             editor.setShowPrintMargin(false);
             editor.$blockScrolling = Infinity;
-            editor.setFontSize(13);
+            editor.setFontSize(12);
             editor.setOptions({
-                minLines: 30,
-                maxLines: 30,
+                minLines: 20,
+                maxLines: 22,
                 enableBasicAutocompletion: true,
                 enableLiveAutocompletion: true,
                 wrap: true,
                 showGutter: false,
             });
         });
+        applyAceTheme();
         headerEditor.session.setMode('ace/mode/text');
         bodyEditor.session.setMode('ace/mode/html');
+        new MutationObserver(applyAceTheme).observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ['data-command-theme'],
+        });
     }
     const getHeader = () => headerEditor ? headerEditor.getValue() : headerElement.value;
     const setHeader = (value) => headerEditor ? headerEditor.setValue(value, -1) : (headerElement.value = value);
@@ -212,6 +227,7 @@
             const option = new Option(email, email);
             option.dataset.addressId = id;
             byId('saved_emails').add(option);
+            refreshPicker(byId('saved_emails'));
         }
         if (![...byId('saved-email-list').children].some((item) => item.dataset.addressId === String(id))) {
             const row = document.createElement('li');
@@ -221,10 +237,10 @@
             label.textContent = email;
             const remove = document.createElement('button');
             remove.type = 'button';
-            remove.className = 'btn btn-sm btn-alt-danger remove-saved-email';
+            remove.className = 'campaign-icon-button is-delete remove-saved-email';
             remove.setAttribute('aria-label', `Delete ${email}`);
             remove.title = `Delete ${email}`;
-            remove.innerHTML = '<i class="fas fa-trash" aria-hidden="true"></i>';
+            remove.innerHTML = '<i class="fas fa-trash-alt" aria-hidden="true"></i>';
             row.append(label, remove);
             byId('saved-email-list').append(row);
         }
@@ -265,7 +281,9 @@
             const email = row.querySelector('span')?.textContent || '';
             row.remove();
             [...byId('saved_emails').options].filter((option) => option.value === email).forEach((option) => option.remove());
+            refreshPicker(byId('saved_emails'));
             emailTextarea.value = [...byId('saved_emails').selectedOptions].map((option) => option.value).join('\n');
+            emailTextarea.dispatchEvent(new Event('input', { bubbles: true }));
             showToast('Email address deleted.', 'success');
         } catch (error) {
             showToast(error.message, 'danger');
@@ -315,6 +333,7 @@
             const option = new Option(name, result.header_id);
             headerSelect.add(option);
             headerSelect.value = result.header_id;
+            refreshPicker(headerSelect);
             byId('global-header-name-dialog').close();
             nameInput.value = '';
             showToast('Header saved.', 'success');
@@ -342,6 +361,7 @@
             await jsonRequest(`${page.dataset.headerBase}/${encodeURIComponent(id)}`, { method: 'DELETE' });
             headerSelect.selectedOptions[0]?.remove();
             headerSelect.value = '';
+            refreshPicker(headerSelect);
             byId('global-confirm-dialog').close();
             showToast('Header deleted.', 'success');
         } catch (error) {
@@ -482,6 +502,65 @@
     });
     byId('server-search').addEventListener('input', (event) => applyOptionFilter(serverSelect, event.currentTarget));
 
+    const updateRouteCountsAndSummary = () => {
+        const availCount = availableSelect?.options?.length ?? 0;
+        const selCount = selectedSelect?.options?.length ?? 0;
+        const srvCount = serverSelect?.selectedOptions?.length ?? 0;
+        const emailsList = (emailTextarea?.value || '').split(/\r?\n/).map((v) => v.trim()).filter(Boolean);
+        const hasReturnPath = (byId('return_path')?.value || '').trim().length > 0;
+        const hasHeader = getHeader().trim().length > 0;
+        const hasBody = getBody().trim().length > 0;
+
+        const availEl = byId('send-ips-available-count');
+        const selEl = byId('send-ips-selected-count');
+        if (availEl) availEl.textContent = String(availCount);
+        if (selEl) selEl.textContent = String(selCount);
+
+        const qRecip = byId('global-quick-recipients');
+        const qSrv = byId('global-quick-servers');
+        const qVmtas = byId('global-quick-vmtas');
+        if (qRecip) qRecip.textContent = String(emailsList.length);
+        if (qSrv) qSrv.textContent = String(srvCount);
+        if (qVmtas) qVmtas.textContent = String(selCount);
+
+        const sPath = byId('global-summary-path');
+        const sEmails = byId('global-summary-emails');
+        const sRoutes = byId('global-summary-routes');
+        const sHeaders = byId('global-summary-headers');
+        const sBody = byId('global-summary-body');
+
+        if (sPath) {
+            sPath.textContent = hasReturnPath ? 'Configured' : 'Missing';
+            sPath.className = hasReturnPath ? 'is-ready' : 'is-pending';
+        }
+        if (sEmails) {
+            sEmails.textContent = emailsList.length > 0 ? `${emailsList.length} selected` : 'Required';
+            sEmails.className = emailsList.length > 0 ? 'is-ready' : 'is-pending';
+        }
+        if (sRoutes) {
+            sRoutes.textContent = selCount > 0 ? `${selCount} selected` : (srvCount > 0 ? 'Pick IPs' : 'Not selected');
+            sRoutes.className = selCount > 0 ? 'is-ready' : 'is-pending';
+        }
+        if (sHeaders) {
+            sHeaders.textContent = hasHeader ? 'Ready' : 'Required';
+            sHeaders.className = hasHeader ? 'is-ready' : 'is-pending';
+        }
+        if (sBody) {
+            sBody.textContent = hasBody ? 'Ready' : 'Empty (optional)';
+            sBody.className = hasBody ? 'is-ready' : 'is-optional';
+        }
+
+        const checks = [hasReturnPath, emailsList.length > 0, hasHeader, selCount > 0];
+        const passed = checks.filter(Boolean).length;
+        const pct = Math.round((passed / checks.length) * 100);
+        const pctEl = byId('global-readiness-pct');
+        const barEl = byId('global-readiness-bar');
+        const descEl = byId('global-readiness-desc');
+        if (pctEl) pctEl.textContent = `${pct}%`;
+        if (barEl) barEl.style.width = `${pct}%`;
+        if (descEl) descEl.textContent = `${passed} of ${checks.length} test checks complete`;
+    };
+
     const renderServerOptions = (servers, selectedIds = []) => {
         const selected = new Set(selectedIds.map(String));
         serverSelect.replaceChildren();
@@ -491,6 +570,7 @@
             serverSelect.add(option);
         });
         applyOptionFilter(serverSelect, byId('server-search'));
+        refreshPicker(serverSelect);
     };
 
     const renderIpOptions = (ips) => {
@@ -511,6 +591,7 @@
         });
         applyOptionFilter(availableSelect, byId('ips-available-filter'));
         applyOptionFilter(selectedSelect, byId('ips-selected-filter'));
+        updateRouteCountsAndSummary();
     };
 
     const loadCatalog = async (includeServerChoices = false) => {
@@ -543,9 +624,15 @@
     serverSelect.addEventListener('change', () => {
         selectedSelect.replaceChildren();
         loadCatalog(false);
+        updateRouteCountsAndSummary();
     });
     byId('option').addEventListener('change', () => {
         selectedSelect.replaceChildren();
+        const kindBadge = byId('send-route-choice-heading');
+        if (kindBadge) {
+            const optVal = byId('option').value;
+            kindBadge.textContent = optVal === 'smtp' ? 'SMTP routes' : (optVal === 'vmta' ? 'VMTAs' : 'IPs');
+        }
         loadCatalog(false);
     });
     byId('type').addEventListener('change', () => {
@@ -570,13 +657,28 @@
         });
         applyOptionFilter(availableSelect, byId('ips-available-filter'));
         applyOptionFilter(selectedSelect, byId('ips-selected-filter'));
+        updateRouteCountsAndSummary();
     };
     byId('move-all-right').addEventListener('click', () => moveOptions(availableSelect, selectedSelect, true));
     byId('move-right').addEventListener('click', () => moveOptions(availableSelect, selectedSelect));
     byId('move-left').addEventListener('click', () => moveOptions(selectedSelect, availableSelect));
     byId('move-all-left').addEventListener('click', () => moveOptions(selectedSelect, availableSelect, true));
+    availableSelect.addEventListener('dblclick', () => moveOptions(availableSelect, selectedSelect));
+    selectedSelect.addEventListener('dblclick', () => moveOptions(selectedSelect, availableSelect));
     byId('ips-available-filter').addEventListener('input', (event) => applyOptionFilter(availableSelect, event.currentTarget));
     byId('ips-selected-filter').addEventListener('input', (event) => applyOptionFilter(selectedSelect, event.currentTarget));
+
+    emailTextarea.addEventListener('input', updateRouteCountsAndSummary);
+    byId('return_path').addEventListener('input', updateRouteCountsAndSummary);
+    if (headerEditor && bodyEditor) {
+        headerEditor.session.on('change', updateRouteCountsAndSummary);
+        bodyEditor.session.on('change', updateRouteCountsAndSummary);
+    } else {
+        headerElement.addEventListener('input', updateRouteCountsAndSummary);
+        bodyElement.addEventListener('input', updateRouteCountsAndSummary);
+    }
+    updateRouteCountsAndSummary();
+
     document.querySelectorAll('.global-clear-filter').forEach((button) => button.addEventListener('click', () => {
         const input = byId(button.dataset.clear);
         input.value = '';
@@ -603,7 +705,7 @@
         rotateCell.append(rotate);
         const actionCell = document.createElement('td');
         const remove = document.createElement('button');
-        remove.className = 'btn btn-sm btn-alt-danger remove-placeholder';
+        remove.className = 'campaign-icon-button is-delete remove-placeholder';
         remove.type = 'button';
         remove.setAttribute('aria-label', 'Remove placeholder row');
         remove.title = 'Remove row';

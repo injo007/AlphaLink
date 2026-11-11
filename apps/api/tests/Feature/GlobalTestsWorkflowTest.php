@@ -221,8 +221,8 @@ class GlobalTestsWorkflowTest extends TestCase
 
     public function test_operator_cannot_view_another_members_global_test_history(): void
     {
-        $owner = User::factory()->create();
-        $operator = User::factory()->create();
+        $owner = User::factory()->create(['access_role' => User::ACCESS_ROLE_OWNER]);
+        $operator = User::factory()->create(['access_role' => User::ACCESS_ROLE_OPERATOR]);
         $workspace = $this->workspace($owner, 'owner');
         $workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
         $log = $workspace->globalTestLogs()->create([
@@ -258,6 +258,10 @@ class GlobalTestsWorkflowTest extends TestCase
 
     private function workspace(User $owner, string $role): Workspace
     {
+        if ($owner->access_role !== $role) {
+            $owner->forceFill(['access_role' => $role])->save();
+        }
+
         $workspace = Workspace::query()->create([
             'name' => 'Global Test workspace',
             'slug' => 'global-test-'.Str::lower(Str::random(8)),

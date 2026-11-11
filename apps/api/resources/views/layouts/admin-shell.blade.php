@@ -21,7 +21,7 @@
         };
         $isDropVisitorsPage = $routeIs('console.drops.visitors');
         $commandOsDashboard = $routeIs('console.dashboard.main', 'console.workspace.dashboard.main', 'console.analytics.index');
-        $isCampaignComposerPage = $routeIs('console.campaigns.create', 'console.campaigns.edit');
+        $isCampaignComposerPage = $routeIs('console.campaigns.create', 'console.campaigns.edit', 'console.global-tests.index');
         $commandOsShell = true;
         $canUseDashboardOperations = $commandOsDashboard && in_array(auth()->user()?->access_role, ['owner', 'admin', 'operator', 'viewer'], true);
         $hideDashboardForbiddenDestinations = $commandOsDashboard && ! $canUseDashboardOperations;
@@ -843,7 +843,7 @@
             <script src="{{ asset('console-assets/team-communications.js') }}?v={{ substr(sha1_file(public_path('console-assets/team-communications.js')), 0, 12) }}" defer></script>
         @endif
     @endif
-    @if ($isListsPage || $isListHistoryPage || $isSponsorManagementPage || $isNetworkSponsorsPage || $isOfferManagementPage || $isNetworkOffersPage || $isServerInstallPage || $isReinstallPage || $isChangeDomainPage || $isCloudProvidersPage || $isDomainProvidersPage || $isPmtaPage || $isDropsPage || $isWarmupDraftPage || $isWorkspaceToolPage || $isAppSettingsPage || $routeIs('console.drops.suppression*', 'console.campaigns.create', 'console.campaigns.edit', 'console.campaigns.show', 'console.campaigns.clone', 'console.campaigns.index', 'console.mailer.campaigns'))
+    @if ($isListsPage || $isListHistoryPage || $isSponsorManagementPage || $isNetworkSponsorsPage || $isOfferManagementPage || $isNetworkOffersPage || $isServerInstallPage || $isReinstallPage || $isChangeDomainPage || $isCloudProvidersPage || $isDomainProvidersPage || $isPmtaPage || $isDropsPage || $isWarmupDraftPage || $isWorkspaceToolPage || $isAppSettingsPage || $routeIs('console.drops.suppression*', 'console.campaigns.create', 'console.campaigns.edit', 'console.campaigns.show', 'console.campaigns.clone', 'console.campaigns.index', 'console.mailer.campaigns', 'console.global-tests.index'))
         <script src="{{ asset('console-assets/plugins/bootstrap_select/bootstrap-select.js') }}"></script>
     @endif
     @if ($isServersPage || $isMyServersPage || $isMyIpsPage || $isServerProvidersPage || $isPmtaPage || $isDropsPage || $routeIs('console.drops.suppression*', 'console.tools.spf.*', 'console.campaigns.visitors') || $isSeedListsPage || $isPmtaHistoryPage || $isIspPage || $isListsPage || $isEmailManagementPage || $isDomainsPage || $isDomainProvidersPage || $isCloudProvidersPage || $isSubscribersPage || $isContactsPage || $isSponsorManagementPage || $isNetworkSponsorsPage || $isOfferManagementPage || $isNetworkOffersPage || $isGlobalUsersPage || $isWorkspaceProjectsPage || $isWorkspaceAccountsPage)

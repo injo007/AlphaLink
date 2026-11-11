@@ -105,6 +105,14 @@ class WorkspaceConsoleController extends Controller
         $selectedOperatorId = $operatorScope['selected_operator_id'];
         $selectedOperator = $operatorScope['selected_operator'];
         $campaignCreatorIds = $operatorScope['creator_ids'];
+        $campaignLogsQuery = [];
+        if ($showOperatorCampaigns) {
+            $campaignLogsQuery['view_operator_campaigns'] = 1;
+            if ($selectedOperatorId !== null) {
+                $campaignLogsQuery['operator_id'] = $selectedOperatorId;
+            }
+        }
+        $campaignLogsUrl = route('console.mailer.campaign-logs', $campaignLogsQuery);
 
         $filters = $request->validate([
             'from' => ['sometimes', 'required_with:to', 'date_format:Y-m-d'],
@@ -268,7 +276,7 @@ class WorkspaceConsoleController extends Controller
         $canOperateCampaigns = in_array($workspace->pivot->role, ['owner', 'admin', 'operator'], true);
         $canManageVisibleCampaigns = $canOperateCampaigns && ! $showOperatorCampaigns;
 
-        return view('console.campaigns.index', compact('workspace', 'campaigns', 'from', 'to', 'search', 'showDisabled', 'perPage', 'activeOnly', 'activeSendCount', 'campaignOverview', 'canOperateCampaigns', 'canManageVisibleCampaigns', 'isAdmin', 'showOperatorCampaigns', 'operatorUsers', 'selectedOperatorId', 'selectedOperator'));
+        return view('console.campaigns.index', compact('workspace', 'campaigns', 'from', 'to', 'search', 'showDisabled', 'perPage', 'activeOnly', 'activeSendCount', 'campaignOverview', 'canOperateCampaigns', 'canManageVisibleCampaigns', 'isAdmin', 'showOperatorCampaigns', 'operatorUsers', 'selectedOperatorId', 'selectedOperator', 'campaignLogsUrl'));
     }
 
     public function createCampaign(Request $request, string $workspace, AlphaLinkCampaignSendCatalog $catalog): View

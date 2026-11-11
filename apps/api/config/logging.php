@@ -131,6 +131,12 @@ return [
             'handler' => NullHandler::class,
         ],
 
+        'openobserve' => [
+            'driver' => 'monolog',
+            'handler' => \App\Services\OpenObserve\OpenObserveLogHandler::class,
+            'level' => env('OPENOBSERVE_LOG_LEVEL', 'error'),
+        ],
+
         'emergency' => [
             'path' => storage_path('logs/laravel.log'),
         ],

@@ -116,6 +116,7 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
         ->where('field', '[a-z_]+')->middleware('throttle:20,1')->name('console.app-settings.secret');
     Route::get('/app/workspaces/{workspace}/miscellaneous/app-health', [MiscellaneousConsoleController::class, 'appHealth'])->name('console.miscellaneous.app-health');
     Route::get('/app/workspaces/{workspace}/miscellaneous/app-errors', [MiscellaneousConsoleController::class, 'appErrors'])->name('console.miscellaneous.app-errors');
+    Route::post('/app/workspaces/{workspace}/miscellaneous/app-errors/sync', [MiscellaneousConsoleController::class, 'appErrorsSync'])->name('console.miscellaneous.app-errors.sync');
     Route::get('/app/workspaces/{workspace}/miscellaneous/subscribers', [MiscellaneousConsoleController::class, 'subscribers'])->name('console.miscellaneous.subscribers');
     Route::get('/app/workspaces/{workspace}/miscellaneous/contacts', [MiscellaneousConsoleController::class, 'contacts'])->name('console.miscellaneous.contacts');
     Route::get('/app/workspaces/{workspace}/miscellaneous/horizon', [MiscellaneousConsoleController::class, 'horizon'])->name('console.miscellaneous.horizon');

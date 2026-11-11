@@ -21,7 +21,7 @@ class AlphaLinkAppErrorsPageTest extends TestCase
     {
         parent::setUp();
 
-        $this->owner = User::factory()->create();
+        $this->owner = User::factory()->create(['access_role' => User::ACCESS_ROLE_OWNER]);
         $this->workspace = Workspace::query()->create([
             'name' => 'Errors workspace',
             'slug' => 'errors-'.Str::lower(Str::random(8)),
@@ -59,7 +59,7 @@ class AlphaLinkAppErrorsPageTest extends TestCase
 
     public function test_operator_cannot_open_the_admin_error_log_page(): void
     {
-        $operator = User::factory()->create();
+        $operator = User::factory()->create(['access_role' => User::ACCESS_ROLE_OPERATOR]);
         $this->workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
 
         $this->actingAs($operator)

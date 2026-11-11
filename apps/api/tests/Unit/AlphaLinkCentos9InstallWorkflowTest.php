@@ -298,11 +298,23 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
 
         $this->runWorkflow($workflow, $session, $logs, ['tracking' => true]);
 
-        $this->assertContains('dnf module enable php:remi-8.3 -y;', $session->commands);
-        $this->assertContains('dnf install -y httpd', $session->commands);
+        $phpModuleCommandIndex = array_search(
+            true,
+            array_map(static fn (string $command): bool => str_contains($command, 'dnf module enable php:remi-8.3 -y'), $session->commands),
+            true,
+        );
+        $phpRuntimeCommandIndex = array_search(
+            true,
+            array_map(static fn (string $command): bool => str_contains($command, 'ALPHALINK_PHP_FPM_READY'), $session->commands),
+            true,
+        );
+        $this->assertIsInt($phpModuleCommandIndex);
+        $this->assertIsInt($phpRuntimeCommandIndex);
+        $this->assertStringContainsString('dnf install -y httpd php php-fpm', $session->commands[$phpRuntimeCommandIndex]);
+        $this->assertStringContainsString('systemctl enable --now php-fpm', $session->commands[$phpRuntimeCommandIndex]);
         $this->assertLessThan(
-            array_search('dnf install -y httpd', $session->commands, true),
-            array_search('dnf module enable php:remi-8.3 -y;', $session->commands, true),
+            $phpRuntimeCommandIndex,
+            $phpModuleCommandIndex,
         );
         $this->assertContains('Setup PHP', $logs);
         $this->assertContains('Setup Tracking App', $logs);
@@ -544,6 +556,12 @@ class RecordingWorkflowSession implements AlphaLinkInstallerRemoteCommandTranspo
     {
         $this->commands[] = $command;
 
+        if (str_contains($command, 'ALPHALINK_PHP_MODULE_READY')) {
+            return 'ALPHALINK_PHP_MODULE_READY';
+        }
+        if (str_contains($command, 'ALPHALINK_PHP_FPM_READY')) {
+            return 'ALPHALINK_PHP_FPM_READY';
+        }
         if (str_contains($command, 'printf ALPHALINK_PMTA_READY')) {
             return $this->pmtaReady
                 ? 'ALPHALINK_PMTA_READY'

@@ -739,3 +739,8 @@ Source-prefixed action/status Lists and live membership counts are implemented a
 ### E-CAMP-162 — Warmup Test return-path regression
 
 The production 500 after Warmup Test was caused by the shared composer treating flashed newline-delimited test addresses as an array. The first production trace also revealed null optional numeric settings rejected by the Test endpoint; both issues are fixed and covered by a redirected browser-flow regression. A live Warmup Test now returns the editor's PMTA-accepted status. Inbox delivery and campaign Send are not verified, and DMS native sender parity remains open.
+
+
+## 2026-11-11 Tracking PHP runtime failure — E-INST-101
+
+The supplied real install transcript failed at tracking `/healthz`. The source PHP stage had no PHP-FPM install/start/validation, while EL9 Apache requires FPM to execute PHP. The AlphaLink stage now installs and verifies PHP-FPM plus Apache FastCGI config; 19 focused PHP tests / 185 assertions pass with targeted Pint and syntax checks. No target HTTP response or Apache/FPM logs were provided, and the partially configured target was not retried. Deployment and a new real install are still required to verify recovery. Keep install parity TESTING.

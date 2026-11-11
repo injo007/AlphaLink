@@ -152,7 +152,7 @@ The sign-in page uses a white, centered login layout with an envelope mark, User
 
 ### Iconography
 
-The interface uses small text glyphs and inline typographic symbols, paired with visible labels. Do not introduce unlabeled icon-only actions.
+The Command OS header uses compact outline SVGs for navigation, search, campaign, infrastructure, test, notification, and account-menu controls. Center each glyph within its control and align the controls to the search field. Other page families retain their current icon language until migrated. Do not introduce unlabeled icon-only actions.
 
 ### Motion
 

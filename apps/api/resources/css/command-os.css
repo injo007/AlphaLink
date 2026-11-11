@@ -537,6 +537,7 @@ body.command-os-shell #page-header .content-header > .d-flex {
 
 body.command-os-shell #page-header .command-os-header-leading {
     flex: 1 1 auto;
+    gap: 6px;
 }
 
 body.command-os-shell #page-header .command-os-header-trailing {
@@ -553,6 +554,55 @@ body.command-os-shell #page-header .btn-dual {
     border-radius: 9px;
     color: var(--co-ink);
     background: var(--co-surface);
+}
+
+body.command-os-shell #page-header .command-os-header-control {
+    display: inline-grid;
+    flex: 0 0 34px;
+    align-self: center;
+    align-items: center;
+    justify-items: center;
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+    min-height: 34px;
+    margin: 0;
+    padding: 0;
+    line-height: 1;
+    vertical-align: middle;
+}
+
+body.command-os-shell #page-header .command-os-header-control > svg,
+body.command-os-shell #page-header .command-os-search-trigger > svg {
+    display: block;
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+}
+
+body.command-os-shell #page-header .command-os-header-control:hover,
+body.command-os-shell #page-header .command-os-header-control:focus-visible {
+    border-color: color-mix(in srgb, var(--co-purple) 46%, var(--co-border));
+    color: var(--co-purple);
+    background: color-mix(in srgb, var(--co-purple) 7%, var(--co-surface));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--co-purple) 10%, transparent);
+    outline: 0;
+}
+
+body.command-os-shell #page-header .command-os-header-shortcut {
+    color: var(--co-muted);
+    text-decoration: none;
+}
+
+@media (min-width: 992px) {
+    body.command-os-shell #page-header .command-os-header-control.d-lg-inline-block {
+        display: inline-grid !important;
+    }
 }
 
 body.command-os-shell #page-header .command-os-header-icon {
@@ -584,7 +634,7 @@ body.command-os-shell #page-header .command-os-header-icon:focus-visible {
     width: min(460px, 42vw);
     min-width: 190px;
     height: 34px;
-    margin-left: 4px;
+    margin-left: 0;
     padding: 0 11px;
     border: 1px solid var(--co-border);
     border-radius: 10px;
@@ -606,7 +656,7 @@ body.command-os-shell #page-header .command-os-header-icon:focus-visible {
     outline: 0;
 }
 
-.command-os-search-trigger > i { color: var(--co-purple); font-size: 12px; }
+.command-os-search-trigger > svg { color: var(--co-purple); }
 .command-os-search-trigger > span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .command-os-search-trigger kbd,
 .command-os-search-footer kbd,
@@ -725,6 +775,13 @@ body.command-os-shell #page-header .command-os-account-name {
 body.command-os-shell #page-header .command-os-account-chevron {
     flex: 0 0 auto;
     margin-left: 0 !important;
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
 }
 
 body.command-os-shell #page-header #command-os-theme-toggle {
@@ -2700,7 +2757,7 @@ body.command-os-dashboard #page-container.sidebar-mini #sidebar:focus-within .na
 @media (max-width: 640px) {
     .command-os-dashboard-content::before { inset: -18px -5px 0; }
     .command-os-header-wave { position: absolute; inset: 0; width: 100%; max-width: 100%; height: 100%; opacity: .42; }
-    body.command-os-shell #page-header .command-os-header-leading { flex: 1 1 auto; }
+    body.command-os-shell #page-header .command-os-header-leading { flex: 1 1 auto; gap: 7px; }
     body.command-os-shell #page-header .command-os-search-trigger { flex: 0 0 40px; width: 40px; min-width: 40px; height: 40px; justify-content: center; margin-left: 0; padding: 0; }
     .command-os-search-trigger > span,
     .command-os-search-trigger > kbd { display: none; }
@@ -2708,6 +2765,7 @@ body.command-os-dashboard #page-container.sidebar-mini #sidebar:focus-within .na
     body.command-os-shell #page-header .command-os-header-trailing { gap: 4px; }
     body.command-os-shell #page-header .command-os-header-leading > a { display: none; }
     body.command-os-shell #page-header .btn-dual { width: 40px; height: 40px; }
+    body.command-os-shell #page-header .command-os-header-control { flex-basis: 40px; min-width: 40px; }
     body.command-os-shell #page-header #page-header-user-dropdown {
         width: 40px;
         min-width: 40px;
@@ -11796,4 +11854,3 @@ html[data-command-theme='dark'] .command-s3-trigger-card.active-s3 {
 html[data-command-theme='dark'] .command-s3-trigger-indicator {
     border-right-color: rgba(139, 92, 246, 0.25);
 }
-

@@ -684,27 +684,37 @@
         <header id="page-header">
             <div class="content-header">
                 <div class="d-flex align-items-center command-os-header-leading">
-                    <button type="button" class="btn btn-sm btn-dual mr-2 d-lg-none" data-toggle="layout" data-action="sidebar_open" aria-label="Open navigation" @if ($commandOsShell) aria-controls="sidebar" aria-expanded="false" @endif><i class="fa fa-fw {{ $commandOsShell ? 'fa-bars' : 'fa-ellipsis-v' }}"></i></button>
-                    <button type="button" class="btn btn-sm btn-dual mr-2 d-none d-lg-inline-block" data-action="sidebar_mini_toggle" aria-label="Toggle navigation width" aria-pressed="{{ $commandOsShell ? 'false' : 'true' }}"><i class="fa fa-fw {{ $commandOsShell ? 'fa-bars' : 'fa-ellipsis-v' }}"></i></button>
+                    <button type="button" class="btn btn-sm btn-dual command-os-header-control d-lg-none" data-toggle="layout" data-action="sidebar_open" aria-label="Open navigation" @if ($commandOsShell) aria-controls="sidebar" aria-expanded="false" @endif>
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-dual command-os-header-control d-none d-lg-inline-block" data-action="sidebar_mini_toggle" aria-label="Toggle navigation width" aria-pressed="{{ $commandOsShell ? 'false' : 'true' }}">
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16M14 9l-3 3 3 3" /></svg>
+                    </button>
                     @if ($commandOsShell)
                         <button type="button" class="command-os-search-trigger" data-action="command_os_search_open" aria-label="Search pages and modules" aria-haspopup="dialog" aria-controls="command-os-search-dialog" title="Search pages and modules (Ctrl or ⌘ K)">
-                            <i class="fas fa-search" aria-hidden="true"></i><span>Search pages and modules…</span><kbd data-command-os-search-shortcut>Ctrl K</kbd>
+                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg><span>Search pages and modules…</span><kbd data-command-os-search-shortcut>Ctrl K</kbd>
                         </button>
                     @endif
                     @if (! $commandOsDashboard || $canUseDashboardOperations)
-                        <a class="btn btn-sm btn-dual mr-2" href="{{ $campaignsUrl }}" title="CAMPAIGNS" aria-label="Campaigns"><i class="fas fa-envelope"></i></a>
+                        <a class="btn btn-sm btn-dual command-os-header-control command-os-header-shortcut" href="{{ $campaignsUrl }}" title="Campaigns" aria-label="Campaigns">
+                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>
+                        </a>
                     @endif
                     @if ($canManagePmta)
-                        <a class="btn btn-sm btn-dual mr-2" href="{{ $pmtaAdminUrl }}" title="PMTA ADMIN" aria-label="PMTA Admin"><i class="fas fa-desktop"></i></a>
+                        <a class="btn btn-sm btn-dual command-os-header-control command-os-header-shortcut" href="{{ $pmtaAdminUrl }}" title="PMTA management" aria-label="PMTA management">
+                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="7" rx="2" /><rect x="3" y="13" width="18" height="7" rx="2" /><path d="M7 7.5h.01M7 16.5h.01M11 7.5h6M11 16.5h6" /></svg>
+                        </a>
                     @endif
                     @if (! $commandOsDashboard || $canUseDashboardOperations)
-                        <a class="btn btn-sm btn-dual mr-2" href="{{ $globalTestsUrl }}" title="GLOBAL TEST" aria-label="Global Test"><i class="fas fa-map-signs"></i></a>
+                        <a class="btn btn-sm btn-dual command-os-header-control command-os-header-shortcut" href="{{ $globalTestsUrl }}" title="Global test" aria-label="Global test">
+                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 3h6M10 3v7l-5.2 8.3A2 2 0 0 0 6.5 21h11a2 2 0 0 0 1.7-2.7L14 10V3" /><path d="M8 15h8" /></svg>
+                        </a>
                     @endif
                 </div>
                 <div class="d-flex align-items-center command-os-header-trailing">
                     @if ($commandOsShell)
-                        <a class="btn btn-sm btn-dual command-os-header-icon command-os-notification-link" href="{{ $appHealthUrl }}" aria-label="Notifications and system health" title="Notifications and system health">
-                            <i class="fas fa-bell" aria-hidden="true"></i>
+                        <a class="btn btn-sm btn-dual command-os-header-icon command-os-header-control command-os-notification-link" href="{{ $appHealthUrl }}" aria-label="Notifications and system health" title="Notifications and system health">
+                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>
                         </a>
                         <div id="command-os-theme-toggle"></div>
                     @endif
@@ -718,7 +728,7 @@
                             @else
                                 <span class="command-os-profile-avatar" aria-hidden="true">{{ $headerUserInitials }}</span>
                             @endif
-                            <span class="d-none d-sm-inline-block command-os-account-name">{{ $headerUserLabel }}</span><i class="fa fa-angle-down ml-1 command-os-account-chevron" aria-hidden="true"></i>
+                            <span class="d-none d-sm-inline-block command-os-account-name">{{ $headerUserLabel }}</span><svg class="command-os-account-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m7 10 5 5 5-5" /></svg>
                         </button>
                         <div class="dropdown-menu dropdown-menu-md dropdown-menu-right p-0 border-0 command-os-account-menu" aria-labelledby="page-header-user-dropdown">
                             <div class="command-os-account-heading">

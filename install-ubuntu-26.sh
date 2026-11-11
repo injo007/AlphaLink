@@ -484,6 +484,82 @@ stage_private_install_assets() {
     ASSET_STAGING_DIR=''
 }
 
+repair_missing_reviewed_tracking_asset() {
+    local source_root="$1" relative_path="$2" expected_size="$3" expected_digest="$4"
+    local source_file="$source_root/$relative_path" destination_file="$INSTALL_ASSETS_ROOT/$relative_path"
+    local destination_directory="$INSTALL_ASSETS_ROOT/optional/tracking" source_size source_digest destination_size destination_digest temporary_file
+
+    [[ -f "$source_file" && ! -L "$source_file" ]] || {
+        info "Cannot repair missing private tracking asset from the repository source: ${relative_path}."
+        return 0
+    }
+    [[ ! -L "$source_root/optional" && ! -L "$source_root/optional/tracking" ]] || {
+        info "Cannot repair private tracking asset through a symlinked repository path: ${relative_path}."
+        return 0
+    }
+
+    source_size="$(stat -c '%s' -- "$source_file")"
+    source_digest="$(sha256sum -- "$source_file")"
+    source_digest="${source_digest%% *}"
+    if [[ "$source_size" != "$expected_size" || "$source_digest" != "$expected_digest" ]]; then
+        info "Cannot repair private tracking asset because its repository bytes do not match the reviewed digest: ${relative_path}."
+        return 0
+    fi
+
+    if [[ -e "$destination_file" || -L "$destination_file" ]]; then
+        if [[ -f "$destination_file" && ! -L "$destination_file" ]]; then
+            destination_size="$(stat -c '%s' -- "$destination_file")"
+            destination_digest="$(sha256sum -- "$destination_file")"
+            destination_digest="${destination_digest%% *}"
+            if [[ "$destination_size" == "$expected_size" && "$destination_digest" == "$expected_digest" ]]; then
+                return 0
+            fi
+        fi
+        info "Preserving existing private tracking asset for review: ${relative_path}."
+        return 0
+    fi
+
+    [[ ! -L "$INSTALL_ASSETS_ROOT/optional" && ! -L "$destination_directory" ]] \
+        || fail 'The private tracking asset destination contains a symlink; preserving it.'
+    [[ ! -e "$INSTALL_ASSETS_ROOT/optional" || -d "$INSTALL_ASSETS_ROOT/optional" ]] \
+        || fail 'The private tracking asset destination has an invalid parent; preserving it.'
+    [[ ! -e "$destination_directory" || -d "$destination_directory" ]] \
+        || fail 'The private tracking asset destination is not a directory; preserving it.'
+    install -d -o www-data -g www-data -m 0700 "$destination_directory"
+
+    temporary_file="$(mktemp "$destination_directory/.${relative_path##*/}.stage.XXXXXX")" \
+        || fail 'Could not create a temporary private tracking asset.'
+    if ! install -o www-data -g www-data -m 0600 -- "$source_file" "$temporary_file"; then
+        rm -f -- "$temporary_file"
+        fail "Could not stage reviewed private tracking asset: ${relative_path}."
+    fi
+
+    destination_size="$(stat -c '%s' -- "$temporary_file")"
+    destination_digest="$(sha256sum -- "$temporary_file")"
+    destination_digest="${destination_digest%% *}"
+    if [[ "$destination_size" != "$expected_size" || "$destination_digest" != "$expected_digest" ]]; then
+        rm -f -- "$temporary_file"
+        fail "The staged private tracking asset failed its reviewed digest check: ${relative_path}."
+    fi
+
+    if [[ -e "$destination_file" || -L "$destination_file" ]]; then
+        rm -f -- "$temporary_file"
+        info "Preserving a concurrently-created private tracking asset: ${relative_path}."
+        return 0
+    fi
+
+    mv -- "$temporary_file" "$destination_file"
+    info "Restored missing reviewed private tracking asset: ${relative_path}."
+}
+
+repair_missing_reviewed_tracking_assets() {
+    local source_root="$1"
+
+    [[ -d "$source_root" && ! -L "$source_root" ]] || return 0
+    repair_missing_reviewed_tracking_asset "$source_root" 'optional/tracking/index.php' 3250 '8fcc32fca7d97d3144715ddd9e676bcfc0cbfb7107d61300669d002039029974'
+    repair_missing_reviewed_tracking_asset "$source_root" 'optional/tracking/TrackerRequestHandler.php' 11669 'c4a586dcea351051775e733bc092de5a715c48f4cd0d12db93119bbc696c65bb'
+}
+
 stage_repository_install_assets_if_empty() {
     local source="$1"
     local existing_entry invalid_entry
@@ -500,6 +576,7 @@ stage_repository_install_assets_if_empty() {
         [[ -z "$invalid_entry" ]] || fail 'The private asset destination contains symlinks or special files; preserving it.'
         existing_entry="$(find "$INSTALL_ASSETS_ROOT" -mindepth 1 -print -quit)"
         if [[ -n "$existing_entry" ]]; then
+            repair_missing_reviewed_tracking_assets "$source"
             normalize_private_install_assets "$INSTALL_ASSETS_ROOT"
             info 'Preserving the existing private installation asset bundle.'
             return 0

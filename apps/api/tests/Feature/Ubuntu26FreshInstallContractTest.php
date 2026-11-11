@@ -199,4 +199,20 @@ class Ubuntu26FreshInstallContractTest extends TestCase
         $this->assertFileExists($assetRoot.'/optional/tracking/index.php');
         $this->assertFileExists($assetRoot.'/optional/tracking/TrackerRequestHandler.php');
     }
+
+    public function test_deploy_repairs_only_missing_reviewed_tracking_assets_in_a_nonempty_private_bundle(): void
+    {
+        $repositoryRoot = dirname(base_path(), 2);
+        $installer = file_get_contents($repositoryRoot.'/install-ubuntu-26.sh');
+
+        $this->assertIsString($installer);
+        $this->assertStringContainsString('repair_missing_reviewed_tracking_assets "$source"', $installer);
+        $this->assertStringContainsString("repair_missing_reviewed_tracking_asset \"\$source_root\" 'optional/tracking/index.php' 3250 '8fcc32fca7d97d3144715ddd9e676bcfc0cbfb7107d61300669d002039029974'", $installer);
+        $this->assertStringContainsString("repair_missing_reviewed_tracking_asset \"\$source_root\" 'optional/tracking/TrackerRequestHandler.php' 11669 'c4a586dcea351051775e733bc092de5a715c48f4cd0d12db93119bbc696c65bb'", $installer);
+        $this->assertStringContainsString('if [[ -e "$destination_file" || -L "$destination_file" ]]; then', $installer);
+        $this->assertStringContainsString('Preserving existing private tracking asset for review:', $installer);
+        $this->assertStringContainsString('install -o www-data -g www-data -m 0600 -- "$source_file" "$temporary_file"', $installer);
+        $this->assertStringContainsString('The staged private tracking asset failed its reviewed digest check:', $installer);
+        $this->assertStringContainsString("info 'Preserving the existing private installation asset bundle.'", $installer);
+    }
 }

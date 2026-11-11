@@ -105,14 +105,14 @@ class WorkspaceConsoleController extends Controller
         $selectedOperatorId = $operatorScope['selected_operator_id'];
         $selectedOperator = $operatorScope['selected_operator'];
         $campaignCreatorIds = $operatorScope['creator_ids'];
-        $campaignLogsQuery = [];
+        $operatorCampaignViewQuery = [];
         if ($showOperatorCampaigns) {
-            $campaignLogsQuery['view_operator_campaigns'] = 1;
+            $operatorCampaignViewQuery['view_operator_campaigns'] = 1;
             if ($selectedOperatorId !== null) {
-                $campaignLogsQuery['operator_id'] = $selectedOperatorId;
+                $operatorCampaignViewQuery['operator_id'] = $selectedOperatorId;
             }
         }
-        $campaignLogsUrl = route('console.mailer.campaign-logs', $campaignLogsQuery);
+        $campaignLogsUrl = route('console.mailer.campaign-logs', $operatorCampaignViewQuery);
 
         $filters = $request->validate([
             'from' => ['sometimes', 'required_with:to', 'date_format:Y-m-d'],
@@ -276,7 +276,7 @@ class WorkspaceConsoleController extends Controller
         $canOperateCampaigns = in_array($workspace->pivot->role, ['owner', 'admin', 'operator'], true);
         $canManageVisibleCampaigns = $canOperateCampaigns && ! $showOperatorCampaigns;
 
-        return view('console.campaigns.index', compact('workspace', 'campaigns', 'from', 'to', 'search', 'showDisabled', 'perPage', 'activeOnly', 'activeSendCount', 'campaignOverview', 'canOperateCampaigns', 'canManageVisibleCampaigns', 'isAdmin', 'showOperatorCampaigns', 'operatorUsers', 'selectedOperatorId', 'selectedOperator', 'campaignLogsUrl'));
+        return view('console.campaigns.index', compact('workspace', 'campaigns', 'from', 'to', 'search', 'showDisabled', 'perPage', 'activeOnly', 'activeSendCount', 'campaignOverview', 'canOperateCampaigns', 'canManageVisibleCampaigns', 'isAdmin', 'showOperatorCampaigns', 'operatorUsers', 'selectedOperatorId', 'selectedOperator', 'campaignLogsUrl', 'operatorCampaignViewQuery'));
     }
 
     public function createCampaign(Request $request, string $workspace, AlphaLinkCampaignSendCatalog $catalog): View

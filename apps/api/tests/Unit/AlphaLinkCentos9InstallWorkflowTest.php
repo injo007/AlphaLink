@@ -497,6 +497,85 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
         ], $dnsWrites);
     }
 
+    public function test_multi_domain_tracking_install_routes_probe_and_pushes_dns_for_all_domains(): void
+    {
+        [$workflow, $gate, $pmta, $completion] = $this->workflow();
+        $gate->method('evaluate')->willReturn(['installation_authorized' => true]);
+        $pmta->expects($this->once())->method('run');
+        $completion->expects($this->once())->method('finalize')->willReturn([]);
+
+        $workspace = (new Workspace)->forceFill(['id' => 'workspace-one']);
+        $server = (new ManagedServer)->forceFill([
+            'id' => 'server-one', 'workspace_id' => 'workspace-one',
+            'ip_address' => '198.51.100.30', 'ssh_port' => 22,
+            'host_facts' => ['os_pretty_name' => 'AlmaLinux 9'], 'is_installed' => false,
+        ]);
+        $primary = (new SendingDomain)->forceFill([
+            'id' => 'domain-one', 'workspace_id' => 'workspace-one', 'name' => 'zonevortex.example.test',
+            'status' => 'new', 'is_our' => true, 'is_active' => true,
+        ]);
+        $secondary = (new SendingDomain)->forceFill([
+            'id' => 'domain-two', 'workspace_id' => 'workspace-one', 'name' => 'zenovara.example.test',
+            'status' => 'new', 'is_our' => true, 'is_active' => true,
+        ]);
+        $assignments = [
+            ['main' => true, 'ip' => '198.51.100.30', 'type' => 'ipv4', 'domain_id' => 'domain-one', 'sub' => '', 'domain' => 'zonevortex.example.test', 'is_our' => true],
+            ['main' => false, 'ip' => '198.51.100.30', 'type' => 'ipv4', 'domain_id' => 'domain-one', 'sub' => 'seek', 'domain' => 'zonevortex.example.test', 'is_our' => true],
+            ['main' => false, 'ip' => '198.51.100.30', 'type' => 'ipv4', 'domain_id' => 'domain-two', 'sub' => '', 'domain' => 'zenovara.example.test', 'is_our' => true],
+        ];
+        $options = [
+            'tracking' => true, 'proxy' => false, 'imap' => false,
+            'spf' => true, 'dkim' => true, 'dmarc' => true, 'https' => true,
+        ];
+        $settings = [
+            'pmta_port' => 1212, 'pmta_admin_port' => 1213, 'proxy_port' => 3128,
+            'dev_ips' => ['192.0.2.10'], 'pmta_relay_ips' => ['198.51.100.44'], 'production_ips' => [], 'rdp_ips' => [],
+            'allow_all_monitor' => false, 'apply_firewall' => false,
+            'dkim_selector' => 'al123', 'dkim_key' => 'PRIVATE', 'dkim_public_key' => 'v=DKIM1;t=s;p=KEY',
+            'imap_username' => '', 'imap_password' => '', 'proxy_username' => '', 'proxy_password' => '',
+            'tracking_callback_url' => 'https://baseheavy.shop', 'tracking_ingest_key' => 'ingest-key',
+        ];
+        $assets = [
+            'tracking_app' => ['index' => '<?php // ALPHALINK_TRACKING_READY', 'handler' => '<?php'],
+            'cloudflare_ips' => null, 'dovecot_config' => null, 'squid_config' => null,
+        ];
+        $dnsWriter = $this->createMock(AlphaLinkBulkInstallDomainDnsRecordWriter::class);
+        $dnsWriter->method('isDomainAvailable')->willReturn(true);
+        $dnsWrites = [];
+        $dnsWriter->expects($this->exactly(2))
+            ->method('setHosts')
+            ->willReturnCallback(static function (SendingDomain $domain, array $records) use (&$dnsWrites): bool {
+                $dnsWrites[$domain->name] = $records;
+
+                return true;
+            });
+
+        $session = new RecordingWorkflowSession;
+        $logs = [];
+        $workflow->run(
+            $workspace, $server, $primary, ['198.51.100.30'], [], 45,
+            $options, $settings, $assets, $session, $dnsWriter,
+            static function (string $line) use (&$logs): void {
+                $logs[] = $line;
+            },
+            $assignments, [$primary, $secondary],
+        );
+
+        $vhost = $session->uploads['/etc/httpd/conf.d/zonevortex_example_test.conf'];
+        $this->assertStringContainsString('ServerAlias 198.51.100.30 www.zonevortex.example.test seek.zonevortex.example.test zenovara.example.test www.zenovara.example.test', $vhost);
+        $allCommands = implode("\n", $session->commands);
+        $this->assertStringContainsString('/ALPHALINK0rprobe', $allCommands);
+        $this->assertArrayHasKey('zonevortex.example.test', $dnsWrites);
+        $this->assertArrayHasKey('zenovara.example.test', $dnsWrites);
+        $secondaryHosts = array_map(static fn (array $r): string => $r['type'].':'.$r['host'], $dnsWrites['zenovara.example.test']);
+        $this->assertContains('A:@', $secondaryHosts);
+        $this->assertContains('A:www', $secondaryHosts);
+        $this->assertContains('A:*', $secondaryHosts);
+        $this->assertContains('TXT:al123._domainkey', $secondaryHosts);
+        $this->assertContains('TXT:_dmarc', $secondaryHosts);
+        $this->assertContains('TXT:@', $secondaryHosts);
+    }
+
     /** @return array{AlphaLinkCentos9InstallWorkflow, AlphaLinkPmtaDeploymentGate&MockObject, AlphaLinkCentos9PmtaDeploymentStage&MockObject, AlphaLinkBulkInstallCompletionWriter&MockObject} */
     private function workflow(): array
     {
@@ -595,6 +674,24 @@ class RecordingWorkflowSession implements AlphaLinkInstallerRemoteCommandTranspo
     {
         $this->commands[] = $command;
 
+        if (str_contains($command, 'ALPHALINK_CALLBACK_READY')) {
+            return 'ALPHALINK_CALLBACK_READY';
+        }
+        if (str_contains($command, 'ALPHALINK_REWRITE_READY')) {
+            return 'ALPHALINK_REWRITE_READY';
+        }
+        if (str_contains($command, 'grep -Fxq ALPHALINK_TRACKING_READY')) {
+            return 'ALPHALINK_TRACKING_READY';
+        }
+        if (str_contains($command, 'ALPHALINK_TRACKING_ROUTE_READY')) {
+            return 'ALPHALINK_TRACKING_ROUTE_READY';
+        }
+        if (str_contains($command, 'ALPHALINK_TRACKING_IP_ROUTE_READY')) {
+            return 'ALPHALINK_TRACKING_IP_ROUTE_READY';
+        }
+        if (str_contains($command, 'ALPHALINK_TRACKING_LONG_ROUTE_READY')) {
+            return 'ALPHALINK_TRACKING_LONG_ROUTE_READY';
+        }
         if (str_contains($command, 'ALPHALINK_PHP_MODULE_READY')) {
             return 'ALPHALINK_PHP_MODULE_READY';
         }

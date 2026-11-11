@@ -35,7 +35,7 @@ class GlobalTestsWorkflowTest extends TestCase
         $this->app->instance(AlphaLinkGlobalTestReverseDnsResolver::class, $resolver);
     }
 
-    public function test_global_tests_page_uses_a_distinct_delivery_lab_workbench(): void
+    public function test_global_test_page_uses_reference_navigation_and_exposes_the_test_controls(): void
     {
         $owner = $this->owner();
         $workspace = $this->workspace($owner, 'owner');
@@ -44,10 +44,10 @@ class GlobalTestsWorkflowTest extends TestCase
             ->get(route('console.global-tests.index', $workspace->getKey()))
             ->assertOk()
             ->assertSee('GLOBAL TESTS')
-            ->assertSee('global-tests-workbench')
-            ->assertDontSee('campaign-create-page')
+            ->assertSee('campaign-create-page')
             ->assertSee('Select Header')
-            ->assertSee('Message placeholders')
+            ->assertSee('PLACEHOLDERS')
+            ->assertSee('Messages:')
             ->assertSee('SEND TEST')
             ->assertSee($this->cleanWorkspaceUrl(route('console.global-tests.histories', $workspace->getKey())), false)
             ->assertSee('global-tests.js')
@@ -373,7 +373,13 @@ class GlobalTestsWorkflowTest extends TestCase
         $workspace = $this->workspace($owner, 'owner');
         $server = $this->server($workspace, $owner, '203.0.113.40');
         $domain = $this->domain($workspace, $owner, 'mta.example.test');
+        $customDomain = $this->domain($workspace, $owner, 'custom.example.test');
         $ip = $this->ip($workspace, $server, $domain, '203.0.113.41', 'mta.example.test');
+        $this->ip($workspace, $server, $customDomain, '203.0.113.42', 'custom.example.test');
+
+        $runner = Mockery::mock(AlphaLinkGlobalTestRunner::class);
+        $runner->shouldReceive('isConfigured')->once()->with(2525)->andReturn(false);
+        $this->app->instance(AlphaLinkGlobalTestRunner::class, $runner);
 
         $transport = Mockery::mock(SmtpTransport::class);
         $transport->shouldReceive('start')->once();

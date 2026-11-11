@@ -38,7 +38,7 @@ class AlphaLinkCentos9HttpsDeploymentStageTest extends TestCase
         $this->assertStringContainsString('ALPHALINK_TRACKING_READY', $commands->commands[7]);
         $this->assertStringContainsString('ALPHALINK_TRACKING_ROUTES', $commands->commands[7]);
         $this->assertStringContainsString('RewriteRule ^/healthz$ /index.php [END,QSA]', $commands->commands[7]);
-        $this->assertStringContainsString('RewriteRule ^/([A-Za-z0-9]{10}[roub][A-Za-z0-9_-]{1,4096}(?:/[A-Za-z0-9_-]+)*)$ /index.php?__alphalink_long_uri=$1 [END,QSA,B]', $commands->commands[7]);
+        $this->assertStringContainsString('RewriteRule ^/([A-Za-z0-9]{10}[roubROUB][A-Za-z0-9_-]{1,4096}(?:/[A-Za-z0-9_-]+)*)$ /index.php?__alphalink_long_uri=$1 [END,QSA,B]', $commands->commands[7]);
         $this->assertStringContainsString('sender_example_test-le-ssl.conf', $commands->commands[7]);
     }
 

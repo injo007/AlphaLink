@@ -67,7 +67,7 @@ class WorkspaceGlobalTestController extends Controller
             'negatives' => $negatives,
             'savedAddresses' => $savedAddresses,
             'defaultHeader' => self::DEFAULT_HEADER,
-            'senderConfigured' => $runner->isConfigured() || $nativeSender->isConfigured($workspace),
+            'senderConfigured' => $runner->isConfigured($pmtaPort) || $nativeSender->isConfigured($workspace),
         ]);
     }
 
@@ -199,9 +199,38 @@ class WorkspaceGlobalTestController extends Controller
         }
 
         $selectedIps = collect($selectedIpIds)->map(fn (string $id): array => $availableIps->get($id))->values();
+        $selectedServerIds = collect($selectedIps)->pluck('server_id')->map(static fn ($id): string => (string) $id)->unique()->values()->all();
+        if (array_diff(array_map('strval', $data['servers']), $selectedServerIds) !== []) {
+            throw ValidationException::withMessages(['ips' => 'Select at least one IP or MTA from every selected server.']);
+        }
+        $pmtaPort = $this->pmtaPort($workspace);
+        $messageCount = $selectedIps->count() * count($data['email_test']) * (int) $data['repeat'];
+        $maximumMessages = max(1, (int) config('global-tests.max_messages', 100));
+        if ($messageCount > $maximumMessages) {
+            throw ValidationException::withMessages([
+                'repeat' => "This test would send {$messageCount} messages. Reduce recipients, routes, or repeat to stay within {$maximumMessages} messages per run.",
+            ]);
+        }
+        $negative = null;
+        if (! empty($data['negative'])) {
+            $negative = WorkspaceCampaignNegative::query()
+                ->where('workspace_id', $workspace->getKey())
+                ->where('created_by', $request->user()->getKey())
+                ->whereKey($data['negative'])
+                ->first(['path']);
+        }
+        $negativePath = $negative ? Storage::disk('local')->path($negative->path) : '';
 
-        if ($runner->isConfigured()) {
-            $configuration = $this->senderConfiguration($workspace, $request->user(), $data, $selectedIps, $rdnsResolver);
+        if ($runner->isConfigured($pmtaPort)) {
+            $configuration = $this->senderConfiguration(
+                $workspace,
+                $request->user(),
+                $data,
+                $selectedIps,
+                $rdnsResolver,
+                (int) ($pmtaPort ?? config('infrastructure.pmta_port') ?? 2525),
+                $negativePath,
+            );
             $result = $runner->run($configuration);
         } elseif ($nativeSender->isConfigured($workspace)) {
             $result = $nativeSender->send($workspace, $request->user(), $data, $selectedIps, $header, (string) $body);

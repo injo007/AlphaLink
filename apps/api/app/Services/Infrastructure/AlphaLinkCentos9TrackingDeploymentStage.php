@@ -91,7 +91,7 @@ APACHE;
     {$serverAlias}
     RewriteEngine On
     RewriteRule ^/healthz$ /index.php [END,QSA]
-    RewriteRule ^/([A-Za-z0-9]{10}[roub][A-Za-z0-9_-]{1,4096}(?:/[A-Za-z0-9_-]+)*)$ /index.php?__alphalink_long_uri=$1 [END,QSA,B]
+    RewriteRule ^/([A-Za-z0-9]{10}[roubROUB][A-Za-z0-9_-]{1,4096}(?:/[A-Za-z0-9_-]+)*)$ /index.php?__alphalink_long_uri=$1 [END,QSA,B]
     DocumentRoot "/var/mini/public"
     <Directory /var/mini/public>
         AllowOverride None
@@ -134,7 +134,8 @@ CONFIG;
             $this->verifyRoute($commands, $serverName, 'ALPHALINK_TRACKING_ROUTE_READY');
             $this->verifyRoute($commands, $serverIp, 'ALPHALINK_TRACKING_IP_ROUTE_READY');
 
-            $longRouteUrl = 'http://127.0.0.1/ALPHALINKTRACK10r'.str_repeat('A', 300).'?t=1';
+            // The Apache tracking regex expects a 10-character random prefix before [roub].
+            $longRouteUrl = 'http://127.0.0.1/ALPHALINK0r'.str_repeat('A', 300).'?t=1';
             $longRouteHealth = $commands->exec(
                 'response=$(curl -sS --max-time 10 -D - -o /dev/null -w \'\\nALPHALINK_STATUS:%{http_code}\\n\' -H '
                     .escapeshellarg('Host: '.$serverName).' '.escapeshellarg($longRouteUrl).') && '
@@ -177,7 +178,7 @@ CONFIG;
     {
         $routeHealth = $commands->exec(
             'response=$(curl -sS --max-time 10 -D - -o /dev/null -w \'\\nALPHALINK_STATUS:%{http_code}\\n\' -H '
-                .escapeshellarg('Host: '.$host).' '.escapeshellarg('http://127.0.0.1/ALPHALINKTRACK10rprobe').') && '
+                .escapeshellarg('Host: '.$host).' '.escapeshellarg('http://127.0.0.1/ALPHALINK0rprobe').') && '
                 .'status=$(printf \'%s\\n\' "$response" | sed -n \'s/^ALPHALINK_STATUS://p\') && '
                 .'test "$status" = 302 && '
                 .'printf \'%s\\n\' "$response" | grep -Fqi '.escapeshellarg('Location: https://www.google.com').' && '

@@ -45,7 +45,8 @@ class AlphaLinkCentos9TrackingDeploymentStageTest extends TestCase
         $this->assertStringContainsString('ServerName mail.example.test', $files->uploads['/etc/httpd/conf.d/mail_example_test.conf']);
         $this->assertStringContainsString('ServerAlias 203.0.113.18 a.mail.example.test b.mail.example.test', $files->uploads['/etc/httpd/conf.d/mail_example_test.conf']);
         $this->assertStringContainsString('RewriteRule ^/healthz$ /index.php [END,QSA]', $files->uploads['/etc/httpd/conf.d/mail_example_test.conf']);
-        $this->assertStringContainsString('RewriteRule ^/([A-Za-z0-9]{10}[roub][A-Za-z0-9_-]{1,4096}(?:/[A-Za-z0-9_-]+)*)$ /index.php?__alphalink_long_uri=$1 [END,QSA,B]', $files->uploads['/etc/httpd/conf.d/mail_example_test.conf']);
+        $rewriteRule = 'RewriteRule ^/([A-Za-z0-9]{10}[roubROUB][A-Za-z0-9_-]{1,4096}(?:/[A-Za-z0-9_-]+)*)$ /index.php?__alphalink_long_uri=$1 [END,QSA,B]';
+        $this->assertStringContainsString($rewriteRule, $files->uploads['/etc/httpd/conf.d/mail_example_test.conf']);
         $this->assertStringNotContainsString('RewriteRule ^/(.*)$ /index.php', $files->uploads['/etc/httpd/conf.d/mail_example_test.conf']);
         $this->assertStringContainsString('DocumentRoot "/var/mini/public"', $files->uploads['/etc/httpd/conf.d/mail_example_test.conf']);
         $this->assertStringContainsString('AllowOverride None', $files->uploads['/etc/httpd/conf.d/mail_example_test.conf']);
@@ -56,7 +57,9 @@ class AlphaLinkCentos9TrackingDeploymentStageTest extends TestCase
         $this->assertStringContainsString('/healthz', $allCommands);
         $this->assertStringContainsString('grep -Fxq ALPHALINK_TRACKING_READY', $allCommands);
         $this->assertStringNotContainsString('grep -Fx ALPHALINK_TRACKING_READY', $allCommands);
-        $this->assertStringContainsString('/ALPHALINKTRACK10rprobe', $allCommands);
+        $this->assertStringContainsString('/ALPHALINK0rprobe', $allCommands);
+        $this->assertMatchesRegularExpression('#^/([A-Za-z0-9]{10}[roubROUB][A-Za-z0-9_-]{1,4096}(?:/[A-Za-z0-9_-]+)*)$#', '/ALPHALINK0rprobe');
+        $this->assertMatchesRegularExpression('#^/([A-Za-z0-9]{10}[roubROUB][A-Za-z0-9_-]{1,4096}(?:/[A-Za-z0-9_-]+)*)$#', '/ALPHALINK0r'.str_repeat('A', 300));
         $this->assertStringContainsString('ALPHALINK_TRACKING_ROUTE_READY', $allCommands);
         $this->assertStringContainsString('ALPHALINK_TRACKING_IP_ROUTE_READY', $allCommands);
         $this->assertStringContainsString('ALPHALINK_TRACKING_LONG_ROUTE_READY', $allCommands);

@@ -52,7 +52,7 @@ class AlphaLinkCentos9HttpsDeploymentStage
             .'    # ALPHALINK_TRACKING_ROUTES'.chr(92)."\n"
             .'    RewriteEngine On'.chr(92)."\n"
             .'    RewriteRule ^/healthz$ /index.php [END,QSA]'.chr(92)."\n"
-            .'    RewriteRule ^/([A-Za-z0-9]{10}[roub][A-Za-z0-9_-]{1,4096}(?:/[A-Za-z0-9_-]+)*)$ /index.php?__alphalink_long_uri=$1 [END,QSA,B]';
+            .'    RewriteRule ^/([A-Za-z0-9]{10}[roubROUB][A-Za-z0-9_-]{1,4096}(?:/[A-Za-z0-9_-]+)*)$ /index.php?__alphalink_long_uri=$1 [END,QSA,B]';
         $trackingRewrite = 'if test -f /var/mini/public/index.php && grep -q ALPHALINK_TRACKING_READY /var/mini/public/index.php && test -f '.escapeshellarg($trackingVhost).'; then '
             ."if ! grep -Fq 'ALPHALINK_TRACKING_ROUTES' ".escapeshellarg($trackingVhost).'; then '
             .'sed -i '.escapeshellarg($trackingRewriteScript).' '.escapeshellarg($trackingVhost).'; fi; '

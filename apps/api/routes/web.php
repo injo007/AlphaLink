@@ -125,6 +125,9 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::get('/app/workspaces/{workspace}/miscellaneous/contacts', [MiscellaneousConsoleController::class, 'contacts'])->name('console.miscellaneous.contacts');
     Route::get('/app/workspaces/{workspace}/miscellaneous/horizon', [MiscellaneousConsoleController::class, 'horizon'])->name('console.miscellaneous.horizon');
     Route::post('/app/workspaces/{workspace}/settings', [AppSettingsConsoleController::class, 'update'])->middleware('throttle:10,1')->name('console.app-settings.update');
+    Route::post('/app/workspaces/{workspace}/settings/telegram-rules', [AppSettingsConsoleController::class, 'saveTelegramEventRules'])->middleware('throttle:20,1')->name('console.app-settings.telegram.save');
+    Route::post('/app/workspaces/{workspace}/settings/telegram-test', [AppSettingsConsoleController::class, 'testTelegramEventRule'])->middleware('throttle:15,1')->name('console.app-settings.telegram.test');
+    Route::post('/app/workspaces/{workspace}/settings/backup-run', [AppSettingsConsoleController::class, 'runBackup'])->middleware('throttle:6,1')->name('console.app-settings.backup.run');
     Route::get('/app/workspaces/{workspace}/campaigns', [WorkspaceConsoleController::class, 'campaigns'])->name('console.campaigns.index');
     Route::get('/app/workspaces/{workspace}/campaigns/{campaign}/visitors', [WorkspaceCampaignVisitorsConsoleController::class, 'index'])->whereUuid(['workspace', 'campaign'])->name('console.campaigns.visitors');
     Route::get('/app/workspaces/{workspace}/tools/text-mechanic', [WorkspaceTextMechanicConsoleController::class, 'index'])->name('console.tools.text-mechanic');

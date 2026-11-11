@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceSponsor;
+use App\Services\Telegram\TelegramAlertService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -15,6 +16,7 @@ class AlphaLinkSponsorOfferRefresher
     public function __construct(
         private readonly AlphaLinkAffiliateProviderOfferReader $offerReader,
         private readonly AlphaLinkEverFlowCreativeBundleImporter $creativeImporter,
+        private readonly ?TelegramAlertService $telegramAlerts = null,
     ) {}
 
     /**
@@ -43,10 +45,15 @@ class AlphaLinkSponsorOfferRefresher
         );
 
         if (! is_array($record)) {
+            $previousStatus = (string) $offer->status;
             WorkspaceOffer::query()
                 ->where('workspace_id', $workspace->getKey())
                 ->whereKey($offer->getKey())
                 ->update(['status' => 'paused', 'updated_at' => now()]);
+
+            if ($previousStatus !== 'paused') {
+                $this->notifyStatusChange($workspace, $offer, $sponsor, $actor, $previousStatus, 'paused', 'Offer unavailable or removed on sponsor network');
+            }
 
             return ['outcome' => 'paused', 'html_creatives_added' => 0];
         }
@@ -62,12 +69,14 @@ class AlphaLinkSponsorOfferRefresher
             $creatives = $this->creativeImporter->fetch((string) $record['creative_bundle_url']);
         }
 
-        $metadataChanged = DB::transaction(function () use ($workspace, $offer, $record): bool {
+        $statusTransition = null;
+        $metadataChanged = DB::transaction(function () use ($workspace, $offer, $record, &$statusTransition): bool {
             $lockedOffer = WorkspaceOffer::query()
                 ->where('workspace_id', $workspace->getKey())
                 ->whereKey($offer->getKey())
                 ->lockForUpdate()
                 ->firstOrFail();
+            $previousStatus = (string) $lockedOffer->status;
             $lockedOffer->forceFill([
                 'name' => $record['name'],
                 'payout' => sprintf('%0.2f', (float) $record['price']),
@@ -86,9 +95,16 @@ class AlphaLinkSponsorOfferRefresher
             }
 
             $lockedOffer->save();
+            if ($lockedOffer->status !== $previousStatus) {
+                $statusTransition = [$previousStatus, (string) $lockedOffer->status];
+            }
 
             return true;
         });
+
+        if (is_array($statusTransition)) {
+            $this->notifyStatusChange($workspace, $offer, $sponsor, $actor, $statusTransition[0], $statusTransition[1], 'Updated via sponsor feed sync');
+        }
 
         $htmlCreativesAdded = 0;
         if ($creatives !== []) {
@@ -123,6 +139,30 @@ class AlphaLinkSponsorOfferRefresher
             || ! is_string($offer->offer_id)
             || ! is_numeric($offer->offer_id)) {
             throw new AlphaLinkAffiliateProviderException('Sponsor settings or external offer ID are incomplete.');
+        }
+    }
+
+    private function notifyStatusChange(
+        Workspace $workspace,
+        WorkspaceOffer $offer,
+        WorkspaceSponsor $sponsor,
+        ?User $actor,
+        string $oldStatus,
+        string $newStatus,
+        string $reason,
+    ): void {
+        try {
+            ($this->telegramAlerts ?? app(TelegramAlertService::class))->notifyEvent($workspace, 'offer_status', [
+                'offer_id' => (string) ($offer->offer_id ?: $offer->getKey()),
+                'offer_name' => (string) $offer->name,
+                'sponsor' => (string) ($sponsor->name ?: '#'.$sponsor->getKey()),
+                'old_status' => $oldStatus,
+                'new_status' => $newStatus,
+                'actor' => $actor?->name ?: 'Scheduled Provider Sync',
+                'reason' => $reason,
+            ], $actor?->getKey());
+        } catch (Throwable) {
+            // Provider refresh must continue if Telegram fails.
         }
     }
 

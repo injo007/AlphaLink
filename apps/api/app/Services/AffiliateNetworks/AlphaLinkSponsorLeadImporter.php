@@ -12,8 +12,10 @@ use App\Services\Campaigns\AlphaLinkCampaignAffiliateAttribution;
 use App\Services\Campaigns\AlphaLinkDropAffiliateAttribution;
 use App\Services\Campaigns\CampaignIpGeoResolver;
 use App\Services\Campaigns\TrackedCountryListManager;
+use App\Services\Telegram\TelegramAlertService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 class AlphaLinkSponsorLeadImporter
 {
@@ -23,6 +25,7 @@ class AlphaLinkSponsorLeadImporter
         private readonly AlphaLinkDropAffiliateAttribution $dropAttribution,
         private readonly CampaignIpGeoResolver $geoResolver,
         private readonly TrackedCountryListManager $membershipManager,
+        private readonly ?TelegramAlertService $telegramAlerts = null,
     ) {}
 
     /**
@@ -45,7 +48,9 @@ class AlphaLinkSponsorLeadImporter
         ];
 
         foreach ($sales as $sale) {
-            [$outcome, $reportedOutcome] = DB::transaction(function () use ($sponsor, $sale): array {
+            $leadNotificationContext = null;
+
+            [$outcome, $reportedOutcome] = DB::transaction(function () use ($sponsor, $sale, &$leadNotificationContext): array {
                 WorkspaceSponsor::query()
                     ->where('workspace_id', $sponsor->workspace_id)
                     ->whereKey($sponsor->getKey())
@@ -71,11 +76,26 @@ class AlphaLinkSponsorLeadImporter
                     }
 
                     $attributes = $this->attribution->resolve($sponsor, $sale);
+                    if ($attributes === null) {
+                        return ['skipped', $reportedOutcome];
+                    }
 
-                    return [
-                        $attributes === null ? 'skipped' : $this->importCampaignLead($sponsor, $attributes, (string) $conversionId),
-                        $reportedOutcome,
-                    ];
+                    $importOutcome = $this->importCampaignLead($sponsor, $attributes, (string) $conversionId);
+                    if ($importOutcome === 'created') {
+                        $leadNotificationContext = [
+                            'sponsor' => $sponsor->name ?: ('#'.$sponsor->getKey()),
+                            'offer' => (string) ($attributes['offer_name'] ?? $attributes['offer_id'] ?? 'Campaign Offer'),
+                            'source' => 'Campaign '.($attributes['campaign_id'] ?? ''),
+                            'source_type' => 'Campaign',
+                            'payout' => number_format((float) ($attributes['revenue'] ?? $sale['earning'] ?? 0), 2),
+                            'currency' => is_string($sale['currency_code'] ?? null) ? $sale['currency_code'] : 'USD',
+                            'country' => (string) ($attributes['country'] ?? 'Unknown'),
+                            'conversion_id' => (string) $conversionId,
+                            'ip' => (string) ($attributes['conversion_ip'] ?? 'N/A'),
+                        ];
+                    }
+
+                    return [$importOutcome, $reportedOutcome];
                 }
 
                 if (is_string($decodedS1) && preg_match('/^D_([1-9][0-9]*)$/', $decodedS1, $dropMatch)) {
@@ -98,15 +118,40 @@ class AlphaLinkSponsorLeadImporter
                     }
 
                     $dropAttributes = $this->dropAttribution->resolve($sponsor, $sale);
+                    if ($dropAttributes === null) {
+                        return ['skipped', $reportedOutcome];
+                    }
 
-                    return [
-                        $dropAttributes === null ? 'skipped' : $this->importDropLead($sponsor, $dropAttributes, (string) $conversionId),
-                        $reportedOutcome,
-                    ];
+                    $importOutcome = $this->importDropLead($sponsor, $dropAttributes, (string) $conversionId);
+                    if ($importOutcome === 'created') {
+                        $visitor = $dropAttributes['visitor'] ?? [];
+                        $leadNotificationContext = [
+                            'sponsor' => $sponsor->name ?: ('#'.$sponsor->getKey()),
+                            'offer' => (string) ($sale['offer_name'] ?? $visitor['offer_id'] ?? 'Drop Offer'),
+                            'source' => 'Drop #'.($visitor['workspace_drop_id'] ?? $dropId),
+                            'source_type' => 'Drop',
+                            'payout' => number_format((float) ($visitor['revenue'] ?? $sale['earning'] ?? 0), 2),
+                            'currency' => is_string($sale['currency_code'] ?? null) ? $sale['currency_code'] : 'USD',
+                            'country' => (string) ($visitor['country'] ?? 'Unknown'),
+                            'conversion_id' => (string) $conversionId,
+                            'ip' => (string) ($visitor['ip'] ?? 'N/A'),
+                        ];
+                    }
+
+                    return [$importOutcome, $reportedOutcome];
                 }
 
                 return ['skipped', $reportedOutcome];
             });
+
+            if ($leadNotificationContext !== null && $sponsor->workspace !== null) {
+                try {
+                    ($this->telegramAlerts ?? app(TelegramAlertService::class))
+                        ->notifyEvent($sponsor->workspace, 'lead', $leadNotificationContext);
+                } catch (Throwable) {
+                    // Lead import must not fail when Telegram delivery fails.
+                }
+            }
 
             $counts[$outcome]++;
             $counts['reported_'.$reportedOutcome]++;

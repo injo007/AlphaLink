@@ -218,6 +218,7 @@
     const emailTextarea = byId('email_test');
     byId('saved_emails').addEventListener('change', (event) => {
         emailTextarea.value = [...event.target.selectedOptions].map((option) => option.value).join('\n');
+        updateRouteCountsAndSummary();
     });
     byId('manage-emails').addEventListener('click', () => openDialog(byId('global-email-dialog'), byId('new-test-email')));
 
@@ -549,6 +550,13 @@
             sBody.textContent = hasBody ? 'Ready' : 'Empty (optional)';
             sBody.className = hasBody ? 'is-ready' : 'is-optional';
         }
+        const sPlaceholders = byId('global-summary-placeholders');
+        if (sPlaceholders) {
+            const phCount = [...document.querySelectorAll('.placeholder-row .placeholder-data')]
+                .filter((el) => el.value.trim() !== '').length;
+            sPlaceholders.textContent = phCount > 0 ? `${phCount} active` : 'Optional';
+            sPlaceholders.className = phCount > 0 ? 'is-ready' : 'is-optional';
+        }
 
         const checks = [hasReturnPath, emailsList.length > 0, hasHeader, selCount > 0];
         const passed = checks.filter(Boolean).length;
@@ -668,6 +676,21 @@
     byId('ips-available-filter').addEventListener('input', (event) => applyOptionFilter(availableSelect, event.currentTarget));
     byId('ips-selected-filter').addEventListener('input', (event) => applyOptionFilter(selectedSelect, event.currentTarget));
 
+    document.querySelectorAll('[data-copy-ip-list]').forEach((btn) => btn.addEventListener('click', async () => {
+        const list = btn.dataset.copyIpList === 'selected' ? selectedSelect : availableSelect;
+        const lines = [...list.options].filter((opt) => !opt.hidden).map((opt) => opt.textContent.trim()).filter(Boolean);
+        if (lines.length === 0) {
+            showToast('No routes in this list to copy.', 'warning');
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(lines.join('\n'));
+            showToast(`Copied ${lines.length} route(s) to clipboard.`, 'success');
+        } catch {
+            showToast('Clipboard permission denied.', 'warning');
+        }
+    }));
+
     emailTextarea.addEventListener('input', updateRouteCountsAndSummary);
     byId('return_path').addEventListener('input', updateRouteCountsAndSummary);
     if (headerEditor && bodyEditor) {
@@ -726,7 +749,9 @@
         } else {
             remove.closest('.placeholder-row').remove();
         }
+        updateRouteCountsAndSummary();
     });
+    byId('placeholders').addEventListener('input', updateRouteCountsAndSummary);
     byId('placeholder_combination').addEventListener('change', (event) => {
         if (event.currentTarget.checked) {
             byId('placeholder_all_combination').checked = false;

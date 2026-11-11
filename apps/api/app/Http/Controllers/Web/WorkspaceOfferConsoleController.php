@@ -17,6 +17,7 @@ use App\Services\AffiliateNetworks\AlphaLinkSponsorOfferImporter;
 use App\Services\AffiliateNetworks\AlphaLinkSponsorOfferRefresher;
 use App\Services\AlphaLinkOfferAssetSharer;
 use App\Services\Campaigns\AlphaLinkOfferSuppressionFile;
+use App\Services\Telegram\TelegramAlertService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Client\ConnectionException;
@@ -798,10 +799,10 @@ class WorkspaceOfferConsoleController extends Controller
         return response()->json(['data' => 'Offer Updated']);
     }
 
-    public function setActive(Request $request, string $workspaceId, int $offerId, AlphaLinkOfferSuppressionFile $suppressionFiles): JsonResponse
+    public function setActive(Request $request, string $workspaceId, int $offerId, AlphaLinkOfferSuppressionFile $suppressionFiles, TelegramAlertService $telegram): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspaceId, self::MANAGE_ROLES);
-        $offer = $workspace->offers()->whereKey($offerId)->firstOrFail();
+        $offer = $workspace->offers()->with('sponsor:id,name')->whereKey($offerId)->firstOrFail();
         $data = $request->validate(['status' => ['required', 'boolean']]);
         $activate = (bool) $data['status'];
 
@@ -811,19 +812,51 @@ class WorkspaceOfferConsoleController extends Controller
             ], 400);
         }
 
+        $previousActive = (bool) $offer->is_active;
         $offer->forceFill(['is_active' => $activate])->save();
         $this->audit($workspace, $request, 'offer.active_changed', $offer, ['is_active' => $activate]);
+
+        if ($previousActive !== $activate) {
+            try {
+                $telegram->notifyEvent($workspace, 'offer_status', [
+                    'offer_id' => (string) ($offer->offer_id ?: $offer->getKey()),
+                    'offer_name' => (string) $offer->name,
+                    'sponsor' => (string) ($offer->sponsor?->name ?: '#'.$offer->sponsor_id),
+                    'old_status' => $previousActive ? 'active' : 'inactive',
+                    'new_status' => $activate ? 'active' : 'inactive',
+                    'actor' => (string) ($request->user()->name ?: $request->user()->email),
+                    'reason' => 'Manual activation status toggle',
+                ], $request->user()->getKey());
+            } catch (\Throwable) {
+            }
+        }
 
         return response()->json(['data' => 'Changed successfully']);
     }
 
-    public function setBusinessStatus(Request $request, string $workspaceId, int $offerId, AlphaLinkSponsorOfferRefresher $refresher): JsonResponse
+    public function setBusinessStatus(Request $request, string $workspaceId, int $offerId, AlphaLinkSponsorOfferRefresher $refresher, TelegramAlertService $telegram): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspaceId, self::MANAGE_ROLES);
-        $offer = $workspace->offers()->whereKey($offerId)->firstOrFail();
+        $offer = $workspace->offers()->with('sponsor:id,name')->whereKey($offerId)->firstOrFail();
         $data = $request->validate(['status' => ['required', 'string', Rule::in(WorkspaceOffer::STATUSES)]]);
+        $previousStatus = (string) $offer->status;
         $offer->forceFill(['status' => $data['status']])->save();
         $this->audit($workspace, $request, 'offer.status_changed', $offer, ['status' => $data['status']]);
+
+        if ($previousStatus !== $data['status']) {
+            try {
+                $telegram->notifyEvent($workspace, 'offer_status', [
+                    'offer_id' => (string) ($offer->offer_id ?: $offer->getKey()),
+                    'offer_name' => (string) $offer->name,
+                    'sponsor' => (string) ($offer->sponsor?->name ?: '#'.$offer->sponsor_id),
+                    'old_status' => $previousStatus,
+                    'new_status' => $data['status'],
+                    'actor' => (string) ($request->user()->name ?: $request->user()->email),
+                    'reason' => 'Manual offer status change',
+                ], $request->user()->getKey());
+            } catch (\Throwable) {
+            }
+        }
 
         if ($data['status'] === 'live') {
             $refresh = $refresher->refresh($workspace, $offer, $request->user());

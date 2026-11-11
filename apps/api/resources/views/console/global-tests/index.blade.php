@@ -259,7 +259,7 @@
                                 <div class="row">
                                     <div class="col-sm-12 col-md-8">
                                         <div class="form-row">
-                                            <div class="form-group col-sm-6 col-md-2">
+                                            <div class="form-group col-sm-6 col-md-3">
                                                 <label for="option"><i class="fas fa-sitemap campaign-field-icon" aria-hidden="true"></i>Option:</label>
                                                 <select id="option" class="form-control selectpicker" data-size="3">
                                                     <option value="ip" selected>IP</option>
@@ -267,7 +267,7 @@
                                                     <option value="smtp">SMTP</option>
                                                 </select>
                                             </div>
-                                            <div class="form-group col-sm-6 col-md-2">
+                                            <div class="form-group col-sm-6 col-md-3">
                                                 <label for="type"><i class="fas fa-shield-alt campaign-field-icon" aria-hidden="true"></i>Type IP:</label>
                                                 <select id="type" class="form-control selectpicker" data-size="3">
                                                     <option value="all">ALL</option>
@@ -275,7 +275,7 @@
                                                     <option value="ipv6">IPv6</option>
                                                 </select>
                                             </div>
-                                            <div class="form-group col-sm-12 col-md-8">
+                                            <div class="form-group col-sm-12 col-md-6">
                                                 <label for="servers">
                                                     <i class="fas fa-server campaign-field-icon" aria-hidden="true"></i>Servers:
                                                     <button class="btn btn-link btn-sm p-0" id="reload-servers" type="button" title="Reload Servers" aria-label="Reload server list"><i class="fas fa-sync-alt" aria-hidden="true"></i></button>
@@ -307,6 +307,7 @@
                                                             <span id="send-ips-available-label">Available routes</span>
                                                             <span class="campaign-route-count" id="send-ips-available-count">0</span>
                                                         </label>
+                                                        <button type="button" class="campaign-editor-icon-button" data-copy-ip-list="available" title="Copy available routes" aria-label="Copy available routes"><i class="fas fa-copy" aria-hidden="true"></i></button>
                                                     </div>
                                                     <div class="input-group input-group-sm mb-2">
                                                         <input id="ips-available-filter" class="form-control campaign-route-filter mb-0" type="search" placeholder="Filter available IPs" aria-label="Filter available IPs">
@@ -330,6 +331,7 @@
                                                             <span id="send-ips-selected-label">Selected routes</span>
                                                             <span class="campaign-route-count" id="send-ips-selected-count">0</span>
                                                         </label>
+                                                        <button type="button" class="campaign-editor-icon-button" data-copy-ip-list="selected" title="Copy selected routes" aria-label="Copy selected routes"><i class="fas fa-copy" aria-hidden="true"></i></button>
                                                     </div>
                                                     <div class="input-group input-group-sm mb-2">
                                                         <input id="ips-selected-filter" class="form-control campaign-route-filter mb-0" type="search" placeholder="Filter selected IPs" aria-label="Filter selected IPs">
@@ -390,8 +392,9 @@
                     <ul class="campaign-summary-checklist">
                         <li><span><i class="fas fa-at" aria-hidden="true"></i> Return Path</span><strong id="global-summary-path" class="is-ready">Configured</strong></li>
                         <li><span><i class="fas fa-paper-plane" aria-hidden="true"></i> Email Test</span><strong id="global-summary-emails" class="is-pending">Required</strong></li>
-                        <li><span><i class="fas fa-server" aria-hidden="true"></i> Servers &amp; IPs</span><strong id="global-summary-routes" class="is-pending">Not selected</strong></li>
                         <li><span><i class="fas fa-heading" aria-hidden="true"></i> Headers</span><strong id="global-summary-headers" class="is-ready">Ready</strong></li>
+                        <li><span><i class="fas fa-layer-group" aria-hidden="true"></i> Placeholders</span><strong id="global-summary-placeholders" class="is-optional">Optional</strong></li>
+                        <li><span><i class="fas fa-server" aria-hidden="true"></i> Servers &amp; IPs</span><strong id="global-summary-routes" class="is-pending">Not selected</strong></li>
                         <li><span><i class="fas fa-code" aria-hidden="true"></i> HTML Body</span><strong id="global-summary-body" class="is-optional">Optional</strong></li>
                     </ul>
                 </section>
@@ -664,8 +667,8 @@
             width: 13px;
         }
         .campaign-create-page .form-control:not(textarea):not([multiple]):not(.bootstrap-select) {
-            height: 36px;
-            min-height: 36px;
+            height: 32px;
+            min-height: 32px;
             padding: 4px 10px;
             border-radius: 7px;
             border: 1px solid #cfd4ed;
@@ -678,8 +681,8 @@
             padding: 0 !important;
         }
         .campaign-create-page .bootstrap-select > .dropdown-toggle {
-            height: 36px !important;
-            min-height: 36px !important;
+            height: 32px !important;
+            min-height: 32px !important;
             border: 1px solid #cfd4ed !important;
             border-radius: 7px !important;
             background: #ffffff;
@@ -710,12 +713,12 @@
             box-shadow: 0 2px 6px rgb(79 56 145 / 10%);
             color: #7135d4;
             display: inline-flex;
-            flex: 0 0 36px;
-            height: 36px;
+            flex: 0 0 32px;
+            height: 32px;
             justify-content: center;
             padding: 0;
             transition: all .16s ease;
-            width: 36px;
+            width: 32px;
             cursor: pointer;
         }
         .campaign-create-page .campaign-icon-button:hover {
@@ -750,11 +753,11 @@
             padding: 10px 12px !important;
         }
         .global-tag-button {
-            border: 1px solid rgba(139, 92, 246, 0.25);
-            background: rgba(139, 92, 246, 0.08);
-            color: #6d28d9;
+            border: 1px solid transparent;
+            background: transparent;
+            color: #5f32d5;
             cursor: pointer;
-            padding: 2px 8px;
+            padding: 2px 5px;
             border-radius: 6px;
             font-family: ui-monospace, monospace;
             font-size: 0.72rem;
@@ -762,8 +765,9 @@
             transition: all 0.15s ease;
         }
         .global-tag-button:hover {
-            background: linear-gradient(135deg, #8b5cf6, #6366f1);
-            color: #ffffff;
+            border-color: rgba(139, 92, 246, 0.35);
+            background: rgba(139, 92, 246, 0.12);
+            color: #4c1d95;
         }
         #show-global-tags {
             align-items: center;

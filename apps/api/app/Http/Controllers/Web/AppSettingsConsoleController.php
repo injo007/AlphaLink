@@ -7,6 +7,8 @@ use App\Models\AuditEvent;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Services\Campaigns\CampaignRedirectUrlPolicy;
+use App\Services\Telegram\TelegramAlertService;
+use App\Services\Workspace\WorkspaceBackupService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -114,7 +116,7 @@ class AppSettingsConsoleController extends Controller
         'allow_all_monitor',
     ];
 
-    public function index(Request $request, string $workspaceId): View
+    public function index(Request $request, string $workspaceId, TelegramAlertService $telegram): View
     {
         $workspace = $this->workspaceFor($request->user(), $workspaceId, true);
         $canManageGeneralSettings = in_array($workspace->pivot->role, ['owner', 'admin'], true);
@@ -190,7 +192,62 @@ class AppSettingsConsoleController extends Controller
             $secretConfigured[$field] = $secretStored[$field] || filled($configured[$field] ?? null);
         }
 
-        return view('console.app-settings.index', compact('workspace', 'settings', 'secretConfigured', 'secretStored', 'canManageGeneralSettings'));
+        $telegramConfig = $telegram->getConfigForWorkspace($workspace);
+
+        return view('console.app-settings.index', compact('workspace', 'settings', 'secretConfigured', 'secretStored', 'canManageGeneralSettings', 'telegramConfig'));
+    }
+
+    public function saveTelegramEventRules(Request $request, string $workspaceId, TelegramAlertService $telegram): JsonResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspaceId);
+        $validated = $request->validate([
+            'events' => ['required', 'array'],
+            'events.*.enabled' => ['sometimes', 'boolean'],
+            'events.*.target_channel' => ['sometimes', 'string', 'in:main,it,both'],
+            'events.*.custom_template' => ['sometimes', 'nullable', 'string', 'max:1500'],
+        ]);
+
+        $config = $telegram->saveEventRules($workspace, $validated['events']);
+
+        AuditEvent::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'actor_user_id' => $request->user()->getKey(),
+            'action' => 'workspace.telegram_event_rules_updated',
+            'subject_type' => 'workspace_app_settings',
+            'subject_id' => (string) $workspace->getKey(),
+            'request_id' => $request->attributes->get('request_id'),
+            'properties' => ['events' => array_keys($validated['events'])],
+            'occurred_at' => now(),
+        ]);
+
+        return response()->json(['status' => 'ok', 'config' => $config]);
+    }
+
+    public function testTelegramEventRule(Request $request, string $workspaceId, TelegramAlertService $telegram): JsonResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspaceId);
+        $validated = $request->validate([
+            'event_type' => ['required', 'string', 'in:login,lead,backup,offer_status'],
+            'target_channel' => ['nullable', 'string', 'in:main,it,both'],
+            'custom_template' => ['nullable', 'string', 'max:1500'],
+        ]);
+
+        $result = $telegram->sendTestEvent(
+            $workspace,
+            $validated['event_type'],
+            $validated['custom_template'] ?? null,
+            $validated['target_channel'] ?? null,
+        );
+
+        return response()->json($result, $result['success'] ? 200 : 422);
+    }
+
+    public function runBackup(Request $request, string $workspaceId, WorkspaceBackupService $backupService): JsonResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspaceId);
+        $result = $backupService->run($workspace, $request->user(), force: true);
+
+        return response()->json($result, $result['success'] ? 200 : 422);
     }
 
     public function revealSecret(Request $request, string $workspaceId, string $field): JsonResponse
@@ -358,6 +415,9 @@ class AppSettingsConsoleController extends Controller
             $genericModel->workspace_id = $workspace->getKey();
             $genericModel->settings = $genericSettings;
             $genericModel->save();
+        }
+        if (! $installationOnly && is_array($request->input('event_alert_rules'))) {
+            app(TelegramAlertService::class)->saveEventRules($workspace, $request->input('event_alert_rules'));
         }
 
         $secretFieldsUpdated = array_values(array_unique([...$secretFieldsUpdated, ...$genericSecretsUpdated]));

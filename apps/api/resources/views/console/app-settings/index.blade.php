@@ -357,6 +357,16 @@
                                     @include('console.app-settings.partials.field', ['field' => 'backup_password', 'label' => 'BACKUP PASSWORD', 'type' => 'text', 'secret' => true])
                                 </div>
                             </div>
+
+                            <div class="d-flex flex-wrap align-items-center justify-content-between mt-3 pt-3 border-top command-os-backup-bar" style="gap: 12px;">
+                                <div class="small text-muted">
+                                    <i class="fas fa-clock mr-1 text-purple"></i> Daily backup schedule runs at <code>03:30 UTC</code> when Allow Backup is ON and notifies Telegram.
+                                    <span id="backup-run-status" class="d-block mt-1 font-w600"></span>
+                                </div>
+                                <button type="button" class="btn-command-action" id="btn-run-workspace-backup" data-backup-url="{{ route('console.app-settings.backup.run', $workspace->getKey()) }}" @if(!$canManageGeneralSettings) disabled @endif>
+                                    <i class="fas fa-play-circle mr-1"></i> RUN BACKUP NOW
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -388,6 +398,121 @@
                                 </div>
                                 <div class="col-sm-12 col-md-6 col-lg-3">
                                     @include('console.app-settings.partials.field', ['field' => 'telegram_channel_it', 'label' => 'TELEGRAM IT CHANNEL ID', 'type' => 'text', 'secret' => false])
+                                </div>
+                            </div>
+
+                            @php
+                                $tgCfg = $telegramConfig ?? app(\App\Services\Telegram\TelegramAlertService::class)->getConfigForWorkspace($workspace);
+                                $tgEvents = $tgCfg['event_rules'] ?? [];
+                            @endphp
+
+                            <div class="command-os-tg-events-panel mt-3 p-3" id="telegram-event-notifications-panel"
+                                 data-save-url="{{ route('console.app-settings.telegram.save', $workspace->getKey()) }}"
+                                 data-test-url="{{ route('console.app-settings.telegram.test', $workspace->getKey()) }}">
+                                <div class="d-flex flex-wrap align-items-center justify-content-between mb-3" style="gap: 10px;">
+                                    <div>
+                                        <div class="d-flex align-items-center" style="gap: 8px;">
+                                            <span class="command-os-tg-icon-pill"><i class="fab fa-telegram-plane"></i></span>
+                                            <strong style="font-size: 0.875rem; letter-spacing: 0.02em;">TELEGRAM EVENT NOTIFICATIONS &amp; CUSTOM MESSAGES</strong>
+                                            @if (!empty($tgCfg['ready']))
+                                                <span class="badge-command-pill" style="color: #10b981; font-weight: 700;">
+                                                    <i class="fas fa-check-circle mr-1"></i> BOT &amp; CHANNEL READY
+                                                </span>
+                                            @else
+                                                <span class="badge-command-pill" style="color: #f59e0b; font-weight: 700;">
+                                                    <i class="fas fa-exclamation-triangle mr-1"></i> SAVE BOT TOKEN &amp; CHANNEL FIRST
+                                                </span>
+                                            @endif
+                                        </div>
+                                        <p class="text-muted small mb-0 mt-1">Enable or customize the exact Telegram message template sent for Login, Lead conversions, Backups, and Offer status changes.</p>
+                                    </div>
+                                    <button type="button" class="btn-command-primary" id="btn-save-tg-event-rules" style="height: 36px; padding: 0 16px; font-size: 0.78rem;" @if(!$canManageGeneralSettings) disabled @endif>
+                                        <i class="fas fa-save mr-1"></i> SAVE ALERT RULES
+                                    </button>
+                                </div>
+
+                                <div id="tg-events-status-banner" class="alert d-none mb-3 py-2 small" role="status"></div>
+
+                                <div class="row">
+                                    @foreach ($tgEvents as $eventKey => $eventRule)
+                                        <div class="col-12 col-xl-6 mb-3">
+                                            <div class="command-os-tg-event-card p-3 h-100 d-flex flex-column" data-tg-event-card="{{ $eventKey }}">
+                                                <div class="d-flex align-items-start justify-content-between mb-2" style="gap: 10px;">
+                                                    <div class="d-flex align-items-center" style="gap: 10px;">
+                                                        <span class="command-os-tg-event-icon"><i class="{{ $eventRule['icon'] ?? 'fas fa-bell' }}"></i></span>
+                                                        <div>
+                                                            <div class="font-w700" style="font-size: 0.85rem;">{{ $eventRule['label'] }}</div>
+                                                            <div class="text-muted" style="font-size: 0.73rem;">{{ $eventRule['description'] }}</div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="custom-control custom-switch flex-shrink-0">
+                                                        <input type="hidden" name="event_alert_rules[{{ $eventKey }}][enabled]" value="0">
+                                                        <input type="checkbox"
+                                                               class="custom-control-input tg-event-enabled-toggle"
+                                                               id="tg-event-enabled-{{ $eventKey }}"
+                                                               name="event_alert_rules[{{ $eventKey }}][enabled]"
+                                                               value="1"
+                                                               data-tg-event-enabled="{{ $eventKey }}"
+                                                               @checked(!empty($eventRule['enabled']))
+                                                               @if(!$canManageGeneralSettings) disabled @endif>
+                                                        <label class="custom-control-label small font-w700" for="tg-event-enabled-{{ $eventKey }}">
+                                                            {{ !empty($eventRule['enabled']) ? 'ON' : 'OFF' }}
+                                                        </label>
+                                                    </div>
+                                                </div>
+
+                                                <div class="d-flex flex-wrap align-items-center justify-content-between mb-2" style="gap: 8px;">
+                                                    <div class="d-flex align-items-center" style="gap: 6px;">
+                                                        <label class="mb-0 small font-w600 text-muted" for="tg-event-channel-{{ $eventKey }}">Channel:</label>
+                                                        <select id="tg-event-channel-{{ $eventKey }}"
+                                                                name="event_alert_rules[{{ $eventKey }}][target_channel]"
+                                                                class="form-control form-control-sm command-os-tg-select"
+                                                                data-tg-event-channel="{{ $eventKey }}"
+                                                                @if(!$canManageGeneralSettings) disabled @endif>
+                                                            <option value="main" @selected(($eventRule['target_channel'] ?? 'main') === 'main')>Main Channel</option>
+                                                            <option value="it" @selected(($eventRule['target_channel'] ?? 'main') === 'it')>IT Channel</option>
+                                                            <option value="both" @selected(($eventRule['target_channel'] ?? 'main') === 'both')>Both Channels</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="d-flex align-items-center" style="gap: 6px;">
+                                                        <button type="button"
+                                                                class="btn-command-action tg-event-test-btn"
+                                                                style="height: 28px; padding: 0 10px; font-size: 0.72rem;"
+                                                                data-tg-test-event="{{ $eventKey }}"
+                                                                @if(!$canManageGeneralSettings) disabled @endif>
+                                                            <i class="fas fa-paper-plane mr-1"></i> Test
+                                                        </button>
+                                                        <button type="button"
+                                                                class="btn-command-action tg-event-reset-btn"
+                                                                style="height: 28px; padding: 0 10px; font-size: 0.72rem;"
+                                                                data-tg-reset-event="{{ $eventKey }}"
+                                                                data-default-template="{{ $eventRule['default_template'] }}"
+                                                                @if(!$canManageGeneralSettings) disabled @endif>
+                                                            <i class="fas fa-undo mr-1"></i> Reset
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <div class="mb-2 d-flex flex-wrap" style="gap: 4px;">
+                                                    @foreach ($eventRule['placeholders'] ?? [] as $ph)
+                                                        <button type="button"
+                                                                class="command-os-tg-chip"
+                                                                data-tg-insert-chip="{{ $ph }}"
+                                                                data-tg-target="{{ $eventKey }}"
+                                                                title="Insert {{ $ph }} into message template">{{ $ph }}</button>
+                                                    @endforeach
+                                                </div>
+
+                                                <textarea id="tg-event-template-{{ $eventKey }}"
+                                                          name="event_alert_rules[{{ $eventKey }}][custom_template]"
+                                                          class="form-control form-control-sm command-os-tg-textarea mt-auto"
+                                                          rows="5"
+                                                          maxlength="1500"
+                                                          data-tg-event-template="{{ $eventKey }}"
+                                                          @if(!$canManageGeneralSettings) readonly @endif>{{ $eventRule['custom_template'] }}</textarea>
+                                            </div>
+                                        </div>
+                                    @endforeach
                                 </div>
                             </div>
 
@@ -585,5 +710,240 @@
                 }
             }
         });
+
+        // Command OS Telegram Event Notifications & Backup Runner
+        (function () {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            const tgPanel = document.getElementById('telegram-event-notifications-panel');
+            const banner = document.getElementById('tg-events-status-banner');
+            const backupBtn = document.getElementById('btn-run-workspace-backup');
+            const backupStatus = document.getElementById('backup-run-status');
+
+            const showTgBanner = (msg, ok = true) => {
+                if (!banner) return;
+                banner.textContent = msg;
+                banner.className = `alert mb-3 py-2 small ${ok ? 'alert-success' : 'alert-danger'}`;
+                banner.classList.remove('d-none');
+            };
+
+            document.querySelectorAll('.tg-event-enabled-toggle').forEach((toggle) => {
+                toggle.addEventListener('change', () => {
+                    const label = toggle.closest('.custom-switch')?.querySelector('.custom-control-label');
+                    if (label) label.textContent = toggle.checked ? 'ON' : 'OFF';
+                });
+            });
+
+            document.querySelectorAll('[data-tg-insert-chip]').forEach((chip) => {
+                chip.addEventListener('click', () => {
+                    const key = chip.dataset.tgTarget;
+                    const ph = chip.dataset.tgInsertChip;
+                    const textarea = document.querySelector(`[data-tg-event-template="${key}"]`);
+                    if (!textarea) return;
+                    const start = textarea.selectionStart ?? textarea.value.length;
+                    const end = textarea.selectionEnd ?? textarea.value.length;
+                    textarea.value = textarea.value.slice(0, start) + ph + textarea.value.slice(end);
+                    textarea.focus();
+                    textarea.selectionStart = textarea.selectionEnd = start + ph.length;
+                });
+            });
+
+            document.querySelectorAll('[data-tg-reset-event]').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const key = btn.dataset.tgResetEvent;
+                    const textarea = document.querySelector(`[data-tg-event-template="${key}"]`);
+                    if (textarea && btn.dataset.defaultTemplate) {
+                        textarea.value = btn.dataset.defaultTemplate;
+                    }
+                });
+            });
+
+            const collectEventPayload = () => {
+                const events = {};
+                document.querySelectorAll('[data-tg-event-card]').forEach((card) => {
+                    const key = card.dataset.tgEventCard;
+                    events[key] = {
+                        enabled: Boolean(card.querySelector(`[data-tg-event-enabled="${key}"]`)?.checked),
+                        target_channel: card.querySelector(`[data-tg-event-channel="${key}"]`)?.value || 'main',
+                        custom_template: card.querySelector(`[data-tg-event-template="${key}"]`)?.value || '',
+                    };
+                });
+                return events;
+            };
+
+            document.getElementById('btn-save-tg-event-rules')?.addEventListener('click', async function () {
+                if (!tgPanel) return;
+                const btn = this;
+                btn.disabled = true;
+                try {
+                    const res = await fetch(tgPanel.dataset.saveUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken,
+                        },
+                        body: JSON.stringify({ events: collectEventPayload() }),
+                    });
+                    const body = await res.json().catch(() => ({}));
+                    if (!res.ok) throw new Error(body.message || 'Could not save Telegram notification rules.');
+                    showTgBanner('Telegram notification rules and custom templates saved.', true);
+                } catch (err) {
+                    showTgBanner(err.message || 'Save failed.', false);
+                } finally {
+                    btn.disabled = false;
+                }
+            });
+
+            document.querySelectorAll('[data-tg-test-event]').forEach((btn) => {
+                btn.addEventListener('click', async () => {
+                    if (!tgPanel) return;
+                    const key = btn.dataset.tgTestEvent;
+                    const card = btn.closest('[data-tg-event-card]');
+                    btn.disabled = true;
+                    try {
+                        const res = await fetch(tgPanel.dataset.testUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Accept': 'application/json',
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': csrfToken,
+                            },
+                            body: JSON.stringify({
+                                event_type: key,
+                                target_channel: card?.querySelector(`[data-tg-event-channel="${key}"]`)?.value || 'main',
+                                custom_template: card?.querySelector(`[data-tg-event-template="${key}"]`)?.value || '',
+                            }),
+                        });
+                        const body = await res.json().catch(() => ({}));
+                        if (!res.ok || !body.success) {
+                            throw new Error(body.error || body.message || 'Telegram test delivery failed.');
+                        }
+                        showTgBanner(`Sent "${key}" test alert to channel(s): ${(body.sent_channels || []).join(', ')}`, true);
+                    } catch (err) {
+                        showTgBanner(err.message || 'Test alert failed.', false);
+                    } finally {
+                        btn.disabled = false;
+                    }
+                });
+            });
+
+            backupBtn?.addEventListener('click', async () => {
+                backupBtn.disabled = true;
+                if (backupStatus) {
+                    backupStatus.className = 'd-block mt-1 font-w600 text-info';
+                    backupStatus.textContent = 'Running workspace backup and sending Telegram alert...';
+                }
+                try {
+                    const res = await fetch(backupBtn.dataset.backupUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken,
+                        },
+                    });
+                    const body = await res.json().catch(() => ({}));
+                    if (!res.ok || !body.success) {
+                        throw new Error(body.message || 'Backup failed.');
+                    }
+                    if (backupStatus) {
+                        backupStatus.className = 'd-block mt-1 font-w600 text-success';
+                        backupStatus.textContent = body.message;
+                    }
+                } catch (err) {
+                    if (backupStatus) {
+                        backupStatus.className = 'd-block mt-1 font-w600 text-danger';
+                        backupStatus.textContent = err.message || 'Backup failed.';
+                    }
+                } finally {
+                    backupBtn.disabled = false;
+                }
+            });
+        })();
     </script>
+    <style>
+        .command-os-tg-events-panel {
+            background: linear-gradient(145deg, #fbfaff 0%, #f4f2ff 100%);
+            border: 1px solid #dfd9f6;
+            border-radius: 14px;
+        }
+        .command-os-tg-icon-pill {
+            width: 30px;
+            height: 30px;
+            border-radius: 9px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(14, 165, 233, 0.14);
+            color: #0284c7;
+        }
+        .command-os-tg-event-card {
+            background: #ffffff;
+            border: 1px solid #e2dcf5;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(74, 58, 160, 0.05);
+        }
+        .command-os-tg-event-icon {
+            width: 34px;
+            height: 34px;
+            flex: 0 0 34px;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(145deg, #f3e8ff, #e8edff);
+            color: #792bfa;
+        }
+        .command-os-tg-chip {
+            border: 1px solid rgba(124, 58, 237, 0.25);
+            background: rgba(124, 58, 237, 0.07);
+            color: #6d28d9;
+            border-radius: 6px;
+            padding: 1px 6px;
+            font-family: ui-monospace, monospace;
+            font-size: 0.7rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .command-os-tg-chip:hover {
+            background: #7c3aed;
+            color: #ffffff;
+        }
+        .command-os-tg-textarea {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.75rem;
+            line-height: 1.45;
+            border-radius: 9px;
+        }
+        .command-os-tg-select {
+            width: auto;
+            min-width: 136px;
+            border-radius: 8px;
+        }
+        html[data-command-theme='dark'] .command-os-tg-events-panel {
+            background: linear-gradient(145deg, #0f172a 0%, #131d3b 100%);
+            border-color: #273861;
+        }
+        html[data-command-theme='dark'] .command-os-tg-event-card {
+            background: #0d1428;
+            border-color: #25345c;
+        }
+        html[data-command-theme='dark'] .command-os-tg-event-icon {
+            background: rgba(139, 92, 246, 0.16);
+            color: #c4b5fd;
+        }
+        html[data-command-theme='dark'] .command-os-tg-chip {
+            background: rgba(139, 92, 246, 0.15);
+            border-color: rgba(167, 139, 250, 0.35);
+            color: #ddd6fe;
+        }
+        html[data-command-theme='dark'] .command-os-tg-textarea,
+        html[data-command-theme='dark'] .command-os-tg-select {
+            background: #090e1f;
+            border-color: #26365f;
+            color: #e2e8f0;
+        }
+        html[data-command-theme='dark'] .command-os-backup-bar {
+            border-top-color: #26365f !important;
+        }
+    </style>
 @endpush

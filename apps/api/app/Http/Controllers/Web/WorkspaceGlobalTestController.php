@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceCampaignTestAddress;
 use App\Services\Campaigns\AlphaLinkCampaignSendCatalog;
+use App\Services\Campaigns\AlphaLinkGlobalTestNativeSender;
 use App\Services\Campaigns\AlphaLinkGlobalTestReverseDnsResolver;
 use App\Services\Campaigns\AlphaLinkGlobalTestRunner;
 use Illuminate\Database\Eloquent\Builder;
@@ -26,8 +27,13 @@ class WorkspaceGlobalTestController extends Controller
 
     private const DEFAULT_HEADER = "MIME-version: 1.0\nContent-type: text/html\nTo: [to]\nfrom: [rnd] <info@[domain]>\nSubject: [ip]_[rnda_5]_[domain]\nDate: [date]";
 
-    public function index(Request $request, string $workspace, AlphaLinkCampaignSendCatalog $catalog): View
-    {
+    public function index(
+        Request $request,
+        string $workspace,
+        AlphaLinkCampaignSendCatalog $catalog,
+        AlphaLinkGlobalTestRunner $runner,
+        AlphaLinkGlobalTestNativeSender $nativeSender,
+    ): View {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $options = $catalog->options($workspace, $request->user(), (string) $workspace->pivot->role);
         $role = (string) $workspace->pivot->role;
@@ -54,9 +60,7 @@ class WorkspaceGlobalTestController extends Controller
             'negatives' => $negatives,
             'savedAddresses' => $savedAddresses,
             'defaultHeader' => self::DEFAULT_HEADER,
-            'senderConfigured' => is_string(config('global-tests.sender_path'))
-                && is_file((string) config('global-tests.sender_path'))
-                && is_executable((string) config('global-tests.sender_path')),
+            'senderConfigured' => $runner->isConfigured() || $nativeSender->isConfigured($workspace),
         ]);
     }
 
@@ -123,12 +127,14 @@ class WorkspaceGlobalTestController extends Controller
         AlphaLinkCampaignSendCatalog $catalog,
         AlphaLinkGlobalTestReverseDnsResolver $rdnsResolver,
         AlphaLinkGlobalTestRunner $runner,
+        AlphaLinkGlobalTestNativeSender $nativeSender,
     ): JsonResponse {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $data = $request->validate([
             'return_path' => ['nullable', 'string'],
             'email_test' => ['required', 'array', 'min:1'],
             'email_test.*' => ['required', 'string', 'max:320'],
+            'domain' => ['nullable', 'string', 'max:253'],
             'negative' => ['nullable', 'integer', 'min:1'],
             'header' => ['required', 'string'],
             'body' => ['nullable', 'string'],
@@ -181,20 +187,25 @@ class WorkspaceGlobalTestController extends Controller
         }
 
         $selectedIps = collect($selectedIpIds)->map(fn (string $id): array => $availableIps->get($id))->values();
-        if (! $runner->isConfigured()) {
+
+        if ($runner->isConfigured()) {
+            $configuration = $this->senderConfiguration($workspace, $request->user(), $data, $selectedIps, $rdnsResolver);
+            $result = $runner->run($configuration);
+        } elseif ($nativeSender->isConfigured($workspace)) {
+            $result = $nativeSender->send($workspace, $request->user(), $data, $selectedIps, $header, (string) $body);
+        } else {
             return response()->json([
                 'data' => 'Could Not Send The AlphaLink Global Test sender is not configured or is not executable.',
             ], 503);
         }
 
-        $configuration = $this->senderConfiguration($workspace, $request->user(), $data, $selectedIps, $rdnsResolver);
-        $result = $runner->run($configuration);
         if ($result['output'] !== '') {
             $log = $workspace->globalTestLogs()->create([
                 'actor_user_id' => $request->user()->getKey(),
                 'data' => [
                     'return_path' => $data['return_path'] ?? null,
                     'email_tests' => $data['email_test'],
+                    'domain' => $data['domain'] ?? null,
                     'negative' => $data['negative'] ?? null,
                     'header' => $data['header'],
                     'body' => $data['body'] ?? '',

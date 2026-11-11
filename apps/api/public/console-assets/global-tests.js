@@ -734,19 +734,15 @@
         actionCell.append(remove);
         row.append(valuesCell, rotateCell, actionCell);
         document.querySelector('#placeholders tbody').append(row);
+        values.focus();
+        updateRouteCountsAndSummary();
     });
     byId('placeholders').addEventListener('click', (event) => {
         const remove = event.target.closest('.remove-placeholder');
         if (!remove) {
             return;
         }
-        const rows = document.querySelectorAll('.placeholder-row');
-        if (rows.length === 1) {
-            rows[0].querySelector('.placeholder-data').value = '';
-            rows[0].querySelector('.placeholder-rotate').value = '1';
-        } else {
-            remove.closest('.placeholder-row').remove();
-        }
+        remove.closest('.placeholder-row')?.remove();
         updateRouteCountsAndSummary();
     });
     byId('placeholders').addEventListener('input', updateRouteCountsAndSummary);
@@ -764,7 +760,7 @@
         const content = byId('placeholder-content');
         content.hidden = !content.hidden;
         event.currentTarget.setAttribute('aria-label', content.hidden ? 'Expand placeholders' : 'Collapse placeholders');
-        event.currentTarget.innerHTML = `<i class="si ${content.hidden ? 'si-arrow-down' : 'si-arrow-up'}" aria-hidden="true"></i>`;
+        event.currentTarget.innerHTML = `<i class="fas ${content.hidden ? 'fa-chevron-down' : 'fa-chevron-up'}" aria-hidden="true"></i>`;
     });
 
     const readPlaceholders = () => [...document.querySelectorAll('.placeholder-row')].map((row) => ({
@@ -795,9 +791,11 @@
             return;
         }
 
+        const placeholdersList = readPlaceholders();
         const payload = {
             return_path: byId('return_path').value,
             email_test: emailTests,
+            domain: byId('domain')?.value || null,
             negative: byId('negative').value || null,
             header: encodeBase64(getHeader()),
             body: encodeBase64(getBody()),
@@ -807,7 +805,7 @@
             ips: ipIds,
             placeholder_combination: byId('placeholder_combination').checked,
             placeholder_all_combination: byId('placeholder_all_combination').checked,
-            placeholders: readPlaceholders(),
+            placeholders: placeholdersList.length > 0 ? placeholdersList : null,
             repeat: byId('repeat').value,
         };
         const button = byId('send-global-test');

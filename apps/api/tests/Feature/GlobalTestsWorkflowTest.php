@@ -12,9 +12,12 @@ use App\Models\Workspace;
 use App\Models\WorkspaceGlobalTestLog;
 use App\Services\Campaigns\AlphaLinkGlobalTestReverseDnsResolver;
 use App\Services\Campaigns\AlphaLinkGlobalTestRunner;
+use App\Services\Campaigns\PmtaCampaignTestTransport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Mockery;
+use Symfony\Component\Mailer\SentMessage;
+use Symfony\Component\Mailer\Transport\Smtp\SmtpTransport;
 use Tests\TestCase;
 
 class GlobalTestsWorkflowTest extends TestCase
@@ -201,7 +204,7 @@ class GlobalTestsWorkflowTest extends TestCase
 
     public function test_unconfigured_alpha_link_sender_fails_closed_without_creating_a_history_row(): void
     {
-        config(['global-tests.sender_path' => null]);
+        config(['global-tests.sender_path' => null, 'infrastructure.pmta_port' => 0]);
         $owner = User::factory()->create();
         $workspace = $this->workspace($owner, 'owner');
         $server = $this->server($workspace, $owner, '203.0.113.40');
@@ -217,6 +220,49 @@ class GlobalTestsWorkflowTest extends TestCase
             ->assertJsonPath('data', 'Could Not Send The AlphaLink Global Test sender is not configured or is not executable.');
 
         $this->assertDatabaseCount('workspace_global_test_logs', 0);
+    }
+
+    public function test_native_pmta_sender_runs_when_external_binary_is_absent_and_supports_domain_and_omitted_placeholders(): void
+    {
+        config(['global-tests.sender_path' => null, 'infrastructure.pmta_port' => 2525]);
+        $owner = User::factory()->create();
+        $workspace = $this->workspace($owner, 'owner');
+        $server = $this->server($workspace, $owner, '203.0.113.40');
+        $domain = $this->domain($workspace, $owner, 'mta.example.test');
+        $ip = $this->ip($workspace, $server, $domain, '203.0.113.41', 'mta.example.test');
+
+        $transport = Mockery::mock(SmtpTransport::class);
+        $transport->shouldReceive('start')->once();
+        $transport->shouldReceive('send')
+            ->once()
+            ->withArgs(function ($rawMessage, $envelope): bool {
+                $rawText = $rawMessage->toString();
+
+                return str_contains($rawText, 'X-virtual-MTA: mta-203.0.113.41')
+                    && str_contains($rawText, 'from: test <info@custom.example.test>')
+                    && $envelope->getSender()->getAddress() === 'bounce@custom.example.test'
+                    && $envelope->getRecipients()[0]->getAddress() === 'test@example.test';
+            });
+        $transport->shouldReceive('stop')->once();
+
+        $factory = Mockery::mock(PmtaCampaignTestTransport::class);
+        $factory->shouldReceive('forServer')->once()->andReturn($transport);
+        $this->app->instance(PmtaCampaignTestTransport::class, $factory);
+
+        $payload = $this->validRequest($server, $ip);
+        unset($payload['placeholders']);
+        $payload['domain'] = 'custom.example.test';
+        $payload['return_path'] = 'bounce@[domain]';
+        $payload['header'] = base64_encode("MIME-version: 1.0\nTo: [to]\nfrom: test <info@[domain]>\nSubject: Hi [ip]");
+
+        $this->actingAs($owner)
+            ->postJson(route('console.global-tests.test', $workspace->getKey()), $payload)
+            ->assertOk()
+            ->assertJsonStructure(['data', 'log_id']);
+
+        $log = WorkspaceGlobalTestLog::query()->sole();
+        $this->assertStringContainsString('ACCEPTED by PMTA:2525', (string) $log->output);
+        $this->assertSame('custom.example.test', $log->data['domain'] ?? null);
     }
 
     public function test_operator_cannot_view_another_members_global_test_history(): void

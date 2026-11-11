@@ -240,13 +240,7 @@
                                                             <th scope="col" class="text-center"><span class="sr-only">Actions</span>ACTION</th>
                                                         </tr>
                                                     </thead>
-                                                    <tbody>
-                                                        <tr class="placeholder-row">
-                                                            <td><textarea class="form-control form-control-sm placeholder-data" rows="2" placeholder="Value 1&#10;Value 2" aria-label="Placeholder values, one per line"></textarea></td>
-                                                            <td><input class="form-control form-control-sm placeholder-rotate" type="number" min="1" value="1" aria-label="Rotate every"></td>
-                                                            <td class="text-center"><button class="campaign-icon-button is-delete remove-placeholder" type="button" aria-label="Remove placeholder row" title="Remove row"><i class="fas fa-times" aria-hidden="true"></i></button></td>
-                                                        </tr>
-                                                    </tbody>
+                                                    <tbody></tbody>
                                                 </table>
                                             </div>
                                         </div>
@@ -844,6 +838,9 @@
         }
 
         /* Placeholders Panel */
+        .campaign-delivery-card [data-campaign-placeholder-editor] .table-responsive:not(:has(tbody tr)) {
+            display: none;
+        }
         .campaign-delivery-card [data-campaign-placeholder-editor] {
             background: linear-gradient(145deg, #fff, #faf8ff);
             border: 1px solid #e4ddfa;

@@ -3,6 +3,7 @@
 namespace App\Services\Telegram;
 
 use App\Models\AuditEvent;
+use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceAppSettings;
 use Illuminate\Support\Facades\Cache;
@@ -13,6 +14,50 @@ use Throwable;
 class TelegramAlertService
 {
     public const DEFAULT_TEMPLATE = "🚨 <b>[{app_name}] {level} Alert ({module})</b>\n\n{custom_note}\n\n<b>Issue:</b> <code>{summary}</code>\n<b>Origin:</b> <code>{file}</code>\n<b>Incidents:</b> {occurrences}x\n<b>Request ID:</b> <code>{request_id}</code>";
+
+    /**
+     * Supported operational event alert definitions and default templates.
+     *
+     * @var array<string, array<string, mixed>>
+     */
+    public const EVENT_DEFINITIONS = [
+        'login' => [
+            'label' => 'User Login Alerts',
+            'icon' => 'fas fa-sign-in-alt',
+            'description' => 'Sent immediately when an operator, admin, or owner signs in to AlphaLink.',
+            'default_enabled' => true,
+            'default_channel' => 'main',
+            'default_template' => "🔐 <b>[{app_name}] User Sign-In</b>\n\n<b>User:</b> {user_name} ({user_email})\n<b>Role:</b> {role}\n<b>IP Address:</b> <code>{ip}</code>\n<b>Workspace:</b> {workspace}\n<b>Time:</b> <code>{timestamp}</code>",
+            'placeholders' => ['{app_name}', '{workspace}', '{user_name}', '{user_email}', '{username}', '{role}', '{ip}', '{timestamp}'],
+        ],
+        'lead' => [
+            'label' => 'New Lead Conversions',
+            'icon' => 'fas fa-dollar-sign',
+            'description' => 'Sent when affiliate sponsor conversions attribute a new campaign or drop lead.',
+            'default_enabled' => true,
+            'default_channel' => 'main',
+            'default_template' => "💰 <b>[{app_name}] New Lead Recorded</b>\n\n<b>Sponsor:</b> {sponsor}\n<b>Offer:</b> {offer}\n<b>Source:</b> {source} ({source_type})\n<b>Payout:</b> <b>{payout} {currency}</b>\n<b>Country:</b> {country}\n<b>Conversion ID:</b> <code>{conversion_id}</code>\n<b>Time:</b> <code>{timestamp}</code>",
+            'placeholders' => ['{app_name}', '{workspace}', '{sponsor}', '{offer}', '{source}', '{source_type}', '{payout}', '{currency}', '{country}', '{conversion_id}', '{ip}', '{timestamp}'],
+        ],
+        'backup' => [
+            'label' => 'Workspace Backup Events',
+            'icon' => 'fas fa-database',
+            'description' => 'Sent after scheduled or manual workspace database and snapshot backups complete or fail.',
+            'default_enabled' => true,
+            'default_channel' => 'it',
+            'default_template' => "💾 <b>[{app_name}] Backup {status}</b>\n\n<b>Workspace:</b> {workspace}\n<b>Archive:</b> <code>{filename}</code>\n<b>Size:</b> {size}\n<b>Destination:</b> {destination}\n<b>Trigger:</b> {triggered_by}\n<b>Details:</b> {details}\n<b>Time:</b> <code>{timestamp}</code>",
+            'placeholders' => ['{app_name}', '{workspace}', '{status}', '{filename}', '{size}', '{destination}', '{triggered_by}', '{details}', '{timestamp}'],
+        ],
+        'offer_status' => [
+            'label' => 'Offer Status Changes',
+            'icon' => 'fas fa-tags',
+            'description' => 'Sent when an offer changes status (e.g., live ↔ paused) manually or via sponsor feed sync.',
+            'default_enabled' => true,
+            'default_channel' => 'main',
+            'default_template' => "📢 <b>[{app_name}] Offer Status Changed</b>\n\n<b>Offer:</b> #{offer_id} — {offer_name}\n<b>Sponsor:</b> {sponsor}\n<b>Status:</b> <code>{old_status}</code> → <b>{new_status}</b>\n<b>Actor:</b> {actor}\n<b>Reason:</b> {reason}\n<b>Time:</b> <code>{timestamp}</code>",
+            'placeholders' => ['{app_name}', '{workspace}', '{offer_id}', '{offer_name}', '{sponsor}', '{old_status}', '{new_status}', '{actor}', '{reason}', '{timestamp}'],
+        ],
+    ];
 
     /**
      * Get sanitized Telegram configuration status for the workspace UI (NEVER leaks bot token).
@@ -28,6 +73,27 @@ class TelegramAlertService
         $botName = is_array($raw) ? trim((string) ($raw['telegram_bot_name'] ?? '')) : '';
 
         $rules = is_array($raw['error_alert_rules'] ?? null) ? $raw['error_alert_rules'] : [];
+        $rawEventRules = is_array($raw['event_alert_rules'] ?? null) ? $raw['event_alert_rules'] : [];
+
+        $eventRules = [];
+        foreach (self::EVENT_DEFINITIONS as $eventKey => $def) {
+            $savedRule = is_array($rawEventRules[$eventKey] ?? null) ? $rawEventRules[$eventKey] : [];
+            $eventRules[$eventKey] = [
+                'key' => $eventKey,
+                'label' => $def['label'],
+                'icon' => $def['icon'],
+                'description' => $def['description'],
+                'enabled' => array_key_exists('enabled', $savedRule)
+                    ? filter_var($savedRule['enabled'], FILTER_VALIDATE_BOOLEAN)
+                    : (bool) $def['default_enabled'],
+                'target_channel' => in_array($savedRule['target_channel'] ?? $def['default_channel'], ['it', 'main', 'both'], true)
+                    ? (string) ($savedRule['target_channel'] ?? $def['default_channel'])
+                    : $def['default_channel'],
+                'custom_template' => trim((string) ($savedRule['custom_template'] ?? '')) ?: $def['default_template'],
+                'default_template' => $def['default_template'],
+                'placeholders' => $def['placeholders'],
+            ];
+        }
 
         return [
             'has_token' => $hasToken,
@@ -45,7 +111,54 @@ class TelegramAlertService
                 'custom_template' => trim((string) ($rules['custom_template'] ?? '')) ?: self::DEFAULT_TEMPLATE,
                 'custom_prefix' => trim((string) ($rules['custom_prefix'] ?? '')),
             ],
+            'event_rules' => $eventRules,
         ];
+    }
+
+    /**
+     * Save event alert toggles and custom per-event templates safely in WorkspaceAppSettings.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function saveEventRules(Workspace $workspace, array $input): array
+    {
+        $existing = $workspace->appSettings?->settings;
+        if (! is_array($existing)) {
+            $existing = [];
+        }
+
+        $savedEvents = is_array($existing['event_alert_rules'] ?? null) ? $existing['event_alert_rules'] : [];
+
+        foreach (self::EVENT_DEFINITIONS as $eventKey => $def) {
+            if (! array_key_exists($eventKey, $input) || ! is_array($input[$eventKey])) {
+                continue;
+            }
+
+            $entry = $input[$eventKey];
+            $channel = (string) ($entry['target_channel'] ?? ($savedEvents[$eventKey]['target_channel'] ?? $def['default_channel']));
+            if (! in_array($channel, ['main', 'it', 'both'], true)) {
+                $channel = $def['default_channel'];
+            }
+
+            $template = trim((string) ($entry['custom_template'] ?? ''));
+            $savedEvents[$eventKey] = [
+                'enabled' => filter_var($entry['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                'target_channel' => $channel,
+                'custom_template' => Str::limit($template !== '' ? $template : $def['default_template'], 1500, ''),
+            ];
+        }
+
+        $existing['event_alert_rules'] = $savedEvents;
+
+        WorkspaceAppSettings::query()->updateOrCreate(
+            ['workspace_id' => $workspace->getKey()],
+            ['settings' => $existing]
+        );
+
+        $workspace->unsetRelation('appSettings');
+
+        return $this->getConfigForWorkspace($workspace);
     }
 
     /**
@@ -330,6 +443,231 @@ class TelegramAlertService
     }
 
     /**
+     * Dispatch a formatted operational event alert (login, lead, backup, offer_status) for a workspace.
+     *
+     * @param  array<string, mixed>  $context
+     * @return array{success: bool, sent_channels: list<string>, skipped: bool, error: ?string}
+     */
+    public function notifyEvent(
+        Workspace $workspace,
+        string $eventType,
+        array $context = [],
+        ?int $actorUserId = null,
+        bool $ignoreDisabled = false,
+        ?string $overrideTemplate = null,
+        ?string $overrideChannel = null,
+    ): array {
+        $def = self::EVENT_DEFINITIONS[$eventType] ?? null;
+        if ($def === null) {
+            return ['success' => false, 'sent_channels' => [], 'skipped' => true, 'error' => 'Unknown Telegram event type.'];
+        }
+
+        $config = $this->getConfigForWorkspace($workspace);
+        $rule = $config['event_rules'][$eventType] ?? [];
+
+        if (! $ignoreDisabled && empty($rule['enabled'])) {
+            return ['success' => false, 'sent_channels' => [], 'skipped' => true, 'error' => null];
+        }
+
+        $raw = $workspace->appSettings?->settings ?? [];
+        $token = is_array($raw) ? trim((string) ($raw['telegram_bot_token'] ?? '')) : '';
+        if ($token === '') {
+            return ['success' => false, 'sent_channels' => [], 'skipped' => true, 'error' => 'Telegram Bot Token is not configured in Settings.'];
+        }
+
+        $channelType = $overrideChannel && in_array($overrideChannel, ['main', 'it', 'both'], true)
+            ? $overrideChannel
+            : (string) ($rule['target_channel'] ?? $def['default_channel']);
+        $targetChatIds = $this->resolveChatIds($raw, $channelType);
+
+        if (empty($targetChatIds)) {
+            return ['success' => false, 'sent_channels' => [], 'skipped' => true, 'error' => 'Telegram Channel ID is not configured in Settings.'];
+        }
+
+        $template = trim((string) ($overrideTemplate ?? '')) ?: (string) ($rule['custom_template'] ?? $def['default_template']);
+        $formatted = $this->buildEventMessage($workspace, $eventType, $template, $context);
+
+        $sentChannels = [];
+        $errors = [];
+
+        foreach ($targetChatIds as $label => $chatId) {
+            $res = $this->postTelegramMessage($token, $chatId, $formatted);
+            if ($res['success']) {
+                $sentChannels[] = $label;
+            } else {
+                $errors[] = "{$label}: {$res['error']}";
+            }
+        }
+
+        try {
+            AuditEvent::query()->create([
+                'workspace_id' => $workspace->getKey(),
+                'actor_user_id' => $actorUserId,
+                'action' => ! empty($sentChannels) ? 'workspace.telegram_event_sent' : 'workspace.telegram_event_failed',
+                'subject_type' => 'telegram_event',
+                'subject_id' => $eventType,
+                'occurred_at' => now(),
+                'properties' => [
+                    'event' => $eventType,
+                    'channels' => $sentChannels,
+                    'error' => empty($errors) ? null : implode('; ', $errors),
+                ],
+            ]);
+        } catch (Throwable) {
+        }
+
+        return [
+            'success' => ! empty($sentChannels),
+            'sent_channels' => $sentChannels,
+            'skipped' => false,
+            'error' => empty($errors) ? null : implode('; ', $errors),
+        ];
+    }
+
+    /**
+     * Send a synthetic test preview notification for one of the 4 operational event types.
+     *
+     * @return array{success: bool, sent_channels: list<string>, skipped: bool, error: ?string}
+     */
+    public function sendTestEvent(Workspace $workspace, string $eventType, ?string $overrideTemplate = null, ?string $overrideChannel = null): array
+    {
+        $samples = [
+            'login' => [
+                'user_name' => 'AlphaLink Operator',
+                'user_email' => 'operator@example.test',
+                'username' => 'operator',
+                'role' => 'owner',
+                'ip' => '203.0.113.10',
+            ],
+            'lead' => [
+                'sponsor' => 'Demo Affiliate Network',
+                'offer' => '#1042 — Sample Offer',
+                'source' => 'Autumn Warmup Campaign',
+                'source_type' => 'Campaign',
+                'payout' => '45.00',
+                'currency' => 'USD',
+                'country' => 'United States',
+                'conversion_id' => 'CONV-TEST-001',
+                'ip' => '198.51.100.25',
+            ],
+            'backup' => [
+                'status' => 'Completed',
+                'filename' => 'alphalink-backup-test.json.gz',
+                'size' => '1.42 MB',
+                'destination' => 'Local Private Archive',
+                'triggered_by' => 'Manual Test',
+                'details' => 'Verified snapshot archive created cleanly.',
+            ],
+            'offer_status' => [
+                'offer_id' => '1042',
+                'offer_name' => 'Sample CPA Offer',
+                'sponsor' => 'Demo Affiliate Network',
+                'old_status' => 'live',
+                'new_status' => 'paused',
+                'actor' => 'System Test',
+                'reason' => 'Manual test alert preview',
+            ],
+        ];
+
+        return $this->notifyEvent(
+            $workspace,
+            $eventType,
+            $samples[$eventType] ?? [],
+            null,
+            ignoreDisabled: true,
+            overrideTemplate: $overrideTemplate,
+            overrideChannel: $overrideChannel,
+        );
+    }
+
+    /**
+     * Dispatch login Telegram notifications across the user's Telegram-configured workspaces (deduplicated per chat destination).
+     *
+     * @return array{sent: int, workspaces: int}
+     */
+    public function notifyLogin(User $user, ?string $ipAddress = null): array
+    {
+        $workspaces = $user->workspaces()->with('appSettings')->get();
+        if ($workspaces->isEmpty() && $user->hasFullAccess()) {
+            $workspaces = Workspace::query()->with('appSettings')->orderBy('id')->get();
+        }
+
+        $dispatchedHashes = [];
+        $sent = 0;
+
+        foreach ($workspaces as $workspace) {
+            if (! $workspace instanceof Workspace) {
+                continue;
+            }
+
+            $raw = $workspace->appSettings?->settings ?? [];
+            $token = is_array($raw) ? trim((string) ($raw['telegram_bot_token'] ?? '')) : '';
+            if ($token === '') {
+                continue;
+            }
+
+            $config = $this->getConfigForWorkspace($workspace);
+            $rule = $config['event_rules']['login'] ?? [];
+            if (empty($rule['enabled'])) {
+                continue;
+            }
+
+            $chatIds = $this->resolveChatIds($raw, (string) ($rule['target_channel'] ?? 'main'));
+            if (empty($chatIds)) {
+                continue;
+            }
+
+            $destHash = hash('sha256', $token.'|'.implode(',', array_values($chatIds)));
+            if (isset($dispatchedHashes[$destHash])) {
+                continue;
+            }
+            $dispatchedHashes[$destHash] = true;
+
+            $result = $this->notifyEvent($workspace, 'login', [
+                'user_name' => $user->name ?: $user->username ?: 'User',
+                'user_email' => $user->email ?: 'N/A',
+                'username' => $user->username ?: $user->email ?: 'user',
+                'role' => strtoupper((string) ($user->access_role ?: $user->type ?: 'member')),
+                'ip' => $ipAddress ?: 'unknown',
+            ], $user->getKey());
+
+            if ($result['success']) {
+                $sent++;
+            }
+        }
+
+        return ['sent' => $sent, 'workspaces' => count($dispatchedHashes)];
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     */
+    private function buildEventMessage(Workspace $workspace, string $eventType, string $template, array $context): string
+    {
+        $configuredAppName = trim((string) ($workspace->appSettings?->settings['app_name'] ?? ''));
+        $appName = $configuredAppName !== '' ? $configuredAppName : (string) config('app.name', 'AlphaLink');
+        $timestamp = now()->format('Y-m-d H:i:s T');
+
+        $replacements = [
+            '{app_name}' => $this->escapeHtml($this->redactSecretsOnly($appName, 80)),
+            '{workspace}' => $this->escapeHtml($this->redactSecretsOnly($workspace->name, 120)),
+            '{timestamp}' => $this->escapeHtml($timestamp),
+        ];
+
+        $placeholders = self::EVENT_DEFINITIONS[$eventType]['placeholders'] ?? [];
+        foreach ($placeholders as $placeholder) {
+            $key = trim($placeholder, '{}');
+            if (array_key_exists($placeholder, $replacements)) {
+                continue;
+            }
+            $rawVal = (string) ($context[$key] ?? 'N/A');
+            $replacements[$placeholder] = $this->escapeHtml($this->redactSecretsOnly($rawVal, 400));
+        }
+
+        return trim(strtr($template, $replacements));
+    }
+
+    /**
      * @param  array<string, mixed>  $raw
      * @return array<string, string>
      */
@@ -350,12 +688,26 @@ class TelegramAlertService
             }
         }
 
-        // Fallback if user selected 'it' or 'main' and only the other exists when choosing default
-        if (empty($targets) && $channelType === 'it' && $channelMain !== '') {
-            $targets['main'] = $channelMain;
+        // Smart fallback when only one of Main / IT Channel ID is configured in Settings
+        if (empty($targets)) {
+            if ($channelMain !== '') {
+                $targets['main'] = $channelMain;
+            } elseif ($channelIt !== '') {
+                $targets['it'] = $channelIt;
+            }
         }
 
-        return $targets;
+        // Deduplicate identical chat IDs if main and IT point to the same channel
+        $unique = [];
+        $seenChatIds = [];
+        foreach ($targets as $label => $chatId) {
+            if (! isset($seenChatIds[$chatId])) {
+                $seenChatIds[$chatId] = true;
+                $unique[$label] = $chatId;
+            }
+        }
+
+        return $unique;
     }
 
     /**
@@ -365,7 +717,7 @@ class TelegramAlertService
     {
         try {
             $endpoint = "https://api.telegram.org/bot{$token}/sendMessage";
-            $response = Http::timeout(10)->post($endpoint, [
+            $response = Http::timeout(4)->post($endpoint, [
                 'chat_id' => $chatId,
                 'text' => $htmlMessage,
                 'parse_mode' => 'HTML',
@@ -384,6 +736,18 @@ class TelegramAlertService
         } catch (Throwable $e) {
             return ['success' => false, 'error' => $this->sanitizeText($e->getMessage(), 200)];
         }
+    }
+
+    /**
+     * Redact secrets/tokens/credentials for operational notifications while keeping operational metadata (IP, email, offer) readable.
+     */
+    private function redactSecretsOnly(string $text, int $limit = 400): string
+    {
+        $text = preg_replace('/\bBearer\s+\S+/i', 'Bearer [redacted]', $text) ?? $text;
+        $text = preg_replace('/\b(password|passwd|secret|token|authorization|api[_-]?key|bot\d+:[A-Za-z0-9_-]+)\b(\s*[=:]\s*)([^\s,;]+)/i', '$1$2[redacted]', $text) ?? $text;
+        $text = preg_replace('/bot\d+:[A-Za-z0-9_-]{10,}/i', '[bot_token_redacted]', $text) ?? $text;
+
+        return Str::limit(trim($text), $limit);
     }
 
     /**

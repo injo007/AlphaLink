@@ -67,6 +67,10 @@ $application = Application::configure(basePath: dirname(__DIR__))
             ->dailyAt('04:00')
             ->withoutOverlapping()
             ->runInBackground();
+        $schedule->command('workspace:backup')
+            ->dailyAt('03:30')
+            ->withoutOverlapping()
+            ->runInBackground();
         $schedule->command('audience-lists:calculate-history')
             ->hourly()
             ->withoutOverlapping()

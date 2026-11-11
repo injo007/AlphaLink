@@ -10,6 +10,7 @@ use App\Models\Workspace;
 use App\Models\WorkspaceCampaignNegative;
 use App\Models\WorkspaceCampaignTestAddress;
 use App\Services\Campaigns\AlphaLinkCampaignSendCatalog;
+use App\Services\Campaigns\AlphaLinkGlobalTestNativeSender;
 use App\Services\Campaigns\AlphaLinkGlobalTestReverseDnsResolver;
 use App\Services\Campaigns\AlphaLinkGlobalTestRunner;
 use Illuminate\Database\Eloquent\Builder;
@@ -30,8 +31,13 @@ class WorkspaceGlobalTestController extends Controller
 
     private const DEFAULT_HEADER = "MIME-version: 1.0\nContent-type: text/html\nTo: [to]\nfrom: [rnd] <info@[domain]>\nSubject: [ip]_[rnda_5]_[domain]\nDate: [date]";
 
-    public function index(Request $request, string $workspace, AlphaLinkCampaignSendCatalog $catalog, AlphaLinkGlobalTestRunner $runner): View
-    {
+    public function index(
+        Request $request,
+        string $workspace,
+        AlphaLinkCampaignSendCatalog $catalog,
+        AlphaLinkGlobalTestRunner $runner,
+        AlphaLinkGlobalTestNativeSender $nativeSender,
+    ): View {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $options = $catalog->options($workspace, $request->user(), (string) $workspace->pivot->role);
         $role = (string) $workspace->pivot->role;
@@ -61,7 +67,7 @@ class WorkspaceGlobalTestController extends Controller
             'negatives' => $negatives,
             'savedAddresses' => $savedAddresses,
             'defaultHeader' => self::DEFAULT_HEADER,
-            'senderConfigured' => $runner->isConfigured($pmtaPort) && $options['servers'] !== [],
+            'senderConfigured' => $runner->isConfigured() || $nativeSender->isConfigured($workspace),
         ]);
     }
 
@@ -128,13 +134,14 @@ class WorkspaceGlobalTestController extends Controller
         AlphaLinkCampaignSendCatalog $catalog,
         AlphaLinkGlobalTestReverseDnsResolver $rdnsResolver,
         AlphaLinkGlobalTestRunner $runner,
+        AlphaLinkGlobalTestNativeSender $nativeSender,
     ): JsonResponse {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         abort_unless(in_array((string) $workspace->pivot->role, self::SENDING_ROLES, true), 403);
         $data = $request->validate([
             'return_path' => ['nullable', 'string'],
-            'email_test' => ['required', 'array', 'min:1', 'max:100'],
-            'email_test.*' => ['required', 'string', 'email:rfc', 'max:320', 'distinct:ignore_case'],
+            'email_test' => ['required', 'array', 'min:1'],
+            'email_test.*' => ['required', 'string', 'max:320'],
             'domain' => ['nullable', 'string', 'max:253'],
             'negative' => ['nullable', 'integer', 'min:1'],
             'header' => ['required', 'string'],
@@ -192,43 +199,18 @@ class WorkspaceGlobalTestController extends Controller
         }
 
         $selectedIps = collect($selectedIpIds)->map(fn (string $id): array => $availableIps->get($id))->values();
-        $selectedServerIds = collect($selectedIps)->pluck('server_id')->map(static fn ($id): string => (string) $id)->unique()->values()->all();
-        if (array_diff(array_map('strval', $data['servers']), $selectedServerIds) !== []) {
-            throw ValidationException::withMessages(['ips' => 'Select at least one IP or MTA from every selected server.']);
-        }
-        $pmtaPort = $this->pmtaPort($workspace);
-        if (! $runner->isConfigured($pmtaPort)) {
+
+        if ($runner->isConfigured()) {
+            $configuration = $this->senderConfiguration($workspace, $request->user(), $data, $selectedIps, $rdnsResolver);
+            $result = $runner->run($configuration);
+        } elseif ($nativeSender->isConfigured($workspace)) {
+            $result = $nativeSender->send($workspace, $request->user(), $data, $selectedIps, $header, (string) $body);
+        } else {
             return response()->json([
                 'data' => 'Could Not Send: this workspace has no valid PMTA SMTP listener port configured.',
             ], 503);
         }
 
-        $messageCount = $selectedIps->count() * count($data['email_test']) * (int) $data['repeat'];
-        $maximumMessages = max(1, (int) config('global-tests.max_messages', 100));
-        if ($messageCount > $maximumMessages) {
-            throw ValidationException::withMessages([
-                'repeat' => "This test would send {$messageCount} messages. Reduce recipients, routes, or repeat to stay within {$maximumMessages} messages per run.",
-            ]);
-        }
-
-        $negative = null;
-        if (! empty($data['negative'])) {
-            $negative = WorkspaceCampaignNegative::query()
-                ->where('workspace_id', $workspace->getKey())
-                ->where('created_by', $request->user()->getKey())
-                ->whereKey($data['negative'])
-                ->first(['path']);
-        }
-        $configuration = $this->senderConfiguration(
-            $workspace,
-            $request->user(),
-            $data,
-            $selectedIps,
-            $rdnsResolver,
-            $pmtaPort,
-            $negative ? Storage::disk('local')->path($negative->path) : '',
-        );
-        $result = $runner->run($configuration);
         if ($result['output'] !== '') {
             $log = $workspace->globalTestLogs()->create([
                 'actor_user_id' => $request->user()->getKey(),

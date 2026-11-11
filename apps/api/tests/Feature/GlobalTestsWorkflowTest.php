@@ -17,6 +17,7 @@ use App\Services\Campaigns\PmtaCampaignTestTransport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Mockery;
+use Symfony\Component\Mailer\SentMessage;
 use Symfony\Component\Mailer\Transport\Smtp\SmtpTransport;
 use Tests\TestCase;
 
@@ -49,7 +50,14 @@ class GlobalTestsWorkflowTest extends TestCase
             ->assertSee('Message placeholders')
             ->assertSee('SEND TEST')
             ->assertSee($this->cleanWorkspaceUrl(route('console.global-tests.histories', $workspace->getKey())), false)
-            ->assertSee('global-tests.js');
+            ->assertSee('global-tests.js')
+            ->assertSee('id="saved-email-manager"', false)
+            ->assertSee('id="placeholder-content" hidden', false)
+            ->assertSee('id="toggle-placeholders"', false)
+            ->assertSee('id="clear-placeholders"', false)
+            ->assertSee('id="global-server-search-dialog"', false)
+            ->assertSee('id="global-pmta-panels"', false)
+            ->assertSee('id="global-projected-messages"', false);
     }
 
     public function test_catalog_returns_only_active_installed_server_ip_options_from_the_workspace(): void
@@ -340,8 +348,8 @@ class GlobalTestsWorkflowTest extends TestCase
 
     public function test_unconfigured_alpha_link_sender_fails_closed_without_creating_a_history_row(): void
     {
-        config(['infrastructure.pmta_port' => null]);
-        $owner = $this->owner();
+        config(['global-tests.sender_path' => null, 'infrastructure.pmta_port' => 0]);
+        $owner = User::factory()->create();
         $workspace = $this->workspace($owner, 'owner');
         $server = $this->server($workspace, $owner, '203.0.113.40');
         $domain = $this->domain($workspace, $owner, 'mta.example.test');
@@ -358,9 +366,52 @@ class GlobalTestsWorkflowTest extends TestCase
         $this->assertDatabaseCount('workspace_global_test_logs', 0);
     }
 
+    public function test_native_pmta_sender_runs_when_external_binary_is_absent_and_supports_domain_and_omitted_placeholders(): void
+    {
+        config(['global-tests.sender_path' => null, 'infrastructure.pmta_port' => 2525]);
+        $owner = User::factory()->create();
+        $workspace = $this->workspace($owner, 'owner');
+        $server = $this->server($workspace, $owner, '203.0.113.40');
+        $domain = $this->domain($workspace, $owner, 'mta.example.test');
+        $ip = $this->ip($workspace, $server, $domain, '203.0.113.41', 'mta.example.test');
+
+        $transport = Mockery::mock(SmtpTransport::class);
+        $transport->shouldReceive('start')->once();
+        $transport->shouldReceive('send')
+            ->once()
+            ->withArgs(function ($rawMessage, $envelope): bool {
+                $rawText = $rawMessage->toString();
+
+                return str_contains($rawText, 'X-virtual-MTA: mta-203.0.113.41')
+                    && str_contains($rawText, 'from: test <info@custom.example.test>')
+                    && $envelope->getSender()->getAddress() === 'bounce@custom.example.test'
+                    && $envelope->getRecipients()[0]->getAddress() === 'test@example.test';
+            });
+        $transport->shouldReceive('stop')->once();
+
+        $factory = Mockery::mock(PmtaCampaignTestTransport::class);
+        $factory->shouldReceive('forServer')->once()->andReturn($transport);
+        $this->app->instance(PmtaCampaignTestTransport::class, $factory);
+
+        $payload = $this->validRequest($server, $ip);
+        unset($payload['placeholders']);
+        $payload['domain'] = 'custom.example.test';
+        $payload['return_path'] = 'bounce@[domain]';
+        $payload['header'] = base64_encode("MIME-version: 1.0\nTo: [to]\nfrom: test <info@[domain]>\nSubject: Hi [ip]");
+
+        $this->actingAs($owner)
+            ->postJson(route('console.global-tests.test', $workspace->getKey()), $payload)
+            ->assertOk()
+            ->assertJsonStructure(['data', 'log_id']);
+
+        $log = WorkspaceGlobalTestLog::query()->sole();
+        $this->assertStringContainsString('ACCEPTED by PMTA:2525', (string) $log->output);
+        $this->assertSame('custom.example.test', $log->data['domain'] ?? null);
+    }
+
     public function test_operator_cannot_view_another_members_global_test_history(): void
     {
-        $owner = $this->owner();
+        $owner = User::factory()->create(['access_role' => User::ACCESS_ROLE_OWNER]);
         $operator = User::factory()->create(['access_role' => User::ACCESS_ROLE_OPERATOR]);
         $workspace = $this->workspace($owner, 'owner');
         $workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
@@ -397,6 +448,10 @@ class GlobalTestsWorkflowTest extends TestCase
 
     private function workspace(User $owner, string $role): Workspace
     {
+        if ($owner->access_role !== $role) {
+            $owner->forceFill(['access_role' => $role])->save();
+        }
+
         $workspace = Workspace::query()->create([
             'name' => 'Global Test workspace',
             'slug' => 'global-test-'.Str::lower(Str::random(8)),

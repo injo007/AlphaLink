@@ -27,7 +27,7 @@ class MiscellaneousConsoleController extends Controller
         $workspace = $this->workspaceFor($request->user(), $workspace);
         abort_unless(in_array($workspace->pivot->role, ['owner', 'admin'], true), 403);
 
-        $report = $health->latest();
+        $report = $request->boolean('refresh') ? $health->run() : $health->latest();
 
         if ($request->has('json') || $request->wantsJson()) {
             return response()->json($report);

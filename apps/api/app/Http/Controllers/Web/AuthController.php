@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\Telegram\TelegramAlertService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -121,6 +122,12 @@ class AuthController extends Controller
 
         RateLimiter::clear($key);
         $request->session()->regenerate();
+
+        try {
+            app(TelegramAlertService::class)->notifyLogin($authenticatedUser, $request->ip());
+        } catch (\Throwable) {
+            // Sign-in must succeed even if external Telegram notifications fail.
+        }
 
         return redirect()->route('console.dashboard.main');
     }

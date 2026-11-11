@@ -1,6 +1,6 @@
 @extends('layouts.admin-shell')
 
-@section('title', 'Team Tasks & Messages')
+@section('title', 'Team Support')
 
 @section('content')
     <div class="workspace-comms-page">
@@ -9,8 +9,8 @@
                 <svg viewBox="0 0 24 24"><path d="M4 5.5h16v13H4z"/><path d="m4.5 7 7.5 6 7.5-6M8 3h8"/></svg>
             </div>
             <div class="workspace-comms-hero-copy">
-                <p class="workspace-comms-eyebrow">WORKSPACE SETTINGS <span aria-hidden="true">/</span> TEAM COMMUNICATION</p>
-                <h1>Tasks &amp; messages</h1>
+                <p class="workspace-comms-eyebrow">WORKSPACE SETTINGS <span aria-hidden="true">/</span> TEAM SUPPORT</p>
+                <h1>Team Support</h1>
                 <p>Share focused updates with active operators and admins in {{ $workspace->name }}.</p>
             </div>
             <div class="workspace-comms-access"><span class="workspace-comms-status-dot"></span> Admin controlled</div>

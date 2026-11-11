@@ -137,8 +137,9 @@ class WorkspaceCampaignLogsConsoleController extends Controller
 
         $canReviewHistory = in_array($workspace->pivot->role, self::HISTORY_ROLES, true);
         $canManageRestrictions = in_array($workspace->pivot->role, self::HISTORY_ROLES, true) && ! $showOperatorCampaigns;
+        $operatorCampaignViewQuery = $this->operatorCampaignViewQuery($request);
 
-        return view('console.campaign-logs.index', compact('workspace', 'campaigns', 'from', 'to', 'search', 'perPage', 'canReviewHistory', 'canManageRestrictions', 'isAdmin', 'showOperatorCampaigns', 'operatorUsers', 'selectedOperatorId', 'selectedOperator'));
+        return view('console.campaign-logs.index', compact('workspace', 'campaigns', 'from', 'to', 'search', 'perPage', 'canReviewHistory', 'canManageRestrictions', 'isAdmin', 'showOperatorCampaigns', 'operatorUsers', 'selectedOperatorId', 'selectedOperator', 'operatorCampaignViewQuery'));
     }
 
     public function history(Request $request, string $workspaceId, string $campaignId, string $history): View

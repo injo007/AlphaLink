@@ -165,9 +165,9 @@
 
         <!-- 4. Advanced Filter Toolbar -->
         <section class="command-os-card mb-4 p-3 error-filter-toolbar">
-            <form id="filter-form" method="GET" action="{{ route('console.miscellaneous.app-errors', $workspace->getKey()) }}" class="row align-items-center g-2 m-0">
+            <form id="filter-form" method="GET" action="{{ route('console.miscellaneous.app-errors', $workspace->getKey()) }}" class="filter-flex-form">
                 <!-- Search input -->
-                <div class="col-12 col-lg-3 p-1">
+                <div class="filter-item filter-item-search">
                     <div class="input-with-icon">
                         <i class="fas fa-search input-icon"></i>
                         <input type="text" name="search" id="input-search" class="form-control form-control-sm command-input" placeholder="Search message, request ID, file..." value="{{ $filters['search'] ?? '' }}">
@@ -178,7 +178,7 @@
                 </div>
 
                 <!-- Severity Level -->
-                <div class="col-6 col-md-3 col-lg-2 p-1">
+                <div class="filter-item filter-item-select">
                     <select name="level" id="select-level" class="form-control form-control-sm command-select">
                         <option value="">All Severities</option>
                         <option value="CRITICAL" @selected(($filters['level'] ?? '') === 'CRITICAL')>Critical / Fatal</option>
@@ -191,7 +191,7 @@
                 </div>
 
                 <!-- Subsystem Module -->
-                <div class="col-6 col-md-3 col-lg-2 p-1">
+                <div class="filter-item filter-item-select">
                     <select name="module" id="select-module" class="form-control form-control-sm command-select">
                         <option value="">All Modules</option>
                         <option value="horizon" @selected(($filters['module'] ?? '') === 'horizon')>Horizon Queue</option>
@@ -204,7 +204,7 @@
                 </div>
 
                 <!-- Time Range -->
-                <div class="col-6 col-md-3 col-lg-2 p-1">
+                <div class="filter-item filter-item-select">
                     <select name="time_range" id="select-time-range" class="form-control form-control-sm command-select">
                         <option value="" @selected(empty($filters['time_range']))>All Time (Recent)</option>
                         <option value="1h" @selected(($filters['time_range'] ?? '') === '1h')>Last 1 Hour</option>
@@ -215,16 +215,16 @@
                 </div>
 
                 <!-- Clustering / Grouping Mode -->
-                <div class="col-6 col-md-3 col-lg-1 p-1">
+                <div class="filter-item filter-item-select">
                     <select name="grouped" id="select-grouped" class="form-control form-control-sm command-select" title="Group recurring identical errors by fingerprint">
-                        <option value="1" @selected(($filters['grouped'] ?? '1') !== '0')>Clustered</option>
-                        <option value="0" @selected(($filters['grouped'] ?? '1') === '0')>Raw Stream</option>
+                        <option value="1" @selected(($filters['grouped'] ?? '1') !== '0')>Clustered Issues</option>
+                        <option value="0" @selected(($filters['grouped'] ?? '1') === '0')>Raw Event Stream</option>
                     </select>
                 </div>
 
                 <!-- Filter Actions + Sanitized Export -->
-                <div class="col-12 col-lg-2 p-1 d-flex justify-content-end" style="gap: 6px;">
-                    <button type="submit" class="btn-command-primary w-100" style="height: 34px; font-size: 0.75rem;">
+                <div class="filter-item filter-item-actions">
+                    <button type="submit" class="btn-command-primary" style="height: 34px; padding: 0 16px; font-size: 0.75rem;">
                         <i class="fas fa-filter mr-1"></i> APPLY
                     </button>
                     <a href="{{ route('console.miscellaneous.app-errors', $workspace->getKey()) }}" class="btn-command-action" style="height: 34px; padding: 0 10px; font-size: 0.75rem;" title="Reset filters">
@@ -822,6 +822,48 @@
             border: 1px solid var(--co-border, #e2e8f0);
             color: var(--co-ink, #0f172a);
             font-size: 0.8125rem;
+            width: 100%;
+        }
+
+        .filter-flex-form {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+            margin: 0;
+        }
+        .filter-item-search {
+            flex: 2 1 220px;
+            min-width: 180px;
+        }
+        .filter-item-select {
+            flex: 1 1 130px;
+            min-width: 120px;
+        }
+        .filter-item-actions {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Responsive Table Wrapping (Prevents Desktop Horizontal Clipping) */
+        @media (min-width: 992px) {
+            #table-error-intelligence {
+                table-layout: fixed;
+                width: 100%;
+            }
+        }
+        #table-error-intelligence th,
+        #table-error-intelligence td {
+            white-space: normal;
+            vertical-align: middle;
+        }
+        .cell-message-wrap,
+        .cell-message-title,
+        .cell-source-file {
+            overflow-wrap: anywhere;
+            word-break: break-word;
         }
 
         /* Table Badges & Styles */

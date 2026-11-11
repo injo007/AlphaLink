@@ -11991,6 +11991,7 @@ body.command-os-shell .command-os-communications {
 }
 
 body.command-os-shell #page-header .command-os-inbox-trigger {
+    position: relative;
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
@@ -12034,6 +12035,8 @@ body.command-os-shell #page-header .command-os-inbox-trigger > svg {
     top: -4px;
     right: -4px;
 }
+
+body.command-os-shell #page-header .command-os-communications .command-os-notification-link { position: relative; }
 
 .command-os-communication-popover[hidden] { display: none !important; }
 .command-os-communication-popover {

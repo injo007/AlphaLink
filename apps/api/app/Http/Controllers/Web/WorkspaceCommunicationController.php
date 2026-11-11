@@ -136,7 +136,8 @@ class WorkspaceCommunicationController extends Controller
             ->whereNull('completed_at')
             ->whereHas('communication', fn ($query) => $query->where('kind', 'task'))
             ->count();
-        $items = $baseQuery
+        $items = (clone $baseQuery)
+            ->whereNull('read_at')
             ->with(['communication.author:id,name,username'])
             ->orderByDesc('created_at')
             ->limit(30)

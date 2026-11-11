@@ -151,7 +151,7 @@
         renderItems(inboxList, inboxItems, 'inbox');
         renderItems(notificationList, currentFeed.notifications || [], 'notifications');
         renderTicker(inboxItems);
-        setBadge('[data-open-task-count]', Number(currentFeed.unread_inbox_count) || Number(currentFeed.open_task_count) || 0);
+        setBadge('[data-open-task-count]', Number(currentFeed.unread_inbox_count) || 0);
         setBadge('[data-unread-count]', Number(currentFeed.unread_notification_count) || 0);
     };
 

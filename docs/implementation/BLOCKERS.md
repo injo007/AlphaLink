@@ -743,3 +743,7 @@ Source-prefixed action/status Lists and live membership counts are implemented a
 ### E-CAMP-162 — Warmup Test return-path regression
 
 The production 500 after Warmup Test was caused by the shared composer treating flashed newline-delimited test addresses as an array. The first production trace also revealed null optional numeric settings rejected by the Test endpoint; both issues are fixed and covered by a redirected browser-flow regression. A live Warmup Test now returns the editor's PMTA-accepted status. Inbox delivery and campaign Send are not verified, and DMS native sender parity remains open.
+
+## 2026-11-11 Install readiness repair — E-INST-100
+
+The live AlphaLink private bundle was read-only checked: both selected tracking files are missing, while the digest pins are present in the active application release. This explains the screenshot's missing-assets and full-digest blockers. The fetched-commit repair and per-target limiter changes are implemented and locally verified, but are not deployed yet. After deployment, verify both file hashes, the selected asset inventory and application health; keep install parity `TESTING` because no real target installation was run and PMTA target/install success is still unverified.

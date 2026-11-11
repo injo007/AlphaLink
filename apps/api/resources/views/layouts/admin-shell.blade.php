@@ -725,9 +725,14 @@
                                 data-feed-url="{{ route('console.workspace-communications.feed', ['workspace' => $workspace->getKey()]) }}"
                                 data-read-url-template="{{ route('console.workspace-communications.read', ['workspace' => $workspace->getKey(), 'communication' => '__COMMUNICATION__']) }}"
                                 data-complete-url-template="{{ route('console.workspace-communications.complete', ['workspace' => $workspace->getKey(), 'communication' => '__COMMUNICATION__']) }}">
-                                <button type="button" class="btn btn-sm btn-dual command-os-header-control command-os-inbox-trigger" data-communication-open="inbox" aria-haspopup="dialog" aria-expanded="false" aria-controls="command-os-inbox-popover" title="Tasks and messages">
+                                <div class="command-os-update-ticker" data-update-ticker data-paused="false" role="region" aria-label="Latest team tasks and messages">
+                                    <span class="command-os-ticker-label"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 5.5h16v13H4z"/><path d="m4.5 7 7.5 6 7.5-6M8 3h8"/></svg><span>TEAM UPDATES</span></span>
+                                    <div class="command-os-ticker-viewport" data-ticker-viewport><div class="command-os-ticker-track" data-ticker-track aria-live="off"><div class="command-os-ticker-set" data-ticker-primary><span class="command-os-ticker-empty">Loading team updates…</span></div><div class="command-os-ticker-set" data-ticker-copy aria-hidden="true"></div></div></div>
+                                    <button type="button" class="command-os-ticker-pause" data-ticker-pause aria-pressed="false" aria-label="Pause team updates" title="Pause team updates"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14M16 5v14"/></svg></button>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-dual command-os-header-control command-os-inbox-trigger" data-communication-open="inbox" aria-haspopup="dialog" aria-expanded="false" aria-controls="command-os-inbox-popover" aria-label="Open tasks and messages" title="Open tasks and messages">
                                     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 13h4l2 3h6l2-3h4" /></svg>
-                                    <span class="command-os-header-action-label">Tasks &amp; messages</span><span class="command-os-header-badge" data-open-task-count hidden>0</span>
+                                    <span class="command-os-header-badge" data-open-task-count hidden>0</span>
                                 </button>
                                 <div class="command-os-communication-popover command-os-inbox-popover" id="command-os-inbox-popover" role="dialog" aria-labelledby="command-os-inbox-title" hidden>
                                     <div class="command-os-communication-heading"><div><span class="command-os-communication-kicker">WORKSPACE</span><h2 id="command-os-inbox-title">Tasks &amp; messages</h2></div><button type="button" class="command-os-communication-close" data-communication-close aria-label="Close tasks and messages">×</button></div>

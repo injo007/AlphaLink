@@ -23,8 +23,32 @@
         <section class="global-user-comms-section" aria-labelledby="global-user-comms-title">
             <div class="global-user-comms-heading">
                 <div><p>GLOBAL USER ACCOUNT</p><h2 id="global-user-comms-title">Tasks &amp; messages</h2><span>Recent workspace updates addressed to this account.</span></div>
-                @if ($operatorInWorkspace)<a href="{{ route('console.workspace-communications.index', ['workspace' => $workspace->getKey(), 'operator_id' => $user->id]) }}">Create update for {{ $user->name ?: $user->username }} <span aria-hidden="true">→</span></a>@endif
+                @if ($operatorInWorkspace)<span class="global-user-comms-recipient">Sending to {{ $user->name ?: $user->username }}</span>@endif
             </div>
+            @if (session('communication_status'))
+                <div class="workspace-comms-alert" role="status">{{ session('communication_status') }}</div>
+            @endif
+            @if ($errors->any())
+                <div class="workspace-comms-alert workspace-comms-alert-error" role="alert">{{ $errors->first() }}</div>
+            @endif
+            @if ($operatorInWorkspace)
+                <form method="post" action="{{ route('console.workspace-communications.store', ['workspace' => $workspace->getKey()]) }}" class="global-user-comms-compose" data-account-communication-form>
+                    @csrf
+                    <input type="hidden" name="audience" value="operator">
+                    <input type="hidden" name="operator_id" value="{{ $user->id }}">
+                    <input type="hidden" name="return_user_id" value="{{ $user->id }}">
+                    <div class="global-user-comms-compose-heading"><div><span>NEW UPDATE</span><h3>Send directly to this operator</h3></div><small>Appears in their team inbox or notification bell.</small></div>
+                    <div class="global-user-comms-compose-fields">
+                        <label class="workspace-comms-field"><span>Update type</span><select name="kind" data-account-kind required><option value="task" @selected(old('kind', 'task') === 'task')>Task</option><option value="message" @selected(old('kind') === 'message')>Message</option><option value="notification" @selected(old('kind') === 'notification')>Notification</option></select></label>
+                        <label class="workspace-comms-field"><span>Title</span><input name="title" type="text" minlength="3" maxlength="140" required value="{{ old('title') }}" placeholder="A clear, short title"></label>
+                        <label class="workspace-comms-field global-user-comms-compose-body"><span>Details</span><textarea name="body" rows="3" minlength="3" maxlength="5000" required placeholder="Add the context and next steps…">{{ old('body') }}</textarea></label>
+                        <label class="workspace-comms-field global-user-comms-compose-due" data-account-due @if (old('kind', 'task') !== 'task') hidden @endif><span>Due date <em>Optional</em></span><input type="datetime-local" name="due_at" value="{{ old('due_at') }}"></label>
+                        <button class="workspace-comms-submit" type="submit"><span aria-hidden="true">↗</span> Send to operator</button>
+                    </div>
+                </form>
+            @else
+                <p class="global-user-comms-empty">Direct updates can be sent from here when this account is an active operator in {{ $workspace->name }}. Team wide updates are managed in Workspace Settings.</p>
+            @endif
             @if ($communicationsForUser->isEmpty())
                 <p class="global-user-comms-empty">No task, message, or notification has been sent to this account in {{ $workspace->name }}.</p>
             @else
@@ -39,6 +63,15 @@
     @endif
     <script>
         (() => {
+            const communicationForm = document.querySelector('[data-account-communication-form]');
+            if (communicationForm) {
+                const kind = communicationForm.querySelector('[data-account-kind]');
+                const due = communicationForm.querySelector('[data-account-due]');
+                const syncDue = () => { due.hidden = kind.value !== 'task'; };
+                kind.addEventListener('change', syncDue);
+                syncDue();
+            }
+
             const form = document.getElementById('edit-global-user-form'); const button = document.getElementById('save-user'); const error = document.getElementById('user-error');
             form.addEventListener('submit', async (event) => {
                 event.preventDefault(); error.classList.add('d-none'); button.disabled = true; button.textContent = 'UPDATING…'; const data = new FormData(form);

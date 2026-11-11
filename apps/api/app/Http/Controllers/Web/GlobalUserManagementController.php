@@ -142,7 +142,7 @@ class GlobalUserManagementController extends Controller
             ? collect()
             : WorkspaceCommunicationRecipient::query()
                 ->where('user_id', $user->getKey())
-                ->whereHas('communication', fn ($query) => $query->where('workspace_id', $workspace->getKey()))
+                ->whereHas('communication', fn ($query) => $query->where('workspace_id', $workspace->getKey())->whereNull('archived_at'))
                 ->with('communication.author:id,name,username')
                 ->latest()
                 ->limit(8)

@@ -39,7 +39,7 @@
 
                 <form method="post" action="{{ route('clean.console.workspace-communications.store') }}" class="workspace-comms-form" data-workspace-comms-form>
                     @csrf
-                    <label class="workspace-comms-field"><span>Update type</span>
+                    <label class="workspace-comms-field workspace-comms-field-kind"><span>Update type</span>
                         <select name="kind" required>
                             <option value="task" @selected(old('kind', 'task') === 'task')>Task</option>
                             <option value="message" @selected(old('kind') === 'message')>Message</option>
@@ -47,15 +47,15 @@
                         </select>
                         <small data-kind-help>A task appears in the team inbox with an optional due date and completion status.</small>
                     </label>
-                    <label class="workspace-comms-field"><span>Title</span><input name="title" type="text" maxlength="140" minlength="3" required value="{{ old('title') }}" placeholder="A clear, short title"></label>
-                    <label class="workspace-comms-field"><span>Details</span><textarea name="body" rows="5" maxlength="5000" minlength="3" required placeholder="Add the context and next steps…">{{ old('body') }}</textarea><small>Up to 5,000 characters.</small></label>
-                    <div class="workspace-comms-field"><span>Audience</span>
+                    <label class="workspace-comms-field workspace-comms-field-title"><span>Title</span><input name="title" type="text" maxlength="140" minlength="3" required value="{{ old('title') }}" placeholder="A clear, short title"></label>
+                    <label class="workspace-comms-field workspace-comms-field-body"><span>Details</span><textarea name="body" rows="5" maxlength="5000" minlength="3" required placeholder="Add the context and next steps…">{{ old('body') }}</textarea><small>Up to 5,000 characters.</small></label>
+                    <div class="workspace-comms-field workspace-comms-field-audience"><span>Audience</span>
                         <div class="workspace-comms-audience-options">
                             <label><input type="radio" name="audience" value="team" @checked(old('audience', $selectedOperatorId ? 'operator' : 'team') === 'team')><span><strong>Entire team</strong><small>Active admins and operators</small></span></label>
                             <label><input type="radio" name="audience" value="operator" @checked(old('audience', $selectedOperatorId ? 'operator' : 'team') === 'operator')><span><strong>One operator</strong><small>Private to a selected operator</small></span></label>
                         </div>
                     </div>
-                    <label class="workspace-comms-field" data-operator-field @if (old('audience', $selectedOperatorId ? 'operator' : 'team') !== 'operator') hidden @endif><span>Operator</span>
+                    <label class="workspace-comms-field workspace-comms-field-operator" data-operator-field @if (old('audience', $selectedOperatorId ? 'operator' : 'team') !== 'operator') hidden @endif><span>Operator</span>
                         <select name="operator_id" data-operator-select @if (old('audience', $selectedOperatorId ? 'operator' : 'team') === 'operator') required @endif>
                             <option value="">Select an active operator</option>
                             @foreach ($operators as $operator)
@@ -64,7 +64,7 @@
                         </select>
                         @if ($operators->isEmpty())<small>No active operators are assigned to this workspace yet.</small>@endif
                     </label>
-                    <label class="workspace-comms-field" data-due-field @if (old('kind', 'task') !== 'task') hidden @endif><span>Due date <em>Optional</em></span><input type="datetime-local" name="due_at" value="{{ old('due_at') }}"></label>
+                    <label class="workspace-comms-field workspace-comms-field-due" data-due-field @if (old('kind', 'task') !== 'task') hidden @endif><span>Due date <em>Optional</em></span><input type="datetime-local" name="due_at" value="{{ old('due_at') }}"></label>
                     <button class="workspace-comms-submit" type="submit"><span aria-hidden="true">↗</span> Publish update</button>
                 </form>
             </section>

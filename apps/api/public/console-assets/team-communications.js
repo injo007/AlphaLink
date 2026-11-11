@@ -11,6 +11,11 @@
     const notificationPopover = document.getElementById('command-os-notification-popover');
     const inboxList = root.querySelector('[data-inbox-list]');
     const notificationList = root.querySelector('[data-notification-list]');
+    const ticker = root.querySelector('[data-update-ticker]');
+    const tickerTrack = root.querySelector('[data-ticker-track]');
+    const tickerPrimary = root.querySelector('[data-ticker-primary]');
+    const tickerCopy = root.querySelector('[data-ticker-copy]');
+    const tickerPause = root.querySelector('[data-ticker-pause]');
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
     let currentFeed = { inbox: [], notifications: [], open_task_count: 0 };
     let feedRequest = null;
@@ -44,6 +49,48 @@
         const date = new Date(value);
         if (Number.isNaN(date.getTime())) return '';
         return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+    };
+
+    const renderTicker = (items) => {
+        if (!ticker || !tickerTrack || !tickerPrimary || !tickerCopy) return;
+        tickerPrimary.replaceChildren();
+        tickerCopy.replaceChildren();
+        if (!items.length) {
+            addText(tickerPrimary, 'span', 'command-os-ticker-empty', 'No tasks or messages right now');
+            tickerCopy.append(tickerPrimary.firstElementChild.cloneNode(true));
+            ticker.dataset.hasUpdates = 'false';
+            tickerTrack.style.removeProperty('--ticker-duration');
+            return;
+        }
+
+        items.slice(0, 12).forEach((item) => {
+            const update = document.createElement('button');
+            update.type = 'button';
+            update.className = `command-os-ticker-item kind-${item.kind}`;
+            update.dataset.tickerOpen = 'inbox';
+            update.setAttribute('aria-label', `${item.kind}: ${item.title}. Open team inbox.`);
+            addText(update, 'span', 'command-os-ticker-kind', item.kind === 'task' ? 'TASK' : 'MESSAGE');
+            const copy = document.createElement('span');
+            copy.className = 'command-os-ticker-copy';
+            addText(copy, 'strong', '', item.title);
+            addText(copy, 'span', '', item.body || 'Open to read this update');
+            update.append(copy);
+            addText(update, 'span', 'command-os-ticker-open-mark', 'View').setAttribute('aria-hidden', 'true');
+            tickerPrimary.append(update);
+        });
+
+        const viewportWidth = root.querySelector('[data-ticker-viewport]')?.clientWidth || 0;
+        const baseItems = [...tickerPrimary.children];
+        let repeat = 0;
+        while (tickerPrimary.scrollWidth < viewportWidth + 24 && repeat < 10) {
+            baseItems.forEach((item) => tickerPrimary.append(item.cloneNode(true)));
+            repeat += 1;
+        }
+        tickerCopy.replaceChildren(...[...tickerPrimary.children].map((item) => item.cloneNode(true)));
+        tickerCopy.inert = true;
+        tickerCopy.setAttribute('aria-hidden', 'true');
+        tickerTrack.style.setProperty('--ticker-duration', `${Math.max(22, Math.min(72, tickerPrimary.childElementCount * 8))}s`);
+        ticker.dataset.hasUpdates = 'true';
     };
 
     const renderItems = (container, items, listType) => {
@@ -94,8 +141,10 @@
     };
 
     const render = () => {
-        renderItems(inboxList, currentFeed.inbox || [], 'inbox');
+        const inboxItems = currentFeed.inbox || [];
+        renderItems(inboxList, inboxItems, 'inbox');
         renderItems(notificationList, currentFeed.notifications || [], 'notifications');
+        renderTicker(inboxItems);
         setBadge('[data-open-task-count]', Number(currentFeed.unread_inbox_count) || Number(currentFeed.open_task_count) || 0);
         setBadge('[data-unread-count]', Number(currentFeed.unread_notification_count) || 0);
     };
@@ -121,6 +170,10 @@
                     message.textContent = 'Updates could not be loaded. Reopen this panel to try again.';
                     container.replaceChildren(message);
                 });
+                if (tickerPrimary) tickerPrimary.textContent = 'Team updates are temporarily unavailable';
+                if (tickerCopy) tickerCopy.textContent = 'Team updates are temporarily unavailable';
+                if (ticker) ticker.dataset.hasUpdates = 'false';
+                tickerTrack?.style.removeProperty('--ticker-duration');
             }
         })();
         feedRequest = request;
@@ -169,10 +222,25 @@
         }
     };
 
+    const setTickerPaused = (paused) => {
+        if (!ticker || !tickerPause) return;
+        ticker.dataset.paused = String(paused);
+        tickerPause.setAttribute('aria-pressed', String(paused));
+        tickerPause.setAttribute('aria-label', paused ? 'Resume team updates' : 'Pause team updates');
+        tickerPause.title = paused ? 'Resume team updates' : 'Pause team updates';
+    };
+
     inboxButton?.addEventListener('click', () => openPopover('inbox'));
     notificationButton?.addEventListener('click', () => openPopover('notifications'));
+    tickerPause?.addEventListener('click', () => setTickerPaused(ticker?.dataset.paused !== 'true'));
     root.querySelectorAll('[data-communication-close]').forEach((button) => button.addEventListener('click', () => closePopovers(true)));
     root.addEventListener('click', (event) => {
+        const tickerItem = event.target.closest('[data-ticker-open="inbox"]');
+        if (tickerItem) {
+            event.preventDefault();
+            openPopover('inbox');
+            return;
+        }
         const action = event.target.closest('[data-communication-action]');
         if (action) mutate(action);
     });
@@ -199,6 +267,11 @@
     });
 
     loadFeed();
+    if (ticker && 'ResizeObserver' in window) {
+        const tickerResizeObserver = new ResizeObserver(() => renderTicker(currentFeed.inbox || []));
+        const viewport = root.querySelector('[data-ticker-viewport]');
+        if (viewport) tickerResizeObserver.observe(viewport);
+    }
     window.setInterval(() => { if (!document.hidden) loadFeed(); }, 60000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) loadFeed(); });
 })();

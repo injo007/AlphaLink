@@ -66,11 +66,15 @@ class WorkspaceCommunicationController extends Controller
             'audience' => ['required', Rule::in(['team', 'operator'])],
             'operator_id' => ['required_if:audience,operator', 'nullable', 'integer', Rule::exists('users', 'id')->where('access_role', User::ACCESS_ROLE_OPERATOR)->where('is_active', true)],
             'due_at' => ['nullable', 'date', 'after_or_equal:today'],
+            'return_user_id' => ['nullable', 'integer', Rule::exists('users', 'id')],
         ]);
 
         $targetOperator = $data['audience'] === 'operator'
             ? $this->operatorFor($workspace, (int) $data['operator_id'])
             : null;
+        if (isset($data['return_user_id']) && (int) $data['return_user_id'] !== $targetOperator?->getKey()) {
+            throw ValidationException::withMessages(['return_user_id' => 'This update return path is only available for its selected operator.']);
+        }
         $recipients = $targetOperator
             ? collect([$targetOperator])
             : $workspace->users()
@@ -98,6 +102,11 @@ class WorkspaceCommunicationController extends Controller
                 'user_id' => $user->getKey(),
             ])->all());
         });
+
+        if ($targetOperator && isset($data['return_user_id'])) {
+            return redirect()->route('console.global-users.edit', ['user' => $targetOperator->getKey()])
+                ->with('communication_status', 'The update was sent to this operator.');
+        }
 
         return redirect()->route('clean.console.workspace-communications.index')
             ->with('communication_status', 'Your update is now available to the selected team members.');

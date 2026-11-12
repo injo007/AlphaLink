@@ -52,6 +52,7 @@ class AlphaLinkWorkspaceToolTest extends TestCase
             ->assertOk()->assertSee('PUSH WORKSPACE ACCOUNTS')->assertSee('SPLIT ON IPS')
             ->assertDontSee('workspace-project-form')->assertDontSee('workspace-account-form')
             ->assertSee('workspace-search-ips')->assertSee('workspace-search-projects')
+            ->assertSee('workspace-progress-panel')->assertSee('workspace-progress-bar')
             ->assertSee($this->cleanWorkspaceUrl(route('console.gcampaigns.projects', $this->workspace->id)))
             ->assertSee($this->cleanWorkspaceUrl(route('console.gcampaigns.accounts', $this->workspace->id)))
             ->assertSee('class="form-control selectpicker"', false)
@@ -543,6 +544,31 @@ class AlphaLinkWorkspaceToolTest extends TestCase
             WorkspaceGoogleProject::query()->where('workspace_id', $this->workspace->id)->pluck('name')->all()
         );
         Queue::assertPushed(SyncWorkspaceGoogleProjectAccounts::class, 1);
+    }
+
+    public function test_workspace_push_progress_endpoint_tracks_operation_and_uses_dedicated_rate_limit(): void
+    {
+        $operationId = (string) Str::uuid();
+        $progressUrl = route('console.tools.workspace.progress', [$this->workspace->id, $operationId]);
+
+        $this->getJson($progressUrl)
+            ->assertOk()
+            ->assertJsonPath('percent', 0)
+            ->assertJsonPath('status', 'running');
+
+        for ($i = 0; $i < 6; $i++) {
+            $this->postJson(route('console.tools.workspace.push', $this->workspace->id), [
+                'ips' => [999999],
+                'projects' => [999999],
+                'split_on_ips' => false,
+                'operation_id' => $operationId,
+            ])->assertStatus(400);
+        }
+
+        $this->getJson($progressUrl)
+            ->assertOk()
+            ->assertJsonPath('percent', 100)
+            ->assertJsonPath('status', 'failed');
     }
 
     public function test_s3_project_sync_reports_an_empty_s3_listing_without_creating_projects(): void

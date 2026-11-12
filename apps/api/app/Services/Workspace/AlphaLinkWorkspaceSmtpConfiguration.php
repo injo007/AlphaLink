@@ -24,8 +24,15 @@ class AlphaLinkWorkspaceSmtpConfiguration
     public function __construct(private readonly PmtaRemoteConfiguration $remote) {}
 
     /** @return list<array{id: string, data: string, success: bool}> */
-    public function push(Workspace $workspace, User $user, array $ipIds, array $projectIds, bool $splitOnIps): array
+    public function push(Workspace $workspace, User $user, array $ipIds, array $projectIds, bool $splitOnIps, ?\Closure $onProgress = null): array
     {
+        $report = static function (array $payload) use ($onProgress): void {
+            if ($onProgress !== null) {
+                $onProgress($payload);
+            }
+        };
+
+        $report(['percent' => 8, 'stage' => 'Validating selected IPs and Workspace projects…', 'status' => 'running']);
         $ips = $this->selectedIps($workspace, $ipIds);
         $projects = WorkspaceGoogleProject::query()->availableTo($workspace, $user)
             ->with('accounts')
@@ -44,20 +51,56 @@ class AlphaLinkWorkspaceSmtpConfiguration
             throw new RuntimeException('No Workspace accounts were found in the selected projects.');
         }
 
+        $totalAccounts = count($smtpAccounts);
+        $report([
+            'percent' => 14,
+            'stage' => "Loaded {$totalAccounts} accounts across {$projects->count()} projects; verifying relay assets…",
+            'total_accounts' => $totalAccounts,
+        ]);
+
         $relayAssets = $this->requireRelayAssets();
         $chunks = collect($smtpAccounts)->split(count($ips));
         foreach ($ips as $index => $ip) {
             $ips[$index]['smtp_accounts'] = $splitOnIps ? ($chunks->has($index) ? $chunks[$index]->all() : []) : $smtpAccounts;
         }
         $grouped = collect($ips)->groupBy('managed_server_id');
+        $totalServers = max(1, $grouped->count());
+        $completedServers = 0;
+        $succeededServers = 0;
+        $failedServers = 0;
+        $report([
+            'percent' => 18,
+            'stage' => "Deploying to {$totalServers} server".($totalServers === 1 ? '' : 's').'…',
+            'total_servers' => $totalServers,
+        ]);
+
         $results = [];
+        $serverIndex = 0;
         foreach ($grouped as $serverId => $serverIps) {
+            $serverIndex++;
+            $basePercent = 18 + (int) floor((($serverIndex - 1) / $totalServers) * 78);
+            $stepSpan = max(4, (int) floor(78 / $totalServers));
             $server = ManagedServer::query()->where('workspace_id', $workspace->id)->whereKey($serverId)->first();
             if (! $server) {
+                $completedServers++;
+                $failedServers++;
                 $results[] = ['id' => (string) $serverId, 'data' => 'Server Not Found', 'success' => false];
+                $report([
+                    'percent' => 18 + (int) floor(($completedServers / $totalServers) * 78),
+                    'stage' => "Server {$serverIndex}/{$totalServers}: Server Not Found",
+                    'completed_servers' => $completedServers,
+                    'succeeded_servers' => $succeededServers,
+                    'failed_servers' => $failedServers,
+                ]);
 
                 continue;
             }
+            $serverLabel = (string) ($server->name ?: $server->id);
+            $report([
+                'percent' => $basePercent + (int) floor($stepSpan * 0.15),
+                'stage' => "Server {$serverIndex}/{$totalServers} ({$serverLabel}): Preparing SMTP routes…",
+                'current_server' => $serverLabel,
+            ]);
             $createdIds = [];
             $routeIdsToActivate = [];
             $relayDeploymentMayBeBroken = false;
@@ -118,9 +161,17 @@ class AlphaLinkWorkspaceSmtpConfiguration
                     ))
                     ->implode('');
 
+                $report([
+                    'percent' => $basePercent + (int) floor($stepSpan * 0.4),
+                    'stage' => "Server {$serverIndex}/{$totalServers} ({$serverLabel}): Uploading Workspace relay & accounts…",
+                ]);
                 $session = $this->remote->open($server);
                 $this->installRelay($session, $projects, $relayAssets, $relayDeploymentMayBeBroken);
                 $relayDeploymentMayBeBroken = false;
+                $report([
+                    'percent' => $basePercent + (int) floor($stepSpan * 0.72),
+                    'stage' => "Server {$serverIndex}/{$totalServers} ({$serverLabel}): Installing PMTA config & reloading PMTA…",
+                ]);
                 $temporary = '/etc/pmta/conf/tmp_workspace_'.$user->id;
                 $configuration = '/etc/pmta/conf/workspace_'.$user->id;
                 $data = str_replace(['$', '"', '!', '___'], ['\$', '\"', '\!', '"'], $data);
@@ -175,7 +226,16 @@ class AlphaLinkWorkspaceSmtpConfiguration
                 ManagedServerMta::query()->where('workspace_id', $workspace->id)
                     ->where('managed_server_id', $server->id)->where('user_id', $user->id)
                     ->whereIn('id', $routeIdsToActivate)->update(['is_active' => true]);
+                $completedServers++;
+                $succeededServers++;
                 $results[] = ['id' => (string) $server->id, 'data' => 'Workspace Pushed Successfully', 'success' => true];
+                $report([
+                    'percent' => 18 + (int) floor(($completedServers / $totalServers) * 78),
+                    'stage' => "Server {$serverIndex}/{$totalServers} ({$serverLabel}): Pushed successfully.",
+                    'completed_servers' => $completedServers,
+                    'succeeded_servers' => $succeededServers,
+                    'failed_servers' => $failedServers,
+                ]);
             } catch (Throwable $exception) {
                 if ($relayDeploymentMayBeBroken) {
                     // installRelay stops/replaces the service before its final
@@ -189,26 +249,68 @@ class AlphaLinkWorkspaceSmtpConfiguration
                 if ($createdIds !== []) {
                     ManagedServerMta::query()->where('workspace_id', $workspace->id)->where('user_id', $user->id)->whereIn('id', $createdIds)->delete();
                 }
+                $completedServers++;
+                $failedServers++;
                 $results[] = ['id' => (string) $server->id, 'data' => $exception->getMessage(), 'success' => false];
+                $report([
+                    'percent' => 18 + (int) floor(($completedServers / $totalServers) * 78),
+                    'stage' => "Server {$serverIndex}/{$totalServers} ({$serverLabel}): Failed — {$exception->getMessage()}",
+                    'completed_servers' => $completedServers,
+                    'succeeded_servers' => $succeededServers,
+                    'failed_servers' => $failedServers,
+                ]);
             }
         }
+
+        $report([
+            'percent' => 100,
+            'stage' => $failedServers === 0
+                ? "Push completed ({$succeededServers}/{$totalServers} servers)."
+                : ($succeededServers > 0 ? "Push partially completed ({$succeededServers} succeeded, {$failedServers} failed)." : "Push failed on {$failedServers} server(s)."),
+            'status' => $failedServers === 0 ? 'completed' : ($succeededServers > 0 ? 'partial' : 'failed'),
+            'completed_servers' => $completedServers,
+            'succeeded_servers' => $succeededServers,
+            'failed_servers' => $failedServers,
+        ]);
 
         return $results;
     }
 
     /** @return list<array{id: string, data: string, success: bool}> */
-    public function reset(Workspace $workspace, User $user, array $ipIds): array
+    public function reset(Workspace $workspace, User $user, array $ipIds, ?\Closure $onProgress = null): array
     {
+        $report = static function (array $payload) use ($onProgress): void {
+            if ($onProgress !== null) {
+                $onProgress($payload);
+            }
+        };
+
+        $report(['percent' => 10, 'stage' => 'Validating selected IPs…', 'status' => 'running']);
         $ips = $this->selectedIps($workspace, $ipIds);
         $grouped = collect($ips)->groupBy('managed_server_id');
+        $totalServers = max(1, $grouped->count());
+        $completedServers = 0;
+        $succeededServers = 0;
+        $failedServers = 0;
+        $report(['percent' => 18, 'stage' => "Resetting {$totalServers} server".($totalServers === 1 ? '' : 's').'…', 'total_servers' => $totalServers]);
         $results = [];
+        $serverIndex = 0;
         foreach ($grouped as $serverId => $serverIps) {
+            $serverIndex++;
             $server = ManagedServer::query()->where('workspace_id', $workspace->id)->whereKey($serverId)->first();
             if (! $server) {
+                $completedServers++;
+                $failedServers++;
                 $results[] = ['id' => (string) $serverId, 'data' => 'Server Not Found', 'success' => false];
 
                 continue;
             }
+            $serverLabel = (string) ($server->name ?: $server->id);
+            $report([
+                'percent' => 18 + (int) floor((($serverIndex - 0.5) / $totalServers) * 78),
+                'stage' => "Server {$serverIndex}/{$totalServers} ({$serverLabel}): Removing Workspace PMTA config & reloading…",
+                'current_server' => $serverLabel,
+            ]);
 
             try {
                 $session = $this->remote->open($server);
@@ -257,11 +359,40 @@ class AlphaLinkWorkspaceSmtpConfiguration
                 }
                 ManagedServerMta::query()->where('workspace_id', $workspace->id)->where('managed_server_id', $server->id)
                     ->where('user_id', $user->id)->where('mta_type', 'smtp')->delete();
+                $completedServers++;
+                $succeededServers++;
                 $results[] = ['id' => (string) $server->id, 'data' => 'Workspace SMTP reset successfully.', 'success' => true];
+                $report([
+                    'percent' => 18 + (int) floor(($completedServers / $totalServers) * 78),
+                    'stage' => "Server {$serverIndex}/{$totalServers} ({$serverLabel}): Reset complete.",
+                    'completed_servers' => $completedServers,
+                    'succeeded_servers' => $succeededServers,
+                    'failed_servers' => $failedServers,
+                ]);
             } catch (Throwable $exception) {
+                $completedServers++;
+                $failedServers++;
                 $results[] = ['id' => (string) $server->id, 'data' => $exception->getMessage(), 'success' => false];
+                $report([
+                    'percent' => 18 + (int) floor(($completedServers / $totalServers) * 78),
+                    'stage' => "Server {$serverIndex}/{$totalServers} ({$serverLabel}): Failed — {$exception->getMessage()}",
+                    'completed_servers' => $completedServers,
+                    'succeeded_servers' => $succeededServers,
+                    'failed_servers' => $failedServers,
+                ]);
             }
         }
+
+        $report([
+            'percent' => 100,
+            'stage' => $failedServers === 0
+                ? "Reset completed ({$succeededServers}/{$totalServers} servers)."
+                : ($succeededServers > 0 ? "Reset partially completed ({$succeededServers} succeeded, {$failedServers} failed)." : "Reset failed on {$failedServers} server(s)."),
+            'status' => $failedServers === 0 ? 'completed' : ($succeededServers > 0 ? 'partial' : 'failed'),
+            'completed_servers' => $completedServers,
+            'succeeded_servers' => $succeededServers,
+            'failed_servers' => $failedServers,
+        ]);
 
         return $results;
     }

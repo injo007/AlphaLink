@@ -382,10 +382,18 @@ class WorkspaceToolConsoleController extends Controller
             'ips' => ['required', 'array', 'min:1'], 'ips.*' => ['required', 'integer', 'min:1'],
             'projects' => ['required', 'array', 'min:1'], 'projects.*' => ['required', 'integer', 'min:1'],
             'split_on_ips' => ['required', 'boolean'],
+            'operation_id' => ['nullable', 'uuid'],
         ]);
+        $operationId = $data['operation_id'] ?? null;
+        $progress = $this->operationProgressWriter($workspace, $request->user(), $operationId);
+
         try {
-            $result = $smtp->push($workspace, $request->user(), array_values(array_unique($data['ips'])), array_values(array_unique($data['projects'])), (bool) $data['split_on_ips']);
+            $result = $smtp->push($workspace, $request->user(), array_values(array_unique($data['ips'])), array_values(array_unique($data['projects'])), (bool) $data['split_on_ips'], $progress);
         } catch (Throwable $exception) {
+            if ($progress !== null) {
+                $progress(['percent' => 100, 'stage' => $exception->getMessage(), 'status' => 'failed']);
+            }
+
             return response()->json(['data' => $exception->getMessage(), 'error' => $exception->getMessage(), 'exit' => 1], 400);
         }
 
@@ -395,14 +403,71 @@ class WorkspaceToolConsoleController extends Controller
     public function reset(Request $request, string $workspace, AlphaLinkWorkspaceSmtpConfiguration $smtp): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
-        $data = $request->validate(['ips' => ['required', 'array', 'min:1'], 'ips.*' => ['required', 'integer', 'min:1']]);
+        $data = $request->validate([
+            'ips' => ['required', 'array', 'min:1'], 'ips.*' => ['required', 'integer', 'min:1'],
+            'operation_id' => ['nullable', 'uuid'],
+        ]);
+        $operationId = $data['operation_id'] ?? null;
+        $progress = $this->operationProgressWriter($workspace, $request->user(), $operationId);
+
         try {
-            $result = $smtp->reset($workspace, $request->user(), array_values(array_unique($data['ips'])));
+            $result = $smtp->reset($workspace, $request->user(), array_values(array_unique($data['ips'])), $progress);
         } catch (Throwable $exception) {
+            if ($progress !== null) {
+                $progress(['percent' => 100, 'stage' => $exception->getMessage(), 'status' => 'failed']);
+            }
+
             return response()->json(['data' => $exception->getMessage(), 'error' => $exception->getMessage(), 'exit' => 1], 400);
         }
 
         return response()->json(['data' => $result, 'error' => null, 'exit' => 0], 200);
+    }
+
+    public function operationProgress(Request $request, string $workspace, string $operationId): JsonResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        $state = Cache::get($this->operationProgressKey($workspace, $request->user(), $operationId));
+
+        return response()->json(is_array($state) ? $state : [
+            'percent' => 0,
+            'stage' => 'Starting operation…',
+            'status' => 'running',
+            'total_servers' => 0,
+            'completed_servers' => 0,
+            'succeeded_servers' => 0,
+            'failed_servers' => 0,
+            'total_accounts' => 0,
+        ]);
+    }
+
+    private function operationProgressKey(Workspace $workspace, User $user, string $operationId): string
+    {
+        return "workspace-op:{$workspace->id}:{$user->id}:{$operationId}";
+    }
+
+    private function operationProgressWriter(Workspace $workspace, User $user, ?string $operationId): ?\Closure
+    {
+        if (! is_string($operationId) || $operationId === '') {
+            return null;
+        }
+
+        $key = $this->operationProgressKey($workspace, $user, $operationId);
+        $current = [
+            'percent' => 5,
+            'stage' => 'Preparing operation…',
+            'status' => 'running',
+            'total_servers' => 0,
+            'completed_servers' => 0,
+            'succeeded_servers' => 0,
+            'failed_servers' => 0,
+            'total_accounts' => 0,
+        ];
+        Cache::put($key, $current, now()->addMinutes(15));
+
+        return static function (array $patch) use ($key, &$current): void {
+            $current = array_merge($current, $patch);
+            Cache::put($key, $current, now()->addMinutes(15));
+        };
     }
 
     private function workspaceFor(?User $user, string $workspaceId): Workspace

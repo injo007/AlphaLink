@@ -164,8 +164,9 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::post('/app/workspaces/{workspace}/tools/workspace/accounts', [WorkspaceToolConsoleController::class, 'storeAccounts'])->middleware('throttle:10,1')->name('console.tools.workspace.accounts.store');
     Route::patch('/app/workspaces/{workspace}/tools/workspace/accounts/status', [WorkspaceToolConsoleController::class, 'statusAccounts'])->name('console.tools.workspace.accounts.status');
     Route::delete('/app/workspaces/{workspace}/tools/workspace/accounts', [WorkspaceToolConsoleController::class, 'destroyAccounts'])->name('console.tools.workspace.accounts.destroy');
-    Route::post('/app/workspaces/{workspace}/tools/workspace/push', [WorkspaceToolConsoleController::class, 'push'])->middleware('throttle:5,1')->name('console.tools.workspace.push');
-    Route::delete('/app/workspaces/{workspace}/tools/workspace/reset', [WorkspaceToolConsoleController::class, 'reset'])->middleware('throttle:5,1')->name('console.tools.workspace.reset');
+    Route::get('/app/workspaces/{workspace}/tools/workspace/progress/{operationId}', [WorkspaceToolConsoleController::class, 'operationProgress'])->whereUuid('operationId')->name('console.tools.workspace.progress');
+    Route::post('/app/workspaces/{workspace}/tools/workspace/push', [WorkspaceToolConsoleController::class, 'push'])->middleware('throttle:30,1,workspace-push')->name('console.tools.workspace.push');
+    Route::delete('/app/workspaces/{workspace}/tools/workspace/reset', [WorkspaceToolConsoleController::class, 'reset'])->middleware('throttle:30,1,workspace-reset')->name('console.tools.workspace.reset');
     Route::get('/app/workspaces/{workspace}/drops/suppression', [WorkspaceDropSuppressionController::class, 'index'])->name('console.drops.suppression');
     Route::get('/app/workspaces/{workspace}/drops/suppression/catalog', [WorkspaceDropSuppressionController::class, 'catalog'])->name('console.drops.suppression.catalog');
     Route::get('/app/workspaces/{workspace}/drops/suppression/{suppression}/monitor', [WorkspaceDropSuppressionController::class, 'monitor'])

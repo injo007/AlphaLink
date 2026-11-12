@@ -25,6 +25,26 @@
 
         <!-- 2. Form Surface Card -->
         <div class="command-os-table-card p-4">
+            <div id="workspace-progress-panel" class="d-none mb-3 p-3" style="border-radius: 12px; border: 1px solid rgba(99, 102, 241, 0.22); background: rgba(99, 102, 241, 0.04);">
+                <div class="d-flex flex-wrap align-items-center justify-content-between mb-2" style="gap: 8px;">
+                    <div class="d-flex align-items-center" style="gap: 8px; min-width: 0;">
+                        <span id="workspace-progress-spinner" class="spinner-border spinner-border-sm text-purple" role="status" aria-hidden="true"></span>
+                        <span id="workspace-progress-stage" class="font-w700 text-truncate" style="font-size: 0.8125rem;">Starting…</span>
+                    </div>
+                    <div class="d-flex flex-wrap align-items-center" style="gap: 6px; font-size: 0.75rem;">
+                        <span class="badge badge-purple" id="workspace-progress-percent">0%</span>
+                        <span class="badge badge-secondary" id="workspace-progress-servers">Servers: 0/0</span>
+                        <span class="badge badge-info" id="workspace-progress-accounts" style="display:none;">Accounts: 0</span>
+                        <span class="badge badge-success" id="workspace-progress-succeeded" style="display:none;">OK: 0</span>
+                        <span class="badge badge-danger" id="workspace-progress-failed" style="display:none;">Failed: 0</span>
+                        <span class="text-muted font-w600" id="workspace-progress-elapsed">0s</span>
+                    </div>
+                </div>
+                <div class="progress" style="height: 8px; border-radius: 999px; background: rgba(148, 163, 184, 0.2); overflow: hidden;">
+                    <div id="workspace-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%; background: linear-gradient(90deg, #6366f1, #8b5cf6); transition: width 0.35s ease;"></div>
+                </div>
+            </div>
+
             <div id="workspace-status" class="alert d-none mb-4" role="status" aria-live="polite" style="border-radius: 12px; font-size: 0.8125rem;"></div>
 
             <div class="row justify-content-center">
@@ -91,14 +111,73 @@
             const base = @json(url('/app/workspaces/'.$workspace->id.'/tools/workspace'));
             const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
             const status = document.getElementById('workspace-status');
+            const progressPanel = document.getElementById('workspace-progress-panel');
+            const progressBar = document.getElementById('workspace-progress-bar');
+            const progressStage = document.getElementById('workspace-progress-stage');
+            const progressPercent = document.getElementById('workspace-progress-percent');
+            const progressServers = document.getElementById('workspace-progress-servers');
+            const progressAccounts = document.getElementById('workspace-progress-accounts');
+            const progressSucceeded = document.getElementById('workspace-progress-succeeded');
+            const progressFailed = document.getElementById('workspace-progress-failed');
+            const progressElapsed = document.getElementById('workspace-progress-elapsed');
+            const progressSpinner = document.getElementById('workspace-progress-spinner');
             const table = document.getElementById('workspace-results');
             const request = async (url, method = 'POST', body = {}) => {
                 const response = await fetch(url, {method, headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':csrf}, body: method === 'GET' ? undefined : JSON.stringify(body)});
                 const payload = await response.json().catch(() => ({}));
-                if (!response.ok) throw new Error(payload.message || payload.error || payload.data || Object.values(payload.errors || {}).flat().join(' ') || 'Request failed.');
+                if (!response.ok) {
+                    if (response.status === 429) {
+                        const retryAfter = response.headers.get('Retry-After');
+                        throw new Error(retryAfter ? `Too many attempts — wait ${retryAfter}s and retry.` : 'Too many attempts — wait a moment and retry.');
+                    }
+                    throw new Error(payload.message || payload.error || payload.data || Object.values(payload.errors || {}).flat().join(' ') || 'Request failed.');
+                }
                 return payload;
             };
             const showStatus = (message, tone = 'success') => { status.textContent = message; status.className = `alert alert-${tone} mb-4`; };
+            const createOperationId = () => (window.crypto?.randomUUID ? window.crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+                const r = (Math.random() * 16) | 0;
+                return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+            }));
+            const renderProgress = (state, startedAt) => {
+                progressPanel.classList.remove('d-none');
+                const percent = Math.max(0, Math.min(100, Number(state.percent ?? 0)));
+                const stateStatus = state.status || 'running';
+                progressBar.style.width = `${percent}%`;
+                progressBar.setAttribute('aria-valuenow', String(percent));
+                progressPercent.textContent = `${percent}%`;
+                progressStage.textContent = state.stage || 'Working…';
+                const totalServers = Number(state.total_servers ?? 0);
+                const completedServers = Number(state.completed_servers ?? 0);
+                progressServers.textContent = `Servers: ${completedServers}/${totalServers}`;
+                const totalAccounts = Number(state.total_accounts ?? 0);
+                if (totalAccounts > 0) {
+                    progressAccounts.style.display = '';
+                    progressAccounts.textContent = `Accounts: ${totalAccounts.toLocaleString()}`;
+                } else {
+                    progressAccounts.style.display = 'none';
+                }
+                const ok = Number(state.succeeded_servers ?? 0);
+                const fail = Number(state.failed_servers ?? 0);
+                progressSucceeded.style.display = (ok > 0 || stateStatus !== 'running') ? '' : 'none';
+                progressSucceeded.textContent = `OK: ${ok}`;
+                progressFailed.style.display = fail > 0 ? '' : 'none';
+                progressFailed.textContent = `Failed: ${fail}`;
+                const secs = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
+                progressElapsed.textContent = `${secs}s`;
+                progressSpinner.classList.toggle('d-none', stateStatus !== 'running');
+                progressBar.classList.toggle('progress-bar-animated', stateStatus === 'running');
+                progressBar.classList.toggle('progress-bar-striped', stateStatus === 'running');
+                if (stateStatus === 'completed') {
+                    progressBar.style.background = 'linear-gradient(90deg, #10b981, #059669)';
+                } else if (stateStatus === 'partial') {
+                    progressBar.style.background = 'linear-gradient(90deg, #f59e0b, #d97706)';
+                } else if (stateStatus === 'failed') {
+                    progressBar.style.background = 'linear-gradient(90deg, #ef4444, #dc2626)';
+                } else {
+                    progressBar.style.background = 'linear-gradient(90deg, #6366f1, #8b5cf6)';
+                }
+            };
             const busy = (button, value) => { button.disabled = value; button.setAttribute('aria-busy', String(value)); };
             const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
             const selected = (element) => [...element.selectedOptions].map((option) => option.value);
@@ -120,6 +199,9 @@
                 busy(button, true);
                 showStatus(`${action} in progress…`, 'info');
                 table.innerHTML = '';
+                let pollTimer = null;
+                let latestState = { percent: 4, stage: `${action} starting…`, status: 'running', total_servers: 0, completed_servers: 0, succeeded_servers: 0, failed_servers: 0, total_accounts: 0 };
+                const startedAt = Date.now();
                 try {
                     const body = {ips:selected(document.getElementById('workspace-ips'))};
                     if (action === 'PUSH') {
@@ -135,12 +217,37 @@
                         throw new Error('Please select a project.');
                     }
 
+                    const operationId = createOperationId();
+                    body.operation_id = operationId;
+                    renderProgress(latestState, startedAt);
+                    pollTimer = window.setInterval(async () => {
+                        try {
+                            const progress = await request(`${base}/progress/${operationId}`, 'GET');
+                            latestState = progress;
+                            renderProgress(latestState, startedAt);
+                        } catch (_) {
+                            renderProgress(latestState, startedAt);
+                        }
+                    }, 750);
+
                     const payload = await request(`${base}/${action.toLowerCase()}`, action === 'RESET' ? 'DELETE' : 'POST', body);
+                    window.clearInterval(pollTimer);
+                    pollTimer = null;
                     const rows = Array.isArray(payload.data) ? payload.data : [];
                     if (rows.length) {
                         draw(rows);
                         const succeeded = rows.filter((row) => row.success === true).length;
                         const failed = rows.length - succeeded;
+                        renderProgress({
+                            ...latestState,
+                            percent: 100,
+                            status: failed === 0 ? 'completed' : succeeded > 0 ? 'partial' : 'failed',
+                            total_servers: rows.length,
+                            completed_servers: rows.length,
+                            succeeded_servers: succeeded,
+                            failed_servers: failed,
+                            stage: failed === 0 ? `${action} completed (${succeeded}/${rows.length} servers).` : `${action} finished: ${succeeded} succeeded, ${failed} failed.`,
+                        }, startedAt);
                         if (failed === 0) {
                             showStatus(`${successText} ${succeeded} server${succeeded === 1 ? '' : 's'} completed successfully.`, 'success');
                         } else if (succeeded > 0) {
@@ -158,6 +265,7 @@
                             });
                         }
                     } else {
+                        renderProgress({ ...latestState, percent: 100, status: 'partial', stage: 'No per-server results were returned.' }, startedAt);
                         table.innerHTML = `<tbody><tr><td colspan="2">${escape(payload.data || successText)}</td></tr></tbody>`;
                         showStatus(`${successText} No per-server results were returned.`, 'warning');
                         if (action === 'RESET') {
@@ -165,10 +273,16 @@
                         }
                     }
                 } catch (error) {
+                    if (pollTimer) {
+                        window.clearInterval(pollTimer);
+                        pollTimer = null;
+                    }
+                    renderProgress({ ...latestState, percent: 100, status: 'failed', stage: error.message }, startedAt);
                     if (!table.innerHTML) table.innerHTML = `<tbody><tr><td colspan="2" class="text-danger">${escape(error.message)}</td></tr></tbody>`;
                     showStatus(error.message, 'danger');
                     if (action === 'RESET') await showDialog({icon:'error',title:'Workspace reset failed',text:error.message,confirmButtonText:'CLOSE'});
                 } finally {
+                    if (pollTimer) window.clearInterval(pollTimer);
                     busy(button, false);
                 }
             };

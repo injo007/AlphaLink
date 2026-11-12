@@ -152,7 +152,7 @@
                     <label class="command-form-label font-w700" for="workspace-project-create-s3-link">
                         <i class="fas fa-link mr-1 text-purple"></i> S3 Folder HTTP/S3 Link:
                     </label>
-                    <input type="url" class="form-control" id="workspace-project-create-s3-link" maxlength="2048" placeholder="https://s3.amazonaws.com/your-bucket/projects/" value="{{ $s3Link }}" autocomplete="url" required>
+                    <input type="url" class="form-control" id="workspace-project-create-s3-link" maxlength="2048" placeholder="https://bucket.s3.region.amazonaws.com/prefix" value="{{ $s3Link }}" autocomplete="url" required>
                     <small class="form-text text-muted mt-1">Provide the accessible HTTPS or authenticated bucket endpoint URL containing project JSON manifests.</small>
                 </div>
 
@@ -244,7 +244,10 @@
                 busy(sync, true, 'SYNC');
                 try {
                     const body = await send(`${base}/projects/sync-s3`, 'POST', {link:link.value.trim()});
-                    const summary = `${body.message || 'S3 project sync complete.'}. ${body.unchanged ?? 0} unchanged.`;
+                    const skippedSuffix = body.skipped > 0 && Array.isArray(body.failed_files) && body.failed_files.length
+                        ? ` Skipped: ${body.failed_files.slice(0, 3).join(', ')}${body.skipped > 3 ? ` (+${body.skipped - 3} more)` : ''}.`
+                        : '';
+                    const summary = `${body.message || 'S3 project sync complete.'}. ${body.unchanged ?? 0} unchanged.${skippedSuffix}`;
                     finish(summary);
                 } catch (error) {
                     showError(error.message);

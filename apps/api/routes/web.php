@@ -292,7 +292,9 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::delete('/app/workspaces/{workspace}/pmta-vmta/rows', [PmtaConsoleController::class, 'deleteVmtaRows'])->name('console.pmta-vmta.rows.destroy');
     Route::get('/app/workspaces/{workspace}/pmta-smtp', [PmtaConsoleController::class, 'smtp'])->name('console.pmta-smtp.index');
     Route::get('/app/workspaces/{workspace}/pmta-smtp/rows', [PmtaConsoleController::class, 'smtpRows'])->name('console.pmta-smtp.rows');
+    Route::get('/app/workspaces/{workspace}/pmta-smtp/imap-accounts', [PmtaConsoleController::class, 'imapAccounts'])->name('console.pmta-smtp.imap-accounts');
     Route::post('/app/workspaces/{workspace}/pmta-smtp/push', [PmtaConsoleController::class, 'pushSmtp'])->name('console.pmta-smtp.push');
+    Route::post('/app/workspaces/{workspace}/pmta-smtp/push-imap', [PmtaConsoleController::class, 'pushImapSmtp'])->middleware('throttle:20,1')->name('console.pmta-smtp.push-imap');
     Route::post('/app/workspaces/{workspace}/pmta-smtp/restore', [PmtaConsoleController::class, 'restoreSmtp'])->name('console.pmta-smtp.restore');
     Route::delete('/app/workspaces/{workspace}/pmta-smtp/rows', [PmtaConsoleController::class, 'deleteSmtpRows'])->name('console.pmta-smtp.rows.destroy');
     Route::get('/app/workspaces/{workspace}/pmta-errors', [PmtaConsoleController::class, 'errors'])->name('console.pmta-errors.index');
@@ -477,6 +479,8 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::post('/app/workspaces/{workspace}/infrastructure/my-ips/{ipId}/webmail/bulk-delete', [InfrastructureConsoleController::class, 'webmailBulkDelete'])->whereNumber('ipId')->middleware('throttle:30,1')->name('console.infrastructure.my-ips.webmail.bulk-delete');
     Route::get('/app/workspaces/{workspace}/infrastructure/my-ips/{ipId}/webmail/messages/{uid}/attachments/{index}', [InfrastructureConsoleController::class, 'webmailDownloadAttachment'])->whereNumber('ipId')->whereNumber('uid')->whereNumber('index')->name('console.infrastructure.my-ips.webmail.attachment');
     Route::post('/app/workspaces/{workspace}/infrastructure/my-ips/{ipId}/webmail/send', [InfrastructureConsoleController::class, 'webmailSend'])->whereNumber('ipId')->middleware('throttle:20,1')->name('console.infrastructure.my-ips.webmail.send');
+    Route::get('/app/workspaces/{workspace}/infrastructure/my-ips/{ipId}/webmail/diagnostics', [InfrastructureConsoleController::class, 'webmailDiagnostics'])->whereNumber('ipId')->name('console.infrastructure.my-ips.webmail.diagnostics');
+    Route::post('/app/workspaces/{workspace}/infrastructure/my-ips/{ipId}/webmail/sync-user', [InfrastructureConsoleController::class, 'webmailSyncUser'])->whereNumber('ipId')->middleware('throttle:10,1')->name('console.infrastructure.my-ips.webmail.sync-user');
     Route::get('/app/workspaces/{workspace}/infrastructure/servers/{server}/mtas/{type}', [InfrastructureConsoleController::class, 'serverMtas'])->whereUuid('server')->whereIn('type', ['vmta', 'smtp'])->name('console.infrastructure.servers.mtas');
     Route::patch('/app/workspaces/{workspace}/infrastructure/servers/{server}/ips/{ip}', [InfrastructureConsoleController::class, 'setServerIpStatus'])->whereUuid('server')->whereNumber('ip')->middleware('throttle:10,1')->name('console.infrastructure.servers.ips.status');
     Route::patch('/app/workspaces/{workspace}/infrastructure/servers/{server}/mtas/{mta}', [InfrastructureConsoleController::class, 'setServerMtaStatus'])->whereUuid('server')->whereNumber('mta')->middleware('throttle:10,1')->name('console.infrastructure.servers.mtas.status');

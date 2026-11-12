@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceInfrastructureSettings;
 use App\Services\Infrastructure\AlphaLinkImapWebmailClient;
+use App\Services\Infrastructure\AlphaLinkWebmailDiagnostics;
 use App\Services\Infrastructure\AlphaLinkWebmailOutboundSender;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -410,5 +411,74 @@ class AlphaLinkImapWebmailTest extends TestCase
             ->assertJsonPath('sent', true)
             ->assertJsonPath('vmta', 'mta-198.51.100.90')
             ->assertJsonPath('saved_to_sent', true);
+    }
+
+    public function test_webmail_diagnostics_and_sync_user_endpoints_work_without_exposing_secrets(): void
+    {
+        WorkspaceInfrastructureSettings::query()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'webmail_username' => 'contact',
+            'webmail_password' => 'new-sync-secret',
+        ]);
+
+        $diag = Mockery::mock(AlphaLinkWebmailDiagnostics::class);
+        $diag->shouldReceive('fetchServerTelemetry')
+            ->once()
+            ->with(Mockery::on(fn ($srv) => $srv->is($this->server)), '198.51.100.90', 'inbox.example.test')
+            ->andReturn([
+                'imap_users' => ['alimap_old', 'contact'],
+                'dkim_selector' => 'al123',
+                'events' => [
+                    [
+                        'type' => 'bounced',
+                        'time' => '2026-11-12 01:11:30+0000',
+                        'vmta' => 'mta-198.51.100.90',
+                        'status' => '5.7.1 spam-related',
+                        'diag' => '550 5.7.1 Gmail rejected',
+                        'rcpt' => 'test@gmail.com',
+                        'dest_ip' => '142.250.102.26',
+                    ],
+                ],
+            ]);
+        $diag->shouldReceive('dnsReadiness')
+            ->once()
+            ->with('198.51.100.90', 'inbox.example.test', 'al123')
+            ->andReturn([
+                'ptr' => ['status' => 'missing', 'value' => '', 'detail' => 'No PTR'],
+                'spf' => ['status' => 'pass', 'value' => 'v=spf1 ip4:198.51.100.90 -all', 'detail' => 'OK'],
+                'dkim' => ['status' => 'pass', 'selector' => 'al123', 'value' => 'v=DKIM1;p=...', 'detail' => 'OK'],
+                'dmarc' => ['status' => 'pass', 'value' => 'v=DMARC1; p=none', 'detail' => 'OK'],
+            ]);
+        $diag->shouldReceive('syncDovecotUser')
+            ->once()
+            ->with(Mockery::on(fn ($srv) => $srv->is($this->server)), 'contact@inbox.example.test', 'new-sync-secret')
+            ->andReturn('contact');
+        $this->app->instance(AlphaLinkWebmailDiagnostics::class, $diag);
+
+        $this->getJson(route('console.infrastructure.my-ips.webmail.diagnostics', [$this->workspace->getKey(), $this->ip->getKey()]))
+            ->assertOk()
+            ->assertJsonPath('dns.ptr.status', 'missing')
+            ->assertJsonPath('dns.spf.status', 'pass')
+            ->assertJsonPath('events.0.rcpt', 'test@gmail.com')
+            ->assertJsonPath('imap_users.1', 'contact');
+
+        $this->postJson(route('console.infrastructure.my-ips.webmail.sync-user', [$this->workspace->getKey(), $this->ip->getKey()]), [
+            'username' => 'contact@inbox.example.test',
+            'use_saved_password' => true,
+        ])
+            ->assertOk()
+            ->assertJsonPath('synced', true)
+            ->assertJsonPath('username', 'contact');
+    }
+
+    public function test_crlf_header_normalization_does_not_insert_blank_lines_between_headers(): void
+    {
+        $raw = "To: dest@example.test\r\nSubject: Clean Header Test\r\nMIME-Version: 1.0\r\n\r\nHello Body\nLine 2";
+        $normalized = preg_replace('/\r\n|\r|\n/', "\r\n", $raw) ?? $raw;
+        $parts = explode("\r\n\r\n", $normalized, 2);
+
+        $this->assertCount(2, $parts);
+        $this->assertStringNotContainsString("\r\n\r\n", $parts[0]);
+        $this->assertSame("To: dest@example.test\r\nSubject: Clean Header Test\r\nMIME-Version: 1.0", $parts[0]);
     }
 }

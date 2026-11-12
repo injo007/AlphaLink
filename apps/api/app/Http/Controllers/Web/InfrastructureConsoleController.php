@@ -40,6 +40,7 @@ use App\Services\Infrastructure\AlphaLinkReinstallSelectionLoader;
 use App\Services\Infrastructure\AlphaLinkReinstallSelectionValidator;
 use App\Services\Infrastructure\AlphaLinkServerConsole;
 use App\Services\Infrastructure\AlphaLinkSingleInstallIpLoader;
+use App\Services\Infrastructure\AlphaLinkWebmailDiagnostics;
 use App\Services\Infrastructure\AlphaLinkWebmailOutboundSender;
 use App\Services\Infrastructure\CloudflareDnsApi;
 use App\Services\Infrastructure\CloudflareDnsApiException;
@@ -1909,6 +1910,8 @@ class InfrastructureConsoleController extends Controller
             'bulkDeleteUrl' => route('console.infrastructure.my-ips.webmail.bulk-delete', [$workspace->id, $ip->getKey()]),
             'attachmentUrlTemplate' => route('console.infrastructure.my-ips.webmail.attachment', [$workspace->id, $ip->getKey(), '__UID__', '__INDEX__']),
             'sendUrl' => route('console.infrastructure.my-ips.webmail.send', [$workspace->id, $ip->getKey()]),
+            'diagnosticsUrl' => route('console.infrastructure.my-ips.webmail.diagnostics', [$workspace->id, $ip->getKey()]),
+            'syncUserUrl' => route('console.infrastructure.my-ips.webmail.sync-user', [$workspace->id, $ip->getKey()]),
         ]);
     }
 
@@ -2278,6 +2281,93 @@ class InfrastructureConsoleController extends Controller
             'port' => $result['port'],
             'message_id' => $result['message_id'],
             'saved_to_sent' => $savedToSent,
+        ]);
+    }
+
+    public function webmailDiagnostics(
+        Request $request,
+        string $workspaceId,
+        int $ipId,
+        AlphaLinkWebmailDiagnostics $diagnostics,
+    ): JsonResponse {
+        $workspace = $this->workspaceForServerControl($request->user(), $workspaceId);
+        $ip = $this->webmailIpForWorkspace($workspace, $ipId);
+        $server = $ip->server;
+
+        $telemetry = ['imap_users' => [], 'dkim_selector' => '', 'events' => []];
+        $sshError = null;
+        if ($server instanceof ManagedServer) {
+            try {
+                $telemetry = $diagnostics->fetchServerTelemetry($server, (string) $ip->ip, (string) $ip->dns);
+            } catch (Throwable $exception) {
+                $sshError = $exception->getMessage();
+            }
+        }
+
+        $targetIp = filter_var((string) $ip->ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE) !== false
+            ? (string) $ip->ip
+            : (string) ($server?->ip_address ?? $ip->ip);
+
+        $dns = $diagnostics->dnsReadiness($targetIp, (string) $ip->dns, $telemetry['dkim_selector'] ?: null);
+
+        return response()->json([
+            'dns' => $dns,
+            'imap_users' => $telemetry['imap_users'],
+            'events' => $telemetry['events'],
+            'ssh_error' => $sshError,
+        ]);
+    }
+
+    public function webmailSyncUser(
+        Request $request,
+        string $workspaceId,
+        int $ipId,
+        AlphaLinkWebmailDiagnostics $diagnostics,
+    ): JsonResponse {
+        $workspace = $this->workspaceForServerControl($request->user(), $workspaceId);
+        $ip = $this->webmailIpForWorkspace($workspace, $ipId);
+        $server = $ip->server;
+        if (! $server instanceof ManagedServer) {
+            return response()->json(['message' => 'Target server not found.'], 422);
+        }
+
+        $data = $request->validate([
+            'username' => ['nullable', 'string', 'max:255'],
+            'password' => ['nullable', 'string', 'max:4096'],
+            'use_saved_password' => ['sometimes', 'boolean'],
+        ]);
+
+        $settings = $workspace->infrastructureSettings;
+        $username = trim((string) ($data['username'] ?? '')) ?: trim((string) ($settings?->webmail_username ?? ''));
+        $submittedPassword = (string) ($data['password'] ?? '');
+        $useSaved = (bool) ($data['use_saved_password'] ?? ($submittedPassword === ''));
+        $password = $submittedPassword !== '' ? $submittedPassword : ($useSaved ? (string) ($settings?->webmail_password ?? '') : '');
+
+        if ($username === '' || $password === '') {
+            return response()->json(['message' => 'Enter or save both Webmail username and password before syncing to Dovecot.'], 422);
+        }
+
+        try {
+            $syncedUser = $diagnostics->syncDovecotUser($server, $username, $password);
+        } catch (RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        AuditEvent::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'actor_user_id' => $request->user()->getKey(),
+            'action' => 'infrastructure.dovecot_user_synced',
+            'subject_type' => 'managed_server',
+            'subject_id' => (string) $server->getKey(),
+            'request_id' => (string) Str::uuid(),
+            'properties' => ['username' => $syncedUser, 'server' => $server->name],
+            'occurred_at' => now(),
+        ]);
+
+        return response()->json([
+            'synced' => true,
+            'username' => $syncedUser,
+            'message' => "Synced Dovecot IMAP account '{$syncedUser}' on {$server->name} ({$server->ip_address}).",
         ]);
     }
 

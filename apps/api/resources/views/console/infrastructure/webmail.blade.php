@@ -14,6 +14,8 @@
          data-bulk-delete-url="{{ $bulkDeleteUrl }}"
          data-attachment-url-template="{{ $attachmentUrlTemplate }}"
          data-send-url="{{ $sendUrl }}"
+         data-diagnostics-url="{{ $diagnosticsUrl }}"
+         data-sync-user-url="{{ $syncUserUrl }}"
          data-default-domain="{{ $ip->dns }}"
          data-saved-username="{{ $savedUsername }}"
          data-has-saved-password="{{ $hasSavedPassword ? '1' : '0' }}"
@@ -57,6 +59,9 @@
                 </button>
                 <button type="button" class="btn-command-action wm-btn-compact" id="webmail-refresh-btn" disabled>
                     <i class="fas fa-sync-alt" aria-hidden="true"></i> Refresh
+                </button>
+                <button type="button" class="btn-command-action wm-btn-compact" id="webmail-diagnostics-btn">
+                    <i class="fas fa-stethoscope" aria-hidden="true"></i> Deliverability &amp; Bounces
                 </button>
                 <button type="button" class="btn-command-action wm-btn-compact" id="webmail-auth-toggle-btn"
                         aria-expanded="{{ $hasCompleteSavedCreds ? 'false' : 'true' }}" aria-controls="webmail-auth-drawer">
@@ -151,9 +156,17 @@
                             @endif
                         </div>
 
-                        <button type="submit" class="btn-command-primary wm-btn-compact" id="webmail-connect-btn">
-                            <i class="fas fa-sign-in-alt" aria-hidden="true"></i> Connect Mailbox
-                        </button>
+                        <div class="d-flex flex-wrap align-items-center" style="gap: 8px;">
+                            @if ($canUpdateSettings)
+                                <button type="button" class="btn-command-action wm-btn-compact" id="webmail-sync-user-btn"
+                                        title="Create or update this IMAP login and password in /etc/dovecot/imap.passwd on the server">
+                                    <i class="fas fa-user-check" aria-hidden="true"></i> Sync User to Dovecot
+                                </button>
+                            @endif
+                            <button type="submit" class="btn-command-primary wm-btn-compact" id="webmail-connect-btn">
+                                <i class="fas fa-sign-in-alt" aria-hidden="true"></i> Connect Mailbox
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -1996,10 +2009,129 @@
                     if (activeFolder.toLowerCase() === 'sent' || composeTo.value.includes(composeFrom.value)) {
                         setTimeout(connectAndLoad, 1200);
                     }
+                    if (!String(composeTo.value || '').includes(root.dataset.defaultDomain || '__never__')) {
+                        setTimeout(() => loadDiagnostics(true), 4500);
+                    }
                 } catch (err) {
                     setComposeStatus('danger', err.message);
                 } finally {
                     composeSendBtn.disabled = false;
+                }
+            });
+
+            const diagnosticsBtn = document.getElementById('webmail-diagnostics-btn');
+            const syncUserBtn = document.getElementById('webmail-sync-user-btn');
+
+            const dnsStatusBadge = (label, item) => {
+                const st = String(item?.status || 'missing').toLowerCase();
+                const cls = st === 'pass' ? 'is-pass' : (st === 'missing' ? 'is-fail' : '');
+                const icon = st === 'pass' ? 'fa-check-circle' : (st === 'missing' ? 'fa-times-circle' : 'fa-exclamation-circle');
+                return `<span class="wm-auth-badge ${cls}" title="${esc(item?.detail || '')}"><i class="fas ${icon}"></i> ${esc(label)}: ${esc(st.toUpperCase())}${item?.value ? ` (${esc(String(item.value).slice(0, 26))})` : ''}</span>`;
+            };
+
+            const loadDiagnostics = async (notifyBounceOnly = false) => {
+                if (!root.dataset.diagnosticsUrl) return;
+                if (!notifyBounceOnly) {
+                    detailHost.innerHTML = '<div class="wm-empty-state"><i class="fas fa-spinner fa-spin fa-2x mb-2"></i><p>Inspecting live PTR/SPF/DKIM/DMARC DNS &amp; PMTA delivery/bounce logs...</p></div>';
+                }
+                try {
+                    const resp = await fetch(root.dataset.diagnosticsUrl, { headers: { 'Accept': 'application/json' } });
+                    const payload = await resp.json();
+                    if (!resp.ok) throw new Error(payload.message || 'Could not load diagnostics.');
+
+                    const dns = payload.dns || {};
+                    const events = payload.events || [];
+                    const imapUsers = payload.imap_users || [];
+
+                    if (notifyBounceOnly) {
+                        const latestBounce = events.find((e) => e.type === 'bounced');
+                        if (latestBounce) {
+                            setStatus('warning', `PMTA Outbound Bounce (${latestBounce.rcpt || latestBounce.vmta}): ${latestBounce.status} — ${latestBounce.diag}`);
+                        }
+                        return;
+                    }
+
+                    const userPills = imapUsers.length > 0
+                        ? imapUsers.map((u) => `<button type="button" class="wm-mini-btn wm-use-imap-user" data-user="${esc(u)}">${esc(u)}</button>`).join(' ')
+                        : '<span class="text-muted small">No Dovecot users detected on server.</span>';
+
+                    const eventRows = events.length > 0
+                        ? events.map((ev) => `
+                            <tr>
+                                <td><span class="badge ${ev.type === 'delivered' ? 'badge-success' : 'badge-danger'}">${esc(ev.type.toUpperCase())}</span></td>
+                                <td style="font-size: 11px; white-space: nowrap;">${esc(ev.time)}</td>
+                                <td><code>${esc(ev.vmta)}</code></td>
+                                <td>${esc(ev.rcpt || ev.dest_ip || '-')}</td>
+                                <td style="font-size: 11.5px;"><strong>${esc(ev.status)}</strong> ${ev.diag ? `<div class="text-muted">${esc(ev.diag)}</div>` : ''}</td>
+                            </tr>
+                        `).join('')
+                        : '<tr><td colspan="5" class="text-center text-muted py-3">No PMTA delivery or bounce records logged today.</td></tr>';
+
+                    detailHost.innerHTML = `
+                        <div class="wm-reader-head">
+                            <div style="min-width: 0; width: 100%;">
+                                <h2 class="wm-reader-subject">Deliverability &amp; PMTA Diagnostics (${esc(root.dataset.defaultDomain || 'Server')})</h2>
+                                <div class="wm-reader-meta">Live DNS checks + PMTA <code>/etc/pmta/delivered</code> &amp; <code>/etc/pmta/bounced</code> logs</div>
+                            </div>
+                        </div>
+                        <div class="wm-auth-strip">
+                            ${dnsStatusBadge('PTR / rDNS', dns.ptr)}
+                            ${dnsStatusBadge('SPF', dns.spf)}
+                            ${dnsStatusBadge('DKIM', dns.dkim)}
+                            ${dnsStatusBadge('DMARC', dns.dmarc)}
+                        </div>
+                        ${dns.ptr?.status !== 'pass' ? `<div class="alert alert-warning py-2 px-3 small mb-3"><strong>rDNS Action Required:</strong> ${esc(dns.ptr?.detail || '')}</div>` : ''}
+                        <div class="wm-hop-card mb-3">
+                            <strong>Provisioned Dovecot Accounts on Server:</strong>
+                            <div class="d-flex flex-wrap mt-2" style="gap: 6px;">${userPills}</div>
+                        </div>
+                        <h3 class="h6 font-w700 mb-2">Recent PMTA Outbound Delivery &amp; Bounce Events</h3>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover command-os-table">
+                                <thead><tr><th>Type</th><th>Time</th><th>VMTA</th><th>Recipient / IP</th><th>Status &amp; Diagnostic</th></tr></thead>
+                                <tbody>${eventRows}</tbody>
+                            </table>
+                        </div>
+                    `;
+
+                    detailHost.querySelectorAll('.wm-use-imap-user').forEach((btn) => {
+                        btn.addEventListener('click', () => {
+                            const dom = root.dataset.defaultDomain || '';
+                            usernameInput.value = dom ? `${btn.dataset.user}@${dom}` : btn.dataset.user;
+                            setDrawerOpen(true);
+                            setStatus('info', `Pre-filled IMAP login with server account "${btn.dataset.user}".`);
+                        });
+                    });
+                } catch (err) {
+                    if (!notifyBounceOnly) {
+                        detailHost.innerHTML = `<div class="alert alert-danger mb-0">${esc(err.message)}</div>`;
+                    }
+                }
+            };
+
+            diagnosticsBtn?.addEventListener('click', () => loadDiagnostics(false));
+
+            syncUserBtn?.addEventListener('click', async () => {
+                syncUserBtn.disabled = true;
+                setStatus(null, '');
+                try {
+                    const resp = await fetch(root.dataset.syncUserUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
+                        body: JSON.stringify({
+                            username: usernameInput.value.trim(),
+                            password: passwordInput.value,
+                            use_saved_password: useSavedCheckbox ? useSavedCheckbox.checked : true,
+                        }),
+                    });
+                    const payload = await resp.json().catch(() => ({}));
+                    if (!resp.ok) throw new Error(payload.message || 'Could not sync user to Dovecot.');
+                    setStatus('success', payload.message || 'Synced Dovecot IMAP account on server.');
+                    await connectAndLoad();
+                } catch (err) {
+                    setStatus('danger', err.message);
+                } finally {
+                    syncUserBtn.disabled = false;
                 }
             });
 

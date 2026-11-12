@@ -338,7 +338,7 @@ class AlphaLinkImapWebmailClient
             return;
         }
 
-        $normalized = str_replace(["\r\n", "\r", "\n"], "\r\n", $rawMessage);
+        $normalized = preg_replace('/\r\n|\r|\n/', "\r\n", $rawMessage) ?? $rawMessage;
         $bytes = strlen($normalized);
         $flagStr = implode(' ', array_intersect($flags, ['\\Seen', '\\Flagged', '\\Answered']));
 

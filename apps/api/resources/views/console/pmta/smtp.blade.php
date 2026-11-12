@@ -51,7 +51,9 @@
         data-push-url="{{ route('console.pmta-smtp.push', $workspace->id) }}"
         data-restore-url="{{ route('console.pmta-smtp.restore', $workspace->id) }}"
         data-rows-url="{{ route('console.pmta-smtp.rows', $workspace->id) }}"
-        data-delete-url="{{ route('console.pmta-smtp.rows.destroy', $workspace->id) }}">
+        data-delete-url="{{ route('console.pmta-smtp.rows.destroy', $workspace->id) }}"
+        data-imap-accounts-url="{{ route('console.pmta-smtp.imap-accounts', $workspace->id) }}"
+        data-push-imap-url="{{ route('console.pmta-smtp.push-imap', $workspace->id) }}">
 
         <!-- 2. Form Card -->
         <div class="command-os-table-card p-4 mb-4">
@@ -82,7 +84,7 @@
                         <textarea id="pmta-smtp-lines" rows="5" class="form-control" placeholder="username,password,route,port" style="font-family: monospace;"></textarea>
                         <small class="text-info mt-1 d-block" style="font-size: 0.75rem;">* OPTIONAL: domain directive</small>
                     </div>
-                    <div class="form-group mb-3 d-flex align-items-center justify-content-between">
+                    <div class="form-group mb-3 d-flex flex-wrap align-items-center justify-content-between" style="gap: 12px;">
                         <div class="command-switch-box">
                             <div class="custom-control custom-switch">
                                 <input type="checkbox" class="custom-control-input" id="pmta-smtp-gscript">
@@ -91,6 +93,12 @@
                             <button type="button" class="btn-command-action ml-2" id="pmta-smtp-copy-script" title="Copy Google Apps Script" aria-label="Copy Google Apps Script" style="padding: 2px 8px; font-size: 0.75rem;">
                                 <i class="fas fa-copy mr-1"></i> COPY SCRIPT
                             </button>
+                        </div>
+                        <div class="command-switch-box">
+                            <div class="custom-control custom-switch">
+                                <input type="checkbox" class="custom-control-input" id="pmta-smtp-show-imap">
+                                <label class="custom-control-label command-form-label mb-0" for="pmta-smtp-show-imap">IMAP-INSTALLED ACCOUNTS</label>
+                            </div>
                         </div>
                     </div>
                     <div class="d-flex justify-content-between align-items-center pt-3 border-top">
@@ -106,6 +114,70 @@
                     </div>
                     <div id="pmta-smtp-status" class="sr-only" role="status" aria-live="polite"></div>
                 </div>
+            </div>
+        </div>
+
+        <!-- 2b. Existing Accounts Installed Using IMAP Option -->
+        <div class="command-os-table-card p-4 mb-4 d-none" id="pmta-smtp-imap-card">
+            <div class="d-flex flex-wrap align-items-center justify-content-between mb-3 pb-2 border-bottom" style="gap: 10px;">
+                <div>
+                    <h3 style="font-size: 0.9375rem; font-weight: 700; color: var(--command-os-text, #1e293b); margin: 0; text-transform: uppercase; letter-spacing: 0.04em;">
+                        <i class="fas fa-inbox mr-1 text-purple"></i> Accounts Provisioned via IMAP Option
+                    </h3>
+                    <small style="color: var(--command-os-text-muted, #64748b);">
+                        Discovers Dovecot accounts on servers installed with IMAP and lets you push them into PMTA SMTP routes.
+                    </small>
+                </div>
+                <div class="d-flex align-items-center" style="gap: 8px;">
+                    <button type="button" class="btn-command-action" id="pmta-smtp-imap-select-all" style="padding: 5px 10px; font-size: 0.75rem;">
+                        <i class="far fa-check-square mr-1"></i> SELECT ALL
+                    </button>
+                    <button type="button" class="btn-command-action" id="pmta-smtp-load-imap" style="padding: 5px 10px; font-size: 0.75rem;">
+                        <i class="fas fa-sync-alt mr-1"></i> REFRESH IMAP ACCOUNTS
+                    </button>
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-4 col-sm-12 mb-2 mb-md-0">
+                    <label class="command-form-label" for="pmta-smtp-imap-route">RELAY HOST / ROUTE (OPTIONAL)</label>
+                    <input id="pmta-smtp-imap-route" type="text" class="form-control command-form-control" placeholder="Blank = each server's IP">
+                </div>
+                <div class="col-md-3 col-sm-6 mb-2 mb-md-0">
+                    <label class="command-form-label" for="pmta-smtp-imap-port">PMTA / SMTP PORT</label>
+                    <input id="pmta-smtp-imap-port" type="number" class="form-control command-form-control" value="{{ $pmtaPort }}" min="1" max="65535">
+                </div>
+                <div class="col-md-5 col-sm-6">
+                    <label class="command-form-label" for="pmta-smtp-imap-password">PASSWORD OVERRIDE (OPTIONAL)</label>
+                    <input id="pmta-smtp-imap-password" type="password" class="form-control command-form-control" placeholder="{{ $hasSavedWebmailPassword ? 'Blank = use saved Settings Webmail password' : 'Enter SMTP/IMAP password' }}">
+                </div>
+            </div>
+
+            <div class="table-responsive mb-3">
+                <table class="table table-sm table-hover command-os-table" id="pmta-smtp-imap-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 36px;"></th>
+                            <th>Server</th>
+                            <th>IP</th>
+                            <th>Domain</th>
+                            <th>IMAP / Login Account</th>
+                            <th>Source</th>
+                            <th>PMTA SMTP Status</th>
+                            <th>Quick Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pmta-smtp-imap-tbody">
+                        <tr><td colspan="8" class="text-center text-muted py-4">Enable IMAP-Installed Accounts or click Refresh to scan installed servers.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="d-flex flex-wrap justify-content-between align-items-center pt-2 border-top" style="gap: 10px;">
+                <span id="pmta-smtp-imap-summary" style="font-size: 0.8125rem; color: var(--command-os-text-muted, #64748b);">0 account(s) loaded</span>
+                <button type="button" class="btn-command-primary" id="pmta-smtp-push-imap">
+                    <i class="fas fa-upload mr-1"></i> PUSH SELECTED IMAP ACCOUNTS TO PMTA SMTP
+                </button>
             </div>
         </div>
 
@@ -262,6 +334,120 @@
         dialog.close();
     });
     if (window.jQuery?.fn.selectpicker) window.jQuery('.selectpicker').selectpicker();
+
+    // IMAP-Installed Accounts Option
+    const showImapToggle = document.getElementById('pmta-smtp-show-imap');
+    const imapCard = document.getElementById('pmta-smtp-imap-card');
+    const imapBody = document.getElementById('pmta-smtp-imap-tbody');
+    const imapSummary = document.getElementById('pmta-smtp-imap-summary');
+    const loadImapBtn = document.getElementById('pmta-smtp-load-imap');
+    const pushImapBtn = document.getElementById('pmta-smtp-push-imap');
+    const selectAllImapBtn = document.getElementById('pmta-smtp-imap-select-all');
+    let cachedImapAccounts = [];
+
+    const escImap = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+    const renderImapAccounts = (rows) => {
+        if (!rows || rows.length === 0) {
+            imapBody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No active servers with the IMAP option installed were found in this workspace.</td></tr>';
+            imapSummary.textContent = '0 IMAP accounts found';
+            return;
+        }
+        imapSummary.textContent = `${rows.length} IMAP account mapping(s) across installed servers`;
+        imapBody.innerHTML = rows.map((row, idx) => `
+            <tr>
+                <td><input type="checkbox" class="pmta-imap-check" data-imap-index="${idx}" ${row.already_pushed ? '' : 'checked'}></td>
+                <td><strong>${escImap(row.server_name)}</strong></td>
+                <td><span style="font-family: monospace; color: #6366f1;">${escImap(row.ip)}</span></td>
+                <td><span style="font-weight: 600; color: #8b5cf6;">${escImap(row.dns || '-')}</span></td>
+                <td><code>${escImap(row.login_address)}</code></td>
+                <td><span class="badge-command-pill">${escImap(row.source)}</span></td>
+                <td>${row.already_pushed ? '<span class="badge badge-success">Pushed to SMTP</span>' : '<span class="badge badge-secondary">Not Pushed</span>'}</td>
+                <td>
+                    <button type="button" class="btn-command-action pmta-imap-fill" data-imap-index="${idx}" style="padding: 3px 9px; font-size: 0.72rem;">
+                        Load in Form
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    };
+
+    const loadImapAccounts = async () => {
+        loadImapBtn.disabled = true;
+        imapBody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin mr-1"></i> Loading IMAP accounts from installed servers...</td></tr>';
+        try {
+            const payload = await api(root.dataset.imapAccountsUrl);
+            cachedImapAccounts = payload.data || [];
+            renderImapAccounts(cachedImapAccounts);
+        } catch (error) {
+            imapBody.innerHTML = `<tr><td colspan="8" class="text-center text-danger py-3">${escImap(error.message)}</td></tr>`;
+        } finally {
+            loadImapBtn.disabled = false;
+        }
+    };
+
+    showImapToggle?.addEventListener('change', () => {
+        const show = showImapToggle.checked;
+        imapCard.classList.toggle('d-none', !show);
+        if (show && cachedImapAccounts.length === 0) {
+            loadImapAccounts();
+        }
+    });
+    loadImapBtn?.addEventListener('click', loadImapAccounts);
+
+    selectAllImapBtn?.addEventListener('click', () => {
+        const boxes = [...document.querySelectorAll('.pmta-imap-check')];
+        const anyUnchecked = boxes.some((b) => !b.checked);
+        boxes.forEach((b) => { b.checked = anyUnchecked; });
+    });
+
+    imapBody?.addEventListener('click', (event) => {
+        const fillBtn = event.target.closest('.pmta-imap-fill');
+        if (!fillBtn) return;
+        const entry = cachedImapAccounts[Number(fillBtn.dataset.imapIndex)];
+        if (!entry) return;
+        const select = document.getElementById('pmta-smtp-ips');
+        Array.from(select.options).forEach((opt) => {
+            if (String(opt.value) === String(entry.ip_id)) opt.selected = true;
+        });
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        if (window.jQuery?.fn.selectpicker) window.jQuery(select).selectpicker('refresh');
+
+        const route = document.getElementById('pmta-smtp-imap-route').value.trim() || entry.default_route;
+        const port = document.getElementById('pmta-smtp-imap-port').value.trim() || entry.default_port;
+        const line = `${entry.login_address},<WEBMAIL_PASSWORD>,${route},${port}${entry.dns ? ',' + entry.dns : ''}`;
+        const linesField = document.getElementById('pmta-smtp-lines');
+        linesField.value = linesField.value.trim() ? `${linesField.value.trim()}\n${line}` : line;
+        announce(`Loaded ${entry.login_address} into SMTP Credentials form. Replace <WEBMAIL_PASSWORD> or use Push Selected directly.`, 'info');
+    });
+
+    pushImapBtn?.addEventListener('click', async () => {
+        const checked = [...document.querySelectorAll('.pmta-imap-check:checked')]
+            .map((el) => cachedImapAccounts[Number(el.dataset.imapIndex)])
+            .filter(Boolean);
+        if (checked.length === 0) {
+            announce('Select at least one IMAP account to push to PMTA SMTP.', 'warning');
+            return;
+        }
+        const items = checked.map((entry) => ({ ip_id: entry.ip_id, username: entry.login_address }));
+        const route = document.getElementById('pmta-smtp-imap-route').value.trim();
+        const port = Number(document.getElementById('pmta-smtp-imap-port').value) || undefined;
+        const password = document.getElementById('pmta-smtp-imap-password').value;
+
+        pushImapBtn.disabled = true;
+        try {
+            const result = await api(root.dataset.pushImapUrl, 'POST', { items, route, port, password });
+            showResults(result.results);
+            announce((result.results || []).map((row) => `${row.server}: ${row.message}`).join(' · '), result.success ? 'success' : 'danger');
+            if (grid) grid.ajax.reload(null, false);
+            await loadImapAccounts();
+        } catch (error) {
+            showResults([]);
+            announce(error.message, 'danger');
+        } finally {
+            pushImapBtn.disabled = false;
+        }
+    });
 })();
 </script>
 @endpush

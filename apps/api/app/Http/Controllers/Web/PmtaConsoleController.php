@@ -13,6 +13,7 @@ use App\Models\PmtaVirtualMta;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Services\Infrastructure\AlphaLinkBulkInstallPrivateAssetReader;
+use App\Services\Infrastructure\AlphaLinkWebmailDiagnostics;
 use App\Services\PmtaAuditLogger;
 use App\Services\PmtaBounceLogReader;
 use App\Services\PmtaRemoteConfiguration;
@@ -381,12 +382,17 @@ class PmtaConsoleController extends Controller
     public function smtp(Request $request, string $workspace): View
     {
         $workspaceModel = $this->workspaceFor($request, $workspace);
+        $settings = $workspaceModel->infrastructureSettings;
 
         return view('console.pmta.smtp', [
-            'workspace' => $workspaceModel, 'servers' => $this->servers($workspaceModel),
+            'workspace' => $workspaceModel,
+            'servers' => $this->servers($workspaceModel),
             'ips' => ManagedServerIp::query()->where('workspace_id', $workspaceModel->getKey())->where('is_active', true)
                 ->whereHas('server', fn (Builder $query) => $query->where('is_active', true)->where('is_installed', true))
                 ->with('server:id,name')->orderBy('ip')->get(),
+            'savedWebmailUsername' => trim((string) ($settings?->webmail_username ?? '')),
+            'hasSavedWebmailPassword' => filled($settings?->webmail_password),
+            'pmtaPort' => (int) ($settings?->pmta_port ?? config('infrastructure.pmta_port', 1212)),
         ]);
     }
 
@@ -397,6 +403,191 @@ class PmtaConsoleController extends Controller
             ->map(fn (PmtaSmtpConfig $row): array => ['id' => $row->getKey(), 'ip' => $row->ip, 'dns' => $row->dns, 'username' => $row->username, 'created_at' => $row->created_at?->toDateTimeString(), 'is_active' => $row->is_active]);
 
         return response()->json(['data' => $rows]);
+    }
+
+    public function imapAccounts(
+        Request $request,
+        string $workspace,
+        AlphaLinkWebmailDiagnostics $diagnostics,
+    ): JsonResponse {
+        $workspaceModel = $this->workspaceFor($request, $workspace);
+        $settings = $workspaceModel->infrastructureSettings;
+        $savedUsername = trim((string) ($settings?->webmail_username ?? ''));
+        $hasSavedPassword = filled($settings?->webmail_password);
+        $pmtaPort = (int) ($settings?->pmta_port ?? config('infrastructure.pmta_port', 1212));
+
+        $servers = ManagedServer::query()
+            ->where('workspace_id', $workspaceModel->getKey())
+            ->where('is_active', true)
+            ->where('is_installed', true)
+            ->with(['ips' => fn ($q) => $q->where('is_active', true)->orderBy('ip')])
+            ->orderBy('name')
+            ->get()
+            ->filter(static fn (ManagedServer $srv): bool => (bool) ($srv->install_parameters['imap'] ?? false))
+            ->values();
+
+        $existingSmtp = PmtaSmtpConfig::query()
+            ->where('workspace_id', $workspaceModel->getKey())
+            ->where('created_by', $request->user()->getKey())
+            ->get(['id', 'managed_server_ip_id', 'username', 'is_active'])
+            ->groupBy(static fn (PmtaSmtpConfig $row): string => $row->managed_server_ip_id.'|'.strtolower((string) $row->username));
+
+        $accounts = [];
+        foreach ($servers as $server) {
+            $dovecotUsers = $diagnostics->listDovecotUsers($server);
+            $allUsernames = $dovecotUsers;
+            if ($savedUsername !== '' && ! in_array($savedUsername, $allUsernames, true)) {
+                $allUsernames[] = $savedUsername;
+            }
+
+            foreach ($server->ips as $ip) {
+                foreach ($allUsernames as $username) {
+                    $inDovecot = in_array($username, $dovecotUsers, true);
+                    $inSettings = $savedUsername !== '' && strcasecmp($username, $savedUsername) === 0;
+                    $source = match (true) {
+                        $inDovecot && $inSettings => 'dovecot+settings',
+                        $inDovecot => 'dovecot',
+                        default => 'settings',
+                    };
+                    $loginAddress = $ip->dns && ! str_contains($username, '@') ? $username.'@'.$ip->dns : $username;
+                    $existingKey = $ip->getKey().'|'.strtolower($loginAddress);
+                    $bareKey = $ip->getKey().'|'.strtolower($username);
+                    $matched = $existingSmtp->get($existingKey) ?? $existingSmtp->get($bareKey);
+
+                    $accounts[] = [
+                        'ip_id' => (int) $ip->getKey(),
+                        'server_id' => (string) $server->getKey(),
+                        'server_name' => (string) $server->name,
+                        'server_ip' => (string) $server->ip_address,
+                        'ip' => (string) $ip->ip,
+                        'dns' => (string) ($ip->dns ?? ''),
+                        'username' => $username,
+                        'login_address' => $loginAddress,
+                        'source' => $source,
+                        'imap_ports' => '143 / 993',
+                        'default_route' => (string) $server->ip_address,
+                        'default_port' => $pmtaPort,
+                        'has_saved_password' => $hasSavedPassword,
+                        'already_pushed' => $matched !== null && $matched->isNotEmpty(),
+                    ];
+                }
+            }
+        }
+
+        return response()->json([
+            'data' => $accounts,
+            'imap_server_count' => $servers->count(),
+            'has_saved_password' => $hasSavedPassword,
+        ]);
+    }
+
+    public function pushImapSmtp(
+        Request $request,
+        string $workspace,
+        PmtaRemoteConfiguration $remote,
+        PmtaSmtpConfigBuilder $builder,
+        PmtaAuditLogger $audit,
+    ): JsonResponse {
+        $workspaceModel = $this->workspaceFor($request, $workspace);
+        $settings = $workspaceModel->infrastructureSettings;
+        $defaultPort = (int) ($settings?->pmta_port ?? config('infrastructure.pmta_port', 1212));
+
+        $data = $request->validate([
+            'items' => ['required', 'array', 'min:1', 'max:100'],
+            'items.*.ip_id' => ['required', 'integer', 'min:1'],
+            'items.*.username' => ['required', 'string', 'max:255', 'regex:/\A[^\r\n\x00]+\z/'],
+            'route' => ['nullable', 'string', 'max:255', 'regex:/\A[A-Za-z0-9:._-]+\z/'],
+            'port' => ['nullable', 'integer', 'min:1', 'max:65535'],
+            'password' => ['nullable', 'string', 'max:500', 'regex:/\A[^\r\n\x00]+\z/'],
+        ]);
+
+        $password = (string) ($data['password'] ?? '');
+        if ($password === '') {
+            $password = (string) ($settings?->webmail_password ?? '');
+        }
+        if ($password === '') {
+            throw ValidationException::withMessages([
+                'password' => 'Enter a password or save WEBMAIL PASSWORD in Workspace Settings before pushing IMAP accounts to PMTA SMTP.',
+            ]);
+        }
+
+        $ipIds = array_values(array_unique(array_map(static fn (array $item): int => (int) $item['ip_id'], $data['items'])));
+        $ips = ManagedServerIp::query()
+            ->where('workspace_id', $workspaceModel->getKey())
+            ->whereIn('id', $ipIds)
+            ->where('is_active', true)
+            ->whereHas('server', fn (Builder $query) => $query->where('is_active', true)->where('is_installed', true))
+            ->with('server')
+            ->get()
+            ->keyBy('id');
+
+        if ($ips->count() !== count($ipIds)) {
+            throw ValidationException::withMessages(['items' => 'One or more selected IPs are no longer active on an installed server.']);
+        }
+
+        $grouped = [];
+        foreach ($data['items'] as $item) {
+            $ip = $ips->get((int) $item['ip_id']);
+            if (! $ip instanceof ManagedServerIp || ! $ip->server instanceof ManagedServer) {
+                continue;
+            }
+            $grouped[(string) $ip->server->getKey()][] = [
+                'ip' => $ip,
+                'server' => $ip->server,
+                'username' => trim((string) $item['username']),
+            ];
+        }
+
+        $customRoute = trim((string) ($data['route'] ?? ''));
+        $port = (string) ($data['port'] ?? $defaultPort);
+        $results = [];
+
+        foreach ($grouped as $entries) {
+            /** @var ManagedServer $server */
+            $server = $entries[0]['server'];
+            try {
+                $count = DB::transaction(function () use ($workspaceModel, $request, $server, $entries, $password, $customRoute, $port, $remote, $builder): int {
+                    $contents = '';
+                    foreach ($entries as $entry) {
+                        /** @var ManagedServerIp $ip */
+                        $ip = $entry['ip'];
+                        $routeHost = $customRoute !== '' ? $customRoute : (string) $server->ip_address;
+                        $row = PmtaSmtpConfig::query()->create([
+                            'workspace_id' => $workspaceModel->getKey(),
+                            'managed_server_id' => $server->getKey(),
+                            'managed_server_ip_id' => $ip->getKey(),
+                            'created_by' => $request->user()->getKey(),
+                            'ip' => $ip->ip,
+                            'dns' => (string) ($ip->dns ?? ''),
+                            'username' => $entry['username'],
+                            'password' => $password,
+                            'host' => $routeHost,
+                            'port' => $port,
+                            'google_script' => false,
+                            'is_active' => true,
+                        ]);
+                        $contents .= $builder->build($row, (int) ($server->install_parameters['pmta_version'] ?? 40));
+                    }
+
+                    $file = 'smtp_'.$request->user()->getKey();
+                    $existing = in_array($file, $remote->listFiles($server), true) ? $remote->readFile($server, $file) : '';
+                    $remote->pushFile($server, $file, rtrim($existing)."\n".$contents);
+                    $this->recordConfig($workspaceModel, $request->user(), $server, $file, 'smtp_push', $contents, 'IMAP accounts pushed as SMTP configuration and reloaded.', true);
+
+                    return count($entries);
+                });
+
+                $audit->log($workspaceModel, $request->user(), $server, 'smtp.push_imap', $count.' IMAP account(s) pushed to PMTA SMTP.', $request->attributes->get('request_id'));
+                $results[] = ['server' => $server->name, 'success' => true, 'count' => $count, 'message' => "{$count} IMAP account(s) pushed to PMTA SMTP."];
+            } catch (Throwable $exception) {
+                $results[] = ['server' => $server->name, 'success' => false, 'message' => $exception->getMessage()];
+            }
+        }
+
+        return response()->json([
+            'success' => collect($results)->every(fn (array $row): bool => $row['success']),
+            'results' => $results,
+        ]);
     }
 
     public function pushSmtp(Request $request, string $workspace, PmtaRemoteConfiguration $remote, PmtaSmtpConfigBuilder $builder, PmtaAuditLogger $audit, AlphaLinkBulkInstallPrivateAssetReader $assets): JsonResponse

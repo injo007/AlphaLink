@@ -58,13 +58,18 @@ class AlphaLinkWebmailOutboundSender
             ->from($payload['from'])
             ->to(...$payload['to'])
             ->subject($payload['subject'])
+            ->date(new \DateTimeImmutable())
             ->text($payload['text']);
 
         if (! empty($payload['cc'])) {
             $email->cc(...$payload['cc']);
         }
-        if (trim((string) ($payload['html'] ?? '')) !== '') {
-            $email->html((string) $payload['html']);
+        $html = trim((string) ($payload['html'] ?? ''));
+        if ($html !== '') {
+            $email->html($html);
+        } else {
+            $safeHtmlBody = nl2br(htmlspecialchars($payload['text'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+            $email->html('<div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; font-size: 14px; line-height: 1.55; color: #1e293b;">'.$safeHtmlBody.'</div>');
         }
 
         $headers = $email->getHeaders();

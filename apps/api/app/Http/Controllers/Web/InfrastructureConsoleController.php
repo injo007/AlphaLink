@@ -2292,7 +2292,8 @@ class InfrastructureConsoleController extends Controller
     ): JsonResponse {
         $workspace = $this->workspaceForServerControl($request->user(), $workspaceId);
         $ip = $this->webmailIpForWorkspace($workspace, $ipId);
-        $server = $ip->server;
+        // myIpsQuery only projects minimal server columns; reload full ManagedServer so SSH fingerprint/credentials exist.
+        $server = ManagedServer::query()->find($ip->managed_server_id) ?? $ip->server;
 
         $telemetry = ['imap_users' => [], 'dkim_selector' => '', 'events' => []];
         $sshError = null;
@@ -2326,7 +2327,7 @@ class InfrastructureConsoleController extends Controller
     ): JsonResponse {
         $workspace = $this->workspaceForServerControl($request->user(), $workspaceId);
         $ip = $this->webmailIpForWorkspace($workspace, $ipId);
-        $server = $ip->server;
+        $server = ManagedServer::query()->find($ip->managed_server_id) ?? $ip->server;
         if (! $server instanceof ManagedServer) {
             return response()->json(['message' => 'Target server not found.'], 422);
         }

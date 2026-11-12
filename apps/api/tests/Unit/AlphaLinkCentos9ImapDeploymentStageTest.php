@@ -39,7 +39,7 @@ class AlphaLinkCentos9ImapDeploymentStageTest extends TestCase
             ['type' => 'command', 'command' => "id -u 'mail-user' >/dev/null 2>&1 || useradd -s /sbin/nologin 'mail-user';"],
             ['type' => 'command', 'command' => "usermod -aG pmta 'mail-user' 2>/dev/null || true;"],
             ['type' => 'command', 'command' => "mkdir -p '/home/mail-user/mail' && chown -R 'mail-user:mail-user' '/home/mail-user';"],
-            ['type' => 'command', 'command' => 'mkdir -p /etc/pmta/inbound && chmod 775 /etc/pmta/inbound 2>/dev/null || true;'],
+            ['type' => 'command', 'command' => 'mkdir -p /etc/pmta/inbound && chmod 2775 /etc/pmta/inbound 2>/dev/null || true; setfacl -m g:pmta:rwX,d:g:pmta:rwX /etc/pmta/inbound 2>/dev/null || true;'],
             ['type' => 'command', 'command' => "id -u 'mail-user';"],
             ['type' => 'upload', 'destination' => '/etc/dovecot/imap.passwd', 'contents' => "mail-user:{plain}synthetic-password:1001:1001::/home/mail-user:/sbin/nologin\n"],
             ['type' => 'command', 'command' => "sed -i 's/ProtectSystem=full/ProtectSystem=false/g' /usr/lib/systemd/system/dovecot.service"],

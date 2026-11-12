@@ -140,7 +140,15 @@ class AlphaLinkImapWebmailClient
      */
     public function listMessages(string $folder = 'INBOX', int $limit = 50): array
     {
-        $this->selectFolder($folder);
+        try {
+            $this->selectFolder($folder);
+        } catch (RuntimeException $exception) {
+            if (stripos($exception->getMessage(), 'NONEXISTENT') !== false
+                || stripos($exception->getMessage(), "doesn't exist") !== false) {
+                return [];
+            }
+            throw $exception;
+        }
 
         $search = $this->command('UID SEARCH ALL');
         $uids = [];

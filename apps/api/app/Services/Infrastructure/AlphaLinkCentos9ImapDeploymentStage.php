@@ -30,7 +30,7 @@ class AlphaLinkCentos9ImapDeploymentStage
         $commands->exec('id -u '.escapeshellarg($username).' >/dev/null 2>&1 || useradd -s /sbin/nologin '.escapeshellarg($username).';');
         $commands->exec('usermod -aG pmta '.escapeshellarg($username).' 2>/dev/null || true;');
         $commands->exec('mkdir -p '.escapeshellarg('/home/'.$username.'/mail').' && chown -R '.escapeshellarg($username.':'.$username).' '.escapeshellarg('/home/'.$username).';');
-        $commands->exec('mkdir -p /etc/pmta/inbound && chmod 775 /etc/pmta/inbound 2>/dev/null || true;');
+        $commands->exec('mkdir -p /etc/pmta/inbound && chmod 2775 /etc/pmta/inbound 2>/dev/null || true; setfacl -m g:pmta:rwX,d:g:pmta:rwX /etc/pmta/inbound 2>/dev/null || true;');
         $userId = $commands->exec('id -u '.escapeshellarg($username).';');
 
         // AlphaLink builds this line with `echo -e` in a shell command. Sending the

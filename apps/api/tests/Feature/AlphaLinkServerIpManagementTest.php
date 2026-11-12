@@ -31,7 +31,7 @@ class AlphaLinkServerIpManagementTest extends TestCase
     {
         parent::setUp();
 
-        $this->owner = User::factory()->create(['access_role' => User::ACCESS_ROLE_OWNER]);
+        $this->owner = User::factory()->create();
         $this->workspace = Workspace::query()->create([
             'name' => 'IP detail test',
             'slug' => 'ip-detail-test',
@@ -148,8 +148,7 @@ class AlphaLinkServerIpManagementTest extends TestCase
             ->assertOk()
             ->assertSee('My IPs')
             ->assertSee('data-source-url="'.$this->cleanWorkspaceUrl($url).'"', false)
-            ->assertSee('data-webmail-url-template="', false)
-            ->assertSee('/infrastructure/my-ips/__IP__/webmail', false);
+            ->assertSee('data-webmail-url-template="'.$this->cleanWorkspaceUrl($this->url('/my-ips/__IP__/webmail')).'"', false);
 
         $response = $this->getJson($url)
             ->assertOk()

@@ -24,6 +24,7 @@ class AlphaLinkBulkInstallCompletionPlanner
         array $options,
         bool $pmtaMonitorHttps = true,
         ?string $trackingHost = null,
+        bool $trackingHttpsReady = false,
     ): array {
         $this->validateRows($dataIps);
         $this->validateOptions($options);
@@ -72,6 +73,7 @@ class AlphaLinkBulkInstallCompletionPlanner
         foreach (['tracking', 'proxy', 'imap', 'spf', 'dkim', 'dmarc', 'https'] as $option) {
             $installParameters[$option] = $options[$option];
         }
+        $installParameters['tracking_https_ready'] = $options['tracking'] && $trackingHttpsReady;
         // PMTA monitor TLS is verified independently from the optional
         // tracking HTTPS component. It can be disabled when no DNS-backed
         // hostname/certificate is available and the monitor uses the server IP.

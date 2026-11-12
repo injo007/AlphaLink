@@ -160,6 +160,36 @@ CONFIG;
         }
     }
 
+    /** Verify the public HTTPS listener and the routed tracker endpoint after TLS/firewall setup. */
+    public function verifyHttps(AlphaLinkInstallerRemoteCommandTransport $commands, ?string $host): bool
+    {
+        if ($host === null || trim($host) === '') {
+            return false;
+        }
+
+        $this->validateServerName($host);
+        $health = $commands->exec(
+            'curl --fail --silent --show-error --connect-timeout 5 --max-time 10 --proto '.escapeshellarg('=https').' '
+                .escapeshellarg('https://'.$host.'/healthz').' 2>/dev/null | grep -Fxq ALPHALINK_TRACKING_READY '
+                .'&& printf ALPHALINK_TRACKING_HTTPS_HEALTH_READY',
+        );
+        if (trim((string) $health) !== 'ALPHALINK_TRACKING_HTTPS_HEALTH_READY') {
+            return false;
+        }
+
+        $route = $commands->exec(
+            'response=$(curl --silent --show-error --connect-timeout 5 --max-time 10 --proto '.escapeshellarg('=https')
+                .' -D - -o /dev/null -w '.escapeshellarg("\\nALPHALINK_STATUS:%{http_code}\\n").' '
+                .escapeshellarg('https://'.$host.'/ALPHALINK0rprobe').') && '
+                .'status=$(printf '.escapeshellarg('%s\\n').' "$response" | sed -n '.escapeshellarg('s/^ALPHALINK_STATUS://p').') && '
+                .'test "$status" = 302 && printf '.escapeshellarg('%s\\n').' "$response" | grep -Fqi '
+                .escapeshellarg('Location: https://www.google.com').' && printf '.escapeshellarg('%s\\n').' "$response" | grep -Fqi '
+                .escapeshellarg('X-AlphaLink-Tracking: active').' && printf ALPHALINK_TRACKING_HTTPS_READY',
+        );
+
+        return trim((string) $route) === 'ALPHALINK_TRACKING_HTTPS_READY';
+    }
+
     private function validateServerName(string $name): void
     {
         if (! preg_match('/\A[A-Za-z0-9][A-Za-z0-9.:-]*\z/D', $name)) {

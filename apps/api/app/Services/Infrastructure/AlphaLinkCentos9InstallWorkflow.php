@@ -313,6 +313,14 @@ class AlphaLinkCentos9InstallWorkflow
         );
         $log('End Setting Firewall');
 
+        $trackingHttpsReady = false;
+        if ($options['tracking'] && $options['https'] && $primaryDomainReady && $domainCertificateReady) {
+            $trackingHttpsReady = $this->tracking->verifyHttps($session, $monitorDomain);
+            if (! $trackingHttpsReady) {
+                $log('Tracking HTTPS did not pass its public health and redirect checks; campaign tracking links will use the verified HTTP endpoint.');
+            }
+        }
+
         // AlphaLink starts both services but does not inspect their final state. Do not
         // persist an installed server when the selected PMTA package or either
         // service failed after the VMTA configuration restart.
@@ -329,11 +337,11 @@ class AlphaLinkCentos9InstallWorkflow
         }
 
         if ($ipAssignments === null) {
-            $completedOptions = [...$options, 'https' => $options['https'] && $primaryDomainReady];
-            $this->completion->finalize($workspace, $server, $primaryDomain, $ips, $pmtaVersion, $completedOptions, [], $pmtaMonitorHttps, $monitorDomain ?? (string) $server->ip_address);
+            $completedOptions = [...$options, 'https' => $options['https'] && $primaryDomainReady && $domainCertificateReady];
+            $this->completion->finalize($workspace, $server, $primaryDomain, $ips, $pmtaVersion, $completedOptions, [], $pmtaMonitorHttps, $monitorDomain ?? (string) $server->ip_address, $trackingHttpsReady);
         } else {
-            $completedOptions = [...$options, 'https' => $options['https'] && $primaryDomainReady];
-            $this->completion->finalize($workspace, $server, $primaryDomain, $ips, $pmtaVersion, $completedOptions, $selectedDomains, $pmtaMonitorHttps, $monitorDomain ?? (string) $server->ip_address);
+            $completedOptions = [...$options, 'https' => $options['https'] && $primaryDomainReady && $domainCertificateReady];
+            $this->completion->finalize($workspace, $server, $primaryDomain, $ips, $pmtaVersion, $completedOptions, $selectedDomains, $pmtaMonitorHttps, $monitorDomain ?? (string) $server->ip_address, $trackingHttpsReady);
         }
         $publicPort = $settings['pmta_admin_port'];
         $adminUrl = PmtaPanelUrl::displayUrlForInstallation(

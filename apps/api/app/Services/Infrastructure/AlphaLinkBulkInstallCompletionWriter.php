@@ -30,6 +30,7 @@ class AlphaLinkBulkInstallCompletionWriter
         array $selectedDomains = [],
         bool $pmtaMonitorHttps = true,
         ?string $trackingHost = null,
+        bool $trackingHttpsReady = false,
     ): array {
         if ((string) $server->workspace_id !== (string) $workspace->getKey()
             || (string) $domain->workspace_id !== (string) $workspace->getKey()) {
@@ -50,6 +51,7 @@ class AlphaLinkBulkInstallCompletionWriter
             $options,
             $pmtaMonitorHttps,
             $trackingHost,
+            $trackingHttpsReady,
         );
 
         foreach ($operations as $operation) {

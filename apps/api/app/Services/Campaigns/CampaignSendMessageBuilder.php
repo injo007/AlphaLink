@@ -187,9 +187,11 @@ class CampaignSendMessageBuilder
             ['campaign' => $context['campaign']->getKey(), 'item' => $item->getKey()],
         );
         $token = $this->campaignToken($context, $item, $choice, $from, $subject);
-        $trackingHost = $this->redirectUrlPolicy->readyTrackingHost((array) $server->install_parameters);
+        $installParameters = (array) $server->install_parameters;
+        $trackingHost = $this->redirectUrlPolicy->readyTrackingHost($installParameters);
+        $trackingHttpsReady = $trackingHost !== null && (bool) ($installParameters['tracking_https_ready'] ?? false);
         $clickUrl = $trackingHost !== null
-            ? $this->redirectUrlPolicy->campaignTrackingClickUrl($trackingHost, $token)
+            ? $this->redirectUrlPolicy->campaignTrackingClickUrl($trackingHost, $token, $trackingHttpsReady)
             : URL::temporarySignedRoute(
                 'public.campaign-click',
                 now()->addYears(10),
@@ -235,9 +237,16 @@ class CampaignSendMessageBuilder
         $header = $this->tagRenderer->render($context['header_template'], $tags, $context['placeholder_rows'], $position - 1, $cache);
         $body = $this->tagRenderer->render($context['body_template'], $tags, $context['placeholder_rows'], $position - 1, $cache);
         $returnPath = $this->tagRenderer->render($context['return_path'], $tags, $context['placeholder_rows'], $position - 1, $cache);
-        $header = $this->redirectUrlPolicy->forceHttpsForHost($header, $domain);
-        $body = $this->redirectUrlPolicy->forceHttpsForHost($body, $domain);
-        $returnPath = $this->redirectUrlPolicy->forceHttpsForHost($returnPath, $domain);
+        if ($trackingHost !== null && $this->redirectUrlPolicy->isTrackingHostOrSubdomain($domain, $trackingHost)) {
+            $trackingScheme = $trackingHttpsReady ? 'https' : 'http';
+            $header = $this->redirectUrlPolicy->forceSchemeForHost($header, $domain, $trackingScheme);
+            $body = $this->redirectUrlPolicy->forceSchemeForHost($body, $domain, $trackingScheme);
+            $returnPath = $this->redirectUrlPolicy->forceSchemeForHost($returnPath, $domain, $trackingScheme);
+        } else {
+            $header = $this->redirectUrlPolicy->forceHttpsForHost($header, $domain);
+            $body = $this->redirectUrlPolicy->forceHttpsForHost($body, $domain);
+            $returnPath = $this->redirectUrlPolicy->forceHttpsForHost($returnPath, $domain);
+        }
         $header = $this->setHeader($header, 'X-virtual-MTA', $vmtaName);
         $header = $this->setHeader($header, 'X-ENVID', $context['run']->getKey().'-'.$position);
         $header = $this->setHeader($header, 'X-JOB', (string) $context['run']->getKey());

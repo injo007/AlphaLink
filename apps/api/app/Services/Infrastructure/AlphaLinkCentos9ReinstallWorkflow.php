@@ -190,6 +190,8 @@ class AlphaLinkCentos9ReinstallWorkflow
 
         $adminUrl = null;
         $pmtaMonitorHttps = (bool) (($server->install_parameters['pmta_monitor_https'] ?? false));
+        $domainCertificateReady = false;
+        $trackingHttpsReady = false;
         if ($options['pmta']) {
             $log('Re Setup PMTA '.$pmtaVersion);
             $this->pmta->run(
@@ -327,6 +329,13 @@ class AlphaLinkCentos9ReinstallWorkflow
         );
         $log('End Setting Firewall');
 
+        if ($options['tracking'] && $options['https'] && $mainDomainProviderReady && $domainCertificateReady) {
+            $trackingHttpsReady = $this->tracking->verifyHttps($session, $monitorDomain);
+            if (! $trackingHttpsReady) {
+                $log('Tracking HTTPS did not pass its public health and redirect checks; campaign tracking links will use the verified HTTP endpoint.');
+            }
+        }
+
         if ($options['pmta']) {
             $log('Verify PMTA relay and listener readiness');
             $readiness = $session->exec($this->pmtaReadinessCommand(
@@ -349,10 +358,11 @@ class AlphaLinkCentos9ReinstallWorkflow
             $server,
             $rows,
             $pmtaVersion,
-            [...$options, 'https' => $options['https'] && $mainDomainProviderReady],
+            [...$options, 'https' => $options['https'] && $mainDomainProviderReady && $domainCertificateReady],
             $requestId,
             $pmtaMonitorHttps,
             $monitorDomain ?? (string) $server->ip_address,
+            $trackingHttpsReady,
         );
 
         $log('Ended Disconnecting From Server : '.$server->getKey());

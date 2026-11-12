@@ -343,6 +343,7 @@ class AlphaLinkServerReinstallTest extends TestCase
             $this->server->ip_address,
             $this->server->fresh()->install_parameters['tracking_host'],
         );
+        $this->assertFalse($this->server->fresh()->install_parameters['tracking_https_ready']);
     }
 
     public function test_reinstall_workflow_keeps_reference_stage_order_and_skips_pmta_when_unselected(): void

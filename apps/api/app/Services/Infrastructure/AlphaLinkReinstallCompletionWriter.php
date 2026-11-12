@@ -29,6 +29,7 @@ class AlphaLinkReinstallCompletionWriter
         ?string $requestId = null,
         bool $pmtaMonitorHttps = true,
         ?string $trackingHost = null,
+        bool $trackingHttpsReady = false,
     ): void {
         if ((string) $server->workspace_id !== (string) $workspace->getKey()
             || $rows === []
@@ -36,7 +37,7 @@ class AlphaLinkReinstallCompletionWriter
             throw new InvalidArgumentException('The reinstall completion data is invalid.');
         }
 
-        DB::transaction(function () use ($workspace, $actor, $server, $rows, $pmtaVersion, $options, $requestId, $pmtaMonitorHttps, $trackingHost): void {
+        DB::transaction(function () use ($workspace, $actor, $server, $rows, $pmtaVersion, $options, $requestId, $pmtaMonitorHttps, $trackingHost, $trackingHttpsReady): void {
             if ($options['pmta']) {
                 ManagedServerMta::query()
                     ->where('workspace_id', $workspace->getKey())
@@ -85,6 +86,7 @@ class AlphaLinkReinstallCompletionWriter
                 'dkim' => $options['dkim'],
                 'dmarc' => $options['dmarc'],
                 'https' => $options['https'],
+                'tracking_https_ready' => $options['tracking'] && $trackingHttpsReady,
                 'pmta_monitor_https' => $options['pmta']
                     ? $pmtaMonitorHttps
                     : (bool) (($server->install_parameters['pmta_monitor_https'] ?? false)),

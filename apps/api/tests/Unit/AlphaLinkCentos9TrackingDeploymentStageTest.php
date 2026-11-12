@@ -70,6 +70,12 @@ class AlphaLinkCentos9TrackingDeploymentStageTest extends TestCase
         $this->assertStringNotContainsString('chown -R', $allCommands);
         $this->assertStringNotContainsString('rm -rf /var/mini', $allCommands);
         $this->assertSame([], $files->downloads);
+
+        $this->assertTrue((new AlphaLinkCentos9TrackingDeploymentStage)->verifyHttps($commands, 'mail.example.test'));
+        $httpsCommands = implode("\n", array_slice($commands->commands, -2));
+        $this->assertStringContainsString('https://mail.example.test/healthz', $httpsCommands);
+        $this->assertStringContainsString('https://mail.example.test/ALPHALINK0rprobe', $httpsCommands);
+        $this->assertStringContainsString('X-AlphaLink-Tracking: active', $httpsCommands);
     }
 
     public function test_it_still_configures_apache_when_tracking_is_not_selected(): void
@@ -86,6 +92,14 @@ class AlphaLinkCentos9TrackingDeploymentStageTest extends TestCase
         $this->assertSame('systemctl enable httpd', $commands->commands[5]);
         $this->assertSame([], $files->uploads);
         $this->assertSame([], $files->downloads);
+    }
+
+    public function test_https_readiness_fails_closed_when_tracker_host_is_missing(): void
+    {
+        $commands = new RecordingTrackingCommands;
+
+        $this->assertFalse((new AlphaLinkCentos9TrackingDeploymentStage)->verifyHttps($commands, null));
+        $this->assertSame([], $commands->commands);
     }
 
     public function test_it_rejects_an_incomplete_source_package_before_uploading_files(): void
@@ -166,6 +180,12 @@ class RecordingTrackingCommands implements AlphaLinkInstallerRemoteCommandTransp
     public function exec(string $command): bool|string
     {
         $this->commands[] = $command;
+
+        foreach (['ALPHALINK_TRACKING_HTTPS_HEALTH_READY', 'ALPHALINK_TRACKING_HTTPS_READY'] as $marker) {
+            if (str_contains($command, $marker)) {
+                return $marker;
+            }
+        }
 
         foreach ([
             'ALPHALINK_CALLBACK_READY', 'ALPHALINK_TRACKING_READY', 'ALPHALINK_REWRITE_READY',

@@ -187,8 +187,25 @@ class CampaignSendMessageBuilder
             ['campaign' => $context['campaign']->getKey(), 'item' => $item->getKey()],
         );
         $token = $this->campaignToken($context, $item, $choice, $from, $subject);
-        $trackingHost = trim((string) ($context['setup']['domain'] ?? '')) ?: $domain;
-        $clickUrl = $this->redirectUrlPolicy->campaignTrackingClickUrl($trackingHost, $token);
+        $trackingHost = $this->redirectUrlPolicy->readyTrackingHost((array) $server->install_parameters);
+        $clickUrl = $trackingHost !== null
+            ? $this->redirectUrlPolicy->campaignTrackingClickUrl($trackingHost, $token)
+            : URL::temporarySignedRoute(
+                'public.campaign-click',
+                now()->addYears(10),
+                [
+                    'campaign' => $context['campaign']->getKey(),
+                    'item' => $item->getKey(),
+                    'token' => $token,
+                    'isp_id' => $context['setup']['isp_id'] ?? null,
+                    'server_id' => $server->getKey(),
+                    'ip_id' => $routeIp?->getKey(),
+                    'domain_id' => $routeIp?->sending_domain_id ?? $choice['sending_domain_id'] ?? null,
+                    'from_id' => $from['id'] ?? null,
+                    'subject_id' => $subject['id'] ?? null,
+                    'creative_id' => $context['setup']['creative_asset_id'] ?? null,
+                ],
+            );
         $tags = [
             'server' => (string) $server->name.(string) $server->getKey(),
             'main_domain' => (string) ($primaryIp?->dns ?: $primaryIp?->domain?->name ?: 'NA'),

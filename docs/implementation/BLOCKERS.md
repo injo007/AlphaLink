@@ -748,3 +748,9 @@ The production 500 after Warmup Test was caused by the shared composer treating 
 ## 2026-11-11 Tracking PHP runtime failure — E-INST-101
 
 The supplied real install transcript failed at tracking `/healthz`. The source PHP stage had no PHP-FPM install/start/validation, while EL9 Apache requires FPM to execute PHP. The AlphaLink stage now installs and verifies PHP-FPM plus Apache FastCGI config; 19 focused PHP tests / 185 assertions pass with targeted Pint and syntax checks. No target HTTP response or Apache/FPM logs were provided, and the partially configured target was not retried. Deployment and a new real install are still required to verify recovery. Keep install parity TESTING.
+
+### Campaign redirects and language random tags — E-TRACK-46 — 2026-11-12
+
+Generated campaign links now prefer the server's saved tracking host only when tracking and HTTPS are enabled and the host is a DNS hostname; all other configurations use AlphaLink's signed campaign click route. Test messages use the signed test-click route. Redirects & Rotators is active as a read-only, workspace-scoped tracking-status and recent-click page; destination rotation remains unconfigured. `_N` language tags now produce 18 characters, while numeric suffixes set a requested length.
+
+The send-builder (1 / 41), language-tag (1 / 62), Redirects-page/active-navigation (2 / 16), manual Campaign Test (1 / 74), saved PMTA Campaign Test/link (2 tests within a 3 / 89 filtered run), and signed-click route (5 / 18) checks pass with targeted PHP syntax, Pint, and diff checks. The full CampaignTrackingTest has 41 passes and four 403 failures in dashboard/visitor permission assertions; the click-route subset passes 5 / 18 assertions. No real recipient click or authenticated browser comparison was performed. Keep tracking/parity TESTING until role/browser review and a user-observed production click.

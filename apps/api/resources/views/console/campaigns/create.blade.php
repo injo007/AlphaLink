@@ -1679,7 +1679,7 @@
                     <p><code>[rnd]</code> 18 random characters · <code>[text:a|b|c]</code> Choose one value · <code>[base64:text]</code> Base64 encode · <code>[printable:text]</code> Quoted-printable encode</p>
                     <p><code>[boundary]</code> 30 static characters · <code>[bnd]</code> 30 static characters · <code>[smtp]</code> SMTP username · <code>[smtp_name]</code> SMTP name · <code>[tag]</code> Tag reply extractor · <code>#[token]</code> Track redirect/unsubscribe short links</p>
                     <h4 class="h6">Random tags</h4>
-                    <p><code>[rnd]</code> generates 18 random characters. Replace <code>N</code> in the other tags with the desired length:</p>
+                    <p><code>[rnd]</code> generates 18 random characters. Replace <code>N</code> in a random tag with a number from 1 to 10,000 to set its length. Leaving the literal <code>N</code> uses 18 characters:</p>
                     <ul class="mb-3">
                         <li><code>[rndn_N]</code> digits (0–9)</li>
                         <li><code>[rnda_N]</code> letters and digits</li>

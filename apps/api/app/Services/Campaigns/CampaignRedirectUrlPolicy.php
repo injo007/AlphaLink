@@ -10,6 +10,38 @@ class CampaignRedirectUrlPolicy
 {
     public const UNKNOWN_REDIRECT_URL = 'https://www.google.com';
 
+    /** @param array<string, mixed> $installParameters */
+    public function readyTrackingHost(array $installParameters): ?string
+    {
+        if (! (bool) ($installParameters['tracking'] ?? false) || ! (bool) ($installParameters['https'] ?? false)) {
+            return null;
+        }
+
+        $trackingHost = trim((string) ($installParameters['tracking_host'] ?? ''));
+        $trackingHost = preg_replace('/\Ahttps?:\/\//i', '', $trackingHost) ?? $trackingHost;
+        $trackingHost = rtrim($trackingHost, '/');
+        $parsed = parse_url('https://'.$trackingHost);
+        $host = is_array($parsed) ? ($parsed['host'] ?? null) : null;
+        $port = is_array($parsed) ? ($parsed['port'] ?? null) : null;
+        $normalizedHost = is_string($host) ? trim($host, '[]') : '';
+
+        if (
+            $normalizedHost === ''
+            || filter_var($normalizedHost, FILTER_VALIDATE_IP) !== false
+            || filter_var($normalizedHost, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) === false
+            || isset($parsed['user'])
+            || isset($parsed['pass'])
+            || (isset($parsed['path']) && $parsed['path'] !== '')
+            || isset($parsed['query'])
+            || isset($parsed['fragment'])
+            || ($port !== null && $port !== 443)
+        ) {
+            return null;
+        }
+
+        return strtolower(rtrim($normalizedHost, '.'));
+    }
+
     public function campaignTrackingClickUrl(string $trackingHost, string $token): string
     {
         $trackingHost = trim($trackingHost);

@@ -218,8 +218,8 @@ class AlphaLinkCampaignTagRenderer
 
     private function replaceLanguageTags(string $text): string
     {
-        return preg_replace_callback('/\[(ingreek|ingemojicons|ingemoticons|ingdevanagari|ingthai|ingarabic|inglatin|ingchinese|inghiragana|ingcyrrilic|ingcyrillic|ingarmenian|inggeorgian)_(\d+)\]/i', function (array $match): string {
-            $length = min((int) $match[2], 10000);
+        return preg_replace_callback('/\[(ingreek|ingemojicons|ingemoticons|ingdevanagari|ingthai|ingarabic|inglatin|ingchinese|inghiragana|ingcyrrilic|ingcyrillic|ingarmenian|inggeorgian)_(\d+|n)\]/i', function (array $match): string {
+            $length = strtolower($match[2]) === 'n' ? 18 : min((int) $match[2], 10000);
             $alphabet = match (strtolower($match[1])) {
                 'ingreek' => 'ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩαβγδεζηθικλμνξοπρστυφχψω',
                 'ingdevanagari' => 'अआइईउऊऋएऐओऔकखगघचछजझटठडढतथदधनपफबभमयरलवशषसह',

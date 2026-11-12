@@ -31,6 +31,7 @@ use App\Http\Controllers\Web\WorkspaceEncodingConsoleController;
 use App\Http\Controllers\Web\WorkspaceGlobalTestController;
 use App\Http\Controllers\Web\WorkspaceMailerOperationsConsoleController;
 use App\Http\Controllers\Web\WorkspaceOfferConsoleController;
+use App\Http\Controllers\Web\WorkspaceRedirectConsoleController;
 use App\Http\Controllers\Web\WorkspaceSeedListConsoleController;
 use App\Http\Controllers\Web\WorkspaceSpfScannerController;
 use App\Http\Controllers\Web\WorkspaceSponsorConsoleController;
@@ -89,6 +90,7 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::get('/app/workspaces/{workspace}/dashboard/isp', [WorkspaceAnalyticsConsoleController::class, 'ispStats'])->name('console.analytics.isp-stats');
     Route::get('/app/workspaces/{workspace}/dashboard/mailer', [WorkspaceAnalyticsConsoleController::class, 'mailerRevenue'])->name('console.analytics.mailer-revenue');
     Route::get('/app/workspaces/{workspace}/campaign-statistics', [WorkspaceCampaignStatisticsConsoleController::class, 'index'])->name('console.campaign-statistics.index');
+    Route::get('/app/workspaces/{workspace}/redirects', [WorkspaceRedirectConsoleController::class, 'index'])->name('console.redirects.index');
     Route::get('/app/workspaces/{workspace}/campaign-logs', [WorkspaceCampaignLogsConsoleController::class, 'index'])->name('console.campaign-logs.index');
     Route::get('/app/workspaces/{workspace}/campaign-logs/{campaign}/{history}', [WorkspaceCampaignLogsConsoleController::class, 'history'])
         ->whereUuid(['workspace', 'campaign'])->where('history', 'tests|updates|sends')->name('console.campaign-logs.history');

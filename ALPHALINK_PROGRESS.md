@@ -1,8 +1,14 @@
 # AlphaLink development progress
 
-**Updated:** 2026-11-11
-**Active objective:** Resolve the EL9 tracking-runtime failure observed during server installation.
-**Status:** E-INST-101 fixes the missing PHP-FPM runtime in tracking-enabled EL9 installs. The PHP 8.5 focused suites pass 19 tests / 185 assertions; targeted Pint, PHP syntax, and `git diff --check` pass. GitHub push and guarded AlphaLink deployment are in progress. The partially configured target server has not been retried, so successful tracking health and PMTA installation remain unverified. Keep install parity TESTING.
+**Updated:** 2026-11-12
+**Active objective:** Repair campaign click routing, activate Redirects & Rotators status, and resolve language-random tags.
+**Status:** Dedicated tracker hosts are now used only when the saved install has tracking and HTTPS enabled with a DNS hostname; otherwise campaign and test links use AlphaLink's signed click routes. Redirects & Rotators is an active workspace-scoped read-only status page, and its sidebar link stays active on the clean `/redirects` URL. Language tags accept the documented literal `_N` default and numeric lengths. Focused PHP 8.5 tests, Pint, syntax checks, and `git diff --check` pass. The wider tracking suite has four HTTP 403 failures in dashboard/visitor permission tests, while signed click-route tests pass. The local commit is not pushed: GitHub rejected the `GITHUB_TOKEN` in `/Alphalink/.env`, so no production deployment was attempted. No live message click or authenticated screenshot has been performed. Keep campaign tracking TESTING.
+
+### Campaign click and language-tag repair — E-TRACK-46 (2026-11-12)
+
+Campaign sends now route through the server's saved tracking hostname only when tracking and HTTPS are enabled and the hostname is a valid DNS name. Missing, disabled, IP-based, or unsafe tracker settings fall back to AlphaLink's signed campaign-click endpoint, which redirects to the offer attached to the immutable recipient snapshot. Both Campaign Test paths use the signed test-click endpoint. Redirects & Rotators now has a workspace-scoped read-only page for installed endpoint settings and recent click events; it explicitly reports that destination rotation is not configured. Language tags replace the documented `_N` form with 18 random characters and retain numeric length forms.
+
+Focused PHP 8.5 checks pass: campaign send builder 1 test / 41 assertions; language tags 1 / 62; Redirects page and active clean-route navigation 2 / 16; manual Campaign Test 1 / 74; saved PMTA Campaign Test paths and language tags 3 / 89; signed click, test-click, unsigned-link, and HEAD route checks 5 / 18. Pint, PHP lint, and `git diff --check` pass. The full `CampaignTrackingTest` run has 41 passing tests and four HTTP 403 failures in dashboard/visitor permission assertions. No real campaign email, recipient click, or authenticated browser screenshot was used. Keep DMS-TRACK-001/003 TESTING pending complete role/browser review and a real user-observed click.
 
 ### Tracking runtime correction — E-INST-101 (2026-11-11)
 

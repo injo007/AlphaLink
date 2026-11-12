@@ -416,6 +416,8 @@ class CampaignSendExecutionLedgerTest extends TestCase
             'is_installed' => true,
             'install_parameters' => [
                 'tracking' => true,
+                'https' => true,
+                'tracking_host' => 'tracking.example.test',
                 'data' => [['main' => true, 'ip' => '203.0.113.241', 'is_our' => false]],
             ],
             'idempotency_key' => (string) Str::uuid(),
@@ -510,13 +512,14 @@ class CampaignSendExecutionLedgerTest extends TestCase
         // route's managed domain or rewrite its tracking links back to the IP.
         $server->forceFill(['install_parameters' => [
             'tracking' => true,
+            'https' => true,
             'tracking_host' => '203.0.113.241',
             'data' => [['main' => true, 'ip' => '203.0.113.241', 'is_our' => false]],
         ]])->save();
         $domain->forceFill(['is_our' => true])->save();
         $ownedDomainMessage = app(CampaignSendMessageBuilder::class)->build($context, $fixture['item'], $fixture['contact']->email);
-        $this->assertStringContainsString('https://tracking.example.test/', $ownedDomainMessage['body']);
-        $this->assertStringNotContainsString('http://tracking.example.test/', $ownedDomainMessage['body']);
+        $this->assertStringContainsString('/api/v1/campaigns/'.$fixture['campaign']->getKey().'/'.$fixture['item']->getKey().'/click?', $ownedDomainMessage['body']);
+        $this->assertStringContainsString('signature=', $ownedDomainMessage['body']);
         $this->assertStringNotContainsString('http://203.0.113.241/', $ownedDomainMessage['body']);
 
         $selectedDomain = SendingDomain::query()->create([
@@ -535,7 +538,7 @@ class CampaignSendExecutionLedgerTest extends TestCase
 
         $this->assertStringContainsString('Message domain: https://selected-campaign.example.test/landing', $selectedDomainMessage['body']);
         $this->assertStringContainsString('https://i.pinimg.com/736x/62/92/63/629263433ead2c24378e115fdb0e46e7.jpg', $selectedDomainMessage['body']);
-        $this->assertStringContainsString('https://selected-campaign.example.test/', $selectedDomainMessage['body']);
+        $this->assertStringContainsString('/api/v1/campaigns/'.$fixture['campaign']->getKey().'/'.$fixture['item']->getKey().'/click?', $selectedDomainMessage['body']);
         $this->assertStringNotContainsString('http://selected-campaign.example.test/', $selectedDomainMessage['body']);
         $this->assertStringNotContainsString('http://203.0.113.241/', $selectedDomainMessage['body']);
         $this->assertStringNotContainsString('http://tracking.example.test/', $selectedDomainMessage['body']);
@@ -546,7 +549,7 @@ class CampaignSendExecutionLedgerTest extends TestCase
         $externalRedirectMessage = app(CampaignSendMessageBuilder::class)->build($context, $fixture['item'], $fixture['contact']->email);
 
         $this->assertStringContainsString('Message domain: https://selected-campaign.example.test/landing', $externalRedirectMessage['body']);
-        $this->assertStringContainsString('https://selected-campaign.example.test/', $externalRedirectMessage['body']);
+        $this->assertStringContainsString('/api/v1/campaigns/'.$fixture['campaign']->getKey().'/'.$fixture['item']->getKey().'/click?', $externalRedirectMessage['body']);
         $this->assertStringNotContainsString('http://selected-campaign.example.test/', $externalRedirectMessage['body']);
         $this->assertStringNotContainsString('http://203.0.113.241/', $externalRedirectMessage['body']);
     }

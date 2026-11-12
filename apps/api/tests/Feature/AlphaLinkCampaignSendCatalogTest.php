@@ -153,9 +153,23 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
             $this->assertSame(1, preg_match($pattern, $generated), $tag.' should produce four valid characters.');
         }
 
+        foreach (array_keys($languageTags) as $numericTag) {
+            $defaultLengthTag = str_replace('_4]', '_N]', $numericTag);
+            $generated = $renderer->render($defaultLengthTag, [], [], 0, $cache);
+            $this->assertSame(1, preg_match('/\A.+\z/us', $generated), $defaultLengthTag.' should be replaced.');
+            $this->assertSame(18, preg_match_all('/./us', $generated), $defaultLengthTag.' should use the 18-character default.');
+            $this->assertNotSame($defaultLengthTag, $generated);
+        }
+
         $emoticons = $renderer->render('[Ingemojicons_4]|[Ingemoticons_4]', [], [], 0, $cache);
         foreach (explode('|', $emoticons) as $generated) {
             $this->assertSame(4, preg_match_all('/./us', $generated));
+            $this->assertSame(1, preg_match('//u', $generated));
+        }
+
+        $defaultEmoticons = $renderer->render('[Ingemojicons_N]|[Ingemoticons_N]', [], [], 0, $cache);
+        foreach (explode('|', $defaultEmoticons) as $generated) {
+            $this->assertSame(18, preg_match_all('/./us', $generated));
             $this->assertSame(1, preg_match('//u', $generated));
         }
     }
@@ -1153,8 +1167,8 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
         ];
         $this->post(route('console.campaigns.pmta-test', [$workspace->getKey(), $campaign->getKey()]), $pmtaPayload)
             ->assertSessionHas('status', 'The selected server’s PMTA SMTP listener accepted this test message. Mailbox delivery is unconfirmed.');
-        $this->assertMatchesRegularExpression('#https://[A-Za-z0-9.-]+/[A-Z0-9]{10}r[^" ]+\?t=1#', $capturedBody);
-        $this->assertStringNotContainsString('baseheavy.example.test', $capturedBody);
+        $this->assertStringContainsString('/api/v1/campaigns/'.$campaign->getKey().'/test-click?', $capturedBody);
+        $this->assertStringContainsString('signature=', $capturedBody);
         $this->assertStringNotContainsString('http://[domain]', $capturedBody);
         $this->assertDatabaseHas('campaign_test_mail_attempts', ['mailer' => 'pmta_smtp', 'status' => 'accepted_by_transport']);
         $this->post(route('console.campaigns.pmta-test', [$workspace->getKey(), $campaign->getKey()]), $pmtaPayload)
@@ -1431,7 +1445,7 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
 
     public function test_manual_campaign_test_allows_unlimited_retries_and_logs_created_campaign_tests(): void
     {
-        $owner = User::factory()->create();
+        $owner = User::factory()->create(['access_role' => User::ACCESS_ROLE_OWNER]);
         $workspace = $this->workspace($owner, 'owner');
         $server = $this->server($workspace, $owner, '203.0.113.80');
         $campaign = Campaign::query()->create([
@@ -1478,8 +1492,8 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
         $transport->shouldReceive('start')->times(31);
         $transport->shouldReceive('send')->times(31)->withArgs(fn ($message, $envelope): bool => str_contains($message->toString(), '<info@mail.example.test>')
             && str_contains($message->toString(), 'To: synthetic-recipient@example.test')
-            && preg_match('#https://mail\.example\.test/[A-Z0-9]{10}r[^" ]+\?t=1#', $message->toString()) === 1
-            && ! str_contains($message->toString(), 'baseheavy.example.test')
+            && str_contains($message->toString(), '/api/v1/campaigns/'.$campaign->getKey().'/test-click?')
+            && str_contains($message->toString(), 'signature=')
             && ! str_contains($message->toString(), 'cipherglobal.fun')
             && $envelope->getSender()->getAddress() === 'info@mail.example.test'
             && $envelope->getRecipients()[0]->getAddress() === 'synthetic-recipient@example.test');
@@ -1567,8 +1581,8 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
             ->assertSee('View test configuration')
             ->assertSee('synthetic-recipient@example.test')
             ->assertSee('Header submitted')
-            ->assertSee('t=1', false)
-            ->assertDontSee('baseheavy.example.test');
+            ->assertSee('/api/v1/campaigns/'.$campaign->getKey().'/test-click?', false)
+            ->assertSee('signature=', false);
         $this->get(route('clean.console.campaigns.show', $campaign->getKey()).'?test_logs_page=2')
             ->assertOk()
             ->assertSee('Showing 7 of 32')
@@ -2559,7 +2573,7 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
 
     public function test_saved_campaign_pmta_test_pins_selected_smtp_route_and_expands_tags(): void
     {
-        $owner = User::factory()->create();
+        $owner = User::factory()->create(['access_role' => User::ACCESS_ROLE_OWNER]);
         $routeOwner = User::factory()->create();
         $workspace = $this->workspace($owner, 'owner');
         $workspace->users()->attach($routeOwner->getKey(), ['role' => 'operator']);
@@ -2692,8 +2706,8 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
         $this->assertStringContainsString('From: mailer@smtp-selected.example.test', $message);
         $this->assertStringContainsString('Subject: Account selected-smtp@example.test / Selected SMTP account', $message);
         $this->assertStringContainsString('SMTP=selected-smtp@example.test; name=Selected SMTP account; source IP=203.0.113.132', $body);
-        $this->assertMatchesRegularExpression('#https://smtp-selected\.example\.test/[A-Z0-9]{10}r[^" ]+\?t=1#', $body);
-        $this->assertStringNotContainsString('baseheavy.example.test', $body);
+        $this->assertStringContainsString('/api/v1/campaigns/'.$campaign->getKey().'/test-click?', $body);
+        $this->assertStringContainsString('signature=', $body);
         $this->assertStringNotContainsString('tracking=http://smtp-selected.example.test/', $body);
         $this->assertStringContainsString('external=http://outside.example.test/path', $body);
         $this->assertStringContainsString('X-Virtual-MTA: '.$expectedPmtaName, $message);
@@ -2708,7 +2722,7 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
 
     public function test_saved_campaign_ip_pmta_test_uses_linked_smtp_route_when_smtp_tags_are_present(): void
     {
-        $owner = User::factory()->create();
+        $owner = User::factory()->create(['access_role' => User::ACCESS_ROLE_OWNER]);
         $workspace = $this->workspace($owner, 'owner');
         $server = $this->server($workspace, $owner, '203.0.113.140');
         $domain = SendingDomain::query()->create([

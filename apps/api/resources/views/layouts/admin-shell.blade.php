@@ -201,6 +201,7 @@
         $isMiscellaneousPage = $isAppSettingsPage || $isAppHealthPage || $isAppErrorsPage || $isSubscribersPage || $isContactsPage || $isHorizonPage;
         $isCampaignsPage = $routeIs('console.campaigns.*', 'console.mailer.campaigns');
         $isCampaignLogsPage = $routeIs('console.campaign-logs.*', 'console.mailer.campaign-logs');
+        $isRedirectsPage = $routeIs('console.redirects.*', 'console.rotators.*');
         $isAudienceMixesPage = $routeIs('console.audience-mixes.*');
         $isAudienceMixHistoryPage = $routeIs('console.audience-mixes.history');
         $isAudienceMixBuilderPage = $routeIs('console.audience-mixes.index');
@@ -495,9 +496,9 @@
         $analyticsActive = $isDashboardAllStatsPage || $isDashboardIspStatsPage || $isDashboardMailerRevenuePage || $isCampaignStatisticsPage || $isDropStatisticsPage || $isWarmupStatisticsPage;
         $mailInfrastructureActive = $isServersPage || $isServerInstallPage || $isBulkInstallPage || $isChangeDomainPage || $isReinstallPage || $isMyServersPage || $isMyIpsPage;
         $providerNetworkActive = $isServerProvidersPage || $isCloudProvidersPage || $isDomainProvidersPage || $isSponsorManagementPage || $isCloudWorkflowPage;
-        $redirectsGroup = $makeCommandOsNavGroup('REDIRECTS & ROTATORS', 'fas fa-link', null, false, [], false, 'nav-v2-redirects-rotators');
-        $redirectsGroup['disabled'] = true;
-        $redirectsGroup['reason'] = 'No redirect or rotator page is connected yet.';
+        $redirectsUrl = $workspace ? route('console.redirects.index', ['workspace' => $workspace->getKey()]) : null;
+        $redirectsGroup = $makeCommandOsNavGroup('REDIRECTS & ROTATORS', 'fas fa-link', $redirectsUrl, $isRedirectsPage, [], $isRedirectsPage, 'nav-v2-redirects-rotators');
+        $redirectsGroup['page_active'] = $isRedirectsPage;
         $commandOsNavigation = [
             $makeCommandOsNavGroup('OPERATIONS OVERVIEW', 'fas fa-tachometer-alt', route('console.dashboard.main'), $routeIs('console.dashboard.main', 'console.workspace.dashboard.main', 'console.analytics.index'), [], false, 'nav-v2-operations-overview'),
             $makeCommandOsNavGroup('ANALYTICS & INSIGHTS', 'fas fa-chart-bar', route('clean.console.analytics.all-stats'), $analyticsActive, $flattenNavigationItems($trackingItems), $analyticsActive, 'nav-v2-analytics-insights'),

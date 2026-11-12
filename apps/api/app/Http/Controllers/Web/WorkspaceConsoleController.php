@@ -51,6 +51,7 @@ use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -1879,9 +1880,10 @@ class WorkspaceConsoleController extends Controller
                 'date' => now()->toRfc2822String(),
                 'negative' => $negativePath,
                 'token' => $testToken,
-                'click_url' => $campaign === null ? '' : $redirectUrlPolicy->campaignTrackingClickUrl(
-                    trim((string) ($data['domain'] ?? '')) ?: (string) ($ipTags['domain'] ?? ''),
-                    $testToken,
+                'click_url' => $campaign === null ? '' : URL::temporarySignedRoute(
+                    'public.campaign-test-click',
+                    now()->addYears(10),
+                    ['campaign' => $campaign->getKey(), 'token' => $testToken, 'isp_id' => $ispId],
                 ),
                 'boundary' => Str::random(30),
             ];
@@ -2678,8 +2680,11 @@ class WorkspaceConsoleController extends Controller
             'token' => $testToken,
             'boundary' => Str::random(30),
         ];
-        $trackingHost = trim((string) ($setup['domain'] ?? '')) ?: (string) ($tagValues['domain'] ?? '');
-        $tagValues['click_url'] = $redirectUrlPolicy->campaignTrackingClickUrl($trackingHost, $testToken);
+        $tagValues['click_url'] = URL::temporarySignedRoute(
+            'public.campaign-test-click',
+            now()->addYears(10),
+            ['campaign' => $campaign->getKey(), 'token' => $testToken, 'isp_id' => $setup['isp_id'] ?? '0'],
+        );
         $tagCache = [];
         $fromEmail = trim($tagRenderer->render((string) $data['from_email'], $tagValues, $setup['placeholders'] ?? [], 0, $tagCache));
         $subject = $tagRenderer->render((string) $data['subject'], $tagValues, $setup['placeholders'] ?? [], 0, $tagCache);

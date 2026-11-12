@@ -592,8 +592,8 @@
         .wm-rail {
             display: flex;
             flex-direction: column;
-            gap: 18px;
-            padding: 16px 12px;
+            gap: 12px;
+            padding: 12px;
             border-right: 1px solid var(--co-border, #dfe3f1);
             background: var(--co-surface-muted, #f7f8fd);
             overflow-y: auto;
@@ -1053,19 +1053,18 @@
 
         .wm-reader-head {
             display: flex;
-            flex-wrap: wrap;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 12px;
+            flex-direction: column;
+            gap: 10px;
             padding-bottom: 14px;
             border-bottom: 1px solid var(--co-border, #dfe3f1);
         }
 
         .wm-reader-subject {
-            margin: 0 0 8px;
+            margin: 0 0 6px;
             font-size: 18px;
             font-weight: 800;
             letter-spacing: -0.02em;
+            color: var(--co-ink, #17203e) !important;
         }
 
         .wm-reader-meta {
@@ -1079,14 +1078,21 @@
         .wm-reader-actions {
             display: flex;
             flex-wrap: wrap;
+            align-items: center;
             gap: 6px;
+            margin-top: 2px;
+        }
+
+        .wm-reader-actions .wm-btn-compact {
+            padding: 6px 11px !important;
+            font-size: 11.5px !important;
         }
 
         .wm-auth-strip {
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
-            margin: 14px 0;
+            margin: 12px 0;
         }
 
         .wm-auth-badge {
@@ -1097,6 +1103,7 @@
             border-radius: 999px;
             font-size: 11px;
             font-weight: 700;
+            color: var(--co-ink, #17203e);
             border: 1px solid var(--co-border, #dfe3f1);
             background: var(--co-surface-muted, #f7f8fd);
         }
@@ -1635,7 +1642,7 @@
 
                 detailHost.innerHTML = `
                     <div class="wm-reader-head">
-                        <div style="min-width: 0; flex: 1 1 320px;">
+                        <div style="min-width: 0; width: 100%;">
                             <h2 class="wm-reader-subject">${esc(msg.subject || '(No Subject)')}</h2>
                             <div class="wm-reader-meta">
                                 <div><strong>From:</strong> ${esc(msg.from)}</div>

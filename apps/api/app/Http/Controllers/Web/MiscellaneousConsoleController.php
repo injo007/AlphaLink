@@ -42,6 +42,55 @@ class MiscellaneousConsoleController extends Controller
         $workspace = $this->workspaceFor($request->user(), $workspace);
         abort_unless(in_array($workspace->pivot->role, ['owner', 'admin'], true), 403);
 
+        return response()->json($this->collectSystemMetrics($request->boolean('refresh')));
+    }
+
+    public function systemOptimize(Request $request, string $workspace): JsonResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        abort_unless(in_array($workspace->pivot->role, ['owner', 'admin'], true), 403);
+
+        $before = $this->collectSystemMetrics(false);
+        $phpBeforeBytes = memory_get_usage(true);
+
+        gc_collect_cycles();
+        $reclaimedPhpBytes = function_exists('gc_mem_caches') ? (int) gc_mem_caches() : 0;
+        clearstatcache(true);
+
+        $reclaimedFileBytes = 0;
+        $tmpDir = storage_path('app/tmp');
+        if (is_dir($tmpDir)) {
+            $cutoff = time() - 3600;
+            foreach (glob($tmpDir.'/*') ?: [] as $file) {
+                if (is_file($file) && @filemtime($file) < $cutoff) {
+                    $size = (int) (@filesize($file) ?: 0);
+                    if (@unlink($file)) {
+                        $reclaimedFileBytes += $size;
+                    }
+                }
+            }
+        }
+
+        $after = $this->collectSystemMetrics(true);
+        $phpDeltaBytes = max(0, $phpBeforeBytes - memory_get_usage(true));
+        $ramDeltaMb = max(0.0, round(($before['ram_used_kb'] - $after['ram_used_kb']) / 1024, 1));
+        $processFreedMb = round(($reclaimedPhpBytes + $phpDeltaBytes + $reclaimedFileBytes) / 1048576, 1);
+        $releasedMb = max($ramDeltaMb, $processFreedMb);
+
+        $message = $releasedMb > 0
+            ? sprintf('Released %.1f MB of unused API memory.', $releasedMb)
+            : sprintf('API memory optimized (%s%% RAM in use).', $after['ram_percent']);
+
+        return response()->json([
+            ...$after,
+            'released_mb' => $releasedMb,
+            'message' => $message,
+        ]);
+    }
+
+    /** @return array{cpu_percent: int, ram_percent: int, ram_used_gb: float, ram_total_gb: float, ram_used_kb: int, load_1m: float} */
+    private function collectSystemMetrics(bool $freshCpuSample): array
+    {
         $meminfo = is_readable('/proc/meminfo') ? (string) file_get_contents('/proc/meminfo') : '';
         preg_match('/^MemTotal:\s+(\d+)\s+kB/m', $meminfo, $totalMatch);
         preg_match('/^MemAvailable:\s+(\d+)\s+kB/m', $meminfo, $availMatch);
@@ -65,7 +114,7 @@ class MiscellaneousConsoleController extends Controller
         };
 
         $previous = Cache::get('alphalink:system-metrics:cpu');
-        if ($request->boolean('refresh') || ! is_array($previous)) {
+        if ($freshCpuSample || ! is_array($previous)) {
             $first = $readCpuSample();
             usleep(120000);
             $current = $readCpuSample();
@@ -97,13 +146,14 @@ class MiscellaneousConsoleController extends Controller
             $cpuPercent = (int) max(0, min(100, round(($load1m / $cores) * 100)));
         }
 
-        return response()->json([
+        return [
             'cpu_percent' => $cpuPercent,
             'ram_percent' => $ramPercent,
             'ram_used_gb' => round($memUsedKb / 1048576, 1),
             'ram_total_gb' => round($memTotalKb / 1048576, 1),
+            'ram_used_kb' => $memUsedKb,
             'load_1m' => $load1m,
-        ]);
+        ];
     }
 
     public function appErrors(Request $request, string $workspace, AppErrorLogReader $logs, ErrorIntelligenceService $service, TelegramAlertService $telegram): View|JsonResponse

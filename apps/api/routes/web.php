@@ -116,6 +116,7 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
         ->where('field', '[a-z_]+')->middleware('throttle:20,1')->name('console.app-settings.secret');
     Route::get('/app/workspaces/{workspace}/miscellaneous/app-health', [MiscellaneousConsoleController::class, 'appHealth'])->name('console.miscellaneous.app-health');
     Route::get('/app/workspaces/{workspace}/miscellaneous/system-metrics', [MiscellaneousConsoleController::class, 'systemMetrics'])->name('console.miscellaneous.system-metrics');
+    Route::post('/app/workspaces/{workspace}/miscellaneous/system-optimize', [MiscellaneousConsoleController::class, 'systemOptimize'])->middleware('throttle:20,1,system-optimize')->name('console.miscellaneous.system-optimize');
     Route::get('/app/workspaces/{workspace}/miscellaneous/app-errors', [MiscellaneousConsoleController::class, 'appErrors'])->name('console.miscellaneous.app-errors');
     Route::post('/app/workspaces/{workspace}/miscellaneous/app-errors/sync', [MiscellaneousConsoleController::class, 'appErrorsSync'])->name('console.miscellaneous.app-errors.sync');
     Route::post('/app/workspaces/{workspace}/miscellaneous/app-errors/archive-logs', [MiscellaneousConsoleController::class, 'appErrorsArchiveLogs'])->name('console.miscellaneous.app-errors.archive-logs');

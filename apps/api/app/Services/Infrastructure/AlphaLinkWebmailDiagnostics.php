@@ -256,7 +256,7 @@ class AlphaLinkWebmailDiagnostics
         }));
         $lines[] = "{$bare}:{plain}{$password}:{$uid}:{$uid}::/home/{$bare}:/sbin/nologin";
         $session->upload(implode("\n", $lines)."\n", '/etc/dovecot/imap.passwd');
-        $session->exec('chmod 0640 /etc/dovecot/imap.passwd && systemctl restart dovecot');
+        $session->exec('(chown root:dovecot /etc/dovecot/imap.passwd 2>/dev/null && chmod 0640 /etc/dovecot/imap.passwd) || chmod 0644 /etc/dovecot/imap.passwd; systemctl restart dovecot');
 
         return $bare;
     }

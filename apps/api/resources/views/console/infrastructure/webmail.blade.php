@@ -2071,7 +2071,7 @@
                         <div class="wm-reader-head">
                             <div style="min-width: 0; width: 100%;">
                                 <h2 class="wm-reader-subject">Deliverability &amp; PMTA Diagnostics (${esc(root.dataset.defaultDomain || 'Server')})</h2>
-                                <div class="wm-reader-meta">Live DNS checks + PMTA <code>/etc/pmta/delivered</code> &amp; <code>/etc/pmta/bounced</code> logs</div>
+                                <div class="wm-reader-meta"><div>Live DNS checks + PMTA <code>/etc/pmta/delivered</code> &amp; <code>/etc/pmta/bounced</code> logs</div></div>
                             </div>
                         </div>
                         <div class="wm-auth-strip">

@@ -62,6 +62,24 @@
         .alphalink-toast { box-shadow: 0 .4rem 1.25rem rgba(0, 0, 0, .2); margin: 0; }
         @media (prefers-reduced-motion: no-preference) { .alphalink-toast { animation: alphalink-toast-in .16s ease-out; } }
         @keyframes alphalink-toast-in { from { opacity: 0; transform: translateY(.4rem); } to { opacity: 1; transform: translateY(0); } }
+        .command-os-sysmetrics { align-items: center; gap: 10px; height: 34px; padding: 0 4px 0 12px; margin-right: 6px; border-radius: 10px; border: 1px solid rgba(99, 102, 241, 0.22); background: rgba(255, 255, 255, 0.72); color: #334155; font-size: 0.72rem; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
+        [data-command-theme="dark"] .command-os-sysmetrics { background: rgba(15, 23, 42, 0.72); border-color: rgba(129, 140, 248, 0.28); color: #e2e8f0; }
+        .command-os-sysmetrics-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+        .command-os-sysmetrics-label { font-weight: 700; letter-spacing: 0.05em; color: #64748b; font-size: 0.68rem; }
+        [data-command-theme="dark"] .command-os-sysmetrics-label { color: #94a3b8; }
+        .command-os-sysmetrics-track { width: 42px; height: 6px; border-radius: 999px; background: rgba(148, 163, 184, 0.24); overflow: hidden; display: inline-block; }
+        .command-os-sysmetrics-fill { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #6366f1, #8b5cf6); transition: width 0.35s ease, background 0.25s ease; }
+        .command-os-sysmetrics-fill.is-warn { background: linear-gradient(90deg, #f59e0b, #d97706); }
+        .command-os-sysmetrics-fill.is-danger { background: linear-gradient(90deg, #ef4444, #dc2626); }
+        .command-os-sysmetrics-value { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 28px; text-align: right; color: #0f172a; }
+        [data-command-theme="dark"] .command-os-sysmetrics-value { color: #f8fafc; }
+        .command-os-sysmetrics-divider { width: 1px; height: 16px; background: rgba(148, 163, 184, 0.32); }
+        .command-os-sysmetrics-refresh { width: 26px; height: 26px; border-radius: 7px; border: 1px solid rgba(99, 102, 241, 0.22); background: rgba(99, 102, 241, 0.08); color: #6366f1; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; transition: background 0.15s ease, transform 0.15s ease; }
+        .command-os-sysmetrics-refresh:hover { background: rgba(99, 102, 241, 0.16); }
+        [data-command-theme="dark"] .command-os-sysmetrics-refresh { border-color: rgba(129, 140, 248, 0.3); background: rgba(129, 140, 248, 0.12); color: #a5b4fc; }
+        .command-os-sysmetrics-refresh svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        .command-os-sysmetrics-refresh.is-spinning svg { animation: command-os-spin 0.7s linear infinite; }
+        @keyframes command-os-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="command-os-shell {{ $commandOsDashboard ? 'command-os-dashboard' : '' }} {{ $isCampaignComposerPage ? 'command-os-campaign-composer' : '' }}">
@@ -756,6 +774,26 @@
                                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>
                             </a>
                         @endif
+                        @if ($workspace && auth()->user()?->hasFullAccess())
+                            <div class="command-os-sysmetrics d-none d-xl-inline-flex" id="command-os-sysmetrics"
+                                data-metrics-url="{{ route('console.miscellaneous.system-metrics', ['workspace' => $workspace->getKey()]) }}"
+                                title="Server CPU and RAM usage">
+                                <div class="command-os-sysmetrics-item">
+                                    <span class="command-os-sysmetrics-label">CPU</span>
+                                    <span class="command-os-sysmetrics-track" aria-hidden="true"><span class="command-os-sysmetrics-fill" id="command-os-cpu-bar" style="width: 0%;"></span></span>
+                                    <span class="command-os-sysmetrics-value" id="command-os-cpu-value">--%</span>
+                                </div>
+                                <span class="command-os-sysmetrics-divider" aria-hidden="true"></span>
+                                <div class="command-os-sysmetrics-item">
+                                    <span class="command-os-sysmetrics-label">RAM</span>
+                                    <span class="command-os-sysmetrics-track" aria-hidden="true"><span class="command-os-sysmetrics-fill" id="command-os-ram-bar" style="width: 0%;"></span></span>
+                                    <span class="command-os-sysmetrics-value" id="command-os-ram-value">--%</span>
+                                </div>
+                                <button type="button" class="command-os-sysmetrics-refresh" id="command-os-sysmetrics-refresh" aria-label="Refresh CPU and RAM usage" title="Refresh CPU & RAM">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M21 12a9 9 0 1 1-2.64-6.36" /><path d="M21 3v6h-6" /></svg>
+                                </button>
+                            </div>
+                        @endif
                         <div id="command-os-theme-toggle"></div>
                     @endif
                     @if (session()->has('alphalink.impersonator_id'))
@@ -968,6 +1006,64 @@
                 toggle.closest('.nav-main-item')?.classList.toggle('open', !expanded);
             });
         }
+    </script>
+    <script>
+        (() => {
+            const widget = document.getElementById('command-os-sysmetrics');
+            if (!widget) {
+                return;
+            }
+            const url = widget.dataset.metricsUrl;
+            const cpuBar = document.getElementById('command-os-cpu-bar');
+            const cpuVal = document.getElementById('command-os-cpu-value');
+            const ramBar = document.getElementById('command-os-ram-bar');
+            const ramVal = document.getElementById('command-os-ram-value');
+            const refreshBtn = document.getElementById('command-os-sysmetrics-refresh');
+            let loading = false;
+
+            const applyMeter = (bar, label, pct) => {
+                const value = Math.max(0, Math.min(100, Number(pct) || 0));
+                if (bar) {
+                    bar.style.width = `${value}%`;
+                    bar.classList.toggle('is-warn', value >= 70 && value < 90);
+                    bar.classList.toggle('is-danger', value >= 90);
+                }
+                if (label) {
+                    label.textContent = `${value}%`;
+                }
+            };
+
+            const loadMetrics = async (forceRefresh = false) => {
+                if (loading || !url) {
+                    return;
+                }
+                loading = true;
+                refreshBtn?.classList.add('is-spinning');
+                try {
+                    const target = forceRefresh ? `${url}?refresh=1` : url;
+                    const response = await fetch(target, { headers: { Accept: 'application/json' }, cache: 'no-store' });
+                    if (!response.ok) {
+                        return;
+                    }
+                    const data = await response.json();
+                    applyMeter(cpuBar, cpuVal, data.cpu_percent);
+                    applyMeter(ramBar, ramVal, data.ram_percent);
+                    widget.title = `CPU: ${data.cpu_percent}% (load ${data.load_1m}) | RAM: ${data.ram_percent}% (${data.ram_used_gb} / ${data.ram_total_gb} GB)`;
+                } catch (_) {
+                } finally {
+                    loading = false;
+                    refreshBtn?.classList.remove('is-spinning');
+                }
+            };
+
+            refreshBtn?.addEventListener('click', () => loadMetrics(true));
+            loadMetrics(false);
+            window.setInterval(() => {
+                if (document.visibilityState === 'visible') {
+                    loadMetrics(false);
+                }
+            }, 30000);
+        })();
     </script>
 </body>
 </html>

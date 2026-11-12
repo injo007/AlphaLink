@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
 use Laravel\Horizon\HorizonServiceProvider;
 
@@ -34,6 +35,75 @@ class MiscellaneousConsoleController extends Controller
         }
 
         return view('console.miscellaneous.app-health', compact('workspace', 'report'));
+    }
+
+    public function systemMetrics(Request $request, string $workspace): JsonResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        abort_unless(in_array($workspace->pivot->role, ['owner', 'admin'], true), 403);
+
+        $meminfo = is_readable('/proc/meminfo') ? (string) file_get_contents('/proc/meminfo') : '';
+        preg_match('/^MemTotal:\s+(\d+)\s+kB/m', $meminfo, $totalMatch);
+        preg_match('/^MemAvailable:\s+(\d+)\s+kB/m', $meminfo, $availMatch);
+        $memTotalKb = (int) ($totalMatch[1] ?? 0);
+        $memAvailKb = (int) ($availMatch[1] ?? 0);
+        $memUsedKb = max(0, $memTotalKb - $memAvailKb);
+        $ramPercent = $memTotalKb > 0 ? (int) max(0, min(100, round(($memUsedKb / $memTotalKb) * 100))) : 0;
+
+        $readCpuSample = static function (): ?array {
+            if (! is_readable('/proc/stat')) {
+                return null;
+            }
+            $stat = (string) file_get_contents('/proc/stat');
+            if (preg_match('/^cpu\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/m', $stat, $m) !== 1) {
+                return null;
+            }
+            $idle = (int) $m[4] + (int) $m[5];
+            $total = array_sum(array_map('intval', array_slice($m, 1, 8)));
+
+            return ['idle' => $idle, 'total' => $total];
+        };
+
+        $previous = Cache::get('alphalink:system-metrics:cpu');
+        if ($request->boolean('refresh') || ! is_array($previous)) {
+            $first = $readCpuSample();
+            usleep(120000);
+            $current = $readCpuSample();
+            if ($first !== null && $current !== null) {
+                $previous = $first;
+            }
+        } else {
+            $current = $readCpuSample();
+        }
+
+        if ($current !== null) {
+            Cache::put('alphalink:system-metrics:cpu', $current, now()->addMinutes(5));
+        }
+
+        $loadAvg = function_exists('sys_getloadavg') ? sys_getloadavg() : false;
+        $load1m = is_array($loadAvg) ? round((float) ($loadAvg[0] ?? 0), 2) : 0.0;
+
+        $cpuPercent = null;
+        if (is_array($previous) && $current !== null) {
+            $deltaTotal = ($current['total'] ?? 0) - ($previous['total'] ?? 0);
+            $deltaIdle = ($current['idle'] ?? 0) - ($previous['idle'] ?? 0);
+            if ($deltaTotal > 0) {
+                $cpuPercent = (int) max(0, min(100, round((($deltaTotal - $deltaIdle) / $deltaTotal) * 100)));
+            }
+        }
+        if ($cpuPercent === null) {
+            $cpuInfo = is_readable('/proc/cpuinfo') ? (string) file_get_contents('/proc/cpuinfo') : '';
+            $cores = max(1, substr_count($cpuInfo, 'processor'));
+            $cpuPercent = (int) max(0, min(100, round(($load1m / $cores) * 100)));
+        }
+
+        return response()->json([
+            'cpu_percent' => $cpuPercent,
+            'ram_percent' => $ramPercent,
+            'ram_used_gb' => round($memUsedKb / 1048576, 1),
+            'ram_total_gb' => round($memTotalKb / 1048576, 1),
+            'load_1m' => $load1m,
+        ]);
     }
 
     public function appErrors(Request $request, string $workspace, AppErrorLogReader $logs, ErrorIntelligenceService $service, TelegramAlertService $telegram): View|JsonResponse

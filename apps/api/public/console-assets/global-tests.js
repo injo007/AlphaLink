@@ -904,6 +904,109 @@
         showToast(ok ? `Copied ${lines.length} route IP(s).` : 'Clipboard permission denied.', ok ? 'success' : 'warning');
     }));
 
+    (() => {
+        const modal = byId('global-route-bulk-paste-modal');
+        const openBtn = byId('ips-bulk-paste-open');
+        const textarea = byId('global-route-bulk-paste-input');
+        const replaceCheckbox = byId('global-route-bulk-paste-replace');
+        const preview = byId('global-route-bulk-paste-preview');
+        const applyBtn = byId('global-route-bulk-paste-apply');
+        if (!modal || !openBtn || !textarea || !applyBtn) return;
+
+        const parseTokens = (raw) => [...new Set(
+            String(raw || '').split(/[\r\n,;]+/).map((line) => line.trim()).filter(Boolean),
+        )];
+        const matchOption = (opt, tokenLower) => {
+            const username = (opt.dataset.username || '').trim().toLowerCase();
+            const ip = (opt.dataset.ip || '').trim().toLowerCase();
+            const name = (opt.dataset.name || '').trim().toLowerCase();
+            const pmtaName = (opt.dataset.pmtaName || '').trim().toLowerCase();
+            const label = opt.textContent.trim().toLowerCase();
+            if (label === tokenLower || (username && username === tokenLower) || (ip && ip === tokenLower) || (name && name === tokenLower) || (pmtaName && pmtaName === tokenLower)) {
+                return true;
+            }
+            if (tokenLower.includes('|')) {
+                const parts = tokenLower.split('|').map((p) => p.trim()).filter(Boolean);
+                return parts.some((part) => (username && username === part) || (pmtaName && pmtaName === part));
+            }
+            return tokenLower.includes('@') && label.includes(tokenLower);
+        };
+        const computeMatches = () => {
+            const tokens = parseTokens(textarea.value);
+            const allOptions = [...availableSelect.options, ...selectedSelect.options];
+            const matchedValues = new Set();
+            const unmatched = [];
+            tokens.forEach((token) => {
+                const lower = token.toLowerCase();
+                const hits = allOptions.filter((opt) => matchOption(opt, lower));
+                if (hits.length === 0) {
+                    unmatched.push(token);
+                } else {
+                    hits.forEach((opt) => matchedValues.add(opt.value));
+                }
+            });
+            return { tokens, matchedValues, unmatched };
+        };
+        const updatePreview = () => {
+            const { tokens, matchedValues, unmatched } = computeMatches();
+            if (tokens.length === 0) {
+                preview.textContent = 'Paste one SMTP email, IP, or route per line.';
+                return;
+            }
+            preview.textContent = `Lines: ${tokens.length} · Matched routes: ${matchedValues.size} · Not found: ${unmatched.length}`;
+        };
+        const showModal = () => {
+            textarea.value = '';
+            updatePreview();
+            if (window.jQuery && typeof window.jQuery(modal).modal === 'function') {
+                window.jQuery(modal).modal('show');
+            } else {
+                modal.classList.add('show');
+                modal.style.display = 'block';
+            }
+            window.setTimeout(() => textarea.focus(), 150);
+        };
+        const hideModal = () => {
+            if (window.jQuery && typeof window.jQuery(modal).modal === 'function') {
+                window.jQuery(modal).modal('hide');
+            } else {
+                modal.classList.remove('show');
+                modal.style.display = 'none';
+            }
+        };
+        openBtn.addEventListener('click', showModal);
+        modal.querySelectorAll('[data-dismiss="modal"]').forEach((btn) => btn.addEventListener('click', hideModal));
+        textarea.addEventListener('input', updatePreview);
+        applyBtn.addEventListener('click', () => {
+            const { matchedValues, unmatched } = computeMatches();
+            if (matchedValues.size === 0) {
+                preview.textContent = 'No matching routes found in Available routes.';
+                return;
+            }
+            if (replaceCheckbox?.checked) {
+                [...selectedSelect.options].forEach((opt) => {
+                    if (!matchedValues.has(opt.value)) {
+                        opt.selected = false;
+                        availableSelect.add(opt);
+                    }
+                });
+            }
+            [...availableSelect.options].forEach((opt) => {
+                if (matchedValues.has(opt.value)) {
+                    opt.selected = false;
+                    selectedSelect.add(opt);
+                }
+            });
+            applyOptionFilter(availableSelect, byId('ips-available-filter'));
+            applyOptionFilter(selectedSelect, byId('ips-selected-filter'));
+            syncDomainFromSelectedRoute();
+            updateRouteCountsAndSummary();
+            hideModal();
+            const note = unmatched.length ? ` (${unmatched.length} not found)` : '';
+            showToast(`Selected ${matchedValues.size} route(s) from pasted list${note}.`, unmatched.length ? 'warning' : 'success');
+        });
+    })();
+
     // Closable Placeholders
     const placeholderContent = byId('placeholder-content');
     const togglePlaceholdersBtn = byId('toggle-placeholders');

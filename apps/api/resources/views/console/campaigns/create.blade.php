@@ -1516,7 +1516,10 @@
                                     <div class="campaign-route-selector">
                                         <div class="campaign-route-pane-heading">
                                             <label for="send-ips-available"><span id="send-ips-available-label">Available {{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}</span><span class="campaign-route-count" id="send-ips-available-count">0</span></label>
-                                            <button type="button" class="campaign-editor-icon-button" data-copy-ip-list="available" title="Copy available routes" aria-label="Copy available routes"><i class="fas fa-copy" aria-hidden="true"></i></button>
+                                            <div class="d-inline-flex align-items-center" style="gap: 6px;">
+                                                <button type="button" class="campaign-editor-icon-button" id="send-ips-bulk-paste-open" data-paste-ip-list="available" title="Paste bulk SMTPs / routes to select" aria-label="Paste bulk SMTPs or routes to select"><i class="fas fa-paste" aria-hidden="true"></i></button>
+                                                <button type="button" class="campaign-editor-icon-button" data-copy-ip-list="available" title="Copy available routes" aria-label="Copy available routes"><i class="fas fa-copy" aria-hidden="true"></i></button>
+                                            </div>
                                         </div>
                                         <input class="form-control form-control-sm campaign-route-filter" id="send-ips-available-filter" type="search" placeholder="Filter available IPs" aria-label="Filter available IPs">
                                         <select id="send-ips-available" class="form-control" multiple size="10" aria-label="Available {{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}" aria-describedby="send-ips-transfer-help"></select>
@@ -1745,6 +1748,32 @@
 
     <div id="campaign-options-status" class="alert d-none" role="status" aria-live="polite"></div>
     <button type="button" id="campaign-options-retry" class="btn btn-alt-secondary d-none mb-4">Retry loading choices</button>
+    </div>
+
+    <div class="modal fade" id="campaign-route-bulk-paste-modal" tabindex="-1" role="dialog" aria-labelledby="campaign-route-bulk-paste-title" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title font-w700" id="campaign-route-bulk-paste-title"><i class="fas fa-paste mr-2 text-purple" aria-hidden="true"></i>Paste Bulk SMTPs / Routes</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted mb-2">Paste one SMTP email, IP, or route label per line (or comma/semicolon-separated) to move all matching routes into <strong>Selected</strong>.</p>
+                    <textarea id="campaign-route-bulk-paste-input" class="form-control font-monospace" rows="8" spellcheck="false" placeholder="user1@domain.com&#10;user2@domain.com&#10;142.93.100.98 | user3@domain.com" style="font-size: 0.8125rem;"></textarea>
+                    <div class="d-flex flex-wrap align-items-center justify-content-between mt-2" style="gap: 8px;">
+                        <small id="campaign-route-bulk-paste-preview" class="text-muted font-w600">Paste one SMTP email, IP, or route per line.</small>
+                        <div class="custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input" id="campaign-route-bulk-paste-replace">
+                            <label class="custom-control-label small" for="campaign-route-bulk-paste-replace">Replace existing selection</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-alt-secondary btn-sm" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-sm" id="campaign-route-bulk-paste-apply"><i class="fas fa-check mr-1" aria-hidden="true"></i>Select Matching Routes</button>
+                </div>
+            </div>
+        </div>
     </div>
 @endsection
 
@@ -2271,6 +2300,97 @@
                     setToolStatus(await copyText(options.map((option) => option.dataset.ip || option.textContent.split(/[|,]/)[0]).join('\n')) ? 'IP addresses copied.' : 'There are no IP addresses to copy.', options.length ? 'success' : 'warning');
                 });
             });
+            (() => {
+                const modal = document.getElementById('campaign-route-bulk-paste-modal');
+                const openButton = document.getElementById('send-ips-bulk-paste-open');
+                const textarea = document.getElementById('campaign-route-bulk-paste-input');
+                const replaceCheckbox = document.getElementById('campaign-route-bulk-paste-replace');
+                const preview = document.getElementById('campaign-route-bulk-paste-preview');
+                const applyButton = document.getElementById('campaign-route-bulk-paste-apply');
+                if (!modal || !openButton || !textarea || !applyButton || !ipSource) return;
+
+                const parseTokens = (raw) => Array.from(new Set(
+                    String(raw || '').split(/[\r\n,;]+/).map((line) => line.trim()).filter(Boolean)
+                ));
+                const matchOption = (option, tokenLower) => {
+                    const username = (option.dataset.username || '').trim().toLowerCase();
+                    const ip = (option.dataset.ip || '').trim().toLowerCase();
+                    const name = (option.dataset.name || '').trim().toLowerCase();
+                    const pmtaName = (option.dataset.pmtaName || '').trim().toLowerCase();
+                    const label = option.textContent.trim().toLowerCase();
+                    if (label === tokenLower || (username && username === tokenLower) || (ip && ip === tokenLower) || (name && name === tokenLower) || (pmtaName && pmtaName === tokenLower)) {
+                        return true;
+                    }
+                    if (tokenLower.includes('|')) {
+                        const parts = tokenLower.split('|').map((p) => p.trim()).filter(Boolean);
+                        return parts.some((part) => (username && username === part) || (pmtaName && pmtaName === part));
+                    }
+                    return tokenLower.includes('@') && label.includes(tokenLower);
+                };
+                const computeMatches = () => {
+                    const tokens = parseTokens(textarea.value);
+                    const matchedIds = new Set();
+                    const unmatched = [];
+                    const allOptions = Array.from(ipSource.options);
+                    tokens.forEach((token) => {
+                        const lower = token.toLowerCase();
+                        const hits = allOptions.filter((opt) => matchOption(opt, lower));
+                        if (hits.length === 0) {
+                            unmatched.push(token);
+                        } else {
+                            hits.forEach((opt) => matchedIds.add(opt.value));
+                        }
+                    });
+                    return { tokens, matchedIds, unmatched };
+                };
+                const updatePreview = () => {
+                    const { tokens, matchedIds, unmatched } = computeMatches();
+                    if (tokens.length === 0) {
+                        preview.textContent = 'Paste one SMTP email, IP, or route per line.';
+                        return;
+                    }
+                    preview.textContent = `Lines: ${tokens.length} · Matched routes: ${matchedIds.size} · Not found: ${unmatched.length}`;
+                };
+                const showModal = () => {
+                    textarea.value = '';
+                    updatePreview();
+                    if (window.jQuery && typeof window.jQuery(modal).modal === 'function') {
+                        window.jQuery(modal).modal('show');
+                    } else {
+                        modal.classList.add('show');
+                        modal.style.display = 'block';
+                    }
+                    window.setTimeout(() => textarea.focus(), 150);
+                };
+                const hideModal = () => {
+                    if (window.jQuery && typeof window.jQuery(modal).modal === 'function') {
+                        window.jQuery(modal).modal('hide');
+                    } else {
+                        modal.classList.remove('show');
+                        modal.style.display = 'none';
+                    }
+                };
+                openButton.addEventListener('click', showModal);
+                modal.querySelectorAll('[data-dismiss="modal"]').forEach((btn) => btn.addEventListener('click', hideModal));
+                textarea.addEventListener('input', updatePreview);
+                applyButton.addEventListener('click', () => {
+                    const { matchedIds, unmatched } = computeMatches();
+                    if (matchedIds.size === 0) {
+                        preview.textContent = 'No matching routes found in Available routes.';
+                        return;
+                    }
+                    const selectedIds = replaceCheckbox?.checked
+                        ? new Set()
+                        : new Set(Array.from(ipSource.options).filter((option) => option.selected).map((option) => option.value));
+                    matchedIds.forEach((id) => selectedIds.add(id));
+                    Array.from(ipSource.options).forEach((option) => { option.selected = selectedIds.has(option.value); });
+                    renderIpLists();
+                    ipSource.dispatchEvent(new Event('change', { bubbles: true }));
+                    hideModal();
+                    const note = unmatched.length ? ` (${unmatched.length} not found)` : '';
+                    setToolStatus(`Selected ${matchedIds.size} route(s) from pasted list${note}.`, unmatched.length ? 'warning' : 'success');
+                });
+            })();
             renderIpLists();
             const progressButton = document.getElementById('campaign-start-progress-change');
             progressButton?.addEventListener('click', async () => {

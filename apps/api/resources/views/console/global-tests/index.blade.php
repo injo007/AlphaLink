@@ -285,7 +285,10 @@
                                                 <div class="campaign-route-selector">
                                                     <div class="campaign-route-pane-heading">
                                                         <label for="ips-available"><span id="send-ips-available-label">Available IPs</span><span class="campaign-route-count" id="send-ips-available-count">0</span></label>
-                                                        <button type="button" class="campaign-editor-icon-button" data-copy-ip-list="available" title="Copy available routes" aria-label="Copy available routes"><i class="fas fa-copy" aria-hidden="true"></i></button>
+                                                        <div class="d-inline-flex align-items-center" style="gap: 6px;">
+                                                            <button type="button" class="campaign-editor-icon-button" id="ips-bulk-paste-open" data-paste-ip-list="available" title="Paste bulk SMTPs / routes to select" aria-label="Paste bulk SMTPs or routes to select"><i class="fas fa-paste" aria-hidden="true"></i></button>
+                                                            <button type="button" class="campaign-editor-icon-button" data-copy-ip-list="available" title="Copy available routes" aria-label="Copy available routes"><i class="fas fa-copy" aria-hidden="true"></i></button>
+                                                        </div>
                                                     </div>
                                                     <input class="form-control form-control-sm campaign-route-filter" id="ips-available-filter" type="search" placeholder="Filter available ips" aria-label="Filter available IPs">
                                                     <select id="ips-available" class="form-control" multiple size="10" aria-label="Available IPs"></select>
@@ -475,6 +478,32 @@
             <div class="d-flex justify-content-end mt-3"><button class="btn btn-alt-secondary" type="button" data-dialog-close>Close</button></div>
         </div>
     </dialog>
+
+    <div class="modal fade" id="global-route-bulk-paste-modal" tabindex="-1" role="dialog" aria-labelledby="global-route-bulk-paste-title" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title font-w700" id="global-route-bulk-paste-title"><i class="fas fa-paste mr-2 text-purple" aria-hidden="true"></i>Paste Bulk SMTPs / Routes</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted mb-2">Paste one SMTP email, IP, or route label per line (or comma/semicolon-separated) to move all matching routes into <strong>Selected</strong>.</p>
+                    <textarea id="global-route-bulk-paste-input" class="form-control font-monospace" rows="8" spellcheck="false" placeholder="user1@domain.com&#10;user2@domain.com&#10;142.93.100.98 | user3@domain.com" style="font-size: 0.8125rem;"></textarea>
+                    <div class="d-flex flex-wrap align-items-center justify-content-between mt-2" style="gap: 8px;">
+                        <small id="global-route-bulk-paste-preview" class="text-muted font-w600">Paste one SMTP email, IP, or route per line.</small>
+                        <div class="custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input" id="global-route-bulk-paste-replace">
+                            <label class="custom-control-label small" for="global-route-bulk-paste-replace">Replace existing selection</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-alt-secondary btn-sm" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-sm" id="global-route-bulk-paste-apply"><i class="fas fa-check mr-1" aria-hidden="true"></i>Select Matching Routes</button>
+                </div>
+            </div>
+        </div>
+    </div>
 @endsection
 
 @push('styles')

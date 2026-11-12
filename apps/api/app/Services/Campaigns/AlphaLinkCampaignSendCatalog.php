@@ -203,7 +203,9 @@ class AlphaLinkCampaignSendCatalog
                 ->when($ipType !== 'all', fn (Builder $query) => $query->whereRaw('LOWER(type) = ?', [$ipType]))
                 ->orderBy('managed_server_id')
                 ->orderBy('id')
-                ->get(['id', 'managed_server_id', 'sending_domain_id', 'ip', 'type', 'dns']);
+                ->get(['id', 'managed_server_id', 'sending_domain_id', 'ip', 'type', 'dns'])
+                ->filter(fn (ManagedServerIp $ip): bool => ManagedServerIp::isPublicAddress($ip->ip))
+                ->values();
 
             // SMTP Settings and Workspace SMTP use separate records and now
             // have distinct aliases. Keep both choices available on an IP.
@@ -278,7 +280,9 @@ class AlphaLinkCampaignSendCatalog
                     ->with('virtualMta:id,workspace_id,managed_server_id,managed_server_ip_id,ip,domain,duplicate_index,is_active')
                     ->orderBy('managed_server_id')
                     ->orderBy('id')
-                    ->get(['id', 'managed_server_id', 'managed_server_ip_id', 'ip', 'ip_type as type', 'dns', 'username', 'name', 'pmta_virtual_mta_id']);
+                    ->get(['id', 'managed_server_id', 'managed_server_ip_id', 'ip', 'ip_type as type', 'dns', 'username', 'name', 'pmta_virtual_mta_id'])
+                    ->filter(fn (ManagedServerMta $mta): bool => ManagedServerIp::isPublicAddress($mta->ip))
+                    ->values();
             } else {
                 $routeIps = ManagedServerIp::query()
                     ->where('workspace_id', $workspace->getKey())
@@ -287,7 +291,9 @@ class AlphaLinkCampaignSendCatalog
                     ->when($ipType !== 'all', fn (Builder $query) => $query->whereRaw('LOWER(type) = ?', [$ipType]))
                     ->orderBy('managed_server_id')
                     ->orderBy('id')
-                    ->get(['id', 'managed_server_id', 'ip', 'type', 'dns']);
+                    ->get(['id', 'managed_server_id', 'ip', 'type', 'dns'])
+                    ->filter(fn (ManagedServerIp $ip): bool => ManagedServerIp::isPublicAddress($ip->ip))
+                    ->values();
 
                 $pmtaSmtpConfigs = PmtaSmtpConfig::query()
                     ->where('workspace_id', $workspace->getKey())

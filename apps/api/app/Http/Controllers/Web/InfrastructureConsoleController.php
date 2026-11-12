@@ -1779,28 +1779,29 @@ class InfrastructureConsoleController extends Controller
 
         $rows = $ips->get([
             'id', 'workspace_id', 'managed_server_id', 'sending_domain_id', 'ip', 'type', 'dns',
-        ])->map(fn (ManagedServerIp $ip): array => [
-            'id' => $ip->getKey(),
-            'ip' => $ip->ip,
-            'type' => $ip->type,
-            'dns' => $ip->dns,
-            'server' => [
-                'id' => $ip->server?->getKey(),
-                'name' => $ip->server?->name,
-                'ip' => $ip->server?->ip_address,
-            ],
-            'history' => $ip->history ? [
-                'ptr' => $ip->history->ptr,
-                'sender_score' => $ip->history->sender_score,
-                'ip_listed_spamhaus' => $ip->history->ip_listed_spamhaus,
-                'ip_listed_spamcop' => $ip->history->ip_listed_spamcop,
-                'ip_listed_barracuda' => $ip->history->ip_listed_barracuda,
-                'domain_listed_hostkarma' => $ip->history->domain_listed_hostkarma,
-                'domain_listed_spamhaus_dbl' => $ip->history->domain_listed_spamhaus_dbl,
-                'domain_listed_surbl' => $ip->history->domain_listed_surbl,
-                'created_at' => $ip->history->created_at?->toDateTimeString(),
-            ] : null,
-        ])->values();
+        ])->filter(fn (ManagedServerIp $ip): bool => ManagedServerIp::isPublicAddress($ip->ip))
+            ->map(fn (ManagedServerIp $ip): array => [
+                'id' => $ip->getKey(),
+                'ip' => $ip->ip,
+                'type' => $ip->type,
+                'dns' => $ip->dns,
+                'server' => [
+                    'id' => $ip->server?->getKey(),
+                    'name' => $ip->server?->name,
+                    'ip' => $ip->server?->ip_address,
+                ],
+                'history' => $ip->history ? [
+                    'ptr' => $ip->history->ptr,
+                    'sender_score' => $ip->history->sender_score,
+                    'ip_listed_spamhaus' => $ip->history->ip_listed_spamhaus,
+                    'ip_listed_spamcop' => $ip->history->ip_listed_spamcop,
+                    'ip_listed_barracuda' => $ip->history->ip_listed_barracuda,
+                    'domain_listed_hostkarma' => $ip->history->domain_listed_hostkarma,
+                    'domain_listed_spamhaus_dbl' => $ip->history->domain_listed_spamhaus_dbl,
+                    'domain_listed_surbl' => $ip->history->domain_listed_surbl,
+                    'created_at' => $ip->history->created_at?->toDateTimeString(),
+                ] : null,
+            ])->values();
 
         return response()->json(['data' => $rows]);
     }
@@ -1809,7 +1810,10 @@ class InfrastructureConsoleController extends Controller
     {
         $workspace = $this->workspaceForServerControl($request->user(), $workspaceId);
         $serverId = $request->query('server_id');
-        $ips = $this->myIpsQuery($workspace, is_string($serverId) ? $serverId : null)->get();
+        $ips = $this->myIpsQuery($workspace, is_string($serverId) ? $serverId : null)
+            ->get()
+            ->filter(fn (ManagedServerIp $ip): bool => ManagedServerIp::isPublicAddress($ip->ip))
+            ->values();
 
         return response()->streamDownload(function () use ($ips): void {
             $stream = fopen('php://output', 'w');

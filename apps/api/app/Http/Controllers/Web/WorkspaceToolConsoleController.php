@@ -29,7 +29,9 @@ class WorkspaceToolConsoleController extends Controller
         $ips = ManagedServerIp::query()->with('server:id,name')
             ->where('workspace_id', $workspace->id)->where('is_active', true)
             ->whereHas('server', fn ($query) => $query->where('is_active', true)->where('is_installed', true))
-            ->orderBy('managed_server_id')->orderBy('ip')->get();
+            ->orderBy('managed_server_id')->orderBy('ip')->get()
+            ->filter(fn (ManagedServerIp $ip): bool => ManagedServerIp::isPublicAddress($ip->ip))
+            ->values();
         $projects = WorkspaceGoogleProject::query()->availableTo($workspace, $request->user())
             ->orderByDesc('id')->get();
 

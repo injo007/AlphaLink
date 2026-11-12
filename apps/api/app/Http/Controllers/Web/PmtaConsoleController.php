@@ -195,7 +195,9 @@ class PmtaConsoleController extends Controller
             'servers' => $this->servers($workspaceModel),
             'ips' => ManagedServerIp::query()->where('workspace_id', $workspaceModel->getKey())->where('is_active', true)
                 ->whereHas('server', fn (Builder $query) => $query->where('is_active', true)->where('is_installed', true))
-                ->with('server:id,name')->orderBy('ip')->get(),
+                ->with('server:id,name')->orderBy('ip')->get()
+                ->filter(fn (ManagedServerIp $ip): bool => ManagedServerIp::isPublicAddress($ip->ip))
+                ->values(),
         ]);
     }
 
@@ -389,7 +391,9 @@ class PmtaConsoleController extends Controller
             'servers' => $this->servers($workspaceModel),
             'ips' => ManagedServerIp::query()->where('workspace_id', $workspaceModel->getKey())->where('is_active', true)
                 ->whereHas('server', fn (Builder $query) => $query->where('is_active', true)->where('is_installed', true))
-                ->with('server:id,name')->orderBy('ip')->get(),
+                ->with('server:id,name')->orderBy('ip')->get()
+                ->filter(fn (ManagedServerIp $ip): bool => ManagedServerIp::isPublicAddress($ip->ip))
+                ->values(),
             'savedWebmailUsername' => trim((string) ($settings?->webmail_username ?? '')),
             'hasSavedWebmailPassword' => filled($settings?->webmail_password),
             'pmtaPort' => (int) ($settings?->pmta_port ?? config('infrastructure.pmta_port', 1212)),

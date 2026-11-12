@@ -5,6 +5,7 @@ namespace Tests\Unit;
 use App\Services\Infrastructure\AlphaLinkCentos9HttpsDeploymentStage;
 use App\Services\Infrastructure\AlphaLinkInstallerRemoteCommandTransport;
 use App\Services\Infrastructure\AlphaLinkInstallerRemoteFileTransport;
+use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 
 class AlphaLinkCentos9HttpsDeploymentStageTest extends TestCase
@@ -25,34 +26,84 @@ class AlphaLinkCentos9HttpsDeploymentStageTest extends TestCase
         $certificateReady = (new AlphaLinkCentos9HttpsDeploymentStage)->run($commands, 'sender.example.test', ['relay.example.test', 'mail.example.test']);
 
         $this->assertSame([
-            'rpm -qa | grep -qw httpd || dnf -y install httpd;',
-            'systemctl enable --now httpd',
-            'rpm -qa | grep -qw certbot || dnf -y install certbot;',
-            'rpm -qa | grep -qw python3-certbot-apache || dnf -y install python3-certbot-apache;',
-            "certbot --apache --no-redirect -d 'sender.example.test,relay.example.test,mail.example.test' -m 'cert@sender.example.test' -n --agree-tos",
+            '(rpm -q httpd >/dev/null 2>&1 || dnf -y install httpd >/dev/null 2>&1) && (rpm -q mod_ssl >/dev/null 2>&1 || dnf -y install mod_ssl >/dev/null 2>&1) && systemctl enable --now httpd && httpd -t >/dev/null 2>&1 && printf ALPHALINK_APACHE_HTTPS_READY',
+            '(rpm -q certbot >/dev/null 2>&1 || dnf -y install certbot >/dev/null 2>&1) && (rpm -q python3-certbot-apache >/dev/null 2>&1 || dnf -y install python3-certbot-apache >/dev/null 2>&1) && printf ALPHALINK_CERTBOT_READY',
+            "certbot --apache --no-redirect -d 'sender.example.test,relay.example.test,mail.example.test' -m 'cert@sender.example.test' -n --agree-tos >/dev/null 2>&1 && printf ALPHALINK_CERTIFICATE_REQUESTED",
             "test -s '/etc/letsencrypt/live/sender.example.test/fullchain.pem' && test -s '/etc/letsencrypt/live/sender.example.test/privkey.pem' && printf ALPHALINK_DOMAIN_CERTIFICATE_READY",
             "(crontab -l | grep 'certbot') || { crontab -l; echo '0 0 */15 * * certbot renew'; } | crontab -",
-        ], array_slice($commands->commands, 0, 7));
+        ], array_slice($commands->commands, 0, 5));
         $this->assertTrue($certificateReady);
-        $this->assertCount(8, $commands->commands);
-        $this->assertStringContainsString('ALPHALINK_TRACKING_READY', $commands->commands[7]);
-        $this->assertStringContainsString('ALPHALINK_TRACKING_ROUTES', $commands->commands[7]);
-        $this->assertStringContainsString('RewriteRule ^/healthz$ /index.php [END,QSA]', $commands->commands[7]);
-        $this->assertStringContainsString('RewriteRule ^/([A-Za-z0-9]{10}[roubROUB][A-Za-z0-9_-]{1,4096}(?:/[A-Za-z0-9_-]+)*)$ /index.php?__alphalink_long_uri=$1 [END,QSA,B]', $commands->commands[7]);
-        $this->assertStringContainsString('sender_example_test-le-ssl.conf', $commands->commands[7]);
+        $this->assertCount(6, $commands->commands);
+        $this->assertStringContainsString('mod_ssl', $commands->commands[0]);
+        $this->assertStringContainsString('ALPHALINK_TRACKING_READY', $commands->commands[5]);
+        $this->assertStringContainsString('ALPHALINK_TRACKING_ROUTES', $commands->commands[5]);
+        $this->assertStringContainsString('RewriteRule ^/healthz$ /index.php [END,QSA]', $commands->commands[5]);
+        $this->assertStringContainsString('RewriteRule ^/([A-Za-z0-9]{10}[roubROUB][A-Za-z0-9_-]{1,4096}(?:/[A-Za-z0-9_-]+)*)$ /index.php?__alphalink_long_uri=$1 [END,QSA,B]', $commands->commands[5]);
+        $this->assertStringContainsString('sender.example.test-le-ssl.conf', $commands->commands[5]);
     }
 
-    public function test_domain_values_are_shell_quoted_in_the_certbot_request(): void
+    public function test_invalid_certificate_domains_are_rejected_before_remote_commands(): void
     {
         $commands = $this->commands();
-        $domain = 'sender.test; touch /tmp/synthetic';
+        $domain = 'sender.test;touch';
 
-        (new AlphaLinkCentos9HttpsDeploymentStage)->run($commands, $domain, []);
+        try {
+            (new AlphaLinkCentos9HttpsDeploymentStage)->run($commands, $domain, []);
+            $this->fail('A non-DNS certificate name must be rejected.');
+        } catch (InvalidArgumentException $exception) {
+            $this->assertSame('The certificate domain must be a valid DNS hostname.', $exception->getMessage());
+        }
 
-        $this->assertSame(
-            'certbot --apache --no-redirect -d '.escapeshellarg($domain).' -m '.escapeshellarg('cert@'.$domain).' -n --agree-tos',
-            $commands->commands[4],
-        );
+        $this->assertSame([], $commands->commands);
+    }
+
+    public function test_apache_tls_prerequisite_failure_stops_before_certbot(): void
+    {
+        $commands = new class implements AlphaLinkInstallerRemoteCommandTransport
+        {
+            /** @var list<string> */
+            public array $commands = [];
+
+            public function exec(string $command): bool|string
+            {
+                $this->commands[] = $command;
+
+                return '';
+            }
+        };
+
+        $certificateReady = (new AlphaLinkCentos9HttpsDeploymentStage)->run($commands, 'sender.example.test');
+
+        $this->assertFalse($certificateReady);
+        $this->assertCount(1, $commands->commands);
+        $this->assertStringContainsString('mod_ssl', $commands->commands[0]);
+    }
+
+    public function test_certbot_failure_does_not_report_domain_tls_ready(): void
+    {
+        $commands = new class implements AlphaLinkInstallerRemoteCommandTransport
+        {
+            /** @var list<string> */
+            public array $commands = [];
+
+            public function exec(string $command): bool|string
+            {
+                $this->commands[] = $command;
+                foreach (['ALPHALINK_APACHE_HTTPS_READY', 'ALPHALINK_CERTBOT_READY'] as $marker) {
+                    if (str_contains($command, $marker)) {
+                        return $marker;
+                    }
+                }
+
+                return '';
+            }
+        };
+
+        $certificateReady = (new AlphaLinkCentos9HttpsDeploymentStage)->run($commands, 'sender.example.test');
+
+        $this->assertFalse($certificateReady);
+        $this->assertCount(3, $commands->commands);
+        $this->assertStringContainsString('ALPHALINK_CERTIFICATE_REQUESTED', $commands->commands[2]);
     }
 
     public function test_pmta_monitor_uses_the_domain_certificate_and_keeps_an_http_rollback(): void
@@ -244,6 +295,15 @@ class AlphaLinkCentos9HttpsDeploymentStageTest extends TestCase
             {
                 $this->commands[] = $command;
 
+                if (str_contains($command, 'ALPHALINK_APACHE_HTTPS_READY')) {
+                    return 'ALPHALINK_APACHE_HTTPS_READY';
+                }
+                if (str_contains($command, 'ALPHALINK_CERTBOT_READY')) {
+                    return 'ALPHALINK_CERTBOT_READY';
+                }
+                if (str_contains($command, 'ALPHALINK_CERTIFICATE_REQUESTED')) {
+                    return 'ALPHALINK_CERTIFICATE_REQUESTED';
+                }
                 if (str_contains($command, 'ALPHALINK_PMTA_PROXY_READY')) {
                     return 'ALPHALINK_PMTA_PROXY_READY';
                 }

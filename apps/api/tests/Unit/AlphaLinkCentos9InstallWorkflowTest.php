@@ -701,6 +701,18 @@ class RecordingWorkflowSession implements AlphaLinkInstallerRemoteCommandTranspo
         if (str_contains($command, 'ALPHALINK_CERTIFICATE_PORTS_READY')) {
             return 'ALPHALINK_CERTIFICATE_PORTS_READY';
         }
+        if (str_contains($command, 'ALPHALINK_APACHE_HTTPS_READY')) {
+            return 'ALPHALINK_APACHE_HTTPS_READY';
+        }
+        if (str_contains($command, 'ALPHALINK_CERTBOT_READY')) {
+            return 'ALPHALINK_CERTBOT_READY';
+        }
+        if (str_contains($command, 'ALPHALINK_CERTIFICATE_REQUESTED')) {
+            return 'ALPHALINK_CERTIFICATE_REQUESTED';
+        }
+        if (str_contains($command, 'ALPHALINK_DKIM_READY')) {
+            return 'ALPHALINK_DKIM_READY';
+        }
         if (str_contains($command, 'ALPHALINK_DOMAIN_CERTIFICATE_READY')) {
             return 'ALPHALINK_DOMAIN_CERTIFICATE_READY';
         }

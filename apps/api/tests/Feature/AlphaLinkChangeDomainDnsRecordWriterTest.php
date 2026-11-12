@@ -83,7 +83,7 @@ class AlphaLinkChangeDomainDnsRecordWriterTest extends TestCase
         ], $requests[0][2]);
     }
 
-    public function test_cloudflare_install_dns_deletes_existing_records_before_adding_new_ones(): void
+    public function test_cloudflare_install_dns_replaces_only_managed_records_and_preserves_unrelated_records(): void
     {
         $zoneId = str_repeat('a', 32);
         $dnsRecords = [[
@@ -157,9 +157,7 @@ class AlphaLinkChangeDomainDnsRecordWriterTest extends TestCase
         self::assertCount(2, $batchPayloads);
         self::assertSame([
             'deletes' => [
-                ['id' => str_repeat('d', 32)],
                 ['id' => str_repeat('e', 32)],
-                ['id' => str_repeat('f', 32)],
             ],
         ], $batchPayloads[0]);
         self::assertSame([
@@ -169,9 +167,18 @@ class AlphaLinkChangeDomainDnsRecordWriterTest extends TestCase
                 ['type' => 'TXT', 'name' => 'spf.example.co.uk', 'content' => '"v=spf1 ip4:203.0.113.12 -all"', 'ttl' => 300],
             ],
         ], $batchPayloads[1]);
-        self::assertSame([], array_values(array_filter(
+        self::assertSame([
+            [
+                'id' => str_repeat('d', 32), 'type' => 'A', 'name' => 'unrelated.example.co.uk',
+                'content' => '198.51.100.4', 'ttl' => 300, 'proxied' => false,
+            ],
+            [
+                'id' => str_repeat('f', 32), 'type' => 'TXT', 'name' => 'spf.example.co.uk',
+                'content' => '"google-site-verification=keep-me"', 'ttl' => 3600,
+            ],
+        ], array_values(array_filter(
             $dnsRecords,
-            static fn (array $record): bool => in_array($record['id'], [str_repeat('d', 32), str_repeat('e', 32), str_repeat('f', 32)], true)
+            static fn (array $record): bool => in_array($record['id'], [str_repeat('d', 32), str_repeat('f', 32)], true)
         )));
         self::assertCount(2, Http::recorded(fn ($request) => $request->method() === 'GET'
             && str_contains($request->url(), '/dns_records')));

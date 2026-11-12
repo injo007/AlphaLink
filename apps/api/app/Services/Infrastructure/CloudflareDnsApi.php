@@ -200,7 +200,12 @@ class CloudflareDnsApi
         $deletes = [];
         foreach ($current as $item) {
             $type = strtoupper((string) ($item['type'] ?? ''));
-            if (in_array($type, ['NS', 'SOA'], true)) {
+            $name = strtolower(rtrim((string) ($item['name'] ?? ''), '.'));
+            $key = $name.'|'.$type;
+            if (! isset($desiredGroups[$key])) {
+                continue;
+            }
+            if ($type === 'TXT' && ! $this->isManagedEmailAuthTxt((string) ($item['content'] ?? ''))) {
                 continue;
             }
             $id = (string) ($item['id'] ?? '');
@@ -244,6 +249,9 @@ class CloudflareDnsApi
                 $type = strtoupper((string) ($item['type'] ?? ''));
                 $name = strtolower(rtrim((string) ($item['name'] ?? ''), '.'));
                 if ($name.'|'.$type !== $key) {
+                    continue;
+                }
+                if ($type === 'TXT' && ! $this->isManagedEmailAuthTxt((string) ($item['content'] ?? ''))) {
                     continue;
                 }
 

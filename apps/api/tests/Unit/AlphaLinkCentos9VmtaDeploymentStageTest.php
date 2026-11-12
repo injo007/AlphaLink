@@ -7,6 +7,7 @@ use App\Services\Infrastructure\AlphaLinkCentos9VmtaDeploymentStage;
 use App\Services\Infrastructure\AlphaLinkInstallerRemoteCommandTransport;
 use App\Services\Infrastructure\AlphaLinkInstallerRemoteFileTransport;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 class AlphaLinkCentos9VmtaDeploymentStageTest extends TestCase
 {
@@ -56,31 +57,106 @@ class AlphaLinkCentos9VmtaDeploymentStageTest extends TestCase
         $this->assertSame('systemctl restart pmtahttp;', $transport->events[array_key_last($transport->events)]['command']);
     }
 
-    public function test_failed_upload_results_do_not_suppress_reference_post_upload_commands(): void
+    public function test_failed_vmta_upload_stops_before_restarting_pmta(): void
     {
         $transport = $this->transport();
         $transport->uploadResults['/etc/pmta/conf/vmta'] = false;
-        $transport->uploadResults['/etc/pmta/dkim'] = false;
         $stage = new AlphaLinkCentos9VmtaDeploymentStage(new AlphaLinkBulkInstallVmtaPlanner);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('The PMTA Virtual MTA configuration could not be uploaded.');
 
         $stage->run(
             $transport,
             $transport,
-            true,
+            false,
             [['ip' => '203.0.113.20', 'sub' => '', 'domain' => 'sender.example']],
             [],
             'selector-one',
-            true,
-            'synthetic key bytes',
+            false,
+            '',
         );
+    }
 
+    public function test_failed_dkim_key_upload_stops_before_restarting_pmta(): void
+    {
+        $transport = $this->transport();
+        $transport->uploadResults['/etc/pmta/dkim'] = false;
+        $stage = new AlphaLinkCentos9VmtaDeploymentStage(new AlphaLinkBulkInstallVmtaPlanner);
+
+        try {
+            $stage->run(
+                $transport,
+                $transport,
+                true,
+                [['ip' => '203.0.113.20', 'sub' => '', 'domain' => 'sender.example']],
+                [],
+                'selector-one',
+                true,
+                'synthetic key bytes',
+            );
+            $this->fail('A failed DKIM key upload must stop the reinstall.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('The selected DKIM private key could not be uploaded to PMTA.', $exception->getMessage());
+        }
+
+        $commands = array_column(array_filter($transport->events, fn (array $event): bool => $event['type'] === 'command'), 'command');
+        $this->assertSame([], $commands);
         $destinations = array_column(array_filter($transport->events, fn (array $event): bool => $event['type'] === 'upload'), 'destination');
         $this->assertSame(['/etc/pmta/conf/vmta', '/etc/pmta/settings/inbound', '/etc/pmta/dkim'], $destinations);
-        $this->assertSame([
-            'chown -R pmta:pmta /etc/pmta',
-            'systemctl restart pmta;',
-            'systemctl restart pmtahttp;',
-        ], array_column(array_filter($transport->events, fn (array $event): bool => $event['type'] === 'command'), 'command'));
+    }
+
+    public function test_failed_dkim_domains_upload_stops_before_restarting_pmta(): void
+    {
+        $transport = $this->transport();
+        $transport->uploadResults['/etc/pmta/conf/dkim'] = false;
+        $stage = new AlphaLinkCentos9VmtaDeploymentStage(new AlphaLinkBulkInstallVmtaPlanner);
+
+        try {
+            $stage->run(
+                $transport,
+                $transport,
+                true,
+                [['ip' => '203.0.113.20', 'sub' => '', 'domain' => 'sender.example']],
+                [],
+                'selector-one',
+                true,
+                'synthetic key bytes',
+            );
+            $this->fail('A failed DKIM domains upload must stop the reinstall.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('The selected PMTA DKIM domain configuration could not be uploaded.', $exception->getMessage());
+        }
+
+        $commands = array_column(array_filter($transport->events, fn (array $event): bool => $event['type'] === 'command'), 'command');
+        $this->assertSame([], $commands);
+    }
+
+    public function test_invalid_uploaded_dkim_key_or_selector_stops_before_restarting_pmta(): void
+    {
+        $transport = $this->transport();
+        $transport->dkimReady = false;
+        $stage = new AlphaLinkCentos9VmtaDeploymentStage(new AlphaLinkBulkInstallVmtaPlanner);
+
+        try {
+            $stage->run(
+                $transport,
+                $transport,
+                true,
+                [['ip' => '203.0.113.20', 'sub' => '', 'domain' => 'sender.example']],
+                [],
+                'selector-one',
+                true,
+                'synthetic key bytes',
+            );
+            $this->fail('A failed remote DKIM verification must stop the reinstall.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('PMTA did not verify the selected DKIM key and domain configuration.', $exception->getMessage());
+        }
+
+        $commands = array_column(array_filter($transport->events, fn (array $event): bool => $event['type'] === 'command'), 'command');
+        $this->assertCount(1, $commands);
+        $this->assertStringContainsString('openssl pkey', $commands[0]);
     }
 
     private function transport(): object
@@ -93,11 +169,15 @@ class AlphaLinkCentos9VmtaDeploymentStageTest extends TestCase
             /** @var array<string, bool> */
             public array $uploadResults = [];
 
+            public bool $dkimReady = true;
+
             public function exec(string $command): bool|string
             {
                 $this->events[] = ['type' => 'command', 'command' => $command];
 
-                return '';
+                return $this->dkimReady && str_contains($command, 'ALPHALINK_DKIM_READY')
+                    ? 'ALPHALINK_DKIM_READY'
+                    : '';
             }
 
             public function upload(string $contents, string $destination): bool

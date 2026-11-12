@@ -2006,8 +2006,8 @@
 
                     closeCompose();
                     setStatus('success', `Sent via PMTA (${payload.vmta}) on port ${payload.port}.${payload.saved_to_sent ? ' Saved copy to Sent.' : ''}`);
-                    if (activeFolder.toLowerCase() === 'sent' || composeTo.value.includes(composeFrom.value)) {
-                        setTimeout(connectAndLoad, 1200);
+                    if (payload.saved_to_sent || activeFolder.toLowerCase() === 'sent' || composeTo.value.includes(composeFrom.value)) {
+                        setTimeout(connectAndLoad, 900);
                     }
                     if (!String(composeTo.value || '').includes(root.dataset.defaultDomain || '__never__')) {
                         setTimeout(() => loadDiagnostics(true), 4500);

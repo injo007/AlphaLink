@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceInfrastructureSettings;
 use App\Services\Infrastructure\AlphaLinkImapWebmailClient;
+use App\Services\Infrastructure\AlphaLinkWebmailOutboundSender;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Mockery;
@@ -242,5 +243,172 @@ class AlphaLinkImapWebmailTest extends TestCase
         $this->assertSame('Hello World', $parsed['text']);
         $this->assertSame('<h1>Hello HTML</h1>', $parsed['html']);
         $this->assertSame(['report.pdf'], $parsed['attachments']);
+        $this->assertSame('report.pdf', $parsed['attachment_items'][0]['filename']);
+        $this->assertSame('application/pdf', $parsed['attachment_items'][0]['content_type']);
+        $this->assertSame(7, $parsed['attachment_items'][0]['size']);
+    }
+
+    public function test_mime_parser_extracts_spf_dkim_dmarc_auth_and_inline_cid_images(): void
+    {
+        $pngBytes = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', true);
+        $raw = implode("\r\n", [
+            'From: "Bounce Probe" <probe@sender.example>',
+            'To: alimap_saved@inbox.example.test',
+            'Subject: Auth Header Check',
+            'Return-Path: <bounces@sender.example>',
+            'Received: from mx1.sender.example (mx1.sender.example [203.0.113.10]) by zonevortex.fun with ESMTP; Thu, 12 Nov 2026 00:10:00 +0000',
+            'Authentication-Results: zonevortex.fun; spf=pass (sender IP is 203.0.113.10) smtp.mailfrom=sender.example; dkim=pass (2048-bit key) header.d=sender.example; dmarc=pass (p=reject) header.from=sender.example',
+            'DKIM-Signature: v=1; a=rsa-sha256; d=sender.example; s=dkim2026; c=relaxed/relaxed',
+            'X-virtual-MTA: mta-198.51.100.90',
+            'MIME-Version: 1.0',
+            'Content-Type: multipart/related; boundary="REL1"',
+            '',
+            '--REL1',
+            'Content-Type: text/html; charset=UTF-8',
+            '',
+            '<p>Logo: <img src="cid:logo123"></p>',
+            '--REL1',
+            'Content-Type: image/png; name="logo.png"',
+            'Content-ID: <logo123>',
+            'Content-Transfer-Encoding: base64',
+            '',
+            base64_encode((string) $pngBytes),
+            '--REL1--',
+        ]);
+
+        $parsed = (new AlphaLinkImapWebmailClient)->parseMimeMessage($raw);
+
+        $this->assertSame('pass', $parsed['auth']['spf']['status']);
+        $this->assertSame('pass', $parsed['auth']['dkim']['status']);
+        $this->assertSame('sender.example', $parsed['auth']['dkim']['domain']);
+        $this->assertSame('dkim2026', $parsed['auth']['dkim']['selector']);
+        $this->assertSame('pass', $parsed['auth']['dmarc']['status']);
+        $this->assertSame('reject', $parsed['auth']['dmarc']['policy']);
+        $this->assertSame('mta-198.51.100.90', $parsed['auth']['virtual_mta']);
+        $this->assertSame('203.0.113.10', $parsed['auth']['sender_ip']);
+        $this->assertCount(1, $parsed['received_hops']);
+        $this->assertStringContainsString('data:image/png;base64,', $parsed['html']);
+    }
+
+    public function test_webmail_page_renders_three_pane_workspace_with_sibling_domain_switcher(): void
+    {
+        $secondDomain = SendingDomain::query()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'name' => 'second.example.test',
+            'state' => 'verified',
+            'verification_token' => 'tok-second',
+            'created_by' => $this->owner->getKey(),
+            'status' => 'used',
+            'is_our' => true,
+            'is_active' => true,
+        ]);
+        ManagedServerIp::query()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'managed_server_id' => $this->server->getKey(),
+            'sending_domain_id' => $secondDomain->getKey(),
+            'ip' => '198.51.100.91',
+            'type' => 'ipv4',
+            'dns' => 'second.example.test',
+            'is_active' => true,
+        ]);
+
+        WorkspaceInfrastructureSettings::query()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'webmail_username' => 'alimap_saved',
+            'webmail_password' => 'super-secret-imap-pass',
+        ]);
+
+        $url = route('console.infrastructure.my-ips.webmail', [$this->workspace->getKey(), $this->ip->getKey()]);
+
+        $this->get($url)
+            ->assertOk()
+            ->assertSee('COMMAND OS WEBMAIL')
+            ->assertSee('SERVER DOMAINS (2)')
+            ->assertSee('second.example.test')
+            ->assertSee('mta-198.51.100.90')
+            ->assertSee('OUTBOUND PMTA COMPOSER');
+    }
+
+    public function test_webmail_flags_bulk_delete_attachment_download_and_pmta_send_endpoints(): void
+    {
+        WorkspaceInfrastructureSettings::query()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'webmail_username' => 'alimap_saved',
+            'webmail_password' => 'saved-imap-secret',
+        ]);
+
+        $client = Mockery::mock(AlphaLinkImapWebmailClient::class);
+        $client->shouldReceive('connect')
+            ->times(5)
+            ->with('198.51.100.90', 143, 'alimap_saved@inbox.example.test', 'saved-imap-secret', 'auto');
+        $client->shouldReceive('folderCounts')->once()->with(['INBOX', 'Sent'])->andReturn([
+            'INBOX' => ['messages' => 2, 'unseen' => 1],
+            'Sent' => ['messages' => 0, 'unseen' => 0],
+        ]);
+        $client->shouldReceive('listFolders')->once()->andReturn(['INBOX', 'Sent']);
+        $client->shouldReceive('listMessages')->once()->with('INBOX', 50)->andReturn([]);
+        $client->shouldReceive('setMessageFlags')->once()->with('INBOX', [10, 11], ['\\Flagged'], []);
+        $client->shouldReceive('bulkDeleteMessages')->once()->with('INBOX', [10, 11])->andReturn(2);
+        $client->shouldReceive('fetchAttachment')->once()->with('INBOX', 12, 0)->andReturn([
+            'filename' => 'trace.txt',
+            'content_type' => 'text/plain',
+            'content' => 'attachment body bytes',
+        ]);
+        $client->shouldReceive('appendMessage')->once()->with('Sent', Mockery::type('string'));
+        $client->shouldReceive('disconnect')->times(5);
+        $this->app->instance(AlphaLinkImapWebmailClient::class, $client);
+
+        $sender = Mockery::mock(AlphaLinkWebmailOutboundSender::class);
+        $sender->shouldReceive('resolveVmtaName')->andReturn('mta-198.51.100.90');
+        $sender->shouldReceive('resolvePmtaPort')->andReturn(1212);
+        $sender->shouldReceive('send')
+            ->once()
+            ->with(
+                Mockery::on(fn ($ws) => $ws->is($this->workspace)),
+                Mockery::on(fn ($srv) => $srv->is($this->server)),
+                Mockery::on(fn ($ip) => $ip->is($this->ip)),
+                Mockery::on(fn ($p) => $p['from'] === 'alimap_saved@inbox.example.test' && $p['to'] === ['dest@example.test'] && $p['subject'] === 'Test Outbound'),
+            )
+            ->andReturn([
+                'vmta' => 'mta-198.51.100.90',
+                'port' => 1212,
+                'message_id' => '<abc@inbox.example.test>',
+                'raw_message' => "Subject: Test Outbound\r\n\r\nHello",
+            ]);
+        $this->app->instance(AlphaLinkWebmailOutboundSender::class, $sender);
+
+        $this->postJson(route('console.infrastructure.my-ips.webmail.connect', [$this->workspace->getKey(), $this->ip->getKey()]), [
+            'include_counts' => true,
+        ])
+            ->assertOk()
+            ->assertJsonPath('folder_counts.INBOX.unseen', 1);
+
+        $this->postJson(route('console.infrastructure.my-ips.webmail.flags', [$this->workspace->getKey(), $this->ip->getKey()]), [
+            'folder' => 'INBOX',
+            'uids' => [10, 11],
+            'action' => 'star',
+        ])->assertOk()->assertJsonPath('updated', true);
+
+        $this->postJson(route('console.infrastructure.my-ips.webmail.bulk-delete', [$this->workspace->getKey(), $this->ip->getKey()]), [
+            'folder' => 'INBOX',
+            'uids' => [10, 11],
+        ])->assertOk()->assertJsonPath('deleted', 2);
+
+        $this->get(route('console.infrastructure.my-ips.webmail.attachment', [$this->workspace->getKey(), $this->ip->getKey(), 12, 0]).'?folder=INBOX')
+            ->assertOk()
+            ->assertHeader('Content-Disposition', 'attachment; filename="trace.txt"')
+            ->assertSee('attachment body bytes', false);
+
+        $this->postJson(route('console.infrastructure.my-ips.webmail.send', [$this->workspace->getKey(), $this->ip->getKey()]), [
+            'from' => 'alimap_saved@inbox.example.test',
+            'to' => 'dest@example.test',
+            'subject' => 'Test Outbound',
+            'text' => 'Hello',
+            'save_to_sent' => true,
+        ])
+            ->assertOk()
+            ->assertJsonPath('sent', true)
+            ->assertJsonPath('vmta', 'mta-198.51.100.90')
+            ->assertJsonPath('saved_to_sent', true);
     }
 }

@@ -40,6 +40,7 @@ use App\Services\Infrastructure\AlphaLinkReinstallSelectionLoader;
 use App\Services\Infrastructure\AlphaLinkReinstallSelectionValidator;
 use App\Services\Infrastructure\AlphaLinkServerConsole;
 use App\Services\Infrastructure\AlphaLinkSingleInstallIpLoader;
+use App\Services\Infrastructure\AlphaLinkWebmailOutboundSender;
 use App\Services\Infrastructure\CloudflareDnsApi;
 use App\Services\Infrastructure\CloudflareDnsApiException;
 use App\Services\Infrastructure\HostProbeException;
@@ -55,6 +56,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class InfrastructureConsoleController extends Controller
@@ -1847,8 +1849,12 @@ class InfrastructureConsoleController extends Controller
         }, sprintf('ips_%s.csv', now()->timestamp), ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
-    public function webmail(Request $request, string $workspaceId, int $ipId): View
-    {
+    public function webmail(
+        Request $request,
+        string $workspaceId,
+        int $ipId,
+        AlphaLinkWebmailOutboundSender $sender,
+    ): View {
         $workspace = $this->workspaceForServerControl($request->user(), $workspaceId);
         $ip = $this->webmailIpForWorkspace($workspace, $ipId);
         $settings = $workspace->infrastructureSettings;
@@ -1857,18 +1863,52 @@ class InfrastructureConsoleController extends Controller
         $defaultLogin = $this->defaultWebmailLogin($savedUsername, (string) $ip->dns);
         $canUpdateSettings = in_array((string) $workspace->pivot->role, ['owner', 'admin'], true);
 
+        $siblingIps = $this->myIpsQuery($workspace, (string) $ip->managed_server_id)
+            ->get()
+            ->map(static fn (ManagedServerIp $row): array => [
+                'id' => (int) $row->getKey(),
+                'ip' => (string) $row->ip,
+                'dns' => (string) ($row->dns ?? ''),
+                'type' => (string) ($row->type ?? 'ipv4'),
+                'url' => route('console.infrastructure.my-ips.webmail', [$workspace->id, $row->getKey()]),
+                'is_current' => (int) $row->getKey() === (int) $ip->getKey(),
+            ])
+            ->values()
+            ->all();
+
+        $defaultSender = $defaultLogin !== ''
+            ? (str_contains($defaultLogin, '@') ? $defaultLogin : ($ip->dns ? $defaultLogin.'@'.$ip->dns : $defaultLogin))
+            : ($ip->dns ? 'postmaster@'.$ip->dns : '');
+
+        $vmtaName = '';
+        $pmtaPort = null;
+        try {
+            $vmtaName = $sender->resolveVmtaName($ip);
+            $pmtaPort = $sender->resolvePmtaPort($workspace);
+        } catch (RuntimeException) {
+            // Non-blocking: compose UI surfaces availability status cleanly.
+        }
+
         return view('console.infrastructure.webmail', [
             'workspace' => $workspace,
             'ip' => $ip,
             'server' => $ip->server,
+            'siblingIps' => $siblingIps,
             'savedUsername' => $savedUsername,
             'defaultLogin' => $defaultLogin,
+            'defaultSender' => $defaultSender,
+            'vmtaName' => $vmtaName,
+            'pmtaPort' => $pmtaPort,
             'hasSavedPassword' => $hasSavedPassword,
             'canUpdateSettings' => $canUpdateSettings,
             'settingsUrl' => route('console.app-settings.index', $workspace->id),
             'connectUrl' => route('console.infrastructure.my-ips.webmail.connect', [$workspace->id, $ip->getKey()]),
             'messageUrlTemplate' => route('console.infrastructure.my-ips.webmail.message', [$workspace->id, $ip->getKey(), '__UID__']),
             'deleteUrlTemplate' => route('console.infrastructure.my-ips.webmail.delete', [$workspace->id, $ip->getKey(), '__UID__']),
+            'flagsUrl' => route('console.infrastructure.my-ips.webmail.flags', [$workspace->id, $ip->getKey()]),
+            'bulkDeleteUrl' => route('console.infrastructure.my-ips.webmail.bulk-delete', [$workspace->id, $ip->getKey()]),
+            'attachmentUrlTemplate' => route('console.infrastructure.my-ips.webmail.attachment', [$workspace->id, $ip->getKey(), '__UID__', '__INDEX__']),
+            'sendUrl' => route('console.infrastructure.my-ips.webmail.send', [$workspace->id, $ip->getKey()]),
         ]);
     }
 
@@ -1889,7 +1929,9 @@ class InfrastructureConsoleController extends Controller
             'port' => ['sometimes', 'integer', Rule::in([143, 993])],
             'security' => ['sometimes', 'string', Rule::in(['auto', 'starttls', 'ssl', 'plain'])],
             'folder' => ['sometimes', 'string', 'max:128'],
+            'limit' => ['sometimes', 'integer', 'min:10', 'max:100'],
             'save_to_settings' => ['sometimes', 'boolean'],
+            'include_counts' => ['sometimes', 'boolean'],
         ]);
 
         $savedUsername = trim((string) ($settings?->webmail_username ?? ''));
@@ -1936,11 +1978,14 @@ class InfrastructureConsoleController extends Controller
         $port = (int) ($data['port'] ?? 143);
         $security = (string) ($data['security'] ?? 'auto');
         $folder = trim((string) ($data['folder'] ?? 'INBOX')) ?: 'INBOX';
+        $limit = (int) ($data['limit'] ?? 50);
+        $includeCounts = (bool) ($data['include_counts'] ?? false);
 
         try {
             $imap->connect($host, $port, $loginUsername, $loginPassword, $security);
             $folders = $imap->listFolders();
-            $messages = $imap->listMessages($folder, 50);
+            $folderCounts = $includeCounts ? $imap->folderCounts($folders) : [];
+            $messages = $imap->listMessages($folder, $limit);
             $imap->disconnect();
         } catch (RuntimeException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
@@ -1958,9 +2003,11 @@ class InfrastructureConsoleController extends Controller
             'connected' => true,
             'host' => $host,
             'port' => $port,
+            'security' => $security,
             'username' => $loginUsername,
             'folder' => $folder,
             'folders' => $folders,
+            'folder_counts' => $folderCounts,
             'messages' => $messages,
         ]);
     }
@@ -2021,6 +2068,217 @@ class InfrastructureConsoleController extends Controller
         }
 
         return response()->json(['deleted' => true, 'uid' => $uid]);
+    }
+
+    public function webmailUpdateFlags(
+        Request $request,
+        string $workspaceId,
+        int $ipId,
+        AlphaLinkImapWebmailClient $imap,
+    ): JsonResponse {
+        $workspace = $this->workspaceForServerControl($request->user(), $workspaceId);
+        $ip = $this->webmailIpForWorkspace($workspace, $ipId);
+        $credentials = $this->resolveWebmailSessionCredentials($request, $workspace, $ip);
+
+        $data = $request->validate([
+            'folder' => ['sometimes', 'string', 'max:128'],
+            'uids' => ['required', 'array', 'min:1', 'max:100'],
+            'uids.*' => ['integer', 'min:1'],
+            'action' => ['required', 'string', Rule::in(['read', 'unread', 'star', 'unstar'])],
+        ]);
+
+        $folder = trim((string) ($data['folder'] ?? 'INBOX')) ?: 'INBOX';
+        $uids = array_values(array_map('intval', $data['uids']));
+        [$addFlags, $removeFlags] = match ($data['action']) {
+            'read' => [['\\Seen'], []],
+            'unread' => [[], ['\\Seen']],
+            'star' => [['\\Flagged'], []],
+            'unstar' => [[], ['\\Flagged']],
+        };
+
+        try {
+            $imap->connect(
+                $credentials['host'],
+                $credentials['port'],
+                $credentials['username'],
+                $credentials['password'],
+                $credentials['security'],
+            );
+            $imap->setMessageFlags($folder, $uids, $addFlags, $removeFlags);
+            $imap->disconnect();
+        } catch (RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        return response()->json(['updated' => true, 'uids' => $uids, 'action' => $data['action']]);
+    }
+
+    public function webmailBulkDelete(
+        Request $request,
+        string $workspaceId,
+        int $ipId,
+        AlphaLinkImapWebmailClient $imap,
+    ): JsonResponse {
+        $workspace = $this->workspaceForServerControl($request->user(), $workspaceId);
+        $ip = $this->webmailIpForWorkspace($workspace, $ipId);
+        $credentials = $this->resolveWebmailSessionCredentials($request, $workspace, $ip);
+
+        $data = $request->validate([
+            'folder' => ['sometimes', 'string', 'max:128'],
+            'uids' => ['required', 'array', 'min:1', 'max:100'],
+            'uids.*' => ['integer', 'min:1'],
+        ]);
+
+        $folder = trim((string) ($data['folder'] ?? 'INBOX')) ?: 'INBOX';
+        $uids = array_values(array_map('intval', $data['uids']));
+
+        try {
+            $imap->connect(
+                $credentials['host'],
+                $credentials['port'],
+                $credentials['username'],
+                $credentials['password'],
+                $credentials['security'],
+            );
+            $deleted = $imap->bulkDeleteMessages($folder, $uids);
+            $imap->disconnect();
+        } catch (RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        return response()->json(['deleted' => $deleted, 'uids' => $uids]);
+    }
+
+    public function webmailDownloadAttachment(
+        Request $request,
+        string $workspaceId,
+        int $ipId,
+        int $uid,
+        int $index,
+        AlphaLinkImapWebmailClient $imap,
+    ): Response {
+        $workspace = $this->workspaceForServerControl($request->user(), $workspaceId);
+        $ip = $this->webmailIpForWorkspace($workspace, $ipId);
+        $credentials = $this->resolveWebmailSessionCredentials($request, $workspace, $ip);
+        $folder = trim((string) $request->query('folder', 'INBOX')) ?: 'INBOX';
+
+        try {
+            $imap->connect(
+                $credentials['host'],
+                $credentials['port'],
+                $credentials['username'],
+                $credentials['password'],
+                $credentials['security'],
+            );
+            $attachment = $imap->fetchAttachment($folder, $uid, $index);
+            $imap->disconnect();
+        } catch (RuntimeException $exception) {
+            abort(422, $exception->getMessage());
+        }
+
+        $safeName = str_replace(['"', "\r", "\n", '/', '\\'], ['_', '', '', '_', '_'], $attachment['filename']);
+        $safeType = preg_replace('/[^a-z0-9.+_-]+\/[^a-z0-9.+_-]+/i', '', $attachment['content_type']) ?: 'application/octet-stream';
+
+        return response($attachment['content'], 200, [
+            'Content-Type' => $safeType,
+            'Content-Disposition' => 'attachment; filename="'.$safeName.'"',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    public function webmailSend(
+        Request $request,
+        string $workspaceId,
+        int $ipId,
+        AlphaLinkWebmailOutboundSender $sender,
+        AlphaLinkImapWebmailClient $imap,
+    ): JsonResponse {
+        $workspace = $this->workspaceForServerControl($request->user(), $workspaceId);
+        $ip = $this->webmailIpForWorkspace($workspace, $ipId);
+        $server = $ip->server;
+        if (! $server instanceof ManagedServer) {
+            return response()->json(['message' => 'Target mail server could not be resolved for this IP.'], 422);
+        }
+
+        $data = $request->validate([
+            'from' => ['required', 'email', 'max:255'],
+            'to' => ['required', 'string', 'max:1000'],
+            'cc' => ['nullable', 'string', 'max:1000'],
+            'subject' => ['required', 'string', 'max:500'],
+            'text' => ['required', 'string', 'max:100000'],
+            'html' => ['nullable', 'string', 'max:200000'],
+            'in_reply_to' => ['nullable', 'string', 'max:500'],
+            'references' => ['nullable', 'string', 'max:1500'],
+            'save_to_sent' => ['sometimes', 'boolean'],
+        ]);
+
+        $parseAddresses = static function (?string $raw): array {
+            $parts = preg_split('/[,;\r\n]+/', (string) $raw) ?: [];
+            $valid = [];
+            foreach ($parts as $part) {
+                $trimmed = trim($part);
+                if ($trimmed === '') {
+                    continue;
+                }
+                if (preg_match('/<\s*([^<>]+)\s*>/', $trimmed, $m) === 1) {
+                    $trimmed = trim($m[1]);
+                }
+                if (filter_var($trimmed, FILTER_VALIDATE_EMAIL) === false) {
+                    throw ValidationException::withMessages(['to' => "Invalid recipient email address: {$trimmed}"]);
+                }
+                $valid[] = $trimmed;
+            }
+
+            return array_values(array_unique($valid));
+        };
+
+        $toAddresses = $parseAddresses($data['to']);
+        if ($toAddresses === []) {
+            throw ValidationException::withMessages(['to' => 'Enter at least one valid recipient email address.']);
+        }
+        $ccAddresses = $parseAddresses($data['cc'] ?? '');
+
+        try {
+            $result = $sender->send($workspace, $server, $ip, [
+                'from' => trim((string) $data['from']),
+                'to' => $toAddresses,
+                'cc' => $ccAddresses,
+                'subject' => trim((string) $data['subject']),
+                'text' => (string) $data['text'],
+                'html' => (string) ($data['html'] ?? ''),
+                'in_reply_to' => (string) ($data['in_reply_to'] ?? ''),
+                'references' => (string) ($data['references'] ?? ''),
+            ]);
+        } catch (RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        $savedToSent = false;
+        if ((bool) ($data['save_to_sent'] ?? true)) {
+            try {
+                $credentials = $this->resolveWebmailSessionCredentials($request, $workspace, $ip);
+                $imap->connect(
+                    $credentials['host'],
+                    $credentials['port'],
+                    $credentials['username'],
+                    $credentials['password'],
+                    $credentials['security'],
+                );
+                $imap->appendMessage('Sent', $result['raw_message']);
+                $imap->disconnect();
+                $savedToSent = true;
+            } catch (Throwable) {
+                // Best-effort archive; PMTA submission already succeeded.
+            }
+        }
+
+        return response()->json([
+            'sent' => true,
+            'vmta' => $result['vmta'],
+            'port' => $result['port'],
+            'message_id' => $result['message_id'],
+            'saved_to_sent' => $savedToSent,
+        ]);
     }
 
     private function webmailIpForWorkspace(Workspace $workspace, int $ipId): ManagedServerIp

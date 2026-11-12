@@ -136,7 +136,36 @@ class AlphaLinkImapWebmailClient
     }
 
     /**
-     * @return list<array{uid: int, subject: string, from: string, to: string, date: string, size: int, seen: bool}>
+     * Fetch MESSAGES and UNSEEN counters for each mailbox folder.
+     *
+     * @param  list<string>  $folders
+     * @return array<string, array{messages: int, unseen: int}>
+     */
+    public function folderCounts(array $folders): array
+    {
+        $counts = [];
+        foreach ($folders as $folder) {
+            $counts[$folder] = ['messages' => 0, 'unseen' => 0];
+            try {
+                $resp = $this->command('STATUS '.$this->quoteString($folder).' (MESSAGES UNSEEN)');
+                foreach ($resp['lines'] as $line) {
+                    if (preg_match('/MESSAGES\s+(\d+)/i', $line, $m) === 1) {
+                        $counts[$folder]['messages'] = (int) $m[1];
+                    }
+                    if (preg_match('/UNSEEN\s+(\d+)/i', $line, $u) === 1) {
+                        $counts[$folder]['unseen'] = (int) $u[1];
+                    }
+                }
+            } catch (RuntimeException) {
+                // Virtual or uninitialized mbox INBOX before first inbound message safely reports 0/0.
+            }
+        }
+
+        return $counts;
+    }
+
+    /**
+     * @return list<array{uid: int, subject: string, from: string, to: string, date: string, size: int, seen: bool, flagged: bool, has_attachments: bool, message_id: string}>
      */
     public function listMessages(string $folder = 'INBOX', int $limit = 50): array
     {
@@ -169,7 +198,7 @@ class AlphaLinkImapWebmailClient
 
         $uids = array_slice(array_reverse($uids), 0, max(1, min(100, $limit)));
         $uidList = implode(',', $uids);
-        $fetch = $this->command("UID FETCH {$uidList} (UID FLAGS RFC822.SIZE INTERNALDATE BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE MESSAGE-ID)])");
+        $fetch = $this->command("UID FETCH {$uidList} (UID FLAGS RFC822.SIZE INTERNALDATE BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE MESSAGE-ID CONTENT-TYPE)])");
 
         $messages = $this->parseFetchHeaders($fetch['items']);
         usort($messages, static fn (array $a, array $b): int => $b['uid'] <=> $a['uid']);
@@ -178,7 +207,7 @@ class AlphaLinkImapWebmailClient
     }
 
     /**
-     * @return array{uid: int, subject: string, from: string, to: string, date: string, size: int, seen: bool, headers: array<string, string>, text: string, html: string, attachments: list<string>, raw_headers: string}
+     * @return array{uid: int, subject: string, from: string, to: string, cc: string, reply_to: string, return_path: string, message_id: string, in_reply_to: string, references: string, date: string, size: int, seen: bool, flagged: bool, headers: array<string, string>, text: string, html: string, attachments: list<string>, attachment_items: list<array{index: int, filename: string, content_type: string, size: int}>, raw_headers: string, auth: array<string, mixed>, received_hops: list<string>}
      */
     public function fetchMessage(string $folder, int $uid): array
     {
@@ -186,7 +215,7 @@ class AlphaLinkImapWebmailClient
             throw new RuntimeException('Invalid message UID.');
         }
 
-        $this->selectFolder($folder);
+        $this->selectFolder($folder, readOnly: false);
         $fetch = $this->command("UID FETCH {$uid} (UID FLAGS RFC822.SIZE INTERNALDATE BODY[])");
         $item = $fetch['items'][0] ?? null;
         if (! is_array($item)) {
@@ -201,15 +230,145 @@ class AlphaLinkImapWebmailClient
             'subject' => $parsed['headers']['subject'] ?? '(No Subject)',
             'from' => $parsed['headers']['from'] ?? 'Unknown',
             'to' => $parsed['headers']['to'] ?? '',
+            'cc' => $parsed['headers']['cc'] ?? '',
+            'reply_to' => $parsed['headers']['reply-to'] ?? '',
+            'return_path' => $parsed['headers']['return-path'] ?? '',
+            'message_id' => $parsed['headers']['message-id'] ?? '',
+            'in_reply_to' => $parsed['headers']['in-reply-to'] ?? '',
+            'references' => $parsed['headers']['references'] ?? '',
             'date' => $parsed['headers']['date'] ?? ($item['internaldate'] ?? ''),
             'size' => $item['size'] ?? strlen($raw),
             'seen' => in_array('\\Seen', $item['flags'] ?? [], true),
+            'flagged' => in_array('\\Flagged', $item['flags'] ?? [], true),
             'headers' => $parsed['headers'],
             'text' => $parsed['text'],
             'html' => $parsed['html'],
             'attachments' => $parsed['attachments'],
+            'attachment_items' => $parsed['attachment_items'],
             'raw_headers' => $parsed['raw_headers'],
+            'auth' => $parsed['auth'],
+            'received_hops' => $parsed['received_hops'],
         ];
+    }
+
+    /**
+     * Extract a specific downloadable attachment payload by zero-based index.
+     *
+     * @return array{filename: string, content_type: string, content: string}
+     */
+    public function fetchAttachment(string $folder, int $uid, int $attachmentIndex): array
+    {
+        if ($uid < 1 || $attachmentIndex < 0) {
+            throw new RuntimeException('Invalid attachment reference.');
+        }
+
+        $this->selectFolder($folder, readOnly: true);
+        $fetch = $this->command("UID FETCH {$uid} (UID BODY.PEEK[])");
+        $item = $fetch['items'][0] ?? null;
+        if (! is_array($item)) {
+            throw new RuntimeException('Requested email message could not be found in '.$folder.'.');
+        }
+
+        $parsed = $this->parseMimeMessage((string) ($item['literal'] ?? ''), includeAttachmentPayloads: true);
+        $attachment = $parsed['attachment_payloads'][$attachmentIndex] ?? null;
+        if (! is_array($attachment)) {
+            throw new RuntimeException('Requested attachment could not be found.');
+        }
+
+        return $attachment;
+    }
+
+    /**
+     * Add or remove IMAP flags (such as \Seen or \Flagged) on one or more UIDs.
+     *
+     * @param  list<int>  $uids
+     * @param  list<string>  $addFlags
+     * @param  list<string>  $removeFlags
+     */
+    public function setMessageFlags(string $folder, array $uids, array $addFlags = [], array $removeFlags = []): void
+    {
+        $validUids = array_values(array_unique(array_filter($uids, static fn (int $uid): bool => $uid > 0)));
+        if ($validUids === []) {
+            return;
+        }
+
+        $this->selectFolder($folder, readOnly: false);
+        $uidList = implode(',', $validUids);
+
+        $allowed = ['\\Seen', '\\Flagged', '\\Answered'];
+        $toAdd = array_values(array_intersect($addFlags, $allowed));
+        $toRemove = array_values(array_intersect($removeFlags, $allowed));
+
+        if ($toAdd !== []) {
+            $this->command("UID STORE {$uidList} +FLAGS.SILENT (".implode(' ', $toAdd).')');
+        }
+        if ($toRemove !== []) {
+            $this->command("UID STORE {$uidList} -FLAGS.SILENT (".implode(' ', $toRemove).')');
+        }
+    }
+
+    /**
+     * Delete multiple UIDs from the selected folder cleanly.
+     *
+     * @param  list<int>  $uids
+     */
+    public function bulkDeleteMessages(string $folder, array $uids): int
+    {
+        $validUids = array_values(array_unique(array_filter($uids, static fn (int $uid): bool => $uid > 0)));
+        if ($validUids === []) {
+            return 0;
+        }
+
+        $this->selectFolder($folder, readOnly: false);
+        $uidList = implode(',', $validUids);
+        $this->command("UID STORE {$uidList} +FLAGS (\\Deleted)");
+        $this->command('EXPUNGE');
+
+        return count($validUids);
+    }
+
+    /**
+     * Best-effort IMAP APPEND (used to store sent replies/messages in Sent folder).
+     *
+     * @param  list<string>  $flags
+     */
+    public function appendMessage(string $folder, string $rawMessage, array $flags = ['\\Seen']): void
+    {
+        if (! is_resource($this->socket)) {
+            return;
+        }
+
+        $normalized = str_replace(["\r\n", "\r", "\n"], "\r\n", $rawMessage);
+        $bytes = strlen($normalized);
+        $flagStr = implode(' ', array_intersect($flags, ['\\Seen', '\\Flagged', '\\Answered']));
+
+        // Ensure folder exists if Dovecot has not created Sent yet.
+        try {
+            $this->command('EXAMINE '.$this->quoteString($folder));
+        } catch (RuntimeException) {
+            try {
+                $this->command('CREATE '.$this->quoteString($folder));
+            } catch (RuntimeException) {
+                return;
+            }
+        }
+
+        $tag = 'A'.(++$this->tagCounter);
+        $cmd = sprintf('APPEND %s (%s) {%d}', $this->quoteString($folder), $flagStr, $bytes);
+        fwrite($this->socket, $tag.' '.$cmd."\r\n");
+
+        $cont = $this->readLine();
+        if (! str_starts_with($cont, '+')) {
+            return;
+        }
+
+        fwrite($this->socket, $normalized."\r\n");
+        while (true) {
+            $line = $this->readLine();
+            if ($line === '' || preg_match('/^'.preg_quote($tag, '/').'\s+(OK|NO|BAD)/i', $line) === 1) {
+                break;
+            }
+        }
     }
 
     public function deleteMessage(string $folder, int $uid): void
@@ -233,11 +392,11 @@ class AlphaLinkImapWebmailClient
     }
 
     /**
-     * Parses raw RFC 5322/MIME message into headers, text body, HTML body, and attachment names.
+     * Parses raw RFC 5322/MIME message into headers, text/HTML bodies, attachments, and SPF/DKIM/DMARC auth details.
      *
-     * @return array{headers: array<string, string>, text: string, html: string, attachments: list<string>, raw_headers: string}
+     * @return array{headers: array<string, string>, text: string, html: string, attachments: list<string>, attachment_items: list<array{index: int, filename: string, content_type: string, size: int}>, attachment_payloads: list<array{filename: string, content_type: string, content: string}>, raw_headers: string, auth: array<string, mixed>, received_hops: list<string>}
      */
-    public function parseMimeMessage(string $raw): array
+    public function parseMimeMessage(string $raw, bool $includeAttachmentPayloads = false): array
     {
         $normalized = str_replace("\r\n", "\n", $raw);
         $parts = explode("\n\n", $normalized, 2);
@@ -248,15 +407,41 @@ class AlphaLinkImapWebmailClient
         $textParts = [];
         $htmlParts = [];
         $attachments = [];
+        $attachmentItems = [];
+        $attachmentPayloads = [];
+        $inlineImages = [];
 
-        $this->extractMimeParts($headers, $rawBody, $textParts, $htmlParts, $attachments);
+        $this->extractMimeParts(
+            $headers,
+            $rawBody,
+            $textParts,
+            $htmlParts,
+            $attachments,
+            $attachmentItems,
+            $attachmentPayloads,
+            $inlineImages,
+            $includeAttachmentPayloads,
+        );
+
+        $html = trim(implode("\n", $htmlParts));
+        if ($html !== '' && $inlineImages !== []) {
+            $html = preg_replace_callback(
+                '/\bcid:([^\s"\'<>]+)/i',
+                static fn (array $m): string => $inlineImages[strtolower(trim($m[1], '<>'))] ?? $m[0],
+                $html,
+            ) ?? $html;
+        }
 
         return [
             'headers' => $headers,
             'text' => trim(implode("\n\n", $textParts)),
-            'html' => trim(implode("\n", $htmlParts)),
+            'html' => $html,
             'attachments' => array_values(array_unique($attachments)),
+            'attachment_items' => $attachmentItems,
+            'attachment_payloads' => $attachmentPayloads,
             'raw_headers' => $rawHeaders,
+            'auth' => $this->parseDeliverabilityAuth($headers),
+            'received_hops' => $this->extractReceivedHops($rawHeaders),
         ];
     }
 
@@ -411,7 +596,7 @@ class AlphaLinkImapWebmailClient
 
     /**
      * @param  list<array<string, mixed>>  $items
-     * @return list<array{uid: int, subject: string, from: string, to: string, date: string, size: int, seen: bool}>
+     * @return list<array{uid: int, subject: string, from: string, to: string, date: string, size: int, seen: bool, flagged: bool, has_attachments: bool, message_id: string}>
      */
     private function parseFetchHeaders(array $items): array
     {
@@ -422,6 +607,8 @@ class AlphaLinkImapWebmailClient
                 continue;
             }
             $headers = $this->parseHeaderBlock(str_replace("\r\n", "\n", (string) ($item['literal'] ?? '')));
+            $contentType = strtolower((string) ($headers['content-type'] ?? ''));
+            $flags = $item['flags'] ?? [];
             $messages[] = [
                 'uid' => $uid,
                 'subject' => ($headers['subject'] ?? '') !== '' ? $headers['subject'] : '(No Subject)',
@@ -429,7 +616,10 @@ class AlphaLinkImapWebmailClient
                 'to' => $headers['to'] ?? '',
                 'date' => ($headers['date'] ?? '') !== '' ? $headers['date'] : (string) ($item['internaldate'] ?? ''),
                 'size' => (int) ($item['size'] ?? 0),
-                'seen' => in_array('\\Seen', $item['flags'] ?? [], true),
+                'seen' => in_array('\\Seen', $flags, true),
+                'flagged' => in_array('\\Flagged', $flags, true),
+                'has_attachments' => str_contains($contentType, 'multipart/mixed'),
+                'message_id' => $headers['message-id'] ?? '',
             ];
         }
 
@@ -462,6 +652,9 @@ class AlphaLinkImapWebmailClient
      * @param  list<string>  $textParts
      * @param  list<string>  $htmlParts
      * @param  list<string>  $attachments
+     * @param  list<array{index: int, filename: string, content_type: string, size: int}>  $attachmentItems
+     * @param  list<array{filename: string, content_type: string, content: string}>  $attachmentPayloads
+     * @param  array<string, string>  $inlineImages
      */
     private function extractMimeParts(
         array $headers,
@@ -469,11 +662,16 @@ class AlphaLinkImapWebmailClient
         array &$textParts,
         array &$htmlParts,
         array &$attachments,
+        array &$attachmentItems,
+        array &$attachmentPayloads,
+        array &$inlineImages,
+        bool $includeAttachmentPayloads = false,
     ): void {
-        $contentType = strtolower($headers['content-type'] ?? 'text/plain; charset=utf-8');
+        $rawContentType = (string) ($headers['content-type'] ?? 'text/plain; charset=utf-8');
+        $contentType = strtolower(trim(explode(';', $rawContentType, 2)[0] ?? 'text/plain'));
         $disposition = strtolower($headers['content-disposition'] ?? '');
 
-        if (str_contains($contentType, 'multipart/') && preg_match('/boundary\s*=\s*"?([^"\s;]+)"?/i', $headers['content-type'] ?? '', $m) === 1) {
+        if (str_contains($contentType, 'multipart/') && preg_match('/boundary\s*=\s*"?([^"\s;]+)"?/i', $rawContentType, $m) === 1) {
             $boundary = $m[1];
             $chunks = explode('--'.$boundary, $body);
             foreach ($chunks as $chunk) {
@@ -484,21 +682,66 @@ class AlphaLinkImapWebmailClient
                 $subParts = explode("\n\n", str_replace("\r\n", "\n", $chunk), 2);
                 $subHeaders = $this->parseHeaderBlock($subParts[0] ?? '');
                 $subBody = rtrim($subParts[1] ?? '', "\r\n");
-                $this->extractMimeParts($subHeaders, $subBody, $textParts, $htmlParts, $attachments);
+                $this->extractMimeParts(
+                    $subHeaders,
+                    $subBody,
+                    $textParts,
+                    $htmlParts,
+                    $attachments,
+                    $attachmentItems,
+                    $attachmentPayloads,
+                    $inlineImages,
+                    $includeAttachmentPayloads,
+                );
             }
 
             return;
         }
 
-        if (str_contains($disposition, 'attachment') && preg_match('/filename\s*=\s*"?([^"\r\n;]+)"?/i', $disposition, $m) === 1) {
-            $attachments[] = trim($m[1]);
+        $filename = null;
+        if (preg_match('/filename\*?\s*=\s*"?([^"\r\n;]+)"?/i', (string) ($headers['content-disposition'] ?? ''), $m) === 1) {
+            $filename = $this->decodeMimeHeader(trim($m[1]));
+        } elseif (preg_match('/name\s*=\s*"?([^"\r\n;]+)"?/i', $rawContentType, $m) === 1) {
+            $filename = $this->decodeMimeHeader(trim($m[1]));
+        }
+
+        $contentId = strtolower(trim((string) ($headers['content-id'] ?? ''), "<> \t\r\n"));
+        $isInlineImage = $contentId !== '' && str_starts_with($contentType, 'image/') && ! str_contains($disposition, 'attachment');
+
+        if ($isInlineImage) {
+            $decoded = $this->decodeBodyTransfer($body, $headers['content-transfer-encoding'] ?? '');
+            if (in_array($contentType, ['image/png', 'image/jpeg', 'image/gif', 'image/webp'], true) && strlen($decoded) <= 524288) {
+                $inlineImages[$contentId] = 'data:'.$contentType.';base64,'.base64_encode($decoded);
+            }
+
+            return;
+        }
+
+        if (str_contains($disposition, 'attachment') || ($filename !== null && ! str_starts_with($contentType, 'text/'))) {
+            $safeName = $filename !== null && $filename !== '' ? $filename : ('attachment-'.(count($attachmentItems) + 1));
+            $decoded = $this->decodeBodyTransfer($body, $headers['content-transfer-encoding'] ?? '');
+            $index = count($attachmentItems);
+            $attachments[] = $safeName;
+            $attachmentItems[] = [
+                'index' => $index,
+                'filename' => $safeName,
+                'content_type' => $contentType !== '' ? $contentType : 'application/octet-stream',
+                'size' => strlen($decoded),
+            ];
+            if ($includeAttachmentPayloads) {
+                $attachmentPayloads[$index] = [
+                    'filename' => $safeName,
+                    'content_type' => $contentType !== '' ? $contentType : 'application/octet-stream',
+                    'content' => $decoded,
+                ];
+            }
 
             return;
         }
 
         $decoded = $this->decodeBodyTransfer($body, $headers['content-transfer-encoding'] ?? '');
         $charset = 'UTF-8';
-        if (preg_match('/charset\s*=\s*"?([A-Za-z0-9._-]+)"?/i', $headers['content-type'] ?? '', $cm) === 1) {
+        if (preg_match('/charset\s*=\s*"?([A-Za-z0-9._-]+)"?/i', $rawContentType, $cm) === 1) {
             $charset = strtoupper($cm[1]);
         }
         if ($charset !== 'UTF-8' && $charset !== 'US-ASCII') {
@@ -513,6 +756,85 @@ class AlphaLinkImapWebmailClient
         } elseif (str_contains($contentType, 'text/plain') || ! str_contains($contentType, '/')) {
             $textParts[] = $decoded;
         }
+    }
+
+    /**
+     * Extract SPF, DKIM, DMARC, and virtual-MTA metadata for deliverability triage.
+     *
+     * @param  array<string, string>  $headers
+     * @return array{spf: array{status: string, detail: string}, dkim: array{status: string, domain: string, selector: string, detail: string}, dmarc: array{status: string, policy: string, detail: string}, virtual_mta: string, sender_ip: string}
+     */
+    private function parseDeliverabilityAuth(array $headers): array
+    {
+        $authRes = (string) ($headers['authentication-results'] ?? $headers['arc-authentication-results'] ?? '');
+        $receivedSpf = (string) ($headers['received-spf'] ?? '');
+        $dkimSig = (string) ($headers['dkim-signature'] ?? '');
+
+        $spfStatus = 'none';
+        $spfDetail = 'No SPF result header';
+        if (preg_match('/\bspf\s*=\s*(pass|fail|softfail|neutral|temperror|permerror|none)/i', $authRes, $m) === 1) {
+            $spfStatus = strtolower($m[1]);
+            $spfDetail = trim($receivedSpf !== '' ? $receivedSpf : 'Authentication-Results: spf='.$spfStatus);
+        } elseif (preg_match('/^(pass|fail|softfail|neutral|temperror|permerror|none)\b/i', trim($receivedSpf), $m) === 1) {
+            $spfStatus = strtolower($m[1]);
+            $spfDetail = trim($receivedSpf);
+        }
+
+        $dkimStatus = $dkimSig !== '' ? 'signed' : 'none';
+        $dkimDomain = '';
+        $dkimSelector = '';
+        $dkimDetail = $dkimSig !== '' ? 'DKIM-Signature present' : 'No DKIM signature';
+        if (preg_match('/\bd\s*=\s*([a-z0-9._-]+)/i', $dkimSig, $dm) === 1) {
+            $dkimDomain = strtolower($dm[1]);
+        }
+        if (preg_match('/\bs\s*=\s*([a-z0-9._-]+)/i', $dkimSig, $sm) === 1) {
+            $dkimSelector = $sm[1];
+        }
+        if (preg_match('/\bdkim\s*=\s*(pass|fail|neutral|temperror|permerror|none)(?:\s*\(([^)]*)\))?/i', $authRes, $m) === 1) {
+            $dkimStatus = strtolower($m[1]);
+            $dkimDetail = 'dkim='.$dkimStatus.(isset($m[2]) && $m[2] !== '' ? ' ('.$m[2].')' : '');
+        }
+        if ($dkimDomain === '' && preg_match('/header\.d\s*=\s*([a-z0-9._-]+)/i', $authRes, $dm) === 1) {
+            $dkimDomain = strtolower($dm[1]);
+        }
+
+        $dmarcStatus = 'none';
+        $dmarcPolicy = '';
+        $dmarcDetail = 'No DMARC result header';
+        if (preg_match('/\bdmarc\s*=\s*(pass|fail|bestguesspass|none)(?:\s*\(([^)]*)\))?/i', $authRes, $m) === 1) {
+            $dmarcStatus = strtolower($m[1]);
+            $dmarcDetail = 'dmarc='.$dmarcStatus.(isset($m[2]) && $m[2] !== '' ? ' ('.$m[2].')' : '');
+            if (preg_match('/\bp\s*=\s*([a-z]+)/i', $authRes, $pm) === 1) {
+                $dmarcPolicy = strtolower($pm[1]);
+            }
+        }
+
+        $senderIp = '';
+        if (preg_match('/(?:sender\s+IP\s+is|client-ip=)\s*([0-9a-f.:]+)/i', $authRes.' '.$receivedSpf, $im) === 1) {
+            $senderIp = $im[1];
+        }
+
+        return [
+            'spf' => ['status' => $spfStatus, 'detail' => mb_substr($spfDetail, 0, 220)],
+            'dkim' => ['status' => $dkimStatus, 'domain' => $dkimDomain, 'selector' => $dkimSelector, 'detail' => mb_substr($dkimDetail, 0, 220)],
+            'dmarc' => ['status' => $dmarcStatus, 'policy' => $dmarcPolicy, 'detail' => mb_substr($dmarcDetail, 0, 220)],
+            'virtual_mta' => trim((string) ($headers['x-virtual-mta'] ?? '')),
+            'sender_ip' => $senderIp,
+        ];
+    }
+
+    /** @return list<string> */
+    private function extractReceivedHops(string $rawHeaders): array
+    {
+        $unfolded = preg_replace("/\n[ \t]+/", ' ', $rawHeaders) ?? $rawHeaders;
+        $hops = [];
+        foreach (explode("\n", $unfolded) as $line) {
+            if (preg_match('/^Received:\s*(.+)$/i', $line, $m) === 1) {
+                $hops[] = $this->decodeMimeHeader(trim($m[1]));
+            }
+        }
+
+        return $hops;
     }
 
     private function decodeBodyTransfer(string $body, string $encoding): string

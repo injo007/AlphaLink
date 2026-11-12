@@ -71,7 +71,7 @@
                                 </div>
                             @endif
                         </div>
-                        <small class="form-text text-muted">Dovecot routes INBOX by domain suffix (<code>username@{{ $ip->dns ?: 'domain' }}</code>).</small>
+                        <small class="form-text text-muted">Dovecot routes INBOX by domain suffix (<code>username&#64;{{ $ip->dns ?: 'domain' }}</code>).</small>
                     </div>
 
                     <div class="form-group col-md-4 col-sm-12">

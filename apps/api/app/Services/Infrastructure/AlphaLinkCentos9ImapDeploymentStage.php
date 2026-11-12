@@ -26,13 +26,17 @@ class AlphaLinkCentos9ImapDeploymentStage
 
         $replacement = str_replace(['\\', '/', '&'], ['\\\\', '\\/', '\\&'], $username);
         $commands->exec('sed -i '.escapeshellarg("s/__USER__/{$replacement}/g").' /etc/dovecot/dovecot.conf;');
-        $commands->exec('useradd -s /sbin/nologin '.escapeshellarg($username).';');
+        $commands->exec("grep -qxF 'mail_access_groups = pmta' /etc/dovecot/dovecot.conf || printf '\\nmail_access_groups = pmta\\n' >> /etc/dovecot/dovecot.conf;");
+        $commands->exec('id -u '.escapeshellarg($username).' >/dev/null 2>&1 || useradd -s /sbin/nologin '.escapeshellarg($username).';');
+        $commands->exec('usermod -aG pmta '.escapeshellarg($username).' 2>/dev/null || true;');
+        $commands->exec('mkdir -p '.escapeshellarg('/home/'.$username.'/mail').' && chown -R '.escapeshellarg($username.':'.$username).' '.escapeshellarg('/home/'.$username).';');
+        $commands->exec('mkdir -p /etc/pmta/inbound && chmod 775 /etc/pmta/inbound 2>/dev/null || true;');
         $userId = $commands->exec('id -u '.escapeshellarg($username).';');
 
         // AlphaLink builds this line with `echo -e` in a shell command. Sending the
         // content over the private file transport keeps the password out of logs,
         // command traces and process arguments while preserving the passwd format.
-        $passwdFile = $username.':{plain}'.$password.':'.($userId === false ? '' : $userId).':'.($userId === false ? '' : $userId)."::/dev/null:/sbin/nologin\n";
+        $passwdFile = $username.':{plain}'.$password.':'.($userId === false ? '' : $userId).':'.($userId === false ? '' : $userId).'::/home/'.$username.":/sbin/nologin\n";
         $files->upload($passwdFile, '/etc/dovecot/imap.passwd');
 
         $commands->exec("sed -i 's/ProtectSystem=full/ProtectSystem=false/g' /usr/lib/systemd/system/dovecot.service");

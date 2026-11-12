@@ -35,9 +35,13 @@ class AlphaLinkCentos9ImapDeploymentStageTest extends TestCase
             ['type' => 'command', 'command' => 'rpm -qa | grep -qw dovecot || dnf -y install dovecot;'],
             ['type' => 'upload', 'destination' => '/etc/dovecot/dovecot.conf', 'contents' => "mail_location = maildir:/home/__USER__/Maildir\n"],
             ['type' => 'command', 'command' => "sed -i 's/__USER__/mail-user/g' /etc/dovecot/dovecot.conf;"],
-            ['type' => 'command', 'command' => "useradd -s /sbin/nologin 'mail-user';"],
+            ['type' => 'command', 'command' => "grep -qxF 'mail_access_groups = pmta' /etc/dovecot/dovecot.conf || printf '\\nmail_access_groups = pmta\\n' >> /etc/dovecot/dovecot.conf;"],
+            ['type' => 'command', 'command' => "id -u 'mail-user' >/dev/null 2>&1 || useradd -s /sbin/nologin 'mail-user';"],
+            ['type' => 'command', 'command' => "usermod -aG pmta 'mail-user' 2>/dev/null || true;"],
+            ['type' => 'command', 'command' => "mkdir -p '/home/mail-user/mail' && chown -R 'mail-user:mail-user' '/home/mail-user';"],
+            ['type' => 'command', 'command' => 'mkdir -p /etc/pmta/inbound && chmod 775 /etc/pmta/inbound 2>/dev/null || true;'],
             ['type' => 'command', 'command' => "id -u 'mail-user';"],
-            ['type' => 'upload', 'destination' => '/etc/dovecot/imap.passwd', 'contents' => "mail-user:{plain}synthetic-password:1001:1001::/dev/null:/sbin/nologin\n"],
+            ['type' => 'upload', 'destination' => '/etc/dovecot/imap.passwd', 'contents' => "mail-user:{plain}synthetic-password:1001:1001::/home/mail-user:/sbin/nologin\n"],
             ['type' => 'command', 'command' => "sed -i 's/ProtectSystem=full/ProtectSystem=false/g' /usr/lib/systemd/system/dovecot.service"],
             ['type' => 'command', 'command' => 'systemctl daemon-reload'],
             ['type' => 'command', 'command' => 'systemctl restart dovecot'],
@@ -56,9 +60,9 @@ class AlphaLinkCentos9ImapDeploymentStageTest extends TestCase
         (new AlphaLinkCentos9ImapDeploymentStage)->run($transport, $transport, '__USER__', "mail'user", 'synthetic');
 
         $this->assertSame('sed -i '.escapeshellarg("s/__USER__/mail'user/g").' /etc/dovecot/dovecot.conf;', $transport->events[2]['command']);
-        $this->assertSame("useradd -s /sbin/nologin 'mail'\\''user';", $transport->events[3]['command']);
-        $this->assertSame("id -u 'mail'\\''user';", $transport->events[4]['command']);
-        $this->assertSame("mail'user:{plain}synthetic:1002:1002::/dev/null:/sbin/nologin\n", $transport->events[5]['contents']);
+        $this->assertSame("id -u 'mail'\\''user' >/dev/null 2>&1 || useradd -s /sbin/nologin 'mail'\\''user';", $transport->events[4]['command']);
+        $this->assertSame("id -u 'mail'\\''user';", $transport->events[8]['command']);
+        $this->assertSame("mail'user:{plain}synthetic:1002:1002::/home/mail'user:/sbin/nologin\n", $transport->events[9]['contents']);
     }
 
     private function transport(): object

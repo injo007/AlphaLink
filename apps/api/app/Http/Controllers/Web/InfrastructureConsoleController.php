@@ -1864,18 +1864,7 @@ class InfrastructureConsoleController extends Controller
         $defaultLogin = $this->defaultWebmailLogin($savedUsername, (string) $ip->dns);
         $canUpdateSettings = in_array((string) $workspace->pivot->role, ['owner', 'admin'], true);
 
-        $siblingIps = $this->myIpsQuery($workspace, (string) $ip->managed_server_id)
-            ->get()
-            ->map(static fn (ManagedServerIp $row): array => [
-                'id' => (int) $row->getKey(),
-                'ip' => (string) $row->ip,
-                'dns' => (string) ($row->dns ?? ''),
-                'type' => (string) ($row->type ?? 'ipv4'),
-                'url' => route('console.infrastructure.my-ips.webmail', [$workspace->id, $row->getKey()]),
-                'is_current' => (int) $row->getKey() === (int) $ip->getKey(),
-            ])
-            ->values()
-            ->all();
+        $siblingIps = [];
 
         $defaultSender = $defaultLogin !== ''
             ? (str_contains($defaultLogin, '@') ? $defaultLogin : ($ip->dns ? $defaultLogin.'@'.$ip->dns : $defaultLogin))
@@ -2374,9 +2363,22 @@ class InfrastructureConsoleController extends Controller
 
     private function webmailIpForWorkspace(Workspace $workspace, int $ipId): ManagedServerIp
     {
-        return $this->myIpsQuery($workspace)
+        $requested = $this->myIpsQuery($workspace)
             ->where('managed_server_ips.id', $ipId)
             ->firstOrFail();
+
+        $server = ManagedServer::query()
+            ->with(['ips' => fn ($query) => $query->where('is_active', true)->orderBy('id')])
+            ->find($requested->managed_server_id);
+
+        if (! $server instanceof ManagedServer) {
+            return $requested;
+        }
+
+        $mainIp = $server->resolveMainIp($requested) ?? $requested;
+        $mainIp->setRelation('server', $server);
+
+        return $mainIp;
     }
 
     private function defaultWebmailLogin(string $savedUsername, string $domain): string

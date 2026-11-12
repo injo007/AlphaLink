@@ -119,13 +119,25 @@ class PmtaSmtpImapAccountsTest extends TestCase
     {
         $this->get(route('console.pmta-smtp.index', $this->workspace->getKey()))
             ->assertOk()
-            ->assertSee('IMAP-INSTALLED ACCOUNTS')
-            ->assertSee('Accounts Provisioned via IMAP Option')
-            ->assertSee('PUSH SELECTED IMAP ACCOUNTS TO PMTA SMTP');
+            ->assertSee('IMAP-Installed Accounts (Main IP)')
+            ->assertSee('IMAP-Installed Server Accounts (Main IP Only)')
+            ->assertSee('0 Accounts Selected')
+            ->assertSee('0 Selected')
+            ->assertSee('Push Selected to Server (0)');
     }
 
-    public function test_imap_accounts_endpoint_lists_only_imap_installed_servers_and_never_exposes_passwords(): void
+    public function test_imap_accounts_endpoint_lists_only_imap_installed_servers_main_ip_and_never_exposes_passwords(): void
     {
+        ManagedServerIp::query()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'managed_server_id' => $this->imapServer->getKey(),
+            'sending_domain_id' => $this->imapIp->sending_domain_id,
+            'ip' => '10.18.0.6',
+            'type' => 'ipv4',
+            'dns' => 'secondary.smtpimap.example.test',
+            'is_active' => true,
+        ]);
+
         $diag = Mockery::mock(AlphaLinkWebmailDiagnostics::class);
         $diag->shouldReceive('listDovecotUsers')
             ->once()
@@ -139,11 +151,14 @@ class PmtaSmtpImapAccountsTest extends TestCase
             ->assertJsonPath('has_saved_password', true)
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.server_name', 'MAIL_IMAP_')
+            ->assertJsonPath('data.0.ip', '198.51.100.40')
+            ->assertJsonPath('data.0.is_main_ip', true)
             ->assertJsonPath('data.0.login_address', 'alimap_abc@smtpimap.example.test')
             ->assertJsonPath('data.0.source', 'dovecot')
             ->assertJsonPath('data.1.login_address', 'contact@smtpimap.example.test')
             ->assertJsonPath('data.1.source', 'settings');
 
+        $this->assertStringNotContainsString('10.18.0.6', (string) $response->getContent());
         $this->assertStringNotContainsString('top-secret-webmail-pw', (string) $response->getContent());
     }
 

@@ -46,7 +46,7 @@
                         </div>
                         <div class="wm-title-row">
                             <h1 class="wm-title">{{ $ip->dns ?: $ip->ip }}</h1>
-                            <span class="wm-ip-chip">{{ $ip->ip }}</span>
+                            <span class="wm-ip-chip" title="Server Main IP">MAIN IP &bull; {{ $ip->ip }}</span>
                             <span id="webmail-connection-badge" class="wm-status-pill is-idle">READY TO CONNECT</span>
                         </div>
                     </div>
@@ -188,27 +188,22 @@
                     </nav>
                 </div>
 
-                @if (count($siblingIps) > 1)
-                    <div class="wm-rail-section">
-                        <div class="wm-rail-label">SERVER DOMAINS ({{ count($siblingIps) }})</div>
-                        <div class="wm-domain-switcher">
-                            @foreach ($siblingIps as $sib)
-                                <a href="{{ $sib['url'] }}" class="wm-domain-item {{ $sib['is_current'] ? 'is-current' : '' }}">
-                                    <span class="wm-domain-dot" aria-hidden="true"></span>
-                                    <span class="wm-domain-copy">
-                                        <strong>{{ $sib['dns'] ?: $sib['ip'] }}</strong>
-                                        <small>{{ $sib['ip'] }}</small>
-                                    </span>
-                                </a>
-                            @endforeach
-                        </div>
+                <div class="wm-rail-section">
+                    <div class="wm-rail-label">ACTIVE SERVER MAIN IP</div>
+                    <div class="wm-domain-item is-current">
+                        <span class="wm-domain-dot" aria-hidden="true"></span>
+                        <span class="wm-domain-copy">
+                            <strong>{{ $ip->dns ?: $ip->ip }}</strong>
+                            <small>{{ $ip->ip }} &middot; Main Route</small>
+                        </span>
                     </div>
-                @endif
+                </div>
 
                 <div class="wm-rail-section wm-rail-telemetry">
                     <div class="wm-rail-label">ENDPOINT PROFILE</div>
                     <dl class="wm-meta-dl">
-                        <div><dt>IMAP Host</dt><dd>{{ $server->ip_address }}:143</dd></div>
+                        <div><dt>Main IP</dt><dd>{{ $ip->ip }}</dd></div>
+                        <div><dt>IMAP Port</dt><dd>143 / 993</dd></div>
                         <div><dt>Route Domain</dt><dd>{{ $ip->dns ?: 'Primary IP' }}</dd></div>
                         <div><dt>PMTA VMTA</dt><dd>{{ $vmtaName !== '' ? $vmtaName : 'Unmapped' }}</dd></div>
                     </dl>

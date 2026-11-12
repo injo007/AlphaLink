@@ -440,37 +440,41 @@ class PmtaConsoleController extends Controller
                 $allUsernames[] = $savedUsername;
             }
 
-            foreach ($server->ips as $ip) {
-                foreach ($allUsernames as $username) {
-                    $inDovecot = in_array($username, $dovecotUsers, true);
-                    $inSettings = $savedUsername !== '' && strcasecmp($username, $savedUsername) === 0;
-                    $source = match (true) {
-                        $inDovecot && $inSettings => 'dovecot+settings',
-                        $inDovecot => 'dovecot',
-                        default => 'settings',
-                    };
-                    $loginAddress = $ip->dns && ! str_contains($username, '@') ? $username.'@'.$ip->dns : $username;
-                    $existingKey = $ip->getKey().'|'.strtolower($loginAddress);
-                    $bareKey = $ip->getKey().'|'.strtolower($username);
-                    $matched = $existingSmtp->get($existingKey) ?? $existingSmtp->get($bareKey);
+            $mainIp = $server->resolveMainIp();
+            if (! $mainIp instanceof ManagedServerIp) {
+                continue;
+            }
 
-                    $accounts[] = [
-                        'ip_id' => (int) $ip->getKey(),
-                        'server_id' => (string) $server->getKey(),
-                        'server_name' => (string) $server->name,
-                        'server_ip' => (string) $server->ip_address,
-                        'ip' => (string) $ip->ip,
-                        'dns' => (string) ($ip->dns ?? ''),
-                        'username' => $username,
-                        'login_address' => $loginAddress,
-                        'source' => $source,
-                        'imap_ports' => '143 / 993',
-                        'default_route' => (string) $server->ip_address,
-                        'default_port' => $pmtaPort,
-                        'has_saved_password' => $hasSavedPassword,
-                        'already_pushed' => $matched !== null && $matched->isNotEmpty(),
-                    ];
-                }
+            foreach ($allUsernames as $username) {
+                $inDovecot = in_array($username, $dovecotUsers, true);
+                $inSettings = $savedUsername !== '' && strcasecmp($username, $savedUsername) === 0;
+                $source = match (true) {
+                    $inDovecot && $inSettings => 'dovecot+settings',
+                    $inDovecot => 'dovecot',
+                    default => 'settings',
+                };
+                $loginAddress = $mainIp->dns && ! str_contains($username, '@') ? $username.'@'.$mainIp->dns : $username;
+                $existingKey = $mainIp->getKey().'|'.strtolower($loginAddress);
+                $bareKey = $mainIp->getKey().'|'.strtolower($username);
+                $matched = $existingSmtp->get($existingKey) ?? $existingSmtp->get($bareKey);
+
+                $accounts[] = [
+                    'ip_id' => (int) $mainIp->getKey(),
+                    'server_id' => (string) $server->getKey(),
+                    'server_name' => (string) $server->name,
+                    'server_ip' => (string) $server->ip_address,
+                    'ip' => (string) $mainIp->ip,
+                    'is_main_ip' => true,
+                    'dns' => (string) ($mainIp->dns ?? ''),
+                    'username' => $username,
+                    'login_address' => $loginAddress,
+                    'source' => $source,
+                    'imap_ports' => '143 / 993',
+                    'default_route' => (string) $server->ip_address,
+                    'default_port' => $pmtaPort,
+                    'has_saved_password' => $hasSavedPassword,
+                    'already_pushed' => $matched !== null && $matched->isNotEmpty(),
+                ];
             }
         }
 

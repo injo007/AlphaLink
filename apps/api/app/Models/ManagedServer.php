@@ -77,4 +77,39 @@ class ManagedServer extends Model
     {
         return $this->hasOne(ManagedServerHistory::class)->latestOfMany();
     }
+
+    /**
+     * Resolve this server's primary/main active IP record (preferring install_parameters main=true, then server->ip_address).
+     */
+    public function resolveMainIp(?ManagedServerIp $fallback = null): ?ManagedServerIp
+    {
+        $activeIps = $this->relationLoaded('ips')
+            ? $this->ips->where('is_active', true)->values()
+            : ManagedServerIp::query()
+                ->where('managed_server_id', $this->getKey())
+                ->where('is_active', true)
+                ->orderBy('id')
+                ->get();
+
+        $rows = data_get($this->install_parameters, 'data', []);
+        if (is_array($rows)) {
+            foreach ($rows as $row) {
+                if (is_array($row) && ($row['main'] ?? false) === true && is_string($row['ip'] ?? null) && $row['ip'] !== '') {
+                    $matched = $activeIps->firstWhere('ip', trim($row['ip']));
+                    if ($matched instanceof ManagedServerIp) {
+                        return $matched;
+                    }
+                }
+            }
+        }
+
+        $serverPrimary = $activeIps->firstWhere('ip', trim((string) $this->ip_address));
+        if ($serverPrimary instanceof ManagedServerIp) {
+            return $serverPrimary;
+        }
+
+        $firstActive = $activeIps->first();
+
+        return $firstActive instanceof ManagedServerIp ? $firstActive : $fallback;
+    }
 }

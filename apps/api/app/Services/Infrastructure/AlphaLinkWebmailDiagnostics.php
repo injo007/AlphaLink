@@ -3,6 +3,7 @@
 namespace App\Services\Infrastructure;
 
 use App\Models\ManagedServer;
+use App\Models\ManagedServerIp;
 use RuntimeException;
 use Throwable;
 
@@ -13,6 +14,14 @@ class AlphaLinkWebmailDiagnostics
         private readonly AlphaLinkInstallerServerCredentialResolver $credentials,
         private readonly AlphaLinkInstallerSshSessionFactory $sessions,
     ) {}
+
+    /**
+     * Resolve the server's primary/main active ManagedServerIp record (preferring install_parameters main=true, then server->ip_address).
+     */
+    public function resolveServerMainIp(ManagedServer $server, ?ManagedServerIp $fallback = null): ?ManagedServerIp
+    {
+        return $server->resolveMainIp($fallback);
+    }
 
     /**
      * Inspect live PTR (rDNS), SPF, DMARC, and DKIM TXT records for an IP/domain pair.

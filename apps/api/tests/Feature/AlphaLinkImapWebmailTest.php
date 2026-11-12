@@ -291,7 +291,7 @@ class AlphaLinkImapWebmailTest extends TestCase
         $this->assertStringContainsString('data:image/png;base64,', $parsed['html']);
     }
 
-    public function test_webmail_page_renders_three_pane_workspace_with_sibling_domain_switcher(): void
+    public function test_webmail_displays_and_uses_only_the_server_main_ip_even_when_opened_via_secondary_ip(): void
     {
         $secondDomain = SendingDomain::query()->create([
             'workspace_id' => $this->workspace->getKey(),
@@ -303,11 +303,11 @@ class AlphaLinkImapWebmailTest extends TestCase
             'is_our' => true,
             'is_active' => true,
         ]);
-        ManagedServerIp::query()->create([
+        $secondaryIp = ManagedServerIp::query()->create([
             'workspace_id' => $this->workspace->getKey(),
             'managed_server_id' => $this->server->getKey(),
             'sending_domain_id' => $secondDomain->getKey(),
-            'ip' => '198.51.100.91',
+            'ip' => '10.18.0.6',
             'type' => 'ipv4',
             'dns' => 'second.example.test',
             'is_active' => true,
@@ -319,14 +319,16 @@ class AlphaLinkImapWebmailTest extends TestCase
             'webmail_password' => 'super-secret-imap-pass',
         ]);
 
-        $url = route('console.infrastructure.my-ips.webmail', [$this->workspace->getKey(), $this->ip->getKey()]);
+        $url = route('console.infrastructure.my-ips.webmail', [$this->workspace->getKey(), $secondaryIp->getKey()]);
 
         $this->get($url)
             ->assertOk()
             ->assertSee('COMMAND OS WEBMAIL')
-            ->assertSee('SERVER DOMAINS (2)')
-            ->assertSee('second.example.test')
+            ->assertSee('MAIN IP &bull; 198.51.100.90', false)
+            ->assertSee('inbox.example.test')
             ->assertSee('mta-198.51.100.90')
+            ->assertDontSee('second.example.test')
+            ->assertDontSee('10.18.0.6')
             ->assertSee('OUTBOUND PMTA COMPOSER');
     }
 

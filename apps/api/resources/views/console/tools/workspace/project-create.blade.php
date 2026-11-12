@@ -191,11 +191,20 @@
                 if (!response.ok) throw new Error(Object.values(body.errors ?? {}).flat().join(' ') || body.message || body.data || 'Project request failed.');
                 return body;
             };
-            const finish = (message) => {
+            const finish = (message, detail = '') => {
                 if (window.parent !== window && typeof window.parent.closeModal === 'function') {
-                    if (window.parent.App?.swalPromise) window.parent.App.swalPromise({icon:'success',title:message,confirmButtonText:'close'}).then(() => window.parent.closeModal());
-                    else window.parent.closeModal();
-                } else window.location.assign(@json(route('console.gcampaigns.projects', $workspace->id)));
+                    if (window.parent.App?.swalPromise) {
+                        const options = { icon: 'success', title: message, confirmButtonText: 'close' };
+                        if (detail) {
+                            options.text = detail;
+                        }
+                        window.parent.App.swalPromise(options).then(() => window.parent.closeModal());
+                    } else {
+                        window.parent.closeModal();
+                    }
+                } else {
+                    window.location.assign(@json(route('console.gcampaigns.projects', $workspace->id)));
+                }
             };
 
             const updateTriggerState = () => {
@@ -247,10 +256,11 @@
                     const skippedSuffix = body.skipped > 0 && Array.isArray(body.failed_files) && body.failed_files.length
                         ? ` Skipped: ${body.failed_files.slice(0, 3).join(', ')}${body.skipped > 3 ? ` (+${body.skipped - 3} more)` : ''}.`
                         : '';
-                    const summary = `${body.message || 'S3 project sync complete.'}. ${body.unchanged ?? 0} unchanged.${skippedSuffix}`;
-                    finish(summary);
+                    const detail = `${body.unchanged ?? 0} unchanged.${skippedSuffix}`;
+                    finish(body.message || 'S3 project sync complete.', detail);
                 } catch (error) {
                     showError(error.message);
+                } finally {
                     busy(sync, false, 'SYNC');
                 }
             });

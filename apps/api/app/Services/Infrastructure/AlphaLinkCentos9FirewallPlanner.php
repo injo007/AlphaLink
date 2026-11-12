@@ -68,6 +68,8 @@ class AlphaLinkCentos9FirewallPlanner
         if ($additionalAdminSources !== []) {
             $commands[] = "firewall-cmd --permanent --get-zones | tr ' ' '\\n' | grep -qx pmta-admin || firewall-cmd --permanent --new-zone=pmta-admin;";
             $commands[] = "firewall-cmd --permanent --zone=pmta-admin --add-port={$pmtaAdminPort}/tcp;";
+            $commands[] = 'firewall-cmd --permanent --zone=pmta-admin --add-port=143/tcp;';
+            $commands[] = 'firewall-cmd --permanent --zone=pmta-admin --add-port=993/tcp;';
             foreach ($additionalAdminSources as $ip) {
                 $commands[] = "firewall-cmd --permanent --zone=pmta-admin --add-source={$ip};";
             }

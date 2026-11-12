@@ -132,6 +132,8 @@ class AlphaLinkCentos9FirewallPlannerTest extends TestCase
 
         $this->assertContains("firewall-cmd --permanent --get-zones | tr ' ' '\\n' | grep -qx pmta-admin || firewall-cmd --permanent --new-zone=pmta-admin;", $commands);
         $this->assertContains('firewall-cmd --permanent --zone=pmta-admin --add-port=1213/tcp;', $commands);
+        $this->assertContains('firewall-cmd --permanent --zone=pmta-admin --add-port=143/tcp;', $commands);
+        $this->assertContains('firewall-cmd --permanent --zone=pmta-admin --add-port=993/tcp;', $commands);
         $this->assertContains('firewall-cmd --permanent --zone=pmta-admin --add-source=198.51.100.44;', $commands);
         $this->assertNotContains('firewall-cmd --permanent --zone=pmta-admin --add-port=2426/tcp;', $commands);
     }

@@ -15,6 +15,7 @@ use App\Models\SendingDomainHistory;
 use App\Models\ServerProvider;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Models\WorkspaceInfrastructureSettings;
 use App\Services\Infrastructure\AlphaLinkBulkInstallEligibility;
 use App\Services\Infrastructure\AlphaLinkBulkInstallIspCatalog;
 use App\Services\Infrastructure\AlphaLinkBulkInstallPayload;
@@ -29,6 +30,7 @@ use App\Services\Infrastructure\AlphaLinkDomainProviderImport;
 use App\Services\Infrastructure\AlphaLinkDomainProviderImportException;
 use App\Services\Infrastructure\AlphaLinkDomainProviderRefresh;
 use App\Services\Infrastructure\AlphaLinkDomainRecordsManager;
+use App\Services\Infrastructure\AlphaLinkImapWebmailClient;
 use App\Services\Infrastructure\AlphaLinkInfrastructureRunLauncher;
 use App\Services\Infrastructure\AlphaLinkInstallerServerCredentialResolver;
 use App\Services\Infrastructure\AlphaLinkInstallPlatform;
@@ -1764,6 +1766,7 @@ class InfrastructureConsoleController extends Controller
             return view('console.infrastructure.my-ips', [
                 'workspace' => $workspace,
                 'ipsUrl' => route('console.infrastructure.my-ips', $workspace->id, false),
+                'webmailUrlTemplate' => route('console.infrastructure.my-ips.webmail', [$workspace->id, '__IP__'], false),
                 'exportUrl' => route('console.infrastructure.my-ips.export', array_filter([
                     'workspace' => $workspace->id,
                     'server_id' => is_string($serverId) ? $serverId : null,
@@ -1842,6 +1845,238 @@ class InfrastructureConsoleController extends Controller
 
             fclose($stream);
         }, sprintf('ips_%s.csv', now()->timestamp), ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    public function webmail(Request $request, string $workspaceId, int $ipId): View
+    {
+        $workspace = $this->workspaceForServerControl($request->user(), $workspaceId);
+        $ip = $this->webmailIpForWorkspace($workspace, $ipId);
+        $settings = $workspace->infrastructureSettings;
+        $savedUsername = trim((string) ($settings?->webmail_username ?? ''));
+        $hasSavedPassword = filled($settings?->webmail_password);
+        $defaultLogin = $this->defaultWebmailLogin($savedUsername, (string) $ip->dns);
+        $canUpdateSettings = in_array((string) $workspace->pivot->role, ['owner', 'admin'], true);
+
+        return view('console.infrastructure.webmail', [
+            'workspace' => $workspace,
+            'ip' => $ip,
+            'server' => $ip->server,
+            'savedUsername' => $savedUsername,
+            'defaultLogin' => $defaultLogin,
+            'hasSavedPassword' => $hasSavedPassword,
+            'canUpdateSettings' => $canUpdateSettings,
+            'settingsUrl' => route('console.app-settings.index', $workspace->id),
+            'connectUrl' => route('console.infrastructure.my-ips.webmail.connect', [$workspace->id, $ip->getKey()]),
+            'messageUrlTemplate' => route('console.infrastructure.my-ips.webmail.message', [$workspace->id, $ip->getKey(), '__UID__']),
+            'deleteUrlTemplate' => route('console.infrastructure.my-ips.webmail.delete', [$workspace->id, $ip->getKey(), '__UID__']),
+        ]);
+    }
+
+    public function webmailConnect(
+        Request $request,
+        string $workspaceId,
+        int $ipId,
+        AlphaLinkImapWebmailClient $imap,
+    ): JsonResponse {
+        $workspace = $this->workspaceForServerControl($request->user(), $workspaceId);
+        $ip = $this->webmailIpForWorkspace($workspace, $ipId);
+        $settings = $workspace->infrastructureSettings;
+
+        $data = $request->validate([
+            'username' => ['nullable', 'string', 'max:255'],
+            'password' => ['nullable', 'string', 'max:4096'],
+            'use_saved_password' => ['sometimes', 'boolean'],
+            'port' => ['sometimes', 'integer', Rule::in([143, 993])],
+            'security' => ['sometimes', 'string', Rule::in(['auto', 'starttls', 'ssl', 'plain'])],
+            'folder' => ['sometimes', 'string', 'max:128'],
+            'save_to_settings' => ['sometimes', 'boolean'],
+        ]);
+
+        $savedUsername = trim((string) ($settings?->webmail_username ?? ''));
+        $savedPassword = (string) ($settings?->webmail_password ?? '');
+        $loginUsername = trim((string) ($data['username'] ?? ''));
+        if ($loginUsername === '') {
+            $loginUsername = $this->defaultWebmailLogin($savedUsername, (string) $ip->dns);
+        }
+
+        $submittedPassword = (string) ($data['password'] ?? '');
+        $useSaved = (bool) ($data['use_saved_password'] ?? ($submittedPassword === ''));
+        $loginPassword = $submittedPassword !== '' ? $submittedPassword : ($useSaved ? $savedPassword : '');
+
+        if ($loginUsername === '') {
+            throw ValidationException::withMessages([
+                'username' => 'Enter an IMAP webmail username or configure WEBMAIL USERNAME in Settings.',
+            ]);
+        }
+        if ($loginPassword === '') {
+            throw ValidationException::withMessages([
+                'password' => 'Enter the IMAP webmail password or configure WEBMAIL PASSWORD in Settings.',
+            ]);
+        }
+
+        if ((bool) ($data['save_to_settings'] ?? false) && in_array((string) $workspace->pivot->role, ['owner', 'admin'], true)) {
+            $bareUsername = str_contains($loginUsername, '@') ? strstr($loginUsername, '@', true) : $loginUsername;
+            $settingsModel = WorkspaceInfrastructureSettings::query()->firstOrCreate(['workspace_id' => $workspace->getKey()]);
+            $settingsModel->webmail_username = $bareUsername !== '' ? $bareUsername : $loginUsername;
+            $settingsModel->webmail_password = $loginPassword;
+            $settingsModel->save();
+            AuditEvent::query()->create([
+                'workspace_id' => $workspace->getKey(),
+                'actor_user_id' => $request->user()->getKey(),
+                'action' => 'infrastructure_settings.webmail_updated',
+                'subject_type' => 'workspace_infrastructure_settings',
+                'subject_id' => (string) $settingsModel->getKey(),
+                'request_id' => (string) Str::uuid(),
+                'properties' => ['source' => 'webmail_login'],
+                'occurred_at' => now(),
+            ]);
+        }
+
+        $host = (string) ($ip->server?->ip_address ?? '');
+        $port = (int) ($data['port'] ?? 143);
+        $security = (string) ($data['security'] ?? 'auto');
+        $folder = trim((string) ($data['folder'] ?? 'INBOX')) ?: 'INBOX';
+
+        try {
+            $imap->connect($host, $port, $loginUsername, $loginPassword, $security);
+            $folders = $imap->listFolders();
+            $messages = $imap->listMessages($folder, 50);
+            $imap->disconnect();
+        } catch (RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        $request->session()->put($this->webmailSessionKey($workspace, $ip), [
+            'host' => $host,
+            'port' => $port,
+            'security' => $security,
+            'username' => $loginUsername,
+            'password' => $loginPassword,
+        ]);
+
+        return response()->json([
+            'connected' => true,
+            'host' => $host,
+            'port' => $port,
+            'username' => $loginUsername,
+            'folder' => $folder,
+            'folders' => $folders,
+            'messages' => $messages,
+        ]);
+    }
+
+    public function webmailMessage(
+        Request $request,
+        string $workspaceId,
+        int $ipId,
+        int $uid,
+        AlphaLinkImapWebmailClient $imap,
+    ): JsonResponse {
+        $workspace = $this->workspaceForServerControl($request->user(), $workspaceId);
+        $ip = $this->webmailIpForWorkspace($workspace, $ipId);
+        $credentials = $this->resolveWebmailSessionCredentials($request, $workspace, $ip);
+        $folder = trim((string) $request->query('folder', 'INBOX')) ?: 'INBOX';
+
+        try {
+            $imap->connect(
+                $credentials['host'],
+                $credentials['port'],
+                $credentials['username'],
+                $credentials['password'],
+                $credentials['security'],
+            );
+            $message = $imap->fetchMessage($folder, $uid);
+            $imap->disconnect();
+        } catch (RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        return response()->json(['message' => $message]);
+    }
+
+    public function webmailDeleteMessage(
+        Request $request,
+        string $workspaceId,
+        int $ipId,
+        int $uid,
+        AlphaLinkImapWebmailClient $imap,
+    ): JsonResponse {
+        $workspace = $this->workspaceForServerControl($request->user(), $workspaceId);
+        $ip = $this->webmailIpForWorkspace($workspace, $ipId);
+        $credentials = $this->resolveWebmailSessionCredentials($request, $workspace, $ip);
+        $folder = trim((string) $request->input('folder', $request->query('folder', 'INBOX'))) ?: 'INBOX';
+
+        try {
+            $imap->connect(
+                $credentials['host'],
+                $credentials['port'],
+                $credentials['username'],
+                $credentials['password'],
+                $credentials['security'],
+            );
+            $imap->deleteMessage($folder, $uid);
+            $imap->disconnect();
+        } catch (RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        return response()->json(['deleted' => true, 'uid' => $uid]);
+    }
+
+    private function webmailIpForWorkspace(Workspace $workspace, int $ipId): ManagedServerIp
+    {
+        return $this->myIpsQuery($workspace)
+            ->where('managed_server_ips.id', $ipId)
+            ->firstOrFail();
+    }
+
+    private function defaultWebmailLogin(string $savedUsername, string $domain): string
+    {
+        if ($savedUsername === '') {
+            return '';
+        }
+
+        if (str_contains($savedUsername, '@') || $domain === '') {
+            return $savedUsername;
+        }
+
+        return $savedUsername.'@'.$domain;
+    }
+
+    private function webmailSessionKey(Workspace $workspace, ManagedServerIp $ip): string
+    {
+        return 'webmail_imap.'.$workspace->getKey().'.'.$ip->getKey();
+    }
+
+    /** @return array{host: string, port: int, security: string, username: string, password: string} */
+    private function resolveWebmailSessionCredentials(Request $request, Workspace $workspace, ManagedServerIp $ip): array
+    {
+        $sessionCreds = $request->session()->get($this->webmailSessionKey($workspace, $ip));
+        if (is_array($sessionCreds) && ! empty($sessionCreds['username']) && ! empty($sessionCreds['password'])) {
+            return [
+                'host' => (string) ($ip->server?->ip_address ?? $sessionCreds['host'] ?? ''),
+                'port' => (int) ($sessionCreds['port'] ?? 143),
+                'security' => (string) ($sessionCreds['security'] ?? 'auto'),
+                'username' => (string) $sessionCreds['username'],
+                'password' => (string) $sessionCreds['password'],
+            ];
+        }
+
+        $settings = $workspace->infrastructureSettings;
+        $savedUsername = trim((string) ($settings?->webmail_username ?? ''));
+        $savedPassword = (string) ($settings?->webmail_password ?? '');
+        $defaultLogin = $this->defaultWebmailLogin($savedUsername, (string) $ip->dns);
+        if ($defaultLogin !== '' && $savedPassword !== '') {
+            return [
+                'host' => (string) ($ip->server?->ip_address ?? ''),
+                'port' => 143,
+                'security' => 'auto',
+                'username' => $defaultLogin,
+                'password' => $savedPassword,
+            ];
+        }
+
+        abort(422, 'Sign in to the Webmail mailbox first or configure Webmail credentials in Settings.');
     }
 
     private function myIpsQuery(Workspace $workspace, ?string $serverId = null)

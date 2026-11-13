@@ -146,6 +146,43 @@ class SpfParser
     }
 
     /**
+     * Keep IPv4 CIDRs at the configured minimum prefix or more specific when
+     * preparing SPF results for saved-domain records. IPv6 CIDRs are unchanged.
+     *
+     * @param  list<string>  $cidrs
+     * @return list<string>
+     */
+    public static function filterSavedCidrs(array $cidrs): array
+    {
+        $minimumIpv4Prefix = min(32, max(0, (int) config('spf.minimum_saved_ipv4_prefix', 8)));
+        $saved = [];
+
+        foreach ($cidrs as $cidr) {
+            [$address, $prefix] = array_pad(explode('/', $cidr, 2), 2, null);
+            $packedAddress = inet_pton($address);
+            if ($packedAddress === false) {
+                continue;
+            }
+
+            $maximumPrefix = strlen($packedAddress) === 4 ? 32 : 128;
+            $prefixLength = $prefix === null ? $maximumPrefix : (ctype_digit($prefix) ? (int) $prefix : -1);
+            if ($prefixLength < 0 || $prefixLength > $maximumPrefix) {
+                continue;
+            }
+
+            if ($maximumPrefix === 32) {
+                if ($prefixLength < $minimumIpv4Prefix) {
+                    continue;
+                }
+            }
+
+            $saved[$cidr] = true;
+        }
+
+        return array_keys($saved);
+    }
+
+    /**
      * Hostname DNS mechanisms: a, mx, exists, ptr. Macros are kept until they can be expanded.
      *
      * @return array<int, array{type: string, domain: string, prefix4: ?int, prefix6: ?int, has_macros: bool}>

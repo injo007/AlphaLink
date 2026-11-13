@@ -1,7 +1,8 @@
 <?php
 
 return [
-    'max_includes' => 50,
+    'max_includes' => min(3, max(0, (int) env('SPF_MAX_INCLUDES', 3))),
+    'minimum_saved_ipv4_prefix' => min(32, max(8, (int) env('SPF_MINIMUM_SAVED_IPV4_PREFIX', 8))),
     'max_workers' => min(16, max(1, (int) env('SPF_MAX_WORKERS', 16))),
     'async_domains_per_worker' => min(256, max(1, (int) env('SPF_ASYNC_DOMAINS_PER_WORKER', 256))),
     'checkpoint_domains' => min(256, max(25, (int) env('SPF_CHECKPOINT_DOMAINS', 256))),

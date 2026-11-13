@@ -112,7 +112,7 @@ class AlphaLinkSpfSearchRunner
         $rows = [];
         foreach ($ips as $ip) {
             foreach ($root->hosts ?? [] as $host) {
-                foreach ($host['cidrs'] ?? [] as $cidr) {
+                foreach (SpfParser::filterSavedCidrs($host['cidrs'] ?? []) as $cidr) {
                     if (SpfParser::ipInCidr($ip, $cidr)) {
                         $rows[] = [
                             'root_id' => $root->getKey(),

@@ -33,12 +33,15 @@ class AlphaLinkSpfScanner
 
         $visited = [];
         $hosts = [];
-        $this->scanNode($domain, $visited, $hosts, max(1, (int) config('spf.max_includes', 50)), $activity);
+        $includeCount = 0;
+        $this->scanNode($domain, $visited, $hosts, $includeCount, max(0, (int) config('spf.max_includes', 3)), $activity);
         $root = $hosts[$domain] ?? ['domain' => $domain, 'record' => null, 'status' => 'error', 'cidrs' => []];
         $cidrs = [];
         foreach ($hosts as $host) {
             foreach ($host['cidrs'] as $cidr) {
-                $cidrs[$cidr] = true;
+                foreach (SpfParser::filterSavedCidrs([$cidr]) as $savedCidr) {
+                    $cidrs[$savedCidr] = true;
+                }
             }
         }
 
@@ -55,16 +58,16 @@ class AlphaLinkSpfScanner
     /** @param array<string, true> $visited
      * @param  array<string, array{domain: string, record: ?string, status: string, cidrs: list<string>}>  $hosts
      */
-    private function scanNode(string $domain, array &$visited, array &$hosts, int $maximumHosts, ?Closure $activity = null): void
+    private function scanNode(string $domain, array &$visited, array &$hosts, int &$includeCount, int $maximumIncludes, ?Closure $activity = null): void
     {
         $domain = SpfParser::normalizeDomain($domain);
-        if (isset($visited[$domain]) || count($visited) >= $maximumHosts) {
+        if (isset($visited[$domain])) {
             return;
         }
         $visited[$domain] = true;
         [$record, $dnsError] = $this->lookupSpf($domain, $activity);
         $status = $record !== null ? 'ok' : ($dnsError ? 'error' : 'no_spf');
-        $cidrs = $record === null ? [] : SpfParser::extractCidrs($record);
+        $cidrs = $record === null ? [] : SpfParser::filterSavedCidrs(SpfParser::extractCidrs($record));
         $hosts[$domain] = ['domain' => $domain, 'record' => $record, 'status' => $status, 'cidrs' => $cidrs];
 
         if ($record === null) {
@@ -76,7 +79,7 @@ class AlphaLinkSpfScanner
                 foreach ($this->targetAddresses($target['type'], $target['domain'], $activity) as $ip) {
                     $cidr = SpfParser::ipToCidr($ip, $target['prefix4'], $target['prefix6']);
                     if ($cidr !== null) {
-                        $hosts[$domain]['cidrs'][] = $cidr;
+                        $hosts[$domain]['cidrs'] = SpfParser::filterSavedCidrs([...$hosts[$domain]['cidrs'], $cidr]);
                     }
                 }
             }
@@ -84,11 +87,15 @@ class AlphaLinkSpfScanner
         $hosts[$domain]['cidrs'] = array_values(array_unique($hosts[$domain]['cidrs']));
 
         foreach (SpfParser::childIncludes($record, $domain) as $include) {
-            if (count($visited) >= $maximumHosts) {
+            if ($includeCount >= $maximumIncludes) {
                 break;
             }
+            if (isset($visited[$include])) {
+                continue;
+            }
+            $includeCount++;
             $this->notify($activity, 'include', $include, 'include_started');
-            $this->scanNode($include, $visited, $hosts, $maximumHosts, $activity);
+            $this->scanNode($include, $visited, $hosts, $includeCount, $maximumIncludes, $activity);
         }
     }
 

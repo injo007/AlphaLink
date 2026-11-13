@@ -97,13 +97,16 @@ class AlphaLinkSpfAsyncBatchScanner
             $visited = [];
             $hosts = [];
             $dnsErrors = 0;
-            await($this->scanNode($domain, $visited, $hosts, $dnsErrors, max(1, (int) config('spf.max_includes', 50)), $activity));
+            $includeCount = 0;
+            await($this->scanNode($domain, $visited, $hosts, $dnsErrors, $includeCount, max(0, (int) config('spf.max_includes', 3)), $activity));
 
             $root = $hosts[$domain] ?? ['domain' => $domain, 'record' => null, 'status' => 'error', 'cidrs' => []];
             $cidrs = [];
             foreach ($hosts as $host) {
                 foreach ($host['cidrs'] as $cidr) {
-                    $cidrs[$cidr] = true;
+                    foreach (SpfParser::filterSavedCidrs([$cidr]) as $savedCidr) {
+                        $cidrs[$savedCidr] = true;
+                    }
                 }
             }
 
@@ -122,11 +125,11 @@ class AlphaLinkSpfAsyncBatchScanner
      * @param  array<string, true>  $visited
      * @param  array<string, array{domain: string, record: ?string, status: string, cidrs: list<string>}>  $hosts
      */
-    private function scanNode(string $domain, array &$visited, array &$hosts, int &$dnsErrors, int $maximumHosts, ?callable $activity): PromiseInterface
+    private function scanNode(string $domain, array &$visited, array &$hosts, int &$dnsErrors, int &$includeCount, int $maximumIncludes, ?callable $activity): PromiseInterface
     {
-        return async(function () use ($domain, &$visited, &$hosts, &$dnsErrors, $maximumHosts, $activity): void {
+        return async(function () use ($domain, &$visited, &$hosts, &$dnsErrors, &$includeCount, $maximumIncludes, $activity): void {
             $domain = SpfParser::normalizeDomain($domain);
-            if (isset($visited[$domain]) || count($visited) >= $maximumHosts) {
+            if (isset($visited[$domain])) {
                 return;
             }
             $visited[$domain] = true;
@@ -147,7 +150,7 @@ class AlphaLinkSpfAsyncBatchScanner
                 'domain' => $domain,
                 'record' => $record,
                 'status' => $record !== null ? 'ok' : ($failed ? 'error' : 'no_spf'),
-                'cidrs' => $record === null ? [] : SpfParser::extractCidrs($record),
+                'cidrs' => $record === null ? [] : SpfParser::filterSavedCidrs(SpfParser::extractCidrs($record)),
             ];
             if ($record === null) {
                 return;
@@ -165,7 +168,7 @@ class AlphaLinkSpfAsyncBatchScanner
                     foreach ($addresses as $ip) {
                         $cidr = SpfParser::ipToCidr($ip, $target['prefix4'], $target['prefix6']);
                         if ($cidr !== null) {
-                            $domainCidrs[] = $cidr;
+                            $domainCidrs = SpfParser::filterSavedCidrs([...$domainCidrs, $cidr]);
                         }
                     }
                 }
@@ -174,11 +177,15 @@ class AlphaLinkSpfAsyncBatchScanner
             $hosts[$domain]['cidrs'] = array_values(array_unique($hosts[$domain]['cidrs']));
 
             foreach (SpfParser::childIncludes($record, $domain) as $include) {
-                if (count($visited) >= $maximumHosts) {
+                if ($includeCount >= $maximumIncludes) {
                     break;
                 }
+                if (isset($visited[$include])) {
+                    continue;
+                }
+                $includeCount++;
                 $this->notify($activity, 'include', $include, 'include_started');
-                await($this->scanNode($include, $visited, $hosts, $dnsErrors, $maximumHosts, $activity));
+                await($this->scanNode($include, $visited, $hosts, $dnsErrors, $includeCount, $maximumIncludes, $activity));
             }
         })();
     }

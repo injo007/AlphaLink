@@ -271,7 +271,7 @@ class AlphaLinkSpfDnsCheckMatcher
     {
         foreach ($resolved as $resolvedIp) {
             $cidr = SpfParser::ipToCidr($resolvedIp, $template['prefix4'], $template['prefix6']);
-            if ($cidr !== null && SpfParser::ipInCidr($ip, $cidr)) {
+            if ($cidr !== null && SpfParser::filterSavedCidrs([$cidr]) !== [] && SpfParser::ipInCidr($ip, $cidr)) {
                 return true;
             }
         }

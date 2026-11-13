@@ -46,29 +46,30 @@ class AlphaLinkSpfScanActivity
         }
     }
 
-    public function startWorker(WorkspaceSpfScan $scan, int $workerIndex): void
+    public function startWorker(WorkspaceSpfScan $scan, int $workerIndex, bool $resume = false): void
     {
         if ($this->telemetryUnavailable) {
             return;
         }
         $key = $this->key((int) $scan->getKey(), $workerIndex);
         try {
-            WorkspaceSpfScanWorker::query()->updateOrCreate(
-                ['scan_id' => $scan->getKey(), 'worker_index' => $workerIndex],
-                [
-                    'status' => 'resolving',
-                    'stage' => 'starting',
-                    'current_domain' => null,
-                    'domains_processed' => 0,
-                    'spf_records_found' => 0,
-                    'dns_errors' => 0,
-                    'last_lookup_duration_ms' => null,
-                    'last_batch_duration_ms' => null,
-                    'heartbeat_at' => now(),
-                    'started_at' => now(),
-                    'ended_at' => null,
-                ],
-            );
+            $worker = WorkspaceSpfScanWorker::query()->firstOrNew([
+                'scan_id' => $scan->getKey(),
+                'worker_index' => $workerIndex,
+            ]);
+            $worker->forceFill([
+                'status' => 'resolving',
+                'stage' => 'starting',
+                'current_domain' => null,
+                'domains_processed' => $resume ? (int) $worker->domains_processed : 0,
+                'spf_records_found' => $resume ? (int) $worker->spf_records_found : 0,
+                'dns_errors' => $resume ? (int) $worker->dns_errors : 0,
+                'last_lookup_duration_ms' => $resume ? $worker->last_lookup_duration_ms : null,
+                'last_batch_duration_ms' => $resume ? $worker->last_batch_duration_ms : null,
+                'heartbeat_at' => now(),
+                'started_at' => $resume ? ($worker->started_at ?? now()) : now(),
+                'ended_at' => null,
+            ])->save();
             $this->lastWorkerWriteAt[$key] = microtime(true);
             $this->lastEventAt[$key] = microtime(true);
             $this->lastCheckpointCount[$key] = 0;
@@ -227,7 +228,11 @@ class AlphaLinkSpfScanActivity
         }
         try {
             if ($status !== WorkspaceSpfScan::STATUS_FINISHED) {
-                $workerStatus = $status === WorkspaceSpfScan::STATUS_KILLED ? 'cancelled' : 'failed';
+                $workerStatus = match ($status) {
+                    WorkspaceSpfScan::STATUS_KILLED => 'cancelled',
+                    WorkspaceSpfScan::STATUS_PAUSED => 'paused',
+                    default => 'failed',
+                };
                 WorkspaceSpfScanWorker::query()
                     ->where('scan_id', $scan->getKey())
                     ->whereIn('status', ['starting', 'resolving'])

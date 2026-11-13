@@ -154,6 +154,8 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::post('/app/workspaces/{workspace}/tools/spf-scanner/volume', [WorkspaceSpfScannerController::class, 'volume'])->middleware('throttle:20,1')->name('console.tools.spf.volume');
     Route::get('/app/workspaces/{workspace}/tools/spf-scanner/scans', [WorkspaceSpfScannerController::class, 'scans'])->name('console.tools.spf.scans');
     Route::get('/app/workspaces/{workspace}/tools/spf-scanner/scans/{scan}/activity', [WorkspaceSpfScannerController::class, 'activity'])->whereNumber('scan')->name('console.tools.spf.scan-activity');
+    Route::post('/app/workspaces/{workspace}/tools/spf-scanner/scans/{scan}/pause', [WorkspaceSpfScannerController::class, 'pause'])->whereNumber('scan')->middleware('throttle:10,1')->name('console.tools.spf.pause');
+    Route::post('/app/workspaces/{workspace}/tools/spf-scanner/scans/{scan}/resume', [WorkspaceSpfScannerController::class, 'resume'])->whereNumber('scan')->middleware('throttle:10,1')->name('console.tools.spf.resume');
     Route::post('/app/workspaces/{workspace}/tools/spf-scanner/scans/{scan}/kill', [WorkspaceSpfScannerController::class, 'kill'])->whereNumber('scan')->middleware('throttle:10,1')->name('console.tools.spf.kill');
     Route::get('/app/workspaces/{workspace}/tools/workspace', [WorkspaceToolConsoleController::class, 'index'])->name('console.tools.workspace.index');
     Route::get('/app/workspaces/{workspace}/gcampaigns/projects', [WorkspaceToolConsoleController::class, 'projects'])->name('console.gcampaigns.projects');

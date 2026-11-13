@@ -12,6 +12,8 @@ class WorkspaceSpfScan extends Model
 
     public const STATUS_SCANNING = 'scanning';
 
+    public const STATUS_PAUSED = 'paused';
+
     public const STATUS_FINISHED = 'finished';
 
     public const STATUS_KILLED = 'killed';
@@ -20,7 +22,7 @@ class WorkspaceSpfScan extends Model
 
     protected $fillable = [
         'workspace_id', 'created_by', 'file_path', 'status', 'total_lines', 'valid_domains', 'progress',
-        'batch_size', 'skip_existing', 'workers', 'partition_count', 'partition_paths', 'partition_offsets',
+        'batch_size', 'skip_existing', 'workers', 'partition_count', 'partition_paths', 'partition_offsets', 'worker_offsets',
         'file_size_bytes', 'preparation_bytes', 'pid', 'worker_pids', 'total_found',
         'stage', 'current_domain', 'started_at', 'heartbeat_at', 'progress_at', 'ended_at', 'failure',
     ];
@@ -29,7 +31,7 @@ class WorkspaceSpfScan extends Model
     {
         return [
             'skip_existing' => 'boolean', 'worker_pids' => 'array', 'partition_paths' => 'array',
-            'partition_offsets' => 'array', 'started_at' => 'datetime',
+            'partition_offsets' => 'array', 'worker_offsets' => 'array', 'started_at' => 'datetime',
             'heartbeat_at' => 'datetime', 'progress_at' => 'datetime', 'ended_at' => 'datetime',
         ];
     }

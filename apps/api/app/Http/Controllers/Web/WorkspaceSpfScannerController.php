@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\RunWorkspaceSpfComparison;
+use App\Jobs\RunWorkspaceSpfScan;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceSpfRoot;
@@ -446,9 +447,10 @@ class WorkspaceSpfScannerController extends Controller
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         abort_unless((string) $scan->workspace_id === (string) $workspace->id, 404);
-        if (! in_array($scan->status, [WorkspaceSpfScan::STATUS_PENDING, WorkspaceSpfScan::STATUS_SCANNING], true)) {
+        if (! in_array($scan->status, [WorkspaceSpfScan::STATUS_PENDING, WorkspaceSpfScan::STATUS_SCANNING, WorkspaceSpfScan::STATUS_PAUSED], true)) {
             return response()->json(['error' => 'Scan is not running'], 400);
         }
+        $wasPausedAndIdle = $scan->status === WorkspaceSpfScan::STATUS_PAUSED && $scan->stage === 'paused';
         $scan->update([
             'status' => WorkspaceSpfScan::STATUS_KILLED,
             'stage' => 'cancelled',
@@ -456,8 +458,81 @@ class WorkspaceSpfScannerController extends Controller
             'current_domain' => null,
         ]);
         $activity->recordEvent((int) $scan->getKey(), 'warning', 'scan_cancel_requested', 'Cancellation was requested; active DNS lookups will finish before workers exit.');
+        if ($wasPausedAndIdle) {
+            $scan->refresh();
+            $activity->finishScan($scan, WorkspaceSpfScan::STATUS_KILLED);
+            Storage::disk('local')->delete(array_values(array_unique(array_merge([$scan->file_path], $scan->partition_paths ?? []))));
+            Storage::disk('local')->deleteDirectory('spf-scans/'.$scan->getKey().'-parts');
+        }
 
         return response()->json(['message' => 'Scan cancelled. Active DNS lookups will finish before their workers exit.']);
+    }
+
+    public function pause(Request $request, string $workspace, WorkspaceSpfScan $scan, AlphaLinkSpfScanActivity $activity): JsonResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        abort_unless((string) $scan->workspace_id === (string) $workspace->id, 404);
+        $paused = WorkspaceSpfScan::query()
+            ->whereKey($scan->getKey())
+            ->where('workspace_id', $workspace->id)
+            ->where('status', WorkspaceSpfScan::STATUS_SCANNING)
+            ->where('stage', '!=', 'resuming')
+            ->update([
+                'status' => WorkspaceSpfScan::STATUS_PAUSED,
+                'stage' => 'pausing',
+                'heartbeat_at' => now(),
+            ]);
+        if ($paused === 0) {
+            return response()->json(['error' => 'Only an active domain scan can be paused.'], 409);
+        }
+
+        $activity->recordEvent((int) $scan->getKey(), 'warning', 'scan_pause_requested', 'Pause requested. Active DNS batches will finish and each worker will save its next domain checkpoint.');
+
+        return response()->json(['message' => 'Pause requested. Active DNS batches will finish before the scan pauses.']);
+    }
+
+    public function resume(Request $request, string $workspace, WorkspaceSpfScan $scan, AlphaLinkSpfScanActivity $activity): JsonResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        abort_unless((string) $scan->workspace_id === (string) $workspace->id, 404);
+        $resumed = WorkspaceSpfScan::query()
+            ->whereKey($scan->getKey())
+            ->where('workspace_id', $workspace->id)
+            ->where('status', WorkspaceSpfScan::STATUS_PAUSED)
+            ->where('stage', 'paused')
+            ->whereNull('pid')
+            ->update([
+                'status' => WorkspaceSpfScan::STATUS_SCANNING,
+                'stage' => 'resuming',
+                'heartbeat_at' => now(),
+                'progress_at' => now(),
+                'ended_at' => null,
+                'failure' => null,
+            ]);
+        if ($resumed === 0) {
+            return response()->json(['error' => 'The scan is still pausing or is no longer available to resume.'], 409);
+        }
+
+        try {
+            RunWorkspaceSpfScan::dispatch((int) $scan->getKey(), max(1, (int) $scan->workers), true);
+        } catch (\Throwable $exception) {
+            report($exception);
+            WorkspaceSpfScan::query()
+                ->whereKey($scan->getKey())
+                ->where('status', WorkspaceSpfScan::STATUS_SCANNING)
+                ->where('stage', 'resuming')
+                ->update([
+                    'status' => WorkspaceSpfScan::STATUS_PAUSED,
+                    'stage' => 'paused',
+                    'heartbeat_at' => now(),
+                ]);
+
+            return response()->json(['error' => 'The scan could not be queued to resume. It remains paused.'], 503);
+        }
+
+        $activity->recordEvent((int) $scan->getKey(), 'info', 'scan_resume_requested', 'Resume requested. Workers will continue from their last completed domain batches.');
+
+        return response()->json(['message' => 'Resume requested. The scan is continuing from its saved checkpoints.']);
     }
 
     /** @return \Generator<int, array{root_id: int|string, matched_ip: string, root: string, include: string, network: string, record?: ?string}> */

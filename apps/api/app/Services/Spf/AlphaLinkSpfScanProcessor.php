@@ -4,6 +4,7 @@ namespace App\Services\Spf;
 
 use App\Models\WorkspaceSpfRoot;
 use App\Models\WorkspaceSpfScan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use SplFileObject;
 use Throwable;
@@ -176,8 +177,9 @@ class AlphaLinkSpfScanProcessor
         $workerIndex = max(0, min($workerCount - 1, $workerIndex));
         $paths = $scan->partition_paths ?: [$scan->file_path];
         $offsets = $scan->partition_offsets ?: [];
+        $workerOffsets = $scan->worker_offsets ?: [];
         $assignments = $this->assignmentsForWorker(count($paths), $workerCount, $workerIndex);
-        $this->activity->startWorker($scan, $workerIndex);
+        $this->activity->startWorker($scan, $workerIndex, $workerOffsets !== []);
 
         try {
             foreach ($assignments as [$partitionIndex, $localWorkerIndex]) {
@@ -191,7 +193,8 @@ class AlphaLinkSpfScanProcessor
                 }
 
                 $partOffsets = $offsets[$partitionIndex] ?? [0, (int) (filesize($path) ?: 0)];
-                $startOffset = max(0, (int) ($partOffsets[$localWorkerIndex] ?? 0));
+                $baseOffset = max(0, (int) ($partOffsets[$localWorkerIndex] ?? 0));
+                $startOffset = max($baseOffset, (int) ($workerOffsets[$partitionIndex][$localWorkerIndex] ?? $baseOffset));
                 $fallbackEnd = (int) (filesize($path) ?: 0);
                 $endOffset = max($startOffset, (int) ($partOffsets[$localWorkerIndex + 1] ?? $fallbackEnd));
                 $file = new SplFileObject($path, 'r');
@@ -211,9 +214,9 @@ class AlphaLinkSpfScanProcessor
                         $batchLines++;
                         $domainsSinceStatusCheck++;
                         if (count($batch) >= $batchSize) {
-                            $result = $this->processBatch($scan, $batch, $batchLines, $workerIndex);
+                            $result = $this->processBatch($scan, $batch, $batchLines, $workerIndex, $partitionIndex, $localWorkerIndex, (int) $file->ftell());
                             if ($result !== 0) {
-                                $this->activity->finishWorker($scanId, $workerIndex, $result === 2 ? 'cancelled' : 'failed');
+                                $this->activity->finishWorker($scanId, $workerIndex, $this->workerStatusForExitCode($result));
 
                                 return $result;
                             }
@@ -223,9 +226,10 @@ class AlphaLinkSpfScanProcessor
                         } elseif ($domainsSinceStatusCheck >= 5) {
                             $scan->refresh();
                             if ($scan->status !== WorkspaceSpfScan::STATUS_SCANNING) {
-                                $this->activity->finishWorker($scanId, $workerIndex, $scan->status === WorkspaceSpfScan::STATUS_KILLED ? 'cancelled' : 'failed');
+                                $exitCode = $this->exitCodeForStatus($scan->status);
+                                $this->activity->finishWorker($scanId, $workerIndex, $this->workerStatusForExitCode($exitCode));
 
-                                return $scan->status === WorkspaceSpfScan::STATUS_KILLED ? 2 : 1;
+                                return $exitCode;
                             }
                             $domainsSinceStatusCheck = 0;
                         }
@@ -233,13 +237,21 @@ class AlphaLinkSpfScanProcessor
                 }
 
                 if ($batch !== []) {
-                    $result = $this->processBatch($scan, $batch, $batchLines, $workerIndex);
+                    $result = $this->processBatch($scan, $batch, $batchLines, $workerIndex, $partitionIndex, $localWorkerIndex, (int) $file->ftell());
                     if ($result !== 0) {
-                        $this->activity->finishWorker($scanId, $workerIndex, $result === 2 ? 'cancelled' : 'failed');
+                        $this->activity->finishWorker($scanId, $workerIndex, $this->workerStatusForExitCode($result));
 
                         return $result;
                     }
                 }
+            }
+
+            $scan->refresh();
+            if ($scan->status !== WorkspaceSpfScan::STATUS_SCANNING) {
+                $exitCode = $this->exitCodeForStatus($scan->status);
+                $this->activity->finishWorker($scanId, $workerIndex, $this->workerStatusForExitCode($exitCode));
+
+                return $exitCode;
             }
 
             $this->activity->finishWorker($scanId, $workerIndex, 'complete');
@@ -260,11 +272,18 @@ class AlphaLinkSpfScanProcessor
     }
 
     /** @param list<string> $domains */
-    private function processBatch(WorkspaceSpfScan $scan, array $domains, int $lineCount, int $workerIndex): int
-    {
+    private function processBatch(
+        WorkspaceSpfScan $scan,
+        array $domains,
+        int $lineCount,
+        int $workerIndex,
+        int $partitionIndex,
+        int $localWorkerIndex,
+        int $nextOffset,
+    ): int {
         $scan->refresh();
         if ($scan->status !== WorkspaceSpfScan::STATUS_SCANNING) {
-            return $scan->status === WorkspaceSpfScan::STATUS_KILLED ? 2 : 1;
+            return $this->exitCodeForStatus($scan->status);
         }
 
         $uniqueDomains = array_values(array_unique($domains));
@@ -329,15 +348,15 @@ class AlphaLinkSpfScanProcessor
             }
         }
 
-        WorkspaceSpfScan::query()->whereKey($scan->getKey())->increment('progress', $lineCount, [
-            'heartbeat_at' => now(),
-            'progress_at' => now(),
-            'current_domain' => $uniqueDomains[array_key_last($uniqueDomains)] ?? null,
-            'stage' => 'resolving',
-        ]);
-        if ($found > 0) {
-            WorkspaceSpfScan::query()->whereKey($scan->getKey())->increment('total_found', $found);
-        }
+        $this->checkpointBatch(
+            (int) $scan->getKey(),
+            $lineCount,
+            $found,
+            $partitionIndex,
+            $localWorkerIndex,
+            $nextOffset,
+            $uniqueDomains[array_key_last($uniqueDomains)] ?? null,
+        );
         $this->activity->completeBatch(
             (int) $scan->getKey(),
             $workerIndex,
@@ -351,6 +370,57 @@ class AlphaLinkSpfScanProcessor
         return 0;
     }
 
+    private function checkpointBatch(
+        int $scanId,
+        int $lineCount,
+        int $found,
+        int $partitionIndex,
+        int $localWorkerIndex,
+        int $nextOffset,
+        ?string $lastDomain,
+    ): void {
+        DB::transaction(function () use ($scanId, $lineCount, $found, $partitionIndex, $localWorkerIndex, $nextOffset, $lastDomain): void {
+            $scan = WorkspaceSpfScan::query()->whereKey($scanId)->lockForUpdate()->first();
+            if (! $scan || ! in_array($scan->status, [WorkspaceSpfScan::STATUS_SCANNING, WorkspaceSpfScan::STATUS_PAUSED], true)) {
+                return;
+            }
+
+            $workerOffsets = $scan->worker_offsets ?? [];
+            $workerOffsets[$partitionIndex] ??= [];
+            $workerOffsets[$partitionIndex][$localWorkerIndex] = max(
+                (int) ($workerOffsets[$partitionIndex][$localWorkerIndex] ?? 0),
+                $nextOffset,
+            );
+            $scan->forceFill([
+                'worker_offsets' => $workerOffsets,
+                'progress' => (int) $scan->progress + $lineCount,
+                'total_found' => (int) $scan->total_found + $found,
+                'heartbeat_at' => now(),
+                'progress_at' => now(),
+                'current_domain' => $lastDomain,
+                'stage' => $scan->status === WorkspaceSpfScan::STATUS_SCANNING ? 'resolving' : $scan->stage,
+            ])->save();
+        });
+    }
+
+    private function exitCodeForStatus(string $status): int
+    {
+        return match ($status) {
+            WorkspaceSpfScan::STATUS_KILLED => 2,
+            WorkspaceSpfScan::STATUS_PAUSED => 3,
+            default => 1,
+        };
+    }
+
+    private function workerStatusForExitCode(int $exitCode): string
+    {
+        return match ($exitCode) {
+            2 => 'cancelled',
+            3 => 'paused',
+            default => 'failed',
+        };
+    }
+
     public function finish(int $scanId, bool $success): void
     {
         $scan = WorkspaceSpfScan::query()->find($scanId);
@@ -361,6 +431,7 @@ class AlphaLinkSpfScanProcessor
         $status = match (true) {
             $scan->status === WorkspaceSpfScan::STATUS_KILLED => WorkspaceSpfScan::STATUS_KILLED,
             $scan->status === WorkspaceSpfScan::STATUS_FAILED || ! $success => WorkspaceSpfScan::STATUS_FAILED,
+            $scan->status === WorkspaceSpfScan::STATUS_PAUSED && $scan->progress < $scan->valid_domains => WorkspaceSpfScan::STATUS_PAUSED,
             default => WorkspaceSpfScan::STATUS_FINISHED,
         };
         $scan->update([
@@ -368,16 +439,21 @@ class AlphaLinkSpfScanProcessor
             'stage' => match ($status) {
                 WorkspaceSpfScan::STATUS_KILLED => 'cancelled',
                 WorkspaceSpfScan::STATUS_FAILED => 'failed',
+                WorkspaceSpfScan::STATUS_PAUSED => 'paused',
                 default => 'complete',
             },
             'current_domain' => null,
             'heartbeat_at' => now(),
             'pid' => null,
             'worker_pids' => null,
-            'ended_at' => now(),
+            'ended_at' => $status === WorkspaceSpfScan::STATUS_PAUSED ? null : now(),
             'failure' => $status === WorkspaceSpfScan::STATUS_FAILED ? ($scan->failure ?: 'One or more SPF workers failed.') : null,
         ]);
         $this->activity->finishScan($scan, $status);
+        if ($status === WorkspaceSpfScan::STATUS_PAUSED) {
+            return;
+        }
+
         Storage::disk('local')->delete(array_values(array_unique(array_merge([$scan->file_path], $scan->partition_paths ?? []))));
         Storage::disk('local')->deleteDirectory('spf-scans/'.$scanId.'-parts');
     }

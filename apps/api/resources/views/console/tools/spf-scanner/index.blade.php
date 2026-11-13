@@ -551,7 +551,10 @@
                 if (!response.ok) throw new Error(payload.message || 'The scan status service returned an error.');
                 const scans = payload.data || [];
                 scanTable.innerHTML = scans.length ? scans.map((scan) => {
-                    const canStop = ['pending', 'scanning'].includes(scan.status);
+                    const canPause = scan.status === 'scanning' && scan.stage !== 'resuming';
+                    const canResume = scan.status === 'paused' && scan.stage === 'paused';
+                    const isPausing = scan.status === 'paused' && scan.stage === 'pausing';
+                    const canStop = ['pending', 'scanning', 'paused'].includes(scan.status);
                     const total = Number(scan.progress_total || 0);
                     const exactPct = total ? Math.min(100, Number(scan.progress || 0) / total * 100) : 0;
                     const isPreparing = scan.status === 'pending' && ['preparing', 'validating', 'partitioning', 'preparing_ranges'].includes(scan.stage);
@@ -573,10 +576,16 @@
                     const healthClass = ['stale_heartbeat', 'no_heartbeat'].includes(scan.health) ? 'text-danger' : 'text-muted';
                     const progress = isPreparing ? `Preparing file · ${preparationPct}%` : total ? `${Number(scan.progress || 0).toLocaleString()} / ${total.toLocaleString()} · ${exactPct.toFixed(2)}%` : 'Waiting for worker…';
                     const partitionLabel = Number(scan.partition_count || 1) === 1 ? 'single file' : `${Number(scan.partition_count)} equal parts`;
-                    return `<tr><td>${escapeHtml(scan.id)}</td><td>${escapeHtml(scan.status)}<div class="small ${healthClass}">${escapeHtml(healthText)}</div>${scan.failure ? `<div class="text-danger small">${escapeHtml(scan.failure)}</div>` : ''}</td><td><div class="progress" style="min-width:150px; height:6px; border-radius:999px;"><div class="progress-bar bg-purple" role="progressbar" style="width:${barPct}%" aria-valuenow="${displayPct.toFixed(2)}" aria-valuemin="0" aria-valuemax="100"></div></div><small>${escapeHtml(progress + (isPreparing ? '' : throughput + eta))}</small></td><td>${escapeHtml(scan.total_found)}</td><td>${escapeHtml(scan.workers)}<div class="small text-muted">${escapeHtml(partitionLabel)}</div></td><td>${escapeHtml(scan.started_at || scan.created_at || '')}</td><td>${canStop ? `<button type="button" class="btn-command-danger" style="padding:2px 8px;font-size:.75rem;" data-spf-kill="${escapeHtml(scan.id)}">STOP</button>` : '—'}</td></tr>`;
+                    const controls = [
+                        canPause ? `<button type="button" class="btn-command-action" style="padding:2px 8px;font-size:.75rem;" data-spf-pause="${escapeHtml(scan.id)}" aria-label="Pause scan ${escapeHtml(scan.id)}"><i class="fas fa-pause mr-1" aria-hidden="true"></i>PAUSE</button>` : '',
+                        canResume ? `<button type="button" class="btn-command-primary" style="padding:2px 8px;font-size:.75rem;" data-spf-resume="${escapeHtml(scan.id)}" aria-label="Resume scan ${escapeHtml(scan.id)}"><i class="fas fa-play mr-1" aria-hidden="true"></i>RESUME</button>` : '',
+                        isPausing ? '<span class="small text-muted" role="status">PAUSING…</span>' : '',
+                        canStop ? `<button type="button" class="btn-command-danger" style="padding:2px 8px;font-size:.75rem;" data-spf-kill="${escapeHtml(scan.id)}">STOP</button>` : '',
+                    ].filter(Boolean).join(' ');
+                    return `<tr><td>${escapeHtml(scan.id)}</td><td>${escapeHtml(scan.status)}<div class="small ${healthClass}">${escapeHtml(healthText)}</div>${scan.failure ? `<div class="text-danger small">${escapeHtml(scan.failure)}</div>` : ''}</td><td><div class="progress" style="min-width:150px; height:6px; border-radius:999px;"><div class="progress-bar bg-purple" role="progressbar" style="width:${barPct}%" aria-valuenow="${displayPct.toFixed(2)}" aria-valuemin="0" aria-valuemax="100"></div></div><small>${escapeHtml(progress + (isPreparing ? '' : throughput + eta))}</small></td><td>${escapeHtml(scan.total_found)}</td><td>${escapeHtml(scan.workers)}<div class="small text-muted">${escapeHtml(partitionLabel)}</div></td><td>${escapeHtml(scan.started_at || scan.created_at || '')}</td><td><div class="d-flex flex-wrap" style="gap:4px;">${controls || '—'}</div></td></tr>`;
                 }).join('') : '<tr><td colspan="7" class="text-muted">No scans yet.</td></tr>';
                 document.getElementById('spf-scan-updated').textContent = `Updated ${new Date().toLocaleTimeString()}`;
-                const preferred = scans.find((scan) => ['pending', 'scanning'].includes(scan.status)) || scans[0];
+                const preferred = scans.find((scan) => ['pending', 'scanning', 'paused'].includes(scan.status)) || scans[0];
                 const priorSelection = activitySelect.value;
                 activitySelect.innerHTML = scans.length ? scans.map((scan) => {
                     const total = Number(scan.progress_total || 0);
@@ -616,12 +625,17 @@
         feedbackConfirm.addEventListener('click', () => closeFeedback(true));
         feedbackDialog.addEventListener('cancel', (event) => { event.preventDefault(); closeFeedback(false); });
         scanTable.addEventListener('click', async (event) => {
-            const button = event.target.closest('[data-spf-kill]');
+            const button = event.target.closest('[data-spf-pause], [data-spf-resume], [data-spf-kill]');
             if (!button) return;
-            const scanId = button.dataset.spfKill;
-            if (!await showFeedback(`Stop SPF scan ${scanId}? Active DNS lookups will finish before its workers exit.`, {title: 'Stop scan?', confirm: true, confirmLabel: 'Stop scan'})) return;
+            const action = button.hasAttribute('data-spf-pause') ? 'pause' : button.hasAttribute('data-spf-resume') ? 'resume' : 'kill';
+            const scanId = button.dataset.spfPause || button.dataset.spfResume || button.dataset.spfKill;
+            if (action === 'kill' && !await showFeedback(`Stop SPF scan ${scanId}? Active DNS lookups will finish before its workers exit.`, {title: 'Stop scan?', confirm: true, confirmLabel: 'Stop scan'})) return;
             setBusy(button, true);
-            try { await request(`${base}/scans/${encodeURIComponent(scanId)}/kill`, {}); await refreshScans(); }
+            try {
+                const response = await request(`${base}/scans/${encodeURIComponent(scanId)}/${action}`, {});
+                await refreshScans();
+                if (action !== 'kill') document.getElementById('spf-scan-updated').textContent = response.message;
+            }
             catch (error) { await showFeedback(error.message); setBusy(button, false); }
         });
         refreshScans(); window.setInterval(refreshScans, 3000);

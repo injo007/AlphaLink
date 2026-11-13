@@ -20,7 +20,7 @@ class RunWorkspaceSpfScan implements ShouldQueue
 
     public int $timeout = 0;
 
-    public function __construct(public int $scanId, public int $workers)
+    public function __construct(public int $scanId, public int $workers, public bool $resume = false)
     {
         $this->onConnection('spf_scans');
         $this->onQueue('spf-scans');
@@ -42,14 +42,21 @@ class RunWorkspaceSpfScan implements ShouldQueue
 
             return;
         }
-        if ($scan->status !== WorkspaceSpfScan::STATUS_PENDING) {
+        if ($this->resume) {
+            if ($scan->status !== WorkspaceSpfScan::STATUS_SCANNING || $scan->partition_offsets === null) {
+                return;
+            }
+        } elseif ($scan->status !== WorkspaceSpfScan::STATUS_PENDING) {
             return;
         }
 
-        $scan->update(['stage' => 'preparing', 'heartbeat_at' => now()]);
+        if (! $this->resume) {
+            $scan->update(['stage' => 'preparing', 'heartbeat_at' => now()]);
+        }
         $exitCode = Artisan::call('spf:scan-workspace', [
             'scan' => (string) $this->scanId,
             '--workers' => $this->workers,
+            '--resume' => $this->resume,
         ]);
         $scan->refresh();
 
@@ -67,7 +74,7 @@ class RunWorkspaceSpfScan implements ShouldQueue
         }
         WorkspaceSpfScan::query()
             ->whereKey($this->scanId)
-            ->whereIn('status', [WorkspaceSpfScan::STATUS_PENDING, WorkspaceSpfScan::STATUS_SCANNING])
+            ->whereIn('status', [WorkspaceSpfScan::STATUS_PENDING, WorkspaceSpfScan::STATUS_SCANNING, WorkspaceSpfScan::STATUS_PAUSED])
             ->update([
                 'status' => WorkspaceSpfScan::STATUS_FAILED,
                 'stage' => 'failed',

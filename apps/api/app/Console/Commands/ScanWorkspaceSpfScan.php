@@ -9,7 +9,7 @@ use Symfony\Component\Process\Process;
 
 class ScanWorkspaceSpfScan extends Command
 {
-    protected $signature = 'spf:scan-workspace {scan : Workspace SPF scan ID} {--worker= : Worker index} {--workers=1 : Worker count}';
+    protected $signature = 'spf:scan-workspace {scan : Workspace SPF scan ID} {--worker= : Worker index} {--workers=1 : Worker count} {--resume : Continue from saved worker checkpoints}';
 
     protected $description = 'Scan domains from a workspace SPF upload.';
 
@@ -23,20 +23,24 @@ class ScanWorkspaceSpfScan extends Command
             return $processor->runShard($scanId, $workers, max(0, min($workers - 1, (int) $worker)));
         }
 
-        try {
-            if (! $processor->prepare($scanId, $workers)) {
+        if (! $this->option('resume')) {
+            try {
+                if (! $processor->prepare($scanId, $workers)) {
+                    return self::FAILURE;
+                }
+            } catch (\Throwable $exception) {
+                report($exception);
+                WorkspaceSpfScan::query()->whereKey($scanId)->where('status', WorkspaceSpfScan::STATUS_PENDING)->update([
+                    'status' => WorkspaceSpfScan::STATUS_FAILED,
+                    'stage' => 'failed',
+                    'failure' => 'The SPF scan could not be prepared. Check application logs.',
+                    'ended_at' => now(),
+                ]);
+                $processor->finish($scanId, false);
+
                 return self::FAILURE;
             }
-        } catch (\Throwable $exception) {
-            report($exception);
-            WorkspaceSpfScan::query()->whereKey($scanId)->where('status', WorkspaceSpfScan::STATUS_PENDING)->update([
-                'status' => WorkspaceSpfScan::STATUS_FAILED,
-                'stage' => 'failed',
-                'failure' => 'The SPF scan could not be prepared. Check application logs.',
-                'ended_at' => now(),
-            ]);
-            $processor->finish($scanId, false);
-
+        } elseif (WorkspaceSpfScan::query()->whereKey($scanId)->where('status', WorkspaceSpfScan::STATUS_SCANNING)->whereNotNull('partition_offsets')->doesntExist()) {
             return self::FAILURE;
         }
         $scan = WorkspaceSpfScan::query()->find($scanId);
@@ -77,9 +81,10 @@ class ScanWorkspaceSpfScan extends Command
 
             return self::FAILURE;
         }
-        $scan->update([
+        WorkspaceSpfScan::query()->whereKey($scanId)->where('status', WorkspaceSpfScan::STATUS_SCANNING)->update([
             'pid' => getmypid(),
             'worker_pids' => array_values(array_filter(array_map(fn (Process $process) => $process->getPid(), $processes))),
+            'stage' => 'resolving',
         ]);
 
         $successful = true;
@@ -109,7 +114,8 @@ class ScanWorkspaceSpfScan extends Command
             foreach ($processes as $process) {
                 if ($process->isRunning()) {
                     $running = true;
-                } elseif (! $process->isSuccessful()) {
+                } elseif (! $process->isSuccessful()
+                    && ! ($scan->status === WorkspaceSpfScan::STATUS_PAUSED && $process->getExitCode() === 3)) {
                     $successful = false;
                 }
             }

@@ -119,16 +119,19 @@ class AlphaLinkSpfScanActivity
         $key = $this->key($scanId, $workerIndex);
         $now = microtime(true);
         $eventInterval = max(5, (int) config('spf.activity_slow_event_interval_seconds', 15));
+        $heartbeatInterval = max(1, (int) config('spf.activity_heartbeat_seconds', 2));
         try {
-            WorkspaceSpfScanWorker::query()
-                ->where('scan_id', $scanId)
-                ->where('worker_index', $workerIndex)
-                ->update([
-                    'last_lookup_duration_ms' => $durationMs,
-                    'heartbeat_at' => now(),
-                    'updated_at' => now(),
-                ]);
-            $this->lastWorkerWriteAt[$key] = $now;
+            if (($this->lastWorkerWriteAt[$key] ?? 0) + $heartbeatInterval <= $now) {
+                WorkspaceSpfScanWorker::query()
+                    ->where('scan_id', $scanId)
+                    ->where('worker_index', $workerIndex)
+                    ->update([
+                        'last_lookup_duration_ms' => $durationMs,
+                        'heartbeat_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                $this->lastWorkerWriteAt[$key] = $now;
+            }
             if (($this->lastEventAt[$key] ?? 0) + $eventInterval <= $now) {
                 $this->recordEvent($scanId, 'warning', 'slow_dns_lookup', 'A DNS lookup is taking longer than expected.', [
                     'worker' => $workerIndex + 1,

@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceSpfRoot;
 use App\Models\WorkspaceSpfScan;
+use App\Models\WorkspaceSpfScanEvent;
 use App\Models\WorkspaceSpfSearchResult;
 use App\Models\WorkspaceSpfSearchRun;
 use App\Services\Spf\AlphaLinkSpfDnsCheckMatcher;
@@ -360,9 +361,19 @@ class WorkspaceSpfScannerController extends Controller
     public function scans(Request $request, string $workspace): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
+        $asyncDomainsPerWorker = max(1, min(256, (int) config('spf.async_domains_per_worker', 256)));
         $scans = WorkspaceSpfScan::query()->where('workspace_id', $workspace->id)->orderByDesc('id')->limit(100)->get([
             'id', 'pid', 'status', 'stage', 'current_domain', 'heartbeat_at', 'progress_at', 'total_lines', 'valid_domains', 'progress', 'batch_size', 'workers', 'partition_count', 'file_size_bytes', 'preparation_bytes', 'skip_existing', 'created_at', 'started_at', 'total_found', 'ended_at', 'failure',
-        ])->map(function (WorkspaceSpfScan $scan): array {
+        ]);
+        $asyncDnsScanIds = WorkspaceSpfScanEvent::query()
+            ->whereIn('scan_id', $scans->pluck('id'))
+            ->where('event_type', 'async_dns_engine_enabled')
+            ->distinct()
+            ->pluck('scan_id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+        $asyncDnsScanIds = array_fill_keys($asyncDnsScanIds, true);
+        $scans = $scans->map(function (WorkspaceSpfScan $scan) use ($asyncDomainsPerWorker, $asyncDnsScanIds): array {
             $progressTotal = $scan->valid_domains > 0 ? $scan->valid_domains : $scan->total_lines;
             $heartbeatAge = $scan->heartbeat_at?->diffInSeconds(now());
             $progressAge = $scan->progress_at?->diffInSeconds(now());
@@ -390,6 +401,9 @@ class WorkspaceSpfScannerController extends Controller
                 'progress_age_seconds' => $progressAge,
                 'queue_age_seconds' => $queueAge,
                 'preparation_percent' => $preparationPercent,
+                'async_dns_enabled' => isset($asyncDnsScanIds[(int) $scan->getKey()]),
+                'async_domains_per_worker' => isset($asyncDnsScanIds[(int) $scan->getKey()]) ? $asyncDomainsPerWorker : null,
+                'max_concurrent_domains' => isset($asyncDnsScanIds[(int) $scan->getKey()]) ? (int) $scan->workers * $asyncDomainsPerWorker : null,
                 'health' => $health,
             ];
         });
@@ -425,6 +439,7 @@ class WorkspaceSpfScannerController extends Controller
             'metadata' => $event->metadata ?? [],
             'created_at' => $event->created_at?->toIso8601String(),
         ]);
+        $asyncDnsEnabled = $scan->events()->where('event_type', 'async_dns_engine_enabled')->exists();
 
         return response()->json([
             'scan' => [
@@ -438,6 +453,8 @@ class WorkspaceSpfScannerController extends Controller
                 'updated_at' => $scan->heartbeat_at?->toIso8601String(),
             ],
             'workers' => $workers,
+            'async_dns_enabled' => $asyncDnsEnabled,
+            'domains_in_flight_per_worker' => $asyncDnsEnabled ? max(1, min(256, (int) config('spf.async_domains_per_worker', 256))) : null,
             'events' => $events,
             'telemetry_available' => $workers->isNotEmpty() || $events->isNotEmpty(),
         ]);
@@ -472,23 +489,38 @@ class WorkspaceSpfScannerController extends Controller
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         abort_unless((string) $scan->workspace_id === (string) $workspace->id, 404);
-        $paused = WorkspaceSpfScan::query()
-            ->whereKey($scan->getKey())
-            ->where('workspace_id', $workspace->id)
-            ->where('status', WorkspaceSpfScan::STATUS_SCANNING)
-            ->where('stage', '!=', 'resuming')
-            ->update([
+        $pausedBeforeWorkersStarted = DB::transaction(function () use ($scan, $workspace): ?bool {
+            $currentScan = WorkspaceSpfScan::query()
+                ->whereKey($scan->getKey())
+                ->where('workspace_id', $workspace->id)
+                ->lockForUpdate()
+                ->first();
+            if (! $currentScan || $currentScan->status !== WorkspaceSpfScan::STATUS_SCANNING) {
+                return null;
+            }
+
+            $workersHaveNotStarted = $currentScan->stage === 'resuming'
+                && $currentScan->pid === null
+                && empty($currentScan->worker_pids);
+            $currentScan->update([
                 'status' => WorkspaceSpfScan::STATUS_PAUSED,
-                'stage' => 'pausing',
+                'stage' => $workersHaveNotStarted ? 'paused' : 'pausing',
                 'heartbeat_at' => now(),
+                'current_domain' => $workersHaveNotStarted ? null : $currentScan->current_domain,
             ]);
-        if ($paused === 0) {
+
+            return $workersHaveNotStarted;
+        });
+        if ($pausedBeforeWorkersStarted === null) {
             return response()->json(['error' => 'Only an active domain scan can be paused.'], 409);
         }
 
-        $activity->recordEvent((int) $scan->getKey(), 'warning', 'scan_pause_requested', 'Pause requested. Active DNS batches will finish and each worker will save its next domain checkpoint.');
+        $message = $pausedBeforeWorkersStarted
+            ? 'The scan was paused before its workers started. Its saved checkpoints are ready to resume.'
+            : 'Pause requested. Active DNS batches will finish and each worker will save its next domain checkpoint.';
+        $activity->recordEvent((int) $scan->getKey(), 'warning', 'scan_pause_requested', $message);
 
-        return response()->json(['message' => 'Pause requested. Active DNS batches will finish before the scan pauses.']);
+        return response()->json(['message' => $message]);
     }
 
     public function resume(Request $request, string $workspace, WorkspaceSpfScan $scan, AlphaLinkSpfScanActivity $activity): JsonResponse

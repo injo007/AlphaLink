@@ -2722,3 +2722,10 @@ Campaign tracking now classifies opens from the two exact Google /27 ranges in t
 Action segments now follow `<source>_<action>` naming, with optional `<source>_<action>_<country>` geo variants. Fresh and delivery Lists represent current lifecycle state; open, click, lead, unsubscribe and opt-out remain action projections. The source List remains canonical, unsubscribe/opt-out segments are excluded from sends, and Lists counts read current membership rows instead of stale snapshots.
 
 Eight focused feature suites pass 106 tests / 798 assertions; Pint passes. Changes and schema migrations are local only. No production migration/backfill, real callback, or 30k load test ran.
+
+
+### SPF throughput via bounded async DNS — E-TOOLS-56 (2026-11-13)
+
+The user's observed rate was 37 domains/second and requested use of up to 70% CPU/RAM. Source review found each worker blocking on serial DNS calls; increasing worker count alone did not remove that wait. Added ReactPHP DNS plus React Async to resolve independent input roots concurrently while preserving the existing SPF parser, records, status and CIDR shape. Default capacity is 256 root lookups per worker, hard-capped at 256; at 16 scan workers this is up to 4,096 configured root lookups in flight. The database write batch setting no longer shrinks DNS concurrency; checkpoint waves remain bounded at 256 for pause/progress. Slow-lookup telemetry is rate-limited to avoid turning resolver timeouts into excessive DB writes. The UI identifies this as configured capacity and marks only newly prepared scans as async, leaving pre-deploy scans labeled accurately.
+
+PHP syntax, Composer validation and `git diff --check` pass. No tests or performance benchmark were run. These changes are local only, not pushed or deployed. Actual domains/second, CPU/RAM consumption, provider rate limits and 10M-domain / 20-IP behavior remain unverified. The engine is network-bound and does not artificially consume CPU/RAM to hit 70%; bounded concurrency protects the shared production services. References: ReactPHP DNS `resolveAll()` API and record schema (E-TOOLS-56). Keep DMS-TOOLS-004 TESTING.

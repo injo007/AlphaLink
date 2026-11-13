@@ -16,7 +16,9 @@
         "laravel/horizon": "^5.50",
         "laravel/sanctum": "^4.3",
         "laravel/tinker": "^3.0",
-        "phpseclib/phpseclib": "^3.0"
+        "phpseclib/phpseclib": "^3.0",
+        "react/async": "^4.3",
+        "react/dns": "^1.14"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

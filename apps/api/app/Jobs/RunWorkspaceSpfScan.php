@@ -60,7 +60,7 @@ class RunWorkspaceSpfScan implements ShouldQueue
         ]);
         $scan->refresh();
 
-        if ($scan->status === WorkspaceSpfScan::STATUS_KILLED || $exitCode === 0) {
+        if (in_array($scan->status, [WorkspaceSpfScan::STATUS_KILLED, WorkspaceSpfScan::STATUS_PAUSED], true) || $exitCode === 0) {
             return;
         }
 
@@ -74,7 +74,7 @@ class RunWorkspaceSpfScan implements ShouldQueue
         }
         WorkspaceSpfScan::query()
             ->whereKey($this->scanId)
-            ->whereIn('status', [WorkspaceSpfScan::STATUS_PENDING, WorkspaceSpfScan::STATUS_SCANNING, WorkspaceSpfScan::STATUS_PAUSED])
+            ->whereIn('status', [WorkspaceSpfScan::STATUS_PENDING, WorkspaceSpfScan::STATUS_SCANNING])
             ->update([
                 'status' => WorkspaceSpfScan::STATUS_FAILED,
                 'stage' => 'failed',

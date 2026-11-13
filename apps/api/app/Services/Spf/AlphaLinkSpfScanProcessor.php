@@ -13,9 +13,15 @@ class AlphaLinkSpfScanProcessor
 {
     private readonly AlphaLinkSpfScanActivity $activity;
 
-    public function __construct(private readonly AlphaLinkSpfScanner $scanner, ?AlphaLinkSpfScanActivity $activity = null)
-    {
+    private readonly AlphaLinkSpfAsyncBatchScanner $asyncScanner;
+
+    public function __construct(
+        private readonly AlphaLinkSpfScanner $scanner,
+        ?AlphaLinkSpfScanActivity $activity = null,
+        ?AlphaLinkSpfAsyncBatchScanner $asyncScanner = null,
+    ) {
         $this->activity = $activity ?? new AlphaLinkSpfScanActivity;
+        $this->asyncScanner = $asyncScanner ?? new AlphaLinkSpfAsyncBatchScanner($scanner);
     }
 
     public function prepare(int $scanId, int $workers): bool
@@ -162,6 +168,18 @@ class AlphaLinkSpfScanProcessor
             'partitions' => $partitionCount,
             'batch_size' => (int) $scan->batch_size,
         ]);
+        if ($this->asyncScanner->isAsyncResolverAvailable()) {
+            $asyncDomainsPerWorker = max(1, min(256, (int) config('spf.async_domains_per_worker', 256)));
+            $this->activity->recordEvent($scanId, 'info', 'async_dns_engine_enabled', 'This scan uses concurrent DNS lookups with bounded per-worker capacity.', [
+                'domains_per_worker' => $asyncDomainsPerWorker,
+                'workers' => $workerCount,
+                'max_root_domains_in_flight' => $asyncDomainsPerWorker * $workerCount,
+            ]);
+        } else {
+            $this->activity->recordEvent($scanId, 'warning', 'sync_dns_fallback', 'The system DNS resolver configuration is unavailable; the compatibility resolver will be used.', [
+                'workers' => $workerCount,
+            ]);
+        }
 
         return true;
     }
@@ -201,7 +219,8 @@ class AlphaLinkSpfScanProcessor
                 $file->fseek($startOffset);
                 $batch = [];
                 $batchLines = 0;
-                $batchSize = max(1, min(1000, (int) $scan->batch_size));
+                // Keep pause/resume and progress responsive independently of the database write-batch setting.
+                $batchSize = max(25, min(256, (int) config('spf.checkpoint_domains', 256)));
                 $domainsSinceStatusCheck = 0;
 
                 while (! $file->eof()) {
@@ -293,55 +312,66 @@ class AlphaLinkSpfScanProcessor
         $dnsErrors = 0;
         $batchStartedAt = microtime(true);
 
-        foreach (array_chunk($uniqueDomains, 100) as $writeDomains) {
-            $existing = $scan->skip_existing
-                ? WorkspaceSpfRoot::query()->where('workspace_id', $scan->workspace_id)
-                    ->whereIn('domain', $writeDomains)->pluck('domain')->all()
-                : [];
-            $existingSet = array_fill_keys($existing, true);
-            $rows = [];
+        $concurrencyPerWorker = max(1, min(256, (int) config('spf.async_domains_per_worker', 256)));
+        $existing = $scan->skip_existing
+            ? WorkspaceSpfRoot::query()->where('workspace_id', $scan->workspace_id)
+                ->whereIn('domain', $uniqueDomains)->pluck('domain')->all()
+            : [];
+        $existingSet = array_fill_keys($existing, true);
+        $domainsToScan = array_values(array_filter($uniqueDomains, fn (string $domain): bool => ! isset($existingSet[$domain])));
 
-            foreach ($writeDomains as $domain) {
-                if (isset($existingSet[$domain])) {
-                    continue;
+        $results = $this->asyncScanner->scan(
+            $domainsToScan,
+            $concurrencyPerWorker,
+            function (
+                string $stage,
+                string $activeDomain,
+                string $event,
+                ?int $durationMs = null,
+                bool $failed = false,
+            ) use ($scan, $workerIndex): void {
+                if ($event === 'lookup_started' || $event === 'include_started') {
+                    $this->activity->touchWorkerIfDue((int) $scan->getKey(), $workerIndex, $stage, $activeDomain);
                 }
+                $slowLookupMs = max(1000, (int) config('spf.slow_lookup_threshold_ms', 5000));
+                if ($event === 'lookup_finished' && $durationMs !== null && $durationMs >= $slowLookupMs) {
+                    $this->activity->slowLookup((int) $scan->getKey(), $workerIndex, $stage, $activeDomain, $durationMs);
+                }
+            },
+        );
 
-                $result = $this->scanner->scanDomain($domain, function (
-                    string $stage,
-                    string $activeDomain,
-                    string $event,
-                    ?int $durationMs = null,
-                    bool $failed = false,
-                ) use ($scan, $workerIndex): void {
-                    if ($event === 'lookup_started' || $event === 'include_started') {
-                        $this->activity->touchWorkerIfDue((int) $scan->getKey(), $workerIndex, $stage, $activeDomain);
-                    }
-                    $slowLookupMs = max(1000, (int) config('spf.slow_lookup_threshold_ms', 5000));
-                    if ($event === 'lookup_finished' && $durationMs !== null && $durationMs >= $slowLookupMs) {
-                        $this->activity->slowLookup((int) $scan->getKey(), $workerIndex, $stage, $activeDomain, $durationMs);
-                    }
-                });
-                $rows[$domain] = [
-                    'workspace_id' => $scan->workspace_id,
-                    'domain' => $domain,
-                    'status' => $result['status'],
-                    'record' => $result['record'],
-                    'cidrs' => json_encode($result['cidrs'], JSON_THROW_ON_ERROR),
-                    'hosts' => json_encode($result['hosts'], JSON_THROW_ON_ERROR),
-                    'scanned_at' => $timestamp,
-                    'created_at' => $timestamp,
-                    'updated_at' => $timestamp,
-                ];
-                $processed++;
-                $dnsErrors += (int) ($result['dns_errors'] ?? 0);
-                if ($result['status'] === 'ok') {
-                    $found++;
-                }
+        $rows = [];
+        foreach ($domainsToScan as $domain) {
+            $result = $results[$domain] ?? [
+                'status' => 'error',
+                'record' => null,
+                'cidrs' => [],
+                'hosts' => [],
+                'dns_errors' => 1,
+            ];
+            $rows[] = [
+                'workspace_id' => $scan->workspace_id,
+                'domain' => $domain,
+                'status' => $result['status'],
+                'record' => $result['record'],
+                'cidrs' => json_encode($result['cidrs'], JSON_THROW_ON_ERROR),
+                'hosts' => json_encode($result['hosts'], JSON_THROW_ON_ERROR),
+                'scanned_at' => $timestamp,
+                'created_at' => $timestamp,
+                'updated_at' => $timestamp,
+            ];
+            $processed++;
+            $dnsErrors += (int) ($result['dns_errors'] ?? 0);
+            if ($result['status'] === 'ok') {
+                $found++;
             }
+        }
 
-            if ($rows !== []) {
+        $writeBatchSize = max(1, min(1000, (int) $scan->batch_size));
+        foreach (array_chunk($rows, $writeBatchSize) as $writeRows) {
+            if ($writeRows !== []) {
                 WorkspaceSpfRoot::query()->upsert(
-                    array_values($rows),
+                    $writeRows,
                     ['workspace_id', 'domain'],
                     ['status', 'record', 'cidrs', 'hosts', 'scanned_at', 'updated_at'],
                 );
@@ -430,8 +460,8 @@ class AlphaLinkSpfScanProcessor
 
         $status = match (true) {
             $scan->status === WorkspaceSpfScan::STATUS_KILLED => WorkspaceSpfScan::STATUS_KILLED,
-            $scan->status === WorkspaceSpfScan::STATUS_FAILED || ! $success => WorkspaceSpfScan::STATUS_FAILED,
             $scan->status === WorkspaceSpfScan::STATUS_PAUSED && $scan->progress < $scan->valid_domains => WorkspaceSpfScan::STATUS_PAUSED,
+            $scan->status === WorkspaceSpfScan::STATUS_FAILED || ! $success => WorkspaceSpfScan::STATUS_FAILED,
             default => WorkspaceSpfScan::STATUS_FINISHED,
         };
         $scan->update([

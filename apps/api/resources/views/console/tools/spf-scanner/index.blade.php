@@ -177,7 +177,7 @@
                                 <input class="command-form-control p-1" type="file" id="spf-file" name="file" accept=".txt,text/plain" required style="height: 38px;" aria-describedby="spf-upload-help">
                             </div>
                             <div class="col-6 col-md-3 col-xl-2 mb-3">
-                                <label class="command-form-label" for="spf-batch-size">Write Batch:</label>
+                                <label class="command-form-label" for="spf-batch-size">Database write batch:</label>
                                 <input class="command-form-control" id="spf-batch-size" name="batch_size" type="number" value="25" min="1" max="1000" required style="height: 38px;">
                             </div>
                             <div class="col-6 col-md-3 col-xl-2 mb-3">
@@ -202,7 +202,7 @@
                                 </button>
                             </div>
                         </div>
-                        <small class="form-text text-muted mt-1" id="spf-upload-help">Up to {{ number_format((int) config('spf.max_domains_per_scan', 10000000)) }} valid domains per file · max {{ number_format($maxUploadBytes / 1024 / 1024) }} MB. Optional 4/5-part mode writes balanced temporary files and keeps the same per-scan limit of {{ $maxWorkers }} DNS workers. Split mode temporarily needs space for one extra copy. File counting happens in the background; worker ranges avoid rereading the full single-file upload.</small>
+                        <small class="form-text text-muted mt-1" id="spf-upload-help">Up to {{ number_format((int) config('spf.max_domains_per_scan', 10000000)) }} valid domains per file · max {{ number_format($maxUploadBytes / 1024 / 1024) }} MB. Each DNS worker can resolve up to {{ number_format((int) config('spf.async_domains_per_worker', 256)) }} root domains concurrently (up to {{ number_format($maxWorkers * (int) config('spf.async_domains_per_worker', 256)) }} in one scan with {{ $maxWorkers }} workers). Database write batch size is independent; checkpoints happen every {{ number_format(min(256, max(25, (int) config('spf.checkpoint_domains', 256)))) }} domains at most so progress and pause remain responsive. DNS is network-bound, so actual speed depends on resolver response time and SPF expansion. Optional 4/5-part mode writes balanced temporary files. Split mode temporarily needs space for one extra copy. File counting happens in the background; worker ranges avoid rereading the full single-file upload.</small>
                     </form>
                     <div class="d-flex align-items-center justify-content-between mb-2">
                         <h4 class="font-w700 mb-0" style="font-size: 0.875rem; text-transform: uppercase; color: var(--command-os-text, #1e293b);">Active &amp; Past Scans</h4>
@@ -495,13 +495,15 @@
                 const payload = await response.json().catch(() => ({}));
                 if (!response.ok) throw new Error(payload.message || 'The live activity service returned an error.');
                 const workers = payload.workers || [];
+                const rootConcurrency = payload.async_dns_enabled ? Number(payload.domains_in_flight_per_worker || 0) : 0;
                 const workerSignature = JSON.stringify(workers);
                 if (workerSignature !== lastWorkerSignature) {
                     workerGrid.innerHTML = workers.length ? workers.map((worker) => {
                         const age = Number(worker.heartbeat_age_seconds || 0);
                         const health = worker.status === 'resolving' && age >= 15 ? `No resolver update for ${formatDuration(age)}` : `Updated ${formatDuration(age)} ago`;
                         const lookup = worker.last_lookup_duration_ms !== null ? `${Number(worker.last_lookup_duration_ms).toLocaleString()} ms last DNS lookup` : 'No DNS timing yet';
-                        return `<article class="spf-worker-card" data-state="${escapeHtml(worker.status)}"><div class="spf-worker-title"><strong>Worker ${escapeHtml(worker.worker)}</strong><span class="badge badge-light">${escapeHtml(worker.status)}</span></div><div class="small text-muted mb-1">${escapeHtml(stageLabel(worker.stage))} · ${escapeHtml(health)}</div><div class="spf-worker-domain mb-2">${escapeHtml(worker.current_domain || 'Waiting for next domain')}</div><div class="small">${Number(worker.domains_processed || 0).toLocaleString()} domains · ${Number(worker.spf_records_found || 0).toLocaleString()} SPF · ${Number(worker.dns_errors || 0).toLocaleString()} DNS errors</div><div class="small text-muted">${escapeHtml(lookup)}${worker.last_batch_duration_ms !== null ? ` · ${Number(worker.last_batch_duration_ms).toLocaleString()} ms batch` : ''}</div></article>`;
+                        const concurrency = rootConcurrency ? `<div class="small text-muted mb-1">Configured capacity: up to ${rootConcurrency.toLocaleString()} root domains in flight; the domain above is the latest lookup.</div>` : '';
+                        return `<article class="spf-worker-card" data-state="${escapeHtml(worker.status)}"><div class="spf-worker-title"><strong>Worker ${escapeHtml(worker.worker)}</strong><span class="badge badge-light">${escapeHtml(worker.status)}</span></div><div class="small text-muted mb-1">${escapeHtml(stageLabel(worker.stage))} · ${escapeHtml(health)}</div><div class="spf-worker-domain mb-2">${escapeHtml(worker.current_domain || 'Waiting for next domain')}</div>${concurrency}<div class="small">${Number(worker.domains_processed || 0).toLocaleString()} domains · ${Number(worker.spf_records_found || 0).toLocaleString()} SPF · ${Number(worker.dns_errors || 0).toLocaleString()} DNS errors</div><div class="small text-muted">${escapeHtml(lookup)}${worker.last_batch_duration_ms !== null ? ` · ${Number(worker.last_batch_duration_ms).toLocaleString()} ms batch` : ''}</div></article>`;
                     }).join('') : '<div class="text-muted small">Detailed worker telemetry is available for scans started after this update. Older scans still show progress in the table above.</div>';
                     lastWorkerSignature = workerSignature;
                 }
@@ -551,7 +553,7 @@
                 if (!response.ok) throw new Error(payload.message || 'The scan status service returned an error.');
                 const scans = payload.data || [];
                 scanTable.innerHTML = scans.length ? scans.map((scan) => {
-                    const canPause = scan.status === 'scanning' && scan.stage !== 'resuming';
+                    const canPause = scan.status === 'scanning';
                     const canResume = scan.status === 'paused' && scan.stage === 'paused';
                     const isPausing = scan.status === 'paused' && scan.stage === 'pausing';
                     const canStop = ['pending', 'scanning', 'paused'].includes(scan.status);
@@ -575,7 +577,7 @@
                         : scan.stage || '';
                     const healthClass = ['stale_heartbeat', 'no_heartbeat'].includes(scan.health) ? 'text-danger' : 'text-muted';
                     const progress = isPreparing ? `Preparing file · ${preparationPct}%` : total ? `${Number(scan.progress || 0).toLocaleString()} / ${total.toLocaleString()} · ${exactPct.toFixed(2)}%` : 'Waiting for worker…';
-                    const partitionLabel = Number(scan.partition_count || 1) === 1 ? 'single file' : `${Number(scan.partition_count)} equal parts`;
+                    const partitionLabel = `${scan.async_dns_enabled ? `up to ${Number(scan.max_concurrent_domains || 0).toLocaleString()} root domains in flight · ` : ''}${Number(scan.partition_count || 1) === 1 ? 'single file' : `${Number(scan.partition_count)} equal parts`}`;
                     const controls = [
                         canPause ? `<button type="button" class="btn-command-action" style="padding:2px 8px;font-size:.75rem;" data-spf-pause="${escapeHtml(scan.id)}" aria-label="Pause scan ${escapeHtml(scan.id)}"><i class="fas fa-pause mr-1" aria-hidden="true"></i>PAUSE</button>` : '',
                         canResume ? `<button type="button" class="btn-command-primary" style="padding:2px 8px;font-size:.75rem;" data-spf-resume="${escapeHtml(scan.id)}" aria-label="Resume scan ${escapeHtml(scan.id)}"><i class="fas fa-play mr-1" aria-hidden="true"></i>RESUME</button>` : '',

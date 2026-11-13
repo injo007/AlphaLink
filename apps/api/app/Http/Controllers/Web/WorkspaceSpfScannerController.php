@@ -363,7 +363,7 @@ class WorkspaceSpfScannerController extends Controller
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $asyncDomainsPerWorker = max(1, min(256, (int) config('spf.async_domains_per_worker', 256)));
         $scans = WorkspaceSpfScan::query()->where('workspace_id', $workspace->id)->orderByDesc('id')->limit(100)->get([
-            'id', 'pid', 'status', 'stage', 'current_domain', 'heartbeat_at', 'progress_at', 'total_lines', 'valid_domains', 'progress', 'batch_size', 'workers', 'partition_count', 'file_size_bytes', 'preparation_bytes', 'skip_existing', 'created_at', 'started_at', 'total_found', 'ended_at', 'failure',
+            'id', 'pid', 'worker_pids', 'status', 'stage', 'current_domain', 'heartbeat_at', 'progress_at', 'total_lines', 'valid_domains', 'progress', 'batch_size', 'workers', 'partition_count', 'file_size_bytes', 'preparation_bytes', 'skip_existing', 'created_at', 'started_at', 'total_found', 'ended_at', 'failure',
         ]);
         $asyncDnsScanIds = WorkspaceSpfScanEvent::query()
             ->whereIn('scan_id', $scans->pluck('id'))
@@ -392,7 +392,10 @@ class WorkspaceSpfScannerController extends Controller
                 default => 'active',
             };
 
-            return $scan->toArray() + [
+            $scanData = $scan->toArray();
+            unset($scanData['pid'], $scanData['worker_pids']);
+
+            return $scanData + [
                 'progress_total' => $progressTotal,
                 'progress_display' => $progressTotal > 0
                     ? sprintf('%d / %d (%.2f%%)', $scan->progress, $progressTotal, min(100, $scan->progress / $progressTotal * 100))
@@ -404,6 +407,10 @@ class WorkspaceSpfScannerController extends Controller
                 'async_dns_enabled' => isset($asyncDnsScanIds[(int) $scan->getKey()]),
                 'async_domains_per_worker' => isset($asyncDnsScanIds[(int) $scan->getKey()]) ? $asyncDomainsPerWorker : null,
                 'max_concurrent_domains' => isset($asyncDnsScanIds[(int) $scan->getKey()]) ? (int) $scan->workers * $asyncDomainsPerWorker : null,
+                'can_pause' => $scan->status === WorkspaceSpfScan::STATUS_SCANNING,
+                'can_resume' => $scan->status === WorkspaceSpfScan::STATUS_PAUSED && $scan->stage === 'paused' && $scan->pid === null && empty($scan->worker_pids),
+                'can_stop' => in_array($scan->status, [WorkspaceSpfScan::STATUS_PENDING, WorkspaceSpfScan::STATUS_SCANNING, WorkspaceSpfScan::STATUS_PAUSED], true),
+                'can_delete' => $this->canDeleteScan($scan),
                 'health' => $health,
             ];
         });
@@ -464,25 +471,92 @@ class WorkspaceSpfScannerController extends Controller
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         abort_unless((string) $scan->workspace_id === (string) $workspace->id, 404);
-        if (! in_array($scan->status, [WorkspaceSpfScan::STATUS_PENDING, WorkspaceSpfScan::STATUS_SCANNING, WorkspaceSpfScan::STATUS_PAUSED], true)) {
-            return response()->json(['error' => 'Scan is not running'], 400);
+        $transition = DB::transaction(function () use ($scan, $workspace, $activity): ?array {
+            $currentScan = WorkspaceSpfScan::query()
+                ->whereKey($scan->getKey())
+                ->where('workspace_id', $workspace->id)
+                ->lockForUpdate()
+                ->first();
+            if (! $currentScan || ! in_array($currentScan->status, [WorkspaceSpfScan::STATUS_PENDING, WorkspaceSpfScan::STATUS_SCANNING, WorkspaceSpfScan::STATUS_PAUSED], true)) {
+                return null;
+            }
+
+            $wasPausedAndIdle = $currentScan->status === WorkspaceSpfScan::STATUS_PAUSED
+                && $currentScan->stage === 'paused'
+                && $currentScan->pid === null
+                && empty($currentScan->worker_pids);
+            $currentScan->update([
+                'status' => WorkspaceSpfScan::STATUS_KILLED,
+                'stage' => 'cancelling',
+                'ended_at' => null,
+                'current_domain' => null,
+            ]);
+            $activity->recordEvent((int) $currentScan->getKey(), 'warning', 'scan_cancel_requested', 'Cancellation was requested; active DNS lookups will finish before workers exit.');
+
+            return ['scan' => $currentScan, 'paused_and_idle' => $wasPausedAndIdle];
+        });
+        if ($transition === null) {
+            return response()->json(['error' => 'Scan is no longer running'], 409);
         }
-        $wasPausedAndIdle = $scan->status === WorkspaceSpfScan::STATUS_PAUSED && $scan->stage === 'paused';
-        $scan->update([
-            'status' => WorkspaceSpfScan::STATUS_KILLED,
-            'stage' => 'cancelled',
-            'ended_at' => now(),
-            'current_domain' => null,
-        ]);
-        $activity->recordEvent((int) $scan->getKey(), 'warning', 'scan_cancel_requested', 'Cancellation was requested; active DNS lookups will finish before workers exit.');
-        if ($wasPausedAndIdle) {
+
+        $scan = $transition['scan'];
+        if ($transition['paused_and_idle']) {
             $scan->refresh();
             $activity->finishScan($scan, WorkspaceSpfScan::STATUS_KILLED);
             Storage::disk('local')->delete(array_values(array_unique(array_merge([$scan->file_path], $scan->partition_paths ?? []))));
             Storage::disk('local')->deleteDirectory('spf-scans/'.$scan->getKey().'-parts');
+            WorkspaceSpfScan::query()
+                ->whereKey($scan->getKey())
+                ->where('status', WorkspaceSpfScan::STATUS_KILLED)
+                ->where('stage', 'cancelling')
+                ->update(['stage' => 'cancelled', 'ended_at' => now(), 'pid' => null, 'worker_pids' => null]);
         }
 
-        return response()->json(['message' => 'Scan cancelled. Active DNS lookups will finish before their workers exit.']);
+        return response()->json(['message' => 'Stop requested. Active DNS lookups and queued work will finish cancellation before the scan can be deleted.']);
+    }
+
+    public function destroy(Request $request, string $workspace, WorkspaceSpfScan $scan): JsonResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        $paths = DB::transaction(function () use ($scan, $workspace): ?array {
+            $currentScan = WorkspaceSpfScan::query()
+                ->whereKey($scan->getKey())
+                ->where('workspace_id', $workspace->id)
+                ->lockForUpdate()
+                ->first();
+            if (! $currentScan || ! $this->canDeleteScan($currentScan)) {
+                return null;
+            }
+
+            $paths = array_values(array_unique(array_filter(array_merge(
+                [$currentScan->file_path],
+                $currentScan->partition_paths ?? [],
+            ), 'is_string')));
+            $currentScan->delete();
+
+            return $paths;
+        });
+
+        if ($paths === null) {
+            return response()->json(['error' => 'This scan is still running or pausing. Stop it and wait until its workers have exited before deleting it.'], 409);
+        }
+
+        Storage::disk('local')->delete($paths);
+        Storage::disk('local')->deleteDirectory('spf-scans/'.$scan->getKey().'-parts');
+
+        return response()->json(['message' => 'Scan history and uploaded scan files were deleted. Saved SPF domain records were kept.']);
+    }
+
+    private function canDeleteScan(WorkspaceSpfScan $scan): bool
+    {
+        $hasProcess = $scan->pid !== null || ! empty($scan->worker_pids);
+        if ($hasProcess) {
+            return false;
+        }
+
+        return in_array($scan->status, [WorkspaceSpfScan::STATUS_FINISHED, WorkspaceSpfScan::STATUS_FAILED], true)
+            || ($scan->status === WorkspaceSpfScan::STATUS_KILLED && $scan->stage === 'cancelled')
+            || ($scan->status === WorkspaceSpfScan::STATUS_PAUSED && $scan->stage === 'paused');
     }
 
     public function pause(Request $request, string $workspace, WorkspaceSpfScan $scan, AlphaLinkSpfScanActivity $activity): JsonResponse

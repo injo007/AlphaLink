@@ -60,7 +60,12 @@ class RunWorkspaceSpfScan implements ShouldQueue
         ]);
         $scan->refresh();
 
-        if (in_array($scan->status, [WorkspaceSpfScan::STATUS_KILLED, WorkspaceSpfScan::STATUS_PAUSED], true) || $exitCode === 0) {
+        if ($scan->status === WorkspaceSpfScan::STATUS_KILLED) {
+            $processor->finish($this->scanId, false);
+
+            return;
+        }
+        if ($scan->status === WorkspaceSpfScan::STATUS_PAUSED || $exitCode === 0) {
             return;
         }
 
@@ -74,12 +79,26 @@ class RunWorkspaceSpfScan implements ShouldQueue
         }
         WorkspaceSpfScan::query()
             ->whereKey($this->scanId)
+            ->where('status', WorkspaceSpfScan::STATUS_KILLED)
+            ->where('stage', 'cancelling')
+            ->update([
+                'stage' => 'cancelled',
+                'ended_at' => now(),
+                'pid' => null,
+                'worker_pids' => null,
+                'current_domain' => null,
+            ]);
+        WorkspaceSpfScan::query()
+            ->whereKey($this->scanId)
             ->whereIn('status', [WorkspaceSpfScan::STATUS_PENDING, WorkspaceSpfScan::STATUS_SCANNING])
             ->update([
                 'status' => WorkspaceSpfScan::STATUS_FAILED,
                 'stage' => 'failed',
                 'failure' => 'The SPF scan worker stopped unexpectedly. Check queue health and application logs.',
                 'ended_at' => now(),
+                'pid' => null,
+                'worker_pids' => null,
+                'current_domain' => null,
             ]);
     }
 }

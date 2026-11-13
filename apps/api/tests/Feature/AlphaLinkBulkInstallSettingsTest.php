@@ -38,6 +38,7 @@ class AlphaLinkBulkInstallSettingsTest extends TestCase
         mkdir($root.'/optional/dkim', 0700, true);
         file_put_contents($root.'/optional/tracking/index.php', '<?php echo "tracker";');
         file_put_contents($root.'/optional/tracking/TrackerRequestHandler.php', '<?php class AlphaLinkTrackerRequestHandler {}');
+        file_put_contents($root.'/optional/tracking/homepage.html', '<!doctype html><title>AlphaLink</title>');
         file_put_contents($root.'/optional/imap/dovecot.conf', 'synthetic config');
         file_put_contents($root.'/optional/dkim/keys.json', '{"key":"synthetic public","value":"synthetic private"}');
         config()->set('infrastructure.install_assets_directory', $root);
@@ -76,6 +77,7 @@ class AlphaLinkBulkInstallSettingsTest extends TestCase
         } finally {
             unlink($root.'/optional/tracking/index.php');
             unlink($root.'/optional/tracking/TrackerRequestHandler.php');
+            unlink($root.'/optional/tracking/homepage.html');
             unlink($root.'/optional/imap/dovecot.conf');
             unlink($root.'/optional/dkim/keys.json');
             rmdir($root.'/optional/tracking');

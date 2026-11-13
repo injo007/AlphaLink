@@ -105,6 +105,7 @@ class AlphaLinkBulkInstallRuntimeInputs
         $trackingApp = $options['tracking'] ? [
             'index' => $this->assets->read($assetRoot, 'install/tracker_index'),
             'handler' => $this->assets->read($assetRoot, 'install/tracker_handler'),
+            'homepage' => $this->assets->read($assetRoot, 'install/tracker_homepage'),
         ] : null;
         $cloudflareIps = $options['tracking'] ? $this->assets->read($assetRoot, 'install/cf_ips.conf', false) : null;
         $dovecot = $options['imap'] ? $this->assets->read($assetRoot, 'install/dovecot_centos.conf') : null;

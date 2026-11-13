@@ -306,14 +306,14 @@ class AlphaLinkPmtaDeploymentGateTest extends TestCase
         $this->assertFalse($verifier->verifies($this->assetRoot, $withOptional));
     }
 
-    public function test_reviewed_manifest_covers_both_tracking_assets_when_tracking_is_selected(): void
+    public function test_reviewed_manifest_covers_all_tracking_assets_when_tracking_is_selected(): void
     {
         $options = $this->installOptions();
         $options['tracking'] = true;
         $this->writeAlphaLinkAssets(40, $options);
 
         $repositoryAssets = dirname(base_path(), 2).'/install-assets/optional/tracking';
-        foreach (['index.php', 'TrackerRequestHandler.php'] as $file) {
+        foreach (['index.php', 'TrackerRequestHandler.php', 'homepage.html'] as $file) {
             $this->assertTrue(copy($repositoryAssets.'/'.$file, $this->assetRoot.'/optional/tracking/'.$file));
             chmod($this->assetRoot.'/optional/tracking/'.$file, 0600);
         }
@@ -328,13 +328,14 @@ class AlphaLinkPmtaDeploymentGateTest extends TestCase
             $content = file_get_contents($this->assetRoot.'/'.$physicalPath);
             $digests[$physicalPath] = ['size' => strlen($content), 'sha256' => hash('sha256', $content)];
         }
-        foreach (['optional/tracking/index.php', 'optional/tracking/TrackerRequestHandler.php'] as $path) {
+        foreach (['optional/tracking/index.php', 'optional/tracking/TrackerRequestHandler.php', 'optional/tracking/homepage.html'] as $path) {
             $digests[$path] = AlphaLinkReviewedAssetDigestVerifier::REVIEWED_DIGESTS[$path];
         }
 
         $verifier = new AlphaLinkReviewedAssetDigestVerifier($digests);
         $this->assertSame('present_unverified', $inventory['selected_options']['tracking']['assets']['install/tracker_index']);
         $this->assertSame('present_unverified', $inventory['selected_options']['tracking']['assets']['install/tracker_handler']);
+        $this->assertSame('present_unverified', $inventory['selected_options']['tracking']['assets']['install/tracker_homepage']);
         $this->assertTrue($verifier->verifies($this->assetRoot, $inventory));
 
         unset($digests['optional/tracking/TrackerRequestHandler.php']);

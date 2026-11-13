@@ -198,13 +198,18 @@ class Ubuntu26FreshInstallContractTest extends TestCase
         $this->assertFileExists($assetRoot.'/optional/reverse-proxy/nginx.conf');
         $this->assertFileExists($assetRoot.'/optional/tracking/index.php');
         $this->assertFileExists($assetRoot.'/optional/tracking/TrackerRequestHandler.php');
+        $this->assertFileExists($assetRoot.'/optional/tracking/homepage.html');
         $this->assertSame(
             ['size' => 3250, 'sha256' => '8fcc32fca7d97d3144715ddd9e676bcfc0cbfb7107d61300669d002039029974'],
             $digests['optional/tracking/index.php'],
         );
         $this->assertSame(
-            ['size' => 12605, 'sha256' => '57ba8813cc7617fdfde72bbc0a30782fa809e93c097fa2a859915a6635ac6dce'],
+            ['size' => 12840, 'sha256' => '3a536d8990cfa2a76a69f5ce1a0a85d15f0ae43b66526c9b6418b2719e072287'],
             $digests['optional/tracking/TrackerRequestHandler.php'],
+        );
+        $this->assertSame(
+            ['size' => 117530, 'sha256' => 'f813a0a87681180921ba15681298c23ff411767b377a363ba5a1e591ff5f0f5e'],
+            $digests['optional/tracking/homepage.html'],
         );
     }
 
@@ -224,7 +229,8 @@ class Ubuntu26FreshInstallContractTest extends TestCase
         $this->assertStringContainsString('if (( source_available )); then', $installer);
         $this->assertStringContainsString('if (( ! source_available )); then', $installer);
         $this->assertStringContainsString("repair_missing_reviewed_tracking_asset \"\$source_root\" 'optional/tracking/index.php' 3250 '8fcc32fca7d97d3144715ddd9e676bcfc0cbfb7107d61300669d002039029974'", $installer);
-        $this->assertStringContainsString("repair_missing_reviewed_tracking_asset \"\$source_root\" 'optional/tracking/TrackerRequestHandler.php' 12605 '57ba8813cc7617fdfde72bbc0a30782fa809e93c097fa2a859915a6635ac6dce'", $installer);
+        $this->assertStringContainsString("repair_missing_reviewed_tracking_asset \"\$source_root\" 'optional/tracking/TrackerRequestHandler.php' 12840 '3a536d8990cfa2a76a69f5ce1a0a85d15f0ae43b66526c9b6418b2719e072287'", $installer);
+        $this->assertStringContainsString("repair_missing_reviewed_tracking_asset \"\$source_root\" 'optional/tracking/homepage.html' 117530 'f813a0a87681180921ba15681298c23ff411767b377a363ba5a1e591ff5f0f5e'", $installer);
         $this->assertStringContainsString('if [[ -e "$destination_file" || -L "$destination_file" ]]; then', $installer);
         $this->assertStringContainsString('Preserving existing private tracking asset for review:', $installer);
         $this->assertStringContainsString('install -o www-data -g www-data -m 0600 -- "$source_file" "$temporary_file"', $installer);

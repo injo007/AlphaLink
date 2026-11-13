@@ -36,7 +36,7 @@ class AlphaLinkCentos9InstallWorkflow
      * @param  list<string>  $isps
      * @param  array{tracking: bool, proxy: bool, imap: bool, spf: bool, dkim: bool, dmarc: bool, https: bool}  $options
      * @param  array{pmta_port: int, pmta_admin_port: int, proxy_port: int, dev_ips: list<string>, pmta_relay_ips: list<string>, production_ips: list<string>, rdp_ips: list<string>, allow_all_monitor: bool, apply_firewall: bool, dkim_selector: string, dkim_key: string, dkim_public_key: ?string, imap_username: string, imap_password: string, proxy_username: string, proxy_password: string, tracking_callback_url: string, tracking_ingest_key: string}  $settings
-     * @param  array{tracking_app: ?array{index: string, handler: string}, cloudflare_ips: ?string, dovecot_config: ?string, squid_config: ?string, pmta_domains_override?: ?string}  $assets
+     * @param  array{tracking_app: ?array{index: string, handler: string, homepage: string}, cloudflare_ips: ?string, dovecot_config: ?string, squid_config: ?string, pmta_domains_override?: ?string}  $assets
      * @param  Closure(string): void  $log
      * @param  list<array{ip: string, type: string, main: bool, sub: string, domain_id: string, domain: string, is_our: bool}>|null  $ipAssignments
      * @param  list<SendingDomain>  $selectedDomains
@@ -450,7 +450,10 @@ class AlphaLinkCentos9InstallWorkflow
             }
         }
         if ($assets['tracking_app'] !== null
-            && (! is_array($assets['tracking_app']) || ! is_string($assets['tracking_app']['index'] ?? null) || ! is_string($assets['tracking_app']['handler'] ?? null))) {
+            && (! is_array($assets['tracking_app'])
+                || ! is_string($assets['tracking_app']['index'] ?? null)
+                || ! is_string($assets['tracking_app']['handler'] ?? null)
+                || ! is_string($assets['tracking_app']['homepage'] ?? null))) {
             throw new InvalidArgumentException('The AlphaLink tracking application files are invalid.');
         }
     }

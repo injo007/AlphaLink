@@ -1,9 +1,13 @@
 # AlphaLink development progress
 
 **Updated:** 2026-11-13
-**Active objective:** Make large SPF scans responsive to control while preserving checkpoints and bounded concurrent DNS resolution.
+**Active objective:** Replace the default installed tracking-domain status page with the user-provided responsive landing-page template while preserving tracker endpoints.
 **Current implementation status:** E-TOOLS-57/58 provide per-scan pause, resume, stop, and safe delete controls. Release `9c8a9873734e42e45f10927d1a9aa15fc5a43cd9` is active in production and pushed to `codex/alphalink-identity-reconstruction`; static syntax checks pass. Automated tests and throughput benchmarks were not run.
 **Production baseline:** Release `9c8a9873734e42e45f10927d1a9aa15fc5a43cd9` is active. The guarded installer verified PostgreSQL backup `/var/backups/alphalink/deploy-9c8a9873734e42e45f10927d1a9aa15fc5a43cd9-20261113T190802Z.dump`, found no pending migrations, and passed local HTTPS health. Read-only live-page inspection shows scan 9 remains paused at 61,194 / 193,548 with Resume/Stop/Delete, and legacy stopped rows 1–4 and 8 now have Delete; no scan action or production row mutation was performed. The 10M-domain / 20-IP benchmark remains unrun; 1,000 domains/second is a target, not a measured result.
+
+### Installed tracking-domain homepage — E-INST-104 (2026-11-13)
+
+The tracking root now serves the provided responsive domain-branded landing page. Tailwind styles are embedded locally; Google Fonts are optional. The signed tracker routes and `/healthz` continue through the existing request handler. The installer requires and SHA-256-pins the template, uploads it outside the public document root, and upgrades a stored handler only when its bytes match the previously reviewed version. Existing installed hosts were not changed; they need a controlled reinstall with Tracking selected. No tests or live host/browser verification were run, and no production deployment occurred.
 
 ### SPF scan activity and resolver performance follow-up — E-TOOLS-51/52 (2026-11-13)
 

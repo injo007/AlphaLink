@@ -76,7 +76,7 @@ class AlphaLinkBulkInstallInstallerMatrix
 
         if ($options['tracking']) {
             $requirements['tracking'] = [
-                'expected_assets' => ['install/tracker_index', 'install/tracker_handler'],
+                'expected_assets' => ['install/tracker_index', 'install/tracker_handler', 'install/tracker_homepage'],
                 'optional_assets' => ['install/cf_ips.conf'],
                 'when_tracking_app_missing' => 'Apache is configured, but the AlphaLink tracking application is not uploaded or configured.',
             ];

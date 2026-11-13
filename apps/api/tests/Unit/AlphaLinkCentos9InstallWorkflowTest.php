@@ -536,7 +536,7 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
             'tracking_callback_url' => 'https://baseheavy.shop', 'tracking_ingest_key' => 'ingest-key',
         ];
         $assets = [
-            'tracking_app' => ['index' => '<?php // ALPHALINK_TRACKING_READY', 'handler' => '<?php'],
+            'tracking_app' => ['index' => '<?php // ALPHALINK_TRACKING_READY', 'handler' => '<?php', 'homepage' => '<!doctype html>'],
             'cloudflare_ips' => null, 'dovecot_config' => null, 'squid_config' => null,
         ];
         $dnsWriter = $this->createMock(AlphaLinkBulkInstallDomainDnsRecordWriter::class);

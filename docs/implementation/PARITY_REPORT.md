@@ -919,6 +919,10 @@ PHP syntax for `WorkspaceCommunicationController.php`, JavaScript syntax for `te
 
 PHP syntax, JavaScript syntax, custom Blade compilation, `npm run build`, and `git diff --check` pass. The build reports the existing large MapLibre chunk advisory. PHPUnit and authenticated desktop/tablet/phone interaction checks were not run, so this slice remains IMPLEMENTING and has no parity acceptance. Pint cannot start because local PHP 8.3.6 lacks XML; `php artisan view:cache` is blocked by missing `DOMDocument`.
 
+## 2026-11-13 Installed tracking-domain homepage — E-INST-104
+
+The tracking root (`GET /`) now serves the user-supplied domain-branded landing-page asset from outside Apache's document root. Tailwind styles are embedded as reviewed CSS instead of loading runtime styling code from a CDN; the supplied Google Fonts link remains optional with local system fallbacks. Existing `/healthz` and signed open, click, unsubscribe, and bot paths remain routed through the standalone tracker. Tracking installation/reinstallation treats the HTML as a required, SHA-256-pinned private asset; deployment updates the handler only when the private copy matches the previous reviewed digest and preserves unrecognized custom bytes. This is an AlphaLink product request, not a DMS parity claim. Source, manifest, and installer changes are local; no app deployment, host reinstall, or live browser check was performed. Existing installed servers retain their current page until a controlled reinstall with Tracking selected. No tests were run.
+
 
 ## 2026-11-11 Tracking runtime correction — E-INST-101
 

@@ -9,7 +9,7 @@ use RuntimeException;
 class AlphaLinkCentos9TrackingDeploymentStage
 {
     /** @param list<string> $subDomains
-     * @param  array{index: string, handler: string}|null  $trackingAppFiles
+     * @param  array{index: string, handler: string, homepage: string}|null  $trackingAppFiles
      */
     public function run(
         AlphaLinkInstallerRemoteCommandTransport $commands,
@@ -32,7 +32,7 @@ class AlphaLinkCentos9TrackingDeploymentStage
         $commands->exec('dnf install -y httpd');
 
         if ($trackingAppFiles !== null) {
-            if (! isset($trackingAppFiles['index'], $trackingAppFiles['handler'])) {
+            if (! isset($trackingAppFiles['index'], $trackingAppFiles['handler'], $trackingAppFiles['homepage'])) {
                 throw new InvalidArgumentException('The AlphaLink tracking source files are incomplete.');
             }
 
@@ -51,12 +51,14 @@ class AlphaLinkCentos9TrackingDeploymentStage
             $commands->exec(
                 'test ! -L /var/alphalink-tracker && mkdir -p /var/alphalink-tracker '
                     .'&& test ! -L /var/alphalink-tracker/TrackerRequestHandler.php '
+                    .'&& test ! -L /var/alphalink-tracker/homepage.html '
                     .'&& test ! -L /var/mini && mkdir -p /var/mini/public '
                     .'&& test ! -L /var/mini/public '
                     .'&& test ! -L /var/mini/public/index.php '
                     .'&& test ! -L /etc/alphalink-tracker.php',
             );
             $this->uploadOrFail($files, $trackingAppFiles['handler'], '/var/alphalink-tracker/TrackerRequestHandler.php');
+            $this->uploadOrFail($files, $trackingAppFiles['homepage'], '/var/alphalink-tracker/homepage.html');
             $this->uploadOrFail($files, $trackingAppFiles['index'], '/var/mini/public/index.php');
 
             $config = "<?php\nreturn ".var_export([
@@ -76,9 +78,9 @@ class AlphaLinkCentos9TrackingDeploymentStage
 </Directory>
 APACHE;
             $this->uploadOrFail($files, $publicAccessPolicy, '/etc/httpd/conf.d/alphalink-tracking-access.conf');
-            $commands->exec('chown root:root /var/alphalink-tracker/TrackerRequestHandler.php /var/mini/public/index.php');
+            $commands->exec('chown root:root /var/alphalink-tracker/TrackerRequestHandler.php /var/alphalink-tracker/homepage.html /var/mini/public/index.php');
             $commands->exec('chmod 755 /var/alphalink-tracker');
-            $commands->exec('chmod 644 /var/alphalink-tracker/TrackerRequestHandler.php /var/mini/public/index.php');
+            $commands->exec('chmod 644 /var/alphalink-tracker/TrackerRequestHandler.php /var/alphalink-tracker/homepage.html /var/mini/public/index.php');
             $commands->exec('chown root:apache /etc/alphalink-tracker.php');
             $commands->exec('chmod 640 /etc/alphalink-tracker.php');
 

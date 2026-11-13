@@ -17,6 +17,7 @@ class AlphaLinkInstallerAssetCatalog
             'install/pmta_config' => 'pmta/shared/base.conf',
             'install/tracker_index' => 'optional/tracking/index.php',
             'install/tracker_handler' => 'optional/tracking/TrackerRequestHandler.php',
+            'install/tracker_homepage' => 'optional/tracking/homepage.html',
             'install/cf_ips.conf' => 'optional/tracking/cloudflare-ips.conf',
             'install/dovecot_centos.conf' => 'optional/imap/dovecot.conf',
             'install/squid_centos.conf' => 'optional/proxy/squid.conf',

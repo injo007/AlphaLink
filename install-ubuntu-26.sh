@@ -570,7 +570,54 @@ repair_missing_reviewed_tracking_assets() {
 
     [[ -d "$source_root" && ! -L "$source_root" ]] || return 0
     repair_missing_reviewed_tracking_asset "$source_root" 'optional/tracking/index.php' 3250 '8fcc32fca7d97d3144715ddd9e676bcfc0cbfb7107d61300669d002039029974'
-    repair_missing_reviewed_tracking_asset "$source_root" 'optional/tracking/TrackerRequestHandler.php' 12605 '57ba8813cc7617fdfde72bbc0a30782fa809e93c097fa2a859915a6635ac6dce'
+    repair_missing_reviewed_tracking_asset "$source_root" 'optional/tracking/TrackerRequestHandler.php' 12840 '3a536d8990cfa2a76a69f5ce1a0a85d15f0ae43b66526c9b6418b2719e072287'
+    repair_missing_reviewed_tracking_asset "$source_root" 'optional/tracking/homepage.html' 117530 'f813a0a87681180921ba15681298c23ff411767b377a363ba5a1e591ff5f0f5e'
+}
+
+upgrade_reviewed_tracking_asset_if_unchanged() {
+    local source_root="$1" relative_path="$2" previous_size="$3" previous_digest="$4" expected_size="$5" expected_digest="$6"
+    local source_file="$source_root/$relative_path" destination_file="$INSTALL_ASSETS_ROOT/$relative_path"
+    local destination_directory="$INSTALL_ASSETS_ROOT/optional/tracking" source_size source_digest destination_size destination_digest temporary_file
+
+    [[ -f "$source_file" && ! -L "$source_file" && -f "$destination_file" && ! -L "$destination_file" ]] || return 0
+    source_size="$(stat -c '%s' -- "$source_file")"
+    source_digest="$(sha256sum -- "$source_file")"
+    source_digest="${source_digest%% *}"
+    if [[ "$source_size" != "$expected_size" || "$source_digest" != "$expected_digest" ]]; then
+        info "Cannot update reviewed private tracking asset because repository bytes do not match the reviewed digest: ${relative_path}."
+        return 0
+    fi
+
+    destination_size="$(stat -c '%s' -- "$destination_file")"
+    destination_digest="$(sha256sum -- "$destination_file")"
+    destination_digest="${destination_digest%% *}"
+    if [[ "$destination_size" == "$expected_size" && "$destination_digest" == "$expected_digest" ]]; then
+        return 0
+    fi
+    if [[ "$destination_size" != "$previous_size" || "$destination_digest" != "$previous_digest" ]]; then
+        info "Preserving modified private tracking asset for review: ${relative_path}."
+        return 0
+    fi
+
+    [[ ! -L "$INSTALL_ASSETS_ROOT/optional" && ! -L "$destination_directory" ]] \
+        || fail 'The private tracking asset destination contains a symlink; preserving it.'
+    temporary_file="$(mktemp "$destination_directory/.${relative_path##*/}.update.XXXXXX")" \
+        || fail 'Could not create a temporary tracking asset update.'
+    if ! install -o www-data -g www-data -m 0600 -- "$source_file" "$temporary_file"; then
+        rm -f -- "$temporary_file"
+        fail "Could not stage reviewed tracking asset update: ${relative_path}."
+    fi
+
+    destination_size="$(stat -c '%s' -- "$temporary_file")"
+    destination_digest="$(sha256sum -- "$temporary_file")"
+    destination_digest="${destination_digest%% *}"
+    if [[ "$destination_size" != "$expected_size" || "$destination_digest" != "$expected_digest" ]]; then
+        rm -f -- "$temporary_file"
+        fail "The staged tracking asset update failed its reviewed digest check: ${relative_path}."
+    fi
+
+    mv -- "$temporary_file" "$destination_file"
+    info "Updated unchanged private tracking asset to the reviewed release: ${relative_path}."
 }
 
 repair_missing_reviewed_tracking_assets_from_git() {
@@ -578,6 +625,7 @@ repair_missing_reviewed_tracking_assets_from_git() {
     local -a reviewed_paths=(
         'optional/tracking/index.php'
         'optional/tracking/TrackerRequestHandler.php'
+        'optional/tracking/homepage.html'
     )
 
     TRACKING_ASSET_SOURCE_STAGING_DIR="$(mktemp -d "${SHARED_ROOT}/.tracking-assets-source-XXXXXX")" \
@@ -600,6 +648,7 @@ repair_missing_reviewed_tracking_assets_from_git() {
     done
 
     repair_missing_reviewed_tracking_assets "$TRACKING_ASSET_SOURCE_STAGING_DIR"
+    upgrade_reviewed_tracking_asset_if_unchanged "$TRACKING_ASSET_SOURCE_STAGING_DIR" 'optional/tracking/TrackerRequestHandler.php' 12605 '57ba8813cc7617fdfde72bbc0a30782fa809e93c097fa2a859915a6635ac6dce' 12840 '3a536d8990cfa2a76a69f5ce1a0a85d15f0ae43b66526c9b6418b2719e072287'
     rm -rf -- "$TRACKING_ASSET_SOURCE_STAGING_DIR"
     TRACKING_ASSET_SOURCE_STAGING_DIR=''
 }

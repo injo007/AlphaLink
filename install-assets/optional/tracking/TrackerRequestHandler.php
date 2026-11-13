@@ -33,6 +33,11 @@ final class AlphaLinkTrackerRequestHandler
         }
 
         if ($path === '/') {
+            $homepage = @file_get_contents(__DIR__.'/homepage.html');
+            if (is_string($homepage) && trim($homepage) !== '') {
+                return $this->response(200, 'text/html; charset=utf-8', $homepage);
+            }
+
             return $this->response(200, 'text/html; charset=utf-8', '<!doctype html><html lang="en"><meta charset="utf-8"><title>AlphaLink</title><body>AlphaLink tracking endpoint is active.</body></html>');
         }
 

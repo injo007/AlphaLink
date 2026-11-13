@@ -1,0 +1,1330 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NovaGrowthCampus — SaaS Email Marketing & Lifecycle Automation</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      color: #0F172A;
+      background-color: #FFFFFF;
+      overflow-x: hidden;
+    }
+    h1, h2, h3, .font-display {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .hero-mesh {
+      background-color: #0F172A;
+      background-image:
+        radial-gradient(at 15% 15%, rgba(79, 70, 229, 0.35) 0px, transparent 55%),
+        radial-gradient(at 85% 20%, rgba(124, 58, 237, 0.32) 0px, transparent 50%),
+        radial-gradient(at 50% 90%, rgba(16, 185, 129, 0.14) 0px, transparent 55%);
+    }
+    .grid-pattern {
+      background-size: 36px 36px;
+      background-image:
+        linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+    }
+    .cta-gradient {
+      background: linear-gradient(135deg, #4338CA 0%, #6D28D9 55%, #4F46E5 100%);
+    }
+    @keyframes floatSlow {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-6px); }
+    }
+    .animate-float {
+      animation: floatSlow 5s ease-in-out infinite;
+    }
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.55; transform: scale(1.25); }
+    }
+    .pulse-dot {
+      animation: pulseDot 2s infinite;
+    }
+    /* Smooth mobile drawer transitions */
+    #mobile-drawer {
+      transition: opacity 0.25s ease, transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    #mobile-drawer.drawer-closed {
+      opacity: 0;
+      transform: translateY(-10px);
+      pointer-events: none;
+    }
+    #mobile-drawer.drawer-open {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+    /* Active scroll-spy nav indicator */
+    .nav-link-item {
+      position: relative;
+    }
+    .nav-link-item::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      bottom: -6px;
+      width: 0;
+      height: 2px;
+      border-radius: 9999px;
+      background-color: #4F46E5;
+      transform: translateX(-50%);
+      transition: width 0.22s ease;
+    }
+    .nav-link-item:hover::after,
+    .nav-link-item.active-nav::after {
+      width: 18px;
+    }
+    .nav-link-item.active-nav {
+      color: #4F46E5;
+      font-weight: 600;
+    }
+  </style>
+<style data-alphalink-tailwind>*,:after,:before{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgba(59,130,246,.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgba(59,130,246,.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }/*! tailwindcss v3.4.17 | MIT License | https://tailwindcss.com*/*,:after,:before{box-sizing:border-box;border:0 solid #e5e7eb}:after,:before{--tw-content:""}:host,html{line-height:1.5;-webkit-text-size-adjust:100%;-moz-tab-size:4;-o-tab-size:4;tab-size:4;font-family:Inter,system-ui,sans-serif;font-feature-settings:normal;font-variation-settings:normal;-webkit-tap-highlight-color:transparent}body{margin:0;line-height:inherit}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,pre,samp{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,Liberation Mono,Courier New,monospace;font-feature-settings:normal;font-variation-settings:normal;font-size:1em}small{font-size:80%}sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}button,input,optgroup,select,textarea{font-family:inherit;font-feature-settings:inherit;font-variation-settings:inherit;font-size:100%;font-weight:inherit;line-height:inherit;letter-spacing:inherit;color:inherit;margin:0;padding:0}button,select{text-transform:none}button,input:where([type=button]),input:where([type=reset]),input:where([type=submit]){-webkit-appearance:button;background-color:transparent;background-image:none}:-moz-focusring{outline:auto}:-moz-ui-invalid{box-shadow:none}progress{vertical-align:baseline}::-webkit-inner-spin-button,::-webkit-outer-spin-button{height:auto}[type=search]{-webkit-appearance:textfield;outline-offset:-2px}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-file-upload-button{-webkit-appearance:button;font:inherit}summary{display:list-item}blockquote,dd,dl,figure,h1,h2,h3,h4,h5,h6,hr,p,pre{margin:0}fieldset{margin:0}fieldset,legend{padding:0}menu,ol,ul{list-style:none;margin:0;padding:0}dialog{padding:0}textarea{resize:vertical}input::-moz-placeholder,textarea::-moz-placeholder{opacity:1;color:#9ca3af}input::placeholder,textarea::placeholder{opacity:1;color:#9ca3af}[role=button],button{cursor:pointer}:disabled{cursor:default}audio,canvas,embed,iframe,img,object,svg,video{display:block;vertical-align:middle}img,video{max-width:100%;height:auto}[hidden]:where(:not([hidden=until-found])){display:none}.pointer-events-none{pointer-events:none}.visible{visibility:visible}.fixed{position:fixed}.absolute{position:absolute}.relative{position:relative}.sticky{position:sticky}.inset-0{inset:0}.inset-x-0{left:0;right:0}.-top-3\.5{top:-.875rem}.bottom-0{bottom:0}.bottom-4{bottom:1rem}.left-0{left:0}.right-0{right:0}.right-4{right:1rem}.right-6{right:1.5rem}.top-0{top:0}.top-\[68px\]{top:68px}.z-10{z-index:10}.z-40{z-index:40}.z-50{z-index:50}.mx-auto{margin-left:auto;margin-right:auto}.my-6{margin-top:1.5rem;margin-bottom:1.5rem}.mb-1{margin-bottom:.25rem}.mb-1\.5{margin-bottom:.375rem}.mb-12{margin-bottom:3rem}.mb-16{margin-bottom:4rem}.mb-2{margin-bottom:.5rem}.mb-2\.5{margin-bottom:.625rem}.mb-3{margin-bottom:.75rem}.mb-4{margin-bottom:1rem}.mb-5{margin-bottom:1.25rem}.mb-6{margin-bottom:1.5rem}.mb-8{margin-bottom:2rem}.ml-1{margin-left:.25rem}.ml-2{margin-left:.5rem}.mr-2\.5{margin-right:.625rem}.mt-0\.5{margin-top:.125rem}.mt-1{margin-top:.25rem}.mt-3{margin-top:.75rem}.mt-6{margin-top:1.5rem}.block{display:block}.inline-block{display:inline-block}.inline{display:inline}.flex{display:flex}.inline-flex{display:inline-flex}.grid{display:grid}.contents{display:contents}.hidden{display:none}.h-1{height:.25rem}.h-1\.5{height:.375rem}.h-12{height:3rem}.h-14{height:3.5rem}.h-2{height:.5rem}.h-2\.5{height:.625rem}.h-24{height:6rem}.h-3{height:.75rem}.h-3\.5{height:.875rem}.h-4{height:1rem}.h-5{height:1.25rem}.h-6{height:1.5rem}.h-8{height:2rem}.h-9{height:2.25rem}.h-\[2\.5px\]{height:2.5px}.h-full{height:100%}.max-h-\[calc\(100vh-72px\)\]{max-height:calc(100vh - 72px)}.min-h-\[390px\]{min-height:390px}.w-0{width:0}.w-0\.5{width:.125rem}.w-1\.5{width:.375rem}.w-12{width:3rem}.w-14{width:3.5rem}.w-2{width:.5rem}.w-3{width:.75rem}.w-3\.5{width:.875rem}.w-4{width:1rem}.w-5{width:1.25rem}.w-6{width:1.5rem}.w-72{width:18rem}.w-8{width:2rem}.w-9{width:2.25rem}.w-full{width:100%}.min-w-0{min-width:0}.max-w-2xl{max-width:42rem}.max-w-3xl{max-width:48rem}.max-w-4xl{max-width:56rem}.max-w-5xl{max-width:64rem}.max-w-6xl{max-width:72rem}.max-w-7xl{max-width:80rem}.max-w-\[150px\]{max-width:150px}.max-w-\[200px\]{max-width:200px}.max-w-\[72\%\]{max-width:72%}.max-w-lg{max-width:32rem}.max-w-md{max-width:28rem}.max-w-sm{max-width:24rem}.max-w-xl{max-width:36rem}.flex-1{flex:1 1 0%}.flex-shrink-0,.shrink-0{flex-shrink:0}.transform{transform:translate(var(--tw-translate-x),var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}.cursor-pointer{cursor:pointer}.resize{resize:both}.grid-cols-1{grid-template-columns:repeat(1,minmax(0,1fr))}.grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}.grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}.grid-cols-7{grid-template-columns:repeat(7,minmax(0,1fr))}.flex-col{flex-direction:column}.flex-wrap{flex-wrap:wrap}.items-start{align-items:flex-start}.items-end{align-items:flex-end}.items-center{align-items:center}.items-baseline{align-items:baseline}.items-stretch{align-items:stretch}.justify-end{justify-content:flex-end}.justify-center{justify-content:center}.justify-between{justify-content:space-between}.gap-1{gap:.25rem}.gap-1\.5{gap:.375rem}.gap-10{gap:2.5rem}.gap-12{gap:3rem}.gap-2{gap:.5rem}.gap-2\.5{gap:.625rem}.gap-3{gap:.75rem}.gap-4{gap:1rem}.gap-5{gap:1.25rem}.gap-7{gap:1.75rem}.gap-8{gap:2rem}.gap-x-6{-moz-column-gap:1.5rem;column-gap:1.5rem}.gap-y-2{row-gap:.5rem}.space-y-1>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(.25rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(.25rem*var(--tw-space-y-reverse))}.space-y-2>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(.5rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(.5rem*var(--tw-space-y-reverse))}.space-y-2\.5>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(.625rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(.625rem*var(--tw-space-y-reverse))}.space-y-3>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(.75rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(.75rem*var(--tw-space-y-reverse))}.space-y-4>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(1rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(1rem*var(--tw-space-y-reverse))}.space-y-5>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(1.25rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(1.25rem*var(--tw-space-y-reverse))}.overflow-hidden{overflow:hidden}.overflow-y-auto{overflow-y:auto}.scroll-smooth{scroll-behavior:smooth}.truncate{overflow:hidden;text-overflow:ellipsis}.truncate,.whitespace-nowrap{white-space:nowrap}.rounded{border-radius:.25rem}.rounded-2xl{border-radius:1rem}.rounded-3xl{border-radius:1.5rem}.rounded-full{border-radius:9999px}.rounded-lg{border-radius:.5rem}.rounded-md{border-radius:.375rem}.rounded-xl{border-radius:.75rem}.rounded-t-md{border-top-left-radius:.375rem;border-top-right-radius:.375rem}.border{border-width:1px}.border-2{border-width:2px}.border-y{border-top-width:1px}.border-b,.border-y{border-bottom-width:1px}.border-t{border-top-width:1px}.border-amber-200{--tw-border-opacity:1;border-color:rgb(253 230 138/var(--tw-border-opacity,1))}.border-emerald-200{--tw-border-opacity:1;border-color:rgb(167 243 208/var(--tw-border-opacity,1))}.border-emerald-400\/30{border-color:rgba(52,211,153,.3)}.border-emerald-500{--tw-border-opacity:1;border-color:rgb(16 185 129/var(--tw-border-opacity,1))}.border-indigo-100{--tw-border-opacity:1;border-color:rgb(224 231 255/var(--tw-border-opacity,1))}.border-indigo-200{--tw-border-opacity:1;border-color:rgb(199 210 254/var(--tw-border-opacity,1))}.border-indigo-500{--tw-border-opacity:1;border-color:rgb(99 102 241/var(--tw-border-opacity,1))}.border-indigo-600{--tw-border-opacity:1;border-color:rgb(79 70 229/var(--tw-border-opacity,1))}.border-rose-200{--tw-border-opacity:1;border-color:rgb(254 205 211/var(--tw-border-opacity,1))}.border-slate-100{--tw-border-opacity:1;border-color:rgb(241 245 249/var(--tw-border-opacity,1))}.border-slate-200{--tw-border-opacity:1;border-color:rgb(226 232 240/var(--tw-border-opacity,1))}.border-slate-200\/80{border-color:rgba(226,232,240,.8)}.border-slate-200\/85{border-color:rgba(226,232,240,.85)}.border-slate-200\/90{border-color:rgba(226,232,240,.9)}.border-slate-300{--tw-border-opacity:1;border-color:rgb(203 213 225/var(--tw-border-opacity,1))}.border-slate-700{--tw-border-opacity:1;border-color:rgb(51 65 85/var(--tw-border-opacity,1))}.border-slate-700\/50{border-color:rgba(51,65,85,.5)}.border-slate-700\/60{border-color:rgba(51,65,85,.6)}.border-slate-700\/80{border-color:rgba(51,65,85,.8)}.border-slate-800{--tw-border-opacity:1;border-color:rgb(30 41 59/var(--tw-border-opacity,1))}.border-transparent{border-color:transparent}.border-white\/15{border-color:hsla(0,0%,100%,.15)}.border-white\/20{border-color:hsla(0,0%,100%,.2)}.border-white\/25{border-color:hsla(0,0%,100%,.25)}.bg-amber-400\/80{background-color:rgba(251,191,36,.8)}.bg-amber-50{--tw-bg-opacity:1;background-color:rgb(255 251 235/var(--tw-bg-opacity,1))}.bg-amber-50\/70{background-color:rgba(255,251,235,.7)}.bg-emerald-100{--tw-bg-opacity:1;background-color:rgb(209 250 229/var(--tw-bg-opacity,1))}.bg-emerald-400{--tw-bg-opacity:1;background-color:rgb(52 211 153/var(--tw-bg-opacity,1))}.bg-emerald-50{--tw-bg-opacity:1;background-color:rgb(236 253 245/var(--tw-bg-opacity,1))}.bg-emerald-50\/40{background-color:rgba(236,253,245,.4)}.bg-emerald-50\/70{background-color:rgba(236,253,245,.7)}.bg-emerald-500{--tw-bg-opacity:1;background-color:rgb(16 185 129/var(--tw-bg-opacity,1))}.bg-emerald-500\/15{background-color:rgba(16,185,129,.15)}.bg-emerald-500\/20{background-color:rgba(16,185,129,.2)}.bg-emerald-500\/80{background-color:rgba(16,185,129,.8)}.bg-emerald-600{--tw-bg-opacity:1;background-color:rgb(5 150 105/var(--tw-bg-opacity,1))}.bg-indigo-100{--tw-bg-opacity:1;background-color:rgb(224 231 255/var(--tw-bg-opacity,1))}.bg-indigo-100\/80{background-color:rgba(224,231,255,.8)}.bg-indigo-400{--tw-bg-opacity:1;background-color:rgb(129 140 248/var(--tw-bg-opacity,1))}.bg-indigo-50{--tw-bg-opacity:1;background-color:rgb(238 242 255/var(--tw-bg-opacity,1))}.bg-indigo-500\/50{background-color:rgba(99,102,241,.5)}.bg-indigo-500\/60{background-color:rgba(99,102,241,.6)}.bg-indigo-500\/65{background-color:rgba(99,102,241,.65)}.bg-indigo-500\/75{background-color:rgba(99,102,241,.75)}.bg-indigo-500\/80{background-color:rgba(99,102,241,.8)}.bg-indigo-600{--tw-bg-opacity:1;background-color:rgb(79 70 229/var(--tw-bg-opacity,1))}.bg-rose-50{--tw-bg-opacity:1;background-color:rgb(255 241 242/var(--tw-bg-opacity,1))}.bg-rose-500\/80{background-color:rgba(244,63,94,.8)}.bg-sky-50{--tw-bg-opacity:1;background-color:rgb(240 249 255/var(--tw-bg-opacity,1))}.bg-slate-100{--tw-bg-opacity:1;background-color:rgb(241 245 249/var(--tw-bg-opacity,1))}.bg-slate-200\/80{background-color:rgba(226,232,240,.8)}.bg-slate-300{--tw-bg-opacity:1;background-color:rgb(203 213 225/var(--tw-bg-opacity,1))}.bg-slate-400{--tw-bg-opacity:1;background-color:rgb(148 163 184/var(--tw-bg-opacity,1))}.bg-slate-50{--tw-bg-opacity:1;background-color:rgb(248 250 252/var(--tw-bg-opacity,1))}.bg-slate-800{--tw-bg-opacity:1;background-color:rgb(30 41 59/var(--tw-bg-opacity,1))}.bg-slate-800\/60{background-color:rgba(30,41,59,.6)}.bg-slate-800\/80{background-color:rgba(30,41,59,.8)}.bg-slate-800\/90{background-color:rgba(30,41,59,.9)}.bg-slate-900{--tw-bg-opacity:1;background-color:rgb(15 23 42/var(--tw-bg-opacity,1))}.bg-slate-900\/90{background-color:rgba(15,23,42,.9)}.bg-slate-900\/95{background-color:rgba(15,23,42,.95)}.bg-slate-950\/35{background-color:rgba(2,6,23,.35)}.bg-slate-950\/70{background-color:rgba(2,6,23,.7)}.bg-transparent{background-color:transparent}.bg-violet-100{--tw-bg-opacity:1;background-color:rgb(237 233 254/var(--tw-bg-opacity,1))}.bg-violet-50{--tw-bg-opacity:1;background-color:rgb(245 243 255/var(--tw-bg-opacity,1))}.bg-violet-500{--tw-bg-opacity:1;background-color:rgb(139 92 246/var(--tw-bg-opacity,1))}.bg-violet-600{--tw-bg-opacity:1;background-color:rgb(124 58 237/var(--tw-bg-opacity,1))}.bg-white{--tw-bg-opacity:1;background-color:rgb(255 255 255/var(--tw-bg-opacity,1))}.bg-white\/10{background-color:hsla(0,0%,100%,.1)}.bg-white\/70{background-color:hsla(0,0%,100%,.7)}.bg-white\/95{background-color:hsla(0,0%,100%,.95)}.bg-gradient-to-br{background-image:linear-gradient(to bottom right,var(--tw-gradient-stops))}.bg-gradient-to-r{background-image:linear-gradient(to right,var(--tw-gradient-stops))}.bg-gradient-to-t{background-image:linear-gradient(to top,var(--tw-gradient-stops))}.from-indigo-300{--tw-gradient-from:#a5b4fc var(--tw-gradient-from-position);--tw-gradient-to:rgba(165,180,252,0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}.from-indigo-500{--tw-gradient-from:#6366f1 var(--tw-gradient-from-position);--tw-gradient-to:rgba(99,102,241,0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}.from-indigo-600{--tw-gradient-from:#4f46e5 var(--tw-gradient-from-position);--tw-gradient-to:rgba(79,70,229,0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}.via-violet-300{--tw-gradient-to:rgba(196,181,253,0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),#c4b5fd var(--tw-gradient-via-position),var(--tw-gradient-to)}.via-violet-600{--tw-gradient-to:rgba(124,58,237,0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),#7c3aed var(--tw-gradient-via-position),var(--tw-gradient-to)}.to-emerald-300{--tw-gradient-to:#6ee7b7 var(--tw-gradient-to-position)}.to-emerald-400{--tw-gradient-to:#34d399 var(--tw-gradient-to-position)}.to-emerald-500{--tw-gradient-to:#10b981 var(--tw-gradient-to-position)}.to-violet-500{--tw-gradient-to:#8b5cf6 var(--tw-gradient-to-position)}.to-violet-600{--tw-gradient-to:#7c3aed var(--tw-gradient-to-position)}.bg-clip-text{-webkit-background-clip:text;background-clip:text}.p-1{padding:.25rem}.p-1\.5{padding:.375rem}.p-2{padding:.5rem}.p-2\.5{padding:.625rem}.p-3{padding:.75rem}.p-3\.5{padding:.875rem}.p-4{padding:1rem}.p-6{padding:1.5rem}.p-7{padding:1.75rem}.p-8{padding:2rem}.px-1\.5{padding-left:.375rem;padding-right:.375rem}.px-2{padding-left:.5rem;padding-right:.5rem}.px-2\.5{padding-left:.625rem;padding-right:.625rem}.px-3{padding-left:.75rem;padding-right:.75rem}.px-3\.5{padding-left:.875rem;padding-right:.875rem}.px-4{padding-left:1rem;padding-right:1rem}.px-5{padding-left:1.25rem;padding-right:1.25rem}.px-6{padding-left:1.5rem;padding-right:1.5rem}.px-7{padding-left:1.75rem;padding-right:1.75rem}.py-0\.5{padding-top:.125rem;padding-bottom:.125rem}.py-1{padding-top:.25rem;padding-bottom:.25rem}.py-1\.5{padding-top:.375rem;padding-bottom:.375rem}.py-16{padding-top:4rem;padding-bottom:4rem}.py-2{padding-top:.5rem;padding-bottom:.5rem}.py-2\.5{padding-top:.625rem;padding-bottom:.625rem}.py-20{padding-top:5rem;padding-bottom:5rem}.py-3{padding-top:.75rem;padding-bottom:.75rem}.py-3\.5{padding-top:.875rem;padding-bottom:.875rem}.py-4{padding-top:1rem;padding-bottom:1rem}.pb-10{padding-bottom:2.5rem}.pb-12{padding-bottom:3rem}.pb-20{padding-bottom:5rem}.pb-3{padding-bottom:.75rem}.pb-4{padding-bottom:1rem}.pb-7{padding-bottom:1.75rem}.pl-3{padding-left:.75rem}.pt-1{padding-top:.25rem}.pt-14{padding-top:3.5rem}.pt-16{padding-top:4rem}.pt-2{padding-top:.5rem}.pt-3{padding-top:.75rem}.pt-4{padding-top:1rem}.pt-8{padding-top:2rem}.text-left{text-align:left}.text-center{text-align:center}.text-right{text-align:right}.font-display{font-family:Plus Jakarta Sans,Inter,system-ui,sans-serif}.font-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,Liberation Mono,Courier New,monospace}.text-2xl{font-size:1.5rem;line-height:2rem}.text-3xl{font-size:1.875rem;line-height:2.25rem}.text-4xl{font-size:2.25rem;line-height:2.5rem}.text-\[10px\]{font-size:10px}.text-\[11px\]{font-size:11px}.text-base{font-size:1rem;line-height:1.5rem}.text-lg{font-size:1.125rem;line-height:1.75rem}.text-sm{font-size:.875rem;line-height:1.25rem}.text-xl{font-size:1.25rem;line-height:1.75rem}.text-xs{font-size:.75rem;line-height:1rem}.font-bold{font-weight:700}.font-extrabold{font-weight:800}.font-medium{font-weight:500}.font-semibold{font-weight:600}.uppercase{text-transform:uppercase}.lowercase{text-transform:lowercase}.leading-\[1\.12\]{line-height:1.12}.leading-relaxed{line-height:1.625}.tracking-tight{letter-spacing:-.025em}.tracking-wider{letter-spacing:.05em}.tracking-widest{letter-spacing:.1em}.text-amber-300{--tw-text-opacity:1;color:rgb(252 211 77/var(--tw-text-opacity,1))}.text-amber-600{--tw-text-opacity:1;color:rgb(217 119 6/var(--tw-text-opacity,1))}.text-amber-700{--tw-text-opacity:1;color:rgb(180 83 9/var(--tw-text-opacity,1))}.text-emerald-200{--tw-text-opacity:1;color:rgb(167 243 208/var(--tw-text-opacity,1))}.text-emerald-300{--tw-text-opacity:1;color:rgb(110 231 183/var(--tw-text-opacity,1))}.text-emerald-400{--tw-text-opacity:1;color:rgb(52 211 153/var(--tw-text-opacity,1))}.text-emerald-600{--tw-text-opacity:1;color:rgb(5 150 105/var(--tw-text-opacity,1))}.text-emerald-700{--tw-text-opacity:1;color:rgb(4 120 87/var(--tw-text-opacity,1))}.text-indigo-100{--tw-text-opacity:1;color:rgb(224 231 255/var(--tw-text-opacity,1))}.text-indigo-200{--tw-text-opacity:1;color:rgb(199 210 254/var(--tw-text-opacity,1))}.text-indigo-300{--tw-text-opacity:1;color:rgb(165 180 252/var(--tw-text-opacity,1))}.text-indigo-400{--tw-text-opacity:1;color:rgb(129 140 248/var(--tw-text-opacity,1))}.text-indigo-600{--tw-text-opacity:1;color:rgb(79 70 229/var(--tw-text-opacity,1))}.text-indigo-700{--tw-text-opacity:1;color:rgb(67 56 202/var(--tw-text-opacity,1))}.text-rose-600{--tw-text-opacity:1;color:rgb(225 29 72/var(--tw-text-opacity,1))}.text-rose-700{--tw-text-opacity:1;color:rgb(190 18 60/var(--tw-text-opacity,1))}.text-rose-900{--tw-text-opacity:1;color:rgb(136 19 55/var(--tw-text-opacity,1))}.text-sky-300{--tw-text-opacity:1;color:rgb(125 211 252/var(--tw-text-opacity,1))}.text-sky-600{--tw-text-opacity:1;color:rgb(2 132 199/var(--tw-text-opacity,1))}.text-slate-200{--tw-text-opacity:1;color:rgb(226 232 240/var(--tw-text-opacity,1))}.text-slate-300{--tw-text-opacity:1;color:rgb(203 213 225/var(--tw-text-opacity,1))}.text-slate-400{--tw-text-opacity:1;color:rgb(148 163 184/var(--tw-text-opacity,1))}.text-slate-500{--tw-text-opacity:1;color:rgb(100 116 139/var(--tw-text-opacity,1))}.text-slate-600{--tw-text-opacity:1;color:rgb(71 85 105/var(--tw-text-opacity,1))}.text-slate-700{--tw-text-opacity:1;color:rgb(51 65 85/var(--tw-text-opacity,1))}.text-slate-800{--tw-text-opacity:1;color:rgb(30 41 59/var(--tw-text-opacity,1))}.text-slate-900{--tw-text-opacity:1;color:rgb(15 23 42/var(--tw-text-opacity,1))}.text-transparent{color:transparent}.text-violet-600{--tw-text-opacity:1;color:rgb(124 58 237/var(--tw-text-opacity,1))}.text-violet-700{--tw-text-opacity:1;color:rgb(109 40 217/var(--tw-text-opacity,1))}.text-white{--tw-text-opacity:1;color:rgb(255 255 255/var(--tw-text-opacity,1))}.underline{text-decoration-line:underline}.decoration-rose-400{text-decoration-color:#fb7185}.antialiased{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}.placeholder-slate-300::-moz-placeholder{--tw-placeholder-opacity:1;color:rgb(203 213 225/var(--tw-placeholder-opacity,1))}.placeholder-slate-300::placeholder{--tw-placeholder-opacity:1;color:rgb(203 213 225/var(--tw-placeholder-opacity,1))}.opacity-60{opacity:.6}.shadow{--tw-shadow:0 1px 3px 0 rgba(0,0,0,.1),0 1px 2px -1px rgba(0,0,0,.1);--tw-shadow-colored:0 1px 3px 0 var(--tw-shadow-color),0 1px 2px -1px var(--tw-shadow-color)}.shadow,.shadow-2xl{box-shadow:var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 #0000),var(--tw-shadow)}.shadow-2xl{--tw-shadow:0 25px 50px -12px rgba(0,0,0,.25);--tw-shadow-colored:0 25px 50px -12px var(--tw-shadow-color)}.shadow-lg{--tw-shadow:0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -4px rgba(0,0,0,.1);--tw-shadow-colored:0 10px 15px -3px var(--tw-shadow-color),0 4px 6px -4px var(--tw-shadow-color)}.shadow-lg,.shadow-md{box-shadow:var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 #0000),var(--tw-shadow)}.shadow-md{--tw-shadow:0 4px 6px -1px rgba(0,0,0,.1),0 2px 4px -2px rgba(0,0,0,.1);--tw-shadow-colored:0 4px 6px -1px var(--tw-shadow-color),0 2px 4px -2px var(--tw-shadow-color)}.shadow-sm{--tw-shadow:0 1px 2px 0 rgba(0,0,0,.05);--tw-shadow-colored:0 1px 2px 0 var(--tw-shadow-color)}.shadow-sm,.shadow-xl{box-shadow:var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 #0000),var(--tw-shadow)}.shadow-xl{--tw-shadow:0 20px 25px -5px rgba(0,0,0,.1),0 8px 10px -6px rgba(0,0,0,.1);--tw-shadow-colored:0 20px 25px -5px var(--tw-shadow-color),0 8px 10px -6px var(--tw-shadow-color)}.shadow-emerald-600\/20{--tw-shadow-color:rgba(5,150,105,.2);--tw-shadow:var(--tw-shadow-colored)}.shadow-indigo-500\/20{--tw-shadow-color:rgba(99,102,241,.2);--tw-shadow:var(--tw-shadow-colored)}.shadow-indigo-600\/20{--tw-shadow-color:rgba(79,70,229,.2);--tw-shadow:var(--tw-shadow-colored)}.shadow-indigo-600\/25{--tw-shadow-color:rgba(79,70,229,.25);--tw-shadow:var(--tw-shadow-colored)}.shadow-indigo-600\/30{--tw-shadow-color:rgba(79,70,229,.3);--tw-shadow:var(--tw-shadow-colored)}.shadow-violet-600\/20{--tw-shadow-color:rgba(124,58,237,.2);--tw-shadow:var(--tw-shadow-colored)}.filter{filter:var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow)}.backdrop-blur-md{--tw-backdrop-blur:blur(12px)}.backdrop-blur-md,.backdrop-blur-sm{-webkit-backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia)}.backdrop-blur-sm{--tw-backdrop-blur:blur(4px)}.backdrop-blur-xl{--tw-backdrop-blur:blur(24px);-webkit-backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia)}.transition{transition-property:color,background-color,border-color,text-decoration-color,fill,stroke,opacity,box-shadow,transform,filter,-webkit-backdrop-filter;transition-property:color,background-color,border-color,text-decoration-color,fill,stroke,opacity,box-shadow,transform,filter,backdrop-filter;transition-property:color,background-color,border-color,text-decoration-color,fill,stroke,opacity,box-shadow,transform,filter,backdrop-filter,-webkit-backdrop-filter;transition-timing-function:cubic-bezier(.4,0,.2,1);transition-duration:.15s}.transition-\[width\]{transition-property:width;transition-timing-function:cubic-bezier(.4,0,.2,1);transition-duration:.15s}.transition-all{transition-property:all;transition-timing-function:cubic-bezier(.4,0,.2,1);transition-duration:.15s}.transition-colors{transition-property:color,background-color,border-color,text-decoration-color,fill,stroke;transition-timing-function:cubic-bezier(.4,0,.2,1);transition-duration:.15s}.transition-transform{transition-property:transform;transition-timing-function:cubic-bezier(.4,0,.2,1);transition-duration:.15s}.duration-300{transition-duration:.3s}.duration-75{transition-duration:75ms}.ease-in-out{transition-timing-function:cubic-bezier(.4,0,.2,1)}.selection\:bg-indigo-600 ::-moz-selection{--tw-bg-opacity:1;background-color:rgb(79 70 229/var(--tw-bg-opacity,1))}.selection\:bg-indigo-600 ::selection{--tw-bg-opacity:1;background-color:rgb(79 70 229/var(--tw-bg-opacity,1))}.selection\:text-white ::-moz-selection{--tw-text-opacity:1;color:rgb(255 255 255/var(--tw-text-opacity,1))}.selection\:text-white ::selection{--tw-text-opacity:1;color:rgb(255 255 255/var(--tw-text-opacity,1))}.selection\:bg-indigo-600::-moz-selection{--tw-bg-opacity:1;background-color:rgb(79 70 229/var(--tw-bg-opacity,1))}.selection\:bg-indigo-600::selection{--tw-bg-opacity:1;background-color:rgb(79 70 229/var(--tw-bg-opacity,1))}.selection\:text-white::-moz-selection{--tw-text-opacity:1;color:rgb(255 255 255/var(--tw-text-opacity,1))}.selection\:text-white::selection{--tw-text-opacity:1;color:rgb(255 255 255/var(--tw-text-opacity,1))}.hover\:border-indigo-300:hover{--tw-border-opacity:1;border-color:rgb(165 180 252/var(--tw-border-opacity,1))}.hover\:border-indigo-600:hover{--tw-border-opacity:1;border-color:rgb(79 70 229/var(--tw-border-opacity,1))}.hover\:bg-indigo-400:hover{--tw-bg-opacity:1;background-color:rgb(129 140 248/var(--tw-bg-opacity,1))}.hover\:bg-indigo-50:hover{--tw-bg-opacity:1;background-color:rgb(238 242 255/var(--tw-bg-opacity,1))}.hover\:bg-indigo-500:hover{--tw-bg-opacity:1;background-color:rgb(99 102 241/var(--tw-bg-opacity,1))}.hover\:bg-indigo-700:hover{--tw-bg-opacity:1;background-color:rgb(67 56 202/var(--tw-bg-opacity,1))}.hover\:bg-slate-100:hover{--tw-bg-opacity:1;background-color:rgb(241 245 249/var(--tw-bg-opacity,1))}.hover\:bg-slate-100\/80:hover{background-color:rgba(241,245,249,.8)}.hover\:bg-slate-50:hover{--tw-bg-opacity:1;background-color:rgb(248 250 252/var(--tw-bg-opacity,1))}.hover\:bg-slate-900:hover{--tw-bg-opacity:1;background-color:rgb(15 23 42/var(--tw-bg-opacity,1))}.hover\:bg-violet-400:hover{--tw-bg-opacity:1;background-color:rgb(167 139 250/var(--tw-bg-opacity,1))}.hover\:bg-white:hover{--tw-bg-opacity:1;background-color:rgb(255 255 255/var(--tw-bg-opacity,1))}.hover\:bg-white\/20:hover{background-color:hsla(0,0%,100%,.2)}.hover\:text-indigo-600:hover{--tw-text-opacity:1;color:rgb(79 70 229/var(--tw-text-opacity,1))}.hover\:text-rose-950:hover{--tw-text-opacity:1;color:rgb(76 5 25/var(--tw-text-opacity,1))}.hover\:text-slate-700:hover{--tw-text-opacity:1;color:rgb(51 65 85/var(--tw-text-opacity,1))}.hover\:text-slate-900:hover{--tw-text-opacity:1;color:rgb(15 23 42/var(--tw-text-opacity,1))}.hover\:text-white:hover{--tw-text-opacity:1;color:rgb(255 255 255/var(--tw-text-opacity,1))}.hover\:shadow-xl:hover{--tw-shadow:0 20px 25px -5px rgba(0,0,0,.1),0 8px 10px -6px rgba(0,0,0,.1);--tw-shadow-colored:0 20px 25px -5px var(--tw-shadow-color),0 8px 10px -6px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 #0000),var(--tw-shadow)}.hover\:shadow-indigo-950\/5:hover{--tw-shadow-color:rgba(30,27,75,.05);--tw-shadow:var(--tw-shadow-colored)}.focus\:border-indigo-500:focus{--tw-border-opacity:1;border-color:rgb(99 102 241/var(--tw-border-opacity,1))}.focus\:outline-none:focus{outline:2px solid transparent;outline-offset:2px}.focus\:ring-2:focus{--tw-ring-offset-shadow:var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);--tw-ring-shadow:var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color);box-shadow:var(--tw-ring-offset-shadow),var(--tw-ring-shadow),var(--tw-shadow,0 0 #0000)}.focus\:ring-indigo-500:focus{--tw-ring-opacity:1;--tw-ring-color:rgb(99 102 241/var(--tw-ring-opacity,1))}.active\:scale-\[0\.99\]:active{--tw-scale-x:0.99;--tw-scale-y:0.99;transform:translate(var(--tw-translate-x),var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}.active\:bg-slate-200\/70:active{background-color:rgba(226,232,240,.7)}.disabled\:opacity-60:disabled{opacity:.6}.group:hover .group-hover\:scale-105{--tw-scale-x:1.05;--tw-scale-y:1.05;transform:translate(var(--tw-translate-x),var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}.group:hover .group-hover\:bg-amber-500{--tw-bg-opacity:1;background-color:rgb(245 158 11/var(--tw-bg-opacity,1))}.group:hover .group-hover\:bg-emerald-600{--tw-bg-opacity:1;background-color:rgb(5 150 105/var(--tw-bg-opacity,1))}.group:hover .group-hover\:bg-indigo-600{--tw-bg-opacity:1;background-color:rgb(79 70 229/var(--tw-bg-opacity,1))}.group:hover .group-hover\:bg-rose-600{--tw-bg-opacity:1;background-color:rgb(225 29 72/var(--tw-bg-opacity,1))}.group:hover .group-hover\:bg-sky-600{--tw-bg-opacity:1;background-color:rgb(2 132 199/var(--tw-bg-opacity,1))}.group:hover .group-hover\:bg-violet-600{--tw-bg-opacity:1;background-color:rgb(124 58 237/var(--tw-bg-opacity,1))}.group:hover .group-hover\:text-white{--tw-text-opacity:1;color:rgb(255 255 255/var(--tw-text-opacity,1))}@media (min-width:640px){.sm\:top-\[72px\]{top:72px}.sm\:inline{display:inline}.sm\:h-10{height:2.5rem}.sm\:w-10{width:2.5rem}.sm\:w-auto{width:auto}.sm\:max-w-none{max-width:none}.sm\:max-w-xs{max-width:20rem}.sm\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}.sm\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}.sm\:flex-row{flex-direction:row}.sm\:items-center{align-items:center}.sm\:gap-3{gap:.75rem}.sm\:p-10{padding:2.5rem}.sm\:p-6{padding:1.5rem}.sm\:p-7{padding:1.75rem}.sm\:p-8{padding:2rem}.sm\:px-6{padding-left:1.5rem;padding-right:1.5rem}.sm\:py-20{padding-top:5rem;padding-bottom:5rem}.sm\:py-24{padding-top:6rem;padding-bottom:6rem}.sm\:pb-28{padding-bottom:7rem}.sm\:pt-20{padding-top:5rem}.sm\:text-2xl{font-size:1.5rem;line-height:2rem}.sm\:text-4xl{font-size:2.25rem;line-height:2.5rem}.sm\:text-5xl{font-size:3rem;line-height:1}.sm\:text-\[11px\]{font-size:11px}.sm\:text-base{font-size:1rem;line-height:1.5rem}.sm\:text-lg{font-size:1.125rem;line-height:1.75rem}.sm\:text-sm{font-size:.875rem;line-height:1.25rem}.sm\:text-xl{font-size:1.25rem;line-height:1.75rem}}@media (min-width:768px){.md\:col-span-3{grid-column:span 3/span 3}.md\:col-span-4{grid-column:span 4/span 4}.md\:col-span-5{grid-column:span 5/span 5}.md\:flex{display:flex}.md\:hidden{display:none}.md\:grid-cols-12{grid-template-columns:repeat(12,minmax(0,1fr))}.md\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}.md\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}}@media (min-width:1024px){.lg\:col-span-5{grid-column:span 5/span 5}.lg\:col-span-6{grid-column:span 6/span 6}.lg\:col-span-7{grid-column:span 7/span 7}.lg\:mx-0{margin-left:0;margin-right:0}.lg\:flex{display:flex}.lg\:hidden{display:none}.lg\:grid-cols-12{grid-template-columns:repeat(12,minmax(0,1fr))}.lg\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}.lg\:justify-start{justify-content:flex-start}.lg\:gap-10{gap:2.5rem}.lg\:gap-3{gap:.75rem}.lg\:px-8{padding-left:2rem;padding-right:2rem}.lg\:text-left{text-align:left}.lg\:text-\[3\.35rem\]{font-size:3.35rem}}@media (min-width:1280px){.xl\:gap-8{gap:2rem}}</style>
+</head>
+<body class="antialiased selection:bg-indigo-600 selection:text-white">
+
+  <!-- Razor-Sharp Sticky Glassmorphic Header -->
+  <header id="site-header" class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-transparent py-4 transition-all duration-300">
+    <!-- Subtle Top Scroll Progress Indicator -->
+    <div class="absolute top-0 left-0 right-0 h-[2.5px] bg-transparent overflow-hidden pointer-events-none">
+      <div id="scroll-progress-bar" class="h-full w-0 bg-gradient-to-r from-indigo-600 via-violet-600 to-emerald-500 transition-[width] duration-75"></div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between gap-4">
+        
+        <!-- Left: Dynamic Domain Logo Lockup (Flex-shrink safe + smart truncation) -->
+        <a href="#top" class="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-shrink-0 max-w-[72%] sm:max-w-none group focus:outline-none" aria-label="Home">
+          <div id="nav-logo-icon" class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 flex-shrink-0 group-hover:scale-105 transition-transform">
+            <!-- Dynamically injected geometric SVG -->
+          </div>
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span id="nav-brand-name" class="font-display font-extrabold text-base sm:text-xl tracking-tight text-slate-900 truncate">NovaGrowthCampus</span>
+            <span id="nav-brand-tld" class="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100 flex-shrink-0">.homes</span>
+          </div>
+        </a>
+
+        <!-- Center (Desktop lg+): Single-line Navigation Links with Scroll-Spy -->
+        <nav class="hidden lg:flex items-center justify-center gap-7 xl:gap-8 text-sm font-medium text-slate-600" aria-label="Primary Navigation">
+          <a href="#capabilities" data-nav-section="capabilities" class="nav-link-item whitespace-nowrap hover:text-indigo-600 transition-colors">Features</a>
+          <a href="#spotlight" data-nav-section="spotlight" class="nav-link-item whitespace-nowrap hover:text-indigo-600 transition-colors">Automation</a>
+          <a href="#workflow" data-nav-section="workflow" class="nav-link-item whitespace-nowrap hover:text-indigo-600 transition-colors">How It Works</a>
+          <a href="#pricing" data-nav-section="pricing" class="nav-link-item whitespace-nowrap hover:text-indigo-600 transition-colors">Pricing</a>
+          <a href="#contact" data-nav-section="contact" class="nav-link-item whitespace-nowrap hover:text-indigo-600 transition-colors">Contact</a>
+        </nav>
+
+        <!-- Right (Desktop md+/lg+): Ghost Log in + Primary Start Free CTA -->
+        <div class="hidden md:flex items-center gap-2 lg:gap-3 flex-shrink-0">
+          <a href="#contact" class="text-sm font-semibold text-slate-600 hover:text-slate-900 px-3.5 py-2 rounded-xl hover:bg-slate-100/80 whitespace-nowrap transition-colors">
+            Log in
+          </a>
+          <a href="#top" onclick="document.getElementById('hero-email').focus()" class="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white text-sm font-semibold px-4 py-2.5 rounded-xl shadow-sm shadow-indigo-600/25 whitespace-nowrap transition-all">
+            <span>Start Free</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+          </a>
+          <!-- Tablet-only drawer trigger (visible on md, hidden on lg+) -->
+          <button id="tablet-menu-btn" type="button" class="lg:hidden inline-flex items-center justify-center p-2.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 focus:outline-none" aria-label="Open Navigation Menu" aria-expanded="false">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+        </div>
+
+        <!-- Mobile Hamburger Button (< md) -->
+        <button id="mobile-menu-btn" type="button" class="md:hidden inline-flex items-center justify-center p-2.5 rounded-xl text-slate-700 hover:text-slate-900 hover:bg-slate-100 active:bg-slate-200/70 focus:outline-none flex-shrink-0 transition-colors" aria-label="Toggle Menu" aria-expanded="false">
+          <svg id="menu-icon-open" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+          <svg id="menu-icon-close" class="w-6 h-6 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Responsive Mobile & Tablet Navigation Drawer -->
+    <div id="mobile-drawer" class="drawer-closed lg:hidden fixed inset-x-0 top-[68px] sm:top-[72px] bottom-0 z-50 bg-slate-950/35 backdrop-blur-sm">
+      <div class="bg-white border-b border-slate-200 shadow-2xl px-4 sm:px-6 pt-4 pb-7 space-y-2 max-h-[calc(100vh-72px)] overflow-y-auto">
+        <div class="space-y-1">
+          <a href="#capabilities" class="mobile-nav-link flex items-center justify-between px-4 py-3 rounded-xl text-base font-semibold text-slate-800 hover:bg-indigo-50 hover:text-indigo-600 transition-colors">
+            <span>Features</span>
+            <span class="text-xs text-slate-400">01</span>
+          </a>
+          <a href="#spotlight" class="mobile-nav-link flex items-center justify-between px-4 py-3 rounded-xl text-base font-semibold text-slate-800 hover:bg-indigo-50 hover:text-indigo-600 transition-colors">
+            <span>Automation</span>
+            <span class="text-xs text-slate-400">02</span>
+          </a>
+          <a href="#workflow" class="mobile-nav-link flex items-center justify-between px-4 py-3 rounded-xl text-base font-semibold text-slate-800 hover:bg-indigo-50 hover:text-indigo-600 transition-colors">
+            <span>How It Works</span>
+            <span class="text-xs text-slate-400">03</span>
+          </a>
+          <a href="#pricing" class="mobile-nav-link flex items-center justify-between px-4 py-3 rounded-xl text-base font-semibold text-slate-800 hover:bg-indigo-50 hover:text-indigo-600 transition-colors">
+            <span>Pricing</span>
+            <span class="text-xs text-slate-400">04</span>
+          </a>
+          <a href="#contact" class="mobile-nav-link flex items-center justify-between px-4 py-3 rounded-xl text-base font-semibold text-slate-800 hover:bg-indigo-50 hover:text-indigo-600 transition-colors">
+            <span>Contact</span>
+            <span class="text-xs text-slate-400">05</span>
+          </a>
+        </div>
+
+        <div class="pt-3 mt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <a href="#contact" class="mobile-nav-link flex items-center justify-center w-full py-3 px-4 rounded-xl border border-slate-200 text-slate-800 font-semibold text-sm hover:bg-slate-50 transition-colors">
+            Log in
+          </a>
+          <a href="#top" onclick="document.getElementById('hero-email').focus()" class="mobile-nav-link flex items-center justify-center gap-1.5 w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm shadow-md shadow-indigo-600/20 transition-all">
+            <span>Start Free Trial</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section id="top" class="hero-mesh grid-pattern relative overflow-hidden pt-14 pb-20 sm:pt-20 sm:pb-28 text-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-10 items-center">
+        
+        <!-- Hero Left Copy & Capture -->
+        <div class="lg:col-span-6 text-center lg:text-left">
+          <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/15 backdrop-blur-sm text-xs sm:text-sm font-medium text-indigo-200 mb-6">
+            <span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold text-xs">All-in-One Email Marketing SaaS</span>
+            <span>Self-serve campaign &amp; automation software</span>
+          </div>
+
+          <h1 class="text-3xl sm:text-5xl lg:text-[3.35rem] font-extrabold tracking-tight leading-[1.12] text-white mb-6">
+            The Modern <span class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-violet-300 to-emerald-300">Email Marketing SaaS</span> Built to Grow Revenue
+          </h1>
+
+          <p class="text-base sm:text-lg text-slate-300 leading-relaxed max-w-2xl mx-auto lg:mx-0 mb-8">
+            <span class="dynamic-domain-text font-semibold text-white">novagrowthcampus.homes</span> gives your team intuitive visual campaign builders, behavioral drip automation, audience segmentation, and real-time conversion analytics in one self-serve cloud platform.
+          </p>
+
+          <!-- Inline Email Capture Form -->
+          <form id="hero-capture-form" class="max-w-xl mx-auto lg:mx-0">
+            <div class="flex flex-col sm:flex-row gap-2.5 p-2 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-md shadow-2xl">
+              <div class="flex-1 flex items-center pl-3">
+                <svg class="w-5 h-5 text-slate-300 shrink-0 mr-2.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                <input id="hero-email" type="email" required placeholder="Enter your work email..." class="w-full bg-transparent text-white placeholder-slate-300 text-sm sm:text-base py-2.5 focus:outline-none" />
+              </div>
+              <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 active:scale-[0.99] text-white font-semibold text-sm sm:text-base px-6 py-3 rounded-xl shadow-lg shadow-indigo-600/30 transition-all whitespace-nowrap cursor-pointer">
+                Get Started Free
+              </button>
+            </div>
+            <div id="hero-form-feedback" class="hidden mt-3 px-4 py-2.5 rounded-xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-200 text-sm flex items-center gap-2">
+              <svg class="w-5 h-5 text-emerald-300 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              <span id="hero-feedback-text">Workspace invite sent! Check your inbox to launch your first campaign.</span>
+            </div>
+          </form>
+
+          <!-- Trust Micro-bar -->
+          <div class="mt-6 flex flex-wrap items-center justify-center lg:justify-start gap-x-6 gap-y-2 text-xs text-slate-300">
+            <span class="flex items-center gap-1.5">
+              <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+              Free plan up to 2,500 contacts
+            </span>
+            <span class="flex items-center gap-1.5">
+              <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+              No-code visual workflow builder
+            </span>
+            <span class="flex items-center gap-1.5">
+              <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+              No credit card required
+            </span>
+          </div>
+        </div>
+
+        <!-- Hero Right Interactive SaaS Email Dashboard Mockup -->
+        <div class="lg:col-span-6">
+          <div class="relative rounded-2xl bg-slate-900/90 border border-slate-700/80 shadow-2xl p-4 sm:p-6 backdrop-blur-xl animate-float">
+            <!-- Top Window Bar -->
+            <div class="flex items-center justify-between pb-4 mb-5 border-b border-slate-800">
+              <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-rose-500/80"></span>
+                <span class="w-3 h-3 rounded-full bg-amber-400/80"></span>
+                <span class="w-3 h-3 rounded-full bg-emerald-500/80"></span>
+                <span class="ml-2 text-xs font-mono text-slate-400 truncate max-w-[200px] sm:max-w-xs">app.<span class="dynamic-domain-text">novagrowthcampus.homes</span>/campaigns</span>
+              </div>
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-300 text-xs font-semibold">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot"></span>
+                Sender Score: 99/100
+              </span>
+            </div>
+
+            <!-- KPI Metric Strip -->
+            <div class="grid grid-cols-3 gap-3 mb-5">
+              <div class="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700/60">
+                <p class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Avg. Open Rate</p>
+                <div class="flex items-baseline gap-2 mt-1">
+                  <span class="text-xl sm:text-2xl font-extrabold text-white">48.4%</span>
+                  <span class="text-xs font-semibold text-emerald-400">+12.3%</span>
+                </div>
+              </div>
+              <div class="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700/60">
+                <p class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Click-to-Trial</p>
+                <div class="flex items-baseline gap-2 mt-1">
+                  <span class="text-xl sm:text-2xl font-extrabold text-white">14.8%</span>
+                  <span class="text-xs font-semibold text-emerald-400">+4.1%</span>
+                </div>
+              </div>
+              <div class="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700/60">
+                <p class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Email MRR</p>
+                <div class="flex items-baseline gap-2 mt-1">
+                  <span class="text-xl sm:text-2xl font-extrabold text-indigo-300">$42.9k</span>
+                  <span class="text-xs font-semibold text-emerald-400">+28%</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Simulated Revenue & Engagement Bar Visualization -->
+            <div class="p-4 rounded-xl bg-slate-800/60 border border-slate-700/50 mb-4">
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-semibold text-slate-200">Lifecycle Campaign Engagement (Last 7 Days)</span>
+                <span class="text-[11px] text-indigo-300 font-medium">Primary Inbox: 99.4%</span>
+              </div>
+              <div class="grid grid-cols-7 gap-2 items-end h-24 pt-2">
+                <div class="flex flex-col items-center gap-1.5 h-full justify-end">
+                  <div class="w-full rounded-t-md bg-indigo-500/50 hover:bg-indigo-400 transition-all" style="height: 55%"></div>
+                  <span class="text-[10px] text-slate-400">Mon</span>
+                </div>
+                <div class="flex flex-col items-center gap-1.5 h-full justify-end">
+                  <div class="w-full rounded-t-md bg-indigo-500/65 hover:bg-indigo-400 transition-all" style="height: 68%"></div>
+                  <span class="text-[10px] text-slate-400">Tue</span>
+                </div>
+                <div class="flex flex-col items-center gap-1.5 h-full justify-end">
+                  <div class="w-full rounded-t-md bg-indigo-500/80 hover:bg-indigo-400 transition-all" style="height: 82%"></div>
+                  <span class="text-[10px] text-slate-400">Wed</span>
+                </div>
+                <div class="flex flex-col items-center gap-1.5 h-full justify-end">
+                  <div class="w-full rounded-t-md bg-violet-500 hover:bg-violet-400 transition-all" style="height: 76%"></div>
+                  <span class="text-[10px] text-slate-400">Thu</span>
+                </div>
+                <div class="flex flex-col items-center gap-1.5 h-full justify-end">
+                  <div class="w-full rounded-t-md bg-gradient-to-t from-indigo-600 to-emerald-400" style="height: 96%"></div>
+                  <span class="text-[10px] text-white font-semibold">Fri</span>
+                </div>
+                <div class="flex flex-col items-center gap-1.5 h-full justify-end">
+                  <div class="w-full rounded-t-md bg-indigo-500/60 hover:bg-indigo-400 transition-all" style="height: 62%"></div>
+                  <span class="text-[10px] text-slate-400">Sat</span>
+                </div>
+                <div class="flex flex-col items-center gap-1.5 h-full justify-end">
+                  <div class="w-full rounded-t-md bg-indigo-500/75 hover:bg-indigo-400 transition-all" style="height: 74%"></div>
+                  <span class="text-[10px] text-slate-400">Sun</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Live Active Flows Pill List -->
+            <div class="space-y-2">
+              <div class="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-slate-800/90 border border-slate-700/60 text-xs">
+                <div class="flex items-center gap-2.5">
+                  <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  <span class="font-semibold text-white">Trial Day-1 Activation Drip</span>
+                </div>
+                <span class="text-slate-300 font-mono">61.2% open · +$18.4k MRR</span>
+              </div>
+              <div class="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-slate-800/90 border border-slate-700/60 text-xs">
+                <div class="flex items-center gap-2.5">
+                  <span class="w-2 h-2 rounded-full bg-indigo-400"></span>
+                  <span class="font-semibold text-white">Usage-Limit Upgrade Nudge</span>
+                </div>
+                <span class="text-slate-300 font-mono">44.9% open · +$14.2k MRR</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Core Email Marketing Capabilities (6-Card Grid) -->
+  <section id="capabilities" class="py-20 sm:py-24 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center max-w-3xl mx-auto mb-16">
+        <span class="inline-block text-xs font-bold uppercase tracking-widest text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full mb-3">Platform Capabilities</span>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mb-4">Everything You Need in One Email Marketing Software</h2>
+        <div class="w-12 h-1 bg-indigo-600 mx-auto rounded-full mb-4"></div>
+        <p class="text-slate-600 text-base sm:text-lg">Design broadcasts, automate customer journeys, segment audiences, and track ROI inside a clean, self-serve SaaS workspace.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-7">
+        <!-- Card 1 -->
+        <div class="group p-7 rounded-2xl bg-white border border-slate-200/90 hover:border-indigo-300 shadow-sm hover:shadow-xl hover:shadow-indigo-950/5 transition-all duration-300">
+          <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white flex items-center justify-center mb-5 transition-colors">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          </div>
+          <h3 class="text-lg font-bold text-slate-900 mb-2.5">Smart Behavioral Automation</h3>
+          <p class="text-sm text-slate-600 leading-relaxed">Trigger hyper-relevant onboarding drips, feature adoption nudges, and churn-winback flows automatically from real-time product events and webhooks.</p>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="group p-7 rounded-2xl bg-white border border-slate-200/90 hover:border-indigo-300 shadow-sm hover:shadow-xl hover:shadow-indigo-950/5 transition-all duration-300">
+          <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white flex items-center justify-center mb-5 transition-colors">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          </div>
+          <h3 class="text-lg font-bold text-slate-900 mb-2.5">Built-In Deliverability Guardrails</h3>
+          <p class="text-sm text-slate-600 leading-relaxed">Guided SPF, DKIM, and DMARC domain verification, automatic list hygiene, and pre-send spam checks built directly into your campaign editor.</p>
+        </div>
+
+        <!-- Card 3 -->
+        <div class="group p-7 rounded-2xl bg-white border border-slate-200/90 hover:border-indigo-300 shadow-sm hover:shadow-xl hover:shadow-indigo-950/5 transition-all duration-300">
+          <div class="w-12 h-12 rounded-xl bg-violet-50 text-violet-600 group-hover:bg-violet-600 group-hover:text-white flex items-center justify-center mb-5 transition-colors">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/></svg>
+          </div>
+          <h3 class="text-lg font-bold text-slate-900 mb-2.5">Drag &amp; Drop Campaign Studio</h3>
+          <p class="text-sm text-slate-600 leading-relaxed">Build dark-mode-ready responsive emails or plain-text founder notes in minutes with Liquid dynamic personalization tags and reusable blocks.</p>
+        </div>
+
+        <!-- Card 4 -->
+        <div class="group p-7 rounded-2xl bg-white border border-slate-200/90 hover:border-indigo-300 shadow-sm hover:shadow-xl hover:shadow-indigo-950/5 transition-all duration-300">
+          <div class="w-12 h-12 rounded-xl bg-sky-50 text-sky-600 group-hover:bg-sky-600 group-hover:text-white flex items-center justify-center mb-5 transition-colors">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          </div>
+          <h3 class="text-lg font-bold text-slate-900 mb-2.5">Audience Segmentation &amp; Tags</h3>
+          <p class="text-sm text-slate-600 leading-relaxed">Group subscribers by plan tier, trial expiration, feature usage, or engagement score with dynamic segments that update instantaneously.</p>
+        </div>
+
+        <!-- Card 5 -->
+        <div class="group p-7 rounded-2xl bg-white border border-slate-200/90 hover:border-indigo-300 shadow-sm hover:shadow-xl hover:shadow-indigo-950/5 transition-all duration-300">
+          <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 group-hover:bg-amber-500 group-hover:text-white flex items-center justify-center mb-5 transition-colors">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+          </div>
+          <h3 class="text-lg font-bold text-slate-900 mb-2.5">A/B Testing &amp; Send-Time AI</h3>
+          <p class="text-sm text-slate-600 leading-relaxed">Test up to 5 subject lines and CTA variants simultaneously while AI delivers each message when each subscriber is most likely to open.</p>
+        </div>
+
+        <!-- Card 6 -->
+        <div class="group p-7 rounded-2xl bg-white border border-slate-200/90 hover:border-indigo-300 shadow-sm hover:shadow-xl hover:shadow-indigo-950/5 transition-all duration-300">
+          <div class="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 group-hover:bg-rose-600 group-hover:text-white flex items-center justify-center mb-5 transition-colors">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </div>
+          <h3 class="text-lg font-bold text-slate-900 mb-2.5">Real-Time Revenue Attribution</h3>
+          <p class="text-sm text-slate-600 leading-relaxed">Connect Stripe or Chargebee in 60 seconds to see exact trial-to-paid conversions and net MRR generated by every single email sequence.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Feature Spotlight with Interactive Tab Switcher -->
+  <section id="spotlight" class="py-20 sm:py-24 bg-slate-50 border-y border-slate-200/80">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+        
+        <!-- Left Interactive Controls & Copy -->
+        <div class="lg:col-span-5">
+          <span class="inline-block text-xs font-bold uppercase tracking-widest text-indigo-600 bg-indigo-100/80 px-3 py-1 rounded-full mb-3">Visual Lifecycle Engine</span>
+          <h2 class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mb-4">
+            Built to convert signups without engineering bottlenecks
+          </h2>
+          <p class="text-slate-600 text-base leading-relaxed mb-8">
+            Switch between live product views below to see how <span class="dynamic-domain-text font-semibold text-slate-900">novagrowthcampus.homes</span> automates user onboarding, monitors inbox placement, and proves campaign ROI.
+          </p>
+
+          <!-- Interactive Tab Buttons -->
+          <div class="space-y-3" role="tablist">
+            <button type="button" data-tab="onboarding" class="spotlight-tab w-full text-left p-4 rounded-2xl border-2 border-indigo-600 bg-white shadow-md transition-all cursor-pointer">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-slate-900 text-base">1. Visual Onboarding Flow Builder</span>
+                <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700">Live Flow</span>
+              </div>
+              <p class="text-xs sm:text-sm text-slate-600 mt-1">Branch emails dynamically based on whether a user creates a project or invites teammates.</p>
+            </button>
+
+            <button type="button" data-tab="deliverability" class="spotlight-tab w-full text-left p-4 rounded-2xl border border-slate-200 bg-white/70 hover:bg-white transition-all cursor-pointer">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-slate-900 text-base">2. Inbox Placement &amp; DNS Shield</span>
+                <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">99.4% Inbox</span>
+              </div>
+              <p class="text-xs sm:text-sm text-slate-600 mt-1">Real-time SPF, DKIM, DMARC alignment and automated bounce protection across Gmail &amp; Outlook.</p>
+            </button>
+
+            <button type="button" data-tab="analytics" class="spotlight-tab w-full text-left p-4 rounded-2xl border border-slate-200 bg-white/70 hover:bg-white transition-all cursor-pointer">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-slate-900 text-base">3. Subject-Line A/B Winner AI</span>
+                <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-violet-100 text-violet-700">+31% Lift</span>
+              </div>
+              <p class="text-xs sm:text-sm text-slate-600 mt-1">Automatically routes 85% of your audience to the highest-converting email variant.</p>
+            </button>
+          </div>
+        </div>
+
+        <!-- Right Interactive UI Preview Stage -->
+        <div class="lg:col-span-7">
+          <div class="rounded-3xl bg-white border border-slate-200 shadow-xl p-6 sm:p-8 min-h-[390px] flex flex-col justify-between">
+            
+            <!-- TAB 1: Onboarding Flow -->
+            <div id="panel-onboarding" class="spotlight-panel space-y-5">
+              <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div>
+                  <span class="text-xs font-semibold uppercase tracking-wider text-indigo-600">Automation Canvas</span>
+                  <h4 class="font-bold text-slate-900 text-lg">SaaS Free-Trial Activation Sequence</h4>
+                </div>
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold">
+                  <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Active · 4,820 Enrolled
+                </span>
+              </div>
+
+              <!-- Visual Node Flow -->
+              <div class="flex flex-col items-center space-y-3 py-2">
+                <div class="w-full max-w-md p-3.5 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-between">
+                  <div class="flex items-center gap-3">
+                    <span class="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-xs">⚡</span>
+                    <div>
+                      <p class="text-xs font-bold text-slate-900">Trigger: user.trial_started</p>
+                      <p class="text-[11px] text-slate-500">Webhook fired immediately upon signup</p>
+                    </div>
+                  </div>
+                  <span class="text-xs font-mono font-semibold text-indigo-700">100%</span>
+                </div>
+
+                <div class="h-5 w-0.5 bg-slate-300"></div>
+
+                <div class="w-full max-w-md p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                  <div class="flex items-center gap-3">
+                    <span class="w-8 h-8 rounded-lg bg-violet-600 text-white flex items-center justify-center font-bold text-xs">✉️</span>
+                    <div>
+                      <p class="text-xs font-bold text-slate-900">Email #1: Founder Plain-Text Welcome</p>
+                      <p class="text-[11px] text-slate-500">Sent +5 mins · Open rate: 68.4%</p>
+                    </div>
+                  </div>
+                  <span class="text-xs font-semibold text-emerald-600">+22% replies</span>
+                </div>
+
+                <div class="h-5 w-0.5 bg-slate-300"></div>
+
+                <div class="grid grid-cols-2 gap-3 w-full max-w-md">
+                  <div class="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200">
+                    <span class="text-[10px] font-bold uppercase text-emerald-700">If API Key Created</span>
+                    <p class="text-xs font-bold text-slate-900 mt-1">Send Team Invite Bonus</p>
+                    <p class="text-[11px] text-slate-600 mt-0.5">Converts at 34.2%</p>
+                  </div>
+                  <div class="p-3 rounded-xl bg-amber-50/70 border border-amber-200">
+                    <span class="text-[10px] font-bold uppercase text-amber-700">If Inactive 48h</span>
+                    <p class="text-xs font-bold text-slate-900 mt-1">Send 2-Min Setup Video</p>
+                    <p class="text-[11px] text-slate-600 mt-0.5">Recovers 19.5% trials</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB 2: Deliverability Monitor -->
+            <div id="panel-deliverability" class="spotlight-panel hidden space-y-5">
+              <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div>
+                  <span class="text-xs font-semibold uppercase tracking-wider text-emerald-600">Domain Reputation</span>
+                  <h4 class="font-bold text-slate-900 text-lg">Authentication &amp; Inbox Health</h4>
+                </div>
+                <span class="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold">All Records Verified</span>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div class="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-xs font-bold text-slate-700">SPF Record</span>
+                    <span class="text-emerald-600 font-bold text-xs">✓ Pass</span>
+                  </div>
+                  <p class="text-[11px] text-slate-500 font-mono truncate">v=spf1 include:mail...</p>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-xs font-bold text-slate-700">DKIM 2048-bit</span>
+                    <span class="text-emerald-600 font-bold text-xs">✓ Pass</span>
+                  </div>
+                  <p class="text-[11px] text-slate-500 font-mono truncate">s1._domainkey verified</p>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-xs font-bold text-slate-700">DMARC Policy</span>
+                    <span class="text-emerald-600 font-bold text-xs">✓ Enforced</span>
+                  </div>
+                  <p class="text-[11px] text-slate-500 font-mono truncate">p=quarantine; pct=100</p>
+                </div>
+              </div>
+
+              <div class="space-y-3 pt-1">
+                <div>
+                  <div class="flex justify-between text-xs font-semibold mb-1">
+                    <span class="text-slate-700">Google Workspace / Gmail Primary Inbox</span>
+                    <span class="text-emerald-600">99.6%</span>
+                  </div>
+                  <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div class="bg-emerald-500 h-full rounded-full" style="width: 99.6%"></div>
+                  </div>
+                </div>
+                <div>
+                  <div class="flex justify-between text-xs font-semibold mb-1">
+                    <span class="text-slate-700">Microsoft 365 / Outlook Corporate</span>
+                    <span class="text-indigo-600">98.9%</span>
+                  </div>
+                  <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div class="bg-indigo-600 h-full rounded-full" style="width: 98.9%"></div>
+                  </div>
+                </div>
+                <div>
+                  <div class="flex justify-between text-xs font-semibold mb-1">
+                    <span class="text-slate-700">Hard Bounce &amp; Spam Complaint Rate</span>
+                    <span class="text-slate-600">0.02% (Ultra Low)</span>
+                  </div>
+                  <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div class="bg-slate-400 h-full rounded-full" style="width: 4%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB 3: A/B Analytics -->
+            <div id="panel-analytics" class="spotlight-panel hidden space-y-5">
+              <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div>
+                  <span class="text-xs font-semibold uppercase tracking-wider text-violet-600">Multivariate Testing</span>
+                  <h4 class="font-bold text-slate-900 text-lg">Q4 Annual Plan Upgrade Experiment</h4>
+                </div>
+                <span class="px-3 py-1 rounded-full bg-violet-100 text-violet-700 text-xs font-bold">Winner Declared</span>
+              </div>
+
+              <div class="space-y-3">
+                <div class="p-4 rounded-xl border-2 border-emerald-500 bg-emerald-50/40">
+                  <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-xs font-extrabold uppercase text-emerald-700">Variant B · Winner (85% Traffic)</span>
+                    <span class="text-sm font-extrabold text-slate-900">$19,450 MRR</span>
+                  </div>
+                  <p class="text-sm font-semibold text-slate-800 mb-2">"Your workspace saved 14 hours this month — lock in 2 months free"</p>
+                  <div class="flex gap-4 text-xs text-slate-600">
+                    <span>Open Rate: <strong class="text-slate-900">54.2%</strong></span>
+                    <span>CTR: <strong class="text-slate-900">11.8%</strong></span>
+                    <span>Upgrade Conv: <strong class="text-emerald-700">6.4%</strong></span>
+                  </div>
+                </div>
+
+                <div class="p-4 rounded-xl border border-slate-200 bg-slate-50">
+                  <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-xs font-bold uppercase text-slate-500">Variant A · Control (15% Traffic)</span>
+                    <span class="text-sm font-bold text-slate-700">$4,120 MRR</span>
+                  </div>
+                  <p class="text-sm font-medium text-slate-700 mb-2">"Upgrade your account to our Annual Pro Plan today"</p>
+                  <div class="flex gap-4 text-xs text-slate-500">
+                    <span>Open Rate: <strong>38.1%</strong></span>
+                    <span>CTR: <strong>6.2%</strong></span>
+                    <span>Upgrade Conv: <strong>3.1%</strong></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Mid-Page Conversion Banner -->
+  <section class="cta-gradient relative overflow-hidden py-16 sm:py-20 text-white">
+    <div class="grid-pattern absolute inset-0 opacity-60"></div>
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
+      <h2 class="text-2xl sm:text-4xl font-extrabold tracking-tight mb-4">Ready to scale your SaaS inbox placement &amp; trial conversions?</h2>
+      <p class="text-indigo-100 text-base sm:text-lg max-w-2xl mx-auto mb-8">
+        Migrate your existing lists and templates from Mailchimp, SendGrid, or Customer.io in under 10 minutes with zero downtime.
+      </p>
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+        <a href="#top" onclick="document.getElementById('hero-email').focus()" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white text-indigo-700 hover:bg-indigo-50 font-bold px-7 py-3.5 rounded-xl shadow-lg transition-all">
+          <span>Start Sending Free</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+        </a>
+        <a href="#pricing" class="w-full sm:w-auto inline-flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/25 text-white font-semibold px-7 py-3.5 rounded-xl transition-all">
+          Compare Plans
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3-Step SaaS Onboarding Workflow -->
+  <section id="workflow" class="py-20 sm:py-24 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center max-w-3xl mx-auto mb-16">
+        <span class="inline-block text-xs font-bold uppercase tracking-widest text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full mb-3">Quick Launch</span>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mb-4">From DNS Setup to Automated Revenue in 3 Steps</h2>
+        <div class="w-12 h-1 bg-indigo-600 mx-auto rounded-full mb-4"></div>
+        <p class="text-slate-600 text-base sm:text-lg">No complex data engineering required. Go live with authenticated sending domains and automated user journeys today.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+        <!-- Step 1 -->
+        <div class="relative p-8 rounded-2xl bg-slate-50 border border-slate-200/80 text-center">
+          <div class="w-14 h-14 rounded-2xl bg-indigo-600 text-white font-display font-extrabold text-xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-indigo-600/20">
+            01
+          </div>
+          <h3 class="text-xl font-bold text-slate-900 mb-3">Connect Domain &amp; Authenticate</h3>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            Verify your sending domain with one-click DNS configuration for SPF, DKIM, and DMARC so inbox providers trust your sender reputation immediately.
+          </p>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="relative p-8 rounded-2xl bg-slate-50 border border-slate-200/80 text-center">
+          <div class="w-14 h-14 rounded-2xl bg-violet-600 text-white font-display font-extrabold text-xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-violet-600/20">
+            02
+          </div>
+          <h3 class="text-xl font-bold text-slate-900 mb-3">Sync Audience &amp; Build Flows</h3>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            Import subscribers via CSV, REST API, or Segment webhooks, then customize proven SaaS onboarding and product-update templates.
+          </p>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="relative p-8 rounded-2xl bg-slate-50 border border-slate-200/80 text-center">
+          <div class="w-14 h-14 rounded-2xl bg-emerald-600 text-white font-display font-extrabold text-xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-600/20">
+            03
+          </div>
+          <h3 class="text-xl font-bold text-slate-900 mb-3">Launch &amp; Optimize Revenue</h3>
+          <p class="text-sm text-slate-600 leading-relaxed">
+            Activate your campaigns with AI send-time optimization and monitor real-time opens, clicks, trial activations, and attributed MRR.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Transparent SaaS Pricing Section -->
+  <section id="pricing" class="py-20 sm:py-24 bg-slate-50 border-t border-slate-200/80">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center max-w-3xl mx-auto mb-12">
+        <span class="inline-block text-xs font-bold uppercase tracking-widest text-indigo-600 bg-indigo-100/80 px-3 py-1 rounded-full mb-3">Transparent Pricing</span>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mb-4">Predictable Plans That Grow With Your Active Users</h2>
+        <p class="text-slate-600 text-base sm:text-lg mb-6">Start free forever. Upgrade only as your subscriber list and automation volume scale.</p>
+
+        <!-- Monthly / Annual Billing Toggle -->
+        <div class="inline-flex items-center p-1.5 rounded-xl bg-slate-200/80">
+          <button type="button" id="bill-monthly-btn" class="px-4 py-2 rounded-lg text-xs sm:text-sm font-bold bg-white text-slate-900 shadow-sm transition-all cursor-pointer">Monthly Billing</button>
+          <button type="button" id="bill-annual-btn" class="px-4 py-2 rounded-lg text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 transition-all cursor-pointer">Annual <span class="text-emerald-600 font-extrabold ml-1">Save 20%</span></button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-6xl mx-auto items-stretch">
+        <!-- Starter Tier -->
+        <div class="p-8 rounded-3xl bg-white border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div>
+            <h3 class="text-lg font-bold text-slate-900">Starter</h3>
+            <p class="text-xs text-slate-500 mt-1">For early-stage SaaS products launching onboarding flows.</p>
+            <div class="my-6 flex items-baseline gap-1">
+              <span class="text-4xl font-extrabold text-slate-900">$0</span>
+              <span class="text-sm text-slate-500">/month</span>
+            </div>
+            <ul class="space-y-3 text-sm text-slate-600 mb-8">
+              <li class="flex items-center gap-2.5"><span class="text-emerald-600 font-bold">✓</span> Up to 2,500 active subscribers</li>
+              <li class="flex items-center gap-2.5"><span class="text-emerald-600 font-bold">✓</span> 10,000 monthly emails included</li>
+              <li class="flex items-center gap-2.5"><span class="text-emerald-600 font-bold">✓</span> Automated SPF &amp; DKIM verification</li>
+              <li class="flex items-center gap-2.5"><span class="text-emerald-600 font-bold">✓</span> 3 visual automation workflows</li>
+            </ul>
+          </div>
+          <a href="#top" onclick="document.getElementById('hero-email').focus()" class="block w-full text-center py-3 px-5 rounded-xl border border-slate-300 hover:border-indigo-600 hover:text-indigo-600 font-semibold text-sm text-slate-800 transition-colors">
+            Start Free
+          </a>
+        </div>
+
+        <!-- Growth Tier (Popular) -->
+        <div class="p-8 rounded-3xl bg-slate-900 text-white border-2 border-indigo-500 shadow-2xl relative flex flex-col justify-between">
+          <span class="absolute -top-3.5 right-6 bg-gradient-to-r from-indigo-500 to-violet-500 text-white text-[11px] font-extrabold uppercase tracking-wider px-3 py-1 rounded-full shadow">Most Popular</span>
+          <div>
+            <h3 class="text-lg font-bold text-white">Growth</h3>
+            <p class="text-xs text-slate-300 mt-1">For scaling SaaS teams optimizing trial-to-paid conversions.</p>
+            <div class="my-6 flex items-baseline gap-1">
+              <span id="growth-price" class="text-4xl font-extrabold text-white">$49</span>
+              <span class="text-sm text-slate-400">/month</span>
+            </div>
+            <ul class="space-y-3 text-sm text-slate-200 mb-8">
+              <li class="flex items-center gap-2.5"><span class="text-emerald-400 font-bold">✓</span> Up to 25,000 active subscribers</li>
+              <li class="flex items-center gap-2.5"><span class="text-emerald-400 font-bold">✓</span> 150,000 monthly emails included</li>
+              <li class="flex items-center gap-2.5"><span class="text-emerald-400 font-bold">✓</span> Unlimited behavioral flows &amp; webhooks</li>
+              <li class="flex items-center gap-2.5"><span class="text-emerald-400 font-bold">✓</span> A/B testing &amp; AI send-time optimization</li>
+              <li class="flex items-center gap-2.5"><span class="text-emerald-400 font-bold">✓</span> Stripe MRR revenue attribution</li>
+            </ul>
+          </div>
+          <a href="#top" onclick="document.getElementById('hero-email').focus()" class="block w-full text-center py-3.5 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-bold text-sm text-white shadow-lg shadow-indigo-600/30 transition-all">
+            Start 14-Day Free Trial
+          </a>
+        </div>
+
+        <!-- Scale Tier -->
+        <div class="p-8 rounded-3xl bg-white border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div>
+            <h3 class="text-lg font-bold text-slate-900">Scale</h3>
+            <p class="text-xs text-slate-500 mt-1">For growing marketing teams needing advanced permissions &amp; analytics.</p>
+            <div class="my-6 flex items-baseline gap-1">
+              <span id="scale-price" class="text-4xl font-extrabold text-slate-900">$149</span>
+              <span class="text-sm text-slate-500">/month</span>
+            </div>
+            <ul class="space-y-3 text-sm text-slate-600 mb-8">
+              <li class="flex items-center gap-2.5"><span class="text-emerald-600 font-bold">✓</span> 100,000+ active subscribers</li>
+              <li class="flex items-center gap-2.5"><span class="text-emerald-600 font-bold">✓</span> Unlimited team seats &amp; role permissions</li>
+              <li class="flex items-center gap-2.5"><span class="text-emerald-600 font-bold">✓</span> Custom brand templates &amp; multi-workspace</li>
+              <li class="flex items-center gap-2.5"><span class="text-emerald-600 font-bold">✓</span> Priority onboarding &amp; account support</li>
+            </ul>
+          </div>
+          <a href="#contact" class="block w-full text-center py-3 px-5 rounded-xl border border-slate-300 hover:border-indigo-600 hover:text-indigo-600 font-semibold text-sm text-slate-800 transition-colors">
+            Contact Sales Team
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Get In Touch / Contact Section -->
+  <section id="contact" class="py-20 sm:py-24 bg-white border-t border-slate-200/80">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center max-w-2xl mx-auto mb-12">
+        <span class="inline-block text-xs font-bold uppercase tracking-widest text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full mb-3">Get In Touch</span>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mb-4">Questions About Plans, Features, or Team Onboarding?</h2>
+        <div class="w-12 h-1 bg-indigo-600 mx-auto rounded-full mb-4"></div>
+        <p class="text-slate-600 text-sm sm:text-base">
+          Our product specialists at <strong class="dynamic-domain-text text-slate-900">novagrowthcampus.homes</strong> are happy to walk you through our email marketing platform and help you choose the right plan.
+        </p>
+      </div>
+
+      <div class="bg-slate-50 border border-slate-200/90 rounded-3xl p-6 sm:p-10 shadow-sm">
+        <form id="contact-form" class="space-y-5">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div>
+              <label for="contact-name" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">Your Full Name *</label>
+              <input id="contact-name" type="text" required placeholder="Alex Rivera" class="w-full px-4 py-3 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+            </div>
+            <div>
+              <label for="contact-email" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">Work Email *</label>
+              <input id="contact-email" type="email" required placeholder="alex@yourcompany.com" class="w-full px-4 py-3 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+            </div>
+          </div>
+
+          <div>
+            <label for="contact-phone" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">Company Website or Monthly Email Volume</label>
+            <input id="contact-phone" type="text" placeholder="e.g. acmesaas.io · ~80,000 emails/month" class="w-full px-4 py-3 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+          </div>
+
+          <div>
+            <label for="contact-message" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">How Can We Help? *</label>
+            <textarea id="contact-message" rows="4" required placeholder="Tell us about your SaaS onboarding flows, list size, or deliverability goals..." class="w-full px-4 py-3 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+          </div>
+
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
+            <span class="text-xs text-slate-500">Protected by strict GDPR &amp; CAN-SPAM compliance standards.</span>
+            <button id="contact-submit-btn" type="submit" class="inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-bold text-sm px-7 py-3.5 rounded-xl shadow-md shadow-indigo-600/20 transition-all cursor-pointer">
+              <span id="contact-submit-label">Send Message</span>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+            </button>
+          </div>
+
+          <!-- Inline Contact Form Error Fallback -->
+          <div id="contact-error-feedback" role="alert" class="hidden p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-sm flex items-start gap-3">
+            <svg class="w-5 h-5 text-rose-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            <div>
+              <p class="font-bold text-rose-900">We couldn’t send your message right now.</p>
+              <p class="text-xs text-rose-700 mt-1 leading-relaxed">
+                Sorry for the interruption—our contact form is temporarily unavailable. Please reach out to us directly at
+                <a href="mailto:contact@businessontherise.com" class="font-semibold underline decoration-rose-400 hover:text-rose-950">contact@businessontherise.com</a>
+                and our team will get back to you promptly.
+              </p>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- Professional Dark Slate Footer -->
+  <footer class="bg-slate-900 text-slate-300 pt-16 pb-10 border-t border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-10 pb-12 border-b border-slate-800">
+        
+        <!-- Dynamic Brand Column -->
+        <div class="md:col-span-5 space-y-4">
+          <a href="#top" class="inline-flex items-center gap-3">
+            <div id="footer-logo-icon" class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow">
+              <!-- Dynamically injected geometric SVG -->
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span id="footer-brand-name" class="font-display font-extrabold text-lg text-white">NovaGrowthCampus</span>
+              <span id="footer-brand-tld" class="text-[11px] font-semibold uppercase px-1.5 py-0.5 rounded bg-slate-800 text-indigo-300 border border-slate-700">.homes</span>
+            </div>
+          </a>
+          <p class="text-sm text-slate-400 leading-relaxed max-w-sm">
+            All-in-one email marketing SaaS software with visual campaign builders, behavioral automation, audience segmentation, and real-time revenue analytics.
+          </p>
+          <div class="inline-flex items-center gap-2 text-xs text-emerald-400 font-medium">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span>Cloud App &amp; Automation Engine Operational (99.99% Uptime)</span>
+          </div>
+        </div>
+
+        <!-- Navigation Links -->
+        <div class="md:col-span-3">
+          <h4 class="text-sm font-bold uppercase tracking-wider text-white mb-4">Platform</h4>
+          <ul class="space-y-2.5 text-sm text-slate-400">
+            <li><a href="#top" class="hover:text-white transition-colors">Home</a></li>
+            <li><a href="#capabilities" class="hover:text-white transition-colors">Email Capabilities</a></li>
+            <li><a href="#spotlight" class="hover:text-white transition-colors">Deliverability Engine</a></li>
+            <li><a href="#workflow" class="hover:text-white transition-colors">Onboarding Process</a></li>
+            <li><a href="#pricing" class="hover:text-white transition-colors">Pricing Plans</a></li>
+            <li><a href="#contact" class="hover:text-white transition-colors">Contact Us</a></li>
+          </ul>
+        </div>
+
+        <!-- Legal & Compliance Information (Interactive Modal Triggers) -->
+        <div class="md:col-span-4">
+          <h4 class="text-sm font-bold uppercase tracking-wider text-white mb-4">Information &amp; Compliance</h4>
+          <ul class="space-y-2.5 text-sm text-slate-400">
+            <li><button type="button" data-legal="privacy" class="legal-trigger hover:text-white transition-colors cursor-pointer">Privacy Policy</button></li>
+            <li><button type="button" data-legal="terms" class="legal-trigger hover:text-white transition-colors cursor-pointer">Terms of Service</button></li>
+            <li><button type="button" data-legal="antispam" class="legal-trigger hover:text-white transition-colors cursor-pointer">Anti-Spam &amp; Deliverability Policy</button></li>
+            <li><button type="button" data-legal="disclaimer" class="legal-trigger hover:text-white transition-colors cursor-pointer">Disclaimer</button></li>
+          </ul>
+        </div>
+
+      </div>
+
+      <!-- Bottom Copyright & Payment Badges -->
+      <div class="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
+        <p>2026 &copy; <span class="dynamic-domain-text text-slate-200 font-medium">novagrowthcampus.homes</span>. All rights reserved.</p>
+        
+        <!-- Clean Vector Payment Method Badges -->
+        <div class="flex items-center gap-2" aria-label="Accepted Payment Methods">
+          <span class="px-2.5 py-1 rounded bg-slate-800 border border-slate-700 font-bold text-[11px] tracking-wider text-white">VISA</span>
+          <span class="px-2.5 py-1 rounded bg-slate-800 border border-slate-700 font-bold text-[11px] tracking-wider text-amber-300">Mastercard</span>
+          <span class="px-2.5 py-1 rounded bg-slate-800 border border-slate-700 font-bold text-[11px] tracking-wider text-sky-300">PayPal</span>
+          <span class="px-2.5 py-1 rounded bg-slate-800 border border-slate-700 font-bold text-[11px] tracking-wider text-indigo-300">AMEX</span>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Clean Legal Info Modal (Prevents Dead Links) -->
+  <div id="legal-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4" role="dialog" aria-modal="true" aria-labelledby="legal-modal-title">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-200">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+        <h3 id="legal-modal-title" class="text-lg font-extrabold text-slate-900">Privacy Policy</h3>
+        <button id="close-legal-modal" type="button" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer" aria-label="Close modal">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div id="legal-modal-body" class="text-sm text-slate-600 leading-relaxed space-y-3">
+        <!-- Populated dynamically -->
+      </div>
+      <div class="mt-6 text-right">
+        <button id="ack-legal-modal" type="button" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl cursor-pointer">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Compact Floating Bottom-Right Domain Preview Pill (Keeps Navbar Razor-Sharp) -->
+  <div id="domain-widget-wrapper" class="fixed bottom-4 right-4 z-40 flex flex-col items-end gap-2">
+    <!-- Expandable Domain Switcher Popover -->
+    <div id="domain-popover" class="hidden w-72 rounded-2xl bg-slate-900/95 backdrop-blur-xl text-slate-200 border border-slate-700/80 shadow-2xl p-4">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-indigo-300">Dynamic Domain Logo</span>
+        <button id="close-domain-popover" type="button" class="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer" aria-label="Close domain preview">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <p class="text-[11px] text-slate-400 mb-3 leading-relaxed">Logo &amp; branding auto-adapt to <code class="text-slate-200">window.location.hostname</code>. Test another domain below:</p>
+      <select id="domain-preview-select" aria-label="Preview Custom Domain" class="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        <option value="auto">Auto-Detect (Current Host)</option>
+        <option value="novagrowthcampus.homes">novagrowthcampus.homes</option>
+        <option value="sendpulseflow.io">sendpulseflow.io</option>
+        <option value="mailforgehq.com">mailforgehq.com</option>
+        <option value="inboxrocket.ai">inboxrocket.ai</option>
+      </select>
+    </div>
+
+    <!-- Compact Trigger Pill -->
+    <button id="domain-pill-trigger" type="button" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-slate-900/90 hover:bg-slate-900 text-slate-200 border border-slate-700/80 shadow-lg backdrop-blur-md text-xs font-medium transition-all cursor-pointer">
+      <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-dot"></span>
+      <span class="text-slate-400 hidden sm:inline">Domain:</span>
+      <strong id="detected-host-label" class="text-white font-mono max-w-[150px] truncate">novagrowthcampus.homes</strong>
+      <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4"/></svg>
+    </button>
+  </div>
+
+  <script>
+    /**
+     * 1. DYNAMIC DOMAIN-BASED LOGO & BRANDING ENGINE
+     */
+    (function initDynamicDomainBranding() {
+      const FALLBACK_DOMAIN = 'novagrowthcampus.homes';
+
+      // Known compound words dictionary for smart PascalCase formatting
+      const KNOWN_WORDS = [
+        'nova', 'growth', 'campus', 'send', 'pulse', 'flow', 'mail',
+        'forge', 'hq', 'inbox', 'rocket', 'cloud', 'scale', 'stack',
+        'drip', 'auto', 'saas', 'launch', 'metric', 'sync', 'wave', 'hub'
+      ];
+
+      function formatBrandTitle(rawRoot) {
+        // Split by hyphens, underscores, or dots first
+        const parts = rawRoot.split(/[-_.]+/).filter(Boolean);
+        const formattedParts = parts.map(part => {
+          let lower = part.toLowerCase();
+          // Segment concatenated lowercase domain words nicely
+          let result = lower;
+          KNOWN_WORDS.forEach(word => {
+            const regex = new RegExp(word, 'gi');
+            result = result.replace(regex, match => match.charAt(0).toUpperCase() + match.slice(1).toLowerCase());
+          });
+          // Ensure first character is always capitalized
+          return result.charAt(0).toUpperCase() + result.slice(1);
+        });
+        return formattedParts.join('');
+      }
+
+      function generateDynamicLogoSVG(brandTitle, domainStr) {
+        // Create a deterministic hue shift from domain characters so every domain feels bespoke
+        let hash = 0;
+        for (let i = 0; i < domainStr.length; i++) {
+          hash = domainStr.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        const initial = (brandTitle.charAt(0) || 'N').toUpperCase();
+        const variant = Math.abs(hash) % 3;
+
+        if (variant === 0) {
+          // Envelope + Forward Bolt Emblem with Domain Initial
+          return `
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M3 7.5C3 6.11929 4.11929 5 5.5 5H18.5C19.8807 5 21 6.11929 21 7.5V16.5C21 17.8807 19.8807 19 18.5 19H5.5C4.11929 19 3 17.8807 3 16.5V7.5Z" stroke="currentColor" stroke-width="2"/>
+              <path d="M4 7L12 12.5L20 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="18.5" cy="6.5" r="2.5" fill="#34D399"/>
+            </svg>`;
+        } else if (variant === 1) {
+          // Paper Plane + Orbit Ring
+          return `
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M21 3L3 10.5L10 13.5L18 6L12.5 14.5L15.5 21L21 3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            </svg>`;
+        } else {
+          // Geometric Monogram Badge
+          return `
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" stroke-width="2"/>
+              <text x="12" y="16" text-anchor="middle" fill="currentColor" font-family="Plus Jakarta Sans, sans-serif" font-weight="800" font-size="11">${initial}</text>
+            </svg>`;
+        }
+      }
+
+      function applyDomainBranding(overrideDomain) {
+        let rawHost = '';
+        if (overrideDomain && overrideDomain !== 'auto') {
+          rawHost = overrideDomain;
+        } else {
+          const host = (window.location.hostname || '').toLowerCase().trim();
+          // Fallback gracefully when opened locally via file://, localhost, or IP
+          const isLocalOrEmpty = !host || host === 'localhost' || host === '127.0.0.1' || host.endsWith('.local');
+          rawHost = isLocalOrEmpty ? FALLBACK_DOMAIN : host;
+        }
+
+        // Strip leading www.
+        const cleanDomain = rawHost.replace(/^www\./i, '');
+        const dotIndex = cleanDomain.indexOf('.');
+        const rootName = dotIndex !== -1 ? cleanDomain.slice(0, dotIndex) : cleanDomain;
+        const tldPart = dotIndex !== -1 ? cleanDomain.slice(dotIndex) : '.io';
+
+        const formattedBrand = formatBrandTitle(rootName);
+        const logoSVG = generateDynamicLogoSVG(formattedBrand, cleanDomain);
+
+        // Update Header & Footer Logo Lockups
+        document.getElementById('nav-brand-name').textContent = formattedBrand;
+        document.getElementById('nav-brand-tld').textContent = tldPart;
+        document.getElementById('nav-logo-icon').innerHTML = logoSVG;
+
+        document.getElementById('footer-brand-name').textContent = formattedBrand;
+        document.getElementById('footer-brand-tld').textContent = tldPart;
+        document.getElementById('footer-logo-icon').innerHTML = logoSVG;
+
+        // Update Host Indicator & Page Title
+        document.getElementById('detected-host-label').textContent = cleanDomain;
+        document.title = `${formattedBrand} (${cleanDomain}) — SaaS Email Marketing & Lifecycle Automation`;
+
+        // Update all inline domain text references
+        document.querySelectorAll('.dynamic-domain-text').forEach(el => {
+          el.textContent = cleanDomain;
+        });
+
+        // Store active domain for modal/form messages
+        window.__ACTIVE_SAAS_DOMAIN__ = cleanDomain;
+      }
+
+      // Initialize on load
+      applyDomainBranding('auto');
+
+      // Allow instant testing via the floating bottom-right preview selector
+      const domainSelect = document.getElementById('domain-preview-select');
+      const domainPillTrigger = document.getElementById('domain-pill-trigger');
+      const domainPopover = document.getElementById('domain-popover');
+      const closeDomainPopover = document.getElementById('close-domain-popover');
+
+      if (domainPillTrigger && domainPopover) {
+        domainPillTrigger.addEventListener('click', () => {
+          domainPopover.classList.toggle('hidden');
+        });
+      }
+      if (closeDomainPopover && domainPopover) {
+        closeDomainPopover.addEventListener('click', () => {
+          domainPopover.classList.add('hidden');
+        });
+      }
+      if (domainSelect) {
+        domainSelect.addEventListener('change', (e) => {
+          applyDomainBranding(e.target.value);
+        });
+      }
+    })();
+
+    /**
+     * 2. ADAPTIVE STICKY GLASSMORPHIC HEADER, SCROLL PROGRESS & SCROLL-SPY
+     */
+    const siteHeader = document.getElementById('site-header');
+    const scrollProgressBar = document.getElementById('scroll-progress-bar');
+    const navItems = document.querySelectorAll('.nav-link-item');
+    const trackedSections = ['capabilities', 'spotlight', 'workflow', 'pricing', 'contact']
+      .map(id => document.getElementById(id))
+      .filter(Boolean);
+
+    function handleHeaderScroll() {
+      const scrollY = window.scrollY || window.pageYOffset;
+
+      // Transition header padding, frosted glass opacity, border, and shadow
+      if (scrollY > 18) {
+        siteHeader.classList.remove('py-4', 'border-transparent', 'bg-white/95');
+        siteHeader.classList.add('py-2.5', 'border-slate-200/85', 'bg-white/88', 'backdrop-blur-xl', 'shadow-sm');
+      } else {
+        siteHeader.classList.add('py-4', 'border-transparent', 'bg-white/95');
+        siteHeader.classList.remove('py-2.5', 'border-slate-200/85', 'bg-white/88', 'backdrop-blur-xl', 'shadow-sm');
+      }
+
+      // Update top reading progress bar
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const pct = docHeight > 0 ? Math.min(100, Math.max(0, (scrollY / docHeight) * 100)) : 0;
+      if (scrollProgressBar) {
+        scrollProgressBar.style.width = `${pct}%`;
+      }
+
+      // Scroll-spy active section highlighting
+      let activeId = '';
+      const offsetMarker = scrollY + 140;
+      for (const sec of trackedSections) {
+        if (offsetMarker >= sec.offsetTop) {
+          activeId = sec.id;
+        }
+      }
+      navItems.forEach(link => {
+        const target = link.getAttribute('data-nav-section');
+        link.classList.toggle('active-nav', target === activeId);
+      });
+    }
+
+    window.addEventListener('scroll', handleHeaderScroll, { passive: true });
+    handleHeaderScroll();
+
+    /**
+     * 3. RESPONSIVE MOBILE & TABLET NAVIGATION DRAWER (WITH BODY SCROLL LOCK & ESC SUPPORT)
+     */
+    const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+    const tabletMenuBtn = document.getElementById('tablet-menu-btn');
+    const mobileDrawer = document.getElementById('mobile-drawer');
+    const menuIconOpen = document.getElementById('menu-icon-open');
+    const menuIconClose = document.getElementById('menu-icon-close');
+    let isDrawerOpen = false;
+
+    function setDrawerState(open) {
+      isDrawerOpen = open;
+      mobileDrawer.classList.toggle('drawer-open', open);
+      mobileDrawer.classList.toggle('drawer-closed', !open);
+      if (menuIconOpen && menuIconClose) {
+        menuIconOpen.classList.toggle('hidden', open);
+        menuIconClose.classList.toggle('hidden', !open);
+      }
+      if (mobileMenuBtn) mobileMenuBtn.setAttribute('aria-expanded', String(open));
+      if (tabletMenuBtn) tabletMenuBtn.setAttribute('aria-expanded', String(open));
+      // Lock background body scroll while drawer is open
+      document.body.style.overflow = open ? 'hidden' : '';
+    }
+
+    if (mobileMenuBtn) {
+      mobileMenuBtn.addEventListener('click', () => setDrawerState(!isDrawerOpen));
+    }
+    if (tabletMenuBtn) {
+      tabletMenuBtn.addEventListener('click', () => setDrawerState(!isDrawerOpen));
+    }
+
+    // Close drawer when clicking backdrop outside the drawer panel
+    mobileDrawer.addEventListener('click', (e) => {
+      if (e.target === mobileDrawer) {
+        setDrawerState(false);
+      }
+    });
+
+    // Close drawer on navigation link click
+    document.querySelectorAll('.mobile-nav-link').forEach(link => {
+      link.addEventListener('click', () => setDrawerState(false));
+    });
+
+    // Close drawer on Escape key press or desktop resize
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && isDrawerOpen) {
+        setDrawerState(false);
+      }
+    });
+    window.addEventListener('resize', () => {
+      if (window.innerWidth >= 1024 && isDrawerOpen) {
+        setDrawerState(false);
+      }
+    });
+
+    /**
+     * 4. FEATURE SPOTLIGHT INTERACTIVE TABS
+     */
+    const tabButtons = document.querySelectorAll('.spotlight-tab');
+    const tabPanels = document.querySelectorAll('.spotlight-panel');
+
+    tabButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = btn.getAttribute('data-tab');
+
+        // Reset button styles
+        tabButtons.forEach(b => {
+          b.classList.remove('border-2', 'border-indigo-600', 'bg-white', 'shadow-md');
+          b.classList.add('border', 'border-slate-200', 'bg-white/70');
+        });
+
+        // Activate selected tab
+        btn.classList.remove('border', 'border-slate-200', 'bg-white/70');
+        btn.classList.add('border-2', 'border-indigo-600', 'bg-white', 'shadow-md');
+
+        // Show matching panel
+        tabPanels.forEach(panel => {
+          panel.classList.toggle('hidden', panel.id !== `panel-${target}`);
+        });
+      });
+    });
+
+    /**
+     * 4. PRICING BILLING TOGGLE (MONTHLY VS ANNUAL)
+     */
+    const monthlyBtn = document.getElementById('bill-monthly-btn');
+    const annualBtn = document.getElementById('bill-annual-btn');
+    const growthPrice = document.getElementById('growth-price');
+    const scalePrice = document.getElementById('scale-price');
+
+    monthlyBtn.addEventListener('click', () => {
+      monthlyBtn.classList.add('bg-white', 'text-slate-900', 'shadow-sm');
+      monthlyBtn.classList.remove('text-slate-600');
+      annualBtn.classList.remove('bg-white', 'text-slate-900', 'shadow-sm');
+      annualBtn.classList.add('text-slate-600');
+      growthPrice.textContent = '$49';
+      scalePrice.textContent = '$149';
+    });
+
+    annualBtn.addEventListener('click', () => {
+      annualBtn.classList.add('bg-white', 'text-slate-900', 'shadow-sm');
+      annualBtn.classList.remove('text-slate-600');
+      monthlyBtn.classList.remove('bg-white', 'text-slate-900', 'shadow-sm');
+      monthlyBtn.classList.add('text-slate-600');
+      growthPrice.textContent = '$39';
+      scalePrice.textContent = '$119';
+    });
+
+    /**
+     * 5. INTERACTIVE FORM SUBMISSIONS (NO ALERT POPUPS)
+     */
+    const heroForm = document.getElementById('hero-capture-form');
+    const heroEmail = document.getElementById('hero-email');
+    const heroFeedback = document.getElementById('hero-form-feedback');
+    const heroFeedbackText = document.getElementById('hero-feedback-text');
+
+    heroForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const emailVal = heroEmail.value.trim();
+      if (!emailVal) return;
+      const domain = window.__ACTIVE_SAAS_DOMAIN__ || 'novagrowthcampus.homes';
+      heroFeedbackText.textContent = `Workspace invite sent to ${emailVal} from ${domain}! Check your inbox to verify your sending domain.`;
+      heroFeedback.classList.remove('hidden');
+      heroEmail.value = '';
+    });
+
+    const contactForm = document.getElementById('contact-form');
+    const contactErrorFeedback = document.getElementById('contact-error-feedback');
+    const contactSubmitBtn = document.getElementById('contact-submit-btn');
+    const contactSubmitLabel = document.getElementById('contact-submit-label');
+
+    contactForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      contactErrorFeedback.classList.add('hidden');
+
+      contactSubmitBtn.disabled = true;
+      contactSubmitLabel.textContent = 'Sending...';
+
+      await new Promise((resolve) => setTimeout(resolve, 450));
+
+      contactSubmitBtn.disabled = false;
+      contactSubmitLabel.textContent = 'Send Message';
+      contactErrorFeedback.classList.remove('hidden');
+    });
+
+    /**
+     * 6. LEGAL / COMPLIANCE MODAL PREVIEWS
+     */
+    const legalModal = document.getElementById('legal-modal');
+    const legalTitle = document.getElementById('legal-modal-title');
+    const legalBody = document.getElementById('legal-modal-body');
+
+    function getLegalContent(type, domain) {
+      const map = {
+        privacy: {
+          title: 'Privacy Policy',
+          body: `<p><strong>${domain}</strong> processes subscriber event data strictly as a GDPR-compliant Data Processor on behalf of our SaaS customers.</p>
+                 <p>We never sell, rent, or cross-pollinate your contact lists. All API payloads and email contents are encrypted in transit (TLS 1.3) and at rest (AES-256).</p>`
+        },
+        terms: {
+          title: 'Terms of Service',
+          body: `<p>By creating a workspace on <strong>${domain}</strong>, you agree to send transactional and lifecycle emails only to permission-based subscribers.</p>
+                 <p>Accounts maintain full ownership of their templates, subscriber segments, and custom sending domains at all times.</p>`
+        },
+        antispam: {
+          title: 'Anti-Spam & Deliverability Policy',
+          body: `<p>To protect our shared and dedicated IP pools, <strong>${domain}</strong> enforces zero-tolerance anti-spam standards in accordance with CAN-SPAM, GDPR, and CASL.</p>
+                 <p>Every marketing broadcast automatically includes one-click List-Unsubscribe headers and physical sender identification.</p>`
+        },
+        disclaimer: {
+          title: 'Platform Disclaimer',
+          body: `<p>Deliverability benchmarks (such as 99.4% inbox placement and open-rate lifts) represent aggregate metrics across properly authenticated domains on <strong>${domain}</strong>.</p>
+                 <p>Individual results depend on domain age, list hygiene, and subscriber engagement.</p>`
+        }
+      };
+      return map[type] || map.privacy;
+    }
+
+    document.querySelectorAll('.legal-trigger').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const type = btn.getAttribute('data-legal');
+        const domain = window.__ACTIVE_SAAS_DOMAIN__ || 'novagrowthcampus.homes';
+        const content = getLegalContent(type, domain);
+        legalTitle.textContent = content.title;
+        legalBody.innerHTML = content.body;
+        legalModal.classList.remove('hidden');
+        legalModal.classList.add('flex');
+      });
+    });
+
+    function closeLegalModal() {
+      legalModal.classList.add('hidden');
+      legalModal.classList.remove('flex');
+    }
+
+    document.getElementById('close-legal-modal').addEventListener('click', closeLegalModal);
+    document.getElementById('ack-legal-modal').addEventListener('click', closeLegalModal);
+    legalModal.addEventListener('click', (e) => {
+      if (e.target === legalModal) closeLegalModal();
+    });
+  </script>
+</body>
+</html>

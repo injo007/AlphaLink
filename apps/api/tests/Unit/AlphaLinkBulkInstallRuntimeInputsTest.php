@@ -33,6 +33,7 @@ class AlphaLinkBulkInstallRuntimeInputsTest extends TestCase
         mkdir($root.'/optional/tracking', 0700, true);
         file_put_contents($root.'/optional/tracking/index.php', '<?php echo "tracker";');
         file_put_contents($root.'/optional/tracking/TrackerRequestHandler.php', '<?php class AlphaLinkTrackerRequestHandler {}');
+        file_put_contents($root.'/optional/tracking/homepage.html', '<!doctype html><title>AlphaLink</title>');
         $owner = User::factory()->create();
         $workspace = Workspace::query()->create([
             'name' => 'Runtime input fixture',
@@ -56,6 +57,7 @@ class AlphaLinkBulkInstallRuntimeInputsTest extends TestCase
             $this->assertSame([
                 'index' => '<?php echo "tracker";',
                 'handler' => '<?php class AlphaLinkTrackerRequestHandler {}',
+                'homepage' => '<!doctype html><title>AlphaLink</title>',
             ], $resolved['assets']['tracking_app']);
             $this->assertNull($resolved['assets']['cloudflare_ips']);
             $this->assertStringContainsString('BEGIN PRIVATE KEY', $resolved['settings']['dkim_key']);
@@ -68,6 +70,7 @@ class AlphaLinkBulkInstallRuntimeInputsTest extends TestCase
         } finally {
             unlink($root.'/optional/tracking/index.php');
             unlink($root.'/optional/tracking/TrackerRequestHandler.php');
+            unlink($root.'/optional/tracking/homepage.html');
             rmdir($root.'/optional/tracking');
             rmdir($root.'/optional');
             rmdir($root);
@@ -80,6 +83,7 @@ class AlphaLinkBulkInstallRuntimeInputsTest extends TestCase
         mkdir($root.'/optional/tracking', 0700, true);
         file_put_contents($root.'/optional/tracking/index.php', '<?php echo "tracker";');
         file_put_contents($root.'/optional/tracking/TrackerRequestHandler.php', '<?php class AlphaLinkTrackerRequestHandler {}');
+        file_put_contents($root.'/optional/tracking/homepage.html', '<!doctype html><title>AlphaLink</title>');
         config()->set('infrastructure.install_assets_directory', $root);
         config()->set('infrastructure.tracking_callback_url', 'http://127.0.0.1:8766');
         config()->set('infrastructure.bulk_install_settings.tracking_ingest_key', 'synthetic key');
@@ -93,6 +97,7 @@ class AlphaLinkBulkInstallRuntimeInputsTest extends TestCase
         } finally {
             unlink($root.'/optional/tracking/index.php');
             unlink($root.'/optional/tracking/TrackerRequestHandler.php');
+            unlink($root.'/optional/tracking/homepage.html');
             rmdir($root.'/optional/tracking');
             rmdir($root.'/optional');
             rmdir($root);

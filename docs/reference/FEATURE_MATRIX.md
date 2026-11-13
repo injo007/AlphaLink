@@ -16,6 +16,8 @@ DMS-AUD-001, DMS-INST-001, DMS-INFRA-002, DMS-CLOUD-001, DMS-TOOLS-001, and DMS-
 
 This AlphaLink capability is tracked separately and does not change the archived DMS workflow count or status totals above.
 
+| ALPHALINK-TRACKING-HOMEPAGE-001 | Installed server tracking hostname root (`GET /`) | User-provided `dynamic_saas_email_marketing_platform.html` plus AlphaLink's standalone tracking request handler | E-INST-104 | Tracking-enabled installations package a responsive, domain-branded homepage as a reviewed private asset. The tracker serves it only for `/`; `/healthz` and signed open/click/unsubscribe/bot routes continue through the existing tracking handler. Fresh installs and reinstalls upload the page outside the public document root with root-owned read-only permissions. Tailwind styles are embedded locally; Google Fonts remain an optional remote font source with system fallbacks. | IMPLEMENTING | Source and digest inventory are updated; no installed host was changed, and no live browser or installation verification was performed. Existing installed servers need a controlled reinstall with Tracking selected before they serve the new page. |
+
 ## Admin campaign visibility
 
 | ID | Module / AlphaLink route | Source of behavior | Evidence | AlphaLink implementation | Status | Known difference |

@@ -16,7 +16,11 @@ class AlphaLinkCentos9TrackingDeploymentStageTest extends TestCase
     {
         $commands = new RecordingTrackingCommands;
         $files = new RecordingTrackingFiles;
-        $source = ['index' => '<?php require_once __DIR__."/../TrackerRequestHandler.php";', 'handler' => '<?php final class AlphaLinkTrackerRequestHandler {}'];
+        $source = [
+            'index' => '<?php require_once __DIR__."/../TrackerRequestHandler.php";',
+            'handler' => '<?php final class AlphaLinkTrackerRequestHandler {}',
+            'homepage' => '<!doctype html><title>AlphaLink</title>',
+        ];
 
         (new AlphaLinkCentos9TrackingDeploymentStage)->run(
             $commands,
@@ -36,6 +40,7 @@ class AlphaLinkCentos9TrackingDeploymentStageTest extends TestCase
         $this->assertSame('dnf install -y httpd', $commands->commands[1]);
         $this->assertStringContainsString('/var/mini/public', $commands->commands[2]);
         $this->assertSame($source['handler'], $files->uploads['/var/alphalink-tracker/TrackerRequestHandler.php']);
+        $this->assertSame($source['homepage'], $files->uploads['/var/alphalink-tracker/homepage.html']);
         $this->assertSame($source['index'], $files->uploads['/var/mini/public/index.php']);
         $this->assertStringContainsString('Require all denied', $files->uploads['/etc/httpd/conf.d/alphalink-tracking-access.conf']);
         $this->assertStringContainsString('Require all granted', $files->uploads['/etc/httpd/conf.d/alphalink-tracking-access.conf']);

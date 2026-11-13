@@ -2,8 +2,8 @@
 
 **Updated:** 2026-11-13
 **Active objective:** Add safe pause and resume controls to large SPF domain scans.
-**Current implementation status:** Local source now records per-worker byte checkpoints atomically with completed batch progress, winds workers down at batch boundaries on pause, and resumes from the last committed offsets. The SPF page has Pause, Resume, and Stop controls; an additive migration adds the checkpoint column. PHP syntax, Pint, route registration, Blade JavaScript syntax, and `git diff --check` pass. Tests and an authenticated live scan were not run. Push and production deployment are pending this change.
-**Production baseline:** The last recorded deployed release is `28bb06f3611399185ce901e0b224582a427b4b92`; the guarded installer previously applied the SPF activity and comparison migrations, restarted PHP-FPM/Horizon/scheduler, and passed health checks. The 10M-domain / 20-IP benchmark remains unrun, and DNS work remains synchronous within workers.
+**Current implementation status:** Commit `0fc55e9` adds per-worker byte checkpoints, batch-boundary pause, resume from committed offsets, and Pause/Resume/Stop controls. PHP syntax, Pint, route registration, Blade JavaScript syntax, and `git diff --check` pass. The commit is verified on GitHub `master` and `fix/tracking-domain-dns`. Deployment is blocked: the SSH credentials in `.env` were rejected during read-only preflight before the guarded installer or any remote command ran. No tests or authenticated live scan were run.
+**Production baseline:** The last recorded deployed release is `28bb06f3611399185ce901e0b224582a427b4b92`; current active release and scan counts could not be checked because SSH authentication failed. This attempt made no remote changes. The 10M-domain / 20-IP benchmark remains unrun, and DNS work remains synchronous within workers.
 
 ### SPF scan activity and resolver performance follow-up — E-TOOLS-51/52 (2026-11-13)
 

@@ -80,6 +80,12 @@ $assert($unsubscribe['headers']['Location'] === 'https://offer.example.test/unsu
 $assert($calls[0][1]['type'] === 'unsub', 'Unsubscribe lookup used the wrong API action.');
 $assert($calls[1][1]['action'] === 'unsubscribe', 'Unsubscribe analytics used the wrong event action.');
 
+$legacyTestPath = 'U4K0PDS2DKuMDFhMWQyMjg1YWNkNzNiMzkxODI5YmFkZWY5MTZlNzMtMC0wLXQtMC0xLTAtMC0wLTAtMC0wLTZhZjY1MjI4OWQ4NTlfMTBjOTAzNzUtYjM4ZDA5ZGM';
+$calls = [];
+$legacyTestUnsubscribe = $handler->handle('GET', '/'.$legacyTestPath, '198.51.100.23', 'Synthetic Browser/1.0');
+$assert($legacyTestUnsubscribe['status'] === 302 && $legacyTestUnsubscribe['headers']['Location'] === 'https://offer.example.test/unsubscribe', 'Legacy 13-character test token did not reach its unsubscribe destination.');
+$assert(count($calls) === 1 && $calls[0][1]['type'] === 'unsub' && $calls[0][1]['email_id'] === '0', 'Legacy zero-recipient unsubscribe unexpectedly wrote a recipient event.');
+
 $unsubscribeDestination = 'unsubscribe?u=1';
 $calls = [];
 $unsubscribeFallback = $handler->handle('GET', $routeUrl('u', $encodedToken), '198.51.100.23', 'Synthetic Browser/1.0');
@@ -121,4 +127,4 @@ $assert($calls === [], 'Invalid token unexpectedly reached the callback.');
 $unknown = $handler->handle('GET', '/not-a-tracking-route', '198.51.100.23', 'Synthetic Browser/1.0');
 $assert($unknown['headers']['Location'] === 'https://www.google.com', 'Unknown route did not use the HTTPS Google fallback.');
 
-echo "AlphaLink tracker request tests passed (8 checks).\n";
+echo "AlphaLink tracker request tests passed (9 checks).\n";

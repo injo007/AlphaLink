@@ -115,7 +115,7 @@ final class AlphaLinkTrackerRequestHandler
 
         $fields = explode('-', $decoded);
         if (count($fields) !== 14
-            || ! preg_match('/\A[A-Za-z0-9]{9}_[a-f0-9]{8}\z/i', $fields[12])
+            || ! preg_match('/\A[A-Za-z0-9]{9,13}_[a-f0-9]{8}\z/i', $fields[12])
             || ! preg_match('/\A[a-f0-9]{8}\z/i', $fields[13])) {
             return null;
         }

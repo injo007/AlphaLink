@@ -203,7 +203,7 @@ class Ubuntu26FreshInstallContractTest extends TestCase
             $digests['optional/tracking/index.php'],
         );
         $this->assertSame(
-            ['size' => 12602, 'sha256' => '78f99f171c25e4b51fcd475aaba52a7d2f6aec101a26c901bafaf91f500417c2'],
+            ['size' => 12605, 'sha256' => '57ba8813cc7617fdfde72bbc0a30782fa809e93c097fa2a859915a6635ac6dce'],
             $digests['optional/tracking/TrackerRequestHandler.php'],
         );
     }
@@ -224,7 +224,7 @@ class Ubuntu26FreshInstallContractTest extends TestCase
         $this->assertStringContainsString('if (( source_available )); then', $installer);
         $this->assertStringContainsString('if (( ! source_available )); then', $installer);
         $this->assertStringContainsString("repair_missing_reviewed_tracking_asset \"\$source_root\" 'optional/tracking/index.php' 3250 '8fcc32fca7d97d3144715ddd9e676bcfc0cbfb7107d61300669d002039029974'", $installer);
-        $this->assertStringContainsString("repair_missing_reviewed_tracking_asset \"\$source_root\" 'optional/tracking/TrackerRequestHandler.php' 12602 '78f99f171c25e4b51fcd475aaba52a7d2f6aec101a26c901bafaf91f500417c2'", $installer);
+        $this->assertStringContainsString("repair_missing_reviewed_tracking_asset \"\$source_root\" 'optional/tracking/TrackerRequestHandler.php' 12605 '57ba8813cc7617fdfde72bbc0a30782fa809e93c097fa2a859915a6635ac6dce'", $installer);
         $this->assertStringContainsString('if [[ -e "$destination_file" || -L "$destination_file" ]]; then', $installer);
         $this->assertStringContainsString('Preserving existing private tracking asset for review:', $installer);
         $this->assertStringContainsString('install -o www-data -g www-data -m 0600 -- "$source_file" "$temporary_file"', $installer);

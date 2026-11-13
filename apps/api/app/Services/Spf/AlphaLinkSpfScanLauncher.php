@@ -2,9 +2,10 @@
 
 namespace App\Services\Spf;
 
+use App\Jobs\RunWorkspaceSpfScan;
 use App\Models\WorkspaceSpfScan;
 use Closure;
-use Symfony\Component\Process\Process;
+use Throwable;
 
 class AlphaLinkSpfScanLauncher
 {
@@ -13,31 +14,50 @@ class AlphaLinkSpfScanLauncher
 
     public function start(WorkspaceSpfScan $scan): bool
     {
-        $pid = $this->launcher !== null ? ($this->launcher)($scan) : $this->startProcess($scan);
-        if (! is_int($pid) || $pid < 1) {
+        try {
+            if ($this->launcher !== null) {
+                $pid = ($this->launcher)($scan);
+                if (! is_int($pid) || $pid < 1) {
+                    throw new \RuntimeException('The SPF scan worker could not start.');
+                }
+
+                $scan->update([
+                    'status' => WorkspaceSpfScan::STATUS_SCANNING,
+                    'pid' => $pid,
+                    'started_at' => now(),
+                    'stage' => 'scanning',
+                    'heartbeat_at' => now(),
+                ]);
+
+                return true;
+            }
+
+            $scan->update([
+                'status' => WorkspaceSpfScan::STATUS_PENDING,
+                'stage' => 'queued',
+                'pid' => null,
+                'worker_pids' => null,
+                'started_at' => null,
+                'ended_at' => null,
+                'failure' => null,
+                'heartbeat_at' => null,
+                'progress_at' => null,
+                'current_domain' => null,
+            ]);
+            RunWorkspaceSpfScan::dispatch((int) $scan->getKey(), (int) $scan->workers);
+        } catch (Throwable $exception) {
+            report($exception);
             $scan->update([
                 'status' => WorkspaceSpfScan::STATUS_FAILED,
-                'failure' => 'Unable to start the SPF scan worker.',
+                'stage' => 'failed',
+                'stage' => 'failed',
+                'failure' => 'The SPF scan worker could not start. Check application logs.',
                 'ended_at' => now(),
             ]);
 
             return false;
         }
 
-        $scan->update(['status' => WorkspaceSpfScan::STATUS_SCANNING, 'pid' => $pid, 'started_at' => now()]);
-
         return true;
-    }
-
-    private function startProcess(WorkspaceSpfScan $scan): ?int
-    {
-        $arguments = [PHP_BINARY, base_path('artisan'), 'spf:scan-workspace', (string) $scan->getKey(), '--workers='.$scan->workers];
-        $command = 'nohup '.implode(' ', array_map('escapeshellarg', $arguments)).' >/dev/null 2>&1 < /dev/null & echo $!';
-        $process = Process::fromShellCommandline($command, base_path());
-        $process->setTimeout(5);
-        $process->run();
-        $pid = trim($process->getOutput());
-
-        return $process->isSuccessful() && ctype_digit($pid) ? (int) $pid : null;
     }
 }

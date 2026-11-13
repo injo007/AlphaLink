@@ -18,16 +18,16 @@ class WorkspaceSpfScan extends Model
     public const STATUS_FAILED = 'failed';
 
     protected $fillable = [
-        'workspace_id', 'created_by', 'file_path', 'status', 'total_lines', 'progress',
+        'workspace_id', 'created_by', 'file_path', 'status', 'total_lines', 'valid_domains', 'progress',
         'batch_size', 'skip_existing', 'workers', 'pid', 'worker_pids', 'total_found',
-        'started_at', 'ended_at', 'failure',
+        'stage', 'current_domain', 'started_at', 'heartbeat_at', 'progress_at', 'ended_at', 'failure',
     ];
 
     protected function casts(): array
     {
         return [
             'skip_existing' => 'boolean', 'worker_pids' => 'array', 'started_at' => 'datetime',
-            'ended_at' => 'datetime',
+            'heartbeat_at' => 'datetime', 'progress_at' => 'datetime', 'ended_at' => 'datetime',
         ];
     }
 

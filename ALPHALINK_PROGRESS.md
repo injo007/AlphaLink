@@ -1,8 +1,8 @@
 # AlphaLink development progress
 
-**Updated:** 2026-11-12
-**Active objective:** Repair tracker HTTPS setup, protect existing Cloudflare DNS records during reinstall, and verify PMTA DKIM assets before a reinstall can complete.
-**Status:** Source fixes now install and validate Apache TLS prerequisites, patch Certbot's dotted-host SSL vhost, preserve unrelated Cloudflare records, and fail closed when selected PMTA/DKIM uploads or key checks fail. Commit `1d64bb7ca72802994a53ea1787a8e24cd25928b8` is pushed to GitHub `master` and `fix/tracking-domain-dns`, and is active in AlphaLink production. The app's `/up` returned HTTP 200. The existing tracker still answers HTTP health but refuses IPv4 HTTPS port 443; no PMTA host reinstall/repair or DNS write was run. The Gmail bounce still needs the sent message's authentication headers to identify the mismatch. Focused PHP 8.5 suites pass: installer/DKIM 29 tests / 207 assertions; DNS 13 / 38; selected reinstall workflows 3 / 34. Pint and `git diff --check` pass. No test email was sent.
+**Updated:** 2026-11-13
+**Active objective:** Improve SPF Scanner for large domain-list scans and multi-IP comparison.
+**Status:** Upload processing validates and counts domain lines, supports 64 MB and 250,000 valid domains by default, and uses configured bounded DNS concurrency. Scans now run on a dedicated Redis/Horizon queue with explicit queued, running, stalled, and completion details. IP comparisons also run in a separate background queue, save paged results for seven days, support cancellation/export, and expose progress and worker health; the web request returns immediately. Dynamic DNS remains synchronous inside queue workers and results are mechanism/CIDR matches, not a full SPF authorization evaluation. The focused SPF suite passes 13 tests / 119 assertions; Blade JavaScript syntax and `git diff --check` pass. The 100,000-domain / 20-IP workload and authenticated browser review were not run. No push or deployment occurred; production migrations and Horizon queue configuration have not been applied there.
 
 ### Reinstall tracking/DNS/authentication repair — E-INST-103 (2026-11-12)
 

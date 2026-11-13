@@ -144,6 +144,11 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::get('/app/workspaces/{workspace}/tools/spf-scanner/export', [WorkspaceSpfScannerController::class, 'export'])->name('console.tools.spf.export');
     Route::post('/app/workspaces/{workspace}/tools/spf-scanner/search', [WorkspaceSpfScannerController::class, 'search'])->middleware('throttle:20,1')->name('console.tools.spf.search');
     Route::post('/app/workspaces/{workspace}/tools/spf-scanner/search/export', [WorkspaceSpfScannerController::class, 'searchExport'])->middleware('throttle:20,1')->name('console.tools.spf.search-export');
+    Route::post('/app/workspaces/{workspace}/tools/spf-scanner/search-runs', [WorkspaceSpfScannerController::class, 'createSearchRun'])->middleware('throttle:10,1')->name('console.tools.spf.search-runs.create');
+    Route::get('/app/workspaces/{workspace}/tools/spf-scanner/search-runs/{run}', [WorkspaceSpfScannerController::class, 'searchRunStatus'])->whereNumber('run')->name('console.tools.spf.search-runs.show');
+    Route::get('/app/workspaces/{workspace}/tools/spf-scanner/search-runs/{run}/results', [WorkspaceSpfScannerController::class, 'searchRunResults'])->whereNumber('run')->name('console.tools.spf.search-runs.results');
+    Route::get('/app/workspaces/{workspace}/tools/spf-scanner/search-runs/{run}/export', [WorkspaceSpfScannerController::class, 'searchRunExport'])->whereNumber('run')->name('console.tools.spf.search-runs.export');
+    Route::post('/app/workspaces/{workspace}/tools/spf-scanner/search-runs/{run}/cancel', [WorkspaceSpfScannerController::class, 'cancelSearchRun'])->whereNumber('run')->middleware('throttle:10,1')->name('console.tools.spf.search-runs.cancel');
     Route::post('/app/workspaces/{workspace}/tools/spf-scanner/upload', [WorkspaceSpfScannerController::class, 'upload'])->middleware('throttle:5,1')->name('console.tools.spf.upload');
     Route::post('/app/workspaces/{workspace}/tools/spf-scanner/manual', [WorkspaceSpfScannerController::class, 'manual'])->middleware('throttle:10,1')->name('console.tools.spf.manual');
     Route::post('/app/workspaces/{workspace}/tools/spf-scanner/volume', [WorkspaceSpfScannerController::class, 'volume'])->middleware('throttle:20,1')->name('console.tools.spf.volume');

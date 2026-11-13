@@ -2,16 +2,22 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\RunWorkspaceSpfComparison;
+use App\Jobs\RunWorkspaceSpfScan;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceSpfRoot;
 use App\Models\WorkspaceSpfScan;
+use App\Models\WorkspaceSpfSearchRun;
 use App\Services\Spf\AlphaLinkSpfDnsCheckMatcher;
 use App\Services\Spf\AlphaLinkSpfScanLauncher;
 use App\Services\Spf\AlphaLinkSpfScanner;
 use App\Services\Spf\AlphaLinkSpfScanProcessor;
+use App\Services\Spf\AlphaLinkSpfSearchRunner;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Routing\Middleware\ThrottleRequests;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -24,6 +30,7 @@ class AlphaLinkSpfScannerTest extends TestCase
     {
         parent::setUp();
         Storage::fake('local');
+        $this->withoutMiddleware(ThrottleRequests::class);
     }
 
     public function test_spf_routes_are_in_the_tools_navigation_and_pages_render(): void
@@ -31,7 +38,7 @@ class AlphaLinkSpfScannerTest extends TestCase
         [$owner, $workspace] = $this->workspace();
 
         $this->actingAs($owner)->get(route('clean.console.tools.spf.index'))
-            ->assertOk()->assertSee('SPF SCANNER')->assertSee('SCAN DOMAINS')->assertSee('MANUAL')
+            ->assertOk()->assertSee('SPF SCANNER')->assertSee('SCAN DOMAINS')->assertSee('LIVE DNS LOOKUP')
             ->assertSee('id="spf-search-results"', false)
             ->assertSee('serverSide: true', false)
             ->assertSee('pageLength: 200', false)
@@ -82,8 +89,89 @@ class AlphaLinkSpfScannerTest extends TestCase
         $this->actingAs($owner)->getJson(route('console.tools.spf.scans', $workspace->id))
             ->assertOk()->assertJsonPath('data.0.id', $scan->id)->assertJsonPath('data.0.status', 'scanning');
         $this->actingAs($owner)->postJson(route('console.tools.spf.kill', [$workspace->id, $scan->id]))
-            ->assertOk()->assertJsonPath('message', 'Scan stopped. Workers will exit after their current DNS lookup.');
+            ->assertOk()->assertJsonPath('message', 'Scan cancelled. Active DNS lookups will finish before their workers exit.');
         $this->assertSame(WorkspaceSpfScan::STATUS_KILLED, $scan->fresh()->status);
+    }
+
+    public function test_uploaded_scan_is_queued_on_the_dedicated_spf_worker_queue(): void
+    {
+        [$owner, $workspace] = $this->workspace();
+        Queue::fake();
+
+        $this->actingAs($owner)->post(route('console.tools.spf.upload', $workspace->id), [
+            'file' => UploadedFile::fake()->createWithContent('domains.txt', "one.example.test\ntwo.example.test\n"),
+            'batch_size' => 25,
+            'workers' => 2,
+            'skip_existing' => '1',
+        ])->assertRedirect()->assertSessionHas('status');
+
+        $scan = WorkspaceSpfScan::query()->sole();
+        $this->assertSame(WorkspaceSpfScan::STATUS_PENDING, $scan->status);
+        $this->assertSame('queued', $scan->stage);
+        Queue::assertPushed(RunWorkspaceSpfScan::class, fn (RunWorkspaceSpfScan $job): bool => $job->scanId === $scan->id && $job->workers === 2);
+    }
+
+    public function test_scan_status_exposes_completed_count_and_worker_health(): void
+    {
+        [$owner, $workspace] = $this->workspace();
+        $scan = WorkspaceSpfScan::query()->create([
+            'workspace_id' => $workspace->id,
+            'created_by' => $owner->id,
+            'file_path' => 'spf-scans/domains.txt',
+            'status' => WorkspaceSpfScan::STATUS_SCANNING,
+            'stage' => 'resolving',
+            'current_domain' => 'example.test',
+            'total_lines' => 100_000,
+            'valid_domains' => 100_000,
+            'progress' => 25,
+            'batch_size' => 25,
+            'workers' => 2,
+            'heartbeat_at' => now()->subSeconds(5),
+            'progress_at' => now()->subSeconds(5),
+            'started_at' => now()->subMinute(),
+        ]);
+
+        $this->actingAs($owner)->getJson(route('console.tools.spf.scans', $workspace->id))
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $scan->id)
+            ->assertJsonPath('data.0.health', 'active')
+            ->assertJsonPath('data.0.progress_display', '25 / 100000 (0.03%)')
+            ->assertJsonPath('data.0.current_domain', 'example.test');
+    }
+
+    public function test_ip_comparison_runs_in_background_and_table_and_export_read_saved_results(): void
+    {
+        [$owner, $workspace] = $this->workspace();
+        foreach (['one.example.test', 'two.example.test'] as $domain) {
+            WorkspaceSpfRoot::query()->create([
+                'workspace_id' => $workspace->id,
+                'domain' => $domain,
+                'status' => 'ok',
+                'record' => 'v=spf1 ip4:192.0.2.0/24 -all',
+                'cidrs' => ['192.0.2.0/24'],
+                'hosts' => [['domain' => $domain, 'record' => 'v=spf1 ip4:192.0.2.0/24 -all', 'cidrs' => ['192.0.2.0/24']]],
+            ]);
+        }
+        Queue::fake();
+
+        $this->actingAs($owner)->postJson(route('console.tools.spf.search-runs.create', $workspace->id), [
+            'ips' => ['192.0.2.4', '198.51.100.7'],
+        ])->assertAccepted()->assertJsonPath('status', 'pending');
+
+        $run = WorkspaceSpfSearchRun::query()->sole();
+        Queue::assertPushed(RunWorkspaceSpfComparison::class, fn (RunWorkspaceSpfComparison $job): bool => $job->searchRunId === $run->id);
+        app(AlphaLinkSpfSearchRunner::class)->run((int) $run->id);
+
+        $this->assertSame(WorkspaceSpfSearchRun::STATUS_COMPLETE, $run->fresh()->status);
+        $this->assertSame(2, $run->fresh()->progress);
+        $this->assertSame(2, $run->fresh()->total_matches);
+        $this->actingAs($owner)->getJson(route('console.tools.spf.search-runs.results', [$workspace->id, $run->id]).'?draw=1&start=0&length=1')
+            ->assertOk()->assertJsonPath('recordsTotal', 2)->assertJsonPath('recordsFiltered', 2)->assertJsonCount(1, 'data');
+        $export = $this->actingAs($owner)->get(route('console.tools.spf.search-runs.export', [$workspace->id, $run->id]))
+            ->assertOk()->streamedContent();
+        $this->assertCount(3, preg_split('/\r?\n/', trim($export)));
+        $this->assertStringContainsString('one.example.test', $export);
+        $this->assertStringContainsString('two.example.test', $export);
     }
 
     public function test_scan_worker_stores_workspace_scoped_roots_and_ip_search_matches_cidr(): void
@@ -182,7 +270,7 @@ class AlphaLinkSpfScannerTest extends TestCase
 
         $this->actingAs($owner)->postJson(route('console.tools.spf.search', $workspace->id), ['ips' => ['192.0.2.7']])
             ->assertOk()
-            ->assertExactJson(['data' => []]);
+            ->assertExactJson(['data' => [], 'truncated' => false, 'dns_checks_limited' => false]);
     }
 
     public function test_ip_search_supports_reference_datatables_prefix_filter_sort_and_pagination(): void
@@ -209,7 +297,7 @@ class AlphaLinkSpfScannerTest extends TestCase
         ])->assertOk()
             ->assertJsonPath('draw', 8)
             ->assertJsonPath('recordsTotal', 3)
-            ->assertJsonPath('recordsFiltered', 3)
+            ->assertJsonPath('recordsFiltered', 2)
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.root', 'alpha-two.example.test')
             ->assertJsonPath('data.0.include', 'shared.example.test')
@@ -323,7 +411,7 @@ class AlphaLinkSpfScannerTest extends TestCase
     /** @return array{User, Workspace} */
     private function workspace(): array
     {
-        $owner = User::factory()->create();
+        $owner = User::factory()->create(['access_role' => User::ACCESS_ROLE_OWNER]);
         $workspace = Workspace::query()->create([
             'name' => 'SPF scanner',
             'slug' => 'spf-'.Str::lower(Str::random(10)),

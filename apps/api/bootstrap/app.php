@@ -1,6 +1,7 @@
 <?php
 
 use App\Console\Commands\DispatchManagedServerPmtaFeedback;
+use App\Console\Commands\PruneWorkspaceSpfSearchRuns;
 use App\Console\Commands\RecoverCampaignSends;
 use App\Console\Commands\RunAppHealthChecks;
 use App\Console\Commands\SyncWorkspaceSponsorLeads;
@@ -62,6 +63,10 @@ $application = Application::configure(basePath: dirname(__DIR__))
             ->runInBackground();
         $schedule->command('model:prune', ['--model' => PmtaActionHistory::class])
             ->daily()
+            ->runInBackground();
+        $schedule->command(PruneWorkspaceSpfSearchRuns::class)
+            ->daily()
+            ->withoutOverlapping()
             ->runInBackground();
         $schedule->command('workspace:offers-refresh')
             ->dailyAt('04:00')

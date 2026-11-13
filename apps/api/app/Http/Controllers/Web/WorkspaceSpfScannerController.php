@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\RunWorkspaceSpfComparison;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceSpfRoot;
 use App\Models\WorkspaceSpfScan;
+use App\Models\WorkspaceSpfSearchResult;
+use App\Models\WorkspaceSpfSearchRun;
 use App\Services\Spf\AlphaLinkSpfDnsCheckMatcher;
 use App\Services\Spf\AlphaLinkSpfScanLauncher;
 use App\Services\Spf\AlphaLinkSpfScanner;
@@ -14,21 +17,31 @@ use App\Services\Spf\SpfParser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
+use SplFileObject;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class WorkspaceSpfScannerController extends Controller
 {
+    private bool $searchDnsCheckLimitReached = false;
+
     public function index(Request $request, string $workspace): View|JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $roots = $workspace->id;
+        $jsonArrayLength = in_array(DB::connection()->getDriverName(), ['mysql', 'mariadb'], true)
+            ? 'JSON_LENGTH'
+            : 'json_array_length';
+        $inventory = WorkspaceSpfRoot::query()
+            ->where('workspace_id', $roots)
+            ->selectRaw("COALESCE(SUM(CASE WHEN hosts IS NULL THEN 0 ELSE {$jsonArrayLength}(hosts) END), 0) AS host_count")
+            ->selectRaw("COALESCE(SUM(CASE WHEN cidrs IS NULL THEN 0 ELSE {$jsonArrayLength}(cidrs) END), 0) AS cidr_count")
+            ->first();
         $stats = [
             'roots' => WorkspaceSpfRoot::query()->where('workspace_id', $roots)->count(),
-            'hosts' => WorkspaceSpfRoot::query()->where('workspace_id', $roots)->get(['hosts'])
-                ->flatMap(fn (WorkspaceSpfRoot $row): array => collect($row->hosts ?? [])->pluck('domain')->all())->unique()->count(),
-            'cidrs' => WorkspaceSpfRoot::query()->where('workspace_id', $roots)->get(['cidrs'])
-                ->flatMap(fn (WorkspaceSpfRoot $row): array => $row->cidrs ?? [])->unique()->count(),
+            'hosts' => (int) ($inventory?->host_count ?? 0),
+            'cidrs' => (int) ($inventory?->cidr_count ?? 0),
         ];
 
         if ($request->wantsJson()) {
@@ -39,7 +52,9 @@ class WorkspaceSpfScannerController extends Controller
             ] : $stats);
         }
 
-        return view('console.tools.spf-scanner.index', compact('workspace', 'stats'));
+        $maxWorkers = min(16, max(1, (int) config('spf.max_workers', 8)));
+
+        return view('console.tools.spf-scanner.index', compact('workspace', 'stats', 'maxWorkers'));
     }
 
     public function domains(Request $request, string $workspace): View
@@ -96,13 +111,28 @@ class WorkspaceSpfScannerController extends Controller
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $data = $request->validate(['ips' => ['required', 'array', 'min:1', 'max:100'], 'ips.*' => ['required', 'string', 'ip']]);
         $ips = array_values(array_unique($data['ips']));
-        $rows = $this->searchRows($workspace, $ips);
 
         if ($request->hasAny(['draw', 'start', 'length', 'search'])) {
-            return response()->json($this->dataTableSearchResponse($request, $rows));
+            return response()->json($this->dataTableSearchResponse($request, $workspace, $ips));
         }
 
-        return response()->json(['data' => $rows]);
+        $rows = [];
+        $limit = (int) config('spf.max_search_table_rows', 20_000);
+        $truncated = false;
+        foreach ($this->searchRows($workspace, $ips) as $row) {
+            if (count($rows) >= $limit) {
+                $truncated = true;
+
+                continue;
+            }
+            $rows[] = $row;
+        }
+
+        return response()->json([
+            'data' => $rows,
+            'truncated' => $truncated,
+            'dns_checks_limited' => $this->searchDnsCheckLimitReached,
+        ]);
     }
 
     public function searchExport(Request $request, string $workspace): StreamedResponse
@@ -110,27 +140,168 @@ class WorkspaceSpfScannerController extends Controller
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $data = $request->validate(['ips' => ['required', 'array', 'min:1', 'max:100'], 'ips.*' => ['required', 'string', 'ip']]);
         $ips = array_values(array_unique($data['ips']));
-        $rows = $this->searchRows($workspace, $ips);
 
-        return response()->streamDownload(function () use ($rows): void {
+        return response()->streamDownload(function () use ($workspace, $ips): void {
             $output = fopen('php://output', 'w');
             fputcsv($output, ['matched_ip', 'root', 'include', 'network']);
-            foreach ($rows as $row) {
+            foreach ($this->searchRows($workspace, $ips) as $row) {
                 fputcsv($output, [$row['matched_ip'], $row['root'], $row['include'], $row['network']]);
             }
             fclose($output);
         }, 'spf_search_'.now()->format('Ymd_His').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
-    public function upload(Request $request, string $workspace, AlphaLinkSpfScanLauncher $launcher): RedirectResponse
+    public function createSearchRun(Request $request, string $workspace): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $data = $request->validate([
-            'file' => ['required', 'file', 'mimes:txt'],
+            'ips' => ['required', 'array', 'min:1', 'max:100'],
+            'ips.*' => ['required', 'string', 'ip'],
+        ]);
+        $ips = array_values(array_unique($data['ips']));
+        $run = WorkspaceSpfSearchRun::query()->create([
+            'workspace_id' => $workspace->id,
+            'created_by' => $request->user()->id,
+            'ips' => $ips,
+            'status' => WorkspaceSpfSearchRun::STATUS_PENDING,
+            'stage' => 'queued',
+            'total_roots' => WorkspaceSpfRoot::query()->where('workspace_id', $workspace->id)->count(),
+        ]);
+
+        try {
+            RunWorkspaceSpfComparison::dispatch((int) $run->getKey());
+        } catch (\Throwable $exception) {
+            report($exception);
+            $run->update([
+                'status' => WorkspaceSpfSearchRun::STATUS_FAILED,
+                'stage' => 'failed',
+                'failure' => 'The comparison could not be queued. Check queue health and try again.',
+                'ended_at' => now(),
+            ]);
+
+            return response()->json(['error' => $run->failure], 503);
+        }
+
+        return response()->json(['id' => $run->getKey(), 'status' => $run->status], 202);
+    }
+
+    public function searchRunStatus(Request $request, string $workspace, WorkspaceSpfSearchRun $run): JsonResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        abort_unless((string) $run->workspace_id === (string) $workspace->id, 404);
+        $heartbeatAge = $run->heartbeat_at?->diffInSeconds(now());
+        $queueAge = $run->status === WorkspaceSpfSearchRun::STATUS_PENDING ? $run->created_at?->diffInSeconds(now()) : null;
+        $health = match (true) {
+            $run->status === WorkspaceSpfSearchRun::STATUS_PENDING && $queueAge !== null && $queueAge > 60 => 'queued_overdue',
+            $run->status === WorkspaceSpfSearchRun::STATUS_PENDING => 'queued',
+            $run->status !== WorkspaceSpfSearchRun::STATUS_PROCESSING => $run->status,
+            $heartbeatAge === null => 'no_heartbeat',
+            $heartbeatAge > 90 => 'stale_heartbeat',
+            default => 'active',
+        };
+
+        return response()->json($run->toArray() + [
+            'progress_total' => $run->total_roots,
+            'progress_display' => sprintf('%d / %d roots', $run->progress, $run->total_roots),
+            'heartbeat_age_seconds' => $heartbeatAge,
+            'queue_age_seconds' => $queueAge,
+            'health' => $health,
+        ]);
+    }
+
+    public function searchRunResults(Request $request, string $workspace, WorkspaceSpfSearchRun $run): JsonResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        abort_unless((string) $run->workspace_id === (string) $workspace->id, 404);
+        $draw = max(0, (int) $request->query('draw', 0));
+        $start = max(0, (int) $request->query('start', 0));
+        $length = min(250, max(1, (int) $request->query('length', 200)));
+        $search = strtolower(trim((string) $request->query('search.value', '')));
+        $order = $request->query('order.0', []);
+        $column = match ((int) data_get($order, 'column', 1)) {
+            0 => 'matched_ip',
+            2 => 'include',
+            3 => 'network',
+            default => 'root',
+        };
+        $direction = strtolower((string) data_get($order, 'dir', 'asc')) === 'desc' ? 'desc' : 'asc';
+        $baseQuery = WorkspaceSpfSearchResult::query()->where('search_run_id', $run->getKey());
+        $recordsTotal = (clone $baseQuery)->count();
+        $query = (clone $baseQuery)->when($search !== '', function ($query) use ($search): void {
+            $query->where(function ($query) use ($search): void {
+                $query->where('root', 'like', $search.'%')->orWhere('include', 'like', $search.'%');
+            });
+        });
+        $recordsFiltered = (clone $query)->count();
+        $rows = $query->orderBy($column, $direction)->orderBy('id')->offset($start)->limit($length)->get([
+            'root_id', 'matched_ip', 'root', 'include', 'network',
+        ]);
+
+        return response()->json([
+            'draw' => $draw,
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'exactMatches' => $recordsFiltered,
+            'data' => $rows,
+        ]);
+    }
+
+    public function searchRunExport(Request $request, string $workspace, WorkspaceSpfSearchRun $run): StreamedResponse|JsonResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        abort_unless((string) $run->workspace_id === (string) $workspace->id, 404);
+        if ($run->status !== WorkspaceSpfSearchRun::STATUS_COMPLETE) {
+            return response()->json(['error' => 'Wait for the comparison to finish before exporting its results.'], 409);
+        }
+
+        $rows = WorkspaceSpfSearchResult::query()->where('search_run_id', $run->getKey())->orderBy('id');
+
+        return response()->streamDownload(function () use ($rows): void {
+            $output = fopen('php://output', 'w');
+            fputcsv($output, ['matched_ip', 'root', 'include', 'network']);
+            foreach ($rows->cursor() as $row) {
+                fputcsv($output, [$row->matched_ip, $row->root, $row->include, $row->network]);
+            }
+            fclose($output);
+        }, 'spf_comparison_'.$run->getKey().'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    public function cancelSearchRun(Request $request, string $workspace, WorkspaceSpfSearchRun $run): JsonResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        abort_unless((string) $run->workspace_id === (string) $workspace->id, 404);
+        if (! in_array($run->status, [WorkspaceSpfSearchRun::STATUS_PENDING, WorkspaceSpfSearchRun::STATUS_PROCESSING], true)) {
+            return response()->json(['error' => 'The comparison is no longer running.'], 409);
+        }
+        $run->update([
+            'status' => WorkspaceSpfSearchRun::STATUS_CANCELLED,
+            'stage' => 'cancelled',
+            'ended_at' => now(),
+        ]);
+
+        return response()->json(['message' => 'Comparison cancelled. The worker will stop at its next checkpoint.']);
+    }
+
+    public function upload(Request $request, string $workspace, AlphaLinkSpfScanLauncher $launcher): RedirectResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        $maxWorkers = min(16, max(1, (int) config('spf.max_workers', 8)));
+        $data = $request->validate([
+            'file' => ['required', 'file', 'mimes:txt', 'max:65536'],
             'batch_size' => ['required', 'integer', 'min:1', 'max:1000'],
-            'workers' => ['sometimes', 'integer', 'min:1', 'max:8'],
+            'workers' => ['sometimes', 'integer', 'min:1', 'max:'.$maxWorkers],
             'skip_existing' => ['sometimes', 'boolean'],
         ]);
+
+        $domainCount = $this->countValidDomains($request->file('file')->getRealPath());
+        $maximumDomains = max(100_000, (int) config('spf.max_domains_per_scan', 250_000));
+        if ($domainCount === 0) {
+            return back()->withErrors(['file' => 'The uploaded file does not contain any valid domain names.'])->withInput();
+        }
+        if ($domainCount > $maximumDomains) {
+            return back()->withErrors(['file' => 'This file contains '.$domainCount.' valid domain lines; the configured limit is '.number_format($maximumDomains).'.'])->withInput();
+        }
+
         $path = $request->file('file')->store('spf-scans', 'local');
         $scan = WorkspaceSpfScan::query()->create([
             'workspace_id' => $workspace->id,
@@ -138,7 +309,7 @@ class WorkspaceSpfScannerController extends Controller
             'file_path' => $path,
             'status' => WorkspaceSpfScan::STATUS_PENDING,
             'batch_size' => $data['batch_size'],
-            'workers' => $data['workers'] ?? 1,
+            'workers' => $data['workers'] ?? $maxWorkers,
             'skip_existing' => $request->boolean('skip_existing'),
         ]);
 
@@ -146,7 +317,7 @@ class WorkspaceSpfScannerController extends Controller
             return back()->withErrors(['file' => 'The SPF scan process could not be started.'])->withInput();
         }
 
-        return back()->with('status', 'SPF scan started. Progress updates appear in the Scans table.');
+        return back()->with('status', 'SPF scan queued for '.number_format($domainCount).' valid domain lines with '.$scan->workers.' DNS workers.');
     }
 
     public function manual(Request $request, string $workspace, AlphaLinkSpfScanner $scanner): JsonResponse
@@ -186,11 +357,32 @@ class WorkspaceSpfScannerController extends Controller
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $scans = WorkspaceSpfScan::query()->where('workspace_id', $workspace->id)->orderByDesc('id')->limit(100)->get([
-            'id', 'pid', 'status', 'total_lines', 'progress', 'batch_size', 'workers', 'skip_existing', 'created_at', 'total_found', 'ended_at', 'failure',
+            'id', 'pid', 'status', 'stage', 'current_domain', 'heartbeat_at', 'progress_at', 'total_lines', 'valid_domains', 'progress', 'batch_size', 'workers', 'skip_existing', 'created_at', 'started_at', 'total_found', 'ended_at', 'failure',
         ])->map(function (WorkspaceSpfScan $scan): array {
-            return $scan->toArray() + ['progress_display' => $scan->total_lines > 0
-                ? sprintf('%d / %d (%.1f%%)', $scan->progress, $scan->total_lines, min(100, $scan->progress / $scan->total_lines * 100))
-                : '0%'];
+            $progressTotal = $scan->valid_domains > 0 ? $scan->valid_domains : $scan->total_lines;
+            $heartbeatAge = $scan->heartbeat_at?->diffInSeconds(now());
+            $progressAge = $scan->progress_at?->diffInSeconds(now());
+            $queueAge = $scan->status === WorkspaceSpfScan::STATUS_PENDING ? $scan->created_at?->diffInSeconds(now()) : null;
+            $health = match (true) {
+                $scan->status === WorkspaceSpfScan::STATUS_PENDING && $queueAge !== null && $queueAge > 60 => 'queued_overdue',
+                $scan->status === WorkspaceSpfScan::STATUS_PENDING => 'queued',
+                $scan->status !== WorkspaceSpfScan::STATUS_SCANNING => $scan->status,
+                $heartbeatAge === null => 'no_heartbeat',
+                $heartbeatAge > 90 => 'stale_heartbeat',
+                $progressAge !== null && $progressAge > 180 => 'no_recent_progress',
+                default => 'active',
+            };
+
+            return $scan->toArray() + [
+                'progress_total' => $progressTotal,
+                'progress_display' => $progressTotal > 0
+                    ? sprintf('%d / %d (%.2f%%)', $scan->progress, $progressTotal, min(100, $scan->progress / $progressTotal * 100))
+                    : '0%',
+                'heartbeat_age_seconds' => $heartbeatAge,
+                'progress_age_seconds' => $progressAge,
+                'queue_age_seconds' => $queueAge,
+                'health' => $health,
+            ];
         });
 
         return response()->json(['data' => $scans]);
@@ -200,22 +392,31 @@ class WorkspaceSpfScannerController extends Controller
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         abort_unless((string) $scan->workspace_id === (string) $workspace->id, 404);
-        if ($scan->status !== WorkspaceSpfScan::STATUS_SCANNING) {
+        if (! in_array($scan->status, [WorkspaceSpfScan::STATUS_PENDING, WorkspaceSpfScan::STATUS_SCANNING], true)) {
             return response()->json(['error' => 'Scan is not running'], 400);
         }
-        $scan->update(['status' => WorkspaceSpfScan::STATUS_KILLED]);
+        $scan->update([
+            'status' => WorkspaceSpfScan::STATUS_KILLED,
+            'stage' => 'cancelled',
+            'ended_at' => now(),
+            'current_domain' => null,
+        ]);
 
-        return response()->json(['message' => 'Scan stopped. Workers will exit after their current DNS lookup.']);
+        return response()->json(['message' => 'Scan cancelled. Active DNS lookups will finish before their workers exit.']);
     }
 
-    private function searchRows(Workspace $workspace, array $ips): array
+    /** @return \Generator<int, array{root_id: int|string, matched_ip: string, root: string, include: string, network: string, record?: ?string}> */
+    private function searchRows(Workspace $workspace, array $ips): \Generator
     {
+        $matcher = app(AlphaLinkSpfDnsCheckMatcher::class);
+        $this->searchDnsCheckLimitReached = false;
+        $remainingDnsChecks = null;
         $roots = WorkspaceSpfRoot::query()
             ->where('workspace_id', $workspace->id)
-            ->orderBy('id')
-            ->get(['id', 'domain', 'record', 'hosts']);
-        $rows = [];
-        foreach ($roots as $root) {
+            ->select(['id', 'domain', 'record', 'hosts']);
+
+        foreach ($roots->lazyById(100) as $root) {
+            $rows = [];
             foreach ($ips as $ip) {
                 foreach ($root->hosts ?? [] as $host) {
                     foreach ($host['cidrs'] ?? [] as $cidr) {
@@ -225,31 +426,26 @@ class WorkspaceSpfScannerController extends Controller
                     }
                 }
             }
+            foreach ($matcher->findMatches([$root], $ips, $remainingDnsChecks) as $row) {
+                $rows[] = $row;
+            }
+
+            $uniqueRows = [];
+            foreach ($rows as $row) {
+                $key = $row['matched_ip'].'|'.$row['root'].'|'.$row['include'];
+                $uniqueRows[$key] ??= $row;
+            }
+            foreach ($uniqueRows as $row) {
+                yield $row;
+            }
         }
 
-        $rows = array_merge($rows, app(AlphaLinkSpfDnsCheckMatcher::class)->findMatches($roots, $ips));
-        $uniqueRows = [];
-        foreach ($rows as $row) {
-            $key = $row['matched_ip'].'|'.$row['root'].'|'.$row['include'];
-            $uniqueRows[$key] ??= $row;
-        }
-
-        return array_values($uniqueRows);
+        $this->searchDnsCheckLimitReached = $matcher->dnsCheckLimitReached();
     }
 
-    /** @param array<int, array<string, mixed>> $rows */
-    private function dataTableSearchResponse(Request $request, array $rows): array
+    private function dataTableSearchResponse(Request $request, Workspace $workspace, array $ips): array
     {
         $search = strtolower(trim((string) data_get($request->input('search', []), 'value', '')));
-        $filtered = $search === '' ? $rows : array_values(array_filter($rows, static fn (array $row): bool => str_starts_with(strtolower((string) $row['root']), $search)
-            || str_starts_with(strtolower((string) $row['include']), $search)
-        ));
-        $rootsByInclude = [];
-        foreach ($rows as $row) {
-            $rootsByInclude[$row['include']][(string) $row['root_id']] = true;
-        }
-        $estimatedRootCount = $rootsByInclude === [] ? 0 : max(array_map('count', $rootsByInclude));
-
         $order = $request->input('order.0', []);
         $orderColumn = (int) ($order['column'] ?? 1);
         $orderDirection = strtolower((string) ($order['dir'] ?? 'asc')) === 'desc' ? -1 : 1;
@@ -259,27 +455,75 @@ class WorkspaceSpfScannerController extends Controller
             3 => 'network',
             default => 'root',
         };
-        usort($filtered, static function (array $left, array $right) use ($orderDirection, $orderKey): int {
-            $primary = strnatcasecmp((string) $left[$orderKey], (string) $right[$orderKey]);
-            if ($primary !== 0) {
-                return $primary * $orderDirection;
-            }
-
-            return strnatcasecmp((string) $left['include'], (string) $right['include']);
-        });
-
+        $limit = max(1000, (int) config('spf.max_search_table_rows', 20_000));
         $draw = max(0, (int) $request->input('draw', 0));
         $start = max(0, (int) $request->input('start', 0));
         $length = (int) $request->input('length', 200);
-        $page = $length < 0 ? $filtered : array_slice($filtered, $start, min(250, max(1, $length)));
+        $pageLength = min(250, max(1, $length));
+        $allCount = 0;
+        $filteredCount = 0;
+        $candidates = [];
+
+        foreach ($this->searchRows($workspace, $ips) as $row) {
+            $allCount++;
+            if ($search !== '' && ! str_starts_with(strtolower((string) $row['root']), $search)
+                && ! str_starts_with(strtolower((string) $row['include']), $search)) {
+                continue;
+            }
+
+            $filteredCount++;
+            $candidates[] = $row;
+            if (count($candidates) >= $limit * 2) {
+                $this->sortSearchRows($candidates, $orderKey, $orderDirection);
+                $candidates = array_slice($candidates, 0, $limit);
+            }
+        }
+
+        $this->sortSearchRows($candidates, $orderKey, $orderDirection);
+        $data = array_slice($candidates, $start, $pageLength);
+        $visibleCount = min($filteredCount, $limit);
 
         return [
             'draw' => $draw,
-            'recordsTotal' => $estimatedRootCount,
-            'recordsFiltered' => $estimatedRootCount,
-            'estimated' => true,
-            'data' => $page,
+            'recordsTotal' => min($allCount, $limit),
+            'recordsFiltered' => $visibleCount,
+            'exactMatches' => $filteredCount,
+            'truncated' => $filteredCount > $limit,
+            'dns_checks_limited' => $this->searchDnsCheckLimitReached,
+            'data' => $data,
         ];
+    }
+
+    /** @param array<int, array<string, mixed>> $rows */
+    private function sortSearchRows(array &$rows, string $orderKey, int $direction): void
+    {
+        usort($rows, static function (array $left, array $right) use ($direction, $orderKey): int {
+            $primary = strnatcasecmp((string) $left[$orderKey], (string) $right[$orderKey]);
+            if ($primary !== 0) {
+                return $primary * $direction;
+            }
+
+            $secondary = strnatcasecmp((string) $left['include'], (string) $right['include']);
+            if ($secondary !== 0) {
+                return $secondary * $direction;
+            }
+
+            return strnatcasecmp((string) $left['matched_ip'], (string) $right['matched_ip']) * $direction;
+        });
+    }
+
+    private function countValidDomains(string $path): int
+    {
+        $count = 0;
+        $file = new SplFileObject($path, 'r');
+        while (! $file->eof()) {
+            $line = trim(str_replace("\xEF\xBB\xBF", '', (string) $file->fgets()));
+            if ($line !== '' && filter_var(rtrim($line, '.'), FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) !== false) {
+                $count++;
+            }
+        }
+
+        return $count;
     }
 
     private function workspaceFor(?User $user, string $workspaceId): Workspace

@@ -16,13 +16,27 @@ class ScanWorkspaceSpfScan extends Command
     public function handle(AlphaLinkSpfScanProcessor $processor): int
     {
         $scanId = (int) $this->argument('scan');
-        $workers = max(1, min(8, (int) $this->option('workers')));
+        $maximumWorkers = min(16, max(1, (int) config('spf.max_workers', 8)));
+        $workers = max(1, min($maximumWorkers, (int) $this->option('workers')));
         $worker = $this->option('worker');
         if ($worker !== null) {
             return $processor->runShard($scanId, $workers, max(0, min($workers - 1, (int) $worker)));
         }
 
-        if (! $processor->prepare($scanId, $workers)) {
+        try {
+            if (! $processor->prepare($scanId, $workers)) {
+                return self::FAILURE;
+            }
+        } catch (\Throwable $exception) {
+            report($exception);
+            WorkspaceSpfScan::query()->whereKey($scanId)->update([
+                'status' => WorkspaceSpfScan::STATUS_FAILED,
+                'stage' => 'failed',
+                'failure' => 'The SPF scan could not be prepared. Check application logs.',
+                'ended_at' => now(),
+            ]);
+            $processor->finish($scanId, false);
+
             return self::FAILURE;
         }
         $scan = WorkspaceSpfScan::query()->find($scanId);
@@ -37,17 +51,30 @@ class ScanWorkspaceSpfScan extends Command
         }
 
         $processes = [];
-        for ($index = 0; $index < $workers; $index++) {
-            $process = new Process([
-                PHP_BINARY,
-                base_path('artisan'),
-                'spf:scan-workspace',
-                (string) $scanId,
-                '--worker='.$index,
-                '--workers='.$workers,
-            ], base_path());
-            $process->start();
-            $processes[] = $process;
+        try {
+            for ($index = 0; $index < $workers; $index++) {
+                $process = new Process([
+                    PHP_BINARY,
+                    base_path('artisan'),
+                    'spf:scan-workspace',
+                    (string) $scanId,
+                    '--worker='.$index,
+                    '--workers='.$workers,
+                ], base_path());
+                $process->start();
+                $processes[] = $process;
+            }
+        } catch (\Throwable $exception) {
+            report($exception);
+            foreach ($processes as $process) {
+                if ($process->isRunning()) {
+                    $process->stop(0.2);
+                }
+            }
+            $scan->update(['status' => WorkspaceSpfScan::STATUS_FAILED, 'stage' => 'failed', 'failure' => 'A scan worker could not be started. Check application logs.']);
+            $processor->finish($scanId, false);
+
+            return self::FAILURE;
         }
         $scan->update([
             'pid' => getmypid(),
@@ -55,6 +82,7 @@ class ScanWorkspaceSpfScan extends Command
         ]);
 
         $successful = true;
+        $lastHeartbeatAt = microtime(true);
         do {
             $scan->refresh();
             if ($scan->status === WorkspaceSpfScan::STATUS_KILLED) {
@@ -86,6 +114,10 @@ class ScanWorkspaceSpfScan extends Command
             }
             if ($running) {
                 usleep(250_000);
+                if (microtime(true) - $lastHeartbeatAt >= 10) {
+                    $scan->forceFill(['heartbeat_at' => now()])->save();
+                    $lastHeartbeatAt = microtime(true);
+                }
             }
         } while ($running);
 

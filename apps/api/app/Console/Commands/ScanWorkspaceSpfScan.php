@@ -29,7 +29,7 @@ class ScanWorkspaceSpfScan extends Command
             }
         } catch (\Throwable $exception) {
             report($exception);
-            WorkspaceSpfScan::query()->whereKey($scanId)->update([
+            WorkspaceSpfScan::query()->whereKey($scanId)->where('status', WorkspaceSpfScan::STATUS_PENDING)->update([
                 'status' => WorkspaceSpfScan::STATUS_FAILED,
                 'stage' => 'failed',
                 'failure' => 'The SPF scan could not be prepared. Check application logs.',
@@ -43,6 +43,7 @@ class ScanWorkspaceSpfScan extends Command
         if (! $scan) {
             return self::FAILURE;
         }
+        $workers = max(1, min($maximumWorkers, (int) $scan->workers));
 
         if ($scan->total_lines === 0) {
             $processor->finish($scanId, true);

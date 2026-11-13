@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\WorkspaceSpfScan;
+use App\Services\Spf\AlphaLinkSpfScanProcessor;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -30,10 +31,18 @@ class RunWorkspaceSpfScan implements ShouldQueue
         return ['spf-scan', 'spf-scan:'.$this->scanId];
     }
 
-    public function handle(): void
+    public function handle(AlphaLinkSpfScanProcessor $processor): void
     {
         $scan = WorkspaceSpfScan::query()->find($this->scanId);
-        if (! $scan || $scan->status !== WorkspaceSpfScan::STATUS_PENDING) {
+        if (! $scan) {
+            return;
+        }
+        if ($scan->status === WorkspaceSpfScan::STATUS_KILLED) {
+            $processor->finish($this->scanId, false);
+
+            return;
+        }
+        if ($scan->status !== WorkspaceSpfScan::STATUS_PENDING) {
             return;
         }
 

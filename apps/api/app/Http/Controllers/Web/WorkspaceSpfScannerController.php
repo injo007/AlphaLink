@@ -11,6 +11,7 @@ use App\Models\WorkspaceSpfScan;
 use App\Models\WorkspaceSpfSearchResult;
 use App\Models\WorkspaceSpfSearchRun;
 use App\Services\Spf\AlphaLinkSpfDnsCheckMatcher;
+use App\Services\Spf\AlphaLinkSpfScanActivity;
 use App\Services\Spf\AlphaLinkSpfScanLauncher;
 use App\Services\Spf\AlphaLinkSpfScanner;
 use App\Services\Spf\SpfParser;
@@ -18,8 +19,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
-use SplFileObject;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class WorkspaceSpfScannerController extends Controller
@@ -53,8 +54,9 @@ class WorkspaceSpfScannerController extends Controller
         }
 
         $maxWorkers = min(16, max(1, (int) config('spf.max_workers', 8)));
+        $maxUploadBytes = max(1, (int) config('spf.max_upload_kilobytes', 1_048_576)) * 1024;
 
-        return view('console.tools.spf-scanner.index', compact('workspace', 'stats', 'maxWorkers'));
+        return view('console.tools.spf-scanner.index', compact('workspace', 'stats', 'maxWorkers', 'maxUploadBytes'));
     }
 
     public function domains(Request $request, string $workspace): View
@@ -282,25 +284,18 @@ class WorkspaceSpfScannerController extends Controller
         return response()->json(['message' => 'Comparison cancelled. The worker will stop at its next checkpoint.']);
     }
 
-    public function upload(Request $request, string $workspace, AlphaLinkSpfScanLauncher $launcher): RedirectResponse
+    public function upload(Request $request, string $workspace, AlphaLinkSpfScanLauncher $launcher, AlphaLinkSpfScanActivity $activity): RedirectResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $maxWorkers = min(16, max(1, (int) config('spf.max_workers', 8)));
+        $maxUploadKilobytes = max(1, (int) config('spf.max_upload_kilobytes', 1_048_576));
         $data = $request->validate([
-            'file' => ['required', 'file', 'mimes:txt', 'max:65536'],
+            'file' => ['required', 'file', 'mimes:txt', 'max:'.$maxUploadKilobytes],
             'batch_size' => ['required', 'integer', 'min:1', 'max:1000'],
             'workers' => ['sometimes', 'integer', 'min:1', 'max:'.$maxWorkers],
+            'partition_count' => ['sometimes', 'integer', 'in:1,4,5'],
             'skip_existing' => ['sometimes', 'boolean'],
         ]);
-
-        $domainCount = $this->countValidDomains($request->file('file')->getRealPath());
-        $maximumDomains = max(100_000, (int) config('spf.max_domains_per_scan', 250_000));
-        if ($domainCount === 0) {
-            return back()->withErrors(['file' => 'The uploaded file does not contain any valid domain names.'])->withInput();
-        }
-        if ($domainCount > $maximumDomains) {
-            return back()->withErrors(['file' => 'This file contains '.$domainCount.' valid domain lines; the configured limit is '.number_format($maximumDomains).'.'])->withInput();
-        }
 
         $path = $request->file('file')->store('spf-scans', 'local');
         $scan = WorkspaceSpfScan::query()->create([
@@ -310,14 +305,22 @@ class WorkspaceSpfScannerController extends Controller
             'status' => WorkspaceSpfScan::STATUS_PENDING,
             'batch_size' => $data['batch_size'],
             'workers' => $data['workers'] ?? $maxWorkers,
+            'partition_count' => $data['partition_count'] ?? 1,
             'skip_existing' => $request->boolean('skip_existing'),
         ]);
 
         if (! $launcher->start($scan)) {
+            Storage::disk('local')->delete($path);
+
             return back()->withErrors(['file' => 'The SPF scan process could not be started.'])->withInput();
         }
+        $activity->recordEvent((int) $scan->getKey(), 'info', 'scan_queued', 'SPF scan queued for background validation and processing.', [
+            'partition_count' => (int) $scan->partition_count,
+            'workers' => (int) $scan->workers,
+            'batch_size' => (int) $scan->batch_size,
+        ]);
 
-        return back()->with('status', 'SPF scan queued for '.number_format($domainCount).' valid domain lines with '.$scan->workers.' DNS workers.');
+        return back()->with('status', 'SPF scan queued. The file will be validated in the background, then processed with up to '.$scan->workers.' DNS workers across '.$scan->partition_count.' '.((int) $scan->partition_count === 1 ? 'file' : 'equal parts').'.');
     }
 
     public function manual(Request $request, string $workspace, AlphaLinkSpfScanner $scanner): JsonResponse
@@ -357,13 +360,17 @@ class WorkspaceSpfScannerController extends Controller
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $scans = WorkspaceSpfScan::query()->where('workspace_id', $workspace->id)->orderByDesc('id')->limit(100)->get([
-            'id', 'pid', 'status', 'stage', 'current_domain', 'heartbeat_at', 'progress_at', 'total_lines', 'valid_domains', 'progress', 'batch_size', 'workers', 'skip_existing', 'created_at', 'started_at', 'total_found', 'ended_at', 'failure',
+            'id', 'pid', 'status', 'stage', 'current_domain', 'heartbeat_at', 'progress_at', 'total_lines', 'valid_domains', 'progress', 'batch_size', 'workers', 'partition_count', 'file_size_bytes', 'preparation_bytes', 'skip_existing', 'created_at', 'started_at', 'total_found', 'ended_at', 'failure',
         ])->map(function (WorkspaceSpfScan $scan): array {
             $progressTotal = $scan->valid_domains > 0 ? $scan->valid_domains : $scan->total_lines;
             $heartbeatAge = $scan->heartbeat_at?->diffInSeconds(now());
             $progressAge = $scan->progress_at?->diffInSeconds(now());
             $queueAge = $scan->status === WorkspaceSpfScan::STATUS_PENDING ? $scan->created_at?->diffInSeconds(now()) : null;
+            $preparationPercent = $scan->file_size_bytes > 0
+                ? min(100, (int) floor($scan->preparation_bytes / $scan->file_size_bytes * 100))
+                : 0;
             $health = match (true) {
+                $scan->status === WorkspaceSpfScan::STATUS_PENDING && in_array($scan->stage, ['preparing', 'validating', 'partitioning', 'preparing_ranges'], true) => 'preparing',
                 $scan->status === WorkspaceSpfScan::STATUS_PENDING && $queueAge !== null && $queueAge > 60 => 'queued_overdue',
                 $scan->status === WorkspaceSpfScan::STATUS_PENDING => 'queued',
                 $scan->status !== WorkspaceSpfScan::STATUS_SCANNING => $scan->status,
@@ -381,6 +388,7 @@ class WorkspaceSpfScannerController extends Controller
                 'heartbeat_age_seconds' => $heartbeatAge,
                 'progress_age_seconds' => $progressAge,
                 'queue_age_seconds' => $queueAge,
+                'preparation_percent' => $preparationPercent,
                 'health' => $health,
             ];
         });
@@ -388,7 +396,53 @@ class WorkspaceSpfScannerController extends Controller
         return response()->json(['data' => $scans]);
     }
 
-    public function kill(Request $request, string $workspace, WorkspaceSpfScan $scan): JsonResponse
+    public function activity(Request $request, string $workspace, WorkspaceSpfScan $scan): JsonResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+        abort_unless((string) $scan->workspace_id === (string) $workspace->id, 404);
+
+        $workers = $scan->workerActivity()->get()->map(fn ($worker): array => [
+            'worker' => (int) $worker->worker_index + 1,
+            'status' => $worker->status,
+            'stage' => $worker->stage,
+            'current_domain' => $worker->current_domain,
+            'domains_processed' => (int) $worker->domains_processed,
+            'spf_records_found' => (int) $worker->spf_records_found,
+            'dns_errors' => (int) $worker->dns_errors,
+            'last_lookup_duration_ms' => $worker->last_lookup_duration_ms,
+            'last_batch_duration_ms' => $worker->last_batch_duration_ms,
+            'heartbeat_at' => $worker->heartbeat_at?->toIso8601String(),
+            'heartbeat_age_seconds' => $worker->heartbeat_at?->diffInSeconds(now()),
+        ]);
+        $events = $scan->events()->orderByDesc('id')->limit(100)->get([
+            'id', 'level', 'event_type', 'message', 'metadata', 'created_at',
+        ])->reverse()->values()->map(fn ($event): array => [
+            'id' => (int) $event->id,
+            'level' => $event->level,
+            'event_type' => $event->event_type,
+            'message' => $event->message,
+            'metadata' => $event->metadata ?? [],
+            'created_at' => $event->created_at?->toIso8601String(),
+        ]);
+
+        return response()->json([
+            'scan' => [
+                'id' => (int) $scan->getKey(),
+                'status' => $scan->status,
+                'progress' => (int) $scan->progress,
+                'total' => (int) $scan->valid_domains,
+                'stage' => $scan->stage,
+                'preparation_percent' => $scan->file_size_bytes > 0 ? min(100, (int) floor($scan->preparation_bytes / $scan->file_size_bytes * 100)) : 0,
+                'spf_records_found' => (int) $scan->total_found,
+                'updated_at' => $scan->heartbeat_at?->toIso8601String(),
+            ],
+            'workers' => $workers,
+            'events' => $events,
+            'telemetry_available' => $workers->isNotEmpty() || $events->isNotEmpty(),
+        ]);
+    }
+
+    public function kill(Request $request, string $workspace, WorkspaceSpfScan $scan, AlphaLinkSpfScanActivity $activity): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         abort_unless((string) $scan->workspace_id === (string) $workspace->id, 404);
@@ -401,6 +455,7 @@ class WorkspaceSpfScannerController extends Controller
             'ended_at' => now(),
             'current_domain' => null,
         ]);
+        $activity->recordEvent((int) $scan->getKey(), 'warning', 'scan_cancel_requested', 'Cancellation was requested; active DNS lookups will finish before workers exit.');
 
         return response()->json(['message' => 'Scan cancelled. Active DNS lookups will finish before their workers exit.']);
     }
@@ -510,20 +565,6 @@ class WorkspaceSpfScannerController extends Controller
 
             return strnatcasecmp((string) $left['matched_ip'], (string) $right['matched_ip']) * $direction;
         });
-    }
-
-    private function countValidDomains(string $path): int
-    {
-        $count = 0;
-        $file = new SplFileObject($path, 'r');
-        while (! $file->eof()) {
-            $line = trim(str_replace("\xEF\xBB\xBF", '', (string) $file->fgets()));
-            if ($line !== '' && filter_var(rtrim($line, '.'), FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) !== false) {
-                $count++;
-            }
-        }
-
-        return $count;
     }
 
     private function workspaceFor(?User $user, string $workspaceId): Workspace

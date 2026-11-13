@@ -42,6 +42,16 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by('campaign-send:'.$actor.':'.$campaign);
         });
 
+        RateLimiter::for('spf-scan-upload', static function (Request $request): Limit {
+            $actor = (string) ($request->user()?->getAuthIdentifier() ?? $request->ip());
+            $workspace = (string) ($request->route('workspace') ?? 'global');
+
+            // Large scan uploads are an intentional workspace operation. Keep
+            // a generous per-user guard without making teammates behind one IP
+            // consume the same five-request bucket.
+            return Limit::perMinute(30)->by('spf-scan-upload:'.$workspace.':'.$actor);
+        });
+
         RateLimiter::for('infrastructure-server-action', static function (Request $request): Limit {
             $actor = (string) ($request->user()?->getAuthIdentifier() ?? $request->ip());
             $workspace = (string) ($request->route('workspace') ?? 'global');

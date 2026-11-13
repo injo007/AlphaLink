@@ -7,6 +7,7 @@ use App\Console\Commands\RunAppHealthChecks;
 use App\Console\Commands\SyncWorkspaceSponsorLeads;
 use App\Http\Middleware\AssignRequestId;
 use App\Http\Middleware\EnsureActiveUser;
+use App\Http\Middleware\EnsureWorkspaceAccess;
 use App\Http\Middleware\EnsureWorkspaceMember;
 use App\Http\Middleware\EnsureWorkspaceRole;
 use App\Http\Middleware\RedirectLegacyWorkspaceUrl;
@@ -136,7 +137,7 @@ $application = Application::configure(basePath: dirname(__DIR__))
             'workspace.member' => EnsureWorkspaceMember::class,
             'workspace.role' => EnsureWorkspaceRole::class,
             'workspace.current' => ResolveCurrentWorkspace::class,
-            'workspace.access' => \App\Http\Middleware\EnsureWorkspaceAccess::class,
+            'workspace.access' => EnsureWorkspaceAccess::class,
             'workspace.legacy-redirect' => RedirectLegacyWorkspaceUrl::class,
         ]);
     })

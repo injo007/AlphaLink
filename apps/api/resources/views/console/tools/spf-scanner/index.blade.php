@@ -34,6 +34,66 @@
             background: rgba(15, 23, 42, 0.6);
             border-color: rgba(139, 92, 246, 0.22);
         }
+        .spf-activity-card {
+            margin-top: 1.25rem;
+            padding: 1rem;
+            border: 1px solid var(--command-os-border, rgba(139, 92, 246, 0.16));
+            border-radius: 14px;
+            background: var(--command-os-surface, rgba(255, 255, 255, 0.72));
+        }
+        .spf-activity-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        .spf-worker-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .spf-worker-card {
+            min-width: 0;
+            padding: 12px;
+            border: 1px solid var(--command-os-border, rgba(139, 92, 246, 0.14));
+            border-radius: 12px;
+            background: var(--command-os-surface-raised, rgba(255, 255, 255, 0.82));
+        }
+        .spf-worker-card[data-state='failed'] { border-color: rgba(239, 68, 68, .45); }
+        .spf-worker-card[data-state='resolving'] { border-color: rgba(139, 92, 246, .4); }
+        .spf-worker-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 7px; }
+        .spf-worker-domain { overflow-wrap: anywhere; font-family: var(--command-os-font-mono, ui-monospace, monospace); font-size: .75rem; }
+        .spf-activity-log {
+            max-height: 280px;
+            overflow: auto;
+            padding: 4px 12px;
+            border: 1px solid var(--command-os-border, rgba(139, 92, 246, 0.14));
+            border-radius: 12px;
+            background: rgba(15, 23, 42, .035);
+        }
+        .spf-activity-event {
+            display: grid;
+            grid-template-columns: minmax(105px, 145px) minmax(0, 1fr);
+            gap: 8px 14px;
+            padding: 9px 0;
+            border-bottom: 1px solid var(--command-os-border, rgba(139, 92, 246, 0.11));
+            font-size: .78rem;
+        }
+        .spf-activity-event:last-child { border-bottom: 0; }
+        .spf-activity-event time { color: var(--command-os-text-muted, #64748b); font-variant-numeric: tabular-nums; }
+        .spf-activity-event[data-level='warning'] strong { color: #b45309; }
+        .spf-activity-event[data-level='error'] strong { color: #dc2626; }
+        @media (max-width: 600px) {
+            .spf-activity-card { padding: .75rem; }
+            .spf-activity-event { grid-template-columns: 1fr; gap: 3px; }
+            .spf-activity-heading > * { width: 100%; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .spf-tabs *, .spf-activity-card * { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+        }
     </style>
 @endpush
 
@@ -112,29 +172,37 @@
                     <form method="POST" enctype="multipart/form-data" action="{{ route('console.tools.spf.upload', $workspace->id) }}" class="p-3 mb-4" style="background: rgba(139, 92, 246, 0.04); border: 1px solid var(--command-os-border, rgba(139, 92, 246, 0.15)); border-radius: 12px;">
                         @csrf
                         <div class="row align-items-end">
-                            <div class="col-md-4 mb-3 mb-md-0">
+                            <div class="col-12 col-md-6 col-xl-4 mb-3">
                                 <label class="command-form-label" for="spf-file"><i class="fas fa-file-alt mr-1 text-purple"></i> Domain list (.txt):</label>
-                                <input class="command-form-control p-1" type="file" id="spf-file" name="file" accept=".txt,text/plain" required style="height: 38px;">
+                                <input class="command-form-control p-1" type="file" id="spf-file" name="file" accept=".txt,text/plain" required style="height: 38px;" aria-describedby="spf-upload-help">
                             </div>
-                            <div class="col-md-2 mb-3 mb-md-0">
+                            <div class="col-6 col-md-3 col-xl-2 mb-3">
                                 <label class="command-form-label" for="spf-batch-size">Write Batch:</label>
                                 <input class="command-form-control" id="spf-batch-size" name="batch_size" type="number" value="25" min="1" max="1000" required style="height: 38px;">
                             </div>
-                            <div class="col-md-2 mb-3 mb-md-0">
+                            <div class="col-6 col-md-3 col-xl-2 mb-3">
                                 <label class="command-form-label" for="spf-workers">DNS Workers (1-{{ $maxWorkers }}):</label>
                                 <input class="command-form-control" id="spf-workers" name="workers" type="number" value="{{ $maxWorkers }}" min="1" max="{{ $maxWorkers }}" style="height: 38px;">
                             </div>
-                            <div class="col-md-4">
-                                <div class="custom-control custom-switch mb-2">
+                            <div class="col-12 col-md-6 col-xl-2 mb-3">
+                                <label class="command-form-label" for="spf-partition-count">File processing:</label>
+                                <select class="command-form-control" id="spf-partition-count" name="partition_count" style="height: 38px;">
+                                    <option value="1">Single file</option>
+                                    <option value="4">4 equal parts</option>
+                                    <option value="5">5 equal parts</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-6 col-xl-2 mb-3">
+                                <div class="custom-control custom-switch mb-2 mt-1">
                                     <input class="custom-control-input" type="checkbox" name="skip_existing" id="spf-skip-existing" value="1" checked>
                                     <label class="custom-control-label" for="spf-skip-existing">Skip scanned</label>
                                 </div>
-                                <button class="btn-command-primary w-100" type="submit" style="height: 38px;">
+                                <button class="btn-command-primary w-100" type="submit" style="height: 38px;" aria-label="Upload domain file and start SPF scan">
                                     <i class="fas fa-upload mr-1"></i> UPLOAD &amp; SCAN
                                 </button>
                             </div>
                         </div>
-                        <small class="form-text text-muted mt-2">Supports {{ number_format(max(100000, (int) config('spf.max_domains_per_scan', 250000))) }} valid domain lines per upload (max 64 MB). DNS scans are network-bound; progress shows completed domains and the current worker heartbeat.</small>
+                        <small class="form-text text-muted mt-1" id="spf-upload-help">Up to {{ number_format((int) config('spf.max_domains_per_scan', 10000000)) }} valid domains per file · max {{ number_format($maxUploadBytes / 1024 / 1024) }} MB. Optional 4/5-part mode writes balanced temporary files and keeps the same per-scan limit of {{ $maxWorkers }} DNS workers. Split mode temporarily needs space for one extra copy. File counting happens in the background; worker ranges avoid rereading the full single-file upload.</small>
                     </form>
                     <div class="d-flex align-items-center justify-content-between mb-2">
                         <h4 class="font-w700 mb-0" style="font-size: 0.875rem; text-transform: uppercase; color: var(--command-os-text, #1e293b);">Active &amp; Past Scans</h4>
@@ -146,6 +214,28 @@
                             <tbody id="spf-scans"><tr><td colspan="7" class="text-muted">Loading scans…</td></tr></tbody>
                         </table>
                     </div>
+                    <section class="spf-activity-card" aria-labelledby="spf-activity-title">
+                        <div class="spf-activity-heading">
+                            <div>
+                                <h4 id="spf-activity-title" class="font-w700 mb-1" style="font-size: .9rem; text-transform: uppercase; color: var(--command-os-text, #1e293b);">
+                                    <i class="fas fa-stream mr-1 text-purple" aria-hidden="true"></i> Live scan activity
+                                </h4>
+                                <small id="spf-activity-updated" class="text-muted">Waiting for scan activity…</small>
+                            </div>
+                            <label class="mb-0" style="min-width:min(100%, 300px);">
+                                <span class="sr-only">Choose scan activity</span>
+                                <select id="spf-activity-scan" class="command-form-control" aria-label="Choose scan activity">
+                                    <option value="">No scans available</option>
+                                </select>
+                            </label>
+                        </div>
+                        <div id="spf-worker-grid" class="spf-worker-grid">
+                            <div class="text-muted small">Worker details appear when a scan starts.</div>
+                        </div>
+                        <div id="spf-activity-log" class="spf-activity-log" role="log" aria-live="polite" aria-relevant="additions text">
+                            <div class="text-muted small py-2">Scan events appear here as workers start, resolve DNS, and complete batches.</div>
+                        </div>
+                    </section>
                 </section>
 
                 <!-- 3. Manual Live Panel -->
@@ -190,6 +280,16 @@
                 </button>
             </div>
             <pre id="spf-record-content" class="text-monospace text-wrap p-3" style="background: rgba(139, 92, 246, 0.05); border: 1px solid var(--command-os-border, rgba(139, 92, 246, 0.15)); border-radius: 8px; font-size: 0.8125rem; max-height: 400px; overflow-y: auto;"></pre>
+        </div>
+    </dialog>
+    <dialog id="spf-feedback-dialog" class="command-modal-dialog p-0 border-0 rounded" aria-labelledby="spf-feedback-title" style="width: min(480px, 94vw); border-radius: 16px;">
+        <div class="p-4">
+            <h3 id="spf-feedback-title" class="mb-2" style="font-size: 1rem; font-weight: 700; color: var(--command-os-text, #1e293b);">SPF Scanner</h3>
+            <p id="spf-feedback-message" class="mb-4" style="color: var(--command-os-text-muted, #64748b);"></p>
+            <div class="d-flex justify-content-end" style="gap: 8px;">
+                <button id="spf-feedback-cancel" type="button" class="btn-command-action">Cancel</button>
+                <button id="spf-feedback-confirm" type="button" class="btn-command-primary">Continue</button>
+            </div>
         </div>
     </dialog>
 @endsection
@@ -358,13 +458,93 @@
 
         const scanTable = document.getElementById('spf-scans');
         const scanSamples = new Map();
+        const activitySelect = document.getElementById('spf-activity-scan');
+        const workerGrid = document.getElementById('spf-worker-grid');
+        const activityLog = document.getElementById('spf-activity-log');
+        const activityUpdated = document.getElementById('spf-activity-updated');
+        let lastWorkerSignature = '';
+        let lastEventSignature = '';
         const formatDuration = (seconds) => {
             const remaining = Math.max(0, Math.floor(seconds));
             if (remaining < 60) return `${remaining}s`;
             if (remaining < 3600) return `${Math.floor(remaining / 60)}m ${remaining % 60}s`;
             return `${Math.floor(remaining / 3600)}h ${Math.floor((remaining % 3600) / 60)}m`;
         };
+        const smoothedRate = (samplesById, id, progress, nowMs) => {
+            const key = String(id);
+            const samples = (samplesById.get(key) || []).filter((sample) => nowMs - sample.time <= 30000);
+            samples.push({progress, time: nowMs});
+            while (samples.length > 12) samples.shift();
+            samplesById.set(key, samples);
+            const baseline = samples.find((sample) => nowMs - sample.time >= 15000);
+            if (!baseline || progress <= baseline.progress) return 0;
+            const elapsed = (nowMs - baseline.time) / 1000;
+            return elapsed > 0 ? (progress - baseline.progress) / elapsed : 0;
+        };
+        const stageLabel = (stage) => String(stage || 'waiting').replaceAll('_', ' ');
+        const refreshActivity = async () => {
+            const scanId = activitySelect.value;
+            if (!scanId) {
+                workerGrid.innerHTML = '<div class="text-muted small">Start or select a scan to see live worker status.</div>';
+                activityLog.innerHTML = '<div class="text-muted small py-2">No scan selected.</div>';
+                activityUpdated.textContent = 'No scan selected';
+                return;
+            }
+            try {
+                const response = await fetch(`${base}/scans/${encodeURIComponent(scanId)}/activity`, {headers:{'Accept':'application/json'}});
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(payload.message || 'The live activity service returned an error.');
+                const workers = payload.workers || [];
+                const workerSignature = JSON.stringify(workers);
+                if (workerSignature !== lastWorkerSignature) {
+                    workerGrid.innerHTML = workers.length ? workers.map((worker) => {
+                        const age = Number(worker.heartbeat_age_seconds || 0);
+                        const health = worker.status === 'resolving' && age >= 15 ? `No resolver update for ${formatDuration(age)}` : `Updated ${formatDuration(age)} ago`;
+                        const lookup = worker.last_lookup_duration_ms !== null ? `${Number(worker.last_lookup_duration_ms).toLocaleString()} ms last DNS lookup` : 'No DNS timing yet';
+                        return `<article class="spf-worker-card" data-state="${escapeHtml(worker.status)}"><div class="spf-worker-title"><strong>Worker ${escapeHtml(worker.worker)}</strong><span class="badge badge-light">${escapeHtml(worker.status)}</span></div><div class="small text-muted mb-1">${escapeHtml(stageLabel(worker.stage))} · ${escapeHtml(health)}</div><div class="spf-worker-domain mb-2">${escapeHtml(worker.current_domain || 'Waiting for next domain')}</div><div class="small">${Number(worker.domains_processed || 0).toLocaleString()} domains · ${Number(worker.spf_records_found || 0).toLocaleString()} SPF · ${Number(worker.dns_errors || 0).toLocaleString()} DNS errors</div><div class="small text-muted">${escapeHtml(lookup)}${worker.last_batch_duration_ms !== null ? ` · ${Number(worker.last_batch_duration_ms).toLocaleString()} ms batch` : ''}</div></article>`;
+                    }).join('') : '<div class="text-muted small">Detailed worker telemetry is available for scans started after this update. Older scans still show progress in the table above.</div>';
+                    lastWorkerSignature = workerSignature;
+                }
+                const events = payload.events || [];
+                const eventSignature = events.map((event) => event.id).join(',');
+                if (eventSignature !== lastEventSignature) {
+                    const wasAtBottom = activityLog.scrollHeight - activityLog.scrollTop - activityLog.clientHeight < 48;
+                    activityLog.innerHTML = events.length ? events.map((event) => {
+                        const metadata = event.metadata || {};
+                        const details = [
+                            metadata.worker ? `Worker ${metadata.worker}` : '',
+                            metadata.stage ? stageLabel(metadata.stage) : '',
+                            metadata.domain || '',
+                            metadata.duration_ms ? `${Number(metadata.duration_ms).toLocaleString()} ms` : '',
+                            metadata.domains_processed !== undefined ? `${Number(metadata.domains_processed).toLocaleString()} domains complete` : '',
+                            metadata.spf_records_found !== undefined ? `${Number(metadata.spf_records_found).toLocaleString()} SPF found` : '',
+                            metadata.dns_errors !== undefined ? `${Number(metadata.dns_errors).toLocaleString()} DNS errors` : '',
+                        ].filter(Boolean).join(' · ');
+                        const time = event.created_at ? new Date(event.created_at).toLocaleTimeString() : '';
+                        return `<div class="spf-activity-event" data-level="${escapeHtml(event.level)}"><time>${escapeHtml(time)}</time><div><strong>${escapeHtml(event.message)}</strong>${details ? `<div class="small text-muted mt-1">${escapeHtml(details)}</div>` : ''}</div></div>`;
+                    }).join('') : payload.telemetry_available ? '<div class="text-muted small py-2">Waiting for the next worker checkpoint.</div>' : '<div class="text-muted small py-2">This scan started before detailed activity tracking was enabled. New scans show worker phases and resolver delays here.</div>';
+                    if (wasAtBottom || !lastEventSignature) activityLog.scrollTop = activityLog.scrollHeight;
+                    lastEventSignature = eventSignature;
+                }
+                const scan = payload.scan || {};
+                const preparing = scan.status === 'pending' && ['preparing', 'validating', 'partitioning', 'preparing_ranges'].includes(scan.stage);
+                const preparationLabel = scan.stage === 'validating' ? 'domain file' : ['partitioning', 'preparing_ranges'].includes(scan.stage) ? 'balanced work ranges' : 'scan worker';
+                activityUpdated.textContent = preparing
+                    ? `Preparing ${preparationLabel} · ${Number(scan.preparation_percent || 0)}% of file · refreshed ${new Date().toLocaleTimeString()}`
+                    : `Scan ${scan.status || ''} · ${Number(scan.progress || 0).toLocaleString()} / ${Number(scan.total || 0).toLocaleString()} domains · refreshed ${new Date().toLocaleTimeString()}`;
+            } catch (error) {
+                activityUpdated.textContent = `Unable to refresh activity: ${error.message}`;
+            }
+        };
+        activitySelect.addEventListener('change', () => {
+            lastWorkerSignature = '';
+            lastEventSignature = '';
+            refreshActivity();
+        });
+        let refreshScansRunning = false;
         const refreshScans = async () => {
+            if (refreshScansRunning) return;
+            refreshScansRunning = true;
             try {
                 const response = await fetch(`${base}/scans`, {headers:{'Accept':'application/json'}});
                 const payload = await response.json().catch(() => ({}));
@@ -374,15 +554,16 @@
                     const canStop = ['pending', 'scanning'].includes(scan.status);
                     const total = Number(scan.progress_total || 0);
                     const exactPct = total ? Math.min(100, Number(scan.progress || 0) / total * 100) : 0;
-                    const barPct = exactPct > 0 ? Math.max(0.5, exactPct) : 0;
+                    const isPreparing = scan.status === 'pending' && ['preparing', 'validating', 'partitioning', 'preparing_ranges'].includes(scan.stage);
+                    const preparationPct = Math.min(100, Number(scan.preparation_percent || 0));
+                    const displayPct = isPreparing ? preparationPct : exactPct;
+                    const barPct = displayPct > 0 ? Math.max(0.5, displayPct) : 0;
                     const nowMs = Date.now();
-                    const previous = scanSamples.get(String(scan.id));
-                    const elapsed = previous ? (nowMs - previous.time) / 1000 : 0;
-                    const rate = previous && elapsed >= 2 && Number(scan.progress) > previous.progress ? (Number(scan.progress) - previous.progress) / elapsed : 0;
-                    scanSamples.set(String(scan.id), {progress: Number(scan.progress || 0), time: nowMs});
+                    const rate = smoothedRate(scanSamples, scan.id, Number(scan.progress || 0), nowMs);
                     const throughput = rate > 0 ? ` · ${Math.round(rate).toLocaleString()} domains/s` : '';
                     const eta = rate > 0 && total > Number(scan.progress || 0) ? ` · ETA ${formatDuration((total - Number(scan.progress || 0)) / rate)}` : '';
-                    const healthText = scan.health === 'queued_overdue' ? `No SPF worker picked this up after ${formatDuration(scan.queue_age_seconds || 0)}`
+                    const healthText = scan.health === 'preparing' ? `Preparing input · ${preparationPct}%`
+                        : scan.health === 'queued_overdue' ? `No SPF worker picked this up after ${formatDuration(scan.queue_age_seconds || 0)}`
                         : scan.health === 'queued' ? 'Waiting for an SPF worker'
                         : scan.health === 'stale_heartbeat' ? `Worker heartbeat missing for ${scan.heartbeat_age_seconds}s`
                         : scan.health === 'no_heartbeat' ? 'Worker has not reported a heartbeat'
@@ -390,13 +571,59 @@
                         : scan.current_domain ? `Working around: ${scan.current_domain}`
                         : scan.stage || '';
                     const healthClass = ['stale_heartbeat', 'no_heartbeat'].includes(scan.health) ? 'text-danger' : 'text-muted';
-                    const progress = total ? `${Number(scan.progress || 0).toLocaleString()} / ${total.toLocaleString()} · ${exactPct.toFixed(2)}%` : 'Preparing domain count…';
-                    return `<tr><td>${escapeHtml(scan.id)}</td><td>${escapeHtml(scan.status)}<div class="small ${healthClass}">${escapeHtml(healthText)}</div>${scan.failure ? `<div class="text-danger small">${escapeHtml(scan.failure)}</div>` : ''}</td><td><div class="progress" style="min-width:150px; height:6px; border-radius:999px;"><div class="progress-bar bg-purple" role="progressbar" style="width:${barPct}%" aria-valuenow="${exactPct.toFixed(2)}" aria-valuemin="0" aria-valuemax="100"></div></div><small>${escapeHtml(progress + throughput + eta)}</small></td><td>${escapeHtml(scan.total_found)}</td><td>${escapeHtml(scan.workers)}</td><td>${escapeHtml(scan.started_at || scan.created_at || '')}</td><td>${canStop ? `<button type="button" class="btn-command-danger" style="padding:2px 8px;font-size:.75rem;" data-spf-kill="${escapeHtml(scan.id)}">STOP</button>` : '—'}</td></tr>`;
+                    const progress = isPreparing ? `Preparing file · ${preparationPct}%` : total ? `${Number(scan.progress || 0).toLocaleString()} / ${total.toLocaleString()} · ${exactPct.toFixed(2)}%` : 'Waiting for worker…';
+                    const partitionLabel = Number(scan.partition_count || 1) === 1 ? 'single file' : `${Number(scan.partition_count)} equal parts`;
+                    return `<tr><td>${escapeHtml(scan.id)}</td><td>${escapeHtml(scan.status)}<div class="small ${healthClass}">${escapeHtml(healthText)}</div>${scan.failure ? `<div class="text-danger small">${escapeHtml(scan.failure)}</div>` : ''}</td><td><div class="progress" style="min-width:150px; height:6px; border-radius:999px;"><div class="progress-bar bg-purple" role="progressbar" style="width:${barPct}%" aria-valuenow="${displayPct.toFixed(2)}" aria-valuemin="0" aria-valuemax="100"></div></div><small>${escapeHtml(progress + (isPreparing ? '' : throughput + eta))}</small></td><td>${escapeHtml(scan.total_found)}</td><td>${escapeHtml(scan.workers)}<div class="small text-muted">${escapeHtml(partitionLabel)}</div></td><td>${escapeHtml(scan.started_at || scan.created_at || '')}</td><td>${canStop ? `<button type="button" class="btn-command-danger" style="padding:2px 8px;font-size:.75rem;" data-spf-kill="${escapeHtml(scan.id)}">STOP</button>` : '—'}</td></tr>`;
                 }).join('') : '<tr><td colspan="7" class="text-muted">No scans yet.</td></tr>';
                 document.getElementById('spf-scan-updated').textContent = `Updated ${new Date().toLocaleTimeString()}`;
+                const preferred = scans.find((scan) => ['pending', 'scanning'].includes(scan.status)) || scans[0];
+                const priorSelection = activitySelect.value;
+                activitySelect.innerHTML = scans.length ? scans.map((scan) => {
+                    const total = Number(scan.progress_total || 0);
+                    const percent = scan.health === 'preparing' ? `preparing ${Number(scan.preparation_percent || 0)}%` : total ? `${Math.min(100, Number(scan.progress || 0) / total * 100).toFixed(1)}%` : 'queued';
+                    return `<option value="${escapeHtml(scan.id)}">Scan ${escapeHtml(scan.id)} · ${escapeHtml(scan.status)} · ${escapeHtml(percent)}</option>`;
+                }).join('') : '<option value="">No scans available</option>';
+                const keepPrior = scans.some((scan) => String(scan.id) === priorSelection);
+                activitySelect.value = keepPrior ? priorSelection : (preferred ? String(preferred.id) : '');
+                if (!keepPrior) {
+                    lastWorkerSignature = '';
+                    lastEventSignature = '';
+                }
+                await refreshActivity();
             } catch (error) { document.getElementById('spf-scan-updated').textContent = `Unable to refresh scans: ${error.message}`; }
+            finally { refreshScansRunning = false; }
         };
-        scanTable.addEventListener('click', async (event) => { const button = event.target.closest('[data-spf-kill]'); if (!button) return; if (!window.confirm(`Stop SPF scan ${button.dataset.spfKill}?`)) return; setBusy(button, true); try { await request(`${base}/scans/${encodeURIComponent(button.dataset.spfKill)}/kill`, {}); await refreshScans(); } catch (error) { window.alert(error.message); setBusy(button, false); } });
+        const feedbackDialog = document.getElementById('spf-feedback-dialog');
+        const feedbackTitle = document.getElementById('spf-feedback-title');
+        const feedbackMessage = document.getElementById('spf-feedback-message');
+        const feedbackCancel = document.getElementById('spf-feedback-cancel');
+        const feedbackConfirm = document.getElementById('spf-feedback-confirm');
+        let feedbackResolver = null;
+        const showFeedback = (message, {title = 'SPF Scanner', confirm = false, confirmLabel = 'Continue'} = {}) => new Promise((resolve) => {
+            feedbackResolver = resolve;
+            feedbackTitle.textContent = title;
+            feedbackMessage.textContent = message;
+            feedbackCancel.hidden = !confirm;
+            feedbackConfirm.textContent = confirm ? confirmLabel : 'Close';
+            feedbackDialog.showModal();
+        });
+        const closeFeedback = (confirmed) => {
+            feedbackDialog.close();
+            if (feedbackResolver) feedbackResolver(confirmed);
+            feedbackResolver = null;
+        };
+        feedbackCancel.addEventListener('click', () => closeFeedback(false));
+        feedbackConfirm.addEventListener('click', () => closeFeedback(true));
+        feedbackDialog.addEventListener('cancel', (event) => { event.preventDefault(); closeFeedback(false); });
+        scanTable.addEventListener('click', async (event) => {
+            const button = event.target.closest('[data-spf-kill]');
+            if (!button) return;
+            const scanId = button.dataset.spfKill;
+            if (!await showFeedback(`Stop SPF scan ${scanId}? Active DNS lookups will finish before its workers exit.`, {title: 'Stop scan?', confirm: true, confirmLabel: 'Stop scan'})) return;
+            setBusy(button, true);
+            try { await request(`${base}/scans/${encodeURIComponent(scanId)}/kill`, {}); await refreshScans(); }
+            catch (error) { await showFeedback(error.message); setBusy(button, false); }
+        });
         refreshScans(); window.setInterval(refreshScans, 3000);
 
         const manualButton = document.getElementById('spf-manual-run');
@@ -412,7 +639,7 @@
 
         const dialog = document.getElementById('spf-record-dialog');
         document.querySelectorAll('[data-spf-close]').forEach((button) => button.addEventListener('click', () => dialog.close()));
-        document.addEventListener('click', async (event) => { const button = event.target.closest('[data-spf-record]'); if (!button) return; try { const response = await fetch(`${base}/records?id=${encodeURIComponent(button.dataset.spfRecord)}`, {headers:{'Accept':'application/json'}}); const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Record not found.'); document.getElementById('spf-record-content').textContent = [data.formatted || 'No SPF record', ...(data.hosts || []).map((host) => `\n${host.domain}: ${host.status}\n${host.record || '(no record)'}`)].join('\n'); dialog.showModal(); } catch (error) { window.alert(error.message); } });
+        document.addEventListener('click', async (event) => { const button = event.target.closest('[data-spf-record]'); if (!button) return; try { const response = await fetch(`${base}/records?id=${encodeURIComponent(button.dataset.spfRecord)}`, {headers:{'Accept':'application/json'}}); const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Record not found.'); document.getElementById('spf-record-content').textContent = [data.formatted || 'No SPF record', ...(data.hosts || []).map((host) => `\n${host.domain}: ${host.status}\n${host.record || '(no record)'}`)].join('\n'); dialog.showModal(); } catch (error) { await showFeedback(error.message); } });
     })();
 </script>
 @endpush

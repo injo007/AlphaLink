@@ -197,95 +197,42 @@ class CloudflareDnsApi
         }
 
         $current = $this->listDnsRecords($provider, $zoneId);
-        $patches = [];
-        $posts = [];
         $deletes = [];
-
-        // Replace old installer-managed SPF, DKIM, and DMARC strings at the
-        // exact owner name, while retaining unrelated TXT values such as
-        // domain verification and service ownership records.
-        foreach ($desiredGroups as $key => &$desiredBodies) {
-            if (! str_ends_with($key, '|TXT')) {
+        foreach ($current as $item) {
+            $type = strtoupper((string) ($item['type'] ?? ''));
+            $name = strtolower(rtrim((string) ($item['name'] ?? ''), '.'));
+            $key = $name.'|'.$type;
+            if (! isset($desiredGroups[$key])) {
                 continue;
             }
-            foreach ($current as $item) {
-                $type = strtoupper((string) ($item['type'] ?? ''));
-                $name = strtolower(rtrim((string) ($item['name'] ?? ''), '.'));
-                if ($name.'|'.$type !== $key || $this->isManagedEmailAuthTxt((string) ($item['content'] ?? ''))) {
-                    continue;
-                }
-
-                $body = [
-                    'type' => 'TXT',
-                    'name' => $name,
-                    'content' => (string) ($item['content'] ?? ''),
-                    'ttl' => max(1, (int) ($item['ttl'] ?? 1)),
-                ];
-                $desiredBodies[json_encode($body, JSON_THROW_ON_ERROR)] = $body;
+            if ($type === 'TXT' && ! $this->isManagedEmailAuthTxt((string) ($item['content'] ?? ''))) {
+                continue;
             }
-        }
-        unset($desiredBodies);
-
-        foreach ($desiredGroups as $key => $desiredBodies) {
-            $matching = array_values(array_filter($current, static function (array $item) use ($key): bool {
-                $type = strtoupper((string) ($item['type'] ?? ''));
-                $name = strtolower(rtrim((string) ($item['name'] ?? ''), '.'));
-
-                return $type !== '' && $name.'|'.$type === $key;
-            }));
-            $unusedIds = array_values(array_filter(array_map(
-                static fn (array $item): string => (string) ($item['id'] ?? ''),
-                $matching,
-            ), static fn (string $id): bool => preg_match('/\A[a-f0-9]{32}\z/i', $id) === 1));
-
-            foreach (array_values($desiredBodies) as $body) {
-                $same = null;
-                foreach ($matching as $index => $existing) {
-                    if (! isset($existing['id']) || ! in_array((string) $existing['id'], $unusedIds, true)) {
-                        continue;
-                    }
-
-                    if (($existing['content'] ?? null) === $body['content']
-                        && (int) ($existing['ttl'] ?? 0) === $body['ttl']
-                        && (! array_key_exists('proxied', $body) || ($existing['proxied'] ?? false) === false)
-                        && ($body['type'] !== 'MX' || (int) ($existing['priority'] ?? 10) === $body['priority'])) {
-                        $same = (string) $existing['id'];
-                        break;
-                    }
-                }
-
-                if ($same !== null) {
-                    $unusedIds = array_values(array_diff($unusedIds, [$same]));
-
-                    continue;
-                }
-
-                $replaceId = array_shift($unusedIds);
-                if ($replaceId !== null) {
-                    $patches[] = ['id' => $replaceId, ...$body];
-                } else {
-                    $posts[] = $body;
-                }
-            }
-
-            foreach ($unusedIds as $id) {
+            $id = (string) ($item['id'] ?? '');
+            if (preg_match('/\A[a-f0-9]{32}\z/i', $id) === 1) {
                 $deletes[] = ['id' => $id];
             }
         }
 
-        if ($patches === [] && $posts === [] && $deletes === []) {
-            $this->assertInstallerRecordsMatch($current, $desiredGroups);
-
-            return true;
+        $posts = [];
+        foreach ($desiredGroups as $desiredBodies) {
+            foreach ($desiredBodies as $body) {
+                $posts[] = $body;
+            }
         }
 
-        $payload = array_filter([
-            'deletes' => $deletes,
-            'patches' => $patches,
-            'posts' => $posts,
-        ], static fn (array $operations): bool => $operations !== []);
+        foreach (array_chunk($deletes, 100) as $deleteBatch) {
+            $this->successfulObject($this->request($provider)->post('zones/'.$zoneId.'/dns_records/batch', [
+                'deletes' => $deleteBatch,
+            ]));
+        }
 
-        $this->successfulObject($this->request($provider)->post('zones/'.$zoneId.'/dns_records/batch', $payload));
+        foreach (array_chunk($posts, 100) as $postBatch) {
+            $this->successfulObject($this->request($provider)->post('zones/'.$zoneId.'/dns_records/batch', [
+                'posts' => $postBatch,
+            ]));
+        }
+
         $this->assertInstallerRecordsMatch($this->listDnsRecords($provider, $zoneId), $desiredGroups);
 
         return true;
@@ -302,6 +249,9 @@ class CloudflareDnsApi
                 $type = strtoupper((string) ($item['type'] ?? ''));
                 $name = strtolower(rtrim((string) ($item['name'] ?? ''), '.'));
                 if ($name.'|'.$type !== $key) {
+                    continue;
+                }
+                if ($type === 'TXT' && ! $this->isManagedEmailAuthTxt((string) ($item['content'] ?? ''))) {
                     continue;
                 }
 

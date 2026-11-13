@@ -43,9 +43,9 @@ function readRow(row) {
     const values = row.querySelectorAll('.bulk-install-row-value');
 
     return {
-        name: values[0]?.value ?? '',
-        id: values[1]?.value ?? '',
-        ip: values[2]?.value ?? '',
+        name: row.dataset?.serverName ?? values[0]?.value ?? '',
+        id: row.dataset?.serverId ?? values[1]?.value ?? '',
+        ip: row.dataset?.serverIp ?? values[2]?.value ?? '',
         domain: row.querySelector('[data-domain-select]')?.value ?? '',
         check: row.querySelector('[data-apply-domain]')?.checked ?? false,
     };

@@ -1,6 +1,7 @@
 const optionNames = ['tracking', 'proxy', 'imap', 'spf', 'dkim', 'dmarc', 'https'];
 
 export function buildSingleInstallPayload({ serverId, rows, key, pmtaVersion, switches }) {
+    const normalizedServerId = String(serverId ?? '').trim();
     const assignments = rows.map((row) => ({
         ip: String(row.ip ?? '').trim(),
         type: String(row.type ?? '').toLowerCase(),
@@ -12,7 +13,8 @@ export function buildSingleInstallPayload({ serverId, rows, key, pmtaVersion, sw
     const mainAssignment = assignments.find((assignment) => assignment.main) ?? assignments[0];
 
     return {
-        data: [{ id: String(serverId), domain: mainAssignment?.domain_id ?? '', ip_assignments: assignments }],
+        server_id: normalizedServerId,
+        data: [{ id: normalizedServerId, domain: mainAssignment?.domain_id ?? '', ip_assignments: assignments }],
         key: Number(key),
         pmta_version: Number(pmtaVersion),
         ...Object.fromEntries(optionNames.map((name) => [name, switches[name] ? 1 : 0])),
@@ -36,11 +38,16 @@ function readRows(tbody) {
         type: row.dataset.type ?? '',
         main: row.querySelector('[data-install-main]')?.checked ?? false,
         sub: row.querySelector('[data-install-sub]')?.value ?? '',
-        domain_id: row.dataset.domainId ?? '',
+        domain_id: row.querySelector('[data-install-domain]')?.value ?? '',
     }));
 }
 
-function renderRows(tbody, rows) {
+function renderRows(tbody, rows, availableDomains) {
+    const jQuery = window.jQuery;
+    if (jQuery?.fn?.selectpicker) {
+        jQuery(tbody).find('select.selectpicker').selectpicker('destroy');
+    }
+
     tbody.replaceChildren();
 
     for (const assignment of rows) {
@@ -72,12 +79,21 @@ function renderRows(tbody, rows) {
         row.append(subCell);
 
         const domainCell = document.createElement('td');
-        const domain = document.createElement('input');
-        domain.type = 'text';
-        domain.className = 'form-control form-control-sm single-install-ip-value single-install-domain';
-        domain.readOnly = true;
-        domain.value = String(assignment.domain ?? '');
+        const domain = document.createElement('select');
+        domain.className = 'form-control form-control-sm selectpicker single-install-domain';
+        domain.required = true;
+        domain.dataset.container = 'body';
+        domain.dataset.liveSearch = 'true';
+        domain.dataset.size = '6';
+        for (const availableDomain of availableDomains) {
+            const option = document.createElement('option');
+            option.value = availableDomain.id;
+            option.textContent = availableDomain.label;
+            domain.append(option);
+        }
+        domain.value = String(assignment.domain_id ?? '');
         domain.setAttribute('aria-label', `Domain for ${row.dataset.ip}`);
+        domain.dataset.installDomain = '';
         domainCell.append(domain);
         row.append(domainCell);
 
@@ -128,6 +144,22 @@ function initializeSingleInstallPage() {
     const error = form.querySelector('#single-install-error');
     const logPanel = form.querySelector('#single-install-logs');
     const logOutput = form.querySelector('#single-install-log');
+    const jQuery = window.jQuery;
+
+    if (jQuery?.fn?.selectpicker) {
+        jQuery(serverSelect).selectpicker();
+        jQuery(domainSelect).selectpicker();
+    }
+
+    const refreshSelectpicker = (select) => {
+        if (jQuery?.fn?.selectpicker) jQuery(select).selectpicker('refresh');
+    };
+
+    const initializeRowDomainSelects = () => {
+        if (jQuery?.fn?.selectpicker) {
+            jQuery(tbody).find('select.single-install-domain').selectpicker();
+        }
+    };
 
     const setError = (message) => {
         error.textContent = message;
@@ -172,13 +204,19 @@ function initializeSingleInstallPage() {
             const rows = Array.isArray(body.data) ? body.data : [];
             const domainNames = new Map(domains.map((domain) => [domain.id, domain.label.split(' | ')[0]]));
             rows.forEach((row) => { row.domain = domainNames.get(String(row.domain_id)) ?? row.domain ?? ''; });
-            renderRows(tbody, rows);
+            const availableDomains = Array.from(domainSelect.options)
+                .filter((option) => option.value !== '')
+                .map((option) => ({ id: option.value, label: option.textContent ?? '' }));
+            renderRows(tbody, rows, availableDomains);
             holder.classList.remove('d-none');
+            initializeRowDomainSelects();
             configIpsNote.classList.remove('d-none');
             configIpsButton.disabled = rows.length === 0;
             installButton.disabled = rows.length === 0;
             serverSelect.disabled = true;
             domainSelect.disabled = true;
+            refreshSelectpicker(serverSelect);
+            refreshSelectpicker(domainSelect);
             withIpv6.disabled = true;
         } catch (caught) {
             setError(caught instanceof Error ? caught.message : 'Could not load server IPs.');
@@ -208,9 +246,18 @@ function initializeSingleInstallPage() {
         event.preventDefault();
         const rows = readRows(tbody);
         if (installButton.disabled || rows.length === 0) return;
+        const serverId = String(serverSelect.value ?? '').trim();
+        if (serverId === '') {
+            setError('Select a target server before starting the installation.');
+            return;
+        }
+        if (rows.some((row) => row.domain_id === '')) {
+            setError('Select a sending domain for every IP before starting the installation.');
+            return;
+        }
 
         const payload = buildSingleInstallPayload({
-            serverId: serverSelect.value,
+            serverId,
             rows,
             key: Date.now(),
             pmtaVersion: form.querySelector('#pmta_version').value,

@@ -4,9 +4,8 @@
 
 @push('styles')
     <style>
-        #single-install-ips .single-install-ip-value[readonly] { border-color: transparent; background: transparent; }
         #single-install-ips .single-install-subdomain { min-width: 12rem; }
-        #single-install-ips .single-install-domain { min-width: 13rem; }
+        #single-install-ips .single-install-domain { min-width: 16rem; }
         #single-install-ips .single-install-remove { white-space: nowrap; }
     </style>
 @endpush
@@ -55,7 +54,7 @@
                                 <i class="fas fa-server mr-1 text-purple"></i> TARGET SERVER
                             </label>
                             <div class="command-select-wrapper">
-                                <select class="command-form-control command-select" id="single-server" required @disabled($servers->isEmpty() || $domains->isEmpty())>
+                                <select class="command-form-control command-select selectpicker" id="single-server" data-live-search="true" data-size="6" data-container="body" data-width="100%" title="Select Target Server" required @disabled($servers->isEmpty() || $domains->isEmpty())>
                                     <option value="">Select Target Server ...</option>
                                     @foreach ($servers as $server)
                                         <option value="{{ $server->id }}">{{ $server->name }}{{ $server->id }} | {{ $server->ip_address }}</option>
@@ -68,12 +67,12 @@
                             <label class="command-form-label" for="single-domains">
                                 <i class="fas fa-globe mr-1 text-purple"></i> SENDING DOMAINS
                             </label>
-                            <select class="command-form-control" id="single-domains" multiple required @disabled($servers->isEmpty() || $domains->isEmpty()) style="min-height: 120px;">
+                            <select class="command-form-control selectpicker" id="single-domains" aria-describedby="single-domain-help" multiple data-live-search="true" data-actions-box="true" data-size="6" data-container="body" data-width="100%" data-selected-text-format="count > 2" title="Select sending domains" required @disabled($servers->isEmpty() || $domains->isEmpty())>
                                 @foreach ($domains as $domain)
                                     <option value="{{ $domain['id'] }}">{{ $domain['label'] }}</option>
                                 @endforeach
                             </select>
-                            <small class="text-muted mt-1 d-block" style="font-size: 0.75rem;">Select domains in the order they should receive IP groups.</small>
+                            <small class="text-muted mt-1 d-block" style="font-size: 0.75rem;" id="single-domain-help">Select domains in the order they should receive IP groups. You can change a domain for any IP after loading the map.</small>
                         </div>
 
                         <div class="command-form-group mb-3">

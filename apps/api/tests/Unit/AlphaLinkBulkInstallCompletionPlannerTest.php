@@ -38,6 +38,7 @@ class AlphaLinkBulkInstallCompletionPlannerTest extends TestCase
                     'data' => $rows,
                     'pmta_version' => 50,
                     ...$options,
+                    'tracking_https_ready' => false,
                     'pmta_monitor_https' => true,
                 ],
             ],
@@ -75,7 +76,7 @@ class AlphaLinkBulkInstallCompletionPlannerTest extends TestCase
         $this->assertSame('save_installation_config', $operations[5]['action']);
         $this->assertSame('mark_server_installed', $operations[6]['action']);
         $this->assertSame([
-            'data', 'pmta_version', 'tracking', 'proxy', 'imap', 'spf', 'dkim', 'dmarc', 'https', 'pmta_monitor_https',
+            'data', 'pmta_version', 'tracking', 'proxy', 'imap', 'spf', 'dkim', 'dmarc', 'https', 'tracking_https_ready', 'pmta_monitor_https',
         ], array_keys($operations[5]['install_parameters']));
         $this->assertFalse($operations[5]['install_parameters']['https']);
         $this->assertTrue($operations[5]['install_parameters']['pmta_monitor_https']);

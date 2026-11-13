@@ -74,23 +74,16 @@ class AlphaLinkChangeDomainDnsRecordWriterTest extends TestCase
         ]]);
 
         self::assertTrue($result);
-        self::assertCount(3, $requests);
-        self::assertSame('GET', $requests[0][0]);
-        self::assertSame('https://api.godaddy.com/v1/domains/example.co.uk/records/TXT/%40', $requests[0][1]);
-        self::assertSame('PUT', $requests[1][0]);
-        self::assertSame('https://api.godaddy.com/v1/domains/example.co.uk/records/TXT/%40', $requests[1][1]);
+        self::assertCount(1, $requests);
+        self::assertSame('PUT', $requests[0][0]);
+        self::assertSame('https://api.godaddy.com/v1/domains/example.co.uk/records', $requests[0][1]);
         self::assertSame([
-            ['data' => 'v=spf1 ip4:203.0.113.12 -all', 'ttl' => 600],
-            ['data' => 'google-site-verification=keep-me', 'ttl' => 3600],
-        ], $requests[1][2]);
-        self::assertSame('PUT', $requests[2][0]);
-        self::assertSame('https://api.godaddy.com/v1/domains/example.co.uk/records/MX/%40', $requests[2][1]);
-        self::assertSame([
-            ['data' => 'mx.example.com', 'ttl' => 600, 'priority' => 10],
-        ], $requests[2][2]);
+            ['type' => 'TXT', 'name' => '@', 'data' => 'v=spf1 ip4:203.0.113.12 -all', 'ttl' => 600],
+            ['type' => 'MX', 'name' => '@', 'data' => 'mx.example.com', 'ttl' => 600, 'priority' => 10],
+        ], $requests[0][2]);
     }
 
-    public function test_cloudflare_install_dns_uses_zone_batch_and_keeps_unrelated_records(): void
+    public function test_cloudflare_install_dns_replaces_only_managed_records_and_preserves_unrelated_records(): void
     {
         $zoneId = str_repeat('a', 32);
         $dnsRecords = [[
@@ -156,18 +149,37 @@ class AlphaLinkChangeDomainDnsRecordWriterTest extends TestCase
         Http::assertSent(fn ($request) => $request->method() === 'GET'
             && $request->url() === 'https://api.cloudflare.com/client/v4/zones/'.$zoneId.'/dns_records?page=1&per_page=100'
             && $request->hasHeader('Authorization', 'Bearer synthetic-cloudflare-token'));
-        Http::assertSent(fn ($request) => $request->method() === 'POST'
-            && $request->url() === 'https://api.cloudflare.com/client/v4/zones/'.$zoneId.'/dns_records/batch'
-            && $request->data() === [
-                'patches' => [[
-                    'id' => str_repeat('e', 32), 'type' => 'TXT', 'name' => 'spf.example.co.uk',
-                    'content' => '"v=spf1 ip4:203.0.113.12 -all"', 'ttl' => 300,
-                ]],
-                'posts' => [
-                    ['type' => 'A', 'name' => 'example.co.uk', 'content' => '203.0.113.12', 'ttl' => 300, 'proxied' => false],
-                    ['type' => 'AAAA', 'name' => 'example.co.uk', 'content' => '2001:41d0:601:2000::e65', 'ttl' => 300, 'proxied' => false],
-                ],
-            ]);
+        $batchPayloads = Http::recorded(fn ($request) => $request->method() === 'POST'
+            && $request->url() === 'https://api.cloudflare.com/client/v4/zones/'.$zoneId.'/dns_records/batch')
+            ->map(static fn ($pair) => $pair[0]->data())
+            ->values()
+            ->all();
+        self::assertCount(2, $batchPayloads);
+        self::assertSame([
+            'deletes' => [
+                ['id' => str_repeat('e', 32)],
+            ],
+        ], $batchPayloads[0]);
+        self::assertSame([
+            'posts' => [
+                ['type' => 'A', 'name' => 'example.co.uk', 'content' => '203.0.113.12', 'ttl' => 300, 'proxied' => false],
+                ['type' => 'AAAA', 'name' => 'example.co.uk', 'content' => '2001:41d0:601:2000::e65', 'ttl' => 300, 'proxied' => false],
+                ['type' => 'TXT', 'name' => 'spf.example.co.uk', 'content' => '"v=spf1 ip4:203.0.113.12 -all"', 'ttl' => 300],
+            ],
+        ], $batchPayloads[1]);
+        self::assertSame([
+            [
+                'id' => str_repeat('d', 32), 'type' => 'A', 'name' => 'unrelated.example.co.uk',
+                'content' => '198.51.100.4', 'ttl' => 300, 'proxied' => false,
+            ],
+            [
+                'id' => str_repeat('f', 32), 'type' => 'TXT', 'name' => 'spf.example.co.uk',
+                'content' => '"google-site-verification=keep-me"', 'ttl' => 3600,
+            ],
+        ], array_values(array_filter(
+            $dnsRecords,
+            static fn (array $record): bool => in_array($record['id'], [str_repeat('d', 32), str_repeat('f', 32)], true)
+        )));
         self::assertCount(2, Http::recorded(fn ($request) => $request->method() === 'GET'
             && str_contains($request->url(), '/dns_records')));
         self::assertSame($provider->getKey(), $domain->fresh()->domains_provider_id);
@@ -335,6 +347,9 @@ class AlphaLinkChangeDomainDnsRecordWriterTest extends TestCase
                 ]);
             }
             if (str_ends_with($request->url(), '/dns_records/batch')) {
+                foreach ($request->data()['deletes'] ?? [] as $record) {
+                    $dnsRecords = array_values(array_filter($dnsRecords, static fn (array $current): bool => ($current['id'] ?? null) !== ($record['id'] ?? null)));
+                }
                 foreach ($request->data()['patches'] ?? [] as $record) {
                     foreach ($dnsRecords as $index => $current) {
                         if (($current['id'] ?? null) === ($record['id'] ?? null)) {
@@ -342,8 +357,11 @@ class AlphaLinkChangeDomainDnsRecordWriterTest extends TestCase
                         }
                     }
                 }
+                foreach ($request->data()['posts'] ?? [] as $index => $record) {
+                    $dnsRecords[] = [...$record, 'id' => str_pad(dechex($index + 1), 32, '0', STR_PAD_LEFT)];
+                }
 
-                return Http::response(['success' => true, 'result' => ['patches' => $request->data()['patches'] ?? []]]);
+                return Http::response(['success' => true, 'result' => ['deletes' => $request->data()['deletes'] ?? [], 'posts' => $request->data()['posts'] ?? []]]);
             }
 
             return Http::response(['success' => true, 'result' => $dnsRecords, 'result_info' => ['total_pages' => 1]]);
@@ -354,12 +372,19 @@ class AlphaLinkChangeDomainDnsRecordWriterTest extends TestCase
         self::assertTrue(app(AlphaLinkBulkInstallDomainDnsRecordWriter::class)->setHosts($domain, [[
             'host' => '@', 'address' => '203.0.113.12', 'type' => 'A', 'ttl' => '60',
         ]]));
-        Http::assertSent(fn ($request) => $request->method() === 'POST'
-            && str_ends_with($request->url(), '/dns_records/batch')
-            && $request->data()['patches'] === [[
-                'id' => str_repeat('d', 32), 'type' => 'A', 'name' => 'example.co.uk',
+        $batchPayloads = Http::recorded(fn ($request) => $request->method() === 'POST'
+            && str_ends_with($request->url(), '/dns_records/batch'))
+            ->map(static fn ($pair) => $pair[0]->data())
+            ->values()
+            ->all();
+        self::assertCount(2, $batchPayloads);
+        self::assertSame(['deletes' => [['id' => str_repeat('d', 32)]]], $batchPayloads[0]);
+        self::assertSame([
+            'posts' => [[
+                'type' => 'A', 'name' => 'example.co.uk',
                 'content' => '203.0.113.12', 'ttl' => 60, 'proxied' => false,
-            ]]);
+            ]],
+        ], $batchPayloads[1]);
     }
 
     public function test_cloudflare_install_rejects_a_saved_zone_that_belongs_to_another_domain(): void

@@ -94,7 +94,7 @@ Route::prefix('v1')->group(function (): void {
                     Route::get('/infrastructure', [InfrastructureController::class, 'index']);
                     Route::post('/servers/test-connection', [InfrastructureController::class, 'testServerConnection'])->middleware('throttle:10,1');
                     Route::post('/servers', [InfrastructureController::class, 'storeServer'])->middleware('throttle:10,1');
-                    Route::post('/servers/{server}/preflight', [InfrastructureController::class, 'preflightServer'])->middleware('throttle:3,1');
+                    Route::post('/servers/{server}/preflight', [InfrastructureController::class, 'preflightServer'])->middleware('throttle:infrastructure-server-action');
                     Route::post('/domains', [InfrastructureController::class, 'storeDomain'])->middleware('throttle:10,1');
                     Route::post('/domains/{domain}/verify', [InfrastructureController::class, 'verifyDomain'])->middleware('throttle:10,1');
                     Route::post('/installation-plans', [InfrastructureController::class, 'storePlan'])->middleware('throttle:10,1');

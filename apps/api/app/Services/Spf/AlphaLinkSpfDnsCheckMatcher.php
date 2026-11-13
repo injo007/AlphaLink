@@ -8,6 +8,14 @@ use Throwable;
 
 class AlphaLinkSpfDnsCheckMatcher
 {
+    /** @var array<string, array<int, array<string, mixed>>> */
+    private array $recordCache = [];
+
+    /** @var array<string, true> */
+    private array $checkedTemplates = [];
+
+    private bool $dnsCheckLimitReached = false;
+
     /** @param (Closure(string, int): array<int, array<string, mixed>>)|null $dnsLookup */
     public function __construct(private readonly ?Closure $dnsLookup = null) {}
 
@@ -18,13 +26,13 @@ class AlphaLinkSpfDnsCheckMatcher
      * @param  array<int, string>  $ips
      * @return array<int, array{root_id: int|string, matched_ip: string, root: string, include: string, network: string, record: ?string}>
      */
-    public function findMatches(iterable $roots, array $ips): array
+    public function findMatches(iterable $roots, array $ips, ?int &$remainingChecks = null): array
     {
         if (! config('spf.search_dns_checks', true) || $ips === []) {
             return [];
         }
 
-        $maximumChecks = max(1, (int) config('spf.max_search_dns_checks', 10_000));
+        $remainingChecks ??= max(1, (int) config('spf.max_search_dns_checks', 10_000));
         $templates = [];
         $hostEdges = [];
 
@@ -38,10 +46,18 @@ class AlphaLinkSpfDnsCheckMatcher
 
                 foreach (SpfParser::extractStoredDnsChecks($domain, $record) as $template) {
                     $signature = SpfParser::dnsCheckKey($template);
-                    if (! isset($templates[$signature]) && count($templates) >= $maximumChecks) {
-                        continue;
+                    if (! isset($templates[$signature])) {
+                        if (! isset($this->checkedTemplates[$signature])) {
+                            if ($remainingChecks <= 0) {
+                                $this->dnsCheckLimitReached = true;
+
+                                continue;
+                            }
+                            $remainingChecks--;
+                            $this->checkedTemplates[$signature] = true;
+                        }
+                        $templates[$signature] = $template;
                     }
-                    $templates[$signature] ??= $template;
                     $hostEdges[$signature][] = [
                         'root_id' => $root->getKey(),
                         'root' => $root->domain,
@@ -101,6 +117,11 @@ class AlphaLinkSpfDnsCheckMatcher
         }
 
         return $rows;
+    }
+
+    public function dnsCheckLimitReached(): bool
+    {
+        return $this->dnsCheckLimitReached;
     }
 
     /**
@@ -208,15 +229,26 @@ class AlphaLinkSpfDnsCheckMatcher
     /** @return array<int, array<string, mixed>> */
     private function records(string $name, int $type): array
     {
+        $key = $type.'|'.$name;
+        if (array_key_exists($key, $this->recordCache)) {
+            return $this->recordCache[$key];
+        }
+
         try {
             $records = $this->dnsLookup !== null
                 ? ($this->dnsLookup)($name, $type)
                 : (@dns_get_record($name, $type) ?: []);
         } catch (Throwable) {
-            return [];
+            $records = [];
         }
 
-        return is_array($records) ? $records : [];
+        $records = is_array($records) ? $records : [];
+        $cacheLimit = max(100, (int) config('spf.max_search_dns_cache_entries', 10_000));
+        if (count($this->recordCache) < $cacheLimit) {
+            $this->recordCache[$key] = $records;
+        }
+
+        return $records;
     }
 
     /** @param array<int, string> $names */

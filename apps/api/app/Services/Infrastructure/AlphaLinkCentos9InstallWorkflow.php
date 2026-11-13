@@ -121,15 +121,6 @@ class AlphaLinkCentos9InstallWorkflow
             $primaryDomain = $domainsById[$primaryAssignment['domain_id']];
         }
 
-        $subdomains = [];
-        foreach ($ips as $ip) {
-            if (($ip['is_our'] ?? (bool) $domain->is_our) && $ip['sub'] !== '') {
-                $subdomains[] = 'www.'.$ip['domain'];
-                $subdomains[] = $ip['sub'].'.'.$ip['domain'];
-            }
-        }
-        $subdomains = array_values(array_unique($subdomains));
-
         $domainProviderReady = [];
         foreach ($domainsById as $domainId => $selectedDomain) {
             $domainProviderReady[$domainId] = $dnsWriter->isDomainAvailable($selectedDomain);
@@ -137,6 +128,32 @@ class AlphaLinkCentos9InstallWorkflow
         $primaryDomainId = (string) $primaryDomain->getKey();
         $primaryDomainReady = $domainProviderReady[$primaryDomainId] ?? false;
         $deploymentDomain = $primaryDomainReady ? (string) $primaryDomain->name : null;
+
+        $readySubdomains = static function (array $ipsToInclude) use ($domain, $domainProviderReady, $primaryDomain): array {
+            $list = [];
+            foreach ($ipsToInclude as $ip) {
+                $entryDomainId = (string) ($ip['domain_id'] ?? $domain->getKey());
+                if (! ($domainProviderReady[$entryDomainId] ?? false)) {
+                    continue;
+                }
+                if (! ($ip['is_our'] ?? (bool) $domain->is_our)) {
+                    continue;
+                }
+                if ($ip['domain'] !== (string) $primaryDomain->name) {
+                    $list[] = $ip['domain'];
+                }
+                if ($ip['sub'] !== '' || $ip['domain'] !== (string) $primaryDomain->name) {
+                    $list[] = 'www.'.$ip['domain'];
+                }
+                if ($ip['sub'] !== '') {
+                    $list[] = $ip['sub'].'.'.$ip['domain'];
+                }
+            }
+
+            return array_values(array_unique($list));
+        };
+
+        $subdomains = $readySubdomains($ips);
         $deploymentSubdomains = $primaryDomainReady ? $subdomains : [];
         if (! $primaryDomainReady) {
             $log(sprintf(
@@ -209,6 +226,7 @@ class AlphaLinkCentos9InstallWorkflow
 
         $primaryDomainReady = $domainProviderReady[$primaryDomainId] ?? false;
         $monitorDomain = $primaryDomainReady ? (string) $primaryDomain->name : null;
+        $subdomains = $readySubdomains($ips);
         if (! $primaryDomainReady && $deploymentDomain !== null) {
             $log(sprintf(
                 'DNS provider setup did not complete for %s; switching PMTA monitor access to public IP %s.',
@@ -295,6 +313,14 @@ class AlphaLinkCentos9InstallWorkflow
         );
         $log('End Setting Firewall');
 
+        $trackingHttpsReady = false;
+        if ($options['tracking'] && $options['https'] && $primaryDomainReady && $domainCertificateReady) {
+            $trackingHttpsReady = $this->tracking->verifyHttps($session, $monitorDomain);
+            if (! $trackingHttpsReady) {
+                $log('Tracking HTTPS did not pass its public health and redirect checks; campaign tracking links will use the verified HTTP endpoint.');
+            }
+        }
+
         // AlphaLink starts both services but does not inspect their final state. Do not
         // persist an installed server when the selected PMTA package or either
         // service failed after the VMTA configuration restart.
@@ -311,11 +337,11 @@ class AlphaLinkCentos9InstallWorkflow
         }
 
         if ($ipAssignments === null) {
-            $completedOptions = [...$options, 'https' => $options['https'] && $primaryDomainReady];
-            $this->completion->finalize($workspace, $server, $primaryDomain, $ips, $pmtaVersion, $completedOptions, [], $pmtaMonitorHttps, $monitorDomain ?? (string) $server->ip_address);
+            $completedOptions = [...$options, 'https' => $options['https'] && $primaryDomainReady && $domainCertificateReady];
+            $this->completion->finalize($workspace, $server, $primaryDomain, $ips, $pmtaVersion, $completedOptions, [], $pmtaMonitorHttps, $monitorDomain ?? (string) $server->ip_address, $trackingHttpsReady);
         } else {
-            $completedOptions = [...$options, 'https' => $options['https'] && $primaryDomainReady];
-            $this->completion->finalize($workspace, $server, $primaryDomain, $ips, $pmtaVersion, $completedOptions, $selectedDomains, $pmtaMonitorHttps, $monitorDomain ?? (string) $server->ip_address);
+            $completedOptions = [...$options, 'https' => $options['https'] && $primaryDomainReady && $domainCertificateReady];
+            $this->completion->finalize($workspace, $server, $primaryDomain, $ips, $pmtaVersion, $completedOptions, $selectedDomains, $pmtaMonitorHttps, $monitorDomain ?? (string) $server->ip_address, $trackingHttpsReady);
         }
         $publicPort = $settings['pmta_admin_port'];
         $adminUrl = PmtaPanelUrl::displayUrlForInstallation(

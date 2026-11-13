@@ -38,7 +38,7 @@ class AlphaLinkWorkspaceToolTest extends TestCase
     {
         parent::setUp();
         config(['app.key' => 'base64:'.base64_encode(random_bytes(32))]);
-        $this->owner = User::factory()->create();
+        $this->owner = User::factory()->create(['access_role' => User::ACCESS_ROLE_OWNER]);
         $this->workspace = Workspace::query()->create([
             'name' => 'Workspace tools', 'slug' => 'workspace-tools-'.Str::lower(Str::random(8)), 'created_by' => $this->owner->id,
         ]);
@@ -52,6 +52,7 @@ class AlphaLinkWorkspaceToolTest extends TestCase
             ->assertOk()->assertSee('PUSH WORKSPACE ACCOUNTS')->assertSee('SPLIT ON IPS')
             ->assertDontSee('workspace-project-form')->assertDontSee('workspace-account-form')
             ->assertSee('workspace-search-ips')->assertSee('workspace-search-projects')
+            ->assertSee('workspace-progress-panel')->assertSee('workspace-progress-bar')
             ->assertSee($this->cleanWorkspaceUrl(route('console.gcampaigns.projects', $this->workspace->id)))
             ->assertSee($this->cleanWorkspaceUrl(route('console.gcampaigns.accounts', $this->workspace->id)))
             ->assertSee('class="form-control selectpicker"', false)
@@ -76,7 +77,7 @@ class AlphaLinkWorkspaceToolTest extends TestCase
 
     public function test_workspace_projects_and_accounts_are_separate_nav_pages_and_workspace_scoped(): void
     {
-        $operator = User::factory()->create();
+        $operator = User::factory()->create(['access_role' => User::ACCESS_ROLE_OPERATOR]);
         $this->workspace->users()->attach($operator->id, ['role' => 'operator']);
         $project = $this->project();
         $account = WorkspaceGoogleAccount::query()->create([
@@ -182,7 +183,7 @@ class AlphaLinkWorkspaceToolTest extends TestCase
 
     public function test_workspace_project_assignments_limit_operator_projects_accounts_and_smtp_push(): void
     {
-        $operator = User::factory()->create();
+        $operator = User::factory()->create(['access_role' => User::ACCESS_ROLE_OPERATOR]);
         $this->workspace->users()->attach($operator->id, ['role' => 'operator']);
         $sharedProject = $this->project(name: 'shared-project');
         $sharedProject->update(['allowed_users' => [(int) $operator->id]]);
@@ -264,7 +265,7 @@ class AlphaLinkWorkspaceToolTest extends TestCase
 
     public function test_operator_created_project_is_named_freely_and_auto_assigned_to_creator(): void
     {
-        $operator = User::factory()->create();
+        $operator = User::factory()->create(['access_role' => User::ACCESS_ROLE_OPERATOR]);
         $this->workspace->users()->attach($operator->id, ['role' => 'operator']);
         $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
         $this->assertNotFalse($key);
@@ -390,7 +391,10 @@ class AlphaLinkWorkspaceToolTest extends TestCase
     public function test_operator_s3_sync_does_not_overwrite_a_project_they_cannot_access(): void
     {
         Queue::fake();
-        $operator = User::factory()->create();
+        $operator = User::factory()->create([
+            'access_role' => User::ACCESS_ROLE_OPERATOR,
+            'roles' => ['tools.view', 'tools.manage'],
+        ]);
         $this->workspace->users()->attach($operator->id, ['role' => 'operator']);
         $privateProject = $this->project(name: 'private-project');
         $privateProject->update(['allowed_users' => []]);
@@ -475,6 +479,96 @@ class AlphaLinkWorkspaceToolTest extends TestCase
         ])->assertUnprocessable()->assertJsonPath('message', 'Failed to download S3 project file "admin@example.test" (HTTP 403).');
         $this->assertSame(0, WorkspaceGoogleProject::query()->count());
         Queue::assertNothingPushed();
+    }
+
+    public function test_s3_project_sync_imports_readable_files_when_some_objects_return_403(): void
+    {
+        Queue::fake();
+        $firstCredentials = json_encode(['client_email' => 'svc-one@example.test', 'private_key' => 'private-one'], JSON_THROW_ON_ERROR);
+        $secondCredentials = json_encode(['client_email' => 'svc-two@example.test', 'private_key' => 'private-two'], JSON_THROW_ON_ERROR);
+        Http::fake(function (ClientRequest $request) use ($firstCredentials, $secondCredentials) {
+            $url = parse_url($request->url());
+            $path = rawurldecode(ltrim((string) ($url['path'] ?? ''), '/'));
+            if ($path === '') {
+                return Http::response('<ListBucketResult><Contents><Key>workspace-keys/access@theapex.iswellhung.com.json</Key></Contents><Contents><Key>workspace-keys/admin.one@example.test.json</Key></Contents><Contents><Key>workspace-keys/admin.two@example.test.json</Key></Contents><IsTruncated>false</IsTruncated></ListBucketResult>');
+            }
+
+            return match ($path) {
+                'workspace-keys/access@theapex.iswellhung.com.json' => Http::response('AccessDenied', 403),
+                'workspace-keys/admin.one@example.test.json' => Http::response($firstCredentials),
+                'workspace-keys/admin.two@example.test.json' => Http::response($secondCredentials),
+                default => Http::response('Not found', 404),
+            };
+        });
+
+        $this->postJson(route('console.tools.workspace.projects.sync-s3', $this->workspace->id), [
+            'link' => 'https://workspace-fixture.s3.eu-west-2.amazonaws.com',
+        ])->assertOk()
+            ->assertJsonPath('added', 2)
+            ->assertJsonPath('updated', 0)
+            ->assertJsonPath('unchanged', 0)
+            ->assertJsonPath('skipped', 1)
+            ->assertJsonPath('message', 'Synced: 2 added, 0 updated (1 failed)')
+            ->assertJsonPath('failed_files.0', 'access@theapex.iswellhung.com (HTTP 403)');
+
+        $this->assertSame(
+            ['admin.one@example.test', 'admin.two@example.test'],
+            WorkspaceGoogleProject::query()->where('workspace_id', $this->workspace->id)->orderBy('name')->pluck('name')->all()
+        );
+        Queue::assertPushed(SyncWorkspaceGoogleProjectAccounts::class, 2);
+    }
+
+    public function test_s3_project_sync_normalizes_path_style_s3_urls(): void
+    {
+        Queue::fake();
+        $credentials = json_encode(['client_email' => 'svc-path@example.test', 'private_key' => 'private-path'], JSON_THROW_ON_ERROR);
+        Http::fake(function (ClientRequest $request) use ($credentials) {
+            $url = parse_url($request->url());
+            $path = rawurldecode(ltrim((string) ($url['path'] ?? ''), '/'));
+            if ($path === '') {
+                return Http::response('<ListBucketResult><Contents><Key>projects/path.admin@example.test.json</Key></Contents><IsTruncated>false</IsTruncated></ListBucketResult>');
+            }
+
+            return match ($path) {
+                'projects/path.admin@example.test.json' => Http::response($credentials),
+                default => Http::response('Not found', 404),
+            };
+        });
+
+        $this->postJson(route('console.tools.workspace.projects.sync-s3', $this->workspace->id), [
+            'link' => 'https://s3.eu-west-2.amazonaws.com/workspace-fixture/projects',
+        ])->assertOk()->assertJsonPath('added', 1)->assertJsonPath('skipped', 0);
+
+        $this->assertSame(
+            ['path.admin@example.test'],
+            WorkspaceGoogleProject::query()->where('workspace_id', $this->workspace->id)->pluck('name')->all()
+        );
+        Queue::assertPushed(SyncWorkspaceGoogleProjectAccounts::class, 1);
+    }
+
+    public function test_workspace_push_progress_endpoint_tracks_operation_and_uses_dedicated_rate_limit(): void
+    {
+        $operationId = (string) Str::uuid();
+        $progressUrl = route('console.tools.workspace.progress', [$this->workspace->id, $operationId]);
+
+        $this->getJson($progressUrl)
+            ->assertOk()
+            ->assertJsonPath('percent', 0)
+            ->assertJsonPath('status', 'running');
+
+        for ($i = 0; $i < 6; $i++) {
+            $this->postJson(route('console.tools.workspace.push', $this->workspace->id), [
+                'ips' => [999999],
+                'projects' => [999999],
+                'split_on_ips' => false,
+                'operation_id' => $operationId,
+            ])->assertStatus(400);
+        }
+
+        $this->getJson($progressUrl)
+            ->assertOk()
+            ->assertJsonPath('percent', 100)
+            ->assertJsonPath('status', 'failed');
     }
 
     public function test_s3_project_sync_reports_an_empty_s3_listing_without_creating_projects(): void

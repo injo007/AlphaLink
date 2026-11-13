@@ -47,7 +47,10 @@ class AlphaLinkSingleInstallTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->owner = User::factory()->create(['username' => 'mailer']);
+        $this->owner = User::factory()->create([
+            'access_role' => User::ACCESS_ROLE_OWNER,
+            'username' => 'mailer',
+        ]);
         $this->workspace = Workspace::query()->create([
             'name' => 'Single Install workspace',
             'slug' => 'single-install-workspace',
@@ -95,9 +98,12 @@ class AlphaLinkSingleInstallTest extends TestCase
             ->assertOk()
             ->assertSee('ALPHA_INSTALL_NODE')
             ->assertDontSee('No active, uninstalled servers are available for installation.')
-            ->assertSee('id="single-domains" multiple', false)
+            ->assertSee('id="single-domains"', false)
+            ->assertSee('multiple data-live-search="true"', false)
+            ->assertSee('data-container="body"', false)
+            ->assertSee('You can change a domain for any IP after loading the map.')
             ->assertSee('WITH IPV6')
-            ->assertSee('LOAD IPS')
+            ->assertSee('LOAD IP ALLOCATION MAP')
             ->assertSee('CONFIG IPS')
             ->assertSee('id="single-config-ips" type="button" disabled', false)
             ->assertSee('id="single-install-ip-config-dialog"', false)
@@ -207,7 +213,11 @@ class AlphaLinkSingleInstallTest extends TestCase
             'domain_ids' => [$this->externalDomain->getKey()],
         ])->assertNotFound();
 
-        $viewer = User::factory()->create(['username' => 'viewer']);
+        $viewer = User::factory()->create([
+            'access_role' => User::ACCESS_ROLE_VIEWER,
+            'roles' => ['mail_servers.manage'],
+            'username' => 'viewer',
+        ]);
         $this->workspace->users()->attach($viewer->getKey(), ['role' => 'viewer']);
         $this->actingAs($viewer)
             ->postJson($this->loadIpsUrl(), [
@@ -270,7 +280,10 @@ class AlphaLinkSingleInstallTest extends TestCase
             'ips' => ['198.51.100.21'],
         ])->assertNotFound();
 
-        $operator = User::factory()->create();
+        $operator = User::factory()->create([
+            'access_role' => User::ACCESS_ROLE_OPERATOR,
+            'roles' => ['mail_servers.manage'],
+        ]);
         $this->workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
         $this->actingAs($operator)
             ->postJson($this->configIpsUrl(), ['ips' => ['198.51.100.22']])
@@ -369,11 +382,14 @@ class AlphaLinkSingleInstallTest extends TestCase
         $coordinator->shouldNotReceive('execute');
         $this->app->instance(AlphaLinkBulkInstallRunProcessPoolCoordinator::class, $coordinator);
 
-        $this->postJson($this->installUrl(), $this->installPayload(
+        $payload = $this->installPayload(
             [$this->assignment((string) $this->externalDomain->getKey())],
             (string) $this->externalDomain->getKey(),
             false,
-        ))
+        );
+        unset($payload['data'][0]['id']);
+
+        $this->postJson($this->installUrl(), $payload)
             ->assertServiceUnavailable()
             ->assertJsonPath('code', 'single_install_runner_unavailable');
 
@@ -408,6 +424,7 @@ class AlphaLinkSingleInstallTest extends TestCase
                 && $runPayload['kind'] === 'single_install'
                 && $runPayload['actor_id'] === (string) $this->owner->getKey()
                 && count($runPayload['payload']['data']) === 1
+                && $runPayload['payload']['data'][0]['id'] === (string) $this->server->getKey()
                 && isset($runPayload['payload']['data'][0]['ip_assignments']));
 
         $launcher = Mockery::mock(AlphaLinkInfrastructureRunLauncher::class);
@@ -467,6 +484,22 @@ class AlphaLinkSingleInstallTest extends TestCase
         $this->assertSame($assignments, app(AlphaLinkBulkInstallRowProcessPayload::class)->decode($encoded)['ip_assignments']);
     }
 
+    public function test_single_install_rejects_a_server_id_that_conflicts_with_the_target_server(): void
+    {
+        $payload = $this->installPayload(
+            [$this->assignment((string) $this->externalDomain->getKey())],
+            (string) $this->externalDomain->getKey(),
+        );
+        $payload['server_id'] = (string) Str::uuid();
+
+        $this->postJson($this->installUrl(), $payload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['server_id']);
+
+        $this->assertFalse($this->server->fresh()->is_installed);
+        $this->assertDatabaseCount('managed_server_ips', 0);
+    }
+
     private function createDomain(string $name, bool $isOur, ?Workspace $workspace = null): SendingDomain
     {
         $workspace ??= $this->workspace;
@@ -488,6 +521,7 @@ class AlphaLinkSingleInstallTest extends TestCase
     private function installPayload(array $assignments, string $primaryDomainId, bool $tracking = true): array
     {
         return [
+            'server_id' => (string) $this->server->getKey(),
             'data' => [[
                 'id' => $this->server->getKey(),
                 'domain' => $primaryDomainId,

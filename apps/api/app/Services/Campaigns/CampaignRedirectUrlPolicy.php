@@ -10,7 +10,41 @@ class CampaignRedirectUrlPolicy
 {
     public const UNKNOWN_REDIRECT_URL = 'https://www.google.com';
 
-    public function campaignTrackingClickUrl(string $trackingHost, string $token): string
+    /** @param array<string, mixed> $installParameters */
+    public function readyTrackingHost(array $installParameters): ?string
+    {
+        // HTTP and HTTPS readiness are separate: a working HTTP tracker remains
+        // usable while HTTPS is being fixed or verified.
+        if (! (bool) ($installParameters['tracking'] ?? false)) {
+            return null;
+        }
+
+        $trackingHost = trim((string) ($installParameters['tracking_host'] ?? ''));
+        $trackingHost = preg_replace('/\Ahttps?:\/\//i', '', $trackingHost) ?? $trackingHost;
+        $trackingHost = rtrim($trackingHost, '/');
+        $parsed = parse_url('https://'.$trackingHost);
+        $host = is_array($parsed) ? ($parsed['host'] ?? null) : null;
+        $port = is_array($parsed) ? ($parsed['port'] ?? null) : null;
+        $normalizedHost = is_string($host) ? trim($host, '[]') : '';
+
+        if (
+            $normalizedHost === ''
+            || filter_var($normalizedHost, FILTER_VALIDATE_IP) !== false
+            || filter_var($normalizedHost, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) === false
+            || isset($parsed['user'])
+            || isset($parsed['pass'])
+            || (isset($parsed['path']) && $parsed['path'] !== '')
+            || isset($parsed['query'])
+            || isset($parsed['fragment'])
+            || ($port !== null && $port !== 443)
+        ) {
+            return null;
+        }
+
+        return strtolower(rtrim($normalizedHost, '.'));
+    }
+
+    public function campaignTrackingClickUrl(string $trackingHost, string $token, bool $httpsReady = false): string
     {
         $trackingHost = trim($trackingHost);
         $trackingHost = preg_replace('/\Ahttps?:\/\//i', '', $trackingHost) ?? $trackingHost;
@@ -41,12 +75,35 @@ class CampaignRedirectUrlPolicy
             $trackingPath .= '/'.implode('/', $tokenSegments);
         }
 
-        return 'https://'.$urlHost.'/'.$trackingPath.'?t=1';
+        return ($httpsReady ? 'https://' : 'http://').$urlHost.'/'.$trackingPath.'?t=1';
     }
 
-    public function forceHttpsForHost(string $content, string $host): string
+    public function isTrackingHostOrSubdomain(string $host, string $trackingHost): bool
+    {
+        $normalize = static function (string $value): string {
+            $value = trim($value);
+            $value = preg_replace('/\Ahttps?:\/\//i', '', $value) ?? $value;
+            $value = rtrim($value, '/');
+            $parsedHost = parse_url('https://'.$value, PHP_URL_HOST);
+
+            return is_string($parsedHost) ? strtolower(rtrim($parsedHost, '.')) : '';
+        };
+
+        $candidate = $normalize($host);
+        $tracking = $normalize($trackingHost);
+
+        return $candidate !== '' && $tracking !== ''
+            && ($candidate === $tracking || str_ends_with($candidate, '.'.$tracking));
+    }
+
+    public function forceSchemeForHost(string $content, string $host, string $scheme): string
     {
         if ($content === '' || trim($host) === '') {
+            return $content;
+        }
+
+        $scheme = strtolower($scheme);
+        if (! in_array($scheme, ['http', 'https'], true)) {
             return $content;
         }
 
@@ -56,8 +113,13 @@ class CampaignRedirectUrlPolicy
             return $content;
         }
 
-        $pattern = '~\bhttp://'.preg_quote(strtolower(rtrim($targetHost, '.')), '~').'(?:\:80)?(?=[/:?#\s"\'<>]|$)~i';
+        $pattern = '~\bhttps?://'.preg_quote(strtolower(rtrim($targetHost, '.')), '~').'(?:\:(?:80|443))?(?=[/:?#\s"\'<>]|$)~i';
 
-        return preg_replace($pattern, 'https://'.strtolower(rtrim($targetHost, '.')), $content) ?? $content;
+        return preg_replace($pattern, $scheme.'://'.strtolower(rtrim($targetHost, '.')), $content) ?? $content;
+    }
+
+    public function forceHttpsForHost(string $content, string $host): string
+    {
+        return $this->forceSchemeForHost($content, $host, 'https');
     }
 }

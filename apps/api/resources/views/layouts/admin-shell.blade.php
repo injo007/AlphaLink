@@ -62,6 +62,28 @@
         .alphalink-toast { box-shadow: 0 .4rem 1.25rem rgba(0, 0, 0, .2); margin: 0; }
         @media (prefers-reduced-motion: no-preference) { .alphalink-toast { animation: alphalink-toast-in .16s ease-out; } }
         @keyframes alphalink-toast-in { from { opacity: 0; transform: translateY(.4rem); } to { opacity: 1; transform: translateY(0); } }
+        .command-os-sysmetrics-slot { flex: 1 1 auto; min-width: 0; padding: 0 12px; }
+        .command-os-sysmetrics { display: inline-flex; align-items: center; gap: 10px; height: 34px; padding: 0 4px 0 12px; border-radius: 10px; border: 1px solid rgba(99, 102, 241, 0.22); background: rgba(255, 255, 255, 0.78); color: #334155; font-size: 0.72rem; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
+        [data-command-theme="dark"] .command-os-sysmetrics { background: rgba(15, 23, 42, 0.72); border-color: rgba(129, 140, 248, 0.28); color: #e2e8f0; }
+        .command-os-sysmetrics-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+        .command-os-sysmetrics-label { font-weight: 700; letter-spacing: 0.05em; color: #64748b; font-size: 0.68rem; }
+        [data-command-theme="dark"] .command-os-sysmetrics-label { color: #94a3b8; }
+        .command-os-sysmetrics-track { width: 42px; height: 6px; border-radius: 999px; background: rgba(148, 163, 184, 0.24); overflow: hidden; display: inline-block; }
+        .command-os-sysmetrics-fill { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #6366f1, #8b5cf6); transition: width 0.35s ease, background 0.25s ease; }
+        .command-os-sysmetrics-fill.is-warn { background: linear-gradient(90deg, #f59e0b, #d97706); }
+        .command-os-sysmetrics-fill.is-danger { background: linear-gradient(90deg, #ef4444, #dc2626); }
+        .command-os-sysmetrics-value { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 28px; text-align: right; color: #0f172a; }
+        [data-command-theme="dark"] .command-os-sysmetrics-value { color: #f8fafc; }
+        .command-os-sysmetrics-divider { width: 1px; height: 16px; background: rgba(148, 163, 184, 0.32); }
+        .command-os-sysmetrics-refresh { width: 26px; height: 26px; border-radius: 7px; border: 1px solid rgba(99, 102, 241, 0.22); background: rgba(99, 102, 241, 0.08); color: #6366f1; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; transition: background 0.15s ease, transform 0.15s ease; }
+        .command-os-sysmetrics-refresh:hover { background: rgba(99, 102, 241, 0.16); transform: translateY(-1px); }
+        [data-command-theme="dark"] .command-os-sysmetrics-refresh { border-color: rgba(129, 140, 248, 0.3); background: rgba(129, 140, 248, 0.12); color: #a5b4fc; }
+        .command-os-sysmetrics-refresh svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        .command-os-sysmetrics-refresh.is-spinning svg { animation: command-os-pulse-rocket 0.6s ease-in-out infinite alternate; }
+        @keyframes command-os-pulse-rocket { from { transform: translate(0, 0) scale(1); } to { transform: translate(1px, -1px) scale(1.12); } }
+        .command-os-optimize-toast { position: fixed; top: 62px; right: 20px; z-index: 1300; display: flex; align-items: center; gap: 10px; padding: 11px 16px; border-radius: 10px; border: 1px solid rgba(99, 102, 241, 0.2); border-left: 4px solid #6366f1; background: #ffffff; color: #1e293b; font-size: 0.8125rem; font-weight: 600; box-shadow: 0 10px 25px rgba(15, 23, 42, 0.14); animation: alphalink-toast-in 0.18s ease-out; }
+        [data-command-theme="dark"] .command-os-optimize-toast { background: #1e293b; color: #f8fafc; border-color: rgba(129, 140, 248, 0.28); border-left-color: #818cf8; }
+        .command-os-optimize-toast-icon { width: 24px; height: 24px; border-radius: 7px; background: rgba(16, 185, 129, 0.14); color: #10b981; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
     </style>
 </head>
 <body class="command-os-shell {{ $commandOsDashboard ? 'command-os-dashboard' : '' }} {{ $isCampaignComposerPage ? 'command-os-campaign-composer' : '' }}">
@@ -179,6 +201,7 @@
         $isMiscellaneousPage = $isAppSettingsPage || $isAppHealthPage || $isAppErrorsPage || $isSubscribersPage || $isContactsPage || $isHorizonPage;
         $isCampaignsPage = $routeIs('console.campaigns.*', 'console.mailer.campaigns');
         $isCampaignLogsPage = $routeIs('console.campaign-logs.*', 'console.mailer.campaign-logs');
+        $isRedirectsPage = $routeIs('console.redirects.*', 'console.rotators.*');
         $isAudienceMixesPage = $routeIs('console.audience-mixes.*');
         $isAudienceMixHistoryPage = $routeIs('console.audience-mixes.history');
         $isAudienceMixBuilderPage = $routeIs('console.audience-mixes.index');
@@ -473,9 +496,9 @@
         $analyticsActive = $isDashboardAllStatsPage || $isDashboardIspStatsPage || $isDashboardMailerRevenuePage || $isCampaignStatisticsPage || $isDropStatisticsPage || $isWarmupStatisticsPage;
         $mailInfrastructureActive = $isServersPage || $isServerInstallPage || $isBulkInstallPage || $isChangeDomainPage || $isReinstallPage || $isMyServersPage || $isMyIpsPage;
         $providerNetworkActive = $isServerProvidersPage || $isCloudProvidersPage || $isDomainProvidersPage || $isSponsorManagementPage || $isCloudWorkflowPage;
-        $redirectsGroup = $makeCommandOsNavGroup('REDIRECTS & ROTATORS', 'fas fa-link', null, false, [], false, 'nav-v2-redirects-rotators');
-        $redirectsGroup['disabled'] = true;
-        $redirectsGroup['reason'] = 'No redirect or rotator page is connected yet.';
+        $redirectsUrl = $workspace ? route('console.redirects.index', ['workspace' => $workspace->getKey()]) : null;
+        $redirectsGroup = $makeCommandOsNavGroup('REDIRECTS & ROTATORS', 'fas fa-link', $redirectsUrl, $isRedirectsPage, [], $isRedirectsPage, 'nav-v2-redirects-rotators');
+        $redirectsGroup['page_active'] = $isRedirectsPage;
         $commandOsNavigation = [
             $makeCommandOsNavGroup('OPERATIONS OVERVIEW', 'fas fa-tachometer-alt', route('console.dashboard.main'), $routeIs('console.dashboard.main', 'console.workspace.dashboard.main', 'console.analytics.index'), [], false, 'nav-v2-operations-overview'),
             $makeCommandOsNavGroup('ANALYTICS & INSIGHTS', 'fas fa-chart-bar', route('clean.console.analytics.all-stats'), $analyticsActive, $flattenNavigationItems($trackingItems), $analyticsActive, 'nav-v2-analytics-insights'),
@@ -718,6 +741,29 @@
                         </a>
                     @endif
                 </div>
+                @if ($commandOsShell && $workspace && auth()->user()?->hasFullAccess())
+                    <div class="command-os-sysmetrics-slot d-none d-xl-flex align-items-center justify-content-center">
+                        <div class="command-os-sysmetrics" id="command-os-sysmetrics"
+                            data-metrics-url="{{ route('console.miscellaneous.system-metrics', ['workspace' => $workspace->getKey()]) }}"
+                            data-optimize-url="{{ route('console.miscellaneous.system-optimize', ['workspace' => $workspace->getKey()]) }}"
+                            title="Server CPU and RAM usage">
+                            <div class="command-os-sysmetrics-item">
+                                <span class="command-os-sysmetrics-label">CPU</span>
+                                <span class="command-os-sysmetrics-track" aria-hidden="true"><span class="command-os-sysmetrics-fill" id="command-os-cpu-bar" style="width: 0%;"></span></span>
+                                <span class="command-os-sysmetrics-value" id="command-os-cpu-value">--%</span>
+                            </div>
+                            <span class="command-os-sysmetrics-divider" aria-hidden="true"></span>
+                            <div class="command-os-sysmetrics-item">
+                                <span class="command-os-sysmetrics-label">RAM</span>
+                                <span class="command-os-sysmetrics-track" aria-hidden="true"><span class="command-os-sysmetrics-fill" id="command-os-ram-bar" style="width: 0%;"></span></span>
+                                <span class="command-os-sysmetrics-value" id="command-os-ram-value">--%</span>
+                            </div>
+                            <button type="button" class="command-os-sysmetrics-refresh" id="command-os-sysmetrics-refresh" aria-label="Optimize server memory and refresh CPU/RAM" title="Optimize & refresh CPU/RAM">
+                                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" /><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" /><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" /><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" /></svg>
+                            </button>
+                        </div>
+                    </div>
+                @endif
                 <div class="d-flex align-items-center command-os-header-trailing">
                     @if ($commandOsShell)
                         @if ($workspace && in_array(auth()->user()->access_role, ['owner', 'admin', 'operator'], true))
@@ -968,6 +1014,101 @@
                 toggle.closest('.nav-main-item')?.classList.toggle('open', !expanded);
             });
         }
+    </script>
+    <script>
+        (() => {
+            const widget = document.getElementById('command-os-sysmetrics');
+            if (!widget) {
+                return;
+            }
+            const url = widget.dataset.metricsUrl;
+            const optimizeUrl = widget.dataset.optimizeUrl;
+            const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            const cpuBar = document.getElementById('command-os-cpu-bar');
+            const cpuVal = document.getElementById('command-os-cpu-value');
+            const ramBar = document.getElementById('command-os-ram-bar');
+            const ramVal = document.getElementById('command-os-ram-value');
+            const refreshBtn = document.getElementById('command-os-sysmetrics-refresh');
+            let loading = false;
+
+            const showOptimizeNotif = (message) => {
+                document.getElementById('command-os-optimize-toast')?.remove();
+                const toast = document.createElement('div');
+                toast.id = 'command-os-optimize-toast';
+                toast.className = 'command-os-optimize-toast';
+                toast.setAttribute('role', 'status');
+                toast.innerHTML = '<span class="command-os-optimize-toast-icon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span><span></span>';
+                toast.querySelector('span:last-child').textContent = String(message || 'Server memory optimized.');
+                document.body.append(toast);
+                window.setTimeout(() => toast.remove(), 4500);
+            };
+
+            const applyMetrics = (data) => {
+                const applyMeter = (bar, label, pct) => {
+                    const value = Math.max(0, Math.min(100, Number(pct) || 0));
+                    if (bar) {
+                        bar.style.width = `${value}%`;
+                        bar.classList.toggle('is-warn', value >= 70 && value < 90);
+                        bar.classList.toggle('is-danger', value >= 90);
+                    }
+                    if (label) {
+                        label.textContent = `${value}%`;
+                    }
+                };
+                applyMeter(cpuBar, cpuVal, data.cpu_percent);
+                applyMeter(ramBar, ramVal, data.ram_percent);
+                widget.title = `CPU: ${data.cpu_percent}% (load ${data.load_1m}) | RAM: ${data.ram_percent}% (${data.ram_used_gb} / ${data.ram_total_gb} GB)`;
+            };
+
+            const loadMetrics = async () => {
+                if (loading || !url) {
+                    return;
+                }
+                loading = true;
+                try {
+                    const response = await fetch(url, { headers: { Accept: 'application/json' }, cache: 'no-store' });
+                    if (response.ok) {
+                        applyMetrics(await response.json());
+                    }
+                } catch (_) {
+                } finally {
+                    loading = false;
+                }
+            };
+
+            const optimizeAndRefresh = async () => {
+                if (loading || !optimizeUrl) {
+                    return;
+                }
+                loading = true;
+                refreshBtn?.classList.add('is-spinning');
+                try {
+                    const response = await fetch(optimizeUrl, {
+                        method: 'POST',
+                        headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
+                        body: '{}',
+                    });
+                    if (!response.ok) {
+                        return;
+                    }
+                    const data = await response.json();
+                    applyMetrics(data);
+                    showOptimizeNotif(data.message);
+                } catch (_) {
+                } finally {
+                    loading = false;
+                    refreshBtn?.classList.remove('is-spinning');
+                }
+            };
+
+            refreshBtn?.addEventListener('click', optimizeAndRefresh);
+            loadMetrics();
+            window.setInterval(() => {
+                if (document.visibilityState === 'visible') {
+                    loadMetrics();
+                }
+            }, 30000);
+        })();
     </script>
 </body>
 </html>

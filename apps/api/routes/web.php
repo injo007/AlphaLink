@@ -22,8 +22,8 @@ use App\Http\Controllers\Web\WorkspaceCampaignLogsConsoleController;
 use App\Http\Controllers\Web\WorkspaceCampaignNegativeController;
 use App\Http\Controllers\Web\WorkspaceCampaignStatisticsConsoleController;
 use App\Http\Controllers\Web\WorkspaceCampaignVisitorsConsoleController;
-use App\Http\Controllers\Web\WorkspaceConsoleController;
 use App\Http\Controllers\Web\WorkspaceCommunicationController;
+use App\Http\Controllers\Web\WorkspaceConsoleController;
 use App\Http\Controllers\Web\WorkspaceDropsConsoleController;
 use App\Http\Controllers\Web\WorkspaceDropSuppressionController;
 use App\Http\Controllers\Web\WorkspaceEmailManagementController;
@@ -31,6 +31,7 @@ use App\Http\Controllers\Web\WorkspaceEncodingConsoleController;
 use App\Http\Controllers\Web\WorkspaceGlobalTestController;
 use App\Http\Controllers\Web\WorkspaceMailerOperationsConsoleController;
 use App\Http\Controllers\Web\WorkspaceOfferConsoleController;
+use App\Http\Controllers\Web\WorkspaceRedirectConsoleController;
 use App\Http\Controllers\Web\WorkspaceSeedListConsoleController;
 use App\Http\Controllers\Web\WorkspaceSpfScannerController;
 use App\Http\Controllers\Web\WorkspaceSponsorConsoleController;
@@ -89,6 +90,7 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::get('/app/workspaces/{workspace}/dashboard/isp', [WorkspaceAnalyticsConsoleController::class, 'ispStats'])->name('console.analytics.isp-stats');
     Route::get('/app/workspaces/{workspace}/dashboard/mailer', [WorkspaceAnalyticsConsoleController::class, 'mailerRevenue'])->name('console.analytics.mailer-revenue');
     Route::get('/app/workspaces/{workspace}/campaign-statistics', [WorkspaceCampaignStatisticsConsoleController::class, 'index'])->name('console.campaign-statistics.index');
+    Route::get('/app/workspaces/{workspace}/redirects', [WorkspaceRedirectConsoleController::class, 'index'])->name('console.redirects.index');
     Route::get('/app/workspaces/{workspace}/campaign-logs', [WorkspaceCampaignLogsConsoleController::class, 'index'])->name('console.campaign-logs.index');
     Route::get('/app/workspaces/{workspace}/campaign-logs/{campaign}/{history}', [WorkspaceCampaignLogsConsoleController::class, 'history'])
         ->whereUuid(['workspace', 'campaign'])->where('history', 'tests|updates|sends')->name('console.campaign-logs.history');
@@ -115,6 +117,8 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::get('/app/workspaces/{workspace}/settings/secrets/{field}', [AppSettingsConsoleController::class, 'revealSecret'])
         ->where('field', '[a-z_]+')->middleware('throttle:20,1')->name('console.app-settings.secret');
     Route::get('/app/workspaces/{workspace}/miscellaneous/app-health', [MiscellaneousConsoleController::class, 'appHealth'])->name('console.miscellaneous.app-health');
+    Route::get('/app/workspaces/{workspace}/miscellaneous/system-metrics', [MiscellaneousConsoleController::class, 'systemMetrics'])->name('console.miscellaneous.system-metrics');
+    Route::post('/app/workspaces/{workspace}/miscellaneous/system-optimize', [MiscellaneousConsoleController::class, 'systemOptimize'])->middleware('throttle:20,1,system-optimize')->name('console.miscellaneous.system-optimize');
     Route::get('/app/workspaces/{workspace}/miscellaneous/app-errors', [MiscellaneousConsoleController::class, 'appErrors'])->name('console.miscellaneous.app-errors');
     Route::post('/app/workspaces/{workspace}/miscellaneous/app-errors/sync', [MiscellaneousConsoleController::class, 'appErrorsSync'])->name('console.miscellaneous.app-errors.sync');
     Route::post('/app/workspaces/{workspace}/miscellaneous/app-errors/archive-logs', [MiscellaneousConsoleController::class, 'appErrorsArchiveLogs'])->name('console.miscellaneous.app-errors.archive-logs');
@@ -140,10 +144,18 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::get('/app/workspaces/{workspace}/tools/spf-scanner/export', [WorkspaceSpfScannerController::class, 'export'])->name('console.tools.spf.export');
     Route::post('/app/workspaces/{workspace}/tools/spf-scanner/search', [WorkspaceSpfScannerController::class, 'search'])->middleware('throttle:20,1')->name('console.tools.spf.search');
     Route::post('/app/workspaces/{workspace}/tools/spf-scanner/search/export', [WorkspaceSpfScannerController::class, 'searchExport'])->middleware('throttle:20,1')->name('console.tools.spf.search-export');
-    Route::post('/app/workspaces/{workspace}/tools/spf-scanner/upload', [WorkspaceSpfScannerController::class, 'upload'])->middleware('throttle:5,1')->name('console.tools.spf.upload');
+    Route::post('/app/workspaces/{workspace}/tools/spf-scanner/search-runs', [WorkspaceSpfScannerController::class, 'createSearchRun'])->middleware('throttle:10,1')->name('console.tools.spf.search-runs.create');
+    Route::get('/app/workspaces/{workspace}/tools/spf-scanner/search-runs/{run}', [WorkspaceSpfScannerController::class, 'searchRunStatus'])->whereNumber('run')->name('console.tools.spf.search-runs.show');
+    Route::get('/app/workspaces/{workspace}/tools/spf-scanner/search-runs/{run}/results', [WorkspaceSpfScannerController::class, 'searchRunResults'])->whereNumber('run')->name('console.tools.spf.search-runs.results');
+    Route::get('/app/workspaces/{workspace}/tools/spf-scanner/search-runs/{run}/export', [WorkspaceSpfScannerController::class, 'searchRunExport'])->whereNumber('run')->name('console.tools.spf.search-runs.export');
+    Route::post('/app/workspaces/{workspace}/tools/spf-scanner/search-runs/{run}/cancel', [WorkspaceSpfScannerController::class, 'cancelSearchRun'])->whereNumber('run')->middleware('throttle:10,1')->name('console.tools.spf.search-runs.cancel');
+    Route::post('/app/workspaces/{workspace}/tools/spf-scanner/upload', [WorkspaceSpfScannerController::class, 'upload'])->middleware('throttle:spf-scan-upload')->name('console.tools.spf.upload');
     Route::post('/app/workspaces/{workspace}/tools/spf-scanner/manual', [WorkspaceSpfScannerController::class, 'manual'])->middleware('throttle:10,1')->name('console.tools.spf.manual');
     Route::post('/app/workspaces/{workspace}/tools/spf-scanner/volume', [WorkspaceSpfScannerController::class, 'volume'])->middleware('throttle:20,1')->name('console.tools.spf.volume');
     Route::get('/app/workspaces/{workspace}/tools/spf-scanner/scans', [WorkspaceSpfScannerController::class, 'scans'])->name('console.tools.spf.scans');
+    Route::get('/app/workspaces/{workspace}/tools/spf-scanner/scans/{scan}/activity', [WorkspaceSpfScannerController::class, 'activity'])->whereNumber('scan')->name('console.tools.spf.scan-activity');
+    Route::post('/app/workspaces/{workspace}/tools/spf-scanner/scans/{scan}/pause', [WorkspaceSpfScannerController::class, 'pause'])->whereNumber('scan')->middleware('throttle:10,1')->name('console.tools.spf.pause');
+    Route::post('/app/workspaces/{workspace}/tools/spf-scanner/scans/{scan}/resume', [WorkspaceSpfScannerController::class, 'resume'])->whereNumber('scan')->middleware('throttle:10,1')->name('console.tools.spf.resume');
     Route::post('/app/workspaces/{workspace}/tools/spf-scanner/scans/{scan}/kill', [WorkspaceSpfScannerController::class, 'kill'])->whereNumber('scan')->middleware('throttle:10,1')->name('console.tools.spf.kill');
     Route::get('/app/workspaces/{workspace}/tools/workspace', [WorkspaceToolConsoleController::class, 'index'])->name('console.tools.workspace.index');
     Route::get('/app/workspaces/{workspace}/gcampaigns/projects', [WorkspaceToolConsoleController::class, 'projects'])->name('console.gcampaigns.projects');
@@ -164,8 +176,9 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::post('/app/workspaces/{workspace}/tools/workspace/accounts', [WorkspaceToolConsoleController::class, 'storeAccounts'])->middleware('throttle:10,1')->name('console.tools.workspace.accounts.store');
     Route::patch('/app/workspaces/{workspace}/tools/workspace/accounts/status', [WorkspaceToolConsoleController::class, 'statusAccounts'])->name('console.tools.workspace.accounts.status');
     Route::delete('/app/workspaces/{workspace}/tools/workspace/accounts', [WorkspaceToolConsoleController::class, 'destroyAccounts'])->name('console.tools.workspace.accounts.destroy');
-    Route::post('/app/workspaces/{workspace}/tools/workspace/push', [WorkspaceToolConsoleController::class, 'push'])->middleware('throttle:5,1')->name('console.tools.workspace.push');
-    Route::delete('/app/workspaces/{workspace}/tools/workspace/reset', [WorkspaceToolConsoleController::class, 'reset'])->middleware('throttle:5,1')->name('console.tools.workspace.reset');
+    Route::get('/app/workspaces/{workspace}/tools/workspace/progress/{operationId}', [WorkspaceToolConsoleController::class, 'operationProgress'])->whereUuid('operationId')->name('console.tools.workspace.progress');
+    Route::post('/app/workspaces/{workspace}/tools/workspace/push', [WorkspaceToolConsoleController::class, 'push'])->middleware('throttle:30,1,workspace-push')->name('console.tools.workspace.push');
+    Route::delete('/app/workspaces/{workspace}/tools/workspace/reset', [WorkspaceToolConsoleController::class, 'reset'])->middleware('throttle:30,1,workspace-reset')->name('console.tools.workspace.reset');
     Route::get('/app/workspaces/{workspace}/drops/suppression', [WorkspaceDropSuppressionController::class, 'index'])->name('console.drops.suppression');
     Route::get('/app/workspaces/{workspace}/drops/suppression/catalog', [WorkspaceDropSuppressionController::class, 'catalog'])->name('console.drops.suppression.catalog');
     Route::get('/app/workspaces/{workspace}/drops/suppression/{suppression}/monitor', [WorkspaceDropSuppressionController::class, 'monitor'])
@@ -292,7 +305,9 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::delete('/app/workspaces/{workspace}/pmta-vmta/rows', [PmtaConsoleController::class, 'deleteVmtaRows'])->name('console.pmta-vmta.rows.destroy');
     Route::get('/app/workspaces/{workspace}/pmta-smtp', [PmtaConsoleController::class, 'smtp'])->name('console.pmta-smtp.index');
     Route::get('/app/workspaces/{workspace}/pmta-smtp/rows', [PmtaConsoleController::class, 'smtpRows'])->name('console.pmta-smtp.rows');
+    Route::get('/app/workspaces/{workspace}/pmta-smtp/imap-accounts', [PmtaConsoleController::class, 'imapAccounts'])->name('console.pmta-smtp.imap-accounts');
     Route::post('/app/workspaces/{workspace}/pmta-smtp/push', [PmtaConsoleController::class, 'pushSmtp'])->name('console.pmta-smtp.push');
+    Route::post('/app/workspaces/{workspace}/pmta-smtp/push-imap', [PmtaConsoleController::class, 'pushImapSmtp'])->middleware('throttle:20,1')->name('console.pmta-smtp.push-imap');
     Route::post('/app/workspaces/{workspace}/pmta-smtp/restore', [PmtaConsoleController::class, 'restoreSmtp'])->name('console.pmta-smtp.restore');
     Route::delete('/app/workspaces/{workspace}/pmta-smtp/rows', [PmtaConsoleController::class, 'deleteSmtpRows'])->name('console.pmta-smtp.rows.destroy');
     Route::get('/app/workspaces/{workspace}/pmta-errors', [PmtaConsoleController::class, 'errors'])->name('console.pmta-errors.index');
@@ -344,9 +359,9 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::get('/app/workspaces/{workspace}/infrastructure', [InfrastructureConsoleController::class, 'index'])->name('console.infrastructure.index');
     Route::get('/app/workspaces/{workspace}/infrastructure/install', [InfrastructureConsoleController::class, 'install'])->name('console.infrastructure.install.index');
     Route::post('/app/workspaces/{workspace}/infrastructure/install/load-ips', [InfrastructureConsoleController::class, 'loadSingleInstallIps'])
-        ->middleware('throttle:10,1')->name('console.infrastructure.install.load-ips');
+        ->middleware('throttle:infrastructure-server-action')->name('console.infrastructure.install.load-ips');
     Route::post('/app/workspaces/{workspace}/infrastructure/install/{server}/config-ips', [InfrastructureConsoleController::class, 'configureSingleInstallIps'])
-        ->whereUuid('server')->middleware('throttle:3,1')->name('console.infrastructure.install.config-ips');
+        ->whereUuid('server')->middleware('throttle:infrastructure-server-action')->name('console.infrastructure.install.config-ips');
     Route::get('/app/workspaces/{workspace}/infrastructure/bulk-install', [InfrastructureConsoleController::class, 'bulkInstall'])->name('console.infrastructure.bulk-install');
     Route::get('/app/workspaces/{workspace}/infrastructure/change-domain', [InfrastructureConsoleController::class, 'changeDomain'])->name('console.infrastructure.change-domain.index');
     Route::post('/app/workspaces/{workspace}/infrastructure/change-domain/load-ips', [InfrastructureConsoleController::class, 'loadChangeDomainIps'])->middleware('throttle:10,1')->name('console.infrastructure.change-domain.load-ips');
@@ -354,9 +369,9 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::get('/app/workspaces/{workspace}/infrastructure/change-domain/{server}/logs', [InfrastructureConsoleController::class, 'changeDomainLogs'])->whereUuid('server')->name('console.infrastructure.change-domain.logs');
     Route::get('/app/workspaces/{workspace}/infrastructure/reinstall', [InfrastructureConsoleController::class, 'reinstall'])->name('console.infrastructure.reinstall.index');
     Route::get('/app/workspaces/{workspace}/infrastructure/reinstall/{server}/config', [InfrastructureConsoleController::class, 'loadReinstallConfiguration'])->whereUuid('server')->name('console.infrastructure.reinstall.config');
-    Route::post('/app/workspaces/{workspace}/infrastructure/reinstall/{server}/ips', [InfrastructureConsoleController::class, 'reloadReinstallIps'])->whereUuid('server')->middleware('throttle:3,1')->name('console.infrastructure.reinstall.ips');
-    Route::post('/app/workspaces/{workspace}/infrastructure/reinstall/{server}/config-ips', [InfrastructureConsoleController::class, 'configureReinstallIps'])->whereUuid('server')->middleware('throttle:3,1')->name('console.infrastructure.reinstall.config-ips');
-    Route::post('/app/workspaces/{workspace}/infrastructure/reinstall/{server}/runs', [InfrastructureConsoleController::class, 'startReinstall'])->whereUuid('server')->middleware('throttle:2,1')->name('console.infrastructure.reinstall.runs.store');
+    Route::post('/app/workspaces/{workspace}/infrastructure/reinstall/{server}/ips', [InfrastructureConsoleController::class, 'reloadReinstallIps'])->whereUuid('server')->middleware('throttle:infrastructure-server-action')->name('console.infrastructure.reinstall.ips');
+    Route::post('/app/workspaces/{workspace}/infrastructure/reinstall/{server}/config-ips', [InfrastructureConsoleController::class, 'configureReinstallIps'])->whereUuid('server')->middleware('throttle:infrastructure-server-action')->name('console.infrastructure.reinstall.config-ips');
+    Route::post('/app/workspaces/{workspace}/infrastructure/reinstall/{server}/runs', [InfrastructureConsoleController::class, 'startReinstall'])->whereUuid('server')->middleware('throttle:infrastructure-server-action')->name('console.infrastructure.reinstall.runs.store');
     Route::get('/app/workspaces/{workspace}/infrastructure/reinstall/runs/{runId}/logs', [InfrastructureConsoleController::class, 'reinstallLogs'])->whereUuid('runId')->name('console.infrastructure.reinstall.runs.logs');
     Route::get('/app/workspaces/{workspace}/infrastructure/cloud-providers', [CloudProviderConsoleController::class, 'index'])->name('console.infrastructure.cloud-providers.index');
     Route::get('/app/workspaces/{workspace}/infrastructure/cloud-providers/available/{type}', [CloudProviderConsoleController::class, 'available'])->name('console.infrastructure.cloud-providers.available');
@@ -447,9 +462,9 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
         ->where('runId', '[0-9]+(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}')
         ->name('console.infrastructure.bulk-install.logs');
     Route::post('/app/workspaces/{workspace}/infrastructure/bulk-install/runs', [InfrastructureConsoleController::class, 'startBulkInstall'])
-        ->middleware('throttle:3,1')->name('console.infrastructure.bulk-install.runs.store');
+        ->name('console.infrastructure.bulk-install.runs.store');
     Route::post('/app/workspaces/{workspace}/infrastructure/install/runs', [InfrastructureConsoleController::class, 'startSingleInstall'])
-        ->middleware('throttle:3,1')->name('console.infrastructure.install.runs.store');
+        ->middleware('throttle:infrastructure-server-action')->name('console.infrastructure.install.runs.store');
     Route::post('/app/workspaces/{workspace}/infrastructure/isps', [InfrastructureConsoleController::class, 'storeIsp'])->middleware('throttle:10,1')->name('console.infrastructure.isps.store');
     Route::put('/app/workspaces/{workspace}/infrastructure/isps/{ispId}', [InfrastructureConsoleController::class, 'updateIsp'])->whereNumber('ispId')->middleware('throttle:10,1')->name('console.infrastructure.isps.update');
     Route::patch('/app/workspaces/{workspace}/infrastructure/isps/{ispId}/status', [InfrastructureConsoleController::class, 'setIspStatus'])->whereNumber('ispId')->middleware('throttle:10,1')->name('console.infrastructure.isps.status');
@@ -469,6 +484,16 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::get('/app/workspaces/{workspace}/infrastructure/servers/{server}/ips', [InfrastructureConsoleController::class, 'serverIps'])->whereUuid('server')->name('console.infrastructure.servers.ips');
     Route::get('/app/workspaces/{workspace}/infrastructure/my-ips', [InfrastructureConsoleController::class, 'myIps'])->name('console.infrastructure.my-ips');
     Route::get('/app/workspaces/{workspace}/infrastructure/my-ips/export', [InfrastructureConsoleController::class, 'exportMyIps'])->name('console.infrastructure.my-ips.export');
+    Route::get('/app/workspaces/{workspace}/infrastructure/my-ips/{ipId}/webmail', [InfrastructureConsoleController::class, 'webmail'])->whereNumber('ipId')->name('console.infrastructure.my-ips.webmail');
+    Route::post('/app/workspaces/{workspace}/infrastructure/my-ips/{ipId}/webmail/connect', [InfrastructureConsoleController::class, 'webmailConnect'])->whereNumber('ipId')->middleware('throttle:30,1')->name('console.infrastructure.my-ips.webmail.connect');
+    Route::get('/app/workspaces/{workspace}/infrastructure/my-ips/{ipId}/webmail/messages/{uid}', [InfrastructureConsoleController::class, 'webmailMessage'])->whereNumber('ipId')->whereNumber('uid')->name('console.infrastructure.my-ips.webmail.message');
+    Route::delete('/app/workspaces/{workspace}/infrastructure/my-ips/{ipId}/webmail/messages/{uid}', [InfrastructureConsoleController::class, 'webmailDeleteMessage'])->whereNumber('ipId')->whereNumber('uid')->middleware('throttle:30,1')->name('console.infrastructure.my-ips.webmail.delete');
+    Route::post('/app/workspaces/{workspace}/infrastructure/my-ips/{ipId}/webmail/flags', [InfrastructureConsoleController::class, 'webmailUpdateFlags'])->whereNumber('ipId')->middleware('throttle:60,1')->name('console.infrastructure.my-ips.webmail.flags');
+    Route::post('/app/workspaces/{workspace}/infrastructure/my-ips/{ipId}/webmail/bulk-delete', [InfrastructureConsoleController::class, 'webmailBulkDelete'])->whereNumber('ipId')->middleware('throttle:30,1')->name('console.infrastructure.my-ips.webmail.bulk-delete');
+    Route::get('/app/workspaces/{workspace}/infrastructure/my-ips/{ipId}/webmail/messages/{uid}/attachments/{index}', [InfrastructureConsoleController::class, 'webmailDownloadAttachment'])->whereNumber('ipId')->whereNumber('uid')->whereNumber('index')->name('console.infrastructure.my-ips.webmail.attachment');
+    Route::post('/app/workspaces/{workspace}/infrastructure/my-ips/{ipId}/webmail/send', [InfrastructureConsoleController::class, 'webmailSend'])->whereNumber('ipId')->middleware('throttle:20,1')->name('console.infrastructure.my-ips.webmail.send');
+    Route::get('/app/workspaces/{workspace}/infrastructure/my-ips/{ipId}/webmail/diagnostics', [InfrastructureConsoleController::class, 'webmailDiagnostics'])->whereNumber('ipId')->name('console.infrastructure.my-ips.webmail.diagnostics');
+    Route::post('/app/workspaces/{workspace}/infrastructure/my-ips/{ipId}/webmail/sync-user', [InfrastructureConsoleController::class, 'webmailSyncUser'])->whereNumber('ipId')->middleware('throttle:10,1')->name('console.infrastructure.my-ips.webmail.sync-user');
     Route::get('/app/workspaces/{workspace}/infrastructure/servers/{server}/mtas/{type}', [InfrastructureConsoleController::class, 'serverMtas'])->whereUuid('server')->whereIn('type', ['vmta', 'smtp'])->name('console.infrastructure.servers.mtas');
     Route::patch('/app/workspaces/{workspace}/infrastructure/servers/{server}/ips/{ip}', [InfrastructureConsoleController::class, 'setServerIpStatus'])->whereUuid('server')->whereNumber('ip')->middleware('throttle:10,1')->name('console.infrastructure.servers.ips.status');
     Route::patch('/app/workspaces/{workspace}/infrastructure/servers/{server}/mtas/{mta}', [InfrastructureConsoleController::class, 'setServerMtaStatus'])->whereUuid('server')->whereNumber('mta')->middleware('throttle:10,1')->name('console.infrastructure.servers.mtas.status');
@@ -489,7 +514,7 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::patch('/app/workspaces/{workspace}/infrastructure/servers/{server}/restore', [InfrastructureConsoleController::class, 'restoreServer'])->name('console.infrastructure.servers.restore');
     Route::post('/app/workspaces/{workspace}/infrastructure/servers/test-connection', [InfrastructureConsoleController::class, 'testServerConnection'])->middleware('throttle:10,1')->name('console.infrastructure.servers.test-connection');
     Route::post('/app/workspaces/{workspace}/infrastructure/servers', [InfrastructureConsoleController::class, 'storeServer'])->middleware('throttle:10,1')->name('console.infrastructure.servers.store');
-    Route::post('/app/workspaces/{workspace}/infrastructure/servers/{server}/preflight', [InfrastructureConsoleController::class, 'preflightServer'])->middleware('throttle:3,1')->name('console.infrastructure.servers.preflight');
+    Route::post('/app/workspaces/{workspace}/infrastructure/servers/{server}/preflight', [InfrastructureConsoleController::class, 'preflightServer'])->middleware('throttle:infrastructure-server-action')->name('console.infrastructure.servers.preflight');
     Route::post('/app/workspaces/{workspace}/infrastructure/domains', [InfrastructureConsoleController::class, 'storeDomain'])->middleware('throttle:10,1')->name('console.infrastructure.domains.store');
     Route::post('/app/workspaces/{workspace}/infrastructure/domains/manual', [InfrastructureConsoleController::class, 'storeAlphaLinkInstallDomains'])->middleware('throttle:10,1')->name('console.infrastructure.domains.manual');
     Route::post('/app/workspaces/{workspace}/infrastructure/domains/import', [InfrastructureConsoleController::class, 'importAlphaLinkInstallDomains'])->middleware('throttle:3,1')->name('console.infrastructure.domains.import');

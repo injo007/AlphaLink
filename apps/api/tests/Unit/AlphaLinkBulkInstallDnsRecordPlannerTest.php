@@ -149,4 +149,31 @@ class AlphaLinkBulkInstallDnsRecordPlannerTest extends TestCase
             ['host' => 'relay', 'address' => 'v=spf1 ip4:8.8.8.8 -all', 'type' => 'TXT', 'ttl' => '60'],
         ], $records);
     }
+
+    public function test_secondary_owned_domain_without_main_flag_still_gets_tracking_and_auth_records(): void
+    {
+        $records = (new AlphaLinkBulkInstallDnsRecordPlanner)->records(true, [[
+            'main' => false,
+            'ip' => '198.51.100.80',
+            'type' => 'ipv4',
+            'sub' => '',
+            'domain' => 'secondary.example.test',
+        ]], [
+            'tracking' => true,
+            'imap' => false,
+            'spf' => true,
+            'dkim' => true,
+            'dmarc' => true,
+        ], 'al123', 'v=DKIM1;t=s;p=KEY');
+
+        $this->assertSame([
+            ['host' => '@', 'address' => '198.51.100.80', 'type' => 'A', 'ttl' => '60'],
+            ['host' => 'www', 'address' => '198.51.100.80', 'type' => 'A', 'ttl' => '60'],
+            ['host' => '*', 'address' => '198.51.100.80', 'type' => 'A', 'ttl' => '60'],
+            ['host' => 'al123._domainkey', 'address' => 'v=DKIM1;t=s;p=KEY', 'type' => 'TXT', 'ttl' => '60'],
+            ['host' => '_dmarc', 'address' => 'v=DMARC1; p=none; fo=1; rua=mailto:dmarc@secondary.example.test; ruf=mailto:dmarc@secondary.example.test', 'type' => 'TXT', 'ttl' => '60'],
+            ['host' => '@', 'address' => 'v=spf1 ip4:198.51.100.80 -all', 'type' => 'TXT', 'ttl' => '60'],
+            ['host' => '*', 'address' => 'v=spf1 ip4:198.51.100.80 -all', 'type' => 'TXT', 'ttl' => '60'],
+        ], $records);
+    }
 }

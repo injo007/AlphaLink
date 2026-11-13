@@ -24,6 +24,14 @@ class ManagedServerIp extends Model
         return ['is_active' => 'boolean'];
     }
 
+    public static function isPublicAddress(?string $ip): bool
+    {
+        $candidate = trim((string) $ip);
+
+        return $candidate !== ''
+            && filter_var($candidate, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false;
+    }
+
     public function server(): BelongsTo
     {
         return $this->belongsTo(ManagedServer::class, 'managed_server_id');

@@ -26,6 +26,13 @@ class AlphaLinkBulkInstallDnsRecordPlanner
         $records = [];
         $spfAddresses = [];
         $externalSpfAddresses = [];
+        $domainsWithMain = [];
+        foreach ($ips as $entry) {
+            if ($entry['main']) {
+                $domainsWithMain[$entry['domain']] = true;
+            }
+        }
+        $trackingWildcardsAdded = [];
 
         foreach ($ips as $entry) {
             $ip = $this->publicAddress($entry['ip'], $publicIpMappings);
@@ -40,7 +47,12 @@ class AlphaLinkBulkInstallDnsRecordPlanner
             // independently of whether the optional tracking application is installed.
             $records[] = $this->record($hostname, $ip, $isIpv4 ? 'A' : 'AAAA');
 
-            if ($options['tracking'] && $entry['main']) {
+            $shouldAddTrackingWildcards = $options['tracking'] && (
+                $entry['main']
+                || (! isset($domainsWithMain[$entry['domain']]) && ! isset($trackingWildcardsAdded[$entry['domain']]))
+            );
+            if ($shouldAddTrackingWildcards) {
+                $trackingWildcardsAdded[$entry['domain']] = true;
                 $records[] = $this->record('www', $ip, $isIpv4 ? 'A' : 'AAAA');
                 $records[] = $this->record('*', $ip, $isIpv4 ? 'A' : 'AAAA');
             }

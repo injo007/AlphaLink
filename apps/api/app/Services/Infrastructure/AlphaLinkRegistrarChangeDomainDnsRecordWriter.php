@@ -216,52 +216,27 @@ class AlphaLinkRegistrarChangeDomainDnsRecordWriter implements AlphaLinkBulkInst
             ->retry(2)
             ->withHeaders(['Authorization' => "sso-key {$provider->api_key}:{$provider->api_secret}"]);
 
-        $groups = [];
+        $replacement = [];
         foreach ($this->filterRecords($records) as $record) {
             $type = strtoupper($record['type']);
+            if (in_array($type, ['NS', 'SOA'], true)) {
+                continue;
+            }
             $name = trim($record['host']) !== '' ? trim($record['host']) : '@';
-            $groups[$type.'|'.$name][] = [
+            $replacement[] = [
+                'type' => $type,
+                'name' => $name,
                 'data' => $record['address'],
                 'ttl' => max((int) $record['ttl'], 600),
                 ...($type === 'MX' ? ['priority' => 10] : []),
             ];
         }
 
-        foreach ($groups as $key => $desired) {
-            [$type, $name] = explode('|', $key, 2);
-            $endpoint = 'v1/domains/'.rawurlencode($domain).'/records/'.rawurlencode($type).'/'.rawurlencode($name);
-            $replacement = $desired;
-
-            if ($type === 'TXT') {
-                $currentResponse = $request->get($endpoint);
-                if ($currentResponse->successful()) {
-                    $current = $currentResponse->json();
-                    if (! is_array($current)) {
-                        return false;
-                    }
-                    foreach ($current as $record) {
-                        if (! is_array($record) || $this->isManagedEmailAuthTxt((string) ($record['data'] ?? ''))) {
-                            continue;
-                        }
-                        $preserved = ['data' => (string) ($record['data'] ?? '')];
-                        if (isset($record['ttl']) && is_numeric($record['ttl'])) {
-                            $preserved['ttl'] = (int) $record['ttl'];
-                        }
-                        $replacement[] = $preserved;
-                    }
-                } elseif ($currentResponse->status() !== 404) {
-                    return false;
-                }
-            }
-
-            // GoDaddy's scoped PUT replaces only the selected type/name RRset;
-            // the former whole-zone PUT deleted unrelated website and mail DNS.
-            if (! $request->put($endpoint, $replacement)->successful()) {
-                return false;
-            }
+        if ($replacement === []) {
+            return true;
         }
 
-        return true;
+        return $request->put('v1/domains/'.rawurlencode($domain).'/records', $replacement)->successful();
     }
 
     private function isManagedEmailAuthTxt(string $content): bool

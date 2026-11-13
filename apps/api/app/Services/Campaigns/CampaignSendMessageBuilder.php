@@ -187,8 +187,27 @@ class CampaignSendMessageBuilder
             ['campaign' => $context['campaign']->getKey(), 'item' => $item->getKey()],
         );
         $token = $this->campaignToken($context, $item, $choice, $from, $subject);
-        $trackingHost = trim((string) ($context['setup']['domain'] ?? '')) ?: $domain;
-        $clickUrl = $this->redirectUrlPolicy->campaignTrackingClickUrl($trackingHost, $token);
+        $installParameters = (array) $server->install_parameters;
+        $trackingHost = $this->redirectUrlPolicy->readyTrackingHost($installParameters);
+        $trackingHttpsReady = $trackingHost !== null && (bool) ($installParameters['tracking_https_ready'] ?? false);
+        $clickUrl = $trackingHost !== null
+            ? $this->redirectUrlPolicy->campaignTrackingClickUrl($trackingHost, $token, $trackingHttpsReady)
+            : URL::temporarySignedRoute(
+                'public.campaign-click',
+                now()->addYears(10),
+                [
+                    'campaign' => $context['campaign']->getKey(),
+                    'item' => $item->getKey(),
+                    'token' => $token,
+                    'isp_id' => $context['setup']['isp_id'] ?? null,
+                    'server_id' => $server->getKey(),
+                    'ip_id' => $routeIp?->getKey(),
+                    'domain_id' => $routeIp?->sending_domain_id ?? $choice['sending_domain_id'] ?? null,
+                    'from_id' => $from['id'] ?? null,
+                    'subject_id' => $subject['id'] ?? null,
+                    'creative_id' => $context['setup']['creative_asset_id'] ?? null,
+                ],
+            );
         $tags = [
             'server' => (string) $server->name.(string) $server->getKey(),
             'main_domain' => (string) ($primaryIp?->dns ?: $primaryIp?->domain?->name ?: 'NA'),
@@ -218,9 +237,16 @@ class CampaignSendMessageBuilder
         $header = $this->tagRenderer->render($context['header_template'], $tags, $context['placeholder_rows'], $position - 1, $cache);
         $body = $this->tagRenderer->render($context['body_template'], $tags, $context['placeholder_rows'], $position - 1, $cache);
         $returnPath = $this->tagRenderer->render($context['return_path'], $tags, $context['placeholder_rows'], $position - 1, $cache);
-        $header = $this->redirectUrlPolicy->forceHttpsForHost($header, $domain);
-        $body = $this->redirectUrlPolicy->forceHttpsForHost($body, $domain);
-        $returnPath = $this->redirectUrlPolicy->forceHttpsForHost($returnPath, $domain);
+        if ($trackingHost !== null && $this->redirectUrlPolicy->isTrackingHostOrSubdomain($domain, $trackingHost)) {
+            $trackingScheme = $trackingHttpsReady ? 'https' : 'http';
+            $header = $this->redirectUrlPolicy->forceSchemeForHost($header, $domain, $trackingScheme);
+            $body = $this->redirectUrlPolicy->forceSchemeForHost($body, $domain, $trackingScheme);
+            $returnPath = $this->redirectUrlPolicy->forceSchemeForHost($returnPath, $domain, $trackingScheme);
+        } else {
+            $header = $this->redirectUrlPolicy->forceHttpsForHost($header, $domain);
+            $body = $this->redirectUrlPolicy->forceHttpsForHost($body, $domain);
+            $returnPath = $this->redirectUrlPolicy->forceHttpsForHost($returnPath, $domain);
+        }
         $header = $this->setHeader($header, 'X-virtual-MTA', $vmtaName);
         $header = $this->setHeader($header, 'X-ENVID', $context['run']->getKey().'-'.$position);
         $header = $this->setHeader($header, 'X-JOB', (string) $context['run']->getKey());

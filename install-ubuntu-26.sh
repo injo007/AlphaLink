@@ -44,6 +44,15 @@ valid_app_domain() {
     [[ "$1" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]]
 }
 
+verify_local_https_application_health() {
+    local domain="$1"
+
+    curl --fail --silent --show-error --output /dev/null \
+        --resolve "${domain}:443:127.0.0.1" "https://${domain}/up"
+    curl --fail --silent --show-error --output /dev/null \
+        --resolve "${domain}:443:127.0.0.1" "https://${domain}/sign-in"
+}
+
 valid_public_ipv4() {
     local address="$1" first second third fourth extra octet numeric
     local -a octets=()
@@ -269,6 +278,7 @@ DEPLOY_STAGING_DIR=''
 INSTALL_STAGING_DIR=''
 SOURCE_STAGING_DIR=''
 ASSET_STAGING_DIR=''
+TRACKING_ASSET_SOURCE_STAGING_DIR=''
 cleanup_temporary_secrets() {
     [[ -z "$GIT_ASKPASS_FILE" ]] || rm -f -- "$GIT_ASKPASS_FILE"
     [[ -z "$GIT_TOKEN_FILE" ]] || rm -f -- "$GIT_TOKEN_FILE"
@@ -289,6 +299,9 @@ cleanup_deploy_staging() {
     fi
     if [[ "$ASSET_STAGING_DIR" == "$SHARED_ROOT"/.install-assets-stage-* && -d "$ASSET_STAGING_DIR" ]]; then
         rm -rf -- "$ASSET_STAGING_DIR"
+    fi
+    if [[ "$TRACKING_ASSET_SOURCE_STAGING_DIR" == "$SHARED_ROOT"/.tracking-assets-source-* && -d "$TRACKING_ASSET_SOURCE_STAGING_DIR" ]]; then
+        rm -rf -- "$TRACKING_ASSET_SOURCE_STAGING_DIR"
     fi
 }
 trap cleanup_deploy_staging EXIT
@@ -484,13 +497,119 @@ stage_private_install_assets() {
     ASSET_STAGING_DIR=''
 }
 
-stage_repository_install_assets_if_empty() {
-    local source="$1"
-    local existing_entry invalid_entry
+repair_missing_reviewed_tracking_asset() {
+    local source_root="$1" relative_path="$2" expected_size="$3" expected_digest="$4"
+    local source_file="$source_root/$relative_path" destination_file="$INSTALL_ASSETS_ROOT/$relative_path"
+    local destination_directory="$INSTALL_ASSETS_ROOT/optional/tracking" source_size source_digest destination_size destination_digest temporary_file
 
-    if [[ ! -d "$source" || -L "$source" ]]; then
-        info 'This repository release does not contain a bundled install-assets directory.'
+    [[ -f "$source_file" && ! -L "$source_file" ]] || {
+        info "Cannot repair missing private tracking asset from the repository source: ${relative_path}."
         return 0
+    }
+    [[ ! -L "$source_root/optional" && ! -L "$source_root/optional/tracking" ]] || {
+        info "Cannot repair private tracking asset through a symlinked repository path: ${relative_path}."
+        return 0
+    }
+
+    source_size="$(stat -c '%s' -- "$source_file")"
+    source_digest="$(sha256sum -- "$source_file")"
+    source_digest="${source_digest%% *}"
+    if [[ "$source_size" != "$expected_size" || "$source_digest" != "$expected_digest" ]]; then
+        info "Cannot repair private tracking asset because its repository bytes do not match the reviewed digest: ${relative_path}."
+        return 0
+    fi
+
+    if [[ -e "$destination_file" || -L "$destination_file" ]]; then
+        if [[ -f "$destination_file" && ! -L "$destination_file" ]]; then
+            destination_size="$(stat -c '%s' -- "$destination_file")"
+            destination_digest="$(sha256sum -- "$destination_file")"
+            destination_digest="${destination_digest%% *}"
+            if [[ "$destination_size" == "$expected_size" && "$destination_digest" == "$expected_digest" ]]; then
+                return 0
+            fi
+        fi
+        info "Preserving existing private tracking asset for review: ${relative_path}."
+        return 0
+    fi
+
+    [[ ! -L "$INSTALL_ASSETS_ROOT/optional" && ! -L "$destination_directory" ]] \
+        || fail 'The private tracking asset destination contains a symlink; preserving it.'
+    [[ ! -e "$INSTALL_ASSETS_ROOT/optional" || -d "$INSTALL_ASSETS_ROOT/optional" ]] \
+        || fail 'The private tracking asset destination has an invalid parent; preserving it.'
+    [[ ! -e "$destination_directory" || -d "$destination_directory" ]] \
+        || fail 'The private tracking asset destination is not a directory; preserving it.'
+    install -d -o www-data -g www-data -m 0700 "$destination_directory"
+
+    temporary_file="$(mktemp "$destination_directory/.${relative_path##*/}.stage.XXXXXX")" \
+        || fail 'Could not create a temporary private tracking asset.'
+    if ! install -o www-data -g www-data -m 0600 -- "$source_file" "$temporary_file"; then
+        rm -f -- "$temporary_file"
+        fail "Could not stage reviewed private tracking asset: ${relative_path}."
+    fi
+
+    destination_size="$(stat -c '%s' -- "$temporary_file")"
+    destination_digest="$(sha256sum -- "$temporary_file")"
+    destination_digest="${destination_digest%% *}"
+    if [[ "$destination_size" != "$expected_size" || "$destination_digest" != "$expected_digest" ]]; then
+        rm -f -- "$temporary_file"
+        fail "The staged private tracking asset failed its reviewed digest check: ${relative_path}."
+    fi
+
+    if [[ -e "$destination_file" || -L "$destination_file" ]]; then
+        rm -f -- "$temporary_file"
+        info "Preserving a concurrently-created private tracking asset: ${relative_path}."
+        return 0
+    fi
+
+    mv -- "$temporary_file" "$destination_file"
+    info "Restored missing reviewed private tracking asset: ${relative_path}."
+}
+
+repair_missing_reviewed_tracking_assets() {
+    local source_root="$1"
+
+    [[ -d "$source_root" && ! -L "$source_root" ]] || return 0
+    repair_missing_reviewed_tracking_asset "$source_root" 'optional/tracking/index.php' 3250 '8fcc32fca7d97d3144715ddd9e676bcfc0cbfb7107d61300669d002039029974'
+    repair_missing_reviewed_tracking_asset "$source_root" 'optional/tracking/TrackerRequestHandler.php' 12605 '57ba8813cc7617fdfde72bbc0a30782fa809e93c097fa2a859915a6635ac6dce'
+}
+
+repair_missing_reviewed_tracking_assets_from_git() {
+    local repository_root="$1" revision="$2" relative_path mode
+    local -a reviewed_paths=(
+        'optional/tracking/index.php'
+        'optional/tracking/TrackerRequestHandler.php'
+    )
+
+    TRACKING_ASSET_SOURCE_STAGING_DIR="$(mktemp -d "${SHARED_ROOT}/.tracking-assets-source-XXXXXX")" \
+        || fail 'Could not create a protected source directory for reviewed tracking assets.'
+    chmod 0700 "$TRACKING_ASSET_SOURCE_STAGING_DIR"
+
+    for relative_path in "${reviewed_paths[@]}"; do
+        mode="$(git -C "$repository_root" ls-tree "$revision" -- "install-assets/$relative_path" | awk 'NR == 1 { print $1 }')"
+        if [[ "$mode" != '100644' && "$mode" != '100755' ]]; then
+            info "The fetched Git revision does not contain a regular reviewed tracking asset: ${relative_path}."
+            continue
+        fi
+
+        install -d -m 0700 "$TRACKING_ASSET_SOURCE_STAGING_DIR/optional/tracking"
+        if ! git -C "$repository_root" cat-file blob "$revision:install-assets/$relative_path" \
+            > "$TRACKING_ASSET_SOURCE_STAGING_DIR/$relative_path"; then
+            fail "Could not read reviewed tracking asset from the fetched Git revision: ${relative_path}."
+        fi
+        chmod 0600 "$TRACKING_ASSET_SOURCE_STAGING_DIR/$relative_path"
+    done
+
+    repair_missing_reviewed_tracking_assets "$TRACKING_ASSET_SOURCE_STAGING_DIR"
+    rm -rf -- "$TRACKING_ASSET_SOURCE_STAGING_DIR"
+    TRACKING_ASSET_SOURCE_STAGING_DIR=''
+}
+
+stage_repository_install_assets_if_empty() {
+    local source="$1" reviewed_revision="${2:-}" repository_root="$SOURCE_ROOT"
+    local existing_entry invalid_entry source_available=0
+
+    if [[ -d "$source" && ! -L "$source" ]]; then
+        source_available=1
     fi
 
     if [[ -e "$INSTALL_ASSETS_ROOT" || -L "$INSTALL_ASSETS_ROOT" ]]; then
@@ -500,10 +619,21 @@ stage_repository_install_assets_if_empty() {
         [[ -z "$invalid_entry" ]] || fail 'The private asset destination contains symlinks or special files; preserving it.'
         existing_entry="$(find "$INSTALL_ASSETS_ROOT" -mindepth 1 -print -quit)"
         if [[ -n "$existing_entry" ]]; then
+            if (( source_available )); then
+                repair_missing_reviewed_tracking_assets "$source"
+            fi
+            if [[ -n "$reviewed_revision" ]]; then
+                repair_missing_reviewed_tracking_assets_from_git "$repository_root" "$reviewed_revision"
+            fi
             normalize_private_install_assets "$INSTALL_ASSETS_ROOT"
             info 'Preserving the existing private installation asset bundle.'
             return 0
         fi
+    fi
+
+    if (( ! source_available )); then
+        info 'This repository release does not contain a bundled install-assets directory.'
+        return 0
     fi
 
     stage_private_install_assets "$source"
@@ -721,7 +851,7 @@ deploy_release() {
     fetch_repository_branch "$SOURCE_ROOT" "$branch" "$token"
     unset token
     release_sha="$(git -C "$SOURCE_ROOT" rev-parse FETCH_HEAD)"
-    stage_repository_install_assets_if_empty "$SOURCE_ROOT/install-assets"
+    stage_repository_install_assets_if_empty "$SOURCE_ROOT/install-assets" "$release_sha"
     release_path="${RELEASES_ROOT}/${release_sha}"
     current_release="$(readlink -f "$CURRENT_ROOT")"
     [[ "$current_release" == "$RELEASES_ROOT/"* ]] || fail 'The current release symlink points outside the managed release directory.'
@@ -744,8 +874,7 @@ deploy_release() {
         systemctl reload php8.5-fpm
         app_domain="$(nginx_app_domain /etc/nginx/sites-available/alphalink)"
         valid_app_domain "$app_domain" || fail 'Could not find a valid AlphaLink hostname in the Nginx site configuration.'
-        curl --fail --silent --show-error --output /dev/null \
-            --resolve "${app_domain}:443:127.0.0.1" "https://${app_domain}/up"
+        verify_local_https_application_health "$app_domain"
         info "Release ${release_sha} is already deployed and passed its HTTPS health check; no database migration was needed."
         return 0
     fi
@@ -941,8 +1070,7 @@ deploy_release() {
                 runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" horizon:status 2>&1 | grep -qi 'running' || rollback_ok=0
                 rollback_domain="$(nginx_app_domain /etc/nginx/sites-available/alphalink)"
                 if valid_app_domain "$rollback_domain"; then
-                    curl --fail --silent --show-error --output /dev/null \
-                        --resolve "${rollback_domain}:443:127.0.0.1" "https://${rollback_domain}/up" || rollback_ok=0
+                    verify_local_https_application_health "$rollback_domain" || rollback_ok=0
                 else
                     rollback_ok=0
                 fi
@@ -984,10 +1112,10 @@ deploy_release() {
     env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" storage:link
     systemctl restart php8.5-fpm
     runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" up
+    [[ ! -f "$SHARED_ROOT/storage/framework/maintenance.php" ]] || fail 'Laravel remained in maintenance mode after deployment; rolling back instead of reporting a healthy release.'
     app_domain="$(nginx_app_domain /etc/nginx/sites-available/alphalink)"
     valid_app_domain "$app_domain" || fail 'Could not find a valid AlphaLink hostname in the Nginx site configuration.'
-    curl --fail --silent --show-error --output /dev/null \
-        --resolve "${app_domain}:443:127.0.0.1" "https://${app_domain}/up"
+    verify_local_https_application_health "$app_domain"
     systemctl start alphalink-horizon.service alphalink-drop-suppression.service alphalink-schedule.timer
     for service in php8.5-fpm alphalink-horizon.service alphalink-drop-suppression.service alphalink-schedule.timer; do
         info "Verifying deployment service ${service}..."
@@ -1057,8 +1185,8 @@ resume_initial_install() {
     info "Fetching ${branch} for the interrupted installation..."
     fetch_repository_branch "$SOURCE_ROOT" "$branch" "$token"
     unset token
-    stage_repository_install_assets_if_empty "$SOURCE_ROOT/install-assets"
     release_sha="$(git -C "$SOURCE_ROOT" rev-parse FETCH_HEAD)"
+    stage_repository_install_assets_if_empty "$SOURCE_ROOT/install-assets" "$release_sha"
     release_path="${RELEASES_ROOT}/${release_sha}"
     current_release="$(readlink -f "$CURRENT_ROOT")"
     [[ "$current_release" == "$RELEASES_ROOT/"* ]] || fail 'The current release symlink points outside the managed release directory.'

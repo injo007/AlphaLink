@@ -91,7 +91,7 @@ APACHE;
     {$serverAlias}
     RewriteEngine On
     RewriteRule ^/healthz$ /index.php [END,QSA]
-    RewriteRule ^/([A-Za-z0-9]{10}[roub][A-Za-z0-9_-]{1,4096}(?:/[A-Za-z0-9_-]+)*)$ /index.php?__alphalink_long_uri=$1 [END,QSA,B]
+    RewriteRule ^/([A-Za-z0-9]{10}[roubROUB][A-Za-z0-9_-]{1,4096}(?:/[A-Za-z0-9_-]+)*)$ /index.php?__alphalink_long_uri=$1 [END,QSA,B]
     DocumentRoot "/var/mini/public"
     <Directory /var/mini/public>
         AllowOverride None
@@ -134,7 +134,8 @@ CONFIG;
             $this->verifyRoute($commands, $serverName, 'ALPHALINK_TRACKING_ROUTE_READY');
             $this->verifyRoute($commands, $serverIp, 'ALPHALINK_TRACKING_IP_ROUTE_READY');
 
-            $longRouteUrl = 'http://127.0.0.1/ALPHALINKTRACK10r'.str_repeat('A', 300).'?t=1';
+            // The Apache tracking regex expects a 10-character random prefix before [roub].
+            $longRouteUrl = 'http://127.0.0.1/ALPHALINK0r'.str_repeat('A', 300).'?t=1';
             $longRouteHealth = $commands->exec(
                 'response=$(curl -sS --max-time 10 -D - -o /dev/null -w \'\\nALPHALINK_STATUS:%{http_code}\\n\' -H '
                     .escapeshellarg('Host: '.$serverName).' '.escapeshellarg($longRouteUrl).') && '
@@ -159,6 +160,36 @@ CONFIG;
         }
     }
 
+    /** Verify the public HTTPS listener and the routed tracker endpoint after TLS/firewall setup. */
+    public function verifyHttps(AlphaLinkInstallerRemoteCommandTransport $commands, ?string $host): bool
+    {
+        if ($host === null || trim($host) === '') {
+            return false;
+        }
+
+        $this->validateServerName($host);
+        $health = $commands->exec(
+            'curl --fail --silent --show-error --connect-timeout 5 --max-time 10 --proto '.escapeshellarg('=https').' '
+                .escapeshellarg('https://'.$host.'/healthz').' 2>/dev/null | grep -Fxq ALPHALINK_TRACKING_READY '
+                .'&& printf ALPHALINK_TRACKING_HTTPS_HEALTH_READY',
+        );
+        if (trim((string) $health) !== 'ALPHALINK_TRACKING_HTTPS_HEALTH_READY') {
+            return false;
+        }
+
+        $route = $commands->exec(
+            'response=$(curl --silent --show-error --connect-timeout 5 --max-time 10 --proto '.escapeshellarg('=https')
+                .' -D - -o /dev/null -w '.escapeshellarg("\\nALPHALINK_STATUS:%{http_code}\\n").' '
+                .escapeshellarg('https://'.$host.'/ALPHALINK0rprobe').') && '
+                .'status=$(printf '.escapeshellarg('%s\\n').' "$response" | sed -n '.escapeshellarg('s/^ALPHALINK_STATUS://p').') && '
+                .'test "$status" = 302 && printf '.escapeshellarg('%s\\n').' "$response" | grep -Fqi '
+                .escapeshellarg('Location: https://www.google.com').' && printf '.escapeshellarg('%s\\n').' "$response" | grep -Fqi '
+                .escapeshellarg('X-AlphaLink-Tracking: active').' && printf ALPHALINK_TRACKING_HTTPS_READY',
+        );
+
+        return trim((string) $route) === 'ALPHALINK_TRACKING_HTTPS_READY';
+    }
+
     private function validateServerName(string $name): void
     {
         if (! preg_match('/\A[A-Za-z0-9][A-Za-z0-9.:-]*\z/D', $name)) {
@@ -177,7 +208,7 @@ CONFIG;
     {
         $routeHealth = $commands->exec(
             'response=$(curl -sS --max-time 10 -D - -o /dev/null -w \'\\nALPHALINK_STATUS:%{http_code}\\n\' -H '
-                .escapeshellarg('Host: '.$host).' '.escapeshellarg('http://127.0.0.1/ALPHALINKTRACK10rprobe').') && '
+                .escapeshellarg('Host: '.$host).' '.escapeshellarg('http://127.0.0.1/ALPHALINK0rprobe').') && '
                 .'status=$(printf \'%s\\n\' "$response" | sed -n \'s/^ALPHALINK_STATUS://p\') && '
                 .'test "$status" = 302 && '
                 .'printf \'%s\\n\' "$response" | grep -Fqi '.escapeshellarg('Location: https://www.google.com').' && '

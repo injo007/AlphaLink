@@ -105,6 +105,7 @@ class AlphaLinkBulkInstallCompletionWriterTest extends TestCase
             'data' => $dataIps,
             'pmta_version' => 45,
             ...$options,
+            'tracking_https_ready' => false,
             'pmta_monitor_https' => true,
         ], $this->server->fresh()->install_parameters);
         $this->assertTrue($this->server->fresh()->is_installed);

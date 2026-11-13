@@ -7,6 +7,7 @@ use App\Models\ManagedServer;
 use App\Models\ManagedServerIp;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Models\WorkspaceCampaignNegative;
 use App\Models\WorkspaceCampaignTestAddress;
 use App\Services\Campaigns\AlphaLinkCampaignSendCatalog;
 use App\Services\Campaigns\AlphaLinkGlobalTestNativeSender;
@@ -17,6 +18,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -24,6 +26,8 @@ use Illuminate\View\View;
 class WorkspaceGlobalTestController extends Controller
 {
     private const ALLOWED_ROLES = ['owner', 'admin', 'operator', 'viewer'];
+
+    private const SENDING_ROLES = ['owner', 'admin', 'operator'];
 
     private const DEFAULT_HEADER = "MIME-version: 1.0\nContent-type: text/html\nTo: [to]\nfrom: [rnd] <info@[domain]>\nSubject: [ip]_[rnda_5]_[domain]\nDate: [date]";
 
@@ -51,16 +55,19 @@ class WorkspaceGlobalTestController extends Controller
             ->orderBy('email')
             ->get(['id', 'email']);
 
+        $pmtaPort = $this->pmtaPort($workspace);
+
         return view('console.global-tests.index', [
             'workspace' => $workspace,
             'servers' => $options['servers'],
             'pmtaAdminPort' => $options['settings']['pmta_admin_port'],
+            'pmtaPort' => $pmtaPort,
             'domains' => $options['campaign_domains'],
             'headers' => $headers,
             'negatives' => $negatives,
             'savedAddresses' => $savedAddresses,
             'defaultHeader' => self::DEFAULT_HEADER,
-            'senderConfigured' => $runner->isConfigured() || $nativeSender->isConfigured($workspace),
+            'senderConfigured' => $runner->isConfigured($pmtaPort) || $nativeSender->isConfigured($workspace),
         ]);
     }
 
@@ -130,6 +137,7 @@ class WorkspaceGlobalTestController extends Controller
         AlphaLinkGlobalTestNativeSender $nativeSender,
     ): JsonResponse {
         $workspace = $this->workspaceFor($request->user(), $workspace);
+        abort_unless(in_array((string) $workspace->pivot->role, self::SENDING_ROLES, true), 403);
         $data = $request->validate([
             'return_path' => ['nullable', 'string'],
             'email_test' => ['required', 'array', 'min:1'],
@@ -143,7 +151,7 @@ class WorkspaceGlobalTestController extends Controller
             'servers' => ['required', 'array', 'min:1'],
             'servers.*' => ['required', 'uuid', 'distinct'],
             'ips' => ['required', 'array', 'min:1'],
-            'ips.*' => ['required', 'integer', 'min:1', 'distinct'],
+            'ips.*' => ['required', 'regex:/\A(?:[1-9][0-9]*|pmta-smtp:[1-9][0-9]*)\z/', 'distinct'],
             'placeholder_combination' => ['nullable', 'boolean'],
             'placeholder_all_combination' => ['nullable', 'boolean'],
             'placeholders' => ['nullable', 'array', 'min:1'],
@@ -172,6 +180,10 @@ class WorkspaceGlobalTestController extends Controller
         if (array_diff($data['servers'], $eligibleServerIds) !== []) {
             throw ValidationException::withMessages(['servers' => 'Select active, installed servers available in this workspace.']);
         }
+        if (filled($data['domain'] ?? null) && ! collect($selectedOptions['campaign_domains'])
+            ->contains(fn (array $domain): bool => hash_equals((string) ($domain['value'] ?? ''), (string) $data['domain']))) {
+            throw ValidationException::withMessages(['domain' => 'Select a domain available in this workspace.']);
+        }
 
         $availableIps = collect($selectedOptions['ips'])->keyBy(static fn (array $ip): string => (string) $ip['id']);
         $selectedIpIds = array_map('strval', $data['ips']);
@@ -187,15 +199,44 @@ class WorkspaceGlobalTestController extends Controller
         }
 
         $selectedIps = collect($selectedIpIds)->map(fn (string $id): array => $availableIps->get($id))->values();
+        $selectedServerIds = collect($selectedIps)->pluck('server_id')->map(static fn ($id): string => (string) $id)->unique()->values()->all();
+        if (array_diff(array_map('strval', $data['servers']), $selectedServerIds) !== []) {
+            throw ValidationException::withMessages(['ips' => 'Select at least one IP or MTA from every selected server.']);
+        }
+        $pmtaPort = $this->pmtaPort($workspace);
+        $messageCount = $selectedIps->count() * count($data['email_test']) * (int) $data['repeat'];
+        $maximumMessages = max(1, (int) config('global-tests.max_messages', 100));
+        if ($messageCount > $maximumMessages) {
+            throw ValidationException::withMessages([
+                'repeat' => "This test would send {$messageCount} messages. Reduce recipients, routes, or repeat to stay within {$maximumMessages} messages per run.",
+            ]);
+        }
+        $negative = null;
+        if (! empty($data['negative'])) {
+            $negative = WorkspaceCampaignNegative::query()
+                ->where('workspace_id', $workspace->getKey())
+                ->where('created_by', $request->user()->getKey())
+                ->whereKey($data['negative'])
+                ->first(['path']);
+        }
+        $negativePath = $negative ? Storage::disk('local')->path($negative->path) : '';
 
-        if ($runner->isConfigured()) {
-            $configuration = $this->senderConfiguration($workspace, $request->user(), $data, $selectedIps, $rdnsResolver);
+        if ($runner->isConfigured($pmtaPort)) {
+            $configuration = $this->senderConfiguration(
+                $workspace,
+                $request->user(),
+                $data,
+                $selectedIps,
+                $rdnsResolver,
+                (int) ($pmtaPort ?? config('infrastructure.pmta_port') ?? 2525),
+                $negativePath,
+            );
             $result = $runner->run($configuration);
         } elseif ($nativeSender->isConfigured($workspace)) {
             $result = $nativeSender->send($workspace, $request->user(), $data, $selectedIps, $header, (string) $body);
         } else {
             return response()->json([
-                'data' => 'Could Not Send The AlphaLink Global Test sender is not configured or is not executable.',
+                'data' => 'Could Not Send: this workspace has no valid PMTA SMTP listener port configured.',
             ], 503);
         }
 
@@ -280,8 +321,15 @@ class WorkspaceGlobalTestController extends Controller
      * @param  Collection<int, array<string, mixed>>  $selectedIps
      * @return array<string, mixed>
      */
-    private function senderConfiguration(Workspace $workspace, User $user, array $data, Collection $selectedIps, AlphaLinkGlobalTestReverseDnsResolver $rdnsResolver): array
-    {
+    private function senderConfiguration(
+        Workspace $workspace,
+        User $user,
+        array $data,
+        Collection $selectedIps,
+        AlphaLinkGlobalTestReverseDnsResolver $rdnsResolver,
+        int $pmtaPort,
+        string $negativePath,
+    ): array {
         $servers = $workspace->managedServers()
             ->whereIn('id', $data['servers'])
             ->where('is_active', true)
@@ -305,17 +353,18 @@ class WorkspaceGlobalTestController extends Controller
             $domainId = $selectedIp['sending_domain_id']
                 ?? $parentIps->get((string) ($selectedIp['managed_server_ip_id'] ?? ''))?->sending_domain_id;
             $ip = (string) $selectedIp['ip'];
-            $domain = (string) ($selectedIp['dns'] ?? '');
+            $domain = (string) (($data['domain'] ?? '') ?: ($selectedIp['dns'] ?? ''));
             $username = (string) ($selectedIp['username'] ?? '');
+            $routeId = preg_replace('/\Apmta-smtp:/', '', (string) $selectedIp['id']);
             $vmta = $data['option'] === 'ip'
                 ? 'mta-'.$ip
-                : $data['option'].'-'.$ip.'-'.$selectedIp['id'].($data['option'] === 'vmta' && $username !== '' ? '-'.$username : '');
+                : $data['option'].'-'.$ip.'-'.$routeId.($data['option'] === 'vmta' && $username !== '' ? '-'.$username : '');
             $serverPayloads[$serverId] ??= [
                 'id' => $server->getKey(),
                 'name' => $server->name.$server->getKey(),
                 'main_ip' => $server->ip_address,
-                'main_domain' => $server->ips->firstWhere('ip', $server->ip_address)?->dns ?? 'NA',
-                'main_port' => (int) config('global-tests.pmta_port', 25),
+                'main_domain' => $server->ips->firstWhere('ip', $server->ip_address)?->dns ?: ($data['domain'] ?? 'NA'),
+                'main_port' => $pmtaPort,
                 'ips' => [],
             ];
             $serverPayloads[$serverId]['ips'][] = [
@@ -334,6 +383,7 @@ class WorkspaceGlobalTestController extends Controller
             'userId' => $user->getKey(),
             'workspaceId' => $workspace->getKey(),
             'return_path' => $data['return_path'] ?? null,
+            'pmta_port' => $pmtaPort,
             'email_tests' => $data['email_test'],
             'header' => $data['header'],
             'body' => $data['body'] ?? '',
@@ -343,7 +393,16 @@ class WorkspaceGlobalTestController extends Controller
             'placeholder_all_combination' => (bool) ($data['placeholder_all_combination'] ?? false),
             'placeholders' => $data['placeholders'] ?? [],
             'negative_id' => $data['negative'] ?? null,
+            'negative' => $negativePath,
             'artisan' => base_path('artisan'),
         ];
+    }
+
+    private function pmtaPort(Workspace $workspace): ?int
+    {
+        $configuredPort = $workspace->infrastructureSettings?->pmta_port ?? config('infrastructure.pmta_port');
+        $port = filter_var($configuredPort, FILTER_VALIDATE_INT);
+
+        return $port !== false && $port >= 1 && $port <= 65535 ? $port : null;
     }
 }

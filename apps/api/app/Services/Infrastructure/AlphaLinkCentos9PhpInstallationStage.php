@@ -18,6 +18,8 @@ class AlphaLinkCentos9PhpInstallationStage
 
         $runtimeReady = $transport->exec(
             'dnf install -y httpd php php-fpm php-common php-mbstring php-mcrypt php-curl >/dev/null 2>&1 && '
+                .'(test -s /etc/httpd/conf/httpd.conf || dnf reinstall -y httpd httpd-core >/dev/null 2>&1 || dnf reinstall -y httpd >/dev/null 2>&1) && '
+                .'(test -s /etc/httpd/conf.d/php.conf || dnf reinstall -y php-fpm >/dev/null 2>&1) && '
                 .'systemctl enable --now php-fpm >/dev/null 2>&1 && '
                 .'systemctl is-active --quiet php-fpm && '
                 .'test -s /etc/httpd/conf.d/php.conf && '

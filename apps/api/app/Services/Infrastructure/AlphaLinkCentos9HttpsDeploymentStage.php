@@ -2,6 +2,8 @@
 
 namespace App\Services\Infrastructure;
 
+use InvalidArgumentException;
+
 /** Provisions the domain certificate and PMTA HTTPS monitor through a command transport. */
 class AlphaLinkCentos9HttpsDeploymentStage
 {
@@ -26,19 +28,45 @@ class AlphaLinkCentos9HttpsDeploymentStage
             return false;
         }
 
+        if (filter_var($domain, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) === false) {
+            throw new InvalidArgumentException('The certificate domain must be a valid DNS hostname.');
+        }
+        foreach ($subdomains as $subdomain) {
+            if (filter_var($subdomain, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) === false) {
+                throw new InvalidArgumentException('Certificate aliases must be valid DNS hostnames.');
+            }
+        }
+
         // PMTA TLS is required independently of the optional tracking app.
-        // Ensure the Apache challenge handler exists even when tracking is off.
-        $commands->exec('rpm -qa | grep -qw httpd || dnf -y install httpd;');
-        $commands->exec('systemctl enable --now httpd');
-        $commands->exec('rpm -qa | grep -qw certbot || dnf -y install certbot;');
-        $commands->exec('rpm -qa | grep -qw python3-certbot-apache || dnf -y install python3-certbot-apache;');
+        // Install mod_ssl as well so the Apache challenge site can serve the
+        // certificate on port 443, independently of Nginx's PMTA monitor port.
+        $apacheTlsReady = $commands->exec(
+            '(rpm -q httpd >/dev/null 2>&1 || dnf -y install httpd >/dev/null 2>&1) && '
+                .'(rpm -q mod_ssl >/dev/null 2>&1 || dnf -y install mod_ssl >/dev/null 2>&1) && '
+                .'systemctl enable --now httpd && httpd -t >/dev/null 2>&1 && '
+                .'printf ALPHALINK_APACHE_HTTPS_READY',
+        );
+        if (trim((string) $apacheTlsReady) !== 'ALPHALINK_APACHE_HTTPS_READY') {
+            return false;
+        }
+        $certbotReady = $commands->exec(
+            '(rpm -q certbot >/dev/null 2>&1 || dnf -y install certbot >/dev/null 2>&1) && '
+                .'(rpm -q python3-certbot-apache >/dev/null 2>&1 || dnf -y install python3-certbot-apache >/dev/null 2>&1) && '
+                .'printf ALPHALINK_CERTBOT_READY',
+        );
+        if (trim((string) $certbotReady) !== 'ALPHALINK_CERTBOT_READY') {
+            return false;
+        }
 
         $certificateDomains = implode(',', [$domain, ...$subdomains]);
         $email = 'cert@'.$domain;
-        $commands->exec(
+        $certificateRequest = $commands->exec(
             'certbot --apache --no-redirect -d '.escapeshellarg($certificateDomains).
-            ' -m '.escapeshellarg($email).' -n --agree-tos',
+            ' -m '.escapeshellarg($email).' -n --agree-tos >/dev/null 2>&1 && printf ALPHALINK_CERTIFICATE_REQUESTED',
         );
+        if (trim((string) $certificateRequest) !== 'ALPHALINK_CERTIFICATE_REQUESTED') {
+            return false;
+        }
         $certificateReady = $commands->exec(
             'test -s '.escapeshellarg('/etc/letsencrypt/live/'.$domain.'/fullchain.pem')
                 .' && test -s '.escapeshellarg('/etc/letsencrypt/live/'.$domain.'/privkey.pem')
@@ -46,13 +74,14 @@ class AlphaLinkCentos9HttpsDeploymentStage
         );
         $commands->exec("(crontab -l | grep 'certbot') || { crontab -l; echo '0 0 */15 * * certbot renew'; } | crontab -");
 
-        $trackingVhostName = strtolower(preg_replace('/[^A-Za-z0-9_]+/', '_', str_replace('.', '_', $domain)) ?? '');
-        $trackingVhost = '/etc/httpd/conf.d/'.$trackingVhostName.'-le-ssl.conf';
+        // Certbot names the Apache SSL vhost after the certificate's first
+        // hostname (including its dots), e.g. example.com-le-ssl.conf.
+        $trackingVhost = '/etc/httpd/conf.d/'.$domain.'-le-ssl.conf';
         $trackingRewriteScript = '/<VirtualHost '.chr(92).'*:443>/a'.chr(92)."\n"
             .'    # ALPHALINK_TRACKING_ROUTES'.chr(92)."\n"
             .'    RewriteEngine On'.chr(92)."\n"
             .'    RewriteRule ^/healthz$ /index.php [END,QSA]'.chr(92)."\n"
-            .'    RewriteRule ^/([A-Za-z0-9]{10}[roub][A-Za-z0-9_-]{1,4096}(?:/[A-Za-z0-9_-]+)*)$ /index.php?__alphalink_long_uri=$1 [END,QSA,B]';
+            .'    RewriteRule ^/([A-Za-z0-9]{10}[roubROUB][A-Za-z0-9_-]{1,4096}(?:/[A-Za-z0-9_-]+)*)$ /index.php?__alphalink_long_uri=$1 [END,QSA,B]';
         $trackingRewrite = 'if test -f /var/mini/public/index.php && grep -q ALPHALINK_TRACKING_READY /var/mini/public/index.php && test -f '.escapeshellarg($trackingVhost).'; then '
             ."if ! grep -Fq 'ALPHALINK_TRACKING_ROUTES' ".escapeshellarg($trackingVhost).'; then '
             .'sed -i '.escapeshellarg($trackingRewriteScript).' '.escapeshellarg($trackingVhost).'; fi; '

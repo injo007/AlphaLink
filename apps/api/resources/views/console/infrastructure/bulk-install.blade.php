@@ -75,7 +75,7 @@
                     </thead>
                     <tbody>
                         @forelse ($servers as $server)
-                            <tr data-server-row>
+                            <tr data-server-row data-server-name="{{ $server->name }}" data-server-id="{{ $server->id }}" data-server-ip="{{ $server->ip_address }}">
                                 <td><span style="font-weight: 700;">{{ $server->name }}</span></td>
                                 <td><span class="command-mono-badge">#{{ $server->id }}</span></td>
                                 <td><span style="font-family: monospace; font-weight: 600; color: #6366f1;">{{ $server->ip_address }}</span></td>

@@ -98,6 +98,8 @@ return [
 
     'waits' => [
         'redis:default' => 60,
+        'spf_scans:spf-scans' => 60,
+        'spf_comparisons:spf-compares' => 60,
     ],
 
     /*
@@ -250,6 +252,32 @@ return [
             'timeout' => 120,
             'nice' => 0,
         ],
+        'spf-scans' => [
+            'connection' => 'spf_scans',
+            'queue' => ['spf-scans'],
+            'balance' => 'simple',
+            'maxProcesses' => min(2, max(1, (int) env('SPF_SCAN_COORDINATOR_PROCESSES', 1))),
+            'minProcesses' => 1,
+            'maxTime' => 3600,
+            'maxJobs' => 20,
+            'memory' => 256,
+            'tries' => 1,
+            'timeout' => 0,
+            'nice' => 0,
+        ],
+        'spf-compares' => [
+            'connection' => 'spf_comparisons',
+            'queue' => ['spf-compares'],
+            'balance' => 'simple',
+            'maxProcesses' => min(2, max(1, (int) env('SPF_COMPARE_MAX_PROCESSES', 1))),
+            'minProcesses' => 1,
+            'maxTime' => 3600,
+            'maxJobs' => 50,
+            'memory' => 256,
+            'tries' => 1,
+            'timeout' => 0,
+            'nice' => 0,
+        ],
     ],
 
     'environments' => [
@@ -272,6 +300,14 @@ return [
                 'minProcesses' => 1,
                 'maxProcesses' => (int) env('CAMPAIGN_TRACKING_MAX_PROCESSES', 2),
             ],
+            'spf-scans' => [
+                'minProcesses' => 1,
+                'maxProcesses' => min(2, max(1, (int) env('SPF_SCAN_COORDINATOR_PROCESSES', 1))),
+            ],
+            'spf-compares' => [
+                'minProcesses' => 1,
+                'maxProcesses' => min(2, max(1, (int) env('SPF_COMPARE_MAX_PROCESSES', 1))),
+            ],
         ],
 
         'local' => [
@@ -283,6 +319,12 @@ return [
             ],
             'campaign-tracking' => [
                 'maxProcesses' => (int) env('CAMPAIGN_TRACKING_MAX_PROCESSES', 2),
+            ],
+            'spf-scans' => [
+                'maxProcesses' => min(2, max(1, (int) env('SPF_SCAN_COORDINATOR_PROCESSES', 1))),
+            ],
+            'spf-compares' => [
+                'maxProcesses' => min(2, max(1, (int) env('SPF_COMPARE_MAX_PROCESSES', 1))),
             ],
         ],
     ],

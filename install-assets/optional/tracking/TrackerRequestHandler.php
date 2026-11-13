@@ -68,7 +68,11 @@ final class AlphaLinkTrackerRequestHandler
         $this->recordEvent($route['token'], $action, $remoteAddress, $userAgent, $referer, $token);
 
         if ($route['action'] === 'u' && ! $this->isAbsoluteHttpUrl($redirect)) {
-            return $this->response(200, 'text/html; charset=utf-8', '<!doctype html><html lang="en"><meta charset="utf-8"><title>Unsubscribe recorded</title><body>Your unsubscribe request has been recorded.</body></html>');
+            $message = $token[2] === '0'
+                ? 'This test link has no recipient and cannot unsubscribe anyone. The selected offer has no external unsubscribe URL configured.'
+                : 'Your unsubscribe request was submitted to AlphaLink. This offer has no external unsubscribe URL configured.';
+
+            return $this->response(200, 'text/html; charset=utf-8', '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Unsubscribe</title><body style="font:16px system-ui;max-width:36rem;margin:10vh auto;padding:1rem"><h1>Unsubscribe</h1><p>'.htmlspecialchars($message, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8').'</p></body></html>');
         }
 
         return $this->redirect($redirect);
@@ -111,7 +115,7 @@ final class AlphaLinkTrackerRequestHandler
 
         $fields = explode('-', $decoded);
         if (count($fields) !== 14
-            || ! preg_match('/\A[A-Za-z0-9]{9}_[a-f0-9]{8}\z/i', $fields[12])
+            || ! preg_match('/\A[A-Za-z0-9]{9,13}_[a-f0-9]{8}\z/i', $fields[12])
             || ! preg_match('/\A[a-f0-9]{8}\z/i', $fields[13])) {
             return null;
         }
@@ -164,7 +168,18 @@ final class AlphaLinkTrackerRequestHandler
         $body = $response['body'] ?? null;
         $destination = is_array($body) ? ($body['link'] ?? null) : null;
 
-        return is_string($destination) && $this->isAbsoluteHttpUrl($destination) ? $destination : null;
+        if (! is_string($destination)) {
+            return null;
+        }
+
+        // Unsubscribe destinations must be absolute HTTP(S) URLs. Route the API's
+        // legacy relative sentinel and any other unsafe/malformed values to the
+        // explicit fallback page instead of the generic unknown-link redirect.
+        if ($type === 'unsub') {
+            return $this->isAbsoluteHttpUrl($destination) ? $destination : 'unsubscribe?u=1';
+        }
+
+        return $this->isAbsoluteHttpUrl($destination) ? $destination : null;
     }
 
     /** @param list<string>|null $fields */

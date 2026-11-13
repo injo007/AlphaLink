@@ -73,6 +73,24 @@ return [
             'after_commit' => false,
         ],
 
+        'spf_scans' => [
+            'driver' => 'redis',
+            'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
+            'queue' => 'spf-scans',
+            'retry_after' => 86400,
+            'block_for' => null,
+            'after_commit' => true,
+        ],
+
+        'spf_comparisons' => [
+            'driver' => 'redis',
+            'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
+            'queue' => 'spf-compares',
+            'retry_after' => 86400,
+            'block_for' => null,
+            'after_commit' => true,
+        ],
+
         'drop_suppression' => [
             'driver' => env('DROP_SUPPRESSION_QUEUE_DRIVER', 'database'),
             'connection' => env('DB_QUEUE_CONNECTION'),

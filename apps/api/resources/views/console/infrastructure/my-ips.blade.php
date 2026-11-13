@@ -32,6 +32,7 @@
             <div class="table-responsive">
                 <table id="my-ips" class="table table-sm table-hover table-striped command-os-table"
                        data-source-url="{{ $ipsUrl }}"
+                       data-webmail-url-template="{{ $webmailUrlTemplate }}"
                        data-export-url="{{ $exportUrl }}"
                        aria-label="Workspace IP addresses"></table>
             </div>
@@ -172,8 +173,14 @@
                         data: 'id',
                         orderable: false,
                         searchable: false,
-                        render: function () {
-                            return '<button type="button" class="command-action-btn" title="Unavailable: remote SSO and PMTA actions are not implemented" aria-label="Webmail unavailable" disabled style="opacity: 0.35;"><i class="far fa-envelope" aria-hidden="true"></i></button>';
+                        render: function (id, type, row) {
+                            if (type !== 'display') {
+                                return id;
+                            }
+                            const template = table.dataset.webmailUrlTemplate || '';
+                            const url = template.replace('__IP__', encodeURIComponent(String(id)));
+                            const domain = row && row.dns ? String(row.dns) : 'IP';
+                            return '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer" class="command-action-btn" title="Open Webmail for ' + escapeHtml(domain) + '" aria-label="Open Webmail for ' + escapeHtml(domain) + '"><i class="far fa-envelope" aria-hidden="true"></i></a>';
                         }
                     },
                     {

@@ -422,7 +422,7 @@ class AlphaLinkChangeDomainRunner
         $trackingRoutes = $tracking
             ? "    RewriteEngine On\n"
                 ."    RewriteRule ^/healthz$ /index.php [END,QSA]\n"
-                ."    RewriteRule ^/([A-Za-z0-9]{10}[roub][A-Za-z0-9_-]{1,4096}(?:/[A-Za-z0-9_-]+)*)$ /index.php?__alphalink_long_uri=$1 [END,QSA,B]\n"
+                ."    RewriteRule ^/([A-Za-z0-9]{10}[roubROUB][A-Za-z0-9_-]{1,4096}(?:/[A-Za-z0-9_-]+)*)$ /index.php?__alphalink_long_uri=$1 [END,QSA,B]\n"
             : '';
         $content = "<VirtualHost *:80>\n"
             ."    ServerName {$domain}\n"

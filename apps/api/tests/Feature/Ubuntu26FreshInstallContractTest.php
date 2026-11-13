@@ -198,5 +198,49 @@ class Ubuntu26FreshInstallContractTest extends TestCase
         $this->assertFileExists($assetRoot.'/optional/reverse-proxy/nginx.conf');
         $this->assertFileExists($assetRoot.'/optional/tracking/index.php');
         $this->assertFileExists($assetRoot.'/optional/tracking/TrackerRequestHandler.php');
+        $this->assertSame(
+            ['size' => 3250, 'sha256' => '8fcc32fca7d97d3144715ddd9e676bcfc0cbfb7107d61300669d002039029974'],
+            $digests['optional/tracking/index.php'],
+        );
+        $this->assertSame(
+            ['size' => 12605, 'sha256' => '57ba8813cc7617fdfde72bbc0a30782fa809e93c097fa2a859915a6635ac6dce'],
+            $digests['optional/tracking/TrackerRequestHandler.php'],
+        );
+    }
+
+    public function test_deploy_repairs_only_missing_reviewed_tracking_assets_in_a_nonempty_private_bundle(): void
+    {
+        $repositoryRoot = dirname(base_path(), 2);
+        $installer = file_get_contents($repositoryRoot.'/install-ubuntu-26.sh');
+
+        $this->assertIsString($installer);
+        $this->assertStringContainsString('repair_missing_reviewed_tracking_assets "$source"', $installer);
+        $this->assertStringContainsString('repair_missing_reviewed_tracking_assets_from_git()', $installer);
+        $this->assertStringContainsString('git -C "$repository_root" cat-file blob "$revision:install-assets/$relative_path"', $installer);
+        $this->assertStringContainsString('stage_repository_install_assets_if_empty "$SOURCE_ROOT/install-assets" "$release_sha"', $installer);
+        $this->assertStringContainsString('local source="$1" reviewed_revision="${2:-}"', $installer);
+        $this->assertStringContainsString('repository_root="$SOURCE_ROOT"', $installer);
+        $this->assertStringContainsString('repair_missing_reviewed_tracking_assets_from_git "$repository_root" "$reviewed_revision"', $installer);
+        $this->assertStringContainsString('if (( source_available )); then', $installer);
+        $this->assertStringContainsString('if (( ! source_available )); then', $installer);
+        $this->assertStringContainsString("repair_missing_reviewed_tracking_asset \"\$source_root\" 'optional/tracking/index.php' 3250 '8fcc32fca7d97d3144715ddd9e676bcfc0cbfb7107d61300669d002039029974'", $installer);
+        $this->assertStringContainsString("repair_missing_reviewed_tracking_asset \"\$source_root\" 'optional/tracking/TrackerRequestHandler.php' 12605 '57ba8813cc7617fdfde72bbc0a30782fa809e93c097fa2a859915a6635ac6dce'", $installer);
+        $this->assertStringContainsString('if [[ -e "$destination_file" || -L "$destination_file" ]]; then', $installer);
+        $this->assertStringContainsString('Preserving existing private tracking asset for review:', $installer);
+        $this->assertStringContainsString('install -o www-data -g www-data -m 0600 -- "$source_file" "$temporary_file"', $installer);
+        $this->assertStringContainsString('The staged private tracking asset failed its reviewed digest check:', $installer);
+        $this->assertStringContainsString("info 'Preserving the existing private installation asset bundle.'", $installer);
+    }
+
+    public function test_deployment_health_check_requires_sign_in_to_be_live_and_maintenance_to_be_cleared(): void
+    {
+        $repositoryRoot = dirname(base_path(), 2);
+        $installer = file_get_contents($repositoryRoot.'/install-ubuntu-26.sh');
+
+        $this->assertIsString($installer);
+        $this->assertStringContainsString('verify_local_https_application_health "$app_domain"', $installer);
+        $this->assertStringContainsString('verify_local_https_application_health "$rollback_domain"', $installer);
+        $this->assertStringContainsString('"https://${domain}/sign-in"', $installer);
+        $this->assertStringContainsString('[[ ! -f "$SHARED_ROOT/storage/framework/maintenance.php" ]]', $installer);
     }
 }

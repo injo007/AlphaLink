@@ -148,7 +148,7 @@ class AlphaLinkServerIpManagementTest extends TestCase
             ->assertOk()
             ->assertSee('My IPs')
             ->assertSee('data-source-url="'.$this->cleanWorkspaceUrl($url).'"', false)
-            ->assertSee('Webmail access is not enabled', false);
+            ->assertSee('data-webmail-url-template="'.$this->cleanWorkspaceUrl($this->url('/my-ips/__IP__/webmail')).'"', false);
 
         $response = $this->getJson($url)
             ->assertOk()

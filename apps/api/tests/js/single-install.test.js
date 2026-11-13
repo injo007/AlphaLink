@@ -26,6 +26,7 @@ test('submits the supported per-IP assignments and uses the main IP domain as th
     });
 
     assert.deepEqual(payload, {
+        server_id: 'server-1',
         data: [{
             id: 'server-1',
             domain: 'domain-b',

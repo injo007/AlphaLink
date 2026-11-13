@@ -549,14 +549,46 @@ class WorkspaceSpfScannerController extends Controller
 
     private function canDeleteScan(WorkspaceSpfScan $scan): bool
     {
-        $hasProcess = $scan->pid !== null || ! empty($scan->worker_pids);
-        if ($hasProcess) {
+        if ($this->hasLiveScanProcess($scan)) {
             return false;
         }
 
         return in_array($scan->status, [WorkspaceSpfScan::STATUS_FINISHED, WorkspaceSpfScan::STATUS_FAILED], true)
-            || ($scan->status === WorkspaceSpfScan::STATUS_KILLED && $scan->stage === 'cancelled')
+            || ($scan->status === WorkspaceSpfScan::STATUS_KILLED && in_array($scan->stage, ['cancelled', 'queued'], true))
             || ($scan->status === WorkspaceSpfScan::STATUS_PAUSED && $scan->stage === 'paused');
+    }
+
+    private function hasLiveScanProcess(WorkspaceSpfScan $scan): bool
+    {
+        $processIds = array_unique(array_filter(array_merge(
+            [$scan->pid],
+            is_array($scan->worker_pids) ? $scan->worker_pids : [],
+        )));
+
+        foreach ($processIds as $processId) {
+            $processId = (int) $processId;
+            if ($processId < 2) {
+                continue;
+            }
+
+            $commandLinePath = '/proc/'.$processId.'/cmdline';
+            if (! is_file($commandLinePath)) {
+                continue;
+            }
+
+            $commandLine = @file_get_contents($commandLinePath);
+            if ($commandLine === false) {
+                return true;
+            }
+
+            $arguments = explode("\0", $commandLine);
+            if (in_array('spf:scan-workspace', $arguments, true)
+                && in_array((string) $scan->getKey(), $arguments, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function pause(Request $request, string $workspace, WorkspaceSpfScan $scan, AlphaLinkSpfScanActivity $activity): JsonResponse

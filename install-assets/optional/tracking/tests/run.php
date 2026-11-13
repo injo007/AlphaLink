@@ -35,11 +35,12 @@ $routeUrl = static function (string $action, string $token): string {
 };
 
 $calls = [];
-$poster = static function (string $path, array $payload) use (&$calls): array {
+$unsubscribeDestination = 'https://offer.example.test/unsubscribe';
+$poster = static function (string $path, array $payload) use (&$calls, &$unsubscribeDestination): array {
     $calls[] = [$path, $payload];
     if ($path === '/api/v1/campaign' || $path === '/api/v1/drop') {
         $destination = ($payload['type'] ?? '') === 'unsub'
-            ? 'https://offer.example.test/unsubscribe'
+            ? $unsubscribeDestination
             : 'https://offer.example.test/landing';
 
         return ['status' => 200, 'body' => ['link' => $destination]];
@@ -79,6 +80,24 @@ $assert($unsubscribe['headers']['Location'] === 'https://offer.example.test/unsu
 $assert($calls[0][1]['type'] === 'unsub', 'Unsubscribe lookup used the wrong API action.');
 $assert($calls[1][1]['action'] === 'unsubscribe', 'Unsubscribe analytics used the wrong event action.');
 
+$unsubscribeDestination = 'unsubscribe?u=1';
+$calls = [];
+$unsubscribeFallback = $handler->handle('GET', $routeUrl('u', $encodedToken), '198.51.100.23', 'Synthetic Browser/1.0');
+$assert($unsubscribeFallback['status'] === 200, 'Missing unsubscribe URL did not show a confirmation page.');
+$assert(str_contains($unsubscribeFallback['body'], 'Your unsubscribe request was submitted to AlphaLink.'), 'Missing unsubscribe URL did not show the AlphaLink confirmation.');
+$assert(! isset($unsubscribeFallback['headers']['Location']), 'Missing unsubscribe URL redirected to an unrelated destination.');
+$assert($calls[0][1]['type'] === 'unsub' && $calls[1][1]['action'] === 'unsubscribe', 'Missing unsubscribe URL did not submit the unsubscribe event.');
+
+$testFields = $fields;
+$testFields[2] = '0';
+$testFields[13] = hash('adler32', implode('_', array_slice($testFields, 0, 3)));
+$testToken = rtrim(strtr(base64_encode(implode('-', $testFields)), '+/', '-_'), '=');
+$calls = [];
+$testUnsubscribeFallback = $handler->handle('GET', $routeUrl('u', $testToken), '198.51.100.23', 'Synthetic Browser/1.0');
+$assert($testUnsubscribeFallback['status'] === 200, 'Test unsubscribe did not show its no-recipient notice.');
+$assert(str_contains($testUnsubscribeFallback['body'], 'This test link has no recipient and cannot unsubscribe anyone.'), 'Test unsubscribe did not explain that no recipient can be unsubscribed.');
+$assert(count($calls) === 1 && $calls[0][1]['email_id'] === '0', 'Test unsubscribe unexpectedly submitted a recipient event.');
+
 $dropFields = $fields;
 $dropFields[0] = '42';
 $dropFields[1] = '0';
@@ -102,4 +121,4 @@ $assert($calls === [], 'Invalid token unexpectedly reached the callback.');
 $unknown = $handler->handle('GET', '/not-a-tracking-route', '198.51.100.23', 'Synthetic Browser/1.0');
 $assert($unknown['headers']['Location'] === 'https://www.google.com', 'Unknown route did not use the HTTPS Google fallback.');
 
-echo "AlphaLink tracker request tests passed (6 checks).\n";
+echo "AlphaLink tracker request tests passed (8 checks).\n";

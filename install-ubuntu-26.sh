@@ -570,7 +570,7 @@ repair_missing_reviewed_tracking_assets() {
 
     [[ -d "$source_root" && ! -L "$source_root" ]] || return 0
     repair_missing_reviewed_tracking_asset "$source_root" 'optional/tracking/index.php' 3250 '8fcc32fca7d97d3144715ddd9e676bcfc0cbfb7107d61300669d002039029974'
-    repair_missing_reviewed_tracking_asset "$source_root" 'optional/tracking/TrackerRequestHandler.php' 11669 'c4a586dcea351051775e733bc092de5a715c48f4cd0d12db93119bbc696c65bb'
+    repair_missing_reviewed_tracking_asset "$source_root" 'optional/tracking/TrackerRequestHandler.php' 12602 '78f99f171c25e4b51fcd475aaba52a7d2f6aec101a26c901bafaf91f500417c2'
 }
 
 repair_missing_reviewed_tracking_assets_from_git() {

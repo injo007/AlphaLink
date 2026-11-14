@@ -42,7 +42,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' data:; script-src 'self' 'unsafe-inline' 'unsafe-eval'{{ $googleChartScriptSources }}{{ $analyticsPivotSources }}; style-src 'self' 'unsafe-inline'{{ $googleChartStyleSources }}{{ $analyticsPivotSources }}; img-src 'self' data:{{ $googleChartImageSources }}; font-src 'self' data:; connect-src 'self'{{ $googleChartConnectSources }}; form-action 'self'; frame-src 'self' {{ implode(' ', $pmtaFrameSources ?? []) }}; object-src 'none'; base-uri 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' data:; script-src 'self' 'unsafe-inline' 'unsafe-eval'{{ $googleChartScriptSources }}{{ $analyticsPivotSources }}; style-src 'self' 'unsafe-inline'{{ $googleChartStyleSources }}{{ $analyticsPivotSources }}; img-src 'self' data:{{ $googleChartImageSources }}; font-src 'self' data:{{ $analyticsPivotSources }}; connect-src 'self'{{ $googleChartConnectSources }}; form-action 'self'; frame-src 'self' {{ implode(' ', $pmtaFrameSources ?? []) }}; object-src 'none'; base-uri 'self'">
     <title>@yield('title', 'Servers')</title>
     <link rel="stylesheet" href="{{ asset('console-assets/fonts/inter.css') }}">
     <link rel="stylesheet" href="{{ asset('console-assets/plugins/bootstrap_select/bootstrap-select.css') }}">

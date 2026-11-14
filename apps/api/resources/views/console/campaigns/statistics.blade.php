@@ -110,12 +110,12 @@
     <script src="{{ asset('console-assets/vendor/daterangepicker/daterangepicker.js') }}?v=3.1.0"></script>
     <script src="{{ asset('console-assets/analytics-date-range.js') }}?v={{ substr(sha1_file(public_path('console-assets/analytics-date-range.js')), 0, 12) }}" defer></script>
     <script src="{{ asset('console-assets/analytics-report-refresh.js') }}?v={{ substr(sha1_file(public_path('console-assets/analytics-report-refresh.js')), 0, 12) }}" defer></script>
-    <script src="https://cdn3.devexpress.com/jslib/21.2.5/js/dx.all.js"></script>
+    <script src="{{ asset('console-assets/vendor/devexpress/dx.all.js') }}"></script>
     <script type="module" src="{{ asset('console-assets/analytics-pivot.js') }}?v={{ substr(sha1_file(public_path('console-assets/analytics-pivot.js')), 0, 12) }}"></script>
 @endpush
 
 @push('styles')
     <link rel="stylesheet" href="{{ asset('console-assets/vendor/daterangepicker/daterangepicker.css') }}">
-    <link rel="stylesheet" href="https://cdn3.devexpress.com/jslib/21.2.5/css/dx.common.css">
-    <link rel="stylesheet" href="https://cdn3.devexpress.com/jslib/21.2.5/css/dx.material.blue.light.css">
+    <link rel="stylesheet" href="{{ asset('console-assets/vendor/devexpress/dx.common.css') }}">
+    <link rel="stylesheet" href="{{ asset('console-assets/vendor/devexpress/dx.material.blue.light.css') }}">
 @endpush

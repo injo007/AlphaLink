@@ -36,7 +36,7 @@ class AlphaLinkCentos9ServiceSetup
             'dnf install -y ca-certificates --disablerepo=epel || dnf update -y ca-certificates --disablerepo=epel',
             'dnf install -y curl  --disablerepo=epel || dnf update -y curl --disablerepo=epel',
             'dnf install -y http://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm;',
-            'dnf install -y gcc make nano lsof wget curl unzip iproute;',
+            'dnf install -y gcc make nano lsof wget curl unzip iproute bind-utils;',
             'dnf install -y http://rpms.remirepo.net/enterprise/remi-release-9.rpm;',
             'ulimit -H -u 80000',
             'ulimit -H -n 80000',

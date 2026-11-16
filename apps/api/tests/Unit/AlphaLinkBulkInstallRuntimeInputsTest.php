@@ -59,7 +59,7 @@ class AlphaLinkBulkInstallRuntimeInputsTest extends TestCase
             ], $resolved['assets']['tracking_app']);
             $this->assertNull($resolved['assets']['cloudflare_ips']);
             $this->assertStringContainsString('BEGIN PRIVATE KEY', $resolved['settings']['dkim_key']);
-            $this->assertStringStartsWith('v=DKIM1;t=s;p=', $resolved['settings']['dkim_public_key']);
+            $this->assertStringStartsWith('v=DKIM1; k=rsa; p=', $resolved['settings']['dkim_public_key']);
             $this->assertSame($resolved['settings']['dkim_key'], $workspace->infrastructureSettings()->firstOrFail()->dkim_private_key);
             $this->assertSame(['192.0.2.1', '192.0.2.2'], $resolved['settings']['dev_ips']);
             $this->assertSame(['198.51.100.44'], $resolved['settings']['pmta_relay_ips']);

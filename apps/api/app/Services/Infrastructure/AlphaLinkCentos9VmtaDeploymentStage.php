@@ -78,6 +78,10 @@ class AlphaLinkCentos9VmtaDeploymentStage
         }
 
         $commands->exec('chown -R pmta:pmta /etc/pmta');
+        if ($useDkim) {
+            $commands->exec('chmod 640 /etc/pmta/dkim 2>/dev/null || true');
+            $commands->exec('chown root:pmta /etc/pmta/dkim 2>/dev/null || true');
+        }
         $commands->exec('systemctl restart pmta;');
         $commands->exec('systemctl restart pmtahttp;');
     }

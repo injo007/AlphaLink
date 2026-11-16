@@ -76,19 +76,15 @@ class DkimKeyMaterialManager
     {
         $key = $this->parsePrivateKey($privateKey);
         $details = openssl_pkey_get_details($key);
-        $rsa = is_array($details) ? ($details['rsa'] ?? null) : null;
-        if (($details['type'] ?? null) !== OPENSSL_KEYTYPE_RSA
-            || ! is_array($rsa)
-            || ! is_string($rsa['n'] ?? null)
-            || ! is_string($rsa['e'] ?? null)) {
+        if (($details['type'] ?? null) !== OPENSSL_KEYTYPE_RSA || empty($details['key'])) {
             throw new RuntimeException('The workspace DKIM key is not a usable RSA key.');
         }
 
-        $publicDer = $this->derSequence(
-            $this->derInteger($rsa['n']).$this->derInteger($rsa['e']),
-        );
+        $pem = $details['key'];
+        $cleanBase64 = preg_replace('/-----[^-]+-----/', '', $pem);
+        $cleanBase64 = str_replace(["\r", "\n", ' '], '', (string) $cleanBase64);
 
-        return 'v=DKIM1;t=s;p='.base64_encode($publicDer);
+        return 'v=DKIM1; k=rsa; p='.$cleanBase64;
     }
 
     private function parsePrivateKey(string $privateKey): OpenSSLAsymmetricKey
@@ -99,33 +95,5 @@ class DkimKeyMaterialManager
         }
 
         return $parsed;
-    }
-
-    private function derInteger(string $integer): string
-    {
-        $integer = ltrim($integer, "\0");
-        if ($integer === '') {
-            $integer = "\0";
-        } elseif ((ord($integer[0]) & 0x80) !== 0) {
-            $integer = "\0".$integer;
-        }
-
-        return "\x02".$this->derLength(strlen($integer)).$integer;
-    }
-
-    private function derSequence(string $contents): string
-    {
-        return "\x30".$this->derLength(strlen($contents)).$contents;
-    }
-
-    private function derLength(int $length): string
-    {
-        if ($length < 0x80) {
-            return chr($length);
-        }
-
-        $encoded = ltrim(pack('N', $length), "\0");
-
-        return chr(0x80 | strlen($encoded)).$encoded;
     }
 }

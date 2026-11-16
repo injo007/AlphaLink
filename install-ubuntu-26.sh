@@ -562,6 +562,34 @@ stage_repository_install_assets_from_revision() {
     write_install_assets_environment
 }
 
+verify_active_reviewed_install_assets() {
+    local manifest_file="$API_ROOT/app/Services/Infrastructure/AlphaLinkReviewedAssetDigestVerifier.php"
+    local relative_path expected_size expected_digest asset_file actual_digest manifest_rows
+
+    [[ -f "$manifest_file" && -d "$INSTALL_ASSETS_ROOT" ]] \
+        || fail 'The active reviewed PMTA manifest or private asset directory is missing.'
+    manifest_rows="$(reviewed_asset_manifest_rows "$manifest_file")" \
+        || fail 'Could not read the active reviewed PMTA digest manifest.'
+    [[ -n "$manifest_rows" ]] || fail 'The active reviewed PMTA digest manifest is empty.'
+    while IFS=$'\t' read -r relative_path expected_size expected_digest; do
+        [[ "$relative_path" =~ ^(pmta|optional)/[A-Za-z0-9._/-]+$ && "$relative_path" != *..* \
+            && "$expected_size" =~ ^[0-9]+$ && "$expected_digest" =~ ^[a-f0-9]{64}$ ]] \
+            || fail 'The active reviewed PMTA digest manifest contains an invalid entry.'
+        asset_file="$INSTALL_ASSETS_ROOT/$relative_path"
+        if [[ ! -f "$asset_file" && "$relative_path" == 'optional/dkim/keys.json' ]]; then
+            continue
+        fi
+        [[ -f "$asset_file" && ! -L "$asset_file" ]] \
+            || fail "The active reviewed PMTA asset is missing or unsafe: ${relative_path}."
+        [[ "$(stat -c '%s' -- "$asset_file")" == "$expected_size" ]] \
+            || fail "The active reviewed PMTA asset size differs: ${relative_path}."
+        actual_digest="$(sha256sum -- "$asset_file")"; actual_digest="${actual_digest%% *}"
+        [[ "$actual_digest" == "$expected_digest" ]] \
+            || fail "The active reviewed PMTA asset digest differs: ${relative_path}."
+    done <<< "$manifest_rows"
+    info 'Verified every active private PMTA asset against the active release manifest.'
+}
+
 reviewed_asset_manifest_rows() {
     local manifest_file="$1"
     php -r '
@@ -869,6 +897,12 @@ deploy_release() {
     fi
     [[ "$branch" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ && "$branch" != *..* && "$branch" != */ ]] || fail 'The requested branch name is invalid.'
     git -C "$CURRENT_ROOT" check-ref-format --branch "$branch" >/dev/null || fail 'The requested branch name is invalid.'
+    if [[ -f "$ENV_ROOT/deploy-branch" ]]; then
+        [[ ! -L "$ENV_ROOT/deploy-branch" && "$(stat -c '%U:%G %a' "$ENV_ROOT/deploy-branch")" == 'root:root 600' ]] \
+            || fail 'The protected deployment branch pin is unsafe.'
+        [[ "$branch" == "$(cat "$ENV_ROOT/deploy-branch")" ]] \
+            || fail "Deployment branch ${branch} differs from the protected production branch pin."
+    fi
 
     repository="$(git -C "$SOURCE_ROOT" remote get-url origin)"
     [[ "$repository" =~ ^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(\.git)?$ ]] || fail 'The origin must be a GitHub HTTPS URL without embedded credentials.'
@@ -908,6 +942,8 @@ deploy_release() {
         runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$release_path/apps/api/artisan" route:cache
         normalize_release_permissions "$release_path"
         verify_install_execution_gates
+        stage_repository_install_assets_from_revision "$SOURCE_ROOT" "$release_sha"
+        verify_active_reviewed_install_assets
         systemctl reload php8.5-fpm
         app_domain="$(nginx_app_domain /etc/nginx/sites-available/alphalink)"
         valid_app_domain "$app_domain" || fail 'Could not find a valid AlphaLink hostname in the Nginx site configuration.'
@@ -1147,6 +1183,8 @@ deploy_release() {
     enable_install_execution_gates
     runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" optimize
     verify_install_execution_gates
+    stage_repository_install_assets_from_revision "$SOURCE_ROOT" "$release_sha"
+    verify_active_reviewed_install_assets
     env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" storage:link
     systemctl restart php8.5-fpm
     runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" up
@@ -1792,6 +1830,9 @@ fi
 rm -f -- "$DB_SETUP_FILE"
 
 install -d -o root -g www-data -m 0750 "$ENV_ROOT"
+printf '%s\n' "$BRANCH" > "$ENV_ROOT/deploy-branch"
+chown root:root "$ENV_ROOT/deploy-branch"
+chmod 0600 "$ENV_ROOT/deploy-branch"
 install -d -o www-data -g www-data -m 2770 \
     "$SHARED_ROOT/storage/app/public" \
     "$SHARED_ROOT/storage/framework/cache/data" "$SHARED_ROOT/storage/framework/sessions" \

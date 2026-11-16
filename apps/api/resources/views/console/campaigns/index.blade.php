@@ -225,9 +225,9 @@
                                 </td>
                                 <td data-campaign-column="campaign">
                                     @if ($canManageVisibleCampaigns)
-                                        <a class="campaign-row-number" href="{{ route('console.campaigns.show', [$workspace->id, $campaign->id]) }}" title="{{ $campaign->name }} · created {{ $campaign->created_at?->format('Y-m-d H:i') }}">{{ ($campaigns->firstItem() ?? 1) + $loop->index }}</a>
+                                        <a class="campaign-row-number" href="{{ route('console.campaigns.show', [$workspace->id, $campaign->id]) }}" title="{{ $campaign->name }} · created {{ $campaign->created_at?->format('Y-m-d H:i') }}">{{ $campaign->campaign_number ?? (($campaigns->firstItem() ?? 1) + $loop->index) }}</a>
                                     @else
-                                        <span class="campaign-row-number">{{ ($campaigns->firstItem() ?? 1) + $loop->index }}</span>
+                                        <span class="campaign-row-number">{{ $campaign->campaign_number ?? (($campaigns->firstItem() ?? 1) + $loop->index) }}</span>
                                     @endif
                                     <div class="small text-muted">{{ $campaign->name }}</div>
                                     @if ($showOperatorCampaigns)
@@ -241,7 +241,7 @@
                                         @php
                                             $ispAudienceLists = $register['audience_lists'] ?? [];
                                             $ispAudienceCount = count($ispAudienceLists);
-                                            $campaignDisplayRef = '#'.(($campaigns->firstItem() ?? 1) + $loop->index).' · '.$campaign->name;
+                                            $campaignDisplayRef = '#'.($campaign->campaign_number ?? (($campaigns->firstItem() ?? 1) + $loop->index)).' · '.$campaign->name;
                                         @endphp
                                         <button
                                             type="button"

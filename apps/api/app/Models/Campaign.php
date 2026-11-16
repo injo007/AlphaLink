@@ -12,7 +12,7 @@ class Campaign extends Model
     use HasUuids;
 
     protected $fillable = [
-        'workspace_id', 'created_by', 'name', 'kind', 'status', 'is_active', 'idempotency_key', 'send_progress',
+        'workspace_id', 'created_by', 'campaign_number', 'name', 'kind', 'status', 'is_active', 'idempotency_key', 'send_progress',
         'is_restricted',
         'snapshot_build_stage', 'snapshot_build_percent', 'snapshot_build_processed', 'snapshot_build_total',
         'snapshot_build_error', 'snapshot_build_updated_at',
@@ -21,6 +21,7 @@ class Campaign extends Model
     protected function casts(): array
     {
         return [
+            'campaign_number' => 'integer',
             'is_active' => 'boolean',
             'is_restricted' => 'boolean',
             'send_progress' => 'integer',
@@ -29,6 +30,30 @@ class Campaign extends Model
             'snapshot_build_total' => 'integer',
             'snapshot_build_updated_at' => 'immutable_datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (Campaign $campaign): void {
+            if ($campaign->campaign_number === null && $campaign->workspace_id) {
+                $campaign->campaign_number = static::nextCampaignNumber((string) $campaign->workspace_id);
+            }
+        });
+    }
+
+    public static function nextCampaignNumber(string $workspaceId): int
+    {
+        $max = static::query()
+            ->where('workspace_id', $workspaceId)
+            ->max('campaign_number');
+
+        if ($max !== null) {
+            return (int) $max + 1;
+        }
+
+        return (int) static::query()
+            ->where('workspace_id', $workspaceId)
+            ->count() + 1;
     }
 
     public function workspace()

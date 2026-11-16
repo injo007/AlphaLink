@@ -33,12 +33,14 @@ class CampaignController extends Controller
         $workspace = $request->attributes->get('alphalink.workspace');
         $campaigns = $workspace->campaigns()
             ->with('latestRevision')
+            ->orderByDesc('campaign_number')
             ->orderByDesc('created_at')
             ->paginate(25);
 
         return response()->json([
             'data' => $campaigns->getCollection()->map(fn (Campaign $campaign) => [
                 'id' => $campaign->id,
+                'campaign_number' => $campaign->campaign_number,
                 'name' => $campaign->name,
                 'kind' => $campaign->kind,
                 'status' => $campaign->status,
@@ -255,6 +257,7 @@ class CampaignController extends Controller
     {
         return [
             'id' => $campaign->id,
+            'campaign_number' => $campaign->campaign_number,
             'name' => $campaign->name,
             'kind' => $campaign->kind,
             'status' => $campaign->status,

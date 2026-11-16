@@ -75,6 +75,18 @@ restrict_app_https_ingress() {
     } > "$access"
     chmod 0644 "$access"
 
+    cat > /etc/nginx/alphalink-public-callbacks.conf <<'NGINX'
+location ~ ^/api/v1/(?:health|subscribe|contact|opt-out|tracking/campaign-events|stats|campaign|drop|stats-drop|campaigns/[0-9a-f-]+/(?:test-click|[0-9a-f-]+/(?:click|unsubscribe)))$ {
+    allow all;
+    include fastcgi_params;
+    fastcgi_pass unix:/run/php/php8.5-fpm.sock;
+    fastcgi_param SCRIPT_FILENAME $realpath_root/index.php;
+    fastcgi_param DOCUMENT_ROOT $realpath_root;
+    fastcgi_param ALPHALINK_ENV_DIR /etc/alphalink;
+}
+NGINX
+    chmod 0644 /etc/nginx/alphalink-public-callbacks.conf
+
     python3 - "$config" "$domain" <<'PYTHON'
 from pathlib import Path
 import sys
@@ -84,11 +96,14 @@ domain = sys.argv[2]
 content = config.read_text()
 marker = f'    server_name {domain};'
 directive = '    include /etc/nginx/alphalink-app-access.conf;'
+callbacks = '    include /etc/nginx/alphalink-public-callbacks.conf;'
 if marker not in content:
     raise SystemExit('The HTTPS app server block was not found in Nginx configuration.')
 if directive not in content:
     content = content.replace(marker, marker + '\n' + directive, 1)
-    config.write_text(content)
+if callbacks not in content:
+    content = content.replace(directive, directive + '\n' + callbacks, 1)
+config.write_text(content)
 PYTHON
 
     nginx -t || fail 'The restricted app Nginx configuration is invalid.'

@@ -527,7 +527,7 @@ repair_missing_reviewed_tracking_asset() {
             if [[ "$destination_size" == "$expected_size" && "$destination_digest" == "$expected_digest" ]]; then
                 return 0
             fi
-            if [[ "$relative_path" == 'optional/tracking/TrackerRequestHandler.php' && "$destination_digest" == '57ba8813cc7617fdfde72bbc0a30782fa809e93c097fa2a859915a6635ac6dce' ]]; then
+            if [[ "$relative_path" == 'optional/tracking/TrackerRequestHandler.php' && ( "$destination_digest" == '57ba8813cc7617fdfde72bbc0a30782fa809e93c097fa2a859915a6635ac6dce' || "$destination_digest" == 'c2e4f4942f40646f17ec9bdf12ef275cb7d0d874f20493d8d672b897aaba4833' ) ]]; then
                 info "Upgrading prior reviewed tracking handler to current release: ${relative_path}."
                 rm -f -- "$destination_file"
             else
@@ -578,7 +578,7 @@ repair_missing_reviewed_tracking_assets() {
 
     [[ -d "$source_root" && ! -L "$source_root" ]] || return 0
     repair_missing_reviewed_tracking_asset "$source_root" 'optional/tracking/index.php' 3250 '8fcc32fca7d97d3144715ddd9e676bcfc0cbfb7107d61300669d002039029974'
-    repair_missing_reviewed_tracking_asset "$source_root" 'optional/tracking/TrackerRequestHandler.php' 14702 'c2e4f4942f40646f17ec9bdf12ef275cb7d0d874f20493d8d672b897aaba4833'
+    repair_missing_reviewed_tracking_asset "$source_root" 'optional/tracking/TrackerRequestHandler.php' 96570 'ac62ba251012a4889d0009b7f1e9e4fcc10dc0562ba12bf9e7d848134652123e'
 }
 
 repair_missing_reviewed_tracking_assets_from_git() {

@@ -28,7 +28,7 @@ class AlphaLinkReviewedAssetDigestVerifier
         'pmta/shared/source.conf' => ['size' => 443, 'sha256' => '0089794e29807889584ad0c7050766db26b7dcb60ce7d261261a0fd5e17c94e5'],
         'pmta/shared/base.conf' => ['size' => 5519, 'sha256' => '6f2391ca2369d5a26d932cc8cec4281e6310e844a418774ee9ba25fb509cbf81'],
         'optional/tracking/index.php' => ['size' => 3250, 'sha256' => '8fcc32fca7d97d3144715ddd9e676bcfc0cbfb7107d61300669d002039029974'],
-        'optional/tracking/TrackerRequestHandler.php' => ['size' => 14702, 'sha256' => 'c2e4f4942f40646f17ec9bdf12ef275cb7d0d874f20493d8d672b897aaba4833'],
+        'optional/tracking/TrackerRequestHandler.php' => ['size' => 96570, 'sha256' => 'ac62ba251012a4889d0009b7f1e9e4fcc10dc0562ba12bf9e7d848134652123e'],
         'optional/tracking/cloudflare-ips.conf' => ['size' => 830, 'sha256' => '286bc02aea42c1e2f02dfb90dc6e184b5e0cc6595e20eb71a55929fa8059f80f'],
         'optional/imap/dovecot.conf' => ['size' => 3703, 'sha256' => '9cf50a3953f57d7345a4ef72f740710b1d4e6076b51dc26f93cfc607a15bc4ff'],
         'optional/proxy/squid.conf' => ['size' => 3055, 'sha256' => '599b7848da81016448ad3433572223cd79f07e78178f85754dcfc4b128ab0af3'],

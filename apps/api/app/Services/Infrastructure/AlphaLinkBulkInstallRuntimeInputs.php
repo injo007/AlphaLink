@@ -89,19 +89,6 @@ class AlphaLinkBulkInstallRuntimeInputs
                 }
             }
         }
-        // The requested public-monitor mode is read-only. PMTA administrator
-        // commands stay restricted to AlphaLink's relay source / local proxy.
-        // Keep older installations moving when no operator IP is configured.
-        if ($devIps === [] && $productionIps === []) {
-            $allowAllMonitor = true;
-            if ($workspace !== null && ! $saved?->allow_all_monitor) {
-                $saved = $workspace->infrastructureSettings()->firstOrNew();
-                $saved->workspace_id = $workspace->getKey();
-                $saved->allow_all_monitor = true;
-                $saved->save();
-            }
-        }
-
         $trackingApp = $options['tracking'] ? [
             'index' => $this->assets->read($assetRoot, 'install/tracker_index'),
             'handler' => $this->assets->read($assetRoot, 'install/tracker_handler'),

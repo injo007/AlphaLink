@@ -27,7 +27,7 @@ class PmtaMonitorProxy
         try {
             $remote = Http::connectTimeout(3)
                 ->timeout(8)
-                ->withOptions(['allow_redirects' => false])
+                ->withOptions(['allow_redirects' => false, ...PmtaPanelUrl::httpOptions()])
                 ->get($url);
         } catch (\Throwable $exception) {
             return response('PMTA monitor is unavailable.', 502, ['Cache-Control' => 'no-store']);

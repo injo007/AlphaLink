@@ -176,7 +176,7 @@ class AlphaLinkBulkInstallRuntimeInputsTest extends TestCase
         }
     }
 
-    public function test_it_enables_and_persists_public_read_only_monitor_when_no_access_ips_are_configured(): void
+    public function test_it_keeps_relay_only_monitor_restricted_when_no_operator_ips_are_configured(): void
     {
         $root = sys_get_temp_dir().'/alphalink-install-no-monitor-access-'.bin2hex(random_bytes(6));
         mkdir($root, 0700);
@@ -192,6 +192,7 @@ class AlphaLinkBulkInstallRuntimeInputsTest extends TestCase
         $workspace->infrastructureSettings()->create([
             'allow_all_monitor' => false,
             'dev_ips' => [],
+            'pmta_relay_ips' => ['198.51.100.44'],
             'production_ips' => [],
         ]);
         config()->set('infrastructure.bulk_install_settings', [
@@ -206,8 +207,9 @@ class AlphaLinkBulkInstallRuntimeInputsTest extends TestCase
             $resolved = (new AlphaLinkBulkInstallRuntimeInputs(new AlphaLinkBulkInstallPrivateAssetReader))
                 ->resolve($this->installOptions(), $workspace);
 
-            $this->assertTrue($resolved['settings']['allow_all_monitor']);
-            $this->assertTrue($workspace->infrastructureSettings()->firstOrFail()->allow_all_monitor);
+            $this->assertFalse($resolved['settings']['allow_all_monitor']);
+            $this->assertFalse($workspace->infrastructureSettings()->firstOrFail()->allow_all_monitor);
+            $this->assertSame(['198.51.100.44'], $resolved['settings']['pmta_relay_ips']);
         } finally {
             rmdir($root);
         }

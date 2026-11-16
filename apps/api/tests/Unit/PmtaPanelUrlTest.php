@@ -4,10 +4,29 @@ namespace Tests\Unit;
 
 use App\Models\ManagedServer;
 use App\Services\Campaigns\PmtaPanelUrl;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 
 class PmtaPanelUrlTest extends TestCase
 {
+    public function test_socks5_proxy_forces_the_authenticated_monitor_url(): void
+    {
+        config()->set('infrastructure.pmta_socks5_proxy', 'socks5h://37.27.184.206:8977');
+        $server = (new ManagedServer)->forceFill([
+            'id' => 'test-server',
+            'ip_address' => '203.0.113.40',
+            'install_parameters' => [
+                'pmta_monitor_https' => true,
+                'data' => [['main' => true, 'domain' => 'sender.example.test']],
+            ],
+        ]);
+
+        $this->assertSame(['proxy' => 'socks5h://37.27.184.206:8977'], PmtaPanelUrl::httpOptions());
+        $this->assertSame(
+            route('clean.console.pmta-admin.monitor', $server->getKey(), false),
+            PmtaPanelUrl::displayUrl($server, 2447),
+        );
+    }
+
     public function test_https_server_uses_its_installed_primary_domain_and_saved_port(): void
     {
         $server = (new ManagedServer)->forceFill([

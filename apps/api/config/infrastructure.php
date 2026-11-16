@@ -27,6 +27,7 @@ return [
     ),
     'pmta_feedback_staging_path' => env('ALPHALINK_PMTA_FEEDBACK_STAGING_PATH', storage_path('app/private/pmta-feedback-staging')),
     'tracking_callback_url' => env('ALPHALINK_TRACKING_CALLBACK_URL'),
+    'pmta_socks5_proxy' => env('ALPHALINK_PMTA_SOCKS5_PROXY', ''),
     'bulk_install_settings' => [
         // Defaults follow the source-backed installation behavior.
         'pmta_admin_port' => $pmtaAdminPort === null || $pmtaAdminPort === '' ? 1213 : $pmtaAdminPort,

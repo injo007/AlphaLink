@@ -31,6 +31,7 @@ class PmtaQueueAdmin
         foreach ($commands as $command) {
             $response = Http::connectTimeout(3)
                 ->timeout(5)
+                ->withOptions(PmtaPanelUrl::httpOptions())
                 ->get($endpoint.'/command', [
                     'format' => 'xml',
                     'command' => $command,
@@ -77,6 +78,7 @@ class PmtaQueueAdmin
                         $pool->as($serverId)
                             ->connectTimeout(3)
                             ->timeout(5)
+                            ->withOptions(PmtaPanelUrl::httpOptions())
                             ->get($endpoint.'/command', [
                                 'format' => 'xml',
                                 'command' => $command,

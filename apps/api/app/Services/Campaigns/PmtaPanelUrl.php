@@ -3,6 +3,7 @@
 namespace App\Services\Campaigns;
 
 use App\Models\ManagedServer;
+use RuntimeException;
 
 /** Resolves the PMTA public endpoint recorded by a successful server install. */
 final class PmtaPanelUrl
@@ -57,11 +58,31 @@ final class PmtaPanelUrl
     ): string {
         $directUrl = self::forInstallation($ip, $domain, $port, $https);
 
-        if ($directUrl === '' || str_starts_with($directUrl, 'https://')) {
+        if ($directUrl === '' || (self::httpOptions() === [] && str_starts_with($directUrl, 'https://'))) {
             return $directUrl;
         }
 
         return route('clean.console.pmta-admin.monitor', $serverId, false);
+    }
+
+    /** @return array<string, string> */
+    public static function httpOptions(): array
+    {
+        $proxy = config('infrastructure.pmta_socks5_proxy');
+        if (! is_string($proxy) || $proxy === '') {
+            return [];
+        }
+
+        $parts = parse_url($proxy);
+        if (! is_array($parts) || ($parts['scheme'] ?? null) !== 'socks5h'
+            || ! isset($parts['host'], $parts['port'])
+            || filter_var($parts['host'], FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false
+            || $parts['port'] < 1 || $parts['port'] > 65535
+            || array_intersect(['user', 'pass', 'path', 'query', 'fragment'], array_keys($parts)) !== []) {
+            throw new RuntimeException('The configured PMTA SOCKS5 proxy is invalid.');
+        }
+
+        return ['proxy' => $proxy];
     }
 
     /** @param array<string, mixed> $parameters */

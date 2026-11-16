@@ -419,9 +419,6 @@ class AlphaLinkCentos9InstallWorkflow
                 }
             }
         }
-        if ($settings['dev_ips'] === [] && $settings['production_ips'] === [] && ! $settings['allow_all_monitor']) {
-            throw new InvalidArgumentException('Configure an operator or production IPv4 address, or enable the public read-only PMTA monitor.');
-        }
         if ($settings['pmta_relay_ips'] === []) {
             throw new InvalidArgumentException('Configure PMTA RELAY SOURCE IPS with AlphaLink\'s stable public IPv4 egress address before installing PMTA.');
         }

@@ -53,6 +53,48 @@ verify_local_https_application_health() {
         --resolve "${domain}:443:127.0.0.1" "https://${domain}/sign-in"
 }
 
+restrict_app_https_ingress() {
+    local domain="$1" config=/etc/nginx/sites-available/alphalink
+    local access=/etc/nginx/alphalink-app-access.conf allowed_list address
+    local -a allowed_ips=()
+
+    valid_app_domain "$domain" || fail 'Cannot restrict app ingress without a valid app domain.'
+    allowed_list="${ALPHALINK_APP_ALLOWED_IPS:-37.27.184.206}"
+    IFS=, read -r -a allowed_ips <<< "$allowed_list"
+    (( ${#allowed_ips[@]} > 0 )) || fail 'The app ingress allowlist is empty.'
+    for address in "${allowed_ips[@]}"; do
+        valid_public_ipv4 "$address" || fail "Invalid app ingress IPv4 address: ${address}"
+    done
+
+    {
+        printf 'allow 127.0.0.1;\nallow ::1;\n'
+        for address in "${allowed_ips[@]}"; do
+            printf 'allow %s;\n' "$address"
+        done
+        printf 'deny all;\n'
+    } > "$access"
+    chmod 0644 "$access"
+
+    python3 - "$config" "$domain" <<'PYTHON'
+from pathlib import Path
+import sys
+
+config = Path(sys.argv[1])
+domain = sys.argv[2]
+content = config.read_text()
+marker = f'    server_name {domain};'
+directive = '    include /etc/nginx/alphalink-app-access.conf;'
+if marker not in content:
+    raise SystemExit('The HTTPS app server block was not found in Nginx configuration.')
+if directive not in content:
+    content = content.replace(marker, marker + '\n' + directive, 1)
+    config.write_text(content)
+PYTHON
+
+    nginx -t || fail 'The restricted app Nginx configuration is invalid.'
+    systemctl reload nginx
+}
+
 valid_public_ipv4() {
     local address="$1" first second third fourth extra octet numeric
     local -a octets=()
@@ -854,6 +896,7 @@ deploy_release() {
         systemctl reload php8.5-fpm
         app_domain="$(nginx_app_domain /etc/nginx/sites-available/alphalink)"
         valid_app_domain "$app_domain" || fail 'Could not find a valid AlphaLink hostname in the Nginx site configuration.'
+        restrict_app_https_ingress "$app_domain"
         verify_local_https_application_health "$app_domain"
         info "Release ${release_sha} is already deployed and passed its HTTPS health check; no database migration was needed."
         return 0
@@ -1095,6 +1138,7 @@ deploy_release() {
     [[ ! -f "$SHARED_ROOT/storage/framework/maintenance.php" ]] || fail 'Laravel remained in maintenance mode after deployment; rolling back instead of reporting a healthy release.'
     app_domain="$(nginx_app_domain /etc/nginx/sites-available/alphalink)"
     valid_app_domain "$app_domain" || fail 'Could not find a valid AlphaLink hostname in the Nginx site configuration.'
+    restrict_app_https_ingress "$app_domain"
     verify_local_https_application_health "$app_domain"
     systemctl start alphalink-horizon.service alphalink-drop-suppression.service alphalink-schedule.timer
     for service in php8.5-fpm alphalink-horizon.service alphalink-drop-suppression.service alphalink-schedule.timer; do
@@ -1310,8 +1354,9 @@ resume_initial_install() {
 
     info "Requesting the HTTPS certificate for ${app_domain}..."
     certbot --nginx --non-interactive --agree-tos --redirect --email "$acme_email" -d "$app_domain"
+    restrict_app_https_ingress "$app_domain"
     for attempt in {1..12}; do
-        if curl --fail --silent --show-error --output /dev/null "https://${app_domain}/up"; then
+        if curl --fail --silent --show-error --output /dev/null --resolve "${app_domain}:443:127.0.0.1" "https://${app_domain}/up"; then
             break
         fi
         [[ "$attempt" -lt 12 ]] || fail 'The HTTPS health check failed; inspect Nginx, TLS, PHP-FPM, and the application log.'
@@ -2031,10 +2076,11 @@ find "$BACKUP_ROOT" -maxdepth 1 -type f -name 'alphalink-*.dump' -size +0c -prin
 
 info 'Requesting the HTTPS certificate...'
 certbot --nginx --non-interactive --agree-tos --redirect --email "$ACME_EMAIL" -d "$APP_DOMAIN"
+restrict_app_https_ingress "$APP_DOMAIN"
 
 info 'Verifying the application health endpoint...'
 for attempt in {1..12}; do
-    if curl --fail --silent --show-error --output /dev/null "https://${APP_DOMAIN}/up"; then
+    if curl --fail --silent --show-error --output /dev/null --resolve "${APP_DOMAIN}:443:127.0.0.1" "https://${APP_DOMAIN}/up"; then
         break
     fi
     [[ "$attempt" -lt 12 ]] || fail 'The HTTPS health check failed; inspect Nginx, TLS, PHP-FPM, and the application log.'

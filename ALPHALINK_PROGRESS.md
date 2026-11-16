@@ -1,9 +1,13 @@
 # AlphaLink development progress
 
-**Updated:** 2026-11-13
-**Active objective:** Replace the default installed tracking-domain status page with the user-provided responsive landing-page template while preserving tracker endpoints.
+**Updated:** 2026-11-16
+**Active objective:** Prevent PMTA manifest drift during fresh setup, asset configuration, deploy, and interrupted-install resume.
 **Current implementation status:** E-TOOLS-57/58 provide per-scan pause, resume, stop, and safe delete controls. Release `9c8a9873734e42e45f10927d1a9aa15fc5a43cd9` is active in production and pushed to `codex/alphalink-identity-reconstruction`; static syntax checks pass. Automated tests and throughput benchmarks were not run.
 **Production baseline:** Release `9c8a9873734e42e45f10927d1a9aa15fc5a43cd9` is active. The guarded installer verified PostgreSQL backup `/var/backups/alphalink/deploy-9c8a9873734e42e45f10927d1a9aa15fc5a43cd9-20261113T190802Z.dump`, found no pending migrations, and passed local HTTPS health. Read-only live-page inspection shows scan 9 remains paused at 61,194 / 193,548 with Resume/Stop/Delete, and legacy stopped rows 1–4 and 8 now have Delete; no scan action or production row mutation was performed. The 10M-domain / 20-IP benchmark remains unrun; 1,000 domains/second is a target, not a measured result.
+
+### PMTA reviewed asset reconciliation — E-INST-105 (2026-11-16)
+
+The installer now reads the reviewed digest manifest and asset blobs from the exact fetched Git revision. It validates every bundled non-secret asset before changing the private bundle, fills missing files, and upgrades an existing file only when it matches the active release pin or one of the two documented older tracking-handler pins. Unknown modified bytes stop deployment with the specific asset path. Fresh PMTA-ready setup and `--configure-install-assets` use the same reconciliation. The app gate now names every file with a missing or mismatched reviewed digest. PHP 8.5 focused tests pass 24 tests / 231 assertions (24 PHPUnit warnings); a disposable Git fixture verifies a reviewed upgrade, missing-file repair, and rejection of modified bytes. Bash syntax, Pint, and diff checks pass. No production deployment or server installation was run; live gate status remains unverified.
 
 ### Installed tracking-domain homepage — E-INST-104 (2026-11-13)
 

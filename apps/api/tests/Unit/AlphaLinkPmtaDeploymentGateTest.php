@@ -282,10 +282,17 @@ class AlphaLinkPmtaDeploymentGateTest extends TestCase
         $this->assertTrue($this->gate($verifier)->evaluate($this->almaLinuxFacts(), 40, $options)['checks']['full_alphalink_asset_set_has_reviewed_digests']);
 
         unset($digests['pmta/4.0/httpd-patch']);
-        $this->assertFalse((new AlphaLinkReviewedAssetDigestVerifier($digests))->verifies($this->assetRoot, $inventory));
+        $missingPinVerifier = new AlphaLinkReviewedAssetDigestVerifier($digests);
+        $this->assertFalse($missingPinVerifier->verifies($this->assetRoot, $inventory));
+        $this->assertSame(['pmta/4.0/httpd-patch'], $missingPinVerifier->failedAssetPaths($this->assetRoot, $inventory));
 
         file_put_contents($this->assetRoot.'/pmta/4.0/httpd-patch', 'changed bytes');
         $this->assertFalse($verifier->verifies($this->assetRoot, $inventory));
+        $this->assertSame(['pmta/4.0/httpd-patch'], $verifier->failedAssetPaths($this->assetRoot, $inventory));
+        $this->assertContains(
+            'Reviewed PMTA asset digests failed: pmta/4.0/httpd-patch.',
+            $this->gate($verifier)->evaluate($this->almaLinuxFacts(), 40, $options)['blockers'],
+        );
 
         $options['proxy'] = true;
         $this->writeAlphaLinkAssets(40, $options);

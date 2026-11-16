@@ -71,10 +71,11 @@ class AlphaLinkPmtaDeploymentGate
             "install/pmta_{$pmtaVersion}/pmta.lic",
             $digestVerifier,
         );
-        $completeAssetSetHasReviewedDigests = $digestVerifier->verifies(
+        $failedDigestPaths = $digestVerifier->failedAssetPaths(
             is_string($assetRoot) ? $assetRoot : '',
             $inventory,
         );
+        $completeAssetSetHasReviewedDigests = $failedDigestPaths === [];
         $rpmMetadataVerified = is_string($assetRoot)
             && $digestVerifier->verifiesRpmForTarget(
                 $assetRoot,
@@ -116,6 +117,7 @@ class AlphaLinkPmtaDeploymentGate
             $versionSetupWouldBeSkipped,
             $pinnedRpmMatches,
             $versionedLicenseMatches,
+            $failedDigestPaths,
         );
 
         return [
@@ -158,6 +160,7 @@ class AlphaLinkPmtaDeploymentGate
         ?bool $versionSetupWouldBeSkipped,
         ?bool $pinnedRpmMatches,
         ?bool $versionedLicenseMatches,
+        array $failedDigestPaths,
     ): array {
         $blockers = [];
 
@@ -207,7 +210,7 @@ class AlphaLinkPmtaDeploymentGate
         }
 
         if (! $checks['full_alphalink_asset_set_has_reviewed_digests']) {
-            $blockers[] = 'The reviewed digest manifest does not cover every selected AlphaLink PMTA asset.';
+            $blockers[] = 'Reviewed PMTA asset digests failed: '.implode(', ', $failedDigestPaths).'.';
         }
 
         if (! $checks['configuration_template_is_deployable']) {

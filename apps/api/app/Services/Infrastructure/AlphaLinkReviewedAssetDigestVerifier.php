@@ -60,9 +60,17 @@ class AlphaLinkReviewedAssetDigestVerifier
     /** @param  array<string, mixed>  $inventory */
     public function verifies(string $root, array $inventory): bool
     {
+        return $this->failedAssetPaths($root, $inventory) === [];
+    }
+
+    /** @param array<string, mixed> $inventory
+     * @return list<string>
+     */
+    public function failedAssetPaths(string $root, array $inventory): array
+    {
         $paths = array_keys($inventory['pmta']['assets'] ?? []);
         if (! is_array($paths) || $paths === []) {
-            return false;
+            return ['PMTA asset inventory unavailable'];
         }
 
         foreach ($inventory['selected_options'] ?? [] as $option) {
@@ -75,13 +83,18 @@ class AlphaLinkReviewedAssetDigestVerifier
         }
 
         $digests = $this->reviewedDigests ?? self::REVIEWED_DIGESTS;
+        $failed = [];
         foreach (array_unique($paths) as $relativePath) {
             if (! is_string($relativePath) || ! $this->verifiesAsset($root, $relativePath, $digests)) {
-                return false;
+                try {
+                    $failed[] = $this->catalog->pathFor($relativePath);
+                } catch (InvalidArgumentException) {
+                    $failed[] = 'unknown asset identifier';
+                }
             }
         }
 
-        return true;
+        return $failed;
     }
 
     /** Verify one catalog asset path against AlphaLink's reviewed asset pins. */

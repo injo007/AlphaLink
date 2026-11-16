@@ -72,6 +72,10 @@ The root Git checkpoint is available at `5797a6f`; this is a new local history r
 
 20. **Workspace relay source provenance:** The release bundle contains a static Go SMTP/Gmail relay copied from the DMS release (E-TOOLS-33). A filtered printable-string scan found no hard-coded DMS identifier or `/var/app` path; this is not a network trace. The relay source, `go.mod`, and reproducible build recipe are absent, and source ownership remains UNKNOWN. This blocks claiming a fully AlphaLink-owned/reproducible relay, not a claim that AlphaLink currently calls a DMS service. Keep DMS-TOOLS-006 TESTING; replace only after SMTP authentication and Gmail delivery compatibility are verified.
 
+## PMTA private asset drift — E-INST-105 — 2026-11-16
+
+A newly fetched application release could require different tracking asset bytes while the shared private tree retained an older reviewed file. The previous deploy repair handled missing tracking files but could not reconcile all selected reviewed assets or older existing bytes, causing the generic digest-manifest blocker. Fresh PMTA-ready setup, asset configuration, deploy, and interrupted-install resume now verify the fetched release's manifest and bundled assets and reconcile known reviewed versions before the release runs. Unknown modifications remain blocked with the file path. Local tests and a disposable reconciliation fixture pass; production deployment and a real target installation remain unverified.
+
 ## Server installation execution dependency order (AlmaLinux 9)
 
 Source: read-only DMS `ServerInstallBulk.php:207-310`, `ServersInstallFactory.php:15-55`, and `Centos9.php:186-330`. This is the minimum path to an executable, equivalent installation. Existing planners and fake-transport stages are evidence of individual behavior, not proof of a completed installation.

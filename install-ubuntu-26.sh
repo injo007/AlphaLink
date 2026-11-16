@@ -278,7 +278,7 @@ DEPLOY_STAGING_DIR=''
 INSTALL_STAGING_DIR=''
 SOURCE_STAGING_DIR=''
 ASSET_STAGING_DIR=''
-TRACKING_ASSET_SOURCE_STAGING_DIR=''
+REVIEWED_ASSET_SOURCE_STAGING_DIR=''
 cleanup_temporary_secrets() {
     [[ -z "$GIT_ASKPASS_FILE" ]] || rm -f -- "$GIT_ASKPASS_FILE"
     [[ -z "$GIT_TOKEN_FILE" ]] || rm -f -- "$GIT_TOKEN_FILE"
@@ -300,8 +300,9 @@ cleanup_deploy_staging() {
     if [[ "$ASSET_STAGING_DIR" == "$SHARED_ROOT"/.install-assets-stage-* && -d "$ASSET_STAGING_DIR" ]]; then
         rm -rf -- "$ASSET_STAGING_DIR"
     fi
-    if [[ "$TRACKING_ASSET_SOURCE_STAGING_DIR" == "$SHARED_ROOT"/.tracking-assets-source-* && -d "$TRACKING_ASSET_SOURCE_STAGING_DIR" ]]; then
-        rm -rf -- "$TRACKING_ASSET_SOURCE_STAGING_DIR"
+    if [[ "$REVIEWED_ASSET_SOURCE_STAGING_DIR" == "$SHARED_ROOT"/.reviewed-assets-source-* \
+        && -d "$REVIEWED_ASSET_SOURCE_STAGING_DIR" ]]; then
+        rm -rf -- "$REVIEWED_ASSET_SOURCE_STAGING_DIR"
     fi
 }
 trap cleanup_deploy_staging EXIT
@@ -497,197 +498,126 @@ stage_private_install_assets() {
     ASSET_STAGING_DIR=''
 }
 
-repair_missing_reviewed_tracking_asset() {
-    local source_root="$1" relative_path="$2" expected_size="$3" expected_digest="$4"
-    local source_file="$source_root/$relative_path" destination_file="$INSTALL_ASSETS_ROOT/$relative_path"
-    local destination_directory="$INSTALL_ASSETS_ROOT/optional/tracking" source_size source_digest destination_size destination_digest temporary_file
+stage_repository_install_assets_from_revision() {
+    local repository_root="$1" revision="$2"
 
-    [[ -f "$source_file" && ! -L "$source_file" ]] || {
-        info "Cannot repair missing private tracking asset from the repository source: ${relative_path}."
-        return 0
-    }
-    [[ ! -L "$source_root/optional" && ! -L "$source_root/optional/tracking" ]] || {
-        info "Cannot repair private tracking asset through a symlinked repository path: ${relative_path}."
-        return 0
-    }
-
-    source_size="$(stat -c '%s' -- "$source_file")"
-    source_digest="$(sha256sum -- "$source_file")"
-    source_digest="${source_digest%% *}"
-    if [[ "$source_size" != "$expected_size" || "$source_digest" != "$expected_digest" ]]; then
-        info "Cannot repair private tracking asset because its repository bytes do not match the reviewed digest: ${relative_path}."
-        return 0
-    fi
-
-    if [[ -e "$destination_file" || -L "$destination_file" ]]; then
-        if [[ -f "$destination_file" && ! -L "$destination_file" ]]; then
-            destination_size="$(stat -c '%s' -- "$destination_file")"
-            destination_digest="$(sha256sum -- "$destination_file")"
-            destination_digest="${destination_digest%% *}"
-            if [[ "$destination_size" == "$expected_size" && "$destination_digest" == "$expected_digest" ]]; then
-                return 0
-            fi
-        fi
-        info "Preserving existing private tracking asset for review: ${relative_path}."
-        return 0
-    fi
-
-    [[ ! -L "$INSTALL_ASSETS_ROOT/optional" && ! -L "$destination_directory" ]] \
-        || fail 'The private tracking asset destination contains a symlink; preserving it.'
-    [[ ! -e "$INSTALL_ASSETS_ROOT/optional" || -d "$INSTALL_ASSETS_ROOT/optional" ]] \
-        || fail 'The private tracking asset destination has an invalid parent; preserving it.'
-    [[ ! -e "$destination_directory" || -d "$destination_directory" ]] \
-        || fail 'The private tracking asset destination is not a directory; preserving it.'
-    install -d -o www-data -g www-data -m 0700 "$destination_directory"
-
-    temporary_file="$(mktemp "$destination_directory/.${relative_path##*/}.stage.XXXXXX")" \
-        || fail 'Could not create a temporary private tracking asset.'
-    if ! install -o www-data -g www-data -m 0600 -- "$source_file" "$temporary_file"; then
-        rm -f -- "$temporary_file"
-        fail "Could not stage reviewed private tracking asset: ${relative_path}."
-    fi
-
-    destination_size="$(stat -c '%s' -- "$temporary_file")"
-    destination_digest="$(sha256sum -- "$temporary_file")"
-    destination_digest="${destination_digest%% *}"
-    if [[ "$destination_size" != "$expected_size" || "$destination_digest" != "$expected_digest" ]]; then
-        rm -f -- "$temporary_file"
-        fail "The staged private tracking asset failed its reviewed digest check: ${relative_path}."
-    fi
-
-    if [[ -e "$destination_file" || -L "$destination_file" ]]; then
-        rm -f -- "$temporary_file"
-        info "Preserving a concurrently-created private tracking asset: ${relative_path}."
-        return 0
-    fi
-
-    mv -- "$temporary_file" "$destination_file"
-    info "Restored missing reviewed private tracking asset: ${relative_path}."
+    reconcile_repository_install_assets "$repository_root" "$revision"
+    write_install_assets_environment
 }
 
-repair_missing_reviewed_tracking_assets() {
-    local source_root="$1"
-
-    [[ -d "$source_root" && ! -L "$source_root" ]] || return 0
-    repair_missing_reviewed_tracking_asset "$source_root" 'optional/tracking/index.php' 3250 '8fcc32fca7d97d3144715ddd9e676bcfc0cbfb7107d61300669d002039029974'
-    repair_missing_reviewed_tracking_asset "$source_root" 'optional/tracking/TrackerRequestHandler.php' 12840 '3a536d8990cfa2a76a69f5ce1a0a85d15f0ae43b66526c9b6418b2719e072287'
-    repair_missing_reviewed_tracking_asset "$source_root" 'optional/tracking/homepage.html' 117530 'f813a0a87681180921ba15681298c23ff411767b377a363ba5a1e591ff5f0f5e'
+reviewed_asset_manifest_rows() {
+    local manifest_file="$1"
+    php -r '
+        require $argv[1];
+        foreach (\App\Services\Infrastructure\AlphaLinkReviewedAssetDigestVerifier::REVIEWED_DIGESTS as $path => $pin) {
+            echo $path, "\t", $pin["size"], "\t", $pin["sha256"], "\n";
+        }
+    ' "$manifest_file"
 }
 
-upgrade_reviewed_tracking_asset_if_unchanged() {
-    local source_root="$1" relative_path="$2" previous_size="$3" previous_digest="$4" expected_size="$5" expected_digest="$6"
-    local source_file="$source_root/$relative_path" destination_file="$INSTALL_ASSETS_ROOT/$relative_path"
-    local destination_directory="$INSTALL_ASSETS_ROOT/optional/tracking" source_size source_digest destination_size destination_digest temporary_file
+reconcile_repository_install_assets() {
+    local repository_root="$1" revision="$2" manifest_blob manifest_rows previous_rows=''
+    local relative_path expected_size expected_digest mode source_file destination_file destination_dir
+    local actual_size actual_digest previous_pin temporary_file
 
-    [[ -f "$source_file" && ! -L "$source_file" && -f "$destination_file" && ! -L "$destination_file" ]] || return 0
-    source_size="$(stat -c '%s' -- "$source_file")"
-    source_digest="$(sha256sum -- "$source_file")"
-    source_digest="${source_digest%% *}"
-    if [[ "$source_size" != "$expected_size" || "$source_digest" != "$expected_digest" ]]; then
-        info "Cannot update reviewed private tracking asset because repository bytes do not match the reviewed digest: ${relative_path}."
-        return 0
+    [[ ! -L "$INSTALL_ASSETS_ROOT" ]] || fail 'The private asset destination is a symlink; preserving it.'
+    install -d -o www-data -g www-data -m 0700 "$INSTALL_ASSETS_ROOT"
+    [[ -d "$INSTALL_ASSETS_ROOT" ]] || fail 'The private asset destination is unavailable.'
+    [[ "$(stat -c '%a' "$INSTALL_ASSETS_ROOT")" == 700 ]] \
+        || fail 'The private asset destination is not owner-only.'
+    [[ -z "$(find "$INSTALL_ASSETS_ROOT" -mindepth 1 \( -type l -o \( ! -type d -a ! -type f \) \) -print -quit)" ]] \
+        || fail 'The private asset destination contains symlinks or special files; preserving it.'
+
+    REVIEWED_ASSET_SOURCE_STAGING_DIR="$(mktemp -d "${SHARED_ROOT}/.reviewed-assets-source-XXXXXX")" \
+        || fail 'Could not create a protected reviewed-asset source directory.'
+    chmod 0700 "$REVIEWED_ASSET_SOURCE_STAGING_DIR"
+    manifest_blob="$REVIEWED_ASSET_SOURCE_STAGING_DIR/ReviewedAssetDigestVerifier.php"
+    git -C "$repository_root" cat-file blob "$revision:apps/api/app/Services/Infrastructure/AlphaLinkReviewedAssetDigestVerifier.php" > "$manifest_blob" \
+        || fail 'The fetched revision has no reviewed PMTA digest manifest.'
+    manifest_rows="$REVIEWED_ASSET_SOURCE_STAGING_DIR/manifest.tsv"
+    reviewed_asset_manifest_rows "$manifest_blob" > "$manifest_rows" \
+        || fail 'Could not read the fetched reviewed PMTA digest manifest.'
+    [[ -s "$manifest_rows" ]] || fail 'The fetched reviewed PMTA digest manifest is empty.'
+
+    if [[ -f "$API_ROOT/app/Services/Infrastructure/AlphaLinkReviewedAssetDigestVerifier.php" ]]; then
+        previous_rows="$REVIEWED_ASSET_SOURCE_STAGING_DIR/previous.tsv"
+        reviewed_asset_manifest_rows "$API_ROOT/app/Services/Infrastructure/AlphaLinkReviewedAssetDigestVerifier.php" > "$previous_rows" \
+            || fail 'Could not read the active reviewed PMTA digest manifest.'
     fi
 
-    destination_size="$(stat -c '%s' -- "$destination_file")"
-    destination_digest="$(sha256sum -- "$destination_file")"
-    destination_digest="${destination_digest%% *}"
-    if [[ "$destination_size" == "$expected_size" && "$destination_digest" == "$expected_digest" ]]; then
-        return 0
-    fi
-    if [[ "$destination_size" != "$previous_size" || "$destination_digest" != "$previous_digest" ]]; then
-        info "Preserving modified private tracking asset for review: ${relative_path}."
-        return 0
-    fi
-
-    [[ ! -L "$INSTALL_ASSETS_ROOT/optional" && ! -L "$destination_directory" ]] \
-        || fail 'The private tracking asset destination contains a symlink; preserving it.'
-    temporary_file="$(mktemp "$destination_directory/.${relative_path##*/}.update.XXXXXX")" \
-        || fail 'Could not create a temporary tracking asset update.'
-    if ! install -o www-data -g www-data -m 0600 -- "$source_file" "$temporary_file"; then
-        rm -f -- "$temporary_file"
-        fail "Could not stage reviewed tracking asset update: ${relative_path}."
-    fi
-
-    destination_size="$(stat -c '%s' -- "$temporary_file")"
-    destination_digest="$(sha256sum -- "$temporary_file")"
-    destination_digest="${destination_digest%% *}"
-    if [[ "$destination_size" != "$expected_size" || "$destination_digest" != "$expected_digest" ]]; then
-        rm -f -- "$temporary_file"
-        fail "The staged tracking asset update failed its reviewed digest check: ${relative_path}."
-    fi
-
-    mv -- "$temporary_file" "$destination_file"
-    info "Updated unchanged private tracking asset to the reviewed release: ${relative_path}."
-}
-
-repair_missing_reviewed_tracking_assets_from_git() {
-    local repository_root="$1" revision="$2" relative_path mode
-    local -a reviewed_paths=(
-        'optional/tracking/index.php'
-        'optional/tracking/TrackerRequestHandler.php'
-        'optional/tracking/homepage.html'
-    )
-
-    TRACKING_ASSET_SOURCE_STAGING_DIR="$(mktemp -d "${SHARED_ROOT}/.tracking-assets-source-XXXXXX")" \
-        || fail 'Could not create a protected source directory for reviewed tracking assets.'
-    chmod 0700 "$TRACKING_ASSET_SOURCE_STAGING_DIR"
-
-    for relative_path in "${reviewed_paths[@]}"; do
+    while IFS=$'\t' read -r relative_path expected_size expected_digest; do
+        [[ "$relative_path" =~ ^(pmta|optional)/[A-Za-z0-9._/-]+$ && "$relative_path" != *..* \
+            && "$expected_size" =~ ^[0-9]+$ && "$expected_digest" =~ ^[a-f0-9]{64}$ ]] \
+            || fail 'The fetched reviewed PMTA digest manifest contains an invalid entry.'
         mode="$(git -C "$repository_root" ls-tree "$revision" -- "install-assets/$relative_path" | awk 'NR == 1 { print $1 }')"
-        if [[ "$mode" != '100644' && "$mode" != '100755' ]]; then
-            info "The fetched Git revision does not contain a regular reviewed tracking asset: ${relative_path}."
+        if [[ "$mode" != 100644 && "$mode" != 100755 ]]; then
+            [[ "$relative_path" == 'optional/dkim/keys.json' ]] \
+                || fail "The fetched release is missing a reviewed PMTA asset: ${relative_path}."
             continue
         fi
 
-        install -d -m 0700 "$TRACKING_ASSET_SOURCE_STAGING_DIR/optional/tracking"
-        if ! git -C "$repository_root" cat-file blob "$revision:install-assets/$relative_path" \
-            > "$TRACKING_ASSET_SOURCE_STAGING_DIR/$relative_path"; then
-            fail "Could not read reviewed tracking asset from the fetched Git revision: ${relative_path}."
-        fi
-        chmod 0600 "$TRACKING_ASSET_SOURCE_STAGING_DIR/$relative_path"
-    done
+        source_file="$REVIEWED_ASSET_SOURCE_STAGING_DIR/assets/$relative_path"
+        install -d -m 0700 "${source_file%/*}"
+        git -C "$repository_root" cat-file blob "$revision:install-assets/$relative_path" > "$source_file" \
+            || fail "Could not read reviewed asset from the fetched revision: ${relative_path}."
+        actual_size="$(stat -c '%s' -- "$source_file")"
+        actual_digest="$(sha256sum -- "$source_file")"; actual_digest="${actual_digest%% *}"
+        [[ "$actual_size" == "$expected_size" && "$actual_digest" == "$expected_digest" ]] \
+            || fail "The fetched asset does not match its reviewed digest: ${relative_path}."
 
-    repair_missing_reviewed_tracking_assets "$TRACKING_ASSET_SOURCE_STAGING_DIR"
-    upgrade_reviewed_tracking_asset_if_unchanged "$TRACKING_ASSET_SOURCE_STAGING_DIR" 'optional/tracking/TrackerRequestHandler.php' 12605 '57ba8813cc7617fdfde72bbc0a30782fa809e93c097fa2a859915a6635ac6dce' 12840 '3a536d8990cfa2a76a69f5ce1a0a85d15f0ae43b66526c9b6418b2719e072287'
-    rm -rf -- "$TRACKING_ASSET_SOURCE_STAGING_DIR"
-    TRACKING_ASSET_SOURCE_STAGING_DIR=''
-}
-
-stage_repository_install_assets_if_empty() {
-    local source="$1" reviewed_revision="${2:-}" repository_root="$SOURCE_ROOT"
-    local existing_entry invalid_entry source_available=0
-
-    if [[ -d "$source" && ! -L "$source" ]]; then
-        source_available=1
-    fi
-
-    if [[ -e "$INSTALL_ASSETS_ROOT" || -L "$INSTALL_ASSETS_ROOT" ]]; then
-        [[ -d "$INSTALL_ASSETS_ROOT" && ! -L "$INSTALL_ASSETS_ROOT" ]] \
-            || fail 'The private asset destination exists but is unsafe; preserving it.'
-        invalid_entry="$(find "$INSTALL_ASSETS_ROOT" -mindepth 1 \( -type l -o \( ! -type d -a ! -type f \) \) -print -quit)"
-        [[ -z "$invalid_entry" ]] || fail 'The private asset destination contains symlinks or special files; preserving it.'
-        existing_entry="$(find "$INSTALL_ASSETS_ROOT" -mindepth 1 -print -quit)"
-        if [[ -n "$existing_entry" ]]; then
-            if (( source_available )); then
-                repair_missing_reviewed_tracking_assets "$source"
+        destination_file="$INSTALL_ASSETS_ROOT/$relative_path"
+        destination_dir="${destination_file%/*}"
+        [[ ! -L "$INSTALL_ASSETS_ROOT/${relative_path%%/*}" && ! -L "$destination_dir" && ! -L "$destination_file" ]] \
+            || fail "The private asset path contains a symlink: ${relative_path}."
+        if [[ -f "$destination_file" ]]; then
+            actual_size="$(stat -c '%s' -- "$destination_file")"
+            actual_digest="$(sha256sum -- "$destination_file")"; actual_digest="${actual_digest%% *}"
+            if [[ "$actual_size" == "$expected_size" && "$actual_digest" == "$expected_digest" ]]; then
+                continue
             fi
-            if [[ -n "$reviewed_revision" ]]; then
-                repair_missing_reviewed_tracking_assets_from_git "$repository_root" "$reviewed_revision"
+            previous_pin=''
+            if [[ -n "$previous_rows" ]]; then
+                previous_pin="$(awk -F '\t' -v path="$relative_path" '$1 == path { print $2 " " $3; exit }' "$previous_rows")"
             fi
-            normalize_private_install_assets "$INSTALL_ASSETS_ROOT"
-            info 'Preserving the existing private installation asset bundle.'
-            return 0
+            # These two tracking releases predate automatic reconciliation and may still
+            # be staged on servers that skipped an intermediate application release.
+            if [[ "$relative_path" == 'optional/tracking/TrackerRequestHandler.php' ]]; then
+                case "$actual_size $actual_digest" in
+                    '11669 c4a586dcea351051775e733bc092de5a715c48f4cd0d12db93119bbc696c65bb'|'12605 57ba8813cc7617fdfde72bbc0a30782fa809e93c097fa2a859915a6635ac6dce')
+                        previous_pin="$actual_size $actual_digest" ;;
+                esac
+            fi
+            [[ "$actual_size $actual_digest" == "$previous_pin" ]] \
+                || fail "Private PMTA asset differs from all reviewed versions; inspect ${relative_path} before deployment."
+        elif [[ -e "$destination_file" ]]; then
+            fail "The private PMTA asset is not a regular file: ${relative_path}."
         fi
-    fi
 
-    if (( ! source_available )); then
-        info 'This repository release does not contain a bundled install-assets directory.'
-        return 0
-    fi
+    done < "$manifest_rows"
 
-    stage_private_install_assets "$source"
-    write_install_assets_environment
-    info "Staged the reviewed AlphaLink installation bundle at ${INSTALL_ASSETS_ROOT} with owner-only permissions."
+    while IFS=$'\t' read -r relative_path expected_size expected_digest; do
+        source_file="$REVIEWED_ASSET_SOURCE_STAGING_DIR/assets/$relative_path"
+        [[ -f "$source_file" ]] || continue
+        destination_file="$INSTALL_ASSETS_ROOT/$relative_path"
+        destination_dir="${destination_file%/*}"
+        if [[ -f "$destination_file" ]]; then
+            actual_size="$(stat -c '%s' -- "$destination_file")"
+            actual_digest="$(sha256sum -- "$destination_file")"; actual_digest="${actual_digest%% *}"
+            [[ "$actual_size" != "$expected_size" || "$actual_digest" != "$expected_digest" ]] || continue
+        fi
+        install -d -o www-data -g www-data -m 0700 "$destination_dir"
+        temporary_file="$(mktemp "$destination_dir/.${relative_path##*/}.stage.XXXXXX")" \
+            || fail "Could not stage reviewed PMTA asset: ${relative_path}."
+        install -o www-data -g www-data -m 0600 -- "$source_file" "$temporary_file" \
+            || fail "Could not copy reviewed PMTA asset: ${relative_path}."
+        mv -f -- "$temporary_file" "$destination_file"
+        info "Reconciled reviewed private PMTA asset: ${relative_path}."
+    done < "$manifest_rows"
+
+    rm -rf -- "$REVIEWED_ASSET_SOURCE_STAGING_DIR"
+    REVIEWED_ASSET_SOURCE_STAGING_DIR=''
+    normalize_private_install_assets "$INSTALL_ASSETS_ROOT"
+    info 'Verified the private PMTA asset bundle against the fetched release.'
 }
 
 write_install_assets_environment() {
@@ -822,6 +752,7 @@ configure_install_assets() {
         normalize_private_install_assets "$INSTALL_ASSETS_ROOT"
     fi
 
+    reconcile_repository_install_assets "$SOURCE_ROOT" "$(basename "$(readlink -f "$CURRENT_ROOT")")"
     write_install_assets_environment
     runuser -u www-data -- env ALPHALINK_ENV_DIR="$ENV_ROOT" php "$API_ROOT/artisan" config:cache --no-interaction
     systemctl reload php8.5-fpm
@@ -900,7 +831,7 @@ deploy_release() {
     fetch_repository_branch "$SOURCE_ROOT" "$branch" "$token"
     unset token
     release_sha="$(git -C "$SOURCE_ROOT" rev-parse FETCH_HEAD)"
-    stage_repository_install_assets_if_empty "$SOURCE_ROOT/install-assets" "$release_sha"
+    stage_repository_install_assets_from_revision "$SOURCE_ROOT" "$release_sha"
     release_path="${RELEASES_ROOT}/${release_sha}"
     current_release="$(readlink -f "$CURRENT_ROOT")"
     [[ "$current_release" == "$RELEASES_ROOT/"* ]] || fail 'The current release symlink points outside the managed release directory.'
@@ -1235,7 +1166,7 @@ resume_initial_install() {
     fetch_repository_branch "$SOURCE_ROOT" "$branch" "$token"
     unset token
     release_sha="$(git -C "$SOURCE_ROOT" rev-parse FETCH_HEAD)"
-    stage_repository_install_assets_if_empty "$SOURCE_ROOT/install-assets" "$release_sha"
+    stage_repository_install_assets_from_revision "$SOURCE_ROOT" "$release_sha"
     release_path="${RELEASES_ROOT}/${release_sha}"
     current_release="$(readlink -f "$CURRENT_ROOT")"
     [[ "$current_release" == "$RELEASES_ROOT/"* ]] || fail 'The current release symlink points outside the managed release directory.'
@@ -1810,6 +1741,7 @@ install -d -o www-data -g www-data -m 0700 "$SHARED_ROOT/storage/app/private"
 install -d -o www-data -g www-data -m 0700 "$INSTALL_ASSETS_ROOT"
 if [[ -n "$INSTALL_ASSETS_SOURCE" ]]; then
     stage_private_install_assets "$INSTALL_ASSETS_SOURCE"
+    reconcile_repository_install_assets "$SOURCE_ROOT" "$RELEASE_SHA"
 fi
 rm -rf -- "$RELEASE_API_ROOT/storage"
 ln -s "$SHARED_ROOT/storage" "$RELEASE_API_ROOT/storage"

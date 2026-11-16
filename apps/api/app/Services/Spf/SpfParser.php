@@ -134,11 +134,27 @@ class SpfParser
      */
     public static function extractCidrs(string $spf): array
     {
+        $saveSlash8Only = (bool) config('spf.save_slash_8_only', true);
         $cidrs = [];
         foreach (self::extractIpMechanisms($spf) as [$version, $value]) {
-            $normalized = self::normalizeIpMechanism($version, $value);
-            if ($normalized !== null) {
-                $cidrs[$normalized] = true;
+            if ($saveSlash8Only) {
+                if ($version !== 4) {
+                    continue;
+                }
+                $val = trim(preg_replace('/\s+/', '', $value));
+                $parts = explode('/', $val, 2);
+                $ip = $parts[0] ?? '';
+                if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
+                    $slash8 = self::networkCidr($ip, 8);
+                    if ($slash8 !== null) {
+                        $cidrs[$slash8] = true;
+                    }
+                }
+            } else {
+                $normalized = self::normalizeIpMechanism($version, $value);
+                if ($normalized !== null) {
+                    $cidrs[$normalized] = true;
+                }
             }
         }
 

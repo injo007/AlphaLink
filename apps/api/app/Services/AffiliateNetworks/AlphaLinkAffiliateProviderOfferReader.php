@@ -29,8 +29,7 @@ class AlphaLinkAffiliateProviderOfferReader
         array $offerIds,
         bool $throwOnProviderFailure = false,
         array $assetTypes = ['from', 'subject', 'creative', 'suppression'],
-    ): array
-    {
+    ): array {
         return match ($sponsor->type) {
             'hitpath' => $this->readHitPath($sponsor, $offerIds),
             'newhitpath' => $this->readNewHitPath($sponsor, $offerIds, $throwOnProviderFailure, $assetTypes),
@@ -339,8 +338,7 @@ class AlphaLinkAffiliateProviderOfferReader
         array $offerIds,
         bool $throwOnProviderFailure = false,
         array $assetTypes = ['from', 'subject', 'creative', 'suppression'],
-    ): array
-    {
+    ): array {
         $host = $this->sponsorHost($sponsor);
         $apiUrl = sprintf('https://%s/api', $host);
         $headers = $this->newHitPathCreativeImporter->apiHeaders((string) $sponsor->api_key);

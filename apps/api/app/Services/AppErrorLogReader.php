@@ -113,7 +113,7 @@ class AppErrorLogReader
                 }
 
                 if (empty($traceText) && $exceptionClass) {
-                    $traceText = "{$exceptionClass}: {$summary}\nat " . ($exceptionFile ?? basename($file)) . ($exceptionLine ? ":{$exceptionLine}" : "");
+                    $traceText = "{$exceptionClass}: {$summary}\nat ".($exceptionFile ?? basename($file)).($exceptionLine ? ":{$exceptionLine}" : '');
                 }
 
                 $entries[] = [

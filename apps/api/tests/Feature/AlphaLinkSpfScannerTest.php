@@ -198,13 +198,13 @@ class AlphaLinkSpfScannerTest extends TestCase
         $processor->finish((int) $scan->id, true);
 
         $root = WorkspaceSpfRoot::query()->sole();
-        $this->assertSame('192.0.2.0/24', $root->cidrs[0]);
+        $this->assertSame('192.0.0.0/8', $root->cidrs[0]);
         $this->assertSame(2, $scan->fresh()->total_lines);
         $this->assertSame(1, $scan->fresh()->progress);
         $this->assertSame(WorkspaceSpfScan::STATUS_FINISHED, $scan->fresh()->status);
         $this->actingAs($owner)->postJson(route('console.tools.spf.search', $workspace->id), ['ips' => ['192.0.2.200']])
             ->assertOk()->assertJsonPath('data.0.root', 'root.example.test')
-            ->assertJsonPath('data.0.network', '192.0.2.0/24');
+            ->assertJsonPath('data.0.network', '192.0.0.0/8');
     }
 
     public function test_ip_search_resolves_dynamic_a_mx_exists_and_ptr_mechanisms_and_exports_them(): void
@@ -220,7 +220,6 @@ class AlphaLinkSpfScannerTest extends TestCase
                 ['domain' => 'a.example.test', 'record' => 'v=spf1 a:%{i}.a.dynamic.test -all', 'cidrs' => []],
                 ['domain' => 'mx.example.test', 'record' => 'v=spf1 mx:%{i}.mx.dynamic.test -all', 'cidrs' => []],
                 ['domain' => 'exists.example.test', 'record' => 'v=spf1 exists:%{i}.exists.dynamic.test -all', 'cidrs' => []],
-                ['domain' => 'ptr.example.test', 'record' => 'v=spf1 ptr:example.test -all', 'cidrs' => []],
             ],
         ]);
         $ip = '192.0.2.7';
@@ -229,8 +228,6 @@ class AlphaLinkSpfScannerTest extends TestCase
             $ip.'.mx.dynamic.test' => [DNS_MX => [['target' => 'mx-target.example.test.']]],
             'mx-target.example.test' => [DNS_A => [['ip' => $ip]]],
             $ip.'.exists.dynamic.test' => [DNS_A => [['ip' => '198.51.100.9']]],
-            $ip => [DNS_PTR => [['target' => 'mail.example.test.']]],
-            'mail.example.test' => [DNS_A => [['ip' => $ip]]],
         ];
         $this->app->instance(AlphaLinkSpfDnsCheckMatcher::class, new AlphaLinkSpfDnsCheckMatcher(
             static fn (string $name, int $type): array => $answers[$name][$type] ?? []
@@ -238,17 +235,99 @@ class AlphaLinkSpfScannerTest extends TestCase
 
         $this->actingAs($owner)->postJson(route('console.tools.spf.search', $workspace->id), ['ips' => [$ip]])
             ->assertOk()
-            ->assertJsonCount(4, 'data')
+            ->assertJsonCount(3, 'data')
             ->assertJsonFragment(['matched_ip' => $ip, 'root' => $root->domain, 'include' => 'a.example.test', 'network' => 'a:%{i}.a.dynamic.test'])
             ->assertJsonFragment(['matched_ip' => $ip, 'root' => $root->domain, 'include' => 'mx.example.test', 'network' => 'mx:%{i}.mx.dynamic.test'])
-            ->assertJsonFragment(['matched_ip' => $ip, 'root' => $root->domain, 'include' => 'exists.example.test', 'network' => 'exists:%{i}.exists.dynamic.test'])
-            ->assertJsonFragment(['matched_ip' => $ip, 'root' => $root->domain, 'include' => 'ptr.example.test', 'network' => 'ptr:example.test']);
+            ->assertJsonFragment(['matched_ip' => $ip, 'root' => $root->domain, 'include' => 'exists.example.test', 'network' => 'exists:%{i}.exists.dynamic.test']);
 
         $export = $this->actingAs($owner)->post(route('console.tools.spf.search-export', $workspace->id), ['ips' => [$ip]])
             ->assertOk()
             ->streamedContent();
         $this->assertStringContainsString('a:%{i}.a.dynamic.test', $export);
         $this->assertStringContainsString('mx:%{i}.mx.dynamic.test', $export);
+    }
+
+    public function test_spf_scanner_enforces_three_includes_max_and_saves_slash_8_only(): void
+    {
+        [$owner, $workspace] = $this->workspace();
+        $path = 'spf-scans/domains-many-includes.txt';
+        Storage::disk('local')->put($path, "sample.example.test\n");
+        $scan = WorkspaceSpfScan::query()->create([
+            'workspace_id' => $workspace->id,
+            'created_by' => $owner->id,
+            'file_path' => $path,
+            'status' => WorkspaceSpfScan::STATUS_PENDING,
+            'batch_size' => 10,
+            'workers' => 4,
+            'skip_existing' => false,
+        ]);
+
+        $resolvedDomains = [];
+        $this->app->instance(AlphaLinkSpfScanner::class, new AlphaLinkSpfScanner(static function (string $domain) use (&$resolvedDomains): array {
+            $resolvedDomains[] = $domain;
+            return match ($domain) {
+                'sample.example.test' => [
+                    'records' => ['v=spf1 ip4:142.93.100.98/24 ip4:198.51.100.5/32 include:inc1.test include:inc2.test include:inc3.test include:inc4.test include:inc5.test -all'],
+                    'error' => false,
+                ],
+                'inc1.test' => ['records' => ['v=spf1 ip4:64.233.160.1 -all'], 'error' => false],
+                'inc2.test' => ['records' => ['v=spf1 ip4:216.239.32.1 -all'], 'error' => false],
+                'inc3.test' => ['records' => ['v=spf1 ip4:172.217.0.1 -all'], 'error' => false],
+                'inc4.test' => ['records' => ['v=spf1 ip4:10.0.0.1 -all'], 'error' => false],
+                'inc5.test' => ['records' => ['v=spf1 ip4:11.0.0.1 -all'], 'error' => false],
+                default => ['records' => [], 'error' => false],
+            };
+        }));
+
+        $processor = app(AlphaLinkSpfScanProcessor::class);
+        $this->assertTrue($processor->prepare((int) $scan->id, 4));
+        $this->assertSame(0, $processor->runShard((int) $scan->id, 4, 0));
+        $processor->finish((int) $scan->id, true);
+
+        // At most root + 3 child includes = 4 domains resolved total
+        $this->assertLessThanOrEqual(4, count($resolvedDomains));
+        $this->assertContains('sample.example.test', $resolvedDomains);
+        $this->assertNotContains('inc4.test', $resolvedDomains);
+        $this->assertNotContains('inc5.test', $resolvedDomains);
+
+        $root = WorkspaceSpfRoot::query()->where('domain', 'sample.example.test')->sole();
+        // Assert every CIDR saved is strictly /8
+        foreach ($root->cidrs as $cidr) {
+            $this->assertStringEndsWith('/8', $cidr);
+        }
+        $this->assertContains('142.0.0.0/8', $root->cidrs);
+        $this->assertContains('198.0.0.0/8', $root->cidrs);
+        $this->assertContains('64.0.0.0/8', $root->cidrs);
+    }
+
+    public function test_comparison_search_provides_at_most_three_includes_per_domain(): void
+    {
+        [$owner, $workspace] = $this->workspace();
+        WorkspaceSpfRoot::query()->create([
+            'workspace_id' => $workspace->id,
+            'domain' => 'multimatch.test',
+            'status' => 'ok',
+            'record' => 'v=spf1 -all',
+            'cidrs' => ['142.0.0.0/8'],
+            'hosts' => [
+                ['domain' => 'inc1.test', 'record' => 'v=spf1 ip4:142.0.0.0/8 -all', 'cidrs' => ['142.0.0.0/8']],
+                ['domain' => 'inc2.test', 'record' => 'v=spf1 ip4:142.0.0.0/8 -all', 'cidrs' => ['142.0.0.0/8']],
+                ['domain' => 'inc3.test', 'record' => 'v=spf1 ip4:142.0.0.0/8 -all', 'cidrs' => ['142.0.0.0/8']],
+                ['domain' => 'inc4.test', 'record' => 'v=spf1 ip4:142.0.0.0/8 -all', 'cidrs' => ['142.0.0.0/8']],
+                ['domain' => 'inc5.test', 'record' => 'v=spf1 ip4:142.0.0.0/8 -all', 'cidrs' => ['142.0.0.0/8']],
+            ],
+        ]);
+
+        $response = $this->actingAs($owner)->postJson(route('console.tools.spf.search', $workspace->id), [
+            'ips' => ['142.93.100.98'],
+        ])->assertOk();
+
+        // Must cap at 3 includes for each domain
+        $data = $response->json('data');
+        $this->assertCount(3, $data);
+        $includes = array_column($data, 'include');
+        $this->assertCount(3, array_unique($includes));
+        $this->assertSame('142.0.0.0/8', $data[0]['network']);
     }
 
     public function test_ip_search_treats_dns_failures_as_non_matches(): void

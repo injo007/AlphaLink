@@ -68,8 +68,12 @@ class AppLogArchiveService
                     gzclose($dest);
                     chmod($archiveFile, 0664);
                 } else {
-                    if ($src) fclose($src);
-                    if ($dest) gzclose($dest);
+                    if ($src) {
+                        fclose($src);
+                    }
+                    if ($dest) {
+                        gzclose($dest);
+                    }
                     // Fallback to plain rename
                     $archiveFile = "{$archiveBase}.log";
                     copy($activeLog, $archiveFile);
@@ -133,6 +137,7 @@ class AppLogArchiveService
     {
         $pattern = rtrim($directory, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'laravel-archive-*';
         $files = glob($pattern) ?: [];
+
         return count($files);
     }
 }

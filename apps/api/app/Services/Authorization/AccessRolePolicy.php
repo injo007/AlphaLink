@@ -70,7 +70,7 @@ class AccessRolePolicy
     }
 
     /** @param array<string, mixed> $items
-     *  @return array<string, mixed>
+     * @return array<string, mixed>
      */
     public function filterNavigation(array $items, User $user, Router $router): array
     {
@@ -94,6 +94,7 @@ class AccessRolePolicy
             if ($children !== []) {
                 $item['items'] = $children;
                 $filtered[] = $item;
+
                 continue;
             }
 

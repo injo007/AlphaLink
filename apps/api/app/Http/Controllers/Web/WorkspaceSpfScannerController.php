@@ -54,7 +54,7 @@ class WorkspaceSpfScannerController extends Controller
             ] : $stats);
         }
 
-        $maxWorkers = min(16, max(1, (int) config('spf.max_workers', 8)));
+        $maxWorkers = min(128, max(1, (int) config('spf.max_workers', 32)));
         $maxUploadBytes = max(1, (int) config('spf.max_upload_kilobytes', 1_048_576)) * 1024;
 
         return view('console.tools.spf-scanner.index', compact('workspace', 'stats', 'maxWorkers', 'maxUploadBytes'));
@@ -288,7 +288,7 @@ class WorkspaceSpfScannerController extends Controller
     public function upload(Request $request, string $workspace, AlphaLinkSpfScanLauncher $launcher, AlphaLinkSpfScanActivity $activity): RedirectResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
-        $maxWorkers = min(16, max(1, (int) config('spf.max_workers', 8)));
+        $maxWorkers = min(128, max(1, (int) config('spf.max_workers', 32)));
         $maxUploadKilobytes = max(1, (int) config('spf.max_upload_kilobytes', 1_048_576));
         $data = $request->validate([
             'file' => ['required', 'file', 'mimes:txt', 'max:'.$maxUploadKilobytes],
@@ -561,8 +561,17 @@ class WorkspaceSpfScannerController extends Controller
             }
 
             $uniqueRows = [];
+            $includesSeen = [];
+            $maxIncludes = max(1, (int) config('spf.max_includes', 3));
             foreach ($rows as $row) {
-                $key = $row['matched_ip'].'|'.$row['root'].'|'.$row['include'];
+                $include = $row['include'];
+                if (! isset($includesSeen[$include])) {
+                    if (count($includesSeen) >= $maxIncludes) {
+                        continue;
+                    }
+                    $includesSeen[$include] = true;
+                }
+                $key = $row['matched_ip'].'|'.$row['root'].'|'.$include;
                 $uniqueRows[$key] ??= $row;
             }
             foreach ($uniqueRows as $row) {

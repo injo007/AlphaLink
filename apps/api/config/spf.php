@@ -1,8 +1,9 @@
 <?php
 
 return [
-    'max_includes' => 50,
-    'max_workers' => min(16, max(1, (int) env('SPF_MAX_WORKERS', 16))),
+    'max_includes' => max(1, (int) env('SPF_MAX_INCLUDES', 3)),
+    'max_workers' => min(128, max(1, (int) env('SPF_MAX_WORKERS', 32))),
+    'save_slash_8_only' => filter_var(env('SPF_SAVE_SLASH_8_ONLY', true), FILTER_VALIDATE_BOOLEAN),
     'max_domains_per_scan' => 10_000_000,
     'max_upload_kilobytes' => min(1_048_576, max(1, (int) env('SPF_MAX_UPLOAD_KILOBYTES', 1_048_576))),
     'max_search_table_rows' => min(50_000, max(1_000, (int) env('SPF_MAX_SEARCH_TABLE_ROWS', 20_000))),

@@ -33,7 +33,8 @@ class AlphaLinkSpfScanner
 
         $visited = [];
         $hosts = [];
-        $this->scanNode($domain, $visited, $hosts, max(1, (int) config('spf.max_includes', 50)), $activity);
+        $maxIncludes = max(1, (int) config('spf.max_includes', 3));
+        $this->scanNode($domain, $visited, $hosts, $maxIncludes + 1, $activity);
         $root = $hosts[$domain] ?? ['domain' => $domain, 'record' => null, 'status' => 'error', 'cidrs' => []];
         $cidrs = [];
         foreach ($hosts as $host) {
@@ -72,18 +73,30 @@ class AlphaLinkSpfScanner
         }
 
         if (config('spf.resolve_a_mx', true)) {
+            $saveSlash8Only = (bool) config('spf.save_slash_8_only', true);
             foreach (array_slice(SpfParser::extractAAndMxTargets($domain, $record), 0, max(1, (int) config('spf.max_mechanism_lookups', 10))) as $target) {
                 foreach ($this->targetAddresses($target['type'], $target['domain'], $activity) as $ip) {
-                    $cidr = SpfParser::ipToCidr($ip, $target['prefix4'], $target['prefix6']);
-                    if ($cidr !== null) {
-                        $hosts[$domain]['cidrs'][] = $cidr;
+                    if ($saveSlash8Only) {
+                        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
+                            $cidr = SpfParser::networkCidr($ip, 8);
+                            if ($cidr !== null) {
+                                $hosts[$domain]['cidrs'][] = $cidr;
+                            }
+                        }
+                    } else {
+                        $cidr = SpfParser::ipToCidr($ip, $target['prefix4'], $target['prefix6']);
+                        if ($cidr !== null) {
+                            $hosts[$domain]['cidrs'][] = $cidr;
+                        }
                     }
                 }
             }
         }
         $hosts[$domain]['cidrs'] = array_values(array_unique($hosts[$domain]['cidrs']));
 
-        foreach (SpfParser::childIncludes($record, $domain) as $include) {
+        $maxIncludes = max(1, (int) config('spf.max_includes', 3));
+        $childIncludes = array_slice(SpfParser::childIncludes($record, $domain), 0, $maxIncludes);
+        foreach ($childIncludes as $include) {
             if (count($visited) >= $maximumHosts) {
                 break;
             }

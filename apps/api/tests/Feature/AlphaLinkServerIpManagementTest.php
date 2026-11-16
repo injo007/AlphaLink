@@ -185,6 +185,24 @@ class AlphaLinkServerIpManagementTest extends TestCase
         self::assertStringNotContainsString('192.0.2.44', $csv);
     }
 
+    public function test_my_ips_includes_private_cloud_interfaces_when_the_server_has_a_public_address(): void
+    {
+        $this->withoutMiddleware();
+        $this->withoutVite();
+        $this->server->forceFill(['ip_address' => '20.127.232.58'])->save();
+        $ip = $this->createIp(['ip' => '172.16.0.4']);
+
+        $this->getJson($this->url('/my-ips'))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $ip->getKey())
+            ->assertJsonPath('data.0.ip', '172.16.0.4')
+            ->assertJsonPath('data.0.server.ip', '20.127.232.58');
+
+        $this->getLegacyWorkspacePage(route('console.infrastructure.my-ips.webmail', [$this->workspace->getKey(), $ip->getKey()]))
+            ->assertOk();
+    }
+
     public function test_owner_views_server_ips_vmtas_and_smtp_with_latest_ip_history(): void
     {
         $ip = $this->createIp();

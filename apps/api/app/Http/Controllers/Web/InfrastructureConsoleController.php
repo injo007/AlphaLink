@@ -1779,7 +1779,7 @@ class InfrastructureConsoleController extends Controller
 
         $rows = $ips->get([
             'id', 'workspace_id', 'managed_server_id', 'sending_domain_id', 'ip', 'type', 'dns',
-        ])->filter(fn (ManagedServerIp $ip): bool => ManagedServerIp::isPublicAddress($ip->ip))
+        ])->filter(fn (ManagedServerIp $ip): bool => $this->isMyIpsVisibleAddress($ip))
             ->map(fn (ManagedServerIp $ip): array => [
                 'id' => $ip->getKey(),
                 'ip' => $ip->ip,
@@ -1812,7 +1812,7 @@ class InfrastructureConsoleController extends Controller
         $serverId = $request->query('server_id');
         $ips = $this->myIpsQuery($workspace, is_string($serverId) ? $serverId : null)
             ->get()
-            ->filter(fn (ManagedServerIp $ip): bool => ManagedServerIp::isPublicAddress($ip->ip))
+            ->filter(fn (ManagedServerIp $ip): bool => $this->isMyIpsVisibleAddress($ip))
             ->values();
 
         return response()->streamDownload(function () use ($ips): void {
@@ -2450,6 +2450,12 @@ class InfrastructureConsoleController extends Controller
                 'server.history',
             ])
             ->orderByDesc('id');
+    }
+
+    private function isMyIpsVisibleAddress(ManagedServerIp $ip): bool
+    {
+        return ManagedServerIp::isPublicAddress($ip->ip)
+            || ManagedServerIp::isPublicAddress($ip->server?->ip_address);
     }
 
     public function serverIps(Request $request, string $workspaceId, string $serverId): View|JsonResponse

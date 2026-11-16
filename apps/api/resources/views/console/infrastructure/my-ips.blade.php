@@ -133,7 +133,14 @@
                         title: 'IP',
                         data: 'ip',
                         type: 'ip-address',
-                        render: function (value, type) { return type === 'display' ? hostCell(value, 'IP address') : value; }
+                        render: function (value, type, row) {
+                            if (type !== 'display') return value;
+                            const publicIp = row.server && row.server.ip ? String(row.server.ip) : '';
+                            const isPrivateInterface = publicIp && publicIp !== value && /^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.)/.test(String(value));
+                            return hostCell(value, 'IP address') + (isPrivateInterface
+                                ? '<div class="text-muted" style="font-size: .75rem;">Public server IP: ' + escapeHtml(publicIp) + '</div>'
+                                : '');
+                        }
                     },
                     {
                         title: 'TYPE',

@@ -6,6 +6,7 @@ use App\Models\Campaign;
 use App\Models\CampaignRecipientSnapshotItem;
 use App\Models\CampaignSendBatch;
 use App\Models\CampaignSendRun;
+use App\Services\Campaigns\CampaignAutoFailoverService;
 use App\Services\Campaigns\CampaignDeliveryAttemptLifecycle;
 use App\Services\Campaigns\CampaignSendMessageBuilder;
 use App\Services\Campaigns\ClaimCampaignSendBatch;
@@ -202,6 +203,18 @@ class ProcessCampaignSendRun implements ShouldQueue
                     $errorCode,
                 );
                 $this->updateCampaignProgress($run);
+
+                if ($outcome !== 'accepted' && isset($message['domain']) && (string) $message['domain'] !== '') {
+                    $failover = app(CampaignAutoFailoverService::class)->recordAttemptError(
+                        $run,
+                        (string) $message['domain'],
+                        (string) ($response ?? $errorCode ?? ''),
+                        $message['server'] ?? null,
+                    );
+                    if ($failover['triggered']) {
+                        break;
+                    }
+                }
             }
 
             foreach ($transportByServer as $transport) {
@@ -217,6 +230,10 @@ class ProcessCampaignSendRun implements ShouldQueue
                 if ($snapshot) {
                     $finalizer->reconcile($run, $snapshot, now());
                 }
+                $run->refresh();
+            }
+            if (in_array($run->state, ['planned', 'running'], true)) {
+                app(CampaignAutoFailoverService::class)->inspectPmtaQueues($run);
                 $run->refresh();
             }
             if (in_array($run->state, ['planned', 'running'], true)) {

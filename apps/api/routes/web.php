@@ -334,6 +334,8 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::post('/app/workspaces/{workspace}/campaigns/{campaign}/send', [CampaignSendController::class, 'start'])->middleware('throttle:campaign-send')->name('console.campaigns.send');
     Route::post('/app/workspaces/{workspace}/campaigns/{campaign}/send-runs/{run}/stop', [CampaignSendController::class, 'stop'])->middleware('throttle:campaign-send')->name('console.campaigns.send-stop');
     Route::get('/app/workspaces/{workspace}/campaigns/{campaign}/send-runs/{run}/progress', [CampaignSendController::class, 'progress'])->middleware('throttle:60,1')->name('console.campaigns.send-progress');
+    Route::get('/app/workspaces/{workspace}/campaigns/{campaign}/telemetry', [CampaignSendController::class, 'telemetry'])->middleware('throttle:60,1')->name('console.campaigns.telemetry');
+    Route::post('/app/workspaces/{workspace}/campaigns/{campaign}/telemetry/restore-domain', [CampaignSendController::class, 'restoreDomain'])->middleware('throttle:30,1')->name('console.campaigns.telemetry.restore-domain');
     Route::get('/app/workspaces/{workspace}/campaigns/{campaign}/snapshot-progress', [WorkspaceConsoleController::class, 'campaignSnapshotProgress'])->name('console.campaigns.snapshot-progress');
     Route::post('/app/workspaces/{workspace}/campaigns/{campaign}/snapshot-retry', [WorkspaceConsoleController::class, 'retryCampaignSnapshot'])->middleware('throttle:3,1')->name('console.campaigns.snapshot-retry');
     Route::post('/app/workspaces/{workspace}/campaigns/{campaign}/revisions', [WorkspaceConsoleController::class, 'reviseCampaignDraft'])->middleware('throttle:10,1')->name('console.campaigns.revisions.store');

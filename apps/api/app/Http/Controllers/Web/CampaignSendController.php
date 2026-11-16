@@ -9,6 +9,7 @@ use App\Models\Campaign;
 use App\Models\CampaignRecipientSnapshot;
 use App\Models\CampaignSendRun;
 use App\Services\Campaigns\AlphaLinkCampaignSendCatalog;
+use App\Services\Campaigns\CampaignAutoFailoverService;
 use App\Services\Campaigns\CampaignSendMessageBuilder;
 use App\Services\Campaigns\PrepareCampaignSendRun;
 use Illuminate\Http\JsonResponse;
@@ -203,5 +204,116 @@ class CampaignSendController extends Controller
             'uncertain' => (int) $sendRun->uncertain_count,
             'next_batch_at' => $sendRun->execution_options['next_batch_at'] ?? null,
         ]);
+    }
+
+    public function telemetry(
+        Request $request,
+        string $workspace,
+        string $campaign,
+        CampaignAutoFailoverService $failoverService,
+    ): JsonResponse {
+        $workspace = $request->user()->workspaces()
+            ->where('workspaces.status', 'active')
+            ->whereKey($workspace)
+            ->firstOrFail();
+        abort_unless(in_array($workspace->pivot->role, ['owner', 'admin', 'operator'], true), 403);
+
+        $campaign = Campaign::query()
+            ->where('workspace_id', $workspace->getKey())
+            ->whereKey($campaign)
+            ->with(['latestRevision', 'sendRuns' => fn ($q) => $q->latest('created_at')->limit(1)])
+            ->firstOrFail();
+
+        $sendRun = $campaign->sendRuns->first();
+        $setup = $campaign->latestRevision?->payload['send_setup'] ?? [];
+        $configuredDomains = $sendRun ? $failoverService->extractConfiguredDomains($sendRun) : [];
+        if (empty($configuredDomains) && ! empty($setup['domain'])) {
+            $configuredDomains = [strtolower(trim((string) $setup['domain']))];
+        }
+
+        $disabledDomains = $sendRun ? $failoverService->getDisabledDomains($sendRun) : [];
+        $errorCounts = $sendRun ? $failoverService->getDomainErrorCounts($sendRun) : [];
+        $events = $sendRun ? $failoverService->getFailoverEvents($sendRun) : [];
+
+        $domainDetails = [];
+        foreach ($configuredDomains as $domain) {
+            $isDisabled = in_array($domain, $disabledDomains, true);
+            $domainDetails[] = [
+                'domain' => $domain,
+                'status' => $isDisabled ? 'disabled' : 'active',
+                'error_count' => (int) ($errorCounts[$domain] ?? 0),
+            ];
+        }
+
+        $autoFailoverEnabled = $sendRun
+            ? $failoverService->isEnabled($sendRun)
+            : (bool) ($setup['auto_failover_enabled'] ?? false);
+
+        $threshold = (int) ($sendRun
+            ? data_get($sendRun->execution_options, 'failover_threshold', 5)
+            : ($setup['failover_threshold'] ?? 5));
+
+        $patterns = (string) ($sendRun
+            ? data_get($sendRun->execution_options, 'failover_error_patterns', '421, rate limit, too many connections, temporarily deferred')
+            : ($setup['failover_error_patterns'] ?? '421, rate limit, too many connections, temporarily deferred'));
+
+        $purgeSpool = (bool) ($sendRun
+            ? data_get($sendRun->execution_options, 'failover_purge_spool', true)
+            : ($setup['failover_purge_spool'] ?? true));
+
+        $processed = $sendRun
+            ? (int) $sendRun->accepted_count + (int) $sendRun->rejected_count + (int) $sendRun->suppressed_count + (int) $sendRun->uncertain_count
+            : 0;
+
+        return response()->json([
+            'campaign_id' => $campaign->getKey(),
+            'campaign_name' => $campaign->name,
+            'auto_failover_enabled' => $autoFailoverEnabled,
+            'threshold' => $threshold,
+            'patterns' => $patterns,
+            'purge_spool' => $purgeSpool,
+            'domains' => $domainDetails,
+            'disabled_domains' => $disabledDomains,
+            'events' => $events,
+            'send_run' => $sendRun ? [
+                'id' => $sendRun->getKey(),
+                'state' => $sendRun->state,
+                'processed' => $processed,
+                'total' => (int) $sendRun->recipient_count,
+                'percent' => $sendRun->recipient_count > 0 ? min(100, (int) floor($processed * 100 / $sendRun->recipient_count)) : 0,
+                'accepted' => (int) $sendRun->accepted_count,
+                'rejected' => (int) $sendRun->rejected_count,
+            ] : null,
+        ]);
+    }
+
+    public function restoreDomain(
+        Request $request,
+        string $workspace,
+        string $campaign,
+        CampaignAutoFailoverService $failoverService,
+    ): JsonResponse {
+        $workspace = $request->user()->workspaces()
+            ->where('workspaces.status', 'active')
+            ->whereKey($workspace)
+            ->firstOrFail();
+        abort_unless(in_array($workspace->pivot->role, ['owner', 'admin', 'operator'], true), 403);
+
+        $data = $request->validate([
+            'domain' => ['required', 'string', 'max:255'],
+        ]);
+
+        $campaign = Campaign::query()
+            ->where('workspace_id', $workspace->getKey())
+            ->whereKey($campaign)
+            ->with(['sendRuns' => fn ($q) => $q->latest('created_at')->limit(1)])
+            ->firstOrFail();
+
+        $sendRun = $campaign->sendRuns->first();
+        abort_unless($sendRun, 404, 'No send run found for this campaign.');
+
+        $result = $failoverService->restoreDomain($sendRun, $data['domain']);
+
+        return response()->json($result);
     }
 }

@@ -310,6 +310,7 @@
                                     @endif
                                     @unless ($showOperatorCampaigns)
                                         <button type="button" class="btn btn-link btn-sm campaign-register-icon-action" data-campaign-statistics-toggle data-campaign-id="{{ $campaign->id }}" aria-expanded="false" aria-controls="campaign-statistics-{{ $campaign->id }}" data-statistics-url="{{ route('console.campaign-statistics.index', [$workspace->id, 'campaign_id' => $campaign->id, 'from' => $from->toDateString(), 'to' => $to->toDateString(), 'inline' => 1]) }}" title="Show campaign statistics and focus analytics" aria-label="Show statistics for {{ $campaign->name }}"><i class="fas fa-chart-bar" aria-hidden="true"></i></button>
+                                        <button type="button" class="btn btn-link btn-sm campaign-register-icon-action" data-campaign-telemetry-toggle data-campaign-id="{{ $campaign->id }}" aria-expanded="false" aria-controls="campaign-telemetry-{{ $campaign->id }}" data-telemetry-url="{{ route('console.campaigns.telemetry', [$workspace->id, $campaign->id]) }}" data-restore-url="{{ route('console.campaigns.telemetry.restore-domain', [$workspace->id, $campaign->id]) }}" title="Live Telemetry & Failover Process" aria-label="Show live telemetry for {{ $campaign->name }}"><i class="fas fa-heartbeat text-info" aria-hidden="true"></i></button>
                                     @endunless
                                     @if ($canOperateCampaigns)
                                         @if ($campaign->kind === 'marketing' && ($register['configured'] ?? false))
@@ -407,6 +408,13 @@
                                 <td colspan="8" data-campaign-colspan>
                                     <section class="campaign-statistics-dropdown" aria-label="Statistics for {{ $campaign->name }}">
                                         <div data-statistics-content role="status" aria-live="polite">Loading campaign statistics…</div>
+                                    </section>
+                                </td>
+                            </tr>
+                            <tr id="campaign-telemetry-{{ $campaign->id }}" data-campaign-telemetry-panel hidden>
+                                <td colspan="8" data-campaign-colspan class="p-0 border-top-0">
+                                    <section class="campaign-telemetry-dropdown p-3 bg-light border-bottom" aria-label="Live Telemetry for {{ $campaign->name }}">
+                                        <div data-telemetry-content role="status" aria-live="polite">Loading telemetry and failover status…</div>
                                     </section>
                                 </td>
                             </tr>
@@ -1537,6 +1545,223 @@
                         message.className = 'text-danger';
                         message.textContent = 'Campaign statistics could not be loaded. Try opening the full report or close and reopen this panel.';
                         target.append(message);
+                    }
+                });
+            });
+
+            const escapeHtml = str => String(str ?? '').replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
+
+            const renderCampaignTelemetry = (target, data, restoreUrl) => {
+                target.replaceChildren();
+
+                const container = document.createElement('div');
+                container.className = 'campaign-telemetry-view';
+
+                const banner = document.createElement('div');
+                banner.className = 'd-flex align-items-center justify-content-between mb-3 p-2 bg-white rounded shadow-sm border';
+
+                const bannerLeft = document.createElement('div');
+                bannerLeft.className = 'd-flex align-items-center flex-wrap';
+
+                if (data.auto_failover_enabled) {
+                    bannerLeft.innerHTML = `
+                        <span class="badge badge-success px-2 py-1 mr-2"><i class="fas fa-shield-alt mr-1"></i> CIRCUIT BREAKER: ENABLED</span>
+                        <span class="badge badge-info px-2 py-1 mr-2">Threshold: ${data.threshold} errors</span>
+                        <span class="badge badge-secondary px-2 py-1 mr-2">Spool Purge: ${data.purge_spool ? 'Active' : 'Off'}</span>
+                        <span class="small text-muted">Patterns: <code>${escapeHtml(data.patterns)}</code></span>
+                    `;
+                } else {
+                    bannerLeft.innerHTML = `
+                        <span class="badge badge-secondary px-2 py-1 mr-2"><i class="fas fa-shield-alt mr-1"></i> CIRCUIT BREAKER: DISABLED</span>
+                        <span class="small text-muted">Automated deferral failover is disabled for this campaign.</span>
+                    `;
+                }
+
+                const bannerRight = document.createElement('div');
+                const disabledCount = (data.disabled_domains || []).length;
+                if (disabledCount > 0) {
+                    bannerRight.innerHTML = `<span class="badge badge-danger px-2 py-1"><i class="fas fa-exclamation-triangle mr-1"></i> ${disabledCount} DOMAIN(S) REMOVED ON DEFERRAL</span>`;
+                } else {
+                    bannerRight.innerHTML = `<span class="badge badge-success px-2 py-1"><i class="fas fa-check-circle mr-1"></i> ALL DOMAINS HEALTHY</span>`;
+                }
+
+                banner.append(bannerLeft, bannerRight);
+                container.append(banner);
+
+                const row = document.createElement('div');
+                row.className = 'row';
+
+                const colDomains = document.createElement('div');
+                colDomains.className = 'col-md-5 mb-2';
+                const domainCard = document.createElement('div');
+                domainCard.className = 'card h-100 shadow-sm border';
+                domainCard.innerHTML = `
+                    <div class="card-header bg-white font-weight-bold py-2 border-bottom">
+                        <i class="fas fa-network-wired text-primary mr-1"></i> Assigned Domains & Rotation Status
+                    </div>
+                `;
+                const domainBody = document.createElement('div');
+                domainBody.className = 'card-body p-0';
+
+                const domainList = data.domains || [];
+                if (domainList.length === 0) {
+                    domainBody.innerHTML = `<div class="p-3 text-muted small">No specific VMTA domains configured. Using primary server IPs.</div>`;
+                } else {
+                    const domainTable = document.createElement('table');
+                    domainTable.className = 'table table-sm table-hover mb-0';
+                    domainTable.innerHTML = `
+                        <thead class="thead-light">
+                            <tr>
+                                <th>Domain</th>
+                                <th>Status</th>
+                                <th class="text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    `;
+                    const tbody = domainTable.querySelector('tbody');
+                    domainList.forEach(item => {
+                        const tr = document.createElement('tr');
+                        const isDis = item.status === 'disabled';
+                        tr.innerHTML = `
+                            <td>
+                                <strong>${escapeHtml(item.domain)}</strong>
+                                ${item.error_count > 0 ? `<span class="badge badge-warning ml-1">${item.error_count} err</span>` : ''}
+                            </td>
+                            <td>
+                                ${isDis ? `<span class="badge badge-danger"><i class="fas fa-ban mr-1"></i> Removed</span>` : `<span class="badge badge-success"><i class="fas fa-check mr-1"></i> Active</span>`}
+                            </td>
+                            <td class="text-right"></td>
+                        `;
+                        const actionCell = tr.querySelector('td:last-child');
+                        if (isDis) {
+                            const restoreBtn = document.createElement('button');
+                            restoreBtn.type = 'button';
+                            restoreBtn.className = 'btn btn-outline-success btn-sm py-0 px-2';
+                            restoreBtn.textContent = 'Restore';
+                            restoreBtn.title = 'Re-add domain to rotation';
+                            restoreBtn.addEventListener('click', async () => {
+                                restoreBtn.disabled = true;
+                                restoreBtn.textContent = 'Restoring…';
+                                try {
+                                    const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
+                                    const resp = await fetch(restoreUrl, {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'Accept': 'application/json',
+                                            'X-CSRF-TOKEN': csrf,
+                                            'X-Requested-With': 'XMLHttpRequest'
+                                        },
+                                        body: JSON.stringify({ domain: item.domain })
+                                    });
+                                    if (!resp.ok) throw new Error('Restore failed');
+                                    target.dispatchEvent(new CustomEvent('telemetry:refresh'));
+                                } catch (_) {
+                                    alert('Could not restore domain. Please try again.');
+                                    restoreBtn.disabled = false;
+                                    restoreBtn.textContent = 'Restore';
+                                }
+                            });
+                            actionCell.append(restoreBtn);
+                        } else {
+                            actionCell.innerHTML = `<span class="text-muted small">—</span>`;
+                        }
+                        tbody.append(tr);
+                    });
+                    domainBody.append(domainTable);
+                }
+                domainCard.append(domainBody);
+                colDomains.append(domainCard);
+
+                const colEvents = document.createElement('div');
+                colEvents.className = 'col-md-7 mb-2';
+                const eventCard = document.createElement('div');
+                eventCard.className = 'card h-100 shadow-sm border';
+                eventCard.innerHTML = `
+                    <div class="card-header bg-white font-weight-bold py-2 border-bottom d-flex align-items-center justify-content-between">
+                        <div><i class="fas fa-history text-info mr-1"></i> Automated Failover Process Log</div>
+                        <small class="text-muted">Real-time circuit breaker audit</small>
+                    </div>
+                `;
+                const eventBody = document.createElement('div');
+                eventBody.className = 'card-body p-2';
+                eventBody.style.maxHeight = '240px';
+                eventBody.style.overflowY = 'auto';
+
+                const events = data.events || [];
+                if (events.length === 0) {
+                    eventBody.innerHTML = `
+                        <div class="text-center py-4 text-muted small">
+                            <i class="fas fa-check-circle text-success fa-2x mb-2 d-block"></i>
+                            No failover events recorded. Sending clean without rate limit/deferral interruptions.
+                        </div>
+                    `;
+                } else {
+                    const list = document.createElement('ul');
+                    list.className = 'list-unstyled mb-0';
+                    events.forEach(ev => {
+                        const li = document.createElement('li');
+                        li.className = 'mb-2 p-2 rounded bg-light border-left border-warning';
+                        const time = ev.timestamp ? new Date(ev.timestamp).toLocaleTimeString() : '';
+                        li.innerHTML = `
+                            <div class="d-flex align-items-center justify-content-between">
+                                <strong class="small text-dark"><i class="fas fa-exclamation-circle text-warning mr-1"></i> ${escapeHtml(ev.domain)}: ${escapeHtml(ev.action || 'event')}</strong>
+                                <span class="badge badge-light border text-muted">${time}</span>
+                            </div>
+                            <div class="small text-muted mt-1">${escapeHtml(ev.message || ev.error_sample || '')}</div>
+                            ${ev.purged_spool ? '<span class="badge badge-info mt-1"><i class="fas fa-trash-alt mr-1"></i> In-Flight PMTA Spool Purged</span>' : ''}
+                        `;
+                        list.append(li);
+                    });
+                    eventBody.append(list);
+                }
+                eventCard.append(eventBody);
+                colEvents.append(eventCard);
+
+                row.append(colDomains, colEvents);
+                container.append(row);
+                target.append(container);
+            };
+
+            document.querySelectorAll('[data-campaign-telemetry-toggle]').forEach(button => {
+                let pollInterval = null;
+                const panel = document.getElementById(button.getAttribute('aria-controls'));
+                if (!panel) return;
+                const target = panel.querySelector('[data-telemetry-content]');
+
+                const loadTelemetry = async () => {
+                    try {
+                        const response = await fetch(button.dataset.telemetryUrl, {
+                            cache: 'no-store',
+                            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                            credentials: 'same-origin',
+                        });
+                        if (!response.ok) throw new Error('Telemetry not available');
+                        const data = await response.json();
+                        renderCampaignTelemetry(target, data, button.dataset.restoreUrl);
+                    } catch (_) {
+                        target.innerHTML = '<div class="text-danger p-2">Live telemetry could not be loaded. Please retry.</div>';
+                    }
+                };
+
+                target.addEventListener('telemetry:refresh', loadTelemetry);
+
+                button.addEventListener('click', async () => {
+                    const open = button.getAttribute('aria-expanded') !== 'true';
+                    button.setAttribute('aria-expanded', String(open));
+                    panel.hidden = !open;
+                    if (open) {
+                        target.innerHTML = '<div class="text-center py-2"><i class="fas fa-spinner fa-spin mr-1"></i> Loading telemetry and failover status…</div>';
+                        await loadTelemetry();
+                        if (!pollInterval) {
+                            pollInterval = setInterval(loadTelemetry, 4000);
+                        }
+                    } else {
+                        if (pollInterval) {
+                            clearInterval(pollInterval);
+                            pollInterval = null;
+                        }
                     }
                 });
             });

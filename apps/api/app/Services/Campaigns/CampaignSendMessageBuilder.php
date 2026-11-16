@@ -76,10 +76,25 @@ class CampaignSendMessageBuilder
             ->filter(fn (array|object $choice): bool => in_array((string) data_get($choice, 'id'), $validated['ip_ids'], true))
             ->map(fn (array|object $choice): array => (array) $choice)
             ->values();
+
+        $disabledDomains = array_values(array_unique(array_filter(array_map('strtolower', (array) data_get($run->execution_options, 'disabled_domains', [])))));
+        if (! empty($disabledDomains)) {
+            $healthyChoices = $choices->reject(function (array $choice) use ($disabledDomains): bool {
+                $d = strtolower(trim((string) ($choice['vmta_domain'] ?? $choice['dns'] ?? '')));
+                return $d !== '' && in_array($d, $disabledDomains, true);
+            })->values();
+
+            if ($healthyChoices->isNotEmpty()) {
+                $choices = $healthyChoices;
+            }
+        }
+
         $choicesByServer = $choices->groupBy(fn (array $choice): string => (string) ($choice['server_id'] ?? ''));
-        foreach ($servers as $server) {
-            if ($choicesByServer->get((string) $server->getKey(), collect())->isEmpty()) {
-                throw ValidationException::withMessages(['send_setup.ip_ids' => 'Every selected server must have at least one selected IP or SMTP route.']);
+        if (empty($disabledDomains)) {
+            foreach ($servers as $server) {
+                if ($choicesByServer->get((string) $server->getKey(), collect())->isEmpty()) {
+                    throw ValidationException::withMessages(['send_setup.ip_ids' => 'Every selected server must have at least one selected IP or SMTP route.']);
+                }
             }
         }
 
@@ -147,8 +162,15 @@ class CampaignSendMessageBuilder
         /** @var ManagedServer $server */
         $server = $servers->get($serverIndex);
         $serverChoices = $context['choices_by_server']->get((string) $server->getKey(), collect())->values();
-        $choiceIndex = intdiv(max(0, $position - 1), $servers->count()) % $serverChoices->count();
-        $choice = $serverChoices->get($choiceIndex);
+        if ($serverChoices->isEmpty()) {
+            $fallbackServer = $servers->first(fn ($s) => $context['choices_by_server']->get((string) $s->getKey(), collect())->isNotEmpty());
+            if ($fallbackServer) {
+                $server = $fallbackServer;
+                $serverChoices = $context['choices_by_server']->get((string) $server->getKey())->values();
+            }
+        }
+        $choiceIndex = $serverChoices->isNotEmpty() ? (intdiv(max(0, $position - 1), max(1, $servers->count())) % $serverChoices->count()) : 0;
+        $choice = $serverChoices->get($choiceIndex) ?? $context['choices_by_server']->flatten(1)->first();
         $ipRows = ManagedServerIp::query()
             ->where('workspace_id', $context['workspace']->getKey())
             ->where('managed_server_id', $server->getKey())
@@ -267,7 +289,7 @@ class CampaignSendMessageBuilder
             $header = rtrim($header)."\nTo: ".$recipient;
         }
 
-        return ['server' => $server, 'header' => $header, 'body' => $body, 'envelope_from' => $envelopeFrom, 'recipient' => $recipient, 'route' => $choice, 'unsubscribe_url' => $unsubscribeUrl];
+        return ['server' => $server, 'header' => $header, 'body' => $body, 'envelope_from' => $envelopeFrom, 'recipient' => $recipient, 'route' => $choice, 'unsubscribe_url' => $unsubscribeUrl, 'domain' => $domain];
     }
 
     /** Build every selected server's first message before the first delivery begins. */

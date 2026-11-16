@@ -3089,6 +3089,10 @@ class WorkspaceConsoleController extends Controller
             'send_setup.bounce_limit' => ['required', 'integer', 'min:0'],
             'send_setup.duplicate_data' => ['required', 'integer', 'min:1'],
             'send_setup.negative_id' => ['nullable', 'integer', 'min:1'],
+            'send_setup.auto_failover_enabled' => ['sometimes', 'boolean'],
+            'send_setup.failover_error_patterns' => ['nullable', 'string', 'max:500'],
+            'send_setup.failover_threshold' => ['sometimes', 'integer', 'min:1', 'max:500'],
+            'send_setup.failover_purge_spool' => ['sometimes', 'boolean'],
         ], [
             'send_setup.ip_ids.required' => self::CAMPAIGN_IP_SELECTION_REQUIRED,
             'send_setup.ip_ids.min' => self::CAMPAIGN_IP_SELECTION_REQUIRED,
@@ -3101,7 +3105,14 @@ class WorkspaceConsoleController extends Controller
             [...$data['send_setup'], 'domain' => (string) $request->input('domain', '')],
         );
 
-        return [...$selection, ...$this->validatedCampaignPlaceholders($request)];
+        $autoFailover = [
+            'auto_failover_enabled' => (bool) ($data['send_setup']['auto_failover_enabled'] ?? false),
+            'failover_error_patterns' => trim((string) ($data['send_setup']['failover_error_patterns'] ?? '421, rate limit, too many connections, temporarily deferred, user complaints')),
+            'failover_threshold' => (int) ($data['send_setup']['failover_threshold'] ?? 5),
+            'failover_purge_spool' => (bool) ($data['send_setup']['failover_purge_spool'] ?? true),
+        ];
+
+        return [...$selection, ...$autoFailover, ...$this->validatedCampaignPlaceholders($request)];
     }
 
     /**

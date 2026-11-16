@@ -46,6 +46,7 @@ class AlphaLinkSpfScannerTest extends TestCase
             ->assertSee('id="spf-search-results"', false)
             ->assertSee('serverSide: true', false)
             ->assertSee('pageLength: 200', false)
+            ->assertSee('console-assets/plugins/bootstrap_select/bootstrap-select.js', false)
             ->assertSee('console-assets/plugins/datatables/datatables.min.js', false)
             ->assertSee('<th>CIDR</th>', false)
             ->assertSee(route('clean.console.tools.spf.index'), false)

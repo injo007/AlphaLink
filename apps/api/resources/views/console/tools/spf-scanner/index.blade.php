@@ -91,19 +91,34 @@
             .spf-activity-event { grid-template-columns: 1fr; gap: 3px; }
             .spf-activity-heading > * { width: 100%; }
         }
-        .spf-servers-col .bootstrap-select { width: 100% !important; }
-        .spf-servers-col .bootstrap-select > .dropdown-toggle {
-            background: rgba(15, 23, 42, .035);
-            border: 1px solid var(--command-os-border, rgba(139, 92, 246, 0.14));
+        select#spf-servers:not(.bs-select-hidden) {
+            display: block !important;
+            min-height: 38px;
+            width: 100%;
             border-radius: 8px;
+            border: 1px solid var(--command-os-border, rgba(139, 92, 246, 0.14));
+            background: rgba(15, 23, 42, .035);
             color: var(--command-os-text, inherit);
-            font-size: 0.8125rem;
             padding: 0.45rem 0.75rem;
+            font-size: 0.8125rem;
+        }
+        .bootstrap-select > select#spf-servers {
+            display: none !important;
+        }
+        .spf-servers-col .bootstrap-select { width: 100% !important; min-height: 38px; }
+        .spf-servers-col .bootstrap-select > .dropdown-toggle {
+            min-height: 38px;
+            background: rgba(15, 23, 42, .035) !important;
+            border: 1px solid var(--command-os-border, rgba(139, 92, 246, 0.14)) !important;
+            border-radius: 8px !important;
+            color: var(--command-os-text, inherit) !important;
+            font-size: 0.8125rem !important;
+            padding: 0.45rem 0.75rem !important;
         }
         html[data-command-theme='dark'] .spf-servers-col .bootstrap-select > .dropdown-toggle {
-            background: rgba(255, 255, 255, 0.05);
-            border-color: rgba(139, 92, 246, 0.25);
-            color: #e2e8f0;
+            background: rgba(255, 255, 255, 0.05) !important;
+            border-color: rgba(139, 92, 246, 0.25) !important;
+            color: #e2e8f0 !important;
         }
         .spf-servers-col .bootstrap-select .dropdown-menu { font-size: 0.8125rem; }
         html[data-command-theme='dark'] .spf-servers-col .bootstrap-select .dropdown-menu {
@@ -533,8 +548,16 @@
         const reloadServersButton = document.getElementById('spf-servers-reload');
         const clearIpsButton = document.getElementById('spf-ips-clear');
 
-        if (window.jQuery?.fn?.selectpicker && serversSelect) {
-            window.jQuery(serversSelect).selectpicker();
+        const initSelectpicker = () => {
+            if (window.jQuery?.fn?.selectpicker && serversSelect) {
+                window.jQuery(serversSelect).selectpicker();
+            }
+        };
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initSelectpicker);
+        } else {
+            initSelectpicker();
         }
 
         const updateIpsCount = () => {

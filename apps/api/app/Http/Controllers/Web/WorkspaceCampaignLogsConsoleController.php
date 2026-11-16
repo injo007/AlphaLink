@@ -79,15 +79,22 @@ class WorkspaceCampaignLogsConsoleController extends Controller
                 $query->where(function ($query) use ($search): void {
                     $query->where('campaigns.name', 'like', '%'.$search.'%')
                         ->orWhere('campaigns.status', 'like', '%'.$search.'%')
-                        ->orWhere('campaigns.id', 'like', '%'.$search.'%')
-                        ->orWhereHas('creator', function ($userQuery) use ($search): void {
-                            $userQuery->where('name', 'like', '%'.$search.'%')
-                                ->orWhere('username', 'like', '%'.$search.'%');
-                        });
+                        ->orWhere('campaigns.id', 'like', '%'.$search.'%');
+
+                    $numericSearch = ltrim($search, '#');
+                    if (ctype_digit($numericSearch)) {
+                        $query->orWhere('campaigns.campaign_number', (int) $numericSearch);
+                    }
+
+                    $query->orWhereHas('creator', function ($userQuery) use ($search): void {
+                        $userQuery->where('name', 'like', '%'.$search.'%')
+                            ->orWhere('username', 'like', '%'.$search.'%');
+                    });
                 });
             })
-            ->orderByDesc('created_at')
-            ->orderByDesc('id');
+            ->orderByDesc('campaigns.campaign_number')
+            ->orderByDesc('campaigns.created_at')
+            ->orderByDesc('campaigns.id');
 
         $campaigns = $campaignQuery->paginate($perPage)->withQueryString();
         $campaignIds = $campaigns->getCollection()->modelKeys();

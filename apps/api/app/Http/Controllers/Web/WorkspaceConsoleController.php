@@ -25,11 +25,11 @@ use App\Models\WorkspaceCampaignNegative;
 use App\Models\WorkspaceCampaignTestAddress;
 use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceOfferAsset;
+use App\Services\Campaigns\AdminOperatorCampaignFilter;
 use App\Services\Campaigns\AlphaLinkCampaignRecipientSnapshotBuilder;
 use App\Services\Campaigns\AlphaLinkCampaignSendCatalog;
 use App\Services\Campaigns\AlphaLinkCampaignTagRenderer;
 use App\Services\Campaigns\AlphaLinkPmtaAdminRestart;
-use App\Services\Campaigns\AdminOperatorCampaignFilter;
 use App\Services\Campaigns\CampaignRedirectUrlPolicy;
 use App\Services\Campaigns\PmtaCampaignTestTransport;
 use App\Services\Campaigns\PmtaMonitorProxy;
@@ -151,6 +151,11 @@ class WorkspaceConsoleController extends Controller
                     if (preg_match('/^[0-9a-f-]{8,36}$/i', $search) === 1) {
                         $query->orWhere('campaign.id', $search);
                     }
+
+                    $numericSearch = ltrim($search, '#');
+                    if (ctype_digit($numericSearch)) {
+                        $query->orWhere('campaign.campaign_number', (int) $numericSearch);
+                    }
                 });
             })
             ->selectRaw('COUNT(*) AS total')
@@ -183,9 +188,16 @@ class WorkspaceConsoleController extends Controller
                     if (preg_match('/^[0-9a-f-]{8,36}$/i', $search) === 1) {
                         $query->orWhere('id', $search);
                     }
+
+                    $numericSearch = ltrim($search, '#');
+                    if (ctype_digit($numericSearch)) {
+                        $query->orWhere('campaign_number', (int) $numericSearch);
+                    }
                 });
             })
-            ->orderByDesc('created_at');
+            ->orderByDesc('campaign_number')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
 
         $campaigns = $campaignQuery->paginate($perPage)->withQueryString();
 

@@ -5073,6 +5073,61 @@ html:not([data-command-theme='dark']) body.command-os-shell #main_content .comma
 html:not([data-command-theme='dark']) body.command-os-shell #main_content .analytics-pivot-shell .dx-pivotgrid .dx-area-field * {
     color: #0f172a !important;
 }
+
+/* Ensure DevExpress Pivot Grid icons render cleanly with DXIcons font and match Command OS theme */
+body.command-os-shell #main_content .analytics-pivot-shell .dx-pivotgrid [class*="dx-icon"],
+body.command-os-shell #main_content .analytics-pivot-shell .dx-pivotgrid .dx-header-filter,
+body.command-os-shell #main_content .analytics-pivot-shell .dx-pivotgrid .dx-header-filter-empty,
+body.command-os-shell #main_content .analytics-pivot-shell .dx-pivotgrid .dx-sort,
+body.command-os-shell #main_content .analytics-pivot-shell .dx-pivotgrid .dx-sort-up,
+body.command-os-shell #main_content .analytics-pivot-shell .dx-pivotgrid .dx-sort-down,
+body.command-os-shell #main_content .analytics-pivot-shell .dx-pivotgrid .dx-expand,
+body.command-os-shell #main_content .analytics-pivot-shell .dx-pivotgrid .dx-expand-icon-container,
+body.command-os-shell #main_content .analytics-pivot-shell .dx-pivotgrid-field-chooser-button,
+body.command-os-shell #main_content .analytics-pivot-shell .dx-pivotgrid-field-chooser-button [class*="dx-icon"],
+.dx-pivotgridfieldchooser [class*="dx-icon"],
+.dx-pivotgridfieldchooser .dx-header-filter,
+.dx-pivotgridfieldchooser .dx-sort {
+    font-family: DXIcons, sans-serif !important;
+    font-style: normal !important;
+    font-weight: normal !important;
+    font-variant: normal !important;
+    text-transform: none !important;
+    line-height: 1 !important;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+body.command-os-shell #main_content .analytics-pivot-shell .dx-pivotgrid .dx-area-field .dx-header-filter,
+body.command-os-shell #main_content .analytics-pivot-shell .dx-pivotgrid .dx-area-field .dx-sort {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
+    margin-left: 4px;
+    font-size: 13px !important;
+    opacity: 0.85;
+    transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+body.command-os-shell #main_content .analytics-pivot-shell .dx-pivotgrid .dx-area-field:hover .dx-header-filter,
+body.command-os-shell #main_content .analytics-pivot-shell .dx-pivotgrid .dx-area-field:hover .dx-sort {
+    opacity: 1;
+}
+
+html:not([data-command-theme='dark']) body.command-os-shell #main_content .analytics-pivot-shell .dx-pivotgrid .dx-area-field .dx-header-filter,
+html:not([data-command-theme='dark']) body.command-os-shell #main_content .analytics-pivot-shell .dx-pivotgrid .dx-area-field .dx-sort,
+html:not([data-command-theme='dark']) body.command-os-shell #main_content .analytics-pivot-shell .dx-pivotgrid .dx-sort-up,
+html:not([data-command-theme='dark']) body.command-os-shell #main_content .analytics-pivot-shell .dx-pivotgrid .dx-sort-down {
+    color: var(--co-purple, #7c3aed) !important;
+}
+
+html[data-command-theme='dark'] body.command-os-shell #main_content .analytics-pivot-shell .dx-pivotgrid .dx-area-field .dx-header-filter,
+html[data-command-theme='dark'] body.command-os-shell #main_content .analytics-pivot-shell .dx-pivotgrid .dx-area-field .dx-sort,
+html[data-command-theme='dark'] body.command-os-shell #main_content .analytics-pivot-shell .dx-pivotgrid .dx-sort-up,
+html[data-command-theme='dark'] body.command-os-shell #main_content .analytics-pivot-shell .dx-pivotgrid .dx-sort-down {
+    color: #c084fc !important;
+}
 html[data-command-theme='dark'] .dx-popup-wrapper .dx-overlay-content {
     background: var(--co-surface) !important;
     border: 1px solid var(--co-border) !important;

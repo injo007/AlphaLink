@@ -365,8 +365,8 @@
 @if (in_array($kind, ['all-stats', 'mailer-revenue', 'isp-stats'], true))
     @push('styles')
         @if (in_array($kind, ['all-stats', 'mailer-revenue'], true))
-            <link rel="stylesheet" href="https://cdn3.devexpress.com/jslib/21.2.5/css/dx.common.css">
-            <link rel="stylesheet" href="https://cdn3.devexpress.com/jslib/21.2.5/css/dx.material.blue.light.css">
+            <link rel="stylesheet" href="{{ asset('console-assets/vendor/devexpress/dx.common.css') }}">
+            <link rel="stylesheet" href="{{ asset('console-assets/vendor/devexpress/dx.material.blue.light.css') }}">
         @endif
     @endpush
 @endif
@@ -378,7 +378,7 @@
         <script src="{{ asset('console-assets/analytics-report-refresh.js') }}?v={{ substr(sha1_file(public_path('console-assets/analytics-report-refresh.js')), 0, 12) }}" defer></script>
     @endif
     @if (in_array($kind, ['all-stats', 'mailer-revenue'], true))
-        <script src="https://cdn3.devexpress.com/jslib/21.2.5/js/dx.all.js"></script>
+        <script src="{{ asset('console-assets/vendor/devexpress/dx.all.js') }}"></script>
         <script type="module" src="{{ asset('console-assets/analytics-pivot.js') }}?v={{ substr(sha1_file(public_path('console-assets/analytics-pivot.js')), 0, 12) }}"></script>
     @elseif ($kind === 'isp-stats')
         <script type="module" src="{{ asset('console-assets/isp-stats-charts.js') }}?v={{ substr(sha1_file(public_path('console-assets/isp-stats-charts.js')), 0, 12) }}"></script>

@@ -253,7 +253,7 @@
                             $offerLabel = $campaign->logs_offer ? trim('('.$campaign->logs_offer->offer_id.') '.$campaign->logs_offer->name) : '—';
                         @endphp
                         <tr>
-                            <td><span class="campaign-log-id" title="{{ $campaign->id }}">{{ strtoupper(substr((string) $campaign->id, 0, 8)) }}</span></td>
+                            <td><span class="campaign-log-id" title="{{ $campaign->id }}">{{ $campaign->campaign_number ? '#'.$campaign->campaign_number : strtoupper(substr((string) $campaign->id, 0, 8)) }}</span></td>
                             <td>{{ $campaign->logs_isp ?: '—' }}</td>
                             <td>{{ $offerLabel }}</td>
                             <td>{{ $campaign->creator?->name ?: ($campaign->creator?->username ?: '—') }}</td>

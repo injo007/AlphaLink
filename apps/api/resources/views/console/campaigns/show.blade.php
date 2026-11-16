@@ -10,7 +10,7 @@
         <header class="command-os-campaign-detail-heading">
             <div>
                 <p class="command-os-campaign-detail-eyebrow">CAMPAIGN WORKSPACE <span aria-hidden="true">/</span> MESSAGE REVIEW</p>
-                <h1>Campaign draft: {{ $campaign->name }}</h1>
+                <h1>Campaign draft: @if ($campaign->campaign_number)<span class="text-purple mr-1">#{{ $campaign->campaign_number }}</span>@endif{{ $campaign->name }}</h1>
                 <p>Review the latest saved message and its delivery setup.</p>
             </div>
         </header>

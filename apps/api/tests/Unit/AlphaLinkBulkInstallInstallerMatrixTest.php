@@ -102,6 +102,14 @@ class AlphaLinkBulkInstallInstallerMatrixTest extends TestCase
         $matrix->plan('CentOS Linux 7', 40, ['tracking' => false]);
     }
 
+    public function test_it_allows_clean_dns_orchestration_option(): void
+    {
+        $matrix = new AlphaLinkBulkInstallInstallerMatrix(new AlphaLinkInstallPlatform);
+        $options = [...$this->options(), 'clean_dns' => true];
+        $plan = $matrix->plan('AlmaLinux 9.4', 45, $options);
+        $this->assertSame('centos9', $plan['os_family']);
+    }
+
     /** @return array{tracking: bool, proxy: bool, imap: bool, spf: bool, dkim: bool, dmarc: bool, https: bool} */
     private function options(bool $enabled = false): array
     {

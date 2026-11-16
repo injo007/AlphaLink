@@ -527,9 +527,17 @@ repair_missing_reviewed_tracking_asset() {
             if [[ "$destination_size" == "$expected_size" && "$destination_digest" == "$expected_digest" ]]; then
                 return 0
             fi
+            if [[ "$relative_path" == 'optional/tracking/TrackerRequestHandler.php' && "$destination_digest" == '57ba8813cc7617fdfde72bbc0a30782fa809e93c097fa2a859915a6635ac6dce' ]]; then
+                info "Upgrading prior reviewed tracking handler to current release: ${relative_path}."
+                rm -f -- "$destination_file"
+            else
+                info "Preserving existing private tracking asset for review: ${relative_path}."
+                return 0
+            fi
+        else
+            info "Preserving existing private tracking asset for review: ${relative_path}."
+            return 0
         fi
-        info "Preserving existing private tracking asset for review: ${relative_path}."
-        return 0
     fi
 
     [[ ! -L "$INSTALL_ASSETS_ROOT/optional" && ! -L "$destination_directory" ]] \
@@ -570,7 +578,7 @@ repair_missing_reviewed_tracking_assets() {
 
     [[ -d "$source_root" && ! -L "$source_root" ]] || return 0
     repair_missing_reviewed_tracking_asset "$source_root" 'optional/tracking/index.php' 3250 '8fcc32fca7d97d3144715ddd9e676bcfc0cbfb7107d61300669d002039029974'
-    repair_missing_reviewed_tracking_asset "$source_root" 'optional/tracking/TrackerRequestHandler.php' 12605 '57ba8813cc7617fdfde72bbc0a30782fa809e93c097fa2a859915a6635ac6dce'
+    repair_missing_reviewed_tracking_asset "$source_root" 'optional/tracking/TrackerRequestHandler.php' 14702 'c2e4f4942f40646f17ec9bdf12ef275cb7d0d874f20493d8d672b897aaba4833'
 }
 
 repair_missing_reviewed_tracking_assets_from_git() {
@@ -604,6 +612,22 @@ repair_missing_reviewed_tracking_assets_from_git() {
     TRACKING_ASSET_SOURCE_STAGING_DIR=''
 }
 
+upgrade_prior_reviewed_domains_asset() {
+    local source_root="$1" relative_path="$2" expected_digest="$3" prior_digest="$4"
+    local source_file="$source_root/$relative_path" destination_file="$INSTALL_ASSETS_ROOT/$relative_path"
+    local dest_digest src_digest
+
+    [[ -f "$source_file" && -f "$destination_file" ]] || return 0
+    src_digest="$(sha256sum -- "$source_file" | awk '{print $1}')"
+    dest_digest="$(sha256sum -- "$destination_file" | awk '{print $1}')"
+    if [[ "$src_digest" == "$expected_digest" && "$dest_digest" == "$prior_digest" ]]; then
+        info "Upgrading prior reviewed configuration asset to current release: ${relative_path}."
+        cp -f -- "$source_file" "$destination_file"
+        chown www-data:www-data "$destination_file"
+        chmod 0600 "$destination_file"
+    fi
+}
+
 stage_repository_install_assets_if_empty() {
     local source="$1" reviewed_revision="${2:-}" repository_root="$SOURCE_ROOT"
     local existing_entry invalid_entry source_available=0
@@ -621,6 +645,9 @@ stage_repository_install_assets_if_empty() {
         if [[ -n "$existing_entry" ]]; then
             if (( source_available )); then
                 repair_missing_reviewed_tracking_assets "$source"
+                upgrade_prior_reviewed_domains_asset "$source" 'pmta/4.0/domains.conf' 'e6c5a3196e764784dca9762a5284a1dd209c54f35b83b5f8a8edc3e37d7c1238' '96a4dc3a04fcb072edf3e562377b99d1ab1995a4e6f9ca576712dd5b5e501c7b'
+                upgrade_prior_reviewed_domains_asset "$source" 'pmta/4.5/domains.conf' '7d8c88815ddae9628a378329c6bb9c8ae97025f58b8c05d24ea3a9c1e673438b' 'd4813788bb165a50f445fca52b77fb342af07bec3f3b89832ea7015bf0ebadc3'
+                upgrade_prior_reviewed_domains_asset "$source" 'pmta/5.0/domains.conf' 'b31b1b2af16420c20c28a1580119ca7bca5345bf475d5215e4a67e17f7a0eb0c' '1cc206a120b287a95733f9a8d03b62c083df2e25fc82519652d3de43eeb28e05'
             fi
             if [[ -n "$reviewed_revision" ]]; then
                 repair_missing_reviewed_tracking_assets_from_git "$repository_root" "$reviewed_revision"

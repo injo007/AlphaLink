@@ -119,6 +119,7 @@ class AlphaLinkBulkInstallCompletionPlanner
     /** @param array<string, mixed> $options */
     private function validateOptions(array $options): void
     {
+        unset($options['clean_dns']);
         $expected = ['tracking', 'proxy', 'imap', 'spf', 'dkim', 'dmarc', 'https'];
         $keys = array_keys($options);
         sort($keys);

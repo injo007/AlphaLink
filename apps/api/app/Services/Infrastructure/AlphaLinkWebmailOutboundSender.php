@@ -54,11 +54,11 @@ class AlphaLinkWebmailOutboundSender
         $vmtaName = $this->resolveVmtaName($ip);
         $messageId = sprintf('<%s@%s>', bin2hex(random_bytes(12)), $ip->dns ?: 'alphalink.local');
 
-        $email = (new Email())
+        $email = (new Email)
             ->from($payload['from'])
             ->to(...$payload['to'])
             ->subject($payload['subject'])
-            ->date(new \DateTimeImmutable())
+            ->date(new \DateTimeImmutable)
             ->text($payload['text']);
 
         if (! empty($payload['cc'])) {

@@ -253,8 +253,8 @@ class WorkspaceSpfScannerController extends Controller
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         abort_unless((string) $run->workspace_id === (string) $workspace->id, 404);
-        if ($run->status !== WorkspaceSpfSearchRun::STATUS_COMPLETE) {
-            return response()->json(['error' => 'Wait for the comparison to finish before exporting its results.'], 409);
+        if (! in_array($run->status, [WorkspaceSpfSearchRun::STATUS_COMPLETE, WorkspaceSpfSearchRun::STATUS_PROCESSING], true)) {
+            return response()->json(['error' => 'No active or completed comparison to export.'], 409);
         }
 
         $rows = WorkspaceSpfSearchResult::query()->where('search_run_id', $run->getKey())->orderBy('id');

@@ -52,14 +52,14 @@ class AlphaLinkSpfSearchRunner
                         'created_at' => now(),
                         'updated_at' => now(),
                     ];
-                    if (count($pendingRows) >= 1000) {
+                    if (count($pendingRows) >= 100) {
                         $insertedSinceCheckpoint += $this->persistRows($pendingRows);
                         $pendingRows = [];
                     }
                 }
 
                 $processedSinceCheckpoint++;
-                if ($processedSinceCheckpoint >= 25) {
+                if ($processedSinceCheckpoint >= 10 || count($pendingRows) >= 100) {
                     $insertedSinceCheckpoint += $this->persistRows($pendingRows);
                     $pendingRows = [];
                     $this->checkpoint($run, $processedSinceCheckpoint, $insertedSinceCheckpoint, $matcher->dnsCheckLimitReached());

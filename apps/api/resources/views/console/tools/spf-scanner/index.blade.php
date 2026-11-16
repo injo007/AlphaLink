@@ -372,6 +372,7 @@
                 }}
             ]
         }) : null;
+        let lastRenderedMatches = -1;
         const exportSearch = async () => {
             if (!activeSearchRunId) { searchStatus.textContent = 'Run an IP comparison before exporting.'; return; }
             window.open(`${base}/search-runs/${encodeURIComponent(activeSearchRunId)}/export`, '_blank', 'noopener');
@@ -383,7 +384,8 @@
                 const run = await response.json().catch(() => ({}));
                 if (!response.ok) throw new Error(run.message || run.error || 'Unable to read comparison status.');
                 const progress = `${Number(run.progress || 0).toLocaleString()} / ${Number(run.total_roots || 0).toLocaleString()} domains`;
-                const matches = `${Number(run.total_matches || 0).toLocaleString()} matches`;
+                const currentMatches = Number(run.total_matches || 0);
+                const matches = `${currentMatches.toLocaleString()} matches`;
                 const nowMs = Date.now();
                 const previous = searchSamples.get(String(run.id));
                 const elapsed = previous ? (nowMs - previous.time) / 1000 : 0;
@@ -391,8 +393,18 @@
                 searchSamples.set(String(run.id), {progress: Number(run.progress || 0), time: nowMs});
                 const throughput = rate > 0 ? ` · ${Math.round(rate).toLocaleString()} domains/s` : '';
                 const eta = rate > 0 && Number(run.total_roots) > Number(run.progress) ? ` · ETA ${formatDuration((Number(run.total_roots) - Number(run.progress)) / rate)}` : '';
+
+                // Live reload table with newly discovered results while comparison is actively processing
+                if (searchTable && (currentMatches !== lastRenderedMatches || (currentMatches > 0 && lastRenderedMatches === -1))) {
+                    lastRenderedMatches = currentMatches;
+                    searchTable.ajax.reload(null, false);
+                }
+
                 if (run.status === 'complete') {
-                    searchTable?.ajax.reload(null, true);
+                    if (searchTable && lastRenderedMatches !== currentMatches) {
+                        lastRenderedMatches = currentMatches;
+                        searchTable.ajax.reload(null, false);
+                    }
                     const dnsLimit = run.dns_checks_limited ? ' · DNS lookup cap reached; dynamic-mechanism results may be incomplete' : '';
                     searchStatus.textContent = `Comparison complete: ${progress} · ${matches}${dnsLimit}`;
                     setBusy(searchButton, false);
@@ -400,6 +412,9 @@
                     return;
                 }
                 if (['failed', 'cancelled'].includes(run.status)) {
+                    if (searchTable && lastRenderedMatches !== currentMatches) {
+                        searchTable.ajax.reload(null, false);
+                    }
                     searchStatus.textContent = run.failure || `Comparison ${run.status}: ${progress} · ${matches}`;
                     setBusy(searchButton, false);
                     cancelSearchButton.hidden = true;
@@ -411,7 +426,7 @@
                     : ` · ${run.stage || 'working'}`;
                 searchStatus.textContent = `Comparison ${run.status}: ${progress} · ${matches}${throughput}${eta}${health}`;
                 cancelSearchButton.hidden = false;
-                searchPollTimer = window.setTimeout(() => pollSearchRun(runId, generation), 2000);
+                searchPollTimer = window.setTimeout(() => pollSearchRun(runId, generation), 1500);
             } catch (error) {
                 searchStatus.textContent = error.message;
                 setBusy(searchButton, false);
@@ -429,6 +444,7 @@
             try {
                 cancelSearchButton.hidden = true;
                 searchSamples.clear();
+                lastRenderedMatches = -1;
                 if (activeSearchRunId) {
                     await request(`${base}/search-runs/${encodeURIComponent(activeSearchRunId)}/cancel`, {} ).catch(() => {});
                 }

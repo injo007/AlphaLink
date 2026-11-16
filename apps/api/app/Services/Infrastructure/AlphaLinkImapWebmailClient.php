@@ -514,11 +514,13 @@ class AlphaLinkImapWebmailClient
                 $trailing = $this->readLine(); // consumes closing ) + CRLF
                 $combinedMeta = $line.$trailing;
                 $items[] = $this->parseFetchItemMeta($combinedMeta, $literal);
+
                 continue;
             }
 
             if (preg_match('/^\*\s+\d+\s+FETCH\s+/i', $line) === 1) {
                 $items[] = $this->parseFetchItemMeta($line, '');
+
                 continue;
             }
 

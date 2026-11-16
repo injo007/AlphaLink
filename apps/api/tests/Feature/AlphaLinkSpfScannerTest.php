@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceSpfRoot;
 use App\Models\WorkspaceSpfScan;
+use App\Models\WorkspaceSpfSearchResult;
 use App\Models\WorkspaceSpfSearchRun;
 use App\Services\Spf\AlphaLinkSpfDnsCheckMatcher;
 use App\Services\Spf\AlphaLinkSpfScanLauncher;
@@ -174,6 +175,49 @@ class AlphaLinkSpfScannerTest extends TestCase
         $this->assertStringContainsString('two.example.test', $export);
     }
 
+    public function test_ip_comparison_results_and_export_are_accessible_live_while_processing(): void
+    {
+        [$owner, $workspace] = $this->workspace();
+        $root = WorkspaceSpfRoot::query()->create([
+            'workspace_id' => $workspace->id,
+            'domain' => 'live.example.test',
+            'status' => 'ok',
+            'record' => 'v=spf1 ip4:192.0.0.0/8 -all',
+            'cidrs' => ['192.0.0.0/8'],
+            'hosts' => [['domain' => 'live.example.test', 'record' => 'v=spf1 ip4:192.0.0.0/8 -all', 'cidrs' => ['192.0.0.0/8']]],
+        ]);
+
+        $run = WorkspaceSpfSearchRun::query()->create([
+            'workspace_id' => $workspace->id,
+            'created_by' => $owner->id,
+            'ips' => ['192.0.2.1'],
+            'status' => WorkspaceSpfSearchRun::STATUS_PROCESSING,
+            'stage' => 'matching',
+            'total_roots' => 10,
+            'progress' => 3,
+            'total_matches' => 1,
+        ]);
+
+        WorkspaceSpfSearchResult::query()->create([
+            'search_run_id' => $run->id,
+            'root_id' => $root->id,
+            'matched_ip' => '192.0.2.1',
+            'root' => 'live.example.test',
+            'include' => 'live.example.test',
+            'network' => '192.0.0.0/8',
+        ]);
+
+        $this->actingAs($owner)->getJson(route('console.tools.spf.search-runs.results', [$workspace->id, $run->id]))
+            ->assertOk()
+            ->assertJsonPath('recordsTotal', 1)
+            ->assertJsonPath('data.0.root', 'live.example.test');
+
+        $export = $this->actingAs($owner)->get(route('console.tools.spf.search-runs.export', [$workspace->id, $run->id]))
+            ->assertOk()
+            ->streamedContent();
+        $this->assertStringContainsString('live.example.test', $export);
+    }
+
     public function test_scan_worker_stores_workspace_scoped_roots_and_ip_search_matches_cidr(): void
     {
         [$owner, $workspace] = $this->workspace();
@@ -265,6 +309,7 @@ class AlphaLinkSpfScannerTest extends TestCase
         $resolvedDomains = [];
         $this->app->instance(AlphaLinkSpfScanner::class, new AlphaLinkSpfScanner(static function (string $domain) use (&$resolvedDomains): array {
             $resolvedDomains[] = $domain;
+
             return match ($domain) {
                 'sample.example.test' => [
                     'records' => ['v=spf1 ip4:142.93.100.98/24 ip4:198.51.100.5/32 include:inc1.test include:inc2.test include:inc3.test include:inc4.test include:inc5.test -all'],

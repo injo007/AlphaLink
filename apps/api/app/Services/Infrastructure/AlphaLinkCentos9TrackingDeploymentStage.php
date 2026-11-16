@@ -179,7 +179,7 @@ CONFIG;
 
         $route = $commands->exec(
             'response=$(curl --silent --show-error --connect-timeout 5 --max-time 10 --proto '.escapeshellarg('=https')
-                .' -D - -o /dev/null -w '.escapeshellarg("\\nALPHALINK_STATUS:%{http_code}\\n").' '
+                .' -D - -o /dev/null -w '.escapeshellarg('\\nALPHALINK_STATUS:%{http_code}\\n').' '
                 .escapeshellarg('https://'.$host.'/ALPHALINK0rprobe').') && '
                 .'status=$(printf '.escapeshellarg('%s\\n').' "$response" | sed -n '.escapeshellarg('s/^ALPHALINK_STATUS://p').') && '
                 .'test "$status" = 302 && printf '.escapeshellarg('%s\\n').' "$response" | grep -Fqi '

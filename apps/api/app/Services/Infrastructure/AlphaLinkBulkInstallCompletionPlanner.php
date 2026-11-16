@@ -38,9 +38,8 @@ class AlphaLinkBulkInstallCompletionPlanner
         foreach ($dataIps as $ip) {
             $rowDomainId = $ip['domain_id'] ?? $domainId;
             $rowIsOwnedDomain = (bool) ($ip['is_our'] ?? $isOwnedDomain);
-            $dns = $rowIsOwnedDomain
-                ? ($ip['sub'] === '' ? $ip['domain'] : $ip['sub'].'.'.$ip['domain'])
-                : $ip['domain'];
+            $sub = trim((string) ($ip['sub'] ?? ''));
+            $dns = $sub !== '' ? $sub.'.'.$ip['domain'] : $ip['domain'];
 
             $operations[] = [
                 'action' => 'insert_server_ip',

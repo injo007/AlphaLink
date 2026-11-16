@@ -127,10 +127,10 @@
                     </div>
 
                     @unless (config('infrastructure.reinstall_ip_config_execution_enabled', false))
-                        <p class="small text-warning mt-2 mb-0" role="status"><i class="fas fa-info-circle mr-1"></i> CONFIG IPS execution is disabled by ALPHALINK_REINSTALL_IP_CONFIG_EXECUTION_ENABLED.</p>
+                        <p class="small text-warning mt-2 mb-0" role="status"><i class="fas fa-info-circle mr-1"></i> CONFIG IPS is disabled by ALPHALINK_REINSTALL_IP_CONFIG_EXECUTION_ENABLED.</p>
                     @endunless
                     @unless (config('infrastructure.reinstall_execution_enabled', false))
-                        <p class="small text-warning mt-2 mb-0" role="status"><i class="fas fa-info-circle mr-1"></i> REINSTALL execution is disabled by ALPHALINK_REINSTALL_EXECUTION_ENABLED.</p>
+                        <p class="small text-warning mt-2 mb-0" role="status"><i class="fas fa-info-circle mr-1"></i> Server reinstall is disabled by ALPHALINK_REINSTALL_EXECUTION_ENABLED.</p>
                     @endunless
                     <p class="small text-muted mt-1" id="reinstall-network-blocker">CONFIG IPS modifies server network interfaces. Permanent mode replaces existing IPv4 alias files and restarts networking.</p>
 

@@ -144,9 +144,6 @@ class AlphaLinkCentos9InstallWorkflow
                 if (! ($domainProviderReady[$entryDomainId] ?? false)) {
                     continue;
                 }
-                if (! ($ip['is_our'] ?? (bool) $domain->is_our)) {
-                    continue;
-                }
                 if ($ip['domain'] !== (string) $primaryDomain->name) {
                     $list[] = $ip['domain'];
                 }

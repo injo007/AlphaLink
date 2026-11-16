@@ -213,8 +213,10 @@ class AlphaLinkCentos9ReinstallWorkflow
             $log('End Setting PMTA');
 
             $log('Re Setup VMTAS');
+            $interfaceMap = is_array($hostFacts['ip_interface_map'] ?? null) ? $hostFacts['ip_interface_map'] : [];
             $vmtaRows = array_map(static fn (array $row): array => [
                 'ip' => $row['ip'],
+                'interface_ip' => $row['interface_ip'] ?? ($interfaceMap[$row['ip']] ?? null),
                 'sub' => $row['sub'],
                 'domain' => $row['domain'],
                 'is_our' => $row['is_our'],
@@ -405,9 +407,10 @@ class AlphaLinkCentos9ReinstallWorkflow
     {
         $subdomains = [];
         foreach ($rows as $row) {
-            if ($row['is_our'] && $row['sub'] !== '') {
+            $sub = trim((string) ($row['sub'] ?? ''));
+            if ($sub !== '') {
                 $subdomains[] = 'www.'.$row['domain'];
-                $subdomains[] = $row['sub'].'.'.$row['domain'];
+                $subdomains[] = $sub.'.'.$row['domain'];
             }
         }
 

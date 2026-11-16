@@ -166,13 +166,13 @@
                 <div class="d-flex align-items-center" style="gap: 12px;">
                     <div class="d-inline-flex align-items-center mr-2" style="gap: 6px;">
                         <span style="font-size: 0.75rem; font-weight: 700; color: var(--command-os-text-muted, #64748b);"><i class="fas fa-network-wired mr-1"></i>MODE:</span>
-                        <label class="mb-0 d-inline-flex align-items-center" style="gap: 4px; font-size: 0.8125rem; font-weight: 600; cursor: pointer;" title="Direct connection over HTTPS or HTTP">
-                            <input type="radio" id="pmta-mode-auto" name="pmta-monitor-mode" value="auto" checked>
-                            <span>Auto</span>
-                        </label>
                         <label class="mb-0 d-inline-flex align-items-center" style="gap: 4px; font-size: 0.8125rem; font-weight: 600; cursor: pointer;" title="Routes monitor traffic through AlphaLink port 443 (recommended if your network proxy blocks port 1213)">
-                            <input type="radio" id="pmta-mode-proxy" name="pmta-monitor-mode" value="proxy">
+                            <input type="radio" id="pmta-mode-proxy" name="pmta-monitor-mode" value="proxy" checked>
                             <span>Proxy (443)</span>
+                        </label>
+                        <label class="mb-0 d-inline-flex align-items-center" style="gap: 4px; font-size: 0.8125rem; font-weight: 600; cursor: pointer;" title="Direct connection over HTTPS or HTTP">
+                            <input type="radio" id="pmta-mode-auto" name="pmta-monitor-mode" value="auto">
+                            <span>Direct</span>
                         </label>
                     </div>
                     <span style="font-size: 0.75rem; font-weight: 700; color: var(--command-os-text-muted, #64748b);">GRID:</span>
@@ -311,7 +311,7 @@
                 const input = gridInputs.find((option) => option.value === storedGrid);
                 if (input) input.checked = true;
             }
-            const storedMode = localStorage.getItem('pmta-monitor-mode');
+            const storedMode = localStorage.getItem('pmta-monitor-mode') || 'proxy';
             if (['auto', 'proxy'].includes(storedMode)) {
                 const input = document.querySelector(`input[name="pmta-monitor-mode"][value="${storedMode}"]`);
                 if (input) input.checked = true;
@@ -424,7 +424,7 @@
                 const hasSelectedServers = selected.length > 0;
                 panels.hidden = !hasSelectedServers;
                 const columns = {'2': 6, '3': 4, '4': 3}[document.querySelector('input[name="pmta-grid"]:checked')?.value || '2'];
-                const globalMode = document.querySelector('input[name="pmta-monitor-mode"]:checked')?.value || 'auto';
+                const globalMode = document.querySelector('input[name="pmta-monitor-mode"]:checked')?.value || 'proxy';
                 selected.forEach((server) => {
                     const column = document.createElement('div');
                     column.className = `col-12 col-md-${columns} mb-3`;

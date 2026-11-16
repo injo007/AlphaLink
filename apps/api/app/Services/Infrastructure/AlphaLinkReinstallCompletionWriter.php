@@ -54,8 +54,9 @@ class AlphaLinkReinstallCompletionWriter
                         ->where('workspace_id', $workspace->getKey())
                         ->whereKey($row['domain_id'])
                         ->firstOrFail();
-                    $dns = $domain->is_our && $row['sub'] !== ''
-                        ? $row['sub'].'.'.$domain->name
+                    $sub = trim((string) ($row['sub'] ?? ''));
+                    $dns = $sub !== ''
+                        ? $sub.'.'.$domain->name
                         : (string) $domain->name;
 
                     $ip = ManagedServerIp::query()->firstOrNew([

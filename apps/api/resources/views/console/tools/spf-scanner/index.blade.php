@@ -91,51 +91,105 @@
             .spf-activity-event { grid-template-columns: 1fr; gap: 3px; }
             .spf-activity-heading > * { width: 100%; }
         }
+        .spf-search-controls-card {
+            background: rgba(139, 92, 246, 0.03);
+            border: 1px solid var(--command-os-border, rgba(139, 92, 246, 0.15));
+            border-radius: 14px;
+        }
+        html[data-command-theme='dark'] .spf-search-controls-card {
+            background: rgba(15, 23, 42, 0.35);
+            border-color: rgba(139, 92, 246, 0.22);
+        }
+        .spf-search-controls-card .bootstrap-select { width: 100% !important; min-height: 38px; }
+        .spf-search-controls-card .bootstrap-select > .dropdown-toggle {
+            height: 38px !important;
+            min-height: 38px !important;
+            background: #ffffff !important;
+            border: 1px solid rgba(139, 92, 246, 0.25) !important;
+            border-radius: 10px !important;
+            color: #0f172a !important;
+            font-size: 13px !important;
+            padding: 7px 12px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            box-shadow: none !important;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        }
+        .spf-search-controls-card .bootstrap-select > .dropdown-toggle:focus,
+        .spf-search-controls-card .bootstrap-select > .dropdown-toggle:active {
+            border-color: #8b5cf6 !important;
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2) !important;
+            outline: none !important;
+        }
+        .spf-search-controls-card .bootstrap-select > .dropdown-toggle .filter-option {
+            display: flex;
+            align-items: center;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        html[data-command-theme='dark'] .spf-search-controls-card .bootstrap-select > .dropdown-toggle {
+            background: rgba(13, 18, 56, 0.85) !important;
+            border-color: rgba(139, 92, 246, 0.35) !important;
+            color: #f8fafc !important;
+        }
+        html[data-command-theme='dark'] .spf-search-controls-card .bootstrap-select > .dropdown-toggle:focus {
+            border-color: #a78bfa !important;
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.3) !important;
+            background: rgba(18, 24, 72, 0.95) !important;
+        }
+        .spf-search-controls-card .bootstrap-select .dropdown-menu {
+            border-radius: 12px !important;
+            border: 1px solid rgba(139, 92, 246, 0.25) !important;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.15) !important;
+            padding: 6px !important;
+            font-size: 0.8125rem;
+        }
+        html[data-command-theme='dark'] .spf-search-controls-card .bootstrap-select .dropdown-menu {
+            background: #0d1238 !important;
+            border-color: rgba(139, 92, 246, 0.35) !important;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5) !important;
+        }
+        .spf-search-controls-card .bootstrap-select .dropdown-menu li a {
+            border-radius: 8px !important;
+            font-size: 12px !important;
+            padding: 7px 10px !important;
+            color: inherit !important;
+        }
+        .spf-search-controls-card .bootstrap-select .dropdown-menu li a:hover,
+        .spf-search-controls-card .bootstrap-select .dropdown-menu li.selected a {
+            background: rgba(139, 92, 246, 0.12) !important;
+            color: #7c3aed !important;
+        }
+        html[data-command-theme='dark'] .spf-search-controls-card .bootstrap-select .dropdown-menu li a:hover,
+        html[data-command-theme='dark'] .spf-search-controls-card .bootstrap-select .dropdown-menu li.selected a {
+            background: rgba(139, 92, 246, 0.25) !important;
+            color: #c084fc !important;
+        }
+        .spf-search-controls-card .bootstrap-select .bs-actionsbox .btn-group .btn {
+            border-radius: 6px !important;
+            font-size: 11px !important;
+            font-weight: 600 !important;
+            padding: 4px 8px !important;
+        }
+        html[data-command-theme='dark'] .spf-search-controls-card .bootstrap-select .bs-searchbox input {
+            background: #1e293b;
+            color: #ffffff;
+            border-color: rgba(139, 92, 246, 0.3);
+        }
         select#spf-servers:not(.bs-select-hidden) {
             display: block !important;
             min-height: 38px;
             width: 100%;
-            border-radius: 8px;
-            border: 1px solid var(--command-os-border, rgba(139, 92, 246, 0.14));
-            background: rgba(15, 23, 42, .035);
-            color: var(--command-os-text, inherit);
+            border-radius: 10px;
+            border: 1px solid rgba(139, 92, 246, 0.25);
+            background: #ffffff;
+            color: #0f172a;
             padding: 0.45rem 0.75rem;
-            font-size: 0.8125rem;
+            font-size: 13px;
         }
         .bootstrap-select > select#spf-servers {
             display: none !important;
-        }
-        .spf-servers-col .bootstrap-select { width: 100% !important; min-height: 38px; }
-        .spf-servers-col .bootstrap-select > .dropdown-toggle {
-            min-height: 38px;
-            background: rgba(15, 23, 42, .035) !important;
-            border: 1px solid var(--command-os-border, rgba(139, 92, 246, 0.14)) !important;
-            border-radius: 8px !important;
-            color: var(--command-os-text, inherit) !important;
-            font-size: 0.8125rem !important;
-            padding: 0.45rem 0.75rem !important;
-        }
-        html[data-command-theme='dark'] .spf-servers-col .bootstrap-select > .dropdown-toggle {
-            background: rgba(255, 255, 255, 0.05) !important;
-            border-color: rgba(139, 92, 246, 0.25) !important;
-            color: #e2e8f0 !important;
-        }
-        .spf-servers-col .bootstrap-select .dropdown-menu { font-size: 0.8125rem; }
-        html[data-command-theme='dark'] .spf-servers-col .bootstrap-select .dropdown-menu {
-            background: #0f172a;
-            border-color: rgba(139, 92, 246, 0.3);
-            color: #e2e8f0;
-        }
-        html[data-command-theme='dark'] .spf-servers-col .bootstrap-select .dropdown-menu li a { color: #cbd5e1; }
-        html[data-command-theme='dark'] .spf-servers-col .bootstrap-select .dropdown-menu li a:hover,
-        html[data-command-theme='dark'] .spf-servers-col .bootstrap-select .dropdown-menu li.selected a {
-            background: rgba(139, 92, 246, 0.2);
-            color: #ffffff;
-        }
-        html[data-command-theme='dark'] .spf-servers-col .bootstrap-select .bs-searchbox input {
-            background: #1e293b;
-            color: #ffffff;
-            border-color: rgba(139, 92, 246, 0.3);
         }
         @media (prefers-reduced-motion: reduce) {
             .spf-tabs *, .spf-activity-card * { scroll-behavior: auto !important; transition-duration: .01ms !important; }
@@ -189,45 +243,54 @@
             <div class="tab-content">
                 <!-- 1. Search Panel -->
                 <section class="tab-pane active" id="spf-search-panel" role="tabpanel" aria-labelledby="spf-search-tab" data-spf-panel="search">
-                    <div class="row align-items-start mb-3">
-                        <div class="col-lg-5 mb-3 mb-lg-0 spf-servers-col">
-                            <div class="d-flex align-items-center justify-content-between mb-1">
-                                <label class="command-form-label mb-0" for="spf-servers">
-                                    <i class="fas fa-server mr-1 text-purple"></i> Servers:
-                                </label>
-                                <button type="button" class="btn btn-link btn-sm p-0 text-muted" id="spf-servers-reload" title="Reload servers and IPs" aria-label="Reload servers and IPs">
-                                    <i class="fas fa-sync-alt" aria-hidden="true"></i>
+                    <div class="spf-search-controls-card p-3 p-md-4 mb-4">
+                        <!-- Top Row: Server Selector and Action Controls -->
+                        <div class="row align-items-center mb-3">
+                            <div class="col-12 col-md-6 col-lg-5 mb-3 mb-md-0">
+                                <div class="d-flex align-items-center justify-content-between mb-1">
+                                    <label class="command-form-label mb-0" for="spf-servers">
+                                        <i class="fas fa-server mr-1 text-purple"></i> <strong>Servers:</strong>
+                                    </label>
+                                    <button type="button" class="btn btn-link btn-sm p-0 text-muted" id="spf-servers-reload" title="Reload servers and IPs">
+                                        <i class="fas fa-sync-alt mr-1" aria-hidden="true"></i><span style="font-size: 0.75rem;">Reload</span>
+                                    </button>
+                                </div>
+                                <select id="spf-servers" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 2" title="Select Servers to auto-populate IPs..." multiple>
+                                    @foreach ($servers ?? [] as $server)
+                                        <option value="{{ $server['id'] }}" data-ips="{{ implode(',', $server['ips']) }}">{{ $server['name'] }} | {{ $server['ip'] }} ({{ count($server['ips']) }} IPs)</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-6 col-lg-7 d-flex align-items-center justify-content-md-end flex-wrap pt-md-3" style="gap: 10px;">
+                                <div id="spf-search-status" class="small text-muted flex-grow-1 text-md-right mr-md-2" role="status" aria-live="polite"></div>
+                                <button type="button" id="spf-search-cancel" class="btn-command-danger" style="height: 38px;" hidden>
+                                    <i class="fas fa-times-circle mr-1"></i> Cancel comparison
+                                </button>
+                                <button type="button" class="btn-command-primary" id="spf-search" style="height: 38px; min-width: 170px;">
+                                    <i class="fas fa-search mr-1"></i> SEARCH ROOTS
                                 </button>
                             </div>
-                            <select id="spf-servers" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 2" title="Select Servers" multiple>
-                                @foreach ($servers ?? [] as $server)
-                                    <option value="{{ $server['id'] }}" data-ips="{{ implode(',', $server['ips']) }}">{{ $server['name'] }} | {{ $server['ip'] }} ({{ count($server['ips']) }} IPs)</option>
-                                @endforeach
-                            </select>
-                            <small class="form-text text-muted mt-1">Select servers to automatically populate their public IPv4 addresses into the IP list.</small>
                         </div>
-                        <div class="col-lg-5 mb-3 mb-lg-0">
-                            <div class="d-flex align-items-center justify-content-between mb-1">
-                                <label class="command-form-label mb-0" for="spf-ips">
-                                    <i class="fas fa-network-wired mr-1 text-purple"></i> IP Addresses:
-                                    <span id="spf-ips-count" class="badge badge-secondary ml-1" style="font-size:0.75rem;">0</span>
-                                </label>
-                                <button type="button" class="btn btn-link btn-sm p-0 text-muted" id="spf-ips-clear" title="Clear IPs" aria-label="Clear IPs" style="font-size:0.75rem;">
-                                    Clear
-                                </button>
+
+                        <!-- Bottom Row: IP Addresses Textarea -->
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="d-flex align-items-center justify-content-between mb-1">
+                                    <label class="command-form-label mb-0" for="spf-ips">
+                                        <i class="fas fa-network-wired mr-1 text-purple"></i> <strong>IP Addresses:</strong>
+                                        <span id="spf-ips-count" class="badge ml-1" style="background: rgba(139, 92, 246, 0.15); color: #7c3aed; font-size: 0.75rem; font-weight: 700; border-radius: 6px; padding: 2px 7px;">0</span>
+                                    </label>
+                                    <button type="button" class="btn btn-link btn-sm p-0 text-muted" id="spf-ips-clear" title="Clear IPs" style="font-size:0.75rem;">
+                                        <i class="fas fa-eraser mr-1"></i> Clear IPs
+                                    </button>
+                                </div>
+                                <textarea class="command-form-control" id="spf-ips" rows="3" placeholder="One IPv4 or IPv6 address per line (up to 100)..." style="font-family: monospace; resize: vertical;"></textarea>
+                                <div class="d-flex align-items-center justify-content-between mt-1 flex-wrap" style="gap: 8px;">
+                                    <small class="form-text text-muted mb-0">Select servers above to automatically load their public IPv4 addresses, or enter custom IPs.</small>
+                                    <small class="form-text text-muted mb-0">Dynamic DNS checks capped at {{ number_format(max(1, (int) config('spf.max_search_dns_checks', 10000))) }}.</small>
+                                </div>
                             </div>
-                            <textarea class="command-form-control" id="spf-ips" rows="3" placeholder="One IPv4 or IPv6 address per line (up to 100)..." style="font-family: monospace;"></textarea>
-                            <small class="form-text text-muted mt-1">Comparisons run in the background. The table and CSV read the same saved results. Dynamic DNS checks capped at {{ number_format(max(1, (int) config('spf.max_search_dns_checks', 10000))) }}.</small>
                         </div>
-                        <div class="col-lg-2 d-flex flex-column justify-content-start pt-lg-4">
-                            <button type="button" class="btn-command-primary w-100" id="spf-search" style="height: 40px;">
-                                <i class="fas fa-search mr-1"></i> SEARCH ROOTS
-                            </button>
-                        </div>
-                    </div>
-                    <div class="d-flex align-items-center justify-content-between mb-2" style="gap:12px;">
-                        <div id="spf-search-status" class="small text-muted" role="status" aria-live="polite"></div>
-                        <button type="button" id="spf-search-cancel" class="btn-command-danger" hidden>Cancel comparison</button>
                     </div>
                     <div class="table-responsive">
                         <table id="spf-search-results" class="table table-sm table-striped table-hover command-os-table w-100">

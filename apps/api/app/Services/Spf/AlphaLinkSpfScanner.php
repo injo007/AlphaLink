@@ -75,11 +75,21 @@ class AlphaLinkSpfScanner
         }
 
         if (config('spf.resolve_a_mx', true)) {
+            $saveSlash8Only = (bool) config('spf.save_slash_8_only', true);
             foreach (array_slice(SpfParser::extractAAndMxTargets($domain, $record), 0, max(1, (int) config('spf.max_mechanism_lookups', 10))) as $target) {
                 foreach ($this->targetAddresses($target['type'], $target['domain'], $activity) as $ip) {
-                    $cidr = SpfParser::ipToCidr($ip, $target['prefix4'], $target['prefix6']);
-                    if ($cidr !== null) {
-                        $hosts[$domain]['cidrs'] = SpfParser::filterSavedCidrs([...$hosts[$domain]['cidrs'], $cidr]);
+                    if ($saveSlash8Only) {
+                        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
+                            $cidr = SpfParser::networkCidr($ip, 8);
+                            if ($cidr !== null) {
+                                $hosts[$domain]['cidrs'] = SpfParser::filterSavedCidrs([...$hosts[$domain]['cidrs'], $cidr]);
+                            }
+                        }
+                    } else {
+                        $cidr = SpfParser::ipToCidr($ip, $target['prefix4'], $target['prefix6']);
+                        if ($cidr !== null) {
+                            $hosts[$domain]['cidrs'] = SpfParser::filterSavedCidrs([...$hosts[$domain]['cidrs'], $cidr]);
+                        }
                     }
                 }
             }

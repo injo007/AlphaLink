@@ -279,6 +279,7 @@ class AlphaLinkWebmailDiagnostics
             if (preg_match('/^===([A-Z_]+)===$/', trim($line), $m) === 1) {
                 $current = $m[1];
                 $sections[$current] ??= '';
+
                 continue;
             }
             if ($current !== '') {

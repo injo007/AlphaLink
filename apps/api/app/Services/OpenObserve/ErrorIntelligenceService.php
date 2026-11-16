@@ -74,6 +74,7 @@ class ErrorIntelligenceService
             try {
                 $result = $this->queryOpenObserve($filters);
                 $result['status'] = $status;
+
                 return $result;
             } catch (Throwable) {
                 // If OpenObserve query fails mid-flight, fall back to local gracefully
@@ -82,6 +83,7 @@ class ErrorIntelligenceService
 
         $result = $this->queryLocalFallback($filters);
         $result['status'] = $status;
+
         return $result;
     }
 
@@ -135,7 +137,8 @@ class ErrorIntelligenceService
                     ];
                 }
             }
-        } catch (Throwable) {}
+        } catch (Throwable) {
+        }
 
         // 2. Ingest raw log reader entries
         $localEntries = $this->logReader->entries();
@@ -182,7 +185,7 @@ class ErrorIntelligenceService
         $timeRange = $filters['time_range'] ?? '24h';
         [$startUs, $endUs] = $this->resolveTimeRange($timeRange);
 
-        $conditions = ["1=1"];
+        $conditions = ['1=1'];
         $stream = $this->client->getStream();
 
         $search = trim((string) ($filters['search'] ?? ''));
@@ -272,7 +275,8 @@ class ErrorIntelligenceService
             if (DB::getSchemaBuilder()->hasTable('failed_jobs')) {
                 $failedJobsCount = (int) DB::table('failed_jobs')->count();
             }
-        } catch (Throwable) {}
+        } catch (Throwable) {
+        }
 
         return [
             'mode' => 'openobserve',
@@ -348,7 +352,8 @@ class ErrorIntelligenceService
                     ];
                 }
             }
-        } catch (Throwable) {}
+        } catch (Throwable) {
+        }
 
         // 2. Fetch from AppErrorLogReader
         $localLogs = $this->logReader->entries();
@@ -376,7 +381,7 @@ class ErrorIntelligenceService
                     'message' => $entry['summary'],
                     'file' => $entry['exception_file'] ?? $entry['file'],
                     'line' => $entry['exception_line'] ?? null,
-                    'trace' => !empty($entry['trace']) ? $entry['trace'] : "{$entry['summary']}\nOrigin: {$entry['file']}",
+                    'trace' => ! empty($entry['trace']) ? $entry['trace'] : "{$entry['summary']}\nOrigin: {$entry['file']}",
                 ],
                 'context' => [],
             ];
@@ -411,6 +416,7 @@ class ErrorIntelligenceService
                     return false;
                 }
             }
+
             return true;
         }));
 

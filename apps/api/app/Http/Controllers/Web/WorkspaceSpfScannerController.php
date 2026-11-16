@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Jobs\RunWorkspaceSpfComparison;
 use App\Jobs\RunWorkspaceSpfScan;
+use App\Models\ManagedServerIp;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceSpfRoot;
@@ -55,10 +56,20 @@ class WorkspaceSpfScannerController extends Controller
             ] : $stats);
         }
 
-        $maxWorkers = min(16, max(1, (int) config('spf.max_workers', 8)));
+        $maxWorkers = min(128, max(1, (int) config('spf.max_workers', 32)));
         $maxUploadBytes = max(1, (int) config('spf.max_upload_kilobytes', 1_048_576)) * 1024;
+        $servers = $this->workspaceServers($workspace, $request->user());
 
-        return view('console.tools.spf-scanner.index', compact('workspace', 'stats', 'maxWorkers', 'maxUploadBytes'));
+        return view('console.tools.spf-scanner.index', compact('workspace', 'stats', 'maxWorkers', 'maxUploadBytes', 'servers'));
+    }
+
+    public function servers(Request $request, string $workspace): JsonResponse
+    {
+        $workspace = $this->workspaceFor($request->user(), $workspace);
+
+        return response()->json([
+            'data' => $this->workspaceServers($workspace, $request->user()),
+        ]);
     }
 
     public function domains(Request $request, string $workspace): View
@@ -254,8 +265,8 @@ class WorkspaceSpfScannerController extends Controller
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         abort_unless((string) $run->workspace_id === (string) $workspace->id, 404);
-        if ($run->status !== WorkspaceSpfSearchRun::STATUS_COMPLETE) {
-            return response()->json(['error' => 'Wait for the comparison to finish before exporting its results.'], 409);
+        if (! in_array($run->status, [WorkspaceSpfSearchRun::STATUS_COMPLETE, WorkspaceSpfSearchRun::STATUS_PROCESSING], true)) {
+            return response()->json(['error' => 'No active or completed comparison to export.'], 409);
         }
 
         $rows = WorkspaceSpfSearchResult::query()->where('search_run_id', $run->getKey())->orderBy('id');
@@ -289,7 +300,7 @@ class WorkspaceSpfScannerController extends Controller
     public function upload(Request $request, string $workspace, AlphaLinkSpfScanLauncher $launcher, AlphaLinkSpfScanActivity $activity): RedirectResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
-        $maxWorkers = min(16, max(1, (int) config('spf.max_workers', 8)));
+        $maxWorkers = min(128, max(1, (int) config('spf.max_workers', 32)));
         $maxUploadKilobytes = max(1, (int) config('spf.max_upload_kilobytes', 1_048_576));
         $data = $request->validate([
             'file' => ['required', 'file', 'mimes:txt', 'max:'.$maxUploadKilobytes],
@@ -699,8 +710,17 @@ class WorkspaceSpfScannerController extends Controller
             }
 
             $uniqueRows = [];
+            $includesSeen = [];
+            $maxIncludes = max(1, (int) config('spf.max_includes', 3));
             foreach ($rows as $row) {
-                $key = $row['matched_ip'].'|'.$row['root'].'|'.$row['include'];
+                $include = $row['include'];
+                if (! isset($includesSeen[$include])) {
+                    if (count($includesSeen) >= $maxIncludes) {
+                        continue;
+                    }
+                    $includesSeen[$include] = true;
+                }
+                $key = $row['matched_ip'].'|'.$row['root'].'|'.$include;
                 $uniqueRows[$key] ??= $row;
             }
             foreach ($uniqueRows as $row) {
@@ -785,5 +805,44 @@ class WorkspaceSpfScannerController extends Controller
         abort_unless($user, 401);
 
         return $user->workspaces()->where('workspaces.status', 'active')->whereKey($workspaceId)->firstOrFail();
+    }
+
+    /**
+     * Return eligible installed servers and their public IPs for the workspace.
+     *
+     * @return array<int, array{id: int|string, name: string, ip: string, ips: list<string>}>
+     */
+    private function workspaceServers(Workspace $workspace, ?User $user = null): array
+    {
+        $role = (string) ($workspace->pivot?->role ?? '');
+        $isOperator = $role === 'operator' && $user instanceof User;
+
+        $servers = $workspace->managedServers()
+            ->where('is_active', true)
+            ->where('is_installed', true)
+            ->when($isOperator, fn ($query) => $query->whereHas('allowedUsers', fn ($users) => $users->whereKey($user->getKey())))
+            ->with(['ips' => fn ($query) => $query->where('is_active', true)->orderBy('id')])
+            ->orderBy('name')
+            ->get(['id', 'name', 'ip_address']);
+
+        return $servers->map(function ($server): array {
+            $ipList = [];
+            if (ManagedServerIp::isPublicAddress($server->ip_address)) {
+                $ipList[] = trim((string) $server->ip_address);
+            }
+            foreach ($server->ips as $serverIp) {
+                if (ManagedServerIp::isPublicAddress($serverIp->ip)) {
+                    $ipList[] = trim((string) $serverIp->ip);
+                }
+            }
+            $ipList = array_values(array_unique(array_filter($ipList)));
+
+            return [
+                'id' => $server->getKey(),
+                'name' => (string) $server->name,
+                'ip' => (string) ($server->ip_address ?? ''),
+                'ips' => $ipList,
+            ];
+        })->values()->all();
     }
 }

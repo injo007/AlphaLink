@@ -164,7 +164,7 @@ class User extends Authenticatable
     }
 
     /** @param list<string> $permissions
-     *  @return list<string>
+     * @return list<string>
      */
     public static function normalizePermissions(array $permissions): array
     {

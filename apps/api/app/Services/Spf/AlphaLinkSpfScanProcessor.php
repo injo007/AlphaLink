@@ -102,7 +102,7 @@ class AlphaLinkSpfScanProcessor
 
         $requestedParts = in_array((int) $scan->partition_count, [4, 5], true) ? (int) $scan->partition_count : 1;
         $partitionCount = min($requestedParts, $validDomains);
-        $maximumWorkers = min(16, max(1, (int) config('spf.max_workers', 8)));
+        $maximumWorkers = min(128, max(1, (int) config('spf.max_workers', 32)));
         $workerCount = min($maximumWorkers, max(1, $workers), $validDomains);
         $scan->update([
             'total_lines' => $totalLines,

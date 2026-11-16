@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceAppSettings;
-use App\Services\AppErrorLogReader;
 use App\Services\OpenObserve\ErrorIntelligenceService;
 use App\Services\OpenObserve\OpenObserveClient;
 use App\Services\OpenObserve\OpenObserveLogHandler;
@@ -134,6 +133,7 @@ class OpenObserveErrorIntelligenceTest extends TestCase
             ->method('ingest')
             ->willReturnCallback(function (array $records) use (&$capturedRecords) {
                 $capturedRecords = $records;
+
                 return ['success' => true, 'count' => count($records), 'error' => null];
             });
 
@@ -252,6 +252,7 @@ class OpenObserveErrorIntelligenceTest extends TestCase
 
         Http::assertSent(function ($request) {
             $text = (string) ($request->data()['text'] ?? '');
+
             return str_contains($request->url(), 'api.telegram.org/bot123456:ABC-synthetic-token/sendMessage')
                 && $request->data()['chat_id'] === '-100999888777'
                 && str_contains($text, 'Investigating outage for [email] from [ip]')

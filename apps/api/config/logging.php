@@ -1,5 +1,6 @@
 <?php
 
+use App\Services\OpenObserve\OpenObserveLogHandler;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
@@ -133,7 +134,7 @@ return [
 
         'openobserve' => [
             'driver' => 'monolog',
-            'handler' => \App\Services\OpenObserve\OpenObserveLogHandler::class,
+            'handler' => OpenObserveLogHandler::class,
             'level' => env('OPENOBSERVE_LOG_LEVEL', 'error'),
         ],
 

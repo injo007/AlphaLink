@@ -256,7 +256,8 @@ class TelegramAlertService
                         'module' => strtolower((string) ($payload['module'] ?? 'system')),
                     ],
                 ]);
-            } catch (Throwable) {}
+            } catch (Throwable) {
+            }
         }
 
         return [
@@ -301,7 +302,7 @@ class TelegramAlertService
         $message = "✅ <b>[{$appName}] Telegram Alert Connectivity Verified</b>\n\n"
             ."Workspace: <b>{$wsName}</b>\n"
             ."Timestamp: <code>{$time}</code>\n"
-            ."Security: PII &amp; Credential Redaction Active.";
+            .'Security: PII &amp; Credential Redaction Active.';
 
         $sentChannels = [];
         $errors = [];
@@ -732,6 +733,7 @@ class TelegramAlertService
             }
 
             $desc = $response->json('description') ?? "HTTP {$response->status()}";
+
             return ['success' => false, 'error' => $this->sanitizeText((string) $desc, 200)];
         } catch (Throwable $e) {
             return ['success' => false, 'error' => $this->sanitizeText($e->getMessage(), 200)];
@@ -781,6 +783,6 @@ class TelegramAlertService
             return str_repeat('*', $len);
         }
 
-        return substr($channel, 0, 3) . str_repeat('*', max(2, $len - 6)) . substr($channel, -3);
+        return substr($channel, 0, 3).str_repeat('*', max(2, $len - 6)).substr($channel, -3);
     }
 }

@@ -16,7 +16,7 @@ class ScanWorkspaceSpfScan extends Command
     public function handle(AlphaLinkSpfScanProcessor $processor): int
     {
         $scanId = (int) $this->argument('scan');
-        $maximumWorkers = min(16, max(1, (int) config('spf.max_workers', 8)));
+        $maximumWorkers = min(128, max(1, (int) config('spf.max_workers', 32)));
         $workers = max(1, min($maximumWorkers, (int) $this->option('workers')));
         $worker = $this->option('worker');
         if ($worker !== null) {

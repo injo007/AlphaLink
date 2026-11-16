@@ -28,16 +28,18 @@ class SyncOpenObserveLogsCommand extends Command
     {
         $limit = max(10, (int) $this->option('limit'));
 
-        $this->info("Checking OpenObserve status...");
+        $this->info('Checking OpenObserve status...');
         $status = $service->getStatus();
 
         if (! $status['configured']) {
-            $this->warn("OpenObserve is not configured (OPENOBSERVE_ENABLED or OPENOBSERVE_URL not set).");
+            $this->warn('OpenObserve is not configured (OPENOBSERVE_ENABLED or OPENOBSERVE_URL not set).');
+
             return self::FAILURE;
         }
 
         if (! $status['healthy']) {
-            $this->error("OpenObserve endpoint is unreachable or returning errors: " . ($status['last_error'] ?? 'Unknown error'));
+            $this->error('OpenObserve endpoint is unreachable or returning errors: '.($status['last_error'] ?? 'Unknown error'));
+
             return self::FAILURE;
         }
 
@@ -48,10 +50,12 @@ class SyncOpenObserveLogsCommand extends Command
 
         if ($result['success']) {
             $this->info("Successfully synced {$result['synced']} record(s) to OpenObserve.");
+
             return self::SUCCESS;
         }
 
-        $this->error("Failed to sync records: " . ($result['error'] ?? 'Unknown error'));
+        $this->error('Failed to sync records: '.($result['error'] ?? 'Unknown error'));
+
         return self::FAILURE;
     }
 }

@@ -22,7 +22,7 @@ class AlphaLinkSponsorOfferImporter
      * Fetch selected offers using the AlphaLink network adapter, then save each new offer and its assets atomically.
      *
      * @param  list<string>  $offerIds
-    */
+     */
     public function import(Workspace $workspace, WorkspaceSponsor $sponsor, User $user, array $offerIds): int
     {
         return $this->importSelected($workspace, $sponsor, $user, $offerIds, ['subject', 'from', 'creative'])['imported'];

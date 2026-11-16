@@ -52,14 +52,14 @@ class AlphaLinkSpfSearchRunner
                         'created_at' => now(),
                         'updated_at' => now(),
                     ];
-                    if (count($pendingRows) >= 1000) {
+                    if (count($pendingRows) >= 100) {
                         $insertedSinceCheckpoint += $this->persistRows($pendingRows);
                         $pendingRows = [];
                     }
                 }
 
                 $processedSinceCheckpoint++;
-                if ($processedSinceCheckpoint >= 25) {
+                if ($processedSinceCheckpoint >= 10 || count($pendingRows) >= 100) {
                     $insertedSinceCheckpoint += $this->persistRows($pendingRows);
                     $pendingRows = [];
                     $this->checkpoint($run, $processedSinceCheckpoint, $insertedSinceCheckpoint, $matcher->dnsCheckLimitReached());
@@ -131,8 +131,17 @@ class AlphaLinkSpfSearchRunner
         }
 
         $uniqueRows = [];
+        $includesSeen = [];
+        $maxIncludes = max(1, (int) config('spf.max_includes', 3));
         foreach ($rows as $row) {
-            $key = $row['matched_ip'].'|'.$row['root'].'|'.$row['include'];
+            $include = $row['include'];
+            if (! isset($includesSeen[$include])) {
+                if (count($includesSeen) >= $maxIncludes) {
+                    continue;
+                }
+                $includesSeen[$include] = true;
+            }
+            $key = $row['matched_ip'].'|'.$row['root'].'|'.$include;
             $uniqueRows[$key] ??= $row;
         }
 

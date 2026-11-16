@@ -60,13 +60,16 @@ class OpenObserveClient
 
             if ($response->successful() && ($response->json('status') === 'ok' || $response->status() === 200)) {
                 $this->lastError = null;
+
                 return true;
             }
 
             $this->lastError = 'Health check returned HTTP '.$response->status();
+
             return false;
         } catch (Throwable $e) {
             $this->lastError = $e->getMessage();
+
             return false;
         }
     }
@@ -102,6 +105,7 @@ class OpenObserveClient
 
             if ($response->successful()) {
                 $this->lastError = null;
+
                 return [
                     'success' => true,
                     'count' => count($records),

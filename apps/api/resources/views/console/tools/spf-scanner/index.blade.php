@@ -91,6 +91,52 @@
             .spf-activity-event { grid-template-columns: 1fr; gap: 3px; }
             .spf-activity-heading > * { width: 100%; }
         }
+        select#spf-servers:not(.bs-select-hidden) {
+            display: block !important;
+            min-height: 38px;
+            width: 100%;
+            border-radius: 8px;
+            border: 1px solid var(--command-os-border, rgba(139, 92, 246, 0.14));
+            background: rgba(15, 23, 42, .035);
+            color: var(--command-os-text, inherit);
+            padding: 0.45rem 0.75rem;
+            font-size: 0.8125rem;
+        }
+        .bootstrap-select > select#spf-servers {
+            display: none !important;
+        }
+        .spf-servers-col .bootstrap-select { width: 100% !important; min-height: 38px; }
+        .spf-servers-col .bootstrap-select > .dropdown-toggle {
+            min-height: 38px;
+            background: rgba(15, 23, 42, .035) !important;
+            border: 1px solid var(--command-os-border, rgba(139, 92, 246, 0.14)) !important;
+            border-radius: 8px !important;
+            color: var(--command-os-text, inherit) !important;
+            font-size: 0.8125rem !important;
+            padding: 0.45rem 0.75rem !important;
+        }
+        html[data-command-theme='dark'] .spf-servers-col .bootstrap-select > .dropdown-toggle {
+            background: rgba(255, 255, 255, 0.05) !important;
+            border-color: rgba(139, 92, 246, 0.25) !important;
+            color: #e2e8f0 !important;
+        }
+        .spf-servers-col .bootstrap-select .dropdown-menu { font-size: 0.8125rem; }
+        html[data-command-theme='dark'] .spf-servers-col .bootstrap-select .dropdown-menu {
+            background: #0f172a;
+            border-color: rgba(139, 92, 246, 0.3);
+            color: #e2e8f0;
+        }
+        html[data-command-theme='dark'] .spf-servers-col .bootstrap-select .dropdown-menu li a { color: #cbd5e1; }
+        html[data-command-theme='dark'] .spf-servers-col .bootstrap-select .dropdown-menu li a:hover,
+        html[data-command-theme='dark'] .spf-servers-col .bootstrap-select .dropdown-menu li.selected a {
+            background: rgba(139, 92, 246, 0.2);
+            color: #ffffff;
+        }
+        html[data-command-theme='dark'] .spf-servers-col .bootstrap-select .bs-searchbox input {
+            background: #1e293b;
+            color: #ffffff;
+            border-color: rgba(139, 92, 246, 0.3);
+        }
         @media (prefers-reduced-motion: reduce) {
             .spf-tabs *, .spf-activity-card * { scroll-behavior: auto !important; transition-duration: .01ms !important; }
         }
@@ -143,13 +189,37 @@
             <div class="tab-content">
                 <!-- 1. Search Panel -->
                 <section class="tab-pane active" id="spf-search-panel" role="tabpanel" aria-labelledby="spf-search-tab" data-spf-panel="search">
-                    <div class="row align-items-end mb-3">
-                        <div class="col-lg-9 mb-3 mb-lg-0">
-                            <label class="command-form-label" for="spf-ips"><i class="fas fa-network-wired mr-1 text-purple"></i> IP Addresses:</label>
-                            <textarea class="command-form-control" id="spf-ips" rows="3" placeholder="One IPv4 or IPv6 address per line (up to 100)..." style="font-family: monospace;"></textarea>
-                            <small class="form-text text-muted mt-1">Comparisons run in the background. The table and CSV read the same saved results. A match is SPF network or mechanism evidence, not a complete SPF pass evaluation. Dynamic DNS checks are capped at {{ number_format(max(1, (int) config('spf.max_search_dns_checks', 10000))) }} unique mechanisms per run.</small>
+                    <div class="row align-items-start mb-3">
+                        <div class="col-lg-5 mb-3 mb-lg-0 spf-servers-col">
+                            <div class="d-flex align-items-center justify-content-between mb-1">
+                                <label class="command-form-label mb-0" for="spf-servers">
+                                    <i class="fas fa-server mr-1 text-purple"></i> Servers:
+                                </label>
+                                <button type="button" class="btn btn-link btn-sm p-0 text-muted" id="spf-servers-reload" title="Reload servers and IPs" aria-label="Reload servers and IPs">
+                                    <i class="fas fa-sync-alt" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                            <select id="spf-servers" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 2" title="Select Servers" multiple>
+                                @foreach ($servers ?? [] as $server)
+                                    <option value="{{ $server['id'] }}" data-ips="{{ implode(',', $server['ips']) }}">{{ $server['name'] }} | {{ $server['ip'] }} ({{ count($server['ips']) }} IPs)</option>
+                                @endforeach
+                            </select>
+                            <small class="form-text text-muted mt-1">Select servers to automatically populate their public IPv4 addresses into the IP list.</small>
                         </div>
-                        <div class="col-lg-3">
+                        <div class="col-lg-5 mb-3 mb-lg-0">
+                            <div class="d-flex align-items-center justify-content-between mb-1">
+                                <label class="command-form-label mb-0" for="spf-ips">
+                                    <i class="fas fa-network-wired mr-1 text-purple"></i> IP Addresses:
+                                    <span id="spf-ips-count" class="badge badge-secondary ml-1" style="font-size:0.75rem;">0</span>
+                                </label>
+                                <button type="button" class="btn btn-link btn-sm p-0 text-muted" id="spf-ips-clear" title="Clear IPs" aria-label="Clear IPs" style="font-size:0.75rem;">
+                                    Clear
+                                </button>
+                            </div>
+                            <textarea class="command-form-control" id="spf-ips" rows="3" placeholder="One IPv4 or IPv6 address per line (up to 100)..." style="font-family: monospace;"></textarea>
+                            <small class="form-text text-muted mt-1">Comparisons run in the background. The table and CSV read the same saved results. Dynamic DNS checks capped at {{ number_format(max(1, (int) config('spf.max_search_dns_checks', 10000))) }}.</small>
+                        </div>
+                        <div class="col-lg-2 d-flex flex-column justify-content-start pt-lg-4">
                             <button type="button" class="btn-command-primary w-100" id="spf-search" style="height: 40px;">
                                 <i class="fas fa-search mr-1"></i> SEARCH ROOTS
                             </button>
@@ -373,6 +443,7 @@
                 }}
             ]
         }) : null;
+        let lastRenderedMatches = -1;
         const exportSearch = async () => {
             if (!activeSearchRunId) { searchStatus.textContent = 'Run an IP comparison before exporting.'; return; }
             window.open(`${base}/search-runs/${encodeURIComponent(activeSearchRunId)}/export`, '_blank', 'noopener');
@@ -384,7 +455,8 @@
                 const run = await response.json().catch(() => ({}));
                 if (!response.ok) throw new Error(run.message || run.error || 'Unable to read comparison status.');
                 const progress = `${Number(run.progress || 0).toLocaleString()} / ${Number(run.total_roots || 0).toLocaleString()} domains`;
-                const matches = `${Number(run.total_matches || 0).toLocaleString()} matches`;
+                const currentMatches = Number(run.total_matches || 0);
+                const matches = `${currentMatches.toLocaleString()} matches`;
                 const nowMs = Date.now();
                 const previous = searchSamples.get(String(run.id));
                 const elapsed = previous ? (nowMs - previous.time) / 1000 : 0;
@@ -392,8 +464,18 @@
                 searchSamples.set(String(run.id), {progress: Number(run.progress || 0), time: nowMs});
                 const throughput = rate > 0 ? ` · ${Math.round(rate).toLocaleString()} domains/s` : '';
                 const eta = rate > 0 && Number(run.total_roots) > Number(run.progress) ? ` · ETA ${formatDuration((Number(run.total_roots) - Number(run.progress)) / rate)}` : '';
+
+                // Live reload table with newly discovered results while comparison is actively processing
+                if (searchTable && (currentMatches !== lastRenderedMatches || (currentMatches > 0 && lastRenderedMatches === -1))) {
+                    lastRenderedMatches = currentMatches;
+                    searchTable.ajax.reload(null, false);
+                }
+
                 if (run.status === 'complete') {
-                    searchTable?.ajax.reload(null, true);
+                    if (searchTable && lastRenderedMatches !== currentMatches) {
+                        lastRenderedMatches = currentMatches;
+                        searchTable.ajax.reload(null, false);
+                    }
                     const dnsLimit = run.dns_checks_limited ? ' · DNS lookup cap reached; dynamic-mechanism results may be incomplete' : '';
                     searchStatus.textContent = `Comparison complete: ${progress} · ${matches}${dnsLimit}`;
                     setBusy(searchButton, false);
@@ -401,6 +483,9 @@
                     return;
                 }
                 if (['failed', 'cancelled'].includes(run.status)) {
+                    if (searchTable && lastRenderedMatches !== currentMatches) {
+                        searchTable.ajax.reload(null, false);
+                    }
                     searchStatus.textContent = run.failure || `Comparison ${run.status}: ${progress} · ${matches}`;
                     setBusy(searchButton, false);
                     cancelSearchButton.hidden = true;
@@ -412,7 +497,7 @@
                     : ` · ${run.stage || 'working'}`;
                 searchStatus.textContent = `Comparison ${run.status}: ${progress} · ${matches}${throughput}${eta}${health}`;
                 cancelSearchButton.hidden = false;
-                searchPollTimer = window.setTimeout(() => pollSearchRun(runId, generation), 2000);
+                searchPollTimer = window.setTimeout(() => pollSearchRun(runId, generation), 1500);
             } catch (error) {
                 searchStatus.textContent = error.message;
                 setBusy(searchButton, false);
@@ -430,6 +515,7 @@
             try {
                 cancelSearchButton.hidden = true;
                 searchSamples.clear();
+                lastRenderedMatches = -1;
                 if (activeSearchRunId) {
                     await request(`${base}/search-runs/${encodeURIComponent(activeSearchRunId)}/cancel`, {} ).catch(() => {});
                 }
@@ -456,6 +542,117 @@
             }
         });
         document.getElementById('spf-ips').addEventListener('keydown', (event) => { if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') { event.preventDefault(); runSearch(); } });
+
+        const serversSelect = document.getElementById('spf-servers');
+        const ipsTextarea = document.getElementById('spf-ips');
+        const ipsCountBadge = document.getElementById('spf-ips-count');
+        const reloadServersButton = document.getElementById('spf-servers-reload');
+        const clearIpsButton = document.getElementById('spf-ips-clear');
+
+        const initSelectpicker = () => {
+            if (window.jQuery?.fn?.selectpicker && serversSelect) {
+                window.jQuery(serversSelect).selectpicker();
+            }
+        };
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initSelectpicker);
+        } else {
+            initSelectpicker();
+        }
+
+        const updateIpsCount = () => {
+            if (!ipsTextarea || !ipsCountBadge) return;
+            const parsed = uniqueLines(ipsTextarea.value);
+            const valid = parsed.filter((ip) => /^\d{1,3}(?:\.\d{1,3}){3}$/.test(ip) || ip.includes(':'));
+            ipsCountBadge.textContent = String(valid.length);
+        };
+
+        const syncServerIps = () => {
+            if (!serversSelect || !ipsTextarea) return;
+            const selectedOptions = Array.from(serversSelect.selectedOptions || []);
+            const ipList = [];
+            selectedOptions.forEach((opt) => {
+                const rawIps = opt.getAttribute('data-ips') || '';
+                rawIps.split(',').map((s) => s.trim()).filter(Boolean).forEach((ip) => {
+                    if (!ipList.includes(ip)) {
+                        ipList.push(ip);
+                    }
+                });
+            });
+            ipsTextarea.value = ipList.join('\n');
+            updateIpsCount();
+        };
+
+        if (serversSelect) {
+            if (window.jQuery) {
+                window.jQuery(serversSelect).on('changed.bs.select change', syncServerIps);
+            } else {
+                serversSelect.addEventListener('change', syncServerIps);
+            }
+        }
+
+        if (ipsTextarea) {
+            ipsTextarea.addEventListener('input', updateIpsCount);
+            updateIpsCount();
+        }
+
+        if (clearIpsButton) {
+            clearIpsButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                if (ipsTextarea) {
+                    ipsTextarea.value = '';
+                }
+                if (serversSelect) {
+                    if (window.jQuery?.fn?.selectpicker) {
+                        window.jQuery(serversSelect).selectpicker('deselectAll');
+                    } else {
+                        Array.from(serversSelect.options).forEach((opt) => { opt.selected = false; });
+                    }
+                }
+                updateIpsCount();
+            });
+        }
+
+        if (reloadServersButton) {
+            reloadServersButton.addEventListener('click', async (event) => {
+                event.preventDefault();
+                const icon = reloadServersButton.querySelector('i');
+                if (icon) icon.classList.add('fa-spin');
+                reloadServersButton.disabled = true;
+                try {
+                    const response = await fetch(`${base}/servers`, {
+                        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    });
+                    if (!response.ok) throw new Error('Unable to reload servers.');
+                    const payload = await response.json();
+                    const servers = payload.data || [];
+                    if (serversSelect) {
+                        const previousSelection = Array.from(serversSelect.selectedOptions).map((opt) => opt.value);
+                        serversSelect.innerHTML = '';
+                        servers.forEach((server) => {
+                            const option = document.createElement('option');
+                            option.value = String(server.id);
+                            option.setAttribute('data-ips', (server.ips || []).join(','));
+                            option.textContent = `${server.name} | ${server.ip} (${(server.ips || []).length} IPs)`;
+                            if (previousSelection.includes(String(server.id))) {
+                                option.selected = true;
+                            }
+                            serversSelect.appendChild(option);
+                        });
+                        if (window.jQuery?.fn?.selectpicker) {
+                            window.jQuery(serversSelect).selectpicker('refresh');
+                        }
+                        syncServerIps();
+                    }
+                } catch (error) {
+                    searchStatus.textContent = error.message;
+                } finally {
+                    if (icon) icon.classList.remove('fa-spin');
+                    reloadServersButton.disabled = false;
+                }
+            });
+        }
 
         const scanTable = document.getElementById('spf-scans');
         const scanSamples = new Map();

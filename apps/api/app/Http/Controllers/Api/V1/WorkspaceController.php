@@ -137,7 +137,7 @@ class WorkspaceController extends Controller
                 'id' => $workspace->id,
                 'name' => $workspace->name,
                 'slug' => $workspace->slug,
-                    'role' => $globalRole,
+                'role' => $globalRole,
             ],
         ], 201);
     }

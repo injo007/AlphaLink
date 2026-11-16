@@ -1730,9 +1730,9 @@ class WorkspaceConsoleController extends Controller
             return [(string) $selectedServer->getKey() => $selectedChoices];
         });
         $routeChoices = $selectedRouteChoicesByServer->map(fn ($choices): ?array => $choices->first());
+        $allSelectedChoices = $selectedRouteChoicesByServer->flatten(1)->values();
         if ($data['send_setup']['route_option'] === 'ip') {
-            foreach ($servers as $selectedServer) {
-                $ipChoice = $routeChoices->get((string) $selectedServer->getKey());
+            foreach ($allSelectedChoices as $ipChoice) {
                 if (! is_array($ipChoice) || filter_var((string) ($ipChoice['ip'] ?? ''), FILTER_VALIDATE_IP) === false) {
                     throw ValidationException::withMessages([
                         'send_setup.ip_type' => 'No active IP route matching the selected IPv4/IPv6 filter is available on a selected server.',
@@ -1741,9 +1741,7 @@ class WorkspaceConsoleController extends Controller
             }
         }
         if (in_array($data['send_setup']['route_option'], ['vmta', 'smtp'], true)) {
-            $routesToVerify = $data['send_setup']['route_option'] === 'smtp'
-                ? $selectedRouteChoicesByServer->flatten(1)
-                : $routeChoices->values();
+            $routesToVerify = $allSelectedChoices;
             foreach ($routesToVerify as $choice) {
                 $selectedServer = $serversById->get((string) ($choice['server_id'] ?? ''));
                 if (! $selectedServer instanceof ManagedServer) {
@@ -1834,25 +1832,31 @@ class WorkspaceConsoleController extends Controller
             ?? '0';
         $creativeId = $data['send_setup']['creative_asset_id'] ?? '0';
         $testCases = [];
-        if ($data['send_setup']['route_option'] === 'smtp') {
-            $smtpChoices = $selectedRouteChoicesByServer->flatten(1)->values();
-            foreach ($smtpChoices as $routeIndex => $choice) {
+        if (count($recipients) === 1) {
+            foreach ($allSelectedChoices as $routeIndex => $choice) {
                 $selectedServer = $serversById->get((string) ($choice['server_id'] ?? ''));
                 if ($selectedServer instanceof ManagedServer) {
                     $testCases[] = [
                         'index' => $routeIndex,
-                        'recipient' => $recipients[$routeIndex % count($recipients)],
+                        'recipient' => $recipients[0],
                         'server' => $selectedServer,
                         'choice' => $choice,
                     ];
                 }
             }
         } else {
-            foreach ($recipients as $index => $recipient) {
-                $selectedServer = $servers[$index % $servers->count()];
-                $choice = $routeChoices->get((string) $selectedServer->getKey());
-                if (is_array($choice)) {
-                    $testCases[] = ['index' => $index, 'recipient' => $recipient, 'server' => $selectedServer, 'choice' => $choice];
+            $testCount = max(count($recipients), $allSelectedChoices->count());
+            for ($index = 0; $index < $testCount; $index++) {
+                $choice = $allSelectedChoices[$index % $allSelectedChoices->count()];
+                $recipient = $recipients[$index % count($recipients)];
+                $selectedServer = $serversById->get((string) ($choice['server_id'] ?? ''));
+                if ($selectedServer instanceof ManagedServer) {
+                    $testCases[] = [
+                        'index' => $index,
+                        'recipient' => $recipient,
+                        'server' => $selectedServer,
+                        'choice' => $choice,
+                    ];
                 }
             }
         }
@@ -2012,25 +2016,7 @@ class WorkspaceConsoleController extends Controller
             'outbound_route' => $data['send_setup']['route_option'],
             'type' => $data['send_setup']['ip_type'],
             'virtual_mtas' => in_array($data['send_setup']['route_option'], ['ip', 'vmta', 'smtp'], true)
-                ? ($data['send_setup']['route_option'] === 'smtp'
-                    ? $testRouteSnapshot
-                    : $servers->map(fn (ManagedServer $selectedServer): array => [
-                        'server_id' => (string) $selectedServer->getKey(),
-                        'catalog_id' => (string) ($routeChoices->get((string) $selectedServer->getKey())['id'] ?? ''),
-                        'name' => $data['send_setup']['route_option'] === 'ip'
-                            ? (string) ($routeChoices->get((string) $selectedServer->getKey())['ip'] ?? '')
-                            : (string) ($data['send_setup']['route_option'] === 'smtp'
-                                ? ($routeChoices->get((string) $selectedServer->getKey())['username'] ?? '')
-                                : ($routeChoices->get((string) $selectedServer->getKey())['name'] ?? '')),
-                        'pmta_name' => $data['send_setup']['route_option'] === 'ip'
-                            ? $vmtaPlanner->ipVirtualMtaName((string) $routeChoices->get((string) $selectedServer->getKey())['ip'])
-                            : (string) ($routeChoices->get((string) $selectedServer->getKey())['pmta_name'] ?? ''),
-                        'domain' => (string) ($data['send_setup']['route_option'] === 'ip'
-                            ? ($routeChoices->get((string) $selectedServer->getKey())['dns'] ?? '')
-                            : ($data['send_setup']['route_option'] === 'smtp'
-                                ? ($routeChoices->get((string) $selectedServer->getKey())['dns'] ?? '')
-                                : ($routeChoices->get((string) $selectedServer->getKey())['vmta_domain'] ?? ''))),
-                    ])->values()->all())
+                ? $testRouteSnapshot
                 : [],
             'test_message_count' => count($testCases),
             'servers' => collect($serverIds)->map(fn (string $serverId): array => [

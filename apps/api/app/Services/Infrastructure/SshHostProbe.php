@@ -113,8 +113,8 @@ class SshHostProbe
             .'for ip in $raw_ips; do '
             .'case "$ip" in '
             .'10.*|172.1[6-9].*|172.2[0-9].*|172.3[0-1].*|192.168.*|100.*|127.*) '
-            .'pub=$(curl -fsS --connect-timeout 2 -m 3 --interface "$ip" https://api.ipify.org 2>/dev/null || curl -fsS --connect-timeout 2 -m 3 --interface "$ip" http://checkip.amazonaws.com 2>/dev/null || curl -fsS --connect-timeout 2 -m 3 --interface "$ip" https://icanhazip.com 2>/dev/null); '
-            .'if [ -n "$pub" ]; then echo "$pub|$ip"; else echo "$ip|$ip"; fi ;; '
+            .'pub=$(curl -fsS --connect-timeout 1 -m 2 --interface "$ip" https://api.ipify.org 2>/dev/null || curl -fsS --connect-timeout 1 -m 2 --interface "$ip" http://checkip.amazonaws.com 2>/dev/null); '
+            .'if [ -n "$pub" ]; then echo "$pub|$ip"; fi ;; '
             .'*) echo "$ip|$ip" ;; '
             .'esac; '
             .'done\'';
@@ -205,8 +205,8 @@ class SshHostProbe
         if (! app()->environment('testing') && ! $this->isPublicAddress($server->ip_address)) {
             throw new HostProbeException('Preflight is limited to registered public IP addresses.');
         }
-        $ssh = new SSH2($server->ip_address, (int) $server->ssh_port, 8);
-        $ssh->setTimeout(8);
+        $ssh = new SSH2($server->ip_address, (int) $server->ssh_port, 15);
+        $ssh->setTimeout(30);
 
         return $ssh;
     }

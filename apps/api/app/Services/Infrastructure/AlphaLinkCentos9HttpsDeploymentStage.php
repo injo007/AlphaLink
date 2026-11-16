@@ -42,7 +42,7 @@ class AlphaLinkCentos9HttpsDeploymentStage
         // certificate on port 443, independently of Nginx's PMTA monitor port.
         $apacheTlsReady = $commands->exec(
             '(rpm -q httpd >/dev/null 2>&1 || dnf -y install httpd >/dev/null 2>&1) && '
-                .'(rpm -q mod_ssl >/dev/null 2>&1 || dnf -y install mod_ssl >/dev/null 2>&1) && '
+                .'(test -f /etc/httpd/conf.modules.d/00-ssl.conf || dnf -y reinstall mod_ssl >/dev/null 2>&1 || dnf -y install mod_ssl >/dev/null 2>&1) && '
                 .'(test -f /etc/httpd/conf.d/ssl.conf && sed -i \'/<VirtualHost _default_:443>/,/<\/VirtualHost>/d\' /etc/httpd/conf.d/ssl.conf 2>/dev/null || true) && '
                 .'systemctl enable --now httpd && httpd -t >/dev/null 2>&1 && '
                 .'printf ALPHALINK_APACHE_HTTPS_READY',
@@ -62,8 +62,10 @@ class AlphaLinkCentos9HttpsDeploymentStage
         $certificateDomains = implode(',', [$domain, ...$subdomains]);
         $email = 'cert@'.$domain;
         $certificateRequest = $commands->exec(
-            'certbot --apache --no-redirect -d '.escapeshellarg($certificateDomains).
-            ' -m '.escapeshellarg($email).' -n --agree-tos >/dev/null 2>&1 && printf ALPHALINK_CERTIFICATE_REQUESTED',
+            '(certbot --apache --no-redirect -d '.escapeshellarg($certificateDomains).
+            ' -m '.escapeshellarg($email).' -n --agree-tos >/dev/null 2>&1 || '
+            .'certbot --apache --no-redirect -d '.escapeshellarg($domain).
+            ' -m '.escapeshellarg($email).' -n --agree-tos >/dev/null 2>&1) && printf ALPHALINK_CERTIFICATE_REQUESTED',
         );
         if (trim((string) $certificateRequest) !== 'ALPHALINK_CERTIFICATE_REQUESTED') {
             return false;

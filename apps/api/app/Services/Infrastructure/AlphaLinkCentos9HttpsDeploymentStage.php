@@ -43,6 +43,7 @@ class AlphaLinkCentos9HttpsDeploymentStage
         $apacheTlsReady = $commands->exec(
             '(rpm -q httpd >/dev/null 2>&1 || dnf -y install httpd >/dev/null 2>&1) && '
                 .'(rpm -q mod_ssl >/dev/null 2>&1 || dnf -y install mod_ssl >/dev/null 2>&1) && '
+                .'(test -f /etc/httpd/conf.d/ssl.conf && sed -i \'/<VirtualHost _default_:443>/,/<\/VirtualHost>/d\' /etc/httpd/conf.d/ssl.conf 2>/dev/null || true) && '
                 .'systemctl enable --now httpd && httpd -t >/dev/null 2>&1 && '
                 .'printf ALPHALINK_APACHE_HTTPS_READY',
         );
@@ -86,6 +87,7 @@ class AlphaLinkCentos9HttpsDeploymentStage
             .'    RewriteRule ^/healthz$ /index.php [END,QSA]'.chr(92)."\n"
             .'    RewriteRule ^/([A-Za-z0-9]{10}[roubROUB][A-Za-z0-9_-]{1,4096}(?:/[A-Za-z0-9_-]+)*)$ /index.php?__alphalink_long_uri=$1 [END,QSA,B]';
         $trackingRewrite = 'if test -f /var/mini/public/index.php && grep -q ALPHALINK_TRACKING_READY /var/mini/public/index.php; then '
+            .'test -f /etc/httpd/conf.d/ssl.conf && sed -i \'/<VirtualHost _default_:443>/,/<\/VirtualHost>/d\' /etc/httpd/conf.d/ssl.conf 2>/dev/null || true; '
             .'for vhost in '.escapeshellarg($trackingVhost).' '.escapeshellarg($altTrackingVhost).'; do '
             .'if test -f "$vhost"; then if ! grep -Fq \'ALPHALINK_TRACKING_ROUTES\' "$vhost"; then '
             .'sed -i '.escapeshellarg($trackingRewriteScript).' "$vhost"; fi; fi; done; '

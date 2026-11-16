@@ -79,6 +79,7 @@ class AlphaLinkCentos9VmtaDeploymentStage
 
         $commands->exec('chown -R pmta:pmta /etc/pmta');
         if ($useDkim) {
+            $commands->exec("test -f /etc/pmta/conf/domains && sed -i 's/#dkim-sign yes/dkim-sign yes/g' /etc/pmta/conf/domains 2>/dev/null || true");
             $commands->exec('chmod 640 /etc/pmta/dkim 2>/dev/null || true');
             $commands->exec('chown root:pmta /etc/pmta/dkim 2>/dev/null || true');
         }

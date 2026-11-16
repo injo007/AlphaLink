@@ -26,7 +26,7 @@ class AlphaLinkCentos9HttpsDeploymentStageTest extends TestCase
         $certificateReady = (new AlphaLinkCentos9HttpsDeploymentStage)->run($commands, 'sender.example.test', ['relay.example.test', 'mail.example.test']);
 
         $this->assertSame([
-            '(rpm -q httpd >/dev/null 2>&1 || dnf -y install httpd >/dev/null 2>&1) && (rpm -q mod_ssl >/dev/null 2>&1 || dnf -y install mod_ssl >/dev/null 2>&1) && systemctl enable --now httpd && httpd -t >/dev/null 2>&1 && printf ALPHALINK_APACHE_HTTPS_READY',
+            '(rpm -q httpd >/dev/null 2>&1 || dnf -y install httpd >/dev/null 2>&1) && (rpm -q mod_ssl >/dev/null 2>&1 || dnf -y install mod_ssl >/dev/null 2>&1) && (test -f /etc/httpd/conf.d/ssl.conf && sed -i \'/<VirtualHost _default_:443>/,/<\/VirtualHost>/d\' /etc/httpd/conf.d/ssl.conf 2>/dev/null || true) && systemctl enable --now httpd && httpd -t >/dev/null 2>&1 && printf ALPHALINK_APACHE_HTTPS_READY',
             '(rpm -q certbot >/dev/null 2>&1 || dnf -y install certbot >/dev/null 2>&1) && (rpm -q python3-certbot-apache >/dev/null 2>&1 || dnf -y install python3-certbot-apache >/dev/null 2>&1) && printf ALPHALINK_CERTBOT_READY',
             "certbot --apache --no-redirect -d 'sender.example.test,relay.example.test,mail.example.test' -m 'cert@sender.example.test' -n --agree-tos >/dev/null 2>&1 && printf ALPHALINK_CERTIFICATE_REQUESTED",
             "test -s '/etc/letsencrypt/live/sender.example.test/fullchain.pem' && test -s '/etc/letsencrypt/live/sender.example.test/privkey.pem' && printf ALPHALINK_DOMAIN_CERTIFICATE_READY",

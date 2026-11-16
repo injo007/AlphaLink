@@ -33,7 +33,38 @@ final class AlphaLinkTrackerRequestHandler
         }
 
         if ($path === '/') {
-            return $this->response(200, 'text/html; charset=utf-8', '<!doctype html><html lang="en"><meta charset="utf-8"><title>AlphaLink</title><body>AlphaLink tracking endpoint is active.</body></html>');
+            $appName = htmlspecialchars((string) ($this->config['application_name'] ?? 'AlphaLink'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            $html = <<<HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{$appName} Network Endpoint</title>
+    <style>
+        :root { --bg: #0b0f19; --card: #111827; --border: #1f2937; --text: #f3f4f6; --muted: #9ca3af; --accent: #6366f1; }
+        @media (prefers-color-scheme: light) { :root { --bg: #f8fafc; --card: #ffffff; --border: #e2e8f0; --text: #0f172a; --muted: #64748b; --accent: #4f46e5; } }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 1rem; max-width: 480px; width: 100%; padding: 2.5rem 2rem; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); text-align: center; }
+        .badge { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0.85rem; border-radius: 9999px; font-size: 0.8rem; font-weight: 600; background: rgba(99,102,241,0.12); color: var(--accent); margin-bottom: 1.25rem; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: #10b981; }
+        h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.75rem; letter-spacing: -0.02em; }
+        p { color: var(--muted); font-size: 0.925rem; line-height: 1.6; margin-bottom: 1.5rem; }
+        .footer { font-size: 0.75rem; color: var(--muted); border-top: 1px solid var(--border); padding-top: 1rem; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="badge"><span class="dot"></span> Active &amp; Verified</div>
+        <h1>{$appName} Secure Edge</h1>
+        <p>This domain serves verified delivery and engagement telemetry endpoints. High-availability routing is operating normally.</p>
+        <div class="footer">&copy; 2026 {$appName}. All rights reserved.</div>
+    </div>
+</body>
+</html>
+HTML;
+            return $this->response(200, 'text/html; charset=utf-8', $html);
         }
 
         $route = $this->parseRoute($path);

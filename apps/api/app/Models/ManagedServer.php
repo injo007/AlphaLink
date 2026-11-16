@@ -112,4 +112,65 @@ class ManagedServer extends Model
 
         return $firstActive instanceof ManagedServerIp ? $firstActive : $fallback;
     }
+
+    /**
+     * Resolve all known public IPv4/IPv6 addresses for this server.
+     * Evaluates active ManagedServerIp records, host_facts['public_ips'], install_parameters, and primary ip_address.
+     * Always places the primary server ip_address at the start if valid and present.
+     *
+     * @return list<string>
+     */
+    public function publicIps(): array
+    {
+        $ips = [];
+
+        if ($this->relationLoaded('ips')) {
+            foreach ($this->ips as $ipRecord) {
+                if ($ipRecord->is_active && ManagedServerIp::isPublicAddress($ipRecord->ip)) {
+                    $ips[] = trim((string) $ipRecord->ip);
+                }
+            }
+        } elseif ($this->exists) {
+            $dbIps = ManagedServerIp::query()
+                ->where('managed_server_id', $this->getKey())
+                ->where('is_active', true)
+                ->pluck('ip')
+                ->all();
+            foreach ($dbIps as $ip) {
+                if (ManagedServerIp::isPublicAddress($ip)) {
+                    $ips[] = trim((string) $ip);
+                }
+            }
+        }
+
+        if (is_array($this->host_facts) && ! empty($this->host_facts['public_ips']) && is_array($this->host_facts['public_ips'])) {
+            foreach ($this->host_facts['public_ips'] as $ip) {
+                if (is_string($ip) && ManagedServerIp::isPublicAddress($ip)) {
+                    $ips[] = trim($ip);
+                }
+            }
+        }
+
+        $rows = data_get($this->install_parameters, 'data', []);
+        if (is_array($rows)) {
+            foreach ($rows as $row) {
+                if (is_array($row) && ! empty($row['ip']) && ManagedServerIp::isPublicAddress($row['ip'])) {
+                    $ips[] = trim((string) $row['ip']);
+                }
+            }
+        }
+
+        if (ManagedServerIp::isPublicAddress($this->ip_address)) {
+            $ips[] = trim((string) $this->ip_address);
+        }
+
+        $unique = array_values(array_unique(array_filter($ips, fn ($ip) => $ip !== '')));
+        $primary = trim((string) $this->ip_address);
+        if ($primary !== '' && in_array($primary, $unique, true)) {
+            $unique = array_values(array_diff($unique, [$primary]));
+            array_unshift($unique, $primary);
+        }
+
+        return $unique;
+    }
 }

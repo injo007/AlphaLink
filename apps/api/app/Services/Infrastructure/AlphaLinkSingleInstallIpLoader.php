@@ -69,13 +69,15 @@ class AlphaLinkSingleInstallIpLoader
         $groups = collect($ips)->split($groupCount)->values();
         $rows = [];
 
+        $interfaceMap = is_array($server->host_facts['ip_interface_map'] ?? null) ? $server->host_facts['ip_interface_map'] : [];
+
         foreach ($groups as $groupIndex => $group) {
             $domain = $domains->get($groupIndex);
             $subdomains = $this->subdomainGenerator->generate($group->count());
 
             foreach ($group->values() as $ipIndex => $ip) {
                 $isMain = (string) $server->ip_address === $ip;
-                $rows[] = [
+                $row = [
                     'main' => $isMain,
                     'ip' => $ip,
                     'type' => filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false ? 'ipv4' : 'ipv6',
@@ -83,6 +85,10 @@ class AlphaLinkSingleInstallIpLoader
                     'sub' => $isMain || $ipIndex === 0 ? '' : $subdomains[$ipIndex],
                     'domain' => (string) $domain->name,
                 ];
+                if (isset($interfaceMap[$ip])) {
+                    $row['interface_ip'] = $interfaceMap[$ip];
+                }
+                $rows[] = $row;
             }
         }
 

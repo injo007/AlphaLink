@@ -74,4 +74,50 @@ class AlphaLinkBulkInstallRemoteIpDiscoveryTest extends TestCase
         $this->expectExceptionMessage('Verify the server host before installation.');
         (new SshHostProbe)->discoverGlobalServerIps($server, 'synthetic-secret');
     }
+
+    public function test_it_handles_piped_nat_interface_mapping_output(): void
+    {
+        $probe = new class("57.131.128.106|10.2.1.46\n51.68.165.23|10.2.2.45\n") extends SshHostProbe
+        {
+            public function __construct(private readonly string $output) {}
+
+            public function discoverGlobalServerIps(ManagedServer $server, string $credential, string $credentialType = 'password'): string
+            {
+                return $this->output;
+            }
+        };
+        $server = new ManagedServer([
+            'state' => 'verified',
+            'expected_host_fingerprint' => 'SHA256:internal-pin',
+            'ip_address' => '51.68.165.23',
+        ]);
+
+        $ips = (new AlphaLinkBulkInstallRemoteIpDiscovery($probe, new AlphaLinkBulkInstallIpPlanner))
+            ->discover($server, 'synthetic-secret', 'password');
+
+        $this->assertSame(['51.68.165.23', '57.131.128.106'], $ips);
+    }
+
+    public function test_it_ensures_registered_primary_ip_is_included_when_omitted(): void
+    {
+        $probe = new class("57.131.128.106|10.2.1.46\n") extends SshHostProbe
+        {
+            public function __construct(private readonly string $output) {}
+
+            public function discoverGlobalServerIps(ManagedServer $server, string $credential, string $credentialType = 'password'): string
+            {
+                return $this->output;
+            }
+        };
+        $server = new ManagedServer([
+            'state' => 'verified',
+            'expected_host_fingerprint' => 'SHA256:internal-pin',
+            'ip_address' => '51.68.165.23',
+        ]);
+
+        $ips = (new AlphaLinkBulkInstallRemoteIpDiscovery($probe, new AlphaLinkBulkInstallIpPlanner))
+            ->discover($server, 'synthetic-secret', 'password');
+
+        $this->assertSame(['51.68.165.23', '57.131.128.106'], $ips);
+    }
 }

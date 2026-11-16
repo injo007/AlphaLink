@@ -78,7 +78,25 @@
                             <tr data-server-row data-server-name="{{ $server->name }}" data-server-id="{{ $server->id }}" data-server-ip="{{ $server->ip_address }}">
                                 <td><span style="font-weight: 700;">{{ $server->name }}</span></td>
                                 <td><span class="command-mono-badge">#{{ $server->id }}</span></td>
-                                <td><span style="font-family: monospace; font-weight: 600; color: #6366f1;">{{ $server->ip_address }}</span></td>
+                                <td>
+                                    <div class="d-flex flex-column gap-1">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span style="font-family: monospace; font-weight: 700; color: #6366f1;">{{ $server->ip_address }}</span>
+                                            <span class="badge" style="font-size: 0.65rem; background: rgba(99, 102, 241, 0.15); color: #6366f1; padding: 1px 5px; border-radius: 4px; text-transform: uppercase;">MAIN</span>
+                                        </div>
+                                        @php
+                                            $allPublicIps = $server->publicIps();
+                                            $additionalIps = array_values(array_diff($allPublicIps, [$server->ip_address]));
+                                        @endphp
+                                        @if (! empty($additionalIps))
+                                            <div class="d-flex flex-wrap gap-1 mt-1" style="max-width: 340px;">
+                                                @foreach ($additionalIps as $addIp)
+                                                    <span class="badge" style="font-family: monospace; font-size: 0.72rem; background: rgba(147, 51, 234, 0.12); color: #a855f7; border: 1px solid rgba(147, 51, 234, 0.25); padding: 2px 6px; border-radius: 4px;" title="Additional Public IP">{{ $addIp }}</span>
+                                                @endforeach
+                                            </div>
+                                        @endif
+                                    </div>
+                                </td>
                                 <td>
                                     <div class="command-select-wrapper">
                                         <select class="command-form-control command-select bulk-install-domain" data-domain-select aria-label="Selected domain for {{ $server->name }}" style="height: 34px; padding: 4px 8px; font-size: 0.8125rem;">

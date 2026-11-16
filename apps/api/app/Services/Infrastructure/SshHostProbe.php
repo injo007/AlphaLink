@@ -51,6 +51,17 @@ class SshHostProbe
                 throw new HostProbeException('The host did not return complete OS and architecture facts.');
             }
 
+            try {
+                $rawIpLines = trim($this->run($ssh, $this->publicIpDiscoveryCommand(), 262144));
+                $parsed = $this->parseDiscoveredIpLines($rawIpLines);
+                if ($parsed['ips'] !== []) {
+                    $facts['public_ips'] = $parsed['ips'];
+                    $facts['ip_interface_map'] = $parsed['interface_map'];
+                }
+            } catch (Throwable) {
+                // Non-fatal if public IP resolution is skipped during base facts inspection
+            }
+
             return ['fingerprint' => $fingerprint, 'facts' => $facts];
         } catch (HostProbeException $exception) {
             throw $exception;
@@ -83,12 +94,60 @@ class SshHostProbe
                 throw new HostProbeException('SSH authentication failed. Check the stored credential.');
             }
 
-            return $this->run($ssh, 'ip -o addr show scope global | awk \'{split($4, a, "/"); print a[1]}\'', 262144);
+            return $this->run($ssh, $this->publicIpDiscoveryCommand(), 262144);
         } catch (HostProbeException $exception) {
             throw $exception;
         } catch (Throwable) {
             throw new HostProbeException('Server IP discovery failed. Check the host and try again.');
         }
+    }
+
+    /**
+     * AlphaLink read-only probe command to discover both public and interface-bound addresses.
+     * Resolves 1:1 NAT floating IPs through outbound interface queries while preserving bare-metal public IPs.
+     */
+    public function publicIpDiscoveryCommand(): string
+    {
+        return 'sh -c \''
+            .'raw_ips=$(ip -o addr show scope global | awk "{split(\\$4, a, \\"/\\"); print a[1]}"); '
+            .'for ip in $raw_ips; do '
+            .'case "$ip" in '
+            .'10.*|172.1[6-9].*|172.2[0-9].*|172.3[0-1].*|192.168.*|100.*|127.*) '
+            .'pub=$(curl -fsS --connect-timeout 2 -m 3 --interface "$ip" https://api.ipify.org 2>/dev/null || curl -fsS --connect-timeout 2 -m 3 --interface "$ip" http://checkip.amazonaws.com 2>/dev/null || curl -fsS --connect-timeout 2 -m 3 --interface "$ip" https://icanhazip.com 2>/dev/null); '
+            .'if [ -n "$pub" ]; then echo "$pub|$ip"; else echo "$ip|$ip"; fi ;; '
+            .'*) echo "$ip|$ip" ;; '
+            .'esac; '
+            .'done\'';
+    }
+
+    /**
+     * Parses discovered IP lines into public IP list and interface mapping.
+     *
+     * @return array{ips: list<string>, interface_map: array<string, string>}
+     */
+    public function parseDiscoveredIpLines(string $rawOutput): array
+    {
+        $lines = array_values(array_filter(array_map('trim', preg_split('/\r?\n/', trim($rawOutput)) ?: []), fn (string $line): bool => $line !== ''));
+        $ips = [];
+        $map = [];
+
+        foreach ($lines as $line) {
+            $parts = explode('|', $line, 2);
+            $publicIp = trim($parts[0]);
+            $interfaceIp = isset($parts[1]) ? trim($parts[1]) : $publicIp;
+
+            if (filter_var($publicIp, FILTER_VALIDATE_IP) !== false) {
+                $ips[] = $publicIp;
+                if ($interfaceIp !== '' && filter_var($interfaceIp, FILTER_VALIDATE_IP) !== false) {
+                    $map[$publicIp] = $interfaceIp;
+                }
+            }
+        }
+
+        return [
+            'ips' => array_values(array_unique($ips)),
+            'interface_map' => $map,
+        ];
     }
 
     /**

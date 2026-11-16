@@ -121,6 +121,14 @@ class AlphaLinkCentos9InstallWorkflow
             $primaryDomain = $domainsById[$primaryAssignment['domain_id']];
         }
 
+        $interfaceMap = is_array($hostFacts['ip_interface_map'] ?? null) ? $hostFacts['ip_interface_map'] : [];
+        foreach ($ips as &$ipEntry) {
+            if (! isset($ipEntry['interface_ip']) && isset($interfaceMap[$ipEntry['ip']])) {
+                $ipEntry['interface_ip'] = $interfaceMap[$ipEntry['ip']];
+            }
+        }
+        unset($ipEntry);
+
         $domainProviderReady = [];
         foreach ($domainsById as $domainId => $selectedDomain) {
             $domainProviderReady[$domainId] = $dnsWriter->isDomainAvailable($selectedDomain);

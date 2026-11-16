@@ -408,6 +408,7 @@ class InfrastructureConsoleController extends Controller
             'spf' => ['required', 'boolean'],
             'dkim' => ['required', 'boolean'],
             'dmarc' => ['required', 'boolean'],
+            'clean_dns' => ['sometimes', 'boolean'],
             'data' => ['required', 'array', 'min:1', 'max:128'],
             'data.*.ip' => ['required', 'ip'],
             'data.*.type' => ['required', Rule::in(['ipv4', 'ipv6'])],
@@ -430,6 +431,7 @@ class InfrastructureConsoleController extends Controller
             'dkim' => (bool) $payload['dkim'],
             'dmarc' => (bool) $payload['dmarc'],
             'https' => (bool) $payload['https'],
+            'clean_dns' => (bool) ($payload['clean_dns'] ?? false),
         ];
         $componentOptions = [
             'tracking' => $options['tracking'],
@@ -1363,6 +1365,7 @@ class InfrastructureConsoleController extends Controller
             'dkim' => $payload['dkim'],
             'dmarc' => $payload['dmarc'],
             'https' => $payload['https'],
+            'clean_dns' => (bool) ($payload['clean_dns'] ?? false),
         ];
         $deploymentBlockers = [];
 

@@ -75,7 +75,7 @@
                             </div>
                         </div>
                         <div class="command-trigger-group">
-                            @foreach (['pmta' => 'PMTA', 'tracking' => 'TRACKING', 'https' => 'HTTPS', 'proxy' => 'PROXY', 'imap' => 'IMAP', 'spf' => 'SPF', 'dkim' => 'DKIM', 'dmarc' => 'DMARC'] as $option => $label)
+                            @foreach (['pmta' => 'PMTA', 'tracking' => 'TRACKING', 'https' => 'HTTPS', 'proxy' => 'PROXY', 'imap' => 'IMAP', 'spf' => 'SPF', 'dkim' => 'DKIM', 'dmarc' => 'DMARC', 'clean_dns' => 'CLEAN CLOUDFLARE DNS'] as $option => $label)
                                 <div class="d-inline-flex align-items-center mr-2">
                                     <label class="command-switch mr-2">
                                         <input type="checkbox" id="reinstall-{{ $option }}" data-reinstall-option="{{ $option }}">
@@ -365,7 +365,7 @@
                     if (!response.ok) throw new Error(config.message || config.data || 'Could not load server configuration.');
 
                     document.getElementById('reinstall-pmta-version').value = String(config.pmta_version || 45);
-                    for (const option of ['pmta', 'tracking', 'https', 'proxy', 'imap', 'spf', 'dkim', 'dmarc']) {
+                    for (const option of ['pmta', 'tracking', 'https', 'proxy', 'imap', 'spf', 'dkim', 'dmarc', 'clean_dns']) {
                         const input = document.getElementById(`reinstall-${option}`);
                         if (input) input.checked = Boolean(config[option]);
                     }
@@ -457,7 +457,7 @@
                         domain_id: row.dataset.domainId,
                     }));
                     const payload = {pmta_version: Number(document.getElementById('reinstall-pmta-version').value), data: assignments};
-                    for (const option of ['pmta', 'tracking', 'https', 'proxy', 'imap', 'spf', 'dkim', 'dmarc']) {
+                    for (const option of ['pmta', 'tracking', 'https', 'proxy', 'imap', 'spf', 'dkim', 'dmarc', 'clean_dns']) {
                         payload[option] = document.getElementById(`reinstall-${option}`).checked;
                     }
                     try {

@@ -40,6 +40,7 @@ class AlphaLinkBulkInstallPayloadTest extends TestCase
             'dkim' => false,
             'dmarc' => true,
             'https' => false,
+            'clean_dns' => false,
         ], $result);
     }
 
@@ -95,5 +96,24 @@ class AlphaLinkBulkInstallPayloadTest extends TestCase
             $this->assertArrayHasKey('data.0.domain', $exception->errors());
             $this->assertArrayHasKey('tracking', $exception->errors());
         }
+    }
+
+    public function test_it_preserves_clean_dns_trigger_when_provided(): void
+    {
+        $result = app(AlphaLinkBulkInstallPayload::class)->validateAndNormalize([
+            'data' => [['id' => 'server-uuid', 'domain' => 'domain-uuid']],
+            'key' => '1782155053000',
+            'pmta_version' => 45,
+            'tracking' => true,
+            'proxy' => false,
+            'imap' => false,
+            'spf' => false,
+            'dkim' => false,
+            'dmarc' => false,
+            'https' => false,
+            'clean_dns' => true,
+        ]);
+
+        $this->assertTrue($result['clean_dns']);
     }
 }

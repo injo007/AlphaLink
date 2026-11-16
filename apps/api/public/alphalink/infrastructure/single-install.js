@@ -1,4 +1,4 @@
-const optionNames = ['tracking', 'proxy', 'imap', 'spf', 'dkim', 'dmarc', 'https'];
+const optionNames = ['tracking', 'proxy', 'imap', 'spf', 'dkim', 'dmarc', 'https', 'clean_dns'];
 
 export function buildSingleInstallPayload({ serverId, rows, key, pmtaVersion, switches }) {
     const normalizedServerId = String(serverId ?? '').trim();

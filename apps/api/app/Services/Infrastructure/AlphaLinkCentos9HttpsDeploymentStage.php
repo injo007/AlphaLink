@@ -75,16 +75,22 @@ class AlphaLinkCentos9HttpsDeploymentStage
         $commands->exec("(crontab -l | grep 'certbot') || { crontab -l; echo '0 0 */15 * * certbot renew'; } | crontab -");
 
         // Certbot names the Apache SSL vhost after the certificate's first
-        // hostname (including its dots), e.g. example.com-le-ssl.conf.
+        // hostname (including its dots), e.g. example.com-le-ssl.conf,
+        // or after the conf file containing the port 80 vhost, e.g. example_com-le-ssl.conf.
+        $domainFileName = strtolower(preg_replace('/[^A-Za-z0-9_]+/', '_', str_replace('.', '_', $domain)) ?? '');
         $trackingVhost = '/etc/httpd/conf.d/'.$domain.'-le-ssl.conf';
+        $altTrackingVhost = '/etc/httpd/conf.d/'.$domainFileName.'-le-ssl.conf';
         $trackingRewriteScript = '/<VirtualHost '.chr(92).'*:443>/a'.chr(92)."\n"
             .'    # ALPHALINK_TRACKING_ROUTES'.chr(92)."\n"
             .'    RewriteEngine On'.chr(92)."\n"
             .'    RewriteRule ^/healthz$ /index.php [END,QSA]'.chr(92)."\n"
             .'    RewriteRule ^/([A-Za-z0-9]{10}[roubROUB][A-Za-z0-9_-]{1,4096}(?:/[A-Za-z0-9_-]+)*)$ /index.php?__alphalink_long_uri=$1 [END,QSA,B]';
-        $trackingRewrite = 'if test -f /var/mini/public/index.php && grep -q ALPHALINK_TRACKING_READY /var/mini/public/index.php && test -f '.escapeshellarg($trackingVhost).'; then '
-            ."if ! grep -Fq 'ALPHALINK_TRACKING_ROUTES' ".escapeshellarg($trackingVhost).'; then '
-            .'sed -i '.escapeshellarg($trackingRewriteScript).' '.escapeshellarg($trackingVhost).'; fi; '
+        $trackingRewrite = 'if test -f /var/mini/public/index.php && grep -q ALPHALINK_TRACKING_READY /var/mini/public/index.php; then '
+            .'for vhost in '.escapeshellarg($trackingVhost).' '.escapeshellarg($altTrackingVhost).'; do '
+            .'if test -f "$vhost"; then if ! grep -Fq \'ALPHALINK_TRACKING_ROUTES\' "$vhost"; then '
+            .'sed -i '.escapeshellarg($trackingRewriteScript).' "$vhost"; fi; fi; done; '
+            .'if ! test -f '.escapeshellarg($trackingVhost).' && ! test -f '.escapeshellarg($altTrackingVhost).' && test -s '.escapeshellarg('/etc/letsencrypt/live/'.$domain.'/fullchain.pem').'; then '
+            .'printf \'%s\\n\' "<IfModule mod_ssl.c>" "<VirtualHost *:443>" "    ServerName '.$domain.'" "    DocumentRoot \\"/var/mini/public\\"" "    # ALPHALINK_TRACKING_ROUTES" "    RewriteEngine On" "    RewriteRule ^/healthz$ /index.php [END,QSA]" "    RewriteRule ^/([A-Za-z0-9]{10}[roubROUB][A-Za-z0-9_-]{1,4096}(?:/[A-Za-z0-9_-]+)*)$ /index.php?__alphalink_long_uri=\$1 [END,QSA,B]" "    <Directory /var/mini/public>" "        AllowOverride None" "        Options -Indexes -ExecCGI" "        Require all granted" "    </Directory>" "    SSLEngine on" "    SSLCertificateFile /etc/letsencrypt/live/'.$domain.'/fullchain.pem" "    SSLCertificateKeyFile /etc/letsencrypt/live/'.$domain.'/privkey.pem" "</VirtualHost>" "</IfModule>" > '.escapeshellarg($trackingVhost).'; fi; '
             .'httpd -t && systemctl reload httpd; fi';
         $commands->exec($trackingRewrite);
 

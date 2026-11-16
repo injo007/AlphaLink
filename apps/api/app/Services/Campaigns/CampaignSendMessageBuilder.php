@@ -230,6 +230,9 @@ class CampaignSendMessageBuilder
                     'creative_id' => $context['setup']['creative_asset_id'] ?? null,
                 ],
             );
+        if ($trackingHost !== null) {
+            $unsubscribeUrl = $this->redirectUrlPolicy->campaignTrackingUnsubscribeUrl($trackingHost, $token, $trackingHttpsReady);
+        }
         $tags = [
             'server' => (string) $server->name.(string) $server->getKey(),
             'main_domain' => (string) ($primaryIp?->dns ?: $primaryIp?->domain?->name ?: 'NA'),
@@ -250,6 +253,10 @@ class CampaignSendMessageBuilder
             'boundary' => Str::random(30),
             'reply' => $unsubscribeUrl,
             'click_url' => $clickUrl,
+            'url' => $clickUrl,
+            'unsub' => $unsubscribeUrl,
+            'unsubscribe' => $unsubscribeUrl,
+            'optout' => $unsubscribeUrl,
             'textarea' => '',
             'smtp' => in_array($context['route'], ['ip', 'smtp'], true) ? (string) ($choice['username'] ?? '') : '',
             'smtp_name' => in_array($context['route'], ['ip', 'smtp'], true) ? (string) ($choice['name'] ?? '') : '',

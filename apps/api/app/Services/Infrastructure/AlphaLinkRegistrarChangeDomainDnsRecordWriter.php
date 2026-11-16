@@ -30,6 +30,23 @@ class AlphaLinkRegistrarChangeDomainDnsRecordWriter implements AlphaLinkBulkInst
         };
     }
 
+    public function cleanDomainRecords(SendingDomain $domain): bool
+    {
+        $provider = $this->providerFor($domain);
+        if (! $provider instanceof DomainProvider || ! $provider->is_active) {
+            return false;
+        }
+
+        if (strtolower((string) $provider->type) === 'cloudflare') {
+            $zoneId = $this->cloudflareDnsApi->zoneIdForExactDomain($provider, (string) $domain->name, $domain->provider_domain_id);
+            $this->cloudflareDnsApi->purgeZoneDnsRecords($provider, $zoneId, (string) $domain->name);
+
+            return true;
+        }
+
+        return false;
+    }
+
     public function setHosts(SendingDomain $domain, array $records): bool
     {
         $provider = $this->providerFor($domain);

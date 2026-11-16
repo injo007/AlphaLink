@@ -168,8 +168,9 @@ CONFIG;
         }
 
         $this->validateServerName($host);
+        $resolveArg = escapeshellarg($host.':443:127.0.0.1');
         $health = $commands->exec(
-            'curl --fail --silent --show-error --connect-timeout 5 --max-time 10 --proto '.escapeshellarg('=https').' '
+            'curl --fail --silent --show-error --connect-timeout 5 --max-time 10 --proto '.escapeshellarg('=https').' --resolve '.$resolveArg.' '
                 .escapeshellarg('https://'.$host.'/healthz').' 2>/dev/null | grep -Fxq ALPHALINK_TRACKING_READY '
                 .'&& printf ALPHALINK_TRACKING_HTTPS_HEALTH_READY',
         );
@@ -179,6 +180,7 @@ CONFIG;
 
         $route = $commands->exec(
             'response=$(curl --silent --show-error --connect-timeout 5 --max-time 10 --proto '.escapeshellarg('=https')
+                .' --resolve '.$resolveArg
                 .' -D - -o /dev/null -w '.escapeshellarg('\\nALPHALINK_STATUS:%{http_code}\\n').' '
                 .escapeshellarg('https://'.$host.'/ALPHALINK0rprobe').') && '
                 .'status=$(printf '.escapeshellarg('%s\\n').' "$response" | sed -n '.escapeshellarg('s/^ALPHALINK_STATUS://p').') && '

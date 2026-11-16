@@ -45,6 +45,51 @@ class AlphaLinkBulkInstallDomainRecordStageTest extends TestCase
         ], $logs);
     }
 
+    public function test_clean_dns_option_purges_domain_records_before_setting_hosts(): void
+    {
+        $domain = new SendingDomain(['name' => 'external.example.test', 'is_our' => false]);
+        $resolver = new RecordingPublicIpResolver(['10.0.0.8' => '8.8.8.8']);
+        $cleaned = false;
+        $writer = new class($cleaned) implements AlphaLinkBulkInstallDomainDnsRecordWriter
+        {
+            public function __construct(public bool &$cleaned) {}
+
+            public function isDomainAvailable(SendingDomain $domain): bool
+            {
+                return true;
+            }
+
+            public function cleanDomainRecords(SendingDomain $domain): bool
+            {
+                $this->cleaned = true;
+
+                return true;
+            }
+
+            public function setHosts(SendingDomain $domain, array $records): bool
+            {
+                return true;
+            }
+        };
+        $logs = [];
+
+        $this->stage()->run(
+            $domain,
+            [$this->ip('10.0.0.8')],
+            [...$this->options(), 'clean_dns' => true],
+            's1',
+            'public-key',
+            $resolver,
+            $writer,
+            function (string $message) use (&$logs): void {
+                $logs[] = $message;
+            },
+        );
+
+        $this->assertTrue($cleaned);
+        $this->assertContains('Cleaning existing DNS records in Cloudflare for external.example.test', $logs);
+    }
+
     public function test_install_continues_and_logs_when_cloudflare_zone_lookup_fails(): void
     {
         $domain = new SendingDomain(['name' => 'external.example.test', 'is_our' => false]);
@@ -52,6 +97,11 @@ class AlphaLinkBulkInstallDomainRecordStageTest extends TestCase
         $writer = new class implements AlphaLinkBulkInstallDomainDnsRecordWriter
         {
             public function isDomainAvailable(SendingDomain $domain): bool
+            {
+                return false;
+            }
+
+            public function cleanDomainRecords(SendingDomain $domain): bool
             {
                 return false;
             }
@@ -413,6 +463,11 @@ class RecordingDnsRecordWriter implements AlphaLinkBulkInstallDomainDnsRecordWri
     public function __construct(private readonly bool $result = true) {}
 
     public function isDomainAvailable(SendingDomain $domain): bool
+    {
+        return true;
+    }
+
+    public function cleanDomainRecords(SendingDomain $domain): bool
     {
         return true;
     }

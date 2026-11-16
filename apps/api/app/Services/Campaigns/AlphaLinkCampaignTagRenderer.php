@@ -36,6 +36,12 @@ class AlphaLinkCampaignTagRenderer
             $text,
         ) ?? $text;
 
+        $text = preg_replace(
+            '~(?<![A-Z0-9@._-])(?:https?://)?(?:\[domain\]|[A-Z0-9](?:[A-Z0-9.-]*[A-Z0-9])?)(?::\d+)?/(?:\[rnd(?:un)?_\d+\])?u\[token\]~i',
+            '[unsub]',
+            $text,
+        ) ?? $text;
+
         // Campaign creatives may put the selected-domain tag after an HTTP
         // scheme or use it as a bare URL host. Normalize both forms before
         // resolving the tag so email clients do not default the link to HTTP.
@@ -69,10 +75,15 @@ class AlphaLinkCampaignTagRenderer
             $text = preg_replace('/@\s*\[smtp\]/i', '@'.$smtpDomain, $text) ?? $text;
         }
 
+        $values['url'] ??= $values['click_url'] ?? '';
+        $values['unsub'] ??= $values['unsubscribe'] ?? $values['optout'] ?? $values['reply'] ?? '';
+        $values['unsubscribe'] ??= $values['unsub'] ?? $values['optout'] ?? $values['reply'] ?? '';
+        $values['optout'] ??= $values['unsub'] ?? $values['unsubscribe'] ?? $values['reply'] ?? '';
+
         foreach ([
             'ip', 'rdns', 'domain', 'domain_sld', 'to', 'name', 'from', 'subject', 'date', 'server',
             'main_domain', 'idi', 'idd', 'ids', 'ide', 'boundary', 'reply', 'negative',
-            'token', 'click_url', 'textarea', 'smtp', 'smtp_name', 'tag',
+            'token', 'click_url', 'url', 'unsub', 'unsubscribe', 'optout', 'textarea', 'smtp', 'smtp_name', 'tag',
         ] as $tag) {
             $text = str_ireplace('['.$tag.']', (string) ($values[$tag] ?? ''), $text);
         }

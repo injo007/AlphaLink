@@ -159,6 +159,7 @@ class AlphaLinkCentos9ReinstallWorkflow
                     'spf' => $options['spf'],
                     'dkim' => $options['dkim'],
                     'dmarc' => $options['dmarc'],
+                    'clean_dns' => ! empty($options['clean_dns']),
                 ],
                 $inputs['settings']['dkim_selector'],
                 $inputs['settings']['dkim_public_key'],

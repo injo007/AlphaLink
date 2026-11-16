@@ -44,6 +44,15 @@ class AlphaLinkBulkInstallDomainRecordStage
             return null;
         }
 
+        if (! empty($options['clean_dns'])) {
+            $log('Cleaning existing DNS records in Cloudflare for '.$domain->name);
+            try {
+                $dnsWriter->cleanDomainRecords($domain);
+            } catch (Throwable $exception) {
+                $log('Warning: Clean DNS records failed for '.$domain->name.': '.$exception->getMessage());
+            }
+        }
+
         $recordSummary = $this->recordSummary($records);
         $log('Config Hosts A-AAAA-MX... For '.$domain->name.' ('.$recordSummary.')');
         try {

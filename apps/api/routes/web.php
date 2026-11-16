@@ -139,6 +139,7 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::get('/app/workspaces/{workspace}/tools/encoding/popup', [WorkspaceEncodingConsoleController::class, 'popup'])->name('console.tools.encoding.popup');
     Route::post('/app/workspaces/{workspace}/tools/encoding', [WorkspaceEncodingConsoleController::class, 'encode'])->middleware('throttle:30,1')->name('console.tools.encoding.encode');
     Route::get('/app/workspaces/{workspace}/tools/spf-scanner', [WorkspaceSpfScannerController::class, 'index'])->name('console.tools.spf.index');
+    Route::get('/app/workspaces/{workspace}/tools/spf-scanner/servers', [WorkspaceSpfScannerController::class, 'servers'])->name('console.tools.spf.servers');
     Route::get('/app/workspaces/{workspace}/tools/spf-scanner/domains', [WorkspaceSpfScannerController::class, 'domains'])->name('console.tools.spf.domains');
     Route::get('/app/workspaces/{workspace}/tools/spf-scanner/records', [WorkspaceSpfScannerController::class, 'records'])->name('console.tools.spf.records');
     Route::get('/app/workspaces/{workspace}/tools/spf-scanner/export', [WorkspaceSpfScannerController::class, 'export'])->name('console.tools.spf.export');

@@ -4,6 +4,9 @@ namespace Tests\Feature;
 
 use App\Jobs\RunWorkspaceSpfComparison;
 use App\Jobs\RunWorkspaceSpfScan;
+use App\Models\ManagedServer;
+use App\Models\ManagedServerIp;
+use App\Models\SendingDomain;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceSpfRoot;
@@ -530,6 +533,108 @@ class AlphaLinkSpfScannerTest extends TestCase
             ->assertUnprocessable()->assertJsonValidationErrors('ips');
         $this->actingAs($owner)->postJson(route('console.tools.spf.manual', $workspace->id), ['domains' => array_fill(0, 51, 'example.test')])
             ->assertUnprocessable()->assertJsonValidationErrors('domains');
+    }
+
+    public function test_workspace_servers_endpoint_returns_only_installed_active_servers_and_public_ips(): void
+    {
+        [$owner, $workspace] = $this->workspace();
+
+        $domain = SendingDomain::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'name' => 'servers-test.example.org',
+            'state' => 'verified',
+            'verification_token' => 'fixture-token',
+            'created_by' => $owner->getKey(),
+            'status' => 'free',
+            'is_our' => false,
+            'is_active' => true,
+        ]);
+
+        $installedServer = ManagedServer::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'name' => 'ALPHA_SRV_01',
+            'provider' => 'Hetzer',
+            'ip_address' => '198.51.100.10',
+            'ssh_port' => 22,
+            'ssh_username' => 'root',
+            'state' => 'verified',
+            'is_active' => true,
+            'is_installed' => true,
+            'idempotency_key' => (string) Str::uuid(),
+            'request_fingerprint' => str_repeat('a', 64),
+            'created_by' => $owner->getKey(),
+        ]);
+
+        ManagedServerIp::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'managed_server_id' => $installedServer->getKey(),
+            'sending_domain_id' => $domain->getKey(),
+            'ip' => '198.51.100.11',
+            'type' => 'ipv4',
+            'dns' => 'mta1.servers-test.example.org',
+            'is_active' => true,
+        ]);
+
+        ManagedServerIp::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'managed_server_id' => $installedServer->getKey(),
+            'sending_domain_id' => $domain->getKey(),
+            'ip' => '10.0.0.5',
+            'type' => 'ipv4',
+            'dns' => 'mta-priv.servers-test.example.org',
+            'is_active' => true,
+        ]);
+
+        ManagedServer::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'name' => 'ALPHA_SRV_UNINSTALLED',
+            'provider' => 'Hetzer',
+            'ip_address' => '198.51.100.99',
+            'ssh_port' => 22,
+            'ssh_username' => 'root',
+            'state' => 'pending',
+            'is_active' => true,
+            'is_installed' => false,
+            'idempotency_key' => (string) Str::uuid(),
+            'request_fingerprint' => str_repeat('b', 64),
+            'created_by' => $owner->getKey(),
+        ]);
+
+        ManagedServer::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'name' => 'ALPHA_SRV_INACTIVE',
+            'provider' => 'Hetzer',
+            'ip_address' => '198.51.100.88',
+            'ssh_port' => 22,
+            'ssh_username' => 'root',
+            'state' => 'verified',
+            'is_active' => false,
+            'is_installed' => true,
+            'idempotency_key' => (string) Str::uuid(),
+            'request_fingerprint' => str_repeat('c', 64),
+            'created_by' => $owner->getKey(),
+        ]);
+
+        $response = $this->actingAs($owner)->getJson(route('console.tools.spf.servers', $workspace->id))
+            ->assertOk();
+
+        $servers = $response->json('data');
+        $this->assertCount(1, $servers);
+        $this->assertSame($installedServer->id, $servers[0]['id']);
+        $this->assertSame('ALPHA_SRV_01', $servers[0]['name']);
+        $this->assertSame('198.51.100.10', $servers[0]['ip']);
+        $this->assertEqualsCanonicalizing(['198.51.100.10', '198.51.100.11'], $servers[0]['ips']);
+        $this->assertNotContains('10.0.0.5', $servers[0]['ips']);
+
+        $viewResponse = $this->actingAs($owner)->get(route('console.tools.spf.index', $workspace->id))
+            ->assertOk()
+            ->assertSee('id="spf-servers"', false)
+            ->assertSee('id="spf-servers-reload"', false)
+            ->assertSee('id="spf-ips-count"', false)
+            ->assertSee('ALPHA_SRV_01')
+            ->assertSee('198.51.100.10')
+            ->assertDontSee('ALPHA_SRV_UNINSTALLED')
+            ->assertDontSee('ALPHA_SRV_INACTIVE');
     }
 
     /** @return array{User, Workspace} */

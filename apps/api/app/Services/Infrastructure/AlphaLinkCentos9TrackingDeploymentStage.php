@@ -81,6 +81,7 @@ APACHE;
             $commands->exec('chmod 644 /var/alphalink-tracker/TrackerRequestHandler.php /var/mini/public/index.php');
             $commands->exec('chown root:apache /etc/alphalink-tracker.php');
             $commands->exec('chmod 640 /etc/alphalink-tracker.php');
+            $commands->exec('php -r "require \'/var/alphalink-tracker/TrackerRequestHandler.php\'; \$h = new AlphaLinkTrackerRequestHandler([], fn() => null); \$res = \$h->handle(\'GET\', \'/\', \'\', \'\'); if (!empty(\$res[\'body\'])) { file_put_contents(\'/var/mini/public/index.html\', \$res[\'body\']); mkdir -p /var/www/html; file_put_contents(\'/var/www/html/index.html\', \$res[\'body\']); chmod(\'/var/mini/public/index.html\', 0644); chmod(\'/var/www/html/index.html\', 0644); }"');
 
             $fileName = strtolower(preg_replace('/[^A-Za-z0-9_]+/', '_', str_replace('.', '_', $serverName)) ?? '');
             $serverAliases = array_values(array_unique([$serverIp, ...$subDomains]));

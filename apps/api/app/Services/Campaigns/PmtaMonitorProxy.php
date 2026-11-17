@@ -170,11 +170,10 @@ class PmtaMonitorProxy
             return;
         }
 
-        $routeParameters = ['workspace' => $workspaceId, 'server' => $serverId];
-        if ($remotePath !== '') {
-            $routeParameters['monitorPath'] = $remotePath;
-        }
-        $element->setAttribute($attribute, route('console.pmta-admin.monitor', $routeParameters, false));
+        $route = \Illuminate\Support\Facades\Route::has('clean.console.pmta-admin.monitor')
+            ? route('clean.console.pmta-admin.monitor', array_filter(['server' => $serverId, 'monitorPath' => $remotePath], fn ($v) => $v !== '' && $v !== null), false)
+            : route('console.pmta-admin.monitor', array_filter(['workspace' => $workspaceId, 'server' => $serverId, 'monitorPath' => $remotePath], fn ($v) => $v !== '' && $v !== null), false);
+        $element->setAttribute($attribute, $route);
         if ($attribute === 'href') {
             $element->removeAttribute('target');
         }
@@ -219,11 +218,11 @@ class PmtaMonitorProxy
                 return 'url("")';
             }
 
-            return 'url("'.route('console.pmta-admin.monitor', [
-                'workspace' => $workspaceId,
-                'server' => $serverId,
-                'monitorPath' => $path,
-            ], false).'")';
+            $route = \Illuminate\Support\Facades\Route::has('clean.console.pmta-admin.monitor')
+                ? route('clean.console.pmta-admin.monitor', ['server' => $serverId, 'monitorPath' => $path], false)
+                : route('console.pmta-admin.monitor', ['workspace' => $workspaceId, 'server' => $serverId, 'monitorPath' => $path], false);
+
+            return 'url("'.$route.'")';
         }, $css) ?? $css;
     }
 

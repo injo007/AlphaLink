@@ -95,6 +95,7 @@ class AlphaLinkCentos9HttpsDeploymentStage
             .'sed -i '.escapeshellarg($trackingRewriteScript).' "$vhost"; fi; fi; done; '
             .'if ! test -f '.escapeshellarg($trackingVhost).' && ! test -f '.escapeshellarg($altTrackingVhost).' && test -s '.escapeshellarg('/etc/letsencrypt/live/'.$domain.'/fullchain.pem').'; then '
             .'printf \'%s\\n\' "<IfModule mod_ssl.c>" "<VirtualHost *:443>" "    ServerName '.$domain.'" "    DocumentRoot \\"/var/mini/public\\"" "    # ALPHALINK_TRACKING_ROUTES" "    RewriteEngine On" "    RewriteRule ^/healthz$ /index.php [END,QSA]" "    RewriteRule ^/([A-Za-z0-9]{10}[roubROUB][A-Za-z0-9_-]{1,4096}(?:/[A-Za-z0-9_-]+)*)$ /index.php?__alphalink_long_uri=\$1 [END,QSA,B]" "    <Directory /var/mini/public>" "        AllowOverride None" "        Options -Indexes -ExecCGI" "        Require all granted" "    </Directory>" "    SSLEngine on" "    SSLCertificateFile /etc/letsencrypt/live/'.$domain.'/fullchain.pem" "    SSLCertificateKeyFile /etc/letsencrypt/live/'.$domain.'/privkey.pem" "</VirtualHost>" "</IfModule>" > '.escapeshellarg($trackingVhost).'; fi; '
+            .'if test -f /var/mini/public/index.html; then mkdir -p /var/www/html && cp -p /var/mini/public/index.html /var/www/html/index.html; fi; '
             .'httpd -t && systemctl reload httpd; fi';
         $commands->exec($trackingRewrite);
 

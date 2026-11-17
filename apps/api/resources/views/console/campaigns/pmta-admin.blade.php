@@ -490,7 +490,9 @@
                     directNotice.className = 'alert alert-warning py-1 px-2 mb-2 d-flex align-items-center justify-content-between';
                     directNotice.style.fontSize = '0.75rem';
                     directNotice.style.borderRadius = '8px';
-                    directNotice.style.display = isProxied ? 'none' : 'flex';
+                    directNotice.classList.toggle('d-none', isProxied);
+                    directNotice.classList.toggle('d-flex', !isProxied);
+                    directNotice.style.setProperty('display', isProxied ? 'none' : 'flex', 'important');
                     directNotice.innerHTML = '<span><i class="fas fa-exclamation-triangle mr-1"></i> Direct mode connects to port 1213. If your browser uses a proxy, port 1213 is refused.</span><button type="button" class="btn btn-xs btn-primary font-weight-bold ml-2">Switch to Proxy 443</button>';
 
                     const proxyToggle = document.createElement('button');
@@ -506,7 +508,9 @@
                         proxyToggle.innerHTML = active
                             ? '<i class="fas fa-shield-alt text-purple" aria-hidden="true"></i> <span style="font-size: 0.7rem; font-weight: 600;">Proxy 443</span>'
                             : '<i class="fas fa-external-link-alt" aria-hidden="true"></i> <span style="font-size: 0.7rem; font-weight: 600;">Direct</span>';
-                        directNotice.style.display = active ? 'none' : 'flex';
+                        directNotice.classList.toggle('d-none', active);
+                        directNotice.classList.toggle('d-flex', !active);
+                        directNotice.style.setProperty('display', active ? 'none' : 'flex', 'important');
                     };
                     updateToggleState(isProxied);
                     const toggleProxyState = () => {
@@ -571,7 +575,7 @@
                         return;
                     }
                     if (isProxied || server.dataset.monitorProxied === 'true') {
-                        frame.setAttribute('sandbox', '');
+                        frame.setAttribute('sandbox', 'allow-same-origin');
                         refreshLabel.textContent = 'Read-only monitor via AlphaLink HTTPS (Port 443) · auto refresh 5s';
                     }
                     card.append(heading, directNotice, frame);

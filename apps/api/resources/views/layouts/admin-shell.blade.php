@@ -591,16 +591,16 @@
                                 <li class="command-os-navigation-item {{ ($group['active'] ?? false) ? 'is-active' : '' }} {{ $groupIsDisabled ? 'is-disabled' : '' }}" data-nav-group="{{ $group['navigation_group_key'] ?? $group['label'] ?? '' }}">
                                     <div class="command-os-navigation-row{{ $groupHasChildren ? '' : ' is-standalone' }}">
                                         @if (isset($group['href']) && ! $groupIsDisabled)
-                                            <a class="command-os-navigation-link {{ ($group['active'] ?? false) ? 'active' : '' }}" href="{{ $group['href'] }}" @if (($group['active'] ?? false)) aria-current="page" @endif>
+                                            <a class="command-os-navigation-link {{ ($group['active'] ?? false) ? 'active' : '' }}" href="{{ $group['href'] }}" @if (($group['active'] ?? false)) aria-current="page" @endif @if ($groupHasChildren) data-nav-parent="true" role="button" aria-expanded="{{ $submenuIsOpen ? 'true' : 'false' }}" aria-controls="{{ $submenuId }}" @endif>
                                                 <i class="command-os-navigation-icon {{ $group['icon'] }}" aria-hidden="true"></i><span>{{ $commandOsNavLabel($group['label']) }}</span>
                                             </a>
                                         @else
-                                            <span class="command-os-navigation-link {{ $groupIsDisabled ? 'is-disabled' : '' }}" @if ($groupIsDisabled) aria-disabled="true" title="{{ $group['reason'] }}" @endif>
+                                            <span class="command-os-navigation-link {{ $groupIsDisabled ? 'is-disabled' : '' }}" @if ($groupIsDisabled) aria-disabled="true" title="{{ $group['reason'] }}" @endif @if ($groupHasChildren) data-nav-parent="true" role="button" aria-expanded="{{ $submenuIsOpen ? 'true' : 'false' }}" aria-controls="{{ $submenuId }}" style="cursor: pointer;" @endif>
                                                 <i class="command-os-navigation-icon {{ $group['icon'] }}" aria-hidden="true"></i><span>{{ $commandOsNavLabel($group['label']) }}</span>
                                             </span>
                                         @endif
                                         @if ($groupHasChildren)
-                                            <details class="command-os-navigation-disclosure" name="command-os-navigation"{{ $submenuIsOpen ? ' open' : '' }}>
+                                            <details class="command-os-navigation-disclosure"{{ $submenuIsOpen ? ' open' : '' }}>
                                                 <summary aria-label="Toggle {{ $commandOsNavLabel($group['label']) }} pages" aria-controls="{{ $submenuId }}" title="Toggle {{ $commandOsNavLabel($group['label']) }} pages">
                                                     <i class="fas fa-chevron-down" aria-hidden="true"></i>
                                                 </summary>
@@ -996,6 +996,81 @@
         })();
     </script>
     <script>
+        (() => {
+            // Command OS sidebar: clicking any parent navigation row toggles its dropdown submenu in place without opening/redirecting to another page
+            document.addEventListener('click', (event) => {
+                // Clicking inside a submenu item should navigate normally to that subpage
+                if (event.target.closest('.command-os-navigation-submenu')) {
+                    return;
+                }
+
+                // If user clicks directly on summary chevron, native <details> handles open/close
+                if (event.target.closest('summary')) {
+                    return;
+                }
+
+                // Check if user clicked a parent navigation row (with children)
+                const parentRow = event.target.closest('#sidebar .command-os-navigation-row:not(.is-standalone)');
+                if (!parentRow) {
+                    return;
+                }
+
+                const disclosure = parentRow.querySelector('.command-os-navigation-disclosure');
+                if (!disclosure) {
+                    return;
+                }
+
+                event.preventDefault();
+                event.stopPropagation();
+
+                const willOpen = !disclosure.open;
+                if (willOpen) {
+                    document.querySelectorAll('#sidebar .command-os-navigation-disclosure[open]').forEach((other) => {
+                        if (other !== disclosure) {
+                            other.open = false;
+                            other.closest('.command-os-navigation-row')
+                                ?.querySelector('[data-nav-parent="true"], .command-os-navigation-link')
+                                ?.setAttribute('aria-expanded', 'false');
+                        }
+                    });
+                }
+
+                disclosure.open = willOpen;
+                parentRow.querySelector('[data-nav-parent="true"], .command-os-navigation-link')
+                    ?.setAttribute('aria-expanded', String(willOpen));
+                disclosure.dispatchEvent(new Event('toggle'));
+            });
+
+            // Keep aria-expanded and single-open state synchronized on native toggle events
+            document.addEventListener('toggle', (event) => {
+                const disclosure = event.target.closest('#sidebar .command-os-navigation-disclosure');
+                if (!disclosure) return;
+                const row = disclosure.closest('.command-os-navigation-row');
+                row?.querySelector('[data-nav-parent="true"], .command-os-navigation-link')
+                    ?.setAttribute('aria-expanded', String(disclosure.open));
+
+                if (disclosure.open) {
+                    document.querySelectorAll('#sidebar .command-os-navigation-disclosure[open]').forEach((other) => {
+                        if (other !== disclosure) {
+                            other.open = false;
+                            other.closest('.command-os-navigation-row')
+                                ?.querySelector('[data-nav-parent="true"], .command-os-navigation-link')
+                                ?.setAttribute('aria-expanded', 'false');
+                        }
+                    });
+                }
+            }, true);
+
+            // Handle keyboard accessibility (Space bar on parent toggle)
+            document.addEventListener('keydown', (event) => {
+                if (event.key !== ' ' && event.key !== 'Spacebar') return;
+                const parentToggle = event.target.closest('#sidebar [data-nav-parent="true"]');
+                if (!parentToggle) return;
+                event.preventDefault();
+                parentToggle.click();
+            });
+        })();
+
         if (typeof window.jQuery !== 'function') {
             document.addEventListener('click', (event) => {
                 const toggle = event.target.closest('#sidebar a[data-toggle="submenu"][aria-controls]');

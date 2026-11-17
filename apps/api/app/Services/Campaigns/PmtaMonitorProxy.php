@@ -14,27 +14,45 @@ class PmtaMonitorProxy
     /** @var list<string> */
     private const MONITOR_ASSET_EXTENSIONS = ['css', 'gif', 'png', 'jpg', 'jpeg', 'webp', 'bmp'];
 
-    public function get(ManagedServer $server, int $port, string $path, string $workspaceId): Response
-    {
+    public function get(
+        ManagedServer $server,
+        int $port,
+        string $path,
+        string $workspaceId,
+        string $proxyHost,
+        int $proxyPort,
+        string $proxyUsername = '',
+        string $proxyPassword = '',
+    ): Response {
         $path = trim($path, '/');
         abort_unless(in_array($path, self::MONITOR_PAGES, true) || $this->isStaticAsset($path), 404);
 
         $ip = (string) $server->ip_address;
         abort_unless(filter_var($ip, FILTER_VALIDATE_IP) !== false, 404);
+        abort_unless(filter_var($proxyHost, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false, 503);
+        abort_unless($proxyPort >= 1 && $proxyPort <= 65535, 503);
         $url = rtrim(PmtaPanelUrl::forServer($server, $port), '/').'/'.($path === '' ? '' : $path);
         $remoteHost = (string) parse_url($url, PHP_URL_HOST);
+        $proxy = 'http://'.(trim($proxyUsername) === ''
+            ? ''
+            : rawurlencode($proxyUsername).':'.rawurlencode($proxyPassword).'@')
+            .$proxyHost.':'.$proxyPort;
 
         try {
             $remote = Http::connectTimeout(3)
                 ->timeout(8)
-                ->withOptions(['allow_redirects' => false, 'verify' => false])
+                ->withOptions([
+                    'allow_redirects' => false,
+                    'verify' => false,
+                    'proxy' => $proxy,
+                ])
                 ->get($url);
-        } catch (\Throwable $exception) {
-            return response('PMTA monitor is unavailable.', 502, ['Cache-Control' => 'no-store']);
+        } catch (\Throwable) {
+            return response('The configured PMTA proxy could not connect to the monitor.', 502, ['Cache-Control' => 'no-store']);
         }
 
         if (! $remote->successful()) {
-            return response('PMTA monitor is unavailable.', 502, ['Cache-Control' => 'no-store']);
+            return response('The PMTA monitor proxy returned HTTP '.$remote->status().'.', 502, ['Cache-Control' => 'no-store']);
         }
 
         if ($this->isStaticAsset($path)) {

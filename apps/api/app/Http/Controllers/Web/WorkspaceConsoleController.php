@@ -548,7 +548,37 @@ class WorkspaceConsoleController extends Controller
             ->where('is_installed', true)
             ->firstOrFail();
 
-        return $monitor->get($managedServer, (int) $options['settings']['pmta_admin_port'], $monitorPath, (string) $workspace->getKey());
+        $infrastructure = $workspace->infrastructureSettings;
+        $relayIps = $infrastructure?->pmta_relay_ips;
+        if (! is_array($relayIps)) {
+            $configuredRelayIps = config('infrastructure.bulk_install_settings.pmta_relay_ips', []);
+            $relayIps = is_array($configuredRelayIps)
+                ? $configuredRelayIps
+                : preg_split('/[\s,;]+/', (string) $configuredRelayIps, -1, PREG_SPLIT_NO_EMPTY);
+        }
+        $proxyHost = collect($relayIps)
+            ->map(fn (mixed $ip): string => trim((string) $ip))
+            ->first(fn (string $ip): bool => filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false);
+        $proxyPort = filter_var(
+            $infrastructure?->proxy_port ?? config('infrastructure.bulk_install_settings.proxy_port'),
+            FILTER_VALIDATE_INT,
+        );
+        abort_unless(
+            is_string($proxyHost) && $proxyPort !== false && $proxyPort >= 1 && $proxyPort <= 65535,
+            503,
+            'Configure the PMTA relay proxy IP and proxy port in App Settings before opening the PMTA monitor.',
+        );
+
+        return $monitor->get(
+            $managedServer,
+            (int) $options['settings']['pmta_admin_port'],
+            $monitorPath,
+            (string) $workspace->getKey(),
+            $proxyHost,
+            (int) $proxyPort,
+            (string) ($infrastructure?->proxy_username ?? config('infrastructure.bulk_install_settings.proxy_username', '')),
+            (string) ($infrastructure?->proxy_password ?? config('infrastructure.bulk_install_settings.proxy_password', '')),
+        );
     }
 
     public function pmtaAdminHistory(Request $request, string $workspace): View|JsonResponse
@@ -1896,10 +1926,14 @@ class WorkspaceConsoleController extends Controller
                 'date' => now()->toRfc2822String(),
                 'negative' => $negativePath,
                 'token' => $testToken,
-                'click_url' => $campaign === null ? '' : URL::temporarySignedRoute(
+                'click_url' => $campaign === null ? '' : $redirectUrlPolicy->signedCampaignUrl(
                     'public.campaign-test-click',
                     now()->addYears(10),
                     ['campaign' => $campaign->getKey(), 'token' => $testToken, 'isp_id' => $ispId],
+                    $redirectUrlPolicy->campaignLinkHost(
+                        (string) ($data['domain'] ?? ''),
+                        (string) ($ipTags['ip'] ?? $routeChoice['ip'] ?? $selectedServer->ip_address),
+                    ),
                 ),
                 'boundary' => Str::random(30),
             ];
@@ -2391,10 +2425,9 @@ class WorkspaceConsoleController extends Controller
         }
         $domain = $route === 'vmta'
             ? $vmtaDomain
-            : trim((string) ($ip?->dns ?: $ip?->domain?->name ?: $choice['dns'] ?? ''));
-        if ($route !== 'vmta' && $domain === '') {
-            $domain = trim($domainFallback);
-        }
+            : (trim($domainFallback) !== ''
+                ? trim($domainFallback)
+                : trim((string) ($ip?->dns ?: $ip?->domain?->name ?: $choice['dns'] ?? '')));
         $mainDomain = trim((string) ($primaryIp?->dns ?: $primaryIp?->domain?->name ?: 'NA'));
         $rdns = strtolower(rtrim(trim((string) $ip?->history?->ptr), '.'));
         if ($rdns === '' || $rdns === 'na') {
@@ -2678,10 +2711,14 @@ class WorkspaceConsoleController extends Controller
             'token' => $testToken,
             'boundary' => Str::random(30),
         ];
-        $tagValues['click_url'] = URL::temporarySignedRoute(
+        $tagValues['click_url'] = $redirectUrlPolicy->signedCampaignUrl(
             'public.campaign-test-click',
             now()->addYears(10),
             ['campaign' => $campaign->getKey(), 'token' => $testToken, 'isp_id' => $setup['isp_id'] ?? '0'],
+            $redirectUrlPolicy->campaignLinkHost(
+                (string) ($setup['domain'] ?? ''),
+                (string) ($routeChoice['ip'] ?? $server->ip_address),
+            ),
         );
         $tagCache = [];
         $fromEmail = trim($tagRenderer->render((string) $data['from_email'], $tagValues, $setup['placeholders'] ?? [], 0, $tagCache));

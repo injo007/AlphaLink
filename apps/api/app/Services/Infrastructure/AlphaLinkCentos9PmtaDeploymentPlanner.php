@@ -206,17 +206,9 @@ class AlphaLinkCentos9PmtaDeploymentPlanner
         // Public monitor access is controlled by Nginx. The backend listener
         // is firewalled from the Internet and only trusts the local proxy.
         if ($directMonitor) {
-            foreach (array_values(array_unique($developmentIps)) as $ip) {
-                $allowed .= "http-access {$ip} admin\n";
-            }
-            foreach (array_values(array_unique($pmtaRelayIps)) as $ip) {
-                $allowed .= "http-access {$ip} admin\n";
-            }
-            foreach (array_values(array_unique($productionIps)) as $ip) {
-                $allowed .= "http-access {$ip} monitor\n";
-            }
-            if ($allowAllMonitor) {
-                $allowed .= "http-access 0/0 monitor\n";
+            $monitorProxyIp = array_values(array_unique($pmtaRelayIps))[0] ?? null;
+            if (is_string($monitorProxyIp)) {
+                $allowed .= "http-access {$monitorProxyIp} admin\n";
             }
         }
 
@@ -288,20 +280,16 @@ class AlphaLinkCentos9PmtaDeploymentPlanner
             throw new InvalidArgumentException('The PMTA HTTPS domain must be a valid hostname.');
         }
 
-        $allowed = $allowAllMonitor
-            ? "# ALPHALINK_PMTA_MONITOR_ACCESS_PUBLIC\n"
-            : "# ALPHALINK_PMTA_MONITOR_ACCESS_RESTRICTED\n";
-        if (! $allowAllMonitor) {
-            // AlphaLink's egress also needs the monitor endpoint for its
-            // authenticated, read-only PMTA panel proxy.
-            // The installer also verifies the local HTTP proxy before it
-            // persists the server, so loopback must pass this outer ACL.
-            $allowed .= "allow 127.0.0.1;\n";
-            foreach (array_values(array_unique([...$developmentIps, ...$productionIps, ...$pmtaRelayIps])) as $ip) {
-                $allowed .= "allow {$ip};\n";
-            }
-            $allowed .= "deny all;\n";
+        // The application fetches this endpoint through the configured PMTA
+        // relay proxy. Keep the public monitor private even if older settings
+        // contain operator IPs or the legacy "show to all" switch.
+        $allowed = "# ALPHALINK_PMTA_MONITOR_ACCESS_RESTRICTED\n";
+        $allowed .= "allow 127.0.0.1;\n";
+        $monitorProxyIp = array_values(array_unique($pmtaRelayIps))[0] ?? null;
+        if (is_string($monitorProxyIp)) {
+            $allowed .= "allow {$monitorProxyIp};\n";
         }
+        $allowed .= "deny all;\n";
 
         $adminAllowed = '';
         foreach (array_values(array_unique($pmtaRelayIps)) as $ip) {

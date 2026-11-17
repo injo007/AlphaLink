@@ -12,7 +12,6 @@ use App\Models\WorkspaceCampaignNegative;
 use App\Models\WorkspaceOfferAsset;
 use App\Services\Infrastructure\AlphaLinkBulkInstallVmtaPlanner;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -203,18 +202,24 @@ class CampaignSendMessageBuilder
 
         $from = $context['from_assets'] === [] ? ['id' => 0, 'value' => ''] : $context['from_assets'][($position - 1) % count($context['from_assets'])];
         $subject = $context['subject_assets'] === [] ? ['id' => 0, 'value' => ''] : $context['subject_assets'][($position - 1) % count($context['subject_assets'])];
-        $unsubscribeUrl = URL::temporarySignedRoute(
-            'public.campaign-unsubscribe',
-            now()->addYears(10),
-            ['campaign' => $context['campaign']->getKey(), 'item' => $item->getKey()],
-        );
         $token = $this->campaignToken($context, $item, $choice, $from, $subject);
         $installParameters = (array) $server->install_parameters;
         $trackingHost = $this->redirectUrlPolicy->readyTrackingHost($installParameters);
         $trackingHttpsReady = $trackingHost !== null && (bool) ($installParameters['tracking_https_ready'] ?? false);
+        $campaignLinkHost = $this->redirectUrlPolicy->campaignLinkHost(
+            (string) ($context['domain_fallback'] ?? ''),
+            (string) ($routeIp?->ip ?: $choice['ip'] ?? $server->ip_address),
+        );
+        $unsubscribeParameters = ['campaign' => $context['campaign']->getKey(), 'item' => $item->getKey()];
+        $unsubscribeUrl = $this->redirectUrlPolicy->signedCampaignUrl(
+            'public.campaign-unsubscribe',
+            now()->addYears(10),
+            $unsubscribeParameters,
+            $campaignLinkHost,
+        );
         $clickUrl = $trackingHost !== null
-            ? $this->redirectUrlPolicy->campaignTrackingClickUrl($trackingHost, $token, $trackingHttpsReady)
-            : URL::temporarySignedRoute(
+            ? $this->redirectUrlPolicy->campaignTrackingClickUrl($trackingHost, $token, $trackingHttpsReady, $campaignLinkHost)
+            : $this->redirectUrlPolicy->signedCampaignUrl(
                 'public.campaign-click',
                 now()->addYears(10),
                 [
@@ -229,9 +234,10 @@ class CampaignSendMessageBuilder
                     'subject_id' => $subject['id'] ?? null,
                     'creative_id' => $context['setup']['creative_asset_id'] ?? null,
                 ],
+                $campaignLinkHost,
             );
         if ($trackingHost !== null) {
-            $unsubscribeUrl = $this->redirectUrlPolicy->campaignTrackingUnsubscribeUrl($trackingHost, $token, $trackingHttpsReady);
+            $unsubscribeUrl = $this->redirectUrlPolicy->campaignTrackingUnsubscribeUrl($trackingHost, $token, $trackingHttpsReady, $campaignLinkHost);
         }
         $tags = [
             'server' => (string) $server->name.(string) $server->getKey(),

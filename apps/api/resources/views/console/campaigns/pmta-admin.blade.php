@@ -164,16 +164,9 @@
                     <i class="fas fa-terminal mr-1 text-purple"></i> PMTA Queue &amp; Daemon Controls
                 </h3>
                 <div class="d-flex align-items-center" style="gap: 12px;">
-                    <div class="d-inline-flex align-items-center mr-2" style="gap: 6px;">
+                    <div class="d-inline-flex align-items-center mr-2" style="gap: 6px;" role="status" aria-label="PMTA monitor uses the secure proxy">
                         <span style="font-size: 0.75rem; font-weight: 700; color: var(--command-os-text-muted, #64748b);"><i class="fas fa-network-wired mr-1"></i>MODE:</span>
-                        <label class="mb-0 d-inline-flex align-items-center" style="gap: 4px; font-size: 0.8125rem; font-weight: 600; cursor: pointer;" title="Routes monitor traffic through AlphaLink port 443 (recommended if your network proxy blocks port 1213)">
-                            <input type="radio" id="pmta-mode-proxy" name="pmta-monitor-mode" value="proxy" checked>
-                            <span>Proxy (443)</span>
-                        </label>
-                        <label class="mb-0 d-inline-flex align-items-center" style="gap: 4px; font-size: 0.8125rem; font-weight: 600; cursor: pointer;" title="Direct connection over HTTPS or HTTP">
-                            <input type="radio" id="pmta-mode-auto" name="pmta-monitor-mode" value="auto">
-                            <span>Direct</span>
-                        </label>
+                        <span class="badge-command-pill" title="Monitor traffic stays on AlphaLink HTTPS and uses the configured PMTA relay proxy.">Proxy (443)</span>
                     </div>
                     <span style="font-size: 0.75rem; font-weight: 700; color: var(--command-os-text-muted, #64748b);">GRID:</span>
                     @foreach ([2, 3, 4] as $columns)
@@ -199,7 +192,7 @@
                             </label>
                             <select class="form-control selectpicker" id="pmta-admin-servers" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 5" multiple title="Select Servers">
                                 @foreach ($servers as $server)
-                                    <option value="{{ $server['id'] }}" data-panel-url="{{ $server['pmta_panel_url'] }}" data-monitor-url="{{ $server['pmta_panel_display_url'] }}" data-proxy-url="{{ route('clean.console.pmta-admin.monitor', $server['id'], false) }}" data-monitor-endpoint="{{ $server['ip'] }}:{{ $pmtaAdminPort }}" data-monitor-proxied="{{ $server['pmta_panel_display_url'] !== $server['pmta_panel_url'] ? 'true' : 'false' }}" @selected(in_array((string) $server['id'], $selectedServerIds, true))>{{ $server['name'] }} | {{ $server['ip'] }}</option>
+                                    <option value="{{ $server['id'] }}" data-proxy-url="{{ route('clean.console.pmta-admin.monitor', $server['id'], false) }}" @selected(in_array((string) $server['id'], $selectedServerIds, true))>{{ $server['name'] }} | {{ $server['ip'] }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -311,11 +304,6 @@
                 const input = gridInputs.find((option) => option.value === storedGrid);
                 if (input) input.checked = true;
             }
-            localStorage.setItem('pmta-monitor-mode', 'proxy');
-            let storedMode = 'proxy';
-            const modeInput = document.querySelector('input[name="pmta-monitor-mode"][value="proxy"]');
-            if (modeInput) modeInput.checked = true;
-
             let scheduleTimer = null;
             let restartTimer = null;
             let monitorRefreshTimer = null;
@@ -423,7 +411,6 @@
                 const hasSelectedServers = selected.length > 0;
                 panels.hidden = !hasSelectedServers;
                 const columns = {'2': 6, '3': 4, '4': 3}[document.querySelector('input[name="pmta-grid"]:checked')?.value || '2'];
-                const globalMode = document.querySelector('input[name="pmta-monitor-mode"]:checked')?.value || 'proxy';
                 selected.forEach((server) => {
                     const column = document.createElement('div');
                     column.className = `col-12 col-md-${columns} mb-3`;
@@ -443,29 +430,16 @@
                     refreshLabel.className = 'small text-muted ml-auto pmta-monitor-refresh-label';
                     refreshLabel.textContent = 'Loading · auto refresh 5s';
 
-                    const isProxied = (globalMode === 'proxy') || (globalMode !== 'auto' && Boolean(server.dataset.proxyUrl)) || (server.dataset.monitorProxied === 'true');
-                    const initialBaseUrl = (isProxied && server.dataset.proxyUrl)
-                        ? server.dataset.proxyUrl
-                        : (server.dataset.monitorUrl || server.dataset.panelUrl);
+                    const initialBaseUrl = server.dataset.proxyUrl || '';
 
                     const link = document.createElement('a');
-                    link.href = server.dataset.monitorUrl || server.dataset.panelUrl;
-                    if (initialBaseUrl) link.href = initialBaseUrl;
-                    link.hidden = !server.dataset.panelUrl;
+                    link.href = initialBaseUrl || '#';
+                    link.hidden = initialBaseUrl === '';
                     link.target = '_blank';
                     link.rel = 'noopener noreferrer';
                     link.className = 'ml-1';
-                    link.title = isProxied || server.dataset.monitorProxied === 'true'
-                        ? `Open HTTPS read-only monitor: ${server.dataset.monitorEndpoint} (monitor controls are read-only)`
-                        : `Open PMTA monitor: ${server.dataset.monitorEndpoint}`;
-                    try {
-                        const panelUrl = new URL(server.dataset.panelUrl, window.location.href);
-                        link.textContent = isProxied
-                            ? `HTTPS Proxy (443)`
-                            : `${panelUrl.protocol}//${panelUrl.host}`;
-                    } catch {
-                        link.textContent = isProxied ? 'HTTPS Proxy (443)' : server.textContent.split('|').at(-1).trim();
-                    }
+                    link.title = `Open the read-only PMTA monitor through AlphaLink HTTPS Proxy for ${server.textContent.trim()}`;
+                    link.textContent = 'HTTPS Proxy (443)';
                     const reload = document.createElement('button');
                     reload.type = 'button';
                     reload.className = 'btn-command-action ml-1';
@@ -478,62 +452,12 @@
                     const frame = document.createElement('iframe');
                     frame.title = `PMTA Web Monitor — ${server.textContent.trim()}`;
                     frame.dataset.monitorBase = initialBaseUrl;
-                    frame.dataset.useProxy = isProxied ? 'true' : 'false';
                     frame.referrerPolicy = 'no-referrer';
                     frame.scrolling = 'yes';
                     frame.style.width = '100%';
                     frame.style.height = '500px';
                     frame.style.borderRadius = '10px';
                     frame.style.border = '1px solid var(--command-os-border, rgba(99, 102, 241, 0.15))';
-
-                    const directNotice = document.createElement('div');
-                    directNotice.className = 'alert alert-warning py-1 px-2 mb-2 d-flex align-items-center justify-content-between';
-                    directNotice.style.fontSize = '0.75rem';
-                    directNotice.style.borderRadius = '8px';
-                    directNotice.classList.toggle('d-none', isProxied);
-                    directNotice.classList.toggle('d-flex', !isProxied);
-                    directNotice.style.setProperty('display', isProxied ? 'none' : 'flex', 'important');
-                    directNotice.innerHTML = '<span><i class="fas fa-exclamation-triangle mr-1"></i> Direct mode connects to port 1213. If your browser uses a proxy, port 1213 is refused.</span><button type="button" class="btn btn-xs btn-primary font-weight-bold ml-2">Switch to Proxy 443</button>';
-
-                    const proxyToggle = document.createElement('button');
-                    proxyToggle.type = 'button';
-                    proxyToggle.className = isProxied ? 'btn-command-primary ml-1' : 'btn-command-action ml-1';
-                    proxyToggle.style.padding = '2px 8px';
-                    proxyToggle.style.fontSize = '0.75rem';
-                    const updateToggleState = (active) => {
-                        proxyToggle.title = active
-                            ? 'Using AlphaLink HTTPS Proxy (Port 443). Click to switch to Direct Connection.'
-                            : 'Using Direct Connection. Click to switch to AlphaLink HTTPS Proxy (Port 443).';
-                        proxyToggle.className = active ? 'btn-command-primary ml-1' : 'btn-command-action ml-1';
-                        proxyToggle.innerHTML = active
-                            ? '<i class="fas fa-shield-alt text-purple" aria-hidden="true"></i> <span style="font-size: 0.7rem; font-weight: 600;">Proxy 443</span>'
-                            : '<i class="fas fa-external-link-alt" aria-hidden="true"></i> <span style="font-size: 0.7rem; font-weight: 600;">Direct</span>';
-                        directNotice.classList.toggle('d-none', active);
-                        directNotice.classList.toggle('d-flex', !active);
-                        directNotice.style.setProperty('display', active ? 'none' : 'flex', 'important');
-                    };
-                    updateToggleState(isProxied);
-                    const toggleProxyState = () => {
-                        const nowProxied = frame.dataset.useProxy !== 'true';
-                        frame.dataset.useProxy = nowProxied ? 'true' : 'false';
-                        updateToggleState(nowProxied);
-                        const newUrl = nowProxied
-                            ? (server.dataset.proxyUrl || server.dataset.monitorUrl)
-                            : (server.dataset.panelUrl || server.dataset.monitorUrl);
-                        frame.dataset.monitorBase = newUrl;
-                        link.href = newUrl;
-                        try {
-                            const panelUrl = new URL(server.dataset.panelUrl, window.location.href);
-                            link.textContent = nowProxied ? `HTTPS Proxy (443)` : `${panelUrl.protocol}//${panelUrl.host}`;
-                        } catch {
-                            link.textContent = nowProxied ? 'HTTPS Proxy (443)' : 'Direct';
-                        }
-                        refreshMonitor(frame);
-                    };
-                    proxyToggle.addEventListener('click', toggleProxyState);
-                    directNotice.querySelector('button')?.addEventListener('click', () => {
-                        if (frame.dataset.useProxy !== 'true') toggleProxyState();
-                    });
 
                     frame.addEventListener('load', () => {
                         if (!frame.dataset.monitorRefreshPending) return;
@@ -542,43 +466,27 @@
                     });
                     frame.addEventListener('error', () => {
                         frame.dataset.monitorRefreshPending = 'false';
-                        if (frame.dataset.useProxy !== 'true' && server.dataset.proxyUrl) {
-                            frame.dataset.useProxy = 'true';
-                            updateToggleState(true);
-                            frame.dataset.monitorBase = server.dataset.proxyUrl;
-                            link.href = server.dataset.proxyUrl;
-                            link.textContent = 'HTTPS Proxy (443)';
-                            refreshMonitor(frame);
-                        } else {
-                            refreshLabel.textContent = 'Monitor unavailable · retrying every 5s';
-                        }
+                        refreshLabel.textContent = 'Proxy monitor unavailable · checking again in 5s';
                     });
                     reload.addEventListener('click', () => refreshMonitor(frame));
-                    heading.append(label, link, reload, proxyToggle, refreshLabel);
+                    heading.append(label, link, reload, refreshLabel);
                     let monitorUrl = null;
                     try {
-                        if (!server.dataset.monitorUrl) throw new Error('PMTA monitor URL is unavailable');
-                        monitorUrl = new URL(server.dataset.monitorUrl, window.location.href);
+                        if (!initialBaseUrl) throw new Error('PMTA monitor proxy URL is unavailable');
+                        monitorUrl = new URL(initialBaseUrl, window.location.href);
                     } catch {
                         monitorUrl = null;
                     }
-                    const insecureForPage = window.location.protocol === 'https:'
-                        && monitorUrl?.protocol !== 'https:'
-                        && server.dataset.monitorProxied !== 'true';
-                    if (monitorUrl === null || insecureForPage) {
-                        refreshLabel.textContent = monitorUrl === null
-                            ? 'PMTA monitor URL is unavailable · check the saved server address and installation state'
-                            : 'PMTA monitor is HTTP-only · open the link in a new tab';
+                    if (monitorUrl === null || monitorUrl.origin !== window.location.origin) {
+                        refreshLabel.textContent = 'Secure PMTA monitor proxy is unavailable · check PMTA relay IP and proxy port settings';
                         card.append(heading);
                         column.append(card);
                         panels.append(column);
                         return;
                     }
-                    if (isProxied || server.dataset.monitorProxied === 'true') {
-                        frame.setAttribute('sandbox', 'allow-same-origin');
-                        refreshLabel.textContent = 'Read-only monitor via AlphaLink HTTPS (Port 443) · auto refresh 5s';
-                    }
-                    card.append(heading, directNotice, frame);
+                    frame.setAttribute('sandbox', 'allow-same-origin');
+                    refreshLabel.textContent = 'Read-only monitor via AlphaLink HTTPS Proxy (Port 443) · auto refresh 5s';
+                    card.append(heading, frame);
                     column.append(card);
                     panels.append(column);
                     refreshMonitor(frame);
@@ -763,10 +671,6 @@
             });
             gridInputs.forEach((input) => input.addEventListener('change', () => {
                 localStorage.setItem('pmta-admin-grid', input.value);
-                drawPanels();
-            }));
-            document.querySelectorAll('input[name="pmta-monitor-mode"]').forEach((input) => input.addEventListener('change', () => {
-                localStorage.setItem('pmta-monitor-mode', input.value);
                 drawPanels();
             }));
             document.querySelectorAll('.pmta-admin-action').forEach((button) => button.addEventListener('click', async () => {

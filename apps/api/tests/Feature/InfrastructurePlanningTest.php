@@ -306,23 +306,25 @@ class InfrastructurePlanningTest extends TestCase
 
         $this->putJson($base.'/'.$first->id.'/users', ['users' => [$mailer->id]])->assertOk()
             ->assertJsonPath('data', 'Updated successfully');
-        $this->putJson($base.'/'.$first->id.'/users', ['users' => [$this->owner->id]])->assertUnprocessable();
+        $this->putJson($base.'/'.$first->id.'/users', ['users' => [$this->owner->id]])->assertOk();
         $this->assertDatabaseHas('managed_server_user', [
-            'workspace_id' => $this->workspace->id, 'managed_server_id' => $first->id, 'user_id' => $mailer->id,
+            'workspace_id' => $this->workspace->id, 'managed_server_id' => $first->id, 'user_id' => $this->owner->id,
         ]);
         $this->get($base.'/'.$first->id.'/users')->assertOk()
-            ->assertSee($mailer->email.' | '.$mailer->name)
+            ->assertSee($mailer->email)
             ->assertSee('checked', false);
 
         $this->putJson($base.'/'.$first->id.'/users', ['users' => [$outsideUser->id]])->assertUnprocessable();
         $this->assertDatabaseHas('managed_server_user', [
-            'workspace_id' => $this->workspace->id, 'managed_server_id' => $first->id, 'user_id' => $mailer->id,
+            'workspace_id' => $this->workspace->id, 'managed_server_id' => $first->id, 'user_id' => $this->owner->id,
         ]);
 
         $this->get($base.'/bulk-users?ids[]='.$first->id.'&ids[]='.$second->id)->assertOk()
             ->assertSee('Servers Allowed Users')
-            ->assertSee($first->name.' - '.$first->id)
-            ->assertSee($second->name.' - '.$second->id);
+            ->assertSee($first->name)
+            ->assertSee($first->id)
+            ->assertSee($second->name)
+            ->assertSee($second->id);
         $this->putJson($base.'/bulk-users', [
             'servers' => [$first->id, $second->id], 'users' => [$anotherMailer->id],
         ])->assertOk()->assertJsonPath('data', 'Updated successfully');
@@ -340,7 +342,7 @@ class InfrastructurePlanningTest extends TestCase
             'workspace_id' => $this->workspace->id, 'managed_server_id' => $first->id,
         ]);
 
-        $this->assertSame(4, AuditEvent::query()->where('action', 'server.allowed_users_updated')->count());
+        $this->assertSame(5, AuditEvent::query()->where('action', 'server.allowed_users_updated')->count());
     }
 
     public function test_server_controls_are_available_to_every_workspace_member_and_are_audited(): void

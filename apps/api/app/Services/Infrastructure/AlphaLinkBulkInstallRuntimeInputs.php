@@ -89,6 +89,11 @@ class AlphaLinkBulkInstallRuntimeInputs
                 }
             }
         }
+
+        if ($pmtaRelayIps !== []) {
+            $devIps = array_values(array_unique([...$devIps, ...$pmtaRelayIps]));
+        }
+
         // The requested public-monitor mode is read-only. PMTA administrator
         // commands stay restricted to AlphaLink's relay source / local proxy.
         // Keep older installations moving when no operator IP is configured.

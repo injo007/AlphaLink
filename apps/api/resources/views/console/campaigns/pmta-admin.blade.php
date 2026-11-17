@@ -284,7 +284,7 @@
                 </div>
             </div>
         </div>
-        <p class="small text-muted mb-3" style="font-size: 0.75rem;"><i class="fas fa-shield-alt mr-1"></i> HTTP-only monitors open through AlphaLink’s authenticated HTTPS read-only proxy. Verified PMTA certificates open directly over HTTPS.</p>
+        <p class="small text-muted mb-3" style="font-size: 0.75rem;"><i class="fas fa-shield-alt mr-1"></i> Monitors stream securely through AlphaLink’s authenticated HTTPS proxy on Port 443 (fully compatible with browser proxies, VPNs, and restricted ports). Use Direct mode if your network allows port 1213.</p>
         <div class="row" id="pmta-admin-panels" @if ($selectedServerIds === []) hidden @endif aria-live="polite"></div>
     </div>
 @endsection

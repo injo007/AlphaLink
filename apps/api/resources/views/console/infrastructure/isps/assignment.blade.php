@@ -38,7 +38,7 @@
                                         <input type="checkbox" value="{{ $item->id }}" class="custom-control-input" id="assignment-{{ $field }}-{{ $item->id }}" name="checked_items" @checked(in_array((int) $item->id, array_map('intval', $selectedIds), true))>
                                         <label class="custom-control-label font-w600" for="assignment-{{ $field }}-{{ $item->id }}" style="cursor: pointer; font-size: 12.5px;">
                                             @if ($isUsers)
-                                                <span class="text-purple">{{ $item->username ? $item->username.' | ' : '' }}</span>{{ $item->name }}
+                                                <span class="text-purple">{{ $item->username ? $item->username.' | ' : '' }}</span>{{ $item->name }}@if ($item->pivot?->role || $item->access_role) <span class="badge-command-pill ml-1" style="font-size: 0.6875rem; text-transform: uppercase;">{{ $item->pivot->role ?? $item->access_role }}</span>@endif
                                             @else
                                                 <span class="text-purple">{{ $item->name }}</span>@if ($item->affiliate_id) <small class="text-muted font-mono">({{ $item->affiliate_id }})</small>@endif
                                             @endif

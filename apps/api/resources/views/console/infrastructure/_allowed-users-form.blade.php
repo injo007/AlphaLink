@@ -17,7 +17,7 @@
     <div class="command-form-group">
         <div class="d-flex align-items-center justify-content-between mb-2">
             <label class="command-form-label mb-0">
-                <i class="fas fa-user-check mr-1 text-purple"></i> ALLOWED MAILERS
+                <i class="fas fa-user-check mr-1 text-purple"></i> ALLOWED USERS
             </label>
             <button id="check" class="btn-command-action" type="button" style="padding: 4px 10px; font-size: 0.75rem;">
                 <i class="fas fa-check-double mr-1"></i> TOGGLE ALL
@@ -37,6 +37,7 @@
                                 <span style="font-size: 0.8125rem;">
                                     <strong style="color: var(--command-os-text, #1e293b);">{{ $user->name }}</strong>
                                     <span style="color: var(--command-os-text-muted, #64748b); font-size: 0.75rem;">({{ $user->email }})</span>
+                                    <span class="badge-command-pill ml-1" style="font-size: 0.6875rem; text-transform: uppercase;">{{ $user->pivot->role ?? $user->access_role ?? 'user' }}</span>
                                 </span>
                             </label>
                         </div>

@@ -5,6 +5,7 @@ namespace App\Services\Campaigns;
 use App\Models\ManagedServer;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Route;
 
 class PmtaMonitorProxy
 {
@@ -39,16 +40,21 @@ class PmtaMonitorProxy
             .$proxyHost.':'.$proxyPort;
 
         try {
-            $remote = Http::connectTimeout(3)
-                ->timeout(8)
-                ->withOptions([
-                    'allow_redirects' => false,
-                    'verify' => false,
-                    'proxy' => $proxy,
-                ])
-                ->get($url);
-        } catch (\Throwable) {
-            return response('The configured PMTA proxy could not connect to the monitor.', 502, ['Cache-Control' => 'no-store']);
+            $remote = $this->requestThroughProxy($url, $proxy);
+        } catch (\Throwable $exception) {
+            if (! $this->proxyRejectedHttpsConnect($url, $exception)) {
+                return response('The configured PMTA proxy could not connect to the monitor.', 502, ['Cache-Control' => 'no-store']);
+            }
+
+            // Some configured proxies reject CONNECT to PMTA's nonstandard
+            // monitor port while allowing ordinary HTTP to that same listener.
+            $fallbackUrl = rtrim(PmtaPanelUrl::forInstallation($ip, null, $port, false), '/').'/'.($path === '' ? '' : $path);
+
+            try {
+                $remote = $this->requestThroughProxy($fallbackUrl, $proxy);
+            } catch (\Throwable) {
+                return response('The configured PMTA proxy could not connect to the monitor.', 502, ['Cache-Control' => 'no-store']);
+            }
         }
 
         if (! $remote->successful()) {
@@ -84,6 +90,25 @@ class PmtaMonitorProxy
             'X-Content-Type-Options' => 'nosniff',
             'X-Frame-Options' => 'SAMEORIGIN',
         ]);
+    }
+
+    private function requestThroughProxy(string $url, string $proxy): \Illuminate\Http\Client\Response
+    {
+        return Http::connectTimeout(3)
+            ->timeout(8)
+            ->withOptions([
+                'allow_redirects' => false,
+                'verify' => false,
+                'proxy' => $proxy,
+            ])
+            ->get($url);
+    }
+
+    private function proxyRejectedHttpsConnect(string $url, \Throwable $exception): bool
+    {
+        return strtolower((string) parse_url($url, PHP_URL_SCHEME)) === 'https'
+            && preg_match('/\bCONNECT\b/i', $exception->getMessage()) === 1
+            && preg_match('/\b40[37]\b/', $exception->getMessage()) === 1;
     }
 
     private function makeReadOnly(string $html, string $workspaceId, string $serverId, string $remoteHost, string $serverIp): string
@@ -188,7 +213,7 @@ class PmtaMonitorProxy
             return;
         }
 
-        $route = \Illuminate\Support\Facades\Route::has('clean.console.pmta-admin.monitor')
+        $route = Route::has('clean.console.pmta-admin.monitor')
             ? route('clean.console.pmta-admin.monitor', array_filter(['server' => $serverId, 'monitorPath' => $remotePath], fn ($v) => $v !== '' && $v !== null), false)
             : route('console.pmta-admin.monitor', array_filter(['workspace' => $workspaceId, 'server' => $serverId, 'monitorPath' => $remotePath], fn ($v) => $v !== '' && $v !== null), false);
         $element->setAttribute($attribute, $route);
@@ -236,7 +261,7 @@ class PmtaMonitorProxy
                 return 'url("")';
             }
 
-            $route = \Illuminate\Support\Facades\Route::has('clean.console.pmta-admin.monitor')
+            $route = Route::has('clean.console.pmta-admin.monitor')
                 ? route('clean.console.pmta-admin.monitor', ['server' => $serverId, 'monitorPath' => $path], false)
                 : route('console.pmta-admin.monitor', ['workspace' => $workspaceId, 'server' => $serverId, 'monitorPath' => $path], false);
 

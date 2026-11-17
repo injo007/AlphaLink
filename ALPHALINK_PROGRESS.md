@@ -1,8 +1,13 @@
 # AlphaLink development progress
 
-**Updated:** 2026-11-13
-**Active objective:** Add safe pause and resume controls to large SPF domain scans.
-**Current implementation status:** Commit `0fc55e9` adds per-worker byte checkpoints, batch-boundary pause, resume from committed offsets, and Pause/Resume/Stop controls. PHP syntax, Pint, route registration, Blade JavaScript syntax, and `git diff --check` pass. The commit is verified on GitHub `master` and `fix/tracking-domain-dns`. Deployment is blocked: the SSH credentials in `.env` were rejected during read-only preflight before the guarded installer or any remote command ran. No tests or authenticated live scan were run.
+**Updated:** 2026-11-17
+**Active objective:** Restore PMTA monitor loading through the configured proxy.
+**Current implementation status:** PMTA monitor fallback is implemented locally. PHP lint, targeted PHP 8.5 Pint, and `git diff --check` pass; automated tests were not run. Push, guarded deployment, and post-deploy monitor verification remain pending. Earlier SPF scanner work is summarized below; its latest deployment preflight rejected SSH credentials before any remote command.
+
+### PMTA monitor proxy CONNECT fallback — E-PMTA-108 (2026-11-17)
+
+A read-only AlphaLink production probe through the saved proxy returned HTTP 200 and the PowerMTA monitoring page from `http://209.38.96.157:1213/`; HTTPS CONNECT to `https://zenovara.world:1213/` returned 403. This isolates the observed failure to the HTTPS CONNECT path; the PMTA port itself is reachable over HTTP through the proxy. The exact DMS backend request was not confirmed because its read-only SSH check was rejected. AlphaLink now keeps the verified HTTPS request first and retries the same read-only monitor over HTTP to the server IP through the same configured proxy only when HTTPS CONNECT returns 403/407. The PMTA Admin explanation now describes this behavior. The browser-facing route remains AlphaLink HTTPS. No PMTA host settings or DMS state changed. No automated tests were run; syntax/style checks, push, deployment, and live monitor verification remain pending. Keep DMS-PMTA-002 TESTING.
+
 **Production baseline:** The last recorded deployed release is `28bb06f3611399185ce901e0b224582a427b4b92`; current active release and scan counts could not be checked because SSH authentication failed. This attempt made no remote changes. The 10M-domain / 20-IP benchmark remains unrun, and DNS work remains synchronous within workers.
 
 ### SPF scan activity and resolver performance follow-up — E-TOOLS-51/52 (2026-11-13)

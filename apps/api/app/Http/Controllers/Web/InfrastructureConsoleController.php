@@ -495,7 +495,7 @@ class InfrastructureConsoleController extends Controller
                 ],
             ]);
             $runLauncher->launch((string) $workspace->getKey(), $runId);
-        } catch (RuntimeException $exception) {
+        } catch (\Throwable $exception) {
             $transcripts->append((string) $workspace->getKey(), $runId, now()->format('Y-m-d H:i:s').': Error: '.$exception->getMessage());
             $transcripts->setRunStatus((string) $workspace->getKey(), $runId, 'failed', [], $exception->getMessage());
 
@@ -1431,7 +1431,7 @@ class InfrastructureConsoleController extends Controller
                 'payload' => $payload,
             ]);
             $runLauncher->launch((string) $workspace->getKey(), $runId);
-        } catch (RuntimeException $exception) {
+        } catch (\Throwable $exception) {
             $transcripts->append((string) $workspace->getKey(), $runId, now()->format('[d/m/Y-H:i:s]').' Error: '.$exception->getMessage());
             $transcripts->setRunStatus((string) $workspace->getKey(), $runId, 'failed', [], $exception->getMessage());
 

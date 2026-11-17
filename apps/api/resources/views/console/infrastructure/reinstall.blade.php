@@ -367,7 +367,11 @@
                     document.getElementById('reinstall-pmta-version').value = String(config.pmta_version || 45);
                     for (const option of ['pmta', 'tracking', 'https', 'proxy', 'imap', 'spf', 'dkim', 'dmarc', 'clean_dns']) {
                         const input = document.getElementById(`reinstall-${option}`);
-                        if (input) input.checked = Boolean(config[option]);
+                        if (input) {
+                            input.checked = option === 'https'
+                                ? (config[option] === true || config['pmta_monitor_https'] === true || config[option] === undefined)
+                                : Boolean(config[option]);
+                        }
                     }
                     loadedServerId = requestedServerId;
                     holder.classList.remove('d-none');

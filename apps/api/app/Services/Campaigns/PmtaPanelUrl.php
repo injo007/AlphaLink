@@ -55,13 +55,11 @@ final class PmtaPanelUrl
         bool $https,
         string $serverId,
     ): string {
-        $directUrl = self::forInstallation($ip, $domain, $port, $https);
-
-        if ($directUrl === '' || str_starts_with($directUrl, 'https://')) {
-            return $directUrl;
+        if ($serverId !== '') {
+            return route('clean.console.pmta-admin.monitor', $serverId, false);
         }
 
-        return route('clean.console.pmta-admin.monitor', $serverId, false);
+        return self::forInstallation($ip, $domain, $port, $https);
     }
 
     /** @param array<string, mixed> $parameters */

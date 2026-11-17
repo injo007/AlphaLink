@@ -315,7 +315,7 @@ class AlphaLinkCentos9PmtaDeploymentPlanner
 
         $listen = $tlsDomain === null ? "listen {$adminPort};" : "listen {$adminPort} ssl;";
         $serverName = $tlsDomain === null ? '_' : $tlsDomain;
-        $tls = $tlsDomain === null ? '' : "\n    ssl_certificate /etc/letsencrypt/live/{$tlsDomain}/fullchain.pem;\n    ssl_certificate_key /etc/letsencrypt/live/{$tlsDomain}/privkey.pem;\n    ssl_protocols TLSv1.2 TLSv1.3;\n    error_page 497 301 = https://\$http_host\$request_uri;";
+        $tls = $tlsDomain === null ? '' : "\n    ssl_certificate /etc/letsencrypt/live/{$tlsDomain}/fullchain.pem;\n    ssl_certificate_key /etc/letsencrypt/live/{$tlsDomain}/privkey.pem;\n    ssl_protocols TLSv1.2 TLSv1.3;\n    error_page 497 =301 https://\$http_host\$request_uri;";
 
         return "server {\n    {$listen}\n    server_name {$serverName};{$tls}\n    {$allowed}\n    {$location}\n    error_page 403 @error403;\n    location @error403 {\n        default_type text/html;\n        return 403 \"403\";\n    }\n    error_page 502 @error502;\n    location @error502 {\n        default_type text/html;\n        return 502 \"GONE :(\";\n    }\n}";
     }

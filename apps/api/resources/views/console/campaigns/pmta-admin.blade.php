@@ -311,7 +311,11 @@
                 const input = gridInputs.find((option) => option.value === storedGrid);
                 if (input) input.checked = true;
             }
-            const storedMode = localStorage.getItem('pmta-monitor-mode') || 'proxy';
+            let storedMode = localStorage.getItem('pmta-monitor-mode');
+            if (!storedMode || storedMode === 'auto') {
+                storedMode = 'proxy';
+                localStorage.setItem('pmta-monitor-mode', 'proxy');
+            }
             if (['auto', 'proxy'].includes(storedMode)) {
                 const input = document.querySelector(`input[name="pmta-monitor-mode"][value="${storedMode}"]`);
                 if (input) input.checked = true;
@@ -444,10 +448,10 @@
                     refreshLabel.className = 'small text-muted ml-auto pmta-monitor-refresh-label';
                     refreshLabel.textContent = 'Loading · auto refresh 5s';
 
-                    const isProxied = (globalMode === 'proxy') || (server.dataset.monitorProxied === 'true');
-                    const initialBaseUrl = isProxied && server.dataset.proxyUrl
+                    const isProxied = (globalMode === 'proxy') || (globalMode !== 'auto' && Boolean(server.dataset.proxyUrl)) || (server.dataset.monitorProxied === 'true');
+                    const initialBaseUrl = (isProxied && server.dataset.proxyUrl)
                         ? server.dataset.proxyUrl
-                        : server.dataset.monitorUrl;
+                        : (server.dataset.monitorUrl || server.dataset.panelUrl);
 
                     const link = document.createElement('a');
                     link.href = initialBaseUrl || server.dataset.panelUrl;
@@ -461,10 +465,10 @@
                             ? `HTTPS Proxy (443)`
                             : `${panelUrl.protocol}//${panelUrl.host}`;
                         link.title = isProxied
-                            ? `Open the PMTA monitor through AlphaLink HTTPS. AlphaLink fetches it from ${panelUrl.protocol}//${panelUrl.host}; monitor controls are read-only.`
+                            ? `Open the PMTA monitor through AlphaLink HTTPS (Port 443). AlphaLink fetches it from ${panelUrl.protocol}//${panelUrl.host}; monitor controls are read-only.`
                             : `Open the PMTA monitor at ${panelUrl.protocol}//${panelUrl.host} in a new tab.`;
                     } catch {
-                        link.textContent = server.textContent.split('|').at(-1).trim();
+                        link.textContent = isProxied ? 'HTTPS Proxy (443)' : server.textContent.split('|').at(-1).trim();
                         link.title = 'Open the PMTA monitor in a new tab.';
                     }
                     const reload = document.createElement('button');
@@ -513,7 +517,9 @@
                         try {
                             const panelUrl = new URL(server.dataset.panelUrl, window.location.href);
                             link.textContent = nowProxied ? `HTTPS Proxy (443)` : `${panelUrl.protocol}//${panelUrl.host}`;
-                        } catch {}
+                        } catch {
+                            link.textContent = nowProxied ? 'HTTPS Proxy (443)' : 'Direct';
+                        }
                         refreshMonitor(frame);
                     });
 
@@ -529,6 +535,7 @@
                             updateToggleState(true);
                             frame.dataset.monitorBase = server.dataset.proxyUrl;
                             link.href = server.dataset.proxyUrl;
+                            link.textContent = 'HTTPS Proxy (443)';
                             refreshMonitor(frame);
                         } else {
                             refreshLabel.textContent = 'Monitor unavailable · retrying every 5s';
@@ -555,9 +562,9 @@
                         panels.append(column);
                         return;
                     }
-                    if (server.dataset.monitorProxied === 'true') {
+                    if (isProxied || server.dataset.monitorProxied === 'true') {
                         frame.setAttribute('sandbox', '');
-                        refreshLabel.textContent = 'Read-only monitor via AlphaLink HTTPS · auto refresh 5s';
+                        refreshLabel.textContent = 'Read-only monitor via AlphaLink HTTPS (Port 443) · auto refresh 5s';
                     }
                     card.append(heading, frame);
                     column.append(card);

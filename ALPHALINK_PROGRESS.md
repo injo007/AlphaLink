@@ -1,8 +1,13 @@
 # AlphaLink development progress
 
-**Updated:** 2026-11-16
-**Active objective:** Prevent PMTA manifest drift during fresh setup, asset configuration, deploy, and interrupted-install resume.
-**Current implementation status:** E-TOOLS-57/58 provide per-scan pause, resume, stop, and safe delete controls. Release `9c8a9873734e42e45f10927d1a9aa15fc5a43cd9` is active in production and pushed to `codex/alphalink-identity-reconstruction`; static syntax checks pass. Automated tests and throughput benchmarks were not run.
+**Updated:** 2026-11-17
+**Active objective:** Restore PMTA monitor loading through the configured workspace proxy.
+**Current implementation status:** Saved-server PMTA display URLs now use AlphaLink’s authenticated same-origin route, and monitor requests use saved workspace proxy IP/port/credentials before the optional global SOCKS5 proxy. A denied HTTPS CONNECT retries the same read-only listener over HTTP to the server IP through that proxy. PHP lint, PHP 8.5 Pint, and `git diff --check` pass; automated tests were not run. Push, guarded deployment, and live monitor verification remain pending.
+
+### PMTA monitor workspace proxy and CONNECT fallback — E-PMTA-108 (2026-11-17)
+
+A read-only AlphaLink production probe through the saved proxy returned HTTP 200 and the PowerMTA monitoring page from `http://209.38.96.157:1213/`; HTTPS CONNECT to `https://zenovara.world:1213/` returned 403. The current deployment source had stopped passing the saved workspace proxy IP, port, and credentials to the monitor request, using only an optional global SOCKS5 setting. Saved-server display URLs now always use the authenticated same-origin monitor route, including verified-TLS endpoints. The monitor route passes saved workspace proxy settings first and retains the global SOCKS5 setting as fallback. It retries the read-only monitor at public-IP HTTP only when HTTPS CONNECT is rejected with 403/407. The browser-facing route remains AlphaLink HTTPS. The exact DMS request path could not be independently checked because its read-only SSH attempt was rejected. No PMTA host setting or DMS state changed. Automated tests and post-deploy browser verification remain pending; keep DMS-PMTA-002 TESTING.
+
 **Production baseline:** Release `9c8a9873734e42e45f10927d1a9aa15fc5a43cd9` is active. The guarded installer verified PostgreSQL backup `/var/backups/alphalink/deploy-9c8a9873734e42e45f10927d1a9aa15fc5a43cd9-20261113T190802Z.dump`, found no pending migrations, and passed local HTTPS health. Read-only live-page inspection shows scan 9 remains paused at 61,194 / 193,548 with Resume/Stop/Delete, and legacy stopped rows 1–4 and 8 now have Delete; no scan action or production row mutation was performed. The 10M-domain / 20-IP benchmark remains unrun; 1,000 domains/second is a target, not a measured result.
 
 ### PMTA reviewed asset reconciliation — E-INST-105 (2026-11-16)

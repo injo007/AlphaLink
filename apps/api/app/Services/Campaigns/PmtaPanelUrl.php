@@ -27,9 +27,8 @@ final class PmtaPanelUrl
     /**
      * Return the browser-facing URL for the PMTA monitor.
      *
-     * Direct HTTP monitor URLs are unreliable from an HTTPS AlphaLink page:
-     * browsers may upgrade them to HTTPS even though PMTA only speaks HTTP.
-     * Route those views through AlphaLink's authenticated, read-only proxy.
+     * Keep monitor requests behind AlphaLink so server-specific egress proxy
+     * settings and the read-only response filter apply to every PMTA endpoint.
      */
     public static function displayUrl(ManagedServer $server, int $port): string
     {
@@ -56,13 +55,11 @@ final class PmtaPanelUrl
         bool $https,
         string $serverId,
     ): string {
-        $directUrl = self::forInstallation($ip, $domain, $port, $https);
-
-        if ($directUrl === '' || (self::httpOptions() === [] && str_starts_with($directUrl, 'https://'))) {
-            return $directUrl;
+        if ($serverId !== '') {
+            return route('clean.console.pmta-admin.monitor', $serverId, false);
         }
 
-        return route('clean.console.pmta-admin.monitor', $serverId, false);
+        return self::forInstallation($ip, $domain, $port, $https);
     }
 
     /** @return array<string, string> */

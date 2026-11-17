@@ -548,7 +548,36 @@ class WorkspaceConsoleController extends Controller
             ->where('is_installed', true)
             ->firstOrFail();
 
-        return $monitor->get($managedServer, (int) $options['settings']['pmta_admin_port'], $monitorPath, (string) $workspace->getKey());
+        $infrastructure = $workspace->infrastructureSettings;
+        $relayIps = $infrastructure?->pmta_relay_ips;
+        if (! is_array($relayIps)) {
+            $configuredRelayIps = config('infrastructure.bulk_install_settings.pmta_relay_ips', []);
+            $relayIps = is_array($configuredRelayIps)
+                ? $configuredRelayIps
+                : preg_split('/[\s,;]+/', (string) $configuredRelayIps, -1, PREG_SPLIT_NO_EMPTY);
+        }
+        $proxyHost = collect($relayIps)
+            ->map(fn (mixed $ip): string => trim((string) $ip))
+            ->first(fn (string $ip): bool => filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false);
+        $proxyPort = filter_var(
+            $infrastructure?->proxy_port ?? config('infrastructure.bulk_install_settings.proxy_port'),
+            FILTER_VALIDATE_INT,
+        );
+        $proxyPort = is_int($proxyPort) && $proxyPort >= 1 && $proxyPort <= 65535
+            ? $proxyPort
+            : null;
+        abort_unless($proxyHost === null || $proxyPort !== null, 503, 'Configure a valid PMTA proxy port in App Settings before opening the PMTA monitor.');
+
+        return $monitor->get(
+            $managedServer,
+            (int) $options['settings']['pmta_admin_port'],
+            $monitorPath,
+            (string) $workspace->getKey(),
+            is_string($proxyHost) ? $proxyHost : null,
+            $proxyPort,
+            (string) ($infrastructure?->proxy_username ?? config('infrastructure.bulk_install_settings.proxy_username', '')),
+            (string) ($infrastructure?->proxy_password ?? config('infrastructure.bulk_install_settings.proxy_password', '')),
+        );
     }
 
     public function pmtaAdminHistory(Request $request, string $workspace): View|JsonResponse

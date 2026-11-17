@@ -14,23 +14,45 @@ class PmtaMonitorProxy
     /** @var list<string> */
     private const MONITOR_ASSET_EXTENSIONS = ['css', 'gif', 'png', 'jpg', 'jpeg', 'webp', 'bmp'];
 
-    public function get(ManagedServer $server, int $port, string $path, string $workspaceId): Response
-    {
+    public function get(
+        ManagedServer $server,
+        int $port,
+        string $path,
+        string $workspaceId,
+        ?string $proxyHost = null,
+        ?int $proxyPort = null,
+        string $proxyUsername = '',
+        string $proxyPassword = '',
+    ): Response {
         $path = trim($path, '/');
         abort_unless(in_array($path, self::MONITOR_PAGES, true) || $this->isStaticAsset($path), 404);
 
         $ip = (string) $server->ip_address;
         abort_unless(filter_var($ip, FILTER_VALIDATE_IP) !== false, 404);
+        $httpOptions = $this->proxyOptions($proxyHost, $proxyPort, $proxyUsername, $proxyPassword);
         $url = rtrim(PmtaPanelUrl::forServer($server, $port), '/').'/'.($path === '' ? '' : $path);
         $remoteHost = (string) parse_url($url, PHP_URL_HOST);
 
         try {
             $remote = Http::connectTimeout(3)
                 ->timeout(8)
-                ->withOptions(['allow_redirects' => false, ...PmtaPanelUrl::httpOptions()])
+                ->withOptions(['allow_redirects' => false, ...$httpOptions])
                 ->get($url);
         } catch (\Throwable $exception) {
-            return response('PMTA monitor is unavailable.', 502, ['Cache-Control' => 'no-store']);
+            if (! $this->proxyRejectedHttpsConnect($url, $exception)) {
+                return response('PMTA monitor is unavailable.', 502, ['Cache-Control' => 'no-store']);
+            }
+
+            $fallbackUrl = rtrim(PmtaPanelUrl::forInstallation($ip, null, $port, false), '/').'/'.($path === '' ? '' : $path);
+
+            try {
+                $remote = Http::connectTimeout(3)
+                    ->timeout(8)
+                    ->withOptions(['allow_redirects' => false, ...$httpOptions])
+                    ->get($fallbackUrl);
+            } catch (\Throwable) {
+                return response('PMTA monitor is unavailable.', 502, ['Cache-Control' => 'no-store']);
+            }
         }
 
         if (! $remote->successful()) {
@@ -66,6 +88,30 @@ class PmtaMonitorProxy
             'X-Content-Type-Options' => 'nosniff',
             'X-Frame-Options' => 'SAMEORIGIN',
         ]);
+    }
+
+    /** @return array<string, string> */
+    private function proxyOptions(?string $proxyHost, ?int $proxyPort, string $proxyUsername, string $proxyPassword): array
+    {
+        if ($proxyHost === null || $proxyHost === '') {
+            return PmtaPanelUrl::httpOptions();
+        }
+
+        abort_unless(filter_var($proxyHost, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false, 503);
+        abort_unless($proxyPort !== null && $proxyPort >= 1 && $proxyPort <= 65535, 503);
+
+        $credentials = trim($proxyUsername) === ''
+            ? ''
+            : rawurlencode($proxyUsername).':'.rawurlencode($proxyPassword).'@';
+
+        return ['proxy' => 'http://'.$credentials.$proxyHost.':'.$proxyPort];
+    }
+
+    private function proxyRejectedHttpsConnect(string $url, \Throwable $exception): bool
+    {
+        return strtolower((string) parse_url($url, PHP_URL_SCHEME)) === 'https'
+            && preg_match('/\bCONNECT\b/i', $exception->getMessage()) === 1
+            && preg_match('/\b40[37]\b/', $exception->getMessage()) === 1;
     }
 
     private function makeReadOnly(string $html, string $workspaceId, string $serverId, string $remoteHost, string $serverIp): string

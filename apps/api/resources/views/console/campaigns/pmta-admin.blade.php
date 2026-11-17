@@ -273,7 +273,7 @@
                 </div>
             </div>
         </div>
-        <p class="small text-muted mb-3" style="font-size: 0.75rem;"><i class="fas fa-shield-alt mr-1"></i> HTTP-only monitors open through AlphaLink’s authenticated HTTPS read-only proxy. Verified PMTA certificates open directly over HTTPS.</p>
+        <p class="small text-muted mb-3" style="font-size: 0.75rem;"><i class="fas fa-shield-alt mr-1"></i> PMTA monitors load inside AlphaLink’s authenticated HTTPS page through your configured egress proxy. If that proxy refuses HTTPS CONNECT to the PMTA port, AlphaLink retries the read-only monitor over HTTP to the server IP through the same proxy.</p>
         <div class="row" id="pmta-admin-panels" @if ($selectedServerIds === []) hidden @endif aria-live="polite"></div>
     </div>
 @endsection

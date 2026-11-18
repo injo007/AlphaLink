@@ -147,7 +147,7 @@ class PmtaQueueAdmin
     {
         if (! $response->successful()) {
             if ($response->status() === 403) {
-                throw new RuntimeException('PMTA denied the command with HTTP 403. Verify that the configured relay proxy IP is allowed for /command and that PMTA 4.5/5.0 has http-csrf-protection false.');
+                throw new RuntimeException('PMTA denied the command with HTTP 403. Verify that the configured relay proxy IP is allowed for /command and that PMTA 5.0 has http-csrf-protection false.');
             }
             if ($response->status() === 407) {
                 throw new RuntimeException('The configured PMTA relay proxy rejected authentication with HTTP 407.');

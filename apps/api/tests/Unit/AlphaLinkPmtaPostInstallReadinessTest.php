@@ -89,12 +89,29 @@ class AlphaLinkPmtaPostInstallReadinessTest extends TestCase
         self::assertStringContainsString('pmta-backend-listener', $command);
         self::assertStringContainsString('pmta-no-http-https-redirect', $command);
         self::assertStringContainsString('http-redirect-to-https false', $command);
-        self::assertStringContainsString('pmta-command-csrf-policy', $command);
-        self::assertStringContainsString('http-csrf-protection false', $command);
+        self::assertStringContainsString('pmta-no-unsupported-csrf-directive', $command);
+        self::assertStringContainsString('! grep -Eq', $command);
+        self::assertStringNotContainsString('pmta-command-csrf-policy', $command);
+        self::assertStringNotContainsString('http-csrf-protection false', $command);
         self::assertStringNotContainsString('pmta-public-monitor-listener', $command);
         self::assertStringContainsString("'allow 198.51.100.44;'", $command);
         self::assertStringContainsString('listen 1213;', $command);
         self::assertStringContainsString('server_name _;', $command);
+    }
+
+    public function test_pmta_50_readiness_requires_its_csrf_policy_setting(): void
+    {
+        $command = (new AlphaLinkPmtaPostInstallReadiness)->command(50, [
+            'pmta_admin_port' => 1213,
+            'pmta_relay_ips' => ['198.51.100.44'],
+            'dev_ips' => [],
+            'production_ips' => [],
+            'allow_all_monitor' => true,
+        ]);
+
+        self::assertStringContainsString('pmta-command-csrf-policy', $command);
+        self::assertStringContainsString('http-csrf-protection false', $command);
+        self::assertStringNotContainsString('pmta-no-unsupported-csrf-directive', $command);
     }
 
     public function test_ip_fallback_cannot_be_mistaken_for_https(): void

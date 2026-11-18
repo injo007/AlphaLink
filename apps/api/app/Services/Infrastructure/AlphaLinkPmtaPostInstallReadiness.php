@@ -115,6 +115,11 @@ class AlphaLinkPmtaPostInstallReadiness
 
         if (in_array($version, [45, 50], true)) {
             $checks[] = ['pmta-no-http-https-redirect', ['grep', '-Fqx', 'http-redirect-to-https false', '/etc/pmta/settings/config']];
+        }
+
+        if ($version === 45) {
+            $checks[] = ['pmta-no-unsupported-csrf-directive', ['sh', '-c', '! grep -Eq "^[[:space:]]*http-csrf-protection[[:space:]]" /etc/pmta/settings/config']];
+        } elseif ($version === 50) {
             $checks[] = ['pmta-command-csrf-policy', ['grep', '-Fqx', 'http-csrf-protection false', '/etc/pmta/settings/config']];
         }
 

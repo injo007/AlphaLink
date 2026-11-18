@@ -136,11 +136,17 @@ class AlphaLinkCentos9PmtaDeploymentPlanner
         $operations[] = $this->command("sed -i 's/__PMTA_LISTENER_PORT__/{$pmtaPort}/g' /etc/pmta/settings/config;");
         $operations[] = $this->command("sed -i 's/__PMTA_ADMIN_PORT__/{$httpPort}/g' /etc/pmta/settings/config;");
 
+        if ($version === 45) {
+            // Some PMTA 4.5 builds reject this directive during startup. Remove
+            // any stale copy from a previous attempt before validating readiness.
+            $operations[] = $this->command("sed -i '/^[[:space:]]*http-csrf-protection[[:space:]].*$/d' /etc/pmta/settings/config");
+        }
+
         if (in_array($version, [45, 50], true)) {
             $operations[] = $this->command("echo 'http-redirect-to-https false' >> /etc/pmta/settings/config");
         }
 
-        if (in_array($version, [45, 50], true)) {
+        if ($version === 50) {
             $operations[] = $this->command("echo 'http-csrf-protection false' >> /etc/pmta/settings/config");
         }
 

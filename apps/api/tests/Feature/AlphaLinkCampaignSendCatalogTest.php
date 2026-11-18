@@ -381,6 +381,66 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
         $this->assertNotSame($offer->getKey(), $disabledOffer->getKey());
     }
 
+    public function test_global_admin_can_select_operator_assigned_offers_and_email_lists_without_workspace_membership(): void
+    {
+        $owner = User::factory()->create();
+        $admin = User::factory()->create([
+            'access_role' => User::ACCESS_ROLE_ADMIN,
+            'roles' => [],
+        ]);
+        $workspaceAdmin = User::factory()->create([
+            'access_role' => User::ACCESS_ROLE_OPERATOR,
+            'roles' => [],
+        ]);
+        $operator = User::factory()->create([
+            'access_role' => User::ACCESS_ROLE_OPERATOR,
+            'roles' => [],
+        ]);
+        $workspace = $this->workspace($owner, 'owner');
+        $workspace->users()->attach($workspaceAdmin->getKey(), ['role' => 'admin']);
+        $workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
+        $sponsor = $this->sponsor($workspace, [(int) $operator->getKey()]);
+        $offer = $this->offer($workspace, $sponsor, [
+            'allowed_users' => [(int) $operator->getKey()],
+            'is_active' => true,
+            'suppression_path' => 'admin-suppression.txt',
+            'suppression_updated_at' => now()->toDateString(),
+        ]);
+        $isp = $workspace->isps()->create([
+            'name' => 'Operator-assigned ISP',
+            'is_active' => true,
+            'allowed_users' => [(int) $operator->getKey()],
+            'allowed_sponsors' => [(int) $sponsor->getKey()],
+        ]);
+        $list = $this->list(
+            $workspace,
+            $owner,
+            $isp->getKey(),
+            $sponsor->getKey(),
+            [(int) $operator->getKey()],
+        );
+
+        foreach ([$admin, $workspaceAdmin] as $campaignAdmin) {
+            $this->actingAs($campaignAdmin)
+                ->get(route('console.campaigns.create', $workspace->getKey()))
+                ->assertOk()
+                ->assertSee($sponsor->name);
+
+            $response = $this->actingAs($campaignAdmin)->getJson(route('console.campaigns.send-options', [
+                $workspace->getKey(),
+                'sponsor_id' => $sponsor->getKey(),
+                'isp_id' => $isp->getKey(),
+                'country' => 'US',
+            ]))->assertOk();
+
+            $response->assertJsonPath('data.sponsors.0.id', $sponsor->getKey())
+                ->assertJsonPath('data.offers.0.id', $offer->getKey())
+                ->assertJsonPath('data.isps.0.id', $isp->getKey())
+                ->assertJsonPath('data.lists.0.id', $list->getKey())
+                ->assertJsonPath('data.segments.0.list_id', $list->getKey());
+        }
+    }
+
     public function test_operator_catalog_requires_both_sponsor_and_offer_access_and_scopes_isp_lists_and_servers(): void
     {
         $owner = User::factory()->create();

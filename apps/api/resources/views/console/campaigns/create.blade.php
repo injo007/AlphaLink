@@ -2804,6 +2804,7 @@
                 const element = select(key);
                 const previous = selected ?? (element.multiple ? selectedValues(element) : element.value);
                 const wanted = new Set(Array.isArray(previous) ? previous.map(String) : [String(previous || '')]);
+                element.setAttribute('title', placeholder);
                 element.replaceChildren();
                 if (!element.multiple) {
                     const empty = document.createElement('option');
@@ -2858,7 +2859,10 @@
                 };
                 lastPaintedRoute = selectedRoute;
                 fill('sponsor', data.sponsors, (item) => item.id, (item) => item.name, current.sponsor_id, 'Select Sponsor');
-                fill('offer', data.offers, (item) => item.id, (item) => `(${item.offer_id}) ${item.name} — ${item.vertical}`, current.offer_id, 'Select Offer');
+                const offerPlaceholder = !current.sponsor_id
+                    ? 'Select Sponsor first'
+                    : (data.offers.length === 0 ? 'No selectable offer for this Sponsor' : 'Select Offer');
+                fill('offer', data.offers, (item) => item.id, (item) => `(${item.offer_id}) ${item.name} — ${item.vertical}`, current.offer_id, offerPlaceholder);
                 const selectedOffer = data.offers.find((offer) => String(offer.id) === String(select('offer').value));
                 const selectedAssets = selectedOffer?.assets ?? [];
                 fill('fromAssets', selectedAssets.filter((asset) => asset.type === 'from'), (asset) => asset.id, (asset) => asset.value, current.from_asset_ids, 'Select optional From values');
@@ -2874,8 +2878,14 @@
                     applyHtmlAsset();
                 }
                 lastOfferId = selectedOfferId;
-                fill('isp', data.isps, (item) => item.id, (item) => item.name, current.isp_id, 'Select ISP');
-                fill('lists', data.segments, (item) => item.id, (item) => `${item.name} — ${item.country} — ${String(item.email_type).toUpperCase()} — ${Number(item.recipient_count).toLocaleString()}`, current.audience_segments, 'Select Lists');
+                const ispPlaceholder = !current.sponsor_id
+                    ? 'Select Sponsor first'
+                    : (data.isps.length === 0 ? 'No ISP for this Sponsor' : 'Select ISP');
+                fill('isp', data.isps, (item) => item.id, (item) => item.name, current.isp_id, ispPlaceholder);
+                const listPlaceholder = !current.isp_id
+                    ? 'Select ISP first'
+                    : (data.segments.length === 0 ? 'No selectable email segments for this ISP' : 'Select Lists');
+                fill('lists', data.segments, (item) => item.id, (item) => `${item.name} — ${item.country} — ${String(item.email_type).toUpperCase()} — ${Number(item.recipient_count).toLocaleString()}`, current.audience_segments, listPlaceholder);
                 document.getElementById('campaign-mix-count').textContent = String(data.segments.filter((segment) => segment.is_mix).length);
                 const mixForm = document.getElementById('audience-mix-form');
                 if (mixForm) {

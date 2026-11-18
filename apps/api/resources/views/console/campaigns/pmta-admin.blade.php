@@ -434,6 +434,31 @@
                 return baseUrl;
             };
 
+            const handleMonitorNavigation = (event, frame, refreshLabel) => {
+                const clickedElement = event.target?.nodeType === 1 ? event.target : event.target?.parentElement;
+                const link = clickedElement?.closest?.('a[href]');
+                if (!link || link.getAttribute('aria-disabled') === 'true') return false;
+
+                const baseUrl = new URL(frame.dataset.monitorBase, window.location.href);
+                let destination;
+                try {
+                    destination = new URL(link.href, frame.contentWindow.location.href);
+                } catch {
+                    return false;
+                }
+                if (destination.origin !== window.location.origin
+                    || (destination.pathname !== baseUrl.pathname && !destination.pathname.startsWith(`${baseUrl.pathname}/`))) return false;
+                if (destination.href === frame.contentWindow.location.href) return false;
+
+                event.preventDefault();
+                frame.dataset.monitorNavigationPending = 'true';
+                frame.dataset.monitorRefreshPending = 'false';
+                refreshLabel.textContent = 'Opening PMTA monitor page…';
+                frame.src = destination.toString();
+
+                return true;
+            };
+
             const refreshMonitor = (frame, force = false) => {
                 if (!frame.dataset.monitorBase) return;
                 if (!force && frame.dataset.monitorNavigationPending === 'true') return;
@@ -513,16 +538,7 @@
                         frame.dataset.monitorNavigationPending = 'false';
                         try {
                             frame.contentDocument?.addEventListener('click', (event) => {
-                                const clickedElement = event.target?.nodeType === 1 ? event.target : event.target?.parentElement;
-                                const link = clickedElement?.closest?.('a[href]');
-                                if (!link || link.getAttribute('aria-disabled') === 'true') return;
-                                const destination = new URL(link.href, frame.contentWindow.location.href);
-                                const baseUrl = new URL(frame.dataset.monitorBase, window.location.href);
-                                if (destination.origin !== window.location.origin
-                                    || (destination.pathname !== baseUrl.pathname && !destination.pathname.startsWith(`${baseUrl.pathname}/`))) return;
-                                if (destination.href === frame.contentWindow.location.href) return;
-                                frame.dataset.monitorNavigationPending = 'true';
-                                refreshLabel.textContent = 'Opening PMTA monitor page…';
+                                handleMonitorNavigation(event, frame, refreshLabel);
                             }, true);
                         } catch {}
                         if (!frame.dataset.monitorRefreshPending) {

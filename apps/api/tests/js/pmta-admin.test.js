@@ -27,14 +27,14 @@ function createMonitorRefreshHarness() {
     const refreshMonitor = vm.runInNewContext(`(() => {
         const selectedMonitorTarget = () => 'ip';
         ${monitorRefreshHelpers}
-        return refreshMonitor;
+        return { refreshMonitor, handleMonitorNavigation };
     })()`, {
         Date,
         URL,
         window: { location: { href: `${monitorBase}?server_ids[]=server-id`, origin } },
     });
 
-    return { monitorBase, refreshMonitor };
+    return { monitorBase, ...refreshMonitor };
 }
 
 test('PMTA monitor auto-refresh preserves the page opened inside the monitor', () => {
@@ -66,6 +66,58 @@ test('PMTA monitor auto-refresh does not interrupt a link navigation in progress
 
     assert.equal(frame.src, '');
     assert.equal(frame.dataset.monitorRefreshPending, undefined);
+});
+
+test('PMTA monitor clicks immediately navigate the iframe to the authenticated proxy page', () => {
+    const { monitorBase, handleMonitorNavigation } = createMonitorRefreshHarness();
+    const destination = `${monitorBase}/listqueue?target=ip&domain=smtp.queue`;
+    const frame = {
+        dataset: { monitorBase, monitorNavigationPending: 'false' },
+        contentWindow: { location: { href: monitorBase } },
+        src: '',
+    };
+    const refreshLabel = { textContent: '' };
+    const link = {
+        href: destination,
+        getAttribute: () => null,
+    };
+    const event = {
+        target: { nodeType: 1, closest: (selector) => selector === 'a[href]' ? link : null },
+        preventDefaultCalled: false,
+        preventDefault() { this.preventDefaultCalled = true; },
+    };
+
+    assert.equal(handleMonitorNavigation(event, frame, refreshLabel), true);
+    assert.equal(event.preventDefaultCalled, true);
+    assert.equal(frame.src, destination);
+    assert.equal(frame.dataset.monitorNavigationPending, 'true');
+    assert.equal(refreshLabel.textContent, 'Opening PMTA monitor page…');
+});
+
+test('PMTA monitor navigation ignores external links and disabled controls', () => {
+    const { monitorBase, handleMonitorNavigation } = createMonitorRefreshHarness();
+    const frame = {
+        dataset: { monitorBase, monitorNavigationPending: 'false' },
+        contentWindow: { location: { href: monitorBase } },
+        src: '',
+    };
+    const refreshLabel = { textContent: '' };
+    const externalLink = { href: 'https://outside.example.test/', getAttribute: () => null };
+    const event = {
+        target: { nodeType: 1, closest: () => externalLink },
+        preventDefaultCalled: false,
+        preventDefault() { this.preventDefaultCalled = true; },
+    };
+
+    assert.equal(handleMonitorNavigation(event, frame, refreshLabel), false);
+    assert.equal(event.preventDefaultCalled, false);
+    assert.equal(frame.src, '');
+
+    const disabledLink = { href: `${monitorBase}/queues`, getAttribute: () => 'true' };
+    event.target.closest = () => disabledLink;
+    assert.equal(handleMonitorNavigation(event, frame, refreshLabel), false);
+    assert.equal(event.preventDefaultCalled, false);
+    assert.equal(frame.src, '');
 });
 
 const restartHelperStart = view.indexOf('            let restartRunNumber = 0;');

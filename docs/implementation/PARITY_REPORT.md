@@ -928,3 +928,11 @@ The install transcript stopped at the local tracker health check after `Setup PH
 ### PMTA Admin command HTTP 403 — E-PMTA-111 (2026-11-18)
 
 AlphaLink queue actions previously sent `/command` to the saved PMTA HTTPS domain directly, while the working monitor used the configured relay proxy. Queue actions now use the same saved/environment proxy host, port and credentials and call the PMTA server IP over HTTP. Scheduled actions and automatic queue inspection follow the same path. Production release `9413b6310d5be5d47cc15ba36118179ffc857df7` passed guarded deployment checks. A read-only `show status` request over the relay returned a successful PMTA XML result. No pause, resume, delete, reset or schedule command ran; DMS-PMTA-003/004 remain TESTING until a user-facing queue action is separately confirmed.
+
+### Fresh-install PMTA relay and readiness — E-INST-104 / E-PMTA-112 (2026-11-18)
+
+Fresh Ubuntu installs now preconfigure the current PMTA relay endpoint, securely collect proxy credentials, and derive or accept the proxy's public egress IP list for PMTA's allow rules. PMTA 4.0/4.5/5.0 plans allow every configured egress IP for the monitor and `/command`. Before a server is marked installed or a PMTA reinstall is finalized, AlphaLink must successfully fetch the IP-target monitor HTML and CSS through the configured proxy and run read-only `show status` through that same route. Invalid proxy settings fail before SSH; monitor, stylesheet or command failures prevent completion. Bash syntax, secret parser/proxy-auth fixtures, PHP 8.5 Pint and focused unit suites pass. A fresh host or PMTA target was not changed in this slice, so first-run production outcomes remain unverified; no queue-mutating command was run.
+
+### Campaign redirect domain regression — E-TRACK-48 (2026-11-18)
+
+The campaign send-message regression verifies that `[domain]` resolves to the campaign's selected Domain and a literal redirect host authored in HTML remains unchanged. `CampaignSendExecutionLedgerTest` passes 28 tests / 252 assertions. No live send or click was executed; campaign redirect behavior remains TESTING.

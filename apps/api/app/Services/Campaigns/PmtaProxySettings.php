@@ -23,14 +23,18 @@ final class PmtaProxySettings
             ? $configuredRelayIps
             : preg_split('/[\s,;]+/', (string) $configuredRelayIps, -1, PREG_SPLIT_NO_EMPTY);
 
-        $host = collect(array_merge($savedRelayIps ?: [], $configuredRelayIps ?: []))
-            ->map(fn (mixed $ip): string => trim((string) $ip))
-            ->first(fn (string $ip): bool => filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false);
-        if (! is_string($host)) {
-            $configuredHost = trim((string) config('infrastructure.bulk_install_settings.proxy_host', ''));
+        $configuredHost = trim((string) config('infrastructure.bulk_install_settings.proxy_host', ''));
+        if ($configuredHost !== '') {
             $host = filter_var($configuredHost, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false
                 ? $configuredHost
                 : null;
+        } else {
+            // Older workspaces stored the relay endpoint itself in this field.
+            // Keep that fallback for existing installations, but never let an
+            // auto-detected PMTA source/allowlist IP override an explicit proxy.
+            $host = collect(array_merge($savedRelayIps ?: [], $configuredRelayIps ?: []))
+                ->map(fn (mixed $ip): string => trim((string) $ip))
+                ->first(fn (string $ip): bool => filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false);
         }
 
         $port = filter_var($saved?->proxy_port, FILTER_VALIDATE_INT);
@@ -48,6 +52,9 @@ final class PmtaProxySettings
         }
         if ($password === '') {
             $password = (string) config('infrastructure.bulk_install_settings.proxy_password', '');
+        }
+        if (($username === '') !== ($password === '')) {
+            return null;
         }
 
         $authentication = $username === ''

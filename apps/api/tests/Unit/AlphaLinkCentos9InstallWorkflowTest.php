@@ -27,12 +27,15 @@ use App\Services\Infrastructure\AlphaLinkInstallerRemoteCommandTransport;
 use App\Services\Infrastructure\AlphaLinkInstallerRemoteFileTransport;
 use App\Services\Infrastructure\AlphaLinkInstallerRemoteReadableFileTransport;
 use App\Services\Infrastructure\AlphaLinkInstallPlatform;
+use App\Services\Infrastructure\AlphaLinkPmtaApplicationReadiness;
 use App\Services\Infrastructure\AlphaLinkPmtaDeploymentGate;
 use InvalidArgumentException;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use RuntimeException;
 use Tests\TestCase;
 
+#[AllowMockObjectsWithoutExpectations]
 class AlphaLinkCentos9InstallWorkflowTest extends TestCase
 {
     public function test_it_blocks_before_any_host_operation_when_pmta_evidence_is_not_ready(): void
@@ -58,10 +61,17 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
 
     public function test_it_dispatches_the_non_owned_almalinux_9_row_in_reference_order(): void
     {
-        [$workflow, $gate, $pmta, $completion] = $this->workflow();
+        [$workflow, $gate, $pmta, $completion, $applicationReadiness] = $this->workflow();
         $gate->method('evaluate')->willReturn(['installation_authorized' => true]);
         $pmta->expects($this->once())->method('run');
         $completion->expects($this->once())->method('finalize')->willReturn([]);
+        $applicationReadiness->expects($this->once())
+            ->method('verify')
+            ->with(
+                $this->callback(fn (Workspace $workspace): bool => (string) $workspace->getKey() === 'workspace-one'),
+                $this->callback(fn (ManagedServer $server): bool => (string) $server->getKey() === 'server-one'),
+                8080,
+            );
         $session = new RecordingWorkflowSession;
         $logs = [];
 
@@ -80,7 +90,8 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
             'Setup VMTAS', 'End Setting VMTAS',
             'Setup HTTPS for PMTA Web Monitor', 'End Setting HTTPS for PMTA Web Monitor',
             'Config Firewall', 'End Setting Firewall',
-            'PMTA WEB MONITOR LINK (HTTPS; public port 8080): >>> <a target="_blank" rel="noopener noreferrer" href="https://example.test:8080/">example.test:8080</a>',
+            'PMTA monitor and read-only command access verified through the configured relay proxy',
+            'PMTA WEB MONITOR LINK (HTTP monitor through AlphaLink HTTPS proxy; PMTA listener port 8080): >>> <a target="_blank" rel="noopener noreferrer" href="/pmta-admin/servers/server-one">Open PMTA monitor via AlphaLink HTTPS</a>',
             'Ended Disconnecting',
         ], $logs);
         $this->assertSame("hostnamectl set-hostname 'example.test'", $session->commands[0]);
@@ -112,6 +123,23 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
         $this->runWorkflow($workflow, $session, $logs);
     }
 
+    public function test_it_does_not_finalize_a_server_when_the_application_proxy_cannot_run_a_read_only_pmta_command(): void
+    {
+        [$workflow, $gate, $pmta, $completion, $applicationReadiness] = $this->workflow();
+        $gate->method('evaluate')->willReturn(['installation_authorized' => true]);
+        $pmta->expects($this->once())->method('run');
+        $applicationReadiness->expects($this->once())
+            ->method('verify')
+            ->willThrowException(new RuntimeException('PMTA returned HTTP 403.'));
+        $completion->expects($this->never())->method('finalize');
+        $session = new RecordingWorkflowSession;
+        $logs = [];
+
+        $this->expectExceptionMessage('PMTA returned HTTP 403.');
+
+        $this->runWorkflow($workflow, $session, $logs);
+    }
+
     public function test_pmta_45_verifies_tls_and_the_backend_is_loopback_only_with_one_browser_port(): void
     {
         [$workflow, $gate, $pmta, $completion] = $this->workflow();
@@ -134,14 +162,14 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
         $this->assertStringContainsString('http-access 127.0.0.1 admin', $healthCommand);
         $this->assertStringContainsString('location = /command {', $healthCommand);
         $this->assertStringContainsString('allow 198.51.100.44;', $healthCommand);
-        $this->assertStringContainsString('# ALPHALINK_PMTA_MONITOR_ACCESS_PUBLIC', $healthCommand);
+        $this->assertStringContainsString('# ALPHALINK_PMTA_MONITOR_ACCESS_RESTRICTED', $healthCommand);
         $this->assertStringContainsString('! grep -Fqx "http-access 0/0 admin"', $healthCommand);
         $this->assertStringContainsString('proxy_pass http://127.0.0.1:2426;', $healthCommand);
         $this->assertStringContainsString("'http://127.0.0.1:2426/'", $healthCommand);
         $this->assertStringContainsString("'https://example.test:1213/'", $healthCommand);
         $this->assertStringContainsString('listen 1213 ssl;', $healthCommand);
         $this->assertSame(
-            'PMTA WEB MONITOR LINK (HTTPS; public port 1213): >>> <a target="_blank" rel="noopener noreferrer" href="https://example.test:1213/">example.test:1213</a>',
+            'PMTA WEB MONITOR LINK (HTTP monitor through AlphaLink HTTPS proxy; PMTA listener port 1213): >>> <a target="_blank" rel="noopener noreferrer" href="/pmta-admin/servers/server-one">Open PMTA monitor via AlphaLink HTTPS</a>',
             $logs[count($logs) - 2],
         );
     }
@@ -173,7 +201,7 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
         $this->assertIsString($healthCommand);
         $this->assertStringContainsString('listen 1213 ssl;', $healthCommand);
         $this->assertContains(
-            'PMTA WEB MONITOR LINK (HTTPS; public port 1213): >>> <a target="_blank" rel="noopener noreferrer" href="https://example.test:1213/">example.test:1213</a>',
+            'PMTA WEB MONITOR LINK (HTTP monitor through AlphaLink HTTPS proxy; PMTA listener port 1213): >>> <a target="_blank" rel="noopener noreferrer" href="/pmta-admin/servers/server-one">Open PMTA monitor via AlphaLink HTTPS</a>',
             $logs,
         );
     }
@@ -249,7 +277,7 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
         $configuration = $session->uploads['/etc/nginx/conf.d/default.conf.alphalink-tls-stage'];
         $this->assertStringContainsString('server_name example.test;', $configuration);
         $this->assertContains(
-            'PMTA WEB MONITOR LINK (HTTPS; public port 1213): >>> <a target="_blank" rel="noopener noreferrer" href="https://example.test:1213/">example.test:1213</a>',
+            'PMTA WEB MONITOR LINK (HTTP monitor through AlphaLink HTTPS proxy; PMTA listener port 1213): >>> <a target="_blank" rel="noopener noreferrer" href="/pmta-admin/servers/server-one">Open PMTA monitor via AlphaLink HTTPS</a>',
             $logs,
         );
     }
@@ -576,12 +604,13 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
         $this->assertContains('TXT:@', $secondaryHosts);
     }
 
-    /** @return array{AlphaLinkCentos9InstallWorkflow, AlphaLinkPmtaDeploymentGate&MockObject, AlphaLinkCentos9PmtaDeploymentStage&MockObject, AlphaLinkBulkInstallCompletionWriter&MockObject} */
+    /** @return array{AlphaLinkCentos9InstallWorkflow, AlphaLinkPmtaDeploymentGate&MockObject, AlphaLinkCentos9PmtaDeploymentStage&MockObject, AlphaLinkBulkInstallCompletionWriter&MockObject, AlphaLinkPmtaApplicationReadiness&MockObject} */
     private function workflow(): array
     {
         $gate = $this->createMock(AlphaLinkPmtaDeploymentGate::class);
         $pmta = $this->createMock(AlphaLinkCentos9PmtaDeploymentStage::class);
         $completion = $this->createMock(AlphaLinkBulkInstallCompletionWriter::class);
+        $applicationReadiness = $this->createMock(AlphaLinkPmtaApplicationReadiness::class);
 
         return [new AlphaLinkCentos9InstallWorkflow(
             $gate,
@@ -599,7 +628,8 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
             new AlphaLinkCentos9HttpsDeploymentStage,
             new AlphaLinkCentos9FirewallDeploymentStage(new AlphaLinkCentos9FirewallPlanner),
             $completion,
-        ), $gate, $pmta, $completion];
+            $applicationReadiness,
+        ), $gate, $pmta, $completion, $applicationReadiness];
     }
 
     /**

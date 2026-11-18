@@ -46,7 +46,7 @@ class AlphaLinkCentos9PmtaDeploymentPlannerTest extends TestCase
 
     public function test_it_maps_pmta_45_admin_port_and_nginx_restriction_behavior(): void
     {
-        $plan = $this->planner()->plan(45, true, true, 1212, 8080, ['192.0.2.10'], ['198.51.100.20'], false, 'src __IP__');
+        $plan = $this->planner()->plan(45, true, true, 1212, 8080, ['192.0.2.10'], ['198.51.100.20'], false, 'src __IP__', ['198.51.100.44']);
         $commands = $this->commands($plan['operations']);
         $nginx = $this->remoteContent($plan['operations'], '/etc/nginx/conf.d/default.conf');
 
@@ -57,8 +57,9 @@ class AlphaLinkCentos9PmtaDeploymentPlannerTest extends TestCase
         ], $plan['operations']);
         $this->assertContains("sed -i 's/__PMTA_ADMIN_PORT__/16160/g' /etc/pmta/settings/config;", $commands);
         $this->assertStringContainsString('listen 8080;', $nginx);
-        $this->assertStringContainsString('allow 192.0.2.10;', $nginx);
-        $this->assertStringContainsString('allow 198.51.100.20;', $nginx);
+        $this->assertStringContainsString('allow 198.51.100.44;', $nginx);
+        $this->assertStringNotContainsString('allow 192.0.2.10;', $nginx);
+        $this->assertStringNotContainsString('allow 198.51.100.20;', $nginx);
         $this->assertStringContainsString('allow 127.0.0.1;', $nginx);
         $this->assertStringContainsString('deny all;', $nginx);
         $this->assertStringContainsString('return 302 /;', $nginx);
@@ -82,7 +83,7 @@ class AlphaLinkCentos9PmtaDeploymentPlannerTest extends TestCase
 
     public function test_pmta_45_public_monitor_setting_opens_nginx_only_and_keeps_backend_loopback_only(): void
     {
-        $plan = $this->planner()->plan(45, true, true, 1212, 8080, ['192.0.2.10'], [], true, 'src __IP__');
+        $plan = $this->planner()->plan(45, true, true, 1212, 8080, ['192.0.2.10'], [], true, 'src __IP__', ['198.51.100.44', '198.51.100.45']);
         $commands = $this->commands($plan['operations']);
         $nginx = $this->remoteContent($plan['operations'], '/etc/nginx/conf.d/default.conf');
 
@@ -92,7 +93,10 @@ class AlphaLinkCentos9PmtaDeploymentPlannerTest extends TestCase
         );
         $this->assertStringNotContainsString('http-access 0/0 monitor', implode("\n", $commands));
         $this->assertStringNotContainsString('http-access 0/0 admin', implode("\n", $commands));
-        $this->assertStringContainsString('# ALPHALINK_PMTA_MONITOR_ACCESS_PUBLIC', $nginx);
+        $this->assertStringContainsString('# ALPHALINK_PMTA_MONITOR_ACCESS_RESTRICTED', $nginx);
+        $this->assertStringContainsString('allow 198.51.100.44;', $nginx);
+        $this->assertStringContainsString('allow 198.51.100.45;', $nginx);
+        $this->assertStringNotContainsString('allow 192.0.2.10;', $nginx);
         $this->assertStringContainsString('location = /command {', $nginx);
         $this->assertStringContainsString('deny all;', $nginx);
         $this->assertStringContainsString('listen 8080;', $nginx);
@@ -111,14 +115,14 @@ class AlphaLinkCentos9PmtaDeploymentPlannerTest extends TestCase
             ['198.51.100.20'],
             true,
             $source,
-            ['198.51.100.44'],
+            ['198.51.100.44', '198.51.100.45'],
             true,
         );
         $commands = $this->commands($plan['operations']);
 
         $this->assertContains("sed -i 's/__PMTA_ADMIN_PORT__/1213/g' /etc/pmta/settings/config;", $commands);
         $this->assertContains(
-            "echo -e 'http-access 127.0.0.1 admin\nhttp-access 192.0.2.10 admin\nhttp-access 198.51.100.44 admin\nhttp-access 198.51.100.20 monitor\nhttp-access 0/0 monitor\n' > /etc/pmta/settings/access;",
+            "echo -e 'http-access 127.0.0.1 admin\nhttp-access 198.51.100.44 admin\nhttp-access 198.51.100.45 admin\n' > /etc/pmta/settings/access;",
             $commands,
         );
         $this->assertContains('systemctl disable --now nginx 2>/dev/null || true;', $commands);
@@ -157,7 +161,7 @@ class AlphaLinkCentos9PmtaDeploymentPlannerTest extends TestCase
         $commands = $this->commands($plan['operations']);
 
         $this->assertContains(
-            "echo -e 'http-access 127.0.0.1 admin\nhttp-access 192.0.2.10 admin\nhttp-access 198.51.100.44 admin\nhttp-access 198.51.100.20 monitor\n' > /etc/pmta/settings/access;",
+            "echo -e 'http-access 127.0.0.1 admin\nhttp-access 198.51.100.44 admin\n' > /etc/pmta/settings/access;",
             $commands,
         );
         $this->assertStringNotContainsString('http-access 0/0 monitor', implode("\n", $commands));
@@ -166,15 +170,17 @@ class AlphaLinkCentos9PmtaDeploymentPlannerTest extends TestCase
     public function test_pmta_relay_source_ips_authorize_alpha_link_for_smtp_and_admin_without_public_monitor_access(): void
     {
         $source = "<source __IP__>\n    always-allow-relaying yes\n</source>\n";
-        $plan = $this->planner()->plan(45, true, true, 2525, 1213, [], [], true, $source, ['198.51.100.44']);
+        $plan = $this->planner()->plan(45, true, true, 2525, 1213, [], [], true, $source, ['198.51.100.44', '198.51.100.45']);
         $commands = $this->commands($plan['operations']);
         $nginx = $this->remoteContent($plan['operations'], '/etc/nginx/conf.d/default.conf');
 
         $this->assertContains("echo -e 'http-access 127.0.0.1 admin\n' > /etc/pmta/settings/access;", $commands);
-        $this->assertContains("echo -e '<source 198.51.100.44>\n    always-allow-relaying yes\n</source>\n' >> /etc/pmta/settings/access;", $commands);
+        $this->assertStringContainsString("<source 198.51.100.44>\n    always-allow-relaying yes\n</source>", implode("\n", $commands));
+        $this->assertStringContainsString("<source 198.51.100.45>\n    always-allow-relaying yes\n</source>", implode("\n", $commands));
         $this->assertStringNotContainsString('http-access 0/0 admin', implode("\n", $commands));
         $this->assertStringNotContainsString('http-access 198.51.100.44 admin', implode("\n", $commands));
-        $this->assertStringContainsString("location = /command {\n    allow 198.51.100.44;\n    deny all;", $nginx);
+        $this->assertStringContainsString("location = /command {\n    allow 198.51.100.44;\n    allow 198.51.100.45;\n    deny all;", $nginx);
+        $this->assertStringContainsString('allow 198.51.100.45;', $nginx);
         $this->assertStringContainsString('location ~* ^/(logs|getFile|listqueue|command|editConfig|enterLak|serviceControl)', $nginx);
     }
 

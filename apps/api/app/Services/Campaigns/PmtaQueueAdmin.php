@@ -17,35 +17,24 @@ class PmtaQueueAdmin
      */
     public function run(ManagedServer $server, int $port, string $action, string $queue, array $tags, ?string $proxy = null): array
     {
-        if (filter_var($server->ip_address, FILTER_VALIDATE_IP) === false) {
-            throw new RuntimeException('The selected server does not have a valid IP address.');
-        }
-
         $commands = $this->commands($action, $queue, $tags);
         $results = [];
-        /**
-         * PMTA restricts /command by source IP. Use the HTTP listener at the
-         * server IP so the request stays on the configured relay and avoids a
-         * saved monitor domain's HTTPS redirect/CONNECT path.
-         */
-        $endpoint = rtrim(PmtaPanelUrl::forInstallation((string) $server->ip_address, null, $port, false), '/');
-        if ($endpoint === '') {
-            throw new RuntimeException('The selected server has no valid PMTA endpoint.');
-        }
 
         foreach ($commands as $command) {
-            $request = Http::connectTimeout(3)
-                ->timeout(5)
-                ->withOptions($this->requestOptions($proxy));
-            $response = $request->get($endpoint.'/command', [
-                'format' => 'xml',
-                'command' => $command,
-            ]);
-
-            $results[] = $this->responseResult($response);
+            $results[] = $this->responseResult($this->requestCommand($server, $port, $command, $proxy));
         }
 
         return $results;
+    }
+
+    /**
+     * Verify the configured route with a read-only command during installation.
+     * This prevents a server being marked installed when the relay can load the
+     * monitor but cannot reach PMTA's command endpoint.
+     */
+    public function verifyReadOnlyStatusAccess(ManagedServer $server, int $port, ?string $proxy = null): void
+    {
+        $this->responseResult($this->requestCommand($server, $port, 'show status', $proxy));
     }
 
     /**
@@ -127,6 +116,31 @@ class PmtaQueueAdmin
         }
 
         return $options;
+    }
+
+    private function requestCommand(ManagedServer $server, int $port, string $command, ?string $proxy): Response
+    {
+        if (filter_var($server->ip_address, FILTER_VALIDATE_IP) === false) {
+            throw new RuntimeException('The selected server does not have a valid IP address.');
+        }
+
+        /**
+         * PMTA restricts /command by source IP. Use the HTTP listener at the
+         * server IP so the request stays on the configured relay and avoids a
+         * saved monitor domain's HTTPS redirect/CONNECT path.
+         */
+        $endpoint = rtrim(PmtaPanelUrl::forInstallation((string) $server->ip_address, null, $port, false), '/');
+        if ($endpoint === '') {
+            throw new RuntimeException('The selected server has no valid PMTA endpoint.');
+        }
+
+        return Http::connectTimeout(3)
+            ->timeout(5)
+            ->withOptions($this->requestOptions($proxy))
+            ->get($endpoint.'/command', [
+                'format' => 'xml',
+                'command' => $command,
+            ]);
     }
 
     private function responseResult(Response $response): string

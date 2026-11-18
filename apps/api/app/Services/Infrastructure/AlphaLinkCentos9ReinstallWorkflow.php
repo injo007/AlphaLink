@@ -35,6 +35,7 @@ class AlphaLinkCentos9ReinstallWorkflow
         private readonly AlphaLinkBulkInstallIspCatalog $ispCatalog,
         private readonly AlphaLinkReinstallCompletionWriter $completion,
         private readonly AlphaLinkBulkInstallDomainDnsRecordWriter $dnsWriter,
+        private readonly AlphaLinkPmtaApplicationReadiness $applicationReadiness,
     ) {}
 
     /**
@@ -352,6 +353,7 @@ class AlphaLinkCentos9ReinstallWorkflow
                 $diagnostics = AlphaLinkPmtaPostInstallReadiness::failureDetails($readiness);
                 throw new RuntimeException('PMTA post-reinstall verification failed: '.$diagnostics.'.');
             }
+            $this->applicationReadiness->verify($workspace, $server, $inputs['settings']['pmta_admin_port']);
             $log('PMTA relay and listener ready');
         }
 

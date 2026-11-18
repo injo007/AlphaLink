@@ -206,9 +206,8 @@ class AlphaLinkCentos9PmtaDeploymentPlanner
         // Public monitor access is controlled by Nginx. The backend listener
         // is firewalled from the Internet and only trusts the local proxy.
         if ($directMonitor) {
-            $monitorProxyIp = array_values(array_unique($pmtaRelayIps))[0] ?? null;
-            if (is_string($monitorProxyIp)) {
-                $allowed .= "http-access {$monitorProxyIp} admin\n";
+            foreach (array_values(array_unique($pmtaRelayIps)) as $ip) {
+                $allowed .= "http-access {$ip} admin\n";
             }
         }
 
@@ -285,9 +284,8 @@ class AlphaLinkCentos9PmtaDeploymentPlanner
         // contain operator IPs or the legacy "show to all" switch.
         $allowed = "# ALPHALINK_PMTA_MONITOR_ACCESS_RESTRICTED\n";
         $allowed .= "allow 127.0.0.1;\n";
-        $monitorProxyIp = array_values(array_unique($pmtaRelayIps))[0] ?? null;
-        if (is_string($monitorProxyIp)) {
-            $allowed .= "allow {$monitorProxyIp};\n";
+        foreach (array_values(array_unique($pmtaRelayIps)) as $ip) {
+            $allowed .= "allow {$ip};\n";
         }
         $allowed .= "deny all;\n";
 

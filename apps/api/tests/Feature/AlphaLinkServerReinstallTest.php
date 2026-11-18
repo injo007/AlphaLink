@@ -103,7 +103,7 @@ class AlphaLinkServerReinstallTest extends TestCase
 
         $this->get($this->url())
             ->assertOk()
-            ->assertSee('LOAD CONFIG')
+            ->assertSee('LOAD SAVED CONFIGURATION')
             ->assertSee('WITH IPV6')
             ->assertSee('RELOAD IPS')
             ->assertSee('CONFIG IPS')
@@ -114,7 +114,7 @@ class AlphaLinkServerReinstallTest extends TestCase
             ->assertSee('CONFIG IPS is disabled by ALPHALINK_REINSTALL_IP_CONFIG_EXECUTION_ENABLED.')
             ->assertSee('const reinstallExecutionEnabled = false;', false)
             ->assertSee('const reinstallIpConfigExecutionEnabled = false;', false)
-            ->assertSee('Confirm server reinstall', false)
+            ->assertSee('Confirm Server Reinstallation', false)
             ->assertSee('Owned-domain DNS records may be replaced', false)
             ->assertSee('id="configure-reinstall-ips" disabled', false)
             ->assertSee('id="reinstall-submit" disabled', false)
@@ -133,8 +133,8 @@ class AlphaLinkServerReinstallTest extends TestCase
             ->assertOk()
             ->assertSee('CONFIG IPS is disabled by ALPHALINK_REINSTALL_IP_CONFIG_EXECUTION_ENABLED.')
             ->assertSee('const reinstallExecutionEnabled = true;', false)
-            ->assertSee('Click LOAD CONFIG to review saved IP assignments before reinstalling.', false)
-            ->assertSee('Configuration loaded. Click REINSTALL and confirm to begin.', false)
+            ->assertSee('Select a server, then load its saved configuration before reinstalling.')
+            ->assertSee('Load a server configuration to review its saved IP assignments.')
             ->assertSee('const reinstallIpConfigExecutionEnabled = false;', false)
             ->assertSee('id="reinstall-submit" disabled', false);
     }

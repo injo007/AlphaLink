@@ -82,6 +82,43 @@ valid_public_ipv4() {
     (( first != 203 || second != 0 || third != 113 )) || return 1
 }
 
+valid_ipv4_address() {
+    local address="$1" first second third fourth extra octet numeric
+    local -a octets=()
+
+    [[ "$address" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || return 1
+    IFS=. read -r first second third fourth extra <<< "$address"
+    [[ -z "${extra:-}" ]] || return 1
+    octets=("$first" "$second" "$third" "$fourth")
+    for octet in "${octets[@]}"; do
+        numeric=$((10#$octet))
+        (( numeric <= 255 )) || return 1
+        [[ "$octet" == "$numeric" ]] || return 1
+    done
+}
+
+ipv4_list_contains() {
+    local list=",${1//[[:space:]]/}," address="${2//[[:space:]]/}"
+    [[ "$list" == *",${address},"* ]]
+}
+
+dotenv_quote() {
+    local value="$1"
+    [[ "$value" != *$'\n'* && "$value" != *$'\r'* ]] || return 1
+    value="${value//\\/\\\\}"
+    value="${value//\"/\\\"}"
+    value="${value//\$/\\\$}"
+    printf '"%s"' "$value"
+}
+
+curl_config_quote() {
+    local value="$1"
+    [[ "$value" != *$'\n'* && "$value" != *$'\r'* ]] || return 1
+    value="${value//\\/\\\\}"
+    value="${value//\"/\\\"}"
+    printf '"%s"' "$value"
+}
+
 validate_pmta_relay_ipv4_list() {
     local value="${1//[[:space:]]/}" address
     local -a addresses=()
@@ -154,6 +191,48 @@ for value in addresses if isinstance(addresses, list) else []:
         if (( observations[$address] >= 2 )); then
             verified+=("$address")
         fi
+    done
+    (( ${#verified[@]} > 0 )) || return 1
+
+    printf '%s\n' "${verified[@]}" | sort -Vu | paste -sd, -
+}
+
+detect_proxy_ipv4_egress() {
+    local host="$1" port="$2" username="$3" password="$4" endpoint address auth_file='' response_count=0
+    local -a endpoints=(
+        'http://api4.ipify.org'
+        'http://checkip.amazonaws.com'
+        'http://ipv4.icanhazip.com'
+        'http://v4.ident.me'
+    )
+    local -a verified=()
+    declare -A observations=()
+
+    if [[ -n "$username" ]]; then
+        auth_file="$(mktemp /run/alphalink-proxy-auth.XXXXXX)"
+        chmod 0600 "$auth_file"
+        printf 'proxy-user = %s\n' "$(curl_config_quote "${username}:${password}")" > "$auth_file"
+    fi
+
+    for endpoint in "${endpoints[@]}"; do
+        if [[ -n "$auth_file" ]]; then
+            address="$(curl -q --config "$auth_file" -4 --proxy "http://${host}:${port}" --proxy-basic \
+                --fail --silent --connect-timeout 5 --max-time 10 "$endpoint" 2>/dev/null | tr -d '[:space:]' || true)"
+        else
+        address="$(curl -q -4 --proxy "http://${host}:${port}" --proxy-basic --fail --silent \
+                --connect-timeout 5 --max-time 10 "$endpoint" 2>/dev/null | tr -d '[:space:]' || true)"
+        fi
+        if valid_public_ipv4 "$address"; then
+            observations["$address"]=$(( ${observations[$address]:-0} + 1 ))
+            response_count=$((response_count + 1))
+        fi
+    done
+
+    [[ -z "$auth_file" ]] || rm -f -- "$auth_file"
+    (( response_count >= 2 )) || return 1
+
+    for address in "${!observations[@]}"; do
+        verified+=("$address")
     done
     (( ${#verified[@]} > 0 )) || return 1
 
@@ -1462,24 +1541,29 @@ or fetch, and never saved on the server.
 
 For PMTA-ready setup, upload the private licensed bundle to /root/install-assets
 before running this script; it is detected automatically. The installer
-verifies the app host's outbound IPv4 address through independent HTTPS checks
-and stores it encrypted as PMTA RELAY SOURCE IPS. If checks are unavailable,
-it asks for the address. Deployments refresh automatically managed values, and
-the first PMTA setup in a workspace can initialize a missing value. Enter
-SKIP for the asset prompt only when this is an app-only deployment without PMTA installation.
+defaults to the configured PMTA relay at 37.27.184.206:8977, prompts for its
+credentials without echoing the password, then probes its public egress through
+the proxy and saves the verified source IP in the initial workspace. If proxy
+policy blocks public IP-check services, provide
+ALPHALINK_PMTA_RELAY_SOURCE_IPS explicitly. PMTA server install and reinstall
+must also pass a read-only monitor request and `show status` command through
+this same relay before AlphaLink marks the server installed. Enter SKIP for
+the asset prompt only for an app-only deployment without PMTA installation.
 
 Fresh installs enable single-server and bulk installation execution. The
 --deploy and --resume-initial-install modes enable both switches and refresh
 Laravel's config cache on existing installations. Per-server asset, host,
 credential, DNS, and selected-service checks still run before SSH.
 
-Optional non-secret environment inputs:
+Optional environment inputs (proxy credentials are saved in the protected environment file):
   GITHUB_REPO       owner/repo or https://github.com/owner/repo[.git] (default: injo007/AlphaLink)
   GITHUB_BRANCH     branch to install (default: master)
   ALPHALINK_DOMAIN  DNS hostname for the application
   ACME_EMAIL        Let's Encrypt notification email
   ALPHALINK_SSH_PORT SSH port to keep open in UFW (default: detected/22)
-  ALPHALINK_PMTA_RELAY_SOURCE_IPS Stable public IPv4 egress address(es), comma-separated
+  ALPHALINK_INSTALL_PROXY_HOST / _PORT  PMTA relay proxy endpoint (defaults to 37.27.184.206:8977)
+  ALPHALINK_INSTALL_PROXY_USERNAME / _PASSWORD  Required proxy authentication (entered securely if omitted)
+  ALPHALINK_PMTA_RELAY_SOURCE_IPS / ALPHALINK_INSTALL_PMTA_RELAY_IPS Optional expected proxy egress IPv4 list
 
 The installer creates a new PostgreSQL database, never SQLite. It refuses to
 replace any existing AlphaLink app path, environment, PostgreSQL role, or DB.
@@ -1657,7 +1741,38 @@ else
     fail 'A private PMTA bundle is required for a PMTA-ready install. Upload it to /root/install-assets or enter SKIP to install AlphaLink without PMTA deployment.'
 fi
 
-PMTA_RELAY_SOURCE_IPS="${ALPHALINK_PMTA_RELAY_SOURCE_IPS:-}"
+PMTA_PROXY_HOST="${ALPHALINK_INSTALL_PROXY_HOST:-${Proxy_HOST:-37.27.184.206}}"
+PMTA_PROXY_PORT="${ALPHALINK_INSTALL_PROXY_PORT:-${Proxy_PORT:-8977}}"
+PMTA_PROXY_USERNAME="${ALPHALINK_INSTALL_PROXY_USERNAME:-${Proxy_USERNAME:-}}"
+PMTA_PROXY_PASSWORD="${ALPHALINK_INSTALL_PROXY_PASSWORD:-${Proxy_PASSWORD:-}}"
+if [[ -z "${ALPHALINK_INSTALL_PROXY_HOST:-${Proxy_HOST:-}}" ]]; then
+    read -r -p "PMTA HTTP relay proxy IPv4 [${PMTA_PROXY_HOST}]: " entered_proxy_host
+    PMTA_PROXY_HOST="${entered_proxy_host:-$PMTA_PROXY_HOST}"
+fi
+valid_ipv4_address "$PMTA_PROXY_HOST" || fail 'The PMTA HTTP relay proxy host must be a valid IPv4 address.'
+if [[ -z "${ALPHALINK_INSTALL_PROXY_PORT:-${Proxy_PORT:-}}" ]]; then
+    read -r -p "PMTA HTTP relay proxy port [${PMTA_PROXY_PORT}]: " entered_proxy_port
+    PMTA_PROXY_PORT="${entered_proxy_port:-$PMTA_PROXY_PORT}"
+fi
+[[ "$PMTA_PROXY_PORT" =~ ^[0-9]{1,5}$ ]] || fail 'The PMTA HTTP relay proxy port must be a valid TCP port.'
+PMTA_PROXY_PORT_NUMBER=$((10#$PMTA_PROXY_PORT))
+(( PMTA_PROXY_PORT_NUMBER >= 1 && PMTA_PROXY_PORT_NUMBER <= 65535 )) || fail 'The PMTA HTTP relay proxy port must be between 1 and 65535.'
+PMTA_PROXY_PORT="$PMTA_PROXY_PORT_NUMBER"
+if [[ -z "${ALPHALINK_INSTALL_PROXY_USERNAME:-${Proxy_USERNAME:-}}" ]]; then
+    read -r -p 'PMTA HTTP relay proxy username: ' PMTA_PROXY_USERNAME
+fi
+[[ -n "$PMTA_PROXY_USERNAME" ]] || fail 'A PMTA relay proxy username is required for this installation.'
+[[ "$PMTA_PROXY_USERNAME" != *:* ]] || fail 'Proxy usernames cannot contain a colon.'
+if [[ -n "$PMTA_PROXY_USERNAME" && -z "$PMTA_PROXY_PASSWORD" ]]; then
+    read -r -s -p 'PMTA HTTP relay proxy password (hidden): ' PMTA_PROXY_PASSWORD
+    printf '\n'
+fi
+[[ -n "$PMTA_PROXY_PASSWORD" ]] || fail 'A PMTA relay proxy password is required for this installation.'
+(( ${#PMTA_PROXY_USERNAME} <= 255 && ${#PMTA_PROXY_PASSWORD} <= 4096 )) || fail 'The PMTA HTTP relay proxy credentials exceed their supported lengths.'
+dotenv_quote "$PMTA_PROXY_USERNAME" >/dev/null || fail 'Proxy credentials must not contain line breaks.'
+dotenv_quote "$PMTA_PROXY_PASSWORD" >/dev/null || fail 'Proxy credentials must not contain line breaks.'
+
+PMTA_RELAY_SOURCE_IPS="${ALPHALINK_PMTA_RELAY_SOURCE_IPS:-${ALPHALINK_INSTALL_PMTA_RELAY_IPS:-}}"
 PMTA_RELAY_SOURCE_IPS_AUTO_MANAGED=0
 if [[ -n "$PMTA_RELAY_SOURCE_IPS" ]]; then
     PMTA_RELAY_SOURCE_IPS="${PMTA_RELAY_SOURCE_IPS//[[:space:]]/}"
@@ -1687,6 +1802,9 @@ if [[ -n "$INSTALL_ASSETS_SOURCE" ]]; then
     printf 'Private installation assets will be copied to %s with owner-only permissions.\n' "$INSTALL_ASSETS_ROOT"
 fi
 printf 'PMTA relay source IPv4 address(es) will be encrypted in the initial workspace settings.\n'
+if [[ -n "$PMTA_PROXY_HOST" ]]; then
+    printf 'The PMTA HTTP relay endpoint will be saved in the protected AlphaLink environment.\n'
+fi
 printf 'A new PostgreSQL database will be created; SSH port %s, HTTP, and HTTPS will be allowed by UFW.\n' "$SSH_PORT"
 read -r -p 'Continue with the Ubuntu package and application installation? [y/N] ' CONFIRM_INSTALL
 [[ "$CONFIRM_INSTALL" =~ ^[Yy]([Ee][Ss])?$ ]] || fail 'Installation canceled before system changes.'
@@ -1711,13 +1829,21 @@ php -r '$extensions = ["bcmath", "curl", "dom", "mbstring", "openssl", "pcntl", 
 node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 22 ? 0 : 1)' || fail 'Node.js 22 or newer is required to build the frontend.'
 composer --version --no-ansi | head -n 1
 
-if [[ -z "$PMTA_RELAY_SOURCE_IPS" ]]; then
-    if PMTA_RELAY_SOURCE_IPS="$(detect_public_ipv4_egress)"; then
-        PMTA_RELAY_SOURCE_IPS_AUTO_MANAGED=1
-        info "Verified AlphaLink public IPv4 egress automatically for PMTA relay setup."
+DETECTED_PROXY_EGRESS_IPS=''
+if DETECTED_PROXY_EGRESS_IPS="$(detect_proxy_ipv4_egress "$PMTA_PROXY_HOST" "$PMTA_PROXY_PORT" "$PMTA_PROXY_USERNAME" "$PMTA_PROXY_PASSWORD")"; then
+    if [[ -z "$PMTA_RELAY_SOURCE_IPS" ]]; then
+        PMTA_RELAY_SOURCE_IPS="$DETECTED_PROXY_EGRESS_IPS"
+        info 'Verified proxy authentication and public egress; the detected proxy source address(es) will be added to PMTA access rules.'
     else
-        read -r -p 'Could not verify outbound IPv4 automatically. Enter AlphaLink stable public IPv4 egress address(es): ' PMTA_RELAY_SOURCE_IPS
+        for detected_proxy_ip in ${DETECTED_PROXY_EGRESS_IPS//,/ }; do
+            ipv4_list_contains "$PMTA_RELAY_SOURCE_IPS" "$detected_proxy_ip" \
+                || fail 'The configured PMTA relay source IP list does not contain the public egress address verified through the live proxy.'
+        done
     fi
+elif [[ -n "$PMTA_RELAY_SOURCE_IPS" ]]; then
+    info 'The proxy egress check was unavailable; using the explicit relay allowlist. PMTA install readiness will still have to pass monitor and command checks.'
+else
+    fail 'Could not verify PMTA proxy access or public egress. Set ALPHALINK_PMTA_RELAY_SOURCE_IPS or ALPHALINK_INSTALL_PMTA_RELAY_IPS to the proxy outbound IPv4 address(es), then retry.'
 fi
 PMTA_RELAY_SOURCE_IPS="${PMTA_RELAY_SOURCE_IPS//[[:space:]]/}"
 validate_pmta_relay_ipv4_list "$PMTA_RELAY_SOURCE_IPS" \
@@ -1829,6 +1955,10 @@ CACHE_STORE=redis
 CONTACT_LOOKUP_KEY=${CONTACT_LOOKUP_KEY}
 CONTACT_LOOKUP_KEY_VERSION=1
 ALPHALINK_INSTALL_ASSETS_DIRECTORY=${INSTALL_ASSETS_ROOT}
+ALPHALINK_INSTALL_PROXY_HOST=$(dotenv_quote "$PMTA_PROXY_HOST")
+ALPHALINK_INSTALL_PROXY_PORT=${PMTA_PROXY_PORT}
+ALPHALINK_INSTALL_PROXY_USERNAME=$(dotenv_quote "$PMTA_PROXY_USERNAME")
+ALPHALINK_INSTALL_PROXY_PASSWORD=$(dotenv_quote "$PMTA_PROXY_PASSWORD")
 REDIS_CLIENT=phpredis
 REDIS_HOST=127.0.0.1
 REDIS_PASSWORD=null

@@ -4,6 +4,7 @@ namespace App\Services\Infrastructure;
 
 use App\Models\Workspace;
 use App\Models\WorkspaceInfrastructureSettings;
+use App\Services\Campaigns\PmtaProxySettings;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -92,6 +93,10 @@ class AlphaLinkBulkInstallRuntimeInputs
 
         if ($pmtaRelayIps !== []) {
             $devIps = array_values(array_unique([...$devIps, ...$pmtaRelayIps]));
+        }
+
+        if ($pmtaVersion !== null && $workspace !== null && (new PmtaProxySettings)->forWorkspace($workspace) === null) {
+            throw new RuntimeException('Configure a valid PMTA HTTP relay proxy host, port, and matching credentials before installing PMTA.');
         }
 
         // The requested public-monitor mode is read-only. PMTA administrator

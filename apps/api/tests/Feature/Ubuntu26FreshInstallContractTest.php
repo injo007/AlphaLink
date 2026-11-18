@@ -40,6 +40,25 @@ class Ubuntu26FreshInstallContractTest extends TestCase
         $this->assertStringContainsString('RELEASE_SHA="$(git -C "$SOURCE_STAGING_DIR" rev-parse HEAD)"', $installer);
     }
 
+    public function test_fresh_installer_persists_the_relay_and_verifies_the_proxies_public_source_ip(): void
+    {
+        $repositoryRoot = dirname(base_path(), 2);
+        $installer = file_get_contents($repositoryRoot.'/install-ubuntu-26.sh');
+        $environmentExample = file_get_contents(base_path('.env.example'));
+
+        $this->assertIsString($installer);
+        $this->assertIsString($environmentExample);
+        $this->assertStringContainsString('ALPHALINK_INSTALL_PROXY_HOST=$(dotenv_quote "$PMTA_PROXY_HOST")', $installer);
+        $this->assertStringContainsString('ALPHALINK_INSTALL_PROXY_PORT=${PMTA_PROXY_PORT}', $installer);
+        $this->assertStringContainsString('ALPHALINK_INSTALL_PROXY_USERNAME=$(dotenv_quote "$PMTA_PROXY_USERNAME")', $installer);
+        $this->assertStringContainsString('ALPHALINK_INSTALL_PROXY_PASSWORD=$(dotenv_quote "$PMTA_PROXY_PASSWORD")', $installer);
+        $this->assertStringContainsString('detect_proxy_ipv4_egress "$PMTA_PROXY_HOST" "$PMTA_PROXY_PORT" "$PMTA_PROXY_USERNAME" "$PMTA_PROXY_PASSWORD"', $installer);
+        $this->assertStringContainsString('ALPHALINK_INSTALL_PROXY_HOST=37.27.184.206', $environmentExample);
+        $this->assertStringContainsString('ALPHALINK_INSTALL_PROXY_PORT=8977', $environmentExample);
+        $this->assertStringContainsString('ALPHALINK_INSTALL_PROXY_USERNAME=', $environmentExample);
+        $this->assertStringContainsString('ALPHALINK_INSTALL_PROXY_PASSWORD=', $environmentExample);
+    }
+
     public function test_fresh_install_and_deploy_enable_and_verify_server_reinstall_execution(): void
     {
         $repositoryRoot = dirname(base_path(), 2);

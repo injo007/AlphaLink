@@ -1,8 +1,12 @@
 # AlphaLink development progress
 
-**Updated:** 2026-11-17
-**Active objective:** Restore PMTA monitor loading through the configured proxy.
-**Current implementation status:** PMTA monitor proxy fallback is pushed and deployed as release `deae278edff45bb61f4c869d8d3f214a3744f684`. Production confirms the configured HTTPS endpoint is rejected with CONNECT 403 through the saved proxy, while the actual monitor proxy service returns HTTP 200 with the PowerMTA page and Traffic Totals marker through the same saved settings on port 1213. PHP lint, PHP 8.5 Pint, and `git diff --check` pass; automated tests and authenticated full-page browser rendering were not run. Earlier SPF scanner work is summarized below; its separate deployment preflight had rejected SSH credentials.
+**Updated:** 2026-11-18
+**Active objective:** Fix PMTA Admin monitor access and add a selected-server Domain / Server IP switch.
+**Current implementation status:** E-PMTA-109 is implemented locally. The PMTA Admin page defaults selected monitor cards to Server IP over HTTP from AlphaLink’s backend relay, keeps the browser-facing app on HTTPS, preserves the choice for monitor assets/navigation, and falls back to AlphaLink environment credentials when saved proxy credential fields are blank. PHP syntax, PHP 8.5 Pint, Blade compilation, JavaScript syntax, strict UI audit, and `git diff --check` pass. Automated tests and authenticated production/browser verification remain pending; the previous E-PMTA-108 fallback release remains the latest deployed version until this change is pushed and deployed. Earlier SPF scanner work is summarized below; its separate deployment preflight had rejected SSH credentials.
+
+### PMTA monitor target switch and proxy credential fallback — E-PMTA-109 (2026-11-18)
+
+The selected PMTA Admin servers can now be monitored through their saved domain or public IP. Server IP is selected by default and uses HTTP only between AlphaLink’s backend and the PMTA listener; the browser still uses the authenticated same-origin HTTPS route. Monitor navigation and assets retain the choice. Legacy direct monitor links preserve the prior automatic fallback. Empty saved proxy username/password fields now defer to the AlphaLink environment values, and HTTP 407 errors are identified as proxy authentication failures. PHP syntax, PHP 8.5 Pint, Blade compilation, JavaScript syntax, strict UI audit, and diff check pass. Automated tests, authenticated production rendering, push, and deploy are pending. No PMTA host settings, queue data, or DMS state changed. Keep DMS-PMTA-002 TESTING.
 
 ### PMTA monitor proxy CONNECT fallback — E-PMTA-108 (2026-11-17)
 

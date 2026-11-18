@@ -43,6 +43,13 @@
             flex-wrap: wrap;
         }
 
+        .pmta-admin-monitor-target-choice {
+            min-height: 44px;
+            padding: 0.35rem 0.7rem;
+            border: 1px solid var(--command-os-border, rgba(99, 102, 241, 0.2));
+            border-radius: 8px;
+        }
+
         .pmta-admin-action-group .btn-command-primary,
         .pmta-admin-action-group .btn-command-danger,
         .pmta-admin-action-group .btn-command-action {
@@ -219,6 +226,21 @@
                             </div>
                         </div>
                     </div>
+                    <div class="col-12 mt-3" id="pmta-admin-monitor-target-control">
+                        <fieldset class="pmta-admin-surface d-flex flex-wrap align-items-center mb-0" style="gap: 14px; padding: .75rem 1rem;" aria-describedby="pmta-monitor-target-help">
+                            <legend class="sr-only">Monitor selected servers using</legend>
+                            <span class="command-form-label mb-0" style="font-size: 0.8125rem;"><i class="fas fa-shield-alt mr-1 text-purple"></i> MONITOR SELECTED SERVERS USING:</span>
+                            <label class="pmta-admin-monitor-target-choice mb-0 d-inline-flex align-items-center" style="gap: 5px; font-size: 0.8125rem; font-weight: 600; cursor: pointer;">
+                                <input type="radio" id="pmta-monitor-domain" name="pmta-monitor-target" value="domain" @checked($monitorTarget === 'domain')>
+                                <span>Domain</span>
+                            </label>
+                            <label class="pmta-admin-monitor-target-choice mb-0 d-inline-flex align-items-center" style="gap: 5px; font-size: 0.8125rem; font-weight: 600; cursor: pointer;">
+                                <input type="radio" id="pmta-monitor-ip" name="pmta-monitor-target" value="ip" @checked($monitorTarget === 'ip')>
+                                <span>Server IP</span>
+                            </label>
+                            <span class="small text-muted" id="pmta-monitor-target-help">This switches the upstream PMTA host for every selected server. The monitor remains inside AlphaLink's authenticated HTTPS proxy.</span>
+                        </fieldset>
+                    </div>
                 </div>
 
                 <!-- 2. Queue Operations Action Bar -->
@@ -277,7 +299,7 @@
                 </div>
             </div>
         </div>
-        <p class="small text-muted mb-3" style="font-size: 0.75rem;"><i class="fas fa-shield-alt mr-1"></i> PMTA monitors load inside AlphaLink’s authenticated HTTPS page through your configured egress proxy. If that proxy refuses HTTPS CONNECT to the PMTA port, AlphaLink retries the read-only monitor over HTTP to the server IP through the same proxy.</p>
+        <p class="small text-muted mb-3" style="font-size: 0.75rem;"><i class="fas fa-shield-alt mr-1"></i> AlphaLink stays on HTTPS. Choose Domain to reach the saved PMTA domain, or Server IP to request the PMTA listener over HTTP through the configured relay proxy.</p>
         <div class="row" id="pmta-admin-panels" @if ($selectedServerIds === []) hidden @endif aria-live="polite"></div>
     </div>
 @endsection
@@ -329,12 +351,14 @@
             const tags = new Set(storedQueueTags === null ? ['*/*'] : storedQueueTags.split(',').filter(Boolean));
             const selectedServers = () => Array.from(servers.selectedOptions);
             const selectedTags = () => Array.from(tags);
+            const selectedMonitorTarget = () => document.querySelector('input[name="pmta-monitor-target"]:checked')?.value || 'ip';
             const rememberSelection = () => {
                 const url = new URL(window.location.href);
                 Array.from(url.searchParams.keys()).forEach((key) => {
                     if (/^server_ids(?:\[\d*\])?$/.test(key)) url.searchParams.delete(key);
                 });
                 selectedServers().forEach((server) => url.searchParams.append('server_ids[]', server.value));
+                url.searchParams.set('target', selectedMonitorTarget());
                 window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
             };
 
@@ -401,6 +425,7 @@
                 if (!frame.dataset.monitorBase) return;
                 frame.dataset.monitorRefreshPending = 'true';
                 const url = new URL(frame.dataset.monitorBase, window.location.href);
+                url.searchParams.set('target', selectedMonitorTarget());
                 url.searchParams.set('_', String(Date.now()));
                 frame.src = url.toString();
             };
@@ -431,15 +456,24 @@
                     refreshLabel.textContent = 'Loading · auto refresh 5s';
 
                     const initialBaseUrl = server.dataset.proxyUrl || '';
+                    const target = selectedMonitorTarget();
+                    let selectedMonitorUrl = '';
+                    try {
+                        const url = new URL(initialBaseUrl, window.location.href);
+                        url.searchParams.set('target', target);
+                        selectedMonitorUrl = url.toString();
+                    } catch {
+                        selectedMonitorUrl = '';
+                    }
 
                     const link = document.createElement('a');
-                    link.href = initialBaseUrl || '#';
-                    link.hidden = initialBaseUrl === '';
+                    link.href = selectedMonitorUrl || '#';
+                    link.hidden = selectedMonitorUrl === '';
                     link.target = '_blank';
                     link.rel = 'noopener noreferrer';
                     link.className = 'ml-1';
-                    link.title = `Open the read-only PMTA monitor through AlphaLink HTTPS Proxy for ${server.textContent.trim()}`;
-                    link.textContent = 'HTTPS Proxy (443)';
+                    link.title = `Open the read-only PMTA monitor through AlphaLink HTTPS using the selected ${target === 'domain' ? 'domain' : 'server IP'} for ${server.textContent.trim()}`;
+                    link.textContent = `Open monitor (${target === 'domain' ? 'Domain' : 'Server IP'})`;
                     const reload = document.createElement('button');
                     reload.type = 'button';
                     reload.className = 'btn-command-action ml-1';
@@ -485,7 +519,7 @@
                         return;
                     }
                     frame.setAttribute('sandbox', 'allow-same-origin');
-                    refreshLabel.textContent = 'Read-only monitor via AlphaLink HTTPS Proxy (Port 443) · auto refresh 5s';
+                    refreshLabel.textContent = `Read-only ${target === 'domain' ? 'domain' : 'server IP'} monitor via AlphaLink HTTPS proxy · auto refresh 5s`;
                     card.append(heading, frame);
                     column.append(card);
                     panels.append(column);
@@ -669,6 +703,10 @@
                 rememberSelection();
                 drawPanels();
             });
+            document.querySelectorAll('input[name="pmta-monitor-target"]').forEach((input) => input.addEventListener('change', () => {
+                rememberSelection();
+                drawPanels();
+            }));
             gridInputs.forEach((input) => input.addEventListener('change', () => {
                 localStorage.setItem('pmta-admin-grid', input.value);
                 drawPanels();

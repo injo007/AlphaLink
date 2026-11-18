@@ -51,7 +51,6 @@ use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -452,6 +451,9 @@ class WorkspaceConsoleController extends Controller
     public function pmtaAdmin(Request $request, string $workspace, AlphaLinkCampaignSendCatalog $catalog): View
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
+        $monitorTarget = in_array($request->query('target'), ['domain', 'ip'], true)
+            ? (string) $request->query('target')
+            : 'ip';
         $options = $catalog->options($workspace, $request->user(), 'admin', [
             'route' => 'ip',
             'ip_type' => 'all',
@@ -482,6 +484,7 @@ class WorkspaceConsoleController extends Controller
             'workspace' => $workspace,
             'servers' => $servers,
             'selectedServerIds' => $selectedServerIds,
+            'monitorTarget' => $monitorTarget,
             'pmtaFrameSources' => $pmtaFrameSources,
             'pmtaAdminPort' => $options['settings']['pmta_admin_port'],
             'actionUrl' => route('console.pmta-admin.action', $workspace->getKey()),
@@ -535,6 +538,8 @@ class WorkspaceConsoleController extends Controller
         string $monitorPath = '',
     ): Response {
         $workspace = $this->workspaceFor($request->user(), $workspace);
+        $monitorTarget = $request->query('target', 'auto');
+        abort_unless(in_array($monitorTarget, ['auto', 'domain', 'ip'], true), 404);
         $options = $catalog->options($workspace, $request->user(), 'admin', [
             'route' => 'ip',
             'ip_type' => 'all',
@@ -550,19 +555,28 @@ class WorkspaceConsoleController extends Controller
 
         $infrastructure = $workspace->infrastructureSettings;
         $relayIps = $infrastructure?->pmta_relay_ips;
-        if (! is_array($relayIps)) {
-            $configuredRelayIps = config('infrastructure.bulk_install_settings.pmta_relay_ips', []);
-            $relayIps = is_array($configuredRelayIps)
-                ? $configuredRelayIps
-                : preg_split('/[\s,;]+/', (string) $configuredRelayIps, -1, PREG_SPLIT_NO_EMPTY);
-        }
-        $proxyHost = collect($relayIps)
+        $configuredRelayIps = config('infrastructure.bulk_install_settings.pmta_relay_ips', []);
+        $savedRelayIps = is_array($relayIps)
+            ? $relayIps
+            : preg_split('/[\s,;]+/', (string) $relayIps, -1, PREG_SPLIT_NO_EMPTY);
+        $environmentRelayIps = is_array($configuredRelayIps)
+            ? $configuredRelayIps
+            : preg_split('/[\s,;]+/', (string) $configuredRelayIps, -1, PREG_SPLIT_NO_EMPTY);
+        $proxyHost = collect(array_merge($savedRelayIps ?: [], $environmentRelayIps ?: []))
             ->map(fn (mixed $ip): string => trim((string) $ip))
             ->first(fn (string $ip): bool => filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false);
-        $proxyPort = filter_var(
-            $infrastructure?->proxy_port ?? config('infrastructure.bulk_install_settings.proxy_port'),
-            FILTER_VALIDATE_INT,
-        );
+        $proxyPort = filter_var($infrastructure?->proxy_port, FILTER_VALIDATE_INT);
+        if ($proxyPort === false || $proxyPort < 1 || $proxyPort > 65535) {
+            $proxyPort = filter_var(config('infrastructure.bulk_install_settings.proxy_port'), FILTER_VALIDATE_INT);
+        }
+        $proxyUsername = trim((string) ($infrastructure?->proxy_username ?? ''));
+        $proxyPassword = (string) ($infrastructure?->proxy_password ?? '');
+        if ($proxyUsername === '') {
+            $proxyUsername = (string) config('infrastructure.bulk_install_settings.proxy_username', '');
+        }
+        if ($proxyPassword === '') {
+            $proxyPassword = (string) config('infrastructure.bulk_install_settings.proxy_password', '');
+        }
         abort_unless(
             is_string($proxyHost) && $proxyPort !== false && $proxyPort >= 1 && $proxyPort <= 65535,
             503,
@@ -576,8 +590,9 @@ class WorkspaceConsoleController extends Controller
             (string) $workspace->getKey(),
             $proxyHost,
             (int) $proxyPort,
-            (string) ($infrastructure?->proxy_username ?? config('infrastructure.bulk_install_settings.proxy_username', '')),
-            (string) ($infrastructure?->proxy_password ?? config('infrastructure.bulk_install_settings.proxy_password', '')),
+            $proxyUsername,
+            $proxyPassword,
+            (string) $monitorTarget,
         );
     }
 

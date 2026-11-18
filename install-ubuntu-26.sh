@@ -743,11 +743,13 @@ reconcile_repository_install_assets() {
             if [[ -n "$previous_rows" ]]; then
                 previous_pin="$(awk -F '\t' -v path="$relative_path" '$1 == path { print $2 " " $3; exit }' "$previous_rows")"
             fi
-            # These two tracking releases predate automatic reconciliation and may still
-            # be staged on servers that skipped an intermediate application release.
+            # These previously reviewed tracking releases predate automatic
+            # reconciliation and may still be staged on servers that skipped a release.
             if [[ "$relative_path" == 'optional/tracking/TrackerRequestHandler.php' ]]; then
                 case "$actual_size $actual_digest" in
-                    '11669 c4a586dcea351051775e733bc092de5a715c48f4cd0d12db93119bbc696c65bb'|'12605 57ba8813cc7617fdfde72bbc0a30782fa809e93c097fa2a859915a6635ac6dce')
+                    '11669 c4a586dcea351051775e733bc092de5a715c48f4cd0d12db93119bbc696c65bb'|\
+                    '12605 57ba8813cc7617fdfde72bbc0a30782fa809e93c097fa2a859915a6635ac6dce'|\
+                    '96570 ac62ba251012a4889d0009b7f1e9e4fcc10dc0562ba12bf9e7d848134652123e')
                         previous_pin="$actual_size $actual_digest" ;;
                 esac
             fi

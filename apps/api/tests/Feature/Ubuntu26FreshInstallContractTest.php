@@ -242,6 +242,7 @@ class Ubuntu26FreshInstallContractTest extends TestCase
         $this->assertStringContainsString('git -C "$repository_root" cat-file blob "$revision:install-assets/$relative_path"', $installer);
         $this->assertStringContainsString('Private PMTA asset differs from all reviewed versions; inspect', $installer);
         $this->assertStringContainsString('The fetched asset does not match its reviewed digest:', $installer);
+        $this->assertStringContainsString('96570 ac62ba251012a4889d0009b7f1e9e4fcc10dc0562ba12bf9e7d848134652123e', $installer);
         $this->assertStringContainsString('mv -f -- "$temporary_file" "$destination_file"', $installer);
     }
 

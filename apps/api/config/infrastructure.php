@@ -1,7 +1,7 @@
 <?php
 
 $pmtaAdminPort = env('ALPHALINK_INSTALL_PMTA_ADMIN_PORT');
-$proxyPort = env('ALPHALINK_INSTALL_PROXY_PORT');
+$proxyPort = env('ALPHALINK_INSTALL_PROXY_PORT', env('Proxy_PORT'));
 $applyFirewall = env('ALPHALINK_INSTALL_APPLY_FIREWALL');
 $allowAllMonitor = env('ALPHALINK_INSTALL_ALLOW_ALL_MONITOR');
 
@@ -31,6 +31,7 @@ return [
         // Defaults follow the source-backed installation behavior.
         'pmta_admin_port' => $pmtaAdminPort === null || $pmtaAdminPort === '' ? 1213 : $pmtaAdminPort,
         'proxy_port' => $proxyPort === null || $proxyPort === '' ? 1214 : $proxyPort,
+        'proxy_host' => env('ALPHALINK_INSTALL_PROXY_HOST', env('Proxy_HOST', '')),
         'apply_firewall' => $applyFirewall === null || $applyFirewall === '' ? false : $applyFirewall,
         'allow_all_monitor' => $allowAllMonitor === null || $allowAllMonitor === '' ? false : $allowAllMonitor,
         'dev_ips' => env('ALPHALINK_INSTALL_DEV_IPS', ''),
@@ -40,8 +41,8 @@ return [
         'dkim_key' => env('ALPHALINK_INSTALL_DKIM_KEY', ''),
         'webmail_username' => env('ALPHALINK_INSTALL_WEBMAIL_USERNAME', ''),
         'webmail_password' => env('ALPHALINK_INSTALL_WEBMAIL_PASSWORD', ''),
-        'proxy_username' => env('ALPHALINK_INSTALL_PROXY_USERNAME', ''),
-        'proxy_password' => env('ALPHALINK_INSTALL_PROXY_PASSWORD', ''),
+        'proxy_username' => env('ALPHALINK_INSTALL_PROXY_USERNAME', env('Proxy_USERNAME', '')),
+        'proxy_password' => env('ALPHALINK_INSTALL_PROXY_PASSWORD', env('Proxy_PASSWORD', '')),
         // Keep the previous variable as a fallback until existing installations migrate their environment.
         'tracking_ingest_key' => env('ALPHALINK_TRACKING_INGEST_KEY', env('ALPHALINK_INSTALL_MINI_APP_KEY', '')),
     ],

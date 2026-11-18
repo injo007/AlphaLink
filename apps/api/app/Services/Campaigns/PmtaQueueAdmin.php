@@ -15,7 +15,7 @@ class PmtaQueueAdmin
      * @param  list<string>  $tags
      * @return list<string>
      */
-    public function run(ManagedServer $server, int $port, string $action, string $queue, array $tags): array
+    public function run(ManagedServer $server, int $port, string $action, string $queue, array $tags, ?string $proxy = null): array
     {
         if (filter_var($server->ip_address, FILTER_VALIDATE_IP) === false) {
             throw new RuntimeException('The selected server does not have a valid IP address.');
@@ -23,18 +23,24 @@ class PmtaQueueAdmin
 
         $commands = $this->commands($action, $queue, $tags);
         $results = [];
-        $endpoint = rtrim(PmtaPanelUrl::forServer($server, $port), '/');
+        /**
+         * PMTA restricts /command by source IP. Use the HTTP listener at the
+         * server IP so the request stays on the configured relay and avoids a
+         * saved monitor domain's HTTPS redirect/CONNECT path.
+         */
+        $endpoint = rtrim(PmtaPanelUrl::forInstallation((string) $server->ip_address, null, $port, false), '/');
         if ($endpoint === '') {
             throw new RuntimeException('The selected server has no valid PMTA endpoint.');
         }
 
         foreach ($commands as $command) {
-            $response = Http::connectTimeout(3)
+            $request = Http::connectTimeout(3)
                 ->timeout(5)
-                ->get($endpoint.'/command', [
-                    'format' => 'xml',
-                    'command' => $command,
-                ]);
+                ->withOptions($this->requestOptions($proxy));
+            $response = $request->get($endpoint.'/command', [
+                'format' => 'xml',
+                'command' => $command,
+            ]);
 
             $results[] = $this->responseResult($response);
         }
@@ -48,7 +54,7 @@ class PmtaQueueAdmin
      * @param  list<string>  $tags
      * @return array<string, array{results: list<string>, error: ?string}>
      */
-    public function runConcurrently(array $servers, array $portsByServer, string $action, string $queue, array $tags): array
+    public function runConcurrently(array $servers, array $portsByServer, string $action, string $queue, array $tags, ?string $proxy = null): array
     {
         $commands = $this->commands($action, $queue, $tags);
         $results = [];
@@ -69,14 +75,15 @@ class PmtaQueueAdmin
             );
 
             foreach (array_chunk($eligibleServers, 5, true) as $serverBatch) {
-                $responses = Http::pool(function (Pool $pool) use ($serverBatch, $command, $portsByServer): void {
+                $responses = Http::pool(function (Pool $pool) use ($serverBatch, $command, $portsByServer, $proxy): void {
                     foreach ($serverBatch as $server) {
                         $serverId = (string) $server->getKey();
-                        $endpoint = rtrim(PmtaPanelUrl::forServer($server, $portsByServer[$serverId]), '/');
+                        $endpoint = rtrim(PmtaPanelUrl::forInstallation((string) $server->ip_address, null, $portsByServer[$serverId], false), '/');
 
                         $pool->as($serverId)
                             ->connectTimeout(3)
                             ->timeout(5)
+                            ->withOptions($this->requestOptions($proxy))
                             ->get($endpoint.'/command', [
                                 'format' => 'xml',
                                 'command' => $command,
@@ -111,9 +118,27 @@ class PmtaQueueAdmin
         return $outcomes;
     }
 
+    /** @return array<string, mixed> */
+    private function requestOptions(?string $proxy): array
+    {
+        $options = ['allow_redirects' => false];
+        if ($proxy !== null && $proxy !== '') {
+            $options['proxy'] = $proxy;
+        }
+
+        return $options;
+    }
+
     private function responseResult(Response $response): string
     {
         if (! $response->successful()) {
+            if ($response->status() === 403) {
+                throw new RuntimeException('The PMTA command request was denied with HTTP 403. Verify that the configured relay proxy IP is allowed for PMTA /command access.');
+            }
+            if ($response->status() === 407) {
+                throw new RuntimeException('The configured PMTA relay proxy rejected authentication with HTTP 407.');
+            }
+
             throw new RuntimeException('PMTA returned HTTP '.$response->status().'.');
         }
 
@@ -131,7 +156,7 @@ class PmtaQueueAdmin
             throw new RuntimeException($values['fail']);
         }
         if (isset($values['body'])) {
-            throw new RuntimeException('PMTA returned access denied. Verify the AlphaLink app host is allowed for admin access in PMTA; the */* tag only selects the queue.');
+            throw new RuntimeException('PMTA returned access denied. Verify the configured relay proxy IP is allowed for admin access in PMTA; the */* tag only selects the queue.');
         }
         if (! isset($values['succ'])) {
             throw new RuntimeException('PMTA did not return a command result.');

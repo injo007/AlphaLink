@@ -2,19 +2,21 @@
 
 namespace App\Services\Campaigns;
 
+use App\Jobs\ProcessCampaignSendRun;
 use App\Models\CampaignSendRun;
 use App\Models\ManagedServer;
-use App\Jobs\ProcessCampaignSendRun;
-use Illuminate\Support\Facades\DB;
+use App\Models\Workspace;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use RuntimeException;
 use Throwable;
 
 class CampaignAutoFailoverService
 {
     public function __construct(
         private readonly PmtaQueueAdmin $pmtaQueueAdmin,
+        private readonly PmtaProxySettings $proxySettings,
     ) {}
 
     public function isEnabled(CampaignSendRun $run): bool
@@ -137,8 +139,16 @@ class CampaignAutoFailoverService
         if ($purgeConfigured && $server instanceof ManagedServer) {
             try {
                 $port = $this->resolvePmtaAdminPort($run);
+                $workspace = $run->workspace;
+                if (! $workspace instanceof Workspace) {
+                    throw new RuntimeException('The campaign has no workspace PMTA proxy settings.');
+                }
+                $proxy = $this->proxySettings->forWorkspace($workspace);
+                if ($proxy === null) {
+                    throw new RuntimeException('Configure the PMTA relay proxy before running queue commands.');
+                }
                 // Purge domain queue on PMTA server
-                $this->pmtaQueueAdmin->run($server, $port, 'delete', 'domain', ['*/*']);
+                $this->pmtaQueueAdmin->run($server, $port, 'delete', 'domain', ['*/*'], $proxy['url']);
                 $purgedSpool = true;
             } catch (Throwable $e) {
                 Log::warning("PMTA queue purge warning on {$server->name}: ".$e->getMessage());
@@ -158,7 +168,7 @@ class CampaignAutoFailoverService
         // 4. LOG EVENT
         $events = $this->getFailoverEvents($run);
         $event = [
-            'id' => (string) \Illuminate\Support\Str::uuid(),
+            'id' => (string) Str::uuid(),
             'timestamp' => now()->toIso8601String(),
             'domain' => $domain,
             'server_name' => $server?->name ?? 'Configured Server',
@@ -187,7 +197,7 @@ class CampaignAutoFailoverService
         } else {
             $run->update(['state' => 'paused']);
             $action = 'paused_all_disabled';
-            $msg = "All configured domains have been deferred. Campaign send paused by Circuit Breaker.";
+            $msg = 'All configured domains have been deferred. Campaign send paused by Circuit Breaker.';
         }
 
         return [
@@ -218,7 +228,7 @@ class CampaignAutoFailoverService
 
         $events = $this->getFailoverEvents($run);
         $events[] = [
-            'id' => (string) \Illuminate\Support\Str::uuid(),
+            'id' => (string) Str::uuid(),
             'timestamp' => now()->toIso8601String(),
             'domain' => $domain,
             'server_name' => 'Operator',
@@ -269,10 +279,18 @@ class CampaignAutoFailoverService
             ->get();
 
         $port = $this->resolvePmtaAdminPort($run);
+        $workspace = $run->workspace;
+        if (! $workspace instanceof Workspace) {
+            return [];
+        }
+        $proxy = $this->proxySettings->forWorkspace($workspace);
+        if ($proxy === null) {
+            return [];
+        }
         $detected = [];
 
         foreach ($servers as $server) {
-            $endpoint = rtrim(PmtaPanelUrl::forServer($server, $port), '/');
+            $endpoint = rtrim(PmtaPanelUrl::forInstallation((string) $server->ip_address, null, $port, false), '/');
             if ($endpoint === '') {
                 continue;
             }
@@ -280,6 +298,7 @@ class CampaignAutoFailoverService
             try {
                 $response = Http::connectTimeout(2)
                     ->timeout(4)
+                    ->withOptions(['allow_redirects' => false, 'proxy' => $proxy['url']])
                     ->get($endpoint.'/command', [
                         'format' => 'xml',
                         'command' => 'show queues',

@@ -34,6 +34,7 @@ use App\Services\Campaigns\CampaignRedirectUrlPolicy;
 use App\Services\Campaigns\PmtaCampaignTestTransport;
 use App\Services\Campaigns\PmtaMonitorProxy;
 use App\Services\Campaigns\PmtaPanelUrl;
+use App\Services\Campaigns\PmtaProxySettings;
 use App\Services\Campaigns\PmtaQueueAdmin;
 use App\Services\Infrastructure\AlphaLinkBulkInstallVmtaPlanner;
 use App\Services\PmtaAuditLogger;
@@ -534,6 +535,7 @@ class WorkspaceConsoleController extends Controller
         string $workspace,
         string $server,
         PmtaMonitorProxy $monitor,
+        PmtaProxySettings $proxySettings,
         AlphaLinkCampaignSendCatalog $catalog,
         string $monitorPath = '',
     ): Response {
@@ -558,32 +560,9 @@ class WorkspaceConsoleController extends Controller
             ->where('is_installed', true)
             ->firstOrFail();
 
-        $infrastructure = $workspace->infrastructureSettings;
-        $relayIps = $infrastructure?->pmta_relay_ips;
-        $configuredRelayIps = config('infrastructure.bulk_install_settings.pmta_relay_ips', []);
-        $savedRelayIps = is_array($relayIps)
-            ? $relayIps
-            : preg_split('/[\s,;]+/', (string) $relayIps, -1, PREG_SPLIT_NO_EMPTY);
-        $environmentRelayIps = is_array($configuredRelayIps)
-            ? $configuredRelayIps
-            : preg_split('/[\s,;]+/', (string) $configuredRelayIps, -1, PREG_SPLIT_NO_EMPTY);
-        $proxyHost = collect(array_merge($savedRelayIps ?: [], $environmentRelayIps ?: []))
-            ->map(fn (mixed $ip): string => trim((string) $ip))
-            ->first(fn (string $ip): bool => filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false);
-        $proxyPort = filter_var($infrastructure?->proxy_port, FILTER_VALIDATE_INT);
-        if ($proxyPort === false || $proxyPort < 1 || $proxyPort > 65535) {
-            $proxyPort = filter_var(config('infrastructure.bulk_install_settings.proxy_port'), FILTER_VALIDATE_INT);
-        }
-        $proxyUsername = trim((string) ($infrastructure?->proxy_username ?? ''));
-        $proxyPassword = (string) ($infrastructure?->proxy_password ?? '');
-        if ($proxyUsername === '') {
-            $proxyUsername = (string) config('infrastructure.bulk_install_settings.proxy_username', '');
-        }
-        if ($proxyPassword === '') {
-            $proxyPassword = (string) config('infrastructure.bulk_install_settings.proxy_password', '');
-        }
+        $proxy = $proxySettings->forWorkspace($workspace);
         abort_unless(
-            is_string($proxyHost) && $proxyPort !== false && $proxyPort >= 1 && $proxyPort <= 65535,
+            $proxy !== null,
             503,
             'Configure the PMTA relay proxy IP and proxy port in App Settings before opening the PMTA monitor.',
         );
@@ -593,10 +572,10 @@ class WorkspaceConsoleController extends Controller
             (int) $options['settings']['pmta_admin_port'],
             $monitorPath,
             (string) $workspace->getKey(),
-            $proxyHost,
-            (int) $proxyPort,
-            $proxyUsername,
-            $proxyPassword,
+            $proxy['host'],
+            $proxy['port'],
+            $proxy['username'],
+            $proxy['password'],
             (string) $monitorTarget,
         );
     }
@@ -675,7 +654,7 @@ class WorkspaceConsoleController extends Controller
         ]);
     }
 
-    public function pmtaAdminAction(Request $request, string $workspace, AlphaLinkCampaignSendCatalog $catalog, PmtaQueueAdmin $pmta, PmtaAuditLogger $audit): JsonResponse
+    public function pmtaAdminAction(Request $request, string $workspace, AlphaLinkCampaignSendCatalog $catalog, PmtaProxySettings $proxySettings, PmtaQueueAdmin $pmta, PmtaAuditLogger $audit): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $data = $request->validate([
@@ -700,6 +679,7 @@ class WorkspaceConsoleController extends Controller
 
         $servers = $workspace->managedServers()->whereIn('id', $serverIds)->where('is_active', true)->where('is_installed', true)->get()->keyBy(fn (ManagedServer $server): string => (string) $server->getKey());
         $port = (int) $options['settings']['pmta_admin_port'];
+        $proxy = $proxySettings->forWorkspace($workspace);
         $tags = array_values(array_filter(array_map(fn (string $tag): string => trim($tag), $data['tags'] ?? []), fn (string $tag): bool => $tag !== ''));
         if (! in_array('*/*', $tags, true)) {
             throw ValidationException::withMessages(['tags' => 'Select the */* queue tag before executing a PMTA command.']);
@@ -716,7 +696,7 @@ class WorkspaceConsoleController extends Controller
             }
 
             try {
-                $commandResults = $pmta->run($server, $port, $data['action'], $data['queue'], $tags);
+                $commandResults = $pmta->run($server, $port, $data['action'], $data['queue'], $tags, $proxy['url'] ?? null);
             } catch (Throwable $exception) {
                 $results[] = ['id' => $serverId, 'name' => $server->name, 'result' => e($exception->getMessage()), 'success' => false];
 

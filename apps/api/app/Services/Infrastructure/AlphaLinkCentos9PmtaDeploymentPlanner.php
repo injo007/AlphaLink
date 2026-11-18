@@ -140,7 +140,7 @@ class AlphaLinkCentos9PmtaDeploymentPlanner
             $operations[] = $this->command("echo 'http-redirect-to-https false' >> /etc/pmta/settings/config");
         }
 
-        if ($version === 50) {
+        if (in_array($version, [45, 50], true)) {
             $operations[] = $this->command("echo 'http-csrf-protection false' >> /etc/pmta/settings/config");
         }
 

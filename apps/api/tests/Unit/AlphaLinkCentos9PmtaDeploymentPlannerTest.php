@@ -68,6 +68,7 @@ class AlphaLinkCentos9PmtaDeploymentPlannerTest extends TestCase
         $this->assertStringContainsString('# ALPHALINK_PMTA_MONITOR_ACCESS_RESTRICTED', $nginx);
         $this->assertStringNotContainsString('http-access 0/0 monitor', implode("\n", $commands));
         $this->assertContains("echo 'http-redirect-to-https false' >> /etc/pmta/settings/config", $commands);
+        $this->assertContains("echo 'http-csrf-protection false' >> /etc/pmta/settings/config", $commands);
     }
 
     public function test_saved_reference_admin_port_is_the_public_listener_and_doubled_for_the_backend(): void

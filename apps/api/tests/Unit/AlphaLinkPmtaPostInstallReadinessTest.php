@@ -89,6 +89,8 @@ class AlphaLinkPmtaPostInstallReadinessTest extends TestCase
         self::assertStringContainsString('pmta-backend-listener', $command);
         self::assertStringContainsString('pmta-no-http-https-redirect', $command);
         self::assertStringContainsString('http-redirect-to-https false', $command);
+        self::assertStringContainsString('pmta-command-csrf-policy', $command);
+        self::assertStringContainsString('http-csrf-protection false', $command);
         self::assertStringNotContainsString('pmta-public-monitor-listener', $command);
         self::assertStringContainsString("'allow 198.51.100.44;'", $command);
         self::assertStringContainsString('listen 1213;', $command);

@@ -44,7 +44,7 @@ class PmtaQueueAdminTest extends TestCase
         ]);
 
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('The PMTA command request was denied with HTTP 403.');
+        $this->expectExceptionMessage('PMTA denied the command with HTTP 403. Verify that the configured relay proxy IP is allowed for /command and that PMTA 4.5/5.0 has http-csrf-protection false.');
 
         (new PmtaQueueAdmin)->verifyReadOnlyStatusAccess($server, 1213, 'http://198.51.100.77:8977');
     }

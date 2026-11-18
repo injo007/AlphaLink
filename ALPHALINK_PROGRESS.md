@@ -1,7 +1,7 @@
 # AlphaLink development progress
 
-**Updated:** 2026-11-16
-**Active objective:** Prevent PMTA manifest drift during fresh setup, asset configuration, deploy, and interrupted-install resume.
+**Updated:** 2026-11-18
+**Active objective:** Keep fresh PMTA installation, relay monitoring/commands, campaign redirects, asset reconciliation, and deploy/resume paths aligned.
 **Current implementation status:** E-TOOLS-57/58 provide per-scan pause, resume, stop, and safe delete controls. Release `9c8a9873734e42e45f10927d1a9aa15fc5a43cd9` is active in production and pushed to `codex/alphalink-identity-reconstruction`; static syntax checks pass. Automated tests and throughput benchmarks were not run.
 **Production baseline:** Release `9c8a9873734e42e45f10927d1a9aa15fc5a43cd9` is active. The guarded installer verified PostgreSQL backup `/var/backups/alphalink/deploy-9c8a9873734e42e45f10927d1a9aa15fc5a43cd9-20261113T190802Z.dump`, found no pending migrations, and passed local HTTPS health. Read-only live-page inspection shows scan 9 remains paused at 61,194 / 193,548 with Resume/Stop/Delete, and legacy stopped rows 1–4 and 8 now have Delete; no scan action or production row mutation was performed. The 10M-domain / 20-IP benchmark remains unrun; 1,000 domains/second is a target, not a measured result.
 
@@ -246,3 +246,7 @@ Saved scan results now retain IPv4 CIDR prefixes /8 through /32 and preserve IPv
 ### Fresh PMTA relay readiness — E-INST-106 / E-PMTA-112 / E-TRACK-48 (2026-11-18)
 
 Fresh AlphaLink installs now persist the HTTP relay endpoint and securely collected credentials under dedicated settings, separate from the Squid listener port on managed servers. The installer and later PMTA install/reinstall workflows discover the proxy's public egress IPs for restricted monitor and `/command` access. PMTA installation cannot complete until AlphaLink verifies monitor HTML, CSS, and read-only `show status` through that same relay. Redirect coverage confirms `[domain]` uses the campaign's selected Domain and literal HTML hosts are preserved. Focused suites pass (65 tests / 464 assertions and 52 tests / 420 assertions), Pint passes, Bash syntax and special-character environment quoting pass, and the standalone tracker passes 9 checks. A fresh server was not installed, so live new-host behavior remains unverified; no PMTA command mutations ran.
+
+### PMTA 4.5 command 403 prevention — E-PMTA-113 (2026-11-18)
+
+The PMTA 4.5 template previously left default CSRF protection enabled while AlphaLink sends queue commands using GET, producing HTTP 403 even though the monitor loaded. Fresh installs and reinstalls now disable that directive for both PMTA 4.5 and 5.0, and post-install readiness requires it. Nginx still restricts `/command` to the configured relay egress addresses. AlphaLink's 403 response now names both the relay allowlist and PMTA CSRF setting. Focused planner/readiness/command tests pass 20 tests / 115 assertions and targeted Pint passes. No PMTA host was reinstalled or command mutation run, so live command behavior remains unverified; current installed hosts require a controlled PMTA config repair/reinstall to receive this setting.

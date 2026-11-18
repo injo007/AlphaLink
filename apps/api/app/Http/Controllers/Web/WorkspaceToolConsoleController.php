@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceGoogleAccount;
 use App\Models\WorkspaceGoogleProject;
+use App\Services\Authorization\WorkspaceAccess;
 use App\Services\Workspace\AlphaLinkWorkspaceDirectorySync;
 use App\Services\Workspace\AlphaLinkWorkspaceS3ProjectSync;
 use App\Services\Workspace\AlphaLinkWorkspaceSmtpConfiguration;
@@ -476,7 +477,7 @@ class WorkspaceToolConsoleController extends Controller
     {
         abort_unless($user, 401);
 
-        return $user->workspaces()->where('workspaces.status', 'active')->whereKey($workspaceId)->firstOrFail();
+        return app(WorkspaceAccess::class)->find($user, $workspaceId);
     }
 
     private function canManageProjects(Workspace $workspace): bool

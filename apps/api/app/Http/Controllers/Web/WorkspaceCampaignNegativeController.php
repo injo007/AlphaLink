@@ -7,6 +7,7 @@ use App\Models\AuditEvent;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceCampaignNegative;
+use App\Services\Authorization\WorkspaceAccess;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -101,13 +102,7 @@ class WorkspaceCampaignNegativeController extends Controller
 
     private function workspaceFor(Request $request, string $workspaceId): Workspace
     {
-        $workspace = $request->user()->workspaces()
-            ->where('workspaces.status', 'active')
-            ->whereKey($workspaceId)
-            ->firstOrFail();
-        abort_unless(in_array($workspace->pivot->role, self::CAMPAIGN_ROLES, true), 403);
-
-        return $workspace;
+        return app(WorkspaceAccess::class)->find($request->user(), $workspaceId, self::CAMPAIGN_ROLES);
     }
 
     private function ownedNegative(Workspace $workspace, User $user, int $negativeId): WorkspaceCampaignNegative

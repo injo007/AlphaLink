@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceCommunication;
 use App\Models\WorkspaceCommunicationRecipient;
+use App\Services\Authorization\WorkspaceAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -202,10 +203,7 @@ class WorkspaceCommunicationController extends Controller
 
     private function workspaceFor(User $user, string $workspaceId): Workspace
     {
-        return $user->workspaces()
-            ->where('workspaces.status', 'active')
-            ->whereKey($workspaceId)
-            ->firstOrFail();
+        return app(WorkspaceAccess::class)->find($user, $workspaceId);
     }
 
     private function operatorFor(Workspace $workspace, int $operatorId): User

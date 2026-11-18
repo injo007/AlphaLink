@@ -132,6 +132,8 @@ class AccessRolePolicy
                 'console.mailer.campaigns',
                 'console.mailer.campaign-logs',
                 'console.campaign-logs.*',
+                'console.networks.sponsors.*',
+                'console.networks.offers.*',
                 'console.campaign-headers.*',
                 'console.campaign-statistics.*',
                 'console.warmups.*',

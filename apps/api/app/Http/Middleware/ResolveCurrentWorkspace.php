@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\Workspace;
 use Closure;
+use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -19,7 +20,9 @@ class ResolveCurrentWorkspace
         $user = $request->user();
         abort_unless($user, 401);
 
-        $workspaces = $user->workspaces()->where('workspaces.status', 'active');
+        $workspaces = $user->hasFullAccess()
+            ? Workspace::query()->where('status', 'active')
+            : $user->workspaces()->where('workspaces.status', 'active');
         $workspaceSlug = $request->route('workspaceSlug');
 
         if (is_string($workspaceSlug) && $workspaceSlug !== '') {
@@ -36,6 +39,10 @@ class ResolveCurrentWorkspace
         }
 
         abort_unless($workspace instanceof Workspace, 404);
+
+        if ($user->hasFullAccess()) {
+            $workspace->setRelation('pivot', new Pivot(['role' => $user->access_role]));
+        }
 
         $request->session()->put('active_workspace_id', $workspace->getKey());
         $request->attributes->set('alphalink.workspace', $workspace);

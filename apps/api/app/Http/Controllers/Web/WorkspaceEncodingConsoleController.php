@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\Authorization\WorkspaceAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -59,9 +60,6 @@ class WorkspaceEncodingConsoleController extends Controller
 
     private function workspaceFor(User $user, string $workspaceId): Workspace
     {
-        return $user->workspaces()
-            ->where('workspaces.status', 'active')
-            ->whereKey($workspaceId)
-            ->firstOrFail();
+        return app(WorkspaceAccess::class)->find($user, $workspaceId);
     }
 }

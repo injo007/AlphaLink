@@ -8,6 +8,7 @@ use App\Models\AuditEvent;
 use App\Models\Campaign;
 use App\Models\CampaignRecipientSnapshot;
 use App\Models\CampaignSendRun;
+use App\Services\Authorization\WorkspaceAccess;
 use App\Services\Campaigns\AlphaLinkCampaignSendCatalog;
 use App\Services\Campaigns\CampaignAutoFailoverService;
 use App\Services\Campaigns\CampaignSendMessageBuilder;
@@ -27,11 +28,7 @@ class CampaignSendController extends Controller
         PrepareCampaignSendRun $planner,
         CampaignSendMessageBuilder $messageBuilder,
     ): RedirectResponse {
-        $workspace = $request->user()->workspaces()
-            ->where('workspaces.status', 'active')
-            ->whereKey($workspace)
-            ->firstOrFail();
-        abort_unless(in_array($workspace->pivot->role, ['owner', 'admin', 'operator'], true), 403);
+        $workspace = app(WorkspaceAccess::class)->find($request->user(), $workspace, ['owner', 'admin', 'operator']);
         $data = $request->validate(['idempotency_key' => ['required', 'uuid']]);
         $campaign = $workspace->campaigns()
             ->with('latestRevision')
@@ -131,11 +128,7 @@ class CampaignSendController extends Controller
 
     public function stop(Request $request, string $workspace, string $campaign, string $run): RedirectResponse
     {
-        $workspace = $request->user()->workspaces()
-            ->where('workspaces.status', 'active')
-            ->whereKey($workspace)
-            ->firstOrFail();
-        abort_unless(in_array($workspace->pivot->role, ['owner', 'admin', 'operator'], true), 403);
+        $workspace = app(WorkspaceAccess::class)->find($request->user(), $workspace, ['owner', 'admin', 'operator']);
 
         $stopped = DB::transaction(function () use ($request, $workspace, $campaign, $run): bool {
             $sendRun = CampaignSendRun::query()
@@ -179,11 +172,7 @@ class CampaignSendController extends Controller
 
     public function progress(Request $request, string $workspace, string $campaign, string $run): JsonResponse
     {
-        $workspace = $request->user()->workspaces()
-            ->where('workspaces.status', 'active')
-            ->whereKey($workspace)
-            ->firstOrFail();
-        abort_unless(in_array($workspace->pivot->role, ['owner', 'admin', 'operator'], true), 403);
+        $workspace = app(WorkspaceAccess::class)->find($request->user(), $workspace, ['owner', 'admin', 'operator']);
         $sendRun = CampaignSendRun::query()
             ->where('workspace_id', $workspace->getKey())
             ->where('campaign_id', $campaign)
@@ -212,11 +201,7 @@ class CampaignSendController extends Controller
         string $campaign,
         CampaignAutoFailoverService $failoverService,
     ): JsonResponse {
-        $workspace = $request->user()->workspaces()
-            ->where('workspaces.status', 'active')
-            ->whereKey($workspace)
-            ->firstOrFail();
-        abort_unless(in_array($workspace->pivot->role, ['owner', 'admin', 'operator'], true), 403);
+        $workspace = app(WorkspaceAccess::class)->find($request->user(), $workspace, ['owner', 'admin', 'operator']);
 
         $campaign = Campaign::query()
             ->where('workspace_id', $workspace->getKey())
@@ -293,11 +278,7 @@ class CampaignSendController extends Controller
         string $campaign,
         CampaignAutoFailoverService $failoverService,
     ): JsonResponse {
-        $workspace = $request->user()->workspaces()
-            ->where('workspaces.status', 'active')
-            ->whereKey($workspace)
-            ->firstOrFail();
-        abort_unless(in_array($workspace->pivot->role, ['owner', 'admin', 'operator'], true), 403);
+        $workspace = app(WorkspaceAccess::class)->find($request->user(), $workspace, ['owner', 'admin', 'operator']);
 
         $data = $request->validate([
             'domain' => ['required', 'string', 'max:255'],

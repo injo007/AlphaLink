@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditEvent;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\Authorization\WorkspaceAccess;
 use App\Services\Campaigns\CampaignRedirectUrlPolicy;
 use App\Services\Telegram\TelegramAlertService;
 use App\Services\Workspace\WorkspaceBackupService;
@@ -575,15 +576,10 @@ class AppSettingsConsoleController extends Controller
 
     private function workspaceFor(User $user, string $workspaceId, bool $allowWorkspaceMember = false): Workspace
     {
-        $workspace = $user->workspaces()
-            ->where('workspaces.status', 'active')
-            ->whereKey($workspaceId)
-            ->firstOrFail();
-
-        if (! $allowWorkspaceMember) {
-            abort_unless(in_array($workspace->pivot->role, ['owner', 'admin'], true), 403);
-        }
-
-        return $workspace;
+        return app(WorkspaceAccess::class)->find(
+            $user,
+            $workspaceId,
+            $allowWorkspaceMember ? null : ['owner', 'admin'],
+        );
     }
 }

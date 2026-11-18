@@ -7,6 +7,7 @@ use App\Models\AuditEvent;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceCampaignHeader;
+use App\Services\Authorization\WorkspaceAccess;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -77,13 +78,8 @@ class WorkspaceCampaignHeaderController extends Controller
 
     private function workspaceFor(Request $request, string $workspaceId): Workspace
     {
-        $workspace = Workspace::query()
-            ->whereKey($workspaceId)
-            ->whereHas('users', fn ($query) => $query->whereKey($request->user()->getKey()))
-            ->firstOrFail();
-        $member = $workspace->users()->whereKey($request->user()->getKey())->firstOrFail();
-        abort_unless(in_array($member->pivot->role, self::CAMPAIGN_ROLES, true), 403);
-        $workspace->setRelation('authorized_member', $member);
+        $workspace = app(WorkspaceAccess::class)->find($request->user(), $workspaceId, self::CAMPAIGN_ROLES);
+        $workspace->setRelation('authorized_member', $request->user());
 
         return $workspace;
     }

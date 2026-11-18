@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Services\Authorization\AccessRoleAssignment;
+use App\Services\Authorization\WorkspaceAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -205,10 +206,7 @@ class WorkspaceUserManagementController extends Controller
 
     private function workspaceFor(User $actor, string $workspaceId): Workspace
     {
-        return $actor->workspaces()
-            ->where('workspaces.status', 'active')
-            ->whereKey($workspaceId)
-            ->firstOrFail();
+        return app(WorkspaceAccess::class)->find($actor, $workspaceId);
     }
 
     private function memberFor(Workspace $workspace, int $userId): User

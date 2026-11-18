@@ -8,6 +8,7 @@ use App\Models\Isp;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Services\Analytics\WorkspaceDailyAnalyticsRebuilder;
+use App\Services\Authorization\WorkspaceAccess;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -1520,9 +1521,6 @@ class WorkspaceAnalyticsConsoleController extends Controller
 
     private function workspaceFor(User $user, string $workspaceId): Workspace
     {
-        return $user->workspaces()
-            ->where('workspaces.status', 'active')
-            ->whereKey($workspaceId)
-            ->firstOrFail();
+        return app(WorkspaceAccess::class)->find($user, $workspaceId);
     }
 }

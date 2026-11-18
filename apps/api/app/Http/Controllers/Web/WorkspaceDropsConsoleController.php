@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceDrop;
 use App\Models\WorkspaceDropVisitor;
+use App\Services\Authorization\WorkspaceAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -478,12 +479,6 @@ class WorkspaceDropsConsoleController extends Controller
 
     private function workspaceFor(User $user, string $workspaceId): Workspace
     {
-        $workspace = $user->workspaces()
-            ->where('workspaces.status', 'active')
-            ->whereKey($workspaceId)
-            ->firstOrFail();
-        abort_unless(in_array($workspace->pivot->role, self::ALLOWED_ROLES, true), 403);
-
-        return $workspace;
+        return app(WorkspaceAccess::class)->find($user, $workspaceId, self::ALLOWED_ROLES);
     }
 }

@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Models\Workspace;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class AlphaLinkAudienceListManagementTest extends TestCase
@@ -43,7 +44,7 @@ class AlphaLinkAudienceListManagementTest extends TestCase
 
     public function test_list_creation_inherits_isp_access_and_checks_tracked_country(): void
     {
-        $operator = User::factory()->create();
+        $operator = User::factory()->create(['access_role' => User::ACCESS_ROLE_OPERATOR]);
         $this->workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
         $sponsor = $this->workspace->sponsors()->create([
             'name' => 'Fixture sponsor',
@@ -88,6 +89,47 @@ class AlphaLinkAudienceListManagementTest extends TestCase
             ->assertJsonPath('data.0.history.fresh', 0)
             ->assertJsonMissingPath('data.0.email')
             ->assertJsonMissingPath('data.0.members');
+    }
+
+    public function test_global_admin_can_access_lists_without_a_workspace_membership(): void
+    {
+        $admin = User::factory()->create([
+            'access_role' => User::ACCESS_ROLE_ADMIN,
+            'roles' => [],
+        ]);
+        $list = $this->makeList('Admin-accessible list');
+
+        $this->actingAs($admin)
+            ->get(route('console.index'))
+            ->assertRedirect(route('console.dashboard.main'));
+
+        $this->followingRedirects()->actingAs($admin)
+            ->get(route('console.infrastructure.lists.index', $this->workspace->getKey()))
+            ->assertOk()
+            ->assertSee('LOAD LISTS');
+
+        $this->getJson(route('console.infrastructure.isps.lists', [$this->workspace->getKey(), $this->isp->getKey()]))
+            ->assertOk()
+            ->assertJsonPath('data.0.id', (string) $list->getKey());
+    }
+
+    public function test_global_admin_can_list_workspaces_and_access_workspace_apis_without_membership(): void
+    {
+        $admin = User::factory()->create([
+            'access_role' => User::ACCESS_ROLE_ADMIN,
+            'roles' => [],
+        ]);
+        $list = $this->makeList('API Admin-accessible list');
+        Sanctum::actingAs($admin, ['*']);
+
+        $this->getJson('/api/v1/workspaces')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $this->workspace->getKey())
+            ->assertJsonPath('data.0.role', User::ACCESS_ROLE_ADMIN);
+
+        $this->getJson('/api/v1/workspaces/'.$this->workspace->getKey().'/audience-lists')
+            ->assertOk()
+            ->assertJsonPath('data.0.name', $list->name);
     }
 
     public function test_management_grid_counts_current_memberships_without_a_history_snapshot(): void
@@ -199,7 +241,7 @@ class AlphaLinkAudienceListManagementTest extends TestCase
     public function test_status_tracking_type_lock_and_assignments_are_workspace_scoped(): void
     {
         $list = $this->makeList('Policies');
-        $operator = User::factory()->create();
+        $operator = User::factory()->create(['access_role' => User::ACCESS_ROLE_OPERATOR]);
         $this->workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
         $sponsor = $this->workspace->sponsors()->create([
             'name' => 'Allowed sponsor',
@@ -261,7 +303,7 @@ class AlphaLinkAudienceListManagementTest extends TestCase
     {
         $first = $this->makeList('First list');
         $second = $this->makeList('Second list');
-        $operator = User::factory()->create();
+        $operator = User::factory()->create(['access_role' => User::ACCESS_ROLE_OPERATOR]);
         $this->workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
 
         $this->putJson(route('console.infrastructure.lists.bulk-assignment.update', [$this->workspace->id, 'users']), [
@@ -282,7 +324,7 @@ class AlphaLinkAudienceListManagementTest extends TestCase
     public function test_non_manager_cannot_open_list_management_or_mutate_list_state(): void
     {
         $list = $this->makeList('Protected list');
-        $operator = User::factory()->create();
+        $operator = User::factory()->create(['access_role' => User::ACCESS_ROLE_OPERATOR]);
         $this->workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
         $this->actingAs($operator);
 

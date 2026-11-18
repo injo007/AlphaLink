@@ -92,6 +92,37 @@ class WorkspaceSponsorManagementTest extends TestCase
         $this->assertStringNotContainsString('local-secret-42', json_encode(AuditEvent::query()->firstOrFail()->properties));
     }
 
+    public function test_global_admin_can_manage_sponsors_without_a_workspace_membership(): void
+    {
+        $admin = User::factory()->create([
+            'access_role' => User::ACCESS_ROLE_ADMIN,
+            'roles' => [],
+        ]);
+
+        $this->actingAs($admin)
+            ->getJson(route('console.sponsors.index', $this->workspace->getKey()))
+            ->assertOk()
+            ->assertJsonPath('data', []);
+
+        $this->postJson(route('console.sponsors.store', $this->workspace->getKey()), [
+            'name' => 'Admin-created sponsor',
+            'url' => 'https://network.example.test/login',
+            'username' => 'admin-user',
+            'password' => 'admin-secret',
+            'api_key' => 'admin-api-key',
+            'type' => 'everflow',
+        ])->assertOk();
+
+        $this->assertDatabaseHas('workspace_sponsors', [
+            'workspace_id' => $this->workspace->getKey(),
+            'name' => 'Admin-created sponsor',
+        ]);
+
+        $this->getJson(route('console.offers.index', $this->workspace->getKey()))
+            ->assertOk()
+            ->assertJsonPath('data', []);
+    }
+
     public function test_sponsor_connection_button_uses_read_only_api_checks_for_all_five_networks(): void
     {
         Http::fake(function (ClientRequest $request) {
@@ -170,7 +201,7 @@ class WorkspaceSponsorManagementTest extends TestCase
         Http::assertSent(fn (ClientRequest $request): bool => $request->hasHeader('x-eflow-api-key', 'saved-everflow-key'));
         $this->assertSame('saved-everflow-key', $sponsor->fresh()->api_key);
 
-        $operator = User::factory()->create();
+        $operator = User::factory()->create(['access_role' => User::ACCESS_ROLE_OPERATOR]);
         $this->workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
         $this->actingAs($operator)->postJson(
             route('console.sponsors.test-existing-connection', [$this->workspace->getKey(), $sponsor->getKey()]),
@@ -231,8 +262,8 @@ class WorkspaceSponsorManagementTest extends TestCase
 
     public function test_network_list_shows_active_sponsors_and_limits_operators_to_assigned_sponsors(): void
     {
-        $assignedOperator = User::factory()->create();
-        $unassignedOperator = User::factory()->create();
+        $assignedOperator = User::factory()->create(['access_role' => User::ACCESS_ROLE_OPERATOR]);
+        $unassignedOperator = User::factory()->create(['access_role' => User::ACCESS_ROLE_OPERATOR]);
         $this->workspace->users()->attach($assignedOperator->getKey(), ['role' => 'operator']);
         $this->workspace->users()->attach($unassignedOperator->getKey(), ['role' => 'operator']);
         $assigned = $this->createSponsor('Assigned Sponsor', ['allowed_users' => [$assignedOperator->getKey()]]);
@@ -332,7 +363,7 @@ class WorkspaceSponsorManagementTest extends TestCase
     public function test_isp_user_and_sponsor_assignments_are_workspace_validated_and_saved(): void
     {
         $isp = $this->workspace->isps()->create(['name' => 'ExampleISP']);
-        $operator = User::factory()->create();
+        $operator = User::factory()->create(['access_role' => User::ACCESS_ROLE_OPERATOR]);
         $this->workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
         $sponsor = $this->createSponsor('Permitted Sponsor');
 
@@ -352,7 +383,7 @@ class WorkspaceSponsorManagementTest extends TestCase
         $this->assertSame([(int) $sponsor->getKey()], $isp->fresh()->allowed_sponsors);
         $this->assertSame(2, AuditEvent::query()->where('action', 'like', 'isp.allowed_%')->count());
 
-        $otherOperator = User::factory()->create();
+        $otherOperator = User::factory()->create(['access_role' => User::ACCESS_ROLE_OPERATOR]);
         $this->workspace->users()->attach($otherOperator->getKey(), ['role' => 'operator']);
         $this->putJson(route('console.infrastructure.isps.users.update', [$this->workspace->getKey(), $isp->getKey()]), [
             'users' => [$otherOperator->getKey(), 999999],
@@ -379,11 +410,13 @@ class WorkspaceSponsorManagementTest extends TestCase
     public function test_sponsor_assignments_match_reference_mailer_identity_order_and_bulk_defaults(): void
     {
         $firstOperator = User::factory()->create([
+            'access_role' => User::ACCESS_ROLE_OPERATOR,
             'name' => 'Zeta Mailer',
             'username' => 'zeta-mailer',
             'email' => 'zeta@example.test',
         ]);
         $secondOperator = User::factory()->create([
+            'access_role' => User::ACCESS_ROLE_OPERATOR,
             'name' => 'Alpha Mailer',
             'username' => 'alpha-mailer',
             'email' => 'alpha@example.test',
@@ -451,8 +484,8 @@ class WorkspaceSponsorManagementTest extends TestCase
 
     public function test_single_sponsor_allowed_users_cascade_to_all_related_offers(): void
     {
-        $previousOperator = User::factory()->create();
-        $newOperator = User::factory()->create();
+        $previousOperator = User::factory()->create(['access_role' => User::ACCESS_ROLE_OPERATOR]);
+        $newOperator = User::factory()->create(['access_role' => User::ACCESS_ROLE_OPERATOR]);
         $this->workspace->users()->attach($previousOperator->getKey(), ['role' => 'operator']);
         $this->workspace->users()->attach($newOperator->getKey(), ['role' => 'operator']);
         $sponsor = $this->createSponsor('Single Assignment Network', [
@@ -478,8 +511,8 @@ class WorkspaceSponsorManagementTest extends TestCase
 
     public function test_sponsor_bulk_allowed_user_action_updates_selected_records_only(): void
     {
-        $previousOperator = User::factory()->create();
-        $operator = User::factory()->create();
+        $previousOperator = User::factory()->create(['access_role' => User::ACCESS_ROLE_OPERATOR]);
+        $operator = User::factory()->create(['access_role' => User::ACCESS_ROLE_OPERATOR]);
         $this->workspace->users()->attach($previousOperator->getKey(), ['role' => 'operator']);
         $this->workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
         $previousAssignment = [(int) $previousOperator->getKey()];

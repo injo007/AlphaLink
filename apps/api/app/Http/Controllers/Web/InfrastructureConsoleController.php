@@ -16,6 +16,7 @@ use App\Models\ServerProvider;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceInfrastructureSettings;
+use App\Services\Authorization\WorkspaceAccess;
 use App\Services\Infrastructure\AlphaLinkBulkInstallEligibility;
 use App\Services\Infrastructure\AlphaLinkBulkInstallIspCatalog;
 use App\Services\Infrastructure\AlphaLinkBulkInstallPayload;
@@ -3193,21 +3194,12 @@ class InfrastructureConsoleController extends Controller
 
     private function workspaceFor(User $user, string $workspaceId, array $allowedRoles = ['owner', 'admin']): Workspace
     {
-        $workspace = $user->workspaces()
-            ->where('workspaces.status', 'active')
-            ->whereKey($workspaceId)
-            ->firstOrFail();
-        abort_unless(in_array($workspace->pivot->role, $allowedRoles, true), 403);
-
-        return $workspace;
+        return app(WorkspaceAccess::class)->find($user, $workspaceId, $allowedRoles);
     }
 
     private function workspaceForServerControl(User $user, string $workspaceId): Workspace
     {
-        return $user->workspaces()
-            ->where('workspaces.status', 'active')
-            ->whereKey($workspaceId)
-            ->firstOrFail();
+        return app(WorkspaceAccess::class)->find($user, $workspaceId);
     }
 
     private function auditDomainChange(

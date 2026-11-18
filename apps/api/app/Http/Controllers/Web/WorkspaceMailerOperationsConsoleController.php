@@ -15,6 +15,7 @@ use App\Models\WarmupSendRun;
 use App\Models\Workspace;
 use App\Models\WorkspaceCampaignTestAddress;
 use App\Models\WorkspaceSeedList;
+use App\Services\Authorization\WorkspaceAccess;
 use App\Services\Campaigns\AlphaLinkCampaignSendCatalog;
 use App\Services\Campaigns\PrepareWarmupSendRun;
 use Illuminate\Database\Eloquent\Builder;
@@ -934,13 +935,7 @@ class WorkspaceMailerOperationsConsoleController extends Controller
 
     private function workspaceFor(User $user, string $workspaceId): Workspace
     {
-        $workspace = $user->workspaces()
-            ->where('workspaces.status', 'active')
-            ->whereKey($workspaceId)
-            ->firstOrFail();
-        abort_unless(in_array($workspace->pivot->role, self::ALLOWED_ROLES, true), 403);
-
-        return $workspace;
+        return app(WorkspaceAccess::class)->find($user, $workspaceId, self::ALLOWED_ROLES);
     }
 
     /** @param array<string, mixed> $content */

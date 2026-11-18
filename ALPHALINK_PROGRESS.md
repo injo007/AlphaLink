@@ -3,6 +3,10 @@
 **Updated:** 2026-11-18
 **Active objective:** Keep fresh PMTA installation, relay monitoring/commands, campaign redirects, asset reconciliation, and deploy/resume paths aligned.
 **Current implementation status:** E-TOOLS-57/58 provide per-scan pause, resume, stop, and safe delete controls. Release `9c8a9873734e42e45f10927d1a9aa15fc5a43cd9` is active in production and pushed to `codex/alphalink-identity-reconstruction`; static syntax checks pass. Automated tests and throughput benchmarks were not run.
+### Admin full-access workspace policy — E-IAM-16 (2026-11-18)
+
+Global Owner/Admin access now bypasses missing or stale `workspace_user` roles consistently through workspace selection, legacy/clean web routing, API membership middleware, and workspace controllers. Sponsors, Offers, Lists, PMTA and other workspace-scoped modules use the same resolver; Owner-only shared navigation drag/drop remains enforced in the UI and controller. Focused synthetic web/API role tests pass 9 tests / 49 assertions, including Admin-without-membership access, Operator scoping, and Owner-only navigation. No authenticated production account/browser review or safe production target verification was completed; deployment remains pending. Keep ALPHALINK-IAM-001 IMPLEMENTING; no DMS parity is claimed.
+
 **Production baseline:** Release `9c8a9873734e42e45f10927d1a9aa15fc5a43cd9` is active. The guarded installer verified PostgreSQL backup `/var/backups/alphalink/deploy-9c8a9873734e42e45f10927d1a9aa15fc5a43cd9-20261113T190802Z.dump`, found no pending migrations, and passed local HTTPS health. Read-only live-page inspection shows scan 9 remains paused at 61,194 / 193,548 with Resume/Stop/Delete, and legacy stopped rows 1–4 and 8 now have Delete; no scan action or production row mutation was performed. The 10M-domain / 20-IP benchmark remains unrun; 1,000 domains/second is a target, not a measured result.
 
 ### PMTA reviewed asset reconciliation — E-INST-105 (2026-11-16)

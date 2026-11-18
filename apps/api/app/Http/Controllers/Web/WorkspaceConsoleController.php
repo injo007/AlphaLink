@@ -25,6 +25,7 @@ use App\Models\WorkspaceCampaignNegative;
 use App\Models\WorkspaceCampaignTestAddress;
 use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceOfferAsset;
+use App\Services\Authorization\WorkspaceAccess;
 use App\Services\Campaigns\AdminOperatorCampaignFilter;
 use App\Services\Campaigns\AlphaLinkCampaignRecipientSnapshotBuilder;
 use App\Services\Campaigns\AlphaLinkCampaignSendCatalog;
@@ -76,10 +77,7 @@ class WorkspaceConsoleController extends Controller
 
     public function index(Request $request): View|RedirectResponse
     {
-        $workspaces = $request->user()->workspaces()
-            ->where('workspaces.status', 'active')
-            ->orderBy('workspaces.name')
-            ->get(['workspaces.id', 'workspaces.name', 'workspaces.slug']);
+        $workspaces = app(WorkspaceAccess::class)->all($request->user());
 
         if ($workspaces->count() === 1) {
             return redirect()->route('console.dashboard.main');
@@ -3552,10 +3550,7 @@ class WorkspaceConsoleController extends Controller
 
     private function workspaceFor(User $user, string $workspaceId): Workspace
     {
-        return $user->workspaces()
-            ->where('workspaces.status', 'active')
-            ->whereKey($workspaceId)
-            ->firstOrFail();
+        return app(WorkspaceAccess::class)->find($user, $workspaceId);
     }
 
     private function pmtaListenerPort(Workspace $workspace): ?int

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditEvent;
 use App\Models\OutboxMessage;
 use App\Models\Workspace;
+use App\Services\Authorization\WorkspaceAccess;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,10 +18,7 @@ class WorkspaceController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $workspaces = $request->user()->workspaces()
-            ->where('workspaces.status', 'active')
-            ->orderBy('workspaces.name')
-            ->get(['workspaces.id', 'workspaces.name', 'workspaces.slug', 'workspaces.status']);
+        $workspaces = app(WorkspaceAccess::class)->all($request->user());
 
         return response()->json([
             'data' => $workspaces->map(fn (Workspace $workspace) => [

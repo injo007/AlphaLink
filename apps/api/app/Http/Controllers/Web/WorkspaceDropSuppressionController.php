@@ -11,6 +11,7 @@ use App\Models\Workspace;
 use App\Models\WorkspaceDropSuppression;
 use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceSponsor;
+use App\Services\Authorization\WorkspaceAccess;
 use App\Services\Campaigns\AlphaLinkOfferSuppressionFile;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -327,9 +328,6 @@ class WorkspaceDropSuppressionController extends Controller
 
     private function workspaceFor(User $user, string $workspaceId): Workspace
     {
-        $workspace = $user->workspaces()->where('workspaces.status', 'active')->whereKey($workspaceId)->firstOrFail();
-        abort_unless(in_array($workspace->pivot->role, self::ALLOWED_ROLES, true), 403);
-
-        return $workspace;
+        return app(WorkspaceAccess::class)->find($user, $workspaceId, self::ALLOWED_ROLES);
     }
 }

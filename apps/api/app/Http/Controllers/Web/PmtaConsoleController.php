@@ -12,6 +12,7 @@ use App\Models\PmtaSmtpConfig;
 use App\Models\PmtaVirtualMta;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\Authorization\WorkspaceAccess;
 use App\Services\Infrastructure\AlphaLinkBulkInstallPrivateAssetReader;
 use App\Services\Infrastructure\AlphaLinkWebmailDiagnostics;
 use App\Services\PmtaAuditLogger;
@@ -828,7 +829,7 @@ class PmtaConsoleController extends Controller
 
     private function workspaceFor(Request $request, string $workspaceId): Workspace
     {
-        return $request->user()->workspaces()->whereKey($workspaceId)->firstOrFail();
+        return app(WorkspaceAccess::class)->find($request->user(), $workspaceId);
     }
 
     private function serverFor(Workspace $workspace, string $serverId): ManagedServer

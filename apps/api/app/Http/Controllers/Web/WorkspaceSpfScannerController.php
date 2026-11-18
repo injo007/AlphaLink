@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Jobs\RunWorkspaceSpfComparison;
 use App\Jobs\RunWorkspaceSpfScan;
-use App\Models\ManagedServerIp;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceSpfRoot;
@@ -13,6 +12,7 @@ use App\Models\WorkspaceSpfScan;
 use App\Models\WorkspaceSpfScanEvent;
 use App\Models\WorkspaceSpfSearchResult;
 use App\Models\WorkspaceSpfSearchRun;
+use App\Services\Authorization\WorkspaceAccess;
 use App\Services\Spf\AlphaLinkSpfDnsCheckMatcher;
 use App\Services\Spf\AlphaLinkSpfScanActivity;
 use App\Services\Spf\AlphaLinkSpfScanLauncher;
@@ -804,7 +804,7 @@ class WorkspaceSpfScannerController extends Controller
     {
         abort_unless($user, 401);
 
-        return $user->workspaces()->where('workspaces.status', 'active')->whereKey($workspaceId)->firstOrFail();
+        return app(WorkspaceAccess::class)->find($user, $workspaceId);
     }
 
     /**

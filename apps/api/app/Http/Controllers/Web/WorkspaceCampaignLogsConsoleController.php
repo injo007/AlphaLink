@@ -12,6 +12,7 @@ use App\Models\ManagedServer;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceOffer;
+use App\Services\Authorization\WorkspaceAccess;
 use App\Services\Campaigns\AdminOperatorCampaignFilter;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Contracts\View\View;
@@ -327,13 +328,7 @@ class WorkspaceCampaignLogsConsoleController extends Controller
         $user = $request->user();
         abort_unless($user instanceof User, 401);
 
-        $workspace = $user->workspaces()
-            ->where('workspaces.status', 'active')
-            ->whereKey($workspaceId)
-            ->firstOrFail();
-        abort_unless(in_array($workspace->pivot->role, self::ALLOWED_ROLES, true), 403);
-
-        return $workspace;
+        return app(WorkspaceAccess::class)->find($user, $workspaceId, self::ALLOWED_ROLES);
     }
 
     private function campaignForUser(Request $request, Workspace $workspace, string $campaignId): Campaign

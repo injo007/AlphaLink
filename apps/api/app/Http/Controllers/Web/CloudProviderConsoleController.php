@@ -7,6 +7,7 @@ use App\Models\AuditEvent;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceCloudProvider;
+use App\Services\Authorization\WorkspaceAccess;
 use App\Services\Infrastructure\AlphaLinkCloudProviderApi;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
@@ -257,24 +258,12 @@ class CloudProviderConsoleController extends Controller
 
     private function workspaceFor(User $user, string $workspaceId): Workspace
     {
-        $workspace = $user->workspaces()
-            ->where('workspaces.status', 'active')
-            ->whereKey($workspaceId)
-            ->firstOrFail();
-        abort_unless(in_array($workspace->pivot->role, ['owner', 'admin'], true), 403);
-
-        return $workspace;
+        return app(WorkspaceAccess::class)->find($user, $workspaceId, ['owner', 'admin']);
     }
 
     private function workspaceForMember(User $user, string $workspaceId): Workspace
     {
-        $workspace = $user->workspaces()
-            ->where('workspaces.status', 'active')
-            ->whereKey($workspaceId)
-            ->firstOrFail();
-        abort_unless(in_array($workspace->pivot->role, ['owner', 'admin', 'operator'], true), 403);
-
-        return $workspace;
+        return app(WorkspaceAccess::class)->find($user, $workspaceId, ['owner', 'admin', 'operator']);
     }
 
     private function auditProviderChange(Workspace $workspace, Request $request, string $action, WorkspaceCloudProvider $provider): void

@@ -2,6 +2,10 @@
 
 > **Archived comparison report.** Its dated comparisons and status snapshots preserve historical evidence; they do not define AlphaLink's current product identity or active requirements.
 
+## Admin workspace access follow-up — E-IAM-16
+
+AlphaLink's global Owner/Admin roles now resolve active workspace resources independently of `workspace_user` membership, and full-access users receive an effective role for downstream workspace-scoped checks. Workspace selection, legacy URL redirect, clean web routes, API membership middleware, and workspace resource controllers use the same policy. This keeps Admin access consistent across Sponsors, Offers, Lists, and other workspace modules, while the global navigation order endpoint and drag/drop UI remain Owner-only. Focused synthetic tests pass for Sponsor/Offer management, Lists, API workspace/list access, Operator network filtering, and Owner-only shared navigation. This is an AlphaLink-only permission policy; no DMS behavior or production deployment is claimed. Keep `ALPHALINK-IAM-001` IMPLEMENTING pending authenticated matrix and production verification.
+
 ## 2026-11-10 Per-account permissions and Mailer access — E-IAM-15
 
 The global Users editor keeps Owner/Admin as full-access roles, with shared navigation arrangement and ownership transfer reserved for Owner. Operator, Viewer, and Privacy Officer accounts retain editable per-page View/Manage selections, saved on the user and enforced by the route/API permission map; Manage also grants View, and sensitive setup/detail views require Manage. Campaign test-address/tools and cloud-provider routes now use their relevant permission groups. The Mailer sending preset includes recipient-list read access required by campaign preparation. The preset and role defaults do not prevent account-specific edits. PHP syntax, route registration, and `git diff --check` pass; automated permission-matrix and authenticated UI checks were not run. Pint could not run because the local PHP 8.3.6 runtime lacks XML. Keep `ALPHALINK-IAM-001` IMPLEMENTING.

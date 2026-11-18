@@ -16,6 +16,7 @@ use App\Services\AffiliateNetworks\AlphaLinkAffiliateProviderException;
 use App\Services\AffiliateNetworks\AlphaLinkSponsorOfferImporter;
 use App\Services\AffiliateNetworks\AlphaLinkSponsorOfferRefresher;
 use App\Services\AlphaLinkOfferAssetSharer;
+use App\Services\Authorization\WorkspaceAccess;
 use App\Services\Campaigns\AlphaLinkOfferSuppressionFile;
 use App\Services\Telegram\TelegramAlertService;
 use Illuminate\Contracts\View\View;
@@ -1134,9 +1135,6 @@ class WorkspaceOfferConsoleController extends Controller
     /** @param array<int, string> $roles */
     private function workspaceFor(User $user, string $workspaceId, array $roles): Workspace
     {
-        $workspace = $user->workspaces()->where('workspaces.status', 'active')->whereKey($workspaceId)->firstOrFail();
-        abort_unless(in_array($workspace->pivot->role, $roles, true), 403);
-
-        return $workspace;
+        return app(WorkspaceAccess::class)->find($user, $workspaceId, $roles);
     }
 }

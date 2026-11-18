@@ -12,6 +12,7 @@ use App\Models\ContactListMembershipEvent;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceDropVisitor;
+use App\Services\Authorization\WorkspaceAccess;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\JsonResponse;
@@ -323,13 +324,7 @@ class WorkspaceEmailManagementController extends Controller
 
     private function adminWorkspace(User $user, string $workspaceId): Workspace
     {
-        $workspace = $user->workspaces()
-            ->where('workspaces.status', 'active')
-            ->whereKey($workspaceId)
-            ->firstOrFail();
-        abort_unless(in_array($workspace->pivot->role, ['owner', 'admin', 'privacy_officer'], true), 403);
-
-        return $workspace;
+        return app(WorkspaceAccess::class)->find($user, $workspaceId, ['owner', 'admin', 'privacy_officer']);
     }
 
     private function isUuid(string $value): bool

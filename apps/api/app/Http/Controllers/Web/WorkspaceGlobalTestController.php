@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceCampaignNegative;
 use App\Models\WorkspaceCampaignTestAddress;
+use App\Services\Authorization\WorkspaceAccess;
 use App\Services\Campaigns\AlphaLinkCampaignSendCatalog;
 use App\Services\Campaigns\AlphaLinkGlobalTestNativeSender;
 use App\Services\Campaigns\AlphaLinkGlobalTestReverseDnsResolver;
@@ -307,13 +308,7 @@ class WorkspaceGlobalTestController extends Controller
 
     private function workspaceFor(User $user, string $workspaceId): Workspace
     {
-        $workspace = $user->workspaces()
-            ->where('workspaces.status', 'active')
-            ->whereKey($workspaceId)
-            ->firstOrFail();
-        abort_unless(in_array($workspace->pivot->role, self::ALLOWED_ROLES, true), 403);
-
-        return $workspace;
+        return app(WorkspaceAccess::class)->find($user, $workspaceId, self::ALLOWED_ROLES);
     }
 
     /**

@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceBlacklistProcess;
 use App\Services\Audiences\ProcessWorkspaceBlacklistFile;
+use App\Services\Authorization\WorkspaceAccess;
 use Illuminate\Contracts\View\View;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Http\JsonResponse;
@@ -187,12 +188,6 @@ class WorkspaceBlacklistCheckerController extends Controller
 
     private function adminWorkspace(User $user, string $workspaceId): Workspace
     {
-        $workspace = $user->workspaces()
-            ->where('workspaces.status', 'active')
-            ->whereKey($workspaceId)
-            ->firstOrFail();
-        abort_unless(in_array($workspace->pivot->role, ['owner', 'admin'], true), 403);
-
-        return $workspace;
+        return app(WorkspaceAccess::class)->find($user, $workspaceId, ['owner', 'admin']);
     }
 }

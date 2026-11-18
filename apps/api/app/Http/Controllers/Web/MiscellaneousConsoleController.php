@@ -10,6 +10,7 @@ use App\Models\WorkspaceSubscriber;
 use App\Services\AppErrorLogReader;
 use App\Services\AppHealthReport;
 use App\Services\AppLogArchiveService;
+use App\Services\Authorization\WorkspaceAccess;
 use App\Services\OpenObserve\ErrorIntelligenceService;
 use App\Services\Telegram\TelegramAlertService;
 use Illuminate\Contracts\View\View;
@@ -367,9 +368,6 @@ class MiscellaneousConsoleController extends Controller
 
     private function workspaceFor(User $user, string $workspaceId): Workspace
     {
-        return $user->workspaces()
-            ->where('workspaces.status', 'active')
-            ->whereKey($workspaceId)
-            ->firstOrFail();
+        return app(WorkspaceAccess::class)->find($user, $workspaceId);
     }
 }

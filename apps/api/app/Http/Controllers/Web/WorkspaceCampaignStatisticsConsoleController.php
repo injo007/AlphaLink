@@ -8,6 +8,7 @@ use App\Models\Campaign;
 use App\Models\Isp;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\Authorization\WorkspaceAccess;
 use App\Services\Campaigns\AdminOperatorCampaignFilter;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Query\JoinClause;
@@ -486,13 +487,7 @@ class WorkspaceCampaignStatisticsConsoleController extends Controller
 
     private function authorizedWorkspace(User $user, string $workspaceId): Workspace
     {
-        $workspace = $user->workspaces()
-            ->where('workspaces.status', 'active')
-            ->whereKey($workspaceId)
-            ->firstOrFail();
-        abort_unless(in_array($workspace->pivot->role, self::ALLOWED_ROLES, true), 403);
-
-        return $workspace;
+        return app(WorkspaceAccess::class)->find($user, $workspaceId, self::ALLOWED_ROLES);
     }
 
     private function canonicalUuid(string $value): ?string

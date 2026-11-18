@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceCommunicationRecipient;
 use App\Services\Authorization\AccessRoleAssignment;
+use App\Services\Authorization\WorkspaceAccess;
 use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -357,9 +358,6 @@ class GlobalUserManagementController extends Controller
 
     private function layoutWorkspace(User $user): ?Workspace
     {
-        return $user->workspaces()
-            ->where('workspaces.status', 'active')
-            ->orderBy('workspaces.name')
-            ->first();
+        return app(WorkspaceAccess::class)->all($user)->first();
     }
 }

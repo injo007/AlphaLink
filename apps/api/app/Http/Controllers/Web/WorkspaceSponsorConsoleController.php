@@ -11,6 +11,7 @@ use App\Services\AffiliateNetworks\AlphaLinkAffiliateProviderException;
 use App\Services\AffiliateNetworks\AlphaLinkSponsorConnectionTester;
 use App\Services\AffiliateNetworks\AlphaLinkSponsorExtensionPackage;
 use App\Services\AffiliateNetworks\AlphaLinkSponsorLoginSession;
+use App\Services\Authorization\WorkspaceAccess;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -368,14 +369,7 @@ class WorkspaceSponsorConsoleController extends Controller
     /** @param array<int, string> $roles */
     private function workspaceFor(User $user, string $workspaceId, array $roles): Workspace
     {
-        $workspace = $user->workspaces()
-            ->where('workspaces.status', 'active')
-            ->whereKey($workspaceId)
-            ->firstOrFail();
-
-        abort_unless(in_array($workspace->pivot->role, $roles, true), 403);
-
-        return $workspace;
+        return app(WorkspaceAccess::class)->find($user, $workspaceId, $roles);
     }
 
     /** @return array{extensionId: string, extensionUrl: string|null} */

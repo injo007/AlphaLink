@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditEvent;
 use App\Models\CampaignRecipientSnapshot;
 use App\Models\Workspace;
+use App\Services\Authorization\WorkspaceAccess;
 use App\Services\Campaigns\AlphaLinkCampaignBodyGenerator;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\JsonResponse;
@@ -128,13 +129,6 @@ class CampaignComposerToolsController extends Controller
 
     private function workspaceFor(Request $request, string $workspaceId): Workspace
     {
-        $workspace = Workspace::query()
-            ->whereKey($workspaceId)
-            ->whereHas('users', fn ($query) => $query->whereKey($request->user()->getKey()))
-            ->firstOrFail();
-        $member = $workspace->users()->whereKey($request->user()->getKey())->firstOrFail();
-        abort_unless(in_array($member->pivot->role, self::CAMPAIGN_ROLES, true), 403);
-
-        return $workspace;
+        return app(WorkspaceAccess::class)->find($request->user(), $workspaceId, self::CAMPAIGN_ROLES);
     }
 }

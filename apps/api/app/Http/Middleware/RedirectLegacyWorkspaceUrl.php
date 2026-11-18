@@ -16,10 +16,13 @@ class RedirectLegacyWorkspaceUrl
         }
 
         $workspaceId = $request->route('workspace');
-        $workspace = $request->user()?->workspaces()
-            ->where('workspaces.status', 'active')
-            ->whereKey($workspaceId)
-            ->first();
+        $user = $request->user();
+        $workspace = $user?->hasFullAccess()
+            ? Workspace::query()->where('status', 'active')->whereKey($workspaceId)->first()
+            : $user?->workspaces()
+                ->where('workspaces.status', 'active')
+                ->whereKey($workspaceId)
+                ->first();
 
         abort_unless($workspace instanceof Workspace, 404);
 

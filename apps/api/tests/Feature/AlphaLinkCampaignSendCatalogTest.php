@@ -4042,9 +4042,9 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
             ->assertSee($statusUrl, false)
             ->assertSee('style="background:#fff"', false)
             ->assertSee('style="width:120px"', false)
-            ->assertSee('/pmta-admin/servers/'.$server->getKey().'/css.css', false)
-            ->assertSee('/pmta-admin/servers/'.$server->getKey().'/images/port25.gif', false)
-            ->assertSee('background-image: url("/pmta-admin/servers/'.$server->getKey().'/images/port25.gif")', false)
+            ->assertSee('/pmta-admin/servers/'.$server->getKey().'?asset=css.css', false)
+            ->assertSee('/pmta-admin/servers/'.$server->getKey().'?asset=images%2Fport25.gif', false)
+            ->assertSee('background-image: url("/pmta-admin/servers/'.$server->getKey().'?asset=images%2Fport25.gif', false)
             ->assertSee('aria-disabled="true"', false)
             ->assertDontSee('href="/command"', false)
             ->assertDontSee('reset counters')
@@ -4063,7 +4063,7 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
             'monitorPath' => 'css.css',
         ]))->assertOk()
             ->assertHeader('Content-Type', 'text/css; charset=UTF-8')
-            ->assertSee('/pmta-admin/servers/'.$server->getKey().'/images/port25.gif', false)
+            ->assertSee('/pmta-admin/servers/'.$server->getKey().'?asset=images%2Fport25.gif', false)
             ->assertDontSee('external.invalid');
 
         Http::fake();

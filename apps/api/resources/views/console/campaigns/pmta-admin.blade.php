@@ -238,7 +238,7 @@
                                 <input type="radio" id="pmta-monitor-ip" name="pmta-monitor-target" value="ip" @checked($monitorTarget === 'ip')>
                                 <span>Server IP</span>
                             </label>
-                            <span class="small text-muted" id="pmta-monitor-target-help">Domain uses the saved PMTA domain and falls back to the server IP with the saved domain Host if the proxy blocks HTTPS. Server IP uses the IP directly. AlphaLink stays on HTTPS.</span>
+                            <span class="small text-muted" id="pmta-monitor-target-help">Domain uses the saved PMTA domain and retries through the server IP with the saved domain Host when the proxy cannot reach it. Server IP uses the IP directly. AlphaLink stays on HTTPS.</span>
                         </fieldset>
                     </div>
                 </div>

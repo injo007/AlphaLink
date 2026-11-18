@@ -49,8 +49,7 @@ class PmtaMonitorProxy
             $remote = $this->requestThroughProxy($url, $proxy);
         } catch (\Throwable $exception) {
             $exceptionMessage = $exception->getMessage();
-            if ($target === 'domain' && $this->proxyRejectedHttpsConnect($url, $exceptionMessage)
-                && preg_match('/\b403\b/', $exceptionMessage) === 1) {
+            if ($target === 'domain' && preg_match('/\b407\b/', $exceptionMessage) !== 1) {
                 try {
                     $remote = $this->requestDomainThroughServerIp($ip, $port, $path, $remoteHost, $proxy);
                 } catch (\Throwable $fallbackException) {
@@ -74,14 +73,14 @@ class PmtaMonitorProxy
                 }
             } elseif (preg_match('/\b407\b/', $exceptionMessage) === 1) {
                 return response('The configured PMTA proxy rejected authentication. Check its credentials in App Settings or the AlphaLink environment.', 502, ['Cache-Control' => 'no-store']);
-            } elseif ($target === 'domain' && preg_match('/\bCONNECT\b/i', $exceptionMessage) === 1 && preg_match('/\b403\b/', $exceptionMessage) === 1) {
-                return response('The configured proxy denied HTTPS CONNECT to the selected PMTA domain. Switch the monitor target to Server IP.', 502, ['Cache-Control' => 'no-store']);
             } else {
                 return response('The configured PMTA proxy could not reach the selected '.$target.' monitor target.', 502, ['Cache-Control' => 'no-store']);
             }
         }
 
-        if ($target === 'domain' && $this->redirectsToHttpsOnSameHost($url, $remote)) {
+        if ($target === 'domain'
+            && ($this->redirectsToHttpsOnSameHost($url, $remote)
+                || (! $remote->successful() && $remote->status() !== 407))) {
             try {
                 $remote = $this->requestDomainThroughServerIp($ip, $port, $path, $remoteHost, $proxy);
             } catch (\Throwable $exception) {

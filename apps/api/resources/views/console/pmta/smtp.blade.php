@@ -494,13 +494,27 @@
     });
 
     document.getElementById('pmta-smtp-reset').addEventListener('click', async (event) => {
+        const button = event.currentTarget;
         const ipIds = selectedIpIds();
         if (!ipIds.length) { announce('Please select at least one IP.', 'warning'); return; }
-        if (!await ask('Reset SMTP on the selected servers?', 'This removes your SMTP configuration file from each selected server.', 'Reset')) return;
-        const button = event.currentTarget; button.disabled = true;
-        try { const result = await api(root.dataset.restoreUrl, 'POST', { ip_ids: ipIds }); showResults(result.results); announce(result.results.map((row) => `${row.server}: ${row.message}`).join(' · '), result.success ? 'success' : 'danger'); if (grid) grid.ajax.reload(null, false); }
-        catch (error) { announce(error.message, 'danger'); }
-        finally { button.disabled = false; }
+        try {
+            if (!await ask('Reset SMTP on the selected servers?', 'This removes your SMTP configuration file from each selected server.', 'Reset')) return;
+            button.disabled = true;
+            button.setAttribute('aria-busy', 'true');
+            showResults([]);
+            announce('Resetting SMTP configuration on the selected servers.', 'info');
+            const result = await api(root.dataset.restoreUrl, 'POST', { ip_ids: ipIds });
+            const results = Array.isArray(result.results) ? result.results : [];
+            showResults(results);
+            announce(results.map((row) => `${row.server}: ${row.message}`).join(' · ') || 'SMTP reset returned no server results.', result.success ? 'success' : 'danger');
+            if (grid) grid.ajax.reload(null, false);
+        } catch (error) {
+            showResults([]);
+            announce(error.message || 'SMTP reset failed.', 'danger');
+        } finally {
+            button.disabled = false;
+            button.removeAttribute('aria-busy');
+        }
     });
 
     document.getElementById('pmta-smtp-gscript').addEventListener('change', (event) => {

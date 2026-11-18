@@ -178,3 +178,8 @@ E-CAMP-160 records the DMS-matched behavior: PMTA Admin and PMTA Panel open in s
 | ID | Module / AlphaLink route | Source of behavior | Evidence | AlphaLink implementation | Status | Known difference |
 |---|---|---|---|---|---|---|
 | ALPHALINK-PMTA-001 | PMTA Admin monitor and selected-server target (`GET /app/workspaces/{workspace}/pmta-admin/servers/{server}/{monitorPath?}`); PMTA install readiness | User request to keep PMTA monitor and commands reachable through the configured relay on future installs; no DMS behavior inferred | E-INST-107, E-INST-108, E-PMTA-114, E-PMTA-115 | Domain and Server IP modes use the authenticated AlphaLink relay; Domain retries through the server IP while preserving the saved host. Monitor CSS remains on the same-origin route. Fresh install/reinstall completion requires monitor HTML, stylesheet, and read-only `show status`. | TESTING | Production `209.38.96.157` passes monitor, CSS, and read-only status. Existing `160.119.71.108:1213` returns upstream HTTP 502 (`GONE :(`). No clean PMTA host or live campaign redirect was tested; no DMS parity is claimed. |
+## AlphaLink PMTA monitor and SMTP follow-up — excluded from DMS denominator
+
+| ID | Workflow | Evidence | Status | Remaining gap |
+|---|---|---|---|---|
+| ALPHALINK-PMTA-002 | SMTP Reset and read-only queue-detail navigation | E-PMTA-117 | TESTING | Reset and proxy behavior are covered with synthetic tests. Existing PMTA hosts may still have an Nginx policy that blocks `/listqueue`; refresh the selected host's monitor config before claiming a live queue-detail click. No live reset or queue action was performed. |

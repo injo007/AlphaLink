@@ -96,6 +96,24 @@ class PmtaRemoteConfiguration
         return $this->uploadAndReload($this->open($server), $path, $contents);
     }
 
+    public function resetSmtpFile(ManagedServer $server, int $userId): void
+    {
+        if ($userId < 1) {
+            throw new RuntimeException('Choose a valid SMTP owner.');
+        }
+
+        $path = escapeshellarg($this->files->path('smtp_'.$userId));
+        $session = $this->open($server);
+        $result = $session->exec('rm -f -- '.$path.' && test ! -e '.$path.' && printf __ALPHALINK_SMTP_FILE_REMOVED__');
+        if (! is_string($result) || ! str_contains($result, '__ALPHALINK_SMTP_FILE_REMOVED__')) {
+            throw new RuntimeException('The SMTP configuration file could not be removed from the server.');
+        }
+
+        if ($session->exec('pmta reload') === false) {
+            throw new RuntimeException('The SMTP configuration was removed, but PMTA could not be reloaded.');
+        }
+    }
+
     public function pushVmtaConfiguration(ManagedServer $server, int $userId, string $contents): string
     {
         $temporaryPath = $this->files->path('tmp_vmta_'.$userId);

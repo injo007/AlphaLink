@@ -701,12 +701,9 @@ class PmtaConsoleController extends Controller
         }
         $results = [];
         foreach ($ips->groupBy('managed_server_id')->map(fn ($serverIps) => $serverIps->first()->server) as $server) {
-            $file = 'smtp_'.$request->user()->getKey();
             try {
                 PmtaSmtpConfig::query()->where('workspace_id', $workspaceModel->getKey())->where('managed_server_id', $server->getKey())->where('created_by', $request->user()->getKey())->delete();
-                $session = $remote->open($server);
-                $session->exec('rm -rf /etc/pmta/conf/'.$file);
-                $session->exec('pmta reload');
+                $remote->resetSmtpFile($server, (int) $request->user()->getKey());
                 $results[] = ['server' => $server->name, 'success' => true, 'message' => 'Restored Successfully'];
             } catch (Throwable $exception) {
                 $results[] = ['server' => $server->name, 'success' => false, 'message' => $exception->getMessage()];

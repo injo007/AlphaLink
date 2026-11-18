@@ -577,6 +577,7 @@ class WorkspaceConsoleController extends Controller
             $proxy['username'],
             $proxy['password'],
             (string) $monitorTarget,
+            $request->query(),
         );
     }
 

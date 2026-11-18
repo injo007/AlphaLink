@@ -1184,15 +1184,15 @@ class PmtaPagesTest extends TestCase
             'password' => 'synthetic-password', 'host' => 'smtp.example.test', 'port' => 587, 'google_script' => false, 'is_active' => true,
         ]);
         $session = Mockery::mock(AlphaLinkInstallerSshSession::class);
-        $session->shouldReceive('exec')->once()->with('rm -rf /etc/pmta/conf/smtp_'.$member->getKey())->andReturn('');
-        $session->shouldReceive('exec')->once()->with('pmta reload')->andReturn('No reload confirmation returned.');
-        $remote = Mockery::mock(PmtaRemoteConfiguration::class);
-        $remote->shouldReceive('open')->once()->with(Mockery::on(fn ($subject): bool => $subject->is($server)))->andReturnUsing(function () use ($row, $session) {
-            self::assertDatabaseMissing('pmta_smtp_configs', ['id' => $row->getKey()]);
+        $configPath = "'/etc/pmta/conf/smtp_{$member->getKey()}'";
+        $session->shouldReceive('exec')->once()->with('rm -f -- '.$configPath.' && test ! -e '.$configPath.' && printf __ALPHALINK_SMTP_FILE_REMOVED__')
+            ->andReturnUsing(function () use ($row): string {
+                self::assertDatabaseMissing('pmta_smtp_configs', ['id' => $row->getKey()]);
 
-            return $session;
-        });
-        $this->instance(PmtaRemoteConfiguration::class, $remote);
+                return '__ALPHALINK_SMTP_FILE_REMOVED__';
+            });
+        $session->shouldReceive('exec')->once()->with('pmta reload')->andReturn('No reload confirmation returned.');
+        $this->instance(PmtaRemoteConfiguration::class, $this->pmtaRemoteForSession($server, $session));
 
         $this->actingAs($member)->postJson(route('console.pmta-smtp.restore', $workspace->getKey()), [
             'ip_ids' => [$ip->getKey()],
@@ -1217,7 +1217,7 @@ class PmtaPagesTest extends TestCase
             'password' => 'synthetic-password', 'host' => 'smtp.example.test', 'port' => 587, 'google_script' => false, 'is_active' => true,
         ]);
         $remote = Mockery::mock(PmtaRemoteConfiguration::class);
-        $remote->shouldReceive('open')->once()->with(Mockery::on(fn ($subject): bool => $subject->is($server)))
+        $remote->shouldReceive('resetSmtpFile')->once()->with(Mockery::on(fn ($subject): bool => $subject->is($server)), (int) $member->getKey())
             ->andThrow(new \RuntimeException('synthetic SSH connection failure'));
         $this->instance(PmtaRemoteConfiguration::class, $remote);
 
@@ -1229,6 +1229,42 @@ class PmtaPagesTest extends TestCase
 
         self::assertDatabaseMissing('pmta_smtp_configs', ['id' => $row->getKey()]);
         self::assertDatabaseCount('pmta_config_histories', 0);
+    }
+
+    public function test_smtp_reset_reports_remote_file_removal_failure_instead_of_claiming_success(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->workspace($owner);
+        [$server, $ip] = $this->serverAndIp($workspace, $owner);
+        $session = Mockery::mock(AlphaLinkInstallerSshSession::class);
+        $session->shouldReceive('exec')->once()->with("rm -f -- '/etc/pmta/conf/smtp_{$owner->getKey()}' && test ! -e '/etc/pmta/conf/smtp_{$owner->getKey()}' && printf __ALPHALINK_SMTP_FILE_REMOVED__")
+            ->andReturn('rm: cannot remove SMTP configuration: Permission denied');
+        $session->shouldNotReceive('exec')->with('pmta reload');
+        $this->instance(PmtaRemoteConfiguration::class, $this->pmtaRemoteForSession($server, $session));
+
+        $this->actingAs($owner)->postJson(route('console.pmta-smtp.restore', $workspace->getKey()), [
+            'ip_ids' => [$ip->getKey()],
+        ])->assertOk()->assertJsonPath('success', false)
+            ->assertJsonPath('results.0.success', false)
+            ->assertJsonPath('results.0.message', 'The SMTP configuration file could not be removed from the server.');
+    }
+
+    public function test_smtp_reset_reports_when_the_pmta_reload_channel_fails(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->workspace($owner);
+        [$server, $ip] = $this->serverAndIp($workspace, $owner);
+        $session = Mockery::mock(AlphaLinkInstallerSshSession::class);
+        $session->shouldReceive('exec')->once()->with("rm -f -- '/etc/pmta/conf/smtp_{$owner->getKey()}' && test ! -e '/etc/pmta/conf/smtp_{$owner->getKey()}' && printf __ALPHALINK_SMTP_FILE_REMOVED__")
+            ->andReturn('__ALPHALINK_SMTP_FILE_REMOVED__');
+        $session->shouldReceive('exec')->once()->with('pmta reload')->andReturn(false);
+        $this->instance(PmtaRemoteConfiguration::class, $this->pmtaRemoteForSession($server, $session));
+
+        $this->actingAs($owner)->postJson(route('console.pmta-smtp.restore', $workspace->getKey()), [
+            'ip_ids' => [$ip->getKey()],
+        ])->assertOk()->assertJsonPath('success', false)
+            ->assertJsonPath('results.0.success', false)
+            ->assertJsonPath('results.0.message', 'The SMTP configuration was removed, but PMTA could not be reloaded.');
     }
 
     public function test_smtp_push_keeps_secret_encrypted_and_never_returns_it_from_the_rows_endpoint(): void

@@ -183,7 +183,8 @@ class AlphaLinkCentos9PmtaDeploymentPlannerTest extends TestCase
         $this->assertStringNotContainsString('http-access 198.51.100.44 admin', implode("\n", $commands));
         $this->assertStringContainsString("location = /command {\n    allow 198.51.100.44;\n    allow 198.51.100.45;\n    deny all;", $nginx);
         $this->assertStringContainsString('allow 198.51.100.45;', $nginx);
-        $this->assertStringContainsString('location ~* ^/(logs|getFile|listqueue|command|editConfig|enterLak|serviceControl)', $nginx);
+        $this->assertStringContainsString('location ~* ^/(logs|getFile|command|editConfig|enterLak|serviceControl)', $nginx);
+        $this->assertStringNotContainsString('listqueue', $nginx);
     }
 
     public function test_invalid_pmta_relay_source_is_rejected_before_building_commands(): void
@@ -205,6 +206,7 @@ class AlphaLinkCentos9PmtaDeploymentPlannerTest extends TestCase
         $this->assertStringContainsString('proxy_pass http://127.0.0.1:16362;', $nginx);
         $this->assertStringContainsString("proxy_hide_header 'Content-Security-Policy';", $nginx);
         $this->assertStringContainsString('return 200 "{}";', $nginx);
+        $this->assertStringNotContainsString('listqueue', $nginx);
         $this->assertStringContainsString("location = /command {\n    allow 198.51.100.44;\n    deny all;", $nginx);
         $this->assertContains([
             'type' => 'asset_upload',

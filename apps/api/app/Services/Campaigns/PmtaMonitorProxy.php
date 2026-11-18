@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Route;
 class PmtaMonitorProxy
 {
     /** @var list<string> */
-    private const MONITOR_PAGES = ['', 'status', 'queues', 'domains', 'vmtas', 'jobs', 'logs'];
+    private const MONITOR_PAGES = ['', 'status', 'queues', 'domains', 'vmtas', 'jobs', 'logs', 'listqueue'];
 
     /** @var list<string> */
     private const MONITOR_ASSET_EXTENSIONS = ['css', 'gif', 'png', 'jpg', 'jpeg', 'webp', 'bmp'];
@@ -25,10 +25,13 @@ class PmtaMonitorProxy
         string $proxyUsername = '',
         string $proxyPassword = '',
         string $target = 'ip',
+        array $query = [],
     ): Response {
         $path = trim($path, '/');
         abort_unless(in_array($path, self::MONITOR_PAGES, true) || $this->isStaticAsset($path), 404);
         abort_unless(in_array($target, ['auto', 'domain', 'ip'], true), 404);
+        $query = $this->allowedMonitorQuery($path, $query);
+        abort_unless($query !== null, 404);
 
         $ip = (string) $server->ip_address;
         abort_unless(filter_var($ip, FILTER_VALIDATE_IP) !== false, 404);
@@ -38,7 +41,7 @@ class PmtaMonitorProxy
         if ($baseUrl === '') {
             return response('This server has no verified PMTA monitor domain. Select Server IP or configure an owned domain.', 422, ['Cache-Control' => 'no-store']);
         }
-        $url = rtrim($baseUrl, '/').'/'.($path === '' ? '' : $path);
+        $url = $this->monitorUrl($baseUrl, $path, $query);
         $remoteHost = (string) parse_url($url, PHP_URL_HOST);
         $proxy = 'http://'.(trim($proxyUsername) === ''
             ? ''
@@ -51,7 +54,7 @@ class PmtaMonitorProxy
             $exceptionMessage = $exception->getMessage();
             if ($target === 'domain' && preg_match('/\b407\b/', $exceptionMessage) !== 1) {
                 try {
-                    $remote = $this->requestDomainThroughServerIp($ip, $port, $path, $remoteHost, $proxy);
+                    $remote = $this->requestDomainThroughServerIp($ip, $port, $path, $remoteHost, $proxy, $query);
                 } catch (\Throwable $fallbackException) {
                     if (preg_match('/\b407\b/', $fallbackException->getMessage()) === 1) {
                         return response('The configured PMTA proxy rejected authentication. Check its credentials in App Settings or the AlphaLink environment.', 502, ['Cache-Control' => 'no-store']);
@@ -60,7 +63,7 @@ class PmtaMonitorProxy
                     return response('The configured PMTA proxy could not reach the saved PMTA domain through the server IP.', 502, ['Cache-Control' => 'no-store']);
                 }
             } elseif ($target === 'auto' && $this->proxyRejectedHttpsConnect($url, $exceptionMessage)) {
-                $fallbackUrl = rtrim(PmtaPanelUrl::forInstallation($ip, null, $port, false), '/').'/'.($path === '' ? '' : $path);
+                $fallbackUrl = $this->monitorUrl(PmtaPanelUrl::forInstallation($ip, null, $port, false), $path, $query);
 
                 try {
                     $remote = $this->requestThroughProxy($fallbackUrl, $proxy);
@@ -82,7 +85,7 @@ class PmtaMonitorProxy
             && ($this->redirectsToHttpsOnSameHost($url, $remote)
                 || (! $remote->successful() && $remote->status() !== 407))) {
             try {
-                $remote = $this->requestDomainThroughServerIp($ip, $port, $path, $remoteHost, $proxy);
+                $remote = $this->requestDomainThroughServerIp($ip, $port, $path, $remoteHost, $proxy, $query);
             } catch (\Throwable $exception) {
                 if (preg_match('/\b407\b/', $exception->getMessage()) === 1) {
                     return response('The configured PMTA proxy rejected authentication. Check its credentials in App Settings or the AlphaLink environment.', 502, ['Cache-Control' => 'no-store']);
@@ -144,9 +147,9 @@ class PmtaMonitorProxy
             ->get($url);
     }
 
-    private function requestDomainThroughServerIp(string $ip, int $port, string $path, string $domain, string $proxy): \Illuminate\Http\Client\Response
+    private function requestDomainThroughServerIp(string $ip, int $port, string $path, string $domain, string $proxy, array $query = []): \Illuminate\Http\Client\Response
     {
-        $url = rtrim(PmtaPanelUrl::forInstallation($ip, null, $port, false), '/').'/'.($path === '' ? '' : $path);
+        $url = $this->monitorUrl(PmtaPanelUrl::forInstallation($ip, null, $port, false), $path, $query);
 
         return $this->requestThroughProxy($url, $proxy, ['Host' => $domain]);
     }
@@ -261,8 +264,11 @@ class PmtaMonitorProxy
         $remotePath = ltrim((string) parse_url($value, PHP_URL_PATH), '/');
         $isPage = in_array($remotePath, self::MONITOR_PAGES, true);
         $isAsset = $this->isStaticAsset($remotePath);
+        $query = [];
+        parse_str((string) parse_url($value, PHP_URL_QUERY), $query);
+        $monitorQuery = $this->allowedMonitorQuery($remotePath, $query);
 
-        if (! $isPage && ! $isAsset) {
+        if ((! $isPage && ! $isAsset) || $monitorQuery === null) {
             if ($attribute === 'href') {
                 $element->setAttribute('href', '#');
                 $element->setAttribute('aria-disabled', 'true');
@@ -274,7 +280,7 @@ class PmtaMonitorProxy
             return;
         }
 
-        $element->setAttribute($attribute, $this->monitorRoute($workspaceId, $serverId, $remotePath, $target));
+        $element->setAttribute($attribute, $this->monitorRoute($workspaceId, $serverId, $remotePath, $target, $monitorQuery));
         if ($attribute === 'href') {
             $element->removeAttribute('target');
         }
@@ -323,7 +329,7 @@ class PmtaMonitorProxy
         }, $css) ?? $css;
     }
 
-    private function monitorRoute(string $workspaceId, string $serverId, string $monitorPath, string $target): string
+    private function monitorRoute(string $workspaceId, string $serverId, string $monitorPath, string $target, array $query = []): string
     {
         $isAsset = $this->isStaticAsset($monitorPath);
         $parameters = array_filter([
@@ -336,11 +342,49 @@ class PmtaMonitorProxy
 
         if (Route::has('clean.console.pmta-admin.monitor')) {
             unset($parameters['workspace']);
-
-            return route('clean.console.pmta-admin.monitor', $parameters, false);
+            $url = route('clean.console.pmta-admin.monitor', $parameters, false);
+        } else {
+            $url = route('console.pmta-admin.monitor', $parameters, false);
         }
 
-        return route('console.pmta-admin.monitor', $parameters, false);
+        $queryString = http_build_query($query, '', '&', PHP_QUERY_RFC3986);
+
+        return $queryString === '' ? $url : $url.(str_contains($url, '?') ? '&' : '?').$queryString;
+    }
+
+    /** @param array<string, mixed> $query
+     * @return array<string, string>|null
+     */
+    private function allowedMonitorQuery(string $path, array $query): ?array
+    {
+        if ($path !== 'listqueue') {
+            return [];
+        }
+
+        $domain = $query['domain'] ?? null;
+        if (! is_string($domain) || preg_match('/\A[A-Za-z0-9._:@-]+(?:\/[A-Za-z0-9._:@-]+)?\z/', $domain) !== 1) {
+            return null;
+        }
+
+        $allowed = ['domain' => $domain];
+        $vmta = $query['vmta'] ?? null;
+        if ($vmta !== null) {
+            if (! is_string($vmta) || preg_match('/\A[A-Za-z0-9._:@-]+\z/', $vmta) !== 1) {
+                return null;
+            }
+            $allowed['vmta'] = $vmta;
+        }
+
+        return $allowed;
+    }
+
+    /** @param array<string, string> $query */
+    private function monitorUrl(string $baseUrl, string $path, array $query): string
+    {
+        $url = rtrim($baseUrl, '/').'/'.($path === '' ? '' : $path);
+        $queryString = http_build_query($query, '', '&', PHP_QUERY_RFC3986);
+
+        return $queryString === '' ? $url : $url.'?'.$queryString;
     }
 
     private function normalizeStaticAssetPath(string $path): ?string

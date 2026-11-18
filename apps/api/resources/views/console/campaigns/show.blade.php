@@ -229,6 +229,15 @@
                     <dt class="col-sm-3">HTML template</dt><dd class="col-sm-9">{{ $htmlChoice ? 'Selected (ID '.$htmlChoice['id'].')' : 'Not selected or no longer available' }}</dd>
                     <dt class="col-sm-3">Order / start</dt><dd class="col-sm-9">{{ strtoupper($sendSetup['order_by'] ?? 'default') }} / {{ $sendSetup['start_from'] ?? 0 }}</dd>
                     <dt class="col-sm-3">Routing</dt><dd class="col-sm-9">{{ strtoupper($sendSetup['route_option'] ?? 'IP') }} · {{ strtoupper($sendSetup['ip_type'] ?? 'ALL') }}</dd>
+                    <dt class="col-sm-3">Auto-Failover</dt>
+                    <dd class="col-sm-9">
+                        @if (! empty($sendSetup['auto_failover_enabled']))
+                            <span class="badge badge-success"><i class="fas fa-shield-alt mr-1"></i>ENABLED</span>
+                            <span class="text-muted ml-2">Threshold: {{ $sendSetup['failover_threshold'] ?? 5 }} errors · Patterns: <code>{{ $sendSetup['failover_error_patterns'] ?? '421, rate limit' }}</code> · Spool Purge: {{ ! empty($sendSetup['failover_purge_spool']) ? 'Yes' : 'No' }}</span>
+                        @else
+                            <span class="badge badge-secondary">DISABLED</span>
+                        @endif
+                    </dd>
                     <dt class="col-sm-3">Send mode</dt><dd class="col-sm-9">{{ strtoupper($sendSetup['send_type'] ?? '—') }}</dd>
                     <dt class="col-sm-3">Selected list records</dt>
                     <dd class="col-sm-9">

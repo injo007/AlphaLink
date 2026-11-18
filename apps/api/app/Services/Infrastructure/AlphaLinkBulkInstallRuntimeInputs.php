@@ -4,27 +4,32 @@ namespace App\Services\Infrastructure;
 
 use App\Models\Workspace;
 use App\Models\WorkspaceInfrastructureSettings;
+use App\Services\Campaigns\PmtaProxySettings;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 /** Resolves AlphaLink's installation settings and private assets before SSH mutation. */
 class AlphaLinkBulkInstallRuntimeInputs
 {
-    private readonly AlphaLinkPublicIpv4EgressResolver $egress;
-
     private readonly DkimKeyMaterialManager $dkimKeys;
 
     private readonly AlphaLinkReviewedAssetDigestVerifier $assetDigests;
 
+    private readonly PmtaProxyEgressResolver $proxyEgress;
+
+    private readonly PmtaProxySettings $proxySettings;
+
     public function __construct(
         private readonly AlphaLinkBulkInstallPrivateAssetReader $assets,
-        ?AlphaLinkPublicIpv4EgressResolver $egress = null,
         ?DkimKeyMaterialManager $dkimKeys = null,
         ?AlphaLinkReviewedAssetDigestVerifier $assetDigests = null,
+        ?PmtaProxyEgressResolver $proxyEgress = null,
+        ?PmtaProxySettings $proxySettings = null,
     ) {
-        $this->egress = $egress ?? new AlphaLinkPublicIpv4EgressResolver;
         $this->dkimKeys = $dkimKeys ?? new DkimKeyMaterialManager;
         $this->assetDigests = $assetDigests ?? new AlphaLinkReviewedAssetDigestVerifier;
+        $this->proxyEgress = $proxyEgress ?? new PmtaProxyEgressResolver;
+        $this->proxySettings = $proxySettings ?? new PmtaProxySettings;
     }
 
     /**
@@ -66,14 +71,25 @@ class AlphaLinkBulkInstallRuntimeInputs
         $productionIps = $this->ipList($value('production_ips'));
         $pmtaRelayIps = $this->ipList($value('pmta_relay_ips'));
         $autoManagedRelayIps = (bool) ($saved?->pmta_relay_ips_auto_managed ?? false);
-        if ($pmtaVersion !== null && ($pmtaRelayIps === [] || $autoManagedRelayIps)) {
-            $detectedRelayIps = $this->egress->resolve();
-            if ($detectedRelayIps === []) {
-                throw new RuntimeException('AlphaLink could not discover its public IPv4 egress from cloud metadata or independent HTTPS checks. Make the host metadata service or outbound HTTPS reachable, then retry PMTA installation.');
+        $pmtaProxy = null;
+        if ($pmtaVersion !== null) {
+            $pmtaProxy = $this->proxySettings->forWorkspace($workspace ?? new Workspace);
+            if ($pmtaProxy === null) {
+                throw new RuntimeException('Configure a valid PMTA HTTP relay proxy host, port, and matching credentials before installing PMTA.');
             }
-            $pmtaRelayIps = $detectedRelayIps;
+        }
 
-            if ($workspace !== null) {
+        if ($pmtaVersion !== null && ($pmtaRelayIps === [] || $autoManagedRelayIps)) {
+            $detectedRelayIps = $this->proxyEgress->resolve($pmtaProxy);
+            if ($detectedRelayIps === []) {
+                if ($pmtaRelayIps === [] || $autoManagedRelayIps) {
+                    throw new RuntimeException('AlphaLink could not verify the PMTA relay proxy egress from independent HTTP checks. Confirm the proxy endpoint and credentials, or save the relay egress IPv4 address(es) manually before installing PMTA.');
+                }
+            } else {
+                $pmtaRelayIps = $detectedRelayIps;
+            }
+
+            if ($workspace !== null && $detectedRelayIps !== []) {
                 $saved = $workspace->infrastructureSettings()->firstOrNew();
                 $saved->workspace_id = $workspace->getKey();
                 $currentRelayIps = $this->ipList($saved->pmta_relay_ips);
@@ -89,6 +105,7 @@ class AlphaLinkBulkInstallRuntimeInputs
                 }
             }
         }
+
         $trackingApp = $options['tracking'] ? [
             'index' => $this->assets->read($assetRoot, 'install/tracker_index'),
             'handler' => $this->assets->read($assetRoot, 'install/tracker_handler'),

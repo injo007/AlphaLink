@@ -1,4 +1,4 @@
-const optionNames = ['tracking', 'proxy', 'imap', 'spf', 'dkim', 'dmarc', 'https'];
+const optionNames = ['tracking', 'proxy', 'imap', 'spf', 'dkim', 'dmarc', 'https', 'clean_dns'];
 
 /** Build the source-compatible request after blank domain rows are removed. */
 export function buildBulkInstallPayload({ rows, key, pmtaVersion, switches }) {

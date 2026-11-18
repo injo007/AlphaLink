@@ -135,6 +135,7 @@ class AlphaLinkReinstallSelectionValidator
                 'sub' => $sub,
                 'domain' => (string) $domain->name,
                 'is_our' => (bool) $domain->is_our,
+                'interface_ip' => $saved['interface_ip'] ?? null,
             ];
         }
 

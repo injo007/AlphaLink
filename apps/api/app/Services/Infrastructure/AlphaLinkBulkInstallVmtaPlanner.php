@@ -35,15 +35,17 @@ class AlphaLinkBulkInstallVmtaPlanner
             $vmtaName = $this->ipVirtualMtaName($entry['ip']);
             $vmtaIp = substr($vmtaName, strlen('mta-'));
 
+            $sourceIp = ! empty($entry['interface_ip']) ? $entry['interface_ip'] : $entry['ip'];
+
             $dkimDomains .= "domain-key $dkimSelector,$domain,/etc/pmta/dkim\n";
             $vmtas .= "<virtual-mta $vmtaName>\n";
-            $vmtas .= "   smtp-source-ip {$entry['ip']}\n";
+            $vmtas .= "   smtp-source-ip {$sourceIp}\n";
             $vmtas .= "   host-name $domain\n";
             $vmtas .= "</virtual-mta>\n";
 
             foreach ($isps as $isp) {
                 $vmtas .= "<virtual-mta mta-$vmtaIp-$isp>\n";
-                $vmtas .= "   smtp-source-ip {$entry['ip']}\n";
+                $vmtas .= "   smtp-source-ip {$sourceIp}\n";
                 $vmtas .= "   host-name $domain\n";
                 $vmtas .= "</virtual-mta>\n";
             }

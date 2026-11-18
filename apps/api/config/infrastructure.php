@@ -1,7 +1,7 @@
 <?php
 
 $pmtaAdminPort = env('ALPHALINK_INSTALL_PMTA_ADMIN_PORT');
-$proxyPort = env('ALPHALINK_INSTALL_PROXY_PORT');
+$proxyPort = env('ALPHALINK_INSTALL_PROXY_PORT', env('Proxy_PORT'));
 $applyFirewall = env('ALPHALINK_INSTALL_APPLY_FIREWALL');
 $allowAllMonitor = env('ALPHALINK_INSTALL_ALLOW_ALL_MONITOR');
 
@@ -28,10 +28,17 @@ return [
     'pmta_feedback_staging_path' => env('ALPHALINK_PMTA_FEEDBACK_STAGING_PATH', storage_path('app/private/pmta-feedback-staging')),
     'tracking_callback_url' => env('ALPHALINK_TRACKING_CALLBACK_URL'),
     'pmta_socks5_proxy' => env('ALPHALINK_PMTA_SOCKS5_PROXY', ''),
+    // This is the outbound relay AlphaLink uses to reach remote PMTA servers.
+    // Keep it separate from proxy_port, which configures Squid on managed hosts.
+    'pmta_relay_proxy_host' => env('ALPHALINK_PMTA_RELAY_PROXY_HOST', env('Proxy_HOST', env('ALPHALINK_INSTALL_PROXY_HOST', ''))),
+    'pmta_relay_proxy_port' => env('ALPHALINK_PMTA_RELAY_PROXY_PORT', env('Proxy_PORT', env('ALPHALINK_INSTALL_PROXY_PORT', ''))),
+    'pmta_relay_proxy_username' => env('ALPHALINK_PMTA_RELAY_PROXY_USERNAME', env('Proxy_USERNAME', env('ALPHALINK_INSTALL_PROXY_USERNAME', ''))),
+    'pmta_relay_proxy_password' => env('ALPHALINK_PMTA_RELAY_PROXY_PASSWORD', env('Proxy_PASSWORD', env('ALPHALINK_INSTALL_PROXY_PASSWORD', ''))),
     'bulk_install_settings' => [
         // Defaults follow the source-backed installation behavior.
         'pmta_admin_port' => $pmtaAdminPort === null || $pmtaAdminPort === '' ? 1213 : $pmtaAdminPort,
         'proxy_port' => $proxyPort === null || $proxyPort === '' ? 1214 : $proxyPort,
+        'proxy_host' => env('ALPHALINK_INSTALL_PROXY_HOST', env('Proxy_HOST', '')),
         'apply_firewall' => $applyFirewall === null || $applyFirewall === '' ? false : $applyFirewall,
         'allow_all_monitor' => $allowAllMonitor === null || $allowAllMonitor === '' ? false : $allowAllMonitor,
         'dev_ips' => env('ALPHALINK_INSTALL_DEV_IPS', ''),
@@ -41,8 +48,8 @@ return [
         'dkim_key' => env('ALPHALINK_INSTALL_DKIM_KEY', ''),
         'webmail_username' => env('ALPHALINK_INSTALL_WEBMAIL_USERNAME', ''),
         'webmail_password' => env('ALPHALINK_INSTALL_WEBMAIL_PASSWORD', ''),
-        'proxy_username' => env('ALPHALINK_INSTALL_PROXY_USERNAME', ''),
-        'proxy_password' => env('ALPHALINK_INSTALL_PROXY_PASSWORD', ''),
+        'proxy_username' => env('ALPHALINK_INSTALL_PROXY_USERNAME', env('Proxy_USERNAME', '')),
+        'proxy_password' => env('ALPHALINK_INSTALL_PROXY_PASSWORD', env('Proxy_PASSWORD', '')),
         // Keep the previous variable as a fallback until existing installations migrate their environment.
         'tracking_ingest_key' => env('ALPHALINK_TRACKING_INGEST_KEY', env('ALPHALINK_INSTALL_MINI_APP_KEY', '')),
     ],

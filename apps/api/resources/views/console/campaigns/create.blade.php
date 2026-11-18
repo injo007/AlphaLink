@@ -47,6 +47,10 @@
             'seed_every' => (string) old('send_setup.seed_every', $savedSetup['parameters']['seed_every'] ?? '0'),
             'bounce_limit' => (string) old('send_setup.bounce_limit', $savedSetup['parameters']['bounce_limit'] ?? '1000'),
             'duplicate_data' => (string) old('send_setup.duplicate_data', $savedSetup['parameters']['duplicate_data'] ?? '1'),
+            'auto_failover_enabled' => (bool) old('send_setup.auto_failover_enabled', $savedSetup['auto_failover_enabled'] ?? false),
+            'failover_error_patterns' => (string) old('send_setup.failover_error_patterns', $savedSetup['failover_error_patterns'] ?? '421, rate limit, too many connections, temporarily deferred, user complaints'),
+            'failover_threshold' => (string) old('send_setup.failover_threshold', $savedSetup['failover_threshold'] ?? '5'),
+            'failover_purge_spool' => (bool) old('send_setup.failover_purge_spool', $savedSetup['failover_purge_spool'] ?? true),
         ];
     @endphp
 
@@ -1595,6 +1599,34 @@
                                         <input id="send-{{ $field }}" name="send_setup[{{ $field }}]" type="number" min="{{ $minimum }}" class="form-control" value="{{ $setup[$field] }}" required>
                                     </div>
                                 @endforeach
+                                <div class="col-12 mt-3 pt-3 border-top">
+                                    <div class="custom-control custom-switch mb-2">
+                                        <input type="checkbox" class="custom-control-input" id="auto-failover-toggle" name="send_setup[auto_failover_enabled]" value="1" @checked($setup['auto_failover_enabled'])>
+                                        <label class="custom-control-label font-weight-bold" for="auto-failover-toggle">
+                                            <i class="fas fa-shield-alt text-primary mr-1" aria-hidden="true"></i> Automated PMTA Deferral Failover (Circuit Breaker)
+                                        </label>
+                                    </div>
+                                    <div id="auto-failover-options" class="{{ $setup['auto_failover_enabled'] ? '' : 'd-none' }}">
+                                        <div class="row">
+                                            <div class="form-group col-12 col-md-6">
+                                                <label for="failover-error-patterns"><small class="font-weight-bold">Target Deferral Error Patterns (comma-separated):</small></label>
+                                                <input id="failover-error-patterns" name="send_setup[failover_error_patterns]" type="text" class="form-control form-control-sm" value="{{ $setup['failover_error_patterns'] }}" placeholder="421, rate limit, too many connections, temporarily deferred">
+                                                <small class="form-text text-muted">Triggers failover when an in-flight queue or rejection contains any of these patterns.</small>
+                                            </div>
+                                            <div class="form-group col-6 col-md-3">
+                                                <label for="failover-threshold"><small class="font-weight-bold">Error Threshold:</small></label>
+                                                <input id="failover-threshold" name="send_setup[failover_threshold]" type="number" min="1" max="100" class="form-control form-control-sm" value="{{ $setup['failover_threshold'] }}">
+                                                <small class="form-text text-muted">Error count before pausing & dropping domain.</small>
+                                            </div>
+                                            <div class="form-group col-6 col-md-3 d-flex align-items-center pt-3">
+                                                <div class="custom-control custom-checkbox">
+                                                    <input type="checkbox" class="custom-control-input" id="failover-purge-spool" name="send_setup[failover_purge_spool]" value="1" @checked($setup['failover_purge_spool'])>
+                                                    <label class="custom-control-label small" for="failover-purge-spool">Purge PMTA Queue</label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -3204,6 +3236,14 @@
             form.addEventListener('change', updateSummary);
             form.addEventListener('input', updateSummary);
             updateSummary();
+
+            const failoverToggle = document.getElementById('auto-failover-toggle');
+            const failoverOptions = document.getElementById('auto-failover-options');
+            if (failoverToggle && failoverOptions) {
+                failoverToggle.addEventListener('change', () => {
+                    failoverOptions.classList.toggle('d-none', !failoverToggle.checked);
+                });
+            }
         })();
     </script>
     <script src="{{ asset('console-assets/campaign-mix-dialog.js') }}" defer></script>

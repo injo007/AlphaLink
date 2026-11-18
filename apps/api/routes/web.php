@@ -335,6 +335,8 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::post('/app/workspaces/{workspace}/campaigns/{campaign}/send', [CampaignSendController::class, 'start'])->middleware('throttle:campaign-send')->name('console.campaigns.send');
     Route::post('/app/workspaces/{workspace}/campaigns/{campaign}/send-runs/{run}/stop', [CampaignSendController::class, 'stop'])->middleware('throttle:campaign-send')->name('console.campaigns.send-stop');
     Route::get('/app/workspaces/{workspace}/campaigns/{campaign}/send-runs/{run}/progress', [CampaignSendController::class, 'progress'])->middleware('throttle:60,1')->name('console.campaigns.send-progress');
+    Route::get('/app/workspaces/{workspace}/campaigns/{campaign}/telemetry', [CampaignSendController::class, 'telemetry'])->middleware('throttle:60,1')->name('console.campaigns.telemetry');
+    Route::post('/app/workspaces/{workspace}/campaigns/{campaign}/telemetry/restore-domain', [CampaignSendController::class, 'restoreDomain'])->middleware('throttle:30,1')->name('console.campaigns.telemetry.restore-domain');
     Route::get('/app/workspaces/{workspace}/campaigns/{campaign}/snapshot-progress', [WorkspaceConsoleController::class, 'campaignSnapshotProgress'])->name('console.campaigns.snapshot-progress');
     Route::post('/app/workspaces/{workspace}/campaigns/{campaign}/snapshot-retry', [WorkspaceConsoleController::class, 'retryCampaignSnapshot'])->middleware('throttle:3,1')->name('console.campaigns.snapshot-retry');
     Route::post('/app/workspaces/{workspace}/campaigns/{campaign}/revisions', [WorkspaceConsoleController::class, 'reviseCampaignDraft'])->middleware('throttle:10,1')->name('console.campaigns.revisions.store');
@@ -367,7 +369,7 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function (): void {
     Route::get('/app/workspaces/{workspace}/infrastructure/bulk-install', [InfrastructureConsoleController::class, 'bulkInstall'])->name('console.infrastructure.bulk-install');
     Route::get('/app/workspaces/{workspace}/infrastructure/change-domain', [InfrastructureConsoleController::class, 'changeDomain'])->name('console.infrastructure.change-domain.index');
     Route::post('/app/workspaces/{workspace}/infrastructure/change-domain/load-ips', [InfrastructureConsoleController::class, 'loadChangeDomainIps'])->middleware('throttle:10,1')->name('console.infrastructure.change-domain.load-ips');
-    Route::post('/app/workspaces/{workspace}/infrastructure/change-domain/change', [InfrastructureConsoleController::class, 'changeManagedServerDomain'])->middleware('throttle:2,1')->name('console.infrastructure.change-domain.change');
+    Route::post('/app/workspaces/{workspace}/infrastructure/change-domain/change', [InfrastructureConsoleController::class, 'changeManagedServerDomain'])->middleware('throttle:change-domain-action')->name('console.infrastructure.change-domain.change');
     Route::get('/app/workspaces/{workspace}/infrastructure/change-domain/{server}/logs', [InfrastructureConsoleController::class, 'changeDomainLogs'])->whereUuid('server')->name('console.infrastructure.change-domain.logs');
     Route::get('/app/workspaces/{workspace}/infrastructure/reinstall', [InfrastructureConsoleController::class, 'reinstall'])->name('console.infrastructure.reinstall.index');
     Route::get('/app/workspaces/{workspace}/infrastructure/reinstall/{server}/config', [InfrastructureConsoleController::class, 'loadReinstallConfiguration'])->whereUuid('server')->name('console.infrastructure.reinstall.config');

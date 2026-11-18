@@ -1331,7 +1331,7 @@ class PmtaPagesTest extends TestCase
     private function workspace(User $owner): Workspace
     {
         $workspace = Workspace::query()->create([
-            'name' => 'PMTA feature test workspace', 'slug' => 'pmta-'.Str::lower(Str::random(10)), 'created_by' => $owner->getKey(),
+            'name' => 'PMTA feature test workspace', 'slug' => 'pmta-'.Str::lower(Str::random(10)), 'created_by' => $owner->getKey(), 'status' => 'active',
         ]);
         $workspace->users()->attach($owner->getKey(), ['role' => 'owner']);
 

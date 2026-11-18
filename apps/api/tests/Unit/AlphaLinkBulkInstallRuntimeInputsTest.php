@@ -61,7 +61,7 @@ class AlphaLinkBulkInstallRuntimeInputsTest extends TestCase
             ], $resolved['assets']['tracking_app']);
             $this->assertNull($resolved['assets']['cloudflare_ips']);
             $this->assertStringContainsString('BEGIN PRIVATE KEY', $resolved['settings']['dkim_key']);
-            $this->assertStringStartsWith('v=DKIM1;t=s;p=', $resolved['settings']['dkim_public_key']);
+            $this->assertStringStartsWith('v=DKIM1; k=rsa; p=', $resolved['settings']['dkim_public_key']);
             $this->assertSame($resolved['settings']['dkim_key'], $workspace->infrastructureSettings()->firstOrFail()->dkim_private_key);
             $this->assertSame(['192.0.2.1', '192.0.2.2'], $resolved['settings']['dev_ips']);
             $this->assertSame(['198.51.100.44'], $resolved['settings']['pmta_relay_ips']);
@@ -157,9 +157,16 @@ class AlphaLinkBulkInstallRuntimeInputsTest extends TestCase
         mkdir($root, 0700);
         chmod($root, 0700);
         config()->set('infrastructure.install_assets_directory', $root);
+        config()->set('infrastructure.pmta_relay_proxy_host', '37.27.184.206');
+        config()->set('infrastructure.pmta_relay_proxy_port', 8977);
+        config()->set('infrastructure.pmta_relay_proxy_username', 'relay-user');
+        config()->set('infrastructure.pmta_relay_proxy_password', 'relay-password');
         config()->set('infrastructure.bulk_install_settings', [
             'pmta_admin_port' => 1213,
             'proxy_port' => 1214,
+            'proxy_host' => '37.27.184.206',
+            'proxy_username' => 'relay-user',
+            'proxy_password' => 'relay-password',
             'apply_firewall' => false,
             'allow_all_monitor' => true,
             'dev_ips' => [],
@@ -169,8 +176,90 @@ class AlphaLinkBulkInstallRuntimeInputsTest extends TestCase
 
         try {
             $this->expectException(RuntimeException::class);
-            $this->expectExceptionMessage('AlphaLink could not discover its public IPv4 egress from cloud metadata or independent HTTPS checks. Make the host metadata service or outbound HTTPS reachable, then retry PMTA installation.');
+            $this->expectExceptionMessage('AlphaLink could not verify the PMTA relay proxy egress from independent HTTP checks. Confirm the proxy endpoint and credentials, or save the relay egress IPv4 address(es) manually before installing PMTA.');
             app(AlphaLinkBulkInstallRuntimeInputs::class)->resolve($this->installOptions(), null, 45);
+        } finally {
+            rmdir($root);
+        }
+    }
+
+    public function test_pmta_install_saves_the_proxy_egress_instead_of_the_application_host_egress(): void
+    {
+        $root = sys_get_temp_dir().'/alphalink-install-proxy-egress-'.bin2hex(random_bytes(6));
+        mkdir($root, 0700);
+        chmod($root, 0700);
+        config()->set('infrastructure.install_assets_directory', $root);
+        config()->set('infrastructure.pmta_relay_proxy_host', '37.27.184.206');
+        config()->set('infrastructure.pmta_relay_proxy_port', 8977);
+        config()->set('infrastructure.pmta_relay_proxy_username', 'relay-user');
+        config()->set('infrastructure.pmta_relay_proxy_password', 'relay-password');
+        config()->set('infrastructure.bulk_install_settings', [
+            'pmta_admin_port' => 1213,
+            'proxy_port' => 1214,
+            'apply_firewall' => false,
+            'allow_all_monitor' => false,
+            'dev_ips' => [],
+        ]);
+        Http::fake([
+            'http://api4.ipify.org' => Http::response('1.1.1.1'),
+            'http://checkip.amazonaws.com' => Http::response('1.1.1.1'),
+            'http://ipv4.icanhazip.com' => Http::response('1.1.1.1'),
+            'http://v4.ident.me' => Http::response('', 503),
+        ]);
+        $owner = User::factory()->create();
+        $workspace = Workspace::query()->create([
+            'name' => 'Proxy egress fixture',
+            'slug' => 'proxy-egress-'.bin2hex(random_bytes(4)),
+            'created_by' => $owner->getKey(),
+        ]);
+        $workspace->users()->attach($owner->getKey(), ['role' => 'owner']);
+
+        try {
+            $resolved = app(AlphaLinkBulkInstallRuntimeInputs::class)
+                ->resolve($this->installOptions(), $workspace, 45);
+
+            $this->assertSame(['1.1.1.1'], $resolved['settings']['pmta_relay_ips']);
+            $this->assertSame([], $resolved['settings']['dev_ips']);
+            $this->assertSame(['1.1.1.1'], $workspace->infrastructureSettings()->firstOrFail()->pmta_relay_ips);
+            $this->assertTrue($workspace->infrastructureSettings()->firstOrFail()->pmta_relay_ips_auto_managed);
+            Http::assertSentCount(4);
+        } finally {
+            rmdir($root);
+        }
+    }
+
+    public function test_pmta_install_rejects_an_invalid_configured_proxy_before_loading_assets(): void
+    {
+        $root = sys_get_temp_dir().'/alphalink-install-invalid-proxy-'.bin2hex(random_bytes(6));
+        mkdir($root, 0700);
+        chmod($root, 0700);
+        config()->set('infrastructure.install_assets_directory', $root);
+        config()->set('infrastructure.pmta_relay_proxy_host', 'not-an-ip');
+        config()->set('infrastructure.pmta_relay_proxy_port', 8977);
+        config()->set('infrastructure.pmta_relay_proxy_username', 'relay-user');
+        config()->set('infrastructure.pmta_relay_proxy_password', 'relay-password');
+        config()->set('infrastructure.bulk_install_settings', [
+            'pmta_admin_port' => 1213,
+            'proxy_port' => 8977,
+            'proxy_host' => 'not-an-ip',
+            'apply_firewall' => false,
+            'allow_all_monitor' => false,
+            'dev_ips' => [],
+            'pmta_relay_ips' => [],
+        ]);
+        $owner = User::factory()->create();
+        $workspace = Workspace::query()->create([
+            'name' => 'Invalid relay fixture',
+            'slug' => 'invalid-relay-'.bin2hex(random_bytes(4)),
+            'created_by' => $owner->getKey(),
+        ]);
+        $workspace->users()->attach($owner->getKey(), ['role' => 'owner']);
+        $workspace->infrastructureSettings()->create(['pmta_relay_ips' => ['198.51.100.44']]);
+
+        try {
+            $this->expectException(RuntimeException::class);
+            $this->expectExceptionMessage('Configure a valid PMTA HTTP relay proxy host, port, and matching credentials before installing PMTA.');
+            app(AlphaLinkBulkInstallRuntimeInputs::class)->resolve($this->installOptions(), $workspace, 45);
         } finally {
             rmdir($root);
         }

@@ -10,7 +10,7 @@
                     <i class="fas fa-users-cog"></i>
                 </div>
                 <div>
-                    <div class="command-modal-hero-eyebrow">ACCESS CONTROL // MAILER DELEGATION</div>
+                    <div class="command-modal-hero-eyebrow">ACCESS CONTROL // USER DELEGATION</div>
                     <h3 class="command-modal-hero-title">
                         SERVER USERS <span class="badge-command-pill ml-2" style="font-weight: 700; color: #8b5cf6;">#{{ $server->id }} &bull; {{ $server->name }}</span>
                     </h3>

@@ -83,6 +83,7 @@ APACHE;
             $commands->exec('chmod 644 /var/alphalink-tracker/TrackerRequestHandler.php /var/alphalink-tracker/homepage.html /var/mini/public/index.php');
             $commands->exec('chown root:apache /etc/alphalink-tracker.php');
             $commands->exec('chmod 640 /etc/alphalink-tracker.php');
+            $commands->exec('php -r "require \'/var/alphalink-tracker/TrackerRequestHandler.php\'; \$h = new AlphaLinkTrackerRequestHandler([], fn() => null); \$res = \$h->handle(\'GET\', \'/\', \'\', \'\'); if (!empty(\$res[\'body\'])) { file_put_contents(\'/var/mini/public/index.html\', \$res[\'body\']); mkdir -p /var/www/html; file_put_contents(\'/var/www/html/index.html\', \$res[\'body\']); chmod(\'/var/mini/public/index.html\', 0644); chmod(\'/var/www/html/index.html\', 0644); }"');
 
             $fileName = strtolower(preg_replace('/[^A-Za-z0-9_]+/', '_', str_replace('.', '_', $serverName)) ?? '');
             $serverAliases = array_values(array_unique([$serverIp, ...$subDomains]));
@@ -170,8 +171,9 @@ CONFIG;
         }
 
         $this->validateServerName($host);
+        $resolveArg = escapeshellarg($host.':443:127.0.0.1');
         $health = $commands->exec(
-            'curl --fail --silent --show-error --connect-timeout 5 --max-time 10 --proto '.escapeshellarg('=https').' '
+            'curl --fail --silent --show-error --connect-timeout 5 --max-time 10 --proto '.escapeshellarg('=https').' --resolve '.$resolveArg.' '
                 .escapeshellarg('https://'.$host.'/healthz').' 2>/dev/null | grep -Fxq ALPHALINK_TRACKING_READY '
                 .'&& printf ALPHALINK_TRACKING_HTTPS_HEALTH_READY',
         );
@@ -181,6 +183,7 @@ CONFIG;
 
         $route = $commands->exec(
             'response=$(curl --silent --show-error --connect-timeout 5 --max-time 10 --proto '.escapeshellarg('=https')
+                .' --resolve '.$resolveArg
                 .' -D - -o /dev/null -w '.escapeshellarg('\\nALPHALINK_STATUS:%{http_code}\\n').' '
                 .escapeshellarg('https://'.$host.'/ALPHALINK0rprobe').') && '
                 .'status=$(printf '.escapeshellarg('%s\\n').' "$response" | sed -n '.escapeshellarg('s/^ALPHALINK_STATUS://p').') && '

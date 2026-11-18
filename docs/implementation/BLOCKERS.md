@@ -763,3 +763,7 @@ The send-builder (1 / 41), language-tag (1 / 62), Redirects-page/active-navigati
 ### SPF saved-network and include limits — E-TOOLS-59 (2026-11-13)
 
 The scanner now persists IPv4 CIDRs with prefix lengths /8 through /32 and keeps IPv6 CIDRs. Each uploaded root has a maximum of three unique include/redirect expansions; the root record does not consume that allowance. IP comparisons filter broad legacy CIDRs using the same policy without rewriting stored records. PHP 8.3 syntax checks and `git diff --check` pass. This is local code only; no tests, benchmark, authenticated scan, or deployment was run. Pint is unavailable in the local app tree. Keep DMS-TOOLS-004 TESTING.
+
+## 2026-11-18 Fresh PMTA relay install verification — E-INST-106 / E-PMTA-112
+
+Fresh-install code now saves a separate outbound PMTA relay endpoint and credentials, discovers proxy egress rather than AlphaLink host egress, and blocks managed PMTA install/reinstall completion unless the IP monitor, CSS, and read-only `show status` all succeed through that relay. The relay port is distinct from the managed-server Squid listener. Focused PHP suites pass 117 tests / 884 assertions across installer inputs, PMTA readiness/commands, server workflows, and campaign redirects; the standalone tracker passes 9 checks. Bash syntax, environment quoting, Pint, and the reviewed tracking-handler digest pass. A clean new AlphaLink host and newly installed PMTA server were not available for end-to-end verification; keep the install and PMTA paths TESTING until that run succeeds.

@@ -75,7 +75,7 @@
                             </div>
                         </div>
                         <div class="command-trigger-group">
-                            @foreach (['pmta' => 'PMTA', 'tracking' => 'TRACKING', 'https' => 'HTTPS', 'proxy' => 'PROXY', 'imap' => 'IMAP', 'spf' => 'SPF', 'dkim' => 'DKIM', 'dmarc' => 'DMARC'] as $option => $label)
+                            @foreach (['pmta' => 'PMTA', 'tracking' => 'TRACKING', 'https' => 'HTTPS', 'proxy' => 'PROXY', 'imap' => 'IMAP', 'spf' => 'SPF', 'dkim' => 'DKIM', 'dmarc' => 'DMARC', 'clean_dns' => 'CLEAN CLOUDFLARE DNS'] as $option => $label)
                                 <div class="d-inline-flex align-items-center mr-2">
                                     <label class="command-switch mr-2">
                                         <input type="checkbox" id="reinstall-{{ $option }}" data-reinstall-option="{{ $option }}">
@@ -127,10 +127,10 @@
                     </div>
 
                     @unless (config('infrastructure.reinstall_ip_config_execution_enabled', false))
-                        <p class="small text-warning mt-2 mb-0" role="status"><i class="fas fa-info-circle mr-1"></i> CONFIG IPS execution is disabled by ALPHALINK_REINSTALL_IP_CONFIG_EXECUTION_ENABLED.</p>
+                        <p class="small text-warning mt-2 mb-0" role="status"><i class="fas fa-info-circle mr-1"></i> CONFIG IPS is disabled by ALPHALINK_REINSTALL_IP_CONFIG_EXECUTION_ENABLED.</p>
                     @endunless
                     @unless (config('infrastructure.reinstall_execution_enabled', false))
-                        <p class="small text-warning mt-2 mb-0" role="status"><i class="fas fa-info-circle mr-1"></i> REINSTALL execution is disabled by ALPHALINK_REINSTALL_EXECUTION_ENABLED.</p>
+                        <p class="small text-warning mt-2 mb-0" role="status"><i class="fas fa-info-circle mr-1"></i> Server reinstall is disabled by ALPHALINK_REINSTALL_EXECUTION_ENABLED.</p>
                     @endunless
                     <p class="small text-muted mt-1" id="reinstall-network-blocker">CONFIG IPS modifies server network interfaces. Permanent mode replaces existing IPv4 alias files and restarts networking.</p>
 
@@ -365,9 +365,13 @@
                     if (!response.ok) throw new Error(config.message || config.data || 'Could not load server configuration.');
 
                     document.getElementById('reinstall-pmta-version').value = String(config.pmta_version || 45);
-                    for (const option of ['pmta', 'tracking', 'https', 'proxy', 'imap', 'spf', 'dkim', 'dmarc']) {
+                    for (const option of ['pmta', 'tracking', 'https', 'proxy', 'imap', 'spf', 'dkim', 'dmarc', 'clean_dns']) {
                         const input = document.getElementById(`reinstall-${option}`);
-                        if (input) input.checked = Boolean(config[option]);
+                        if (input) {
+                            input.checked = option === 'https'
+                                ? (config[option] === true || config['pmta_monitor_https'] === true || config[option] === undefined)
+                                : Boolean(config[option]);
+                        }
                     }
                     loadedServerId = requestedServerId;
                     holder.classList.remove('d-none');
@@ -457,7 +461,7 @@
                         domain_id: row.dataset.domainId,
                     }));
                     const payload = {pmta_version: Number(document.getElementById('reinstall-pmta-version').value), data: assignments};
-                    for (const option of ['pmta', 'tracking', 'https', 'proxy', 'imap', 'spf', 'dkim', 'dmarc']) {
+                    for (const option of ['pmta', 'tracking', 'https', 'proxy', 'imap', 'spf', 'dkim', 'dmarc', 'clean_dns']) {
                         payload[option] = document.getElementById(`reinstall-${option}`).checked;
                     }
                     try {

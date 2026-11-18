@@ -30,7 +30,7 @@ class AlphaLinkBulkInstallCompletionPlannerTest extends TestCase
             ['action' => 'delete_server_mtas', 'server_id' => 7],
             ['action' => 'delete_server_ips', 'server_id' => 7],
             ['action' => 'insert_server_ip', 'ip' => '8.8.8.8', 'type' => 'ipv4', 'dns' => 'relay.test', 'domain_id' => 21, 'server_id' => 7, 'is_active' => true],
-            ['action' => 'insert_server_ip', 'ip' => '2001:4860:4860::8888', 'type' => 'ipv6', 'dns' => 'relay.test', 'domain_id' => 21, 'server_id' => 7, 'is_active' => true],
+            ['action' => 'insert_server_ip', 'ip' => '2001:4860:4860::8888', 'type' => 'ipv6', 'dns' => 'edge.relay.test', 'domain_id' => 21, 'server_id' => 7, 'is_active' => true],
             [
                 'action' => 'save_installation_config',
                 'server_id' => 7,

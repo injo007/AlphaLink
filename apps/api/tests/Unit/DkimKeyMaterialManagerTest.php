@@ -25,7 +25,7 @@ class DkimKeyMaterialManagerTest extends TestCase
         $this->assertSame($first, $second);
         $this->assertMatchesRegularExpression('/\Aal[a-f0-9]{16}\z/', $first['selector']);
         $this->assertStringContainsString('BEGIN PRIVATE KEY', $first['private_key']);
-        $this->assertStringStartsWith('v=DKIM1;t=s;p=', $first['public_record']);
+        $this->assertStringStartsWith('v=DKIM1; k=rsa; p=', $first['public_record']);
         $this->assertIsString($rawPrivateKey);
         $this->assertStringNotContainsString('BEGIN PRIVATE KEY', $rawPrivateKey);
         $this->assertNotSame($first['private_key'], $rawPrivateKey);

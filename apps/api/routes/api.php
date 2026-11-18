@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\V1\InfrastructureController;
 use App\Http\Controllers\Api\V1\PublicLandingController;
 use App\Http\Controllers\Api\V1\SuppressionEventController;
 use App\Http\Controllers\Api\V1\WorkspaceController;
+use App\Http\Middleware\ValidateCampaignSignature;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function (): void {
@@ -25,16 +26,16 @@ Route::prefix('v1')->group(function (): void {
     Route::post('/campaign', [CampaignRedirectController::class, 'store']);
     Route::get('/campaigns/{campaign}/{item}/click', [CampaignClickController::class, 'redirect'])
         ->whereUuid(['campaign', 'item'])
-        ->middleware('signed')
+        ->middleware(ValidateCampaignSignature::class)
         ->name('public.campaign-click');
     Route::get('/campaigns/{campaign}/test-click', [CampaignClickController::class, 'redirectTest'])
         ->whereUuid('campaign')
-        ->middleware('signed')
+        ->middleware(ValidateCampaignSignature::class)
         ->name('public.campaign-test-click');
     Route::match(['get', 'post'], '/campaigns/{campaign}/{item}/unsubscribe', [CampaignUnsubscribeController::class, 'unsubscribe'])
         ->whereUuid('campaign')
         ->whereUuid('item')
-        ->middleware('signed')
+        ->middleware(ValidateCampaignSignature::class)
         ->name('public.campaign-unsubscribe');
     Route::post('/drop', [DropTrackingController::class, 'redirect']);
     Route::post('/stats-drop', [DropTrackingController::class, 'store']);

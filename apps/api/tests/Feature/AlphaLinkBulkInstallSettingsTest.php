@@ -28,6 +28,12 @@ class AlphaLinkBulkInstallSettingsTest extends TestCase
         $this->owner = User::factory()->create();
         $this->workspace = $this->workspaceFor($this->owner, 'install-settings-one');
         $this->actingAs($this->owner);
+        config([
+            'infrastructure.pmta_relay_proxy_host' => '37.27.184.206',
+            'infrastructure.pmta_relay_proxy_port' => 8977,
+            'infrastructure.pmta_relay_proxy_username' => 'relay-user',
+            'infrastructure.pmta_relay_proxy_password' => 'relay-password',
+        ]);
     }
 
     public function test_selected_tracking_imap_and_dkim_values_are_provisioned_once_and_encrypted(): void
@@ -105,14 +111,12 @@ class AlphaLinkBulkInstallSettingsTest extends TestCase
             ->assertSee('GENERAL SETTINGS')
             ->assertSee('TRACKING APP KEY')
             ->assertSee('APP DKIM KEY')
-            ->assertSee('Cloud Servers Password:')
             ->assertSee('APPLY FIREWALL')
             ->assertSee('DEV IPS')
             ->assertSee('PMTA RELAY SOURCE IPS')
             ->assertSee('PRODUCTION IPS')
             ->assertSee('RDP IPS')
             ->assertSee('PMTA WEB MONITOR PUBLIC PORT')
-            ->assertSee('does not rewrite an installed server')
             ->assertSee('SHOW PMTA MONITOR TO ALL')
             ->assertSee('PROXY PORT')
             ->assertSee('PMTA DOMAINS SETTINGS')
@@ -211,7 +215,7 @@ class AlphaLinkBulkInstallSettingsTest extends TestCase
         $this->assertStringNotContainsString('198.51.100.44', $auditProperties);
     }
 
-    public function test_missing_workspace_relay_source_is_detected_and_saved_automatically(): void
+    public function test_missing_workspace_relay_source_is_detected_through_proxy_and_saved_automatically(): void
     {
         config()->set('infrastructure.install_assets_directory', '/tmp/no-selected-assets');
         config()->set('infrastructure.bulk_install_settings', [
@@ -223,12 +227,10 @@ class AlphaLinkBulkInstallSettingsTest extends TestCase
             'pmta_relay_ips' => [],
         ]);
         Http::fake([
-            'http://169.254.169.254/metadata/v1/interfaces/public/0/ipv4/address' => Http::response('', 404),
-            'http://169.254.169.254/v1/token' => Http::response('', 404),
-            'https://api4.ipify.org' => Http::response('1.1.1.1'),
-            'https://checkip.amazonaws.com' => Http::response("1.1.1.1\n"),
-            'https://ipv4.icanhazip.com' => Http::response('1.1.1.1'),
-            'https://v4.ident.me' => Http::response('9.9.9.9'),
+            'http://api4.ipify.org' => Http::response('1.1.1.1'),
+            'http://checkip.amazonaws.com' => Http::response("1.1.1.1\n"),
+            'http://ipv4.icanhazip.com' => Http::response('1.1.1.1'),
+            'http://v4.ident.me' => Http::response('9.9.9.9'),
         ]);
 
         $resolved = app(AlphaLinkBulkInstallRuntimeInputs::class)->resolve(
@@ -238,13 +240,13 @@ class AlphaLinkBulkInstallSettingsTest extends TestCase
         );
 
         $settings = $this->workspace->infrastructureSettings()->sole();
-        $this->assertSame(['1.1.1.1'], $resolved['settings']['pmta_relay_ips']);
-        $this->assertSame(['1.1.1.1'], $settings->pmta_relay_ips);
+        $this->assertSame(['1.1.1.1', '9.9.9.9'], $resolved['settings']['pmta_relay_ips']);
+        $this->assertSame(['1.1.1.1', '9.9.9.9'], $settings->pmta_relay_ips);
         $this->assertTrue($settings->pmta_relay_ips_auto_managed);
-        Http::assertSentCount(6);
+        Http::assertSentCount(4);
     }
 
-    public function test_auto_managed_relay_source_refreshes_when_the_app_host_egress_changes(): void
+    public function test_auto_managed_relay_source_refreshes_when_the_proxy_egress_changes(): void
     {
         config()->set('infrastructure.install_assets_directory', '/tmp/no-selected-assets');
         config()->set('infrastructure.bulk_install_settings', [
@@ -260,12 +262,10 @@ class AlphaLinkBulkInstallSettingsTest extends TestCase
             'pmta_relay_ips_auto_managed' => true,
         ]);
         Http::fake([
-            'http://169.254.169.254/metadata/v1/interfaces/public/0/ipv4/address' => Http::response('', 404),
-            'http://169.254.169.254/v1/token' => Http::response('', 404),
-            'https://api4.ipify.org' => Http::response('1.1.1.1'),
-            'https://checkip.amazonaws.com' => Http::response('1.1.1.1'),
-            'https://ipv4.icanhazip.com' => Http::response('1.1.1.1'),
-            'https://v4.ident.me' => Http::response('1.1.1.1'),
+            'http://api4.ipify.org' => Http::response('1.1.1.1'),
+            'http://checkip.amazonaws.com' => Http::response('1.1.1.1'),
+            'http://ipv4.icanhazip.com' => Http::response('1.1.1.1'),
+            'http://v4.ident.me' => Http::response('1.1.1.1'),
         ]);
 
         $resolved = app(AlphaLinkBulkInstallRuntimeInputs::class)->resolve(
@@ -282,6 +282,12 @@ class AlphaLinkBulkInstallSettingsTest extends TestCase
 
     public function test_deployment_sync_refreshes_automatic_sources_and_preserves_explicit_workspace_lists(): void
     {
+        config([
+            'infrastructure.pmta_relay_proxy_host' => '37.27.184.206',
+            'infrastructure.pmta_relay_proxy_port' => 8977,
+            'infrastructure.pmta_relay_proxy_username' => 'relay-user',
+            'infrastructure.pmta_relay_proxy_password' => 'relay-password',
+        ]);
         $autoWorkspace = $this->workspace;
         $autoWorkspace->infrastructureSettings()->create([
             'pmta_relay_ips' => ['9.9.9.9'],
@@ -293,16 +299,14 @@ class AlphaLinkBulkInstallSettingsTest extends TestCase
             'pmta_relay_ips_auto_managed' => false,
         ]);
         Http::fake([
-            'http://169.254.169.254/metadata/v1/interfaces/public/0/ipv4/address' => Http::response('', 404),
-            'http://169.254.169.254/v1/token' => Http::response('', 404),
-            'https://api4.ipify.org' => Http::response('1.1.1.1'),
-            'https://checkip.amazonaws.com' => Http::response('1.1.1.1'),
-            'https://ipv4.icanhazip.com' => Http::response('1.1.1.1'),
-            'https://v4.ident.me' => Http::response('1.1.1.1'),
+            'http://api4.ipify.org' => Http::response('1.1.1.1'),
+            'http://checkip.amazonaws.com' => Http::response('1.1.1.1'),
+            'http://ipv4.icanhazip.com' => Http::response('1.1.1.1'),
+            'http://v4.ident.me' => Http::response('1.1.1.1'),
         ]);
 
         $this->artisan('alphalink:sync-pmta-relay-source-ips')
-            ->expectsOutput('Verified AlphaLink egress and synchronized 1 automatically managed workspace(s); preserved 1 explicitly configured workspace(s).')
+            ->expectsOutput('Verified PMTA relay proxy egress and synchronized 1 automatically managed workspace(s); preserved 1 explicitly configured workspace(s).')
             ->assertExitCode(0);
 
         $this->assertSame(['1.1.1.1'], $autoWorkspace->infrastructureSettings()->sole()->pmta_relay_ips);

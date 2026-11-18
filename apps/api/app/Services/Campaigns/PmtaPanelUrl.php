@@ -24,6 +24,37 @@ final class PmtaPanelUrl
         );
     }
 
+    /** Resolve the explicitly selected upstream host for a read-only monitor request. */
+    public static function forServerTarget(ManagedServer $server, int $port, string $target): string
+    {
+        $ip = (string) $server->ip_address;
+        if ($target === 'ip') {
+            return self::forInstallation($ip, null, $port, false);
+        }
+
+        if ($target === 'auto') {
+            return self::forServer($server, $port);
+        }
+
+        if ($target !== 'domain') {
+            return '';
+        }
+
+        $parameters = is_array($server->install_parameters) ? $server->install_parameters : [];
+        $domain = self::mainDomain($parameters);
+        $validDomain = is_string($domain)
+            && filter_var($domain, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) !== false
+            && filter_var($domain, FILTER_VALIDATE_IP) === false;
+
+        if (! $validDomain) {
+            return '';
+        }
+
+        $scheme = ($parameters['pmta_monitor_https'] ?? false) === true ? 'https' : 'http';
+
+        return $scheme.'://'.$domain.':'.$port.'/';
+    }
+
     /**
      * Return the browser-facing URL for the PMTA monitor.
      *
@@ -56,13 +87,11 @@ final class PmtaPanelUrl
         bool $https,
         string $serverId,
     ): string {
-        $directUrl = self::forInstallation($ip, $domain, $port, $https);
-
-        if ($directUrl === '' || (self::httpOptions() === [] && str_starts_with($directUrl, 'https://'))) {
-            return $directUrl;
+        if ($serverId !== '') {
+            return route('clean.console.pmta-admin.monitor', $serverId, false);
         }
 
-        return route('clean.console.pmta-admin.monitor', $serverId, false);
+        return self::forInstallation($ip, $domain, $port, $https);
     }
 
     /** @return array<string, string> */

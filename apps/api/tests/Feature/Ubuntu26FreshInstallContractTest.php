@@ -204,13 +204,30 @@ class Ubuntu26FreshInstallContractTest extends TestCase
             $digests['optional/tracking/index.php'],
         );
         $this->assertSame(
-            ['size' => 12840, 'sha256' => '3a536d8990cfa2a76a69f5ce1a0a85d15f0ae43b66526c9b6418b2719e072287'],
+            ['size' => 96518, 'sha256' => '2ff5301159b1608b5b50218efa4bc16434457dc236cab400443a4c9279390e9d'],
             $digests['optional/tracking/TrackerRequestHandler.php'],
         );
         $this->assertSame(
             ['size' => 117530, 'sha256' => 'f813a0a87681180921ba15681298c23ff411767b377a363ba5a1e591ff5f0f5e'],
             $digests['optional/tracking/homepage.html'],
         );
+    }
+
+    public function test_fresh_installer_persists_the_relay_and_verifies_proxy_egress(): void
+    {
+        $repositoryRoot = dirname(base_path(), 2);
+        $installer = file_get_contents($repositoryRoot.'/install-ubuntu-26.sh');
+        $environmentExample = file_get_contents(base_path('.env.example'));
+
+        $this->assertIsString($installer);
+        $this->assertIsString($environmentExample);
+        $this->assertStringContainsString('ALPHALINK_PMTA_RELAY_PROXY_HOST=$(dotenv_quote "$PMTA_PROXY_HOST")', $installer);
+        $this->assertStringContainsString('ALPHALINK_PMTA_RELAY_PROXY_PORT=${PMTA_PROXY_PORT}', $installer);
+        $this->assertStringContainsString('ALPHALINK_PMTA_RELAY_PROXY_USERNAME=$(dotenv_quote "$PMTA_PROXY_USERNAME")', $installer);
+        $this->assertStringContainsString('ALPHALINK_PMTA_RELAY_PROXY_PASSWORD=$(dotenv_quote "$PMTA_PROXY_PASSWORD")', $installer);
+        $this->assertStringContainsString('detect_proxy_ipv4_egress "$PMTA_PROXY_HOST" "$PMTA_PROXY_PORT" "$PMTA_PROXY_USERNAME" "$PMTA_PROXY_PASSWORD"', $installer);
+        $this->assertStringContainsString('ALPHALINK_PMTA_RELAY_PROXY_HOST=37.27.184.206', $environmentExample);
+        $this->assertStringContainsString('ALPHALINK_PMTA_RELAY_PROXY_PORT=8977', $environmentExample);
     }
 
     public function test_deploy_reconciles_reviewed_assets_from_the_exact_fetched_revision(): void

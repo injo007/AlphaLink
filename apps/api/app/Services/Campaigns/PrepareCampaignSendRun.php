@@ -105,6 +105,13 @@ class PrepareCampaignSendRun
                 'execution_options' => json_encode([
                     'start_from' => $startFrom,
                     'end_position' => $startFrom + $plannedCount,
+                    'auto_failover_enabled' => (bool) data_get($revision->payload, 'send_setup.auto_failover_enabled', false),
+                    'failover_error_patterns' => (string) (data_get($revision->payload, 'send_setup.failover_error_patterns') ?: '421, rate limit, too many connections, temporarily deferred, user complaints'),
+                    'failover_threshold' => (int) (data_get($revision->payload, 'send_setup.failover_threshold') ?: 5),
+                    'failover_purge_spool' => (bool) data_get($revision->payload, 'send_setup.failover_purge_spool', true),
+                    'disabled_domains' => [],
+                    'domain_error_counts' => [],
+                    'failover_events' => [],
                 ], JSON_THROW_ON_ERROR),
                 'recipient_count' => $plannedCount,
                 'start_position' => $startFrom + 1,

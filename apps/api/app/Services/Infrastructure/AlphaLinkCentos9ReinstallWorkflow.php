@@ -35,6 +35,7 @@ class AlphaLinkCentos9ReinstallWorkflow
         private readonly AlphaLinkBulkInstallIspCatalog $ispCatalog,
         private readonly AlphaLinkReinstallCompletionWriter $completion,
         private readonly AlphaLinkBulkInstallDomainDnsRecordWriter $dnsWriter,
+        private readonly AlphaLinkPmtaApplicationReadiness $applicationReadiness,
     ) {}
 
     /**
@@ -159,6 +160,7 @@ class AlphaLinkCentos9ReinstallWorkflow
                     'spf' => $options['spf'],
                     'dkim' => $options['dkim'],
                     'dmarc' => $options['dmarc'],
+                    'clean_dns' => ! empty($options['clean_dns']),
                 ],
                 $inputs['settings']['dkim_selector'],
                 $inputs['settings']['dkim_public_key'],
@@ -212,8 +214,10 @@ class AlphaLinkCentos9ReinstallWorkflow
             $log('End Setting PMTA');
 
             $log('Re Setup VMTAS');
+            $interfaceMap = is_array($hostFacts['ip_interface_map'] ?? null) ? $hostFacts['ip_interface_map'] : [];
             $vmtaRows = array_map(static fn (array $row): array => [
                 'ip' => $row['ip'],
+                'interface_ip' => $row['interface_ip'] ?? ($interfaceMap[$row['ip']] ?? null),
                 'sub' => $row['sub'],
                 'domain' => $row['domain'],
                 'is_our' => $row['is_our'],
@@ -349,6 +353,7 @@ class AlphaLinkCentos9ReinstallWorkflow
                 $diagnostics = AlphaLinkPmtaPostInstallReadiness::failureDetails($readiness);
                 throw new RuntimeException('PMTA post-reinstall verification failed: '.$diagnostics.'.');
             }
+            $this->applicationReadiness->verify($workspace, $server, $inputs['settings']['pmta_admin_port']);
             $log('PMTA relay and listener ready');
         }
 
@@ -404,9 +409,10 @@ class AlphaLinkCentos9ReinstallWorkflow
     {
         $subdomains = [];
         foreach ($rows as $row) {
-            if ($row['is_our'] && $row['sub'] !== '') {
+            $sub = trim((string) ($row['sub'] ?? ''));
+            if ($sub !== '') {
                 $subdomains[] = 'www.'.$row['domain'];
-                $subdomains[] = $row['sub'].'.'.$row['domain'];
+                $subdomains[] = $sub.'.'.$row['domain'];
             }
         }
 

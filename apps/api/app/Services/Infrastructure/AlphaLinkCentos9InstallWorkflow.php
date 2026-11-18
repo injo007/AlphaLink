@@ -29,6 +29,7 @@ class AlphaLinkCentos9InstallWorkflow
         private readonly AlphaLinkCentos9HttpsDeploymentStage $https,
         private readonly AlphaLinkCentos9FirewallDeploymentStage $firewall,
         private readonly AlphaLinkBulkInstallCompletionWriter $completion,
+        private readonly AlphaLinkPmtaApplicationReadiness $applicationReadiness,
     ) {}
 
     /**
@@ -121,6 +122,14 @@ class AlphaLinkCentos9InstallWorkflow
             $primaryDomain = $domainsById[$primaryAssignment['domain_id']];
         }
 
+        $interfaceMap = is_array($hostFacts['ip_interface_map'] ?? null) ? $hostFacts['ip_interface_map'] : [];
+        foreach ($ips as &$ipEntry) {
+            if (! isset($ipEntry['interface_ip']) && isset($interfaceMap[$ipEntry['ip']])) {
+                $ipEntry['interface_ip'] = $interfaceMap[$ipEntry['ip']];
+            }
+        }
+        unset($ipEntry);
+
         $domainProviderReady = [];
         foreach ($domainsById as $domainId => $selectedDomain) {
             $domainProviderReady[$domainId] = $dnsWriter->isDomainAvailable($selectedDomain);
@@ -134,9 +143,6 @@ class AlphaLinkCentos9InstallWorkflow
             foreach ($ipsToInclude as $ip) {
                 $entryDomainId = (string) ($ip['domain_id'] ?? $domain->getKey());
                 if (! ($domainProviderReady[$entryDomainId] ?? false)) {
-                    continue;
-                }
-                if (! ($ip['is_our'] ?? (bool) $domain->is_our)) {
                     continue;
                 }
                 if ($ip['domain'] !== (string) $primaryDomain->name) {
@@ -335,6 +341,9 @@ class AlphaLinkCentos9InstallWorkflow
             $diagnostics = AlphaLinkPmtaPostInstallReadiness::failureDetails($health);
             throw new RuntimeException('PMTA post-install verification failed: '.$diagnostics.'.');
         }
+
+        $this->applicationReadiness->verify($workspace, $server, $settings['pmta_admin_port']);
+        $log('PMTA monitor and read-only command access verified through the configured relay proxy');
 
         if ($ipAssignments === null) {
             $completedOptions = [...$options, 'https' => $options['https'] && $primaryDomainReady && $domainCertificateReady];

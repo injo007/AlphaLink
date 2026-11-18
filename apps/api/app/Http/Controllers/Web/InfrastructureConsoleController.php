@@ -408,6 +408,7 @@ class InfrastructureConsoleController extends Controller
             'spf' => ['required', 'boolean'],
             'dkim' => ['required', 'boolean'],
             'dmarc' => ['required', 'boolean'],
+            'clean_dns' => ['sometimes', 'boolean'],
             'data' => ['required', 'array', 'min:1', 'max:128'],
             'data.*.ip' => ['required', 'ip'],
             'data.*.type' => ['required', Rule::in(['ipv4', 'ipv6'])],
@@ -430,6 +431,7 @@ class InfrastructureConsoleController extends Controller
             'dkim' => (bool) $payload['dkim'],
             'dmarc' => (bool) $payload['dmarc'],
             'https' => (bool) $payload['https'],
+            'clean_dns' => (bool) ($payload['clean_dns'] ?? false),
         ];
         $componentOptions = [
             'tracking' => $options['tracking'],
@@ -493,7 +495,7 @@ class InfrastructureConsoleController extends Controller
                 ],
             ]);
             $runLauncher->launch((string) $workspace->getKey(), $runId);
-        } catch (RuntimeException $exception) {
+        } catch (\Throwable $exception) {
             $transcripts->append((string) $workspace->getKey(), $runId, now()->format('Y-m-d H:i:s').': Error: '.$exception->getMessage());
             $transcripts->setRunStatus((string) $workspace->getKey(), $runId, 'failed', [], $exception->getMessage());
 
@@ -972,9 +974,9 @@ class InfrastructureConsoleController extends Controller
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
         $isp = $workspace->isps()->whereKey($ispId)->firstOrFail();
         $users = $workspace->users()
-            ->wherePivot('role', 'operator')
-            ->orderBy('users.id')
-            ->get(['users.id', 'users.name', 'users.username']);
+            ->withPivot('role')
+            ->orderBy('users.name')
+            ->get(['users.id', 'users.name', 'users.username', 'users.email']);
 
         return view('console.infrastructure.isps.assignment', [
             'workspace' => $workspace,
@@ -1012,8 +1014,7 @@ class InfrastructureConsoleController extends Controller
             'users.*' => [
                 'required', 'integer', 'distinct',
                 Rule::exists('workspace_user', 'user_id')
-                    ->where('workspace_id', $workspace->getKey())
-                    ->where('role', 'operator'),
+                    ->where('workspace_id', $workspace->getKey()),
             ],
         ]);
         $userIds = array_values(array_unique(array_map('intval', $data['users'] ?? [])));
@@ -1363,6 +1364,7 @@ class InfrastructureConsoleController extends Controller
             'dkim' => $payload['dkim'],
             'dmarc' => $payload['dmarc'],
             'https' => $payload['https'],
+            'clean_dns' => (bool) ($payload['clean_dns'] ?? false),
         ];
         $deploymentBlockers = [];
 
@@ -1428,7 +1430,7 @@ class InfrastructureConsoleController extends Controller
                 'payload' => $payload,
             ]);
             $runLauncher->launch((string) $workspace->getKey(), $runId);
-        } catch (RuntimeException $exception) {
+        } catch (\Throwable $exception) {
             $transcripts->append((string) $workspace->getKey(), $runId, now()->format('[d/m/Y-H:i:s]').' Error: '.$exception->getMessage());
             $transcripts->setRunStatus((string) $workspace->getKey(), $runId, 'failed', [], $exception->getMessage());
 
@@ -2696,7 +2698,7 @@ class InfrastructureConsoleController extends Controller
     {
         $workspace = $this->workspaceForServerControl($request->user(), $workspaceId);
         $server = $workspace->managedServers()->whereKey($serverId)->firstOrFail();
-        $users = $workspace->users()->wherePivot('role', 'operator')->orderBy('users.name')->get(['users.id', 'users.name', 'users.email']);
+        $users = $workspace->users()->withPivot('role')->orderBy('users.name')->get(['users.id', 'users.name', 'users.email']);
         $allowedUserIds = DB::table('managed_server_user')
             ->where('workspace_id', $workspace->getKey())
             ->where('managed_server_id', $server->getKey())
@@ -2711,7 +2713,7 @@ class InfrastructureConsoleController extends Controller
         $server = $workspace->managedServers()->whereKey($serverId)->firstOrFail();
         $data = $request->validate([
             'users' => ['sometimes', 'nullable', 'array'],
-            'users.*' => ['integer', Rule::exists('workspace_user', 'user_id')->where('workspace_id', $workspace->getKey())->where('role', 'operator')],
+            'users.*' => ['integer', Rule::exists('workspace_user', 'user_id')->where('workspace_id', $workspace->getKey())],
         ]);
         $userIds = collect($data['users'] ?? [])->map(fn ($id) => (int) $id)->unique()->values()->all();
 
@@ -2733,7 +2735,7 @@ class InfrastructureConsoleController extends Controller
         $ids = array_values(array_unique($data['ids']));
         $servers = $workspace->managedServers()->whereIn('id', $ids)->orderBy('id')->get(['id', 'workspace_id', 'name']);
         abort_unless($servers->count() === count($ids), 404);
-        $users = $workspace->users()->wherePivot('role', 'operator')->orderBy('users.name')->get(['users.id', 'users.name', 'users.email']);
+        $users = $workspace->users()->withPivot('role')->orderBy('users.name')->get(['users.id', 'users.name', 'users.email']);
 
         return view('console.infrastructure.server-bulk-users', compact('workspace', 'servers', 'users'));
     }
@@ -2745,7 +2747,7 @@ class InfrastructureConsoleController extends Controller
             'servers' => ['required', 'array', 'min:1'],
             'servers.*' => ['required', 'uuid'],
             'users' => ['sometimes', 'nullable', 'array'],
-            'users.*' => ['integer', Rule::exists('workspace_user', 'user_id')->where('workspace_id', $workspace->getKey())->where('role', 'operator')],
+            'users.*' => ['integer', Rule::exists('workspace_user', 'user_id')->where('workspace_id', $workspace->getKey())],
         ]);
         $serverIds = array_values(array_unique($data['servers']));
         $servers = $workspace->managedServers()->whereIn('id', $serverIds)->get();

@@ -67,6 +67,15 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(30)->by('infrastructure-server-action:'.$key);
         });
 
+        RateLimiter::for('change-domain-action', static function (Request $request): Limit {
+            $actor = (string) ($request->user()?->getAuthIdentifier() ?? $request->ip());
+            $workspace = (string) ($request->route('workspace') ?? 'global');
+            $server = (string) ($request->input('server_id') ?? 'unknown');
+            $key = hash('sha256', implode('|', [$actor, $workspace, $server]));
+
+            return Limit::perMinute(10)->by('change-domain-action:'.$key);
+        });
+
         // Laravel's development server filters environment variables before
         // starting its HTTP worker. Preserve AlphaLink's protected env path so
         // the worker loads the same APP_KEY and settings as Artisan.

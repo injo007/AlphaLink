@@ -15,7 +15,7 @@ test('PMTA Admin opens HTTP-only monitors through AlphaLink HTTPS to avoid brows
     assert.match(view, /Open HTTPS read-only monitor: \$\{server\.dataset\.monitorEndpoint\}/);
     assert.match(view, /link\.href = server\.dataset\.monitorUrl \|\| server\.dataset\.panelUrl/);
     assert.match(view, /monitor controls are read-only/);
-    assert.match(view, /frame\.setAttribute\('sandbox', ''\)/);
+    assert.match(view, /frame\.setAttribute\('sandbox', 'allow-same-origin'\)/);
     assert.match(view, /Read-only monitor via AlphaLink HTTPS/);
 });
 

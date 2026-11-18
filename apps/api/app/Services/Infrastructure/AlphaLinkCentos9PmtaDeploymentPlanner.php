@@ -206,17 +206,8 @@ class AlphaLinkCentos9PmtaDeploymentPlanner
         // Public monitor access is controlled by Nginx. The backend listener
         // is firewalled from the Internet and only trusts the local proxy.
         if ($directMonitor) {
-            foreach (array_values(array_unique($developmentIps)) as $ip) {
-                $allowed .= "http-access {$ip} admin\n";
-            }
             foreach (array_values(array_unique($pmtaRelayIps)) as $ip) {
                 $allowed .= "http-access {$ip} admin\n";
-            }
-            foreach (array_values(array_unique($productionIps)) as $ip) {
-                $allowed .= "http-access {$ip} monitor\n";
-            }
-            if ($allowAllMonitor) {
-                $allowed .= "http-access 0/0 monitor\n";
             }
         }
 
@@ -288,20 +279,15 @@ class AlphaLinkCentos9PmtaDeploymentPlanner
             throw new InvalidArgumentException('The PMTA HTTPS domain must be a valid hostname.');
         }
 
-        $allowed = $allowAllMonitor
-            ? "# ALPHALINK_PMTA_MONITOR_ACCESS_PUBLIC\n"
-            : "# ALPHALINK_PMTA_MONITOR_ACCESS_RESTRICTED\n";
-        if (! $allowAllMonitor) {
-            // AlphaLink's egress also needs the monitor endpoint for its
-            // authenticated, read-only PMTA panel proxy.
-            // The installer also verifies the local HTTP proxy before it
-            // persists the server, so loopback must pass this outer ACL.
-            $allowed .= "allow 127.0.0.1;\n";
-            foreach (array_values(array_unique([...$developmentIps, ...$productionIps, ...$pmtaRelayIps])) as $ip) {
-                $allowed .= "allow {$ip};\n";
-            }
-            $allowed .= "deny all;\n";
+        // The application fetches this endpoint through the configured PMTA
+        // relay proxy. Keep the public monitor private even if older settings
+        // contain operator IPs or the legacy "show to all" switch.
+        $allowed = "# ALPHALINK_PMTA_MONITOR_ACCESS_RESTRICTED\n";
+        $allowed .= "allow 127.0.0.1;\n";
+        foreach (array_values(array_unique($pmtaRelayIps)) as $ip) {
+            $allowed .= "allow {$ip};\n";
         }
+        $allowed .= "deny all;\n";
 
         $adminAllowed = '';
         foreach (array_values(array_unique($pmtaRelayIps)) as $ip) {
@@ -315,7 +301,7 @@ class AlphaLinkCentos9PmtaDeploymentPlanner
 
         $listen = $tlsDomain === null ? "listen {$adminPort};" : "listen {$adminPort} ssl;";
         $serverName = $tlsDomain === null ? '_' : $tlsDomain;
-        $tls = $tlsDomain === null ? '' : "\n    ssl_certificate /etc/letsencrypt/live/{$tlsDomain}/fullchain.pem;\n    ssl_certificate_key /etc/letsencrypt/live/{$tlsDomain}/privkey.pem;\n    ssl_protocols TLSv1.2 TLSv1.3;";
+        $tls = $tlsDomain === null ? '' : "\n    ssl_certificate /etc/letsencrypt/live/{$tlsDomain}/fullchain.pem;\n    ssl_certificate_key /etc/letsencrypt/live/{$tlsDomain}/privkey.pem;\n    ssl_protocols TLSv1.2 TLSv1.3;\n    error_page 497 = @plain_pmta;\n    location @plain_pmta {\n        if (\$host !~* \"^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$\") {\n            return 301 https://\$http_host\$request_uri;\n        }\n        proxy_pass http://127.0.0.1:{$httpPort};\n        proxy_hide_header 'X-Frame-Options';\n        proxy_hide_header 'X-Content-Type-Options';\n    }";
 
         return "server {\n    {$listen}\n    server_name {$serverName};{$tls}\n    {$allowed}\n    {$location}\n    error_page 403 @error403;\n    location @error403 {\n        default_type text/html;\n        return 403 \"403\";\n    }\n    error_page 502 @error502;\n    location @error502 {\n        default_type text/html;\n        return 502 \"GONE :(\";\n    }\n}";
     }

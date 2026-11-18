@@ -50,6 +50,7 @@ class AlphaLinkBulkInstallPayload
             'dkim' => ['required', 'boolean'],
             'dmarc' => ['required', 'boolean'],
             'https' => ['required', 'boolean'],
+            'clean_dns' => ['sometimes', 'boolean'],
         ])->validate();
 
         $rows = array_map(
@@ -84,6 +85,7 @@ class AlphaLinkBulkInstallPayload
             'dkim' => (bool) $validated['dkim'],
             'dmarc' => (bool) $validated['dmarc'],
             'https' => (bool) $validated['https'],
+            'clean_dns' => (bool) ($validated['clean_dns'] ?? false),
         ];
     }
 }

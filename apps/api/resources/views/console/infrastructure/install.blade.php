@@ -107,7 +107,7 @@
                                 </div>
                             </div>
                             <div class="command-trigger-group">
-                                @foreach (['tracking' => 'TRACKING', 'https' => 'HTTPS', 'proxy' => 'PROXY', 'imap' => 'IMAP', 'spf' => 'SPF', 'dkim' => 'DKIM', 'dmarc' => 'DMARC'] as $option => $label)
+                                @foreach (['tracking' => 'TRACKING', 'https' => 'HTTPS', 'proxy' => 'PROXY', 'imap' => 'IMAP', 'spf' => 'SPF', 'dkim' => 'DKIM', 'dmarc' => 'DMARC', 'clean_dns' => 'CLEAN CLOUDFLARE DNS'] as $option => $label)
                                     <div class="d-inline-flex align-items-center mr-2">
                                         <label class="command-switch mr-2">
                                             <input type="checkbox" id="{{ $option }}" @checked(in_array($option, ['tracking', 'imap', 'spf', 'dkim', 'dmarc'], true))>

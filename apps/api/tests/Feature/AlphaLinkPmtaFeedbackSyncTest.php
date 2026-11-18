@@ -125,7 +125,8 @@ class AlphaLinkPmtaFeedbackSyncTest extends TestCase
             ->assertOk()
             ->assertSee('Daily PMTA deliveries and bounce totals')
             ->assertSee(now()->day.': Deliveries 1')
-            ->assertSee(now()->day.': Bounces 2');
+            ->assertSee(now()->day.': Soft bounces 1')
+            ->assertSee(now()->day.': Hard bounces 1');
         $this->getJson(route('clean.console.analytics.all-stats', ['from' => $date, 'to' => $date]))
             ->assertOk()
             ->assertJsonFragment(['deliveries' => 1])

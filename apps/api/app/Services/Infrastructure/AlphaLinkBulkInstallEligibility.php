@@ -17,8 +17,25 @@ class AlphaLinkBulkInstallEligibility
     public function for(Workspace $workspace): array
     {
         $servers = $this->eligibleInstallServers($workspace)
+            ->with(['ips' => fn ($query) => $query->where('is_active', true)->orderBy('id')])
             ->orderByDesc('id')
-            ->get(['id', 'name', 'ip_address']);
+            ->get(['id', 'name', 'ip_address', 'host_facts', 'install_parameters', 'state', 'expected_host_fingerprint']);
+
+        foreach ($servers as $server) {
+            if ($server->state === 'verified' && empty(data_get($server->host_facts, 'public_ips'))) {
+                try {
+                    $credentialResolver = app(AlphaLinkInstallerServerCredentialResolver::class);
+                    $credential = $credentialResolver->resolve($server);
+                    $discovery = app(AlphaLinkBulkInstallRemoteIpDiscovery::class);
+                    $discovered = $discovery->discover($server, $credential['secret'], $credential['type']);
+                    $facts = is_array($server->host_facts) ? $server->host_facts : [];
+                    $facts['public_ips'] = $discovered;
+                    $server->host_facts = $facts;
+                } catch (\Throwable) {
+                    // Graceful fallback to primary IP
+                }
+            }
+        }
 
         $domains = $this->eligibleDomains($workspace, true)
             ->orderByDesc('is_our')
@@ -52,8 +69,9 @@ class AlphaLinkBulkInstallEligibility
     public function forSingleInstall(Workspace $workspace): array
     {
         $servers = $this->eligibleInstallServers($workspace)
+            ->with(['ips' => fn ($query) => $query->where('is_active', true)->orderBy('id')])
             ->orderByDesc('id')
-            ->get(['id', 'name', 'ip_address']);
+            ->get(['id', 'name', 'ip_address', 'host_facts', 'install_parameters']);
 
         $domains = $this->eligibleDomains($workspace, true)
             ->orderByDesc('is_our')

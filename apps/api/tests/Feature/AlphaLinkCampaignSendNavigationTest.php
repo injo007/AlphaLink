@@ -102,6 +102,12 @@ class AlphaLinkCampaignSendNavigationTest extends TestCase
             ->assertDontSee('no campaign can be launched');
 
         $this->assertMatchesRegularExpression(
+            '/<div class="command-os-navigation-row">[\s\S]*?<a[^>]*data-nav-parent="true"[^>]*role="button"[^>]*aria-controls="nav-v2-campaign-studio"/',
+            $response->getContent(),
+            'Parent navigation item with children must render data-nav-parent toggle attributes.'
+        );
+
+        $this->assertMatchesRegularExpression(
             '/<div class="command-os-navigation-row">[\s\S]*?<details class="command-os-navigation-disclosure" open>\s*<summary aria-label="Toggle Campaign Studio pages" aria-controls="nav-v2-campaign-studio"[\s\S]*?<\/summary>\s*<ul class="command-os-navigation-submenu" id="nav-v2-campaign-studio"/',
             $response->getContent(),
             'The native disclosure control must occupy its own parent-row slot and keep its submenu in normal sidebar flow.'

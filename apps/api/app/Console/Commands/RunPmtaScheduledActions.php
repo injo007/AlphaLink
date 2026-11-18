@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\PmtaScheduledAction;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\Campaigns\PmtaProxySettings;
 use App\Services\Campaigns\PmtaQueueAdmin;
 use App\Services\PmtaAuditLogger;
 use Illuminate\Console\Command;
@@ -15,7 +16,7 @@ class RunPmtaScheduledActions extends Command
 
     protected $description = 'Run one enabled workspace-scoped PMTA queue task.';
 
-    public function handle(PmtaQueueAdmin $pmta, PmtaAuditLogger $audit): int
+    public function handle(PmtaQueueAdmin $pmta, PmtaProxySettings $proxySettings, PmtaAuditLogger $audit): int
     {
         $action = PmtaScheduledAction::query()->where('is_active', true)->find($this->argument('actionId'));
         if (! $action) {
@@ -40,12 +41,14 @@ class RunPmtaScheduledActions extends Command
         foreach ($servers as $server) {
             $portsByServer[(string) $server->getKey()] = $port;
         }
+        $proxy = $proxySettings->forWorkspace($workspace);
         $outcomes = $pmta->runConcurrently(
             $servers->all(),
             $portsByServer,
             $action->action,
             $action->queue,
             $action->tags,
+            $proxy['url'] ?? null,
         );
 
         foreach ($servers as $server) {

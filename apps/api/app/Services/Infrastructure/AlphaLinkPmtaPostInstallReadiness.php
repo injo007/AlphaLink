@@ -50,26 +50,21 @@ class AlphaLinkPmtaPostInstallReadiness
         ];
 
         if ($directMonitor) {
-            foreach (array_values(array_unique($developmentIps)) as $ip) {
+            $monitorProxyIp = array_values(array_unique($relayIps))[0] ?? null;
+            if ($monitorProxyIp !== null) {
+                $ip = $monitorProxyIp;
                 if (! is_string($ip) || filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
                     throw new InvalidArgumentException('A PMTA monitor allowlist IP is invalid.');
                 }
                 $checks[] = ['direct-monitor-admin-allow-'.$ip, ['grep', '-Fqx', 'http-access '.$ip.' admin', '/etc/pmta/settings/access']];
             }
-            foreach (array_values(array_unique($relayIps)) as $ip) {
-                $checks[] = ['direct-monitor-admin-allow-'.$ip, ['grep', '-Fqx', 'http-access '.$ip.' admin', '/etc/pmta/settings/access']];
-            }
-            foreach (array_values(array_unique($productionIps)) as $ip) {
-                if (! is_string($ip) || filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
-                    throw new InvalidArgumentException('A PMTA monitor allowlist IP is invalid.');
+            foreach (array_values(array_unique([...$developmentIps, ...$productionIps])) as $ip) {
+                if (is_string($ip) && ! in_array($ip, $relayIps, true)) {
+                    $checks[] = ['direct-monitor-no-extra-admin-'.$ip, ['sh', '-c', '! grep -Fqx '.escapeshellarg('http-access '.$ip.' admin').' /etc/pmta/settings/access']];
+                    $checks[] = ['direct-monitor-no-extra-read-'.$ip, ['sh', '-c', '! grep -Fqx '.escapeshellarg('http-access '.$ip.' monitor').' /etc/pmta/settings/access']];
                 }
-                $checks[] = ['direct-monitor-read-allow-'.$ip, ['grep', '-Fqx', 'http-access '.$ip.' monitor', '/etc/pmta/settings/access']];
             }
-            if ($allowAllMonitor) {
-                $checks[] = ['direct-monitor-public-read-policy', ['grep', '-Fqx', 'http-access 0/0 monitor', '/etc/pmta/settings/access']];
-            } else {
-                $checks[] = ['direct-monitor-restricted-policy', ['sh', '-c', '! grep -Fqx "http-access 0/0 monitor" /etc/pmta/settings/access']];
-            }
+            $checks[] = ['direct-monitor-restricted-policy', ['sh', '-c', '! grep -Eq "^http-access (0/0|[0-9.]+) monitor$" /etc/pmta/settings/access']];
         } else {
             $checks[] = ['nginx-command-proxy', ['grep', '-Fq', 'location = /command {', '/etc/nginx/conf.d/default.conf']];
             $checks[] = ['nginx-service', ['systemctl', 'is-active', '--quiet', 'nginx']];
@@ -88,16 +83,22 @@ class AlphaLinkPmtaPostInstallReadiness
             }
         }
 
-        if (! $directMonitor && ! $allowAllMonitor) {
-            foreach (array_values(array_unique([...$developmentIps, ...$productionIps, ...$relayIps])) as $ip) {
+        if (! $directMonitor) {
+            $relayIps = array_values(array_unique($relayIps));
+            $monitorProxyIp = $relayIps[0] ?? null;
+            if ($monitorProxyIp !== null) {
+                $ip = $monitorProxyIp;
                 if (! is_string($ip) || filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
                     throw new InvalidArgumentException('A PMTA monitor allowlist IP is invalid.');
                 }
                 $checks[] = ['monitor-allow-'.$ip, ['grep', '-Fq', 'allow '.$ip.';', '/etc/nginx/conf.d/default.conf']];
             }
+            foreach (array_values(array_unique([...$developmentIps, ...$productionIps])) as $ip) {
+                if (is_string($ip) && $ip !== $monitorProxyIp) {
+                    $checks[] = ['monitor-no-extra-allow-'.$ip, ['sh', '-c', '! grep -Fq '.escapeshellarg('allow '.$ip.';').' /etc/nginx/conf.d/default.conf']];
+                }
+            }
             $checks[] = ['monitor-restricted-policy', ['grep', '-Fq', '# ALPHALINK_PMTA_MONITOR_ACCESS_RESTRICTED', '/etc/nginx/conf.d/default.conf']];
-        } elseif (! $directMonitor) {
-            $checks[] = ['monitor-public-read-policy', ['grep', '-Fq', '# ALPHALINK_PMTA_MONITOR_ACCESS_PUBLIC', '/etc/nginx/conf.d/default.conf']];
         }
 
         if (! $directMonitor) {

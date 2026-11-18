@@ -139,6 +139,56 @@ class CloudflareDnsApi
     }
 
     /**
+     * Purges all user-managed DNS records from a Cloudflare zone, skipping apex NS and SOA records.
+     */
+    public function purgeZoneDnsRecords(DomainProvider $provider, string $zoneId, string $zoneName): int
+    {
+        $this->assertZoneId($zoneId);
+        $normalizedZone = strtolower(rtrim($zoneName, '.'));
+        $current = $this->listDnsRecords($provider, $zoneId);
+        $deletes = [];
+
+        foreach ($current as $item) {
+            $type = strtoupper((string) ($item['type'] ?? ''));
+            $name = strtolower(rtrim((string) ($item['name'] ?? ''), '.'));
+
+            if ($type === 'SOA') {
+                continue;
+            }
+            if ($type === 'NS' && ($name === $normalizedZone || $name === '@' || $name === '')) {
+                continue;
+            }
+
+            $id = (string) ($item['id'] ?? '');
+            if (preg_match('/\A[a-f0-9]{32}\z/i', $id) === 1) {
+                $deletes[] = ['id' => $id];
+            }
+        }
+
+        if ($deletes === []) {
+            return 0;
+        }
+
+        foreach (array_chunk($deletes, 100) as $deleteBatch) {
+            try {
+                $this->successfulObject($this->request($provider)->post('zones/'.$zoneId.'/dns_records/batch', [
+                    'deletes' => $deleteBatch,
+                ]));
+            } catch (\Throwable) {
+                foreach ($deleteBatch as $entry) {
+                    try {
+                        $this->deleteDnsRecord($provider, $zoneId, $entry['id']);
+                    } catch (\Throwable) {
+                        // ignore if already deleted
+                    }
+                }
+            }
+        }
+
+        return count($deletes);
+    }
+
+    /**
      * Reconciles only the names and types owned by the installer, retaining every unrelated record.
      * Cloudflare's batch route validates the change set together before applying its operations.
      *

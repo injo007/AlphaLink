@@ -819,29 +819,17 @@ class WorkspaceSpfScannerController extends Controller
 
         $servers = $workspace->managedServers()
             ->where('is_active', true)
-            ->where('is_installed', true)
             ->when($isOperator, fn ($query) => $query->whereHas('allowedUsers', fn ($users) => $users->whereKey($user->getKey())))
             ->with(['ips' => fn ($query) => $query->where('is_active', true)->orderBy('id')])
             ->orderBy('name')
-            ->get(['id', 'name', 'ip_address']);
+            ->get(['id', 'name', 'ip_address', 'host_facts', 'install_parameters']);
 
         return $servers->map(function ($server): array {
-            $ipList = [];
-            if (ManagedServerIp::isPublicAddress($server->ip_address)) {
-                $ipList[] = trim((string) $server->ip_address);
-            }
-            foreach ($server->ips as $serverIp) {
-                if (ManagedServerIp::isPublicAddress($serverIp->ip)) {
-                    $ipList[] = trim((string) $serverIp->ip);
-                }
-            }
-            $ipList = array_values(array_unique(array_filter($ipList)));
-
             return [
                 'id' => $server->getKey(),
                 'name' => (string) $server->name,
                 'ip' => (string) ($server->ip_address ?? ''),
-                'ips' => $ipList,
+                'ips' => $server->publicIps(),
             ];
         })->values()->all();
     }

@@ -468,7 +468,7 @@ class CampaignSendExecutionLedgerTest extends TestCase
             'negative_path' => '',
             'placeholder_rows' => [],
             'header_template' => "MIME-Version: 1.0\nContent-Type: text/html; charset=UTF-8\nTo: [to]\nFrom: sender@example.test\nSubject: Tracked message",
-            'body_template' => '<a href="[domain]/[rndUN_10]r[token]">Click</a><a href="https://[domain]/[rndUN_10]u[token]">Unsubscribe via tracker</a><img src="[domain]/[rndUN_10]o[token]" alt=""><p>Message domain: http://[domain]/landing</p><p>External link: http://outside.example.test/landing</p><img src="https://i.pinimg.com/736x/62/92/63/629263433ead2c24378e115fdb0e46e7.jpg">',
+            'body_template' => '<a href="[domain]/[rndUN_10]r[token]">Click</a><a href="https://[domain]/[rndUN_10]u[token]">Unsubscribe via tracker</a><img src="[domain]/[rndUN_10]o[token]" alt=""><p>Message domain: http://[domain]/landing</p><p>External link: http://outside.example.test/landing</p><p>User redirect host: http://literal-redirect.example.test/next</p><img src="https://i.pinimg.com/736x/62/92/63/629263433ead2c24378e115fdb0e46e7.jpg">',
             'return_path' => '',
             'domain_fallback' => $domain->name,
         ];
@@ -476,7 +476,7 @@ class CampaignSendExecutionLedgerTest extends TestCase
         $message = app(CampaignSendMessageBuilder::class)->build($context, $fixture['item'], $fixture['contact']->email);
         preg_match_all('#http://tracking\.example\.test/[A-Z0-9]{10}o([^" ]+)#i', $message['body'], $openMatches);
         preg_match('#href="(http://tracking\.example\.test/[A-Z0-9]{10}r[^\"]+\?t=1)"#i', $message['body'], $clickMatch);
-        preg_match('#href="(http://tracking\.example\.test/[A-Z0-9]{10}u[A-Za-z0-9_-]+)"#i', $message['body'], $unsubscribeMatch);
+        preg_match('#href="(http://tracking\.example\.test/[A-Z0-9]{10}u[^\"]+)"#i', $message['body'], $unsubscribeMatch);
 
         $this->assertCount(1, $openMatches[1]);
         $this->assertArrayHasKey(1, $clickMatch);
@@ -494,6 +494,7 @@ class CampaignSendExecutionLedgerTest extends TestCase
         $this->assertStringNotContainsString('http://203.0.113.241/', $message['body']);
         $this->assertStringContainsString('Message domain: http://tracking.example.test/landing', $message['body']);
         $this->assertStringContainsString('External link: http://outside.example.test/landing', $message['body']);
+        $this->assertStringContainsString('User redirect host: http://literal-redirect.example.test/next', $message['body']);
         $this->assertStringContainsString('https://i.pinimg.com/736x/62/92/63/629263433ead2c24378e115fdb0e46e7.jpg', $message['body']);
         $this->assertStringNotContainsString('https://tracking.example.test/', $message['body']);
         foreach (array_merge([$clickToken], $openMatches[1]) as $token) {
@@ -552,9 +553,12 @@ class CampaignSendExecutionLedgerTest extends TestCase
         $this->assertStringContainsString('Message domain: https://selected-campaign.example.test/landing', $selectedDomainMessage['body']);
         $this->assertStringContainsString('https://i.pinimg.com/736x/62/92/63/629263433ead2c24378e115fdb0e46e7.jpg', $selectedDomainMessage['body']);
         $this->assertStringContainsString('/api/v1/campaigns/'.$fixture['campaign']->getKey().'/'.$fixture['item']->getKey().'/click?', $selectedDomainMessage['body']);
+        $this->assertStringContainsString('href="https://selected-campaign.example.test/api/v1/campaigns/', $selectedDomainMessage['body']);
+        $this->assertStringNotContainsString('baseheavy.example.test', $selectedDomainMessage['body']);
         $this->assertStringNotContainsString('http://selected-campaign.example.test/', $selectedDomainMessage['body']);
         $this->assertStringNotContainsString('http://203.0.113.241/', $selectedDomainMessage['body']);
         $this->assertStringNotContainsString('http://tracking.example.test/', $selectedDomainMessage['body']);
+        $this->assertStringContainsString('User redirect host: http://literal-redirect.example.test/next', $selectedDomainMessage['body']);
 
         // Redirect domains are explicit campaign tracking hosts even when
         // their ownership flag is false and the server has a saved IP fallback.

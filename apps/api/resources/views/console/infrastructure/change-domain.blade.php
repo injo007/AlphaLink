@@ -171,6 +171,8 @@
                 for (const assignment of payload.data) {
                     const row = document.createElement('tr');
                     row.dataset.ipId = String(assignment.ip_id);
+                    row.dataset.ip = String(assignment.ip);
+                    row.dataset.ipType = String(assignment.type);
                     row.dataset.oldDomainId = String(assignment.old_domain_id);
                     row.append(createCell(String(assignment.ip_id)));
                     row.append(createCell(assignment.ip));
@@ -190,7 +192,7 @@
                     const sub = document.createElement('input');
                     sub.type = 'text';
                     sub.className = 'command-form-control form-control-sm';
-                    sub.value = assignment.sub_domain || '';
+                    sub.value = assignment.sub || '';
                     sub.setAttribute('aria-label', `Subdomain for ${assignment.ip}`);
                     sub.dataset.subDomain = '';
                     subCell.append(sub);
@@ -210,7 +212,7 @@
                     for (const domain of domains) {
                         const option = document.createElement('option');
                         option.value = String(domain.id);
-                        option.textContent = domain.label;
+                        option.textContent = domain.name ?? domain.label ?? '';
                         if (String(domain.id) === String(assignment.domain_id)) {
                             option.selected = true;
                         }
@@ -282,9 +284,12 @@
                 const serverId = serverSelect.value;
                 if (!serverId) return;
                 const rows = [...tableBody.querySelectorAll('tr[data-ip-id]')].map((row) => ({
-                    ip_id: row.dataset.ipId,
-                    main: row.querySelector('[data-main-ip]')?.checked ? 1 : 0,
-                    sub_domain: row.querySelector('[data-sub-domain]')?.value || '',
+                    ip_id: Number(row.dataset.ipId),
+                    ip: row.dataset.ip,
+                    type: row.dataset.ipType,
+                    old_domain_id: row.dataset.oldDomainId,
+                    main: Boolean(row.querySelector('[data-main-ip]')?.checked),
+                    sub: row.querySelector('[data-sub-domain]')?.value || '',
                     domain_id: row.querySelector('[data-domain-select]')?.value || '',
                 }));
 
@@ -306,7 +311,7 @@
                         },
                         body: JSON.stringify({
                             server_id: serverId,
-                            rows,
+                            data: rows,
                             ...options,
                         }),
                     });
@@ -318,7 +323,9 @@
                         try {
                             const logRes = await fetch(logsUrlTemplate.replace('__SERVER__', encodeURIComponent(serverId)));
                             const logData = await logRes.json();
-                            logs.textContent = logData.logs || payload.message || 'Completed.';
+                            logs.textContent = Array.isArray(logData)
+                                ? logData.join('\n') || payload.message || 'Completed.'
+                                : logData.logs || payload.message || 'Completed.';
                         } catch {
                             // keep last text
                         }

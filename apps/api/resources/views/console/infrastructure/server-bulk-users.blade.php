@@ -11,7 +11,7 @@
                 </div>
                 <div>
                     <div class="command-modal-hero-eyebrow">BULK ACCESS CONTROL // MULTI-SERVER DELEGATION</div>
-                    <h3 class="command-modal-hero-title">ALLOWED MAILERS ASSIGNMENT</h3>
+                    <h3 class="command-modal-hero-title">ALLOWED USERS ASSIGNMENT <span class="sr-only">Servers Allowed Users</span></h3>
                 </div>
             </div>
         </div>

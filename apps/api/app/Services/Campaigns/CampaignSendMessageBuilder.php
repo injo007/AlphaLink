@@ -12,7 +12,6 @@ use App\Models\WorkspaceCampaignNegative;
 use App\Models\WorkspaceOfferAsset;
 use App\Services\Infrastructure\AlphaLinkBulkInstallVmtaPlanner;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -76,10 +75,25 @@ class CampaignSendMessageBuilder
             ->filter(fn (array|object $choice): bool => in_array((string) data_get($choice, 'id'), $validated['ip_ids'], true))
             ->map(fn (array|object $choice): array => (array) $choice)
             ->values();
+
+        $disabledDomains = array_values(array_unique(array_filter(array_map('strtolower', (array) data_get($run->execution_options, 'disabled_domains', [])))));
+        if (! empty($disabledDomains)) {
+            $healthyChoices = $choices->reject(function (array $choice) use ($disabledDomains): bool {
+                $d = strtolower(trim((string) ($choice['vmta_domain'] ?? $choice['dns'] ?? '')));
+                return $d !== '' && in_array($d, $disabledDomains, true);
+            })->values();
+
+            if ($healthyChoices->isNotEmpty()) {
+                $choices = $healthyChoices;
+            }
+        }
+
         $choicesByServer = $choices->groupBy(fn (array $choice): string => (string) ($choice['server_id'] ?? ''));
-        foreach ($servers as $server) {
-            if ($choicesByServer->get((string) $server->getKey(), collect())->isEmpty()) {
-                throw ValidationException::withMessages(['send_setup.ip_ids' => 'Every selected server must have at least one selected IP or SMTP route.']);
+        if (empty($disabledDomains)) {
+            foreach ($servers as $server) {
+                if ($choicesByServer->get((string) $server->getKey(), collect())->isEmpty()) {
+                    throw ValidationException::withMessages(['send_setup.ip_ids' => 'Every selected server must have at least one selected IP or SMTP route.']);
+                }
             }
         }
 
@@ -147,8 +161,15 @@ class CampaignSendMessageBuilder
         /** @var ManagedServer $server */
         $server = $servers->get($serverIndex);
         $serverChoices = $context['choices_by_server']->get((string) $server->getKey(), collect())->values();
-        $choiceIndex = intdiv(max(0, $position - 1), $servers->count()) % $serverChoices->count();
-        $choice = $serverChoices->get($choiceIndex);
+        if ($serverChoices->isEmpty()) {
+            $fallbackServer = $servers->first(fn ($s) => $context['choices_by_server']->get((string) $s->getKey(), collect())->isNotEmpty());
+            if ($fallbackServer) {
+                $server = $fallbackServer;
+                $serverChoices = $context['choices_by_server']->get((string) $server->getKey())->values();
+            }
+        }
+        $choiceIndex = $serverChoices->isNotEmpty() ? (intdiv(max(0, $position - 1), max(1, $servers->count())) % $serverChoices->count()) : 0;
+        $choice = $serverChoices->get($choiceIndex) ?? $context['choices_by_server']->flatten(1)->first();
         $ipRows = ManagedServerIp::query()
             ->where('workspace_id', $context['workspace']->getKey())
             ->where('managed_server_id', $server->getKey())
@@ -181,18 +202,24 @@ class CampaignSendMessageBuilder
 
         $from = $context['from_assets'] === [] ? ['id' => 0, 'value' => ''] : $context['from_assets'][($position - 1) % count($context['from_assets'])];
         $subject = $context['subject_assets'] === [] ? ['id' => 0, 'value' => ''] : $context['subject_assets'][($position - 1) % count($context['subject_assets'])];
-        $unsubscribeUrl = URL::temporarySignedRoute(
-            'public.campaign-unsubscribe',
-            now()->addYears(10),
-            ['campaign' => $context['campaign']->getKey(), 'item' => $item->getKey()],
-        );
         $token = $this->campaignToken($context, $item, $choice, $from, $subject);
         $installParameters = (array) $server->install_parameters;
         $trackingHost = $this->redirectUrlPolicy->readyTrackingHost($installParameters);
         $trackingHttpsReady = $trackingHost !== null && (bool) ($installParameters['tracking_https_ready'] ?? false);
+        $campaignLinkHost = $this->redirectUrlPolicy->campaignLinkHost(
+            (string) ($context['domain_fallback'] ?? ''),
+            (string) ($routeIp?->ip ?: $choice['ip'] ?? $server->ip_address),
+        );
+        $unsubscribeParameters = ['campaign' => $context['campaign']->getKey(), 'item' => $item->getKey()];
+        $unsubscribeUrl = $this->redirectUrlPolicy->signedCampaignUrl(
+            'public.campaign-unsubscribe',
+            now()->addYears(10),
+            $unsubscribeParameters,
+            $campaignLinkHost,
+        );
         $clickUrl = $trackingHost !== null
-            ? $this->redirectUrlPolicy->campaignTrackingClickUrl($trackingHost, $token, $trackingHttpsReady)
-            : URL::temporarySignedRoute(
+            ? $this->redirectUrlPolicy->campaignTrackingClickUrl($trackingHost, $token, $trackingHttpsReady, $campaignLinkHost)
+            : $this->redirectUrlPolicy->signedCampaignUrl(
                 'public.campaign-click',
                 now()->addYears(10),
                 [
@@ -207,7 +234,11 @@ class CampaignSendMessageBuilder
                     'subject_id' => $subject['id'] ?? null,
                     'creative_id' => $context['setup']['creative_asset_id'] ?? null,
                 ],
+                $campaignLinkHost,
             );
+        if ($trackingHost !== null) {
+            $unsubscribeUrl = $this->redirectUrlPolicy->campaignTrackingUnsubscribeUrl($trackingHost, $token, $trackingHttpsReady, $campaignLinkHost);
+        }
         $tags = [
             'server' => (string) $server->name.(string) $server->getKey(),
             'main_domain' => (string) ($primaryIp?->dns ?: $primaryIp?->domain?->name ?: 'NA'),
@@ -228,6 +259,10 @@ class CampaignSendMessageBuilder
             'boundary' => Str::random(30),
             'reply' => $unsubscribeUrl,
             'click_url' => $clickUrl,
+            'url' => $clickUrl,
+            'unsub' => $unsubscribeUrl,
+            'unsubscribe' => $unsubscribeUrl,
+            'optout' => $unsubscribeUrl,
             'textarea' => '',
             'smtp' => in_array($context['route'], ['ip', 'smtp'], true) ? (string) ($choice['username'] ?? '') : '',
             'smtp_name' => in_array($context['route'], ['ip', 'smtp'], true) ? (string) ($choice['name'] ?? '') : '',
@@ -267,7 +302,7 @@ class CampaignSendMessageBuilder
             $header = rtrim($header)."\nTo: ".$recipient;
         }
 
-        return ['server' => $server, 'header' => $header, 'body' => $body, 'envelope_from' => $envelopeFrom, 'recipient' => $recipient, 'route' => $choice, 'unsubscribe_url' => $unsubscribeUrl];
+        return ['server' => $server, 'header' => $header, 'body' => $body, 'envelope_from' => $envelopeFrom, 'recipient' => $recipient, 'route' => $choice, 'unsubscribe_url' => $unsubscribeUrl, 'domain' => $domain];
     }
 
     /** Build every selected server's first message before the first delivery begins. */

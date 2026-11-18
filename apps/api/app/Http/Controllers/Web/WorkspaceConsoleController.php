@@ -34,6 +34,7 @@ use App\Services\Campaigns\CampaignRedirectUrlPolicy;
 use App\Services\Campaigns\PmtaCampaignTestTransport;
 use App\Services\Campaigns\PmtaMonitorProxy;
 use App\Services\Campaigns\PmtaPanelUrl;
+use App\Services\Campaigns\PmtaProxySettings;
 use App\Services\Campaigns\PmtaQueueAdmin;
 use App\Services\Infrastructure\AlphaLinkBulkInstallVmtaPlanner;
 use App\Services\PmtaAuditLogger;
@@ -51,7 +52,6 @@ use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -452,6 +452,9 @@ class WorkspaceConsoleController extends Controller
     public function pmtaAdmin(Request $request, string $workspace, AlphaLinkCampaignSendCatalog $catalog): View
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
+        $monitorTarget = in_array($request->query('target'), ['domain', 'ip'], true)
+            ? (string) $request->query('target')
+            : 'ip';
         $options = $catalog->options($workspace, $request->user(), 'admin', [
             'route' => 'ip',
             'ip_type' => 'all',
@@ -482,6 +485,7 @@ class WorkspaceConsoleController extends Controller
             'workspace' => $workspace,
             'servers' => $servers,
             'selectedServerIds' => $selectedServerIds,
+            'monitorTarget' => $monitorTarget,
             'pmtaFrameSources' => $pmtaFrameSources,
             'pmtaAdminPort' => $options['settings']['pmta_admin_port'],
             'actionUrl' => route('console.pmta-admin.action', $workspace->getKey()),
@@ -531,10 +535,18 @@ class WorkspaceConsoleController extends Controller
         string $workspace,
         string $server,
         PmtaMonitorProxy $monitor,
+        PmtaProxySettings $proxySettings,
         AlphaLinkCampaignSendCatalog $catalog,
         string $monitorPath = '',
     ): Response {
         $workspace = $this->workspaceFor($request->user(), $workspace);
+        $assetPath = $request->query('asset');
+        if ($assetPath !== null) {
+            abort_unless(is_string($assetPath) && $assetPath !== '' && $monitorPath === '', 404);
+            $monitorPath = $assetPath;
+        }
+        $monitorTarget = $request->query('target', 'auto');
+        abort_unless(in_array($monitorTarget, ['auto', 'domain', 'ip'], true), 404);
         $options = $catalog->options($workspace, $request->user(), 'admin', [
             'route' => 'ip',
             'ip_type' => 'all',
@@ -548,7 +560,24 @@ class WorkspaceConsoleController extends Controller
             ->where('is_installed', true)
             ->firstOrFail();
 
-        return $monitor->get($managedServer, (int) $options['settings']['pmta_admin_port'], $monitorPath, (string) $workspace->getKey());
+        $proxy = $proxySettings->forWorkspace($workspace);
+        abort_unless(
+            $proxy !== null,
+            503,
+            'Configure the PMTA relay proxy IP and proxy port in App Settings before opening the PMTA monitor.',
+        );
+
+        return $monitor->get(
+            $managedServer,
+            (int) $options['settings']['pmta_admin_port'],
+            $monitorPath,
+            (string) $workspace->getKey(),
+            $proxy['host'],
+            $proxy['port'],
+            $proxy['username'],
+            $proxy['password'],
+            (string) $monitorTarget,
+        );
     }
 
     public function pmtaAdminHistory(Request $request, string $workspace): View|JsonResponse
@@ -625,7 +654,7 @@ class WorkspaceConsoleController extends Controller
         ]);
     }
 
-    public function pmtaAdminAction(Request $request, string $workspace, AlphaLinkCampaignSendCatalog $catalog, PmtaQueueAdmin $pmta, PmtaAuditLogger $audit): JsonResponse
+    public function pmtaAdminAction(Request $request, string $workspace, AlphaLinkCampaignSendCatalog $catalog, PmtaProxySettings $proxySettings, PmtaQueueAdmin $pmta, PmtaAuditLogger $audit): JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $data = $request->validate([
@@ -650,6 +679,7 @@ class WorkspaceConsoleController extends Controller
 
         $servers = $workspace->managedServers()->whereIn('id', $serverIds)->where('is_active', true)->where('is_installed', true)->get()->keyBy(fn (ManagedServer $server): string => (string) $server->getKey());
         $port = (int) $options['settings']['pmta_admin_port'];
+        $proxy = $proxySettings->forWorkspace($workspace);
         $tags = array_values(array_filter(array_map(fn (string $tag): string => trim($tag), $data['tags'] ?? []), fn (string $tag): bool => $tag !== ''));
         if (! in_array('*/*', $tags, true)) {
             throw ValidationException::withMessages(['tags' => 'Select the */* queue tag before executing a PMTA command.']);
@@ -666,7 +696,7 @@ class WorkspaceConsoleController extends Controller
             }
 
             try {
-                $commandResults = $pmta->run($server, $port, $data['action'], $data['queue'], $tags);
+                $commandResults = $pmta->run($server, $port, $data['action'], $data['queue'], $tags, $proxy['url'] ?? null);
             } catch (Throwable $exception) {
                 $results[] = ['id' => $serverId, 'name' => $server->name, 'result' => e($exception->getMessage()), 'success' => false];
 
@@ -1730,9 +1760,9 @@ class WorkspaceConsoleController extends Controller
             return [(string) $selectedServer->getKey() => $selectedChoices];
         });
         $routeChoices = $selectedRouteChoicesByServer->map(fn ($choices): ?array => $choices->first());
+        $allSelectedChoices = $selectedRouteChoicesByServer->flatten(1)->values();
         if ($data['send_setup']['route_option'] === 'ip') {
-            foreach ($servers as $selectedServer) {
-                $ipChoice = $routeChoices->get((string) $selectedServer->getKey());
+            foreach ($allSelectedChoices as $ipChoice) {
                 if (! is_array($ipChoice) || filter_var((string) ($ipChoice['ip'] ?? ''), FILTER_VALIDATE_IP) === false) {
                     throw ValidationException::withMessages([
                         'send_setup.ip_type' => 'No active IP route matching the selected IPv4/IPv6 filter is available on a selected server.',
@@ -1741,9 +1771,7 @@ class WorkspaceConsoleController extends Controller
             }
         }
         if (in_array($data['send_setup']['route_option'], ['vmta', 'smtp'], true)) {
-            $routesToVerify = $data['send_setup']['route_option'] === 'smtp'
-                ? $selectedRouteChoicesByServer->flatten(1)
-                : $routeChoices->values();
+            $routesToVerify = $allSelectedChoices;
             foreach ($routesToVerify as $choice) {
                 $selectedServer = $serversById->get((string) ($choice['server_id'] ?? ''));
                 if (! $selectedServer instanceof ManagedServer) {
@@ -1834,25 +1862,31 @@ class WorkspaceConsoleController extends Controller
             ?? '0';
         $creativeId = $data['send_setup']['creative_asset_id'] ?? '0';
         $testCases = [];
-        if ($data['send_setup']['route_option'] === 'smtp') {
-            $smtpChoices = $selectedRouteChoicesByServer->flatten(1)->values();
-            foreach ($smtpChoices as $routeIndex => $choice) {
+        if (count($recipients) === 1) {
+            foreach ($allSelectedChoices as $routeIndex => $choice) {
                 $selectedServer = $serversById->get((string) ($choice['server_id'] ?? ''));
                 if ($selectedServer instanceof ManagedServer) {
                     $testCases[] = [
                         'index' => $routeIndex,
-                        'recipient' => $recipients[$routeIndex % count($recipients)],
+                        'recipient' => $recipients[0],
                         'server' => $selectedServer,
                         'choice' => $choice,
                     ];
                 }
             }
         } else {
-            foreach ($recipients as $index => $recipient) {
-                $selectedServer = $servers[$index % $servers->count()];
-                $choice = $routeChoices->get((string) $selectedServer->getKey());
-                if (is_array($choice)) {
-                    $testCases[] = ['index' => $index, 'recipient' => $recipient, 'server' => $selectedServer, 'choice' => $choice];
+            $testCount = max(count($recipients), $allSelectedChoices->count());
+            for ($index = 0; $index < $testCount; $index++) {
+                $choice = $allSelectedChoices[$index % $allSelectedChoices->count()];
+                $recipient = $recipients[$index % count($recipients)];
+                $selectedServer = $serversById->get((string) ($choice['server_id'] ?? ''));
+                if ($selectedServer instanceof ManagedServer) {
+                    $testCases[] = [
+                        'index' => $index,
+                        'recipient' => $recipient,
+                        'server' => $selectedServer,
+                        'choice' => $choice,
+                    ];
                 }
             }
         }
@@ -1892,10 +1926,14 @@ class WorkspaceConsoleController extends Controller
                 'date' => now()->toRfc2822String(),
                 'negative' => $negativePath,
                 'token' => $testToken,
-                'click_url' => $campaign === null ? '' : URL::temporarySignedRoute(
+                'click_url' => $campaign === null ? '' : $redirectUrlPolicy->signedCampaignUrl(
                     'public.campaign-test-click',
                     now()->addYears(10),
                     ['campaign' => $campaign->getKey(), 'token' => $testToken, 'isp_id' => $ispId],
+                    $redirectUrlPolicy->campaignLinkHost(
+                        (string) ($data['domain'] ?? ''),
+                        (string) ($ipTags['ip'] ?? $routeChoice['ip'] ?? $selectedServer->ip_address),
+                    ),
                 ),
                 'boundary' => Str::random(30),
             ];
@@ -2012,25 +2050,7 @@ class WorkspaceConsoleController extends Controller
             'outbound_route' => $data['send_setup']['route_option'],
             'type' => $data['send_setup']['ip_type'],
             'virtual_mtas' => in_array($data['send_setup']['route_option'], ['ip', 'vmta', 'smtp'], true)
-                ? ($data['send_setup']['route_option'] === 'smtp'
-                    ? $testRouteSnapshot
-                    : $servers->map(fn (ManagedServer $selectedServer): array => [
-                        'server_id' => (string) $selectedServer->getKey(),
-                        'catalog_id' => (string) ($routeChoices->get((string) $selectedServer->getKey())['id'] ?? ''),
-                        'name' => $data['send_setup']['route_option'] === 'ip'
-                            ? (string) ($routeChoices->get((string) $selectedServer->getKey())['ip'] ?? '')
-                            : (string) ($data['send_setup']['route_option'] === 'smtp'
-                                ? ($routeChoices->get((string) $selectedServer->getKey())['username'] ?? '')
-                                : ($routeChoices->get((string) $selectedServer->getKey())['name'] ?? '')),
-                        'pmta_name' => $data['send_setup']['route_option'] === 'ip'
-                            ? $vmtaPlanner->ipVirtualMtaName((string) $routeChoices->get((string) $selectedServer->getKey())['ip'])
-                            : (string) ($routeChoices->get((string) $selectedServer->getKey())['pmta_name'] ?? ''),
-                        'domain' => (string) ($data['send_setup']['route_option'] === 'ip'
-                            ? ($routeChoices->get((string) $selectedServer->getKey())['dns'] ?? '')
-                            : ($data['send_setup']['route_option'] === 'smtp'
-                                ? ($routeChoices->get((string) $selectedServer->getKey())['dns'] ?? '')
-                                : ($routeChoices->get((string) $selectedServer->getKey())['vmta_domain'] ?? ''))),
-                    ])->values()->all())
+                ? $testRouteSnapshot
                 : [],
             'test_message_count' => count($testCases),
             'servers' => collect($serverIds)->map(fn (string $serverId): array => [
@@ -2405,10 +2425,9 @@ class WorkspaceConsoleController extends Controller
         }
         $domain = $route === 'vmta'
             ? $vmtaDomain
-            : trim((string) ($ip?->dns ?: $ip?->domain?->name ?: $choice['dns'] ?? ''));
-        if ($route !== 'vmta' && $domain === '') {
-            $domain = trim($domainFallback);
-        }
+            : (trim($domainFallback) !== ''
+                ? trim($domainFallback)
+                : trim((string) ($ip?->dns ?: $ip?->domain?->name ?: $choice['dns'] ?? '')));
         $mainDomain = trim((string) ($primaryIp?->dns ?: $primaryIp?->domain?->name ?: 'NA'));
         $rdns = strtolower(rtrim(trim((string) $ip?->history?->ptr), '.'));
         if ($rdns === '' || $rdns === 'na') {
@@ -2692,10 +2711,14 @@ class WorkspaceConsoleController extends Controller
             'token' => $testToken,
             'boundary' => Str::random(30),
         ];
-        $tagValues['click_url'] = URL::temporarySignedRoute(
+        $tagValues['click_url'] = $redirectUrlPolicy->signedCampaignUrl(
             'public.campaign-test-click',
             now()->addYears(10),
             ['campaign' => $campaign->getKey(), 'token' => $testToken, 'isp_id' => $setup['isp_id'] ?? '0'],
+            $redirectUrlPolicy->campaignLinkHost(
+                (string) ($setup['domain'] ?? ''),
+                (string) ($routeChoice['ip'] ?? $server->ip_address),
+            ),
         );
         $tagCache = [];
         $fromEmail = trim($tagRenderer->render((string) $data['from_email'], $tagValues, $setup['placeholders'] ?? [], 0, $tagCache));
@@ -3089,6 +3112,10 @@ class WorkspaceConsoleController extends Controller
             'send_setup.bounce_limit' => ['required', 'integer', 'min:0'],
             'send_setup.duplicate_data' => ['required', 'integer', 'min:1'],
             'send_setup.negative_id' => ['nullable', 'integer', 'min:1'],
+            'send_setup.auto_failover_enabled' => ['sometimes', 'boolean'],
+            'send_setup.failover_error_patterns' => ['nullable', 'string', 'max:500'],
+            'send_setup.failover_threshold' => ['sometimes', 'integer', 'min:1', 'max:500'],
+            'send_setup.failover_purge_spool' => ['sometimes', 'boolean'],
         ], [
             'send_setup.ip_ids.required' => self::CAMPAIGN_IP_SELECTION_REQUIRED,
             'send_setup.ip_ids.min' => self::CAMPAIGN_IP_SELECTION_REQUIRED,
@@ -3101,7 +3128,14 @@ class WorkspaceConsoleController extends Controller
             [...$data['send_setup'], 'domain' => (string) $request->input('domain', '')],
         );
 
-        return [...$selection, ...$this->validatedCampaignPlaceholders($request)];
+        $autoFailover = [
+            'auto_failover_enabled' => (bool) ($data['send_setup']['auto_failover_enabled'] ?? false),
+            'failover_error_patterns' => trim((string) ($data['send_setup']['failover_error_patterns'] ?? '421, rate limit, too many connections, temporarily deferred, user complaints')),
+            'failover_threshold' => (int) ($data['send_setup']['failover_threshold'] ?? 5),
+            'failover_purge_spool' => (bool) ($data['send_setup']['failover_purge_spool'] ?? true),
+        ];
+
+        return [...$selection, ...$autoFailover, ...$this->validatedCampaignPlaceholders($request)];
     }
 
     /**

@@ -767,3 +767,8 @@ The scanner now persists IPv4 CIDRs with prefix lengths /8 through /32 and keeps
 ## 2026-11-18 Fresh PMTA relay install verification — E-INST-106 / E-PMTA-112
 
 Fresh-install code now saves a separate outbound PMTA relay endpoint and credentials, discovers proxy egress rather than AlphaLink host egress, and blocks managed PMTA install/reinstall completion unless the IP monitor, CSS, and read-only `show status` all succeed through that relay. The relay port is distinct from the managed-server Squid listener. Focused PHP suites pass 117 tests / 884 assertions across installer inputs, PMTA readiness/commands, server workflows, and campaign redirects; the standalone tracker passes 9 checks. Bash syntax, environment quoting, Pint, and the reviewed tracking-handler digest pass. A clean new AlphaLink host and newly installed PMTA server were not available for end-to-end verification; keep the install and PMTA paths TESTING until that run succeeds.
+
+
+### E-INST-107 / E-PMTA-114 follow-up — live PMTA host split
+
+The production tracker-handler digest drift is repaired and verified on `baseheavy.shop`; `209.38.96.157` now serves styled monitor pages in both target modes and passes read-only status through the configured relay. `160.119.71.108:1213` still returns HTTP 502 (`GONE :(`) for monitor and read-only status, so that existing host is not operational through the relay. No PMTA host was modified. Fresh install readiness now prevents a new install from being marked complete when these checks fail, but clean-host installation and live campaign redirect behavior remain unverified.

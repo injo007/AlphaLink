@@ -166,9 +166,9 @@ class PmtaSmtpImapAccountsTest extends TestCase
     {
         $remote = Mockery::mock(PmtaRemoteConfiguration::class);
         $remote->shouldReceive('listFiles')->once()->with(Mockery::on(fn ($srv) => $srv->is($this->imapServer)))->andReturn([]);
-        $remote->shouldReceive('pushFile')->once()->with(
+        $remote->shouldReceive('pushSmtpFile')->once()->with(
             Mockery::on(fn ($srv) => $srv->is($this->imapServer)),
-            'smtp_'.$this->owner->getKey(),
+            $this->owner->getKey(),
             Mockery::on(fn (string $cfg) => str_contains($cfg, 'auth-username contact@smtpimap.example.test')
                 && str_contains($cfg, 'auth-password top-secret-webmail-pw')
                 && str_contains($cfg, 'smtp-hosts 198.51.100.40:1212')),

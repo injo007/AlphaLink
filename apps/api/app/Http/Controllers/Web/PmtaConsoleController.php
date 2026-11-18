@@ -579,7 +579,7 @@ class PmtaConsoleController extends Controller
 
                     $file = 'smtp_'.$request->user()->getKey();
                     $existing = in_array($file, $remote->listFiles($server), true) ? $remote->readFile($server, $file) : '';
-                    $remote->pushFile($server, $file, rtrim($existing)."\n".$contents);
+                    $remote->pushSmtpFile($server, (int) $request->user()->getKey(), rtrim($existing)."\n".$contents);
                     $this->recordConfig($workspaceModel, $request->user(), $server, $file, 'smtp_push', $contents, 'IMAP accounts pushed as SMTP configuration and reloaded.', true);
 
                     return count($entries);
@@ -675,7 +675,7 @@ class PmtaConsoleController extends Controller
                     }
                     $file = 'smtp_'.$request->user()->getKey();
                     $existing = in_array($file, $remote->listFiles($server), true) ? $remote->readFile($server, $file) : '';
-                    $remote->pushFile($server, $file, rtrim($existing)."\n".$contents);
+                    $remote->pushSmtpFile($server, (int) $request->user()->getKey(), rtrim($existing)."\n".$contents);
                     $this->recordConfig($workspaceModel, $request->user(), $server, $file, 'smtp_push', $contents, 'SMTP configuration pushed and reloaded.', true);
 
                     return $serverIps->count() * count($smtpRows);

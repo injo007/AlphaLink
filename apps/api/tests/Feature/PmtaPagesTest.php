@@ -779,6 +779,22 @@ class PmtaPagesTest extends TestCase
         $catalog->path('../authorized_keys');
     }
 
+    public function test_smtp_push_creates_a_missing_user_configuration_file(): void
+    {
+        $owner = User::factory()->create();
+        $workspace = $this->workspace($owner);
+        $server = $this->server($workspace, $owner);
+        $session = Mockery::mock(AlphaLinkInstallerSshSession::class);
+        $session->shouldReceive('upload')->once()
+            ->with('synthetic SMTP configuration', '/etc/pmta/conf/smtp_'.$owner->getKey())
+            ->andReturn(true);
+        $session->shouldReceive('exec')->once()->with('pmta reload')->andReturn('PMTA configuration reloaded.');
+
+        $remote = $this->pmtaRemoteForSession($server, $session);
+
+        self::assertSame('PMTA configuration reloaded.', $remote->pushSmtpFile($server, (int) $owner->getKey(), 'synthetic SMTP configuration'));
+    }
+
     public function test_vmta_push_creates_workspace_rows_and_auditable_config_without_exposing_remote_credentials(): void
     {
         $owner = User::factory()->create();
@@ -1224,7 +1240,7 @@ class PmtaPagesTest extends TestCase
         [$server, $ip] = $this->serverAndIp($workspace, $owner);
         $remote = Mockery::mock(PmtaRemoteConfiguration::class);
         $remote->shouldReceive('listFiles')->once()->andReturn([]);
-        $remote->shouldReceive('pushFile')->once()->withArgs(fn ($subject, string $file, string $contents): bool => $subject->is($server) && $file === 'smtp_'.$member->getKey() && str_contains($contents, 'auth-username fixture-user'))
+        $remote->shouldReceive('pushSmtpFile')->once()->withArgs(fn ($subject, int $userId, string $contents): bool => $subject->is($server) && $userId === (int) $member->getKey() && str_contains($contents, 'auth-username fixture-user'))
             ->andReturn('PMTA configuration reloaded.');
         $this->instance(PmtaRemoteConfiguration::class, $remote);
 

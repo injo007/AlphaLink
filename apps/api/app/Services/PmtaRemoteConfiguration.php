@@ -69,16 +69,8 @@ class PmtaRemoteConfiguration
         if ($session->exec('[ -f '.$shellPath.' ] && echo yes || echo no') !== 'yes') {
             throw new RuntimeException('File Not Found');
         }
-        if (! $session->upload($contents, $path)) {
-            throw new RuntimeException('The PMTA configuration file could not be uploaded.');
-        }
-        $result = (string) $session->exec('pmta reload');
-        if (! str_contains($result, 'reloaded')) {
-            $diagnostic = trim((string) $session->exec('pmtad --debug'));
-            throw new RuntimeException($diagnostic !== '' ? $diagnostic : ($result !== '' ? $result : 'PMTA did not confirm the configuration reload.'));
-        }
 
-        return $result;
+        return $this->uploadAndReload($session, $path, $contents);
     }
 
     public function pushFile(ManagedServer $server, string $filename, string $contents): string
@@ -89,16 +81,19 @@ class PmtaRemoteConfiguration
         if ($session->exec('[ -f '.$shellPath.' ] && echo yes || echo no') !== 'yes') {
             throw new RuntimeException('File Not Found');
         }
-        if (! $session->upload($contents, $path)) {
-            throw new RuntimeException('The PMTA configuration file could not be uploaded.');
-        }
-        $result = (string) $session->exec('pmta reload');
-        if (! str_contains($result, 'reloaded')) {
-            $diagnostic = trim((string) $session->exec('pmtad --debug'));
-            throw new RuntimeException($diagnostic !== '' ? $diagnostic : ($result !== '' ? $result : 'PMTA did not confirm the configuration reload.'));
+
+        return $this->uploadAndReload($session, $path, $contents);
+    }
+
+    public function pushSmtpFile(ManagedServer $server, int $userId, string $contents): string
+    {
+        if ($userId < 1) {
+            throw new RuntimeException('Choose a valid SMTP owner.');
         }
 
-        return $result;
+        $path = $this->files->path('smtp_'.$userId);
+
+        return $this->uploadAndReload($this->open($server), $path, $contents);
     }
 
     public function pushVmtaConfiguration(ManagedServer $server, int $userId, string $contents): string
@@ -170,5 +165,20 @@ class PmtaRemoteConfiguration
         if ($result !== '' && preg_match('/failed|error/i', $result) === 1) {
             throw new RuntimeException('The Google Script service could not be restarted.');
         }
+    }
+
+    private function uploadAndReload(AlphaLinkInstallerSshSession $session, string $path, string $contents): string
+    {
+        if (! $session->upload($contents, $path)) {
+            throw new RuntimeException('The PMTA configuration file could not be uploaded.');
+        }
+
+        $result = (string) $session->exec('pmta reload');
+        if (! str_contains($result, 'reloaded')) {
+            $diagnostic = trim((string) $session->exec('pmtad --debug'));
+            throw new RuntimeException($diagnostic !== '' ? $diagnostic : ($result !== '' ? $result : 'PMTA did not confirm the configuration reload.'));
+        }
+
+        return $result;
     }
 }

@@ -538,6 +538,11 @@ class WorkspaceConsoleController extends Controller
         string $monitorPath = '',
     ): Response {
         $workspace = $this->workspaceFor($request->user(), $workspace);
+        $assetPath = $request->query('asset');
+        if ($assetPath !== null) {
+            abort_unless(is_string($assetPath) && $assetPath !== '' && $monitorPath === '', 404);
+            $monitorPath = $assetPath;
+        }
         $monitorTarget = $request->query('target', 'auto');
         abort_unless(in_array($monitorTarget, ['auto', 'domain', 'ip'], true), 404);
         $options = $catalog->options($workspace, $request->user(), 'admin', [

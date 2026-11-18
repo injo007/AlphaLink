@@ -49,7 +49,18 @@ class PmtaMonitorProxy
             $remote = $this->requestThroughProxy($url, $proxy);
         } catch (\Throwable $exception) {
             $exceptionMessage = $exception->getMessage();
-            if ($target === 'auto' && $this->proxyRejectedHttpsConnect($url, $exceptionMessage)) {
+            if ($target === 'domain' && $this->proxyRejectedHttpsConnect($url, $exceptionMessage)
+                && preg_match('/\b403\b/', $exceptionMessage) === 1) {
+                try {
+                    $remote = $this->requestDomainThroughServerIp($ip, $port, $path, $remoteHost, $proxy);
+                } catch (\Throwable $fallbackException) {
+                    if (preg_match('/\b407\b/', $fallbackException->getMessage()) === 1) {
+                        return response('The configured PMTA proxy rejected authentication. Check its credentials in App Settings or the AlphaLink environment.', 502, ['Cache-Control' => 'no-store']);
+                    }
+
+                    return response('The configured PMTA proxy could not reach the saved PMTA domain through the server IP.', 502, ['Cache-Control' => 'no-store']);
+                }
+            } elseif ($target === 'auto' && $this->proxyRejectedHttpsConnect($url, $exceptionMessage)) {
                 $fallbackUrl = rtrim(PmtaPanelUrl::forInstallation($ip, null, $port, false), '/').'/'.($path === '' ? '' : $path);
 
                 try {
@@ -67,6 +78,18 @@ class PmtaMonitorProxy
                 return response('The configured proxy denied HTTPS CONNECT to the selected PMTA domain. Switch the monitor target to Server IP.', 502, ['Cache-Control' => 'no-store']);
             } else {
                 return response('The configured PMTA proxy could not reach the selected '.$target.' monitor target.', 502, ['Cache-Control' => 'no-store']);
+            }
+        }
+
+        if ($target === 'domain' && $this->redirectsToHttpsOnSameHost($url, $remote)) {
+            try {
+                $remote = $this->requestDomainThroughServerIp($ip, $port, $path, $remoteHost, $proxy);
+            } catch (\Throwable $exception) {
+                if (preg_match('/\b407\b/', $exception->getMessage()) === 1) {
+                    return response('The configured PMTA proxy rejected authentication. Check its credentials in App Settings or the AlphaLink environment.', 502, ['Cache-Control' => 'no-store']);
+                }
+
+                return response('The configured PMTA proxy could not reach the saved PMTA domain through the server IP.', 502, ['Cache-Control' => 'no-store']);
             }
         }
 
@@ -109,9 +132,10 @@ class PmtaMonitorProxy
         ]);
     }
 
-    private function requestThroughProxy(string $url, string $proxy): \Illuminate\Http\Client\Response
+    private function requestThroughProxy(string $url, string $proxy, array $headers = []): \Illuminate\Http\Client\Response
     {
-        return Http::connectTimeout(3)
+        return Http::withHeaders($headers)
+            ->connectTimeout(3)
             ->timeout(8)
             ->withOptions([
                 'allow_redirects' => false,
@@ -119,6 +143,27 @@ class PmtaMonitorProxy
                 'proxy' => $proxy,
             ])
             ->get($url);
+    }
+
+    private function requestDomainThroughServerIp(string $ip, int $port, string $path, string $domain, string $proxy): \Illuminate\Http\Client\Response
+    {
+        $url = rtrim(PmtaPanelUrl::forInstallation($ip, null, $port, false), '/').'/'.($path === '' ? '' : $path);
+
+        return $this->requestThroughProxy($url, $proxy, ['Host' => $domain]);
+    }
+
+    private function redirectsToHttpsOnSameHost(string $url, \Illuminate\Http\Client\Response $response): bool
+    {
+        if (! in_array($response->status(), [301, 302, 307, 308], true)) {
+            return false;
+        }
+
+        $location = trim((string) $response->header('Location'));
+        $redirectHost = parse_url($location, PHP_URL_HOST);
+
+        return strtolower((string) parse_url($location, PHP_URL_SCHEME)) === 'https'
+            && is_string($redirectHost)
+            && strtolower($redirectHost) === strtolower((string) parse_url($url, PHP_URL_HOST));
     }
 
     private function proxyRejectedHttpsConnect(string $url, string $exceptionMessage): bool
@@ -281,10 +326,12 @@ class PmtaMonitorProxy
 
     private function monitorRoute(string $workspaceId, string $serverId, string $monitorPath, string $target): string
     {
+        $isAsset = $this->isStaticAsset($monitorPath);
         $parameters = array_filter([
             'workspace' => $workspaceId,
             'server' => $serverId,
-            'monitorPath' => $monitorPath,
+            'monitorPath' => $isAsset ? null : $monitorPath,
+            'asset' => $isAsset ? $monitorPath : null,
             'target' => $target,
         ], fn (mixed $value): bool => $value !== '' && $value !== null);
 

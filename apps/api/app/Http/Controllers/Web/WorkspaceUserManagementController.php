@@ -216,7 +216,8 @@ class WorkspaceUserManagementController extends Controller
 
     private function authorizeManager(Workspace $workspace): void
     {
-        abort_unless(request()->user()?->hasFullAccess(), 403);
+        $actor = request()->user();
+        abort_unless($actor instanceof User && ($actor->hasFullAccess() || in_array($workspace->pivot?->role, ['owner', 'admin'], true)), 403);
     }
 
     private function authorizeTarget(User $actor, User $target): void

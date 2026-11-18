@@ -149,10 +149,15 @@
         $pmtaConfigHistoryUrl = route('clean.console.pmta-config-history.index');
         $campaignNegativesUrl = route('clean.console.campaign-negatives.index');
         // Server and PMTA controls are available to every active workspace member by product policy.
-        $canManageInfrastructure = auth()->user()?->hasFullAccess() ?? false;
-        $canManagePmta = auth()->user()?->hasFullAccess() ?? false;
-        $canManageSponsors = auth()->user()?->hasFullAccess() ?? false;
-        $canManageUsers = auth()->user()?->hasFullAccess() ?? false;
+        $workspaceNavigationRole = request()->attributes->get('alphalink.workspace_role')
+            ?? data_get(request()->attributes->get('alphalink.workspace'), 'pivot.role');
+        $workspaceNavigationRole = is_string($workspaceNavigationRole) ? $workspaceNavigationRole : null;
+        $hasWorkspaceAdminRole = in_array($workspaceNavigationRole, ['owner', 'admin'], true);
+        $hasFullWorkspaceAccess = (auth()->user()?->hasFullAccess() ?? false) || $hasWorkspaceAdminRole;
+        $canManageInfrastructure = $hasFullWorkspaceAccess;
+        $canManagePmta = $hasFullWorkspaceAccess;
+        $canManageSponsors = $hasFullWorkspaceAccess;
+        $canManageUsers = $hasFullWorkspaceAccess;
         $canManageGlobalUsers = auth()->user()->hasRole('manage_users');
         $sponsorsUrl = route('clean.console.sponsors.index');
         $networkSponsorsUrl = route('clean.console.networks.sponsors.index');
@@ -349,7 +354,7 @@
             ['label' => 'CLOUDS', 'icon' => 'fas fa-cloud-sun', 'items' => $cloudNavigation, 'open' => $isCloudWorkflowPage],
         ]));
         $accessRolePolicy = app(\App\Services\Authorization\AccessRolePolicy::class);
-        $navigation = $accessRolePolicy->filterNavigation($navigation, auth()->user(), app('router'));
+        $navigation = $accessRolePolicy->filterNavigation($navigation, auth()->user(), app('router'), $workspaceNavigationRole);
         $findNavigationGroup = static function (string $label, ?string $section = null) use ($navigation): ?array {
             return collect($navigation)->first(static fn (array $group): bool => $group['label'] === $label
                 && ($section === null || data_get($group, 'items.0.section') === $section));
@@ -516,7 +521,7 @@
             $redirectsGroup,
         ];
         $commandOsNavigation = array_values(array_filter($commandOsNavigation, static fn (array $group): bool => $group !== []));
-        $commandOsNavigation = $accessRolePolicy->filterNavigation($commandOsNavigation, auth()->user(), app('router'));
+        $commandOsNavigation = $accessRolePolicy->filterNavigation($commandOsNavigation, auth()->user(), app('router'), $workspaceNavigationRole);
         $navigationPreference = \App\Models\AppGlobalPreference::query()->find('navigation_order')?->value ?? [];
         $commandOsNavigation = app(\App\Services\Navigation\GlobalNavigationOrder::class)->apply($commandOsNavigation, $navigationPreference);
         $groupWithActiveChild = collect($commandOsNavigation)

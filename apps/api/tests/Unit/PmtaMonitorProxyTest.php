@@ -94,6 +94,29 @@ class PmtaMonitorProxyTest extends TestCase
         $this->assertSame(0, preg_match('/<a[^>]*href="#"[^>]*>smtp\.queue<\/a>/', $response->getContent()));
     }
 
+    public function test_pmta_domain_detail_queue_link_remains_clickable(): void
+    {
+        Http::fake([
+            'http://203.0.113.10:2447/' => Http::response('<html><body><a href="domainDetail?domain=gmail.com">gmail.com</a></body></html>'),
+        ]);
+
+        $response = app(PmtaMonitorProxy::class)->get(
+            $this->server(),
+            2447,
+            '',
+            (string) Str::uuid(),
+            '198.51.100.30',
+            8977,
+            'relay-user',
+            'relay-password',
+            'ip',
+        );
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertStringContainsString('domainDetail?target=ip&amp;domain=gmail.com', $response->getContent());
+        $this->assertSame(0, preg_match('/<a[^>]*href="#"[^>]*>gmail\.com<\/a>/', $response->getContent()));
+    }
+
     public function test_queue_detail_route_forwards_only_a_valid_domain_filter(): void
     {
         Http::fake([
@@ -117,6 +140,31 @@ class PmtaMonitorProxyTest extends TestCase
         $this->assertStringContainsString('Queue smtp.queue', $response->getContent());
         Http::assertSentCount(1);
         Http::assertSent(fn (ClientRequest $request): bool => $request->url() === 'http://203.0.113.10:2447/listqueue?domain=smtp.queue');
+    }
+
+    public function test_pmta_domain_detail_route_forwards_only_its_valid_domain_filter(): void
+    {
+        Http::fake([
+            'http://203.0.113.10:2447/domainDetail?domain=gmail.com' => Http::response('<html><body><h1>Domain details</h1></body></html>'),
+        ]);
+
+        $response = app(PmtaMonitorProxy::class)->get(
+            $this->server(),
+            2447,
+            'domainDetail',
+            (string) Str::uuid(),
+            '198.51.100.30',
+            8977,
+            'relay-user',
+            'relay-password',
+            'ip',
+            ['domain' => 'gmail.com', 'action' => 'delete'],
+        );
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertStringContainsString('Domain details', $response->getContent());
+        Http::assertSentCount(1);
+        Http::assertSent(fn (ClientRequest $request): bool => $request->url() === 'http://203.0.113.10:2447/domainDetail?domain=gmail.com');
     }
 
     private function server(bool $https = false): ManagedServer

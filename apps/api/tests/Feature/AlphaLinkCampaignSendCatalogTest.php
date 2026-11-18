@@ -394,7 +394,7 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
         ]);
         $operator = User::factory()->create([
             'access_role' => User::ACCESS_ROLE_OPERATOR,
-            'roles' => [],
+            'roles' => null,
         ]);
         $workspace = $this->workspace($owner, 'owner');
         $workspace->users()->attach($workspaceAdmin->getKey(), ['role' => 'admin']);
@@ -405,6 +405,13 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
             'is_active' => true,
             'suppression_path' => 'admin-suppression.txt',
             'suppression_updated_at' => now()->toDateString(),
+        ]);
+        $unreadyOffer = $this->offer($workspace, $sponsor, [
+            'allowed_users' => [(int) $operator->getKey()],
+            'is_active' => true,
+            'suppression_path' => null,
+            'suppression_sha256' => null,
+            'suppression_updated_at' => null,
         ]);
         $isp = $workspace->isps()->create([
             'name' => 'Operator-assigned ISP',
@@ -419,12 +426,36 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
             $sponsor->getKey(),
             [(int) $operator->getKey()],
         );
+        $emptyList = AudienceList::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'created_by' => $owner->getKey(),
+            'name' => 'Synthetic empty campaign audience',
+            'slug' => 'synthetic-empty-campaign-audience',
+            'status' => 'active',
+            'idempotency_key' => (string) Str::uuid(),
+            'request_fingerprint' => hash('sha256', 'synthetic-empty-campaign-audience'),
+            'isp_id' => $isp->getKey(),
+            'country' => 'US',
+            'allowed_users' => [(int) $operator->getKey()],
+            'allowed_sponsors' => [(int) $sponsor->getKey()],
+        ]);
 
         foreach ([$admin, $workspaceAdmin] as $campaignAdmin) {
-            $this->actingAs($campaignAdmin)
-                ->get(route('console.campaigns.create', $workspace->getKey()))
+            $page = $this->withSession(['_old_input' => ['send_setup' => [
+                'sponsor_id' => (string) $sponsor->getKey(),
+                'isp_id' => (string) $isp->getKey(),
+                'country' => 'US',
+            ]]])->actingAs($campaignAdmin)
+                ->get(route('clean.console.campaigns.create'))
                 ->assertOk()
-                ->assertSee($sponsor->name);
+                ->assertSee($sponsor->name)
+                ->assertSee(route('clean.console.sponsors.index'), false)
+                ->assertSee(route('clean.console.offers.index'), false)
+                ->assertSee(route('clean.console.infrastructure.lists.index'), false);
+
+            $page->assertSee('Needs current suppression file')
+                ->assertSee('blocked:'.$emptyList->getKey())
+                ->assertSee('List has no active members.');
 
             $response = $this->actingAs($campaignAdmin)->getJson(route('console.campaigns.send-options', [
                 $workspace->getKey(),
@@ -435,8 +466,11 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
 
             $response->assertJsonPath('data.sponsors.0.id', $sponsor->getKey())
                 ->assertJsonPath('data.offers.0.id', $offer->getKey())
+                ->assertJsonPath('data.unready_offers.0.id', $unreadyOffer->getKey())
                 ->assertJsonPath('data.isps.0.id', $isp->getKey())
                 ->assertJsonPath('data.lists.0.id', $list->getKey())
+                ->assertJsonPath('data.blocked_lists.0.id', $emptyList->getKey())
+                ->assertJsonPath('data.blocked_lists.0.unavailable_reason', 'List has no active members.')
                 ->assertJsonPath('data.segments.0.list_id', $list->getKey());
         }
     }

@@ -14,11 +14,16 @@ class AccessRolePolicy
         return in_array($role, [User::ACCESS_ROLE_OWNER, User::ACCESS_ROLE_ADMIN], true);
     }
 
-    public function canAccessWebRoute(User|string $userOrRole, string $routeName, string $method): bool
-    {
+    public function canAccessWebRoute(
+        User|string $userOrRole,
+        string $routeName,
+        string $method,
+        ?string $workspaceRole = null,
+        bool $workspaceScoped = false,
+    ): bool {
         $user = $userOrRole instanceof User ? $userOrRole : null;
         $role = $user?->access_role ?? $userOrRole;
-        if ($this->isFullAccess($role)) {
+        if ($this->isFullAccess($role) || ($workspaceScoped && $this->isFullAccess($workspaceRole))) {
             return true;
         }
 
@@ -72,7 +77,7 @@ class AccessRolePolicy
     /** @param array<string, mixed> $items
      * @return array<string, mixed>
      */
-    public function filterNavigation(array $items, User $user, Router $router): array
+    public function filterNavigation(array $items, User $user, Router $router, ?string $workspaceRole = null): array
     {
         $filtered = [];
         foreach ($items as $item) {
@@ -81,10 +86,10 @@ class AccessRolePolicy
             }
 
             $children = isset($item['items']) && is_array($item['items'])
-                ? $this->filterNavigation($item['items'], $user, $router)
+                ? $this->filterNavigation($item['items'], $user, $router, $workspaceRole)
                 : [];
             $hrefAllowed = isset($item['href']) && is_string($item['href'])
-                ? $this->navigationDestinationAllowed($item['href'], $user, $router)
+                ? $this->navigationDestinationAllowed($item['href'], $user, $router, $workspaceRole)
                 : $this->isFullAccess($user->access_role);
 
             if (isset($item['href']) && ! $hrefAllowed && $children !== []) {
@@ -106,7 +111,7 @@ class AccessRolePolicy
         return array_values($filtered);
     }
 
-    private function navigationDestinationAllowed(string $href, User $user, Router $router): bool
+    private function navigationDestinationAllowed(string $href, User $user, Router $router, ?string $workspaceRole): bool
     {
         try {
             $route = $router->getRoutes()->match(Request::create($href, 'GET'));
@@ -115,8 +120,13 @@ class AccessRolePolicy
         }
 
         $name = $route->getName();
+        $workspaceScoped = collect($route->gatherMiddleware())->contains(fn (string $middleware): bool => in_array(
+            $middleware,
+            ['workspace.current', 'workspace.access', 'workspace.member'],
+            true,
+        ));
 
-        return is_string($name) && $this->canAccessWebRoute($user, $name, 'GET');
+        return is_string($name) && $this->canAccessWebRoute($user, $name, 'GET', $workspaceRole, $workspaceScoped);
     }
 
     private function canAccessDefaultRoleRoute(string $role, string $routeName, string $method): bool

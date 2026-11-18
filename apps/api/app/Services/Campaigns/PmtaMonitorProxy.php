@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Route;
 class PmtaMonitorProxy
 {
     /** @var list<string> */
-    private const MONITOR_PAGES = ['', 'status', 'queues', 'domains', 'vmtas', 'jobs', 'logs', 'listqueue'];
+    private const MONITOR_PAGES = ['', 'status', 'queues', 'domains', 'vmtas', 'jobs', 'logs', 'listqueue', 'domainDetail'];
 
     /** @var list<string> */
     private const MONITOR_ASSET_EXTENSIONS = ['css', 'gif', 'png', 'jpg', 'jpeg', 'webp', 'bmp'];
@@ -357,7 +357,7 @@ class PmtaMonitorProxy
      */
     private function allowedMonitorQuery(string $path, array $query): ?array
     {
-        if ($path !== 'listqueue') {
+        if (! in_array($path, ['listqueue', 'domainDetail'], true)) {
             return [];
         }
 

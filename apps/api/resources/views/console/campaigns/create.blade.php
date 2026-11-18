@@ -1226,6 +1226,9 @@
                                     @foreach ($sendOptions['offers'] as $offer)
                                         <option value="{{ $offer['id'] }}" @selected($setup['offer_id'] === (string) $offer['id'])>({{ $offer['offer_id'] }}) {{ $offer['name'] }} — {{ $offer['vertical'] }}</option>
                                     @endforeach
+                                    @foreach ($sendOptions['unready_offers'] ?? [] as $offer)
+                                        <option value="{{ $offer['id'] }}" disabled title="{{ $offer['unavailable_reason'] }}">({{ $offer['offer_id'] }}) {{ $offer['name'] }} — {{ $offer['vertical'] }} — Needs current suppression file</option>
+                                    @endforeach
                                 </select>
                             </div>
                         </div>
@@ -1274,6 +1277,9 @@
                                 <select id="send-lists" name="send_setup[audience_segments][]" class="form-control selectpicker" data-live-search="true" data-actions-box="true" data-size="6" data-selected-text-format="count > 3" title="Select Lists" multiple required>
                                     @foreach ($sendOptions['segments'] as $segment)
                                         <option value="{{ $segment['id'] }}" @selected(in_array((string) $segment['id'], $setup['audience_segments'], true))>{{ $segment['name'] }} — {{ $segment['country'] }} — {{ strtoupper($segment['email_type']) }} — {{ number_format($segment['recipient_count']) }}</option>
+                                    @endforeach
+                                    @foreach ($sendOptions['blocked_lists'] ?? [] as $list)
+                                        <option value="blocked:{{ $list['id'] }}" disabled title="{{ $list['unavailable_reason'] }}">{{ $list['name'] }} — {{ $list['country'] ?: 'Any country' }} — Unavailable: {{ $list['unavailable_reason'] }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -2817,6 +2823,10 @@
                     const option = document.createElement('option');
                     option.value = String(getValue(record));
                     option.textContent = String(getLabel(record));
+                    if (record.disabled === true) {
+                        option.disabled = true;
+                        option.title = String(record.unavailable_reason || 'This choice is not ready for campaign sending.');
+                    }
                     if (key === 'servers') {
                         option.dataset.panelUrl = String(record.pmta_panel_url ?? record.pmta_panel_display_url ?? '');
                         option.dataset.monitorUrl = String(record.pmta_panel_display_url ?? record.pmta_panel_url ?? '');
@@ -2859,10 +2869,14 @@
                 };
                 lastPaintedRoute = selectedRoute;
                 fill('sponsor', data.sponsors, (item) => item.id, (item) => item.name, current.sponsor_id, 'Select Sponsor');
+                const unreadyOffers = data.unready_offers || [];
+                const offerRecords = data.offers.concat(unreadyOffers.map((offer) => ({...offer, disabled: true})));
                 const offerPlaceholder = !current.sponsor_id
                     ? 'Select Sponsor first'
-                    : (data.offers.length === 0 ? 'No selectable offer for this Sponsor' : 'Select Offer');
-                fill('offer', data.offers, (item) => item.id, (item) => `(${item.offer_id}) ${item.name} — ${item.vertical}`, current.offer_id, offerPlaceholder);
+                    : (data.offers.length === 0 && unreadyOffers.length > 0
+                        ? 'Offers need a current suppression file'
+                        : (data.offers.length === 0 ? 'No selectable offer for this Sponsor' : 'Select Offer'));
+                fill('offer', offerRecords, (item) => item.id, (item) => `(${item.offer_id}) ${item.name} — ${item.vertical}${item.disabled ? ' — Needs current suppression file' : ''}`, current.offer_id, offerPlaceholder);
                 const selectedOffer = data.offers.find((offer) => String(offer.id) === String(select('offer').value));
                 const selectedAssets = selectedOffer?.assets ?? [];
                 fill('fromAssets', selectedAssets.filter((asset) => asset.type === 'from'), (asset) => asset.id, (asset) => asset.value, current.from_asset_ids, 'Select optional From values');
@@ -2882,10 +2896,24 @@
                     ? 'Select Sponsor first'
                     : (data.isps.length === 0 ? 'No ISP for this Sponsor' : 'Select ISP');
                 fill('isp', data.isps, (item) => item.id, (item) => item.name, current.isp_id, ispPlaceholder);
+                const blockedLists = data.blocked_lists || [];
                 const listPlaceholder = !current.isp_id
                     ? 'Select ISP first'
-                    : (data.segments.length === 0 ? 'No selectable email segments for this ISP' : 'Select Lists');
-                fill('lists', data.segments, (item) => item.id, (item) => `${item.name} — ${item.country} — ${String(item.email_type).toUpperCase()} — ${Number(item.recipient_count).toLocaleString()}`, current.audience_segments, listPlaceholder);
+                    : (data.segments.length === 0 && blockedLists.length > 0
+                        ? 'Lists are not campaign-ready'
+                        : (data.segments.length === 0 ? 'No selectable email segments for this ISP' : 'Select Lists'));
+                const listRecords = data.segments.concat(blockedLists.map((list) => ({
+                    id: `blocked:${list.id}`,
+                    name: list.name,
+                    country: list.country || 'Any country',
+                    email_type: 'unavailable',
+                    recipient_count: 0,
+                    disabled: true,
+                    unavailable_reason: list.unavailable_reason,
+                })));
+                fill('lists', listRecords, (item) => item.id, (item) => item.disabled
+                    ? `${item.name} — ${item.country} — Unavailable: ${item.unavailable_reason}`
+                    : `${item.name} — ${item.country} — ${String(item.email_type).toUpperCase()} — ${Number(item.recipient_count).toLocaleString()}`, current.audience_segments, listPlaceholder);
                 document.getElementById('campaign-mix-count').textContent = String(data.segments.filter((segment) => segment.is_mix).length);
                 const mixForm = document.getElementById('audience-mix-form');
                 if (mixForm) {
@@ -2930,19 +2958,27 @@
                     panels.append(column);
                 });
 
-                const sponsorMissing = data.sponsors.length === 0;
-                const offerMissing = current.sponsor_id && data.offers.length === 0;
-                const ispMissing = current.sponsor_id && data.isps.length === 0;
-                const listsMissing = current.isp_id && data.lists.length === 0;
-                const serversMissing = data.servers.length === 0;
-                if (sponsorMissing || offerMissing || ispMissing || listsMissing || serversMissing) {
-                    const missing = [];
-                    if (sponsorMissing) missing.push('active sponsor with an eligible offer');
-                    if (offerMissing) missing.push('eligible offer for the selected sponsor and country');
-                    if (ispMissing) missing.push('active ISP available to the selected sponsor');
-                    if (listsMissing) missing.push('active list for the selected ISP and country');
-                    if (serversMissing) missing.push('active installed server assigned to your user');
-                    setStatus(`No ${missing.join(', ')} is available in this workspace. Check its active state, access assignment, and source data.`, 'warning');
+                const readinessWarnings = [];
+                if (current.sponsor_id && unreadyOffers.length > 0) {
+                    const examples = unreadyOffers.slice(0, 2).map((offer) => offer.name).join(', ');
+                    readinessWarnings.push(`${unreadyOffers.length} matching offer(s) are visible but disabled until a current valid suppression file is saved${examples ? ` (${examples})` : ''}.`);
+                }
+                if (current.isp_id && blockedLists.length > 0) {
+                    const examples = blockedLists.slice(0, 2).map((list) => `${list.name}: ${list.unavailable_reason}`).join(' ');
+                    readinessWarnings.push(`${blockedLists.length} list(s) are not campaign-ready. ${examples}`);
+                }
+
+                const missing = [];
+                if (data.sponsors.length === 0) missing.push('an active sponsor');
+                if (current.sponsor_id && data.offers.length === 0 && unreadyOffers.length === 0) missing.push('an eligible offer for the selected sponsor and country');
+                if (current.sponsor_id && data.isps.length === 0) missing.push('an active ISP assigned to the selected sponsor');
+                if (current.isp_id && data.segments.length === 0 && blockedLists.length === 0) missing.push('an active list with members and unlocked campaign segments for the selected ISP and country');
+                if (data.servers.length === 0) missing.push('an active installed server');
+                if (missing.length > 0) {
+                    const readinessNote = readinessWarnings.length > 0 ? ` ${readinessWarnings.join(' ')}` : '';
+                    setStatus(`No ${missing.join(', ')} is currently available. Campaign choices require active, correctly linked source data; Admin access does not bypass sending-readiness rules.${readinessNote}`, 'warning');
+                } else if (readinessWarnings.length > 0) {
+                    setStatus(readinessWarnings.join(' '), 'warning');
                 } else if (!current.sponsor_id) {
                     setStatus('Choose a sponsor to load its eligible offers and the ISPs assigned to that sponsor.', 'info');
                 } else if (!current.isp_id) {

@@ -2,6 +2,7 @@
 
 namespace App\Services\Campaigns;
 
+use App\Models\AudienceList;
 use App\Models\AudienceMixSnapshot;
 use App\Models\ContactListMembership;
 use App\Models\ManagedServer;
@@ -67,7 +68,7 @@ class AlphaLinkCampaignSendCatalog
         $selectedSponsorIsAvailable = $sponsorId !== null
             && $sponsors->contains(fn (WorkspaceSponsor $sponsor): bool => (int) $sponsor->getKey() === (int) $sponsorId);
 
-        $offers = WorkspaceOffer::query()
+        $offerCandidates = WorkspaceOffer::query()
             ->where('workspace_id', $workspace->getKey())
             ->when(! $selectedSponsorIsAvailable, fn (Builder $query) => $query->whereRaw('1 = 0'))
             ->where('status', 'live')
@@ -83,9 +84,19 @@ class AlphaLinkCampaignSendCatalog
             ->when($offerCountry !== 'ALL', fn (Builder $query) => $query->whereJsonContains('geo_target', $offerCountry))
             ->with(['assets' => fn (HasMany $query) => $query->where('is_active', true)->orderBy('type')->orderBy('id')])
             ->orderBy('name')
-            ->get(['id', 'sponsor_id', 'offer_id', 'name', 'type', 'vertical', 'geo_target', 'allowed_days', 'suppression_path', 'suppression_sha256', 'suppression_format', 'suppression_updated_at'])
+            ->get(['id', 'sponsor_id', 'offer_id', 'name', 'type', 'vertical', 'geo_target', 'allowed_days', 'suppression_path', 'suppression_sha256', 'suppression_format', 'suppression_updated_at']);
+        $offers = $offerCandidates
             ->filter(fn (WorkspaceOffer $offer): bool => $this->suppressionFiles->hasFreshStoredReference($offer))
             ->values();
+        $unreadyOffers = $offerCandidates
+            ->reject(fn (WorkspaceOffer $offer): bool => $this->suppressionFiles->hasFreshStoredReference($offer))
+            ->map(fn (WorkspaceOffer $offer): array => [
+                'id' => $offer->getKey(),
+                'offer_id' => $offer->offer_id,
+                'name' => $offer->name,
+                'vertical' => $offer->vertical,
+                'unavailable_reason' => 'A current valid suppression file is required before this offer can be selected.',
+            ])->values();
 
         $isps = $workspace->isps()
             ->where('is_active', true)
@@ -109,6 +120,37 @@ class AlphaLinkCampaignSendCatalog
             ->withCount(['memberships as active_members_count' => fn (Builder $query) => $query->where('status', 'active')])
             ->orderBy('name')
             ->get(['id', 'isp_id', 'name', 'country', 'is_fresh_locked', 'is_delivery_locked', 'is_open_locked', 'is_click_locked', 'is_lead_locked', 'is_unsubscribe_locked']);
+
+        $blockedLists = collect();
+        $canInspectReadiness = in_array($role, ['owner', 'admin'], true) || $user->hasFullAccess();
+        if ($canInspectReadiness && $selectedSponsorIsAvailable && $selectedIspIsAvailable) {
+            $eligibleListIds = $lists->modelKeys();
+            $blockedLists = $workspace->audienceLists()
+                ->where('isp_id', $ispId)
+                ->withCount(['memberships as active_members_count' => fn (Builder $query) => $query->where('status', 'active')])
+                ->orderBy('name')
+                ->get(['id', 'isp_id', 'name', 'country', 'status', 'allowed_sponsors'])
+                ->reject(fn (AudienceList $list): bool => in_array($list->getKey(), $eligibleListIds, true))
+                ->map(function (AudienceList $list) use ($sponsorId, $listCountry): array {
+                    $allowedSponsors = array_map('intval', $list->allowed_sponsors ?? []);
+                    $reason = $list->status !== 'active'
+                        ? 'List status is '.str_replace('_', ' ', (string) $list->status).'.'
+                        : (! in_array((int) $sponsorId, $allowedSponsors, true)
+                            ? 'List is not assigned to the selected sponsor.'
+                            : (strtoupper((string) $list->country) !== $listCountry && $listCountry !== 'ALL'
+                                ? 'List country does not match the selected country.'
+                                : ((int) $list->active_members_count === 0
+                                    ? 'List has no active members.'
+                                    : 'List has no unlocked campaign segment with eligible recipients.')));
+
+                    return [
+                        'id' => $list->getKey(),
+                        'name' => $list->name,
+                        'country' => $list->country,
+                        'unavailable_reason' => $reason,
+                    ];
+                })->values();
+        }
 
         $segmentCounts = $lists->isEmpty()
             ? collect()
@@ -399,6 +441,7 @@ class AlphaLinkCampaignSendCatalog
                         : null,
                 ])->values(),
             ])->values(),
+            'unready_offers' => $unreadyOffers,
             'isps' => $isps->map(fn ($isp): array => [
                 'id' => $isp->getKey(),
                 'name' => $isp->name,
@@ -419,6 +462,7 @@ class AlphaLinkCampaignSendCatalog
                     'unsubscribe' => $list->is_unsubscribe_locked,
                 ],
             ])->values(),
+            'blocked_lists' => $blockedLists,
             'segments' => $lists->flatMap(function ($list) use ($segmentCounts): array {
                 $locks = [
                     'fresh' => (bool) $list->is_fresh_locked,

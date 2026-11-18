@@ -68,9 +68,9 @@ test('PMTA monitor auto-refresh does not interrupt a link navigation in progress
     assert.equal(frame.dataset.monitorRefreshPending, undefined);
 });
 
-test('PMTA monitor clicks immediately navigate the iframe to the authenticated proxy page', () => {
+test('PMTA domain-detail queue clicks immediately navigate the iframe through the authenticated proxy', () => {
     const { monitorBase, handleMonitorNavigation } = createMonitorRefreshHarness();
-    const destination = `${monitorBase}/listqueue?target=ip&domain=smtp.queue`;
+    const destination = `${monitorBase}/domainDetail?target=ip&domain=gmail.com`;
     const frame = {
         dataset: { monitorBase, monitorNavigationPending: 'false' },
         contentWindow: { location: { href: monitorBase } },

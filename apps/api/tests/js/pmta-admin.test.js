@@ -5,18 +5,67 @@ import vm from 'node:vm';
 
 const view = readFileSync(new URL('../../resources/views/console/campaigns/pmta-admin.blade.php', import.meta.url), 'utf8');
 
-test('PMTA Admin opens HTTP-only monitors through AlphaLink HTTPS to avoid browser upgrades', () => {
-    assert.match(view, /HTTP-only monitors open through AlphaLink’s authenticated HTTPS read-only proxy/i);
-    assert.match(view, /data-monitor-proxied=/);
-    assert.match(view, /data-monitor-endpoint=/);
-    assert.match(view, /data-panel-url="\{\{ \$server\['pmta_panel_url'\] \}\}"/);
-    assert.match(view, /data-monitor-url="\{\{ \$server\['pmta_panel_display_url'\] \}\}"/);
-    assert.match(view, /server\.dataset\.monitorProxied === 'true'/);
-    assert.match(view, /Open HTTPS read-only monitor: \$\{server\.dataset\.monitorEndpoint\}/);
-    assert.match(view, /link\.href = server\.dataset\.monitorUrl \|\| server\.dataset\.panelUrl/);
-    assert.match(view, /monitor controls are read-only/);
+test('PMTA Admin keeps monitor navigation inside the authenticated AlphaLink proxy', () => {
+    assert.match(view, /Proxy \(443\)/);
+    assert.match(view, /data-proxy-url="\{\{ route\('clean\.console\.pmta-admin\.monitor', \$server\['id'\], false\) \}\}"/);
+    assert.match(view, /const initialBaseUrl = server\.dataset\.proxyUrl \|\| '';/);
+    assert.match(view, /link\.href = selectedMonitorUrl \|\| '#';/);
+    assert.match(view, /link\.target = '_blank';/);
     assert.match(view, /frame\.setAttribute\('sandbox', 'allow-same-origin'\)/);
-    assert.match(view, /Read-only monitor via AlphaLink HTTPS/);
+    assert.match(view, /frame\.dataset\.monitorNavigationPending = 'true'/);
+});
+
+const monitorRefreshStart = view.indexOf('            const monitorPageUrl = (frame) => {');
+const monitorRefreshEnd = view.indexOf('\n\n            const drawPanels', monitorRefreshStart);
+assert.notEqual(monitorRefreshStart, -1, 'PMTA monitor refresh helper exists');
+assert.notEqual(monitorRefreshEnd, -1, 'PMTA monitor refresh helper closes');
+const monitorRefreshHelpers = view.slice(monitorRefreshStart, monitorRefreshEnd);
+
+function createMonitorRefreshHarness() {
+    const origin = 'https://app.example.test';
+    const monitorBase = `${origin}/app/workspaces/workspace-id/pmta-admin/servers/server-id`;
+    const refreshMonitor = vm.runInNewContext(`(() => {
+        const selectedMonitorTarget = () => 'ip';
+        ${monitorRefreshHelpers}
+        return refreshMonitor;
+    })()`, {
+        Date,
+        URL,
+        window: { location: { href: `${monitorBase}?server_ids[]=server-id`, origin } },
+    });
+
+    return { monitorBase, refreshMonitor };
+}
+
+test('PMTA monitor auto-refresh preserves the page opened inside the monitor', () => {
+    const { monitorBase, refreshMonitor } = createMonitorRefreshHarness();
+    const frame = {
+        dataset: { monitorBase },
+        contentWindow: { location: { href: `${monitorBase}/queues?target=domain&filter=deferred` } },
+        src: '',
+    };
+
+    refreshMonitor(frame);
+
+    const refreshedUrl = new URL(frame.src);
+    assert.equal(refreshedUrl.pathname, `${new URL(monitorBase).pathname}/queues`);
+    assert.equal(refreshedUrl.searchParams.get('filter'), 'deferred');
+    assert.equal(refreshedUrl.searchParams.get('target'), 'ip');
+    assert.ok(refreshedUrl.searchParams.has('_'), 'refresh still bypasses cached monitor responses');
+});
+
+test('PMTA monitor auto-refresh does not interrupt a link navigation in progress', () => {
+    const { monitorBase, refreshMonitor } = createMonitorRefreshHarness();
+    const frame = {
+        dataset: { monitorBase, monitorNavigationPending: 'true' },
+        contentWindow: { location: { href: `${monitorBase}/queues` } },
+        src: '',
+    };
+
+    refreshMonitor(frame);
+
+    assert.equal(frame.src, '');
+    assert.equal(frame.dataset.monitorRefreshPending, undefined);
 });
 
 const restartHelperStart = view.indexOf('            let restartRunNumber = 0;');

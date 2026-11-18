@@ -421,10 +421,24 @@
                 }).filter(Boolean).join('\n');
             };
 
-            const refreshMonitor = (frame) => {
+            const monitorPageUrl = (frame) => {
+                const baseUrl = new URL(frame.dataset.monitorBase, window.location.href);
+                try {
+                    const currentUrl = new URL(frame.contentWindow.location.href);
+                    if (currentUrl.origin === window.location.origin
+                        && (currentUrl.pathname === baseUrl.pathname || currentUrl.pathname.startsWith(`${baseUrl.pathname}/`))) {
+                        return currentUrl;
+                    }
+                } catch {}
+
+                return baseUrl;
+            };
+
+            const refreshMonitor = (frame, force = false) => {
                 if (!frame.dataset.monitorBase) return;
+                if (!force && frame.dataset.monitorNavigationPending === 'true') return;
                 frame.dataset.monitorRefreshPending = 'true';
-                const url = new URL(frame.dataset.monitorBase, window.location.href);
+                const url = monitorPageUrl(frame);
                 url.searchParams.set('target', selectedMonitorTarget());
                 url.searchParams.set('_', String(Date.now()));
                 frame.src = url.toString();
@@ -486,6 +500,7 @@
                     const frame = document.createElement('iframe');
                     frame.title = `PMTA Web Monitor — ${server.textContent.trim()}`;
                     frame.dataset.monitorBase = initialBaseUrl;
+                    frame.dataset.monitorNavigationPending = 'false';
                     frame.referrerPolicy = 'no-referrer';
                     frame.scrolling = 'yes';
                     frame.style.width = '100%';
@@ -494,15 +509,40 @@
                     frame.style.border = '1px solid var(--command-os-border, rgba(99, 102, 241, 0.15))';
 
                     frame.addEventListener('load', () => {
-                        if (!frame.dataset.monitorRefreshPending) return;
+                        const completedNavigation = frame.dataset.monitorNavigationPending === 'true';
+                        frame.dataset.monitorNavigationPending = 'false';
+                        try {
+                            frame.contentDocument?.addEventListener('click', (event) => {
+                                const clickedElement = event.target?.nodeType === 1 ? event.target : event.target?.parentElement;
+                                const link = clickedElement?.closest?.('a[href]');
+                                if (!link || link.getAttribute('aria-disabled') === 'true') return;
+                                const destination = new URL(link.href, frame.contentWindow.location.href);
+                                const baseUrl = new URL(frame.dataset.monitorBase, window.location.href);
+                                if (destination.origin !== window.location.origin
+                                    || (destination.pathname !== baseUrl.pathname && !destination.pathname.startsWith(`${baseUrl.pathname}/`))) return;
+                                if (destination.href === frame.contentWindow.location.href) return;
+                                frame.dataset.monitorNavigationPending = 'true';
+                                refreshLabel.textContent = 'Opening PMTA monitor page…';
+                            }, true);
+                        } catch {}
+                        if (!frame.dataset.monitorRefreshPending) {
+                            if (completedNavigation) refreshLabel.textContent = 'Opened PMTA monitor page · auto refresh 5s';
+                            return;
+                        }
                         frame.dataset.monitorRefreshPending = 'false';
-                        refreshLabel.textContent = `Updated ${new Date().toLocaleTimeString()} · auto refresh 5s`;
+                        refreshLabel.textContent = completedNavigation
+                            ? `Opened PMTA monitor page · auto refresh 5s`
+                            : `Updated ${new Date().toLocaleTimeString()} · auto refresh 5s`;
                     });
                     frame.addEventListener('error', () => {
                         frame.dataset.monitorRefreshPending = 'false';
+                        frame.dataset.monitorNavigationPending = 'false';
                         refreshLabel.textContent = 'Proxy monitor unavailable · checking again in 5s';
                     });
-                    reload.addEventListener('click', () => refreshMonitor(frame));
+                    reload.addEventListener('click', () => {
+                        frame.dataset.monitorNavigationPending = 'false';
+                        refreshMonitor(frame, true);
+                    });
                     heading.append(label, link, reload, refreshLabel);
                     let monitorUrl = null;
                     try {

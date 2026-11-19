@@ -12,6 +12,7 @@ use App\Services\Audiences\AudienceMembershipFilterIndexer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -40,6 +41,7 @@ class AlphaLinkListUploadTest extends TestCase
         ]);
         $this->workspace->users()->attach($this->owner->getKey(), ['role' => 'owner']);
         $this->actingAs($this->owner);
+        RateLimiter::clear(md5('audience-list-import-uploadaudience-list-import-upload:global:'.$this->owner->getKey()));
     }
 
     public function test_upload_page_matches_the_reference_fields_and_uses_a_synthetic_example_file(): void
@@ -78,20 +80,16 @@ class AlphaLinkListUploadTest extends TestCase
             ->assertSessionHas('import_batch_id');
 
         $this->assertDatabaseCount('contacts', 2);
-        $this->assertDatabaseCount('contact_list_memberships', 4);
+        $this->assertDatabaseCount('contact_list_memberships', 2);
         $this->assertDatabaseHas('audience_list_import_batches', [
             'workspace_id' => $this->workspace->getKey(),
             'audience_list_id' => $firstList->getKey(),
             'source_format' => AudienceListImportBatch::FORMAT_PROFILE_CSV,
         ]);
         $this->assertSame(2, ContactListMembership::query()->where('audience_list_id', $firstList->getKey())->where('email_type', 'delivery')->count());
-        $deliverySegment = AudienceList::query()
+        $this->assertSame(0, AudienceList::query()
             ->where('workspace_id', $this->workspace->getKey())
-            ->where('name', 'First import list_delivery')
-            ->firstOrFail();
-        $this->assertSame(2, ContactListMembership::query()
-            ->where('audience_list_id', $deliverySegment->getKey())
-            ->where('email_type', 'delivery')
+            ->where('segment_source_list_id', $firstList->getKey())
             ->count());
         $this->assertDatabaseHas('audience_list_histories', [
             'workspace_id' => $this->workspace->getKey(),
@@ -136,7 +134,7 @@ class AlphaLinkListUploadTest extends TestCase
             ->assertSessionHas('info')
             ->assertSessionHas('import_batch_id');
 
-        $this->assertDatabaseCount('contact_list_memberships', 8);
+        $this->assertDatabaseCount('contact_list_memberships', 4);
         $this->assertDatabaseHas('contact_list_memberships', [
             'workspace_id' => $this->workspace->getKey(),
             'audience_list_id' => $secondList->getKey(),
@@ -254,24 +252,29 @@ class AlphaLinkListUploadTest extends TestCase
         $this->assertDatabaseCount('audience_list_import_batches', 4);
     }
 
-    public function test_generated_segments_are_visible_as_projections_and_cannot_be_uploaded_to_or_deleted(): void
+    public function test_import_keeps_recipients_on_the_source_list_without_creating_projection_lists(): void
     {
         $list = $this->makeList('Projected source');
+        $isp = $this->workspace->isps()->create([
+            'name' => 'Tracked country ISP',
+            'tracked_countries' => ['BE'],
+            'allowed_users' => [],
+            'allowed_sponsors' => [],
+        ]);
+        $list->forceFill(['isp_id' => $isp->getKey(), 'country' => 'BE'])->save();
         $this->from($this->uploadUrl($list))->post($this->uploadUrl($list), [
-            'file' => UploadedFile::fake()->createWithContent('source.csv', 'source@example.test,Source,User,US,28,F,retail'),
+            'file' => UploadedFile::fake()->createWithContent('source.csv', 'source@example.test,Source,User,BE,28,F,retail'),
             'type' => 'fresh',
         ])->assertRedirect($this->uploadUrl($list));
 
-        $projection = AudienceList::query()
-            ->where('segment_source_list_id', $list->getKey())
-            ->where('segment_action', 'fresh')
-            ->firstOrFail();
-
-        $this->get(route('console.infrastructure.lists.upload', [$this->workspace->getKey(), $projection->getKey()]))
-            ->assertStatus(409);
-        $this->deleteJson(route('console.infrastructure.lists.destroy', [$this->workspace->getKey(), $projection->getKey()]))
-            ->assertStatus(409);
-        $this->assertDatabaseHas('audience_lists', ['id' => $projection->getKey(), 'deleted_at' => null]);
+        $this->assertDatabaseCount('audience_lists', 1);
+        $this->assertDatabaseCount('contact_list_memberships', 1);
+        $this->assertDatabaseHas('contact_list_memberships', [
+            'workspace_id' => $this->workspace->getKey(),
+            'audience_list_id' => $list->getKey(),
+            'email_type' => 'fresh',
+            'status' => 'active',
+        ]);
     }
 
     public function test_owner_can_preview_recipient_addresses_and_all_imported_tags(): void

@@ -51,7 +51,7 @@
                             <input type="file" class="custom-file-input" name="file" id="email-file" accept=".txt,.csv,text/plain,text/csv" required aria-describedby="email-file-help" style="border-radius: 10px;">
                             <label class="custom-file-label" for="email-file" style="border-radius: 10px; font-size: 12.5px;">Choose file...</label>
                         </div>
-                        <small id="email-file-help" class="form-text text-muted mt-2">TXT or CSV. CSV may have a header row (email, first_name, last_name, country, age, sex/gender, vertical) and extra columns are preserved as tags. Imports run in resumable chunks; invalid optional ages are skipped and reported, not allowed to cancel valid rows. Automatic fresh/country segments are generated from this source list.</small>
+                        <small id="email-file-help" class="form-text text-muted mt-2">TXT or CSV. CSV may have a header row (email, first_name, last_name, country, age, sex/gender, vertical) and extra columns are preserved as tags. Imports run in resumable chunks; invalid optional ages are skipped and reported, not allowed to cancel valid rows. The selected type is saved on each recipient in this source list; importing does not create duplicate lists.</small>
                     </div>
 
                     <div class="form-group mb-3">

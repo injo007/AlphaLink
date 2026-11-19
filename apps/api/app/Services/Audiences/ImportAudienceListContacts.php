@@ -11,8 +11,6 @@ use App\Models\ContactListMembership;
 use App\Models\ContactListMembershipEvent;
 use App\Models\OutboxMessage;
 use App\Models\Workspace;
-use App\Services\Campaigns\TrackedCountryListManager;
-use Illuminate\Database\QueryException;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -23,7 +21,7 @@ use RuntimeException;
 
 class ImportAudienceListContacts
 {
-    private const CANDIDATES_PER_JOB = 500;
+    private const CANDIDATES_PER_JOB = 2500;
 
     private const PROFILE_COLUMN_ALIASES = [
         'email' => ['email', 'emailaddress', 'address', 'mail', 'recipient', 'emailid'],
@@ -38,7 +36,6 @@ class ImportAudienceListContacts
     public function __construct(
         private readonly AudienceListHistoryCalculator $historyCalculator,
         private readonly AudienceMembershipFilterIndexer $filterIndexer,
-        private readonly TrackedCountryListManager $membershipManager,
     ) {}
 
     public function handle(Request $request, Workspace $workspace, AudienceList $list, string $rawAddresses, string $lookupKey): AudienceListImportBatch
@@ -247,7 +244,7 @@ class ImportAudienceListContacts
                         continue;
                     }
                     $seen[$email] = true;
-                    $result = $this->importOne(
+                    $result = $this->importWithinTransaction(
                         $request,
                         $workspace,
                         $list,
@@ -651,39 +648,6 @@ class ImportAudienceListContacts
         }
     }
 
-    private function importOne(
-        Request $request,
-        Workspace $workspace,
-        AudienceList $list,
-        string $email,
-        string $emailHash,
-        ?array $profile,
-        string $type,
-    ): string {
-        try {
-            return DB::transaction(fn (): string => $this->importWithinTransaction(
-                $request, $workspace, $list, $email, $emailHash, $profile, $type,
-            ));
-        } catch (QueryException $exception) {
-            if (! $this->isUniqueViolation($exception)) {
-                throw $exception;
-            }
-
-            return DB::transaction(function () use ($request, $workspace, $list, $emailHash, $profile, $type, $exception): string {
-                $contact = $workspace->contacts()
-                    ->where('email_lookup_hash', $emailHash)
-                    ->lockForUpdate()
-                    ->first();
-
-                if (! $contact) {
-                    throw $exception;
-                }
-
-                return $this->attachToList($request, $workspace, $list, $contact, $type, $profile);
-            });
-        }
-    }
-
     private function importWithinTransaction(
         Request $request,
         Workspace $workspace,
@@ -769,18 +733,6 @@ class ImportAudienceListContacts
             ),
         ])->save();
 
-        $this->membershipManager->recordActionSegment(
-            (string) $list->getKey(),
-            $membership,
-            $type,
-            $this->membershipManager->countryCodeForMembership($membership),
-            $type,
-            'list_import',
-            (string) $event->getKey(),
-            $now,
-            ['imported_email_type' => $type],
-        );
-
         $this->recordMembershipAdded($request, $workspace, $list, $contact, $event);
 
         return 'imported';
@@ -838,10 +790,5 @@ class ImportAudienceListContacts
             'available_at' => now(),
             'created_at' => now(),
         ]);
-    }
-
-    private function isUniqueViolation(QueryException $exception): bool
-    {
-        return in_array((string) $exception->getCode(), ['23000', '23505'], true);
     }
 }

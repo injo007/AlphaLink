@@ -168,11 +168,14 @@
                     scrollable: true,
                     closeButton: true,
                     size: 'lg',
-                    message: `<div class="command-modal-surface p-1"><iframe src="${escapeHtml(url)}" width="100%" scrolling="no" frameborder="0" style="min-height: 440px; border-radius: 12px;"></iframe></div>`,
+                    message: `<div class="command-modal-surface p-1"><iframe src="${escapeHtml(url)}" title="List management form" width="100%" scrolling="auto" frameborder="0" style="height: calc(100dvh - 160px); min-height: 0; max-height: calc(100dvh - 160px); border-radius: 12px;"></iframe></div>`,
                     onEscape: true,
                     centerVertical: true,
                 }).on('shown.bs.modal', function () {
-                    if (window.iFrameResize) window.iFrameResize({}, 'iframe');
+                    const modalBody = this.querySelector('.modal-body');
+                    modalBody?.style.setProperty('max-height', 'calc(100dvh - 120px)', 'important');
+                    modalBody?.style.setProperty('overflow-x', 'hidden', 'important');
+                    modalBody?.style.setProperty('overflow-y', 'auto', 'important');
                 }).on('hidden.bs.modal', function () {
                     $('iframe').remove();
                 });

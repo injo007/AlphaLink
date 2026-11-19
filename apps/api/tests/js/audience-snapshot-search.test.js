@@ -159,7 +159,9 @@ test('type filter and sortable headers update the current page and preserve list
     assert.equal(new URL(page.paginationLink.href).searchParams.get('direction'), 'desc');
 });
 
-test('the list recipient action navigates to the dedicated page instead of opening an iframe', () => {
-    assert.match(listPage, /const openAudienceSnapshot = \(url\) => window\.location\.assign\(url\);/);
-    assert.match(listPage, /openAudienceSnapshot\(audienceUrlTemplate\.replace\('__LIST_ID__', encodeURIComponent\(this\.dataset\.id\)\)\)/);
+test('the list recipient action is a native link to the dedicated page', () => {
+    assert.match(listPage, /const audienceUrl = escapeHtml\(audienceUrlTemplate\.replace\('__LIST_ID__', encodeURIComponent\(row\.id\)\)\);/);
+    assert.match(listPage, /<a href="\$\{audienceUrl\}" class="command-action-btn action-view audience-snapshot-link"/);
+    assert.doesNotMatch(listPage, /openAudienceSnapshot|\.on\('click', '\.view'/);
+    assert.doesNotMatch(listPage, /openFrame\([^\n]*audienceUrl/);
 });

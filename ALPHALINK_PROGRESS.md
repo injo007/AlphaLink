@@ -278,3 +278,7 @@ Redesigned the Owner/Admin-only audience snapshot with clearer list metadata, re
 ### Dedicated audience detail and recipient table — E-AUD-44 (2026-11-19)
 
 The Lists register's recipient action now navigates directly to the dedicated audience detail page; upload, assignment, and edit actions keep their existing dialogs. The recipient table adds page-scoped type filtering and accessible sorting by recipient, type, or imported details; search, filters, sorting, and page size persist across pagination. Recipient email/tag visibility remains Owner/Admin-only, and full-list profile search remains unavailable because profile data is encrypted without a search index. `AlphaLinkListUploadTest` plus `AlphaLinkAudienceListManagementTest` pass 29 tests / 251 assertions; Node interaction tests pass 4/4; targeted Pint, strict UI audit, and `git diff --check` pass. No authenticated production UI review or production recipient access was performed.
+
+### Audience snapshot link follow-up — E-AUD-45 (2026-11-19)
+
+Replaced the recipient eye-action button and its scripted click handler with a native anchor to the audience-detail route. The link now performs standard same-tab page navigation without invoking the list form iframe/modal flow; edit, assignment, and upload retain their dialogs. The focused Node suite passes 4/4, including a regression that requires the native link and rejects the old view handler. No authenticated production browser review or recipient data access was performed.

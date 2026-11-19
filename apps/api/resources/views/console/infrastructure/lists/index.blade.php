@@ -159,8 +159,6 @@
             const escapeHtml = (value) => $('<div>').text(value == null ? '' : String(value)).html();
             const activeId = () => $('#isps').val();
 
-            const openAudienceSnapshot = (url) => window.location.assign(url);
-
             const openFrame = (url) => {
                 if (!window.bootbox?.dialog) {
                     window.location.assign(url);
@@ -281,7 +279,8 @@
                         {
                             title: 'ACTIONS', data: null, orderable: false, searchable: false,
                             render: (data, display, row) => {
-                                const view = `<button type="button" data-id="${escapeHtml(row.id)}" class="command-action-btn action-view view" title="VIEW RECIPIENTS AND TAGS" aria-label="View recipients and tags in ${escapeHtml(row.name)}"><i class="fas fa-eye"></i></button>`;
+                                const audienceUrl = escapeHtml(audienceUrlTemplate.replace('__LIST_ID__', encodeURIComponent(row.id)));
+                                const view = `<a href="${audienceUrl}" class="command-action-btn action-view audience-snapshot-link" title="VIEW RECIPIENTS AND TAGS" aria-label="View recipients and tags in ${escapeHtml(row.name)}"><i class="fas fa-eye"></i></a>`;
                                 if (row.is_generated_segment) {
                                     if (row.is_orphaned_segment) {
                                         const removeOrphan = `<button type="button" data-id="${escapeHtml(row.id)}" class="command-action-btn action-danger delete" title="REMOVE DETACHED SEGMENT" aria-label="Remove detached segment ${escapeHtml(row.name)}"><i class="fas fa-trash-alt"></i></button>`;
@@ -325,9 +324,6 @@
                 }).on('click', '.upload', function (event) {
                     event.preventDefault();
                     openFrame(`${baseUrl}/lists/${encodeURIComponent(this.dataset.id)}/upload`);
-                }).on('click', '.view', function (event) {
-                    event.preventDefault();
-                    openAudienceSnapshot(audienceUrlTemplate.replace('__LIST_ID__', encodeURIComponent(this.dataset.id)));
                 }).on('click', '.lock', async function (event) {
                     event.preventDefault();
                     const button = this;

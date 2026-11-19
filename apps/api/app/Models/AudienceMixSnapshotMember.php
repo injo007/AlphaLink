@@ -32,6 +32,11 @@ class AudienceMixSnapshotMember extends Model
         return $this->belongsTo(Contact::class);
     }
 
+    public function sourceMembership(): BelongsTo
+    {
+        return $this->belongsTo(ContactListMembership::class, 'source_membership_id');
+    }
+
     public function sourceList(): BelongsTo
     {
         return $this->belongsTo(AudienceList::class, 'source_list_id');

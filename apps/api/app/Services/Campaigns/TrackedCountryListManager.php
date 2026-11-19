@@ -205,6 +205,10 @@ class TrackedCountryListManager
                         'status' => $segmentStatus,
                         'left_at' => $segmentStatus === 'active' ? null : ($segmentMembership->left_at ?? $occurredAt),
                         'last_event_id' => $membershipEvent->getKey(),
+                        'profile' => $membership->profile,
+                        'profile_sex_index' => $membership->profile_sex_index,
+                        'email_domain_index' => $membership->email_domain_index,
+                        'attribute_index_version' => $membership->attribute_index_version,
                     ])->save();
                 }
             }
@@ -255,7 +259,7 @@ class TrackedCountryListManager
             ->first();
         if ($existing !== null) {
             if ($existing->trashed()) {
-                return $this->actionLists[$cacheKey] = null;
+                $existing->restore();
             }
 
             $existing->forceFill([

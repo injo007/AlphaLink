@@ -28,6 +28,11 @@
             </div>
         </header>
 
+        <div class="command-os-info-banner mb-3" role="note">
+            <div class="command-os-info-banner-icon"><i class="fas fa-info-circle"></i></div>
+            <div class="command-os-info-banner-content">Upload into the source list. Rows marked AUTO SEGMENT are system-generated audience projections; they are read-only and kept linked to their source to prevent accidental data loss.</div>
+        </div>
+
         <!-- 2. KPI Overview Cards -->
         <section class="command-os-all-stats-overview" aria-label="Lists Overview">
             <article class="all-stats-overview-card">
@@ -106,6 +111,7 @@
             <div class="table-responsive" id="lists-table-wrapper" style="display: none;">
                 <table id="lists" class="table command-os-table table-sm table-hover w-100"
                     data-workspace-id="{{ $workspace->id }}"
+                    data-audience-url-template="{{ route('console.audiences.show', [$workspace->id, '__LIST_ID__']) }}"
                     data-base-url="{{ url('/app/workspaces/'.$workspace->id.'/infrastructure') }}"></table>
             </div>
             @if ($isps->isEmpty())
@@ -125,6 +131,7 @@
             if ($.fn.selectpicker) $('#isps').selectpicker();
             const tableElement = document.querySelector('#lists');
             const baseUrl = tableElement.dataset.baseUrl;
+            const audienceUrlTemplate = tableElement.dataset.audienceUrlTemplate;
             let dialog = null;
             let activeTableUrl = null;
             const escapeHtml = (value) => $('<div>').text(value == null ? '' : String(value)).html();
@@ -224,7 +231,7 @@
                     },
                     columns: [
                         { title: '#', data: 'id', render: (val) => `<span class="badge badge-light border font-mono font-size-xs text-muted">#${escapeHtml(val)}</span>` },
-                        { title: 'NAME', data: 'name', render: (val) => `<strong class="text-ink font-w600">${escapeHtml(val)}</strong>` },
+                        { title: 'NAME', data: 'name', render: (val, display, row) => `<strong class="text-ink font-w600">${escapeHtml(val)}</strong>${row.is_generated_segment ? `<div><span class="badge badge-light border text-muted mt-1">AUTO SEGMENT · ${escapeHtml(row.segment_action || 'tracked')} · SOURCE: ${escapeHtml(row.segment_source_list_name || row.segment_source_list_id)}</span></div>` : '<div><span class="badge badge-light border text-muted mt-1">SOURCE LIST</span></div>'}` },
                         { title: 'COUNTRY', data: 'country', defaultContent: '', render: (val) => `<span class="badge badge-light border text-purple px-2 py-1 font-w700">${escapeHtml(val || 'GLOBAL')}</span>` },
                         ...['fresh', 'delivery', 'open', 'click', 'lead', 'unsubscribe'].map((type) => ({
                             title: type === 'delivery' ? 'dlv' : type === 'unsubscribe' ? 'unsub' : type,
@@ -247,6 +254,8 @@
                         {
                             title: 'ACTIONS', data: null, orderable: false, searchable: false,
                             render: (data, display, row) => {
+                                const view = `<button type="button" data-id="${escapeHtml(row.id)}" class="command-action-btn action-view view" title="VIEW RECIPIENTS AND TAGS" aria-label="View recipients and tags in ${escapeHtml(row.name)}"><i class="fas fa-eye"></i></button>`;
+                                if (row.is_generated_segment) return `<div class="command-action-btn-group">${view}<span class="badge badge-light border text-muted">READ ONLY</span></div>`;
                                 const users = `<button type="button" data-id="${escapeHtml(row.id)}" class="command-action-btn action-users assignment" data-type="users" title="ALLOWED USERS" aria-label="Allowed users for ${escapeHtml(row.name)}"><i class="fas fa-users"></i></button>`;
                                 const sponsors = `<button type="button" data-id="${escapeHtml(row.id)}" class="command-action-btn action-sponsors assignment" data-type="sponsors" title="ALLOWED SPONSORS" aria-label="Allowed sponsors for ${escapeHtml(row.name)}"><i class="fas fa-hand-holding-usd"></i></button>`;
                                 const upload = `<button type="button" data-id="${escapeHtml(row.id)}" class="command-action-btn action-upload upload" title="UPLOAD EMAILS" aria-label="Upload emails to ${escapeHtml(row.name)}"><i class="fas fa-upload"></i></button>`;
@@ -254,7 +263,7 @@
                                 const track = `<button type="button" data-id="${escapeHtml(row.id)}" data-status="${row.is_tracked ? 0 : 1}" class="command-action-btn action-track ${row.is_tracked ? 'is-active' : ''} track" title="${row.is_tracked ? 'DISABLE TRACKING' : 'ENABLE TRACKING'}" aria-label="Toggle tracking for ${escapeHtml(row.name)}"><i class="fas ${row.is_tracked ? 'fa-satellite-dish' : 'fa-satellite'}"></i></button>`;
                                 const status = `<button type="button" data-id="${escapeHtml(row.id)}" data-status="${row.is_active ? 0 : 1}" class="command-action-btn ${row.is_active ? 'action-status is-active' : 'action-enable'} status" title="${row.is_active ? 'DISABLE LIST' : 'ENABLE LIST'}" aria-label="${row.is_active ? 'Disable' : 'Enable'} ${escapeHtml(row.name)}"><i class="fas ${row.is_active ? 'fa-toggle-on' : 'fa-toggle-off'}"></i></button>`;
                                 const remove = `<button type="button" data-id="${escapeHtml(row.id)}" class="command-action-btn action-danger delete" title="DELETE LIST" aria-label="Delete ${escapeHtml(row.name)}"><i class="fas fa-trash-alt"></i></button>`;
-                                return `<div class="command-action-btn-group">${users}${sponsors}${upload}${edit}${track}${status}${remove}</div>`;
+                                return `<div class="command-action-btn-group">${view}${users}${sponsors}${upload}${edit}${track}${status}${remove}</div>`;
                             },
                         },
                     ],
@@ -267,6 +276,13 @@
                     }
                 });
 
+                dt.on('select', function (event, table, type, indexes) {
+                    if (type !== 'row') return;
+                    table.rows(indexes).every(function () {
+                        if (this.data()?.is_generated_segment) this.deselect();
+                    });
+                });
+
                 $('#lists').on('click', '.edit', function (event) {
                     event.preventDefault();
                     openFrame(`${baseUrl}/lists/${encodeURIComponent(this.dataset.id)}/edit`);
@@ -276,6 +292,9 @@
                 }).on('click', '.upload', function (event) {
                     event.preventDefault();
                     openFrame(`${baseUrl}/lists/${encodeURIComponent(this.dataset.id)}/upload`);
+                }).on('click', '.view', function (event) {
+                    event.preventDefault();
+                    openFrame(audienceUrlTemplate.replace('__LIST_ID__', encodeURIComponent(this.dataset.id)));
                 }).on('click', '.lock', async function (event) {
                     event.preventDefault();
                     const button = this;
@@ -328,7 +347,7 @@
             };
 
             const openBulkAssignment = (table, type) => {
-                const ids = table.rows({ selected: true }).data().toArray().map((row) => row.id);
+                const ids = table.rows({ selected: true }).data().toArray().filter((row) => !row.is_generated_segment).map((row) => row.id);
                 if (!ids.length) return;
                 const query = new URLSearchParams();
                 ids.forEach((id) => query.append('ids[]', id));

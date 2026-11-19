@@ -4,6 +4,7 @@
     $selectedSegments = array_map('strval', (array) old('send_setup.audience_segments', $selectedSegments));
     $selectedOrder = (string) old('send_setup.order_by', $sendSetup['order_by'] ?? 'default');
     $selectedStart = (string) old('send_setup.start_from', $sendSetup['start_from'] ?? 0);
+    $selectedGender = (string) old('send_setup.gender_filter', $sendSetup['gender_filter'] ?? 'all');
     $segments = collect($sendOptions['segments'] ?? []);
     $segmentIds = $segments->pluck('id')->map(fn ($id): string => (string) $id)->all();
     $selectedSegments = array_values(array_intersect($selectedSegments, $segmentIds));
@@ -70,6 +71,16 @@
             @if ($segments->isEmpty())
                 <small class="form-text text-warning">No eligible lists are available for this ISP and country. Check active lists with current members.</small>
             @endif
+        </div>
+
+        <div class="form-group">
+            <label for="clone-gender-filter">Recipient gender</label>
+            <select id="clone-gender-filter" name="send_setup[gender_filter]" class="form-control selectpicker" title="All recipients" required>
+                <option value="all" @selected($selectedGender === 'all')>ALL — include every recipient</option>
+                <option value="female" @selected($selectedGender === 'female')>FEMALE only</option>
+                <option value="male" @selected($selectedGender === 'male')>MALE only</option>
+            </select>
+            <small class="form-text text-muted">Unknown gender values are included only when ALL is selected.</small>
         </div>
 
         <div class="form-row">

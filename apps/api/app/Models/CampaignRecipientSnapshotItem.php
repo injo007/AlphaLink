@@ -16,8 +16,18 @@ class CampaignRecipientSnapshotItem extends Model
 
     protected $fillable = [
         'workspace_id', 'snapshot_id', 'contact_id', 'position', 'email_lookup_hash',
-        'source_list_id', 'source_email_type', 'created_at',
+        'source_list_id', 'source_email_type', 'recipient_first_name', 'recipient_last_name', 'created_at',
     ];
+
+    protected $hidden = ['recipient_first_name', 'recipient_last_name'];
+
+    protected function casts(): array
+    {
+        return [
+            'recipient_first_name' => 'encrypted',
+            'recipient_last_name' => 'encrypted',
+        ];
+    }
 
     protected static function booted(): void
     {

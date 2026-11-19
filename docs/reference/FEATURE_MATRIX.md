@@ -183,3 +183,8 @@ E-CAMP-160 records the DMS-matched behavior: PMTA Admin and PMTA Panel open in s
 | ID | Workflow | Evidence | Status | Remaining gap |
 |---|---|---|---|---|
 | ALPHALINK-PMTA-002 | SMTP Reset and read-only queue-detail navigation | E-PMTA-117 | TESTING | Reset and proxy behavior are covered with synthetic tests. Existing PMTA hosts may still have an Nginx policy that blocks `/listqueue`; refresh the selected host's monitor config before claiming a live queue-detail click. No live reset or queue action was performed. |
+
+## AlphaLink audience profile import and campaign targeting — excluded from DMS denominator
+| ID | Workflow | Evidence | Status | Remaining gap |
+|---|---|---|---|---|
+| ALPHALINK-AUD-003 | Import profile-rich contact lists; inspect recipient tags; target all/female/male and personalize `__Fname__` / `__Lname__` | E-AUD-39, E-CAMP-172 | TESTING | Synthetic regressions pass for optional-age cleanup, import progress, profile/custom attributes, gender snapshots, and name fallback. Production rollout and authenticated upload/list/campaign review remain pending; no live recipient send was performed. |

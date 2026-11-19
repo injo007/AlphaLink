@@ -45,6 +45,7 @@ class AudienceListManagementController extends Controller
         $isp = $workspace->isps()->whereKey($ispId)->firstOrFail();
         $lists = $isp->lists()
             ->where('workspace_id', $workspace->getKey())
+            ->with('segmentSourceList:id,name')
             ->orderBy('id')
             ->get();
 
@@ -75,6 +76,11 @@ class AudienceListManagementController extends Controller
             return [
                 'id' => (string) $list->getKey(),
                 'name' => $list->name,
+                'is_generated_segment' => $list->segment_source_list_id !== null,
+                'segment_action' => $list->segment_action,
+                'segment_country_code' => $list->segment_country_code,
+                'segment_source_list_id' => $list->segment_source_list_id,
+                'segment_source_list_name' => $list->segmentSourceList?->name,
                 'country' => $list->country,
                 'is_active' => $list->status === 'active',
                 'is_tracked' => (bool) $list->is_tracked,
@@ -96,6 +102,7 @@ class AudienceListManagementController extends Controller
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
         $this->authorizeManager($workspace);
         $list = $workspace->audienceLists()->whereKey($listId)->firstOrFail();
+        $this->assertEditableSourceList($list);
 
         return view('console.infrastructure.lists.upload', [
             'workspace' => $workspace,
@@ -104,11 +111,12 @@ class AudienceListManagementController extends Controller
         ]);
     }
 
-    public function upload(Request $request, string $workspaceId, string $listId, ImportAudienceListContacts $importer): RedirectResponse
+    public function upload(Request $request, string $workspaceId, string $listId, ImportAudienceListContacts $importer): RedirectResponse|JsonResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
         $this->authorizeManager($workspace);
         $list = $workspace->audienceLists()->whereKey($listId)->firstOrFail();
+        $this->assertEditableSourceList($list);
         $data = $request->validate([
             'file' => ['required', 'file', 'mimes:txt,csv'],
             'type' => ['required', 'string', Rule::in(ContactListMembership::CAMPAIGN_TYPES)],
@@ -131,6 +139,13 @@ class AudienceListManagementController extends Controller
             $data['filter'] ?? null,
             $lookupKey,
         );
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'data' => $batch->statusPayload(),
+                'status_url' => route('console.infrastructure.lists.import-status', [$workspace->getKey(), $list->getKey(), $batch->getKey()]),
+            ], 202);
+        }
 
         return back()
             ->with('info', 'Import queued. It will continue in the background; you can leave this page open to follow its progress.')
@@ -180,6 +195,7 @@ class AudienceListManagementController extends Controller
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
         $this->authorizeManager($workspace);
         $list = $workspace->audienceLists()->whereKey($listId)->firstOrFail();
+        $this->assertEditableSourceList($list);
 
         return view('console.infrastructure.lists.form', [
             'workspace' => $workspace,
@@ -230,6 +246,7 @@ class AudienceListManagementController extends Controller
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
         $this->authorizeManager($workspace);
         $list = $workspace->audienceLists()->whereKey($listId)->firstOrFail();
+        $this->assertEditableSourceList($list);
         $isp = $workspace->isps()->whereKey($list->isp_id)->firstOrFail();
         $data = $this->validatedList($request, $isp);
         $list->forceFill(['name' => $data['name'], 'country' => $data['country'] ?? null])->save();
@@ -243,6 +260,7 @@ class AudienceListManagementController extends Controller
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
         $this->authorizeManager($workspace);
         $list = $workspace->audienceLists()->whereKey($listId)->firstOrFail();
+        $this->assertEditableSourceList($list);
         $membershipCount = $list->memberships()->count();
 
         DB::transaction(function () use ($workspace, $request, $list, $membershipCount): void {
@@ -261,6 +279,7 @@ class AudienceListManagementController extends Controller
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
         $this->authorizeManager($workspace);
         $list = $workspace->audienceLists()->whereKey($listId)->firstOrFail();
+        $this->assertEditableSourceList($list);
         $data = $request->validate(['status' => ['required', 'boolean']]);
         $list->forceFill(['status' => $data['status'] ? 'active' : 'inactive'])->save();
         $this->audit($workspace, $request, 'audience_list.status_changed', $list, ['is_active' => (bool) $data['status']]);
@@ -273,6 +292,7 @@ class AudienceListManagementController extends Controller
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
         $this->authorizeManager($workspace);
         $list = $workspace->audienceLists()->whereKey($listId)->firstOrFail();
+        $this->assertEditableSourceList($list);
         $data = $request->validate(['track' => ['required', 'boolean']]);
         $list->forceFill(['is_tracked' => (bool) $data['track']])->save();
         $this->audit($workspace, $request, 'audience_list.tracking_changed', $list, ['is_tracked' => (bool) $data['track']]);
@@ -285,6 +305,7 @@ class AudienceListManagementController extends Controller
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
         $this->authorizeManager($workspace);
         $list = $workspace->audienceLists()->whereKey($listId)->firstOrFail();
+        $this->assertEditableSourceList($list);
         $data = $request->validate([
             'type' => ['required', 'string', Rule::in(self::LOCK_TYPES)],
             'status' => ['required', 'boolean'],
@@ -305,6 +326,7 @@ class AudienceListManagementController extends Controller
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
         $this->authorizeManager($workspace);
         $list = $workspace->audienceLists()->whereKey($listId)->firstOrFail();
+        $this->assertEditableSourceList($list);
         $items = $type === 'users'
             ? $workspace->users()->wherePivot('role', 'operator')->orderBy('users.name')->get(['users.id', 'users.name', 'users.email'])
             : $workspace->sponsors()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'affiliate_id']);
@@ -328,6 +350,7 @@ class AudienceListManagementController extends Controller
             'ids.*' => ['required', 'uuid', 'distinct'],
         ]);
         $lists = $workspace->audienceLists()->whereKey($data['ids'])->orderBy('name')->get();
+        $lists = $lists->whereNull('segment_source_list_id')->values();
         abort_unless($lists->count() === count($data['ids']), 404);
         $items = $type === 'users'
             ? $workspace->users()->wherePivot('role', 'operator')->orderBy('users.name')->get(['users.id', 'users.name', 'users.email'])
@@ -353,6 +376,7 @@ class AudienceListManagementController extends Controller
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
         $this->authorizeManager($workspace);
         $list = $workspace->audienceLists()->whereKey($listId)->firstOrFail();
+        $this->assertEditableSourceList($list);
         $field = $type === 'users' ? 'users' : 'sponsors';
         $exists = $type === 'users'
             ? Rule::exists('workspace_user', 'user_id')->where('workspace_id', $workspace->getKey())->where('role', 'operator')
@@ -387,6 +411,7 @@ class AudienceListManagementController extends Controller
             $field.'.*' => ['required', 'integer', 'distinct', $exists],
         ]);
         $lists = $workspace->audienceLists()->whereKey($data['lists'])->orderBy('id')->get();
+        $lists = $lists->whereNull('segment_source_list_id')->values();
         abort_unless($lists->count() === count($data['lists']), 404);
         $ids = array_values(array_unique(array_map('intval', $data[$field] ?? [])));
         $column = $type === 'users' ? 'allowed_users' : 'allowed_sponsors';
@@ -435,5 +460,10 @@ class AudienceListManagementController extends Controller
     private function authorizeManager(Workspace $workspace): void
     {
         abort_unless(in_array($workspace->pivot->role, self::MANAGE_ROLES, true), 403);
+    }
+
+    private function assertEditableSourceList(AudienceList $list): void
+    {
+        abort_if($list->segment_source_list_id !== null, 409, 'This is an automatically generated segment. Manage or upload contacts through its source list instead.');
     }
 }

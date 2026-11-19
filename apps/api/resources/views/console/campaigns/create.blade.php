@@ -29,6 +29,7 @@
             'isp_id' => (string) old('send_setup.isp_id', $savedSetup['isp_id'] ?? ''),
             'country' => strtoupper((string) old('send_setup.country', $savedSetup['country'] ?? 'ALL')),
             'audience_segments' => array_map('strval', (array) old('send_setup.audience_segments', $savedSetup['audience_segments'] ?? [])),
+            'gender_filter' => (string) old('send_setup.gender_filter', $savedSetup['gender_filter'] ?? 'all'),
             'from_asset_ids' => array_map('strval', (array) old('send_setup.from_asset_ids', $savedSetup['from_asset_ids'] ?? [])),
             'subject_asset_ids' => array_map('strval', (array) old('send_setup.subject_asset_ids', $savedSetup['subject_asset_ids'] ?? [])),
             'creative_asset_id' => (string) old('send_setup.creative_asset_id', $savedSetup['creative_asset_id'] ?? ''),
@@ -1283,6 +1284,15 @@
                                     @endforeach
                                 </select>
                             </div>
+                            <div class="form-group">
+                                <label for="send-gender-filter"><i class="fas fa-venus-mars campaign-field-icon" aria-hidden="true"></i>Recipient gender:</label>
+                                <select id="send-gender-filter" name="send_setup[gender_filter]" class="form-control selectpicker" title="All recipients" required>
+                                    <option value="all" @selected($setup['gender_filter'] === 'all')>ALL — include every recipient</option>
+                                    <option value="female" @selected($setup['gender_filter'] === 'female')>FEMALE only</option>
+                                    <option value="male" @selected($setup['gender_filter'] === 'male')>MALE only</option>
+                                </select>
+                                <small class="form-text text-muted">Gender comes from saved sex/gender tags. Unknown values remain included only when ALL is selected.</small>
+                            </div>
                             <div class="form-row mb-0">
                                 <div class="form-group col-sm-6">
                                     <label for="send-order-by"><i class="fas fa-sort campaign-field-icon" aria-hidden="true"></i>Order By:</label>
@@ -1307,8 +1317,8 @@
         <div id="campaign-data" tabindex="-1">
         <div class="alert alert-primary alert-dismissible text-center py-2" id="campaign-usable-tags">
             <strong><i class="fas fa-code campaign-field-icon" aria-hidden="true"></i>USABLE TAGS:</strong>
-            <span class="campaign-usable-tag-list">[server] [main_domain] [ip] [domain] [rdns] [to] [date] [name] [rnd] [smtp] [smtp_name] [rnd(N|A|L|U|S|LU|LN|NU)_NUMBER] [text:a|b|c]</span>
-            <small class="sr-only">[smtp] and [smtp_name] fill message text; Option SMTP selects the outbound relay. Start a saved campaign from My Campaigns after suppression and recipient preparation finish.</small>
+            <span class="campaign-usable-tag-list">[server] [main_domain] [ip] [domain] [rdns] [to] [date] [name] __Fname__ __Lname__ [rnd] [smtp] [smtp_name] [rnd(N|A|L|U|S|LU|LN|NU)_NUMBER] [text:a|b|c]</span>
+            <small class="sr-only">__Fname__ and __Lname__ insert recipient names, falling back to the email alias when a name is missing. [smtp] and [smtp_name] fill message text; Option SMTP selects the outbound relay. Start a saved campaign from My Campaigns after suppression and recipient preparation finish.</small>
             <button type="button" class="btn btn-link btn-sm p-0 ml-1" id="campaign-tags-help" title="SHOW EXAMPLE" aria-label="Show tag examples"><i class="fas fa-question-circle" aria-hidden="true"></i></button>
             <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button>
         </div>
@@ -1714,6 +1724,7 @@
                     <h4 class="h6">Message and server tags</h4>
                     <p><code>[ip]</code> IP · <code>[server]</code> Server name · <code>[main_domain]</code> Server domain · <code>[domain]</code> IP domain with TLD · <code>[domain_sld]</code> IP domain without the final TLD · <code>[rdns]</code> IP reverse DNS</p>
                     <p><code>[from]</code> Random From · <code>[subject]</code> Random Subject · <code>[ids]</code> Server ID · <code>[idd]</code> Domain ID · <code>[idi]</code> IP ID · <code>[ide]</code> Email ID · <code>[to]</code> Destination email · <code>[negative]</code> Negative token file · <code>[name]</code> Email username · <code>[date]</code> Current date</p>
+                    <p><code>__Fname__</code> Recipient first name · <code>__Lname__</code> Recipient last name. Names are taken from the imported profile and fall back to the email alias when missing.</p>
                     <p><code>[rnd]</code> 18 random characters · <code>[text:a|b|c]</code> Choose one value · <code>[base64:text]</code> Base64 encode · <code>[printable:text]</code> Quoted-printable encode</p>
                     <p><code>[boundary]</code> 30 static characters · <code>[bnd]</code> 30 static characters · <code>[smtp]</code> SMTP username · <code>[smtp_name]</code> SMTP name · <code>[tag]</code> Tag reply extractor · <code>#[token]</code> Track redirect/unsubscribe short links</p>
                     <h4 class="h6">Random tags</h4>

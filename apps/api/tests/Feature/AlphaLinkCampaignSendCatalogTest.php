@@ -9,6 +9,7 @@ use App\Models\AudienceMixSnapshotMember;
 use App\Models\AuditEvent;
 use App\Models\Campaign;
 use App\Models\CampaignRecipientSnapshot;
+use App\Models\CampaignRecipientSnapshotItem;
 use App\Models\CampaignRecipientSnapshotItemAddress;
 use App\Models\CampaignRevision;
 use App\Models\CampaignTestMailAttempt;
@@ -1379,6 +1380,11 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
                 'email' => Crypt::encryptString($email),
                 'email_lookup_hash' => hash_hmac('sha256', $email, $lookupKey),
                 'lookup_key_version' => 1,
+                'profile' => Crypt::encryptString(json_encode([
+                    'first_name' => 'First '.$index,
+                    'last_name' => 'Last '.$index,
+                    'sex' => $index % 2 === 0 ? 'female' : 'male',
+                ], JSON_THROW_ON_ERROR)),
                 'status' => 'active',
                 'idempotency_key' => (string) Str::uuid(),
                 'created_at' => $now,
@@ -1436,6 +1442,7 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
             ->orderBy('position')
             ->get(['id', 'contact_id', 'position']);
         $this->assertSame(1002, $snapshot->recipient_count);
+        $this->assertSame('all', $snapshot->selection['gender_filter']);
         $this->assertSame(1000, $snapshot->duplicate_count);
         $this->assertSame(7, $snapshot->start_from);
         $this->assertCount(1002, $items);
@@ -1467,6 +1474,15 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
         $this->assertSame($originalFirstEmail, $storedAddress->email);
         $this->assertArrayNotHasKey('email', $storedAddress->toArray());
 
+        $namedContact = Contact::query()->where('email_lookup_hash', hash_hmac('sha256', 'page-0001@example.test', $lookupKey))->firstOrFail();
+        $namedItem = CampaignRecipientSnapshotItem::query()
+            ->where('snapshot_id', $snapshot->getKey())
+            ->where('contact_id', $namedContact->getKey())
+            ->firstOrFail();
+        $this->assertSame('First 1', $namedItem->recipient_first_name);
+        $this->assertSame('Last 1', $namedItem->recipient_last_name);
+        $this->assertArrayNotHasKey('recipient_first_name', $namedItem->toArray());
+
         $firstContact = $contacts->get((string) $firstItem->contact_id);
         $firstContact->forceFill(['email' => 'changed-after-snapshot@example.test'])->save();
         $this->assertSame($originalFirstEmail, $storedAddress->fresh()->email);
@@ -1493,6 +1509,37 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
             $originalFirstEmail,
             CampaignRecipientSnapshotItemAddress::query()->findOrFail($copiedItemId)->email,
         );
+        $copiedNamedItem = CampaignRecipientSnapshotItem::query()
+            ->where('snapshot_id', $copiedSnapshot->getKey())
+            ->where('contact_id', $namedContact->getKey())
+            ->firstOrFail();
+        $this->assertSame('First 1', $copiedNamedItem->recipient_first_name);
+
+        $genderRevision = CampaignRevision::query()->create([
+            'campaign_id' => $campaign->getKey(),
+            'revision_number' => 3,
+            'payload' => ['kind' => 'marketing'],
+            'content_sha256' => hash('sha256', 'gender-filtered recipient snapshot'),
+            'idempotency_key' => (string) Str::uuid(),
+            'request_fingerprint' => hash('sha256', 'gender-filtered recipient snapshot request'),
+            'created_by' => $owner->getKey(),
+            'created_at' => now(),
+        ]);
+        $femaleSnapshot = app(AlphaLinkCampaignRecipientSnapshotBuilder::class)->build(
+            $workspace,
+            $campaign,
+            (string) $genderRevision->getKey(),
+            [
+                'offer_id' => $offer->getKey(),
+                'isp_id' => $isp->getKey(),
+                'audience_segments' => [$list->getKey().'_fresh'],
+                'gender_filter' => 'female',
+                'order_by' => 'asc',
+                'start_from' => 0,
+            ],
+        );
+        $this->assertSame(500, $femaleSnapshot->recipient_count);
+        $this->assertSame('female', $femaleSnapshot->selection['gender_filter']);
 
         $tamperedContact = Contact::query()->findOrFail($items->get(1)->contact_id);
         $tamperedContact->forceFill(['email_lookup_hash' => str_repeat('0', 64)])->save();

@@ -24,6 +24,7 @@ class CampaignSendMessageBuilder
         private readonly AlphaLinkBulkInstallVmtaPlanner $vmtaPlanner,
         private readonly AlphaLinkCampaignTrackingTokenBuilder $trackingTokenBuilder,
         private readonly CampaignRedirectUrlPolicy $redirectUrlPolicy,
+        private readonly CampaignPersonalizationTags $personalizationTags,
     ) {}
 
     /** @return array<string, mixed> */
@@ -80,6 +81,7 @@ class CampaignSendMessageBuilder
         if (! empty($disabledDomains)) {
             $healthyChoices = $choices->reject(function (array $choice) use ($disabledDomains): bool {
                 $d = strtolower(trim((string) ($choice['vmta_domain'] ?? $choice['dns'] ?? '')));
+
                 return $d !== '' && in_array($d, $disabledDomains, true);
             })->values();
 
@@ -272,6 +274,13 @@ class CampaignSendMessageBuilder
         $header = $this->tagRenderer->render($context['header_template'], $tags, $context['placeholder_rows'], $position - 1, $cache);
         $body = $this->tagRenderer->render($context['body_template'], $tags, $context['placeholder_rows'], $position - 1, $cache);
         $returnPath = $this->tagRenderer->render($context['return_path'], $tags, $context['placeholder_rows'], $position - 1, $cache);
+        $profile = [
+            'first_name' => $item->recipient_first_name,
+            'last_name' => $item->recipient_last_name,
+        ];
+        $htmlBody = preg_match('/^\s*content-type\s*:\s*text\/html/im', $header) === 1;
+        $header = $this->personalizationTags->personalizeSubjectHeader($header, $profile, $recipient);
+        $body = $this->personalizationTags->personalizeBody($body, $profile, $recipient, $htmlBody);
         if ($trackingHost !== null && $this->redirectUrlPolicy->isTrackingHostOrSubdomain($domain, $trackingHost)) {
             $trackingScheme = $trackingHttpsReady ? 'https' : 'http';
             $header = $this->redirectUrlPolicy->forceSchemeForHost($header, $domain, $trackingScheme);

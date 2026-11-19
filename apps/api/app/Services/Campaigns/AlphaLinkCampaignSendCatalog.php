@@ -703,6 +703,10 @@ class AlphaLinkCampaignSendCatalog
         ]);
 
         $selectedSegments = array_values(array_unique(array_map('strval', $selection['audience_segments'])));
+        $genderFilter = (string) ($selection['gender_filter'] ?? 'all');
+        if (! in_array($genderFilter, ['all', 'female', 'male'], true)) {
+            throw ValidationException::withMessages(['send_setup.gender_filter' => 'Choose all recipients, female, or male.']);
+        }
         $availableSegments = collect($options['segments'])->keyBy('id');
         $selectedOffer = collect($options['offers'])->first(fn (array $offer): bool => (string) $offer['id'] === (string) $selection['offer_id']);
         $availableOfferAssets = collect($selectedOffer['assets'] ?? [])->keyBy('id')->all();
@@ -778,6 +782,7 @@ class AlphaLinkCampaignSendCatalog
             'country' => strtoupper((string) $selection['country']),
             'audience_list_ids' => $selectedListIds,
             'audience_segments' => $selectedSegments,
+            'gender_filter' => $genderFilter,
             'targeting_basis' => 'email_type_segments',
             'order_by' => (string) $selection['order_by'],
             'start_from' => (int) $selection['start_from'],

@@ -11,6 +11,7 @@ use App\Models\Workspace;
 use App\Services\Audiences\AudienceMembershipFilterIndexer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -40,6 +41,7 @@ class AlphaLinkListUploadTest extends TestCase
         ]);
         $this->workspace->users()->attach($this->owner->getKey(), ['role' => 'owner']);
         $this->actingAs($this->owner);
+        $this->withoutMiddleware(ThrottleRequests::class);
     }
 
     public function test_upload_page_matches_the_reference_fields_and_uses_a_synthetic_example_file(): void
@@ -48,12 +50,12 @@ class AlphaLinkListUploadTest extends TestCase
 
         $this->get($this->uploadUrl($list))
             ->assertOk()
-            ->assertSee('Upload Emails To List')
-            ->assertSee('DOWNLOAD EXAMPLE')
-            ->assertSee('Save To Type:')
+            ->assertSee('Upload Emails')
+            ->assertSee('DOWNLOAD EXAMPLE CSV')
+            ->assertSee('Save To Segment Type:')
             ->assertSee('fresh')
             ->assertSee('delivery')
-            ->assertSee('Save Only Emails That Contain:');
+            ->assertSee('Save Only Emails That Contain (Optional Keyword):');
 
         $example = $this->get(route('clean.console.infrastructure.lists.import-example'))
             ->assertOk()
@@ -104,9 +106,9 @@ class AlphaLinkListUploadTest extends TestCase
             'first_name' => 'Alice',
             'last_name' => 'One',
             'country' => 'US',
-            'age' => 30,
             'sex' => 'F',
             'vertical' => 'retail',
+            'age' => 30,
         ], $alice->profile);
         $this->assertStringNotContainsString('Alice', (string) $alice->getRawOriginal('profile'));
         $firstListProfile = ContactListMembership::query()
@@ -196,25 +198,100 @@ class AlphaLinkListUploadTest extends TestCase
         }
     }
 
-    public function test_invalid_typed_profile_data_aborts_the_file_before_any_rows_are_written(): void
+    public function test_invalid_optional_age_is_skipped_and_valid_profile_rows_are_imported(): void
     {
         $list = $this->makeList('Atomic validation list');
+        $csv = "Email,First Name,Last Name,Country,Age,Gender,Vertical,Company\n"
+            ."good@example.test,Good,Age,US,32,F,retail,Acme\n"
+            .'bad-age@example.test,Bad,Age,GB,not-a-number,M,travel,Globex';
 
         $this->from($this->uploadUrl($list))
             ->post($this->uploadUrl($list), [
-                'file' => UploadedFile::fake()->createWithContent('bad-age.csv', "good@example.test,Good,Age,US,32\nbad@example.test,Bad,Age,US,not-a-number"),
+                'file' => UploadedFile::fake()->createWithContent('profile.csv', $csv),
                 'type' => 'fresh',
             ])
             ->assertRedirect($this->uploadUrl($list))
             ->assertSessionHas('import_batch_id');
 
         $batch = AudienceListImportBatch::query()->sole();
-        $this->assertSame('failed', $batch->status);
-        $this->assertSame(0, $batch->imported_count);
-        $this->assertStringContainsString('No rows were imported', $batch->failure_message);
+        $this->assertSame('completed', $batch->status);
+        $this->assertSame(2, $batch->imported_count);
+        $this->assertSame(1, $batch->profile_warning_count);
 
-        $this->assertDatabaseCount('contacts', 0);
-        $this->assertDatabaseCount('contact_list_memberships', 0);
+        $goodContact = Contact::query()->where('email_lookup_hash', hash_hmac('sha256', 'good@example.test', str_repeat('k', 32)))->sole();
+        $this->assertSame(32, $goodContact->profile['age']);
+        $this->assertSame('Acme', $goodContact->profile['attributes']['Company']);
+        $badAgeContact = Contact::query()->where('email_lookup_hash', hash_hmac('sha256', 'bad-age@example.test', str_repeat('k', 32)))->sole();
+        $this->assertArrayNotHasKey('age', $badAgeContact->profile);
+        $this->assertSame('Globex', $badAgeContact->profile['attributes']['Company']);
+    }
+
+    public function test_json_upload_returns_an_import_status_url_for_progress_polling(): void
+    {
+        $list = $this->makeList('Progress upload list');
+
+        $response = $this->postJson($this->uploadUrl($list), [
+            'file' => UploadedFile::fake()->createWithContent('progress.csv', "Email,First Name\nprogress@example.test,Progress"),
+            'type' => 'fresh',
+        ]);
+
+        $response->assertAccepted()
+            ->assertJsonStructure(['data' => ['id', 'status', 'progress_percent'], 'status_url']);
+        $this->getJson($response->json('status_url'))
+            ->assertOk()
+            ->assertJsonPath('data.profile_warning_count', 0);
+    }
+
+    public function test_generated_segments_are_visible_as_projections_and_cannot_be_uploaded_to_or_deleted(): void
+    {
+        $list = $this->makeList('Projected source');
+        $this->from($this->uploadUrl($list))->post($this->uploadUrl($list), [
+            'file' => UploadedFile::fake()->createWithContent('source.csv', 'source@example.test,Source,User,US,28,F,retail'),
+            'type' => 'fresh',
+        ])->assertRedirect($this->uploadUrl($list));
+
+        $projection = AudienceList::query()
+            ->where('segment_source_list_id', $list->getKey())
+            ->where('segment_action', 'fresh')
+            ->firstOrFail();
+
+        $this->get(route('console.infrastructure.lists.upload', [$this->workspace->getKey(), $projection->getKey()]))
+            ->assertStatus(409);
+        $this->deleteJson(route('console.infrastructure.lists.destroy', [$this->workspace->getKey(), $projection->getKey()]))
+            ->assertStatus(409);
+        $this->assertDatabaseHas('audience_lists', ['id' => $projection->getKey(), 'deleted_at' => null]);
+    }
+
+    public function test_owner_can_preview_recipient_addresses_and_all_imported_tags(): void
+    {
+        $list = $this->makeList('Visible tagged list');
+        $contact = Contact::query()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'email' => 'visible@example.test',
+            'email_lookup_hash' => hash_hmac('sha256', 'visible@example.test', str_repeat('k', 32)),
+            'lookup_key_version' => 1,
+            'profile' => ['first_name' => 'Vis', 'last_name' => 'Able', 'attributes' => ['Company' => 'Example Co']],
+            'status' => 'active',
+            'idempotency_key' => (string) Str::uuid(),
+        ]);
+        ContactListMembership::query()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'audience_list_id' => $list->getKey(),
+            'contact_id' => $contact->getKey(),
+            'email_type' => 'fresh',
+            'status' => 'active',
+            'joined_at' => now(),
+            'profile' => ['country' => 'US'],
+        ]);
+
+        $this->get(route('console.audiences.show', [$this->workspace->getKey(), $list->getKey()]))
+            ->assertOk()
+            ->assertSee('visible@example.test')
+            ->assertSee('Vis')
+            ->assertSee('Able')
+            ->assertSee('Example Co')
+            ->assertSee('country:')
+            ->assertSee('Recipient Data');
     }
 
     public function test_filter_value_zero_keeps_reference_php_truthiness_and_disables_filtering(): void
@@ -233,7 +310,7 @@ class AlphaLinkListUploadTest extends TestCase
         $this->assertDatabaseCount('contacts', 2);
     }
 
-    public function test_csv_email_field_is_not_trimmed_before_validation_like_reference(): void
+    public function test_csv_email_field_is_trimmed_before_validation(): void
     {
         $list = $this->makeList('Whitespace list');
 
@@ -245,10 +322,13 @@ class AlphaLinkListUploadTest extends TestCase
             ->assertRedirect($this->uploadUrl($list))
             ->assertSessionHas('import_batch_id');
 
-        $this->assertDatabaseCount('contacts', 1);
+        $this->assertDatabaseCount('contacts', 2);
         $batch = AudienceListImportBatch::query()->sole();
-        $this->assertSame(1, $batch->valid_count);
-        $this->assertSame(1, $batch->invalid_count);
+        $this->assertSame(2, $batch->valid_count);
+        $this->assertSame(0, $batch->invalid_count);
+        $this->assertDatabaseHas('contacts', [
+            'email_lookup_hash' => hash_hmac('sha256', 'invalid@example.test', str_repeat('k', 32)),
+        ]);
         $this->assertDatabaseHas('contacts', [
             'email_lookup_hash' => hash_hmac('sha256', 'valid@example.test', str_repeat('k', 32)),
         ]);
@@ -276,7 +356,7 @@ class AlphaLinkListUploadTest extends TestCase
     public function test_upload_is_scoped_to_workspace_managers_and_the_selected_list(): void
     {
         $list = $this->makeList('Scoped list');
-        $operator = User::factory()->create();
+        $operator = User::factory()->create(['access_role' => User::ACCESS_ROLE_OPERATOR]);
         $this->workspace->users()->attach($operator->getKey(), ['role' => 'operator']);
 
         $this->actingAs($operator)->get($this->uploadUrl($list))->assertForbidden();

@@ -9,6 +9,7 @@ use App\Models\CampaignRecipientSnapshot;
 use App\Models\ContactListMembership;
 use App\Models\Workspace;
 use App\Models\WorkspaceOffer;
+use App\Services\Audiences\RecipientGenderFilter;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +19,10 @@ use Illuminate\Validation\ValidationException;
 
 class AlphaLinkCampaignRecipientSnapshotBuilder
 {
-    public function __construct(private readonly AlphaLinkOfferSuppressionFile $suppressionFiles) {}
+    public function __construct(
+        private readonly AlphaLinkOfferSuppressionFile $suppressionFiles,
+        private readonly RecipientGenderFilter $genderFilter,
+    ) {}
 
     /**
      * Reproduce AlphaLink campaign creation's recipient suppression and point-in-time manifest.
@@ -46,6 +50,10 @@ class AlphaLinkCampaignRecipientSnapshotBuilder
         $selected = $sendSetup['audience_segments'] ?? [];
         if (! is_array($selected) || $selected === []) {
             throw ValidationException::withMessages(['send_setup.audience_segments' => 'Select at least one unlocked list segment with eligible addresses.']);
+        }
+        $genderFilter = (string) ($sendSetup['gender_filter'] ?? 'all');
+        if (! in_array($genderFilter, ['all', 'female', 'male'], true)) {
+            throw ValidationException::withMessages(['send_setup.gender_filter' => 'Choose all recipients, female, or male.']);
         }
 
         $tables = $this->createStagingTables();
@@ -129,7 +137,7 @@ class AlphaLinkCampaignRecipientSnapshotBuilder
                 $cursorMembershipId = null;
                 while (true) {
                     $membershipsQuery = ContactListMembership::query()
-                        ->with('contact:id,workspace_id,email,email_lookup_hash,status')
+                        ->with('contact:id,workspace_id,email,email_lookup_hash,status,profile')
                         ->where('workspace_id', $workspace->getKey())
                         ->where('audience_list_id', $listId)
                         ->where('email_type', $emailType)
@@ -161,8 +169,12 @@ class AlphaLinkCampaignRecipientSnapshotBuilder
                         if (! $contact || $contact->status !== 'active') {
                             continue;
                         }
+                        if (! $this->genderFilter->matches($genderFilter, $membership->profile, $contact->profile)) {
+                            continue;
+                        }
 
                         $email = mb_strtolower(trim((string) $contact->email));
+                        $profile = array_replace((array) ($contact->profile ?? []), (array) ($membership->profile ?? []));
                         $candidates[] = [
                             'contact_id' => (string) $contact->getKey(),
                             'email_lookup_hash' => (string) $contact->email_lookup_hash,
@@ -170,6 +182,8 @@ class AlphaLinkCampaignRecipientSnapshotBuilder
                             'source_list_id' => (string) $listId,
                             'source_email_type' => $emailType,
                             'email' => $email,
+                            'first_name' => trim((string) ($profile['first_name'] ?? '')),
+                            'last_name' => trim((string) ($profile['last_name'] ?? '')),
                             'suppression_key' => $this->suppressionFiles->lookupHashForEmail($email, (string) $offer->suppression_format),
                             'count_list_suppression' => false,
                         ];
@@ -207,7 +221,7 @@ class AlphaLinkCampaignRecipientSnapshotBuilder
                 $cursorMixMemberId = null;
                 while (true) {
                     $mixMembersQuery = AudienceMixSnapshotMember::query()
-                        ->with('contact:id,workspace_id,email,email_lookup_hash,status')
+                        ->with(['contact:id,workspace_id,email,email_lookup_hash,status,profile', 'sourceMembership:id,workspace_id,profile'])
                         ->where('workspace_id', $workspace->getKey())
                         ->whereIn('snapshot_id', $mixIds);
 
@@ -243,8 +257,12 @@ class AlphaLinkCampaignRecipientSnapshotBuilder
                         if (! $contact || $contact->status !== 'active') {
                             continue;
                         }
+                        if (! $this->genderFilter->matches($genderFilter, $mixMember->sourceMembership?->profile, $contact->profile)) {
+                            continue;
+                        }
 
                         $email = mb_strtolower(trim((string) $contact->email));
+                        $profile = array_replace((array) ($contact->profile ?? []), (array) ($mixMember->sourceMembership?->profile ?? []));
                         $candidates[] = [
                             'contact_id' => (string) $contact->getKey(),
                             'email_lookup_hash' => (string) $contact->email_lookup_hash,
@@ -254,6 +272,8 @@ class AlphaLinkCampaignRecipientSnapshotBuilder
                             'source_list_id' => (string) $mixMember->source_list_id,
                             'source_email_type' => (string) $mixMember->email_type,
                             'email' => $email,
+                            'first_name' => trim((string) ($profile['first_name'] ?? '')),
+                            'last_name' => trim((string) ($profile['last_name'] ?? '')),
                             'suppression_key' => $this->suppressionFiles->lookupHashForEmail($email, (string) $offer->suppression_format),
                             'count_list_suppression' => true,
                         ];
@@ -307,7 +327,7 @@ class AlphaLinkCampaignRecipientSnapshotBuilder
             $recipientsSha256 = hash_final($manifest);
             $this->reportProgress($onProgress, 'writing_snapshot', 0, 0, 0);
 
-            return DB::transaction(function () use ($workspace, $campaign, $revisionId, $offer, $sendSetup, $tables, $recipientCount, $offerSuppressedCount, $workspaceSuppressedCount, $duplicateCount, $recipientsSha256): CampaignRecipientSnapshot {
+            return DB::transaction(function () use ($workspace, $campaign, $revisionId, $offer, $sendSetup, $tables, $recipientCount, $offerSuppressedCount, $workspaceSuppressedCount, $duplicateCount, $recipientsSha256, $genderFilter): CampaignRecipientSnapshot {
                 $snapshot = CampaignRecipientSnapshot::query()->create([
                     'workspace_id' => $workspace->getKey(),
                     'campaign_id' => $campaign->getKey(),
@@ -316,6 +336,7 @@ class AlphaLinkCampaignRecipientSnapshotBuilder
                     'suppression_sha256' => $offer->suppression_sha256,
                     'selection' => [
                         'audience_segments' => $sendSetup['audience_segments'],
+                        'gender_filter' => $genderFilter,
                         'order_by' => $sendSetup['order_by'],
                         'targeting_basis' => 'active_memberships',
                     ],
@@ -356,6 +377,8 @@ class AlphaLinkCampaignRecipientSnapshotBuilder
                             'email_lookup_hash' => $recipient->email_lookup_hash,
                             'source_list_id' => $recipient->source_list_id,
                             'source_email_type' => $recipient->source_email_type,
+                            'recipient_first_name' => $recipient->first_name === '' ? null : Crypt::encryptString((string) $recipient->first_name),
+                            'recipient_last_name' => $recipient->last_name === '' ? null : Crypt::encryptString((string) $recipient->last_name),
                             'created_at' => $createdAt,
                         ];
                         $addressRows[] = [
@@ -484,6 +507,8 @@ class AlphaLinkCampaignRecipientSnapshotBuilder
                             'email_lookup_hash' => $item->email_lookup_hash,
                             'source_list_id' => $item->source_list_id,
                             'source_email_type' => $item->source_email_type,
+                            'recipient_first_name' => $item->recipient_first_name,
+                            'recipient_last_name' => $item->recipient_last_name,
                             'created_at' => $createdAt,
                         ];
                     }
@@ -566,6 +591,8 @@ class AlphaLinkCampaignRecipientSnapshotBuilder
                 source_list_id UUID NOT NULL,
                 source_email_type VARCHAR(24) NOT NULL,
                 email VARCHAR(320) NOT NULL,
+                first_name TEXT NOT NULL,
+                last_name TEXT NOT NULL,
                 suppression_key CHAR(64) NOT NULL,
                 count_list_suppression SMALLINT NOT NULL
             )");
@@ -575,6 +602,8 @@ class AlphaLinkCampaignRecipientSnapshotBuilder
                 source_list_id UUID NOT NULL,
                 source_email_type VARCHAR(24) NOT NULL,
                 email VARCHAR(320) NOT NULL,
+                first_name TEXT NOT NULL,
+                last_name TEXT NOT NULL,
                 first_position BIGINT NOT NULL UNIQUE,
                 random_order DOUBLE PRECISION NOT NULL
             )");
@@ -648,6 +677,8 @@ class AlphaLinkCampaignRecipientSnapshotBuilder
                 'source_list_id' => $candidate['source_list_id'],
                 'source_email_type' => $candidate['source_email_type'],
                 'email' => $email,
+                'first_name' => $candidate['first_name'],
+                'last_name' => $candidate['last_name'],
                 'suppression_key' => $candidate['suppression_key'],
                 'count_list_suppression' => $candidate['count_list_suppression'] ? 1 : 0,
             ];
@@ -739,6 +770,8 @@ class AlphaLinkCampaignRecipientSnapshotBuilder
                         'source_list_id' => (string) $candidate->source_list_id,
                         'source_email_type' => (string) $candidate->source_email_type,
                         'email' => (string) $candidate->email,
+                        'first_name' => (string) $candidate->first_name,
+                        'last_name' => (string) $candidate->last_name,
                         'first_position' => $nextPosition,
                         'random_order' => mt_rand() / mt_getrandmax(),
                     ];

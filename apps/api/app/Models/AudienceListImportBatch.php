@@ -17,7 +17,7 @@ class AudienceListImportBatch extends Model
         'source_format', 'membership_type', 'filter', 'storage_path', 'file_sha256', 'file_size_bytes',
         'checksum_verified', 'validation_offset', 'import_offset', 'processed_count',
         'valid_count', 'filtered_count', 'invalid_count', 'imported_count',
-        'duplicate_count', 'failure_message', 'request_id', 'next_dispatch_at',
+        'duplicate_count', 'profile_warning_count', 'failure_message', 'request_id', 'next_dispatch_at',
         'started_at', 'finished_at',
     ];
 
@@ -34,6 +34,7 @@ class AudienceListImportBatch extends Model
             'invalid_count' => 'integer',
             'imported_count' => 'integer',
             'duplicate_count' => 'integer',
+            'profile_warning_count' => 'integer',
             'next_dispatch_at' => 'immutable_datetime',
             'started_at' => 'immutable_datetime',
             'finished_at' => 'immutable_datetime',
@@ -90,6 +91,7 @@ class AudienceListImportBatch extends Model
             'invalid_count' => (int) $this->invalid_count,
             'imported_count' => (int) $this->imported_count,
             'duplicate_count' => (int) $this->duplicate_count,
+            'profile_warning_count' => (int) $this->profile_warning_count,
             'failure_message' => $this->failure_message,
         ];
     }

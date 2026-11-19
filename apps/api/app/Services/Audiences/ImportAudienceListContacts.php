@@ -25,6 +25,16 @@ class ImportAudienceListContacts
 {
     private const CANDIDATES_PER_JOB = 500;
 
+    private const PROFILE_COLUMN_ALIASES = [
+        'email' => ['email', 'emailaddress', 'address', 'mail', 'recipient', 'emailid'],
+        'first_name' => ['firstname', 'fname', 'givenname', 'first'],
+        'last_name' => ['lastname', 'lname', 'surname', 'familyname', 'last'],
+        'country' => ['country', 'countrycode', 'geo'],
+        'age' => ['age'],
+        'sex' => ['sex', 'gender'],
+        'vertical' => ['vertical', 'niche', 'industry', 'category'],
+    ];
+
     public function __construct(
         private readonly AudienceListHistoryCalculator $historyCalculator,
         private readonly AudienceMembershipFilterIndexer $filterIndexer,
@@ -174,23 +184,36 @@ class ImportAudienceListContacts
                 $request = $this->batchRequest($batch);
                 $lookupKey = config('alphalink.contact_lookup_key');
                 $this->assertLookupKey(is_string($lookupKey) ? $lookupKey : '');
+                $csvLayout = $batch->source_format === AudienceListImportBatch::FORMAT_PROFILE_CSV
+                    ? $this->profileCsvLayout($absolutePath)
+                    : null;
                 $seen = [];
                 $rows = 0;
                 $atEnd = false;
 
+                if ($csvLayout !== null && $offset === 0 && $csvLayout['has_header']) {
+                    fgetcsv($stream, null, $csvLayout['delimiter'], '"', '\\');
+                    $offset = (int) ftell($stream);
+                }
+
                 while ($rows < self::CANDIDATES_PER_JOB && ! feof($stream)) {
-                    $line = fgets($stream);
+                    $line = $csvLayout === null
+                        ? fgets($stream)
+                        : fgetcsv($stream, null, $csvLayout['delimiter'], '"', '\\');
                     if ($line === false) {
                         $atEnd = true;
                         break;
                     }
 
                     $rows++;
-                    $offset = ftell($stream);
-                    $parsed = $this->parseCandidate($batch, $line);
+                    $offset = (int) ftell($stream);
+                    $parsed = $this->parseCandidate($batch, $line, $csvLayout['columns'] ?? []);
                     if (($batch->source_format === AudienceListImportBatch::FORMAT_PROFILE_CSV && $batch->phase === 'validation')
                         || ($batch->source_format === 'addresses' && $batch->phase === 'import')) {
                         $batch->processed_count++;
+                    }
+                    if ($batch->source_format === AudienceListImportBatch::FORMAT_PROFILE_CSV && $batch->phase === 'validation') {
+                        $batch->profile_warning_count += $parsed['profile_warning_count'] ?? 0;
                     }
 
                     if ($parsed['status'] === 'ignored') {
@@ -439,9 +462,111 @@ class ImportAudienceListContacts
         return 'audience-imports/'.$workspace->getKey().'/'.$list->getKey().'/'.Str::uuid().'.'.$extension;
     }
 
-    private function parseCandidate(AudienceListImportBatch $batch, string $line): array
+    /**
+     * @return array{delimiter: string, has_header: bool, columns: array{email: int, first_name: int, last_name: int, country: int, age: int, sex: int, vertical: int, attributes: array<string, int>}}
+     */
+    private function profileCsvLayout(string $path): array
+    {
+        $stream = fopen($path, 'rb');
+        if ($stream === false) {
+            throw new RuntimeException('Unable to read the staged audience import.');
+        }
+
+        $firstLine = fgets($stream);
+        fclose($stream);
+        if (! is_string($firstLine)) {
+            return [
+                'delimiter' => ',',
+                'has_header' => false,
+                'columns' => ['email' => 0, 'first_name' => 1, 'last_name' => 2, 'country' => 3, 'age' => 4, 'sex' => 5, 'vertical' => 6, 'attributes' => []],
+            ];
+        }
+
+        $firstLine = preg_replace('/^\xEF\xBB\xBF/', '', rtrim($firstLine, "\r\n")) ?? $firstLine;
+        $bestDelimiter = ',';
+        $bestFields = [];
+        $bestColumnCount = 0;
+        foreach ([',', ';', "\t"] as $delimiter) {
+            $fields = str_getcsv($firstLine, $delimiter, '"', '\\');
+            if (count($fields) > $bestColumnCount) {
+                $bestDelimiter = $delimiter;
+                $bestFields = $fields;
+                $bestColumnCount = count($fields);
+            }
+
+            $headerColumns = $this->headerColumns($fields);
+            $normalizedFields = array_map(
+                fn (mixed $field): string => preg_replace('/[^a-z0-9]/', '', strtolower(trim((string) $field))) ?? '',
+                $fields,
+            );
+            if (array_intersect($normalizedFields, self::PROFILE_COLUMN_ALIASES['email']) !== []) {
+                return [
+                    'delimiter' => $delimiter,
+                    'has_header' => true,
+                    'columns' => $headerColumns,
+                ];
+            }
+        }
+
+        $attributes = [];
+        for ($index = 7; $index < count($bestFields); $index++) {
+            $attributes['column_'.($index + 1)] = $index;
+        }
+
+        return [
+            'delimiter' => $bestDelimiter,
+            'has_header' => false,
+            'columns' => ['email' => 0, 'first_name' => 1, 'last_name' => 2, 'country' => 3, 'age' => 4, 'sex' => 5, 'vertical' => 6, 'attributes' => $attributes],
+        ];
+    }
+
+    /**
+     * @param  list<string|null>  $headers
+     * @return array{email: int, first_name: int, last_name: int, country: int, age: int, sex: int, vertical: int, attributes: array<string, int>}
+     */
+    private function headerColumns(array $headers): array
+    {
+        $columns = [];
+        $attributes = [];
+        foreach ($headers as $index => $header) {
+            $label = trim(str_replace("\xEF\xBB\xBF", '', (string) $header));
+            $normalized = preg_replace('/[^a-z0-9]/', '', strtolower($label)) ?? '';
+            $matched = false;
+            foreach (self::PROFILE_COLUMN_ALIASES as $column => $aliases) {
+                if (in_array($normalized, $aliases, true)) {
+                    $columns[$column] ??= $index;
+                    $matched = true;
+                    break;
+                }
+            }
+            if (! $matched && $label !== '') {
+                $attributes[$label] = $index;
+            }
+        }
+
+        return [
+            'email' => $columns['email'] ?? 0,
+            'first_name' => $columns['first_name'] ?? 1,
+            'last_name' => $columns['last_name'] ?? 2,
+            'country' => $columns['country'] ?? 3,
+            'age' => $columns['age'] ?? 4,
+            'sex' => $columns['sex'] ?? 5,
+            'vertical' => $columns['vertical'] ?? 6,
+            'attributes' => $attributes,
+        ];
+    }
+
+    /**
+     * @param  list<string|null>|string  $line
+     * @param  array{email?: int, first_name?: int, last_name?: int, country?: int, age?: int, sex?: int, vertical?: int, attributes?: array<string, int>}  $columns
+     * @return array{status: string, email?: string, profile?: ?array, profile_warning_count?: int}
+     */
+    private function parseCandidate(AudienceListImportBatch $batch, array|string $line, array $columns = []): array
     {
         if ($batch->source_format === 'addresses') {
+            if (! is_string($line)) {
+                return ['status' => 'invalid'];
+            }
             $email = mb_strtolower(trim($line));
             if ($email === '') {
                 return ['status' => 'ignored'];
@@ -452,11 +577,12 @@ class ImportAudienceListContacts
                 : ['status' => 'valid', 'email' => $email, 'profile' => null];
         }
 
-        $fields = explode(',', trim($line));
-        $rawEmail = (string) ($fields[0] ?? '');
+        $fields = is_array($line) ? $line : str_getcsv(trim($line), ',', '"', '\\');
+        $rawEmail = trim((string) ($fields[$columns['email'] ?? 0] ?? ''));
         if ($rawEmail === '') {
             return ['status' => 'ignored'];
         }
+        $rawEmail = preg_replace('/^\xEF\xBB\xBF/', '', $rawEmail) ?? $rawEmail;
         if (str_contains($rawEmail, '|')) {
             return ['status' => 'invalid'];
         }
@@ -466,26 +592,46 @@ class ImportAudienceListContacts
             return ['status' => 'invalid'];
         }
 
-        // Preserve the observed AlphaLink argument order for this substring filter.
-        if ($batch->filter && ! Str::contains($batch->filter, $email)) {
+        if ($batch->filter && ! Str::contains($email, mb_strtolower(trim((string) $batch->filter)))) {
             return ['status' => 'filtered'];
         }
 
-        $age = trim((string) ($fields[4] ?? ''));
-        if ($age !== '' && (! ctype_digit($age) || (int) $age > 32767)) {
-            throw new \InvalidArgumentException('The age column must be a whole number between 0 and 32767. No rows were imported.');
+        $profile = [];
+        foreach (['first_name', 'last_name', 'country', 'sex', 'vertical'] as $column) {
+            $value = trim((string) ($fields[$columns[$column] ?? match ($column) {
+                'first_name' => 1,
+                'last_name' => 2,
+                'country' => 3,
+                'sex' => 5,
+                'vertical' => 6,
+            }] ?? ''));
+            if ($value !== '') {
+                $profile[$column] = $value;
+            }
         }
 
-        $profile = array_filter([
-            'first_name' => trim((string) ($fields[1] ?? '')),
-            'last_name' => trim((string) ($fields[2] ?? '')),
-            'country' => trim((string) ($fields[3] ?? '')),
-            'age' => $age === '' ? null : (int) $age,
-            'sex' => trim((string) ($fields[5] ?? '')),
-            'vertical' => trim((string) ($fields[6] ?? '')),
-        ], static fn (mixed $value): bool => $value !== null && $value !== '');
+        $age = trim((string) ($fields[$columns['age'] ?? 4] ?? ''));
+        $profileWarningCount = 0;
+        if ($age !== '') {
+            if (ctype_digit($age) && (int) $age <= 32767) {
+                $profile['age'] = (int) $age;
+            } else {
+                $profileWarningCount++;
+            }
+        }
 
-        return ['status' => 'valid', 'email' => $email, 'profile' => $profile];
+        $attributes = [];
+        foreach ((array) ($columns['attributes'] ?? []) as $label => $index) {
+            $value = trim((string) ($fields[$index] ?? ''));
+            if ($value !== '') {
+                $attributes[(string) $label] = $value;
+            }
+        }
+        if ($attributes !== []) {
+            $profile['attributes'] = $attributes;
+        }
+
+        return ['status' => 'valid', 'email' => $email, 'profile' => $profile, 'profile_warning_count' => $profileWarningCount];
     }
 
     private function batchRequest(AudienceListImportBatch $batch): Request

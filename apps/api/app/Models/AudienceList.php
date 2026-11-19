@@ -49,6 +49,11 @@ class AudienceList extends Model
         return $this->belongsTo(Isp::class);
     }
 
+    public function segmentSourceList(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'segment_source_list_id');
+    }
+
     public function memberships(): HasMany
     {
         return $this->hasMany(ContactListMembership::class);

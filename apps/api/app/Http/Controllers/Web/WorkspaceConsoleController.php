@@ -31,6 +31,7 @@ use App\Services\Campaigns\AlphaLinkCampaignRecipientSnapshotBuilder;
 use App\Services\Campaigns\AlphaLinkCampaignSendCatalog;
 use App\Services\Campaigns\AlphaLinkCampaignTagRenderer;
 use App\Services\Campaigns\AlphaLinkPmtaAdminRestart;
+use App\Services\Campaigns\CampaignPersonalizationTags;
 use App\Services\Campaigns\CampaignRedirectUrlPolicy;
 use App\Services\Campaigns\PmtaCampaignTestTransport;
 use App\Services\Campaigns\PmtaMonitorProxy;
@@ -988,6 +989,7 @@ class WorkspaceConsoleController extends Controller
             'send_setup.country' => ['required', 'string', 'max:8'],
             'send_setup.audience_segments' => ['required', 'array', 'min:1'],
             'send_setup.audience_segments.*' => ['required', 'string', 'max:80', 'distinct', 'regex:/^[0-9a-f-]{36}_(fresh|delivery|open|click|lead|unsubscribe|mix)$/i'],
+            'send_setup.gender_filter' => ['sometimes', 'in:all,female,male'],
             'send_setup.order_by' => ['required', 'in:default,asc,desc,random'],
             'send_setup.start_from' => ['required', 'integer', 'min:0'],
         ]);
@@ -999,6 +1001,7 @@ class WorkspaceConsoleController extends Controller
             'isp_id' => (int) $data['send_setup']['isp_id'],
             'country' => strtoupper($data['send_setup']['country']),
             'audience_segments' => array_values(array_map('strval', $data['send_setup']['audience_segments'])),
+            'gender_filter' => $data['send_setup']['gender_filter'] ?? ($sourceSetup['gender_filter'] ?? 'all'),
             'order_by' => $data['send_setup']['order_by'],
             'start_from' => (int) $data['send_setup']['start_from'],
         ];
@@ -1572,6 +1575,7 @@ class WorkspaceConsoleController extends Controller
         AlphaLinkCampaignSendCatalog $catalog,
         PmtaCampaignTestTransport $transportFactory,
         AlphaLinkCampaignTagRenderer $tagRenderer,
+        CampaignPersonalizationTags $personalizationTags,
         CampaignRedirectUrlPolicy $redirectUrlPolicy,
         AlphaLinkBulkInstallVmtaPlanner $vmtaPlanner,
         PmtaRemoteConfiguration $pmtaRemote,
@@ -1618,7 +1622,7 @@ class WorkspaceConsoleController extends Controller
                 : data_get($sendSetup, 'send_type', $payload['send_type'] ?? $data['send_type'] ?? 'delay')],
         ]);
 
-        return $this->sendCampaignManualTest($request, (string) $workspace->getKey(), $catalog, $transportFactory, $tagRenderer, $redirectUrlPolicy, $vmtaPlanner, $pmtaRemote);
+        return $this->sendCampaignManualTest($request, (string) $workspace->getKey(), $catalog, $transportFactory, $tagRenderer, $personalizationTags, $redirectUrlPolicy, $vmtaPlanner, $pmtaRemote);
     }
 
     public function sendCampaignManualTest(
@@ -1627,6 +1631,7 @@ class WorkspaceConsoleController extends Controller
         AlphaLinkCampaignSendCatalog $catalog,
         PmtaCampaignTestTransport $transportFactory,
         AlphaLinkCampaignTagRenderer $tagRenderer,
+        CampaignPersonalizationTags $personalizationTags,
         CampaignRedirectUrlPolicy $redirectUrlPolicy,
         AlphaLinkBulkInstallVmtaPlanner $vmtaPlanner,
         PmtaRemoteConfiguration $pmtaRemote,
@@ -1896,6 +1901,7 @@ class WorkspaceConsoleController extends Controller
         }
         $testMessage = function (int $index, string $recipient, ManagedServer $selectedServer, array $routeChoice) use (
             $tagRenderer,
+            $personalizationTags,
             $headerTemplate,
             $data,
             $campaign,
@@ -1939,6 +1945,13 @@ class WorkspaceConsoleController extends Controller
             $cache = [];
             $renderedHeader = $tagRenderer->render($headerTemplate, $tags, $placeholderRows, $index, $cache);
             $renderedBody = $tagRenderer->render((string) ($data['body'] ?? ''), $tags, $placeholderRows, $index, $cache);
+            $renderedHeader = $personalizationTags->personalizeSubjectHeader($renderedHeader, [], $recipient);
+            $renderedBody = $personalizationTags->personalizeBody(
+                $renderedBody,
+                [],
+                $recipient,
+                preg_match('/^Content-Type:\s*text\/html/im', $renderedHeader) === 1,
+            );
             $renderedReturnPath = $tagRenderer->render((string) ($data['return_path'] ?? ''), $tags, $placeholderRows, $index, $cache);
             if ($data['send_setup']['route_option'] === 'vmta') {
                 $renderedHeader = $this->campaignTestHeaderWithVirtualMta(
@@ -2602,6 +2615,7 @@ class WorkspaceConsoleController extends Controller
         AlphaLinkCampaignSendCatalog $catalog,
         PmtaCampaignTestTransport $transportFactory,
         AlphaLinkCampaignTagRenderer $tagRenderer,
+        CampaignPersonalizationTags $personalizationTags,
         CampaignRedirectUrlPolicy $redirectUrlPolicy,
         AlphaLinkBulkInstallVmtaPlanner $vmtaPlanner,
         PmtaRemoteConfiguration $pmtaRemote,
@@ -2722,9 +2736,11 @@ class WorkspaceConsoleController extends Controller
         $tagCache = [];
         $fromEmail = trim($tagRenderer->render((string) $data['from_email'], $tagValues, $setup['placeholders'] ?? [], 0, $tagCache));
         $subject = $tagRenderer->render((string) $data['subject'], $tagValues, $setup['placeholders'] ?? [], 0, $tagCache);
+        $subject = $personalizationTags->personalizeSubjectLine($subject, [], $recipient);
         $tagValues['from'] = $fromEmail;
         $tagValues['subject'] = $subject;
         $body = $tagRenderer->render((string) $data['body'], $tagValues, $setup['placeholders'] ?? [], 0, $tagCache);
+        $body = $personalizationTags->personalizeBody($body, [], $recipient, true);
         $body = $redirectUrlPolicy->forceHttpsForHost($body, (string) ($tagValues['domain'] ?? ''));
 
         if (filter_var($fromEmail, FILTER_VALIDATE_EMAIL) === false) {
@@ -2825,7 +2841,7 @@ class WorkspaceConsoleController extends Controller
         }
     }
 
-    public function sendCampaignTestEmail(Request $request, string $workspace, string $campaign): RedirectResponse
+    public function sendCampaignTestEmail(Request $request, string $workspace, string $campaign, CampaignPersonalizationTags $personalizationTags): RedirectResponse
     {
         $workspace = $this->workspaceFor($request->user(), $workspace);
         $this->authorizeRole($workspace, self::CAMPAIGN_ROLES);
@@ -2982,12 +2998,15 @@ class WorkspaceConsoleController extends Controller
             }
 
             $content = $revision->payload;
+            $subject = $personalizationTags->personalizeSubjectLine((string) ($content['subject'] ?? ''), [], $recipient);
+            $textBody = $personalizationTags->personalizeBody((string) ($content['text_body'] ?? ''), [], $recipient, false);
+            $htmlBody = $personalizationTags->personalizeBody((string) ($content['html_body'] ?? '<p>'.nl2br(e($content['text_body'] ?? '')).'</p>'), [], $recipient, true);
             $email = (new Email)
                 ->from(new Address($content['from_email'], $content['from_name']))
                 ->to(new Address($recipient))
-                ->subject($content['subject'])
-                ->text($content['text_body'] ?? '')
-                ->html($content['html_body'] ?? '<p>'.nl2br(e($content['text_body'] ?? '')).'</p>');
+                ->subject($subject)
+                ->text($textBody)
+                ->html($htmlBody);
 
             if (filled($content['reply_to'] ?? null)) {
                 $email->replyTo(new Address($content['reply_to']));
@@ -3088,6 +3107,7 @@ class WorkspaceConsoleController extends Controller
             'send_setup.country' => ['required', 'string', 'max:8'],
             'send_setup.audience_segments' => ['required', 'array', 'min:1'],
             'send_setup.audience_segments.*' => ['required', 'string', 'max:80', 'distinct', 'regex:/^[0-9a-f-]{36}_(fresh|delivery|open|click|lead|unsubscribe|mix)$/i'],
+            'send_setup.gender_filter' => ['sometimes', 'in:all,female,male'],
             'send_setup.from_asset_ids' => ['sometimes', 'array'],
             'send_setup.from_asset_ids.*' => ['required', 'integer', 'min:1', 'distinct'],
             'send_setup.subject_asset_ids' => ['sometimes', 'array'],
@@ -3545,7 +3565,17 @@ class WorkspaceConsoleController extends Controller
             ->limit(10)
             ->get(['id', 'action', 'source', 'occurred_at']);
 
-        return view('console.audiences.show', compact('workspace', 'audienceList', 'membershipEvents'));
+        $canViewContacts = in_array((string) $workspace->pivot->role, ['owner', 'admin'], true);
+        $contactRows = $canViewContacts
+            ? $audienceList->memberships()
+                ->where('status', 'active')
+                ->with('contact:id,workspace_id,email,profile')
+                ->orderBy('id')
+                ->paginate(50)
+                ->withQueryString()
+            : null;
+
+        return view('console.audiences.show', compact('workspace', 'audienceList', 'membershipEvents', 'canViewContacts', 'contactRows'));
     }
 
     private function workspaceFor(User $user, string $workspaceId): Workspace

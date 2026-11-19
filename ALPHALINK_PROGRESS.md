@@ -282,3 +282,7 @@ The Lists register's recipient action now navigates directly to the dedicated au
 ### Audience snapshot link follow-up — E-AUD-45 (2026-11-19)
 
 Replaced the recipient eye-action button and its scripted click handler with a native anchor to the audience-detail route. The link now performs standard same-tab page navigation without invoking the list form iframe/modal flow; edit, assignment, and upload retain their dialogs. The focused Node suite passes 4/4, including a regression that requires the native link and rejects the old view handler. No authenticated production browser review or recipient data access was performed.
+
+### Audience recipient schedule redesign — E-AUD-46 (2026-11-19)
+
+Reworked the dedicated list detail into a compact Command OS recipient schedule guided by the supplied DMS screenshot: sortable columns for membership ID, email, first/last name, country, age, vertical, sex, type, list-event count, creation time, and remaining imported tags. The grid defaults to 20 rows, keeps 25/50/100/200 options, and retains page-scoped search, type filtering, pagination, and Owner/Admin visibility. Per-recipient log counts are aggregated for only the current page. Focused PHP suites pass 29 tests / 269 assertions; Node interactions pass 4/4; Pint, strict UI audit and diff checks pass. Synthetic recipients only; no DMS application or production recipient data was accessed. Production deploy is pending.

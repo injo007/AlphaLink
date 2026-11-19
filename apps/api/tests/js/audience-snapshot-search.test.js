@@ -32,7 +32,7 @@ const makePage = () => {
     };
     const sortField = { value: '' };
     const directionField = { value: 'asc' };
-    const sortButtons = ['recipient', 'type', 'details'].map((key) => {
+    const sortButtons = ['id', 'email', 'first_name', 'last_name', 'country', 'age', 'vertical', 'sex', 'type', 'logs', 'created_at', 'custom_tags'].map((key) => {
         const header = { attributes: {}, setAttribute(name, value) { this.attributes[name] = value; } };
         const icon = { className: 'fas fa-sort' };
 
@@ -61,8 +61,8 @@ const makePage = () => {
         requestSubmit: () => listeners.get('form:submit')({ preventDefault: () => {} }),
     };
     const rows = [
-        { dataset: { search: 'visible@example.test fresh first_name Vis last_name Able country US Company Example Co', recipient: 'visible@example.test', type: 'fresh', details: 'first_name Vis last_name Able country US Company Example Co' }, hidden: false },
-        { dataset: { search: 'other@example.test delivery first_name Sam vertical retail', recipient: 'other@example.test', type: 'delivery', details: 'first_name Sam vertical retail' }, hidden: false },
+        { dataset: { search: 'id visible@example.test fresh first name Vis last name Able country US age 32 vertical ecommerce sex Female logs 2 company Example Co', id: 'b0000000', email: 'visible@example.test', firstName: 'vis', lastName: 'able', country: 'us', age: '32', vertical: 'ecommerce', sex: 'female', type: 'fresh', logs: '2', createdAt: '100', customTags: 'company example co' }, hidden: false },
+        { dataset: { search: 'id other@example.test delivery first name Sam last name Lee country CA age 9 vertical retail sex Male logs 0', id: 'a0000000', email: 'other@example.test', firstName: 'sam', lastName: 'lee', country: 'ca', age: '9', vertical: 'retail', sex: 'male', type: 'delivery', logs: '0', createdAt: '200', customTags: '' }, hidden: false },
     ];
     const rowOrder = [...rows, noResultsRow];
     const tbody = {
@@ -113,7 +113,7 @@ test('search matches recipient details and imported tag values on the loaded pag
     assert.equal(page.rows[0].hidden, false);
     assert.equal(page.rows[1].hidden, true);
     assert.equal(page.noResultsRow.hidden, true);
-    assert.match(page.resultStatus.textContent, /Showing 1 of 2 loaded recipients/);
+    assert.match(page.resultStatus.textContent, /Showing 1 of 2 recipients on this page/);
     assert.equal(new URL(page.paginationLink.href).searchParams.get('q'), 'company example');
 });
 
@@ -148,14 +148,15 @@ test('type filter and sortable headers update the current page and preserve list
     assert.equal(page.rows[1].hidden, false);
     assert.equal(new URL(page.paginationLink.href).searchParams.get('type'), 'delivery');
 
-    page.listeners.get('sort:recipient:click')();
-    assert.deepEqual(page.rowOrder.slice(0, 2).map((row) => row.dataset.recipient), ['other@example.test', 'visible@example.test']);
-    assert.equal(page.sortField.value, 'recipient');
-    assert.equal(page.sortButtons[0].header.attributes['aria-sort'], 'ascending');
-    assert.equal(new URL(page.paginationLink.href).searchParams.get('sort'), 'recipient');
+    page.listeners.get('sort:age:click')();
+    assert.deepEqual(page.rowOrder.slice(0, 2).map((row) => row.dataset.email), ['other@example.test', 'visible@example.test']);
+    assert.equal(page.sortField.value, 'age');
+    assert.equal(page.sortButtons.find((button) => button.dataset.sortKey === 'age').header.attributes['aria-sort'], 'ascending');
+    assert.equal(new URL(page.paginationLink.href).searchParams.get('sort'), 'age');
 
-    page.listeners.get('sort:recipient:click')();
-    assert.equal(page.sortButtons[0].header.attributes['aria-sort'], 'descending');
+    page.listeners.get('sort:age:click')();
+    assert.deepEqual(page.rowOrder.slice(0, 2).map((row) => row.dataset.email), ['visible@example.test', 'other@example.test']);
+    assert.equal(page.sortButtons.find((button) => button.dataset.sortKey === 'age').header.attributes['aria-sort'], 'descending');
     assert.equal(new URL(page.paginationLink.href).searchParams.get('direction'), 'desc');
 });
 

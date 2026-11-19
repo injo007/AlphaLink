@@ -3570,9 +3570,9 @@ class WorkspaceConsoleController extends Controller
         $requestedPageSize = $request->query('per_page');
         $perPage = is_string($requestedPageSize) && ctype_digit($requestedPageSize)
             ? (int) $requestedPageSize
-            : 50;
-        if (! in_array($perPage, [25, 50, 100, 200], true)) {
-            $perPage = 50;
+            : 20;
+        if (! in_array($perPage, [20, 25, 50, 100, 200], true)) {
+            $perPage = 20;
         }
         $search = $request->query('q');
         $search = is_string($search) ? mb_substr(trim($search), 0, 120) : '';
@@ -3581,7 +3581,7 @@ class WorkspaceConsoleController extends Controller
             ? $typeFilter
             : 'all';
         $sortColumn = $request->query('sort');
-        $sortColumn = is_string($sortColumn) && in_array($sortColumn, ['recipient', 'type', 'details'], true)
+        $sortColumn = is_string($sortColumn) && in_array($sortColumn, ['id', 'email', 'first_name', 'last_name', 'country', 'age', 'vertical', 'sex', 'type', 'logs', 'created_at', 'custom_tags'], true)
             ? $sortColumn
             : '';
         $sortDirection = $request->query('direction') === 'desc' ? 'desc' : 'asc';
@@ -3593,6 +3593,20 @@ class WorkspaceConsoleController extends Controller
                 ->paginate($perPage)
                 ->withQueryString()
             : null;
+
+        if ($contactRows !== null && $contactRows->isNotEmpty()) {
+            $membershipLogCounts = ContactListMembershipEvent::query()
+                ->where('workspace_id', $workspace->getKey())
+                ->where('audience_list_id', $audienceList->getKey())
+                ->whereIn('contact_id', $contactRows->getCollection()->pluck('contact_id'))
+                ->selectRaw('contact_id, COUNT(*) AS event_count')
+                ->groupBy('contact_id')
+                ->pluck('event_count', 'contact_id');
+
+            foreach ($contactRows as $membership) {
+                $membership->setAttribute('list_log_count', (int) ($membershipLogCounts[$membership->contact_id] ?? 0));
+            }
+        }
 
         return view('console.audiences.show', compact('workspace', 'audienceList', 'membershipEvents', 'canViewContacts', 'contactRows', 'perPage', 'search', 'typeFilter', 'sortColumn', 'sortDirection'));
     }

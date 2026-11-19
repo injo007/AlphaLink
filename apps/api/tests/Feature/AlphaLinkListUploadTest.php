@@ -6,6 +6,7 @@ use App\Models\AudienceList;
 use App\Models\AudienceListImportBatch;
 use App\Models\Contact;
 use App\Models\ContactListMembership;
+use App\Models\ContactListMembershipEvent;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Services\Audiences\AudienceMembershipFilterIndexer;
@@ -338,11 +339,11 @@ class AlphaLinkListUploadTest extends TestCase
             'email' => 'visible@example.test',
             'email_lookup_hash' => hash_hmac('sha256', 'visible@example.test', str_repeat('k', 32)),
             'lookup_key_version' => 1,
-            'profile' => ['first_name' => 'Vis', 'last_name' => 'Able', 'attributes' => ['Company' => 'Example Co']],
+            'profile' => ['first_name' => 'Vis', 'last_name' => 'Able', 'age' => 32, 'vertical' => 'ecommerce', 'sex' => 'Female', 'attributes' => ['Company' => 'Example Co']],
             'status' => 'active',
             'idempotency_key' => (string) Str::uuid(),
         ]);
-        ContactListMembership::query()->create([
+        $membership = ContactListMembership::query()->create([
             'workspace_id' => $this->workspace->getKey(),
             'audience_list_id' => $list->getKey(),
             'contact_id' => $contact->getKey(),
@@ -352,6 +353,21 @@ class AlphaLinkListUploadTest extends TestCase
             'profile' => ['country' => 'US'],
         ]);
 
+        foreach (['added', 'removed'] as $action) {
+            ContactListMembershipEvent::query()->create([
+                'workspace_id' => $this->workspace->getKey(),
+                'audience_list_id' => $list->getKey(),
+                'contact_id' => $contact->getKey(),
+                'action' => $action,
+                'source' => 'import',
+                'idempotency_key' => (string) Str::uuid(),
+                'request_fingerprint' => hash('sha256', Str::uuid()->toString()),
+                'actor_user_id' => $this->owner->getKey(),
+                'occurred_at' => now(),
+                'created_at' => now(),
+            ]);
+        }
+
         $this->get(route('console.audiences.show', [$this->workspace->getKey(), $list->getKey()]).'?q=Example&per_page=25')
             ->assertOk()
             ->assertSee('visible@example.test')
@@ -360,16 +376,30 @@ class AlphaLinkListUploadTest extends TestCase
             ->assertSee('Example Co')
             ->assertSee('country')
             ->assertSee('US')
-            ->assertSee('Recipients')
-            ->assertSee('Search this page')
-            ->assertSee('Search, type filters, and sorting apply to recipients on this page.')
+            ->assertSee('Recipient data')
+            ->assertSee('First name')
+            ->assertSee('Last name')
+            ->assertSee('Country')
+            ->assertSee('Age')
+            ->assertSee('Vertical')
+            ->assertSee('Sex')
+            ->assertSee('Logs')
+            ->assertSee('Other tags')
+            ->assertSee('Search this page...')
+            ->assertSee('Search, type filtering, and sorting cover this page only')
             ->assertSee('id="audience-recipient-type"', false)
-            ->assertSee('data-sort-key="recipient"', false)
+            ->assertSee('data-sort-key="first_name"', false)
+            ->assertSee('data-sort-key="age"', false)
+            ->assertSee('data-sort-key="logs"', false)
             ->assertSee('data-sort-key="type"', false)
-            ->assertSee('data-sort-key="details"', false)
             ->assertSee('data-current="25"', false)
             ->assertSee('value="Example"', false)
-            ->assertSee('data-search="visible@example.test fresh first_name Vis last_name Able country US Company Example Co"', false);
+            ->assertSee('data-age="32"', false)
+            ->assertSee('data-sex="female"', false)
+            ->assertSee('data-logs="2"', false)
+            ->assertSee('#'.substr((string) $membership->getKey(), 0, 8))
+            ->assertSee('Company')
+            ->assertSee('Example Co');
     }
 
     public function test_recipient_snapshot_page_size_keeps_the_active_list_paginated(): void
@@ -397,6 +427,12 @@ class AlphaLinkListUploadTest extends TestCase
                 'joined_at' => now(),
             ]);
         }
+
+        $defaultPage = $this->get(route('console.audiences.show', [$this->workspace->getKey(), $list->getKey()]))
+            ->assertOk()
+            ->assertSee('data-current="20"', false)
+            ->assertSee('Page 1 of 2');
+        $this->assertSame(20, substr_count($defaultPage->getContent(), 'class="audience-recipient-row"'));
 
         $firstPage = $this->get(route('console.audiences.show', [$this->workspace->getKey(), $list->getKey()]).'?per_page=25')
             ->assertOk()

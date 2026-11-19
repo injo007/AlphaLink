@@ -270,3 +270,7 @@ Fixed CSV header detection and optional-age handling; imports retain quoted rows
 ### Audience import retry limit — E-AUD-41 (2026-11-19)
 
 Raised the list-upload guard from three to ten requests per minute, keyed by authenticated user and workspace so a shared office IP does not exhaust an administrator's quota. Regression coverage submits four rapid synthetic imports through the real route middleware; `AlphaLinkListUploadTest` passes 13 tests / 106 assertions. No production list or recipient data was accessed.
+
+### Audience snapshot usability — E-AUD-43 (2026-11-19)
+
+Redesigned the Owner/Admin-only audience snapshot with clearer list metadata, recipient/tag presentation, accessible no-results feedback, adjustable 25/50/100/200 pagination, and case-insensitive search across email, type, and imported tag names/values on the loaded page. The current-page search scope is explicit because recipient profiles are encrypted and the app has no full-list search index. Focused list suites pass 29 tests / 247 assertions; Node interaction tests pass 2/2. The guarded release is pushed and deployed and passed server-local HTTPS health checks; authenticated production UI behavior remains unverified. No live recipient data or DMS parity claim. |

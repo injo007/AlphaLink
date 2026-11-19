@@ -3566,16 +3566,25 @@ class WorkspaceConsoleController extends Controller
             ->get(['id', 'action', 'source', 'occurred_at']);
 
         $canViewContacts = in_array((string) $workspace->pivot->role, ['owner', 'admin'], true);
+        $requestedPageSize = $request->query('per_page');
+        $perPage = is_string($requestedPageSize) && ctype_digit($requestedPageSize)
+            ? (int) $requestedPageSize
+            : 50;
+        if (! in_array($perPage, [25, 50, 100, 200], true)) {
+            $perPage = 50;
+        }
+        $search = $request->query('q');
+        $search = is_string($search) ? mb_substr(trim($search), 0, 120) : '';
         $contactRows = $canViewContacts
             ? $audienceList->memberships()
                 ->where('status', 'active')
                 ->with('contact:id,workspace_id,email,profile')
                 ->orderBy('id')
-                ->paginate(50)
+                ->paginate($perPage)
                 ->withQueryString()
             : null;
 
-        return view('console.audiences.show', compact('workspace', 'audienceList', 'membershipEvents', 'canViewContacts', 'contactRows'));
+        return view('console.audiences.show', compact('workspace', 'audienceList', 'membershipEvents', 'canViewContacts', 'contactRows', 'perPage', 'search'));
     }
 
     private function workspaceFor(User $user, string $workspaceId): Workspace

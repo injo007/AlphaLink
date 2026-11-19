@@ -352,14 +352,58 @@ class AlphaLinkListUploadTest extends TestCase
             'profile' => ['country' => 'US'],
         ]);
 
-        $this->get(route('console.audiences.show', [$this->workspace->getKey(), $list->getKey()]))
+        $this->get(route('console.audiences.show', [$this->workspace->getKey(), $list->getKey()]).'?q=Example&per_page=25')
             ->assertOk()
             ->assertSee('visible@example.test')
             ->assertSee('Vis')
             ->assertSee('Able')
             ->assertSee('Example Co')
-            ->assertSee('country:')
-            ->assertSee('Recipient Data');
+            ->assertSee('country')
+            ->assertSee('US')
+            ->assertSee('Recipients')
+            ->assertSee('Search this page')
+            ->assertSee('Search checks email, recipient type, tag names, and tag values on this page.')
+            ->assertSee('data-current="25"', false)
+            ->assertSee('value="Example"', false)
+            ->assertSee('data-search="visible@example.test fresh first_name Vis last_name Able country US Company Example Co"', false);
+    }
+
+    public function test_recipient_snapshot_page_size_keeps_the_active_list_paginated(): void
+    {
+        $list = $this->makeList('Paged recipient list');
+
+        for ($index = 1; $index <= 26; $index++) {
+            $email = sprintf('recipient-%02d@example.test', $index);
+            $contact = Contact::query()->create([
+                'workspace_id' => $this->workspace->getKey(),
+                'email' => $email,
+                'email_lookup_hash' => hash_hmac('sha256', $email, str_repeat('k', 32)),
+                'lookup_key_version' => 1,
+                'profile' => ['first_name' => 'Recipient '.$index],
+                'status' => 'active',
+                'idempotency_key' => (string) Str::uuid(),
+            ]);
+
+            ContactListMembership::query()->create([
+                'workspace_id' => $this->workspace->getKey(),
+                'audience_list_id' => $list->getKey(),
+                'contact_id' => $contact->getKey(),
+                'email_type' => 'fresh',
+                'status' => 'active',
+                'joined_at' => now(),
+            ]);
+        }
+
+        $firstPage = $this->get(route('console.audiences.show', [$this->workspace->getKey(), $list->getKey()]).'?per_page=25')
+            ->assertOk()
+            ->assertSee('data-current="25"', false)
+            ->assertSee('Page 1 of 2');
+        $this->assertSame(25, substr_count($firstPage->getContent(), 'class="audience-recipient-row"'));
+
+        $secondPage = $this->get(route('console.audiences.show', [$this->workspace->getKey(), $list->getKey()]).'?per_page=25&page=2')
+            ->assertOk()
+            ->assertSee('Page 2 of 2');
+        $this->assertSame(1, substr_count($secondPage->getContent(), 'class="audience-recipient-row"'));
     }
 
     public function test_filter_value_zero_keeps_reference_php_truthiness_and_disables_filtering(): void

@@ -42,6 +42,13 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by('campaign-send:'.$actor.':'.$campaign);
         });
 
+        RateLimiter::for('audience-list-import-upload', static function (Request $request): Limit {
+            $actor = (string) ($request->user()?->getAuthIdentifier() ?? $request->ip());
+            $workspace = (string) ($request->route('workspace') ?? 'global');
+
+            return Limit::perMinute(10)->by('audience-list-import-upload:'.$workspace.':'.$actor);
+        });
+
         RateLimiter::for('spf-scan-upload', static function (Request $request): Limit {
             $actor = (string) ($request->user()?->getAuthIdentifier() ?? $request->ip());
             $workspace = (string) ($request->route('workspace') ?? 'global');

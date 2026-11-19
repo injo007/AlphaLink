@@ -11,7 +11,6 @@ use App\Models\Workspace;
 use App\Services\Audiences\AudienceMembershipFilterIndexer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -41,7 +40,6 @@ class AlphaLinkListUploadTest extends TestCase
         ]);
         $this->workspace->users()->attach($this->owner->getKey(), ['role' => 'owner']);
         $this->actingAs($this->owner);
-        $this->withoutMiddleware(ThrottleRequests::class);
     }
 
     public function test_upload_page_matches_the_reference_fields_and_uses_a_synthetic_example_file(): void
@@ -240,6 +238,20 @@ class AlphaLinkListUploadTest extends TestCase
         $this->getJson($response->json('status_url'))
             ->assertOk()
             ->assertJsonPath('data.profile_warning_count', 0);
+    }
+
+    public function test_upload_allows_retries_beyond_the_previous_three_request_limit(): void
+    {
+        $list = $this->makeList('Upload retry list');
+
+        for ($attempt = 1; $attempt <= 4; $attempt++) {
+            $this->postJson($this->uploadUrl($list), [
+                'file' => UploadedFile::fake()->createWithContent("retry-{$attempt}.csv", "retry{$attempt}@example.test,Retry,{$attempt}"),
+                'type' => 'fresh',
+            ])->assertAccepted();
+        }
+
+        $this->assertDatabaseCount('audience_list_import_batches', 4);
     }
 
     public function test_generated_segments_are_visible_as_projections_and_cannot_be_uploaded_to_or_deleted(): void

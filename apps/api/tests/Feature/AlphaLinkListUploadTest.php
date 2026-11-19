@@ -51,16 +51,69 @@ class AlphaLinkListUploadTest extends TestCase
         $this->get($this->uploadUrl($list))
             ->assertOk()
             ->assertSee('Upload Emails')
-            ->assertSee('DOWNLOAD EXAMPLE CSV')
-            ->assertSee('Save To Segment Type:')
+            ->assertSee('EXAMPLE CSV')
+            ->assertSee('Segment type')
             ->assertSee('fresh')
             ->assertSee('delivery')
-            ->assertSee('Save Only Emails That Contain (Optional Keyword):');
+            ->assertSee('Email keyword filter')
+            ->assertSee('Create a second list')
+            ->assertSee('Niche / vertical');
 
         $example = $this->get(route('clean.console.infrastructure.lists.import-example'))
             ->assertOk()
             ->assertHeader('content-type', 'text/csv; charset=UTF-8');
         $this->assertStringContainsString('sample.one@example.test', $example->streamedContent());
+    }
+
+    public function test_upload_can_create_a_named_copy_with_a_niche_applied_only_to_copy_memberships(): void
+    {
+        $list = $this->makeList('D4GOBE');
+        $csv = "email,first_name,last_name,vertical\nalice@example.test,Alice,One,original\nbob@example.test,Bob,Two,original";
+
+        $this->postJson($this->uploadUrl($list), [
+            'file' => UploadedFile::fake()->createWithContent('audience.csv', $csv),
+            'type' => 'fresh',
+            'create_duplicate' => true,
+            'duplicate_name' => 'D4GOBE Retail',
+            'duplicate_niche' => 'retail',
+        ])->assertAccepted()
+            ->assertJsonPath('data.duplicate_list_name', 'D4GOBE Retail');
+
+        $batch = AudienceListImportBatch::query()->sole();
+        $copy = AudienceList::query()->findOrFail($batch->duplicate_audience_list_id);
+        $this->assertSame('retail', $copy->niche);
+        $this->assertSame($list->getKey(), $batch->audience_list_id);
+        $this->assertSame('retail', $batch->duplicate_niche);
+        $this->assertSame(4, ContactListMembership::query()->count());
+
+        $alice = Contact::query()->where('email_lookup_hash', hash_hmac('sha256', 'alice@example.test', str_repeat('k', 32)))->sole();
+        $sourceProfile = ContactListMembership::query()
+            ->where('audience_list_id', $list->getKey())
+            ->where('contact_id', $alice->getKey())
+            ->sole()->profile;
+        $copyProfile = ContactListMembership::query()
+            ->where('audience_list_id', $copy->getKey())
+            ->where('contact_id', $alice->getKey())
+            ->sole()->profile;
+        $this->assertSame('original', $sourceProfile['vertical']);
+        $this->assertSame('retail', $copyProfile['vertical']);
+        $this->assertSame('Alice', $copyProfile['first_name']);
+        $this->assertSame(0, AudienceList::query()->where('segment_source_list_id', $list->getKey())->count());
+    }
+
+    public function test_duplicate_name_is_required_only_when_the_copy_option_is_enabled(): void
+    {
+        $list = $this->makeList('No copy list');
+
+        $this->postJson($this->uploadUrl($list), [
+            'file' => UploadedFile::fake()->createWithContent('audience.csv', "email\none@example.test"),
+            'type' => 'fresh',
+            'create_duplicate' => true,
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('duplicate_name');
+
+        $this->assertDatabaseCount('audience_list_import_batches', 0);
+        $this->assertDatabaseCount('audience_lists', 1);
     }
 
     public function test_profile_csv_import_preserves_encrypted_list_profiles_and_allows_cross_list_memberships(): void

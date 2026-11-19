@@ -110,6 +110,8 @@ class ImportAudienceListContacts
         string $type,
         ?string $filter,
         string $lookupKey,
+        ?string $duplicateName = null,
+        ?string $duplicateNiche = null,
     ): AudienceListImportBatch {
         $this->assertLookupKey($lookupKey);
         if (! in_array($type, ContactListMembership::CAMPAIGN_TYPES, true)) {
@@ -125,7 +127,17 @@ class ImportAudienceListContacts
             throw new RuntimeException('Unable to stage the audience import.');
         }
 
-        return $this->createBatch($request, $workspace, $list, $path, AudienceListImportBatch::FORMAT_PROFILE_CSV, $type, $filter);
+        return $this->createBatch(
+            $request,
+            $workspace,
+            $list,
+            $path,
+            AudienceListImportBatch::FORMAT_PROFILE_CSV,
+            $type,
+            $filter,
+            $duplicateName,
+            $duplicateNiche,
+        );
     }
 
     public function processNextBatchChunk(string $batchId): void
@@ -178,6 +190,9 @@ class ImportAudienceListContacts
 
                 $workspace = Workspace::query()->findOrFail($batch->workspace_id);
                 $list = AudienceList::query()->where('workspace_id', $workspace->getKey())->findOrFail($batch->audience_list_id);
+                $duplicateList = $batch->duplicate_audience_list_id
+                    ? AudienceList::query()->where('workspace_id', $workspace->getKey())->find($batch->duplicate_audience_list_id)
+                    : null;
                 $request = $this->batchRequest($batch);
                 $lookupKey = config('alphalink.contact_lookup_key');
                 $this->assertLookupKey(is_string($lookupKey) ? $lookupKey : '');
@@ -253,6 +268,21 @@ class ImportAudienceListContacts
                         $parsed['profile'],
                         $batch->membership_type,
                     );
+                    if ($duplicateList) {
+                        $duplicateProfile = $parsed['profile'];
+                        if (is_string($batch->duplicate_niche) && $batch->duplicate_niche !== '') {
+                            $duplicateProfile = [...($duplicateProfile ?? []), 'vertical' => $batch->duplicate_niche];
+                        }
+                        $this->importWithinTransaction(
+                            $request,
+                            $workspace,
+                            $duplicateList,
+                            $email,
+                            hash_hmac('sha256', $email, $lookupKey),
+                            $duplicateProfile,
+                            $batch->membership_type,
+                        );
+                    }
                     $batch->{$result === 'imported' ? 'imported_count' : 'duplicate_count'}++;
                     if ($batch->source_format === 'addresses') {
                         $batch->valid_count++;
@@ -301,6 +331,14 @@ class ImportAudienceListContacts
             $freshBatch = AudienceListImportBatch::query()->find($batchId);
             if ($freshBatch) {
                 $this->historyCalculator->calculate($freshBatch->audienceList);
+                if ($freshBatch->duplicate_audience_list_id) {
+                    $duplicateList = AudienceList::query()
+                        ->where('workspace_id', $freshBatch->workspace_id)
+                        ->find($freshBatch->duplicate_audience_list_id);
+                    if ($duplicateList) {
+                        $this->historyCalculator->calculate($duplicateList);
+                    }
+                }
                 Storage::disk('local')->delete($freshBatch->storage_path);
             }
         }
@@ -337,6 +375,8 @@ class ImportAudienceListContacts
         string $sourceFormat,
         string $type,
         ?string $filter,
+        ?string $duplicateName = null,
+        ?string $duplicateNiche = null,
     ): AudienceListImportBatch {
         $absolutePath = Storage::disk('local')->path($path);
         $size = filesize($absolutePath);
@@ -346,28 +386,63 @@ class ImportAudienceListContacts
         }
 
         try {
-            $batch = AudienceListImportBatch::query()->create([
-                'id' => (string) Str::uuid(),
-                'workspace_id' => $workspace->getKey(),
-                'audience_list_id' => $list->getKey(),
-                'created_by' => $request->user()?->getKey(),
-                'status' => 'queued',
-                'phase' => $sourceFormat === AudienceListImportBatch::FORMAT_PROFILE_CSV ? 'validation' : 'import',
-                'source_format' => $sourceFormat,
-                'membership_type' => $type,
-                'filter' => $filter,
-                'storage_path' => $path,
-                'file_sha256' => null,
-                'file_size_bytes' => $size,
-                'request_id' => $request->attributes->get('request_id'),
-                'next_dispatch_at' => now(),
-            ]);
+            $batch = DB::transaction(function () use ($request, $workspace, $list, $path, $sourceFormat, $type, $filter, $duplicateName, $duplicateNiche, $size): AudienceListImportBatch {
+                $duplicateList = null;
+                if ($duplicateName !== null) {
+                    $slug = Str::slug($duplicateName) ?: 'list';
+                    $baseSlug = Str::limit($slug, 145, '');
+                    while (AudienceList::withTrashed()
+                        ->where('workspace_id', $workspace->getKey())
+                        ->where('slug', $slug)
+                        ->exists()) {
+                        $slug = $baseSlug.'-'.Str::lower(Str::random(8));
+                    }
+
+                    $duplicateList = $workspace->audienceLists()->create([
+                        'created_by' => $request->user()?->getKey(),
+                        'name' => $duplicateName,
+                        'slug' => $slug,
+                        'description' => null,
+                        'niche' => $duplicateNiche,
+                        'status' => 'active',
+                        'idempotency_key' => (string) Str::uuid(),
+                        'request_fingerprint' => hash('sha256', json_encode([
+                            $list->getKey(), $duplicateName, $duplicateNiche, $size,
+                        ], JSON_THROW_ON_ERROR)),
+                        'isp_id' => $list->isp_id,
+                        'country' => $list->country,
+                        'allowed_users' => $list->allowed_users ?? [],
+                        'allowed_sponsors' => $list->allowed_sponsors ?? [],
+                        'is_tracked' => $list->is_tracked,
+                        'is_lead_locked' => true,
+                    ]);
+                }
+
+                return AudienceListImportBatch::query()->create([
+                    'id' => (string) Str::uuid(),
+                    'workspace_id' => $workspace->getKey(),
+                    'audience_list_id' => $list->getKey(),
+                    'duplicate_audience_list_id' => $duplicateList?->getKey(),
+                    'duplicate_niche' => $duplicateNiche,
+                    'created_by' => $request->user()?->getKey(),
+                    'status' => 'queued',
+                    'phase' => $sourceFormat === AudienceListImportBatch::FORMAT_PROFILE_CSV ? 'validation' : 'import',
+                    'source_format' => $sourceFormat,
+                    'membership_type' => $type,
+                    'filter' => $filter,
+                    'storage_path' => $path,
+                    'file_sha256' => null,
+                    'file_size_bytes' => $size,
+                    'request_id' => $request->attributes->get('request_id'),
+                    'next_dispatch_at' => now(),
+                ]);
+            });
         } catch (\Throwable $exception) {
             Storage::disk('local')->delete($path);
             throw $exception;
         }
 
-        ProcessAudienceListImportBatch::dispatch($batch->getKey())->onQueue('audience-imports');
+        ProcessAudienceListImportBatch::dispatch($batch->getKey())->onQueue('audience-imports')->afterCommit();
 
         return $batch->fresh();
     }

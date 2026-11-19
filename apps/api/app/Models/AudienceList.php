@@ -14,7 +14,7 @@ class AudienceList extends Model
     use HasUuids, SoftDeletes;
 
     protected $fillable = [
-        'workspace_id', 'created_by', 'name', 'slug', 'description', 'status',
+        'workspace_id', 'created_by', 'name', 'slug', 'description', 'niche', 'status',
         'idempotency_key', 'request_fingerprint', 'isp_id', 'country',
         'segment_source_list_id', 'segment_action', 'segment_country_code',
         'allowed_users', 'allowed_sponsors',

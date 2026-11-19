@@ -30,7 +30,7 @@
 
         <div class="command-os-info-banner mb-3" role="note">
             <div class="command-os-info-banner-icon"><i class="fas fa-info-circle"></i></div>
-            <div class="command-os-info-banner-content">Upload into the source list. Rows marked AUTO SEGMENT are system-generated audience projections; they are read-only and kept linked to their source to prevent accidental data loss.</div>
+            <div class="command-os-info-banner-content">Uploads go to the selected source list. You can optionally create a separate named copy during import. Deleting a source list archives its linked auto-segments while preserving recipient and campaign history; detached segments can be removed individually.</div>
         </div>
 
         <!-- 2. KPI Overview Cards -->
@@ -122,6 +122,21 @@
             @endif
         </div>
     </div>
+
+    <dialog id="list-delete-confirmation" class="command-os-dialog" aria-labelledby="list-delete-title" aria-describedby="list-delete-description">
+        <div class="command-modal-surface p-4" style="max-width: 520px; border-radius: 14px;">
+            <div class="d-flex align-items-center mb-3">
+                <div class="command-dialog-icon mr-3" style="font-size: 24px; color: #f59e0b;" aria-hidden="true"><i class="fas fa-exclamation-triangle"></i></div>
+                <h2 id="list-delete-title" class="font-w700 font-size-base mb-0">Delete this list?</h2>
+            </div>
+            <p id="list-delete-description" class="text-muted font-size-sm mb-3"></p>
+            <div id="list-delete-error" class="alert alert-danger py-2 px-3 mb-3 font-size-sm" role="alert" hidden></div>
+            <div class="command-modal-actions">
+                <button type="button" class="btn-command-action" id="list-delete-cancel">CANCEL</button>
+                <button type="button" class="btn btn-danger" id="list-delete-confirm">DELETE LIST</button>
+            </div>
+        </div>
+    </dialog>
 @endsection
 
 @push('scripts')
@@ -132,8 +147,15 @@
             const tableElement = document.querySelector('#lists');
             const baseUrl = tableElement.dataset.baseUrl;
             const audienceUrlTemplate = tableElement.dataset.audienceUrlTemplate;
+            const deleteDialog = document.querySelector('#list-delete-confirmation');
+            const deleteTitle = document.querySelector('#list-delete-title');
+            const deleteDescription = document.querySelector('#list-delete-description');
+            const deleteError = document.querySelector('#list-delete-error');
+            const deleteCancel = document.querySelector('#list-delete-cancel');
+            const deleteConfirm = document.querySelector('#list-delete-confirm');
             let dialog = null;
             let activeTableUrl = null;
+            let pendingDelete = null;
             const escapeHtml = (value) => $('<div>').text(value == null ? '' : String(value)).html();
             const activeId = () => $('#isps').val();
 
@@ -231,7 +253,7 @@
                     },
                     columns: [
                         { title: '#', data: 'id', render: (val) => `<span class="badge badge-light border font-mono font-size-xs text-muted">#${escapeHtml(val)}</span>` },
-                        { title: 'NAME', data: 'name', render: (val, display, row) => `<strong class="text-ink font-w600">${escapeHtml(val)}</strong>${row.is_generated_segment ? `<div><span class="badge badge-light border text-muted mt-1">AUTO SEGMENT · ${escapeHtml(row.segment_action || 'tracked')} · SOURCE: ${escapeHtml(row.segment_source_list_name || row.segment_source_list_id)}</span></div>` : '<div><span class="badge badge-light border text-muted mt-1">SOURCE LIST</span></div>'}` },
+                        { title: 'NAME', data: 'name', render: (val, display, row) => `<strong class="text-ink font-w600">${escapeHtml(val)}</strong>${row.niche ? `<div><span class="badge badge-light border text-purple mt-1">NICHE · ${escapeHtml(row.niche)}</span></div>` : ''}${row.is_generated_segment ? `<div><span class="badge badge-light border text-muted mt-1">AUTO SEGMENT · ${escapeHtml(row.segment_action || 'tracked')} · ${row.is_orphaned_segment ? 'SOURCE ARCHIVED' : 'SOURCE'}: ${escapeHtml(row.segment_source_list_name || row.segment_source_list_id)}</span></div>` : '<div><span class="badge badge-light border text-muted mt-1">SOURCE LIST</span></div>'}` },
                         { title: 'COUNTRY', data: 'country', defaultContent: '', render: (val) => `<span class="badge badge-light border text-purple px-2 py-1 font-w700">${escapeHtml(val || 'GLOBAL')}</span>` },
                         ...['fresh', 'delivery', 'open', 'click', 'lead', 'unsubscribe'].map((type) => ({
                             title: type === 'delivery' ? 'dlv' : type === 'unsubscribe' ? 'unsub' : type,
@@ -255,7 +277,13 @@
                             title: 'ACTIONS', data: null, orderable: false, searchable: false,
                             render: (data, display, row) => {
                                 const view = `<button type="button" data-id="${escapeHtml(row.id)}" class="command-action-btn action-view view" title="VIEW RECIPIENTS AND TAGS" aria-label="View recipients and tags in ${escapeHtml(row.name)}"><i class="fas fa-eye"></i></button>`;
-                                if (row.is_generated_segment) return `<div class="command-action-btn-group">${view}<span class="badge badge-light border text-muted">READ ONLY</span></div>`;
+                                if (row.is_generated_segment) {
+                                    if (row.is_orphaned_segment) {
+                                        const removeOrphan = `<button type="button" data-id="${escapeHtml(row.id)}" class="command-action-btn action-danger delete" title="REMOVE DETACHED SEGMENT" aria-label="Remove detached segment ${escapeHtml(row.name)}"><i class="fas fa-trash-alt"></i></button>`;
+                                        return `<div class="command-action-btn-group">${view}${removeOrphan}<span class="badge badge-light border text-muted">DETACHED</span></div>`;
+                                    }
+                                    return `<div class="command-action-btn-group">${view}<span class="badge badge-light border text-muted">READ ONLY</span></div>`;
+                                }
                                 const users = `<button type="button" data-id="${escapeHtml(row.id)}" class="command-action-btn action-users assignment" data-type="users" title="ALLOWED USERS" aria-label="Allowed users for ${escapeHtml(row.name)}"><i class="fas fa-users"></i></button>`;
                                 const sponsors = `<button type="button" data-id="${escapeHtml(row.id)}" class="command-action-btn action-sponsors assignment" data-type="sponsors" title="ALLOWED SPONSORS" aria-label="Allowed sponsors for ${escapeHtml(row.name)}"><i class="fas fa-hand-holding-usd"></i></button>`;
                                 const upload = `<button type="button" data-id="${escapeHtml(row.id)}" class="command-action-btn action-upload upload" title="UPLOAD EMAILS" aria-label="Upload emails to ${escapeHtml(row.name)}"><i class="fas fa-upload"></i></button>`;
@@ -331,17 +359,51 @@
                 }).on('click', '.delete', async function (event) {
                     event.preventDefault();
                     const button = this;
-                    const decision = window.Swal?.fire
-                        ? await window.Swal.fire({ icon: 'warning', title: 'Delete this list?', text: 'The list will leave active workflows. Campaign snapshots and history will be retained.', showCancelButton: true, confirmButtonText: 'DELETE LIST' })
-                        : { isConfirmed: window.confirm('Delete this list? Campaign snapshots and history will be retained.') };
-                    if (!decision.isConfirmed && !decision.value) return;
-                    button.disabled = true;
+                    const row = dt.row(button.closest('tr')).data();
+                    const isOrphan = Boolean(row?.is_orphaned_segment);
+                    pendingDelete = { id: button.dataset.id, trigger: button };
+                    deleteTitle.textContent = isOrphan ? 'Remove detached segment?' : 'Delete this list?';
+                    deleteDescription.textContent = isOrphan
+                        ? 'This segment has no active source list. It will be removed from inventory; recipient memberships and campaign history are retained.'
+                        : 'The list and its linked auto-segments will leave active workflows. Recipient memberships, campaign snapshots, and history are retained.';
+                    deleteConfirm.textContent = isOrphan ? 'REMOVE SEGMENT' : 'DELETE LIST';
+                    deleteError.hidden = true;
+                    deleteError.textContent = '';
+                    deleteConfirm.disabled = false;
+                    deleteCancel.disabled = false;
+                    deleteConfirm.setAttribute('aria-busy', 'false');
+                    deleteDialog.showModal();
+                    deleteCancel.focus();
+                });
+
+                deleteCancel.addEventListener('click', () => deleteDialog.close('cancel'));
+                deleteDialog.addEventListener('cancel', (event) => {
+                    if (deleteConfirm.disabled) event.preventDefault();
+                });
+                deleteDialog.addEventListener('close', () => {
+                    if (deleteDialog.returnValue !== 'deleted') pendingDelete?.trigger?.focus();
+                    pendingDelete = null;
+                });
+                deleteConfirm.addEventListener('click', async () => {
+                    if (!pendingDelete || deleteConfirm.disabled) return;
+                    const target = pendingDelete;
+                    deleteConfirm.disabled = true;
+                    deleteCancel.disabled = true;
+                    deleteConfirm.setAttribute('aria-busy', 'true');
+                    deleteConfirm.innerHTML = '<i class="fas fa-spinner fa-spin mr-1" aria-hidden="true"></i> DELETING…';
                     try {
-                        await send(`${baseUrl}/lists/${encodeURIComponent(button.dataset.id)}`, 'DELETE', {});
+                        await send(`${baseUrl}/lists/${encodeURIComponent(target.id)}`, 'DELETE', {});
+                        deleteDialog.close('deleted');
                         reload();
+                        document.querySelector('#load_lists')?.focus();
                     } catch (error) {
-                        button.disabled = false;
-                        if (window.swal?.fire) await window.swal.fire({ icon: 'error', title: error.message });
+                        deleteError.textContent = error.message || 'The list could not be deleted. Try again.';
+                        deleteError.hidden = false;
+                        deleteConfirm.disabled = false;
+                        deleteCancel.disabled = false;
+                        deleteConfirm.removeAttribute('aria-busy');
+                        deleteConfirm.textContent = row?.is_orphaned_segment ? 'REMOVE SEGMENT' : 'DELETE LIST';
+                        deleteConfirm.focus();
                     }
                 });
             };

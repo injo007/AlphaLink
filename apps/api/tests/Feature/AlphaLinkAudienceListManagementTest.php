@@ -9,6 +9,7 @@ use App\Models\ContactListMembership;
 use App\Models\User;
 use App\Models\Workspace;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -40,6 +41,7 @@ class AlphaLinkAudienceListManagementTest extends TestCase
             'allowed_sponsors' => [],
         ]);
         $this->actingAs($this->owner);
+        RateLimiter::clear(sha1((string) $this->owner->getKey()));
     }
 
     public function test_list_creation_inherits_isp_access_and_checks_tracked_country(): void
@@ -135,6 +137,7 @@ class AlphaLinkAudienceListManagementTest extends TestCase
     public function test_management_grid_counts_current_memberships_without_a_history_snapshot(): void
     {
         $list = $this->makeList('Live count list');
+        $list->forceFill(['niche' => 'retail'])->save();
         $this->addMembership($list, 'fresh', 'fresh-member');
         $this->addMembership($list, 'click', 'click-member');
         $this->addMembership($list, 'opt_out', 'opt-out-member');
@@ -142,6 +145,7 @@ class AlphaLinkAudienceListManagementTest extends TestCase
         $this->getJson(route('console.infrastructure.isps.lists', [$this->workspace->getKey(), $this->isp->getKey()]))
             ->assertOk()
             ->assertJsonPath('data.0.history.fresh', 1)
+            ->assertJsonPath('data.0.niche', 'retail')
             ->assertJsonPath('data.0.history.click', 1)
             ->assertJsonPath('data.0.history.opt_out', 1);
 
@@ -297,6 +301,62 @@ class AlphaLinkAudienceListManagementTest extends TestCase
         $this->getJson(route('console.infrastructure.isps.lists', [$this->workspace->id, $this->isp->id]))
             ->assertOk()
             ->assertJsonCount(0, 'data');
+    }
+
+    public function test_deleting_a_source_archives_linked_segments_and_preserves_their_memberships(): void
+    {
+        $source = $this->makeList('Projection source');
+        $segment = $this->makeList('Projection source_fresh');
+        $segment->forceFill([
+            'segment_source_list_id' => $source->getKey(),
+            'segment_action' => 'fresh',
+        ])->save();
+        $nestedSegment = $this->makeList('Projection source_fresh_be');
+        $nestedSegment->forceFill([
+            'segment_source_list_id' => $segment->getKey(),
+            'segment_action' => 'fresh',
+        ])->save();
+        $segmentMembership = $this->addMembership($segment, 'fresh', 'segment-member');
+        $nestedMembership = $this->addMembership($nestedSegment, 'fresh', 'nested-member');
+
+        $this->deleteJson(route('console.infrastructure.lists.destroy', [$this->workspace->getKey(), $source->getKey()]))
+            ->assertOk();
+
+        $this->assertSoftDeleted('audience_lists', ['id' => $source->getKey()]);
+        $this->assertSoftDeleted('audience_lists', ['id' => $segment->getKey()]);
+        $this->assertSoftDeleted('audience_lists', ['id' => $nestedSegment->getKey()]);
+        $this->assertDatabaseHas('contact_list_memberships', ['id' => $segmentMembership->getKey()]);
+        $this->assertDatabaseHas('contact_list_memberships', ['id' => $nestedMembership->getKey()]);
+        $this->assertDatabaseHas('audit_events', [
+            'subject_type' => 'audience_list',
+            'subject_id' => $segment->getKey(),
+            'action' => 'audience_list.deleted',
+        ]);
+        $this->getJson(route('console.infrastructure.isps.lists', [$this->workspace->getKey(), $this->isp->getKey()]))
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    }
+
+    public function test_orphaned_legacy_segment_can_be_removed_from_list_inventory(): void
+    {
+        $source = $this->makeList('Legacy source');
+        $segment = $this->makeList('Legacy source_fresh');
+        $segment->forceFill([
+            'segment_source_list_id' => $source->getKey(),
+            'segment_action' => 'fresh',
+        ])->save();
+        $membership = $this->addMembership($segment, 'fresh', 'legacy-member');
+        $source->delete();
+
+        $this->getJson(route('console.infrastructure.isps.lists', [$this->workspace->getKey(), $this->isp->getKey()]))
+            ->assertOk()
+            ->assertJsonPath('data.0.is_orphaned_segment', true);
+
+        $this->deleteJson(route('console.infrastructure.lists.destroy', [$this->workspace->getKey(), $segment->getKey()]))
+            ->assertOk();
+
+        $this->assertSoftDeleted('audience_lists', ['id' => $segment->getKey()]);
+        $this->assertDatabaseHas('contact_list_memberships', ['id' => $membership->getKey()]);
     }
 
     public function test_bulk_access_assignment_replaces_policy_for_only_selected_workspace_lists(): void

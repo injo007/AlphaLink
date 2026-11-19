@@ -45,7 +45,7 @@ class AudienceListManagementController extends Controller
         $isp = $workspace->isps()->whereKey($ispId)->firstOrFail();
         $lists = $isp->lists()
             ->where('workspace_id', $workspace->getKey())
-            ->with('segmentSourceList:id,name')
+            ->with(['segmentSourceList' => fn ($query) => $query->withTrashed()->select('id', 'name', 'deleted_at')])
             ->orderBy('id')
             ->get();
 
@@ -76,7 +76,10 @@ class AudienceListManagementController extends Controller
             return [
                 'id' => (string) $list->getKey(),
                 'name' => $list->name,
+                'niche' => $list->niche,
                 'is_generated_segment' => $list->segment_source_list_id !== null,
+                'is_orphaned_segment' => $list->segment_source_list_id !== null
+                    && ($list->segmentSourceList === null || $list->segmentSourceList->trashed()),
                 'segment_action' => $list->segment_action,
                 'segment_country_code' => $list->segment_country_code,
                 'segment_source_list_id' => $list->segment_source_list_id,
@@ -121,6 +124,9 @@ class AudienceListManagementController extends Controller
             'file' => ['required', 'file', 'mimes:txt,csv'],
             'type' => ['required', 'string', Rule::in(ContactListMembership::CAMPAIGN_TYPES)],
             'filter' => ['nullable', 'string', 'max:255'],
+            'create_duplicate' => ['sometimes', 'boolean'],
+            'duplicate_name' => [Rule::requiredIf($request->boolean('create_duplicate')), 'nullable', 'string', 'max:160', Rule::notIn([$list->name])],
+            'duplicate_niche' => ['nullable', 'string', 'max:160'],
         ]);
 
         $lookupKey = config('alphalink.contact_lookup_key');
@@ -138,7 +144,18 @@ class AudienceListManagementController extends Controller
             $data['type'],
             $data['filter'] ?? null,
             $lookupKey,
+            $request->boolean('create_duplicate') ? trim($data['duplicate_name']) : null,
+            $request->boolean('create_duplicate') && isset($data['duplicate_niche']) && trim($data['duplicate_niche']) !== ''
+                ? trim($data['duplicate_niche'])
+                : null,
         );
+        if ($batch->duplicateAudienceList) {
+            $this->audit($workspace, $request, 'audience_list.created', $batch->duplicateAudienceList, [
+                'source_list_id' => $list->getKey(),
+                'import_batch_id' => $batch->getKey(),
+                'niche' => $batch->duplicate_niche,
+            ]);
+        }
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -260,14 +277,20 @@ class AudienceListManagementController extends Controller
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
         $this->authorizeManager($workspace);
         $list = $workspace->audienceLists()->whereKey($listId)->firstOrFail();
-        $this->assertEditableSourceList($list);
+        abort_if(
+            $list->segment_source_list_id !== null && ! $this->isOrphanedSegment($list, $workspace),
+            409,
+            'This generated segment is still linked to an active source list.',
+        );
         $membershipCount = $list->memberships()->count();
 
         DB::transaction(function () use ($workspace, $request, $list, $membershipCount): void {
+            $archivedSegments = $this->archiveLinkedSegments($workspace, $request, $list);
             $list->delete();
             $this->audit($workspace, $request, 'audience_list.deleted', $list, [
                 'membership_count_retained' => $membershipCount,
                 'campaign_history_retained' => true,
+                'linked_segments_archived' => $archivedSegments,
             ]);
         });
 
@@ -465,5 +488,46 @@ class AudienceListManagementController extends Controller
     private function assertEditableSourceList(AudienceList $list): void
     {
         abort_if($list->segment_source_list_id !== null, 409, 'This is an automatically generated segment. Manage or upload contacts through its source list instead.');
+    }
+
+    private function isOrphanedSegment(AudienceList $list, Workspace $workspace): bool
+    {
+        $source = AudienceList::withTrashed()
+            ->where('workspace_id', $workspace->getKey())
+            ->find($list->segment_source_list_id);
+
+        return $source === null || $source->trashed();
+    }
+
+    private function archiveLinkedSegments(Workspace $workspace, Request $request, AudienceList $list): int
+    {
+        $sourceIds = [(string) $list->getKey()];
+        $visitedIds = $sourceIds;
+        $archivedCount = 0;
+
+        while ($sourceIds !== []) {
+            $segments = AudienceList::query()
+                ->where('workspace_id', $workspace->getKey())
+                ->whereIn('segment_source_list_id', $sourceIds)
+                ->whereNotIn('id', $visitedIds)
+                ->get();
+            $sourceIds = [];
+
+            foreach ($segments as $segment) {
+                $sourceIds[] = (string) $segment->getKey();
+                $visitedIds[] = (string) $segment->getKey();
+                $membershipCount = $segment->memberships()->count();
+                $segment->delete();
+                $this->audit($workspace, $request, 'audience_list.deleted', $segment, [
+                    'membership_count_retained' => $membershipCount,
+                    'campaign_history_retained' => true,
+                    'source_list_deleted' => $list->getKey(),
+                    'generated_segment_archived' => true,
+                ]);
+                $archivedCount++;
+            }
+        }
+
+        return $archivedCount;
     }
 }

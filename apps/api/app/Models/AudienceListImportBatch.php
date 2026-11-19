@@ -13,7 +13,7 @@ class AudienceListImportBatch extends Model
     use HasUuids;
 
     protected $fillable = [
-        'workspace_id', 'audience_list_id', 'created_by', 'status', 'phase',
+        'workspace_id', 'audience_list_id', 'duplicate_audience_list_id', 'duplicate_niche', 'created_by', 'status', 'phase',
         'source_format', 'membership_type', 'filter', 'storage_path', 'file_sha256', 'file_size_bytes',
         'checksum_verified', 'validation_offset', 'import_offset', 'processed_count',
         'valid_count', 'filtered_count', 'invalid_count', 'imported_count',
@@ -49,6 +49,11 @@ class AudienceListImportBatch extends Model
     public function audienceList(): BelongsTo
     {
         return $this->belongsTo(AudienceList::class);
+    }
+
+    public function duplicateAudienceList(): BelongsTo
+    {
+        return $this->belongsTo(AudienceList::class, 'duplicate_audience_list_id');
     }
 
     public function createdBy(): BelongsTo
@@ -92,6 +97,7 @@ class AudienceListImportBatch extends Model
             'imported_count' => (int) $this->imported_count,
             'duplicate_count' => (int) $this->duplicate_count,
             'profile_warning_count' => (int) $this->profile_warning_count,
+            'duplicate_list_name' => $this->duplicateAudienceList?->name,
             'failure_message' => $this->failure_message,
         ];
     }

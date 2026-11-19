@@ -12,6 +12,7 @@ use App\Models\CampaignRecipientSnapshot;
 use App\Models\CampaignRevision;
 use App\Models\CampaignSendRun;
 use App\Models\CampaignTestMailAttempt;
+use App\Models\ContactListMembership;
 use App\Models\ContactListMembershipEvent;
 use App\Models\Isp;
 use App\Models\ManagedServer;
@@ -3575,6 +3576,15 @@ class WorkspaceConsoleController extends Controller
         }
         $search = $request->query('q');
         $search = is_string($search) ? mb_substr(trim($search), 0, 120) : '';
+        $typeFilter = $request->query('type');
+        $typeFilter = is_string($typeFilter) && in_array($typeFilter, ContactListMembership::CAMPAIGN_TYPES, true)
+            ? $typeFilter
+            : 'all';
+        $sortColumn = $request->query('sort');
+        $sortColumn = is_string($sortColumn) && in_array($sortColumn, ['recipient', 'type', 'details'], true)
+            ? $sortColumn
+            : '';
+        $sortDirection = $request->query('direction') === 'desc' ? 'desc' : 'asc';
         $contactRows = $canViewContacts
             ? $audienceList->memberships()
                 ->where('status', 'active')
@@ -3584,7 +3594,7 @@ class WorkspaceConsoleController extends Controller
                 ->withQueryString()
             : null;
 
-        return view('console.audiences.show', compact('workspace', 'audienceList', 'membershipEvents', 'canViewContacts', 'contactRows', 'perPage', 'search'));
+        return view('console.audiences.show', compact('workspace', 'audienceList', 'membershipEvents', 'canViewContacts', 'contactRows', 'perPage', 'search', 'typeFilter', 'sortColumn', 'sortDirection'));
     }
 
     private function workspaceFor(User $user, string $workspaceId): Workspace

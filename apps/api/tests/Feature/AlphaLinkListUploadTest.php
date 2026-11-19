@@ -362,7 +362,11 @@ class AlphaLinkListUploadTest extends TestCase
             ->assertSee('US')
             ->assertSee('Recipients')
             ->assertSee('Search this page')
-            ->assertSee('Search checks email, recipient type, tag names, and tag values on this page.')
+            ->assertSee('Search, type filters, and sorting apply to recipients on this page.')
+            ->assertSee('id="audience-recipient-type"', false)
+            ->assertSee('data-sort-key="recipient"', false)
+            ->assertSee('data-sort-key="type"', false)
+            ->assertSee('data-sort-key="details"', false)
             ->assertSee('data-current="25"', false)
             ->assertSee('value="Example"', false)
             ->assertSee('data-search="visible@example.test fresh first_name Vis last_name Able country US Company Example Co"', false);

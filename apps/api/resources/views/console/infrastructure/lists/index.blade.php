@@ -159,6 +159,8 @@
             const escapeHtml = (value) => $('<div>').text(value == null ? '' : String(value)).html();
             const activeId = () => $('#isps').val();
 
+            const openAudienceSnapshot = (url) => window.location.assign(url);
+
             const openFrame = (url) => {
                 if (!window.bootbox?.dialog) {
                     window.location.assign(url);
@@ -325,7 +327,7 @@
                     openFrame(`${baseUrl}/lists/${encodeURIComponent(this.dataset.id)}/upload`);
                 }).on('click', '.view', function (event) {
                     event.preventDefault();
-                    openFrame(audienceUrlTemplate.replace('__LIST_ID__', encodeURIComponent(this.dataset.id)));
+                    openAudienceSnapshot(audienceUrlTemplate.replace('__LIST_ID__', encodeURIComponent(this.dataset.id)));
                 }).on('click', '.lock', async function (event) {
                     event.preventDefault();
                     const button = this;

@@ -20,7 +20,7 @@
         .audience-snapshot-panel-heading { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: .8rem; margin-bottom: 1rem; padding-bottom: .85rem; border-bottom: 1px solid var(--co-border); }
         .audience-snapshot-panel-heading h2 { margin: 0; color: var(--co-ink); font-size: .95rem; font-weight: 800; letter-spacing: .035em; }
         .audience-snapshot-panel-heading p { max-width: 720px; margin: .3rem 0 0; color: var(--co-muted); font-size: .78rem; line-height: 1.5; }
-        .audience-recipient-toolbar { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(150px, 190px) auto; align-items: end; gap: .75rem; margin-bottom: .6rem; }
+        .audience-recipient-toolbar { display: grid; grid-template-columns: minmax(240px, 1.8fr) minmax(145px, 1fr) minmax(120px, .7fr) auto; align-items: end; gap: .75rem; margin-bottom: .8rem; }
         .audience-recipient-field { display: grid; min-width: 0; gap: .35rem; }
         .audience-recipient-field label { margin: 0; color: var(--co-ink); font-size: .72rem; font-weight: 750; }
         .audience-recipient-search-box { position: relative; }
@@ -30,8 +30,15 @@
         .audience-recipient-clear:hover { background: color-mix(in srgb, var(--co-purple) 10%, transparent); color: var(--co-purple); }
         .audience-recipient-clear:focus-visible, .audience-recipient-search:focus-visible, .audience-recipient-page-size:focus-visible { outline: 3px solid color-mix(in srgb, var(--co-purple) 45%, transparent); outline-offset: 2px; }
         .audience-recipient-page-size { min-height: 42px; }
+        .audience-recipient-type { min-height: 42px; }
         .audience-recipient-hint { grid-column: 1 / -1; margin: -.1rem 0 0; color: var(--co-muted); font-size: .72rem; line-height: 1.45; }
         .audience-recipient-results { margin: 0 0 .65rem; padding: .45rem .65rem; border-radius: 8px; background: color-mix(in srgb, var(--co-purple) 5%, var(--co-surface)); color: var(--co-muted); font-size: .73rem; }
+        .audience-recipient-sort { display: inline-flex; align-items: center; gap: .4rem; padding: .15rem 0; border: 0; background: transparent; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; }
+        .audience-recipient-sort:hover, .audience-recipient-sort[aria-pressed="true"] { color: var(--co-purple); }
+        .audience-recipient-sort:focus-visible, .audience-recipient-reset:focus-visible { outline: 3px solid color-mix(in srgb, var(--co-purple) 45%, transparent); outline-offset: 3px; }
+        .audience-recipient-sort .fas { color: var(--co-purple); font-size: .7rem; }
+        .audience-recipient-reset { display: inline-flex; min-height: 42px; align-items: center; justify-content: center; padding: .55rem .8rem; border: 1px solid var(--co-border); border-radius: .45rem; background: var(--co-surface); color: var(--co-muted); font-size: .75rem; font-weight: 700; text-decoration: none; white-space: nowrap; }
+        .audience-recipient-reset:hover { border-color: var(--co-purple); color: var(--co-purple); }
         .audience-recipient-table-wrap { width: 100%; overflow-x: auto; border: 1px solid var(--co-border); border-radius: 11px; }
         .audience-recipient-table { min-width: 640px; margin: 0; }
         .audience-recipient-table thead th { padding: .75rem .85rem; color: var(--co-muted); font-size: .68rem; font-weight: 800; letter-spacing: .07em; white-space: nowrap; }
@@ -54,8 +61,8 @@
             .audience-snapshot-actions { justify-content: flex-start; }
             .audience-snapshot-summary { grid-template-columns: 1fr; }
             .audience-snapshot-panel { padding: .9rem; }
-            .audience-recipient-toolbar { grid-template-columns: minmax(0, 1fr) minmax(110px, 140px); }
-            .audience-recipient-toolbar .btn-command-action { grid-column: 1 / -1; }
+            .audience-recipient-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .audience-recipient-search-field, .audience-recipient-hint { grid-column: 1 / -1; }
             .audience-snapshot-events { grid-template-columns: minmax(0, 1fr) auto; }
             .audience-snapshot-event-time { grid-column: 1 / -1; }
         }
@@ -63,7 +70,7 @@
             .audience-snapshot-identity { align-items: flex-start; gap: .7rem; }
             .audience-snapshot-icon { flex-basis: 40px; width: 40px; height: 40px; }
             .audience-recipient-toolbar { grid-template-columns: 1fr; }
-            .audience-recipient-hint { grid-column: auto; }
+            .audience-recipient-search-field, .audience-recipient-hint { grid-column: auto; }
         }
     </style>
 @endpush
@@ -107,7 +114,7 @@
                 <div class="audience-snapshot-panel-heading">
                     <div>
                         <h2 id="audience-recipients-title"><i class="fas fa-address-card mr-2 text-purple" aria-hidden="true"></i>Recipients</h2>
-                        <p>Email addresses and imported profile tags are read-only and visible to workspace owners and admins.</p>
+                        <p>Search, filter, or sort recipients on the current page. Addresses and imported profile tags are read-only and visible to workspace owners and admins.</p>
                     </div>
                     <span class="badge-command-pill">{{ number_format($contactRows->total()) }} active</span>
                 </div>
@@ -120,7 +127,7 @@
                     </div>
                 @else
                     <form id="audience-recipient-filter" class="audience-recipient-toolbar" method="get" action="{{ route('console.audiences.show', [$workspace->id, $audienceList->id]) }}">
-                        <div class="audience-recipient-field">
+                        <div class="audience-recipient-field audience-recipient-search-field">
                             <label for="audience-recipient-search">Search this page</label>
                             <div class="audience-recipient-search-box">
                                 <i class="fas fa-search" aria-hidden="true"></i>
@@ -141,6 +148,15 @@
                             </div>
                         </div>
                         <div class="audience-recipient-field">
+                            <label for="audience-recipient-type">Recipient type</label>
+                            <select id="audience-recipient-type" class="form-control audience-recipient-type" name="type">
+                                <option value="all" @selected($typeFilter === 'all')>All types</option>
+                                @foreach (\App\Models\ContactListMembership::CAMPAIGN_TYPES as $emailType)
+                                    <option value="{{ $emailType }}" @selected($typeFilter === $emailType)>{{ ucfirst($emailType) }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="audience-recipient-field">
                             <label for="audience-recipient-page-size">Rows per page</label>
                             <select id="audience-recipient-page-size" class="form-control audience-recipient-page-size" name="per_page" data-current="{{ $perPage }}">
                                 @foreach ([25, 50, 100, 200] as $pageSize)
@@ -148,21 +164,24 @@
                                 @endforeach
                             </select>
                         </div>
+                        <input type="hidden" name="sort" value="{{ $sortColumn }}">
+                        <input type="hidden" name="direction" value="{{ $sortDirection }}">
                         <button class="btn-command-action" type="submit"><i class="fas fa-search mr-1" aria-hidden="true"></i> Search</button>
-                        <p id="audience-recipient-search-help" class="audience-recipient-hint">Search checks email, recipient type, tag names, and tag values on this page. Use the page controls below to search other recipients.</p>
+                        <a class="audience-recipient-reset" href="{{ route('console.audiences.show', [$workspace->id, $audienceList->id]) }}">Reset filters</a>
+                        <p id="audience-recipient-search-help" class="audience-recipient-hint">Search, type filters, and sorting apply to recipients on this page. Use pagination to browse the full list; recipient profile data is protected and not searched across the full list.</p>
                     </form>
 
                     <div id="audience-recipient-results" class="audience-recipient-results" role="status" aria-live="polite" data-total="{{ $contactRows->total() }}">
-                        Showing {{ $contactRows->count() }} recipients on this page. {{ number_format($contactRows->total()) }} active recipients in this list.
+                        Showing {{ $contactRows->count() }} loaded recipients. {{ number_format($contactRows->total()) }} active recipients in this list.
                     </div>
 
                     <div class="audience-recipient-table-wrap">
-                        <table id="audience-recipient-table" class="table command-os-table table-hover audience-recipient-table">
+                        <table id="audience-recipient-table" class="table command-os-table table-hover audience-recipient-table" data-sort-column="{{ $sortColumn }}" data-sort-direction="{{ $sortDirection }}">
                             <thead>
                                 <tr>
-                                    <th scope="col">Recipient</th>
-                                    <th scope="col">Type</th>
-                                    <th scope="col">Imported details</th>
+                                    <th scope="col" aria-sort="none"><button class="audience-recipient-sort" type="button" data-sort-key="recipient" aria-pressed="false"><span>Recipient</span><i class="fas fa-sort" aria-hidden="true"></i></button></th>
+                                    <th scope="col" aria-sort="none"><button class="audience-recipient-sort" type="button" data-sort-key="type" aria-pressed="false"><span>Type</span><i class="fas fa-sort" aria-hidden="true"></i></button></th>
+                                    <th scope="col" aria-sort="none"><button class="audience-recipient-sort" type="button" data-sort-key="details" aria-pressed="false"><span>Imported details</span><i class="fas fa-sort" aria-hidden="true"></i></button></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -180,7 +199,7 @@
                                         }
                                         $searchableValues = array_filter($searchableValues, static fn ($value): bool => $value !== null && $value !== '');
                                     @endphp
-                                    <tr class="audience-recipient-row" data-search="{{ implode(' ', $searchableValues) }}">
+                                    <tr class="audience-recipient-row" data-search="{{ implode(' ', $searchableValues) }}" data-recipient="{{ mb_strtolower($membership->contact?->email ?? '') }}" data-type="{{ mb_strtolower($membership->email_type) }}" data-details="{{ implode(' ', array_slice($searchableValues, 2)) }}">
                                         <td><span class="audience-recipient-email font-mono">{{ $membership->contact?->email ?? '—' }}</span></td>
                                         <td><span class="badge-command-pill">{{ ucfirst($membership->email_type) }}</span></td>
                                         <td>
@@ -207,8 +226,8 @@
                                     <td colspan="3">
                                         <div class="audience-recipient-empty py-4">
                                             <span class="audience-recipient-empty-icon" aria-hidden="true"><i class="fas fa-search"></i></span>
-                                            <h3>No matches on this page</h3>
-                                            <p>Try a different search, clear the filter, or check another page.</p>
+                                            <h3>No recipients match these filters</h3>
+                                            <p>Adjust your search or type filter, or check another page.</p>
                                         </div>
                                     </td>
                                 </tr>
@@ -279,20 +298,56 @@
 
             const searchInput = form.querySelector('#audience-recipient-search');
             const clearButton = form.querySelector('#audience-recipient-clear');
+            const typeFilter = form.querySelector('#audience-recipient-type');
             const pageSize = form.querySelector('#audience-recipient-page-size');
             const table = document.querySelector('#audience-recipient-table');
+            const tbody = table.querySelector('tbody');
             const resultStatus = document.querySelector('#audience-recipient-results');
             const noResultsRow = document.querySelector('#audience-recipient-no-results');
             const rows = Array.from(table.querySelectorAll('.audience-recipient-row'));
+            const sortButtons = Array.from(table.querySelectorAll('[data-sort-key]'));
+            const sortField = form.querySelector('[name="sort"]');
+            const directionField = form.querySelector('[name="direction"]');
             const paginationLinks = Array.from(document.querySelectorAll('.audience-snapshot-footer .pagination a[href]'));
             const normalize = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase();
+            let sortColumn = table.dataset.sortColumn || '';
+            let sortDirection = table.dataset.sortDirection === 'desc' ? 'desc' : 'asc';
 
-            const updatePaginationUrls = (query) => {
+            const sortRows = () => {
+                if (!sortColumn) return;
+                const sortedRows = [...rows].sort((firstRow, secondRow) => {
+                    const firstValue = normalize(firstRow.dataset[sortColumn]);
+                    const secondValue = normalize(secondRow.dataset[sortColumn]);
+                    return firstValue.localeCompare(secondValue, undefined, { numeric: true }) * (sortDirection === 'desc' ? -1 : 1);
+                });
+                sortedRows.forEach((row) => tbody.appendChild(row));
+                tbody.appendChild(noResultsRow);
+            };
+
+            const updateSortControls = () => {
+                sortButtons.forEach((button) => {
+                    const active = button.dataset.sortKey === sortColumn;
+                    const header = button.closest('th');
+                    const icon = button.querySelector('.fas');
+                    header.setAttribute('aria-sort', active ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none');
+                    button.setAttribute('aria-pressed', String(active));
+                    icon.className = `fas ${active ? (sortDirection === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort'}`;
+                });
+                sortField.value = sortColumn;
+                directionField.value = sortDirection;
+            };
+
+            const updatePaginationUrls = () => {
                 paginationLinks.forEach((link) => {
                     const url = new URL(link.href, window.location.href);
-                    if (query) url.searchParams.set('q', query);
+                    if (searchInput.value.trim()) url.searchParams.set('q', searchInput.value.trim());
                     else url.searchParams.delete('q');
+                    if (typeFilter.value !== 'all') url.searchParams.set('type', typeFilter.value);
+                    else url.searchParams.delete('type');
                     url.searchParams.set('per_page', pageSize.value);
+                    if (sortColumn) url.searchParams.set('sort', sortColumn);
+                    else url.searchParams.delete('sort');
+                    url.searchParams.set('direction', sortDirection);
                     link.href = url.toString();
                 });
             };
@@ -304,25 +359,33 @@
 
                 rows.forEach((row) => {
                     const haystack = normalize(row.dataset.search);
-                    const matches = terms.every((term) => haystack.includes(term));
+                    const matchesSearch = terms.every((term) => haystack.includes(term));
+                    const matchesType = typeFilter.value === 'all' || row.dataset.type === typeFilter.value;
+                    const matches = matchesSearch && matchesType;
                     row.hidden = !matches;
                     if (matches) visibleRows++;
                 });
 
-                noResultsRow.hidden = visibleRows > 0 || terms.length === 0;
+                const filtering = terms.length > 0 || typeFilter.value !== 'all';
+                noResultsRow.hidden = visibleRows > 0 || !filtering;
                 clearButton.hidden = query.length === 0;
                 const total = Number(resultStatus.dataset.total || 0).toLocaleString();
-                resultStatus.textContent = terms.length
-                    ? `${visibleRows} matches on this page. ${total} active recipients in this list.`
-                    : `Showing ${rows.length} recipients on this page. ${total} active recipients in this list.`;
+                resultStatus.textContent = filtering
+                    ? `Showing ${visibleRows} of ${rows.length} loaded recipients. ${total} active recipients in this list.`
+                    : `Showing ${rows.length} loaded recipients. ${total} active recipients in this list.`;
 
                 if (updateUrl) {
                     const url = new URL(window.location.href);
                     if (query) url.searchParams.set('q', query);
                     else url.searchParams.delete('q');
+                    if (typeFilter.value !== 'all') url.searchParams.set('type', typeFilter.value);
+                    else url.searchParams.delete('type');
                     url.searchParams.set('per_page', pageSize.value);
+                    if (sortColumn) url.searchParams.set('sort', sortColumn);
+                    else url.searchParams.delete('sort');
+                    url.searchParams.set('direction', sortDirection);
                     window.history.replaceState(window.history.state, '', url);
-                    updatePaginationUrls(query);
+                    updatePaginationUrls();
                 }
             };
 
@@ -332,14 +395,26 @@
                 applySearch(true);
             });
             searchInput.addEventListener('input', () => applySearch(true));
+            typeFilter.addEventListener('change', () => applySearch(true));
             pageSize.addEventListener('change', () => form.requestSubmit());
             clearButton.addEventListener('click', () => {
                 searchInput.value = '';
                 applySearch(true);
                 searchInput.focus();
             });
+            sortButtons.forEach((button) => {
+                button.addEventListener('click', () => {
+                    sortDirection = sortColumn === button.dataset.sortKey && sortDirection === 'asc' ? 'desc' : 'asc';
+                    sortColumn = button.dataset.sortKey;
+                    sortRows();
+                    updateSortControls();
+                    applySearch(true);
+                });
+            });
+            sortRows();
+            updateSortControls();
             applySearch();
-            updatePaginationUrls(searchInput.value.trim());
+            updatePaginationUrls();
         })();
     </script>
 @endpush

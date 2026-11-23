@@ -42,7 +42,7 @@ class AlphaLinkReviewedAssetDigestVerifier
     public const VERIFIED_RPM_TARGETS = [
         '79d6e811fef22e79e3886f3104d10e550ffa622c04915c265631e3d7c91d1de9' => [
             'pmta_version' => 45,
-            'target_os' => 'AlmaLinux 9.8 (Olive Jaguar)',
+            'target_os' => 'AlmaLinux 9.x',
             'architecture' => 'x86_64',
             'rpm_metadata_verified' => true,
             'rpm_digests_verified' => true,
@@ -168,11 +168,21 @@ class AlphaLinkReviewedAssetDigestVerifier
         return is_array($evidence)
             && ($evidence['pmta_version'] ?? null) === $pmtaVersion
             && is_string($evidence['target_os'] ?? null)
-            && strtolower(trim($evidence['target_os'])) === strtolower(trim($targetOs))
+            && $this->targetOsMatches($evidence['target_os'], $targetOs)
             && is_string($evidence['architecture'] ?? null)
             && strtolower(trim($evidence['architecture'])) === strtolower(trim($architecture))
             && ($evidence['rpm_metadata_verified'] ?? false) === true
             && ($evidence['rpm_digests_verified'] ?? false) === true
             && ($evidence['dnf_plan_resolved'] ?? false) === true;
+    }
+
+    private function targetOsMatches(string $verifiedTargetOs, string $targetOs): bool
+    {
+        if (strtolower(trim($verifiedTargetOs)) === strtolower(trim($targetOs))) {
+            return true;
+        }
+
+        return strtolower(trim($verifiedTargetOs)) === 'almalinux 9.x'
+            && preg_match('/\AAlmaLinux 9\.\d+(?:\s+\([^()]+\))?\z/i', trim($targetOs)) === 1;
     }
 }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildSingleInstallPayload, responseErrorMessage } from '../../public/alphalink/infrastructure/single-install.js';
+import { buildSingleInstallPayload, installFailureLogMessage, responseErrorMessage } from '../../public/alphalink/infrastructure/single-install.js';
 
 test('single-install loader always gives a visible message for empty and validation error responses', () => {
     assert.equal(
@@ -10,6 +10,17 @@ test('single-install loader always gives a visible message for empty and validat
     assert.equal(
         responseErrorMessage({ errors: { server_id: ['Select a valid server.'] } }, 'Could not load server IPs.'),
         'Select a valid server.',
+    );
+});
+
+test('blocked readiness does not leave a false preparing-installation status', () => {
+    assert.equal(
+        installFailureLogMessage({ code: 'pmta_deployment_not_ready' }),
+        'Not started: preflight blocked the request before an install run was queued. No target-server changes were made.',
+    );
+    assert.equal(
+        installFailureLogMessage({ code: 'unexpected_server_error' }),
+        'The installation start was not confirmed. Check run status before retrying to avoid duplicate work.',
     );
 });
 
@@ -44,5 +55,6 @@ test('submits the supported per-IP assignments and uses the main IP domain as th
         dkim: 1,
         dmarc: 1,
         https: 0,
+        clean_dns: 0,
     });
 });

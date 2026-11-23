@@ -128,6 +128,14 @@ export function responseErrorMessage(body, fallback) {
     return messages.join('\n') || fallback;
 }
 
+export function installFailureLogMessage(body) {
+    if (['pmta_deployment_not_ready', 'server_preflight_not_verified', 'single_install_inputs_not_ready', 'single_install_runner_unavailable'].includes(body?.code)) {
+        return 'Not started: preflight blocked the request before an install run was queued. No target-server changes were made.';
+    }
+
+    return 'The installation start was not confirmed. Check run status before retrying to avoid duplicate work.';
+}
+
 function initializeSingleInstallPage() {
     const form = document.querySelector('#single-install-form');
     if (!form) return;
@@ -165,6 +173,7 @@ function initializeSingleInstallPage() {
         error.textContent = message;
         error.classList.toggle('d-none', message === '');
     };
+    error.style.whiteSpace = 'pre-line';
 
     loadButton.addEventListener('click', async () => {
         const domains = selectedDomains(domainSelect);
@@ -314,6 +323,7 @@ function initializeSingleInstallPage() {
             if (!response.ok) {
                 const messages = [body.message, ...(body.blockers ?? []), ...(body.servers ?? []).flatMap((entry) => entry.blockers ?? []), ...Object.values(body.errors ?? {}).flat()]
                     .filter((message) => typeof message === 'string' && message !== '');
+                logOutput.textContent = installFailureLogMessage(body);
                 throw new Error(messages.join('\n') || 'Installation could not start.');
             }
 
@@ -331,6 +341,9 @@ function initializeSingleInstallPage() {
             }
             installButton.textContent = 'DONE';
         } catch (caught) {
+            if (logOutput.textContent === 'Preparing installation…') {
+                logOutput.textContent = 'The app did not confirm whether an installation started. Check run status before retrying.';
+            }
             setError(caught instanceof Error ? caught.message : 'Installation could not start.');
             installButton.disabled = false;
             installButton.textContent = 'INSTALL';

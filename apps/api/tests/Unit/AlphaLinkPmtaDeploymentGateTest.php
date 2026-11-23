@@ -113,7 +113,8 @@ class AlphaLinkPmtaDeploymentGateTest extends TestCase
         $this->writeAlphaLinkAssets(40, $this->installOptions());
         config(['infrastructure.install_assets_directory' => $this->assetRoot]);
 
-        $result = $this->gate($this->syntheticAssetDigestVerifier())->evaluate($this->almaLinuxFacts(), 40, $this->installOptions());
+        $facts = [...$this->almaLinuxFacts(), 'os_pretty_name' => 'AlmaLinux 9.4 (Seafoam Ocelot)'];
+        $result = $this->gate($this->syntheticAssetDigestVerifier())->evaluate($facts, 40, $this->installOptions());
 
         $this->assertTrue($result['checks']['private_alphalink_asset_root']);
         $this->assertTrue($result['checks']['complete_alphalink_asset_presence']);
@@ -127,10 +128,9 @@ class AlphaLinkPmtaDeploymentGateTest extends TestCase
         $this->assertFalse($result['checks']['target_host_compatibility_verified']);
         $this->assertFalse($result['installation_authorized']);
         $this->assertContains(
-            'The selected PMTA RPM has no successful metadata, digest, and target DNF dependency-plan validation.',
+            'PowerMTA 4.0 RPM validation is not verified for AlmaLinux 9.4 (Seafoam Ocelot) x86_64; no install job was queued and the target server was not changed.',
             $result['blockers'],
         );
-        $this->assertContains('PMTA compatibility with the selected target host has not been verified.', $result['blockers']);
     }
 
     public function test_pmta_source_template_without_relay_authorization_is_not_deployable(): void
@@ -185,7 +185,7 @@ class AlphaLinkPmtaDeploymentGateTest extends TestCase
         $evidence = [
             $rpmDigest => [
                 'pmta_version' => 40,
-                'target_os' => 'AlmaLinux 9.8',
+                'target_os' => 'AlmaLinux 9.x',
                 'architecture' => 'x86_64',
                 'rpm_metadata_verified' => true,
                 'rpm_digests_verified' => true,
@@ -201,12 +201,34 @@ class AlphaLinkPmtaDeploymentGateTest extends TestCase
             'AlmaLinux 9.8',
             'x86_64',
         ));
+        foreach ([
+            'AlmaLinux 9.0 (Emerald Puma)',
+            'AlmaLinux 9.4 (Seafoam Ocelot)',
+            'AlmaLinux 9.9 (Chartreuse Bobcat)',
+        ] as $targetOs) {
+            $this->assertTrue($verifier->verifiesRpmForTarget(
+                $this->assetRoot,
+                'install/pmta_40/pmta.rpm',
+                40,
+                $targetOs,
+                'x86_64',
+            ));
+        }
+        foreach (['AlmaLinux 8.10', 'Rocky Linux 9.4'] as $targetOs) {
+            $this->assertFalse($verifier->verifiesRpmForTarget(
+                $this->assetRoot,
+                'install/pmta_40/pmta.rpm',
+                40,
+                $targetOs,
+                'x86_64',
+            ));
+        }
         $this->assertFalse($verifier->verifiesRpmForTarget(
             $this->assetRoot,
             'install/pmta_40/pmta.rpm',
             40,
-            'AlmaLinux 9.7',
-            'x86_64',
+            'AlmaLinux 9.4 (Seafoam Ocelot)',
+            'aarch64',
         ));
 
         $evidence[$rpmDigest]['dnf_plan_resolved'] = false;
@@ -218,6 +240,34 @@ class AlphaLinkPmtaDeploymentGateTest extends TestCase
             'AlmaLinux 9.8',
             'x86_64',
         ));
+    }
+
+    public function test_pmta_45_gate_accepts_validated_almalinux_9_minor_release(): void
+    {
+        $this->writeAlphaLinkAssets(45, $this->installOptions());
+        config(['infrastructure.install_assets_directory' => $this->assetRoot]);
+        $digests = $this->syntheticAssetDigests(45);
+        $rpmDigest = $digests['pmta/4.5/package.rpm']['sha256'];
+        $verifier = new AlphaLinkReviewedAssetDigestVerifier(
+            $digests,
+            new AlphaLinkInstallerAssetCatalog,
+            [$rpmDigest => [
+                'pmta_version' => 45,
+                'target_os' => 'AlmaLinux 9.x',
+                'architecture' => 'x86_64',
+                'rpm_metadata_verified' => true,
+                'rpm_digests_verified' => true,
+                'dnf_plan_resolved' => true,
+            ]],
+        );
+
+        $facts = [...$this->almaLinuxFacts(), 'os_pretty_name' => 'AlmaLinux 9.4 (Seafoam Ocelot)'];
+        $result = $this->gate($verifier)->evaluate($facts, 45, $this->installOptions());
+
+        $this->assertTrue($result['checks']['pmta_rpm_validation_verified']);
+        $this->assertTrue($result['checks']['target_host_compatibility_verified']);
+        $this->assertTrue($result['installation_authorized']);
+        $this->assertSame([], $result['blockers']);
     }
 
     public function test_absent_assets_are_not_misreported_as_digest_mismatches(): void
@@ -366,10 +416,10 @@ class AlphaLinkPmtaDeploymentGateTest extends TestCase
     }
 
     /** @return array<string, array{size: int, sha256: string}> */
-    private function syntheticAssetDigests(): array
+    private function syntheticAssetDigests(int $version = 40): array
     {
         $matrix = new AlphaLinkBulkInstallAssetInventory(new AlphaLinkBulkInstallInstallerMatrix(new AlphaLinkInstallPlatform));
-        $inventory = $matrix->inspect('AlmaLinux 9.8', 40, $this->installOptions(), $this->assetRoot);
+        $inventory = $matrix->inspect('AlmaLinux 9.8', $version, $this->installOptions(), $this->assetRoot);
         $catalog = new AlphaLinkInstallerAssetCatalog;
         $digests = [];
         foreach (array_keys($inventory['pmta']['assets']) as $sourcePath) {

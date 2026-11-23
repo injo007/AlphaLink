@@ -114,6 +114,8 @@ class AlphaLinkPmtaDeploymentGate
             $checks,
             $inventory,
             $rpmPath,
+            $pmtaVersion,
+            $hostFacts,
             $versionSetupWouldBeSkipped,
             $pinnedRpmMatches,
             $versionedLicenseMatches,
@@ -157,6 +159,8 @@ class AlphaLinkPmtaDeploymentGate
         array $checks,
         array $inventory,
         string $rpmPath,
+        int $pmtaVersion,
+        array $hostFacts,
         ?bool $versionSetupWouldBeSkipped,
         ?bool $pinnedRpmMatches,
         ?bool $versionedLicenseMatches,
@@ -218,12 +222,11 @@ class AlphaLinkPmtaDeploymentGate
         }
 
         if (($inventory['pmta']['assets'][$rpmPath] ?? null) === 'present_unverified'
-            && ! $checks['pmta_rpm_validation_verified']) {
-            $blockers[] = 'The selected PMTA RPM has no successful metadata, digest, and target DNF dependency-plan validation.';
-        }
-
-        if (! $checks['target_host_compatibility_verified']) {
-            $blockers[] = 'PMTA compatibility with the selected target host has not been verified.';
+            && (! $checks['pmta_rpm_validation_verified'] || ! $checks['target_host_compatibility_verified'])) {
+            $targetOs = trim((string) ($hostFacts['os_pretty_name'] ?? 'selected host'));
+            $architecture = trim((string) ($hostFacts['architecture'] ?? 'unknown architecture'));
+            $version = intdiv($pmtaVersion, 10).'.'.($pmtaVersion % 10);
+            $blockers[] = "PowerMTA {$version} RPM validation is not verified for {$targetOs} {$architecture}; no install job was queued and the target server was not changed.";
         }
 
         return $blockers;

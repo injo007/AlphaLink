@@ -362,9 +362,9 @@ class AlphaLinkCentos9InstallWorkflow
             $pmtaMonitorHttps,
             (string) $server->getKey(),
         );
-        $monitorIsHttps = str_starts_with($adminUrl, 'https://');
+        $monitorIsHttps = $pmtaMonitorHttps;
         $monitorLabel = $monitorIsHttps
-            ? (string) parse_url($adminUrl, PHP_URL_HOST).':'.$publicPort
+            ? 'Open PMTA HTTPS monitor via AlphaLink'
             : 'Open PMTA monitor via AlphaLink HTTPS';
         $monitorDescription = $monitorIsHttps
             ? sprintf('HTTPS; public port %d', $publicPort)

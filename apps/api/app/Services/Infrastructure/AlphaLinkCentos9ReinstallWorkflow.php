@@ -294,8 +294,12 @@ class AlphaLinkCentos9ReinstallWorkflow
             );
         }
         if ($adminUrl !== null) {
-            $log(str_starts_with($adminUrl, 'https://')
-                ? 'PMTA MONITOR LINK (verified HTTPS): '.$adminUrl
+            $log($pmtaMonitorHttps
+                ? sprintf(
+                    'PMTA MONITOR LINK (verified HTTPS server monitor through AlphaLink proxy; PMTA listener port %d): %s',
+                    $inputs['settings']['pmta_admin_port'],
+                    $adminUrl,
+                )
                 : sprintf(
                     'PMTA MONITOR LINK (HTTP server monitor through AlphaLink HTTPS proxy; PMTA listener port %d): %s',
                     $inputs['settings']['pmta_admin_port'],

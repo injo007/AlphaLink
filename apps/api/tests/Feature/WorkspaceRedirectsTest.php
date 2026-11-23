@@ -20,6 +20,7 @@ class WorkspaceRedirectsTest extends TestCase
         $this->server($workspace, $owner, 'Ready tracking server', [
             'tracking' => true,
             'https' => true,
+            'tracking_https_ready' => true,
             'tracking_host' => 'https://track.example.test',
         ]);
         $this->server($workspace, $owner, 'Fallback server', [
@@ -51,6 +52,7 @@ class WorkspaceRedirectsTest extends TestCase
         $this->server($workspace, $owner, 'Visible server', [
             'tracking' => true,
             'https' => true,
+            'tracking_https_ready' => true,
             'tracking_host' => 'visible.example.test',
         ]);
 
@@ -59,6 +61,7 @@ class WorkspaceRedirectsTest extends TestCase
         $this->server($otherWorkspace, $otherOwner, 'Private server', [
             'tracking' => true,
             'https' => true,
+            'tracking_https_ready' => true,
             'tracking_host' => 'private.example.test',
         ]);
 

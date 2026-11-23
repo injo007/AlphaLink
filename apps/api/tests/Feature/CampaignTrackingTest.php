@@ -27,6 +27,7 @@ use App\Services\Campaigns\AlphaLinkCampaignTrackingTokenBuilder;
 use App\Services\Campaigns\CampaignAutomatedTrafficClassifier;
 use App\Services\Campaigns\CampaignIpGeoResolver;
 use App\Services\Campaigns\CampaignRecipientSourceIdentity;
+use App\Services\Campaigns\CampaignRedirectUrlPolicy;
 use App\Services\Campaigns\ProcessCampaignTrackingEvent;
 use App\Services\Campaigns\TrackedCountryListManager;
 use Illuminate\Database\Query\JoinClause;
@@ -894,6 +895,79 @@ class CampaignTrackingTest extends TestCase
         });
     }
 
+    public function test_signed_campaign_open_records_an_open_and_returns_an_invisible_pixel(): void
+    {
+        $fixture = $this->recipientFixture();
+        Queue::fake();
+        $token = 'synthetic-signed-open-token';
+        $url = URL::temporarySignedRoute(
+            'public.campaign-open',
+            now()->addHour(),
+            [
+                'campaign' => $fixture['campaign']->getKey(),
+                'item' => $fixture['item']->getKey(),
+                'token' => $token,
+                'isp_id' => $fixture['isp']->getKey(),
+                'server_id' => 'server-7',
+                'ip_id' => 'ip-8',
+                'domain_id' => 'domain-9',
+                'from_id' => '10',
+                'subject_id' => '11',
+                'creative_id' => '12',
+            ],
+        );
+
+        $response = $this->get($url)->assertOk();
+        $this->assertSame('image/png', $response->headers->get('Content-Type'));
+        $this->assertStringContainsString('no-store', (string) $response->headers->get('Cache-Control'));
+        $this->assertNotSame('', $response->getContent());
+
+        Queue::assertPushed(ProcessCampaignTrackingEventJob::class, function (ProcessCampaignTrackingEventJob $job) use ($fixture, $token): bool {
+            return (string) $job->campaign->getKey() === (string) $fixture['campaign']->getKey()
+                && $job->data['action'] === 'open'
+                && $job->data['email_id'] === (string) $fixture['contact']->getKey()
+                && $job->data['snapshot_item_id'] === (string) $fixture['item']->getKey()
+                && $job->data['send_id'] === (string) $fixture['snapshot']->getKey()
+                && $job->data['token'] === $token;
+        });
+    }
+
+    public function test_signed_campaign_test_open_returns_a_pixel_without_recording_a_recipient_event(): void
+    {
+        $fixture = $this->recipientFixture();
+        Queue::fake();
+        $url = URL::temporarySignedRoute(
+            'public.campaign-test-open',
+            now()->addHour(),
+            ['campaign' => $fixture['campaign']->getKey(), 'token' => 'synthetic-test-open-token'],
+        );
+
+        $this->get($url)->assertOk()->assertHeader('Content-Type', 'image/png');
+
+        Queue::assertNotPushed(ProcessCampaignTrackingEventJob::class);
+        $this->assertSame(0, CampaignEngagementEvent::query()->count());
+    }
+
+    public function test_signed_campaign_test_unsubscribe_shows_a_clear_no_recipient_result(): void
+    {
+        config(['tracking.ingest_key' => 'synthetic-tracking-key', 'infrastructure.ip_api_key' => null]);
+        $fixture = $this->recipientFixture();
+        $url = URL::temporarySignedRoute(
+            'public.campaign-test-unsubscribe',
+            now()->addHour(),
+            [
+                'campaign' => $fixture['campaign']->getKey(),
+                'token' => 'synthetic-test-unsubscribe-token',
+                'isp_id' => $fixture['isp']->getKey(),
+            ],
+        );
+
+        $this->get($url)
+            ->assertOk()
+            ->assertSee('This test message has no recipient, so it cannot unsubscribe anyone.');
+        $this->assertSame(0, CampaignEngagementEvent::query()->count());
+    }
+
     public function test_signed_campaign_test_click_redirects_to_the_saved_offer_without_recording_a_recipient_click(): void
     {
         config(['tracking.ingest_key' => 'synthetic-tracking-key', 'infrastructure.ip_api_key' => null]);
@@ -901,7 +975,7 @@ class CampaignTrackingTest extends TestCase
         $fixture['offer']->forceFill(['geo_target' => []])->save();
         Queue::fake();
         $token = 'synthetic-campaign-test-token';
-        $url = URL::temporarySignedRoute(
+        $url = app(CampaignRedirectUrlPolicy::class)->signedApplicationCampaignUrl(
             'public.campaign-test-click',
             now()->addHour(),
             [

@@ -30,6 +30,7 @@ class CampaignTrackingUnsubscribeTest extends TestCase
         $renderer = new AlphaLinkCampaignTagRenderer;
         $values = [
             'click_url' => 'https://track.example.com/RANDOM1234rTOKEN?t=1',
+            'open_url' => 'https://track.example.com/RANDOM1234oTOKEN?t=1',
             'unsub' => 'https://track.example.com/RANDOM1234uTOKEN?t=1',
         ];
 
@@ -45,8 +46,50 @@ class CampaignTrackingUnsubscribeTest extends TestCase
         $this->assertSame('Opt-out: https://track.example.com/RANDOM1234uTOKEN?t=1 or https://track.example.com/RANDOM1234uTOKEN?t=1', $rendered2);
 
         // 3. u[token] pattern normalization in template
-        $body3 = 'Link: http://[domain]/[rnd_10]u[token] and http://[domain]/[rnd_10]r[token]';
+        $body3 = 'Link: http://[domain]/[rnd_10]u[token] and http://[domain]/[rnd_10]r[token] and http://[domain]/[rnd_10]o[token]';
         $rendered3 = $renderer->render($body3, $values);
-        $this->assertSame('Link: https://track.example.com/RANDOM1234uTOKEN?t=1 and https://track.example.com/RANDOM1234rTOKEN?t=1', $rendered3);
+        $this->assertSame('Link: https://track.example.com/RANDOM1234uTOKEN?t=1 and https://track.example.com/RANDOM1234rTOKEN?t=1 and https://track.example.com/RANDOM1234oTOKEN?t=1', $rendered3);
+
+        $body4 = 'https://cipherglobal.fun/[rndUN_10]r[token] https://click.example.com/[rnd_10]u[token] https://open.example.com/[rnd_10]o[token]';
+        $rendered4 = $renderer->render($body4, $values);
+        $this->assertSame(
+            'https://track.example.com/RANDOM1234rTOKEN?t=1 https://track.example.com/RANDOM1234uTOKEN?t=1 https://track.example.com/RANDOM1234oTOKEN?t=1',
+            $rendered4,
+        );
+    }
+
+    public function test_tracking_host_is_only_ready_after_https_verification(): void
+    {
+        $policy = new CampaignRedirectUrlPolicy;
+
+        $this->assertNull($policy->readyTrackingHost([
+            'tracking' => true,
+            'tracking_host' => 'track.example.com',
+        ]));
+        $this->assertSame('track.example.com', $policy->readyTrackingHost([
+            'tracking' => true,
+            'tracking_https_ready' => true,
+            'tracking_host' => 'https://Track.Example.com/',
+        ]));
+        $this->assertNull($policy->readyTrackingHost([
+            'tracking' => true,
+            'tracking_https_ready' => true,
+            'tracking_host' => '192.0.2.10',
+        ]));
+    }
+
+    public function test_application_fallback_urls_use_https_and_the_application_host(): void
+    {
+        config(['app.url' => 'http://baseheavy.example.test']);
+        $policy = new CampaignRedirectUrlPolicy;
+        $url = $policy->signedApplicationCampaignUrl(
+            'public.campaign-test-click',
+            now()->addHour(),
+            ['campaign' => '00000000-0000-4000-8000-000000000001', 'token' => 'synthetic-token'],
+        );
+
+        $this->assertSame('https', parse_url($url, PHP_URL_SCHEME));
+        $this->assertSame('baseheavy.example.test', parse_url($url, PHP_URL_HOST));
+        $this->assertStringContainsString('/api/v1/campaigns/00000000-0000-4000-8000-000000000001/test-click?', $url);
     }
 }

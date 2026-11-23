@@ -160,6 +160,10 @@ class AlphaLinkCentos9InstallWorkflow
         };
 
         $subdomains = $readySubdomains($ips);
+        $trackingAssignment = collect($ips)->firstWhere('main', true) ?? $ips[0];
+        $trackingDomain = trim((string) $trackingAssignment['sub']) !== ''
+            ? trim((string) $trackingAssignment['sub']).'.'.(string) $trackingAssignment['domain']
+            : (string) $trackingAssignment['domain'];
         $deploymentSubdomains = $primaryDomainReady ? $subdomains : [];
         if (! $primaryDomainReady) {
             $log(sprintf(
@@ -205,11 +209,12 @@ class AlphaLinkCentos9InstallWorkflow
             $log('End Setting PHP');
 
             $log('Setup Tracking App');
+            $trackingDeploymentDomain = $options['https'] ? $trackingDomain : $deploymentDomain;
             $this->tracking->run(
                 $session, $session, (string) $server->ip_address, (string) $server->getKey(),
-                $deploymentDomain, $deploymentSubdomains, $assets['tracking_app'], $assets['cloudflare_ips'],
+                $trackingDeploymentDomain, $deploymentSubdomains, $assets['tracking_app'], $assets['cloudflare_ips'],
                 $settings['tracking_callback_url'], $settings['tracking_ingest_key'],
-                $options['https'] && $primaryDomainReady,
+                $options['https'] && $trackingDeploymentDomain !== null,
                 (string) config('app.name', 'NA'),
             );
             $log('End Setting Tracking App');
@@ -280,14 +285,27 @@ class AlphaLinkCentos9InstallWorkflow
             $log('End Setting Proxy');
         }
 
-        $log($options['https'] && $primaryDomainReady ? 'Setup Https' : 'Setup HTTPS for PMTA Web Monitor');
-        if ($monitorDomain !== null && ! $this->firewall->prepareDomainCertificatePorts($session)) {
+        $certificateDomain = $monitorDomain;
+        if ($options['https'] && $options['tracking']) {
+            $certificateDomain = $trackingDomain;
+        } elseif ($certificateDomain === null && $options['https']) {
+            $certificateDomain = (string) $primaryDomain->name;
+        }
+        $certificateSubdomains = $primaryDomainReady
+            ? array_values(array_filter($subdomains, static fn (string $host): bool => $host !== $certificateDomain))
+            : [];
+
+        $log($options['https'] ? 'Setup HTTPS for selected domain' : 'Setup HTTPS for PMTA Web Monitor');
+        if ($certificateDomain !== null && ! $this->firewall->prepareDomainCertificatePorts($session)) {
             $log('The host firewall could not confirm HTTP/HTTPS access before domain certificate issuance; the PMTA monitor may fall back to the AlphaLink HTTPS proxy.');
         }
-        $domainCertificateReady = $this->https->run($session, $monitorDomain, $primaryDomainReady ? $subdomains : []);
-        if ($monitorDomain !== null && ! $domainCertificateReady) {
+        $domainCertificateReady = $this->https->run($session, $certificateDomain, $certificateSubdomains);
+        if ($certificateDomain !== null && ! $domainCertificateReady) {
             $log('The selected domain certificate was not issued; check public DNS and inbound HTTP port 80 before retrying.');
         }
+        $monitorDomain = $domainCertificateReady
+            ? $certificateDomain
+            : ($primaryDomainReady ? (string) $primaryDomain->name : null);
         $pmtaMonitorHttps = $this->https->configurePmtaMonitor(
             $session,
             $session,
@@ -320,10 +338,10 @@ class AlphaLinkCentos9InstallWorkflow
         $log('End Setting Firewall');
 
         $trackingHttpsReady = false;
-        if ($options['tracking'] && $options['https'] && $primaryDomainReady && $domainCertificateReady) {
-            $trackingHttpsReady = $this->tracking->verifyHttps($session, $monitorDomain);
+        if ($options['tracking'] && $options['https'] && $domainCertificateReady && $trackingDomain !== '') {
+            $trackingHttpsReady = $this->tracking->verifyHttps($session, $trackingDomain);
             if (! $trackingHttpsReady) {
-                $log('Tracking HTTPS did not pass its public health and redirect checks; campaign tracking links will use the verified HTTP endpoint.');
+                $log('Tracking HTTPS did not pass its health and redirect checks; campaign links will use the AlphaLink HTTPS endpoint until tracking HTTPS is verified.');
             }
         }
 
@@ -346,11 +364,11 @@ class AlphaLinkCentos9InstallWorkflow
         $log('PMTA monitor and read-only command access verified through the configured relay proxy');
 
         if ($ipAssignments === null) {
-            $completedOptions = [...$options, 'https' => $options['https'] && $primaryDomainReady && $domainCertificateReady];
-            $this->completion->finalize($workspace, $server, $primaryDomain, $ips, $pmtaVersion, $completedOptions, [], $pmtaMonitorHttps, $monitorDomain ?? (string) $server->ip_address, $trackingHttpsReady);
+            $completedOptions = [...$options, 'https' => $options['https'] && $domainCertificateReady];
+            $this->completion->finalize($workspace, $server, $primaryDomain, $ips, $pmtaVersion, $completedOptions, [], $pmtaMonitorHttps, $trackingHttpsReady ? $trackingDomain : ($monitorDomain ?? (string) $server->ip_address), $trackingHttpsReady);
         } else {
-            $completedOptions = [...$options, 'https' => $options['https'] && $primaryDomainReady && $domainCertificateReady];
-            $this->completion->finalize($workspace, $server, $primaryDomain, $ips, $pmtaVersion, $completedOptions, $selectedDomains, $pmtaMonitorHttps, $monitorDomain ?? (string) $server->ip_address, $trackingHttpsReady);
+            $completedOptions = [...$options, 'https' => $options['https'] && $domainCertificateReady];
+            $this->completion->finalize($workspace, $server, $primaryDomain, $ips, $pmtaVersion, $completedOptions, $selectedDomains, $pmtaMonitorHttps, $trackingHttpsReady ? $trackingDomain : ($monitorDomain ?? (string) $server->ip_address), $trackingHttpsReady);
         }
         $publicPort = $settings['pmta_admin_port'];
         $adminUrl = PmtaPanelUrl::displayUrlForInstallation(

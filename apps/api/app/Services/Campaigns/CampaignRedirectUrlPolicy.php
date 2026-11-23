@@ -15,9 +15,10 @@ class CampaignRedirectUrlPolicy
     /** @param array<string, mixed> $installParameters */
     public function readyTrackingHost(array $installParameters): ?string
     {
-        // HTTP and HTTPS readiness are separate: a working HTTP tracker remains
-        // usable while HTTPS is being fixed or verified.
-        if (! (bool) ($installParameters['tracking'] ?? false)) {
+        // Only use a standalone tracker after its HTTPS route passed the
+        // installer's public health and redirect checks.
+        if (! (bool) ($installParameters['tracking'] ?? false)
+            || ! (bool) ($installParameters['tracking_https_ready'] ?? false)) {
             return null;
         }
 
@@ -46,121 +47,78 @@ class CampaignRedirectUrlPolicy
         return strtolower(rtrim($normalizedHost, '.'));
     }
 
-    public function campaignTrackingClickUrl(string $trackingHost, string $token, bool $httpsReady = false, ?string $preferredHost = null): string
+    public function campaignTrackingClickUrl(string $trackingHost, string $token, bool $httpsReady = true): string
     {
-        $trackingHost = trim($trackingHost);
-        $trackingHost = preg_replace('/\Ahttps?:\/\//i', '', $trackingHost) ?? $trackingHost;
-        $trackingHost = rtrim($trackingHost, '/');
-        $parsed = parse_url('https://'.$trackingHost);
-        $host = is_array($parsed) ? ($parsed['host'] ?? null) : null;
-        $port = is_array($parsed) ? ($parsed['port'] ?? null) : null;
-        $normalizedHost = is_string($host) ? trim($host, '[]') : '';
-        $isIpAddress = $normalizedHost !== '' && filter_var($normalizedHost, FILTER_VALIDATE_IP) !== false;
-        $isHostname = $normalizedHost !== '' && filter_var($normalizedHost, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) !== false;
-
-        if (
-            (! $isIpAddress && ! $isHostname)
-            || (isset($parsed['user']) || isset($parsed['pass']) || isset($parsed['path']) && $parsed['path'] !== '' || isset($parsed['query']) || isset($parsed['fragment']))
-            || ($port !== null && $port !== 443)
-        ) {
-            throw ValidationException::withMessages([
-                'domain' => 'Choose an active tracking domain with a valid HTTPS hostname before sending tracked links.',
-            ]);
-        }
-
-        $linkHost = $preferredHost === null ? $normalizedHost : $this->normalizeCampaignLinkHost($preferredHost);
-        if ($linkHost === null) {
-            throw ValidationException::withMessages([
-                'domain' => 'Choose a valid campaign Domain or use the selected sending IP for tracked links.',
-            ]);
-        }
-
-        $sameHost = hash_equals(strtolower(rtrim($normalizedHost, '.')), strtolower(rtrim($linkHost, '.')));
-        $useHttps = $preferredHost === null || $sameHost
-            ? $httpsReady
-            : filter_var($linkHost, FILTER_VALIDATE_IP) === false;
-        $urlHost = $this->formatCampaignLinkHost($linkHost);
-        $tokenSegments = str_split(str_replace('/', '', $token), 149);
-        $trackingPath = Str::upper(Str::random(10)).'r'.array_shift($tokenSegments);
-        if ($tokenSegments !== []) {
-            $trackingPath .= '/'.implode('/', $tokenSegments);
-        }
-
-        return ($useHttps ? 'https://' : 'http://').$urlHost.'/'.$trackingPath.'?t=1';
+        return $this->campaignTrackingUrl($trackingHost, $token, 'r', $httpsReady);
     }
 
-    public function campaignTrackingUnsubscribeUrl(string $trackingHost, string $token, bool $httpsReady = false, ?string $preferredHost = null): string
+    public function campaignTrackingOpenUrl(string $trackingHost, string $token, bool $httpsReady = true): string
     {
-        $trackingHost = trim($trackingHost);
-        $trackingHost = preg_replace('/\Ahttps?:\/\//i', '', $trackingHost) ?? $trackingHost;
-        $trackingHost = rtrim($trackingHost, '/');
-        $parsed = parse_url('https://'.$trackingHost);
-        $host = is_array($parsed) ? ($parsed['host'] ?? null) : null;
-        $port = is_array($parsed) ? ($parsed['port'] ?? null) : null;
-        $normalizedHost = is_string($host) ? trim($host, '[]') : '';
-        $isIpAddress = $normalizedHost !== '' && filter_var($normalizedHost, FILTER_VALIDATE_IP) !== false;
-        $isHostname = $normalizedHost !== '' && filter_var($normalizedHost, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) !== false;
-
-        if (
-            (! $isIpAddress && ! $isHostname)
-            || (isset($parsed['user']) || isset($parsed['pass']) || isset($parsed['path']) && $parsed['path'] !== '' || isset($parsed['query']) || isset($parsed['fragment']))
-            || ($port !== null && $port !== 443)
-        ) {
-            throw ValidationException::withMessages([
-                'domain' => 'Choose an active tracking domain with a valid HTTPS hostname before sending tracked links.',
-            ]);
-        }
-
-        $linkHost = $preferredHost === null ? $normalizedHost : $this->normalizeCampaignLinkHost($preferredHost);
-        if ($linkHost === null) {
-            throw ValidationException::withMessages([
-                'domain' => 'Choose a valid campaign Domain or use the selected sending IP for unsubscribe links.',
-            ]);
-        }
-
-        $sameHost = hash_equals(strtolower(rtrim($normalizedHost, '.')), strtolower(rtrim($linkHost, '.')));
-        $useHttps = $preferredHost === null || $sameHost
-            ? $httpsReady
-            : filter_var($linkHost, FILTER_VALIDATE_IP) === false;
-        $urlHost = $this->formatCampaignLinkHost($linkHost);
-        $tokenSegments = str_split(str_replace('/', '', $token), 149);
-        $trackingPath = Str::upper(Str::random(10)).'u'.array_shift($tokenSegments);
-        if ($tokenSegments !== []) {
-            $trackingPath .= '/'.implode('/', $tokenSegments);
-        }
-
-        return ($useHttps ? 'https://' : 'http://').$urlHost.'/'.$trackingPath.'?t=1';
+        return $this->campaignTrackingUrl($trackingHost, $token, 'o', $httpsReady);
     }
 
-    public function campaignLinkHost(string $selectedDomain, string $sendingIp): string
+    public function campaignTrackingUnsubscribeUrl(string $trackingHost, string $token, bool $httpsReady = true): string
     {
-        $candidate = trim($selectedDomain) !== '' ? $selectedDomain : $sendingIp;
-        $host = $this->normalizeCampaignLinkHost($candidate);
-
-        if ($host === null) {
-            throw ValidationException::withMessages([
-                'domain' => 'Choose a valid campaign Domain or use the selected sending IP for tracking links.',
-            ]);
-        }
-
-        return $host;
+        return $this->campaignTrackingUrl($trackingHost, $token, 'u', $httpsReady);
     }
 
     /** @param array<string, mixed> $parameters */
-    public function signedCampaignUrl(string $routeName, DateTimeInterface $expiration, array $parameters, string $host): string
+    public function signedApplicationCampaignUrl(string $routeName, DateTimeInterface $expiration, array $parameters): string
     {
-        $normalizedHost = $this->normalizeCampaignLinkHost($host);
+        $applicationUrl = trim((string) config('app.url'));
+        $applicationHost = parse_url($applicationUrl, PHP_URL_HOST);
+        $normalizedHost = is_string($applicationHost) ? $this->normalizeCampaignLinkHost($applicationHost) : null;
 
         if ($normalizedHost === null) {
             throw ValidationException::withMessages([
-                'domain' => 'Choose a valid campaign Domain or use the selected sending IP for tracking links.',
+                'domain' => 'Campaign tracking requires a valid AlphaLink application URL.',
             ]);
         }
 
-        $scheme = filter_var($normalizedHost, FILTER_VALIDATE_IP) === false ? 'https' : 'http';
         $relativeUrl = URL::temporarySignedRoute($routeName, $expiration, $parameters, absolute: false);
+        $path = trim((string) parse_url($applicationUrl, PHP_URL_PATH), '/');
+        $port = parse_url($applicationUrl, PHP_URL_PORT);
+        $portSuffix = $port !== null && ! in_array((int) $port, [80, 443], true) ? ':'.$port : '';
 
-        return $scheme.'://'.$this->formatCampaignLinkHost($normalizedHost).$relativeUrl;
+        return 'https://'.$this->formatCampaignLinkHost($normalizedHost).$portSuffix.($path === '' ? '' : '/'.$path).$relativeUrl;
+    }
+
+    private function campaignTrackingUrl(string $trackingHost, string $token, string $action, bool $httpsReady): string
+    {
+        $trackingHost = trim($trackingHost);
+        $trackingHost = preg_replace('/\Ahttps?:\/\//i', '', $trackingHost) ?? $trackingHost;
+        $trackingHost = rtrim($trackingHost, '/');
+        $parsed = parse_url('https://'.$trackingHost);
+        $host = is_array($parsed) ? ($parsed['host'] ?? null) : null;
+        $port = is_array($parsed) ? ($parsed['port'] ?? null) : null;
+        $normalizedHost = is_string($host) ? strtolower(rtrim(trim($host, '[]'), '.')) : '';
+        $isHostname = $normalizedHost !== '' && filter_var($normalizedHost, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) !== false;
+        $encodedToken = str_replace('/', '', $token);
+
+        if (
+            ! $httpsReady
+            || ! $isHostname
+            || isset($parsed['user'])
+            || isset($parsed['pass'])
+            || (isset($parsed['path']) && $parsed['path'] !== '')
+            || isset($parsed['query'])
+            || isset($parsed['fragment'])
+            || ($port !== null && $port !== 443)
+            || preg_match('/\A[A-Za-z0-9_-]+\z/', $encodedToken) !== 1
+            || ! in_array($action, ['r', 'o', 'u'], true)
+        ) {
+            throw ValidationException::withMessages([
+                'domain' => 'Tracked campaign links require a DNS hostname with verified HTTPS.',
+            ]);
+        }
+
+        $tokenSegments = str_split($encodedToken, 149);
+        $trackingPath = Str::upper(Str::random(10)).$action.array_shift($tokenSegments);
+        if ($tokenSegments !== []) {
+            $trackingPath .= '/'.implode('/', $tokenSegments);
+        }
+
+        return 'https://'.$this->formatCampaignLinkHost($normalizedHost).'/'.$trackingPath.'?t=1';
     }
 
     private function normalizeCampaignLinkHost(string $host): ?string

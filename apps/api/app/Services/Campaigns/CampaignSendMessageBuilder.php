@@ -207,45 +207,42 @@ class CampaignSendMessageBuilder
         $token = $this->campaignToken($context, $item, $choice, $from, $subject);
         $installParameters = (array) $server->install_parameters;
         $trackingHost = $this->redirectUrlPolicy->readyTrackingHost($installParameters);
-        $trackingHttpsReady = $trackingHost !== null && (bool) ($installParameters['tracking_https_ready'] ?? false);
-        $campaignLinkHost = $this->redirectUrlPolicy->campaignLinkHost(
-            (string) ($context['domain_fallback'] ?? ''),
-            (string) ($routeIp?->ip ?: $choice['ip'] ?? $server->ip_address),
-        );
         $unsubscribeParameters = ['campaign' => $context['campaign']->getKey(), 'item' => $item->getKey()];
-        $unsubscribeUrl = $this->redirectUrlPolicy->signedCampaignUrl(
-            'public.campaign-unsubscribe',
-            now()->addYears(10),
-            $unsubscribeParameters,
-            $campaignLinkHost,
+        $trackingParameters = [
+            ...$unsubscribeParameters,
+            'token' => $token,
+            'isp_id' => $context['setup']['isp_id'] ?? null,
+            'server_id' => $server->getKey(),
+            'ip_id' => $routeIp?->getKey(),
+            'domain_id' => $routeIp?->sending_domain_id ?? $choice['sending_domain_id'] ?? null,
+            'from_id' => $from['id'] ?? null,
+            'subject_id' => $subject['id'] ?? null,
+            'creative_id' => $context['setup']['creative_asset_id'] ?? null,
+        ];
+        $unsubscribeUrl = $this->redirectUrlPolicy->signedApplicationCampaignUrl(
+            'public.campaign-unsubscribe', now()->addYears(10), $unsubscribeParameters,
         );
         $clickUrl = $trackingHost !== null
-            ? $this->redirectUrlPolicy->campaignTrackingClickUrl($trackingHost, $token, $trackingHttpsReady, $campaignLinkHost)
-            : $this->redirectUrlPolicy->signedCampaignUrl(
+            ? $this->redirectUrlPolicy->campaignTrackingClickUrl($trackingHost, $token)
+            : $this->redirectUrlPolicy->signedApplicationCampaignUrl(
                 'public.campaign-click',
                 now()->addYears(10),
-                [
-                    'campaign' => $context['campaign']->getKey(),
-                    'item' => $item->getKey(),
-                    'token' => $token,
-                    'isp_id' => $context['setup']['isp_id'] ?? null,
-                    'server_id' => $server->getKey(),
-                    'ip_id' => $routeIp?->getKey(),
-                    'domain_id' => $routeIp?->sending_domain_id ?? $choice['sending_domain_id'] ?? null,
-                    'from_id' => $from['id'] ?? null,
-                    'subject_id' => $subject['id'] ?? null,
-                    'creative_id' => $context['setup']['creative_asset_id'] ?? null,
-                ],
-                $campaignLinkHost,
+                $trackingParameters,
+            );
+        $openUrl = $trackingHost !== null
+            ? $this->redirectUrlPolicy->campaignTrackingOpenUrl($trackingHost, $token)
+            : $this->redirectUrlPolicy->signedApplicationCampaignUrl(
+                'public.campaign-open', now()->addYears(10), $trackingParameters,
             );
         if ($trackingHost !== null) {
-            $unsubscribeUrl = $this->redirectUrlPolicy->campaignTrackingUnsubscribeUrl($trackingHost, $token, $trackingHttpsReady, $campaignLinkHost);
+            $unsubscribeUrl = $this->redirectUrlPolicy->campaignTrackingUnsubscribeUrl($trackingHost, $token);
         }
         $tags = [
             'server' => (string) $server->name.(string) $server->getKey(),
             'main_domain' => (string) ($primaryIp?->dns ?: $primaryIp?->domain?->name ?: 'NA'),
             'ip' => (string) ($routeIp?->ip ?: $choice['ip'] ?? $server->ip_address),
             'domain' => $domain,
+            'domain_https' => $trackingHost !== null && $this->redirectUrlPolicy->isTrackingHostOrSubdomain($domain, $trackingHost),
             'rdns' => strtolower(rtrim(trim((string) ($routeIp?->history?->ptr ?: $domain)), '.')),
             'idi' => (string) ($routeIp?->getKey() ?? '0'),
             'idd' => (string) ($routeIp?->sending_domain_id ?? $choice['sending_domain_id'] ?? '0'),
@@ -261,6 +258,7 @@ class CampaignSendMessageBuilder
             'boundary' => Str::random(30),
             'reply' => $unsubscribeUrl,
             'click_url' => $clickUrl,
+            'open_url' => $openUrl,
             'url' => $clickUrl,
             'unsub' => $unsubscribeUrl,
             'unsubscribe' => $unsubscribeUrl,
@@ -282,14 +280,9 @@ class CampaignSendMessageBuilder
         $header = $this->personalizationTags->personalizeSubjectHeader($header, $profile, $recipient);
         $body = $this->personalizationTags->personalizeBody($body, $profile, $recipient, $htmlBody);
         if ($trackingHost !== null && $this->redirectUrlPolicy->isTrackingHostOrSubdomain($domain, $trackingHost)) {
-            $trackingScheme = $trackingHttpsReady ? 'https' : 'http';
-            $header = $this->redirectUrlPolicy->forceSchemeForHost($header, $domain, $trackingScheme);
-            $body = $this->redirectUrlPolicy->forceSchemeForHost($body, $domain, $trackingScheme);
-            $returnPath = $this->redirectUrlPolicy->forceSchemeForHost($returnPath, $domain, $trackingScheme);
-        } else {
-            $header = $this->redirectUrlPolicy->forceHttpsForHost($header, $domain);
-            $body = $this->redirectUrlPolicy->forceHttpsForHost($body, $domain);
-            $returnPath = $this->redirectUrlPolicy->forceHttpsForHost($returnPath, $domain);
+            $header = $this->redirectUrlPolicy->forceSchemeForHost($header, $domain, 'https');
+            $body = $this->redirectUrlPolicy->forceSchemeForHost($body, $domain, 'https');
+            $returnPath = $this->redirectUrlPolicy->forceSchemeForHost($returnPath, $domain, 'https');
         }
         $header = $this->setHeader($header, 'X-virtual-MTA', $vmtaName);
         $header = $this->setHeader($header, 'X-ENVID', $context['run']->getKey().'-'.$position);

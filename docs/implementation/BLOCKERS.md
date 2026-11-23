@@ -772,3 +772,8 @@ Fresh-install code now saves a separate outbound PMTA relay endpoint and credent
 ### E-INST-107 / E-PMTA-114 follow-up — live PMTA host split
 
 The production tracker-handler digest drift is repaired and verified on `baseheavy.shop`; `209.38.96.157` now serves styled monitor pages in both target modes and passes read-only status through the configured relay. `160.119.71.108:1213` still returns HTTP 502 (`GONE :(`) for monitor and read-only status, so that existing host is not operational through the relay. No PMTA host was modified. Fresh install readiness now prevents a new install from being marked complete when these checks fail, but clean-host installation and live campaign redirect behavior remain unverified.
+
+
+### Campaign redirects and tracking HTTPS — E-TRACK-49 — 2026-11-23
+
+The AlphaLink production row for `SERVER` (103.186.117.115) has tracking enabled but records `tracking_host` as the IP, `https=false`, and `tracking_https_ready=false`; its selected tracker FQDN is `dravionx.carbinlitnings.org`. The app repair makes new Campaign Test/send URLs route through AlphaLink HTTPS until a tracker host passes HTTPS verification. The fresh-install path now attempts TLS for the main assigned tracker FQDN even when AlphaLink cannot write DNS through a registrar API. Public DNS for the selected tracker FQDN already resolves to 103.186.117.115 and HTTP `/healthz` returns 200, but HTTPS port 443 currently refuses connections. The existing managed server was not changed. To serve that subdomain directly with TLS, a controlled repair/reinstall must complete and verify the certificate. Previously generated `startitan.shop` links remain invalid. Keep DMS-TRACK-001/003 TESTING until a fresh message and recipient flow are observed.

@@ -28,10 +28,22 @@ Route::prefix('v1')->group(function (): void {
         ->whereUuid(['campaign', 'item'])
         ->middleware(ValidateCampaignSignature::class)
         ->name('public.campaign-click');
+    Route::get('/campaigns/{campaign}/{item}/open', [CampaignClickController::class, 'open'])
+        ->whereUuid(['campaign', 'item'])
+        ->middleware(ValidateCampaignSignature::class)
+        ->name('public.campaign-open');
     Route::get('/campaigns/{campaign}/test-click', [CampaignClickController::class, 'redirectTest'])
         ->whereUuid('campaign')
         ->middleware(ValidateCampaignSignature::class)
         ->name('public.campaign-test-click');
+    Route::get('/campaigns/{campaign}/test-open', [CampaignClickController::class, 'openTest'])
+        ->whereUuid('campaign')
+        ->middleware(ValidateCampaignSignature::class)
+        ->name('public.campaign-test-open');
+    Route::get('/campaigns/{campaign}/test-unsubscribe', [CampaignClickController::class, 'unsubscribeTest'])
+        ->whereUuid('campaign')
+        ->middleware(ValidateCampaignSignature::class)
+        ->name('public.campaign-test-unsubscribe');
     Route::match(['get', 'post'], '/campaigns/{campaign}/{item}/unsubscribe', [CampaignUnsubscribeController::class, 'unsubscribe'])
         ->whereUuid('campaign')
         ->whereUuid('item')

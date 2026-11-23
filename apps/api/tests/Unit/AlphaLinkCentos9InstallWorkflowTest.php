@@ -604,6 +604,81 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
         $this->assertContains('TXT:@', $secondaryHosts);
     }
 
+    public function test_tracking_https_uses_the_selected_subdomain_without_requiring_dns_provider_access(): void
+    {
+        [$workflow, $gate, $pmta, $completion] = $this->workflow();
+        $gate->method('evaluate')->willReturn(['installation_authorized' => true]);
+        $pmta->expects($this->once())->method('run');
+        $completion->expects($this->once())
+            ->method('finalize')
+            ->willReturnCallback(function (...$arguments): array {
+                $this->assertTrue($arguments[5]['https']);
+                $this->assertSame('track.example.test', $arguments[8]);
+                $this->assertTrue($arguments[9]);
+
+                return [];
+            });
+
+        $workspace = (new Workspace)->forceFill(['id' => 'workspace-one']);
+        $server = (new ManagedServer)->forceFill([
+            'id' => 'server-one',
+            'workspace_id' => 'workspace-one',
+            'ip_address' => '198.51.100.30',
+            'ssh_port' => 22,
+            'host_facts' => ['os_pretty_name' => 'AlmaLinux 9'],
+            'is_installed' => false,
+        ]);
+        $domain = (new SendingDomain)->forceFill([
+            'id' => 'domain-one', 'workspace_id' => 'workspace-one', 'name' => 'example.test',
+            'status' => 'free', 'is_our' => false, 'is_active' => true,
+        ]);
+        $assignments = [[
+            'main' => true, 'ip' => '198.51.100.30', 'type' => 'ipv4', 'domain_id' => 'domain-one',
+            'sub' => 'track', 'domain' => 'example.test', 'is_our' => false,
+        ]];
+        $options = [
+            'tracking' => true, 'proxy' => false, 'imap' => false,
+            'spf' => false, 'dkim' => false, 'dmarc' => false, 'https' => true,
+        ];
+        $settings = [
+            'pmta_port' => 1212, 'pmta_admin_port' => 8080, 'proxy_port' => 3128,
+            'dev_ips' => ['192.0.2.10'], 'pmta_relay_ips' => ['198.51.100.44'], 'production_ips' => [], 'rdp_ips' => [],
+            'allow_all_monitor' => false, 'apply_firewall' => false,
+            'dkim_selector' => 'selector', 'dkim_key' => '', 'dkim_public_key' => null,
+            'imap_username' => '', 'imap_password' => '', 'proxy_username' => '', 'proxy_password' => '',
+            'tracking_callback_url' => 'https://baseheavy.shop', 'tracking_ingest_key' => 'ingest-key',
+        ];
+        $assets = [
+            'tracking_app' => ['index' => '<?php // ALPHALINK_TRACKING_READY', 'handler' => '<?php', 'homepage' => '<!doctype html>'],
+            'cloudflare_ips' => null, 'dovecot_config' => null, 'squid_config' => null,
+        ];
+        $dnsWriter = $this->createMock(AlphaLinkBulkInstallDomainDnsRecordWriter::class);
+        $dnsWriter->method('isDomainAvailable')->willReturn(false);
+        $dnsWriter->expects($this->once())->method('setHosts')->willReturn(false);
+        $session = new RecordingWorkflowSession;
+
+        $workflow->run(
+            $workspace,
+            $server,
+            $domain,
+            ['198.51.100.30'],
+            [],
+            45,
+            $options,
+            $settings,
+            $assets,
+            $session,
+            $dnsWriter,
+            static function (string $line): void {},
+            $assignments,
+        );
+
+        $trackingVhost = $session->uploads['/etc/httpd/conf.d/track_example_test.conf'];
+        $this->assertStringContainsString('ServerName track.example.test', $trackingVhost);
+        $this->assertStringContainsString("-d 'track.example.test'", implode("\n", $session->commands));
+        $this->assertStringContainsString('track.example.test:443:127.0.0.1', implode("\n", $session->commands));
+    }
+
     /** @return array{AlphaLinkCentos9InstallWorkflow, AlphaLinkPmtaDeploymentGate&MockObject, AlphaLinkCentos9PmtaDeploymentStage&MockObject, AlphaLinkBulkInstallCompletionWriter&MockObject, AlphaLinkPmtaApplicationReadiness&MockObject} */
     private function workflow(): array
     {
@@ -710,9 +785,6 @@ class RecordingWorkflowSession implements AlphaLinkInstallerRemoteCommandTranspo
         if (str_contains($command, 'ALPHALINK_REWRITE_READY')) {
             return 'ALPHALINK_REWRITE_READY';
         }
-        if (str_contains($command, 'grep -Fxq ALPHALINK_TRACKING_READY')) {
-            return 'ALPHALINK_TRACKING_READY';
-        }
         if (str_contains($command, 'ALPHALINK_TRACKING_ROUTE_READY')) {
             return 'ALPHALINK_TRACKING_ROUTE_READY';
         }
@@ -721,6 +793,15 @@ class RecordingWorkflowSession implements AlphaLinkInstallerRemoteCommandTranspo
         }
         if (str_contains($command, 'ALPHALINK_TRACKING_LONG_ROUTE_READY')) {
             return 'ALPHALINK_TRACKING_LONG_ROUTE_READY';
+        }
+        if (str_contains($command, 'ALPHALINK_TRACKING_HTTPS_HEALTH_READY')) {
+            return 'ALPHALINK_TRACKING_HTTPS_HEALTH_READY';
+        }
+        if (str_contains($command, 'ALPHALINK_TRACKING_HTTPS_READY')) {
+            return 'ALPHALINK_TRACKING_HTTPS_READY';
+        }
+        if (str_contains($command, 'grep -Fxq ALPHALINK_TRACKING_READY')) {
+            return 'ALPHALINK_TRACKING_READY';
         }
         if (str_contains($command, 'ALPHALINK_PHP_MODULE_READY')) {
             return 'ALPHALINK_PHP_MODULE_READY';

@@ -11,7 +11,7 @@ use Illuminate\Support\Str;
 class AlphaLinkCampaignTagRenderer
 {
     /**
-     * @param  array<string, string|int|null>  $values
+     * @param  array<string, bool|int|string|null>  $values
      * @param  list<array<string, mixed>>  $placeholderRows
      * @param  array<string, string>  $boundaryCache
      */
@@ -31,22 +31,29 @@ class AlphaLinkCampaignTagRenderer
         $values['domain_sld'] ??= $this->domainWithoutTld((string) ($values['domain'] ?? ''));
 
         $text = preg_replace(
-            '~(?<![A-Z0-9@._-])(?:https?://)?\[domain\](?::\d+)?/(?:\[rnd(?:un)?_\d+\])?r\[token\]~i',
+            '~(?<![A-Z0-9@._-])(?:https?://)?(?:\[domain\]|(?:[A-Z0-9-]+\.)+[A-Z0-9-]{2,63}|(?:\d{1,3}\.){3}\d{1,3})(?::\d+)?/(?:\[rnd(?:un)?_\d+\])?r\[token\]~i',
             '[click_url]',
             $text,
         ) ?? $text;
 
         $text = preg_replace(
-            '~(?<![A-Z0-9@._-])(?:https?://)?\[domain\](?::\d+)?/(?:\[rnd(?:un)?_\d+\])?u\[token\]~i',
+            '~(?<![A-Z0-9@._-])(?:https?://)?(?:\[domain\]|(?:[A-Z0-9-]+\.)+[A-Z0-9-]{2,63}|(?:\d{1,3}\.){3}\d{1,3})(?::\d+)?/(?:\[rnd(?:un)?_\d+\])?u\[token\]~i',
             '[unsub]',
             $text,
         ) ?? $text;
 
-        // Campaign creatives may put the selected-domain tag after an HTTP
-        // scheme or use it as a bare URL host. Normalize both forms before
-        // resolving the tag so email clients do not default the link to HTTP.
-        $text = preg_replace('/\bhttp:\/\/\s*(?=\[domain\](?:[\/?#"\'<>\s]|$))/i', 'https://', $text) ?? $text;
-        $text = preg_replace('/(?<![A-Z0-9@.+-])(?<!:\/\/)(?=\[domain\](?:[\/?#"\'<>\s]|$))/i', 'https://', $text) ?? $text;
+        $text = preg_replace(
+            '~(?<![A-Z0-9@._-])(?:https?://)?(?:\[domain\]|(?:[A-Z0-9-]+\.)+[A-Z0-9-]{2,63}|(?:\d{1,3}\.){3}\d{1,3})(?::\d+)?/(?:\[rnd(?:un)?_\d+\])?o\[token\]~i',
+            '[open_url]',
+            $text,
+        ) ?? $text;
+
+        // Use HTTPS for the selected sending host only when installation data
+        // confirms it is covered by the verified tracking certificate.
+        if (filter_var($values['domain_https'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+            $text = preg_replace('/\bhttp:\/\/\s*(?=\[domain\](?:[\/?#"\'<>\s]|$))/i', 'https://', $text) ?? $text;
+            $text = preg_replace('/(?<![A-Z0-9@.+-])(?<!:\/\/)(?=\[domain\](?:[\/?#"\'<>\s]|$))/i', 'https://', $text) ?? $text;
+        }
 
         // SMTP route usernames are often complete mailbox addresses. AlphaLink
         // templates also commonly append @[domain] to [smtp], so avoid
@@ -83,7 +90,7 @@ class AlphaLinkCampaignTagRenderer
         foreach ([
             'ip', 'rdns', 'domain', 'domain_sld', 'to', 'name', 'from', 'subject', 'date', 'server',
             'main_domain', 'idi', 'idd', 'ids', 'ide', 'boundary', 'reply', 'negative',
-            'token', 'click_url', 'url', 'unsub', 'unsubscribe', 'optout', 'textarea', 'smtp', 'smtp_name', 'tag',
+            'token', 'click_url', 'open_url', 'url', 'unsub', 'unsubscribe', 'optout', 'textarea', 'smtp', 'smtp_name', 'tag',
         ] as $tag) {
             $text = str_ireplace('['.$tag.']', (string) ($values[$tag] ?? ''), $text);
         }

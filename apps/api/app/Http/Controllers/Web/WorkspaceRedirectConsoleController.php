@@ -31,7 +31,7 @@ class WorkspaceRedirectConsoleController extends Controller
             ->map(function (ManagedServer $server): array {
                 $installParameters = (array) $server->install_parameters;
                 $trackingEnabled = (bool) ($installParameters['tracking'] ?? false);
-                $httpsEnabled = (bool) ($installParameters['https'] ?? false);
+                $httpsEnabled = (bool) ($installParameters['tracking_https_ready'] ?? false);
                 $trackingHost = $this->redirectUrlPolicy->readyTrackingHost($installParameters);
                 $ready = $trackingHost !== null;
 

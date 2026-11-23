@@ -2709,7 +2709,8 @@ class AlphaLinkCampaignSendCatalogTest extends TestCase
 
         $this->assertCount(1, $messages);
         $this->assertStringContainsString('From: info@selected-campaign-domain.example.test', $messages[0]);
-        $this->assertStringContainsString('Domain: https://selected-campaign-domain.example.test', $messages[0]);
+        $this->assertStringContainsString('Domain: selected-campaign-domain.example.test', $messages[0]);
+        $this->assertStringNotContainsString('Domain: https://selected-campaign-domain.example.test', $messages[0]);
     }
 
     public function test_saved_campaign_pmta_test_pins_selected_smtp_route_and_expands_tags(): void

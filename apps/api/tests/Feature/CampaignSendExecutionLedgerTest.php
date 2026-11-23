@@ -400,6 +400,7 @@ class CampaignSendExecutionLedgerTest extends TestCase
 
     public function test_production_send_message_uses_reference_decodable_tokens_for_click_and_open_urls(): void
     {
+        config(['app.url' => 'https://baseheavy.example.test']);
         $fixture = $this->sendFixture();
         $run = app(PrepareCampaignSendRun::class)->create(
             $fixture['campaign'], $fixture['revision'], $fixture['snapshot'], $fixture['owner'], (string) Str::uuid(),
@@ -474,30 +475,31 @@ class CampaignSendExecutionLedgerTest extends TestCase
         ];
 
         $message = app(CampaignSendMessageBuilder::class)->build($context, $fixture['item'], $fixture['contact']->email);
-        preg_match_all('#http://tracking\.example\.test/[A-Z0-9]{10}o([^" ]+)#i', $message['body'], $openMatches);
-        preg_match('#href="(http://tracking\.example\.test/[A-Z0-9]{10}r[^\"]+\?t=1)"#i', $message['body'], $clickMatch);
-        preg_match('#href="(http://tracking\.example\.test/[A-Z0-9]{10}u[^\"]+)"#i', $message['body'], $unsubscribeMatch);
+        $body = html_entity_decode($message['body'], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        preg_match('#href="(https://baseheavy\.example\.test/api/v1/campaigns/[^\"]+/click\?[^\"]+)"#i', $body, $clickMatch);
+        preg_match('#src="(https://baseheavy\.example\.test/api/v1/campaigns/[^\"]+/open\?[^\"]+)"#i', $body, $openMatch);
+        preg_match('#href="(https://baseheavy\.example\.test/api/v1/campaigns/[^\"]+/unsubscribe\?[^\"]+)"#i', $body, $unsubscribeMatch);
 
-        $this->assertCount(1, $openMatches[1]);
         $this->assertArrayHasKey(1, $clickMatch);
+        $this->assertArrayHasKey(1, $openMatch);
         $this->assertArrayHasKey(1, $unsubscribeMatch);
-        $clickUrl = html_entity_decode($clickMatch[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $clickUrl = $clickMatch[1];
+        $openUrl = $openMatch[1];
         parse_str((string) parse_url($clickUrl, PHP_URL_QUERY), $clickQuery);
-        $clickPath = explode('/', trim((string) parse_url($clickUrl, PHP_URL_PATH), '/'));
-        $clickToken = substr($clickPath[0], 11);
-        if (count($clickPath) > 1) {
-            $clickToken .= '/'.implode('/', array_slice($clickPath, 1));
-        }
-        $this->assertSame(['t' => '1'], $clickQuery);
-        $this->assertSame(10, strlen(substr($clickPath[0], 0, 10)));
-        $this->assertStringNotContainsString('baseheavy.example.test', $clickUrl);
+        parse_str((string) parse_url($openUrl, PHP_URL_QUERY), $openQuery);
+        $clickToken = $clickQuery['token'];
+        $openToken = $openQuery['token'];
+        $this->assertSame($clickToken, $openToken);
+        $this->assertSame('https', parse_url($clickUrl, PHP_URL_SCHEME));
+        $this->assertSame('baseheavy.example.test', parse_url($clickUrl, PHP_URL_HOST));
         $this->assertStringNotContainsString('http://203.0.113.241/', $message['body']);
         $this->assertStringContainsString('Message domain: http://tracking.example.test/landing', $message['body']);
         $this->assertStringContainsString('External link: http://outside.example.test/landing', $message['body']);
         $this->assertStringContainsString('User redirect host: http://literal-redirect.example.test/next', $message['body']);
         $this->assertStringContainsString('https://i.pinimg.com/736x/62/92/63/629263433ead2c24378e115fdb0e46e7.jpg', $message['body']);
+        $this->assertStringContainsString('https://baseheavy.example.test/api/v1/campaigns/', $body);
         $this->assertStringNotContainsString('https://tracking.example.test/', $message['body']);
-        foreach (array_merge([$clickToken], $openMatches[1]) as $token) {
+        foreach ([$clickToken, $openToken] as $token) {
             $segments = explode('/', $token);
             $this->assertLessThanOrEqual(160, max(array_map('strlen', $segments)));
             $decoded = base64_decode(strtr(implode('', $segments), '-_', '+/'), true);
@@ -521,6 +523,21 @@ class CampaignSendExecutionLedgerTest extends TestCase
         $verifiedHttpsMessage = app(CampaignSendMessageBuilder::class)->build($context, $fixture['item'], $fixture['contact']->email);
         $this->assertStringContainsString('Message domain: https://tracking.example.test/landing', $verifiedHttpsMessage['body']);
         $this->assertStringNotContainsString('http://tracking.example.test/', $verifiedHttpsMessage['body']);
+        $verifiedBody = html_entity_decode($verifiedHttpsMessage['body'], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $this->assertMatchesRegularExpression('#href="https://tracking\.example\.test/[A-Z0-9]{10}r[^\"]+\?t=1"#i', $verifiedBody);
+        $this->assertMatchesRegularExpression('#href="https://tracking\.example\.test/[A-Z0-9]{10}u[^\"]+\?t=1"#i', $verifiedBody);
+        $this->assertMatchesRegularExpression('#src="https://tracking\.example\.test/[A-Z0-9]{10}o[^\"]+\?t=1"#i', $verifiedBody);
+
+        // The sending/root domain may lack TLS while the installed tracking
+        // subdomain has a verified certificate. Keep the landing URL as
+        // authored and send all tracking actions through the HTTPS tracker.
+        $context['domain_fallback'] = 'mail-root.example.test';
+        $rootWithoutTlsMessage = app(CampaignSendMessageBuilder::class)->build($context, $fixture['item'], $fixture['contact']->email);
+        $rootWithoutTlsBody = html_entity_decode($rootWithoutTlsMessage['body'], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $this->assertStringContainsString('Message domain: http://mail-root.example.test/landing', $rootWithoutTlsBody);
+        $this->assertMatchesRegularExpression('#href="https://tracking\.example\.test/[A-Z0-9]{10}r[^\"]+\?t=1"#i', $rootWithoutTlsBody);
+        $this->assertMatchesRegularExpression('#href="https://tracking\.example\.test/[A-Z0-9]{10}u[^\"]+\?t=1"#i', $rootWithoutTlsBody);
+        $this->assertMatchesRegularExpression('#src="https://tracking\.example\.test/[A-Z0-9]{10}o[^\"]+\?t=1"#i', $rootWithoutTlsBody);
 
         // A different, external primary domain must not override the selected
         // route's managed domain or rewrite its tracking links back to the IP.
@@ -550,12 +567,11 @@ class CampaignSendExecutionLedgerTest extends TestCase
         $context['domain_fallback'] = $selectedDomain->name;
         $selectedDomainMessage = app(CampaignSendMessageBuilder::class)->build($context, $fixture['item'], $fixture['contact']->email);
 
-        $this->assertStringContainsString('Message domain: https://selected-campaign.example.test/landing', $selectedDomainMessage['body']);
+        $this->assertStringContainsString('Message domain: http://selected-campaign.example.test/landing', $selectedDomainMessage['body']);
         $this->assertStringContainsString('https://i.pinimg.com/736x/62/92/63/629263433ead2c24378e115fdb0e46e7.jpg', $selectedDomainMessage['body']);
         $this->assertStringContainsString('/api/v1/campaigns/'.$fixture['campaign']->getKey().'/'.$fixture['item']->getKey().'/click?', $selectedDomainMessage['body']);
-        $this->assertStringContainsString('href="https://selected-campaign.example.test/api/v1/campaigns/', $selectedDomainMessage['body']);
-        $this->assertStringNotContainsString('baseheavy.example.test', $selectedDomainMessage['body']);
-        $this->assertStringNotContainsString('http://selected-campaign.example.test/', $selectedDomainMessage['body']);
+        $this->assertStringContainsString('href="https://baseheavy.example.test/api/v1/campaigns/', $selectedDomainMessage['body']);
+        $this->assertStringContainsString('http://selected-campaign.example.test/', $selectedDomainMessage['body']);
         $this->assertStringNotContainsString('http://203.0.113.241/', $selectedDomainMessage['body']);
         $this->assertStringNotContainsString('http://tracking.example.test/', $selectedDomainMessage['body']);
         $this->assertStringContainsString('User redirect host: http://literal-redirect.example.test/next', $selectedDomainMessage['body']);
@@ -565,9 +581,9 @@ class CampaignSendExecutionLedgerTest extends TestCase
         $selectedDomain->forceFill(['is_our' => false])->save();
         $externalRedirectMessage = app(CampaignSendMessageBuilder::class)->build($context, $fixture['item'], $fixture['contact']->email);
 
-        $this->assertStringContainsString('Message domain: https://selected-campaign.example.test/landing', $externalRedirectMessage['body']);
+        $this->assertStringContainsString('Message domain: http://selected-campaign.example.test/landing', $externalRedirectMessage['body']);
         $this->assertStringContainsString('/api/v1/campaigns/'.$fixture['campaign']->getKey().'/'.$fixture['item']->getKey().'/click?', $externalRedirectMessage['body']);
-        $this->assertStringNotContainsString('http://selected-campaign.example.test/', $externalRedirectMessage['body']);
+        $this->assertStringContainsString('http://selected-campaign.example.test/', $externalRedirectMessage['body']);
         $this->assertStringNotContainsString('http://203.0.113.241/', $externalRedirectMessage['body']);
     }
 

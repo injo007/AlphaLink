@@ -1923,6 +1923,27 @@ class WorkspaceConsoleController extends Controller
                 $campaign?->getKey() ?? '0',
                 $ispId,
             );
+            $verifiedTrackingHost = $redirectUrlPolicy->readyTrackingHost((array) $selectedServer->install_parameters);
+            $testTrackingParameters = $campaign === null ? [] : [
+                'campaign' => $campaign->getKey(),
+                'token' => $testToken,
+                'isp_id' => $ispId,
+            ];
+            $clickUrl = $campaign === null ? '' : ($verifiedTrackingHost !== null
+                ? $redirectUrlPolicy->campaignTrackingClickUrl($verifiedTrackingHost, $testToken)
+                : $redirectUrlPolicy->signedApplicationCampaignUrl(
+                    'public.campaign-test-click', now()->addYears(10), $testTrackingParameters,
+                ));
+            $openUrl = $campaign === null ? '' : ($verifiedTrackingHost !== null
+                ? $redirectUrlPolicy->campaignTrackingOpenUrl($verifiedTrackingHost, $testToken)
+                : $redirectUrlPolicy->signedApplicationCampaignUrl(
+                    'public.campaign-test-open', now()->addYears(10), $testTrackingParameters,
+                ));
+            $unsubscribeUrl = $campaign === null ? '' : ($verifiedTrackingHost !== null
+                ? $redirectUrlPolicy->campaignTrackingUnsubscribeUrl($verifiedTrackingHost, $testToken)
+                : $redirectUrlPolicy->signedApplicationCampaignUrl(
+                    'public.campaign-test-unsubscribe', now()->addYears(10), $testTrackingParameters,
+                ));
             $tags = [
                 ...$ipTags,
                 'to' => $recipient,
@@ -1931,16 +1952,15 @@ class WorkspaceConsoleController extends Controller
                 'subject' => (string) ($subject['value'] ?? ''),
                 'date' => now()->toRfc2822String(),
                 'negative' => $negativePath,
+                'domain_https' => $verifiedTrackingHost !== null
+                    && $redirectUrlPolicy->isTrackingHostOrSubdomain((string) ($ipTags['domain'] ?? ''), $verifiedTrackingHost),
                 'token' => $testToken,
-                'click_url' => $campaign === null ? '' : $redirectUrlPolicy->signedCampaignUrl(
-                    'public.campaign-test-click',
-                    now()->addYears(10),
-                    ['campaign' => $campaign->getKey(), 'token' => $testToken, 'isp_id' => $ispId],
-                    $redirectUrlPolicy->campaignLinkHost(
-                        (string) ($data['domain'] ?? ''),
-                        (string) ($ipTags['ip'] ?? $routeChoice['ip'] ?? $selectedServer->ip_address),
-                    ),
-                ),
+                'click_url' => $clickUrl,
+                'open_url' => $openUrl,
+                'unsub' => $unsubscribeUrl,
+                'unsubscribe' => $unsubscribeUrl,
+                'optout' => $unsubscribeUrl,
+                'reply' => $unsubscribeUrl,
                 'boundary' => Str::random(30),
             ];
             $cache = [];
@@ -1971,9 +1991,11 @@ class WorkspaceConsoleController extends Controller
                 );
             }
             $trackingDomain = (string) ($ipTags['domain'] ?? '');
-            $renderedHeader = $redirectUrlPolicy->forceHttpsForHost($renderedHeader, $trackingDomain);
-            $renderedBody = $redirectUrlPolicy->forceHttpsForHost($renderedBody, $trackingDomain);
-            $renderedReturnPath = $redirectUrlPolicy->forceHttpsForHost($renderedReturnPath, $trackingDomain);
+            if ($verifiedTrackingHost !== null && $redirectUrlPolicy->isTrackingHostOrSubdomain($trackingDomain, $verifiedTrackingHost)) {
+                $renderedHeader = $redirectUrlPolicy->forceSchemeForHost($renderedHeader, $trackingDomain, 'https');
+                $renderedBody = $redirectUrlPolicy->forceSchemeForHost($renderedBody, $trackingDomain, 'https');
+                $renderedReturnPath = $redirectUrlPolicy->forceSchemeForHost($renderedReturnPath, $trackingDomain, 'https');
+            }
             $fromAddress = $this->campaignHeaderEmailAddress($renderedHeader, 'from');
             $returnPathAddress = trim($renderedReturnPath) === ''
                 ? $fromAddress
@@ -2714,6 +2736,27 @@ class WorkspaceConsoleController extends Controller
         }
 
         $testToken = $tagRenderer->campaignTestToken($campaign->getKey(), (string) ($setup['isp_id'] ?? '0'));
+        $verifiedTrackingHost = $redirectUrlPolicy->readyTrackingHost((array) $server->install_parameters);
+        $testTrackingParameters = [
+            'campaign' => $campaign->getKey(),
+            'token' => $testToken,
+            'isp_id' => $setup['isp_id'] ?? '0',
+        ];
+        $clickUrl = $verifiedTrackingHost !== null
+            ? $redirectUrlPolicy->campaignTrackingClickUrl($verifiedTrackingHost, $testToken)
+            : $redirectUrlPolicy->signedApplicationCampaignUrl(
+                'public.campaign-test-click', now()->addYears(10), $testTrackingParameters,
+            );
+        $openUrl = $verifiedTrackingHost !== null
+            ? $redirectUrlPolicy->campaignTrackingOpenUrl($verifiedTrackingHost, $testToken)
+            : $redirectUrlPolicy->signedApplicationCampaignUrl(
+                'public.campaign-test-open', now()->addYears(10), $testTrackingParameters,
+            );
+        $unsubscribeUrl = $verifiedTrackingHost !== null
+            ? $redirectUrlPolicy->campaignTrackingUnsubscribeUrl($verifiedTrackingHost, $testToken)
+            : $redirectUrlPolicy->signedApplicationCampaignUrl(
+                'public.campaign-test-unsubscribe', now()->addYears(10), $testTrackingParameters,
+            );
         $tagValues = [
             ...$this->campaignTestIpTags($workspace, $server, $route, $routeChoice, (string) ($setup['domain'] ?? '')),
             'to' => $recipient,
@@ -2723,17 +2766,16 @@ class WorkspaceConsoleController extends Controller
             'subject' => (string) $data['subject'],
             'date' => now()->toRfc2822String(),
             'token' => $testToken,
+            'open_url' => $openUrl,
+            'unsub' => $unsubscribeUrl,
+            'unsubscribe' => $unsubscribeUrl,
+            'optout' => $unsubscribeUrl,
+            'reply' => $unsubscribeUrl,
             'boundary' => Str::random(30),
         ];
-        $tagValues['click_url'] = $redirectUrlPolicy->signedCampaignUrl(
-            'public.campaign-test-click',
-            now()->addYears(10),
-            ['campaign' => $campaign->getKey(), 'token' => $testToken, 'isp_id' => $setup['isp_id'] ?? '0'],
-            $redirectUrlPolicy->campaignLinkHost(
-                (string) ($setup['domain'] ?? ''),
-                (string) ($routeChoice['ip'] ?? $server->ip_address),
-            ),
-        );
+        $tagValues['domain_https'] = $verifiedTrackingHost !== null
+            && $redirectUrlPolicy->isTrackingHostOrSubdomain((string) ($tagValues['domain'] ?? ''), $verifiedTrackingHost);
+        $tagValues['click_url'] = $clickUrl;
         $tagCache = [];
         $fromEmail = trim($tagRenderer->render((string) $data['from_email'], $tagValues, $setup['placeholders'] ?? [], 0, $tagCache));
         $subject = $tagRenderer->render((string) $data['subject'], $tagValues, $setup['placeholders'] ?? [], 0, $tagCache);
@@ -2742,7 +2784,9 @@ class WorkspaceConsoleController extends Controller
         $tagValues['subject'] = $subject;
         $body = $tagRenderer->render((string) $data['body'], $tagValues, $setup['placeholders'] ?? [], 0, $tagCache);
         $body = $personalizationTags->personalizeBody($body, [], $recipient, true);
-        $body = $redirectUrlPolicy->forceHttpsForHost($body, (string) ($tagValues['domain'] ?? ''));
+        if ($verifiedTrackingHost !== null && $redirectUrlPolicy->isTrackingHostOrSubdomain((string) ($tagValues['domain'] ?? ''), $verifiedTrackingHost)) {
+            $body = $redirectUrlPolicy->forceSchemeForHost($body, (string) ($tagValues['domain'] ?? ''), 'https');
+        }
 
         if (filter_var($fromEmail, FILTER_VALIDATE_EMAIL) === false) {
             throw ValidationException::withMessages(['from_email' => 'The From address must resolve to a valid email address after campaign tags are applied.']);

@@ -1923,27 +1923,10 @@ class WorkspaceConsoleController extends Controller
                 $campaign?->getKey() ?? '0',
                 $ispId,
             );
-            $verifiedTrackingHost = $redirectUrlPolicy->readyTrackingHost((array) $selectedServer->install_parameters);
-            $testTrackingParameters = $campaign === null ? [] : [
-                'campaign' => $campaign->getKey(),
-                'token' => $testToken,
-                'isp_id' => $ispId,
-            ];
-            $clickUrl = $campaign === null ? '' : ($verifiedTrackingHost !== null
-                ? $redirectUrlPolicy->campaignTrackingClickUrl($verifiedTrackingHost, $testToken)
-                : $redirectUrlPolicy->signedApplicationCampaignUrl(
-                    'public.campaign-test-click', now()->addYears(10), $testTrackingParameters,
-                ));
-            $openUrl = $campaign === null ? '' : ($verifiedTrackingHost !== null
-                ? $redirectUrlPolicy->campaignTrackingOpenUrl($verifiedTrackingHost, $testToken)
-                : $redirectUrlPolicy->signedApplicationCampaignUrl(
-                    'public.campaign-test-open', now()->addYears(10), $testTrackingParameters,
-                ));
-            $unsubscribeUrl = $campaign === null ? '' : ($verifiedTrackingHost !== null
-                ? $redirectUrlPolicy->campaignTrackingUnsubscribeUrl($verifiedTrackingHost, $testToken)
-                : $redirectUrlPolicy->signedApplicationCampaignUrl(
-                    'public.campaign-test-unsubscribe', now()->addYears(10), $testTrackingParameters,
-                ));
+            $verifiedTrackingHost = $campaign === null ? null : $redirectUrlPolicy->requireReadyTrackingHost((array) $selectedServer->install_parameters);
+            $clickUrl = $verifiedTrackingHost === null ? '' : $redirectUrlPolicy->campaignTrackingClickUrl($verifiedTrackingHost, $testToken);
+            $openUrl = $verifiedTrackingHost === null ? '' : $redirectUrlPolicy->campaignTrackingOpenUrl($verifiedTrackingHost, $testToken);
+            $unsubscribeUrl = $verifiedTrackingHost === null ? '' : $redirectUrlPolicy->campaignTrackingUnsubscribeUrl($verifiedTrackingHost, $testToken);
             $tags = [
                 ...$ipTags,
                 'to' => $recipient,
@@ -2736,27 +2719,10 @@ class WorkspaceConsoleController extends Controller
         }
 
         $testToken = $tagRenderer->campaignTestToken($campaign->getKey(), (string) ($setup['isp_id'] ?? '0'));
-        $verifiedTrackingHost = $redirectUrlPolicy->readyTrackingHost((array) $server->install_parameters);
-        $testTrackingParameters = [
-            'campaign' => $campaign->getKey(),
-            'token' => $testToken,
-            'isp_id' => $setup['isp_id'] ?? '0',
-        ];
-        $clickUrl = $verifiedTrackingHost !== null
-            ? $redirectUrlPolicy->campaignTrackingClickUrl($verifiedTrackingHost, $testToken)
-            : $redirectUrlPolicy->signedApplicationCampaignUrl(
-                'public.campaign-test-click', now()->addYears(10), $testTrackingParameters,
-            );
-        $openUrl = $verifiedTrackingHost !== null
-            ? $redirectUrlPolicy->campaignTrackingOpenUrl($verifiedTrackingHost, $testToken)
-            : $redirectUrlPolicy->signedApplicationCampaignUrl(
-                'public.campaign-test-open', now()->addYears(10), $testTrackingParameters,
-            );
-        $unsubscribeUrl = $verifiedTrackingHost !== null
-            ? $redirectUrlPolicy->campaignTrackingUnsubscribeUrl($verifiedTrackingHost, $testToken)
-            : $redirectUrlPolicy->signedApplicationCampaignUrl(
-                'public.campaign-test-unsubscribe', now()->addYears(10), $testTrackingParameters,
-            );
+        $verifiedTrackingHost = $redirectUrlPolicy->requireReadyTrackingHost((array) $server->install_parameters);
+        $clickUrl = $redirectUrlPolicy->campaignTrackingClickUrl($verifiedTrackingHost, $testToken);
+        $openUrl = $redirectUrlPolicy->campaignTrackingOpenUrl($verifiedTrackingHost, $testToken);
+        $unsubscribeUrl = $redirectUrlPolicy->campaignTrackingUnsubscribeUrl($verifiedTrackingHost, $testToken);
         $tagValues = [
             ...$this->campaignTestIpTags($workspace, $server, $route, $routeChoice, (string) ($setup['domain'] ?? '')),
             'to' => $recipient,

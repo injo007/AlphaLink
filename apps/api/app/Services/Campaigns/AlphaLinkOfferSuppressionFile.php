@@ -76,7 +76,7 @@ class AlphaLinkOfferSuppressionFile
                 $source = $extractedPath;
             }
 
-            return $this->normalizeDownloadedFile($workspace, $offer, $source, $onProgress, $downloadedBytes);
+            return $this->normalizeDownloadedFile($workspace, $offer, $source, $onProgress, $downloadedBytes, true);
         } finally {
             if (is_string($extractedPath) && is_file($extractedPath)) {
                 @unlink($extractedPath);
@@ -366,6 +366,7 @@ class AlphaLinkOfferSuppressionFile
         string $sourcePath,
         ?Closure $onProgress = null,
         ?int $downloadedBytes = null,
+        bool $skipInvalidSponsorEntries = false,
     ): array {
         $connection = DB::connection();
         $table = 'tmp_suppression_'.Str::lower(Str::random(18));
@@ -403,7 +404,7 @@ class AlphaLinkOfferSuppressionFile
                     $uniqueCount += $connection->table($table)->insertOrIgnore($batch);
                     $batch = [];
                 };
-                $processEntry = function (string $entry) use (&$batch, &$format, &$sawEntries, $batchSize, $flushBatch): void {
+                $processEntry = function (string $entry) use (&$batch, &$format, &$sawEntries, $batchSize, $flushBatch, $skipInvalidSponsorEntries): void {
                     $entry = mb_strtolower(trim($entry, " \t\n\r\0\x0B\"'"));
                     if ($entry === '') {
                         return;
@@ -416,6 +417,9 @@ class AlphaLinkOfferSuppressionFile
                         : ($length === 32 && strspn($entry, $hexCharacters) === 32
                             ? 'md5'
                             : (filter_var($entry, FILTER_VALIDATE_EMAIL) !== false ? 'email' : null));
+                    if ($entryFormat === null && $skipInvalidSponsorEntries) {
+                        return;
+                    }
                     if ($entryFormat === null || ($format !== null && $format !== $entryFormat)) {
                         throw ValidationException::withMessages(['suppression_file' => 'Use one format per file: plain email addresses, 32-character MD5 hashes, or 128-character SHA-512 hashes.']);
                     }
@@ -468,7 +472,7 @@ class AlphaLinkOfferSuppressionFile
                         $lastReportedAt = $now;
                     }
                 }
-                if ($discardingLongEntry) {
+                if ($discardingLongEntry && ! $skipInvalidSponsorEntries) {
                     throw ValidationException::withMessages(['suppression_file' => 'Entries must be valid email addresses, 32-character MD5 hashes, or 128-character SHA-512 hashes.']);
                 }
                 $processEntry($carry);

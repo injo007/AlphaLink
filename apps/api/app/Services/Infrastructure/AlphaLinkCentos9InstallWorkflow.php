@@ -136,7 +136,7 @@ class AlphaLinkCentos9InstallWorkflow
         }
         $primaryDomainId = (string) $primaryDomain->getKey();
         $primaryDomainReady = $domainProviderReady[$primaryDomainId] ?? false;
-        $deploymentDomain = $primaryDomainReady ? (string) $primaryDomain->name : null;
+        $deploymentDomain = (string) $primaryDomain->name;
 
         $readySubdomains = static function (array $ipsToInclude) use ($domain, $domainProviderReady, $primaryDomain): array {
             $list = [];
@@ -167,9 +167,8 @@ class AlphaLinkCentos9InstallWorkflow
         $deploymentSubdomains = $primaryDomainReady ? $subdomains : [];
         if (! $primaryDomainReady) {
             $log(sprintf(
-                'The selected domain %s is not available from its configured DNS provider; skipping domain-based host naming and using public IP %s for tracking and PMTA monitor endpoints. DNS record updates will be skipped if the provider remains unavailable.',
+                'DNS record management is unavailable for %s; retaining the selected hostname and checking its public HTTPS route independently. DNS updates may be skipped.',
                 $primaryDomain->name,
-                $server->ip_address,
             ));
         }
 
@@ -186,13 +185,7 @@ class AlphaLinkCentos9InstallWorkflow
 
         $log('Setup Host');
         $configuredHostname = $this->hostPreparation->configureHost($session, (string) $server->ip_address, $deploymentDomain);
-        if (! $primaryDomainReady) {
-            $log(sprintf(
-                'No DNS-managed domain is available; configured PMTA host identity %s while keeping tracking and monitor endpoints on public IP %s.',
-                $configuredHostname,
-                $server->ip_address,
-            ));
-        }
+        $log('Configured PMTA host identity '.$configuredHostname);
         $log('End Setting Host');
 
         $log('Removing Old Packages');
@@ -236,15 +229,8 @@ class AlphaLinkCentos9InstallWorkflow
         }
 
         $primaryDomainReady = $domainProviderReady[$primaryDomainId] ?? false;
-        $monitorDomain = $primaryDomainReady ? (string) $primaryDomain->name : null;
+        $monitorDomain = (string) $primaryDomain->name;
         $subdomains = $readySubdomains($ips);
-        if (! $primaryDomainReady && $deploymentDomain !== null) {
-            $log(sprintf(
-                'DNS provider setup did not complete for %s; switching PMTA monitor access to public IP %s.',
-                $primaryDomain->name,
-                $server->ip_address,
-            ));
-        }
         // PMTA 4.5/5.0 use the normal loopback backend behind Nginx even when
         // no provider-owned domain exists. Only PMTA 4.0 uses its direct HTTP
         // listener as the public-IP fallback.
@@ -303,9 +289,7 @@ class AlphaLinkCentos9InstallWorkflow
         if ($certificateDomain !== null && ! $domainCertificateReady) {
             $log('The selected domain certificate was not issued; check public DNS and inbound HTTP port 80 before retrying.');
         }
-        $monitorDomain = $domainCertificateReady
-            ? $certificateDomain
-            : ($primaryDomainReady ? (string) $primaryDomain->name : null);
+        $monitorDomain = $domainCertificateReady ? $certificateDomain : null;
         $pmtaMonitorHttps = $this->https->configurePmtaMonitor(
             $session,
             $session,
@@ -341,7 +325,7 @@ class AlphaLinkCentos9InstallWorkflow
         if ($options['tracking'] && $options['https'] && $domainCertificateReady && $trackingDomain !== '') {
             $trackingHttpsReady = $this->tracking->verifyHttps($session, $trackingDomain);
             if (! $trackingHttpsReady) {
-                $log('Tracking HTTPS did not pass its health and redirect checks; campaign links will use the AlphaLink HTTPS endpoint until tracking HTTPS is verified.');
+                $log('Tracking HTTPS did not pass its health and redirect checks; tracked campaign sends require repair before use.');
             }
         }
 

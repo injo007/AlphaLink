@@ -2,6 +2,10 @@
 
 > **Archived comparison report.** Its dated comparisons and status snapshots preserve historical evidence; they do not define AlphaLink's current product identity or active requirements.
 
+## 2026-11-23 Offer suppression and tracking hostname — E-TRACK-50
+
+AlphaLink production download attempts 7–10 for one Everflow offer failed during ZIP extraction/validation. A fresh read-only source inspection found a valid ZIP containing a large text list with 18,600,297 email cells and 6,963 malformed cells. AlphaLink now ignores malformed sponsor cells while preserving strict single-format validation and rejecting an all-invalid file. The user-supplied reinstall log shows a Cloudflare provider lookup failure caused the selected domain to be discarded and `pmta-*.invalid` to be assigned. Install/reinstall now retain the selected domain for host identity and certificate issuance even when provider-managed DNS writes fail; tracking readiness still requires successful HTTPS checks. Campaign sends now fail clearly when no verified tracker is available instead of using the AlphaLink app domain. These are AlphaLink repair decisions; production download retry, server repair, and real tracking remain unverified.
+
 ## Admin workspace access follow-up — E-IAM-16
 
 AlphaLink's global Owner/Admin roles now resolve active workspace resources independently of `workspace_user` membership, and full-access users receive an effective role for downstream workspace-scoped checks. Workspace selection, legacy URL redirect, clean web routes, API membership middleware, and workspace resource controllers use the same policy. This keeps Admin access consistent across Sponsors, Offers, Lists, and other workspace modules, while the global navigation order endpoint and drag/drop UI remain Owner-only. Focused synthetic tests pass for Sponsor/Offer management, Lists, API workspace/list access, Operator network filtering, and Owner-only shared navigation. This is an AlphaLink-only permission policy; no DMS behavior or production deployment is claimed. Keep `ALPHALINK-IAM-001` IMPLEMENTING pending authenticated matrix and production verification.

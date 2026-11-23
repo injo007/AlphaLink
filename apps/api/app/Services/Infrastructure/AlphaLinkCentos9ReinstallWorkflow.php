@@ -95,13 +95,12 @@ class AlphaLinkCentos9ReinstallWorkflow
         );
         $groups = $this->groupRows($dnsRows, $prepared['domains']);
         $mainDomainProviderReady = $this->dnsWriter->isDomainAvailable($mainDomain);
-        $deploymentDomain = $mainDomainProviderReady ? (string) $mainDomain->name : null;
+        $deploymentDomain = (string) $mainDomain->name;
         $deploymentSubdomains = $mainDomainProviderReady ? $subdomains : [];
         if (! $mainDomainProviderReady) {
             $log(sprintf(
-                'The selected domain %s is not available from its configured DNS provider; skipping domain-based host naming and using public IP %s for tracking and PMTA monitor endpoints.',
+                'DNS record management is unavailable for %s; retaining the selected hostname and checking its public HTTPS route independently. DNS updates may be skipped.',
                 $mainDomain->name,
-                $server->ip_address,
             ));
         }
 
@@ -113,13 +112,7 @@ class AlphaLinkCentos9ReinstallWorkflow
 
         $log('Re Setup Host');
         $configuredHostname = $this->hostPreparation->configureHost($session, (string) $server->ip_address, $deploymentDomain);
-        if (! $mainDomainProviderReady) {
-            $log(sprintf(
-                'No DNS-managed domain is available; configured PMTA host identity %s while keeping tracking and monitor endpoints on public IP %s.',
-                $configuredHostname,
-                $server->ip_address,
-            ));
-        }
+        $log('Configured PMTA host identity '.$configuredHostname);
         $log('End Setting Host');
 
         $log('Re Setup Services');
@@ -143,7 +136,7 @@ class AlphaLinkCentos9ReinstallWorkflow
                 $inputs['assets']['cloudflare_ips'],
                 $inputs['settings']['tracking_callback_url'],
                 $inputs['settings']['tracking_ingest_key'],
-                $options['https'] && $mainDomainProviderReady,
+                $options['https'],
                 (string) config('app.name', 'NA'),
             );
             $log('End Setting Tracking App');
@@ -174,7 +167,7 @@ class AlphaLinkCentos9ReinstallWorkflow
             }
         }
 
-        $monitorDomain = $mainDomainProviderReady ? (string) $mainDomain->name : null;
+        $monitorDomain = (string) $mainDomain->name;
         // Keep the stable PMTA 4.5/5.0 loopback backend behind Nginx for
         // IP-only monitor fallback; PMTA 4.0 retains its direct listener mode.
         $directPmtaMonitor = AlphaLinkPmtaMonitorMode::usesDirectListener(
@@ -182,13 +175,6 @@ class AlphaLinkCentos9ReinstallWorkflow
             $mainDomainProviderReady,
             $options['pmta'],
         );
-        if (! $mainDomainProviderReady && $deploymentDomain !== null) {
-            $log(sprintf(
-                'DNS provider setup did not complete for %s; switching PMTA monitor access to public IP %s.',
-                $mainDomain->name,
-                $server->ip_address,
-            ));
-        }
 
         $adminUrl = null;
         $pmtaMonitorHttps = (bool) (($server->install_parameters['pmta_monitor_https'] ?? false));
@@ -278,7 +264,7 @@ class AlphaLinkCentos9ReinstallWorkflow
                 $pmtaMonitorHttps = $this->https->configurePmtaMonitor(
                     $session,
                     $session,
-                    $monitorDomain,
+                    $domainCertificateReady ? $monitorDomain : null,
                     $pmtaVersion,
                     $inputs['settings']['pmta_admin_port'],
                     $inputs['settings']['dev_ips'],
@@ -333,10 +319,10 @@ class AlphaLinkCentos9ReinstallWorkflow
         );
         $log('End Setting Firewall');
 
-        if ($options['tracking'] && $options['https'] && $mainDomainProviderReady && $domainCertificateReady) {
+        if ($options['tracking'] && $options['https'] && $domainCertificateReady) {
             $trackingHttpsReady = $this->tracking->verifyHttps($session, $monitorDomain);
             if (! $trackingHttpsReady) {
-                $log('Tracking HTTPS did not pass its public health and redirect checks; campaign tracking links will use the verified HTTP endpoint.');
+                $log('Tracking HTTPS did not pass its public health and redirect checks; tracked campaign sends require repair before use.');
             }
         }
 
@@ -363,10 +349,10 @@ class AlphaLinkCentos9ReinstallWorkflow
             $server,
             $rows,
             $pmtaVersion,
-            [...$options, 'https' => $options['https'] && $mainDomainProviderReady && $domainCertificateReady],
+            [...$options, 'https' => $options['https'] && $domainCertificateReady],
             $requestId,
             $pmtaMonitorHttps,
-            $monitorDomain ?? (string) $server->ip_address,
+            $trackingHttpsReady ? $monitorDomain : (string) $server->ip_address,
             $trackingHttpsReady,
         );
 

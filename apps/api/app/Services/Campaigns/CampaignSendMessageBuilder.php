@@ -206,37 +206,10 @@ class CampaignSendMessageBuilder
         $subject = $context['subject_assets'] === [] ? ['id' => 0, 'value' => ''] : $context['subject_assets'][($position - 1) % count($context['subject_assets'])];
         $token = $this->campaignToken($context, $item, $choice, $from, $subject);
         $installParameters = (array) $server->install_parameters;
-        $trackingHost = $this->redirectUrlPolicy->readyTrackingHost($installParameters);
-        $unsubscribeParameters = ['campaign' => $context['campaign']->getKey(), 'item' => $item->getKey()];
-        $trackingParameters = [
-            ...$unsubscribeParameters,
-            'token' => $token,
-            'isp_id' => $context['setup']['isp_id'] ?? null,
-            'server_id' => $server->getKey(),
-            'ip_id' => $routeIp?->getKey(),
-            'domain_id' => $routeIp?->sending_domain_id ?? $choice['sending_domain_id'] ?? null,
-            'from_id' => $from['id'] ?? null,
-            'subject_id' => $subject['id'] ?? null,
-            'creative_id' => $context['setup']['creative_asset_id'] ?? null,
-        ];
-        $unsubscribeUrl = $this->redirectUrlPolicy->signedApplicationCampaignUrl(
-            'public.campaign-unsubscribe', now()->addYears(10), $unsubscribeParameters,
-        );
-        $clickUrl = $trackingHost !== null
-            ? $this->redirectUrlPolicy->campaignTrackingClickUrl($trackingHost, $token)
-            : $this->redirectUrlPolicy->signedApplicationCampaignUrl(
-                'public.campaign-click',
-                now()->addYears(10),
-                $trackingParameters,
-            );
-        $openUrl = $trackingHost !== null
-            ? $this->redirectUrlPolicy->campaignTrackingOpenUrl($trackingHost, $token)
-            : $this->redirectUrlPolicy->signedApplicationCampaignUrl(
-                'public.campaign-open', now()->addYears(10), $trackingParameters,
-            );
-        if ($trackingHost !== null) {
-            $unsubscribeUrl = $this->redirectUrlPolicy->campaignTrackingUnsubscribeUrl($trackingHost, $token);
-        }
+        $trackingHost = $this->redirectUrlPolicy->requireReadyTrackingHost($installParameters);
+        $unsubscribeUrl = $this->redirectUrlPolicy->campaignTrackingUnsubscribeUrl($trackingHost, $token);
+        $clickUrl = $this->redirectUrlPolicy->campaignTrackingClickUrl($trackingHost, $token);
+        $openUrl = $this->redirectUrlPolicy->campaignTrackingOpenUrl($trackingHost, $token);
         $tags = [
             'server' => (string) $server->name.(string) $server->getKey(),
             'main_domain' => (string) ($primaryIp?->dns ?: $primaryIp?->domain?->name ?: 'NA'),

@@ -468,23 +468,40 @@ class AlphaLinkChangeDomainRunner
         if (! $session->upload($content, '/etc/httpd/conf.d/'.$fileName.'.conf')) {
             throw new RuntimeException('The Apache virtual host configuration could not be uploaded.');
         }
-        $apacheRestart = $session->exec('httpd -t && systemctl restart httpd && printf ALPHALINK_APACHE_VHOST_READY');
-        if (! str_contains((string) $apacheRestart, 'ALPHALINK_APACHE_VHOST_READY')) {
-            throw new RuntimeException('Apache did not accept or restart with the changed virtual host configuration.');
+        $apacheRestart = trim((string) $session->exec('httpd -t && systemctl restart httpd && printf ALPHALINK_APACHE_VHOST_READY'));
+        if (! str_contains($apacheRestart, 'ALPHALINK_APACHE_VHOST_READY')) {
+            $detail = preg_replace('/[\x00-\x1F\x7F]+/', ' ', $apacheRestart) ?? '';
+            $detail = mb_substr(trim($detail), 0, 240);
+            $message = 'Apache did not accept or restart with the changed virtual host configuration.';
+            if ($detail !== '') {
+                $message .= ' Remote output: '.$detail;
+            }
+
+            throw new RuntimeException($message);
         }
     }
 
     private function prepareApacheConfigurationDirectory(AlphaLinkInstallerRemoteCommandTransport $session): void
     {
         $ready = $session->exec(
-            '(rpm -q httpd >/dev/null 2>&1 || dnf -y install httpd >/dev/null 2>&1) && '
-                .'install -d -m 755 /etc/httpd/conf.d && '
-                .'test -s /etc/httpd/conf/httpd.conf && test -w /etc/httpd/conf.d && '
+            '(rpm -q httpd >/dev/null 2>&1 || dnf -y install httpd >/dev/null 2>&1) || { printf ALPHALINK_HTTPD_INSTALL_FAILED; exit 1; }; '
+                .'mkdir -p /etc/httpd/conf.d || { printf ALPHALINK_HTTPD_CONF_DIR_CREATE_FAILED; exit 1; }; '
+                .'test -d /etc/httpd/conf.d || { printf ALPHALINK_HTTPD_CONF_DIR_MISSING; exit 1; }; '
+                .'test -w /etc/httpd/conf.d || { printf ALPHALINK_HTTPD_CONF_DIR_NOT_WRITABLE; exit 1; }; '
                 .'printf ALPHALINK_APACHE_CONF_DIR_READY',
         );
 
-        if (! str_contains((string) $ready, 'ALPHALINK_APACHE_CONF_DIR_READY')) {
-            throw new RuntimeException('Apache could not be installed or /etc/httpd/conf.d could not be prepared before changing the domain.');
+        $output = (string) $ready;
+        if (! str_contains($output, 'ALPHALINK_APACHE_CONF_DIR_READY')) {
+            $reason = match (true) {
+                str_contains($output, 'ALPHALINK_HTTPD_INSTALL_FAILED') => 'Apache could not be installed with DNF',
+                str_contains($output, 'ALPHALINK_HTTPD_CONF_DIR_CREATE_FAILED') => 'the SSH account could not create /etc/httpd/conf.d',
+                str_contains($output, 'ALPHALINK_HTTPD_CONF_DIR_MISSING') => '/etc/httpd/conf.d is still missing after creation',
+                str_contains($output, 'ALPHALINK_HTTPD_CONF_DIR_NOT_WRITABLE') => 'the SSH account cannot write to /etc/httpd/conf.d',
+                default => 'the server returned no readiness marker; check SSH privileges and DNF access',
+            };
+
+            throw new RuntimeException('Apache preparation failed: '.$reason.'.');
         }
     }
 }

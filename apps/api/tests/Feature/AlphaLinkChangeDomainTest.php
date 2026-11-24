@@ -244,7 +244,7 @@ class AlphaLinkChangeDomainTest extends TestCase
         $session = Mockery::mock(AlphaLinkInstallerSshSession::class);
         $sessionFactory->shouldReceive('create')->once()->with($this->server, 'synthetic-secret', 'password')->andReturn($session);
 
-        $session->shouldReceive('exec')->once()->with(Mockery::on(fn (string $command): bool => str_contains($command, 'install -d -m 755 /etc/httpd/conf.d')
+        $session->shouldReceive('exec')->once()->with(Mockery::on(fn (string $command): bool => str_contains($command, 'mkdir -p /etc/httpd/conf.d')
             && str_contains($command, 'test -w /etc/httpd/conf.d')
             && str_contains($command, 'ALPHALINK_APACHE_CONF_DIR_READY')))->ordered()->andReturn('ALPHALINK_APACHE_CONF_DIR_READY');
         $session->shouldReceive('exec')->once()->with("hostnamectl set-hostname 'current.example.test'")->ordered()->andReturn('');
@@ -353,7 +353,7 @@ class AlphaLinkChangeDomainTest extends TestCase
             ->andReturn($session);
 
         $session->shouldReceive('exec')->once()->with("curl -fsS --connect-timeout 3 --max-time 6 --interface '10.0.0.25' https://ifconfig.me/ip 2>/dev/null")->ordered()->andReturn('203.0.113.25');
-        $session->shouldReceive('exec')->once()->with(Mockery::on(fn (string $command): bool => str_contains($command, 'install -d -m 755 /etc/httpd/conf.d')
+        $session->shouldReceive('exec')->once()->with(Mockery::on(fn (string $command): bool => str_contains($command, 'mkdir -p /etc/httpd/conf.d')
             && str_contains($command, 'test -w /etc/httpd/conf.d')
             && str_contains($command, 'ALPHALINK_APACHE_CONF_DIR_READY')))->ordered()->andReturn('ALPHALINK_APACHE_CONF_DIR_READY');
         $session->shouldReceive('exec')->once()->with("hostnamectl set-hostname 'new.example.test'")->ordered()->andReturn('');

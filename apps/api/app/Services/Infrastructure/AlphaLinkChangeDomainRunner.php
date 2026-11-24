@@ -31,6 +31,7 @@ class AlphaLinkChangeDomainRunner
         private readonly DkimKeyMaterialManager $dkimKeys,
         private readonly AlphaLinkReviewedAssetDigestVerifier $assetDigests,
         private readonly AlphaLinkManualDnsVerifier $manualDnsVerifier,
+        private readonly AlphaLinkPmtaMonitorModeResolver $pmtaMonitorModeResolver,
     ) {}
 
     /**
@@ -110,6 +111,11 @@ class AlphaLinkChangeDomainRunner
         $session = new AlphaLinkFailClosedInstallerTransport(
             $this->sessions->create($server, $credential['secret'], $credential['type']),
         );
+        $pmtaDirectMonitor = $pmtaMonitor !== null
+            && $this->pmtaMonitorModeResolver->resolve($session, $pmtaMonitor['version'], $pmtaMonitor['admin_port']);
+        if ($pmtaDirectMonitor) {
+            $log('Verified PMTA 4.0 direct-monitor mode; preserving the public-IP listener without an Nginx proxy.');
+        }
         $dnsGroups = $this->resolveDnsGroups(
             $formatted, $tracking, $imap, $options, $dkimSelector, $dkimMaterial['public_record'], $session, $log, (string) $server->ip_address,
         );
@@ -180,6 +186,7 @@ class AlphaLinkChangeDomainRunner
                 $pmtaMonitor['production_ips'],
                 $pmtaMonitor['allow_all_monitor'],
                 $pmtaMonitor['relay_ips'],
+                $pmtaDirectMonitor,
             );
         }
         if ($options['https'] || $pmtaMonitor !== null) {

@@ -1,8 +1,12 @@
 # AlphaLink development progress
 
 **Updated:** 2026-11-24
-**Active objective:** Make Change Domain prepare required Apache and PMTA upload directories on installed AlmaLinux 9 servers.
-**Current implementation status:** The user retries confirmed `/etc/httpd/conf/httpd.conf` was missing, then `/etc/pmta/conf` was missing before the VMTA upload. Change Domain now repairs Apache package config and creates/checks both `/etc/pmta/conf` and `/etc/pmta/settings` before changing the host or uploading any vhost/PMTA files. Failures identify the specific directory or restore step. No live Change Domain retry or installed-server mutation has been run. Keep DMS-SRV-010 TESTING pending a controlled retry and host-side verification.
+**Active objective:** Preserve the installed PMTA monitor mode during Change Domain and stop before changes if its topology cannot be verified.
+**Current implementation status:** The reported missing Nginx staging path matches PMTA 4.0 direct-monitor installs, whose installation plan removes `/etc/nginx`; Change Domain had omitted the direct-monitor flag and still tried to stage an Nginx proxy. Change Domain now verifies the existing PMTA 4.0 topology before DNS or host changes and preserves direct mode. Pint and focused tests pass (14 tests / 53 assertions). Deployment and a real Change Domain retry remain pending; keep DMS-SRV-010 TESTING.
+
+### Change Domain preserves PMTA 4.0 direct-monitor mode — E-SRV-LIVE-31 (2026-11-24)
+
+The user-reported SFTP error named `/etc/nginx/conf.d/default.conf.alphalink-tls-stage`. Source review shows the PMTA 4.0 direct-listener install branch intentionally removes `/etc/nginx`; Change Domain had called the HTTPS stage with its default `directMonitor=false`, causing SFTP to target that removed path. A new resolver confirms proxy mode from the active default config, or direct mode only when Nginx is absent and the local configured PMTA port returns HTTP 2xx/3xx. An unknown topology aborts before DNS or host mutation. Change Domain passes confirmed direct mode to the HTTPS stage, which skips Nginx writes. Pint passes and focused mode/HTTPS suites pass 14 tests / 53 assertions in PHP 8.5. No real mail-server Change Domain request or host mutation was run; deployment and live verification remain pending.
 
 ### Change Domain missing PMTA config directory — E-SRV-LIVE-30 (2026-11-24)
 

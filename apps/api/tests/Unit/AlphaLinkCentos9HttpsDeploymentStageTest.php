@@ -215,7 +215,7 @@ class AlphaLinkCentos9HttpsDeploymentStageTest extends TestCase
             $commands,
             $files,
             null,
-            45,
+            40,
             1213,
             ['192.0.2.10'],
             [],

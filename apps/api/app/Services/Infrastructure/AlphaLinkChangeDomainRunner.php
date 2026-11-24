@@ -485,6 +485,7 @@ class AlphaLinkChangeDomainRunner
     {
         $ready = $session->exec(
             '(rpm -q httpd >/dev/null 2>&1 || dnf -y install httpd >/dev/null 2>&1) || { printf ALPHALINK_HTTPD_INSTALL_FAILED; exit 1; }; '
+                .'(test -s /etc/httpd/conf/httpd.conf || (dnf reinstall -y httpd httpd-core >/dev/null 2>&1 || dnf reinstall -y httpd >/dev/null 2>&1)) && test -s /etc/httpd/conf/httpd.conf || { printf ALPHALINK_HTTPD_CONFIG_RESTORE_FAILED; exit 1; }; '
                 .'mkdir -p /etc/httpd/conf.d || { printf ALPHALINK_HTTPD_CONF_DIR_CREATE_FAILED; exit 1; }; '
                 .'test -d /etc/httpd/conf.d || { printf ALPHALINK_HTTPD_CONF_DIR_MISSING; exit 1; }; '
                 .'test -w /etc/httpd/conf.d || { printf ALPHALINK_HTTPD_CONF_DIR_NOT_WRITABLE; exit 1; }; '
@@ -495,6 +496,7 @@ class AlphaLinkChangeDomainRunner
         if (! str_contains($output, 'ALPHALINK_APACHE_CONF_DIR_READY')) {
             $reason = match (true) {
                 str_contains($output, 'ALPHALINK_HTTPD_INSTALL_FAILED') => 'Apache could not be installed with DNF',
+                str_contains($output, 'ALPHALINK_HTTPD_CONFIG_RESTORE_FAILED') => 'the base /etc/httpd/conf/httpd.conf is missing and could not be restored by reinstalling httpd',
                 str_contains($output, 'ALPHALINK_HTTPD_CONF_DIR_CREATE_FAILED') => 'the SSH account could not create /etc/httpd/conf.d',
                 str_contains($output, 'ALPHALINK_HTTPD_CONF_DIR_MISSING') => '/etc/httpd/conf.d is still missing after creation',
                 str_contains($output, 'ALPHALINK_HTTPD_CONF_DIR_NOT_WRITABLE') => 'the SSH account cannot write to /etc/httpd/conf.d',

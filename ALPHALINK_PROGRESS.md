@@ -1,8 +1,12 @@
 # AlphaLink development progress
 
 **Updated:** 2026-11-24
-**Active objective:** Fix Change Domain uploads failing when `/etc/httpd/conf.d` is absent on an installed mail server.
-**Current implementation status:** The user supplied the SFTP status `NET_SFTP_STATUS_NO_SUCH_FILE` for `/etc/httpd/conf.d/dravionx_carbinlitnings_org.conf`, identifying a missing Apache configuration directory. Change Domain now ensures Apache is installed, creates and checks `/etc/httpd/conf.d` before changing the hostname, uploads the vhost, then requires `httpd -t` and Apache restart to succeed before continuing. No live Change Domain retry or installed-server mutation has been run. Keep DMS-SRV-010 TESTING pending a controlled retry and host-side verification.
+**Active objective:** Repair Change Domain on installed AlmaLinux 9 servers where Apache's base configuration is missing.
+**Current implementation status:** The first retry confirmed `/etc/httpd/conf/httpd.conf` is absent. Change Domain now mirrors the existing Apache PHP installation recovery: when the base config is missing, it reinstalls `httpd`/`httpd-core`, confirms the file is restored, and only then prepares `conf.d`, uploads the vhost, and validates/restarts Apache. Failure to restore the packaged config returns a specific error. No live Change Domain retry or installed-server mutation has been run. Keep DMS-SRV-010 TESTING pending a controlled retry and host-side verification.
+
+### Change Domain missing Apache base config — E-SRV-LIVE-29 (2026-11-24)
+
+The user retry reached Apache validation and supplied `httpd: Could not open configuration file /etc/httpd/conf/httpd.conf: No such file`. The existing CentOS 9 PHP install stage already repairs this condition by reinstalling `httpd`/`httpd-core`; Change Domain now performs the same package repair before the vhost upload, verifies the base config exists, and reports a precise failure if package repair does not restore it. PHP syntax, Pint and diff checks pass; tests were not run and no mail-server config or DNS was changed. A controlled Change Domain retry remains necessary.
 
 ### Change Domain missing Apache config directory — E-SRV-LIVE-28 (2026-11-24)
 

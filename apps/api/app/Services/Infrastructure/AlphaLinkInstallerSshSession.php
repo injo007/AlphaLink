@@ -5,7 +5,7 @@ namespace App\Services\Infrastructure;
 use RuntimeException;
 
 /** An authenticated reference-style session exposing command, file, and string transports. */
-class AlphaLinkInstallerSshSession implements AlphaLinkInstallerRemoteCommandTransport, AlphaLinkInstallerRemoteFileTransport, AlphaLinkInstallerRemoteReadableFileTransport
+class AlphaLinkInstallerSshSession implements AlphaLinkInstallerRemoteCommandTransport, AlphaLinkInstallerRemoteFileTransport, AlphaLinkInstallerRemoteReadableFileTransport, AlphaLinkInstallerSshFailureDiagnostics
 {
     public function __construct(private readonly AlphaLinkInstallerSshConnection $connection) {}
 
@@ -31,6 +31,13 @@ class AlphaLinkInstallerSshSession implements AlphaLinkInstallerRemoteCommandTra
         }
 
         return $this->connection->uploadString($contents, $destination);
+    }
+
+    public function lastFailureReason(): string
+    {
+        return $this->connection instanceof AlphaLinkInstallerSshFailureDiagnostics
+            ? $this->connection->lastFailureReason()
+            : '';
     }
 
     public function uploadFile(string $localPath, string $destination): bool

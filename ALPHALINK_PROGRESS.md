@@ -1,8 +1,12 @@
 # AlphaLink development progress
 
 **Updated:** 2026-11-24
-**Active objective:** Make Multi-Domain per IP editable on Reinstall as well as first install, while keeping assignment, DNS, DKIM, HTTPS, and PMTA safeguards.
-**Current implementation status:** E-MDOM-15 adds the Reinstall toggle, per-IP domain/subdomain selectors, eligible domain choices, and pre-queue validation. Six focused PHP 8.5 tests pass (6 tests / 51 assertions), covering the form, saved choices, a new eligible domain, worker payload, and rejection of unavailable domains. The complete Reinstall suite has two unrelated failures in stage-log expectations and workspace route scope. Pint and `git diff --check` pass. Commit `bf52ceaf08a8057a1d0c7dcc89f714ecbdc4ff05` is pushed and deployed to AlphaLink production; backup `/var/backups/alphalink/deploy-bf52ceaf08a8057a1d0c7dcc89f714ecbdc4ff05-20261124T195856Z.dump` was verified. Active release path matches the revision, no migrations were pending, `/up` and `/sign-in` return HTTP 200, and PHP-FPM, Horizon, suppression worker, and scheduler are active. No live mail-server reinstall or email was run.
+**Active objective:** Diagnose the Change Domain SFTP upload failure reported on an external-domain server without mutating the installed mail server.
+**Current implementation status:** External domains skip provider DNS writes but use the same SSH/SFTP configuration stages. The previous error hid the failed destination and remote rejection reason. The fail-closed transport now includes the destination path and sanitized SFTP/SSH reason when available. Touched PHP syntax checks and Pint pass; no connected Change Domain request or mail-server mutation was run. This narrows the failure but does not establish its remote cause; keep DMS-SRV-010 TESTING until a retry identifies the blocked upload and the host-side result is verified.
+
+### Change Domain SFTP failure diagnostics — E-SRV-LIVE-27 (2026-11-24)
+
+The reported failure occurs during a remote configuration upload, before external DNS readiness determines TLS behavior. The upload error now names the destination path and includes the sanitized phpseclib SFTP/SSH error when present. No installed server or DNS record was changed. A user retry is still needed to establish which remote path/reason fails and confirm the repair.
 
 ### Multi-Domain per IP controls on Reinstall — E-MDOM-15 (2026-11-24)
 

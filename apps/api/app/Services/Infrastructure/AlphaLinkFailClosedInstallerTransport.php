@@ -25,7 +25,7 @@ class AlphaLinkFailClosedInstallerTransport implements AlphaLinkInstallerRemoteC
     public function upload(string $contents, string $destination): bool
     {
         if (! $this->session->upload($contents, $destination)) {
-            throw new RuntimeException('A remote configuration file could not be uploaded during '.$this->operation.'.');
+            throw $this->uploadFailure($destination);
         }
 
         return true;
@@ -34,7 +34,7 @@ class AlphaLinkFailClosedInstallerTransport implements AlphaLinkInstallerRemoteC
     public function uploadFile(string $localPath, string $destination): bool
     {
         if (! $this->session->uploadFile($localPath, $destination)) {
-            throw new RuntimeException('A remote configuration file could not be uploaded during '.$this->operation.'.');
+            throw $this->uploadFailure($destination);
         }
 
         return true;
@@ -52,5 +52,18 @@ class AlphaLinkFailClosedInstallerTransport implements AlphaLinkInstallerRemoteC
         }
 
         return $result;
+    }
+
+    private function uploadFailure(string $destination): RuntimeException
+    {
+        $reason = $this->session instanceof AlphaLinkInstallerSshFailureDiagnostics
+            ? trim($this->session->lastFailureReason())
+            : '';
+        $message = 'A remote configuration file could not be uploaded to '.$destination.' during '.$this->operation;
+        if ($reason !== '') {
+            $message .= ': '.$reason;
+        }
+
+        return new RuntimeException($message.'.');
     }
 }

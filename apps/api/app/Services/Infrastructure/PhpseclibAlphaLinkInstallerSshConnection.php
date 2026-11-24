@@ -4,7 +4,7 @@ namespace App\Services\Infrastructure;
 
 use phpseclib3\Net\SFTP;
 
-class PhpseclibAlphaLinkInstallerSshConnection implements AlphaLinkInstallerSshConnection
+class PhpseclibAlphaLinkInstallerSshConnection implements AlphaLinkInstallerSshConnection, AlphaLinkInstallerSshFailureDiagnostics
 {
     public function __construct(private readonly SFTP $sftp) {}
 
@@ -43,6 +43,17 @@ class PhpseclibAlphaLinkInstallerSshConnection implements AlphaLinkInstallerSshC
     public function uploadString(string $contents, string $destination): bool
     {
         return $this->sftp->put($destination, $contents, SFTP::SOURCE_STRING);
+    }
+
+    public function lastFailureReason(): string
+    {
+        $reason = trim((string) $this->sftp->getLastSFTPError());
+        if ($reason === '') {
+            $reason = trim((string) $this->sftp->getLastError());
+        }
+        $reason = preg_replace('/[\x00-\x1F\x7F]+/', ' ', $reason) ?? '';
+
+        return mb_substr(trim($reason), 0, 240);
     }
 
     public function uploadFile(string $localPath, string $destination): bool

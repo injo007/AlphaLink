@@ -244,6 +244,9 @@ class AlphaLinkChangeDomainTest extends TestCase
         $session = Mockery::mock(AlphaLinkInstallerSshSession::class);
         $sessionFactory->shouldReceive('create')->once()->with($this->server, 'synthetic-secret', 'password')->andReturn($session);
 
+        $session->shouldReceive('exec')->once()->with(Mockery::on(fn (string $command): bool => str_contains($command, 'install -d -m 755 /etc/httpd/conf.d')
+            && str_contains($command, 'test -w /etc/httpd/conf.d')
+            && str_contains($command, 'ALPHALINK_APACHE_CONF_DIR_READY')))->ordered()->andReturn('ALPHALINK_APACHE_CONF_DIR_READY');
         $session->shouldReceive('exec')->once()->with("hostnamectl set-hostname 'current.example.test'")->ordered()->andReturn('');
         $session->shouldReceive('exec')->once()->with("sed -i 's/HOSTNAME=.*/HOSTNAME=current.example.test/g' /etc/sysconfig/network")->ordered()->andReturn('');
         $session->shouldReceive('exec')->once()->with("grep -qxF '192.0.2.23 current.example.test' /etc/hosts || echo -e '192.0.2.23 current.example.test' >> /etc/hosts")->ordered()->andReturn('');
@@ -251,7 +254,7 @@ class AlphaLinkChangeDomainTest extends TestCase
             && str_contains($content, 'Options -Indexes -FollowSymLinks -ExecCGI')
             && str_contains($content, '<FilesMatch "(?i)^(?!index\\.php$).*\\.(php[0-9]?|phtml|phar)$">')
             && ! str_contains($content, "'www.current.example.test'")), '/etc/httpd/conf.d/current_example_test.conf')->ordered()->andReturn(true);
-        $session->shouldReceive('exec')->once()->with('httpd -t && systemctl restart httpd')->ordered()->andReturn('');
+        $session->shouldReceive('exec')->once()->with('httpd -t && systemctl restart httpd && printf ALPHALINK_APACHE_VHOST_READY')->ordered()->andReturn('Syntax OKALPHALINK_APACHE_VHOST_READY');
         $session->shouldReceive('upload')->once()->with(Mockery::on(fn ($content) => str_contains($content, 'smtp-source-ip '.$this->ip->ip)), '/etc/pmta/conf/vmta')->ordered()->andReturn(true);
         $session->shouldReceive('exec')->once()->with('chown -R pmta:pmta /etc/pmta')->ordered()->andReturn('');
         $session->shouldReceive('exec')->once()->with('systemctl restart pmta;')->ordered()->andReturn('');
@@ -350,6 +353,9 @@ class AlphaLinkChangeDomainTest extends TestCase
             ->andReturn($session);
 
         $session->shouldReceive('exec')->once()->with("curl -fsS --connect-timeout 3 --max-time 6 --interface '10.0.0.25' https://ifconfig.me/ip 2>/dev/null")->ordered()->andReturn('203.0.113.25');
+        $session->shouldReceive('exec')->once()->with(Mockery::on(fn (string $command): bool => str_contains($command, 'install -d -m 755 /etc/httpd/conf.d')
+            && str_contains($command, 'test -w /etc/httpd/conf.d')
+            && str_contains($command, 'ALPHALINK_APACHE_CONF_DIR_READY')))->ordered()->andReturn('ALPHALINK_APACHE_CONF_DIR_READY');
         $session->shouldReceive('exec')->once()->with("hostnamectl set-hostname 'new.example.test'")->ordered()->andReturn('');
         $session->shouldReceive('exec')->once()->with("sed -i 's/HOSTNAME=.*/HOSTNAME=new.example.test/g' /etc/sysconfig/network")->ordered()->andReturn('');
         $session->shouldReceive('exec')->once()->with("grep -qxF '192.0.2.23 new.example.test' /etc/hosts || echo -e '192.0.2.23 new.example.test' >> /etc/hosts")->ordered()->andReturn('');
@@ -358,7 +364,7 @@ class AlphaLinkChangeDomainTest extends TestCase
                 && str_contains($content, 'ServerAlias www.new.example.test relay.new.example.test')),
             '/etc/httpd/conf.d/new_example_test.conf',
         )->ordered()->andReturn(true);
-        $session->shouldReceive('exec')->once()->with('httpd -t && systemctl restart httpd')->ordered()->andReturn('');
+        $session->shouldReceive('exec')->once()->with('httpd -t && systemctl restart httpd && printf ALPHALINK_APACHE_VHOST_READY')->ordered()->andReturn('Syntax OKALPHALINK_APACHE_VHOST_READY');
         $session->shouldReceive('upload')->once()->with(
             Mockery::on(fn (string $content): bool => str_contains($content, 'smtp-source-ip 10.0.0.25')
                 && str_contains($content, 'host-name relay.new.example.test')),

@@ -1,8 +1,12 @@
 # AlphaLink development progress
 
 **Updated:** 2026-11-24
-**Active objective:** Diagnose the Change Domain SFTP upload failure reported on an external-domain server without mutating the installed mail server.
-**Current implementation status:** External domains skip provider DNS writes but use the same SSH/SFTP configuration stages. The previous error hid the failed destination and remote rejection reason. The fail-closed transport now includes the destination path and sanitized SFTP/SSH reason when available. Touched PHP syntax checks and Pint pass; no connected Change Domain request or mail-server mutation was run. This narrows the failure but does not establish its remote cause; keep DMS-SRV-010 TESTING until a retry identifies the blocked upload and the host-side result is verified.
+**Active objective:** Fix Change Domain uploads failing when `/etc/httpd/conf.d` is absent on an installed mail server.
+**Current implementation status:** The user supplied the SFTP status `NET_SFTP_STATUS_NO_SUCH_FILE` for `/etc/httpd/conf.d/dravionx_carbinlitnings_org.conf`, identifying a missing Apache configuration directory. Change Domain now ensures Apache is installed, creates and checks `/etc/httpd/conf.d` before changing the hostname, uploads the vhost, then requires `httpd -t` and Apache restart to succeed before continuing. No live Change Domain retry or installed-server mutation has been run. Keep DMS-SRV-010 TESTING pending a controlled retry and host-side verification.
+
+### Change Domain missing Apache config directory — E-SRV-LIVE-28 (2026-11-24)
+
+The reported SFTP `NO_SUCH_FILE` confirms the destination's parent directory was missing; DNS provider choice is unrelated because owned and external domains share the same vhost upload path. The runner now installs `httpd` if absent, creates and verifies `/etc/httpd/conf.d` before changing the host identity, and fails closed unless Apache validates and restarts with the uploaded vhost. Existing synthetic Change Domain expectations were updated. PHP syntax and Pint checks pass; tests were not run and no real mail server was changed. A retry remains necessary to verify the installed host.
 
 ### Change Domain SFTP failure diagnostics — E-SRV-LIVE-27 (2026-11-24)
 

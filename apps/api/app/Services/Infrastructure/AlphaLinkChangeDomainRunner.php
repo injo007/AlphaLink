@@ -113,6 +113,7 @@ class AlphaLinkChangeDomainRunner
         $dnsGroups = $this->resolveDnsGroups(
             $formatted, $tracking, $imap, $options, $dkimSelector, $dkimMaterial['public_record'], $session, $log, (string) $server->ip_address,
         );
+        $this->prepareApacheConfigurationDirectory($session);
 
         $log('Setup Host');
         $this->hostPreparation->configureHost($session, (string) $server->ip_address, $deploymentDomain);
@@ -467,6 +468,23 @@ class AlphaLinkChangeDomainRunner
         if (! $session->upload($content, '/etc/httpd/conf.d/'.$fileName.'.conf')) {
             throw new RuntimeException('The Apache virtual host configuration could not be uploaded.');
         }
-        $session->exec('httpd -t && systemctl restart httpd');
+        $apacheRestart = $session->exec('httpd -t && systemctl restart httpd && printf ALPHALINK_APACHE_VHOST_READY');
+        if (! str_contains((string) $apacheRestart, 'ALPHALINK_APACHE_VHOST_READY')) {
+            throw new RuntimeException('Apache did not accept or restart with the changed virtual host configuration.');
+        }
+    }
+
+    private function prepareApacheConfigurationDirectory(AlphaLinkInstallerRemoteCommandTransport $session): void
+    {
+        $ready = $session->exec(
+            '(rpm -q httpd >/dev/null 2>&1 || dnf -y install httpd >/dev/null 2>&1) && '
+                .'install -d -m 755 /etc/httpd/conf.d && '
+                .'test -s /etc/httpd/conf/httpd.conf && test -w /etc/httpd/conf.d && '
+                .'printf ALPHALINK_APACHE_CONF_DIR_READY',
+        );
+
+        if (! str_contains((string) $ready, 'ALPHALINK_APACHE_CONF_DIR_READY')) {
+            throw new RuntimeException('Apache could not be installed or /etc/httpd/conf.d could not be prepared before changing the domain.');
+        }
     }
 }

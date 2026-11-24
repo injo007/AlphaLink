@@ -75,14 +75,17 @@ window.jQuery(function () {
         statusMessage.textContent = message;
         statusMessage.className = isError ? 'px-3 pb-2 text-danger' : 'px-3 pb-2 text-success';
     };
-    const updateStatus = (urlTemplate, id, status, table) => {
+    const updateStatus = (urlTemplate, id, status, table, ipId = id) => {
         const button = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null;
         if (button) {
             button.disabled = true;
             button.setAttribute('aria-busy', 'true');
         }
         $.ajax({
-            url: urlTemplate.replace(/__(?:IP|MTA)__/, encodeURIComponent(id)),
+            url: urlTemplate
+                .replace('__IP__', encodeURIComponent(ipId))
+                .replace(/__(?:IP|MTA)__/, encodeURIComponent(id))
+                .replace('__ASSIGNMENT__', encodeURIComponent(id)),
             type: 'PATCH',
             dataType: 'json',
             headers: { 'X-CSRF-TOKEN': csrfToken },
@@ -110,6 +113,40 @@ window.jQuery(function () {
             `class="command-action-btn ${color} status" title="${title}" aria-label="${title} ${escapeHtml(row.ip)}">` +
             `<i class="fas ${icon}" aria-hidden="true"></i></button></div>`;
     };
+    const formatAssignments = (row) => {
+        const assignments = Array.isArray(row.domain_assignments) ? row.domain_assignments : [];
+        if (assignments.length === 0) return '<p class="mb-0 text-muted">No sending-domain assignments recorded for this IP.</p>';
+
+        const rows = assignments.map((assignment) => {
+            const active = Boolean(assignment.is_active);
+            const ready = Boolean(assignment.is_ready);
+            const canEnable = Boolean(assignment.is_verified);
+            const state = ready ? 'READY' : (active ? 'NOT READY' : 'DISABLED');
+            const stateClass = ready ? 'badge-command-active-yes' : 'badge-command-active-no';
+            const statusTitle = active ? 'Disable in AlphaLink' : (canEnable ? 'Enable in AlphaLink' : 'Revalidate before enabling');
+            const statusIcon = active ? 'fa-pause' : 'fa-play';
+            const statusClass = active ? 'action-warning' : 'action-success';
+            const disableEnable = !active && !canEnable ? 'disabled aria-disabled="true"' : '';
+            const dkim = assignment.dkim_selector ? `${escapeHtml(assignment.dkim_selector)} · RSA-SHA256` : 'MISSING';
+            return `<tr><td>${escapeHtml(assignment.hostname)}${assignment.is_primary ? ' <span class="badge-command-pill">PRIMARY</span>' : ''}</td>` +
+                `<td>${escapeHtml(assignment.tracking_host || '—')}</td><td>${dkim}</td>` +
+                `<td>${assignment.dns_verified_at ? 'PASS' : 'PENDING'}</td>` +
+                `<td>${assignment.authentication_verified_at ? 'PASS' : 'PENDING'}</td>` +
+                `<td>${assignment.tracking_https_ready ? 'PASS' : 'PENDING'}</td>` +
+                `<td><span class="badge-command-pill ${stateClass}">${state}</span></td><td>` +
+                `<div class="command-action-btn-group"><button type="button" class="command-action-btn action-success domain-revalidate" ` +
+                `data-ip-id="${escapeHtml(row.id)}" data-assignment-id="${escapeHtml(assignment.id)}" title="REVALIDATE" ` +
+                `aria-label="Revalidate ${escapeHtml(assignment.hostname)}"><i class="fas fa-sync-alt" aria-hidden="true"></i></button>` +
+                `<button type="button" class="command-action-btn ${statusClass} domain-status" ${disableEnable} ` +
+                `data-ip-id="${escapeHtml(row.id)}" data-assignment-id="${escapeHtml(assignment.id)}" data-next-status="${active ? 0 : 1}" ` +
+                `title="${statusTitle}" aria-label="${statusTitle} ${escapeHtml(assignment.hostname)}"><i class="fas ${statusIcon}" aria-hidden="true"></i></button></div></td></tr>`;
+        }).join('');
+
+        return `<div class="table-responsive"><table class="table table-sm history-summary mb-2"><thead><tr>` +
+            '<th>SENDING DOMAIN</th><th>TRACKING HOST</th><th>DKIM</th><th>DNS</th><th>AUTH</th><th>HTTPS</th><th>STATUS</th><th>ACTIONS</th>' +
+            `</tr></thead><tbody>${rows}</tbody></table>` +
+            '<small class="text-muted">Disable prevents this assignment from appearing in new DOMAIN campaign routes. It does not remove its existing PMTA configuration.</small></div>';
+    };
     const ipTable = $('#mta_ip').DataTable({
         ajax: { url: container.dataset.ipsUrl, dataType: 'json' },
         dom: '<"command-table-toolbar"<"command-table-toolbar-left"l><"command-table-toolbar-right"f>>rt<"command-table-footer"ip>',
@@ -132,7 +169,10 @@ window.jQuery(function () {
                 searchable: false,
                 render: (value, type, row) => type !== 'display'
                     ? row.histories_count
-                    : `<div style="display: flex; align-items: center; gap: 6px;"><button type="button" class="btn-command-action history" data-history-count="${escapeHtml(row.histories_count)}" ` +
+                    : `<div style="display: flex; align-items: center; gap: 6px;"><button type="button" class="btn-command-action domains" ` +
+                        `title="DOMAIN ASSIGNMENTS" aria-expanded="false" style="padding: 3px 8px; font-size: 0.75rem;">DOMAINS : ${escapeHtml(row.domain_assignments?.length || 0)} ` +
+                        '<i class="fas fa-angle-down ml-1" aria-hidden="true"></i></button>' +
+                        `<button type="button" class="btn-command-action history" data-history-count="${escapeHtml(row.histories_count)}" ` +
                         `title="IP HISTORY" aria-expanded="false" style="padding: 3px 8px; font-size: 0.75rem;">AUDITS : ${escapeHtml(row.histories_count)} ` +
                         '<i class="fas fa-angle-down ml-1" aria-hidden="true"></i></button>' + actionButton(row) + '</div>',
             },
@@ -151,6 +191,51 @@ window.jQuery(function () {
             tr.addClass('shown');
             button.setAttribute('aria-expanded', 'true');
         }
+    }).on('click', '.domains', function () {
+        const tr = $(this).closest('tr');
+        const row = ipTable.row(tr);
+        const button = this;
+        if (row.child.isShown()) {
+            row.child.hide();
+            tr.removeClass('shown');
+            button.setAttribute('aria-expanded', 'false');
+        } else {
+            row.child(formatAssignments(row.data()), 'text-left').show();
+            tr.addClass('shown');
+            button.setAttribute('aria-expanded', 'true');
+        }
+    }).on('click', '.domain-status', function (event) {
+        event.preventDefault();
+        updateStatus(
+            container.dataset.domainStatusUrlTemplate,
+            this.dataset.assignmentId,
+            this.dataset.nextStatus,
+            ipTable,
+            this.dataset.ipId,
+        );
+    }).on('click', '.domain-revalidate', function (event) {
+        event.preventDefault();
+        const button = this;
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+        const url = container.dataset.domainRevalidateUrlTemplate
+            .replace('__IP__', encodeURIComponent(button.dataset.ipId))
+            .replace('__ASSIGNMENT__', encodeURIComponent(button.dataset.assignmentId));
+        $.ajax({
+            url,
+            type: 'POST',
+            dataType: 'json',
+            headers: { 'X-CSRF-TOKEN': csrfToken },
+        }).done((response) => {
+            setMessage(response.data || 'Assignment verified.');
+            ipTable.ajax.reload(null, false);
+        }).fail((response) => {
+            setMessage(response.responseJSON?.data || response.responseJSON?.message || 'Could not revalidate this assignment.', true);
+            ipTable.ajax.reload(null, false);
+        }).always(() => {
+            button.disabled = false;
+            button.removeAttribute('aria-busy');
+        });
     }).on('click', '.status', function (event) {
         event.preventDefault();
         updateStatus(container.dataset.ipStatusUrlTemplate, this.dataset.recordId, this.dataset.nextStatus, ipTable);

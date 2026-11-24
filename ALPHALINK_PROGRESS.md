@@ -2,7 +2,11 @@
 
 **Updated:** 2026-11-24
 **Active objective:** Keep fresh PMTA installation, relay monitoring/commands, campaign redirects, asset reconciliation, and deploy/resume paths aligned.
-**Current implementation status:** E-MDOM-10 connects multi-domain-per-IP assignment through fresh and bulk install planning, PMTA/DNS/tracking setup, persistence, and DOMAIN campaign routing. Focused suites pass locally. This feature has not been deployed, so the running app and future server installs do not have it yet.
+**Current implementation status:** E-MDOM-10 connects multi-domain assignments through fresh/bulk installation and DOMAIN campaign routing. E-MDOM-11 adds IP-management visibility, disable/enable and DNS/authentication/tracking HTTPS revalidation. The new management slice is unverified: this checkout's PHP 8.3 runtime lacks DOM/XMLWriter, so PHPUnit/Pint cannot start. The local commit is not pushed or deployed; no live installation was run.
+
+### Multi-Domain assignment management — E-MDOM-11 (2026-11-24)
+
+The server IP detail API and table now list each sending assignment with its tracking host, DKIM selector, DNS/authentication timestamps and HTTPS readiness. Owner-accessible actions disable or re-enable an assignment (only after it is verified) and revalidate public A/AAAA, SPF/DKIM/DMARC, optional MX, and the installed `/healthz` endpoint over TLS pinned to the assigned public IP. A failed check clears all readiness markers so the assignment drops out of campaign selection. The status API explicitly says disable hides the assignment from new DOMAIN routes; it does not remove existing PMTA configuration. PHP syntax and Node syntax checks pass. PHPUnit/Pint could not run because this runtime lacks `dom` and `xmlwriter`; the browser has no open app tab. Add/replace/remove provisioning, aggregate IP rate limits, domain analytics, live PMTA checks, and deployment remain open. PTR is excluded per user direction.
 
 ### Multi-Domain per IP install and campaign routing — E-MDOM-10 (2026-11-24)
 

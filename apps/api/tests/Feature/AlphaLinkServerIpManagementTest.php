@@ -5,13 +5,17 @@ namespace Tests\Feature;
 use App\Models\DomainProvider;
 use App\Models\ManagedServer;
 use App\Models\ManagedServerIp;
+use App\Models\ManagedServerIpDomain;
 use App\Models\ManagedServerIpHistory;
 use App\Models\ManagedServerMta;
 use App\Models\SendingDomain;
+use App\Models\SendingDomainDkimIdentity;
+use App\Services\Infrastructure\AlphaLinkMultiDomainDnsVerifier;
 use App\Models\User;
 use App\Models\Workspace;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -238,6 +242,83 @@ class AlphaLinkServerIpManagementTest extends TestCase
             ->assertOk()->assertJsonPath('recordsTotal', 1)->assertJsonPath('data.0.id', $smtp->getKey());
     }
 
+    public function test_server_ip_rows_include_assignment_readiness_without_exposing_dkim_secrets(): void
+    {
+        $ip = $this->createIp(['ip' => '8.8.8.8']);
+        $identity = SendingDomainDkimIdentity::factory()->forDomain($this->domain)->create();
+        $assignment = $this->createDomainAssignment($ip, $identity);
+
+        $this->getJson($this->url('/servers/'.$this->server->id.'/ips?draw=1&start=0&length=10'))
+            ->assertOk()
+            ->assertJsonPath('data.0.domain_assignments.0.id', (string) $assignment->getKey())
+            ->assertJsonPath('data.0.domain_assignments.0.hostname', 'ip-detail.example.test')
+            ->assertJsonPath('data.0.domain_assignments.0.dkim_selector', $identity->selector)
+            ->assertJsonPath('data.0.domain_assignments.0.is_active', true)
+            ->assertJsonMissingPath('data.0.domain_assignments.0.private_key');
+    }
+
+    public function test_assignment_can_be_disabled_and_only_reenabled_after_verification(): void
+    {
+        $ip = $this->createIp(['ip' => '8.8.8.8']);
+        $this->domain->forceFill(['verified_at' => now()])->saveOrFail();
+        $identity = SendingDomainDkimIdentity::factory()->forDomain($this->domain)->create();
+        $assignment = $this->createDomainAssignment($ip, $identity, true);
+        $url = $this->url('/servers/'.$this->server->id.'/ips/'.$ip->getKey().'/domains/'.$assignment->getKey().'/status');
+
+        $this->patchJson($url, ['status' => false])->assertOk()->assertJsonPath('data', 'Domain assignment disabled.');
+        $this->assertFalse($assignment->fresh()->is_active);
+        $this->patchJson($url, ['status' => true])->assertOk()->assertJsonPath('data', 'Domain assignment enabled.');
+        $this->assertTrue($assignment->fresh()->is_active);
+        $this->assertDatabaseHas('audit_events', [
+            'workspace_id' => $this->workspace->getKey(),
+            'action' => 'server.ip_domain_assignment_status_changed',
+            'subject_id' => $this->server->getKey(),
+        ]);
+    }
+
+    public function test_revalidation_verifies_dns_and_live_tracking_health_without_claiming_mail_authentication(): void
+    {
+        $ip = $this->createIp(['ip' => '8.8.8.8', 'ehlo_hostname' => 'ip-detail.example.test']);
+        $this->domain->forceFill(['verified_at' => now()])->saveOrFail();
+        $identity = SendingDomainDkimIdentity::factory()->forDomain($this->domain)->create();
+        $assignment = $this->createDomainAssignment($ip, $identity);
+        $this->mock(AlphaLinkMultiDomainDnsVerifier::class)
+            ->shouldReceive('verify')
+            ->once();
+        Http::fake([
+            'https://track.ip-detail.example.test/healthz' => Http::response('ALPHALINK_TRACKING_READY', 200),
+        ]);
+
+        $this->postJson($this->url('/servers/'.$this->server->id.'/ips/'.$ip->getKey().'/domains/'.$assignment->getKey().'/revalidate'))
+            ->assertOk()
+            ->assertJsonPath('data', 'DNS and tracking HTTPS verified. A controlled message is still required to verify sending authentication.');
+
+        $this->assertNotNull($assignment->fresh()->dns_verified_at);
+        $this->assertNull($assignment->fresh()->authentication_verified_at);
+        $this->assertTrue($assignment->fresh()->tracking_https_ready);
+        Http::assertSent(fn ($request): bool => $request->url() === 'https://track.ip-detail.example.test/healthz');
+    }
+
+    public function test_failed_assignment_revalidation_removes_previous_sending_readiness(): void
+    {
+        $ip = $this->createIp(['ip' => '8.8.8.8', 'ehlo_hostname' => 'ip-detail.example.test']);
+        $this->domain->forceFill(['verified_at' => now()])->saveOrFail();
+        $identity = SendingDomainDkimIdentity::factory()->forDomain($this->domain)->create();
+        $assignment = $this->createDomainAssignment($ip, $identity, true);
+        $this->mock(AlphaLinkMultiDomainDnsVerifier::class)
+            ->shouldReceive('verify')
+            ->once()
+            ->andThrow(new \RuntimeException('SPF verification failed.'));
+
+        $this->postJson($this->url('/servers/'.$this->server->id.'/ips/'.$ip->getKey().'/domains/'.$assignment->getKey().'/revalidate'))
+            ->assertUnprocessable()
+            ->assertJsonPath('data', 'SPF verification failed.');
+
+        $this->assertNull($assignment->fresh()->dns_verified_at);
+        $this->assertNull($assignment->fresh()->authentication_verified_at);
+        $this->assertFalse($assignment->fresh()->tracking_https_ready);
+    }
+
     public function test_ip_and_mta_tables_default_to_newest_record_first(): void
     {
         $olderIp = $this->createIp(['ip' => '192.0.2.44']);
@@ -413,6 +494,25 @@ class AlphaLinkServerIpManagementTest extends TestCase
             'username' => 'owner',
             'is_active' => true,
             'user_id' => $this->owner->getKey(),
+        ]);
+    }
+
+    private function createDomainAssignment(ManagedServerIp $ip, SendingDomainDkimIdentity $identity, bool $ready = false): ManagedServerIpDomain
+    {
+        return ManagedServerIpDomain::query()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'managed_server_id' => $this->server->getKey(),
+            'managed_server_ip_id' => $ip->getKey(),
+            'sending_domain_id' => $this->domain->getKey(),
+            'sending_domain_dkim_identity_id' => $identity->getKey(),
+            'hostname' => 'ip-detail.example.test',
+            'tracking_host' => 'track.ip-detail.example.test',
+            'dkim_selector' => $identity->selector,
+            'is_primary' => true,
+            'is_active' => true,
+            'tracking_https_ready' => $ready,
+            'dns_verified_at' => $ready ? now() : null,
+            'authentication_verified_at' => $ready ? now() : null,
         ]);
     }
 

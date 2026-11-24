@@ -8,6 +8,7 @@ use App\Models\DomainProvider;
 use App\Models\Isp;
 use App\Models\ManagedServer;
 use App\Models\ManagedServerIp;
+use App\Models\ManagedServerIpDomain;
 use App\Models\ManagedServerIpHistory;
 use App\Models\ManagedServerMta;
 use App\Models\SendingDomain;
@@ -35,6 +36,7 @@ use App\Services\Infrastructure\AlphaLinkImapWebmailClient;
 use App\Services\Infrastructure\AlphaLinkInfrastructureRunLauncher;
 use App\Services\Infrastructure\AlphaLinkInstallerServerCredentialResolver;
 use App\Services\Infrastructure\AlphaLinkInstallPlatform;
+use App\Services\Infrastructure\AlphaLinkManagedServerIpDomainRevalidator;
 use App\Services\Infrastructure\AlphaLinkPmtaDeploymentGate;
 use App\Services\Infrastructure\AlphaLinkReinstallIpConfigurator;
 use App\Services\Infrastructure\AlphaLinkReinstallSelectionLoader;
@@ -2491,7 +2493,13 @@ class InfrastructureConsoleController extends Controller
             ]);
         }
 
-        $query = $server->ips()->with('history')->withCount('histories');
+        $query = $server->ips()
+            ->with([
+                'history',
+                'domainAssignments.domain:id,name,state,is_active,verified_at',
+                'domainAssignments.signingIdentity:id,hostname,sending_domain_id,selector,is_active',
+            ])
+            ->withCount('histories');
         $recordsTotal = (clone $query)->count();
         $search = trim((string) $request->input('search.value', ''));
         if ($search !== '') {
@@ -2524,6 +2532,36 @@ class InfrastructureConsoleController extends Controller
             'is_active' => $ip->is_active,
             'created_at' => $ip->created_at?->toDateTimeString(),
             'histories_count' => $ip->histories_count,
+            'domain_assignments' => $ip->domainAssignments->map(function (ManagedServerIpDomain $assignment): array {
+                $identity = $assignment->signingIdentity;
+                $domain = $assignment->domain;
+                $verified = $assignment->dns_verified_at !== null
+                    && $assignment->authentication_verified_at !== null
+                    && $assignment->tracking_https_ready
+                    && filled($assignment->tracking_host)
+                    && filled($assignment->dkim_selector)
+                    && $identity?->is_active
+                    && $identity?->hostname === $assignment->hostname
+                    && (string) $identity?->sending_domain_id === (string) $assignment->sending_domain_id
+                    && $domain?->is_active
+                    && $domain?->state === 'verified'
+                    && $domain?->verified_at !== null;
+                $ready = $assignment->is_active && $verified;
+
+                return [
+                    'id' => (string) $assignment->getKey(),
+                    'hostname' => (string) $assignment->hostname,
+                    'tracking_host' => (string) ($assignment->tracking_host ?? ''),
+                    'dkim_selector' => (string) ($assignment->dkim_selector ?? ''),
+                    'is_primary' => (bool) $assignment->is_primary,
+                    'is_active' => (bool) $assignment->is_active,
+                    'is_ready' => (bool) $ready,
+                    'is_verified' => (bool) $verified,
+                    'dns_verified_at' => $assignment->dns_verified_at?->toDateTimeString(),
+                    'authentication_verified_at' => $assignment->authentication_verified_at?->toDateTimeString(),
+                    'tracking_https_ready' => (bool) $assignment->tracking_https_ready,
+                ];
+            })->values(),
             'history' => $ip->history ? [
                 'ptr' => $ip->history->ptr,
                 'ip_listed_spamhaus' => $ip->history->ip_listed_spamhaus,
@@ -2543,6 +2581,77 @@ class InfrastructureConsoleController extends Controller
             'recordsFiltered' => $recordsFiltered,
             'data' => $rows,
         ]);
+    }
+
+    public function setServerIpDomainStatus(
+        Request $request,
+        string $workspaceId,
+        string $serverId,
+        int $ipId,
+        int $assignmentId,
+    ): JsonResponse {
+        $workspace = $this->workspaceForServerControl($request->user(), $workspaceId);
+        $server = $workspace->managedServers()->whereKey($serverId)->firstOrFail();
+        $ip = $server->ips()->whereKey($ipId)->firstOrFail();
+        $assignment = $ip->domainAssignments()->whereKey($assignmentId)->firstOrFail();
+        $data = $request->validate(['status' => ['required', 'boolean']]);
+        $enabled = (bool) $data['status'];
+
+        if ($enabled && ! $this->domainAssignmentIsReady($assignment->load(['server', 'ip', 'domain', 'signingIdentity']))) {
+            return response()->json(['data' => 'This assignment is not verified and ready; revalidate it before enabling.'], 422);
+        }
+
+        DB::transaction(function () use ($workspace, $server, $assignment, $enabled, $request): void {
+            $locked = ManagedServerIpDomain::query()
+                ->where('workspace_id', $workspace->getKey())
+                ->whereKey($assignment->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+            $locked->forceFill(['is_active' => $enabled])->saveOrFail();
+            $this->auditServerChange($workspace, $request->user(), 'server.ip_domain_assignment_status_changed', $server, $request, [
+                'managed_server_ip_domain_id' => $locked->getKey(),
+                'hostname' => $locked->hostname,
+                'is_active' => $enabled,
+            ]);
+        });
+
+        return response()->json(['data' => $enabled ? 'Domain assignment enabled.' : 'Domain assignment disabled.']);
+    }
+
+    public function revalidateServerIpDomain(
+        Request $request,
+        string $workspaceId,
+        string $serverId,
+        int $ipId,
+        int $assignmentId,
+        AlphaLinkManagedServerIpDomainRevalidator $revalidator,
+    ): JsonResponse {
+        $workspace = $this->workspaceForServerControl($request->user(), $workspaceId);
+        $server = $workspace->managedServers()->whereKey($serverId)->firstOrFail();
+        $ip = $server->ips()->whereKey($ipId)->firstOrFail();
+        $assignment = $ip->domainAssignments()
+            ->where('workspace_id', $workspace->getKey())
+            ->whereKey($assignmentId)
+            ->firstOrFail();
+
+        try {
+            $revalidator->revalidate($assignment);
+        } catch (RuntimeException $exception) {
+            $this->auditServerChange($workspace, $request->user(), 'server.ip_domain_assignment_revalidation_failed', $server, $request, [
+                'managed_server_ip_domain_id' => $assignment->getKey(),
+                'hostname' => $assignment->hostname,
+                'failure' => Str::limit($exception->getMessage(), 240, ''),
+            ]);
+
+            return response()->json(['data' => $exception->getMessage()], 422);
+        }
+
+        $this->auditServerChange($workspace, $request->user(), 'server.ip_domain_assignment_revalidated', $server, $request, [
+            'managed_server_ip_domain_id' => $assignment->getKey(),
+            'hostname' => $assignment->hostname,
+        ]);
+
+        return response()->json(['data' => 'DNS and tracking HTTPS verified. A controlled message is still required to verify sending authentication.']);
     }
 
     public function serverMtas(Request $request, string $workspaceId, string $serverId, string $type): JsonResponse
@@ -3212,6 +3321,31 @@ class InfrastructureConsoleController extends Controller
     private function workspaceForServerControl(User $user, string $workspaceId): Workspace
     {
         return app(WorkspaceAccess::class)->find($user, $workspaceId);
+    }
+
+    private function domainAssignmentIsReady(ManagedServerIpDomain $assignment): bool
+    {
+        $server = $assignment->server;
+        $ip = $assignment->ip;
+        $domain = $assignment->domain;
+        $identity = $assignment->signingIdentity;
+
+        return $assignment->dns_verified_at !== null
+            && $assignment->authentication_verified_at !== null
+            && $assignment->tracking_https_ready
+            && filled($assignment->tracking_host)
+            && filled($assignment->dkim_selector)
+            && $identity?->is_active
+            && $identity?->hostname === $assignment->hostname
+            && (string) $identity?->sending_domain_id === (string) $assignment->sending_domain_id
+            && $domain?->is_active
+            && $domain?->state === 'verified'
+            && $domain?->verified_at !== null
+            && $server?->is_active
+            && $server->is_installed
+            && $ip?->is_active
+            && (string) $ip->managed_server_id === (string) $assignment->managed_server_id
+            && ManagedServerIp::isPublicAddress($ip->ip);
     }
 
     private function auditDomainChange(

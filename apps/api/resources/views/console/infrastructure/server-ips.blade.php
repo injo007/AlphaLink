@@ -24,7 +24,9 @@
              data-smtp-url="{{ $smtpUrl }}"
              data-ip-status-url-template="{{ $ipStatusUrlTemplate }}"
              data-mta-status-url-template="{{ $mtaStatusUrlTemplate }}"
-             data-ip-history-url-template="{{ $ipHistoryUrlTemplate }}">
+             data-ip-history-url-template="{{ $ipHistoryUrlTemplate }}"
+             data-domain-status-url-template="{{ route('console.infrastructure.servers.ips.domains.status', [$workspace->id, $server->id, '__IP__', '__ASSIGNMENT__']) }}"
+             data-domain-revalidate-url-template="{{ route('console.infrastructure.servers.ips.domains.revalidate', [$workspace->id, $server->id, '__IP__', '__ASSIGNMENT__']) }}">
 
             <div class="p-3 pb-0">
                 <ul id="server-ip-tabs" class="nav nav-pills" role="tablist" aria-label="Server IP and MTA views" style="gap: 8px;">

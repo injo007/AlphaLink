@@ -262,7 +262,7 @@
                             @endforeach
                         </ul>
                     </dd>
-                    <dt class="col-sm-3">Selected {{ match ($sendSetup['route_option'] ?? 'ip') { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}</dt>
+                    <dt class="col-sm-3">Selected {{ match ($sendSetup['route_option'] ?? 'ip') { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', 'domain' => 'Domains', default => 'IPs' } }}</dt>
                     <dd class="col-sm-9">
                         <ul class="mb-0">
                             @foreach ($sendSetup['ip_ids'] ?? [] as $ipId)
@@ -271,6 +271,7 @@
                                     $routeOption = $sendSetup['route_option'] ?? 'ip';
                                     $routeDescription = match ($routeOption) {
                                         'smtp' => implode(' · ', array_filter([$ipChoice['ip'] ?? null, $ipChoice['username'] ?? null, $ipChoice['name'] ?? null, $ipChoice['dns'] ?? null, isset($ipChoice['pmta_name']) ? 'PMTA route '.$ipChoice['pmta_name'] : null], static fn ($value) => filled($value))),
+                                        'domain' => implode(' · ', array_filter([$ipChoice['domain'] ?? null, $ipChoice['ip'] ?? null, $ipChoice['server_name'] ?? null], static fn ($value) => filled($value))),
                                         'vmta' => implode(' · ', array_filter([$ipChoice['ip'] ?? null, $ipChoice['name'] ?? null, $ipChoice['dns'] ?? null, isset($ipChoice['pmta_name']) ? 'PMTA route '.$ipChoice['pmta_name'] : null], static fn ($value) => filled($value))),
                                         default => implode(' · ', array_filter([$ipChoice['ip'] ?? null, isset($ipChoice['type']) ? strtoupper($ipChoice['type']) : null, $ipChoice['dns'] ?? null], static fn ($value) => filled($value))),
                                     };
@@ -494,11 +495,11 @@
                         @if (is_array($sendSetup))
                             <div class="form-group col-md-6"><label for="revision-from-assets">From assets</label><select id="revision-from-assets" name="send_setup[from_asset_ids][]" class="form-control selectpicker" multiple data-live-search="true">@foreach (($offerChoice['assets'] ?? []) as $asset)@if ($asset['type'] === 'from')<option value="{{ $asset['id'] }}" @selected(in_array($asset['id'], $sendSetup['from_asset_ids'] ?? []))>{{ $asset['value'] }}</option>@endif @endforeach</select></div>
                             <div class="form-group col-md-6"><label for="revision-subject-assets">Subject assets</label><select id="revision-subject-assets" name="send_setup[subject_asset_ids][]" class="form-control selectpicker" multiple data-live-search="true">@foreach (($offerChoice['assets'] ?? []) as $asset)@if ($asset['type'] === 'subject')<option value="{{ $asset['id'] }}" @selected(in_array($asset['id'], $sendSetup['subject_asset_ids'] ?? []))>{{ $asset['value'] }}</option>@endif @endforeach</select></div>
-                            <div class="form-group col-md-4"><label for="revision-route">Routing option</label><select id="revision-route" name="send_setup[route_option]" class="form-control">@foreach (['ip' => 'IP', 'vmta' => 'VMTA', 'smtp' => 'SMTP'] as $value => $label)<option value="{{ $value }}" @selected(($sendSetup['route_option'] ?? 'ip') === $value)>{{ $label }}</option>@endforeach</select></div>
+                            <div class="form-group col-md-4"><label for="revision-route">Routing option</label><select id="revision-route" name="send_setup[route_option]" class="form-control">@foreach (['ip' => 'IP', 'vmta' => 'VMTA', 'smtp' => 'SMTP', 'domain' => 'DOMAIN'] as $value => $label)<option value="{{ $value }}" @selected(($sendSetup['route_option'] ?? 'ip') === $value)>{{ $label }}</option>@endforeach</select></div>
                             <div class="form-group col-md-4"><label for="revision-ip-type">IP type</label><select id="revision-ip-type" name="send_setup[ip_type]" class="form-control">@foreach (['all' => 'ALL', 'ipv4' => 'IPv4', 'ipv6' => 'IPv6'] as $value => $label)<option value="{{ $value }}" @selected(($sendSetup['ip_type'] ?? 'all') === $value)>{{ $label }}</option>@endforeach</select></div>
                             <div class="form-group col-md-4"><label for="revision-send-type">Send type</label><select id="revision-send-type" name="send_setup[send_type]" class="form-control">@foreach (['delay', 'delayp', 'delayps', 'hs', 'hsp', 'hsps', 'pickup', 'pickups'] as $value)<option value="{{ $value }}" @selected(($sendSetup['send_type'] ?? '') === $value)>{{ strtoupper($value) }}</option>@endforeach</select></div>
                             <div class="form-group col-md-6"><label for="revision-servers">Servers</label><select id="revision-servers" name="send_setup[server_ids][]" class="form-control selectpicker" multiple required data-live-search="true">@foreach ($sendOptions['servers'] ?? [] as $server)<option value="{{ $server['id'] }}" @selected(in_array($server['id'], $sendSetup['server_ids'] ?? []))>{{ $server['name'] }} · {{ $server['ip'] }}</option>@endforeach</select></div>
-                            <div class="form-group col-md-6"><label for="revision-ips">IPs / MTAs</label><select id="revision-ips" name="send_setup[ip_ids][]" class="form-control selectpicker" multiple required data-live-search="true">@foreach ($sendOptions['ips'] ?? [] as $ip)<option value="{{ $ip['id'] }}" @selected(in_array($ip['id'], $sendSetup['ip_ids'] ?? []))>{{ $ip['ip'] }} · {{ strtoupper($ip['type']) }}</option>@endforeach</select></div>
+                            <div class="form-group col-md-6"><label for="revision-ips">IPs / MTAs / Domains</label><select id="revision-ips" name="send_setup[ip_ids][]" class="form-control selectpicker" multiple required data-live-search="true">@foreach ($sendOptions['ips'] ?? [] as $ip)<option value="{{ $ip['id'] }}" @selected(in_array($ip['id'], $sendSetup['ip_ids'] ?? []))>{{ ($sendSetup['route_option'] ?? 'ip') === 'domain' ? implode(' · ', [$ip['domain'], $ip['ip'], $ip['server_name']]) : $ip['ip'].' · '.strtoupper($ip['type']) }}</option>@endforeach</select><small id="revision-domain-readiness" class="form-text text-muted" role="status" @if(($sendSetup['route_option'] ?? 'ip') !== 'domain') hidden @endif>@foreach (($sendOptions['domain_routes'] ?? []) as $choice)@unless ($choice['is_ready']){{ $choice['domain'] }} · {{ $choice['ip'] }} — verification pending.<br>@endunless @endforeach</small></div>
                             @foreach (['total_send' => ['Total send', 1], 'fraction_ip' => ['Fraction IP', 1], 'sleep_email' => ['Sleep between emails', 0], 'sleep_ip' => ['Sleep between IPs', 0], 'seed_every' => ['Test after', 0], 'bounce_limit' => ['Bounce limit', 0], 'duplicate_data' => ['Duplicate data', 1]] as $field => [$label, $minimum])
                                 <div class="form-group col-md-3"><label for="revision-{{ $field }}">{{ $label }}</label><input id="revision-{{ $field }}" name="send_setup[{{ $field }}]" type="number" min="{{ $minimum }}" class="form-control" value="{{ $sendSetup['parameters'][$field] ?? '' }}" required></div>
                             @endforeach
@@ -956,12 +957,25 @@
                 Array.from(servers.selectedOptions).forEach(option => params.append('server_ids[]', option.value));
                 const response = await fetch(optionUrl + '?' + params.toString(), {headers: {'Accept': 'application/json'}});
                 if (!response.ok) return;
-                const choices = (await response.json()).data.ips || [];
+                const result = (await response.json()).data;
+                const choices = result.ips || [];
                 ips.replaceChildren(...choices.map(choice => {
-                    const option = new Option(`${choice.ip} · ${String(choice.type).toUpperCase()}`, String(choice.id));
+                    const label = route.value === 'domain'
+                        ? `${choice.domain} · ${choice.ip} · ${choice.server_name}`
+                        : `${choice.ip} · ${String(choice.type).toUpperCase()}`;
+                    const option = new Option(label, String(choice.id));
                     option.selected = selected.has(String(choice.id));
                     return option;
                 }));
+                const readiness = document.getElementById('revision-domain-readiness');
+                if (readiness) {
+                    readiness.hidden = route.value !== 'domain';
+                    readiness.replaceChildren(...(result.domain_routes || []).filter(choice => !choice.is_ready).map(choice => {
+                        const row = document.createElement('div');
+                        row.textContent = `${choice.domain} · ${choice.ip} — DNS, DKIM, or HTTPS tracking verification pending.`;
+                        return row;
+                    }));
+                }
                 if (window.jQuery && window.jQuery.fn.selectpicker) window.jQuery(ips).selectpicker('refresh');
             };
             [route, ipType, servers].forEach(element => element?.addEventListener('change', () => { refreshIps().catch(() => {}); }));

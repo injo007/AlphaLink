@@ -7,6 +7,7 @@
         #single-install-ips .single-install-subdomain { min-width: 12rem; }
         #single-install-ips .single-install-domain { min-width: 16rem; }
         #single-install-ips .single-install-remove { white-space: nowrap; }
+        #single-install-ips [data-install-extra-domain] { min-width: 15rem; }
     </style>
 @endpush
 
@@ -107,7 +108,7 @@
                                 </div>
                             </div>
                             <div class="command-trigger-group">
-                                @foreach (['tracking' => 'TRACKING', 'https' => 'HTTPS', 'proxy' => 'PROXY', 'imap' => 'IMAP', 'spf' => 'SPF', 'dkim' => 'DKIM', 'dmarc' => 'DMARC', 'clean_dns' => 'CLEAN CLOUDFLARE DNS'] as $option => $label)
+                                @foreach (['tracking' => 'TRACKING', 'https' => 'HTTPS', 'proxy' => 'PROXY', 'imap' => 'IMAP', 'spf' => 'SPF', 'dkim' => 'DKIM', 'dmarc' => 'DMARC', 'clean_dns' => 'CLEAN CLOUDFLARE DNS', 'multi_domain_per_ip' => 'MULTI-DOMAIN PER IP'] as $option => $label)
                                     <div class="d-inline-flex align-items-center mr-2">
                                         <label class="command-switch mr-2">
                                             <input type="checkbox" id="{{ $option }}" @checked(in_array($option, ['tracking', 'imap', 'spf', 'dkim', 'dmarc'], true))>
@@ -117,6 +118,14 @@
                                     </div>
                                 @endforeach
                             </div>
+                            <div class="command-form-group d-none mb-0" style="min-width: 190px;" aria-live="polite">
+                                <label class="command-form-label mb-1" for="single-domain-count" style="font-size: 0.7rem;">DOMAINS PER IP</label>
+                                <input class="command-form-control" id="single-domain-count" type="number" value="2" min="2" max="33" inputmode="numeric" aria-describedby="single-domain-count-help">
+                                <small class="text-muted" id="single-domain-count-help">Includes each IP’s primary domain.</small>
+                            </div>
+                        </div>
+                        <div class="alert alert-info d-none mt-2" id="single-multi-domain-help" role="status" style="border-radius: 10px; font-size: 0.78rem;">
+                            Multi-Domain per IP supports up to 100 sending-domain assignments per server because tracking hostnames share one HTTPS certificate. AlphaLink creates DNS records when a working Cloudflare zone/API is available. Otherwise, the selected domains, tracking hosts, and EHLO hostnames must already resolve to the selected IPs, and SPF, DKIM, and DMARC must resolve before the server is changed.
                         </div>
 
                         <div class="table-responsive">
@@ -128,6 +137,7 @@
                                         <th>MAIN</th>
                                         <th>SUB DOMAIN</th>
                                         <th>DOMAIN</th>
+                                        <th id="single-extra-domains-header" hidden>ADDITIONAL DOMAIN / SUBDOMAIN</th>
                                         <th aria-label="Row actions"></th>
                                     </tr>
                                 </thead>

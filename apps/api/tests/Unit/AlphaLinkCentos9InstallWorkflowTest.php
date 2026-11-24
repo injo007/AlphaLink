@@ -4,7 +4,9 @@ namespace Tests\Unit;
 
 use App\Models\ManagedServer;
 use App\Models\SendingDomain;
+use App\Models\SendingDomainDkimIdentity;
 use App\Models\Workspace;
+use App\Services\Infrastructure\AlphaLinkAssignmentDnsRecordWriter;
 use App\Services\Infrastructure\AlphaLinkBulkInstallCompletionWriter;
 use App\Services\Infrastructure\AlphaLinkBulkInstallDnsRecordPlanner;
 use App\Services\Infrastructure\AlphaLinkBulkInstallDomainDnsRecordWriter;
@@ -27,8 +29,11 @@ use App\Services\Infrastructure\AlphaLinkInstallerRemoteCommandTransport;
 use App\Services\Infrastructure\AlphaLinkInstallerRemoteFileTransport;
 use App\Services\Infrastructure\AlphaLinkInstallerRemoteReadableFileTransport;
 use App\Services\Infrastructure\AlphaLinkInstallPlatform;
+use App\Services\Infrastructure\AlphaLinkMultiDomainDnsVerifier;
+use App\Services\Infrastructure\AlphaLinkMultiDomainInstallPlan;
 use App\Services\Infrastructure\AlphaLinkPmtaApplicationReadiness;
 use App\Services\Infrastructure\AlphaLinkPmtaDeploymentGate;
+use App\Services\Infrastructure\AlphaLinkSendingDomainDkimIdentityManager;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -81,7 +86,7 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
         ]);
 
         $this->assertSame([
-            'Setup Host', 'End Setting Host',
+            'Setup Host', 'Configured PMTA host identity example.test', 'End Setting Host',
             'Removing Old Packages', 'End Removing Old Packages',
             'Setup Services', 'End Setting Services',
             'Config Hosts A-AAAA-MX... For example.test (A=1)',
@@ -91,7 +96,7 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
             'Setup HTTPS for PMTA Web Monitor', 'End Setting HTTPS for PMTA Web Monitor',
             'Config Firewall', 'End Setting Firewall',
             'PMTA monitor and read-only command access verified through the configured relay proxy',
-            'PMTA WEB MONITOR LINK (HTTP monitor through AlphaLink HTTPS proxy; PMTA listener port 8080): >>> <a target="_blank" rel="noopener noreferrer" href="/pmta-admin/servers/server-one">Open PMTA monitor via AlphaLink HTTPS</a>',
+            'PMTA WEB MONITOR LINK (HTTPS; public port 8080): >>> <a target="_blank" rel="noopener noreferrer" href="/pmta-admin/servers/server-one">Open PMTA HTTPS monitor via AlphaLink</a>',
             'Ended Disconnecting',
         ], $logs);
         $this->assertSame("hostnamectl set-hostname 'example.test'", $session->commands[0]);
@@ -169,7 +174,7 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
         $this->assertStringContainsString("'https://example.test:1213/'", $healthCommand);
         $this->assertStringContainsString('listen 1213 ssl;', $healthCommand);
         $this->assertSame(
-            'PMTA WEB MONITOR LINK (HTTP monitor through AlphaLink HTTPS proxy; PMTA listener port 1213): >>> <a target="_blank" rel="noopener noreferrer" href="/pmta-admin/servers/server-one">Open PMTA monitor via AlphaLink HTTPS</a>',
+            'PMTA WEB MONITOR LINK (HTTPS; public port 1213): >>> <a target="_blank" rel="noopener noreferrer" href="/pmta-admin/servers/server-one">Open PMTA HTTPS monitor via AlphaLink</a>',
             $logs[count($logs) - 2],
         );
     }
@@ -201,7 +206,7 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
         $this->assertIsString($healthCommand);
         $this->assertStringContainsString('listen 1213 ssl;', $healthCommand);
         $this->assertContains(
-            'PMTA WEB MONITOR LINK (HTTP monitor through AlphaLink HTTPS proxy; PMTA listener port 1213): >>> <a target="_blank" rel="noopener noreferrer" href="/pmta-admin/servers/server-one">Open PMTA monitor via AlphaLink HTTPS</a>',
+            'PMTA WEB MONITOR LINK (HTTPS; public port 1213): >>> <a target="_blank" rel="noopener noreferrer" href="/pmta-admin/servers/server-one">Open PMTA HTTPS monitor via AlphaLink</a>',
             $logs,
         );
     }
@@ -227,9 +232,9 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
         $this->runWorkflow($workflow, $session, $logs, providerAvailable: false, dnsWriteSuccessful: false);
 
         $this->assertArrayNotHasKey('/etc/nginx/conf.d/default.conf.alphalink-tls-stage', $session->uploads);
-        $this->assertSame("hostnamectl set-hostname 'pmta-08080808.invalid'", $session->commands[0]);
+        $this->assertSame("hostnamectl set-hostname 'example.test'", $session->commands[0]);
         $this->assertContains(
-            'No DNS-managed domain is available; configured PMTA host identity pmta-08080808.invalid while keeping tracking and monitor endpoints on public IP 8.8.8.8.',
+            'Configured PMTA host identity example.test',
             $logs,
         );
         $this->assertContains(
@@ -240,7 +245,7 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
         $this->assertStringContainsString("'http://127.0.0.1:8080/'", $healthCommand);
         $this->assertStringNotContainsString('16160', $healthCommand);
         $this->assertStringNotContainsString('nginx-service', $healthCommand);
-        $this->assertStringNotContainsString('certbot --apache', implode("\n", $session->commands));
+        $this->assertStringContainsString("certbot --apache --no-redirect -d 'example.test'", implode("\n", $session->commands));
         $this->assertStringNotContainsString("grep -Fq 'listen 8080 ssl;' /etc/nginx/conf.d/default.conf", end($session->commands));
     }
 
@@ -277,7 +282,7 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
         $configuration = $session->uploads['/etc/nginx/conf.d/default.conf.alphalink-tls-stage'];
         $this->assertStringContainsString('server_name example.test;', $configuration);
         $this->assertContains(
-            'PMTA WEB MONITOR LINK (HTTP monitor through AlphaLink HTTPS proxy; PMTA listener port 1213): >>> <a target="_blank" rel="noopener noreferrer" href="/pmta-admin/servers/server-one">Open PMTA monitor via AlphaLink HTTPS</a>',
+            'PMTA WEB MONITOR LINK (HTTPS; public port 1213): >>> <a target="_blank" rel="noopener noreferrer" href="/pmta-admin/servers/server-one">Open PMTA HTTPS monitor via AlphaLink</a>',
             $logs,
         );
     }
@@ -293,7 +298,7 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
             ->method('finalize')
             ->willReturnCallback(function (...$arguments): array {
                 $this->assertFalse($arguments[5]['https']);
-                $this->assertFalse($arguments[7]);
+                $this->assertTrue($arguments[7]);
 
                 return [];
             });
@@ -311,20 +316,18 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
         );
 
         $nginxConfig = $session->uploads['/etc/nginx/conf.d/default.conf.alphalink-tls-stage'];
-        $this->assertStringContainsString('listen 1213;', $nginxConfig);
-        $this->assertStringContainsString('server_name _;', $nginxConfig);
+        $this->assertStringContainsString('listen 1213 ssl;', $nginxConfig);
+        $this->assertStringContainsString('server_name example.test;', $nginxConfig);
         $this->assertStringContainsString('proxy_pass http://127.0.0.1:2426;', $nginxConfig);
-        $this->assertStringNotContainsString('server_name example.test;', $nginxConfig);
+        $this->assertStringNotContainsString('server_name _;', $nginxConfig);
         $this->assertContains(
-            'PMTA WEB MONITOR LINK (HTTP monitor through AlphaLink HTTPS proxy; PMTA listener port 1213): >>> <a target="_blank" rel="noopener noreferrer" href="/pmta-admin/servers/server-one">Open PMTA monitor via AlphaLink HTTPS</a>',
+            'PMTA WEB MONITOR LINK (HTTPS; public port 1213): >>> <a target="_blank" rel="noopener noreferrer" href="/pmta-admin/servers/server-one">Open PMTA HTTPS monitor via AlphaLink</a>',
             $logs,
         );
         $healthCommand = end($session->commands);
         $this->assertIsString($healthCommand);
-        $this->assertStringContainsString("'http://127.0.0.1:1213/'", $healthCommand);
-        $this->assertStringContainsString('nginx-service', $healthCommand);
-        $this->assertStringContainsString("'listen 1213;'", $healthCommand);
-        $this->assertStringNotContainsString('example.test:1213', $healthCommand);
+        $this->assertStringContainsString("'https://example.test:1213/'", $healthCommand);
+        $this->assertStringContainsString("'listen 1213 ssl;'", $healthCommand);
         $this->assertStringNotContainsString('PMTA HTTP listener 2426', implode("\n", $logs));
     }
 
@@ -465,7 +468,7 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
         ];
         $completion->expects($this->once())
             ->method('finalize')
-            ->with($workspace, $server, $externalDomain, $assignments, 40, $options, [$externalDomain, $ownedDomain], true)
+            ->with($workspace, $server, $externalDomain, array_map(static fn (array $assignment): array => [...$assignment, 'domains' => []], $assignments), 40, $options, [$externalDomain, $ownedDomain], true)
             ->willReturn([]);
 
         $dnsWriter = $this->createMock(AlphaLinkBulkInstallDomainDnsRecordWriter::class);
@@ -527,10 +530,41 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
 
     public function test_multi_domain_tracking_install_routes_probe_and_pushes_dns_for_all_domains(): void
     {
-        [$workflow, $gate, $pmta, $completion] = $this->workflow();
+        [$workflow, $gate, $pmta, $completion, , $assignmentDnsWriter, $assignmentDkimIdentities, $multiDomainDnsVerifier] = $this->workflow();
         $gate->method('evaluate')->willReturn(['installation_authorized' => true]);
         $pmta->expects($this->once())->method('run');
         $completion->expects($this->once())->method('finalize')->willReturn([]);
+        $assignmentDnsWriter->method('isAssignmentDomainAvailable')->willReturnCallback(
+            static fn (SendingDomain $domain): bool => $domain->name === 'zonevortex.example.test',
+        );
+        $dnsWrites = [];
+        $assignmentDnsWriter->expects($this->once())
+            ->method('setAssignmentHosts')
+            ->willReturnCallback(static function (SendingDomain $domain, array $records) use (&$dnsWrites): bool {
+                $dnsWrites[$domain->name] = $records;
+
+                return true;
+            });
+        $identityNumber = 0;
+        $assignmentDkimIdentities->expects($this->exactly(3))
+            ->method('ensure')
+            ->willReturnCallback(static function (Workspace $workspace, SendingDomain $domain, string $hostname) use (&$identityNumber): SendingDomainDkimIdentity {
+                $identityNumber++;
+
+                return (new SendingDomainDkimIdentity)->forceFill([
+                    'id' => $identityNumber,
+                    'workspace_id' => $workspace->getKey(),
+                    'sending_domain_id' => $domain->getKey(),
+                    'hostname' => $hostname,
+                    'selector' => 'al'.$identityNumber,
+                    'private_key' => 'PRIVATE-'.$identityNumber,
+                    'public_record' => 'v=DKIM1; k=rsa; p=PUBLIC'.$identityNumber,
+                    'is_active' => true,
+                ]);
+            });
+        $multiDomainDnsVerifier->expects($this->once())->method('verifyForwardAddresses');
+        $multiDomainDnsVerifier->expects($this->once())->method('verifyMailAuthentication');
+        $multiDomainDnsVerifier->expects($this->once())->method('verify');
 
         $workspace = (new Workspace)->forceFill(['id' => 'workspace-one']);
         $server = (new ManagedServer)->forceFill([
@@ -568,15 +602,8 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
             'cloudflare_ips' => null, 'dovecot_config' => null, 'squid_config' => null,
         ];
         $dnsWriter = $this->createMock(AlphaLinkBulkInstallDomainDnsRecordWriter::class);
-        $dnsWriter->method('isDomainAvailable')->willReturn(true);
-        $dnsWrites = [];
-        $dnsWriter->expects($this->exactly(2))
-            ->method('setHosts')
-            ->willReturnCallback(static function (SendingDomain $domain, array $records) use (&$dnsWrites): bool {
-                $dnsWrites[$domain->name] = $records;
-
-                return true;
-            });
+        $dnsWriter->method('isDomainAvailable')->willReturn(false);
+        $dnsWriter->expects($this->never())->method('setHosts');
 
         $session = new RecordingWorkflowSession;
         $logs = [];
@@ -589,19 +616,22 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
             $assignments, [$primary, $secondary],
         );
 
-        $vhost = $session->uploads['/etc/httpd/conf.d/zonevortex_example_test.conf'];
-        $this->assertStringContainsString('ServerAlias 198.51.100.30 www.zonevortex.example.test seek.zonevortex.example.test zenovara.example.test www.zenovara.example.test', $vhost);
+        $vhost = collect($session->uploads)->first(fn (string $contents): bool => str_contains($contents, 'ServerName track-'));
+        $this->assertIsString($vhost);
+        $this->assertStringContainsString('ServerAlias', $vhost);
+        $this->assertStringContainsString('track-', $vhost);
         $allCommands = implode("\n", $session->commands);
         $this->assertStringContainsString('/ALPHALINK0rprobe', $allCommands);
         $this->assertArrayHasKey('zonevortex.example.test', $dnsWrites);
-        $this->assertArrayHasKey('zenovara.example.test', $dnsWrites);
-        $secondaryHosts = array_map(static fn (array $r): string => $r['type'].':'.$r['host'], $dnsWrites['zenovara.example.test']);
-        $this->assertContains('A:@', $secondaryHosts);
-        $this->assertContains('A:www', $secondaryHosts);
-        $this->assertContains('A:*', $secondaryHosts);
-        $this->assertContains('TXT:al123._domainkey', $secondaryHosts);
-        $this->assertContains('TXT:_dmarc', $secondaryHosts);
-        $this->assertContains('TXT:@', $secondaryHosts);
+        $this->assertArrayNotHasKey('zenovara.example.test', $dnsWrites);
+        $secondaryHosts = array_map(static fn (array $r): string => $r['type'].':'.$r['host'], $dnsWrites['zonevortex.example.test']);
+        $this->assertContains('A:seek', $secondaryHosts);
+        $trackingLabel = 'track-'.substr(hash('sha256', '198.51.100.30'), 0, 10);
+        $this->assertContains('A:'.$trackingLabel, $secondaryHosts);
+        $this->assertContains('TXT:al2._domainkey.seek', $secondaryHosts);
+        $this->assertContains('TXT:_dmarc.seek', $secondaryHosts);
+        $this->assertContains('TXT:seek', $secondaryHosts);
+        $this->assertContains('DNS API automation is unavailable for zenovara.example.test; existing public records will be verified before any server changes.', $logs);
     }
 
     public function test_tracking_https_uses_the_selected_subdomain_without_requiring_dns_provider_access(): void
@@ -679,18 +709,25 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
         $this->assertStringContainsString('track.example.test:443:127.0.0.1', implode("\n", $session->commands));
     }
 
-    /** @return array{AlphaLinkCentos9InstallWorkflow, AlphaLinkPmtaDeploymentGate&MockObject, AlphaLinkCentos9PmtaDeploymentStage&MockObject, AlphaLinkBulkInstallCompletionWriter&MockObject, AlphaLinkPmtaApplicationReadiness&MockObject} */
+    /** @return array{AlphaLinkCentos9InstallWorkflow, AlphaLinkPmtaDeploymentGate&MockObject, AlphaLinkCentos9PmtaDeploymentStage&MockObject, AlphaLinkBulkInstallCompletionWriter&MockObject, AlphaLinkPmtaApplicationReadiness&MockObject, AlphaLinkAssignmentDnsRecordWriter&MockObject, AlphaLinkSendingDomainDkimIdentityManager&MockObject, AlphaLinkMultiDomainDnsVerifier&MockObject} */
     private function workflow(): array
     {
         $gate = $this->createMock(AlphaLinkPmtaDeploymentGate::class);
         $pmta = $this->createMock(AlphaLinkCentos9PmtaDeploymentStage::class);
         $completion = $this->createMock(AlphaLinkBulkInstallCompletionWriter::class);
         $applicationReadiness = $this->createMock(AlphaLinkPmtaApplicationReadiness::class);
+        $assignmentDnsWriter = $this->createMock(AlphaLinkAssignmentDnsRecordWriter::class);
+        $assignmentDkimIdentities = $this->createMock(AlphaLinkSendingDomainDkimIdentityManager::class);
+        $multiDomainDnsVerifier = $this->createMock(AlphaLinkMultiDomainDnsVerifier::class);
 
         return [new AlphaLinkCentos9InstallWorkflow(
             $gate,
             new AlphaLinkInstallPlatform,
             new AlphaLinkBulkInstallIpPlanner,
+            new AlphaLinkMultiDomainInstallPlan,
+            $assignmentDnsWriter,
+            $assignmentDkimIdentities,
+            $multiDomainDnsVerifier,
             new AlphaLinkCentos9HostPreparation,
             new AlphaLinkCentos9ServiceSetup,
             new AlphaLinkCentos9PhpInstallationStage,
@@ -704,7 +741,7 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
             new AlphaLinkCentos9FirewallDeploymentStage(new AlphaLinkCentos9FirewallPlanner),
             $completion,
             $applicationReadiness,
-        ), $gate, $pmta, $completion, $applicationReadiness];
+        ), $gate, $pmta, $completion, $applicationReadiness, $assignmentDnsWriter, $assignmentDkimIdentities, $multiDomainDnsVerifier];
     }
 
     /**
@@ -823,6 +860,12 @@ class RecordingWorkflowSession implements AlphaLinkInstallerRemoteCommandTranspo
         }
         if (str_contains($command, 'ALPHALINK_DKIM_READY')) {
             return 'ALPHALINK_DKIM_READY';
+        }
+        if (str_contains($command, 'ALPHALINK_DKIM_DIR_READY')) {
+            return 'ALPHALINK_DKIM_DIR_READY';
+        }
+        if (str_contains($command, 'ALPHALINK_DKIM_PERMISSIONS_READY')) {
+            return 'ALPHALINK_DKIM_PERMISSIONS_READY';
         }
         if (str_contains($command, 'ALPHALINK_DOMAIN_CERTIFICATE_READY')) {
             return 'ALPHALINK_DOMAIN_CERTIFICATE_READY';

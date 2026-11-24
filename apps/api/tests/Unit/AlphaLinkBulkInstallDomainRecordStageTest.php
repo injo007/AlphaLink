@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Models\SendingDomain;
+use App\Services\Infrastructure\AlphaLinkAssignmentDnsRecordWriter;
 use App\Services\Infrastructure\AlphaLinkBulkInstallDnsRecordPlanner;
 use App\Services\Infrastructure\AlphaLinkBulkInstallDomainDnsRecordWriter;
 use App\Services\Infrastructure\AlphaLinkBulkInstallDomainRecordStage;
@@ -14,6 +15,46 @@ use PHPUnit\Framework\TestCase;
 
 class AlphaLinkBulkInstallDomainRecordStageTest extends TestCase
 {
+    public function test_assignment_stage_writes_only_scoped_records_and_never_cleans_the_zone(): void
+    {
+        $domain = new SendingDomain(['name' => 'example.test', 'is_our' => true]);
+        $writer = $this->createMock(AlphaLinkAssignmentDnsRecordWriter::class);
+        $writer->expects($this->once())->method('isAssignmentDomainAvailable')->with($domain)->willReturn(true);
+        $writer->expects($this->once())->method('setAssignmentHosts')
+            ->with($domain, $this->callback(function (array $records): bool {
+                return in_array('mail', array_column($records, 'host'), true)
+                    && in_array('key1._domainkey.mail', array_column($records, 'host'), true)
+                    && ! in_array('*', array_column($records, 'host'), true);
+            }))->willReturn(true);
+        $logs = [];
+
+        $this->stage()->runAssignments($domain, [[
+            'hostname' => 'mail.example.test', 'ip' => '8.8.8.8',
+            'dkim_selector' => 'key1', 'dkim_public_record' => 'v=DKIM1; p=ONE',
+        ]], ['tracking' => false, 'imap' => false, 'spf' => true, 'dkim' => true, 'dmarc' => true],
+            $writer, function (string $message) use (&$logs): void {
+                $logs[] = $message;
+            });
+
+        $this->assertCount(2, $logs);
+        $this->assertStringContainsString('Verified assignment DNS records', $logs[1]);
+    }
+
+    public function test_assignment_stage_rejects_an_unavailable_dns_zone_before_writing(): void
+    {
+        $domain = new SendingDomain(['name' => 'mail.example.test']);
+        $writer = $this->createMock(AlphaLinkAssignmentDnsRecordWriter::class);
+        $writer->method('isAssignmentDomainAvailable')->willReturn(false);
+        $writer->expects($this->never())->method('setAssignmentHosts');
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('non-destructive DNS provider');
+        $this->stage()->runAssignments($domain, [[
+            'hostname' => 'mail.example.test', 'ip' => '8.8.8.8',
+            'dkim_selector' => 'key1', 'dkim_public_record' => 'v=DKIM1; p=ONE',
+        ]], ['tracking' => false, 'imap' => false, 'spf' => true, 'dkim' => true, 'dmarc' => true], $writer, static function (): void {});
+    }
+
     public function test_external_installable_domain_receives_records_through_its_provider(): void
     {
         $domain = new SendingDomain(['name' => 'external.example.test', 'is_our' => false]);

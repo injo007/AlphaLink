@@ -44,6 +44,7 @@ class AlphaLinkBulkInstallRunProcessPoolCoordinator
                             'https' => $payload['https'],
                         ],
                         $row['ip_assignments'] ?? null,
+                        $payload['multi_domain_per_ip'] ?? false,
                     );
 
                     $pool->as($row['id'])

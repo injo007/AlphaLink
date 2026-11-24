@@ -484,6 +484,77 @@ class AlphaLinkSingleInstallTest extends TestCase
         $this->assertSame($assignments, app(AlphaLinkBulkInstallRowProcessPayload::class)->decode($encoded)['ip_assignments']);
     }
 
+    public function test_additional_domains_survive_child_process_serialization(): void
+    {
+        $assignments = [[
+            'ip' => '198.51.100.12',
+            'type' => 'ipv4',
+            'main' => true,
+            'sub' => 'mail',
+            'domain_id' => (string) $this->externalDomain->getKey(),
+            'domains' => [[
+                'domain_id' => (string) $this->ownedDomain->getKey(),
+                'sub' => 'news',
+            ]],
+        ]];
+        $request = $this->installPayload($assignments, (string) $this->externalDomain->getKey());
+        $request['multi_domain_per_ip'] = true;
+        $request['domains_per_ip'] = 2;
+        $request['spf'] = true;
+        $request['dkim'] = true;
+        $request['dmarc'] = true;
+        $request['https'] = true;
+        $payload = app(AlphaLinkBulkInstallPayload::class)->validateAndNormalize($request);
+        $encoded = app(AlphaLinkBulkInstallRowProcessPayload::class)->encode(
+            (string) $this->workspace->getKey(),
+            (string) $this->owner->getKey(),
+            (string) $this->server->getKey(),
+            (string) $this->externalDomain->getKey(),
+            (string) Str::uuid(),
+            [
+                'pmta_version' => $payload['pmta_version'],
+                'tracking' => $payload['tracking'],
+                'proxy' => $payload['proxy'],
+                'imap' => $payload['imap'],
+                'spf' => $payload['spf'],
+                'dkim' => $payload['dkim'],
+                'dmarc' => $payload['dmarc'],
+                'https' => $payload['https'],
+            ],
+            $payload['data'][0]['ip_assignments'],
+            true,
+        );
+
+        $decoded = app(AlphaLinkBulkInstallRowProcessPayload::class)->decode($encoded);
+        $this->assertTrue($decoded['multi_domain_per_ip']);
+        $this->assertSame($assignments, $decoded['ip_assignments']);
+    }
+
+    public function test_multi_domain_install_requires_tracking_https_and_authentication_options_before_queueing(): void
+    {
+        $payload = $this->installPayload([[
+            'ip' => '198.51.100.12',
+            'type' => 'ipv4',
+            'main' => true,
+            'sub' => 'mail',
+            'domain_id' => (string) $this->externalDomain->getKey(),
+            'domains' => [[
+                'domain_id' => (string) $this->ownedDomain->getKey(),
+                'sub' => 'news',
+            ]],
+        ]], (string) $this->externalDomain->getKey());
+        $payload['multi_domain_per_ip'] = true;
+        $payload['domains_per_ip'] = 2;
+
+        $this->postJson($this->installUrl(), $payload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['multi_domain_per_ip']);
+
+        $this->assertFalse($this->server->fresh()->is_installed);
+        $this->assertDatabaseCount('managed_server_ips', 0);
+        $this->assertDatabaseCount('managed_server_ip_domains', 0);
+    }
+
     public function test_single_install_rejects_a_server_id_that_conflicts_with_the_target_server(): void
     {
         $payload = $this->installPayload(
@@ -583,7 +654,7 @@ class AlphaLinkSingleInstallTest extends TestCase
 
     private function installUrl(): string
     {
-        return '/infrastructure/install/runs';
+        return route('console.infrastructure.install.runs.store', ['workspace' => $this->workspace->getKey()]);
     }
 
     private function configIpsUrl(?string $serverId = null): string

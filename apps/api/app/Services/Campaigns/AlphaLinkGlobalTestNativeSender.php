@@ -105,6 +105,9 @@ class AlphaLinkGlobalTestNativeSender
         }
 
         $routeOption = (string) $data['option'];
+        if ($routeOption === 'domain' && collect($selectedIps)->contains(fn (array $choice): bool => ! ($choice['is_ready'] ?? false))) {
+            throw ValidationException::withMessages(['ips' => 'Every selected sending domain must be verified before a campaign test.']);
+        }
         $submittedHeader = str_replace(["\r\n", "\r"], "\n", $decodedHeader);
         $headerTemplate = preg_replace('/^\s*to\s*:\s*.*$/im', 'To: [to]', $submittedHeader) ?? $submittedHeader;
         if (! preg_match('/^\s*to\s*:/im', $headerTemplate)) {
@@ -178,7 +181,7 @@ class AlphaLinkGlobalTestNativeSender
                 $tagCache[$routeKey] ??= $this->resolveRouteTags($workspace, $server, $routeOption, $choice, $domainFallback);
                 $routeTags = $tagCache[$routeKey];
 
-                $vmtaName = $routeOption === 'ip'
+                $vmtaName = in_array($routeOption, ['ip', 'domain'], true)
                     ? $this->vmtaPlanner->ipVirtualMtaName((string) ($choice['ip'] ?? $routeTags['ip']))
                     : (string) ($choice['pmta_name'] ?? '');
 
@@ -200,7 +203,9 @@ class AlphaLinkGlobalTestNativeSender
                     $renderedReturnPath = $this->tagRenderer->render($returnPathTemplate, $tags, $placeholderRows, $idx, $boundaryCache);
 
                     $renderedHeader = $this->headerWithVirtualMta($renderedHeader, $vmtaName);
-                    $trackingDomain = (string) ($routeTags['domain'] ?? '');
+                    $trackingDomain = $routeOption === 'domain'
+                        ? (string) ($choice['tracking_host'] ?? '')
+                        : (string) ($routeTags['domain'] ?? '');
                     $renderedHeader = $this->redirectUrlPolicy->forceHttpsForHost($renderedHeader, $trackingDomain);
                     $renderedBody = $this->redirectUrlPolicy->forceHttpsForHost($renderedBody, $trackingDomain);
                     $renderedReturnPath = $this->redirectUrlPolicy->forceHttpsForHost($renderedReturnPath, $trackingDomain);
@@ -218,6 +223,15 @@ class AlphaLinkGlobalTestNativeSender
                         $routeOption,
                         $domainFallback,
                     );
+                    if ($routeOption === 'domain') {
+                        $sendingDomain = strtolower(trim((string) ($routeTags['domain'] ?? '')));
+                        foreach (['header' => $fromAddress, 'return_path' => $envelopeFrom] as $field => $address) {
+                            $addressDomain = strtolower((string) substr($address, (int) strrpos($address, '@') + 1));
+                            if ($sendingDomain === '' || $addressDomain !== $sendingDomain) {
+                                throw ValidationException::withMessages([$field => 'The campaign test From and Return-Path must use the selected sending domain.']);
+                            }
+                        }
+                    }
 
                     $jobs[] = [
                         'server' => $server,
@@ -338,9 +352,11 @@ class AlphaLinkGlobalTestNativeSender
         }
 
         $ipString = (string) ($ipModel?->ip ?: $choice['ip'] ?? $server->ip_address);
-        $domain = $route !== 'vmta' && $domainFallback !== ''
-            ? $domainFallback
-            : trim((string) ($ipModel?->dns ?: $ipModel?->domain?->name ?: $choice['dns'] ?? ''));
+        $domain = $route === 'domain'
+            ? trim((string) ($choice['domain'] ?? ''))
+            : ($route !== 'vmta' && $domainFallback !== ''
+                ? $domainFallback
+                : trim((string) ($ipModel?->dns ?: $ipModel?->domain?->name ?: $choice['dns'] ?? '')));
         $mainDomain = trim((string) ($primaryIp?->dns ?: $primaryIp?->domain?->name ?: 'NA'));
         $ptr = strtolower(rtrim(trim((string) $ipModel?->history?->ptr), '.'));
         if ($ptr === '' || $ptr === 'na') {
@@ -354,7 +370,9 @@ class AlphaLinkGlobalTestNativeSender
             'domain' => $domain,
             'rdns' => $ptr,
             'idi' => (string) ($ipModel?->getKey() ?? '0'),
-            'idd' => (string) ($ipModel?->sending_domain_id ?? $choice['sending_domain_id'] ?? '0'),
+            'idd' => (string) ($route === 'domain'
+                ? ($choice['sending_domain_id'] ?? '0')
+                : ($ipModel?->sending_domain_id ?? $choice['sending_domain_id'] ?? '0')),
             'ids' => (string) $server->getKey(),
             'ide' => '0',
             'reply' => '',

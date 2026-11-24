@@ -9,6 +9,7 @@
         .bulk-install-domain { min-width: 15rem; }
         .bulk-install-apply { white-space: nowrap; }
         .bulk-install-remove { margin-left: .35rem; }
+        .bulk-install-ip-assignment-panel { padding: .75rem; background: #f8f9fc; }
     </style>
 @endpush
 
@@ -47,7 +48,7 @@
                     </div>
                 </div>
                 <div class="command-trigger-group">
-                    @foreach (['tracking' => 'TRACKING', 'proxy' => 'PROXY', 'imap' => 'IMAP', 'spf' => 'SPF', 'dkim' => 'DKIM', 'dmarc' => 'DMARC', 'https' => 'HTTPS', 'clean_dns' => 'CLEAN CLOUDFLARE DNS'] as $option => $label)
+                    @foreach (['tracking' => 'TRACKING', 'proxy' => 'PROXY', 'imap' => 'IMAP', 'spf' => 'SPF', 'dkim' => 'DKIM', 'dmarc' => 'DMARC', 'https' => 'HTTPS', 'clean_dns' => 'CLEAN CLOUDFLARE DNS', 'multi_domain_per_ip' => 'MULTI-DOMAIN PER IP'] as $option => $label)
                         <div class="d-inline-flex align-items-center mr-2">
                             <label class="command-switch mr-2">
                                 <input type="checkbox" id="{{ $option }}" name="{{ $option }}" @checked(in_array($option, ['tracking', 'imap', 'spf', 'dkim', 'dmarc'], true))>
@@ -57,12 +58,20 @@
                         </div>
                     @endforeach
                 </div>
+                <div class="command-form-group d-none mb-0 ml-2" style="min-width: 190px;" aria-live="polite">
+                    <label class="command-form-label mb-1" for="bulk-domain-count" style="font-size: 0.7rem;">DOMAINS PER IP</label>
+                    <input class="command-form-control" id="bulk-domain-count" type="number" value="2" min="2" max="33" inputmode="numeric" aria-describedby="bulk-domain-count-help">
+                    <small class="text-muted" id="bulk-domain-count-help">Includes each IP’s primary domain.</small>
+                </div>
             </div>
 
             <p class="small text-muted mb-3"><i class="fas fa-info-circle mr-1 text-purple"></i> DNS records are auto-generated for each selected domain: TRACKING generates A/AAAA, IMAP generates MX, and SPF, DKIM and DMARC generate TXT records.</p>
+            <div class="alert alert-info d-none mt-2" id="bulk-multi-domain-help" role="status" style="border-radius: 10px; font-size: 0.78rem;">
+                Multi-Domain per IP supports up to 100 sending-domain assignments per server because tracking hostnames share one HTTPS certificate. AlphaLink creates DNS records when a working Cloudflare zone/API is available. Otherwise, the selected domains, tracking hosts, and EHLO hostnames must already resolve to the selected IPs, and SPF, DKIM, and DMARC must resolve before the server is changed.
+            </div>
 
             <div class="table-responsive">
-                <table id="servers" class="table table-sm table-hover table-striped">
+                <table id="servers" class="table table-sm table-hover table-striped" data-load-ips-url="{{ route('console.infrastructure.install.load-ips', $workspace->id) }}">
                     <thead class="thead-light">
                         <tr>
                             <th>SERVER NAME</th>
@@ -114,6 +123,7 @@
                                     </label>
                                 </td>
                                 <td>
+                                    <button type="button" class="command-action-btn d-none" data-configure-ip-assignments aria-label="Load IP domain assignments for {{ $server->name }}">LOAD IP MAP</button>
                                     <button type="button" class="command-action-btn action-danger bulk-install-remove" data-remove-row aria-label="Remove server from bulk installation"><i class="fa fa-times" aria-hidden="true"></i></button>
                                 </td>
                             </tr>

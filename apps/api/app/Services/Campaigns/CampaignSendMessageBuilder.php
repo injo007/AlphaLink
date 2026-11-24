@@ -48,7 +48,7 @@ class CampaignSendMessageBuilder
         $ipType = (string) ($setup['ip_type'] ?? '');
         $serverIds = array_values(array_map('strval', (array) ($setup['server_ids'] ?? [])));
         $selectedIds = array_values(array_map('strval', (array) ($setup['ip_ids'] ?? [])));
-        if (! in_array($route, ['ip', 'vmta', 'smtp'], true) || ! in_array($ipType, ['all', 'ipv4', 'ipv6'], true)) {
+        if (! in_array($route, ['ip', 'vmta', 'smtp', 'domain'], true) || ! in_array($ipType, ['all', 'ipv4', 'ipv6'], true)) {
             throw ValidationException::withMessages(['send_setup' => 'The saved server route is no longer valid. Edit and save the campaign routing before sending.']);
         }
 
@@ -186,26 +186,38 @@ class CampaignSendMessageBuilder
             ?? $primaryIp;
 
         $vmtaName = match ($context['route']) {
-            'ip' => $this->vmtaPlanner->ipVirtualMtaName((string) ($choice['ip'] ?? '')),
+            'ip', 'domain' => $this->vmtaPlanner->ipVirtualMtaName((string) ($choice['ip'] ?? '')),
             'smtp', 'vmta' => trim((string) ($choice['pmta_name'] ?? '')),
         };
         if ($vmtaName === '' || preg_match('/\A[A-Za-z0-9_.:-]{1,255}\z/', $vmtaName) !== 1) {
             throw ValidationException::withMessages(['send_setup.ip_ids' => 'The selected PMTA route has no valid pushed Virtual MTA name. Refresh route selections and push the route before sending.']);
         }
 
-        $domain = $context['route'] === 'vmta'
-            ? trim((string) ($choice['vmta_domain'] ?? ''))
-            : trim((string) ($context['domain_fallback'] !== ''
+        $domain = match ($context['route']) {
+            'domain' => trim((string) ($choice['domain'] ?? '')),
+            'vmta' => trim((string) ($choice['vmta_domain'] ?? '')),
+            default => trim((string) ($context['domain_fallback'] !== ''
                 ? $context['domain_fallback']
-                : ($choice['dns'] ?? $routeIp?->dns ?? '')));
+                : ($choice['dns'] ?? $routeIp?->dns ?? ''))),
+        };
         if ($context['route'] === 'vmta' && $domain === '') {
             throw ValidationException::withMessages(['send_setup.ip_ids' => 'The selected VMTA has no configured sending domain.']);
+        }
+        if ($context['route'] === 'domain' && (! ($choice['is_ready'] ?? false)
+            || filter_var($domain, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) === false)) {
+            throw ValidationException::withMessages(['send_setup.ip_ids' => 'The selected sending domain is no longer verified and ready. Refresh domain routes before sending.']);
         }
 
         $from = $context['from_assets'] === [] ? ['id' => 0, 'value' => ''] : $context['from_assets'][($position - 1) % count($context['from_assets'])];
         $subject = $context['subject_assets'] === [] ? ['id' => 0, 'value' => ''] : $context['subject_assets'][($position - 1) % count($context['subject_assets'])];
         $token = $this->campaignToken($context, $item, $choice, $from, $subject);
-        $installParameters = (array) $server->install_parameters;
+        $installParameters = $context['route'] === 'domain'
+            ? [
+                'tracking' => true,
+                'tracking_https_ready' => (bool) ($choice['is_ready'] ?? false),
+                'tracking_host' => (string) ($choice['tracking_host'] ?? ''),
+            ]
+            : (array) $server->install_parameters;
         $trackingHost = $this->redirectUrlPolicy->requireReadyTrackingHost($installParameters);
         $unsubscribeUrl = $this->redirectUrlPolicy->campaignTrackingUnsubscribeUrl($trackingHost, $token);
         $clickUrl = $this->redirectUrlPolicy->campaignTrackingClickUrl($trackingHost, $token);
@@ -218,7 +230,9 @@ class CampaignSendMessageBuilder
             'domain_https' => $trackingHost !== null && $this->redirectUrlPolicy->isTrackingHostOrSubdomain($domain, $trackingHost),
             'rdns' => strtolower(rtrim(trim((string) ($routeIp?->history?->ptr ?: $domain)), '.')),
             'idi' => (string) ($routeIp?->getKey() ?? '0'),
-            'idd' => (string) ($routeIp?->sending_domain_id ?? $choice['sending_domain_id'] ?? '0'),
+            'idd' => (string) ($context['route'] === 'domain'
+                ? ($choice['sending_domain_id'] ?? '0')
+                : ($routeIp?->sending_domain_id ?? $choice['sending_domain_id'] ?? '0')),
             'ids' => (string) $server->getKey(),
             'ide' => (string) $item->contact_id,
             'to' => $recipient,
@@ -271,6 +285,16 @@ class CampaignSendMessageBuilder
         foreach (['From' => $fromAddress, 'Return-Path' => $envelopeFrom] as $label => $address) {
             if (filter_var($address, FILTER_VALIDATE_EMAIL) === false) {
                 throw ValidationException::withMessages([$label === 'From' ? 'header' : 'return_path' => "The campaign {$label} must resolve to a valid email address using its selected server and SMTP tags."]);
+            }
+        }
+        if ($context['route'] === 'domain') {
+            foreach (['From' => $fromAddress, 'Return-Path' => $envelopeFrom] as $label => $address) {
+                $addressDomain = strtolower((string) substr($address, (int) strrpos($address, '@') + 1));
+                if ($addressDomain !== strtolower($domain)) {
+                    throw ValidationException::withMessages([
+                        $label === 'From' ? 'header' : 'return_path' => "The campaign {$label} must use the selected sending domain {$domain}.",
+                    ]);
+                }
             }
         }
         if (! preg_match('/^\s*to\s*:/im', $header)) {

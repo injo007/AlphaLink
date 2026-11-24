@@ -16,6 +16,7 @@ class ManagedServerIp extends Model
         'ip',
         'type',
         'dns',
+        'ehlo_hostname',
         'is_active',
     ];
 
@@ -40,6 +41,11 @@ class ManagedServerIp extends Model
     public function domain(): BelongsTo
     {
         return $this->belongsTo(SendingDomain::class, 'sending_domain_id');
+    }
+
+    public function domainAssignments(): HasMany
+    {
+        return $this->hasMany(ManagedServerIpDomain::class);
     }
 
     public function histories(): HasMany

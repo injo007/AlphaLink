@@ -7,6 +7,7 @@ use App\Models\AudienceMixSnapshot;
 use App\Models\ContactListMembership;
 use App\Models\ManagedServer;
 use App\Models\ManagedServerIp;
+use App\Models\ManagedServerIpDomain;
 use App\Models\ManagedServerMta;
 use App\Models\PmtaSmtpConfig;
 use App\Models\SendingDomain;
@@ -16,6 +17,7 @@ use App\Models\WorkspaceCampaignNegative;
 use App\Models\WorkspaceOffer;
 use App\Models\WorkspaceOfferAsset;
 use App\Models\WorkspaceSponsor;
+use App\Services\Infrastructure\AlphaLinkBulkInstallVmtaPlanner;
 use App\Services\PmtaSmtpConfigBuilder;
 use App\Services\PmtaVirtualMtaConfigBuilder;
 use Illuminate\Database\Eloquent\Builder;
@@ -237,6 +239,7 @@ class AlphaLinkCampaignSendCatalog
             ->all();
 
         $ips = collect();
+        $domainChoices = collect();
         if ($route === 'ip') {
             $ips = ManagedServerIp::query()
                 ->where('workspace_id', $workspace->getKey())
@@ -307,6 +310,11 @@ class AlphaLinkCampaignSendCatalog
                     $ip->setAttribute('smtp_pmta_name', $account['pmta_name']);
                 }
             });
+        } elseif ($route === 'domain') {
+            $domainChoices = collect($this->domainChoices($workspace, $user, $role, $serverIds, $ipType));
+            $ips = $domainChoices
+                ->filter(fn (array $choice): bool => $choice['is_ready'])
+                ->values();
         } elseif (in_array($route, ['vmta', 'smtp'], true)) {
             if ($route === 'vmta') {
                 $ips = ManagedServerMta::query()
@@ -502,7 +510,8 @@ class AlphaLinkCampaignSendCatalog
                 ];
             })->values(),
             'campaign_domains' => $redirectDomains->concat($serverDomains)->concat($vmtaDomains)->unique('value')->values(),
-            'ips' => $route === 'smtp' ? $ips->values() : $ips->map(fn ($ip): array => [
+            'domain_routes' => $domainChoices->values(),
+            'ips' => in_array($route, ['smtp', 'domain'], true) ? $ips->values() : $ips->map(fn ($ip): array => [
                 'id' => $ip->getKey(),
                 'server_id' => $ip->managed_server_id,
                 'ip' => $ip->ip,
@@ -525,6 +534,69 @@ class AlphaLinkCampaignSendCatalog
             ])->values(),
             'settings' => ['pmta_admin_port' => $pmtaAdminPort],
         ];
+    }
+
+    /**
+     * @param  list<string>  $serverIds
+     * @return list<array<string, mixed>>
+     */
+    public function domainChoices(Workspace $workspace, User $user, string $role, array $serverIds, string $ipType = 'all'): array
+    {
+        if (! in_array($ipType, ['all', 'ipv4', 'ipv6'], true)) {
+            return [];
+        }
+
+        return ManagedServerIpDomain::query()
+            ->where('workspace_id', $workspace->getKey())
+            ->where('is_active', true)
+            ->whereIn('managed_server_id', $serverIds)
+            ->whereHas('server', fn (Builder $servers): Builder => $servers
+                ->where('is_active', true)
+                ->where('is_installed', true)
+                ->when($role === 'operator', fn (Builder $eligible): Builder => $eligible->whereHas('allowedUsers',
+                    fn (Builder $users): Builder => $users->whereKey($user->getKey()))))
+            ->whereHas('ip', fn (Builder $ips): Builder => $ips
+                ->where('is_active', true)
+                ->when($ipType !== 'all', fn (Builder $filtered): Builder => $filtered->whereRaw('LOWER(type) = ?', [$ipType])))
+            ->with(['ip:id,ip,type,is_active', 'server:id,name', 'domain:id,name,state,is_active,verified_at', 'signingIdentity:id,hostname,sending_domain_id,is_active'])
+            ->orderBy('managed_server_id')
+            ->orderBy('managed_server_ip_id')
+            ->orderBy('hostname')
+            ->get()
+            ->map(function (ManagedServerIpDomain $assignment): array {
+                $ip = $assignment->ip;
+                $ready = $assignment->dns_verified_at !== null
+                    && $assignment->authentication_verified_at !== null
+                    && $assignment->tracking_https_ready
+                    && filled($assignment->tracking_host)
+                    && filled($assignment->dkim_selector)
+                    && $assignment->signingIdentity?->is_active
+                    && $assignment->signingIdentity?->hostname === $assignment->hostname
+                    && (string) $assignment->signingIdentity?->sending_domain_id === (string) $assignment->sending_domain_id
+                    && $assignment->domain?->is_active
+                    && $assignment->domain?->state === 'verified'
+                    && $assignment->domain?->verified_at !== null
+                    && $ip instanceof ManagedServerIp
+                    && ManagedServerIp::isPublicAddress((string) $ip->ip);
+
+                return [
+                    'id' => (string) $assignment->getKey(),
+                    'server_id' => (string) $assignment->managed_server_id,
+                    'server_name' => (string) ($assignment->server?->name ?? 'SERVER'),
+                    'managed_server_ip_id' => (string) $assignment->managed_server_ip_id,
+                    'sending_domain_id' => (string) $assignment->sending_domain_id,
+                    'ip' => (string) ($ip?->ip ?? ''),
+                    'type' => (string) ($ip?->type ?? ''),
+                    'dns' => (string) $assignment->hostname,
+                    'domain' => (string) $assignment->hostname,
+                    'tracking_host' => (string) ($assignment->tracking_host ?? ''),
+                    'pmta_name' => $ip instanceof ManagedServerIp
+                        ? (new AlphaLinkBulkInstallVmtaPlanner)->ipVirtualMtaName((string) $ip->ip)
+                        : '',
+                    'is_ready' => (bool) $ready,
+                ];
+            })
+            ->all();
     }
 
     /**
@@ -675,6 +747,9 @@ class AlphaLinkCampaignSendCatalog
         if ($route === 'vmta') {
             return $this->selectedVmtaDomain($options['ips'], $normalizedIpIds);
         }
+        if ($route === 'domain') {
+            return $this->singleSelectedAssignmentDomain($options['ips'], $normalizedIpIds);
+        }
 
         $domain = trim((string) $submittedDomain);
         if ($domain !== '' && ! collect($options['campaign_domains'])->contains(fn (array $option): bool => hash_equals((string) $option['value'], $domain))) {
@@ -741,13 +816,17 @@ class AlphaLinkCampaignSendCatalog
         $selectedDomain = trim((string) ($selection['domain'] ?? ''));
         if ((string) $selection['route_option'] === 'vmta') {
             $selectedDomain = $this->selectedVmtaDomain($options['ips'], $selectedIpIds);
+        } elseif ((string) $selection['route_option'] === 'domain') {
+            $selectedDomain = $this->singleSelectedAssignmentDomain($options['ips'], $selectedIpIds) ?? '';
         }
 
         if (! $this->containsId($options['sponsors'], $selection['sponsor_id'])) {
             throw ValidationException::withMessages(['send_setup.sponsor_id' => 'Choose an active sponsor available to this workspace.']);
         }
         $negativeId = $this->validateNegativeSelection($workspace, $user, $selection['negative_id'] ?? null);
-        if ($selectedDomain !== '' && ! collect($options['campaign_domains'])->contains(fn (array $domain): bool => hash_equals((string) $domain['value'], $selectedDomain))) {
+        if ((string) $selection['route_option'] !== 'domain'
+            && $selectedDomain !== ''
+            && ! collect($options['campaign_domains'])->contains(fn (array $domain): bool => hash_equals((string) $domain['value'], $selectedDomain))) {
             throw ValidationException::withMessages(['domain' => 'Choose an active redirect domain or an active IPv4 domain on an installed server available to this workspace.']);
         }
         if (! $this->containsId($options['offers'], $selection['offer_id'])) {
@@ -905,6 +984,25 @@ class AlphaLinkCampaignSendCatalog
         }
 
         return trim((string) $selectedVmtas->first()['vmta_domain']);
+    }
+
+    /**
+     * A multi-domain revision has no one global sending domain; the selected
+     * assignment supplies the domain independently for each message.
+     *
+     * @param  list<string>  $selectedIds
+     */
+    private function singleSelectedAssignmentDomain(iterable $options, array $selectedIds): ?string
+    {
+        $available = collect($options)->keyBy(fn (array $choice): string => (string) $choice['id']);
+        $domains = collect($selectedIds)
+            ->map(fn (string $id): ?array => $available->get($id))
+            ->map(fn (?array $choice): string => trim((string) ($choice['domain'] ?? '')))
+            ->filter()
+            ->unique()
+            ->values();
+
+        return $domains->count() === 1 ? $domains->first() : null;
     }
 
     /**

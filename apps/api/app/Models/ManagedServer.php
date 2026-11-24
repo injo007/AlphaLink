@@ -52,6 +52,11 @@ class ManagedServer extends Model
         return $this->hasMany(ManagedServerIp::class);
     }
 
+    public function ipDomainAssignments(): HasMany
+    {
+        return $this->hasMany(ManagedServerIpDomain::class);
+    }
+
     public function mtas(): HasMany
     {
         return $this->hasMany(ManagedServerMta::class);

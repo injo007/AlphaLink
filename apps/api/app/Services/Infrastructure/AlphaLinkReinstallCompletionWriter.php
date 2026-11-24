@@ -5,6 +5,7 @@ namespace App\Services\Infrastructure;
 use App\Models\AuditEvent;
 use App\Models\ManagedServer;
 use App\Models\ManagedServerIp;
+use App\Models\ManagedServerIpDomain;
 use App\Models\ManagedServerMta;
 use App\Models\SendingDomain;
 use App\Models\User;
@@ -49,6 +50,11 @@ class AlphaLinkReinstallCompletionWriter
                     ->where('managed_server_id', $server->getKey())
                     ->update(['is_active' => false]);
 
+                ManagedServerIpDomain::query()
+                    ->where('workspace_id', $workspace->getKey())
+                    ->where('managed_server_id', $server->getKey())
+                    ->update(['is_active' => false, 'is_primary' => false]);
+
                 foreach ($rows as $row) {
                     $domain = SendingDomain::withTrashed()
                         ->where('workspace_id', $workspace->getKey())
@@ -68,8 +74,23 @@ class AlphaLinkReinstallCompletionWriter
                         'sending_domain_id' => $domain->getKey(),
                         'type' => $row['type'],
                         'dns' => $dns,
+                        'ehlo_hostname' => $dns,
                         'is_active' => true,
                     ])->saveOrFail();
+
+                    ManagedServerIpDomain::query()->updateOrCreate([
+                        'workspace_id' => $workspace->getKey(),
+                        'managed_server_ip_id' => $ip->getKey(),
+                        'hostname' => strtolower(rtrim($dns, '.')),
+                    ], [
+                        'managed_server_id' => $server->getKey(),
+                        'sending_domain_id' => $domain->getKey(),
+                        'is_primary' => true,
+                        'is_active' => true,
+                        'tracking_https_ready' => false,
+                        'dns_verified_at' => null,
+                        'authentication_verified_at' => null,
+                    ]);
 
                     if ($domain->is_our) {
                         $domain->forceFill(['status' => 'used'])->saveOrFail();

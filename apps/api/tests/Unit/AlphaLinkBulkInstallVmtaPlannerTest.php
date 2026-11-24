@@ -92,4 +92,59 @@ class AlphaLinkBulkInstallVmtaPlannerTest extends TestCase
 
         (new AlphaLinkBulkInstallVmtaPlanner)->files('ubuntu', false, [], [], 'selector-one', false, false);
     }
+
+    public function test_multiple_domains_share_one_ip_and_ehlo_but_use_independent_dkim_keys(): void
+    {
+        $files = (new AlphaLinkBulkInstallVmtaPlanner)->files('centos9', true, [[
+            'ip' => '8.8.8.8',
+            'sub' => 'mail',
+            'domain' => 'example.test',
+            'ehlo_hostname' => 'mail.example.test',
+            'domains' => [['sub' => 'offers', 'domain' => 'other.test', 'is_our' => true]],
+        ]], ['gmail'], 'legacy', true, true, [
+            'mail.example.test' => ['selector' => 'one', 'path' => '/etc/pmta/dkim-keys/mail.example.test.pem'],
+            'offers.other.test' => ['selector' => 'two', 'path' => '/etc/pmta/dkim-keys/offers.other.test.pem'],
+        ]);
+
+        $this->assertSame(2, substr_count($files['vmtas'], '<virtual-mta '));
+        $this->assertSame(2, substr_count($files['vmtas'], 'host-name mail.example.test'));
+        $this->assertSame(
+            "domain-key one,mail.example.test,/etc/pmta/dkim-keys/mail.example.test.pem\n".
+            "domain-key two,offers.other.test,/etc/pmta/dkim-keys/offers.other.test.pem\n",
+            $files['dkim_domains'],
+        );
+        $this->assertStringContainsString('relay-domain offers.other.test', $files['inbound']);
+    }
+
+    public function test_multiple_domains_cannot_fall_back_to_the_shared_legacy_key(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        (new AlphaLinkBulkInstallVmtaPlanner)->files('centos9', true, [[
+            'ip' => '8.8.8.8', 'sub' => 'mail', 'domain' => 'example.test',
+            'domains' => [['sub' => 'offers', 'domain' => 'other.test']],
+        ]], [], 'legacy', true, true);
+    }
+
+    public function test_legacy_single_domain_without_dkim_does_not_require_a_selector(): void
+    {
+        $files = (new AlphaLinkBulkInstallVmtaPlanner)->files('centos9', false, [[
+            'ip' => '8.8.8.8', 'sub' => '', 'domain' => 'example.test',
+        ]], [], '', false, false);
+
+        $this->assertNull($files['dkim_domains']);
+        $this->assertStringContainsString('host-name example.test', $files['vmtas']);
+    }
+
+    public function test_every_selected_domain_needs_a_signing_identity(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        (new AlphaLinkBulkInstallVmtaPlanner)->files('centos9', true, [[
+            'ip' => '8.8.8.8', 'sub' => 'mail', 'domain' => 'example.test',
+            'domains' => [['sub' => 'offers', 'domain' => 'other.test']],
+        ]], [], 'legacy', true, true, [
+            'mail.example.test' => ['selector' => 'one', 'path' => '/etc/pmta/dkim-keys/mail.example.test.pem'],
+        ]);
+    }
 }

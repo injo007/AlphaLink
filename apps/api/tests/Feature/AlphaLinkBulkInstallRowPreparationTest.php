@@ -113,6 +113,130 @@ class AlphaLinkBulkInstallRowPreparationTest extends TestCase
         $this->assertArrayNotHasKey('secret', $prepared);
     }
 
+    public function test_it_resolves_additional_domains_on_one_discovered_ip(): void
+    {
+        $secondaryDomain = SendingDomain::query()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'name' => 'secondary.example.net',
+            'state' => 'verified',
+            'verification_token' => 'synthetic-secondary-token',
+            'created_by' => $this->user->getKey(),
+            'domains_provider_id' => $this->domain->domains_provider_id,
+            'status' => 'free',
+            'is_our' => true,
+            'is_active' => true,
+        ]);
+        ServerCredential::query()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'managed_server_id' => $this->server->getKey(),
+            'credential_type' => 'password',
+            'encrypted_secret' => Crypt::encryptString('synthetic-password'),
+            'created_by' => $this->user->getKey(),
+        ]);
+        $discovery = Mockery::mock(AlphaLinkBulkInstallRemoteIpDiscovery::class);
+        $discovery->shouldReceive('discover')->once()->andReturn(['198.51.100.12']);
+        $this->app->instance(AlphaLinkBulkInstallRemoteIpDiscovery::class, $discovery);
+
+        $prepared = app(AlphaLinkBulkInstallRowPreparation::class)->prepare(
+            $this->user,
+            $this->workspace,
+            (string) $this->server->getKey(),
+            (string) $this->domain->getKey(),
+            [[
+                'ip' => '198.51.100.12',
+                'type' => 'ipv4',
+                'main' => true,
+                'sub' => 'mail',
+                'domain_id' => (string) $this->domain->getKey(),
+                'domains' => [[
+                    'domain_id' => (string) $secondaryDomain->getKey(),
+                    'sub' => 'news',
+                ]],
+            ]],
+        );
+
+        $this->assertCount(1, $prepared['ip_assignments']);
+        $this->assertCount(2, $prepared['domains']);
+        $this->assertSame('secondary.example.net', $prepared['ip_assignments'][0]['domains'][0]['domain']);
+        $this->assertTrue($prepared['ip_assignments'][0]['domains'][0]['is_our']);
+    }
+
+    public function test_foreign_additional_domain_fails_before_credential_or_ssh_discovery(): void
+    {
+        $foreignOwner = User::factory()->create();
+        $foreignWorkspace = Workspace::query()->create([
+            'name' => 'Foreign install workspace',
+            'slug' => 'foreign-install-workspace',
+            'created_by' => $foreignOwner->getKey(),
+        ]);
+        $foreignDomain = SendingDomain::query()->create([
+            'workspace_id' => $foreignWorkspace->getKey(),
+            'name' => 'foreign.example.net',
+            'state' => 'verified',
+            'verification_token' => 'synthetic-foreign-token',
+            'created_by' => $foreignOwner->getKey(),
+            'domains_provider_id' => $this->domain->domains_provider_id,
+            'status' => 'free',
+            'is_our' => false,
+            'is_active' => true,
+        ]);
+        $this->app->instance(AlphaLinkInstallerServerCredentialResolver::class, Mockery::mock(AlphaLinkInstallerServerCredentialResolver::class)->shouldNotReceive('resolve')->getMock());
+        $this->app->instance(AlphaLinkBulkInstallRemoteIpDiscovery::class, Mockery::mock(AlphaLinkBulkInstallRemoteIpDiscovery::class)->shouldNotReceive('discover')->getMock());
+
+        $this->expectException(HostProbeException::class);
+        $this->expectExceptionMessage('One of the selected domains is no longer eligible for installation.');
+        app(AlphaLinkBulkInstallRowPreparation::class)->prepare(
+            $this->user,
+            $this->workspace,
+            (string) $this->server->getKey(),
+            (string) $this->domain->getKey(),
+            [[
+                'ip' => '198.51.100.12',
+                'type' => 'ipv4',
+                'main' => true,
+                'sub' => '',
+                'domain_id' => (string) $this->domain->getKey(),
+                'domains' => [[
+                    'domain_id' => (string) $foreignDomain->getKey(),
+                    'sub' => 'news',
+                ]],
+            ]],
+        );
+    }
+
+    public function test_primary_domain_mismatch_fails_before_ssh_discovery(): void
+    {
+        $otherDomain = SendingDomain::query()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'name' => 'other.example.net',
+            'state' => 'verified',
+            'verification_token' => 'synthetic-other-token',
+            'created_by' => $this->user->getKey(),
+            'domains_provider_id' => $this->domain->domains_provider_id,
+            'status' => 'free',
+            'is_our' => false,
+            'is_active' => true,
+        ]);
+        $this->app->instance(AlphaLinkInstallerServerCredentialResolver::class, Mockery::mock(AlphaLinkInstallerServerCredentialResolver::class)->shouldNotReceive('resolve')->getMock());
+        $this->app->instance(AlphaLinkBulkInstallRemoteIpDiscovery::class, Mockery::mock(AlphaLinkBulkInstallRemoteIpDiscovery::class)->shouldNotReceive('discover')->getMock());
+
+        $this->expectException(HostProbeException::class);
+        $this->expectExceptionMessage('The selected primary domain does not match the main IP assignment.');
+        app(AlphaLinkBulkInstallRowPreparation::class)->prepare(
+            $this->user,
+            $this->workspace,
+            (string) $this->server->getKey(),
+            (string) $this->domain->getKey(),
+            [[
+                'ip' => '198.51.100.12',
+                'type' => 'ipv4',
+                'main' => true,
+                'sub' => '',
+                'domain_id' => (string) $otherDomain->getKey(),
+            ]],
+        );
+    }
+
     public function test_credential_resolver_decrypts_workspace_scoped_password_and_ssh_key(): void
     {
         $credential = ServerCredential::query()->create([

@@ -115,6 +115,46 @@ class AlphaLinkBulkInstallRunProcessPoolTest extends TestCase
         $this->assertSame(['[23/10/2026-15:04:05] Installation Started'], $result['logs']);
     }
 
+    public function test_it_forwards_nested_domain_assignments_to_the_isolated_worker(): void
+    {
+        $workspaceId = (string) Str::uuid();
+        $runId = $this->transcripts->createRun($workspaceId);
+        $workspace = (new Workspace)->forceFill(['id' => $workspaceId]);
+        $user = (new User)->forceFill(['id' => '42']);
+        $primaryDomainId = (string) Str::uuid();
+        $secondaryDomainId = (string) Str::uuid();
+        $assignments = [[
+            'ip' => '198.51.100.20',
+            'type' => 'ipv4',
+            'main' => true,
+            'sub' => 'mail',
+            'domain_id' => $primaryDomainId,
+            'domains' => [['domain_id' => $secondaryDomainId, 'sub' => 'news']],
+        ]];
+        $payload = [
+            ...$this->payload([[
+                'id' => 'server-one',
+                'domain' => $primaryDomainId,
+                'ip_assignments' => $assignments,
+            ]]),
+            'multi_domain_per_ip' => true,
+        ];
+        $decoded = null;
+        $rowPayload = new AlphaLinkBulkInstallRowProcessPayload;
+        Process::fake(function (PendingProcess $process) use (&$decoded, $rowPayload) {
+            $command = $process->command;
+            $decoded = $rowPayload->decode((string) end($command));
+
+            return Process::result(AlphaLinkBulkInstallRowProcessPayload::RESULT_FAILED);
+        });
+
+        (new AlphaLinkBulkInstallRunProcessPoolCoordinator($rowPayload, $this->transcripts))
+            ->execute($payload, $user, $workspace, $runId);
+
+        $this->assertTrue($decoded['multi_domain_per_ip']);
+        $this->assertSame($assignments, $decoded['ip_assignments']);
+    }
+
     /** @param list<array{id: string, domain: string}> $rows */
     private function payload(array $rows): array
     {

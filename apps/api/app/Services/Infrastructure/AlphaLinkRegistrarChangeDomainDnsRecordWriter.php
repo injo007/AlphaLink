@@ -9,7 +9,7 @@ use SimpleXMLElement;
 use Throwable;
 
 /** Sends the same replacement record sets as AlphaLink Namecheap and GoDaddy adapters. */
-class AlphaLinkRegistrarChangeDomainDnsRecordWriter implements AlphaLinkBulkInstallDomainDnsRecordWriter, AlphaLinkChangeDomainDnsRecordWriter, AlphaLinkDomainRecordsHostWriter
+class AlphaLinkRegistrarChangeDomainDnsRecordWriter implements AlphaLinkAssignmentDnsRecordWriter, AlphaLinkBulkInstallDomainDnsRecordWriter, AlphaLinkChangeDomainDnsRecordWriter, AlphaLinkDomainRecordsHostWriter
 {
     private const ALLOWED_TYPES = ['A', 'AAAA', 'CNAME', 'MX', 'NS', 'SOA', 'SRV', 'TXT'];
 
@@ -28,6 +28,22 @@ class AlphaLinkRegistrarChangeDomainDnsRecordWriter implements AlphaLinkBulkInst
             'godaddy' => $this->hasGoDaddyDomain($provider, (string) $domain->name),
             default => false,
         };
+    }
+
+    public function isAssignmentDomainAvailable(SendingDomain $domain): bool
+    {
+        $provider = $this->providerFor($domain);
+        if (! $provider instanceof DomainProvider || ! $provider->is_active || strtolower((string) $provider->type) !== 'cloudflare') {
+            return false;
+        }
+
+        try {
+            $this->cloudflareDnsApi->zoneForManagedHostname($provider, (string) $domain->name, $domain->provider_domain_id);
+
+            return true;
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     public function cleanDomainRecords(SendingDomain $domain): bool
@@ -61,6 +77,28 @@ class AlphaLinkRegistrarChangeDomainDnsRecordWriter implements AlphaLinkBulkInst
         }
 
         return $this->setHostsWithProvider($provider, $domain->name, $records, (string) $domain->provider_domain_id);
+    }
+
+    public function setAssignmentHosts(SendingDomain $domain, array $records): bool
+    {
+        $provider = $this->providerFor($domain);
+        if (! $provider instanceof DomainProvider || ! $provider->is_active) {
+            return false;
+        }
+        if (strtolower((string) $provider->type) !== 'cloudflare') {
+            throw new \RuntimeException('Non-destructive multi-domain DNS provisioning is unavailable for the selected provider.');
+        }
+
+        $zone = $this->cloudflareDnsApi->zoneForManagedHostname($provider, (string) $domain->name, $domain->provider_domain_id);
+        $domainName = strtolower(rtrim((string) $domain->name, '.'));
+        $records = array_map(static function (array $record) use ($domainName): array {
+            $host = strtolower(rtrim((string) $record['host'], '.'));
+            $record['host'] = $host === '@' ? $domainName : $host.'.'.$domainName;
+
+            return $record;
+        }, $records);
+
+        return $this->cloudflareDnsApi->ensureAssignmentRecords($provider, $zone['id'], $zone['name'], $records);
     }
 
     /** @param list<array{host: string, address: string, type: string, ttl: string}> $records */

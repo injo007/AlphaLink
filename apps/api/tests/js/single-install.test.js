@@ -56,5 +56,26 @@ test('submits the supported per-IP assignments and uses the main IP domain as th
         dmarc: 1,
         https: 0,
         clean_dns: 0,
+        multi_domain_per_ip: 0,
     });
+});
+
+test('single install submits extra domain assignments only when the multi-domain switch is active', () => {
+    const payload = buildSingleInstallPayload({
+        serverId: 'server-1',
+        rows: [{
+            ip: '192.0.2.10', type: 'ipv4', main: true, sub: 'mail', domain_id: 'domain-a',
+            domains: [{ domain_id: 'domain-b', sub: 'offers' }],
+        }],
+        key: 1,
+        pmtaVersion: 45,
+        switches: { multi_domain_per_ip: true },
+    });
+
+    assert.deepEqual(payload.data[0].ip_assignments[0], {
+        ip: '192.0.2.10', type: 'ipv4', main: true, sub: 'mail', domain_id: 'domain-a',
+        domains: [{ domain_id: 'domain-b', sub: 'offers' }],
+    });
+    assert.equal(payload.multi_domain_per_ip, 1);
+    assert.equal(payload.domains_per_ip, 2);
 });

@@ -73,6 +73,25 @@ test('a selected VMTA domain updates the Domain field without rewriting body URL
     assert.match(result.hint.textContent, /using the selected VMTA domain/i);
 });
 
+test('a selected DOMAIN assignment uses its hostname without rewriting message hosts', () => {
+    const assignment = createOption({ domain: 'mail.example.test' }, 'assignment-1');
+    const result = runSync({ route: 'domain', selectedChoices: [assignment] });
+
+    assert.equal(result.domain, 'mail.example.test');
+    assert.match(result.hint.textContent, /installed domain mail\.example\.test/);
+    assert.match(result.body, /https:\/\/\[domain\]\/path/);
+});
+
+test('multiple DOMAIN assignments keep per-message domain resolution', () => {
+    const result = runSync({ route: 'domain', selectedChoices: [
+        createOption({ domain: 'one.example.test' }, 'assignment-1'),
+        createOption({ domain: 'two.example.test' }, 'assignment-2'),
+    ] });
+
+    assert.equal(result.domain, '');
+    assert.match(result.hint.textContent, /each message/i);
+});
+
 test('the saved-revision editor does not rewrite message hosts when its domain changes', () => {
     const revisionView = readFileSync(new URL('../../resources/views/console/campaigns/show.blade.php', import.meta.url), 'utf8');
 

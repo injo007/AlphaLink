@@ -1489,10 +1489,11 @@
                             <div class="form-row">
                                 <div class="form-group col-sm-6 col-md-2">
                                     <label for="send-route"><i class="fas fa-sitemap campaign-field-icon" aria-hidden="true"></i>Option:</label>
-                                    <select id="send-route" name="send_setup[route_option]" class="form-control selectpicker" data-size="3" required>
+                                    <select id="send-route" name="send_setup[route_option]" class="form-control selectpicker" data-size="4" required>
                                         <option value="ip" @selected($setup['route_option'] === 'ip')>IP</option>
                                         <option value="vmta" @selected($setup['route_option'] === 'vmta')>VMTA</option>
                                         <option value="smtp" @selected($setup['route_option'] === 'smtp')>SMTP</option>
+                                        <option value="domain" @selected($setup['route_option'] === 'domain')>DOMAIN</option>
                                     </select>
                                 </div>
                                 <div class="form-group col-sm-6 col-md-2">
@@ -1518,7 +1519,7 @@
                             <div class="form-group">
                                 <div class="campaign-route-pools-heading">
                                     <div><i class="fas fa-share-alt campaign-field-icon" aria-hidden="true"></i><span>Delivery routes</span><small>Choose the outbound route or accounts for this campaign.</small></div>
-                                    <span class="campaign-route-kind" id="send-route-choice-heading">{{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}</span>
+                                    <span class="campaign-route-kind" id="send-route-choice-heading">{{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', 'domain' => 'Domains', default => 'IPs' } }}</span>
                                 </div>
                                 <select id="send-ips" name="send_setup[ip_ids][]" class="sr-only" aria-hidden="true" tabindex="-1" multiple>
                                     @foreach ($sendOptions['ips'] as $ip)
@@ -1526,16 +1527,17 @@
                                             $routeChoiceLabel = match ($setup['route_option']) {
                                                 'vmta' => implode(' | ', array_filter([$ip['ip'], $ip['dns'] ?? '', $ip['name'] ?? ''], static fn ($value) => filled($value))),
                                                 'smtp' => implode(' | ', array_filter([$ip['ip'], $ip['username'] ?? '', $ip['name'] ?? '', $ip['dns'] ?? ''], static fn ($value) => filled($value))),
+                                                'domain' => implode(' | ', array_filter([$ip['domain'] ?? '', $ip['ip'], $ip['server_name'] ?? ''], static fn ($value) => filled($value))),
                                                 default => implode(' | ', array_filter([$ip['ip'], $ip['dns'] ?? '', $ip['username'] ?? null], static fn ($value) => filled($value))),
                                             };
                                         @endphp
-                                        <option value="{{ $ip['id'] }}" data-route="{{ $setup['route_option'] }}" data-route-choice-id="{{ $ip['id'] }}" data-server-id="{{ $ip['server_id'] }}" data-managed-server-ip-id="{{ $ip['managed_server_ip_id'] ?? '' }}" data-pmta-name="{{ $ip['pmta_name'] ?? '' }}" data-username="{{ $ip['username'] ?? '' }}" data-name="{{ $ip['name'] ?? '' }}" data-ip="{{ $ip['ip'] }}" data-dns="{{ $ip['dns'] ?? '' }}" data-vmta-domain="{{ $ip['vmta_domain'] ?? '' }}" @selected(in_array((string) $ip['id'], $setup['ip_ids'], true))>{{ $routeChoiceLabel }}</option>
+                                        <option value="{{ $ip['id'] }}" data-route="{{ $setup['route_option'] }}" data-route-choice-id="{{ $ip['id'] }}" data-server-id="{{ $ip['server_id'] }}" data-managed-server-ip-id="{{ $ip['managed_server_ip_id'] ?? '' }}" data-pmta-name="{{ $ip['pmta_name'] ?? '' }}" data-username="{{ $ip['username'] ?? '' }}" data-name="{{ $ip['name'] ?? '' }}" data-ip="{{ $ip['ip'] }}" data-dns="{{ $ip['dns'] ?? '' }}" data-vmta-domain="{{ $ip['vmta_domain'] ?? '' }}" data-domain="{{ $ip['domain'] ?? '' }}" data-tracking-host="{{ $ip['tracking_host'] ?? '' }}" @selected(in_array((string) $ip['id'], $setup['ip_ids'], true))>{{ $routeChoiceLabel }}</option>
                                     @endforeach
                                 </select>
                                 <div class="campaign-route-picker">
                                     <div class="campaign-route-selector">
                                         <div class="campaign-route-pane-heading">
-                                            <label for="send-ips-available"><span id="send-ips-available-label">Available {{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}</span><span class="campaign-route-count" id="send-ips-available-count">0</span></label>
+                                            <label for="send-ips-available"><span id="send-ips-available-label">Available {{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', 'domain' => 'Domains', default => 'IPs' } }}</span><span class="campaign-route-count" id="send-ips-available-count">0</span></label>
                                             <div class="d-inline-flex align-items-center" style="gap: 6px;">
                                                 <button type="button" class="campaign-editor-icon-button" id="send-ips-bulk-paste-open" data-paste-ip-list="available" title="Paste bulk SMTPs / routes to select" aria-label="Paste bulk SMTPs or routes to select"><i class="fas fa-paste" aria-hidden="true"></i></button>
                                                 <button type="button" class="campaign-editor-icon-button" data-copy-ip-list="available" title="Copy available routes" aria-label="Copy available routes"><i class="fas fa-copy" aria-hidden="true"></i></button>
@@ -1552,15 +1554,22 @@
                                     </div>
                                     <div class="campaign-route-selector">
                                         <div class="campaign-route-pane-heading">
-                                            <label for="send-ips-selected"><span id="send-ips-selected-label">Selected {{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}</span><span class="campaign-route-count" id="send-ips-selected-count">0</span></label>
+                                            <label for="send-ips-selected"><span id="send-ips-selected-label">Selected {{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', 'domain' => 'Domains', default => 'IPs' } }}</span><span class="campaign-route-count" id="send-ips-selected-count">0</span></label>
                                             <button type="button" class="campaign-editor-icon-button" data-copy-ip-list="selected" title="Copy selected routes" aria-label="Copy selected routes"><i class="fas fa-copy" aria-hidden="true"></i></button>
                                         </div>
                                         <input class="form-control form-control-sm campaign-route-filter" id="send-ips-selected-filter" type="search" placeholder="Filter selected IPs" aria-label="Filter selected IPs">
-                                        <select id="send-ips-selected" class="form-control" multiple size="10" aria-label="Selected {{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', default => 'IPs' } }}" aria-describedby="send-ips-transfer-help"></select>
+                                        <select id="send-ips-selected" class="form-control" multiple size="10" aria-label="Selected {{ match ($setup['route_option']) { 'smtp' => 'SMTP routes', 'vmta' => 'VMTAs', 'domain' => 'Domains', default => 'IPs' } }}" aria-describedby="send-ips-transfer-help"></select>
                                     </div>
                                 </div>
                                 <small id="send-ips-transfer-help" class="sr-only form-text text-muted">Double-click an entry to move it between lists. You can also select entries and use the arrow buttons.</small>
-                                <small class="sr-only form-text text-muted">Campaign Save requires at least one selected IP, VMTA, or SMTP route. Test Campaign uses the saved route on this revision.</small>
+                                <small class="sr-only form-text text-muted">Campaign Save requires at least one selected IP, VMTA, SMTP route, or ready domain. Test Campaign uses the saved route on this revision.</small>
+                                @php $pendingDomainRoutes = collect($sendOptions['domain_routes'] ?? [])->filter(static fn ($choice) => ! $choice['is_ready']); @endphp
+                                <div id="send-domain-readiness" class="form-text text-muted" role="status" @if($setup['route_option'] !== 'domain' || $pendingDomainRoutes->isEmpty()) hidden @endif>
+                                    @if ($pendingDomainRoutes->isNotEmpty())
+                                        <strong>{{ $pendingDomainRoutes->count() }} installed domain assignments unavailable for sending:</strong>
+                                        <ul class="mb-0">@foreach ($pendingDomainRoutes as $choice)<li>{{ $choice['domain'] }} · {{ $choice['ip'] }} · {{ $choice['server_name'] }} — DNS, DKIM, or HTTPS tracking verification is pending.</li>@endforeach</ul>
+                                    @endif
+                                </div>
                                 <details class="campaign-create-help campaign-route-help">
                                     <summary title="Route behavior"><i class="fas fa-info-circle campaign-field-icon" aria-hidden="true"></i><span class="sr-only">Route behavior</span></summary>
                                     <small class="form-text text-info" id="send-route-behavior">Option IP sends through the selected IP route. <code>[smtp]</code> and <code>[smtp_name]</code> fill message text from one linked account; they do not choose the outbound route. To send through an SMTP relay, choose Option SMTP and select that account. AlphaLink connects to the selected server’s PMTA listener; that server IP is the PMTA ingress, while the selected route controls outbound delivery. Start a saved campaign from My Campaigns after recipient preparation finishes.</small>
@@ -2277,7 +2286,24 @@
             const ipSource = document.getElementById('send-ips');
             const availableIps = document.getElementById('send-ips-available');
             const chosenIps = document.getElementById('send-ips-selected');
-            const routeChoiceNames = {ip: 'IPs', vmta: 'VMTAs', smtp: 'SMTP routes'};
+            const routeChoiceNames = {ip: 'IPs', vmta: 'VMTAs', smtp: 'SMTP routes', domain: 'Domains'};
+            const renderDomainReadiness = (records) => {
+                const status = document.getElementById('send-domain-readiness');
+                const pending = (records || []).filter((choice) => !choice.is_ready);
+                status.hidden = document.getElementById('send-route')?.value !== 'domain' || pending.length === 0;
+                status.replaceChildren();
+                if (status.hidden) return;
+                const heading = document.createElement('strong');
+                heading.textContent = `${pending.length} installed domain assignment${pending.length === 1 ? '' : 's'} unavailable for sending:`;
+                const list = document.createElement('ul');
+                list.className = 'mb-0';
+                pending.forEach((choice) => {
+                    const item = document.createElement('li');
+                    item.textContent = `${choice.domain} · ${choice.ip} · ${choice.server_name} — DNS, DKIM, or HTTPS tracking verification is pending.`;
+                    list.append(item);
+                });
+                status.append(heading, list);
+            };
             const syncRouteChoiceLabels = () => {
                 const route = document.getElementById('send-route')?.value || 'ip';
                 const routeName = routeChoiceNames[route] || 'IPs';
@@ -2290,7 +2316,9 @@
                 document.getElementById('send-ips-selected-filter').placeholder = `Filter selected ${routeName.toLowerCase()}`;
                 const behavior = document.getElementById('send-route-behavior');
                 if (behavior) {
-                    behavior.innerHTML = route === 'smtp'
+                    behavior.innerHTML = route === 'domain'
+                        ? 'Option DOMAIN uses each selected installed domain on its assigned IP. Each message uses that domain for From, envelope sender, DKIM signing, and HTTPS tracking. Only verified assignments appear as selectable routes; <code>[domain]</code> resolves for the route used by each message.'
+                        : route === 'smtp'
                         ? 'Option SMTP selects the outbound relay. <code>[smtp]</code> is its username and <code>[smtp_name]</code> is its label. Use <code>[smtp]</code> or <code>[smtp]@[domain]</code> for a local-part username. AlphaLink reaches PMTA through the selected server’s IP and listener; PMTA applies the selected SMTP virtual-MTA route. PMTA acceptance does not confirm mailbox delivery.'
                         : route === 'vmta'
                             ? 'VMTA mode uses the selected virtual MTA for outbound routing. <code>[smtp]</code> and <code>[smtp_name]</code> are empty. AlphaLink submits through the selected server’s PMTA listener.'
@@ -2513,6 +2541,24 @@
             const syncCampaignDomainToRoute = () => {
                 const route = campaignRouteField?.value;
                 const selectedChoices = Array.from(campaignIpsField?.selectedOptions ?? []);
+                if (route === 'domain') {
+                    campaignDomainField.disabled = true;
+                    const domains = [...new Set(selectedChoices.map((option) => String(option.dataset.domain || '').trim()).filter(Boolean))];
+                    const domain = domains.length === 1 ? domains[0] : '';
+                    if (domain && !Array.from(campaignDomainField.options).some((option) => option.value === domain)) {
+                        campaignDomainField.add(new Option(`Installed domain — ${domain}`, domain));
+                    }
+                    campaignDomainField.value = domain;
+                    if (window.jQuery?.fn.selectpicker) window.jQuery(campaignDomainField).selectpicker('refresh');
+                    campaignDomainHint.hidden = false;
+                    campaignDomainHint.textContent = domains.length > 1
+                        ? 'Each selected assignment supplies its own domain when sending; [domain] resolves for each message.'
+                        : domain
+                            ? `Using installed domain ${domain} on its assigned IP.`
+                            : 'Select at least one verified installed domain assignment.';
+                    return;
+                }
+                campaignDomainField.disabled = false;
                 if (route === 'vmta') {
                     const selectedServerIds = new Set(Array.from(document.getElementById('send-servers')?.selectedOptions ?? []).map((option) => String(option.value)));
                     const vmtaChoices = selectedChoices.length
@@ -2648,8 +2694,10 @@
                     option.dataset.username || '',
                     option.dataset.name || '',
                     option.dataset.vmtaDomain || '',
+                    option.dataset.domain || '',
                 ].join('|');
                 const routeChoiceLabel = (ip, routeOption) => {
+                    if (routeOption === 'domain') return [ip.domain, ip.ip, ip.server_name].filter(Boolean).join(' | ');
                     if (routeOption === 'vmta') return [ip.ip, ip.dns, ip.name].filter((value) => value !== null && value !== undefined && String(value) !== '').join(' | ');
                     if (routeOption === 'smtp') return [ip.ip, ip.username, ip.name, ip.dns].filter((value) => value !== null && value !== undefined && String(value) !== '').join(' | ');
                     const label = [ip.ip, ip.dns].filter((value) => value !== null && value !== undefined && String(value) !== '');
@@ -2688,6 +2736,8 @@
                     option.dataset.ip = String(ip.ip || '');
                     option.dataset.dns = String(ip.dns || '');
                     option.dataset.vmtaDomain = String(ip.vmta_domain || '');
+                    option.dataset.domain = String(ip.domain || '');
+                    option.dataset.trackingHost = String(ip.tracking_host || '');
                     option.selected = selected.has(routeChoiceIdentity(option));
                         ips.add(option);
                     });
@@ -2696,6 +2746,7 @@
                     renderIpLists();
                     refreshCampaignDomainOptions(result.campaign_domains);
                     syncCampaignDomainToRoute();
+                    renderDomainReadiness(result.domain_routes);
                     panels.replaceChildren();
                     const selectedServers = new Set(Array.from(servers.selectedOptions).map(option => option.value));
                     result.servers.filter(server => selectedServers.has(String(server.id))).forEach(server => {
@@ -2848,6 +2899,8 @@
                         option.dataset.ip = String(record.ip ?? '');
                         option.dataset.dns = String(record.dns ?? '');
                         option.dataset.vmtaDomain = String(record.vmta_domain ?? '');
+                        option.dataset.domain = String(record.domain ?? '');
+                        option.dataset.trackingHost = String(record.tracking_host ?? '');
                     }
                     if (key === 'creativeAsset') option.dataset.assetValue = String(record.public_url ?? record.value ?? '');
                     if (key === 'htmlAsset') option.dataset.assetValue = String(record.value ?? '');
@@ -2945,12 +2998,15 @@
                 syncRouteChoiceLabels();
                 const routeChoiceLabel = selectedRoute === 'smtp'
                     ? (item) => [item.ip, item.username, item.name, item.dns || 'no DNS'].filter((value) => value !== null && value !== undefined && String(value) !== '').join(' | ')
+                    : selectedRoute === 'domain'
+                        ? (item) => [item.domain, item.ip, item.server_name].filter(Boolean).join(' | ')
                     : selectedRoute === 'vmta'
                         ? (item) => [item.ip, item.dns || 'no DNS', item.name].filter((value) => value !== null && value !== undefined && String(value) !== '').join(' | ')
                         : (item) => `${item.ip} | ${String(item.type).toUpperCase()} | ${item.dns || 'no DNS'}`;
                 fill('ips', data.ips, (item) => item.id, (item) => `${routeChoiceLabel(item)} (server ${item.server_id})`, current.ip_ids, `Select ${routeChoiceNames[selectedRoute] || 'IPs'}`);
                 renderIpLists();
                 syncCampaignDomainToRoute();
+                renderDomainReadiness(data.domain_routes);
 
                 panels.replaceChildren();
                 const selectedServers = new Set(selectedValues(select('servers')));

@@ -17,6 +17,10 @@ class AlphaLinkCentos9InstallWorkflow
         private readonly AlphaLinkPmtaDeploymentGate $gate,
         private readonly AlphaLinkInstallPlatform $platform,
         private readonly AlphaLinkBulkInstallIpPlanner $ipPlanner,
+        private readonly AlphaLinkMultiDomainInstallPlan $multiDomainPlan,
+        private readonly AlphaLinkAssignmentDnsRecordWriter $assignmentDnsWriter,
+        private readonly AlphaLinkSendingDomainDkimIdentityManager $assignmentDkimIdentities,
+        private readonly AlphaLinkMultiDomainDnsVerifier $multiDomainDnsVerifier,
         private readonly AlphaLinkCentos9HostPreparation $hostPreparation,
         private readonly AlphaLinkCentos9ServiceSetup $serviceSetup,
         private readonly AlphaLinkCentos9PhpInstallationStage $phpInstallation,
@@ -120,6 +124,73 @@ class AlphaLinkCentos9InstallWorkflow
             }
             $primaryAssignment = collect($ips)->firstWhere('main', true) ?? $ips[0];
             $primaryDomain = $domainsById[$primaryAssignment['domain_id']];
+            $ips = $this->groupSharedIpAssignments($ips);
+        }
+
+        $multiDomain = collect($ips)->contains(static fn (array $ip): bool => ! empty($ip['domains']));
+        $assignmentPlan = $multiDomain ? $this->multiDomainPlan->build($ips) : null;
+        if ($assignmentPlan !== null) {
+            $ips = $assignmentPlan['ips'];
+            if (! $options['tracking'] || ! $options['https'] || ! $options['spf'] || ! $options['dkim'] || ! $options['dmarc']) {
+                throw new RuntimeException('Multi-domain installation requires HTTPS tracking and SPF, DKIM, and DMARC to be enabled.');
+            }
+
+            $pmtaSigningIdentities = [];
+            foreach ($assignmentPlan['assignments'] as &$plannedAssignment) {
+                $selectedDomain = $domainsById[(string) $plannedAssignment['domain_id']] ?? null;
+                if (! $selectedDomain instanceof SendingDomain) {
+                    throw new InvalidArgumentException('A planned assignment does not belong to a selected sending domain.');
+                }
+                $identity = $this->assignmentDkimIdentities->ensure($workspace, $selectedDomain, $plannedAssignment['hostname']);
+                $plannedAssignment['sending_domain_dkim_identity_id'] = (string) $identity->getKey();
+                $plannedAssignment['dkim_selector'] = (string) $identity->selector;
+                $plannedAssignment['dkim_public_record'] = (string) $identity->public_record;
+                $plannedAssignment['dkim_private_key'] = (string) $identity->private_key;
+                $plannedAssignment['ehlo_hostname'] = (string) collect($assignmentPlan['ips'])
+                    ->firstWhere('ip', $plannedAssignment['ip'])['ehlo_hostname'];
+                $pmtaSigningIdentities[$plannedAssignment['hostname']] = [
+                    'selector' => (string) $identity->selector,
+                    'private_key' => (string) $identity->private_key,
+                ];
+            }
+            unset($plannedAssignment);
+
+            // DNS groups are planned before DKIM material is generated. Carry the
+            // public identity data into the provider writer input without ever
+            // putting private keys into DNS records or installation parameters.
+            $plannedAssignmentsByKey = [];
+            foreach ($assignmentPlan['assignments'] as $plannedAssignment) {
+                $plannedAssignmentsByKey[$plannedAssignment['ip'].'|'.$plannedAssignment['hostname']] = $plannedAssignment;
+            }
+            foreach ($assignmentPlan['dns_groups'] as &$dnsGroup) {
+                foreach ($dnsGroup['assignments'] as &$dnsAssignment) {
+                    $key = $dnsAssignment['ip'].'|'.$dnsAssignment['hostname'];
+                    $dnsAssignment = [...$dnsAssignment, ...array_intersect_key(
+                        $plannedAssignmentsByKey[$key],
+                        array_flip(['sending_domain_dkim_identity_id', 'dkim_selector', 'dkim_public_record', 'ehlo_hostname']),
+                    )];
+                }
+                unset($dnsAssignment);
+            }
+            unset($dnsGroup);
+
+            $assignmentByIpAndHostname = [];
+            foreach ($assignmentPlan['assignments'] as $plannedAssignment) {
+                $assignmentByIpAndHostname[$plannedAssignment['ip'].'|'.$plannedAssignment['hostname']] = $plannedAssignment;
+            }
+            foreach ($ips as &$ipEntry) {
+                $primaryHostname = strtolower(($ipEntry['sub'] !== '' ? $ipEntry['sub'].'.' : '').$ipEntry['domain']);
+                $primaryIdentity = $assignmentByIpAndHostname[$ipEntry['ip'].'|'.$primaryHostname];
+                $ipEntry = [...$ipEntry, ...$this->completionIdentityFields($primaryIdentity)];
+                foreach ($ipEntry['domains'] as &$additionalIdentity) {
+                    $hostname = strtolower(($additionalIdentity['sub'] !== '' ? $additionalIdentity['sub'].'.' : '').$additionalIdentity['domain']);
+                    $planned = $assignmentByIpAndHostname[$ipEntry['ip'].'|'.$hostname];
+                    $additionalIdentity = [...$additionalIdentity, ...$this->completionIdentityFields($planned)];
+                }
+                unset($additionalIdentity);
+            }
+            unset($ipEntry);
+            $assignmentPlan['pmta_signing_identities'] = $pmtaSigningIdentities;
         }
 
         $interfaceMap = is_array($hostFacts['ip_interface_map'] ?? null) ? $hostFacts['ip_interface_map'] : [];
@@ -132,11 +203,15 @@ class AlphaLinkCentos9InstallWorkflow
 
         $domainProviderReady = [];
         foreach ($domainsById as $domainId => $selectedDomain) {
-            $domainProviderReady[$domainId] = $dnsWriter->isDomainAvailable($selectedDomain);
+            $domainProviderReady[$domainId] = $assignmentPlan !== null
+                ? $this->assignmentDnsWriter->isAssignmentDomainAvailable($selectedDomain)
+                : $dnsWriter->isDomainAvailable($selectedDomain);
         }
         $primaryDomainId = (string) $primaryDomain->getKey();
         $primaryDomainReady = $domainProviderReady[$primaryDomainId] ?? false;
-        $deploymentDomain = (string) $primaryDomain->name;
+        $deploymentDomain = $assignmentPlan !== null
+            ? (string) $ips[array_search(true, array_column($ips, 'main'), true)]['ehlo_hostname']
+            : (string) $primaryDomain->name;
 
         $readySubdomains = static function (array $ipsToInclude) use ($domain, $domainProviderReady, $primaryDomain): array {
             $list = [];
@@ -161,10 +236,17 @@ class AlphaLinkCentos9InstallWorkflow
 
         $subdomains = $readySubdomains($ips);
         $trackingAssignment = collect($ips)->firstWhere('main', true) ?? $ips[0];
-        $trackingDomain = trim((string) $trackingAssignment['sub']) !== ''
-            ? trim((string) $trackingAssignment['sub']).'.'.(string) $trackingAssignment['domain']
-            : (string) $trackingAssignment['domain'];
-        $deploymentSubdomains = $primaryDomainReady ? $subdomains : [];
+        $trackingDomain = $assignmentPlan !== null
+            ? (string) $trackingAssignment['tracking_host']
+            : (trim((string) $trackingAssignment['sub']) !== ''
+                ? trim((string) $trackingAssignment['sub']).'.'.(string) $trackingAssignment['domain']
+                : (string) $trackingAssignment['domain']);
+        $trackingDomainAliases = $assignmentPlan !== null
+            ? array_values(array_diff($assignmentPlan['tracking_hosts'], [$trackingDomain]))
+            : $subdomains;
+        $deploymentSubdomains = $assignmentPlan !== null
+            ? $trackingDomainAliases
+            : ($primaryDomainReady ? $subdomains : []);
         if (! $primaryDomainReady) {
             $log(sprintf(
                 'DNS record management is unavailable for %s; retaining the selected hostname and checking its public HTTPS route independently. DNS updates may be skipped.',
@@ -172,12 +254,100 @@ class AlphaLinkCentos9InstallWorkflow
             ));
         }
 
+        $dnsInputIps = $ips;
+        if ($assignmentPlan !== null) {
+            foreach ($dnsInputIps as &$dnsInputIp) {
+                $dnsInputIp['source_ip'] = $dnsInputIp['ip'];
+            }
+            unset($dnsInputIp);
+        }
         $dnsIps = $this->domainRecords->resolvePublicAddresses(
-            $ips,
+            $dnsInputIps,
             new AlphaLinkCentos9PublicIpResolver($session),
             $log,
             (string) $server->ip_address,
         );
+
+        if ($assignmentPlan !== null) {
+            $publicIpBySource = [];
+            foreach ($dnsIps as $resolvedIp) {
+                if (isset($resolvedIp['source_ip'])) {
+                    $publicIpBySource[(string) $resolvedIp['source_ip']] = (string) $resolvedIp['ip'];
+                }
+            }
+            foreach ($assignmentPlan['dns_groups'] as $dnsGroup) {
+                if (! ($domainProviderReady[$dnsGroup['domain_id']] ?? false)) {
+                    $log(sprintf(
+                        'DNS API automation is unavailable for %s; existing public records will be verified before any server changes.',
+                        $dnsGroup['domain'],
+                    ));
+
+                    continue;
+                }
+
+                $records = [];
+                foreach ($dnsGroup['assignments'] as $assignment) {
+                    $publicIp = $publicIpBySource[$assignment['ip']] ?? null;
+                    if ($publicIp === null) {
+                        throw new RuntimeException('A selected physical IP could not be resolved to its public DNS address.');
+                    }
+                    $records[] = [
+                        'hostname' => $assignment['hostname'],
+                        'ip' => $publicIp,
+                        'tracking_host' => $assignment['tracking_host'],
+                        'dkim_selector' => $assignment['dkim_selector'],
+                        'dkim_public_record' => $assignment['dkim_public_record'],
+                    ];
+                }
+                $selectedDomain = $domainsById[$dnsGroup['domain_id']] ?? null;
+                if (! $selectedDomain instanceof SendingDomain) {
+                    throw new InvalidArgumentException('A DNS assignment group is outside the selected sending domains.');
+                }
+                $additionalARecords = [];
+                if (isset($assignmentPlan['shared_ehlo_hostname'])
+                    && (string) ($assignmentPlan['ehlo_domain_id'] ?? '') === (string) $dnsGroup['domain_id']) {
+                    foreach ($ips as $ipEntry) {
+                        $additionalARecords[] = [
+                            'hostname' => (string) $assignmentPlan['shared_ehlo_hostname'],
+                            'ip' => (string) ($publicIpBySource[$ipEntry['ip']] ?? ''),
+                        ];
+                    }
+                }
+                $this->domainRecords->runAssignments(
+                    $selectedDomain,
+                    $records,
+                    [...$options, 'clean_dns' => false],
+                    $this->assignmentDnsWriter,
+                    $log,
+                    $additionalARecords,
+                );
+            }
+
+            $publicAssignments = [];
+            foreach ($assignmentPlan['assignments'] as $assignment) {
+                $publicIp = $publicIpBySource[$assignment['ip']] ?? null;
+                if ($publicIp === null) {
+                    throw new RuntimeException('A selected assignment has no verified public IP for DNS authentication checks.');
+                }
+                $ipEntry = collect($ips)->first(fn (array $ip): bool => (string) $ip['ip'] === (string) $assignment['ip']);
+                if (! is_array($ipEntry)) {
+                    throw new RuntimeException('A selected assignment has no physical-IP EHLO identity.');
+                }
+                $publicAssignments[] = [
+                    ...$assignment,
+                    'ip' => $publicIp,
+                    'ehlo_hostname' => (string) $ipEntry['ehlo_hostname'],
+                ];
+            }
+
+            // Resolve the records before changing the mail host. This makes
+            // externally managed DNS a supported path, and prevents an
+            // unavailable DNS API from leaving a half-installed server.
+            $this->multiDomainDnsVerifier->verifyForwardAddresses($publicAssignments);
+            $this->multiDomainDnsVerifier->verifyMailAuthentication($publicAssignments, $options);
+
+            $log('Verified public sending, tracking, and EHLO DNS plus SPF, DKIM, and DMARC before changing the mail server');
+        }
 
         if ($options['tracking'] && $assets['tracking_app'] !== null) {
             $this->tracking->verifyCallback($session, $settings['tracking_callback_url']);
@@ -213,7 +383,7 @@ class AlphaLinkCentos9InstallWorkflow
             $log('End Setting Tracking App');
         }
 
-        foreach ($this->groupIpsByDomain($dnsIps, $domainsById) as $domainGroup) {
+        foreach ($assignmentPlan === null ? $this->groupIpsByDomain($dnsIps, $domainsById) : [] as $domainGroup) {
             $dnsReady = $this->domainRecords->run(
                 $domainGroup['domain'], $domainGroup['ips'], $options,
                 $settings['dkim_selector'], $settings['dkim_public_key'],
@@ -252,6 +422,7 @@ class AlphaLinkCentos9InstallWorkflow
         $this->vmtas->run(
             $session, $session, (bool) $primaryDomain->is_our, $ips, $isps,
             $settings['dkim_selector'], $options['dkim'], $settings['dkim_key'],
+            $assignmentPlan['pmta_signing_identities'] ?? [],
         );
         $log('End Setting VMTAS');
 
@@ -277,9 +448,11 @@ class AlphaLinkCentos9InstallWorkflow
         } elseif ($certificateDomain === null && $options['https']) {
             $certificateDomain = (string) $primaryDomain->name;
         }
-        $certificateSubdomains = $primaryDomainReady
-            ? array_values(array_filter($subdomains, static fn (string $host): bool => $host !== $certificateDomain))
-            : [];
+        $certificateSubdomains = $assignmentPlan !== null
+            ? $trackingDomainAliases
+            : ($primaryDomainReady
+                ? array_values(array_filter($subdomains, static fn (string $host): bool => $host !== $certificateDomain))
+                : []);
 
         $log($options['https'] ? 'Setup HTTPS for selected domain' : 'Setup HTTPS for PMTA Web Monitor');
         if ($certificateDomain !== null && ! $this->firewall->prepareDomainCertificatePorts($session)) {
@@ -322,11 +495,36 @@ class AlphaLinkCentos9InstallWorkflow
         $log('End Setting Firewall');
 
         $trackingHttpsReady = false;
+        $trackingHttpsReadyByHost = [];
         if ($options['tracking'] && $options['https'] && $domainCertificateReady && $trackingDomain !== '') {
             $trackingHttpsReady = $this->tracking->verifyHttps($session, $trackingDomain);
             if (! $trackingHttpsReady) {
                 $log('Tracking HTTPS did not pass its health and redirect checks; tracked campaign sends require repair before use.');
             }
+        }
+
+        if ($assignmentPlan !== null) {
+            foreach ($assignmentPlan['tracking_hosts'] as $assignmentTrackingHost) {
+                $ready = $this->tracking->verifyHttps($session, $assignmentTrackingHost);
+                $trackingHttpsReadyByHost[$assignmentTrackingHost] = $ready;
+                if (! $ready) {
+                    throw new RuntimeException('HTTPS tracking verification failed for assignment host '.$assignmentTrackingHost.'.');
+                }
+            }
+            $this->multiDomainDnsVerifier->verify($publicAssignments, $options);
+
+            foreach ($ips as &$ipEntry) {
+                $ipEntry['dns_verified'] = true;
+                $ipEntry['authentication_verified'] = true;
+                $ipEntry['tracking_https_ready'] = true;
+                foreach ($ipEntry['domains'] as &$additionalIdentity) {
+                    $additionalIdentity['dns_verified'] = true;
+                    $additionalIdentity['authentication_verified'] = true;
+                    $additionalIdentity['tracking_https_ready'] = true;
+                }
+                unset($additionalIdentity);
+            }
+            unset($ipEntry);
         }
 
         // AlphaLink starts both services but does not inspect their final state. Do not
@@ -398,6 +596,48 @@ class AlphaLinkCentos9InstallWorkflow
         }
 
         return array_values($groups);
+    }
+
+    /**
+     * Normalize legacy one-row-per-domain assignment requests into one physical
+     * IP row with nested identities. This keeps PMTA VMTA and database IP rows
+     * unique while preserving each domain/subdomain identity.
+     *
+     * @param  list<array<string, mixed>>  $assignments
+     * @return list<array<string, mixed>>
+     */
+    private function groupSharedIpAssignments(array $assignments): array
+    {
+        $groups = [];
+        foreach ($assignments as $assignment) {
+            $key = (string) $assignment['ip'];
+            $groups[$key] ??= [];
+            $groups[$key][] = $assignment;
+        }
+
+        $rows = [];
+        foreach ($groups as $group) {
+            $primaryIndex = collect($group)->search(static fn (array $assignment): bool => (bool) ($assignment['main'] ?? false));
+            if ($primaryIndex === false) {
+                $primaryIndex = 0;
+            }
+            $primary = $group[$primaryIndex];
+            $primary['domains'] = array_values($primary['domains'] ?? []);
+            foreach ($group as $index => $assignment) {
+                if ($index === $primaryIndex) {
+                    continue;
+                }
+                $primary['domains'][] = [
+                    'domain_id' => $assignment['domain_id'],
+                    'domain' => $assignment['domain'],
+                    'sub' => $assignment['sub'],
+                    'is_our' => (bool) $assignment['is_our'],
+                ];
+            }
+            $rows[] = $primary;
+        }
+
+        return $rows;
     }
 
     /**
@@ -475,5 +715,19 @@ class AlphaLinkCentos9InstallWorkflow
         bool $directMonitor = false,
     ): string {
         return (new AlphaLinkPmtaPostInstallReadiness)->command($version, $settings, $https, $domain, $directMonitor);
+    }
+
+    /** @param array<string, mixed> $identity
+     * @return array<string, mixed>
+     */
+    private function completionIdentityFields(array $identity): array
+    {
+        return [
+            'sending_domain_dkim_identity_id' => (string) $identity['sending_domain_dkim_identity_id'],
+            'dkim_selector' => (string) $identity['dkim_selector'],
+            'dns_verified' => false,
+            'authentication_verified' => false,
+            'tracking_https_ready' => false,
+        ];
     }
 }

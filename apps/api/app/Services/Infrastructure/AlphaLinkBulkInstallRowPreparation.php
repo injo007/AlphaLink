@@ -57,27 +57,34 @@ class AlphaLinkBulkInstallRowPreparation
             throw new HostProbeException('Verify the server host before installation.');
         }
 
+        $domainById = $ipAssignments !== null
+            ? $this->resolveSelectedDomains($workspace, $ipAssignments)
+            : [];
+        if ($ipAssignments !== null) {
+            $primaryAssignment = collect($ipAssignments)->firstWhere('main', true) ?? $ipAssignments[0];
+            if ((string) $primaryAssignment['domain_id'] !== (string) $domain->getKey()) {
+                throw new HostProbeException('The selected primary domain does not match the main IP assignment.');
+            }
+        }
+
         $credential = $this->credentialResolver->resolve($server);
         $ips = $this->ipDiscovery->discover($server, $credential['secret'], $credential['type']);
 
         if ($ipAssignments !== null) {
             $preparedAssignments = $this->prepareIpAssignments($workspace, $ips, $ipAssignments);
-            $domainById = [];
-            foreach ($preparedAssignments as $assignment) {
-                $domainById[$assignment['domain_id']] ??= $this->eligibility->singleInstallDomainForSelection(
-                    $workspace,
-                    $assignment['domain_id'],
-                );
-            }
-
-            if (in_array(null, $domainById, true)) {
-                throw new HostProbeException('One of the selected domains is no longer eligible for installation.');
-            }
 
             foreach ($preparedAssignments as &$assignment) {
                 $assignmentDomain = $domainById[$assignment['domain_id']];
                 $assignment['domain'] = (string) $assignmentDomain->name;
                 $assignment['is_our'] = (bool) $assignmentDomain->is_our;
+                if (isset($assignment['domains'])) {
+                    foreach ($assignment['domains'] as &$additionalDomain) {
+                        $selectedDomain = $domainById[$additionalDomain['domain_id']];
+                        $additionalDomain['domain'] = (string) $selectedDomain->name;
+                        $additionalDomain['is_our'] = (bool) $selectedDomain->is_our;
+                    }
+                    unset($additionalDomain);
+                }
             }
             unset($assignment);
 
@@ -102,6 +109,70 @@ class AlphaLinkBulkInstallRowPreparation
             'ips' => $ips,
             'isps' => $this->ispCatalog->vmtaNames($workspace),
         ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $assignments
+     * @return array<string, SendingDomain>
+     */
+    private function resolveSelectedDomains(Workspace $workspace, array $assignments): array
+    {
+        if ($assignments === []) {
+            throw new HostProbeException('Load and review at least one server IP before installation.');
+        }
+
+        $domainsById = [];
+        $seenIps = [];
+        $mainCount = 0;
+        foreach ($assignments as $assignment) {
+            if (! is_array($assignment)
+                || ! is_string($assignment['ip'] ?? null)
+                || filter_var($assignment['ip'], FILTER_VALIDATE_IP) === false
+                || ! in_array($assignment['type'] ?? null, ['ipv4', 'ipv6'], true)
+                || ! is_bool($assignment['main'] ?? null)
+                || ! is_string($assignment['sub'] ?? null)
+                || ! is_string($assignment['domain_id'] ?? null)
+                || ! is_array($assignment['domains'] ?? [])) {
+                throw new HostProbeException('The IP domain assignments are invalid.');
+            }
+            if (isset($seenIps[$assignment['ip']])) {
+                throw new HostProbeException('Each physical IP may be assigned only once.');
+            }
+            $expectedType = filter_var($assignment['ip'], FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false ? 'ipv4' : 'ipv6';
+            if ($assignment['type'] !== $expectedType) {
+                throw new HostProbeException('The IP assignment type does not match its address.');
+            }
+            $seenIps[$assignment['ip']] = true;
+            $mainCount += $assignment['main'] ? 1 : 0;
+            $hostnames = [];
+            foreach (array_merge([[
+                'domain_id' => $assignment['domain_id'],
+                'sub' => $assignment['sub'],
+            ]], $assignment['domains'] ?? []) as $identity) {
+                if (! is_array($identity)
+                    || ! is_string($identity['domain_id'] ?? null)
+                    || ! is_string($identity['sub'] ?? null)
+                    || ($identity['sub'] !== '' && ! preg_match('/^(?=.{1,63}$)(?!-)[A-Za-z0-9-]+(?<!-)$/', $identity['sub']))) {
+                    throw new HostProbeException('Subdomains must be valid DNS labels.');
+                }
+                $selectedDomain = $domainsById[$identity['domain_id']]
+                    ?? $this->eligibility->singleInstallDomainForSelection($workspace, $identity['domain_id']);
+                if (! $selectedDomain instanceof SendingDomain) {
+                    throw new HostProbeException('One of the selected domains is no longer eligible for installation.');
+                }
+                $domainsById[$identity['domain_id']] = $selectedDomain;
+                $hostname = strtolower(($identity['sub'] !== '' ? $identity['sub'].'.' : '').$selectedDomain->name);
+                if (isset($hostnames[$hostname])) {
+                    throw new HostProbeException('A sending hostname may be assigned only once to each physical IP.');
+                }
+                $hostnames[$hostname] = true;
+            }
+        }
+        if ($mainCount > 1) {
+            throw new HostProbeException('Select only one main IP address.');
+        }
+
+        return $domainsById;
     }
 
     /**

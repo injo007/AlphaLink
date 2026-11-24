@@ -159,6 +159,57 @@ class AlphaLinkCentos9VmtaDeploymentStageTest extends TestCase
         $this->assertStringContainsString('openssl pkey', $commands[0]);
     }
 
+    public function test_multiple_domains_upload_and_verify_distinct_keys_before_restart(): void
+    {
+        $transport = $this->transport();
+        $stage = new AlphaLinkCentos9VmtaDeploymentStage(new AlphaLinkBulkInstallVmtaPlanner);
+
+        $stage->run($transport, $transport, true, [[
+            'ip' => '203.0.113.20', 'sub' => 'mail', 'domain' => 'sender.example',
+            'domains' => [['sub' => 'offers', 'domain' => 'other.example']],
+        ]], [], 'legacy', true, '', [
+            'mail.sender.example' => ['selector' => 'one', 'private_key' => 'key one'],
+            'offers.other.example' => ['selector' => 'two', 'private_key' => 'key two'],
+        ]);
+
+        $uploads = array_values(array_filter($transport->events, fn (array $event): bool => $event['type'] === 'upload'));
+        $this->assertSame([
+            '/etc/pmta/conf/vmta', '/etc/pmta/settings/inbound',
+            '/etc/pmta/dkim-keys/mail.sender.example.pem',
+            '/etc/pmta/dkim-keys/offers.other.example.pem',
+            '/etc/pmta/conf/dkim',
+        ], array_column($uploads, 'destination'));
+        $this->assertStringContainsString('domain-key one,mail.sender.example,/etc/pmta/dkim-keys/mail.sender.example.pem', $uploads[4]['contents']);
+        $this->assertStringContainsString('domain-key two,offers.other.example,/etc/pmta/dkim-keys/offers.other.example.pem', $uploads[4]['contents']);
+        $commands = array_column(array_filter($transport->events, fn (array $event): bool => $event['type'] === 'command'), 'command');
+        $this->assertStringContainsString('openssl pkey -in \'/etc/pmta/dkim-keys/mail.sender.example.pem\'', implode("\n", $commands));
+        $this->assertStringContainsString('openssl pkey -in \'/etc/pmta/dkim-keys/offers.other.example.pem\'', implode("\n", $commands));
+        $this->assertSame('systemctl restart pmtahttp;', $commands[array_key_last($commands)]);
+    }
+
+    public function test_failed_second_domain_key_upload_stops_before_pmta_restart(): void
+    {
+        $transport = $this->transport();
+        $transport->uploadResults['/etc/pmta/dkim-keys/offers.other.example.pem'] = false;
+        $stage = new AlphaLinkCentos9VmtaDeploymentStage(new AlphaLinkBulkInstallVmtaPlanner);
+
+        try {
+            $stage->run($transport, $transport, true, [[
+                'ip' => '203.0.113.20', 'sub' => 'mail', 'domain' => 'sender.example',
+                'domains' => [['sub' => 'offers', 'domain' => 'other.example']],
+            ]], [], 'legacy', true, '', [
+                'mail.sender.example' => ['selector' => 'one', 'private_key' => 'key one'],
+                'offers.other.example' => ['selector' => 'two', 'private_key' => 'key two'],
+            ]);
+            $this->fail('A failed domain key upload must stop PMTA deployment.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('A selected DKIM private key could not be uploaded to PMTA.', $exception->getMessage());
+        }
+
+        $commands = array_column(array_filter($transport->events, fn (array $event): bool => $event['type'] === 'command'), 'command');
+        $this->assertNotContains('systemctl restart pmta;', $commands);
+    }
+
     private function transport(): object
     {
         return new class implements AlphaLinkInstallerRemoteCommandTransport, AlphaLinkInstallerRemoteFileTransport
@@ -174,6 +225,13 @@ class AlphaLinkCentos9VmtaDeploymentStageTest extends TestCase
             public function exec(string $command): bool|string
             {
                 $this->events[] = ['type' => 'command', 'command' => $command];
+
+                if (str_contains($command, 'ALPHALINK_DKIM_DIR_READY')) {
+                    return 'ALPHALINK_DKIM_DIR_READY';
+                }
+                if (str_contains($command, 'ALPHALINK_DKIM_PERMISSIONS_READY')) {
+                    return 'ALPHALINK_DKIM_PERMISSIONS_READY';
+                }
 
                 return $this->dkimReady && str_contains($command, 'ALPHALINK_DKIM_READY')
                     ? 'ALPHALINK_DKIM_READY'

@@ -77,6 +77,34 @@ class CloudflareDnsApi
         return $zoneId;
     }
 
+    /** @return array{id: string, name: string} */
+    public function zoneForManagedHostname(DomainProvider $provider, string $hostname, ?string $savedZoneId = null): array
+    {
+        $hostname = strtolower(rtrim(trim($hostname), '.'));
+        if (filter_var($hostname, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) === false) {
+            throw new CloudflareDnsApiException('The selected sending hostname is invalid.');
+        }
+
+        $matching = array_values(array_filter($this->listZones($provider), static function (array $zone) use ($hostname): bool {
+            $name = strtolower(rtrim((string) ($zone['name'] ?? ''), '.'));
+
+            return $name !== '' && ($hostname === $name || str_ends_with($hostname, '.'.$name));
+        }));
+        usort($matching, static fn (array $left, array $right): int => strlen((string) ($right['name'] ?? '')) <=> strlen((string) ($left['name'] ?? '')));
+        $zone = $matching[0] ?? null;
+        if (! is_array($zone) || (isset($matching[1]) && strcasecmp((string) $matching[1]['name'], (string) $zone['name']) === 0)) {
+            throw new CloudflareDnsApiException('The selected sending hostname does not have one matching Cloudflare zone.');
+        }
+
+        $zoneId = (string) ($zone['id'] ?? '');
+        $this->assertZoneId($zoneId);
+        if (filled($savedZoneId) && $savedZoneId !== $zoneId) {
+            throw new CloudflareDnsApiException('The selected sending hostname Cloudflare zone does not match its saved zone.');
+        }
+
+        return ['id' => $zoneId, 'name' => strtolower(rtrim((string) $zone['name'], '.'))];
+    }
+
     /** @return list<array<string, mixed>> */
     public function listDnsRecords(DomainProvider $provider, string $zoneId): array
     {
@@ -288,6 +316,257 @@ class CloudflareDnsApi
         return true;
     }
 
+    /**
+     * Add selected assignment records without deleting or replacing existing DNS data.
+     * A different record in a selected name/type group is a conflict, not permission
+     * to overwrite it. Retries accept already-present records.
+     *
+     * @param  list<array{host: string, address: string, type: string, ttl: string}>  $records
+     */
+    public function ensureAssignmentRecords(DomainProvider $provider, string $zoneId, string $zoneName, array $records): bool
+    {
+        $this->assertZoneId($zoneId);
+        $zoneName = strtolower(rtrim(trim($zoneName), '.'));
+        $desired = [];
+        foreach ($records as $record) {
+            $type = strtoupper($record['type']);
+            if (! in_array($type, ['A', 'AAAA', 'MX', 'TXT'], true)) {
+                throw new CloudflareDnsApiException('An assignment DNS record has an unsupported type.');
+            }
+            $host = strtolower(rtrim(trim($record['host']), '.'));
+            $name = $host === '@'
+                ? $zoneName
+                : (($host === $zoneName || str_ends_with($host, '.'.$zoneName)) ? $host : $host.'.'.$zoneName);
+            if (! $this->isValidAssignmentRecordName($name)) {
+                throw new CloudflareDnsApiException('An assignment DNS hostname is invalid.');
+            }
+            $content = $type === 'TXT'
+                ? $this->normalizeCloudflareTxtContent($record['address'])
+                : $record['address'];
+            $body = [
+                'type' => $type,
+                'name' => $name,
+                'content' => $type === 'TXT' ? $this->cloudflareTxtContent($content) : $content,
+                'ttl' => max(1, (int) $record['ttl']),
+            ];
+            if (in_array($type, ['A', 'AAAA'], true)) {
+                $body['proxied'] = false;
+            }
+            if ($type === 'MX') {
+                $body['priority'] = 10;
+            }
+            $desired[$name.'|'.$type][$content] = $body;
+        }
+        if ($desired === []) {
+            return true;
+        }
+
+        $current = $this->listDnsRecords($provider, $zoneId);
+        $toCreate = [];
+        $toUpdate = [];
+        $expected = $desired;
+        foreach ($desired as $key => $contents) {
+            [$name, $type] = explode('|', $key, 2);
+            $present = [];
+            $existingSpf = [];
+            $existingDmarc = [];
+            foreach ($current as $existing) {
+                $existingName = strtolower(rtrim((string) ($existing['name'] ?? ''), '.'));
+                if ($existingName !== $name) {
+                    continue;
+                }
+                $existingType = strtoupper((string) ($existing['type'] ?? ''));
+                if ($existingType === 'CNAME') {
+                    throw new CloudflareDnsApiException('An assignment DNS hostname conflicts with an existing CNAME.');
+                }
+                if ($existingType !== $type) {
+                    continue;
+                }
+                $existingContent = (string) ($existing['content'] ?? '');
+                if ($type === 'TXT' && ! $this->isManagedEmailAuthTxt($existingContent)) {
+                    continue;
+                }
+                if ($type === 'TXT') {
+                    $existingContent = $this->normalizeCloudflareTxtContent($existingContent);
+                }
+                if ($type === 'TXT' && preg_match('/\Av=spf1(?:\s|$)/i', trim($existingContent)) === 1) {
+                    $existingSpf[] = $existing;
+
+                    continue;
+                }
+                if ($type === 'TXT' && preg_match('/\Av=dmarc1(?:\s*;|$)/i', trim($existingContent)) === 1) {
+                    $existingDmarc[] = $existing;
+
+                    continue;
+                }
+                if (! isset($contents[$existingContent])) {
+                    throw new CloudflareDnsApiException('An assignment DNS record conflicts with an existing value.');
+                }
+                if (in_array($type, ['A', 'AAAA'], true) && (bool) ($existing['proxied'] ?? false)) {
+                    throw new CloudflareDnsApiException('An assignment DNS address is proxied and cannot serve the selected mail or tracking host directly.');
+                }
+                if ($type === 'MX' && (int) ($existing['priority'] ?? 10) !== 10) {
+                    throw new CloudflareDnsApiException('An assignment MX record has a conflicting priority.');
+                }
+                $present[$existingContent] = true;
+            }
+
+            if ($type === 'TXT' && array_filter(array_keys($contents), static fn (string $content): bool => preg_match('/\Av=spf1(?:\s|$)/i', trim($content)) === 1) !== []) {
+                if (count($existingSpf) > 1) {
+                    throw new CloudflareDnsApiException('The selected DNS hostname already has multiple SPF records; consolidate them before installing.');
+                }
+                if ($existingSpf !== []) {
+                    $record = $existingSpf[0];
+                    $recordId = (string) ($record['id'] ?? '');
+                    if (preg_match('/\A[a-f0-9]{32}\z/i', $recordId) !== 1) {
+                        throw new CloudflareDnsApiException('The existing SPF record cannot be safely updated through Cloudflare.');
+                    }
+                    $existingContent = $this->normalizeCloudflareTxtContent((string) $record['content']);
+                    $mergedSpf = $this->mergeAssignmentSpf($existingContent, array_keys($contents));
+                    $expected[$key] = [$mergedSpf => $contents[array_key_first($contents)]];
+                    if ($mergedSpf !== $existingContent) {
+                        $toUpdate[] = [
+                            'id' => $recordId,
+                            'body' => [
+                                'type' => 'TXT',
+                                'name' => $name,
+                                'content' => $this->cloudflareTxtContent($mergedSpf),
+                                'ttl' => max(1, (int) ($record['ttl'] ?? 1)),
+                            ],
+                        ];
+                    }
+
+                    continue;
+                }
+            }
+
+            if ($type === 'TXT' && array_filter(array_keys($contents), static fn (string $content): bool => preg_match('/\Av=dmarc1(?:\s*;|$)/i', trim($content)) === 1) !== []) {
+                if (count($existingDmarc) > 1) {
+                    throw new CloudflareDnsApiException('The selected DNS hostname already has multiple DMARC records; consolidate them before installing.');
+                }
+                if ($existingDmarc !== []) {
+                    $existingContent = $this->normalizeCloudflareTxtContent((string) $existingDmarc[0]['content']);
+                    // Keep the owner's policy intact; the verifier only needs one valid policy.
+                    $expected[$key] = [$existingContent => $contents[array_key_first($contents)]];
+
+                    continue;
+                }
+            }
+
+            foreach ($contents as $content => $body) {
+                if (! isset($present[$content])) {
+                    $toCreate[] = $body;
+                }
+            }
+        }
+
+        foreach ($toUpdate as $update) {
+            $this->successfulObject($this->request($provider)->patch(
+                'zones/'.$zoneId.'/dns_records/'.$update['id'],
+                $update['body'],
+            ));
+        }
+
+        foreach (array_chunk($toCreate, 100) as $chunk) {
+            $this->successfulObject($this->request($provider)->post('zones/'.$zoneId.'/dns_records/batch', ['posts' => $chunk]));
+        }
+
+        $after = $this->listDnsRecords($provider, $zoneId);
+        foreach ($expected as $key => $contents) {
+            [$name, $type] = explode('|', $key, 2);
+            $actual = [];
+            foreach ($after as $existing) {
+                if (strtolower(rtrim((string) ($existing['name'] ?? ''), '.')) !== $name) {
+                    continue;
+                }
+                $existingType = strtoupper((string) ($existing['type'] ?? ''));
+                if ($existingType === 'CNAME') {
+                    throw new CloudflareDnsApiException('An assignment DNS hostname conflicts with an existing CNAME.');
+                }
+                if ($existingType === $type) {
+                    $content = (string) ($existing['content'] ?? '');
+                    if ($type === 'TXT' && ! $this->isManagedEmailAuthTxt($content)) {
+                        continue;
+                    }
+                    if ($type === 'TXT') {
+                        $content = $this->normalizeCloudflareTxtContent($content);
+                    }
+                    if (! isset($contents[$content])) {
+                        throw new CloudflareDnsApiException('An assignment DNS record conflicts with an existing value.');
+                    }
+                    if (in_array($type, ['A', 'AAAA'], true) && (bool) ($existing['proxied'] ?? false)) {
+                        throw new CloudflareDnsApiException('An assignment DNS address is proxied and cannot serve the selected mail or tracking host directly.');
+                    }
+                    if ($type === 'MX' && (int) ($existing['priority'] ?? 10) !== 10) {
+                        throw new CloudflareDnsApiException('An assignment MX record has a conflicting priority.');
+                    }
+                    $actual[$content] = true;
+                }
+            }
+            foreach ($contents as $content => $body) {
+                if (! isset($actual[$content])) {
+                    throw new CloudflareDnsApiException('Cloudflare did not publish a selected assignment DNS record.');
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Add only the installer's IP mechanisms to one existing SPF policy. Existing
+     * includes, qualifiers, redirects and all-policy mechanisms remain untouched.
+     *
+     * @param  list<string>  $requestedRecords
+     */
+    private function mergeAssignmentSpf(string $existing, array $requestedRecords): string
+    {
+        $tokens = preg_split('/\s+/', trim($existing)) ?: [];
+        if ($tokens === [] || strcasecmp($tokens[0], 'v=spf1') !== 0) {
+            throw new CloudflareDnsApiException('The existing SPF record is invalid and cannot be safely extended.');
+        }
+
+        $requestedMechanisms = [];
+        foreach ($requestedRecords as $requested) {
+            foreach (array_slice(preg_split('/\s+/', trim($requested)) ?: [], 1) as $mechanism) {
+                if (preg_match('/\A[+?~-]?(?:ip4|ip6):[^\s]+\z/i', $mechanism) === 1) {
+                    $requestedMechanisms[strtolower($mechanism)] = $mechanism;
+                }
+            }
+        }
+        $existingTokens = array_fill_keys(array_map('strtolower', $tokens), true);
+        $missing = array_values(array_filter($requestedMechanisms, static fn (string $mechanism): bool => ! isset($existingTokens[strtolower($mechanism)])));
+        if ($missing === []) {
+            return $existing;
+        }
+
+        $insertAt = count($tokens);
+        foreach (array_slice($tokens, 1) as $offset => $token) {
+            if (preg_match('/\A[+?~-]?all\z/i', $token) === 1 || str_contains($token, '=')) {
+                $insertAt = $offset + 1;
+                break;
+            }
+        }
+        array_splice($tokens, $insertAt, 0, $missing);
+
+        return implode(' ', $tokens);
+    }
+
+    private function normalizeCloudflareTxtContent(string $content): string
+    {
+        $content = trim($content);
+        if (! str_contains($content, '"')) {
+            return $content;
+        }
+
+        preg_match_all('/"((?:[^"\\\\]|\\\\.)*)"/s', $content, $matches);
+        if (($matches[1] ?? []) === []) {
+            return $content;
+        }
+
+        return implode('', array_map(static fn (string $part): string => stripcslashes($part), $matches[1]));
+    }
+
     /** @param list<array<string, mixed>> $current
      * @param  array<string, array<string, array<string, mixed>>>  $desiredGroups
      */
@@ -409,6 +688,22 @@ class CloudflareDnsApi
         }
 
         return $body;
+    }
+
+    private function isValidAssignmentRecordName(string $name): bool
+    {
+        if ($name === '' || strlen($name) > 253) {
+            return false;
+        }
+
+        foreach (explode('.', $name) as $label) {
+            if (strlen($label) < 1 || strlen($label) > 63
+                || preg_match('/\A_?[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\z/D', $label) !== 1) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function assertZoneId(string $zoneId): void

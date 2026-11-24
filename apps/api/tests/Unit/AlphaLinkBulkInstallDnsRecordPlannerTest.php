@@ -7,6 +7,58 @@ use PHPUnit\Framework\TestCase;
 
 class AlphaLinkBulkInstallDnsRecordPlannerTest extends TestCase
 {
+    public function test_multi_domain_records_are_scoped_to_selected_hosts_and_combine_shared_host_ips(): void
+    {
+        $records = (new AlphaLinkBulkInstallDnsRecordPlanner)->recordsForAssignments('example.test', [
+            [
+                'hostname' => 'mail.example.test', 'ip' => '8.8.8.8',
+                'dkim_selector' => 'key1', 'dkim_public_record' => 'v=DKIM1; p=ONE',
+                'tracking_host' => 'click.mail.example.test',
+            ],
+            [
+                'hostname' => 'mail.example.test', 'ip' => '1.1.1.1',
+                'dkim_selector' => 'key1', 'dkim_public_record' => 'v=DKIM1; p=ONE',
+                'tracking_host' => 'click.mail.example.test',
+            ],
+            [
+                'hostname' => 'offers.example.test', 'ip' => '8.8.8.8',
+                'dkim_selector' => 'key2', 'dkim_public_record' => 'v=DKIM1; p=TWO',
+                'tracking_host' => 'click.offers.example.test',
+            ],
+        ], ['tracking' => true, 'imap' => false, 'spf' => true, 'dkim' => true, 'dmarc' => true]);
+
+        $this->assertContains(['host' => 'mail', 'address' => 'v=spf1 ip4:8.8.8.8 ip4:1.1.1.1 -all', 'type' => 'TXT', 'ttl' => '60'], $records);
+        $this->assertContains(['host' => 'offers', 'address' => 'v=spf1 ip4:8.8.8.8 -all', 'type' => 'TXT', 'ttl' => '60'], $records);
+        $this->assertContains(['host' => 'key1._domainkey.mail', 'address' => 'v=DKIM1; p=ONE', 'type' => 'TXT', 'ttl' => '60'], $records);
+        $this->assertContains(['host' => 'key2._domainkey.offers', 'address' => 'v=DKIM1; p=TWO', 'type' => 'TXT', 'ttl' => '60'], $records);
+        $this->assertContains(['host' => 'click.offers', 'address' => '8.8.8.8', 'type' => 'A', 'ttl' => '60'], $records);
+        $this->assertNotContains('@', array_column($records, 'host'));
+        $this->assertNotContains('*', array_column($records, 'host'));
+    }
+
+    public function test_multi_domain_records_reject_a_tracking_hostname_outside_its_zone(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('outside its DNS zone');
+
+        (new AlphaLinkBulkInstallDnsRecordPlanner)->recordsForAssignments('example.test', [[
+            'hostname' => 'mail.example.test', 'ip' => '8.8.8.8',
+            'dkim_selector' => 'key1', 'dkim_public_record' => 'v=DKIM1; p=ONE',
+            'tracking_host' => 'click.other.test',
+        ]], ['tracking' => true, 'imap' => false, 'spf' => true, 'dkim' => true, 'dmarc' => true]);
+    }
+
+    public function test_multi_domain_records_reject_conflicting_dkim_keys_for_one_selector(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('conflicting public keys');
+
+        (new AlphaLinkBulkInstallDnsRecordPlanner)->recordsForAssignments('example.test', [
+            ['hostname' => 'mail.example.test', 'ip' => '8.8.8.8', 'dkim_selector' => 'key1', 'dkim_public_record' => 'v=DKIM1; p=ONE'],
+            ['hostname' => 'mail.example.test', 'ip' => '1.1.1.1', 'dkim_selector' => 'key1', 'dkim_public_record' => 'v=DKIM1; p=TWO'],
+        ], ['tracking' => false, 'imap' => false, 'spf' => true, 'dkim' => true, 'dmarc' => true]);
+    }
+
     public function test_it_builds_the_reference_records_in_the_observed_order_for_each_option(): void
     {
         $records = (new AlphaLinkBulkInstallDnsRecordPlanner)->records(true, [

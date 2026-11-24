@@ -33,7 +33,33 @@ test('matches the source-compatible submission fields, omits blank rows, and sen
         dkim: 0,
         dmarc: 1,
         https: 0,
+        clean_dns: 0,
+        multi_domain_per_ip: 0,
     });
+});
+
+test('bulk install sends the per-IP domain map when Multi-Domain per IP is enabled', () => {
+    const payload = buildBulkInstallPayload({
+        rows: [{
+            name: 'Relay A', id: 'server-a', ip: '192.0.2.10', domain: 'domain-a', check: false,
+            ip_assignments: [{
+                ip: '192.0.2.10', type: 'ipv4', main: true, sub: 'mail', domain_id: 'domain-a',
+                domains: [{ domain_id: 'domain-b', sub: 'offers' }],
+            }],
+        }],
+        key: 1,
+        pmtaVersion: 45,
+        switches: { multi_domain_per_ip: true, tracking: true, https: true, spf: true, dkim: true, dmarc: true },
+    });
+
+    assert.deepEqual(payload.data[0].ip_assignments, [{
+        ip: '192.0.2.10', type: 'ipv4', main: true, sub: 'mail', domain_id: 'domain-a',
+        domains: [{ domain_id: 'domain-b', sub: 'offers' }],
+    }]);
+    assert.equal(payload.data[0].domain, 'domain-a');
+    assert.equal(payload.multi_domain_per_ip, 1);
+    assert.equal(payload.domains_per_ip, 2);
+    assert.equal(payload.clean_dns, 0);
 });
 
 test('does not treat a workspace UUID as an empty numeric domain id', () => {
@@ -132,6 +158,8 @@ test('submits selected rows and displays incremental AlphaLink logs until the ru
             dkim: 0,
             dmarc: 0,
             https: 0,
+            clean_dns: 0,
+            multi_domain_per_ip: 0,
         });
         assert.deepEqual(requests.slice(1).map((request) => request.url), [
             '/bulk-install/runs/9977bd8a-5107-4a6e-aa23-646fcb030087/logs',

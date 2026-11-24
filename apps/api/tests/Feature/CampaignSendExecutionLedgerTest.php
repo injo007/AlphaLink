@@ -587,6 +587,79 @@ class CampaignSendExecutionLedgerTest extends TestCase
         $this->assertStringNotContainsString('http://203.0.113.241/', $externalRedirectMessage['body']);
     }
 
+    public function test_domain_route_uses_assignment_identity_and_rejects_misaligned_from(): void
+    {
+        $fixture = $this->sendFixture();
+        $run = app(PrepareCampaignSendRun::class)->create(
+            $fixture['campaign'], $fixture['revision'], $fixture['snapshot'], $fixture['owner'], (string) Str::uuid(),
+        );
+        $server = ManagedServer::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(),
+            'name' => 'Domain route server', 'provider' => 'Fixture provider',
+            'ip_address' => '203.0.113.241', 'ssh_port' => 22, 'ssh_username' => 'root',
+            'state' => 'verified', 'is_active' => true, 'is_installed' => true,
+            'install_parameters' => ['tracking' => false, 'tracking_https_ready' => false],
+            'idempotency_key' => (string) Str::uuid(),
+            'request_fingerprint' => hash('sha256', 'domain-route-server'),
+            'created_by' => $fixture['owner']->getKey(),
+        ]);
+        $domain = SendingDomain::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(), 'name' => 'example.test',
+            'state' => 'verified', 'verification_token' => 'synthetic-domain-route',
+            'created_by' => $fixture['owner']->getKey(), 'status' => 'used',
+            'is_our' => true, 'is_active' => true,
+        ]);
+        $ip = ManagedServerIp::query()->create([
+            'workspace_id' => $fixture['workspace']->getKey(),
+            'managed_server_id' => $server->getKey(), 'sending_domain_id' => $domain->getKey(),
+            'ip' => '203.0.113.241', 'type' => 'ipv4', 'dns' => 'mail.example.test', 'is_active' => true,
+        ]);
+        $route = [
+            'id' => '42', 'server_id' => (string) $server->getKey(),
+            'managed_server_ip_id' => (string) $ip->getKey(),
+            'sending_domain_id' => (string) $domain->getKey(),
+            'ip' => (string) $ip->ip, 'domain' => 'offers.example.test',
+            'tracking_host' => 'click.offers.example.test', 'is_ready' => true,
+        ];
+        $context = [
+            'run' => $run, 'campaign' => $fixture['campaign'], 'revision' => $fixture['revision'],
+            'snapshot' => $fixture['snapshot'], 'offer' => $fixture['offer'],
+            'workspace' => $fixture['workspace'], 'setup' => ['isp_id' => 1, 'creative_asset_id' => 0],
+            'route' => 'domain', 'port' => 2525,
+            'servers' => collect([$server]),
+            'choices_by_server' => collect([(string) $server->getKey() => collect([$route])]),
+            'from_assets' => [], 'subject_assets' => [], 'negative_path' => '',
+            'placeholder_rows' => [],
+            'header_template' => "From: sender@[domain]\nSubject: Domain route\nTo: [to]",
+            'body_template' => '<a href="[click_url]">Click</a>',
+            'return_path' => 'bounce@[domain]', 'domain_fallback' => 'wrong.example.test',
+        ];
+
+        $message = app(CampaignSendMessageBuilder::class)->build($context, $fixture['item'], $fixture['contact']->email);
+        $this->assertSame('offers.example.test', $message['domain']);
+        $this->assertSame('bounce@offers.example.test', $message['envelope_from']);
+        $this->assertStringContainsString('From: sender@offers.example.test', $message['header']);
+        $this->assertStringContainsString('X-virtual-MTA: mta-203.0.113.241', $message['header']);
+        $this->assertStringContainsString('https://click.offers.example.test/', $message['body']);
+        $this->assertStringNotContainsString('wrong.example.test', $message['body']);
+
+        $context['header_template'] = "From: sender@wrong.example.test\nSubject: Domain route\nTo: [to]";
+        try {
+            app(CampaignSendMessageBuilder::class)->build($context, $fixture['item'], $fixture['contact']->email);
+            $this->fail('The From domain must match the selected assignment.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('header', $exception->errors());
+        }
+        $context['header_template'] = "From: sender@[domain]\nSubject: Domain route\nTo: [to]";
+        $context['return_path'] = 'bounce@wrong.example.test';
+        try {
+            app(CampaignSendMessageBuilder::class)->build($context, $fixture['item'], $fixture['contact']->email);
+            $this->fail('The envelope sender domain must match the selected assignment.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('return_path', $exception->errors());
+        }
+    }
+
     public function test_campaign_send_route_allows_normal_retry_room_without_changing_send_idempotency(): void
     {
         $middleware = app('router')->getRoutes()->getByName('console.campaigns.send')->gatherMiddleware();

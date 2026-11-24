@@ -73,6 +73,7 @@ class InstallBulkInstallRow extends Command
                 [
                     'id' => $payload['server_id'],
                     'domain' => $payload['domain_id'],
+                    'multi_domain_per_ip' => $payload['multi_domain_per_ip'],
                     ...(isset($payload['ip_assignments']) ? ['ip_assignments' => $payload['ip_assignments']] : []),
                 ],
                 [

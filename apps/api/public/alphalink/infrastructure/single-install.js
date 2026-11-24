@@ -1,6 +1,7 @@
-const optionNames = ['tracking', 'proxy', 'imap', 'spf', 'dkim', 'dmarc', 'https', 'clean_dns'];
+const optionNames = ['tracking', 'proxy', 'imap', 'spf', 'dkim', 'dmarc', 'https', 'clean_dns', 'multi_domain_per_ip'];
 
-export function buildSingleInstallPayload({ serverId, rows, key, pmtaVersion, switches }) {
+export function buildSingleInstallPayload({ serverId, rows, key, pmtaVersion, switches, domainsPerIp }) {
+    const multiDomainPerIp = Boolean(switches.multi_domain_per_ip);
     const normalizedServerId = String(serverId ?? '').trim();
     const assignments = rows.map((row) => ({
         ip: String(row.ip ?? '').trim(),
@@ -8,6 +9,12 @@ export function buildSingleInstallPayload({ serverId, rows, key, pmtaVersion, sw
         main: Boolean(row.main),
         sub: String(row.sub ?? '').trim(),
         domain_id: String(row.domain_id ?? ''),
+        ...(multiDomainPerIp ? {
+            domains: (Array.isArray(row.domains) ? row.domains : []).map((domain) => ({
+                domain_id: String(domain.domain_id ?? ''),
+                sub: String(domain.sub ?? '').trim(),
+            })),
+        } : {}),
     }));
 
     const mainAssignment = assignments.find((assignment) => assignment.main) ?? assignments[0];
@@ -18,6 +25,10 @@ export function buildSingleInstallPayload({ serverId, rows, key, pmtaVersion, sw
         key: Number(key),
         pmta_version: Number(pmtaVersion),
         ...Object.fromEntries(optionNames.map((name) => [name, switches[name] ? 1 : 0])),
+        multi_domain_per_ip: multiDomainPerIp ? 1 : 0,
+        ...(multiDomainPerIp ? {
+            domains_per_ip: Number(domainsPerIp) || ((assignments[0]?.domains?.length ?? 0) + 1),
+        } : {}),
     };
 }
 
@@ -39,10 +50,16 @@ function readRows(tbody) {
         main: row.querySelector('[data-install-main]')?.checked ?? false,
         sub: row.querySelector('[data-install-sub]')?.value ?? '',
         domain_id: row.querySelector('[data-install-domain]')?.value ?? '',
+        domains: Array.from(row.querySelectorAll('[data-install-extra-domain]'), (select, index) => ({
+            domain_id: select.value,
+            sub: row.querySelectorAll('[data-install-extra-sub]')[index]?.value ?? '',
+        })),
     }));
 }
 
-function renderRows(tbody, rows, availableDomains) {
+function renderRows(tbody, rows, availableDomains, multiDomainPerIp = false, domainCount = 2) {
+    const additionalHeader = document.querySelector('#single-extra-domains-header');
+    if (additionalHeader) additionalHeader.hidden = !multiDomainPerIp;
     const jQuery = window.jQuery;
     if (jQuery?.fn?.selectpicker) {
         jQuery(tbody).find('select.selectpicker').selectpicker('destroy');
@@ -97,6 +114,48 @@ function renderRows(tbody, rows, availableDomains) {
         domainCell.append(domain);
         row.append(domainCell);
 
+        const additionalDomainsCell = document.createElement('td');
+        additionalDomainsCell.hidden = !multiDomainPerIp;
+        if (multiDomainPerIp) {
+            const additionalDomains = Array.isArray(assignment.domains) ? assignment.domains : [];
+            for (let index = 0; index < Math.max(1, domainCount - 1); index += 1) {
+                const current = additionalDomains[index] ?? { domain_id: '', sub: '' };
+                const group = document.createElement('div');
+                group.className = 'd-flex align-items-center mb-1';
+                group.style.gap = '6px';
+                const sub = document.createElement('input');
+                sub.type = 'text';
+                sub.className = 'form-control form-control-sm single-install-subdomain';
+                sub.value = String(current.sub ?? '');
+                sub.maxLength = 63;
+                sub.placeholder = 'Subdomain (optional)';
+                sub.setAttribute('aria-label', `Additional subdomain ${index + 1} for ${row.dataset.ip}`);
+                sub.dataset.installExtraSub = '';
+                const select = document.createElement('select');
+                select.className = 'form-control form-control-sm selectpicker single-install-domain';
+                select.required = true;
+                select.dataset.container = 'body';
+                select.dataset.liveSearch = 'true';
+                select.dataset.size = '6';
+                const placeholder = document.createElement('option');
+                placeholder.value = '';
+                placeholder.textContent = 'Select domain…';
+                select.append(placeholder);
+                for (const availableDomain of availableDomains) {
+                    const option = document.createElement('option');
+                    option.value = availableDomain.id;
+                    option.textContent = availableDomain.label;
+                    select.append(option);
+                }
+                select.value = String(current.domain_id ?? '');
+                select.setAttribute('aria-label', `Additional sending domain ${index + 1} for ${row.dataset.ip}`);
+                select.dataset.installExtraDomain = '';
+                group.append(sub, select);
+                additionalDomainsCell.append(group);
+            }
+        }
+        row.append(additionalDomainsCell);
+
         const actionCell = document.createElement('td');
         const remove = document.createElement('button');
         remove.type = 'button';
@@ -143,6 +202,9 @@ function initializeSingleInstallPage() {
     const serverSelect = form.querySelector('#single-server');
     const domainSelect = form.querySelector('#single-domains');
     const withIpv6 = form.querySelector('#single-with-ipv6');
+    const multiDomainToggle = form.querySelector('#multi_domain_per_ip');
+    const domainCountInput = form.querySelector('#single-domain-count');
+    const multiDomainHelp = form.querySelector('#single-multi-domain-help');
     const loadButton = form.querySelector('#single-load-ips');
     const configIpsButton = form.querySelector('#single-config-ips');
     const holder = form.querySelector('#single-install-holder');
@@ -168,12 +230,38 @@ function initializeSingleInstallPage() {
             jQuery(tbody).find('select.single-install-domain').selectpicker();
         }
     };
+    const availableDomainOptions = () => Array.from(domainSelect.options)
+        .filter((option) => option.value !== '')
+        .map((option) => ({ id: option.value, label: option.textContent ?? '' }));
+    const redrawAssignments = () => renderRows(
+        tbody,
+        readRows(tbody),
+        availableDomainOptions(),
+        multiDomainToggle.checked,
+        Number(domainCountInput.value) || 2,
+    );
+    const syncMultiDomainControls = () => {
+        const enabled = multiDomainToggle.checked;
+        domainCountInput.closest('.command-form-group')?.classList.toggle('d-none', !enabled);
+        multiDomainHelp?.classList?.toggle('d-none', !enabled);
+        for (const option of ['tracking', 'https', 'spf', 'dkim', 'dmarc']) {
+            const input = form.querySelector(`#${option}`);
+            if (enabled) input.checked = true;
+            input.disabled = enabled;
+        }
+        const cleanDns = form.querySelector('#clean_dns');
+        if (enabled) cleanDns.checked = false;
+        cleanDns.disabled = enabled;
+        redrawAssignments();
+        initializeRowDomainSelects();
+    };
 
     const setError = (message) => {
         error.textContent = message;
         error.classList.toggle('d-none', message === '');
     };
     error.style.whiteSpace = 'pre-line';
+    syncMultiDomainControls();
 
     loadButton.addEventListener('click', async () => {
         const domains = selectedDomains(domainSelect);
@@ -213,10 +301,7 @@ function initializeSingleInstallPage() {
             const rows = Array.isArray(body.data) ? body.data : [];
             const domainNames = new Map(domains.map((domain) => [domain.id, domain.label.split(' | ')[0]]));
             rows.forEach((row) => { row.domain = domainNames.get(String(row.domain_id)) ?? row.domain ?? ''; });
-            const availableDomains = Array.from(domainSelect.options)
-                .filter((option) => option.value !== '')
-                .map((option) => ({ id: option.value, label: option.textContent ?? '' }));
-            renderRows(tbody, rows, availableDomains);
+            renderRows(tbody, rows, availableDomainOptions(), multiDomainToggle.checked, Number(domainCountInput.value) || 2);
             holder.classList.remove('d-none');
             initializeRowDomainSelects();
             configIpsNote.classList.remove('d-none');
@@ -233,6 +318,13 @@ function initializeSingleInstallPage() {
             loadButton.disabled = false;
             loadButton.textContent = 'LOAD IPS';
         }
+    });
+
+    multiDomainToggle.addEventListener('change', syncMultiDomainControls);
+    domainCountInput.addEventListener('change', () => {
+        domainCountInput.value = String(Math.max(2, Math.min(33, Number(domainCountInput.value) || 2)));
+        redrawAssignments();
+        initializeRowDomainSelects();
     });
 
     tbody.addEventListener('click', (event) => {
@@ -264,12 +356,30 @@ function initializeSingleInstallPage() {
             setError('Select a sending domain for every IP before starting the installation.');
             return;
         }
+        const multiDomainPerIp = multiDomainToggle.checked;
+        if (multiDomainPerIp) {
+            const requiredAdditionalCount = Math.max(1, (Number(domainCountInput.value) || 2) - 1);
+            if (rows.filter((row) => row.main).length !== 1) {
+                setError('Select exactly one main IP before installing with Multi-Domain per IP.');
+                return;
+            }
+            if (rows.some((row) => row.domains.length !== requiredAdditionalCount
+                || row.domains.some((domain) => domain.domain_id === ''))) {
+                setError(`Choose ${requiredAdditionalCount} additional sending domain${requiredAdditionalCount === 1 ? '' : 's'} for every IP.`);
+                return;
+            }
+            if (rows.length * (requiredAdditionalCount + 1) > 100) {
+                setError('A server can have at most 100 HTTPS tracking hostnames on its current certificate. Reduce the IP or domain count.');
+                return;
+            }
+        }
 
         const payload = buildSingleInstallPayload({
             serverId,
             rows,
             key: Date.now(),
             pmtaVersion: form.querySelector('#pmta_version').value,
+            domainsPerIp: Number(domainCountInput.value) || 2,
             switches: Object.fromEntries(optionNames.map((name) => [name, form.querySelector(`#${name}`).checked])),
         });
         const logUrl = form.dataset.logUrl.replace('__token__', encodeURIComponent(String(payload.key)));

@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Services\Infrastructure\AlphaLinkAssignmentDnsRecordWriter;
 use App\Services\Infrastructure\AlphaLinkBulkInstallDomainDnsRecordWriter;
 use App\Services\Infrastructure\AlphaLinkBulkInstallRowRunner;
 use App\Services\Infrastructure\AlphaLinkCentos9BulkInstallRowRunner;
@@ -25,6 +26,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(AlphaLinkInstallerSshConnector::class, PhpseclibAlphaLinkInstallerSshConnector::class);
         $this->app->bind(AlphaLinkBulkInstallDomainDnsRecordWriter::class, AlphaLinkRegistrarChangeDomainDnsRecordWriter::class);
+        $this->app->bind(AlphaLinkAssignmentDnsRecordWriter::class, AlphaLinkRegistrarChangeDomainDnsRecordWriter::class);
         $this->app->bind(AlphaLinkChangeDomainDnsRecordWriter::class, AlphaLinkRegistrarChangeDomainDnsRecordWriter::class);
         $this->app->bind(AlphaLinkDomainRecordsHostWriter::class, AlphaLinkRegistrarChangeDomainDnsRecordWriter::class);
         $this->app->bind(AlphaLinkBulkInstallRowRunner::class, AlphaLinkCentos9BulkInstallRowRunner::class);

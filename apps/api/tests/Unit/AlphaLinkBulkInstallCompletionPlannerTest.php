@@ -8,6 +8,20 @@ use PHPUnit\Framework\TestCase;
 
 class AlphaLinkBulkInstallCompletionPlannerTest extends TestCase
 {
+    public function test_assignment_tracking_host_cannot_point_to_an_unrelated_domain(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('tracking host');
+        (new AlphaLinkBulkInstallCompletionPlanner)->plan(7, 21, true, [[
+            'main' => true, 'ip' => '8.8.8.8', 'type' => 'ipv4',
+            'domain_id' => 21, 'sub' => 'mail', 'domain' => 'example.com',
+            'tracking_host' => 'baseheavy.shop',
+        ]], 45, [
+            'tracking' => true, 'proxy' => false, 'imap' => false, 'spf' => true,
+            'dkim' => true, 'dmarc' => true, 'https' => true,
+        ]);
+    }
+
     public function test_it_plans_non_owned_domain_finalization_in_reference_write_order(): void
     {
         $rows = [

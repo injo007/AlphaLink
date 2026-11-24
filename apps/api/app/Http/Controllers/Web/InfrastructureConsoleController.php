@@ -1258,12 +1258,6 @@ class InfrastructureConsoleController extends Controller
         $selectedDomains = [];
 
         foreach ($payload['data'] as $index => $row) {
-            if (isset($row['ip_assignments']) && ! $singleInstallRequest) {
-                throw ValidationException::withMessages([
-                    "data.{$index}.ip_assignments" => 'Per-IP assignments are available on the single-server Install page only.',
-                ]);
-            }
-
             $server = $singleInstallRequest
                 ? $eligibility->singleInstallServerForSelection($workspace, $row['id'])
                 : $eligibility->serverForSelection($request->user(), $workspace, $row['id']);
@@ -1277,20 +1271,36 @@ class InfrastructureConsoleController extends Controller
             }
 
             if (isset($row['ip_assignments'])) {
-                if (count(array_filter($row['ip_assignments'], static fn (array $assignment): bool => $assignment['main'])) > 1) {
+                $mainIpCount = count(array_filter($row['ip_assignments'], static fn (array $assignment): bool => $assignment['main']));
+                if ($mainIpCount > 1 || ($payload['multi_domain_per_ip'] && $mainIpCount !== 1)) {
                     throw ValidationException::withMessages([
-                        "data.{$index}.ip_assignments" => 'Select only one main IP address.',
+                        "data.{$index}.ip_assignments" => $payload['multi_domain_per_ip']
+                            ? 'Select exactly one main IP address for Multi-Domain per IP.'
+                            : 'Select only one main IP address.',
                     ]);
                 }
 
                 foreach ($row['ip_assignments'] as $assignmentIndex => $assignment) {
-                    $assignmentDomain = $eligibility->singleInstallDomainForSelection($workspace, $assignment['domain_id']);
+                    $assignmentDomain = $singleInstallRequest
+                        ? $eligibility->singleInstallDomainForSelection($workspace, $assignment['domain_id'])
+                        : $eligibility->domainForSelection($workspace, $assignment['domain_id']);
                     if ($assignmentDomain === null) {
                         throw ValidationException::withMessages([
                             "data.{$index}.ip_assignments.{$assignmentIndex}.domain_id" => 'The selected domain is no longer eligible for installation.',
                         ]);
                     }
                     $selectedDomains[(string) $assignmentDomain->getKey()] = $assignmentDomain;
+                    foreach ($assignment['domains'] ?? [] as $additionalIndex => $additionalAssignment) {
+                        $additionalDomain = $singleInstallRequest
+                            ? $eligibility->singleInstallDomainForSelection($workspace, $additionalAssignment['domain_id'])
+                            : $eligibility->domainForSelection($workspace, $additionalAssignment['domain_id']);
+                        if ($additionalDomain === null) {
+                            throw ValidationException::withMessages([
+                                "data.{$index}.ip_assignments.{$assignmentIndex}.domains.{$additionalIndex}.domain_id" => 'The selected additional domain is no longer eligible for installation.',
+                            ]);
+                        }
+                        $selectedDomains[(string) $additionalDomain->getKey()] = $additionalDomain;
+                    }
                 }
 
                 $effectiveDomainId = collect($row['ip_assignments'])->firstWhere('main', true)['domain_id']
@@ -1300,7 +1310,9 @@ class InfrastructureConsoleController extends Controller
                         "data.{$index}.domain" => 'Select the domain assigned to the main IP, or the first IP when no main IP is selected.',
                     ]);
                 }
-                $domain = $eligibility->singleInstallDomainForSelection($workspace, $effectiveDomainId);
+                $domain = $singleInstallRequest
+                    ? $eligibility->singleInstallDomainForSelection($workspace, $effectiveDomainId)
+                    : $eligibility->domainForSelection($workspace, $effectiveDomainId);
             } else {
                 $domain = $eligibility->domainForSelection($workspace, $row['domain']);
             }

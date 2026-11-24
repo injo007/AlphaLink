@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\AuditEvent;
 use App\Models\ManagedServer;
 use App\Models\ManagedServerIp;
+use App\Models\ManagedServerIpDomain;
 use App\Models\ManagedServerMta;
 use App\Models\SendingDomain;
 use App\Models\ServerCredential;
@@ -276,6 +277,15 @@ class AlphaLinkServerReinstallTest extends TestCase
             'dns' => $this->firstDomain->name,
             'is_active' => true,
         ]);
+        $existingAssignment = ManagedServerIpDomain::query()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'managed_server_id' => $this->server->getKey(),
+            'managed_server_ip_id' => $existingIp->getKey(),
+            'sending_domain_id' => $this->firstDomain->getKey(),
+            'hostname' => 'extra.'.$this->firstDomain->name,
+            'is_primary' => false,
+            'is_active' => true,
+        ]);
         ManagedServerMta::query()->create([
             'workspace_id' => $this->workspace->getKey(),
             'managed_server_id' => $this->server->getKey(),
@@ -302,6 +312,7 @@ class AlphaLinkServerReinstallTest extends TestCase
         $this->assertTrue($existingIp->fresh()->is_active);
         $this->assertSame(1, ManagedServerMta::query()->where('managed_server_id', $this->server->getKey())->count());
         $this->assertSame('free', $this->secondDomain->fresh()->status);
+        $this->assertTrue($existingAssignment->fresh()->is_active);
         $this->assertArrayNotHasKey('pmta', $this->server->fresh()->install_parameters);
 
         $writer->finalize(
@@ -315,10 +326,17 @@ class AlphaLinkServerReinstallTest extends TestCase
         );
 
         $this->assertFalse($existingIp->fresh()->is_active);
+        $this->assertFalse($existingAssignment->fresh()->is_active);
         $this->assertSame(0, ManagedServerMta::query()->where('managed_server_id', $this->server->getKey())->count());
         $this->assertSame(3, ManagedServerIp::query()
             ->where('managed_server_id', $this->server->getKey())
             ->where('is_active', true)
+            ->count());
+        $this->assertSame(3, ManagedServerIpDomain::query()
+            ->where('managed_server_id', $this->server->getKey())
+            ->where('is_active', true)
+            ->where('is_primary', true)
+            ->whereNull('authentication_verified_at')
             ->count());
         $this->assertSame('used', $this->secondDomain->fresh()->status);
         $this->assertTrue($this->server->fresh()->install_parameters['pmta_monitor_https']);

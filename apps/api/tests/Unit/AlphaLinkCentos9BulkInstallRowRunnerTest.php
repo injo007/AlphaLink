@@ -38,7 +38,7 @@ class AlphaLinkCentos9BulkInstallRowRunnerTest extends TestCase
 
     public function test_it_requires_a_prepared_row_before_any_gate_or_connection(): void
     {
-        [$runner, $gate, $inputs, $credentials, $sessions, $workflow] = $this->runner();
+        [$runner, $gate, $inputs, $credentials, $sessions, $workflow, $hostProbe] = $this->runner();
         $gate->expects($this->never())->method('evaluate');
         $inputs->expects($this->never())->method('resolve');
         $credentials->expects($this->never())->method('resolve');
@@ -48,6 +48,46 @@ class AlphaLinkCentos9BulkInstallRowRunnerTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('The installation row was not prepared.');
         $runner->install(['id' => 'server', 'domain' => 'domain'], $this->installOptions(), static function (): void {});
+    }
+
+    public function test_multi_domain_row_passes_its_domain_map_to_the_install_workflow(): void
+    {
+        [$runner, $gate, $inputs, $credentials, $sessions, $workflow, $hostProbe] = $this->runner();
+        $gate->expects($this->exactly(2))->method('evaluate')->willReturn(['installation_authorized' => true]);
+        $inputs->expects($this->once())->method('resolve')->willReturn(['settings' => [], 'assets' => []]);
+        $credentials->expects($this->once())->method('resolve')->willReturn(['secret' => 'synthetic password', 'type' => 'password']);
+        $hostProbe->expects($this->once())->method('inspect')->willReturn([
+            'fingerprint' => 'SHA256:synthetic-pin',
+            'facts' => ['os_pretty_name' => 'AlmaLinux 9', 'architecture' => 'x86_64', 'pmta_binary_present' => false],
+        ]);
+        $sessions->expects($this->once())->method('create')->willReturn($this->createMock(AlphaLinkInstallerSshSession::class));
+        $row = $this->preparedRow();
+        $primary = $row['prepared']['domain']->forceFill(['name' => 'primary.example.test', 'status' => 'new', 'is_active' => true]);
+        $secondary = (new SendingDomain)->forceFill([
+            'id' => 'domain-two', 'workspace_id' => 'workspace-one', 'name' => 'secondary.example.test',
+            'status' => 'new', 'is_active' => true,
+        ]);
+        $assignments = [[
+            'ip' => '8.8.8.8', 'type' => 'ipv4', 'main' => true, 'sub' => '',
+            'domain_id' => 'domain-one', 'domain' => 'primary.example.test', 'is_our' => true,
+            'domains' => [[
+                'domain_id' => 'domain-two', 'sub' => 'offers', 'domain' => 'secondary.example.test', 'is_our' => true,
+            ]],
+        ]];
+        $row['prepared']['domain'] = $primary;
+        $row['prepared']['domains'] = [$primary, $secondary];
+        $row['prepared']['ip_assignments'] = $assignments;
+        $workflow->expects($this->once())->method('run')->with(...array_fill(0, 14, $this->anything()))
+            ->willReturnCallback(function (...$arguments) use ($assignments, $primary, $secondary): void {
+                $this->assertSame($assignments, $arguments[12]);
+                $this->assertSame([$primary, $secondary], $arguments[13]);
+            });
+
+        $runner->install(
+            [...$row, 'multi_domain_per_ip' => true],
+            [...$this->installOptions(), 'tracking' => true, 'spf' => true, 'dkim' => true, 'dmarc' => true, 'https' => true],
+            static function (): void {},
+        );
     }
 
     public function test_it_rechecks_pmta_evidence_before_loading_secrets_or_opening_ssh(): void

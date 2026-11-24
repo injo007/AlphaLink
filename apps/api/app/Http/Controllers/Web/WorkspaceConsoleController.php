@@ -836,7 +836,7 @@ class WorkspaceConsoleController extends Controller
             'country' => ['sometimes', 'nullable', 'string', 'max:8'],
             'server_ids' => ['sometimes', 'array'],
             'server_ids.*' => ['required', 'uuid', 'distinct'],
-            'route' => ['sometimes', 'required', 'in:ip,vmta,smtp'],
+            'route' => ['sometimes', 'required', 'in:ip,vmta,smtp,domain'],
             'ip_type' => ['sometimes', 'required', 'in:all,ipv4,ipv6'],
         ]);
 
@@ -1358,7 +1358,7 @@ class WorkspaceConsoleController extends Controller
         if (is_array($sendSetup) && is_array($revisionSetupInput)
             && (array_key_exists('route_option', $revisionSetupInput) || array_key_exists('server_ids', $revisionSetupInput))) {
             $routing = $request->validate([
-                'send_setup.route_option' => ['required', 'in:ip,vmta,smtp'],
+                'send_setup.route_option' => ['required', 'in:ip,vmta,smtp,domain'],
                 'send_setup.ip_type' => ['required', 'in:all,ipv4,ipv6'],
                 'send_setup.server_ids' => ['required', 'array', 'min:1'],
                 'send_setup.server_ids.*' => ['required', 'uuid', 'distinct'],
@@ -1652,7 +1652,7 @@ class WorkspaceConsoleController extends Controller
             'send_setup.server_ids.*' => ['required', 'uuid', 'distinct'],
             'send_setup.ip_ids' => ['sometimes', 'array'],
             'send_setup.ip_ids.*' => ['required', 'distinct', $this->campaignRouteChoiceIdRule()],
-            'send_setup.route_option' => ['required', 'in:ip,vmta,smtp'],
+            'send_setup.route_option' => ['required', 'in:ip,vmta,smtp,domain'],
             'send_setup.ip_type' => ['required', 'in:all,ipv4,ipv6'],
             'send_setup.send_type' => ['required', 'in:delay,delayp,delayps,hs,hsp,hsps,pickup,pickups'],
             'send_setup.from_asset_ids' => ['sometimes', 'array'],
@@ -1712,6 +1712,9 @@ class WorkspaceConsoleController extends Controller
             throw ValidationException::withMessages(['send_setup.server_ids' => 'Select active installed servers available to your account.']);
         }
         $selectedIps = array_map('strval', $data['send_setup']['ip_ids'] ?? []);
+        if ($data['send_setup']['route_option'] === 'domain' && $selectedIps === []) {
+            throw ValidationException::withMessages(['send_setup.ip_ids' => 'Select at least one verified sending domain for Campaign Test.']);
+        }
         if ($selectedIps !== [] && array_diff($selectedIps, collect($options['ips'])->pluck('id')->map('strval')->all()) !== []) {
             throw ValidationException::withMessages(['send_setup.ip_ids' => 'Select IPs from the currently selected server and route options.']);
         }
@@ -1752,6 +1755,9 @@ class WorkspaceConsoleController extends Controller
                 ->values();
 
             if ($selectedChoices->isEmpty()) {
+                if ($data['send_setup']['route_option'] === 'domain') {
+                    throw ValidationException::withMessages(['send_setup.ip_ids' => 'Select a verified sending domain for each selected server.']);
+                }
                 $fallback = $this->campaignTestRouteChoice(
                     $options['ips'],
                     $selectedIps,
@@ -1923,7 +1929,14 @@ class WorkspaceConsoleController extends Controller
                 $campaign?->getKey() ?? '0',
                 $ispId,
             );
-            $verifiedTrackingHost = $campaign === null ? null : $redirectUrlPolicy->requireReadyTrackingHost((array) $selectedServer->install_parameters);
+            $trackingParameters = $data['send_setup']['route_option'] === 'domain'
+                ? [
+                    'tracking' => true,
+                    'tracking_https_ready' => (bool) ($routeChoice['is_ready'] ?? false),
+                    'tracking_host' => (string) ($routeChoice['tracking_host'] ?? ''),
+                ]
+                : (array) $selectedServer->install_parameters;
+            $verifiedTrackingHost = $campaign === null ? null : $redirectUrlPolicy->requireReadyTrackingHost($trackingParameters);
             $clickUrl = $verifiedTrackingHost === null ? '' : $redirectUrlPolicy->campaignTrackingClickUrl($verifiedTrackingHost, $testToken);
             $openUrl = $verifiedTrackingHost === null ? '' : $redirectUrlPolicy->campaignTrackingOpenUrl($verifiedTrackingHost, $testToken);
             $unsubscribeUrl = $verifiedTrackingHost === null ? '' : $redirectUrlPolicy->campaignTrackingUnsubscribeUrl($verifiedTrackingHost, $testToken);
@@ -1962,7 +1975,7 @@ class WorkspaceConsoleController extends Controller
                     $renderedHeader,
                     (string) $routeChoice['pmta_name'],
                 );
-            } elseif ($data['send_setup']['route_option'] === 'ip') {
+            } elseif (in_array($data['send_setup']['route_option'], ['ip', 'domain'], true)) {
                 $renderedHeader = $this->campaignTestHeaderWithVirtualMta(
                     $renderedHeader,
                     $vmtaPlanner->ipVirtualMtaName((string) $routeChoice['ip']),
@@ -2025,6 +2038,15 @@ class WorkspaceConsoleController extends Controller
                     throw ValidationException::withMessages([$errorKey => $message]);
                 }
             }
+            if ($data['send_setup']['route_option'] === 'domain') {
+                $selectedDomain = strtolower(trim((string) ($selectedTagValues['domain'] ?? '')));
+                foreach (['from_address' => 'header', 'envelope_from' => 'return_path'] as $addressField => $field) {
+                    $addressDomain = strtolower((string) substr($preview[$addressField], (int) strrpos($preview[$addressField], '@') + 1));
+                    if ($selectedDomain === '' || $addressDomain !== $selectedDomain) {
+                        throw ValidationException::withMessages([$field => 'Campaign Test From and Return-Path must use the selected sending domain.']);
+                    }
+                }
+            }
             if ($firstTestMessage === null) {
                 $firstTestMessage = $preview;
             }
@@ -2039,7 +2061,7 @@ class WorkspaceConsoleController extends Controller
             'server_id' => (string) $testCase['server']->getKey(),
             'catalog_id' => (string) ($testCase['choice']['id'] ?? ''),
             'name' => (string) ($testCase['choice']['username'] ?? $testCase['choice']['name'] ?? $testCase['choice']['ip'] ?? ''),
-            'pmta_name' => (string) ($testCase['choice']['pmta_name'] ?? ($data['send_setup']['route_option'] === 'ip'
+            'pmta_name' => (string) ($testCase['choice']['pmta_name'] ?? (in_array($data['send_setup']['route_option'], ['ip', 'domain'], true)
                 ? $vmtaPlanner->ipVirtualMtaName((string) ($testCase['choice']['ip'] ?? ''))
                 : '')),
             'domain' => (string) ($routeTagData->get((string) $testCase['server']->getKey().'|'.(string) ($testCase['choice']['id'] ?? ''), [])['domain'] ?? ''),
@@ -2067,7 +2089,7 @@ class WorkspaceConsoleController extends Controller
             'mta' => $data['send_setup']['route_option'],
             'outbound_route' => $data['send_setup']['route_option'],
             'type' => $data['send_setup']['ip_type'],
-            'virtual_mtas' => in_array($data['send_setup']['route_option'], ['ip', 'vmta', 'smtp'], true)
+            'virtual_mtas' => in_array($data['send_setup']['route_option'], ['ip', 'vmta', 'smtp', 'domain'], true)
                 ? $testRouteSnapshot
                 : [],
             'test_message_count' => count($testCases),
@@ -2441,11 +2463,13 @@ class WorkspaceConsoleController extends Controller
                 'send_setup.route_option' => 'The selected VMTA has no configured domain. Set its domain in PMTA VMTA, push it, and reload this campaign before testing.',
             ]);
         }
-        $domain = $route === 'vmta'
-            ? $vmtaDomain
-            : (trim($domainFallback) !== ''
+        $domain = match ($route) {
+            'domain' => trim((string) ($choice['domain'] ?? '')),
+            'vmta' => $vmtaDomain,
+            default => trim($domainFallback) !== ''
                 ? trim($domainFallback)
-                : trim((string) ($ip?->dns ?: $ip?->domain?->name ?: $choice['dns'] ?? '')));
+                : trim((string) ($ip?->dns ?: $ip?->domain?->name ?: $choice['dns'] ?? '')),
+        };
         $mainDomain = trim((string) ($primaryIp?->dns ?: $primaryIp?->domain?->name ?: 'NA'));
         $rdns = strtolower(rtrim(trim((string) $ip?->history?->ptr), '.'));
         if ($rdns === '' || $rdns === 'na') {
@@ -2459,7 +2483,9 @@ class WorkspaceConsoleController extends Controller
             'domain' => $domain,
             'rdns' => $rdns,
             'idi' => (string) ($ip?->getKey() ?? '0'),
-            'idd' => (string) ($ip?->sending_domain_id ?? $choice['sending_domain_id'] ?? '0'),
+            'idd' => (string) ($route === 'domain'
+                ? ($choice['sending_domain_id'] ?? '0')
+                : ($ip?->sending_domain_id ?? $choice['sending_domain_id'] ?? '0')),
             'ids' => $serverId,
             'ide' => '0',
             'reply' => '',
@@ -3127,7 +3153,7 @@ class WorkspaceConsoleController extends Controller
             'send_setup.html_asset_id' => ['nullable', 'integer', 'min:1'],
             'send_setup.order_by' => ['required', 'in:default,asc,desc,random'],
             'send_setup.start_from' => ['required', 'integer', 'min:0'],
-            'send_setup.route_option' => ['required', 'in:ip,vmta,smtp'],
+            'send_setup.route_option' => ['required', 'in:ip,vmta,smtp,domain'],
             'send_setup.ip_type' => ['required', 'in:all,ipv4,ipv6'],
             'send_setup.server_ids' => ['required', 'array', 'min:1'],
             'send_setup.server_ids.*' => ['required', 'uuid', 'distinct'],

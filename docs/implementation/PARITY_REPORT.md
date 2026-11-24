@@ -2,6 +2,28 @@
 
 > **Archived comparison report.** Its dated comparisons and status snapshots preserve historical evidence; they do not define AlphaLink's current product identity or active requirements.
 
+## 2026-11-24 AlphaLink Multi-Domain per IP — E-MDOM-01
+
+This is an explicit AlphaLink product goal, not a historical DMS parity claim. The local additive schema and completion writers establish separate IP/domain assignment records and preserve the legacy one-domain mapping. Two targeted tests pass; full installation, PowerMTA, DNS, tracking, campaign, browser and received-message verification remain open. No host, DNS or production state changed.
+
+E-MDOM-02 extends the local request and persistence contract to accept multiple sending domains on one physical IP and makes finalization transactional. The install endpoint still rejects multi-domain starts before remote mutation because the remaining provisioning stages do not yet support them. This safety gate does not establish feature completion.
+
+E-MDOM-03 carries nested assignments through the isolated worker and resolves their workspace domains before SSH credential access. The remote row runner keeps the multi-domain operation blocked before host changes pending complete PowerMTA, DNS and tracking provisioning. No connected acceptance or DMS parity is claimed.
+
+E-MDOM-04 adds local encrypted RSA signing identities per hostname and a PMTA planner/deployment path for distinct keys on one physical IP with stable EHLO. The installer does not yet connect this path to DNS provisioning or live authentication verification, and the multi-domain execution gate remains in place. No DMS parity is claimed.
+
+E-MDOM-05 adds hostname-scoped DNS planning and a create-only Cloudflare assignment writer with conflict checks and readback. Namecheap and GoDaddy remain unavailable for multi-domain DNS until their replacement APIs can preserve existing records. The installer has not invoked this new path; no live DNS verification or DMS parity is claimed.
+
+E-MDOM-06 exposes verified assignment choices in the local campaign catalog, preserving server/IP/hostname/tracking metadata. The form and send pipeline are not yet connected, so DOMAIN is not an available campaign route. No DMS parity is claimed.
+
+E-MDOM-07 connects ready assignment choices to campaign creation, revision editing, Campaign Test, the message builders and global test sender. Selection controls message domain, physical-IP PMTA route and verified HTTPS tracking host, with exact From and envelope-domain checks. Focused local regressions pass. The installation gate remains and no live multi-domain authentication or browser acceptance has run, so the product goal and DMS parity remain open.
+
+E-MDOM-08 resolves multi-domain assignment records to a matching Cloudflare parent zone while preserving a saved zone binding. It remains local and does not remove the installer gate or establish live authentication parity.
+
+E-MDOM-09 connects nested installation input to a physical-IP/domain identity plan and persists per-assignment tracking hosts plus stable IP EHLO names. The workflow still cannot execute multi-domain provisioning, and the broad legacy workflow suite has unresolved failures. No parity or release claim is made.
+
+E-MDOM-10 connects that plan through the local fresh/bulk install workflow, pre-host DNS/authentication checks, domain-specific PMTA DKIM signing and tracking HTTPS, transactional persistence, and campaign DOMAIN routing. It is adapted to AlphaLink's current AlmaLinux 9 and PMTA deployment path. Cloudflare uses create-only conflict-checked writes; other providers must already resolve the requested DNS records. The current shared TLS certificate limits each server to 100 tracking hosts. PTR automation/verification is excluded per the user's direction. Focused local PHP suites pass 59 tests / 584 assertions with 69 environment warnings; browser-side controls pass 28/28. No live install, provider write, authentication result or deployment occurred. This is local implementation evidence only; the production app remains unchanged.
+
 ## 2026-11-23 Offer suppression and tracking hostname — E-TRACK-50
 
 AlphaLink production download attempts 7–10 for one Everflow offer failed during ZIP extraction/validation. A fresh read-only source inspection found a valid ZIP containing a large text list with 18,600,297 email cells and 6,963 malformed cells. AlphaLink now ignores malformed sponsor cells while preserving strict single-format validation and rejecting an all-invalid file. The user-supplied reinstall log shows a Cloudflare provider lookup failure caused the selected domain to be discarded and `pmta-*.invalid` to be assigned. Install/reinstall now retain the selected domain for host identity and certificate issuance even when provider-managed DNS writes fail; tracking readiness still requires successful HTTPS checks. Campaign sends now fail clearly when no verified tracker is available instead of using the AlphaLink app domain. These are AlphaLink repair decisions; production download retry, server repair, and real tracking remain unverified.

@@ -13,6 +13,37 @@ class AlphaLinkBulkInstallDomainRecordStage
     public function __construct(private readonly AlphaLinkBulkInstallDnsRecordPlanner $planner) {}
 
     /**
+     * @param  list<array{hostname: string, ip: string, dkim_selector: string, dkim_public_record: string, tracking_host?: string|null}>  $assignments
+     * @param  array{tracking: bool, imap: bool, spf: bool, dkim: bool, dmarc: bool, clean_dns?: bool}  $options
+     * @param  list<array{hostname: string, ip: string}>  $additionalARecords
+     * @param  Closure(string): void  $log
+     */
+    public function runAssignments(
+        SendingDomain $domain,
+        array $assignments,
+        array $options,
+        AlphaLinkAssignmentDnsRecordWriter $dnsWriter,
+        Closure $log,
+        array $additionalARecords = [],
+    ): void {
+        if (! empty($options['clean_dns'])) {
+            throw new RuntimeException('Multi-domain DNS provisioning cannot clean existing DNS records.');
+        }
+        if (! $dnsWriter->isAssignmentDomainAvailable($domain)) {
+            throw new RuntimeException('The selected assignment domain is not available through a non-destructive DNS provider.');
+        }
+        $records = $this->planner->recordsForAssignments((string) $domain->name, $assignments, $options, $additionalARecords);
+        if ($records === []) {
+            throw new RuntimeException('No DNS records were planned for the selected domain assignments.');
+        }
+        $log('Configuring assignment DNS records for '.$domain->name.' ('.$this->recordSummary($records).')');
+        if (! $dnsWriter->setAssignmentHosts($domain, $records)) {
+            throw new RuntimeException('The selected assignment DNS records could not be applied through its provider.');
+        }
+        $log('Verified assignment DNS records for '.$domain->name);
+    }
+
+    /**
      * @param  list<array{main: bool, ip: string, type: string, sub: string, domain: string}>  $ips
      * @param  array{tracking: bool, imap: bool, spf: bool, dkim: bool, dmarc: bool}  $options
      * @param  Closure(string): void  $log

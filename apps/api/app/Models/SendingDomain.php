@@ -52,6 +52,16 @@ class SendingDomain extends Model
         return $this->hasMany(ManagedServerIp::class);
     }
 
+    public function serverIpAssignments(): HasMany
+    {
+        return $this->hasMany(ManagedServerIpDomain::class);
+    }
+
+    public function dkimIdentities(): HasMany
+    {
+        return $this->hasMany(SendingDomainDkimIdentity::class);
+    }
+
     public function history(): HasOne
     {
         return $this->hasOne(SendingDomainHistory::class)->latestOfMany();

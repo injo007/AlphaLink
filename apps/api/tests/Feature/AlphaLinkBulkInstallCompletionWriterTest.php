@@ -5,11 +5,14 @@ namespace Tests\Feature;
 use App\Models\DomainProvider;
 use App\Models\ManagedServer;
 use App\Models\ManagedServerIp;
+use App\Models\ManagedServerIpDomain;
 use App\Models\ManagedServerMta;
 use App\Models\SendingDomain;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Services\Infrastructure\AlphaLinkBulkInstallCompletionWriter;
+use App\Services\Infrastructure\AlphaLinkMultiDomainInstallPlan;
+use App\Services\Infrastructure\AlphaLinkSendingDomainDkimIdentityManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -97,7 +100,7 @@ class AlphaLinkBulkInstallCompletionWriterTest extends TestCase
         $this->assertDatabaseMissing('managed_server_mtas', ['managed_server_id' => $this->server->getKey()]);
         $this->assertSame([
             ['ip' => '198.51.100.30', 'type' => 'ipv4', 'dns' => $domain->name, 'is_active' => true],
-            ['ip' => '2001:db8::30', 'type' => 'ipv6', 'dns' => $domain->name, 'is_active' => true],
+            ['ip' => '2001:db8::30', 'type' => 'ipv6', 'dns' => 'mail.'.$domain->name, 'is_active' => true],
         ], ManagedServerIp::query()->where('managed_server_id', $this->server->getKey())
             ->orderBy('id')->get(['ip', 'type', 'dns', 'is_active'])->toArray());
         $this->assertSame('free', $domain->fresh()->status);
@@ -212,15 +215,163 @@ class AlphaLinkBulkInstallCompletionWriterTest extends TestCase
             'sending_domain_id' => $external->getKey(),
             'dns' => 'external.example.org',
         ]);
+        $this->assertDatabaseHas('managed_server_ip_domains', [
+            'managed_server_id' => $this->server->getKey(),
+            'sending_domain_id' => $external->getKey(),
+            'hostname' => 'external.example.org',
+            'is_primary' => true,
+            'authentication_verified_at' => null,
+        ]);
         $this->assertDatabaseHas('managed_server_ips', [
             'managed_server_id' => $this->server->getKey(),
             'ip' => '2001:db8::32',
             'sending_domain_id' => $owned->getKey(),
             'dns' => 'relay.owned.example.org',
         ]);
+        $this->assertDatabaseHas('managed_server_ip_domains', [
+            'managed_server_id' => $this->server->getKey(),
+            'sending_domain_id' => $owned->getKey(),
+            'hostname' => 'relay.owned.example.org',
+            'is_primary' => true,
+            'authentication_verified_at' => null,
+        ]);
         $this->assertSame('free', $external->fresh()->status);
         $this->assertSame('used', $owned->fresh()->status);
         $this->assertSame(2, count(array_filter($operations, fn (array $operation): bool => $operation['action'] === 'insert_server_ip')));
+    }
+
+    public function test_multiple_domains_on_one_ip_persist_without_duplicate_physical_ip_rows(): void
+    {
+        $primary = $this->domain('primary.example.org', true, 'new');
+        $secondary = $this->domain('secondary.example.org', true, 'new');
+
+        $plannedIps = app(AlphaLinkMultiDomainInstallPlan::class)->build([[
+            'main' => true,
+            'ip' => '198.51.100.30',
+            'type' => 'ipv4',
+            'domain_id' => (string) $primary->getKey(),
+            'sub' => 'mail',
+            'domain' => $primary->name,
+            'is_our' => true,
+            'domains' => [[
+                'domain_id' => (string) $secondary->getKey(),
+                'sub' => 'news',
+                'domain' => $secondary->name,
+                'is_our' => true,
+            ]],
+        ]])['ips'];
+        $operations = app(AlphaLinkBulkInstallCompletionWriter::class)->finalize(
+            $this->workspace,
+            $this->server,
+            $primary,
+            $plannedIps,
+            45,
+            $this->installOptions(),
+            [$primary, $secondary],
+        );
+
+        $this->assertSame(1, ManagedServerIp::query()->where('managed_server_id', $this->server->getKey())->count());
+        $this->assertSame('mail.primary.example.org', ManagedServerIp::query()->where('managed_server_id', $this->server->getKey())->value('ehlo_hostname'));
+        $this->assertDatabaseHas('managed_server_ip_domains', [
+            'managed_server_id' => $this->server->getKey(),
+            'sending_domain_id' => $primary->getKey(),
+            'hostname' => 'mail.primary.example.org',
+            'is_primary' => true,
+            'tracking_host' => $plannedIps[0]['tracking_host'],
+        ]);
+        $this->assertDatabaseHas('managed_server_ip_domains', [
+            'managed_server_id' => $this->server->getKey(),
+            'sending_domain_id' => $secondary->getKey(),
+            'hostname' => 'news.secondary.example.org',
+            'is_primary' => false,
+            'tracking_host' => $plannedIps[0]['domains'][0]['tracking_host'],
+        ]);
+        $this->assertSame('used', $primary->fresh()->status);
+        $this->assertSame('used', $secondary->fresh()->status);
+        $this->assertSame(0, ManagedServerIpDomain::query()->readyForSending()->count());
+        ManagedServerIpDomain::query()
+            ->where('managed_server_id', $this->server->getKey())
+            ->get()
+            ->each(function (ManagedServerIpDomain $assignment): void {
+                $identity = app(AlphaLinkSendingDomainDkimIdentityManager::class)
+                    ->ensure($this->workspace, $assignment->domain, $assignment->hostname);
+                $assignment->domain->forceFill(['verified_at' => now()])->saveOrFail();
+                $assignment->forceFill([
+                    'tracking_host' => 'track.'.$assignment->hostname,
+                    'tracking_https_ready' => true,
+                    'dns_verified_at' => now(),
+                    'authentication_verified_at' => now(),
+                    'sending_domain_dkim_identity_id' => $identity->getKey(),
+                    'dkim_selector' => $identity->selector,
+                ])->saveOrFail();
+            });
+        $this->assertSame(2, ManagedServerIpDomain::query()->readyForSending()->count());
+        ManagedServerIp::query()->where('managed_server_id', $this->server->getKey())->update(['is_active' => false]);
+        $this->assertSame(0, ManagedServerIpDomain::query()->readyForSending()->count());
+        $this->assertSame(1, count(array_filter($operations, fn (array $operation): bool => $operation['action'] === 'insert_server_ip')));
+        $this->assertSame(1, count(array_filter($operations, fn (array $operation): bool => $operation['action'] === 'insert_server_ip_domain')));
+    }
+
+    public function test_duplicate_hostname_on_one_ip_is_rejected_before_finalization_writes(): void
+    {
+        $domain = $this->domain('primary.example.org', true, 'new');
+
+        $this->expectException(\InvalidArgumentException::class);
+        try {
+            app(AlphaLinkBulkInstallCompletionWriter::class)->finalize(
+                $this->workspace,
+                $this->server,
+                $domain,
+                [[
+                    'main' => true,
+                    'ip' => '198.51.100.30',
+                    'type' => 'ipv4',
+                    'domain_id' => (string) $domain->getKey(),
+                    'sub' => 'mail',
+                    'domain' => $domain->name,
+                    'is_our' => true,
+                    'domains' => [[
+                        'domain_id' => (string) $domain->getKey(),
+                        'sub' => 'mail',
+                        'domain' => $domain->name,
+                    ]],
+                ]],
+                45,
+                $this->installOptions(),
+                [$domain],
+            );
+        } finally {
+            $this->assertSame(0, ManagedServerIp::query()->where('managed_server_id', $this->server->getKey())->count());
+        }
+    }
+
+    public function test_domain_id_cannot_install_an_unrelated_hostname(): void
+    {
+        $domain = $this->domain('owned.example.org', true, 'new');
+
+        $this->expectException(\InvalidArgumentException::class);
+        try {
+            app(AlphaLinkBulkInstallCompletionWriter::class)->finalize(
+                $this->workspace,
+                $this->server,
+                $domain,
+                [[
+                    'main' => true,
+                    'ip' => '198.51.100.30',
+                    'type' => 'ipv4',
+                    'domain_id' => (string) $domain->getKey(),
+                    'sub' => '',
+                    'domain' => 'unrelated.example.org',
+                    'is_our' => true,
+                ]],
+                45,
+                $this->installOptions(),
+                [$domain],
+            );
+        } finally {
+            $this->assertDatabaseCount('managed_server_ips', 0);
+            $this->assertFalse($this->server->fresh()->is_installed);
+        }
     }
 
     public function test_finalization_rejects_cross_workspace_records_before_writing(): void
@@ -250,7 +401,7 @@ class AlphaLinkBulkInstallCompletionWriterTest extends TestCase
         $this->assertFalse($this->server->fresh()->is_installed);
     }
 
-    public function test_finalization_failure_preserves_reference_ordered_partial_writes_and_does_not_mark_server_installed(): void
+    public function test_finalization_failure_rolls_back_ip_and_domain_writes(): void
     {
         $domain = $this->domain('external.example.org', false, 'free');
         $dataIps = [[
@@ -281,10 +432,11 @@ class AlphaLinkBulkInstallCompletionWriterTest extends TestCase
             $this->assertSame('Synthetic config persistence failure.', $exception->getMessage());
         }
 
-        $this->assertDatabaseHas('managed_server_ips', [
+        $this->assertDatabaseMissing('managed_server_ips', [
             'managed_server_id' => $this->server->getKey(),
             'ip' => '198.51.100.32',
         ]);
+        $this->assertSame(0, ManagedServerIpDomain::query()->where('managed_server_id', $this->server->getKey())->count());
         $this->assertNull($this->server->fresh()->install_parameters);
         $this->assertFalse($this->server->fresh()->is_installed);
     }

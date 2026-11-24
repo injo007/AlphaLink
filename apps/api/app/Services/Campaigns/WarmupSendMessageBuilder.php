@@ -105,7 +105,7 @@ class WarmupSendMessageBuilder
         $choiceIndex = intdiv(max(0, $position - 1), $serverCount) % $serverChoices->count();
         $choice = $serverChoices->get($choiceIndex);
         $routeName = match ($context['route']) {
-            'ip' => $this->vmtaPlanner->ipVirtualMtaName((string) ($choice['ip'] ?? '')),
+            'ip', 'domain' => $this->vmtaPlanner->ipVirtualMtaName((string) ($choice['ip'] ?? '')),
             'smtp', 'vmta' => trim((string) ($choice['pmta_name'] ?? '')),
         };
         if ($routeName === '' || preg_match('/\A[A-Za-z0-9_.:-]{1,255}\z/', $routeName) !== 1) {
@@ -121,11 +121,17 @@ class WarmupSendMessageBuilder
             ->get();
         $routeIp = $ipRows->first(fn (ManagedServerIp $candidate): bool => (string) $candidate->getKey() === (string) ($choice['managed_server_ip_id'] ?? $choice['id'] ?? ''))
             ?? $ipRows->first(fn (ManagedServerIp $candidate): bool => (string) $candidate->ip === (string) ($choice['ip'] ?? ''));
-        $domain = $context['route'] === 'vmta'
-            ? trim((string) ($choice['vmta_domain'] ?? ''))
-            : trim((string) ($context['setup']['domain'] ?? ($choice['dns'] ?? $routeIp?->dns ?? '')));
+        $domain = match ($context['route']) {
+            'domain' => trim((string) ($choice['domain'] ?? '')),
+            'vmta' => trim((string) ($choice['vmta_domain'] ?? '')),
+            default => trim((string) ($context['setup']['domain'] ?? ($choice['dns'] ?? $routeIp?->dns ?? ''))),
+        };
         if ($context['route'] === 'vmta' && $domain === '') {
             throw ValidationException::withMessages(['send_setup.ip_ids' => 'The selected VMTA has no configured sending domain.']);
+        }
+        if ($context['route'] === 'domain' && (! ($choice['is_ready'] ?? false)
+            || filter_var($domain, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) === false)) {
+            throw ValidationException::withMessages(['send_setup.ip_ids' => 'The selected sending domain is no longer verified and ready.']);
         }
 
         $cache = [];
@@ -170,6 +176,16 @@ class WarmupSendMessageBuilder
         $envelopeFrom = trim($returnPath) === '' ? $fromAddress : $this->emailAddress($returnPath);
         if (filter_var($fromAddress, FILTER_VALIDATE_EMAIL) === false || filter_var($envelopeFrom, FILTER_VALIDATE_EMAIL) === false) {
             throw ValidationException::withMessages(['header' => 'Warmup From and Return Path must resolve to valid email addresses before sending.']);
+        }
+        if ($context['route'] === 'domain') {
+            foreach (['From' => $fromAddress, 'Return-Path' => $envelopeFrom] as $label => $address) {
+                $addressDomain = strtolower((string) substr($address, (int) strrpos($address, '@') + 1));
+                if ($addressDomain !== strtolower($domain)) {
+                    throw ValidationException::withMessages([
+                        $label === 'From' ? 'header' : 'return_path' => "Warmup {$label} must use the selected sending domain {$domain}.",
+                    ]);
+                }
+            }
         }
         if (filter_var($recipient, FILTER_VALIDATE_EMAIL) === false) {
             throw ValidationException::withMessages(['recipient' => 'The seed list contains an invalid email address.']);

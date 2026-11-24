@@ -7,6 +7,112 @@ use RuntimeException;
 class AlphaLinkBulkInstallDnsRecordPlanner
 {
     /**
+     * Build only records owned by the selected sending assignments in one DNS zone.
+     * Unlike legacy installs, this never adds apex or wildcard records implicitly.
+     *
+     * @param  list<array{hostname: string, ip: string, dkim_selector: string, dkim_public_record: string, tracking_host?: string|null}>  $assignments
+     * @param  list<array{hostname: string, ip: string}>  $additionalARecords
+     * @param  array{tracking: bool, imap: bool, spf: bool, dkim: bool, dmarc: bool}  $options
+     * @return list<array{host: string, address: string, type: string, ttl: string}>
+     */
+    public function recordsForAssignments(string $zoneName, array $assignments, array $options, array $additionalARecords = []): array
+    {
+        $zoneName = strtolower(rtrim(trim($zoneName), '.'));
+        if (filter_var($zoneName, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) === false) {
+            throw new RuntimeException('The selected DNS zone name is invalid.');
+        }
+
+        $records = [];
+        $spfByHost = [];
+        $dkimByHost = [];
+        $seen = [];
+        foreach ($assignments as $assignment) {
+            $hostname = strtolower(rtrim(trim($assignment['hostname']), '.'));
+            $host = $this->relativeHost($hostname, $zoneName);
+            $ip = $assignment['ip'];
+            $family = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 | FILTER_FLAG_NO_PRIV_RANGE)
+                ? 'A'
+                : (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6 | FILTER_FLAG_NO_PRIV_RANGE) ? 'AAAA' : null);
+            if ($family === null) {
+                throw new RuntimeException('A selected sending assignment has no verified public IP for DNS records.');
+            }
+
+            $this->appendUnique($records, $seen, $host, $ip, $family);
+            if ($options['tracking'] && ! empty($assignment['tracking_host'])) {
+                $trackingHost = $this->relativeHost(strtolower(rtrim(trim($assignment['tracking_host']), '.')), $zoneName);
+                $this->appendUnique($records, $seen, $trackingHost, $ip, $family);
+            }
+            if ($options['imap']) {
+                $this->appendUnique($records, $seen, $host, $hostname, 'MX');
+            }
+            if ($options['spf']) {
+                $spfByHost[$host][$family === 'A' ? 'ip4:'.$ip : 'ip6:'.$ip] = true;
+            }
+            if ($options['dkim']) {
+                $selector = $assignment['dkim_selector'];
+                $publicRecord = trim($assignment['dkim_public_record']);
+                if (! preg_match('/\A[A-Za-z0-9_-]{1,63}\z/', $selector)
+                    || ! str_starts_with(strtolower($publicRecord), 'v=dkim1;')) {
+                    throw new RuntimeException('A selected sending assignment has no valid DKIM DNS identity.');
+                }
+                $dkimHost = $selector.'._domainkey'.($host === '@' ? '' : '.'.$host);
+                if (isset($dkimByHost[$dkimHost]) && $dkimByHost[$dkimHost] !== $publicRecord) {
+                    throw new RuntimeException('A selected DKIM selector has conflicting public keys.');
+                }
+                $dkimByHost[$dkimHost] = $publicRecord;
+                $this->appendUnique($records, $seen, $dkimHost, $publicRecord, 'TXT');
+            }
+            if ($options['dmarc']) {
+                $dmarcHost = '_dmarc'.($host === '@' ? '' : '.'.$host);
+                $policy = 'v=DMARC1; p=none; rua=mailto:dmarc@'.$hostname;
+                $this->appendUnique($records, $seen, $dmarcHost, $policy, 'TXT');
+            }
+        }
+
+        foreach ($spfByHost as $host => $mechanisms) {
+            $this->appendUnique($records, $seen, $host, 'v=spf1 '.implode(' ', array_keys($mechanisms)).' -all', 'TXT');
+        }
+
+        foreach ($additionalARecords as $additional) {
+            $hostname = strtolower(rtrim(trim($additional['hostname']), '.'));
+            $host = $this->relativeHost($hostname, $zoneName);
+            $ip = (string) $additional['ip'];
+            $family = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 | FILTER_FLAG_NO_PRIV_RANGE)
+                ? 'A'
+                : (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6 | FILTER_FLAG_NO_PRIV_RANGE) ? 'AAAA' : null);
+            if ($family === null) {
+                throw new RuntimeException('An EHLO hostname has no verified public IP for DNS records.');
+            }
+            $this->appendUnique($records, $seen, $host, $ip, $family);
+        }
+
+        return $records;
+    }
+
+    private function relativeHost(string $hostname, string $zoneName): string
+    {
+        if (filter_var($hostname, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) === false
+            || ($hostname !== $zoneName && ! str_ends_with($hostname, '.'.$zoneName))) {
+            throw new RuntimeException('A selected sending or tracking hostname is outside its DNS zone.');
+        }
+
+        return $hostname === $zoneName ? '@' : substr($hostname, 0, -strlen('.'.$zoneName));
+    }
+
+    /**
+     * @param  list<array{host: string, address: string, type: string, ttl: string}>  $records
+     * @param  array<string, bool>  $seen
+     */
+    private function appendUnique(array &$records, array &$seen, string $host, string $address, string $type): void
+    {
+        $key = strtolower($host).'|'.$type.'|'.$address;
+        if (! isset($seen[$key])) {
+            $records[] = $this->record($host, $address, $type);
+            $seen[$key] = true;
+        }
+    }
+
+    /**
      * Reconstructs the record set passed to AlphaLink's domain provider without
      * contacting a provider or resolving private addresses over the network.
      *

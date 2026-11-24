@@ -17,6 +17,7 @@ function createSelect(multiple) {
         required: false,
         value: '',
         options: [],
+        setAttribute() {},
         replaceChildren() { this.options = []; },
         append(option) { this.options.push(option); },
     };
@@ -39,7 +40,7 @@ test('From and Subject rotation selectors remain optional while audience, server
                 assert.equal(id, 'campaign-targeting');
                 return targeting;
             },
-            createElement() { return { value: '', textContent: '', dataset: {}, selected: false }; },
+            createElement() { return { value: '', textContent: '', dataset: {}, selected: false, setAttribute() {} }; },
         },
         select: (key) => fields[key],
         selectedValues: (element) => element.options.filter((option) => option.selected).map((option) => option.value),

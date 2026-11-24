@@ -30,6 +30,7 @@ class AlphaLinkChangeDomainRunner
         private readonly AlphaLinkBulkInstallPrivateAssetReader $assets,
         private readonly DkimKeyMaterialManager $dkimKeys,
         private readonly AlphaLinkReviewedAssetDigestVerifier $assetDigests,
+        private readonly AlphaLinkManualDnsVerifier $manualDnsVerifier,
     ) {}
 
     /**
@@ -79,7 +80,11 @@ class AlphaLinkChangeDomainRunner
 
         $mainRow = collect($rows)->firstWhere('main', true) ?? $rows[0];
         $mainDomain = $domains[(string) $mainRow['domain_id']];
-        $subdomains = $this->subdomains($rows, $domains);
+        $mainHostname = trim((string) $mainRow['sub']) !== ''
+            ? trim((string) $mainRow['sub']).'.'.(string) $mainDomain->name
+            : (string) $mainDomain->name;
+        $deploymentDomain = $mainDomain->is_our ? (string) $mainDomain->name : $mainHostname;
+        $subdomains = array_values(array_diff($this->subdomains($rows, $domains), [$deploymentDomain]));
         $formatted = $this->domainGroups($rows, $domains);
         $pmtaMonitor = null;
         if ($options['https'] || array_key_exists('pmta_version', $parameters)) {
@@ -110,16 +115,16 @@ class AlphaLinkChangeDomainRunner
         );
 
         $log('Setup Host');
-        $this->hostPreparation->configureHost($session, (string) $server->ip_address, (string) $mainDomain->name);
+        $this->hostPreparation->configureHost($session, (string) $server->ip_address, $deploymentDomain);
         $log('End Setting Host');
 
         $log('Setup VHost');
-        $this->writeVhost($session, (string) $mainDomain->name, $subdomains, $tracking);
+        $this->writeVhost($session, $deploymentDomain, $subdomains, $tracking);
         $log('End Setting VHost');
 
         $dnsRecordResults = $this->writeDomainRecords($dnsGroups, $tracking, $imap, $options, $dkimSelector, $dkimMaterial['public_record'], $log);
         $mainDomainDnsReady = $dnsRecordResults[(string) $mainDomain->getKey()] ?? false;
-        $monitorDomain = $mainDomainDnsReady ? (string) $mainDomain->name : null;
+        $monitorDomain = $mainDomainDnsReady ? $deploymentDomain : null;
         if (! $mainDomainDnsReady) {
             $log(sprintf(
                 'The selected domain %s is unavailable from its DNS provider; using public IP %s for the PMTA monitor and skipping domain HTTPS.',
@@ -249,10 +254,13 @@ class AlphaLinkChangeDomainRunner
         $result = [];
         foreach ($rows as $row) {
             $domain = $domains[$row['domain_id']];
+            $hostname = trim((string) $row['sub']) !== ''
+                ? trim((string) $row['sub']).'.'.(string) $domain->name
+                : (string) $domain->name;
             if ($domain->is_our) {
                 $result[] = 'www.'.$domain->name;
-                $result[] = $row['sub'] === '' ? (string) $domain->name : $row['sub'].'.'.$domain->name;
             }
+            $result[] = $hostname;
         }
 
         return array_values(array_unique($result));
@@ -325,6 +333,21 @@ class AlphaLinkChangeDomainRunner
         $results = [];
         foreach ($groups as $group) {
             $domain = $group['domain'];
+            if (! $domain->is_our) {
+                $manualRecords = array_map(static fn (array $row): array => [
+                    'hostname' => trim((string) ($row['sub'] ?? '')) !== ''
+                        ? trim((string) $row['sub']).'.'.(string) $domain->name
+                        : (string) $domain->name,
+                    'ip' => (string) $row['ip'],
+                ], $group['rows']);
+                $ready = $this->manualDnsVerifier->verifies($manualRecords);
+                $results[(string) $domain->getKey()] = $ready;
+                $log($ready
+                    ? 'External DNS already points to the selected IPs; no DNS provider changes were made for '.$domain->name
+                    : 'External DNS does not point to the selected IPs; no DNS provider changes were made for '.$domain->name);
+
+                continue;
+            }
             $log('Config Hosts A-AAAA-MX... For '.$domain->name);
             $ips = $group['rows'];
             $records = $this->dnsPlanner->records((bool) $domain->is_our, $ips, [

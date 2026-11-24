@@ -70,7 +70,7 @@
                             </label>
                             <select class="command-form-control selectpicker" id="single-domains" aria-describedby="single-domain-help" multiple data-live-search="true" data-actions-box="true" data-size="6" data-container="body" data-width="100%" data-selected-text-format="count > 2" title="Select sending domains" required @disabled($servers->isEmpty() || $domains->isEmpty())>
                                 @foreach ($domains as $domain)
-                                    <option value="{{ $domain['id'] }}">{{ $domain['label'] }}</option>
+                                    <option value="{{ $domain['id'] }}" data-domain-name="{{ $domain['name'] }}">{{ $domain['label'] }}</option>
                                 @endforeach
                             </select>
                             <small class="text-muted mt-1 d-block" style="font-size: 0.75rem;" id="single-domain-help">Select domains in the order they should receive IP groups. You can change a domain for any IP after loading the map.</small>

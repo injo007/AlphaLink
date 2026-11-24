@@ -111,7 +111,7 @@
                                         <select class="command-form-control command-select bulk-install-domain" data-domain-select aria-label="Selected domain for {{ $server->name }}" style="height: 34px; padding: 4px 8px; font-size: 0.8125rem;">
                                             <option value="">Select Sending Domain...</option>
                                             @foreach ($domains as $domain)
-                                                <option value="{{ $domain['id'] }}">{{ $domain['label'] }}</option>
+                                                <option value="{{ $domain['id'] }}" data-domain-name="{{ $domain['name'] }}">{{ $domain['label'] }}</option>
                                             @endforeach
                                         </select>
                                     </div>

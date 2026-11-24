@@ -17,7 +17,7 @@ use InvalidArgumentException;
 class AlphaLinkReinstallCompletionWriter
 {
     /**
-     * @param  list<array{main: bool, ip: string, type: string, domain_id: string, sub: string, domain: string, is_our: bool}>  $rows
+     * @param  list<array<string, mixed>>  $rows
      * @param  array{pmta: bool, tracking: bool, proxy: bool, imap: bool, spf: bool, dkim: bool, dmarc: bool, https: bool}  $options
      */
     public function finalize(
@@ -74,26 +74,47 @@ class AlphaLinkReinstallCompletionWriter
                         'sending_domain_id' => $domain->getKey(),
                         'type' => $row['type'],
                         'dns' => $dns,
-                        'ehlo_hostname' => $dns,
+                        'ehlo_hostname' => (string) ($row['ehlo_hostname'] ?? $dns),
                         'is_active' => true,
                     ])->saveOrFail();
 
-                    ManagedServerIpDomain::query()->updateOrCreate([
-                        'workspace_id' => $workspace->getKey(),
-                        'managed_server_ip_id' => $ip->getKey(),
-                        'hostname' => strtolower(rtrim($dns, '.')),
-                    ], [
-                        'managed_server_id' => $server->getKey(),
-                        'sending_domain_id' => $domain->getKey(),
-                        'is_primary' => true,
-                        'is_active' => true,
-                        'tracking_https_ready' => false,
-                        'dns_verified_at' => null,
-                        'authentication_verified_at' => null,
-                    ]);
+                    $assignments = [[...$row, 'is_primary' => true]];
+                    foreach ($row['domains'] ?? [] as $additional) {
+                        $assignments[] = [...$additional, 'is_primary' => false];
+                    }
+                    foreach ($assignments as $assignment) {
+                        $assignmentDomain = SendingDomain::withTrashed()
+                            ->where('workspace_id', $workspace->getKey())
+                            ->whereKey($assignment['domain_id'])
+                            ->firstOrFail();
+                        $assignmentSub = trim((string) ($assignment['sub'] ?? ''));
+                        $hostname = strtolower(rtrim(
+                            $assignmentSub !== '' ? $assignmentSub.'.'.$assignmentDomain->name : (string) $assignmentDomain->name,
+                            '.',
+                        ));
+                        $dnsVerified = (bool) ($assignment['dns_verified'] ?? false);
+                        $authenticationVerified = (bool) ($assignment['authentication_verified'] ?? false);
+                        $trackingReady = (bool) ($assignment['tracking_https_ready'] ?? false);
+                        ManagedServerIpDomain::query()->updateOrCreate([
+                            'workspace_id' => $workspace->getKey(),
+                            'managed_server_ip_id' => $ip->getKey(),
+                            'hostname' => $hostname,
+                        ], [
+                            'managed_server_id' => $server->getKey(),
+                            'sending_domain_id' => $assignmentDomain->getKey(),
+                            'tracking_host' => $assignment['tracking_host'] ?? null,
+                            'sending_domain_dkim_identity_id' => $assignment['sending_domain_dkim_identity_id'] ?? null,
+                            'dkim_selector' => $assignment['dkim_selector'] ?? null,
+                            'is_primary' => (bool) $assignment['is_primary'],
+                            'is_active' => true,
+                            'tracking_https_ready' => $trackingReady,
+                            'dns_verified_at' => $dnsVerified ? now() : null,
+                            'authentication_verified_at' => $authenticationVerified ? now() : null,
+                        ]);
 
-                    if ($domain->is_our) {
-                        $domain->forceFill(['status' => 'used'])->saveOrFail();
+                        if ($assignmentDomain->is_our) {
+                            $assignmentDomain->forceFill(['status' => 'used'])->saveOrFail();
+                        }
                     }
                 }
             }
@@ -129,7 +150,10 @@ class AlphaLinkReinstallCompletionWriter
                 'request_id' => $requestId,
                 'properties' => [
                     'ip_count' => count($rows),
-                    'domain_count' => count(array_unique(array_column($rows, 'domain_id'))),
+                    'domain_count' => count(array_unique(array_merge(
+                        array_column($rows, 'domain_id'),
+                        ...array_map(static fn (array $row): array => array_column($row['domains'] ?? [], 'domain_id'), $rows),
+                    ))),
                     'pmta' => $options['pmta'],
                 ],
                 'occurred_at' => now(),

@@ -18,7 +18,7 @@ class AlphaLinkReinstallSelectionLoader
     ) {}
 
     /**
-     * @return array{spf: bool, dkim: bool, dmarc: bool, pmta_version: int, tracking: bool, proxy: bool, imap: bool, https: bool, data: list<array<string, mixed>>}
+     * @return array{spf: bool, dkim: bool, dmarc: bool, pmta_version: int, tracking: bool, proxy: bool, imap: bool, https: bool, multi_domain_per_ip: bool, data: list<array<string, mixed>>}
      */
     public function loadConfiguration(Workspace $workspace, ManagedServer $server): array
     {
@@ -35,6 +35,7 @@ class AlphaLinkReinstallSelectionLoader
             'proxy' => (bool) ($settings['proxy'] ?? false),
             'imap' => (bool) ($settings['imap'] ?? false),
             'https' => (bool) ($settings['https'] ?? false),
+            'multi_domain_per_ip' => collect($data)->contains(static fn (array $row): bool => ! empty($row['domains'])),
             'data' => array_map(static function (array $row): array {
                 $row['main'] = (bool) ($row['main'] ?? false);
 
@@ -53,7 +54,10 @@ class AlphaLinkReinstallSelectionLoader
         $this->assertWorkspaceServer($workspace, $server);
         $savedRows = $this->savedRows($workspace, $server);
         $domainIds = collect($savedRows)
-            ->pluck('domain_id')
+            ->flatMap(static fn (array $row): array => [
+                $row['domain_id'] ?? null,
+                ...array_map(static fn (array $assignment): mixed => $assignment['domain_id'] ?? null, $row['domains'] ?? []),
+            ])
             ->filter(static fn (mixed $domainId): bool => is_string($domainId) || is_int($domainId))
             ->unique()
             ->values();
@@ -150,13 +154,21 @@ class AlphaLinkReinstallSelectionLoader
         $savedIps = $server->ips()
             ->where('workspace_id', $workspace->getKey())
             ->where('is_active', true)
+            ->with(['domainAssignments' => fn ($query) => $query->where('is_active', true)->orderByDesc('is_primary')->orderBy('id')])
             ->orderBy('id')
             ->get(['id', 'sending_domain_id', 'ip', 'type', 'dns']);
         if ($savedIps->isEmpty()) {
             return [];
         }
 
-        $domainIds = $savedIps->pluck('sending_domain_id')->map(static fn (mixed $id): string => (string) $id)->unique()->values();
+        $domainIds = $savedIps
+            ->flatMap(static function (ManagedServerIp $ip): array {
+                return [
+                    (string) ($ip->domainAssignments->firstWhere('is_primary', true)?->sending_domain_id ?? $ip->sending_domain_id),
+                    ...$ip->domainAssignments->pluck('sending_domain_id')->map(static fn (mixed $id): string => (string) $id)->all(),
+                ];
+            })
+            ->unique()->values();
         $domains = SendingDomain::withTrashed()
             ->where('workspace_id', $workspace->getKey())
             ->whereIn('id', $domainIds)
@@ -168,7 +180,9 @@ class AlphaLinkReinstallSelectionLoader
         }
 
         return $savedIps->map(function (ManagedServerIp $ip) use ($domains, $server): array {
-            $domain = $domains->get((string) $ip->sending_domain_id);
+            $primaryAssignment = $ip->domainAssignments->firstWhere('is_primary', true);
+            $primaryDomainId = (string) ($primaryAssignment?->sending_domain_id ?? $ip->sending_domain_id);
+            $domain = $domains->get($primaryDomainId);
             if (! $domain instanceof SendingDomain) {
                 throw new RuntimeException('The saved server IP map references an unavailable domain.');
             }
@@ -176,7 +190,7 @@ class AlphaLinkReinstallSelectionLoader
             $subdomain = '';
             $domainName = rtrim((string) $domain->name, '.');
             $dnsName = rtrim((string) $ip->dns, '.');
-            if ($domain->is_our && strcasecmp($dnsName, $domainName) !== 0) {
+            if (strcasecmp($dnsName, $domainName) !== 0) {
                 $suffix = '.'.$domainName;
                 if (! str_ends_with(strtolower($dnsName), strtolower($suffix))) {
                     throw new RuntimeException('The saved server IP map has a DNS name that cannot be safely restored.');
@@ -188,14 +202,42 @@ class AlphaLinkReinstallSelectionLoader
                 }
             }
 
+            $additionalDomains = [];
+            foreach ($ip->domainAssignments->reject(static fn ($assignment): bool => (bool) $assignment->is_primary) as $assignment) {
+                $assignmentDomain = $domains->get((string) $assignment->sending_domain_id);
+                if (! $assignmentDomain instanceof SendingDomain) {
+                    throw new RuntimeException('The saved server IP map references an unavailable assignment domain.');
+                }
+                $hostname = strtolower(rtrim((string) $assignment->hostname, '.'));
+                $assignmentBase = strtolower(rtrim((string) $assignmentDomain->name, '.'));
+                $assignmentSub = '';
+                if ($hostname !== $assignmentBase) {
+                    $suffix = '.'.$assignmentBase;
+                    if (! str_ends_with($hostname, $suffix)) {
+                        throw new RuntimeException('A saved server domain assignment has a hostname outside its domain.');
+                    }
+                    $assignmentSub = substr($hostname, 0, -strlen($suffix));
+                    if (! preg_match('/\A[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\z/iD', $assignmentSub)) {
+                        throw new RuntimeException('A saved server domain assignment has an invalid subdomain.');
+                    }
+                }
+                $additionalDomains[] = [
+                    'domain_id' => (string) $assignmentDomain->getKey(),
+                    'sub' => $assignmentSub,
+                    'domain' => (string) $assignmentDomain->name,
+                    'is_our' => (bool) $assignmentDomain->is_our,
+                ];
+            }
+
             return [
                 'id' => (int) $ip->getKey(),
                 'main' => (string) $ip->ip === (string) $server->ip_address,
                 'ip' => (string) $ip->ip,
                 'type' => (string) $ip->type,
-                'domain_id' => (string) $ip->sending_domain_id,
+                'domain_id' => $primaryDomainId,
                 'sub' => $subdomain,
                 'domain' => (string) $domain->name,
+                'domains' => $additionalDomains,
             ];
         })->all();
     }

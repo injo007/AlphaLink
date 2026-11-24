@@ -46,6 +46,7 @@ class AlphaLinkBulkInstallEligibility
             'servers' => $servers,
             'domains' => $domains->map(fn ($domain) => [
                 'id' => (string) $domain->getKey(),
+                'name' => (string) $domain->name,
                 'label' => sprintf(
                     '%s | STATUS: %s | IS OUR: %s | LISTED: SPAMHAUS = %s - HOSTKARMA = %s',
                     $domain->name,

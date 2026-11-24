@@ -26,6 +26,11 @@ class AlphaLinkCentos9ReinstallWorkflow
         private readonly AlphaLinkCentos9PhpInstallationStage $phpInstallation,
         private readonly AlphaLinkCentos9TrackingDeploymentStage $tracking,
         private readonly AlphaLinkBulkInstallDomainRecordStage $domainRecords,
+        private readonly AlphaLinkMultiDomainInstallPlan $multiDomainPlan,
+        private readonly AlphaLinkAssignmentDnsRecordWriter $assignmentDnsWriter,
+        private readonly AlphaLinkSendingDomainDkimIdentityManager $assignmentDkimIdentities,
+        private readonly AlphaLinkMultiDomainDnsVerifier $multiDomainDnsVerifier,
+        private readonly AlphaLinkManualDnsVerifier $manualDnsVerifier,
         private readonly AlphaLinkCentos9PmtaDeploymentStage $pmta,
         private readonly AlphaLinkCentos9VmtaDeploymentStage $vmtas,
         private readonly AlphaLinkCentos9ProxyDeploymentStage $proxy,
@@ -81,22 +86,165 @@ class AlphaLinkCentos9ReinstallWorkflow
         $inputs = $this->runtimeInputs->resolve($this->componentOptions($options), $workspace, $options['pmta'] ? $pmtaVersion : null);
         $rows = $prepared['rows'];
         $mainDomain = $prepared['main_domain'];
-        $subdomains = $this->subdomains($rows);
+        $domainsById = collect($prepared['domains'])->keyBy(static fn (SendingDomain $domain): string => (string) $domain->getKey())->all();
+        $hasMultipleDomainsPerIp = collect($rows)->contains(static fn (array $row): bool => ! empty($row['domains']));
+        $assignmentPlan = null;
+        $pmtaSigningIdentities = [];
+        if ($hasMultipleDomainsPerIp) {
+            if (! $options['pmta'] || ! $options['tracking'] || ! $options['https'] || ! $options['spf'] || ! $options['dkim'] || ! $options['dmarc']) {
+                throw new RuntimeException('Multi-domain reinstall requires HTTPS tracking and SPF, DKIM, and DMARC to be enabled.');
+            }
+            $assignmentPlan = $this->multiDomainPlan->build($rows);
+            $rows = $assignmentPlan['ips'];
+            foreach ($assignmentPlan['assignments'] as &$plannedAssignment) {
+                $selectedDomain = $domainsById[(string) $plannedAssignment['domain_id']] ?? null;
+                if (! $selectedDomain instanceof SendingDomain) {
+                    throw new InvalidArgumentException('A reinstall assignment references a domain outside the saved server map.');
+                }
+                $identity = $this->assignmentDkimIdentities->ensure($workspace, $selectedDomain, $plannedAssignment['hostname']);
+                $plannedAssignment['sending_domain_dkim_identity_id'] = (string) $identity->getKey();
+                $plannedAssignment['dkim_selector'] = (string) $identity->selector;
+                $plannedAssignment['dkim_public_record'] = (string) $identity->public_record;
+                $plannedAssignment['dkim_private_key'] = (string) $identity->private_key;
+                $plannedAssignment['ehlo_hostname'] = (string) collect($rows)
+                    ->firstWhere('ip', $plannedAssignment['ip'])['ehlo_hostname'];
+                $pmtaSigningIdentities[$plannedAssignment['hostname']] = [
+                    'selector' => (string) $identity->selector,
+                    'private_key' => (string) $identity->private_key,
+                ];
+            }
+            unset($plannedAssignment);
+            $plannedByIpAndHostname = [];
+            foreach ($assignmentPlan['assignments'] as $plannedAssignment) {
+                $plannedByIpAndHostname[$plannedAssignment['ip'].'|'.$plannedAssignment['hostname']] = $plannedAssignment;
+            }
+            foreach ($assignmentPlan['dns_groups'] as &$dnsGroup) {
+                foreach ($dnsGroup['assignments'] as &$dnsAssignment) {
+                    $key = $dnsAssignment['ip'].'|'.$dnsAssignment['hostname'];
+                    $dnsAssignment = [...$dnsAssignment, ...array_intersect_key(
+                        $plannedByIpAndHostname[$key],
+                        array_flip(['sending_domain_dkim_identity_id', 'dkim_selector', 'dkim_public_record', 'ehlo_hostname']),
+                    )];
+                }
+                unset($dnsAssignment);
+            }
+            unset($dnsGroup);
+            foreach ($rows as &$row) {
+                $primaryHostname = strtolower(($row['sub'] !== '' ? $row['sub'].'.' : '').$row['domain']);
+                $primaryIdentity = $plannedByIpAndHostname[$row['ip'].'|'.$primaryHostname];
+                $row = [...$row, ...$this->completionIdentityFields($primaryIdentity)];
+                foreach ($row['domains'] as &$additional) {
+                    $hostname = strtolower(($additional['sub'] !== '' ? $additional['sub'].'.' : '').$additional['domain']);
+                    $additional = [...$additional, ...$this->completionIdentityFields($plannedByIpAndHostname[$row['ip'].'|'.$hostname])];
+                }
+                unset($additional);
+            }
+            unset($row);
+            $assignmentPlan['pmta_signing_identities'] = $pmtaSigningIdentities;
+        }
+        $mainAssignment = collect($rows)->firstWhere('main', true) ?? $rows[0];
+        $trackingDomain = $assignmentPlan !== null
+            ? (string) $mainAssignment['tracking_host']
+            : (string) $mainDomain->name;
+        $subdomains = $assignmentPlan !== null
+            ? array_values(array_diff($assignmentPlan['tracking_hosts'], [$trackingDomain]))
+            : $this->subdomains($rows);
         $credential = $this->credentials->resolve($server);
         $session = new AlphaLinkFailClosedInstallerTransport(
             $this->sessions->create($server, $credential['secret'], $credential['type']),
             'Server Reinstall',
         );
+        $dnsInputRows = $rows;
+        foreach ($dnsInputRows as &$dnsInputRow) {
+            $dnsInputRow['source_ip'] = (string) $dnsInputRow['ip'];
+        }
+        unset($dnsInputRow);
         $dnsRows = $this->domainRecords->resolvePublicAddresses(
-            $rows,
+            $dnsInputRows,
             new AlphaLinkCentos9PublicIpResolver($session),
             $log,
             (string) $server->ip_address,
         );
         $groups = $this->groupRows($dnsRows, $prepared['domains']);
-        $mainDomainProviderReady = $this->dnsWriter->isDomainAvailable($mainDomain);
-        $deploymentDomain = (string) $mainDomain->name;
-        $deploymentSubdomains = $mainDomainProviderReady ? $subdomains : [];
+        $publicIpBySource = [];
+        foreach ($dnsRows as $resolvedIp) {
+            $publicIpBySource[(string) ($resolvedIp['source_ip'] ?? $resolvedIp['ip'])] = (string) $resolvedIp['ip'];
+        }
+        $mainHostname = strtolower(($mainAssignment['sub'] !== '' ? $mainAssignment['sub'].'.' : '').$mainAssignment['domain']);
+        $mainPublicIp = $publicIpBySource[(string) $mainAssignment['ip']] ?? (string) $mainAssignment['ip'];
+        $mainDomainProviderReady = $assignmentPlan !== null
+            ? true
+            : ($mainDomain->is_our
+                ? $this->dnsWriter->isDomainAvailable($mainDomain)
+                : $this->manualDnsVerifier->verifies([[
+                'hostname' => $mainHostname,
+                'ip' => $mainPublicIp,
+            ]]));
+        $deploymentDomain = $assignmentPlan !== null
+            ? (string) $mainAssignment['ehlo_hostname']
+            : (string) $mainDomain->name;
+        $deploymentSubdomains = $assignmentPlan !== null
+            ? $subdomains
+            : ($mainDomainProviderReady ? $subdomains : []);
+        if ($assignmentPlan !== null) {
+            $publicAssignments = [];
+            foreach ($assignmentPlan['assignments'] as $assignment) {
+                $publicIp = $publicIpBySource[(string) $assignment['ip']] ?? null;
+                if ($publicIp === null) {
+                    throw new RuntimeException('A selected assignment has no verified public IP for DNS checks.');
+                }
+                $physicalIp = collect($rows)->firstWhere('ip', $assignment['ip']);
+                $publicAssignments[] = [
+                    ...$assignment,
+                    'ip' => $publicIp,
+                    'ehlo_hostname' => (string) $physicalIp['ehlo_hostname'],
+                ];
+            }
+            foreach ($assignmentPlan['dns_groups'] as $dnsGroup) {
+                $selectedDomain = $domainsById[(string) $dnsGroup['domain_id']] ?? null;
+                if (! $selectedDomain instanceof SendingDomain) {
+                    throw new InvalidArgumentException('A DNS assignment group is outside the saved server map.');
+                }
+                $records = [];
+                foreach ($dnsGroup['assignments'] as $assignment) {
+                    $records[] = [
+                        'hostname' => $assignment['hostname'],
+                        'ip' => $publicIpBySource[$assignment['ip']],
+                        'tracking_host' => $assignment['tracking_host'],
+                        'dkim_selector' => $assignment['dkim_selector'],
+                        'dkim_public_record' => $assignment['dkim_public_record'],
+                    ];
+                }
+                $additionalARecords = [];
+                $providerAvailable = $selectedDomain->is_our && $this->assignmentDnsWriter->isAssignmentDomainAvailable($selectedDomain);
+                if (! $providerAvailable) {
+                    $log(sprintf('DNS for %s is managed manually; reinstall will not call its DNS provider.', $selectedDomain->name));
+                    $this->domainRecords->logManualAssignmentRecords(
+                        $selectedDomain,
+                        $records,
+                        [...$options, 'clean_dns' => false],
+                        $log,
+                        $additionalARecords,
+                    );
+
+                    continue;
+                }
+                $this->domainRecords->runAssignments(
+                    $selectedDomain,
+                    $records,
+                    [...$options, 'clean_dns' => false],
+                    $this->assignmentDnsWriter,
+                    $log,
+                    $additionalARecords,
+                );
+            }
+            $this->multiDomainDnsVerifier->verifyForwardAddresses($publicAssignments);
+            $this->multiDomainDnsVerifier->verifyMailAuthentication($publicAssignments, $options);
+            $mainDomainProviderReady = true;
+            $log('Verified public sending, tracking, and EHLO DNS plus SPF, DKIM, and DMARC before reinstall changes');
+        } elseif (! $mainDomain->is_our) {
+            $log('External DNS is managed manually; reinstall will not call its DNS provider.');
+        }
         if (! $mainDomainProviderReady) {
             $log(sprintf(
                 'DNS record management is unavailable for %s; retaining the selected hostname and checking its public HTTPS route independently. DNS updates may be skipped.',
@@ -130,7 +278,7 @@ class AlphaLinkCentos9ReinstallWorkflow
                 $session,
                 (string) $server->ip_address,
                 (string) $server->getKey(),
-                $deploymentDomain,
+                $assignmentPlan !== null && $options['https'] ? $trackingDomain : $deploymentDomain,
                 $deploymentSubdomains,
                 $inputs['assets']['tracking_app'],
                 $inputs['assets']['cloudflare_ips'],
@@ -142,32 +290,49 @@ class AlphaLinkCentos9ReinstallWorkflow
             $log('End Setting Tracking App');
         }
 
-        $resolver = new AlphaLinkCentos9PublicIpResolver($session);
-        foreach ($groups as $group) {
-            $dnsReady = $this->domainRecords->run(
-                $group['domain'],
-                $group['rows'],
-                [
-                    'tracking' => $options['tracking'],
-                    'imap' => $options['imap'],
-                    'spf' => $options['spf'],
-                    'dkim' => $options['dkim'],
-                    'dmarc' => $options['dmarc'],
-                    'clean_dns' => ! empty($options['clean_dns']),
-                ],
-                $inputs['settings']['dkim_selector'],
-                $inputs['settings']['dkim_public_key'],
-                $resolver,
-                $this->dnsWriter,
-                $log,
-                continueOnDnsFailure: true,
-            );
-            if ($dnsReady !== null && (string) $group['domain']->getKey() === (string) $mainDomain->getKey()) {
-                $mainDomainProviderReady = $dnsReady;
+        if ($assignmentPlan === null) {
+            $resolver = new AlphaLinkCentos9PublicIpResolver($session);
+            foreach ($groups as $group) {
+                if (! $group['domain']->is_our) {
+                    $manualRecords = array_map(static fn (array $row): array => [
+                        'hostname' => trim((string) ($row['sub'] ?? '')) !== ''
+                            ? trim((string) $row['sub']).'.'.(string) $group['domain']->name
+                            : (string) $group['domain']->name,
+                        'ip' => (string) $row['ip'],
+                    ], $group['rows']);
+                    $dnsReady = $this->manualDnsVerifier->verifies($manualRecords);
+                    $log(sprintf(
+                        'External DNS for %s %s the selected IPs; no provider records were changed.',
+                        $group['domain']->name,
+                        $dnsReady ? 'already points to' : 'does not point to',
+                    ));
+                } else {
+                    $dnsReady = $this->domainRecords->run(
+                        $group['domain'],
+                        $group['rows'],
+                        [
+                            'tracking' => $options['tracking'],
+                            'imap' => $options['imap'],
+                            'spf' => $options['spf'],
+                            'dkim' => $options['dkim'],
+                            'dmarc' => $options['dmarc'],
+                            'clean_dns' => ! empty($options['clean_dns']),
+                        ],
+                        $inputs['settings']['dkim_selector'],
+                        $inputs['settings']['dkim_public_key'],
+                        $resolver,
+                        $this->dnsWriter,
+                        $log,
+                        continueOnDnsFailure: true,
+                    );
+                }
+                if ($dnsReady !== null && (string) $group['domain']->getKey() === (string) $mainDomain->getKey()) {
+                    $mainDomainProviderReady = $dnsReady;
+                }
             }
         }
 
-        $monitorDomain = (string) $mainDomain->name;
+        $monitorDomain = $assignmentPlan !== null ? $trackingDomain : (string) $mainDomain->name;
         // Keep the stable PMTA 4.5/5.0 loopback backend behind Nginx for
         // IP-only monitor fallback; PMTA 4.0 retains its direct listener mode.
         $directPmtaMonitor = AlphaLinkPmtaMonitorMode::usesDirectListener(
@@ -207,6 +372,10 @@ class AlphaLinkCentos9ReinstallWorkflow
                 'sub' => $row['sub'],
                 'domain' => $row['domain'],
                 'is_our' => $row['is_our'],
+                ...(isset($row['domains']) ? ['domains' => array_map(static fn (array $assignment): array => [
+                    'sub' => $assignment['sub'],
+                    'domain' => $assignment['domain'],
+                ], $row['domains'])] : []),
             ], $rows);
             $this->vmtas->run(
                 $session,
@@ -217,6 +386,7 @@ class AlphaLinkCentos9ReinstallWorkflow
                 $inputs['settings']['dkim_selector'],
                 $options['dkim'],
                 $inputs['settings']['dkim_key'],
+                $assignmentPlan['pmta_signing_identities'] ?? [],
             );
             $log('End Setting VMTAS');
 
@@ -259,6 +429,9 @@ class AlphaLinkCentos9ReinstallWorkflow
             $domainCertificateReady = $this->https->run($session, $monitorDomain, $mainDomainProviderReady ? $subdomains : []);
             if ($monitorDomain !== null && ! $domainCertificateReady) {
                 $log('The selected domain certificate was not issued; check public DNS and inbound HTTP port 80 before retrying.');
+            }
+            if ($assignmentPlan !== null && ! $domainCertificateReady) {
+                throw new RuntimeException('Multi-domain reinstall could not verify an HTTPS certificate for all tracking hosts.');
             }
             if ($options['pmta']) {
                 $pmtaMonitorHttps = $this->https->configurePmtaMonitor(
@@ -324,9 +497,31 @@ class AlphaLinkCentos9ReinstallWorkflow
         $log('End Setting Firewall');
 
         if ($options['tracking'] && $options['https'] && $domainCertificateReady) {
-            $trackingHttpsReady = $this->tracking->verifyHttps($session, $monitorDomain);
-            if (! $trackingHttpsReady) {
-                $log('Tracking HTTPS did not pass its public health and redirect checks; tracked campaign sends require repair before use.');
+            if ($assignmentPlan !== null) {
+                $trackingHttpsReady = true;
+                foreach ($assignmentPlan['tracking_hosts'] as $assignmentTrackingHost) {
+                    if (! $this->tracking->verifyHttps($session, $assignmentTrackingHost)) {
+                        throw new RuntimeException('HTTPS tracking verification failed for assignment host '.$assignmentTrackingHost.'.');
+                    }
+                }
+                $this->multiDomainDnsVerifier->verify($publicAssignments, $options);
+                foreach ($rows as &$row) {
+                    $row['dns_verified'] = true;
+                    $row['authentication_verified'] = true;
+                    $row['tracking_https_ready'] = true;
+                    foreach ($row['domains'] as &$additional) {
+                        $additional['dns_verified'] = true;
+                        $additional['authentication_verified'] = true;
+                        $additional['tracking_https_ready'] = true;
+                    }
+                    unset($additional);
+                }
+                unset($row);
+            } else {
+                $trackingHttpsReady = $this->tracking->verifyHttps($session, $monitorDomain);
+                if (! $trackingHttpsReady) {
+                    $log('Tracking HTTPS did not pass its public health and redirect checks; tracked campaign sends require repair before use.');
+                }
             }
         }
 
@@ -433,5 +628,19 @@ class AlphaLinkCentos9ReinstallWorkflow
         }
 
         return array_values($groups);
+    }
+
+    /** @param array<string, mixed> $identity
+     * @return array<string, mixed>
+     */
+    private function completionIdentityFields(array $identity): array
+    {
+        return [
+            'sending_domain_dkim_identity_id' => (string) $identity['sending_domain_dkim_identity_id'],
+            'dkim_selector' => (string) $identity['dkim_selector'],
+            'dns_verified' => false,
+            'authentication_verified' => false,
+            'tracking_https_ready' => false,
+        ];
     }
 }

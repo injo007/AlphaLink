@@ -198,6 +198,7 @@
             let loadedServerId = '';
             let confirmedAction = null;
             let pendingRemoveRow = null;
+            let multiDomainReinstall = false;
 
             function serverUrl(template, serverId = serverSelect.value) {
                 return template.replace('__SERVER__', encodeURIComponent(serverId));
@@ -269,6 +270,7 @@
                     const row = document.createElement('tr');
                     row.dataset.ipId = String(assignment.id ?? assignment.ip_id ?? index + 1);
                     row.dataset.domainId = String(assignment.domain_id || '');
+                    row.dataset.additionalDomains = JSON.stringify(Array.isArray(assignment.domains) ? assignment.domains : []);
 
                     const ipCell = document.createElement('td');
                     ipCell.style.fontFamily = 'monospace';
@@ -306,6 +308,16 @@
                     const domainCell = document.createElement('td');
                     domainCell.style.fontWeight = '600';
                     domainCell.textContent = assignment.domain_name || assignment.domain || 'No domain';
+                    if (Array.isArray(assignment.domains) && assignment.domains.length > 0) {
+                        const additional = document.createElement('small');
+                        additional.className = 'd-block text-muted';
+                        additional.textContent = '+ ' + assignment.domains.map((entry) => {
+                            const domain = String(entry.domain || 'No domain');
+                            const sub = String(entry.sub || '').trim();
+                            return sub ? `${sub}.${domain}` : domain;
+                        }).join(', ');
+                        domainCell.append(additional);
+                    }
                     row.append(domainCell);
 
                     const actionCell = document.createElement('td');
@@ -365,12 +377,16 @@
                     if (!response.ok) throw new Error(config.message || config.data || 'Could not load server configuration.');
 
                     document.getElementById('reinstall-pmta-version').value = String(config.pmta_version || 45);
+                    multiDomainReinstall = Boolean(config.multi_domain_per_ip);
                     for (const option of ['pmta', 'tracking', 'https', 'proxy', 'imap', 'spf', 'dkim', 'dmarc', 'clean_dns']) {
                         const input = document.getElementById(`reinstall-${option}`);
                         if (input) {
                             input.checked = option === 'https'
                                 ? (config[option] === true || config['pmta_monitor_https'] === true || config[option] === undefined)
                                 : Boolean(config[option]);
+                            const requiredForMultiDomain = multiDomainReinstall && ['pmta', 'tracking', 'https', 'spf', 'dkim', 'dmarc'].includes(option);
+                            if (requiredForMultiDomain) input.checked = true;
+                            input.disabled = requiredForMultiDomain || (multiDomainReinstall && option === 'clean_dns');
                         }
                     }
                     loadedServerId = requestedServerId;
@@ -459,6 +475,7 @@
                         main: row.querySelector('input[type="checkbox"]')?.checked || false,
                         sub: row.querySelector('input[type="text"]')?.value.trim() || '',
                         domain_id: row.dataset.domainId,
+                        domains: JSON.parse(row.dataset.additionalDomains || '[]'),
                     }));
                     const payload = {pmta_version: Number(document.getElementById('reinstall-pmta-version').value), data: assignments};
                     for (const option of ['pmta', 'tracking', 'https', 'proxy', 'imap', 'spf', 'dkim', 'dmarc', 'clean_dns']) {

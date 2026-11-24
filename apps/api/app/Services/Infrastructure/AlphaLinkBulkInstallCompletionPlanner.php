@@ -70,7 +70,7 @@ class AlphaLinkBulkInstallCompletionPlanner
                     ? $assignmentSub.'.'.$assignment['domain']
                     : $assignment['domain'];
                 if (isset($seenHostnames[strtolower($hostname)])) {
-                    throw new InvalidArgumentException('A sending hostname may be assigned only once to each physical IP.');
+                    throw new InvalidArgumentException('The hostname '.$hostname.' is assigned more than once to the same physical IP. Give each sending assignment a unique subdomain.');
                 }
                 $seenHostnames[strtolower($hostname)] = true;
                 $operations[] = [

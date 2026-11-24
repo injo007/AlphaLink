@@ -105,6 +105,8 @@ class CloudflareDnsApiTest extends TestCase
             $this->fail('The existing address must be preserved and reported as a conflict.');
         } catch (CloudflareDnsApiException $exception) {
             $this->assertStringContainsString('conflicts with an existing value', $exception->getMessage());
+            $this->assertStringContainsString('A mail.example.com', $exception->getMessage());
+            $this->assertStringContainsString('Existing DNS was preserved', $exception->getMessage());
         }
         $this->assertSame([], $writes);
     }

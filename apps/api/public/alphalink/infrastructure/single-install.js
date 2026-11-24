@@ -1,3 +1,5 @@
+import { findDuplicateSendingHostname } from './assignment-hostnames.js';
+
 const optionNames = ['tracking', 'proxy', 'imap', 'spf', 'dkim', 'dmarc', 'https', 'clean_dns', 'multi_domain_per_ip'];
 
 export function buildSingleInstallPayload({ serverId, rows, key, pmtaVersion, switches, domainsPerIp }) {
@@ -105,6 +107,7 @@ function renderRows(tbody, rows, availableDomains, multiDomainPerIp = false, dom
         for (const availableDomain of availableDomains) {
             const option = document.createElement('option');
             option.value = availableDomain.id;
+            option.dataset.domainName = availableDomain.name ?? '';
             option.textContent = availableDomain.label;
             domain.append(option);
         }
@@ -144,6 +147,7 @@ function renderRows(tbody, rows, availableDomains, multiDomainPerIp = false, dom
                 for (const availableDomain of availableDomains) {
                     const option = document.createElement('option');
                     option.value = availableDomain.id;
+                    option.dataset.domainName = availableDomain.name ?? '';
                     option.textContent = availableDomain.label;
                     select.append(option);
                 }
@@ -232,7 +236,7 @@ function initializeSingleInstallPage() {
     };
     const availableDomainOptions = () => Array.from(domainSelect.options)
         .filter((option) => option.value !== '')
-        .map((option) => ({ id: option.value, label: option.textContent ?? '' }));
+        .map((option) => ({ id: option.value, name: option.dataset.domainName ?? '', label: option.textContent ?? '' }));
     const redrawAssignments = () => renderRows(
         tbody,
         readRows(tbody),
@@ -371,6 +375,27 @@ function initializeSingleInstallPage() {
             if (rows.length * (requiredAdditionalCount + 1) > 100) {
                 setError('A server can have at most 100 HTTPS tracking hostnames on its current certificate. Reduce the IP or domain count.');
                 return;
+            }
+            for (const row of Array.from(tbody.querySelectorAll('[data-install-ip-row]'))) {
+                const identities = [
+                    {
+                        domain_id: row.querySelector('[data-install-domain]')?.value ?? '',
+                        sub: row.querySelector('[data-install-sub]')?.value ?? '',
+                    },
+                    ...Array.from(row.querySelectorAll('[data-install-extra-domain]'), (select, index) => ({
+                        domain_id: select.value,
+                        sub: row.querySelectorAll('[data-install-extra-sub]')[index]?.value ?? '',
+                    })),
+                ];
+                const duplicateHostname = findDuplicateSendingHostname(identities, (domainId) => {
+                    const select = [row.querySelector('[data-install-domain]'), ...row.querySelectorAll('[data-install-extra-domain]')]
+                        .find((candidate) => candidate?.value === domainId);
+                    return select?.selectedOptions?.[0]?.dataset.domainName;
+                });
+                if (duplicateHostname !== null) {
+                    setError(`The sending hostname ${duplicateHostname} is assigned more than once to IP ${row.dataset.ip}. Give each assignment a unique subdomain.`);
+                    return;
+                }
             }
         }
 

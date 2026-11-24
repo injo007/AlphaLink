@@ -29,10 +29,12 @@ use App\Services\Infrastructure\AlphaLinkInstallerRemoteCommandTransport;
 use App\Services\Infrastructure\AlphaLinkInstallerRemoteFileTransport;
 use App\Services\Infrastructure\AlphaLinkInstallerRemoteReadableFileTransport;
 use App\Services\Infrastructure\AlphaLinkInstallPlatform;
+use App\Services\Infrastructure\AlphaLinkManualDnsVerifier;
 use App\Services\Infrastructure\AlphaLinkMultiDomainDnsVerifier;
 use App\Services\Infrastructure\AlphaLinkMultiDomainInstallPlan;
 use App\Services\Infrastructure\AlphaLinkPmtaApplicationReadiness;
 use App\Services\Infrastructure\AlphaLinkPmtaDeploymentGate;
+use App\Services\Infrastructure\AlphaLinkPublicDnsRecordResolver;
 use App\Services\Infrastructure\AlphaLinkSendingDomainDkimIdentityManager;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -728,6 +730,7 @@ class AlphaLinkCentos9InstallWorkflowTest extends TestCase
             $assignmentDnsWriter,
             $assignmentDkimIdentities,
             $multiDomainDnsVerifier,
+            new AlphaLinkManualDnsVerifier(new AlphaLinkPublicDnsRecordResolver),
             new AlphaLinkCentos9HostPreparation,
             new AlphaLinkCentos9ServiceSetup,
             new AlphaLinkCentos9PhpInstallationStage,

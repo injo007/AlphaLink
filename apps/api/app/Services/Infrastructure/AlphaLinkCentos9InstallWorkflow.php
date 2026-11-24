@@ -21,6 +21,7 @@ class AlphaLinkCentos9InstallWorkflow
         private readonly AlphaLinkAssignmentDnsRecordWriter $assignmentDnsWriter,
         private readonly AlphaLinkSendingDomainDkimIdentityManager $assignmentDkimIdentities,
         private readonly AlphaLinkMultiDomainDnsVerifier $multiDomainDnsVerifier,
+        private readonly AlphaLinkManualDnsVerifier $manualDnsVerifier,
         private readonly AlphaLinkCentos9HostPreparation $hostPreparation,
         private readonly AlphaLinkCentos9ServiceSetup $serviceSetup,
         private readonly AlphaLinkCentos9PhpInstallationStage $phpInstallation,
@@ -203,9 +204,11 @@ class AlphaLinkCentos9InstallWorkflow
 
         $domainProviderReady = [];
         foreach ($domainsById as $domainId => $selectedDomain) {
-            $domainProviderReady[$domainId] = $assignmentPlan !== null
-                ? $this->assignmentDnsWriter->isAssignmentDomainAvailable($selectedDomain)
-                : $dnsWriter->isDomainAvailable($selectedDomain);
+            $domainProviderReady[$domainId] = ! $selectedDomain->is_our
+                ? false
+                : ($assignmentPlan !== null
+                    ? $this->assignmentDnsWriter->isAssignmentDomainAvailable($selectedDomain)
+                    : $dnsWriter->isDomainAvailable($selectedDomain));
         }
         $primaryDomainId = (string) $primaryDomain->getKey();
         $primaryDomainReady = $domainProviderReady[$primaryDomainId] ?? false;
@@ -213,7 +216,7 @@ class AlphaLinkCentos9InstallWorkflow
             ? (string) $ips[array_search(true, array_column($ips, 'main'), true)]['ehlo_hostname']
             : (string) $primaryDomain->name;
 
-        $readySubdomains = static function (array $ipsToInclude) use ($domain, $domainProviderReady, $primaryDomain): array {
+        $readySubdomains = static function (array $ipsToInclude) use ($domain, &$domainProviderReady, $primaryDomain): array {
             $list = [];
             foreach ($ipsToInclude as $ip) {
                 $entryDomainId = (string) ($ip['domain_id'] ?? $domain->getKey());
@@ -268,6 +271,26 @@ class AlphaLinkCentos9InstallWorkflow
             (string) $server->ip_address,
         );
 
+        if ($assignmentPlan === null) {
+            foreach ($this->groupIpsByDomain($dnsIps, $domainsById) as $domainGroup) {
+                if ($domainGroup['domain']->is_our) {
+                    continue;
+                }
+                $manualRecords = array_map(static fn (array $ip): array => [
+                    'hostname' => trim((string) ($ip['sub'] ?? '')) !== ''
+                        ? trim((string) $ip['sub']).'.'.(string) $domainGroup['domain']->name
+                        : (string) $domainGroup['domain']->name,
+                    'ip' => (string) $ip['ip'],
+                ], $domainGroup['ips']);
+                $domainProviderReady[(string) $domainGroup['domain']->getKey()] = $this->manualDnsVerifier->verifies($manualRecords);
+                $log(sprintf(
+                    'External DNS for %s %s the selected IPs; no provider records will be changed.',
+                    $domainGroup['domain']->name,
+                    $domainProviderReady[(string) $domainGroup['domain']->getKey()] ? 'already points to' : 'does not point to',
+                ));
+            }
+        }
+
         if ($assignmentPlan !== null) {
             $publicIpBySource = [];
             foreach ($dnsIps as $resolvedIp) {
@@ -276,15 +299,10 @@ class AlphaLinkCentos9InstallWorkflow
                 }
             }
             foreach ($assignmentPlan['dns_groups'] as $dnsGroup) {
-                if (! ($domainProviderReady[$dnsGroup['domain_id']] ?? false)) {
-                    $log(sprintf(
-                        'DNS API automation is unavailable for %s; existing public records will be verified before any server changes.',
-                        $dnsGroup['domain'],
-                    ));
-
-                    continue;
+                $selectedDomain = $domainsById[$dnsGroup['domain_id']] ?? null;
+                if (! $selectedDomain instanceof SendingDomain) {
+                    throw new InvalidArgumentException('A DNS assignment group is outside the selected sending domains.');
                 }
-
                 $records = [];
                 foreach ($dnsGroup['assignments'] as $assignment) {
                     $publicIp = $publicIpBySource[$assignment['ip']] ?? null;
@@ -299,10 +317,6 @@ class AlphaLinkCentos9InstallWorkflow
                         'dkim_public_record' => $assignment['dkim_public_record'],
                     ];
                 }
-                $selectedDomain = $domainsById[$dnsGroup['domain_id']] ?? null;
-                if (! $selectedDomain instanceof SendingDomain) {
-                    throw new InvalidArgumentException('A DNS assignment group is outside the selected sending domains.');
-                }
                 $additionalARecords = [];
                 if (isset($assignmentPlan['shared_ehlo_hostname'])
                     && (string) ($assignmentPlan['ehlo_domain_id'] ?? '') === (string) $dnsGroup['domain_id']) {
@@ -312,6 +326,22 @@ class AlphaLinkCentos9InstallWorkflow
                             'ip' => (string) ($publicIpBySource[$ipEntry['ip']] ?? ''),
                         ];
                     }
+                }
+                if (! $selectedDomain->is_our || ! ($domainProviderReady[$dnsGroup['domain_id']] ?? false)) {
+                    $log(sprintf(
+                        '%s DNS is managed manually; no provider records will be changed for %s. Existing public records will be verified before any server changes.',
+                        $selectedDomain->is_our ? 'Provider-managed' : 'External',
+                        $dnsGroup['domain'],
+                    ));
+                    $this->domainRecords->logManualAssignmentRecords(
+                        $selectedDomain,
+                        $records,
+                        [...$options, 'clean_dns' => false],
+                        $log,
+                        $additionalARecords,
+                    );
+
+                    continue;
                 }
                 $this->domainRecords->runAssignments(
                     $selectedDomain,
@@ -345,9 +375,18 @@ class AlphaLinkCentos9InstallWorkflow
             // unavailable DNS API from leaving a half-installed server.
             $this->multiDomainDnsVerifier->verifyForwardAddresses($publicAssignments);
             $this->multiDomainDnsVerifier->verifyMailAuthentication($publicAssignments, $options);
+            foreach ($domainsById as $domainId => $_selectedDomain) {
+                $domainProviderReady[$domainId] = true;
+            }
 
             $log('Verified public sending, tracking, and EHLO DNS plus SPF, DKIM, and DMARC before changing the mail server');
         }
+
+        $primaryDomainReady = $domainProviderReady[$primaryDomainId] ?? false;
+        $subdomains = $readySubdomains($ips);
+        $deploymentSubdomains = $assignmentPlan !== null
+            ? $trackingDomainAliases
+            : ($primaryDomainReady ? $subdomains : []);
 
         if ($options['tracking'] && $assets['tracking_app'] !== null) {
             $this->tracking->verifyCallback($session, $settings['tracking_callback_url']);
@@ -384,6 +423,11 @@ class AlphaLinkCentos9InstallWorkflow
         }
 
         foreach ($assignmentPlan === null ? $this->groupIpsByDomain($dnsIps, $domainsById) : [] as $domainGroup) {
+            if (! $domainGroup['domain']->is_our) {
+                $log('External DNS is managed manually; no provider records will be changed for '.$domainGroup['domain']->name);
+
+                continue;
+            }
             $dnsReady = $this->domainRecords->run(
                 $domainGroup['domain'], $domainGroup['ips'], $options,
                 $settings['dkim_selector'], $settings['dkim_public_key'],

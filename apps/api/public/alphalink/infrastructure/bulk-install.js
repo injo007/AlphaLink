@@ -1,3 +1,5 @@
+import { findDuplicateSendingHostname } from './assignment-hostnames.js';
+
 const optionNames = ['tracking', 'proxy', 'imap', 'spf', 'dkim', 'dmarc', 'https', 'clean_dns', 'multi_domain_per_ip'];
 
 /** Build the source-compatible request after blank domain rows are removed. */
@@ -127,7 +129,7 @@ function renderIpAssignments(serverRow, assignments, domainOptions, domainCount,
         const domainCell = document.createElement('td');
         const primary = document.createElement('select'); primary.className = 'form-control form-control-sm'; primary.required = true; primary.dataset.ipDomain = '';
         for (const optionData of domainOptions) {
-            const option = document.createElement('option'); option.value = optionData.id; option.textContent = optionData.label; primary.append(option);
+            const option = document.createElement('option'); option.value = optionData.id; option.dataset.domainName = optionData.name ?? ''; option.textContent = optionData.label; primary.append(option);
         }
         primary.value = String(assignment.domain_id ?? ''); domainCell.append(primary);
         const extraCell = document.createElement('td');
@@ -140,7 +142,7 @@ function renderIpAssignments(serverRow, assignments, domainOptions, domainCount,
             const extraDomain = document.createElement('select'); extraDomain.className = 'form-control form-control-sm'; extraDomain.required = true; extraDomain.dataset.extraDomain = '';
             const placeholder = document.createElement('option'); placeholder.value = ''; placeholder.textContent = 'Select domain…'; extraDomain.append(placeholder);
             for (const optionData of domainOptions) {
-                const option = document.createElement('option'); option.value = optionData.id; option.textContent = optionData.label; extraDomain.append(option);
+                const option = document.createElement('option'); option.value = optionData.id; option.dataset.domainName = optionData.name ?? ''; option.textContent = optionData.label; extraDomain.append(option);
             }
             extraDomain.value = String(current.domain_id ?? '');
             group.append(extraSub, extraDomain); extraCell.append(group);
@@ -162,7 +164,7 @@ function initializeBulkInstallPage() {
     const logResult = document.querySelector('#log_result');
     const domainsForRow = (row) => Array.from(row.querySelector('[data-domain-select]')?.options ?? [])
         .filter((option) => option.value !== '')
-        .map((option) => ({ id: option.value, label: option.textContent ?? '' }));
+        .map((option) => ({ id: option.value, name: option.dataset.domainName ?? '', label: option.textContent ?? '' }));
     const redrawAssignments = () => {
         rows().forEach((row) => {
             const currentAssignments = readIpAssignments(row);
@@ -295,6 +297,32 @@ function initializeBulkInstallPage() {
                     if (logResult) logResult.textContent = `Load IP assignments for every server, choose exactly one main IP, and assign ${requiredAdditionalCount} additional domain${requiredAdditionalCount === 1 ? '' : 's'} to every IP.`;
                     logContainer?.classList.remove('d-none');
                     return;
+                }
+                for (const assignment of assignments) {
+                    const assignmentRow = Array.from(row.nextElementSibling?.querySelectorAll('[data-ip-assignment]') ?? [])
+                        .find((candidate) => candidate.dataset.ip === assignment.ip);
+                    const identities = assignmentRow ? [
+                        {
+                            domain_id: assignmentRow.querySelector('[data-ip-domain]')?.value ?? '',
+                            sub: assignmentRow.querySelector('[data-ip-sub]')?.value ?? '',
+                        },
+                        ...Array.from(assignmentRow.querySelectorAll('[data-extra-domain]'), (select, index) => ({
+                            domain_id: select.value,
+                            sub: assignmentRow.querySelectorAll('[data-extra-sub]')[index]?.value ?? '',
+                        })),
+                    ] : [];
+                    const duplicateHostname = findDuplicateSendingHostname(identities, (domainId) => {
+                        const select = assignmentRow
+                            ? [assignmentRow.querySelector('[data-ip-domain]'), ...assignmentRow.querySelectorAll('[data-extra-domain]')]
+                                .find((candidate) => candidate?.value === domainId)
+                            : null;
+                        return select?.selectedOptions?.[0]?.dataset.domainName;
+                    });
+                    if (duplicateHostname !== null) {
+                        if (logResult) logResult.textContent = `The sending hostname ${duplicateHostname} is assigned more than once to IP ${assignment.ip}. Give each assignment a unique subdomain.`;
+                        logContainer?.classList.remove('d-none');
+                        return;
+                    }
                 }
                 if (assignments.length * (requiredAdditionalCount + 1) > 100) {
                     if (logResult) logResult.textContent = 'Each server can have at most 100 HTTPS tracking hostnames on its current certificate. Reduce the IP or domain count.';

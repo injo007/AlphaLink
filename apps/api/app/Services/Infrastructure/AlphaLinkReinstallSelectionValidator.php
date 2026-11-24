@@ -14,7 +14,7 @@ class AlphaLinkReinstallSelectionValidator
     /**
      * @param  list<array<string, mixed>>  $submittedRows
      * @return array{
-     *     rows: list<array{main: bool, ip: string, type: string, domain_id: string, sub: string, domain: string, is_our: bool}>,
+     *     rows: list<array<string, mixed>>,
      *     domains: list<SendingDomain>,
      *     main_domain: SendingDomain
      * }
@@ -40,13 +40,28 @@ class AlphaLinkReinstallSelectionValidator
             $savedRows = $server->ips()
                 ->where('workspace_id', $workspace->getKey())
                 ->where('is_active', true)
+                ->with(['domainAssignments' => fn ($query) => $query->where('is_active', true)->orderByDesc('is_primary')->orderBy('id')])
                 ->orderBy('id')
-                ->get(['sending_domain_id', 'ip', 'type'])
-                ->map(static fn (ManagedServerIp $ip): array => [
-                    'ip' => (string) $ip->ip,
-                    'type' => (string) $ip->type,
-                    'domain_id' => (string) $ip->sending_domain_id,
-                ])
+                ->get(['id', 'sending_domain_id', 'ip', 'type', 'dns'])
+                ->map(static function (ManagedServerIp $ip): array {
+                    $primary = $ip->domainAssignments->firstWhere('is_primary', true);
+                    $primaryDomainId = $primary?->sending_domain_id ?? $ip->sending_domain_id;
+                    $domainAssignments = $ip->domainAssignments
+                        ->reject(static fn ($assignment): bool => (bool) $assignment->is_primary)
+                        ->map(static fn ($assignment): array => [
+                            'domain_id' => (string) $assignment->sending_domain_id,
+                            'hostname' => (string) $assignment->hostname,
+                        ])->values()->all();
+
+                    return [
+                        'id' => (int) $ip->getKey(),
+                        'ip' => (string) $ip->ip,
+                        'type' => (string) $ip->type,
+                        'domain_id' => (string) $primaryDomainId,
+                        'dns' => (string) $ip->dns,
+                        'domains' => $domainAssignments,
+                    ];
+                })
                 ->all();
         }
 
@@ -66,6 +81,18 @@ class AlphaLinkReinstallSelectionValidator
 
             $savedByIp[$savedRow['ip']] = $savedRow;
             $domainIds[(string) $savedRow['domain_id']] = (string) $savedRow['domain_id'];
+            if (isset($savedRow['domains'])) {
+                if (! is_array($savedRow['domains']) || ! array_is_list($savedRow['domains'])) {
+                    throw new InvalidArgumentException('The saved reinstall configuration contains invalid per-IP domain assignments.');
+                }
+                foreach ($savedRow['domains'] as $additional) {
+                    if (! is_array($additional)
+                        || (! is_string($additional['domain_id'] ?? null) && ! is_int($additional['domain_id'] ?? null))) {
+                        throw new InvalidArgumentException('The saved reinstall configuration contains an invalid per-IP domain assignment.');
+                    }
+                    $domainIds[(string) $additional['domain_id']] = (string) $additional['domain_id'];
+                }
+            }
         }
 
         if (count($savedByIp) !== count($savedRows)) {
@@ -127,6 +154,31 @@ class AlphaLinkReinstallSelectionValidator
             $seenIps[$ip] = true;
             $mainCount += $main ? 1 : 0;
             $usedDomainIds[$domainId] = true;
+            $additionalDomains = [];
+            foreach ($saved['domains'] ?? [] as $additional) {
+                $additionalDomainId = (string) ($additional['domain_id'] ?? '');
+                $additionalDomain = $domains->get($additionalDomainId);
+                $additionalSub = $additional['sub'] ?? '';
+                if (! $additionalDomain instanceof SendingDomain
+                    || ! is_string($additionalSub)
+                    || ($additionalSub !== '' && ! preg_match('/\A[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\z/iD', $additionalSub))) {
+                    throw new InvalidArgumentException('A saved per-IP domain assignment is invalid.');
+                }
+                if (isset($additional['hostname']) && is_string($additional['hostname'])) {
+                    $hostname = strtolower(rtrim($additional['hostname'], '.'));
+                    $baseDomain = strtolower(rtrim((string) $additionalDomain->name, '.'));
+                    if ($hostname !== $baseDomain && str_ends_with($hostname, '.'.$baseDomain)) {
+                        $additionalSub = substr($hostname, 0, -strlen('.'.$baseDomain));
+                    }
+                }
+                $usedDomainIds[$additionalDomainId] = true;
+                $additionalDomains[] = [
+                    'domain_id' => $additionalDomainId,
+                    'sub' => $additionalSub,
+                    'domain' => (string) $additionalDomain->name,
+                    'is_our' => (bool) $additionalDomain->is_our,
+                ];
+            }
             $rows[] = [
                 'main' => $main,
                 'ip' => $ip,
@@ -136,6 +188,7 @@ class AlphaLinkReinstallSelectionValidator
                 'domain' => (string) $domain->name,
                 'is_our' => (bool) $domain->is_our,
                 'interface_ip' => $saved['interface_ip'] ?? null,
+                'domains' => $additionalDomains,
             ];
         }
 

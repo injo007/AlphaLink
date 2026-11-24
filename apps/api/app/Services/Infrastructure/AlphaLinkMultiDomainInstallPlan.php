@@ -52,7 +52,7 @@ class AlphaLinkMultiDomainInstallPlan
             foreach ($identities as $index => $identity) {
                 $hostname = $this->hostname($identity);
                 if (isset($seenHostnames[$hostname])) {
-                    throw new InvalidArgumentException('A sending hostname may appear only once on each physical IP.');
+                    throw new InvalidArgumentException('The sending hostname '.$hostname.' may be assigned only once to each physical IP. Give each sending assignment a unique subdomain.');
                 }
                 $seenHostnames[$hostname] = true;
                 $ehloHostname ??= $hostname;

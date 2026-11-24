@@ -163,7 +163,7 @@ class AlphaLinkBulkInstallRowPreparation
                 $domainsById[$identity['domain_id']] = $selectedDomain;
                 $hostname = strtolower(($identity['sub'] !== '' ? $identity['sub'].'.' : '').$selectedDomain->name);
                 if (isset($hostnames[$hostname])) {
-                    throw new HostProbeException('A sending hostname may be assigned only once to each physical IP.');
+                    throw new HostProbeException('The hostname '.$hostname.' is assigned more than once to the same physical IP. Give each sending assignment a unique subdomain.');
                 }
                 $hostnames[$hostname] = true;
             }

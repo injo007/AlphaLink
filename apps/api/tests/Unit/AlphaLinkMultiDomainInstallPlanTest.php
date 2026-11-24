@@ -48,12 +48,16 @@ class AlphaLinkMultiDomainInstallPlanTest extends TestCase
 
     public function test_duplicate_hostname_on_one_ip_is_rejected(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('only once');
-        (new AlphaLinkMultiDomainInstallPlan)->build([[
-            'ip' => '8.8.8.8', 'main' => true, 'sub' => 'mail', 'domain_id' => 'domain-1', 'domain' => 'example.com',
-            'domains' => [['sub' => 'mail', 'domain_id' => 'domain-1', 'domain' => 'example.com']],
-        ]]);
+        try {
+            (new AlphaLinkMultiDomainInstallPlan)->build([[
+                'ip' => '8.8.8.8', 'main' => true, 'sub' => 'mail', 'domain_id' => 'domain-1', 'domain' => 'example.com',
+                'domains' => [['sub' => 'mail', 'domain_id' => 'domain-1', 'domain' => 'example.com']],
+            ]]);
+            $this->fail('The same sending hostname must not be assigned twice to one physical IP.');
+        } catch (InvalidArgumentException $exception) {
+            $this->assertStringContainsString('only once', $exception->getMessage());
+            $this->assertStringContainsString('mail.example.com', $exception->getMessage());
+        }
     }
 
     public function test_conflicting_ehlo_is_rejected_before_provisioning(): void

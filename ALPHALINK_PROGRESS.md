@@ -1,8 +1,12 @@
 # AlphaLink development progress
 
 **Updated:** 2026-11-24
-**Active objective:** Keep fresh PMTA installation, relay monitoring/commands, campaign redirects, asset reconciliation, and deploy/resume paths aligned.
-**Current implementation status:** E-MDOM-10 connects multi-domain assignments through fresh/bulk installation and DOMAIN campaign routing. E-MDOM-11 adds IP-management visibility, disable/enable and DNS/authentication/tracking HTTPS revalidation. The new management slice is unverified: this checkout's PHP 8.3 runtime lacks DOM/XMLWriter, so PHPUnit/Pint cannot start. The local commit is not pushed or deployed; no live installation was run.
+**Active objective:** Repair multi-domain install/reinstall failures while preserving AlphaLink's create-only DNS policy and manual-DNS support for external domains.
+**Current implementation status:** E-MDOM-12 adds saved-assignment reinstall, duplicate-FQDN diagnostics, manual DNS record output, and early hostname-collision checks. PHP syntax and the focused JavaScript suite pass; local PHPUnit cannot start because PHP 8.3 lacks DOM/XMLWriter. Production deployment and live installation verification are pending.
+
+### Multi-Domain reinstall and DNS diagnostics — E-MDOM-12 (2026-11-24)
+
+Reinstall now reloads and preserves the saved per-IP domain assignments, per-host DKIM identities, and tracking hosts. External domains bypass Cloudflare calls; when DNS must be managed manually, the run log lists the exact public A/AAAA, tracking, SPF, DKIM, DMARC, and optional MX records before verification stops ahead of server changes. Cloudflare conflicts identify the exact record and log the required public values while preserving the existing record. Duplicate effective hostnames are rejected in the form and server with the conflicting FQDN. PHP lint and 14 focused Node tests pass; PHPUnit cannot start in the local PHP 8.3 runtime because DOM/XMLWriter are missing. No live install was run; production deployment and verification remain pending.
 
 ### Multi-Domain assignment management — E-MDOM-11 (2026-11-24)
 

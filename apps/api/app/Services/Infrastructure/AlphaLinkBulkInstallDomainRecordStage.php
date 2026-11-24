@@ -37,10 +37,42 @@ class AlphaLinkBulkInstallDomainRecordStage
             throw new RuntimeException('No DNS records were planned for the selected domain assignments.');
         }
         $log('Configuring assignment DNS records for '.$domain->name.' ('.$this->recordSummary($records).')');
-        if (! $dnsWriter->setAssignmentHosts($domain, $records)) {
+        try {
+            $written = $dnsWriter->setAssignmentHosts($domain, $records);
+        } catch (Throwable $exception) {
+            $log('DNS provider rejected assignment records for '.$domain->name.': '.$exception->getMessage());
+            $this->logManualAssignmentRecords($domain, $assignments, $options, $log, $additionalARecords);
+            throw $exception;
+        }
+        if (! $written) {
+            $this->logManualAssignmentRecords($domain, $assignments, $options, $log, $additionalARecords);
             throw new RuntimeException('The selected assignment DNS records could not be applied through its provider.');
         }
         $log('Verified assignment DNS records for '.$domain->name);
+    }
+
+    /**
+     * Log the records required when AlphaLink cannot write the selected zone.
+     * Values are public DNS data; private DKIM keys are never included here.
+     *
+     * @param  list<array{hostname: string, ip: string, dkim_selector: string, dkim_public_record: string, tracking_host?: string|null}>  $assignments
+     * @param  array{tracking: bool, imap: bool, spf: bool, dkim: bool, dmarc: bool, clean_dns?: bool}  $options
+     * @param  Closure(string): void  $log
+     * @param  list<array{hostname: string, ip: string}>  $additionalARecords
+     */
+    public function logManualAssignmentRecords(
+        SendingDomain $domain,
+        array $assignments,
+        array $options,
+        Closure $log,
+        array $additionalARecords = [],
+    ): void {
+        $log('MANUAL DNS REQUIRED for '.$domain->name.': add these records without changing unrelated records.');
+        foreach ($this->planner->recordsForAssignments((string) $domain->name, $assignments, $options, $additionalARecords) as $record) {
+            $host = strtolower(rtrim(trim($record['host']), '.'));
+            $hostname = $host === '@' ? (string) $domain->name : $host.'.'.$domain->name;
+            $log(sprintf('DNS %s %s -> %s', strtoupper($record['type']), $hostname, $record['address']));
+        }
     }
 
     /**

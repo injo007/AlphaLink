@@ -377,7 +377,7 @@ class CloudflareDnsApi
                 }
                 $existingType = strtoupper((string) ($existing['type'] ?? ''));
                 if ($existingType === 'CNAME') {
-                    throw new CloudflareDnsApiException('An assignment DNS hostname conflicts with an existing CNAME.');
+                    throw new CloudflareDnsApiException('Assignment DNS record '.$type.' '.$name.' conflicts with an existing CNAME. Existing DNS was preserved; remove the CNAME or choose another sending hostname, then retry.');
                 }
                 if ($existingType !== $type) {
                     continue;
@@ -400,10 +400,10 @@ class CloudflareDnsApi
                     continue;
                 }
                 if (! isset($contents[$existingContent])) {
-                    throw new CloudflareDnsApiException('An assignment DNS record conflicts with an existing value.');
+                    throw new CloudflareDnsApiException('Assignment DNS record '.$type.' '.$name.' conflicts with an existing value. Existing DNS was preserved; point this record to the selected server or choose another hostname, then retry.');
                 }
                 if (in_array($type, ['A', 'AAAA'], true) && (bool) ($existing['proxied'] ?? false)) {
-                    throw new CloudflareDnsApiException('An assignment DNS address is proxied and cannot serve the selected mail or tracking host directly.');
+                    throw new CloudflareDnsApiException('Assignment DNS address '.$type.' '.$name.' is proxied and cannot serve the selected mail or tracking host directly.');
                 }
                 if ($type === 'MX' && (int) ($existing['priority'] ?? 10) !== 10) {
                     throw new CloudflareDnsApiException('An assignment MX record has a conflicting priority.');
@@ -481,7 +481,7 @@ class CloudflareDnsApi
                 }
                 $existingType = strtoupper((string) ($existing['type'] ?? ''));
                 if ($existingType === 'CNAME') {
-                    throw new CloudflareDnsApiException('An assignment DNS hostname conflicts with an existing CNAME.');
+                    throw new CloudflareDnsApiException('Assignment DNS record '.$type.' '.$name.' conflicts with an existing CNAME. Existing DNS was preserved; remove the CNAME or choose another sending hostname, then retry.');
                 }
                 if ($existingType === $type) {
                     $content = (string) ($existing['content'] ?? '');
@@ -492,7 +492,7 @@ class CloudflareDnsApi
                         $content = $this->normalizeCloudflareTxtContent($content);
                     }
                     if (! isset($contents[$content])) {
-                        throw new CloudflareDnsApiException('An assignment DNS record conflicts with an existing value.');
+                        throw new CloudflareDnsApiException('Assignment DNS record '.$type.' '.$name.' conflicts with an existing value. Existing DNS was preserved; point this record to the selected server or choose another hostname, then retry.');
                     }
                     if (in_array($type, ['A', 'AAAA'], true) && (bool) ($existing['proxied'] ?? false)) {
                         throw new CloudflareDnsApiException('An assignment DNS address is proxied and cannot serve the selected mail or tracking host directly.');

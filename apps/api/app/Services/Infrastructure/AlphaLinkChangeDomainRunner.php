@@ -114,6 +114,9 @@ class AlphaLinkChangeDomainRunner
             $formatted, $tracking, $imap, $options, $dkimSelector, $dkimMaterial['public_record'], $session, $log, (string) $server->ip_address,
         );
         $this->prepareApacheConfigurationDirectory($session);
+        $log('Prepare PMTA configuration directories');
+        $this->preparePmtaConfigurationDirectories($session);
+        $log('End preparing PMTA configuration directories');
 
         $log('Setup Host');
         $this->hostPreparation->configureHost($session, (string) $server->ip_address, $deploymentDomain);
@@ -504,6 +507,30 @@ class AlphaLinkChangeDomainRunner
             };
 
             throw new RuntimeException('Apache preparation failed: '.$reason.'.');
+        }
+    }
+
+    private function preparePmtaConfigurationDirectories(AlphaLinkInstallerRemoteCommandTransport $session): void
+    {
+        $ready = $session->exec(
+            'mkdir -p /etc/pmta/conf || { printf ALPHALINK_PMTA_CONF_DIR_CREATE_FAILED; exit 1; }; '
+                .'mkdir -p /etc/pmta/settings || { printf ALPHALINK_PMTA_SETTINGS_DIR_CREATE_FAILED; exit 1; }; '
+                .'test -d /etc/pmta/conf && test -w /etc/pmta/conf || { printf ALPHALINK_PMTA_CONF_DIR_NOT_WRITABLE; exit 1; }; '
+                .'test -d /etc/pmta/settings && test -w /etc/pmta/settings || { printf ALPHALINK_PMTA_SETTINGS_DIR_NOT_WRITABLE; exit 1; }; '
+                .'printf ALPHALINK_PMTA_CONFIG_DIRS_READY',
+        );
+
+        $output = (string) $ready;
+        if (! str_contains($output, 'ALPHALINK_PMTA_CONFIG_DIRS_READY')) {
+            $reason = match (true) {
+                str_contains($output, 'ALPHALINK_PMTA_CONF_DIR_CREATE_FAILED') => 'the SSH account could not create /etc/pmta/conf',
+                str_contains($output, 'ALPHALINK_PMTA_SETTINGS_DIR_CREATE_FAILED') => 'the SSH account could not create /etc/pmta/settings',
+                str_contains($output, 'ALPHALINK_PMTA_CONF_DIR_NOT_WRITABLE') => '/etc/pmta/conf is missing or not writable',
+                str_contains($output, 'ALPHALINK_PMTA_SETTINGS_DIR_NOT_WRITABLE') => '/etc/pmta/settings is missing or not writable',
+                default => 'the server returned no readiness marker; check SSH privileges',
+            };
+
+            throw new RuntimeException('PMTA configuration preparation failed: '.$reason.'.');
         }
     }
 }

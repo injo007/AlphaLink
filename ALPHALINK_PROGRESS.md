@@ -1,8 +1,12 @@
 # AlphaLink development progress
 
 **Updated:** 2026-11-24
-**Active objective:** Repair Change Domain on installed AlmaLinux 9 servers where Apache's base configuration is missing.
-**Current implementation status:** The first retry confirmed `/etc/httpd/conf/httpd.conf` is absent. Change Domain now mirrors the existing Apache PHP installation recovery: when the base config is missing, it reinstalls `httpd`/`httpd-core`, confirms the file is restored, and only then prepares `conf.d`, uploads the vhost, and validates/restarts Apache. Failure to restore the packaged config returns a specific error. No live Change Domain retry or installed-server mutation has been run. Keep DMS-SRV-010 TESTING pending a controlled retry and host-side verification.
+**Active objective:** Make Change Domain prepare required Apache and PMTA upload directories on installed AlmaLinux 9 servers.
+**Current implementation status:** The user retries confirmed `/etc/httpd/conf/httpd.conf` was missing, then `/etc/pmta/conf` was missing before the VMTA upload. Change Domain now repairs Apache package config and creates/checks both `/etc/pmta/conf` and `/etc/pmta/settings` before changing the host or uploading any vhost/PMTA files. Failures identify the specific directory or restore step. No live Change Domain retry or installed-server mutation has been run. Keep DMS-SRV-010 TESTING pending a controlled retry and host-side verification.
+
+### Change Domain missing PMTA config directory — E-SRV-LIVE-30 (2026-11-24)
+
+The user-supplied SFTP error names `/etc/pmta/conf/vmta`, whose parent directory was missing. Change Domain now creates and checks `/etc/pmta/conf` and `/etc/pmta/settings` during preflight, before hostname, vhost, DNS or VMTA changes; this covers the VMTA, DKIM config and inbound config upload destinations. PHP syntax, Pint and diff checks pass; tests were not run and no mail-server config or DNS was changed. A controlled retry remains necessary.
 
 ### Change Domain missing Apache base config — E-SRV-LIVE-29 (2026-11-24)
 

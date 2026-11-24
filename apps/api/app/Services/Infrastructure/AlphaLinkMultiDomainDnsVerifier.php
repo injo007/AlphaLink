@@ -6,7 +6,14 @@ use RuntimeException;
 
 class AlphaLinkMultiDomainDnsVerifier
 {
-    public function __construct(private readonly AlphaLinkPublicDnsRecordResolver $dns) {}
+    private readonly AlphaLinkDnsPropagationWaiter $propagationWaiter;
+
+    public function __construct(
+        private readonly AlphaLinkPublicDnsRecordResolver $dns,
+        ?AlphaLinkDnsPropagationWaiter $propagationWaiter = null,
+    ) {
+        $this->propagationWaiter = $propagationWaiter ?? new AlphaLinkDnsPropagationWaiter;
+    }
 
     /** @param list<array<string, mixed>> $assignments */
     public function verify(array $assignments, array $options): void
@@ -22,12 +29,19 @@ class AlphaLinkMultiDomainDnsVerifier
             throw new RuntimeException('Multi-domain DNS verification requires at least one assignment.');
         }
 
+        // Reject malformed inputs before waiting; retries are only for public DNS lag.
         foreach ($assignments as $assignment) {
-            [$hostname, $trackingHost, $ip, $ehlo] = $this->validatedIdentity($assignment);
-            $this->assertAddress($hostname, $ip);
-            $this->assertAddress($trackingHost, $ip);
-            $this->assertAddress($ehlo, $ip);
+            $this->validatedIdentity($assignment);
         }
+
+        $this->propagationWaiter->retry(function () use ($assignments): void {
+            foreach ($assignments as $assignment) {
+                [$hostname, $trackingHost, $ip, $ehlo] = $this->validatedIdentity($assignment);
+                $this->assertAddress($hostname, $ip);
+                $this->assertAddress($trackingHost, $ip);
+                $this->assertAddress($ehlo, $ip);
+            }
+        });
     }
 
     /** @param list<array<string, mixed>> $assignments */
@@ -38,37 +52,45 @@ class AlphaLinkMultiDomainDnsVerifier
         }
 
         foreach ($assignments as $assignment) {
-            [$hostname, , $ip] = $this->validatedIdentity($assignment);
-
-            $spfRecords = $this->txt($hostname);
-            $spf = array_values(array_filter($spfRecords, static fn (string $record): bool => preg_match('/\Av=spf1(?:\s|$)/i', trim($record)) === 1));
-            if (count($spf) !== 1 || ! $this->spfAuthorizes($spf[0], $ip)) {
-                throw new RuntimeException('SPF did not resolve with exactly one record authorizing '.$ip.' for '.$hostname.'.');
-            }
-
+            $this->validatedIdentity($assignment);
             $selector = (string) ($assignment['dkim_selector'] ?? '');
             $publicRecord = (string) ($assignment['dkim_public_record'] ?? '');
             if (! preg_match('/\A[A-Za-z0-9_-]{1,63}\z/', $selector)
                 || ! str_starts_with(strtolower($publicRecord), 'v=dkim1;')) {
                 throw new RuntimeException('A selected domain is missing its DKIM identity.');
             }
-            $dkimName = $selector.'._domainkey.'.$hostname;
-            if (! in_array($this->normalizeTxt($publicRecord), array_map($this->normalizeTxt(...), $this->txt($dkimName)), true)) {
-                throw new RuntimeException('DKIM public key did not resolve for '.$hostname.'.');
-            }
+        }
 
-            $dmarc = array_values(array_filter($this->txt('_dmarc.'.$hostname), static fn (string $record): bool => preg_match('/\Av=dmarc1(?:\s*;|$)/i', trim($record)) === 1));
-            if (count($dmarc) !== 1) {
-                throw new RuntimeException('DMARC did not resolve with exactly one policy for '.$hostname.'.');
-            }
+        $this->propagationWaiter->retry(function () use ($assignments, $options): void {
+            foreach ($assignments as $assignment) {
+                [$hostname, , $ip] = $this->validatedIdentity($assignment);
 
-            if (! empty($options['imap'])) {
-                $mx = $this->dns->records($hostname, DNS_MX);
-                if (! collect($mx)->contains(fn (array $record): bool => strcasecmp(rtrim((string) ($record['target'] ?? ''), '.'), $hostname) === 0)) {
-                    throw new RuntimeException('The configured MX record did not resolve for '.$hostname.'.');
+                $spfRecords = $this->txt($hostname);
+                $spf = array_values(array_filter($spfRecords, static fn (string $record): bool => preg_match('/\Av=spf1(?:\s|$)/i', trim($record)) === 1));
+                if (count($spf) !== 1 || ! $this->spfAuthorizes($spf[0], $ip)) {
+                    throw new RuntimeException('SPF did not resolve with exactly one record authorizing '.$ip.' for '.$hostname.'.');
+                }
+
+                $selector = (string) $assignment['dkim_selector'];
+                $publicRecord = (string) $assignment['dkim_public_record'];
+                $dkimName = $selector.'._domainkey.'.$hostname;
+                if (! in_array($this->normalizeTxt($publicRecord), array_map($this->normalizeTxt(...), $this->txt($dkimName)), true)) {
+                    throw new RuntimeException('DKIM public key did not resolve for '.$hostname.'.');
+                }
+
+                $dmarc = array_values(array_filter($this->txt('_dmarc.'.$hostname), static fn (string $record): bool => preg_match('/\Av=dmarc1(?:\s*;|$)/i', trim($record)) === 1));
+                if (count($dmarc) !== 1) {
+                    throw new RuntimeException('DMARC did not resolve with exactly one policy for '.$hostname.'.');
+                }
+
+                if (! empty($options['imap'])) {
+                    $mx = $this->dns->records($hostname, DNS_MX);
+                    if (! collect($mx)->contains(fn (array $record): bool => strcasecmp(rtrim((string) ($record['target'] ?? ''), '.'), $hostname) === 0)) {
+                        throw new RuntimeException('The configured MX record did not resolve for '.$hostname.'.');
+                    }
                 }
             }
-        }
+        });
     }
 
     /** @param array<string, mixed> $assignment

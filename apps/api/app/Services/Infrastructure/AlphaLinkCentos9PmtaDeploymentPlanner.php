@@ -66,6 +66,12 @@ class AlphaLinkCentos9PmtaDeploymentPlanner
             ));
         }
 
+        $operations[] = [
+            'type' => 'command',
+            'command' => 'if mkdir -p /etc/pmta/delivered/treated /etc/pmta/delivered/process /etc/pmta/bounced/treated /etc/pmta/bounced/process && test -d /etc/pmta/delivered/treated && test -d /etc/pmta/delivered/process && test -d /etc/pmta/bounced/treated && test -d /etc/pmta/bounced/process; then echo ALPHALINK_PMTA_FEEDBACK_DIRS_READY; else echo ALPHALINK_PMTA_FEEDBACK_DIRS_FAILED; fi;',
+            'expected_output' => 'ALPHALINK_PMTA_FEEDBACK_DIRS_READY',
+        ];
+
         array_push($operations,
             $this->command('systemctl enable pmta;'),
             $this->command('systemctl enable pmtahttp;'),

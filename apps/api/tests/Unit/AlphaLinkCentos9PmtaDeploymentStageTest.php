@@ -178,6 +178,51 @@ class AlphaLinkCentos9PmtaDeploymentStageTest extends TestCase
         $this->assertSame([], $transport->events);
     }
 
+    public function test_feedback_directory_check_blocks_install_when_remote_directories_are_unavailable(): void
+    {
+        $root = $this->temporaryDirectory();
+        config(['infrastructure.install_assets_directory' => $root]);
+        $pmtaSource = 'synthetic source';
+        $planner = new AlphaLinkCentos9PmtaDeploymentPlanner;
+        $plan = $planner->plan(40, false, false, 1212, 8080, [], [], false, $pmtaSource, ['198.51.100.44']);
+        $assets = [];
+        foreach ($plan['operations'] as $operation) {
+            if ($operation['type'] === 'asset_upload') {
+                $assets[$operation['source']] = 'present_unverified';
+                $this->writeAsset($root, $operation['source'], 'synthetic bytes for '.$operation['source']);
+            }
+        }
+        $this->writeAsset($root, 'install/pmta_source', $pmtaSource);
+        $gate = $this->createMock(AlphaLinkPmtaDeploymentGate::class);
+        $gate->method('evaluate')->willReturn([
+            'installation_authorized' => true,
+            'asset_inventory' => ['pmta' => ['assets' => $assets]],
+        ]);
+        $transport = $this->transport(false);
+
+        try {
+            $this->stage($gate, $planner)->run(
+                $transport,
+                $transport,
+                ['os_pretty_name' => 'AlmaLinux 9'],
+                40,
+                1212,
+                8080,
+                [],
+                [],
+                false,
+                $this->installOptions(),
+                null,
+                ['198.51.100.44'],
+            );
+            $this->fail('An unavailable PMTA feedback directory must block completion.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('PMTA feedback directories could not be created and verified on the selected server.', $exception->getMessage());
+        } finally {
+            $this->removeDirectory($root);
+        }
+    }
+
     private function stage(
         ?AlphaLinkPmtaDeploymentGate $gate = null,
         ?AlphaLinkCentos9PmtaDeploymentPlanner $planner = null,
@@ -197,16 +242,22 @@ class AlphaLinkCentos9PmtaDeploymentStageTest extends TestCase
         return ['tracking' => false, 'proxy' => false, 'imap' => false, 'spf' => false, 'dkim' => false, 'dmarc' => false, 'https' => false];
     }
 
-    private function transport(): object
+    private function transport(bool $feedbackDirectoriesReady = true): object
     {
-        return new class implements AlphaLinkInstallerRemoteCommandTransport, AlphaLinkInstallerRemoteFileTransport
+        return new class($feedbackDirectoriesReady) implements AlphaLinkInstallerRemoteCommandTransport, AlphaLinkInstallerRemoteFileTransport
         {
             /** @var list<array<string, string>> */
             public array $events = [];
 
+            public function __construct(private readonly bool $feedbackDirectoriesReady) {}
+
             public function exec(string $command): bool|string
             {
                 $this->events[] = ['type' => 'command', 'command' => $command];
+
+                if (str_contains($command, 'ALPHALINK_PMTA_FEEDBACK_DIRS_READY')) {
+                    return $this->feedbackDirectoriesReady ? 'ALPHALINK_PMTA_FEEDBACK_DIRS_READY' : 'ALPHALINK_PMTA_FEEDBACK_DIRS_FAILED';
+                }
 
                 return false;
             }

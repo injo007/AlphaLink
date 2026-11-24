@@ -226,6 +226,7 @@ class AlphaLinkCentos9PmtaDeploymentPlannerTest extends TestCase
             'rm -rf /etc/pmta; rm -rf /var/lib/pmta; rm -rf /var/log/pmta',
             'dnf install -y initscripts',
             'kill -9 $(lsof -t -i:25)',
+            'if mkdir -p /etc/pmta/delivered/treated /etc/pmta/delivered/process /etc/pmta/bounced/treated /etc/pmta/bounced/process && test -d /etc/pmta/delivered/treated && test -d /etc/pmta/delivered/process && test -d /etc/pmta/bounced/treated && test -d /etc/pmta/bounced/process; then echo ALPHALINK_PMTA_FEEDBACK_DIRS_READY; else echo ALPHALINK_PMTA_FEEDBACK_DIRS_FAILED; fi;',
             'systemctl enable pmta;',
             'systemctl enable pmtahttp;',
             'systemctl restart pmta;',

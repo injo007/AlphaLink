@@ -45,8 +45,11 @@ class PmtaFeedbackRemoteProcessor
             $treatedDirectory = $baseDirectory.'/treated';
             $processDirectory = $baseDirectory.'/process/'.$accountingDate;
 
-            if (! $session->isDirectory($treatedDirectory) || ! $session->createDirectory($processDirectory)) {
-                throw new RuntimeException('The PMTA feedback directories are unavailable on the selected server.');
+            if (! $session->createDirectory($treatedDirectory)) {
+                throw new RuntimeException('The PMTA feedback directory is missing or unavailable on the selected server: '.$treatedDirectory.'.');
+            }
+            if (! $session->createDirectory($processDirectory)) {
+                throw new RuntimeException('The PMTA feedback processing directory could not be created on the selected server: '.$processDirectory.'.');
             }
 
             $treatedFiles = $this->matchingFiles($session->listDirectory($treatedDirectory), $paths['prefix'], $accountingDate);

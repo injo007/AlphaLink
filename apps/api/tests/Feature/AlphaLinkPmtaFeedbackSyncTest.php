@@ -41,6 +41,7 @@ class AlphaLinkPmtaFeedbackSyncTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->withoutVite();
         $this->stagingDirectory = sys_get_temp_dir().'/alphalink-pmta-feedback-test-'.Str::uuid();
         config(['infrastructure.pmta_feedback_staging_path' => $this->stagingDirectory]);
     }
@@ -302,6 +303,28 @@ class AlphaLinkPmtaFeedbackSyncTest extends TestCase
         $this->assertDatabaseCount('workspace_pmta_feedback_events', 0);
     }
 
+    public function test_feedback_sync_repairs_a_missing_treated_directory(): void
+    {
+        [$owner, $workspace, $server] = $this->serverFixture();
+        $date = today()->toDateString();
+        $connection = new FakePmtaSftpConnection(self::HOST_KEY);
+        $connection->removeDirectory('/etc/pmta/delivered/treated');
+        $this->bindSftp($server, $connection);
+
+        $result = app(PmtaFeedbackRemoteProcessor::class)->process($server, $date);
+
+        $this->assertSame([
+            'files_seen' => 0,
+            'imported' => 0,
+            'duplicate' => 0,
+            'unmatched' => 0,
+            'archived' => 0,
+            'deferred' => 0,
+        ], $result);
+        $this->assertTrue($connection->isDirectory('/etc/pmta/delivered/treated'));
+        $this->assertSame(0, DB::table('workspace_pmta_feedback_events')->where('workspace_id', $workspace->getKey())->count());
+    }
+
     /** @return array{User, Workspace, ManagedServer} */
     private function serverFixture(): array
     {
@@ -504,6 +527,11 @@ class FakePmtaSftpConnection implements AlphaLinkInstallerSshConnection
         $this->addDirectory($path);
 
         return true;
+    }
+
+    public function removeDirectory(string $path): void
+    {
+        unset($this->directories[$path]);
     }
 
     public function fileSize(string $path): int|false

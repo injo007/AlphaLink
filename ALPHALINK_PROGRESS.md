@@ -2,7 +2,11 @@
 
 **Updated:** 2026-11-24
 **Active objective:** Repair multi-domain install/reinstall failures while preserving AlphaLink's create-only DNS policy and manual-DNS support for external domains.
-**Current implementation status:** E-MDOM-12 adds saved-assignment reinstall, duplicate-FQDN diagnostics, manual DNS record output, and early hostname-collision checks. Release `4f6f15f2f4221b4dc4a9be11069f040752aa02ce` is deployed to AlphaLink production; the database backup, local HTTPS health, sign-in page, static assignment script, and required services were verified. No live mail-server install was run. PHP syntax and 14 focused JavaScript tests pass; local PHPUnit cannot start because PHP 8.3 lacks DOM/XMLWriter.
+**Current implementation status:** E-MDOM-13 retries public DNS checks during propagation and verifies PMTA feedback folders during install. Focused PHP 8.5 tests pass (27 tests / 170 assertions); Pint and syntax checks pass. AlphaLink production deployment is pending. DNS and mail-authentication checks still fail closed after the bounded retry. No live mail-server install was run.
+
+### Multi-Domain DNS propagation and PMTA feedback folders — E-MDOM-13 (2026-11-24)
+
+The reported `land.aeonvortex.world` record was written through the provider API, then checked publicly seconds later. Public DNS now resolves both `land.aeonvortex.world` and `stick.aeonvortex.world` to the selected IP `188.166.18.44`. Public forward and mail-authentication checks now retry up to 12 times at five-second intervals (about 55 seconds total), then keep the existing fail-closed behavior if records still do not match. The PMTA install plan creates and verifies delivered/bounced treated and process folders before completion. Feedback sync repairs a missing treated folder when SSH permissions allow it and names the precise unavailable path otherwise. Focused PHP 8.5 tests pass: 21 unit tests / 95 assertions and six PMTA sync tests / 75 assertions. PHP syntax, Pint and diff checks pass. Production deployment and live server reinstall remain pending; no message or mail-authentication PASS was run. The existing apex A conflict remains protected: use a sending subdomain when apex DNS routes to a website.
 
 ### Multi-Domain reinstall and DNS diagnostics — E-MDOM-12 (2026-11-24)
 

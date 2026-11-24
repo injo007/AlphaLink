@@ -104,7 +104,7 @@ class AlphaLinkCentos9PmtaDeploymentStage
 
             foreach ($plan['operations'] as $operation) {
                 match ($operation['type']) {
-                    'command' => $commands->exec($operation['command']),
+                    'command' => $this->runCommand($commands, $operation),
                     'asset_upload' => array_key_exists($operation['source'], $uploadContents)
                         ? $files->upload($uploadContents[$operation['source']], $operation['destination'])
                         : $files->uploadFile($uploadFiles[$operation['source']], $operation['destination']),
@@ -114,6 +114,16 @@ class AlphaLinkCentos9PmtaDeploymentStage
             }
         } finally {
             $this->removeSnapshotRoot($snapshotRoot);
+        }
+    }
+
+    /** @param array<string, string> $operation */
+    private function runCommand(AlphaLinkInstallerRemoteCommandTransport $commands, array $operation): void
+    {
+        $result = $commands->exec($operation['command']);
+        $expected = $operation['expected_output'] ?? null;
+        if ($expected !== null && (! is_string($result) || ! str_contains($result, $expected))) {
+            throw new RuntimeException('PMTA feedback directories could not be created and verified on the selected server.');
         }
     }
 

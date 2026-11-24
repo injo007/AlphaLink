@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Services\Infrastructure\AlphaLinkDnsPropagationWaiter;
 use App\Services\Infrastructure\AlphaLinkMultiDomainDnsVerifier;
 use App\Services\Infrastructure\AlphaLinkPublicDnsRecordResolver;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -42,6 +43,24 @@ class AlphaLinkMultiDomainDnsVerifierTest extends TestCase
         $this->assertTrue(true);
     }
 
+    public function test_forward_address_verification_retries_dns_propagation(): void
+    {
+        $trackingLookups = 0;
+        $dns = $this->createMock(AlphaLinkPublicDnsRecordResolver::class);
+        $dns->method('records')->willReturnCallback(static function (string $hostname, int $type) use (&$trackingLookups): array {
+            if ($hostname === 'track.mail.example.test' && $type === DNS_A) {
+                return ++$trackingLookups < 2 ? [] : [['ip' => '8.8.8.8']];
+            }
+
+            return $hostname === 'mail.example.test' && $type === DNS_A ? [['ip' => '8.8.8.8']] : [];
+        });
+        $waiter = new AlphaLinkDnsPropagationWaiter(2, 0, static fn (int $microseconds): null => null);
+
+        $this->verifier($dns, $waiter)->verifyForwardAddresses([$this->assignment()]);
+
+        $this->assertSame(2, $trackingLookups);
+    }
+
     public function test_missing_tracking_forward_record_fails_verification(): void
     {
         $dns = $this->createMock(AlphaLinkPublicDnsRecordResolver::class);
@@ -70,9 +89,11 @@ class AlphaLinkMultiDomainDnsVerifierTest extends TestCase
         $this->verifier($dns)->verify([$this->assignment()], ['spf' => true, 'dkim' => true, 'dmarc' => true]);
     }
 
-    private function verifier(AlphaLinkPublicDnsRecordResolver&MockObject $dns): AlphaLinkMultiDomainDnsVerifier
-    {
-        return new AlphaLinkMultiDomainDnsVerifier($dns);
+    private function verifier(
+        AlphaLinkPublicDnsRecordResolver&MockObject $dns,
+        ?AlphaLinkDnsPropagationWaiter $waiter = null,
+    ): AlphaLinkMultiDomainDnsVerifier {
+        return new AlphaLinkMultiDomainDnsVerifier($dns, $waiter ?? new AlphaLinkDnsPropagationWaiter(1, 0));
     }
 
     /** @return array<string, string> */

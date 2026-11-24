@@ -44,9 +44,7 @@ class ManagedServerIpDomain extends Model
                 ->where('is_active', true)
                 ->where('is_installed', true))
             ->whereHas('domain', fn (Builder $domains): Builder => $domains
-                ->where('is_active', true)
-                ->where('state', 'verified')
-                ->whereNotNull('verified_at'));
+                ->where('is_active', true));
     }
 
     public function server(): BelongsTo

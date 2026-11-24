@@ -25,7 +25,7 @@ class AlphaLinkManagedServerIpDomainRevalidator
                 || ! $ip?->is_active
                 || (string) $ip->managed_server_id !== (string) $server->getKey()
                 || ! $ip::isPublicAddress($ip->ip)
-                || ! $domain?->is_active || $domain->state !== 'verified' || $domain->verified_at === null
+                || ! $domain?->is_active
                 || ! $identity?->is_active
                 || (string) $identity->sending_domain_id !== (string) $assignment->sending_domain_id
                 || $identity->hostname !== $assignment->hostname

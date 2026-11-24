@@ -558,13 +558,14 @@ class AlphaLinkCampaignSendCatalog
             ->whereHas('ip', fn (Builder $ips): Builder => $ips
                 ->where('is_active', true)
                 ->when($ipType !== 'all', fn (Builder $filtered): Builder => $filtered->whereRaw('LOWER(type) = ?', [$ipType])))
-            ->with(['ip:id,ip,type,is_active', 'server:id,name', 'domain:id,name,state,is_active,verified_at', 'signingIdentity:id,hostname,sending_domain_id,is_active'])
+            ->with(['ip:id,ip,type,is_active', 'server:id,name', 'domain:id,name,is_active', 'signingIdentity:id,hostname,sending_domain_id,is_active'])
             ->orderBy('managed_server_id')
             ->orderBy('managed_server_ip_id')
             ->orderBy('hostname')
             ->get()
             ->map(function (ManagedServerIpDomain $assignment): array {
                 $ip = $assignment->ip;
+                // The assignment's DNS/authentication/TLS proof is separate from the transactional sender-domain ownership TXT.
                 $ready = $assignment->dns_verified_at !== null
                     && $assignment->authentication_verified_at !== null
                     && $assignment->tracking_https_ready
@@ -574,8 +575,6 @@ class AlphaLinkCampaignSendCatalog
                     && $assignment->signingIdentity?->hostname === $assignment->hostname
                     && (string) $assignment->signingIdentity?->sending_domain_id === (string) $assignment->sending_domain_id
                     && $assignment->domain?->is_active
-                    && $assignment->domain?->state === 'verified'
-                    && $assignment->domain?->verified_at !== null
                     && $ip instanceof ManagedServerIp
                     && ManagedServerIp::isPublicAddress((string) $ip->ip);
 

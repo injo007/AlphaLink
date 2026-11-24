@@ -22,7 +22,7 @@ class AlphaLinkCampaignDomainChoicesTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_domain_choices_expose_server_and_ip_but_only_verified_assignments_are_selectable(): void
+    public function test_domain_choices_use_assignment_readiness_without_sender_ownership_txt_verification(): void
     {
         $user = User::factory()->create();
         $workspace = Workspace::query()->create([
@@ -39,7 +39,7 @@ class AlphaLinkCampaignDomainChoicesTest extends TestCase
         ]);
         $domain = SendingDomain::query()->create([
             'workspace_id' => $workspace->getKey(), 'name' => 'example.test',
-            'state' => 'verified', 'verified_at' => now(), 'status' => 'used',
+            'state' => 'pending', 'status' => 'used',
             'verification_token' => 'synthetic', 'is_our' => true, 'is_active' => true,
             'created_by' => $user->getKey(),
         ]);
@@ -72,6 +72,7 @@ class AlphaLinkCampaignDomainChoicesTest extends TestCase
         $this->assertCount(2, $choices);
         $this->assertSame('mail.example.test', $choices[0]['domain']);
         $this->assertTrue($choices[0]['is_ready']);
+        $this->assertSame(1, ManagedServerIpDomain::readyForSending()->where('managed_server_id', $server->getKey())->count());
         $this->assertSame('8.8.8.8', $choices[0]['ip']);
         $this->assertSame('mta-8.8.8.8', $choices[0]['pmta_name']);
         $this->assertSame('click.mail.example.test', $choices[0]['tracking_host']);
@@ -87,7 +88,7 @@ class AlphaLinkCampaignDomainChoicesTest extends TestCase
             app(AlphaLinkCampaignSendCatalog::class)->validateRevisionRouting(
                 $workspace, $user, 'owner', 'domain', 'ipv4', [(string) $server->getKey()], [$choices[1]['id']],
             );
-            $this->fail('An unverified domain must not become a selectable route.');
+            $this->fail('An assignment without DNS/authentication and HTTPS verification must not become a selectable route.');
         } catch (ValidationException $exception) {
             $this->assertArrayHasKey('send_setup.ip_ids', $exception->errors());
         }

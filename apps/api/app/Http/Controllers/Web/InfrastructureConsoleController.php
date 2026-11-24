@@ -2543,9 +2543,7 @@ class InfrastructureConsoleController extends Controller
                     && $identity?->is_active
                     && $identity?->hostname === $assignment->hostname
                     && (string) $identity?->sending_domain_id === (string) $assignment->sending_domain_id
-                    && $domain?->is_active
-                    && $domain?->state === 'verified'
-                    && $domain?->verified_at !== null;
+                    && $domain?->is_active;
                 $ready = $assignment->is_active && $verified;
 
                 return [
@@ -3339,8 +3337,6 @@ class InfrastructureConsoleController extends Controller
             && $identity?->hostname === $assignment->hostname
             && (string) $identity?->sending_domain_id === (string) $assignment->sending_domain_id
             && $domain?->is_active
-            && $domain?->state === 'verified'
-            && $domain?->verified_at !== null
             && $server?->is_active
             && $server->is_installed
             && $ip?->is_active

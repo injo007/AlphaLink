@@ -1,8 +1,12 @@
 # AlphaLink development progress
 
 **Updated:** 2026-11-24
-**Active objective:** Make installed multi-domain assignments available to campaigns when their assignment DNS, authentication, and tracking HTTPS checks pass.
-**Current implementation status:** E-MDOM-14 removes the unrelated transactional sender-domain ownership TXT state from campaign assignment readiness. Focused PHP 8.5 tests pass (5 tests / 52 assertions); Pint and diff checks pass. Release `4f521b92c680bf4561be48226311864cecd4dc57` is deployed to AlphaLink production with backup `/var/backups/alphalink/deploy-4f521b92c680bf4561be48226311864cecd4dc57-20261124T184814Z.dump`. The live campaign catalog returns `alfa.statacademy.forum` and `tio.statacademy.forum` as ready on `188.166.18.44`; `/up`, `/sign-in`, PHP-FPM, Horizon, suppression worker, and scheduler passed verification. No real campaign email or independent message-level SPF/DKIM/DMARC PASS was run.
+**Active objective:** Make Multi-Domain per IP editable on Reinstall as well as first install, while keeping assignment, DNS, DKIM, HTTPS, and PMTA safeguards.
+**Current implementation status:** E-MDOM-15 adds the Reinstall toggle, per-IP domain/subdomain selectors, eligible domain choices, and pre-queue validation. Six focused PHP 8.5 tests pass (6 tests / 51 assertions), covering the form, saved choices, a new eligible domain, worker payload, and rejection of unavailable domains. The complete Reinstall suite has two unrelated failures in stage-log expectations and workspace route scope. Pint, final deployment, and health verification are pending. The preceding E-MDOM-14 release remains deployed as `4f521b92c680bf4561be48226311864cecd4dc57`; its live campaign catalog returns `alfa.statacademy.forum` and `tio.statacademy.forum` ready on `188.166.18.44`. No live mail-server reinstall or email was run.
+
+### Multi-Domain per IP controls on Reinstall — E-MDOM-15 (2026-11-24)
+
+Reinstall now exposes the same Multi-Domain per IP control as fresh install. Loading a server returns its existing domain assignments plus new eligible workspace domains. Each IP can add or edit its sending domains and subdomains; pre-queue checks require uniform assignments across IPs, unique effective hostnames, and no more than 100 tracking hosts. Multi-domain runs force PMTA, HTTPS tracking, SPF, DKIM, and DMARC on and keep DNS cleanup off. Newly selected domains must be active, available, and attached to an active workspace DNS provider; unavailable domains fail before SSH. Six focused PHP 8.5 tests pass (6 tests / 51 assertions). The whole Reinstall suite still has two unrelated failures in log-order and route-scope expectations plus one risky-test warning; no real host reinstall was run. Deployment and live health verification are pending.
 
 ### Campaign readiness after multi-domain install — E-MDOM-14 (2026-11-24)
 

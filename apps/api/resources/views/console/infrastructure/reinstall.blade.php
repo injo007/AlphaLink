@@ -84,7 +84,22 @@
                                     <label class="command-form-label mb-0" for="reinstall-{{ $option }}" style="cursor: pointer; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em;">{{ $label }}</label>
                                 </div>
                             @endforeach
+                            <div class="d-inline-flex align-items-center mr-2">
+                                <label class="command-switch mr-2">
+                                    <input type="checkbox" id="reinstall-multi-domain-per-ip">
+                                    <span class="command-slider"></span>
+                                </label>
+                                <label class="command-form-label mb-0" for="reinstall-multi-domain-per-ip" style="cursor: pointer; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em;">MULTI-DOMAIN PER IP</label>
+                            </div>
+                            <div class="command-form-group d-none mb-0" id="reinstall-domain-count-group" style="min-width: 190px;" aria-live="polite">
+                                <label class="command-form-label mb-1" for="reinstall-domain-count" style="font-size: 0.7rem;">DOMAINS PER IP</label>
+                                <input class="command-form-control" id="reinstall-domain-count" type="number" value="2" min="2" max="33" inputmode="numeric" aria-describedby="reinstall-domain-count-help">
+                                <small class="text-muted" id="reinstall-domain-count-help">Includes each IP’s primary domain.</small>
+                            </div>
                         </div>
+                    </div>
+                    <div class="alert alert-info d-none mt-2" id="reinstall-multi-domain-help" role="status" style="border-radius: 10px; font-size: 0.78rem;">
+                        Multi-Domain per IP reuses the install flow: each IP can send from multiple assigned domains, with separate DKIM identities and tracking hosts. PMTA, HTTPS tracking, SPF, DKIM, and DMARC are required. DNS cleanup stays off; external-domain DNS must resolve before host changes.
                     </div>
 
                     <div class="table-responsive">
@@ -96,11 +111,12 @@
                                     <th scope="col">MAIN</th>
                                     <th scope="col">SUB DOMAIN</th>
                                     <th scope="col">ASSIGNED DOMAIN</th>
+                                    <th scope="col" id="reinstall-extra-domains-header" hidden>ADDITIONAL DOMAIN / SUBDOMAIN</th>
                                     <th scope="col" aria-label="Actions"></th>
                                 </tr>
                             </thead>
                             <tbody id="reinstall-ips-body">
-                                <tr><td colspan="6" class="text-center py-3 text-muted">Load a server configuration to review its saved IP assignments.</td></tr>
+                                <tr><td colspan="7" class="text-center py-3 text-muted">Load a server configuration to review its saved IP assignments.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -186,6 +202,11 @@
             const reloadButton = document.getElementById('reload-reinstall-ips');
             const configureButton = document.getElementById('configure-reinstall-ips');
             const reinstallButton = document.getElementById('reinstall-submit');
+            const multiDomainToggle = document.getElementById('reinstall-multi-domain-per-ip');
+            const domainCountInput = document.getElementById('reinstall-domain-count');
+            const domainCountGroup = document.getElementById('reinstall-domain-count-group');
+            const multiDomainHelp = document.getElementById('reinstall-multi-domain-help');
+            const additionalDomainsHeader = document.getElementById('reinstall-extra-domains-header');
             const reinstallExecutionEnabled = @json((bool) config('infrastructure.reinstall_execution_enabled', false));
             const reinstallIpConfigExecutionEnabled = @json((bool) config('infrastructure.reinstall_ip_config_execution_enabled', false));
             const confirmation = document.getElementById('reinstall-confirmation');
@@ -199,6 +220,8 @@
             let confirmedAction = null;
             let pendingRemoveRow = null;
             let multiDomainReinstall = false;
+            let domainChoices = [];
+            let configuredOptions = {};
 
             function serverUrl(template, serverId = serverSelect.value) {
                 return template.replace('__SERVER__', encodeURIComponent(serverId));
@@ -218,11 +241,38 @@
                 return rows.querySelector('input[type="checkbox"]:checked') !== null;
             }
 
+            function currentAssignments() {
+                return [...rows.querySelectorAll('tr[data-ip-id]')].map((row) => ({
+                    id: Number(row.dataset.ipId),
+                    ip: row.cells[0].textContent.trim(),
+                    type: row.cells[1].textContent.trim().toLowerCase(),
+                    main: row.querySelector('input[type="checkbox"]')?.checked || false,
+                    sub: row.querySelector('[data-reinstall-primary-sub]')?.value.trim() || '',
+                    domain_id: row.dataset.domainId,
+                    domains: [...row.querySelectorAll('[data-reinstall-extra-group]')].map((group) => ({
+                        domain_id: group.querySelector('[data-reinstall-extra-domain]')?.value || '',
+                        sub: group.querySelector('[data-reinstall-extra-sub]')?.value.trim() || '',
+                    })),
+                }));
+            }
+
+            function multiDomainSelectionsReady() {
+                if (!multiDomainToggle.checked) return true;
+                const assignments = currentAssignments();
+                const domainsPerIp = Number(domainCountInput.value);
+                return domainsPerIp >= 2
+                    && domainsPerIp <= 33
+                    && assignments.length * domainsPerIp <= 100
+                    && assignments.every((assignment) => assignment.domains.length === domainsPerIp - 1
+                        && assignment.domains.every((domain) => domain.domain_id !== ''));
+            }
+
             function updateRunAvailability() {
                 const hasRows = rows.querySelectorAll('tr[data-ip-id]').length > 0;
                 const currentConfigurationLoaded = loadedServerId !== '' && loadedServerId === serverSelect.value;
                 const hasMain = hasRows && isMainSelected();
-                reinstallButton.disabled = !currentConfigurationLoaded || !hasRows || !hasMain || !reinstallExecutionEnabled;
+                const multiDomainReady = multiDomainSelectionsReady();
+                reinstallButton.disabled = !currentConfigurationLoaded || !hasRows || !hasMain || !multiDomainReady || !reinstallExecutionEnabled;
                 reloadButton.disabled = !currentConfigurationLoaded || !hasRows;
                 configureButton.disabled = !currentConfigurationLoaded || !reinstallIpConfigExecutionEnabled;
 
@@ -234,6 +284,8 @@
                     actionStatus.textContent = 'This server has no saved IP and domain assignments. Reinstall is unavailable until its configuration includes them.';
                 } else if (!hasMain) {
                     actionStatus.textContent = 'Choose one IP as MAIN before reinstalling.';
+                } else if (!multiDomainReady) {
+                    actionStatus.textContent = 'Complete every additional domain selection. Multi-Domain per IP supports at most 100 assignments on one HTTPS certificate.';
                 } else if (!reinstallExecutionEnabled) {
                     actionStatus.textContent = 'The configuration is ready, but reinstall execution is disabled by ALPHALINK_REINSTALL_EXECUTION_ENABLED.';
                 } else {
@@ -252,12 +304,55 @@
                 updateRunAvailability();
             }
 
+            function syncMultiDomainControls() {
+                multiDomainReinstall = multiDomainToggle.checked;
+                domainCountGroup.classList.toggle('d-none', !multiDomainReinstall);
+                multiDomainHelp.classList.toggle('d-none', !multiDomainReinstall);
+                additionalDomainsHeader.hidden = !multiDomainReinstall;
+                for (const row of rows.querySelectorAll('tr[data-ip-id]')) {
+                    const cell = row.querySelector('[data-reinstall-additional-cell]');
+                    if (cell) cell.hidden = !multiDomainReinstall;
+                }
+                for (const option of ['pmta', 'tracking', 'https', 'spf', 'dkim', 'dmarc']) {
+                    const input = document.getElementById(`reinstall-${option}`);
+                    if (!input) continue;
+                    input.checked = multiDomainReinstall ? true : Boolean(configuredOptions[option]);
+                    input.disabled = multiDomainReinstall;
+                }
+                const cleanDns = document.getElementById('reinstall-clean_dns');
+                if (cleanDns) {
+                    cleanDns.checked = multiDomainReinstall ? false : Boolean(configuredOptions.clean_dns);
+                    cleanDns.disabled = multiDomainReinstall;
+                }
+                updateRunAvailability();
+            }
+
+            function makeDomainSelect(selectedDomainId, label) {
+                const select = document.createElement('select');
+                select.className = 'command-form-control form-control-sm';
+                select.setAttribute('aria-label', label);
+                const placeholder = document.createElement('option');
+                placeholder.value = '';
+                placeholder.textContent = 'Select domain…';
+                select.append(placeholder);
+                for (const choice of domainChoices) {
+                    const option = document.createElement('option');
+                    option.value = String(choice.id);
+                    option.textContent = String(choice.label || choice.name || choice.id);
+                    select.append(option);
+                }
+                select.value = String(selectedDomainId || '');
+                select.dataset.reinstallExtraDomain = '';
+                select.addEventListener('change', updateRunAvailability);
+                return select;
+            }
+
             function renderRows(assignments) {
                 rows.replaceChildren();
                 if (!assignments.length) {
                     const row = document.createElement('tr');
                     const cell = document.createElement('td');
-                    cell.colSpan = 6;
+                    cell.colSpan = 7;
                     cell.className = 'text-center py-3 text-muted';
                     cell.textContent = 'No saved server IP-to-domain map is available. Reinstall needs an existing AlphaLink IP and domain assignment map.';
                     row.append(cell);
@@ -270,7 +365,6 @@
                     const row = document.createElement('tr');
                     row.dataset.ipId = String(assignment.id ?? assignment.ip_id ?? index + 1);
                     row.dataset.domainId = String(assignment.domain_id || '');
-                    row.dataset.additionalDomains = JSON.stringify(Array.isArray(assignment.domains) ? assignment.domains : []);
 
                     const ipCell = document.createElement('td');
                     ipCell.style.fontFamily = 'monospace';
@@ -302,23 +396,43 @@
                     sub.className = 'command-form-control form-control-sm';
                     sub.value = assignment.sub || '';
                     sub.setAttribute('aria-label', `Subdomain for ${assignment.ip}`);
+                    sub.dataset.reinstallPrimarySub = '';
+                    sub.addEventListener('input', updateRunAvailability);
                     subCell.append(sub);
                     row.append(subCell);
 
                     const domainCell = document.createElement('td');
                     domainCell.style.fontWeight = '600';
                     domainCell.textContent = assignment.domain_name || assignment.domain || 'No domain';
-                    if (Array.isArray(assignment.domains) && assignment.domains.length > 0) {
-                        const additional = document.createElement('small');
-                        additional.className = 'd-block text-muted';
-                        additional.textContent = '+ ' + assignment.domains.map((entry) => {
-                            const domain = String(entry.domain || 'No domain');
-                            const sub = String(entry.sub || '').trim();
-                            return sub ? `${sub}.${domain}` : domain;
-                        }).join(', ');
-                        domainCell.append(additional);
-                    }
                     row.append(domainCell);
+
+                    const additionalCell = document.createElement('td');
+                    additionalCell.hidden = !multiDomainToggle.checked;
+                    additionalCell.dataset.reinstallAdditionalCell = '';
+                    const savedAdditionalDomains = Array.isArray(assignment.domains) ? assignment.domains : [];
+                    const domainsPerIp = Number(domainCountInput.value) || 2;
+                    for (let domainIndex = 0; domainIndex < domainsPerIp - 1; domainIndex += 1) {
+                        const savedAdditional = savedAdditionalDomains[domainIndex] || {};
+                        const group = document.createElement('div');
+                        group.className = 'd-flex align-items-center mb-1';
+                        group.style.gap = '6px';
+                        group.dataset.reinstallExtraGroup = '';
+                        const extraSub = document.createElement('input');
+                        extraSub.type = 'text';
+                        extraSub.className = 'command-form-control form-control-sm';
+                        extraSub.value = String(savedAdditional.sub || '');
+                        extraSub.maxLength = 63;
+                        extraSub.placeholder = 'Subdomain (optional)';
+                        extraSub.setAttribute('aria-label', `Additional subdomain ${domainIndex + 1} for ${assignment.ip}`);
+                        extraSub.dataset.reinstallExtraSub = '';
+                        extraSub.addEventListener('input', updateRunAvailability);
+                        group.append(extraSub, makeDomainSelect(
+                            savedAdditional.domain_id,
+                            `Additional sending domain ${domainIndex + 1} for ${assignment.ip}`,
+                        ));
+                        additionalCell.append(group);
+                    }
+                    row.append(additionalCell);
 
                     const actionCell = document.createElement('td');
                     const remove = document.createElement('button');
@@ -340,6 +454,7 @@
 
                     rows.append(row);
                 }
+                syncMultiDomainControls();
                 updateRunAvailability();
             }
 
@@ -377,23 +492,29 @@
                     if (!response.ok) throw new Error(config.message || config.data || 'Could not load server configuration.');
 
                     document.getElementById('reinstall-pmta-version').value = String(config.pmta_version || 45);
-                    multiDomainReinstall = Boolean(config.multi_domain_per_ip);
+                    domainChoices = Array.isArray(config.domain_choices) ? config.domain_choices : [];
+                    const assignments = Array.isArray(config.assignments)
+                        ? config.assignments
+                        : (Array.isArray(config.data) ? config.data : []);
+                    const savedDomainCount = assignments.reduce((maximum, assignment) => Math.max(
+                        maximum,
+                        (Array.isArray(assignment.domains) ? assignment.domains.length : 0) + 1,
+                    ), 2);
+                    domainCountInput.value = String(savedDomainCount);
+                    multiDomainToggle.checked = Boolean(config.multi_domain_per_ip);
+                    configuredOptions = {};
                     for (const option of ['pmta', 'tracking', 'https', 'proxy', 'imap', 'spf', 'dkim', 'dmarc', 'clean_dns']) {
                         const input = document.getElementById(`reinstall-${option}`);
                         if (input) {
-                            input.checked = option === 'https'
+                            configuredOptions[option] = option === 'https'
                                 ? (config[option] === true || config['pmta_monitor_https'] === true || config[option] === undefined)
                                 : Boolean(config[option]);
-                            const requiredForMultiDomain = multiDomainReinstall && ['pmta', 'tracking', 'https', 'spf', 'dkim', 'dmarc'].includes(option);
-                            if (requiredForMultiDomain) input.checked = true;
-                            input.disabled = requiredForMultiDomain || (multiDomainReinstall && option === 'clean_dns');
+                            input.checked = configuredOptions[option];
+                            input.disabled = false;
                         }
                     }
                     loadedServerId = requestedServerId;
                     holder.classList.remove('d-none');
-                    const assignments = Array.isArray(config.assignments)
-                        ? config.assignments
-                        : (Array.isArray(config.data) ? config.data : []);
                     renderRows(assignments);
                 } catch (failure) {
                     if (serverSelect.value !== requestedServerId) return;
@@ -404,6 +525,15 @@
                 } finally {
                     loadButton.disabled = !serverSelect.value;
                 }
+            });
+
+            multiDomainToggle.addEventListener('change', syncMultiDomainControls);
+            domainCountInput.addEventListener('change', () => {
+                const count = Number(domainCountInput.value);
+                if (!Number.isInteger(count) || count < 2 || count > 33) {
+                    domainCountInput.value = '2';
+                }
+                renderRows(currentAssignments());
             });
 
             reloadButton.addEventListener('click', async () => {
@@ -435,9 +565,14 @@
                 loadedServerId = '';
                 holder.classList.add('d-none');
                 rows.replaceChildren();
+                domainChoices = [];
+                configuredOptions = {};
+                multiDomainToggle.checked = false;
+                domainCountInput.value = '2';
+                syncMultiDomainControls();
                 const row = document.createElement('tr');
                 const cell = document.createElement('td');
-                cell.colSpan = 6;
+                cell.colSpan = 7;
                 cell.className = 'text-center py-3 text-muted';
                 cell.textContent = 'Load a server configuration to review its saved IP assignments.';
                 row.append(cell);
@@ -468,14 +603,9 @@
                     configureButton.disabled = true;
                     log.textContent = 'Dispatching reinstall request…';
 
-                    const assignments = [...rows.querySelectorAll('tr[data-ip-id]')].map((row) => ({
-                        id: Number(row.dataset.ipId),
-                        ip: row.cells[0].textContent.trim(),
-                        type: row.cells[1].textContent.trim().toLowerCase(),
-                        main: row.querySelector('input[type="checkbox"]')?.checked || false,
-                        sub: row.querySelector('input[type="text"]')?.value.trim() || '',
-                        domain_id: row.dataset.domainId,
-                        domains: JSON.parse(row.dataset.additionalDomains || '[]'),
+                    const assignments = currentAssignments().map((assignment) => ({
+                        ...assignment,
+                        domains: multiDomainToggle.checked ? assignment.domains : [],
                     }));
                     const payload = {pmta_version: Number(document.getElementById('reinstall-pmta-version').value), data: assignments};
                     for (const option of ['pmta', 'tracking', 'https', 'proxy', 'imap', 'spf', 'dkim', 'dmarc', 'clean_dns']) {

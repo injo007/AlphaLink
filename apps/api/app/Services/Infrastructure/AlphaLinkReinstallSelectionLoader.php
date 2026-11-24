@@ -18,7 +18,7 @@ class AlphaLinkReinstallSelectionLoader
     ) {}
 
     /**
-     * @return array{spf: bool, dkim: bool, dmarc: bool, pmta_version: int, tracking: bool, proxy: bool, imap: bool, https: bool, multi_domain_per_ip: bool, data: list<array<string, mixed>>}
+     * @return array{spf: bool, dkim: bool, dmarc: bool, pmta_version: int, tracking: bool, proxy: bool, imap: bool, https: bool, multi_domain_per_ip: bool, domain_choices: list<array{id: string, name: string, label: string}>, data: list<array<string, mixed>>}
      */
     public function loadConfiguration(Workspace $workspace, ManagedServer $server): array
     {
@@ -36,12 +36,68 @@ class AlphaLinkReinstallSelectionLoader
             'imap' => (bool) ($settings['imap'] ?? false),
             'https' => (bool) ($settings['https'] ?? false),
             'multi_domain_per_ip' => collect($data)->contains(static fn (array $row): bool => ! empty($row['domains'])),
+            'domain_choices' => $this->domainChoices($workspace, $data),
             'data' => array_map(static function (array $row): array {
                 $row['main'] = (bool) ($row['main'] ?? false);
 
                 return $row;
             }, $data),
         ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @return list<array{id: string, name: string, label: string}>
+     */
+    private function domainChoices(Workspace $workspace, array $rows): array
+    {
+        $savedDomainIds = collect($rows)
+            ->flatMap(static fn (array $row): array => [
+                $row['domain_id'] ?? null,
+                ...array_map(
+                    static fn (mixed $assignment): mixed => is_array($assignment) ? ($assignment['domain_id'] ?? null) : null,
+                    is_array($row['domains'] ?? null) ? $row['domains'] : [],
+                ),
+            ])
+            ->filter(static fn (mixed $domainId): bool => is_string($domainId) || is_int($domainId))
+            ->map(static fn (mixed $domainId): string => (string) $domainId)
+            ->unique()
+            ->values()
+            ->all();
+
+        $domains = SendingDomain::query()
+            ->where('workspace_id', $workspace->getKey())
+            ->where('is_active', true)
+            ->where(function ($query) use ($workspace, $savedDomainIds): void {
+                $query->where(function ($eligible) use ($workspace): void {
+                    $eligible->whereIn('status', ['free', 'new'])
+                        ->whereHas('domainProvider', fn ($provider) => $provider
+                            ->where('is_active', true)
+                            ->where(fn ($providerWorkspace) => $providerWorkspace
+                                ->whereNull('workspace_id')
+                                ->orWhere('workspace_id', $workspace->getKey())));
+                });
+                if ($savedDomainIds !== []) {
+                    $query->orWhereIn('id', $savedDomainIds);
+                }
+            })
+            ->with('history')
+            ->orderByDesc('is_our')
+            ->orderBy('name')
+            ->get(['id', 'name', 'status', 'is_our']);
+
+        return $domains->map(static fn (SendingDomain $domain): array => [
+            'id' => (string) $domain->getKey(),
+            'name' => (string) $domain->name,
+            'label' => sprintf(
+                '%s | STATUS: %s | IS OUR: %s | LISTED: SPAMHAUS = %s - HOSTKARMA = %s',
+                $domain->name,
+                $domain->status,
+                $domain->is_our ? 'YES' : 'NO',
+                $domain->history?->is_listed_spamhaus ? 'YES' : 'NO',
+                $domain->history?->is_listed_hostkarma ? 'YES' : 'NO',
+            ),
+        ])->values()->all();
     }
 
     /**

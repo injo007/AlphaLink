@@ -418,6 +418,9 @@ class InfrastructureConsoleController extends Controller
             'data.*.main' => ['required', 'boolean'],
             'data.*.sub' => ['nullable', 'string', 'max:63'],
             'data.*.domain_id' => ['required', 'uuid'],
+            'data.*.domains' => ['sometimes', 'array', 'max:32'],
+            'data.*.domains.*.domain_id' => ['required', 'uuid'],
+            'data.*.domains.*.sub' => ['nullable', 'string', 'max:63'],
         ]);
         $server = $workspace->managedServers()
             ->where('is_active', true)
@@ -445,9 +448,24 @@ class InfrastructureConsoleController extends Controller
             'dmarc' => $options['dmarc'],
             'https' => $options['https'],
         ];
+        $hasMultipleDomainsPerIp = collect($payload['data'])->contains(
+            static fn (array $row): bool => ! empty($row['domains']),
+        );
 
         try {
             $selectionValidator->prepare($workspace, $server, $payload['data']);
+            if ($hasMultipleDomainsPerIp && (! $options['pmta']
+                || ! $options['tracking']
+                || ! $options['https']
+                || ! $options['spf']
+                || ! $options['dkim']
+                || ! $options['dmarc']
+                || $options['clean_dns'])) {
+                return response()->json([
+                    'message' => 'Multi-Domain per IP requires PMTA, HTTPS tracking, SPF, DKIM, and DMARC. DNS cleanup must stay disabled.',
+                    'code' => 'multi_domain_reinstall_options_invalid',
+                ], 422);
+            }
             $hostFacts = is_array($server->host_facts) ? $server->host_facts : [];
             $platform = new AlphaLinkInstallPlatform;
             if ($platform->installerFamily((string) ($hostFacts['os_pretty_name'] ?? '')) !== 'centos9'

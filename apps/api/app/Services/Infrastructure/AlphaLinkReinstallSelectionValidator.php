@@ -11,6 +11,8 @@ use InvalidArgumentException;
 /** Validates the editable AlphaLink reinstall rows against the server's saved map. */
 class AlphaLinkReinstallSelectionValidator
 {
+    public function __construct(private readonly AlphaLinkMultiDomainInstallPlan $multiDomainPlan) {}
+
     /**
      * @param  list<array<string, mixed>>  $submittedRows
      * @return array{
@@ -95,6 +97,26 @@ class AlphaLinkReinstallSelectionValidator
             }
         }
 
+        $savedDomainIdSet = array_fill_keys(array_keys($domainIds), true);
+        $submittedAdditionalDomainIds = [];
+        foreach ($submittedRows as $row) {
+            if (! is_array($row) || ! array_key_exists('domains', $row)) {
+                continue;
+            }
+            if (! is_array($row['domains']) || ! array_is_list($row['domains']) || count($row['domains']) > 32) {
+                throw new InvalidArgumentException('A reinstall IP row contains invalid additional domain assignments.');
+            }
+            foreach ($row['domains'] as $additional) {
+                if (! is_array($additional)
+                    || (! is_string($additional['domain_id'] ?? null) && ! is_int($additional['domain_id'] ?? null))) {
+                    throw new InvalidArgumentException('A reinstall IP row contains an invalid additional domain assignment.');
+                }
+                $additionalDomainId = (string) $additional['domain_id'];
+                $submittedAdditionalDomainIds[$additionalDomainId] = $additionalDomainId;
+                $domainIds[$additionalDomainId] = $additionalDomainId;
+            }
+        }
+
         if (count($savedByIp) !== count($savedRows)) {
             throw new InvalidArgumentException('The saved reinstall configuration contains duplicate IP addresses.');
         }
@@ -107,6 +129,30 @@ class AlphaLinkReinstallSelectionValidator
 
         if ($domains->count() !== count($domainIds)) {
             throw new InvalidArgumentException('The saved reinstall configuration references a domain outside this workspace.');
+        }
+
+        $newAdditionalDomainIds = array_values(array_diff(array_values($submittedAdditionalDomainIds), array_keys($savedDomainIdSet)));
+        if ($newAdditionalDomainIds !== []) {
+            $eligibleAdditionalDomainIds = SendingDomain::query()
+                ->where('workspace_id', $workspace->getKey())
+                ->whereIn('id', $newAdditionalDomainIds)
+                ->where('is_active', true)
+                ->whereIn('status', ['free', 'new'])
+                ->whereHas('domainProvider', fn ($query) => $query
+                    ->where('is_active', true)
+                    ->where(fn ($providerQuery) => $providerQuery
+                        ->whereNull('workspace_id')
+                        ->orWhere('workspace_id', $workspace->getKey())))
+                ->pluck('id')
+                ->map(static fn (mixed $domainId): string => (string) $domainId)
+                ->all();
+            $eligibleAdditionalDomainIdSet = array_fill_keys($eligibleAdditionalDomainIds, true);
+
+            foreach ($newAdditionalDomainIds as $domainId) {
+                if (! isset($eligibleAdditionalDomainIdSet[$domainId])) {
+                    throw new InvalidArgumentException('A new additional domain must be active, available, and have a working DNS provider in this workspace.');
+                }
+            }
         }
 
         $seenIps = [];
@@ -155,10 +201,23 @@ class AlphaLinkReinstallSelectionValidator
             $mainCount += $main ? 1 : 0;
             $usedDomainIds[$domainId] = true;
             $additionalDomains = [];
-            foreach ($saved['domains'] ?? [] as $additional) {
+            $additionalAssignments = array_key_exists('domains', $row)
+                ? $row['domains']
+                : ($saved['domains'] ?? []);
+            if (! is_array($additionalAssignments) || ! array_is_list($additionalAssignments) || count($additionalAssignments) > 32) {
+                throw new InvalidArgumentException('A reinstall IP row contains invalid additional domain assignments.');
+            }
+            foreach ($additionalAssignments as $additional) {
+                if (! is_array($additional)
+                    || (! is_string($additional['domain_id'] ?? null) && ! is_int($additional['domain_id'] ?? null))) {
+                    throw new InvalidArgumentException('A reinstall IP row contains an invalid additional domain assignment.');
+                }
                 $additionalDomainId = (string) ($additional['domain_id'] ?? '');
                 $additionalDomain = $domains->get($additionalDomainId);
                 $additionalSub = $additional['sub'] ?? '';
+                if ($additionalSub === null) {
+                    $additionalSub = '';
+                }
                 if (! $additionalDomain instanceof SendingDomain
                     || ! is_string($additionalSub)
                     || ($additionalSub !== '' && ! preg_match('/\A[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\z/iD', $additionalSub))) {
@@ -194,6 +253,17 @@ class AlphaLinkReinstallSelectionValidator
 
         if ($mainCount > 1) {
             throw new InvalidArgumentException('Only one server IP can be marked MAIN.');
+        }
+
+        $additionalCounts = array_values(array_unique(array_map(
+            static fn (array $row): int => count($row['domains']),
+            $rows,
+        )));
+        if (count($additionalCounts) > 1) {
+            throw new InvalidArgumentException('Multi-Domain per IP requires the same number of additional domain assignments on every IP.');
+        }
+        if (($additionalCounts[0] ?? 0) > 0) {
+            $this->multiDomainPlan->build($rows);
         }
 
         $mainRow = collect($rows)->firstWhere('main', true) ?? $rows[0];

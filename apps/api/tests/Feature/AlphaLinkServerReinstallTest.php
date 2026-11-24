@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AuditEvent;
+use App\Models\DomainProvider;
 use App\Models\ManagedServer;
 use App\Models\ManagedServerIp;
 use App\Models\ManagedServerIpDomain;
@@ -56,6 +57,7 @@ class AlphaLinkServerReinstallTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->withoutVite();
         $this->owner = User::factory()->create();
         $this->workspace = Workspace::query()->create([
             'name' => 'Server Reinstall workspace',
@@ -110,6 +112,9 @@ class AlphaLinkServerReinstallTest extends TestCase
             ->assertSee('CONFIG IPS')
             ->assertSee('id="reinstall-ip-config-dialog"', false)
             ->assertSee('id="reinstall-ip-config-permanent"', false)
+            ->assertSee('id="reinstall-multi-domain-per-ip"', false)
+            ->assertSee('id="reinstall-domain-count"', false)
+            ->assertSee('ADDITIONAL DOMAIN / SUBDOMAIN')
             ->assertSee('REINSTALL')
             ->assertSee('Server reinstall is disabled by ALPHALINK_REINSTALL_EXECUTION_ENABLED.')
             ->assertSee('CONFIG IPS is disabled by ALPHALINK_REINSTALL_IP_CONFIG_EXECUTION_ENABLED.')
@@ -204,9 +209,45 @@ class AlphaLinkServerReinstallTest extends TestCase
         $this->assertStringNotContainsString('http-access 198.51.100.44 admin', $command);
     }
 
-    public function test_reinstall_returns_a_queued_run_and_logs_are_available_before_the_worker_finishes(): void
+    public function test_reinstall_queues_multi_domain_assignments_and_logs_are_available_before_the_worker_finishes(): void
     {
         config(['infrastructure.reinstall_execution_enabled' => true]);
+
+        $provider = DomainProvider::query()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'name' => 'Synthetic reinstall DNS provider',
+            'type' => 'cloudflare',
+            'is_active' => true,
+        ]);
+        $newDomain = $this->workspace->sendingDomains()->create([
+            'name' => 'new-reinstall.example.test',
+            'state' => 'verified',
+            'verification_token' => (string) Str::random(40),
+            'created_by' => $this->owner->getKey(),
+            'domains_provider_id' => $provider->getKey(),
+            'status' => 'new',
+            'is_our' => false,
+            'is_active' => true,
+        ]);
+
+        $payload = $this->runPayload(true);
+        foreach ($payload['data'] as $index => &$row) {
+            $row['domains'] = [[
+                'domain_id' => (string) $newDomain->getKey(),
+                'sub' => 'extra-'.($index + 1),
+            ]];
+        }
+        unset($row);
+        foreach (['tracking', 'https', 'spf', 'dkim', 'dmarc'] as $requiredOption) {
+            $payload[$requiredOption] = true;
+        }
+
+        $deploymentGate = Mockery::mock(AlphaLinkPmtaDeploymentGate::class);
+        $deploymentGate->shouldReceive('evaluate')->once()->andReturn([
+            'installation_authorized' => true,
+            'blockers' => [],
+        ]);
+        $this->app->instance(AlphaLinkPmtaDeploymentGate::class, $deploymentGate);
 
         $runtimeInputs = Mockery::mock(AlphaLinkBulkInstallRuntimeInputs::class);
         $runtimeInputs->shouldReceive('resolve')->once()->andReturn(['settings' => [], 'assets' => []]);
@@ -221,7 +262,9 @@ class AlphaLinkServerReinstallTest extends TestCase
                 && $actualRunId === $runId
                 && $payload['kind'] === 'reinstall'
                 && $payload['server_id'] === (string) $this->server->getKey()
-                && count($payload['payload']['data']) === 3);
+                && count($payload['payload']['data']) === 3
+                && $payload['payload']['data'][0]['domains'][0]['domain_id'] === (string) $newDomain->getKey()
+                && $payload['payload']['data'][0]['domains'][0]['sub'] === 'extra-1');
         $transcripts->shouldReceive('read')->once()->with((string) $this->workspace->getKey(), $runId)->andReturn('');
         $transcripts->shouldReceive('readRunStatus')->once()->with((string) $this->workspace->getKey(), $runId)->andReturn([
             'status' => 'queued',
@@ -238,7 +281,7 @@ class AlphaLinkServerReinstallTest extends TestCase
         $workflow->shouldNotReceive('run');
         $this->app->instance(AlphaLinkCentos9ReinstallWorkflow::class, $workflow);
 
-        $this->postJson($this->runUrl(), $this->runPayload(false))
+        $this->postJson($this->runUrl(), $payload)
             ->assertStatus(202)
             ->assertJsonPath('status', 'queued')
             ->assertJsonPath('run_id', $runId);
@@ -264,6 +307,49 @@ class AlphaLinkServerReinstallTest extends TestCase
         $this->postJson($this->runUrl(), $payload)
             ->assertStatus(503)
             ->assertJsonPath('code', 'server_reinstall_inputs_not_ready');
+    }
+
+    public function test_reinstall_rejects_unavailable_additional_domains_before_ssh(): void
+    {
+        $unavailableDomain = $this->createDomain('unavailable.example.test');
+        $payload = $this->runPayload(false);
+        foreach ($payload['data'] as &$row) {
+            $row['domains'] = [[
+                'domain_id' => (string) $unavailableDomain->getKey(),
+                'sub' => 'extra',
+            ]];
+        }
+        unset($row);
+        $credentials = Mockery::mock(AlphaLinkInstallerServerCredentialResolver::class);
+        $credentials->shouldNotReceive('resolve');
+        $this->app->instance(AlphaLinkInstallerServerCredentialResolver::class, $credentials);
+
+        $this->postJson($this->runUrl(), $payload)
+            ->assertStatus(503)
+            ->assertJsonPath('code', 'server_reinstall_inputs_not_ready');
+    }
+
+    public function test_multi_domain_reinstall_requires_pmta_and_authentication_services_before_queueing(): void
+    {
+        config(['infrastructure.reinstall_execution_enabled' => true]);
+        $payload = $this->runPayload(false);
+        foreach ($payload['data'] as $index => &$row) {
+            $additionalDomain = (string) $row['domain_id'] === (string) $this->firstDomain->getKey()
+                ? $this->secondDomain
+                : $this->firstDomain;
+            $row['domains'] = [[
+                'domain_id' => (string) $additionalDomain->getKey(),
+                'sub' => 'extra-'.($index + 1),
+            ]];
+        }
+        unset($row);
+        $credentials = Mockery::mock(AlphaLinkInstallerServerCredentialResolver::class);
+        $credentials->shouldNotReceive('resolve');
+        $this->app->instance(AlphaLinkInstallerServerCredentialResolver::class, $credentials);
+
+        $this->postJson($this->runUrl(), $payload)
+            ->assertStatus(422)
+            ->assertJsonPath('code', 'multi_domain_reinstall_options_invalid');
     }
 
     public function test_reinstall_completion_updates_ip_mta_and_owned_domain_only_when_pmta_is_selected(): void
@@ -516,6 +602,28 @@ class AlphaLinkServerReinstallTest extends TestCase
 
         $response->assertJsonMissingPath('pmta');
         $this->assertSame($this->savedSettings(), $this->server->fresh()->install_parameters);
+    }
+
+    public function test_load_config_returns_editable_domains_for_multi_domain_reinstall(): void
+    {
+        $settings = $this->savedSettings();
+        $settings['multi_domain_per_ip'] = true;
+        $settings['data'][0]['domains'] = [[
+            'domain_id' => (string) $this->secondDomain->getKey(),
+            'sub' => 'extra',
+            'domain' => $this->secondDomain->name,
+        ]];
+        $this->server->forceFill(['install_parameters' => $settings])->save();
+
+        $response = $this->getJson($this->configUrl())
+            ->assertOk()
+            ->assertJsonPath('multi_domain_per_ip', true)
+            ->assertJsonPath('data.0.domains.0.domain', $this->secondDomain->name);
+
+        $this->assertEqualsCanonicalizing(
+            [(string) $this->firstDomain->getKey(), (string) $this->secondDomain->getKey()],
+            collect($response->json('domain_choices'))->pluck('id')->all(),
+        );
     }
 
     public function test_reload_ips_reuses_saved_assignments_orders_primary_first_and_filters_ipv6(): void

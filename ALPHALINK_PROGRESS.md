@@ -1,8 +1,12 @@
 # AlphaLink development progress
 
 **Updated:** 2026-11-24
-**Active objective:** Repair multi-domain install/reinstall failures while preserving AlphaLink's create-only DNS policy and manual-DNS support for external domains.
-**Current implementation status:** E-MDOM-13 retries public DNS checks during propagation and verifies PMTA feedback folders during install. Focused PHP 8.5 tests pass (27 tests / 170 assertions); Pint, syntax checks, and diff checks pass. Release `9e119868b20e2b50cfdf9b69a215cbaa6a1160c1` is deployed to AlphaLink production with backup `/var/backups/alphalink/deploy-9e119868b20e2b50cfdf9b69a215cbaa6a1160c1-20261124T181809Z.dump`; active release, `/up`, `/sign-in`, PHP-FPM, Horizon, suppression worker, and scheduler were verified. No live mail-server install or email was run.
+**Active objective:** Make installed multi-domain assignments available to campaigns when their assignment DNS, authentication, and tracking HTTPS checks pass.
+**Current implementation status:** E-MDOM-14 removes the unrelated transactional sender-domain ownership TXT state from campaign assignment readiness. Focused PHP 8.5 tests pass (5 tests / 52 assertions); Pint and diff checks pass. Release `4f521b92c680bf4561be48226311864cecd4dc57` is deployed to AlphaLink production with backup `/var/backups/alphalink/deploy-4f521b92c680bf4561be48226311864cecd4dc57-20261124T184814Z.dump`. The live campaign catalog returns `alfa.statacademy.forum` and `tio.statacademy.forum` as ready on `188.166.18.44`; `/up`, `/sign-in`, PHP-FPM, Horizon, suppression worker, and scheduler passed verification. No real campaign email or independent message-level SPF/DKIM/DMARC PASS was run.
+
+### Campaign readiness after multi-domain install — E-MDOM-14 (2026-11-24)
+
+Read-only production inspection found that both `statacademy.forum` assignments had DNS, authentication-record, and tracking HTTPS readiness set, while their parent `SendingDomain` remained `pending` because AlphaLink's separate `_alphalink-verify` sender-ownership TXT check had not succeeded. Campaign selection incorrectly required that parent row to be verified. Campaign catalog readiness, the shared assignment query scope, IP readiness display/status actions, and assignment revalidation now use the installed assignment's own DNS/authentication/tracking checks and active server/IP/domain/identity. The separate transactional sender-domain ownership workflow is unchanged. Focused PHP 8.5 tests pass: campaign catalog 1 test / 25 assertions and IP readiness/revalidation 4 tests / 27 assertions. Pint and `git diff --check` pass. Commit `4f521b9` is pushed and deployed; live catalog verification returns both hostnames as `is_ready: true`. The deployment backup and health checks passed. No real campaign email or independent message-level SPF/DKIM/DMARC PASS was run.
 
 ### Multi-Domain DNS propagation and PMTA feedback folders — E-MDOM-13 (2026-11-24)
 

@@ -4,7 +4,7 @@
 
 ## 2026-11-25 External-domain DNS and Nginx repair — E-SRV-LIVE-32
 
-Local AlphaLink code and focused PHP 8.5 suites are ready for release review. The Nginx runtime repair, external DNS copy page and pre-host external A/AAAA check have not been deployed or exercised against a real reinstall/change-domain operation. The Domains page generates records only when an active installed server/IP assignment is saved; unassigned domains do not yet carry enough persisted information to generate exact records. No mail-server or DMS state was modified. Keep this AlphaLink workflow TESTING until deployment, read-only production UI verification, and a separately controlled server retry are complete.
+Commit `d87bbd2b9390da8f466fab94ec2f847238600a83` is active on AlphaLink production. The guarded installer found no migrations pending, verified backup `/var/backups/alphalink/deploy-d87bbd2b9390da8f466fab94ec2f847238600a83-20261125T151720Z.dump`, checked required services, and passed local HTTPS `/up` and `/sign-in` (200). Focused tests and static checks passed with PHPUnit warnings. The authenticated Domains page and a real mail-server retry remain unverified; no mail-server config, DNS, or DMS state was changed. The page generates records only when an active installed server/IP assignment is saved; unassigned domains still lack enough persisted information for exact records. Keep this workflow TESTING until those checks are complete.
 
 ## 2026-11-10 Account permission controls and Reinstall recovery — E-IAM-15 / E-INST-99
 

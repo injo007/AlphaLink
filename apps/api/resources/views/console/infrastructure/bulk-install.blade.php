@@ -67,7 +67,7 @@
 
             <p class="small text-muted mb-3"><i class="fas fa-info-circle mr-1 text-purple"></i> DNS records are auto-generated for each selected domain: TRACKING generates A/AAAA, IMAP generates MX, and SPF, DKIM and DMARC generate TXT records.</p>
             <div class="alert alert-info d-none mt-2" id="bulk-multi-domain-help" role="status" style="border-radius: 10px; font-size: 0.78rem;">
-                Multi-Domain per IP supports up to 100 sending-domain assignments per server because tracking hostnames share one HTTPS certificate. AlphaLink writes DNS through a connected Cloudflare API when available; external-domain records stay manual and are listed for copying. Installation continues when A/AAAA or SPF, DKIM, and DMARC records are pending. Missing A/AAAA skips domain HTTPS, and assignments stay unavailable for campaigns until DNS, authentication, and tracking checks pass.
+                Multi-Domain per IP supports up to 100 sending-domain assignments per server because tracking hostnames share one HTTPS certificate. AlphaLink writes DNS through a connected Cloudflare API when available; external-domain records stay manual and are listed for copying. Installation continues when A/AAAA or SPF, DKIM, and DMARC records are pending, and active domain assignments remain selectable for sending. Missing tracking DNS skips domain HTTPS; click/open/unsubscribe tracking is enabled after its HTTPS check passes.
             </div>
 
             <div class="table-responsive">

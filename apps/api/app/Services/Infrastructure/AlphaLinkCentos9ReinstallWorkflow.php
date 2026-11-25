@@ -225,7 +225,7 @@ class AlphaLinkCentos9ReinstallWorkflow
                 $additionalARecords = [];
                 $providerAvailable = $selectedDomain->is_our && $this->assignmentDnsWriter->isAssignmentDomainAvailable($selectedDomain);
                 if (! $providerAvailable) {
-                    $log(sprintf('DNS for %s is managed manually; reinstall will not call its DNS provider.', $selectedDomain->name));
+                    $log(sprintf('DNS zone %s is managed manually; reinstall will not call its DNS provider. Assignment hostnames and tracking subdomains are checked individually.', $selectedDomain->name));
                     $this->domainRecords->logManualAssignmentRecords(
                         $selectedDomain,
                         $records,
@@ -272,7 +272,7 @@ class AlphaLinkCentos9ReinstallWorkflow
                 if (! $readiness['dns_verified']) {
                     $log('A/AAAA DNS is pending for '.implode(', ', $readiness['missing_address_hosts']).'; continuing reinstall without domain HTTPS for this multi-domain setup.');
                 } elseif (! $readiness['authentication_verified']) {
-                    $log('SPF, DKIM, or DMARC TXT records are pending for '.$readiness['hostname'].'; reinstall continues, but this domain will remain unavailable for sending.');
+                    $log('SPF, DKIM, or DMARC TXT records are pending for '.$readiness['hostname'].'; the domain remains selectable for sending while mail-authentication checks are pending.');
                 }
             }
             $mainDomainProviderReady = $allAssignmentAddressesReady;
@@ -564,7 +564,7 @@ class AlphaLinkCentos9ReinstallWorkflow
                     && $this->tracking->verifyHttps($session, $assignmentTrackingHost);
                 $trackingHttpsReadyByHost[$assignmentTrackingHost] = $ready;
                 if (! $ready) {
-                    $log('HTTPS tracking remains pending for '.$assignmentTrackingHost.'; reinstall continues and the domain cannot be used for sending yet.');
+                    $log('HTTPS tracking remains pending for '.$assignmentTrackingHost.'; sending remains available, but click/open/unsubscribe tracking is omitted until HTTPS is ready.');
                 }
             }
             foreach ($rows as &$row) {

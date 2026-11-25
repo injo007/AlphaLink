@@ -565,18 +565,21 @@ class AlphaLinkCampaignSendCatalog
             ->get()
             ->map(function (ManagedServerIpDomain $assignment): array {
                 $ip = $assignment->ip;
-                // The assignment's DNS/authentication/TLS proof is separate from the transactional sender-domain ownership TXT.
-                $ready = $assignment->dns_verified_at !== null
-                    && $assignment->authentication_verified_at !== null
-                    && $assignment->tracking_https_ready
-                    && filled($assignment->tracking_host)
+                // DNS, authentication TXT and tracker HTTPS are operational
+                // checks, not campaign-route eligibility gates. Keep the
+                // assignment selectable when its PMTA identity is installed.
+                $hostname = strtolower(rtrim(trim((string) $assignment->hostname), '.'));
+                $ready = filter_var($hostname, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) !== false
                     && filled($assignment->dkim_selector)
                     && $assignment->signingIdentity?->is_active
-                    && $assignment->signingIdentity?->hostname === $assignment->hostname
+                    && strtolower(rtrim((string) ($assignment->signingIdentity?->hostname ?? ''), '.')) === $hostname
                     && (string) $assignment->signingIdentity?->sending_domain_id === (string) $assignment->sending_domain_id
                     && $assignment->domain?->is_active
                     && $ip instanceof ManagedServerIp
                     && ManagedServerIp::isPublicAddress((string) $ip->ip);
+                $dnsVerified = $assignment->dns_verified_at !== null;
+                $authenticationVerified = $assignment->authentication_verified_at !== null;
+                $trackingHttpsReady = $assignment->tracking_https_ready && filled($assignment->tracking_host);
 
                 return [
                     'id' => (string) $assignment->getKey(),
@@ -589,6 +592,10 @@ class AlphaLinkCampaignSendCatalog
                     'dns' => (string) $assignment->hostname,
                     'domain' => (string) $assignment->hostname,
                     'tracking_host' => (string) ($assignment->tracking_host ?? ''),
+                    'dns_verified' => $dnsVerified,
+                    'authentication_verified' => $authenticationVerified,
+                    'tracking_https_ready' => $trackingHttpsReady,
+                    'verification_pending' => ! $dnsVerified || ! $authenticationVerified || ! $trackingHttpsReady,
                     'pmta_name' => $ip instanceof ManagedServerIp
                         ? (new AlphaLinkBulkInstallVmtaPlanner)->ipVirtualMtaName((string) $ip->ip)
                         : '',

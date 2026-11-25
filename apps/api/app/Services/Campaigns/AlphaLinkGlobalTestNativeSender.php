@@ -105,9 +105,6 @@ class AlphaLinkGlobalTestNativeSender
         }
 
         $routeOption = (string) $data['option'];
-        if ($routeOption === 'domain' && collect($selectedIps)->contains(fn (array $choice): bool => ! ($choice['is_ready'] ?? false))) {
-            throw ValidationException::withMessages(['ips' => 'Every selected sending domain must be verified before a campaign test.']);
-        }
         $submittedHeader = str_replace(["\r\n", "\r"], "\n", $decodedHeader);
         $headerTemplate = preg_replace('/^\s*to\s*:\s*.*$/im', 'To: [to]', $submittedHeader) ?? $submittedHeader;
         if (! preg_match('/^\s*to\s*:/im', $headerTemplate)) {

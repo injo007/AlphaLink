@@ -205,7 +205,7 @@ class CampaignSendMessageBuilder
         }
         if ($context['route'] === 'domain' && (! ($choice['is_ready'] ?? false)
             || filter_var($domain, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) === false)) {
-            throw ValidationException::withMessages(['send_setup.ip_ids' => 'The selected sending domain is no longer verified and ready. Refresh domain routes before sending.']);
+            throw ValidationException::withMessages(['send_setup.ip_ids' => 'The selected sending-domain assignment is no longer active or has no configured DKIM identity. Refresh domain routes before sending.']);
         }
 
         $from = $context['from_assets'] === [] ? ['id' => 0, 'value' => ''] : $context['from_assets'][($position - 1) % count($context['from_assets'])];
@@ -213,15 +213,17 @@ class CampaignSendMessageBuilder
         $token = $this->campaignToken($context, $item, $choice, $from, $subject);
         $installParameters = $context['route'] === 'domain'
             ? [
-                'tracking' => true,
-                'tracking_https_ready' => (bool) ($choice['is_ready'] ?? false),
+                'tracking' => filled($choice['tracking_host'] ?? null),
+                'tracking_https_ready' => (bool) ($choice['tracking_https_ready'] ?? false),
                 'tracking_host' => (string) ($choice['tracking_host'] ?? ''),
             ]
             : (array) $server->install_parameters;
-        $trackingHost = $this->redirectUrlPolicy->requireReadyTrackingHost($installParameters);
-        $unsubscribeUrl = $this->redirectUrlPolicy->campaignTrackingUnsubscribeUrl($trackingHost, $token);
-        $clickUrl = $this->redirectUrlPolicy->campaignTrackingClickUrl($trackingHost, $token);
-        $openUrl = $this->redirectUrlPolicy->campaignTrackingOpenUrl($trackingHost, $token);
+        $trackingHost = $context['route'] === 'domain'
+            ? $this->redirectUrlPolicy->readyTrackingHost($installParameters)
+            : $this->redirectUrlPolicy->requireReadyTrackingHost($installParameters);
+        $unsubscribeUrl = $trackingHost === null ? '' : $this->redirectUrlPolicy->campaignTrackingUnsubscribeUrl($trackingHost, $token);
+        $clickUrl = $trackingHost === null ? '' : $this->redirectUrlPolicy->campaignTrackingClickUrl($trackingHost, $token);
+        $openUrl = $trackingHost === null ? '' : $this->redirectUrlPolicy->campaignTrackingOpenUrl($trackingHost, $token);
         $tags = [
             'server' => (string) $server->name.(string) $server->getKey(),
             'main_domain' => (string) ($primaryIp?->dns ?: $primaryIp?->domain?->name ?: 'NA'),
@@ -274,12 +276,16 @@ class CampaignSendMessageBuilder
         $header = $this->setHeader($header, 'X-virtual-MTA', $vmtaName);
         $header = $this->setHeader($header, 'X-ENVID', $context['run']->getKey().'-'.$position);
         $header = $this->setHeader($header, 'X-JOB', (string) $context['run']->getKey());
-        $header = $this->setHeader($header, 'List-Unsubscribe', '<'.$unsubscribeUrl.'>');
-        $header = $this->setHeader($header, 'List-Unsubscribe-Post', 'List-Unsubscribe=One-Click');
+        if ($unsubscribeUrl !== '') {
+            $header = $this->setHeader($header, 'List-Unsubscribe', '<'.$unsubscribeUrl.'>');
+            $header = $this->setHeader($header, 'List-Unsubscribe-Post', 'List-Unsubscribe=One-Click');
+        }
 
         $contentType = collect(preg_split('/\r\n|\r|\n/', $header) ?: [])
             ->first(fn (string $line): bool => preg_match('/^\s*content-type\s*:\s*text\/html/i', $line) === 1);
-        $body = $this->appendUnsubscribe($body, $unsubscribeUrl, $contentType !== null);
+        if ($unsubscribeUrl !== '') {
+            $body = $this->appendUnsubscribe($body, $unsubscribeUrl, $contentType !== null);
+        }
         $fromAddress = $this->headerEmail($header, 'from');
         $envelopeFrom = trim($returnPath) === '' ? $fromAddress : $this->emailAddress($returnPath);
         foreach (['From' => $fromAddress, 'Return-Path' => $envelopeFrom] as $label => $address) {

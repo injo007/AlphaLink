@@ -131,7 +131,7 @@ class WarmupSendMessageBuilder
         }
         if ($context['route'] === 'domain' && (! ($choice['is_ready'] ?? false)
             || filter_var($domain, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) === false)) {
-            throw ValidationException::withMessages(['send_setup.ip_ids' => 'The selected sending domain is no longer verified and ready.']);
+            throw ValidationException::withMessages(['send_setup.ip_ids' => 'The selected sending-domain assignment is no longer active or has no configured DKIM identity.']);
         }
 
         $cache = [];

@@ -58,10 +58,18 @@ class AlphaLinkCampaignDomainChoicesTest extends TestCase
             'is_primary' => true, 'is_active' => true, 'tracking_https_ready' => true,
             'dns_verified_at' => now(), 'authentication_verified_at' => now(),
         ]);
+        $pendingIdentity = SendingDomainDkimIdentity::factory()->forDomain($domain)
+            ->state(['hostname' => 'offers.example.test'])->create();
+        /*
+         * This assignment has its PMTA signing identity, but its public DNS
+         * and tracking HTTPS proof are pending. It must remain send-selectable.
+         */
         ManagedServerIpDomain::query()->create([
             'workspace_id' => $workspace->getKey(), 'managed_server_id' => $server->getKey(),
             'managed_server_ip_id' => $ip->getKey(), 'sending_domain_id' => $domain->getKey(),
             'hostname' => 'offers.example.test', 'tracking_host' => 'click.offers.example.test',
+            'dkim_selector' => $pendingIdentity->selector,
+            'sending_domain_dkim_identity_id' => $pendingIdentity->getKey(),
             'is_primary' => false, 'is_active' => true, 'tracking_https_ready' => false,
         ]);
 
@@ -77,21 +85,21 @@ class AlphaLinkCampaignDomainChoicesTest extends TestCase
         $this->assertSame('mta-8.8.8.8', $choices[0]['pmta_name']);
         $this->assertSame('click.mail.example.test', $choices[0]['tracking_host']);
         $this->assertSame('offers.example.test', $choices[1]['domain']);
-        $this->assertFalse($choices[1]['is_ready']);
+        $this->assertTrue($choices[1]['is_ready']);
+        $this->assertTrue($choices[1]['verification_pending']);
+        $this->assertFalse($choices[1]['tracking_https_ready']);
+        $this->assertFalse($choices[1]['dns_verified']);
+        $this->assertFalse($choices[1]['authentication_verified']);
 
         $routing = app(AlphaLinkCampaignSendCatalog::class)->validateRevisionRouting(
             $workspace, $user, 'owner', 'domain', 'ipv4', [(string) $server->getKey()], [$choices[0]['id']],
         );
         $this->assertSame('domain', $routing['route_option']);
         $this->assertSame([$choices[0]['id']], $routing['ip_ids']);
-        try {
-            app(AlphaLinkCampaignSendCatalog::class)->validateRevisionRouting(
-                $workspace, $user, 'owner', 'domain', 'ipv4', [(string) $server->getKey()], [$choices[1]['id']],
-            );
-            $this->fail('An assignment without DNS/authentication and HTTPS verification must not become a selectable route.');
-        } catch (ValidationException $exception) {
-            $this->assertArrayHasKey('send_setup.ip_ids', $exception->errors());
-        }
+        $pendingRouting = app(AlphaLinkCampaignSendCatalog::class)->validateRevisionRouting(
+            $workspace, $user, 'owner', 'domain', 'ipv4', [(string) $server->getKey()], [$choices[1]['id']],
+        );
+        $this->assertSame([$choices[1]['id']], $pendingRouting['ip_ids']);
 
         $messages = [];
         $transport = Mockery::mock(SmtpTransport::class);
@@ -114,13 +122,13 @@ class AlphaLinkCampaignDomainChoicesTest extends TestCase
             'return_path' => 'bounce@[domain]',
             'send_setup' => [
                 'server_ids' => [(string) $server->getKey()],
-                'ip_ids' => [$choices[0]['id']],
+                'ip_ids' => [$choices[1]['id']],
                 'route_option' => 'domain', 'ip_type' => 'ipv4', 'send_type' => 'delay',
             ],
         ])->assertOk()->assertJsonPath('outcome', 'accepted_by_transport');
 
         $this->assertCount(1, $messages);
-        $this->assertStringContainsString('From: sender@mail.example.test', $messages[0]);
+        $this->assertStringContainsString('From: sender@offers.example.test', $messages[0]);
         $this->assertStringContainsString('X-virtual-MTA: mta-8.8.8.8', $messages[0]);
 
         $this->actingAs($user)->postJson(route('console.campaigns.manual-test', $workspace->getKey()), [

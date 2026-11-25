@@ -1562,12 +1562,12 @@
                                     </div>
                                 </div>
                                 <small id="send-ips-transfer-help" class="sr-only form-text text-muted">Double-click an entry to move it between lists. You can also select entries and use the arrow buttons.</small>
-                                <small class="sr-only form-text text-muted">Campaign Save requires at least one selected IP, VMTA, SMTP route, or ready domain. Test Campaign uses the saved route on this revision.</small>
-                                @php $pendingDomainRoutes = collect($sendOptions['domain_routes'] ?? [])->filter(static fn ($choice) => ! $choice['is_ready']); @endphp
+                                <small class="sr-only form-text text-muted">Campaign Save requires at least one selected IP, VMTA, SMTP route, or active domain assignment. Test Campaign uses the saved route on this revision.</small>
+                                @php $pendingDomainRoutes = collect($sendOptions['domain_routes'] ?? [])->filter(static fn ($choice) => $choice['verification_pending'] ?? false); @endphp
                                 <div id="send-domain-readiness" class="form-text text-muted" role="status" @if($setup['route_option'] !== 'domain' || $pendingDomainRoutes->isEmpty()) hidden @endif>
                                     @if ($pendingDomainRoutes->isNotEmpty())
-                                        <strong>{{ $pendingDomainRoutes->count() }} installed domain assignments unavailable for sending:</strong>
-                                        <ul class="mb-0">@foreach ($pendingDomainRoutes as $choice)<li>{{ $choice['domain'] }} · {{ $choice['ip'] }} · {{ $choice['server_name'] }} — DNS, DKIM, or HTTPS tracking verification is pending.</li>@endforeach</ul>
+                                        <strong>{{ $pendingDomainRoutes->count() }} installed domain assignments have checks pending; sending remains available.</strong>
+                                        <ul class="mb-0">@foreach ($pendingDomainRoutes as $choice)<li>{{ $choice['domain'] }} · {{ $choice['ip'] }} · {{ $choice['server_name'] }} — sending enabled; @unless($choice['dns_verified'])DNS pending; @endunless @unless($choice['authentication_verified'])SPF/DKIM/DMARC pending; @endunless @unless($choice['tracking_https_ready'])tracking HTTPS pending, so generated tracking and unsubscribe links are omitted.@endunless</li>@endforeach</ul>
                                     @endif
                                 </div>
                                 <details class="campaign-create-help campaign-route-help">
@@ -2289,17 +2289,21 @@
             const routeChoiceNames = {ip: 'IPs', vmta: 'VMTAs', smtp: 'SMTP routes', domain: 'Domains'};
             const renderDomainReadiness = (records) => {
                 const status = document.getElementById('send-domain-readiness');
-                const pending = (records || []).filter((choice) => !choice.is_ready);
+                const pending = (records || []).filter((choice) => choice.verification_pending);
                 status.hidden = document.getElementById('send-route')?.value !== 'domain' || pending.length === 0;
                 status.replaceChildren();
                 if (status.hidden) return;
                 const heading = document.createElement('strong');
-                heading.textContent = `${pending.length} installed domain assignment${pending.length === 1 ? '' : 's'} unavailable for sending:`;
+                heading.textContent = `${pending.length} installed domain assignment${pending.length === 1 ? '' : 's'} have checks pending; sending remains available:`;
                 const list = document.createElement('ul');
                 list.className = 'mb-0';
                 pending.forEach((choice) => {
                     const item = document.createElement('li');
-                    item.textContent = `${choice.domain} · ${choice.ip} · ${choice.server_name} — DNS, DKIM, or HTTPS tracking verification is pending.`;
+                    const checks = [];
+                    if (!choice.dns_verified) checks.push('DNS');
+                    if (!choice.authentication_verified) checks.push('SPF/DKIM/DMARC');
+                    if (!choice.tracking_https_ready) checks.push('tracking HTTPS');
+                    item.textContent = `${choice.domain} · ${choice.ip} · ${choice.server_name} — sending enabled; pending: ${checks.join(', ')}${choice.tracking_https_ready ? '' : '; generated tracking/unsubscribe links omitted'}.`;
                     list.append(item);
                 });
                 status.append(heading, list);
@@ -2317,7 +2321,7 @@
                 const behavior = document.getElementById('send-route-behavior');
                 if (behavior) {
                     behavior.innerHTML = route === 'domain'
-                        ? 'Option DOMAIN uses each selected installed domain on its assigned IP. Each message uses that domain for From, envelope sender, DKIM signing, and HTTPS tracking. Only verified assignments appear as selectable routes; <code>[domain]</code> resolves for the route used by each message.'
+                        ? 'Option DOMAIN sends from each selected active assignment on its assigned IP. From, envelope sender, and DKIM identity use the selected subdomain. Pending DNS or HTTPS checks do not block sending; click/open/unsubscribe tracking is included after the tracking host passes HTTPS checks. <code>[domain]</code> resolves to the full selected hostname.'
                         : route === 'smtp'
                         ? 'Option SMTP selects the outbound relay. <code>[smtp]</code> is its username and <code>[smtp_name]</code> is its label. Use <code>[smtp]</code> or <code>[smtp]@[domain]</code> for a local-part username. AlphaLink reaches PMTA through the selected server’s IP and listener; PMTA applies the selected SMTP virtual-MTA route. PMTA acceptance does not confirm mailbox delivery.'
                         : route === 'vmta'

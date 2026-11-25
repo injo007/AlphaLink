@@ -64,6 +64,38 @@ class AlphaLinkMultiDomainDnsVerifierTest extends TestCase
         $this->assertSame(['track.mail.example.test'], $readiness[0]['missing_address_hosts']);
     }
 
+    public function test_subdomain_assignment_checks_the_full_hostname_and_its_tracking_subdomain(): void
+    {
+        $queried = [];
+        $dns = $this->createMock(AlphaLinkPublicDnsRecordResolver::class);
+        $dns->method('records')->willReturnCallback(static function (string $hostname, int $type) use (&$queried): array {
+            $queried[] = strtolower($hostname);
+
+            return in_array($hostname, [
+                'rico.carbinlitnings.org',
+                'track-92b714121c.rico.carbinlitnings.org',
+            ], true) && $type === DNS_A
+                ? [['ip' => '20.66.51.224']]
+                : [];
+        });
+
+        $readiness = $this->verifier($dns)->inspectReadiness([
+            [
+                ...$this->assignment(),
+                'ip' => '20.66.51.224',
+                'hostname' => 'rico.carbinlitnings.org',
+                'tracking_host' => 'track-92b714121c.rico.carbinlitnings.org',
+                'ehlo_hostname' => 'rico.carbinlitnings.org',
+            ],
+        ], ['spf' => true, 'dkim' => true, 'dmarc' => true]);
+
+        $this->assertTrue($readiness[0]['dns_verified']);
+        $this->assertSame([], $readiness[0]['missing_address_hosts']);
+        $this->assertContains('rico.carbinlitnings.org', $queried);
+        $this->assertContains('track-92b714121c.rico.carbinlitnings.org', $queried);
+        $this->assertNotContains('carbinlitnings.org', $queried);
+    }
+
     public function test_missing_mail_authentication_txt_keeps_dns_ready_without_throwing(): void
     {
         $dns = $this->createMock(AlphaLinkPublicDnsRecordResolver::class);

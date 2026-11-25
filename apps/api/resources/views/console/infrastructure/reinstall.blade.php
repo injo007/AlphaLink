@@ -99,7 +99,7 @@
                         </div>
                     </div>
                     <div class="alert alert-info d-none mt-2" id="reinstall-multi-domain-help" role="status" style="border-radius: 10px; font-size: 0.78rem;">
-                        Multi-Domain per IP keeps separate DKIM identities and tracking hosts for each assignment. Linked Cloudflare zones use the DNS API; external-domain records remain manual and are available to copy. Reinstall continues when A/AAAA or SPF, DKIM, and DMARC are pending. Missing A/AAAA skips domain HTTPS, and assignments stay unavailable for campaigns until DNS, authentication, and tracking checks pass.
+                        Multi-Domain per IP keeps separate DKIM identities and tracking hosts for each assignment. Linked Cloudflare zones use the DNS API; external-domain records remain manual and are available to copy. Reinstall continues when A/AAAA or SPF, DKIM, and DMARC are pending, and active domain assignments remain selectable for sending. Missing tracking DNS skips domain HTTPS; tracking and generated unsubscribe links become available after the tracking host passes HTTPS checks.
                     </div>
 
                     <div class="table-responsive">

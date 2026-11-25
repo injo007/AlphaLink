@@ -620,6 +620,7 @@ class CampaignSendExecutionLedgerTest extends TestCase
             'sending_domain_id' => (string) $domain->getKey(),
             'ip' => (string) $ip->ip, 'domain' => 'offers.example.test',
             'tracking_host' => 'click.offers.example.test', 'is_ready' => true,
+            'tracking_https_ready' => true,
         ];
         $context = [
             'run' => $run, 'campaign' => $fixture['campaign'], 'revision' => $fixture['revision'],
@@ -658,6 +659,20 @@ class CampaignSendExecutionLedgerTest extends TestCase
         } catch (ValidationException $exception) {
             $this->assertArrayHasKey('return_path', $exception->errors());
         }
+
+        $context['return_path'] = 'bounce@[domain]';
+        $route['tracking_https_ready'] = false;
+        $context['choices_by_server'] = collect([(string) $server->getKey() => collect([$route])]);
+        $pendingTrackingMessage = app(CampaignSendMessageBuilder::class)->build(
+            $context,
+            $fixture['item'],
+            $fixture['contact']->email,
+        );
+        $this->assertSame('offers.example.test', $pendingTrackingMessage['domain']);
+        $this->assertSame('', $pendingTrackingMessage['unsubscribe_url']);
+        $this->assertStringContainsString('From: sender@offers.example.test', $pendingTrackingMessage['header']);
+        $this->assertStringNotContainsString('List-Unsubscribe:', $pendingTrackingMessage['header']);
+        $this->assertStringNotContainsString('https://click.offers.example.test/', $pendingTrackingMessage['body']);
     }
 
     public function test_campaign_send_route_allows_normal_retry_room_without_changing_send_idempotency(): void

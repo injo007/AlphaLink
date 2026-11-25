@@ -353,7 +353,7 @@ class AlphaLinkCentos9InstallWorkflow
                 }
                 if (! $selectedDomain->is_our || ! ($domainProviderReady[$dnsGroup['domain_id']] ?? false)) {
                     $log(sprintf(
-                        '%s DNS is managed manually; no provider records will be changed for %s. Missing DNS records will remain pending while server setup continues.',
+                        '%s DNS zone for %s is managed manually; assignment and tracking subdomain hostnames are checked individually. No provider records will be changed, and setup continues with missing DNS pending.',
                         $selectedDomain->is_our ? 'Provider-managed' : 'External',
                         $dnsGroup['domain'],
                     ));
@@ -424,7 +424,7 @@ class AlphaLinkCentos9InstallWorkflow
                 if (! $readiness['dns_verified']) {
                     $log('A/AAAA DNS is pending for '.implode(', ', $readiness['missing_address_hosts']).'; continuing installation without domain HTTPS for this multi-domain setup.');
                 } elseif (! $readiness['authentication_verified']) {
-                    $log('SPF, DKIM, or DMARC TXT records are pending for '.$readiness['hostname'].'; installation continues, but this domain will remain unavailable for sending.');
+                    $log('SPF, DKIM, or DMARC TXT records are pending for '.$readiness['hostname'].'; the domain remains selectable for sending while mail-authentication checks are pending.');
                 }
             }
             foreach ($addressReadinessByDomain as $domainId => $states) {
@@ -613,7 +613,7 @@ class AlphaLinkCentos9InstallWorkflow
                 $ready = $domainCertificateReady && $this->tracking->verifyHttps($session, $assignmentTrackingHost);
                 $trackingHttpsReadyByHost[$assignmentTrackingHost] = $ready;
                 if (! $ready) {
-                    $log('HTTPS tracking remains pending for '.$assignmentTrackingHost.'; installation continues and the domain cannot be used for sending yet.');
+                    $log('HTTPS tracking remains pending for '.$assignmentTrackingHost.'; sending remains available, but click/open/unsubscribe tracking is omitted until HTTPS is ready.');
                 }
             }
             foreach ($ips as &$ipEntry) {

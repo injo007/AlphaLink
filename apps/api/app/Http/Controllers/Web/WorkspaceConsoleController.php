@@ -1932,11 +1932,13 @@ class WorkspaceConsoleController extends Controller
             $trackingParameters = $data['send_setup']['route_option'] === 'domain'
                 ? [
                     'tracking' => true,
-                    'tracking_https_ready' => (bool) ($routeChoice['is_ready'] ?? false),
+                    'tracking_https_ready' => (bool) ($routeChoice['tracking_https_ready'] ?? false),
                     'tracking_host' => (string) ($routeChoice['tracking_host'] ?? ''),
                 ]
                 : (array) $selectedServer->install_parameters;
-            $verifiedTrackingHost = $campaign === null ? null : $redirectUrlPolicy->requireReadyTrackingHost($trackingParameters);
+            $verifiedTrackingHost = $data['send_setup']['route_option'] === 'domain'
+                ? $redirectUrlPolicy->readyTrackingHost($trackingParameters)
+                : ($campaign === null ? null : $redirectUrlPolicy->requireReadyTrackingHost($trackingParameters));
             $clickUrl = $verifiedTrackingHost === null ? '' : $redirectUrlPolicy->campaignTrackingClickUrl($verifiedTrackingHost, $testToken);
             $openUrl = $verifiedTrackingHost === null ? '' : $redirectUrlPolicy->campaignTrackingOpenUrl($verifiedTrackingHost, $testToken);
             $unsubscribeUrl = $verifiedTrackingHost === null ? '' : $redirectUrlPolicy->campaignTrackingUnsubscribeUrl($verifiedTrackingHost, $testToken);

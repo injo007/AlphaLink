@@ -11,6 +11,7 @@ use App\Models\SendingDomain;
 use App\Models\SendingDomainDkimIdentity;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\Infrastructure\AlphaLinkPendingManualDnsPlanStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -235,6 +236,51 @@ class AlphaLinkDomainRecordsTest extends TestCase
             ->assertSee('alrecords01._domainkey.mail')
             ->assertSee('v=DMARC1; p=none; rua=mailto:dmarc@mail.records.example')
             ->assertSee('COPY ALL');
+
+        Http::assertNothingSent();
+    }
+
+    public function test_external_domain_page_lists_pending_install_dns_before_assignments_are_installed(): void
+    {
+        $this->withoutVite();
+        [$owner, $workspace, $domain] = $this->domainWithProvider('godaddy', false);
+        $domain->forceFill(['domains_provider_id' => null])->save();
+        $server = ManagedServer::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'name' => 'Pending external server',
+            'provider' => 'Synthetic provider',
+            'ip_address' => '20.66.51.224',
+            'state' => 'verified',
+            'is_active' => true,
+            'is_installed' => false,
+            'idempotency_key' => 'pending-dns-'.bin2hex(random_bytes(5)),
+            'request_fingerprint' => str_repeat('e', 64),
+            'created_by' => $owner->getKey(),
+            'install_parameters' => ['data' => [['ip' => '20.66.51.224']]],
+        ]);
+        $records = [
+            ['host' => 'rico', 'address' => '20.66.51.224', 'type' => 'A', 'ttl' => '60'],
+            ['host' => 'track-92b714121c.rico', 'address' => '20.66.51.224', 'type' => 'A', 'ttl' => '60'],
+            ['host' => 'rico', 'address' => 'v=spf1 ip4:20.66.51.224 -all', 'type' => 'TXT', 'ttl' => '60'],
+        ];
+
+        app(AlphaLinkPendingManualDnsPlanStore::class)->replace($workspace, $server, [[
+            'domain_id' => (string) $domain->getKey(),
+            'domain' => (string) $domain->name,
+            'records' => $records,
+        ]]);
+
+        $server->refresh();
+        self::assertSame([['ip' => '20.66.51.224']], $server->install_parameters['data']);
+
+        Http::fake();
+        $this->actingAs($owner)->get($this->recordsUrl($workspace, $domain))
+            ->assertOk()
+            ->assertSee('Pending install, reinstall, or domain-change DNS records are shown below.')
+            ->assertSee('Pending records for Pending external server')
+            ->assertSee('track-92b714121c.rico;A;20.66.51.224;60')
+            ->assertSee('COPY ALL')
+            ->assertDontSee('No active installed server assignments use this domain yet.');
 
         Http::assertNothingSent();
     }

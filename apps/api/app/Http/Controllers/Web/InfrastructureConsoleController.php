@@ -727,6 +727,7 @@ class InfrastructureConsoleController extends Controller
         if ($request->isMethod('GET')) {
             if (! $domain->is_our) {
                 $records = [];
+                $pendingDnsPlans = [];
                 $recordError = null;
                 $assignments = $domain->serverIpAssignments()
                     ->where('workspace_id', $workspace->getKey())
@@ -792,18 +793,40 @@ class InfrastructureConsoleController extends Controller
                         ->unique(fn (array $record): string => strtolower($record['host'].'|'.$record['type'].'|'.$record['address']))
                         ->values()
                         ->all();
-                    if ($assignments->isEmpty()) {
+                    $pendingDnsPlans = $workspace->managedServers()
+                        ->where('is_active', true)
+                        ->get(['id', 'name', 'install_parameters'])
+                        ->map(function (ManagedServer $server) use ($domain): ?array {
+                            $domains = data_get($server->install_parameters, 'manual_dns_plans.domains', []);
+                            $plan = is_array($domains) ? ($domains[(string) $domain->getKey()] ?? null) : null;
+                            if (! is_array($plan) || ! is_array($plan['records'] ?? null)
+                                || strcasecmp((string) ($plan['domain'] ?? ''), (string) $domain->name) !== 0) {
+                                return null;
+                            }
+
+                            return [
+                                'server' => (string) $server->name,
+                                'updated_at' => (string) data_get($server->install_parameters, 'manual_dns_plans.updated_at', ''),
+                                'records' => $plan['records'],
+                            ];
+                        })
+                        ->filter()
+                        ->values()
+                        ->all();
+                    if ($assignments->isEmpty() && $pendingDnsPlans === []) {
                         $recordError = 'No active installed server assignments use this domain yet.';
                     }
                 } catch (\Throwable $exception) {
                     $records = [];
                     $recordError = $exception->getMessage();
+                    $pendingDnsPlans = [];
                 }
 
                 return view('console.infrastructure.domains.manual-records', [
                     'workspace' => $workspace,
                     'domain' => $domain,
                     'records' => $records,
+                    'pendingDnsPlans' => $pendingDnsPlans,
                     'recordError' => $recordError,
                 ]);
             }

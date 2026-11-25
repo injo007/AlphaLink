@@ -67,12 +67,58 @@ class AlphaLinkBulkInstallDomainRecordStage
         Closure $log,
         array $additionalARecords = [],
     ): void {
+        $this->logPlannedRecords(
+            $domain,
+            $this->plannedAssignmentRecords($domain, $assignments, $options, $additionalARecords),
+            $log,
+        );
+    }
+
+    /**
+     * @param  list<array{main: bool, ip: string, type: string, sub: string, domain: string}>  $ips
+     * @param  array{tracking: bool, imap: bool, spf: bool, dkim: bool, dmarc: bool}  $options
+     * @return list<array{host: string, address: string, type: string, ttl: string}>
+     */
+    public function plannedDomainRecords(
+        SendingDomain $domain,
+        array $ips,
+        array $options,
+        string $dkimSelector,
+        ?string $dkimPublicKey,
+    ): array {
+        return $this->planner->records(
+            (bool) $domain->is_our,
+            $ips,
+            $options,
+            $dkimSelector,
+            $dkimPublicKey,
+        );
+    }
+
+    /** @param list<array{host: string, address: string, type: string, ttl: string}> $records */
+    public function logPlannedRecords(SendingDomain $domain, array $records, Closure $log): void
+    {
         $log('MANUAL DNS REQUIRED for '.$domain->name.': add these records without changing unrelated records.');
-        foreach ($this->planner->recordsForAssignments((string) $domain->name, $assignments, $options, $additionalARecords) as $record) {
+        foreach ($records as $record) {
             $host = strtolower(rtrim(trim($record['host']), '.'));
             $hostname = $host === '@' ? (string) $domain->name : $host.'.'.$domain->name;
             $log(sprintf('DNS %s %s -> %s', strtoupper($record['type']), $hostname, $record['address']));
         }
+    }
+
+    /**
+     * @param  list<array{hostname: string, ip: string, dkim_selector: string, dkim_public_record: string, tracking_host?: string|null}>  $assignments
+     * @param  array{tracking: bool, imap: bool, spf: bool, dkim: bool, dmarc: bool, clean_dns?: bool}  $options
+     * @param  list<array{hostname: string, ip: string}>  $additionalARecords
+     * @return list<array{host: string, address: string, type: string, ttl: string}>
+     */
+    public function plannedAssignmentRecords(
+        SendingDomain $domain,
+        array $assignments,
+        array $options,
+        array $additionalARecords = [],
+    ): array {
+        return $this->planner->recordsForAssignments((string) $domain->name, $assignments, $options, $additionalARecords);
     }
 
     /**

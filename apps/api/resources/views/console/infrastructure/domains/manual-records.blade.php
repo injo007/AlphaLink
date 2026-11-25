@@ -24,7 +24,7 @@
                 <a class="btn-command-action" href="{{ route('console.infrastructure.domains.index', $workspace->id) }}">
                     <i class="fas fa-arrow-left mr-1" aria-hidden="true"></i> BACK TO DOMAINS
                 </a>
-                @if($records !== [])
+                @if($records !== [] || $pendingDnsPlans !== [])
                     <button class="btn-command-primary ml-2" type="button" id="copy-all-records">
                         <i class="fas fa-copy mr-1" aria-hidden="true"></i> COPY ALL
                     </button>
@@ -34,11 +34,16 @@
         <div class="command-modal-body">
             <p class="text-muted font-size-xs mb-3">Add these records at your domain registrar. AlphaLink does not make DNS changes for external domains. Keep existing records that are not listed here.</p>
 
+            @if($pendingDnsPlans !== [])
+                <div class="alert alert-info" role="status">Pending install, reinstall, or domain-change DNS records are shown below. AlphaLink verifies public DNS before it changes the mail server.</div>
+            @endif
+
             @if($recordError)
                 <div class="alert alert-warning" role="status">{{ $recordError }}</div>
             @endif
 
             @if($records !== [])
+                <h2 class="h5 mb-2">Records for installed assignments</h2>
                 <div class="table-responsive">
                     <table class="command-data-table table-sm manual-dns-records w-100">
                         <thead><tr><th scope="col">NAME</th><th scope="col">TYPE</th><th scope="col">VALUE</th><th scope="col">TTL</th><th scope="col" aria-label="Actions"></th></tr></thead>
@@ -55,6 +60,28 @@
                         </tbody>
                     </table>
                 </div>
+            @endif
+
+            @foreach($pendingDnsPlans as $plan)
+                <h2 class="h5 mt-4 mb-2">Pending records for {{ $plan['server'] }}</h2>
+                <div class="table-responsive">
+                    <table class="command-data-table table-sm manual-dns-records w-100">
+                        <thead><tr><th scope="col">NAME</th><th scope="col">TYPE</th><th scope="col">VALUE</th><th scope="col">TTL</th><th scope="col" aria-label="Actions"></th></tr></thead>
+                        <tbody>
+                            @foreach($plan['records'] as $record)
+                                <tr>
+                                    <td class="font-mono">{{ $record['host'] }}</td>
+                                    <td>{{ strtoupper($record['type']) }}</td>
+                                    <td class="font-mono">{{ $record['address'] }}</td>
+                                    <td>{{ $record['ttl'] }}</td>
+                                    <td><button type="button" class="btn-command-action copy-record" data-copy="{{ implode(';', [$record['host'], strtoupper($record['type']), $record['address'], $record['ttl']]) }}" aria-label="Copy {{ strtoupper($record['type']) }} record for {{ $record['host'] }}">COPY</button></td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endforeach
+            @if($records !== [] || $pendingDnsPlans !== [])
                 <p class="manual-dns-message text-muted mt-2 mb-0 font-size-xs" role="status" aria-live="polite"></p>
             @endif
         </div>

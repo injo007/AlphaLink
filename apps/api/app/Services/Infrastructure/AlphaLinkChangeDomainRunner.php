@@ -32,6 +32,7 @@ class AlphaLinkChangeDomainRunner
         private readonly AlphaLinkReviewedAssetDigestVerifier $assetDigests,
         private readonly AlphaLinkManualDnsVerifier $manualDnsVerifier,
         private readonly AlphaLinkPmtaMonitorModeResolver $pmtaMonitorModeResolver,
+        private readonly AlphaLinkPendingManualDnsPlanStore $pendingManualDnsPlans = new AlphaLinkPendingManualDnsPlanStore,
     ) {}
 
     /**
@@ -61,6 +62,7 @@ class AlphaLinkChangeDomainRunner
         $this->validateRows($saved, $rows);
         $domains = $this->loadDomains($workspace, $rows);
         $parameters = is_array($server->install_parameters) ? $server->install_parameters : [];
+        unset($parameters['manual_dns_plans']);
         $tracking = (bool) ($parameters['tracking'] ?? false);
         $imap = (bool) ($parameters['imap'] ?? false);
         $dkimSelector = (string) ($workspace->infrastructureSettings?->dkim_key ?? '');
@@ -117,7 +119,17 @@ class AlphaLinkChangeDomainRunner
             $log('Verified PMTA 4.0 direct-monitor mode; preserving the public-IP listener without an Nginx proxy.');
         }
         $dnsGroups = $this->resolveDnsGroups(
-            $formatted, $tracking, $imap, $options, $dkimSelector, $dkimMaterial['public_record'], $session, $log, (string) $server->ip_address,
+            $workspace,
+            $server,
+            $formatted,
+            $tracking,
+            $imap,
+            $options,
+            $dkimSelector,
+            $dkimMaterial['public_record'],
+            $session,
+            $log,
+            (string) $server->ip_address,
         );
         $this->prepareApacheConfigurationDirectory($session);
         $log('Prepare PMTA configuration directories');
@@ -300,6 +312,8 @@ class AlphaLinkChangeDomainRunner
      * @param  callable(string): void  $log
      */
     private function resolveDnsGroups(
+        Workspace $workspace,
+        ManagedServer $server,
         array $groups,
         bool $tracking,
         bool $imap,
@@ -311,6 +325,8 @@ class AlphaLinkChangeDomainRunner
         string $registeredPublicIp,
     ): array {
         $resolver = new AlphaLinkCentos9PublicIpResolver($session);
+        $pendingManualDnsPlans = [];
+        $this->pendingManualDnsPlans->replace($workspace, $server, []);
         foreach ($groups as &$group) {
             $group['rows'] = $this->domainRecordStage->resolvePublicAddresses(
                 $group['rows'],
@@ -318,7 +334,7 @@ class AlphaLinkChangeDomainRunner
                 $log,
                 $registeredPublicIp,
             );
-            $this->dnsPlanner->records((bool) $group['domain']->is_our, $group['rows'], [
+            $records = $this->domainRecordStage->plannedDomainRecords($group['domain'], $group['rows'], [
                 'tracking' => $tracking,
                 'imap' => $imap,
                 'spf' => $options['spf'],
@@ -327,6 +343,13 @@ class AlphaLinkChangeDomainRunner
             ], $dkimSelector, $dkimPublicKey);
 
             if (! $group['domain']->is_our) {
+                $pendingManualDnsPlans[] = [
+                    'domain_id' => (string) $group['domain']->getKey(),
+                    'domain' => (string) $group['domain']->name,
+                    'records' => $records,
+                ];
+                $this->pendingManualDnsPlans->replace($workspace, $server, $pendingManualDnsPlans);
+
                 $manualRecords = array_map(static fn (array $row): array => [
                     'hostname' => trim((string) ($row['sub'] ?? '')) !== ''
                         ? trim((string) $row['sub']).'.'.(string) $group['domain']->name

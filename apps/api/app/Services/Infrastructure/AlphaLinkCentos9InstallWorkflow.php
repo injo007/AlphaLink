@@ -35,6 +35,7 @@ class AlphaLinkCentos9InstallWorkflow
         private readonly AlphaLinkCentos9FirewallDeploymentStage $firewall,
         private readonly AlphaLinkBulkInstallCompletionWriter $completion,
         private readonly AlphaLinkPmtaApplicationReadiness $applicationReadiness,
+        private readonly AlphaLinkPendingManualDnsPlanStore $pendingManualDnsPlans = new AlphaLinkPendingManualDnsPlanStore,
     ) {}
 
     /**
@@ -272,10 +273,28 @@ class AlphaLinkCentos9InstallWorkflow
         );
 
         if ($assignmentPlan === null) {
+            $pendingManualDnsPlans = [];
+            $this->pendingManualDnsPlans->replace($workspace, $server, []);
             foreach ($this->groupIpsByDomain($dnsIps, $domainsById) as $domainGroup) {
                 if ($domainGroup['domain']->is_our) {
                     continue;
                 }
+                $records = $this->domainRecords->plannedDomainRecords(
+                    $domainGroup['domain'],
+                    $domainGroup['ips'],
+                    $options,
+                    $settings['dkim_selector'],
+                    $settings['dkim_public_key'],
+                );
+                $this->domainRecords->logPlannedRecords($domainGroup['domain'], $records, $log);
+                $pendingManualDnsPlans[] = [
+                    'domain_id' => (string) $domainGroup['domain']->getKey(),
+                    'domain' => (string) $domainGroup['domain']->name,
+                    'records' => $records,
+                ];
+                $this->pendingManualDnsPlans->replace($workspace, $server, $pendingManualDnsPlans);
+                $log('Pending manual DNS records are available on the external domain record page.');
+
                 $manualRecords = array_map(static fn (array $ip): array => [
                     'hostname' => trim((string) ($ip['sub'] ?? '')) !== ''
                         ? trim((string) $ip['sub']).'.'.(string) $domainGroup['domain']->name
@@ -298,6 +317,8 @@ class AlphaLinkCentos9InstallWorkflow
                     $publicIpBySource[(string) $resolvedIp['source_ip']] = (string) $resolvedIp['ip'];
                 }
             }
+            $pendingManualDnsPlans = [];
+            $this->pendingManualDnsPlans->replace($workspace, $server, []);
             foreach ($assignmentPlan['dns_groups'] as $dnsGroup) {
                 $selectedDomain = $domainsById[$dnsGroup['domain_id']] ?? null;
                 if (! $selectedDomain instanceof SendingDomain) {
@@ -340,6 +361,20 @@ class AlphaLinkCentos9InstallWorkflow
                         $log,
                         $additionalARecords,
                     );
+                    if (! $selectedDomain->is_our) {
+                        $pendingManualDnsPlans[(string) $selectedDomain->getKey()] = [
+                            'domain_id' => (string) $selectedDomain->getKey(),
+                            'domain' => (string) $selectedDomain->name,
+                            'records' => $this->domainRecords->plannedAssignmentRecords(
+                                $selectedDomain,
+                                $records,
+                                [...$options, 'clean_dns' => false],
+                                $additionalARecords,
+                            ),
+                        ];
+                        $this->pendingManualDnsPlans->replace($workspace, $server, array_values($pendingManualDnsPlans));
+                        $log('Pending manual DNS records are available on the external domain record page.');
+                    }
 
                     continue;
                 }

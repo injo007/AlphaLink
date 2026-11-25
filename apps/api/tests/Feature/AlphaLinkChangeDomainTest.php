@@ -330,25 +330,44 @@ class AlphaLinkChangeDomainTest extends TestCase
         $this->app->instance(AlphaLinkChangeDomainDnsRecordWriter::class, $dnsWriter);
         $this->app->instance(AlphaLinkManualDnsVerifier::class, $manualDnsVerifier);
 
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('External DNS A/AAAA records must point to the selected server IPs before changing the domain.');
+        $failure = null;
+        try {
+            app(AlphaLinkChangeDomainRunner::class)->run(
+                $this->workspace,
+                $this->owner,
+                $this->server,
+                [[
+                    'ip_id' => $this->ip->getKey(),
+                    'ip' => $this->ip->ip,
+                    'type' => 'ipv4',
+                    'old_domain_id' => $this->domain->getKey(),
+                    'domain_id' => $this->domain->getKey(),
+                    'sub' => 'relay',
+                    'main' => true,
+                ]],
+                ['https' => false, 'spf' => false, 'dkim' => false, 'dmarc' => false],
+                static function (string $message): void {},
+            );
+        } catch (\RuntimeException $exception) {
+            $failure = $exception;
+        }
 
-        app(AlphaLinkChangeDomainRunner::class)->run(
-            $this->workspace,
-            $this->owner,
-            $this->server,
-            [[
-                'ip_id' => $this->ip->getKey(),
-                'ip' => $this->ip->ip,
-                'type' => 'ipv4',
-                'old_domain_id' => $this->domain->getKey(),
-                'domain_id' => $this->domain->getKey(),
-                'sub' => 'relay',
-                'main' => true,
-            ]],
-            ['https' => false, 'spf' => false, 'dkim' => false, 'dmarc' => false],
-            static function (string $message): void {},
+        self::assertInstanceOf(\RuntimeException::class, $failure);
+        self::assertSame(
+            'External DNS A/AAAA records must point to the selected server IPs before changing the domain. Add the manual records and retry.',
+            $failure->getMessage(),
         );
+        $pendingPlan = data_get(
+            $this->server->fresh()->install_parameters,
+            'manual_dns_plans.domains.'.$this->domain->getKey(),
+        );
+        self::assertSame('current.example.test', $pendingPlan['domain']);
+        self::assertContains([
+            'host' => 'relay',
+            'address' => $this->ip->ip,
+            'type' => 'A',
+            'ttl' => '60',
+        ], $pendingPlan['records']);
     }
 
     public function test_runner_replays_owned_domain_dns_vmta_https_and_reference_false_dns_result_continuation(): void

@@ -325,6 +325,23 @@ class AlphaLinkChangeDomainRunner
                 'dkim' => $options['dkim'],
                 'dmarc' => $options['dmarc'],
             ], $dkimSelector, $dkimPublicKey);
+
+            if (! $group['domain']->is_our) {
+                $manualRecords = array_map(static fn (array $row): array => [
+                    'hostname' => trim((string) ($row['sub'] ?? '')) !== ''
+                        ? trim((string) $row['sub']).'.'.(string) $group['domain']->name
+                        : (string) $group['domain']->name,
+                    'ip' => (string) $row['ip'],
+                ], $group['rows']);
+                if (! $this->manualDnsVerifier->verifies($manualRecords)) {
+                    throw new RuntimeException(
+                        'External DNS A/AAAA records must point to the selected server IPs before changing the domain. Add the manual records and retry.',
+                    );
+                }
+
+                $group['external_dns_verified'] = true;
+                $log('Verified external A/AAAA records for '.$group['domain']->name.'; no DNS provider changes were made.');
+            }
         }
         unset($group);
 
@@ -345,17 +362,8 @@ class AlphaLinkChangeDomainRunner
         foreach ($groups as $group) {
             $domain = $group['domain'];
             if (! $domain->is_our) {
-                $manualRecords = array_map(static fn (array $row): array => [
-                    'hostname' => trim((string) ($row['sub'] ?? '')) !== ''
-                        ? trim((string) $row['sub']).'.'.(string) $domain->name
-                        : (string) $domain->name,
-                    'ip' => (string) $row['ip'],
-                ], $group['rows']);
-                $ready = $this->manualDnsVerifier->verifies($manualRecords);
-                $results[(string) $domain->getKey()] = $ready;
-                $log($ready
-                    ? 'External DNS already points to the selected IPs; no DNS provider changes were made for '.$domain->name
-                    : 'External DNS does not point to the selected IPs; no DNS provider changes were made for '.$domain->name);
+                $results[(string) $domain->getKey()] = (bool) ($group['external_dns_verified'] ?? false);
+                $log('External DNS was verified before host changes; no provider records were changed for '.$domain->name);
 
                 continue;
             }

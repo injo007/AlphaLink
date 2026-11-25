@@ -258,6 +258,9 @@ class AlphaLinkCentos9PmtaDeploymentStageTest extends TestCase
                 if (str_contains($command, 'ALPHALINK_PMTA_FEEDBACK_DIRS_READY')) {
                     return $this->feedbackDirectoriesReady ? 'ALPHALINK_PMTA_FEEDBACK_DIRS_READY' : 'ALPHALINK_PMTA_FEEDBACK_DIRS_FAILED';
                 }
+                if (str_contains($command, 'ALPHALINK_NGINX_RUNTIME_READY')) {
+                    return 'ALPHALINK_NGINX_RUNTIME_READY';
+                }
 
                 return false;
             }

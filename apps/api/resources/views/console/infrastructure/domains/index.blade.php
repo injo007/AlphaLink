@@ -56,7 +56,7 @@
             <div class="command-os-report-hero-right">
                 <label class="command-os-toggle-wrap mr-3" for="only_our" style="display: inline-flex; align-items: center; gap: 8px;">
                     <span class="command-os-toggle-label font-w700 font-size-xs text-uppercase" style="letter-spacing: 0.05em;">ONLY OUR</span>
-                    <input type="checkbox" class="command-os-toggle-input" id="only_our" checked>
+                    <input type="checkbox" class="command-os-toggle-input" id="only_our">
                     <span class="command-os-toggle-slider"></span>
                 </label>
                 <div class="command-os-report-hero-badge">

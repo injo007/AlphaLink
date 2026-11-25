@@ -16,6 +16,7 @@ use App\Services\Infrastructure\AlphaLinkChangeDomainRunner;
 use App\Services\Infrastructure\AlphaLinkInstallerServerCredentialResolver;
 use App\Services\Infrastructure\AlphaLinkInstallerSshSession;
 use App\Services\Infrastructure\AlphaLinkInstallerSshSessionFactory;
+use App\Services\Infrastructure\AlphaLinkManualDnsVerifier;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Mockery;
@@ -247,13 +248,14 @@ class AlphaLinkChangeDomainTest extends TestCase
         $session->shouldReceive('exec')->once()->with(Mockery::on(fn (string $command): bool => str_contains($command, 'mkdir -p /etc/httpd/conf.d')
             && str_contains($command, 'test -w /etc/httpd/conf.d')
             && str_contains($command, 'ALPHALINK_APACHE_CONF_DIR_READY')))->ordered()->andReturn('ALPHALINK_APACHE_CONF_DIR_READY');
-        $session->shouldReceive('exec')->once()->with("hostnamectl set-hostname 'current.example.test'")->ordered()->andReturn('');
-        $session->shouldReceive('exec')->once()->with("sed -i 's/HOSTNAME=.*/HOSTNAME=current.example.test/g' /etc/sysconfig/network")->ordered()->andReturn('');
-        $session->shouldReceive('exec')->once()->with("grep -qxF '192.0.2.23 current.example.test' /etc/hosts || echo -e '192.0.2.23 current.example.test' >> /etc/hosts")->ordered()->andReturn('');
-        $session->shouldReceive('upload')->once()->with(Mockery::on(fn ($content) => str_contains($content, 'ServerName current.example.test')
+        $session->shouldReceive('exec')->once()->with(Mockery::on(fn (string $command): bool => str_contains($command, 'ALPHALINK_PMTA_CONFIG_DIRS_READY')))->ordered()->andReturn('ALPHALINK_PMTA_CONFIG_DIRS_READY');
+        $session->shouldReceive('exec')->once()->with("hostnamectl set-hostname 'relay.current.example.test'")->ordered()->andReturn('');
+        $session->shouldReceive('exec')->once()->with("sed -i 's/HOSTNAME=.*/HOSTNAME=relay.current.example.test/g' /etc/sysconfig/network")->ordered()->andReturn('');
+        $session->shouldReceive('exec')->once()->with("grep -qxF '192.0.2.23 relay.current.example.test' /etc/hosts || echo -e '192.0.2.23 relay.current.example.test' >> /etc/hosts")->ordered()->andReturn('');
+        $session->shouldReceive('upload')->once()->with(Mockery::on(fn ($content) => str_contains($content, 'ServerName relay.current.example.test')
             && str_contains($content, 'Options -Indexes -FollowSymLinks -ExecCGI')
             && str_contains($content, '<FilesMatch "(?i)^(?!index\\.php$).*\\.(php[0-9]?|phtml|phar)$">')
-            && ! str_contains($content, "'www.current.example.test'")), '/etc/httpd/conf.d/current_example_test.conf')->ordered()->andReturn(true);
+            && ! str_contains($content, "'www.current.example.test'")), '/etc/httpd/conf.d/relay_current_example_test.conf')->ordered()->andReturn(true);
         $session->shouldReceive('exec')->once()->with('httpd -t && systemctl restart httpd && printf ALPHALINK_APACHE_VHOST_READY')->ordered()->andReturn('Syntax OKALPHALINK_APACHE_VHOST_READY');
         $session->shouldReceive('upload')->once()->with(Mockery::on(fn ($content) => str_contains($content, 'smtp-source-ip '.$this->ip->ip)), '/etc/pmta/conf/vmta')->ordered()->andReturn(true);
         $session->shouldReceive('exec')->once()->with('chown -R pmta:pmta /etc/pmta')->ordered()->andReturn('');
@@ -261,20 +263,15 @@ class AlphaLinkChangeDomainTest extends TestCase
         $session->shouldReceive('exec')->once()->with('systemctl restart pmtahttp;')->ordered()->andReturn('');
 
         $dnsWriter = Mockery::mock(AlphaLinkChangeDomainDnsRecordWriter::class);
-        $writtenRecords = [];
-        $dnsWriter->shouldReceive('setHosts')->once()
-            ->with(
-                Mockery::on(fn (SendingDomain $domain): bool => $domain->is($this->domain)),
-                Mockery::on(static function (array $records) use (&$writtenRecords): bool {
-                    $writtenRecords = $records;
-
-                    return true;
-                }),
-            )
-            ->andReturn(true);
+        $dnsWriter->shouldNotReceive('setHosts');
+        $manualDnsVerifier = Mockery::mock(AlphaLinkManualDnsVerifier::class);
+        $manualDnsVerifier->shouldReceive('verifies')->once()->with([
+            ['hostname' => 'relay.current.example.test', 'ip' => $this->ip->ip],
+        ])->andReturn(true);
         $this->app->instance(AlphaLinkInstallerServerCredentialResolver::class, $credentialResolver);
         $this->app->instance(AlphaLinkInstallerSshSessionFactory::class, $sessionFactory);
         $this->app->instance(AlphaLinkChangeDomainDnsRecordWriter::class, $dnsWriter);
+        $this->app->instance(AlphaLinkManualDnsVerifier::class, $manualDnsVerifier);
 
         $logs = [];
         app(AlphaLinkChangeDomainRunner::class)->run(
@@ -298,18 +295,60 @@ class AlphaLinkChangeDomainTest extends TestCase
 
         self::assertSame([
             'Prepare Changing Domain Server : '.$this->server->getKey(),
+            'Verified external A/AAAA records for current.example.test; no DNS provider changes were made.',
+            'Prepare PMTA configuration directories', 'End preparing PMTA configuration directories',
             'Setup Host', 'End Setting Host', 'Setup VHost', 'End Setting VHost',
-            'Config Hosts A-AAAA-MX... For current.example.test', 'Done Setting Records',
+            'External DNS was verified before host changes; no provider records were changed for current.example.test',
             'Setup VMTAS', 'End Setting VMTAS', 'Cleaning', 'Done Changing Domain',
         ], $logs);
-        self::assertSame([
-            ['host' => 'relay', 'address' => '198.51.100.10', 'type' => 'A', 'ttl' => '60'],
-            ['host' => 'www', 'address' => '198.51.100.10', 'type' => 'A', 'ttl' => '60'],
-            ['host' => '*', 'address' => '198.51.100.10', 'type' => 'A', 'ttl' => '60'],
-        ], $writtenRecords);
         $this->assertSame('relay.current.example.test', $this->ip->fresh()->dns);
         $this->assertTrue($this->server->fresh()->install_parameters['spf'] === false);
         $this->assertSame(1, AuditEvent::query()->where('action', 'server.domain_changed')->count());
+    }
+
+    public function test_external_dns_must_resolve_before_change_domain_mutates_the_host(): void
+    {
+        $this->server->forceFill(['host_facts' => ['os_pretty_name' => 'AlmaLinux 9.8 (Sapphire Caracal)']])->save();
+        $credentials = Mockery::mock(AlphaLinkInstallerServerCredentialResolver::class);
+        $credentials->shouldReceive('resolve')->once()->andReturn(['secret' => 'synthetic-secret', 'type' => 'password']);
+        $session = Mockery::mock(AlphaLinkInstallerSshSession::class);
+        $session->shouldNotReceive('exec');
+        $session->shouldNotReceive('upload');
+        $sessions = Mockery::mock(AlphaLinkInstallerSshSessionFactory::class);
+        $sessions->shouldReceive('create')->once()->andReturn($session);
+        $host = Mockery::mock(AlphaLinkCentos9HostPreparation::class);
+        $host->shouldNotReceive('configureHost');
+        $dnsWriter = Mockery::mock(AlphaLinkChangeDomainDnsRecordWriter::class);
+        $dnsWriter->shouldNotReceive('setHosts');
+        $manualDnsVerifier = Mockery::mock(AlphaLinkManualDnsVerifier::class);
+        $manualDnsVerifier->shouldReceive('verifies')->once()->with([
+            ['hostname' => 'relay.current.example.test', 'ip' => $this->ip->ip],
+        ])->andReturn(false);
+        $this->app->instance(AlphaLinkInstallerServerCredentialResolver::class, $credentials);
+        $this->app->instance(AlphaLinkInstallerSshSessionFactory::class, $sessions);
+        $this->app->instance(AlphaLinkCentos9HostPreparation::class, $host);
+        $this->app->instance(AlphaLinkChangeDomainDnsRecordWriter::class, $dnsWriter);
+        $this->app->instance(AlphaLinkManualDnsVerifier::class, $manualDnsVerifier);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('External DNS A/AAAA records must point to the selected server IPs before changing the domain.');
+
+        app(AlphaLinkChangeDomainRunner::class)->run(
+            $this->workspace,
+            $this->owner,
+            $this->server,
+            [[
+                'ip_id' => $this->ip->getKey(),
+                'ip' => $this->ip->ip,
+                'type' => 'ipv4',
+                'old_domain_id' => $this->domain->getKey(),
+                'domain_id' => $this->domain->getKey(),
+                'sub' => 'relay',
+                'main' => true,
+            ]],
+            ['https' => false, 'spf' => false, 'dkim' => false, 'dmarc' => false],
+            static function (string $message): void {},
+        );
     }
 
     public function test_runner_replays_owned_domain_dns_vmta_https_and_reference_false_dns_result_continuation(): void
@@ -356,6 +395,7 @@ class AlphaLinkChangeDomainTest extends TestCase
         $session->shouldReceive('exec')->once()->with(Mockery::on(fn (string $command): bool => str_contains($command, 'mkdir -p /etc/httpd/conf.d')
             && str_contains($command, 'test -w /etc/httpd/conf.d')
             && str_contains($command, 'ALPHALINK_APACHE_CONF_DIR_READY')))->ordered()->andReturn('ALPHALINK_APACHE_CONF_DIR_READY');
+        $session->shouldReceive('exec')->once()->with(Mockery::on(fn (string $command): bool => str_contains($command, 'ALPHALINK_PMTA_CONFIG_DIRS_READY')))->ordered()->andReturn('ALPHALINK_PMTA_CONFIG_DIRS_READY');
         $session->shouldReceive('exec')->once()->with("hostnamectl set-hostname 'new.example.test'")->ordered()->andReturn('');
         $session->shouldReceive('exec')->once()->with("sed -i 's/HOSTNAME=.*/HOSTNAME=new.example.test/g' /etc/sysconfig/network")->ordered()->andReturn('');
         $session->shouldReceive('exec')->once()->with("grep -qxF '192.0.2.23 new.example.test' /etc/hosts || echo -e '192.0.2.23 new.example.test' >> /etc/hosts")->ordered()->andReturn('');
@@ -378,6 +418,7 @@ class AlphaLinkChangeDomainTest extends TestCase
         $session->shouldReceive('exec')->once()->with('chown -R pmta:pmta /etc/pmta')->ordered()->andReturn('');
         $session->shouldReceive('exec')->once()->with('systemctl restart pmta;')->ordered()->andReturn('');
         $session->shouldReceive('exec')->once()->with('systemctl restart pmtahttp;')->ordered()->andReturn('');
+        $session->shouldReceive('exec')->once()->with(Mockery::on(fn (string $command): bool => str_contains($command, 'ALPHALINK_NGINX_RUNTIME_READY')))->ordered()->andReturn('ALPHALINK_NGINX_RUNTIME_READY');
         $session->shouldReceive('upload')->once()->with(
             Mockery::on(fn (string $content): bool => str_contains($content, 'listen 1213;')
                 && str_contains($content, 'server_name _;')
@@ -429,6 +470,7 @@ class AlphaLinkChangeDomainTest extends TestCase
 
         self::assertSame([
             'Prepare Changing Domain Server : '.$this->server->getKey(),
+            'Prepare PMTA configuration directories', 'End preparing PMTA configuration directories',
             'Setup Host', 'End Setting Host', 'Setup VHost', 'End Setting VHost',
             'Config Hosts A-AAAA-MX... For new.example.test', 'Failed Setting Records',
             'The selected domain new.example.test is unavailable from its DNS provider; using public IP 192.0.2.23 for the PMTA monitor and skipping domain HTTPS.',

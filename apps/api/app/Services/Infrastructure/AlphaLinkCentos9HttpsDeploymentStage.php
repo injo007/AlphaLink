@@ -9,6 +9,7 @@ class AlphaLinkCentos9HttpsDeploymentStage
 {
     public function __construct(
         private readonly AlphaLinkCentos9PmtaDeploymentPlanner $pmtaPlanner = new AlphaLinkCentos9PmtaDeploymentPlanner,
+        private readonly AlphaLinkCentos9NginxRuntimeRepair $nginxRuntimeRepair = new AlphaLinkCentos9NginxRuntimeRepair,
     ) {}
 
     /**
@@ -127,6 +128,11 @@ class AlphaLinkCentos9HttpsDeploymentStage
             return false;
         }
 
+        $nginxRuntime = $commands->exec($this->nginxRuntimeRepair->command());
+        if (! is_string($nginxRuntime) || ! str_contains($nginxRuntime, 'ALPHALINK_NGINX_RUNTIME_READY')) {
+            throw new \RuntimeException('Nginx package configuration could not be restored before PMTA monitor activation.');
+        }
+
         if ($tlsDomain === null) {
             $this->activatePmtaMonitorConfiguration(
                 $commands,
@@ -220,12 +226,35 @@ class AlphaLinkCentos9HttpsDeploymentStage
             $certificateCheck.
             'cp -p '.escapeshellarg($activePath).' '.escapeshellarg($backupPath).
             ' && mv '.escapeshellarg($stagedPath).' '.escapeshellarg($activePath).
-            ' && if nginx -t >/dev/null 2>&1 && systemctl reload nginx; then rm -f '.escapeshellarg($backupPath).
-            '; else mv '.escapeshellarg($backupPath).' '.escapeshellarg($activePath).
-            '; nginx -t >/dev/null 2>&1 && systemctl reload nginx; exit 1; fi && printf ALPHALINK_PMTA_PROXY_READY',
+            ' && nginx_output=$(nginx -t 2>&1); nginx_status=$?; '
+            .'if test "$nginx_status" -eq 0 && systemctl enable nginx >/dev/null 2>&1 && (systemctl reload nginx >/dev/null 2>&1 || systemctl restart nginx >/dev/null 2>&1); then rm -f '.escapeshellarg($backupPath).
+            '; printf ALPHALINK_PMTA_PROXY_READY; '
+            .'else mv '.escapeshellarg($backupPath).' '.escapeshellarg($activePath).
+            '; nginx -t >/dev/null 2>&1 && (systemctl reload nginx >/dev/null 2>&1 || systemctl restart nginx >/dev/null 2>&1) || true; '
+            .'printf "ALPHALINK_PMTA_PROXY_FAILED: %s" "$(printf "%s" "$nginx_output" | tail -n 5 | tr "\\n" " ")"; exit 1; fi',
         );
-        if ($result !== 'ALPHALINK_PMTA_PROXY_READY') {
-            throw new \RuntimeException('The PMTA monitor proxy configuration could not be validated and activated.');
+        if (! is_string($result) || ! str_contains($result, 'ALPHALINK_PMTA_PROXY_READY')) {
+            $details = is_string($result) ? $this->pmtaProxyFailureDetails($result) : null;
+            $message = 'The PMTA monitor proxy configuration could not be validated and activated.';
+            if ($details !== null) {
+                $message .= ' Nginx reported: '.$details;
+            }
+
+            throw new \RuntimeException($message);
         }
+    }
+
+    private function pmtaProxyFailureDetails(string $result): ?string
+    {
+        if (preg_match('/ALPHALINK_PMTA_PROXY_FAILED:\s*(.*)/s', $result, $matches) !== 1) {
+            return null;
+        }
+
+        $details = trim(preg_replace('/[\x00-\x1F\x7F]+/', ' ', $matches[1]) ?? '');
+        if ($details === '') {
+            return null;
+        }
+
+        return mb_substr($details, 0, 400);
     }
 }

@@ -4,7 +4,11 @@ namespace Tests\Feature;
 
 use App\Models\AuditEvent;
 use App\Models\DomainProvider;
+use App\Models\ManagedServer;
+use App\Models\ManagedServerIp;
+use App\Models\ManagedServerIpDomain;
 use App\Models\SendingDomain;
+use App\Models\SendingDomainDkimIdentity;
 use App\Models\User;
 use App\Models\Workspace;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -150,18 +154,87 @@ class AlphaLinkDomainRecordsTest extends TestCase
             && $request['TLD'] === 'example');
     }
 
-    public function test_records_reject_nonowned_or_foreign_domains_without_provider_calls(): void
+    public function test_external_domain_records_are_read_only_and_do_not_call_a_provider(): void
     {
+        $this->withoutVite();
         [$owner, $workspace, $domain] = $this->domainWithProvider('godaddy', false);
+        $domain->forceFill(['domains_provider_id' => null])->save();
         Http::fake();
 
-        $this->actingAs($owner)->get($this->recordsUrl($workspace, $domain))->assertStatus(400);
+        $this->actingAs($owner)->get($this->recordsUrl($workspace, $domain))
+            ->assertOk()
+            ->assertSee('MANUAL DNS')
+            ->assertSee('No active installed server assignments use this domain yet.');
         $this->actingAs($owner)->postJson($this->recordsUrl($workspace, $domain), ['type' => 'reset', 'data' => [1]])
-            ->assertStatus(400)->assertJsonPath('message', 'NOT OUR DOMAIN');
+            ->assertStatus(400)->assertJsonPath('message', 'External domain DNS is managed manually.');
 
         $otherOwner = User::factory()->create();
         $otherWorkspace = $this->workspaceFor($otherOwner, 'other-records-workspace');
         $this->actingAs($otherOwner)->get($this->recordsUrl($otherWorkspace, $domain))->assertNotFound();
+
+        Http::assertNothingSent();
+    }
+
+    public function test_external_domain_manual_page_lists_dns_needed_by_its_installed_assignments(): void
+    {
+        $this->withoutVite();
+        [$owner, $workspace, $domain] = $this->domainWithProvider('godaddy', false);
+        $domain->forceFill(['domains_provider_id' => null])->save();
+        $server = ManagedServer::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'name' => 'DNS records server',
+            'provider' => 'Synthetic provider',
+            'ip_address' => '8.8.8.8',
+            'state' => 'verified',
+            'is_active' => true,
+            'is_installed' => true,
+            'idempotency_key' => 'dns-records-'.bin2hex(random_bytes(5)),
+            'request_fingerprint' => str_repeat('d', 64),
+            'created_by' => $owner->getKey(),
+            'install_parameters' => ['tracking' => true, 'imap' => true, 'spf' => true, 'dkim' => true, 'dmarc' => true],
+        ]);
+        $ip = ManagedServerIp::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'managed_server_id' => $server->getKey(),
+            'sending_domain_id' => $domain->getKey(),
+            'ip' => '8.8.8.8',
+            'type' => 'ipv4',
+            'dns' => 'mail.records.example',
+            'ehlo_hostname' => 'mail.records.example',
+            'is_active' => true,
+        ]);
+        $identity = SendingDomainDkimIdentity::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'sending_domain_id' => $domain->getKey(),
+            'hostname' => 'mail.records.example',
+            'selector' => 'alrecords01',
+            'private_key' => 'synthetic-private-key',
+            'public_record' => 'v=DKIM1; k=rsa; p=U3ludGhldGljS2V5',
+            'is_active' => true,
+        ]);
+        ManagedServerIpDomain::query()->create([
+            'workspace_id' => $workspace->getKey(),
+            'managed_server_id' => $server->getKey(),
+            'managed_server_ip_id' => $ip->getKey(),
+            'sending_domain_id' => $domain->getKey(),
+            'hostname' => 'mail.records.example',
+            'tracking_host' => 'track.records.example',
+            'dkim_selector' => $identity->selector,
+            'sending_domain_dkim_identity_id' => $identity->getKey(),
+            'is_primary' => true,
+            'is_active' => true,
+        ]);
+        Http::fake();
+
+        $this->actingAs($owner)->get($this->recordsUrl($workspace, $domain))
+            ->assertOk()
+            ->assertSee('mail;A;8.8.8.8;60')
+            ->assertSee('track;A;8.8.8.8;60')
+            ->assertSee('mail;MX;mail.records.example;60')
+            ->assertSee('mail;TXT;v=spf1 ip4:8.8.8.8 -all;60')
+            ->assertSee('alrecords01._domainkey.mail')
+            ->assertSee('v=DMARC1; p=none; rua=mailto:dmarc@mail.records.example')
+            ->assertSee('COPY ALL');
 
         Http::assertNothingSent();
     }

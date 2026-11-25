@@ -2,6 +2,10 @@
 
 > **Archived blocker log.** Entries below are chronological engineering notes. Use the root AlphaLink progress file for current status.
 
+## 2026-11-25 External-domain DNS and Nginx repair — E-SRV-LIVE-32
+
+Local AlphaLink code and focused PHP 8.5 suites are ready for release review. The Nginx runtime repair, external DNS copy page and pre-host external A/AAAA check have not been deployed or exercised against a real reinstall/change-domain operation. The Domains page generates records only when an active installed server/IP assignment is saved; unassigned domains do not yet carry enough persisted information to generate exact records. No mail-server or DMS state was modified. Keep this AlphaLink workflow TESTING until deployment, read-only production UI verification, and a separately controlled server retry are complete.
+
 ## 2026-11-10 Account permission controls and Reinstall recovery — E-IAM-15 / E-INST-99
 
 Per-account View/Manage choices are available for Operator, Viewer, and Privacy Officer; Owner/Admin remain full access and the Owner alone can arrange shared navigation. The Mailer preset includes campaign, testing, infrastructure lookup, and recipient-list read access. Static source review and PHP syntax checks pass, but automated/authenticated permission checks remain open; local Pint is unavailable because PHP 8.3.6 lacks XML. The Reinstall page now reads the saved `data` response and can recover a missing install snapshot from active, workspace-scoped IP/domain rows already stored by AlphaLink. If neither source contains a valid map, the page must remain unable to start a reinstall. Both host-changing actions remain gated by their independent execution flags. No real reinstall/configuration action or automated workflow check ran. Keep `ALPHALINK-IAM-001` IMPLEMENTING and DMS-SRV-011 TESTING until the role matrix, populated map rendering, and real gated AlphaLink workflow are verified.

@@ -190,6 +190,12 @@ E-CAMP-160 records the DMS-matched behavior: PMTA Admin and PMTA Panel open in s
 |---|---|---|---|---|
 | ALPHALINK-AUD-003 | Import profile-rich contact lists; inspect recipient tags; target all/female/male and personalize `__Fname__` / `__Lname__` | E-AUD-39, E-CAMP-172, E-AUD-40, E-AUD-43–46 | TESTING | The recipient snapshot is a dedicated page opened with a native link from the Lists register. Its Command OS schedule has sortable ID, email, first/last name, country, age, vertical, sex, type, list-event count, created-at and extra-tag columns; it defaults to 20 rows and retains 25/50/100/200 options, current-page search/type filtering and pagination. Search/filter/sort scope is explicit because profile data is encrypted and no full-list search index exists. Focused PHP suites pass 29 tests / 269 assertions, Node interactions pass 4/4, and Pint/UI audit/diff checks pass. Feature commit `7d0f14be31f5e834631393c80055eccd1cfd86f4` is pushed and included in the active release; server-local HTTPS health returns 200. No live recipient data or email was used; authenticated production UI review remains pending. The supplied screenshot is layout inspiration only, not a DMS parity claim. |
 
+## AlphaLink external-domain infrastructure — explicit product behavior, excluded from DMS denominator
+
+| ID | Workflow | Evidence | Status | Remaining gap |
+|---|---|---|---|---|
+| ALPHALINK-EXTDNS-001 | Domains → copy external DNS records; Install/Reinstall/Change Domain with external DNS | E-SRV-LIVE-32 | TESTING | Providerless external domains appear in the Domains catalog, and active installed assignments produce read-only copyable A/AAAA, MX, SPF, DKIM, DMARC and tracking records. Change Domain checks external A/AAAA before changing the host. Nginx package repair preserves custom config and retries restart after validation. No release is deployed and no real server operation or authenticated production-page check has been performed. New unassigned domains lack a persisted server/IP plan for exact DNS generation. Cloudflare behavior is unchanged; no DMS parity claim. |
+
 ## AlphaLink Multi-Domain per IP — explicit product goal, excluded from DMS denominator
 | ID | Workflow | Evidence | Status | Remaining gap |
 |---|---|---|---|---|

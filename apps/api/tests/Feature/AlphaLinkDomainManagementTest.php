@@ -35,6 +35,7 @@ class AlphaLinkDomainManagementTest extends TestCase
         $provider = $this->provider();
         $owned = $this->domain($this->workspace, $provider, 'owned.example', true);
         $manual = $this->domain($this->workspace, $provider, 'manual.example', false);
+        $external = $this->domain($this->workspace, null, 'external.example', false);
         SendingDomainHistory::factory()->forDomain($owned)->create([
             'is_listed_spamhaus' => true,
             'is_listed_hostkarma' => false,
@@ -53,8 +54,9 @@ class AlphaLinkDomainManagementTest extends TestCase
         $this->actingAs($this->owner)
             ->getJson($this->domainsUrl())
             ->assertOk()
-            ->assertJsonCount(2, 'data')
+            ->assertJsonCount(3, 'data')
             ->assertJsonFragment(['dns' => 'manual.example'])
+            ->assertJsonFragment(['dns' => 'external.example'])
             ->assertJsonMissing(['dns' => 'sender-proof-only.example'])
             ->assertJsonMissing(['dns' => 'foreign.example']);
 
@@ -72,8 +74,9 @@ class AlphaLinkDomainManagementTest extends TestCase
         $this->actingAs($this->owner)
             ->getJson($this->domainsUrl().'?only_our=0')
             ->assertOk()
-            ->assertJsonCount(2, 'data')
-            ->assertJsonFragment(['id' => $manual->getKey()]);
+            ->assertJsonCount(3, 'data')
+            ->assertJsonFragment(['id' => $manual->getKey()])
+            ->assertJsonFragment(['id' => $external->getKey()]);
 
         $this->assertDatabaseHas('sending_domains', ['id' => $manual->getKey(), 'is_our' => false]);
     }
@@ -84,7 +87,8 @@ class AlphaLinkDomainManagementTest extends TestCase
 
         $response->assertSee('<title>Domains</title>', false)
             ->assertSee('id="domains"', false)
-            ->assertSee('id="only_our" checked', false)
+            ->assertSee('id="only_our"', false)
+            ->assertDontSee('id="only_our" checked', false)
             ->assertDontSee('AlphaLink Sender Domain Verification')
             ->assertSee('ONLY OUR')
             ->assertSee('displayLength: 50', false)
@@ -106,7 +110,8 @@ class AlphaLinkDomainManagementTest extends TestCase
             ->assertOk()
             ->assertDontSee('sender-import.example')
             ->assertDontSee($domain->verification_token)
-            ->assertSee('id="only_our" checked', false);
+            ->assertSee('id="only_our"', false)
+            ->assertDontSee('id="only_our" checked', false);
 
         $this->actingAs($this->owner)
             ->get($this->newTestMessageUrl())

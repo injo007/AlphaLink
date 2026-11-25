@@ -186,8 +186,9 @@ class AlphaLinkCentos9HttpsDeploymentStageTest extends TestCase
         $this->assertStringContainsString('listen 1213;', $configuration);
         $this->assertStringNotContainsString('listen 1213 ssl;', $configuration);
         $this->assertStringContainsString('server_name _;', $configuration);
-        $this->assertStringStartsWith("cp -p '/etc/nginx/conf.d/default.conf'", $commands->commands[0]);
-        $this->assertCount(1, $commands->commands);
+        $this->assertStringContainsString('ALPHALINK_NGINX_RUNTIME_READY', $commands->commands[0]);
+        $this->assertStringStartsWith("cp -p '/etc/nginx/conf.d/default.conf'", $commands->commands[1]);
+        $this->assertCount(2, $commands->commands);
     }
 
     public function test_ip_fallback_leaves_the_public_port_to_pmta_instead_of_adding_an_nginx_proxy(): void
@@ -239,6 +240,9 @@ class AlphaLinkCentos9HttpsDeploymentStageTest extends TestCase
             public function exec(string $command): bool|string
             {
                 $this->commands[] = $command;
+                if (str_contains($command, 'ALPHALINK_NGINX_RUNTIME_READY')) {
+                    return 'ALPHALINK_NGINX_RUNTIME_READY';
+                }
                 if (str_contains($command, 'ALPHALINK_PMTA_PROXY_READY')) {
                     return str_contains($command, 'fullchain.pem') ? '' : 'ALPHALINK_PMTA_PROXY_READY';
                 }
@@ -281,7 +285,63 @@ class AlphaLinkCentos9HttpsDeploymentStageTest extends TestCase
         $this->assertStringContainsString('listen 1213 ssl;', $files->uploads[0]);
         $this->assertStringContainsString('listen 1213;', $files->uploads[1]);
         $this->assertStringNotContainsString('listen 1213 ssl;', $files->uploads[1]);
-        $this->assertCount(3, $commands->commands);
+        $this->assertCount(4, $commands->commands);
+    }
+
+    public function test_pmta_proxy_failure_includes_nginx_diagnostics_and_can_start_a_failed_service(): void
+    {
+        $commands = new class implements AlphaLinkInstallerRemoteCommandTransport
+        {
+            /** @var list<string> */
+            public array $commands = [];
+
+            public function exec(string $command): bool|string
+            {
+                $this->commands[] = $command;
+                if (str_contains($command, 'ALPHALINK_NGINX_RUNTIME_READY')) {
+                    return 'ALPHALINK_NGINX_RUNTIME_READY';
+                }
+                if (str_contains($command, 'ALPHALINK_PMTA_PROXY_FAILED')) {
+                    return 'ALPHALINK_PMTA_PROXY_FAILED: nginx: [emerg] open() "/etc/nginx/mime.types" failed (2: No such file or directory)';
+                }
+
+                return '';
+            }
+        };
+        $files = new class implements AlphaLinkInstallerRemoteFileTransport
+        {
+            public function upload(string $contents, string $destination): bool
+            {
+                return true;
+            }
+
+            public function uploadFile(string $localPath, string $destination): bool
+            {
+                return false;
+            }
+        };
+
+        try {
+            (new AlphaLinkCentos9HttpsDeploymentStage)->configurePmtaMonitor(
+                $commands,
+                $files,
+                null,
+                45,
+                1213,
+                [],
+                [],
+                true,
+                [],
+            );
+            $this->fail('A failed Nginx activation must be reported.');
+        } catch (\RuntimeException $exception) {
+            $this->assertStringContainsString('Nginx reported:', $exception->getMessage());
+            $this->assertStringContainsString('/etc/nginx/mime.types', $exception->getMessage());
+        }
+
+        $activation = end($commands->commands);
+        $this->assertStringContainsString('systemctl restart nginx', $activation);
+        $this->assertStringContainsString('nginx_output=$(nginx -t 2>&1)', $activation);
     }
 
     private function commands(): object
@@ -294,6 +354,10 @@ class AlphaLinkCentos9HttpsDeploymentStageTest extends TestCase
             public function exec(string $command): bool|string
             {
                 $this->commands[] = $command;
+
+                if (str_contains($command, 'ALPHALINK_NGINX_RUNTIME_READY')) {
+                    return 'ALPHALINK_NGINX_RUNTIME_READY';
+                }
 
                 if (str_contains($command, 'ALPHALINK_APACHE_HTTPS_READY')) {
                     return 'ALPHALINK_APACHE_HTTPS_READY';

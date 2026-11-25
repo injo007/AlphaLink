@@ -48,6 +48,20 @@ class AlphaLinkCentos9PmtaDeploymentPlannerTest extends TestCase
     {
         $plan = $this->planner()->plan(45, true, true, 1212, 8080, ['192.0.2.10'], ['198.51.100.20'], false, 'src __IP__', ['198.51.100.44']);
         $commands = $this->commands($plan['operations']);
+        $nginxRepair = null;
+        foreach ($plan['operations'] as $operation) {
+            if (($operation['expected_output'] ?? null) === 'ALPHALINK_NGINX_RUNTIME_READY') {
+                $nginxRepair = $operation;
+                break;
+            }
+        }
+        $this->assertIsArray($nginxRepair);
+        $this->assertStringContainsString('dnf -y reinstall nginx', $nginxRepair['command']);
+        $this->assertStringContainsString('restore_alphalink_nginx_config', $nginxRepair['command']);
+        $this->assertLessThan(
+            array_search('rm -rf /etc/nginx/conf.d/*', $commands, true),
+            array_search($nginxRepair['command'], $commands, true),
+        );
         $nginx = $this->remoteContent($plan['operations'], '/etc/nginx/conf.d/default.conf');
 
         $this->assertContains([

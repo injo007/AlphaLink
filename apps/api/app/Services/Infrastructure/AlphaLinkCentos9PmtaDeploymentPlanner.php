@@ -241,7 +241,13 @@ class AlphaLinkCentos9PmtaDeploymentPlanner
         bool $allowAllMonitor,
         array $pmtaRelayIps,
     ): array {
-        $operations = [$this->command('dnf install -y nginx')];
+        $operations = [
+            $this->command('dnf install -y nginx'),
+            $this->command(
+                (new AlphaLinkCentos9NginxRuntimeRepair)->command(),
+                'ALPHALINK_NGINX_RUNTIME_READY',
+            ),
+        ];
         $settings = $this->monitorNginxConfiguration(
             $version,
             $httpPort,
@@ -320,10 +326,14 @@ class AlphaLinkCentos9PmtaDeploymentPlanner
         return "server {\n    {$listen}\n    server_name {$serverName};{$tls}\n    {$allowed}\n    {$location}\n    error_page 403 @error403;\n    location @error403 {\n        default_type text/html;\n        return 403 \"403\";\n    }\n    error_page 502 @error502;\n    location @error502 {\n        default_type text/html;\n        return 502 \"GONE :(\";\n    }\n}";
     }
 
-    /** @return array{type: string, command: string} */
-    private function command(string $command): array
+    /** @return array{type: string, command: string, expected_output?: string} */
+    private function command(string $command, ?string $expectedOutput = null): array
     {
-        return ['type' => 'command', 'command' => $command];
+        return [
+            'type' => 'command',
+            'command' => $command,
+            ...($expectedOutput === null ? [] : ['expected_output' => $expectedOutput]),
+        ];
     }
 
     /** @return array{type: string, source: string, destination: string} */

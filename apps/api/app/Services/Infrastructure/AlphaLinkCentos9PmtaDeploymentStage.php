@@ -123,6 +123,10 @@ class AlphaLinkCentos9PmtaDeploymentStage
         $result = $commands->exec($operation['command']);
         $expected = $operation['expected_output'] ?? null;
         if ($expected !== null && (! is_string($result) || ! str_contains($result, $expected))) {
+            if ($expected === 'ALPHALINK_NGINX_RUNTIME_READY') {
+                throw new RuntimeException('Nginx package configuration could not be restored before PMTA monitor setup.');
+            }
+
             throw new RuntimeException('PMTA feedback directories could not be created and verified on the selected server.');
         }
     }

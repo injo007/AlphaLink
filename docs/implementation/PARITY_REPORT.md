@@ -2,6 +2,10 @@
 
 > **Archived comparison report.** Its dated comparisons and status snapshots preserve historical evidence; they do not define AlphaLink's current product identity or active requirements.
 
+## AlphaLink external-domain infrastructure — E-SRV-LIVE-32 (2026-11-25)
+
+The AlphaLink mail host's Nginx check failed because package-owned `/etc/nginx/mime.types` was absent and the service was inactive. Local code now repairs missing package files while preserving Nginx site configuration, validates staged PMTA monitor proxy config, and restarts Nginx if reload fails. Providerless external domains appear in the Domains catalog and show copyable DNS records for active installed assignments; no DNS provider writes are attempted. Change Domain verifies external A/AAAA before host changes. The connected-provider/Cloudflare path remains unchanged. PHP 8.5 focused suites completed without failures but reported warnings; Pint, Bash syntax, diff checks and strict UI audit pass. This is AlphaLink behavior only, not a DMS parity claim. The code is not deployed, and authenticated production-page review plus a controlled mail-server retry remain open. The Domains page cannot derive exact DNS records for a domain with no persisted server/IP assignment.
+
 ## 2026-11-24 AlphaLink Multi-Domain per IP — E-MDOM-01
 
 This is an explicit AlphaLink product goal, not a historical DMS parity claim. The local additive schema and completion writers establish separate IP/domain assignment records and preserve the legacy one-domain mapping. Two targeted tests pass; full installation, PowerMTA, DNS, tracking, campaign, browser and received-message verification remain open. No host, DNS or production state changed.

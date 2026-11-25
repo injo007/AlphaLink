@@ -18,6 +18,7 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceInfrastructureSettings;
 use App\Services\Authorization\WorkspaceAccess;
+use App\Services\Infrastructure\AlphaLinkBulkInstallDnsRecordPlanner;
 use App\Services\Infrastructure\AlphaLinkBulkInstallEligibility;
 use App\Services\Infrastructure\AlphaLinkBulkInstallIspCatalog;
 use App\Services\Infrastructure\AlphaLinkBulkInstallPayload;
@@ -47,6 +48,7 @@ use App\Services\Infrastructure\AlphaLinkWebmailDiagnostics;
 use App\Services\Infrastructure\AlphaLinkWebmailOutboundSender;
 use App\Services\Infrastructure\CloudflareDnsApi;
 use App\Services\Infrastructure\CloudflareDnsApiException;
+use App\Services\Infrastructure\DkimKeyMaterialManager;
 use App\Services\Infrastructure\HostProbeException;
 use App\Services\Infrastructure\InfrastructureManager;
 use Illuminate\Contracts\View\View;
@@ -604,7 +606,10 @@ class InfrastructureConsoleController extends Controller
 
         if ($request->wantsJson()) {
             $domains = $workspace->sendingDomains()
-                ->whereNotNull('domains_provider_id')
+                ->where(function ($query): void {
+                    $query->whereNotNull('domains_provider_id')
+                        ->orWhere('is_our', false);
+                })
                 ->with(['domainProvider', 'history'])
                 ->withCount('histories')
                 ->when(
@@ -713,12 +718,96 @@ class InfrastructureConsoleController extends Controller
         string $domainId,
         AlphaLinkDomainRecordsManager $recordsManager,
         CloudflareDnsApi $cloudflareDnsApi,
+        AlphaLinkBulkInstallDnsRecordPlanner $dnsPlanner,
+        DkimKeyMaterialManager $keyMaterial,
     ): View|JsonResponse {
         $workspace = $this->workspaceFor($request->user(), $workspaceId);
         $domain = $workspace->sendingDomains()->whereKey($domainId)->firstOrFail();
-        abort_unless($domain->is_our, 400, 'NOT OUR DOMAIN');
 
         if ($request->isMethod('GET')) {
+            if (! $domain->is_our) {
+                $records = [];
+                $recordError = null;
+                $assignments = $domain->serverIpAssignments()
+                    ->where('workspace_id', $workspace->getKey())
+                    ->where('is_active', true)
+                    ->whereHas('server', fn ($query) => $query->where('is_active', true)->where('is_installed', true))
+                    ->whereHas('ip', fn ($query) => $query->where('is_active', true))
+                    ->with(['ip', 'server', 'signingIdentity'])
+                    ->get();
+
+                try {
+                    $legacyDkimLoaded = false;
+                    $legacySelector = '';
+                    $legacyDkimRecord = '';
+
+                    foreach ($assignments as $assignment) {
+                        $serverOptions = $assignment->server?->install_parameters ?? [];
+                        $options = [
+                            'tracking' => (bool) ($serverOptions['tracking'] ?? false),
+                            'imap' => (bool) ($serverOptions['imap'] ?? false),
+                            'spf' => (bool) ($serverOptions['spf'] ?? false),
+                            'dkim' => (bool) ($serverOptions['dkim'] ?? false),
+                            'dmarc' => (bool) ($serverOptions['dmarc'] ?? false),
+                        ];
+                        $identity = $assignment->signingIdentity;
+                        if ($options['dkim'] && $assignment->is_primary && ! filled($identity?->public_record) && ! $legacyDkimLoaded) {
+                            $legacyDkimLoaded = true;
+                            $legacySettings = WorkspaceInfrastructureSettings::query()
+                                ->where('workspace_id', $workspace->getKey())
+                                ->first();
+                            $legacySelector = trim((string) $legacySettings?->dkim_key);
+                            $legacyDkimRecord = $legacySelector !== '' && filled($legacySettings?->dkim_private_key)
+                                ? $keyMaterial->publicRecord((string) $legacySettings->dkim_private_key)
+                                : '';
+                        }
+                        $selector = (string) ($assignment->dkim_selector ?: ($identity?->selector ?: ($assignment->is_primary ? $legacySelector : '')));
+                        $publicRecord = (string) ($identity?->public_record ?: ($assignment->is_primary ? $legacyDkimRecord : ''));
+                        $trackingHost = $assignment->tracking_host;
+                        if (! filled($trackingHost) && $assignment->is_primary) {
+                            $savedTrackingHost = strtolower(rtrim((string) ($serverOptions['tracking_host'] ?? ''), '.'));
+                            $zone = strtolower((string) $domain->name);
+                            if (filter_var($savedTrackingHost, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) !== false
+                                && ($savedTrackingHost === $zone || str_ends_with($savedTrackingHost, '.'.$zone))) {
+                                $trackingHost = $savedTrackingHost;
+                            }
+                        }
+                        $planned = [[
+                            'hostname' => (string) $assignment->hostname,
+                            'ip' => (string) ($assignment->ip?->ip ?? ''),
+                            'tracking_host' => $trackingHost,
+                            'dkim_selector' => $selector,
+                            'dkim_public_record' => $publicRecord,
+                        ]];
+                        $ehloHostname = strtolower(rtrim((string) ($assignment->ip?->ehlo_hostname ?: $assignment->ip?->dns), '.'));
+                        $zone = strtolower((string) $domain->name);
+                        $additionalARecords = $ehloHostname !== ''
+                            && ($ehloHostname === $zone || str_ends_with($ehloHostname, '.'.$zone))
+                            ? [['hostname' => $ehloHostname, 'ip' => (string) ($assignment->ip?->ip ?? '')]]
+                            : [];
+
+                        array_push($records, ...$dnsPlanner->recordsForAssignments((string) $domain->name, $planned, $options, $additionalARecords));
+                    }
+                    $records = collect($records)
+                        ->unique(fn (array $record): string => strtolower($record['host'].'|'.$record['type'].'|'.$record['address']))
+                        ->values()
+                        ->all();
+                    if ($assignments->isEmpty()) {
+                        $recordError = 'No active installed server assignments use this domain yet.';
+                    }
+                } catch (\Throwable $exception) {
+                    $records = [];
+                    $recordError = $exception->getMessage();
+                }
+
+                return view('console.infrastructure.domains.manual-records', [
+                    'workspace' => $workspace,
+                    'domain' => $domain,
+                    'records' => $records,
+                    'recordError' => $recordError,
+                ]);
+            }
+
             $provider = DomainProvider::query()
                 ->whereKey($domain->domains_provider_id)
                 ->where(fn ($query) => $query->whereNull('workspace_id')->orWhere('workspace_id', $workspace->getKey()))
@@ -753,6 +842,8 @@ class InfrastructureConsoleController extends Controller
                 ...$records,
             ]);
         }
+
+        abort_unless($domain->is_our, 400, 'External domain DNS is managed manually.');
 
         $validated = $request->validate([
             'type' => ['required', 'string', 'in:hosts,nameservers,reset'],

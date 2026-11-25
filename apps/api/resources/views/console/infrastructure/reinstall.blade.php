@@ -249,11 +249,20 @@
                     main: row.querySelector('input[type="checkbox"]')?.checked || false,
                     sub: row.querySelector('[data-reinstall-primary-sub]')?.value.trim() || '',
                     domain_id: row.dataset.domainId,
+                    domain: row.dataset.domainName || '',
                     domains: [...row.querySelectorAll('[data-reinstall-extra-group]')].map((group) => ({
                         domain_id: group.querySelector('[data-reinstall-extra-domain]')?.value || '',
                         sub: group.querySelector('[data-reinstall-extra-sub]')?.value.trim() || '',
                     })),
                 }));
+            }
+
+            function domainNameFor(assignment) {
+                const savedName = String(assignment.domain_name || assignment.domain || assignment.domainName || '').trim();
+                if (savedName) return savedName;
+
+                const domainId = String(assignment.domain_id || '');
+                return String(domainChoices.find((choice) => String(choice.id) === domainId)?.name || '');
             }
 
             function multiDomainSelectionsReady() {
@@ -365,6 +374,7 @@
                     const row = document.createElement('tr');
                     row.dataset.ipId = String(assignment.id ?? assignment.ip_id ?? index + 1);
                     row.dataset.domainId = String(assignment.domain_id || '');
+                    row.dataset.domainName = domainNameFor(assignment);
 
                     const ipCell = document.createElement('td');
                     ipCell.style.fontFamily = 'monospace';
@@ -403,7 +413,7 @@
 
                     const domainCell = document.createElement('td');
                     domainCell.style.fontWeight = '600';
-                    domainCell.textContent = assignment.domain_name || assignment.domain || 'No domain';
+                    domainCell.textContent = row.dataset.domainName || 'No domain';
                     row.append(domainCell);
 
                     const additionalCell = document.createElement('td');
